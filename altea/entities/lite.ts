@@ -1,13 +1,62 @@
 
-import type { Entity, PrimaryKey } from './entity';
+import type { Entity, EntityType, PrimaryKey } from './entity';
 
 export abstract class Lite<out T extends Entity> {
     abstract readonly id: PrimaryKey;
     abstract readonly entityType: new () => T;
     abstract toString(): string;
 
+    // Stored loosely (as Entity, not T) so the public accessors below can stay
+    // covariant — a writable `T` field would force `Lite<T>` to be invariant and
+    // break the `out T` annotation.
+    private _entity?: Entity;
+
+    /**
+     * The full entity this lite points to, or `undefined` when the lite is not
+     * loaded ("thin"/lazy lite, the result of `toLite()`).
+     *
+     * Populated by `toLiteFat()` / `toLite(true)` — used for new (unsaved)
+     * entities and for LINQ queries that navigate through a lite. In the DB a
+     * lite navigation is a no-op (the FK is already there), so the translator
+     * reads through `entityOrNull` instead of issuing a join.
+     */
+    get entityOrNull(): T | undefined {
+        return this._entity as T | undefined;
+    }
+
+    /**
+     * The full entity this lite points to. Throws if the lite is not loaded —
+     * use `entityOrNull` when absence is expected.
+     */
+    get entity(): T {
+        if (this._entity == null)
+            throw new Error(
+                `The lite of ${this.entityType.name} (Id ${this.id}) is not loaded. ` +
+                `Use entityOrNull, or build it fat with toLiteFat() / toLite(true).`,
+            );
+        return this._entity as T;
+    }
+
+    /**
+     * Attaches the full entity, turning a thin lite into a fat one. Internal —
+     * callers should use `Entity.toLiteFat()`; accepts `Entity` (not `T`) to
+     * keep `Lite<T>` covariant.
+     */
+    setEntity(entity: Entity): this {
+        this._entity = entity;
+        return this;
+    }
+
     is(other: Lite<Entity>): boolean {
-        return this.id === other.id && this.entityType === other.entityType;
+        if (this.entityType !== other.entityType)
+            return false;
+
+        // New entities have no id yet, so fat lites of new entities are compared
+        // by the embedded entity reference (mirrors Signum's Lite.Is).
+        if (this.id != null || other.id != null)
+            return this.id === other.id;
+
+        return this.entityOrNull === other.entityOrNull;
     }
 }
 
@@ -23,4 +72,42 @@ export class LiteImp<T extends Entity> extends Lite<T> {
     toString(): string {
         return this.toStr;
     }
+}
+
+const liteModelConstructors = new Map<EntityType, (entity: Entity) => Lite<Entity>>();
+
+/**
+ * Registers the constructor used by `Entity.toLite()` to build the lite (and
+ * its model) for a given entity type. Instead of a separate `LiteModel` class
+ * (as in Signum), altea subclasses {@link LiteImp} and stores the model fields
+ * on the lite itself:
+ *
+ * ```ts
+ * export class EmployeeLite extends LiteImp<EmployeeEntity> {
+ *     constructor(id: PrimaryKey, toStr: string,
+ *         readonly firstName: string,
+ *         readonly lastName: string) {
+ *         super(id, EmployeeEntity, toStr);
+ *     }
+ * }
+ *
+ * registerLiteModelConstructor(EmployeeEntity, e =>
+ *     new EmployeeLite(e.id, e.toString(), e.firstName, e.lastName));
+ * ```
+ *
+ * When no constructor is registered, `Entity.toLite()` falls back to a plain
+ * {@link LiteImp} whose model is just the `toString()`.
+ */
+export function registerLiteModelConstructor<T extends Entity>(
+    entityType: new () => T,
+    constructor: (entity: T) => Lite<T>,
+): void {
+    liteModelConstructors.set(entityType, constructor as unknown as (entity: Entity) => Lite<Entity>);
+}
+
+/** Returns the registered constructor for an entity type, if any. */
+export function getLiteModelConstructor<T extends Entity>(
+    entityType: new () => T,
+): ((entity: T) => Lite<T>) | undefined {
+    return liteModelConstructors.get(entityType) as ((entity: T) => Lite<T>) | undefined;
 }
