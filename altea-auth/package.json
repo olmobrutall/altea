@@ -1,0 +1,30 @@
+{
+  "name": "@altea/altea-auth",
+  "version": "0.0.1",
+  "description": "",
+  "type": "module",
+  "exports": {
+    "./entities/*": {
+      "types": "./dist/entities/*.d.ts",
+      "default": "./dist/entities/*.js"
+    },
+    "./logic/*": {
+      "types": "./dist/logic/*.d.ts",
+      "default": "./dist/logic/*.js"
+    },
+    "./react/*": {
+      "types": "./dist/react/*.d.ts",
+      "default": "./dist/react/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "0.0.1",
+    "quote-transformer": "0.0.2"
+  }
+}
