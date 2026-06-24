@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@types/node": "25.9.1",
-    "quote-transformer": "0.0.2",
+    "quote-transformer": "workspace:*",
     "typescript": "^6.0.3"
   },
   "devDependencies": {

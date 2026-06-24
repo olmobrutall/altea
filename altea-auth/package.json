@@ -24,7 +24,7 @@
   "author": "Olmo del Corral",
   "license": "MIT",
   "dependencies": {
-    "@altea/altea": "0.0.1",
-    "quote-transformer": "0.0.2"
+    "@altea/altea": "workspace:*",
+    "quote-transformer": "workspace:*"
   }
 }
