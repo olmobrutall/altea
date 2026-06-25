@@ -1,7 +1,7 @@
 {
-  "name": "@altea/altea",
+  "name": "@altea/altea-test",
   "version": "0.0.1",
-  "description": "",
+  "private": true,
   "type": "module",
   "exports": {
     "./entities/*": {
@@ -11,10 +11,6 @@
     "./logic/*": {
       "types": "./dist/logic/*.d.ts",
       "default": "./dist/logic/*.js"
-    },
-    "./react/*": {
-      "types": "./dist/react/*.d.ts",
-      "default": "./dist/react/*.js"
     }
   },
   "scripts": {
@@ -24,14 +20,7 @@
   "author": "Olmo del Corral",
   "license": "MIT",
   "dependencies": {
-    "decimal.js": "^10.6.0",
-    "mssql": "^12.6.0",
-    "pg": "^8.22.0",
-    "quote-transformer": "workspace:*",
-    "temporal-polyfill": "^0.3.2"
-  },
-  "devDependencies": {
-    "@types/mssql": "^12.3.0",
-    "@types/pg": "^8.20.0"
+    "@altea/altea": "workspace:*",
+    "quote-transformer": "workspace:*"
   }
 }

@@ -1,5 +1,5 @@
 
-import { getOrCreateTypeInfo, getOrCreateFieldInfo } from './reflection';
+import { getOrCreateTypeInfo, getOrCreateFieldInfo, registerType } from './reflection';
 
 export {
     stringLengthValidator, urlValidator, telephoneValidator,
@@ -42,6 +42,7 @@ export function entity(options: EntityInfo = {}) {
         const metadata = (target as any)[metadataSymbol];
         if (metadata != null)
             metadata[entityInfoKey] = options;
+        registerType(target);
     };
 }
 

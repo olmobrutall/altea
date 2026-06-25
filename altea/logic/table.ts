@@ -4,6 +4,7 @@ import { CallExpression, ConstantExpression, Expression } from "./expressions";
 import { asStaticFunction, IQueryTranslator, Query } from "./query";
 import { ArrayType, FunctionType, ClassType, Type } from "../entities/types";
 import { expressionSimplifier } from "./visitors/expressionSimplifier";
+import { Connector } from "./connection/connector";
 
 
 
@@ -50,14 +51,4 @@ class TranslateResult {
     execute() {
         return Connector.current().executeQuery(this.query, this.parameters);
     }
-}
-
-export abstract class Connector {
-
-    static current() {
-        return this.global;
-    }
-
-    static global: Connector = null!;
-    abstract executeQuery(sql: string, parameters: unknown[]): Promise<unknown[]>;
 }

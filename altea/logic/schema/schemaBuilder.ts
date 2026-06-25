@@ -1,8 +1,7 @@
 import { Entity, EmbeddedEntity } from '../../entities/entity';
 import type { EntityType } from '../../entities/entity';
-import { Lite } from '../../entities/lite';
 import { MixinDeclarations } from '../../entities/mixinDeclarations';
-import { getTypeInfo, FieldInfo } from '../../entities/reflection';
+import { getTypeInfo, resolveType, FieldInfo } from '../../entities/reflection';
 import { AbstractDbType, IsNullable, defaultDbType } from './dbType';
 import {
     PrimaryKeyColumn,
@@ -43,18 +42,8 @@ function isEmbeddedCtor(t: unknown): boolean {
     return typeof t === 'function' && (t as { prototype?: unknown }).prototype instanceof EmbeddedEntity;
 }
 
-// Enums compile to a plain runtime object ({ Red: 0, 0: 'Red', ... }), unlike
-// value-type constructors (String/Number/…) which are functions.
-function isEnumObject(t: unknown): boolean {
-    return t != null && typeof t === 'object';
-}
-
 function cleanTypeName(type: { name: string }): string {
     return type.name.replace(/Entity$/, '');
-}
-
-function describe(t: unknown): string {
-    return (t as { name?: string })?.name ?? String(t);
 }
 
 function makeGetter(name: string): (entity: any) => unknown {
@@ -151,12 +140,16 @@ export class SchemaBuilder {
     }
 
     private generateField(table: Table, fi: FieldInfo, preName: NameSequence): Field {
-        const container = fi.containerType?.();
-        const elementType = fi.type();
+        const isArray = fi.array === true;
+        const isLite = fi.lite === true;
+        // Resolve the field's typeName to a constructor (entities / embeddeds are
+        // registered by @reflection/@entity). undefined for value types and
+        // enums, which are classified by name / the isEnum flag below.
+        const elementType = resolveType(fi.typeName);
         const nullable = fi.isNullable === true ? IsNullable.Yes : IsNullable.No;
 
         // Arrays — only `ChildEntity[]` with @backReference is supported.
-        if (container === Array) {
+        if (isArray) {
             if (!isEntityCtor(elementType))
                 throw new Error(`Field '${fi.name}' on ${table.type.name}: collections of non-entity types are not supported (no MList). Model the collection as a child entity referenced with @backReference.`);
             if (fi.backReference == null)
@@ -167,7 +160,6 @@ export class SchemaBuilder {
 
         // Polymorphic references.
         if (fi.implementations != null) {
-            const isLite = container === Lite;
             if (fi.implementations.kind === 'implementedByAll') {
                 const idColumn = new ImplementedByAllIdColumn(preName.add(`${fi.name}Id`).toString(), this.settings.primaryKeyDbType);
                 const typeColumn = new ImplementedByAllTypeColumn(preName.add(`${fi.name}Type`).toString(), this.settings.primaryKeyDbType);
@@ -182,12 +174,12 @@ export class SchemaBuilder {
         }
 
         // Single reference: Lite<T> or a bare entity type.
-        if (container === Lite || isEntityCtor(elementType)) {
+        if (isLite || isEntityCtor(elementType)) {
             if (!isEntityCtor(elementType))
                 throw new Error(`Field '${fi.name}' on ${table.type.name}: Lite container without an entity element type.`);
             const refTable = this.include(elementType);
             const baseName = fi.fkPropertyName ?? `${fi.name}Id`;
-            return new FieldReference(new ReferenceColumn(preName.add(baseName).toString(), refTable, nullable, container === Lite));
+            return new FieldReference(new ReferenceColumn(preName.add(baseName).toString(), refTable, nullable, isLite));
         }
 
         // Single embedded value object.
@@ -195,7 +187,7 @@ export class SchemaBuilder {
             return this.generateEmbedded(table, fi, preName);
 
         // Enum stored inline (no enum side table yet).
-        if (isEnumObject(elementType)) {
+        if (fi.isEnum) {
             const dbType = this.resolveValueDbType(fi) ?? new AbstractDbType('nvarchar', 'varchar');
             const column = new ValueColumn(preName.add(this.columnName(fi)).toString(), dbType, nullable, fi.columnOptions?.size, fi.columnOptions?.precision);
             return new FieldEnum(column);
@@ -204,16 +196,16 @@ export class SchemaBuilder {
         // Scalar value.
         const dbType = this.resolveValueDbType(fi);
         if (dbType == null)
-            throw new Error(`Field '${fi.name}' on ${table.type.name}: cannot determine a DB type for ${describe(elementType)}.`);
+            throw new Error(`Field '${fi.name}' on ${table.type.name}: cannot determine a DB type for '${fi.typeName}'. If it is an entity/embedded, ensure its module is imported so it is registered.`);
         const column = new ValueColumn(preName.add(this.columnName(fi)).toString(), dbType, nullable, fi.columnOptions?.size, fi.columnOptions?.precision);
         return new FieldValue(column);
     }
 
     private generateEmbedded(table: Table, fi: FieldInfo, preName: NameSequence): FieldEmbedded {
-        const embeddedType = fi.type() as { name: string };
-        const typeInfo = getTypeInfo(embeddedType as object);
+        const embeddedType = resolveType(fi.typeName);
+        const typeInfo = embeddedType != null ? getTypeInfo(embeddedType) : undefined;
         if (typeInfo == null)
-            throw new Error(`Embedded type '${embeddedType.name}' (field '${fi.name}') has no reflection metadata.`);
+            throw new Error(`Embedded type '${fi.typeName}' (field '${fi.name}') has no reflection metadata.`);
 
         const embeddedPre = preName.add(this.columnName(fi));
         const hasValue = fi.isNullable === true
@@ -248,7 +240,7 @@ export class SchemaBuilder {
         const co = fi.columnOptions;
         if (co?.sqlDbType != null || co?.pgDbType != null)
             return new AbstractDbType(co.sqlDbType ?? co.pgDbType!, co.pgDbType ?? co.sqlDbType!);
-        return defaultDbType(fi.type(), fi.kind);
+        return defaultDbType(fi.typeName, fi.kind);
     }
 
     private columnName(fi: FieldInfo): string {

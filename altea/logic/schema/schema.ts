@@ -1,5 +1,11 @@
 import type { Entity, EntityType } from '../../entities/entity';
+import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
+import { installDefaultGenerating } from '../sync/schemaGenerator';
 import type { Table } from './table';
+
+// A step in the generation pipeline: contributes a piece of the create script,
+// or nothing. Combined in registration order by generationScript().
+export type GeneratingHandler = () => SqlPreCommand | undefined;
 
 // Registry of all included tables, keyed by entity constructor, with name maps
 // for query/serialization lookups. Built by SchemaBuilder. (EntityEvents and
@@ -8,6 +14,21 @@ export class Schema {
     readonly tables = new Map<EntityType, Table>();
     readonly nameToType = new Map<string, EntityType>();
     readonly typeToName = new Map<EntityType, string>();
+
+    // Generation event chain (mirrors Signum's Schema.Generating). Seeded with
+    // the default schema/table/FK steps; apps may push more (e.g. seed data).
+    readonly generating: GeneratingHandler[] = [];
+
+    constructor() {
+        installDefaultGenerating(this);
+    }
+
+    // Combines every registered generating step into the full create script.
+    // Requires an active Connector (the steps read its dialect SqlBuilder).
+    // Returns undefined when the schema is empty.
+    generationScript(): SqlPreCommand | undefined {
+        return SqlPreCommand.combine(Spacing.Triple, ...this.generating.map(h => h()));
+    }
 
     table<T extends Entity>(type: new () => T): Table {
         const table = this.tables.get(type as unknown as EntityType);

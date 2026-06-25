@@ -29,15 +29,28 @@ export interface BackReferenceInfo {
 
 
 export interface FieldOptions {
+    // The runtime type's *name* (e.g. "CustomerEntity", "Number", "Date") rather
+    // than a `() => Type` factory — so the transformer never emits a runtime
+    // reference to an imported type (which TS would elide). Entity/embedded names
+    // resolve to constructors via the type registry; value-type names resolve in
+    // defaultDbType; enums are flagged with `enum`.
+    typeName: string;
     name?: string;
     nullable?: boolean;
-    container?: () => unknown;
+    // Container flags: set by the transformer for `Lite<T>` and `T[]`.
+    // `lite` + `array` together = `Lite<T>[]`.
+    lite?: boolean;
+    array?: boolean;
+    // Set for enum-typed fields (the type registry doesn't hold enums).
+    enum?: boolean;
 }
 
 export class FieldInfo {
     readonly name: string;
-    type!: () => unknown;
-    containerType?: () => unknown;
+    typeName!: string;
+    lite?: boolean;
+    array?: boolean;
+    isEnum?: boolean;
     kind?: string;
     isNullable?: boolean;
     ignore: boolean = false;
@@ -119,6 +132,24 @@ export function getOrCreateTypeInfo(metadata: DecoratorMetadataObject): TypeInfo
 export function reflection(value: Function, context: ClassDecoratorContext): void {
     if (context.metadata != null)
         getOrCreateTypeInfo(context.metadata);
+    registerType(value);
+}
+
+// Type registry: maps a type's name to its runtime constructor. Populated at
+// class-definition time by @reflection / @entity, so the schema builder can
+// resolve a field's `typeName` (e.g. "CustomerEntity") back to its constructor
+// for classification (entity / embedded) and recursion. Value types (String,
+// Number, Date, Decimal, Temporal.*) are intentionally absent — they resolve by
+// name in defaultDbType — as are enums (flagged via FieldInfo.isEnum).
+const typeRegistry = new Map<string, Function>();
+
+export function registerType(ctor: Function): void {
+    if (ctor?.name)
+        typeRegistry.set(ctor.name, ctor);
+}
+
+export function resolveType(name: string): Function | undefined {
+    return typeRegistry.get(name);
 }
 
 export function getOrCreateFieldInfo(typeInfo: TypeInfo, key: string): FieldInfo {
@@ -147,17 +178,20 @@ function isFieldContext(value: unknown): value is ClassFieldDecoratorContext {
 }
 
 export function field(value: undefined, context: ClassFieldDecoratorContext): void;
-export function field(type: () => unknown, options?: FieldOptions): (value: unknown, context: ClassFieldDecoratorContext | ClassAccessorDecoratorContext) => void;
+export function field(options: FieldOptions | false): (value: unknown, context: ClassFieldDecoratorContext | ClassAccessorDecoratorContext) => void;
 export function field(arg1: unknown, arg2?: unknown): unknown {
     if (isFieldContext(arg2)) {
-        throw new Error('@field without type should be rewritten by the compiler to @field(() => Type)');
+        throw new Error('@field without options should be rewritten by the compiler to @field({ typeName: ... })');
     }
 
-    if (typeof arg1 !== 'function')
-        throw new Error('@field expects a type factory: @field(() => Type)');
+    // @field(false) suppresses auto-injection — register nothing.
+    if (arg1 === false)
+        return function (): void { };
 
-    const typeFactory = arg1 as () => unknown;
-    const options = (arg2 != null && typeof arg2 === 'object') ? arg2 as FieldOptions : undefined;
+    if (arg1 == null || typeof arg1 !== 'object')
+        throw new Error('@field expects an options object: @field({ typeName: ... })');
+
+    const options = arg1 as FieldOptions;
 
     return function (_value: unknown, context: ClassFieldDecoratorContext) {
         if (context.metadata == null)
@@ -166,12 +200,16 @@ export function field(arg1: unknown, arg2?: unknown): unknown {
         const key = String(context.name);
         const typeInfo = getOrCreateTypeInfo(context.metadata);
         const fi = getOrCreateFieldInfo(typeInfo, key);
-        fi.type = typeFactory;
-        if (options?.name != null)
+        fi.typeName = options.typeName;
+        if (options.name != null)
             fi.kind = options.name;
-        if (options?.nullable != null)
+        if (options.nullable != null)
             fi.isNullable = options.nullable;
-        if (options?.container != null)
-            fi.containerType = options.container;
+        if (options.lite != null)
+            fi.lite = options.lite;
+        if (options.array != null)
+            fi.array = options.array;
+        if (options.enum != null)
+            fi.isEnum = options.enum;
     };
 }

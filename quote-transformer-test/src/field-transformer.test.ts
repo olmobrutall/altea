@@ -4,7 +4,7 @@ import { transformSource, normalize } from './transform-utils';
 // by name, so no module resolution is needed for @field/@entity to work.
 const FIELD_HEADER = `
 declare function field(value: undefined, context: ClassFieldDecoratorContext): void;
-declare function field(type: () => unknown, options?: { name?: string; nullable?: boolean; container?: () => unknown; }): (value: undefined, context: ClassFieldDecoratorContext) => void;
+declare function field(options: { typeName: string; name?: string; nullable?: boolean; lite?: boolean; array?: boolean; enum?: boolean; }): (value: undefined, context: ClassFieldDecoratorContext) => void;
 declare function entity(...args: any[]): any;
 class Lite<T> {}
 `;
@@ -39,11 +39,11 @@ describe('field-transformer', () => {
     @field otherFriends!: Person[];
 }`,
             `class Person {
-    @field(() => Boolean) isActive!: boolean;
-    @field(() => Date) dateOfBirth!: Date;
-    @field(() => Date, { nullable: true }) dateOfDeath!: Date | null;
-    @field(() => Person, { nullable: true, container: () => Lite }) bestFriend!: Lite<Person> | null;
-    @field(() => Person, { container: () => Array }) otherFriends!: Person[];
+    @field({ typeName: "Boolean" }) isActive!: boolean;
+    @field({ typeName: "Date" }) dateOfBirth!: Date;
+    @field({ typeName: "Date", nullable: true }) dateOfDeath!: Date | null;
+    @field({ typeName: "Person", nullable: true, lite: true }) bestFriend!: Lite<Person> | null;
+    @field({ typeName: "Person", array: true }) otherFriends!: Person[];
 }`
         );
     });
@@ -61,15 +61,15 @@ class PersonEntity {
             `function ignore(_value: undefined, _context: ClassFieldDecoratorContext): void { }
 @entity
 class PersonEntity {
-    @field(() => String) name!: string;
-    @field(() => Number) age!: number;
+    @field({ typeName: "String" }) name!: string;
+    @field({ typeName: "Number" }) age!: number;
     static count: number;
     @ignore hidden!: string;
 }`
         );
     });
 
-    test('auto-injects @field with two args for generic types in @entity classes', () => {
+    test('auto-injects @field with options for generic types in @entity classes', () => {
         assertFieldTransform(
             `@entity
 class EmployeeEntity {
@@ -79,14 +79,14 @@ class EmployeeEntity {
 }`,
             `@entity
 class EmployeeEntity {
-    @field(() => String) name!: string;
-    @field(() => EmployeeEntity, { nullable: true, container: () => Lite }) manager!: Lite<EmployeeEntity> | null;
-    @field(() => EmployeeEntity, { container: () => Array }) reports!: EmployeeEntity[];
+    @field({ typeName: "String" }) name!: string;
+    @field({ typeName: "EmployeeEntity", nullable: true, lite: true }) manager!: Lite<EmployeeEntity> | null;
+    @field({ typeName: "EmployeeEntity", array: true }) reports!: EmployeeEntity[];
 }`
         );
     });
 
-    test('field decorator resolves primitive type aliases to options bag', () => {
+    test('field decorator resolves primitive type aliases to typeName + name', () => {
         assertFieldTransform(
             `type int = number;
 class Order {
@@ -95,8 +95,8 @@ class Order {
 }`,
             `type int = number;
 class Order {
-    @field(() => Number, { name: "int" }) quantity!: int;
-    @field(() => Number) price!: number;
+    @field({ typeName: "Number", name: "int" }) quantity!: int;
+    @field({ typeName: "Number" }) price!: number;
 }`
         );
     });
@@ -110,8 +110,8 @@ class Order {
 }`,
             `type int = number;
 class Order {
-    @field(() => Number, { name: "int", nullable: true, container: () => Array }) nums!: (int | null)[];
-    @field(() => String, { container: () => Array }) tags!: string[];
+    @field({ typeName: "Number", name: "int", nullable: true, array: true }) nums!: (int | null)[];
+    @field({ typeName: "String", array: true }) tags!: string[];
 }`
         );
     });
@@ -125,8 +125,8 @@ class Item {
 }`,
             `enum Color { Red, Green, Blue }
 class Item {
-    @field(() => Color, { name: "Color" }) color!: Color;
-    @field(() => String) name!: string;
+    @field({ typeName: "Color", enum: true }) color!: Color;
+    @field({ typeName: "String" }) name!: string;
 }`
         );
     });
@@ -139,9 +139,9 @@ class Item {
     @field nums!: number[] | null;
 }`,
             `class Order {
-    @field(() => Number, { nullable: true }) amount!: number | null;
-    @field(() => String, { nullable: true }) middleName!: string | null;
-    @field(() => Number, { container: () => Array }) nums!: number[] | null;
+    @field({ typeName: "Number", nullable: true }) amount!: number | null;
+    @field({ typeName: "String", nullable: true }) middleName!: string | null;
+    @field({ typeName: "Number", array: true }) nums!: number[] | null;
 }`
         );
     });
@@ -156,7 +156,7 @@ class Order {
             `@entity
 class Order {
     @field(false) name!: string;
-    @field(() => Number) amount!: number;
+    @field({ typeName: "Number" }) amount!: number;
 }`
         );
     });
@@ -174,7 +174,7 @@ class Person {
             `import { entity, field } from "./decorators";
 @entity
 class Person {
-    @field(() => String) name!: string;
+    @field({ typeName: "String" }) name!: string;
 }`
         ));
     });

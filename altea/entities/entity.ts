@@ -16,9 +16,14 @@ export abstract class BaseEntity {
         return this as unknown as M;
     }
 
-    init(values: InitValues<this>): this {
-        Object.assign(this, values);
-        return this;
+    // Factory: `Order.create({ amount: 42 })` instead of `new Order().init(...)`.
+    // The explicit `this` parameter binds to the concrete subclass constructor,
+    // so the result is typed as that subclass (and abstract bases can't call it).
+    // `InitValues` excludes method-typed properties from the accepted shape.
+    static create<T extends BaseEntity>(this: new () => T, values: InitValues<T>): T {
+        const instance = new this();
+        Object.assign(instance, values);
+        return instance;
     }
 }
 

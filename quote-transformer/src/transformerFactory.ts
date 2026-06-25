@@ -479,37 +479,47 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
 
   // Computes the @field factory args from a type annotation node.
   // First arg is always the element/inner type; second arg is an options object when needed.
-  // e.g. @field(() => Person, { container: () => Array }) for Person[]
-  //      @field(() => Number, { name: "int", nullable: true, container: () => Array }) for (int | null)[]
+  // e.g. @field(() => Person, { array: true }) for Person[]
+  //      @field(() => Person, { lite: true }) for Lite<Person>
+  //      @field(() => Number, { name: "int", nullable: true, array: true }) for (int | null)[]
+  // The container is described by boolean flags (lite / array) rather than a
+  // runtime `() => Lite`/`() => Array` reference — so the transformer never emits
+  // a value reference to the imported `Lite` type (which TS would elide).
   function buildFieldFactories(typeNode: ts.TypeNode): ts.Expression[] | null {
     const resolved = resolveElementType(typeNode, false);
     if (resolved == null) return null;
 
-    const { typeFactory, name, nullable, containerRef } = resolved;
-    const hasOpts = name != null || nullable === true || containerRef != null;
+    const { typeName, name, nullable, lite, array, isEnum } = resolved;
 
-    if (!hasOpts)
-      return [typeFactory];
-
-    const props: ts.ObjectLiteralElementLike[] = [];
+    const props: ts.ObjectLiteralElementLike[] = [
+      ts.factory.createPropertyAssignment("typeName", ts.factory.createStringLiteral(typeName)),
+    ];
     if (name != null)
       props.push(ts.factory.createPropertyAssignment("name", ts.factory.createStringLiteral(name)));
     if (nullable === true)
       props.push(ts.factory.createPropertyAssignment("nullable", ts.factory.createTrue()));
-    if (containerRef != null)
-      props.push(ts.factory.createPropertyAssignment("container", makeFactory(containerRef)));
+    if (lite === true)
+      props.push(ts.factory.createPropertyAssignment("lite", ts.factory.createTrue()));
+    if (array === true)
+      props.push(ts.factory.createPropertyAssignment("array", ts.factory.createTrue()));
+    if (isEnum === true)
+      props.push(ts.factory.createPropertyAssignment("enum", ts.factory.createTrue()));
 
-    return [typeFactory, ts.factory.createObjectLiteralExpression(props)];
+    return [ts.factory.createObjectLiteralExpression(props)];
   }
 
   interface ElementTypeResult {
-    typeFactory: ts.ArrowFunction;
+    typeName: string;
     name?: string;
     nullable?: true;
-    containerRef?: ts.Identifier | ts.PropertyAccessExpression;
+    lite?: true;
+    array?: true;
+    isEnum?: true;
   }
 
-  // Resolves the element/inner type and any container/nullable metadata.
+  // Resolves the element/inner type to its runtime *name* plus container/nullable
+  // metadata. The name is a string (never a `() => Type` reference), so an
+  // imported type is never referenced at runtime and so never elided by TS.
   // insideContainer=true: a | null on this node sets nullable on the result.
   function resolveElementType(typeNode: ts.TypeNode, insideContainer: boolean): ElementTypeResult | null {
     // (T | null)[] has elementType = ParenthesizedTypeNode — unwrap before processing
@@ -526,52 +536,77 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
         elementNullable = true;
     }
 
-    // T[] — array shorthand
+    // T[] — array shorthand. Preserves an inner `lite` flag (Lite<T>[]).
     if (ts.isArrayTypeNode(type)) {
       const inner = resolveElementType(type.elementType, true);
       if (inner == null) return null;
-      return { ...inner, containerRef: ts.factory.createIdentifier("Array") };
+      return { ...inner, array: true };
     }
 
-    // Generic<T> with exactly one type arg
-    if (ts.isTypeReferenceNode(type) && type.typeArguments?.length == 1) {
-      const outerRef = toRuntimeReference(type.typeName);
-      if (outerRef == null) return null;
-      const inner = resolveElementType(type.typeArguments[0], true);
-      if (inner == null) return null;
-      return { ...inner, containerRef: outerRef, nullable: elementNullable ?? inner.nullable };
+    // Generic<T> with exactly one type arg: only Lite<T> and Array<T> are
+    // recognized containers (mapped to flags); other generics fall through to
+    // be treated as a plain class reference.
+    if (ts.isTypeReferenceNode(type) && type.typeArguments?.length == 1 && ts.isIdentifier(type.typeName)) {
+      const outerName = type.typeName.text;
+      if (outerName === "Lite" || outerName === "Array") {
+        const inner = resolveElementType(type.typeArguments[0], true);
+        if (inner == null) return null;
+        const flag = outerName === "Lite" ? { lite: true as const } : { array: true as const };
+        return { ...inner, ...flag, nullable: elementNullable ?? inner.nullable };
+      }
     }
 
     if (ts.isTypeReferenceNode(type) && !type.typeArguments?.length && ts.isIdentifier(type.typeName)) {
-      // Primitive alias: type int = number  →  @field(() => Number, { name: "int" })
+      // Primitive alias: type int = number  →  @field({ typeName: "Number", name: "int" })
       const alias = resolvePrimitiveAlias(type);
       if (alias != null) {
         return {
-          typeFactory: makeFactory(ts.factory.createIdentifier(alias.constructorName)),
+          typeName: alias.constructorName,
           name: alias.aliasName,
           nullable: elementNullable,
         };
       }
 
-      // Regular enum: Color  →  @field(() => Color, { name: "Color" })
+      // Regular enum: Color  →  @field({ typeName: "Color", enum: true })
       if (isEnumType(type)) {
         return {
-          typeFactory: makeFactory(toRuntimeReference(type.typeName)!),
-          name: type.typeName.text,
+          typeName: type.typeName.text,
+          isEnum: true,
           nullable: elementNullable,
         };
       }
     }
 
-    // Fallback: keyword (number, string, boolean) or plain class reference
-    const typeRef = runtimeType(type);
-    if (typeRef == null) return null;
-    return { typeFactory: makeFactory(typeRef), nullable: elementNullable };
+    // Fallback: keyword (number, string, boolean) or a plain named type reference
+    // (class, Date, Decimal, Temporal.*, entity, embedded) — emitted by name.
+    const typeName = typeNameOf(type);
+    if (typeName == null) return null;
+    return { typeName, nullable: elementNullable };
+  }
+
+  // The runtime *name* of a type node: built-in keywords map to their wrapper
+  // constructor name; a type reference uses its (rightmost) identifier, e.g.
+  // `Temporal.PlainDate` → "PlainDate", `CustomerEntity` → "CustomerEntity".
+  function typeNameOf(node: ts.TypeNode): string | null {
+    if (node.kind == ts.SyntaxKind.BooleanKeyword) return "Boolean";
+    if (node.kind == ts.SyntaxKind.NumberKeyword) return "Number";
+    if (node.kind == ts.SyntaxKind.StringKeyword) return "String";
+    if (ts.isTypeReferenceNode(node)) return cleanTypeName(node.typeName) ?? null;
+    return null;
   }
 
   function resolvePrimitiveAlias(node: ts.TypeReferenceNode): { constructorName: string; aliasName: string } | null {
-    const tsType = typeChecker.getTypeFromTypeNode(node);
+    let tsType = typeChecker.getTypeFromTypeNode(node);
     const aliasName = (node.typeName as ts.Identifier).text;
+
+    // Branded aliases like `type int = number & { __brand }` are intersection
+    // types — unwrap to the underlying primitive so `int`/`long` resolve to
+    // Number (the alias name is carried through as the `name`/kind).
+    if (tsType.flags & ts.TypeFlags.Intersection) {
+      const primitive = (tsType as ts.IntersectionType).types.find(t =>
+        t.flags & (ts.TypeFlags.Number | ts.TypeFlags.String | ts.TypeFlags.Boolean | ts.TypeFlags.BigInt));
+      if (primitive != null) tsType = primitive;
+    }
 
     if (tsType.flags & ts.TypeFlags.Number) return { constructorName: "Number", aliasName };
     if (tsType.flags & ts.TypeFlags.String) return { constructorName: "String", aliasName };
@@ -584,17 +619,6 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
   function isEnumType(node: ts.TypeReferenceNode): boolean {
     const symbol = typeChecker.getSymbolAtLocation(node.typeName);
     return symbol != null && (symbol.flags & ts.SymbolFlags.RegularEnum) !== 0;
-  }
-
-  function makeFactory(ref: ts.Identifier | ts.PropertyAccessExpression): ts.ArrowFunction {
-    return ts.factory.createArrowFunction(
-      undefined,
-      undefined,
-      [],
-      undefined,
-      ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
-      ref as ts.Expression,
-    );
   }
 
   // Injects @field decorators for properties in a class decorated with @entity that are missing them.
@@ -840,35 +864,5 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     return ts.isQualifiedName(name) ? cleanTypeName(name.right) :
       ts.isIdentifier(name) ? name.text :
         undefined;
-  }
-
-  function runtimeType(node: ts.TypeNode): ts.Identifier | ts.PropertyAccessExpression | null {
-    if (node.kind == ts.SyntaxKind.BooleanKeyword)
-      return ts.factory.createIdentifier("Boolean");
-
-    if (node.kind == ts.SyntaxKind.NumberKeyword)
-      return ts.factory.createIdentifier("Number");
-
-    if (node.kind == ts.SyntaxKind.StringKeyword)
-      return ts.factory.createIdentifier("String");
-
-    if (ts.isTypeReferenceNode(node))
-      return toRuntimeReference(node.typeName);
-
-    return null;
-  }
-
-  function toRuntimeReference(name: ts.EntityName): ts.Identifier | ts.PropertyAccessExpression | null {
-    if (ts.isQualifiedName(name)) {
-      var left = toRuntimeReference(name.left);
-      if (left == null)
-        return null;
-      return ts.factory.createPropertyAccessExpression(left, name.right.text);
-    }
-
-    if (ts.isIdentifier(name))
-      return name;
-
-    return null;
   }
 }
