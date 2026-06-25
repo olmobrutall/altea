@@ -78,3 +78,35 @@ export function implementedByAll(_value: undefined, context: ClassFieldDecorator
     const typeInfo = getOrCreateTypeInfo(context.metadata!);
     getOrCreateFieldInfo(typeInfo, key).implementations = { kind: 'implementedByAll' };
 }
+
+// Invokes the selector against a recording Proxy to capture the accessed
+// property name, e.g. `(c) => c.order` yields "order". Lets @backReference take
+// a type-checked lambda instead of a magic string.
+function capturePropertyName<C>(selector: (c: C) => unknown): string {
+    let captured: string | undefined;
+    const proxy = new Proxy({}, {
+        get(_target, prop): unknown {
+            captured = String(prop);
+            return undefined;
+        },
+    });
+    selector(proxy as C);
+    if (captured == null)
+        throw new Error('@backReference selector must access a property, e.g. (c) => c.parent');
+    return captured;
+}
+
+// Marks a `ChildEntity[]` field as a back-reference array (Altea's MList
+// replacement). The selector names the FK property on the child that points
+// back to this parent. By default the array is an owned aggregate
+// (`cascade: true`): saved and deleted together with the parent.
+export function backReference<C>(fkSelector: (child: C) => unknown, options: { cascade?: boolean } = {}) {
+    return function (_value: undefined, context: ClassFieldDecoratorContext): void {
+        const key = String(context.name);
+        const typeInfo = getOrCreateTypeInfo(context.metadata!);
+        getOrCreateFieldInfo(typeInfo, key).backReference = {
+            childFkProperty: capturePropertyName(fkSelector),
+            cascade: options.cascade ?? true,
+        };
+    };
+}

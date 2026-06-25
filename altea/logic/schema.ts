@@ -4,50 +4,19 @@ import type { ColumnOptions } from "../entities/reflection";
 
 export { ColumnOptions };
 
-export class ObjectName {
-    constructor(
-        public readonly name: string,
-        public readonly schema: SchemaName) {
-    }
-}
+// Schema layer barrel. The implementation lives under ./schema/.
+export * from "./schema/dbType";
+export * from "./schema/objectName";
+export * from "./schema/column";
+export * from "./schema/nameSequence";
+export * from "./schema/field";
+export * from "./schema/table";
+export * from "./schema/schema";
+export * from "./schema/schemaBuilder";
 
-export class SchemaName {
-    constructor(
-        public readonly name: string,
-        public readonly database: DatabaseName
-    ) {
-    }
-}
-
-export class DatabaseName {
-    constructor(
-        public readonly name: string,
-    ) {
-    }
-}
-
-export class Column {
-    constructor(
-        public readonly name: string,
-        public readonly pgDbType?: string,
-        public readonly sqlDbType?: string,
-        public readonly size?: number,
-        public readonly precision?: number,
-        public readonly nullable?: boolean,
-        public readonly collection?: boolean,
-        public readonly ignored?: boolean,
-    ) {
-    }
-}
-
-export class Table {
-    constructor() {
-        this.columns = {};
-    }
-
-    columns: { [columnName: string]: Column };
-}
-
+// Field-level decorator: overrides column mapping (name / db types / size /
+// precision / nullability) for a field. Stored on FieldInfo.columnOptions and
+// consumed by SchemaBuilder.
 export function column(options: ColumnOptions = {}) {
     return function (_value: unknown, context: ClassFieldDecoratorContext | ClassAccessorDecoratorContext) {
         if (context.metadata == null)

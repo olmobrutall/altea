@@ -18,6 +18,15 @@ export type ImplementationsInfo =
     | { kind: 'implementedBy'; types: (new () => unknown)[] }
     | { kind: 'implementedByAll' };
 
+// Set by @backReference on a `ChildEntity[]` field. `childFkProperty` is the
+// name of the FK property on the child that points back to this parent;
+// `cascade` marks the array as an owned aggregate part (saved/deleted with the
+// parent).
+export interface BackReferenceInfo {
+    childFkProperty: string;
+    cascade: boolean;
+}
+
 
 export interface FieldOptions {
     name?: string;
@@ -34,6 +43,7 @@ export class FieldInfo {
     ignore: boolean = false;
     fkPropertyName?: string;
     implementations?: ImplementationsInfo;
+    backReference?: BackReferenceInfo;
     columnOptions?: ColumnOptions;
 
     validators: Validator[] = [];
@@ -84,11 +94,20 @@ const metadataSymbol: symbol = symbolWithMetadata.metadata;
 const typeInfoMetadataKey = Symbol.for('altea:typeInfo');
 
 export function getOrCreateTypeInfo(metadata: DecoratorMetadataObject): TypeInfo {
-    const existing = metadata[typeInfoMetadataKey] as TypeInfo | undefined;
-    if (existing)
-        return existing;
+    // TC39 decorator metadata objects are prototype-linked to the base class's
+    // metadata, so a plain `metadata[key]` read on a subclass returns the BASE
+    // class's TypeInfo — which would make every subclass share (and pollute) one
+    // TypeInfo. We therefore key off an *own* property: the first decorator on a
+    // given class creates that class's own TypeInfo, seeded with a shallow copy
+    // of the inherited (base) fields so inheritance still works.
+    if (Object.prototype.hasOwnProperty.call(metadata, typeInfoMetadataKey))
+        return metadata[typeInfoMetadataKey] as TypeInfo;
 
+    const inherited = metadata[typeInfoMetadataKey] as TypeInfo | undefined;
     const created = new TypeInfo();
+    if (inherited != null)
+        Object.assign(created.fields, inherited.fields);
+
     metadata[typeInfoMetadataKey] = created;
     return created;
 }
