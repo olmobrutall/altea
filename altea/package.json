@@ -28,10 +28,12 @@
     "mssql": "^12.6.0",
     "pg": "^8.22.0",
     "quote-transformer": "workspace:*",
+    "react": "^19.0.0",
     "temporal-polyfill": "^0.3.2"
   },
   "devDependencies": {
     "@types/mssql": "^12.3.0",
-    "@types/pg": "^8.20.0"
+    "@types/pg": "^8.20.0",
+    "@types/react": "^19.0.0"
   }
 }

@@ -55,8 +55,20 @@ export class FieldInfo {
     isNullable?: boolean;
     ignore: boolean = false;
     fkPropertyName?: string;
+    // Set by @include: a user-written thunk returning the referenced
+    // constructor(s). Because the thunk references the type as a *value* in
+    // source, the import survives elision (no verbatimModuleSyntax needed) and
+    // the schema builder gets the constructor by reference (no name registry).
+    // `true` means a bare @include that defers to a sibling @implementedBy.
+    include?: (() => unknown) | boolean;
     implementations?: ImplementationsInfo;
     backReference?: BackReferenceInfo;
+    // Set by the child-side @backreference marker: this FK field points back to
+    // the owner entity (the per-row equivalent of a Signum MList element).
+    isBackReference?: boolean;
+    // Set by @rowOrder: this int column preserves MList row order (Signum's
+    // [PreserveOrder]).
+    isRowOrder?: boolean;
     columnOptions?: ColumnOptions;
 
     validators: Validator[] = [];
@@ -125,18 +137,18 @@ export function getOrCreateTypeInfo(metadata: DecoratorMetadataObject): TypeInfo
     return created;
 }
 
-// Generic, ORM-agnostic marker: any class decorated with @reflection participates
+// Generic, ORM-agnostic marker: any class decorated with @reflect participates
 // in reflection. The quote-transformer auto-injects @field on its (non-ignored)
 // properties. Use it for entities, models, DTOs, views, etc. Entity-specific
 // concerns like @entity / @column live in ./decorators instead.
-export function reflection(value: Function, context: ClassDecoratorContext): void {
+export function reflect(value: Function, context: ClassDecoratorContext): void {
     if (context.metadata != null)
         getOrCreateTypeInfo(context.metadata);
     registerType(value);
 }
 
 // Type registry: maps a type's name to its runtime constructor. Populated at
-// class-definition time by @reflection / @entity, so the schema builder can
+// class-definition time by @reflect / @entity, so the schema builder can
 // resolve a field's `typeName` (e.g. "CustomerEntity") back to its constructor
 // for classification (entity / embedded) and recursion. Value types (String,
 // Number, Date, Decimal, Temporal.*) are intentionally absent — they resolve by

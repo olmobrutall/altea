@@ -1,7 +1,6 @@
 import { ConnectionPool } from 'mssql';
 import type { config as MssqlConfig } from 'mssql';
 import type { Schema } from '../schema/schema';
-import type { SqlPreCommandSimple } from '../sync/sqlPreCommand';
 import { Connector } from './connector';
 
 // SQL Server connector. Dialect: SqlServer column types, [bracket] escaping,
@@ -30,10 +29,13 @@ export class SqlServerConnector extends Connector {
         return pool;
     }
 
-    async executeNonQuery(command: SqlPreCommandSimple): Promise<number> {
+    async executeNonQuery(sql: string, parameters: unknown[] = []): Promise<number> {
         const pool = await this.getPool();
-        // batch() (not query()) so standalone-batch DDL like CREATE SCHEMA runs.
-        const res = await pool.request().batch(command.sql);
+        const req = pool.request();
+        parameters.forEach((p, i) => req.input(`p${i}`, p));
+        // With no parameters, use batch() (not query()) so standalone-batch DDL
+        // like CREATE SCHEMA runs; parameterized statements must go through query().
+        const res = parameters.length === 0 ? await req.batch(sql) : await req.query(sql);
         return (res.rowsAffected ?? []).reduce((a, b) => a + b, 0);
     }
 

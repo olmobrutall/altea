@@ -1,3 +1,5 @@
+import { Connector } from '../connection/connector';
+
 // A composable tree of SQL statements produced by schema generation (and, later,
 // synchronization / save). Mirrors Signum's SqlPreCommand, trimmed to what the
 // generation milestone needs: no GO-splitting, no no-transaction modes, no
@@ -38,6 +40,30 @@ export abstract class SqlPreCommand {
         return this.plainSql();
     }
 
+    // ---- Convenience execution ----------------------------------------------
+    //
+    // Run against the *current* connector (Connector.current()). Set
+    // Connector.default or wrap in Connector.withConnector before calling.
+
+    // Executes every leaf statement in order, returning the total affected rows.
+    async executeNonQuery(): Promise<number> {
+        const connector = Connector.current();
+        let total = 0;
+        for (const leaf of this.leaves())
+            total += await connector.executeNonQuery(leaf.sql, leaf.paramValues());
+        return total;
+    }
+
+    // Executes a single statement and returns its rows. Throws if this command is
+    // a concatenation of several statements (use a SqlPreCommandSimple).
+    async executeQuery(): Promise<unknown[]> {
+        const leaves = this.leaves();
+        if (leaves.length !== 1)
+            throw new Error('executeQuery expects a single statement; got ' + leaves.length);
+        const leaf = leaves[0];
+        return Connector.current().executeQuery(leaf.sql, leaf.paramValues());
+    }
+
     // Combines several (possibly undefined) commands into one, dropping nulls.
     // Returns undefined when nothing remains, the single command when only one
     // survives, otherwise a SqlPreCommandConcat.
@@ -65,6 +91,12 @@ export class SqlPreCommandSimple extends SqlPreCommand {
 
     plainSql(): string {
         return this.sql;
+    }
+
+    // Positional parameter values, in declaration order (or undefined when none),
+    // as expected by Connector.executeNonQuery / executeQuery.
+    paramValues(): unknown[] | undefined {
+        return this.parameters?.map(p => p.value);
     }
 }
 

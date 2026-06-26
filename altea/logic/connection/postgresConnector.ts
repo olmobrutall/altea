@@ -1,7 +1,6 @@
 import { Pool } from 'pg';
 import type { PoolConfig } from 'pg';
 import type { Schema } from '../schema/schema';
-import type { SqlPreCommandSimple } from '../sync/sqlPreCommand';
 import { Connector } from './connector';
 
 // PostgreSQL connector. Dialect: postgres column types, double-quote escaping,
@@ -19,8 +18,8 @@ export class PostgresConnector extends Connector {
         ));
     }
 
-    async executeNonQuery(command: SqlPreCommandSimple): Promise<number> {
-        const res = await this.getPool().query(command.sql);
+    async executeNonQuery(sql: string, parameters: unknown[] = []): Promise<number> {
+        const res = await this.getPool().query(sql, parameters);
         return res.rowCount ?? 0;
     }
 

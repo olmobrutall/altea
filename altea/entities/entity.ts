@@ -1,7 +1,7 @@
 
 import { Lite, LiteImp, getLiteModelConstructor } from './lite';
 import { entity, EntityData, ignore } from './decorators';
-import { reflection } from './reflection';
+import { reflect } from './reflection';
 
 export type PrimaryKey = string | number;
 
@@ -29,7 +29,7 @@ export abstract class BaseEntity {
 
 export type EntitySnapshot = Record<string, unknown>;
 
-@reflection
+@reflect
 @entity()
 export abstract class Entity extends BaseEntity {
     id: PrimaryKey;

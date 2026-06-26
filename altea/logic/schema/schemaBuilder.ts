@@ -142,10 +142,11 @@ export class SchemaBuilder {
     private generateField(table: Table, fi: FieldInfo, preName: NameSequence): Field {
         const isArray = fi.array === true;
         const isLite = fi.lite === true;
-        // Resolve the field's typeName to a constructor (entities / embeddeds are
-        // registered by @reflection/@entity). undefined for value types and
-        // enums, which are classified by name / the isEnum flag below.
-        const elementType = resolveType(fi.typeName);
+        // Prefer the @include thunk's constructor (captured by reference, so it's
+        // import-safe and rename-proof); fall back to resolving the typeName via
+        // the registry. undefined for value types and enums, which are classified
+        // by name / the isEnum flag below.
+        const elementType = this.resolveFieldType(fi);
         const nullable = fi.isNullable === true ? IsNullable.Yes : IsNullable.No;
 
         // Arrays — only `ChildEntity[]` with @backReference is supported.
@@ -202,7 +203,7 @@ export class SchemaBuilder {
     }
 
     private generateEmbedded(table: Table, fi: FieldInfo, preName: NameSequence): FieldEmbedded {
-        const embeddedType = resolveType(fi.typeName);
+        const embeddedType = this.resolveFieldType(fi);
         const typeInfo = embeddedType != null ? getTypeInfo(embeddedType) : undefined;
         if (typeInfo == null)
             throw new Error(`Embedded type '${fi.typeName}' (field '${fi.name}') has no reflection metadata.`);
@@ -234,6 +235,18 @@ export class SchemaBuilder {
         const cf = childFk.field;
         if (!(cf instanceof FieldReference) || cf.column.referenceTable !== parentTable)
             throw new Error(`@backReference '${fi.name}' on ${parentTable.type.name}: child property '${field.childFkProperty}' must be a reference back to ${parentTable.type.name}.`);
+    }
+
+    // Resolves a field's referenced constructor: the @include thunk if present
+    // (by reference — import-safe, rename-proof, no registration order), else the
+    // typeName via the registry. A bare @include (`true`) carries no constructor
+    // of its own — its types come from @implementedBy — so it falls through.
+    private resolveFieldType(fi: FieldInfo): unknown {
+        if (typeof fi.include === 'function') {
+            const resolved = fi.include();
+            return Array.isArray(resolved) ? resolved[0] : resolved;
+        }
+        return resolveType(fi.typeName);
     }
 
     private resolveValueDbType(fi: FieldInfo): AbstractDbType | undefined {

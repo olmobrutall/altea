@@ -46,9 +46,13 @@ export abstract class Connector {
     }
 
     // ---- Live execution -----------------------------------------------------
+    //
+    // Both take raw SQL + positional parameters. The ergonomic entry points are
+    // SqlPreCommand.executeNonQuery() / .executeQuery(), which read the SQL and
+    // parameters off the command and dispatch to the *current* connector.
 
     // Runs a single statement, returning the affected row count.
-    abstract executeNonQuery(command: SqlPreCommandSimple): Promise<number>;
+    abstract executeNonQuery(sql: string, parameters?: unknown[]): Promise<number>;
 
     // Runs a query and returns its rows.
     abstract executeQuery(sql: string, parameters?: unknown[]): Promise<unknown[]>;
@@ -56,9 +60,10 @@ export abstract class Connector {
     // Releases the underlying connection/pool.
     abstract closeConnection(): Promise<void>;
 
-    // Executes a whole generation/sync script statement by statement, in order.
+    // Executes a whole generation/sync script statement by statement, in order,
+    // on *this* connector (regardless of the ambient current()).
     async executeScript(command: SqlPreCommand): Promise<void> {
         for (const leaf of command.leaves())
-            await this.executeNonQuery(leaf);
+            await this.executeNonQuery(leaf.sql, leaf.parameters?.map(p => p.value));
     }
 }

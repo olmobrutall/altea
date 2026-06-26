@@ -8,6 +8,7 @@ export {
 } from './validators';
 
 export enum EntityKind {
+    /** Detailed diagnostic information. */
     SystemString = 'SystemString',
     System = 'System',
     Relational = 'Relational',
@@ -24,8 +25,7 @@ export enum EntityData {
 }
 
 export interface EntityInfo {
-    kind?: EntityKind;
-    data?: EntityData;
+
 }
 
 const symbolWithMetadata = Symbol as any;
@@ -36,6 +36,8 @@ const metadataSymbol: symbol = symbolWithMetadata.metadata;
 
 const entityInfoKey = Symbol.for('altea:entityInfo');
 const allowUnauthenticatedKey = Symbol.for('altea:allowUnauthenticated');
+
+
 
 export function entity(options: EntityInfo = {}) {
     return function (target: Function): void {
@@ -64,6 +66,48 @@ export function fkProperty(propertyName: string) {
         const typeInfo = getOrCreateTypeInfo(context.metadata!);
         getOrCreateFieldInfo(typeInfo, key).fkPropertyName = propertyName;
     };
+}
+
+// Provides the referenced entity constructor(s) for a field via a user-written
+// thunk, e.g. `@include(() => OrderLineEntity)`. Two wins over resolving the type
+// by name: (1) the `() => X` arrow is a value-use in source, so TS never elides
+// the import (no verbatimModuleSyntax, no transformer magic — works the same on
+// tsc and tsgo); (2) the schema builder gets the constructor by reference, so it
+// is immune to bundler renames and needs no registration order.
+//
+// Bare `@include` (no thunk) defers to a sibling `@implementedBy(() => [...])`,
+// whose own lambda already supplies the constructors — so the types aren't
+// repeated.
+export function include(value: undefined, context: ClassFieldDecoratorContext): void;
+export function include(types: () => unknown): (value: undefined, context: ClassFieldDecoratorContext) => void;
+export function include(arg1: unknown, arg2?: unknown): unknown {
+    if (arg2 != null && typeof arg2 === 'object' && (arg2 as { kind?: unknown }).kind != null) {
+        const context = arg2 as ClassFieldDecoratorContext;
+        getOrCreateFieldInfo(getOrCreateTypeInfo(context.metadata!), String(context.name)).include = true;
+        return;
+    }
+    const types = arg1 as () => unknown;
+    return function (_value: undefined, context: ClassFieldDecoratorContext): void {
+        getOrCreateFieldInfo(getOrCreateTypeInfo(context.metadata!), String(context.name)).include = types;
+    };
+}
+
+// Child-side marker (Altea's MList replacement): tags the FK field on a child
+// entity that points back to its owner, e.g. `@backreference album: Lite<AlbumEntity>`
+// inside `AlbumEntity_Songs`. The owner's collection still names this field via
+// `@backReference((c) => c.<thisField>)`; this marker records the inverse on the
+// child so the relationship is self-describing from either side.
+export function backreference(_value: undefined, context: ClassFieldDecoratorContext): void {
+    const key = String(context.name);
+    const typeInfo = getOrCreateTypeInfo(context.metadata!);
+    getOrCreateFieldInfo(typeInfo, key).isBackReference = true;
+}
+
+// Marks the int column that preserves MList row order (Signum's [PreserveOrder]).
+export function rowOrder(_value: undefined, context: ClassFieldDecoratorContext): void {
+    const key = String(context.name);
+    const typeInfo = getOrCreateTypeInfo(context.metadata!);
+    getOrCreateFieldInfo(typeInfo, key).isRowOrder = true;
 }
 
 export function implementedBy(types: () => (new () => unknown)[]) {

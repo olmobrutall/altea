@@ -259,13 +259,13 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     );
   }
 
-  // Auto @field injection is triggered by @reflection (a generic, ORM-agnostic
+  // Auto @field injection is triggered by @reflect (a generic, ORM-agnostic
   // marker in ./reflection), so it applies to entities, models, DTOs, views, etc.
   function hasReflectionDecorator(node: ts.ClassDeclaration): boolean {
     return node.modifiers?.some(m =>
       ts.isDecorator(m) && (
-        (ts.isIdentifier(m.expression) && m.expression.text === "reflection") ||
-        (ts.isCallExpression(m.expression) && ts.isIdentifier(m.expression.expression) && m.expression.expression.text === "reflection")
+        (ts.isIdentifier(m.expression) && m.expression.text === "reflect") ||
+        (ts.isCallExpression(m.expression) && ts.isIdentifier(m.expression.expression) && m.expression.expression.text === "reflect")
       )
     ) ?? false;
   }
@@ -448,7 +448,7 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     );
   }
 
-  // Adds 'field' to whatever import already brings in 'reflection'.
+  // Adds 'field' to whatever import already brings in 'reflect'.
   // Both live in the same module (e.g. ./reflection), so field auto-injection
   // works for any reflective class (entities, models, DTOs, views, ...).
   function ensureFieldImport(sourceFile: ts.SourceFile): ts.SourceFile {
@@ -466,7 +466,7 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
       if (patched || !ts.isImportDeclaration(stmt)) return stmt;
       const nb = stmt.importClause?.namedBindings;
       if (nb == null || !ts.isNamedImports(nb)) return stmt;
-      if (!nb.elements.some(e => e.name.text === 'reflection')) return stmt;
+      if (!nb.elements.some(e => e.name.text === 'reflect')) return stmt;
       patched = true;
       const newEl = ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('field'));
       const newNb = ts.factory.updateNamedImports(nb, [...nb.elements, newEl]);
