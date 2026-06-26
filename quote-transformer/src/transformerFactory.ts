@@ -260,12 +260,14 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
   }
 
   // Auto @field injection is triggered by @reflect (a generic, ORM-agnostic
-  // marker in ./reflection), so it applies to entities, models, DTOs, views, etc.
+  // marker in ./reflection) and by the entity decorators @entity / @partEntity,
+  // so it applies to entities, part entities, models, DTOs, views, etc.
+  const FIELD_INJECTING_DECORATORS = new Set(["reflect", "entity", "partEntity"]);
   function hasReflectionDecorator(node: ts.ClassDeclaration): boolean {
     return node.modifiers?.some(m =>
       ts.isDecorator(m) && (
-        (ts.isIdentifier(m.expression) && m.expression.text === "reflect") ||
-        (ts.isCallExpression(m.expression) && ts.isIdentifier(m.expression.expression) && m.expression.expression.text === "reflect")
+        (ts.isIdentifier(m.expression) && FIELD_INJECTING_DECORATORS.has(m.expression.text)) ||
+        (ts.isCallExpression(m.expression) && ts.isIdentifier(m.expression.expression) && FIELD_INJECTING_DECORATORS.has(m.expression.expression.text))
       )
     ) ?? false;
   }

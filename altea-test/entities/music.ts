@@ -1,64 +1,81 @@
 import { reflect } from "@altea/altea/entities/reflection";
-import { Entity, EmbeddedEntity } from "@altea/altea/entities/entity";
+import { Entity, EmbeddedEntity, MixinEntity } from "@altea/altea/entities/entity";
 import { Lite } from "@altea/altea/entities/lite";
-import { implementedBy, implementedByAll, backReference, backreference, rowOrder } from "@altea/altea/entities/decorators";
+import {
+    entity, partEntity, mixin, primaryKey,
+    implementedBy, implementedByAll, backReference, rowOrder, valueField,
+    include, stringLengthValidator, EntityData, EntityKind,
+} from "@altea/altea/entities/decorators";
 import { Temporal, int } from "@altea/altea/entities/basics";
 import { quoted } from "@altea/altea/logic/query";
+import { column } from "@altea/altea/logic/schema";
 
 // Port of Signum.Test's Environment/Entities.cs (the "Music" domain), adapted to
 // altea and the *currently implemented* feature set. Entities, interleaved enums
 // and the fields within each entity are kept in the SAME ORDER as Entities.cs so
 // the two files diff side-by-side.
 //
-// Where Signum used MList<T>, altea has no MList: every collection is modelled as
-// a child / junction entity, placed immediately after its owner and named
-// `<OwnerEntity>_<Property>` (e.g. AlbumEntity_Songs for AlbumEntity.Songs). The
-// child carries:
-//   - @backreference on the FK field that points back to the owner;
-//   - @rowOrder on an int `order` column when the MList was [PreserveOrder];
-//   - the element's fields flattened in (for embedded elements);
-//   - @quoted() on toString (Signum's [AutoExpressionField]).
-// The owner still declares the collection with @backReference((c) => c.<fk>) so
-// the relationship reads from both sides.
+// Where Signum used MList<T>, altea has no MList: each collection becomes a
+// "part" entity, placed immediately after its owner and named
+// `<OwnerEntity>_<Property>` (e.g. AlbumEntity_Songs for AlbumEntity.Songs):
+//   - the owner declares the collection with @include(() => Child);
+//   - the child is a @partEntity that marks its owner FK with a bare
+//     @backReference, the element value with @valueField, and (for
+//     [PreserveOrder] MLists) the row order with @rowOrder on an int `order`;
+//   - embedded MList elements are flattened into the child's columns.
+// Part entities are pulled into the schema transitively via @include, so they
+// are NOT listed in MusicLogic's sb.include calls.
 //
 // Features still not supported are commented out with a NOT-YET note, namely:
 //   - SqlHierarchyId, Vector/pgvector columns
-//   - per-entity custom primary-key types (PrimaryKey(typeof(Guid/long)))
 //   - Operations (ExecuteSymbol/…), AutoExpressionField/As.Expression, LiteModel
-//   - mixins (CorruptMixin) — the ColaboratorsMixin MList is modelled as a
-//     NoteWithDateEntity_Colaborators junction instead
-// `@reflect` registers each class in the type registry so cross-references
-// resolve by name.
+//   - mixins beyond the ColaboratorsMixin pattern (CorruptMixin)
+// `@reflect` / `@entity` / `@partEntity` register each class in the type registry
+// (and trigger @field injection) so cross-references resolve by name.
 
-// ---- Entities (in Entities.cs declaration order) ---------------------------
-
-@reflect
+@entity(EntityKind.Shared, EntityData.Transactional)
+@mixin(() => [ColaboratorsMixin])
+//@mixin(() => [CorruptMixin])
+@primaryKey("uuid")
 export class NoteWithDateEntity extends Entity {
-    title: string | null;
+
+    @column({ nullable: true })
+    title: string;
+
+    @stringLengthValidator({ multiLine: true })
     text: string | null;
+
     @implementedByAll
     target: Entity;
+
     @implementedByAll
+    @column({ nullable: true })
     otherTarget: Lite<Entity> | null;
-    creationTime: Date;
+
+    creationTime: Temporal.PlainDateTime;
+
     creationDate: Temporal.PlainDate;
     releaseDate: Temporal.PlainDate | null;
-    // Signum's ColaboratorsMixin.Colaborators (MList<ArtistEntity>) → junction.
-    // NOT YET: Mixin(CorruptMixin) — the boolean corrupt flag.
-    @backReference((c: NoteWithDateEntity_Colaborators) => c.noteWithDate)
-    colaborators: NoteWithDateEntity_Colaborators[];
 
+    @quoted
     toString(): string {
-        return `${this.creationTime.toISOString()} -> ${this.title}`;
+        return `${this.creationTime.toString()} -> ${this.title}`;
     }
 }
 
-// Link rows for NoteWithDateEntity.colaborators (MList<ArtistEntity>).
 @reflect
+export class ColaboratorsMixin extends MixinEntity {
+    @include(() => NoteWithDateEntity_Colaborators)
+    colaborators: NoteWithDateEntity_Colaborators[];
+}
+
+// Link rows for NoteWithDateEntity.colaborators (MList<ArtistEntity>).
+@partEntity
 export class NoteWithDateEntity_Colaborators extends Entity {
-    @backreference
+    @backReference
     noteWithDate: Lite<NoteWithDateEntity>;
 
+    @valueField
     colaborator: Lite<ArtistEntity>;
 }
 
@@ -70,12 +87,12 @@ export class ArtistEntity extends Entity {
     status: Status | null;
     @implementedByAll
     lastAward: Entity | null;
-    // Signum's MList<Lite<ArtistEntity>> Friends → self many-to-many junction.
-    @backReference((f: ArtistEntity_Friends) => f.artist)
+    // Signum's MList<Lite<ArtistEntity>> Friends → self many-to-many part entity.
+    @include(() => ArtistEntity_Friends)
     friends: ArtistEntity_Friends[];
     // Signum's MList<AwardNominationEntity> Nominations is a *virtual* MList keyed
     // by AwardNominationEntity.author (an @implementedBy reference, so it can't be
-    // a plain @backReference here). Navigate it through AwardNominationEntity.
+    // a plain part entity here). Navigate it through AwardNominationEntity.
 
     toString(): string {
         return this.name;
@@ -83,11 +100,12 @@ export class ArtistEntity extends Entity {
 }
 
 // Self many-to-many link rows for ArtistEntity.friends (MList<Lite<ArtistEntity>>).
-@reflect
+@partEntity
 export class ArtistEntity_Friends extends Entity {
-    @backreference
+    @backReference
     artist: Lite<ArtistEntity>;
 
+    @valueField
     friend: Lite<ArtistEntity>;
 }
 
@@ -105,13 +123,13 @@ export enum Status {
 @reflect
 export class BandEntity extends Entity {
     name: string;
-    // Signum's MList<ArtistEntity> Members → band/member junction.
-    @backReference((m: BandEntity_Members) => m.band)
+    // Signum's MList<ArtistEntity> Members → band/member part entity.
+    @include(() => BandEntity_Members)
     members: BandEntity_Members[];
     @implementedBy(() => [GrammyAwardEntity, AmericanMusicAwardEntity])
     lastAward: Entity | null;
-    // Signum's MList<AwardEntity> OtherAwards → band/award junction.
-    @backReference((a: BandEntity_OtherAwards) => a.band)
+    // Signum's MList<AwardEntity> OtherAwards → band/award part entity.
+    @include(() => BandEntity_OtherAwards)
     otherAwards: BandEntity_OtherAwards[];
 
     toString(): string {
@@ -120,21 +138,23 @@ export class BandEntity extends Entity {
 }
 
 // Many-to-many link rows for BandEntity.members (MList<ArtistEntity>).
-@reflect
+@partEntity
 export class BandEntity_Members extends Entity {
-    @backreference
+    @backReference
     band: Lite<BandEntity>;
 
+    @valueField
     member: Lite<ArtistEntity>;
 }
 
 // Link rows for BandEntity.otherAwards (MList<AwardEntity>, polymorphic award).
-@reflect
+@partEntity
 export class BandEntity_OtherAwards extends Entity {
-    @backreference
+    @backReference
     band: Lite<BandEntity>;
 
     @implementedBy(() => [GrammyAwardEntity, AmericanMusicAwardEntity])
+    @valueField
     award: Lite<Entity>;
 }
 
@@ -188,8 +208,8 @@ export class AlbumEntity extends Entity {
     year: int;
     @implementedBy(() => [ArtistEntity, BandEntity])
     author: Entity;
-    // Signum's [PreserveOrder] MList<SongEmbedded> Songs → owned child rows.
-    @backReference((s: AlbumEntity_Songs) => s.album)
+    // Signum's [PreserveOrder] MList<SongEmbedded> Songs → owned part rows.
+    @include(() => AlbumEntity_Songs)
     songs: AlbumEntity_Songs[];
     bonusTrack: SongEmbedded | null; // single (nullable) embedded
     label: LabelEntity;
@@ -200,10 +220,11 @@ export class AlbumEntity extends Entity {
     }
 }
 
-// Owned child rows for AlbumEntity.songs (the per-row equivalent of SongEmbedded).
-@reflect
+// Owned child rows for AlbumEntity.songs (the per-row equivalent of SongEmbedded,
+// whose embedded fields are flattened in here).
+@partEntity
 export class AlbumEntity_Songs extends Entity {
-    @backreference
+    @backReference
     album: Lite<AlbumEntity>;
 
     @rowOrder
@@ -245,16 +266,16 @@ export class AwardNominationEntity extends Entity {
     award: Lite<Entity>;
     year: int;
     order: int;
-    // Signum's [PreserveOrder] MList<NominationPointEmbedded> Points → owned child rows.
-    @backReference((p: AwardNominationEntity_Points) => p.awardNomination)
+    // Signum's [PreserveOrder] MList<NominationPointEmbedded> Points → owned part rows.
+    @include(() => AwardNominationEntity_Points)
     points: AwardNominationEntity_Points[];
 }
 
 // Owned child rows for AwardNominationEntity.points. NominationPointEmbedded held
 // a single `Point` field, flattened in here.
-@reflect
+@partEntity
 export class AwardNominationEntity_Points extends Entity {
-    @backreference
+    @backReference
     awardNomination: Lite<AwardNominationEntity>;
 
     @rowOrder
@@ -266,9 +287,9 @@ export class AwardNominationEntity_Points extends Entity {
 @reflect
 export class ConfigEntity extends Entity {
     embeddedConfig: EmbeddedConfigEmbedded | null;
-    // Signum's EmbeddedConfig.Awards (MList<Lite<GrammyAwardEntity>>) → junction.
+    // Signum's EmbeddedConfig.Awards (MList<Lite<GrammyAwardEntity>>) → part entity.
     // An MList can't live inside an embedded here, so it hangs off ConfigEntity.
-    @backReference((a: ConfigEntity_Awards) => a.config)
+    @include(() => ConfigEntity_Awards)
     awards: ConfigEntity_Awards[];
 }
 
@@ -276,15 +297,16 @@ export class ConfigEntity extends Entity {
 export class EmbeddedConfigEmbedded extends EmbeddedEntity {
     defaultLabel: Lite<LabelEntity> | null;
     // Signum's MList<Lite<GrammyAwardEntity>> Awards is modelled as the
-    // ConfigEntity_Awards junction on ConfigEntity (see above).
+    // ConfigEntity_Awards part entity on ConfigEntity (see above).
 }
 
 // Link rows for ConfigEntity.awards (EmbeddedConfig.Awards MList).
-@reflect
+@partEntity
 export class ConfigEntity_Awards extends Entity {
-    @backreference
+    @backReference
     config: Lite<ConfigEntity>;
 
+    @valueField
     award: Lite<GrammyAwardEntity>;
 }
 

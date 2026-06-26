@@ -1,5 +1,5 @@
 import { Entity } from '../entities/entity';
-import type { EntityType, PrimaryKey } from '../entities/entity';
+import type { Type, PrimaryKey } from '../entities/entity';
 import { Lite } from '../entities/lite';
 import { Connector } from './connection/connector';
 import type { IColumn } from './schema/column';
@@ -34,7 +34,10 @@ import { SqlPreCommandSimple, SqlParameter } from './sync/sqlPreCommand';
 
 declare module '../entities/entity' {
     interface Entity {
-        save(): Promise<void>;
+        // Returns the saved entity so calls can be chained inline, mirroring
+        // Signum's `new XEntity { ... }.Execute(XOperation.Save)` returning the
+        // entity: `const band = await new BandEntity(...).save();`.
+        save(): Promise<this>;
     }
 }
 
@@ -43,9 +46,9 @@ interface ColumnValue {
     value: unknown;
 }
 
-Entity.prototype.save = async function (this: Entity): Promise<void> {
+Entity.prototype.save = async function (this: Entity): Promise<Entity> {
     const connector = Connector.current();
-    const table = connector.schema.table(this.constructor as EntityType);
+    const table = connector.schema.table(this.constructor as Type<Entity>);
     const assignments = collectAssignments(table, this);
 
     if (this.id == null) {
@@ -57,6 +60,8 @@ Entity.prototype.save = async function (this: Entity): Promise<void> {
     } else {
         await buildUpdate(table, assignments, this.id).executeNonQuery();
     }
+
+    return this;
 };
 
 // ---- Value extraction ------------------------------------------------------

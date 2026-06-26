@@ -356,6 +356,39 @@ export function getQuoteConverter(tsInstance: typeof ts2) {
             );
         }
 
+        // `text` with no substitutions → a plain string constant.
+        if (ts.isNoSubstitutionTemplateLiteral(node)) {
+            return ts.factory.createArrayLiteralExpression([
+                ts.factory.createStringLiteral("c"),
+                ts.factory.createStringLiteral(node.text),
+            ]);
+        }
+
+        // `head${e0}lit0${e1}lit1` → left-folded string concatenation:
+        // (((head + e0) + lit0) + e1) + lit1, skipping empty literal chunks.
+        if (ts.isTemplateExpression(node)) {
+            const constant = (text: string): ts2.Expression => ts.factory.createArrayLiteralExpression([
+                ts.factory.createStringLiteral("c"),
+                ts.factory.createStringLiteral(text),
+            ]);
+            const concat = (left: ts2.Expression, right: ts2.Expression): ts2.Expression => ts.factory.createArrayLiteralExpression([
+                ts.factory.createStringLiteral("+"),
+                left,
+                right,
+            ]);
+
+            let acc: ts2.Expression = constant(node.head.text);
+            for (const span of node.templateSpans) {
+                const part = quoteExpression(span.expression, idents);
+                if (part instanceof QuoteError)
+                    return part;
+                acc = concat(acc, part);
+                if (span.literal.text !== "")
+                    acc = concat(acc, constant(span.literal.text));
+            }
+            return acc;
+        }
+
         return new QuoteError(node, "Unable to quote " + ts.SyntaxKind[node.kind]);
     }
 }

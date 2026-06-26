@@ -1,4 +1,4 @@
-import type { EntityType } from '../../entities/entity';
+import type { Type, Entity } from '../../entities/entity';
 import { ObjectName } from './objectName';
 import { EntityField, FieldPrimaryKey, FieldTicks, FieldMixin } from './field';
 import type { IColumn } from './column';
@@ -15,7 +15,7 @@ export class Table {
     ticks?: FieldTicks;
 
     constructor(
-        public readonly type: EntityType,
+        public readonly type: Type<Entity>,
         name: ObjectName,
     ) {
         this.name = name;

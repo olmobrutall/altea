@@ -5,14 +5,14 @@ import { reflect } from './reflection';
 
 export type PrimaryKey = string | number;
 
-export type EntityType = new () => Entity;
+export type Type<T extends BaseEntity> = new () => T;
 
 export type InitValues<T> = Partial<{
     [K in keyof T as T[K] extends Function ? never : K]: T[K]
 }>;
 
 export abstract class BaseEntity {
-    mixin<M>(mixinClass: new () => M): M {
+    mixin<M extends BaseEntity>(mixinClass: Type<M>): M {
         return this as unknown as M;
     }
 
@@ -20,10 +20,14 @@ export abstract class BaseEntity {
     // The explicit `this` parameter binds to the concrete subclass constructor,
     // so the result is typed as that subclass (and abstract bases can't call it).
     // `InitValues` excludes method-typed properties from the accepted shape.
-    static create<T extends BaseEntity>(this: new () => T, values: InitValues<T>): T {
+    static create<T extends BaseEntity>(this: Type<T>, values: InitValues<T>): T {
         const instance = new this();
         Object.assign(instance, values);
         return instance;
+    }
+
+    static createMany<T extends BaseEntity>(this: Type<T>, valuesArray: InitValues<T>[]): T[] {
+        return valuesArray.map(values => (this as any).create(values) as T);
     }
 }
 
@@ -50,7 +54,7 @@ export abstract class Entity extends BaseEntity {
         if (!fat && this.id == null)
             throw new Error('toLite() is not allowed for new entities (no id yet), use toLiteFat() instead');
 
-        const type = this.constructor as new () => this;
+        const type = this.constructor as Type<this>;
         const constructor = getLiteModelConstructor(type);
         const lite = constructor != null
             ? constructor(this)
@@ -71,3 +75,9 @@ export abstract class Entity extends BaseEntity {
 export abstract class EmbeddedEntity extends BaseEntity { }
 
 export abstract class ModelEntity extends BaseEntity { }
+
+// Base for mixin classes (Signum's MixinEntity). A mixin contributes extra
+// fields to an owning entity; it is attached with @mixin(() => [TheMixin]) on
+// the entity and its fields are folded into the owner's table by the schema
+// builder.
+export abstract class MixinEntity extends BaseEntity { }

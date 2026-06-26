@@ -1,11 +1,19 @@
 
-import { getOrCreateTypeInfo, getOrCreateFieldInfo, registerType } from './reflection';
+import { getOrCreateTypeInfo, getOrCreateFieldInfo, registerType, FieldInfo } from './reflection';
+import type { PrimaryKeyType } from './reflection';
+import type { Type, Entity } from './entity';
+
+export type { PrimaryKeyType } from './reflection';
 
 export {
     stringLengthValidator, urlValidator, telephoneValidator,
     emailValidator, noRepeatValidator,
     customValidators as fieldValidation,
 } from './validators';
+
+// Re-exported so entity authors get @mixin from the same module as the other
+// entity decorators. Implementation lives in ./mixinDeclarations.
+export { mixin, MixinDeclarations } from './mixinDeclarations';
 
 export enum EntityKind {
     /** Detailed diagnostic information. */
@@ -25,7 +33,8 @@ export enum EntityData {
 }
 
 export interface EntityInfo {
-
+    kind?: EntityKind;
+    data?: EntityData;
 }
 
 const symbolWithMetadata = Symbol as any;
@@ -39,12 +48,49 @@ const allowUnauthenticatedKey = Symbol.for('altea:allowUnauthenticated');
 
 
 
-export function entity(options: EntityInfo = {}) {
-    return function (target: Function): void {
-        const metadata = (target as any)[metadataSymbol];
-        if (metadata != null)
-            metadata[entityInfoKey] = options;
+// Marks a class as a persistent entity. Like @reflect it creates reflection
+// metadata and registers the type (so the quote-transformer auto-injects @field
+// on its properties); additionally it records the EntityKind / EntityData.
+// `@entity()` (no args) is valid for the base Entity class.
+export function entity(kind?: EntityKind, data?: EntityData) {
+    return function (target: Function, context?: ClassDecoratorContext): void {
+        const metadata = context?.metadata ?? (target as any)[metadataSymbol];
+        if (metadata != null) {
+            metadata[entityInfoKey] = { kind, data } satisfies EntityInfo;
+            getOrCreateTypeInfo(metadata);
+        }
         registerType(target);
+    };
+}
+
+// A "part" entity: owned/embedded-style table (EntityKind.Part), e.g. the rows
+// that replace a Signum MList. Triggers the same @field injection as @entity.
+export function partEntity(target: Function, context: ClassDecoratorContext): void {
+    const metadata = context.metadata;
+    if (metadata != null) {
+        metadata[entityInfoKey] = { kind: EntityKind.Part, data: EntityData.Transactional } satisfies EntityInfo;
+        getOrCreateTypeInfo(metadata);
+    }
+    registerType(target);
+}
+
+// Sets the runtime type of the entity's primary key (Signum's
+// [PrimaryKey(typeof(...))]). Recorded on the implicit `id` field's
+// columnOptions and consumed by SchemaBuilder. Absent → schema default (int).
+export function primaryKey(type: PrimaryKeyType) {
+    return function (_target: Function, context: ClassDecoratorContext): void {
+        if (context.metadata == null)
+            return;
+        const typeInfo = getOrCreateTypeInfo(context.metadata);
+        // The base Entity's `id` FieldInfo is shallow-copied (by reference) into
+        // every subclass's TypeInfo, so it is SHARED. Replace it with an own copy
+        // before mutating, or @primaryKey on one entity would change all of them.
+        const inherited = typeInfo.fields['id'];
+        const fi = new FieldInfo('id');
+        if (inherited != null)
+            Object.assign(fi, inherited);
+        fi.columnOptions = { ...(fi.columnOptions ?? {}), primaryKey: type };
+        typeInfo.fields['id'] = fi;
     };
 }
 
@@ -92,17 +138,6 @@ export function include(arg1: unknown, arg2?: unknown): unknown {
     };
 }
 
-// Child-side marker (Altea's MList replacement): tags the FK field on a child
-// entity that points back to its owner, e.g. `@backreference album: Lite<AlbumEntity>`
-// inside `AlbumEntity_Songs`. The owner's collection still names this field via
-// `@backReference((c) => c.<thisField>)`; this marker records the inverse on the
-// child so the relationship is self-describing from either side.
-export function backreference(_value: undefined, context: ClassFieldDecoratorContext): void {
-    const key = String(context.name);
-    const typeInfo = getOrCreateTypeInfo(context.metadata!);
-    getOrCreateFieldInfo(typeInfo, key).isBackReference = true;
-}
-
 // Marks the int column that preserves MList row order (Signum's [PreserveOrder]).
 export function rowOrder(_value: undefined, context: ClassFieldDecoratorContext): void {
     const key = String(context.name);
@@ -110,11 +145,19 @@ export function rowOrder(_value: undefined, context: ClassFieldDecoratorContext)
     getOrCreateFieldInfo(typeInfo, key).isRowOrder = true;
 }
 
-export function implementedBy(types: () => (new () => unknown)[]) {
+// Marks the element-value field of a non-embedded MList row (the scalar /
+// reference the MList<T> held), e.g. `@valueField colaborator: Lite<ArtistEntity>`.
+export function valueField(_value: undefined, context: ClassFieldDecoratorContext): void {
+    const key = String(context.name);
+    const typeInfo = getOrCreateTypeInfo(context.metadata!);
+    getOrCreateFieldInfo(typeInfo, key).isValueField = true;
+}
+
+export function implementedBy(types: () => Type<Entity>[]) {
     return function (_value: undefined, context: ClassFieldDecoratorContext): void {
         const key = String(context.name);
         const typeInfo = getOrCreateTypeInfo(context.metadata!);
-        getOrCreateFieldInfo(typeInfo, key).implementations = { kind: 'implementedBy', types: types() };
+        getOrCreateFieldInfo(typeInfo, key).implementations = { kind: 'implementedBy', types };
     };
 }
 
@@ -124,34 +167,14 @@ export function implementedByAll(_value: undefined, context: ClassFieldDecorator
     getOrCreateFieldInfo(typeInfo, key).implementations = { kind: 'implementedByAll' };
 }
 
-// Invokes the selector against a recording Proxy to capture the accessed
-// property name, e.g. `(c) => c.order` yields "order". Lets @backReference take
-// a type-checked lambda instead of a magic string.
-function capturePropertyName<C>(selector: (c: C) => unknown): string {
-    let captured: string | undefined;
-    const proxy = new Proxy({}, {
-        get(_target, prop): unknown {
-            captured = String(prop);
-            return undefined;
-        },
-    });
-    selector(proxy as C);
-    if (captured == null)
-        throw new Error('@backReference selector must access a property, e.g. (c) => c.parent');
-    return captured;
-}
-
-// Marks a `ChildEntity[]` field as a back-reference array (Altea's MList
-// replacement). The selector names the FK property on the child that points
-// back to this parent. By default the array is an owned aggregate
-// (`cascade: true`): saved and deleted together with the parent.
-export function backReference<C>(fkSelector: (child: C) => unknown, options: { cascade?: boolean } = {}) {
-    return function (_value: undefined, context: ClassFieldDecoratorContext): void {
-        const key = String(context.name);
-        const typeInfo = getOrCreateTypeInfo(context.metadata!);
-        getOrCreateFieldInfo(typeInfo, key).backReference = {
-            childFkProperty: capturePropertyName(fkSelector),
-            cascade: options.cascade ?? true,
-        };
-    };
+// Child-side marker (Altea's MList replacement): tags the single FK field on a
+// part entity that points back to its owner, e.g. `@backReference album: Lite<AlbumEntity>`
+// inside `AlbumEntity_Songs`. The owner declares the collection with
+// `@include(() => AlbumEntity_Songs)`; the SchemaBuilder finds this marked field
+// as the back-pointing FK, so the relationship is described from both sides
+// without repeating the property name.
+export function backReference(_value: undefined, context: ClassFieldDecoratorContext): void {
+    const key = String(context.name);
+    const typeInfo = getOrCreateTypeInfo(context.metadata!);
+    getOrCreateFieldInfo(typeInfo, key).isBackReference = true;
 }

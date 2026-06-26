@@ -1,3 +1,5 @@
+import type { PrimaryKeyType } from '../../entities/reflection';
+
 // Whether a column accepts NULL. `Forced` mirrors Signum: the object-model
 // property is non-null, but the column is nullable in the DB because it lives
 // under a nullable embedded (so the whole group can be absent).
@@ -42,7 +44,9 @@ export function defaultDbType(typeName: string, kind: string | undefined): Abstr
         case 'String': return new AbstractDbType('nvarchar', 'varchar');
         case 'Boolean': return new AbstractDbType('bit', 'bool');
         case 'Number': return new AbstractDbType('float', 'float8');
-        case 'Date': return new AbstractDbType('datetime2', 'timestamptz');
+        // JS `Date` is intentionally unsupported — model temporal columns with
+        // Temporal.PlainDateTime / PlainDate / Instant instead. The SchemaBuilder
+        // raises a clear error if a Date-typed field is included.
         case 'Decimal': return new AbstractDbType('decimal', 'numeric');
         // Temporal.* — keyed by the rightmost name the transformer emits.
         case 'PlainDate': return new AbstractDbType('date', 'date');
@@ -54,4 +58,15 @@ export function defaultDbType(typeName: string, kind: string | undefined): Abstr
     }
 
     return undefined;
+}
+
+// DB type for a primary key, from its declared PrimaryKeyType (@primaryKey).
+// uuid / uuid7 share storage (GUID); they differ only in value generation.
+export function primaryKeyDbType(type: PrimaryKeyType): AbstractDbType {
+    switch (type) {
+        case 'int': return new AbstractDbType('int', 'int4');
+        case 'long': return new AbstractDbType('bigint', 'int8');
+        case 'uuid':
+        case 'uuid7': return new AbstractDbType('uniqueidentifier', 'uuid');
+    }
 }

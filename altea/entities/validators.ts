@@ -35,6 +35,7 @@ export interface StringLengthOptions {
     min?: number;
     max?: number;
     allowNulls?: boolean;
+    multiLine?: boolean;
 }
 
 export function stringLengthValidator(options: StringLengthOptions = {}) {

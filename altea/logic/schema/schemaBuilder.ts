@@ -1,8 +1,8 @@
 import { Entity, EmbeddedEntity } from '../../entities/entity';
-import type { EntityType } from '../../entities/entity';
+import type { Type } from '../../entities/entity';
 import { MixinDeclarations } from '../../entities/mixinDeclarations';
 import { getTypeInfo, resolveType, FieldInfo } from '../../entities/reflection';
-import { AbstractDbType, IsNullable, defaultDbType } from './dbType';
+import { AbstractDbType, IsNullable, defaultDbType, primaryKeyDbType } from './dbType';
 import {
     PrimaryKeyColumn,
     ValueColumn,
@@ -34,7 +34,7 @@ import { Table } from './table';
 // Entity base fields handled specially (id, ticks) or excluded from the schema.
 const RESERVED_FIELDS = new Set(['id', 'ticks', 'isNew', '_snapshot']);
 
-function isEntityCtor(t: unknown): t is EntityType {
+function isEntityCtor(t: unknown): t is Type<Entity> {
     return typeof t === 'function' && (t === Entity || (t as { prototype?: unknown }).prototype instanceof Entity);
 }
 
@@ -56,7 +56,7 @@ export class SchemaSettings {
     primaryKeyDbType: AbstractDbType = new AbstractDbType('int', 'int4');
     ticksDbType: AbstractDbType = new AbstractDbType('bigint', 'int8');
 
-    tableName(type: EntityType): string {
+    tableName(type: Type<Entity>): string {
         return cleanTypeName(type);
     }
 }
@@ -69,8 +69,8 @@ export class SchemaBuilder {
 
     constructor(public readonly settings: SchemaSettings = new SchemaSettings()) { }
 
-    include<T extends Entity>(type: new () => T): Table {
-        const entityType = type as unknown as EntityType;
+    include<T extends Entity>(type: Type<T>): Table {
+        const entityType = type as unknown as Type<Entity>;
         const existing = this.schema.tables.get(entityType);
         if (existing != null)
             return existing;
@@ -92,20 +92,28 @@ export class SchemaBuilder {
     // Validates cross-table back-references once every table is present. Call
     // after the final include().
     complete(): void {
-        for (const table of this.schema.tables.values())
+        for (const table of this.schema.tables.values()) {
             for (const ef of Object.values(table.fields))
                 if (ef.field instanceof FieldEntityArray)
                     this.validateEntityArray(table, ef.field, ef.fieldInfo);
+            for (const mixin of Object.values(table.mixins))
+                for (const ef of Object.values(mixin.fields))
+                    if (ef.field instanceof FieldEntityArray)
+                        this.validateEntityArray(table, ef.field, ef.fieldInfo);
+        }
     }
 
-    private completeTable(table: Table, type: new () => Entity): void {
+    private completeTable(table: Table, type: Type<Entity>): void {
         const typeInfo = getTypeInfo(type);
         if (typeInfo == null)
             throw new Error(`Type '${type.name}' has no reflection metadata. Is it decorated with @entity?`);
 
         // Primary key + ticks first, so FK columns can read the PK db type.
         const idInfo = typeInfo.fields['id'] ?? new FieldInfo('id');
-        const pk = new FieldPrimaryKey(new PrimaryKeyColumn('id', this.settings.primaryKeyDbType, true));
+        const pkDbType = idInfo.columnOptions?.primaryKey != null
+            ? primaryKeyDbType(idInfo.columnOptions.primaryKey)
+            : this.settings.primaryKeyDbType;
+        const pk = new FieldPrimaryKey(new PrimaryKeyColumn('id', pkDbType, true));
         table.primaryKey = pk;
         table.fields['id'] = new EntityField(idInfo, pk, makeGetter('id'));
 
@@ -123,7 +131,7 @@ export class SchemaBuilder {
         }
 
         for (const mixinCtor of MixinDeclarations.getMixins(type)) {
-            const mixinInfo = getTypeInfo(mixinCtor as new () => unknown);
+            const mixinInfo = getTypeInfo(mixinCtor);
             if (mixinInfo == null)
                 continue;
             const mixinFields: { [name: string]: EntityField } = {};
@@ -149,14 +157,20 @@ export class SchemaBuilder {
         const elementType = this.resolveFieldType(fi);
         const nullable = fi.isNullable === true ? IsNullable.Yes : IsNullable.No;
 
-        // Arrays — only `ChildEntity[]` with @backReference is supported.
+        // Arrays — only `PartEntity[]` referenced with @include(() => Part) is
+        // supported (Altea's MList replacement). The part entity marks its
+        // back-pointing FK with a bare @backReference; we locate that field here.
         if (isArray) {
             if (!isEntityCtor(elementType))
-                throw new Error(`Field '${fi.name}' on ${table.type.name}: collections of non-entity types are not supported (no MList). Model the collection as a child entity referenced with @backReference.`);
-            if (fi.backReference == null)
-                throw new Error(`Entity array '${fi.name}' on ${table.type.name} requires @backReference((c) => c.<fk>) naming the child's back-pointing FK property.`);
+                throw new Error(`Field '${fi.name}' on ${table.type.name}: collections of non-entity types are not supported (no MList). Model the collection as a part entity referenced with @include(() => Child).`);
             this.include(elementType);
-            return new FieldEntityArray(elementType, fi.backReference.childFkProperty, fi.backReference.cascade);
+            const childInfo = getTypeInfo(elementType as object);
+            const fkEntry = childInfo == null
+                ? undefined
+                : Object.entries(childInfo.fields).find(([, f]) => f.isBackReference);
+            if (fkEntry == null)
+                throw new Error(`Part entity ${(elementType as Function).name} (array '${fi.name}' on ${table.type.name}) must mark its owner FK with @backReference.`);
+            return new FieldEntityArray(elementType, fkEntry[0], true);
         }
 
         // Polymorphic references.
@@ -166,8 +180,8 @@ export class SchemaBuilder {
                 const typeColumn = new ImplementedByAllTypeColumn(preName.add(`${fi.name}Type`).toString(), this.settings.primaryKeyDbType);
                 return new FieldImplementedByAll(idColumn, typeColumn, isLite);
             }
-            const columns = fi.implementations.types.map(implType => {
-                const refTable = this.include(implType as EntityType);
+            const columns = fi.implementations.types().map(implType => {
+                const refTable = this.include(implType);
                 const colName = preName.add(`${fi.name}_${cleanTypeName(implType as { name: string })}Id`).toString();
                 return new ImplementationColumn(colName, refTable, isLite);
             });
@@ -193,6 +207,10 @@ export class SchemaBuilder {
             const column = new ValueColumn(preName.add(this.columnName(fi)).toString(), dbType, nullable, fi.columnOptions?.size, fi.columnOptions?.precision);
             return new FieldEnum(column);
         }
+
+        // JS Date is intentionally unsupported — use Temporal types instead.
+        if (fi.typeName === 'Date')
+            throw new Error(`Field '${fi.name}' on ${table.type.name}: JS Date is not supported. Use Temporal.PlainDateTime / PlainDate / Instant instead.`);
 
         // Scalar value.
         const dbType = this.resolveValueDbType(fi);

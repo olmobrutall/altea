@@ -1,4 +1,4 @@
-import type { EntityType } from '../../entities/entity';
+import type { Type, Entity } from '../../entities/entity';
 import type { FieldInfo } from '../../entities/reflection';
 import {
     IColumn,
@@ -138,7 +138,7 @@ export class FieldMixin extends Field {
 // owned aggregate part (save/delete with the parent); enforced in milestone C.
 export class FieldEntityArray extends Field {
     constructor(
-        public readonly childType: EntityType,
+        public readonly childType: Type<Entity>,
         public readonly childFkProperty: string,
         public readonly cascade: boolean,
     ) {

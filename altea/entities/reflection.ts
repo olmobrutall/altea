@@ -1,5 +1,11 @@
 
 import { DescriptionManager } from './utils/localization';
+import type { Type, Entity } from './entity';
+
+// The runtime type of a primary key. `int`/`long` are identity-style integers;
+// `uuid`/`uuid7` are GUID columns (uuid7 is time-ordered). Maps to an
+// AbstractDbType in logic/schema/dbType.
+export type PrimaryKeyType = 'uuid' | 'uuid7' | 'int' | 'long';
 
 // ColumnOptions lives here (shared) so logic/schema.ts can import it without
 // the entities package depending on server-only code.
@@ -12,21 +18,17 @@ export interface ColumnOptions {
     ignored?: boolean;
     size?: number;
     precision?: number;
+    // Set by @primaryKey on the entity's `id` field: overrides the schema's
+    // default PK db type.
+    primaryKey?: PrimaryKeyType;
 }
 
 export type ImplementationsInfo =
-    | { kind: 'implementedBy'; types: (new () => unknown)[] }
+    // `types` is the user's thunk, evaluated lazily (at schema-build time) so it
+    // can reference entity classes declared later in the file without hitting a
+    // temporal-dead-zone error — same rationale as @include.
+    | { kind: 'implementedBy'; types: () => Type<Entity>[] }
     | { kind: 'implementedByAll' };
-
-// Set by @backReference on a `ChildEntity[]` field. `childFkProperty` is the
-// name of the FK property on the child that points back to this parent;
-// `cascade` marks the array as an owned aggregate part (saved/deleted with the
-// parent).
-export interface BackReferenceInfo {
-    childFkProperty: string;
-    cascade: boolean;
-}
-
 
 export interface FieldOptions {
     // The runtime type's *name* (e.g. "CustomerEntity", "Number", "Date") rather
@@ -62,13 +64,16 @@ export class FieldInfo {
     // `true` means a bare @include that defers to a sibling @implementedBy.
     include?: (() => unknown) | boolean;
     implementations?: ImplementationsInfo;
-    backReference?: BackReferenceInfo;
-    // Set by the child-side @backreference marker: this FK field points back to
-    // the owner entity (the per-row equivalent of a Signum MList element).
+    // Set by the child-side @backReference marker (bare): this FK field points
+    // back to the owner entity. The owner's collection (@include(() => Child))
+    // finds it as the back-pointing FK. Per-row equivalent of an MList element.
     isBackReference?: boolean;
     // Set by @rowOrder: this int column preserves MList row order (Signum's
     // [PreserveOrder]).
     isRowOrder?: boolean;
+    // Set by @valueField: this field holds the element value of a non-embedded
+    // MList row (the scalar/reference the MList<T> stored).
+    isValueField?: boolean;
     columnOptions?: ColumnOptions;
 
     validators: Validator[] = [];

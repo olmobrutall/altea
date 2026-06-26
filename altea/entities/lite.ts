@@ -1,9 +1,9 @@
 
-import type { Entity, EntityType, PrimaryKey } from './entity';
+import type { Entity, Type, PrimaryKey } from './entity';
 
 export abstract class Lite<out T extends Entity> {
     abstract readonly id: PrimaryKey;
-    abstract readonly entityType: new () => T;
+    abstract readonly entityType: Type<T>;
     abstract toString(): string;
 
     // Stored loosely (as Entity, not T) so the public accessors below can stay
@@ -63,7 +63,7 @@ export abstract class Lite<out T extends Entity> {
 export class LiteImp<T extends Entity> extends Lite<T> {
     constructor(
         readonly id: PrimaryKey,
-        readonly entityType: new () => T,
+        readonly entityType: Type<T>,
         readonly toStr: string,
     ) {
         super();
@@ -74,7 +74,7 @@ export class LiteImp<T extends Entity> extends Lite<T> {
     }
 }
 
-const liteModelConstructors = new Map<EntityType, (entity: Entity) => Lite<Entity>>();
+const liteModelConstructors = new Map<Type<Entity>, (entity: Entity) => Lite<Entity>>();
 
 /**
  * Registers the constructor used by `Entity.toLite()` to build the lite (and
@@ -99,7 +99,7 @@ const liteModelConstructors = new Map<EntityType, (entity: Entity) => Lite<Entit
  * {@link LiteImp} whose model is just the `toString()`.
  */
 export function registerLiteModelConstructor<T extends Entity>(
-    entityType: new () => T,
+    entityType: Type<T>,
     constructor: (entity: T) => Lite<T>,
 ): void {
     liteModelConstructors.set(entityType, constructor as unknown as (entity: Entity) => Lite<Entity>);
@@ -107,7 +107,7 @@ export function registerLiteModelConstructor<T extends Entity>(
 
 /** Returns the registered constructor for an entity type, if any. */
 export function getLiteModelConstructor<T extends Entity>(
-    entityType: new () => T,
+    entityType: Type<T>,
 ): ((entity: T) => Lite<T>) | undefined {
     return liteModelConstructors.get(entityType) as ((entity: T) => Lite<T>) | undefined;
 }

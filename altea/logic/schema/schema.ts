@@ -1,4 +1,4 @@
-import type { Entity, EntityType } from '../../entities/entity';
+import type { Entity, Type } from '../../entities/entity';
 import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
 import { installDefaultGenerating } from '../sync/schemaGenerator';
 import type { Table } from './table';
@@ -11,9 +11,9 @@ export type GeneratingHandler = () => SqlPreCommand | undefined;
 // for query/serialization lookups. Built by SchemaBuilder. (EntityEvents and
 // other runtime hooks are deferred to the save/query milestone.)
 export class Schema {
-    readonly tables = new Map<EntityType, Table>();
-    readonly nameToType = new Map<string, EntityType>();
-    readonly typeToName = new Map<EntityType, string>();
+    readonly tables = new Map<Type<Entity>, Table>();
+    readonly nameToType = new Map<string, Type<Entity>>();
+    readonly typeToName = new Map<Type<Entity>, string>();
 
     // Generation event chain (mirrors Signum's Schema.Generating). Seeded with
     // the default schema/table/FK steps; apps may push more (e.g. seed data).
@@ -30,14 +30,14 @@ export class Schema {
         return SqlPreCommand.combine(Spacing.Triple, ...this.generating.map(h => h()));
     }
 
-    table<T extends Entity>(type: new () => T): Table {
-        const table = this.tables.get(type as unknown as EntityType);
+    table<T extends Entity>(type: Type<T>): Table {
+        const table = this.tables.get(type as unknown as Type<Entity>);
         if (table == null)
             throw new Error(`Type '${type.name}' is not included in the schema`);
         return table;
     }
 
-    tryTable(type: EntityType): Table | undefined {
+    tryTable(type: Type<Entity>): Table | undefined {
         return this.tables.get(type);
     }
 }

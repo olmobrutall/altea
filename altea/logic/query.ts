@@ -27,7 +27,20 @@ export function getResultTypeResolver(target: object, key: string): ResultTypeRe
     return fn?.__resultType;
 }
 
-export function quoted(exp?: () => ExLambda) {
+// Two call shapes:
+//   @quoted        — bare. The quote-transformer rewrites it to @quoted(() => <expr>)
+//                    before emit, so this overload exists only so the bare form
+//                    type-checks as a method decorator.
+//   @quoted(exp)   — the rewritten/explicit form the transformer produces.
+export function quoted(value: Function, context: ClassMethodDecoratorContext): void;
+export function quoted(exp?: () => ExLambda): (value: any, context: ClassMethodDecoratorContext) => any;
+export function quoted(expOrValue?: unknown, maybeContext?: ClassMethodDecoratorContext): unknown {
+    // Bare @quoted reaching runtime means the transformer did not rewrite it.
+    if (maybeContext != null && typeof maybeContext === "object" && "kind" in maybeContext) {
+        throw new Error(`Unable to add the quoted expression to "${String(maybeContext.name)}". Are you using ts-patch and quote-transformer?`);
+    }
+
+    const exp = expOrValue as (() => ExLambda) | undefined;
     return function (value: any, context: ClassMethodDecoratorContext) {
 
         if (context.kind !== "method")

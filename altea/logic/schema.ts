@@ -31,6 +31,12 @@ export function column(options: ColumnOptions = {}) {
         const typeInfo = getOrCreateTypeInfo(context.metadata);
         const existing = getOrCreateFieldInfo(typeInfo, key);
         existing.columnOptions = normalizedOptions;
+        // Mirror an explicit nullable into the field's nullability so the column
+        // is generated NULL even when the TS type isn't `| null` (Signum's
+        // ForceNullable). Auto-@field never sets nullable for a non-null type, so
+        // this is the authoritative source for those.
+        if (options.nullable != null)
+            existing.isNullable = options.nullable;
         typeInfo.fields[key] = existing;
     };
 }
