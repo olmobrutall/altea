@@ -2,11 +2,45 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Schema } from '../schema/schema';
 import { SqlBuilder } from '../sync/sqlBuilder';
 import type { SqlPreCommand, SqlPreCommandSimple } from '../sync/sqlPreCommand';
+import { currentCoreTransaction } from './transaction';
 
 // Ambient holder for the active connector. Connectors are server-only, so this
 // uses node's AsyncLocalStorage directly rather than the browser/server-agnostic
 // Statics context abstraction.
 const connectorStorage = new AsyncLocalStorage<Connector>();
+
+// Transaction isolation levels, dialect-neutral. Mapped to the driver's own
+// constants by each ConnectionHandle. `Snapshot` is SQL Server only.
+export type IsolationLevel =
+    | 'ReadUncommitted'
+    | 'ReadCommitted'
+    | 'RepeatableRead'
+    | 'Serializable'
+    | 'Snapshot';
+
+// A pinned connection (optionally with an open database transaction) that
+// statements execute against — the dialect-neutral role ADO.NET fills with
+// DbConnection + DbTransaction. Created by Connector.openConnection() and owned
+// by a Transaction's core for its lifetime. This is what lets every
+// executeNonQuery/executeQuery inside a Transaction run on the *same* physical
+// connection, instead of an arbitrary one from the pool.
+export interface ConnectionHandle {
+    // Opens a real database transaction on this connection. Skipped by
+    // Transaction.none (autocommit). Optional isolation overrides the default.
+    beginTransaction(isolation?: IsolationLevel): Promise<void>;
+    // Commits / rolls back the transaction opened by beginTransaction. No-op if
+    // none was opened (none/autocommit mode).
+    commit(): Promise<void>;
+    rollback(): Promise<void>;
+    // Savepoints, for nested Transaction.namedSavePoint inside a real transaction.
+    saveSavePoint(name: string): Promise<void>;
+    rollbackToSavePoint(name: string): Promise<void>;
+    // Runs a statement on this pinned connection.
+    executeNonQuery(sql: string, parameters?: unknown[]): Promise<number>;
+    executeQuery(sql: string, parameters?: unknown[]): Promise<unknown[]>;
+    // Returns the connection to the pool / closes it.
+    dispose(): Promise<void>;
+}
 
 // Binds a Schema to a concrete database: owns the dialect-specific SqlBuilder,
 // exposes the dialect flag + identifier-length limit it needs, and executes
@@ -61,12 +95,43 @@ export abstract class Connector {
     // Both take raw SQL + positional parameters. The ergonomic entry points are
     // SqlPreCommand.executeNonQuery() / .executeQuery(), which read the SQL and
     // parameters off the command and dispatch to the *current* connector.
-
+    //
     // Runs a single statement, returning the affected row count.
-    abstract executeNonQuery(sql: string, parameters?: unknown[]): Promise<number>;
+    executeNonQuery(sql: string, parameters: unknown[] = []): Promise<number> {
+        return this.ensureConnection(handle => handle.executeNonQuery(sql, parameters));
+    }
 
     // Runs a query and returns its rows.
-    abstract executeQuery(sql: string, parameters?: unknown[]): Promise<unknown[]>;
+    executeQuery(sql: string, parameters: unknown[] = []): Promise<unknown[]> {
+        return this.ensureConnection(handle => handle.executeQuery(sql, parameters));
+    }
+
+    // Decides which connection an action runs on — the analog of Signum's
+    // EnsureConnectionRetry. When a Transaction is active for this connector, the
+    // action runs on its pinned connection; otherwise it runs on a throwaway
+    // connection opened just for this call. (This is where transient-fault retry
+    // would wrap the no-transaction branch, as SqlServerRetry.Retry does.)
+    protected async ensureConnection<T>(action: (handle: ConnectionHandle) => Promise<T>): Promise<T> {
+        const core = currentCoreTransaction(this);
+        if (core != null) {
+            await core.start();
+            return action(core.connectionHandle());
+        }
+
+        const handle = await this.openConnection();
+        try {
+            return await action(handle);
+        } finally {
+            await handle.dispose();
+        }
+    }
+
+    // ---- Driver primitive ---------------------------------------------------
+
+    // Pins a dedicated connection from the pool. Owned by a Transaction's core for
+    // its lifetime, or opened-and-disposed per statement by ensureConnection when
+    // no transaction is active.
+    abstract openConnection(): Promise<ConnectionHandle>;
 
     // Releases the underlying connection/pool.
     abstract closeConnection(): Promise<void>;

@@ -4,10 +4,79 @@
 // `node`. The same name is imported type-only for annotations.
 import mssql from 'mssql';
 import type { config as MssqlConfig } from 'mssql';
-const { ConnectionPool } = mssql;
+const { ConnectionPool, Transaction: MssqlTransaction, Request: MssqlRequest, ISOLATION_LEVEL } = mssql;
 type ConnectionPool = InstanceType<typeof ConnectionPool>;
+type MssqlTransaction = InstanceType<typeof MssqlTransaction>;
 import type { Schema } from '../schema/schema';
 import { Connector } from './connector';
+import type { ConnectionHandle, IsolationLevel } from './connector';
+
+// Maps a dialect-neutral isolation level to mssql's numeric constant.
+function mssqlIsolation(isolation: IsolationLevel): number {
+    switch (isolation) {
+        case 'ReadUncommitted': return ISOLATION_LEVEL.READ_UNCOMMITTED;
+        case 'ReadCommitted': return ISOLATION_LEVEL.READ_COMMITTED;
+        case 'RepeatableRead': return ISOLATION_LEVEL.REPEATABLE_READ;
+        case 'Serializable': return ISOLATION_LEVEL.SERIALIZABLE;
+        case 'Snapshot': return ISOLATION_LEVEL.SNAPSHOT;
+    }
+}
+
+// A connection pinned for a Transaction's lifetime. When a database transaction
+// is opened it runs through an mssql Transaction (and Requests bound to it);
+// otherwise (Transaction.none/autocommit) it falls back to pool requests.
+class SqlServerConnectionHandle implements ConnectionHandle {
+    private tx: MssqlTransaction | undefined;
+
+    constructor(private readonly pool: ConnectionPool) {}
+
+    async beginTransaction(isolation?: IsolationLevel): Promise<void> {
+        this.tx = new MssqlTransaction(this.pool);
+        await this.tx.begin(isolation != null ? mssqlIsolation(isolation) : undefined);
+    }
+
+    async commit(): Promise<void> {
+        if (this.tx != null) await this.tx.commit();
+    }
+
+    async rollback(): Promise<void> {
+        if (this.tx != null) await this.tx.rollback();
+    }
+
+    async saveSavePoint(name: string): Promise<void> {
+        await this.request().batch(`SAVE TRANSACTION ${name}`);
+    }
+
+    async rollbackToSavePoint(name: string): Promise<void> {
+        await this.request().batch(`ROLLBACK TRANSACTION ${name}`);
+    }
+
+    async executeNonQuery(sql: string, parameters: unknown[] = []): Promise<number> {
+        const req = this.request();
+        parameters.forEach((p, i) => req.input(`p${i}`, p));
+        // Parameterless statements go through batch() so standalone-batch DDL runs;
+        // parameterized statements must use query(). Mirrors poolExecuteNonQuery.
+        const res = parameters.length === 0 ? await req.batch(sql) : await req.query(sql);
+        return (res.rowsAffected ?? []).reduce((a, b) => a + b, 0);
+    }
+
+    async executeQuery(sql: string, parameters: unknown[] = []): Promise<unknown[]> {
+        const req = this.request();
+        parameters.forEach((p, i) => req.input(`p${i}`, p));
+        const res = await req.query(sql);
+        return res.recordset ?? [];
+    }
+
+    async dispose(): Promise<void> {
+        // The mssql Transaction releases its pooled connection on commit/rollback;
+        // just drop the reference so a stray statement can't reuse it.
+        this.tx = undefined;
+    }
+
+    private request() {
+        return this.tx != null ? new MssqlRequest(this.tx) : this.pool.request();
+    }
+}
 
 // SQL Server connector. Dialect: SqlServer column types, [bracket] escaping,
 // 128-char identifier limit, IDENTITY columns, clustered PKs. Executes through a
@@ -35,22 +104,8 @@ export class SqlServerConnector extends Connector {
         return pool;
     }
 
-    async executeNonQuery(sql: string, parameters: unknown[] = []): Promise<number> {
-        const pool = await this.getPool();
-        const req = pool.request();
-        parameters.forEach((p, i) => req.input(`p${i}`, p));
-        // With no parameters, use batch() (not query()) so standalone-batch DDL
-        // like CREATE SCHEMA runs; parameterized statements must go through query().
-        const res = parameters.length === 0 ? await req.batch(sql) : await req.query(sql);
-        return (res.rowsAffected ?? []).reduce((a, b) => a + b, 0);
-    }
-
-    async executeQuery(sql: string, parameters: unknown[] = []): Promise<unknown[]> {
-        const pool = await this.getPool();
-        const req = pool.request();
-        parameters.forEach((p, i) => req.input(`p${i}`, p));
-        const res = await req.query(sql);
-        return res.recordset ?? [];
+    async openConnection(): Promise<ConnectionHandle> {
+        return new SqlServerConnectionHandle(await this.getPool());
     }
 
     async closeConnection(): Promise<void> {

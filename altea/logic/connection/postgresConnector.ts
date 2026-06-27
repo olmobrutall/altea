@@ -1,7 +1,60 @@
 import { Pool } from 'pg';
-import type { PoolConfig } from 'pg';
+import type { PoolConfig, PoolClient } from 'pg';
 import type { Schema } from '../schema/schema';
 import { Connector } from './connector';
+import type { ConnectionHandle, IsolationLevel } from './connector';
+
+// Maps a dialect-neutral isolation level to a Postgres BEGIN clause.
+function pgIsolation(isolation: IsolationLevel): string {
+    switch (isolation) {
+        case 'ReadUncommitted': return 'READ UNCOMMITTED';
+        case 'ReadCommitted': return 'READ COMMITTED';
+        case 'RepeatableRead': return 'REPEATABLE READ';
+        case 'Serializable': return 'SERIALIZABLE';
+        case 'Snapshot':
+            throw new Error('Snapshot isolation is not supported by PostgreSQL; use RepeatableRead or Serializable.');
+    }
+}
+
+// A pg client checked out of the pool and pinned for a Transaction's lifetime.
+// Savepoint names are validated by the caller (Transaction.namedSavePoint).
+class PostgresConnectionHandle implements ConnectionHandle {
+    constructor(private readonly client: PoolClient) {}
+
+    async beginTransaction(isolation?: IsolationLevel): Promise<void> {
+        await this.client.query(isolation != null ? `BEGIN ISOLATION LEVEL ${pgIsolation(isolation)}` : 'BEGIN');
+    }
+
+    async commit(): Promise<void> {
+        await this.client.query('COMMIT');
+    }
+
+    async rollback(): Promise<void> {
+        await this.client.query('ROLLBACK');
+    }
+
+    async saveSavePoint(name: string): Promise<void> {
+        await this.client.query(`SAVEPOINT ${name}`);
+    }
+
+    async rollbackToSavePoint(name: string): Promise<void> {
+        await this.client.query(`ROLLBACK TO SAVEPOINT ${name}`);
+    }
+
+    async executeNonQuery(sql: string, parameters: unknown[] = []): Promise<number> {
+        const res = await this.client.query(sql, parameters);
+        return res.rowCount ?? 0;
+    }
+
+    async executeQuery(sql: string, parameters: unknown[] = []): Promise<unknown[]> {
+        const res = await this.client.query(sql, parameters);
+        return res.rows;
+    }
+
+    async dispose(): Promise<void> {
+        this.client.release();
+    }
+}
 
 // PostgreSQL connector. Dialect: postgres column types, double-quote escaping,
 // 63-char identifier limit. Executes through a lazily-created `pg` pool.
@@ -18,14 +71,8 @@ export class PostgresConnector extends Connector {
         ));
     }
 
-    async executeNonQuery(sql: string, parameters: unknown[] = []): Promise<number> {
-        const res = await this.getPool().query(sql, parameters);
-        return res.rowCount ?? 0;
-    }
-
-    async executeQuery(sql: string, parameters: unknown[] = []): Promise<unknown[]> {
-        const res = await this.getPool().query(sql, parameters as unknown[]);
-        return res.rows;
+    async openConnection(): Promise<ConnectionHandle> {
+        return new PostgresConnectionHandle(await this.getPool().connect());
     }
 
     async closeConnection(): Promise<void> {
