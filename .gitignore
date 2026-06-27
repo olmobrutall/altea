@@ -4,3 +4,8 @@ dist/
 *.js.map
 *.tsbuildinfo
 .DS_Store
+
+# Local-only DB credentials — never commit
+.env
+.env.*
+!.env.example

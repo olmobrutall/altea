@@ -1,5 +1,11 @@
-import { ConnectionPool } from 'mssql';
+// `mssql` is CommonJS and exposes ConnectionPool only on its default export
+// under native ESM (named imports resolve to undefined outside a bundler), so
+// pull the value off the default to stay runnable under both Vite and plain
+// `node`. The same name is imported type-only for annotations.
+import mssql from 'mssql';
 import type { config as MssqlConfig } from 'mssql';
+const { ConnectionPool } = mssql;
+type ConnectionPool = InstanceType<typeof ConnectionPool>;
 import type { Schema } from '../schema/schema';
 import { Connector } from './connector';
 
@@ -51,5 +57,111 @@ export class SqlServerConnector extends Connector {
         await this.pool?.close();
         this.pool = undefined;
         this.connecting = undefined;
+    }
+
+    // Drops all procedures, views, FK constraints, tables and non-system schemas,
+    // in dependency-safe order. Ported from Signum's
+    // SqlConnectorScripts.RemoveAllScript (temporal/partition/full-text steps are
+    // omitted — altea doesn't generate those yet). Each cursor script is run as
+    // its own batch.
+    async cleanDatabase(): Promise<void> {
+        for (const script of SqlServerConnector.removeAllScripts())
+            await this.executeNonQuery(script);
+    }
+
+    // System schemas never dropped; views/schemas exclude these (dbo is kept for
+    // its objects but is itself a system schema, so it is never dropped either).
+    private static readonly systemSchemas = [
+        'dbo', 'guest', 'INFORMATION_SCHEMA', 'sys',
+        'db_owner', 'db_accessadmin', 'db_securityadmin', 'db_ddladmin',
+        'db_backupoperator', 'db_datareader', 'db_datawriter',
+        'db_denydatareader', 'db_denydatawriter',
+    ];
+
+    private static removeAllScripts(): string[] {
+        const list = (names: readonly string[]) => names.map(s => `'${s}'`).join(', ');
+        const systemSchemas = list(SqlServerConnector.systemSchemas);
+        const systemSchemasExceptDbo = list(SqlServerConnector.systemSchemas.filter(s => s !== 'dbo'));
+
+        const procedures = `declare @schema nvarchar(128), @proc nvarchar(128), @type nvarchar(128)
+DECLARE @sql nvarchar(255)
+declare cur cursor fast_forward for
+select routine_schema, routine_name, routine_type from information_schema.routines
+open cur
+    fetch next from cur into @schema, @proc, @type
+    while @@fetch_status <> -1
+    begin
+        select @sql = 'DROP '+ @type +' [' + @schema + '].[' + @proc + '];'
+        exec sp_executesql @sql
+        fetch next from cur into @schema, @proc, @type
+    end
+close cur
+deallocate cur`;
+
+        const views = `declare @schema nvarchar(128), @view nvarchar(128)
+DECLARE @sql nvarchar(255)
+declare cur cursor fast_forward for
+select distinct table_schema, table_name from information_schema.tables
+where table_type = 'VIEW' and table_schema not in (${systemSchemasExceptDbo})
+open cur
+    fetch next from cur into @schema, @view
+    while @@fetch_status <> -1
+    begin
+        select @sql = 'DROP VIEW [' + @schema + '].[' + @view + '];'
+        exec sp_executesql @sql
+        fetch next from cur into @schema, @view
+    end
+close cur
+deallocate cur`;
+
+        const constraints = `declare @schema nvarchar(128), @tbl nvarchar(128), @constraint nvarchar(128)
+DECLARE @sql nvarchar(255)
+declare cur cursor fast_forward for
+select distinct cu.constraint_schema, cu.table_name, cu.constraint_name
+from information_schema.table_constraints tc
+join information_schema.referential_constraints rc on rc.unique_constraint_name = tc.constraint_name
+join information_schema.constraint_column_usage cu on cu.constraint_name = rc.constraint_name
+open cur
+    fetch next from cur into @schema, @tbl, @constraint
+    while @@fetch_status <> -1
+    begin
+        select @sql = 'ALTER TABLE [' + @schema + '].[' + @tbl + '] DROP CONSTRAINT [' + @constraint + '];'
+        exec sp_executesql @sql
+        fetch next from cur into @schema, @tbl, @constraint
+    end
+close cur
+deallocate cur`;
+
+        const tables = `declare @schema nvarchar(128), @tbl nvarchar(128)
+DECLARE @sql nvarchar(255)
+declare cur cursor fast_forward for
+select distinct table_schema, table_name from information_schema.tables where table_type = 'BASE TABLE'
+open cur
+    fetch next from cur into @schema, @tbl
+    while @@fetch_status <> -1
+    begin
+        select @sql = 'DROP TABLE [' + @schema + '].[' + @tbl + '];'
+        exec sp_executesql @sql
+        fetch next from cur into @schema, @tbl
+    end
+close cur
+deallocate cur`;
+
+        const schemas = `declare @schema nvarchar(128)
+DECLARE @sql nvarchar(255)
+declare cur cursor fast_forward for
+select schema_name from information_schema.schemata where schema_name not in (${systemSchemas})
+open cur
+    fetch next from cur into @schema
+    while @@fetch_status <> -1
+    begin
+        select @sql = 'DROP SCHEMA [' + @schema + '];'
+        exec sp_executesql @sql
+        fetch next from cur into @schema
+    end
+close cur
+deallocate cur`;
+
+        return [procedures, views, constraints, tables, schemas];
     }
 }

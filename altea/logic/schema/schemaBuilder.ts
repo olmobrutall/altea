@@ -110,10 +110,13 @@ export class SchemaBuilder {
 
         // Primary key + ticks first, so FK columns can read the PK db type.
         const idInfo = typeInfo.fields['id'] ?? new FieldInfo('id');
-        const pkDbType = idInfo.columnOptions?.primaryKey != null
-            ? primaryKeyDbType(idInfo.columnOptions.primaryKey)
-            : this.settings.primaryKeyDbType;
-        const pk = new FieldPrimaryKey(new PrimaryKeyColumn('id', pkDbType, true));
+        const pkType = idInfo.columnOptions?.primaryKey;
+        const pkDbType = pkType != null ? primaryKeyDbType(pkType) : this.settings.primaryKeyDbType;
+        // Only integer keys are auto-incremented (IDENTITY / GENERATED AS
+        // IDENTITY). uuid/uuid7 keys carry a value-generated GUID, not identity —
+        // emitting IDENTITY on them is invalid DDL. The default key type is int.
+        const isIdentity = pkType == null || pkType === 'int' || pkType === 'long';
+        const pk = new FieldPrimaryKey(new PrimaryKeyColumn('id', pkDbType, isIdentity));
         table.primaryKey = pk;
         table.fields['id'] = new EntityField(idInfo, pk, makeGetter('id'));
 

@@ -160,9 +160,27 @@ export function reflect(value: Function, context: ClassDecoratorContext): void {
 // name in defaultDbType — as are enums (flagged via FieldInfo.isEnum).
 const typeRegistry = new Map<string, Function>();
 
-export function registerType(ctor: Function): void {
-    if (ctor?.name)
-        typeRegistry.set(ctor.name, ctor);
+// `name` is supplied by the quote-transformer (a literal from the source class
+// name) so registration survives bundling: bundlers can strip the `var X =
+// class {}` binding that gives an anonymous class its `.name`, leaving ctor.name
+// === "" and breaking name-based resolution. Falls back to ctor.name when called
+// directly (e.g. from @reflect at decoration time).
+export function registerType(ctor: Function, name?: string): void {
+    const key = name ?? ctor?.name;
+    if (!key) return;
+    // Restore ctor.name when the bundler stripped it (anonymous class → name
+    // === ""). The class `.name` property is configurable, so redefining it is
+    // safe — and fixes *every* consumer that reads it (table/column naming,
+    // cleanTypeName, diagnostics), not just the registry below.
+    if (name != null && ctor.name !== name) {
+        try {
+            Object.defineProperty(ctor, "name", { value: name, configurable: true });
+        } catch {
+            // Some exotic runtimes make .name non-configurable; the registry
+            // entry below still keeps name-based resolution working.
+        }
+    }
+    typeRegistry.set(key, ctor);
 }
 
 export function resolveType(name: string): Function | undefined {

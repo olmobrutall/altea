@@ -102,6 +102,10 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
   const printer = ts.createPrinter();
   let generatedExParam = false;
   let needsFieldImport = false;
+  // Source names of top-level @reflect/@entity/@partEntity classes in the
+  // current file; each gets an explicit registerType(Class, "Class") appended so
+  // name-based type resolution survives bundling (see registerType).
+  let registerNames: string[] = [];
 
   function addQuoteError(sourceFile: ts.SourceFile, quote: QuoteError): void {
     addDiagnostic({
@@ -479,6 +483,49 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     return patched ? ts.factory.updateSourceFile(sourceFile, newStatements) : sourceFile;
   }
 
+  // Adds `registerType` to the import that already brings in `reflect` (same
+  // module), mirroring ensureFieldImport. Entity files always import reflect, so
+  // this is where the auto-injected registrations resolve it from.
+  function ensureRegisterTypeImport(sourceFile: ts.SourceFile): ts.SourceFile {
+    const hasImport = sourceFile.statements.some(stmt => {
+      if (!ts.isImportDeclaration(stmt)) return false;
+      const nb = stmt.importClause?.namedBindings;
+      return nb != null && ts.isNamedImports(nb) && nb.elements.some(e => e.name.text === 'registerType');
+    });
+    if (hasImport) return sourceFile;
+
+    let patched = false;
+    const newStatements = sourceFile.statements.map(stmt => {
+      if (patched || !ts.isImportDeclaration(stmt)) return stmt;
+      const nb = stmt.importClause?.namedBindings;
+      if (nb == null || !ts.isNamedImports(nb)) return stmt;
+      if (!nb.elements.some(e => e.name.text === 'reflect')) return stmt;
+      patched = true;
+      const newEl = ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('registerType'));
+      const newNb = ts.factory.updateNamedImports(nb, [...nb.elements, newEl]);
+      const clause = stmt.importClause!;
+      const newClause = ts.factory.updateImportClause(clause, clause.phaseModifier, clause.name, newNb);
+      return ts.factory.updateImportDeclaration(stmt, stmt.modifiers, newClause, stmt.moduleSpecifier, stmt.attributes);
+    });
+    return patched ? ts.factory.updateSourceFile(sourceFile, newStatements) : sourceFile;
+  }
+
+  // Appends `registerType(Class, "Class")` for each collected reflection class,
+  // at module scope so the class binding is in scope and the literal name is
+  // bundler-proof.
+  function appendTypeRegistrations(sourceFile: ts.SourceFile, names: string[]): ts.SourceFile {
+    const regStatements = names.map(name =>
+      ts.factory.createExpressionStatement(
+        ts.factory.createCallExpression(
+          ts.factory.createIdentifier("registerType"),
+          undefined,
+          [ts.factory.createIdentifier(name), ts.factory.createStringLiteral(name)],
+        ),
+      ),
+    );
+    return ts.factory.updateSourceFile(sourceFile, [...sourceFile.statements, ...regStatements]);
+  }
+
   // Computes the @field factory args from a type annotation node.
   // First arg is always the element/inner type; second arg is an options object when needed.
   // e.g. @field(() => Person, { array: true }) for Person[]
@@ -677,6 +724,7 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     return (sourceFile: ts.SourceFile) => {
       generatedExParam = false;
       needsFieldImport = false;
+      registerNames = [];
       let quotedContextDepth = 0;
       let msgModuleName: string | null = null;
       let msgMemberName: string | null = null;
@@ -797,6 +845,11 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
           if (!isReflection)
             return visited;
 
+          // Record top-level reflection classes so a registerType(Class, "Class")
+          // can be appended at module scope (where the binding is in scope).
+          if (node.name != null && ts.isSourceFile(node.parent))
+            registerNames.push(node.name.text);
+
           return injectMissingFieldDecorators(visited, sourceFile);
         }
 
@@ -842,7 +895,10 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
 
       const transformed = ts.visitNode(sourceFile, visit) as ts.SourceFile;
       const withExParam = generatedExParam ? ensureQuotedImportHasExParam(transformed) : transformed;
-      return needsFieldImport ? ensureFieldImport(withExParam) : withExParam;
+      const withField = needsFieldImport ? ensureFieldImport(withExParam) : withExParam;
+      return registerNames.length > 0
+        ? appendTypeRegistrations(ensureRegisterTypeImport(withField), registerNames)
+        : withField;
 
     };
   };

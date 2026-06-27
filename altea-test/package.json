@@ -14,13 +14,22 @@
     }
   },
   "scripts": {
-    "build": "tspc -b"
+    "build:types": "tspc -b",
+    "build:server": "vite build --config vite.server.config.ts",
+    "build": "tspc -b && vite build --config vite.server.config.ts",
+    "start:postgres": "node --enable-source-maps --env-file=.env.postgres dist/server-bundle/main.js",
+    "start:sqlserver": "node --enable-source-maps --env-file=.env.sqlserver dist/server-bundle/main.js"
   },
   "keywords": [],
   "author": "Olmo del Corral",
   "license": "MIT",
   "dependencies": {
     "@altea/altea": "workspace:*",
+    "mssql": "^12.6.0",
+    "pg": "^8.22.0",
     "quote-transformer": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
   }
 }

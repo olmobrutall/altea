@@ -45,6 +45,17 @@ export abstract class Connector {
         return connectorStorage.run(connector, fn);
     }
 
+    // ---- Utilities ----------------------------------------------------------
+
+    // Redacts passwords from a connection string so it is safe to log, covering
+    // both the key=value form (Password=... / Pwd=...) and the URL userinfo form
+    // (scheme://user:password@host).
+    static redactConnectionString(connectionString: string): string {
+        return connectionString
+            .replace(/(password|pwd)=([^;]*)/gi, "$1=***")
+            .replace(/(:\/\/[^:/@]+:)([^@]*)@/g, "$1***@");
+    }
+
     // ---- Live execution -----------------------------------------------------
     //
     // Both take raw SQL + positional parameters. The ergonomic entry points are
@@ -59,6 +70,11 @@ export abstract class Connector {
 
     // Releases the underlying connection/pool.
     abstract closeConnection(): Promise<void>;
+
+    // Drops every table/view/constraint/etc. in the database, leaving it empty —
+    // the equivalent of Signum's Connector.CleanDatabase. Used to make a full
+    // generation re-runnable against a dirty database. Dialect-specific.
+    abstract cleanDatabase(): Promise<void>;
 
     // Executes a whole generation/sync script statement by statement, in order,
     // on *this* connector (regardless of the ambient current()).
