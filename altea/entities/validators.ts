@@ -13,19 +13,17 @@ export const ValidationMessage = {
     _0HasSomeRepeatedElements1: msg("{0} has some repeated elements: {1}"),
 };
 
-function addValidator(context: ClassFieldDecoratorContext, validator: Validator): void {
-    const key = String(context.name);
-    const typeInfo = getOrCreateTypeInfo(context.metadata!);
-    getOrCreateFieldInfo(typeInfo, key).validators.push(validator);
+function addValidator(target: object, propertyKey: string | symbol, validator: Validator): void {
+    const typeInfo = getOrCreateTypeInfo(target);
+    getOrCreateFieldInfo(typeInfo, String(propertyKey)).validators.push(validator);
 }
 
 // --- fieldValidation ---
 
 export function customValidators<T>(fn: (entity: T, fi: FieldInfo) => string | null) {
-    return (_value: undefined, context: ClassFieldDecoratorContext) => {
-        const key = String(context.name);
-        const typeInfo = getOrCreateTypeInfo(context.metadata!);
-        getOrCreateFieldInfo(typeInfo, key).customValidation = fn;
+    return (target: object, propertyKey: string | symbol) => {
+        const typeInfo = getOrCreateTypeInfo(target);
+        getOrCreateFieldInfo(typeInfo, String(propertyKey)).customValidation = fn;
     };
 }
 
@@ -39,7 +37,7 @@ export interface StringLengthOptions {
 }
 
 export function stringLengthValidator(options: StringLengthOptions = {}) {
-    return (_value: undefined, context: ClassFieldDecoratorContext) => addValidator(context, new StringLengthValidator(options));
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new StringLengthValidator(options));
 }
 
 export class StringLengthValidator extends Validator {
@@ -72,7 +70,7 @@ export class StringLengthValidator extends Validator {
 const urlRegex = /^(https?:\/\/)[^\s/$.?#].[^\s]*$/i;
 
 export function urlValidator() {
-    return (_value: undefined, context: ClassFieldDecoratorContext) => addValidator(context, new UrlValidator());
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new UrlValidator());
 }
 
 export class UrlValidator extends Validator {
@@ -91,7 +89,7 @@ export class UrlValidator extends Validator {
 const telephoneRegex = /^[\d+\-/() ]+$/;
 
 export function telephoneValidator() {
-    return (_value: undefined, context: ClassFieldDecoratorContext) => addValidator(context, new TelephoneValidator());
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new TelephoneValidator());
 }
 
 export class TelephoneValidator extends Validator {
@@ -110,7 +108,7 @@ export class TelephoneValidator extends Validator {
 const emailRegex = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/i;
 
 export function emailValidator() {
-    return (_value: undefined, context: ClassFieldDecoratorContext) => addValidator(context, new EmailValidator());
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new EmailValidator());
 }
 
 export class EmailValidator extends Validator {
@@ -127,7 +125,7 @@ export class EmailValidator extends Validator {
 // --- NoRepeatValidator ---
 
 export function noRepeatValidator() {
-    return (_value: undefined, context: ClassFieldDecoratorContext) => addValidator(context, new NoRepeatValidator());
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new NoRepeatValidator());
 }
 
 export class NoRepeatValidator extends Validator {

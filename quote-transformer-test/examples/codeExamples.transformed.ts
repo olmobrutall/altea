@@ -1,4 +1,5 @@
 import { ExLambda, Quoted } from "quote-transformer/quoted";
+const __fileInfo = new FileInfo("quote-test", "examples/codeExamples.source.ts");
 function test<T extends Function>(exp: Quoted<T>): T {
     return exp();
 }
@@ -114,3 +115,4 @@ const ValidationMessage = {
     BeNotNull: msg(undefined, "BeNotNull", "ValidationMessage"),
     _0HasMoreThan1DecimalPlaces: msg("{0} has more than {1} decimal places", "_0HasMoreThan1DecimalPlaces", "ValidationMessage"),
 };
+__fileInfo.registerObject(ValidationMessage, "ValidationMessage");

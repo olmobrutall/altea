@@ -32,29 +32,25 @@ export function getResultTypeResolver(target: object, key: string): ResultTypeRe
 //                    before emit, so this overload exists only so the bare form
 //                    type-checks as a method decorator.
 //   @quoted(exp)   — the rewritten/explicit form the transformer produces.
-export function quoted(value: Function, context: ClassMethodDecoratorContext): void;
-export function quoted(exp?: () => ExLambda): (value: any, context: ClassMethodDecoratorContext) => any;
-export function quoted(expOrValue?: unknown, maybeContext?: ClassMethodDecoratorContext): unknown {
-    // Bare @quoted reaching runtime means the transformer did not rewrite it.
-    if (maybeContext != null && typeof maybeContext === "object" && "kind" in maybeContext) {
-        throw new Error(`Unable to add the quoted expression to "${String(maybeContext.name)}". Are you using ts-patch and quote-transformer?`);
-    }
+export function quoted(target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor): void;
+export function quoted(exp?: () => ExLambda): (target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor) => void;
+export function quoted(arg1?: unknown, arg2?: unknown, _arg3?: unknown): unknown {
+    // Bare @quoted reached runtime (applied directly as a decorator: arg2 is a
+    // property key). The transformer should have rewritten it to @quoted(() => <expr>).
+    if (typeof arg2 === "string" || typeof arg2 === "symbol")
+        throw new Error(`Unable to add the quoted expression to "${String(arg2)}". Are you using ts-patch and quote-transformer?`);
 
-    const exp = expOrValue as (() => ExLambda) | undefined;
-    return function (value: any, context: ClassMethodDecoratorContext) {
-
-        if (context.kind !== "method")
-            throw new Error(`@quoted can only be applied to methods, but '${String(context.name)}' is a ${context.kind}`);
+    const exp = arg1 as (() => ExLambda) | undefined;
+    return function (_target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor): void {
 
         if (exp == undefined)
-            throw new Error(`Unable to add the quoted expression to "${String(context.name)}". Are you using ts-patch and quote-transformer?`);
+            throw new Error(`Unable to add the quoted expression to "${String(propertyKey)}". Are you using ts-patch and quote-transformer?`);
 
-        const fn = value;
+        const fn = descriptor.value;
         if (typeof fn != "function")
-            throw new Error(`@quoted can only be applied to methods, but '${String(context.name)}' is not a method`);
+            throw new Error(`@quoted can only be applied to methods, but '${String(propertyKey)}' is not a method`);
 
         (fn as StaticFunction<Function>).__quoted = exp;
-        return fn;
     };
 }
 
@@ -64,12 +60,10 @@ export function withQuoted<T extends Function>(f: T, quoted?: () => ExLambda): T
 }
 
 export function lambdaTypeForParam(paramNumber: number, typeResolver: LambdaTypeResolver) {
-    return function (value: unknown, context: ClassMethodDecoratorContext) {
-        if (context.kind !== "method")
-            throw new Error(`@lambdaTypeForParam can only be applied to methods, but '${String(context.name)}' is a ${context.kind}`);
-
+    return function (_target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
+        const value = descriptor.value;
         if (typeof value !== "function")
-            throw new Error(`@lambdaTypeForParam can only be applied to methods, but '${String(context.name)}' is not a method`);
+            throw new Error(`@lambdaTypeForParam can only be applied to methods, but '${String(propertyKey)}' is not a method`);
 
         const sf = value as StaticFunction<Function>;
         var lambdaParams = (sf.__lambdaType ?? []) as LambdaTypeResolver[];
@@ -79,12 +73,10 @@ export function lambdaTypeForParam(paramNumber: number, typeResolver: LambdaType
 }
 
 export function resultType(typeResolver: ResultTypeResolver) {
-    return function (value: unknown, context: ClassMethodDecoratorContext) {
-        if (context.kind !== "method")
-            throw new Error(`@resultType can only be applied to methods, but '${String(context.name)}' is a ${context.kind}`);
-
+    return function (_target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
+        const value = descriptor.value;
         if (typeof value !== "function")
-            throw new Error(`@resultType can only be applied to methods, but '${String(context.name)}' is not a method`);
+            throw new Error(`@resultType can only be applied to methods, but '${String(propertyKey)}' is not a method`);
 
         (value as StaticFunction<Function>).__resultType = typeResolver;
     };

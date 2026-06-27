@@ -1,5 +1,5 @@
 
-import { getOrCreateTypeInfo, getOrCreateFieldInfo, registerType, FieldInfo } from './reflection';
+import { getOrCreateTypeInfo, getOrCreateFieldInfo, registerType, FieldInfo, ctorOf } from './reflection';
 import type { PrimaryKeyType } from './reflection';
 import type { Type, Entity } from './entity';
 
@@ -37,40 +37,36 @@ export interface EntityInfo {
     data?: EntityData;
 }
 
-const symbolWithMetadata = Symbol as any;
-if (symbolWithMetadata.metadata == null) {
-    symbolWithMetadata.metadata = Symbol.for('Symbol.metadata');
-}
-const metadataSymbol: symbol = symbolWithMetadata.metadata;
-
 const entityInfoKey = Symbol.for('altea:entityInfo');
 const allowUnauthenticatedKey = Symbol.for('altea:allowUnauthenticated');
 
+// EntityKind / EntityData are recorded on the constructor (legacy decorators
+// have no context.metadata). Read back with getEntityInfo.
+export function getEntityInfo(target: object): EntityInfo | undefined {
+    return (ctorOf(target) as any)?.[entityInfoKey] as EntityInfo | undefined;
+}
 
+export function isAllowUnauthenticated(target: object): boolean {
+    return (ctorOf(target) as any)?.[allowUnauthenticatedKey] === true;
+}
 
 // Marks a class as a persistent entity. Like @reflect it creates reflection
 // metadata and registers the type (so the quote-transformer auto-injects @field
 // on its properties); additionally it records the EntityKind / EntityData.
 // `@entity()` (no args) is valid for the base Entity class.
 export function entity(kind?: EntityKind, data?: EntityData) {
-    return function (target: Function, context?: ClassDecoratorContext): void {
-        const metadata = context?.metadata ?? (target as any)[metadataSymbol];
-        if (metadata != null) {
-            metadata[entityInfoKey] = { kind, data } satisfies EntityInfo;
-            getOrCreateTypeInfo(metadata);
-        }
+    return function (target: Function): void {
+        (target as any)[entityInfoKey] = { kind, data } satisfies EntityInfo;
+        getOrCreateTypeInfo(target);
         registerType(target);
     };
 }
 
 // A "part" entity: owned/embedded-style table (EntityKind.Part), e.g. the rows
 // that replace a Signum MList. Triggers the same @field injection as @entity.
-export function partEntity(target: Function, context: ClassDecoratorContext): void {
-    const metadata = context.metadata;
-    if (metadata != null) {
-        metadata[entityInfoKey] = { kind: EntityKind.Part, data: EntityData.Transactional } satisfies EntityInfo;
-        getOrCreateTypeInfo(metadata);
-    }
+export function partEntity(target: Function): void {
+    (target as any)[entityInfoKey] = { kind: EntityKind.Part, data: EntityData.Transactional } satisfies EntityInfo;
+    getOrCreateTypeInfo(target);
     registerType(target);
 }
 
@@ -78,10 +74,8 @@ export function partEntity(target: Function, context: ClassDecoratorContext): vo
 // [PrimaryKey(typeof(...))]). Recorded on the implicit `id` field's
 // columnOptions and consumed by SchemaBuilder. Absent → schema default (int).
 export function primaryKey(type: PrimaryKeyType) {
-    return function (_target: Function, context: ClassDecoratorContext): void {
-        if (context.metadata == null)
-            return;
-        const typeInfo = getOrCreateTypeInfo(context.metadata);
+    return function (target: Function): void {
+        const typeInfo = getOrCreateTypeInfo(target);
         // The base Entity's `id` FieldInfo is shallow-copied (by reference) into
         // every subclass's TypeInfo, so it is SHARED. Replace it with an own copy
         // before mutating, or @primaryKey on one entity would change all of them.
@@ -95,22 +89,16 @@ export function primaryKey(type: PrimaryKeyType) {
 }
 
 export function allowUnauthenticated(target: Function): void {
-    const metadata = (target as any)[metadataSymbol];
-    if (metadata != null)
-        metadata[allowUnauthenticatedKey] = true;
+    (target as any)[allowUnauthenticatedKey] = true;
 }
 
-export function ignore(_value: undefined, _context: ClassFieldDecoratorContext): void {
-    const key = String(_context.name);
-    const typeInfo = getOrCreateTypeInfo(_context.metadata!);
-    getOrCreateFieldInfo(typeInfo, key).ignore = true;
+export function ignore(target: object, propertyKey: string | symbol): void {
+    getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).ignore = true;
 }
 
 export function fkProperty(propertyName: string) {
-    return function (_value: undefined, context: ClassFieldDecoratorContext): void {
-        const key = String(context.name);
-        const typeInfo = getOrCreateTypeInfo(context.metadata!);
-        getOrCreateFieldInfo(typeInfo, key).fkPropertyName = propertyName;
+    return function (target: object, propertyKey: string | symbol): void {
+        getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).fkPropertyName = propertyName;
     };
 }
 
@@ -124,47 +112,42 @@ export function fkProperty(propertyName: string) {
 // Bare `@include` (no thunk) defers to a sibling `@implementedBy(() => [...])`,
 // whose own lambda already supplies the constructors — so the types aren't
 // repeated.
-export function include(value: undefined, context: ClassFieldDecoratorContext): void;
-export function include(types: () => unknown): (value: undefined, context: ClassFieldDecoratorContext) => void;
+// Bare @include defers to a sibling @implementedBy; @include(() => X) supplies
+// the referenced constructor(s). The bare overload exists so source type-checks
+// (tsc checks the original AST, before the transformer runs).
+export function include(target: object, propertyKey: string | symbol): void;
+export function include(types: () => unknown): (target: object, propertyKey: string | symbol) => void;
 export function include(arg1: unknown, arg2?: unknown): unknown {
-    if (arg2 != null && typeof arg2 === 'object' && (arg2 as { kind?: unknown }).kind != null) {
-        const context = arg2 as ClassFieldDecoratorContext;
-        getOrCreateFieldInfo(getOrCreateTypeInfo(context.metadata!), String(context.name)).include = true;
+    // Bare @include applied directly as a property decorator.
+    if (typeof arg2 === 'string' || typeof arg2 === 'symbol') {
+        getOrCreateFieldInfo(getOrCreateTypeInfo(arg1 as object), String(arg2)).include = true;
         return;
     }
     const types = arg1 as () => unknown;
-    return function (_value: undefined, context: ClassFieldDecoratorContext): void {
-        getOrCreateFieldInfo(getOrCreateTypeInfo(context.metadata!), String(context.name)).include = types;
+    return function (target: object, propertyKey: string | symbol): void {
+        getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).include = types;
     };
 }
 
 // Marks the int column that preserves MList row order (Signum's [PreserveOrder]).
-export function rowOrder(_value: undefined, context: ClassFieldDecoratorContext): void {
-    const key = String(context.name);
-    const typeInfo = getOrCreateTypeInfo(context.metadata!);
-    getOrCreateFieldInfo(typeInfo, key).isRowOrder = true;
+export function rowOrder(target: object, propertyKey: string | symbol): void {
+    getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).isRowOrder = true;
 }
 
 // Marks the element-value field of a non-embedded MList row (the scalar /
 // reference the MList<T> held), e.g. `@valueField colaborator: Lite<ArtistEntity>`.
-export function valueField(_value: undefined, context: ClassFieldDecoratorContext): void {
-    const key = String(context.name);
-    const typeInfo = getOrCreateTypeInfo(context.metadata!);
-    getOrCreateFieldInfo(typeInfo, key).isValueField = true;
+export function valueField(target: object, propertyKey: string | symbol): void {
+    getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).isValueField = true;
 }
 
 export function implementedBy(types: () => Type<Entity>[]) {
-    return function (_value: undefined, context: ClassFieldDecoratorContext): void {
-        const key = String(context.name);
-        const typeInfo = getOrCreateTypeInfo(context.metadata!);
-        getOrCreateFieldInfo(typeInfo, key).implementations = { kind: 'implementedBy', types };
+    return function (target: object, propertyKey: string | symbol): void {
+        getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).implementations = { kind: 'implementedBy', types };
     };
 }
 
-export function implementedByAll(_value: undefined, context: ClassFieldDecoratorContext): void {
-    const key = String(context.name);
-    const typeInfo = getOrCreateTypeInfo(context.metadata!);
-    getOrCreateFieldInfo(typeInfo, key).implementations = { kind: 'implementedByAll' };
+export function implementedByAll(target: object, propertyKey: string | symbol): void {
+    getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).implementations = { kind: 'implementedByAll' };
 }
 
 // Child-side marker (Altea's MList replacement): tags the single FK field on a
@@ -173,8 +156,6 @@ export function implementedByAll(_value: undefined, context: ClassFieldDecorator
 // `@include(() => AlbumEntity_Songs)`; the SchemaBuilder finds this marked field
 // as the back-pointing FK, so the relationship is described from both sides
 // without repeating the property name.
-export function backReference(_value: undefined, context: ClassFieldDecoratorContext): void {
-    const key = String(context.name);
-    const typeInfo = getOrCreateTypeInfo(context.metadata!);
-    getOrCreateFieldInfo(typeInfo, key).isBackReference = true;
+export function backReference(target: object, propertyKey: string | symbol): void {
+    getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).isBackReference = true;
 }

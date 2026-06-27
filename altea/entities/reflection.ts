@@ -1,6 +1,7 @@
 
 import { DescriptionManager } from './utils/localization';
 import type { Type, Entity } from './entity';
+import { registerType } from './registration';
 
 // The runtime type of a primary key. `int`/`long` are identity-style integers;
 // `uuid`/`uuid7` are GUID columns (uuid7 is time-ordered). Maps to an
@@ -115,30 +116,36 @@ export class TypeInfo {
     fields: { [fieldName: string]: FieldInfo };
 }
 
-const symbolWithMetadata = Symbol as any;
-if (symbolWithMetadata.metadata == null) {
-    symbolWithMetadata.metadata = Symbol.for('Symbol.metadata');
+// Legacy (experimentalDecorators) decorators have no `context.metadata`, so
+// TypeInfo lives under this key directly on the class *constructor*. Class
+// decorators receive the constructor; field/method decorators receive the
+// prototype — `ctorOf` normalizes both to the constructor.
+const typeInfoKey = Symbol.for('altea:typeInfo');
+
+// A decorator target is either the constructor (class decorators) or the
+// prototype / instance (field & method decorators); both resolve to the ctor.
+export function ctorOf(target: object): Function {
+    return typeof target === 'function' ? target : (target as { constructor: Function }).constructor;
 }
 
-const metadataSymbol: symbol = symbolWithMetadata.metadata;
-const typeInfoMetadataKey = Symbol.for('altea:typeInfo');
+export function getOrCreateTypeInfo(target: object): TypeInfo {
+    const ctor = ctorOf(target) as any;
+    // Class constructors inherit *static* properties through their own prototype
+    // chain (class B extends A ⇒ Object.getPrototypeOf(B) === A), so a plain
+    // `ctor[typeInfoKey]` read on a subclass returns the BASE class's TypeInfo —
+    // which would make every subclass share (and pollute) one TypeInfo. We key
+    // off an *own* property: the first decorator on a given class creates that
+    // class's own TypeInfo, seeded with a shallow copy of the inherited (base)
+    // fields so inheritance still works.
+    if (Object.prototype.hasOwnProperty.call(ctor, typeInfoKey))
+        return ctor[typeInfoKey] as TypeInfo;
 
-export function getOrCreateTypeInfo(metadata: DecoratorMetadataObject): TypeInfo {
-    // TC39 decorator metadata objects are prototype-linked to the base class's
-    // metadata, so a plain `metadata[key]` read on a subclass returns the BASE
-    // class's TypeInfo — which would make every subclass share (and pollute) one
-    // TypeInfo. We therefore key off an *own* property: the first decorator on a
-    // given class creates that class's own TypeInfo, seeded with a shallow copy
-    // of the inherited (base) fields so inheritance still works.
-    if (Object.prototype.hasOwnProperty.call(metadata, typeInfoMetadataKey))
-        return metadata[typeInfoMetadataKey] as TypeInfo;
-
-    const inherited = metadata[typeInfoMetadataKey] as TypeInfo | undefined;
+    const inherited = ctor[typeInfoKey] as TypeInfo | undefined;
     const created = new TypeInfo();
     if (inherited != null)
         Object.assign(created.fields, inherited.fields);
 
-    metadata[typeInfoMetadataKey] = created;
+    Object.defineProperty(ctor, typeInfoKey, { value: created, configurable: true, writable: true, enumerable: false });
     return created;
 }
 
@@ -146,46 +153,22 @@ export function getOrCreateTypeInfo(metadata: DecoratorMetadataObject): TypeInfo
 // in reflection. The quote-transformer auto-injects @field on its (non-ignored)
 // properties. Use it for entities, models, DTOs, views, etc. Entity-specific
 // concerns like @entity / @column live in ./decorators instead.
-export function reflect(value: Function, context: ClassDecoratorContext): void {
-    if (context.metadata != null)
-        getOrCreateTypeInfo(context.metadata);
-    registerType(value);
+export function reflect(target: Function): void {
+    getOrCreateTypeInfo(target);
+    registerType(target);
 }
 
-// Type registry: maps a type's name to its runtime constructor. Populated at
-// class-definition time by @reflect / @entity, so the schema builder can
-// resolve a field's `typeName` (e.g. "CustomerEntity") back to its constructor
-// for classification (entity / embedded) and recursion. Value types (String,
-// Number, Date, Decimal, Temporal.*) are intentionally absent — they resolve by
-// name in defaultDbType — as are enums (flagged via FieldInfo.isEnum).
-const typeRegistry = new Map<string, Function>();
-
-// `name` is supplied by the quote-transformer (a literal from the source class
-// name) so registration survives bundling: bundlers can strip the `var X =
-// class {}` binding that gives an anonymous class its `.name`, leaving ctor.name
-// === "" and breaking name-based resolution. Falls back to ctor.name when called
-// directly (e.g. from @reflect at decoration time).
-export function registerType(ctor: Function, name?: string): void {
-    const key = name ?? ctor?.name;
-    if (!key) return;
-    // Restore ctor.name when the bundler stripped it (anonymous class → name
-    // === ""). The class `.name` property is configurable, so redefining it is
-    // safe — and fixes *every* consumer that reads it (table/column naming,
-    // cleanTypeName, diagnostics), not just the registry below.
-    if (name != null && ctor.name !== name) {
-        try {
-            Object.defineProperty(ctor, "name", { value: name, configurable: true });
-        } catch {
-            // Some exotic runtimes make .name non-configurable; the registry
-            // entry below still keeps name-based resolution working.
-        }
-    }
-    typeRegistry.set(key, ctor);
-}
-
-export function resolveType(name: string): Function | undefined {
-    return typeRegistry.get(name);
-}
+// The runtime registries + FileInfo live in the (import-free) ./registration
+// leaf module so they can also be re-exported from utils/localization without an
+// import cycle (reflection imports localization). Re-exported here so existing
+// `from './reflection'` consumers keep working unchanged.
+export {
+    registerType, resolveType,
+    registerEnum, resolveEnum,
+    registerObject, resolveObject,
+    getLocation, FileInfo,
+} from './registration';
+export type { SourceLocation } from './registration';
 
 export function getOrCreateFieldInfo(typeInfo: TypeInfo, key: string): FieldInfo {
     const existing = typeInfo.fields[key];
@@ -195,29 +178,20 @@ export function getOrCreateFieldInfo(typeInfo: TypeInfo, key: string): FieldInfo
     return created;
 }
 
-function getMetadata(target: any): DecoratorMetadataObject | undefined {
-    return target?.[metadataSymbol] ?? target?.constructor?.[metadataSymbol];
-}
-
 export function getTypeInfo(target: object): TypeInfo | undefined {
-    const metadata = getMetadata(target as any);
-    return metadata?.[typeInfoMetadataKey] as TypeInfo | undefined;
+    const ctor = ctorOf(target) as any;
+    return ctor?.[typeInfoKey] as TypeInfo | undefined;
 }
 
-function isFieldContext(value: unknown): value is ClassFieldDecoratorContext {
-    if (value == null || typeof value !== 'object')
-        return false;
-
-    const kind = (value as any).kind;
-    return kind === 'field' || kind === 'accessor';
-}
-
-export function field(value: undefined, context: ClassFieldDecoratorContext): void;
-export function field(options: FieldOptions | false): (value: unknown, context: ClassFieldDecoratorContext | ClassAccessorDecoratorContext) => void;
+// Bare @field: exists so source type-checks (tsc checks the original AST). The
+// quote-transformer rewrites it to @field({ typeName: ... }) before emit, so
+// reaching this overload at runtime means the transform never ran.
+export function field(target: object, propertyKey: string | symbol): void;
+export function field(options: FieldOptions | false): (target: object, propertyKey: string | symbol) => void;
 export function field(arg1: unknown, arg2?: unknown): unknown {
-    if (isFieldContext(arg2)) {
+    // Bare @field reached runtime (called directly as a property decorator).
+    if (typeof arg2 === 'string' || typeof arg2 === 'symbol')
         throw new Error('@field without options should be rewritten by the compiler to @field({ typeName: ... })');
-    }
 
     // @field(false) suppresses auto-injection — register nothing.
     if (arg1 === false)
@@ -228,12 +202,9 @@ export function field(arg1: unknown, arg2?: unknown): unknown {
 
     const options = arg1 as FieldOptions;
 
-    return function (_value: unknown, context: ClassFieldDecoratorContext) {
-        if (context.metadata == null)
-            throw new Error('Decorator metadata is required but not available in this runtime');
-
-        const key = String(context.name);
-        const typeInfo = getOrCreateTypeInfo(context.metadata);
+    return function (target: object, propertyKey: string | symbol): void {
+        const key = String(propertyKey);
+        const typeInfo = getOrCreateTypeInfo(target);
         const fi = getOrCreateFieldInfo(typeInfo, key);
         fi.typeName = options.typeName;
         if (options.name != null)

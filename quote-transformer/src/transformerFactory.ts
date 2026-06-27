@@ -2,7 +2,78 @@ import type * as ts from 'typescript';
 import type { TransformerExtras, PluginConfig } from 'ts-patch';
 import { QuoteError, getQuoteConverter } from './quoteConverter';
 
+// Minimal Node fs/path surface. This package has no @types/node (it had no Node
+// usage before) and runs under Node via ts-patch, so the bits we need are
+// declared locally to avoid a type-only dependency + lockfile churn.
+declare function require(id: string): any;
+const fs: { existsSync(p: string): boolean; readFileSync(p: string, enc: string): string } = require('fs');
+const path: {
+  join(...parts: string[]): string;
+  dirname(p: string): string;
+  relative(from: string, to: string): string;
+  resolve(...parts: string[]): string;
+  sep: string;
+} = require('path');
 
+// The package + relative source path a reflected class/enum/object is defined
+// in (the TS analogue of a .NET assembly + file). Stamped onto registerType /
+// registerEnum / registerObject so runtime code can attribute a type to its
+// owning npm package (e.g. for package→schema mapping) and report locations.
+interface SourceLocation { packageName: string; fileName: string; }
+
+// dir -> nearest package info (or null when none up the tree). Module-scoped so
+// it persists across every file in a single build process. Keyed per directory;
+// the whole walked chain is memoized on each lookup.
+const packageInfoCache = new Map<string, { name: string; dir: string } | null>();
+
+function findNearestPackage(startDir: string): { name: string; dir: string } | null {
+  const chain: string[] = [];
+  let dir = startDir;
+  while (true) {
+    const cached = packageInfoCache.get(dir);
+    if (cached !== undefined) {
+      for (const d of chain) packageInfoCache.set(d, cached);
+      return cached;
+    }
+    chain.push(dir);
+
+    let resolved: { name: string; dir: string } | null | undefined;
+    const pkgPath = path.join(dir, 'package.json');
+    try {
+      if (fs.existsSync(pkgPath)) {
+        const json = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        // Nearest package.json wins even if it lacks a "name" (→ no location).
+        resolved = typeof json.name === 'string' ? { name: json.name, dir } : null;
+      }
+    } catch {
+      resolved = null;
+    }
+
+    if (resolved !== undefined) {
+      for (const d of chain) packageInfoCache.set(d, resolved);
+      return resolved;
+    }
+
+    const parent = path.dirname(dir);
+    if (parent === dir) { // filesystem root, no package.json found
+      for (const d of chain) packageInfoCache.set(d, null);
+      return null;
+    }
+    dir = parent;
+  }
+}
+
+// Resolves a source file's owning package + path relative to that package
+// (forward slashes, original .ts extension). null when no named package.json is
+// found — callers then omit the location args.
+function resolveSourceLocation(fileName: string): SourceLocation | null {
+  if (!fileName) return null;
+  const abs = path.resolve(fileName);
+  const pkg = findNearestPackage(path.dirname(abs));
+  if (pkg == null) return null;
+  const rel = path.relative(pkg.dir, abs).split(path.sep).join('/');
+  return { packageName: pkg.name, fileName: rel };
+}
 
 /** Changes string literal 'before' to 'after' */
 export default function transformerFactory(program: ts.Program, pluginConfig: PluginConfig | undefined, { ts, addDiagnostic }: TransformerExtras) {
@@ -106,6 +177,12 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
   // current file; each gets an explicit registerType(Class, "Class") appended so
   // name-based type resolution survives bundling (see registerType).
   let registerNames: string[] = [];
+  // Names of module-level const objects whose msg() members were transformed;
+  // each gets a __fileInfo.registerObject(Name, "Name") appended.
+  let registerObjectNames: string[] = [];
+  // Set when a __fileInfo.* call is emitted (so we know to declare/import it even
+  // if there are no appended registrations — e.g. only hand-written registerEnum).
+  let usedFileInfo = false;
 
   function addQuoteError(sourceFile: ts.SourceFile, quote: QuoteError): void {
     addDiagnostic({
@@ -510,20 +587,125 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     return patched ? ts.factory.updateSourceFile(sourceFile, newStatements) : sourceFile;
   }
 
-  // Appends `registerType(Class, "Class")` for each collected reflection class,
-  // at module scope so the class binding is in scope and the literal name is
-  // bundler-proof.
-  function appendTypeRegistrations(sourceFile: ts.SourceFile, names: string[]): ts.SourceFile {
-    const regStatements = names.map(name =>
+  // Appends `registerType(Class, "Class"[, "@pkg", "rel/file.ts"])` for each
+  // collected reflection class, at module scope so the class binding is in scope
+  // and the literal name is bundler-proof. The package + relative file (when
+  // resolved) attribute the type to its owning npm package.
+  function appendTypeRegistrations(sourceFile: ts.SourceFile, names: string[], loc: SourceLocation | null): ts.SourceFile {
+    const regStatements = names.map(name => {
+      const args: ts.Expression[] = [ts.factory.createIdentifier(name), ts.factory.createStringLiteral(name)];
+      if (loc != null) {
+        args.push(ts.factory.createStringLiteral(loc.packageName));
+        args.push(ts.factory.createStringLiteral(loc.fileName));
+      }
+      return ts.factory.createExpressionStatement(
+        ts.factory.createCallExpression(ts.factory.createIdentifier("registerType"), undefined, args),
+      );
+    });
+    return ts.factory.updateSourceFile(sourceFile, [...sourceFile.statements, ...regStatements]);
+  }
+
+  // Augments a hand-written registerEnum(X) / registerObject(X) call: injects the
+  // bundler-proof name literal (from the identifier argument). When a location is
+  // resolved it becomes a per-file __fileInfo method call (__fileInfo.registerEnum(X,
+  // "X")); otherwise it stays a free call with just the name. Idempotent — a call
+  // that already carries extra args is left untouched.
+  const LOCATION_REGISTRATION_CALLS = new Set(["registerEnum", "registerObject"]);
+  function augmentRegistrationCall(node: ts.CallExpression, loc: SourceLocation | null): ts.CallExpression {
+    if (!ts.isIdentifier(node.expression) || !LOCATION_REGISTRATION_CALLS.has(node.expression.text))
+      return node;
+    if (node.arguments.length !== 1)
+      return node; // already augmented (or an unexpected shape) — don't touch
+    const first = node.arguments[0];
+    if (!ts.isIdentifier(first))
+      return node; // need an identifier to derive the "Name" literal
+
+    const args: ts.Expression[] = [first, ts.factory.createStringLiteral(first.text)];
+    if (loc != null) {
+      usedFileInfo = true;
+      return ts.factory.createCallExpression(
+        ts.factory.createPropertyAccessExpression(ts.factory.createIdentifier(FILE_INFO_LOCAL), node.expression.text),
+        node.typeArguments,
+        args,
+      );
+    }
+    return ts.factory.updateCallExpression(node, node.expression, node.typeArguments, args);
+  }
+
+  const FILE_INFO_LOCAL = "__fileInfo";
+
+  // Inserts `const __fileInfo = new FileInfo("@pkg", "rel/file.ts");` right after
+  // the file's import section, so every later __fileInfo.* use is in scope (TDZ-safe
+  // even for hand-written registerEnum/registerObject calls placed mid-file).
+  function insertFileInfoDecl(sourceFile: ts.SourceFile, loc: SourceLocation): ts.SourceFile {
+    let lastImport = -1;
+    for (let i = 0; i < sourceFile.statements.length; i++)
+      if (ts.isImportDeclaration(sourceFile.statements[i])) lastImport = i;
+
+    const decl = ts.factory.createVariableStatement(
+      undefined,
+      ts.factory.createVariableDeclarationList(
+        [ts.factory.createVariableDeclaration(
+          FILE_INFO_LOCAL, undefined, undefined,
+          ts.factory.createNewExpression(ts.factory.createIdentifier("FileInfo"), undefined, [
+            ts.factory.createStringLiteral(loc.packageName),
+            ts.factory.createStringLiteral(loc.fileName),
+          ]),
+        )],
+        ts.NodeFlags.Const,
+      ),
+    );
+
+    const statements = [...sourceFile.statements];
+    statements.splice(lastImport + 1, 0, decl);
+    return ts.factory.updateSourceFile(sourceFile, statements);
+  }
+
+  // Appends __fileInfo.registerType(Class, "Class") / __fileInfo.registerObject(Obj,
+  // "Obj") at module scope for the collected reflection classes and msg() containers.
+  function appendFileInfoRegistrations(sourceFile: ts.SourceFile, typeNames: string[], objectNames: string[]): ts.SourceFile {
+    const call = (method: string, name: string) =>
       ts.factory.createExpressionStatement(
         ts.factory.createCallExpression(
-          ts.factory.createIdentifier("registerType"),
+          ts.factory.createPropertyAccessExpression(ts.factory.createIdentifier(FILE_INFO_LOCAL), method),
           undefined,
           [ts.factory.createIdentifier(name), ts.factory.createStringLiteral(name)],
         ),
-      ),
-    );
-    return ts.factory.updateSourceFile(sourceFile, [...sourceFile.statements, ...regStatements]);
+      );
+    const stmts = [
+      ...typeNames.map(n => call("registerType", n)),
+      ...objectNames.map(n => call("registerObject", n)),
+    ];
+    return ts.factory.updateSourceFile(sourceFile, [...sourceFile.statements, ...stmts]);
+  }
+
+  // Adds `FileInfo` to whichever import already brings in one of these anchors —
+  // all of which come from modules that re-export FileInfo (reflect/register* from
+  // reflection, msg from localization). Mirrors ensureFieldImport: piggybacking on
+  // an existing import means the transformer never needs to know the module path.
+  const FILE_INFO_IMPORT_ANCHORS = new Set(["reflect", "msg", "registerType", "registerEnum", "registerObject"]);
+  function ensureFileInfoImport(sourceFile: ts.SourceFile): ts.SourceFile {
+    const hasImport = sourceFile.statements.some(stmt => {
+      if (!ts.isImportDeclaration(stmt)) return false;
+      const nb = stmt.importClause?.namedBindings;
+      return nb != null && ts.isNamedImports(nb) && nb.elements.some(e => e.name.text === 'FileInfo');
+    });
+    if (hasImport) return sourceFile;
+
+    let patched = false;
+    const newStatements = sourceFile.statements.map(stmt => {
+      if (patched || !ts.isImportDeclaration(stmt)) return stmt;
+      const nb = stmt.importClause?.namedBindings;
+      if (nb == null || !ts.isNamedImports(nb)) return stmt;
+      if (!nb.elements.some(e => FILE_INFO_IMPORT_ANCHORS.has(e.name.text))) return stmt;
+      patched = true;
+      const newEl = ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('FileInfo'));
+      const newNb = ts.factory.updateNamedImports(nb, [...nb.elements, newEl]);
+      const clause = stmt.importClause!;
+      const newClause = ts.factory.updateImportClause(clause, clause.phaseModifier, clause.name, newNb);
+      return ts.factory.updateImportDeclaration(stmt, stmt.modifiers, newClause, stmt.moduleSpecifier, stmt.attributes);
+    });
+    return patched ? ts.factory.updateSourceFile(sourceFile, newStatements) : sourceFile;
   }
 
   // Computes the @field factory args from a type annotation node.
@@ -725,6 +907,9 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
       generatedExParam = false;
       needsFieldImport = false;
       registerNames = [];
+      registerObjectNames = [];
+      usedFileInfo = false;
+      const sourceLocation = resolveSourceLocation(sourceFile.fileName);
       let quotedContextDepth = 0;
       let msgModuleName: string | null = null;
       let msgMemberName: string | null = null;
@@ -791,8 +976,14 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
 
           const afterQuote = transformWithQuotedCall(visited, sourceFile);
 
-          if (ts.isCallExpression(afterQuote) && isMsgCall(afterQuote) && msgModuleName != null && msgMemberName != null)
+          if (ts.isCallExpression(afterQuote) && isMsgCall(afterQuote) && msgModuleName != null && msgMemberName != null) {
+            // A msg() container const: remember it so it gets registerObject'd.
+            if (!registerObjectNames.includes(msgModuleName)) registerObjectNames.push(msgModuleName);
             return transformMsgCall(afterQuote, msgMemberName, msgModuleName);
+          }
+
+          if (ts.isCallExpression(afterQuote))
+            return augmentRegistrationCall(afterQuote, sourceLocation);
 
           return afterQuote;
         }
@@ -895,10 +1086,22 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
 
       const transformed = ts.visitNode(sourceFile, visit) as ts.SourceFile;
       const withExParam = generatedExParam ? ensureQuotedImportHasExParam(transformed) : transformed;
-      const withField = needsFieldImport ? ensureFieldImport(withExParam) : withExParam;
-      return registerNames.length > 0
-        ? appendTypeRegistrations(ensureRegisterTypeImport(withField), registerNames)
-        : withField;
+      let result = needsFieldImport ? ensureFieldImport(withExParam) : withExParam;
+
+      const hasAppends = registerNames.length > 0 || registerObjectNames.length > 0;
+
+      if (sourceLocation != null && (hasAppends || usedFileInfo)) {
+        // Location resolved: declare one __fileInfo and route every registration
+        // through it, so the package/file literals aren't repeated per call.
+        result = ensureFileInfoImport(result);
+        result = insertFileInfoDecl(result, sourceLocation);
+        result = appendFileInfoRegistrations(result, registerNames, registerObjectNames);
+      } else if (hasAppends) {
+        // No resolvable package: fall back to free registerType(Class, "Class").
+        // (msg-object registration is skipped — it can't be attributed.)
+        result = appendTypeRegistrations(ensureRegisterTypeImport(result), registerNames, null);
+      }
+      return result;
 
     };
   };

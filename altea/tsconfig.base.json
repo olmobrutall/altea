@@ -10,7 +10,7 @@
     "declarationMap": true,
     "strict": true,
     "strictPropertyInitialization": false,
-    "experimentalDecorators": false,
+    "experimentalDecorators": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,

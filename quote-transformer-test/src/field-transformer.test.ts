@@ -21,7 +21,12 @@ function getPrintedFieldHeader(): string {
 function assertFieldTransform(input: string, expected: string): void {
     const result = transformSource(FIELD_HEADER + input);
     const headerNorm = normalize(getPrintedFieldHeader());
-    const resultNorm = normalize(result);
+    // A registration-bearing file emits one `const __fileInfo = new FileInfo(...)`
+    // (inserted after imports). Remove that deterministic declaration wherever it
+    // lands so the header stays the prefix; the trailing __fileInfo.register*(...)
+    // calls remain part of the asserted body.
+    const fileInfoDecl = `const __fileInfo = new FileInfo("quote-test", "__test__.ts");`;
+    const resultNorm = normalize(normalize(result).replace(fileInfoDecl, ''));
     expect(resultNorm.startsWith(headerNorm)).toBe(true);
     const body = resultNorm.slice(headerNorm.length).trim();
     expect(body).toBe(normalize(expected));
@@ -65,7 +70,8 @@ class PersonEntity {
     @field({ typeName: "Number" }) age!: number;
     static count: number;
     @ignore hidden!: string;
-}`
+}
+__fileInfo.registerType(PersonEntity, "PersonEntity");`
         );
     });
 
@@ -82,7 +88,8 @@ class EmployeeEntity {
     @field({ typeName: "String" }) name!: string;
     @field({ typeName: "EmployeeEntity", nullable: true, lite: true }) manager!: Lite<EmployeeEntity> | null;
     @field({ typeName: "EmployeeEntity", array: true }) reports!: EmployeeEntity[];
-}`
+}
+__fileInfo.registerType(EmployeeEntity, "EmployeeEntity");`
         );
     });
 
@@ -157,25 +164,69 @@ class Order {
 class Order {
     @field(false) name!: string;
     @field({ typeName: "Number" }) amount!: number;
-}`
+}
+__fileInfo.registerType(Order, "Order");`
         );
     });
 
-    // Tests that auto-inject appends 'field' to whichever import already has 'entity',
-    // regardless of the module path.
-    test('auto-inject adds field to the import that contains entity', () => {
+    // Auto-inject adds 'field' and 'registerType' to whichever import already
+    // brings in 'reflect' (they live in the same module as reflect), and appends
+    // the registerType(...) call with the resolved package + relative file.
+    test('auto-inject adds field/registerType to the import that contains reflect', () => {
         expect(normalize(transformSource(
-            `import { entity } from "./decorators";
-@entity
+            `import { reflect } from "./reflection";
+@reflect
 class Person {
     name!: string;
 }`
         ))).toBe(normalize(
-            `import { entity, field } from "./decorators";
-@entity
+            `import { reflect, field, FileInfo } from "./reflection";
+const __fileInfo = new FileInfo("quote-test", "__test__.ts");
+@reflect
 class Person {
     @field({ typeName: "String" }) name!: string;
-}`
+}
+__fileInfo.registerType(Person, "Person");`
+        ));
+    });
+
+});
+
+describe('location registration calls', () => {
+
+    test('registerEnum(X) is routed through __fileInfo with the name injected', () => {
+        expect(normalize(transformSource(
+            `enum Sex { Male, Female }
+registerEnum(Sex);`
+        ))).toBe(normalize(
+            `const __fileInfo = new FileInfo("quote-test", "__test__.ts");
+enum Sex { Male, Female }
+__fileInfo.registerEnum(Sex, "Sex");`
+        ));
+    });
+
+    test('registerObject(X) is routed through __fileInfo with the name injected', () => {
+        expect(normalize(transformSource(
+            `registerObject(SomeMessage);`
+        ))).toBe(normalize(
+            `const __fileInfo = new FileInfo("quote-test", "__test__.ts");
+__fileInfo.registerObject(SomeMessage, "SomeMessage");`
+        ));
+    });
+
+    test('already-augmented registerEnum is left untouched (idempotent)', () => {
+        expect(normalize(transformSource(
+            `registerEnum(Sex, "Sex", "pkg", "f.ts");`
+        ))).toBe(normalize(
+            `registerEnum(Sex, "Sex", "pkg", "f.ts");`
+        ));
+    });
+
+    test('unrelated single-arg calls are not augmented', () => {
+        expect(normalize(transformSource(
+            `doSomething(Sex);`
+        ))).toBe(normalize(
+            `doSomething(Sex);`
         ));
     });
 

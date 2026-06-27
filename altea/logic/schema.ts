@@ -18,17 +18,14 @@ export * from "./schema/schemaBuilder";
 // precision / nullability) for a field. Stored on FieldInfo.columnOptions and
 // consumed by SchemaBuilder.
 export function column(options: ColumnOptions = {}) {
-    return function (_value: unknown, context: ClassFieldDecoratorContext | ClassAccessorDecoratorContext) {
-        if (context.metadata == null)
-            throw new Error("Decorator metadata is required but not available in this runtime");
-
-        const key = String(context.name);
+    return function (target: object, propertyKey: string | symbol) {
+        const key = String(propertyKey);
         const normalizedOptions: ColumnOptions = {
             ...options,
             columnName: options.columnName ?? key,
         };
 
-        const typeInfo = getOrCreateTypeInfo(context.metadata);
+        const typeInfo = getOrCreateTypeInfo(target);
         const existing = getOrCreateFieldInfo(typeInfo, key);
         existing.columnOptions = normalizedOptions;
         // Mirror an explicit nullable into the field's nullability so the column
