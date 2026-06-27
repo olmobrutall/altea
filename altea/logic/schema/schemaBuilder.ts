@@ -42,8 +42,31 @@ function isEmbeddedCtor(t: unknown): boolean {
     return typeof t === 'function' && (t as { prototype?: unknown }).prototype instanceof EmbeddedEntity;
 }
 
+// Logical, dialect-independent type name: strips the "Entity" suffix from each
+// underscore-separated segment, so part entities named `<Owner>Entity_<Field>`
+// (altea's MList replacement) become `<Owner>_<Field>` (e.g.
+// AwardNominationEntity_Points -> "AwardNomination_Points"). Used for the type
+// registry / serialization names and @implementedBy column names.
 function cleanTypeName(type: { name: string }): string {
-    return type.name.replace(/Entity$/, '');
+    return type.name.split('_').map(s => s.replace(/Entity$/, '')).join('_');
+}
+
+// PascalCase -> snake_case (ported from Signum's NaturalLanguageTools.PascalToSnake).
+function pascalToSnake(value: string): string {
+    return value
+        .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+        .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+        .toLowerCase();
+}
+
+// Physical table name (mirrors Signum's GenerateTableName, adapted). SQL Server
+// keeps the PascalCase clean name (segments joined by "_"): AwardNomination_Points.
+// Postgres snake-cases each segment and joins them with a DOUBLE underscore, so
+// the owner/part boundary stays legible against the single underscores inside a
+// snaked segment: award_nomination__points.
+function physicalTableName(type: { name: string }, isPostgres: boolean): string {
+    const clean = cleanTypeName(type);
+    return isPostgres ? clean.split('_').map(pascalToSnake).join('__') : clean;
 }
 
 function makeGetter(name: string): (entity: any) => unknown {
@@ -55,9 +78,12 @@ export class SchemaSettings {
     schemaName: SchemaName = defaultSchemaName;
     primaryKeyDbType: AbstractDbType = new AbstractDbType('int', 'int4');
     ticksDbType: AbstractDbType = new AbstractDbType('bigint', 'int8');
+    // Drives dialect-specific physical naming (snake_case for Postgres). Set from
+    // the bound connector before the schema is built.
+    isPostgres = false;
 
     tableName(type: Type<Entity>): string {
-        return cleanTypeName(type);
+        return physicalTableName(type, this.isPostgres);
     }
 }
 
@@ -112,11 +138,19 @@ export class SchemaBuilder {
         const idInfo = typeInfo.fields['id'] ?? new FieldInfo('id');
         const pkType = idInfo.columnOptions?.primaryKey;
         const pkDbType = pkType != null ? primaryKeyDbType(pkType) : this.settings.primaryKeyDbType;
-        // Only integer keys are auto-incremented (IDENTITY / GENERATED AS
-        // IDENTITY). uuid/uuid7 keys carry a value-generated GUID, not identity —
-        // emitting IDENTITY on them is invalid DDL. The default key type is int.
-        const isIdentity = pkType == null || pkType === 'int' || pkType === 'long';
-        const pk = new FieldPrimaryKey(new PrimaryKeyColumn('id', pkDbType, isIdentity));
+        // Mirrors PrimaryKeyAttribute: Identity (DB auto-increment) applies to
+        // integer keys only — GUID keys are never IDENTITY (it is invalid DDL).
+        // IdentityBehaviour (the DB generates the key) is on by default; for a
+        // GUID key that means a DB-side default generator rather than IDENTITY:
+        // gen_random_uuid() on Postgres, NEWID()/NEWSEQUENTIALID() (uuid7) on SQL
+        // Server. The default key type is int.
+        const isGuid = pkType === 'uuid' || pkType === 'uuid7';
+        const pkColumn = new PrimaryKeyColumn('id', pkDbType, /* identity */ !isGuid);
+        if (isGuid)
+            pkColumn.default = this.settings.isPostgres
+                ? 'gen_random_uuid()'
+                : (pkType === 'uuid7' ? 'NEWSEQUENTIALID()' : 'NEWID()');
+        const pk = new FieldPrimaryKey(pkColumn);
         table.primaryKey = pk;
         table.fields['id'] = new EntityField(idInfo, pk, makeGetter('id'));
 

@@ -41,6 +41,9 @@ export namespace MusicStarter {
         const connStr = requireConnStr();
         const connector = await connectorFromEnv(sb.schema, connStr);
         Connector.default = connector;
+        // Drive dialect-specific physical naming (snake_case tables on Postgres)
+        // before any table is built below.
+        sb.settings.isPostgres = connector.isPostgres;
 
         const label = connector.isPostgres ? "PostgreSQL" : "SQL Server";
         const target = Connector.redactConnectionString(connStr);
