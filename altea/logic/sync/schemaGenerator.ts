@@ -59,7 +59,7 @@ export function createEnumValuesScript(schema: Schema): SqlPreCommand | undefine
 // Schema constructor so every schema can produce a generation script once a
 // connector is active. Apps may push extra handlers (e.g. seed data) afterwards.
 export function installDefaultGenerating(schema: Schema): void {
-    schema.generating.push(() => createSchemasScript(schema));
-    schema.generating.push(() => createTablesScript(schema));
-    schema.generating.push(() => createEnumValuesScript(schema));
+    // Each handler takes the schema as its argument (GeneratingHandler), so they
+    // can be registered directly rather than wrapped in schema-capturing closures.
+    schema.generating.push(createSchemasScript, createTablesScript, createEnumValuesScript);
 }

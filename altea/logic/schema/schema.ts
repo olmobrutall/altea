@@ -4,9 +4,10 @@ import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
 import { installDefaultGenerating } from '../sync/schemaGenerator';
 import type { Table } from './table';
 
-// A step in the generation pipeline: contributes a piece of the create script,
-// or nothing. Combined in registration order by generationScript().
-export type GeneratingHandler = () => SqlPreCommand | undefined;
+// A step in the generation pipeline: given the schema, contributes a piece of the
+// create script, or nothing. Combined in registration order by generationScript().
+// Taking the schema as a parameter avoids each handler capturing it in a closure.
+export type GeneratingHandler = (schema: Schema) => SqlPreCommand | undefined;
 
 // Registry of all included tables, keyed by entity constructor, with name maps
 // for query/serialization lookups. Built by SchemaBuilder. (EntityEvents and
@@ -28,7 +29,7 @@ export class Schema {
     // Requires an active Connector (the steps read its dialect SqlBuilder).
     // Returns undefined when the schema is empty.
     generationScript(): SqlPreCommand | undefined {
-        return SqlPreCommand.combine(Spacing.Triple, ...this.generating.map(h => h()));
+        return SqlPreCommand.combine(Spacing.Triple, ...this.generating.map(h => h(this)));
     }
 
     table<T extends Entity>(type: Type<T>): Table {
