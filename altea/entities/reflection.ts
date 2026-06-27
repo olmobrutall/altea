@@ -166,9 +166,9 @@ export {
     registerType, resolveType,
     registerEnum, resolveEnum,
     registerObject, resolveObject,
-    getLocation, FileInfo,
+    getLocation,
 } from './registration';
-export type { SourceLocation } from './registration';
+export type { FileInfo } from './registration';
 
 export function getOrCreateFieldInfo(typeInfo: TypeInfo, key: string): FieldInfo {
     const existing = typeInfo.fields[key];

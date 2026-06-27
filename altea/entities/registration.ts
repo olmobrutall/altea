@@ -1,15 +1,17 @@
 // Leaf module: the runtime registries (type / enum / object) plus the FileInfo
-// helper. It imports nothing at runtime, so it can be re-exported from BOTH
-// reflection.ts and utils/localization.ts without creating an import cycle
-// (reflection imports localization for DescriptionManager, so these registries
-// can't live in either of those two modules).
+// shape. It imports nothing at runtime, so it can be re-exported from BOTH
+// reflection.ts and utils/localization.ts without an import cycle (reflection
+// imports localization for DescriptionManager, so these registries can't live in
+// either of those two modules).
 
 // The npm package + relative source file a type/enum/object was defined in (the
-// TS analogue of a .NET assembly + file). Supplied by the quote-transformer;
-// used for package→schema attribution and diagnostics.
-export interface SourceLocation {
-    packageName: string;
-    fileName: string;
+// TS analogue of a .NET assembly + file). The quote-transformer emits one plain
+// object literal per file — `const __fileInfo = { module, fileName }` — and
+// passes it as the last argument to the register* calls; nothing imports this
+// type at runtime, it only describes the literal's shape.
+export interface FileInfo {
+    packageName: string; // owning npm package name, e.g. "@altea/altea-test"
+    fileName: string;    // path relative to that package, e.g. "entities/music.ts"
 }
 
 // Type registry: maps a type's name to its runtime constructor. Populated at
@@ -29,15 +31,15 @@ const enumRegistry = new Map<string, object>();
 // msg(), and later operation/symbol containers).
 const objectRegistry = new Map<string, object>();
 
-// name -> source location, uniform across types, enums and objects.
-const locationRegistry = new Map<string, SourceLocation>();
+// name -> file info, uniform across types, enums and objects.
+const locationRegistry = new Map<string, FileInfo>();
 
-// `name`, `packageName` and `fileName` are supplied by the quote-transformer
-// (literals, from the source) so registration survives bundling: bundlers can
-// strip the `var X = class {}` binding that gives an anonymous class its
-// `.name`, leaving ctor.name === "" and breaking name-based resolution. Falls
-// back to ctor.name when called directly (e.g. from @reflect at decoration time).
-export function registerType(ctor: Function, name?: string, packageName?: string, fileName?: string): void {
+// `name` and `fileInfo` are supplied by the quote-transformer (a literal name +
+// the per-file __fileInfo object) so registration survives bundling: bundlers can
+// strip the `var X = class {}` binding that gives an anonymous class its `.name`,
+// leaving ctor.name === "" and breaking name-based resolution. Falls back to
+// ctor.name when called directly (e.g. from @reflect at decoration time).
+export function registerType(ctor: Function, name?: string, fileInfo?: FileInfo): void {
     const key = name ?? ctor?.name;
     if (!key) return;
     // Restore ctor.name when the bundler stripped it (anonymous class → name
@@ -53,8 +55,7 @@ export function registerType(ctor: Function, name?: string, packageName?: string
         }
     }
     typeRegistry.set(key, ctor);
-    if (packageName != null && fileName != null)
-        locationRegistry.set(key, { packageName, fileName });
+    if (fileInfo != null) locationRegistry.set(key, fileInfo);
 }
 
 export function resolveType(name: string): Function | undefined {
@@ -62,24 +63,25 @@ export function resolveType(name: string): Function | undefined {
 }
 
 // Registers a database enum by name (so the enum-table support can map a field's
-// enum type back to its values). Mirrors registerType for enums.
-export function registerEnum(enumObject: object, name?: string, packageName?: string, fileName?: string): void {
+// enum type back to its values). The quote-transformer auto-generates the call
+// for enums declared in the same file as a referencing entity, and rewrites
+// hand-written `registerEnum(MyEnum)` calls (for cross-file enums) to supply the
+// name + __fileInfo.
+export function registerEnum(enumObject: object, name?: string, fileInfo?: FileInfo): void {
     if (!name) return;
     enumRegistry.set(name, enumObject);
-    if (packageName != null && fileName != null)
-        locationRegistry.set(name, { packageName, fileName });
+    if (fileInfo != null) locationRegistry.set(name, fileInfo);
 }
 
 export function resolveEnum(name: string): object | undefined {
     return enumRegistry.get(name);
 }
 
-// Registers a named runtime object (message containers, …) with its location.
-export function registerObject(obj: object, name?: string, packageName?: string, fileName?: string): void {
+// Registers a named runtime object (msg() containers, …) with its file info.
+export function registerObject(obj: object, name?: string, fileInfo?: FileInfo): void {
     if (!name) return;
     objectRegistry.set(name, obj);
-    if (packageName != null && fileName != null)
-        locationRegistry.set(name, { packageName, fileName });
+    if (fileInfo != null) locationRegistry.set(name, fileInfo);
 }
 
 export function resolveObject(name: string): object | undefined {
@@ -87,31 +89,6 @@ export function resolveObject(name: string): object | undefined {
 }
 
 // The package + file a registered type / enum / object was defined in, by name.
-export function getLocation(name: string): SourceLocation | undefined {
+export function getLocation(name: string): FileInfo | undefined {
     return locationRegistry.get(name);
-}
-
-// Per-file helper emitted by the quote-transformer to avoid repeating the
-// package + file literals on every registration:
-//   const __fileInfo = new FileInfo("@altea/altea-test", "entities/music.ts");
-//   __fileInfo.registerType(AlbumEntity, "AlbumEntity");
-//   __fileInfo.registerEnum(Sex, "Sex");
-//   __fileInfo.registerObject(ValidationMessage, "ValidationMessage");
-export class FileInfo {
-    constructor(
-        public readonly packageName: string,
-        public readonly fileName: string,
-    ) { }
-
-    registerType(ctor: Function, name?: string): void {
-        registerType(ctor, name, this.packageName, this.fileName);
-    }
-
-    registerEnum(enumObject: object, name?: string): void {
-        registerEnum(enumObject, name, this.packageName, this.fileName);
-    }
-
-    registerObject(obj: object, name?: string): void {
-        registerObject(obj, name, this.packageName, this.fileName);
-    }
 }

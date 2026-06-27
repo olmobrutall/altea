@@ -25,7 +25,7 @@ function assertFieldTransform(input: string, expected: string): void {
     // (inserted after imports). Remove that deterministic declaration wherever it
     // lands so the header stays the prefix; the trailing __fileInfo.register*(...)
     // calls remain part of the asserted body.
-    const fileInfoDecl = `const __fileInfo = new FileInfo("quote-test", "__test__.ts");`;
+    const fileInfoDecl = `const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };`;
     const resultNorm = normalize(normalize(result).replace(fileInfoDecl, ''));
     expect(resultNorm.startsWith(headerNorm)).toBe(true);
     const body = resultNorm.slice(headerNorm.length).trim();
@@ -71,7 +71,7 @@ class PersonEntity {
     static count: number;
     @ignore hidden!: string;
 }
-__fileInfo.registerType(PersonEntity, "PersonEntity");`
+registerType(PersonEntity, "PersonEntity", __fileInfo);`
         );
     });
 
@@ -89,7 +89,7 @@ class EmployeeEntity {
     @field({ typeName: "EmployeeEntity", nullable: true, lite: true }) manager!: Lite<EmployeeEntity> | null;
     @field({ typeName: "EmployeeEntity", array: true }) reports!: EmployeeEntity[];
 }
-__fileInfo.registerType(EmployeeEntity, "EmployeeEntity");`
+registerType(EmployeeEntity, "EmployeeEntity", __fileInfo);`
         );
     });
 
@@ -165,7 +165,7 @@ class Order {
     @field(false) name!: string;
     @field({ typeName: "Number" }) amount!: number;
 }
-__fileInfo.registerType(Order, "Order");`
+registerType(Order, "Order", __fileInfo);`
         );
     });
 
@@ -180,13 +180,13 @@ class Person {
     name!: string;
 }`
         ))).toBe(normalize(
-            `import { reflect, field, FileInfo } from "./reflection";
-const __fileInfo = new FileInfo("quote-test", "__test__.ts");
+            `import { reflect, field, registerType } from "./reflection";
+const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };
 @reflect
 class Person {
     @field({ typeName: "String" }) name!: string;
 }
-__fileInfo.registerType(Person, "Person");`
+registerType(Person, "Person", __fileInfo);`
         ));
     });
 
@@ -194,23 +194,44 @@ __fileInfo.registerType(Person, "Person");`
 
 describe('location registration calls', () => {
 
-    test('registerEnum(X) is routed through __fileInfo with the name injected', () => {
+    test('manual registerEnum(X) gets the name + __fileInfo injected', () => {
         expect(normalize(transformSource(
             `enum Sex { Male, Female }
 registerEnum(Sex);`
         ))).toBe(normalize(
-            `const __fileInfo = new FileInfo("quote-test", "__test__.ts");
+            `const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };
 enum Sex { Male, Female }
-__fileInfo.registerEnum(Sex, "Sex");`
+registerEnum(Sex, "Sex", __fileInfo);`
         ));
     });
 
-    test('registerObject(X) is routed through __fileInfo with the name injected', () => {
+    test('manual registerObject(X) gets the name + __fileInfo injected', () => {
         expect(normalize(transformSource(
             `registerObject(SomeMessage);`
         ))).toBe(normalize(
-            `const __fileInfo = new FileInfo("quote-test", "__test__.ts");
-__fileInfo.registerObject(SomeMessage, "SomeMessage");`
+            `const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };
+registerObject(SomeMessage, "SomeMessage", __fileInfo);`
+        ));
+    });
+
+    test('same-file enum referenced by a reflected field is auto-registered', () => {
+        expect(normalize(transformSource(
+            `import { reflect } from "./reflection";
+enum Sex { Male, Female }
+@reflect
+class ArtistEntity {
+    sex!: Sex;
+}`
+        ))).toBe(normalize(
+            `import { reflect, field, registerType, registerEnum } from "./reflection";
+const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };
+enum Sex { Male, Female }
+@reflect
+class ArtistEntity {
+    @field({ typeName: "Sex", enum: true }) sex!: Sex;
+}
+registerType(ArtistEntity, "ArtistEntity", __fileInfo);
+registerEnum(Sex, "Sex", __fileInfo);`
         ));
     });
 

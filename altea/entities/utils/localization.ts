@@ -2,10 +2,10 @@
 import type { IContextVariable, IContextStorage } from './context';
 
 // Re-exported from the import-free registration leaf so the quote-transformer can
-// attach `FileInfo` to the `msg` import in localization files (which don't import
-// reflect) for __fileInfo.registerObject(...) of msg() containers. The leaf
-// imports nothing, so this does not create a cycle with reflection.
-export { FileInfo } from '../registration';
+// attach `registerObject` to the `msg` import in localization files (which don't
+// import reflect) to auto-register msg() containers. The leaf imports nothing, so
+// this does not create a cycle with reflection.
+export { registerObject } from '../registration';
 
 export class LocalizableMessage {
     private _inferred?: string;

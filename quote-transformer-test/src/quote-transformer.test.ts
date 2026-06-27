@@ -28,7 +28,7 @@ function assertSimpleTransform(input: string, expected: string): void {
     // (e.g. msg() containers get registerObject'd). Remove that deterministic
     // declaration wherever it lands so HEADER stays the prefix; the trailing
     // __fileInfo.register*(...) calls remain part of the asserted body.
-    const fileInfoDecl = `const __fileInfo = new FileInfo("quote-test", "__test__.ts");`;
+    const fileInfoDecl = `const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };`;
     const resultNorm = normalize(normalize(result).replace(fileInfoDecl, ''));
     expect(resultNorm.startsWith(headerNorm)).toBe(true);
     const body = resultNorm.slice(headerNorm.length).trim();
@@ -233,7 +233,7 @@ describe('msg() localization transform', () => {
     _0IsNotSet: msg(undefined, "_0IsNotSet", "ValidationMessage"),
     BeNotNull: msg(undefined, "BeNotNull", "ValidationMessage"),
 };
-__fileInfo.registerObject(ValidationMessage, "ValidationMessage");`
+registerObject(ValidationMessage, "ValidationMessage", __fileInfo);`
         );
     });
 
@@ -247,7 +247,7 @@ __fileInfo.registerObject(ValidationMessage, "ValidationMessage");`
             `const ValidationMessage = {
     _0HasMoreThan1DecimalPlaces: msg("{0} has more than {1} decimal places", "_0HasMoreThan1DecimalPlaces", "ValidationMessage"),
 };
-__fileInfo.registerObject(ValidationMessage, "ValidationMessage");`
+registerObject(ValidationMessage, "ValidationMessage", __fileInfo);`
         );
     });
 
