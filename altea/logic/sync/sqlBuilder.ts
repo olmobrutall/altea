@@ -144,6 +144,23 @@ export class SqlBuilder {
         );
     }
 
+    // ---- Enum side-tables ---------------------------------------------------
+
+    // One multi-row INSERT seeding an enum side-table: id = the member's
+    // underlying value, name = the member name. Mirrors Signum's enum seeding.
+    // Run after the tables exist. Returns undefined for an empty enum.
+    insertEnumValues(table: Table, values: { id: number; name: string }[]): SqlPreCommand | undefined {
+        if (values.length === 0)
+            return undefined;
+        const cols = `(${this.sqlEscape('id')}, ${this.sqlEscape('name')})`;
+        const rows = values.map(v => `(${v.id}, ${this.quoteString(v.name)})`).join(', ');
+        return new SqlPreCommandSimple(`INSERT INTO ${this.objectName(table.name)} ${cols} VALUES ${rows};`);
+    }
+
+    private quoteString(value: string): string {
+        return `'${value.replace(/'/g, "''")}'`;
+    }
+
     // ---- Constraint naming --------------------------------------------------
 
     foreignKeyName(table: string, column: string): string {

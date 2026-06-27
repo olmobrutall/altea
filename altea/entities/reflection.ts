@@ -164,7 +164,7 @@ export function reflect(target: Function): void {
 // `from './reflection'` consumers keep working unchanged.
 export {
     registerType, resolveType,
-    registerEnum, resolveEnum,
+    registerEnum, resolveEnum, enumNameOf,
     registerObject, resolveObject,
     getLocation,
 } from './registration';

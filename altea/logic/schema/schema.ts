@@ -1,4 +1,5 @@
 import type { Entity, Type } from '../../entities/entity';
+import { typeConstructor } from '../../entities/entity';
 import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
 import { installDefaultGenerating } from '../sync/schemaGenerator';
 import type { Table } from './table';
@@ -33,7 +34,7 @@ export class Schema {
     table<T extends Entity>(type: Type<T>): Table {
         const table = this.tables.get(type as unknown as Type<Entity>);
         if (table == null)
-            throw new Error(`Type '${type.name}' is not included in the schema`);
+            throw new Error(`Type '${typeConstructor(type).name}' is not included in the schema`);
         return table;
     }
 

@@ -1,7 +1,7 @@
-import { Entity, EmbeddedEntity } from '../../entities/entity';
+import { Entity, EmbeddedEntity, isGenericType, typeConstructor } from '../../entities/entity';
 import type { Type } from '../../entities/entity';
 import { MixinDeclarations } from '../../entities/mixinDeclarations';
-import { getTypeInfo, resolveType, FieldInfo } from '../../entities/reflection';
+import { getTypeInfo, resolveType, resolveEnum, enumNameOf, FieldInfo } from '../../entities/reflection';
 import { AbstractDbType, IsNullable, defaultDbType, primaryKeyDbType } from './dbType';
 import {
     PrimaryKeyColumn,
@@ -30,6 +30,7 @@ import { NameSequence } from './nameSequence';
 import { ObjectName, SchemaName, defaultSchemaName } from './objectName';
 import { Schema } from './schema';
 import { Table } from './table';
+import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../entities/enumEntity';
 
 // Entity base fields handled specially (id, ticks) or excluded from the schema.
 const RESERVED_FIELDS = new Set(['id', 'ticks', 'isNew', '_snapshot']);
@@ -42,13 +43,26 @@ function isEmbeddedCtor(t: unknown): boolean {
     return typeof t === 'function' && (t as { prototype?: unknown }).prototype instanceof EmbeddedEntity;
 }
 
+// The raw type name of a type reference. For a closed generic, EnumEntity<Sex> →
+// "Sex" (mirrors Signum's EnumEntity.Extract — the table is named after the enum);
+// other generics fall back to the open class name.
+function rawTypeName(type: Type<Entity>): string {
+    if (isGenericType(type)) {
+        const enumObject = getBoundEnum(type);
+        if (enumObject != null)
+            return enumNameOf(enumObject) ?? 'UnknownEnum';
+        return (type.genericType as { name: string }).name;
+    }
+    return (type as { name: string }).name;
+}
+
 // Logical, dialect-independent type name: strips the "Entity" suffix from each
 // underscore-separated segment, so part entities named `<Owner>Entity_<Field>`
 // (altea's MList replacement) become `<Owner>_<Field>` (e.g.
 // AwardNominationEntity_Points -> "AwardNomination_Points"). Used for the type
 // registry / serialization names and @implementedBy column names.
-function cleanTypeName(type: { name: string }): string {
-    return type.name.split('_').map(s => s.replace(/Entity$/, '')).join('_');
+function cleanTypeName(type: Type<Entity>): string {
+    return rawTypeName(type).split('_').map(s => s.replace(/Entity$/, '')).join('_');
 }
 
 // PascalCase -> snake_case (ported from Signum's NaturalLanguageTools.PascalToSnake).
@@ -64,7 +78,7 @@ function pascalToSnake(value: string): string {
 // Postgres snake-cases each segment and joins them with a DOUBLE underscore, so
 // the owner/part boundary stays legible against the single underscores inside a
 // snaked segment: award_nomination__points.
-function physicalTableName(type: { name: string }, isPostgres: boolean): string {
+function physicalTableName(type: Type<Entity>, isPostgres: boolean): string {
     const clean = cleanTypeName(type);
     return isPostgres ? clean.split('_').map(pascalToSnake).join('__') : clean;
 }
@@ -72,6 +86,9 @@ function physicalTableName(type: { name: string }, isPostgres: boolean): string 
 function makeGetter(name: string): (entity: any) => unknown {
     return (entity: any) => entity[name];
 }
+
+// Width of the enum table's `name` column.
+const ENUM_NAME_SIZE = 100;
 
 // Tunables for table/column generation. Sensible defaults; override per app.
 export class SchemaSettings {
@@ -130,22 +147,27 @@ export class SchemaBuilder {
     }
 
     private completeTable(table: Table, type: Type<Entity>): void {
-        const typeInfo = getTypeInfo(type);
+        const typeInfo = getTypeInfo(typeConstructor(type));
         if (typeInfo == null)
-            throw new Error(`Type '${type.name}' has no reflection metadata. Is it decorated with @entity?`);
+            throw new Error(`Type '${rawTypeName(type)}' has no reflection metadata. Is it decorated with @entity?`);
+
+        // EnumEntity<T> tables mirror Signum: a non-identity int PK (the row id is
+        // the enum's underlying value, supplied at seed time) and no ticks column.
+        const isEnumEntity = isEnumEntityType(type);
 
         // Primary key + ticks first, so FK columns can read the PK db type.
         const idInfo = typeInfo.fields['id'] ?? new FieldInfo('id');
         const pkType = idInfo.columnOptions?.primaryKey;
         const pkDbType = pkType != null ? primaryKeyDbType(pkType) : this.settings.primaryKeyDbType;
         // Mirrors PrimaryKeyAttribute: Identity (DB auto-increment) applies to
-        // integer keys only — GUID keys are never IDENTITY (it is invalid DDL).
+        // integer keys only — GUID keys are never IDENTITY (it is invalid DDL),
+        // and enum tables carry externally-supplied ids (also non-identity).
         // IdentityBehaviour (the DB generates the key) is on by default; for a
         // GUID key that means a DB-side default generator rather than IDENTITY:
         // gen_random_uuid() on Postgres, NEWID()/NEWSEQUENTIALID() (uuid7) on SQL
         // Server. The default key type is int.
         const isGuid = pkType === 'uuid' || pkType === 'uuid7';
-        const pkColumn = new PrimaryKeyColumn('id', pkDbType, /* identity */ !isGuid);
+        const pkColumn = new PrimaryKeyColumn('id', pkDbType, /* identity */ !isGuid && !isEnumEntity);
         if (isGuid)
             pkColumn.default = this.settings.isPostgres
                 ? 'gen_random_uuid()'
@@ -154,10 +176,12 @@ export class SchemaBuilder {
         table.primaryKey = pk;
         table.fields['id'] = new EntityField(idInfo, pk, makeGetter('id'));
 
-        const ticksInfo = typeInfo.fields['ticks'] ?? new FieldInfo('ticks');
-        const ticks = new FieldTicks(new ValueColumn('ticks', this.settings.ticksDbType, IsNullable.No));
-        table.ticks = ticks;
-        table.fields['ticks'] = new EntityField(ticksInfo, ticks, makeGetter('ticks'));
+        if (!isEnumEntity) {
+            const ticksInfo = typeInfo.fields['ticks'] ?? new FieldInfo('ticks');
+            const ticks = new FieldTicks(new ValueColumn('ticks', this.settings.ticksDbType, IsNullable.No));
+            table.ticks = ticks;
+            table.fields['ticks'] = new EntityField(ticksInfo, ticks, makeGetter('ticks'));
+        }
 
         const preName = NameSequence.void();
         for (const [name, fi] of Object.entries(typeInfo.fields)) {
@@ -181,6 +205,14 @@ export class SchemaBuilder {
             table.mixins[(mixinCtor as { name: string }).name] = new FieldMixin(mixinFields);
         }
 
+        // EnumEntity's `name` column carries an explicit width (Signum's
+        // ToStringColumn); the reflected field alone has no size.
+        if (isEnumEntity) {
+            const nameField = table.fields['name'];
+            if (nameField?.field instanceof FieldValue)
+                nameField.field.column.size = ENUM_NAME_SIZE;
+        }
+
         table.generateColumns();
     }
 
@@ -199,14 +231,14 @@ export class SchemaBuilder {
         // back-pointing FK with a bare @backReference; we locate that field here.
         if (isArray) {
             if (!isEntityCtor(elementType))
-                throw new Error(`Field '${fi.name}' on ${table.type.name}: collections of non-entity types are not supported (no MList). Model the collection as a part entity referenced with @include(() => Child).`);
+                throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: collections of non-entity types are not supported (no MList). Model the collection as a part entity referenced with @include(() => Child).`);
             this.include(elementType);
             const childInfo = getTypeInfo(elementType as object);
             const fkEntry = childInfo == null
                 ? undefined
                 : Object.entries(childInfo.fields).find(([, f]) => f.isBackReference);
             if (fkEntry == null)
-                throw new Error(`Part entity ${(elementType as Function).name} (array '${fi.name}' on ${table.type.name}) must mark its owner FK with @backReference.`);
+                throw new Error(`Part entity ${(elementType as Function).name} (array '${fi.name}' on ${rawTypeName(table.type)}) must mark its owner FK with @backReference.`);
             return new FieldEntityArray(elementType, fkEntry[0], true);
         }
 
@@ -219,7 +251,7 @@ export class SchemaBuilder {
             }
             const columns = fi.implementations.types().map(implType => {
                 const refTable = this.include(implType);
-                const colName = preName.add(`${fi.name}_${cleanTypeName(implType as { name: string })}Id`).toString();
+                const colName = preName.add(`${fi.name}_${cleanTypeName(implType)}Id`).toString();
                 return new ImplementationColumn(colName, refTable, isLite);
             });
             return new FieldImplementedBy(columns, isLite);
@@ -228,7 +260,7 @@ export class SchemaBuilder {
         // Single reference: Lite<T> or a bare entity type.
         if (isLite || isEntityCtor(elementType)) {
             if (!isEntityCtor(elementType))
-                throw new Error(`Field '${fi.name}' on ${table.type.name}: Lite container without an entity element type.`);
+                throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: Lite container without an entity element type.`);
             const refTable = this.include(elementType);
             const baseName = fi.fkPropertyName ?? `${fi.name}Id`;
             return new FieldReference(new ReferenceColumn(preName.add(baseName).toString(), refTable, nullable, isLite));
@@ -238,21 +270,26 @@ export class SchemaBuilder {
         if (isEmbeddedCtor(elementType))
             return this.generateEmbedded(table, fi, preName);
 
-        // Enum stored inline (no enum side table yet).
+        // Enum: FK to the enum's EnumEntity<T> table (Signum's FieldEnum). The
+        // enum becomes a real included entity (so it supports mixins / polymorphic
+        // references); the column stores its underlying int value, referencing <Enum>(id).
         if (fi.isEnum) {
-            const dbType = this.resolveValueDbType(fi) ?? new AbstractDbType('nvarchar', 'varchar');
-            const column = new ValueColumn(preName.add(this.columnName(fi)).toString(), dbType, nullable, fi.columnOptions?.size, fi.columnOptions?.precision);
-            return new FieldEnum(column);
+            const enumObject = resolveEnum(fi.typeName);
+            if (enumObject == null)
+                throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: enum '${fi.typeName}' is not registered. Enums declared in the same file as the entity are auto-registered; call registerEnum(${fi.typeName}) by hand for cross-file enums.`);
+            const refTable = this.include(EnumEntity.typeFor(enumObject));
+            const colName = fi.fkPropertyName ?? `${fi.name}Id`;
+            return new FieldEnum(new ReferenceColumn(preName.add(colName).toString(), refTable, nullable, /* isLite */ false));
         }
 
         // JS Date is intentionally unsupported — use Temporal types instead.
         if (fi.typeName === 'Date')
-            throw new Error(`Field '${fi.name}' on ${table.type.name}: JS Date is not supported. Use Temporal.PlainDateTime / PlainDate / Instant instead.`);
+            throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: JS Date is not supported. Use Temporal.PlainDateTime / PlainDate / Instant instead.`);
 
         // Scalar value.
         const dbType = this.resolveValueDbType(fi);
         if (dbType == null)
-            throw new Error(`Field '${fi.name}' on ${table.type.name}: cannot determine a DB type for '${fi.typeName}'. If it is an entity/embedded, ensure its module is imported so it is registered.`);
+            throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: cannot determine a DB type for '${fi.typeName}'. If it is an entity/embedded, ensure its module is imported so it is registered.`);
         const column = new ValueColumn(preName.add(this.columnName(fi)).toString(), dbType, nullable, fi.columnOptions?.size, fi.columnOptions?.precision);
         return new FieldValue(column);
     }
@@ -281,15 +318,15 @@ export class SchemaBuilder {
     private validateEntityArray(parentTable: Table, field: FieldEntityArray, fi: FieldInfo): void {
         const childTable = this.schema.tables.get(field.childType);
         if (childTable == null)
-            throw new Error(`Entity array '${fi.name}' on ${parentTable.type.name}: child type ${field.childType.name} is not included in the schema.`);
+            throw new Error(`Entity array '${fi.name}' on ${rawTypeName(parentTable.type)}: child type ${rawTypeName(field.childType)} is not included in the schema.`);
 
         const childFk = childTable.fields[field.childFkProperty];
         if (childFk == null)
-            throw new Error(`@backReference '${fi.name}' on ${parentTable.type.name}: child ${field.childType.name} has no property '${field.childFkProperty}'.`);
+            throw new Error(`@backReference '${fi.name}' on ${rawTypeName(parentTable.type)}: child ${rawTypeName(field.childType)} has no property '${field.childFkProperty}'.`);
 
         const cf = childFk.field;
         if (!(cf instanceof FieldReference) || cf.column.referenceTable !== parentTable)
-            throw new Error(`@backReference '${fi.name}' on ${parentTable.type.name}: child property '${field.childFkProperty}' must be a reference back to ${parentTable.type.name}.`);
+            throw new Error(`@backReference '${fi.name}' on ${rawTypeName(parentTable.type)}: child property '${field.childFkProperty}' must be a reference back to ${rawTypeName(parentTable.type)}.`);
     }
 
     // Resolves a field's referenced constructor: the @include thunk if present

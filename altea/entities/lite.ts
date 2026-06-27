@@ -1,5 +1,6 @@
 
 import type { Entity, Type, PrimaryKey } from './entity';
+import { typeName } from './entity';
 
 export abstract class Lite<out T extends Entity> {
     abstract readonly id: PrimaryKey;
@@ -31,7 +32,7 @@ export abstract class Lite<out T extends Entity> {
     get entity(): T {
         if (this._entity == null)
             throw new Error(
-                `The lite of ${this.entityType.name} (Id ${this.id}) is not loaded. ` +
+                `The lite of ${typeName(this.entityType)} (Id ${this.id}) is not loaded. ` +
                 `Use entityOrNull, or build it fat with toLiteFat() / toLite(true).`,
             );
         return this._entity as T;

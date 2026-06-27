@@ -51,10 +51,6 @@ export class FieldValue extends Field {
 // Optimistic-concurrency token (maps Entity.ticks).
 export class FieldTicks extends FieldValue { }
 
-// Enum stored inline as a value column. Simplified vs Signum (no enum side
-// table yet): the underlying value is stored directly.
-export class FieldEnum extends FieldValue { }
-
 // FK to a single concrete entity table. The column carries the reference target
 // and whether the property is a Lite<T> (vs a full entity reference).
 export class FieldReference extends Field {
@@ -66,6 +62,11 @@ export class FieldReference extends Field {
         return [this.column];
     }
 }
+
+// FK to an enum side-table (Signum's FieldEnum, which likewise extends
+// FieldReference). The column stores the enum's underlying numeric value and
+// points at the per-enum table (id + name).
+export class FieldEnum extends FieldReference { }
 
 // Polymorphic reference with one FK column per allowed implementation.
 export class FieldImplementedBy extends Field {

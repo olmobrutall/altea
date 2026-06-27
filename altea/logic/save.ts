@@ -1,4 +1,4 @@
-import { Entity } from '../entities/entity';
+import { Entity, typeConstructor } from '../entities/entity';
 import type { Type, PrimaryKey } from '../entities/entity';
 import { Lite } from '../entities/lite';
 import { Connector } from './connection/connector';
@@ -149,7 +149,7 @@ function referenceId(value: unknown): PrimaryKey | null {
 }
 
 function entityConstructorOf(value: unknown): Function {
-    if (value instanceof Lite) return value.entityType;
+    if (value instanceof Lite) return typeConstructor(value.entityType);
     return (value as object).constructor;
 }
 

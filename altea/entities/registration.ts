@@ -27,6 +27,10 @@ const typeRegistry = new Map<string, Function>();
 // registerEnum. Consumed by the enum-table support.
 const enumRegistry = new Map<string, object>();
 
+// Reverse of enumRegistry: the registered name of an enum object. Lets the
+// EnumEntity(enumObject) factory name the synthesized entity/table after the enum.
+const enumNameRegistry = new WeakMap<object, string>();
+
 // Object registry: named runtime objects (e.g. message containers transformed by
 // msg(), and later operation/symbol containers).
 const objectRegistry = new Map<string, object>();
@@ -70,11 +74,17 @@ export function resolveType(name: string): Function | undefined {
 export function registerEnum(enumObject: object, name?: string, fileInfo?: FileInfo): void {
     if (!name) return;
     enumRegistry.set(name, enumObject);
+    enumNameRegistry.set(enumObject, name);
     if (fileInfo != null) locationRegistry.set(name, fileInfo);
 }
 
 export function resolveEnum(name: string): object | undefined {
     return enumRegistry.get(name);
+}
+
+// The registered name of an enum object (reverse of resolveEnum).
+export function enumNameOf(enumObject: object): string | undefined {
+    return enumNameRegistry.get(enumObject);
 }
 
 // Registers a named runtime object (msg() containers, …) with its file info.

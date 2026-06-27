@@ -2,6 +2,7 @@ import { Connector } from '../connection/connector';
 import { SchemaName } from '../schema/objectName';
 import type { Schema } from '../schema/schema';
 import { SqlPreCommand, Spacing } from './sqlPreCommand';
+import { getBoundEnum, enumEntityMembers } from '../../entities/enumEntity';
 
 // Builds the database-creation script from an in-memory Schema. Mirrors Signum's
 // SchemaGenerator, scoped to what the current schema model supports: named
@@ -43,10 +44,22 @@ export function createTablesScript(schema: Schema): SqlPreCommand | undefined {
     return SqlPreCommand.combine(Spacing.Triple, createTables, foreignKeys);
 }
 
+// INSERT one row per member into each EnumEntity<T> table. Runs after the tables
+// (and FKs) exist; enum tables have no incoming FK so order among them is free.
+export function createEnumValuesScript(schema: Schema): SqlPreCommand | undefined {
+    const sqlBuilder = Connector.current().sqlBuilder;
+    const cmds = [...schema.tables.values()].map(t => {
+        const enumObject = getBoundEnum(t.type);
+        return enumObject == null ? undefined : sqlBuilder.insertEnumValues(t, enumEntityMembers(enumObject));
+    });
+    return SqlPreCommand.combine(Spacing.Double, ...cmds);
+}
+
 // Seeds a schema's `generating` event with the default steps. Called from the
 // Schema constructor so every schema can produce a generation script once a
 // connector is active. Apps may push extra handlers (e.g. seed data) afterwards.
 export function installDefaultGenerating(schema: Schema): void {
     schema.generating.push(() => createSchemasScript(schema));
     schema.generating.push(() => createTablesScript(schema));
+    schema.generating.push(() => createEnumValuesScript(schema));
 }
