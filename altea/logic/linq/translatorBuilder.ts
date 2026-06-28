@@ -10,6 +10,7 @@ import { QueryFormatter } from "./queryFormatter";
 import { Connector } from "../connection/connector";
 import { ClassType, Type } from "../../entities/types";
 import { Retriever } from "./Retriever";
+import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 
 export class TranslateResult {
     constructor(
@@ -40,72 +41,136 @@ function ctorOf(type: Type): new () => any {
 }
 
 // Generates a `(row, consts, retriever) => value` body and closes it over the
-// captured constants/ctors. Entity & embedded nodes emit Retriever calls with an
-// inline populate function; scalars/objects read straight off the row.
+// captured constants/ctors. Entity and embedded nodes emit Retriever calls with
+// an inline populate function; scalars/objects read straight off the row.
 function compileProjector(projector: Expression): (row: any, retriever: Retriever) => unknown {
-    const consts: unknown[] = [];
-    const pushConst = (v: unknown): number => (consts.push(v), consts.length - 1);
-
-    function emit(e: Expression): string {
-        if (e instanceof ColumnExpression)
-            return `row[${JSON.stringify(e.name)}]`;
-
-        if (e instanceof PrimaryKeyExpression)
-            return emit(e.value);
-
-        if (e instanceof EntityExpression) {
-            const ci = pushConst(ctorOf(e.type));
-            const idCode = emit(e.externalId.value);
-            if (e.bindings == null)
-                return `retriever.stub(consts[${ci}], ${idCode})`;
-            const assigns: string[] = [];
-            for (const b of e.bindings)
-                assigns.push(`e[${JSON.stringify(b.fieldInfo.name)}] = ${emit(b.binding)};`);
-            for (const m of e.mixins ?? [])
-                for (const b of m.bindings)
-                    assigns.push(`e[${JSON.stringify(b.fieldInfo.name)}] = ${emit(b.binding)};`);
-            return `retriever.entity(consts[${ci}], ${idCode}, function(e){ ${assigns.join(" ")} })`;
-        }
-
-        if (e instanceof EmbeddedEntityExpression) {
-            const ci = pushConst(ctorOf(e.type));
-            const assigns = e.bindings
-                .map(b => `e[${JSON.stringify(b.fieldInfo.name)}] = ${emit(b.binding)};`)
-                .join(" ");
-            return `(${emit(e.hasValue)} ? retriever.embedded(consts[${ci}], function(e){ ${assigns} }) : null)`;
-        }
-
-        if (e instanceof ObjectExpression) {
-            const props = Object.entries(e.properties)
-                .map(([k, v]) => `${JSON.stringify(k)}: ${emit(v)}`)
-                .join(", ");
-            return `({ ${props} })`;
-        }
-
-        if (e instanceof ConstantExpression)
-            return `consts[${pushConst(e.value)}]`;
-
-        if (e instanceof ConditionalExpression)
-            return `(${emit(e.condition)} ? ${emit(e.whenTrue)} : ${emit(e.whenFalse)})`;
-
-        if (e instanceof CastExpression)
-            return emit(e.expression);
-
-        if (e instanceof UnaryExpression) {
-            const op = e.kind === "-u" ? "-" : e.kind === "+u" ? "+" : e.kind === "!" ? "!" : "~";
-            return `(${op}${emit(e.expression)})`;
-        }
-
-        if (e instanceof BinaryExpression)
-            return `(${emit(e.left)} ${jsOperator(e.kind)} ${emit(e.right)})`;
-
-        throw new Error("Unsupported projector node: " + e.kind + " — " + e.toString());
-    }
-
-    const body = "return " + emit(projector) + ";";
+    const builder = new ProjectionBuilder();
+    const body = "return " + builder.build(projector) + ";";
     const fn = new Function("row", "consts", "retriever", body) as
         (row: any, consts: unknown[], retriever: Retriever) => unknown;
-    return (row: any, retriever: Retriever) => fn(row, consts, retriever);
+    return (row: any, retriever: Retriever) => fn(row, builder.consts, retriever);
+}
+
+class ProjectionBuilder extends DbExpressionVisitor {
+    readonly consts: unknown[] = [];
+    private readonly stack: string[] = [];
+
+    build(expression: Expression): string {
+        this.visit(expression);
+        const result = this.pop();
+        if (this.stack.length)
+            throw new Error("ProjectionBuilder left extra expressions on the stack");
+        return result;
+    }
+
+    private pushConst(value: unknown): number {
+        this.consts.push(value);
+        return this.consts.length - 1;
+    }
+
+    private pop(): string {
+        const result = this.stack.pop();
+        if (result == null)
+            throw new Error("ProjectionBuilder stack underflow");
+        return result;
+    }
+
+    override visitColumn(e: ColumnExpression): Expression {
+        this.stack.push(`row[${JSON.stringify(e.name)}]`);
+        return e;
+    }
+
+    override visitPrimaryKey(e: PrimaryKeyExpression): Expression {
+        this.visit(e.value);
+        return e;
+    }
+
+    override visitEntity(e: EntityExpression): Expression {
+        const ctorIndex = this.pushConst(ctorOf(e.type));
+        this.visit(e.externalId.value);
+        const idCode = this.pop();
+
+        if (e.bindings == null) {
+            this.stack.push(`retriever.stub(consts[${ctorIndex}], ${idCode})`);
+            return e;
+        }
+
+        const assigns: string[] = [];
+        for (const b of e.bindings) {
+            this.visit(b.binding);
+            assigns.push(`e[${JSON.stringify(b.fieldInfo.name)}] = ${this.pop()};`);
+        }
+        for (const m of e.mixins ?? [])
+            for (const b of m.bindings) {
+                this.visit(b.binding);
+                assigns.push(`e[${JSON.stringify(b.fieldInfo.name)}] = ${this.pop()};`);
+            }
+
+        this.stack.push(`retriever.entity(consts[${ctorIndex}], ${idCode}, function(e){ ${assigns.join(" ")} })`);
+        return e;
+    }
+
+    override visitEmbeddedEntity(e: EmbeddedEntityExpression): Expression {
+        const ctorIndex = this.pushConst(ctorOf(e.type));
+        this.visit(e.hasValue);
+        const hasValue = this.pop();
+
+        const assigns: string[] = [];
+        for (const b of e.bindings) {
+            this.visit(b.binding);
+            assigns.push(`e[${JSON.stringify(b.fieldInfo.name)}] = ${this.pop()};`);
+        }
+
+        this.stack.push(`(${hasValue} ? retriever.embedded(consts[${ctorIndex}], function(e){ ${assigns.join(" ")} }) : null)`);
+        return e;
+    }
+
+    override visitObject(e: ObjectExpression): Expression {
+        const props: string[] = [];
+        for (const [key, value] of Object.entries(e.properties)) {
+            this.visit(value);
+            props.push(`${JSON.stringify(key)}: ${this.pop()}`);
+        }
+        this.stack.push(`({ ${props.join(", ")} })`);
+        return e;
+    }
+
+    override visitConstant(e: ConstantExpression): Expression {
+        this.stack.push(`consts[${this.pushConst(e.value)}]`);
+        return e;
+    }
+
+    override visitConditional(e: ConditionalExpression): Expression {
+        this.visit(e.condition);
+        const condition = this.pop();
+        this.visit(e.whenTrue);
+        const whenTrue = this.pop();
+        this.visit(e.whenFalse);
+        const whenFalse = this.pop();
+        this.stack.push(`(${condition} ? ${whenTrue} : ${whenFalse})`);
+        return e;
+    }
+
+    override visitCast(e: CastExpression): Expression {
+        this.visit(e.expression);
+        return e;
+    }
+
+    override visitUnary(e: UnaryExpression): Expression {
+        this.visit(e.expression);
+        const op = e.kind === "-u" ? "-" : e.kind === "+u" ? "+" : e.kind === "!" ? "!" : "~";
+        this.stack.push(`(${op}${this.pop()})`);
+        return e;
+    }
+
+    override visitBinary(e: BinaryExpression): Expression {
+        this.visit(e.left);
+        const left = this.pop();
+        this.visit(e.right);
+        const right = this.pop();
+        this.stack.push(`(${left} ${jsOperator(e.kind)} ${right})`);
+        return e;
+    }
 }
 
 function jsOperator(op: string): string {

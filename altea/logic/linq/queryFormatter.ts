@@ -11,27 +11,45 @@ import {
     IsNullExpression, IsNotNullExpression, PrimaryKeyExpression,
 } from "./expressions.sql";
 import { Alias } from "./AliasGenerator";
+import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 
-// Port of Signum's QueryFormatter. Renders a (SQL-only) DbExpression tree to SQL
-// text + a positional parameter list, dialect-aware (Postgres `$n` / SQL Server
-// `@pN`, identifier quoting). Step-3 scope: SELECT/FROM/WHERE/ORDER BY/TOP over
-// table & nested-select sources + scalar expressions. JOIN/GROUP BY render too;
-// the entity-semantic nodes must already be rewritten away before this runs.
+// Port of Signum's QueryFormatter. Like the C# formatter, this is a visitor
+// that renders SQL as a side effect while returning the original expression tree.
 
 export interface FormattedQuery {
     readonly sql: string;
     readonly parameters: unknown[];
 }
 
-export class QueryFormatter {
+export class QueryFormatter extends DbExpressionVisitor {
     private readonly parameters: unknown[] = [];
+    private parts: string[] = [];
 
-    constructor(private readonly isPostgres: boolean) { }
+    constructor(private readonly isPostgres: boolean) {
+        super();
+    }
 
     static format(select: SelectExpression, isPostgres: boolean): FormattedQuery {
         const f = new QueryFormatter(isPostgres);
-        const sql = f.formatSelect(select);
-        return { sql, parameters: f.parameters };
+        f.visit(select);
+        return { sql: f.toSql(), parameters: f.parameters };
+    }
+
+    private append(value: string): void {
+        this.parts.push(value);
+    }
+
+    private toSql(): string {
+        return this.parts.join("");
+    }
+
+    private capture(action: () => unknown): string {
+        const previous = this.parts;
+        this.parts = [];
+        action();
+        const result = this.toSql();
+        this.parts = previous;
+        return result;
     }
 
     private quote(id: string): string {
@@ -45,50 +63,58 @@ export class QueryFormatter {
 
     // ---- sources ----------------------------------------------------------
 
-    private formatSelect(s: SelectExpression): string {
+    override visitSelect(s: SelectExpression): Expression {
         const cols = s.columns.length
-            ? s.columns.map(c => this.formatColumnDeclaration(c)).join(", ")
+            ? s.columns.map(c => this.capture(() => this.visitColumnDeclaration(c))).join(", ")
             : "*";
 
         const top = s.top != null && !this.isPostgres ? `TOP ${this.literalNumber(s.top)} ` : "";
-        let sql = `SELECT ${s.isDistinct ? "DISTINCT " : ""}${top}${cols}`;
+        this.append(`SELECT ${s.isDistinct ? "DISTINCT " : ""}${top}${cols}`);
 
         if (s.from != null)
-            sql += `\nFROM ${this.formatSource(s.from)}`;
+            this.append(`\nFROM ${this.capture(() => this.visitSource(s.from!))}`);
         if (s.where != null)
-            sql += `\nWHERE ${this.visit(s.where)}`;
+            this.append(`\nWHERE ${this.capture(() => this.visit(s.where))}`);
         if (s.groupBy.length)
-            sql += `\nGROUP BY ${s.groupBy.map(g => this.visit(g)).join(", ")}`;
+            this.append(`\nGROUP BY ${s.groupBy.map(g => this.capture(() => this.visit(g))).join(", ")}`);
         if (s.orderBy.length)
-            sql += `\nORDER BY ${s.orderBy.map(o => this.formatOrder(o)).join(", ")}`;
+            this.append(`\nORDER BY ${s.orderBy.map(o => this.capture(() => this.visitOrderBy(o))).join(", ")}`);
         if (s.top != null && this.isPostgres)
-            sql += `\nLIMIT ${this.literalNumber(s.top)}`;
+            this.append(`\nLIMIT ${this.literalNumber(s.top)}`);
 
-        return sql;
+        return s;
     }
 
-    private formatSource(src: SourceExpression): string {
+    protected override visitSource(src: SourceExpression): SourceExpression {
         if (src instanceof TableExpression) {
             const on = src.table.name;
             const tbl = on.schema?.name
                 ? `${this.quote(on.schema.name)}.${this.quote(on.name)}`
                 : this.quote(on.name);
-            return `${tbl} ${this.quoteAlias(src.alias)}`;
+            this.append(`${tbl} ${this.quoteAlias(src.alias)}`);
+            return src;
         }
-        if (src instanceof SelectExpression)
-            return `(\n${this.formatSelect(src)}\n) ${this.quoteAlias(src.alias)}`;
-        if (src instanceof JoinExpression)
-            return this.formatJoin(src);
+
+        if (src instanceof SelectExpression) {
+            this.append(`(\n${this.capture(() => this.visitSelect(src))}\n) ${this.quoteAlias(src.alias)}`);
+            return src;
+        }
+
+        if (src instanceof JoinExpression) {
+            this.visitJoin(src);
+            return src;
+        }
 
         throw new Error("Unsupported source in QueryFormatter: " + src.kind);
     }
 
-    private formatJoin(j: JoinExpression): string {
+    override visitJoin(j: JoinExpression): Expression {
         const keyword = this.joinKeyword(j.joinType);
-        const left = this.formatSource(j.left);
-        const right = this.formatSource(j.right);
-        const on = j.condition != null ? ` ON ${this.visit(j.condition)}` : "";
-        return `${left}\n${keyword} ${right}${on}`;
+        const left = this.capture(() => this.visitSource(j.left));
+        const right = this.capture(() => this.visitSource(j.right));
+        const on = j.condition != null ? ` ON ${this.capture(() => this.visit(j.condition))}` : "";
+        this.append(`${left}\n${keyword} ${right}${on}`);
+        return j;
     }
 
     private joinKeyword(jt: JoinType): string {
@@ -104,12 +130,16 @@ export class QueryFormatter {
         }
     }
 
-    private formatColumnDeclaration(c: ColumnDeclaration): string {
-        return `${this.visit(c.expression)} AS ${this.quote(c.name)}`;
+    override visitColumnDeclaration(c: ColumnDeclaration): ColumnDeclaration {
+        this.visit(c.expression);
+        this.append(` AS ${this.quote(c.name)}`);
+        return c;
     }
 
-    private formatOrder(o: OrderExpression): string {
-        return `${this.visit(o.expression)} ${o.orderType === "Ascending" ? "ASC" : "DESC"}`;
+    override visitOrderBy(o: OrderExpression): OrderExpression {
+        this.visit(o.expression);
+        this.append(` ${o.orderType === "Ascending" ? "ASC" : "DESC"}`);
+        return o;
     }
 
     private quoteAlias(alias: Alias): string {
@@ -121,95 +151,146 @@ export class QueryFormatter {
             return String(e.value);
         if (e instanceof SqlConstantExpression && typeof e.value === "number")
             return String(e.value);
-        return this.visit(e);
+        return this.capture(() => this.visit(e));
     }
 
     // ---- scalar expressions ----------------------------------------------
 
-    private visit(e: Expression): string {
-        if (e instanceof ColumnExpression)
-            return `${this.quoteAlias(e.alias)}.${this.quote(e.name!)}`;
-
-        if (e instanceof PrimaryKeyExpression)
-            return this.visit(e.value);
-
-        if (e instanceof ConstantExpression)
-            return e.value == null ? "NULL" : this.addParameter(e.value);
-
-        if (e instanceof SqlConstantExpression)
-            return e.value == null ? "NULL" : this.addParameter(e.value);
-
-        if (e instanceof BinaryExpression)
-            return this.formatBinary(e);
-
-        if (e instanceof UnaryExpression) {
-            const op = e.kind === "!" ? "NOT " : e.kind === "-u" ? "-" : e.kind === "+u" ? "+" : "~";
-            return `(${op}${this.visit(e.expression)})`;
-        }
-
-        if (e instanceof ConditionalExpression)
-            return `CASE WHEN ${this.visit(e.condition)} THEN ${this.visit(e.whenTrue)} ELSE ${this.visit(e.whenFalse)} END`;
-
-        if (e instanceof CastExpression)
-            return this.visit(e.expression); // cast is a no-op for now (step 7 narrows IB)
-
-        if (e instanceof IsNullExpression)
-            return `${this.visit(e.expression)} IS NULL`;
-
-        if (e instanceof IsNotNullExpression)
-            return `${this.visit(e.expression)} IS NOT NULL`;
-
-        if (e instanceof LikeExpression)
-            return `${this.visit(e.expression)} LIKE ${this.visit(e.pattern)}`;
-
-        if (e instanceof AggregateExpression) {
-            const inner = e.arguments.length ? e.arguments.map(a => this.visit(a)).join(", ") : "*";
-            const fn = e.aggregateFunction === "Average" ? "AVG"
-                : e.aggregateFunction === "CountDistinct" ? "COUNT"
-                    : e.aggregateFunction.toUpperCase();
-            const distinct = e.aggregateFunction === "CountDistinct" ? "DISTINCT " : "";
-            return `${fn}(${distinct}${inner})`;
-        }
-
-        if (e instanceof SqlFunctionExpression)
-            return `${e.sqlFunction}(${e.arguments.map(a => this.visit(a)).join(", ")})`;
-
-        if (e instanceof CaseExpression) {
-            const whens = e.whens.map(w => `WHEN ${this.visit(w.condition)} THEN ${this.visit(w.value)}`).join(" ");
-            return `CASE ${whens} ELSE ${e.defaultValue != null ? this.visit(e.defaultValue) : "NULL"} END`;
-        }
-
-        if (e instanceof ScalarExpression)
-            return `(${this.formatSelect(e.select!)})`;
-
-        if (e instanceof ExistsExpression)
-            return `EXISTS(${this.formatSelect(e.select!)})`;
-
-        if (e instanceof InExpression) {
-            const rhs = e.select != null
-                ? this.formatSelect(e.select)
-                : (e.values ?? []).map(v => this.addParameter(v)).join(", ");
-            return `${this.visit(e.expression)} IN (${rhs})`;
-        }
-
-        throw new Error("Unsupported expression in QueryFormatter: " + e.kind + " — " + e.toString());
+    override visitColumn(e: ColumnExpression): Expression {
+        this.append(`${this.quoteAlias(e.alias)}.${this.quote(e.name!)}`);
+        return e;
     }
 
-    private formatBinary(e: BinaryExpression): string {
-        if (e.kind === "??")
-            return `COALESCE(${this.visit(e.left)}, ${this.visit(e.right)})`;
+    override visitPrimaryKey(e: PrimaryKeyExpression): Expression {
+        this.visit(e.value);
+        return e;
+    }
 
-        // NULL-aware equality: `x == null` → IS NULL.
-        if ((e.kind === "==" || e.kind === "===") && this.isNullConstant(e.right))
-            return `${this.visit(e.left)} IS NULL`;
-        if ((e.kind === "==" || e.kind === "===") && this.isNullConstant(e.left))
-            return `${this.visit(e.right)} IS NULL`;
-        if ((e.kind === "!=" || e.kind === "!==") && this.isNullConstant(e.right))
-            return `${this.visit(e.left)} IS NOT NULL`;
-        if ((e.kind === "!=" || e.kind === "!==") && this.isNullConstant(e.left))
-            return `${this.visit(e.right)} IS NOT NULL`;
+    override visitConstant(e: ConstantExpression): Expression {
+        this.append(e.value == null ? "NULL" : this.addParameter(e.value));
+        return e;
+    }
 
-        return `(${this.visit(e.left)} ${this.sqlOperator(e.kind)} ${this.visit(e.right)})`;
+    override visitSqlConstant(e: SqlConstantExpression): Expression {
+        this.append(e.value == null ? "NULL" : this.addParameter(e.value));
+        return e;
+    }
+
+    override visitBinary(e: BinaryExpression): Expression {
+        this.formatBinary(e);
+        return e;
+    }
+
+    override visitUnary(e: UnaryExpression): Expression {
+        const op = e.kind === "!" ? "NOT " : e.kind === "-u" ? "-" : e.kind === "+u" ? "+" : "~";
+        this.append(`(${op}`);
+        this.visit(e.expression);
+        this.append(")");
+        return e;
+    }
+
+    override visitConditional(e: ConditionalExpression): Expression {
+        this.append("CASE WHEN ");
+        this.visit(e.condition);
+        this.append(" THEN ");
+        this.visit(e.whenTrue);
+        this.append(" ELSE ");
+        this.visit(e.whenFalse);
+        this.append(" END");
+        return e;
+    }
+
+    override visitCast(e: CastExpression): Expression {
+        this.visit(e.expression);
+        return e;
+    }
+
+    override visitIsNull(e: IsNullExpression): Expression {
+        this.visit(e.expression);
+        this.append(" IS NULL");
+        return e;
+    }
+
+    override visitIsNotNull(e: IsNotNullExpression): Expression {
+        this.visit(e.expression);
+        this.append(" IS NOT NULL");
+        return e;
+    }
+
+    override visitLike(e: LikeExpression): Expression {
+        this.visit(e.expression);
+        this.append(" LIKE ");
+        this.visit(e.pattern);
+        return e;
+    }
+
+    override visitAggregate(e: AggregateExpression): Expression {
+        const inner = e.arguments.length ? e.arguments.map(a => this.capture(() => this.visit(a))).join(", ") : "*";
+        const fn = e.aggregateFunction === "Average" ? "AVG"
+            : e.aggregateFunction === "CountDistinct" ? "COUNT"
+                : e.aggregateFunction.toUpperCase();
+        const distinct = e.aggregateFunction === "CountDistinct" ? "DISTINCT " : "";
+        this.append(`${fn}(${distinct}${inner})`);
+        return e;
+    }
+
+    override visitSqlFunction(e: SqlFunctionExpression): Expression {
+        this.append(`${e.sqlFunction}(${e.arguments.map(a => this.capture(() => this.visit(a))).join(", ")})`);
+        return e;
+    }
+
+    override visitCase(e: CaseExpression): Expression {
+        const whens = e.whens
+            .map(w => `WHEN ${this.capture(() => this.visit(w.condition))} THEN ${this.capture(() => this.visit(w.value))}`)
+            .join(" ");
+        const defaultValue = e.defaultValue != null ? this.capture(() => this.visit(e.defaultValue)) : "NULL";
+        this.append(`CASE ${whens} ELSE ${defaultValue} END`);
+        return e;
+    }
+
+    override visitScalar(e: ScalarExpression): Expression {
+        this.append(`(${this.capture(() => this.visitSelect(e.select!))})`);
+        return e;
+    }
+
+    override visitExists(e: ExistsExpression): Expression {
+        this.append(`EXISTS(${this.capture(() => this.visitSelect(e.select!))})`);
+        return e;
+    }
+
+    override visitIn(e: InExpression): Expression {
+        this.visit(e.expression);
+        const rhs = e.select != null
+            ? this.capture(() => this.visitSelect(e.select!))
+            : (e.values ?? []).map(v => this.addParameter(v)).join(", ");
+        this.append(` IN (${rhs})`);
+        return e;
+    }
+
+    private formatBinary(e: BinaryExpression): void {
+        if (e.kind === "??") {
+            this.append(`COALESCE(${this.capture(() => this.visit(e.left))}, ${this.capture(() => this.visit(e.right))})`);
+            return;
+        }
+
+        if ((e.kind === "==" || e.kind === "===") && this.isNullConstant(e.right)) {
+            this.append(`${this.capture(() => this.visit(e.left))} IS NULL`);
+            return;
+        }
+        if ((e.kind === "==" || e.kind === "===") && this.isNullConstant(e.left)) {
+            this.append(`${this.capture(() => this.visit(e.right))} IS NULL`);
+            return;
+        }
+        if ((e.kind === "!=" || e.kind === "!==") && this.isNullConstant(e.right)) {
+            this.append(`${this.capture(() => this.visit(e.left))} IS NOT NULL`);
+            return;
+        }
+        if ((e.kind === "!=" || e.kind === "!==") && this.isNullConstant(e.left)) {
+            this.append(`${this.capture(() => this.visit(e.right))} IS NOT NULL`);
+            return;
+        }
+
+        this.append(`(${this.capture(() => this.visit(e.left))} ${this.sqlOperator(e.kind)} ${this.capture(() => this.visit(e.right))})`);
     }
 
     private isNullConstant(e: Expression): boolean {

@@ -1,11 +1,13 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
+import "@altea/altea/entities/globals";
 import { QueryBinder } from "@altea/altea/logic/linq/queryBinder";
 import {
     ProjectionExpression, SelectExpression, TableExpression, ColumnExpression,
 } from "@altea/altea/logic/linq/expressions.sql";
 import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
+import { CallExpression, PropertyExpression } from "@altea/altea/logic/linq/expressions";
 import { expressionSimplifier } from "@altea/altea/logic/linq/visitors/expressionSimplifier";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { Connector } from "@altea/altea/logic/connection/connector";
@@ -64,6 +66,59 @@ describe("QueryBinder (step 2)", () => {
         assert.ok(proj instanceof ProjectionExpression);
         assert.equal(proj.select.columns.length, 2);
     });
+
+    test("orderBy → SELECT with ORDER BY", () => {
+        const proj = bind(table(AlbumEntity).orderBy(a => a.name));
+        assert.equal(proj.select.orderBy.length, 1);
+        assert.equal(proj.select.orderBy[0].orderType, "Ascending");
+    });
+
+    test("orderByDescending + top → SELECT with TOP over ordered source", () => {
+        const proj = bind(table(AlbumEntity).orderByDescending(a => a.year).top(2));
+        assert.notEqual(proj.select.top, undefined);
+        assert.equal((proj.select.from as SelectExpression).orderBy[0].orderType, "Descending");
+    });
+
+    test("thenBy folds into the orderBy select", () => {
+        const proj = bind(table(AlbumEntity).orderBy(a => a.year).thenBy(a => a.name));
+        assert.equal(proj.select.orderBy.length, 2);
+        assert.equal(proj.select.orderBy[0].orderType, "Ascending");
+        assert.equal(proj.select.orderBy[1].orderType, "Ascending");
+    });
+
+    test("distinct → SELECT DISTINCT", () => {
+        const proj = bind(table(AlbumEntity).map(a => a.name).distinct());
+        assert.equal(proj.select.isDistinct, true);
+        assert.equal(proj.select.columns.length, 1);
+    });
+
+    test("string contains in filter binds to LIKE", () => {
+        const proj = bind(table(AlbumEntity).filter(a => a.name.contains("Zero")));
+        assert.equal(proj.select.where?.kind, "Like");
+    });
+
+    test("array contains in filter binds to IN", () => {
+        const ids: any[] = [1, 2, 3];
+        const proj = bind(table(AlbumEntity).filter(a => ids.contains(a.id)));
+        assert.equal(proj.select.where?.kind, "In");
+    });
+
+    test("first/single terminals set unique function", () => {
+        const q = table(AlbumEntity) as any;
+        const first = new CallExpression(new PropertyExpression(q.expression, "first"), [], q.elementType);
+        const singleOrNull = new CallExpression(new PropertyExpression(q.expression, "singleOrNull"), [], q.elementType);
+        assert.equal(bind({ expression: first }).uniqueFunction, "First");
+        assert.equal(bind({ expression: singleOrNull }).uniqueFunction, "SingleOrDefault");
+    });
+
+    test("count terminal projects a scalar aggregate", () => {
+        const q = table(AlbumEntity) as any;
+        const count = new CallExpression(new PropertyExpression(q.expression, "count"), [], q.elementType);
+        const proj = bind({ expression: count });
+        assert.equal(proj.uniqueFunction, "Single");
+        assert.equal(proj.select.columns.length, 1);
+        assert.equal(proj.select.columns[0].expression.kind, "Aggregate");
+    });
 });
 
 describe("QueryFormatter (step 3)", () => {
@@ -83,6 +138,42 @@ describe("QueryFormatter (step 3)", () => {
         assert.match(sql, /\$1/);
         assert.match(sql, /"/); // identifiers double-quoted on postgres
     });
+
+    test("orderBy + top renders ORDER BY and TOP", () => {
+        const proj = bind(table(AlbumEntity).orderBy(a => a.name).top(2));
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /TOP 2/i);
+        assert.match(sql, /ORDER BY/i);
+    });
+
+    test("count renders COUNT aggregate", () => {
+        const q = table(AlbumEntity) as any;
+        const count = new CallExpression(new PropertyExpression(q.expression, "count"), [], q.elementType);
+        const proj = bind({ expression: count });
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /COUNT\(\*\)/i);
+    });
+
+    test("distinct renders SELECT DISTINCT", () => {
+        const proj = bind(table(AlbumEntity).map(a => a.name).distinct());
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /SELECT DISTINCT/i);
+    });
+
+    test("string contains renders LIKE parameter", () => {
+        const proj = bind(table(AlbumEntity).filter(a => a.name.contains("Zero")));
+        const { sql, parameters } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /LIKE @p0/i);
+        assert.deepEqual(parameters, ["%Zero%"]);
+    });
+
+    test("array contains renders IN parameters", () => {
+        const ids: any[] = [1, 2, 3];
+        const proj = bind(table(AlbumEntity).filter(a => ids.contains(a.id)));
+        const { sql, parameters } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, / IN \(@p0, @p1, @p2\)/i);
+        assert.deepEqual(parameters, ids);
+    });
 });
 
 describe("ProjectionReader end-to-end (step 3, fake connector)", () => {
@@ -101,6 +192,16 @@ describe("ProjectionReader end-to-end (step 3, fake connector)", () => {
         const fake = new FakeConnector(sb.schema, [{ [yKey]: 1993, [nKey]: "Siamese Dream" }]);
         const result = await Connector.withConnector(fake, () => q.toArray());
         assert.deepEqual(result, [{ y: 1993, n: "Siamese Dream" }]);
+    });
+
+    test("count projection maps one aggregate row to a scalar", async () => {
+        const q = table(AlbumEntity) as any;
+        const count = new CallExpression(new PropertyExpression(q.expression, "count"), [], q.elementType);
+        const proj = bind({ expression: count });
+        const colName = proj.select.columns[0].name;
+        const fake = new FakeConnector(sb.schema, [{ [colName]: 12 }]);
+        const result = await Connector.withConnector(fake, () => q.translator.execute(count));
+        assert.equal(result, 12);
     });
 });
 

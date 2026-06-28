@@ -101,8 +101,9 @@ export abstract class Expression {
                         if (fun instanceof PropertyExpression) {
                             obj = fun.object;
                             const type = obj.type instanceof ArrayType ? OrderedQuery.prototype :
-                                obj.type instanceof ClassType ? obj.type.constructorFunction.prototype :
-                                    undefined;
+                                (obj.type === LiteralType.string || obj.type === LiteralType.null && isKnownStringMethod(fun.propertyName)) ? String.prototype :
+                                    obj.type instanceof ClassType ? obj.type.constructorFunction.prototype :
+                                        undefined;
 
                             if (type == undefined)
                                 throw new Error(`Unexpected object type when calling ${fun.propertyName}`);
@@ -111,7 +112,7 @@ export abstract class Expression {
                             sf = {
                                 __lambdaType: getLambdaTypeResolvers(type, fun.propertyName),
                                 __quoted: propertyFunction?.__quoted,
-                                __resultType: getResultTypeResolver(type, fun.propertyName)
+                                __resultType: getResultTypeResolver(type, fun.propertyName) ?? getKnownPrototypeResultType(obj.type, fun.propertyName)
                             };
                         } else if (fun instanceof ConstantExpression) {
                             sf = fun.value as StaticFunction<Function>;
@@ -188,9 +189,23 @@ export abstract class Expression {
                     return new CastExpression(fromQuoted(q[1]), resolveCastType(q[2]));
                 default:
                     throw new Error(`Unsupported quoted expression: ${JSON.stringify(q)}`);
-            }
+        }
+
+        function getKnownPrototypeResultType(thisType: Type, propertyName: string): ResultTypeResolver | undefined {
+            if ((thisType === LiteralType.string || thisType === LiteralType.null) && isKnownStringMethod(propertyName))
+                return () => LiteralType.boolean;
+
+            if (thisType instanceof ClassType && thisType.constructorFunction === Array && propertyName === "contains")
+                return () => LiteralType.boolean;
+
+            return undefined;
+        }
+
+        function isKnownStringMethod(propertyName: string): boolean {
+            return propertyName === "contains" || propertyName === "startsWith" || propertyName === "endsWith";
         }
     }
+}
 
 }
 

@@ -9,115 +9,207 @@ import {
     AggregateExpression, CaseExpression, ScalarExpression, ExistsExpression, InExpression,
     EntityExpression, EmbeddedEntityExpression, MixinEntityExpression, ProjectionExpression,
 } from "./expressions.sql";
+import { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 
 // Minimal port of Signum's DbExpressionNominator. Decides which expressions can
-// be evaluated on the SERVER (a "candidate"): a node is a candidate iff its type
-// is server-supported AND all its descendants are candidates. The maximal
-// candidate subtrees become columns in the SELECT (ColumnProjector takes the
-// outermost candidate). Composite client-side nodes (Entity/Embedded/Object/New)
-// are NOT candidates, but we still recurse into them to collect the column
-// candidates inside (so a whole-entity projection materialises its columns).
-//
-// NOTE: this skeleton only *collects* candidates; it does not yet rewrite source
-// calls into SQL nodes (Like/CONCAT/etc. — that's the function-mapping tier).
+// be evaluated on the server: a node is a candidate iff its type is
+// server-supported and all its descendants are candidates. The maximal candidate
+// subtrees become columns in the SELECT.
+
+class DbExpressionNominator extends ExpressionVisitor {
+    private readonly candidates = new Set<Expression>();
+
+    static nominate(expr: Expression): Set<Expression> {
+        const n = new DbExpressionNominator();
+        n.visit(expr);
+        return n.candidates;
+    }
+
+    private add<T extends Expression>(expression: T): T {
+        this.candidates.add(expression);
+        return expression;
+    }
+
+    private has(expression: Expression | undefined): boolean {
+        return expression != null && this.candidates.has(expression);
+    }
+
+    private addIfAll(node: Expression, children: readonly (Expression | undefined)[]): void {
+        if (children.every(c => c == null || this.has(c)))
+            this.add(node);
+    }
+
+    override visit(expr: Expression): Expression;
+    override visit(expr: Expression | undefined): Expression | undefined;
+    override visit(expr: Expression | undefined): Expression | undefined {
+        if (expr == null)
+            return undefined;
+
+        if (expr instanceof ColumnExpression) return this.visitColumn(expr);
+        if (expr instanceof SqlConstantExpression) return this.visitSqlConstant(expr);
+        if (expr instanceof PrimaryKeyExpression) return this.visitPrimaryKey(expr);
+        if (expr instanceof IsNullExpression) return this.visitIsNull(expr);
+        if (expr instanceof IsNotNullExpression) return this.visitIsNotNull(expr);
+        if (expr instanceof LikeExpression) return this.visitLike(expr);
+        if (expr instanceof SqlFunctionExpression) return this.visitSqlFunction(expr);
+        if (expr instanceof AggregateExpression) return this.visitAggregate(expr);
+        if (expr instanceof CaseExpression) return this.visitCase(expr);
+        if (expr instanceof ScalarExpression) return this.visitScalar(expr);
+        if (expr instanceof ExistsExpression) return this.visitExists(expr);
+        if (expr instanceof InExpression) return this.visitIn(expr);
+        if (expr instanceof EntityExpression) return this.visitEntity(expr);
+        if (expr instanceof EmbeddedEntityExpression) return this.visitEmbeddedEntity(expr);
+        if (expr instanceof MixinEntityExpression) return this.visitMixinEntity(expr);
+        if (expr instanceof ProjectionExpression) return this.visitProjection(expr);
+
+        return super.visit(expr);
+    }
+
+    private visitColumn(column: ColumnExpression): Expression {
+        return this.add(column);
+    }
+
+    private visitSqlConstant(sqlConstant: SqlConstantExpression): Expression {
+        return this.add(sqlConstant);
+    }
+
+    override visitConstant(constant: ConstantExpression): Expression {
+        return this.add(constant);
+    }
+
+    private visitPrimaryKey(pk: PrimaryKeyExpression): Expression {
+        this.visit(pk.value);
+        return pk;
+    }
+
+    override visitUnary(node: UnaryExpression): Expression {
+        super.visitUnary(node);
+        this.addIfAll(node, [node.expression]);
+        return node;
+    }
+
+    override visitCast(node: CastExpression): Expression {
+        super.visitCast(node);
+        this.addIfAll(node, [node.expression]);
+        return node;
+    }
+
+    private visitIsNull(node: IsNullExpression): Expression {
+        this.visit(node.expression);
+        this.addIfAll(node, [node.expression]);
+        return node;
+    }
+
+    private visitIsNotNull(node: IsNotNullExpression): Expression {
+        this.visit(node.expression);
+        this.addIfAll(node, [node.expression]);
+        return node;
+    }
+
+    override visitBinary(node: BinaryExpression): Expression {
+        super.visitBinary(node);
+        this.addIfAll(node, [node.left, node.right]);
+        return node;
+    }
+
+    override visitConditional(node: ConditionalExpression): Expression {
+        super.visitConditional(node);
+        this.addIfAll(node, [node.condition, node.whenTrue, node.whenFalse]);
+        return node;
+    }
+
+    private visitLike(node: LikeExpression): Expression {
+        this.visit(node.expression);
+        this.visit(node.pattern);
+        this.addIfAll(node, [node.expression, node.pattern]);
+        return node;
+    }
+
+    private visitSqlFunction(node: SqlFunctionExpression): Expression {
+        this.visit(node.object);
+        node.arguments.forEach(a => this.visit(a));
+        this.addIfAll(node, [node.object, ...node.arguments]);
+        return node;
+    }
+
+    private visitAggregate(node: AggregateExpression): Expression {
+        node.arguments.forEach(a => this.visit(a));
+        this.addIfAll(node, node.arguments);
+        return node;
+    }
+
+    private visitCase(node: CaseExpression): Expression {
+        node.whens.forEach(w => {
+            this.visit(w.condition);
+            this.visit(w.value);
+        });
+        this.visit(node.defaultValue);
+        this.addIfAll(node, [...node.whens.flatMap(w => [w.condition, w.value]), node.defaultValue]);
+        return node;
+    }
+
+    private visitScalar(node: ScalarExpression): Expression {
+        return this.add(node);
+    }
+
+    private visitExists(node: ExistsExpression): Expression {
+        return this.add(node);
+    }
+
+    private visitIn(node: InExpression): Expression {
+        return this.add(node);
+    }
+
+    private visitEntity(node: EntityExpression): Expression {
+        this.visit(node.externalId);
+        node.bindings?.forEach(b => this.visit(b.binding));
+        node.mixins?.forEach(m => this.visit(m));
+        return node;
+    }
+
+    private visitEmbeddedEntity(node: EmbeddedEntityExpression): Expression {
+        this.visit(node.hasValue);
+        node.bindings.forEach(b => this.visit(b.binding));
+        node.mixins?.forEach(m => this.visit(m));
+        return node;
+    }
+
+    private visitMixinEntity(node: MixinEntityExpression): MixinEntityExpression {
+        node.bindings.forEach(b => this.visit(b.binding));
+        return node;
+    }
+
+    override visitObject(node: ObjectExpression): Expression {
+        Object.values(node.properties).forEach(v => this.visit(v));
+        return node;
+    }
+
+    override visitNew(node: NewExpression): Expression {
+        node.args.forEach(a => this.visit(a));
+        return node;
+    }
+
+    private visitProjection(node: ProjectionExpression): Expression {
+        return node;
+    }
+
+    override visitParameter(node: ParameterExpression): Expression {
+        return node;
+    }
+
+    override visitProperty(node: PropertyExpression): Expression {
+        return node;
+    }
+
+    override visitCall(node: CallExpression): Expression {
+        return node;
+    }
+
+    override visitLambda(node: LambdaExpression): Expression {
+        return node;
+    }
+}
 
 export function nominate(expr: Expression): Set<Expression> {
-    const candidates = new Set<Expression>();
-
-    // Returns whether `e` (and its whole subtree) is a server candidate.
-    function visit(e: Expression | undefined): boolean {
-        if (e == null)
-            return true;
-
-        // Leaf candidates.
-        if (e instanceof ColumnExpression || e instanceof SqlConstantExpression) {
-            candidates.add(e);
-            return true;
-        }
-        // A captured constant becomes a SQL parameter.
-        if (e instanceof ConstantExpression) {
-            candidates.add(e);
-            return true;
-        }
-
-        // PrimaryKey wraps a single column but is NOT itself collapsed into one
-        // column — keep the wrapper so the reader can treat the id specially.
-        // Nominate the inner column, but report the PK as non-candidate.
-        if (e instanceof PrimaryKeyExpression) { visit(e.value); return false; }
-
-        // Single-child server nodes.
-        if (e instanceof UnaryExpression) return unary(e, e.expression);
-        if (e instanceof CastExpression) return unary(e, e.expression);
-        if (e instanceof IsNullExpression) return unary(e, e.expression);
-        if (e instanceof IsNotNullExpression) return unary(e, e.expression);
-
-        if (e instanceof BinaryExpression) return nary(e, [e.left, e.right]);
-        if (e instanceof ConditionalExpression) return nary(e, [e.condition, e.whenTrue, e.whenFalse]);
-        if (e instanceof LikeExpression) return nary(e, [e.expression, e.pattern]);
-        if (e instanceof SqlFunctionExpression) return nary(e, [e.object, ...e.arguments]);
-        if (e instanceof AggregateExpression) return nary(e, e.arguments);
-        if (e instanceof CaseExpression) return nary(e, [...e.whens.flatMap(w => [w.condition, w.value]), e.defaultValue]);
-
-        // Subqueries are server candidates as a whole (their inner select is its
-        // own scope); we don't descend for column nomination here.
-        if (e instanceof ScalarExpression || e instanceof ExistsExpression || e instanceof InExpression) {
-            candidates.add(e);
-            return true;
-        }
-
-        // Non-candidate composites — recurse to collect inner candidates, but the
-        // node itself stays client-side (constructed by the projector).
-        if (e instanceof EntityExpression) {
-            visit(e.externalId);
-            e.bindings?.forEach(b => visit(b.binding));
-            e.mixins?.forEach(m => visit(m));
-            return false;
-        }
-        if (e instanceof EmbeddedEntityExpression) {
-            visit(e.hasValue);
-            e.bindings.forEach(b => visit(b.binding));
-            e.mixins?.forEach(m => visit(m));
-            return false;
-        }
-        if (e instanceof MixinEntityExpression) {
-            e.bindings.forEach(b => visit(b.binding));
-            return false;
-        }
-        if (e instanceof ObjectExpression) {
-            Object.values(e.properties).forEach(v => visit(v));
-            return false;
-        }
-        if (e instanceof NewExpression) {
-            e.args.forEach(a => visit(a));
-            return false;
-        }
-        if (e instanceof ProjectionExpression) {
-            return false;
-        }
-
-        // Parameters / unbound members / calls / lambdas are never server values.
-        if (e instanceof ParameterExpression || e instanceof PropertyExpression ||
-            e instanceof CallExpression || e instanceof LambdaExpression) {
-            return false;
-        }
-
-        return false;
-    }
-
-    function unary(node: Expression, child: Expression | undefined): boolean {
-        const ok = visit(child);
-        if (ok) candidates.add(node);
-        return ok;
-    }
-
-    function nary(node: Expression, children: readonly (Expression | undefined)[]): boolean {
-        let all = true;
-        for (const c of children)
-            all = visit(c) && all; // visit every child (side effects) before short-circuit
-        if (all) candidates.add(node);
-        return all;
-    }
-
-    visit(expr);
-    return candidates;
+    return DbExpressionNominator.nominate(expr);
 }

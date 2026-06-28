@@ -1,11 +1,12 @@
 import {
     Expression, CallExpression, PropertyExpression, ParameterExpression,
-    LambdaExpression, ConstantExpression,
+    LambdaExpression, ConstantExpression, CastExpression,
 } from "../expressions";
 import {
     SelectExpression, ProjectionExpression, ColumnExpression, PrimaryKeyExpression,
     FieldBinding, EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
-    SqlConstantExpression, TableExpression,
+    SqlConstantExpression, TableExpression, OrderExpression, OrderType, UniqueFunction,
+    AggregateExpression, AggregateSqlFunction, ColumnDeclaration, LikeExpression, InExpression,
 } from "../expressions.sql";
 import { AliasGenerator, Alias } from "../AliasGenerator";
 import { projectColumns } from "./ColumnProjector";
@@ -29,6 +30,7 @@ import { ExpressionVisitor } from "./ExpressionVisitor";
 export class QueryBinder extends ExpressionVisitor {
     private readonly aliasGenerator: AliasGenerator;
     private readonly map = new Map<ParameterExpression, Expression>();
+    private thenBys: OrderExpression[] | undefined;
 
     constructor(
         private readonly schema: Schema,
@@ -55,23 +57,91 @@ export class QueryBinder extends ExpressionVisitor {
         }
 
         // Query operator: <source>.<op>(...args)
-        if (func instanceof PropertyExpression) {
-            const op = func.propertyName;
-            const source = this.visit(func.object);
+        if (func instanceof PropertyExpression || func.kind === ".") {
+            const property = func as PropertyExpression;
+            const op = property.propertyName;
+            if (op === "thenBy")
+                return this.bindThenBy(property.object, call.args[0] as LambdaExpression, "Ascending");
+            if (op === "thenByDescending")
+                return this.bindThenBy(property.object, call.args[0] as LambdaExpression, "Descending");
+
+            const source = this.visit(property.object);
             if (!(source instanceof ProjectionExpression))
-                throw new Error(`Operator '${op}' applied to a non-query: ${source.toString()}`);
+                return this.bindMethodCall(op, source, call.args);
 
             switch (op) {
                 case "filter":
                     return this.bindWhere(source, call.args[0] as LambdaExpression);
                 case "map":
                     return this.bindSelect(source, call.args[0] as LambdaExpression);
+                case "orderBy":
+                    return this.bindOrderBy(source, call.args[0] as LambdaExpression, "Ascending");
+                case "orderByDescending":
+                    return this.bindOrderBy(source, call.args[0] as LambdaExpression, "Descending");
+                case "top":
+                    return this.bindTop(source, call.args[0]);
+                case "distinct":
+                    return this.bindDistinct(source);
+                case "first":
+                    return this.bindUnique(source, "First", call.args[0] as LambdaExpression | undefined);
+                case "firstOrNull":
+                    return this.bindUnique(source, "FirstOrDefault", call.args[0] as LambdaExpression | undefined);
+                case "single":
+                    return this.bindUnique(source, "Single", call.args[0] as LambdaExpression | undefined);
+                case "singleOrNull":
+                    return this.bindUnique(source, "SingleOrDefault", call.args[0] as LambdaExpression | undefined);
+                case "count":
+                    return this.bindAggregate(source, "Count", call.args[0] as LambdaExpression | undefined);
+                case "min":
+                    return this.bindAggregate(source, "Min", call.args[0] as LambdaExpression | undefined);
+                case "max":
+                    return this.bindAggregate(source, "Max", call.args[0] as LambdaExpression | undefined);
+                case "sum":
+                    return this.bindAggregate(source, "Sum", call.args[0] as LambdaExpression | undefined);
+                case "avg":
+                    return this.bindAggregate(source, "Average", call.args[0] as LambdaExpression | undefined);
                 default:
                     throw new Error(`Query operator '${op}' is not implemented in the binder skeleton yet`);
             }
         }
 
+        if ((func instanceof CastExpression || func.kind === "as") && call.args.length === 0)
+            return this.visit(func);
+
         throw new Error("Unexpected call in query: " + call.toString());
+    }
+
+    private bindMethodCall(methodName: string, source: Expression, args: readonly Expression[]): Expression {
+        const visitedArgs = args.map(a => this.visit(a));
+
+        if (methodName === "contains" && source instanceof ConstantExpression && Array.isArray(source.value) && visitedArgs.length === 1)
+            return InExpression.fromValues(visitedArgs[0], source.value);
+
+        if (methodName === "contains" && visitedArgs.length === 1)
+            return new LikeExpression(source, this.likePattern("%", visitedArgs[0], "%"));
+
+        if (methodName === "startsWith" && visitedArgs.length === 1)
+            return new LikeExpression(source, this.likePattern("", visitedArgs[0], "%"));
+
+        if (methodName === "endsWith" && visitedArgs.length === 1)
+            return new LikeExpression(source, this.likePattern("%", visitedArgs[0], ""));
+
+        throw new Error(`Method '${methodName}' is not implemented in the binder skeleton yet`);
+    }
+
+    private likePattern(prefix: string, expression: Expression, suffix: string): Expression {
+        if (expression instanceof ConstantExpression && typeof expression.value === "string")
+            return new ConstantExpression(`${prefix}${expression.value}${suffix}`);
+
+        throw new Error("Non-constant LIKE patterns are not implemented yet");
+    }
+
+    override visitParameter(parameter: ParameterExpression): Expression {
+        return this.map.get(parameter) ?? parameter;
+    }
+
+    override visitProperty(property: PropertyExpression): Expression {
+        return this.bindMemberAccess(property);
     }
 
     // ---- operators --------------------------------------------------------
@@ -92,6 +162,84 @@ export class QueryBinder extends ExpressionVisitor {
         return new ProjectionExpression(
             new SelectExpression(alias, false, undefined, pc.columns, projection.select, undefined, [], []),
             pc.projector, undefined, new ArrayType(expression.type));
+    }
+
+    private bindOrderBy(projection: ProjectionExpression, selector: LambdaExpression, orderType: OrderType): ProjectionExpression {
+        return this.bindOrderByCore(projection, selector, orderType, false);
+    }
+
+    private bindThenBy(source: Expression, selector: LambdaExpression, orderType: OrderType): Expression {
+        this.thenBys ??= [];
+        this.thenBys.push(new OrderExpression(orderType, selector));
+        return this.visit(source);
+    }
+
+    private bindOrderByCore(projection: ProjectionExpression, selector: LambdaExpression, orderType: OrderType, append: boolean): ProjectionExpression {
+        const myThenBys = this.thenBys;
+        this.thenBys = undefined;
+
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const pc = projectColumns(projection.projector, alias);
+        const orderBy = append ? [...projection.select.orderBy] : [];
+        orderBy.push(new OrderExpression(orderType, this.mapVisitExpand(selector, projection)));
+
+        if (myThenBys != null) {
+            for (let i = myThenBys.length - 1; i >= 0; i--) {
+                const thenBy = myThenBys[i];
+                orderBy.push(new OrderExpression(thenBy.orderType, this.mapVisitExpand(thenBy.expression as LambdaExpression, projection)));
+            }
+        }
+
+        return new ProjectionExpression(
+            new SelectExpression(alias, false, undefined, pc.columns, projection.select, undefined, orderBy, []),
+            pc.projector, projection.uniqueFunction, projection.type);
+    }
+
+    private bindTop(projection: ProjectionExpression, top: Expression): ProjectionExpression {
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const pc = projectColumns(projection.projector, alias);
+        return new ProjectionExpression(
+            new SelectExpression(alias, false, top, pc.columns, projection.select, undefined, [], []),
+            pc.projector, projection.uniqueFunction, projection.type);
+    }
+
+    private bindDistinct(projection: ProjectionExpression): ProjectionExpression {
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const pc = projectColumns(projection.projector, alias);
+        return new ProjectionExpression(
+            new SelectExpression(alias, true, undefined, pc.columns, projection.select, undefined, [], []),
+            pc.projector, undefined, projection.type);
+    }
+
+    private bindUnique(projection: ProjectionExpression, uniqueFunction: UniqueFunction, predicate: LambdaExpression | undefined): ProjectionExpression {
+        if (predicate != null)
+            projection = this.bindWhere(projection, predicate);
+
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const pc = projectColumns(projection.projector, alias);
+        return new ProjectionExpression(
+            new SelectExpression(alias, false, uniqueFunction === "First" || uniqueFunction === "FirstOrDefault" ? new ConstantExpression(1) : undefined, pc.columns, projection.select, undefined, [], []),
+            pc.projector, uniqueFunction, projection.type);
+    }
+
+    private bindAggregate(projection: ProjectionExpression, aggregateFunction: AggregateSqlFunction, selector: LambdaExpression | undefined): ProjectionExpression {
+        if (aggregateFunction === "Count" && selector != null) {
+            projection = this.bindWhere(projection, selector);
+            selector = undefined;
+        }
+
+        const argument = selector == null ? projection.projector : this.mapVisitExpand(selector, projection);
+        const aggregate = aggregateFunction === "Count"
+            ? new AggregateExpression(LiteralType.number, aggregateFunction, [], undefined)
+            : new AggregateExpression(argument.type, aggregateFunction, [argument], undefined);
+
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const name = "c0";
+        return new ProjectionExpression(
+            new SelectExpression(alias, false, undefined, [new ColumnDeclaration(name, aggregate)], projection.select, undefined, [], []),
+            new ColumnExpression(aggregate.type, alias, name),
+            "Single",
+            aggregate.type);
     }
 
     // Binds a lambda body with its single parameter mapped to the source's
