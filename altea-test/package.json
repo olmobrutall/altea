@@ -18,7 +18,10 @@
     "build:server": "vite build --config vite.server.config.ts",
     "build": "tspc -b && vite build --config vite.server.config.ts",
     "start:postgres": "node --enable-source-maps --env-file=.env.postgres dist/server-bundle/main.js",
-    "start:sqlserver": "node --enable-source-maps --env-file=.env.sqlserver dist/server-bundle/main.js"
+    "start:sqlserver": "node --enable-source-maps --env-file=.env.sqlserver dist/server-bundle/main.js",
+    "test": "tspc -b && node --enable-source-maps --import ./register.mjs --test \"dist/test/**/*.test.js\"",
+    "test:postgres": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.postgres --test \"dist/test/**/*.test.js\"",
+    "test:sqlserver": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.sqlserver --test \"dist/test/**/*.test.js\""
   },
   "keywords": [],
   "author": "Olmo del Corral",

@@ -6,7 +6,7 @@ import {
     implementedBy, implementedByAll, backReference, rowOrder, valueField,
     include, stringLengthValidator, EntityData, EntityKind,
 } from "@altea/altea/entities/decorators";
-import { Temporal, int } from "@altea/altea/entities/basics";
+import { Temporal, int, toInt } from "@altea/altea/entities/basics";
 import { quoted } from "@altea/altea/logic/query";
 import { column } from "@altea/altea/logic/schema";
 
@@ -233,7 +233,7 @@ export class AlbumEntity_Songs extends Entity {
     name: string;
     duration: Temporal.Duration | null;
     seconds: int | null;
-    index: int;
+    index: int = toInt(0); // C# value-type default (0); the loader relies on it
 
     @quoted()
     toString(): string {
@@ -251,7 +251,7 @@ export class SongEmbedded extends EmbeddedEntity {
     name: string;
     duration: Temporal.Duration | null;
     seconds: int | null;
-    index: int;
+    index: int = toInt(0); // C# value-type default (0); the loader relies on it
 
     toString(): string {
         return this.name;
@@ -264,8 +264,8 @@ export class AwardNominationEntity extends Entity {
     author: Lite<Entity>;
     @implementedBy(() => [GrammyAwardEntity, PersonalAwardEntity, AmericanMusicAwardEntity])
     award: Lite<Entity>;
-    year: int;
-    order: int;
+    year: int = toInt(0);   // C# value-type default; the loader leaves these unset
+    order: int = toInt(0);
     // Signum's [PreserveOrder] MList<NominationPointEmbedded> Points → owned part rows.
     @include(() => AwardNominationEntity_Points)
     points: AwardNominationEntity_Points[];
@@ -326,5 +326,5 @@ export class SimplePassageEntity extends Entity {
     isTitle: boolean;
     // NOT YET: Vector? Embedding (pgvector unsupported)
     chunk: string;
-    index: int;
+    index: int = toInt(0); // C# value-type default (0); the loader relies on it
 }

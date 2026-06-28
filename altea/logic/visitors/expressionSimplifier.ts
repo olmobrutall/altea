@@ -1,6 +1,6 @@
 
 import { OpBinary, OpUnary } from "quote-transformer/quoted";
-import { BinaryExpression, CallExpression, ConditionalExpression, ConstantExpression, Expression, LambdaExpression, NewExpression, ObjectExpression, ParameterExpression, PropertyExpression, UnaryExpression } from "../expressions";
+import { BinaryExpression, CallExpression, CastExpression, ConditionalExpression, ConstantExpression, Expression, LambdaExpression, NewExpression, ObjectExpression, ParameterExpression, PropertyExpression, UnaryExpression } from "../expressions";
 import { LiteralType, Type } from "../../entities/types";
 
 
@@ -126,6 +126,15 @@ export function expressionSimplifier() {
             }
 
             return obj;
+        }
+
+        if (e instanceof CastExpression) {
+            const inner = visit(e.expression);
+            // A cast is a runtime no-op: fold it away once the operand is known.
+            // A non-constant cast is kept so the binder can narrow it (entity IB).
+            if (inner instanceof ConstantExpression)
+                return inner;
+            return e.updateCast(inner);
         }
 
         if (e instanceof NewExpression) {

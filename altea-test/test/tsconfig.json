@@ -1,0 +1,14 @@
+{
+  "extends": "../../altea/tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../dist/test",
+    "types": ["node"]
+  },
+  "include": ["**/*"],
+  "references": [
+    { "path": "../entities" },
+    { "path": "../logic" },
+    { "path": "../../altea/logic" }
+  ]
+}

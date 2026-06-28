@@ -70,8 +70,11 @@ export namespace MusicStarter {
             MusicLogic.start(sb);
             sb.complete();
             await sb.schema.generationScript()?.executeNonQuery();
-            // await MusicLoader.load(); // TODO: re-enable once the loader path is ready
             console.log(`[${label}] schema generation complete`);
+
+            console.log(`[${label}] loading sample data`);
+            await MusicLoader.load();
+            console.log(`[${label}] sample data loaded`);
         } finally {
             await connector.closeConnection();
         }

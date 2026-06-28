@@ -1,5 +1,5 @@
 import { int, Temporal, toInt } from "@altea/altea/entities/basics";
-import "@altea/altea/logic/save"; // installs Entity.prototype.save()
+import "@altea/altea/logic/saver"; // installs Entity.prototype.save() (graph saver)
 import {
     CountryEntity,
     LabelEntity,
@@ -24,6 +24,7 @@ import {
     Sex,
     Status,
     AwardResult,
+    AlbumState,
 } from "../entities/music";
 
 // Port of Signum.Test's MusicLoader, kept as close to the C# original as the
@@ -80,7 +81,7 @@ export namespace MusicLoader {
 
         const virgin = await LabelEntity.create({ name: "Virgin", country: usa, owner: null }).save();
 
-        await AlbumEntity.create({
+        await AlbumEntity.create({ state: AlbumState.Saved,
             name: "Siamese Dream",
             year: toInt(1993),
             author: smashingPumpkins,
@@ -89,7 +90,7 @@ export namespace MusicLoader {
             label: virgin,
         }).save();
 
-        const mellon = await AlbumEntity.create({
+        const mellon = await AlbumEntity.create({ state: AlbumState.Saved,
             name: "Mellon Collie and the Infinite Sadness",
             year: toInt(1995),
             author: smashingPumpkins,
@@ -114,7 +115,7 @@ export namespace MusicLoader {
 
         const wea = await LabelEntity.create({ name: "WEA International", country: usa, owner: virgin.toLite() }).save();
 
-        await AlbumEntity.create({
+        await AlbumEntity.create({ state: AlbumState.Saved,
             name: "Zeitgeist",
             year: toInt(2007),
             author: smashingPumpkins,
@@ -123,7 +124,7 @@ export namespace MusicLoader {
             label: wea,
         }).save();
 
-        await AlbumEntity.create({
+        await AlbumEntity.create({ state: AlbumState.Saved,
             name: "American Gothic",
             year: toInt(2008),
             author: smashingPumpkins,
@@ -180,7 +181,7 @@ export namespace MusicLoader {
 
         const universal = await LabelEntity.create({ name: "UMG Recordings", country: usa, owner: null }).save();
 
-        await AlbumEntity.create({
+        await AlbumEntity.create({ state: AlbumState.Saved,
             name: "Ben",
             year: toInt(1972),
             author: michael,
@@ -191,7 +192,7 @@ export namespace MusicLoader {
 
         const sony = await LabelEntity.create({ name: "Sony", country: japan, owner: null }).save();
 
-        await AlbumEntity.create({
+        await AlbumEntity.create({ state: AlbumState.Saved,
             name: "Thriller",
             year: toInt(1982),
             author: michael,
@@ -202,7 +203,7 @@ export namespace MusicLoader {
 
         const mjj = await LabelEntity.create({ name: "MJJ", country: usa, owner: sony.toLite() }).save();
 
-        await AlbumEntity.create({
+        await AlbumEntity.create({ state: AlbumState.Saved,
             name: "Bad",
             year: toInt(1989),
             author: michael,
@@ -211,7 +212,7 @@ export namespace MusicLoader {
             label: mjj,
         }).save();
 
-        await AlbumEntity.create({
+        await AlbumEntity.create({ state: AlbumState.Saved,
             name: "Dangerous",
             year: toInt(1991),
             author: michael,
@@ -220,7 +221,7 @@ export namespace MusicLoader {
             label: mjj,
         }).save();
 
-        await AlbumEntity.create({
+        await AlbumEntity.create({ state: AlbumState.Saved,
             name: "HIStory",
             year: toInt(1995),
             author: michael,
@@ -229,7 +230,7 @@ export namespace MusicLoader {
             label: mjj,
         }).save();
 
-        await AlbumEntity.create({
+        await AlbumEntity.create({ state: AlbumState.Saved,
             name: "Blood on the Dance Floor",
             year: toInt(1995),
             author: michael,
@@ -254,7 +255,7 @@ export namespace MusicLoader {
 
         const fatCat = await LabelEntity.create({ name: "FatCat Records", country: usa, owner: universal.toLite() }).save();
 
-        await AlbumEntity.create({
+        await AlbumEntity.create({ state: AlbumState.Saved,
             name: "Ágaetis byrjun",
             year: toInt(1999),
             author: sigurRos,
@@ -265,7 +266,7 @@ export namespace MusicLoader {
 
         const emi = await LabelEntity.create({ name: "EMI", country: usa, owner: null }).save();
 
-        await AlbumEntity.create({
+        await AlbumEntity.create({ state: AlbumState.Saved,
             name: "Takk...",
             year: toInt(2005),
             author: sigurRos,

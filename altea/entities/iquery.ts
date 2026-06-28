@@ -5,7 +5,7 @@ import { Quoted } from "quote-transformer/quoted";
 // interface merging) without importing the server-only Query<T> implementation.
 // The concrete Query<T> in logic/ implements this interface.
 export interface IQuery<T> {
-    toArray(): T[];
+    toArray(): Promise<T[]>;
     queryTextForDebug(): string;
 
     filter(predicate: Quoted<(element: T) => boolean>): IQuery<T>;
@@ -15,31 +15,31 @@ export interface IQuery<T> {
     orderBy(selector: Quoted<(element: T) => unknown>): IOrderedQuery<T>;
     orderByDescending(selector: Quoted<(element: T) => unknown>): IOrderedQuery<T>;
 
-    count(predicate?: Quoted<(element: T) => boolean>): number;
-    some(predicate?: Quoted<(element: T) => boolean>): boolean;
-    every(predicate?: Quoted<(element: T) => boolean>): boolean;
+    count(predicate?: Quoted<(element: T) => boolean>): Promise<number>;
+    some(predicate?: Quoted<(element: T) => boolean>): Promise<boolean>;
+    every(predicate?: Quoted<(element: T) => boolean>): Promise<boolean>;
 
-    min(): T & (number | string | boolean | null | undefined);
-    min<V extends (number | string | boolean | null | undefined)>(valueSelector: Quoted<(element: T) => V>): V;
+    min(): Promise<T & (number | string | boolean | null | undefined)>;
+    min<V extends (number | string | boolean | null | undefined)>(valueSelector: Quoted<(element: T) => V>): Promise<V>;
 
-    max(): T & (number | string | boolean | null | undefined);
-    max<V extends (number | string | boolean | null | undefined)>(valueSelector: Quoted<(element: T) => V>): V;
+    max(): Promise<T & (number | string | boolean | null | undefined)>;
+    max<V extends (number | string | boolean | null | undefined)>(valueSelector: Quoted<(element: T) => V>): Promise<V>;
 
-    sum(): T & (number | null | undefined);
-    sum<V extends (number | null | undefined)>(valueSelector: Quoted<(element: T) => V>): V;
+    sum(): Promise<T & (number | null | undefined)>;
+    sum<V extends (number | null | undefined)>(valueSelector: Quoted<(element: T) => V>): Promise<V>;
 
-    avg(): T & (number | null | undefined);
-    avg<V extends (number | null | undefined)>(valueSelector: Quoted<(element: T) => V>): V;
+    avg(): Promise<T & (number | null | undefined)>;
+    avg<V extends (number | null | undefined)>(valueSelector: Quoted<(element: T) => V>): Promise<V>;
 
     top(count: number): IQuery<T>;
     skip(count: number): IQuery<T>;
 
-    first(predicate?: Quoted<(element: T) => boolean>): T;
-    firstOrNull(predicate?: Quoted<(element: T) => boolean>): T | null;
-    last(predicate?: Quoted<(element: T) => boolean>): T;
-    lastOrNull(predicate?: Quoted<(element: T) => boolean>): T | null;
-    single(predicate?: Quoted<(element: T) => boolean>): T;
-    singleOrNull(predicate?: Quoted<(element: T) => boolean>): T | null;
+    first(predicate?: Quoted<(element: T) => boolean>): Promise<T>;
+    firstOrNull(predicate?: Quoted<(element: T) => boolean>): Promise<T | null>;
+    last(predicate?: Quoted<(element: T) => boolean>): Promise<T>;
+    lastOrNull(predicate?: Quoted<(element: T) => boolean>): Promise<T | null>;
+    single(predicate?: Quoted<(element: T) => boolean>): Promise<T>;
+    singleOrNull(predicate?: Quoted<(element: T) => boolean>): Promise<T | null>;
 
     nullIfEmpty(): IQuery<T | null>;
     distinct(): IQuery<T>;

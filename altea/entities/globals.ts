@@ -66,7 +66,21 @@ declare global {
     sum(this: Array<number>): number;
     sum(this: Array<T>, selector: (element: T, index: number, array: T[]) => number): number;
 
+    avg(this: Array<number>): number;
+    avg(this: Array<T>, selector: (element: T, index: number, array: T[]) => number): number;
+
     count(this: Array<T>, predicate: (element: T, index: number, array: T[]) => boolean): number;
+
+    // Query-positional operators. In a quoted query lambda these are translated
+    // to SQL (the binder steals __lambdaType/__resultType from Query<T>); the
+    // bodies below are the in-memory fallbacks. Names/shapes mirror Query<T>.
+    top(this: Array<T>, count: number): T[];
+    skip(this: Array<T>, count: number): T[];
+    distinct(this: Array<T>): T[];
+    orderBy<V>(this: Array<T>, selector: (element: T) => V): T[];
+    orderByDescending<V>(this: Array<T>, selector: (element: T) => V): T[];
+    defaultIfEmpty(this: Array<T>, defaultValue?: T): T[];
+    toArray(this: Array<T>): T[];
 
     first(this: Array<T>, errorContext?: string): T;
     first<S extends T>(this: Array<T>, predicate?: (element: T, index: number, array: T[]) => element is S): S;
@@ -693,6 +707,41 @@ Array.prototype.onlyOrNull = function(this: any[], predicate?: (element: any, in
 
 Array.prototype.contains = function(this: any[], element: any) {
   return this.indexOf(element) !== -1;
+};
+
+Array.prototype.avg = function(this: any[], selector?: (e: any, i: number, a: any[]) => number) {
+  if (this.length == 0) return 0;
+  const total = selector ? this.reduce((acc, e, i) => acc + selector(e, i, this), 0) : this.reduce((acc, e) => acc + e, 0);
+  return total / this.length;
+};
+
+// Query-positional operators (in-memory fallbacks; the SQL path is the binder's).
+Array.prototype.top = function(this: any[], count: number) {
+  return this.slice(0, count);
+};
+
+Array.prototype.skip = function(this: any[], count: number) {
+  return this.slice(count);
+};
+
+Array.prototype.distinct = function(this: any[]) {
+  return Array.from(new Set(this));
+};
+
+Array.prototype.orderBy = function(this: any[], selector: (e: any) => any) {
+  return this.slice().sort((a, b) => { const ka = selector(a), kb = selector(b); return ka < kb ? -1 : ka > kb ? 1 : 0; });
+};
+
+Array.prototype.orderByDescending = function(this: any[], selector: (e: any) => any) {
+  return this.slice().sort((a, b) => { const ka = selector(a), kb = selector(b); return ka < kb ? 1 : ka > kb ? -1 : 0; });
+};
+
+Array.prototype.defaultIfEmpty = function(this: any[], defaultValue?: any) {
+  return this.length > 0 ? this : [defaultValue];
+};
+
+Array.prototype.toArray = function(this: any[]) {
+  return this.slice();
 };
 
 if (!Array.prototype.includes) {

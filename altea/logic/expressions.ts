@@ -2,9 +2,9 @@
 import { isOptionalChain } from "typescript";
 import { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
 import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, ObjectType, Type } from "../entities/types";
+import { resolveType } from "../entities/registration";
 import { getLambdaTypeResolvers, getResultTypeResolver, LambdaTypeResolver, OrderedQuery, Query, ResultTypeResolver, StaticFunction } from "./query";
-
-type Visitor = (e: Expression) => Expression;
+import type { ExpressionVisitor } from "./linq/expressionVisitor";
 
 export abstract class Expression {
     constructor(
@@ -13,7 +13,8 @@ export abstract class Expression {
     }
 
     abstract toString(): string;
-    abstract visitChildren(visitor: Visitor): Expression;
+    // Double-dispatch into the visitor (.NET's Expression.Accept).
+    abstract accept(visitor: ExpressionVisitor): Expression;
 
 
     static fromQuotedLambda<T extends Function>(lambda: Quoted<T>, types: Type[]): LambdaExpression {
@@ -183,29 +184,14 @@ export abstract class Expression {
                         q[1],
                         q[2].map(arg => fromQuoted(arg))
                     );
+                case "as":
+                    return new CastExpression(fromQuoted(q[1]), resolveCastType(q[2]));
                 default:
                     throw new Error(`Unsupported quoted expression: ${JSON.stringify(q)}`);
             }
         }
     }
 
-    static visitArray(expressions: ReadonlyArray<Expression>, visitor: Visitor): ReadonlyArray<Expression> {
-        let newArguments: Expression[] | undefined;
-
-        for (let i = 0; i < expressions.length; i++) {
-            const newArg = visitor(expressions[i]);
-
-            if (newArg !== expressions[i]) {
-                if (!newArguments) {
-                    // Create a new array only when the first change is detected
-                    newArguments = expressions.slice(0, i);
-                }
-                newArguments.push(newArg);
-            }
-        }
-
-        return newArguments as ReadonlyArray<Expression> ?? expressions;
-    }
 }
 
 export class ConstantExpression extends Expression {
@@ -246,9 +232,8 @@ export class ConstantExpression extends Expression {
         return `${this.value}`;
     }
 
-    visitChildren(visitor: Visitor): ConstantExpression {
-        // Constants do not have child expressions to visit.
-        return this;
+    accept(visitor: ExpressionVisitor): Expression {
+        return visitor.visitConstant(this);
     }
 }
 
@@ -272,11 +257,8 @@ export class UnaryExpression extends Expression {
         return `(${(this.kind == "-u" ? "-" : this.kind == "+u" ? "+" : this.kind)}${this.expression.toString()}`;
     }
 
-    visitChildren(visitor: Visitor): UnaryExpression {
-
-        var expression = visitor(this.expression);
-
-        return this.updateUnary(expression);
+    accept(visitor: ExpressionVisitor): Expression {
+        return visitor.visitUnary(this);
     }
 
     updateUnary(expression: Expression): UnaryExpression {
@@ -326,11 +308,8 @@ export class BinaryExpression extends Expression {
         return `(${this.left.toString()} ${this.kind} ${this.right.toString()})`;
     }
 
-    visitChildren(visitor: Visitor): BinaryExpression {
-        const newLeft = visitor(this.left);
-        const newRight = visitor(this.right);
-
-        return this.updateBinary(newLeft, newRight);
+    accept(visitor: ExpressionVisitor): Expression {
+        return visitor.visitBinary(this);
     }
 
     updateBinary(left: Expression, right: Expression): BinaryExpression {
@@ -359,12 +338,8 @@ export class ConditionalExpression extends Expression {
         return `(${this.condition.toString()} ? ${this.whenTrue.toString()} : ${this.whenFalse.toString()})`;
     }
 
-    visitChildren(visitor: Visitor): ConditionalExpression {
-        const newCondition = visitor(this.condition);
-        const newTrueExpression = visitor(this.whenTrue);
-        const newFalseExpression = visitor(this.whenFalse);
-
-        return this.updateConditional(newCondition, newTrueExpression, newFalseExpression);
+    accept(visitor: ExpressionVisitor): Expression {
+        return visitor.visitConditional(this);
     }
 
     updateConditional(condition: Expression, whenTrue: Expression, whenFalse: Expression): ConditionalExpression {
@@ -406,10 +381,8 @@ export class PropertyExpression extends Expression {
         return `${baseStr}${operatorString}${this.propertyName}`;
     }
 
-    visitChildren(visitor: Visitor): PropertyExpression {
-        const newObject = visitor(this.object);
-
-        return this.updateProperty(newObject);
+    accept(visitor: ExpressionVisitor): Expression {
+        return visitor.visitProperty(this);
     }
 
     updateProperty(object: Expression): PropertyExpression {
@@ -446,11 +419,8 @@ export class CallExpression extends Expression {
         return `${baseStr}${operatorString}(${argumentsString})`;
     }
 
-    visitChildren(visitor: Visitor): CallExpression {
-        const newExpresion = visitor(this.func);
-        const newArgs = this.args.map(arg => visitor(arg));
-
-        return this.updateCall(newExpresion, newArgs);
+    accept(visitor: ExpressionVisitor): Expression {
+        return visitor.visitCall(this);
     }
 
     updateCall(func: Expression, args: readonly Expression[]): CallExpression {
@@ -458,7 +428,7 @@ export class CallExpression extends Expression {
             return this;
         }
 
-        return new CallExpression(func, args, this.isOptionalChaining);
+        return new CallExpression(func, args, this.type, this.isOptionalChaining);
     }
 }
 
@@ -474,8 +444,8 @@ export class ParameterExpression extends Expression {
         return this.name;
     }
 
-    visitChildren(visitor: Visitor): ParameterExpression {
-        return this;
+    accept(visitor: ExpressionVisitor): Expression {
+        return visitor.visitParameter(this);
     }
 }
 
@@ -492,10 +462,8 @@ export class LambdaExpression extends Expression {
         return `${parametersString} => ${this.body.toString()}`;
     }
 
-    visitChildren(visitor: Visitor): LambdaExpression {
-        const newBody = visitor(this.body);
-
-        return this.updateLambda(this.parameters, newBody);
+    accept(visitor: ExpressionVisitor): Expression {
+        return visitor.visitLambda(this);
     }
 
     updateLambda(parameters: ParameterExpression[], body: Expression): LambdaExpression {
@@ -525,22 +493,8 @@ export class ObjectExpression extends Expression {
         return `{\n${propertiesString}\n}`;
     }
 
-    visitChildren(visitor: Visitor): ObjectExpression {
-        let newProperties: Record<string, Expression> | undefined;
-
-        for (const [name, value] of Object.entries(this.properties)) {
-            const newValue = visitor(value);
-
-            if (newValue !== value) {
-                if (!newProperties) {
-                    // Create a new object only when the first change is detected
-                    newProperties = { ...this.properties };
-                }
-                newProperties[name] = newValue;
-            }
-        }
-
-        return newProperties ? this.updateObject(newProperties) : this;
+    accept(visitor: ExpressionVisitor): Expression {
+        return visitor.visitObject(this);
     }
 
     updateObject(properties: Record<string, Expression>): ObjectExpression {
@@ -565,10 +519,8 @@ export class NewExpression extends Expression {
         return `new ${this.constructorFunction.toString()}(${argumentsString})`;
     }
 
-    visitChildren(visitor: Visitor): NewExpression {
-
-        var newArgs = Expression.visitArray(this.args, visitor);
-        return this.updateNew(newArgs);
+    accept(visitor: ExpressionVisitor): Expression {
+        return visitor.visitNew(this);
     }
 
     updateNew(args: ReadonlyArray<Expression>): NewExpression {
@@ -578,6 +530,43 @@ export class NewExpression extends Expression {
 
         return new NewExpression(this.constructorFunction, args);
     }
+}
+
+// `x as T` cast. The target type comes from the quoted name string: primitive
+// keywords map to LiteralType; an entity/embedded name resolves to a ClassType
+// via the registry. The binder uses this to re-type a value and to narrow a
+// polymorphic reference (ImplementedBy/ImplementedByAll).
+export class CastExpression extends Expression {
+    constructor(
+        public readonly expression: Expression,
+        type: Type,
+    ) {
+        super("as", type);
+    }
+
+    toString(): string {
+        return `(${this.expression.toString()} as ${this.type.constructor.name})`;
+    }
+
+    accept(visitor: ExpressionVisitor): Expression {
+        return visitor.visitCast(this);
+    }
+
+    updateCast(expression: Expression): CastExpression {
+        if (this.expression === expression)
+            return this;
+        return new CastExpression(expression, this.type);
+    }
+}
+
+function resolveCastType(name: string): Type {
+    switch (name) {
+        case "number": return LiteralType.number;
+        case "string": return LiteralType.string;
+        case "boolean": return LiteralType.boolean;
+    }
+    const ctor = resolveType(name);
+    return ctor != null ? new ClassType(ctor) : LiteralType.null;
 }
 
 function getType(object: Expression, propertyName: string): Type {

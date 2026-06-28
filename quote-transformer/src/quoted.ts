@@ -14,7 +14,8 @@ export type QuotedEx =
     ExLambda |
     ExObject |
     ExArray |
-    ExNew;
+    ExNew |
+    ExAs;
 
 
 export type ExConstant = ["c", unknown];
@@ -29,6 +30,10 @@ export type ExObject = ["{}", { [name: string]: QuotedEx }];
 export type ExArray = ["[]", QuotedEx[]];
 export type ExNew = ["new", Function, QuotedEx[]];
 export type ExQuote = ["q", QuotedEx];
+// `x as T` — the target type carried as a name string (primitive keyword like
+// "number"/"string"/"boolean", or an entity/embedded type name resolved via the
+// type registry). Consistent with @field's "type is a name string" decision.
+export type ExAs = ["as", QuotedEx, string];
 
 export type OpUnary = "+u" | "-u" | "~" | "!";
 export type OpBinary =

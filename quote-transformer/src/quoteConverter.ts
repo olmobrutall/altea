@@ -73,6 +73,31 @@ export function getQuoteConverter(tsInstance: typeof ts2) {
         return undefined;
     }
 
+    // Maps a cast's type node to a name string. Primitive keywords map to
+    // "number"/"string"/"boolean"; a type reference maps to its identifier text
+    // (an entity/embedded type name); `T | null | undefined` unwraps to the
+    // single non-null member. Returns undefined for shapes we can't name.
+    function typeNodeName(type: ts2.TypeNode): string | undefined {
+        switch (type.kind) {
+            case ts.SyntaxKind.NumberKeyword: return "number";
+            case ts.SyntaxKind.StringKeyword: return "string";
+            case ts.SyntaxKind.BooleanKeyword: return "boolean";
+        }
+        if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName))
+            return type.typeName.text;
+        if (ts.isUnionTypeNode(type)) {
+            const named = type.types.filter(t =>
+                t.kind != ts.SyntaxKind.NullKeyword &&
+                t.kind != ts.SyntaxKind.UndefinedKeyword &&
+                !(ts.isLiteralTypeNode(t) && t.literal.kind == ts.SyntaxKind.NullKeyword));
+            if (named.length == 1)
+                return typeNodeName(named[0]);
+        }
+        if (ts.isParenthesizedTypeNode(type))
+            return typeNodeName(type.type);
+        return undefined;
+    }
+
     return function quoteExpression(node: ts2.Expression, idents: string[], initialThis?: boolean): ts2.Expression | QuoteError {
 
         if (ts.isBinaryExpression(node)) {
@@ -130,6 +155,30 @@ export function getQuoteConverter(tsInstance: typeof ts2) {
 
         if (ts.isParenthesizedExpression(node)) {
             return quoteExpression(node.expression, idents, initialThis);
+        }
+
+        // `x!` non-null assertion — type-only, no runtime/SQL meaning → transparent.
+        if (ts.isNonNullExpression(node)) {
+            return quoteExpression(node.expression, idents, initialThis);
+        }
+
+        // `x as T` (and the `<T>x` assertion form) → ["as", inner, "<TypeName>"].
+        // The target type is carried as a name string (resolved later: primitive
+        // keyword, or entity/embedded type name via the registry).
+        if (ts.isAsExpression(node) || ts.isTypeAssertionExpression(node)) {
+            const inner = quoteExpression(node.expression, idents, initialThis);
+            if (inner instanceof QuoteError)
+                return inner;
+
+            const typeName = typeNodeName(node.type);
+            if (typeName == null)
+                return new QuoteError(node, "Unable to quote cast to " + ts.SyntaxKind[node.type.kind]);
+
+            return ts.factory.createArrayLiteralExpression([
+                ts.factory.createStringLiteral("as"),
+                inner,
+                ts.factory.createStringLiteral(typeName),
+            ]);
         }
 
         if (ts.isConditionalExpression(node)) {

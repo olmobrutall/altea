@@ -127,6 +127,27 @@ export abstract class Entity extends BaseEntity {
 
         return lite;
     }
+
+    /**
+     * Null-safe identity comparison against another entity or a lite of the same
+     * type (mirrors Signum's `Entity.Is` / `Lite.Is`). New entities (no id) are
+     * compared by reference. In a quoted query the binder lowers `.is(...)` to an
+     * id comparison (SmartEqualizer); this body is the in-memory fallback.
+     */
+    is(other: Entity | Lite<Entity> | null | undefined): boolean {
+        if (other == null)
+            return false;
+
+        const otherType = other instanceof Entity ? (other.constructor as Type<Entity>) : other.entityType;
+        if ((this.constructor as Type<Entity>) !== otherType)
+            return false;
+
+        if (this.id != null || other.id != null)
+            return this.id === other.id;
+
+        const otherEntity = other instanceof Entity ? other : other.entityOrNull;
+        return (this as Entity) === otherEntity;
+    }
 }
 
 export abstract class EmbeddedEntity extends BaseEntity { }

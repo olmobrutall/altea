@@ -48,8 +48,16 @@ export abstract class Lite<out T extends Entity> {
         return this;
     }
 
-    is(other: Lite<Entity>): boolean {
-        if (this.entityType !== other.entityType)
+    // Accepts a lite or a full entity of the same type (mirrors Signum's
+    // overloaded Lite.Is). In a quoted query the binder lowers this to an id
+    // comparison (SmartEqualizer); this body is the in-memory fallback.
+    is(other: Lite<Entity> | Entity | null | undefined): boolean {
+        if (other == null)
+            return false;
+
+        const isEntity = !(other instanceof Lite);
+        const otherType = isEntity ? ((other as Entity).constructor as Type<Entity>) : (other as Lite<Entity>).entityType;
+        if (this.entityType !== otherType)
             return false;
 
         // New entities have no id yet, so fat lites of new entities are compared
@@ -57,7 +65,8 @@ export abstract class Lite<out T extends Entity> {
         if (this.id != null || other.id != null)
             return this.id === other.id;
 
-        return this.entityOrNull === other.entityOrNull;
+        const otherEntity = isEntity ? (other as Entity) : (other as Lite<Entity>).entityOrNull;
+        return this.entityOrNull === otherEntity;
     }
 }
 
