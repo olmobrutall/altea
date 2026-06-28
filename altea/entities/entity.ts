@@ -3,6 +3,7 @@ import { Lite, LiteImp, getLiteModelConstructor } from './lite';
 import { entity, EntityData, ignore } from './decorators';
 import { reflect } from './reflection';
 import { enumNameOf } from './registration';
+import { isGraphModified, isModifiedSelf } from './changes';
 
 export type PrimaryKey = string | number;
 
@@ -52,9 +53,32 @@ export type InitValues<T> = Partial<{
     [K in keyof T as T[K] extends Function ? never : K]: T[K]
 }>;
 
+export type EntitySnapshot = Record<string, unknown>;
+
 export abstract class BaseEntity {
+    // The clean baseline used for snapshot-based change tracking: the normalized
+    // row image taken on load / after save. `undefined` means "never persisted"
+    // (a freshly created instance), which counts as modified. Maintained by
+    // ./changes (cleanModified); @ignore so it is never treated as a column.
+    @ignore _snapshot?: EntitySnapshot;
+
     mixin<M extends BaseEntity>(mixinClass: Type<M>): M {
         return this as unknown as M;
+    }
+
+    /**
+     * True if this modifiable — or anything in its object graph — has changed
+     * since its snapshot baseline (Signum's graph-`Modified` / `HasChanges`).
+     * Computed by diffing live values against {@link _snapshot}; no setter or
+     * Proxy bookkeeping is involved.
+     */
+    isDirty(): boolean {
+        return isGraphModified(this);
+    }
+
+    /** True if *this* modifiable's own fields differ from its snapshot (Signum's `SelfModified`). */
+    isModifiedSelf(): boolean {
+        return isModifiedSelf(this);
     }
 
     // Factory: `Order.create({ amount: 42 })` instead of `new Order().init(...)`.
@@ -72,15 +96,12 @@ export abstract class BaseEntity {
     }
 }
 
-export type EntitySnapshot = Record<string, unknown>;
-
 @reflect
 @entity()
 export abstract class Entity extends BaseEntity {
     id: PrimaryKey;
     @ignore isNew: boolean;
     ticks: number;
-    _snapshot?: EntitySnapshot;
 
     /**
      * Builds a {@link Lite} pointing to this entity. Uses the
@@ -105,11 +126,6 @@ export abstract class Entity extends BaseEntity {
             lite.setEntity(this);
 
         return lite;
-    }
-
-    isDirty(): boolean {
-        if (this._snapshot == null) return this.isNew;
-        return false;
     }
 }
 

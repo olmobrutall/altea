@@ -103,8 +103,14 @@ export class SqlBuilder {
                 return '';
             return c.scale == null ? `(${c.precision})` : `(${c.precision},${c.scale})`;
         }
-        if (c.size == null)
+        if (c.size == null) {
+            // A string type with no explicit length is treated as unbounded:
+            // SQL Server's bare `nvarchar` means `nvarchar(1)` (silently truncates),
+            // so emit `(MAX)`; Postgres `varchar` is already unbounded.
+            if (this.isString(c))
+                return this.isPostgres ? '' : '(MAX)';
             return '';
+        }
         // SqlServer's "unbounded" size → (MAX); Postgres has no length on text.
         if (c.size === MAX_SIZE)
             return this.isPostgres ? '' : '(MAX)';
@@ -114,6 +120,11 @@ export class SqlBuilder {
     private isDecimal(c: IColumn): boolean {
         const t = this.isPostgres ? c.dbType.postgres : c.dbType.sqlServer;
         return t === 'decimal' || t === 'numeric';
+    }
+
+    private isString(c: IColumn): boolean {
+        const t = (this.isPostgres ? c.dbType.postgres : c.dbType.sqlServer).toLowerCase();
+        return t === 'nvarchar' || t === 'varchar' || t === 'nchar' || t === 'char' || t === 'text';
     }
 
     private quote(c: IColumn, value: string): string {

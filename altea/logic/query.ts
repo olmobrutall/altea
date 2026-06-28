@@ -413,12 +413,17 @@ export class Query<T> implements IQuery<T> {
     }))
     groupBy(keySelector: Quoted<(element: T) => unknown>, elementSelector?: Quoted<(element: T) => unknown>): Query<{ key: unknown, elements: unknown[] }> {
         var lambdaKey = Expression.fromQuotedLambda(keySelector, [this.elementType]);
-        var lambdaElement = elementSelector == null ? null : Expression.fromQuotedLambda(keySelector, [this.elementType]);
+        var lambdaElement = elementSelector == null ? null : Expression.fromQuotedLambda(elementSelector, [this.elementType]);
+
+        var groupingType = new ObjectType({
+            key: lambdaKey.body.type,
+            elements: new ArrayType(lambdaElement?.body.type ?? this.elementType),
+        });
 
         var call = new CallExpression(
             new PropertyExpression(this.expression, "groupBy"),
             lambdaElement == null ? [lambdaKey] : [lambdaKey, lambdaElement],
-            this.expression.type!);
+            new ArrayType(groupingType));
 
         return new Query<{ key: unknown, elements: unknown[] }>(call, this.translator);
     }

@@ -1,6 +1,8 @@
 import { Entity, typeConstructor } from '../entities/entity';
 import type { Type, PrimaryKey } from '../entities/entity';
+import { referenceKey } from '../entities/changes';
 import { Lite } from '../entities/lite';
+import { Temporal } from '../entities/basics';
 import { Connector } from './connection/connector';
 import type { IColumn } from './schema/column';
 import type { Table } from './schema/table';
@@ -18,51 +20,81 @@ import {
 } from './schema/field';
 import { SqlPreCommandSimple, SqlParameter } from './sync/sqlPreCommand';
 
-// Real Entity.save(), added to the prototype here in logic/ (the entities package
-// only declares the shape — persistence is server-only). save() takes no
-// arguments: it reads the active database from the ambient connector
-// (Connector.current()), finds this entity's Table in that connector's schema,
-// and either INSERTs it (new — no id yet) or UPDATEs it (existing id). The
-// generated SQL is parameterized and dialect-aware (RETURNING vs OUTPUT for the
-// new id), executed through the SqlPreCommand convenience methods.
+// Low-level, single-row persistence: the SQL that writes ONE entity's row. The
+// graph orchestration (ordering, cascade of owned child rows, change detection,
+// integrity, transaction, re-baselining) lives in ./saver, which calls these. They
+// read the active database from the ambient connector (Connector.current()), find
+// the entity's Table in that connector's schema, and emit parameterized,
+// dialect-aware SQL (RETURNING vs OUTPUT for the new id).
 //
 // Scope (matches the schema model): value/enum/ticks columns, single & embedded
 // references, and @implementedBy. @implementedByAll writes its id but can only
 // approximate the type discriminator as the clean type *name* (there is no Type
-// table yet to map it to an int). Child arrays (@backReference) carry no columns,
-// so they are saved as their own rows by the caller, not cascaded from here.
-
-declare module '../entities/entity' {
-    interface Entity {
-        // Returns the saved entity so calls can be chained inline, mirroring
-        // Signum's `new XEntity { ... }.Execute(XOperation.Save)` returning the
-        // entity: `const band = await new BandEntity(...).save();`.
-        save(): Promise<this>;
-    }
-}
+// table yet to map it to an int). Child arrays (@backReference) carry no columns of
+// their own here — ./saver persists them as their own rows.
 
 interface ColumnValue {
     column: IColumn;
     value: unknown;
 }
 
-Entity.prototype.save = async function (this: Entity): Promise<Entity> {
+// INSERTs a new entity (no id yet), assigning the database-generated id and
+// clearing isNew. Returns nothing — the caller re-baselines after the graph commits.
+export async function insertEntityRow(entity: Entity): Promise<void> {
     const connector = Connector.current();
-    const table = connector.schema.table(this.constructor as Type<Entity>);
-    const assignments = collectAssignments(table, this);
+    const table = connector.schema.table(entity.constructor as Type<Entity>);
+    const assignments = collectAssignments(table, entity);
 
-    if (this.id == null) {
-        const rows = await buildInsert(table, assignments).executeQuery();
-        const idColumn = table.primaryKey.column.name;
-        const row = rows[0] as Record<string, unknown> | undefined;
-        this.id = (row?.[idColumn] ?? row?.['id']) as PrimaryKey;
-        this.isNew = false;
-    } else {
-        await buildUpdate(table, assignments, this.id).executeNonQuery();
+    const rows = await buildInsert(table, assignments).executeQuery();
+    const idColumn = table.primaryKey.column.name;
+    const row = rows[0] as Record<string, unknown> | undefined;
+    entity.id = (row?.[idColumn] ?? row?.['id']) as PrimaryKey;
+    // The row was written with ticks = 0 (collectAssignments), so the in-memory
+    // concurrency token starts there too.
+    if (table.ticks != null)
+        entity.ticks = 0;
+    entity.isNew = false;
+}
+
+// UPDATEs an existing entity in place. Enforces optimistic concurrency when the
+// table has a ticks column: the row is written with ticks = old + 1 guarded by
+// `WHERE id = ? AND ticks = old`, so a row modified or deleted by someone else
+// since this entity was retrieved matches zero rows and raises ConcurrencyException.
+export async function updateEntityRow(entity: Entity): Promise<void> {
+    const connector = Connector.current();
+    const table = connector.schema.table(entity.constructor as Type<Entity>);
+    const assignments = collectAssignments(table, entity);
+
+    if (table.ticks == null) {
+        await buildUpdate(table, assignments, entity.id).executeNonQuery();
+        return;
     }
 
-    return this;
-};
+    const oldTicks = entity.ticks ?? 0;
+    const newTicks = oldTicks + 1;
+    for (const a of assignments)
+        if (a.column === table.ticks.column) a.value = newTicks;
+
+    const affected = await buildUpdate(table, assignments, entity.id, {
+        column: table.ticks.column,
+        value: oldTicks,
+    }).executeNonQuery();
+
+    if (affected === 0)
+        throw new ConcurrencyException(entity);
+
+    entity.ticks = newTicks;
+}
+
+// Raised when an UPDATE's optimistic-concurrency guard matches no row — the entity
+// was changed or deleted by another transaction since it was loaded. Port of
+// Signum's ConcurrencyException.
+export class ConcurrencyException extends Error {
+    constructor(public readonly entity: Entity) {
+        super(`Concurrency error: ${entity.constructor.name} (id ${String(entity.id)}) was modified or deleted since it was retrieved.`);
+        this.name = 'ConcurrencyException';
+    }
+}
 
 // ---- Value extraction ------------------------------------------------------
 
@@ -116,7 +148,7 @@ function pushFieldValues(field: Field, value: unknown, out: ColumnValue[]): void
     }
 
     if (field instanceof FieldImplementedByAll) {
-        out.push({ column: field.idColumn, value: value == null ? null : referenceId(value) });
+        out.push({ column: field.idColumn, value: value == null ? null : referenceId(value as Lite<Entity> | Entity) });
         // NOT YET: a Type table to map the target type to an int id; the clean
         // type name is written as a best-effort discriminator.
         out.push({ column: field.typeColumn, value: value == null ? null : cleanTypeName(entityConstructorOf(value)) });
@@ -133,19 +165,38 @@ function pushFieldValues(field: Field, value: unknown, out: ColumnValue[]): void
     }
 }
 
-// Primitives pass through; Date is left as-is for the driver; other objects
-// (Temporal.PlainDate / Duration) are stringified ("1982-11-30", "PT4M54S").
+// Primitives pass through; Date is left as-is for the driver. Temporal values are
+// formatted to dialect-portable strings: datetime/time are capped at millisecond
+// precision (Temporal's native nanoseconds overflow SQL Server's datetime2(7)), and
+// a Duration is rendered as a clock time HH:MM:SS — the literal both a SQL Server
+// `time` and a Postgres `interval` accept ("PT4M54S" is rejected by SQL Server).
 function normalizeScalar(value: unknown): unknown {
     if (value == null) return null;
     if (value instanceof Date) return value;
-    if (typeof value === 'object') return String(value);
+
+    if (value instanceof Temporal.PlainDate) return value.toString();
+    if (value instanceof Temporal.PlainDateTime) return value.toString({ fractionalSecondDigits: 3 });
+    if (value instanceof Temporal.PlainTime) return value.toString({ fractionalSecondDigits: 3 });
+    if (value instanceof Temporal.ZonedDateTime) return value.toString({ fractionalSecondDigits: 3 });
+    if (value instanceof Temporal.Instant) return value.toString({ fractionalSecondDigits: 3 });
+    if (value instanceof Temporal.Duration) {
+        const total = Math.floor(Math.abs(value.total('seconds')));
+        const hh = String(Math.floor(total / 3600)).padStart(2, '0');
+        const mm = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
+        const ss = String(total % 60).padStart(2, '0');
+        return `${hh}:${mm}:${ss}`;
+    }
+
+    if (typeof value === 'object') return String(value); // Decimal & friends
     return value;
 }
 
-// The primary-key id behind a reference, whether it is a full Entity or a Lite.
+// The primary-key id behind a reference (full Entity or Lite). Delegates to the
+// shared helper so the save path and the snapshot projection agree — notably on
+// fat lites of new entities, whose live id is read rather than the null captured
+// at lite creation.
 function referenceId(value: unknown): PrimaryKey | null {
-    if (value == null) return null;
-    return (value as { id?: PrimaryKey }).id ?? null;
+    return referenceKey(value as Lite<Entity> | Entity | null);
 }
 
 function entityConstructorOf(value: unknown): Function {
@@ -190,7 +241,12 @@ function buildInsert(table: Table, assignments: ColumnValue[]): SqlPreCommandSim
     return new SqlPreCommandSimple(sql, namedParameters(assignments));
 }
 
-function buildUpdate(table: Table, assignments: ColumnValue[], id: PrimaryKey): SqlPreCommandSimple {
+function buildUpdate(
+    table: Table,
+    assignments: ColumnValue[],
+    id: PrimaryKey,
+    concurrency?: { column: IColumn; value: unknown },
+): SqlPreCommandSimple {
     const sb = Connector.current().sqlBuilder;
     const tableName = sb.objectName(table.name);
     const idCol = sb.sqlEscape(table.primaryKey.column.name);
@@ -198,6 +254,14 @@ function buildUpdate(table: Table, assignments: ColumnValue[], id: PrimaryKey): 
     const sets = assignments
         .map((a, i) => `${sb.sqlEscape(a.column.name)} = ${placeholder(sb.isPostgres, i)}`)
         .join(', ');
-    const sql = `UPDATE ${tableName} SET ${sets} WHERE ${idCol} = ${placeholder(sb.isPostgres, assignments.length)};`;
-    return new SqlPreCommandSimple(sql, namedParameters(assignments, { value: id }));
+
+    const params = namedParameters(assignments, { value: id });
+    let where = `${idCol} = ${placeholder(sb.isPostgres, assignments.length)}`;
+    if (concurrency != null) {
+        where += ` AND ${sb.sqlEscape(concurrency.column.name)} = ${placeholder(sb.isPostgres, assignments.length + 1)}`;
+        params.push({ name: `p${assignments.length + 1}`, value: concurrency.value });
+    }
+
+    const sql = `UPDATE ${tableName} SET ${sets} WHERE ${where};`;
+    return new SqlPreCommandSimple(sql, params);
 }

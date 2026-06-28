@@ -104,11 +104,14 @@ export class ImplementedByAllIdColumn extends ColumnBase {
 }
 
 // The discriminator half of @implementedByAll (which entity type the id refers
-// to). `referenceTable` is left undefined until a TypeEntity table exists.
+// to). Interim: a string column holding the clean type name (e.g. "Band") that
+// save.ts writes, until a TypeEntity table exists to map types to int ids — at
+// which point this becomes an int FK with `referenceTable` set.
 export class ImplementedByAllTypeColumn extends ColumnBase {
-    constructor(name: string, dbType: AbstractDbType) {
-        super(name, dbType);
+    constructor(name: string) {
+        super(name, new AbstractDbType('nvarchar', 'varchar'));
         this.nullable = IsNullable.Yes;
+        this.size = 100;
     }
 }
 

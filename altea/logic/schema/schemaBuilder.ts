@@ -246,7 +246,7 @@ export class SchemaBuilder {
         if (fi.implementations != null) {
             if (fi.implementations.kind === 'implementedByAll') {
                 const idColumn = new ImplementedByAllIdColumn(preName.add(`${fi.name}Id`).toString(), this.settings.primaryKeyDbType);
-                const typeColumn = new ImplementedByAllTypeColumn(preName.add(`${fi.name}Type`).toString(), this.settings.primaryKeyDbType);
+                const typeColumn = new ImplementedByAllTypeColumn(preName.add(`${fi.name}Type`).toString());
                 return new FieldImplementedByAll(idColumn, typeColumn, isLite);
             }
             const columns = fi.implementations.types().map(implType => {
@@ -310,6 +310,12 @@ export class SchemaBuilder {
             if (efi.ignore || RESERVED_FIELDS.has(name))
                 continue;
             const field = this.generateField(table, efi, embeddedPre);
+            // A nullable embedded can be entirely absent, so every flattened
+            // sub-column must be nullable regardless of the sub-field's own
+            // nullability — presence is tracked by the hasValue column.
+            if (hasValue != null)
+                for (const col of field.columns())
+                    (col as { nullable: IsNullable }).nullable = IsNullable.Yes;
             embeddedFields[name] = new EntityField(efi, field, makeGetter(name));
         }
         return new FieldEmbedded(hasValue, embeddedFields);
