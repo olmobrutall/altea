@@ -1,7 +1,7 @@
 import {
     Expression, BinaryExpression, UnaryExpression, ConditionalExpression,
     ConstantExpression, CastExpression,
-} from "../expressions";
+} from "./expressions";
 import { OpBinary } from "quote-transformer/quoted";
 import {
     SourceExpression, TableExpression, SelectExpression, JoinExpression,
@@ -9,8 +9,8 @@ import {
     AggregateExpression, SqlFunctionExpression, SqlConstantExpression,
     CaseExpression, LikeExpression, ScalarExpression, ExistsExpression, InExpression,
     IsNullExpression, IsNotNullExpression, PrimaryKeyExpression,
-} from "../expressions.sql";
-import { Alias } from "./aliasGenerator";
+} from "./expressions.sql";
+import { Alias } from "./AliasGenerator";
 
 // Port of Signum's QueryFormatter. Renders a (SQL-only) DbExpression tree to SQL
 // text + a positional parameter list, dialect-aware (Postgres `$n` / SQL Server

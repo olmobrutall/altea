@@ -1,10 +1,10 @@
 
 import { isOptionalChain } from "typescript";
 import { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
-import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, ObjectType, Type } from "../entities/types";
-import { resolveType } from "../entities/registration";
-import { getLambdaTypeResolvers, getResultTypeResolver, LambdaTypeResolver, OrderedQuery, Query, ResultTypeResolver, StaticFunction } from "./query";
-import type { ExpressionVisitor } from "./linq/expressionVisitor";
+import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, ObjectType, Type } from "../../entities/types";
+import { resolveType } from "../../entities/registration";
+import { getLambdaTypeResolvers, getResultTypeResolver, LambdaTypeResolver, OrderedQuery, Query, ResultTypeResolver, StaticFunction } from "../query";
+import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 
 export abstract class Expression {
     constructor(

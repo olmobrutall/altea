@@ -4,9 +4,9 @@ import { table } from "@altea/altea/logic/table";
 import { QueryBinder } from "@altea/altea/logic/linq/queryBinder";
 import {
     ProjectionExpression, SelectExpression, TableExpression, ColumnExpression,
-} from "@altea/altea/logic/expressions.sql";
+} from "@altea/altea/logic/linq/expressions.sql";
 import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
-import { expressionSimplifier } from "@altea/altea/logic/visitors/expressionSimplifier";
+import { expressionSimplifier } from "@altea/altea/logic/linq/visitors/expressionSimplifier";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { Connector } from "@altea/altea/logic/connection/connector";
 import { MusicLogic } from "../logic/MusicLogic";

@@ -18,10 +18,10 @@ export class ExpressionVisitor {
     }
 
     // Visits an array, returning the SAME array reference when no element changed.
-    visitArray(nodes: readonly Expression[]): readonly Expression[] {
-        let result: Expression[] | undefined;
+    visitArray<T>(nodes: readonly T[], visit: (node: T) => T): readonly T[] {
+        let result: T[] | undefined;
         for (let i = 0; i < nodes.length; i++) {
-            const visited = this.visit(nodes[i]);
+            const visited = visit(nodes[i]);
             if (result == null && visited !== nodes[i])
                 result = nodes.slice(0, i);
             if (result != null)
@@ -29,6 +29,7 @@ export class ExpressionVisitor {
         }
         return result ?? nodes;
     }
+
 
     visitConstant(node: ConstantExpression): Expression {
         return node;
@@ -55,11 +56,11 @@ export class ExpressionVisitor {
     }
 
     visitCall(node: CallExpression): Expression {
-        return node.updateCall(this.visit(node.func), this.visitArray(node.args));
+        return node.updateCall(this.visit(node.func), this.visitArray(node.args, a => this.visit(a)));
     }
 
     visitLambda(node: LambdaExpression): Expression {
-        const params = this.visitArray(node.parameters) as ParameterExpression[];
+        const params = this.visitArray(node.parameters, p => this.visit(p) as ParameterExpression) as ParameterExpression[];
         return node.updateLambda(params, this.visit(node.body));
     }
 
@@ -76,7 +77,7 @@ export class ExpressionVisitor {
     }
 
     visitNew(node: NewExpression): Expression {
-        return node.updateNew(this.visitArray(node.args));
+        return node.updateNew(this.visitArray(node.args, a => this.visit(a)));
     }
 
     visitCast(node: CastExpression): Expression {

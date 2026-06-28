@@ -1,16 +1,32 @@
 
 import { Entity } from "../entities/entity";
-import { CallExpression, ConstantExpression, Expression } from "./expressions";
+import { CallExpression, ConstantExpression, Expression } from "./linq/expressions";
 import { asStaticFunction, IQueryTranslator, Query } from "./query";
 import { ArrayType, FunctionType, ClassType, Type } from "../entities/types";
-import { expressionSimplifier } from "./visitors/expressionSimplifier";
+import { expressionSimplifier } from "./linq/visitors/ExpressionSimplifier";
 import { Connector } from "./connection/connector";
-import { QueryBinder } from "./linq/queryBinder";
-import { ProjectionExpression } from "./expressions.sql";
+import { QueryBinder } from "./linq/visitors/QueryBinder";
+import { ProjectionExpression } from "./linq/expressions.sql";
 import { buildTranslateResult } from "./linq/translatorBuilder";
 import { QueryFormatter } from "./linq/queryFormatter";
 
 
+
+declare global {
+    interface Promise<T> {
+        get $v(): T;
+    }
+}
+
+if (!Object.prototype.hasOwnProperty.call(Promise.prototype, "$v")) {
+    Object.defineProperty(Promise.prototype, "$v", {
+        configurable: true,
+        enumerable: false,
+        get(this: Promise<unknown>): unknown {
+            throw new Error("Promise.$v is a query-compiler marker and should not be evaluated at runtime.");
+        }
+    });
+}
 
 export function table<T extends Entity>(entityType: { new(): T }): Query<T> {
     var arrayType = new ArrayType(new ClassType(entityType));

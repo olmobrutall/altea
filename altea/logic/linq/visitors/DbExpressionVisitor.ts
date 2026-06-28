@@ -11,6 +11,7 @@ import {
     PrimaryKeyExpression, FieldBinding,
     EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
 } from "../expressions.sql";
+import { ExpressionVisitor } from "./ExpressionVisitor";
 
 // Port of Signum's DbExpressionVisitor. Identity-preserving: every visit returns
 // the same node reference when nothing changed, so optimiser passes can cheaply
@@ -18,29 +19,7 @@ import {
 // `accept` (double-dispatch) and falls back to the generic source-level
 // `visitChildren` for the plain Expression nodes (Binary/Constant/Property/…)
 // that appear inside WHERE/projector expressions.
-export class DbExpressionVisitor {
-    visit(e: Expression): Expression;
-    visit(e: Expression | undefined): Expression | undefined;
-    visit(e: Expression | undefined): Expression | undefined {
-        if (e == null)
-            return undefined;
-        if (e instanceof DbExpression)
-            return e.accept(this);
-        return e.visitChildren(c => this.visit(c));
-    }
-
-    // Visit a homogeneous array, returning the SAME array when no element changed.
-    protected visitArray<T>(items: readonly T[], visitor: (item: T) => T): readonly T[] {
-        let result: T[] | undefined;
-        for (let i = 0; i < items.length; i++) {
-            const newItem = visitor(items[i]);
-            if (result == null && newItem !== items[i])
-                result = items.slice(0, i);
-            if (result != null)
-                result.push(newItem);
-        }
-        return result ?? items;
-    }
+export class DbExpressionVisitor extends ExpressionVisitor {
 
     protected visitSource(source: SourceExpression): SourceExpression {
         return this.visit(source) as SourceExpression;

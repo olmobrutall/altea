@@ -1,10 +1,10 @@
 import { Expression } from "./expressions";
-import { LiteralType, Type } from "../entities/types";
-import type { FieldInfo } from "../entities/reflection";
-import type { Table } from "./schema/table";
-import { Alias } from "./linq/aliasGenerator";
-import type { ExpressionVisitor } from "./linq/expressionVisitor";
-import type { DbExpressionVisitor } from "./linq/dbExpressionVisitor";
+import { LiteralType, Type } from "../../entities/types";
+import type { FieldInfo } from "../../entities/reflection";
+import type { Table } from "../schema/table";
+import { Alias } from "./AliasGenerator";
+import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
+import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 
 // Port of Signum's DbExpressions (Engine/Linq/DbExpressions.Sql.cs + .Signum.cs).
 // The QueryBinder produces a tree of these; optimiser passes rewrite it; the
@@ -16,25 +16,21 @@ import type { DbExpressionVisitor } from "./linq/dbExpressionVisitor";
 // tiers: command nodes (Update/Delete/Insert), MList*, ImplementedBy*, Lite*,
 // Type*, Interval/temporal, TVF, RowNumber, SqlCast, hierarchy.
 
-type Visitor = (e: Expression) => Expression;
-
 // Source nodes (FROM clauses) carry no SQL value type of their own.
 const SOURCE_TYPE: Type = LiteralType.null;
+
+export function asDbVisitor(visitor: ExpressionVisitor): DbExpressionVisitor {
+    if (visitor instanceof DbExpressionVisitor)
+        return visitor;
+
+    throw new Error(`DbExpression trees must be traversed with a DbExpressionVisitor (acceptDb), not ExpressionVisitor (accept)`);
+}
 
 export abstract class DbExpression extends Expression {
     constructor(kind: string, type: Type) {
         super(kind, type);
     }
 
-    // Double-dispatch into the typed visitor (Signum's Accept).
-    abstract accept(visitor: DbExpressionVisitor): Expression;
-
-    // DbExpression trees are traversed with a DbExpressionVisitor (via accept),
-    // not the generic source-level visitChildren. This guards against a source
-    // visitor wandering into a bound tree.
-    visitChildren(_visitor: Visitor): Expression {
-        throw new Error(`Traverse DbExpression '${this.kind}' with a DbExpressionVisitor (accept), not visitChildren`);
-    }
 }
 
 // ---- Enums (string unions; Signum's enums) -------------------------------
@@ -101,8 +97,8 @@ export class TableExpression extends SourceWithAliasExpression {
         return `${this.name} as ${this.alias}`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitTable(this);
+    accept(visitor: ExpressionVisitor): Expression {
+        return asDbVisitor(visitor).visitTable(this);
     }
 }
 
@@ -123,8 +119,8 @@ export class ColumnExpression extends DbExpression {
         return `${this.alias}.${this.name}`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitColumn(this);
+    accept(visitor: ExpressionVisitor): Expression {
+        return asDbVisitor(visitor).visitColumn(this);
     }
 }
 
@@ -193,8 +189,8 @@ export class SelectExpression extends SourceWithAliasExpression {
             `AS ${this.alias}`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitSelect(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitSelect(this);
     }
 }
 
@@ -218,8 +214,8 @@ export class JoinExpression extends SourceExpression {
         return `${this.left}\n${this.joinType}\n${this.right}\nON ${this.condition ?? ""}`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitJoin(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitJoin(this);
     }
 }
 
@@ -242,8 +238,8 @@ export class AggregateExpression extends DbExpression {
         return `${this.aggregateFunction}(${this.aggregateFunction === "CountDistinct" ? "Distinct " : ""}${inner})`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitAggregate(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitAggregate(this);
     }
 }
 
@@ -264,8 +260,8 @@ export class SqlFunctionExpression extends DbExpression {
         return this.object == null ? call : `${this.object}.${call}`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitSqlFunction(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitSqlFunction(this);
     }
 }
 
@@ -281,8 +277,8 @@ export class SqlConstantExpression extends DbExpression {
         return this.value == null ? "NULL" : `${this.value}`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitSqlConstant(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitSqlConstant(this);
     }
 }
 
@@ -311,8 +307,8 @@ export class CaseExpression extends DbExpression {
         return `CASE\n${this.whens.join("\n")}\n  ELSE ${this.defaultValue ?? "NULL"}\nEND`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitCase(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitCase(this);
     }
 }
 
@@ -328,8 +324,8 @@ export class LikeExpression extends DbExpression {
         return `${this.expression} LIKE ${this.pattern}`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitLike(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitLike(this);
     }
 }
 
@@ -348,8 +344,8 @@ export class ScalarExpression extends SubqueryExpression {
         return `SCALAR(${this.select})`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitScalar(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitScalar(this);
     }
 }
 
@@ -362,8 +358,8 @@ export class ExistsExpression extends SubqueryExpression {
         return `EXISTS(${this.select})`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitExists(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitExists(this);
     }
 }
 
@@ -384,8 +380,8 @@ export class InExpression extends SubqueryExpression {
         return `${this.expression} IN (${this.select ?? this.values?.join(", ")})`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitIn(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitIn(this);
     }
 }
 
@@ -398,8 +394,8 @@ export class IsNullExpression extends DbExpression {
         return `${this.expression} IS NULL`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitIsNull(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitIsNull(this);
     }
 }
 
@@ -412,8 +408,8 @@ export class IsNotNullExpression extends DbExpression {
         return `${this.expression} IS NOT NULL`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitIsNotNull(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitIsNotNull(this);
     }
 }
 
@@ -433,8 +429,8 @@ export class ProjectionExpression extends DbExpression {
         return `(SOURCE\n${this.select}\nPROJECTOR\n${this.projector})`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitProjection(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitProjection(this);
     }
 }
 
@@ -458,8 +454,8 @@ export class ChildProjectionExpression extends DbExpression {
         return `${this.projection}.InLookup(${this.outerKey})`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitChildProjection(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitChildProjection(this);
     }
 }
 
@@ -488,8 +484,8 @@ export class PrimaryKeyExpression extends DbExpression {
         return `PK(${this.value})`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitPrimaryKey(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitPrimaryKey(this);
     }
 }
 
@@ -520,8 +516,8 @@ export class EntityExpression extends DbExpression {
         return this.bindings == null ? ctor : `${ctor}\n{ ${this.bindings.join(",\n ")} }`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitEntity(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitEntity(this);
     }
 }
 
@@ -546,8 +542,8 @@ export class EmbeddedEntityExpression extends DbExpression {
         return `new ${this.type}\n{ ${this.bindings.join(",\n ")} }`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitEmbeddedEntity(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitEmbeddedEntity(this);
     }
 }
 
@@ -571,7 +567,7 @@ export class MixinEntityExpression extends DbExpression {
         return `new ${this.type}\n{ ${this.bindings.join(",\n ")} }`;
     }
 
-    accept(visitor: DbExpressionVisitor): Expression {
-        return visitor.visitMixinEntity(this);
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitMixinEntity(this);
     }
 }

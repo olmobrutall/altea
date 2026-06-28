@@ -7,17 +7,18 @@ import {
     FieldBinding, EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
     SqlConstantExpression, TableExpression,
 } from "../expressions.sql";
-import { AliasGenerator, Alias } from "./aliasGenerator";
-import { projectColumns } from "./columnProjector";
-import type { Schema } from "../schema/schema";
-import type { Table } from "../schema/table";
-import type { EntityField } from "../schema/field";
+import { AliasGenerator, Alias } from "../AliasGenerator";
+import { projectColumns } from "./ColumnProjector";
+import type { Schema } from "../../schema/schema";
+import type { Table } from "../../schema/table";
+import type { EntityField } from "../../schema/field";
 import {
     FieldPrimaryKey, FieldValue, FieldReference, FieldEnum, FieldEmbedded,
-} from "../schema/field";
-import type { FieldInfo } from "../../entities/reflection";
-import { resolveType } from "../../entities/registration";
-import { ArrayType, ClassType, LiteralType, Type } from "../../entities/types";
+} from "../../schema/field";
+import type { FieldInfo } from "../../../entities/reflection";
+import { resolveType } from "../../../entities/registration";
+import { ArrayType, ClassType, LiteralType, Type } from "../../../entities/types";
+import { ExpressionVisitor } from "./ExpressionVisitor";
 
 // Adapted port of Signum's QueryBinder. Input is altea's source Expression AST
 // (a CallExpression chain over `table(T)`); output is a DbExpression tree
@@ -25,7 +26,7 @@ import { ArrayType, ClassType, LiteralType, Type } from "../../entities/types";
 // `filter` (Where) and `map` (Select). Other operators and full navigation/JOIN
 // expansion land in later steps.
 
-export class QueryBinder {
+export class QueryBinder extends ExpressionVisitor {
     private readonly aliasGenerator: AliasGenerator;
     private readonly map = new Map<ParameterExpression, Expression>();
 
@@ -33,6 +34,7 @@ export class QueryBinder {
         private readonly schema: Schema,
         isPostgres: boolean,
     ) {
+        super();
         this.aliasGenerator = new AliasGenerator(isPostgres);
     }
 
@@ -43,22 +45,7 @@ export class QueryBinder {
         return result;
     }
 
-    private visit(e: Expression): Expression {
-        if (e instanceof CallExpression)
-            return this.visitCall(e);
-        if (e instanceof PropertyExpression)
-            return this.bindMemberAccess(e);
-        if (e instanceof ParameterExpression) {
-            const bound = this.map.get(e);
-            if (bound == null)
-                throw new Error("Unbound parameter in query: " + e.name);
-            return bound;
-        }
-        // Binary/Unary/Conditional/Cast/Constant/Object/New: rebuild children.
-        return e.visitChildren(c => this.visit(c));
-    }
-
-    private visitCall(call: CallExpression): Expression {
+    override visitCall(call: CallExpression): Expression {
         const func = call.func;
 
         // table(T) source: a constant call on the marked `table` function.

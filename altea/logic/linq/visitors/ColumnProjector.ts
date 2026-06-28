@@ -1,8 +1,9 @@
 import { Expression } from "../expressions";
 import { ColumnExpression, ColumnDeclaration } from "../expressions.sql";
-import { Alias } from "./aliasGenerator";
-import { DbExpressionVisitor } from "./dbExpressionVisitor";
-import { nominate } from "./dbExpressionNominator";
+import { Alias } from "../AliasGenerator";
+import { DbExpressionVisitor } from "./DbExpressionVisitor";
+import { nominate } from "../dbExpressionNominator";
+import { ColumnGenerator } from "../ColumnGenerator";
 
 // Port of Signum's ColumnProjector (+ ColumnGenerator / ProjectedColumns). Splits
 // a projector expression into (a) the SELECT-list column declarations that must
@@ -16,40 +17,6 @@ export interface ProjectedColumns {
     readonly columns: readonly ColumnDeclaration[];
 }
 
-class ColumnGenerator {
-    private readonly columns = new Map<string, ColumnDeclaration>();
-    private iColumn = 0;
-
-    get declarations(): ColumnDeclaration[] {
-        return [...this.columns.values()];
-    }
-
-    private getUniqueColumnName(name: string): string {
-        let candidate = name;
-        let suffix = 1;
-        while (this.columns.has(candidate.toLowerCase()))
-            candidate = name + (suffix++);
-        return candidate;
-    }
-
-    private getNextColumnName(): string {
-        return this.getUniqueColumnName("c" + (this.iColumn++));
-    }
-
-    mapColumn(ce: ColumnExpression): ColumnDeclaration {
-        const name = this.getUniqueColumnName(ce.name ?? "c");
-        const cd = new ColumnDeclaration(name, ce);
-        this.columns.set(name.toLowerCase(), cd);
-        return cd;
-    }
-
-    newColumn(exp: Expression): ColumnDeclaration {
-        const name = this.getNextColumnName();
-        const cd = new ColumnDeclaration(name, exp);
-        this.columns.set(name.toLowerCase(), cd);
-        return cd;
-    }
-}
 
 class ColumnProjector extends DbExpressionVisitor {
     private readonly generator = new ColumnGenerator();
@@ -95,3 +62,5 @@ export function projectColumns(projector: Expression, newAlias: Alias): Projecte
     const proj = cp.visit(projector);
     return { projector: proj, columns: cp.columns };
 }
+
+

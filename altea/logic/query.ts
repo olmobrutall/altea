@@ -1,7 +1,7 @@
 
 import { ExLambda, Quoted } from "quote-transformer/quoted";
 import { IQuery, IOrderedQuery } from "../entities/iquery";
-import { CallExpression, ConstantExpression, Expression, LambdaExpression, PropertyExpression } from "./expressions";
+import { CallExpression, ConstantExpression, Expression, LambdaExpression, PropertyExpression } from "./linq/expressions";
 import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType } from "../entities/types";
 
 export type LambdaTypeResolver = (thisType: Type, ...argsTypes: Type[]) => Type[];

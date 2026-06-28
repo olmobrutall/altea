@@ -2,13 +2,13 @@ import {
     Expression, BinaryExpression, UnaryExpression, ConditionalExpression,
     ConstantExpression, CastExpression, ObjectExpression, NewExpression,
     CallExpression, PropertyExpression, ParameterExpression, LambdaExpression,
-} from "../expressions";
+} from "./expressions";
 import {
     ColumnExpression, SqlConstantExpression, PrimaryKeyExpression,
     IsNullExpression, IsNotNullExpression, LikeExpression, SqlFunctionExpression,
     AggregateExpression, CaseExpression, ScalarExpression, ExistsExpression, InExpression,
     EntityExpression, EmbeddedEntityExpression, MixinEntityExpression, ProjectionExpression,
-} from "../expressions.sql";
+} from "./expressions.sql";
 
 // Minimal port of Signum's DbExpressionNominator. Decides which expressions can
 // be evaluated on the SERVER (a "candidate"): a node is a candidate iff its type
