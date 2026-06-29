@@ -5,6 +5,7 @@ import {
 import {
     ProjectionExpression, ColumnExpression, PrimaryKeyExpression, UniqueFunction,
     EntityExpression, EmbeddedEntityExpression, LiteReferenceExpression,
+    ChildProjectionExpression, LookupToken,
 } from "./expressions.sql";
 import { QueryFormatter } from "./queryFormatter";
 import { Connector } from "../connection/connector";
@@ -12,26 +13,77 @@ import { ClassType, Type } from "../../entities/types";
 import { Retriever } from "./Retriever";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 
+// A lookup maps a serialised correlation key to the child values for that key.
+type Lookups = Map<LookupToken, Map<string, unknown[]>>;
+type CompiledProjector = (row: any, retriever: Retriever, lookups: Lookups) => unknown;
+
+// A flattened child query: its own SQL plus a projector yielding {k, v} rows that
+// are grouped by k into a lookup keyed by `token`.
+interface ChildPlan {
+    readonly token: LookupToken;
+    readonly sql: string;
+    readonly parameters: unknown[];
+    readonly kvProjector: CompiledProjector;
+}
+
 export class TranslateResult {
     constructor(
         public readonly sql: string,
         public readonly parameters: unknown[],
-        private readonly projector: (row: any, retriever: Retriever) => unknown,
+        private readonly projector: CompiledProjector,
         private readonly uniqueFunction: UniqueFunction | undefined,
+        private readonly children: readonly ChildPlan[],
     ) { }
 
     async execute(): Promise<unknown> {
-        const rows = await Connector.current().executeQuery(this.sql, this.parameters);
+        const connector = Connector.current();
         const retriever = new Retriever();
-        const list = rows.map(r => this.projector(r, retriever));
+        const lookups: Lookups = new Map();
+
+        // Fill each child lookup first (children are ordered deepest-first, so a
+        // nested child's lookup is ready before the projector that reads it).
+        for (const child of this.children) {
+            const rows = await connector.executeQuery(child.sql, child.parameters);
+            const map = new Map<string, unknown[]>();
+            for (const r of rows) {
+                const kv = child.kvProjector(r, retriever, lookups) as { k: unknown; v: unknown };
+                const keyStr = JSON.stringify(kv.k ?? null);
+                const bucket = map.get(keyStr);
+                if (bucket != null) bucket.push(kv.v);
+                else map.set(keyStr, [kv.v]);
+            }
+            lookups.set(child.token, map);
+        }
+
+        const rows = await connector.executeQuery(this.sql, this.parameters);
+        const list = rows.map(r => this.projector(r, retriever, lookups));
         return this.uniqueFunction != null ? applyUnique(list, this.uniqueFunction) : list;
     }
 }
 
 export function buildTranslateResult(projection: ProjectionExpression, isPostgres: boolean): TranslateResult {
+    const children = gatherChildProjections(projection.projector).map<ChildPlan>(cp => {
+        const { sql, parameters } = QueryFormatter.format(cp.projection.select, isPostgres);
+        return { token: cp.token, sql, parameters, kvProjector: compileProjector(cp.projection.projector) };
+    });
     const { sql, parameters } = QueryFormatter.format(projection.select, isPostgres);
-    const projector = compileProjector(projection.projector);
-    return new TranslateResult(sql, parameters, projector, projection.uniqueFunction);
+    return new TranslateResult(sql, parameters, compileProjector(projection.projector), projection.uniqueFunction, children);
+}
+
+// Collects every ChildProjectionExpression in a projector, deepest-first: a
+// child's own projector is searched (for nested children) before the child itself
+// is recorded, so lookups fill in dependency order.
+function gatherChildProjections(projector: Expression): ChildProjectionExpression[] {
+    const result: ChildProjectionExpression[] = [];
+    const gatherer = new (class extends DbExpressionVisitor {
+        override visitChildProjection(child: ChildProjectionExpression): Expression {
+            this.visit(child.projection.projector);
+            result.push(child);
+            return child;
+        }
+    })();
+    gatherer.visit(projector);
+    return result;
 }
 
 function ctorOf(type: Type): new () => any {
@@ -40,15 +92,15 @@ function ctorOf(type: Type): new () => any {
     throw new Error("Cannot materialise a value of non-class type: " + type.constructor.name);
 }
 
-// Generates a `(row, consts, retriever) => value` body and closes it over the
-// captured constants/ctors. Entity and embedded nodes emit Retriever calls with
-// an inline populate function; scalars/objects read straight off the row.
-function compileProjector(projector: Expression): (row: any, retriever: Retriever) => unknown {
+// Generates a `(row, consts, retriever, lookups) => value` body and closes it over
+// the captured constants/ctors. Entity/embedded/lite nodes emit Retriever calls;
+// a ChildProjection reads its grouped slice out of `lookups`.
+function compileProjector(projector: Expression): CompiledProjector {
     const builder = new ProjectionBuilder();
     const body = "return " + builder.build(projector) + ";";
-    const fn = new Function("row", "consts", "retriever", body) as
-        (row: any, consts: unknown[], retriever: Retriever) => unknown;
-    return (row: any, retriever: Retriever) => fn(row, builder.consts, retriever);
+    const fn = new Function("row", "consts", "retriever", "lookups", body) as
+        (row: any, consts: unknown[], retriever: Retriever, lookups: Lookups) => unknown;
+    return (row: any, retriever: Retriever, lookups: Lookups) => fn(row, builder.consts, retriever, lookups);
 }
 
 class ProjectionBuilder extends DbExpressionVisitor {
@@ -107,6 +159,18 @@ class ProjectionBuilder extends DbExpressionVisitor {
             }
 
         this.stack.push(`retriever.entity(consts[${ctorIndex}], ${idCode}, function(e){ ${assigns.join(" ")} })`);
+        return e;
+    }
+
+    override visitChildProjection(e: ChildProjectionExpression): Expression {
+        const tokenIndex = this.pushConst(e.token);
+        this.visit(e.outerKey);
+        const keyCode = this.pop();
+        // The child rows for this parent's key (already grouped during fill).
+        const listCode = `((lookups.get(consts[${tokenIndex}]) || new Map()).get(JSON.stringify(${keyCode} ?? null)) || [])`;
+        // A single-result child (first/single) yields the element; a list child
+        // (toArray) yields the whole slice.
+        this.stack.push(e.projection.uniqueFunction != null ? `(${listCode}[0] ?? null)` : listCode);
         return e;
     }
 

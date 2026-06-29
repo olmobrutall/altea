@@ -304,6 +304,54 @@ shapes (`map(a => …toArray())`, `map(a => a.friends.count())`) which surface a
 `toArray` "Missing @resultType" or "ProjectionBuilder left extra expressions" and
 need ChildProjectionFlattener / ScalarSubqueryRewriter.
 
+**Step 8 foundation (PromiseType — async terminals / nested queries).** Query
+terminals are async at the top level, so their expression-layer result type is now
+`PromiseType<T>` (`entities/types.ts`): `toArray → Promise<T[]>`, `first/single/…
+→ Promise<T>`, `count/sum/some/… → Promise<number|boolean>`. A query expression
+has no async, so:
+
+- **Borrowing a Query terminal's resolver for an `Array<T>`/sub-query strips the
+  Promise** — `fromQuoted` unwraps `PromiseType` to its inner type when the
+  receiver is an `ArrayType` (so `a.friends.first()` is a value, `…toArray()` a
+  list). This is what gave `toArray` a type at last; its 15 "Missing @resultType"
+  failures became 12 "operator 'toArray' is not implemented" — i.e. moved from the
+  expression layer into the binder, where nested-query (ChildProjectionFlattener)
+  support is the next step.
+- **`promise.$v`** is the explicit await marker (`resolveMemberType` types it as
+  the inner `T`); the binder unwraps a single-result sub-projection into a
+  `ScalarExpression` (a scalar subquery). Wired but not yet exercised by tests.
+
+Regression-free (PG 336 / SS 341 unchanged, offline 27/27) — this is plumbing for
+the nested-query / scalar-subquery tier, not yet a behavioural change.
+
+**Step 8 (ChildProjectionFlattener — eager nested queries).** Nested projections
+(`map(l => …toArray())`) are now eager-loaded: **Postgres 336→350, SQL Server
+341→357** (offline 27/27, no regression). The whole tier:
+
+- **Binder**: `toArray` on a projection returns it (a nested list marker);
+  `ColumnProjector` keeps a nested `ProjectionExpression` opaque (its columns are
+  its own scope) for the flattener to extract.
+- **`ChildProjectionFlattener`** (`visitors/ChildProjectionFlattener.ts`): replaces
+  each nested projection with a `ChildProjectionExpression` carrying a correlation
+  key (the parent columns it references) and a standalone child query that yields
+  `{k, v}` rows. Correlated children become a `CROSS APPLY` of the parent key
+  source with the inner select; uncorrelated ones get a constant key. Ports the
+  Distinct (non-key correlation) path, `KeyFinder` (Table/Select/Join), order
+  extraction, and `ColumnReplacer`/`ExternalColumnGatherer`. Runs last in
+  `bind()` (Signum's order), followed by a RedundantSubqueryRemover re-clean.
+- **Reader** (`translatorBuilder.ts`): gathers child projections deepest-first,
+  runs each as its own query, groups rows by the serialised key into a
+  `Map<token, Map<keyStr, value[]>>` lookup, then projects the main query reading
+  its slice per row (`visitChildProjection` codegen). The no-child path is
+  unchanged, so non-nested queries are unaffected.
+
+Greens `SelecteNested`/`NonKey`/`SemiIndePendent` and the inner/outer ordering
+variants. Still failing (deferred to their tiers): polymorphic nested projections
+(`ImplementedBy`), `groupBy`, `contains`, and two-level (`DoubleNested`) nesting.
+Scoped vs Signum: eager only (no lazy MList), `{k,v}` carried as an
+`ObjectExpression` with string-serialised keys (no tuple/ArrayBox), no
+`UnusedColumnRemover` (altea materialises all columns).
+
 ## Most important differences so far
 
 - TypeScript uses `quote-transformer` expressions instead of
@@ -388,7 +436,7 @@ need ChildProjectionFlattener / ScalarSubqueryRewriter.
 | `ExpressionVisitor/AliasReplacer.cs` | none | Not ported |
 | `ExpressionVisitor/AggregateFinder.cs` | none | Not ported |
 | `ExpressionVisitor/AggregateRewriter.cs` | none | Not ported |
-| `ExpressionVisitor/ChildProjectionFlattener.cs` | none | Not ported |
+| `ExpressionVisitor/ChildProjectionFlattener.cs` | `altea/logic/linq/visitors/ChildProjectionFlattener.ts` | Ported (scoped) — eager only; `{k,v}` ObjectExpression keys; correlated + Distinct + uncorrelated paths |
 | `ExpressionVisitor/ConditionsRewriter.cs` | `altea/logic/linq/visitors/ConditionsRewriter.ts` | Ported (scoped) — SQL-Server-only; no nullable-bool/SqlCast/TVF/command nodes |
 | `ExpressionVisitor/ConditionsRewriterPostgres.cs` | none (no-op for altea) | Not needed yet — only does a bool→int SqlCast tweak altea lacks |
 | `ExpressionVisitor/DbExpressionComparer.cs` | none | Not ported |
@@ -510,13 +558,14 @@ corepack pnpm --filter @altea/altea-test test
 
 At the last offline run, 27 DB-free tests passed (including array `contains` →
 `IN`, and the step-5 navigation→JOIN shape). But that is the *floor*, not the
-bar: live runs are now at **Postgres 335 / SQL Server 340 pass** (up from PG 306 /
+bar: live runs are now at **Postgres 350 / SQL Server 357 pass** (up from PG 306 /
 SS 306) — the order+TOP tier brought both to 316, ConditionsRewriter took SQL
-Server to 323, collections/SelectMany added +11 each (PG 327 / SS 334), then Lite
-added +8/+6 (PG 335 / SS 340). The remaining failures are still-unimplemented
-features (`groupBy`, `ImplementedBy*` polymorphism / polymorphic lites, nested-query
-& scalar-in-projection, `skip`, `join`, `instanceof`/`===`, and a few Postgres-side
-aggregate-coercion cases), so the live numbers, not the offline ones,
+Server to 323, collections/SelectMany added +11 each (PG 327 / SS 334), Lite
+added +8/+6 (PG 335 / SS 340), and ChildProjectionFlattener (eager nested queries)
+added +15/+17 (PG 350 / SS 357). The remaining failures are still-unimplemented
+features (`groupBy`, `ImplementedBy*` polymorphism / polymorphic lites, `contains`,
+two-level nesting, scalar-in-projection, `skip`, `join`, `instanceof`/`===`, and a
+few Postgres-side aggregate-coercion cases), so the live numbers, not the offline ones,
 measure real progress. The order+TOP family (`OrderByFirst`, `OrderByLast`,
 `OrderByTop`, `OrderByTakeOrderBy`, …) and the navigation→JOIN tests pass on
 **both** dialects. Treat a feature as done only when its DB-gated suite is green

@@ -10,6 +10,7 @@ import { OrderByRewriter } from "./linq/visitors/OrderByRewriter";
 import { QueryRebinder } from "./linq/visitors/QueryRebinder";
 import { RedundantSubqueryRemover } from "./linq/visitors/RedundantSubqueryRemover";
 import { ConditionsRewriter } from "./linq/visitors/ConditionsRewriter";
+import { ChildProjectionFlattener } from "./linq/visitors/ChildProjectionFlattener";
 import { ProjectionExpression } from "./linq/expressions.sql";
 import { buildTranslateResult } from "./linq/translatorBuilder";
 import { QueryFormatter } from "./linq/queryFormatter";
@@ -73,7 +74,10 @@ class MyQueryTranslator implements IQueryTranslator {
             projection = ConditionsRewriter.rewrite(projection);
         if (!(projection instanceof ProjectionExpression))
             throw new Error("Optimiser pipeline did not preserve the ProjectionExpression");
-        return projection;
+        // Eager-load nested projections (e.g. map(l => …toArray())) as separate
+        // child queries, then re-clean the selects the flattener introduced.
+        const flattened = ChildProjectionFlattener.flatten(projection, binder.aliases);
+        return RedundantSubqueryRemover.remove(flattened, connector.isPostgres) as ProjectionExpression;
     }
 
     execute(expression: Expression): Promise<unknown> {

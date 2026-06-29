@@ -1,5 +1,5 @@
 import { Expression } from "../expressions";
-import { ColumnExpression, ColumnDeclaration } from "../expressions.sql";
+import { ColumnExpression, ColumnDeclaration, ProjectionExpression, ChildProjectionExpression } from "../expressions.sql";
 import { Alias } from "../AliasGenerator";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 import { nominate } from "../dbExpressionNominator";
@@ -38,6 +38,11 @@ class ColumnProjector extends DbExpressionVisitor {
     override visit(e: Expression | undefined): Expression | undefined {
         if (e == null)
             return undefined;
+
+        // A nested (child) projection is its own scope — its columns reference its
+        // own aliases. Keep it opaque here; ChildProjectionFlattener extracts it.
+        if (e instanceof ProjectionExpression || e instanceof ChildProjectionExpression)
+            return e;
 
         if (this.candidates.has(e)) {
             if (e instanceof ColumnExpression) {

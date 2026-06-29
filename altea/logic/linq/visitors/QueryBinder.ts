@@ -8,7 +8,7 @@ import {
     SqlConstantExpression, TableExpression, OrderExpression, OrderType, UniqueFunction,
     AggregateExpression, AggregateSqlFunction, ColumnDeclaration, LikeExpression, InExpression,
     SourceExpression, SqlFunctionExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression,
-    LiteReferenceExpression,
+    LiteReferenceExpression, ScalarExpression,
 } from "../expressions.sql";
 import { AliasGenerator, Alias } from "../AliasGenerator";
 import { projectColumns } from "./ColumnProjector";
@@ -50,6 +50,12 @@ export class QueryBinder extends ExpressionVisitor {
     ) {
         super();
         this.aliasGenerator = new AliasGenerator(isPostgres);
+    }
+
+    // The alias sequence used during binding — handed to ChildProjectionFlattener
+    // so the selects it introduces don't collide with the ones already allocated.
+    get aliases(): AliasGenerator {
+        return this.aliasGenerator;
     }
 
     bindQuery(expr: Expression): ProjectionExpression {
@@ -96,6 +102,11 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.bindSelect(source, call.args[0] as LambdaExpression);
                 case "flatMap":
                     return this.bindSelectMany(source, call.args[0] as LambdaExpression);
+                case "toArray":
+                    // Materialises the (sub-)query as a list. At the root it's a
+                    // no-op; nested in a projector it stays a ProjectionExpression
+                    // for ChildProjectionFlattener to extract as eager-loaded rows.
+                    return source;
                 case "orderBy":
                     return this.bindOrderBy(source, call.args[0] as LambdaExpression, "Ascending");
                 case "orderByDescending":
@@ -369,6 +380,12 @@ export class QueryBinder extends ExpressionVisitor {
             return this.findBinding(obj.bindings, name, obj.type);
         if (obj instanceof MixinEntityExpression)
             return this.findBinding(obj.bindings, name, obj.type);
+
+        // promise.$v — the await marker (SQL has no async). Unwraps an awaited
+        // sub-query: a single-result projection becomes a scalar subquery; anything
+        // already a value passes through.
+        if (name === "$v")
+            return obj instanceof ProjectionExpression ? new ScalarExpression(obj.type, obj.select) : obj;
 
         // string.length → SQL string-length function (Signum's string.Length).
         // LEN on SQL Server, length() on Postgres.
