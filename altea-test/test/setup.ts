@@ -1,4 +1,4 @@
-import { Connector } from "@altea/altea/logic/connection/connector";
+import { Connector, ConsoleSqlLogger } from "@altea/altea/logic/connection/connector";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { MusicLogic } from "../logic/MusicLogic";
 import { MusicStarter } from "../logic/MusicStarter";
@@ -28,6 +28,13 @@ let started: Promise<Connector> | undefined;
 // generated separately by `generateEnvironment()`. Memoised per process.
 export function start(): Promise<Connector> {
     return (started ??= (async () => {
+        // altea analog of Signum's `Connector.CurrentLogger = new DebugTextWriter()`:
+        // when debugging a single file the "Debug altea-test (current file)" launch
+        // config sets ALTEA_TEST_LOG_SQL, so every generated SQL statement is echoed
+        // to the integrated terminal. Left off for full runs to keep output clean.
+        if (process.env.ALTEA_TEST_LOG_SQL)
+            Connector.currentLogger = new ConsoleSqlLogger();
+
         const sb = new SchemaBuilder();
         const connector = await MusicStarter.connectorFromEnv(sb.schema, process.env.ALTEA_TEST_DB!);
         Connector.default = connector;

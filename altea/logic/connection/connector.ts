@@ -9,6 +9,24 @@ import { currentCoreTransaction } from './transaction';
 // Statics context abstraction.
 const connectorStorage = new AsyncLocalStorage<Connector>();
 
+// A sink that executeQuery/executeNonQuery pass their SQL through when
+// Connector.currentLogger is set — the analog of Signum's Connector.CurrentLogger
+// (a TextWriter). Implementations decide where the text goes. NOTE: parameter
+// values are passed verbatim, so only enable this against local/test databases.
+export interface SqlLogger {
+    log(sql: string, parameters: unknown[], elapsedMs: number): void;
+}
+
+// Writes each statement to the integrated terminal as a SQL comment block — the
+// altea analog of Signum's DebugTextWriter. Used by the tests when debugging a
+// single file (see altea-test/test/setup.ts).
+export class ConsoleSqlLogger implements SqlLogger {
+    log(sql: string, parameters: unknown[], elapsedMs: number): void {
+        const params = parameters.length ? `\n-- params: ${JSON.stringify(parameters)}` : "";
+        console.log(`-- ${elapsedMs.toFixed(1)} ms${params}\n${sql}\n`);
+    }
+}
+
 // Transaction isolation levels, dialect-neutral. Mapped to the driver's own
 // constants by each ConnectionHandle. `Snapshot` is SQL Server only.
 export type IsolationLevel =
@@ -68,6 +86,12 @@ export abstract class Connector {
 
     static default: Connector | undefined;
 
+    // Optional SQL logger — the analog of Signum's Connector.CurrentLogger. When
+    // set, every executeQuery/executeNonQuery writes its SQL (+ parameters +
+    // elapsed ms) to it. Process-wide and off by default; the tests turn it on
+    // when debugging a single file so the terminal shows the generated SQL.
+    static currentLogger: SqlLogger | undefined;
+
     static current(): Connector {
         const c = connectorStorage.getStore() ?? Connector.default;
         if (c == null)
@@ -98,12 +122,28 @@ export abstract class Connector {
     //
     // Runs a single statement, returning the affected row count.
     executeNonQuery(sql: string, parameters: unknown[] = []): Promise<number> {
-        return this.ensureConnection(handle => handle.executeNonQuery(sql, parameters));
+        return this.withLogging(sql, parameters, () =>
+            this.ensureConnection(handle => handle.executeNonQuery(sql, parameters)));
     }
 
     // Runs a query and returns its rows.
     executeQuery(sql: string, parameters: unknown[] = []): Promise<unknown[]> {
-        return this.ensureConnection(handle => handle.executeQuery(sql, parameters));
+        return this.withLogging(sql, parameters, () =>
+            this.ensureConnection(handle => handle.executeQuery(sql, parameters)));
+    }
+
+    // Times `run` and reports the statement to Connector.currentLogger when one is
+    // set; a no-op fast path otherwise. The statement is logged even if it throws.
+    private async withLogging<T>(sql: string, parameters: unknown[], run: () => Promise<T>): Promise<T> {
+        const logger = Connector.currentLogger;
+        if (logger == null)
+            return run();
+        const start = performance.now();
+        try {
+            return await run();
+        } finally {
+            logger.log(sql, parameters, performance.now() - start);
+        }
     }
 
     // Decides which connection an action runs on — the analog of Signum's
