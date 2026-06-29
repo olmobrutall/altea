@@ -9,6 +9,7 @@ import { QueryBinder } from "./linq/visitors/QueryBinder";
 import { OrderByRewriter } from "./linq/visitors/OrderByRewriter";
 import { QueryRebinder } from "./linq/visitors/QueryRebinder";
 import { RedundantSubqueryRemover } from "./linq/visitors/RedundantSubqueryRemover";
+import { ConditionsRewriter } from "./linq/visitors/ConditionsRewriter";
 import { ProjectionExpression } from "./linq/expressions.sql";
 import { buildTranslateResult } from "./linq/translatorBuilder";
 import { QueryFormatter } from "./linq/queryFormatter";
@@ -55,9 +56,11 @@ class MyQueryTranslator implements IQueryTranslator {
     // tree, incl. navigation JOIN expansion) → OrderByRewriter (float ORDER BY up
     // to the outermost/TOP select, resolve Reverse) → QueryRebinder (rebind the
     // floated column refs through each select's exposed columns) →
-    // RedundantSubqueryRemover (collapse/merge the pass-through selects). Mirrors
+    // RedundantSubqueryRemover (collapse/merge the pass-through selects) →
+    // ConditionsRewriter (boolean condition/value normalisation; SQL Server only —
+    // Postgres has a native boolean type so its variant is a near no-op). Mirrors
     // the relevant slice of Signum's DbQueryProvider.Optimize. (UnusedColumnRemover
-    // / ConditionsRewriter still pending.)
+    // still pending.)
     bind(expression: Expression): ProjectionExpression {
         const simplified = expressionSimplifier()(expression);
         const connector = Connector.current();
@@ -66,6 +69,8 @@ class MyQueryTranslator implements IQueryTranslator {
         projection = OrderByRewriter.rewrite(projection);
         projection = QueryRebinder.rebind(projection);
         projection = RedundantSubqueryRemover.remove(projection, connector.isPostgres);
+        if (!connector.isPostgres)
+            projection = ConditionsRewriter.rewrite(projection);
         if (!(projection instanceof ProjectionExpression))
             throw new Error("Optimiser pipeline did not preserve the ProjectionExpression");
         return projection;

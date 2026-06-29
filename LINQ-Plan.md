@@ -217,9 +217,25 @@ and boolean-condition tests — the unported ConditionsRewriter tier — not ord
   SubqueryMerger + JoinSimplifier) collapses/merges the now-trivial pass-through
   selects, landing the final single-level SQL.
 
-Scoped to altea's current node set — Skip/SetOperator/RowNumber, the
-OrderAlsoByKeys/HasIndex key machinery, and ConditionsRewriter are still deferred
-with their tiers.
+Scoped to altea's current node set — Skip/SetOperator/RowNumber and the
+OrderAlsoByKeys/HasIndex key machinery are still deferred with their tiers.
+
+**Step 6 (ConditionsRewriter).** Ported the boolean condition/value normaliser
+(`logic/linq/visitors/ConditionsRewriter.ts`). SQL has no first-class boolean: a
+boolean must be a CONDITION (predicate — WHERE/JOIN ON/CASE WHEN/AND/OR/NOT) or a
+VALUE (bit — SELECT column/ORDER BY/`=`/COALESCE operand). The pass walks the SQL
+part of the tree (`inSql`) and inserts `value→condition` (`bit ⇒ bit = 1`) and
+`condition→value` (`a < b ⇒ CASE WHEN a < b THEN 1 ELSE 0 END`). **Run for SQL
+Server only** — Postgres has a native boolean type, so Signum's Postgres variant
+is a near no-op (only a bool→int SqlCast tweak altea doesn't need yet). Wired last
+in `MyQueryTranslator.bind` (after RedundantSubqueryRemover), matching Signum's
+Optimize order. Result: **SQL Server 316→323 pass** (boolean cluster `WhereBool`,
+`WhereCase`, `SortEqualsTrue/False`, `SelectConditionToBool`, … now green);
+Postgres unchanged at 316 (pass not run there — no regression). Simplifications vs
+Signum: no three-valued (nullable-bool) `Nullify()` handling (altea has no
+distinct nullable-bool Type), and `?:` stays a `ConditionalExpression` (altea
+doesn't lower it to `CaseExpression`), so `visitConditional` does the
+condition/value split directly.
 
 ## Most important differences so far
 
@@ -299,8 +315,8 @@ with their tiers.
 | `ExpressionVisitor/AggregateFinder.cs` | none | Not ported |
 | `ExpressionVisitor/AggregateRewriter.cs` | none | Not ported |
 | `ExpressionVisitor/ChildProjectionFlattener.cs` | none | Not ported |
-| `ExpressionVisitor/ConditionsRewriter.cs` | none | Not ported |
-| `ExpressionVisitor/ConditionsRewriterPostgres.cs` | none | Not ported |
+| `ExpressionVisitor/ConditionsRewriter.cs` | `altea/logic/linq/visitors/ConditionsRewriter.ts` | Ported (scoped) — SQL-Server-only; no nullable-bool/SqlCast/TVF/command nodes |
+| `ExpressionVisitor/ConditionsRewriterPostgres.cs` | none (no-op for altea) | Not needed yet — only does a bool→int SqlCast tweak altea lacks |
 | `ExpressionVisitor/DbExpressionComparer.cs` | none | Not ported |
 | `ExpressionVisitor/DbQueryUtils.cs` | none | Not ported |
 | `ExpressionVisitor/DuplicateHistory.cs` | none | Not ported |
@@ -420,12 +436,12 @@ corepack pnpm --filter @altea/altea-test test
 
 At the last offline run, 27 DB-free tests passed (including array `contains` →
 `IN`, and the step-5 navigation→JOIN shape). But that is the *floor*, not the
-bar: live runs are now at **Postgres 316 / SQL Server 316 pass (222 fail each)** —
-the two dialects sit at **exact parity** after the order+TOP optimiser tier
-landed (up from PG 306 / SS 306). The remaining failures are still-unimplemented
-features (`Lite`, `ImplementedBy*` polymorphism, collections, `groupBy`, and the
-dialect-specific aggregate-coercion / boolean-condition cases that need the
-unported ConditionsRewriter tier), so the live numbers, not the offline ones,
+bar: live runs are now at **Postgres 316 / SQL Server 323 pass** (up from PG 306 /
+SS 306) — the order+TOP optimiser tier brought both to 316, then ConditionsRewriter
+took SQL Server to 323 (the boolean cluster). The remaining failures are
+still-unimplemented features (`Lite`, `ImplementedBy*` polymorphism, collections,
+`groupBy`, and a few Postgres-side aggregate-coercion cases), so the live numbers,
+not the offline ones,
 measure real progress. The order+TOP family (`OrderByFirst`, `OrderByLast`,
 `OrderByTop`, `OrderByTakeOrderBy`, …) and the navigation→JOIN tests pass on
 **both** dialects. Treat a feature as done only when its DB-gated suite is green
