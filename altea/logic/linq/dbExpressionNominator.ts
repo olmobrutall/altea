@@ -1,22 +1,27 @@
 import {
     Expression, BinaryExpression, UnaryExpression, ConditionalExpression,
-    ConstantExpression, CastExpression, ObjectExpression, NewExpression,
-    CallExpression, PropertyExpression, ParameterExpression, LambdaExpression,
+    ConstantExpression, CastExpression, CallExpression, PropertyExpression,
+    ParameterExpression, LambdaExpression,
 } from "./expressions";
 import {
     ColumnExpression, SqlConstantExpression, PrimaryKeyExpression,
     IsNullExpression, IsNotNullExpression, LikeExpression, SqlFunctionExpression,
     AggregateExpression, CaseExpression, ScalarExpression, ExistsExpression, InExpression,
-    EntityExpression, EmbeddedEntityExpression, MixinEntityExpression, ProjectionExpression,
+    ProjectionExpression,
 } from "./expressions.sql";
-import { ExpressionVisitor } from "./visitors/ExpressionVisitor";
+import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 
 // Minimal port of Signum's DbExpressionNominator. Decides which expressions can
 // be evaluated on the server: a node is a candidate iff its type is
 // server-supported and all its descendants are candidates. The maximal candidate
 // subtrees become columns in the SELECT.
-
-class DbExpressionNominator extends ExpressionVisitor {
+//
+// Like Signum's, this is a DbExpressionVisitor — dispatch is the usual `accept`
+// double-dispatch, so every node type routes automatically (no manual instanceof
+// table). The default base traversal already recurses into and *doesn't* nominate
+// the client-materialised nodes (Entity / Embedded / Mixin / LiteReference /
+// object & `new` literals), so those need no override here.
+class DbExpressionNominator extends DbExpressionVisitor {
     private readonly candidates = new Set<Expression>();
 
     static nominate(expr: Expression): Set<Expression> {
@@ -39,37 +44,13 @@ class DbExpressionNominator extends ExpressionVisitor {
             this.add(node);
     }
 
-    override visit(expr: Expression): Expression;
-    override visit(expr: Expression | undefined): Expression | undefined;
-    override visit(expr: Expression | undefined): Expression | undefined {
-        if (expr == null)
-            return undefined;
+    // ---- leaf server values: always candidates ---------------------------
 
-        if (expr instanceof ColumnExpression) return this.visitColumn(expr);
-        if (expr instanceof SqlConstantExpression) return this.visitSqlConstant(expr);
-        if (expr instanceof PrimaryKeyExpression) return this.visitPrimaryKey(expr);
-        if (expr instanceof IsNullExpression) return this.visitIsNull(expr);
-        if (expr instanceof IsNotNullExpression) return this.visitIsNotNull(expr);
-        if (expr instanceof LikeExpression) return this.visitLike(expr);
-        if (expr instanceof SqlFunctionExpression) return this.visitSqlFunction(expr);
-        if (expr instanceof AggregateExpression) return this.visitAggregate(expr);
-        if (expr instanceof CaseExpression) return this.visitCase(expr);
-        if (expr instanceof ScalarExpression) return this.visitScalar(expr);
-        if (expr instanceof ExistsExpression) return this.visitExists(expr);
-        if (expr instanceof InExpression) return this.visitIn(expr);
-        if (expr instanceof EntityExpression) return this.visitEntity(expr);
-        if (expr instanceof EmbeddedEntityExpression) return this.visitEmbeddedEntity(expr);
-        if (expr instanceof MixinEntityExpression) return this.visitMixinEntity(expr);
-        if (expr instanceof ProjectionExpression) return this.visitProjection(expr);
-
-        return super.visit(expr);
-    }
-
-    private visitColumn(column: ColumnExpression): Expression {
+    override visitColumn(column: ColumnExpression): Expression {
         return this.add(column);
     }
 
-    private visitSqlConstant(sqlConstant: SqlConstantExpression): Expression {
+    override visitSqlConstant(sqlConstant: SqlConstantExpression): Expression {
         return this.add(sqlConstant);
     }
 
@@ -77,9 +58,48 @@ class DbExpressionNominator extends ExpressionVisitor {
         return this.add(constant);
     }
 
-    private visitPrimaryKey(pk: PrimaryKeyExpression): Expression {
+    // The id wrapper recurses to its column but is not itself a column candidate.
+    override visitPrimaryKey(pk: PrimaryKeyExpression): Expression {
         this.visit(pk.value);
         return pk;
+    }
+
+    // ---- composite SQL nodes: candidate iff every operand is -------------
+
+    override visitIsNull(node: IsNullExpression): Expression {
+        super.visitIsNull(node);
+        this.addIfAll(node, [node.expression]);
+        return node;
+    }
+
+    override visitIsNotNull(node: IsNotNullExpression): Expression {
+        super.visitIsNotNull(node);
+        this.addIfAll(node, [node.expression]);
+        return node;
+    }
+
+    override visitLike(node: LikeExpression): Expression {
+        super.visitLike(node);
+        this.addIfAll(node, [node.expression, node.pattern]);
+        return node;
+    }
+
+    override visitSqlFunction(node: SqlFunctionExpression): Expression {
+        super.visitSqlFunction(node);
+        this.addIfAll(node, [node.object, ...node.arguments]);
+        return node;
+    }
+
+    override visitAggregate(node: AggregateExpression): Expression {
+        super.visitAggregate(node);
+        this.addIfAll(node, node.arguments);
+        return node;
+    }
+
+    override visitCase(node: CaseExpression): Expression {
+        super.visitCase(node);
+        this.addIfAll(node, [...node.whens.flatMap(w => [w.condition, w.value]), node.defaultValue]);
+        return node;
     }
 
     override visitUnary(node: UnaryExpression): Expression {
@@ -90,18 +110,6 @@ class DbExpressionNominator extends ExpressionVisitor {
 
     override visitCast(node: CastExpression): Expression {
         super.visitCast(node);
-        this.addIfAll(node, [node.expression]);
-        return node;
-    }
-
-    private visitIsNull(node: IsNullExpression): Expression {
-        this.visit(node.expression);
-        this.addIfAll(node, [node.expression]);
-        return node;
-    }
-
-    private visitIsNotNull(node: IsNotNullExpression): Expression {
-        this.visit(node.expression);
         this.addIfAll(node, [node.expression]);
         return node;
     }
@@ -118,78 +126,26 @@ class DbExpressionNominator extends ExpressionVisitor {
         return node;
     }
 
-    private visitLike(node: LikeExpression): Expression {
-        this.visit(node.expression);
-        this.visit(node.pattern);
-        this.addIfAll(node, [node.expression, node.pattern]);
-        return node;
-    }
+    // ---- self-contained subqueries: candidate as a whole, no recursion ---
+    // (their inner columns belong to the subquery's own scope, not this one).
 
-    private visitSqlFunction(node: SqlFunctionExpression): Expression {
-        this.visit(node.object);
-        node.arguments.forEach(a => this.visit(a));
-        this.addIfAll(node, [node.object, ...node.arguments]);
-        return node;
-    }
-
-    private visitAggregate(node: AggregateExpression): Expression {
-        node.arguments.forEach(a => this.visit(a));
-        this.addIfAll(node, node.arguments);
-        return node;
-    }
-
-    private visitCase(node: CaseExpression): Expression {
-        node.whens.forEach(w => {
-            this.visit(w.condition);
-            this.visit(w.value);
-        });
-        this.visit(node.defaultValue);
-        this.addIfAll(node, [...node.whens.flatMap(w => [w.condition, w.value]), node.defaultValue]);
-        return node;
-    }
-
-    private visitScalar(node: ScalarExpression): Expression {
+    override visitScalar(node: ScalarExpression): Expression {
         return this.add(node);
     }
 
-    private visitExists(node: ExistsExpression): Expression {
+    override visitExists(node: ExistsExpression): Expression {
         return this.add(node);
     }
 
-    private visitIn(node: InExpression): Expression {
+    override visitIn(node: InExpression): Expression {
         return this.add(node);
     }
 
-    private visitEntity(node: EntityExpression): Expression {
-        this.visit(node.externalId);
-        node.bindings?.forEach(b => this.visit(b.binding));
-        node.mixins?.forEach(m => this.visit(m));
-        return node;
-    }
+    // ---- non-server nodes: never recursed, never nominated ---------------
+    // A child projection has its own scope; parameters/properties/calls/lambdas
+    // are residual source nodes the reader handles, not server expressions.
 
-    private visitEmbeddedEntity(node: EmbeddedEntityExpression): Expression {
-        this.visit(node.hasValue);
-        node.bindings.forEach(b => this.visit(b.binding));
-        node.mixins?.forEach(m => this.visit(m));
-        return node;
-    }
-
-    private visitMixinEntity(node: MixinEntityExpression): MixinEntityExpression {
-        node.bindings.forEach(b => this.visit(b.binding));
-        return node;
-    }
-
-    override visitObject(node: ObjectExpression): Expression {
-        Object.values(node.properties).forEach(v => this.visit(v));
-        return node;
-    }
-
-    override visitNew(node: NewExpression): Expression {
-        node.args.forEach(a => this.visit(a));
-        return node;
-    }
-
-    private visitProjection(node: ProjectionExpression): Expression {
+    override visitProjection(node: ProjectionExpression): Expression {
         return node;
     }
 

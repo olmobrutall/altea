@@ -8,6 +8,7 @@ import {
     SqlConstantExpression, TableExpression, OrderExpression, OrderType, UniqueFunction,
     AggregateExpression, AggregateSqlFunction, ColumnDeclaration, LikeExpression, InExpression,
     SourceExpression, SqlFunctionExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression,
+    LiteReferenceExpression,
 } from "../expressions.sql";
 import { AliasGenerator, Alias } from "../AliasGenerator";
 import { projectColumns } from "./ColumnProjector";
@@ -139,6 +140,22 @@ export class QueryBinder extends ExpressionVisitor {
     }
 
     private bindMethodCall(methodName: string, source: Expression, args: readonly Expression[]): Expression {
+        // entity.toLite() → a Lite over that reference (Signum's BindToLite).
+        if (methodName === "toLite" && source instanceof EntityExpression)
+            return new LiteReferenceExpression(source.type, source, undefined);
+        if (methodName === "toLite" && source instanceof LiteReferenceExpression)
+            return source;
+
+        // entity.is(x) / lite.is(x) → an id comparison, the server form of the
+        // in-memory identity check. TODO: this single-column id equality only
+        // covers typed references; polymorphic equality (ImplementedBy /
+        // ImplementedByAll — which compare an id *and* a type, possibly across
+        // several implementation columns) needs Signum's SmartEqualizer. Replace
+        // `idOf` + this BinaryExpression with a SmartEqualizer call when that tier
+        // lands.
+        if (methodName === "is" && args.length === 1)
+            return new BinaryExpression("==", this.idOf(source), this.idOf(this.visit(args[0])));
+
         const visitedArgs = args.map(a => this.visit(a));
 
         if (methodName === "contains" && source instanceof ConstantExpression && Array.isArray(source.value) && visitedArgs.length === 1)
@@ -154,6 +171,25 @@ export class QueryBinder extends ExpressionVisitor {
             return new LikeExpression(source, this.likePattern("%", visitedArgs[0], ""));
 
         throw new Error(`Method '${methodName}' is not implemented in the binder skeleton yet`);
+    }
+
+    // The id expression of an entity/lite/captured-reference, for `.is()` lowering.
+    // Stopgap for typed references only — superseded by SmartEqualizer once
+    // ImplementedBy/ImplementedByAll polymorphic equality is needed (see bindMethodCall).
+    private idOf(e: Expression): Expression {
+        if (e instanceof EntityExpression)
+            return e.externalId.value;
+        if (e instanceof LiteReferenceExpression)
+            return e.reference.externalId.value;
+        if (e instanceof PrimaryKeyExpression)
+            return e.value;
+        // A captured Entity/Lite constant → its id literal; otherwise assume the
+        // value already is the id.
+        if (e instanceof ConstantExpression) {
+            const v = e.value as { id?: unknown } | null;
+            return new ConstantExpression(v != null && typeof v === "object" && "id" in v ? v.id : e.value);
+        }
+        return e;
     }
 
     private likePattern(prefix: string, expression: Expression, suffix: string): Expression {
@@ -315,19 +351,20 @@ export class QueryBinder extends ExpressionVisitor {
         const obj = this.visit(pe.object);
         const name = pe.propertyName;
 
-        if (obj instanceof EntityExpression) {
+        if (obj instanceof EntityExpression)
+            return this.bindEntityMember(obj, name);
+
+        // Navigating through a Lite: `.entity`/`.entityOrNull` unwrap to the
+        // referenced entity, `.id` short-circuits to the FK column; any other
+        // member navigates the entity behind the lite.
+        if (obj instanceof LiteReferenceExpression) {
+            if (name === "entity" || name === "entityOrNull")
+                return obj.reference;
             if (name === "id")
-                return obj.externalId; // id is the FK column — no JOIN needed
-            // Collection navigation (FieldEntityArray) → a lazy
-            // FieldEntityArrayExpression, realised to a correlated sub-projection
-            // only when consumed. Kept off the entity's bindings so it never
-            // reaches the column projector.
-            const ef = Object.values(obj.table.fields).find(f => f.fieldInfo.name === name);
-            if (ef != null && ef.field instanceof FieldEntityArray)
-                return this.makeFieldEntityArray(obj, ef.field);
-            const completed = this.completed(obj);
-            return this.findBinding(completed.bindings!, name, completed.type);
+                return obj.reference.externalId;
+            return this.bindEntityMember(obj.reference, name);
         }
+
         if (obj instanceof EmbeddedEntityExpression)
             return this.findBinding(obj.bindings, name, obj.type);
         if (obj instanceof MixinEntityExpression)
@@ -343,6 +380,19 @@ export class QueryBinder extends ExpressionVisitor {
             return new PropertyExpression(obj, name, pe.isOptionalChaining);
 
         throw new Error(`Cannot bind member '${name}' on ${obj.toString()}`);
+    }
+
+    // Binds `entity.<name>`: id short-circuits to the FK column (no JOIN), a
+    // collection field becomes a lazy FieldEntityArrayExpression, anything else
+    // completes the entity (navigation → JOIN) and reads the field binding.
+    private bindEntityMember(entity: EntityExpression, name: string): Expression {
+        if (name === "id")
+            return entity.externalId;
+        const ef = Object.values(entity.table.fields).find(f => f.fieldInfo.name === name);
+        if (ef != null && ef.field instanceof FieldEntityArray)
+            return this.makeFieldEntityArray(entity, ef.field);
+        const completed = this.completed(entity);
+        return this.findBinding(completed.bindings!, name, completed.type);
     }
 
     private findBinding(bindings: readonly FieldBinding[], name: string, ownerType: Type): Expression {
@@ -426,7 +476,10 @@ export class QueryBinder extends ExpressionVisitor {
     private fieldEntityArrayProjection(fea: FieldEntityArrayExpression): ProjectionExpression {
         const childProj = this.getTableProjectionForTable(fea.childTable, fea.type);
         const childEntity = childProj.projector as EntityExpression;
-        const fkBinding = childEntity.bindings?.find(b => b.fieldInfo.name === fea.fkProperty)?.binding;
+        let fkBinding = childEntity.bindings?.find(b => b.fieldInfo.name === fea.fkProperty)?.binding;
+        // The back-reference FK is usually a Lite<Owner>; unwrap to its reference.
+        if (fkBinding instanceof LiteReferenceExpression)
+            fkBinding = fkBinding.reference;
         if (!(fkBinding instanceof EntityExpression))
             throw new Error(`Collection FK '${fea.fkProperty}' did not bind to a reference on ${fea.childTable.name.name}`);
 
@@ -516,8 +569,12 @@ export class QueryBinder extends ExpressionVisitor {
             // Lazy single reference: an EntityExpression whose id is the FK column;
             // bindings stay undefined until a navigation completes it.
             const refTable = f.column.referenceTable!;
+            const refType = new ClassType(refTable.type as any);
             const externalId = new PrimaryKeyExpression(new ColumnExpression(LiteralType.number, alias, f.column.name));
-            return new EntityExpression(new ClassType(refTable.type as any), refTable, externalId, undefined, undefined, undefined, false);
+            const entity = new EntityExpression(refType, refTable, externalId, undefined, undefined, undefined, false);
+            // A Lite<T> field projects as a Lite, not a full entity; navigation
+            // through it (.entity) unwraps to this same reference.
+            return f.column.isLite ? new LiteReferenceExpression(refType, entity, undefined) : entity;
         }
 
         if (f instanceof FieldEmbedded) {

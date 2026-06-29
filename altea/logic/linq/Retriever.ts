@@ -1,5 +1,6 @@
 import { cleanModified } from "../../entities/changes";
-import { Entity, PrimaryKey, BaseEntity } from "../../entities/entity";
+import { Entity, PrimaryKey, BaseEntity, Type } from "../../entities/entity";
+import { Lite, LiteImp } from "../../entities/lite";
 
 // Port of Signum's TranslatorBuilder + TranslateResult + ProjectionReader.
 // Formats the SQL and compiles the projector into a `(row, retriever) => T`
@@ -42,6 +43,15 @@ export class Retriever {
             this.cache.set(key, e);
         }
         return e;
+    }
+
+    // A Lite<T> loaded by id (+ optional display string). Builds a thin LiteImp —
+    // the full entity is NOT retrieved (that's the point of a lite). `toStr` is the
+    // server-computed display string; a proper per-type toString expression is a
+    // later tier, so it is usually empty for now.
+    lite(ctor: new () => Entity, id: PrimaryKey | null, toStr: string | null): Lite<Entity> | null {
+        if (id == null) return null;
+        return new LiteImp(id, ctor as unknown as Type<Entity>, toStr ?? "");
     }
 
     // An embedded value (no identity / no cache). The parent's snapshot inlines it.

@@ -4,7 +4,7 @@ import {
 } from "./expressions";
 import {
     ProjectionExpression, ColumnExpression, PrimaryKeyExpression, UniqueFunction,
-    EntityExpression, EmbeddedEntityExpression,
+    EntityExpression, EmbeddedEntityExpression, LiteReferenceExpression,
 } from "./expressions.sql";
 import { QueryFormatter } from "./queryFormatter";
 import { Connector } from "../connection/connector";
@@ -107,6 +107,21 @@ class ProjectionBuilder extends DbExpressionVisitor {
             }
 
         this.stack.push(`retriever.entity(consts[${ctorIndex}], ${idCode}, function(e){ ${assigns.join(" ")} })`);
+        return e;
+    }
+
+    override visitLiteReference(e: LiteReferenceExpression): Expression {
+        const ctorIndex = this.pushConst(ctorOf(e.reference.type));
+        this.visit(e.reference.externalId.value);
+        const idCode = this.pop();
+
+        let toStrCode = "null";
+        if (e.toStr != null) {
+            this.visit(e.toStr);
+            toStrCode = this.pop();
+        }
+
+        this.stack.push(`retriever.lite(consts[${ctorIndex}], ${idCode}, ${toStrCode})`);
         return e;
     }
 

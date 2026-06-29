@@ -4,6 +4,7 @@ import { entity, EntityData, ignore } from './decorators';
 import { reflect } from './reflection';
 import { enumNameOf } from './registration';
 import { isGraphModified, isModifiedSelf } from './changes';
+import { LiteralType, LiteType, type Type as ExpressionType } from './types';
 
 export type PrimaryKey = string | number;
 
@@ -149,6 +150,16 @@ export abstract class Entity extends BaseEntity {
         return (this as Entity) === otherEntity;
     }
 }
+
+// Query-expression metadata for the quote-transformer: lets `.is(...)` and
+// `.toLite()` appear inside quoted query lambdas. fromQuoted reads `__resultType`
+// off the method to type the call; the QueryBinder then lowers `.is(...)` to an id
+// comparison and `.toLite()` to a LiteReference. `is` → boolean; `toLite` → a
+// `Lite<this>`.
+(Entity.prototype.is as { __resultType?: (t: ExpressionType, ...a: ExpressionType[]) => ExpressionType }).__resultType =
+    () => LiteralType.boolean;
+(Entity.prototype.toLite as { __resultType?: (t: ExpressionType, ...a: ExpressionType[]) => ExpressionType }).__resultType =
+    (ownerType: ExpressionType) => new LiteType(ownerType);
 
 export abstract class EmbeddedEntity extends BaseEntity { }
 

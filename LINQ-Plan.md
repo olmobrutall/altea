@@ -83,7 +83,7 @@ Implementation order (each ends green):
 4. ✅ full-entity materialisation via `Retriever` (closes C retrieve)
 5. 🟡 navigations + JOINs — single-reference navigation done (any depth); collection SelectMany (`flatMap` → CROSS APPLY) done; projecting a raw collection (ChildProjectionFlattener) and `ImplementedBy*` joins still deferred
 6. 🟡 order/page/distinct/unique/scalar-aggregates
-7. ❌ polymorphism + Lite + SQL functions
+7. 🟡 Lite done (projection / `.entity` navigation / `.is` / `toLite`; toStr + `.model` + polymorphic lites deferred); `ImplementedBy*` polymorphism + most SQL functions still pending
 8. ❌ delayed tiers
 
 ## Implementation progress log
@@ -269,14 +269,56 @@ needs ChildProjectionFlattener), the `flatMap` result-selector / index /
 `defaultIfEmpty` overloads, and collection aggregates in predicates
 (`a.friends.some(...)`/`.count()` as scalar/EXISTS subqueries).
 
+**Step 7 (Lite).** `Lite<T>` projection, navigation, and identity comparison
+landed: **Postgres 327→335, SQL Server 334→340** (offline gate 27/27; retriever
+suite stays fully green — lite reference fields now materialise as lites, not
+stubs). The `toLite`/`is` "Missing @resultType" clusters (~54) collapsed.
+
+- **`LiteReferenceExpression`** (Signum's node) wraps the reference
+  EntityExpression (id column + entity type) plus an optional `toStr`. The column
+  projector projects only the wrapped id; the reader (`Retriever.lite`)
+  materialises a `LiteImp(id, type, toStr)`. Registered in the nominator's
+  `instanceof` dispatch (it nominates the children, never itself).
+- **Binder**: a `Lite<T>` FieldReference (`column.isLite`) binds to a
+  LiteReference (not a bare entity); `entity.toLite()` → LiteReference;
+  `entity.is(x)`/`lite.is(x)` lower to an id comparison (`idOf` extracts the id
+  from an entity / lite / captured constant); `lite.entity`/`.entityOrNull` unwrap
+  to the reference (so navigating through a lite joins as usual), `lite.id` →
+  the FK column. The collection back-reference FK is itself a lite, so
+  `fieldEntityArrayProjection` unwraps it.
+- **Expression layer**: a dedicated `LiteType` (in `entities/types.ts`) wraps the
+  entity type, distinct from `ClassType`. `Entity.prototype.is`/`toLite` and
+  `Lite.prototype.is` carry `__resultType` metadata (`is` → boolean,
+  `toLite` → `LiteType(owner)`); `fromQuoted` routes method dispatch on a `LiteType`
+  to `Lite.prototype`, and `resolveMemberType` types lite fields as `LiteType` and
+  resolves `lite.entity`/`.entityOrNull` back to the wrapped entity (so
+  `lite.entity.field` types correctly). `idOf` lowers `.is(...)` to a single-column
+  id comparison — a stopgap to be replaced by SmartEqualizer for polymorphic
+  (ImplementedBy/ImplementedByAll) equality.
+
+**Deferred (Lite-adjacent):** the display string `toStr` is empty for now (needs a
+per-type server-side `toString` expression — the ToString tier); `.model`
+(LiteModel) projection; polymorphic lites over `ImplementedBy` (`a.award`,
+`b.lastAward` → still "Field not found"); and nested-query / scalar-in-projection
+shapes (`map(a => …toArray())`, `map(a => a.friends.count())`) which surface as
+`toArray` "Missing @resultType" or "ProjectionBuilder left extra expressions" and
+need ChildProjectionFlattener / ScalarSubqueryRewriter.
+
 ## Most important differences so far
 
 - TypeScript uses `quote-transformer` expressions instead of
   `System.Linq.Expressions`. This means the binder has to recover some type and
   method information from Altea metadata and from expression annotations.
-- `DbExpressionNominator` intentionally inherits from `ExpressionVisitor`, not
-  `DbExpressionVisitor`, because its input is always the TypeScript/source
-  expression tree. It manually recognizes SQL nodes where needed.
+- `DbExpressionNominator` inherits from `DbExpressionVisitor` (like Signum's), so
+  node routing is the usual `accept` double-dispatch — no hand-written `instanceof`
+  table. It overrides only the nodes that nominate (leaf SQL values, the
+  composite operators, whole-subquery Scalar/Exists/In) and the non-server nodes
+  that must not recurse (Projection / Parameter / Property / Call / Lambda); the
+  client-materialised nodes (Entity / Embedded / Mixin / LiteReference / object &
+  `new` literals) just use the base traversal, which recurses without nominating.
+  (An earlier revision made it an `ExpressionVisitor` with a manual dispatch
+  table; that was reverted — it was more code and threw `asDbVisitor` on any
+  DbExpression node it hadn't enumerated.)
 - `QueryFormatter` is now visitor-based and inherits from
   `DbExpressionVisitor`, like Signum's C# formatter. It returns `{ sql,
   parameters }` instead of `SqlPreCommandSimple`/database parameter objects.
@@ -337,7 +379,7 @@ needs ChildProjectionFlattener), the `flatMap` result-selector / index /
 | `ExpressionVisitor/DbExpressionVisitor.cs` | `altea/logic/linq/visitors/DbExpressionVisitor.ts` | Partial port |
 | `ExpressionVisitor/QueryBinder.cs` | `altea/logic/linq/visitors/QueryBinder.ts`, `altea/logic/linq/queryBinder.ts` | Partial port |
 | `ExpressionVisitor/QueryFormatter.cs` | `altea/logic/linq/queryFormatter.ts` | Partial port |
-| `ExpressionVisitor/DbExpressionNominator.cs` | `altea/logic/linq/dbExpressionNominator.ts` | Partial port; source-expression visitor |
+| `ExpressionVisitor/DbExpressionNominator.cs` | `altea/logic/linq/dbExpressionNominator.ts` | Partial port; DbExpressionVisitor (like Signum) |
 | `ExpressionVisitor/ColumnProjector.cs` | `altea/logic/linq/visitors/ColumnProjector.ts`, `altea/logic/linq/columnProjector.ts`, `altea/logic/linq/ColumnGenerator.ts` | Partial port |
 | `ExpressionVisitor/TranslatorBuilder.cs` | `altea/logic/linq/translatorBuilder.ts` | Partial port |
 | `ExpressionVisitor/OverloadingSimplifier.cs` | `altea/logic/linq/visitors/ExpressionSimplifier.ts` | Very partial analogue |
@@ -468,13 +510,13 @@ corepack pnpm --filter @altea/altea-test test
 
 At the last offline run, 27 DB-free tests passed (including array `contains` →
 `IN`, and the step-5 navigation→JOIN shape). But that is the *floor*, not the
-bar: live runs are now at **Postgres 327 / SQL Server 334 pass** (up from PG 306 /
+bar: live runs are now at **Postgres 335 / SQL Server 340 pass** (up from PG 306 /
 SS 306) — the order+TOP tier brought both to 316, ConditionsRewriter took SQL
-Server to 323, then collections/SelectMany added +11 on each (PG 327 / SS 334).
-The remaining failures are still-unimplemented features (`Lite`/`toLite` — now the
-dominant cluster, `ImplementedBy*` polymorphism, `groupBy`, `skip`, `join`, and a
-few Postgres-side aggregate-coercion cases), so the live numbers, not the offline
-ones,
+Server to 323, collections/SelectMany added +11 each (PG 327 / SS 334), then Lite
+added +8/+6 (PG 335 / SS 340). The remaining failures are still-unimplemented
+features (`groupBy`, `ImplementedBy*` polymorphism / polymorphic lites, nested-query
+& scalar-in-projection, `skip`, `join`, `instanceof`/`===`, and a few Postgres-side
+aggregate-coercion cases), so the live numbers, not the offline ones,
 measure real progress. The order+TOP family (`OrderByFirst`, `OrderByLast`,
 `OrderByTop`, `OrderByTakeOrderBy`, …) and the navigation→JOIN tests pass on
 **both** dialects. Treat a feature as done only when its DB-gated suite is green

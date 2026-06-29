@@ -1,9 +1,10 @@
 
 import { isOptionalChain } from "typescript";
 import { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
-import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, ObjectType, Type } from "../../entities/types";
+import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, Type } from "../../entities/types";
 import { resolveType } from "../../entities/registration";
 import { tryGetTypeInfo, type FieldInfo } from "../../entities/reflection";
+import { Lite } from "../../entities/lite";
 import { getLambdaTypeResolvers, getResultTypeResolver, LambdaTypeResolver, OrderedQuery, Query, ResultTypeResolver, StaticFunction } from "../query";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 
@@ -13,13 +14,24 @@ import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 // the method-call dispatch in fromQuoted (which keys off ArrayType/ClassType).
 // Unknown owners/fields (temporal types, enums, unreflected types) stay null.
 function resolveMemberType(ownerType: Type, propertyName: string): Type {
+    // Navigating through a Lite<T>: `.entity`/`.entityOrNull` yield the wrapped
+    // entity (so `lite.entity.field` types correctly); other members stay null.
+    if (ownerType instanceof LiteType)
+        return propertyName === "entity" || propertyName === "entityOrNull" ? ownerType.entityType : LiteralType.null;
+
     if (!(ownerType instanceof ClassType))
         return LiteralType.null;
     const fi = tryGetTypeInfo(ownerType.constructorFunction)?.fields[propertyName];
     if (fi == null)
         return LiteralType.null;
-    const base = baseTypeOfFieldInfo(fi);
-    return fi.array ? new ArrayType(base) : base;
+
+    // Container flags compose as `Lite<T>[]` (lite inside the array).
+    let t = baseTypeOfFieldInfo(fi);
+    if (fi.lite)
+        t = new LiteType(t);
+    if (fi.array)
+        t = new ArrayType(t);
+    return t;
 }
 
 function baseTypeOfFieldInfo(fi: FieldInfo): Type {
@@ -130,8 +142,9 @@ export abstract class Expression {
                             obj = fun.object;
                             const type = obj.type instanceof ArrayType ? OrderedQuery.prototype :
                                 (obj.type === LiteralType.string || obj.type === LiteralType.null && isKnownStringMethod(fun.propertyName)) ? String.prototype :
-                                    obj.type instanceof ClassType ? obj.type.constructorFunction.prototype :
-                                        undefined;
+                                    obj.type instanceof LiteType ? Lite.prototype :
+                                        obj.type instanceof ClassType ? obj.type.constructorFunction.prototype :
+                                            undefined;
 
                             if (type == undefined)
                                 throw new Error(`Unexpected object type when calling ${fun.propertyName}`);

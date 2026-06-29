@@ -485,6 +485,31 @@ export class FieldEntityArrayExpression extends DbExpression {
     }
 }
 
+// A Lite<T> value in the expression tree (Signum's LiteReferenceExpression). It
+// wraps the underlying entity reference (which carries the id column + entity
+// type); `toStr` is the optional display-string expression. The column projector
+// projects only the wrapped id, and the reader materialises a LiteImp from it —
+// so a Lite loads id+type, never the full entity. `toStr` is deferred (a proper
+// server-side toString expression per type is a later tier), so lites currently
+// materialise with an empty display string.
+export class LiteReferenceExpression extends DbExpression {
+    constructor(
+        type: Type,
+        public readonly reference: EntityExpression,
+        public readonly toStr: Expression | undefined,
+    ) {
+        super("LiteReference", type);
+    }
+
+    toString(): string {
+        return `Lite(${this.reference})`;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitLiteReference(this);
+    }
+}
+
 // ---- Entity-semantic nodes (rewritten away before SQL) -------------------
 
 // A field name paired with the expression it binds to in an entity constructor.

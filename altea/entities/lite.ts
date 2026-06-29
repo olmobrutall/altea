@@ -1,6 +1,7 @@
 
 import type { Entity, Type, PrimaryKey } from './entity';
 import { typeName } from './entity';
+import { LiteralType, type Type as ExpressionType } from './types';
 
 export abstract class Lite<out T extends Entity> {
     abstract readonly id: PrimaryKey;
@@ -69,6 +70,13 @@ export abstract class Lite<out T extends Entity> {
         return this.entityOrNull === otherEntity;
     }
 }
+
+// Query-expression metadata: a lite value (LiteType) routes method calls in a
+// quoted lambda to Lite.prototype, so `lite.is(...)` resolves here. The binder
+// lowers it to an id comparison, same as Entity.is. (`lite.entity` is a property,
+// typed by resolveMemberType, so it needs no metadata.)
+(Lite.prototype.is as { __resultType?: (t: ExpressionType, ...a: ExpressionType[]) => ExpressionType }).__resultType =
+    () => LiteralType.boolean;
 
 export class LiteImp<T extends Entity> extends Lite<T> {
     constructor(

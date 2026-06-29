@@ -36,6 +36,15 @@ export class ClassType extends Type {
     }
 }
 
+// A Lite<T> reference. `entityType` is the wrapped entity type (T). Distinct from
+// ClassType so the query layer can tell a lite from a full entity — e.g. method
+// dispatch routes to Lite.prototype, and `lite.entity` resolves to `entityType`.
+export class LiteType extends Type {
+    constructor(public readonly entityType: Type) {
+        super()
+    }
+}
+
 export class ObjectType extends Type {
     constructor(public readonly bindings: { [name: string]: Type | undefined }) {
         super()
