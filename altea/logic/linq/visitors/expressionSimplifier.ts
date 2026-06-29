@@ -79,7 +79,16 @@ export class ExpressionSimplifier extends ExpressionVisitor {
             if (obj.value == null && node.isOptionalChaining)
                 return new FastUndefined();
 
-            return new ConstantExpression((obj.value as any)[node.propertyName]);
+            const value = (obj.value as any)[node.propertyName];
+            // Don't fold a method accessed off a constant receiver: the receiver
+            // carries data the binder needs (e.g. the array in `ids.contains(x)`
+            // becomes a SQL `IN`). Folding collapses it to the bare prototype
+            // function and loses the values. Keep the PropertyExpression so the
+            // binder can dispatch on the method name with the constant as source.
+            if (typeof value === "function")
+                return node.updateProperty(obj);
+
+            return new ConstantExpression(value);
         }
 
         return node.updateProperty(obj);

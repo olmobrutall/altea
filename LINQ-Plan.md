@@ -23,6 +23,146 @@ The desired long-term flow is still the Signum one:
 The current priority is to keep moving small, tested pieces from C# to Altea
 without inventing a different LINQ provider architecture.
 
+> This is the canonical home for the LINQ provider (Phase **D**) work. The
+> root `../PLAN.md` keeps only a one-line status row and a pointer here.
+
+## Strategy & decisions
+
+**Port Signum `Engine/Linq/` pass-for-pass.** Everything downstream of binding
+(DbExpression tree, visitor base, optimisers, QueryFormatter, TranslatorBuilder,
+ProjectionReader) ports faithfully. Only **QueryBinder** is adapted, because the
+input is altea's JS-operator AST (`expressions.ts`: `CallExpression` on a named
+`PropertyExpression`, `BinaryExpression "=="`) not C# `MethodCallExpression`.
+The pipeline replaces the `throw` in `MyQueryTranslator.translate()`
+(`logic/table.ts`):
+
+`simplify (have it) → QueryBinder → optimiser passes → ChildProjectionFlattener (DELAYED) → TranslatorBuilder{ProjectionBuilder(eval-codegen) + QueryFormatter} → TranslateResult.execute() [async]`
+
+Decisions taken (Olmo):
+
+- **Async terminals**: `toArray`/`first`/`count`/… return Promises (the Node
+  connectors are async-only). `IQuery` + `Query` were updated together.
+- **TDD-first**: translate *all* Signum `LinqProvider/*.cs` tests into
+  `altea-test` to lock a stable `Query<T>` API **before** implementing the
+  translator. Compile-clean under `tspc` is the API-stability gate; suites SKIP
+  without `ALTEA_TEST_DB`.
+- **`TranslatorBuilder` compiles the projector via eval/codegen**
+  (`new Function`), mirroring C#'s `Expression.Compile()` — not a tree
+  interpreter.
+- **Collections ≈ MList**: altea has no MList tables, but
+  `FieldEntityArray`/`@backReference` part-entities (modelled in `music.ts`)
+  play the same role; the collection projection machinery is a near-port of
+  Signum's MList* nodes, not a fundamental divergence. Entity collections inside
+  quoted lambdas borrow `@lambdaTypeForParam`/`@resultType` from `Query<T>`
+  (routed via `OrderedQuery.prototype` in `expressions.ts`).
+- **Ask before any divergence** beyond the agreed delays.
+
+## Build order & phases
+
+New module layout mirrors `old/Framework/Signum/Engine/Linq/`: expand
+`expressions.sql.ts` (full DbExpression hierarchy) + `logic/linq/`
+{ `aliasGenerator`, `dbExpressionVisitor`, `queryBinder`, `columnProjector`,
+`dbExpressionNominator` (minimal first), `smartEqualizer`, `visitors/*`,
+`queryFormatter`, `translatorBuilder`, `projectionReader` }.
+
+Pass order — **build now**: EntityCompleter(+QueryJoinExpander) →
+AliasProjectionReplacer → OrderByRewriter → QueryRebinder →
+ConditionsRewriter(+Postgres) → UnusedColumnRemover + RedundantSubqueryRemover.
+
+**Delayed (Olmo's order)**: (1) ChildProjectionFlattener/collections →
+(2) Unsafe DML → (3) AggregateRewriter + DuplicateHistory (so `groupBy` +
+temporal `AsOf` come last). ScalarSubqueryRewriter skipped (both dialects
+support scalar subqueries).
+
+Implementation order (each ends green):
+
+0. ✅ **port all LinqProvider tests** (TDD)
+1. ✅ DbExpression scaffolding + visitor + AliasGenerator
+2. ✅ binder skeleton (`filter`+`map`) + minimal Nominator/ColumnProjector
+3. ✅ formatter + reader for **scalars/tuples** end-to-end (first proof)
+4. ✅ full-entity materialisation via `Retriever` (closes C retrieve)
+5. 🟡 navigations + JOINs
+6. 🟡 order/page/distinct/unique/scalar-aggregates
+7. ❌ polymorphism + Lite + SQL functions
+8. ❌ delayed tiers
+
+## Implementation progress log
+
+**Step 0 done** — `altea-test/test/` has 26 ported LinqProvider suites (~600
+test methods) that compile under `tspc` (the quote-transformer captures them)
+and run via `node --test` (the [loader.mjs](altea-test/loader.mjs) resolver
+hook); they SKIP without `ALTEA_TEST_DB`, so compile-clean is the API-stability
+gate. The C#→altea idiom is [PORTING.md](altea-test/test/PORTING.md); the
+surfaced API/feature backlog (the translator's red→green targets) is
+[API-GAPS.md](altea-test/test/API-GAPS.md). Enabling API added this phase:
+`Entity`/`Lite.is()`, `Array<T>` query operators (in globals.ts),
+quote-transformer **cast** (`x as T`) + `x!` support (+ `CastExpression`).
+Deferred (not ported): FullTextSearch×2, VectorSearch×2, SystemTime — they need
+pgvector/hierarchyid/temporal features altea doesn't model yet.
+
+**Step 1 done** — `logic/linq/aliasGenerator.ts` (`Alias` + `AliasGenerator`,
+port of AliasGenerator.cs), `logic/expressions.sql.ts` expanded to the core
+`DbExpression` hierarchy (sources: Table/Select/Join + Column/ColumnDeclaration/
+OrderExpression; scalars: Aggregate/SqlFunction/SqlConstant/Case+When/Like/
+Scalar/Exists/In/IsNull/IsNotNull; Projection/ChildProjection+LookupToken;
+entity-semantic: Entity/Embedded/Mixin/FieldBinding/PrimaryKey), and
+`logic/linq/dbExpressionVisitor.ts` (identity-preserving `DbExpressionVisitor`,
+double-dispatch via `accept`, generic fallback to source-level `visitChildren`
+for Binary/Constant/… inside WHERE/projector). Builds clean (`tspc -b --force`).
+Deferred to their tiers: command nodes (Update/Delete/Insert), MList*,
+ImplementedBy*, Lite*, Type*, Interval/temporal, TVF, RowNumber, SqlCast,
+hierarchy.
+
+**Step 2 done** — `logic/linq/queryBinder.ts` (adapted port: recognises the
+marked `table(T)` source → `getTableProjection` building an `EntityExpression`+
+`SelectExpression`; binds `filter`→Where, `map`→Select; `mapVisitExpand` binds
+lambda bodies; `bindMemberAccess` resolves `.id`→externalId and value/embedded
+fields → columns; value/enum/embedded/single-reference fields mapped — IB*/
+collections deferred), `logic/linq/dbExpressionNominator.ts` (minimal: collects
+server-evaluable candidates bottom-up), `logic/linq/columnProjector.ts`
+(`ColumnProjector`+`ColumnGenerator`, splits projector into SELECT columns +
+rebuilt projector). `table.ts` marks `table` as a query source and
+`MyQueryTranslator.bind()` runs simplify→bind (execution still throws — step 3).
+Verified by `altea-test/test/binder.test.ts` (no DB): bare table, filter→WHERE,
+map-scalar→1 column, map-object→2 columns.
+
+**Step 3 done** — `logic/linq/queryFormatter.ts` (DbExpression tree → SQL text +
+positional params; dialect-aware: pg `$n`/`"id"` vs SQL Server `@pN`/`[id]`;
+SELECT/FROM/WHERE/ORDER BY/TOP-LIMIT/JOIN keywords, scalar ops incl. null-aware
+`= NULL`→`IS NULL`), `logic/linq/translatorBuilder.ts` (`TranslateResult` +
+eval-codegen projector: `compileProjector` emits a `(row,consts)=>value` body
+via `new Function`, reading `row["<colAlias>"]`; `async execute()` runs the
+query and maps rows; `applyUnique` for First/Single). `MyQueryTranslator.execute`
+binds→formats→executes (returns a Promise); `getQueryTextForDebug` returns real
+SQL. **Query terminals are now async** (`toArray`/`count`/`first`/… →
+`Promise<…>`). Verified by `binder.test.ts` (no DB): bound-tree shape, SQL text +
+params both dialects, and full format→execute→project via a `FakeConnector`.
+
+**Step 4 done** — entity materialisation via a `Retriever` in
+`logic/linq/translatorBuilder.ts`. The projector codegen now emits, for an
+`EntityExpression`, `retriever.entity(ctor, idCol, e => { e.field = …; })`
+(mixin fields assigned onto the same instance), for a lazy reference
+`retriever.stub(ctor, fkCol)`, and for an `EmbeddedEntityExpression`
+`(hasValue ? retriever.embedded(ctor, …) : null)`. `Retriever` caches by
+`type:id` (identity within a result), and **takes the clean change-tracking
+snapshot on load** (`cleanModified`) — so a freshly-retrieved entity has
+`isNew=false`/`isDirty()=false`. **This closes the Phase-C "retrieve"/
+snapshot-on-load gap.** Binder now resolves the embedded ctor from the field's
+`typeName` (so embeddeds construct). Nominator fix: `PrimaryKeyExpression` is no
+longer collapsed into a column — the wrapper is kept so the reader treats the id
+specially. **Pending:** deferred batch-completion of reference stubs (their
+non-id fields aren't loaded yet), Lite materialisation/model, collections.
+
+**Steps 5–6 in progress** — `orderBy`, `thenBy`, `top`, `distinct`, `first`,
+`single`, and scalar aggregates have started moving toward the Signum binder
+shape (see "Most important differences" + the file mapping below for what is
+ported vs. shimmed vs. missing). `skip` is deliberately deferred (needs
+row-number rewriting `SelectExpression` doesn't yet support). Array `contains`
+over a captured constant array now binds to `IN` and formats to
+`IN (@p0, @p1, …)` (`binder.test.ts`, 24 passing) — the enabling fix was making
+`ExpressionSimplifier.visitProperty` skip folding when the property value is a
+function, so the constant array receiver survives to the binder.
+
 ## Most important differences so far
 
 - TypeScript uses `quote-transformer` expressions instead of
@@ -50,8 +190,13 @@ without inventing a different LINQ provider architecture.
   overload simplification paths; Altea's `SelectExpression` does not yet have
   the required shape.
 - String `contains`, `startsWith`, and `endsWith` bind to `LIKE` for constant
-  patterns. General `IN`, array `contains`, and richer method dispatch still
-  need more quote/type normalization.
+  patterns. Array `contains` over a captured constant array binds to `IN`
+  (`InExpression.fromValues`). For that to work, `ExpressionSimplifier` must
+  **not** constant-fold a property access whose value is a *function*
+  (`ids.contains` would otherwise collapse to the bare `Array.prototype.contains`
+  and lose the `ids` receiver) — the binder needs the constant receiver to
+  recover the array. General `IN` over subqueries and richer method dispatch
+  still need more quote/type normalization.
 - The full rewrite pipeline is not ported yet: order-by rewriting, redundant
   subquery removal, unused column removal, aggregate rewriting, smart equality,
   condition rewriting, alias replacement, and child projection flattening are
@@ -154,7 +299,7 @@ not set; those are not counted as commented-out tests here.
 | `SystemTimeTest.cs` | 7 (0) | none | 0 (0) |
 | `VectorSearchTest.Postgres.cs` | 3 (0) | none | 0 (0) |
 | `VectorSearchTest.SqlServer.cs` | 4 (0) | none | 0 (0) |
-| none | 0 (0) | `binder.test.ts` | 22 (0) |
+| none | 0 (0) | `binder.test.ts` | 24 (0) |
 
 ## Current verification
 
@@ -164,5 +309,6 @@ The offline LINQ tests currently pass with:
 pnpm --filter @altea/altea-test test
 ```
 
-At the last run, this executed 22 active tests successfully. Many ported suites
+At the last run, this executed 24 active tests successfully (including array
+`contains` → `IN` in both the binder and the formatter). Many ported suites
 remain DB-gated or individually skipped while the provider catches up.
