@@ -37,14 +37,14 @@ describe("AsyncTest", { skip: !hasDb }, () => {
 
     // var artistsInBands = await Database.Query<BandEntity>().AverageAsync(a => a.Members.Count);
     // TODO(api): per-row aggregate over a part-entity collection inside a selector (a.members.length)
-    test("AverageAsync", { skip: true }, async () => {
+    test("AverageAsync", async () => {
         const artistsInBands = await table(BandEntity).avg(a => a.members.length);
         assert.ok(artistsInBands != null);
     });
 
     // var artistsInBands = await Database.Query<BandEntity>().MinAsync(a => a.Members.Count);
     // TODO(api): per-row aggregate over a part-entity collection inside a selector (a.members.length)
-    test("MinAsync", { skip: true }, async () => {
+    test("MinAsync", async () => {
         const artistsInBands = await table(BandEntity).min(a => a.members.length);
         assert.ok(artistsInBands != null);
     });

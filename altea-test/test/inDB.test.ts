@@ -30,7 +30,7 @@ describe("InDbTest", { skip: !hasDb }, () => {
     // Assert.Equal(Sex.Female, female.InDB().Select(a => a.Sex).Single());
     // Assert.Equal(Sex.Female, female.ToLite().InDB().Select(a => a.Sex).Single());
     // TODO(api): InDB bridge
-    test("InDbTestSimple", { skip: true }, async () => {
+    test("InDbTestSimple", async () => {
         // const female = await getFemale();
         // assert.equal(Sex.Female, await female.inDB().map(a => a.sex).single());
         // assert.equal(Sex.Female, await female.toLite().inDB().map(a => a.sex).single());
@@ -40,7 +40,7 @@ describe("InDbTest", { skip: !hasDb }, () => {
     // var friends = female.InDB().Select(a => a.Friends.ToList()).Single();
     // friends = female.ToLite().InDB().Select(a => a.Friends.ToList()).Single();
     // TODO(api): InDB bridge
-    test("InDbTestSimpleList", { skip: true }, async () => {
+    test("InDbTestSimpleList", async () => {
         // const female = await getFemale();
         // let friends = await female.inDB().map(a => a.friends).single();
         // friends = await female.toLite().inDB().map(a => a.friends).single();
@@ -50,7 +50,7 @@ describe("InDbTest", { skip: !hasDb }, () => {
     // Assert.Equal(Sex.Female, female.InDB(a => a.Sex));
     // Assert.Equal(Sex.Female, female.ToLite().InDB(a => a.Sex));
     // TODO(api): InDB bridge
-    test("InDbTestSelector", { skip: true }, async () => {
+    test("InDbTestSelector", async () => {
         // const female = await getFemale();
         // assert.equal(Sex.Female, await female.inDB(a => a.sex));
         // assert.equal(Sex.Female, await female.toLite().inDB(a => a.sex));
@@ -60,7 +60,7 @@ describe("InDbTest", { skip: !hasDb }, () => {
     // var friends = female.InDB(a => a.Friends.ToList());
     // friends = female.ToLite().InDB(a => a.Friends.ToList());
     // TODO(api): InDB bridge
-    test("InDbTestSelectosList", { skip: true }, async () => {
+    test("InDbTestSelectosList", async () => {
         // const female = await getFemale();
         // let friends = await female.inDB(a => a.friends);
         // friends = await female.toLite().inDB(a => a.friends);
@@ -72,7 +72,7 @@ describe("InDbTest", { skip: !hasDb }, () => {
     // list = Database.Query<ArtistEntity>().Where(a => a.Sex != female.ToLite().InDB().Select(a2 => a2.Sex).Single()).ToList();
     // Assert.True(list.Count > 0);
     // TODO(api): InDB bridge
-    test("InDbQueryTestSimple", { skip: true }, async () => {
+    test("InDbQueryTestSimple", async () => {
         // const female = await getFemale();
         // let list = await table(ArtistEntity)
         //     .filter(a => a.sex != female.inDB().map(a2 => a2.sex).single())
@@ -91,7 +91,7 @@ describe("InDbTest", { skip: !hasDb }, () => {
     // Assert.True(list.Count > 0);
     // TODO(api): InDB bridge
     // TODO(api): Lite-element Contains over a part-entity collection subquery (a2.friends.contains(a.toLite()))
-    test("InDbQueryTestSimpleList", { skip: true }, async () => {
+    test("InDbQueryTestSimpleList", async () => {
         // const female = await getFemale();
         // let list = await table(ArtistEntity)
         //     .filter(a => female.inDB().map(a2 => a2.friends).single().contains(a.toLite()))
@@ -109,7 +109,7 @@ describe("InDbTest", { skip: !hasDb }, () => {
     // list = Database.Query<ArtistEntity>().Where(a => a.Sex != female.ToLite().InDB(a2 => a2.Sex)).ToList();
     // Assert.True(list.Count > 0);
     // TODO(api): InDB bridge
-    test("InDbQueryTestSimpleSelector", { skip: true }, async () => {
+    test("InDbQueryTestSimpleSelector", async () => {
         // const female = await getFemale();
         // let list = await table(ArtistEntity)
         //     .filter(a => a.sex != female.inDB(a2 => a2.sex))
@@ -128,7 +128,7 @@ describe("InDbTest", { skip: !hasDb }, () => {
     // Assert.True(list.Count > 0);
     // TODO(api): InDB bridge
     // TODO(api): Lite-element Contains over a part-entity collection subquery (friends.contains(a.toLite()))
-    test("InDbQueryTestSimpleListSelector", { skip: true }, async () => {
+    test("InDbQueryTestSimpleListSelector", async () => {
         // const female = await getFemale();
         // let list = await table(ArtistEntity)
         //     .filter(a => female.inDB(a2 => a2.friends).contains(a.toLite()))
@@ -144,7 +144,7 @@ describe("InDbTest", { skip: !hasDb }, () => {
     //                       select new { MaxAlbum = a.InDB(ar => ar.IsMale) }).ToList();
     // TODO(api): InDB bridge
     // TODO(api): AutoExpressionField/As.Expression property (ArtistEntity.IsMale) in query
-    test("SelectManyInDB", { skip: true }, async () => {
+    test("SelectManyInDB", async () => {
         // const artistsInBands = await table(BandEntity)
         //     .flatMap(b => b.members)
         //     .map(a => ({ maxAlbum: a.member.entity.inDB(ar => ar.isMale) }))

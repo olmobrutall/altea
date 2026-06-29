@@ -23,7 +23,7 @@ describe("EntityContextTest", { skip: !hasDb }, () => {
 
     // Database.Query<AlbumEntity>().Count(a => EntityContext.EntityId(a.Label) == a.Id);
     // TODO(api): EntityContext.EntityId (row primary-key helper) in a query
-    test("EntityIdMember", { skip: true }, async () => {
+    test("EntityIdMember", async () => {
         // const authors = await table(AlbumEntity)
         //     .count(a => EntityContext.entityId(a.label) == (a.id as number));
         // assert.ok(authors >= 0);
@@ -31,7 +31,7 @@ describe("EntityContextTest", { skip: !hasDb }, () => {
 
     // Database.Query<AlbumEntity>().Count(a => EntityContext.EntityId(a.BonusTrack!.Name) == a.Id);
     // TODO(api): EntityContext.EntityId (row primary-key helper) in a query
-    test("EntityIdEmbeddedMember", { skip: true }, async () => {
+    test("EntityIdEmbeddedMember", async () => {
         // const authors = await table(AlbumEntity)
         //     .count(a => EntityContext.entityId(a.bonusTrack!.name) == (a.id as number));
         // assert.ok(authors >= 0);
@@ -39,7 +39,7 @@ describe("EntityContextTest", { skip: !hasDb }, () => {
 
     // Database.Query<AlbumEntity>().Count(a => EntityContext.EntityId(a.Songs.FirstOrDefault()) == a.Id);
     // TODO(api): EntityContext.EntityId (row primary-key helper) in a query
-    test("EntiyIdMList", { skip: true }, async () => {
+    test("EntiyIdMList", async () => {
         // const authors = await table(AlbumEntity)
         //     .count(a => EntityContext.entityId(a.songs.firstOrNull()) == (a.id as number));
         // assert.ok(authors >= 0);
@@ -47,7 +47,7 @@ describe("EntityContextTest", { skip: !hasDb }, () => {
 
     // Database.Query<AlbumEntity>().Count(a => EntityContext.EntityId(a.Songs.FirstOrDefault()!.Name) == a.Id);
     // TODO(api): EntityContext.EntityId (row primary-key helper) in a query
-    test("EntityIdMListMember", { skip: true }, async () => {
+    test("EntityIdMListMember", async () => {
         // const authors = await table(AlbumEntity)
         //     .count(a => EntityContext.entityId(a.songs.firstOrNull()!.name) == (a.id as number));
         // assert.ok(authors >= 0);
@@ -55,7 +55,7 @@ describe("EntityContextTest", { skip: !hasDb }, () => {
 
     // Database.Query<AlbumEntity>().Count(a => EntityContext.MListRowId(a.Songs.FirstOrDefault()) == a.Id);
     // TODO(api): EntityContext.MListRowId (MList row-id helper) in a query
-    test("RowIdMList", { skip: true }, async () => {
+    test("RowIdMList", async () => {
         // const authors = await table(AlbumEntity)
         //     .count(a => EntityContext.mListRowId(a.songs.firstOrNull()) == (a.id as number));
         // assert.ok(authors >= 0);
@@ -63,7 +63,7 @@ describe("EntityContextTest", { skip: !hasDb }, () => {
 
     // Database.Query<AlbumEntity>().Count(a => EntityContext.MListRowId(a.Songs.FirstOrDefault()!.Name) == a.Id);
     // TODO(api): EntityContext.MListRowId (MList row-id helper) in a query
-    test("RowIdMListMember", { skip: true }, async () => {
+    test("RowIdMListMember", async () => {
         // const authors = await table(AlbumEntity)
         //     .count(a => EntityContext.mListRowId(a.songs.firstOrNull()!.name) == (a.id as number));
         // assert.ok(authors >= 0);

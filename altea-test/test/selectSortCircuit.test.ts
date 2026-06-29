@@ -25,7 +25,7 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
 
     // Query<AlbumEntity>().Where(a => ("Hola" ?? Throw<string>()) == null).Select(a => a.Year).ToList();
     // TODO(api): short-circuit ?? with a throwing helper (Throw<T>()) — not SQL-mappable
-    test("SortCircuitCoalesce", { skip: true }, async () => {
+    test("SortCircuitCoalesce", async () => {
         // const list = await table(AlbumEntity)
         //     .filter(a => ("Hola" ?? Throw<string>()) == null)
         //     .map(a => a.year)
@@ -36,7 +36,7 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
     // Where(a => (((DateTime?)DateTime.Now) ?? Throw<DateTime>()) == DateTime.Today).Select(a => a.Year).ToList();
     // TODO(api): short-circuit ?? with a throwing helper (Throw<T>()) — not SQL-mappable
     // TODO(api): Clock.Now / DateTime.Now / DateTime.Today server-now constants in query
-    test("SortCircuitCoalesceNullable", { skip: true }, async () => {
+    test("SortCircuitCoalesceNullable", async () => {
         // const list = await table(AlbumEntity)
         //     .filter(a => ((Date.now() as Date | null) ?? Throw<Date>()) == today)
         //     .map(a => a.year)
@@ -46,7 +46,7 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
 
     // Where(a => "Hola" == "Hola" ? true : Throw<bool>()).Select(a => a.Year).ToList();
     // TODO(api): short-circuit ?: with a throwing helper (Throw<T>()) — not SQL-mappable
-    test("SortCircuitConditionalIf", { skip: true }, async () => {
+    test("SortCircuitConditionalIf", async () => {
         // const list = await table(AlbumEntity)
         //     .filter(a => "Hola" == "Hola" ? true : Throw<boolean>())
         //     .map(a => a.year)
@@ -65,7 +65,7 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
 
     // Where(a => true | Throw<bool>()).Select(a => a.Year).ToList();
     // TODO(api): short-circuit | (bitwise-or) with a throwing helper (Throw<T>()) — not SQL-mappable
-    test("SortCircuitOr", { skip: true }, async () => {
+    test("SortCircuitOr", async () => {
         // const list = await table(AlbumEntity)
         //     .filter(a => true || Throw<boolean>())
         //     .map(a => a.year)
@@ -75,7 +75,7 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
 
     // Where(a => true || Throw<bool>()).Select(a => a.Year).ToList();
     // TODO(api): short-circuit || with a throwing helper (Throw<T>()) — not SQL-mappable
-    test("SortCircuitOrElse", { skip: true }, async () => {
+    test("SortCircuitOrElse", async () => {
         // const list = await table(AlbumEntity)
         //     .filter(a => true || Throw<boolean>())
         //     .map(a => a.year)
@@ -85,7 +85,7 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
 
     // Where(a => false & Throw<bool>()).Select(a => a.Year).ToList();
     // TODO(api): short-circuit & (bitwise-and) with a throwing helper (Throw<T>()) — not SQL-mappable
-    test("SortCircuitAnd", { skip: true }, async () => {
+    test("SortCircuitAnd", async () => {
         // const list = await table(AlbumEntity)
         //     .filter(a => false && Throw<boolean>())
         //     .map(a => a.year)
@@ -95,7 +95,7 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
 
     // Where(a => false && Throw<bool>()).Select(a => a.Year).ToList();
     // TODO(api): short-circuit && with a throwing helper (Throw<T>()) — not SQL-mappable
-    test("SortCircuitAndAlso", { skip: true }, async () => {
+    test("SortCircuitAndAlso", async () => {
         // const list = await table(AlbumEntity)
         //     .filter(a => false && Throw<boolean>())
         //     .map(a => a.year)

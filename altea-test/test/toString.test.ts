@@ -26,7 +26,7 @@ describe("ToStringTest", { skip: !hasDb }, () => {
 
     // Assert.Equal(Query<ArtistEntity>().Select(a => a.Name).ToString(" | "), Query<ArtistEntity>().ToString(a => a.Name, " | "));
     // TODO(api): collection toString aggregate
-    test("ToStringMainQuery", { skip: true }, async () => {
+    test("ToStringMainQuery", async () => {
         // const a = await table(ArtistEntity).map(a => a.name).toString(" | ");
         // const b = await table(ArtistEntity).toString(a => a.name, " | ");
         // assert.equal(a, b);
@@ -34,7 +34,7 @@ describe("ToStringTest", { skip: !hasDb }, () => {
 
     // Assert.Equal(Query<ArtistEntity>().Select(a => a.Name).ToString(" | "), Query<ArtistEntity>().ToString(" | "));
     // TODO(api): collection toString aggregate
-    test("ToStringEntity", { skip: true }, async () => {
+    test("ToStringEntity", async () => {
         // const a = await table(ArtistEntity).map(a => a.name).toString(" | ");
         // const b = await table(ArtistEntity).toString(" | ");
         // assert.equal(a, b);
@@ -43,7 +43,7 @@ describe("ToStringTest", { skip: !hasDb }, () => {
     // from b orderby b.Name select new { b.Name, MembersToString = b.Members.OrderBy(a => a.Name).ToString(a => a.Name, " | ") }
     //   vs new { b.Name, MembersToString = b.Members.OrderBy(a => a.Name).Select(a => a.Name).ToList().ToString(" | ") }; Assert.True(SequenceEqual)
     // TODO(api): collection toString aggregate
-    test("ToStringSubCollection", { skip: true }, async () => {
+    test("ToStringSubCollection", async () => {
         // const result1 = await table(BandEntity)
         //     .orderBy(b => b.name)
         //     .map(b => ({ name: b.name, membersToString: b.members.orderBy(a => a.member.entity.name).toString(a => a.member.entity.name, " | ") }))
@@ -58,7 +58,7 @@ describe("ToStringTest", { skip: !hasDb }, () => {
     // from b orderby b.Name select new { b.Name, AlbumnsToString = Query<AlbumEntity>().Where(a => a.Author == b).OrderBy(a => a.Name).ToString(a => a.Name, " | ") }
     //   vs … .Select(a => a.Name).ToList().ToString(" | "); Assert.Equal(result1, result2)
     // TODO(api): collection toString aggregate
-    test("ToStringSubQuery", { skip: true }, async () => {
+    test("ToStringSubQuery", async () => {
         // const result1 = await table(BandEntity)
         //     .orderBy(b => b.name)
         //     .map(b => ({ name: b.name, albumnsToString: table(AlbumEntity).filter(a => a.author.is(b)).orderBy(a => a.name).toString(a => a.name, " | ") }))
@@ -72,7 +72,7 @@ describe("ToStringTest", { skip: !hasDb }, () => {
 
     // from b orderby b.Name select new { b.Name, AlbumnsToString = Query<AlbumEntity>().Where(a => a.Author == b).ToString(a => a.Author.Id.ToString(), " | ") }
     // TODO(api): collection toString aggregate
-    test("ToStringSubQueryIdIB", { skip: true }, async () => {
+    test("ToStringSubQueryIdIB", async () => {
         // const result1 = await table(ArtistEntity)
         //     .orderBy(b => b.name)
         //     .map(b => ({ name: b.name, albumnsToString: table(AlbumEntity).filter(a => a.author.is(b)).toString(a => (a.author.id as number).toString(), " | ") }))
@@ -81,7 +81,7 @@ describe("ToStringTest", { skip: !hasDb }, () => {
 
     // from b orderby b.Name select new { b.Name, AlbumnsToString = Query<AlbumEntity>().Where(a => a.Author == b).OrderBy(a => a.Author.Id).ToString(a => a.Author.Id.ToString(), " | ") }
     // TODO(api): collection toString aggregate
-    test("ToStringSubQueryIdIBOrdering", { skip: true }, async () => {
+    test("ToStringSubQueryIdIBOrdering", async () => {
         // const result1 = await table(ArtistEntity)
         //     .orderBy(b => b.name)
         //     .map(b => ({ name: b.name, albumnsToString: table(AlbumEntity).filter(a => a.author.is(b)).orderBy(a => (a.author.id as number)).toString(a => (a.author.id as number).toString(), " | ") }))
@@ -90,7 +90,7 @@ describe("ToStringTest", { skip: !hasDb }, () => {
 
     // from b group b by b.Sex into g select new { g.Key, NamesInOrder = g.OrderBy(a => a.Name).ToString(" | "), NamesInRevereOrder = g.OrderByDescending(a => a.Name).ToString(" | ") }
     // TODO(api): collection toString aggregate
-    test("ToStringGroupByOrdering", { skip: true }, async () => {
+    test("ToStringGroupByOrdering", async () => {
         // const result1 = await table(ArtistEntity)
         //     .groupBy(b => b.sex)
         //     .map(g => ({
@@ -103,7 +103,7 @@ describe("ToStringTest", { skip: !hasDb }, () => {
 
     // result1: …ToString(a => a.Id.ToString(), " | "); result2: …Select(a => a.Id).ToString(" | "); result3: toString = list => list.ToString(" | ") over …Select(a => a.Id).ToList(); Assert SequenceEqual(result1,result2) & (result2,result3)
     // TODO(api): collection toString aggregate
-    test("ToStringNumbers", { skip: true }, async () => {
+    test("ToStringNumbers", async () => {
         // const result1 = await table(BandEntity)
         //     .orderBy(b => b.name)
         //     .map(b => ({ name: b.name, albumnsToString: table(AlbumEntity).filter(a => a.author.is(b)).orderBy(a => a.name).toString(a => (a.id as number).toString(), " | ") }))

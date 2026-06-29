@@ -47,7 +47,7 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
     // var allAggregates = Database.Query<ArtistEntity>().GroupBy(a => new { }).Select(gr => new { Count = gr.Count(), MaxId = gr.Max(a=>a.Id) }).Skip(2).ToList();
     // TODO(api): aggregate over group elements (gr.Count() / gr.Max(...)) — no aggregation API on grouping.elements yet
     // TODO(api): aggregate over group elements (spread + PrimaryKey-as-number)
-    test("SkipAllAggregates", { skip: true }, async () => {
+    test("SkipAllAggregates", async () => {
         // const allAggregates = await table(ArtistEntity)
         //     .groupBy(a => ({}))
         //     .map(gr => ({ count: gr.elements.length, maxId: Math.max(...gr.elements.map(a => a.id)) }))
@@ -59,7 +59,7 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
     // var allAggregates = Database.Query<ArtistEntity>().GroupBy(a => new { }).Select(gr => new { Count = gr.Count(), MaxId = gr.Max(a => a.Id) }).OrderBy(a => a.Count).OrderAlsoByKeys().ToList();
     // TODO(api): aggregate over group elements (gr.Count() / gr.Max(...)) — no aggregation API on grouping.elements yet
     // TODO(api): OrderAlsoByKeys — no equivalent in Query<T>
-    test("AllAggregatesOrderByAndByKeys", { skip: true }, async () => {
+    test("AllAggregatesOrderByAndByKeys", async () => {
         // const allAggregates = await table(ArtistEntity)
         //     .groupBy(a => ({}))
         //     .map(gr => ({ count: gr.elements.length, maxId: Math.max(...gr.elements.map(a => a.id)) }))
@@ -70,7 +70,7 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
 
     // var allAggregates = Database.Query<ArtistEntity>().GroupBy(a => new { }).Select(gr => new { Count = gr.Count(), MaxId = gr.Max(a => a.Id) }).OrderBy(a=>a.Count).Skip(2).ToList();
     // TODO(api): aggregate over group elements (gr.Count() / gr.Max(...)) — no aggregation API on grouping.elements yet
-    test("SkipAllAggregatesOrderBy", { skip: true }, async () => {
+    test("SkipAllAggregatesOrderBy", async () => {
         // const allAggregates = await table(ArtistEntity)
         //     .groupBy(a => ({}))
         //     .map(gr => ({ count: gr.elements.length, maxId: Math.max(...gr.elements.map(a => a.id)) }))
@@ -82,7 +82,7 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
 
     // var count = Database.Query<ArtistEntity>().GroupBy(a => new { }).Select(gr => new { Count = gr.Count(), MaxId = gr.Max(a => a.Id) }).OrderBy(a => a.Count).Count();
     // TODO(api): aggregate over group elements (gr.Count() / gr.Max(...)) — no aggregation API on grouping.elements yet
-    test("AllAggregatesCount", { skip: true }, async () => {
+    test("AllAggregatesCount", async () => {
         // const count = await table(ArtistEntity)
         //     .groupBy(a => ({}))
         //     .map(gr => ({ count: gr.elements.length, maxId: Math.max(...gr.elements.map(a => a.id)) }))
@@ -119,7 +119,7 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
 
     // var result = Database.Query<AlbumEntity>().Where(dr => dr.Songs.OrderByDescending(a => a.Seconds).Take(1).Where(a => a.Name.Contains("Zero")).Any()).Select(a => a.ToLite()).ToList();
     // TODO(api): collection .some() terminal requires a predicate arg (no zero-arg overload)
-    test("InnerTake", { skip: true }, async () => {
+    test("InnerTake", async () => {
         // const result = await table(AlbumEntity)
         //     .filter(dr => dr.songs.orderByDescending(a => a.seconds).top(1).filter(a => a.name.contains("Zero")).some())
         //     .map(a => a.toLite())
@@ -129,37 +129,37 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
 
     // TestPaginate(Database.Query<ArtistEntity>().OrderBy(a => a.Sex).Select(a => a.Name));
     // TODO(api): subquery membership variance (Query<string> not assignable to Query<Entity>)
-    test("OrderByCommonSelectPaginate", { skip: true }, async () => {
+    test("OrderByCommonSelectPaginate", async () => {
         // await testPaginate(table(ArtistEntity).orderBy(a => a.sex).map(a => a.name));
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().OrderBy(a => a.Name).Select(a => a.Name));
     // TODO(api): subquery membership variance (Query<string> not assignable to Query<Entity>)
-    test("OrderBySelectPaginate", { skip: true }, async () => {
+    test("OrderBySelectPaginate", async () => {
         // await testPaginate(table(ArtistEntity).orderBy(a => a.name).map(a => a.name));
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().OrderByDescending(a => a.Name).Select(a => a.Name));
     // TODO(api): subquery membership variance (Query<string> not assignable to Query<Entity>)
-    test("OrderByDescendingSelectPaginate", { skip: true }, async () => {
+    test("OrderByDescendingSelectPaginate", async () => {
         // await testPaginate(table(ArtistEntity).orderByDescending(a => a.name).map(a => a.name));
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().OrderBy(a => a.Name).ThenBy(a => a.Id).Select(a => a.Name));
     // TODO(api): subquery membership variance (Query<string> not assignable to Query<Entity>)
-    test("OrderByThenBySelectPaginate", { skip: true }, async () => {
+    test("OrderByThenBySelectPaginate", async () => {
         // await testPaginate(table(ArtistEntity).orderBy(a => a.name).thenBy(a => a.id).map(a => a.name));
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().Select(a => a.Name).OrderBy(a => a));
     // TODO(api): subquery membership variance (OrderedQuery<string> not assignable to Query<Entity>)
-    test("SelectOrderByPaginate", { skip: true }, async () => {
+    test("SelectOrderByPaginate", async () => {
         // await testPaginate(table(ArtistEntity).map(a => a.name).orderBy(a => a));
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().Select(a => a.Name).OrderByDescending(a => a));
     // TODO(api): subquery membership variance (OrderedQuery<string> not assignable to Query<Entity>)
-    test("SelectOrderByDescendingPaginate", { skip: true }, async () => {
+    test("SelectOrderByDescendingPaginate", async () => {
         // await testPaginate(table(ArtistEntity).map(a => a.name).orderByDescending(a => a));
     });
 

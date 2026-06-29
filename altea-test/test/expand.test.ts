@@ -23,7 +23,7 @@ describe("ExpandTest", { skip: !hasDb }, () => {
 
     // Database.Query<CountryEntity>().Select(a => a.ToLite()).ExpandLite(a => a, ExpandLite.ModelNull).ToList();
     // TODO(api): ExpandLite (Lite model eager/lazy/null load hint) on a query
-    test("ExpandToStringNull", { skip: true }, async () => {
+    test("ExpandToStringNull", async () => {
         // const list = await table(CountryEntity)
         //     .map(a => a.toLite())
         //     .expandLite(a => a, ExpandLite.ModelNull)
@@ -33,7 +33,7 @@ describe("ExpandTest", { skip: !hasDb }, () => {
 
     // Database.Query<CountryEntity>().Select(a => a.ToLite()).ExpandLite(a => a, ExpandLite.ModelLazy).ToList();
     // TODO(api): ExpandLite (Lite model eager/lazy/null load hint) on a query
-    test("ExpandToStringLazy", { skip: true }, async () => {
+    test("ExpandToStringLazy", async () => {
         // const list = await table(CountryEntity)
         //     .map(a => a.toLite())
         //     .expandLite(a => a, ExpandLite.ModelLazy)
@@ -43,7 +43,7 @@ describe("ExpandTest", { skip: !hasDb }, () => {
 
     // Database.Query<CountryEntity>().Select(a => a.ToLite()).ExpandLite(a => a, ExpandLite.ModelEager).ToList();
     // TODO(api): ExpandLite (Lite model eager/lazy/null load hint) on a query
-    test("ExpandToStringEager", { skip: true }, async () => {
+    test("ExpandToStringEager", async () => {
         // const list = await table(CountryEntity)
         //     .map(a => a.toLite())
         //     .expandLite(a => a, ExpandLite.ModelEager)
@@ -53,7 +53,7 @@ describe("ExpandTest", { skip: !hasDb }, () => {
 
     // var list = Database.Query<CountryEntity>().Select(a => a.ToLite()).ExpandLite(a => a, ExpandLite.EntityEager).ToList();
     // TODO(api): ExpandLite (Lite entity eager-load hint) on a query
-    test("ExpandEntityEager", { skip: true }, async () => {
+    test("ExpandEntityEager", async () => {
         // const list = await table(CountryEntity)
         //     .map(a => a.toLite())
         //     .expandLite(a => a, ExpandLite.EntityEager)
@@ -63,7 +63,7 @@ describe("ExpandTest", { skip: !hasDb }, () => {
 
     // var list = Database.Query<CountryEntity>().ExpandEntity(a => a, ExpandEntity.LazyEntity).ToList();
     // TODO(api): ExpandEntity (entity lazy-load hint) on a query
-    test("ExpandLazyEntity", { skip: true }, async () => {
+    test("ExpandLazyEntity", async () => {
         // const list = await table(CountryEntity)
         //     .expandEntity(a => a, ExpandEntity.LazyEntity)
         //     .toArray();

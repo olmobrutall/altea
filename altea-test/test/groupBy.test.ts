@@ -112,7 +112,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
 
     // group a.Name.Length by new { } into g select new { g.Key, Count, Sum, Min, Max, Avg }
     // TODO(api): grouping by an empty key (group by new { }) — whole-table aggregate via groupBy
-    test("GroupMultiAggregateNoKeys", { skip: true }, async () => {
+    test("GroupMultiAggregateNoKeys", async () => {
         const sexos = await table(ArtistEntity)
             .groupBy(a => ({}), a => a.name.length)
             .map(g => ({
@@ -129,7 +129,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
 
     // group a.Name.Length by a.Sex into g select new { g.Key, StdDev, StdDevInMemory, StdDevP, StdDevPInMemory }
     // TODO(api): StdDev / StdDevP aggregate functions
-    test("GroupStdDev", { skip: true }, async () => {
+    test("GroupStdDev", async () => {
         // const sexos = await table(ArtistEntity)
         //     .groupBy(a => a.sex, a => a.name.length)
         //     .map(g => ({
@@ -151,7 +151,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
 
     // GroupBy(a => new { DefaultLabel = … EmbeddedConfig.DefaultLabel.Entity.Country }).Select(gr => new { gr.Key, Count })
     // TODO(api): Lite.entity dereference (DefaultLabel.entity.country) inside a group key
-    test("GroupByEntityInOptionalEmbedded", { skip: true }, async () => {
+    test("GroupByEntityInOptionalEmbedded", async () => {
         const list = await table(ConfigEntity)
             .groupBy(a => ({ defaultLabel: a.embeddedConfig == null ? null : a.embeddedConfig!.defaultLabel!.entity.country }))
             .map(gr => ({ key: gr.key, count: gr.elements.length }))
@@ -161,7 +161,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
 
     // Database.Query<AwardNominationEntity>().GroupBy(a => a.Award.EntityType).ToList();
     // TODO(api): Lite.EntityType (the runtime type of an @implementedBy lite) as a group key
-    test("GroupEntityByTypeIb", { skip: true }, async () => {
+    test("GroupEntityByTypeIb", async () => {
         // const list = await table(AwardNominationEntity).groupBy(a => a.award.entityType).toArray();
         // assert.ok(Array.isArray(list));
     });
@@ -210,7 +210,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
 
     // Database.Query<AlbumEntity>().GroupBy(a => a.GetType()).Select(gr => new { gr.Key, Count = gr.Count() }).ToList();
     // TODO(api): GetType in query (group by the runtime entity type)
-    test("GroupEntityByTypeFieCount", { skip: true }, async () => {
+    test("GroupEntityByTypeFieCount", async () => {
         // const list = await table(AlbumEntity)
         //     .groupBy(a => a.constructor)
         //     .map(gr => ({ key: gr.key, count: gr.elements.length }))
@@ -220,7 +220,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
 
     // Database.Query<AlbumEntity>().GroupBy(a => a.Author.GetType()).Select(gr => new { gr.Key, Count = gr.Count() }).ToList();
     // TODO(api): GetType in query (group by the runtime type of an @implementedBy reference)
-    test("GroupEntityByTypeIbCount", { skip: true }, async () => {
+    test("GroupEntityByTypeIbCount", async () => {
         // const list = await table(AlbumEntity)
         //     .groupBy(a => a.author.constructor)
         //     .map(gr => ({ key: gr.key, count: gr.elements.length }))
@@ -284,7 +284,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
 
     // group a by a.Sex into g select new { Sex = g.Key, MaxBy = g.MaxBy(a => a.Name.Length) }
     // TODO(api): MaxBy aggregate (pick the element maximizing a selector) in a query group
-    test("GroupMaxBy", { skip: true }, async () => {
+    test("GroupMaxBy", async () => {
         const songsAlbum = await table(ArtistEntity)
             .groupBy(a => a.sex)
             .map(g => ({ sex: g.key, maxBy: g.elements.maxBy(a => a.name.length) }))
@@ -294,7 +294,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
 
     // group a by a.Sex into g select new { Sex = g.Key, MinBy = g.MinBy(a => a.Name.Length) }
     // TODO(api): MinBy aggregate (pick the element minimizing a selector) in a query group
-    test("GroupMinBy", { skip: true }, async () => {
+    test("GroupMinBy", async () => {
         const songsAlbum = await table(ArtistEntity)
             .groupBy(a => a.sex)
             .map(g => ({ sex: g.key, minBy: g.elements.minBy(a => a.name.length) }))
@@ -397,14 +397,14 @@ describe("GroupByTest", { skip: !hasDb }, () => {
 
     // Database.Query<ArtistEntity>().MinBy(a => a.Name.Length);
     // TODO(api): MinBy as a root terminal (pick the element minimizing a selector)
-    test("RootMinBy", { skip: true }, async () => {
+    test("RootMinBy", async () => {
         // const songsAlbum = await table(ArtistEntity).minBy(a => a.name.length);
         // assert.ok(songsAlbum != null);
     });
 
     // Database.Query<ArtistEntity>().MaxBy(a => a.Name.Length);
     // TODO(api): MaxBy as a root terminal (pick the element maximizing a selector)
-    test("RootMaxBy", { skip: true }, async () => {
+    test("RootMaxBy", async () => {
         // const songsAlbum = await table(ArtistEntity).maxBy(a => a.name.length);
         // assert.ok(songsAlbum != null);
     });
@@ -521,7 +521,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
 
     // from b from a in b.Members let count = Query<ArtistEntity>().Count(a2 => a2.Sex == a.Sex) select new { Album = a.ToLite(), Count = count }
     // TODO(api): correlated subquery — table(...).count(...) referencing the outer flatMap element inside a projection
-    test("SelectExpansionCount", { skip: true }, async () => {
+    test("SelectExpansionCount", async () => {
         const albums = await table(BandEntity)
             .flatMap(b => b.members)
             .map(a => ({ album: a.member, count: table(ArtistEntity).count(a2 => a2.sex == a.member.entity.sex) }))
@@ -531,7 +531,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
 
     // Database.Query<ArtistEntity>().GroupBy(a => a.Sex).SelectMany(a => a).ToList();
     // TODO(api): SelectMany over a grouping (flatMap g => g.elements after groupBy)
-    test("GroupBySelectMany", { skip: true }, async () => {
+    test("GroupBySelectMany", async () => {
         const songsAlbum = await table(ArtistEntity)
             .groupBy(a => a.sex)
             .flatMap(a => a.elements)
@@ -747,7 +747,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
 
     // from mle in MListQuery((AlbumEntity a) => a.Songs) group mle.Element by mle.Parent into g where g.Count() > 1 select new { FirstName, FirstDuration, Last }
     // TODO(api): MListQuery (query the link/part-entity rows directly) and a where-clause over a grouping
-    test("FirstLastGroup", { skip: true }, async () => {
+    test("FirstLastGroup", async () => {
         const list = await table(AlbumEntity)
             .flatMap(a => a.songs)
             .groupBy(mle => mle.album)
@@ -763,7 +763,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
 
     // select a.Songs into songs where songs.Count > 1 select new { FirstName, FirstDuration, Last }
     // TODO(api): projecting an entire child collection (a.songs) into a downstream query then filtering on it
-    test("FirstLastList", { skip: true }, async () => {
+    test("FirstLastList", async () => {
         const list = await table(AlbumEntity)
             .map(a => a.songs)
             .filter(songs => songs.length > 1)
@@ -778,7 +778,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
 
     // group a by a.Sex.IsDefined() into g select new { g.Key, count = g.Count() }
     // TODO(api): enum.IsDefined() in a query group key
-    test("GroupByOr", { skip: true }, async () => {
+    test("GroupByOr", async () => {
         // const b = await table(ArtistEntity)
         //     .groupBy(a => a.sex.isDefined())
         //     .map(g => ({ key: g.key, count: g.elements.length }))

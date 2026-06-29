@@ -24,7 +24,7 @@ describe("SelectLiteModel", { skip: !hasDb }, () => {
     // foreach (var a in awards) { a.Model is AwardLiteModel / string … }
     // TODO(api): Lite .model (LiteModel) projection / inspection
     // TODO(api): Lite<T> runtime type discrimination (a is Lite<AmericanMusicAwardEntity>)
-    test("SelectAwardLiteModel", { skip: true }, async () => {
+    test("SelectAwardLiteModel", async () => {
         const awards = await table(AwardNominationEntity)
             .filter(a => a.award != null)
             .map(a => a.award)

@@ -34,14 +34,14 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // Database.Query<AlbumEntity>().Select(a => a.GetType()).ToList();
     // TODO(api): GetType in query (a.constructor)
-    test("SelectType", { skip: true }, async () => {
+    test("SelectType", async () => {
         const list = await table(AlbumEntity).map(a => a.constructor).toArray();
         assert.ok(Array.isArray(list));
     });
 
     // Database.Query<LabelEntity>().Select(a => new { Label = a.ToLite(), a.Owner, OwnerType = a.Owner!.Entity.GetType() }).ToList();
     // TODO(api): GetType in query (a.constructor) — and Lite.entity dereference in projection
-    test("SelectTypeNull", { skip: true }, async () => {
+    test("SelectTypeNull", async () => {
         const list = await table(LabelEntity)
             .map(a => ({ label: a.toLite(), owner: a.owner, ownerType: a.owner!.entity.constructor }))
             .toArray();
@@ -64,7 +64,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // Where(a => a.Author.CombineUnion().ToLite().ToString()!.Length > 0).Select(a => a.Author.CombineUnion().ToLite())
     // TODO(api): combineUnion/Case
-    test("SelectLiteIBDoubleWhereUnion", { skip: true }, async () => {
+    test("SelectLiteIBDoubleWhereUnion", async () => {
         // const list = await table(AlbumEntity)
         //     .filter(a => a.author.combineUnion().toLite().toString()!.length > 0)
         //     .map(a => a.author.combineUnion().toLite())
@@ -74,7 +74,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // Where(a => a.Author.CombineCase().ToLite().ToString()!.Length > 0).Select(a => a.Author.CombineCase().ToLite())
     // TODO(api): combineUnion/Case
-    test("SelectLiteIBDoubleWhereSwitch", { skip: true }, async () => {
+    test("SelectLiteIBDoubleWhereSwitch", async () => {
         // const list = await table(AlbumEntity)
         //     .filter(a => a.author.combineCase().toLite().toString()!.length > 0)
         //     .map(a => a.author.combineCase().toLite())
@@ -84,7 +84,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // Database.Query<NoteWithDateEntity>().Select(a => new { Type = a.Target.GetType(), Target = a.Target.ToLite() }).ToList();
     // TODO(api): GetType in query (a.constructor)
-    test("SelectTypeIBA", { skip: true }, async () => {
+    test("SelectTypeIBA", async () => {
         const list = await table(NoteWithDateEntity)
             .map(a => ({ type: a.target.constructor, target: a.target.toLite() }))
             .toArray();
@@ -93,14 +93,14 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // Database.Query<AwardNominationEntity>().Select(a => a.Award.EntityType).ToList();
     // TODO(api): Lite.EntityType (runtime type of an @implementedBy Lite) in query
-    test("SelectTypeLiteIB", { skip: true }, async () => {
+    test("SelectTypeLiteIB", async () => {
         // const list = await table(AwardNominationEntity).map(a => a.award.entityType).toArray();
         // assert.ok(Array.isArray(list));
     });
 
     // Select(a => a.LastAward == null ? null : a.LastAward.Id.ToString()).ToList();
     // TODO(api): Lite.id of an @implementedByAll reference + enum/id ToString in query
-    test("SelectIdLiteIBA", { skip: true }, async () => {
+    test("SelectIdLiteIBA", async () => {
         const list = await table(ArtistEntity)
             .map(a => a.lastAward == null ? null : (a.lastAward.id as string))
             .toArray();
@@ -109,7 +109,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // Where(a => a.LastAward!.Id.ToString() == "3").ToList();
     // TODO(api): Lite.id of an @implementedByAll reference + id ToString in query
-    test("WhereIdLiteIB", { skip: true }, async () => {
+    test("WhereIdLiteIB", async () => {
         const list = await table(ArtistEntity)
             .filter(a => (a.lastAward!.id as string) == "3")
             .toArray();
@@ -118,7 +118,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // Where(a => a.Friends.Select(a => a.ToString()).Contains(a.LastAward!.Id.ToString())).ToList();
     // TODO(api): Lite.id of an @implementedByAll reference + ToString of a Lite element in subquery
-    test("ContainsIdLiteIB", { skip: true }, async () => {
+    test("ContainsIdLiteIB", async () => {
         // const list = await table(ArtistEntity)
         //     .filter(a => a.friends.map(f => f.friend.toString()).contains(a.lastAward!.id as string))
         //     .toArray();
@@ -135,7 +135,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // Where(a => a.Award.Entity.GetType() == typeof(GrammyAwardEntity)).ToList();
     // TODO(api): GetType/typeof comparison in query
-    test("SelectEntityWithLiteIbType", { skip: true }, async () => {
+    test("SelectEntityWithLiteIbType", async () => {
         const list = await table(AwardNominationEntity)
             .filter(a => a.award.entity.constructor === GrammyAwardEntity)
             .toArray();
@@ -144,7 +144,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // Type[] types = { typeof(GrammyAwardEntity) }; Where(a => types.Contains(a.Award.Entity.GetType())).ToList();
     // TODO(api): GetType/typeof comparison in query (types.Contains over runtime type)
-    test("SelectEntityWithLiteIbTypeContains", { skip: true }, async () => {
+    test("SelectEntityWithLiteIbTypeContains", async () => {
         // const types = [GrammyAwardEntity];
         // const list = await table(AwardNominationEntity)
         //     .filter(a => types.contains(a.award.entity.constructor))
@@ -154,7 +154,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // Where(a => a.Award.EntityType == typeof(GrammyAwardEntity)).ToList();
     // TODO(api): Lite.EntityType (runtime type of an @implementedBy Lite) and typeof comparison
-    test("SelectEntityWithLiteIbRuntimeType", { skip: true }, async () => {
+    test("SelectEntityWithLiteIbRuntimeType", async () => {
         // const list = await table(AwardNominationEntity)
         //     .filter(a => a.award.entityType === GrammyAwardEntity)
         //     .toArray();
@@ -169,7 +169,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // SelectMany(a => a.Friends).Select(a => (Lite<IAuthorEntity>)a).ToList();
     // TODO(api): implementedBy interface (Lite<IAuthorEntity> upcast does not exist in altea)
-    test("SelectLiteCastUpcast", { skip: true }, async () => {
+    test("SelectLiteCastUpcast", async () => {
         // const list = await table(ArtistEntity)
         //     .flatMap(a => a.friends)
         //     .map(a => a.friend)
@@ -188,21 +188,21 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // Select(a => (Lite<ArtistEntity>)a.Author.ToLite()).ToList();
     // TODO(api): Lite downcast in query ((x as Lite<ArtistEntity>))
-    test("SelectLiteCastDowncast", { skip: true }, async () => {
+    test("SelectLiteCastDowncast", async () => {
         const list = await table(AlbumEntity).map(a => a.author.toLite()).toArray();
         assert.ok(Array.isArray(list));
     });
 
     // SelectAuthorsLite<ArtistEntity, IAuthorEntity>(): Select(a => a.ToLite<LT>())
     // TODO(api): implementedBy interface (generic ToLite<IAuthorEntity> upcast does not exist in altea)
-    test("SelectLiteGenericUpcast", { skip: true }, async () => {
+    test("SelectLiteGenericUpcast", async () => {
         // const list = await table(ArtistEntity).map(a => a.toLite()).toArray();
         // assert.ok(Array.isArray(list));
     });
 
     // from a let band = (BandEntity)a.Author select new { Artist = band.ToString(), Author = a.Author.CombineUnion().ToString() }
     // TODO(api): combineUnion/Case
-    test("SelectLiteIBRedundantUnion", { skip: true }, async () => {
+    test("SelectLiteIBRedundantUnion", async () => {
         // const list = await table(AlbumEntity)
         //     .map(a => ({ artist: (a.author as BandEntity).toString(), author: a.author.combineUnion().toString() }))
         //     .toArray();
@@ -211,7 +211,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // from a let band = (BandEntity)a.Author select new { Artist = band.ToString(), Author = a.Author.CombineCase().ToString() }
     // TODO(api): combineUnion/Case
-    test("SelectLiteIBRedundantSwitch", { skip: true }, async () => {
+    test("SelectLiteIBRedundantSwitch", async () => {
         // const list = await table(AlbumEntity)
         //     .map(a => ({ artist: (a.author as BandEntity).toString(), author: a.author.combineCase().toString() }))
         //     .toArray();
@@ -220,7 +220,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // Select(a => a.Author.CombineUnion().ToLite()).Where(a => a.ToString()!.StartsWith("Michael")).ToList();
     // TODO(api): combineUnion/Case
-    test("SelectLiteIBWhereUnion", { skip: true }, async () => {
+    test("SelectLiteIBWhereUnion", async () => {
         // const list = await table(AlbumEntity)
         //     .map(a => a.author.combineUnion().toLite())
         //     .filter(a => a.toString()!.startsWith("Michael"))
@@ -230,7 +230,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // Select(a => a.Author.CombineCase().ToLite()).Where(a => a.ToString()!.StartsWith("Michael")).ToList();
     // TODO(api): combineUnion/Case
-    test("SelectLiteIBWhereSwitch", { skip: true }, async () => {
+    test("SelectLiteIBWhereSwitch", async () => {
         // const list = await table(AlbumEntity)
         //     .map(a => a.author.combineCase().toLite())
         //     .filter(a => a.toString()!.startsWith("Michael"))
@@ -284,7 +284,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // from a select ((ArtistEntity)a.Author).Name ?? ((BandEntity)a.Author).Name
     // TODO(api): entity cast in query ((x as ArtistEntity))
-    test("SelectCastIB", { skip: true }, async () => {
+    test("SelectCastIB", async () => {
         const list = await table(AlbumEntity)
             .map(a => (a.author as ArtistEntity).name ?? (a.author as BandEntity).name)
             .toArray();
@@ -293,21 +293,21 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // from a select a.Author.CombineUnion().Name
     // TODO(api): combineUnion/Case
-    test("SelectCastIBPolymorphicUnion", { skip: true }, async () => {
+    test("SelectCastIBPolymorphicUnion", async () => {
         // const list = await table(AlbumEntity).map(a => a.author.combineUnion().name).toArray();
         // assert.ok(Array.isArray(list));
     });
 
     // from a select a.Author.CombineCase().Name
     // TODO(api): combineUnion/Case
-    test("SelectCastIBPolymorphicSwitch", { skip: true }, async () => {
+    test("SelectCastIBPolymorphicSwitch", async () => {
         // const list = await table(AlbumEntity).map(a => a.author.combineCase().name).toArray();
         // assert.ok(Array.isArray(list));
     });
 
     // from a select (int?)a.Award!.Entity.Year
     // TODO(api): Lite.entity dereference of an @implementedBy reference with nullable projection
-    test("SelectCastIBPolymorphicForceNullify", { skip: true }, async () => {
+    test("SelectCastIBPolymorphicForceNullify", async () => {
         const list = await table(AwardNominationEntity)
             .map(a => (a.award!.entity as GrammyAwardEntity).year)
             .toArray();
@@ -316,7 +316,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // from a select a.Author.CombineUnion().LastAward.Try(la => la.ToLite())
     // TODO(api): combineUnion/Case
-    test("SelectCastIBPolymorphicIBUnion", { skip: true }, async () => {
+    test("SelectCastIBPolymorphicIBUnion", async () => {
         // const list = await table(AlbumEntity)
         //     .map(a => a.author.combineUnion().lastAward?.toLite())
         //     .toArray();
@@ -325,7 +325,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // from a select a.Author.CombineCase().LastAward.Try(la => la.ToLite())
     // TODO(api): combineUnion/Case
-    test("SelectCastIBPolymorphicIBSwitch", { skip: true }, async () => {
+    test("SelectCastIBPolymorphicIBSwitch", async () => {
         // const list = await table(AlbumEntity)
         //     .map(a => a.author.combineCase().lastAward?.toLite())
         //     .toArray();
@@ -334,7 +334,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // from n select ((ArtistEntity)n.Target).Name ?? ((AlbumEntity)n.Target).Name ?? ((BandEntity)n.Target).Name
     // TODO(api): entity cast in query ((x as ArtistEntity)) over @implementedByAll target
-    test("SelectCastIBA", { skip: true }, async () => {
+    test("SelectCastIBA", async () => {
         const list = await table(NoteWithDateEntity)
             .map(n => (n.target as ArtistEntity).name ?? (n.target as AlbumEntity).name ?? (n.target as BandEntity).name)
             .toArray();
@@ -343,21 +343,21 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // (from n select n.Target).Cast<BandEntity>().ToList();
     // TODO(api): Cast<T>() query operator
-    test("SelectCastIBACastOperator", { skip: true }, async () => {
+    test("SelectCastIBACastOperator", async () => {
         // const list = await table(NoteWithDateEntity).map(n => n.target).cast(BandEntity).toArray();
         // assert.ok(Array.isArray(list));
     });
 
     // (from n select n.Target).OfType<BandEntity>().ToList();
     // TODO(api): OfType<T>() query operator
-    test("SelectCastIBAOfTypeOperator", { skip: true }, async () => {
+    test("SelectCastIBAOfTypeOperator", async () => {
         // const list = await table(NoteWithDateEntity).map(n => n.target).ofType(BandEntity).toArray();
         // assert.ok(Array.isArray(list));
     });
 
     // from a select (a.Author is ArtistEntity ? ((ArtistEntity)a.Author).Name : ((BandEntity)a.Author).Name)
     // TODO(api): entity cast in query ((x as ArtistEntity))
-    test("SelectCastIsIB", { skip: true }, async () => {
+    test("SelectCastIsIB", async () => {
         const list = await table(AlbumEntity)
             .map(a => a.author instanceof ArtistEntity ? (a.author as ArtistEntity).name : (a.author as BandEntity).name)
             .toArray();
@@ -366,7 +366,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // from n select n.Target is ArtistEntity ? ((ArtistEntity)n.Target).Name : ((BandEntity)n.Target).Name
     // TODO(api): entity cast in query ((x as ArtistEntity)) over @implementedByAll target
-    test("SelectCastIsIBA", { skip: true }, async () => {
+    test("SelectCastIsIBA", async () => {
         const list = await table(NoteWithDateEntity)
             .map(n => n.target instanceof ArtistEntity ? (n.target as ArtistEntity).name : (n.target as BandEntity).name)
             .toArray();
@@ -376,7 +376,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     // from n select new { Name = … ? ((ArtistEntity)n.Target).Name : ((BandEntity)n.Target).Name, FullName = … ? ((ArtistEntity)n.Target).FullName : ((BandEntity)n.Target).FullName }
     // TODO(api): implementedBy interface (FullName lives on IAuthorEntity, not on the altea Entity)
     // TODO(api): entity cast in query ((x as ArtistEntity))
-    test("SelectCastIsIBADouble", { skip: true }, async () => {
+    test("SelectCastIsIBADouble", async () => {
         // const list = await table(NoteWithDateEntity)
         //     .map(n => ({
         //         name: n.target instanceof ArtistEntity ? (n.target as ArtistEntity).name : (n.target as BandEntity).name,
@@ -389,7 +389,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     // from n where (… ? ((ArtistEntity)n.Target).Name : ((BandEntity)n.Target).Name).Length > 0 select … ((ArtistEntity)n.Target).FullName : ((BandEntity)n.Target).FullName
     // TODO(api): implementedBy interface (FullName lives on IAuthorEntity, not on the altea Entity)
     // TODO(api): entity cast in query ((x as ArtistEntity))
-    test("SelectCastIsIBADoubleWhere", { skip: true }, async () => {
+    test("SelectCastIsIBADoubleWhere", async () => {
         // const list = await table(NoteWithDateEntity)
         //     .filter(n => (n.target instanceof ArtistEntity ? (n.target as ArtistEntity).name : (n.target as BandEntity).name).length > 0)
         //     .map(n => n.target instanceof ArtistEntity ? (n.target as ArtistEntity).fullName : (n.target as BandEntity).fullName)
@@ -399,7 +399,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // from n where n.Target.ToLite() is Lite<AlbumEntity> select n.Target.ToLite()
     // TODO(api): `is Lite<T>` runtime-type test on a Lite in query
-    test("SelectIsIBLite", { skip: true }, async () => {
+    test("SelectIsIBLite", async () => {
         // const list = await table(NoteWithDateEntity)
         //     .filter(n => n.target.toLite() instanceof AlbumEntity)
         //     .map(n => n.target.toLite())
@@ -409,7 +409,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // from a where a.Author is Lite<BandEntity> select a.Author
     // TODO(api): `is Lite<T>` runtime-type test on an @implementedBy Lite in query
-    test("SelectIsIBALite", { skip: true }, async () => {
+    test("SelectIsIBALite", async () => {
         // const list = await table(AwardNominationEntity)
         //     .filter(a => a.author instanceof BandEntity)
         //     .map(a => a.author)
@@ -419,14 +419,14 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
 
     // from n select (Lite<AlbumEntity>)n.Target.ToLite()
     // TODO(api): Lite downcast in query ((x as Lite<AlbumEntity>))
-    test("SelectCastIBALite", { skip: true }, async () => {
+    test("SelectCastIBALite", async () => {
         const list = await table(NoteWithDateEntity).map(n => n.target.toLite()).toArray();
         assert.ok(Array.isArray(list));
     });
 
     // from a select (Lite<BandEntity>)a.Author
     // TODO(api): Lite downcast in query ((x as Lite<BandEntity>))
-    test("SelectCastIBLite", { skip: true }, async () => {
+    test("SelectCastIBLite", async () => {
         const list = await table(AwardNominationEntity).map(a => a.author).toArray();
         assert.ok(Array.isArray(list));
     });

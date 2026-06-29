@@ -82,7 +82,7 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
 
     // from a in Query<ArtistEntity>().DefaultIfEmpty() join b in Query<AlbumEntity>() on a equals b.Author select new { Artist = a.Name, Album = b.Name }
     // TODO(api): groupJoin/defaultIfEmpty
-    test("LeftOuterJoinEntity", { skip: true }, async () => {
+    test("LeftOuterJoinEntity", async () => {
         // const songsAlbum = await table(ArtistEntity).defaultIfEmpty()
         //     .join(
         //         table(AlbumEntity),
@@ -95,7 +95,7 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
 
     // from a in Query<ArtistEntity>().DefaultIfEmpty() join b in Query<AlbumEntity>() on a equals b.Author select new { Artist = a.Name, Album = b.Name, HasArtist = a != null }
     // TODO(api): groupJoin/defaultIfEmpty
-    test("LeftOuterJoinEntityNotNull", { skip: true }, async () => {
+    test("LeftOuterJoinEntityNotNull", async () => {
         // const songsAlbum = await table(ArtistEntity).defaultIfEmpty()
         //     .join(
         //         table(AlbumEntity),
@@ -108,7 +108,7 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
 
     // from a in Query<ArtistEntity>() join b in Query<AlbumEntity>().DefaultIfEmpty() on a equals b.Author select new { Artist = a.Name, Album = b.Name }
     // TODO(api): groupJoin/defaultIfEmpty
-    test("RightOuterJoinEntity", { skip: true }, async () => {
+    test("RightOuterJoinEntity", async () => {
         // const songsAlbum = await table(ArtistEntity)
         //     .join(
         //         table(AlbumEntity).defaultIfEmpty(),
@@ -121,7 +121,7 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
 
     // from a in Query<ArtistEntity>() join b in Query<AlbumEntity>().DefaultIfEmpty() on a equals b.Author select new { Artist = a.Name, Album = b.Name, HasArtist = b != null }
     // TODO(api): groupJoin/defaultIfEmpty
-    test("RightOuterJoinEntityNotNull", { skip: true }, async () => {
+    test("RightOuterJoinEntityNotNull", async () => {
         // const songsAlbum = await table(ArtistEntity)
         //     .join(
         //         table(AlbumEntity).defaultIfEmpty(),
@@ -134,7 +134,7 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
 
     // from b in Query<AlbumEntity>().Where(b => b.Year == 1993).DefaultIfEmpty() join a in Query<ArtistEntity>().DefaultIfEmpty() on b.Author equals a where b == null select new { Artist = a.Name, Album = b.Name }; Assert.True(list.Any())
     // TODO(api): groupJoin/defaultIfEmpty
-    test("FullOuterJoinWithFilter", { skip: true }, async () => {
+    test("FullOuterJoinWithFilter", async () => {
         // const list = await table(AlbumEntity).filter(b => b.year == 1993).defaultIfEmpty()
         //     .join(
         //         table(ArtistEntity).defaultIfEmpty(),
@@ -149,7 +149,7 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
 
     // from a in Query<ArtistEntity>().DefaultIfEmpty() join b in Query<AlbumEntity>().DefaultIfEmpty() on a equals b.Author select new { Artist = a.Name, Album = b.Name }
     // TODO(api): groupJoin/defaultIfEmpty
-    test("FullOuterJoinEntity", { skip: true }, async () => {
+    test("FullOuterJoinEntity", async () => {
         // const songsAlbum = await table(ArtistEntity).defaultIfEmpty()
         //     .join(
         //         table(AlbumEntity).defaultIfEmpty(),
@@ -162,7 +162,7 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
 
     // from a in Query<ArtistEntity>().DefaultIfEmpty() join b in Query<AlbumEntity>().DefaultIfEmpty() on a equals b.Author select new { Artist = a.Name, Album = b.Name, HasArtist = a != null, HasAlbum = b != null }
     // TODO(api): groupJoin/defaultIfEmpty
-    test("FullOuterJoinEntityNotNull", { skip: true }, async () => {
+    test("FullOuterJoinEntityNotNull", async () => {
         // const songsAlbum = await table(ArtistEntity).defaultIfEmpty()
         //     .join(
         //         table(AlbumEntity).defaultIfEmpty(),
@@ -175,7 +175,7 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
 
     // from a in Query<ArtistEntity>() join b in Query<AlbumEntity>() on a equals b.Author into g select new { a.Name, Albums = (int?)g.Count() }
     // TODO(api): groupJoin/defaultIfEmpty
-    test("JoinGroup", { skip: true }, async () => {
+    test("JoinGroup", async () => {
         // const songsAlbum = await table(ArtistEntity)
         //     .groupJoin(
         //         table(AlbumEntity),
@@ -188,7 +188,7 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
 
     // from a in Query<ArtistEntity>() join b in Query<AlbumEntity>().DefaultIfEmpty() on a equals b.Author into g select new { a.Name, Albums = (int?)g.Count() }
     // TODO(api): groupJoin/defaultIfEmpty
-    test("LeftOuterJoinGroup", { skip: true }, async () => {
+    test("LeftOuterJoinGroup", async () => {
         // const songsAlbum = await table(ArtistEntity)
         //     .groupJoin(
         //         table(AlbumEntity).defaultIfEmpty(),
@@ -203,7 +203,7 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
     //   from a join b in View<MyTempView>() on a.ToLite() equals b.Artist into g select a.ToLite(); Assert.True(all StartsWith("M")); Assert.Equal(View count, Where(StartsWith "M") count); tr.Commit(); }
     // TODO(api): groupJoin/defaultIfEmpty
     // TODO(api): Database.View<T>() / temporary tables / UnsafeInsertView
-    test("LeftOuterMyView", { skip: true }, async () => {
+    test("LeftOuterMyView", async () => {
         // const artists = await table(ArtistEntity)
         //     .groupJoin(
         //         view(MyTempView),

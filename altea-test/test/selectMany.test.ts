@@ -35,7 +35,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
 
     // Database.Query<BandEntity>().SelectMany((b, i) => b.Members.Select(m => new { Artist = m.ToLite(), i })).ToList();
     // TODO(api): flatMap index/result-selector overload — altea flatMap takes ONE collection selector only.
-    test("SelectManyIndex", { skip: true }, async () => {
+    test("SelectManyIndex", async () => {
         // const list = await table(BandEntity)
         //     .flatMap((b, i) => b.members.map(m => ({ artist: m.member, i })))
         //     .toArray();
@@ -44,7 +44,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
 
     // Database.Query<BandEntity>().SelectMany(b => b.Members, (b, a) => new { Artist = a.ToLite(), Band = b.ToLite() }).ToList();
     // TODO(api): flatMap index/result-selector overload — altea flatMap takes ONE collection selector only.
-    test("SelectMany2", { skip: true }, async () => {
+    test("SelectMany2", async () => {
         // const list = await table(BandEntity)
         //     .flatMap(b => b.members, (b, a) => ({ artist: a.member, band: b.toLite() }))
         //     .toArray();
@@ -53,7 +53,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
 
     // Database.Query<BandEntity>().SelectMany((b, i) => b.Members.Select(m => new { Artist = m.ToLite(), i }), (b, a) => new { a.Artist, a.i, Band = b.ToLite() }).ToList();
     // TODO(api): flatMap index/result-selector overload — altea flatMap takes ONE collection selector only.
-    test("SelectMany2Index", { skip: true }, async () => {
+    test("SelectMany2Index", async () => {
         // const list = await table(BandEntity)
         //     .flatMap((b, i) => b.members.map(m => ({ artist: m.member, i })),
         //              (b, a) => ({ artist: a.artist, i: a.i, band: b.toLite() }))
@@ -82,7 +82,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
 
     // Database.Query<AlbumEntity>().SelectMany(a => a.Songs, (a, s) => s.Name).ToList();
     // TODO(api): flatMap index/result-selector overload — altea flatMap takes ONE collection selector only.
-    test("SelectManyEmbedded", { skip: true }, async () => {
+    test("SelectManyEmbedded", async () => {
         // const list = await table(AlbumEntity)
         //     .flatMap(a => a.songs, (a, s) => s.name)
         //     .toArray();
@@ -99,7 +99,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
 
     // Database.Query<BandEntity>().SelectMany(b => b.Members.DefaultIfEmpty()).Select(a => new { Artist = a!.ToLite() }).ToList();
     // TODO(api): DefaultIfEmpty (left/outer SelectMany) has no altea equivalent.
-    test("SelectManyDefaultIfEmpty", { skip: true }, async () => {
+    test("SelectManyDefaultIfEmpty", async () => {
         const list = await table(BandEntity)
             .flatMap(b => b.members.defaultIfEmpty())
             .map(a => ({ artist: a!.member }))
@@ -109,7 +109,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
 
     // from a1 in Database.Query<ArtistEntity>() from a in a1.Friends select new { Artist = a1.ToLite(), Friend = a }
     // TODO(api): query-syntax SelectMany that projects over BOTH the outer and the collection element (flatMap exposes only the collection element, not the outer entity).
-    test("SelectManyOverload", { skip: true }, async () => {
+    test("SelectManyOverload", async () => {
         const list = await table(ArtistEntity)
             .flatMap(a1 => a1.friends.map(a => ({ artist: a1.toLite(), friend: a.friend })))
             .toArray();
@@ -119,7 +119,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     // from a1 in Database.Query<ArtistEntity>() from a in a1.Friends.DefaultIfEmpty() select new { Artist = a1.ToLite(), Friend = a }
     // TODO(api): DefaultIfEmpty (left/outer SelectMany) has no altea equivalent.
     // TODO(api): query-syntax SelectMany that projects over BOTH the outer and the collection element (flatMap exposes only the collection element, not the outer entity).
-    test("SelectManyDefaultIfEmptyTwo", { skip: true }, async () => {
+    test("SelectManyDefaultIfEmptyTwo", async () => {
         const list = await table(ArtistEntity)
             .flatMap(a1 => a1.friends.defaultIfEmpty().map(a => ({ artist: a1.toLite(), friend: a.friend })))
             .toArray();
@@ -129,7 +129,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     // from a1 in Database.Query<ArtistEntity>() from a in a1.Friends.DefaultIfEmpty() select new { Artist = a1.ToLite(), Friend = a, HasFriend = a != null }
     // TODO(api): DefaultIfEmpty (left/outer SelectMany) has no altea equivalent.
     // TODO(api): query-syntax SelectMany that projects over BOTH the outer and the collection element (flatMap exposes only the collection element, not the outer entity).
-    test("SelectManyDefaultIfEmptyNotNull", { skip: true }, async () => {
+    test("SelectManyDefaultIfEmptyNotNull", async () => {
         const list = await table(ArtistEntity)
             .flatMap(a1 => a1.friends.defaultIfEmpty().map(a => ({ artist: a1.toLite(), friend: a.friend, hasFriend: a != null })))
             .toArray();
@@ -141,7 +141,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     // TODO(api): query-syntax SelectMany that projects over BOTH the outer and the collection element (flatMap exposes only the collection element, not the outer entity).
     // TODO(api): collection.contains over a subquery (n.friends.contains(lite)) inside a correlated subquery.
     // TODO(api): entity cast / nullable-int projection ((int?)n.id).
-    test("SelectManySingleJoinExpander", { skip: true }, async () => {
+    test("SelectManySingleJoinExpander", async () => {
         const list = await table(BandEntity)
             .flatMap(b => b.members.map(a => ({
                 maxAlbum: table(ArtistEntity)
@@ -158,7 +158,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     // TODO(api): collection.contains over a subquery (n.friends.contains(lite)) inside a correlated subquery.
     // TODO(api): entity cast / nullable-int projection ((int?)n.id).
     // TODO(api): join key mismatch — `b => b` yields BandEntity but `m => m.band` yields Lite<BandEntity>; navigating the lite to the full entity inside a join key is a gap.
-    test("JoinSingleJoinExpander", { skip: true }, async () => {
+    test("JoinSingleJoinExpander", async () => {
         // const mle = table(BandEntity_Members);
         // const list = await table(BandEntity)
         //     .join(mle, b => b, m => m.band, (b, m) => ({

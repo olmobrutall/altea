@@ -57,7 +57,7 @@ describe("DistinctTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<BandEntity>().SelectMany(a => a.Members.SelectMany(m => m.Friends).Distinct()).Take(4).ToList();
-    test("DistinctTake", { skip: true }, async () => {
+    test("DistinctTake", async () => {
         // TODO(api): nested collection projection — flatMap over a part-entity collection
         // (band.members → .member) and a further flatMap into m.friends with an inner
         // .distinct() is not expressible with the current Query<T> collection API.
@@ -71,7 +71,7 @@ describe("DistinctTest", { skip: !hasDb }, () => {
     // from b in Database.Query<BandEntity>()
     // from g in b.Members.GroupBy(a => a.Sex).Select(gr => new { gr.Key, Count = gr.Count() })
     // select new { Band = b.ToLite(), g.Key, g.Count } ).Take(2).ToList();
-    test("GroupTake", { skip: true }, async () => {
+    test("GroupTake", async () => {
         // TODO(api): correlated cross-apply with a per-row GroupBy — the comprehension
         // joins each band to a grouping over its own members and is not expressible with
         // the current flatMap/groupBy API.

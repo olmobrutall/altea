@@ -36,7 +36,7 @@ describe("OrderByTest", { skip: !hasDb }, () => {
 
     // Database.Query<AlbumEntity>().OrderBy(a => a.Author.GetType()).ToList();
     // TODO(api): GetType
-    test("OrderByGetType", { skip: true }, async () => {
+    test("OrderByGetType", async () => {
         const songsAlbum = await table(AlbumEntity).orderBy(a => a.author.constructor).toArray();
         assert.ok(Array.isArray(songsAlbum));
     });
@@ -49,7 +49,7 @@ describe("OrderByTest", { skip: !hasDb }, () => {
 
     // Database.Query<ArtistEntity>().OrderBy(a => a.Dead).Reverse().Select(a => a.Name);
     // TODO(api): Query.reverse
-    test("OrderByReverse", { skip: true }, async () => {
+    test("OrderByReverse", async () => {
         // const artists = await table(ArtistEntity).orderBy(a => a.dead).reverse().map(a => a.name).toArray();
         // assert.ok(Array.isArray(artists));
     });
@@ -80,14 +80,14 @@ describe("OrderByTest", { skip: !hasDb }, () => {
 
     // Database.Query<ArtistEntity>().OrderByDescending(a => a.Dead).ThenBy(a => a.Name).Reverse().Last();
     // TODO(api): Query.reverse
-    test("OrderByThenByReverseLast", { skip: true }, async () => {
+    test("OrderByThenByReverseLast", async () => {
         // const michael = await table(ArtistEntity).orderByDescending(a => a.dead).thenBy(a => a.name).reverse().last();
         // assert.ok(michael != null);
     });
 
     // Database.Query<ArtistEntity>().OrderByDescending(a => a.Dead).Take(2).Reverse().FirstEx(); //reverse ignored
     // TODO(api): Query.reverse
-    test("OrderByTakeReverse", { skip: true }, async () => {
+    test("OrderByTakeReverse", async () => {
         // const michael = await table(ArtistEntity).orderByDescending(a => a.dead).top(2).reverse().first();
         // assert.ok(michael != null);
     });
@@ -106,7 +106,7 @@ describe("OrderByTest", { skip: !hasDb }, () => {
 
     // Database.Query<ArtistEntity>().OrderBy(a => a.Dead).Where(a => a.Id != 0).ToList();
     // TODO(api): Entity.id in query
-    test("OrderByNotLast", { skip: true }, async () => {
+    test("OrderByNotLast", async () => {
         const songsAlbum = await table(ArtistEntity).orderBy(a => a.dead).filter(a => a.id != 0).toArray();
         assert.ok(Array.isArray(songsAlbum));
     });
@@ -120,7 +120,7 @@ describe("OrderByTest", { skip: !hasDb }, () => {
     // Database.Query<ArtistEntity>().OrderBy(a => a.Dead)
     //     .GroupBy(a => a.Sex, (s, gr) => new { Sex = s, Count = gr.Count() }).ToList();
     // TODO(api): groupBy result-selector (altea groupBy yields { key, elements }, no (key, group) => result form)
-    test("OrderByGroupBy", { skip: true }, async () => {
+    test("OrderByGroupBy", async () => {
         const songsAlbum = await table(ArtistEntity).orderBy(a => a.dead)
             .groupBy(a => a.sex)
             .map(g => ({ sex: g.key, count: g.elements.length }))
@@ -131,7 +131,7 @@ describe("OrderByTest", { skip: !hasDb }, () => {
     // Database.Query<AlbumEntity>().SelectMany(a => a.Songs.OrderBy(a => a.Index))
     //     .GroupBy(s => s.Name, (a, songs) => songs.Sum(a => a.Seconds ?? 0)).ToList();
     // TODO(api): groupBy result-selector (altea groupBy yields { key, elements }, no (key, group) => result form)
-    test("RemoveOrderByGroupBy", { skip: true }, async () => {
+    test("RemoveOrderByGroupBy", async () => {
         const list = await table(AlbumEntity)
             .flatMap(a => a.songs.orderBy(a => a.index))
             .groupBy(s => s.name)
@@ -143,7 +143,7 @@ describe("OrderByTest", { skip: !hasDb }, () => {
     // Database.Query<AlbumEntity>().SelectMany(a => a.Songs.OrderBy(a => a.Index))
     //     .GroupBy(s => new object(), (a, songs) => songs.Sum(a => a.Seconds ?? 0)).ToList();
     // TODO(api): groupBy result-selector (altea groupBy yields { key, elements }, no (key, group) => result form)
-    test("RemoveOrderByGroupByTrivial", { skip: true }, async () => {
+    test("RemoveOrderByGroupByTrivial", async () => {
         const list = await table(AlbumEntity)
             .flatMap(a => a.songs.orderBy(a => a.index))
             .groupBy(s => ({}))

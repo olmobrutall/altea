@@ -24,7 +24,7 @@ describe("NewDateTimeTest", { skip: !hasDb }, () => {
 
     // Database.Query<NoteWithDateEntity>().OrderBy(n => new DateTime(2020, 1, 1)).Select(n => n.Id).ToList();
     // TODO(api): new DateTime(...) literal (PlainDateTime construction) in a query orderBy
-    test("NewDateTime", { skip: true }, async () => {
+    test("NewDateTime", async () => {
         const list = await table(NoteWithDateEntity)
             .orderBy(n => Temporal.PlainDateTime.from({ year: 2020, month: 1, day: 1 }))
             .map(n => n.id)
@@ -34,7 +34,7 @@ describe("NewDateTimeTest", { skip: !hasDb }, () => {
 
     // Database.Query<NoteWithDateEntity>().OrderBy(n => new DateTime(2020, 1, 1, 12, 30, 0)).Select(n => n.Id).ToList();
     // TODO(api): new DateTime(...) literal (PlainDateTime construction) in a query orderBy
-    test("NewDateTimeHMS", { skip: true }, async () => {
+    test("NewDateTimeHMS", async () => {
         const list = await table(NoteWithDateEntity)
             .orderBy(n => Temporal.PlainDateTime.from({ year: 2020, month: 1, day: 1, hour: 12, minute: 30, second: 0 }))
             .map(n => n.id)
@@ -44,7 +44,7 @@ describe("NewDateTimeTest", { skip: !hasDb }, () => {
 
     // Database.Query<NoteWithDateEntity>().OrderBy(n => new DateTime(2020, 1, 1, 12, 30, 0, 500)).Select(n => n.Id).ToList();
     // TODO(api): new DateTime(...) literal (PlainDateTime construction) in a query orderBy
-    test("NewDateTimeHMSMS", { skip: true }, async () => {
+    test("NewDateTimeHMSMS", async () => {
         const list = await table(NoteWithDateEntity)
             .orderBy(n => Temporal.PlainDateTime.from({ year: 2020, month: 1, day: 1, hour: 12, minute: 30, second: 0, millisecond: 500 }))
             .map(n => n.id)
@@ -54,7 +54,7 @@ describe("NewDateTimeTest", { skip: !hasDb }, () => {
 
     // Database.Query<NoteWithDateEntity>().OrderBy(n => new DateOnly(2020, 1, 1)).Select(n => n.Id).ToList();
     // TODO(api): new DateOnly(...) literal (PlainDate construction) in a query orderBy
-    test("NewDateOnly", { skip: true }, async () => {
+    test("NewDateOnly", async () => {
         const list = await table(NoteWithDateEntity)
             .orderBy(n => Temporal.PlainDate.from({ year: 2020, month: 1, day: 1 }))
             .map(n => n.id)
@@ -64,7 +64,7 @@ describe("NewDateTimeTest", { skip: !hasDb }, () => {
 
     // Database.Query<NoteWithDateEntity>().OrderBy(n => new TimeOnly(12, 30, 0)).Select(n => n.Id).ToList();
     // TODO(api): new TimeOnly(...) literal (PlainTime construction) in a query orderBy
-    test("NewTimeOnly", { skip: true }, async () => {
+    test("NewTimeOnly", async () => {
         const list = await table(NoteWithDateEntity)
             .orderBy(n => Temporal.PlainTime.from({ hour: 12, minute: 30, second: 0 }))
             .map(n => n.id)
@@ -74,7 +74,7 @@ describe("NewDateTimeTest", { skip: !hasDb }, () => {
 
     // Database.Query<NoteWithDateEntity>().OrderBy(n => new TimeSpan(12, 30, 0)).Select(n => n.Id).ToList();
     // TODO(api): new TimeSpan(...) literal (Duration construction) in a query orderBy
-    test("NewTimeSpan", { skip: true }, async () => {
+    test("NewTimeSpan", async () => {
         const list = await table(NoteWithDateEntity)
             .orderBy(n => Temporal.Duration.from({ hours: 12, minutes: 30, seconds: 0 }))
             .map(n => n.id)

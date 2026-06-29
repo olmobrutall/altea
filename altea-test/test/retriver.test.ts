@@ -71,7 +71,7 @@ describe("RetrieverTest", { skip: !hasDb }, () => {
     // var artist = Query<ArtistEntity>().OrderBy(a => a.Name).First();
     // Assert.Equal(artist.ToLite().RetrieveAndRemember().Friends.Count, artist.Friends.Count);
     // TODO(api): Lite.RetrieveAndRemember() (retrieve an entity from a lite) and comparing its MList count
-    test("RetrieveWithMListCount", { skip: true }, async () => {
+    test("RetrieveWithMListCount", async () => {
         // const artist = await table(ArtistEntity).orderBy(a => a.name).first();
         // assert.equal(artist.toLite().retrieveAndRemember().friends.length, artist.friends.length);
     });

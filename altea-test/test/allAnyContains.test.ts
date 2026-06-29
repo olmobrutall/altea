@@ -61,7 +61,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     // var artistsInBands = Database.Query<BandEntity>().SelectMany(b => b.Members).Select(a => a).ToList();
     // var michael = Database.Query<ArtistEntity>().SingleEx(a => !artistsInBands.Contains(a));
     // TODO(api): the in-bands collection is a Lite<ArtistEntity> (BandEntity_Members.member), so an entity-level Contains has no entity values to compare against without a retrieve.
-    test("ContainsListEntities", { skip: true }, async () => {
+    test("ContainsListEntities", async () => {
         const artistsInBands = await table(BandEntity).flatMap(b => b.members).map(a => a.member).toArray();
         const michael = await table(ArtistEntity).single(a => !artistsInBands.contains(a.toLite()));
         assert.ok(michael != null);
@@ -71,7 +71,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     // var albums = (from a in Database.Query<AlbumEntity>() where !bands.Contains(a.Author.ToLite()) select a.ToLite()).ToList();
     // TODO(api): Lite.Create<T>(id) (constructing a thin Lite from a bare id) has no altea equivalent.
     // TODO(api): IAuthorEntity polymorphic author interface has no altea equivalent (author is a bare Entity).
-    test("ContainsListLiteIB", { skip: true }, async () => {
+    test("ContainsListLiteIB", async () => {
         const bands: any[] = [];
         const albums = await table(AlbumEntity)
             .filter(a => !bands.contains(a.author.toLite()))
@@ -84,7 +84,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     // var albums = (from a in Database.Query<AlbumEntity>() where !bands.Contains(a.Author) select a.ToLite()).ToList();
     // TODO(api): Database.Retrieve<T>(id) (retrieving an entity by bare id) has no altea equivalent.
     // TODO(api): IAuthorEntity polymorphic author interface has no altea equivalent (author is a bare Entity).
-    test("ContainsListEntityIB", { skip: true }, async () => {
+    test("ContainsListEntityIB", async () => {
         const bands: any[] = [];
         const albums = await table(AlbumEntity)
             .filter(a => !bands.contains(a.author))
@@ -97,7 +97,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     //     .Concat(Database.Query<BandEntity>().Where(a => a.Name.StartsWith("Smash")).Select(a => a.ToLite<IAuthorEntity>())).ToArray();
     // var albums = (from a in Database.Query<NoteWithDateEntity>() where lites.Contains(a.Target.ToLite()) select a.ToLite()).ToList();
     // TODO(api): ToLite<IAuthorEntity>() (lite typed to a polymorphic interface) has no altea equivalent.
-    test("ContainsListLiteIBA", { skip: true }, async () => {
+    test("ContainsListLiteIBA", async () => {
         const dead = await table(ArtistEntity).filter(a => a.dead).map(a => a.toLite()).toArray();
         const smash = await table(BandEntity).filter(a => a.name.startsWith("Smash")).map(a => a.toLite()).toArray();
         const lites: any[] = [...dead, ...smash];
@@ -112,7 +112,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     //     .Concat(Database.Query<BandEntity>().Where(a => a.Name.StartsWith("Smash")).Select(a => (IEntity)a)).ToArray();
     // var albums = (from a in Database.Query<NoteWithDateEntity>() where entities.Contains(a.Target) select a.ToLite()).ToList();
     // TODO(api): (IEntity)a entity-interface cast / heterogeneous in-memory entity list for an entity-level Contains has no altea equivalent.
-    test("ContainsListEntityIBA", { skip: true }, async () => {
+    test("ContainsListEntityIBA", async () => {
         const dead = await table(ArtistEntity).filter(a => a.dead).toArray();
         const smash = await table(BandEntity).filter(a => a.name.startsWith("Smash")).toArray();
         const entities: any[] = [...dead, ...smash];
@@ -171,7 +171,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
 
     // var withFriends = Database.Query<ArtistEntity>().Where(b => b.Friends.Any()).Select(a => a.Name).ToList();
     // TODO(api): collection .some() requires a predicate; the no-argument existence check (C# Any()) has no altea equivalent.
-    test("AnySqlNonPredicate", { skip: true }, async () => {
+    test("AnySqlNonPredicate", async () => {
         // const withFriends = await table(ArtistEntity)
         //     .filter(b => b.friends.some())
         //     .map(a => a.name)

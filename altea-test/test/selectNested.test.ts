@@ -23,7 +23,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // from l in Query<LabelEntity>() select (from a in Query<AlbumEntity>() where a.Label.Is(l) select a.ToLite()).ToList()
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map
-    test("SelecteNested", { skip: true }, async () => {
+    test("SelecteNested", async () => {
         const neasted = await table(LabelEntity)
             .map(l => table(AlbumEntity).filter(a => a.label.is(l)).map(a => a.toLite()).toArray())
             .toArray();
@@ -32,7 +32,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // from b in Query<BandEntity>() select (from a in Query<AlbumEntity>() where a.Author == b select a.ToLite()).ToList()
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map
-    test("SelecteNestedIB", { skip: true }, async () => {
+    test("SelecteNestedIB", async () => {
         const neasted = await table(BandEntity)
             .map(b => table(AlbumEntity).filter(a => a.author.is(b)).map(a => a.toLite()).toArray())
             .toArray();
@@ -41,7 +41,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // from l in Query<LabelEntity>() join o in Query<LabelEntity>().DefaultIfEmpty() on l.Owner!.Entity equals o group l.ToLite() by o.ToLite() into g select new { Owner = g.Key, List = g.ToList(), Count = g.Count() }
     // TODO(api): defaultIfEmpty / left outer join — no .defaultIfEmpty() on Query
-    test("SelecteNullableLookupColumns", { skip: true }, async () => {
+    test("SelecteNullableLookupColumns", async () => {
         const neasted = await table(LabelEntity)
             .join(table(LabelEntity), l => l.owner, o => o.toLite(), (l, o) => ({ owner: o.toLite(), label: l.toLite() }))
             .groupBy(x => x.owner, x => x.label)
@@ -61,7 +61,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // from l in Query<LabelEntity>() select (from a in Query<AlbumEntity>() where a.Label.Is(l) select new { Label = l.ToLite(), Author = a.Author.ToLite(), Album = a.ToLite() }).ToList()
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map
-    test("SelecteNestedIBPlus", { skip: true }, async () => {
+    test("SelecteNestedIBPlus", async () => {
         const neasted = await table(LabelEntity)
             .map(l => table(AlbumEntity)
                 .filter(a => a.label.is(l))
@@ -73,7 +73,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // from a in Query<AlbumEntity>() select new { Alumum = a.ToLite(), Friends = (from b in Query<AlbumEntity>() where a.Label.Is(b.Label) select b.ToLite()).ToList() }
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map
-    test("SelecteNestedNonKey", { skip: true }, async () => {
+    test("SelecteNestedNonKey", async () => {
         const neasted = await table(AlbumEntity)
             .map(a => ({
                 alumum: a.toLite(),
@@ -85,7 +85,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // from a in Query<ArtistEntity>() select (from b in Query<BandEntity>() where b.Members.Contains(a) select b.ToLite()).ToList()
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map
-    test("SelecteNestedContanins", { skip: true }, async () => {
+    test("SelecteNestedContanins", async () => {
         const neasted = await table(ArtistEntity)
             .map(a => table(BandEntity)
                 .filter(b => b.members.some(m => m.member.is(a)))
@@ -97,7 +97,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // from a in Query<LabelEntity>() select (from n in Query<NoteWithDateEntity>() select n.ToLite()).ToList()
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map
-    test("SelecteNestedIndePendent1", { skip: true }, async () => {
+    test("SelecteNestedIndePendent1", async () => {
         const neasted = await table(LabelEntity)
             .map(a => table(NoteWithDateEntity).map(n => n.toLite()).toArray())
             .toArray();
@@ -106,7 +106,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // from a in Query<LabelEntity>() select new { Label = a.ToLite(), Notes = (from n in Query<NoteWithDateEntity>() select n.ToLite()).ToList() }
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map
-    test("SelecteNestedIndePendent2", { skip: true }, async () => {
+    test("SelecteNestedIndePendent2", async () => {
         const neasted = await table(LabelEntity)
             .map(a => ({
                 label: a.toLite(),
@@ -118,7 +118,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // from a in Query<LabelEntity>() select (from n in Query<NoteWithDateEntity>() select new { Note = n.ToLite(), Label = a.ToLite() }).ToList()
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map
-    test("SelecteNestedSemiIndePendent", { skip: true }, async () => {
+    test("SelecteNestedSemiIndePendent", async () => {
         const neasted = await table(LabelEntity)
             .map(a => table(NoteWithDateEntity)
                 .map(n => ({ note: n.toLite(), label: a.toLite() }))
@@ -129,7 +129,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // from l in Query<LabelEntity>() orderby l.Name select new { Label = l.ToLite(), Notes = (from a in Query<AlbumEntity>() where a.Label.Is(l) select a.ToLite()).ToList() }
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map
-    test("SelecteNestedOuterOrder", { skip: true }, async () => {
+    test("SelecteNestedOuterOrder", async () => {
         const neasted = await table(LabelEntity)
             .orderBy(l => l.name)
             .map(l => ({
@@ -142,7 +142,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // (from l in Query<LabelEntity>() orderby l.Name select new { Label = l.ToLite(), Notes = (from a in Query<AlbumEntity>() where a.Label.Is(l) select a.ToLite()).ToList() }).Take(10)
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map
-    test("SelecteNestedOuterOrderTake", { skip: true }, async () => {
+    test("SelecteNestedOuterOrderTake", async () => {
         const neasted = await table(LabelEntity)
             .orderBy(l => l.name)
             .map(l => ({
@@ -156,7 +156,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // from l in Query<LabelEntity>() select new { Label = l.ToLite(), Notes = (from a in Query<AlbumEntity>() where a.Label.Is(l) orderby a.Name select a.ToLite()).ToList() }
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map
-    test("SelecteNestedInnerOrder", { skip: true }, async () => {
+    test("SelecteNestedInnerOrder", async () => {
         const neasted = await table(LabelEntity)
             .map(l => ({
                 label: l.toLite(),
@@ -168,7 +168,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // from l in Query<LabelEntity>() select new { Label = l.ToLite(), Notes = (from a in Query<AlbumEntity>() where a.Label.Is(l) orderby a.Name select a.ToLite()).Take(10).ToList() }
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map
-    test("SelecteNestedInnerOrderTake", { skip: true }, async () => {
+    test("SelecteNestedInnerOrderTake", async () => {
         const neasted = await table(LabelEntity)
             .map(l => ({
                 label: l.toLite(),
@@ -181,7 +181,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
     // from l in Query<LabelEntity>() select (from a in Query<AlbumEntity>() where a.Label.Is(l) select (from s in a.Songs select "{0} - {1} - {2}".FormatWith(l.Name, a.Name, s.Name)).ToList()).ToList()
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map
     // TODO(api): string interpolation — no FormatWith / string formatting in query
-    test("SelecteDoubleNested", { skip: true }, async () => {
+    test("SelecteDoubleNested", async () => {
         const neasted = await table(LabelEntity)
             .map(l => table(AlbumEntity)
                 .filter(a => a.label.is(l))
@@ -193,7 +193,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // from l in Query<LabelEntity>() orderby l.Name select (from a in Query<AlbumEntity>() where a.Label.Is(l) orderby a.Name select a.Name).ToList()
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map
-    test("SelecteNestedDoubleOrder", { skip: true }, async () => {
+    test("SelecteNestedDoubleOrder", async () => {
         const neasted = await table(LabelEntity)
             .orderBy(l => l.name)
             .map(l => table(AlbumEntity).filter(a => a.label.is(l)).orderBy(a => a.name).map(a => a.name).toArray())
@@ -204,7 +204,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
     // from l in Query<LabelEntity>() orderby l.Name select (from a in Query<AlbumEntity>() where a.Label.Is(l) orderby a.Name select (from s in a.Songs select "{0} - {1} - {2}".FormatWith(l.Name, a.Name, s.Name)).ToList()).ToList()
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map
     // TODO(api): string interpolation — no FormatWith / string formatting in query
-    test("SelecteDoubleNestedDoubleOrder", { skip: true }, async () => {
+    test("SelecteDoubleNestedDoubleOrder", async () => {
         const neasted = await table(LabelEntity)
             .orderBy(l => l.name)
             .map(l => table(AlbumEntity)
@@ -218,7 +218,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // from b in Query<BandEntity>() where b.Members.Select(a => a.Id).Contains(1) select b.ToLite()
     // TODO(api): collection element id projection + contains in subquery filter
-    test("SelectContainsInt", { skip: true }, async () => {
+    test("SelectContainsInt", async () => {
         const result = await table(BandEntity)
             .filter(b => b.members.some(m => m.member.id == 1))
             .map(b => b.toLite())
@@ -228,7 +228,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
 
     // from b in Query<BandEntity>() where b.Members.Select(a => a.Sex).Contains(Sex.Female) select b.ToLite()
     // TODO(api): collection element enum projection + contains in subquery filter
-    test("SelectContainsEnum", { skip: true }, async () => {
+    test("SelectContainsEnum", async () => {
         const result = await table(BandEntity)
             .filter(b => b.members.some(m => m.member.entity.sex == Sex.Female))
             .map(b => b.toLite())

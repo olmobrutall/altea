@@ -16,7 +16,7 @@ import {
 // Several tests below project/filter using *collection-level* terminals
 // (b.Members.FirstEx()/SingleEx()/… inside a Select) and group-join / DefaultIfEmpty
 // / InDB constructs that the current Query<T> API does not yet express; those are
-// written in their most natural altea form, marked { skip: true }, and flagged
+// written in their most natural altea form, marked  and flagged
 // with // TODO(api): <gap>.
 // Terminals are async (the connector is async-only). Live execution is gated on
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
@@ -33,7 +33,7 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     // var bands2b = Database.Query<BandEntity>().Select(b => new { b.Name, Member = b.Members.FirstEx(a => a.Sex == Sex.Female).Name }).ToList();
     // var bands3b = Database.Query<BandEntity>().Select(b => new { b.Name, Member = b.Members.SingleOrDefaultEx(a => a.Sex == Sex.Female)!.Name }).ToList();
     // var bands4b = Database.Query<BandEntity>().Select(b => new { b.Name, Member = b.Members.SingleEx(a => a.Sex == Sex.Female).Name }).ToList();
-    test("SelectFirstOrDefault", { skip: true }, async () => {
+    test("SelectFirstOrDefault", async () => {
         // TODO(api): collection-to-string aggregate (MList.ToString(selector, separator)) + string interpolation/FormatWith
         // const bandsCount = await table(BandEntity)
         //     .map(b => ({ name: b.name, members: b.members.map(a => ({ name: a.member.entity.name, sex: a.member.entity.sex })).toString(p => p.name + " (" + p.sex + ")", "\n") }))
@@ -55,7 +55,7 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<BandEntity>().Where(b => b.Members.OrderBy(a => a.Sex).Select(a => a.Sex).FirstEx() == Sex.Male).Select(a => a.Name).ToList();
-    test("SelectSingleCellWhere", { skip: true }, async () => {
+    test("SelectSingleCellWhere", async () => {
         // TODO(api): collection-level ordering + projection + terminal (members.orderBy(...).map(...).first()) inside a predicate
         const list = await table(BandEntity)
             .filter(b => b.members.orderBy(a => a.member.entity.sex).map(a => a.member.entity.sex).first() == Sex.Male)
@@ -65,7 +65,7 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<BandEntity>().Select(b => new { FirstName = b.Members.Select(m => m.Name).FirstEx(), FirstOrDefaultName = b.Members.Select(m => m.Name).FirstOrDefault(), SingleName = b.Members.Select(m => m.Name).SingleEx(), SingleOrDefaultName = b.Members.Select(m => m.Name).SingleOrDefaultEx() }).ToList();
-    test("SelectSingleCellSingle", { skip: true }, async () => {
+    test("SelectSingleCellSingle", async () => {
         // TODO(api): collection-level projection + terminal (members.map(...).first()/firstOrNull()/single()/singleOrNull()) inside a projection
         const list = await table(BandEntity).map(b => ({
             firstName: b.members.map(m => m.member.entity.name).first(),
@@ -77,7 +77,7 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     });
 
     // var query = Database.Query<BandEntity>().Select(b => new { b.Members.FirstEx().Name, b.Members.FirstEx().Dead, b.Members.FirstEx().Sex }); query.ToList(); Assert.Equal(1, query.QueryText().CountRepetitions(IsPostgres ? "LATERAL" : "APPLY"));
-    test("SelectDoubleSingle", { skip: true }, async () => {
+    test("SelectDoubleSingle", async () => {
         // TODO(api): collection-level terminal (members.first()) inside a projection
         const query = table(BandEntity).map(b => ({
             name: b.members.first().member.entity.name,
@@ -92,7 +92,7 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     });
 
     // var neasted = (from b in Database.Query<BandEntity>() select b.Members.Select(a => a.Sex).FirstOrDefault()).ToList();
-    test("SelecteNestedFirstOrDefault", { skip: true }, async () => {
+    test("SelecteNestedFirstOrDefault", async () => {
         // TODO(api): collection-level projection + terminal (members.map(...).firstOrNull()) as the projected value
         const neasted = await table(BandEntity)
             .map(b => b.members.map(a => a.member.entity.sex).firstOrNull())
@@ -101,7 +101,7 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     });
 
     // var neasted = (from b in Database.Query<BandEntity>() select b.Members.Where(a => a.Name.StartsWith("a")).Select(a => (Sex?)a.Sex).FirstOrDefault()).ToList();
-    test("SelecteNestedFirstOrDefaultNullify", { skip: true }, async () => {
+    test("SelecteNestedFirstOrDefaultNullify", async () => {
         // TODO(api): collection-level filter + projection + terminal (members.filter(...).map(...).firstOrNull()) as the projected value
         // TODO(api): enum-to-nullable cast ((Sex?)a.Sex)
         const neasted = await table(BandEntity)
@@ -111,7 +111,7 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     });
 
     // var result = (from lab in Database.Query<LabelEntity>() join al in Database.Query<AlbumEntity>().DefaultIfEmpty() on lab equals al.Label into g select new { lab.Id, lab.Name, NumExecutions = (int?)g.Count(), LastExecution = (from al2 in Database.Query<AlbumEntity>() where (int?)al2.Id == g.Max(a => (int?)a.Id) select al2.ToLite()).FirstOrDefault() }).ToList();
-    test("SelectGroupLast", { skip: true }, async () => {
+    test("SelectGroupLast", async () => {
         // TODO(api): group join with DefaultIfEmpty (join ... into g), group aggregates (g.Count()/g.Max(...)), correlated subquery projection, and lab.Id access
         const result = await table(LabelEntity)
             .join(
@@ -140,7 +140,7 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     });
 
     // var firstMembers = Database.Query<BandEntity>().Where(a => a.Members.FirstEx().Name.StartsWith("a")).Select(a => a.Members.FirstEx()).ToList();
-    test("FirstInSelectAndWhere", { skip: true }, async () => {
+    test("FirstInSelectAndWhere", async () => {
         // TODO(api): collection-level terminal (members.first()) inside both a predicate and a projection
         const firstMembers = await table(BandEntity)
             .filter(a => a.members.first().member.entity.name.startsWith("a"))
@@ -150,7 +150,7 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     });
 
     // var michael = Database.Query<ArtistEntity>().FirstEx().ToLite(); Database.Query<BandEntity>().Select(a => new { a.Id, Count = a.Members.Where(m => m.Sex == michael.InDB(a => a.Sex)).Count(), Any = a.Members.Where(m => m.Sex == michael.InDB(a => a.Sex)).Any(a => a.Name.StartsWith("a")) }).ToList();
-    test("DoubleUniqueExpansionWithInDB", { skip: true }, async () => {
+    test("DoubleUniqueExpansionWithInDB", async () => {
         // TODO(api): collection-level terminal (artists.first()) producing an entity to .toLite()
         const michael = (await table(ArtistEntity).first()).toLite();
 
