@@ -1,15 +1,17 @@
 import {
     Expression, CallExpression, PropertyExpression, ParameterExpression,
-    LambdaExpression, ConstantExpression, CastExpression,
+    LambdaExpression, ConstantExpression, CastExpression, BinaryExpression,
 } from "../expressions";
 import {
     SelectExpression, ProjectionExpression, ColumnExpression, PrimaryKeyExpression,
     FieldBinding, EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
     SqlConstantExpression, TableExpression, OrderExpression, OrderType, UniqueFunction,
     AggregateExpression, AggregateSqlFunction, ColumnDeclaration, LikeExpression, InExpression,
+    SourceExpression,
 } from "../expressions.sql";
 import { AliasGenerator, Alias } from "../AliasGenerator";
 import { projectColumns } from "./ColumnProjector";
+import { QueryJoinExpander, TableRequest } from "./QueryJoinExpander";
 import type { Schema } from "../../schema/schema";
 import type { Table } from "../../schema/table";
 import type { EntityField } from "../../schema/field";
@@ -32,6 +34,15 @@ export class QueryBinder extends ExpressionVisitor {
     private readonly map = new Map<ParameterExpression, Expression>();
     private thenBys: OrderExpression[] | undefined;
 
+    // Entity completion (navigation → JOIN), ported from Signum's QueryBinder.
+    // `requests` records, per source, the implicit joins a navigation needs;
+    // `sourceStack` tracks the source a lambda body is being bound against (so a
+    // completion attaches its join to the right SELECT); `entityReplacements`
+    // dedupes the join when the same reference is navigated more than once.
+    private readonly requests = new Map<SourceExpression, TableRequest[]>();
+    private readonly sourceStack: SourceExpression[] = [];
+    private readonly entityReplacements = new Map<EntityExpression, EntityExpression>();
+
     constructor(
         private readonly schema: Schema,
         isPostgres: boolean,
@@ -44,7 +55,11 @@ export class QueryBinder extends ExpressionVisitor {
         const result = this.visit(expr);
         if (!(result instanceof ProjectionExpression))
             throw new Error("Query did not bind to a ProjectionExpression: " + result.toString());
-        return result;
+        // Splice in the implicit navigation joins recorded during binding.
+        const expanded = QueryJoinExpander.expand(result, this.requests);
+        if (!(expanded instanceof ProjectionExpression))
+            throw new Error("Join expansion did not preserve the ProjectionExpression");
+        return expanded;
     }
 
     override visitCall(call: CallExpression): Expression {
@@ -248,12 +263,18 @@ export class QueryBinder extends ExpressionVisitor {
         const param = lambda.parameters[0];
         const old = this.map.get(param);
         this.map.set(param, projection.projector);
-        const result = this.visit(lambda.body);
-        if (old == null)
-            this.map.delete(param);
-        else
-            this.map.set(param, old);
-        return result;
+        // The source the lambda binds against — any navigation completed while
+        // binding the body joins onto this select (see `completed`/`addRequest`).
+        this.sourceStack.push(projection.select);
+        try {
+            return this.visit(lambda.body);
+        } finally {
+            this.sourceStack.pop();
+            if (old == null)
+                this.map.delete(param);
+            else
+                this.map.set(param, old);
+        }
     }
 
     // ---- member access ----------------------------------------------------
@@ -264,10 +285,9 @@ export class QueryBinder extends ExpressionVisitor {
 
         if (obj instanceof EntityExpression) {
             if (name === "id")
-                return obj.externalId;
-            if (obj.bindings == null)
-                throw new Error(`Navigation through '${name}' requires entity completion (JOIN) — not in the binder skeleton yet`);
-            return this.findBinding(obj.bindings, name, obj.type);
+                return obj.externalId; // id is the FK column — no JOIN needed
+            const completed = this.completed(obj);
+            return this.findBinding(completed.bindings!, name, completed.type);
         }
         if (obj instanceof EmbeddedEntityExpression)
             return this.findBinding(obj.bindings, name, obj.type);
@@ -290,6 +310,43 @@ export class QueryBinder extends ExpressionVisitor {
 
     // ---- table source -----------------------------------------------------
 
+    // Entity completion (Signum's `Completed`): a lazy single-reference
+    // EntityExpression (bindings == null, only its FK `externalId` is known) is
+    // turned into a fully-bound entity at a fresh table alias, and a LEFT OUTER
+    // JOIN to that table is registered against the current source. The join links
+    // the owner's FK column to the referenced table's primary key. Idempotent and
+    // deduped via `entityReplacements`.
+    private completed(ee: EntityExpression): EntityExpression {
+        if (ee.bindings != null && ee.tableAlias != null)
+            return ee;
+
+        const cached = this.entityReplacements.get(ee);
+        if (cached != null)
+            return cached;
+
+        const table = ee.table;
+        const newAlias = this.aliasGenerator.nextTableAlias(table.name.name);
+        const completed = this.createEntityExpression(table, newAlias, ee.externalId);
+        this.entityReplacements.set(ee, completed);
+
+        const newId = new ColumnExpression(LiteralType.number, newAlias, table.primaryKey.column.name);
+        const condition = new BinaryExpression("==", ee.externalId.value, newId);
+        this.addRequest({ table: new TableExpression(newAlias, table), condition });
+
+        return completed;
+    }
+
+    private addRequest(request: TableRequest): void {
+        const source = this.sourceStack[this.sourceStack.length - 1];
+        if (source == null)
+            throw new Error("Entity completion requested with no current source on the stack");
+        const list = this.requests.get(source);
+        if (list != null)
+            list.push(request);
+        else
+            this.requests.set(source, [request]);
+    }
+
     private getTableProjection(ctor: new () => object): ProjectionExpression {
         const table = this.schema.table(ctor as any);
         const tableAlias = this.aliasGenerator.nextTableAlias(table.name.name);
@@ -308,9 +365,13 @@ export class QueryBinder extends ExpressionVisitor {
     // column, embedded → inlined EmbeddedEntityExpression, single reference → a
     // lazy EntityExpression (completed on navigation, step 5). ImplementedBy*,
     // collections (FieldEntityArray) are skipped for now.
-    private createEntityExpression(table: Table, alias: Alias): EntityExpression {
+    private createEntityExpression(table: Table, alias: Alias, externalIdOverride?: PrimaryKeyExpression): EntityExpression {
         const idColumn = table.primaryKey.column;
-        const externalId = new PrimaryKeyExpression(new ColumnExpression(LiteralType.number, alias, idColumn.name));
+        // Root tables read their id from their own alias; a completed reference
+        // keeps the owner's FK column as its externalId (so projecting just the
+        // id avoids the JOIN), while its fields read from the joined alias.
+        const externalId = externalIdOverride
+            ?? new PrimaryKeyExpression(new ColumnExpression(LiteralType.number, alias, idColumn.name));
 
         const bindings: FieldBinding[] = [];
         for (const ef of Object.values(table.fields)) {

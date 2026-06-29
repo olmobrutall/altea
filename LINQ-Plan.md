@@ -81,7 +81,7 @@ Implementation order (each ends green):
 2. ✅ binder skeleton (`filter`+`map`) + minimal Nominator/ColumnProjector
 3. ✅ formatter + reader for **scalars/tuples** end-to-end (first proof)
 4. ✅ full-entity materialisation via `Retriever` (closes C retrieve)
-5. 🟡 navigations + JOINs
+5. 🟡 navigations + JOINs — single-reference navigation done (any depth); collections (`FieldEntityArray`) and `ImplementedBy*` joins still deferred
 6. 🟡 order/page/distinct/unique/scalar-aggregates
 7. ❌ polymorphism + Lite + SQL functions
 8. ❌ delayed tiers
@@ -159,9 +159,21 @@ shape (see "Most important differences" + the file mapping below for what is
 ported vs. shimmed vs. missing). `skip` is deliberately deferred (needs
 row-number rewriting `SelectExpression` doesn't yet support). Array `contains`
 over a captured constant array now binds to `IN` and formats to
-`IN (@p0, @p1, …)` (`binder.test.ts`, 24 passing) — the enabling fix was making
+`IN (@p0, @p1, …)` (`binder.test.ts`) — the enabling fix was making
 `ExpressionSimplifier.visitProperty` skip folding when the property value is a
 function, so the constant array receiver survives to the binder.
+
+**Step 5 (navigation → JOIN) landed for single references.** New
+`logic/linq/visitors/QueryJoinExpander.ts` + `QueryBinder.completed`/`addRequest`
+/`sourceStack`: navigating a `FieldReference` field (e.g. `a.label.name`,
+multi-hop too) completes the lazy `EntityExpression` at a new table alias and
+emits a `SingleRowLeftOuterJoin` (`ON fkColumn = joinedTable.id`). Verified live
+on Postgres — `SelectExpansion`, `SelectLetExpansion`, `SelectWhereExpansion`,
+`SelectAnonymous` now pass (Postgres went 70→74 pass), and offline by three new
+`binder.test.ts` cases (join shape, filter-on-navigated-field, dedup). Two-hop
+`a.label.country.name` also resolves (its suite still fails only on an unrelated
+`COUNT(*)`-returns-string coercion, a step-6 item). Pending in step 5:
+collections (`FieldEntityArray`) and `ImplementedBy*`/`Lite` navigation.
 
 ## Most important differences so far
 
@@ -182,6 +194,15 @@ function, so the constant array receiver survives to the binder.
 - `QueryBinder` is still much smaller than Signum's binder and optimizer
   pipeline. `orderBy`, `thenBy`, `top`, `distinct`, `first`, `single`, and
   scalar aggregates have started moving toward the Signum shape.
+- **Entity navigation (step 5)** is ported: navigating a single-reference field
+  (`a.label.name`, any depth) completes the lazy `EntityExpression` at a fresh
+  table alias (`QueryBinder.completed`, Signum's `EntityCompleter`) and records a
+  `TableRequest`; a second pass, `QueryJoinExpander`, splices the implicit
+  `SingleRowLeftOuterJoin`s in around the right source after binding. Completion
+  is deduped (navigating `a.label` twice → one join) and `.id` short-circuits to
+  the FK column (no join). The binder tracks the lambda's source on a
+  `sourceStack` so each join attaches to the SELECT being built. Collection
+  (`FieldEntityArray`) and `ImplementedBy*` joins are still deferred.
 - `thenBy` currently uses a queued/revisit pattern to stay close to Signum's
   `QueryBinder` behavior.
 - Aggregate terminals currently use `UniqueFunction.Single` at the root, matching
@@ -237,11 +258,12 @@ function, so the constant array receiver survives to the binder.
 | `ExpressionVisitor/DbExpressionComparer.cs` | none | Not ported |
 | `ExpressionVisitor/DbQueryUtils.cs` | none | Not ported |
 | `ExpressionVisitor/DuplicateHistory.cs` | none | Not ported |
-| `ExpressionVisitor/EntityCompleter.cs` | none | Not ported |
+| `ExpressionVisitor/EntityCompleter.cs` | `altea/logic/linq/visitors/QueryBinder.ts` (`completed`) | Partial — single-reference completion inline in the binder (lazy `EntityExpression` → bound entity + join request) |
 | `ExpressionVisitor/GroupEntityCleaner.cs` | none | Not ported |
 | `ExpressionVisitor/OrderByRewriter.cs` | none | Not ported |
 | `ExpressionVisitor/QueryFilterer.cs` | none | Not ported |
 | `ExpressionVisitor/QueryRebinder.cs` | none | Not ported |
+| `ExpressionVisitor/QueryJoinExpander.cs` | `altea/logic/linq/visitors/QueryJoinExpander.ts` | Partial — `TableRequest` (single-row LEFT OUTER JOIN) only; `UniqueRequest`/`UnionAllRequest` deferred |
 | `ExpressionVisitor/RedundantSubqueryRemover.cs` | none | Not ported |
 | `ExpressionVisitor/Replacer.cs` | none | Not ported |
 | `ExpressionVisitor/ScalarSubqueryRewriter.cs` | none | Not ported |
@@ -299,16 +321,45 @@ not set; those are not counted as commented-out tests here.
 | `SystemTimeTest.cs` | 7 (0) | none | 0 (0) |
 | `VectorSearchTest.Postgres.cs` | 3 (0) | none | 0 (0) |
 | `VectorSearchTest.SqlServer.cs` | 4 (0) | none | 0 (0) |
-| none | 0 (0) | `binder.test.ts` | 24 (0) |
+| none | 0 (0) | `binder.test.ts` | 27 (0) |
 
-## Current verification
+## Verification
 
-The offline LINQ tests currently pass with:
+**Run the tests against a real database.** The bulk of the ported suites only
+*execute* when `ALTEA_TEST_DB` is set — without it they compile and then SKIP,
+so an offline run proves nothing about translation correctness. The two
+connection strings live in (gitignored) env files in `altea-test/`:
+`.env.postgres` and `.env.sqlserver`. There are dedicated scripts that load
+them:
 
 ```powershell
-pnpm --filter @altea/altea-test test
+# Postgres (loads .env.postgres → ALTEA_TEST_DB)
+corepack pnpm --filter @altea/altea-test test:postgres
+
+# SQL Server (loads .env.sqlserver → ALTEA_TEST_DB)
+corepack pnpm --filter @altea/altea-test test:sqlserver
 ```
 
-At the last run, this executed 24 active tests successfully (including array
-`contains` → `IN` in both the binder and the formatter). Many ported suites
-remain DB-gated or individually skipped while the provider catches up.
+Both dialects must pass — the formatter and connectors diverge per dialect, so a
+change is not "verified" until it is green on **both** Postgres and SQL Server.
+
+The plain script is the offline gate only — it runs `tspc -b` (the API-stability
+/ quote-transformer compile check) plus the handful of DB-free unit tests
+(`binder.test.ts` and friends); every other suite SKIPs:
+
+```powershell
+# Offline: compile + DB-free unit tests only. NOT sufficient to verify a change.
+corepack pnpm --filter @altea/altea-test test
+```
+
+At the last offline run, 27 DB-free tests passed (including array `contains` →
+`IN`, and the step-5 navigation→JOIN shape). But that is the *floor*, not the
+bar: live runs were **Postgres 74 pass / 117 fail** (up from 70/121 once
+single-reference navigation landed) and **SQL Server 71 pass / 123 fail** — the
+remaining failures are the still-unimplemented features (`Lite`, `ImplementedBy*`
+polymorphism, collections, `COUNT(*)`-returns-string coercion, the rewrite passes
+that are "Not ported" above), so the live numbers, not the offline ones, measure
+real progress. The navigation→JOIN tests (`SelectExpansion`,
+`SelectWhereExpansion`, `SelectAnonymous`, …) pass on **both** dialects. Treat a
+feature as done only when its DB-gated suite is green on both Postgres and SQL
+Server.

@@ -5,6 +5,7 @@ import "@altea/altea/entities/globals";
 import { QueryBinder } from "@altea/altea/logic/linq/queryBinder";
 import {
     ProjectionExpression, SelectExpression, TableExpression, ColumnExpression,
+    JoinExpression,
 } from "@altea/altea/logic/linq/expressions.sql";
 import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
 import { CallExpression, PropertyExpression } from "@altea/altea/logic/linq/expressions";
@@ -238,5 +239,34 @@ describe("Entity materialisation (step 4, Retriever)", () => {
         assert.ok(album.label instanceof LabelEntity, "FK column → a LabelEntity stub");
         assert.equal(album.label.id, 7);
         assert.ok(album.bonusTrack instanceof SongEmbedded, "truthy hasValue → embedded built");
+    });
+});
+
+describe("Entity navigation → JOIN (step 5)", () => {
+    test("map(a => a.label.name) expands to a LEFT OUTER JOIN", () => {
+        const proj = bind(table(AlbumEntity).map(a => a.label.name));
+        assert.ok(proj.select.from instanceof JoinExpression, "navigation joins the referenced table");
+        const join = proj.select.from as JoinExpression;
+        assert.equal(join.joinType, "SingleRowLeftOuterJoin");
+        assert.ok(join.condition != null, "the join carries an ON condition (FK = pk)");
+
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /LEFT OUTER JOIN/i);
+    });
+
+    test("filter on a navigated field joins and references the joined alias", () => {
+        const proj = bind(table(AlbumEntity).filter(a => a.label.name != "x"));
+        assert.ok(proj.select.from instanceof JoinExpression);
+        const { sql, parameters } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /LEFT OUTER JOIN/i);
+        assert.match(sql, /WHERE/i);
+        assert.deepEqual(parameters, ["x"]);
+    });
+
+    test("navigating the same reference twice produces a single join", () => {
+        // both projected fields go through a.label → one LEFT OUTER JOIN only
+        const proj = bind(table(AlbumEntity).map(a => ({ n: a.label.name, i: a.label.id })));
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.equal((sql.match(/LEFT OUTER JOIN/gi) ?? []).length, 1);
     });
 });
