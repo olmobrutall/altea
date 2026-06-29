@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String methods (startsWith etc.), SQL-mappable
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import {
     ArtistEntity, AlbumEntity, LabelEntity, CountryEntity,
 } from "../entities/music";
@@ -33,7 +33,7 @@ import {
 // Live execution is gated on ALTEA_TEST_DB; without it the suite is skipped.
 
 describe("UnsafeInsertTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().UnsafeInsert(a => new AlbumEntity { Author=a.Author, BonusTrack=a.BonusTrack, Label=a.Label, Name=a.Name+"copy", State=a.State, Year=a.Year }.SetReadonly(_ => _.Ticks, a.Ticks));
     // TODO(api): bulk insert (executeInsert) — projection-to-new-entity constructor and SetReadonly(Ticks)

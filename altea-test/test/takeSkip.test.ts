@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.contains (SQL-mappable)
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { ArtistEntity, AlbumEntity } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/TakeSkipTest.cs. C# → altea idiom:
@@ -16,7 +16,7 @@ import { ArtistEntity, AlbumEntity } from "../entities/music";
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
 describe("TakeSkipTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // var takeArtist = Database.Query<ArtistEntity>().Take(2).ToList();
     test("Take", async () => {

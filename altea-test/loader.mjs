@@ -1,9 +1,8 @@
 // Node ESM resolver hook for running the tspc-emitted test JS directly.
 //
 // altea is compiled with moduleResolution "bundler", so its emitted dist/*.js
-// use extensionless relative imports (e.g. `./sync/sqlBuilder`) — fine for the
-// vite server bundle, but Node's ESM loader requires explicit extensions. This
-// hook retries a failed extensionless specifier as `.js` then `/index.js`, so
+// use extensionless relative imports (e.g. `./sync/sqlBuilder`) — but Node's ESM loader requires explicit extensions. 
+// This hook retries a failed extensionless specifier as `.js` then `/index.js`, so
 // `node --test` can run the compiled output without a bundling step.
 export async function resolve(specifier, context, nextResolve) {
     try {

@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // Array.contains / String.startsWith (SQL-mappable)
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { ArtistEntity, AlbumEntity, BandEntity, NoteWithDateEntity, Sex, Status } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/AllAnyContainsTest.cs. C# → altea idiom:
@@ -24,7 +24,7 @@ import { ArtistEntity, AlbumEntity, BandEntity, NoteWithDateEntity, Sex, Status 
 //     an ArtistEntity_Friends with a `.friend: Lite<ArtistEntity>` value field.
 
 describe("AllAnyContainsTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // IEnumerable<PrimaryKey> ids = new PrimaryKey[] { 1, 2, 3 }.Select(a => a);
     // var artist = Database.Query<ArtistEntity>().Where(a => ids.Contains(a.Id)).ToList();

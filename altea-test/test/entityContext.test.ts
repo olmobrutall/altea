@@ -1,7 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { AlbumEntity } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/EntityContextTest.cs. C# → altea idiom:
@@ -19,7 +19,7 @@ import { AlbumEntity } from "../entities/music";
 // the un-modelled `EntityContext` symbol never has to compile.)
 
 describe("EntityContextTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().Count(a => EntityContext.EntityId(a.Label) == a.Id);
     // TODO(api): EntityContext.EntityId (row primary-key helper) in a query

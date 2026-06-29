@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / … (SQL-mappable)
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { ArtistEntity, AlbumEntity } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/JoinGroupTest.cs. C# → altea idiom:
@@ -25,7 +25,7 @@ import { ArtistEntity, AlbumEntity } from "../entities/music";
 // Database.View / temporary tables / UnsafeInsertView.
 
 describe("JoinGroupTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // from a in Query<AlbumEntity>() join b in Query<AlbumEntity>().SelectMany(a => a.Songs) on a.Name equals b.Name select new { a.Name, Label = a.Label.Name }
     test("Join", async () => {

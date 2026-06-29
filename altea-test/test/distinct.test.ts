@@ -1,7 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { AlbumEntity, ArtistEntity, BandEntity, Sex } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/DistinctTest.cs. C# → altea idiom:
@@ -15,7 +15,7 @@ import { AlbumEntity, ArtistEntity, BandEntity, Sex } from "../entities/music";
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
 describe("DistinctTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().Select(a => a.Label.Name).Distinct().ToList();
     test("DistinctString", async () => {

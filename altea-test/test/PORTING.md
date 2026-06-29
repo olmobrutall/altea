@@ -56,12 +56,13 @@ import assert from "node:assert/strict";
 import { Connector } from "@altea/altea/logic/connection/connector";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // only if string methods used
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { /* entities + enums used */ } from "../entities/music";
 
 describe("<TestClassName>", { skip: !hasDb }, () => {
-    // startAndLoad() sets Connector.default, so terminals run directly — no wrapper.
-    before(async () => { await startAndLoad(); });
+    // start() connects + sets Connector.default (no data load — the sample graph
+    // is generated once by `gen:*`); terminals run directly, no wrapper.
+    before(async () => { await start(); });
 
     // C# original as a comment above each test
     test("<MethodName>", async () => {

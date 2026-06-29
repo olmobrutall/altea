@@ -1,7 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { BandEntity } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/AsyncTest.cs. C# → altea idiom:
@@ -21,7 +21,7 @@ import { BandEntity } from "../entities/music";
 // skipped but still compiles.
 
 describe("AsyncTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // var artistsInBands = await Database.Query<BandEntity>().ToListAsync();
     test("ToListAsync", async () => {

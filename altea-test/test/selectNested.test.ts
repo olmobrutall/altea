@@ -1,7 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import {
     LabelEntity, AlbumEntity, BandEntity, ArtistEntity, NoteWithDateEntity, Sex,
 } from "../entities/music";
@@ -19,7 +19,7 @@ import {
 // live execution is gated on ALTEA_TEST_DB.
 
 describe("SelectNestedTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // from l in Query<LabelEntity>() select (from a in Query<AlbumEntity>() where a.Label.Is(l) select a.ToLite()).ToList()
     // TODO(api): nested query projection — no way to project an inner Query into the outer .map

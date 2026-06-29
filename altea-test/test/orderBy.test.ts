@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.startsWith / contains / … (SQL-mappable)
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { ArtistEntity, AlbumEntity, Sex } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/OrderByTest.cs. C# → altea idiom:
@@ -20,7 +20,7 @@ import { ArtistEntity, AlbumEntity, Sex } from "../entities/music";
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
 describe("OrderByTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().Select(a => a.Name).OrderBy(n => n).ToList();
     test("OrderByString", async () => {

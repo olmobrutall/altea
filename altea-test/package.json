@@ -15,13 +15,10 @@
   },
   "scripts": {
     "build:types": "tspc -b",
-    "build:server": "vite build --config vite.server.config.ts",
-    "build": "tspc -b && vite build --config vite.server.config.ts",
-    "start:postgres": "node --enable-source-maps --env-file=.env.postgres dist/server-bundle/main.js",
-    "start:sqlserver": "node --enable-source-maps --env-file=.env.sqlserver dist/server-bundle/main.js",
-    "test": "tspc -b && node --enable-source-maps --import ./register.mjs --test --test-concurrency=1 \"dist/test/**/*.test.js\"",
-    "test:postgres": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.postgres --test --test-concurrency=1 \"dist/test/**/*.test.js\"",
-    "test:sqlserver": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.sqlserver --test --test-concurrency=1 \"dist/test/**/*.test.js\""
+    "gen:postgres": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.postgres dist/test/generateEnvironment.js",
+    "gen:sqlserver": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.sqlserver dist/test/generateEnvironment.js",
+    "test:postgres": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.postgres --test \"dist/test/**/*.test.js\"",
+    "test:sqlserver": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.sqlserver --test \"dist/test/**/*.test.js\""
   },
   "keywords": [],
   "author": "Olmo del Corral",
@@ -31,8 +28,5 @@
     "mssql": "^12.6.0",
     "pg": "^8.22.0",
     "quote-transformer": "workspace:*"
-  },
-  "devDependencies": {
-    "vite": "^7.0.0"
   }
 }

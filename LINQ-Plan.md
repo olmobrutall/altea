@@ -343,6 +343,26 @@ corepack pnpm --filter @altea/altea-test test:sqlserver
 Both dialects must pass — the formatter and connectors diverge per dialect, so a
 change is not "verified" until it is green on **both** Postgres and SQL Server.
 
+**Generate the data once, then run.** `node --test` runs each test file in its
+own process, so the schema-gen + sample-load must NOT happen per file. It is
+split out of the suites' `before` (which now only `start()` — connect + build the
+in-memory schema) into `generateEnvironment()`. Load the database once, then run
+the suites against it as many times as you like:
+
+```powershell
+corepack pnpm --filter @altea/altea-test gen:sqlserver   # once: clean + DDL + load
+corepack pnpm --filter @altea/altea-test test:sqlserver  # fast: each file only connects, files run in parallel
+```
+
+(`gen:postgres` / `test:postgres` for the other dialect; the `gen:*` one-shot is
+`test/generateEnvironment.ts`.) Skipping `gen:*` against an empty/stale DB makes
+the suites fail on missing data — run a `gen:*` first when the data is stale.
+NOTE: the suites now share one loaded database and run **in parallel** (no
+`--test-concurrency=1`), which is fine while the mutating `unsafe*` suites are
+skipped; when those are enabled they will need per-test isolation (transaction
+rollback or a re-gen, and likely serialised execution) so they don't contaminate
+the shared data.
+
 The plain script is the offline gate only — it runs `tspc -b` (the API-stability
 / quote-transformer compile check) plus the handful of DB-free unit tests
 (`binder.test.ts` and friends); every other suite SKIPs:

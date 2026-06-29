@@ -1,7 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import {
     ArtistEntity, AlbumEntity, BandEntity,
 } from "../entities/music";
@@ -29,7 +29,7 @@ import {
 // Live execution is gated on ALTEA_TEST_DB; without it the suite is skipped.
 
 describe("UnsafeDeleteTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // int count = Database.Query<AlbumEntity>().UnsafeDelete();
     // TODO(api): bulk delete (executeDelete)

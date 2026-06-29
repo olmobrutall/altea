@@ -1,7 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import {
     ArtistEntity, AlbumEntity, BandEntity, NoteWithDateEntity,
     GrammyAwardEntity,
@@ -23,7 +23,7 @@ import {
 // flagged with a `// TODO(api): …` comment.
 
 describe("GetTypeAndNewTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // from f in Database.Query<ArtistEntity>() where f.GetType() == typeof(ArtistEntity) select new { f.Name }
     // TODO(api): GetType in query

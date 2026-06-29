@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.contains / Lite.contains / … (SQL-mappable)
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { ArtistEntity, BandEntity, Sex } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/InDBTest.cs. C# → altea idiom:
@@ -21,7 +21,7 @@ import { ArtistEntity, BandEntity, Sex } from "../entities/music";
 // (AutoExpressionField IsMale, Lite-subquery Contains) and carry extra TODO flags.
 
 describe("InDbTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // private static ArtistEntity GetFemale() => Database.Query<ArtistEntity>().Where(a => a.Sex == Sex.Female).Single();
     const getFemale = () => table(ArtistEntity).filter(a => a.sex == Sex.Female).single();

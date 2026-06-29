@@ -1,7 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import {
     CountryEntity, GrammyAwardEntity, LabelEntity,
     NoteWithDateEntity, ArtistEntity, AlbumEntity,
@@ -24,7 +24,7 @@ import {
 // graph-completeness assertion is flagged.
 
 describe("RetrieverTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // var list = Database.Query<CountryEntity>().ToList(); AssertRetrieved(list);
     // TODO(api): GraphExplorer.FromRoots deep retrieval-completeness assertion (AssertRetrieved)

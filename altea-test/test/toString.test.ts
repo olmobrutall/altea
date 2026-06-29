@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / … (SQL-mappable)
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { ArtistEntity, AlbumEntity, BandEntity, Sex } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/ToStringTest.cs. C# → altea idiom:
@@ -22,7 +22,7 @@ import { ArtistEntity, AlbumEntity, BandEntity, Sex } from "../entities/music";
 // `// TODO(api): collection toString aggregate` comment.
 
 describe("ToStringTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // Assert.Equal(Query<ArtistEntity>().Select(a => a.Name).ToString(" | "), Query<ArtistEntity>().ToString(a => a.Name, " | "));
     // TODO(api): collection toString aggregate

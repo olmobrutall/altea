@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.startsWith / contains / … (SQL-mappable)
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import {
     ArtistEntity, AlbumEntity, BandEntity, LabelEntity,
     NoteWithDateEntity, AwardNominationEntity, GrammyAwardEntity,
@@ -30,7 +30,7 @@ import {
 // tests still compile.
 
 describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().Select(a => a.GetType()).ToList();
     // TODO(api): GetType in query (a.constructor)

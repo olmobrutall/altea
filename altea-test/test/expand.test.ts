@@ -1,7 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { CountryEntity } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/ExpandTest.cs. C# → altea idiom:
@@ -19,7 +19,7 @@ import { CountryEntity } from "../entities/music";
 // commented so those symbols never have to compile.)
 
 describe("ExpandTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // Database.Query<CountryEntity>().Select(a => a.ToLite()).ExpandLite(a => a, ExpandLite.ModelNull).ToList();
     // TODO(api): ExpandLite (Lite model eager/lazy/null load hint) on a query

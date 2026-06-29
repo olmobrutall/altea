@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import { Temporal } from "@altea/altea/entities/basics";
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { NoteWithDateEntity } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/NewDateTimeTest.cs. C# → altea idiom:
@@ -20,7 +20,7 @@ import { NoteWithDateEntity } from "../entities/music";
 // `// TODO(api): …` comment.
 
 describe("NewDateTimeTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // Database.Query<NoteWithDateEntity>().OrderBy(n => new DateTime(2020, 1, 1)).Select(n => n.Id).ToList();
     // TODO(api): new DateTime(...) literal (PlainDateTime construction) in a query orderBy

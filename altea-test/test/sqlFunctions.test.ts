@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / endsWith / … (SQL-mappable)
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import {
     ArtistEntity, AlbumEntity, BandEntity, LabelEntity,
     NoteWithDateEntity, Sex, Status,
@@ -27,7 +27,7 @@ import {
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
 describe("SqlFunctionsTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // StringFunctions: IndexOf/Contains/StartsWith/EndsWith/Like + Length/ToLower/ToUpper/Trim*/Substring + Start/End/Reverse/Replicate.InSql
     // TODO(api): Like (SQL LIKE pattern), InSql() hint, and Start/End/Reverse/Replicate SQL string functions

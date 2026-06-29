@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.contains / startsWith and the Array aggregate operators on entity collections
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import {
     ArtistEntity, AlbumEntity, BandEntity,
     ConfigEntity, AwardNominationEntity,
@@ -28,7 +28,7 @@ import {
 // marked `{ skip: true }`, and flagged with a `// TODO(api): …` comment.
 
 describe("GroupByTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // Database.Query<ArtistEntity>().GroupBy(a => a.Sex, a => a.Name).ToList();
     test("GroupStringByEnum", async () => {

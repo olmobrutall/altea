@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / … (SQL-mappable)
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import {
     ArtistEntity, AlbumEntity, BandEntity, LabelEntity,
     NoteWithDateEntity, GrammyAwardEntity, AwardEntity, AmericanMusicAwardEntity,
@@ -27,7 +27,7 @@ import {
 // flagged with a `// TODO(api): …` comment.
 
 describe("SelectTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().Select(a => a.Name).ToList();
     test("Select", async () => {

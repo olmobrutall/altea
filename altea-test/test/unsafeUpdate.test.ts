@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String methods (toUpperCase etc.), SQL-mappable
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import {
     ArtistEntity, AlbumEntity, BandEntity, LabelEntity,
     NoteWithDateEntity, SongEmbedded,
@@ -33,7 +33,7 @@ import {
 // Live execution is gated on ALTEA_TEST_DB; without it the suite is skipped.
 
 describe("UnsafeUpdateTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().UnsafeUpdate().Set(a => a.Year, a => a.Year * 2).Execute();
     // TODO(api): bulk update (executeUpdate)

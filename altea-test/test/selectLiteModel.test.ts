@@ -1,7 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { AwardNominationEntity } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/SelectLiteModel.cs. C# → altea idiom:
@@ -18,7 +18,7 @@ import { AwardNominationEntity } from "../entities/music";
 // with the assertion block commented out and flagged with `// TODO(api): …`.
 
 describe("SelectLiteModel", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // var awards = Database.Query<AwardNominationEntity>().Where(a => a.Award != null).Select(a => a.Award).ToList();
     // foreach (var a in awards) { a.Model is AwardLiteModel / string … }

@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / … (SQL-mappable)
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { ArtistEntity, AlbumEntity, Sex } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/WhereTest.cs (Tier-1 subset — the patterns
@@ -17,7 +17,7 @@ import { ArtistEntity, AlbumEntity, Sex } from "../entities/music";
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
 describe("WhereTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().Where(a => a.Year < 1995).ToList();
     test("Where", async () => {

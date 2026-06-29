@@ -1,7 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { ArtistEntity, AlbumEntity, BandEntity, BandEntity_Members, Sex } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/SelectManyTest.cs. C# → altea idiom:
@@ -22,7 +22,7 @@ import { ArtistEntity, AlbumEntity, BandEntity, BandEntity_Members, Sex } from "
 //     AlbumEntity_Songs with the embedded fields flattened in (e.g. `.name`).
 
 describe("SelectManyTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // Database.Query<BandEntity>().SelectMany(b => b.Members).Select(a => new { Artist = a.ToLite() }).ToList();
     test("SelectMany", async () => {

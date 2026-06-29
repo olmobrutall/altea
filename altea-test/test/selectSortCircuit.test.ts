@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // collection .some on a part-entity collection
-import { hasDb, startAndLoad } from "./setup";
+import { hasDb, start } from "./setup";
 import { AlbumEntity, BandEntity } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/SelectSortCirtuitTest.cs. C# → altea idiom:
@@ -21,7 +21,7 @@ import { AlbumEntity, BandEntity } from "../entities/music";
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
 describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
-    before(async () => { await startAndLoad(); });
+    before(async () => { await start(); });
 
     // Query<AlbumEntity>().Where(a => ("Hola" ?? Throw<string>()) == null).Select(a => a.Year).ToList();
     // TODO(api): short-circuit ?? with a throwing helper (Throw<T>()) — not SQL-mappable
