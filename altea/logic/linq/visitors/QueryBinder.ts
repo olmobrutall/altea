@@ -7,7 +7,7 @@ import {
     FieldBinding, EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
     SqlConstantExpression, TableExpression, OrderExpression, OrderType, UniqueFunction,
     AggregateExpression, AggregateSqlFunction, ColumnDeclaration, LikeExpression, InExpression,
-    SourceExpression, SqlFunctionExpression, SelectOptions,
+    SourceExpression, SqlFunctionExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression,
 } from "../expressions.sql";
 import { AliasGenerator, Alias } from "../AliasGenerator";
 import { projectColumns } from "./ColumnProjector";
@@ -16,7 +16,7 @@ import type { Schema } from "../../schema/schema";
 import type { Table } from "../../schema/table";
 import type { EntityField } from "../../schema/field";
 import {
-    FieldPrimaryKey, FieldValue, FieldReference, FieldEnum, FieldEmbedded,
+    FieldPrimaryKey, FieldValue, FieldReference, FieldEnum, FieldEmbedded, FieldEntityArray,
 } from "../../schema/field";
 import type { FieldInfo } from "../../../entities/reflection";
 import { resolveType } from "../../../entities/registration";
@@ -80,7 +80,11 @@ export class QueryBinder extends ExpressionVisitor {
             if (op === "thenByDescending")
                 return this.bindThenBy(property.object, call.args[0] as LambdaExpression, "Descending");
 
-            const source = this.visit(property.object);
+            let source = this.visit(property.object);
+            // A navigated collection (a.friends) realises into a correlated
+            // sub-projection so the standard operators below apply to it directly.
+            if (source instanceof FieldEntityArrayExpression)
+                source = this.fieldEntityArrayProjection(source);
             if (!(source instanceof ProjectionExpression))
                 return this.bindMethodCall(op, source, call.args);
 
@@ -89,6 +93,8 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.bindWhere(source, call.args[0] as LambdaExpression);
                 case "map":
                     return this.bindSelect(source, call.args[0] as LambdaExpression);
+                case "flatMap":
+                    return this.bindSelectMany(source, call.args[0] as LambdaExpression);
                 case "orderBy":
                     return this.bindOrderBy(source, call.args[0] as LambdaExpression, "Ascending");
                 case "orderByDescending":
@@ -312,6 +318,13 @@ export class QueryBinder extends ExpressionVisitor {
         if (obj instanceof EntityExpression) {
             if (name === "id")
                 return obj.externalId; // id is the FK column — no JOIN needed
+            // Collection navigation (FieldEntityArray) → a lazy
+            // FieldEntityArrayExpression, realised to a correlated sub-projection
+            // only when consumed. Kept off the entity's bindings so it never
+            // reaches the column projector.
+            const ef = Object.values(obj.table.fields).find(f => f.fieldInfo.name === name);
+            if (ef != null && ef.field instanceof FieldEntityArray)
+                return this.makeFieldEntityArray(obj, ef.field);
             const completed = this.completed(obj);
             return this.findBinding(completed.bindings!, name, completed.type);
         }
@@ -379,7 +392,10 @@ export class QueryBinder extends ExpressionVisitor {
     }
 
     private getTableProjection(ctor: new () => object): ProjectionExpression {
-        const table = this.schema.table(ctor as any);
+        return this.getTableProjectionForTable(this.schema.table(ctor as any), new ClassType(ctor));
+    }
+
+    private getTableProjectionForTable(table: Table, elementType: Type): ProjectionExpression {
         const tableAlias = this.aliasGenerator.nextTableAlias(table.name.name);
         const entity = this.createEntityExpression(table, tableAlias);
 
@@ -389,7 +405,61 @@ export class QueryBinder extends ExpressionVisitor {
 
         return new ProjectionExpression(
             new SelectExpression(selectAlias, false, undefined, pc.columns, tableExpr, undefined, [], []),
-            pc.projector, undefined, new ArrayType(new ClassType(ctor)));
+            pc.projector, undefined, new ArrayType(elementType));
+    }
+
+    // ---- collections (FieldEntityArray) -----------------------------------
+
+    // A navigated collection → a transient FieldEntityArrayExpression carrying the
+    // child table, the child's back-reference property, and the parent id (the
+    // correlation key). Realised lazily by fieldEntityArrayProjection.
+    private makeFieldEntityArray(owner: EntityExpression, field: FieldEntityArray): FieldEntityArrayExpression {
+        const childTable = this.schema.table(field.childType as any);
+        return new FieldEntityArrayExpression(new ClassType(field.childType as any), childTable, field.childFkProperty, owner.externalId.value);
+    }
+
+    // Realises a collection navigation into a correlated sub-projection:
+    //   SELECT child.* FROM <childTable> WHERE child.<fk> = <ownerId>
+    // The WHERE references the owner alias (the correlation); it becomes valid when
+    // this select is spliced in as the right side of a CROSS APPLY (bindSelectMany)
+    // or wrapped as a scalar/EXISTS subquery.
+    private fieldEntityArrayProjection(fea: FieldEntityArrayExpression): ProjectionExpression {
+        const childProj = this.getTableProjectionForTable(fea.childTable, fea.type);
+        const childEntity = childProj.projector as EntityExpression;
+        const fkBinding = childEntity.bindings?.find(b => b.fieldInfo.name === fea.fkProperty)?.binding;
+        if (!(fkBinding instanceof EntityExpression))
+            throw new Error(`Collection FK '${fea.fkProperty}' did not bind to a reference on ${fea.childTable.name.name}`);
+
+        const where = new BinaryExpression("==", fkBinding.externalId.value, fea.ownerId);
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const pc = projectColumns(childProj.projector, alias);
+        return new ProjectionExpression(
+            new SelectExpression(alias, false, undefined, pc.columns, childProj.select, where, [], []),
+            pc.projector, undefined, new ArrayType(fea.type));
+    }
+
+    private asProjection(e: Expression): ProjectionExpression {
+        if (e instanceof ProjectionExpression)
+            return e;
+        if (e instanceof FieldEntityArrayExpression)
+            return this.fieldEntityArrayProjection(e);
+        throw new Error("Expected a collection/projection but got: " + e.toString());
+    }
+
+    // SelectMany (flatMap): bind the collection selector against the source, then
+    // CROSS APPLY the (correlated) collection sub-projection onto the source.
+    // Signum's BindSelectMany (single-selector form; result-selector / index /
+    // DefaultIfEmpty overloads are not surfaced by altea's flatMap yet).
+    private bindSelectMany(projection: ProjectionExpression, selector: LambdaExpression): ProjectionExpression {
+        const coll = this.mapVisitExpand(selector, projection);
+        const collProj = this.asProjection(coll);
+
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const pc = projectColumns(collProj.projector, alias);
+        const join = new JoinExpression("CrossApply", projection.select, collProj.select, undefined);
+        return new ProjectionExpression(
+            new SelectExpression(alias, false, undefined, pc.columns, join, undefined, [], []),
+            pc.projector, undefined, collProj.type);
     }
 
     // Builds the EntityExpression for a table: id → externalId, value/enum → a

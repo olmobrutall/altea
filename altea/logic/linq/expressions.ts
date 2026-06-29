@@ -3,8 +3,36 @@ import { isOptionalChain } from "typescript";
 import { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
 import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, ObjectType, Type } from "../../entities/types";
 import { resolveType } from "../../entities/registration";
+import { tryGetTypeInfo, type FieldInfo } from "../../entities/reflection";
 import { getLambdaTypeResolvers, getResultTypeResolver, LambdaTypeResolver, OrderedQuery, Query, ResultTypeResolver, StaticFunction } from "../query";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
+
+// Resolves the static type of `owner.propertyName` from the entity metadata, so
+// PropertyExpression carries a real type (collection field → ArrayType, reference
+// → ClassType, value → LiteralType). This feeds both the flatMap array-guard and
+// the method-call dispatch in fromQuoted (which keys off ArrayType/ClassType).
+// Unknown owners/fields (temporal types, enums, unreflected types) stay null.
+function resolveMemberType(ownerType: Type, propertyName: string): Type {
+    if (!(ownerType instanceof ClassType))
+        return LiteralType.null;
+    const fi = tryGetTypeInfo(ownerType.constructorFunction)?.fields[propertyName];
+    if (fi == null)
+        return LiteralType.null;
+    const base = baseTypeOfFieldInfo(fi);
+    return fi.array ? new ArrayType(base) : base;
+}
+
+function baseTypeOfFieldInfo(fi: FieldInfo): Type {
+    if (fi.isEnum)
+        return LiteralType.null; // enums are not modelled as a Type yet
+    switch (fi.typeName) {
+        case "Number": return LiteralType.number;
+        case "String": return LiteralType.string;
+        case "Boolean": return LiteralType.boolean;
+    }
+    const ctor = resolveType(fi.typeName);
+    return ctor != null ? new ClassType(ctor) : LiteralType.null;
+}
 
 export abstract class Expression {
     constructor(
@@ -377,9 +405,9 @@ export class PropertyExpression extends Expression {
 
     private static calculateType(object: Expression, propertyName: string): Type {
         if (object instanceof ObjectExpression)
-            return object.properties[propertyName].type;
+            return object.properties[propertyName]?.type ?? LiteralType.null;
 
-        return LiteralType.null; /* ?? */
+        return resolveMemberType(object.type, propertyName);
     }
 
     toString(): string {

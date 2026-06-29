@@ -128,6 +128,18 @@ export function ctorOf(target: object): Function {
     return typeof target === 'function' ? target : (target as { constructor: Function }).constructor;
 }
 
+// Read-only lookup: returns the TypeInfo a class already has (via @reflect /
+// field decorators), or undefined. Unlike getOrCreateTypeInfo it never creates or
+// attaches one, so callers that merely *inspect* metadata (e.g. resolving a
+// member's type) don't accidentally materialise TypeInfo on arbitrary ctors.
+// Reads an *own* property so a subclass never returns its base's TypeInfo.
+export function tryGetTypeInfo(target: object): TypeInfo | undefined {
+    const ctor = ctorOf(target) as any;
+    return Object.prototype.hasOwnProperty.call(ctor, typeInfoKey)
+        ? ctor[typeInfoKey] as TypeInfo
+        : undefined;
+}
+
 export function getOrCreateTypeInfo(target: object): TypeInfo {
     const ctor = ctorOf(target) as any;
     // Class constructors inherit *static* properties through their own prototype

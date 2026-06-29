@@ -81,7 +81,7 @@ Implementation order (each ends green):
 2. ✅ binder skeleton (`filter`+`map`) + minimal Nominator/ColumnProjector
 3. ✅ formatter + reader for **scalars/tuples** end-to-end (first proof)
 4. ✅ full-entity materialisation via `Retriever` (closes C retrieve)
-5. 🟡 navigations + JOINs — single-reference navigation done (any depth); collections (`FieldEntityArray`) and `ImplementedBy*` joins still deferred
+5. 🟡 navigations + JOINs — single-reference navigation done (any depth); collection SelectMany (`flatMap` → CROSS APPLY) done; projecting a raw collection (ChildProjectionFlattener) and `ImplementedBy*` joins still deferred
 6. 🟡 order/page/distinct/unique/scalar-aggregates
 7. ❌ polymorphism + Lite + SQL functions
 8. ❌ delayed tiers
@@ -236,6 +236,38 @@ Signum: no three-valued (nullable-bool) `Nullify()` handling (altea has no
 distinct nullable-bool Type), and `?:` stays a `ConditionalExpression` (altea
 doesn't lower it to `CaseExpression`), so `visitConditional` does the
 condition/value split directly.
+
+**Step 5 (collections — FieldEntityArray → SelectMany).** Collection navigation
+and `flatMap` landed, verified live: **Postgres 316→327, SQL Server 323→334**
+(+11 each; offline gate still 27/27).
+
+- **`PropertyExpression` now resolves field types** from the entity `TypeInfo`
+  metadata (was a stub returning `LiteralType.null` for every field access). A
+  collection field → `ArrayType`, a reference → `ClassType`, a value →
+  `LiteralType`. This was the real root of the "colSelector should return an
+  Array" cluster (the `flatMap` array-guard saw `null`) **and** the "Unexpected
+  object type when calling filter/some/…" cluster (method dispatch in `fromQuoted`
+  keys off `ArrayType`/`ClassType`). Unknown owners/fields (temporal, enums,
+  unreflected) stay null.
+- **Collection navigation** (`a.friends`): a lazy `FieldEntityArrayExpression`
+  (the altea analogue of Signum's MListExpression — "MList" is not an altea
+  concept) built on demand in `bindMemberAccess` — kept *off* the entity's
+  bindings so it never reaches the column projector. `FieldEntityArray` is a child
+  table with a back-reference FK, not a separate link table.
+- **`fieldEntityArrayProjection`** realises it into a correlated sub-projection
+  `SELECT child.* FROM <childTable> WHERE child.<fk> = <ownerId>`; consumed
+  immediately so the operators (`filter`/`map`/`orderBy`) apply to it directly.
+- **`bindSelectMany`** (`flatMap`) `CROSS APPLY`s the collection sub-projection
+  onto the source (Signum's BindSelectMany, single-selector form). Greens
+  `SelectMany`, `SelectManyLazy`, etc. The remaining selectMany failures need
+  `Lite` (`toLite`/`.entity`/`.is`) or `defaultIfEmpty` — now the dominant
+  cluster, and the natural next step (`toLite` ~44 mentions). Fixed the `flatMap`
+  surface guard (`instanceof Array` → `instanceof ArrayType`).
+
+Deferred within collections: projecting a raw collection (`map(a => a.friends)` —
+needs ChildProjectionFlattener), the `flatMap` result-selector / index /
+`defaultIfEmpty` overloads, and collection aggregates in predicates
+(`a.friends.some(...)`/`.count()` as scalar/EXISTS subqueries).
 
 ## Most important differences so far
 
@@ -436,12 +468,13 @@ corepack pnpm --filter @altea/altea-test test
 
 At the last offline run, 27 DB-free tests passed (including array `contains` →
 `IN`, and the step-5 navigation→JOIN shape). But that is the *floor*, not the
-bar: live runs are now at **Postgres 316 / SQL Server 323 pass** (up from PG 306 /
-SS 306) — the order+TOP optimiser tier brought both to 316, then ConditionsRewriter
-took SQL Server to 323 (the boolean cluster). The remaining failures are
-still-unimplemented features (`Lite`, `ImplementedBy*` polymorphism, collections,
-`groupBy`, and a few Postgres-side aggregate-coercion cases), so the live numbers,
-not the offline ones,
+bar: live runs are now at **Postgres 327 / SQL Server 334 pass** (up from PG 306 /
+SS 306) — the order+TOP tier brought both to 316, ConditionsRewriter took SQL
+Server to 323, then collections/SelectMany added +11 on each (PG 327 / SS 334).
+The remaining failures are still-unimplemented features (`Lite`/`toLite` — now the
+dominant cluster, `ImplementedBy*` polymorphism, `groupBy`, `skip`, `join`, and a
+few Postgres-side aggregate-coercion cases), so the live numbers, not the offline
+ones,
 measure real progress. The order+TOP family (`OrderByFirst`, `OrderByLast`,
 `OrderByTop`, `OrderByTakeOrderBy`, …) and the navigation→JOIN tests pass on
 **both** dialects. Treat a feature as done only when its DB-gated suite is green

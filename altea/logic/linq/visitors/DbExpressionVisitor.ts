@@ -7,7 +7,7 @@ import {
     CaseExpression, When, LikeExpression,
     ScalarExpression, ExistsExpression, InExpression,
     IsNullExpression, IsNotNullExpression,
-    ProjectionExpression, ChildProjectionExpression,
+    ProjectionExpression, ChildProjectionExpression, FieldEntityArrayExpression,
     PrimaryKeyExpression, FieldBinding,
     EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
 } from "../expressions.sql";
@@ -146,6 +146,13 @@ export class DbExpressionVisitor extends ExpressionVisitor {
         if (select !== proj.select || projector !== proj.projector)
             return new ProjectionExpression(select, projector, proj.uniqueFunction, proj.type);
         return proj;
+    }
+
+    visitFieldEntityArray(fea: FieldEntityArrayExpression): Expression {
+        const ownerId = this.visit(fea.ownerId);
+        if (ownerId !== fea.ownerId)
+            return new FieldEntityArrayExpression(fea.type, fea.childTable, fea.fkProperty, ownerId);
+        return fea;
     }
 
     visitChildProjection(child: ChildProjectionExpression): Expression {

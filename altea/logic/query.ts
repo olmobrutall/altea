@@ -147,7 +147,7 @@ export class Query<T> implements IQuery<T> {
     flatMap<R>(colSelector: Quoted<(element: T) => R[] | Query<R>>): Query<R> {
         var lambda = Expression.fromQuotedLambda(colSelector, [this.elementType]);
 
-        if (!(lambda.body.type instanceof Array))
+        if (!(lambda.body.type instanceof ArrayType))
             throw new Error("colSelector should return an Array but returned " + (lambda.body.type?.toString() ?? "null"));
         var call = new CallExpression(
             new PropertyExpression(this.expression, "flatMap"),

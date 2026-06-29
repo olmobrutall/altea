@@ -459,6 +459,32 @@ export class ChildProjectionExpression extends DbExpression {
     }
 }
 
+// A collection navigation over a FieldEntityArray (the altea analogue of Signum's
+// MList; "MList" is not an altea concept). Produced transiently by the binder when
+// `owner.someCollection` is navigated, and realised on demand
+// (QueryBinder.fieldEntityArrayProjection) into a correlated ProjectionExpression
+// over the child table (WHERE child.<fk> = owner id), so it never survives into the
+// column projector / SQL. `ownerId` is the parent's id expression (the correlation
+// key); `fkProperty` names the child's back-reference.
+export class FieldEntityArrayExpression extends DbExpression {
+    constructor(
+        type: Type,
+        public readonly childTable: Table,
+        public readonly fkProperty: string,
+        public readonly ownerId: Expression,
+    ) {
+        super("FieldEntityArray", type);
+    }
+
+    toString(): string {
+        return `FieldEntityArray(${this.childTable.name.name}.${this.fkProperty} = ${this.ownerId})`;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitFieldEntityArray(this);
+    }
+}
+
 // ---- Entity-semantic nodes (rewritten away before SQL) -------------------
 
 // A field name paired with the expression it binds to in an entity constructor.
