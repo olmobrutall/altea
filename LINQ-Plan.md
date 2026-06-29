@@ -175,6 +175,52 @@ on Postgres — `SelectExpansion`, `SelectLetExpansion`, `SelectWhereExpansion`,
 `COUNT(*)`-returns-string coercion, a step-6 item). Pending in step 5:
 collections (`FieldEntityArray`) and `ImplementedBy*`/`Lite` navigation.
 
+**Step 6 (last/lastOrNull + value-column typing + string.length).** Three
+changes, verified live on Postgres (**316 pass / 222 fail**, up from 306/232):
+
+- `last` / `lastOrNull` (with and without predicate) bind via Signum's
+  OverloadingSimplifier rewrite — `reverseOrders()` inverts every ORDER BY
+  direction and then reuses `bindUnique` with `First`/`FirstOrDefault`, giving the
+  exact SQL shape `first()` produces over the inverted order. Closes `OrderByLast`,
+  `OrderByLastPredicate`, `OrderByLastOrDefault`, `OrderByLastOrDefaultPredicate`
+  on Postgres.
+- **Latent typing bug fixed**: `QueryBinder.valueType` switched on lowercase
+  `"string"`/`"number"`/`"boolean"`, but the `@field` metadata emits *capitalized*
+  JS type names (`"String"`/`"Number"`/`"Boolean"`). Every value column was
+  therefore typed `LiteralType.null`. It surfaced only now because nothing
+  consumed a value column's `Type` until the `.length` check; the projection
+  codegen reads `.type` only for entity/embedded ctors, so the fix is safe.
+- `string.length` → `SqlFunctionExpression` (`length` on Postgres, `LEN` on SQL
+  Server), in `bindMemberAccess`, mirroring Signum's `string.Length`.
+
+**Step 6 (OrderByRewriter + QueryRebinder + RedundantSubqueryRemover).** The
+order+TOP optimiser tier, ported faithfully and wired into `MyQueryTranslator.bind`
+after binding (Signum's `DbQueryProvider.Optimize` slice:
+binder → OrderByRewriter → QueryRebinder → RedundantSubqueryRemover). This fixes
+the SQL Server *"ORDER BY invalid in derived tables unless TOP/OFFSET"* error:
+both dialects now go **306→316 pass** and sit at **exact parity (316 / 222)** with
+identical failing sets (the remaining per-dialect splits are aggregate-coercion
+and boolean-condition tests — the unported ConditionsRewriter tier — not order).
+
+- **`reverse` now uses the `SelectOptions.Reverse` flag** (Signum's `BindReverse`),
+  *not* an eager order-direction inversion in the binder. `last`/`lastOrNull`
+  rewrite to Reverse → (optional Where) → First/FirstOrDefault; OrderByRewriter
+  inverts the gathered orderings when it sees the flag, then clears it.
+- **OrderByRewriter** gathers each select's ORDER BY bottom-up, strips it from
+  inner selects, and re-emits it only at the outermost select or a select with
+  TOP — so order and TOP coexist on one level (valid on SQL Server).
+- **QueryRebinder** rebinds the floated column references through each select's
+  exposed columns (value-keyed column scopes — JS `Map` is reference-keyed, so a
+  `ColScope` keyed by `alias|name` is required). Without it the floated
+  `ORDER BY s0.col` dangles ("missing FROM-clause entry for s0").
+- **RedundantSubqueryRemover** (RedundantSubqueryGatherer + SubqueryRemover +
+  SubqueryMerger + JoinSimplifier) collapses/merges the now-trivial pass-through
+  selects, landing the final single-level SQL.
+
+Scoped to altea's current node set — Skip/SetOperator/RowNumber, the
+OrderAlsoByKeys/HasIndex key machinery, and ConditionsRewriter are still deferred
+with their tiers.
+
 ## Most important differences so far
 
 - TypeScript uses `quote-transformer` expressions instead of
@@ -260,15 +306,15 @@ collections (`FieldEntityArray`) and `ImplementedBy*`/`Lite` navigation.
 | `ExpressionVisitor/DuplicateHistory.cs` | none | Not ported |
 | `ExpressionVisitor/EntityCompleter.cs` | `altea/logic/linq/visitors/QueryBinder.ts` (`completed`) | Partial — single-reference completion inline in the binder (lazy `EntityExpression` → bound entity + join request) |
 | `ExpressionVisitor/GroupEntityCleaner.cs` | none | Not ported |
-| `ExpressionVisitor/OrderByRewriter.cs` | none | Not ported |
+| `ExpressionVisitor/OrderByRewriter.cs` | `altea/logic/linq/visitors/OrderByRewriter.ts` | Ported (scoped) — Reverse flag + float-ORDER-BY-to-outermost/TOP; key machinery dormant |
 | `ExpressionVisitor/QueryFilterer.cs` | none | Not ported |
-| `ExpressionVisitor/QueryRebinder.cs` | none | Not ported |
+| `ExpressionVisitor/QueryRebinder.cs` | `altea/logic/linq/visitors/QueryRebinder.ts` | Ported (scoped) — value-keyed column scopes; no SetOperator/RowNumber/command nodes |
 | `ExpressionVisitor/QueryJoinExpander.cs` | `altea/logic/linq/visitors/QueryJoinExpander.ts` | Partial — `TableRequest` (single-row LEFT OUTER JOIN) only; `UniqueRequest`/`UnionAllRequest` deferred |
-| `ExpressionVisitor/RedundantSubqueryRemover.cs` | none | Not ported |
+| `ExpressionVisitor/RedundantSubqueryRemover.cs` | `altea/logic/linq/visitors/RedundantSubqueryRemover.ts` | Ported (scoped) — Gatherer + SubqueryRemover + SubqueryMerger + JoinSimplifier; no Skip/SetOperator |
 | `ExpressionVisitor/Replacer.cs` | none | Not ported |
 | `ExpressionVisitor/ScalarSubqueryRewriter.cs` | none | Not ported |
 | `ExpressionVisitor/SmartEqualizer.cs` | none | Not ported |
-| `ExpressionVisitor/SubqueryRemover.cs` | none | Not ported |
+| `ExpressionVisitor/SubqueryRemover.cs` | `altea/logic/linq/visitors/RedundantSubqueryRemover.ts` (inner `SubqueryRemover`) | Ported |
 | `ExpressionVisitor/TableFinder.cs` | none | Not ported |
 | `ExpressionVisitor/UnusedColumnRemover.cs` | none | Not ported |
 | `ExpressionVisitor/UpdateDeleteSimplifier.cs` | none | Not ported |
@@ -374,12 +420,13 @@ corepack pnpm --filter @altea/altea-test test
 
 At the last offline run, 27 DB-free tests passed (including array `contains` →
 `IN`, and the step-5 navigation→JOIN shape). But that is the *floor*, not the
-bar: live runs were **Postgres 74 pass / 117 fail** (up from 70/121 once
-single-reference navigation landed) and **SQL Server 71 pass / 123 fail** — the
-remaining failures are the still-unimplemented features (`Lite`, `ImplementedBy*`
-polymorphism, collections, `COUNT(*)`-returns-string coercion, the rewrite passes
-that are "Not ported" above), so the live numbers, not the offline ones, measure
-real progress. The navigation→JOIN tests (`SelectExpansion`,
-`SelectWhereExpansion`, `SelectAnonymous`, …) pass on **both** dialects. Treat a
-feature as done only when its DB-gated suite is green on both Postgres and SQL
-Server.
+bar: live runs are now at **Postgres 316 / SQL Server 316 pass (222 fail each)** —
+the two dialects sit at **exact parity** after the order+TOP optimiser tier
+landed (up from PG 306 / SS 306). The remaining failures are still-unimplemented
+features (`Lite`, `ImplementedBy*` polymorphism, collections, `groupBy`, and the
+dialect-specific aggregate-coercion / boolean-condition cases that need the
+unported ConditionsRewriter tier), so the live numbers, not the offline ones,
+measure real progress. The order+TOP family (`OrderByFirst`, `OrderByLast`,
+`OrderByTop`, `OrderByTakeOrderBy`, …) and the navigation→JOIN tests pass on
+**both** dialects. Treat a feature as done only when its DB-gated suite is green
+on both Postgres and SQL Server.

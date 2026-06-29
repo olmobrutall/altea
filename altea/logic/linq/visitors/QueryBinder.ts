@@ -7,7 +7,7 @@ import {
     FieldBinding, EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
     SqlConstantExpression, TableExpression, OrderExpression, OrderType, UniqueFunction,
     AggregateExpression, AggregateSqlFunction, ColumnDeclaration, LikeExpression, InExpression,
-    SourceExpression,
+    SourceExpression, SqlFunctionExpression, SelectOptions,
 } from "../expressions.sql";
 import { AliasGenerator, Alias } from "../AliasGenerator";
 import { projectColumns } from "./ColumnProjector";
@@ -45,7 +45,7 @@ export class QueryBinder extends ExpressionVisitor {
 
     constructor(
         private readonly schema: Schema,
-        isPostgres: boolean,
+        private readonly isPostgres: boolean,
     ) {
         super();
         this.aliasGenerator = new AliasGenerator(isPostgres);
@@ -101,6 +101,12 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.bindUnique(source, "First", call.args[0] as LambdaExpression | undefined);
                 case "firstOrNull":
                     return this.bindUnique(source, "FirstOrDefault", call.args[0] as LambdaExpression | undefined);
+                case "reverse":
+                    return this.bindReverse(source);
+                case "last":
+                    return this.bindLast(source, "First", call.args[0] as LambdaExpression | undefined);
+                case "lastOrNull":
+                    return this.bindLast(source, "FirstOrDefault", call.args[0] as LambdaExpression | undefined);
                 case "single":
                     return this.bindUnique(source, "Single", call.args[0] as LambdaExpression | undefined);
                 case "singleOrNull":
@@ -237,6 +243,26 @@ export class QueryBinder extends ExpressionVisitor {
             pc.projector, uniqueFunction, projection.type);
     }
 
+    // reverse() — Signum's BindReverse: wraps the source in a SELECT marked
+    // SelectOptions.Reverse. The flag is resolved later by OrderByRewriter, which
+    // inverts the gathered ORDER BY directions; this keeps the binder free of the
+    // order-direction bookkeeping (no eager inversion here).
+    private bindReverse(projection: ProjectionExpression): ProjectionExpression {
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const pc = projectColumns(projection.projector, alias);
+        return new ProjectionExpression(
+            new SelectExpression(alias, false, undefined, pc.columns, projection.select, undefined, [], [], SelectOptions.Reverse),
+            pc.projector, undefined, projection.type);
+    }
+
+    // Last/LastOrDefault. Signum's OverloadingSimplifier rewrites them to
+    // Reverse → (optional Where) → First/FirstOrDefault. The Reverse flag (not an
+    // eager order inversion) is what OrderByRewriter consumes.
+    private bindLast(source: ProjectionExpression, uniqueFunction: UniqueFunction, predicate: LambdaExpression | undefined): ProjectionExpression {
+        const reversed = this.bindReverse(source);
+        return this.bindUnique(reversed, uniqueFunction, predicate);
+    }
+
     private bindAggregate(projection: ProjectionExpression, aggregateFunction: AggregateSqlFunction, selector: LambdaExpression | undefined): ProjectionExpression {
         if (aggregateFunction === "Count" && selector != null) {
             projection = this.bindWhere(projection, selector);
@@ -293,6 +319,11 @@ export class QueryBinder extends ExpressionVisitor {
             return this.findBinding(obj.bindings, name, obj.type);
         if (obj instanceof MixinEntityExpression)
             return this.findBinding(obj.bindings, name, obj.type);
+
+        // string.length → SQL string-length function (Signum's string.Length).
+        // LEN on SQL Server, length() on Postgres.
+        if (name === "length" && obj.type === LiteralType.string)
+            return new SqlFunctionExpression(LiteralType.number, undefined, this.isPostgres ? "length" : "LEN", [obj]);
 
         // Property on a plain constant (captured value) — keep as a source node.
         if (obj instanceof ConstantExpression)
@@ -440,11 +471,15 @@ export class QueryBinder extends ExpressionVisitor {
         return undefined;
     }
 
+    // Maps a value field's declared type name to a SQL literal type. The entity
+    // metadata uses capitalized JS type names ("String"/"Number"/"Boolean", as
+    // emitted by the @field transformer). Temporal/enum/etc. stay null-typed until
+    // those Types are modelled.
     private valueType(fi: FieldInfo): Type {
         switch (fi.typeName) {
-            case "string": return LiteralType.string;
-            case "number": return LiteralType.number;
-            case "boolean": return LiteralType.boolean;
+            case "String": return LiteralType.string;
+            case "Number": return LiteralType.number;
+            case "Boolean": return LiteralType.boolean;
             default: return LiteralType.null; // temporal/enum/etc. — refined later
         }
     }

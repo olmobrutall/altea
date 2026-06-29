@@ -6,6 +6,9 @@ import { ArrayType, FunctionType, ClassType, Type } from "../entities/types";
 import { expressionSimplifier } from "./linq/visitors/ExpressionSimplifier";
 import { Connector } from "./connection/connector";
 import { QueryBinder } from "./linq/visitors/QueryBinder";
+import { OrderByRewriter } from "./linq/visitors/OrderByRewriter";
+import { QueryRebinder } from "./linq/visitors/QueryRebinder";
+import { RedundantSubqueryRemover } from "./linq/visitors/RedundantSubqueryRemover";
 import { ProjectionExpression } from "./linq/expressions.sql";
 import { buildTranslateResult } from "./linq/translatorBuilder";
 import { QueryFormatter } from "./linq/queryFormatter";
@@ -48,13 +51,24 @@ class MyQueryTranslator implements IQueryTranslator {
 
     static instance: IQueryTranslator = new MyQueryTranslator();
 
-    // Pipeline so far: simplify (partial eval) → QueryBinder (source AST →
-    // DbExpression tree). Next steps add optimisers → QueryFormatter → reader.
+    // Pipeline: simplify (partial eval) → QueryBinder (source AST → DbExpression
+    // tree, incl. navigation JOIN expansion) → OrderByRewriter (float ORDER BY up
+    // to the outermost/TOP select, resolve Reverse) → QueryRebinder (rebind the
+    // floated column refs through each select's exposed columns) →
+    // RedundantSubqueryRemover (collapse/merge the pass-through selects). Mirrors
+    // the relevant slice of Signum's DbQueryProvider.Optimize. (UnusedColumnRemover
+    // / ConditionsRewriter still pending.)
     bind(expression: Expression): ProjectionExpression {
         const simplified = expressionSimplifier()(expression);
         const connector = Connector.current();
         const binder = new QueryBinder(connector.schema, connector.isPostgres);
-        return binder.bindQuery(simplified);
+        let projection: Expression = binder.bindQuery(simplified);
+        projection = OrderByRewriter.rewrite(projection);
+        projection = QueryRebinder.rebind(projection);
+        projection = RedundantSubqueryRemover.remove(projection, connector.isPostgres);
+        if (!(projection instanceof ProjectionExpression))
+            throw new Error("Optimiser pipeline did not preserve the ProjectionExpression");
+        return projection;
     }
 
     execute(expression: Expression): Promise<unknown> {
