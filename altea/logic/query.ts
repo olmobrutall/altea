@@ -2,7 +2,7 @@
 import { ExLambda, Quoted } from "quote-transformer/quoted";
 import { IQuery, IOrderedQuery } from "../entities/iquery";
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, PropertyExpression } from "./linq/expressions";
-import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType } from "../entities/types";
+import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType, PromiseType } from "../entities/types";
 
 export type LambdaTypeResolver = (thisType: Type, ...argsTypes: Type[]) => Type[];
 export type ResultTypeResolver = (thisType: Type, ...argsTypes: Type[]) => Type;
@@ -112,6 +112,7 @@ export class Query<T> implements IQuery<T> {
     ) {
     }
 
+    @resultType(ot => new PromiseType(ot))
     toArray(): Promise<T[]> {
         return this.translator.execute(this.expression) as Promise<T[]>;
     }
@@ -179,7 +180,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => SimpleType.number)
+    @resultType(ot => new PromiseType(SimpleType.number))
     count<R>(predicate?: Quoted<(element: T) => boolean>): Promise<number> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -193,7 +194,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => SimpleType.boolean)
+    @resultType(ot => new PromiseType(SimpleType.boolean))
     some<R>(predicate?: Quoted<(element: T) => boolean>): Promise<boolean> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -207,7 +208,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => SimpleType.boolean)
+    @resultType(ot => new PromiseType(SimpleType.boolean))
     every<R>(predicate?: Quoted<(element: T) => boolean>): Promise<boolean> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -223,7 +224,7 @@ export class Query<T> implements IQuery<T> {
     min(): Promise<T & (number | string | boolean | null | undefined)>;
     min<V extends (number | string | boolean | null | undefined)>(valueSelector: Quoted<(element: T) => V>): Promise<V>;
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType((ot, selType) => selType ? (selType as FunctionType).returnType : (ot as ArrayType).elementType)
+    @resultType((ot, selType) => new PromiseType(selType ? (selType as FunctionType).returnType : (ot as ArrayType).elementType))
     min(valueSelector?: Quoted<(element: T) => unknown>): Promise<unknown> {
         var lambda = valueSelector == null ? null : Expression.fromQuotedLambda(valueSelector, [this.elementType]);
 
@@ -238,7 +239,7 @@ export class Query<T> implements IQuery<T> {
     max(): Promise<T & (number | string | boolean | null | undefined)>;
     max<V extends (number | string | boolean | null | undefined)>(valueSelector: Quoted<(element: T) => V>): Promise<V>;
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType((ot, selType) => selType ? (selType as FunctionType).returnType : (ot as ArrayType).elementType)
+    @resultType((ot, selType) => new PromiseType(selType ? (selType as FunctionType).returnType : (ot as ArrayType).elementType))
     max(valueSelector?: Quoted<(element: T) => unknown>): Promise<unknown> {
         var lambda = valueSelector == null ? null : Expression.fromQuotedLambda(valueSelector, [this.elementType]);
 
@@ -253,7 +254,7 @@ export class Query<T> implements IQuery<T> {
     sum(): Promise<T & (number | null | undefined)>;
     sum<V extends (number | null | undefined)>(valueSelector: Quoted<(element: T) => V>): Promise<V>;
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType((ot, at) => SimpleType.number)
+    @resultType((ot, at) => new PromiseType(SimpleType.number))
     sum(valueSelector?: Quoted<(element: T) => unknown>): Promise<unknown> {
         var lambda = valueSelector == null ? null : Expression.fromQuotedLambda(valueSelector, [this.elementType]);
 
@@ -268,7 +269,7 @@ export class Query<T> implements IQuery<T> {
     avg(): Promise<T & (number | null | undefined)>;
     avg<V extends (number | null | undefined)>(valueSelector: Quoted<(element: T) => V>): Promise<V>;
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType((ot, at) => SimpleType.number)
+    @resultType((ot, at) => new PromiseType(SimpleType.number))
     avg(valueSelector?: Quoted<(element: T) => unknown>): Promise<unknown> {
         var lambda = valueSelector == null ? null : Expression.fromQuotedLambda(valueSelector, [this.elementType]);
 
@@ -299,7 +300,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => (ot as ArrayType).elementType)
+    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
     first<R>(predicate?: Quoted<(element: T) => boolean>): Promise<T> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -313,7 +314,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => (ot as ArrayType).elementType)
+    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
     firstOrNull<R>(predicate?: Quoted<(element: T) => boolean>): Promise<T | null> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -327,7 +328,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => (ot as ArrayType).elementType)
+    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
     last<R>(predicate?: Quoted<(element: T) => boolean>): Promise<T> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -341,7 +342,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => (ot as ArrayType).elementType)
+    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
     lastOrNull<R>(predicate?: Quoted<(element: T) => boolean>): Promise<T | null> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -355,7 +356,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => (ot as ArrayType).elementType)
+    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
     single<R>(predicate?: Quoted<(element: T) => boolean>): Promise<T> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -369,7 +370,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => (ot as ArrayType).elementType)
+    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
     singleOrNull<R>(predicate?: Quoted<(element: T) => boolean>): Promise<T | null> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);

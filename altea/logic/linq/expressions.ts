@@ -1,7 +1,7 @@
 
 import { isOptionalChain } from "typescript";
 import { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
-import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, Type } from "../../entities/types";
+import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, PromiseType, ObjectType, Type } from "../../entities/types";
 import { resolveType } from "../../entities/registration";
 import { tryGetTypeInfo, type FieldInfo } from "../../entities/reflection";
 import { Lite } from "../../entities/lite";
@@ -18,6 +18,11 @@ function resolveMemberType(ownerType: Type, propertyName: string): Type {
     // entity (so `lite.entity.field` types correctly); other members stay null.
     if (ownerType instanceof LiteType)
         return propertyName === "entity" || propertyName === "entityOrNull" ? ownerType.entityType : LiteralType.null;
+
+    // `promise.$v` unwraps a Promise<T> to T (the query-compiler marker — SQL has
+    // no async); the binder turns the awaited sub-query into a scalar subquery.
+    if (ownerType instanceof PromiseType)
+        return propertyName === "$v" ? ownerType.inner : LiteralType.null;
 
     if (!(ownerType instanceof ClassType))
         return LiteralType.null;
@@ -203,7 +208,13 @@ export abstract class Expression {
                                         "Unexpected"
                             );
 
-                        const resultType = getResultType(obj?.type ?? LiteralType.null, ...argsExp.map(a => a.type));
+                        const rawResultType = getResultType(obj?.type ?? LiteralType.null, ...argsExp.map(a => a.type));
+                        // Query terminals are async at the top level (PromiseType), but a
+                        // query expression has no async: when their resolver is borrowed for
+                        // an Array<T> / sub-query, unwrap the Promise to its inner value.
+                        const resultType = obj?.type instanceof ArrayType && rawResultType instanceof PromiseType
+                            ? rawResultType.inner
+                            : rawResultType;
                         return new CallExpression(fun, argsExp, resultType);
                     }
                 case "=>":

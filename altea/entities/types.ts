@@ -18,6 +18,17 @@ export class FunctionType extends Type {
     }
 }
 
+// A Promise<T>. Query terminals (toArray/first/count/…) are async at the top
+// level, so their result type is a PromiseType. Inside a query expression there is
+// no async: dispatching a Query terminal onto an Array/sub-query strips the
+// PromiseType (see fromQuoted), and `promise.$v` unwraps it to its inner value (a
+// scalar subquery). `inner` is T.
+export class PromiseType extends Type {
+    constructor(public readonly inner: Type) {
+        super()
+    }
+}
+
 export class LiteralType extends Type {
 
     static readonly boolean: LiteralType = new LiteralType("boolean");
