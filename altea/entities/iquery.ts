@@ -41,7 +41,7 @@ export interface IQuery<T> {
     single(predicate?: Quoted<(element: T) => boolean>): Promise<T>;
     singleOrNull(predicate?: Quoted<(element: T) => boolean>): Promise<T | null>;
 
-    nullIfEmpty(): IQuery<T | null>;
+    optional(): IQuery<T | null>;
     distinct(): IQuery<T>;
 
     groupBy<K>(keySelector: Quoted<(element: T) => K>): IQuery<{ key: K; elements: T[] }>;
@@ -52,6 +52,13 @@ export interface IQuery<T> {
         keySelector: Quoted<(element: T) => K>,
         otherKeySelector: Quoted<(otherElement: O) => K>,
         resultSelector: Quoted<(element: T, otherElement: O) => R>,
+    ): IQuery<R>;
+
+    groupJoin<K, O, R>(
+        otherSource: IQuery<O>,
+        keySelector: Quoted<(element: T) => K>,
+        otherKeySelector: Quoted<(otherElement: O) => K>,
+        resultSelector: Quoted<(element: T, group: O[]) => R>,
     ): IQuery<R>;
 }
 

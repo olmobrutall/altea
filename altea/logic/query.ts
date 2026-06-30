@@ -394,9 +394,9 @@ export class Query<T> implements IQuery<T> {
     }
 
     @resultType(ot => ot)
-    nullIfEmpty(): Query<T | null> {
+    optional(): Query<T | null> {
         var call = new CallExpression(
-            new PropertyExpression(this.expression, "nullIfEmpty"),
+            new PropertyExpression(this.expression, "optional"),
             [],
             this.type);
         return new Query<T>(call, this.translator);
@@ -454,10 +454,36 @@ export class Query<T> implements IQuery<T> {
         var lambdaOtherKey = Expression.fromQuotedLambda(otherKeySelector, [otherSource.elementType]);
         var lambdaResult = Expression.fromQuotedLambda(resultSelector, [this.elementType, otherSource.elementType]);
 
+        // The other source must travel with the call (the binder reads it as args[0]);
+        // the result is a sequence of the result-selector's body type.
         var call = new CallExpression(
             new PropertyExpression(this.expression, "join"),
-            [lambdaKey, lambdaOtherKey, lambdaResult],
-            this.expression.type!);
+            [otherSource.expression, lambdaKey, lambdaOtherKey, lambdaResult],
+            new ArrayType(lambdaResult.body.type!));
+
+        return new Query<R>(call, this.translator);
+    }
+
+    // GroupJoin: like join, but the result selector's second parameter is the group
+    // of matching `other` elements (an array), so `g.count()` / `g.toArray()` work.
+    @lambdaTypeForParam(1, ot => [(ot as ArrayType).elementType])
+    @lambdaTypeForParam(2, (_ot, other) => [(other as ArrayType).elementType])
+    @lambdaTypeForParam(3, (ot, other) => [(ot as ArrayType).elementType, other])
+    @resultType((_ot, _other, _key, _otherKey, result) => new ArrayType((result as FunctionType).returnType))
+    groupJoin<K, O, R>(
+        otherSource: Query<O>,
+        keySelector: Quoted<(element: T) => K>,
+        otherKeySelector: Quoted<(otherElement: O) => K>,
+        resultSelector: Quoted<(element: T, group: O[]) => R>
+    ): Query<R> {
+        var lambdaKey = Expression.fromQuotedLambda(keySelector, [this.elementType]);
+        var lambdaOtherKey = Expression.fromQuotedLambda(otherKeySelector, [otherSource.elementType]);
+        var lambdaResult = Expression.fromQuotedLambda(resultSelector, [this.elementType, otherSource.type]);
+
+        var call = new CallExpression(
+            new PropertyExpression(this.expression, "groupJoin"),
+            [otherSource.expression, lambdaKey, lambdaOtherKey, lambdaResult],
+            new ArrayType(lambdaResult.body.type!));
 
         return new Query<R>(call, this.translator);
     }

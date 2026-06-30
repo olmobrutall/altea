@@ -8,7 +8,7 @@ import {
     FieldBinding, EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
     SqlConstantExpression, TableExpression, OrderExpression, OrderType, UniqueFunction,
     AggregateExpression, AggregateRequestsExpression, AggregateSqlFunction, ColumnDeclaration, LikeExpression, InExpression,
-    SourceExpression, SqlFunctionExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression,
+    SourceExpression, SqlFunctionExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression, JoinType,
     LiteReferenceExpression, LiteReferenceTarget, ScalarExpression, ExistsExpression,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
     CaseExpression, When, IsNotNullExpression,
@@ -152,6 +152,12 @@ export class QueryBinder extends ExpressionVisitor {
                 return this.bindThenBy(property.object, call.args[0] as LambdaExpression, "Ascending");
             if (op === "thenByDescending")
                 return this.bindThenBy(property.object, call.args[0] as LambdaExpression, "Descending");
+            // join needs the raw sources (so it can detect a `.optional()` wrapper
+            // on either side → outer join) and binds two result-selector params.
+            if (op === "join")
+                return this.bindJoin(property.object, call.args[0], call.args[1] as LambdaExpression, call.args[2] as LambdaExpression, call.args[3] as LambdaExpression);
+            if (op === "groupJoin")
+                return this.bindGroupJoin(property.object, call.args[0], call.args[1] as LambdaExpression, call.args[2] as LambdaExpression, call.args[3] as LambdaExpression);
 
             let source = this.visit(property.object);
             // A navigated collection (a.friends) realises into a correlated
@@ -862,6 +868,113 @@ export class QueryBinder extends ExpressionVisitor {
         return new ProjectionExpression(
             new SelectExpression(alias, false, undefined, pc.columns, join, undefined, [], []),
             pc.projector, undefined, collProj.type);
+    }
+
+    // Join — port of Signum's BindJoin. A `.optional()` wrapper on either source
+    // turns the inner join into an outer one (Signum's DefaultIfEmpty):
+    //   outer.optional() → RIGHT, inner.optional() → LEFT, both → FULL.
+    // The result selector takes two parameters (outer, inner) and binds against the
+    // join, so navigations in it splice onto the join via QueryJoinExpander.
+    private bindJoin(outerSourceRaw: Expression, innerSourceRaw: Expression, outerKey: LambdaExpression, innerKey: LambdaExpression, resultSelector: LambdaExpression): ProjectionExpression {
+        const outerEx = this.extractOptional(outerSourceRaw);
+        const innerEx = this.extractOptional(innerSourceRaw);
+
+        const outerProj = this.visit(outerEx.source) as ProjectionExpression;
+        const innerProj = this.visit(innerEx.source) as ProjectionExpression;
+
+        const outerKeyExpr = this.mapVisitExpand(outerKey, outerProj);
+        const innerKeyExpr = this.mapVisitExpand(innerKey, innerProj);
+        const condition = SmartEqualizer.polymorphicEqual(outerKeyExpr, innerKeyExpr);
+
+        const joinType: JoinType =
+            outerEx.optional && innerEx.optional ? "FullOuterJoin" :
+            outerEx.optional ? "RightOuterJoin" :
+            innerEx.optional ? "LeftOuterJoin" :
+            "InnerJoin";
+
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const join = new JoinExpression(joinType, outerProj.select, innerProj.select, condition);
+
+        // Bind the result selector with both params mapped and the join as the
+        // current source (Signum's SetCurrentSource(join)).
+        const p0 = resultSelector.parameters[0];
+        const p1 = resultSelector.parameters[1];
+        const old0 = this.map.get(p0);
+        const old1 = this.map.get(p1);
+        this.map.set(p0, outerProj.projector);
+        this.map.set(p1, innerProj.projector);
+        this.sourceStack.push(join);
+        let resultExpr: Expression;
+        try {
+            resultExpr = this.visit(resultSelector.body);
+        } finally {
+            this.sourceStack.pop();
+            if (old0 === undefined) this.map.delete(p0); else this.map.set(p0, old0);
+            if (old1 === undefined) this.map.delete(p1); else this.map.set(p1, old1);
+        }
+
+        const pc = projectColumns(resultExpr, alias);
+        return new ProjectionExpression(
+            new SelectExpression(alias, false, undefined, pc.columns, join, undefined, [], []),
+            pc.projector, undefined, new ArrayType(resultExpr.type));
+    }
+
+    // GroupJoin — Signum lowers `groupJoin(inner, ok, ik, (o, g) => r)` to
+    // `join(outer, inner.groupBy(ik), ok, gr => gr.key, (o, gr) => r)` where the
+    // result's `g` is the grouping's matching elements. We build the same shape by
+    // reusing bindGroupBy (→ a `{ key, elements }` grouping) and joining the outer
+    // to it on `outerKey == group.key`; the result selector's group param binds to
+    // the grouping's `elements` (so `g.count()` / `g.toArray()` work as usual).
+    // `inner.optional()` makes the join LEFT OUTER (the outer row survives with an
+    // empty group), matching C#'s `inner.DefaultIfEmpty()` inside a group join.
+    private bindGroupJoin(outerSourceRaw: Expression, innerSourceRaw: Expression, outerKey: LambdaExpression, innerKey: LambdaExpression, resultSelector: LambdaExpression): ProjectionExpression {
+        const innerEx = this.extractOptional(innerSourceRaw);
+        const outerProj = this.visit(outerSourceRaw) as ProjectionExpression;
+        const innerProj = this.visit(innerEx.source) as ProjectionExpression;
+
+        const grouped = this.bindGroupBy(innerProj, innerEx.source, innerKey, undefined);
+        const groupingProjector = grouped.projector as ObjectExpression;
+        const groupKey = groupingProjector.properties["key"];
+        const groupElements = groupingProjector.properties["elements"];
+
+        const outerKeyExpr = this.mapVisitExpand(outerKey, outerProj);
+        const condition = SmartEqualizer.polymorphicEqual(outerKeyExpr, groupKey);
+
+        const joinType: JoinType = innerEx.optional ? "LeftOuterJoin" : "InnerJoin";
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const join = new JoinExpression(joinType, outerProj.select, grouped.select, condition);
+
+        const p0 = resultSelector.parameters[0];
+        const p1 = resultSelector.parameters[1];
+        const old0 = this.map.get(p0);
+        const old1 = this.map.get(p1);
+        this.map.set(p0, outerProj.projector);
+        this.map.set(p1, groupElements);
+        this.sourceStack.push(join);
+        let resultExpr: Expression;
+        try {
+            resultExpr = this.visit(resultSelector.body);
+        } finally {
+            this.sourceStack.pop();
+            if (old0 === undefined) this.map.delete(p0); else this.map.set(p0, old0);
+            if (old1 === undefined) this.map.delete(p1); else this.map.set(p1, old1);
+        }
+
+        const pc = projectColumns(resultExpr, alias);
+        return new ProjectionExpression(
+            new SelectExpression(alias, false, undefined, pc.columns, join, undefined, [], []),
+            pc.projector, undefined, new ArrayType(resultExpr.type));
+    }
+
+    // Unwraps a `<source>.optional()` marker (Signum's DefaultIfEmpty): returns the
+    // inner source and whether the marker was present (→ that side joins as outer).
+    private extractOptional(source: Expression): { source: Expression; optional: boolean } {
+        if (source instanceof CallExpression) {
+            const f = source.func;
+            if ((f instanceof PropertyExpression || f.kind === ".") && (f as PropertyExpression).propertyName === "optional")
+                return { source: (f as PropertyExpression).object, optional: true };
+        }
+        return { source, optional: false };
     }
 
     // GroupBy — faithful port of Signum's BindGroupBy. Produces a GROUP BY select

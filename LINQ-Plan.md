@@ -439,9 +439,9 @@ Scoped / deferred (flagged, not regressions): the distinct-fast disassembly
 fallback is correct), the "key contains an aggregate" intermediate-select branch,
 and SQL Server's *aggregate-over-subquery* restriction (`min(b => b.members.max(…))`
 — needs the skipped ScalarSubqueryRewriter). Out of scope (no altea API):
-`minBy`/`maxBy`, `substring`, `join`, empty-key `groupBy(a => ({}))`, StdDev.
-Pre-existing/orthogonal: the Postgres `COUNT`→bigint-string coercion and empty-set
-max/min/sum semantics (`Root*`).
+`minBy`/`maxBy`, `substring`, empty-key `groupBy(a => ({}))`, StdDev. Pre-existing/
+orthogonal: the Postgres `COUNT`→bigint-string coercion and empty-set max/min/sum
+semantics (`Root*`).
 
 **Tier 3 follow-up (Any/All/Contains + single-result-subquery member).** Extended the
 same tier: **groupBy.test.ts PG 71/82, SQL Server 68/82**; full suite PG 439→460,
@@ -489,6 +489,36 @@ PG 468→475, SS 467→474 (still zero regressions). groupBy now **PG 75/82, SS 
   OID 20 (the type of `COUNT(*)`, `SUM(int)`, Ticks) to a JS number — node-postgres
   returns it as a string otherwise. int4 ids and numeric/decimal (OID 1700) are
   untouched. Fixes the `Root*` count cases (and count assertions across suites).
+
+**Tier 3 follow-up 4 (Join + outer joins via `.optional()`).** `join.test.ts` 14/14 on
+both dialects (was 4 inner-join failures + outer stubs); full suite PG 475→483,
+SS 474→480, zero regressions; offline gate 34→38 (four join shape cases). Pieces:
+
+- **`bindJoin`** (`QueryBinder.ts`, port of Signum's `BindJoin`) — `a.join(b, ak, bk,
+  res)` → an `InnerJoin` whose ON is `SmartEqualizer.polymorphicEqual(ak, bk)` (so
+  entity/lite keys compare by id), with the two-parameter result selector bound against
+  the join (navigations in it splice on via QueryJoinExpander). **Fixed a latent bug**:
+  `Query.join` (`query.ts`) was dropping the other source from the call args (and used
+  the wrong result type) — it now passes `otherSource.expression` as args[0].
+- **Outer joins via `.optional()`** (altea's `DefaultIfEmpty` — marks the *nullable*
+  side, so the join type is named for the *other*, preserved side): `extractOptional`
+  unwraps the marker on either source — outer-source marked → `RightOuterJoin`,
+  inner-source marked → `LeftOuterJoin`, both → `FullOuterJoin` (Signum's mapping).
+- **Postgres string concat** (`queryFormatter.ts`): `+` on string operands emits `||`
+  on Postgres (SQL Server keeps `+`) — needed by `JoinerExpansions` and other
+  string-building projections.
+
+**Tier 3 follow-up 5 (GroupJoin).** `groupJoin(inner, ok, ik, (o, g) => r)` — Signum
+lowers it to `join(outer, inner.groupBy(ik), ok, gr => gr.key, (o, gr) => r)`, so
+`bindGroupJoin` reuses `bindGroupBy` (→ a `{ key, elements }` grouping) and joins the
+outer to it on `outerKey == group.key`, binding the result selector's group parameter
+to the grouping's `elements` (so `g.length` / `g.toArray()` / aggregates work via the
+existing group machinery). `inner.optional()` makes it a LEFT OUTER join (the outer
+row survives with an empty group). Added `groupJoin` to `Query`/`IQuery`; `JoinGroup`
+and `LeftOuterJoinGroup` pass on both dialects. The remaining `LeftOuterMyView` stub
+needs `Database.View` / temporary tables (a separate unported feature), not groupJoin.
+
+The join family (inner / left / right / full outer / group join) is now complete.
 
 Still failing in groupBy (all genuinely out of scope): `DistinctGroupByForce`
 (`substring`), `GroupMaxBy`/`GroupMinBy` (`minBy`/`maxBy`), `JoinGroupPair` (`join`),

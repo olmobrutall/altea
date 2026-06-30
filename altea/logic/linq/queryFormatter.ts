@@ -11,6 +11,7 @@ import {
     IsNullExpression, IsNotNullExpression, PrimaryKeyExpression,
 } from "./expressions.sql";
 import { Alias } from "./AliasGenerator";
+import { LiteralType } from "../../entities/types";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 
 // Port of Signum's QueryFormatter. Like the C# formatter, this is a visitor
@@ -288,6 +289,13 @@ export class QueryFormatter extends DbExpressionVisitor {
     private formatBinary(e: BinaryExpression): void {
         if (e.kind === "??") {
             this.append(`COALESCE(${this.capture(() => this.visit(e.left))}, ${this.capture(() => this.visit(e.right))})`);
+            return;
+        }
+
+        // Postgres concatenates strings with `||`, not `+` (SQL Server uses `+` for
+        // both). When either operand is string-typed, emit `||` on Postgres.
+        if (e.kind === "+" && this.isPostgres && (e.left.type === LiteralType.string || e.right.type === LiteralType.string)) {
+            this.append(`(${this.capture(() => this.visit(e.left))} || ${this.capture(() => this.visit(e.right))})`);
             return;
         }
 

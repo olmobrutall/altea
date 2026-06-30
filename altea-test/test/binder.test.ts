@@ -345,3 +345,31 @@ describe("GroupBy shape (tier 3)", () => {
         assert.equal(parameters.filter(p => p === 2000).length, 1, "the 2000 literal is parameterised once");
     });
 });
+
+// Join shape (offline) — inner join, and the outer-join types a `.optional()`
+// marker on either source selects (Signum's DefaultIfEmpty mapping).
+describe("Join shape (tier 3)", () => {
+    test("join → INNER JOIN", () => {
+        const proj = bind(table(AlbumEntity).join(table(AlbumEntity), a => a.year, b => b.year, (a, b) => ({ x: a.name, y: b.name })));
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /INNER JOIN/i);
+    });
+
+    test("optional on the inner source → LEFT OUTER JOIN", () => {
+        const proj = bind(table(AlbumEntity).join(table(AlbumEntity).optional(), a => a.year, b => b!.year, (a, b) => ({ x: a.name })));
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /LEFT OUTER JOIN/i);
+    });
+
+    test("optional on the outer source → RIGHT OUTER JOIN", () => {
+        const proj = bind(table(AlbumEntity).optional().join(table(AlbumEntity), a => a!.year, b => b.year, (a, b) => ({ y: b.name })));
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /RIGHT OUTER JOIN/i);
+    });
+
+    test("optional on both sources → FULL OUTER JOIN", () => {
+        const proj = bind(table(AlbumEntity).optional().join(table(AlbumEntity).optional(), a => a!.year, b => b!.year, (a, b) => ({ x: a!.name })));
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /FULL OUTER JOIN/i);
+    });
+});

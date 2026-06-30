@@ -45,8 +45,8 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
             .join(
                 table(AlbumEntity),
                 a => a,
-                b => b.author,
-                (a, b) => ({ artist: a.name, album: b.name }))
+                b => b!.author,
+                (a, b) => ({ artist: a!.name, album: b!.name }))
             .toArray();
         assert.ok(Array.isArray(songsAlbum));
     });
@@ -81,122 +81,112 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
     });
 
     // from a in Query<ArtistEntity>().DefaultIfEmpty() join b in Query<AlbumEntity>() on a equals b.Author select new { Artist = a.Name, Album = b.Name }
-    // TODO(api): groupJoin/defaultIfEmpty
+    // C#'s `A.DefaultIfEmpty()` outer source → altea's `.optional()` (RIGHT OUTER JOIN).
     test("LeftOuterJoinEntity", async () => {
-        // const songsAlbum = await table(ArtistEntity).defaultIfEmpty()
-        //     .join(
-        //         table(AlbumEntity),
-        //         a => a,
-        //         b => b.author,
-        //         (a, b) => ({ artist: a.name, album: b.name }))
-        //     .toArray();
-        // assert.ok(Array.isArray(songsAlbum));
+        const songsAlbum = await table(ArtistEntity).optional()
+            .join(
+                table(AlbumEntity),
+                a => a,
+                b => b!.author,
+                (a, b) => ({ artist: a!.name, album: b!.name }))
+            .toArray();
+        assert.ok(Array.isArray(songsAlbum));
     });
 
     // from a in Query<ArtistEntity>().DefaultIfEmpty() join b in Query<AlbumEntity>() on a equals b.Author select new { Artist = a.Name, Album = b.Name, HasArtist = a != null }
-    // TODO(api): groupJoin/defaultIfEmpty
     test("LeftOuterJoinEntityNotNull", async () => {
-        // const songsAlbum = await table(ArtistEntity).defaultIfEmpty()
-        //     .join(
-        //         table(AlbumEntity),
-        //         a => a,
-        //         b => b.author,
-        //         (a, b) => ({ artist: a.name, album: b.name, hasArtist: a != null }))
-        //     .toArray();
-        // assert.ok(Array.isArray(songsAlbum));
+        const songsAlbum = await table(ArtistEntity).optional()
+            .join(
+                table(AlbumEntity),
+                a => a,
+                b => b!.author,
+                (a, b) => ({ artist: a!.name, album: b!.name, hasArtist: a != null }))
+            .toArray();
+        assert.ok(Array.isArray(songsAlbum));
     });
 
     // from a in Query<ArtistEntity>() join b in Query<AlbumEntity>().DefaultIfEmpty() on a equals b.Author select new { Artist = a.Name, Album = b.Name }
-    // TODO(api): groupJoin/defaultIfEmpty
     test("RightOuterJoinEntity", async () => {
-        // const songsAlbum = await table(ArtistEntity)
-        //     .join(
-        //         table(AlbumEntity).defaultIfEmpty(),
-        //         a => a,
-        //         b => b.author,
-        //         (a, b) => ({ artist: a.name, album: b.name }))
-        //     .toArray();
-        // assert.ok(Array.isArray(songsAlbum));
+        const songsAlbum = await table(ArtistEntity)
+            .join(
+                table(AlbumEntity).optional(),
+                a => a,
+                b => b!.author,
+                (a, b) => ({ artist: a!.name, album: b!.name }))
+            .toArray();
+        assert.ok(Array.isArray(songsAlbum));
     });
 
     // from a in Query<ArtistEntity>() join b in Query<AlbumEntity>().DefaultIfEmpty() on a equals b.Author select new { Artist = a.Name, Album = b.Name, HasArtist = b != null }
-    // TODO(api): groupJoin/defaultIfEmpty
     test("RightOuterJoinEntityNotNull", async () => {
-        // const songsAlbum = await table(ArtistEntity)
-        //     .join(
-        //         table(AlbumEntity).defaultIfEmpty(),
-        //         a => a,
-        //         b => b.author,
-        //         (a, b) => ({ artist: a.name, album: b.name, hasArtist: b != null }))
-        //     .toArray();
-        // assert.ok(Array.isArray(songsAlbum));
+        const songsAlbum = await table(ArtistEntity)
+            .join(
+                table(AlbumEntity).optional(),
+                a => a,
+                b => b!.author,
+                (a, b) => ({ artist: a!.name, album: b!.name, hasArtist: b != null }))
+            .toArray();
+        assert.ok(Array.isArray(songsAlbum));
     });
 
-    // from b in Query<AlbumEntity>().Where(b => b.Year == 1993).DefaultIfEmpty() join a in Query<ArtistEntity>().DefaultIfEmpty() on b.Author equals a where b == null select new { Artist = a.Name, Album = b.Name }; Assert.True(list.Any())
-    // TODO(api): groupJoin/defaultIfEmpty
+    // from b in Query<AlbumEntity>().Where(b => b.Year == 1993).DefaultIfEmpty() join a in Query<ArtistEntity>().DefaultIfEmpty() on b.Author equals a select new { Artist = a?.Name, Album = b?.Name }
     test("FullOuterJoinWithFilter", async () => {
-        // const list = await table(AlbumEntity).filter(b => b.year == 1993).defaultIfEmpty()
-        //     .join(
-        //         table(ArtistEntity).defaultIfEmpty(),
-        //         b => b.author,
-        //         a => a,
-        //         (b, a) => ({ b, a }))
-        //     .filter(p => p.b == null)
-        //     .map(p => ({ artist: p.a.name, album: p.b.name }))
-        //     .toArray();
-        // assert.ok(list.length > 0);
+        const list = await table(AlbumEntity).filter(b => b.year == 1993).optional()
+            .join(
+                table(ArtistEntity).optional(),
+                b => b!.author,
+                a => a,
+                (b, a) => ({ artist: a == null ? null : a.name, album: b == null ? null : b.name }))
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // from a in Query<ArtistEntity>().DefaultIfEmpty() join b in Query<AlbumEntity>().DefaultIfEmpty() on a equals b.Author select new { Artist = a.Name, Album = b.Name }
-    // TODO(api): groupJoin/defaultIfEmpty
     test("FullOuterJoinEntity", async () => {
-        // const songsAlbum = await table(ArtistEntity).defaultIfEmpty()
-        //     .join(
-        //         table(AlbumEntity).defaultIfEmpty(),
-        //         a => a,
-        //         b => b.author,
-        //         (a, b) => ({ artist: a.name, album: b.name }))
-        //     .toArray();
-        // assert.ok(Array.isArray(songsAlbum));
+        const songsAlbum = await table(ArtistEntity).optional()
+            .join(
+                table(AlbumEntity).optional(),
+                a => a,
+                b => b!.author,
+                (a, b) => ({ artist: a!.name, album: b!.name }))
+            .toArray();
+        assert.ok(Array.isArray(songsAlbum));
     });
 
     // from a in Query<ArtistEntity>().DefaultIfEmpty() join b in Query<AlbumEntity>().DefaultIfEmpty() on a equals b.Author select new { Artist = a.Name, Album = b.Name, HasArtist = a != null, HasAlbum = b != null }
-    // TODO(api): groupJoin/defaultIfEmpty
     test("FullOuterJoinEntityNotNull", async () => {
-        // const songsAlbum = await table(ArtistEntity).defaultIfEmpty()
-        //     .join(
-        //         table(AlbumEntity).defaultIfEmpty(),
-        //         a => a,
-        //         b => b.author,
-        //         (a, b) => ({ artist: a.name, album: b.name, hasArtist: a != null, hasAlbum: b != null }))
-        //     .toArray();
-        // assert.ok(Array.isArray(songsAlbum));
+        const songsAlbum = await table(ArtistEntity).optional()
+            .join(
+                table(AlbumEntity).optional(),
+                a => a,
+                b => b!.author,
+                (a, b) => ({ artist: a!.name, album: b!.name, hasArtist: a != null, hasAlbum: b != null }))
+            .toArray();
+        assert.ok(Array.isArray(songsAlbum));
     });
 
     // from a in Query<ArtistEntity>() join b in Query<AlbumEntity>() on a equals b.Author into g select new { a.Name, Albums = (int?)g.Count() }
-    // TODO(api): groupJoin/defaultIfEmpty
     test("JoinGroup", async () => {
-        // const songsAlbum = await table(ArtistEntity)
-        //     .groupJoin(
-        //         table(AlbumEntity),
-        //         a => a,
-        //         b => b.author,
-        //         (a, g) => ({ name: a.name, albums: g.count() }))
-        //     .toArray();
-        // assert.ok(Array.isArray(songsAlbum));
+        const songsAlbum = await table(ArtistEntity)
+            .groupJoin(
+                table(AlbumEntity),
+                a => a,
+                b => b.author,
+                (a, g) => ({ name: a.name, albums: g.length }))
+            .toArray();
+        assert.ok(Array.isArray(songsAlbum));
     });
 
     // from a in Query<ArtistEntity>() join b in Query<AlbumEntity>().DefaultIfEmpty() on a equals b.Author into g select new { a.Name, Albums = (int?)g.Count() }
-    // TODO(api): groupJoin/defaultIfEmpty
     test("LeftOuterJoinGroup", async () => {
-        // const songsAlbum = await table(ArtistEntity)
-        //     .groupJoin(
-        //         table(AlbumEntity).defaultIfEmpty(),
-        //         a => a,
-        //         b => b.author,
-        //         (a, g) => ({ name: a.name, albums: g.count() }))
-        //     .toArray();
-        // assert.ok(Array.isArray(songsAlbum));
+        const songsAlbum = await table(ArtistEntity)
+            .groupJoin(
+                table(AlbumEntity).optional(),
+                a => a,
+                b => b!.author,
+                (a, g) => ({ name: a.name, albums: g.length }))
+            .toArray();
+        assert.ok(Array.isArray(songsAlbum));
     });
 
     // using (tr) { CreateTemporaryTable<MyTempView>(); Query<ArtistEntity>().Where(a => a.Name.StartsWith("M")).UnsafeInsertView(a => new MyTempView { Artist = a.ToLite() });
