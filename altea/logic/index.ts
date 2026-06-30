@@ -63,3 +63,23 @@ Lite.prototype.retrieve = function (this: Lite<Entity>): never {
 Lite.prototype.retrieveAndRemember = function (this: Lite<Entity>): never {
     throw new Error("retrieveAndRemember is not implemented yet");
 };
+
+// Relational joins on a collection — the in-quoted-lambda analogue of Query's
+// innerJoin/leftJoin/rightJoin/fullJoin (they borrow Query's lambda/result-type
+// metadata by name in the expression layer). They are query-only; calling them on a
+// materialised array throws for now (no in-memory implementation yet). `join` stays
+// the native string concatenation (Signum's IEnumerable.ToString) on both sides.
+declare global {
+    interface Array<T> {
+        innerJoin<K, O, R>(otherSource: O[], keySelector: (element: T) => K, otherKeySelector: (otherElement: O) => K, resultSelector: (element: T, otherElement: O) => R): R[];
+        leftJoin<K, O, R>(otherSource: O[], keySelector: (element: T) => K, otherKeySelector: (otherElement: O) => K, resultSelector: (element: T, otherElement: O | null) => R): R[];
+        rightJoin<K, O, R>(otherSource: O[], keySelector: (element: T) => K, otherKeySelector: (otherElement: O) => K, resultSelector: (element: T | null, otherElement: O) => R): R[];
+        fullJoin<K, O, R>(otherSource: O[], keySelector: (element: T) => K, otherKeySelector: (otherElement: O) => K, resultSelector: (element: T | null, otherElement: O | null) => R): R[];
+    }
+}
+
+for (const op of ["innerJoin", "leftJoin", "rightJoin", "fullJoin"] as const) {
+    (Array.prototype as any)[op] = function (): never {
+        throw new Error(`'${op}' is a query-only relational join (not supported on an in-memory array yet)`);
+    };
+}

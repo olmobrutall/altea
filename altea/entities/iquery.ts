@@ -41,17 +41,37 @@ export interface IQuery<T> {
     single(predicate?: Quoted<(element: T) => boolean>): Promise<T>;
     singleOrNull(predicate?: Quoted<(element: T) => boolean>): Promise<T | null>;
 
-    optional(): IQuery<T | null>;
     distinct(): IQuery<T>;
 
     groupBy<K>(keySelector: Quoted<(element: T) => K>): IQuery<{ key: K; elements: T[] }>;
     groupBy<K, E>(keySelector: Quoted<(element: T) => K>, elementSelector: Quoted<(element: T) => E>): IQuery<{ key: K; elements: E[] }>;
 
-    join<K, O, R>(
+    // String aggregate (Signum's ToString(separator)) — the relational joins are below.
+    join(separator: string): Promise<string>;
+
+    innerJoin<K, O, R>(
         otherSource: IQuery<O>,
         keySelector: Quoted<(element: T) => K>,
         otherKeySelector: Quoted<(otherElement: O) => K>,
         resultSelector: Quoted<(element: T, otherElement: O) => R>,
+    ): IQuery<R>;
+    leftJoin<K, O, R>(
+        otherSource: IQuery<O>,
+        keySelector: Quoted<(element: T) => K>,
+        otherKeySelector: Quoted<(otherElement: O) => K>,
+        resultSelector: Quoted<(element: T, otherElement: O | null) => R>,
+    ): IQuery<R>;
+    rightJoin<K, O, R>(
+        otherSource: IQuery<O>,
+        keySelector: Quoted<(element: T) => K>,
+        otherKeySelector: Quoted<(otherElement: O) => K>,
+        resultSelector: Quoted<(element: T | null, otherElement: O) => R>,
+    ): IQuery<R>;
+    fullJoin<K, O, R>(
+        otherSource: IQuery<O>,
+        keySelector: Quoted<(element: T) => K>,
+        otherKeySelector: Quoted<(otherElement: O) => K>,
+        resultSelector: Quoted<(element: T | null, otherElement: O | null) => R>,
     ): IQuery<R>;
 
     groupJoin<K, O, R>(

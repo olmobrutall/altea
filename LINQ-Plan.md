@@ -520,6 +520,39 @@ needs `Database.View` / temporary tables (a separate unported feature), not grou
 
 The join family (inner / left / right / full outer / group join) is now complete.
 
+**Join API split (replaces `.optional()`).** The single `join(other, …)` + `.optional()`
+DefaultIfEmpty marker was replaced by four explicit relational operators on
+`Query<T>`/`IQuery<T>` — **`innerJoin` / `leftJoin` / `rightJoin` / `fullJoin`** — each
+naming its SQL join type directly (leftJoin preserves the outer/receiver, rightJoin the
+inner, fullJoin both). `.optional()` is removed; the binder dispatches on the operator
+name (`JOIN_TYPES` map) into `bindJoin(joinType, …)`, so `extractOptional` is gone.
+`groupJoin` no longer takes a marker — it is always a LEFT OUTER join to the grouping
+(every outer row survives with an empty group, C#'s GroupJoin semantics). **`join` is
+now *only* the string aggregate** (`join(separator)` → Signum's `IEnumerable.ToString`,
+SQL `STRING_AGG`; still a stub). The four relational joins were also added to `Array<T>`
+in `logic/index.ts` (they borrow Query's lambda/result-type metadata by name in the
+expression layer) as query-only methods that **throw when called on an in-memory array**
+for now. `joinGroup.test.ts` stays 13/14 on both dialects (only the `view()`-dependent
+`LeftOuterMyView` red), zero regressions.
+
+**Enumerable.ToString → STRING_AGG (the string *aggregate*).** `join(separator)` now
+binds to a string aggregate — a faithful port of Signum's `BindToString`. The binder's
+`bindToString` takes the source projector as the already-mapped scalar (altea's
+`join(sep)` has no selector; a prior `.map` projects), nominates it, and emits
+`AggregateExpression(string_agg, [scalar, SqlConstant(sep)], orderBy: undefined)` wrapped
+in a one-row select — a root one-row `ProjectionExpression` (`Single`) at the top level, a
+`ScalarExpression` (correlated subquery) when nested in a projection. No ORDER BY is
+placed inside the aggregate (matching Signum's StringAggr path; the suite's
+self-comparing assertions don't depend on it). The `string_agg` `AggregateSqlFunction`
+and the formatter's generic `visitAggregate` (`STRING_AGG(expr, sep)`, dialect-insensitive
+name) already existed, so no formatter change was needed. Verified live: `toString.test.ts`
+**4/8 on both dialects** (`ToStringMainQuery`, `ToStringSubCollection`, `ToStringSubQuery`,
+`ToStringGroupByOrdering` — the cases aggregating an already-string projection), full
+suite **PG 332→336 / SS 321→325**, zero regressions. A non-scalar (entity) projector is
+explicitly rejected: aggregating an entity's display string (`ToStringEntity`) and the
+value-`.toString()` cases (`ToStringSubQueryIdIB`/`Numbers`, `(a.id).toString()`) need the
+separate **entity/value-ToString tier** (the scalar display-string topic), still pending.
+
 Still failing in groupBy (all genuinely out of scope): `DistinctGroupByForce`
 (`substring`), `GroupMaxBy`/`GroupMinBy` (`minBy`/`maxBy`), `JoinGroupPair` (`join`),
 `GroupByCount` (SS — GROUP BY a subquery, which SQL Server forbids),

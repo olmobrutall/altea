@@ -384,16 +384,6 @@ export class Query<T> implements IQuery<T> {
     }
 
     @resultType(ot => ot)
-    optional(): Query<T | null> {
-        var call = new CallExpression(
-            new PropertyExpression(this.expression, "optional"),
-            [],
-            this.type);
-        return new Query<T | null>(call, this.translator);
-    }
-
-
-    @resultType(ot => ot)
     distinct(): Query<T> {
         var call = new CallExpression(
             new PropertyExpression(this.expression, "distinct"),
@@ -430,36 +420,67 @@ export class Query<T> implements IQuery<T> {
     }
 
 
-    // String aggregate (replaces the old toString agg): `query.map(sel).join(sep)` joins
-    // the projected values with a separator (SQL STRING_AGG). Distinct from the inner-join
-    // overload below by its single string argument. Not implemented yet — runs red.
-    join(separator: string): Promise<string>;
-    join<K, O, R>(
-        otherSource: Query<O>,
-        keySelector: Quoted<(element: T) => K>,
-        otherKeySelector: Quoted<(otherElement: O) => K>,
-        resultSelector: Quoted<(element: T, otherElement: O) => R>
-    ): Query<R>;
+    // String aggregate (Signum's `IEnumerable<T>.ToString(separator)`): concatenates
+    // the projected values with a separator (SQL STRING_AGG). `join` is *only* the
+    // string aggregate now — the relational joins are innerJoin/leftJoin/rightJoin/
+    // fullJoin below.
+    @resultType(() => new PromiseType(SimpleType.string))
+    join(separator: string): Promise<string> {
+        var call = new CallExpression(
+            new PropertyExpression(this.expression, "join"),
+            [new ConstantExpression(separator)],
+            SimpleType.string);
+        return this.translator.execute(call) as Promise<string>;
+    }
+
+    // Relational joins — `outer.<join>(inner, outerKey, innerKey, (o, i) => result)`.
+    // The four variants pick the SQL join type (which side is row-preserving):
+    //   innerJoin — only matching pairs.
+    //   leftJoin  — every outer (left) row; inner (right) is null when unmatched.
+    //   rightJoin — every inner (right) row; outer (left) is null when unmatched.
+    //   fullJoin  — every row of either side.
+    // (Replaces the old single `join` + `.optional()`/DefaultIfEmpty markers.)
     @lambdaTypeForParam(1, ot => [(ot as ArrayType).elementType])
     @lambdaTypeForParam(2, (ot, other) => [(other as ArrayType).elementType])
     @lambdaTypeForParam(3, (ot, other) => [(ot as ArrayType).elementType, (other as ArrayType).elementType])
     @resultType((ot, other, key, otherKey, result) => new ArrayType((result as FunctionType).returnType))
-    join<K, O, R>(
-        otherSource: string | Query<O>,
-        keySelector?: Quoted<(element: T) => K>,
-        otherKeySelector?: Quoted<(otherElement: O) => K>,
-        resultSelector?: Quoted<(element: T, otherElement: O) => R>
-    ): Promise<string> | Query<R> {
-        if (typeof otherSource === "string")
-            throw new Error("join(separator) string aggregate is not implemented yet");
-        var lambdaKey = Expression.fromQuotedLambda(keySelector!, [this.elementType]);
-        var lambdaOtherKey = Expression.fromQuotedLambda(otherKeySelector!, [otherSource.elementType]);
-        var lambdaResult = Expression.fromQuotedLambda(resultSelector!, [this.elementType, otherSource.elementType]);
+    innerJoin<K, O, R>(otherSource: Query<O>, keySelector: Quoted<(element: T) => K>, otherKeySelector: Quoted<(otherElement: O) => K>, resultSelector: Quoted<(element: T, otherElement: O) => R>): Query<R> {
+        return this.relationalJoin("innerJoin", otherSource, keySelector, otherKeySelector, resultSelector);
+    }
 
-        // The other source must travel with the call (the binder reads it as args[0]);
-        // the result is a sequence of the result-selector's body type.
+    @lambdaTypeForParam(1, ot => [(ot as ArrayType).elementType])
+    @lambdaTypeForParam(2, (ot, other) => [(other as ArrayType).elementType])
+    @lambdaTypeForParam(3, (ot, other) => [(ot as ArrayType).elementType, (other as ArrayType).elementType])
+    @resultType((ot, other, key, otherKey, result) => new ArrayType((result as FunctionType).returnType))
+    leftJoin<K, O, R>(otherSource: Query<O>, keySelector: Quoted<(element: T) => K>, otherKeySelector: Quoted<(otherElement: O) => K>, resultSelector: Quoted<(element: T, otherElement: O | null) => R>): Query<R> {
+        return this.relationalJoin("leftJoin", otherSource, keySelector, otherKeySelector, resultSelector);
+    }
+
+    @lambdaTypeForParam(1, ot => [(ot as ArrayType).elementType])
+    @lambdaTypeForParam(2, (ot, other) => [(other as ArrayType).elementType])
+    @lambdaTypeForParam(3, (ot, other) => [(ot as ArrayType).elementType, (other as ArrayType).elementType])
+    @resultType((ot, other, key, otherKey, result) => new ArrayType((result as FunctionType).returnType))
+    rightJoin<K, O, R>(otherSource: Query<O>, keySelector: Quoted<(element: T) => K>, otherKeySelector: Quoted<(otherElement: O) => K>, resultSelector: Quoted<(element: T | null, otherElement: O) => R>): Query<R> {
+        return this.relationalJoin("rightJoin", otherSource, keySelector, otherKeySelector, resultSelector);
+    }
+
+    @lambdaTypeForParam(1, ot => [(ot as ArrayType).elementType])
+    @lambdaTypeForParam(2, (ot, other) => [(other as ArrayType).elementType])
+    @lambdaTypeForParam(3, (ot, other) => [(ot as ArrayType).elementType, (other as ArrayType).elementType])
+    @resultType((ot, other, key, otherKey, result) => new ArrayType((result as FunctionType).returnType))
+    fullJoin<K, O, R>(otherSource: Query<O>, keySelector: Quoted<(element: T) => K>, otherKeySelector: Quoted<(otherElement: O) => K>, resultSelector: Quoted<(element: T | null, otherElement: O | null) => R>): Query<R> {
+        return this.relationalJoin("fullJoin", otherSource, keySelector, otherKeySelector, resultSelector);
+    }
+
+    private relationalJoin<K, O, R>(op: string, otherSource: Query<O>, keySelector: Quoted<(element: T) => K>, otherKeySelector: Quoted<(otherElement: O) => K>, resultSelector: Quoted<(element: any, otherElement: any) => R>): Query<R> {
+        var lambdaKey = Expression.fromQuotedLambda(keySelector, [this.elementType]);
+        var lambdaOtherKey = Expression.fromQuotedLambda(otherKeySelector, [otherSource.elementType]);
+        var lambdaResult = Expression.fromQuotedLambda(resultSelector, [this.elementType, otherSource.elementType]);
+
+        // The other source travels with the call (the binder reads it as args[0]); the
+        // operator name (innerJoin/leftJoin/…) tells the binder the SQL join type.
         var call = new CallExpression(
-            new PropertyExpression(this.expression, "join"),
+            new PropertyExpression(this.expression, op),
             [otherSource.expression, lambdaKey, lambdaOtherKey, lambdaResult],
             new ArrayType(lambdaResult.body.type!));
 

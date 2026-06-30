@@ -402,29 +402,30 @@ describe("GroupBy shape (tier 3)", () => {
     });
 });
 
-// Join shape (offline) — inner join, and the outer-join types a `.optional()`
-// marker on either source selects (Signum's DefaultIfEmpty mapping).
+// Join shape (offline) — each relational-join operator picks its SQL join type
+// (innerJoin/leftJoin/rightJoin/fullJoin); leftJoin preserves the outer source,
+// rightJoin the inner, fullJoin both.
 describe("Join shape (tier 3)", () => {
-    test("join → INNER JOIN", () => {
-        const proj = bind(table(AlbumEntity).join(table(AlbumEntity), a => a.year, b => b.year, (a, b) => ({ x: a.name, y: b.name })));
+    test("innerJoin → INNER JOIN", () => {
+        const proj = bind(table(AlbumEntity).innerJoin(table(AlbumEntity), a => a.year, b => b.year, (a, b) => ({ x: a.name, y: b.name })));
         const { sql } = QueryFormatter.format(proj.select, false);
         assert.match(sql, /INNER JOIN/i);
     });
 
-    test("optional on the inner source → LEFT OUTER JOIN", () => {
-        const proj = bind(table(AlbumEntity).join(table(AlbumEntity).optional(), a => a.year, b => b!.year, (a, b) => ({ x: a.name })));
+    test("leftJoin → LEFT OUTER JOIN", () => {
+        const proj = bind(table(AlbumEntity).leftJoin(table(AlbumEntity), a => a.year, b => b!.year, (a, b) => ({ x: a.name })));
         const { sql } = QueryFormatter.format(proj.select, false);
         assert.match(sql, /LEFT OUTER JOIN/i);
     });
 
-    test("optional on the outer source → RIGHT OUTER JOIN", () => {
-        const proj = bind(table(AlbumEntity).optional().join(table(AlbumEntity), a => a!.year, b => b.year, (a, b) => ({ y: b.name })));
+    test("rightJoin → RIGHT OUTER JOIN", () => {
+        const proj = bind(table(AlbumEntity).rightJoin(table(AlbumEntity), a => a!.year, b => b.year, (a, b) => ({ y: b.name })));
         const { sql } = QueryFormatter.format(proj.select, false);
         assert.match(sql, /RIGHT OUTER JOIN/i);
     });
 
-    test("optional on both sources → FULL OUTER JOIN", () => {
-        const proj = bind(table(AlbumEntity).optional().join(table(AlbumEntity).optional(), a => a!.year, b => b!.year, (a, b) => ({ x: a!.name })));
+    test("fullJoin → FULL OUTER JOIN", () => {
+        const proj = bind(table(AlbumEntity).fullJoin(table(AlbumEntity), a => a!.year, b => b!.year, (a, b) => ({ x: a!.name })));
         const { sql } = QueryFormatter.format(proj.select, false);
         assert.match(sql, /FULL OUTER JOIN/i);
     });

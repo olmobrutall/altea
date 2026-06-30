@@ -48,6 +48,15 @@ function isReferenceish(e: Expression): boolean {
         || e instanceof ImplementedByAllExpression || e instanceof LiteReferenceExpression;
 }
 
+// Relational-join operator → SQL join type. leftJoin preserves the outer (left)
+// source, rightJoin the inner (right), fullJoin both.
+const JOIN_TYPES: { [op: string]: JoinType | undefined } = {
+    innerJoin: "InnerJoin",
+    leftJoin: "LeftOuterJoin",
+    rightJoin: "RightOuterJoin",
+    fullJoin: "FullOuterJoin",
+};
+
 // A plain `{...}` object (Object/null prototype) — as opposed to a class instance
 // (Entity/Lite/Embedded). Used to detect an all-constant bulk-DML setter literal the
 // ExpressionSimplifier folded whole into a single constant.
@@ -366,10 +375,12 @@ export class QueryBinder extends ExpressionVisitor {
                 return this.bindThenBy(property.object, call.args[0] as LambdaExpression, "Ascending");
             if (op === "thenByDescending")
                 return this.bindThenBy(property.object, call.args[0] as LambdaExpression, "Descending");
-            // join needs the raw sources (so it can detect a `.optional()` wrapper
-            // on either side → outer join) and binds two result-selector params.
-            if (op === "join")
-                return this.bindJoin(property.object, call.args[0], call.args[1] as LambdaExpression, call.args[2] as LambdaExpression, call.args[3] as LambdaExpression);
+            // The relational joins need the raw sources (the inner source travels as
+            // args[0]) and bind two result-selector params; the operator name fixes
+            // the SQL join type.
+            const joinType = JOIN_TYPES[op];
+            if (joinType != null)
+                return this.bindJoin(joinType, property.object, call.args[0], call.args[1] as LambdaExpression, call.args[2] as LambdaExpression, call.args[3] as LambdaExpression);
             if (op === "groupJoin")
                 return this.bindGroupJoin(property.object, call.args[0], call.args[1] as LambdaExpression, call.args[2] as LambdaExpression, call.args[3] as LambdaExpression);
 
@@ -433,6 +444,8 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.bindAnyAll(source, call.args[0] as LambdaExpression | undefined, true, call === this.root);
                 case "contains":
                     return this.bindContains(source, call.args[0], call === this.root);
+                case "join":
+                    return this.bindToString(source, call.args[0], call === this.root);
                 default:
                     throw new Error(`Query operator '${op}' is not implemented in the binder skeleton yet`);
             }
@@ -717,6 +730,33 @@ export class QueryBinder extends ExpressionVisitor {
         if (isRoot)
             return new ProjectionExpression(select, new ColumnExpression(aggregate.type, alias, name), "Single", aggregate.type);
         return new ScalarExpression(aggregate.type, select);
+    }
+
+    // String aggregate — port of Signum's BindToString (`IEnumerable.ToString(sep)` →
+    // SQL STRING_AGG). The source projector is the already-mapped scalar to concatenate
+    // (altea's `join(sep)` has no selector — a prior `.map` did the projection); the
+    // separator must be a constant string. Aggregating an entity's display string needs
+    // the separate entity-ToString tier, so a non-scalar projector is rejected. Like
+    // Signum, no ORDER BY is placed inside the aggregate.
+    private bindToString(projection: ProjectionExpression, separatorExpr: Expression, isRoot: boolean): Expression {
+        const separator = this.visit(separatorExpr);
+        if (!(separator instanceof ConstantExpression) || typeof separator.value !== "string")
+            throw new Error("The 'separator' of a string aggregate (join) must be a constant string");
+
+        const nominated = this.fullNominate(projection.projector);
+        if (isReferenceish(nominated) || nominated instanceof EmbeddedEntityExpression)
+            throw new Error("A string aggregate (join) over an entity needs the entity-ToString tier (not implemented yet); project a scalar with .map(...) first");
+
+        const aggregate = new AggregateExpression(
+            LiteralType.string, "string_agg",
+            [nominated, new SqlConstantExpression(separator.value, LiteralType.string)],
+            undefined);
+
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const select = new SelectExpression(alias, false, undefined, [new ColumnDeclaration("c0", aggregate)], projection.select, undefined, [], []);
+        if (isRoot)
+            return new ProjectionExpression(select, new ColumnExpression(LiteralType.string, alias, "c0"), "Single", LiteralType.string);
+        return new ScalarExpression(LiteralType.string, select);
     }
 
     // The SQL-valued argument of an aggregate: a reference (typed, polymorphic, or
@@ -1098,27 +1138,18 @@ export class QueryBinder extends ExpressionVisitor {
             pc.projector, undefined, collProj.type);
     }
 
-    // Join — port of Signum's BindJoin. A `.optional()` wrapper on either source
-    // turns the inner join into an outer one (Signum's DefaultIfEmpty):
-    //   outer.optional() → RIGHT, inner.optional() → LEFT, both → FULL.
-    // The result selector takes two parameters (outer, inner) and binds against the
-    // join, so navigations in it splice onto the join via QueryJoinExpander.
-    private bindJoin(outerSourceRaw: Expression, innerSourceRaw: Expression, outerKey: LambdaExpression, innerKey: LambdaExpression, resultSelector: LambdaExpression): ProjectionExpression {
-        const outerEx = this.extractOptional(outerSourceRaw);
-        const innerEx = this.extractOptional(innerSourceRaw);
-
-        const outerProj = this.visit(outerEx.source) as ProjectionExpression;
-        const innerProj = this.visit(innerEx.source) as ProjectionExpression;
+    // Join — port of Signum's BindJoin. The join type is explicit (the binder is
+    // called from innerJoin/leftJoin/rightJoin/fullJoin), so there's no DefaultIfEmpty
+    // marker to detect: leftJoin preserves the outer (left) side, rightJoin the inner
+    // (right), fullJoin both. The result selector takes two parameters (outer, inner)
+    // and binds against the join, so navigations in it splice on via QueryJoinExpander.
+    private bindJoin(joinType: JoinType, outerSourceRaw: Expression, innerSourceRaw: Expression, outerKey: LambdaExpression, innerKey: LambdaExpression, resultSelector: LambdaExpression): ProjectionExpression {
+        const outerProj = this.visit(outerSourceRaw) as ProjectionExpression;
+        const innerProj = this.visit(innerSourceRaw) as ProjectionExpression;
 
         const outerKeyExpr = this.mapVisitExpand(outerKey, outerProj);
         const innerKeyExpr = this.mapVisitExpand(innerKey, innerProj);
         const condition = SmartEqualizer.polymorphicEqual(outerKeyExpr, innerKeyExpr);
-
-        const joinType: JoinType =
-            outerEx.optional && innerEx.optional ? "FullOuterJoin" :
-            outerEx.optional ? "RightOuterJoin" :
-            innerEx.optional ? "LeftOuterJoin" :
-            "InnerJoin";
 
         const alias = this.aliasGenerator.nextSelectAlias();
         const join = new JoinExpression(joinType, outerProj.select, innerProj.select, condition);
@@ -1152,15 +1183,14 @@ export class QueryBinder extends ExpressionVisitor {
     // result's `g` is the grouping's matching elements. We build the same shape by
     // reusing bindGroupBy (→ a `{ key, elements }` grouping) and joining the outer
     // to it on `outerKey == group.key`; the result selector's group param binds to
-    // the grouping's `elements` (so `g.count()` / `g.toArray()` work as usual).
-    // `inner.optional()` makes the join LEFT OUTER (the outer row survives with an
-    // empty group), matching C#'s `inner.DefaultIfEmpty()` inside a group join.
+    // the grouping's `elements` (so `g.count()` / `g.toArray()` work as usual). A
+    // group join always preserves the outer row (its group is empty when unmatched),
+    // i.e. a LEFT OUTER join to the grouping — matching C#'s GroupJoin semantics.
     private bindGroupJoin(outerSourceRaw: Expression, innerSourceRaw: Expression, outerKey: LambdaExpression, innerKey: LambdaExpression, resultSelector: LambdaExpression): ProjectionExpression {
-        const innerEx = this.extractOptional(innerSourceRaw);
         const outerProj = this.visit(outerSourceRaw) as ProjectionExpression;
-        const innerProj = this.visit(innerEx.source) as ProjectionExpression;
+        const innerProj = this.visit(innerSourceRaw) as ProjectionExpression;
 
-        const grouped = this.bindGroupBy(innerProj, innerEx.source, innerKey, undefined);
+        const grouped = this.bindGroupBy(innerProj, innerSourceRaw, innerKey, undefined);
         const groupingProjector = grouped.projector as ObjectExpression;
         const groupKey = groupingProjector.properties["key"];
         const groupElements = groupingProjector.properties["elements"];
@@ -1168,7 +1198,7 @@ export class QueryBinder extends ExpressionVisitor {
         const outerKeyExpr = this.mapVisitExpand(outerKey, outerProj);
         const condition = SmartEqualizer.polymorphicEqual(outerKeyExpr, groupKey);
 
-        const joinType: JoinType = innerEx.optional ? "LeftOuterJoin" : "InnerJoin";
+        const joinType: JoinType = "LeftOuterJoin";
         const alias = this.aliasGenerator.nextSelectAlias();
         const join = new JoinExpression(joinType, outerProj.select, grouped.select, condition);
 
@@ -1192,17 +1222,6 @@ export class QueryBinder extends ExpressionVisitor {
         return new ProjectionExpression(
             new SelectExpression(alias, false, undefined, pc.columns, join, undefined, [], []),
             pc.projector, undefined, new ArrayType(resultExpr.type));
-    }
-
-    // Unwraps a `<source>.optional()` marker (Signum's DefaultIfEmpty): returns the
-    // inner source and whether the marker was present (→ that side joins as outer).
-    private extractOptional(source: Expression): { source: Expression; optional: boolean } {
-        if (source instanceof CallExpression) {
-            const f = source.func;
-            if ((f instanceof PropertyExpression || f.kind === ".") && (f as PropertyExpression).propertyName === "optional")
-                return { source: (f as PropertyExpression).object, optional: true };
-        }
-        return { source, optional: false };
     }
 
     // GroupBy — faithful port of Signum's BindGroupBy. Produces a GROUP BY select

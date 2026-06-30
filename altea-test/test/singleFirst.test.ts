@@ -114,7 +114,7 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     test("SelectGroupLast", async () => {
         // TODO(api): group join with DefaultIfEmpty (join ... into g), group aggregates (g.Count()/g.Max(...)), correlated subquery projection, and lab.Id access
         const result = await table(LabelEntity)
-            .join(
+            .innerJoin(
                 table(AlbumEntity),
                 lab => lab,
                 al => al.label,

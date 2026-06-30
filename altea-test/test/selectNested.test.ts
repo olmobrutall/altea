@@ -43,7 +43,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
     // TODO(api): defaultIfEmpty / left outer join — no .defaultIfEmpty() on Query
     test("SelecteNullableLookupColumns", async () => {
         const neasted = await table(LabelEntity)
-            .join(table(LabelEntity), l => l.owner, o => o.toLite(), (l, o) => ({ owner: o.toLite(), label: l.toLite() }))
+            .innerJoin(table(LabelEntity), l => l.owner, o => o.toLite(), (l, o) => ({ owner: o.toLite(), label: l.toLite() }))
             .groupBy(x => x.owner, x => x.label)
             .map(g => ({ owner: g.key, list: g.elements, count: g.elements.length }))
             .toArray();

@@ -17,19 +17,21 @@ class MyTempView {
 //   .Where(...)                   → .filter(...)        .Select(...) → .map(...)
 //   .SelectMany(...)              → .flatMap(...)        .ToList()    → await .toArray()
 //   from a join b on a.K equals b.K select res
-//                                 → table(A).join(table(B), a => a.k, b => b.k, (a, b) => res)
+//                                 → table(A).innerJoin(table(B), a => a.k, b => b.k, (a, b) => res)
 //   new { a.Name, X = … }         → ({ name: a.name, x: … }) (camelCase)
 //   a == b.Author / a equals b.Author (entity key) → a.is(b.author)
 // Terminals are async (the connector is async-only). Live execution is gated on
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 //
-// Outer joins have NO altea API yet. Signum expresses left/right/full outer joins
-// with `.DefaultIfEmpty()` on one or both sides, and GroupJoin (`join … into g`)
-// for the grouped variants. altea's only join primitive is `.join(other, key,
-// otherKey, result)` (inner join). Tests using DefaultIfEmpty / GroupJoin are
-// written in their most natural altea form, marked `{ skip: true }`, and flagged
-// `// TODO(api): groupJoin/defaultIfEmpty`. The temp-view test additionally needs
-// Database.View / temporary tables / UnsafeInsertView.
+// Outer joins use the explicit relational operators innerJoin / leftJoin / rightJoin
+// / fullJoin (altea has no `.DefaultIfEmpty()` marker). altea names the join by which
+// side is row-preserving (SQL convention): leftJoin keeps the outer (receiver),
+// rightJoin the inner. Signum names by which source carries DefaultIfEmpty, so its
+// "LeftOuter…" (DefaultIfEmpty on the outer source, inner preserved) maps to altea's
+// `rightJoin`, and vice-versa — the test NAMES are kept from the C# port even where
+// the altea operator reads the other way. GroupJoin always preserves the outer row
+// (empty group when unmatched), so `groupJoin` needs no marker. The temp-view test
+// additionally needs Database.View / temporary tables / UnsafeInsertView.
 
 describe("JoinGroupTest", { skip: !hasDb }, () => {
     before(async () => { await start(); });
@@ -37,7 +39,7 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
     // from a in Query<AlbumEntity>() join b in Query<AlbumEntity>().SelectMany(a => a.Songs) on a.Name equals b.Name select new { a.Name, Label = a.Label.Name }
     test("Join", async () => {
         const songsAlbum = await table(AlbumEntity)
-            .join(
+            .innerJoin(
                 table(AlbumEntity).flatMap(a => a.songs),
                 a => a.name,
                 b => b.name,
@@ -49,7 +51,7 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
     // from a in Query<ArtistEntity>() join b in Query<AlbumEntity>() on a equals b.Author select new { Artist = a.Name, Album = b.Name }
     test("JoinEntity", async () => {
         const songsAlbum = await table(ArtistEntity)
-            .join(
+            .innerJoin(
                 table(AlbumEntity),
                 a => a,
                 b => b!.author,
@@ -61,12 +63,12 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
     // from a1 join a2 on a1.Label equals a2.Label join a3 on a2.Label equals a3.Label select new { Name1 = a1.Name, Name2 = a2.Name, Name3 = a3.Name }
     test("JoinEntityTwice", async () => {
         const albums = await table(AlbumEntity)
-            .join(
+            .innerJoin(
                 table(AlbumEntity),
                 a1 => a1.label,
                 a2 => a2.label,
                 (a1, a2) => ({ name1: a1.name, name2: a2.name }))
-            .join(
+            .innerJoin(
                 table(AlbumEntity),
                 p => p.name2,
                 a3 => a3.label.name,
@@ -78,7 +80,7 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
     // Query<AlbumEntity>().Join(Query<AlbumEntity>(), a => a.Year, a => a.Year, (a1, a2) => a1.Label.Name + " " + a2.Label.Name)
     test("JoinerExpansions", async () => {
         const labels = await table(AlbumEntity)
-            .join(
+            .innerJoin(
                 table(AlbumEntity),
                 a => a.year,
                 a => a.year,
@@ -88,13 +90,13 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
     });
 
     // from a in Query<ArtistEntity>().DefaultIfEmpty() join b in Query<AlbumEntity>() on a equals b.Author select new { Artist = a.Name, Album = b.Name }
-    // C#'s `A.DefaultIfEmpty()` outer source → altea's `.optional()` (RIGHT OUTER JOIN).
+    // C#'s `A.DefaultIfEmpty()` outer source (inner preserved) → altea's `rightJoin`.
     test("LeftOuterJoinEntity", async () => {
-        const songsAlbum = await table(ArtistEntity).optional()
-            .join(
+        const songsAlbum = await table(ArtistEntity)
+            .rightJoin(
                 table(AlbumEntity),
                 a => a,
-                b => b!.author,
+                b => b.author,
                 (a, b) => ({ artist: a!.name, album: b!.name }))
             .toArray();
         assert.ok(Array.isArray(songsAlbum));
@@ -102,11 +104,11 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
 
     // from a in Query<ArtistEntity>().DefaultIfEmpty() join b in Query<AlbumEntity>() on a equals b.Author select new { Artist = a.Name, Album = b.Name, HasArtist = a != null }
     test("LeftOuterJoinEntityNotNull", async () => {
-        const songsAlbum = await table(ArtistEntity).optional()
-            .join(
+        const songsAlbum = await table(ArtistEntity)
+            .rightJoin(
                 table(AlbumEntity),
                 a => a,
-                b => b!.author,
+                b => b.author,
                 (a, b) => ({ artist: a!.name, album: b!.name, hasArtist: a != null }))
             .toArray();
         assert.ok(Array.isArray(songsAlbum));
@@ -115,10 +117,10 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
     // from a in Query<ArtistEntity>() join b in Query<AlbumEntity>().DefaultIfEmpty() on a equals b.Author select new { Artist = a.Name, Album = b.Name }
     test("RightOuterJoinEntity", async () => {
         const songsAlbum = await table(ArtistEntity)
-            .join(
-                table(AlbumEntity).optional(),
+            .leftJoin(
+                table(AlbumEntity),
                 a => a,
-                b => b!.author,
+                b => b.author,
                 (a, b) => ({ artist: a!.name, album: b!.name }))
             .toArray();
         assert.ok(Array.isArray(songsAlbum));
@@ -127,10 +129,10 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
     // from a in Query<ArtistEntity>() join b in Query<AlbumEntity>().DefaultIfEmpty() on a equals b.Author select new { Artist = a.Name, Album = b.Name, HasArtist = b != null }
     test("RightOuterJoinEntityNotNull", async () => {
         const songsAlbum = await table(ArtistEntity)
-            .join(
-                table(AlbumEntity).optional(),
+            .leftJoin(
+                table(AlbumEntity),
                 a => a,
-                b => b!.author,
+                b => b.author,
                 (a, b) => ({ artist: a!.name, album: b!.name, hasArtist: b != null }))
             .toArray();
         assert.ok(Array.isArray(songsAlbum));
@@ -138,9 +140,9 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
 
     // from b in Query<AlbumEntity>().Where(b => b.Year == 1993).DefaultIfEmpty() join a in Query<ArtistEntity>().DefaultIfEmpty() on b.Author equals a select new { Artist = a?.Name, Album = b?.Name }
     test("FullOuterJoinWithFilter", async () => {
-        const list = await table(AlbumEntity).filter(b => b.year == 1993).optional()
-            .join(
-                table(ArtistEntity).optional(),
+        const list = await table(AlbumEntity).filter(b => b.year == 1993)
+            .fullJoin(
+                table(ArtistEntity),
                 b => b!.author,
                 a => a,
                 (b, a) => ({ artist: a == null ? null : a.name, album: b == null ? null : b.name }))
@@ -150,9 +152,9 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
 
     // from a in Query<ArtistEntity>().DefaultIfEmpty() join b in Query<AlbumEntity>().DefaultIfEmpty() on a equals b.Author select new { Artist = a.Name, Album = b.Name }
     test("FullOuterJoinEntity", async () => {
-        const songsAlbum = await table(ArtistEntity).optional()
-            .join(
-                table(AlbumEntity).optional(),
+        const songsAlbum = await table(ArtistEntity)
+            .fullJoin(
+                table(AlbumEntity),
                 a => a,
                 b => b!.author,
                 (a, b) => ({ artist: a!.name, album: b!.name }))
@@ -162,9 +164,9 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
 
     // from a in Query<ArtistEntity>().DefaultIfEmpty() join b in Query<AlbumEntity>().DefaultIfEmpty() on a equals b.Author select new { Artist = a.Name, Album = b.Name, HasArtist = a != null, HasAlbum = b != null }
     test("FullOuterJoinEntityNotNull", async () => {
-        const songsAlbum = await table(ArtistEntity).optional()
-            .join(
-                table(AlbumEntity).optional(),
+        const songsAlbum = await table(ArtistEntity)
+            .fullJoin(
+                table(AlbumEntity),
                 a => a,
                 b => b!.author,
                 (a, b) => ({ artist: a!.name, album: b!.name, hasArtist: a != null, hasAlbum: b != null }))
@@ -188,9 +190,9 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
     test("LeftOuterJoinGroup", async () => {
         const songsAlbum = await table(ArtistEntity)
             .groupJoin(
-                table(AlbumEntity).optional(),
+                table(AlbumEntity),
                 a => a,
-                b => b!.author,
+                b => b.author,
                 (a, g) => ({ name: a.name, albums: g.length }))
             .toArray();
         assert.ok(Array.isArray(songsAlbum));
