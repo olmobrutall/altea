@@ -113,6 +113,11 @@ function collectAssignments(table: Table, entity: Entity): ColumnValue[] {
         for (const ef of Object.values(mixin.fields))
             pushFieldValues(ef.field, ef.getter(entity), out);
 
+    // Pre-saving (Signum's SetToStrField): materialise the display string into the
+    // ToStr column so queries can read it without running the JS toString().
+    if (table.toStrColumn != null)
+        out.push({ column: table.toStrColumn, value: entity.toString() });
+
     return out;
 }
 

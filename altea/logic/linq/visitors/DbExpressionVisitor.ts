@@ -3,7 +3,7 @@ import {
     DbExpression,
     SourceExpression, TableExpression, SelectExpression, JoinExpression,
     ColumnExpression, ColumnDeclaration, OrderExpression,
-    AggregateExpression, AggregateRequestsExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression,
+    AggregateExpression, AggregateRequestsExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression, SqlCastExpression,
     CaseExpression, When, LikeExpression,
     ScalarExpression, ExistsExpression, InExpression,
     IsNullExpression, IsNotNullExpression,
@@ -85,6 +85,13 @@ export class DbExpressionVisitor extends ExpressionVisitor {
 
     visitSqlConstant(sce: SqlConstantExpression): Expression {
         return sce;
+    }
+
+    visitSqlCast(cast: SqlCastExpression): Expression {
+        const exp = this.visit(cast.expression);
+        if (exp !== cast.expression)
+            return new SqlCastExpression(cast.type, exp, cast.sqlType);
+        return cast;
     }
 
     visitSqlLiteral(sle: SqlLiteralExpression): Expression {

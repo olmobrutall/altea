@@ -213,6 +213,22 @@ export class SchemaBuilder {
                 nameField.field.column.size = ENUM_NAME_SIZE;
         }
 
+        // ToStr column (Signum's `ToStr`): a physical display-string column when the
+        // entity has a hand-written `toString()` (own prototype) that is NOT a
+        // `@quoted` expression — i.e. one the query provider can't translate to SQL,
+        // so it is materialised at save time. A `@quoted` toString is expanded inline
+        // in queries instead and needs no column. Enum tables use their `name` column.
+        if (!isEnumEntity) {
+            // Resolve toString up the prototype chain (finds an override, or Entity's
+            // inherited `@quoted` default). A hand-written, non-`@quoted` toString needs
+            // a stored ToStr column; a `@quoted` one (incl. the inherited default) is
+            // expanded inline by the query provider, so no column.
+            const proto = (typeConstructor(type) as { prototype?: any }).prototype;
+            const toStr = proto?.toString;
+            if (typeof toStr === "function" && toStr !== Object.prototype.toString && (toStr as { __quoted?: unknown }).__quoted == null)
+                table.toStrColumn = new ValueColumn("toStr", defaultDbType("String", undefined)!, IsNullable.Yes);
+        }
+
         table.generateColumns();
     }
 

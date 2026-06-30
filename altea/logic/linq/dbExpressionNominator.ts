@@ -5,7 +5,7 @@ import {
 } from "./expressions";
 import {
     ColumnExpression, SqlConstantExpression, SqlLiteralExpression, PrimaryKeyExpression,
-    IsNullExpression, IsNotNullExpression, LikeExpression, SqlFunctionExpression,
+    IsNullExpression, IsNotNullExpression, LikeExpression, SqlFunctionExpression, SqlCastExpression,
     AggregateExpression, AggregateRequestsExpression, CaseExpression, ScalarExpression, ExistsExpression, InExpression,
     ProjectionExpression,
 } from "./expressions.sql";
@@ -112,6 +112,11 @@ class DbExpressionNominator extends DbExpressionVisitor {
         return this.nominateIfAll(r, [r.object, ...r.arguments]);
     }
 
+    override visitSqlCast(node: SqlCastExpression): Expression {
+        const r = super.visitSqlCast(node) as SqlCastExpression;
+        return this.nominateIfAll(r, [r.expression]);
+    }
+
     override visitAggregate(node: AggregateExpression): Expression {
         const r = super.visitAggregate(node) as AggregateExpression;
         return this.nominateIfAll(r, r.arguments);
@@ -181,6 +186,13 @@ class DbExpressionNominator extends DbExpressionVisitor {
             return this.translateMath(name, args);
         if (ns === "dateTime" || ns === "date")
             return this.translateDateMethod(name, source);
+        // value.toString() → a string CAST (Signum's int/decimal ToString). A string
+        // receiver is already text. (Date/temporal ToString is handled above and is
+        // still unsupported; entity/lite ToString is resolved earlier in the binder.)
+        if (name === "toString" && args.length === 0)
+            return source.type === LiteralType.string
+                ? source
+                : new SqlCastExpression(LiteralType.string, source, this.isPostgres ? "varchar" : "nvarchar(max)");
         if (ns !== "string")
             return undefined;
         switch (`${ns}.${name}`) {

@@ -770,6 +770,56 @@ the constraint), an all-NULL `CASE` needing a typed cast on Postgres (`UpdateIbF
 assertion* (a SELECT-side gap, not the UPDATE), and SQL Server's navigated-target UPDATE binding
 (`UnsafeUpdatePart`, passes on Postgres) + entity-cast DELETE (`DeleteJoin`).
 
+**Entity/Lite ToString — column path + value ToString (partial).** `toString.test.ts` is
+**8/8 on both dialects**; full suite **PG 336→343 / SS 325→332**, zero regressions. Landed:
+
+- **`ToStr` column + pre-saving.** The `SchemaBuilder` adds a `ToStr` value column
+  (`table.toStrColumn`) to an entity table whose own `toString()` is a hand-written method
+  (not `@quoted`); `collectAssignments` writes `entity.toString()` into it on INSERT/UPDATE
+  (Signum's `SetToStrField`).
+- **`entity.toString()` / `lite.toString()` in queries** read that column (Signum's
+  `Completed(ee).GetBinding(ToStrField)`): `entityToStringColumn` completes the reference and
+  reads `ToStr`; a lite recurses to its reference; an IB → a CASE over implementations.
+  Returns undefined (caller falls back) when there's no column. `query.join(sep)` over an
+  entity re-projects its ToString first (= `map(e => e.toString())` then STRING_AGG).
+- **Value `x.toString()` → SQL `CAST`** via a new minimal `SqlCastExpression`
+  (`CAST(x AS varchar|nvarchar(max))`), lowered in the nominator; non-string STRING_AGG
+  arguments are cast too (Postgres rejects `string_agg(integer, …)`). The expression layer now
+  resolves `Number`/`Boolean` receivers so `value.toString()` types as string.
+
+**EntityCompleter (ported) — eager Lite-`toStr` fill now works.** `visitors/EntityCompleter.ts`
+is a faithful port of Signum's EntityCompleter, run in `bindQuery` after binding and before join
+expansion. Its decisive piece is `visitProjection`, which **wraps the projection in a fresh
+enclosing select** (FROM = the original select, re-projected via `ColumnProjector`): a projected
+lite's completion join — registered against the *inner* select — is then spliced by
+`QueryJoinExpander` as a *sibling* of that inner select under the new outer select, so the top
+projection never becomes a join (the failure mode of the earlier naive pass, which regressed 22
+tests). `visitLiteReference` sets the lite's eager model (`toStr`) via the binder's
+`liteModelExpression` (= the reference's ToString, completing it). Verified live: a projected
+typed lite now materialises with its real display string (e.g. `"Billy Corgan"`); **PG 343 /
+SS 332, zero regressions**. Scope vs Signum: conservative — `visitEntity` is a no-op (single
+references stay lazy/stubbed; only *directly-projected* lites get a model), and IBA-lite /
+`@quoted`-toString models + `ExpandLite` hints are not wired yet.
+
+**Default `@quoted toString()` on `Entity` (landed).** `Entity` now has a `@quoted` default
+`toString()` = `isNew ? newNiceName(this) : niceName(this) + " " + this.id.toString()` (Signum's
+`BaseToString`); `niceName`/`newNiceName` (type → human name) were added to
+`entities/utils/localization.ts`. The schema rule keys off it: a column exists iff the entity's
+*resolved* `toString` is a hand-written non-`@quoted` method — so a subclass with no own toString
+inherits the `@quoted` default and gets **no column**, its display computed inline. The binder
+expands the default directly to `<NiceName> " " CAST(id)` (`expandQuotedToString`), resolving
+`niceName(this)` → a per-type constant and `this.isNew` → false (DB rows are never new). Verified
+live: a projected lite of an entity with no own toString (e.g. an `AwardEntity` implementation)
+now shows `"Grammy Award 1"`. Full suite **PG 343→344 / SS 332→333** (`isNew` folding also greens a
+`getTypeAndNew` case), zero regressions; `toString.test.ts` + `selectLiteModel` green both dialects.
+
+**Still pending (smaller refinements):** model `toStr` as a conditionally-`@ignore`d *field* on
+`Entity` rather than the equivalent side `table.toStrColumn` slot (purely structural); expand a
+subclass's *own* `@quoted` toString inline (deferred — bodies like `NoteWithDate`'s reach the
+not-yet-supported `date.toString()` tier, so the eager fill skips them and the lite keeps an empty
+model rather than failing); and filling lite fields *inside* a materialised entity (the
+conservative EntityCompleter `visitEntity` no-op skips them).
+
 ## Most important differences so far
 
 - TypeScript uses `quote-transformer` expressions instead of

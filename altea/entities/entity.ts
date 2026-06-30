@@ -1,6 +1,7 @@
 
 import { Lite, LiteImp, getLiteModelConstructor } from './lite';
-import { entity, EntityData, ignore } from './decorators';
+import { entity, EntityData, ignore, quoted } from './decorators';
+import { niceName, newNiceName } from './utils/localization';
 import { reflect } from './reflection';
 import { enumNameOf } from './registration';
 import { isGraphModified, isModifiedSelf } from './changes';
@@ -150,6 +151,19 @@ export abstract class Entity extends BaseEntity {
 
         const otherEntity = other instanceof Entity ? other : other.entityOrNull;
         return (this as Entity) === otherEntity;
+    }
+
+    /**
+     * Default display string (Signum's `Entity.ToString()` → `BaseToString()`):
+     * a new entity shows its type's "New …" name; a persisted one shows the type's
+     * nice name plus its id. It is `@quoted` so a subclass that does NOT override
+     * `toString()` inherits a *translatable* default — the query provider expands it
+     * inline rather than needing a stored `ToStr` column. A subclass with its own
+     * (non-`@quoted`) `toString()` gets a `ToStr` column instead.
+     */
+    @quoted
+    toString(): string {
+        return this.isNew ? newNiceName(this.constructor) : niceName(this.constructor) + " " + this.id.toString();
     }
 }
 

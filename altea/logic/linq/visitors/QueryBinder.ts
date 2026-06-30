@@ -8,7 +8,7 @@ import {
     FieldBinding, EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
     SqlConstantExpression, TableExpression, OrderExpression, OrderType, UniqueFunction,
     AggregateExpression, AggregateRequestsExpression, AggregateSqlFunction, ColumnDeclaration, InExpression,
-    SourceExpression, SqlFunctionExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression, JoinType,
+    SourceExpression, SqlFunctionExpression, SqlCastExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression, JoinType,
     LiteReferenceExpression, LiteReferenceTarget, ScalarExpression, ExistsExpression,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
     CaseExpression, When, IsNotNullExpression,
@@ -20,6 +20,7 @@ import { AliasGenerator, Alias } from "../AliasGenerator";
 import { projectColumns as projectColumnsImpl, ProjectedColumns } from "./ColumnProjector";
 import { fullNominate as fullNominateImpl } from "../dbExpressionNominator";
 import { QueryJoinExpander, TableRequest } from "./QueryJoinExpander";
+import { EntityCompleter } from "./EntityCompleter";
 import { GroupEntityCleaner } from "./GroupEntityCleaner";
 import { SmartEqualizer } from "../smartEqualizer";
 import type { Schema } from "../../schema/schema";
@@ -32,6 +33,7 @@ import {
 import type { FieldInfo } from "../../../entities/reflection";
 import { resolveType } from "../../../entities/registration";
 import { Entity } from "../../../entities/entity";
+import { niceName } from "../../../entities/utils/localization";
 import { ArrayType, ClassType, LiteType, LiteralType, TemporalType, Type } from "../../../entities/types";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 
@@ -49,13 +51,15 @@ function isReferenceish(e: Expression): boolean {
 }
 
 // Relational-join operator → SQL join type. leftJoin preserves the outer (left)
-// source, rightJoin the inner (right), fullJoin both.
-const JOIN_TYPES: { [op: string]: JoinType | undefined } = {
-    innerJoin: "InnerJoin",
-    leftJoin: "LeftOuterJoin",
-    rightJoin: "RightOuterJoin",
-    fullJoin: "FullOuterJoin",
-};
+// source, rightJoin the inner (right), fullJoin both. A Map (not a plain object) so a
+// method named like an Object.prototype member — notably `toString` — doesn't
+// spuriously resolve to an inherited property and get mis-dispatched as a join.
+const JOIN_TYPES = new Map<string, JoinType>([
+    ["innerJoin", "InnerJoin"],
+    ["leftJoin", "LeftOuterJoin"],
+    ["rightJoin", "RightOuterJoin"],
+    ["fullJoin", "FullOuterJoin"],
+]);
 
 // A plain `{...}` object (Object/null prototype) — as opposed to a class instance
 // (Entity/Lite/Embedded). Used to detect an all-constant bulk-DML setter literal the
@@ -147,13 +151,42 @@ export class QueryBinder extends ExpressionVisitor {
         return this.aliasGenerator;
     }
 
+    // ---- EntityCompleter surface ------------------------------------------
+    // A few binder operations EntityCompleter (a separate visitor) needs, mirroring
+    // Signum where EntityCompleter calls back into the binder.
+
+    // Run `fn` with `source` as the current completion source (Signum's
+    // SetCurrentSource): joins requested while binding the projector attach to it.
+    runWithSource<T>(source: SourceExpression, fn: () => T): T {
+        this.sourceStack.push(source);
+        try { return fn(); }
+        finally { this.sourceStack.pop(); }
+    }
+
+    // The display-string (`toStr`) SQL expression for a lite's reference, completing it
+    // (a LEFT-OUTER-JOIN request) so its ToStr column is reachable; undefined when the
+    // reference has no translatable ToString (IBA / @quoted with no column).
+    liteModelExpression(reference: Expression): Expression | undefined {
+        return this.entityToStringOf(reference);
+    }
+
+    // Split a projector into SELECT columns + a rebuilt projector (Signum's
+    // ColumnProjector.ProjectColumns), used by EntityCompleter to re-project a wrapped
+    // select.
+    splitColumns(projector: Expression, alias: Alias): ProjectedColumns {
+        return this.projectColumns(projector, alias);
+    }
+
     bindQuery(expr: Expression): ProjectionExpression {
         this.root = expr;
         const result = this.visit(expr);
         if (!(result instanceof ProjectionExpression))
             throw new Error("Query did not bind to a ProjectionExpression: " + result.toString());
-        // Splice in the implicit navigation joins recorded during binding.
-        const expanded = QueryJoinExpander.expand(result, this.requests);
+        // EntityCompleter: fill projected lites' eager model (toStr), wrapping the
+        // projection so its completion joins attach correctly (Signum runs this before
+        // join expansion). Then splice in all implicit joins (navigation + completion).
+        const completed = EntityCompleter.complete(result, this);
+        const expanded = QueryJoinExpander.expand(completed, this.requests);
         if (!(expanded instanceof ProjectionExpression))
             throw new Error("Join expansion did not preserve the ProjectionExpression");
         return expanded;
@@ -367,6 +400,7 @@ export class QueryBinder extends ExpressionVisitor {
             return this.getTableProjection(ctor);
         }
 
+
         // Query operator: <source>.<op>(...args)
         if (func instanceof PropertyExpression || func.kind === ".") {
             const property = func as PropertyExpression;
@@ -378,7 +412,7 @@ export class QueryBinder extends ExpressionVisitor {
             // The relational joins need the raw sources (the inner source travels as
             // args[0]) and bind two result-selector params; the operator name fixes
             // the SQL join type.
-            const joinType = JOIN_TYPES[op];
+            const joinType = JOIN_TYPES.get(op);
             if (joinType != null)
                 return this.bindJoin(joinType, property.object, call.args[0], call.args[1] as LambdaExpression, call.args[2] as LambdaExpression, call.args[3] as LambdaExpression);
             if (op === "groupJoin")
@@ -469,6 +503,18 @@ export class QueryBinder extends ExpressionVisitor {
         // bulk-DML AssignAdapterExpander then shapes the constant lite to its column.
         if (methodName === "toLite" && source instanceof ConstantExpression && source.value instanceof Entity)
             return new ConstantExpression((source.value as Entity).toLite());
+
+        // entity.toString() / lite.toString() (Signum's BindMethodCall ToString path):
+        // an entity with a physical ToStr column → read it (completing the reference);
+        // a lite → recurse onto its wrapped reference; an IB → a CASE over each
+        // implementation's ToStr. A @quoted (expression) toString has no column — it
+        // would be expanded inline (the @quoted-member tier, not built yet) — and the
+        // IBA / enum / value cases fall through to the nominator's residual call.
+        if (methodName === "toString" && args.length === 0) {
+            const toStr = this.entityToStringOf(source);
+            if (toStr != null)
+                return toStr;
+        }
 
         // entity.is(x) / lite.is(x) → the server form of the in-memory identity
         // check, lowered by SmartEqualizer (handles typed refs, IB, IBA, captured
@@ -743,9 +789,28 @@ export class QueryBinder extends ExpressionVisitor {
         if (!(separator instanceof ConstantExpression) || typeof separator.value !== "string")
             throw new Error("The 'separator' of a string aggregate (join) must be a constant string");
 
-        const nominated = this.fullNominate(projection.projector);
+        // `query.join(sep)` over an entity/lite/IB aggregates its display string — the
+        // same as `query.map(e => e.toString()).join(sep)`. Re-project the ToString as
+        // a scalar column (like bindSelect) so the aggregate's FROM exposes it.
+        let source = projection;
+        const refToStr = this.entityToStringOf(projection.projector);
+        if (refToStr != null) {
+            const projAlias = this.aliasGenerator.nextSelectAlias();
+            const pc = this.projectColumns(refToStr, projAlias);
+            source = new ProjectionExpression(
+                new SelectExpression(projAlias, false, undefined, pc.columns, projection.select, undefined, [], []),
+                pc.projector, undefined, new ArrayType(LiteralType.string));
+        }
+
+        let nominated = this.fullNominate(source.projector);
         if (isReferenceish(nominated) || nominated instanceof EmbeddedEntityExpression)
-            throw new Error("A string aggregate (join) over an entity needs the entity-ToString tier (not implemented yet); project a scalar with .map(...) first");
+            throw new Error("A string aggregate (join) over this projection (@implementedByAll / @quoted ToString) is not supported yet; project a scalar with .map(...) first");
+
+        // STRING_AGG concatenates text — a non-string element (e.g. an int id) must be
+        // cast (Postgres rejects string_agg(integer, …); SQL Server would coerce it but
+        // we cast uniformly for a stable shape).
+        if (nominated.type !== LiteralType.string)
+            nominated = new SqlCastExpression(LiteralType.string, nominated, this.isPostgres ? "varchar" : "nvarchar(max)");
 
         const aggregate = new AggregateExpression(
             LiteralType.string, "string_agg",
@@ -753,10 +818,77 @@ export class QueryBinder extends ExpressionVisitor {
             undefined);
 
         const alias = this.aliasGenerator.nextSelectAlias();
-        const select = new SelectExpression(alias, false, undefined, [new ColumnDeclaration("c0", aggregate)], projection.select, undefined, [], []);
+        const select = new SelectExpression(alias, false, undefined, [new ColumnDeclaration("c0", aggregate)], source.select, undefined, [], []);
         if (isRoot)
             return new ProjectionExpression(select, new ColumnExpression(LiteralType.string, alias, "c0"), "Single", LiteralType.string);
         return new ScalarExpression(LiteralType.string, select);
+    }
+
+    // The display-string SQL expression of an entity / lite / IB reference: an entity's
+    // ToStr column, a lite's wrapped reference's ToString, or a CASE over an IB's
+    // implementations. Returns undefined for shapes whose ToString isn't supported yet
+    // (IBA, @quoted-expression, value/enum) so callers can fall back.
+    private entityToStringOf(source: Expression): Expression | undefined {
+        if (source instanceof LiteReferenceExpression)
+            return this.entityToStringOf(source.reference);
+        if (source instanceof EntityExpression)
+            return this.entityToString(source);
+        if (source instanceof ImplementedByExpression) {
+            // The CASE needs every implementation's ToString to translate; if any
+            // doesn't (e.g. an unsupported @quoted body), the polymorphic one isn't
+            // available.
+            const impls = [...source.implementations.values()];
+            const parts = impls.map(ee => this.entityToString(ee));
+            if (parts.some(p => p == null))
+                return undefined;
+            return this.dispatchIb(source, ee => this.entityToString(ee)!);
+        }
+        return undefined;
+    }
+
+    // The display-string SQL of a single entity reference (Signum's
+    // `Completed(ee).GetBinding(ToStrField)` or the inline ToString expression): read
+    // its physical ToStr column when it has one (hand-written non-@quoted toString),
+    // else expand its `@quoted` toString inline. Undefined when neither is possible.
+    private entityToString(ee: EntityExpression): Expression | undefined {
+        return this.entityToStringColumn(ee) ?? this.expandQuotedToString(ee);
+    }
+
+    // Read the physical ToStr column (completing the reference — a join for a lazy FK,
+    // a no-op for a root entity). Undefined when the entity has no column.
+    private entityToStringColumn(ee: EntityExpression): Expression | undefined {
+        const toStrColumn = ee.table.toStrColumn;
+        if (toStrColumn == null)
+            return undefined;
+        const completed = this.completed(ee);
+        return new ColumnExpression(LiteralType.string, completed.tableAlias!, toStrColumn.name);
+    }
+
+    // Expand the entity type's `@quoted` toString body against this entity expression
+    // (Signum's expression-based ToString). Field accesses inside the body complete the
+    // reference on demand; `this.id` stays the FK (no join) and `niceName(this)` folds
+    // to a constant. Undefined when the toString isn't @quoted (→ a column was used).
+    private expandQuotedToString(ee: EntityExpression): Expression | undefined {
+        const ctor = ee.type instanceof ClassType ? ee.type.constructorFunction : undefined;
+        const ts = (ctor as { prototype?: { toString?: unknown } } | undefined)?.prototype?.toString;
+        if (typeof ts !== "function" || (ts as { __quoted?: unknown }).__quoted == null)
+            return undefined;
+
+        // Entity's inherited default `toString` (BaseToString): a persisted row reads
+        // `<NiceName> <Id>`. Built directly (the generic body has an `isNew` branch and
+        // `this.id.toString()` whose expression-layer typing is brittle here).
+        if (ts === Entity.prototype.toString)
+            return new BinaryExpression("+",
+                new SqlConstantExpression(niceName(ctor!) + " ", LiteralType.string),
+                new SqlCastExpression(LiteralType.string, this.unwrapPk(ee.externalId), this.isPostgres ? "varchar" : "nvarchar(max)"));
+
+        // A subclass's own `@quoted` toString could be expanded by binding its captured
+        // body against `ee` (Expression.fromQuotedLambda + bindWithParam), but those
+        // bodies often reach not-yet-translatable tiers (e.g. `date.toString()`), which
+        // would throw mid-projection. Until those land, skip the eager fill for custom
+        // `@quoted` toStrings — the lite keeps an empty model rather than failing the
+        // whole query.
+        return undefined;
     }
 
     // The SQL-valued argument of an aggregate: a reference (typed, polymorphic, or
@@ -962,6 +1094,10 @@ export class QueryBinder extends ExpressionVisitor {
     private bindEntityMember(entity: EntityExpression, name: string): Expression {
         if (name === "id")
             return entity.externalId;
+        // A row read from the database is never new (Signum folds IsNew in queries);
+        // used by the default `@quoted` toString's `this.isNew ? … : …`.
+        if (name === "isNew")
+            return new SqlConstantExpression(false, LiteralType.boolean);
         const ef = Object.values(entity.table.fields).find(f => f.fieldInfo.name === name);
         if (ef != null && ef.field instanceof FieldEntityArray)
             return this.makeFieldEntityArray(entity, ef.field);

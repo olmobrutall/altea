@@ -1,11 +1,33 @@
 
 import type { IContextVariable, IContextStorage } from './context';
+import { LiteralType } from '../types';
 
 // Re-exported from the import-free registration leaf so the quote-transformer can
 // attach `registerObject` to the `msg` import in localization files (which don't
 // import reflect) to auto-register msg() containers. The leaf imports nothing, so
 // this does not create a cycle with reflection.
 export { registerObject } from '../registration';
+
+// Human-readable name of an entity *type* (Signum's `Type.NiceName()`): the class
+// name with a trailing "Entity" dropped and PascalCase split into words —
+// `GrammyAwardEntity` → "Grammy Award". Takes the constructor only (never an instance):
+// the display string must be computable from the type + id alone, so building a lite's
+// model never forces the (potentially unloaded) entity to be retrieved.
+export function niceName(ctor: Function): string {
+    const raw = ctor.name.replace(/Entity$/, "");
+    return raw.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2").trim();
+}
+
+// Display name of a new (unsaved) entity of this type (Signum's `Type.NewNiceName()`).
+export function newNiceName(ctor: Function): string {
+    return "New " + niceName(ctor);
+}
+
+// `niceName`/`newNiceName` are used inside the `@quoted` default `Entity.toString()`;
+// the quote model needs a result type for them (both → string). The binder resolves
+// the call to a constant per the receiver's static type.
+(niceName as { __resultType?: () => unknown }).__resultType = () => LiteralType.string;
+(newNiceName as { __resultType?: () => unknown }).__resultType = () => LiteralType.string;
 
 export class LocalizableMessage {
     private _inferred?: string;

@@ -13,6 +13,10 @@ export class Table {
     columns: { [name: string]: IColumn } = {};
     primaryKey!: FieldPrimaryKey;
     ticks?: FieldTicks;
+    // Physical display-string column (Signum's `ToStr`), present only when the
+    // entity's `toString()` is a hand-written method (not a `@quoted` expression the
+    // query provider can translate). Written at save time = `entity.toString()`.
+    toStrColumn?: IColumn;
 
     constructor(
         public readonly type: Type<Entity>,
@@ -39,6 +43,9 @@ export class Table {
         for (const mixin of Object.values(this.mixins))
             for (const col of mixin.columns())
                 add(col);
+
+        if (this.toStrColumn != null)
+            add(this.toStrColumn);
 
         this.columns = columns;
     }

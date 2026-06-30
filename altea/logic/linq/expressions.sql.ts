@@ -287,6 +287,26 @@ export class SqlFunctionExpression extends DbExpression {
     }
 }
 
+// `CAST(expression AS sqlType)` — a minimal port of Signum's SqlCastExpression. The
+// `sqlType` is the dialect-specific target SQL type text (e.g. "varchar"/"nvarchar(max)").
+export class SqlCastExpression extends DbExpression {
+    constructor(
+        type: Type,
+        public readonly expression: Expression,
+        public readonly sqlType: string,
+    ) {
+        super("SqlCast", type);
+    }
+
+    toString(): string {
+        return `Cast(${this.expression} as ${this.sqlType})`;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitSqlCast(this);
+    }
+}
+
 export class SqlConstantExpression extends DbExpression {
     constructor(
         public readonly value: unknown,

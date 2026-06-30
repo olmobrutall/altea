@@ -162,6 +162,11 @@ function temporalPrototype(t: TemporalType): object {
 
 // Result type of a built-in `obj.<propertyName>(…)` call, from the registry above.
 function wellKnownResultType(obj: Expression | undefined, propertyName: string): ResultTypeResolver | undefined {
+    // `toString()` returns a string for any receiver (entity/lite/value). Whether it
+    // can be translated to SQL is decided later in the binder (ToStr column for an
+    // entity/lite; the value/enum cases stay residual).
+    if (propertyName === "toString")
+        return () => LiteralType.string;
     const ns = wellKnownNamespace(obj);
     if (ns == null)
         return undefined;
@@ -285,8 +290,10 @@ export abstract class Expression {
                                     obj.type instanceof LiteType ? Lite.prototype :
                                         obj.type instanceof TemporalType ? temporalPrototype(obj.type) :
                                             obj.type instanceof ClassType ? obj.type.constructorFunction.prototype :
-                                                staticReceiverObject(obj) ??
-                                                    undefined;
+                                                obj.type === LiteralType.number ? Number.prototype :
+                                                    obj.type === LiteralType.boolean ? Boolean.prototype :
+                                                        staticReceiverObject(obj) ??
+                                                            undefined;
 
                             if (type == undefined)
                                 throw new Error(`Unexpected object type when calling ${fun.propertyName}`);

@@ -8,7 +8,7 @@ import {
     ColumnExpression, ColumnDeclaration, OrderExpression, JoinType,
     AggregateExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression,
     CaseExpression, LikeExpression, ScalarExpression, ExistsExpression, InExpression,
-    IsNullExpression, IsNotNullExpression, PrimaryKeyExpression,
+    IsNullExpression, IsNotNullExpression, PrimaryKeyExpression, SqlCastExpression,
     CommandExpression, DeleteExpression, UpdateExpression, InsertSelectExpression,
     CommandAggregateExpression,
 } from "./expressions.sql";
@@ -305,6 +305,13 @@ export class QueryFormatter extends DbExpressionVisitor {
 
     override visitSqlFunction(e: SqlFunctionExpression): Expression {
         this.append(`${e.sqlFunction}(${e.arguments.map(a => this.capture(() => this.visit(a))).join(", ")})`);
+        return e;
+    }
+
+    override visitSqlCast(e: SqlCastExpression): Expression {
+        this.append("CAST(");
+        this.visit(e.expression);
+        this.append(` AS ${e.sqlType})`);
         return e;
     }
 
