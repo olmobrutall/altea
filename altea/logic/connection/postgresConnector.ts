@@ -1,6 +1,19 @@
-import { Pool } from 'pg';
+import { Pool, types as pgTypes } from 'pg';
 import type { PoolConfig, PoolClient } from 'pg';
 import type { Schema } from '../schema/schema';
+
+// Postgres returns int8 (bigint — the type of COUNT(*), SUM(int), and Ticks) as a
+// string to avoid precision loss past 2^53. altea treats these as JS numbers, so a
+// per-pool parser coerces OID 20 (int8) → Number; everything else keeps pg's default
+// parser (notably numeric/OID 1700 stays a string for decimal.js). int4 ids are
+// unaffected (already numbers).
+const ALTEA_PG_TYPES = {
+    getTypeParser(oid: number, format?: unknown): unknown {
+        if (oid === 20)
+            return (value: string | null) => (value == null ? null : Number(value));
+        return (pgTypes.getTypeParser as (oid: number, format?: unknown) => unknown)(oid, format);
+    },
+};
 import { Connector } from './connector';
 import type { ConnectionHandle, IsolationLevel } from './connector';
 
@@ -66,9 +79,8 @@ export class PostgresConnector extends Connector {
     }
 
     private getPool(): Pool {
-        return (this.pool ??= new Pool(
-            typeof this.config === 'string' ? { connectionString: this.config } : this.config,
-        ));
+        const base = typeof this.config === 'string' ? { connectionString: this.config } : this.config;
+        return (this.pool ??= new Pool({ ...base, types: ALTEA_PG_TYPES as PoolConfig['types'] }));
     }
 
     async openConnection(): Promise<ConnectionHandle> {

@@ -238,10 +238,29 @@ export class QueryBinder extends ExpressionVisitor {
         if (methodName === "is" && args.length === 1)
             return SmartEqualizer.polymorphicEqual(source, this.visit(args[0]));
 
+        // some/every over a captured in-memory collection (Signum's BindAnyAll
+        // constant-source branch): expand to `pred(v0) OR/AND pred(v1) …`, binding
+        // the predicate's parameter to each captured element. (A query/subquery
+        // source takes the EXISTS path in the operator switch, not here.)
+        if ((methodName === "some" || methodName === "every") && source instanceof ConstantExpression && Array.isArray(source.value)) {
+            const isAll = methodName === "every";
+            const values = source.value as unknown[];
+            if (args.length === 0)
+                return new ConstantExpression(isAll ? true : values.length > 0);
+            const lambda = args[0] as LambdaExpression;
+            const terms = values.map(v => this.bindWithParam(lambda, new ConstantExpression(v)));
+            return this.foldBoolean(terms, isAll);
+        }
+
         const visitedArgs = args.map(a => this.visit(a));
 
-        if (methodName === "contains" && source instanceof ConstantExpression && Array.isArray(source.value) && visitedArgs.length === 1)
-            return InExpression.fromValues(visitedArgs[0], source.value);
+        if (methodName === "contains" && source instanceof ConstantExpression && Array.isArray(source.value) && visitedArgs.length === 1) {
+            // A captured collection of entities/lites → id-comparison membership
+            // (Signum's EntityIn); a collection of values → `item IN (…)`.
+            return isReferenceish(visitedArgs[0])
+                ? SmartEqualizer.entityIn(visitedArgs[0], source.value)
+                : InExpression.fromValues(visitedArgs[0], source.value);
+        }
 
         if (methodName === "contains" && visitedArgs.length === 1)
             return new LikeExpression(source, this.likePattern("%", visitedArgs[0], "%"));
@@ -460,6 +479,10 @@ export class QueryBinder extends ExpressionVisitor {
         const aggregate = aggregateFunction === "Count"
             ? new AggregateExpression(LiteralType.number, aggregateFunction, [], undefined)
             : (() => { const a = this.aggregateArgument(argument); return new AggregateExpression(a.type, aggregateFunction, [a], undefined); })();
+        // NB: Signum coalesces a non-nullable Sum over no rows to 0, but altea's port
+        // dropped the `(int?)` cast that distinguishes RootSumZero (→0) from
+        // RootSumNull (→null) — the queries are identical here, so neither coalesce
+        // nor its absence can satisfy both. Left un-coalesced (matches RootSumNull).
 
         const alias = this.aliasGenerator.nextSelectAlias();
         const name = "c0";
@@ -526,6 +549,30 @@ export class QueryBinder extends ExpressionVisitor {
         const alias = this.aliasGenerator.nextSelectAlias();
         const select = new SelectExpression(alias, false, undefined, [new ColumnDeclaration("value", expr)], undefined, undefined, [], []);
         return new ProjectionExpression(select, new ColumnExpression(expr.type, alias, "value"), uniqueFunction, expr.type);
+    }
+
+    // Binds a lambda body with its single parameter mapped to a fixed expression
+    // (no source navigation) — used to expand a predicate over each captured element.
+    private bindWithParam(lambda: LambdaExpression, value: Expression): Expression {
+        const param = lambda.parameters[0];
+        const old = this.map.get(param);
+        this.map.set(param, value);
+        try {
+            return this.visit(lambda.body);
+        } finally {
+            if (old === undefined)
+                this.map.delete(param);
+            else
+                this.map.set(param, old);
+        }
+    }
+
+    // AND/OR-fold a list of boolean terms; empty folds to the identity (All→true,
+    // Any→false).
+    private foldBoolean(terms: Expression[], isAll: boolean): Expression {
+        if (terms.length === 0)
+            return new ConstantExpression(isAll);
+        return terms.reduce((a, b) => new BinaryExpression(isAll ? "&&" : "||", a, b));
     }
 
     // Binds a lambda body with its single parameter mapped to the source's

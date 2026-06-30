@@ -51,6 +51,13 @@ export class SmartEqualizer {
         return this.equalNullable(e1, e2);
     }
 
+    // `capturedList.contains(reference)` — Signum's EntityIn. A reference can't be
+    // compared column-wise, so membership in a captured collection of entities/lites
+    // is an OR of id (+ type) comparisons against each captured element. Empty → False.
+    static entityIn(item: Expression, values: readonly unknown[]): Expression {
+        return this.orAll(values.map(v => this.polymorphicEqual(item, new ConstantExpression(v))));
+    }
+
     // `x instanceof Ctor` (C#'s `x is Ctor`). True when the reference points at a
     // row of that concrete type: for a typed reference, the static type must match;
     // for IB, the matching implementation column must be non-null; for IBA, the type

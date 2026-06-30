@@ -11,6 +11,7 @@ import { OrderByRewriter } from "./linq/visitors/OrderByRewriter";
 import { QueryRebinder } from "./linq/visitors/QueryRebinder";
 import { RedundantSubqueryRemover } from "./linq/visitors/RedundantSubqueryRemover";
 import { ConditionsRewriter } from "./linq/visitors/ConditionsRewriter";
+import { ScalarSubqueryRewriter } from "./linq/visitors/ScalarSubqueryRewriter";
 import { ChildProjectionFlattener } from "./linq/visitors/ChildProjectionFlattener";
 import { ProjectionExpression } from "./linq/expressions.sql";
 import { buildTranslateResult } from "./linq/translatorBuilder";
@@ -76,6 +77,9 @@ class MyQueryTranslator implements IQueryTranslator {
         projection = RedundantSubqueryRemover.remove(projection, connector.isPostgres);
         if (!connector.isPostgres)
             projection = ConditionsRewriter.rewrite(projection);
+        // SQL Server can't aggregate over a scalar subquery — lift those to OUTER
+        // APPLYs (no-op on Postgres, which allows scalar subqueries in aggregates).
+        projection = ScalarSubqueryRewriter.rewrite(projection, connector.isPostgres);
         if (!(projection instanceof ProjectionExpression))
             throw new Error("Optimiser pipeline did not preserve the ProjectionExpression");
         // Eager-load nested projections (e.g. map(l => …toArray())) as separate

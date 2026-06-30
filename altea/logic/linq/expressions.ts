@@ -285,6 +285,12 @@ export class ConstantExpression extends Expression {
         if (typeof value === "boolean")
             return LiteralType.boolean;
         if (typeof value === "object") {
+            // A captured array → ArrayType (element type inferred from the first
+            // element), so `list.some(…)` / `.every(…)` / `.contains(…)` dispatch via
+            // the OrderedQuery prototype (which carries the quote decorators) rather
+            // than the bare Array.prototype.
+            if (Array.isArray(value))
+                return new ArrayType(value.length ? ConstantExpression.calculateType(value[0]) : LiteralType.null);
             if (value.constructor == Object)
                 return new ObjectType({});
 

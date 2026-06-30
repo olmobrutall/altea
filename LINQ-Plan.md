@@ -439,10 +439,9 @@ Scoped / deferred (flagged, not regressions): the distinct-fast disassembly
 fallback is correct), the "key contains an aggregate" intermediate-select branch,
 and SQL Server's *aggregate-over-subquery* restriction (`min(b => b.members.max(…))`
 — needs the skipped ScalarSubqueryRewriter). Out of scope (no altea API):
-`minBy`/`maxBy`, `substring`, `join`, empty-key `groupBy(a => ({}))`, StdDev, and
-the in-memory **constant-collection** operators (`years.some(…)`, `EntityIn` —
-`list.contains(entity)` over a captured array). Pre-existing/orthogonal: the
-Postgres `COUNT`→bigint-string coercion and empty-set max/min/sum semantics (`Root*`).
+`minBy`/`maxBy`, `substring`, `join`, empty-key `groupBy(a => ({}))`, StdDev.
+Pre-existing/orthogonal: the Postgres `COUNT`→bigint-string coercion and empty-set
+max/min/sum semantics (`Root*`).
 
 **Tier 3 follow-up (Any/All/Contains + single-result-subquery member).** Extended the
 same tier: **groupBy.test.ts PG 71/82, SQL Server 68/82**; full suite PG 439→460,
@@ -463,6 +462,41 @@ work also lifted the broader `allAnyContains` suite (query-level forms). Added:
   projector and re-wraps as a scalar subquery. The whole-entity single sub-query
   (`…firstOrNull()` used directly) already materialised via the existing child-projection
   path — no new reader code.
+
+**Tier 3 follow-up 2 (in-memory constant collections).** `allAnyContains.test.ts`
+now **20/20 on both dialects** (was 12/20); full suite PG 460→468, SS 459→467 (still
+zero regressions). Two pieces:
+
+- **`EntityIn`** — `capturedList.contains(reference)` over a constant array of
+  entities/lites lowers to an OR of id (+ type) comparisons (`SmartEqualizer.entityIn`,
+  wired into `bindMethodCall`'s constant-array `contains` path); value arrays keep the
+  `IN (…)` form.
+- **Constant-collection `some`/`every`** — a captured array is now typed `ArrayType`
+  (`ConstantExpression.calculateType`), so `list.some(p)` / `.every(p)` dispatch via the
+  OrderedQuery prototype instead of bare `Array.prototype`; the binder expands them over
+  the captured source (`bindMethodCall` → `pred(v0) OR/AND pred(v1) …`, Signum's
+  BindAnyAll constant-source branch).
+
+**Tier 3 follow-up 3 (aggregate-over-subquery + Postgres count coercion).** Full suite
+PG 468→475, SS 467→474 (still zero regressions). groupBy now **PG 75/82, SS 73/82**.
+
+- **`ScalarSubqueryRewriter`** (`visitors/ScalarSubqueryRewriter.ts`, wired into `bind()`
+  after ConditionsRewriter) — SQL Server rejects an aggregate over a scalar subquery
+  (`MIN((SELECT MAX(…)))`); the pass lifts the subquery to an `OUTER APPLY` on the
+  enclosing FROM and references its column. No-op on Postgres. Greens the SS
+  `MinMax`/`SumSum`/`MinGroupByMax`/`SumGroupbySum`/`GroupByExpandGroupBy` cluster.
+- **Postgres int8 → number** (`postgresConnector.ts`): a per-pool type parser coerces
+  OID 20 (the type of `COUNT(*)`, `SUM(int)`, Ticks) to a JS number — node-postgres
+  returns it as a string otherwise. int4 ids and numeric/decimal (OID 1700) are
+  untouched. Fixes the `Root*` count cases (and count assertions across suites).
+
+Still failing in groupBy (all genuinely out of scope): `DistinctGroupByForce`
+(`substring`), `GroupMaxBy`/`GroupMinBy` (`minBy`/`maxBy`), `JoinGroupPair` (`join`),
+`GroupByCount` (SS — GROUP BY a subquery, which SQL Server forbids),
+`GroupMultiAggregateNoKeys` (empty key), and `RootMaxException`/`RootMinException`
+(empty-set max/min should throw — altea has no non-nullable-NULL field reader) plus
+`RootSumZero` (the `(int?)` cast the port dropped makes it indistinguishable from
+`RootSumNull`, which it would otherwise break).
 
 ## Most important differences so far
 
@@ -565,7 +599,7 @@ work also lifted the broader `allAnyContains` suite (query-level forms). Added:
 | `ExpressionVisitor/QueryJoinExpander.cs` | `altea/logic/linq/visitors/QueryJoinExpander.ts` | Partial — `TableRequest` (single-row LEFT OUTER JOIN) only; `UniqueRequest`/`UnionAllRequest` deferred |
 | `ExpressionVisitor/RedundantSubqueryRemover.cs` | `altea/logic/linq/visitors/RedundantSubqueryRemover.ts` | Ported (scoped) — Gatherer + SubqueryRemover + SubqueryMerger + JoinSimplifier; no Skip/SetOperator |
 | `ExpressionVisitor/Replacer.cs` | none | Not ported |
-| `ExpressionVisitor/ScalarSubqueryRewriter.cs` | none | Not ported |
+| `ExpressionVisitor/ScalarSubqueryRewriter.cs` | `altea/logic/linq/visitors/ScalarSubqueryRewriter.ts` | Ported — lifts a scalar subquery used inside an aggregate to an OUTER APPLY (SQL-Server-only; no-op on Postgres) |
 | `ExpressionVisitor/SmartEqualizer.cs` | `altea/logic/linq/smartEqualizer.ts` | Ported (scoped) — `polymorphicEqual` (entity/IB/IBA/Lite/null/captured-constant) + `entityIsInstance`; no PrimaryKey struct / Guid comparer / MList element / external period / nullable-bool; IBA type compared as the clean-name string |
 | `ExpressionVisitor/SubqueryRemover.cs` | `altea/logic/linq/visitors/RedundantSubqueryRemover.ts` (inner `SubqueryRemover`) | Ported |
 | `ExpressionVisitor/TableFinder.cs` | none | Not ported |
