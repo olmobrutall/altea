@@ -31,6 +31,8 @@ import { ObjectName, SchemaName, defaultSchemaName } from './objectName';
 import { Schema } from './schema';
 import { Table } from './table';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../entities/enumEntity';
+import { TypeEntity } from '../../entities/typeEntity';
+import { TypeLogic } from '../typeLogic';
 
 // Entity base fields handled specially (id, ticks) or excluded from the schema.
 const RESERVED_FIELDS = new Set(['id', 'ticks', 'isNew', '_snapshot']);
@@ -135,6 +137,10 @@ export class SchemaBuilder {
     // Validates cross-table back-references once every table is present. Call
     // after the final include().
     complete(): void {
+        // The TypeEntity system table is always part of the schema (it backs the
+        // type↔id mapping), even when no @implementedByAll field referenced it.
+        this.include(TypeEntity as unknown as Type<Entity>);
+
         for (const table of this.schema.tables.values()) {
             for (const ef of Object.values(table.fields))
                 if (ef.field instanceof FieldEntityArray)
@@ -144,6 +150,10 @@ export class SchemaBuilder {
                     if (ef.field instanceof FieldEntityArray)
                         this.validateEntityArray(table, ef.field, ef.fieldInfo);
         }
+
+        // Assign each entity type its TypeEntity id, build the type↔id caches, and
+        // register the row-seeding generation step (Signum's TypeLogic.Start).
+        TypeLogic.start(this.schema);
     }
 
     private completeTable(table: Table, type: Type<Entity>): void {
@@ -153,7 +163,11 @@ export class SchemaBuilder {
 
         // EnumEntity<T> tables mirror Signum: a non-identity int PK (the row id is
         // the enum's underlying value, supplied at seed time) and no ticks column.
+        // The TypeEntity system table is seeded the same way (deterministic ids
+        // assigned by TypeLogic, [TicksColumn(false)] in Signum), so it shares the
+        // non-identity-PK / no-ticks treatment.
         const isEnumEntity = isEnumEntityType(type);
+        const isSeeded = isEnumEntity || typeConstructor(type) === TypeEntity;
 
         // Primary key + ticks first, so FK columns can read the PK db type.
         const idInfo = typeInfo.fields['id'] ?? new FieldInfo('id');
@@ -167,7 +181,7 @@ export class SchemaBuilder {
         // gen_random_uuid() on Postgres, NEWID()/NEWSEQUENTIALID() (uuid7) on SQL
         // Server. The default key type is int.
         const isGuid = pkType === 'uuid' || pkType === 'uuid7';
-        const pkColumn = new PrimaryKeyColumn('id', pkDbType, /* identity */ !isGuid && !isEnumEntity);
+        const pkColumn = new PrimaryKeyColumn('id', pkDbType, /* identity */ !isGuid && !isSeeded);
         if (isGuid)
             pkColumn.default = this.settings.isPostgres
                 ? 'gen_random_uuid()'
@@ -176,7 +190,7 @@ export class SchemaBuilder {
         table.primaryKey = pk;
         table.fields['id'] = new EntityField(idInfo, pk, makeGetter('id'));
 
-        if (!isEnumEntity) {
+        if (!isSeeded) {
             const ticksInfo = typeInfo.fields['ticks'] ?? new FieldInfo('ticks');
             const ticks = new FieldTicks(new ValueColumn('ticks', this.settings.ticksDbType, IsNullable.No));
             table.ticks = ticks;
@@ -217,8 +231,9 @@ export class SchemaBuilder {
         // entity has a hand-written `toString()` (own prototype) that is NOT a
         // `@quoted` expression — i.e. one the query provider can't translate to SQL,
         // so it is materialised at save time. A `@quoted` toString is expanded inline
-        // in queries instead and needs no column. Enum tables use their `name` column.
-        if (!isEnumEntity) {
+        // in queries instead and needs no column. Enum tables use their `name` column;
+        // the TypeEntity system table keeps the inherited default (no ToStr column).
+        if (!isSeeded) {
             // Resolve toString up the prototype chain (finds an override, or Entity's
             // inherited `@quoted` default). A hand-written, non-`@quoted` toString needs
             // a stored ToStr column; a `@quoted` one (incl. the inherited default) is
@@ -262,7 +277,10 @@ export class SchemaBuilder {
         if (fi.implementations != null) {
             if (fi.implementations.kind === 'implementedByAll') {
                 const idColumn = new ImplementedByAllIdColumn(preName.add(`${fi.name}Id`).toString(), this.settings.primaryKeyDbType);
-                const typeColumn = new ImplementedByAllTypeColumn(preName.add(`${fi.name}Type`).toString());
+                // The type discriminator is the target's TypeEntity int id, so the
+                // column references the (auto-included) TypeEntity table.
+                const typeTable = this.include(TypeEntity as unknown as Type<Entity>);
+                const typeColumn = new ImplementedByAllTypeColumn(preName.add(`${fi.name}Type`).toString(), typeTable);
                 return new FieldImplementedByAll(idColumn, typeColumn, isLite);
             }
             const columns = fi.implementations.types().map(implType => {

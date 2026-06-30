@@ -820,6 +820,80 @@ not-yet-supported `date.toString()` tier, so the eager fill skips them and the l
 model rather than failing); and filling lite fields *inside* a materialised entity (the
 conservative EntityCompleter `visitEntity` no-op skips them).
 
+**Step 7 (GetType / Type expressions — runtime type access in queries).** `.constructor`
+(altea's `GetType()`) and `typeof(X)` comparisons now bind, compare, project, group, and
+materialise across typed / `@implementedBy` / `@implementedByAll` references. Verified live:
+**getTypeAndNew.test.ts 17/17 on both dialects** (was PG 1/17), and a stash-verified full-suite
+diff confirms **zero regressions** on either dialect (the change also greened `SelectType`/
+`SelectTypeIBA`/`SelectTypeNull`/`SelectEntityWithLiteIbType` in select and
+`GroupEntityByTypeFieCount`/`GroupEntityByTypeIbCount` in groupBy — +4 in `selectImplementations`
+isolated). The slice (faithful port of Signum's Type-expression tier):
+
+- **Expression nodes** (`expressions.sql.ts`): `TypeEntityExpression` (a typed reference's
+  static type, guarded by its `externalId` for the null check) and `TypeImplementedByExpression`
+  (a map of implementation ctor → its nullable id column). `TypeImplementedByAllExpression`
+  (the string type-discriminator column) already existed. Visitor base-traversal methods
+  (`visitTypeEntity`/`visitTypeImplementedBy`) added to `DbExpressionVisitor`; like IB/IBA the
+  nominator/column-projector need **no overrides** — the base traversal recurses into the
+  id/type columns so they get projected, and never nominates the Type wrapper (client-
+  materialised into a constructor `Function`, altea's analogue of a C# `Type`).
+- **Binder** (`QueryBinder.getEntityType`, Signum's `GetEntityType`): `.constructor` on an
+  EntityExpression → `TypeEntity`, on an ImplementedBy → `TypeImplementedBy`, on an
+  ImplementedByAll → its existing `typeId`; lite-wrapped references unwrap first. `.constructor.name`
+  (Type.FullName) → the JS ctor-name string (a `SqlConstant` for a typed ref, a CASE over the
+  implementation columns for IB). Intercepted at the top of `bindMember`.
+- **`smartEqualizer.ts`** (`typeEqual`, port of Signum's `TypeEquals`): a Type expression vs a
+  captured ctor constant (`typeof X`), null, or another Type expression lowers to id-not-null
+  guards (typed → `id IS NOT NULL` when the static type matches else False; IB → that
+  implementation's `id IS NOT NULL`) or a discriminator-string comparison (IBA →
+  `typeColumn = cleanTypeName(ctor)`). Full const-vs-node and node-vs-node dispatch ported. Wired
+  into `visitBinary`'s `==`/`!=` ahead of the reference-equality (`polymorphicEqual`) branch via a
+  new `isTypeExpression` guard.
+- **Reader** (`translatorBuilder.ts`): `visitTypeEntity` → `(id != null ? ctor : null)`;
+  `visitTypeImplementedBy` → a right-folded `(idN != null ? ctorN : …)` chain;
+  `visitTypeImplementedByAll` → `retriever.type(typeColumn)`, a `Retriever` method resolving the
+  TypeEntity-id discriminator → ctor (Signum's `Schema.GetType`).
+
+**`TypeEntity` + `TypeLogic` (real type↔id table).** The interim clean-name-*string* discriminator
+was replaced by a real **`TypeEntity` system table** and an int-id discriminator, mirroring Signum's
+`Engine/Basics/TypeLogic.cs` (no Synchronizer yet). Verified live: getTypeAndNew stays 17/17, IBA
+suites unchanged, full suite **PG 410 / SS 396, zero regressions** (one offline `binder.test.ts` IBA
+shape assertion was updated from the old `"Album"` string to `TypeLogic.typeToId(AlbumEntity)`). The
+slice:
+
+- **`entities/typeEntity.ts`** — `@entity(SystemString, Master)` with `tableName`/`cleanName`/
+  `namespace`/`className`. Non-identity int PK and **no ticks** (Signum's `[TicksColumn(false)]`),
+  so the SchemaBuilder special-cases it alongside enum side-tables (`isSeeded`). (`@reflect` is also
+  applied so the quote-transformer injects `@field` — it augments an existing `./reflection` import.)
+- **`logic/typeLogic.ts`** — `start(schema)` (called from `SchemaBuilder.complete()`) assigns each
+  entity-ctor table a **deterministic int id** (sorted by ctor name, 1..N), builds `typeToId` /
+  `idToType` / `idToEntity` (the `Map<PrimaryKey, TypeEntity>`), and registers a generation step that
+  seeds the rows with those explicit ids. The same deterministic assignment runs in every process, so
+  the in-memory caches and the DB rows agree **without a read-back** (Signum reads ids from the DB —
+  altea computes them, since there is no Sync; documented for when Sync lands).
+- **IBA type column → int FK to `TypeEntity`** (`column.ts` `ImplementedByAllTypeColumn(name,
+  typeEntityTable)`, `avoidForeignKey`); the SchemaBuilder auto-includes `TypeEntity` in the IBA
+  branch and always in `complete()`. `sqlBuilder.insertTypeEntities` seeds the rows.
+- **Discriminator is the id everywhere**: `save.ts` writes `TypeLogic.typeToId(ctor)`,
+  `SmartEqualizer.typeConstant` compares it, `AssignAdapterExpander` writes it, `GroupEntityCleaner`
+  groups by it, and `Retriever` (IBA / lite-IBA / `type`) resolves id → ctor via `TypeLogic`. The
+  binder types the IBA discriminator column `number`. (`schemaBuilder`'s own `cleanTypeName` stays
+  separate — physical table/column naming, Signum's `Reflector.CleanTypeName`, not the discriminator.)
+
+Deferred (Signum's "Sync"): loading ids from the DB instead of computing them (so ids stay stable as
+the type set evolves), and the `TypeEntity` unique indexes on `tableName`/`cleanName`. A query `Type`
+value is still the bare constructor, not yet a `TypeEntity` lite/reference.
+- **groupBy** (`GroupEntityCleaner`): a typed/IB Type key reduces to a `TypeImplementedByAll` over
+  a CASE that yields the clean type-name string (so the GROUP BY column and the materialised key
+  agree — grouping by *type*, not by entity id); an IBA Type key already is that discriminator
+  column (base traversal). Greens `WhereToTypeEntityIB/IBAGroupBy`.
+
+**Still pending (Type-adjacent):** `Lite.entityType` / `Type.is` on a lite (`SelectToTypeLite`,
+still `// BLOCKED`); `.constructor` through a coalesce/conditional reference (Signum's
+GetEntityType conditional/coalesce branches); IBA `.constructor.name` (no test); and the
+`CombineUnion`/`CombineCase` polymorphism strategy (`SelectType*Union/Switch`) which altea doesn't
+model.
+
 ## Most important differences so far
 
 - TypeScript uses `quote-transformer` expressions instead of
@@ -923,7 +997,7 @@ conservative EntityCompleter `visitEntity` no-op skips them).
 | `ExpressionVisitor/DbQueryUtils.cs` | none | Not ported |
 | `ExpressionVisitor/DuplicateHistory.cs` | none | Not ported |
 | `ExpressionVisitor/EntityCompleter.cs` | `altea/logic/linq/visitors/QueryBinder.ts` (`completed`) | Partial — single-reference completion inline in the binder (lazy `EntityExpression` → bound entity + join request) |
-| `ExpressionVisitor/GroupEntityCleaner.cs` | `altea/logic/linq/visitors/GroupEntityCleaner.ts` | Ported (scoped) — strips a group-key EntityExpression to its `externalId`; Lite/IB via base traversal; no Type/GetType or entity-coalesce combine path |
+| `ExpressionVisitor/GroupEntityCleaner.cs` | `altea/logic/linq/visitors/GroupEntityCleaner.ts` | Ported (scoped) — strips a group-key EntityExpression to its `externalId`; a Type key (TypeEntity/TypeImplementedBy) reduces to a TypeImplementedByAll over the clean-name CASE discriminator; Lite/IB via base traversal; no entity-coalesce combine path |
 | `ExpressionVisitor/OrderByRewriter.cs` | `altea/logic/linq/visitors/OrderByRewriter.ts` | Ported (scoped) — Reverse flag + float-ORDER-BY-to-outermost/TOP; key machinery dormant |
 | `ExpressionVisitor/QueryFilterer.cs` | none | Not ported |
 | `ExpressionVisitor/QueryRebinder.cs` | `altea/logic/linq/visitors/QueryRebinder.ts` | Ported (scoped) — value-keyed column scopes; no SetOperator/RowNumber/command nodes |
@@ -931,7 +1005,7 @@ conservative EntityCompleter `visitEntity` no-op skips them).
 | `ExpressionVisitor/RedundantSubqueryRemover.cs` | `altea/logic/linq/visitors/RedundantSubqueryRemover.ts` | Ported (scoped) — Gatherer + SubqueryRemover + SubqueryMerger + JoinSimplifier; no Skip/SetOperator |
 | `ExpressionVisitor/Replacer.cs` | none | Not ported |
 | `ExpressionVisitor/ScalarSubqueryRewriter.cs` | `altea/logic/linq/visitors/ScalarSubqueryRewriter.ts` | Ported — lifts a scalar subquery used inside an aggregate to an OUTER APPLY (SQL-Server-only; no-op on Postgres) |
-| `ExpressionVisitor/SmartEqualizer.cs` | `altea/logic/linq/smartEqualizer.ts` | Ported (scoped) — `polymorphicEqual` (entity/IB/IBA/Lite/null/captured-constant) + `entityIsInstance`; no PrimaryKey struct / Guid comparer / MList element / external period / nullable-bool; IBA type compared as the clean-name string |
+| `ExpressionVisitor/SmartEqualizer.cs` | `altea/logic/linq/smartEqualizer.ts` | Ported (scoped) — `polymorphicEqual` (entity/IB/IBA/Lite/null/captured-constant) + `entityIsInstance`; no PrimaryKey struct / Guid comparer / MList element / external period / nullable-bool; IBA type compared as the target's TypeEntity int id (`TypeLogic.typeToId`) |
 | `ExpressionVisitor/SubqueryRemover.cs` | `altea/logic/linq/visitors/RedundantSubqueryRemover.ts` (inner `SubqueryRemover`) | Ported |
 | `ExpressionVisitor/TableFinder.cs` | none | Not ported |
 | `ExpressionVisitor/UnusedColumnRemover.cs` | none | Not ported |
@@ -1022,11 +1096,17 @@ corepack pnpm --filter @altea/altea-test test:sqlserver  # fast: each file only 
 (`gen:postgres` / `test:postgres` for the other dialect; the `gen:*` one-shot is
 `test/generateEnvironment.ts`.) Skipping `gen:*` against an empty/stale DB makes
 the suites fail on missing data — run a `gen:*` first when the data is stale.
-NOTE: the suites now share one loaded database and run **in parallel** (no
-`--test-concurrency=1`), which is fine while the mutating `unsafe*` suites are
-skipped; when those are enabled they will need per-test isolation (transaction
-rollback or a re-gen, and likely serialised execution) so they don't contaminate
-the shared data.
+NOTE: the suites share one loaded database and run **in parallel** (no
+`--test-concurrency=1`). The mutating `executeXXX` suites (`unsafeUpdate`/
+`unsafeDelete`/`unsafeInsert`) are isolated via **`Transaction.noCommit`**: each
+such test runs inside a real transaction that is rolled back at the end (not
+committed) without throwing, so the write path is exercised and the test sees its
+own uncommitted rows, but nothing persists — the shared sample graph the read-only
+suites query is never contaminated. The wrapper is the `txTest(...)` helper in
+`test/setup.ts` (used in place of `test(...)` in those three suites). This made the
+full-suite counts **deterministic** (a re-run yields the identical pass/fail set);
+before it, the committed mutations made parallel runs nondeterministic and
+inflated/deflated read-suite results at random.
 
 The plain script is the offline gate only — it runs `tspc -b` (the API-stability
 / quote-transformer compile check) plus the handful of DB-free unit tests
@@ -1053,3 +1133,14 @@ the offline ones, measure real progress. The order+TOP family (`OrderByFirst`,
 and the IB/IBA projection / cast / `instanceof` / equality tests pass on **both**
 dialects. Treat a feature as done only when its DB-gated suite is green on both
 Postgres and SQL Server.
+
+**Current stable baseline (post-`noCommit`, deterministic): Postgres 410 / SQL
+Server 395 pass** of 553. (These supersede the historical figures above, which
+were measured before the `executeXXX` suites were enabled and before the
+`Transaction.noCommit` isolation made the parallel run deterministic — the earlier
+runs' committed mutations contaminated the shared data and made the totals
+unreliable.) The GetType/Type tier brought `getTypeAndNew` to 17/17 on both
+dialects. Remaining red is still-unimplemented features (`skip`, combine-strategy,
+date-truncation/diff tiers, two-level nesting, `minBy`/`maxBy`, `view()`, and the
+documented out-of-scope `unsafe*` cases — `Clock.now`, identity-insert, MList
+row-index, typed-NULL-CASE).

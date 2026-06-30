@@ -11,6 +11,7 @@ import {
     LiteReferenceExpression, LiteReferenceTarget, PrimaryKeyExpression, FieldBinding,
     EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
+    TypeEntityExpression, TypeImplementedByExpression,
     SourceWithAliasExpression, CommandExpression, ColumnAssignment,
     DeleteExpression, UpdateExpression, InsertSelectExpression, CommandAggregateExpression,
 } from "../expressions.sql";
@@ -201,6 +202,24 @@ export class DbExpressionVisitor extends ExpressionVisitor {
         if (typeColumn !== t.typeColumn)
             return new TypeImplementedByAllExpression(typeColumn);
         return t;
+    }
+
+    visitTypeEntity(t: TypeEntityExpression): Expression {
+        const externalId = this.visit(t.externalId) as PrimaryKeyExpression;
+        if (externalId !== t.externalId)
+            return new TypeEntityExpression(externalId, t.typeValue);
+        return t;
+    }
+
+    visitTypeImplementedBy(t: TypeImplementedByExpression): Expression {
+        let changed = false;
+        const map = new Map<Function, PrimaryKeyExpression>();
+        for (const [ctor, id] of t.typeImplementations) {
+            const visited = this.visit(id) as PrimaryKeyExpression;
+            if (visited !== id) changed = true;
+            map.set(ctor, visited);
+        }
+        return changed ? new TypeImplementedByExpression(map) : t;
     }
 
     visitFieldEntityArray(fea: FieldEntityArrayExpression): Expression {

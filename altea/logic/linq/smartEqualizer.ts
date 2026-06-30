@@ -3,11 +3,12 @@ import {
     EntityExpression, ImplementedByExpression, ImplementedByAllExpression,
     LiteReferenceExpression, LiteReferenceTarget, PrimaryKeyExpression,
     IsNullExpression,
+    TypeEntityExpression, TypeImplementedByExpression, TypeImplementedByAllExpression,
 } from "./expressions.sql";
 import { ClassType } from "../../entities/types";
 import { Entity } from "../../entities/entity";
 import { Lite } from "../../entities/lite";
-import { cleanTypeName } from "../../entities/registration";
+import { TypeLogic } from "../typeLogic";
 
 // Port of Signum's SmartEqualizer (Engine/Linq/ExpressionVisitor/SmartEqualizer.cs),
 // scoped to what altea models. SQL has no notion of "entity equality": a reference
@@ -18,9 +19,8 @@ import { cleanTypeName } from "../../entities/registration";
 //
 // Differences vs Signum: altea has no PrimaryKey wrapper struct, no Guid comparer,
 // no MList element / external (temporal) period, no nullable-bool three-valued
-// logic. The @implementedByAll discriminator is the clean type-name string (e.g.
-// "Band"), not yet an int FK to a TypeEntity table, so type equality compares
-// against `cleanTypeName(ctor)`.
+// logic. The @implementedByAll discriminator is the target's TypeEntity int id
+// (TypeLogic.typeToId), so type equality compares the type column against that id.
 export class SmartEqualizer {
     static readonly True = new ConstantExpression(true);
     static readonly False = new ConstantExpression(false);
@@ -61,7 +61,7 @@ export class SmartEqualizer {
     // `x instanceof Ctor` (C#'s `x is Ctor`). True when the reference points at a
     // row of that concrete type: for a typed reference, the static type must match;
     // for IB, the matching implementation column must be non-null; for IBA, the type
-    // discriminator must equal the clean type name.
+    // discriminator must equal the target's TypeEntity id.
     static entityIsInstance(expr: Expression, ctor: Function): Expression {
         const node = this.unwrapLite(expr);
 
@@ -77,6 +77,91 @@ export class SmartEqualizer {
             return this.equalNullable(node.typeId.typeColumn, typeConstant(ctor));
 
         throw new Error("instanceof is not defined for " + node.toString());
+    }
+
+    // `f.GetType() == typeof(X)` — type equality. A Type expression (Signum's
+    // TypeEntity / TypeImplementedBy / TypeImplementedByAll) compared against a
+    // captured ctor constant (`typeof X`), a null, or another Type expression.
+    // Lowers to id-not-null guards (typed/IB) or a discriminator-string comparison
+    // (IBA), following Signum's TypeEquals dispatch.
+    static typeEqual(e1: Expression, e2: Expression): Expression {
+        const c1 = typeConstOf(e1);
+        const c2 = typeConstOf(e2);
+
+        if (e1 instanceof TypeEntityExpression) {
+            if (c2 != null) return this.typeConstEntity(c2, e1);
+            if (e2 instanceof TypeEntityExpression) return this.typeEntityEntity(e1, e2);
+            if (e2 instanceof TypeImplementedByExpression) return this.typeEntityIb(e1, e2);
+            if (e2 instanceof TypeImplementedByAllExpression) return this.typeEntityIba(e1, e2);
+        } else if (e1 instanceof TypeImplementedByExpression) {
+            if (c2 != null) return this.typeConstIb(c2, e1);
+            if (e2 instanceof TypeEntityExpression) return this.typeEntityIb(e2, e1);
+            if (e2 instanceof TypeImplementedByExpression) return this.typeIbIb(e1, e2);
+            if (e2 instanceof TypeImplementedByAllExpression) return this.typeIbIba(e1, e2);
+        } else if (e1 instanceof TypeImplementedByAllExpression) {
+            if (c2 != null) return this.typeConstIba(c2, e1);
+            if (e2 instanceof TypeEntityExpression) return this.typeEntityIba(e2, e1);
+            if (e2 instanceof TypeImplementedByExpression) return this.typeIbIba(e2, e1);
+            if (e2 instanceof TypeImplementedByAllExpression) return this.typeIbaIba(e1, e2);
+        } else if (c1 != null) {
+            if (e2 instanceof TypeEntityExpression) return this.typeConstEntity(c1, e2);
+            if (e2 instanceof TypeImplementedByExpression) return this.typeConstIb(c1, e2);
+            if (e2 instanceof TypeImplementedByAllExpression) return this.typeConstIba(c1, e2);
+        }
+        throw new Error(`Impossible to resolve type-equality between '${e1}' and '${e2}'`);
+    }
+
+    // ---- type vs ctor constant --------------------------------------------
+
+    private static typeConstEntity(c: TypeConst, te: TypeEntityExpression): Expression {
+        if (c.isNull) return this.equalsToNull(te.externalId);
+        return sameCtor(te.typeValue, c.ctor!) ? this.notEqualToNull(te.externalId) : this.False;
+    }
+
+    private static typeConstIb(c: TypeConst, tib: TypeImplementedByExpression): Expression {
+        if (c.isNull)
+            return this.andAll([...tib.typeImplementations.values()].map(id => this.equalsToNull(id)));
+        const id = tib.typeImplementations.get(c.ctor!);
+        return id != null ? this.notEqualToNull(id) : this.False;
+    }
+
+    private static typeConstIba(c: TypeConst, tiba: TypeImplementedByAllExpression): Expression {
+        if (c.isNull) return this.eqNull(tiba.typeColumn);
+        return this.equalNullable(typeConstant(c.ctor!), tiba.typeColumn);
+    }
+
+    // ---- type vs type -----------------------------------------------------
+
+    private static typeEntityEntity(te1: TypeEntityExpression, te2: TypeEntityExpression): Expression {
+        if (!sameCtor(te1.typeValue, ctorOf(te2.typeValue))) return this.False;
+        return this.and(this.notEqualToNull(te1.externalId), this.notEqualToNull(te2.externalId));
+    }
+
+    private static typeEntityIb(te: TypeEntityExpression, tib: TypeImplementedByExpression): Expression {
+        const id = tib.typeImplementations.get(ctorOf(te.typeValue));
+        return id != null ? this.and(this.notEqualToNull(te.externalId), this.notEqualToNull(id)) : this.False;
+    }
+
+    private static typeEntityIba(te: TypeEntityExpression, tiba: TypeImplementedByAllExpression): Expression {
+        return this.and(this.notEqualToNull(te.externalId), this.equalNullable(tiba.typeColumn, typeConstant(ctorOf(te.typeValue))));
+    }
+
+    private static typeIbIb(tib1: TypeImplementedByExpression, tib2: TypeImplementedByExpression): Expression {
+        const terms: Expression[] = [];
+        for (const [ctor, id1] of tib1.typeImplementations) {
+            const id2 = tib2.typeImplementations.get(ctor);
+            if (id2 != null) terms.push(this.and(this.notEqualToNull(id1), this.notEqualToNull(id2)));
+        }
+        return this.orAll(terms);
+    }
+
+    private static typeIbIba(tib: TypeImplementedByExpression, tiba: TypeImplementedByAllExpression): Expression {
+        return this.orAll([...tib.typeImplementations].map(([ctor, id]) =>
+            this.and(this.notEqualToNull(id), this.equalNullable(tiba.typeColumn, typeConstant(ctor)))));
+    }
+
+    private static typeIbaIba(tiba1: TypeImplementedByAllExpression, tiba2: TypeImplementedByAllExpression): Expression {
+        return this.equalNullable(tiba1.typeColumn, tiba2.typeColumn);
     }
 
     // ---- node vs constant -------------------------------------------------
@@ -251,8 +336,10 @@ function sameCtor(type: unknown, ctor: Function): boolean {
 
 // The @implementedByAll type discriminator value for a constructor — the clean
 // type name string `save.ts` writes. Compared as a SQL string literal.
+// The @implementedByAll type discriminator value for a constructor — the target's
+// TypeEntity int id (Signum's TypeToId), compared as a SQL int literal.
 function typeConstant(ctor: Function): Expression {
-    return new ConstantExpression(cleanTypeName(ctor));
+    return new ConstantExpression(TypeLogic.typeToId(ctor));
 }
 
 // A captured Entity/Lite (or null) on one side of the comparison.
@@ -277,4 +364,20 @@ function constRef(e: Expression): ConstRef | null {
 
 function idConstant(c: ConstRef): Expression {
     return new ConstantExpression(c.id);
+}
+
+// A captured constructor (`typeof X`) or null on one side of a type comparison.
+interface TypeConst {
+    readonly ctor: Function | undefined; // undefined when isNull
+    readonly isNull: boolean;
+}
+
+function typeConstOf(e: Expression): TypeConst | null {
+    if (!(e instanceof ConstantExpression))
+        return null;
+    if (e.value == null)
+        return { ctor: undefined, isNull: true };
+    if (typeof e.value === "function")
+        return { ctor: e.value as Function, isNull: false };
+    return null;
 }

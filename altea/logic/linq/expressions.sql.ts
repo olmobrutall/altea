@@ -727,9 +727,9 @@ export class ImplementedByExpression extends DbExpression {
 }
 
 // The type-discriminator half of @implementedByAll (Signum's
-// TypeImplementedByAllExpression). Interim altea model: `typeColumn` is a string
-// column holding the clean type name (e.g. "Band"), not yet an int FK to a
-// TypeEntity table. SmartEqualizer compares it against `cleanTypeName(ctor)`.
+// TypeImplementedByAllExpression). `typeColumn` holds the target's TypeEntity int
+// id; SmartEqualizer compares it against `TypeLogic.typeToId(ctor)` and the reader
+// resolves it back to a constructor via `TypeLogic.tryGetType(id)`.
 export class TypeImplementedByAllExpression extends DbExpression {
     constructor(public readonly typeColumn: Expression) {
         super("TypeImplementedByAll", LiteralType.string);
@@ -764,6 +764,50 @@ export class ImplementedByAllExpression extends DbExpression {
 
     accept(visitor: ExpressionVisitor) {
         return asDbVisitor(visitor).visitImplementedByAll(this);
+    }
+}
+
+// ---- Type expressions (runtime type access in queries — Signum's GetType) -
+
+// The runtime type of a typed entity reference (Signum's TypeEntityExpression).
+// The concrete type is statically known (`typeValue`), but materialises to that
+// type only when the row exists, so `externalId` is kept for the null check. The
+// reader yields the constructor function — altea's analogue of a C# `Type`.
+export class TypeEntityExpression extends DbExpression {
+    constructor(
+        public readonly externalId: PrimaryKeyExpression,
+        public readonly typeValue: Type,
+    ) {
+        super("TypeEntity", LiteralType.string);
+    }
+
+    toString(): string {
+        return `TypeEntity(${this.typeValue};${this.externalId})`;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitTypeEntity(this);
+    }
+}
+
+// The runtime type of an @implementedBy reference (Signum's
+// TypeImplementedByExpression): whichever implementation id column is non-null
+// determines the type. `typeImplementations` maps each possible implementation
+// constructor to its (nullable) id column.
+export class TypeImplementedByExpression extends DbExpression {
+    readonly typeImplementations: ReadonlyMap<Function, PrimaryKeyExpression>;
+    constructor(typeImplementations: ReadonlyMap<Function, PrimaryKeyExpression>) {
+        super("TypeImplementedBy", LiteralType.string);
+        this.typeImplementations = typeImplementations;
+    }
+
+    toString(): string {
+        const imps = [...this.typeImplementations].map(([c, id]) => `${(c as Function).name}(${id})`).join(" | ");
+        return `TypeIb(${imps})`;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitTypeImplementedBy(this);
     }
 }
 

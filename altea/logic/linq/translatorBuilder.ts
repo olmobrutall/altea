@@ -7,6 +7,7 @@ import {
     EntityExpression, EmbeddedEntityExpression, LiteReferenceExpression,
     ChildProjectionExpression, LookupToken,
     ImplementedByExpression, ImplementedByAllExpression,
+    TypeEntityExpression, TypeImplementedByExpression, TypeImplementedByAllExpression,
 } from "./expressions.sql";
 import { QueryFormatter } from "./queryFormatter";
 import { Connector } from "../connection/connector";
@@ -221,6 +222,37 @@ class ProjectionBuilder extends DbExpressionVisitor {
         this.visit(e.typeId.typeColumn);
         const typeCode = this.pop();
         this.stack.push(`retriever.implementedByAll(${idCode}, ${typeCode})`);
+        return e;
+    }
+
+    // ---- Type expressions: materialise the constructor (altea's `Type`) -----
+
+    override visitTypeEntity(e: TypeEntityExpression): Expression {
+        const ctorIndex = this.pushConst(ctorOf(e.typeValue));
+        this.visit(e.externalId.value);
+        const idCode = this.pop();
+        this.stack.push(`(${idCode} != null ? consts[${ctorIndex}] : null)`);
+        return e;
+    }
+
+    override visitTypeImplementedBy(e: TypeImplementedByExpression): Expression {
+        let code = "null";
+        const entries = [...e.typeImplementations];
+        for (let i = entries.length - 1; i >= 0; i--) {
+            const [ctor, id] = entries[i];
+            const ctorIndex = this.pushConst(ctor);
+            this.visit(id.value);
+            const idCode = this.pop();
+            code = `(${idCode} != null ? consts[${ctorIndex}] : ${code})`;
+        }
+        this.stack.push(code);
+        return e;
+    }
+
+    override visitTypeImplementedByAll(e: TypeImplementedByAllExpression): Expression {
+        this.visit(e.typeColumn);
+        const typeCode = this.pop();
+        this.stack.push(`retriever.type(${typeCode})`);
         return e;
     }
 

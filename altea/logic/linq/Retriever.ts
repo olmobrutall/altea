@@ -1,7 +1,7 @@
 import { cleanModified } from "../../entities/changes";
 import { Entity, PrimaryKey, BaseEntity, Type } from "../../entities/entity";
 import { Lite, LiteImp } from "../../entities/lite";
-import { resolveCleanType } from "../../entities/registration";
+import { TypeLogic } from "../typeLogic";
 
 // Port of Signum's TranslatorBuilder + TranslateResult + ProjectionReader.
 // Formats the SQL and compiles the projector into a `(row, retriever) => T`
@@ -55,22 +55,30 @@ export class Retriever {
         return new LiteImp(id, ctor as unknown as Type<Entity>, toStr ?? "");
     }
 
-    // A @implementedByAll reference (id + type-discriminator string): resolve the
-    // clean type name to its constructor, then build an id-only stub of that type.
-    implementedByAll(id: PrimaryKey | null, typeName: string | null): Entity | null {
-        if (id == null || typeName == null) return null;
-        const ctor = resolveCleanType(typeName);
+    // A @implementedByAll reference (id + TypeEntity-id discriminator): resolve the
+    // type id to its constructor, then build an id-only stub of that type.
+    implementedByAll(id: PrimaryKey | null, typeId: PrimaryKey | null): Entity | null {
+        if (id == null || typeId == null) return null;
+        const ctor = TypeLogic.tryGetType(typeId);
         if (ctor == null) return null;
         return this.stub(ctor as new () => Entity, id);
     }
 
     // A Lite<T> over a @implementedByAll reference: a thin LiteImp of the concrete
-    // type named by the discriminator.
-    liteImplementedByAll(id: PrimaryKey | null, typeName: string | null, toStr: string | null): Lite<Entity> | null {
-        if (id == null || typeName == null) return null;
-        const ctor = resolveCleanType(typeName);
+    // type named by the discriminator id.
+    liteImplementedByAll(id: PrimaryKey | null, typeId: PrimaryKey | null, toStr: string | null): Lite<Entity> | null {
+        if (id == null || typeId == null) return null;
+        const ctor = TypeLogic.tryGetType(typeId);
         if (ctor == null) return null;
         return new LiteImp(id, ctor as unknown as Type<Entity>, toStr ?? "");
+    }
+
+    // The runtime type of an @implementedByAll reference (Signum's Schema.GetType):
+    // resolve the TypeEntity-id discriminator back to its constructor — altea's
+    // analogue of a C# `Type`. Returns null for a null/unknown discriminator.
+    type(typeId: PrimaryKey | null): Function | null {
+        if (typeId == null) return null;
+        return TypeLogic.tryGetType(typeId) ?? null;
     }
 
     // An embedded value (no identity / no cache). The parent's snapshot inlines it.

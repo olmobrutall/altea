@@ -168,6 +168,20 @@ export class SqlBuilder {
         return new SqlPreCommandSimple(`INSERT INTO ${this.objectName(table.name)} ${cols} VALUES ${rows};`);
     }
 
+    // One multi-row INSERT seeding the TypeEntity system table: one row per entity
+    // type, id = the deterministic discriminator TypeLogic assigned. Mirrors
+    // Signum's TypeLogic.Schema_Generating. Run after the tables exist.
+    insertTypeEntities(table: Table, rows: { id: number | string; tableName: string; cleanName: string; namespace: string; className: string }[]): SqlPreCommand | undefined {
+        if (rows.length === 0)
+            return undefined;
+        const cols = ['id', 'tableName', 'cleanName', 'namespace', 'className'];
+        const colList = `(${cols.map(c => this.sqlEscape(c)).join(', ')})`;
+        const rowSql = rows.map(r =>
+            `(${r.id}, ${this.quoteString(r.tableName)}, ${this.quoteString(r.cleanName)}, ${this.quoteString(r.namespace)}, ${this.quoteString(r.className)})`
+        ).join(', ');
+        return new SqlPreCommandSimple(`INSERT INTO ${this.objectName(table.name)} ${colList} VALUES ${rowSql};`);
+    }
+
     private quoteString(value: string): string {
         return `'${value.replace(/'/g, "''")}'`;
     }

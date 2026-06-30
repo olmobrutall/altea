@@ -14,6 +14,7 @@ import { expressionSimplifier } from "@altea/altea/logic/linq/visitors/expressio
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { Connector } from "@altea/altea/logic/connection/connector";
 import { MusicLogic } from "../logic/MusicLogic";
+import { TypeLogic } from "@altea/altea/logic/typeLogic";
 import { AlbumEntity, LabelEntity, SongEmbedded, ArtistEntity, NoteWithDateEntity } from "../entities/music";
 
 // A connector that returns canned rows instead of hitting a database, so the
@@ -349,13 +350,14 @@ describe("ImplementedBy / ImplementedByAll (SmartEqualizer)", () => {
         assert.doesNotMatch(sql, /author_Band\w*\]? IS NOT NULL/i);
     });
 
-    // NoteWithDateEntity.target is @implementedByAll: a single id column + a string
-    // type discriminator. instanceof compares the discriminator to the clean name.
+    // NoteWithDateEntity.target is @implementedByAll: a single id column + an int
+    // type discriminator (the target's TypeEntity id). instanceof compares the
+    // discriminator column to that id.
     test("instanceof on @implementedByAll compares the type discriminator", () => {
         const proj = bind(table(NoteWithDateEntity).filter(n => n.target instanceof AlbumEntity));
         const { sql, parameters } = QueryFormatter.format(proj.select, false);
         assert.match(sql, /targetType/i);
-        assert.ok(parameters.includes("Album"), "compares against the clean type name");
+        assert.ok(parameters.includes(TypeLogic.typeToId(AlbumEntity)), "compares against the target's TypeEntity id");
     });
 
     // (x as Concrete) on @implementedBy narrows to that implementation; navigating a

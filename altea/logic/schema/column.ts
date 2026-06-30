@@ -103,15 +103,17 @@ export class ImplementedByAllIdColumn extends ColumnBase {
     }
 }
 
-// The discriminator half of @implementedByAll (which entity type the id refers
-// to). Interim: a string column holding the clean type name (e.g. "Band") that
-// save.ts writes, until a TypeEntity table exists to map types to int ids — at
-// which point this becomes an int FK with `referenceTable` set.
+// The discriminator half of @implementedByAll: which entity type the id refers to,
+// stored as the target's TypeEntity int id (Signum's ImplementedByAllTypeColumn).
+// Typed as the TypeEntity primary key and pointed at its table; no FK constraint
+// (Signum's common AvoidForeignKey for the discriminator — it keeps generation
+// order simple and avoids the per-row check).
 export class ImplementedByAllTypeColumn extends ColumnBase {
-    constructor(name: string) {
-        super(name, new AbstractDbType('nvarchar', 'varchar'));
+    constructor(name: string, referenceTable: Table) {
+        super(name, referenceTable.primaryKey.column.dbType);
+        this.referenceTable = referenceTable;
         this.nullable = IsNullable.Yes;
-        this.size = 100;
+        this.avoidForeignKey = true;
     }
 }
 

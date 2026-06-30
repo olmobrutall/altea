@@ -11,6 +11,7 @@ import {
     SourceExpression, SqlFunctionExpression, SqlCastExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression, JoinType,
     LiteReferenceExpression, LiteReferenceTarget, ScalarExpression, ExistsExpression,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
+    TypeEntityExpression, TypeImplementedByExpression,
     CaseExpression, When, IsNotNullExpression,
     CommandExpression, CommandAggregateExpression, ColumnAssignment,
     DeleteExpression, UpdateExpression, InsertSelectExpression,
@@ -48,6 +49,19 @@ import { ExpressionVisitor } from "./ExpressionVisitor";
 function isReferenceish(e: Expression): boolean {
     return e instanceof EntityExpression || e instanceof ImplementedByExpression
         || e instanceof ImplementedByAllExpression || e instanceof LiteReferenceExpression;
+}
+
+// A bound expression that denotes the runtime type of a reference (Signum's three
+// Type* nodes) — the cases SmartEqualizer.typeEqual knows how to compare.
+function isTypeExpression(e: Expression): boolean {
+    return e instanceof TypeEntityExpression || e instanceof TypeImplementedByExpression
+        || e instanceof TypeImplementedByAllExpression;
+}
+
+function ctorOfType(type: Type): Function {
+    if (type instanceof ClassType)
+        return type.constructorFunction;
+    throw new Error("Expected a ClassType for an entity reference");
 }
 
 // Relational-join operator → SQL join type. leftJoin preserves the outer (left)
@@ -574,9 +588,16 @@ export class QueryBinder extends ExpressionVisitor {
         if (b.kind === "==" || b.kind === "===" || b.kind === "!=" || b.kind === "!==") {
             const left = this.visit(b.left);
             const right = this.visit(b.right);
+            const negate = b.kind === "!=" || b.kind === "!==";
+            // `f.GetType() == typeof(X)` — a Type expression vs a captured ctor (or
+            // another Type expression) lowers through SmartEqualizer.typeEqual.
+            if (isTypeExpression(left) || isTypeExpression(right)) {
+                const eq = SmartEqualizer.typeEqual(left, right);
+                return negate ? SmartEqualizer.not(eq) : eq;
+            }
             if (isReferenceish(left) || isReferenceish(right)) {
                 const eq = SmartEqualizer.polymorphicEqual(left, right);
-                return (b.kind === "!=" || b.kind === "!==") ? SmartEqualizer.not(eq) : eq;
+                return negate ? SmartEqualizer.not(eq) : eq;
             }
             return b.updateBinary(left, right);
         }
@@ -1011,6 +1032,13 @@ export class QueryBinder extends ExpressionVisitor {
     // bindMemberAccess so it can be reused to navigate a member on the projector of a
     // single-result sub-query (see the uniqueFunction branch below).
     private bindMember(obj: Expression, name: string, isOptionalChaining: boolean): Expression {
+        // `.constructor` (altea's GetType) → a Type expression off any reference;
+        // `.name` (Type.FullName) on that Type expression → its type-name string.
+        if (name === "constructor" && isReferenceish(obj))
+            return this.getEntityType(obj);
+        if (name === "name" && isTypeExpression(obj))
+            return this.typeName(obj);
+
         if (obj instanceof EntityExpression)
             return this.bindEntityMember(obj, name);
 
@@ -1152,6 +1180,40 @@ export class QueryBinder extends ExpressionVisitor {
         if (name === "id")
             return new PrimaryKeyExpression(iba.id);
         throw new Error(`Member '${name}' of @implementedByAll is not accessible on queries (cast to a concrete type first)`);
+    }
+
+    // Signum's GetEntityType: the runtime type of a (possibly polymorphic, possibly
+    // lite-wrapped) reference. A typed entity → TypeEntity (its static type, guarded
+    // by id); an @implementedBy → TypeImplementedBy (the per-implementation id
+    // columns); an @implementedByAll → its existing type discriminator.
+    private getEntityType(expr: Expression): Expression {
+        if (expr instanceof LiteReferenceExpression)
+            return this.getEntityType(expr.reference);
+        if (expr instanceof EntityExpression)
+            return new TypeEntityExpression(expr.externalId, expr.type);
+        if (expr instanceof ImplementedByExpression) {
+            const map = new Map<Function, PrimaryKeyExpression>();
+            for (const [ctor, ee] of expr.implementations)
+                map.set(ctor, ee.externalId);
+            return new TypeImplementedByExpression(map);
+        }
+        if (expr instanceof ImplementedByAllExpression)
+            return expr.typeId;
+        throw new Error(`GetType (.constructor) is not supported for ${expr.toString()}`);
+    }
+
+    // `Type.FullName` (altea's `.constructor.name`): the JS constructor name of the
+    // runtime type. Statically a constant for a typed reference; a CASE over which
+    // implementation column is non-null for an @implementedBy.
+    private typeName(typeExpr: Expression): Expression {
+        if (typeExpr instanceof TypeEntityExpression)
+            return new SqlConstantExpression(ctorOfType(typeExpr.typeValue).name, LiteralType.string);
+        if (typeExpr instanceof TypeImplementedByExpression) {
+            const whens = [...typeExpr.typeImplementations].map(([ctor, id]) =>
+                new When(new IsNotNullExpression(id.value), new SqlConstantExpression(ctor.name, LiteralType.string)));
+            return new CaseExpression(whens, new SqlConstantExpression(null, LiteralType.null));
+        }
+        throw new Error(`Type.name is not supported for ${typeExpr.toString()}`);
     }
 
     private findBinding(bindings: readonly FieldBinding[], name: string, ownerType: Type): Expression {
@@ -1515,7 +1577,8 @@ export class QueryBinder extends ExpressionVisitor {
 
         if (f instanceof FieldImplementedByAll) {
             const id = new ColumnExpression(LiteralType.number, alias, f.idColumn.name);
-            const typeId = new TypeImplementedByAllExpression(new ColumnExpression(LiteralType.string, alias, f.typeColumn.name));
+            // The discriminator column holds the target's TypeEntity int id.
+            const typeId = new TypeImplementedByAllExpression(new ColumnExpression(LiteralType.number, alias, f.typeColumn.name));
             const iba = new ImplementedByAllExpression(new ClassType(this.refCleanCtor(ef.fieldInfo)), id, typeId);
             return f.isLite ? new LiteReferenceExpression(new LiteType(iba.type), iba, undefined) : iba;
         }

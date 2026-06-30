@@ -8,7 +8,7 @@ import {
     CaseExpression, When, IsNotNullExpression,
 } from "../expressions.sql";
 import { LiteralType, Type } from "../../../entities/types";
-import { cleanTypeName } from "../../../entities/registration";
+import { TypeLogic } from "../../typeLogic";
 import { Entity } from "../../../entities/entity";
 import { Lite } from "../../../entities/lite";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
@@ -151,7 +151,7 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
         const ids = [...ib.implementations.values()].map(ee => ee.externalId.value);
         const id = ids.reduce((a, b) => new BinaryExpression("??", a, b));
         const whens = [...ib.implementations].map(([ctor, ee]) =>
-            new When(new IsNotNullExpression(ee.externalId.value), new SqlConstantExpression(cleanTypeName(ctor), LiteralType.string)));
+            new When(new IsNotNullExpression(ee.externalId.value), new SqlConstantExpression(TypeLogic.typeToId(ctor), LiteralType.number)));
         return new ImplementedByAllExpression(col.type, id,
             new TypeImplementedByAllExpression(new CaseExpression(whens, undefined)));
     }
@@ -202,9 +202,9 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
     }
 
     private entityToIba(type: Type, idExpr: Expression, ctor: Function | undefined): ImplementedByAllExpression {
-        const typeName = ctor != null ? cleanTypeName(ctor) : null;
+        const typeId = ctor != null ? TypeLogic.typeToId(ctor) : null;
         return new ImplementedByAllExpression(type, idExpr,
-            new TypeImplementedByAllExpression(new SqlConstantExpression(typeName, LiteralType.string)));
+            new TypeImplementedByAllExpression(new SqlConstantExpression(typeId, LiteralType.number)));
     }
 
     private embeddedFromConstant(c: ConstantExpression, col: EmbeddedEntityExpression): EmbeddedEntityExpression {

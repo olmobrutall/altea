@@ -1,6 +1,6 @@
 import { Entity, typeConstructor } from '../entities/entity';
 import type { Type, PrimaryKey } from '../entities/entity';
-import { cleanTypeName } from '../entities/registration';
+import { TypeLogic } from './typeLogic';
 import { referenceKey } from '../entities/changes';
 import { Lite } from '../entities/lite';
 import { Temporal } from '../entities/basics';
@@ -155,9 +155,8 @@ function pushFieldValues(field: Field, value: unknown, out: ColumnValue[]): void
 
     if (field instanceof FieldImplementedByAll) {
         out.push({ column: field.idColumn, value: value == null ? null : referenceId(value as Lite<Entity> | Entity) });
-        // NOT YET: a Type table to map the target type to an int id; the clean
-        // type name is written as a best-effort discriminator.
-        out.push({ column: field.typeColumn, value: value == null ? null : cleanTypeName(entityConstructorOf(value)) });
+        // The discriminator is the target type's TypeEntity id (Signum's TypeToId).
+        out.push({ column: field.typeColumn, value: value == null ? null : TypeLogic.typeToId(entityConstructorOf(value)) });
         return;
     }
 
