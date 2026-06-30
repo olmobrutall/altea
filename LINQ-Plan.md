@@ -689,6 +689,54 @@ correlated sub-queries in projections). These need the PromiseType/`.$v` gap or
 transformer features resolved first, not just a stub. (The earlier `Math.max(...spread)`
 blockers are gone — those tests now use `gr.elements.max(sel)`.)
 
+**Tier 2 (Unsafe DML — set-based UPDATE / DELETE / INSERT … SELECT).** The bulk-DML
+tier landed end-to-end on both dialects with **zero regressions** (non-unsafe suites
+hold at PG 332 / SS 321). Live: **unsafeDelete PG 9/9 · SS 8/9**, **unsafeUpdate PG
+30/38 · SS 28/38**, **unsafeInsert 5/9** both. The slice (faithful port of Signum's
+DbQueryProvider Delete/Update/Insert path):
+
+- **Command nodes** (`expressions.sql.ts`): `CommandExpression` base + `DeleteExpression`,
+  `UpdateExpression`, `InsertSelectExpression`, `CommandAggregateExpression`, and the
+  `ColumnAssignment` holder. Visitor hooks (`visitDelete`/`visitUpdate`/`visitInsertSelect`/
+  `visitCommandAggregate`/`visitColumnAssignment`) added to `DbExpressionVisitor`.
+- **Binder** (`QueryBinder.bindCommand` → `bindDelete`/`bindUpdate`/`bindInsert`): binds the
+  source to a `ProjectionExpression`, then builds `ColumnAssignment[]` from the object-literal
+  setter via a faithful port of Signum's `AssignAdapterExpander` + `Assign`/`AssignColumn`
+  (`visitors/AssignAdapterExpander.ts`). The adapter reshapes a value to its target column:
+  a captured-constant entity/lite/embedded → the matching Entity/Lite/Embedded expression with
+  constant id/sub-columns; `?:`/`??` distribute the column extraction into branches; an entity
+  → IB fans out across implementation columns, → IBA fills id + clean-name discriminator. The
+  WHERE is the `id == externalId` self-correlation; **owned-child (`FieldEntityArray`, cascade)
+  rows are deleted first** (Signum's MList-table deletes) so the parent DELETE doesn't violate
+  the back-FK. `executeUpdatePart` updates a navigated target (values read from the source row).
+- **Formatter** (`queryFormatter.ts`): `visitDelete`/`visitUpdate`/`visitInsertSelect` with the
+  dialect split (SQL Server `DELETE … FROM` / `UPDATE … FROM`, Postgres `DELETE … USING`), and
+  `wrapRowCount` (SQL Server `SELECT @@rowcount`; Postgres `WITH rows AS (… RETURNING 1) SELECT
+  count(*)`). A table-name `Alias(ObjectName)` (Signum's `aliasGenerator.Table`, used as the
+  UPDATE/DELETE target reference) now renders as the qualified, per-part-quoted table name.
+- **`CommandSimplifier`** (`visitors/CommandSimplifier.ts`, port of UpdateDeleteSimplifier):
+  collapses the trivial single-table DELETE self-join into `DELETE FROM <alias> FROM <table>`
+  on SQL Server (no-op on Postgres).
+- **Execution** (`table.ts` `executeCommand`, a new `IQueryTranslator` method the
+  `executeUpdate`/`executeDelete`/`executeInsert`/`executeUpdatePart` terminals call directly —
+  no command-vs-query sniffing in `execute`): each aggregate sub-command (owned-child deletes
+  precede the parent) is **optimised, simplified, formatted, and executed independently**.
+  Optimised independently so each visitor pass starts with fresh state — sub-commands can share a
+  source SELECT instance, and a shared OrderByRewriter would otherwise accumulate its orderings
+  across them (yielding `ORDER BY id, id`). Executed independently because Postgres rejects
+  multiple parameterised statements in one prepared query. The row-count command (last) yields
+  the affected scalar. `executeDeleteChunks` is a pure utility (Signum's `UnsafeDeleteChunks`):
+  it loops `orderBy(id).top(chunkSize).executeDelete()` until a pass deletes fewer than a chunk —
+  not a distinct command node.
+
+Deferred/out-of-scope (flagged, not regressions): `Clock.now` (server-now constant, unported),
+explicit-id insert (needs `DisableIdentity`/`OVERRIDING SYSTEM VALUE`), MList-part row-index on
+insert, `[ForceNullable]` on `AlbumEntity.label` (altea models it non-null → `UpdateFieNull` hits
+the constraint), an all-NULL `CASE` needing a typed cast on Postgres (`UpdateIbFieConditional`/
+`UpdateEfieConditional`), the embedded-`== null` query used by the `UpdateEfie*` *post-update
+assertion* (a SELECT-side gap, not the UPDATE), and SQL Server's navigated-target UPDATE binding
+(`UnsafeUpdatePart`, passes on Postgres) + entity-cast DELETE (`DeleteJoin`).
+
 ## Most important differences so far
 
 - TypeScript uses `quote-transformer` expressions instead of
@@ -804,7 +852,8 @@ blockers are gone — those tests now use `gr.elements.max(sel)`.)
 | `ExpressionVisitor/SubqueryRemover.cs` | `altea/logic/linq/visitors/RedundantSubqueryRemover.ts` (inner `SubqueryRemover`) | Ported |
 | `ExpressionVisitor/TableFinder.cs` | none | Not ported |
 | `ExpressionVisitor/UnusedColumnRemover.cs` | none | Not ported |
-| `ExpressionVisitor/UpdateDeleteSimplifier.cs` | none | Not ported |
+| `ExpressionVisitor/UpdateDeleteSimplifier.cs` | `altea/logic/linq/visitors/CommandSimplifier.ts` | Ported (scoped) — DELETE self-join collapse (SQL-Server-only); SelectRowRemover not needed (commands always return the row count) |
+| `ExpressionVisitor/AssignAdapterExpander.cs` (nested in QueryBinder.cs) | `altea/logic/linq/visitors/AssignAdapterExpander.ts` | Ported (scoped) — constant entity/lite/embedded → shaped value, `?:`/`??` distribution, entity→IB/IBA fan-out; no Interval/Mixin-combine/three-valued-bool |
 | `AsOfExpressionVisitor.cs` | none | Not ported |
 | `ExpressionMetadataStore.cs` | Type metadata in `altea/entities` and query annotations | Different runtime model |
 | `Meta/*` | none | Not ported |

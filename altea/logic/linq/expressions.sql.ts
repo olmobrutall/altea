@@ -746,3 +746,114 @@ export class ImplementedByAllExpression extends DbExpression {
         return asDbVisitor(visitor).visitImplementedByAll(this);
     }
 }
+
+// ---- Command nodes (bulk DML) --------------------------------------------
+// Port of Signum's CommandExpression hierarchy (DbExpressions.Sql.cs). These are
+// the only nodes whose SQL value type is "void" — they format as a full statement
+// (UPDATE/DELETE/INSERT … SELECT) and run via executeQuery, returning the affected
+// row count (the formatter appends `SELECT @@rowcount` on SQL Server, or wraps the
+// statement in a `WITH rows AS (… RETURNING 1) SELECT count(*)` CTE on Postgres).
+
+const COMMAND_TYPE: Type = LiteralType.null;
+
+export abstract class CommandExpression extends DbExpression {
+    constructor(kind: string) {
+        super(kind, COMMAND_TYPE);
+    }
+}
+
+// One `column = expression` pair of an UPDATE SET / INSERT column list. Not a
+// DbExpression itself (like ColumnDeclaration) — just a holder the visitor rewrites.
+export class ColumnAssignment {
+    constructor(
+        public readonly column: string,
+        public readonly expression: Expression,
+    ) { }
+
+    toString(): string {
+        return `${this.column} = ${this.expression}`;
+    }
+}
+
+export class DeleteExpression extends CommandExpression {
+    constructor(
+        public readonly table: Table,
+        public readonly source: SourceWithAliasExpression,
+        public readonly where: Expression | undefined,
+        public readonly returnRowCount: boolean,
+        // When set (SQL Server, trivial WHERE), the DELETE targets this alias
+        // directly instead of the table name (CommandSimplifier).
+        public readonly alias: Alias | undefined,
+    ) {
+        super("Delete");
+    }
+
+    get name() { return this.table.name; }
+
+    toString(): string {
+        return `DELETE ${this.name}\nFROM ${this.source}\nWHERE ${this.where}`;
+    }
+
+    accept(visitor: ExpressionVisitor): Expression {
+        return asDbVisitor(visitor).visitDelete(this);
+    }
+}
+
+export class UpdateExpression extends CommandExpression {
+    constructor(
+        public readonly table: Table,
+        public readonly source: SourceWithAliasExpression,
+        public readonly where: Expression | undefined,
+        public readonly assignments: readonly ColumnAssignment[],
+        public readonly returnRowCount: boolean,
+    ) {
+        super("Update");
+    }
+
+    get name() { return this.table.name; }
+
+    toString(): string {
+        return `UPDATE ${this.name} SET\n${this.assignments.join(",\n")}\nFROM ${this.source}\nWHERE ${this.where}`;
+    }
+
+    accept(visitor: ExpressionVisitor): Expression {
+        return asDbVisitor(visitor).visitUpdate(this);
+    }
+}
+
+export class InsertSelectExpression extends CommandExpression {
+    constructor(
+        public readonly table: Table,
+        public readonly source: SourceWithAliasExpression,
+        public readonly assignments: readonly ColumnAssignment[],
+        public readonly returnRowCount: boolean,
+    ) {
+        super("InsertSelect");
+    }
+
+    get name() { return this.table.name; }
+
+    toString(): string {
+        return `INSERT INTO ${this.name}(${this.assignments.map(a => a.column).join(", ")})\nSELECT ${this.assignments.map(a => a.expression).join(", ")}\nFROM ${this.source}`;
+    }
+
+    accept(visitor: ExpressionVisitor): Expression {
+        return asDbVisitor(visitor).visitInsertSelect(this);
+    }
+}
+
+export class CommandAggregateExpression extends CommandExpression {
+    constructor(
+        public readonly commands: readonly CommandExpression[],
+    ) {
+        super("CommandAggregate");
+    }
+
+    toString(): string {
+        return this.commands.join(";\n");
+    }
+
+    accept(visitor: ExpressionVisitor): Expression {
+        return asDbVisitor(visitor).visitCommandAggregate(this);
+    }
+}

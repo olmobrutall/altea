@@ -13,7 +13,8 @@ import { RedundantSubqueryRemover } from "./linq/visitors/RedundantSubqueryRemov
 import { ConditionsRewriter } from "./linq/visitors/ConditionsRewriter";
 import { ScalarSubqueryRewriter } from "./linq/visitors/ScalarSubqueryRewriter";
 import { ChildProjectionFlattener } from "./linq/visitors/ChildProjectionFlattener";
-import { ProjectionExpression } from "./linq/expressions.sql";
+import { CommandSimplifier } from "./linq/visitors/CommandSimplifier";
+import { ProjectionExpression, CommandExpression, CommandAggregateExpression } from "./linq/expressions.sql";
 import { buildTranslateResult } from "./linq/translatorBuilder";
 import { QueryFormatter } from "./linq/queryFormatter";
 
@@ -99,6 +100,42 @@ class MyQueryTranslator implements IQueryTranslator {
         const projection = this.bind(expression);
         const tr = buildTranslateResult(projection, Connector.current().isPostgres);
         return tr.execute();
+    }
+
+    // Bulk-DML pipeline: bind to a CommandExpression, run the same optimiser tier as
+    // queries (so the source SELECT is cleaned/condition-normalised), DELETE-simplify
+    // for SQL Server, format, and execute returning the affected row count scalar.
+    async executeCommand(expression: Expression): Promise<number> {
+        const connector = Connector.current();
+        const simplified = expressionSimplifier()(expression);
+        const binder = new QueryBinder(connector.schema, connector.isPostgres);
+        const command = binder.bindCommand(simplified);
+
+        // Each sub-command (owned-child deletes precede the parent) is optimised,
+        // formatted, and executed as its OWN query: optimised separately so the
+        // visitor passes start with fresh state per command — sub-commands can share a
+        // source SELECT instance, and a shared OrderByRewriter pass would otherwise
+        // accumulate its orderings across them. Executed separately because Postgres
+        // rejects multiple parameterised statements in a single prepared query. Only
+        // the row-count command (the last) yields the affected-row scalar.
+        const commands = command instanceof CommandAggregateExpression ? command.commands : [command];
+        let affected = 0;
+        for (const cmd of commands) {
+            let c: Expression = OrderByRewriter.rewrite(cmd);
+            c = QueryRebinder.rebind(c);
+            c = RedundantSubqueryRemover.remove(c, connector.isPostgres);
+            if (!connector.isPostgres)
+                c = ConditionsRewriter.rewrite(c);
+            c = ScalarSubqueryRewriter.rewrite(c, connector.isPostgres);
+            c = CommandSimplifier.simplify(c as CommandExpression, binder.aliases, connector.isPostgres);
+
+            const { sql, parameters } = QueryFormatter.formatCommand(c as CommandExpression, connector.isPostgres);
+            const rows = await connector.executeQuery(sql, parameters);
+            const first = rows[0] as Record<string, unknown> | undefined;
+            if (first != null)
+                affected = Number(Object.values(first)[0] ?? affected);
+        }
+        return affected;
     }
 
     getQueryTextForDebug(query: Query<any>): string {

@@ -11,6 +11,8 @@ import {
     LiteReferenceExpression, LiteReferenceTarget, PrimaryKeyExpression, FieldBinding,
     EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
+    SourceWithAliasExpression, CommandExpression, ColumnAssignment,
+    DeleteExpression, UpdateExpression, InsertSelectExpression, CommandAggregateExpression,
 } from "../expressions.sql";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 
@@ -260,5 +262,46 @@ export class DbExpressionVisitor extends ExpressionVisitor {
         if (e !== o.expression)
             return new OrderExpression(o.orderType, e);
         return o;
+    }
+
+    // ---- command nodes (bulk DML) ----------------------------------------
+
+    visitDelete(delete_: DeleteExpression): Expression {
+        const source = this.visitSource(delete_.source) as SourceWithAliasExpression;
+        const where = this.visit(delete_.where);
+        if (source !== delete_.source || where !== delete_.where)
+            return new DeleteExpression(delete_.table, source, where, delete_.returnRowCount, delete_.alias);
+        return delete_;
+    }
+
+    visitUpdate(update: UpdateExpression): Expression {
+        const source = this.visitSource(update.source) as SourceWithAliasExpression;
+        const where = this.visit(update.where);
+        const assignments = this.visitArray(update.assignments, a => this.visitColumnAssignment(a));
+        if (source !== update.source || where !== update.where || assignments !== update.assignments)
+            return new UpdateExpression(update.table, source, where, assignments, update.returnRowCount);
+        return update;
+    }
+
+    visitInsertSelect(insert: InsertSelectExpression): Expression {
+        const source = this.visitSource(insert.source) as SourceWithAliasExpression;
+        const assignments = this.visitArray(insert.assignments, a => this.visitColumnAssignment(a));
+        if (source !== insert.source || assignments !== insert.assignments)
+            return new InsertSelectExpression(insert.table, source, assignments, insert.returnRowCount);
+        return insert;
+    }
+
+    visitColumnAssignment(c: ColumnAssignment): ColumnAssignment {
+        const exp = this.visit(c.expression);
+        if (exp !== c.expression)
+            return new ColumnAssignment(c.column, exp);
+        return c;
+    }
+
+    visitCommandAggregate(ca: CommandAggregateExpression): Expression {
+        const commands = this.visitArray(ca.commands, c => this.visit(c) as CommandExpression);
+        if (commands !== ca.commands)
+            return new CommandAggregateExpression(commands);
+        return ca;
     }
 }

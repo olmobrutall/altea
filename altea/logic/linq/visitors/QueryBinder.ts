@@ -12,7 +12,10 @@ import {
     LiteReferenceExpression, LiteReferenceTarget, ScalarExpression, ExistsExpression,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
     CaseExpression, When, IsNotNullExpression,
+    CommandExpression, CommandAggregateExpression, ColumnAssignment,
+    DeleteExpression, UpdateExpression, InsertSelectExpression,
 } from "../expressions.sql";
+import { AssignAdapterExpander } from "./AssignAdapterExpander";
 import { AliasGenerator, Alias } from "../AliasGenerator";
 import { projectColumns as projectColumnsImpl, ProjectedColumns } from "./ColumnProjector";
 import { fullNominate as fullNominateImpl } from "../dbExpressionNominator";
@@ -28,6 +31,7 @@ import {
 } from "../../schema/field";
 import type { FieldInfo } from "../../../entities/reflection";
 import { resolveType } from "../../../entities/registration";
+import { Entity } from "../../../entities/entity";
 import { ArrayType, ClassType, LiteType, LiteralType, TemporalType, Type } from "../../../entities/types";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 
@@ -42,6 +46,16 @@ import { ExpressionVisitor } from "./ExpressionVisitor";
 function isReferenceish(e: Expression): boolean {
     return e instanceof EntityExpression || e instanceof ImplementedByExpression
         || e instanceof ImplementedByAllExpression || e instanceof LiteReferenceExpression;
+}
+
+// A plain `{...}` object (Object/null prototype) — as opposed to a class instance
+// (Entity/Lite/Embedded). Used to detect an all-constant bulk-DML setter literal the
+// ExpressionSimplifier folded whole into a single constant.
+function isPlainObject(v: unknown): boolean {
+    if (v == null || typeof v !== "object")
+        return false;
+    const proto = Object.getPrototypeOf(v);
+    return proto === Object.prototype || proto === null;
 }
 
 // Signum's GroupByInfo: recorded per group's element-subquery alias. When an
@@ -134,6 +148,205 @@ export class QueryBinder extends ExpressionVisitor {
         if (!(expanded instanceof ProjectionExpression))
             throw new Error("Join expansion did not preserve the ProjectionExpression");
         return expanded;
+    }
+
+    // Bulk DML entry — binds an executeUpdate/executeDelete/executeInsert terminal
+    // call to a CommandExpression (Signum's BindUpdate/BindDelete/BindInsert).
+    bindCommand(expr: Expression): CommandExpression {
+        this.root = expr;
+        const call = expr as CallExpression;
+        const prop = call.func as PropertyExpression;
+        const op = prop.propertyName;
+
+        let command: CommandExpression;
+        switch (op) {
+            case "executeDelete":
+                command = this.bindDelete(prop.object);
+                break;
+            case "executeUpdate":
+                command = this.bindUpdate(prop.object, undefined, call.args[0] as LambdaExpression);
+                break;
+            case "executeUpdatePart":
+                command = this.bindUpdate(prop.object, call.args[0] as LambdaExpression, call.args[1] as LambdaExpression);
+                break;
+            case "executeInsert":
+                command = this.bindInsert(prop.object, call.args[0], call.args[1] as LambdaExpression);
+                break;
+            default:
+                throw new Error(`Command operator '${op}' is not implemented in the binder`);
+        }
+
+        // Splice the implicit navigation joins (filter / setter-value navigations)
+        // recorded during binding into the command's source selects.
+        return QueryJoinExpander.expand(command, this.requests) as CommandExpression;
+    }
+
+    private bindSourceProjection(sourceExpr: Expression): ProjectionExpression {
+        let result = this.visit(sourceExpr);
+        if (result instanceof FieldEntityArrayExpression)
+            result = this.fieldEntityArrayProjection(result);
+        if (!(result instanceof ProjectionExpression))
+            throw new Error("Command source did not bind to a projection: " + result.toString());
+        return result;
+    }
+
+    private bindDelete(sourceExpr: Expression): CommandExpression {
+        const pr = this.bindSourceProjection(sourceExpr);
+        const proj = pr.projector;
+        if (!(proj instanceof EntityExpression))
+            throw new Error("Delete not supported for projector: " + proj.toString());
+
+        const commands: CommandExpression[] = [];
+
+        // Owned child rows (FieldEntityArray, altea's analogue of Signum's MList
+        // tables) must be deleted first to satisfy their back-reference FK — Signum's
+        // BindDelete prepends a DeleteExpression per MList table.
+        for (const ef of Object.values(proj.table.fields)) {
+            if (ef.field instanceof FieldEntityArray && ef.field.cascade) {
+                const childTable = this.schema.table(ef.field.childType as any);
+                const backField = childTable.fields[ef.field.childFkProperty]?.field;
+                if (!(backField instanceof FieldReference))
+                    continue;
+                const backId = new ColumnExpression(LiteralType.number, this.aliasGenerator.table(childTable.name), backField.column.name);
+                const childWhere = new BinaryExpression("==", backId, this.unwrapPk(proj.externalId));
+                commands.push(new DeleteExpression(childTable, pr.select, childWhere, false, undefined));
+            }
+        }
+
+        const idCol = new ColumnExpression(LiteralType.number, this.aliasGenerator.table(proj.table.name), proj.table.primaryKey.column.name);
+        const where = new BinaryExpression("==", idCol, this.unwrapPk(proj.externalId));
+        commands.push(new DeleteExpression(proj.table, pr.select, where, true, undefined));
+        return new CommandAggregateExpression(commands);
+    }
+
+    private bindUpdate(sourceExpr: Expression, partSelector: LambdaExpression | undefined, setter: LambdaExpression): CommandExpression {
+        const pr = this.bindSourceProjection(sourceExpr);
+        const entity = partSelector == null ? pr.projector : this.mapVisitExpand(partSelector, pr);
+        if (!(entity instanceof EntityExpression))
+            throw new Error("Update target is not an entity: " + entity.toString());
+
+        const table = entity.table;
+        const tableAlias = this.aliasGenerator.table(table.name);
+        const toUpdate = this.createEntityExpression(table, tableAlias);
+
+        // Columns come from the target table (toUpdate); the setter's values are read
+        // from the source row — the navigated part itself when updating a part.
+        const valueSource = partSelector == null ? pr.projector : entity;
+        const assignments = this.buildAssignments(toUpdate, setter, pr.select, valueSource);
+
+        const idCol = new ColumnExpression(LiteralType.number, tableAlias, table.primaryKey.column.name);
+        const where = new BinaryExpression("==", idCol, this.unwrapPk(entity.externalId));
+        return new CommandAggregateExpression([new UpdateExpression(table, pr.select, where, assignments, true)]);
+    }
+
+    private bindInsert(sourceExpr: Expression, targetCtorExpr: Expression, selector: LambdaExpression): CommandExpression {
+        const pr = this.bindSourceProjection(sourceExpr);
+        const targetCtor = (targetCtorExpr as ConstantExpression).value as new () => object;
+        const table = this.schema.table(targetCtor as any);
+        const toInsert = this.createEntityExpression(table, this.aliasGenerator.table(table.name));
+
+        const assignments = this.buildAssignments(toInsert, selector, pr.select, pr.projector);
+
+        // Signum auto-fills the optimistic-concurrency column with 0 on INSERT when
+        // the projection didn't set it.
+        if (table.ticks != null && !assignments.some(a => a.column === table.ticks!.column.name))
+            assignments.push(new ColumnAssignment(table.ticks.column.name, new SqlConstantExpression(0, LiteralType.number)));
+
+        return new CommandAggregateExpression([new InsertSelectExpression(table, pr.select, assignments, true)]);
+    }
+
+    // Binds a `{ field: valueExpr, … }` object-literal setter, producing one
+    // ColumnAssignment per leaf column: each property's column comes from `target`,
+    // its value from `valueSource` (the setter param). Three body shapes:
+    //   • ObjectExpression — the normal case (some value references the param).
+    //   • ConstantExpression(plain object) — an all-constant literal the simplifier
+    //     folded whole (e.g. `{ author: michael, label: null }`); each value is a
+    //     constant the AssignAdapterExpander reshapes.
+    //   • ParameterExpression — the identity insert `a => a` over an already-shaped
+    //     .map projector (its bound properties are reused verbatim).
+    private buildAssignments(target: EntityExpression, selector: LambdaExpression, sourceSelect: SourceExpression, valueSource: Expression): ColumnAssignment[] {
+        const assignments: ColumnAssignment[] = [];
+        const param = selector.parameters[0];
+        const old = this.map.get(param);
+        this.map.set(param, valueSource);
+        this.sourceStack.push(sourceSelect);
+        try {
+            const body = selector.body;
+            let entries: [string, Expression][];
+            if (body instanceof ParameterExpression && valueSource instanceof ObjectExpression)
+                entries = Object.entries(valueSource.properties); // identity: already bound
+            else if (body instanceof ObjectExpression)
+                entries = Object.entries(body.properties).map(([k, v]) => [k, this.visit(v)]);
+            else if (body instanceof ConstantExpression && isPlainObject(body.value))
+                entries = Object.entries(body.value as Record<string, unknown>).map(([k, v]) => [k, new ConstantExpression(v)]);
+            else
+                throw new Error("Bulk-DML setter must be an object literal (or the identity parameter)");
+
+            for (const [name, value] of entries) {
+                const colExpr = this.bindMember(target, name, false);
+                assignments.push(...this.adaptAssign(colExpr, value));
+            }
+        } finally {
+            this.sourceStack.pop();
+            if (old === undefined) this.map.delete(param); else this.map.set(param, old);
+        }
+        return assignments;
+    }
+
+    private adaptAssign(colExpr: Expression, value: Expression): ColumnAssignment[] {
+        return this.assign(colExpr, AssignAdapterExpander.adapt(value, colExpr));
+    }
+
+    // Port of Signum's Assign: pairs a target column-shape with an equally-shaped
+    // value, emitting one ColumnAssignment per leaf column.
+    private assign(col: Expression, value: Expression): ColumnAssignment[] {
+        if (col instanceof ColumnExpression)
+            return [this.assignColumn(col, value)];
+
+        if (col instanceof PrimaryKeyExpression)
+            return [this.assignColumn(this.unwrapPk(col), this.unwrapPk(value))];
+
+        if (col instanceof LiteReferenceExpression)
+            return this.assign(col.reference, value instanceof LiteReferenceExpression ? value.reference : value);
+
+        if (col instanceof EmbeddedEntityExpression && value instanceof EmbeddedEntityExpression) {
+            const result: ColumnAssignment[] = [];
+            // Only a nullable embedded carries a real HasValue column to set.
+            if (col.hasValue instanceof ColumnExpression)
+                result.push(this.assignColumn(col.hasValue, value.hasValue));
+            for (const b of col.bindings) {
+                const v = value.bindings.find(x => x.fieldInfo === b.fieldInfo || x.fieldInfo.name === b.fieldInfo.name);
+                if (v == null) throw new Error("Missing embedded binding for " + b.fieldInfo.name);
+                result.push(...this.adaptAssign(b.binding, v.binding));
+            }
+            return result;
+        }
+
+        if (col instanceof EntityExpression && value instanceof EntityExpression)
+            return [this.assignColumn(col.externalId.value, value.externalId.value)];
+
+        if (col instanceof ImplementedByExpression && value instanceof ImplementedByExpression)
+            return [...col.implementations].map(([ctor, ee]) =>
+                this.assignColumn(ee.externalId.value, value.implementations.get(ctor)!.externalId.value));
+
+        if (col instanceof ImplementedByAllExpression && value instanceof ImplementedByAllExpression)
+            return [
+                this.assignColumn(col.id, value.id),
+                this.assignColumn(col.typeId.typeColumn, value.typeId.typeColumn),
+            ];
+
+        throw new Error(`Cannot assign ${col} from ${value}`);
+    }
+
+    private assignColumn(col: Expression, value: Expression): ColumnAssignment {
+        const c = this.unwrapPk(col);
+        if (!(c instanceof ColumnExpression))
+            throw new Error(`${c} does not represent a column`);
+        return new ColumnAssignment(c.name!, this.fullNominate(value));
+    }
+
+    private unwrapPk(e: Expression): Expression {
+        return e instanceof PrimaryKeyExpression ? e.value : e;
     }
 
     override visitCall(call: CallExpression): Expression {
@@ -238,6 +451,11 @@ export class QueryBinder extends ExpressionVisitor {
             return new LiteReferenceExpression(new LiteType(source.type), source, undefined);
         if (methodName === "toLite" && source instanceof LiteReferenceExpression)
             return source;
+        // toLite() on a captured constant entity → a constant Lite (Signum's Clean
+        // partial-evaluates this; altea's simplifier doesn't fold method calls). The
+        // bulk-DML AssignAdapterExpander then shapes the constant lite to its column.
+        if (methodName === "toLite" && source instanceof ConstantExpression && source.value instanceof Entity)
+            return new ConstantExpression((source.value as Entity).toLite());
 
         // entity.is(x) / lite.is(x) → the server form of the in-memory identity
         // check, lowered by SmartEqualizer (handles typed refs, IB, IBA, captured

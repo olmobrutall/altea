@@ -1,5 +1,6 @@
 
 import { ExLambda, Quoted } from "quote-transformer/quoted";
+import { Entity } from "../entities/entity";
 import { IQuery, IOrderedQuery } from "../entities/iquery";
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, PropertyExpression } from "./linq/expressions";
 import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType, PromiseType } from "../entities/types";
@@ -56,6 +57,9 @@ export function resultType(typeResolver: ResultTypeResolver) {
 
 export interface IQueryTranslator {
     execute(t: Expression): Promise<unknown>;
+    // Bulk-DML terminal (executeUpdate/executeDelete/executeInsert): binds to a
+    // command tree and runs it, returning the affected row count.
+    executeCommand(t: Expression): Promise<number>;
     getQueryTextForDebug(t: Query<any>): string
 }
 
@@ -385,7 +389,7 @@ export class Query<T> implements IQuery<T> {
             new PropertyExpression(this.expression, "optional"),
             [],
             this.type);
-        return new Query<T>(call, this.translator);
+        return new Query<T | null>(call, this.translator);
     }
 
 
@@ -486,27 +490,41 @@ export class Query<T> implements IQuery<T> {
         return new Query<R>(call, this.translator);
     }
 
-    // ---- bulk DML + aggregate-to-string (STUBS) -------------------------------
-    // These tiers are not implemented yet (the LinqProvider tests that use them are
-    // ported and run red). The signatures lock the intended API shape (recorded in
-    // the test files' TODO comments); the bodies throw.
+    // ---- bulk DML (set-based UPDATE / DELETE / INSERT … SELECT) ---------------
+    // Each builds a command CallExpression the QueryBinder lowers to a
+    // Update/Delete/InsertSelect command node; the translator formats it and runs it
+    // via executeQuery, returning the affected row count. The setter/selector lambdas
+    // are `Quoted<>` so the transformer captures them as expressions.
 
     // table(T)[.filter(…)].executeUpdate(a => ({ field: valueExpr, … })) → affected rows.
     // The setter returns the partial set of columns to write (keys validated against T;
     // values loose, since `int`/`PrimaryKey` are branded numbers and value expressions
     // widen to `number`).
-    executeUpdate(setter: (element: T) => UpdateValues<T>): Promise<number> {
-        throw new Error("executeUpdate (bulk UPDATE) is not implemented yet");
+    @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
+    @resultType(() => new PromiseType(SimpleType.number))
+    executeUpdate(setter: Quoted<(element: T) => UpdateValues<T>>): Promise<number> {
+        var lambda = Expression.fromQuotedLambda(setter, [this.elementType]);
+        var call = new CallExpression(new PropertyExpression(this.expression, "executeUpdate"), [lambda], SimpleType.number);
+        return this.translator.executeCommand(call);
     }
 
     // table(T)[.filter(…)].executeDelete() → affected rows.
+    @resultType(() => new PromiseType(SimpleType.number))
     executeDelete(): Promise<number> {
-        throw new Error("executeDelete (bulk DELETE) is not implemented yet");
+        var call = new CallExpression(new PropertyExpression(this.expression, "executeDelete"), [], SimpleType.number);
+        return this.translator.executeCommand(call);
     }
 
     // table(S)[.filter(…)].executeInsert(TargetEntity, s => ({ …fields })) → inserted rows.
-    executeInsert<E>(target: new () => E, selector: (element: T) => any): Promise<number> {
-        throw new Error("executeInsert (bulk INSERT) is not implemented yet");
+    @lambdaTypeForParam(1, ot => [(ot as ArrayType).elementType])
+    @resultType(() => new PromiseType(SimpleType.number))
+    executeInsert<E>(target: new () => E, selector: Quoted<(element: T) => UpdateValues<E>>): Promise<number> {
+        var lambda = Expression.fromQuotedLambda(selector, [this.elementType]);
+        var call = new CallExpression(
+            new PropertyExpression(this.expression, "executeInsert"),
+            [new ConstantExpression(target, new ClassType(target)), lambda],
+            SimpleType.number);
+        return this.translator.executeCommand(call);
     }
 
     // minBy/maxBy — the element with the min/max projected value (Signum's MinBy/MaxBy).
@@ -533,14 +551,30 @@ export class Query<T> implements IQuery<T> {
         throw new Error("cast is not implemented yet");
     }
 
-    // Bulk-DML variant: chunked delete. (MList-specific bulk ops are not modelled —
-    // altea has no MList; operate on the part-entity table directly via executeDelete/
-    // executeInsert/executeUpdate.) `executeUpdatePart` updates a navigated entity.
-    executeDeleteChunks(chunkSize?: number): Promise<number> {
-        throw new Error("executeDeleteChunks (chunked bulk DELETE) is not implemented yet");
+    // Bulk-DML variant: chunked delete — a pure utility (Signum's UnsafeDeleteChunks),
+    // not a distinct command: it just deletes `order by id, top(chunkSize)` repeatedly
+    // until a pass removes fewer than a full chunk.
+    async executeDeleteChunks(chunkSize: number = 10000, maxChunks: number = Number.MAX_SAFE_INTEGER): Promise<number> {
+        let total = 0;
+        for (let i = 0; i < maxChunks; i++) {
+            const num = await this.orderBy(a => (a as Entity).id).top(chunkSize).executeDelete();
+            total += num;
+            if (num < chunkSize)
+                break;
+        }
+        return total;
     }
-    executeUpdatePart<P>(partSelector: (element: T) => P, setter: (part: P) => UpdateValues<P>): Promise<number> {
-        throw new Error("executeUpdatePart (bulk UPDATE of a navigated entity) is not implemented yet");
+
+    // executeUpdatePart — update a *navigated* entity reached from each source row
+    // (Signum's UnsafeUpdatePart): `partSelector` picks the entity/reference to update.
+    @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
+    @lambdaTypeForParam(1, (_ot, partSelType) => [(partSelType as FunctionType).returnType])
+    @resultType(() => new PromiseType(SimpleType.number))
+    executeUpdatePart<P>(partSelector: Quoted<(element: T) => P>, setter: Quoted<(part: P) => UpdateValues<P>>): Promise<number> {
+        var partLambda = Expression.fromQuotedLambda(partSelector, [this.elementType]);
+        var setterLambda = Expression.fromQuotedLambda(setter, [partLambda.body.type!]);
+        var call = new CallExpression(new PropertyExpression(this.expression, "executeUpdatePart"), [partLambda, setterLambda], SimpleType.number);
+        return this.translator.executeCommand(call);
     }
 
     // Lite-model / entity eager-load hints (Signum's ExpandLite/ExpandEntity). Not

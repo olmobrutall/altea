@@ -9,7 +9,10 @@ import {
     AggregateExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression,
     CaseExpression, LikeExpression, ScalarExpression, ExistsExpression, InExpression,
     IsNullExpression, IsNotNullExpression, PrimaryKeyExpression,
+    CommandExpression, DeleteExpression, UpdateExpression, InsertSelectExpression,
+    CommandAggregateExpression,
 } from "./expressions.sql";
+import { ObjectName } from "../schema/objectName";
 import { Alias } from "./AliasGenerator";
 import { LiteralType } from "../../entities/types";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
@@ -41,6 +44,15 @@ export class QueryFormatter extends DbExpressionVisitor {
     static format(select: SelectExpression, isPostgres: boolean): FormattedQuery {
         const f = new QueryFormatter(isPostgres);
         f.visit(select);
+        return { sql: f.toSql(), parameters: f.parameters };
+    }
+
+    // Bulk-DML entry: formats a CommandExpression (Update/Delete/InsertSelect or a
+    // CommandAggregate of them) into a statement that, when run via executeQuery,
+    // yields a single scalar = the affected row count.
+    static formatCommand(command: CommandExpression, isPostgres: boolean): FormattedQuery {
+        const f = new QueryFormatter(isPostgres);
+        f.visit(command);
         return { sql: f.toSql(), parameters: f.parameters };
     }
 
@@ -94,13 +106,15 @@ export class QueryFormatter extends DbExpressionVisitor {
         return s;
     }
 
+    private quoteObjectName(on: ObjectName): string {
+        return on.schema?.name
+            ? `${this.quote(on.schema.name)}.${this.quote(on.name)}`
+            : this.quote(on.name);
+    }
+
     protected override visitSource(src: SourceExpression): SourceExpression {
         if (src instanceof TableExpression) {
-            const on = src.table.name;
-            const tbl = on.schema?.name
-                ? `${this.quote(on.schema.name)}.${this.quote(on.name)}`
-                : this.quote(on.name);
-            this.append(`${tbl} ${this.quoteAlias(src.alias)}`);
+            this.append(`${this.quoteObjectName(src.table.name)} ${this.quoteAlias(src.alias)}`);
             return src;
         }
 
@@ -152,6 +166,11 @@ export class QueryFormatter extends DbExpressionVisitor {
     }
 
     private quoteAlias(alias: Alias): string {
+        // A table-name alias (Signum's `Alias(ObjectName)`, used as the UPDATE/DELETE
+        // target reference) renders as the qualified, per-part-quoted table name —
+        // not the whole dotted string quoted as one identifier.
+        if (alias.objectName != null)
+            return this.quoteObjectName(alias.objectName);
         return this.quote(alias.toString());
     }
 
@@ -315,6 +334,78 @@ export class QueryFormatter extends DbExpressionVisitor {
             : (e.values ?? []).map(v => this.addParameter(v)).join(", ");
         this.append(` IN (${rhs})`);
         return e;
+    }
+
+    // ---- command nodes (bulk DML) ----------------------------------------
+
+    override visitCommandAggregate(ca: CommandAggregateExpression): Expression {
+        ca.commands.forEach((c, i) => {
+            if (i > 0) this.append("\n");
+            this.visit(c);
+        });
+        return ca;
+    }
+
+    override visitDelete(e: DeleteExpression): Expression {
+        const core = this.capture(() => {
+            this.append("DELETE FROM ");
+            this.append(e.alias != null ? this.quoteAlias(e.alias) : this.quoteObjectName(e.name));
+            // SQL Server: DELETE FROM t FROM <source>; Postgres: DELETE FROM t USING <source>.
+            this.append(this.isPostgres ? "\nUSING " : "\nFROM ");
+            this.visitSource(e.source);
+            if (e.where != null) {
+                this.append("\nWHERE ");
+                this.visit(e.where);
+            }
+        });
+        this.append(this.wrapRowCount(core, e.returnRowCount));
+        return e;
+    }
+
+    override visitUpdate(e: UpdateExpression): Expression {
+        const core = this.capture(() => {
+            this.append(`UPDATE ${this.quoteObjectName(e.name)} SET\n`);
+            e.assignments.forEach((a, i) => {
+                if (i > 0) this.append(",\n");
+                this.append(`${this.quote(a.column)} = `);
+                this.visit(a.expression);
+            });
+            this.append("\nFROM ");
+            this.visitSource(e.source);
+            if (e.where != null) {
+                this.append("\nWHERE ");
+                this.visit(e.where);
+            }
+        });
+        this.append(this.wrapRowCount(core, e.returnRowCount));
+        return e;
+    }
+
+    override visitInsertSelect(e: InsertSelectExpression): Expression {
+        const core = this.capture(() => {
+            this.append(`INSERT INTO ${this.quoteObjectName(e.name)}(`);
+            this.append(e.assignments.map(a => this.quote(a.column)).join(", "));
+            this.append(")\nSELECT ");
+            e.assignments.forEach((a, i) => {
+                if (i > 0) this.append(", ");
+                this.visit(a.expression);
+            });
+            this.append("\nFROM ");
+            this.visitSource(e.source);
+        });
+        this.append(this.wrapRowCount(core, e.returnRowCount));
+        return e;
+    }
+
+    // Signum's PrintSelectRowCount: make the statement yield its affected-row count
+    // as a single scalar. SQL Server appends `SELECT @@rowcount`; Postgres wraps the
+    // statement in a CTE with `RETURNING 1` and counts the returned rows.
+    private wrapRowCount(core: string, returnRowCount: boolean): string {
+        if (!returnRowCount)
+            return core + ";";
+        if (!this.isPostgres)
+            return core + ";\nSELECT @@rowcount";
+        return `WITH rows AS (\n${core}\nRETURNING 1\n)\nSELECT CAST(COUNT(*) AS INTEGER) FROM rows`;
     }
 
     private formatBinary(e: BinaryExpression): void {
