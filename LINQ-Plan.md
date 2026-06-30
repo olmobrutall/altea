@@ -83,7 +83,7 @@ Implementation order (each ends green):
 4. ✅ full-entity materialisation via `Retriever` (closes C retrieve)
 5. 🟡 navigations + JOINs — single-reference navigation done (any depth); collection SelectMany (`flatMap` → CROSS APPLY) done; `ImplementedBy*` cast→JOIN done (step 7); projecting a raw collection (ChildProjectionFlattener) still deferred
 6. 🟡 order/page/distinct/unique/scalar-aggregates
-7. 🟡 Lite done (projection / `.entity` navigation / `.is` / `toLite`; toStr + `.model` deferred); **`ImplementedBy*` polymorphism done** (projection / navigation / cast / `instanceof` / equality via SmartEqualizer, incl. polymorphic lites); `GetType`/`typeof`, combine-strategy, and most SQL functions still pending
+7. 🟡 Lite done (projection / `.entity` navigation / `.is` / `toLite`; toStr + `.model` deferred); **`ImplementedBy*` polymorphism done** (projection / navigation / cast / `instanceof` / equality via SmartEqualizer, incl. polymorphic lites); **string SQL functions done** (indexOf/toLowerCase/toUpperCase/trim*/substring/like + length/contains/startsWith/endsWith); `GetType`/`typeof`, combine-strategy, and the date/math/ToString SQL-function tiers still pending
 8. ❌ delayed tiers
 
 ## Implementation progress log
@@ -528,6 +528,101 @@ Still failing in groupBy (all genuinely out of scope): `DistinctGroupByForce`
 `RootSumZero` (the `(int?)` cast the port dropped makes it indistinguishable from
 `RootSumNull`, which it would otherwise break).
 
+**SQL string functions (SqlFunctionsTest.StringFunctions).** The native JS string
+methods now lower to SQL, a port of `DbExpressionNominator.HardCodedMethods`'
+`string.*` cases. **Translation lives in the nominator, like C#** (not the binder):
+`QueryBinder` leaves a non-operator method call as a *residual* `CallExpression`
+(receiver + args already bound), and `DbExpressionNominator.visitCall` lowers it to
+a `SqlFunctionExpression`/`LikeExpression`/arithmetic during nomination — mirroring
+how Signum's binder leaves `MethodCallExpression`s for the nominator. The nominator
+is now a rewriting visitor: `nominate(e)` returns `{ candidates, expression }` (the
+rewritten tree), `projectColumns` splits the rewritten projector, and WHERE / ORDER
+BY / aggregate-argument expressions are run through `fullNominate` (Signum's
+FullNominate) to translate their residual calls. Verified live:
+**sqlFunctions.test.ts StringFunctions green on both dialects**, full suite
+**Postgres 483→493, SS 480→484** (offline gate 38→42; zero regressions — the boolean
+cluster `WhereBool`/`WhereCase`/`SelectConditionToBool`/`SortEquals*` stays green).
+The slice:
+
+- **`indexOf`** → `CHARINDEX(needle, haystack[, start+1])` (SQL Server) /
+  `strpos(haystack, needle)` (Postgres), minus 1 (SQL search is 1-based, JS is
+  0-based). A `startIndex` overload is SQL-Server-only (Signum throws on Postgres).
+- **`toLowerCase`/`toUpperCase`** → `LOWER`/`UPPER`; **`trimStart`/`trimEnd`** →
+  `LTRIM`/`RTRIM`; **`trim`** → `TRIM` (Postgres) / `LTRIM(RTRIM(...))` (SQL Server).
+- **`substring(start[, end])`** → `SUBSTRING(str, start+1, end-start)` /
+  `substr(...)`. The JS↔C# impedance: JS takes an **end index**, C# a **length**, so
+  altea computes `length = end - start` (Signum passes the length directly). Without
+  an end, SQL Server pads with a large literal length; Postgres' `substr` omits it.
+- **`like(pattern)`** → `LikeExpression` with the pattern verbatim (Signum's
+  `StringExtensions.Like`); added to `entities/globals.ts` (`String.prototype.like`,
+  with a regex in-memory fallback) so the entity API types it. Distinct from
+  `contains`/`startsWith`/`endsWith`, which keep wrapping their argument in `%`.
+- **`SqlConstantExpression` now renders as an INLINE literal** in `queryFormatter.ts`
+  (`visitSqlConstant`), matching Signum — booleans dialect-aware (bit `1`/`0` on SQL
+  Server, `true`/`false` on Postgres), strings quoted, numbers verbatim. This was
+  required: the synthetic `+1`/`-1` offsets were emitted as bound parameters, and
+  Postgres rejects `$1 + $2` ("operator is not unique: unknown + unknown") when both
+  operands are untyped. The nominator also coerces captured numeric substring/indexOf
+  offset args to `SqlConstant` (`asSqlLiteral`) so `end - start` has inlined operands.
+- **Expression layer**: a data-driven `wellKnownResultTypes` registry (in
+  `expressions.ts`) types built-ins that carry no `@resultType` decorator. It is keyed
+  `"<namespace>.<method>"` (e.g. `"string.indexOf"`, `"Math.sin"`, `"Array.contains"`),
+  mirroring Signum's `DbExpressionNominator`, which switches on
+  `DeclaringType.TypeName() + "." + MethodName`. The namespace is derived from the
+  receiver (a value's type, or a captured static like `Math`); `staticReceiverObject`
+  lets `Math.<fn>` dispatch on the `Math` object itself. This replaced an earlier
+  hard-coded string-method switch and is the seed for the Math/Date SQL-function tiers
+  — adding an entry types a new built-in inside quoted lambdas (SQL lowering still lives
+  in the nominator's `hardCodedMethod`, so `Math.sin` types but a query using it throws
+  "cannot be translated to SQL" until the Math tier is added there).
+
+Still skipped in the suite (genuinely unimplemented tiers, flagged `TODO(api)`):
+`Start`/`End`/`Reverse`/`Replicate` and `InSql()` (string), `Combine*` polymorphism,
+Date/Time parts·truncation·diffs, `DayOfWeek`, `Math.*`, enum/entity `ToString` in
+query, table-valued functions, `SqlHierarchyId`, and `Etc`.
+
+**SqlFunctionsTest uncommented (Math, string extensions, date parts, dayOfWeek).** The
+suite's commented bodies were uncommented and the tractable ones made to pass; the rest
+stay **red, not commented** (per request). `sqlFunctions.test.ts` is now **PG 17/37,
+SS 16/37** genuinely passing (was 37 *trivially* green as empty bodies) — no other suite
+regressed (the full-suite drop to PG 473 / SS 463 is exactly the now-visible reds in this
+one file; non-sqlFunctions suites hold at 456 PG / 447 SS). Landed:
+
+- **Math.\*** (`MathFunctions`) — `Math.sign/abs/sin/…/round/trunc/atan2/pow/log/log10` →
+  SQL math functions in the nominator (`translateMath`, dialect-aware: ATN2 vs atan2,
+  LOG/LOG10 vs ln/log, ROUND(x,0,1) vs trunc). The receiver is the captured `Math`
+  constant (namespace `"Math"`).
+- **String extensions** — `start`/`end`/`reverse`/`replicate` → `LEFT`/`RIGHT`/`REVERSE`/
+  `REPLICATE` (Postgres `left`/`right`/`reverse`/`repeat`); added to `globals.ts`.
+- **Date/time part extraction + dayOfWeek + quarter** (`DateTimeFunctions`, all
+  `DayOfWeek*`, `DayOfWeekFunction`) — a new `TemporalType` (`entities/types.ts`) types
+  date columns/expressions; **the `DbExpressionNominator` lowers** date-part *properties*
+  (`.year`/`.month`/`.day`/`.hour`/`.minute`/`.second`/`.millisecond`/`.dayOfYear`/
+  `.dayOfWeek`, via `visitProperty`) and the `.quarter()` *method* (via `visitCall`) to
+  `DATEPART(<kw>, x)` (Postgres `date_part('<kw>', x)`) — matching Signum, which handles
+  date `MemberExpression`s in the nominator. The binder just leaves date member access as
+  a residual `PropertyExpression`. A new `SqlLiteralExpression` renders the bare datepart
+  keyword. Non-native date helpers are declared in `entities/dateTimeExtensions.ts` (+ a
+  `DayOfWeek` enum); the expression layer routes temporal method dispatch via the Temporal
+  prototypes and types date members through `resolveMemberType`/the well-known registry.
+- **Non-integer numeric literals stay parameterized but get an explicit type**
+  (`queryFormatter.visitConstant`): a float renders as `CAST($n AS float)` rather than a
+  bare `$n`. Postgres otherwise infers an untyped parameter from its context — `intCol +
+  $1` coerces a `0.5` parameter to integer and rejects it. The value stays a bound
+  parameter (so the plan still caches and there's no injection surface); only its type is
+  pinned. (Integers are unaffected.) Postgres `Math.round` uses the 1-arg
+  `round(double precision)` overload, since `round(double, int)` doesn't exist there.
+
+Still red (uncommented, deferred tiers): date truncation (`yearStart`/`monthStart`/…),
+date diffs (`since`/`total`/`daysTo`), `toPlainDate`/`toPlainDateTime` (need a SqlCast),
+`.date`/`.timeOfDay`, the `Temporal.Now` date constant; enum/entity `ToString` in query;
+`CombineUnion`/`CombineCase`; table-valued functions; `Etc`; concatenation-with-null;
+and the correlated-table-subquery-in-projection (`DayOfWeekSelectNullable`, blocked by
+the async-terminal typing gap — the only body still commented, with a note). dayOfWeek
+SQL is the raw `DATEPART(weekday)`/`date_part('dow')` (no Signum-style normalisation to
+the .NET `DayOfWeek` ordering yet), so a couple of constant-comparison cases are
+data-dependent (`DayOfWeekSelectConstant` is red on SQL Server).
+
 ## Most important differences so far
 
 - TypeScript uses `quote-transformer` expressions instead of
@@ -570,8 +665,17 @@ Still failing in groupBy (all genuinely out of scope): `DistinctGroupByForce`
 - `skip` is deliberately deferred. Signum rewrites this through row-number /
   overload simplification paths; Altea's `SelectExpression` does not yet have
   the required shape.
-- String `contains`, `startsWith`, and `endsWith` bind to `LIKE` for constant
-  patterns. Array `contains` over a captured constant array binds to `IN`
+- String SQL functions (`contains`/`startsWith`/`endsWith` → `LIKE`, `indexOf`,
+  `toLowerCase`, `substring`, …) are translated in the **`DbExpressionNominator`**
+  (`visitCall` → `hardCodedMethod`), like C#'s `HardCodedMethods` — not in the binder.
+  `QueryBinder` leaves them as residual `CallExpression`s (receiver + args bound) and
+  the nominator lowers them during nomination; `fullNominate` does the same for WHERE /
+  ORDER BY / aggregate-argument expressions. Entity-semantic method calls (`toLite`,
+  `is`, `some`/`every`, array/collection `contains`) stay in the binder, as in Signum.
+  (`string.length`, a *member* access rather than a method call, is still lowered to
+  `LEN`/`length()` in the binder's `bindMember` — member translation hasn't moved to
+  the nominator yet, a smaller remaining divergence.)
+  Array `contains` over a captured constant array binds to `IN`
   (`InExpression.fromValues`). For that to work, `ExpressionSimplifier` must
   **not** constant-fold a property access whose value is a *function*
   (`ids.contains` would otherwise collapse to the bare `Array.prototype.contains`
@@ -606,7 +710,7 @@ Still failing in groupBy (all genuinely out of scope): `DistinctGroupByForce`
 | `ExpressionVisitor/DbExpressionVisitor.cs` | `altea/logic/linq/visitors/DbExpressionVisitor.ts` | Partial port |
 | `ExpressionVisitor/QueryBinder.cs` | `altea/logic/linq/visitors/QueryBinder.ts`, `altea/logic/linq/queryBinder.ts` | Partial port |
 | `ExpressionVisitor/QueryFormatter.cs` | `altea/logic/linq/queryFormatter.ts` | Partial port |
-| `ExpressionVisitor/DbExpressionNominator.cs` | `altea/logic/linq/dbExpressionNominator.ts` | Partial port; DbExpressionVisitor (like Signum) |
+| `ExpressionVisitor/DbExpressionNominator.cs` | `altea/logic/linq/dbExpressionNominator.ts` | Partial port; DbExpressionVisitor (like Signum). Rewriting visitor: nominates server subtrees **and** translates residual method calls in `visitCall` → `hardCodedMethod`, keyed `"<receiverType>.<method>"` like Signum (`DeclaringType.TypeName() + "." + MethodName`, e.g. `"string.indexOf"`). `nominate` returns `{candidates, expression}`; `fullNominate` translates WHERE/ORDER BY. Date/Math/ToString cases still pending |
 | `ExpressionVisitor/ColumnProjector.cs` | `altea/logic/linq/visitors/ColumnProjector.ts`, `altea/logic/linq/columnProjector.ts`, `altea/logic/linq/ColumnGenerator.ts` | Partial port |
 | `ExpressionVisitor/TranslatorBuilder.cs` | `altea/logic/linq/translatorBuilder.ts` | Partial port |
 | `ExpressionVisitor/OverloadingSimplifier.cs` | `altea/logic/linq/visitors/ExpressionSimplifier.ts` | Very partial analogue |
@@ -664,7 +768,7 @@ not set; those are not counted as commented-out tests here.
 | `SingleFirstTest.cs` | 10 (0) | `singleFirst.test.ts` | 10 (9) |
 | `DistinctTest.cs` | 9 (0) | `distinct.test.ts` | 9 (2) |
 | `AllAnyContainsTest.cs` | 20 (0) | `allAnyContains.test.ts` | 20 (6) |
-| `SqlFunctionsTest.cs` | 37 (0) | `sqlFunctions.test.ts` | 37 (37) |
+| `SqlFunctionsTest.cs` | 37 (0) | `sqlFunctions.test.ts` | 37 (1) |
 | `ExpandTest.cs` | 5 (0) | `expand.test.ts` | 5 (5) |
 | `SelectNestedTest.cs` | 19 (2) | `selectNested.test.ts` | 19 (18) |
 | `SelectImplementations.cs` | 48 (0) | `selectImplementations.test.ts` | 48 (36) |

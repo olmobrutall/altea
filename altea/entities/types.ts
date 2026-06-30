@@ -56,6 +56,15 @@ export class LiteType extends Type {
     }
 }
 
+// A temporal column/value (Temporal.PlainDateTime / PlainDate / Duration). Distinct
+// so the query layer can translate date-part access (`.year`, `.quarter()`, `.dayOfWeek`)
+// to SQL and dispatch date methods to the right prototype.
+export class TemporalType extends Type {
+    constructor(public readonly kind: "dateTime" | "date" | "duration") {
+        super()
+    }
+}
+
 export class ObjectType extends Type {
     constructor(public readonly bindings: { [name: string]: Type | undefined }) {
         super()

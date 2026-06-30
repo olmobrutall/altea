@@ -6,7 +6,7 @@ import { OpBinary } from "quote-transformer/quoted";
 import {
     SourceExpression, TableExpression, SelectExpression, JoinExpression,
     ColumnExpression, ColumnDeclaration, OrderExpression, JoinType,
-    AggregateExpression, SqlFunctionExpression, SqlConstantExpression,
+    AggregateExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression,
     CaseExpression, LikeExpression, ScalarExpression, ExistsExpression, InExpression,
     IsNullExpression, IsNotNullExpression, PrimaryKeyExpression,
 } from "./expressions.sql";
@@ -176,12 +176,43 @@ export class QueryFormatter extends DbExpressionVisitor {
     }
 
     override visitConstant(e: ConstantExpression): Expression {
-        this.append(e.value == null ? "NULL" : this.parameterFor(e.value));
+        if (e.value == null) {
+            this.append("NULL");
+            return e;
+        }
+        const placeholder = this.parameterFor(e.value);
+        // A non-integer numeric value stays a bound parameter (cache-friendly, safe) but
+        // is given an explicit type: Postgres otherwise infers an untyped parameter from
+        // its context — `intColumn + $1` coerces a `0.5` parameter to integer and rejects
+        // it ("invalid input syntax for type integer"). The CAST keeps the SQL text
+        // constant across values, so the plan still caches.
+        if (typeof e.value === "number" && !Number.isInteger(e.value))
+            this.append(`CAST(${placeholder} AS float)`);
+        else
+            this.append(placeholder);
+        return e;
+    }
+
+    // SqlConstantExpression renders as an INLINE literal (Signum's VisitSqlConstant),
+    // not a bound parameter — so synthetic offsets like substring/indexOf's `+1`/`-1`
+    // carry a known SQL type. Postgres rejects `$1 + $2` ("operator is not unique:
+    // unknown + unknown") when both operands are untyped parameters; an inline literal
+    // gives the arithmetic a typed operand. Booleans render dialect-aware (bit 1/0 on
+    // SQL Server, true/false on Postgres); strings are quoted; numbers print verbatim.
+    override visitSqlLiteral(e: SqlLiteralExpression): Expression {
+        this.append(e.value);
         return e;
     }
 
     override visitSqlConstant(e: SqlConstantExpression): Expression {
-        this.append(e.value == null ? "NULL" : this.parameterFor(e.value));
+        if (e.value == null)
+            this.append("NULL");
+        else if (typeof e.value === "boolean")
+            this.append(this.isPostgres ? (e.value ? "true" : "false") : (e.value ? "1" : "0"));
+        else if (typeof e.value === "string")
+            this.append(e.value === "" ? "''" : `'${e.value.replace(/'/g, "''")}'`);
+        else
+            this.append(String(e.value));
         return e;
     }
 

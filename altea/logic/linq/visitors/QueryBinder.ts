@@ -7,14 +7,15 @@ import {
     SelectExpression, ProjectionExpression, ColumnExpression, PrimaryKeyExpression,
     FieldBinding, EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
     SqlConstantExpression, TableExpression, OrderExpression, OrderType, UniqueFunction,
-    AggregateExpression, AggregateRequestsExpression, AggregateSqlFunction, ColumnDeclaration, LikeExpression, InExpression,
+    AggregateExpression, AggregateRequestsExpression, AggregateSqlFunction, ColumnDeclaration, InExpression,
     SourceExpression, SqlFunctionExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression, JoinType,
     LiteReferenceExpression, LiteReferenceTarget, ScalarExpression, ExistsExpression,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
     CaseExpression, When, IsNotNullExpression,
 } from "../expressions.sql";
 import { AliasGenerator, Alias } from "../AliasGenerator";
-import { projectColumns } from "./ColumnProjector";
+import { projectColumns as projectColumnsImpl, ProjectedColumns } from "./ColumnProjector";
+import { fullNominate as fullNominateImpl } from "../dbExpressionNominator";
 import { QueryJoinExpander, TableRequest } from "./QueryJoinExpander";
 import { GroupEntityCleaner } from "./GroupEntityCleaner";
 import { SmartEqualizer } from "../smartEqualizer";
@@ -27,7 +28,7 @@ import {
 } from "../../schema/field";
 import type { FieldInfo } from "../../../entities/reflection";
 import { resolveType } from "../../../entities/registration";
-import { ArrayType, ClassType, LiteType, LiteralType, Type } from "../../../entities/types";
+import { ArrayType, ClassType, LiteType, LiteralType, TemporalType, Type } from "../../../entities/types";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 
 // Adapted port of Signum's QueryBinder. Input is altea's source Expression AST
@@ -165,7 +166,7 @@ export class QueryBinder extends ExpressionVisitor {
             if (source instanceof FieldEntityArrayExpression)
                 source = this.fieldEntityArrayProjection(source);
             if (!(source instanceof ProjectionExpression))
-                return this.bindMethodCall(op, source, call.args);
+                return this.bindMethodCall(op, source, call.args, call.type);
 
             switch (op) {
                 case "filter":
@@ -230,7 +231,7 @@ export class QueryBinder extends ExpressionVisitor {
         throw new Error("Unexpected call in query: " + call.toString());
     }
 
-    private bindMethodCall(methodName: string, source: Expression, args: readonly Expression[]): Expression {
+    private bindMethodCall(methodName: string, source: Expression, args: readonly Expression[], resultType: Type): Expression {
         // entity.toLite() → a Lite over that reference (Signum's BindToLite). Works
         // over a typed reference or a polymorphic IB/IBA one.
         if (methodName === "toLite" && (source instanceof EntityExpression || source instanceof ImplementedByExpression || source instanceof ImplementedByAllExpression))
@@ -268,23 +269,12 @@ export class QueryBinder extends ExpressionVisitor {
                 : InExpression.fromValues(visitedArgs[0], source.value);
         }
 
-        if (methodName === "contains" && visitedArgs.length === 1)
-            return new LikeExpression(source, this.likePattern("%", visitedArgs[0], "%"));
-
-        if (methodName === "startsWith" && visitedArgs.length === 1)
-            return new LikeExpression(source, this.likePattern("", visitedArgs[0], "%"));
-
-        if (methodName === "endsWith" && visitedArgs.length === 1)
-            return new LikeExpression(source, this.likePattern("%", visitedArgs[0], ""));
-
-        throw new Error(`Method '${methodName}' is not implemented in the binder skeleton yet`);
-    }
-
-    private likePattern(prefix: string, expression: Expression, suffix: string): Expression {
-        if (expression instanceof ConstantExpression && typeof expression.value === "string")
-            return new ConstantExpression(`${prefix}${expression.value}${suffix}`);
-
-        throw new Error("Non-constant LIKE patterns are not implemented yet");
+        // Any other instance method (string functions: contains/startsWith/endsWith/
+        // like/indexOf/toLowerCase/…/substring, and unimplemented ones) is left as a
+        // residual call with its receiver and args already bound. The nominator's
+        // HardCodedMethods (visitCall) lowers it to SQL — matching C#, where QueryBinder
+        // leaves non-operator MethodCallExpressions for DbExpressionNominator to translate.
+        return new CallExpression(new PropertyExpression(source, methodName, false), visitedArgs, resultType);
     }
 
     override visitParameter(parameter: ParameterExpression): Expression {
@@ -350,10 +340,23 @@ export class QueryBinder extends ExpressionVisitor {
 
     // ---- operators --------------------------------------------------------
 
+    // Column projection and translation both depend on the dialect; thread it through
+    // so the nominator can pick CHARINDEX vs strpos, etc.
+    private projectColumns(projector: Expression, alias: Alias): ProjectedColumns {
+        return projectColumnsImpl(projector, alias, this.isPostgres);
+    }
+
+    // Translate the residual SQL-function method calls in a predicate / order key /
+    // aggregate argument (the binder leaves them for the nominator — Signum's
+    // FullNominate). Projector expressions are translated by projectColumns instead.
+    private fullNominate(e: Expression): Expression {
+        return fullNominateImpl(e, this.isPostgres);
+    }
+
     private bindWhere(projection: ProjectionExpression, predicate: LambdaExpression): ProjectionExpression {
-        const where = this.mapVisitExpand(predicate, projection);
+        const where = this.fullNominate(this.mapVisitExpand(predicate, projection));
         const alias = this.aliasGenerator.nextSelectAlias();
-        const pc = projectColumns(projection.projector, alias);
+        const pc = this.projectColumns(projection.projector, alias);
         return new ProjectionExpression(
             new SelectExpression(alias, false, undefined, pc.columns, projection.select, where, [], []),
             pc.projector, undefined, projection.type);
@@ -362,7 +365,7 @@ export class QueryBinder extends ExpressionVisitor {
     private bindSelect(projection: ProjectionExpression, selector: LambdaExpression): ProjectionExpression {
         const expression = this.mapVisitExpand(selector, projection);
         const alias = this.aliasGenerator.nextSelectAlias();
-        const pc = projectColumns(expression, alias);
+        const pc = this.projectColumns(expression, alias);
         return new ProjectionExpression(
             new SelectExpression(alias, false, undefined, pc.columns, projection.select, undefined, [], []),
             pc.projector, undefined, new ArrayType(expression.type));
@@ -383,14 +386,14 @@ export class QueryBinder extends ExpressionVisitor {
         this.thenBys = undefined;
 
         const alias = this.aliasGenerator.nextSelectAlias();
-        const pc = projectColumns(projection.projector, alias);
+        const pc = this.projectColumns(projection.projector, alias);
         const orderBy = append ? [...projection.select.orderBy] : [];
-        orderBy.push(new OrderExpression(orderType, this.mapVisitExpand(selector, projection)));
+        orderBy.push(new OrderExpression(orderType, this.fullNominate(this.mapVisitExpand(selector, projection))));
 
         if (myThenBys != null) {
             for (let i = myThenBys.length - 1; i >= 0; i--) {
                 const thenBy = myThenBys[i];
-                orderBy.push(new OrderExpression(thenBy.orderType, this.mapVisitExpand(thenBy.expression as LambdaExpression, projection)));
+                orderBy.push(new OrderExpression(thenBy.orderType, this.fullNominate(this.mapVisitExpand(thenBy.expression as LambdaExpression, projection))));
             }
         }
 
@@ -401,7 +404,7 @@ export class QueryBinder extends ExpressionVisitor {
 
     private bindTop(projection: ProjectionExpression, top: Expression): ProjectionExpression {
         const alias = this.aliasGenerator.nextSelectAlias();
-        const pc = projectColumns(projection.projector, alias);
+        const pc = this.projectColumns(projection.projector, alias);
         return new ProjectionExpression(
             new SelectExpression(alias, false, top, pc.columns, projection.select, undefined, [], []),
             pc.projector, projection.uniqueFunction, projection.type);
@@ -409,7 +412,7 @@ export class QueryBinder extends ExpressionVisitor {
 
     private bindDistinct(projection: ProjectionExpression): ProjectionExpression {
         const alias = this.aliasGenerator.nextSelectAlias();
-        const pc = projectColumns(projection.projector, alias);
+        const pc = this.projectColumns(projection.projector, alias);
         return new ProjectionExpression(
             new SelectExpression(alias, true, undefined, pc.columns, projection.select, undefined, [], []),
             pc.projector, undefined, projection.type);
@@ -420,7 +423,7 @@ export class QueryBinder extends ExpressionVisitor {
             projection = this.bindWhere(projection, predicate);
 
         const alias = this.aliasGenerator.nextSelectAlias();
-        const pc = projectColumns(projection.projector, alias);
+        const pc = this.projectColumns(projection.projector, alias);
         return new ProjectionExpression(
             new SelectExpression(alias, false, uniqueFunction === "First" || uniqueFunction === "FirstOrDefault" ? new ConstantExpression(1) : undefined, pc.columns, projection.select, undefined, [], []),
             pc.projector, uniqueFunction, projection.type);
@@ -432,7 +435,7 @@ export class QueryBinder extends ExpressionVisitor {
     // order-direction bookkeeping (no eager inversion here).
     private bindReverse(projection: ProjectionExpression): ProjectionExpression {
         const alias = this.aliasGenerator.nextSelectAlias();
-        const pc = projectColumns(projection.projector, alias);
+        const pc = this.projectColumns(projection.projector, alias);
         return new ProjectionExpression(
             new SelectExpression(alias, false, undefined, pc.columns, projection.select, undefined, [], [], SelectOptions.Reverse),
             pc.projector, undefined, projection.type);
@@ -481,7 +484,7 @@ export class QueryBinder extends ExpressionVisitor {
             selector = undefined;
         }
 
-        const argument = selector == null ? projection.projector : this.mapVisitExpand(selector, projection);
+        const argument = selector == null ? projection.projector : this.fullNominate(this.mapVisitExpand(selector, projection));
         const aggregate = aggregateFunction === "Count"
             ? new AggregateExpression(LiteralType.number, aggregateFunction, [], undefined)
             : (() => { const a = this.aggregateArgument(argument); return new AggregateExpression(a.type, aggregateFunction, [a], undefined); })();
@@ -536,7 +539,7 @@ export class QueryBinder extends ExpressionVisitor {
     private bindContains(projection: ProjectionExpression, item: Expression, isRoot: boolean): Expression {
         const newItem = this.visit(item);
         const alias = this.aliasGenerator.nextSelectAlias();
-        const pc = projectColumns(projection.projector, alias);
+        const pc = this.projectColumns(projection.projector, alias);
 
         let result: Expression;
         if (isReferenceish(projection.projector)) {
@@ -659,7 +662,7 @@ export class QueryBinder extends ExpressionVisitor {
         if (obj instanceof ProjectionExpression && obj.uniqueFunction != null && name !== "$v") {
             const member = this.bindMember(obj.projector, name, isOptionalChaining);
             const alias = this.aliasGenerator.nextSelectAlias();
-            const pc = projectColumns(member, alias);
+            const pc = this.projectColumns(member, alias);
             const select = new SelectExpression(alias, false, undefined, pc.columns, obj.select, undefined, [], []);
             return new ScalarExpression(member.type, select);
         }
@@ -680,6 +683,13 @@ export class QueryBinder extends ExpressionVisitor {
         // LEN on SQL Server, length() on Postgres.
         if (name === "length" && obj.type === LiteralType.string)
             return new SqlFunctionExpression(LiteralType.number, undefined, this.isPostgres ? "length" : "LEN", [obj]);
+
+        // Date/time member access (`creationTime.year`, `.dayOfWeek`, …) on a temporal
+        // column is a SQL-function translation, so — like the string/math methods — the
+        // binder leaves it residual and the DbExpressionNominator lowers it (Signum
+        // handles date MemberExpressions in the nominator, not the binder).
+        if (obj.type instanceof TemporalType)
+            return new PropertyExpression(obj, name, isOptionalChaining);
 
         // Property on a plain constant (captured value) — keep as a source node.
         if (obj instanceof ConstantExpression)
@@ -806,7 +816,7 @@ export class QueryBinder extends ExpressionVisitor {
 
         const tableExpr = new TableExpression(tableAlias, table);
         const selectAlias = this.aliasGenerator.nextSelectAlias();
-        const pc = projectColumns(entity, selectAlias);
+        const pc = this.projectColumns(entity, selectAlias);
 
         return new ProjectionExpression(
             new SelectExpression(selectAlias, false, undefined, pc.columns, tableExpr, undefined, [], []),
@@ -840,7 +850,7 @@ export class QueryBinder extends ExpressionVisitor {
 
         const where = new BinaryExpression("==", fkBinding.externalId.value, fea.ownerId);
         const alias = this.aliasGenerator.nextSelectAlias();
-        const pc = projectColumns(childProj.projector, alias);
+        const pc = this.projectColumns(childProj.projector, alias);
         return new ProjectionExpression(
             new SelectExpression(alias, false, undefined, pc.columns, childProj.select, where, [], []),
             pc.projector, undefined, new ArrayType(fea.type));
@@ -863,7 +873,7 @@ export class QueryBinder extends ExpressionVisitor {
         const collProj = this.asProjection(coll);
 
         const alias = this.aliasGenerator.nextSelectAlias();
-        const pc = projectColumns(collProj.projector, alias);
+        const pc = this.projectColumns(collProj.projector, alias);
         const join = new JoinExpression("CrossApply", projection.select, collProj.select, undefined);
         return new ProjectionExpression(
             new SelectExpression(alias, false, undefined, pc.columns, join, undefined, [], []),
@@ -913,7 +923,7 @@ export class QueryBinder extends ExpressionVisitor {
             if (old1 === undefined) this.map.delete(p1); else this.map.set(p1, old1);
         }
 
-        const pc = projectColumns(resultExpr, alias);
+        const pc = this.projectColumns(resultExpr, alias);
         return new ProjectionExpression(
             new SelectExpression(alias, false, undefined, pc.columns, join, undefined, [], []),
             pc.projector, undefined, new ArrayType(resultExpr.type));
@@ -960,7 +970,7 @@ export class QueryBinder extends ExpressionVisitor {
             if (old1 === undefined) this.map.delete(p1); else this.map.set(p1, old1);
         }
 
-        const pc = projectColumns(resultExpr, alias);
+        const pc = this.projectColumns(resultExpr, alias);
         return new ProjectionExpression(
             new SelectExpression(alias, false, undefined, pc.columns, join, undefined, [], []),
             pc.projector, undefined, new ArrayType(resultExpr.type));
@@ -992,7 +1002,7 @@ export class QueryBinder extends ExpressionVisitor {
         const alias = this.aliasGenerator.nextSelectAlias();
 
         const key = GroupEntityCleaner.clean(this.mapVisitExpand(keySelector, projection));
-        const keyPC = projectColumns(key, alias);
+        const keyPC = this.projectColumns(key, alias);
 
         const select = projection.select;
         // (Signum's "key contains an aggregate" intermediate-select branch is not
@@ -1003,7 +1013,7 @@ export class QueryBinder extends ExpressionVisitor {
             : projection.projector;
 
         const subqueryKey = GroupEntityCleaner.clean(this.mapVisitExpand(keySelector, subqueryProjection));
-        const subqueryKeyPC = projectColumns(subqueryKey, this.aliasGenerator.raw("basura"));
+        const subqueryKeyPC = this.projectColumns(subqueryKey, this.aliasGenerator.raw("basura"));
         const subqueryElemExpr = elementSelector != null
             ? this.mapVisitExpand(elementSelector, subqueryProjection)
             : subqueryProjection.projector;
@@ -1020,7 +1030,7 @@ export class QueryBinder extends ExpressionVisitor {
         }
 
         const elementAlias = this.aliasGenerator.nextSelectAlias();
-        const elementPC = projectColumns(subqueryElemExpr, elementAlias);
+        const elementPC = this.projectColumns(subqueryElemExpr, elementAlias);
         const elementSubquery = new ProjectionExpression(
             new SelectExpression(elementAlias, false, undefined, elementPC.columns, subqueryProjection.select, subqueryCorrelation, [], []),
             elementPC.projector, undefined, new ArrayType(elementPC.projector.type));
@@ -1160,7 +1170,10 @@ export class QueryBinder extends ExpressionVisitor {
             case "String": return LiteralType.string;
             case "Number": return LiteralType.number;
             case "Boolean": return LiteralType.boolean;
-            default: return LiteralType.null; // temporal/enum/etc. — refined later
+            case "PlainDateTime": return new TemporalType("dateTime");
+            case "PlainDate": return new TemporalType("date");
+            case "Duration": return new TemporalType("duration");
+            default: return LiteralType.null; // enum/etc. — refined later
         }
     }
 }

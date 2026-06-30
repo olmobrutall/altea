@@ -304,6 +304,26 @@ export class SqlConstantExpression extends DbExpression {
     }
 }
 
+// Raw SQL text rendered verbatim — no quoting, no parameter (Signum's
+// SqlLiteralExpression). Used for tokens that aren't values, e.g. the date-part
+// keyword in `DATEPART(year, …)` or the quoted field in `date_part('year', …)`.
+export class SqlLiteralExpression extends DbExpression {
+    constructor(
+        public readonly value: string,
+        type: Type = LiteralType.string,
+    ) {
+        super("SqlLiteral", type);
+    }
+
+    toString(): string {
+        return this.value;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitSqlLiteral(this);
+    }
+}
+
 export class When {
     constructor(
         public readonly condition: Expression,

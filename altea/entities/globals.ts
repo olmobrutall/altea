@@ -142,6 +142,17 @@ declare global {
     contains(this: string, str: string): boolean;
     startsWith(this: string, str: string): boolean;
     endsWith(this: string, str: string): boolean;
+    /** SQL LIKE: `%` matches any run of characters, `_` a single one. In a query
+     *  this lowers to a LIKE predicate; in memory it falls back to a regex. */
+    like(this: string, pattern: string): boolean;
+    /** First `numChars` characters (SQL LEFT). */
+    start(this: string, numChars: number): string;
+    /** Last `numChars` characters (SQL RIGHT). */
+    end(this: string, numChars: number): string;
+    /** The string reversed (SQL REVERSE). */
+    reverse(this: string): string;
+    /** The string repeated `times` times (SQL REPLICATE / repeat). */
+    replicate(this: string, times: number): string;
     formatWith(this: string, ...parameters: any[]): string;
     splitByRegex(this: string, regex: RegExp): { isMatch: boolean, value: string }[];
     forGenderAndNumber(this: string, number: number): string;
@@ -923,6 +934,29 @@ String.prototype.startsWith = function (this: string, str: string) {
 String.prototype.endsWith = function (this: string, str: string) {
   const index = this.lastIndexOf(str);
   return index !== -1 && index === (this.length - str.length); //keep it
+}
+
+String.prototype.like = function (this: string, pattern: string) {
+  // SQL LIKE → regex: escape regex metachars, then map the LIKE wildcards
+  // (% → .*, _ → .). Anchored, case-sensitive (matching the SQL path).
+  const regex = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*").replace(/_/g, ".");
+  return new RegExp(`^${regex}$`).test(this);
+}
+
+String.prototype.start = function (this: string, numChars: number) {
+  return this.substring(0, numChars);
+}
+
+String.prototype.end = function (this: string, numChars: number) {
+  return this.substring(this.length - numChars);
+}
+
+String.prototype.reverse = function (this: string) {
+  return this.split("").reverse().join("");
+}
+
+String.prototype.replicate = function (this: string, times: number) {
+  return this.repeat(times);
 }
 
 String.prototype.formatWith = function () {

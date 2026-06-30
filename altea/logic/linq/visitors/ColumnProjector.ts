@@ -61,10 +61,13 @@ class ColumnProjector extends DbExpressionVisitor {
     }
 }
 
-export function projectColumns(projector: Expression, newAlias: Alias): ProjectedColumns {
-    const candidates = nominate(projector);
+export function projectColumns(projector: Expression, newAlias: Alias, isPostgres: boolean): ProjectedColumns {
+    // The nominator both translates residual method calls and returns the candidate
+    // set, so we split the *rewritten* expression (its nodes are what's nominated) —
+    // Signum's `Nominate(e, out newExpression)` then `ColumnProjector.Visit(newExpression)`.
+    const { candidates, expression } = nominate(projector, isPostgres);
     const cp = new ColumnProjector(candidates, newAlias);
-    const proj = cp.visit(projector);
+    const proj = cp.visit(expression);
     return { projector: proj, columns: cp.columns };
 }
 

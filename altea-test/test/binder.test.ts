@@ -40,6 +40,19 @@ function bind(query: { expression: any }): ProjectionExpression {
     return new QueryBinder(sb.schema, false).bindQuery(simplified);
 }
 
+// A second schema/binder on the Postgres dialect, so function-selection that
+// diverges per dialect (strpos vs CHARINDEX, substr vs SUBSTRING, …) can be
+// asserted offline too.
+const sbPg = new SchemaBuilder();
+sbPg.settings.isPostgres = true;
+MusicLogic.start(sbPg);
+sbPg.complete();
+
+function bindPg(query: { expression: any }): ProjectionExpression {
+    const simplified = expressionSimplifier()(query.expression);
+    return new QueryBinder(sbPg.schema, true).bindQuery(simplified);
+}
+
 describe("QueryBinder (step 2)", () => {
     test("bare table → Projection over a Select over the Table", () => {
         const proj = bind(table(AlbumEntity));
@@ -103,6 +116,49 @@ describe("QueryBinder (step 2)", () => {
         const ids: any[] = [1, 2, 3];
         const proj = bind(table(AlbumEntity).filter(a => ids.contains(a.id)));
         assert.equal(proj.select.where?.kind, "In");
+    });
+
+    test("string functions render their SQL-Server form", () => {
+        const lower = QueryFormatter.format(bind(table(ArtistEntity).map(a => a.name.toLowerCase())).select, false).sql;
+        assert.match(lower, /LOWER\(/i);
+        const upper = QueryFormatter.format(bind(table(ArtistEntity).map(a => a.name.toUpperCase())).select, false).sql;
+        assert.match(upper, /UPPER\(/i);
+        const ltrim = QueryFormatter.format(bind(table(ArtistEntity).map(a => a.name.trimStart())).select, false).sql;
+        assert.match(ltrim, /LTRIM\(/i);
+        const rtrim = QueryFormatter.format(bind(table(ArtistEntity).map(a => a.name.trimEnd())).select, false).sql;
+        assert.match(rtrim, /RTRIM\(/i);
+        // substring(start) → SUBSTRING(str, start+1, <big>); substring(start, end) → length = end-start.
+        // Synthetic numeric offsets are SqlConstants → inlined as literals (not parameters),
+        // so Postgres doesn't see `unknown <op> unknown`.
+        const sub1 = QueryFormatter.format(bind(table(ArtistEntity).map(a => a.name.substring(2))).select, false);
+        assert.match(sub1.sql, /SUBSTRING\(/i);
+        assert.match(sub1.sql, /2147483647/); // no-length substring pads with a large inline length
+        const sub2 = QueryFormatter.format(bind(table(ArtistEntity).map(a => a.name.substring(2, 2 + 2))).select, false);
+        assert.match(sub2.sql, /SUBSTRING\(/i);
+    });
+
+    test("indexOf binds to CHARINDEX (SQL Server) minus one", () => {
+        const proj = bind(table(ArtistEntity).filter(a => a.name.indexOf("M") == 0));
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /CHARINDEX\(/i);
+        assert.match(sql, /\) - 1\b/); // 1-based SQL → 0-based JS (the "- 1" offset, inlined)
+    });
+
+    test("string functions pick the Postgres dialect form", () => {
+        const lower = QueryFormatter.format(bindPg(table(ArtistEntity).map(a => a.name.toLowerCase())).select, true).sql;
+        assert.match(lower, /lower\(/);
+        const sub = QueryFormatter.format(bindPg(table(ArtistEntity).map(a => a.name.substring(2))).select, true).sql;
+        assert.match(sub, /substr\(/);
+        const idx = QueryFormatter.format(bindPg(table(ArtistEntity).filter(a => a.name.indexOf("M") == 0)).select, true).sql;
+        assert.match(idx, /strpos\(/);
+    });
+
+    test("Math.sin types via the well-known function registry", () => {
+        // Building the query runs fromQuoted; the "<namespace>.<method>" registry gives
+        // Math.sin a result type, so this no longer throws "Unexpected object type" at
+        // the expression layer. (SQL lowering of Math.* is a separate tier — the binder
+        // would still reject it — so we don't bind/execute here.)
+        assert.doesNotThrow(() => table(AlbumEntity).map(a => Math.sin(a.year)));
     });
 
     test("first/single terminals set unique function", () => {

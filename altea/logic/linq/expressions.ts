@@ -1,7 +1,8 @@
 
 import { isOptionalChain } from "typescript";
 import { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
-import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, PromiseType, ObjectType, Type } from "../../entities/types";
+import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, PromiseType, ObjectType, TemporalType, Type } from "../../entities/types";
+import { Temporal } from "../../entities/basics";
 import { resolveType } from "../../entities/registration";
 import { tryGetTypeInfo, type FieldInfo } from "../../entities/reflection";
 import { Lite } from "../../entities/lite";
@@ -30,6 +31,21 @@ function resolveMemberType(ownerType: Type, propertyName: string): Type {
     if (ownerType instanceof ObjectType)
         return ownerType.bindings[propertyName] ?? LiteralType.null;
 
+    // Date/time part properties (`.year`, `.dayOfWeek`, `.hour`, …) → number; `.date`
+    // → a date. (Methods like `.quarter()` are typed via wellKnownResultTypes.)
+    if (ownerType instanceof TemporalType) {
+        switch (propertyName) {
+            case "year": case "month": case "day": case "hour": case "minute":
+            case "second": case "millisecond": case "dayOfYear": case "dayOfWeek":
+            case "dayNumber":
+                return LiteralType.number;
+            case "date":
+                return new TemporalType("date");
+            default:
+                return LiteralType.null;
+        }
+    }
+
     if (!(ownerType instanceof ClassType))
         return LiteralType.null;
     const fi = tryGetTypeInfo(ownerType.constructorFunction)?.fields[propertyName];
@@ -52,9 +68,119 @@ function baseTypeOfFieldInfo(fi: FieldInfo): Type {
         case "Number": return LiteralType.number;
         case "String": return LiteralType.string;
         case "Boolean": return LiteralType.boolean;
+        case "PlainDateTime": return new TemporalType("dateTime");
+        case "PlainDate": return new TemporalType("date");
+        case "Duration": return new TemporalType("duration");
     }
     const ctor = resolveType(fi.typeName);
     return ctor != null ? new ClassType(ctor) : LiteralType.null;
+}
+
+// ---- well-known built-in functions ------------------------------------------
+// Result types of built-in functions the binder lowers to SQL but which carry no
+// @resultType decorator: native String/Math methods plus the String/Array helpers
+// from globals.ts. Keyed "<namespace>.<method>", where the namespace names the
+// receiver — mirroring Signum's DbExpressionNominator, which switches on
+// `DeclaringType.TypeName() + "." + MethodName` ("string.IndexOf", "Math.Sin").
+// To type a new built-in inside quoted lambdas, add an entry here; the binder
+// (bindMethodCall) still owns its actual SQL translation.
+const wellKnownResultTypes: Readonly<Record<string, Type>> = {
+    "string.contains": LiteralType.boolean,
+    "string.startsWith": LiteralType.boolean,
+    "string.endsWith": LiteralType.boolean,
+    "string.like": LiteralType.boolean,
+    "string.indexOf": LiteralType.number,
+    "string.toLowerCase": LiteralType.string,
+    "string.toUpperCase": LiteralType.string,
+    "string.trimStart": LiteralType.string,
+    "string.trimEnd": LiteralType.string,
+    "string.trim": LiteralType.string,
+    "string.substring": LiteralType.string,
+    "string.start": LiteralType.string,
+    "string.end": LiteralType.string,
+    "string.reverse": LiteralType.string,
+    "string.replicate": LiteralType.string,
+
+    "Array.contains": LiteralType.boolean,
+
+    // Date/time methods (the rest are properties, typed by resolveMemberType). Only
+    // quarter is translated so far; the others type here so their tests build (and
+    // then fail at translation — kept red).
+    "dateTime.quarter": LiteralType.number,
+    "date.quarter": LiteralType.number,
+
+    // Math.* — all number → number (the SQL Math-function tier).
+    "Math.sign": LiteralType.number,
+    "Math.abs": LiteralType.number,
+    "Math.sin": LiteralType.number,
+    "Math.asin": LiteralType.number,
+    "Math.cos": LiteralType.number,
+    "Math.acos": LiteralType.number,
+    "Math.tan": LiteralType.number,
+    "Math.atan": LiteralType.number,
+    "Math.atan2": LiteralType.number,
+    "Math.pow": LiteralType.number,
+    "Math.sqrt": LiteralType.number,
+    "Math.exp": LiteralType.number,
+    "Math.log": LiteralType.number,
+    "Math.log10": LiteralType.number,
+    "Math.floor": LiteralType.number,
+    "Math.ceil": LiteralType.number,
+    "Math.round": LiteralType.number,
+    "Math.trunc": LiteralType.number,
+};
+
+// Captured constant receivers whose methods live under a static namespace above
+// (e.g. `Math.sin` → namespace "Math"). Extend this to add Date, Number, … later.
+const staticNamespaceReceivers: ReadonlyMap<unknown, string> = new Map<unknown, string>([
+    [Math, "Math"],
+]);
+
+// The namespace prefix for a method call's receiver, or undefined if it isn't one
+// we type built-ins for. A null (unresolved) receiver is treated as a string, so
+// known string methods on un-typed value columns still resolve.
+function wellKnownNamespace(obj: Expression | undefined): string | undefined {
+    if (obj == null)
+        return undefined;
+    if (obj.type === LiteralType.string || obj.type === LiteralType.null)
+        return "string";
+    if (obj.type instanceof ArrayType || (obj.type instanceof ClassType && obj.type.constructorFunction === Array))
+        return "Array";
+    if (obj.type instanceof TemporalType)
+        return obj.type.kind;
+    if (obj instanceof ConstantExpression)
+        return staticNamespaceReceivers.get(obj.value);
+    return undefined;
+}
+
+// The Temporal prototype to look date/time method metadata up on, by kind.
+function temporalPrototype(t: TemporalType): object {
+    return t.kind === "date" ? Temporal.PlainDate.prototype
+        : t.kind === "duration" ? Temporal.Duration.prototype
+            : Temporal.PlainDateTime.prototype;
+}
+
+// Result type of a built-in `obj.<propertyName>(…)` call, from the registry above.
+function wellKnownResultType(obj: Expression | undefined, propertyName: string): ResultTypeResolver | undefined {
+    const ns = wellKnownNamespace(obj);
+    if (ns == null)
+        return undefined;
+    const t = wellKnownResultTypes[`${ns}.${propertyName}`];
+    return t == null ? undefined : () => t;
+}
+
+// A native string method we can lower to SQL — used to pick String.prototype as
+// the method-dispatch target when the receiver's type is unknown (null).
+function isKnownStringMethod(propertyName: string): boolean {
+    return wellKnownResultTypes[`string.${propertyName}`] != null;
+}
+
+// The runtime object to look method metadata up on for a captured static receiver
+// (e.g. Math), so `Math.sin` dispatches with Math as the (this-less) target.
+function staticReceiverObject(obj: Expression | undefined): object | undefined {
+    return obj instanceof ConstantExpression && staticNamespaceReceivers.has(obj.value)
+        ? obj.value as object
+        : undefined;
 }
 
 export abstract class Expression {
@@ -151,11 +277,16 @@ export abstract class Expression {
                         let obj: Expression | undefined;
                         if (fun instanceof PropertyExpression) {
                             obj = fun.object;
+                            // The object to look method metadata up on. A captured static
+                            // receiver (e.g. Math) dispatches on the object itself, so
+                            // `Math["sin"] === Math.sin`.
                             const type = obj.type instanceof ArrayType ? OrderedQuery.prototype :
                                 (obj.type === LiteralType.string || obj.type === LiteralType.null && isKnownStringMethod(fun.propertyName)) ? String.prototype :
                                     obj.type instanceof LiteType ? Lite.prototype :
-                                        obj.type instanceof ClassType ? obj.type.constructorFunction.prototype :
-                                            undefined;
+                                        obj.type instanceof TemporalType ? temporalPrototype(obj.type) :
+                                            obj.type instanceof ClassType ? obj.type.constructorFunction.prototype :
+                                                staticReceiverObject(obj) ??
+                                                    undefined;
 
                             if (type == undefined)
                                 throw new Error(`Unexpected object type when calling ${fun.propertyName}`);
@@ -164,7 +295,7 @@ export abstract class Expression {
                             sf = {
                                 __lambdaType: getLambdaTypeResolvers(type, fun.propertyName),
                                 __quoted: propertyFunction?.__quoted,
-                                __resultType: getResultTypeResolver(type, fun.propertyName) ?? getKnownPrototypeResultType(obj.type, fun.propertyName)
+                                __resultType: getResultTypeResolver(type, fun.propertyName) ?? wellKnownResultType(obj, fun.propertyName)
                             };
                         } else if (fun instanceof ConstantExpression) {
                             sf = fun.value as StaticFunction<Function>;
@@ -247,20 +378,6 @@ export abstract class Expression {
                     return new CastExpression(fromQuoted(q[1]), resolveCastType(q[2]));
                 default:
                     throw new Error(`Unsupported quoted expression: ${JSON.stringify(q)}`);
-        }
-
-        function getKnownPrototypeResultType(thisType: Type, propertyName: string): ResultTypeResolver | undefined {
-            if ((thisType === LiteralType.string || thisType === LiteralType.null) && isKnownStringMethod(propertyName))
-                return () => LiteralType.boolean;
-
-            if (thisType instanceof ClassType && thisType.constructorFunction === Array && propertyName === "contains")
-                return () => LiteralType.boolean;
-
-            return undefined;
-        }
-
-        function isKnownStringMethod(propertyName: string): boolean {
-            return propertyName === "contains" || propertyName === "startsWith" || propertyName === "endsWith";
         }
     }
 }
