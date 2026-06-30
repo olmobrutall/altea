@@ -331,6 +331,25 @@ export class Transaction {
         );
     }
 
+    // A real database transaction that is ALWAYS rolled back at the end — even on
+    // success — without throwing. `fn` runs and sees its own uncommitted writes
+    // (and returns its value normally), but nothing is persisted. Used by the
+    // mutating `executeXXX` tests so they exercise the write path against the shared
+    // sample database without polluting it (no commit ⇒ no leftover rows for the
+    // next suite). A thrown error still rolls back and propagates as usual. Nested
+    // inside an existing transaction it degrades to that transaction's semantics
+    // (a FakedTransaction whose rollback discards the whole parent), so call it as
+    // the outermost scope.
+    static noCommit<T>(fn: () => Promise<T>, isolation?: IsolationLevel): Promise<T> {
+        return Transaction.run(
+            (connector, parent) => parent != null
+                ? new FakedTransaction(parent)
+                : new RealTransaction(connector, undefined, isolation),
+            fn,
+            { rollbackOnly: true },
+        );
+    }
+
     // A savepoint inside the surrounding real transaction; rolling back undoes
     // only the work since the savepoint. Must be nested inside another transaction.
     static namedSavePoint<T>(savePointName: string, fn: () => Promise<T>): Promise<T> {
@@ -352,6 +371,7 @@ export class Transaction {
     private static async run<T>(
         factory: (connector: Connector, parent: ICoreTransaction | undefined) => ICoreTransaction,
         fn: () => Promise<T>,
+        opts?: { rollbackOnly?: boolean },
     ): Promise<T> {
         const connector = Connector.current();
         const parentMap = currents.getStore();
@@ -366,6 +386,12 @@ export class Transaction {
         try {
             result = await currents.run(map, async () => {
                 const value = await fn();
+                if (opts?.rollbackOnly) {
+                    // noCommit: discard all work, but treat it as success — the
+                    // caller gets its value back and no error is thrown.
+                    await core.rollback(undefined);
+                    return value;
+                }
                 if (core.isRolledBack)
                     throw new Error('The transaction was rolled back and cannot be committed.');
                 // Commit inside the scope so pre-commit hooks still see the
@@ -384,7 +410,10 @@ export class Transaction {
         }
 
         await core.finish();
-        await core.callPostRealCommit();
+        // Post-commit hooks only fire when a real COMMIT happened (not for a
+        // noCommit/rollbackOnly scope, which persisted nothing).
+        if (committed)
+            await core.callPostRealCommit();
         return result;
     }
 

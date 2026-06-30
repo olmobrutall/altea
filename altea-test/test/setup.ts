@@ -1,4 +1,6 @@
+import { test } from "node:test";
 import { Connector, ConsoleSqlLogger } from "@altea/altea/logic/connection/connector";
+import { Transaction } from "@altea/altea/logic/connection/transaction";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { MusicLogic } from "../logic/MusicLogic";
 import { MusicStarter } from "../logic/MusicStarter";
@@ -20,6 +22,18 @@ import { MusicStarter } from "../logic/MusicStarter";
 // file still *compiles* (the stable-API gate) without a database.
 
 export const hasDb = !!process.env.ALTEA_TEST_DB;
+
+// A test that MUTATES the shared sample database (the bulk `executeUpdate` /
+// `executeDelete` / `executeInsert` suites). Its body runs inside a
+// `Transaction.noCommit` scope: the writes happen (and the body sees them, so
+// post-mutation assertions still work), but the transaction is rolled back at the
+// end, so nothing persists. This keeps the suites from contaminating the shared
+// graph the read-only suites run against in parallel. Use exactly like `test(...)`.
+export function txTest(name: string, fn: (t: unknown) => void | Promise<void>): void {
+    test(name, async (t) => {
+        await Transaction.noCommit(async () => { await fn(t); });
+    });
+}
 
 let started: Promise<Connector> | undefined;
 
