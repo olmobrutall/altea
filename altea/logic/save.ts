@@ -1,5 +1,6 @@
 import { Entity, typeConstructor } from '../entities/entity';
 import type { Type, PrimaryKey } from '../entities/entity';
+import { cleanTypeName } from '../entities/registration';
 import { referenceKey } from '../entities/changes';
 import { Lite } from '../entities/lite';
 import { Temporal } from '../entities/basics';
@@ -202,10 +203,6 @@ function referenceId(value: unknown): PrimaryKey | null {
 function entityConstructorOf(value: unknown): Function {
     if (value instanceof Lite) return typeConstructor(value.entityType);
     return (value as object).constructor;
-}
-
-function cleanTypeName(ctor: Function): string {
-    return ctor.name.replace(/Entity$/, '');
 }
 
 // ---- SQL building ----------------------------------------------------------

@@ -13,7 +13,7 @@ import { expressionSimplifier } from "@altea/altea/logic/linq/visitors/expressio
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { Connector } from "@altea/altea/logic/connection/connector";
 import { MusicLogic } from "../logic/MusicLogic";
-import { AlbumEntity, LabelEntity, SongEmbedded } from "../entities/music";
+import { AlbumEntity, LabelEntity, SongEmbedded, ArtistEntity, NoteWithDateEntity } from "../entities/music";
 
 // A connector that returns canned rows instead of hitting a database, so the
 // full format→execute→project pipeline can be tested offline.
@@ -268,5 +268,44 @@ describe("Entity navigation → JOIN (step 5)", () => {
         const proj = bind(table(AlbumEntity).map(a => ({ n: a.label.name, i: a.label.id })));
         const { sql } = QueryFormatter.format(proj.select, false);
         assert.equal((sql.match(/LEFT OUTER JOIN/gi) ?? []).length, 1);
+    });
+});
+
+describe("ImplementedBy / ImplementedByAll (SmartEqualizer)", () => {
+    // AlbumEntity.author is @implementedBy([ArtistEntity, BandEntity]); each
+    // implementation contributes its own nullable FK column to the album table.
+    test("projecting an @implementedBy reference selects one id column per implementation", () => {
+        const proj = bind(table(AlbumEntity).map(a => a.author));
+        const { sql } = QueryFormatter.format(proj.select, false);
+        // no JOIN: a projected reference is read by id (the reader picks the
+        // populated implementation), so both implementation id columns are selected.
+        assert.doesNotMatch(sql, /JOIN/i);
+        assert.match(sql, /author_Artist/i);
+        assert.match(sql, /author_Band/i);
+    });
+
+    // x instanceof ArtistEntity → that implementation's column IS NOT NULL.
+    test("instanceof on @implementedBy lowers to an IS NOT NULL on the implementation column", () => {
+        const proj = bind(table(AlbumEntity).filter(a => a.author instanceof ArtistEntity));
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /author_Artist\w*\]? IS NOT NULL/i);
+        assert.doesNotMatch(sql, /author_Band\w*\]? IS NOT NULL/i);
+    });
+
+    // NoteWithDateEntity.target is @implementedByAll: a single id column + a string
+    // type discriminator. instanceof compares the discriminator to the clean name.
+    test("instanceof on @implementedByAll compares the type discriminator", () => {
+        const proj = bind(table(NoteWithDateEntity).filter(n => n.target instanceof AlbumEntity));
+        const { sql, parameters } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /targetType/i);
+        assert.ok(parameters.includes("Album"), "compares against the clean type name");
+    });
+
+    // (x as Concrete) on @implementedBy narrows to that implementation; navigating a
+    // field then joins the concrete table.
+    test("cast narrows @implementedBy and navigates the concrete table", () => {
+        const proj = bind(table(AlbumEntity).map(a => (a.author as ArtistEntity).name));
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /LEFT OUTER JOIN/i);
     });
 });

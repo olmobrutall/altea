@@ -1,6 +1,7 @@
 import { cleanModified } from "../../entities/changes";
 import { Entity, PrimaryKey, BaseEntity, Type } from "../../entities/entity";
 import { Lite, LiteImp } from "../../entities/lite";
+import { resolveCleanType } from "../../entities/registration";
 
 // Port of Signum's TranslatorBuilder + TranslateResult + ProjectionReader.
 // Formats the SQL and compiles the projector into a `(row, retriever) => T`
@@ -51,6 +52,24 @@ export class Retriever {
     // later tier, so it is usually empty for now.
     lite(ctor: new () => Entity, id: PrimaryKey | null, toStr: string | null): Lite<Entity> | null {
         if (id == null) return null;
+        return new LiteImp(id, ctor as unknown as Type<Entity>, toStr ?? "");
+    }
+
+    // A @implementedByAll reference (id + type-discriminator string): resolve the
+    // clean type name to its constructor, then build an id-only stub of that type.
+    implementedByAll(id: PrimaryKey | null, typeName: string | null): Entity | null {
+        if (id == null || typeName == null) return null;
+        const ctor = resolveCleanType(typeName);
+        if (ctor == null) return null;
+        return this.stub(ctor as new () => Entity, id);
+    }
+
+    // A Lite<T> over a @implementedByAll reference: a thin LiteImp of the concrete
+    // type named by the discriminator.
+    liteImplementedByAll(id: PrimaryKey | null, typeName: string | null, toStr: string | null): Lite<Entity> | null {
+        if (id == null || typeName == null) return null;
+        const ctor = resolveCleanType(typeName);
+        if (ctor == null) return null;
         return new LiteImp(id, ctor as unknown as Type<Entity>, toStr ?? "");
     }
 

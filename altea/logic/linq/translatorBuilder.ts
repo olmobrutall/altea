@@ -6,6 +6,7 @@ import {
     ProjectionExpression, ColumnExpression, PrimaryKeyExpression, UniqueFunction,
     EntityExpression, EmbeddedEntityExpression, LiteReferenceExpression,
     ChildProjectionExpression, LookupToken,
+    ImplementedByExpression, ImplementedByAllExpression,
 } from "./expressions.sql";
 import { QueryFormatter } from "./queryFormatter";
 import { Connector } from "../connection/connector";
@@ -175,18 +176,68 @@ class ProjectionBuilder extends DbExpressionVisitor {
     }
 
     override visitLiteReference(e: LiteReferenceExpression): Expression {
-        const ctorIndex = this.pushConst(ctorOf(e.reference.type));
-        this.visit(e.reference.externalId.value);
-        const idCode = this.pop();
-
         let toStrCode = "null";
         if (e.toStr != null) {
             this.visit(e.toStr);
             toStrCode = this.pop();
         }
 
+        const ref = e.reference;
+
+        // Lite over @implementedByAll: resolve the type discriminator → ctor by id.
+        if (ref instanceof ImplementedByAllExpression) {
+            this.visit(ref.id);
+            const idCode = this.pop();
+            this.visit(ref.typeId.typeColumn);
+            const typeCode = this.pop();
+            this.stack.push(`retriever.liteImplementedByAll(${idCode}, ${typeCode}, ${toStrCode})`);
+            return e;
+        }
+
+        // Lite over @implementedBy: whichever implementation id column is non-null.
+        if (ref instanceof ImplementedByExpression) {
+            this.stack.push(this.implementedByChain(ref, (ctorIndex, idCode) =>
+                `retriever.lite(consts[${ctorIndex}], ${idCode}, ${toStrCode})`));
+            return e;
+        }
+
+        // Lite over a typed reference.
+        const ctorIndex = this.pushConst(ctorOf(ref.type));
+        this.visit(ref.externalId.value);
+        const idCode = this.pop();
         this.stack.push(`retriever.lite(consts[${ctorIndex}], ${idCode}, ${toStrCode})`);
         return e;
+    }
+
+    override visitImplementedBy(e: ImplementedByExpression): Expression {
+        this.stack.push(this.implementedByChain(e, (ctorIndex, idCode) =>
+            `retriever.stub(consts[${ctorIndex}], ${idCode})`));
+        return e;
+    }
+
+    override visitImplementedByAll(e: ImplementedByAllExpression): Expression {
+        this.visit(e.id);
+        const idCode = this.pop();
+        this.visit(e.typeId.typeColumn);
+        const typeCode = this.pop();
+        this.stack.push(`retriever.implementedByAll(${idCode}, ${typeCode})`);
+        return e;
+    }
+
+    // A right-folded chain of `(id != null ? build(ctor, id) : <next>)` over the
+    // implementations: the first populated id column wins (at most one ever is).
+    // `idCode` is a pure `row[...]` read, so repeating it is safe.
+    private implementedByChain(e: ImplementedByExpression, build: (ctorIndex: number, idCode: string) => string): string {
+        let code = "null";
+        const impls = [...e.implementations.values()];
+        for (let i = impls.length - 1; i >= 0; i--) {
+            const impl = impls[i];
+            const ctorIndex = this.pushConst(ctorOf(impl.type));
+            this.visit(impl.externalId.value);
+            const idCode = this.pop();
+            code = `(${idCode} != null ? ${build(ctorIndex, idCode)} : ${code})`;
+        }
+        return code;
     }
 
     override visitEmbeddedEntity(e: EmbeddedEntityExpression): Expression {

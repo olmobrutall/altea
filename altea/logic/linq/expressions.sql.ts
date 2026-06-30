@@ -485,6 +485,12 @@ export class FieldEntityArrayExpression extends DbExpression {
     }
 }
 
+// What a Lite<T> can wrap: a concrete entity reference, or a polymorphic
+// ImplementedBy / ImplementedByAll reference (Signum's `Reference` is likewise a
+// FieldExpression | ImplementedBy | ImplementedByAll). All three carry the id
+// (and, for the polymorphic ones, the type) the reader needs to build a LiteImp.
+export type LiteReferenceTarget = EntityExpression | ImplementedByExpression | ImplementedByAllExpression;
+
 // A Lite<T> value in the expression tree (Signum's LiteReferenceExpression). It
 // wraps the underlying entity reference (which carries the id column + entity
 // type); `toStr` is the optional display-string expression. The column projector
@@ -495,7 +501,7 @@ export class FieldEntityArrayExpression extends DbExpression {
 export class LiteReferenceExpression extends DbExpression {
     constructor(
         type: Type,
-        public readonly reference: EntityExpression,
+        public readonly reference: LiteReferenceTarget,
         public readonly toStr: Expression | undefined,
     ) {
         super("LiteReference", type);
@@ -620,5 +626,81 @@ export class MixinEntityExpression extends DbExpression {
 
     accept(visitor: ExpressionVisitor) {
         return asDbVisitor(visitor).visitMixinEntity(this);
+    }
+}
+
+// ---- Polymorphic references (@implementedBy / @implementedByAll) ----------
+
+// How a polymorphic reference combines its implementations when navigated.
+// Signum exposes both via `.CombineUnion()` / `.CombineCase()`; altea has no
+// combine API yet, so every IB is "Case" (a CASE-style switch over the
+// implementations). Kept as a discriminator so the shape matches Signum.
+export type CombineStrategy = "Case" | "Union";
+
+// A @implementedBy reference: one nullable FK column per allowed implementation,
+// at most one populated. `implementations` maps each implementation constructor
+// to a (lazy) EntityExpression whose externalId is that implementation's column.
+// Signum's ImplementedByExpression. The column projector recurses into the
+// implementations (their id columns are the projected columns); the reader picks
+// whichever implementation column is non-null.
+export class ImplementedByExpression extends DbExpression {
+    readonly implementations: ReadonlyMap<Function, EntityExpression>;
+    constructor(
+        type: Type,
+        public readonly strategy: CombineStrategy,
+        implementations: ReadonlyMap<Function, EntityExpression>,
+    ) {
+        super("ImplementedBy", type);
+        this.implementations = implementations;
+    }
+
+    toString(): string {
+        const imps = [...this.implementations.values()].map(e => e.toString()).join("\n | ");
+        return `ImplementedBy(${this.strategy}){\n${imps}\n}`;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitImplementedBy(this);
+    }
+}
+
+// The type-discriminator half of @implementedByAll (Signum's
+// TypeImplementedByAllExpression). Interim altea model: `typeColumn` is a string
+// column holding the clean type name (e.g. "Band"), not yet an int FK to a
+// TypeEntity table. SmartEqualizer compares it against `cleanTypeName(ctor)`.
+export class TypeImplementedByAllExpression extends DbExpression {
+    constructor(public readonly typeColumn: Expression) {
+        super("TypeImplementedByAll", LiteralType.string);
+    }
+
+    toString(): string {
+        return `TypeIba(${this.typeColumn})`;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitTypeImplementedByAll(this);
+    }
+}
+
+// A @implementedByAll reference: a single id column + a type discriminator
+// (Signum's ImplementedByAllExpression — which keeps an Ids dictionary keyed by
+// PrimaryKey type; altea has one id column, so `id` is a single expression). The
+// reader resolves the discriminator string to a constructor and builds the
+// matching row by id.
+export class ImplementedByAllExpression extends DbExpression {
+    constructor(
+        type: Type,
+        public readonly id: Expression,
+        public readonly typeId: TypeImplementedByAllExpression,
+    ) {
+        super("ImplementedByAll", type);
+    }
+
+    toString(): string {
+        return `ImplementedByAll{ Id = ${this.id}, Type = ${this.typeId} }`;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitImplementedByAll(this);
     }
 }

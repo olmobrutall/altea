@@ -360,6 +360,9 @@ export class BinaryExpression extends Expression {
             case ">=":
             case "==":
             case "!=":
+            case "===":
+            case "!==":
+            case "instanceof":
                 return LiteralType.boolean;
             case "&&":
             case "||":

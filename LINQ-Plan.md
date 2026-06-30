@@ -81,9 +81,9 @@ Implementation order (each ends green):
 2. ✅ binder skeleton (`filter`+`map`) + minimal Nominator/ColumnProjector
 3. ✅ formatter + reader for **scalars/tuples** end-to-end (first proof)
 4. ✅ full-entity materialisation via `Retriever` (closes C retrieve)
-5. 🟡 navigations + JOINs — single-reference navigation done (any depth); collection SelectMany (`flatMap` → CROSS APPLY) done; projecting a raw collection (ChildProjectionFlattener) and `ImplementedBy*` joins still deferred
+5. 🟡 navigations + JOINs — single-reference navigation done (any depth); collection SelectMany (`flatMap` → CROSS APPLY) done; `ImplementedBy*` cast→JOIN done (step 7); projecting a raw collection (ChildProjectionFlattener) still deferred
 6. 🟡 order/page/distinct/unique/scalar-aggregates
-7. 🟡 Lite done (projection / `.entity` navigation / `.is` / `toLite`; toStr + `.model` + polymorphic lites deferred); `ImplementedBy*` polymorphism + most SQL functions still pending
+7. 🟡 Lite done (projection / `.entity` navigation / `.is` / `toLite`; toStr + `.model` deferred); **`ImplementedBy*` polymorphism done** (projection / navigation / cast / `instanceof` / equality via SmartEqualizer, incl. polymorphic lites); `GetType`/`typeof`, combine-strategy, and most SQL functions still pending
 8. ❌ delayed tiers
 
 ## Implementation progress log
@@ -352,6 +352,55 @@ Scoped vs Signum: eager only (no lazy MList), `{k,v}` carried as an
 `ObjectExpression` with string-serialised keys (no tuple/ArrayBox), no
 `UnusedColumnRemover` (altea materialises all columns).
 
+**Step 7 (ImplementedBy / ImplementedByAll + SmartEqualizer).** Polymorphic
+references now bind, project, materialise, and compare. Verified live: **Postgres
+350→383, SQL Server 357→390** (+33 each; offline gate 27→31 with four new IB/IBA
+shape tests in `binder.test.ts`). The slice:
+
+- **Expression nodes** (`expressions.sql.ts`): `ImplementedByExpression`
+  (implementations keyed by ctor, each a lazy `EntityExpression` on that
+  implementation's nullable FK column), `ImplementedByAllExpression` (one id
+  column + a `TypeImplementedByAllExpression` wrapping the string type
+  discriminator). `LiteReferenceExpression.reference` widened to
+  `EntityExpression | ImplementedBy | ImplementedByAll` (Signum's `Reference`).
+  Visitor methods added to `DbExpressionVisitor`; the nominator/column-projector
+  need no overrides — the base traversal recurses into the implementations so
+  their id/type columns get projected, and never nominates the IB/IBA wrapper
+  (client-materialised, like `EntityExpression`).
+- **Binder** (`QueryBinder.bindField`): `FieldImplementedBy` →
+  `ImplementedByExpression`, `FieldImplementedByAll` → `ImplementedByAllExpression`
+  (both wrapped in a `LiteReferenceExpression` when the field is a `Lite<T>`).
+  `bindImplementedByMember` ports Signum's **DispatchIb** (CASE over which
+  implementation column is non-null); IBA exposes only `.id` (concrete fields are
+  reachable only through a cast). `visitCast` narrows IB→implementation /
+  IBA→typed reference. `toLite` works over IB/IBA. `.entity` on a Lite-over-IB/IBA
+  unwraps to the polymorphic reference.
+- **`smartEqualizer.ts`** (new — port of `SmartEqualizer.cs`): `polymorphicEqual`
+  lowers `==`/`!=`/`.is(…)` between any mix of typed reference, IB, IBA, Lite,
+  captured constant entity/lite, and null to id (+ type) column comparisons —
+  `entityEntityEquals`/`entityIbEquals`/`entityIbaEquals`/`ibIbEquals`/`ibIbaEquals`/
+  `ibaIbaEquals` with `SmartAnd`/`SmartOr`/`SmartNot` folding. `entityIsInstance`
+  lowers `x instanceof Ctor` (typed → static-type match; IB → that column
+  `IS NOT NULL`; IBA → discriminator = clean name). Wired into the binder's
+  `visitBinary` (`instanceof`, reference `==`/`!=`) and `bindMethodCall` (`.is`),
+  replacing the old single-column `idOf` stopgap. Enabling fix: the source
+  expression layer (`expressions.ts`) now types `instanceof`/`===`/`!==` (they
+  previously threw in `BinaryExpression.calculateType`, before the binder ran).
+- **Reader** (`translatorBuilder.ts` + `Retriever.ts`): `visitImplementedBy`
+  folds a `(id != null ? stub(ctorN, id) : …)` chain over the implementation
+  columns; `visitImplementedByAll` calls `retriever.implementedByAll(id, type)`,
+  which resolves the discriminator via `resolveCleanType` (new in
+  `registration.ts`, reverse of the now-shared `cleanTypeName`). Lites over IB/IBA
+  materialise the same way (`retriever.lite*`).
+
+The remaining `selectImplementations` failures are all `GetType`/`typeof` in query
+(`a.constructor`, `x.constructor === Ctor`) — the unported ToString/Type tier,
+flagged `TODO(api)` in the suite — plus the combine-strategy
+(`CombineUnion`/`CombineCase`) and interface (`IAuthorEntity`) cases altea doesn't
+model. Deferred within IB/IBA: `EntityIn` (`.contains` over a constant collection
+of entities), polymorphic nested projections, and the `TypeEntity`/
+`TypeImplementedBy` type expressions (only IBA's string discriminator is modelled).
+
 ## Most important differences so far
 
 - TypeScript uses `quote-transformer` expressions instead of
@@ -407,9 +456,12 @@ Scoped vs Signum: eager only (no lazy MList), `{k,v}` carried as an
   condition rewriting, alias replacement, and child projection flattening are
   still incomplete or missing.
 - Schema/runtime services are simpler in Altea. There is no direct equivalent
-  yet for all of Signum's `Schema.Current`, post-formatters, Lite handling,
-  ImplementedBy/ImplementedByAll, MList, temporal/system-time, full-text, vector,
-  and unsafe update/delete/insert paths.
+  yet for all of Signum's `Schema.Current`, post-formatters, MList,
+  temporal/system-time, full-text, vector, and unsafe update/delete/insert paths.
+  ImplementedBy/ImplementedByAll **are** modelled now (step 7): an IB is one
+  nullable FK column per implementation; an IBA is a single id column plus a
+  string type discriminator (`cleanTypeName`, not yet an int FK to a TypeEntity
+  table). `SmartEqualizer` lowers reference equality / `instanceof` over them.
 - `queryBinder.ts` and `columnProjector.ts` at the root of `linq` are shims over
   the visitor implementations. Keep imports/casing consistent because stale or
   flattened build output can otherwise load a different module identity.
@@ -451,7 +503,7 @@ Scoped vs Signum: eager only (no lazy MList), `{k,v}` carried as an
 | `ExpressionVisitor/RedundantSubqueryRemover.cs` | `altea/logic/linq/visitors/RedundantSubqueryRemover.ts` | Ported (scoped) — Gatherer + SubqueryRemover + SubqueryMerger + JoinSimplifier; no Skip/SetOperator |
 | `ExpressionVisitor/Replacer.cs` | none | Not ported |
 | `ExpressionVisitor/ScalarSubqueryRewriter.cs` | none | Not ported |
-| `ExpressionVisitor/SmartEqualizer.cs` | none | Not ported |
+| `ExpressionVisitor/SmartEqualizer.cs` | `altea/logic/linq/smartEqualizer.ts` | Ported (scoped) — `polymorphicEqual` (entity/IB/IBA/Lite/null/captured-constant) + `entityIsInstance`; no PrimaryKey struct / Guid comparer / MList element / external period / nullable-bool; IBA type compared as the clean-name string |
 | `ExpressionVisitor/SubqueryRemover.cs` | `altea/logic/linq/visitors/RedundantSubqueryRemover.ts` (inner `SubqueryRemover`) | Ported |
 | `ExpressionVisitor/TableFinder.cs` | none | Not ported |
 | `ExpressionVisitor/UnusedColumnRemover.cs` | none | Not ported |
@@ -556,17 +608,19 @@ The plain script is the offline gate only — it runs `tspc -b` (the API-stabili
 corepack pnpm --filter @altea/altea-test test
 ```
 
-At the last offline run, 27 DB-free tests passed (including array `contains` →
-`IN`, and the step-5 navigation→JOIN shape). But that is the *floor*, not the
-bar: live runs are now at **Postgres 350 / SQL Server 357 pass** (up from PG 306 /
-SS 306) — the order+TOP tier brought both to 316, ConditionsRewriter took SQL
-Server to 323, collections/SelectMany added +11 each (PG 327 / SS 334), Lite
-added +8/+6 (PG 335 / SS 340), and ChildProjectionFlattener (eager nested queries)
-added +15/+17 (PG 350 / SS 357). The remaining failures are still-unimplemented
-features (`groupBy`, `ImplementedBy*` polymorphism / polymorphic lites, `contains`,
-two-level nesting, scalar-in-projection, `skip`, `join`, `instanceof`/`===`, and a
-few Postgres-side aggregate-coercion cases), so the live numbers, not the offline ones,
-measure real progress. The order+TOP family (`OrderByFirst`, `OrderByLast`,
-`OrderByTop`, `OrderByTakeOrderBy`, …) and the navigation→JOIN tests pass on
-**both** dialects. Treat a feature as done only when its DB-gated suite is green
-on both Postgres and SQL Server.
+At the last offline run, 31 DB-free tests passed (including array `contains` →
+`IN`, the step-5 navigation→JOIN shape, and the step-7 IB/IBA shapes). But that is
+the *floor*, not the bar: live runs are now at **Postgres 383 / SQL Server 390
+pass** (up from PG 306 / SS 306) — the order+TOP tier brought both to 316,
+ConditionsRewriter took SQL Server to 323, collections/SelectMany added +11 each
+(PG 327 / SS 334), Lite added +8/+6 (PG 335 / SS 340), ChildProjectionFlattener
+(eager nested queries) added +15/+17 (PG 350 / SS 357), and ImplementedBy/
+ImplementedByAll + SmartEqualizer added +33 each (PG 383 / SS 390). The remaining
+failures are still-unimplemented features (`groupBy`, `GetType`/`typeof` in query,
+combine-strategy, `contains`, two-level nesting, scalar-in-projection, `skip`,
+`join`, and a few Postgres-side aggregate-coercion cases), so the live numbers, not
+the offline ones, measure real progress. The order+TOP family (`OrderByFirst`,
+`OrderByLast`, `OrderByTop`, `OrderByTakeOrderBy`, …), the navigation→JOIN tests,
+and the IB/IBA projection / cast / `instanceof` / equality tests pass on **both**
+dialects. Treat a feature as done only when its DB-gated suite is green on both
+Postgres and SQL Server.

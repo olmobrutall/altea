@@ -8,20 +8,24 @@ import {
     SqlConstantExpression, TableExpression, OrderExpression, OrderType, UniqueFunction,
     AggregateExpression, AggregateSqlFunction, ColumnDeclaration, LikeExpression, InExpression,
     SourceExpression, SqlFunctionExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression,
-    LiteReferenceExpression, ScalarExpression,
+    LiteReferenceExpression, LiteReferenceTarget, ScalarExpression,
+    ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
+    CaseExpression, When, IsNotNullExpression,
 } from "../expressions.sql";
 import { AliasGenerator, Alias } from "../AliasGenerator";
 import { projectColumns } from "./ColumnProjector";
 import { QueryJoinExpander, TableRequest } from "./QueryJoinExpander";
+import { SmartEqualizer } from "../smartEqualizer";
 import type { Schema } from "../../schema/schema";
 import type { Table } from "../../schema/table";
 import type { EntityField } from "../../schema/field";
 import {
     FieldPrimaryKey, FieldValue, FieldReference, FieldEnum, FieldEmbedded, FieldEntityArray,
+    FieldImplementedBy, FieldImplementedByAll,
 } from "../../schema/field";
 import type { FieldInfo } from "../../../entities/reflection";
 import { resolveType } from "../../../entities/registration";
-import { ArrayType, ClassType, LiteralType, Type } from "../../../entities/types";
+import { ArrayType, ClassType, LiteType, LiteralType, Type } from "../../../entities/types";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 
 // Adapted port of Signum's QueryBinder. Input is altea's source Expression AST
@@ -29,6 +33,13 @@ import { ExpressionVisitor } from "./ExpressionVisitor";
 // (ProjectionExpression). This is the SKELETON: it binds the table source plus
 // `filter` (Where) and `map` (Select). Other operators and full navigation/JOIN
 // expansion land in later steps.
+
+// A bound expression that denotes an entity reference (typed, polymorphic, or a
+// Lite over any of those) — the cases SmartEqualizer knows how to compare.
+function isReferenceish(e: Expression): boolean {
+    return e instanceof EntityExpression || e instanceof ImplementedByExpression
+        || e instanceof ImplementedByAllExpression || e instanceof LiteReferenceExpression;
+}
 
 export class QueryBinder extends ExpressionVisitor {
     private readonly aliasGenerator: AliasGenerator;
@@ -151,21 +162,18 @@ export class QueryBinder extends ExpressionVisitor {
     }
 
     private bindMethodCall(methodName: string, source: Expression, args: readonly Expression[]): Expression {
-        // entity.toLite() → a Lite over that reference (Signum's BindToLite).
-        if (methodName === "toLite" && source instanceof EntityExpression)
-            return new LiteReferenceExpression(source.type, source, undefined);
+        // entity.toLite() → a Lite over that reference (Signum's BindToLite). Works
+        // over a typed reference or a polymorphic IB/IBA one.
+        if (methodName === "toLite" && (source instanceof EntityExpression || source instanceof ImplementedByExpression || source instanceof ImplementedByAllExpression))
+            return new LiteReferenceExpression(new LiteType(source.type), source, undefined);
         if (methodName === "toLite" && source instanceof LiteReferenceExpression)
             return source;
 
-        // entity.is(x) / lite.is(x) → an id comparison, the server form of the
-        // in-memory identity check. TODO: this single-column id equality only
-        // covers typed references; polymorphic equality (ImplementedBy /
-        // ImplementedByAll — which compare an id *and* a type, possibly across
-        // several implementation columns) needs Signum's SmartEqualizer. Replace
-        // `idOf` + this BinaryExpression with a SmartEqualizer call when that tier
-        // lands.
+        // entity.is(x) / lite.is(x) → the server form of the in-memory identity
+        // check, lowered by SmartEqualizer (handles typed refs, IB, IBA, captured
+        // constants and null — comparing id and, for polymorphic refs, type).
         if (methodName === "is" && args.length === 1)
-            return new BinaryExpression("==", this.idOf(source), this.idOf(this.visit(args[0])));
+            return SmartEqualizer.polymorphicEqual(source, this.visit(args[0]));
 
         const visitedArgs = args.map(a => this.visit(a));
 
@@ -184,25 +192,6 @@ export class QueryBinder extends ExpressionVisitor {
         throw new Error(`Method '${methodName}' is not implemented in the binder skeleton yet`);
     }
 
-    // The id expression of an entity/lite/captured-reference, for `.is()` lowering.
-    // Stopgap for typed references only — superseded by SmartEqualizer once
-    // ImplementedBy/ImplementedByAll polymorphic equality is needed (see bindMethodCall).
-    private idOf(e: Expression): Expression {
-        if (e instanceof EntityExpression)
-            return e.externalId.value;
-        if (e instanceof LiteReferenceExpression)
-            return e.reference.externalId.value;
-        if (e instanceof PrimaryKeyExpression)
-            return e.value;
-        // A captured Entity/Lite constant → its id literal; otherwise assume the
-        // value already is the id.
-        if (e instanceof ConstantExpression) {
-            const v = e.value as { id?: unknown } | null;
-            return new ConstantExpression(v != null && typeof v === "object" && "id" in v ? v.id : e.value);
-        }
-        return e;
-    }
-
     private likePattern(prefix: string, expression: Expression, suffix: string): Expression {
         if (expression instanceof ConstantExpression && typeof expression.value === "string")
             return new ConstantExpression(`${prefix}${expression.value}${suffix}`);
@@ -216,6 +205,59 @@ export class QueryBinder extends ExpressionVisitor {
 
     override visitProperty(property: PropertyExpression): Expression {
         return this.bindMemberAccess(property);
+    }
+
+    // `instanceof` and reference equality (`==`/`!=`) lower through SmartEqualizer;
+    // everything else keeps the default child-rewrite traversal.
+    override visitBinary(b: BinaryExpression): Expression {
+        if (b.kind === "instanceof") {
+            const expr = this.visit(b.left);
+            const ctor = this.constantCtor(b.right);
+            return SmartEqualizer.entityIsInstance(expr, ctor);
+        }
+
+        if (b.kind === "==" || b.kind === "===" || b.kind === "!=" || b.kind === "!==") {
+            const left = this.visit(b.left);
+            const right = this.visit(b.right);
+            if (isReferenceish(left) || isReferenceish(right)) {
+                const eq = SmartEqualizer.polymorphicEqual(left, right);
+                return (b.kind === "!=" || b.kind === "!==") ? SmartEqualizer.not(eq) : eq;
+            }
+            return b.updateBinary(left, right);
+        }
+
+        return super.visitBinary(b);
+    }
+
+    // `x as T`: narrow a polymorphic reference to one implementation. For IB, pick
+    // the matching implementation entity; for IBA, build a typed reference reusing
+    // the id column (the join only matches rows of that type). Value casts and
+    // already-concrete references are SQL no-ops — drop the cast.
+    override visitCast(cast: CastExpression): Expression {
+        const expr = this.visit(cast.expression);
+        const targetCtor = cast.type instanceof ClassType ? cast.type.constructorFunction : undefined;
+
+        if (targetCtor != null) {
+            if (expr instanceof ImplementedByExpression) {
+                const impl = expr.implementations.get(targetCtor);
+                if (impl != null)
+                    return impl;
+            }
+            if (expr instanceof ImplementedByAllExpression) {
+                const refTable = this.schema.table(targetCtor as any);
+                return new EntityExpression(new ClassType(targetCtor), refTable, new PrimaryKeyExpression(expr.id), undefined, undefined, undefined, false);
+            }
+        }
+
+        return expr;
+    }
+
+    // The constructor behind the right operand of `instanceof` (a captured ctor).
+    private constantCtor(e: Expression): Function {
+        const v = this.visit(e);
+        if (v instanceof ConstantExpression && typeof v.value === "function")
+            return v.value as Function;
+        throw new Error("instanceof right operand is not a constructor: " + e.toString());
     }
 
     // ---- operators --------------------------------------------------------
@@ -365,15 +407,21 @@ export class QueryBinder extends ExpressionVisitor {
         if (obj instanceof EntityExpression)
             return this.bindEntityMember(obj, name);
 
+        if (obj instanceof ImplementedByExpression)
+            return this.bindImplementedByMember(obj, name);
+
+        if (obj instanceof ImplementedByAllExpression)
+            return this.bindImplementedByAllMember(obj, name);
+
         // Navigating through a Lite: `.entity`/`.entityOrNull` unwrap to the
-        // referenced entity, `.id` short-circuits to the FK column; any other
-        // member navigates the entity behind the lite.
+        // referenced entity (typed or polymorphic), `.id` short-circuits to the FK
+        // column; any other member navigates the reference behind the lite.
         if (obj instanceof LiteReferenceExpression) {
             if (name === "entity" || name === "entityOrNull")
                 return obj.reference;
             if (name === "id")
-                return obj.reference.externalId;
-            return this.bindEntityMember(obj.reference, name);
+                return this.idOfReference(obj.reference);
+            return this.bindReferenceMember(obj.reference, name);
         }
 
         if (obj instanceof EmbeddedEntityExpression)
@@ -410,6 +458,55 @@ export class QueryBinder extends ExpressionVisitor {
             return this.makeFieldEntityArray(entity, ef.field);
         const completed = this.completed(entity);
         return this.findBinding(completed.bindings!, name, completed.type);
+    }
+
+    // Member access behind a Lite, dispatched on the wrapped reference kind.
+    private bindReferenceMember(ref: LiteReferenceTarget, name: string): Expression {
+        if (ref instanceof EntityExpression)
+            return this.bindEntityMember(ref, name);
+        if (ref instanceof ImplementedByExpression)
+            return this.bindImplementedByMember(ref, name);
+        return this.bindImplementedByAllMember(ref, name);
+    }
+
+    // `.id` of a (possibly polymorphic) reference, without a join.
+    private idOfReference(ref: LiteReferenceTarget): Expression {
+        if (ref instanceof EntityExpression)
+            return ref.externalId;
+        if (ref instanceof ImplementedByAllExpression)
+            return new PrimaryKeyExpression(ref.id);
+        // IB has one id column per implementation; `.id` of an IB lite is the first
+        // non-null implementation id (Signum coalesces them).
+        return this.dispatchIb(ref, ee => ee.externalId.value);
+    }
+
+    // Signum's DispatchIb: navigate a member on each implementation and combine the
+    // results with a CASE over which implementation column is populated. With a
+    // single implementation it short-circuits to that one.
+    private bindImplementedByMember(ib: ImplementedByExpression, name: string): Expression {
+        if (name === "id")
+            return this.idOfReference(ib);
+        return this.dispatchIb(ib, ee => this.bindEntityMember(ee, name));
+    }
+
+    private dispatchIb(ib: ImplementedByExpression, selector: (ee: EntityExpression) => Expression): Expression {
+        const impls = [...ib.implementations.values()];
+        if (impls.length === 0)
+            return new SqlConstantExpression(null, LiteralType.null);
+        if (impls.length === 1)
+            return selector(impls[0]);
+
+        const whens: When[] = impls.map(ee =>
+            new When(new IsNotNullExpression(ee.externalId.value), selector(ee)));
+        return new CaseExpression(whens, undefined);
+    }
+
+    // @implementedByAll exposes only `.id` on queries (Signum throws for any other
+    // member — the concrete fields are reachable only through a cast).
+    private bindImplementedByAllMember(iba: ImplementedByAllExpression, name: string): Expression {
+        if (name === "id")
+            return new PrimaryKeyExpression(iba.id);
+        throw new Error(`Member '${name}' of @implementedByAll is not accessible on queries (cast to a concrete type first)`);
     }
 
     private findBinding(bindings: readonly FieldBinding[], name: string, ownerType: Type): Expression {
@@ -611,8 +708,40 @@ export class QueryBinder extends ExpressionVisitor {
             return new EmbeddedEntityExpression(embType, hasValue, subBindings, undefined);
         }
 
-        // FieldImplementedBy / FieldImplementedByAll / FieldEntityArray: deferred.
+        if (f instanceof FieldImplementedBy) {
+            // One lazy EntityExpression per implementation, keyed by its ctor; its
+            // externalId is that implementation's (nullable) FK column. Navigation
+            // / cast picks one; the reader reads whichever id column is non-null.
+            const implementations = new Map<Function, EntityExpression>();
+            for (const col of f.implementationColumns) {
+                const implTable = col.referenceTable!;
+                const implCtor = implTable.type as unknown as Function;
+                const externalId = new PrimaryKeyExpression(new ColumnExpression(LiteralType.number, alias, col.name));
+                implementations.set(implCtor, new EntityExpression(new ClassType(implCtor), implTable, externalId, undefined, undefined, undefined, false));
+            }
+            const ib = new ImplementedByExpression(new ClassType(this.refCleanCtor(ef.fieldInfo)), "Case", implementations);
+            return f.isLite ? new LiteReferenceExpression(new LiteType(ib.type), ib, undefined) : ib;
+        }
+
+        if (f instanceof FieldImplementedByAll) {
+            const id = new ColumnExpression(LiteralType.number, alias, f.idColumn.name);
+            const typeId = new TypeImplementedByAllExpression(new ColumnExpression(LiteralType.string, alias, f.typeColumn.name));
+            const iba = new ImplementedByAllExpression(new ClassType(this.refCleanCtor(ef.fieldInfo)), id, typeId);
+            return f.isLite ? new LiteReferenceExpression(new LiteType(iba.type), iba, undefined) : iba;
+        }
+
+        // FieldEntityArray: navigation-only (no column); handled in bindEntityMember.
         return undefined;
+    }
+
+    // The declared (base) constructor of a polymorphic reference field — e.g.
+    // `Entity` for `author: Entity`. Used only for the IB/IBA expression's nominal
+    // `.type`; the reader materialises the concrete implementation, never this.
+    private refCleanCtor(fi: FieldInfo): Function {
+        const ctor = resolveType(fi.typeName);
+        if (ctor == null)
+            throw new Error(`Cannot resolve base type '${fi.typeName}' of polymorphic field '${fi.name}'`);
+        return ctor;
     }
 
     // Maps a value field's declared type name to a SQL literal type. The entity

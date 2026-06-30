@@ -8,8 +8,9 @@ import {
     ScalarExpression, ExistsExpression, InExpression,
     IsNullExpression, IsNotNullExpression,
     ProjectionExpression, ChildProjectionExpression, FieldEntityArrayExpression,
-    LiteReferenceExpression, PrimaryKeyExpression, FieldBinding,
+    LiteReferenceExpression, LiteReferenceTarget, PrimaryKeyExpression, FieldBinding,
     EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
+    ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
 } from "../expressions.sql";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 
@@ -149,11 +150,37 @@ export class DbExpressionVisitor extends ExpressionVisitor {
     }
 
     visitLiteReference(lite: LiteReferenceExpression): Expression {
-        const reference = this.visit(lite.reference) as EntityExpression;
+        const reference = this.visit(lite.reference) as LiteReferenceTarget;
         const toStr = this.visit(lite.toStr);
         if (reference !== lite.reference || toStr !== lite.toStr)
             return new LiteReferenceExpression(lite.type, reference, toStr);
         return lite;
+    }
+
+    visitImplementedBy(ib: ImplementedByExpression): Expression {
+        let changed = false;
+        const implementations = new Map<Function, EntityExpression>();
+        for (const [ctor, ee] of ib.implementations) {
+            const visited = this.visit(ee) as EntityExpression;
+            if (visited !== ee) changed = true;
+            implementations.set(ctor, visited);
+        }
+        return changed ? new ImplementedByExpression(ib.type, ib.strategy, implementations) : ib;
+    }
+
+    visitImplementedByAll(iba: ImplementedByAllExpression): Expression {
+        const id = this.visit(iba.id);
+        const typeId = this.visit(iba.typeId) as TypeImplementedByAllExpression;
+        if (id !== iba.id || typeId !== iba.typeId)
+            return new ImplementedByAllExpression(iba.type, id, typeId);
+        return iba;
+    }
+
+    visitTypeImplementedByAll(t: TypeImplementedByAllExpression): Expression {
+        const typeColumn = this.visit(t.typeColumn);
+        if (typeColumn !== t.typeColumn)
+            return new TypeImplementedByAllExpression(typeColumn);
+        return t;
     }
 
     visitFieldEntityArray(fea: FieldEntityArrayExpression): Expression {

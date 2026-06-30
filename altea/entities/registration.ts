@@ -66,6 +66,22 @@ export function resolveType(name: string): Function | undefined {
     return typeRegistry.get(name);
 }
 
+// The "clean" type name written as the @implementedByAll discriminator (and used
+// for @implementedBy column names): the constructor name with a trailing "Entity"
+// stripped (e.g. BandEntity -> "Band"). Single source of truth shared by the save
+// path (which writes it) and the LINQ SmartEqualizer / Retriever (which compare
+// and resolve it).
+export function cleanTypeName(ctor: Function): string {
+    return ctor.name.replace(/Entity$/, '');
+}
+
+// Reverse of cleanTypeName: resolves a discriminator string back to its
+// constructor. Tries the clean name directly, then with the "Entity" suffix that
+// cleanTypeName stripped.
+export function resolveCleanType(cleanName: string): Function | undefined {
+    return typeRegistry.get(cleanName) ?? typeRegistry.get(cleanName + "Entity");
+}
+
 // Registers a database enum by name (so the enum-table support can map a field's
 // enum type back to its values). The quote-transformer auto-generates the call
 // for enums declared in the same file as a referencing entity, and rewrites
