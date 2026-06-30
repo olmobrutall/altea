@@ -130,15 +130,15 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     // group a.Name.Length by a.Sex into g select new { g.Key, StdDev, StdDevInMemory, StdDevP, StdDevPInMemory }
     // TODO(api): StdDev / StdDevP aggregate functions
     test("GroupStdDev", async () => {
-        // const sexos = await table(ArtistEntity)
-        //     .groupBy(a => a.sex, a => a.name.length)
-        //     .map(g => ({
-        //         key: g.key,
-        //         stdDev: g.elements.stdDev(),
-        //         stdDevP: g.elements.stdDevP(),
-        //     }))
-        //     .toArray();
-        // assert.ok(Array.isArray(sexos));
+        const sexos = await table(ArtistEntity)
+            .groupBy(a => a.sex, a => a.name.length)
+            .map(g => ({
+                key: g.key,
+                stdDev: g.elements.stdDev(),
+                stdDevP: g.elements.stdDevP(),
+            }))
+            .toArray();
+        assert.ok(Array.isArray(sexos));
     });
 
     // Database.Query<ArtistEntity>().GroupBy(a => a.Sex).ToList();
@@ -162,8 +162,8 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     // Database.Query<AwardNominationEntity>().GroupBy(a => a.Award.EntityType).ToList();
     // TODO(api): Lite.EntityType (the runtime type of an @implementedBy lite) as a group key
     test("GroupEntityByTypeIb", async () => {
-        // const list = await table(AwardNominationEntity).groupBy(a => a.award.entityType).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AwardNominationEntity).groupBy(a => a.award.entityType).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Database.Query<ArtistEntity>().Where(a => a.Dead).GroupBy(a => a.Sex).ToList();
@@ -211,21 +211,21 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     // Database.Query<AlbumEntity>().GroupBy(a => a.GetType()).Select(gr => new { gr.Key, Count = gr.Count() }).ToList();
     // TODO(api): GetType in query (group by the runtime entity type)
     test("GroupEntityByTypeFieCount", async () => {
-        // const list = await table(AlbumEntity)
-        //     .groupBy(a => a.constructor)
-        //     .map(gr => ({ key: gr.key, count: gr.elements.length }))
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .groupBy(a => a.constructor)
+            .map(gr => ({ key: gr.key, count: gr.elements.length }))
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Database.Query<AlbumEntity>().GroupBy(a => a.Author.GetType()).Select(gr => new { gr.Key, Count = gr.Count() }).ToList();
     // TODO(api): GetType in query (group by the runtime type of an @implementedBy reference)
     test("GroupEntityByTypeIbCount", async () => {
-        // const list = await table(AlbumEntity)
-        //     .groupBy(a => a.author.constructor)
-        //     .map(gr => ({ key: gr.key, count: gr.elements.length }))
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .groupBy(a => a.author.constructor)
+            .map(gr => ({ key: gr.key, count: gr.elements.length }))
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // group a by a.Label.Name into g select new { g.Key, Count = g.Count() }
@@ -398,15 +398,15 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     // Database.Query<ArtistEntity>().MinBy(a => a.Name.Length);
     // TODO(api): MinBy as a root terminal (pick the element minimizing a selector)
     test("RootMinBy", async () => {
-        // const songsAlbum = await table(ArtistEntity).minBy(a => a.name.length);
-        // assert.ok(songsAlbum != null);
+        const songsAlbum = await table(ArtistEntity).minBy(a => a.name.length);
+        assert.ok(songsAlbum != null);
     });
 
     // Database.Query<ArtistEntity>().MaxBy(a => a.Name.Length);
     // TODO(api): MaxBy as a root terminal (pick the element maximizing a selector)
     test("RootMaxBy", async () => {
-        // const songsAlbum = await table(ArtistEntity).maxBy(a => a.name.length);
-        // assert.ok(songsAlbum != null);
+        const songsAlbum = await table(ArtistEntity).maxBy(a => a.name.length);
+        assert.ok(songsAlbum != null);
     });
 
     // GroupBy(a => a.Sex).Select(gr => gr.Min(a => a.Status)); … gr.Where(a => a.Id > 10).Min(a => a.Status); … Min(a => a.Sex)
@@ -779,6 +779,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     // group a by a.Sex.IsDefined() into g select new { g.Key, count = g.Count() }
     // TODO(api): enum.IsDefined() in a query group key
     test("GroupByOr", async () => {
+        // BLOCKED: enum.isDefined() in a group key - unmodelled.
         // const b = await table(ArtistEntity)
         //     .groupBy(a => a.sex.isDefined())
         //     .map(g => ({ key: g.key, count: g.elements.length }))

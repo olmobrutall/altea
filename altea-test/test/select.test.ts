@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / … (SQL-mappable)
 import { hasDb, start } from "./setup";
+import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
 import {
     ArtistEntity, AlbumEntity, BandEntity, LabelEntity,
+    ColaboratorsMixin,
     NoteWithDateEntity, GrammyAwardEntity, AwardEntity, AmericanMusicAwardEntity,
     Sex, AwardResult,
 } from "../entities/music";
@@ -38,8 +40,8 @@ describe("SelectTest", { skip: !hasDb }, () => {
     // Database.Query<AlbumEntity>().Select((a, i) => a.Name + i).ToList();
     // TODO(api): indexed map
     test("SelectIndex", async () => {
-        // const list = await table(AlbumEntity).map((a, i) => a.name + i).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity).map((a, i) => a.name + i).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Database.Query<BandEntity>().Select(b => b.Id).ToList();
@@ -116,8 +118,8 @@ describe("SelectTest", { skip: !hasDb }, () => {
     // Database.Query<AlbumEntity>().Select(a => a.ToLite(a.Label.Name)).ToList();
     // TODO(api): ToLite with a custom model/toStr argument (a.toLite(model))
     test("SelectLiteCustomModel", async () => {
-        // const list = await table(AlbumEntity).map(a => a.toLite(a.label.name)).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity).map(a => a.toLite(a.label.name)).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Database.Query<ArtistEntity>().Select(a => a.Dead).ToList();
@@ -154,6 +156,7 @@ describe("SelectTest", { skip: !hasDb }, () => {
     // TODO(api): Lite.entity dereference (l.owner.entity) inside a query projection
     // TODO(api): block-bodied lambda
     test("SelectConditionalToLiteNull", async () => {
+        // BLOCKED: block-bodied lambda — the quote-transformer can't quote a statement block.
         // const list = await table(LabelEntity)
         //     .map(l => {
         //         const owner = (l.owner == null ? null : l.owner)!.entity;
@@ -224,62 +227,62 @@ describe("SelectTest", { skip: !hasDb }, () => {
     // TODO(api): AutoExpressionField/As.Expression property (ArtistEntity.IsMale) in query
     // TODO(api): @quoted expression member
     test("SelectExpressionProperty", async () => {
-        // const list = await table(ArtistEntity).filter(a => a.isMale).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(ArtistEntity).filter(a => a.isMale()).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Database.Query<ArtistEntity>().Select(a => new { a.Name, Count = a.AlbumCount() }).ToArray();
     // TODO(api): AutoExpressionField/As.Expression method (ArtistEntity.AlbumCount()) in query
     // TODO(api): @quoted expression member
     test("SelectExpressionMethod", async () => {
-        // const list = await table(ArtistEntity)
-        //     .map(a => ({ name: a.name, count: a.albumCount() }))
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(ArtistEntity)
+            .map(a => ({ name: a.name, count: a.albumCount() }))
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Select(a => a.Author.CombineUnion().FullName)
     // TODO(api): polymorphic expression Combine (CombineUnion) over an @implementedBy reference
     // TODO(api): combineUnion/Case
     test("SelectPolyExpressionPropertyUnion", async () => {
-        // const list = await table(AlbumEntity).map(a => a.author.combineUnion().fullName).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity).map(a => a.author.combineUnion().fullName()).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Select(a => a.Author.CombineCase().FullName)
     // TODO(api): polymorphic expression Combine (CombineCase) over an @implementedBy reference
     // TODO(api): combineUnion/Case
     test("SelectPolyExpressionPropertySwitch", async () => {
-        // const list = await table(AlbumEntity).map(a => a.author.combineCase().fullName).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity).map(a => a.author.combineCase().fullName()).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Select(a => a.Author.CombineUnion().Lonely())
     // TODO(api): polymorphic expression Combine (CombineUnion) over an @implementedBy reference
     // TODO(api): combineUnion/Case
     test("SelectPolyExpressionMethodUnion", async () => {
-        // const list = await table(AlbumEntity).map(a => a.author.combineUnion().lonely()).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity).map(a => a.author.combineUnion().lonely()).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Select(a => a.Author.CombineCase().Lonely())
     // TODO(api): polymorphic expression Combine (CombineCase) over an @implementedBy reference
     // TODO(api): combineUnion/Case
     test("SelectPolyExpressionMethodSwitch", async () => {
-        // const list = await table(AlbumEntity).map(a => a.author.combineCase().lonely()).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity).map(a => a.author.combineCase().lonely()).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Select(a => a.Author is BandEntity ? ((BandEntity)a.Author).Lonely() : ((ArtistEntity)a.Author).Lonely())
     // TODO(api): entity cast in query ((x as BandEntity)) plus As.Expression method (Lonely)
     // TODO(api): @quoted expression member
     test("SelectPolyExpressionMethodManual", async () => {
-        // const list = await table(AlbumEntity)
-        //     .map(a => a.author instanceof BandEntity
-        //         ? (a.author as BandEntity).lonely()
-        //         : (a.author as ArtistEntity).lonely())
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .map(a => a.author instanceof BandEntity
+                ? (a.author as BandEntity).lonely()
+                : (a.author as ArtistEntity).lonely())
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Assert.Throws<FieldReaderException>(() => Select(a => ((ArtistEntity)a.Author).Id).ToArray())
@@ -389,37 +392,37 @@ describe("SelectTest", { skip: !hasDb }, () => {
     // TODO(api): projecting a whole mixin (a.mixin(CorruptMixin)) — and CorruptMixin is not modelled yet
     // TODO(api): mixin in query
     test("SelectMixinThrows", async () => {
-        // await assert.rejects(
-        //     async () => table(NoteWithDateEntity).map(a => a.mixin(CorruptMixin)).toArray(),
-        //     /without their main entity/);
+        await assert.rejects(
+            async () => table(NoteWithDateEntity).map(a => a.mixin(CorruptMixin)).toArray(),
+            /without their main entity/);
     });
 
     // Database.Query<NoteWithDateEntity>().Select(a => a.Mixin<CorruptMixin>().Corrupt).ToArray();
     // TODO(api): CorruptMixin is not modelled yet (mixin(...).field projection)
     // TODO(api): mixin in query
     test("SelectMixinField", async () => {
-        // const list = await table(NoteWithDateEntity).map(a => a.mixin(CorruptMixin).corrupt).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(NoteWithDateEntity).map(a => a.mixin(CorruptMixin).corrupt).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Database.Query<NoteWithDateEntity>().Where(a => a.Mixin<CorruptMixin>().Corrupt == true).ToArray();
     // TODO(api): CorruptMixin is not modelled yet (mixin(...).field in filter)
     // TODO(api): mixin in query
     test("SelectMixinWhere", async () => {
-        // const list = await table(NoteWithDateEntity)
-        //     .filter(a => a.mixin(CorruptMixin).corrupt == true)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(NoteWithDateEntity)
+            .filter(a => a.mixin(CorruptMixin).corrupt == true)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // from n from c in n.Mixin<ColaboratorsMixin>().Colaborators select c
     // TODO(api): flatMap over a mixin's collection (a.mixin(ColaboratorsMixin).colaborators)
     // TODO(api): mixin in query
     test("SelectMixinCollection", async () => {
-        // const result = await table(NoteWithDateEntity)
-        //     .flatMap(n => n.mixin(ColaboratorsMixin).colaborators)
-        //     .toArray();
-        // assert.ok(Array.isArray(result));
+        const result = await table(NoteWithDateEntity)
+            .flatMap(n => n.mixin(ColaboratorsMixin).colaborators)
+            .toArray();
+        assert.ok(Array.isArray(result));
     });
 
     // from a from s in a.Songs where s.Seconds.HasValue select s.Seconds!.Value
@@ -616,6 +619,7 @@ describe("SelectTest", { skip: !hasDb }, () => {
     // TODO(api): entity cast in query ((x as GrammyAwardEntity)) and InSql() force-evaluate-in-SQL hint
     // TODO(api): block-bodied lambda
     test("SelectConditionEnum", async () => {
+        // BLOCKED: block-bodied lambda — the quote-transformer can't quote a statement block.
         // const results = await table(BandEntity)
         //     .map(b => {
         //         const ga = b.lastAward as GrammyAwardEntity;
@@ -636,8 +640,8 @@ describe("SelectTest", { skip: !hasDb }, () => {
     // TODO(api): FriendsCovariant() — an As.Expression collection method returning a covariant MList
     // TODO(api): @quoted expression member
     test("SelectMListIdCovariance", async () => {
-        // const list = await table(ArtistEntity).flatMap(a => a.friendsCovariant()).map(a => a.id).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(ArtistEntity).flatMap(a => a.friendsCovariant()).map(a => a.id).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // from a from s in a.Songs.Where(s => s.Seconds < 0).DefaultIfEmpty() select new { a, s }; Assert.True(All(p => p.s == null))

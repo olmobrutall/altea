@@ -9,8 +9,8 @@ export interface IQuery<T> {
     queryTextForDebug(): string;
 
     filter(predicate: Quoted<(element: T) => boolean>): IQuery<T>;
-    map<R>(selector: Quoted<(element: T) => R>): IQuery<R>;
-    flatMap<R>(colSelector: Quoted<(element: T) => R[] | IQuery<R>>): IQuery<R>;
+    map<R>(selector: Quoted<(element: T, index: number) => R>): IQuery<R>;
+    flatMap<R>(colSelector: Quoted<(element: T, index: number) => R[] | IQuery<R>>): IQuery<R>;
 
     orderBy(selector: Quoted<(element: T) => unknown>): IOrderedQuery<T>;
     orderByDescending(selector: Quoted<(element: T) => unknown>): IOrderedQuery<T>;

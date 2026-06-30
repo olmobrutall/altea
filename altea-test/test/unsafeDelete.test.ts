@@ -4,6 +4,7 @@ import { table } from "@altea/altea/logic/table";
 import { hasDb, start } from "./setup";
 import {
     ArtistEntity, AlbumEntity, BandEntity,
+    ArtistEntity_Friends, BandEntity_Members, AlbumEntity_Songs,
 } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/UnsafeDeleteTest.cs (set-based bulk DELETE).
@@ -34,21 +35,21 @@ describe("UnsafeDeleteTest", { skip: !hasDb }, () => {
     // int count = Database.Query<AlbumEntity>().UnsafeDelete();
     // TODO(api): bulk delete (executeDelete)
     test("DeleteAll", async () => {
-        // const count = await table(AlbumEntity).executeDelete();
+        const count = await table(AlbumEntity).executeDelete();
         assert.ok(true);
     });
 
     // int count = Database.Query<AlbumEntity>().Where(a => a.Year < 1990).UnsafeDelete();
     // TODO(api): bulk delete (executeDelete)
     test("Delete", async () => {
-        // const count = await table(AlbumEntity).filter(a => a.year < 1990).executeDelete();
+        const count = await table(AlbumEntity).filter(a => a.year < 1990).executeDelete();
         assert.ok(true);
     });
 
     // int count = Database.Query<AlbumEntity>().UnsafeDeleteChunks(2);
     // TODO(api): bulk delete (executeDeleteChunks) — chunked/batched delete
     test("DeleteChunks", async () => {
-        // const count = await table(AlbumEntity).executeDeleteChunks(2);
+        const count = await table(AlbumEntity).executeDeleteChunks(2);
         assert.ok(true);
     });
 
@@ -56,28 +57,28 @@ describe("UnsafeDeleteTest", { skip: !hasDb }, () => {
     // TODO(api): bulk delete (executeDelete)
     // TODO(api): entity cast in query ((x as ArtistEntity)) — joins to the cast subtable
     test("DeleteJoin", async () => {
-        // const count = await table(AlbumEntity).filter(a => (a.author as ArtistEntity).dead).executeDelete();
+        const count = await table(AlbumEntity).filter(a => (a.author as ArtistEntity).dead).executeDelete();
         assert.ok(true);
     });
 
     // int count = Database.MListQuery((ArtistEntity a) => a.Friends).UnsafeDeleteMList();
     // TODO(api): bulk delete mlist (executeDeleteMList) over an MListQuery (link/part rows)
     test("DeleteMListLite", async () => {
-        // const count = await table(ArtistEntity).flatMap(a => a.friends).executeDeleteMList();
+        const count = await table(ArtistEntity_Friends).executeDelete();
         assert.ok(true);
     });
 
     // int count = Database.MListQuery((BandEntity a) => a.Members).UnsafeDeleteMList();
     // TODO(api): bulk delete mlist (executeDeleteMList) over an MListQuery (link/part rows)
     test("DeleteMListEntity", async () => {
-        // const count = await table(BandEntity).flatMap(a => a.members).executeDeleteMList();
+        const count = await table(BandEntity_Members).executeDelete();
         assert.ok(true);
     });
 
     // int count = Database.MListQuery((AlbumEntity a) => a.Songs).UnsafeDeleteMList();
     // TODO(api): bulk delete mlist (executeDeleteMList) over an MListQuery (link/part rows)
     test("DeleteMListEmbedded", async () => {
-        // const count = await table(AlbumEntity).flatMap(a => a.songs).executeDeleteMList();
+        const count = await table(AlbumEntity_Songs).executeDelete();
         assert.ok(true);
     });
 
@@ -85,9 +86,10 @@ describe("UnsafeDeleteTest", { skip: !hasDb }, () => {
     // TODO(api): per-row delete of a Lite list (Database.DeleteList) — not a bulk set-based op
     // TODO(api): entity cast in query ((x as ArtistEntity))
     test("DeleteManual", async () => {
+        // BLOCKED: per-row Database.DeleteList of a Lite list - not a set-based op.
         // const list = await table(AlbumEntity).filter(a => (a.author as ArtistEntity).dead).map(a => a.toLite()).toArray();
         // await deleteList(list);
-        assert.ok(true);
+        // assert.ok(true);
     });
 
     // Administrator.CreateTemporaryTable<MyTempView>(); UnsafeInsertView(...); Database.View<MyTempView>().Where(a => a.MyId > 1).UnsafeDeleteView();

@@ -66,6 +66,10 @@ declare global {
     sum(this: Array<number>): number;
     sum(this: Array<T>, selector: (element: T, index: number, array: T[]) => number): number;
 
+    // Standard-deviation aggregates (Signum's StdDev/StdDevP) — query-only (SQL STDEV/STDEVP).
+    stdDev(this: Array<T>): number | null;
+    stdDevP(this: Array<T>): number | null;
+
     avg(this: Array<number>): number;
     avg(this: Array<T>, selector: (element: T, index: number, array: T[]) => number): number;
 

@@ -1,4 +1,6 @@
 import { SchemaBuilder } from "@altea/altea/logic/schema";
+import { table } from "@altea/altea/logic/table";
+import { withQuoted } from "@altea/altea/entities/decorators";
 import {
     CountryEntity,
     LabelEntity,
@@ -53,3 +55,17 @@ export namespace MusicLogic {
         sb.include(SimplePassageEntity);
     }
 }
+
+// Cross-entity expression member (Signum's [AutoExpressionField] ArtistEntity.AlbumCount):
+// it counts albums whose author is this artist, which needs a query source (`table`) from
+// the logic layer — so it's defined here (logic), augmenting the entity, rather than in
+// the pure-entity music.ts. `withQuoted` captures the body as the translatable expression.
+declare module "../entities/music" {
+    interface ArtistEntity {
+        albumCount(): Promise<number>;
+    }
+}
+
+ArtistEntity.prototype.albumCount = withQuoted(function (this: ArtistEntity): Promise<number> {
+    return table(AlbumEntity).filter(a => a.author.is(this)).count();
+});

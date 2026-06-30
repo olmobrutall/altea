@@ -48,47 +48,47 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
     // TODO(api): aggregate over group elements (gr.Count() / gr.Max(...)) — no aggregation API on grouping.elements yet
     // TODO(api): aggregate over group elements (spread + PrimaryKey-as-number)
     test("SkipAllAggregates", async () => {
-        // const allAggregates = await table(ArtistEntity)
-        //     .groupBy(a => ({}))
-        //     .map(gr => ({ count: gr.elements.length, maxId: Math.max(...gr.elements.map(a => a.id)) }))
-        //     .skip(2)
-        //     .toArray();
-        // assert.ok(Array.isArray(allAggregates));
+        const allAggregates = await table(ArtistEntity)
+            .groupBy(a => ({}))
+            .map(gr => ({ count: gr.elements.length, maxId: gr.elements.max(a => a.id) }))
+            .skip(2)
+            .toArray();
+        assert.ok(Array.isArray(allAggregates));
     });
 
     // var allAggregates = Database.Query<ArtistEntity>().GroupBy(a => new { }).Select(gr => new { Count = gr.Count(), MaxId = gr.Max(a => a.Id) }).OrderBy(a => a.Count).OrderAlsoByKeys().ToList();
     // TODO(api): aggregate over group elements (gr.Count() / gr.Max(...)) — no aggregation API on grouping.elements yet
     // TODO(api): OrderAlsoByKeys — no equivalent in Query<T>
     test("AllAggregatesOrderByAndByKeys", async () => {
-        // const allAggregates = await table(ArtistEntity)
-        //     .groupBy(a => ({}))
-        //     .map(gr => ({ count: gr.elements.length, maxId: Math.max(...gr.elements.map(a => a.id)) }))
-        //     .orderBy(a => a.count)
-        //     .toArray();
-        // assert.ok(Array.isArray(allAggregates));
+        const allAggregates = await table(ArtistEntity)
+            .groupBy(a => ({}))
+            .map(gr => ({ count: gr.elements.length, maxId: gr.elements.max(a => a.id) }))
+            .orderBy(a => a.count)
+            .toArray();
+        assert.ok(Array.isArray(allAggregates));
     });
 
     // var allAggregates = Database.Query<ArtistEntity>().GroupBy(a => new { }).Select(gr => new { Count = gr.Count(), MaxId = gr.Max(a => a.Id) }).OrderBy(a=>a.Count).Skip(2).ToList();
     // TODO(api): aggregate over group elements (gr.Count() / gr.Max(...)) — no aggregation API on grouping.elements yet
     test("SkipAllAggregatesOrderBy", async () => {
-        // const allAggregates = await table(ArtistEntity)
-        //     .groupBy(a => ({}))
-        //     .map(gr => ({ count: gr.elements.length, maxId: Math.max(...gr.elements.map(a => a.id)) }))
-        //     .orderBy(a => a.count)
-        //     .skip(2)
-        //     .toArray();
-        // assert.ok(Array.isArray(allAggregates));
+        const allAggregates = await table(ArtistEntity)
+            .groupBy(a => ({}))
+            .map(gr => ({ count: gr.elements.length, maxId: gr.elements.max(a => a.id) }))
+            .orderBy(a => a.count)
+            .skip(2)
+            .toArray();
+        assert.ok(Array.isArray(allAggregates));
     });
 
     // var count = Database.Query<ArtistEntity>().GroupBy(a => new { }).Select(gr => new { Count = gr.Count(), MaxId = gr.Max(a => a.Id) }).OrderBy(a => a.Count).Count();
     // TODO(api): aggregate over group elements (gr.Count() / gr.Max(...)) — no aggregation API on grouping.elements yet
     test("AllAggregatesCount", async () => {
-        // const count = await table(ArtistEntity)
-        //     .groupBy(a => ({}))
-        //     .map(gr => ({ count: gr.elements.length, maxId: Math.max(...gr.elements.map(a => a.id)) }))
-        //     .orderBy(a => a.count)
-        //     .count();
-        // assert.equal(count, 1);
+        const count = await table(ArtistEntity)
+            .groupBy(a => ({}))
+            .map(gr => ({ count: gr.elements.length, maxId: gr.elements.max(a => a.id) }))
+            .orderBy(a => a.count)
+            .count();
+        assert.equal(count, 1);
     });
 
     // var skipArtist = Database.Query<ArtistEntity>().OrderBy(a => a.Name).Skip(2).ToList();
@@ -120,47 +120,47 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
     // var result = Database.Query<AlbumEntity>().Where(dr => dr.Songs.OrderByDescending(a => a.Seconds).Take(1).Where(a => a.Name.Contains("Zero")).Any()).Select(a => a.ToLite()).ToList();
     // TODO(api): collection .some() terminal requires a predicate arg (no zero-arg overload)
     test("InnerTake", async () => {
-        // const result = await table(AlbumEntity)
-        //     .filter(dr => dr.songs.orderByDescending(a => a.seconds).top(1).filter(a => a.name.contains("Zero")).some())
-        //     .map(a => a.toLite())
-        //     .toArray();
-        // assert.equal(result.length, 0);
+        const result = await table(AlbumEntity)
+            .filter(dr => dr.songs.orderByDescending(a => a.seconds).top(1).filter(a => a.name.contains("Zero")).some(a => true))
+            .map(a => a.toLite())
+            .toArray();
+        assert.equal(result.length, 0);
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().OrderBy(a => a.Sex).Select(a => a.Name));
     // TODO(api): subquery membership variance (Query<string> not assignable to Query<Entity>)
     test("OrderByCommonSelectPaginate", async () => {
-        // await testPaginate(table(ArtistEntity).orderBy(a => a.sex).map(a => a.name));
+        await testPaginate(table(ArtistEntity).orderBy(a => a.sex).map(a => a.name));
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().OrderBy(a => a.Name).Select(a => a.Name));
     // TODO(api): subquery membership variance (Query<string> not assignable to Query<Entity>)
     test("OrderBySelectPaginate", async () => {
-        // await testPaginate(table(ArtistEntity).orderBy(a => a.name).map(a => a.name));
+        await testPaginate(table(ArtistEntity).orderBy(a => a.name).map(a => a.name));
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().OrderByDescending(a => a.Name).Select(a => a.Name));
     // TODO(api): subquery membership variance (Query<string> not assignable to Query<Entity>)
     test("OrderByDescendingSelectPaginate", async () => {
-        // await testPaginate(table(ArtistEntity).orderByDescending(a => a.name).map(a => a.name));
+        await testPaginate(table(ArtistEntity).orderByDescending(a => a.name).map(a => a.name));
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().OrderBy(a => a.Name).ThenBy(a => a.Id).Select(a => a.Name));
     // TODO(api): subquery membership variance (Query<string> not assignable to Query<Entity>)
     test("OrderByThenBySelectPaginate", async () => {
-        // await testPaginate(table(ArtistEntity).orderBy(a => a.name).thenBy(a => a.id).map(a => a.name));
+        await testPaginate(table(ArtistEntity).orderBy(a => a.name).thenBy(a => a.id).map(a => a.name));
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().Select(a => a.Name).OrderBy(a => a));
     // TODO(api): subquery membership variance (OrderedQuery<string> not assignable to Query<Entity>)
     test("SelectOrderByPaginate", async () => {
-        // await testPaginate(table(ArtistEntity).map(a => a.name).orderBy(a => a));
+        await testPaginate(table(ArtistEntity).map(a => a.name).orderBy(a => a));
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().Select(a => a.Name).OrderByDescending(a => a));
     // TODO(api): subquery membership variance (OrderedQuery<string> not assignable to Query<Entity>)
     test("SelectOrderByDescendingPaginate", async () => {
-        // await testPaginate(table(ArtistEntity).map(a => a.name).orderByDescending(a => a));
+        await testPaginate(table(ArtistEntity).map(a => a.name).orderByDescending(a => a));
     });
 
     // private void TestPaginate<T>(IQueryable<T> query) {
@@ -171,7 +171,7 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
     //     Assert.Equal(list, list2);
     // }
     // TODO(api): OrderAlsoByKeys — no equivalent in Query<T> (needed for stable pagination)
-    async function testPaginate<T>(query: ReturnType<typeof table>): Promise<void> {
+    async function testPaginate<T>(query: { toArray(): Promise<T[]> }): Promise<void> {
         const list = await (query as any).toArray() as T[];
 
         const pageSize = 2;

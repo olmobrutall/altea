@@ -35,10 +35,10 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     // var bands4b = Database.Query<BandEntity>().Select(b => new { b.Name, Member = b.Members.SingleEx(a => a.Sex == Sex.Female).Name }).ToList();
     test("SelectFirstOrDefault", async () => {
         // TODO(api): collection-to-string aggregate (MList.ToString(selector, separator)) + string interpolation/FormatWith
-        // const bandsCount = await table(BandEntity)
-        //     .map(b => ({ name: b.name, members: b.members.map(a => ({ name: a.member.entity.name, sex: a.member.entity.sex })).toString(p => p.name + " (" + p.sex + ")", "\n") }))
-        //     .toArray();
-        // assert.ok(Array.isArray(bandsCount));
+        const bandsCount = await table(BandEntity)
+            .map(b => ({ name: b.name, members: b.members.map(a => ({ name: a.member.entity.name, sex: a.member.entity.sex })).map(p => p.name + " (" + p.sex + ")").join("\n") }))
+            .toArray();
+        assert.ok(Array.isArray(bandsCount));
 
         // TODO(api): collection-level terminals (members.firstOrNull/first/singleOrNull/single) inside a projection
         const bands1 = await table(BandEntity).map(b => ({ name: b.name, member: b.members.firstOrNull()!.member.entity.name })).toArray();
@@ -155,14 +155,14 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
         const michael = (await table(ArtistEntity).first()).toLite();
 
         // TODO(api): Lite.inDB(selector) subquery expansion (no altea API), plus collection-level filter + count/some inside a projection, plus a.Id access
-        // const result = await table(BandEntity)
-        //     .map(a => ({
-        //         id: a.id,
-        //         count: a.members.filter(m => m.member.entity.sex == michael.inDB(x => x.sex)).count(),
-        //         any: a.members.filter(m => m.member.entity.sex == michael.inDB(x => x.sex)).some(a => a.member.entity.name.startsWith("a")),
-        //     }))
-        //     .toArray();
-        // assert.ok(Array.isArray(result));
+        const result = await table(BandEntity)
+            .map(a => ({
+                id: a.id,
+                count: a.members.filter(m => m.member.entity.sex == michael.inDB(x => x.sex)).length,
+                any: a.members.filter(m => m.member.entity.sex == michael.inDB(x => x.sex)).some(a => a.member.entity.name.startsWith("a")),
+            }))
+            .toArray();
+        assert.ok(Array.isArray(result));
         assert.ok(michael != null);
     });
 });

@@ -2,6 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import { hasDb, start } from "./setup";
+import { ExpandLite, ExpandEntity } from "@altea/altea/logic/query";
 import { CountryEntity } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/ExpandTest.cs. C# → altea idiom:
@@ -24,49 +25,49 @@ describe("ExpandTest", { skip: !hasDb }, () => {
     // Database.Query<CountryEntity>().Select(a => a.ToLite()).ExpandLite(a => a, ExpandLite.ModelNull).ToList();
     // TODO(api): ExpandLite (Lite model eager/lazy/null load hint) on a query
     test("ExpandToStringNull", async () => {
-        // const list = await table(CountryEntity)
-        //     .map(a => a.toLite())
-        //     .expandLite(a => a, ExpandLite.ModelNull)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(CountryEntity)
+            .map(a => a.toLite())
+            .expandLite(a => a, ExpandLite.ModelNull)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Database.Query<CountryEntity>().Select(a => a.ToLite()).ExpandLite(a => a, ExpandLite.ModelLazy).ToList();
     // TODO(api): ExpandLite (Lite model eager/lazy/null load hint) on a query
     test("ExpandToStringLazy", async () => {
-        // const list = await table(CountryEntity)
-        //     .map(a => a.toLite())
-        //     .expandLite(a => a, ExpandLite.ModelLazy)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(CountryEntity)
+            .map(a => a.toLite())
+            .expandLite(a => a, ExpandLite.ModelLazy)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Database.Query<CountryEntity>().Select(a => a.ToLite()).ExpandLite(a => a, ExpandLite.ModelEager).ToList();
     // TODO(api): ExpandLite (Lite model eager/lazy/null load hint) on a query
     test("ExpandToStringEager", async () => {
-        // const list = await table(CountryEntity)
-        //     .map(a => a.toLite())
-        //     .expandLite(a => a, ExpandLite.ModelEager)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(CountryEntity)
+            .map(a => a.toLite())
+            .expandLite(a => a, ExpandLite.ModelEager)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // var list = Database.Query<CountryEntity>().Select(a => a.ToLite()).ExpandLite(a => a, ExpandLite.EntityEager).ToList();
     // TODO(api): ExpandLite (Lite entity eager-load hint) on a query
     test("ExpandEntityEager", async () => {
-        // const list = await table(CountryEntity)
-        //     .map(a => a.toLite())
-        //     .expandLite(a => a, ExpandLite.EntityEager)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(CountryEntity)
+            .map(a => a.toLite())
+            .expandLite(a => a, ExpandLite.EntityEager)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // var list = Database.Query<CountryEntity>().ExpandEntity(a => a, ExpandEntity.LazyEntity).ToList();
     // TODO(api): ExpandEntity (entity lazy-load hint) on a query
     test("ExpandLazyEntity", async () => {
-        // const list = await table(CountryEntity)
-        //     .expandEntity(a => a, ExpandEntity.LazyEntity)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(CountryEntity)
+            .expandEntity(a => a, ExpandEntity.LazyEntity)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 });

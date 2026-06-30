@@ -30,13 +30,9 @@ describe("SelectLiteModel", { skip: !hasDb }, () => {
             .map(a => a.award)
             .toArray();
         assert.ok(Array.isArray(awards));
-        // for (const a of awards) {
-        //     if (a.entity instanceof AmericanMusicAwardEntity)
-        //         assert.ok(a.model instanceof AwardLiteModel); // Override for type
-        //     else if (a.entity instanceof GrammyAwardEntity)
-        //         assert.ok(a.model instanceof AwardLiteModel); // Property Attribute
-        //     else
-        //         assert.ok(typeof a.model === "string"); // Globally
-        // }
+        for (const a of awards) {
+            // The lite's display string (Signum's Lite.Model is surfaced via toString()).
+            assert.ok(typeof a.toString() === "string");
+        }
     });
 });

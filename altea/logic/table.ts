@@ -45,6 +45,13 @@ export function table<T extends Entity>(entityType: { new(): T }): Query<T> {
     return new Query<T>(callExpression, MyQueryTranslator.instance);
 }
 
+// `view(MyView)` — a query over a Database.View / temporary table (Signum's view()).
+// Temporary views aren't modelled in altea yet, so this is a throwing stub that locks
+// the call shape (used by the GroupJoin LeftOuterMyView test, which runs red).
+export function view<T>(viewType: { new(): T }): Query<T> {
+    throw new Error("view (Database.View / temporary table) is not implemented yet");
+}
+
 asStaticFunction(table).__resultType = (_, entityTypeType) => new ArrayType(new ClassType((entityTypeType as FunctionType).func!));
 
 // Marks `table` as a query source so the QueryBinder recognises the

@@ -172,11 +172,11 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     // var withFriends = Database.Query<ArtistEntity>().Where(b => b.Friends.Any()).Select(a => a.Name).ToList();
     // TODO(api): collection .some() requires a predicate; the no-argument existence check (C# Any()) has no altea equivalent.
     test("AnySqlNonPredicate", async () => {
-        // const withFriends = await table(ArtistEntity)
-        //     .filter(b => b.friends.some())
-        //     .map(a => a.name)
-        //     .toArray();
-        // assert.ok(Array.isArray(withFriends));
+        const withFriends = await table(ArtistEntity)
+            .filter(b => b.friends.some(a => true))
+            .map(a => a.name)
+            .toArray();
+        assert.ok(Array.isArray(withFriends));
     });
 
     // Assert.False(Database.Query<ArtistEntity>().All(a => a.Sex == Sex.Male));

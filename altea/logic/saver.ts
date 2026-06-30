@@ -35,14 +35,8 @@ import { Transaction } from './connection/transaction';
 // there is no separate InsertMany/UpdateMany batching yet (rows are written one
 // statement at a time).
 
-declare module '../entities/entity' {
-    interface Entity {
-        // Saves this entity and its graph, returning the entity so calls chain
-        // inline, mirroring Signum's `new XEntity { ... }.Execute(XOperation.Save)`:
-        // `const band = await BandEntity.create({ ... }).save();`.
-        save(): Promise<this>;
-    }
-}
+// `entity.save()` is declared and installed in ./logic (with the other entity/lite
+// extension methods); it delegates to `Saver.save` below.
 
 export namespace Saver {
     export async function save(roots: Entity[]): Promise<void> {
@@ -122,7 +116,3 @@ function wireOwnedChildren(owner: Entity): void {
     });
 }
 
-Entity.prototype.save = async function (this: Entity): Promise<Entity> {
-    await Saver.save([this]);
-    return this;
-};

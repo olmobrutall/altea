@@ -4,6 +4,9 @@ import { IQuery, IOrderedQuery } from "../entities/iquery";
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, PropertyExpression } from "./linq/expressions";
 import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType, PromiseType } from "../entities/types";
 
+// The query-expression metadata model. `@quoted` / `withQuoted` (which entities use to
+// mark expression members) live in entities/decorators so the entity model doesn't
+// depend on logic; the resolver/carrier helpers below stay here in the query layer.
 export type LambdaTypeResolver = (thisType: Type, ...argsTypes: Type[]) => Type[];
 export type ResultTypeResolver = (thisType: Type, ...argsTypes: Type[]) => Type;
 
@@ -25,38 +28,6 @@ export function getLambdaTypeResolvers(target: object, key: string): LambdaTypeR
 export function getResultTypeResolver(target: object, key: string): ResultTypeResolver | undefined {
     const fn = (target as any)?.[key] as StaticFunction<Function> | undefined;
     return fn?.__resultType;
-}
-
-// Two call shapes:
-//   @quoted        — bare. The quote-transformer rewrites it to @quoted(() => <expr>)
-//                    before emit, so this overload exists only so the bare form
-//                    type-checks as a method decorator.
-//   @quoted(exp)   — the rewritten/explicit form the transformer produces.
-export function quoted(target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor): void;
-export function quoted(exp?: () => ExLambda): (target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor) => void;
-export function quoted(arg1?: unknown, arg2?: unknown, _arg3?: unknown): unknown {
-    // Bare @quoted reached runtime (applied directly as a decorator: arg2 is a
-    // property key). The transformer should have rewritten it to @quoted(() => <expr>).
-    if (typeof arg2 === "string" || typeof arg2 === "symbol")
-        throw new Error(`Unable to add the quoted expression to "${String(arg2)}". Are you using ts-patch and quote-transformer?`);
-
-    const exp = arg1 as (() => ExLambda) | undefined;
-    return function (_target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor): void {
-
-        if (exp == undefined)
-            throw new Error(`Unable to add the quoted expression to "${String(propertyKey)}". Are you using ts-patch and quote-transformer?`);
-
-        const fn = descriptor.value;
-        if (typeof fn != "function")
-            throw new Error(`@quoted can only be applied to methods, but '${String(propertyKey)}' is not a method`);
-
-        (fn as StaticFunction<Function>).__quoted = exp;
-    };
-}
-
-export function withQuoted<T extends Function>(f: T, quoted?: () => ExLambda): T {
-    (f as StaticFunction<T>).__quoted = quoted;
-    return f;
 }
 
 export function lambdaTypeForParam(paramNumber: number, typeResolver: LambdaTypeResolver) {
@@ -87,6 +58,21 @@ export interface IQueryTranslator {
     execute(t: Expression): Promise<unknown>;
     getQueryTextForDebug(t: Query<any>): string
 }
+
+// Lite-model / entity eager-load hints for `.expandLite()` / `.expandEntity()`
+// (Signum's ExpandLite / ExpandEntity).
+export enum ExpandLite { ModelNull, ModelLazy, ModelEager, EntityEager }
+export enum ExpandEntity { EagerEntity, LazyEntity }
+
+// Row primary-key helper usable inside a query (Signum's EntityContext). `entityId`
+// returns the primary key of the row a value belongs to. (No `mListRowId` — altea has
+// no MList; collection rows are ordinary part entities with their own `id`.) Query-only,
+// so the in-memory body throws.
+export const EntityContext = {
+    entityId(_value: unknown): number {
+        throw new Error("EntityContext.entityId is a query-only helper");
+    },
+};
 
 export class Query<T> implements IQuery<T> {
 
@@ -132,9 +118,9 @@ export class Query<T> implements IQuery<T> {
         return new Query<T>(call, this.translator);
     }
 
-    @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
+    @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType, SimpleType.number])
     @resultType((ot, selType) => new ArrayType((selType as FunctionType).returnType))
-    map<R>(selector: Quoted<(element: T) => R>): Query<R> {
+    map<R>(selector: Quoted<(element: T, index: number) => R>): Query<R> {
         var lambda = Expression.fromQuotedLambda(selector, [this.elementType]);
         var call = new CallExpression(
             new PropertyExpression(this.expression, "map"),
@@ -143,9 +129,9 @@ export class Query<T> implements IQuery<T> {
         return new Query<R>(call, this.translator);
     }
 
-    @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
+    @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType, SimpleType.number])
     @resultType((ot, colSelType) => (colSelType as FunctionType).returnType)
-    flatMap<R>(colSelector: Quoted<(element: T) => R[] | Query<R>>): Query<R> {
+    flatMap<R>(colSelector: Quoted<(element: T, index: number) => R[] | Query<R>>): Query<R> {
         var lambda = Expression.fromQuotedLambda(colSelector, [this.elementType]);
 
         if (!(lambda.body.type instanceof ArrayType))
@@ -440,19 +426,31 @@ export class Query<T> implements IQuery<T> {
     }
 
 
-    @lambdaTypeForParam(1, ot => [(ot as ArrayType).elementType])
-    @lambdaTypeForParam(2, (ot, other) => [(other as ArrayType).elementType])
-    @lambdaTypeForParam(3, (ot, other) => [(ot as ArrayType).elementType, (other as ArrayType).elementType])
-    @resultType((ot, other, key, otherKey, result) => new ArrayType((result as FunctionType).returnType))
+    // String aggregate (replaces the old toString agg): `query.map(sel).join(sep)` joins
+    // the projected values with a separator (SQL STRING_AGG). Distinct from the inner-join
+    // overload below by its single string argument. Not implemented yet — runs red.
+    join(separator: string): Promise<string>;
     join<K, O, R>(
         otherSource: Query<O>,
         keySelector: Quoted<(element: T) => K>,
         otherKeySelector: Quoted<(otherElement: O) => K>,
         resultSelector: Quoted<(element: T, otherElement: O) => R>
-    ): Query<R> {
-        var lambdaKey = Expression.fromQuotedLambda(keySelector, [this.elementType]);
-        var lambdaOtherKey = Expression.fromQuotedLambda(otherKeySelector, [otherSource.elementType]);
-        var lambdaResult = Expression.fromQuotedLambda(resultSelector, [this.elementType, otherSource.elementType]);
+    ): Query<R>;
+    @lambdaTypeForParam(1, ot => [(ot as ArrayType).elementType])
+    @lambdaTypeForParam(2, (ot, other) => [(other as ArrayType).elementType])
+    @lambdaTypeForParam(3, (ot, other) => [(ot as ArrayType).elementType, (other as ArrayType).elementType])
+    @resultType((ot, other, key, otherKey, result) => new ArrayType((result as FunctionType).returnType))
+    join<K, O, R>(
+        otherSource: string | Query<O>,
+        keySelector?: Quoted<(element: T) => K>,
+        otherKeySelector?: Quoted<(otherElement: O) => K>,
+        resultSelector?: Quoted<(element: T, otherElement: O) => R>
+    ): Promise<string> | Query<R> {
+        if (typeof otherSource === "string")
+            throw new Error("join(separator) string aggregate is not implemented yet");
+        var lambdaKey = Expression.fromQuotedLambda(keySelector!, [this.elementType]);
+        var lambdaOtherKey = Expression.fromQuotedLambda(otherKeySelector!, [otherSource.elementType]);
+        var lambdaResult = Expression.fromQuotedLambda(resultSelector!, [this.elementType, otherSource.elementType]);
 
         // The other source must travel with the call (the binder reads it as args[0]);
         // the result is a sequence of the result-selector's body type.
@@ -487,7 +485,78 @@ export class Query<T> implements IQuery<T> {
 
         return new Query<R>(call, this.translator);
     }
+
+    // ---- bulk DML + aggregate-to-string (STUBS) -------------------------------
+    // These tiers are not implemented yet (the LinqProvider tests that use them are
+    // ported and run red). The signatures lock the intended API shape (recorded in
+    // the test files' TODO comments); the bodies throw.
+
+    // table(T)[.filter(…)].executeUpdate(a => ({ field: valueExpr, … })) → affected rows.
+    // The setter returns the partial set of columns to write (keys validated against T;
+    // values loose, since `int`/`PrimaryKey` are branded numbers and value expressions
+    // widen to `number`).
+    executeUpdate(setter: (element: T) => UpdateValues<T>): Promise<number> {
+        throw new Error("executeUpdate (bulk UPDATE) is not implemented yet");
+    }
+
+    // table(T)[.filter(…)].executeDelete() → affected rows.
+    executeDelete(): Promise<number> {
+        throw new Error("executeDelete (bulk DELETE) is not implemented yet");
+    }
+
+    // table(S)[.filter(…)].executeInsert(TargetEntity, s => ({ …fields })) → inserted rows.
+    executeInsert<E>(target: new () => E, selector: (element: T) => any): Promise<number> {
+        throw new Error("executeInsert (bulk INSERT) is not implemented yet");
+    }
+
+    // minBy/maxBy — the element with the min/max projected value (Signum's MinBy/MaxBy).
+    minBy<V>(selector: (element: T) => V): Promise<T> {
+        throw new Error("minBy is not implemented yet");
+    }
+    maxBy<V>(selector: (element: T) => V): Promise<T> {
+        throw new Error("maxBy is not implemented yet");
+    }
+
+    // reverse — invert the current ordering (the binder lowers it via the Reverse flag).
+    @resultType(ot => ot)
+    reverse(): Query<T> {
+        var call = new CallExpression(new PropertyExpression(this.expression, "reverse"), [], this.type);
+        return new Query<T>(call, this.translator);
+    }
+
+    // ofType / cast — narrow a polymorphic-reference query to one implementation
+    // (Signum's OfType/Cast). ofType filters; cast asserts. Not implemented yet.
+    ofType<S>(type: new (...args: any[]) => S): Query<S> {
+        throw new Error("ofType is not implemented yet");
+    }
+    cast<S>(type: new (...args: any[]) => S): Query<S> {
+        throw new Error("cast is not implemented yet");
+    }
+
+    // Bulk-DML variant: chunked delete. (MList-specific bulk ops are not modelled —
+    // altea has no MList; operate on the part-entity table directly via executeDelete/
+    // executeInsert/executeUpdate.) `executeUpdatePart` updates a navigated entity.
+    executeDeleteChunks(chunkSize?: number): Promise<number> {
+        throw new Error("executeDeleteChunks (chunked bulk DELETE) is not implemented yet");
+    }
+    executeUpdatePart<P>(partSelector: (element: T) => P, setter: (part: P) => UpdateValues<P>): Promise<number> {
+        throw new Error("executeUpdatePart (bulk UPDATE of a navigated entity) is not implemented yet");
+    }
+
+    // Lite-model / entity eager-load hints (Signum's ExpandLite/ExpandEntity). Not
+    // implemented yet — the ExpandTest suite runs red.
+    expandLite(liteSelector: (element: T) => unknown, hint: ExpandLite): Query<T> {
+        throw new Error("expandLite (Lite-model load hint) is not implemented yet");
+    }
+    expandEntity(entitySelector: (element: T) => unknown, hint: ExpandEntity): Query<T> {
+        throw new Error("expandEntity (entity load hint) is not implemented yet");
+    }
 }
+
+// The partial set of columns an executeUpdate writes: `{ field: value, … }`. Keys are
+// validated against the entity (typos caught); values are loose because `int`/`PrimaryKey`
+// are branded numbers and update value expressions (`a.year * 2`) widen to `number`.
+export type UpdateValues<T> = { [K in keyof T]?: unknown };
 
 export class OrderedQuery<T> extends Query<T> implements IOrderedQuery<T> {
 

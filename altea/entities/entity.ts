@@ -113,7 +113,9 @@ export abstract class Entity extends BaseEntity {
      * `lite.entity` / `lite.entityOrNull` resolve without a round-trip. Needed
      * for new (unsaved) entities and for LINQ navigation through the lite.
      */
-    toLite(fat: boolean = false): Lite<this> {
+    toLite(fat?: boolean): Lite<this>;
+    toLite(model: string): Lite<this>;
+    toLite(fat: boolean | string = false): Lite<this> {
         if (!fat && this.id == null)
             throw new Error('toLite() is not allowed for new entities (no id yet), use toLiteFat() instead');
 

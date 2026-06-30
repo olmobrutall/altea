@@ -623,6 +623,72 @@ SQL is the raw `DATEPART(weekday)`/`date_part('dow')` (no Signum-style normalisa
 the .NET `DayOfWeek` ordering yet), so a couple of constant-comparison cases are
 data-dependent (`DayOfWeekSelectConstant` is red on SQL Server).
 
+**Whole suite uncommented (API-stability gate).** Every ported LinqProvider test body
+was uncommented and the suite now **compiles clean** (`tspc -b`, offline 42/42) — the
+TDD "compile-clean = stable API" gate the plan describes, now covering the deferred
+tiers too. Tests that reference unbuilt subsystems were made to compile against
+**throwing stub APIs** that lock the intended call shape (recorded in each test's TODO
+comments); they run **red, not commented** (per request). Live: **PG 332 / SS 323** (the
+drop from ~473 is entirely the previously-*fake*-green empty bodies now showing their real
+red status; the always-green suites — `where`, `allAnyContains`, `async`, `binder` — are
+unchanged, so no working test regressed). Stub surface added:
+
+- **Bulk DML** (`Query`): `executeUpdate(u => u.set(…))` + `UpdateSetter`/`UpdatePartSetter`
+  builders, `executeDelete`/`executeDeleteChunks`/`executeDeleteMList`,
+  `executeInsert`/`executeInsertMList`/`executeInsertView`, `executeUpdatePart`/
+  `executeUpdateMList`/`executeUpdateMListPart`.
+- **Query operators**: `reverse` (real — the binder lowers it), `cast`/`ofType`,
+  `minBy`/`maxBy`, `expandLite`/`expandEntity`, a `join(separator)` overload (string
+  aggregate — `query.map(sel).join(sep)`, distinct from the inner-join overload by its
+  string arg), and `map`/`flatMap` widened with the index overload (`@lambdaTypeForParam`
+  supplies `[element, number]`; `IQuery` kept in sync, since `Quoted<>` is invariant).
+  Collection string-agg uses native `Array.join`. Bulk DML uses an **object-literal setter**
+  (no fluent builder): `executeUpdate(a => ({ field: valueExpr, … }))`,
+  `executeUpdatePart(a => a.part, p => ({ … }))`, plus `executeDelete` / `executeInsert` /
+  `executeDeleteChunks`. The setter returns `UpdateValues<T>` = `{ [K in keyof T]?: unknown }`
+  (keys validated, values loose — `int`/`PrimaryKey` are branded and value expressions widen
+  to `number`). The `*MList*` / `executeInsertView` variants were **removed** — altea has no
+  MList, so those tests operate on the **part-entity table** directly
+  (`table(AlbumEntity_Songs).executeUpdate(…)`). Nested-embedded / mixin sub-field updates
+  (`a.bonusTrack.name`, `a.mixin(M).x`) aren't expressible as object-literal keys → kept red.
+- **Entity / Lite extension methods** are consolidated in the logic barrel **`logic/index.ts`**
+  (declare-module augmentation + prototypes, installed via MusicLoader's `import "@altea/altea/logic"`;
+  a `"./logic"` package-exports entry maps the bare specifier to `index`): `save` (delegates to
+  `Saver`), `inDB()`/`inDB(selector)`, `Lite.retrieve`/`retrieveAndRemember`, plus `toLite(model)`.
+  `index.ts` also re-exports `table`, `view`, `SchemaBuilder`. (`Lite.model` was dropped — the model
+  display string is `lite.toString()`.)
+- **Layering: `entities/` must not import `logic/`.** The quote-transformer model (`@quoted`,
+  `@lambdaTypeForParam`, `@resultType`, `StaticFunction`, …) moved to **`entities/quoted.ts`** and
+  `@column` to **`entities/decorators.ts`** (both re-exported from `logic/query` / `logic/schema` for
+  back-compat); `Clock` → `entities/clock.ts`, `CorruptMixin` → `entities/corruptMixin.ts`. So the
+  test entity model (`music.ts`) references only `entities/*`. A cross-entity subquery expression-field
+  (`ArtistEntity.albumCount`, which needs `table(AlbumEntity)` from logic) can't be a pure-entity
+  `@quoted` member, so it's a stub (its test runs red). `EntityContext.entityId` and the
+  `ExpandLite`/`ExpandEntity` enums live in **`logic/query.ts`**; `view` in **`logic/table.ts`**.
+  (`EntityContext.mListRowId` was removed — altea has no MList; a collection row is a part entity with
+  its own `id`, reachable via `entityId`.)
+- **Array** (`globals.ts`): `stdDev`/`stdDevP`. No 0-arg `count()`/`some()` overloads —
+  a collection's count is `coll.length` and its EXISTS is `coll.some(a => true)` (the 0-arg
+  `.some()` stays a `Query<T>` terminal). Group aggregates use `gr.elements.max(sel)` (no spread).
+- **`@quoted` expression-members** (`music.ts`): the `[AutoExpressionField]` members
+  (`isMale`, `fullName`, `albumCount`, `lonely`, `friendsCovariant`) are real `@quoted`
+  methods (single-return bodies the transformer captures), not throwing stubs; callers use
+  `a.isMale()` etc. The binder doesn't expand `@quoted` entity members yet, so they run red.
+- **Entities** (`music.ts`): the `[AutoExpressionField]` computed members the tests use
+  (`isMale`, `fullName`, `albumCount`, `lonely`, `friendsCovariant`) as query-only getters/
+  methods (skipped by the `@field` transformer).
+- **Test-only helpers** (`altea-test/test/_apiStubs.ts`): `Throw<T>()`, `today`, `Clock`,
+  `EntityContext`, `ExpandLite`/`ExpandEntity`, `view`/`MyTempView`, `CorruptMixin`,
+  `AwardLiteModel`.
+
+A handful of bodies stay commented (with a `// BLOCKED:` note) because they can't be
+*compiled*, not merely translated: the quote-transformer can't quote a **block-bodied
+lambda** or an `as any`/`as unknown` cast; and a **query terminal used inside a quoted
+lambda** is typed `Promise<T>` (the async-terminal typing gap — `inDB().…single()`,
+correlated sub-queries in projections). These need the PromiseType/`.$v` gap or
+transformer features resolved first, not just a stub. (The earlier `Math.max(...spread)`
+blockers are gone — those tests now use `gr.elements.max(sel)`.)
+
 ## Most important differences so far
 
 - TypeScript uses `quote-transformer` expressions instead of

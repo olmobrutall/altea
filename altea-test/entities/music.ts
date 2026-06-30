@@ -5,10 +5,9 @@ import {
     entity, partEntity, mixin, primaryKey,
     implementedBy, implementedByAll, backReference, rowOrder, valueField,
     include, stringLengthValidator, EntityData, EntityKind,
+    quoted, column,
 } from "@altea/altea/entities/decorators";
 import { Temporal, int, toInt } from "@altea/altea/entities/basics";
-import { quoted } from "@altea/altea/logic/query";
-import { column } from "@altea/altea/logic/schema";
 
 // Port of Signum.Test's Environment/Entities.cs (the "Music" domain), adapted to
 // altea and the *currently implemented* feature set. Entities, interleaved enums
@@ -94,6 +93,22 @@ export class ArtistEntity extends Entity {
     // by AwardNominationEntity.author (an @implementedBy reference, so it can't be
     // a plain part entity here). Navigate it through AwardNominationEntity.
 
+    // Computed query members (Signum's [AutoExpressionField]) — @quoted captures the
+    // body as a translatable expression (no real column); methods, so the @field
+    // transformer skips them. The binder doesn't expand @quoted entity members yet, so
+    // queries using them run red.
+    @quoted
+    isMale(): boolean { return this.sex == Sex.Male; }
+    @quoted
+    fullName(): string { return this.name; }
+    // albumCount (a cross-entity subquery: count albums where author == this) needs a
+    // query source from the logic layer, so it's defined+implemented in MusicLogic, which
+    // augments this interface (entities/ must not reference logic/).
+    @quoted
+    lonely(): boolean { return this.friends.length == 0; }
+    @quoted
+    friendsCovariant(): ArtistEntity[] { return this.friends.map(f => f.friend.entity); }
+
     toString(): string {
         return this.name;
     }
@@ -131,6 +146,12 @@ export class BandEntity extends Entity {
     // Signum's MList<AwardEntity> OtherAwards → band/award part entity.
     @include(() => BandEntity_OtherAwards)
     otherAwards: BandEntity_OtherAwards[];
+
+    // Computed query members (Signum's [AutoExpressionField]) — see ArtistEntity.
+    @quoted
+    fullName(): string { return this.name; }
+    @quoted
+    lonely(): boolean { return this.members.length == 0; }
 
     toString(): string {
         return this.name;

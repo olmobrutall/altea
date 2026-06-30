@@ -1,7 +1,51 @@
 
 import { getOrCreateTypeInfo, getOrCreateFieldInfo, registerType, FieldInfo, ctorOf } from './reflection';
-import type { PrimaryKeyType } from './reflection';
+import type { PrimaryKeyType, ColumnOptions } from './reflection';
 import type { Type, Entity } from './entity';
+import type { ExLambda } from 'quote-transformer/quoted';
+
+export type { ColumnOptions } from './reflection';
+
+// `@quoted` / `withQuoted` mark a method (or function) whose body the quote-transformer
+// captures as a translatable expression, stored on `__quoted`. They live here (entities)
+// so the entity model can annotate expression members without depending on the query
+// layer; the resolver/carrier helpers (StaticFunction, lambdaTypeForParam, …) stay in
+// logic/query. We touch only `__quoted`, so a minimal local carrier type suffices.
+type Quotable = { __quoted?: () => ExLambda };
+
+// Two call shapes:
+//   @quoted        — bare. The quote-transformer rewrites it to @quoted(() => <expr>)
+//                    before emit, so this overload exists only so the bare form
+//                    type-checks as a method decorator.
+//   @quoted(exp)   — the rewritten/explicit form the transformer produces.
+export function quoted(target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor): void;
+export function quoted(exp?: () => ExLambda): (target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor) => void;
+export function quoted(arg1?: unknown, arg2?: unknown, _arg3?: unknown): unknown {
+    // Bare @quoted reached runtime (applied directly as a decorator: arg2 is a
+    // property key). The transformer should have rewritten it to @quoted(() => <expr>).
+    if (typeof arg2 === "string" || typeof arg2 === "symbol")
+        throw new Error(`Unable to add the quoted expression to "${String(arg2)}". Are you using ts-patch and quote-transformer?`);
+
+    const exp = arg1 as (() => ExLambda) | undefined;
+    return function (_target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor): void {
+        if (exp == undefined)
+            throw new Error(`Unable to add the quoted expression to "${String(propertyKey)}". Are you using ts-patch and quote-transformer?`);
+
+        const fn = descriptor.value;
+        if (typeof fn != "function")
+            throw new Error(`@quoted can only be applied to methods, but '${String(propertyKey)}' is not a method`);
+
+        (fn as Quotable).__quoted = exp;
+    };
+}
+
+// Functional form of @quoted, for attaching a quoted expression to a function value
+// (e.g. a prototype method added outside a class). The transformer rewrites
+// `withQuoted(fn)` to inject the captured expression as the second argument.
+export function withQuoted<T extends Function>(f: T, quoted?: () => ExLambda): T {
+    (f as unknown as Quotable).__quoted = quoted;
+    return f;
+}
 
 export type { PrimaryKeyType } from './reflection';
 
@@ -99,6 +143,31 @@ export function ignore(target: object, propertyKey: string | symbol): void {
 export function fkProperty(propertyName: string) {
     return function (target: object, propertyKey: string | symbol): void {
         getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).fkPropertyName = propertyName;
+    };
+}
+
+// Field-level decorator: overrides column mapping (name / db types / size /
+// precision / nullability) for a field. Stored on FieldInfo.columnOptions and
+// consumed by SchemaBuilder. Lives in entities/ (the entity model owns its column
+// annotations); the schema layer re-exports it for back-compat.
+export function column(options: ColumnOptions = {}) {
+    return function (target: object, propertyKey: string | symbol) {
+        const key = String(propertyKey);
+        const normalizedOptions: ColumnOptions = {
+            ...options,
+            columnName: options.columnName ?? key,
+        };
+
+        const typeInfo = getOrCreateTypeInfo(target);
+        const existing = getOrCreateFieldInfo(typeInfo, key);
+        existing.columnOptions = normalizedOptions;
+        // Mirror an explicit nullable into the field's nullability so the column
+        // is generated NULL even when the TS type isn't `| null` (Signum's
+        // ForceNullable). Auto-@field never sets nullable for a non-null type, so
+        // this is the authoritative source for those.
+        if (options.nullable != null)
+            existing.isNullable = options.nullable;
+        typeInfo.fields[key] = existing;
     };
 }
 

@@ -1,5 +1,5 @@
 import { int, Temporal, toInt } from "@altea/altea/entities/basics";
-import "@altea/altea/logic/saver"; // installs Entity.prototype.save() (graph saver)
+import "@altea/altea/logic"; // installs save()/inDB()/retrieve*() entity+lite extension methods
 import {
     CountryEntity,
     LabelEntity,

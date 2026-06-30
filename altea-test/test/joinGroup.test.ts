@@ -3,7 +3,14 @@ import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / … (SQL-mappable)
 import { hasDb, start } from "./setup";
+import { view } from "@altea/altea/logic/table";
+import { Lite } from "@altea/altea/entities/lite";
 import { ArtistEntity, AlbumEntity } from "../entities/music";
+
+// A temporary IView used by the LeftOuterMyView test (Database.View / temporary table).
+class MyTempView {
+    artist: Lite<ArtistEntity>;
+}
 
 // Port of Signum.Test/LinqProvider/JoinGroupTest.cs. C# → altea idiom:
 //   Database.Query<T>()           → table(T)
@@ -194,13 +201,13 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
     // TODO(api): groupJoin/defaultIfEmpty
     // TODO(api): Database.View<T>() / temporary tables / UnsafeInsertView
     test("LeftOuterMyView", async () => {
-        // const artists = await table(ArtistEntity)
-        //     .groupJoin(
-        //         view(MyTempView),
-        //         a => a.toLite(),
-        //         b => b.artist,
-        //         (a, g) => a.toLite())
-        //     .toArray();
-        // assert.ok(artists.every(a => a.toString().startsWith("M")));
+        const artists = await table(ArtistEntity)
+            .groupJoin(
+                view(MyTempView),
+                a => a.toLite(),
+                b => b.artist,
+                (a, g) => a.toLite())
+            .toArray();
+        assert.ok(artists.every(a => a.toString().startsWith("M")));
     });
 });

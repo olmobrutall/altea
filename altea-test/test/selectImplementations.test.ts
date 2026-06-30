@@ -65,21 +65,21 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     // Where(a => a.Author.CombineUnion().ToLite().ToString()!.Length > 0).Select(a => a.Author.CombineUnion().ToLite())
     // TODO(api): combineUnion/Case
     test("SelectLiteIBDoubleWhereUnion", async () => {
-        // const list = await table(AlbumEntity)
-        //     .filter(a => a.author.combineUnion().toLite().toString()!.length > 0)
-        //     .map(a => a.author.combineUnion().toLite())
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .filter(a => a.author.combineUnion().toLite().toString()!.length > 0)
+            .map(a => a.author.combineUnion().toLite())
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Where(a => a.Author.CombineCase().ToLite().ToString()!.Length > 0).Select(a => a.Author.CombineCase().ToLite())
     // TODO(api): combineUnion/Case
     test("SelectLiteIBDoubleWhereSwitch", async () => {
-        // const list = await table(AlbumEntity)
-        //     .filter(a => a.author.combineCase().toLite().toString()!.length > 0)
-        //     .map(a => a.author.combineCase().toLite())
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .filter(a => a.author.combineCase().toLite().toString()!.length > 0)
+            .map(a => a.author.combineCase().toLite())
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Database.Query<NoteWithDateEntity>().Select(a => new { Type = a.Target.GetType(), Target = a.Target.ToLite() }).ToList();
@@ -94,8 +94,8 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     // Database.Query<AwardNominationEntity>().Select(a => a.Award.EntityType).ToList();
     // TODO(api): Lite.EntityType (runtime type of an @implementedBy Lite) in query
     test("SelectTypeLiteIB", async () => {
-        // const list = await table(AwardNominationEntity).map(a => a.award.entityType).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AwardNominationEntity).map(a => a.award.entityType).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Select(a => a.LastAward == null ? null : a.LastAward.Id.ToString()).ToList();
@@ -119,10 +119,10 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     // Where(a => a.Friends.Select(a => a.ToString()).Contains(a.LastAward!.Id.ToString())).ToList();
     // TODO(api): Lite.id of an @implementedByAll reference + ToString of a Lite element in subquery
     test("ContainsIdLiteIB", async () => {
-        // const list = await table(ArtistEntity)
-        //     .filter(a => a.friends.map(f => f.friend.toString()).contains(a.lastAward!.id as string))
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(ArtistEntity)
+            .filter(a => a.friends.map(f => f.friend.toString()).contains(a.lastAward!.id as string))
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Database.Query<AwardNominationEntity>().Where(a => a.Award.Entity is GrammyAwardEntity).ToList();
@@ -145,20 +145,20 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     // Type[] types = { typeof(GrammyAwardEntity) }; Where(a => types.Contains(a.Award.Entity.GetType())).ToList();
     // TODO(api): GetType/typeof comparison in query (types.Contains over runtime type)
     test("SelectEntityWithLiteIbTypeContains", async () => {
-        // const types = [GrammyAwardEntity];
-        // const list = await table(AwardNominationEntity)
-        //     .filter(a => types.contains(a.award.entity.constructor))
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const types: Function[] = [GrammyAwardEntity];
+        const list = await table(AwardNominationEntity)
+            .filter(a => types.contains(a.award.entity.constructor))
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Where(a => a.Award.EntityType == typeof(GrammyAwardEntity)).ToList();
     // TODO(api): Lite.EntityType (runtime type of an @implementedBy Lite) and typeof comparison
     test("SelectEntityWithLiteIbRuntimeType", async () => {
-        // const list = await table(AwardNominationEntity)
-        //     .filter(a => a.award.entityType === GrammyAwardEntity)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AwardNominationEntity)
+            .filter(a => a.award.entityType === GrammyAwardEntity)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Database.Query<ArtistEntity>().Select(a => a.ToLite()).ToList();
@@ -170,11 +170,11 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     // SelectMany(a => a.Friends).Select(a => (Lite<IAuthorEntity>)a).ToList();
     // TODO(api): implementedBy interface (Lite<IAuthorEntity> upcast does not exist in altea)
     test("SelectLiteCastUpcast", async () => {
-        // const list = await table(ArtistEntity)
-        //     .flatMap(a => a.friends)
-        //     .map(a => a.friend)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(ArtistEntity)
+            .flatMap(a => a.friends)
+            .map(a => a.friend)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // SelectMany(a => a.Friends).Select(a => (Lite<ArtistEntity>)a).ToList();
@@ -196,46 +196,46 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     // SelectAuthorsLite<ArtistEntity, IAuthorEntity>(): Select(a => a.ToLite<LT>())
     // TODO(api): implementedBy interface (generic ToLite<IAuthorEntity> upcast does not exist in altea)
     test("SelectLiteGenericUpcast", async () => {
-        // const list = await table(ArtistEntity).map(a => a.toLite()).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(ArtistEntity).map(a => a.toLite()).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // from a let band = (BandEntity)a.Author select new { Artist = band.ToString(), Author = a.Author.CombineUnion().ToString() }
     // TODO(api): combineUnion/Case
     test("SelectLiteIBRedundantUnion", async () => {
-        // const list = await table(AlbumEntity)
-        //     .map(a => ({ artist: (a.author as BandEntity).toString(), author: a.author.combineUnion().toString() }))
-        //     .toArray();
-        // assert.equal(await table(AlbumEntity).count(), list.length);
+        const list = await table(AlbumEntity)
+            .map(a => ({ artist: (a.author as BandEntity).toString(), author: a.author.combineUnion().toString() }))
+            .toArray();
+        assert.equal(await table(AlbumEntity).count(), list.length);
     });
 
     // from a let band = (BandEntity)a.Author select new { Artist = band.ToString(), Author = a.Author.CombineCase().ToString() }
     // TODO(api): combineUnion/Case
     test("SelectLiteIBRedundantSwitch", async () => {
-        // const list = await table(AlbumEntity)
-        //     .map(a => ({ artist: (a.author as BandEntity).toString(), author: a.author.combineCase().toString() }))
-        //     .toArray();
-        // assert.equal(await table(AlbumEntity).count(), list.length);
+        const list = await table(AlbumEntity)
+            .map(a => ({ artist: (a.author as BandEntity).toString(), author: a.author.combineCase().toString() }))
+            .toArray();
+        assert.equal(await table(AlbumEntity).count(), list.length);
     });
 
     // Select(a => a.Author.CombineUnion().ToLite()).Where(a => a.ToString()!.StartsWith("Michael")).ToList();
     // TODO(api): combineUnion/Case
     test("SelectLiteIBWhereUnion", async () => {
-        // const list = await table(AlbumEntity)
-        //     .map(a => a.author.combineUnion().toLite())
-        //     .filter(a => a.toString()!.startsWith("Michael"))
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .map(a => a.author.combineUnion().toLite())
+            .filter(a => a.toString()!.startsWith("Michael"))
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Select(a => a.Author.CombineCase().ToLite()).Where(a => a.ToString()!.StartsWith("Michael")).ToList();
     // TODO(api): combineUnion/Case
     test("SelectLiteIBWhereSwitch", async () => {
-        // const list = await table(AlbumEntity)
-        //     .map(a => a.author.combineCase().toLite())
-        //     .filter(a => a.toString()!.startsWith("Michael"))
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .map(a => a.author.combineCase().toLite())
+            .filter(a => a.toString()!.startsWith("Michael"))
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Database.Query<NoteWithDateEntity>().Select(a => a.Target.ToLite()).ToList();  (duplicate name SelectLiteIBA)
@@ -294,15 +294,15 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     // from a select a.Author.CombineUnion().Name
     // TODO(api): combineUnion/Case
     test("SelectCastIBPolymorphicUnion", async () => {
-        // const list = await table(AlbumEntity).map(a => a.author.combineUnion().name).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity).map(a => a.author.combineUnion().name).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // from a select a.Author.CombineCase().Name
     // TODO(api): combineUnion/Case
     test("SelectCastIBPolymorphicSwitch", async () => {
-        // const list = await table(AlbumEntity).map(a => a.author.combineCase().name).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity).map(a => a.author.combineCase().name).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // from a select (int?)a.Award!.Entity.Year
@@ -317,19 +317,19 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     // from a select a.Author.CombineUnion().LastAward.Try(la => la.ToLite())
     // TODO(api): combineUnion/Case
     test("SelectCastIBPolymorphicIBUnion", async () => {
-        // const list = await table(AlbumEntity)
-        //     .map(a => a.author.combineUnion().lastAward?.toLite())
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .map(a => a.author.combineUnion().lastAward?.toLite())
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // from a select a.Author.CombineCase().LastAward.Try(la => la.ToLite())
     // TODO(api): combineUnion/Case
     test("SelectCastIBPolymorphicIBSwitch", async () => {
-        // const list = await table(AlbumEntity)
-        //     .map(a => a.author.combineCase().lastAward?.toLite())
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .map(a => a.author.combineCase().lastAward?.toLite())
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // from n select ((ArtistEntity)n.Target).Name ?? ((AlbumEntity)n.Target).Name ?? ((BandEntity)n.Target).Name
@@ -344,15 +344,15 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     // (from n select n.Target).Cast<BandEntity>().ToList();
     // TODO(api): Cast<T>() query operator
     test("SelectCastIBACastOperator", async () => {
-        // const list = await table(NoteWithDateEntity).map(n => n.target).cast(BandEntity).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(NoteWithDateEntity).map(n => n.target).cast(BandEntity).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // (from n select n.Target).OfType<BandEntity>().ToList();
     // TODO(api): OfType<T>() query operator
     test("SelectCastIBAOfTypeOperator", async () => {
-        // const list = await table(NoteWithDateEntity).map(n => n.target).ofType(BandEntity).toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(NoteWithDateEntity).map(n => n.target).ofType(BandEntity).toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // from a select (a.Author is ArtistEntity ? ((ArtistEntity)a.Author).Name : ((BandEntity)a.Author).Name)
@@ -377,44 +377,44 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     // TODO(api): implementedBy interface (FullName lives on IAuthorEntity, not on the altea Entity)
     // TODO(api): entity cast in query ((x as ArtistEntity))
     test("SelectCastIsIBADouble", async () => {
-        // const list = await table(NoteWithDateEntity)
-        //     .map(n => ({
-        //         name: n.target instanceof ArtistEntity ? (n.target as ArtistEntity).name : (n.target as BandEntity).name,
-        //         fullName: n.target instanceof ArtistEntity ? (n.target as ArtistEntity).fullName : (n.target as BandEntity).fullName,
-        //     }))
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(NoteWithDateEntity)
+            .map(n => ({
+                name: n.target instanceof ArtistEntity ? (n.target as ArtistEntity).name : (n.target as BandEntity).name,
+                fullName: n.target instanceof ArtistEntity ? (n.target as ArtistEntity).fullName() : (n.target as BandEntity).fullName(),
+            }))
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // from n where (… ? ((ArtistEntity)n.Target).Name : ((BandEntity)n.Target).Name).Length > 0 select … ((ArtistEntity)n.Target).FullName : ((BandEntity)n.Target).FullName
     // TODO(api): implementedBy interface (FullName lives on IAuthorEntity, not on the altea Entity)
     // TODO(api): entity cast in query ((x as ArtistEntity))
     test("SelectCastIsIBADoubleWhere", async () => {
-        // const list = await table(NoteWithDateEntity)
-        //     .filter(n => (n.target instanceof ArtistEntity ? (n.target as ArtistEntity).name : (n.target as BandEntity).name).length > 0)
-        //     .map(n => n.target instanceof ArtistEntity ? (n.target as ArtistEntity).fullName : (n.target as BandEntity).fullName)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(NoteWithDateEntity)
+            .filter(n => (n.target instanceof ArtistEntity ? (n.target as ArtistEntity).name : (n.target as BandEntity).name).length > 0)
+            .map(n => n.target instanceof ArtistEntity ? (n.target as ArtistEntity).fullName() : (n.target as BandEntity).fullName())
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // from n where n.Target.ToLite() is Lite<AlbumEntity> select n.Target.ToLite()
     // TODO(api): `is Lite<T>` runtime-type test on a Lite in query
     test("SelectIsIBLite", async () => {
-        // const list = await table(NoteWithDateEntity)
-        //     .filter(n => n.target.toLite() instanceof AlbumEntity)
-        //     .map(n => n.target.toLite())
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(NoteWithDateEntity)
+            .filter(n => n.target.toLite() instanceof AlbumEntity)
+            .map(n => n.target.toLite())
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // from a where a.Author is Lite<BandEntity> select a.Author
     // TODO(api): `is Lite<T>` runtime-type test on an @implementedBy Lite in query
     test("SelectIsIBALite", async () => {
-        // const list = await table(AwardNominationEntity)
-        //     .filter(a => a.author instanceof BandEntity)
-        //     .map(a => a.author)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AwardNominationEntity)
+            .filter(a => a.author instanceof BandEntity)
+            .map(a => a.author)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // from n select (Lite<AlbumEntity>)n.Target.ToLite()

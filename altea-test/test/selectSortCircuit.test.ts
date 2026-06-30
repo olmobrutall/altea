@@ -5,6 +5,12 @@ import "@altea/altea/entities/globals"; // collection .some on a part-entity col
 import { hasDb, start } from "./setup";
 import { AlbumEntity, BandEntity } from "../entities/music";
 
+// A short-circuit helper (Signum's Throw<T>()) — the right side of a ?? / || / && the
+// optimiser proves unreachable. Not SQL-mappable; the in-memory body just throws.
+function Throw<T>(): T {
+    throw new Error("Throw<T>() is a query-only short-circuit helper with no in-memory body");
+}
+
 // Port of Signum.Test/LinqProvider/SelectSortCirtuitTest.cs. C# → altea idiom:
 //   Database.Query<T>()  → table(T)            .Where(...) → .filter(...)
 //   .Select(...)         → .map(...)           .ToList()   → await .toArray()
@@ -26,6 +32,7 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
     // Query<AlbumEntity>().Where(a => ("Hola" ?? Throw<string>()) == null).Select(a => a.Year).ToList();
     // TODO(api): short-circuit ?? with a throwing helper (Throw<T>()) — not SQL-mappable
     test("SortCircuitCoalesce", async () => {
+        // BLOCKED: short-circuit ?? with Throw<T>() (left never nullish) - not SQL-mappable.
         // const list = await table(AlbumEntity)
         //     .filter(a => ("Hola" ?? Throw<string>()) == null)
         //     .map(a => a.year)
@@ -37,6 +44,7 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
     // TODO(api): short-circuit ?? with a throwing helper (Throw<T>()) — not SQL-mappable
     // TODO(api): Clock.Now / DateTime.Now / DateTime.Today server-now constants in query
     test("SortCircuitCoalesceNullable", async () => {
+        // BLOCKED: ?? with Throw<T>() + Date/PlainDate constant - not SQL-mappable.
         // const list = await table(AlbumEntity)
         //     .filter(a => ((Date.now() as Date | null) ?? Throw<Date>()) == today)
         //     .map(a => a.year)
@@ -47,11 +55,11 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
     // Where(a => "Hola" == "Hola" ? true : Throw<bool>()).Select(a => a.Year).ToList();
     // TODO(api): short-circuit ?: with a throwing helper (Throw<T>()) — not SQL-mappable
     test("SortCircuitConditionalIf", async () => {
-        // const list = await table(AlbumEntity)
-        //     .filter(a => "Hola" == "Hola" ? true : Throw<boolean>())
-        //     .map(a => a.year)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .filter(a => "Hola" == "Hola" ? true : Throw<boolean>())
+            .map(a => a.year)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Where(b => b.Name == "Olmo" ? b.Members.Any(a => a.Name == "A") : true).Select(b => b.ToLite()).ToList();
@@ -66,41 +74,41 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
     // Where(a => true | Throw<bool>()).Select(a => a.Year).ToList();
     // TODO(api): short-circuit | (bitwise-or) with a throwing helper (Throw<T>()) — not SQL-mappable
     test("SortCircuitOr", async () => {
-        // const list = await table(AlbumEntity)
-        //     .filter(a => true || Throw<boolean>())
-        //     .map(a => a.year)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .filter(a => true || Throw<boolean>())
+            .map(a => a.year)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Where(a => true || Throw<bool>()).Select(a => a.Year).ToList();
     // TODO(api): short-circuit || with a throwing helper (Throw<T>()) — not SQL-mappable
     test("SortCircuitOrElse", async () => {
-        // const list = await table(AlbumEntity)
-        //     .filter(a => true || Throw<boolean>())
-        //     .map(a => a.year)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .filter(a => true || Throw<boolean>())
+            .map(a => a.year)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Where(a => false & Throw<bool>()).Select(a => a.Year).ToList();
     // TODO(api): short-circuit & (bitwise-and) with a throwing helper (Throw<T>()) — not SQL-mappable
     test("SortCircuitAnd", async () => {
-        // const list = await table(AlbumEntity)
-        //     .filter(a => false && Throw<boolean>())
-        //     .map(a => a.year)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .filter(a => false && Throw<boolean>())
+            .map(a => a.year)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Where(a => false && Throw<bool>()).Select(a => a.Year).ToList();
     // TODO(api): short-circuit && with a throwing helper (Throw<T>()) — not SQL-mappable
     test("SortCircuitAndAlso", async () => {
-        // const list = await table(AlbumEntity)
-        //     .filter(a => false && Throw<boolean>())
-        //     .map(a => a.year)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .filter(a => false && Throw<boolean>())
+            .map(a => a.year)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Where(a => true == (a.Year == 1900)).Select(a => a.Year).ToList();
