@@ -221,6 +221,16 @@ export class Query<T> implements IQuery<T> {
         return this.translator.execute(call) as Promise<boolean>;
     }
 
+    @resultType(ot => new PromiseType(SimpleType.boolean))
+    contains(element: T): Promise<boolean> {
+        var call = new CallExpression(
+            new PropertyExpression(this.expression, "contains"),
+            [new ConstantExpression(element)],
+            SimpleType.boolean);
+
+        return this.translator.execute(call) as Promise<boolean>;
+    }
+
     min(): Promise<T & (number | string | boolean | null | undefined)>;
     min<V extends (number | string | boolean | null | undefined)>(valueSelector: Quoted<(element: T) => V>): Promise<V>;
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])

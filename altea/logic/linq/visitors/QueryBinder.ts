@@ -1,7 +1,7 @@
 import {
     Expression, CallExpression, PropertyExpression, ParameterExpression,
     LambdaExpression, ConstantExpression, CastExpression, BinaryExpression,
-    ConditionalExpression, ObjectExpression,
+    ConditionalExpression, ObjectExpression, UnaryExpression,
 } from "../expressions";
 import {
     SelectExpression, ProjectionExpression, ColumnExpression, PrimaryKeyExpression,
@@ -9,7 +9,7 @@ import {
     SqlConstantExpression, TableExpression, OrderExpression, OrderType, UniqueFunction,
     AggregateExpression, AggregateRequestsExpression, AggregateSqlFunction, ColumnDeclaration, LikeExpression, InExpression,
     SourceExpression, SqlFunctionExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression,
-    LiteReferenceExpression, LiteReferenceTarget, ScalarExpression,
+    LiteReferenceExpression, LiteReferenceTarget, ScalarExpression, ExistsExpression,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
     CaseExpression, When, IsNotNullExpression,
 } from "../expressions.sql";
@@ -207,6 +207,12 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.bindAggregate(source, "Sum", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "avg":
                     return this.bindAggregate(source, "Average", call.args[0] as LambdaExpression | undefined, call === this.root);
+                case "some":
+                    return this.bindAnyAll(source, call.args[0] as LambdaExpression | undefined, false, call === this.root);
+                case "every":
+                    return this.bindAnyAll(source, call.args[0] as LambdaExpression | undefined, true, call === this.root);
+                case "contains":
+                    return this.bindContains(source, call.args[0], call === this.root);
                 default:
                     throw new Error(`Query operator '${op}' is not implemented in the binder skeleton yet`);
             }
@@ -478,6 +484,50 @@ export class QueryBinder extends ExpressionVisitor {
         return exp;
     }
 
+    // Any/All — port of Signum's BindAnyAll. `some` → EXISTS(source[ WHERE pred]);
+    // `every` → NOT EXISTS(source WHERE !pred) (All(p) ≡ !Any(!p)). At the root the
+    // boolean is wrapped in a one-row projection; nested it stays an ExistsExpression.
+    private bindAnyAll(projection: ProjectionExpression, predicate: LambdaExpression | undefined, isAll: boolean, isRoot: boolean): Expression {
+        if (isAll && predicate != null)
+            predicate = new LambdaExpression(predicate.parameters, new UnaryExpression("!", predicate.body));
+
+        const filtered = predicate != null ? this.bindWhere(projection, predicate) : projection;
+
+        let result: Expression = new ExistsExpression(filtered.select);
+        if (isAll)
+            result = SmartEqualizer.not(result);
+
+        return isRoot ? this.getUniqueProjection(result, "SingleOrDefault") : result;
+    }
+
+    // Contains — port of Signum's BindContains over a (sub-)query source. A value
+    // collection → `item IN (SELECT col …)`; a reference collection → `EXISTS(…
+    // WHERE element == item)` lowered by SmartEqualizer (the constant-array form is
+    // handled separately in bindMethodCall → IN).
+    private bindContains(projection: ProjectionExpression, item: Expression, isRoot: boolean): Expression {
+        const newItem = this.visit(item);
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const pc = projectColumns(projection.projector, alias);
+
+        let result: Expression;
+        if (isReferenceish(projection.projector)) {
+            const where = SmartEqualizer.polymorphicEqual(projection.projector, newItem);
+            result = new ExistsExpression(new SelectExpression(alias, false, undefined, pc.columns, projection.select, where, [], []));
+        } else {
+            result = new InExpression(newItem, new SelectExpression(alias, false, undefined, pc.columns, projection.select, undefined, [], []), undefined);
+        }
+
+        return isRoot ? this.getUniqueProjection(result, "SingleOrDefault") : result;
+    }
+
+    // Wrap a boolean expression as a one-row projection (Signum's GetUniqueProjection)
+    // — `SELECT <expr> AS value` with no FROM, read back as a single scalar.
+    private getUniqueProjection(expr: Expression, uniqueFunction: UniqueFunction): ProjectionExpression {
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const select = new SelectExpression(alias, false, undefined, [new ColumnDeclaration("value", expr)], undefined, undefined, [], []);
+        return new ProjectionExpression(select, new ColumnExpression(expr.type, alias, "value"), uniqueFunction, expr.type);
+    }
+
     // Binds a lambda body with its single parameter mapped to the source's
     // projector (Signum's MapVisitExpand).
     private mapVisitExpand(lambda: LambdaExpression, projection: ProjectionExpression): Expression {
@@ -508,9 +558,13 @@ export class QueryBinder extends ExpressionVisitor {
     // ---- member access ----------------------------------------------------
 
     private bindMemberAccess(pe: PropertyExpression): Expression {
-        const obj = this.visit(pe.object);
-        const name = pe.propertyName;
+        return this.bindMember(this.visit(pe.object), pe.propertyName, pe.isOptionalChaining);
+    }
 
+    // Dispatches `<bound obj>.<name>` on an already-bound expression. Split out from
+    // bindMemberAccess so it can be reused to navigate a member on the projector of a
+    // single-result sub-query (see the uniqueFunction branch below).
+    private bindMember(obj: Expression, name: string, isOptionalChaining: boolean): Expression {
         if (obj instanceof EntityExpression)
             return this.bindEntityMember(obj, name);
 
@@ -545,6 +599,18 @@ export class QueryBinder extends ExpressionVisitor {
             throw new Error(`Property '${name}' not found on object projector`);
         }
 
+        // A member of a single-result sub-query (`coll.orderBy(…).first().name`):
+        // navigate the member on the (single) projector and re-wrap as a scalar
+        // subquery `(SELECT <member> FROM <the single-row select>)`. The `.length`
+        // case below is the collection-count form (uniqueFunction == null).
+        if (obj instanceof ProjectionExpression && obj.uniqueFunction != null && name !== "$v") {
+            const member = this.bindMember(obj.projector, name, isOptionalChaining);
+            const alias = this.aliasGenerator.nextSelectAlias();
+            const pc = projectColumns(member, alias);
+            const select = new SelectExpression(alias, false, undefined, pc.columns, obj.select, undefined, [], []);
+            return new ScalarExpression(member.type, select);
+        }
+
         // `.length` of a (sub-)query collection → COUNT (e.g. `g.elements.length`,
         // `album.songs.length`). string.length is the unrelated SQL-function case
         // handled below.
@@ -564,7 +630,7 @@ export class QueryBinder extends ExpressionVisitor {
 
         // Property on a plain constant (captured value) — keep as a source node.
         if (obj instanceof ConstantExpression)
-            return new PropertyExpression(obj, name, pe.isOptionalChaining);
+            return new PropertyExpression(obj, name, isOptionalChaining);
 
         throw new Error(`Cannot bind member '${name}' on ${obj.toString()}`);
     }

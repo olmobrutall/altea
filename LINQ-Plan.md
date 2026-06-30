@@ -437,13 +437,32 @@ cases). The slice:
 Scoped / deferred (flagged, not regressions): the distinct-fast disassembly
 (`DisassembleAggregate` Select.Distinct→`COUNT(DISTINCT)`; the complicated-subquery
 fallback is correct), the "key contains an aggregate" intermediate-select branch,
-member access on a Single sub-projection (`g.elements.…firstOrNull().name` —
-`FirstLast*`), and SQL Server's *aggregate-over-subquery* restriction
-(`min(b => b.members.max(…))` — needs the skipped ScalarSubqueryRewriter). Out of
-scope (no altea API): `minBy`/`maxBy`, `All`/`every` over a group, `contains`/EntityIn,
-`substring`, `join`, empty-key `groupBy(a => ({}))`, StdDev. Pre-existing/orthogonal:
-the Postgres `COUNT`→bigint-string coercion and empty-set max/min/sum semantics
-(`Root*`).
+and SQL Server's *aggregate-over-subquery* restriction (`min(b => b.members.max(…))`
+— needs the skipped ScalarSubqueryRewriter). Out of scope (no altea API):
+`minBy`/`maxBy`, `substring`, `join`, empty-key `groupBy(a => ({}))`, StdDev, and
+the in-memory **constant-collection** operators (`years.some(…)`, `EntityIn` —
+`list.contains(entity)` over a captured array). Pre-existing/orthogonal: the
+Postgres `COUNT`→bigint-string coercion and empty-set max/min/sum semantics (`Root*`).
+
+**Tier 3 follow-up (Any/All/Contains + single-result-subquery member).** Extended the
+same tier: **groupBy.test.ts PG 71/82, SQL Server 68/82**; full suite PG 439→460,
+SS 437→459 (still **zero regressions** vs the clean baseline). The Any/All/Contains
+work also lifted the broader `allAnyContains` suite (query-level forms). Added:
+
+- **`bindAnyAll`** / **`bindContains`** / **`getUniqueProjection`** (`QueryBinder.ts`,
+  ports of Signum's `BindAnyAll`/`BindContains`/`GetUniqueProjection`) + `some`/`every`/
+  `contains` dispatch. `some` → `EXISTS(…)`, `every` → `NOT EXISTS(… !pred)`
+  (All(p) ≡ !Any(!p)); `contains` → `item IN (…)` for a value collection or
+  `EXISTS(… element == item)` (via SmartEqualizer) for a reference collection. At the
+  root the boolean is wrapped in a one-row projection; nested it stays an
+  `ExistsExpression`. `contains` was also added to `Query` (`query.ts`) so the
+  expression layer types `g.elements.contains(x)`.
+- **Member of a single-result sub-query** (`coll.orderBy(…).firstOrNull()!.name` —
+  `FirstLast*`): `bindMemberAccess` was split into a reusable `bindMember`, and a
+  `ProjectionExpression` with a `uniqueFunction` now navigates the member on its
+  projector and re-wraps as a scalar subquery. The whole-entity single sub-query
+  (`…firstOrNull()` used directly) already materialised via the existing child-projection
+  path — no new reader code.
 
 ## Most important differences so far
 
