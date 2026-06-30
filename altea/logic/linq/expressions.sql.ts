@@ -243,6 +243,28 @@ export class AggregateExpression extends DbExpression {
     }
 }
 
+// Signum's AggregateRequestsExpression: a deferred aggregate that logically
+// belongs to the GROUP BY select identified by `groupByAlias`. The binder emits
+// it for an aggregate written over a grouping's elements (e.g. `g.elements.sum()`);
+// AggregateRewriter later hoists the inner aggregate into that select as an extra
+// column and replaces the request with a reference to that column.
+export class AggregateRequestsExpression extends DbExpression {
+    constructor(
+        public readonly groupByAlias: Alias,
+        public readonly aggregate: AggregateExpression,
+    ) {
+        super("AggregateRequest", aggregate.type);
+    }
+
+    toString(): string {
+        return `AggregateRequest OF ${this.groupByAlias}(${this.aggregate})`;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitAggregateRequest(this);
+    }
+}
+
 export class SqlFunctionExpression extends DbExpression {
     readonly arguments: readonly Expression[];
     constructor(

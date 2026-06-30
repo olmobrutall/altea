@@ -2,6 +2,7 @@ import { Expression, BinaryExpression, ConstantExpression, UnaryExpression } fro
 import {
     EntityExpression, ImplementedByExpression, ImplementedByAllExpression,
     LiteReferenceExpression, LiteReferenceTarget, PrimaryKeyExpression,
+    IsNullExpression,
 } from "./expressions.sql";
 import { ClassType } from "../../entities/types";
 import { Entity } from "../../entities/entity";
@@ -213,6 +214,15 @@ export class SmartEqualizer {
         if (e === this.True) return this.False;
         if (e === this.False) return this.True;
         return new UnaryExpression("!", e);
+    }
+
+    // Null-safe equality used to correlate a group's element subquery to its key
+    // (Signum's EqualNullableGroupBy): two key columns match when they are equal
+    // OR both null — so NULL keys group together (SQL `=` treats NULL ≠ NULL).
+    static equalNullableGroupBy(e1: Expression, e2: Expression): Expression {
+        return this.or(
+            this.equalNullable(e1, e2),
+            this.and(new IsNullExpression(e1), new IsNullExpression(e2)));
     }
 }
 

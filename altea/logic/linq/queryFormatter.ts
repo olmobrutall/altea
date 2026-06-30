@@ -23,6 +23,14 @@ export interface FormattedQuery {
 
 export class QueryFormatter extends DbExpressionVisitor {
     private readonly parameters: unknown[] = [];
+    // A constant value can be rendered more than once — notably a group key
+    // expression that appears in both the SELECT list and the GROUP BY clause (and,
+    // after ConditionsRewriter, the bit constants of a key CASE). Each occurrence
+    // must use the *same* placeholder, or SQL Server / Postgres see the SELECT and
+    // GROUP BY expressions as different and reject the grouping. Reuse one parameter
+    // per primitive value (the IN-list path adds its parameters directly and is
+    // unaffected).
+    private readonly paramByValue = new Map<unknown, string>();
     private parts: string[] = [];
 
     constructor(private readonly isPostgres: boolean) {
@@ -167,13 +175,23 @@ export class QueryFormatter extends DbExpressionVisitor {
     }
 
     override visitConstant(e: ConstantExpression): Expression {
-        this.append(e.value == null ? "NULL" : this.addParameter(e.value));
+        this.append(e.value == null ? "NULL" : this.parameterFor(e.value));
         return e;
     }
 
     override visitSqlConstant(e: SqlConstantExpression): Expression {
-        this.append(e.value == null ? "NULL" : this.addParameter(e.value));
+        this.append(e.value == null ? "NULL" : this.parameterFor(e.value));
         return e;
+    }
+
+    // Reuse one placeholder per (primitive) constant value (see paramByValue).
+    private parameterFor(value: unknown): string {
+        const existing = this.paramByValue.get(value);
+        if (existing != null)
+            return existing;
+        const placeholder = this.addParameter(value);
+        this.paramByValue.set(value, placeholder);
+        return placeholder;
     }
 
     override visitBinary(e: BinaryExpression): Expression {

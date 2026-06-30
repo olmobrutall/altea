@@ -1,12 +1,13 @@
 import {
     Expression, CallExpression, PropertyExpression, ParameterExpression,
     LambdaExpression, ConstantExpression, CastExpression, BinaryExpression,
+    ConditionalExpression, ObjectExpression,
 } from "../expressions";
 import {
     SelectExpression, ProjectionExpression, ColumnExpression, PrimaryKeyExpression,
     FieldBinding, EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
     SqlConstantExpression, TableExpression, OrderExpression, OrderType, UniqueFunction,
-    AggregateExpression, AggregateSqlFunction, ColumnDeclaration, LikeExpression, InExpression,
+    AggregateExpression, AggregateRequestsExpression, AggregateSqlFunction, ColumnDeclaration, LikeExpression, InExpression,
     SourceExpression, SqlFunctionExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression,
     LiteReferenceExpression, LiteReferenceTarget, ScalarExpression,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
@@ -15,6 +16,7 @@ import {
 import { AliasGenerator, Alias } from "../AliasGenerator";
 import { projectColumns } from "./ColumnProjector";
 import { QueryJoinExpander, TableRequest } from "./QueryJoinExpander";
+import { GroupEntityCleaner } from "./GroupEntityCleaner";
 import { SmartEqualizer } from "../smartEqualizer";
 import type { Schema } from "../../schema/schema";
 import type { Table } from "../../schema/table";
@@ -41,10 +43,62 @@ function isReferenceish(e: Expression): boolean {
         || e instanceof ImplementedByAllExpression || e instanceof LiteReferenceExpression;
 }
 
+// Signum's GroupByInfo: recorded per group's element-subquery alias. When an
+// aggregate is bound over that subquery (`g.elements.sum()`), the aggregate is
+// computed over `projector` (the element expression) against `source` (the source
+// being grouped) and deferred to the GROUP BY select identified by `groupAlias`.
+class GroupByInfo {
+    constructor(
+        readonly groupAlias: Alias,
+        readonly projector: Expression,
+        readonly source: SourceExpression,
+    ) { }
+}
+
+// A constant/sql-constant group key is trivial — it must not appear in GROUP BY
+// (grouping by a literal is meaningless and SQL Server rejects it).
+function isTrivialGroupKey(e: Expression): boolean {
+    if (e instanceof ConstantExpression || e instanceof SqlConstantExpression)
+        return true;
+    if (e instanceof CastExpression)
+        return isTrivialGroupKey(e.expression);
+    return false;
+}
+
+// Signum's ToNotNullPredicate: a Count(predicate) counts the rows where the
+// predicate holds. `x != null` / `null != x` becomes simply `x` (count non-null);
+// any other predicate becomes `pred ? "placeholder" : null` (a value that is
+// non-null exactly when the predicate is true), so COUNT(arg) counts the matches.
+function toNotNullPredicate(predicate: LambdaExpression): LambdaExpression {
+    const body = predicate.body;
+    if (body instanceof BinaryExpression && (body.kind === "!=" || body.kind === "!==")) {
+        const exp = isNullLiteral(body.left) ? body.right
+            : isNullLiteral(body.right) ? body.left
+                : undefined;
+        if (exp != null)
+            return new LambdaExpression(predicate.parameters, exp);
+    }
+    const conditional = new ConditionalExpression(body, new ConstantExpression("placeholder"), new ConstantExpression(null));
+    return new LambdaExpression(predicate.parameters, conditional);
+}
+
+function isNullLiteral(e: Expression): boolean {
+    return e instanceof ConstantExpression && e.value == null;
+}
+
 export class QueryBinder extends ExpressionVisitor {
     private readonly aliasGenerator: AliasGenerator;
     private readonly map = new Map<ParameterExpression, Expression>();
     private thenBys: OrderExpression[] | undefined;
+
+    // The outermost expression being bound (Signum's `root`). An aggregate call
+    // that *is* the root materialises as a one-row ProjectionExpression; a nested
+    // one becomes a scalar subquery / a deferred group AggregateRequest.
+    private root: Expression | undefined;
+
+    // Signum's groupByMap: element-subquery alias → the info needed to lower an
+    // aggregate over that group into a GROUP BY column (via AggregateRewriter).
+    private readonly groupByMap = new Map<Alias, GroupByInfo>();
 
     // Entity completion (navigation → JOIN), ported from Signum's QueryBinder.
     // `requests` records, per source, the implicit joins a navigation needs;
@@ -70,6 +124,7 @@ export class QueryBinder extends ExpressionVisitor {
     }
 
     bindQuery(expr: Expression): ProjectionExpression {
+        this.root = expr;
         const result = this.visit(expr);
         if (!(result instanceof ProjectionExpression))
             throw new Error("Query did not bind to a ProjectionExpression: " + result.toString());
@@ -113,6 +168,8 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.bindSelect(source, call.args[0] as LambdaExpression);
                 case "flatMap":
                     return this.bindSelectMany(source, call.args[0] as LambdaExpression);
+                case "groupBy":
+                    return this.bindGroupBy(source, property.object, call.args[0] as LambdaExpression, call.args[1] as LambdaExpression | undefined);
                 case "toArray":
                     // Materialises the (sub-)query as a list. At the root it's a
                     // no-op; nested in a projector it stays a ProjectionExpression
@@ -141,15 +198,15 @@ export class QueryBinder extends ExpressionVisitor {
                 case "singleOrNull":
                     return this.bindUnique(source, "SingleOrDefault", call.args[0] as LambdaExpression | undefined);
                 case "count":
-                    return this.bindAggregate(source, "Count", call.args[0] as LambdaExpression | undefined);
+                    return this.bindAggregate(source, "Count", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "min":
-                    return this.bindAggregate(source, "Min", call.args[0] as LambdaExpression | undefined);
+                    return this.bindAggregate(source, "Min", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "max":
-                    return this.bindAggregate(source, "Max", call.args[0] as LambdaExpression | undefined);
+                    return this.bindAggregate(source, "Max", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "sum":
-                    return this.bindAggregate(source, "Sum", call.args[0] as LambdaExpression | undefined);
+                    return this.bindAggregate(source, "Sum", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "avg":
-                    return this.bindAggregate(source, "Average", call.args[0] as LambdaExpression | undefined);
+                    return this.bindAggregate(source, "Average", call.args[0] as LambdaExpression | undefined, call === this.root);
                 default:
                     throw new Error(`Query operator '${op}' is not implemented in the binder skeleton yet`);
             }
@@ -358,7 +415,36 @@ export class QueryBinder extends ExpressionVisitor {
         return this.bindUnique(reversed, uniqueFunction, predicate);
     }
 
-    private bindAggregate(projection: ProjectionExpression, aggregateFunction: AggregateSqlFunction, selector: LambdaExpression | undefined): ProjectionExpression {
+    // Port of Signum's BindAggregate. Two shapes:
+    //  (a) **over a group** — when the source is a grouping's element subquery
+    //      (its alias is in `groupByMap`), the aggregate is *deferred*: it returns
+    //      an AggregateRequestsExpression that AggregateRewriter later hoists into
+    //      the GROUP BY select as a column. The argument is computed over the
+    //      group's element projector/source, not the subquery's columns.
+    //  (b) **standalone** — a fresh `SELECT <agg> FROM <source>`. At the root it
+    //      materialises as a one-row ProjectionExpression; nested it becomes a
+    //      ScalarExpression (a correlated scalar subquery).
+    // The distinct-fast disassembly (Count over Select.Distinct → COUNT(DISTINCT))
+    // is not ported; those route through (b) as a correct COUNT(*)-over-subquery.
+    private bindAggregate(projection: ProjectionExpression, aggregateFunction: AggregateSqlFunction, selector: LambdaExpression | undefined, isRoot: boolean): Expression {
+        const info = this.groupByMap.get(projection.select.alias);
+        if (info != null) {
+            const exp: Expression | undefined =
+                aggregateFunction === "Count" && selector == null ? undefined :       // Count(*)
+                aggregateFunction === "Count" ? this.mapVisitExpandCore(toNotNullPredicate(selector!), info.projector, info.source) :
+                selector != null ? this.mapVisitExpandCore(selector, info.projector, info.source) : // Sum(x), Avg(x), …
+                info.projector;                                                        // Sum() over an element-selected group
+
+            const arg = exp == null ? undefined : this.aggregateArgument(exp);
+            const aggregate = new AggregateExpression(
+                aggregateFunction === "Count" ? LiteralType.number : (arg?.type ?? LiteralType.number),
+                aggregateFunction,
+                arg == null ? [] : [arg],
+                undefined);
+            return new AggregateRequestsExpression(info.groupAlias, aggregate);
+        }
+
+        // Complicated subquery / root. Count(predicate) → WHERE then Count(*).
         if (aggregateFunction === "Count" && selector != null) {
             projection = this.bindWhere(projection, selector);
             selector = undefined;
@@ -367,26 +453,47 @@ export class QueryBinder extends ExpressionVisitor {
         const argument = selector == null ? projection.projector : this.mapVisitExpand(selector, projection);
         const aggregate = aggregateFunction === "Count"
             ? new AggregateExpression(LiteralType.number, aggregateFunction, [], undefined)
-            : new AggregateExpression(argument.type, aggregateFunction, [argument], undefined);
+            : (() => { const a = this.aggregateArgument(argument); return new AggregateExpression(a.type, aggregateFunction, [a], undefined); })();
 
         const alias = this.aliasGenerator.nextSelectAlias();
         const name = "c0";
-        return new ProjectionExpression(
-            new SelectExpression(alias, false, undefined, [new ColumnDeclaration(name, aggregate)], projection.select, undefined, [], []),
-            new ColumnExpression(aggregate.type, alias, name),
-            "Single",
-            aggregate.type);
+        const select = new SelectExpression(alias, false, undefined, [new ColumnDeclaration(name, aggregate)], projection.select, undefined, [], []);
+        if (isRoot)
+            return new ProjectionExpression(select, new ColumnExpression(aggregate.type, alias, name), "Single", aggregate.type);
+        return new ScalarExpression(aggregate.type, select);
+    }
+
+    // The SQL-valued argument of an aggregate: a reference (typed, polymorphic, or
+    // a Lite over any) must be reduced to its id column (Signum's UnwrapPrimaryKey
+    // + FullNominate); a PrimaryKey wrapper unwraps to its value. Values pass through.
+    private aggregateArgument(exp: Expression): Expression {
+        if (exp instanceof LiteReferenceExpression)
+            return this.aggregateArgument(exp.reference);
+        if (exp instanceof EntityExpression || exp instanceof ImplementedByExpression || exp instanceof ImplementedByAllExpression) {
+            const id = this.idOfReference(exp);
+            return id instanceof PrimaryKeyExpression ? id.value : id;
+        }
+        if (exp instanceof PrimaryKeyExpression)
+            return exp.value;
+        return exp;
     }
 
     // Binds a lambda body with its single parameter mapped to the source's
     // projector (Signum's MapVisitExpand).
     private mapVisitExpand(lambda: LambdaExpression, projection: ProjectionExpression): Expression {
+        return this.mapVisitExpandCore(lambda, projection.projector, projection.select);
+    }
+
+    // The general form: bind a lambda body with its parameter mapped to `projector`
+    // and navigations attached to `source` (used by the group-aggregate path, where
+    // the projector/source come from GroupByInfo, not a single projection).
+    private mapVisitExpandCore(lambda: LambdaExpression, projector: Expression, source: SourceExpression): Expression {
         const param = lambda.parameters[0];
         const old = this.map.get(param);
-        this.map.set(param, projection.projector);
+        this.map.set(param, projector);
         // The source the lambda binds against — any navigation completed while
         // binding the body joins onto this select (see `completed`/`addRequest`).
-        this.sourceStack.push(projection.select);
+        this.sourceStack.push(source);
         try {
             return this.visit(lambda.body);
         } finally {
@@ -428,6 +535,21 @@ export class QueryBinder extends ExpressionVisitor {
             return this.findBinding(obj.bindings, name, obj.type);
         if (obj instanceof MixinEntityExpression)
             return this.findBinding(obj.bindings, name, obj.type);
+
+        // A grouping (and any anonymous result) is an ObjectExpression projector;
+        // `g.key` / `g.elements` (and `{ … }.field`) read its members.
+        if (obj instanceof ObjectExpression) {
+            const member = obj.properties[name];
+            if (member != null)
+                return member;
+            throw new Error(`Property '${name}' not found on object projector`);
+        }
+
+        // `.length` of a (sub-)query collection → COUNT (e.g. `g.elements.length`,
+        // `album.songs.length`). string.length is the unrelated SQL-function case
+        // handled below.
+        if (name === "length" && (obj instanceof ProjectionExpression || obj instanceof FieldEntityArrayExpression))
+            return this.bindAggregate(this.asProjection(obj), "Count", undefined, false);
 
         // promise.$v — the await marker (SQL has no async). Unwraps an awaited
         // sub-query: a single-result projection becomes a scalar subquery; anything
@@ -627,6 +749,65 @@ export class QueryBinder extends ExpressionVisitor {
         return new ProjectionExpression(
             new SelectExpression(alias, false, undefined, pc.columns, join, undefined, [], []),
             pc.projector, undefined, collProj.type);
+    }
+
+    // GroupBy — faithful port of Signum's BindGroupBy. Produces a GROUP BY select
+    // and a `{ key, elements }` projector (altea's analogue of Signum's Grouping):
+    //  - `key` projects/groups by the (entity-cleaned) key columns;
+    //  - `elements` is a correlated subquery of the grouped element rows, which the
+    //    reader eager-loads (ChildProjectionFlattener) when projected raw, and which
+    //    serves as the handle (its alias → groupByMap) that lets an aggregate over
+    //    the group (`g.elements.sum()`) defer into the GROUP BY select.
+    // `sourceExpr` is the (unvisited) source — visited a second time to build an
+    // independent element subquery, exactly as Signum visits the source twice.
+    private bindGroupBy(projection: ProjectionExpression, sourceExpr: Expression, keySelector: LambdaExpression, elementSelector: LambdaExpression | undefined): ProjectionExpression {
+        const subqueryProjection = this.visit(sourceExpr) as ProjectionExpression;
+
+        const alias = this.aliasGenerator.nextSelectAlias();
+
+        const key = GroupEntityCleaner.clean(this.mapVisitExpand(keySelector, projection));
+        const keyPC = projectColumns(key, alias);
+
+        const select = projection.select;
+        // (Signum's "key contains an aggregate" intermediate-select branch is not
+        //  ported — no non-skipped test groups by an aggregate.)
+
+        const elemExpr = elementSelector != null
+            ? this.mapVisitExpand(elementSelector, projection)
+            : projection.projector;
+
+        const subqueryKey = GroupEntityCleaner.clean(this.mapVisitExpand(keySelector, subqueryProjection));
+        const subqueryKeyPC = projectColumns(subqueryKey, this.aliasGenerator.raw("basura"));
+        const subqueryElemExpr = elementSelector != null
+            ? this.mapVisitExpand(elementSelector, subqueryProjection)
+            : subqueryProjection.projector;
+
+        // Correlate the element subquery's key to the group's key (null-safe), so
+        // each group's elements are the matching source rows.
+        let subqueryCorrelation: Expression | undefined = undefined;
+        if (keyPC.columns.length > 0) {
+            const terms = keyPC.columns.map((c1, i) =>
+                SmartEqualizer.equalNullableGroupBy(
+                    new ColumnExpression(c1.expression.type, alias, c1.name),
+                    subqueryKeyPC.columns[i].expression));
+            subqueryCorrelation = terms.reduce((a, b) => new BinaryExpression("&&", a, b));
+        }
+
+        const elementAlias = this.aliasGenerator.nextSelectAlias();
+        const elementPC = projectColumns(subqueryElemExpr, elementAlias);
+        const elementSubquery = new ProjectionExpression(
+            new SelectExpression(elementAlias, false, undefined, elementPC.columns, subqueryProjection.select, subqueryCorrelation, [], []),
+            elementPC.projector, undefined, new ArrayType(elementPC.projector.type));
+
+        const resultProjector = new ObjectExpression({ key: keyPC.projector, elements: elementSubquery });
+
+        this.groupByMap.set(elementAlias, new GroupByInfo(alias, elemExpr, select));
+
+        const groupByExprs = keyPC.columns.map(c => c.expression).filter(e => !isTrivialGroupKey(e));
+
+        return new ProjectionExpression(
+            new SelectExpression(alias, false, undefined, keyPC.columns, select, undefined, [], groupByExprs),
+            resultProjector, undefined, new ArrayType(resultProjector.type));
     }
 
     // Builds the EntityExpression for a table: id → externalId, value/enum → a

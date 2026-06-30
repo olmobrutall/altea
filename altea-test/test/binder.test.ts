@@ -8,7 +8,8 @@ import {
     JoinExpression,
 } from "@altea/altea/logic/linq/expressions.sql";
 import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
-import { CallExpression, PropertyExpression } from "@altea/altea/logic/linq/expressions";
+import { AggregateRewriter } from "@altea/altea/logic/linq/visitors/AggregateRewriter";
+import { CallExpression, PropertyExpression, ObjectExpression } from "@altea/altea/logic/linq/expressions";
 import { expressionSimplifier } from "@altea/altea/logic/linq/visitors/expressionSimplifier";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { Connector } from "@altea/altea/logic/connection/connector";
@@ -307,5 +308,40 @@ describe("ImplementedBy / ImplementedByAll (SmartEqualizer)", () => {
         const proj = bind(table(AlbumEntity).map(a => (a.author as ArtistEntity).name));
         const { sql } = QueryFormatter.format(proj.select, false);
         assert.match(sql, /LEFT OUTER JOIN/i);
+    });
+});
+
+// GroupBy shape (offline). bind() runs the binder only; the group-aggregate path
+// emits AggregateRequest nodes that AggregateRewriter hoists into the GROUP BY
+// select, so these run that pass before formatting.
+describe("GroupBy shape (tier 3)", () => {
+    const rewrite = (proj: ProjectionExpression) => AggregateRewriter.rewrite(proj) as ProjectionExpression;
+
+    test("groupBy(key) → GROUP BY clause + a { key, elements } projector", () => {
+        const proj = bind(table(ArtistEntity).groupBy(a => a.sex));
+        assert.ok(proj.select.groupBy.length === 1, "one group-by key expression");
+        assert.ok(proj.projector instanceof ObjectExpression);
+        const o = proj.projector as ObjectExpression;
+        assert.ok("key" in o.properties && "elements" in o.properties, "grouping exposes key + elements");
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /GROUP BY/i);
+    });
+
+    test("aggregate over a group hoists into the GROUP BY select as a column", () => {
+        const proj = rewrite(bind(
+            table(ArtistEntity).groupBy(a => a.sex, a => a.name.length).map(g => ({ key: g.key, sum: g.elements.sum() }))));
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /GROUP BY/i);
+        assert.match(sql, /SUM\(/i, "the group's sum is hoisted into a SUM(...) column");
+        assert.doesNotMatch(proj.toString(), /AggregateRequest/, "no AggregateRequest survives the rewrite");
+    });
+
+    test("a constant in the group key uses one parameter across SELECT and GROUP BY", () => {
+        const proj = rewrite(bind(
+            table(AlbumEntity).groupBy(a => a.year < 2000 ? a.label : null).map(g => ({ k: g.key, c: g.elements.length }))));
+        // Postgres: the same constant must render as the same $n in SELECT and GROUP BY.
+        const { sql, parameters } = QueryFormatter.format(proj.select, true);
+        assert.match(sql, /GROUP BY/i);
+        assert.equal(parameters.filter(p => p === 2000).length, 1, "the 2000 literal is parameterised once");
     });
 });

@@ -6,7 +6,7 @@ import {
 import {
     ColumnExpression, SqlConstantExpression, PrimaryKeyExpression,
     IsNullExpression, IsNotNullExpression, LikeExpression, SqlFunctionExpression,
-    AggregateExpression, CaseExpression, ScalarExpression, ExistsExpression, InExpression,
+    AggregateExpression, AggregateRequestsExpression, CaseExpression, ScalarExpression, ExistsExpression, InExpression,
     ProjectionExpression,
 } from "./expressions.sql";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
@@ -94,6 +94,14 @@ class DbExpressionNominator extends DbExpressionVisitor {
         super.visitAggregate(node);
         this.addIfAll(node, node.arguments);
         return node;
+    }
+
+    // A deferred group aggregate is nominated as a whole (so the column projector
+    // emits a column for it); its inner aggregate belongs to the group-by select's
+    // scope, so we don't recurse. AggregateRewriter rewrites it into a real column
+    // before formatting. Mirrors Signum's `!innerProjection → Add(request)`.
+    override visitAggregateRequest(node: AggregateRequestsExpression): Expression {
+        return this.add(node);
     }
 
     override visitCase(node: CaseExpression): Expression {

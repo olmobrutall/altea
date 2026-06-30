@@ -401,6 +401,50 @@ model. Deferred within IB/IBA: `EntityIn` (`.contains` over a constant collectio
 of entities), polymorphic nested projections, and the `TypeEntity`/
 `TypeImplementedBy` type expressions (only IBA's string discriminator is modelled).
 
+**Tier 3 (GroupBy + AggregateRewriter).** `groupBy(key[, element])` now binds,
+rewrites, formats, and reads end-to-end. Verified live: **groupBy.test.ts PG 65/82,
+SQL Server 62/82** (from a baseline where the operator was unimplemented), and a
+full-suite diff confirms **zero regressions** on either dialect (PG 387→439,
+SS 394→437; +52 / +43). Offline gate 31→34 (three new `binder.test.ts` shape
+cases). The slice:
+
+- **`AggregateRequestsExpression`** (`expressions.sql.ts`) — a deferred aggregate
+  naming the GROUP BY select it belongs to. **`AggregateRewriter`**
+  (`visitors/AggregateRewriter.ts`, + inner `AggregateGatherer`) hoists each into
+  that select as an `aggN` column and replaces the request with a column ref; wired
+  first in `table.ts` `bind()` (Signum's Optimize order). The nominator nominates an
+  AggregateRequest as a whole so the column projector emits a column for it.
+- **`bindGroupBy`** (`visitors/QueryBinder.ts`) — faithful port of Signum's
+  `BindGroupBy`: visits the source twice (main + element subquery), cleans the key
+  via **`GroupEntityCleaner`**, builds the null-safe element-subquery correlation via
+  **`SmartEqualizer.equalNullableGroupBy`**, and produces a `{ key, elements }`
+  **ObjectExpression** projector (altea's analogue of Signum's `Grouping`). The
+  element subquery's alias → `groupByMap` is the handle that lets an aggregate over
+  the group defer into the GROUP BY select. `g.key`/`g.elements` read the object
+  members; `g.elements.<agg>()`/`.length` route into `bindAggregate`.
+- **`bindAggregate`** gained the GroupByInfo path (→ AggregateRequest, reducing a
+  reference argument to its id column via `aggregateArgument`) and an `isRoot`
+  distinction: a non-root standalone aggregate now returns a `ScalarExpression`
+  (correlated scalar subquery) instead of a one-row projection, which also enables
+  collection aggregates in a selector (`b.members.max(…)`) on Postgres.
+- **`resolveMemberType`** (`expressions.ts`) now resolves `ObjectType` members, so
+  `g.elements` types as an array and its aggregate operators dispatch.
+- **Parameter de-duplication** (`queryFormatter.ts`): the same constant value is
+  emitted as one placeholder, so a key expression repeated in SELECT and GROUP BY
+  (incl. the bit constants ConditionsRewriter mints for a key CASE on SQL Server)
+  renders identically — without this both dialects reject the GROUP BY.
+
+Scoped / deferred (flagged, not regressions): the distinct-fast disassembly
+(`DisassembleAggregate` Select.Distinct→`COUNT(DISTINCT)`; the complicated-subquery
+fallback is correct), the "key contains an aggregate" intermediate-select branch,
+member access on a Single sub-projection (`g.elements.…firstOrNull().name` —
+`FirstLast*`), and SQL Server's *aggregate-over-subquery* restriction
+(`min(b => b.members.max(…))` — needs the skipped ScalarSubqueryRewriter). Out of
+scope (no altea API): `minBy`/`maxBy`, `All`/`every` over a group, `contains`/EntityIn,
+`substring`, `join`, empty-key `groupBy(a => ({}))`, StdDev. Pre-existing/orthogonal:
+the Postgres `COUNT`→bigint-string coercion and empty-set max/min/sum semantics
+(`Root*`).
+
 ## Most important differences so far
 
 - TypeScript uses `quote-transformer` expressions instead of
@@ -486,8 +530,8 @@ of entities), polymorphic nested projections, and the `TypeEntity`/
 | `ExpressionVisitor/AliasGatherer.cs` | none | Not ported |
 | `ExpressionVisitor/AliasProjectionReplacer.cs` | none | Not ported |
 | `ExpressionVisitor/AliasReplacer.cs` | none | Not ported |
-| `ExpressionVisitor/AggregateFinder.cs` | none | Not ported |
-| `ExpressionVisitor/AggregateRewriter.cs` | none | Not ported |
+| `ExpressionVisitor/AggregateFinder.cs` | `altea/logic/linq/visitors/AggregateRewriter.ts` (inner `AggregateGatherer`) | Ported (folded into AggregateRewriter) |
+| `ExpressionVisitor/AggregateRewriter.cs` | `altea/logic/linq/visitors/AggregateRewriter.ts` | Ported — hoists `AggregateRequestsExpression`s into their GROUP BY select; wired first in `bind()` |
 | `ExpressionVisitor/ChildProjectionFlattener.cs` | `altea/logic/linq/visitors/ChildProjectionFlattener.ts` | Ported (scoped) — eager only; `{k,v}` ObjectExpression keys; correlated + Distinct + uncorrelated paths |
 | `ExpressionVisitor/ConditionsRewriter.cs` | `altea/logic/linq/visitors/ConditionsRewriter.ts` | Ported (scoped) — SQL-Server-only; no nullable-bool/SqlCast/TVF/command nodes |
 | `ExpressionVisitor/ConditionsRewriterPostgres.cs` | none (no-op for altea) | Not needed yet — only does a bool→int SqlCast tweak altea lacks |
@@ -495,7 +539,7 @@ of entities), polymorphic nested projections, and the `TypeEntity`/
 | `ExpressionVisitor/DbQueryUtils.cs` | none | Not ported |
 | `ExpressionVisitor/DuplicateHistory.cs` | none | Not ported |
 | `ExpressionVisitor/EntityCompleter.cs` | `altea/logic/linq/visitors/QueryBinder.ts` (`completed`) | Partial — single-reference completion inline in the binder (lazy `EntityExpression` → bound entity + join request) |
-| `ExpressionVisitor/GroupEntityCleaner.cs` | none | Not ported |
+| `ExpressionVisitor/GroupEntityCleaner.cs` | `altea/logic/linq/visitors/GroupEntityCleaner.ts` | Ported (scoped) — strips a group-key EntityExpression to its `externalId`; Lite/IB via base traversal; no Type/GetType or entity-coalesce combine path |
 | `ExpressionVisitor/OrderByRewriter.cs` | `altea/logic/linq/visitors/OrderByRewriter.ts` | Ported (scoped) — Reverse flag + float-ORDER-BY-to-outermost/TOP; key machinery dormant |
 | `ExpressionVisitor/QueryFilterer.cs` | none | Not ported |
 | `ExpressionVisitor/QueryRebinder.cs` | `altea/logic/linq/visitors/QueryRebinder.ts` | Ported (scoped) — value-keyed column scopes; no SetOperator/RowNumber/command nodes |

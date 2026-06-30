@@ -24,6 +24,12 @@ function resolveMemberType(ownerType: Type, propertyName: string): Type {
     if (ownerType instanceof PromiseType)
         return propertyName === "$v" ? ownerType.inner : LiteralType.null;
 
+    // An anonymous result (e.g. a grouping `{ key, elements }`): the member type is
+    // the declared property type, so `g.elements` types as the element array and
+    // `g.elements.sum()` dispatches via the Array (OrderedQuery) prototype.
+    if (ownerType instanceof ObjectType)
+        return ownerType.bindings[propertyName] ?? LiteralType.null;
+
     if (!(ownerType instanceof ClassType))
         return LiteralType.null;
     const fi = tryGetTypeInfo(ownerType.constructorFunction)?.fields[propertyName];

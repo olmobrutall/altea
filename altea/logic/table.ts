@@ -6,6 +6,7 @@ import { ArrayType, FunctionType, ClassType, Type } from "../entities/types";
 import { expressionSimplifier } from "./linq/visitors/ExpressionSimplifier";
 import { Connector } from "./connection/connector";
 import { QueryBinder } from "./linq/visitors/QueryBinder";
+import { AggregateRewriter } from "./linq/visitors/AggregateRewriter";
 import { OrderByRewriter } from "./linq/visitors/OrderByRewriter";
 import { QueryRebinder } from "./linq/visitors/QueryRebinder";
 import { RedundantSubqueryRemover } from "./linq/visitors/RedundantSubqueryRemover";
@@ -67,6 +68,9 @@ class MyQueryTranslator implements IQueryTranslator {
         const connector = Connector.current();
         const binder = new QueryBinder(connector.schema, connector.isPostgres);
         let projection: Expression = binder.bindQuery(simplified);
+        // Hoist deferred group aggregates (g.elements.sum()…) into their GROUP BY
+        // select as columns — Signum runs AggregateRewriter first in Optimize.
+        projection = AggregateRewriter.rewrite(projection);
         projection = OrderByRewriter.rewrite(projection);
         projection = QueryRebinder.rebind(projection);
         projection = RedundantSubqueryRemover.remove(projection, connector.isPostgres);
