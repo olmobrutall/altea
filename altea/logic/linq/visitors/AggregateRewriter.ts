@@ -48,7 +48,7 @@ export class AggregateRewriter extends DbExpressionVisitor {
                 this.map.set(ae, cd.getReference(ae.groupByAlias));
                 aggColumns.push(cd);
             }
-            return new SelectExpression(select.alias, select.isDistinct, select.top, aggColumns, select.from, select.where, select.orderBy, select.groupBy, select.selectOptions);
+            return new SelectExpression(select.alias, select.isDistinct, select.top, aggColumns, select.from, select.where, select.orderBy, select.groupBy, select.selectOptions, select.offset);
         }
         return select;
     }

@@ -156,8 +156,9 @@ non-id fields aren't loaded yet), Lite materialisation/model, collections.
 **Steps 5–6 in progress** — `orderBy`, `thenBy`, `top`, `distinct`, `first`,
 `single`, and scalar aggregates have started moving toward the Signum binder
 shape (see "Most important differences" + the file mapping below for what is
-ported vs. shimmed vs. missing). `skip` is deliberately deferred (needs
-row-number rewriting `SelectExpression` doesn't yet support). Array `contains`
+ported vs. shimmed vs. missing). `skip` now lands as an `offset` on
+`SelectExpression` (OFFSET/FETCH · LIMIT/OFFSET — see the skip note under "Most
+important differences"). Array `contains`
 over a captured constant array now binds to `IN` and formats to
 `IN (@p0, @p1, …)` (`binder.test.ts`) — the enabling fix was making
 `ExpressionSimplifier.visitProperty` skip folding when the property value is a
@@ -884,9 +885,23 @@ Deferred (Signum's "Sync"): loading ids from the DB instead of computing them (s
 the type set evolves), and the `TypeEntity` unique indexes on `tableName`/`cleanName`. A query `Type`
 value is still the bare constructor, not yet a `TypeEntity` lite/reference.
 - **groupBy** (`GroupEntityCleaner`): a typed/IB Type key reduces to a `TypeImplementedByAll` over
-  a CASE that yields the clean type-name string (so the GROUP BY column and the materialised key
+  a CASE that yields the TypeEntity int id (so the GROUP BY column and the materialised key
   agree — grouping by *type*, not by entity id); an IBA Type key already is that discriminator
   column (base traversal). Greens `WhereToTypeEntityIB/IBAGroupBy`.
+
+**`skip` (OFFSET/FETCH · LIMIT/OFFSET).** Implemented as an `offset` on `SelectExpression`,
+threaded through every optimiser pass alongside `top` (base `visitSelect`, OrderByRewriter,
+QueryRebinder, RedundantSubqueryRemover, ConditionsRewriter, AggregateRewriter, ScalarSubqueryRewriter,
+ChildProjectionFlattener). `bindSkip` wraps in an OFFSET select; OrderByRewriter floats the inner
+ORDER BY onto it (OFFSET, like TOP, makes the order meaningful and SQL Server requires one — a bare
+`skip` gets `ORDER BY (SELECT 1)`); RedundantSubqueryRemover merges a following `top` so
+`skip(n).top(m)` is one `OFFSET n ROWS FETCH NEXT m ROWS ONLY` (SQL Server) / `LIMIT m OFFSET n`
+(Postgres). Verified live: **takeSkip PG 17/19, SS 14/19**; full suite **PG 410→422, SS 396→405**,
+no skip-caused regressions. The remaining takeSkip reds are out of scope: `OrderByCommonSelectPaginate`
+(needs `OrderAlsoByKeys` for stable pagination over a non-unique key), the empty-key-groupBy +
+element-aggregate `AllAggregates*` cases (SQL Server), and `InnerTake` (a pre-existing collection
+`top`+filter case, not skip). (One SQL-Server `select` test flakes between runs under parallel load now
+that the skip suite issues real queries instead of erroring instantly — it passes in isolation.)
 
 **Still pending (Type-adjacent):** `Lite.entityType` / `Type.is` on a lite (`SelectToTypeLite`,
 still `// BLOCKED`); `.constructor` through a coalesce/conditional reference (Signum's
@@ -933,9 +948,17 @@ model.
   `QueryBinder` behavior.
 - Aggregate terminals currently use `UniqueFunction.Single` at the root, matching
   Signum.
-- `skip` is deliberately deferred. Signum rewrites this through row-number /
-  overload simplification paths; Altea's `SelectExpression` does not yet have
-  the required shape.
+- `skip` is implemented via an **`offset` on `SelectExpression`** (modern SQL:
+  `OFFSET … FETCH` on SQL Server, `LIMIT … OFFSET` on Postgres) rather than
+  Signum's older RowNumber rewrite. `bindSkip` wraps in an OFFSET select;
+  OrderByRewriter treats an OFFSET select like a TOP one (the inner ORDER BY is
+  floated onto it, since OFFSET needs an order); RedundantSubqueryRemover merges a
+  following `top` so `skip(n).top(m)` lands as one `OFFSET n … FETCH m` select. A
+  bare `skip` with no order gets a synthesised `ORDER BY (SELECT 1)` on SQL Server
+  (which requires one). **Not** ported: `OrderAlsoByKeys` (Signum appends the PK to
+  make pagination stable across ties) — so pagination over a non-unique key
+  (`OrderByCommonSelectPaginate`) is order-unstable and stays red, as the test's
+  `TODO(api): OrderAlsoByKeys` notes.
 - String SQL functions (`contains`/`startsWith`/`endsWith` → `LIKE`, `indexOf`,
   `toLowerCase`, `substring`, …) are translated in the **`DbExpressionNominator`**
   (`visitCall` → `hardCodedMethod`), like C#'s `HardCodedMethods` — not in the binder.
@@ -1134,8 +1157,10 @@ and the IB/IBA projection / cast / `instanceof` / equality tests pass on **both*
 dialects. Treat a feature as done only when its DB-gated suite is green on both
 Postgres and SQL Server.
 
-**Current stable baseline (post-`noCommit`, deterministic): Postgres 410 / SQL
-Server 395 pass** of 553. (These supersede the historical figures above, which
+**Current stable baseline (post-`noCommit`, deterministic): Postgres 422 / SQL
+Server ~405 pass** of 553 (TypeEntity + skip landed; one SQL-Server select test
+flakes between runs under parallel load — `SelectCount`/`SelectEmbedded` — both
+pass in isolation). (These supersede the historical figures above, which
 were measured before the `executeXXX` suites were enabled and before the
 `Transaction.noCommit` isolation made the parallel run deterministic — the earlier
 runs' committed mutations contaminated the shared data and made the totals

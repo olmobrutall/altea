@@ -128,15 +128,17 @@ function colKey(c: ColumnExpression): string {
 }
 
 function withoutOrder(sel: SelectExpression): SelectExpression {
-    if (sel.top != null || sel.orderBy.length === 0)
+    // A TOP or OFFSET makes the inner ORDER BY meaningful (it picks which rows), so
+    // keep it; otherwise the order is irrelevant once flattened and is dropped.
+    if (sel.top != null || sel.offset != null || sel.orderBy.length === 0)
         return sel;
-    return new SelectExpression(sel.alias, sel.isDistinct, sel.top, sel.columns, sel.from, sel.where, [], sel.groupBy, sel.selectOptions);
+    return new SelectExpression(sel.alias, sel.isDistinct, sel.top, sel.columns, sel.from, sel.where, [], sel.groupBy, sel.selectOptions, sel.offset);
 }
 
 // Pulls a child's ORDER BY out as extra columns so the order survives the CROSS
 // APPLY flatten (the inner ORDER BY would otherwise be illegal / lost).
 function extractOrders(sel: SelectExpression): { select: SelectExpression; orders: OrderExpression[] | undefined } {
-    if (sel.top != null || sel.orderBy.length === 0)
+    if (sel.top != null || sel.offset != null || sel.orderBy.length === 0)
         return { select: sel, orders: undefined };
 
     const cg = new ColumnGenerator(sel.columns);

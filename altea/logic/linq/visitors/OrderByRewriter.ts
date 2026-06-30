@@ -113,11 +113,15 @@ export class OrderByRewriter extends DbExpressionVisitor {
             this.appendKeys();
             orderings = this.gatheredOrderings;
             this.gatheredOrderings = undefined;
-        } else if (select.top != null) {
+        } else if (select.top != null || select.offset != null) {
+            // TOP and OFFSET both make an ORDER BY meaningful at their own level
+            // (OFFSET requires one on SQL Server), so emit the gathered ordering here.
             this.appendKeys();
             orderings = this.gatheredOrderings;
-            if (OrderByRewriter.isOne(select.top))
-                this.gatheredOrderings = undefined; // a TOP 1 subquery still wants to offer its order to a CROSS APPLY parent
+            // OFFSET consumes the order at this level; a TOP does too, unless it is a
+            // TOP 1 still offering its order to a CROSS APPLY parent.
+            if (select.offset != null || (select.top != null && OrderByRewriter.isOne(select.top)))
+                this.gatheredOrderings = undefined;
         }
 
         if (OrderByRewriter.areEqual(select.orderBy, orderings) && !isReverse)
@@ -126,7 +130,7 @@ export class OrderByRewriter extends DbExpressionVisitor {
         return new SelectExpression(
             select.alias, select.isDistinct, select.top, select.columns,
             select.from, select.where, orderings ?? [], select.groupBy,
-            select.selectOptions & ~SelectOptions.Reverse);
+            select.selectOptions & ~SelectOptions.Reverse, select.offset);
     }
 
     override visitScalar(scalar: ScalarExpression): Expression {

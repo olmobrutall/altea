@@ -460,6 +460,8 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.bindOrderBy(source, call.args[0] as LambdaExpression, "Descending");
                 case "top":
                     return this.bindTop(source, call.args[0]);
+                case "skip":
+                    return this.bindSkip(source, call.args[0]);
                 case "distinct":
                     return this.bindDistinct(source);
                 case "first":
@@ -705,6 +707,19 @@ export class QueryBinder extends ExpressionVisitor {
         const pc = this.projectColumns(projection.projector, alias);
         return new ProjectionExpression(
             new SelectExpression(alias, false, top, pc.columns, projection.select, undefined, [], []),
+            pc.projector, projection.uniqueFunction, projection.type);
+    }
+
+    // `skip(n)` → an OFFSET on a wrapping select (Signum's BindSkip; modern dialects
+    // express paging with OFFSET/FETCH and LIMIT/OFFSET rather than row-number). The
+    // source's ORDER BY is floated onto this select by OrderByRewriter (OFFSET, like
+    // TOP, makes an inner ORDER BY meaningful); a following `top` merges in via
+    // RedundantSubqueryRemover so skip+take land as one OFFSET … FETCH select.
+    private bindSkip(projection: ProjectionExpression, skip: Expression): ProjectionExpression {
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const pc = this.projectColumns(projection.projector, alias);
+        return new ProjectionExpression(
+            new SelectExpression(alias, false, undefined, pc.columns, projection.select, undefined, [], [], SelectOptions.None, skip),
             pc.projector, projection.uniqueFunction, projection.type);
     }
 

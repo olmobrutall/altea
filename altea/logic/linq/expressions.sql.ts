@@ -165,6 +165,9 @@ export class SelectExpression extends SourceWithAliasExpression {
         public readonly orderBy: readonly OrderExpression[],
         public readonly groupBy: readonly Expression[],
         public readonly selectOptions: SelectOptions = SelectOptions.None,
+        // OFFSET (the `skip` count). Optional 10th arg so existing constructions are
+        // unaffected; the optimiser passes thread it through alongside `top`.
+        public readonly offset: Expression | undefined = undefined,
     ) {
         super("Select", alias);
         this.#knownAliases = from == null ? [alias] : [...from.knownAliases(), alias];
@@ -186,6 +189,7 @@ export class SelectExpression extends SourceWithAliasExpression {
             `${this.where != null ? `WHERE ${this.where}\n` : ""}` +
             `${this.orderBy.length ? `ORDER BY ${this.orderBy.join(", ")}\n` : ""}` +
             `${this.groupBy.length ? `GROUP BY ${this.groupBy.join(", ")}\n` : ""}` +
+            `${this.offset != null ? `OFFSET ${this.offset}\n` : ""}` +
             `AS ${this.alias}`;
     }
 

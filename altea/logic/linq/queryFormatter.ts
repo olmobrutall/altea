@@ -89,7 +89,9 @@ export class QueryFormatter extends DbExpressionVisitor {
             ? s.columns.map(c => this.capture(() => this.visitColumnDeclaration(c))).join(", ")
             : "*";
 
-        const top = s.top != null && !this.isPostgres ? `TOP ${this.literalNumber(s.top)} ` : "";
+        // SQL Server: TOP and OFFSET/FETCH are mutually exclusive — when there is an
+        // OFFSET, the row limit is expressed with FETCH NEXT (below), not TOP.
+        const top = s.top != null && (this.isPostgres ? false : s.offset == null) ? `TOP ${this.literalNumber(s.top)} ` : "";
         this.append(`SELECT ${s.isDistinct ? "DISTINCT " : ""}${top}${cols}`);
 
         if (s.from != null)
@@ -100,8 +102,21 @@ export class QueryFormatter extends DbExpressionVisitor {
             this.append(`\nGROUP BY ${s.groupBy.map(g => this.capture(() => this.visit(g))).join(", ")}`);
         if (s.orderBy.length)
             this.append(`\nORDER BY ${s.orderBy.map(o => this.capture(() => this.visitOrderBy(o))).join(", ")}`);
-        if (s.top != null && this.isPostgres)
-            this.append(`\nLIMIT ${this.literalNumber(s.top)}`);
+        else if (s.offset != null && !this.isPostgres)
+            // SQL Server requires an ORDER BY for OFFSET/FETCH; a bare `skip` with no
+            // order gets a no-op ordering (Postgres needs none).
+            this.append(`\nORDER BY (SELECT 1)`);
+
+        if (this.isPostgres) {
+            if (s.top != null)
+                this.append(`\nLIMIT ${this.literalNumber(s.top)}`);
+            if (s.offset != null)
+                this.append(`\nOFFSET ${this.literalNumber(s.offset)}`);
+        } else if (s.offset != null) {
+            this.append(`\nOFFSET ${this.literalNumber(s.offset)} ROWS`);
+            if (s.top != null)
+                this.append(`\nFETCH NEXT ${this.literalNumber(s.top)} ROWS ONLY`);
+        }
 
         return s;
     }

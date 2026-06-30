@@ -80,6 +80,7 @@ export class QueryRebinder extends DbExpressionVisitor {
 
         let from!: SourceExpression;
         let top: Expression | undefined;
+        let offset: Expression | undefined;
         let where: Expression | undefined;
         let orderBy: readonly OrderExpression[] = select.orderBy;
         let groupBy: readonly Expression[] = select.groupBy;
@@ -96,6 +97,7 @@ export class QueryRebinder extends DbExpressionVisitor {
 
             const col = this.getColumnCollector(known);
             col.visit(select.top);
+            col.visit(select.offset);
             col.visit(select.where);
             for (const cd of select.columns) col.visit(cd.expression);
             for (const oe of select.orderBy) col.visit(oe.expression);
@@ -103,6 +105,7 @@ export class QueryRebinder extends DbExpressionVisitor {
 
             from = this.visitSource(select.from!);
             top = this.visit(select.top);
+            offset = this.visit(select.offset);
             where = this.visit(select.where);
             orderBy = this.visitArray(select.orderBy, o => this.visitOrderBy(o));
             if (orderBy.length > 0)
@@ -122,8 +125,9 @@ export class QueryRebinder extends DbExpressionVisitor {
             this.currentScope.set(k, this.askedAnswers.get(QueryRebinder.key(k)) ?? null);
 
         if (top !== select.top || from !== select.from || where !== select.where
-            || columns !== select.columns || orderBy !== select.orderBy || groupBy !== select.groupBy)
-            return new SelectExpression(select.alias, select.isDistinct, top, columns, from, where, orderBy, groupBy, select.selectOptions);
+            || columns !== select.columns || orderBy !== select.orderBy || groupBy !== select.groupBy
+            || offset !== select.offset)
+            return new SelectExpression(select.alias, select.isDistinct, top, columns, from, where, orderBy, groupBy, select.selectOptions, offset);
 
         return select;
     }

@@ -44,10 +44,12 @@ export class DbExpressionVisitor extends ExpressionVisitor {
         const columns = this.visitArray(select.columns, c => this.visitColumnDeclaration(c));
         const orderBy = this.visitArray(select.orderBy, o => this.visitOrderBy(o));
         const groupBy = this.visitArray(select.groupBy, g => this.visit(g));
+        const offset = this.visit(select.offset);
 
         if (top !== select.top || from !== select.from || where !== select.where ||
-            columns !== select.columns || orderBy !== select.orderBy || groupBy !== select.groupBy)
-            return new SelectExpression(select.alias, select.isDistinct, top, columns, from, where, orderBy, groupBy, select.selectOptions);
+            columns !== select.columns || orderBy !== select.orderBy || groupBy !== select.groupBy ||
+            offset !== select.offset)
+            return new SelectExpression(select.alias, select.isDistinct, top, columns, from, where, orderBy, groupBy, select.selectOptions, offset);
 
         return select;
     }

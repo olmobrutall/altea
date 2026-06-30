@@ -35,7 +35,7 @@ export class CommandSimplifier extends DbExpressionVisitor {
     }
 
     private trivialWhere(del: DeleteExpression, select: SelectExpression): boolean {
-        if (select.groupBy.length || select.orderBy.length || select.top != null || select.isDistinct)
+        if (select.groupBy.length || select.orderBy.length || select.top != null || select.offset != null || select.isDistinct)
             return false;
         if (!(del.where instanceof BinaryExpression) || (del.where.kind !== "==" && del.where.kind !== "==="))
             return false;

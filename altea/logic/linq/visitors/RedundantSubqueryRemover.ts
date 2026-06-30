@@ -89,6 +89,7 @@ class RedundantSubqueryGatherer extends DbExpressionVisitor {
             && !select.isDistinct
             && (select.selectOptions & SelectOptions.Reverse) === 0
             && select.top == null
+            && select.offset == null
             && select.where == null
             && select.orderBy.length === 0
             && select.groupBy.length === 0;
@@ -183,12 +184,13 @@ class SubqueryMerger extends DbExpressionVisitor {
             const orderBy = select.orderBy.length > 0 ? select.orderBy : fromSelect.orderBy;
             const groupBy = select.groupBy.length > 0 ? select.groupBy : fromSelect.groupBy;
             const top = select.top ?? fromSelect.top;
+            const offset = select.offset ?? fromSelect.offset;
             const isDistinct = select.isDistinct || fromSelect.isDistinct;
 
             if (where !== select.where || orderBy !== select.orderBy || groupBy !== select.groupBy
-                || isDistinct !== select.isDistinct || top !== select.top) {
+                || isDistinct !== select.isDistinct || top !== select.top || offset !== select.offset) {
                 select = new SelectExpression(select.alias, isDistinct, top, select.columns,
-                    select.from, where, orderBy, groupBy, select.selectOptions);
+                    select.from, where, orderBy, groupBy, select.selectOptions, offset);
             }
         }
 
@@ -227,6 +229,11 @@ class SubqueryMerger extends DbExpressionVisitor {
             return false;
         // can't move a TOP forward past another TOP / distinct / group-by / apply / where
         if (fromSelect.top != null && (select.top != null || select.isDistinct || selHasGroupBy
+            || SubqueryMerger.hasApplyJoin(select.from!) || select.where != null))
+            return false;
+        // can't move an OFFSET forward past another OFFSET / distinct / group-by / apply /
+        // where (a TOP outer is fine — it becomes the FETCH alongside this OFFSET).
+        if (fromSelect.offset != null && (select.offset != null || select.isDistinct || selHasGroupBy
             || SubqueryMerger.hasApplyJoin(select.from!) || select.where != null))
             return false;
         // can't move a DISTINCT forward past top / non-name-map projection / group-by / non-top-level order / aggregate
