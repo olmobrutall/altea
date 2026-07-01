@@ -647,7 +647,8 @@ one file; non-sqlFunctions suites hold at 456 PG / 447 SS). Landed:
   pinned. (Integers are unaffected.) Postgres `Math.round` uses the 1-arg
   `round(double precision)` overload, since `round(double, int)` doesn't exist there.
 
-Still red (deferred tiers): enum/entity `ToString` in query;
+Still red (deferred tiers): entity `ToString` in query (enum `.toString()` now lowers to a
+value→name CASE — an `EnumType` on the bound column carries the enum object to the nominator);
 `CombineUnion`/`CombineCase`; table-valued functions; `Etc`; concatenation-with-null;
 and the correlated-table-subquery-in-projection (`DayOfWeekSelectNullable`, blocked by
 the async-terminal typing gap — the only body still commented, with a note). dayOfWeek
@@ -1179,8 +1180,8 @@ and the IB/IBA projection / cast / `instanceof` / equality tests pass on **both*
 dialects. Treat a feature as done only when its DB-gated suite is green on both
 Postgres and SQL Server.
 
-**Current stable baseline (post-`noCommit`, deterministic): Postgres 434 / SQL
-Server ~417 pass** of 553 (TypeEntity + skip + the Date/Time tier landed; one
+**Current stable baseline (post-`noCommit`, deterministic): Postgres 436 / SQL
+Server ~420 pass** of 553 (TypeEntity + skip + Date/Time + enum `.toString()` landed; one
 SQL-Server `select` test flakes between runs under parallel load —
 `SelectCount`/`SelectEmbedded`/`SelectGroupLast` — all pass in isolation). (These supersede the historical figures above, which
 were measured before the `executeXXX` suites were enabled and before the

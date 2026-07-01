@@ -70,3 +70,11 @@ export class ObjectType extends Type {
         super()
     }
 }
+
+// An enum column/value. Stored as its underlying int, but carries the enum object
+// so the query layer can translate `.toString()` to a value→name CASE.
+export class EnumType extends Type {
+    constructor(public readonly enumObject: object, public readonly enumName: string) {
+        super()
+    }
+}

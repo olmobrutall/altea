@@ -340,7 +340,11 @@ export abstract class Expression {
                                                 obj.type === LiteralType.number ? Number.prototype :
                                                     obj.type === LiteralType.boolean ? Boolean.prototype :
                                                         staticReceiverObject(obj) ??
-                                                            undefined;
+                                                            // `toString()` is universal (Object.prototype has it),
+                                                            // so it dispatches on any receiver — e.g. an enum or
+                                                            // other null-typed column. The result is typed string
+                                                            // by wellKnownResultType and lowered in the nominator.
+                                                            (fun.propertyName === "toString" ? Object.prototype : undefined);
 
                             if (type == undefined)
                                 throw new Error(`Unexpected object type when calling ${fun.propertyName}`);

@@ -32,10 +32,10 @@ import {
     FieldImplementedBy, FieldImplementedByAll,
 } from "../../schema/field";
 import type { FieldInfo } from "../../../entities/reflection";
-import { resolveType } from "../../../entities/registration";
+import { resolveType, resolveEnum } from "../../../entities/registration";
 import { Entity } from "../../../entities/entity";
 import { niceName } from "../../../entities/utils/localization";
-import { ArrayType, ClassType, LiteType, LiteralType, TemporalType, Type } from "../../../entities/types";
+import { ArrayType, ClassType, EnumType, LiteType, LiteralType, TemporalType, Type } from "../../../entities/types";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 
 // Adapted port of Signum's QueryBinder. Input is altea's source Expression AST
@@ -1538,10 +1538,14 @@ export class QueryBinder extends ExpressionVisitor {
     private bindField(ef: EntityField, alias: Alias): Expression | undefined {
         const f = ef.field;
 
-        // FieldEnum extends FieldReference — check before FieldReference. Stored
-        // as its numeric value, so treat like a value column.
-        if (f instanceof FieldEnum)
-            return new ColumnExpression(LiteralType.number, alias, f.column.name);
+        // FieldEnum extends FieldReference — check before FieldReference. Stored as
+        // its numeric value; typed EnumType so the nominator can lower `.toString()`
+        // to a value→name CASE (falls back to number when the enum isn't registered).
+        if (f instanceof FieldEnum) {
+            const enumObj = resolveEnum(ef.fieldInfo.typeName);
+            const type: Type = enumObj != null ? new EnumType(enumObj, ef.fieldInfo.typeName) : LiteralType.number;
+            return new ColumnExpression(type, alias, f.column.name);
+        }
 
         if (f instanceof FieldValue) // includes FieldTicks
             return new ColumnExpression(this.valueType(ef.fieldInfo), alias, f.column.name);

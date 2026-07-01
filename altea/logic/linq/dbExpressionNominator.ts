@@ -9,7 +9,8 @@ import {
     AggregateExpression, AggregateRequestsExpression, CaseExpression, When, ScalarExpression, ExistsExpression, InExpression,
     ProjectionExpression,
 } from "./expressions.sql";
-import { LiteralType, TemporalType, Type } from "../../entities/types";
+import { EnumType, LiteralType, TemporalType, Type } from "../../entities/types";
+import { enumEntityMembers } from "../../entities/enumEntity";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 
 // Port of Signum's DbExpressionNominator. Like Signum's it does two jobs in one
@@ -186,6 +187,9 @@ class DbExpressionNominator extends DbExpressionVisitor {
             return this.translateMath(name, args);
         if (ns === "dateTime" || ns === "date")
             return this.translateDateMethod(name, source, args);
+        // enum.toString() → a value→name CASE (Signum reads the enum's Name).
+        if (name === "toString" && args.length === 0 && source.type instanceof EnumType)
+            return this.enumToString(source, source.type);
         // value.toString() → a string CAST (Signum's int/decimal ToString). A string
         // receiver is already text. (Date/temporal ToString is handled above and is
         // still unsupported; entity/lite ToString is resolved earlier in the binder.)
@@ -275,6 +279,16 @@ class DbExpressionNominator extends DbExpressionVisitor {
                 : this.sqlFunction(n, "ROUND", ...args, new SqlConstantExpression(0, n), new SqlConstantExpression(1, n));
             default: return undefined;
         }
+    }
+
+    // `enum.toString()` → CASE WHEN col = <value> THEN '<name>' … END, from the
+    // enum's members (Signum reads the enum-table Name; altea inlines the mapping).
+    // `source` is a pure column read, so repeating it in each WHEN is safe.
+    private enumToString(source: Expression, type: EnumType): Expression {
+        const whens = enumEntityMembers(type.enumObject).map(m => new When(
+            new BinaryExpression("==", source, new SqlConstantExpression(m.id, LiteralType.number)),
+            new SqlConstantExpression(m.name, LiteralType.string)));
+        return new CaseExpression(whens, new SqlConstantExpression(null, LiteralType.null));
     }
 
     // Date/time methods (port of DbExpressionNominator's DateTime/DateOnly cases).
