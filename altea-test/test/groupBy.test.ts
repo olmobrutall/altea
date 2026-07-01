@@ -288,7 +288,6 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     });
 
     // group a by a.Sex into g select new { Sex = g.Key, MaxBy = g.MaxBy(a => a.Name.Length) }
-    // TODO(api): MaxBy aggregate (pick the element maximizing a selector) in a query group
     test("GroupMaxBy", async () => {
         const songsAlbum = await table(ArtistEntity)
             .groupBy(a => a.sex)
@@ -298,7 +297,6 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     });
 
     // group a by a.Sex into g select new { Sex = g.Key, MinBy = g.MinBy(a => a.Name.Length) }
-    // TODO(api): MinBy aggregate (pick the element minimizing a selector) in a query group
     test("GroupMinBy", async () => {
         const songsAlbum = await table(ArtistEntity)
             .groupBy(a => a.sex)
@@ -401,14 +399,12 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<ArtistEntity>().MinBy(a => a.Name.Length);
-    // TODO(api): MinBy as a root terminal (pick the element minimizing a selector)
     test("RootMinBy", async () => {
         const songsAlbum = await table(ArtistEntity).minBy(a => a.name.length);
         assert.ok(songsAlbum != null);
     });
 
     // Database.Query<ArtistEntity>().MaxBy(a => a.Name.Length);
-    // TODO(api): MaxBy as a root terminal (pick the element maximizing a selector)
     test("RootMaxBy", async () => {
         const songsAlbum = await table(ArtistEntity).maxBy(a => a.name.length);
         assert.ok(songsAlbum != null);

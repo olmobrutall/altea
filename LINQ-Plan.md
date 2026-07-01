@@ -39,8 +39,8 @@ a named `PropertyExpression`, `BinaryExpression "=="`) not C# `MethodCallExpress
 
 ## Status
 
-Runs against both dialects. **Current stable baseline: Postgres 463 / SQL Server
-~447 pass of 552** (deterministic since the `noCommit` isolation below; one SQL
+Runs against both dialects. **Current stable baseline: Postgres 469 / SQL Server
+~453 pass of 552** (deterministic since the `noCommit` isolation below; one SQL
 Server `select` test flakes under parallel load — `SelectCount`/`SelectEmbedded`/
 `SelectGroupLast` — all pass in isolation). For done work the **code is the source
 of truth**; this is a map, not a spec.
@@ -102,12 +102,17 @@ of truth**; this is a map, not a spec.
   query the getter is folded to a constant by the ExpressionSimplifier (Signum
   partial-evaluates `Clock.Now`). A bound Temporal parameter is normalised to a portable
   string (shared `normalizeScalar`) — the mssql driver throws on a raw Temporal object.
+- **`minBy`/`maxBy`, `cast`/`ofType`** — the `ExpressionSimplifier` (pre-binding, Signum's
+  OverloadingSimplifier) lowers these to core operators before the QueryBinder sees them:
+  `minBy`/`maxBy` → `orderBy[Descending](key).firstOrNull()`, `cast(T)` → `map(x => x as T)`,
+  `ofType(T)` → `filter(x => x instanceof T).map(x => x as T)`. Work both as root terminals
+  and inside a query group (`g.elements.maxBy(…)`). The binder is untouched.
 
 **Pending / out of scope** (each flagged `TODO(api)` in its suite):
 
 - `Temporal.Now.*()` folded as a server-now constant in a query (e.g. `plainDateISO()`);
   `since(x).total(unit)` diff.
-- `minBy`/`maxBy`, `ofType`/`cast`, `view()`/temp tables, `OrderAlsoByKeys`
+- `view()`/temp tables, `OrderAlsoByKeys`
   (stable pagination over a non-unique key).
 - Deferred subsystems: FullText, Vector (pgvector), SystemTime/temporal.
 - `TypeLogic` "Sync" (load ids from the DB instead of computing them) and

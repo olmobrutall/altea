@@ -567,12 +567,22 @@ export class Query<T> implements IQuery<T> {
         return this.translator.executeCommand(call);
     }
 
-    // minBy/maxBy — the element with the min/max projected value (Signum's MinBy/MaxBy).
-    minBy<V>(selector: (element: T) => V): Promise<T> {
-        throw new Error("minBy is not implemented yet");
+    // minBy/maxBy — the element with the min/max projected value (Signum's MinBy/MaxBy;
+    // the binder rewrites to orderBy[Descending](selector).firstOrNull()). Decorated so it
+    // also types when used inside a query group (`g.elements.maxBy(…)`).
+    @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
+    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
+    minBy(selector: Quoted<(element: T) => unknown>): Promise<T | null> {
+        const lambda = Expression.fromQuotedLambda(selector, [this.elementType]);
+        const call = new CallExpression(new PropertyExpression(this.expression, "minBy"), [lambda], this.elementType);
+        return this.translator.execute(call) as Promise<T | null>;
     }
-    maxBy<V>(selector: (element: T) => V): Promise<T> {
-        throw new Error("maxBy is not implemented yet");
+    @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
+    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
+    maxBy(selector: Quoted<(element: T) => unknown>): Promise<T | null> {
+        const lambda = Expression.fromQuotedLambda(selector, [this.elementType]);
+        const call = new CallExpression(new PropertyExpression(this.expression, "maxBy"), [lambda], this.elementType);
+        return this.translator.execute(call) as Promise<T | null>;
     }
 
     // reverse — invert the current ordering (the binder lowers it via the Reverse flag).
@@ -583,12 +593,21 @@ export class Query<T> implements IQuery<T> {
     }
 
     // ofType / cast — narrow a polymorphic-reference query to one implementation
-    // (Signum's OfType/Cast). ofType filters; cast asserts. Not implemented yet.
+    // (Signum's OfType/Cast). The binder rewrites cast(T) to `map(x => x as T)` and
+    // ofType(T) to `filter(x => x instanceof T).map(x => x as T)`.
     ofType<S>(type: new (...args: any[]) => S): Query<S> {
-        throw new Error("ofType is not implemented yet");
+        const call = new CallExpression(
+            new PropertyExpression(this.expression, "ofType"),
+            [new ConstantExpression(type, new ClassType(type))],
+            new ArrayType(new ClassType(type)));
+        return new Query<S>(call, this.translator);
     }
     cast<S>(type: new (...args: any[]) => S): Query<S> {
-        throw new Error("cast is not implemented yet");
+        const call = new CallExpression(
+            new PropertyExpression(this.expression, "cast"),
+            [new ConstantExpression(type, new ClassType(type))],
+            new ArrayType(new ClassType(type)));
+        return new Query<S>(call, this.translator);
     }
 
     // Bulk-DML variant: chunked delete — a pure utility (Signum's UnsafeDeleteChunks),

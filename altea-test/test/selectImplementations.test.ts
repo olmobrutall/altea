@@ -330,14 +330,12 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // (from n select n.Target).Cast<BandEntity>().ToList();
-    // TODO(api): Cast<T>() query operator
     test("SelectCastIBACastOperator", async () => {
         const list = await table(NoteWithDateEntity).map(n => n.target).cast(BandEntity).toArray();
         assert.ok(Array.isArray(list));
     });
 
     // (from n select n.Target).OfType<BandEntity>().ToList();
-    // TODO(api): OfType<T>() query operator
     test("SelectCastIBAOfTypeOperator", async () => {
         const list = await table(NoteWithDateEntity).map(n => n.target).ofType(BandEntity).toArray();
         assert.ok(Array.isArray(list));

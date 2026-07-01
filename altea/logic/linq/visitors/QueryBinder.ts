@@ -885,6 +885,10 @@ export class QueryBinder extends ExpressionVisitor {
     // the matching implementation entity; for IBA, build a typed reference reusing
     // the id column (the join only matches rows of that type). Value casts and
     // already-concrete references are SQL no-ops — drop the cast.
+    // `x as T`: narrow a polymorphic reference to one implementation. For IB, pick the
+    // matching implementation entity; for IBA, build a typed reference reusing the id
+    // column (the join only matches rows of that type). Value casts and already-concrete
+    // references are SQL no-ops. (Cast/OfType lower to `x as T` in the ExpressionSimplifier.)
     override visitCast(cast: CastExpression): Expression {
         const expr = this.visit(cast.expression);
         const targetCtor = cast.type instanceof ClassType ? cast.type.constructorFunction : undefined;
