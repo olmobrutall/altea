@@ -10,7 +10,13 @@
 import { Entity } from '../entities/entity';
 import { Lite } from '../entities/lite';
 import type { IQuery } from '../entities/iquery';
+import type { Quoted } from 'quote-transformer/quoted';
 import { Saver } from './saver';
+import { table } from './table';
+import { asStaticFunction } from './query';
+import { ArrayType, FunctionType, LiteType, LiteralType, Type } from '../entities/types';
+import { CallExpression, ConstantExpression, Expression, LambdaExpression, ParameterExpression, PropertyExpression } from './linq/expressions';
+import { ExpressionVisitor } from './linq/visitors/ExpressionVisitor';
 
 // Logic-layer barrel: re-exports the common server entry points alongside installing
 // the entity/lite extension-method prototypes (below).
@@ -25,9 +31,9 @@ declare module '../entities/entity' {
         // entity so calls chain inline (Signum's `new XEntity { … }.Execute(Save)`).
         save(): Promise<this>;
         // Re-query this single in-memory entity against the database (Signum's InDB).
-        // `inDB()` yields a one-row query; `inDB(selector)` projects it.
+        // `inDB()` yields a one-row query; `inDB(selector)` projects it to a scalar.
         inDB(): IQuery<this>;
-        inDB<V>(selector: (entity: this) => V): V;
+        inDB<V>(selector: Quoted<(entity: this) => V>): V;
     }
 }
 
@@ -35,7 +41,7 @@ declare module '../entities/lite' {
     interface Lite<out T extends Entity> {
         // Re-query the referenced entity (Signum's Lite.InDB).
         inDB(): IQuery<T>;
-        inDB<V>(selector: (entity: T) => V): V;
+        inDB<V>(selector: Quoted<(entity: T) => V>): V;
         // Retrieve the referenced entity from the database.
         retrieve(): T;
         // Retrieve the referenced entity and cache it on the lite (Signum's RetrieveAndRemember).
@@ -48,13 +54,89 @@ Entity.prototype.save = async function (this: Entity): Promise<Entity> {
     return this;
 };
 
-(Entity.prototype as any).inDB = function (this: Entity): never {
-    throw new Error("inDB (entity→query bridge) is not implemented yet");
+// Entity → query bridge (Signum's Database.InDB): a one-row query filtered to this
+// entity's id. `inDB(selector)` projects and takes the single row. Used at the top
+// level (executed) and — via the binder's inDB expander — inside quoted lambdas.
+const entityInDB = function (this: Entity, selector?: Quoted<(e: Entity) => unknown>): unknown {
+    const self = this;
+    const query = table(self.constructor as any).filter(e => e.is(self));
+    return selector == null ? query : query.map(selector as any).single();
 };
+// Quote metadata so `entity.inDB(a => …)` typed inside a quoted lambda resolves the
+// selector's parameter (the entity) and result type (the selector's return), the way
+// the binder's inDB expander needs.
+const entityInDBSf = asStaticFunction(entityInDB);
+entityInDBSf.__lambdaType = [(ot: Type) => [ot]];
+entityInDBSf.__resultType = (ot: Type, selType?: Type) => selType instanceof FunctionType ? selType.returnType : new ArrayType(ot);
+entityInDBSf.__methodExpander = expandInDB;
+(Entity.prototype as any).inDB = entityInDB;
 
-(Lite.prototype as any).inDB = function (this: Lite<Entity>): never {
-    throw new Error("inDB (lite→query bridge) is not implemented yet");
+const liteInDB = function (this: Lite<Entity>, selector?: Quoted<(e: Entity) => unknown>): unknown {
+    const self = this;
+    const query = table(self.entityType as any).filter(e => e.is(self));
+    return selector == null ? query : query.map(selector as any).single();
 };
+const entityTypeOf = (ot: Type): Type => ot instanceof LiteType ? ot.entityType : ot;
+const liteInDBSf = asStaticFunction(liteInDB);
+liteInDBSf.__lambdaType = [(ot: Type) => [entityTypeOf(ot)]];
+liteInDBSf.__resultType = (ot: Type, selType?: Type) => selType instanceof FunctionType ? selType.returnType : new ArrayType(entityTypeOf(ot));
+liteInDBSf.__methodExpander = expandInDB;
+(Lite.prototype as any).inDB = liteInDB;
+
+// Signum's InDbExpander (run in ExpressionSimplifier, not the binder): rewrites an
+// `x.inDB(sel)` call inside a quoted lambda into a source expression, before binding.
+//  - A captured constant entity/lite → `x.inDB().map(sel).single()`, where the runtime
+//    `x.inDB()` builds `table(<x's concrete type>)…` — so `animal.inDB(a => a.legs)`
+//    queries `table(Cat)` or `table(Dog)` per the runtime type of `animal`.
+//  - A bound (non-constant) reference is a no-op re-query, so the selector applies in
+//    place (`sel(entity)`), by substituting its parameter with the receiver.
+function expandInDB(instance: Expression | undefined, args: readonly Expression[]): Expression {
+    const selector = args.length > 0 ? args[0] : undefined;
+
+    // Partial-eval the receiver (Signum's ExpressionEvaluator.PartialEval): a captured
+    // constant entity — or `entity.toLite()` on one — resolves to a runtime value.
+    const value = partialEval(instance);
+    if (value instanceof Entity || value instanceof Lite) {
+        // `value.inDB()` builds `table(<value's concrete type>)…` at runtime, so the
+        // query targets the actual subclass (Cat vs Dog) of a polymorphic reference.
+        const query = (value as any).inDB() as { expression: Expression };
+        let expr: Expression = query.expression;
+        if (selector instanceof LambdaExpression) {
+            const bodyType = selector.body.type ?? LiteralType.null;
+            expr = new CallExpression(new PropertyExpression(expr, "map", false), [selector], new ArrayType(bodyType));
+            expr = new CallExpression(new PropertyExpression(expr, "single", false), [], bodyType);
+        }
+        return expr;
+    }
+
+    // Non-constant receiver: the re-query is a no-op — apply the selector in place.
+    if (selector instanceof LambdaExpression && instance != null)
+        return new ParamReplacer(selector.parameters[0], instance).visit(selector.body);
+    return instance ?? new ConstantExpression(null);
+}
+
+// Evaluates an expression to a runtime value if it's a constant, or a zero-arg method
+// call chain over constants (`female.toLite()`) — a scoped port of Signum's PartialEval.
+function partialEval(e: Expression | undefined): unknown {
+    if (e instanceof ConstantExpression)
+        return e.value;
+    if (e instanceof CallExpression && e.func instanceof PropertyExpression && e.args.length === 0) {
+        const receiver = partialEval(e.func.object);
+        const fn = receiver == null ? undefined : (receiver as Record<string, unknown>)[e.func.propertyName];
+        if (typeof fn === "function")
+            return (fn as (...a: unknown[]) => unknown).call(receiver);
+    }
+    return undefined;
+}
+
+// Substitutes a lambda parameter with an expression (beta reduction) — Signum's
+// Expression.Invoke(lambda, arg) for the non-constant InDB fallback.
+class ParamReplacer extends ExpressionVisitor {
+    constructor(private readonly param: ParameterExpression, private readonly replacement: Expression) { super(); }
+    override visitParameter(p: ParameterExpression): Expression {
+        return p === this.param ? this.replacement : p;
+    }
+}
 
 Lite.prototype.retrieve = function (this: Lite<Entity>): never {
     throw new Error("retrieve (lite→entity) is not implemented yet");

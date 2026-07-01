@@ -353,7 +353,8 @@ export abstract class Expression {
                             sf = {
                                 __lambdaType: getLambdaTypeResolvers(type, fun.propertyName),
                                 __quoted: propertyFunction?.__quoted,
-                                __resultType: getResultTypeResolver(type, fun.propertyName) ?? wellKnownResultType(obj, fun.propertyName)
+                                __resultType: getResultTypeResolver(type, fun.propertyName) ?? wellKnownResultType(obj, fun.propertyName),
+                                __methodExpander: propertyFunction?.__methodExpander,
                             };
                         } else if (fun instanceof ConstantExpression) {
                             sf = fun.value as StaticFunction<Function>;
@@ -410,7 +411,9 @@ export abstract class Expression {
                         const resultType = obj?.type instanceof ArrayType && rawResultType instanceof PromiseType
                             ? rawResultType.inner
                             : rawResultType;
-                        return new CallExpression(fun, argsExp, resultType);
+                        const call = new CallExpression(fun, argsExp, resultType);
+                        call.methodExpander = sf.__methodExpander;
+                        return call;
                     }
                 case "=>":
                     var params = q[1].map((p, i) => new ParameterExpression(p[1], lambdaArgTypes![i]));
@@ -651,7 +654,17 @@ export class PropertyExpression extends Expression {
     }
 }
 
+// A method-call expander (Signum's IMethodExpander.Expand): rewrites a marked method
+// call into another source expression during ExpressionSimplifier, before binding.
+// `instance` is the receiver (undefined for a static call); `args` are the visited
+// arguments (a selector arrives as a LambdaExpression).
+export type MethodExpander = (instance: Expression | undefined, args: readonly Expression[]) => Expression;
+
 export class CallExpression extends Expression {
+    // Set by fromQuoted when the called method carries a `@methodExpander` — the
+    // simplifier invokes it to expand the call before it reaches the binder.
+    methodExpander?: MethodExpander;
+
     constructor(
         public readonly func: Expression,
         public readonly args: readonly Expression[],

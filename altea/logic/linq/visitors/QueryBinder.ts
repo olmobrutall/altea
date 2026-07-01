@@ -34,6 +34,7 @@ import {
 import type { FieldInfo } from "../../../entities/reflection";
 import { resolveType, resolveEnum } from "../../../entities/registration";
 import { Entity } from "../../../entities/entity";
+import { Lite } from "../../../entities/lite";
 import { niceName } from "../../../entities/utils/localization";
 import { ArrayType, ClassType, EnumType, LiteType, LiteralType, TemporalType, Type } from "../../../entities/types";
 import { ExpressionVisitor } from "./ExpressionVisitor";
@@ -405,6 +406,14 @@ export class QueryBinder extends ExpressionVisitor {
         return e instanceof PrimaryKeyExpression ? e.value : e;
     }
 
+    // A single-result sub-query (`…single()`, e.g. from an inDB expansion) used as a
+    // value operand becomes a scalar subquery.
+    private asScalarValue(e: Expression): Expression {
+        return e instanceof ProjectionExpression && e.uniqueFunction != null
+            ? new ScalarExpression(e.projector.type, e.select)
+            : e;
+    }
+
     override visitCall(call: CallExpression): Expression {
         const func = call.func;
 
@@ -588,8 +597,8 @@ export class QueryBinder extends ExpressionVisitor {
         }
 
         if (b.kind === "==" || b.kind === "===" || b.kind === "!=" || b.kind === "!==") {
-            const left = this.visit(b.left);
-            const right = this.visit(b.right);
+            const left = this.asScalarValue(this.visit(b.left));
+            const right = this.asScalarValue(this.visit(b.right));
             const negate = b.kind === "!=" || b.kind === "!==";
             // `f.GetType() == typeof(X)` — a Type expression vs a captured ctor (or
             // another Type expression) lowers through SmartEqualizer.typeEqual.

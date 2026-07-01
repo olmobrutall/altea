@@ -113,6 +113,14 @@ export class ExpressionSimplifier extends ExpressionVisitor {
 
         const args = this.visitArray(node.args, arg => this.visit(arg));
 
+        // A `@methodExpander` method (e.g. inDB) rewrites itself into another source
+        // expression here, before binding — Signum's IMethodExpander.Expand, run in the
+        // simplifier. The receiver is the call target's object.
+        if (node.methodExpander != null) {
+            const instance = func instanceof PropertyExpression ? func.object : undefined;
+            return this.visit(node.methodExpander(instance, args));
+        }
+
         // Fold a constant Temporal construction `Temporal.PlainDateTime.from({…})` etc.
         // to its value. The receiver `Temporal.PlainDateTime` is a property off the
         // captured Temporal namespace constant (a class/function, so visitProperty

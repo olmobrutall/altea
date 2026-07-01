@@ -680,6 +680,37 @@ regressions. The slice:
 Deferred within the tier: `Temporal.Now` (server-now constant, like `Clock.now` — `DateParameters`)
 and the `since(x).total(unit)` composition (`DateDiffFunctions`).
 
+**enum `.toString()` in query.** `a.sex.toString()` → a value→name `CASE` (the enum member name,
+not the raw int). A new `EnumType` (`entities/types.ts`) is put on the bound enum column by the
+binder (was bare `number`), carrying the enum object so the nominator builds the CASE from its
+members; `toString` now dispatches on any receiver (Object.prototype fallback) so the null/enum case
+no longer throws. `EnumToString`/`NullableEnumToString` green; full suite **PG 434→436 / SS 417→420**,
+no regressions.
+
+**MethodExpander infrastructure + `inDB` (entity→query bridge).** A general port of Signum's
+`IMethodExpander` (`ExpressionCleaner.BindMethodExpression`): a method marked `@methodExpander(fn)`
+(or `sf.__methodExpander = fn`) is rewritten by `fn(instance, args)` **in `ExpressionSimplifier`**,
+before binding — not in the binder. `MethodExpander` = `(instance, args) => Expression`;
+`fromQuoted` stamps `sf.__methodExpander` onto the `CallExpression`, and `ExpressionSimplifier.visitCall`
+invokes it and re-simplifies the result. This is altea's first such hook; it generalises to other
+`[MethodExpander]` methods (e.g. `@quoted` `AutoExpressionField` members).
+
+`entity.inDB(sel)` / `lite.inDB()` re-query a single in-memory entity, in two contexts:
+- **Runtime bridge** (`logic/index.ts`) for top-level use: `inDB()` → `table(ctor).filter(e => e.is(self))`,
+  `inDB(sel)` → `…map(sel).single()`. The selector is `Quoted`, and `__lambdaType`/`__resultType` are
+  attached so it types inside quoted lambdas too. `table(this.constructor)` / `table(lite.entityType)`
+  means the query targets the receiver's **runtime type** — `animal.inDB(a => a.legs)` hits
+  `table(Cat)` or `table(Dog)` per the actual subclass.
+- **`expandInDB`** (the MethodExpander) for `inDB` *inside* a quoted lambda: it `partialEval`s the
+  receiver (Signum's `ExpressionEvaluator.PartialEval` — a constant entity, or `entity.toLite()` on
+  one), and for a constant rewrites to the source expression `value.inDB().map(sel).single()`
+  (reusing the runtime bridge, so same polymorphism); a bound (non-constant) reference degrades to
+  `sel(entity)` by substituting the selector's parameter (`ParamReplacer`, Signum's
+  `Expression.Invoke`). The resulting `…single()` used as a value is scalarised by the binder
+  (`asScalarValue`: a single-result `ProjectionExpression` → `ScalarExpression`).
+
+`inDB.test.ts` **9/9** both dialects; full suite **PG 436→444 / SS 420→428**, no regressions.
+
 **Whole suite uncommented (API-stability gate).** Every ported LinqProvider test body
 was uncommented and the suite now **compiles clean** (`tspc -b`, offline 42/42) — the
 TDD "compile-clean = stable API" gate the plan describes, now covering the deferred
@@ -1180,8 +1211,8 @@ and the IB/IBA projection / cast / `instanceof` / equality tests pass on **both*
 dialects. Treat a feature as done only when its DB-gated suite is green on both
 Postgres and SQL Server.
 
-**Current stable baseline (post-`noCommit`, deterministic): Postgres 436 / SQL
-Server ~420 pass** of 553 (TypeEntity + skip + Date/Time + enum `.toString()` landed; one
+**Current stable baseline (post-`noCommit`, deterministic): Postgres 444 / SQL
+Server ~428 pass** of 553 (TypeEntity + skip + Date/Time + enum `.toString()` + `inDB`/MethodExpander landed; one
 SQL-Server `select` test flakes between runs under parallel load —
 `SelectCount`/`SelectEmbedded`/`SelectGroupLast` — all pass in isolation). (These supersede the historical figures above, which
 were measured before the `executeXXX` suites were enabled and before the

@@ -2,7 +2,7 @@
 import { ExLambda, Quoted } from "quote-transformer/quoted";
 import { Entity } from "../entities/entity";
 import { IQuery, IOrderedQuery } from "../entities/iquery";
-import { CallExpression, ConstantExpression, Expression, LambdaExpression, PropertyExpression } from "./linq/expressions";
+import { CallExpression, ConstantExpression, Expression, LambdaExpression, MethodExpander, PropertyExpression } from "./linq/expressions";
 import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType, PromiseType } from "../entities/types";
 
 // The query-expression metadata model. `@quoted` / `withQuoted` (which entities use to
@@ -15,6 +15,7 @@ export interface StaticFunction<T extends Function> {
     __lambdaType?: LambdaTypeResolver[];
     __resultType?: ResultTypeResolver;
     __quoted?: () => ExLambda;
+    __methodExpander?: MethodExpander;
 }
 
 export function asStaticFunction<T extends Function>(func: T): StaticFunction<T> {
@@ -51,6 +52,19 @@ export function resultType(typeResolver: ResultTypeResolver) {
             throw new Error(`@resultType can only be applied to methods, but '${String(propertyKey)}' is not a method`);
 
         (value as StaticFunction<Function>).__resultType = typeResolver;
+    };
+}
+
+// Marks a method whose calls are rewritten by `expander` during ExpressionSimplifier
+// (Signum's [MethodExpander]). The expander receives the receiver + visited args and
+// returns a replacement source expression, which is then re-simplified and bound.
+export function methodExpander(expander: MethodExpander) {
+    return function (_target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
+        const value = descriptor.value;
+        if (typeof value !== "function")
+            throw new Error(`@methodExpander can only be applied to methods, but '${String(propertyKey)}' is not a method`);
+
+        (value as StaticFunction<Function>).__methodExpander = expander;
     };
 }
 
