@@ -11,19 +11,20 @@ import {
     SourceExpression, SqlFunctionExpression, SqlCastExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression, JoinType,
     LiteReferenceExpression, LiteReferenceTarget, ScalarExpression, ExistsExpression,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
-    TypeEntityExpression, TypeImplementedByExpression,
-    CaseExpression, When, IsNotNullExpression,
+    TypeEntityExpression, TypeImplementedByExpression, CombineStrategy,
+    CaseExpression, When, IsNotNullExpression, IsNullExpression, SetOperatorExpression, SourceWithAliasExpression,
     CommandExpression, CommandAggregateExpression, ColumnAssignment,
     DeleteExpression, UpdateExpression, InsertSelectExpression,
 } from "../expressions.sql";
 import { AssignAdapterExpander } from "./AssignAdapterExpander";
 import { AliasGenerator, Alias } from "../AliasGenerator";
 import { projectColumns as projectColumnsImpl, ProjectedColumns } from "./ColumnProjector";
-import { fullNominate as fullNominateImpl } from "../dbExpressionNominator";
-import { QueryJoinExpander, TableRequest } from "./QueryJoinExpander";
+import { fullNominate as fullNominateImpl, nominate } from "../dbExpressionNominator";
+import { QueryJoinExpander, TableRequest, ExpansionRequest } from "./QueryJoinExpander";
 import { EntityCompleter } from "./EntityCompleter";
 import { GroupEntityCleaner } from "./GroupEntityCleaner";
 import { SmartEqualizer } from "../smartEqualizer";
+import { TypeLogic } from "../../typeLogic";
 import type { Schema } from "../../schema/schema";
 import type { Table } from "../../schema/table";
 import type { EntityField } from "../../schema/field";
@@ -38,6 +39,7 @@ import { Lite } from "../../../entities/lite";
 import { niceName } from "../../../entities/utils/localization";
 import { ArrayType, ClassType, EnumType, LiteType, LiteralType, TemporalType, Type } from "../../../entities/types";
 import { ExpressionVisitor } from "./ExpressionVisitor";
+import { DbExpressionVisitor } from "./DbExpressionVisitor";
 
 // Adapted port of Signum's QueryBinder. Input is altea's source Expression AST
 // (a CallExpression chain over `table(T)`); output is a DbExpression tree
@@ -63,6 +65,234 @@ function ctorOfType(type: Type): Function {
     if (type instanceof ClassType)
         return type.constructorFunction;
     throw new Error("Expected a ClassType for an entity reference");
+}
+
+// The inner (referenced) type of a `Lite<T>` — the type to combine when the
+// selector returns a Lite over each implementation.
+function liteInner(type: Type): Type {
+    return type instanceof LiteType ? type.entityType : type;
+}
+
+// Signum's ICombineStrategy: given the per-implementation values (keyed by
+// implementation ctor) of a leaf/scalar sub-expression, produce the single SQL
+// expression that reconstructs it across the implementations. The recursion in
+// `combineImplementations` walks the reference structure and calls this only at
+// the leaves. The Case strategy (SwitchStrategy) builds a CASE; the Union strategy
+// (a UnionAllRequest, added later) projects the leaves into union columns.
+interface ICombineStrategy {
+    combineValues(implementations: ReadonlyMap<Function, Expression>, returnType: Type): Expression;
+}
+
+// Signum's SwitchStrategy: combine the per-implementation values with a CASE keyed
+// on which implementation's FK column is non-null. Holds the original IB so every
+// leaf uses the same WHEN conditions (the implementation id columns), regardless of
+// how deep into the reference structure the recursion has gone.
+class SwitchStrategy implements ICombineStrategy {
+    constructor(private readonly ib: ImplementedByExpression) { }
+
+    combineValues(implementations: ReadonlyMap<Function, Expression>, _returnType: Type): Expression {
+        const whens: When[] = [];
+        for (const [ctor, ee] of this.ib.implementations)
+            whens.push(new When(new IsNotNullExpression(ee.externalId.value), implementations.get(ctor)!));
+        return new CaseExpression(whens, undefined);
+    }
+}
+
+// Map each value of a keyed map through `fn`, preserving the (implementation ctor)
+// keys — the workhorse of `combineImplementations`' structural recursion.
+function mapValues(map: ReadonlyMap<Function, Expression>, fn: (v: Expression) => Expression): Map<Function, Expression> {
+    const out = new Map<Function, Expression>();
+    for (const [k, v] of map)
+        out.set(k, fn(v));
+    return out;
+}
+
+// One implementation's contribution to a UNION combine (Signum's UnionEntity): the
+// fully-projected entity at its own table alias, the inner SELECT's alias, and —
+// filled by completedUnion — the union column carrying this implementation's id (the
+// join key back to the owner's FK).
+interface UnionEntity {
+    readonly entity: EntityExpression;
+    readonly tableExpr: TableExpression;
+    readonly selectAlias: Alias;
+    unionExternalId?: ColumnExpression;
+}
+
+// A leaf value about to become a union column: either ready to project as-is
+// (`plain`) or needing per-implementation column extraction (`dirty` — Signum's
+// DityExpression, projected via ColumnUnionProjector).
+type Nominable =
+    | { readonly kind: "plain"; readonly expr: Expression }
+    | { readonly kind: "dirty"; readonly projector: Expression; readonly candidates: Set<Expression> };
+
+// Signum's UnionAllRequest: the UNION combine strategy. Builds one inner SELECT per
+// implementation, declaring exactly the columns the navigation needs (accumulated as
+// `combineValues` runs), folds them into a UNION ALL, and joins the whole once to the
+// owner on the per-implementation id columns. Implements ICombineStrategy so
+// combineImplementations drives it at the leaves, and exposes buildJoin() so the
+// QueryJoinExpander can splice it in.
+class UnionAllRequest implements ICombineStrategy {
+    private readonly declarations = new Map<string, Map<Function, Expression>>();
+    private readonly usedNames = new Set<string>();
+    private nextName = 0;
+
+    constructor(
+        readonly originalIb: ImplementedByExpression,
+        readonly unionAlias: Alias,
+        readonly implementations: ReadonlyMap<Function, UnionEntity>,
+        private readonly isPostgres: boolean,
+    ) { }
+
+    private uniqueName(suggested: string): string {
+        let candidate = suggested;
+        let suffix = 1;
+        while (this.usedNames.has(candidate.toLowerCase()))
+            candidate = suggested + (suffix++);
+        this.usedNames.add(candidate.toLowerCase());
+        return candidate;
+    }
+
+    // Declare a union column whose value per implementation is `getColumn(ctor)`.
+    // Returns the outer reference to it (unionAlias.name).
+    addUnionColumn(type: Type, suggestedName: string, getColumn: (ctor: Function) => Expression): ColumnExpression {
+        const name = this.uniqueName(suggestedName || ("c" + this.nextName++));
+        const perImpl = new Map<Function, Expression>();
+        for (const ctor of this.implementations.keys())
+            perImpl.set(ctor, getColumn(ctor));
+        this.declarations.set(name, perImpl);
+        return new ColumnExpression(type, this.unionAlias, name);
+    }
+
+    // A union column carrying `expression` only for `implementation` (NULL elsewhere).
+    addIndependentColumn(type: Type, suggestedName: string, implementation: Function, expression: Expression): ColumnExpression {
+        const nullValue = new SqlConstantExpression(null, type);
+        return this.addUnionColumn(type, suggestedName, ctor => ctor === implementation ? expression : nullValue);
+    }
+
+    // The SELECT-list declarations for one implementation's inner SELECT.
+    getDeclarations(ctor: Function): ColumnDeclaration[] {
+        return [...this.declarations].map(([name, perImpl]) => new ColumnDeclaration(name, perImpl.get(ctor)!));
+    }
+
+    // Whether a leaf can be projected directly (a column / fully server-side
+    // expression) or needs per-implementation candidate extraction.
+    private getNominable(exp: Expression): Nominable {
+        if (exp instanceof ColumnExpression)
+            return { kind: "plain", expr: exp };
+        const { candidates, expression } = nominate(exp, this.isPostgres);
+        if (candidates.has(expression))
+            return { kind: "plain", expr: expression };
+        return { kind: "dirty", projector: expression, candidates };
+    }
+
+    combineValues(implementations: ReadonlyMap<Function, Expression>, returnType: Type): Expression {
+        const values = new Map<Function, Nominable>();
+        for (const [ctor, exp] of implementations)
+            values.set(ctor, this.getNominable(exp));
+
+        // Every implementation projects a single server expression → one shared union
+        // column whose value is that implementation's expression.
+        if ([...values.values()].every(v => v.kind === "plain")) {
+            const first = ([...values.values()][0] as { expr: Expression }).expr;
+            return this.addUnionColumn(returnType, defaultColumnName(first),
+                ctor => (values.get(ctor) as { expr: Expression }).expr);
+        }
+
+        // Otherwise combine with a CASE keyed on which implementation's union id is
+        // set; each branch projects that implementation's leaf into its own column(s).
+        const whens: When[] = [];
+        for (const [ctor, v] of values) {
+            const condition = new IsNotNullExpression(this.implementations.get(ctor)!.unionExternalId!);
+            if (v.kind === "plain") {
+                const col = this.addIndependentColumn(v.expr.type, defaultColumnName(v.expr), ctor, v.expr);
+                whens.push(new When(condition, col));
+            } else {
+                const projector = ColumnUnionProjector.project(v.projector, v.candidates, this, ctor);
+                whens.push(new When(condition, projector));
+            }
+        }
+        return new CaseExpression(whens, undefined);
+    }
+
+    // Splice the UNION ALL sub-select in as a SingleRow LEFT OUTER JOIN on the owner's
+    // FK columns (Signum's ApplyExpansions UnionAllRequest branch).
+    buildJoin(source: SourceExpression): SourceExpression {
+        const inner: SourceWithAliasExpression[] = [...this.implementations].map(([ctor, ue]) =>
+            new SelectExpression(ue.selectAlias, false, undefined, this.getDeclarations(ctor), ue.tableExpr, undefined, [], []));
+        const union = inner.reduce((a, b) => new SetOperatorExpression("UnionAll", a, b, this.unionAlias));
+
+        const terms = [...this.implementations].map(([ctor, ue]) => {
+            const uid = ue.unionExternalId!;
+            const eid = this.originalIb.implementations.get(ctor)!.externalId.value;
+            return new BinaryExpression("||",
+                new BinaryExpression("==", uid, eid),
+                new BinaryExpression("&&", new IsNullExpression(uid), new IsNullExpression(eid)));
+        });
+        const condition = terms.reduce((a, b) => new BinaryExpression("&&", a, b) as BinaryExpression);
+        return new JoinExpression("SingleRowLeftOuterJoin", source, union, condition);
+    }
+}
+
+// The implementation's short name for a union id column (Signum's CleanTypeName):
+// the constructor name without a trailing "Entity".
+function cleanTypeName(ctor: Function): string {
+    return ctor.name.replace(/Entity$/, "");
+}
+
+// A suggested union-column name from a leaf expression — a source column keeps its
+// name; anything else falls back to a generic "val".
+function defaultColumnName(exp: Expression): string {
+    if (exp instanceof ColumnExpression)
+        return exp.name ?? "val";
+    if (exp instanceof SqlCastExpression)
+        return defaultColumnName(exp.expression);
+    return "val";
+}
+
+// Signum's ColumnUnionProjector: rewrite a per-implementation leaf so its nominated
+// candidate columns/expressions are projected into that implementation's union
+// columns and read back from the union alias.
+class ColumnUnionProjector extends DbExpressionVisitor {
+    private readonly map = new Map<ColumnExpression, ColumnExpression>();
+
+    private constructor(
+        private readonly candidates: Set<Expression>,
+        private readonly request: UnionAllRequest,
+        private readonly implementation: Function,
+    ) { super(); }
+
+    static project(projector: Expression, candidates: Set<Expression>, request: UnionAllRequest, implementation: Function): Expression {
+        return new ColumnUnionProjector(candidates, request, implementation).visit(projector);
+    }
+
+    override visit(e: Expression): Expression;
+    override visit(e: Expression | undefined): Expression | undefined;
+    override visit(e: Expression | undefined): Expression | undefined {
+        if (e == null)
+            return undefined;
+        if (this.candidates.has(e)) {
+            if (e instanceof ColumnExpression) {
+                const cached = this.map.get(e);
+                if (cached != null)
+                    return cached;
+                const mapped = this.request.addIndependentColumn(e.type, e.name ?? "c", this.implementation, e);
+                this.map.set(e, mapped);
+                return mapped;
+            }
+            return this.request.addIndependentColumn(e.type, "v", this.implementation, e);
+        }
+        return super.visit(e);
+    }
+}
+
+// The @implementedByAll type-discriminator constant for a ctor — the target's
+// TypeEntity int id (Signum's TypeToId). Emitted as an inline SQL literal (not a
+// bound parameter): these constants only appear as CASE branch values when
+// combining a type discriminator, and an all-parameter CASE gives the DB no type
+// to infer (Postgres would default the params to text and clash with the integer
+// discriminator column). An inline integer literal types the branch unambiguously.
+function typeConstant(ctor: Function): Expression {
+    return new SqlConstantExpression(TypeLogic.typeToId(ctor), LiteralType.number);
 }
 
 // Relational-join operator → SQL join type. leftJoin preserves the outer (left)
@@ -148,9 +378,13 @@ export class QueryBinder extends ExpressionVisitor {
     // `sourceStack` tracks the source a lambda body is being bound against (so a
     // completion attaches its join to the right SELECT); `entityReplacements`
     // dedupes the join when the same reference is navigated more than once.
-    private readonly requests = new Map<SourceExpression, TableRequest[]>();
+    private readonly requests = new Map<SourceExpression, ExpansionRequest[]>();
     private readonly sourceStack: SourceExpression[] = [];
     private readonly entityReplacements = new Map<EntityExpression, EntityExpression>();
+    // Dedupe the UNION combine of an @implementedBy reference (Signum's
+    // implementedByReplacements) — the same combineUnion() reference navigated more
+    // than once reuses one UNION ALL join.
+    private readonly unionReplacements = new Map<ImplementedByExpression, UnionAllRequest>();
 
     constructor(
         private readonly schema: Schema,
@@ -517,6 +751,19 @@ export class QueryBinder extends ExpressionVisitor {
     }
 
     private bindMethodCall(methodName: string, source: Expression, args: readonly Expression[], resultType: Type): Expression {
+        // ref.combineUnion() / .combineCase() (Signum's LinqHintEntities markers):
+        // swap the polymorphic combine strategy of an @implementedBy reference. The
+        // reference is otherwise unchanged; the strategy governs how a later member
+        // navigation combines the implementations (a CASE vs a UNION ALL subquery).
+        if (methodName === "combineUnion" || methodName === "combineCase") {
+            const strategy = methodName === "combineUnion" ? "Union" : "Case";
+            if (source instanceof ImplementedByExpression)
+                return new ImplementedByExpression(source.type, strategy, source.implementations);
+            // On a non-polymorphic reference the hint is a no-op (a single or typed
+            // implementation has nothing to combine); mirror Signum leniently.
+            return source;
+        }
+
         // entity.toLite() → a Lite over that reference (Signum's BindToLite). Works
         // over a typed reference or a polymorphic IB/IBA one.
         if (methodName === "toLite" && (source instanceof EntityExpression || source instanceof ImplementedByExpression || source instanceof ImplementedByAllExpression))
@@ -1186,6 +1433,12 @@ export class QueryBinder extends ExpressionVisitor {
         return this.dispatchIb(ib, ee => this.bindEntityMember(ee, name));
     }
 
+    // Signum's DispatchIb: navigate `selector` on each implementation and combine the
+    // per-implementation results. Empty → null; single → that one (no combine). With
+    // 2+ implementations the combine follows the IB's strategy: "Case" runs the
+    // selector on the (lazy) implementation entities and merges with a CASE
+    // (combineImplementations recurses into references); "Union" is handled in the
+    // UnionAllRequest path.
     private dispatchIb(ib: ImplementedByExpression, selector: (ee: EntityExpression) => Expression): Expression {
         const impls = [...ib.implementations.values()];
         if (impls.length === 0)
@@ -1193,9 +1446,191 @@ export class QueryBinder extends ExpressionVisitor {
         if (impls.length === 1)
             return selector(impls[0]);
 
-        const whens: When[] = impls.map(ee =>
-            new When(new IsNotNullExpression(ee.externalId.value), selector(ee)));
-        return new CaseExpression(whens, undefined);
+        if (ib.strategy === "Union")
+            return this.dispatchIbUnion(ib, selector);
+
+        const dictionary = new Map<Function, Expression>();
+        for (const [ctor, ee] of ib.implementations)
+            dictionary.set(ctor, selector(ee));
+        return this.combineImplementations(new SwitchStrategy(ib), dictionary, ib.type);
+    }
+
+    // The UNION-ALL combine strategy (Signum's CombineStrategy.Union). Build (once)
+    // the union sub-query over the implementations, run the selector against each
+    // implementation's full entity (bound at its own inner alias), then combine the
+    // per-implementation results via the request — which projects the leaves into
+    // union columns read back from the union alias.
+    private dispatchIbUnion(ib: ImplementedByExpression, selector: (ee: EntityExpression) => Expression): Expression {
+        const ur = this.completedUnion(ib);
+        const dictionary = new Map<Function, Expression>();
+        for (const [ctor, ue] of ur.implementations)
+            dictionary.set(ctor, this.runWithSource(ue.tableExpr, () => selector(ue.entity)));
+        return this.combineImplementations(ur, dictionary, ib.type);
+    }
+
+    // Signum's Completed(ImplementedByExpression): build/cache the UnionAllRequest —
+    // one full-entity projection per implementation at a fresh alias, plus a per-
+    // implementation id column used as the join key — and register it against the
+    // current source so QueryJoinExpander splices in the UNION ALL join.
+    private completedUnion(ib: ImplementedByExpression): UnionAllRequest {
+        const cached = this.unionReplacements.get(ib);
+        if (cached != null)
+            return cached;
+
+        const unionAlias = this.aliasGenerator.nextTableAlias("Union");
+        const implementations = new Map<Function, UnionEntity>();
+        for (const [ctor, ee] of ib.implementations) {
+            const innerAlias = this.aliasGenerator.nextTableAlias(ee.table.name.name);
+            implementations.set(ctor, {
+                entity: this.createEntityExpression(ee.table, innerAlias),
+                tableExpr: new TableExpression(innerAlias, ee.table),
+                selectAlias: this.aliasGenerator.nextSelectAlias(),
+            });
+        }
+
+        const ur = new UnionAllRequest(ib, unionAlias, implementations, this.isPostgres);
+        for (const [ctor, ue] of implementations) {
+            const idValue = ue.entity.externalId.value;
+            ue.unionExternalId = ur.addIndependentColumn(idValue.type, "Id_" + cleanTypeName(ctor), ctor, idValue);
+        }
+
+        this.addUnionRequest(ur);
+        this.unionReplacements.set(ib, ur);
+        return ur;
+    }
+
+    private addUnionRequest(ur: UnionAllRequest): void {
+        const source = this.sourceStack[this.sourceStack.length - 1];
+        if (source == null)
+            throw new Error("No current source for a UNION combine request");
+        const list = this.requests.get(source);
+        if (list != null)
+            list.push({ union: ur });
+        else
+            this.requests.set(source, [{ union: ur }]);
+    }
+
+    // Signum's CombineImplementations: reconstruct a single expression from the
+    // per-implementation values (keyed by implementation ctor). Recurses through the
+    // reference structure — Lite over its wrapped reference, Entity over its id,
+    // @implementedByAll over id + type discriminator, PrimaryKey over its value —
+    // and defers to `strategy.combineValues` only at scalar leaves. `returnType` is
+    // the combined reference's nominal type; the concrete type is recovered at read
+    // time from the discriminator, so it is only load-bearing for scalar column types.
+    private combineImplementations(strategy: ICombineStrategy, expressions: ReadonlyMap<Function, Expression>, returnType: Type): Expression {
+        const values = [...expressions.values()];
+
+        // All Lite<T> → combine the wrapped references and re-wrap as a Lite.
+        if (values.every(v => v instanceof LiteReferenceExpression)) {
+            const refs = mapValues(expressions, v => (v as LiteReferenceExpression).reference);
+            const entity = this.combineImplementations(strategy, refs, liteInner(returnType)) as LiteReferenceTarget;
+            return new LiteReferenceExpression(new LiteType(entity.type), entity, undefined);
+        }
+
+        // All the same typed entity → one lazy EntityExpression with the combined id.
+        if (values.every(v => v instanceof EntityExpression)) {
+            const commonType = (values[0] as EntityExpression).type;
+            const ids = mapValues(expressions, v => (v as EntityExpression).externalId.value);
+            const id = new PrimaryKeyExpression(this.combineImplementations(strategy, ids, LiteralType.number));
+            const table = this.schema.table(ctorOfType(commonType) as any);
+            return new EntityExpression(commonType, table, id, undefined, undefined, undefined, false);
+        }
+
+        // Any @implementedByAll → combine to @implementedByAll (id + discriminator).
+        // Mixed IB/IBA implementations (e.g. a member typed IBA on one impl, IB on
+        // another) also land here: each is reduced to its id value and type id.
+        if (values.some(v => v instanceof ImplementedByAllExpression)) {
+            const ids = mapValues(expressions, v => this.idValueOf(v));
+            const id = this.combineImplementations(strategy, ids, LiteralType.number);
+            const typeIds = mapValues(expressions, v => this.extractTypeId(this.getEntityType(v)));
+            const typeId = this.combineImplementations(strategy, typeIds, LiteralType.number);
+            return new ImplementedByAllExpression(returnType, id, new TypeImplementedByAllExpression(typeId));
+        }
+
+        // All typed-or-@implementedBy → combine to @implementedBy over the union of
+        // implementation types; each implementation entity is combined independently.
+        if (values.every(v => v instanceof EntityExpression || v instanceof ImplementedByExpression)) {
+            const implTypes = new Set<Function>();
+            for (const v of values) {
+                if (v instanceof EntityExpression)
+                    implTypes.add(ctorOfType(v.type));
+                else
+                    for (const k of (v as ImplementedByExpression).implementations.keys())
+                        implTypes.add(k);
+            }
+            const newImpls = new Map<Function, EntityExpression>();
+            for (const t of implTypes) {
+                const perType = mapValues(expressions, v => {
+                    if (v instanceof EntityExpression)
+                        return ctorOfType(v.type) === t ? v : this.nullEntity(t);
+                    const found = (v as ImplementedByExpression).implementations.get(t);
+                    return found ?? this.nullEntity(t);
+                });
+                newImpls.set(t, this.combineImplementations(strategy, perType, new ClassType(t)) as EntityExpression);
+            }
+            const kinds = new Set(values.filter(v => v instanceof ImplementedByExpression)
+                .map(v => (v as ImplementedByExpression).strategy));
+            const kind: CombineStrategy = kinds.size === 1 ? [...kinds][0] : "Union";
+            return new ImplementedByExpression(returnType, kind, newImpls);
+        }
+
+        // All PrimaryKey wrappers → unwrap, combine the values, re-wrap.
+        if (values.every(v => v instanceof PrimaryKeyExpression)) {
+            const inner = mapValues(expressions, v => (v as PrimaryKeyExpression).value);
+            return new PrimaryKeyExpression(this.combineImplementations(strategy, inner, returnType));
+        }
+
+        // Any runtime-type expression → combine the underlying type ids.
+        if (values.some(v => isTypeExpression(v))) {
+            const typeIds = mapValues(expressions, v => this.extractTypeId(v));
+            const typeId = this.combineImplementations(strategy, typeIds, LiteralType.number);
+            return new TypeImplementedByAllExpression(typeId);
+        }
+
+        // Scalar leaf — the strategy builds the actual combining SQL (a CASE / a
+        // union column). Use a value's own type (the return type may be the nominal
+        // reference type when we recursed from a reference branch).
+        return strategy.combineValues(expressions, values.length ? values[0].type : returnType);
+    }
+
+    // A lazy, always-null typed EntityExpression standing in for an implementation
+    // that a given branch of the combine doesn't populate (Signum's null-id filler).
+    private nullEntity(ctor: Function): EntityExpression {
+        const nullId = new PrimaryKeyExpression(new SqlConstantExpression(null, LiteralType.null));
+        return new EntityExpression(new ClassType(ctor), this.schema.table(ctor as any), nullId, undefined, undefined, undefined, false);
+    }
+
+    // The scalar id *value* (unwrapped) of a reference — Signum's GetId reduced to a
+    // value. IB coalesces its implementation ids (via the CASE combine); IBA is its
+    // single id column; a typed entity its FK.
+    private idValueOf(ref: Expression): Expression {
+        if (ref instanceof LiteReferenceExpression)
+            return this.idValueOf(ref.reference);
+        if (ref instanceof EntityExpression)
+            return ref.externalId.value;
+        if (ref instanceof ImplementedByAllExpression)
+            return ref.id;
+        if (ref instanceof ImplementedByExpression)
+            return this.dispatchIb(ref, ee => ee.externalId.value);
+        throw new Error(`Cannot take the id of ${ref.toString()}`);
+    }
+
+    // Signum's ExtractTypeId: the @implementedByAll type-discriminator *value* (the
+    // target's TypeEntity int id) of a runtime-type expression. A concrete type is a
+    // constant guarded by its id; an IB is a CASE over which implementation is set.
+    private extractTypeId(typeExpr: Expression): Expression {
+        if (typeExpr instanceof TypeImplementedByAllExpression)
+            return typeExpr.typeColumn;
+        if (typeExpr instanceof TypeEntityExpression)
+            return new CaseExpression(
+                [new When(new IsNotNullExpression(typeExpr.externalId.value), typeConstant(ctorOfType(typeExpr.typeValue)))],
+                undefined);
+        if (typeExpr instanceof TypeImplementedByExpression) {
+            const whens = [...typeExpr.typeImplementations].map(([ctor, id]) =>
+                new When(new IsNotNullExpression(id.value), typeConstant(ctor)));
+            return new CaseExpression(whens, undefined);
+        }
+        throw new Error(`Cannot extract a type id from ${typeExpr.toString()}`);
     }
 
     // @implementedByAll exposes only `.id` on queries (Signum throws for any other

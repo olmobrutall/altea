@@ -23,11 +23,11 @@ import {
 // This file is heavy on polymorphism. Signum interface types (IAuthorEntity) do
 // NOT exist in altea — author/target/award are `Entity` (or `Lite<Entity>`) with
 // @implementedBy/@implementedByAll. Tests depending on the interface are
-// skipped+flagged. CombineUnion/CombineCase have no altea API. GetType, typeof,
-// EntityType, Cast/OfType operators, Try(...), and entity casts in queries are
-// likewise unmodelled. Those are written in their most natural altea form,
-// marked `{ skip: true }`, and flagged with a `// TODO(api): …` comment. Skipped
-// tests still compile.
+// skipped+flagged. CombineUnion/CombineCase are modelled (`.combineUnion()` /
+// `.combineCase()` on any reference). GetType, typeof, EntityType, Cast/OfType
+// operators, Try(...), and entity casts in queries are still unmodelled. Those are
+// written in their most natural altea form, marked `{ skip: true }`, and flagged
+// with a `// TODO(api): …` comment. Skipped tests still compile.
 
 describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     before(async () => { await start(); });
@@ -63,7 +63,6 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // Where(a => a.Author.CombineUnion().ToLite().ToString()!.Length > 0).Select(a => a.Author.CombineUnion().ToLite())
-    // TODO(api): combineUnion/Case
     test("SelectLiteIBDoubleWhereUnion", async () => {
         const list = await table(AlbumEntity)
             .filter(a => a.author.combineUnion().toLite().toString()!.length > 0)
@@ -73,7 +72,6 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // Where(a => a.Author.CombineCase().ToLite().ToString()!.Length > 0).Select(a => a.Author.CombineCase().ToLite())
-    // TODO(api): combineUnion/Case
     test("SelectLiteIBDoubleWhereSwitch", async () => {
         const list = await table(AlbumEntity)
             .filter(a => a.author.combineCase().toLite().toString()!.length > 0)
@@ -201,7 +199,6 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // from a let band = (BandEntity)a.Author select new { Artist = band.ToString(), Author = a.Author.CombineUnion().ToString() }
-    // TODO(api): combineUnion/Case
     test("SelectLiteIBRedundantUnion", async () => {
         const list = await table(AlbumEntity)
             .map(a => ({ artist: (a.author as BandEntity).toString(), author: a.author.combineUnion().toString() }))
@@ -210,7 +207,6 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // from a let band = (BandEntity)a.Author select new { Artist = band.ToString(), Author = a.Author.CombineCase().ToString() }
-    // TODO(api): combineUnion/Case
     test("SelectLiteIBRedundantSwitch", async () => {
         const list = await table(AlbumEntity)
             .map(a => ({ artist: (a.author as BandEntity).toString(), author: a.author.combineCase().toString() }))
@@ -219,7 +215,6 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // Select(a => a.Author.CombineUnion().ToLite()).Where(a => a.ToString()!.StartsWith("Michael")).ToList();
-    // TODO(api): combineUnion/Case
     test("SelectLiteIBWhereUnion", async () => {
         const list = await table(AlbumEntity)
             .map(a => a.author.combineUnion().toLite())
@@ -229,7 +224,6 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // Select(a => a.Author.CombineCase().ToLite()).Where(a => a.ToString()!.StartsWith("Michael")).ToList();
-    // TODO(api): combineUnion/Case
     test("SelectLiteIBWhereSwitch", async () => {
         const list = await table(AlbumEntity)
             .map(a => a.author.combineCase().toLite())
@@ -292,14 +286,12 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // from a select a.Author.CombineUnion().Name
-    // TODO(api): combineUnion/Case
     test("SelectCastIBPolymorphicUnion", async () => {
         const list = await table(AlbumEntity).map(a => a.author.combineUnion().name).toArray();
         assert.ok(Array.isArray(list));
     });
 
     // from a select a.Author.CombineCase().Name
-    // TODO(api): combineUnion/Case
     test("SelectCastIBPolymorphicSwitch", async () => {
         const list = await table(AlbumEntity).map(a => a.author.combineCase().name).toArray();
         assert.ok(Array.isArray(list));
@@ -315,7 +307,6 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // from a select a.Author.CombineUnion().LastAward.Try(la => la.ToLite())
-    // TODO(api): combineUnion/Case
     test("SelectCastIBPolymorphicIBUnion", async () => {
         const list = await table(AlbumEntity)
             .map(a => a.author.combineUnion().lastAward?.toLite())
@@ -324,7 +315,6 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // from a select a.Author.CombineCase().LastAward.Try(la => la.ToLite())
-    // TODO(api): combineUnion/Case
     test("SelectCastIBPolymorphicIBSwitch", async () => {
         const list = await table(AlbumEntity)
             .map(a => a.author.combineCase().lastAward?.toLite())

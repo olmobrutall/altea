@@ -223,6 +223,33 @@ export class JoinExpression extends SourceExpression {
     }
 }
 
+// A set operation (UNION ALL / …) over two aliased sub-selects, exposed to the
+// enclosing query under a single `alias` (Signum's SetOperatorExpression). Used by
+// the @implementedBy UNION combine strategy: each implementation contributes one
+// inner SELECT, all folded into a UNION ALL and joined to the owner once.
+export class SetOperatorExpression extends SourceWithAliasExpression {
+    constructor(
+        public readonly operator: SetOperator,
+        public readonly left: SourceWithAliasExpression,
+        public readonly right: SourceWithAliasExpression,
+        alias: Alias,
+    ) {
+        super("SetOperator", alias);
+    }
+
+    knownAliases(): Alias[] {
+        return [this.alias, ...this.left.knownAliases(), ...this.right.knownAliases()];
+    }
+
+    toString(): string {
+        return `(${this.left})\n${this.operator}\n(${this.right})\nAS ${this.alias}`;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitSetOperator(this);
+    }
+}
+
 // ---- Scalar SQL nodes ----------------------------------------------------
 
 export class AggregateExpression extends DbExpression {

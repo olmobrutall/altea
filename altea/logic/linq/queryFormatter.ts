@@ -5,6 +5,7 @@ import {
 import { OpBinary } from "quote-transformer/quoted";
 import {
     SourceExpression, TableExpression, SelectExpression, JoinExpression,
+    SetOperatorExpression, SourceWithAliasExpression,
     ColumnExpression, ColumnDeclaration, OrderExpression, JoinType,
     AggregateExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression,
     CaseExpression, LikeExpression, ScalarExpression, ExistsExpression, InExpression,
@@ -143,7 +144,25 @@ export class QueryFormatter extends DbExpressionVisitor {
             return src;
         }
 
+        if (src instanceof SetOperatorExpression) {
+            this.append(`(\n${this.renderSetOperatorBody(src)}\n) ${this.quoteAlias(src.alias)}`);
+            return src;
+        }
+
         throw new Error("Unsupported source in QueryFormatter: " + src.kind);
+    }
+
+    // The body of a UNION/… source: each operand SELECT rendered bare (no derived-
+    // table alias — set-operation components are not aliased), joined by the operator
+    // keyword. Nested set operators (3+ implementations) recurse.
+    private renderSetOperatorBody(s: SetOperatorExpression): string {
+        const side = (x: SourceWithAliasExpression): string =>
+            x instanceof SetOperatorExpression ? this.renderSetOperatorBody(x)
+                : this.capture(() => this.visitSelect(x as SelectExpression));
+        const keyword = s.operator === "UnionAll" ? "UNION ALL"
+            : s.operator === "Union" ? "UNION"
+                : s.operator === "Intersect" ? "INTERSECT" : "EXCEPT";
+        return `${side(s.left)}\n${keyword}\n${side(s.right)}`;
     }
 
     override visitJoin(j: JoinExpression): Expression {

@@ -10,9 +10,10 @@ import { DbExpressionVisitor } from "./DbExpressionVisitor";
 // (see `QueryBinder.completed`); this pass walks the bound tree and, after
 // visiting each source, splices those joins in around it.
 //
-// Simplified vs. Signum: altea only models the TableRequest case so far (a
-// single-row LEFT OUTER JOIN to a referenced table). UniqueRequest (apply) and
-// UnionAllRequest (ImplementedBy) land with their tiers (collections / step 7).
+// Two request kinds are modelled: TableRequest (a single-row LEFT OUTER JOIN to a
+// referenced table — single-reference navigation) and UnionRequest (the @implementedBy
+// UNION combine strategy — a UNION ALL sub-select joined once). UniqueRequest (apply)
+// is folded into the collection tiers elsewhere.
 
 // A pending join: LEFT OUTER JOIN `table` ON `condition`. The condition links the
 // owner's FK column to the joined table's primary key (built in the binder).
@@ -21,12 +22,26 @@ export interface TableRequest {
     readonly condition: Expression;
 }
 
+// A pending UNION-combine join: the binder's UnionAllRequest knows how to splice
+// itself in around a source (build the per-implementation UNION ALL sub-select and
+// the SingleRow LEFT OUTER JOIN). Kept behind this interface so QueryJoinExpander
+// stays independent of the binder internals that build it.
+export interface UnionRequest {
+    readonly union: { buildJoin(source: SourceExpression): SourceExpression };
+}
+
+export type ExpansionRequest = TableRequest | UnionRequest;
+
+function isUnionRequest(r: ExpansionRequest): r is UnionRequest {
+    return (r as UnionRequest).union != null;
+}
+
 export class QueryJoinExpander extends DbExpressionVisitor {
-    constructor(private readonly requests: ReadonlyMap<SourceExpression, readonly TableRequest[]>) {
+    constructor(private readonly requests: ReadonlyMap<SourceExpression, readonly ExpansionRequest[]>) {
         super();
     }
 
-    static expand(expression: Expression, requests: ReadonlyMap<SourceExpression, readonly TableRequest[]>): Expression {
+    static expand(expression: Expression, requests: ReadonlyMap<SourceExpression, readonly ExpansionRequest[]>): Expression {
         if (requests.size === 0)
             return expression;
         return new QueryJoinExpander(requests).visit(expression);
@@ -54,10 +69,12 @@ export class QueryJoinExpander extends DbExpressionVisitor {
         return this.applyExpansions(result, reqs);
     }
 
-    private applyExpansions(source: SourceExpression, expansions: readonly TableRequest[]): SourceExpression {
+    private applyExpansions(source: SourceExpression, expansions: readonly ExpansionRequest[]): SourceExpression {
         let result = source;
         for (const r of expansions)
-            result = new JoinExpression("SingleRowLeftOuterJoin", result, r.table, r.condition);
+            result = isUnionRequest(r)
+                ? r.union.buildJoin(result)
+                : new JoinExpression("SingleRowLeftOuterJoin", result, r.table, r.condition);
         return result;
     }
 }

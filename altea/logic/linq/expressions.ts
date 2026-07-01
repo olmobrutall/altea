@@ -6,6 +6,7 @@ import { Temporal } from "../../entities/basics";
 import { resolveType } from "../../entities/registration";
 import { tryGetTypeInfo, type FieldInfo } from "../../entities/reflection";
 import { Lite } from "../../entities/lite";
+import { Entity } from "../../entities/entity";
 import { getLambdaTypeResolvers, getResultTypeResolver, LambdaTypeResolver, OrderedQuery, Query, ResultTypeResolver, StaticFunction } from "../query";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 
@@ -228,6 +229,14 @@ function isKnownStringMethod(propertyName: string): boolean {
     return wellKnownResultTypes[`string.${propertyName}`] != null;
 }
 
+// An Entity instance method that carries query metadata — used to dispatch on
+// Entity.prototype when the receiver's static type is unknown (a member reached
+// through a polymorphic combine, which has no interface type to type it).
+function isEntityInstanceMethod(propertyName: string): boolean {
+    return propertyName === "toLite" || propertyName === "is"
+        || propertyName === "combineUnion" || propertyName === "combineCase";
+}
+
 // The runtime object to look method metadata up on for a captured static receiver
 // (e.g. Math), so `Math.sin` dispatches with Math as the (this-less) target.
 function staticReceiverObject(obj: Expression | undefined): object | undefined {
@@ -344,15 +353,27 @@ export abstract class Expression {
                                                             // so it dispatches on any receiver — e.g. an enum or
                                                             // other null-typed column. The result is typed string
                                                             // by wellKnownResultType and lowered in the nominator.
-                                                            (fun.propertyName === "toString" ? Object.prototype : undefined);
+                                                            (fun.propertyName === "toString" ? Object.prototype :
+                                                                // An entity instance method (`toLite`/`is`/combine*) on a
+                                                                // receiver whose static type was lost — e.g. a member reached
+                                                                // through a polymorphic `combineCase()`/`combineUnion()` result,
+                                                                // which has no interface type in altea — dispatches on
+                                                                // Entity.prototype; the binder resolves it against the reference.
+                                                                (obj.type === LiteralType.null && isEntityInstanceMethod(fun.propertyName)) ? Entity.prototype : undefined);
 
                             if (type == undefined)
                                 throw new Error(`Unexpected object type when calling ${fun.propertyName}`);
 
                             const propertyFunction = (type as Record<string, unknown>)[fun.propertyName] as StaticFunction<Function> | undefined;
+                            // The inherited default `Entity.toString()` is `@quoted`, but its body
+                            // (`niceName(this.constructor) + this.id`) is not directly bindable —
+                            // especially over a polymorphic receiver. Leave it as a call so the
+                            // QueryBinder expands it (per-implementation ToStr column / niceName+id).
+                            // A subclass's own `@quoted` toString (a real translatable body) still inlines.
+                            const isDefaultToString = fun.propertyName === "toString" && propertyFunction === Entity.prototype.toString;
                             sf = {
                                 __lambdaType: getLambdaTypeResolvers(type, fun.propertyName),
-                                __quoted: propertyFunction?.__quoted,
+                                __quoted: isDefaultToString ? undefined : propertyFunction?.__quoted,
                                 __resultType: getResultTypeResolver(type, fun.propertyName) ?? wellKnownResultType(obj, fun.propertyName),
                                 __methodExpander: propertyFunction?.__methodExpander,
                             };

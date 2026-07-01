@@ -34,6 +34,16 @@ declare module '../entities/entity' {
         // `inDB()` yields a one-row query; `inDB(selector)` projects it to a scalar.
         inDB(): IQuery<this>;
         inDB<V>(selector: Quoted<(entity: this) => V>): V;
+        // Polymorphic combine hint over an @implementedBy reference (Signum's
+        // CombineUnion / CombineCase): picks how the query provider merges the
+        // implementations when a member is navigated — combineUnion() a UNION ALL
+        // sub-select joined once, combineCase() a CASE over the implementation columns.
+        // Query-only markers (identity in memory). The return type is `any` because
+        // altea has no interface type to upcast to (unlike Signum's `IFooEntity`); the
+        // navigated member (`.name`, `.lastAward`, …) is resolved by the binder against
+        // the concrete implementations.
+        combineUnion(): any;
+        combineCase(): any;
     }
 }
 
@@ -53,6 +63,18 @@ Entity.prototype.save = async function (this: Entity): Promise<Entity> {
     await Saver.save([this]);
     return this;
 };
+
+// Polymorphic combine hints (Signum's CombineUnion/CombineCase). Identity at runtime
+// — the combine strategy only matters in a query, where the binder reads it off the
+// call and swaps the @implementedBy reference's strategy (see QueryBinder). The
+// `__resultType` is the identity resolver so the combined reference keeps the
+// receiver's type through the quote transform.
+const combineUnion = function (this: Entity): unknown { return this; };
+const combineCase = function (this: Entity): unknown { return this; };
+asStaticFunction(combineUnion).__resultType = (ot: Type) => ot;
+asStaticFunction(combineCase).__resultType = (ot: Type) => ot;
+(Entity.prototype as any).combineUnion = combineUnion;
+(Entity.prototype as any).combineCase = combineCase;
 
 // Entity → query bridge (Signum's Database.InDB): a one-row query filtered to this
 // entity's id. `inDB(selector)` projects and takes the single row. Used at the top

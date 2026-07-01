@@ -1,7 +1,7 @@
 import { Expression } from "../expressions";
 import {
     DbExpression,
-    SourceExpression, TableExpression, SelectExpression, JoinExpression,
+    SourceExpression, TableExpression, SelectExpression, JoinExpression, SetOperatorExpression,
     ColumnExpression, ColumnDeclaration, OrderExpression,
     AggregateExpression, AggregateRequestsExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression, SqlCastExpression,
     CaseExpression, When, LikeExpression,
@@ -61,6 +61,14 @@ export class DbExpressionVisitor extends ExpressionVisitor {
         if (left !== join.left || right !== join.right || condition !== join.condition)
             return new JoinExpression(join.joinType, left, right, condition);
         return join;
+    }
+
+    visitSetOperator(setOp: SetOperatorExpression): Expression {
+        const left = this.visitSource(setOp.left) as SourceWithAliasExpression;
+        const right = this.visitSource(setOp.right) as SourceWithAliasExpression;
+        if (left !== setOp.left || right !== setOp.right)
+            return new SetOperatorExpression(setOp.operator, left, right, setOp.alias);
+        return setOp;
     }
 
     visitAggregate(aggregate: AggregateExpression): Expression {

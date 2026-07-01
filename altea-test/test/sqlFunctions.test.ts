@@ -18,15 +18,6 @@ const MinimumExtensions = {
         throw new Error("MinimumExtensions.minimumTableValued (table-valued function) is not implemented");
     },
 };
-// Polymorphic combine strategies over an @implementedBy reference (CombineUnion/CombineCase).
-// Declared so the tests compile; unimplemented → they stay red.
-declare module "@altea/altea/entities/entity" {
-    interface Entity {
-        combineUnion(): any;
-        combineCase(): any;
-    }
-}
-
 // Port of Signum.Test/LinqProvider/SqlFunctionsTest.cs. C# → altea idiom:
 //   Database.Query<T>()  → table(T)            .Where(...) → .filter(...)
 //   .Select(...)         → .map(...)           .ToList()/.ToArray() → await .toArray()
@@ -75,13 +66,11 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
     });
 
     // Assert.True(Query<AlbumEntity>().Any(a => a.Author.CombineUnion().Name.Contains("Jackson")))
-    // TODO(api): polymorphic expression Combine (CombineUnion) over an @implementedBy reference
     test("StringFunctionsPolymorphicUnion", async () => {
         assert.ok(await table(AlbumEntity).some(a => a.author.combineUnion().name.contains("Jackson")));
     });
 
     // Assert.True(Query<AlbumEntity>().Any(a => a.Author.CombineCase().Name.Contains("Jackson")))
-    // TODO(api): polymorphic expression Combine (CombineCase) over an @implementedBy reference
     test("StringFunctionsPolymorphicSwitch", async () => {
         assert.ok(await table(AlbumEntity).some(a => a.author.combineCase().name.contains("Jackson")));
     });
@@ -98,7 +87,6 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
     });
 
     // Where(a => !a.Author.CombineUnion().ToString()!.Contains("Hola"))
-    // TODO(api): polymorphic expression Combine (CombineUnion) and entity ToString in query
     test("StringContainsUnion", async () => {
         const list = await table(AlbumEntity)
             .filter(a => !a.author.combineUnion().toString().contains("Hola"))
@@ -107,7 +95,6 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
     });
 
     // Where(a => !a.Author.CombineCase().ToString()!.Contains("Hola"))
-    // TODO(api): polymorphic expression Combine (CombineCase) and entity ToString in query
     test("StringContainsSwitch", async () => {
         const list = await table(AlbumEntity)
             .filter(a => !a.author.combineCase().toString().contains("Hola"))
