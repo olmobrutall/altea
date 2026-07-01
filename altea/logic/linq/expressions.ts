@@ -249,7 +249,14 @@ function isEntityInstanceMethod(propertyName: string): boolean {
 // (e.g. Math), so `Math.sin` dispatches with Math as the (this-less) target.
 function staticReceiverObject(obj: Expression | undefined): object | undefined {
     const v = staticReceiverValue(obj);
-    return staticNamespaceReceivers.has(v) ? v as object : undefined;
+    if (staticNamespaceReceivers.has(v))
+        return v as object;
+    // A captured helper object (e.g. `EntityContext`): dispatch its methods on the object
+    // itself, so one carrying query metadata (__resultType/__quoted) resolves. A method
+    // without metadata still errors below ("Missing @resultType").
+    if (obj instanceof ConstantExpression && typeof v === "object" && v !== null)
+        return v as object;
+    return undefined;
 }
 
 export abstract class Expression {

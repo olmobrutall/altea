@@ -91,6 +91,11 @@ export const EntityContext = {
         throw new Error("EntityContext.entityId is a query-only helper");
     },
 };
+// A captured static-helper receiver: the quote transform dispatches its methods on the
+// object itself, and the QueryBinder recognises it by this brand (no import cycle).
+(EntityContext as { __isEntityContext?: boolean }).__isEntityContext = true;
+// entityId returns a primary-key (number); the binder resolves the actual id expression.
+asStaticFunction(EntityContext.entityId).__resultType = () => SimpleType.number;
 
 export class Query<T> implements IQuery<T> {
 

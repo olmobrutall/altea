@@ -662,6 +662,12 @@ export class QueryBinder extends ExpressionVisitor {
         if (func instanceof PropertyExpression || func.kind === ".") {
             const property = func as PropertyExpression;
             const op = property.propertyName;
+            // EntityContext.entityId(x) (Signum's EntityContext.EntityId): the primary key
+            // of the entity/row `x` belongs to. A static helper call, recognised by the
+            // brand on the captured receiver constant.
+            if (op === "entityId" && property.object instanceof ConstantExpression
+                && (property.object.value as { __isEntityContext?: boolean } | null)?.__isEntityContext)
+                return this.bindEntityId(call.args[0]);
             if (op === "thenBy")
                 return this.bindThenBy(property.object, call.args[0] as LambdaExpression, "Ascending");
             if (op === "thenByDescending")
@@ -1479,6 +1485,30 @@ export class QueryBinder extends ExpressionVisitor {
         if (ref instanceof ImplementedByExpression)
             return this.bindImplementedByMember(ref, name);
         return this.bindImplementedByAllMember(ref, name);
+    }
+
+    // Signum's EntityContext.EntityId: the primary key of the entity/row the argument
+    // belongs to. If the argument isn't itself a reference (a value column, or an
+    // embedded), unwrap the member access to its object and retry — an embedded's owning
+    // row is its entity (altea inlines embeddeds); an MList/part row is its own entity.
+    private bindEntityId(arg: Expression): Expression {
+        const bound = this.visit(arg);
+        const ref = bound instanceof LiteReferenceExpression ? bound.reference : bound;
+        if (ref instanceof EntityExpression || ref instanceof ImplementedByExpression || ref instanceof ImplementedByAllExpression)
+            return this.idOfReference(ref);
+        // firstOrNull()/single() of a part-entity collection (`a.songs.firstOrNull()`):
+        // the id of that single row, re-projected as a correlated scalar subquery
+        // (mirrors the member-of-single-result-subquery path in bindMember).
+        if (bound instanceof ProjectionExpression && bound.uniqueFunction != null && isReferenceish(bound.projector)) {
+            const id = this.unwrapPk(this.idOfReference(bound.projector as LiteReferenceTarget));
+            const alias = this.aliasGenerator.nextSelectAlias();
+            const pc = this.projectColumns(id, alias);
+            const select = new SelectExpression(alias, false, undefined, pc.columns, bound.select, undefined, [], []);
+            return new ScalarExpression(id.type, select);
+        }
+        if (arg instanceof PropertyExpression)
+            return this.bindEntityId(arg.object);
+        throw new Error(`EntityContext.entityId is not supported for ${bound.toString()}`);
     }
 
     // `.id` of a (possibly polymorphic) reference, without a join.

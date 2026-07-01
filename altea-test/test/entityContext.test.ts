@@ -12,18 +12,17 @@ import { AlbumEntity } from "../entities/music";
 // Terminals are async (the connector is async-only). Live execution is gated on
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 //
-// Every method here uses EntityContext.EntityId(...) (a part entity's row is its own
-// translator helpers that surface the row's primary key / MList row id inside a
-// query. altea has no equivalent yet, so all tests are written in their most
-// natural form, marked `{ skip: true }`, with the body fully commented out and
-// flagged with a `// TODO(api): …` comment. (Skipped bodies stay commented so
-// the un-modelled `EntityContext` symbol never has to compile.)
+// Every method uses EntityContext.entityId(...) — the query-only helper that surfaces
+// the primary key of the row a value belongs to. The binder resolves it: a reference
+// yields its id, a value/embedded unwraps to its owning entity's id, and an MList (part-
+// entity) row yields its own id via a correlated scalar subquery. (altea has no separate
+// MList row id — collection rows are ordinary part entities — so the RowId* cases behave
+// like the EntityId* ones.)
 
 describe("EntityContextTest", { skip: !hasDb }, () => {
     before(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().Count(a => EntityContext.EntityId(a.Label) == a.Id);
-    // TODO(api): EntityContext.EntityId (row primary-key helper) in a query
     test("EntityIdMember", async () => {
         const authors = await table(AlbumEntity)
             .count(a => EntityContext.entityId(a.label) == (a.id as number));
@@ -31,7 +30,6 @@ describe("EntityContextTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AlbumEntity>().Count(a => EntityContext.EntityId(a.BonusTrack!.Name) == a.Id);
-    // TODO(api): EntityContext.EntityId (row primary-key helper) in a query
     test("EntityIdEmbeddedMember", async () => {
         const authors = await table(AlbumEntity)
             .count(a => EntityContext.entityId(a.bonusTrack!.name) == (a.id as number));
@@ -39,7 +37,6 @@ describe("EntityContextTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AlbumEntity>().Count(a => EntityContext.EntityId(a.Songs.FirstOrDefault()) == a.Id);
-    // TODO(api): EntityContext.EntityId (row primary-key helper) in a query
     test("EntiyIdMList", async () => {
         const authors = await table(AlbumEntity)
             .count(a => EntityContext.entityId(a.songs.firstOrNull()) == (a.id as number));
@@ -47,7 +44,6 @@ describe("EntityContextTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AlbumEntity>().Count(a => EntityContext.EntityId(a.Songs.FirstOrDefault()!.Name) == a.Id);
-    // TODO(api): EntityContext.EntityId (row primary-key helper) in a query
     test("EntityIdMListMember", async () => {
         const authors = await table(AlbumEntity)
             .count(a => EntityContext.entityId(a.songs.firstOrNull()!.name) == (a.id as number));
@@ -55,7 +51,6 @@ describe("EntityContextTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AlbumEntity>().Count(a => EntityContext.EntityId(a.Songs.FirstOrDefault()) == a.Id);
-    // TODO(api): EntityContext.EntityId on a part-entity row (altea has no MList row id)
     test("RowIdMList", async () => {
         const authors = await table(AlbumEntity)
             .count(a => EntityContext.entityId(a.songs.firstOrNull()) == (a.id as number));
@@ -63,7 +58,6 @@ describe("EntityContextTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AlbumEntity>().Count(a => EntityContext.EntityId(a.Songs.FirstOrDefault()!.Name) == a.Id);
-    // TODO(api): EntityContext.EntityId on a part-entity row (altea has no MList row id)
     test("RowIdMListMember", async () => {
         const authors = await table(AlbumEntity)
             .count(a => EntityContext.entityId(a.songs.firstOrNull()!.name) == (a.id as number));

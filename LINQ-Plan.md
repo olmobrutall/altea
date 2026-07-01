@@ -39,8 +39,8 @@ a named `PropertyExpression`, `BinaryExpression "=="`) not C# `MethodCallExpress
 
 ## Status
 
-Runs against both dialects. **Current stable baseline: Postgres 450 / SQL Server
-~434 pass of 552** (deterministic since the `noCommit` isolation below; one SQL
+Runs against both dialects. **Current stable baseline: Postgres 456 / SQL Server
+~440 pass of 552** (deterministic since the `noCommit` isolation below; one SQL
 Server `select` test flakes under parallel load — `SelectCount`/`SelectEmbedded`/
 `SelectGroupLast` — all pass in isolation). For done work the **code is the source
 of truth**; this is a map, not a spec.
@@ -88,10 +88,15 @@ of truth**; this is a map, not a spec.
   per-implementation and its `@quoted` body expanded in the binder (Signum's
   `HasExpansions` + `DispatchIb`). The quote transform defers an unresolvable
   entity-method call to a residual the binder resolves.
+- **`EntityContext.entityId`** — the primary key of the row a value belongs to
+  (Signum's `EntityContext.EntityId`). A reference yields its id; a value/embedded
+  unwraps to its owning entity's id; a part-entity (`MList`) row yields its own id
+  via a correlated scalar subquery. A captured static-helper receiver is dispatched
+  by the quote transform (on the object) and recognised in the binder by a brand.
 
 **Pending / out of scope** (each flagged `TODO(api)` in its suite):
 
-- `EntityContext.entityId`; `Lite.entityType` / `Type.is` on a lite.
+- `Lite.entityType` / `Type.is` on a lite.
 - `Temporal.Now` / `Clock.now` (server-now constant); `since(x).total(unit)` diff.
 - `minBy`/`maxBy`, `ofType`/`cast`, `view()`/temp tables, `OrderAlsoByKeys`
   (stable pagination over a non-unique key).
