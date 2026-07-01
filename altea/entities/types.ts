@@ -1,13 +1,15 @@
 
 
 export abstract class Type {
-
+    // The element type when this is a collection type (ArrayType); null otherwise.
+    get elementType(): Type | null { return null; }
 }
 
 export class ArrayType extends Type {
-    constructor(public readonly elementType: Type) {
+    constructor(private readonly element: Type) {
         super()
     }
+    override get elementType(): Type { return this.element; }
 }
 
 export class FunctionType extends Type {

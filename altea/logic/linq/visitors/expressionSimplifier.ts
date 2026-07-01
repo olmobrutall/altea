@@ -3,7 +3,7 @@ import { OpBinary, OpUnary } from "quote-transformer/quoted";
 import { BinaryExpression, CallExpression, CastExpression, ConditionalExpression, ConstantExpression, Expression, LambdaExpression, NewExpression, ObjectExpression, ParameterExpression, PropertyExpression, UnaryExpression } from "../expressions";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 import { Temporal } from "../../../entities/basics";
-import { ClassType, Type } from "../../../entities/types";
+import { ClassType, LiteralType, Type } from "../../../entities/types";
 
 // The Temporal constructors whose `.from(constObj)` constructions can be folded to a
 // constant value (Signum builds DATEFROMPARTS for column args; altea's tests only use
@@ -162,26 +162,26 @@ export class ExpressionSimplifier extends ExpressionVisitor {
             case "minBy":
             case "maxBy": {
                 const orderOp = func.propertyName === "minBy" ? "orderBy" : "orderByDescending";
-                const ordered = new CallExpression(new PropertyExpression(source, orderOp, false), args, source.type);
-                return new CallExpression(new PropertyExpression(ordered, "firstOrNull", false), [], resultType);
+                const ordered = new CallExpression(new PropertyExpression(source, orderOp), args, source.type);
+                return new CallExpression(new PropertyExpression(ordered, "firstOrNull"), [], resultType);
             }
             // cast(T) → map(x => x as T) — narrow every element to T.
             case "cast":
-                return new CallExpression(new PropertyExpression(source, "map", false), [this.castLambda(source.elementType, args[0])], resultType);
+                return new CallExpression(new PropertyExpression(source, "map"), [this.castLambda(source.type.elementType, args[0])], resultType);
             // ofType(T) → filter(x => x instanceof T).map(x => x as T) — keep the Ts, narrow.
             case "ofType": {
-                const p = new ParameterExpression("x", source.elementType);
-                const filter = new CallExpression(new PropertyExpression(source, "filter", false),
+                const p = new ParameterExpression("x", source.type.elementType ?? LiteralType.null);
+                const filter = new CallExpression(new PropertyExpression(source, "filter"),
                     [new LambdaExpression([p], new BinaryExpression("instanceof", p, args[0]))], source.type);
-                return new CallExpression(new PropertyExpression(filter, "map", false), [this.castLambda(filter.elementType, args[0])], resultType);
+                return new CallExpression(new PropertyExpression(filter, "map"), [this.castLambda(filter.type.elementType, args[0])], resultType);
             }
         }
         return undefined;
     }
 
     // A `x => x as T` selector over an element of `elementType` (T from the ctor arg).
-    private castLambda(elementType: Type, ctorArg: Expression): LambdaExpression {
-        const p = new ParameterExpression("x", elementType);
+    private castLambda(elementType: Type | null, ctorArg: Expression): LambdaExpression {
+        const p = new ParameterExpression("x", elementType ?? LiteralType.null);
         return new LambdaExpression([p], new CastExpression(p, new ClassType(this.ctorArg(ctorArg))));
     }
 

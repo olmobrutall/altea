@@ -265,12 +265,6 @@ export abstract class Expression {
         public readonly type: Type) {
     }
 
-    // The element type when this expression is a collection (its `type` is an ArrayType),
-    // else the null type. Used by the query operators that work over a collection source.
-    get elementType(): Type {
-        return this.type instanceof ArrayType ? this.type.elementType : LiteralType.null;
-    }
-
     abstract toString(): string;
     // Double-dispatch into the visitor (.NET's Expression.Accept).
     abstract accept(visitor: ExpressionVisitor): Expression;
