@@ -166,7 +166,6 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AwardNominationEntity>().GroupBy(a => a.Award.EntityType).ToList();
-    // TODO(api): Lite.EntityType (the runtime type of an @implementedBy lite) as a group key
     test("GroupEntityByTypeIb", async () => {
         const list = await table(AwardNominationEntity).groupBy(a => a.award.entityType).toArray();
         assert.ok(Array.isArray(list));

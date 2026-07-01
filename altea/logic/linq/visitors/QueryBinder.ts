@@ -1377,9 +1377,15 @@ export class QueryBinder extends ExpressionVisitor {
     // bindMemberAccess so it can be reused to navigate a member on the projector of a
     // single-result sub-query (see the uniqueFunction branch below).
     private bindMember(obj: Expression, name: string, isOptionalChaining: boolean): Expression {
-        // `.constructor` (altea's GetType) → a Type expression off any reference;
-        // `.name` (Type.FullName) on that Type expression → its type-name string.
+        // `.constructor` (altea's GetType) yields the runtime type of any reference as
+        // a Type expression; `.entityType` is the same but specifically Signum's
+        // Lite.EntityType, so it's scoped to a lite (a real entity field named
+        // `entityType` on a plain reference must still bind as a field). getEntityType
+        // unwraps a Lite to its reference. `.name` (Type.FullName) on a Type expression
+        // → its type-name string.
         if (name === "constructor" && isReferenceish(obj))
+            return this.getEntityType(obj);
+        if (name === "entityType" && obj instanceof LiteReferenceExpression)
             return this.getEntityType(obj);
         if (name === "name" && isTypeExpression(obj))
             return this.typeName(obj);

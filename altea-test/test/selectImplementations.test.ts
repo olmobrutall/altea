@@ -90,7 +90,6 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AwardNominationEntity>().Select(a => a.Award.EntityType).ToList();
-    // TODO(api): Lite.EntityType (runtime type of an @implementedBy Lite) in query
     test("SelectTypeLiteIB", async () => {
         const list = await table(AwardNominationEntity).map(a => a.award.entityType).toArray();
         assert.ok(Array.isArray(list));
@@ -151,7 +150,6 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // Where(a => a.Award.EntityType == typeof(GrammyAwardEntity)).ToList();
-    // TODO(api): Lite.EntityType (runtime type of an @implementedBy Lite) and typeof comparison
     test("SelectEntityWithLiteIbRuntimeType", async () => {
         const list = await table(AwardNominationEntity)
             .filter(a => a.award.entityType === GrammyAwardEntity)

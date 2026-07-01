@@ -125,8 +125,8 @@ describe("GetTypeAndNewTest", { skip: !hasDb }, () => {
     // TODO(api): ToTypeEntity() in query
     // TODO(api): typeof(X) comparison in query
     test("SelectToTypeLite", async () => {
-        // Signum's `f.ToLite().EntityType.ToTypeEntity().Is(...)`; altea has no Type.Is,
-        // so the natural form is a runtime-type equality (Lite.EntityType is unmodelled → red).
+        // Signum's `f.ToLite().EntityType.ToTypeEntity().Is(...)`; the altea idiom is a
+        // runtime-type equality — `Lite.entityType` is the type expression, `===` the compare.
         const list = await table(ArtistEntity)
             .filter(f => f.toLite().entityType === ArtistEntity)
             .toArray();

@@ -39,8 +39,8 @@ a named `PropertyExpression`, `BinaryExpression "=="`) not C# `MethodCallExpress
 
 ## Status
 
-Runs against both dialects. **Current stable baseline: Postgres 456 / SQL Server
-~440 pass of 552** (deterministic since the `noCommit` isolation below; one SQL
+Runs against both dialects. **Current stable baseline: Postgres 460 / SQL Server
+~444 pass of 552** (deterministic since the `noCommit` isolation below; one SQL
 Server `select` test flakes under parallel load — `SelectCount`/`SelectEmbedded`/
 `SelectGroupLast` — all pass in isolation). For done work the **code is the source
 of truth**; this is a map, not a spec.
@@ -93,10 +93,13 @@ of truth**; this is a map, not a spec.
   unwraps to its owning entity's id; a part-entity (`MList`) row yields its own id
   via a correlated scalar subquery. A captured static-helper receiver is dispatched
   by the quote transform (on the object) and recognised in the binder by a brand.
+- **`Lite.entityType`** (Signum's `Lite.EntityType`) — the runtime type of a lite's
+  referenced entity, as a Type expression (same `getEntityType` path as `.constructor`):
+  projected, compared (`=== Ctor`, altea's `Type.Is` — via `SmartEqualizer.typeEqual`),
+  or used as a group key.
 
 **Pending / out of scope** (each flagged `TODO(api)` in its suite):
 
-- `Lite.entityType` / `Type.is` on a lite.
 - `Temporal.Now` / `Clock.now` (server-now constant); `since(x).total(unit)` diff.
 - `minBy`/`maxBy`, `ofType`/`cast`, `view()`/temp tables, `OrderAlsoByKeys`
   (stable pagination over a non-unique key).
