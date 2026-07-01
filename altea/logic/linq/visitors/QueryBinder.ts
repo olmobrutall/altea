@@ -757,6 +757,23 @@ export class QueryBinder extends ExpressionVisitor {
     }
 
     private bindMethodCall(methodName: string, source: Expression, args: readonly Expression[], resultType: Type): Expression {
+        // Distribute an entity-value method over a conditional / coalesce receiver — the
+        // method-call analogue of the bindMember distribution (Signum re-binds the call
+        // per branch, as the IB dispatch below already does): `(t ? a : b).m()` →
+        // `t ? a.m() : b.m()`; `(a ?? b).m()` → `(a != null) ? a.m() : b.m()`.
+        if (source instanceof ConditionalExpression)
+            return new ConditionalExpression(source.condition,
+                this.bindMethodCall(methodName, source.whenTrue, args, resultType),
+                this.bindMethodCall(methodName, source.whenFalse, args, resultType));
+        if (source instanceof BinaryExpression && source.kind === "??")
+            return new ConditionalExpression(this.notNull(source.left),
+                this.bindMethodCall(methodName, source.left, args, resultType),
+                this.bindMethodCall(methodName, source.right, args, resultType));
+        // A method on a null literal is null (Signum's null-propagation) — a null branch
+        // of the distribution above (e.g. `(t ? null : x).toLite()`).
+        if (isNullLiteral(source))
+            return new ConstantExpression(null);
+
         // ref.combineUnion() / .combineCase() (Signum's LinqHintEntities markers):
         // swap the polymorphic combine strategy of an @implementedBy reference. The
         // reference is otherwise unchanged; the strategy governs how a later member
@@ -1381,6 +1398,28 @@ export class QueryBinder extends ExpressionVisitor {
     // bindMemberAccess so it can be reused to navigate a member on the projector of a
     // single-result sub-query (see the uniqueFunction branch below).
     private bindMember(obj: Expression, name: string, isOptionalChaining: boolean): Expression {
+        // Distribute a member access over a conditional / coalesce so each branch binds
+        // against its own source (Signum's BindMemberAccess Conditional/Coalesce cases):
+        // `(t ? a : b).m` → `t ? a.m : b.m`; `(a ?? b).m` → `(a != null) ? a.m : b.m`.
+        // Placed before the member-kind dispatch below so `.constructor`/`.name`/field
+        // access all distribute uniformly into the branches.
+        if (obj instanceof ConditionalExpression)
+            return new ConditionalExpression(
+                obj.condition,
+                this.bindMember(obj.whenTrue, name, isOptionalChaining),
+                this.bindMember(obj.whenFalse, name, isOptionalChaining));
+
+        if (obj instanceof BinaryExpression && obj.kind === "??")
+            return new ConditionalExpression(
+                this.notNull(obj.left),
+                this.bindMember(obj.left, name, isOptionalChaining),
+                this.bindMember(obj.right, name, isOptionalChaining));
+
+        // A member of a null literal is null (Signum's `source.IsNull()` guard) — arises
+        // after distributing over a conditional/coalesce whose branch is a null literal.
+        if (isNullLiteral(obj))
+            return new ConstantExpression(null);
+
         // `.constructor` (altea's GetType) yields the runtime type of any reference as
         // a Type expression; `.entityType` is the same but specifically Signum's
         // Lite.EntityType, so it's scoped to a lite (a real entity field named
@@ -1469,6 +1508,16 @@ export class QueryBinder extends ExpressionVisitor {
             return new PropertyExpression(obj, name, isOptionalChaining);
 
         throw new Error(`Cannot bind member '${name}' on ${obj.toString()}`);
+    }
+
+    // `expr != null` as a bound boolean: an entity/lite reference routes through
+    // SmartEqualizer (an id-not-null guard, like visitBinary's `!=`), a scalar keeps a
+    // plain comparison. Used to build the coalesce test in the bindMember distribution.
+    private notNull(expr: Expression): Expression {
+        const nul = new ConstantExpression(null);
+        return isReferenceish(expr)
+            ? SmartEqualizer.not(SmartEqualizer.polymorphicEqual(expr, nul))
+            : new BinaryExpression("!=", expr, nul);
     }
 
     // Binds `entity.<name>`: id short-circuits to the FK column (no JOIN), a

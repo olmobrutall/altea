@@ -39,11 +39,13 @@ a named `PropertyExpression`, `BinaryExpression "=="`) not C# `MethodCallExpress
 
 ## Status
 
-Runs against both dialects. **Current stable baseline: Postgres 469 / SQL Server
-~453 pass of 552** (deterministic since the `noCommit` isolation below; one SQL
-Server `select` test flakes under parallel load — `SelectCount`/`SelectEmbedded`/
-`SelectGroupLast` — all pass in isolation). For done work the **code is the source
-of truth**; this is a map, not a spec.
+Runs against both dialects. **Current stable baseline: Postgres 476 / SQL Server
+~467 pass of 552** (last run 2026-07-01). Postgres is deterministic since the
+`noCommit` isolation below; SQL Server floats a bit because a handful of
+aggregate/group-by/select tests flake under parallel load — the specific tests
+vary run-to-run (e.g. `All`/`None`/`GroupByCount`/`GroupByAllAny`), all pass in
+isolation. For done work the **code is the source of truth**; this is a map, not
+a spec.
 
 **Done** (green on both dialects unless noted):
 
@@ -72,6 +74,12 @@ of truth**; this is a map, not a spec.
   `combineImplementations` recurses the reference structure (scalar / Entity / Lite /
   IB / mixed-IBA); the UNION strategy adds a `SetOperatorExpression` source
   (`UnionAllRequest` + `ColumnUnionProjector`, spliced by `QueryJoinExpander`).
+- **Member/method navigation through `?:` / `??`** — `bindMember`/`bindMethodCall`
+  distribute an access over a conditional or coalesce receiver (Signum's
+  `BindMemberAccess` Conditional/Coalesce cases): `(t ? a : b).m` → `t ? a.m : b.m`,
+  `(a ?? b).m()` → `(a != null) ? a.m() : b.m()`; a null-literal branch propagates to
+  null. Covers `.name`/field, `.constructor` (GetType) and `.toLite()` over either
+  branch, including a nullable-Lite `.entity` dereference.
 - **Optimiser passes** — `OrderByRewriter`, `QueryRebinder`, `RedundantSubqueryRemover`,
   `ConditionsRewriter` (SQL-Server), `AggregateRewriter`, `ScalarSubqueryRewriter`,
   `GroupEntityCleaner`, `CommandSimplifier`, `AssignAdapterExpander`.

@@ -136,7 +136,6 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // from l … select (l.Owner == null ? l : l.Owner.Entity).Name
-    // TODO(api): Lite.entity dereference (l.owner.entity) inside a query projection
     test("SelectConditionalMember", async () => {
         const list = await table(LabelEntity)
             .map(l => (l.owner == null ? l : l.owner.entity).name)
@@ -145,7 +144,6 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // from l … select (l.Owner == null ? l : l.Owner.Entity).ToLite()
-    // TODO(api): Lite.entity dereference (l.owner.entity) inside a query projection
     test("SelectConditionalToLite", async () => {
         const list = await table(LabelEntity)
             .map(l => (l.owner == null ? l : l.owner.entity).toLite())
@@ -154,8 +152,6 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // from l … let owner = (l.Owner == null ? null : l.Owner)!.Entity select owner.ToLite(owner.Name)
-    // TODO(api): Lite.entity dereference (l.owner.entity) inside a query projection
-    // TODO(api): block-bodied lambda
     test("SelectConditionalToLiteNull", async () => {
         // Expression-bodied (the quote-transformer can't quote a statement block); the
         // `let owner = …` is inlined — both conditional branches are `l.owner`.
@@ -166,7 +162,6 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // from l … select (l.Owner == null ? l : l.Owner.Entity).GetType()
-    // TODO(api): GetType in query (a.constructor) — and Lite.entity dereference
     test("SelectConditionalGetType", async () => {
         const list = await table(LabelEntity)
             .map(l => (l.owner == null ? l : l.owner.entity).constructor)
@@ -175,7 +170,6 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // from l … select (l.Owner!.Entity ?? l).Name
-    // TODO(api): Lite.entity dereference and null-coalescing of an entity in a projection
     test("SelectCoalesceMember", async () => {
         const list = await table(LabelEntity)
             .map(l => (l.owner!.entity ?? l).name)
@@ -184,7 +178,6 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // from l … select (l.Owner!.Entity ?? l).ToLite()
-    // TODO(api): Lite.entity dereference and null-coalescing of an entity in a projection
     test("SelectCoalesceToLite", async () => {
         const list = await table(LabelEntity)
             .map(l => (l.owner!.entity ?? l).toLite())
@@ -193,7 +186,6 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // from l … select (l.Owner!.Entity ?? l).GetType()
-    // TODO(api): GetType in query (a.constructor) — and Lite.entity dereference
     test("SelectCoalesceGetType", async () => {
         const list = await table(LabelEntity)
             .map(l => (l.owner!.entity ?? l).constructor)
