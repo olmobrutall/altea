@@ -6,7 +6,7 @@ import {
 import {
     ColumnExpression, SqlConstantExpression, SqlLiteralExpression, PrimaryKeyExpression,
     IsNullExpression, IsNotNullExpression, LikeExpression, SqlFunctionExpression, SqlCastExpression,
-    AggregateExpression, AggregateRequestsExpression, CaseExpression, ScalarExpression, ExistsExpression, InExpression,
+    AggregateExpression, AggregateRequestsExpression, CaseExpression, When, ScalarExpression, ExistsExpression, InExpression,
     ProjectionExpression,
 } from "./expressions.sql";
 import { LiteralType, TemporalType, Type } from "../../entities/types";
@@ -185,7 +185,7 @@ class DbExpressionNominator extends DbExpressionVisitor {
         if (ns === "Math")
             return this.translateMath(name, args);
         if (ns === "dateTime" || ns === "date")
-            return this.translateDateMethod(name, source);
+            return this.translateDateMethod(name, source, args);
         // value.toString() → a string CAST (Signum's int/decimal ToString). A string
         // receiver is already text. (Date/temporal ToString is handled above and is
         // still unsupported; entity/lite ToString is resolved earlier in the binder.)
@@ -277,12 +277,79 @@ class DbExpressionNominator extends DbExpressionVisitor {
         }
     }
 
-    // Date/time methods. Only `quarter` is translated so far (→ a date-part call);
-    // truncation/diff/convert helpers stay unimplemented (visitCall then throws — red).
-    private translateDateMethod(name: string, source: Expression): Expression | undefined {
-        if (name === "quarter")
-            return this.datePartFn("quarter", "quarter", source);
-        return undefined;
+    // Date/time methods (port of DbExpressionNominator's DateTime/DateOnly cases).
+    // `source` and `args` are already visited/translated. The truncation helpers
+    // preserve the receiver's temporal kind; the diff/convert helpers return number
+    // / a cast.
+    private translateDateMethod(name: string, source: Expression, args: readonly Expression[]): Expression | undefined {
+        switch (name) {
+            case "quarter": return this.datePartFn("quarter", "quarter", source);
+            // Truncation / "start of" (Signum's TrySqlStartOf): date_trunc on Postgres,
+            // DATEADD(part, DATEDIFF(part, 0, x), 0) on SQL Server. Keeps the kind.
+            case "yearStart": return this.dateTrunc("year", source);
+            case "quarterStart": return this.dateTrunc("quarter", source);
+            case "monthStart": return this.dateTrunc("month", source);
+            case "weekStart": return this.dateTrunc("week", source);
+            case "truncHours": return this.dateTrunc("hour", source);
+            case "truncMinutes": return this.dateTrunc("minute", source);
+            case "truncSeconds": return this.dateTrunc("second", source);
+            // Convert (Signum's TrySqlCast): datetime→date / date→datetime.
+            case "toPlainDate": return this.castTemporal("date", source, "date", "date");
+            case "toPlainDateTime": return this.castTemporal("dateTime", source, "datetime2", "timestamp");
+            // Whole-unit difference (Signum's TryDatePartTo).
+            case "daysTo": return args.length === 1 ? this.datePartTo("day", source, args[0]) : undefined;
+            case "monthsTo": return args.length === 1 ? this.datePartTo("month", source, args[0]) : undefined;
+            case "yearsTo": return args.length === 1 ? this.datePartTo("year", source, args[0]) : undefined;
+            default: return undefined;
+        }
+    }
+
+    // date_trunc('part', x) (Postgres) / DATETRUNC(part, x) (SQL Server 2022+). The
+    // older DATEADD(part, DATEDIFF(part, 0, x), 0) fallback overflows int for fine
+    // parts (seconds since 1900 > 2^31), so DATETRUNC is used instead. The result has
+    // the receiver's temporal type.
+    private dateTrunc(part: string, source: Expression): Expression {
+        return this.isPostgres
+            ? this.sqlFunction(source.type, "date_trunc", new SqlLiteralExpression(`'${part}'`), source)
+            : this.sqlFunction(source.type, "DATETRUNC", new SqlLiteralExpression(part), source);
+    }
+
+    // CAST(x AS <type>) — the temporal conversions (Signum's TrySqlCast / TrySqlDate).
+    private castTemporal(kind: "dateTime" | "date" | "duration", source: Expression, sqlServerType: string, postgresType: string): Expression {
+        return new SqlCastExpression(new TemporalType(kind), source, this.isPostgres ? postgresType : sqlServerType);
+    }
+
+    // Whole-unit count between two dates (Signum's TryDatePartTo). SQL Server uses a
+    // DATEDIFF with a CASE correction (DATEDIFF over-counts boundary crossings);
+    // Postgres uses date subtraction (days) / age() (months, years).
+    private datePartTo(unit: "day" | "month" | "year", start: Expression, end: Expression): Expression {
+        if (!this.isPostgres) {
+            const diff = () => this.sqlFunction(LiteralType.number, "DATEDIFF", new SqlLiteralExpression(unit), start, end);
+            const added = this.sqlFunction(start.type, "DATEADD", new SqlLiteralExpression(unit), diff(), start);
+            return new CaseExpression(
+                [new When(new BinaryExpression(">", added, end), new BinaryExpression("-", diff(), new SqlConstantExpression(1, LiteralType.number)))],
+                diff());
+        }
+        // Postgres
+        if (unit === "day") {
+            const minus = new BinaryExpression("-", end, start);
+            // date - date yields an integer day count; timestamp - timestamp an interval.
+            return start.type instanceof TemporalType && start.type.kind === "date"
+                ? minus
+                : this.extract("day", minus);
+        }
+        const age = this.sqlFunction(new TemporalType("duration"), "age", start, end);
+        if (unit === "year")
+            return this.extract("year", age);
+        // months: Signum's EXTRACT(year FROM age) + EXTRACT(month FROM age) * 12
+        return new BinaryExpression("+", this.extract("year", age),
+            new BinaryExpression("*", this.extract("month", age), new SqlConstantExpression(12, LiteralType.number)));
+    }
+
+    // Postgres date_part('<part>', x) → number (same value as EXTRACT(part FROM x),
+    // but a plain function call so it renders through the generic formatter).
+    private extract(part: string, source: Expression): Expression {
+        return this.sqlFunction(LiteralType.number, "date_part", new SqlLiteralExpression(`'${part}'`), source);
     }
 
     // DATEPART(<kw>, x) on SQL Server; date_part('<kw>', x) on Postgres → number.
@@ -426,9 +493,25 @@ class DbExpressionNominator extends DbExpressionVisitor {
         millisecond: ["millisecond", "milliseconds"],
         dayOfYear: ["dayofyear", "doy"],
         dayOfWeek: ["weekday", "dow"],
+        // Temporal.Duration component members are plural.
+        hours: ["hour", "hour"],
+        minutes: ["minute", "minute"],
+        seconds: ["second", "second"],
+        milliseconds: ["millisecond", "milliseconds"],
     };
 
     private dateMemberPart(name: string, source: Expression): Expression | undefined {
+        switch (name) {
+            // `.date` truncates to the date (Signum's TrySqlDate); `.timeOfDay` keeps
+            // only the time (TrySqlTime) — both a CAST in altea's modern dialects.
+            case "date": return this.castTemporal("date", source, "date", "date");
+            case "timeOfDay": return this.castTemporal("duration", source, "time", "time");
+            // DateOnly.DayNumber: whole days since a fixed epoch.
+            case "dayNumber":
+                return this.isPostgres
+                    ? new BinaryExpression("-", source, new SqlLiteralExpression("DATE '0001-01-01'"))
+                    : this.sqlFunction(LiteralType.number, "DATEDIFF", new SqlLiteralExpression("day"), new SqlLiteralExpression("'0001-01-01'"), source);
+        }
         const parts = DbExpressionNominator.dateParts[name];
         return parts == null ? undefined : this.datePartFn(parts[0], parts[1], source);
     }

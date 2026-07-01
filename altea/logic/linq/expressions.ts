@@ -103,11 +103,32 @@ const wellKnownResultTypes: Readonly<Record<string, Type>> = {
 
     "Array.contains": LiteralType.boolean,
 
-    // Date/time methods (the rest are properties, typed by resolveMemberType). Only
-    // quarter is translated so far; the others type here so their tests build (and
-    // then fail at translation — kept red).
+    // Date/time methods (the rest are properties, typed by resolveMemberType). The
+    // nominator lowers these to SQL (date_trunc / DATEADD-DATEDIFF / CAST / age).
     "dateTime.quarter": LiteralType.number,
     "date.quarter": LiteralType.number,
+    // Truncation / "start of" → keeps the receiver's temporal kind.
+    "dateTime.yearStart": new TemporalType("dateTime"),
+    "dateTime.quarterStart": new TemporalType("dateTime"),
+    "dateTime.monthStart": new TemporalType("dateTime"),
+    "dateTime.weekStart": new TemporalType("dateTime"),
+    "dateTime.truncHours": new TemporalType("dateTime"),
+    "dateTime.truncMinutes": new TemporalType("dateTime"),
+    "dateTime.truncSeconds": new TemporalType("dateTime"),
+    "date.yearStart": new TemporalType("date"),
+    "date.quarterStart": new TemporalType("date"),
+    "date.monthStart": new TemporalType("date"),
+    "date.weekStart": new TemporalType("date"),
+    // Convert.
+    "dateTime.toPlainDate": new TemporalType("date"),
+    "date.toPlainDateTime": new TemporalType("dateTime"),
+    // Whole-unit difference → number.
+    "dateTime.daysTo": LiteralType.number,
+    "dateTime.monthsTo": LiteralType.number,
+    "dateTime.yearsTo": LiteralType.number,
+    "date.daysTo": LiteralType.number,
+    "date.monthsTo": LiteralType.number,
+    "date.yearsTo": LiteralType.number,
 
     // Math.* — all number → number (the SQL Math-function tier).
     "Math.sign": LiteralType.number,
@@ -128,13 +149,37 @@ const wellKnownResultTypes: Readonly<Record<string, Type>> = {
     "Math.ceil": LiteralType.number,
     "Math.round": LiteralType.number,
     "Math.trunc": LiteralType.number,
+
+    // Temporal constructors (`Temporal.PlainDateTime.from(…)` etc.) → their kind.
+    "PlainDateTime.from": new TemporalType("dateTime"),
+    "PlainDate.from": new TemporalType("date"),
+    "PlainTime.from": new TemporalType("duration"),
+    "Duration.from": new TemporalType("duration"),
 };
 
 // Captured constant receivers whose methods live under a static namespace above
 // (e.g. `Math.sin` → namespace "Math"). Extend this to add Date, Number, … later.
 const staticNamespaceReceivers: ReadonlyMap<unknown, string> = new Map<unknown, string>([
     [Math, "Math"],
+    // The Temporal constructors as static receivers, so `Temporal.PlainDateTime.from(…)`
+    // dispatches and types (`.from` → the corresponding temporal kind). Constant
+    // constructions are folded away by ExpressionSimplifier.
+    [Temporal.PlainDateTime, "PlainDateTime"],
+    [Temporal.PlainDate, "PlainDate"],
+    [Temporal.PlainTime, "PlainTime"],
+    [Temporal.Duration, "Duration"],
 ]);
+
+// The constant value a static receiver denotes: a captured constant directly
+// (`Math`), or a property off a captured namespace constant (`Temporal.PlainDateTime`
+// — a two-level access that never folds, since the class is a function value).
+function staticReceiverValue(obj: Expression | undefined): unknown {
+    if (obj instanceof ConstantExpression)
+        return obj.value;
+    if (obj instanceof PropertyExpression && obj.object instanceof ConstantExpression)
+        return (obj.object.value as Record<string, unknown> | null | undefined)?.[obj.propertyName];
+    return undefined;
+}
 
 // The namespace prefix for a method call's receiver, or undefined if it isn't one
 // we type built-ins for. A null (unresolved) receiver is treated as a string, so
@@ -142,14 +187,17 @@ const staticNamespaceReceivers: ReadonlyMap<unknown, string> = new Map<unknown, 
 function wellKnownNamespace(obj: Expression | undefined): string | undefined {
     if (obj == null)
         return undefined;
+    // A captured static receiver (Math, Temporal.PlainDateTime, …) takes precedence:
+    // its expression type is often null, which would otherwise fall to "string".
+    const staticNs = staticNamespaceReceivers.get(staticReceiverValue(obj));
+    if (staticNs != null)
+        return staticNs;
     if (obj.type === LiteralType.string || obj.type === LiteralType.null)
         return "string";
     if (obj.type instanceof ArrayType || (obj.type instanceof ClassType && obj.type.constructorFunction === Array))
         return "Array";
     if (obj.type instanceof TemporalType)
         return obj.type.kind;
-    if (obj instanceof ConstantExpression)
-        return staticNamespaceReceivers.get(obj.value);
     return undefined;
 }
 
@@ -183,9 +231,8 @@ function isKnownStringMethod(propertyName: string): boolean {
 // The runtime object to look method metadata up on for a captured static receiver
 // (e.g. Math), so `Math.sin` dispatches with Math as the (this-less) target.
 function staticReceiverObject(obj: Expression | undefined): object | undefined {
-    return obj instanceof ConstantExpression && staticNamespaceReceivers.has(obj.value)
-        ? obj.value as object
-        : undefined;
+    const v = staticReceiverValue(obj);
+    return staticNamespaceReceivers.has(v) ? v as object : undefined;
 }
 
 export abstract class Expression {

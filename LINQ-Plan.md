@@ -647,15 +647,37 @@ one file; non-sqlFunctions suites hold at 456 PG / 447 SS). Landed:
   pinned. (Integers are unaffected.) Postgres `Math.round` uses the 1-arg
   `round(double precision)` overload, since `round(double, int)` doesn't exist there.
 
-Still red (uncommented, deferred tiers): date truncation (`yearStart`/`monthStart`/…),
-date diffs (`since`/`total`/`daysTo`), `toPlainDate`/`toPlainDateTime` (need a SqlCast),
-`.date`/`.timeOfDay`, the `Temporal.Now` date constant; enum/entity `ToString` in query;
+Still red (deferred tiers): enum/entity `ToString` in query;
 `CombineUnion`/`CombineCase`; table-valued functions; `Etc`; concatenation-with-null;
 and the correlated-table-subquery-in-projection (`DayOfWeekSelectNullable`, blocked by
 the async-terminal typing gap — the only body still commented, with a note). dayOfWeek
 SQL is the raw `DATEPART(weekday)`/`date_part('dow')` (no Signum-style normalisation to
 the .NET `DayOfWeek` ordering yet), so a couple of constant-comparison cases are
 data-dependent (`DayOfWeekSelectConstant` is red on SQL Server).
+
+**Date/Time tier (construction · truncation · convert · diff · parts).** A faithful port of
+`DbExpressionNominator`'s date handling, dialect-aware. Verified live: **newDateTime 6/6** on both
+dialects, **sqlFunctions PG 17→23 / SS 16→22**; full suite **PG 422→434 / SS 406→417**, no
+regressions. The slice:
+
+- **Construction** (`newDateTime`): `Temporal.PlainDateTime/PlainDate/PlainTime/Duration.from({…})`
+  is a constant build, so ExpressionSimplifier folds it to a `ConstantExpression` (a constant date
+  in an `orderBy` is then dropped by OrderByRewriter). Required making the Temporal constructors
+  *static namespace receivers* in `expressions.ts` (so the two-level `Temporal.PlainDateTime.from`
+  receiver dispatches and types) — `staticReceiverValue` resolves a namespace-property receiver, and
+  `wellKnownNamespace` checks static receivers *before* the null→string fallback.
+- **Truncation / "start of"** (`yearStart`/`quarterStart`/`monthStart`/`weekStart`/`truncHours`/
+  `truncMinutes`/`truncSeconds`) → `date_trunc('part', x)` (Postgres) / `DATETRUNC(part, x)` (SQL
+  Server 2022+; the older `DATEADD(DATEDIFF(part,0,x))` fallback overflows int for fine parts —
+  seconds since 1900 > 2³¹).
+- **Convert** (`toPlainDate`/`toPlainDateTime`) and the `.date`/`.timeOfDay` members → `SqlCast` to
+  `date`/`datetime2`(`timestamp`)/`time`.
+- **Whole-unit diff** (`daysTo`/`monthsTo`/`yearsTo`) → SQL Server's `DATEDIFF`-with-CASE correction
+  / Postgres date subtraction + `age()`. Duration component members (`.hours`/`.minutes`/`.seconds`)
+  → `DATEPART`/`date_part`.
+
+Deferred within the tier: `Temporal.Now` (server-now constant, like `Clock.now` — `DateParameters`)
+and the `since(x).total(unit)` composition (`DateDiffFunctions`).
 
 **Whole suite uncommented (API-stability gate).** Every ported LinqProvider test body
 was uncommented and the suite now **compiles clean** (`tspc -b`, offline 42/42) — the
@@ -1157,10 +1179,10 @@ and the IB/IBA projection / cast / `instanceof` / equality tests pass on **both*
 dialects. Treat a feature as done only when its DB-gated suite is green on both
 Postgres and SQL Server.
 
-**Current stable baseline (post-`noCommit`, deterministic): Postgres 422 / SQL
-Server ~405 pass** of 553 (TypeEntity + skip landed; one SQL-Server select test
-flakes between runs under parallel load — `SelectCount`/`SelectEmbedded` — both
-pass in isolation). (These supersede the historical figures above, which
+**Current stable baseline (post-`noCommit`, deterministic): Postgres 434 / SQL
+Server ~417 pass** of 553 (TypeEntity + skip + the Date/Time tier landed; one
+SQL-Server `select` test flakes between runs under parallel load —
+`SelectCount`/`SelectEmbedded`/`SelectGroupLast` — all pass in isolation). (These supersede the historical figures above, which
 were measured before the `executeXXX` suites were enabled and before the
 `Transaction.noCommit` isolation made the parallel run deterministic — the earlier
 runs' committed mutations contaminated the shared data and made the totals

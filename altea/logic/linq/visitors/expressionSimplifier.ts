@@ -2,6 +2,14 @@
 import { OpBinary, OpUnary } from "quote-transformer/quoted";
 import { BinaryExpression, CallExpression, CastExpression, ConditionalExpression, ConstantExpression, Expression, LambdaExpression, NewExpression, ObjectExpression, ParameterExpression, PropertyExpression, UnaryExpression } from "../expressions";
 import { ExpressionVisitor } from "./ExpressionVisitor";
+import { Temporal } from "../../../entities/basics";
+
+// The Temporal constructors whose `.from(constObj)` constructions can be folded to a
+// constant value (Signum builds DATEFROMPARTS for column args; altea's tests only use
+// literal parts, so a constant suffices — and a constant date in an orderBy is dropped).
+const TEMPORAL_CTORS: readonly unknown[] = [
+    Temporal.PlainDateTime, Temporal.PlainDate, Temporal.PlainTime, Temporal.Duration,
+];
 
 export class ExpressionSimplifier extends ExpressionVisitor {
     visit(node: Expression): Expression;
@@ -104,6 +112,24 @@ export class ExpressionSimplifier extends ExpressionVisitor {
             return new FastUndefined();
 
         const args = this.visitArray(node.args, arg => this.visit(arg));
+
+        // Fold a constant Temporal construction `Temporal.PlainDateTime.from({…})` etc.
+        // to its value. The receiver `Temporal.PlainDateTime` is a property off the
+        // captured Temporal namespace constant (a class/function, so visitProperty
+        // never folds it), so resolve it here.
+        if (func instanceof PropertyExpression && args.every(a => a instanceof ConstantExpression)) {
+            const ctor = func.object instanceof PropertyExpression && func.object.object instanceof ConstantExpression
+                ? (func.object.object.value as Record<string, unknown> | null | undefined)?.[func.object.propertyName]
+                : undefined;
+            if (ctor != null && TEMPORAL_CTORS.includes(ctor)) {
+                const fn = (ctor as Record<string, unknown>)[func.propertyName];
+                if (typeof fn === "function") {
+                    const value = (fn as (...a: unknown[]) => unknown).apply(ctor, args.map(a => (a as ConstantExpression).value));
+                    return new ConstantExpression(value);
+                }
+            }
+        }
+
         return node.updateCall(func, args);
     }
 
