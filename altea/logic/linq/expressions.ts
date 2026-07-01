@@ -432,12 +432,25 @@ export abstract class Expression {
                         }
 
                         const getResultType = sf.__resultType;
-                        if (getResultType == null)
+                        if (getResultType == null) {
+                            // A method on an entity receiver that can't be resolved on its
+                            // (base) type — a polymorphic `@quoted` expression member reached
+                            // through combineUnion()/combineCase(), whose declaring implementation
+                            // isn't visible here. Emit a residual call; the QueryBinder dispatches
+                            // it per-implementation and expands the @quoted body (a genuine typo
+                            // then errors in the binder). Mirrors Signum, which resolves
+                            // AutoExpressionField members in the QueryBinder, not before.
+                            if (fun instanceof PropertyExpression && obj?.type instanceof ClassType) {
+                                const call = new CallExpression(fun, argsExp, LiteralType.null);
+                                call.methodExpander = sf.__methodExpander;
+                                return call;
+                            }
                             throw new Error(
                                 fun instanceof PropertyExpression ? `Missing @resultType or @quoted in function '${fun.propertyName}'` :
                                     fun instanceof ConstantExpression ? `Missing __resultType property in function ''${(fun.value as Function).name}'` :
                                         "Unexpected"
                             );
+                        }
 
                         const rawResultType = getResultType(obj?.type ?? LiteralType.null, ...argsExp.map(a => a.type));
                         // Query terminals are async at the top level (PromiseType), but a

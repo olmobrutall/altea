@@ -39,8 +39,8 @@ a named `PropertyExpression`, `BinaryExpression "=="`) not C# `MethodCallExpress
 
 ## Status
 
-Runs against both dialects. **Current stable baseline: Postgres 458 / SQL Server
-~440 pass of 553** (deterministic since the `noCommit` isolation below; one SQL
+Runs against both dialects. **Current stable baseline: Postgres 450 / SQL Server
+~434 pass of 552** (deterministic since the `noCommit` isolation below; one SQL
 Server `select` test flakes under parallel load — `SelectCount`/`SelectEmbedded`/
 `SelectGroupLast` — all pass in isolation). For done work the **code is the source
 of truth**; this is a map, not a spec.
@@ -82,13 +82,15 @@ of truth**; this is a map, not a spec.
   unit diffs), enum `.toString()` (→ value→name CASE), entity/value `ToString`.
 - **`inDB`** (entity→query bridge) via the new **MethodExpander** infrastructure
   (`@methodExpander` / `sf.__methodExpander`, expanded in `ExpressionSimplifier`).
+- **`@quoted` `AutoExpressionField` members** (`isMale`, `fullName`, `lonely`,
+  `albumCount`) — direct/cast calls are inlined by the quote transform; a member
+  navigated through a polymorphic `combineUnion()`/`combineCase()` is dispatched
+  per-implementation and its `@quoted` body expanded in the binder (Signum's
+  `HasExpansions` + `DispatchIb`). The quote transform defers an unresolvable
+  entity-method call to a residual the binder resolves.
 
 **Pending / out of scope** (each flagged `TODO(api)` in its suite):
 
-- `@quoted` `AutoExpressionField` members (`isMale`, `fullName`, `albumCount`) —
-  now expandable via the MethodExpander hook, not yet wired. (Combine reaches these
-  as residual calls — `combineCase().fullName()` binds the IB but the member body
-  isn't expanded yet, so `SelectPolyExpression*` stay red on both dialects.)
 - `EntityContext.entityId`; `Lite.entityType` / `Type.is` on a lite.
 - `Temporal.Now` / `Clock.now` (server-now constant); `since(x).total(unit)` diff.
 - `minBy`/`maxBy`, `ofType`/`cast`, `view()`/temp tables, `OrderAlsoByKeys`

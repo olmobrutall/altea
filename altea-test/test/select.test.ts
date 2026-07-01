@@ -222,16 +222,14 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<ArtistEntity>().Where(a => a.IsMale).ToArray();
-    // TODO(api): AutoExpressionField/As.Expression property (ArtistEntity.IsMale) in query
-    // TODO(api): @quoted expression member
+    // ArtistEntity.isMale() is a @quoted expression member (Signum's AutoExpressionField).
     test("SelectExpressionProperty", async () => {
         const list = await table(ArtistEntity).filter(a => a.isMale()).toArray();
         assert.ok(Array.isArray(list));
     });
 
     // Database.Query<ArtistEntity>().Select(a => new { a.Name, Count = a.AlbumCount() }).ToArray();
-    // TODO(api): AutoExpressionField/As.Expression method (ArtistEntity.AlbumCount()) in query
-    // TODO(api): @quoted expression member
+    // AlbumCount() is a @quoted expression member (a cross-entity count subquery).
     test("SelectExpressionMethod", async () => {
         const list = await table(ArtistEntity)
             .map(a => ({ name: a.name, count: a.albumCount() }))
@@ -240,40 +238,35 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // Select(a => a.Author.CombineUnion().FullName)
-    // TODO(api): polymorphic expression Combine (CombineUnion) over an @implementedBy reference
-    // TODO(api): combineUnion/Case
+    // A @quoted expression member navigated through a polymorphic combine (UNION strategy).
     test("SelectPolyExpressionPropertyUnion", async () => {
         const list = await table(AlbumEntity).map(a => a.author.combineUnion().fullName()).toArray();
         assert.ok(Array.isArray(list));
     });
 
     // Select(a => a.Author.CombineCase().FullName)
-    // TODO(api): polymorphic expression Combine (CombineCase) over an @implementedBy reference
-    // TODO(api): combineUnion/Case
+    // A @quoted expression member navigated through a polymorphic combine (CASE strategy).
     test("SelectPolyExpressionPropertySwitch", async () => {
         const list = await table(AlbumEntity).map(a => a.author.combineCase().fullName()).toArray();
         assert.ok(Array.isArray(list));
     });
 
     // Select(a => a.Author.CombineUnion().Lonely())
-    // TODO(api): polymorphic expression Combine (CombineUnion) over an @implementedBy reference
-    // TODO(api): combineUnion/Case
+    // A @quoted expression member (per-impl body: friends vs members) via UNION combine.
     test("SelectPolyExpressionMethodUnion", async () => {
         const list = await table(AlbumEntity).map(a => a.author.combineUnion().lonely()).toArray();
         assert.ok(Array.isArray(list));
     });
 
     // Select(a => a.Author.CombineCase().Lonely())
-    // TODO(api): polymorphic expression Combine (CombineCase) over an @implementedBy reference
-    // TODO(api): combineUnion/Case
+    // A @quoted expression member (per-impl body: friends vs members) via CASE combine.
     test("SelectPolyExpressionMethodSwitch", async () => {
         const list = await table(AlbumEntity).map(a => a.author.combineCase().lonely()).toArray();
         assert.ok(Array.isArray(list));
     });
 
     // Select(a => a.Author is BandEntity ? ((BandEntity)a.Author).Lonely() : ((ArtistEntity)a.Author).Lonely())
-    // TODO(api): entity cast in query ((x as BandEntity)) plus As.Expression method (Lonely)
-    // TODO(api): @quoted expression member
+    // The manual (cast + ?:) form of the polymorphic Lonely() expansion.
     test("SelectPolyExpressionMethodManual", async () => {
         const list = await table(AlbumEntity)
             .map(a => a.author instanceof BandEntity

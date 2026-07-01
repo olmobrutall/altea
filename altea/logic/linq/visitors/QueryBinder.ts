@@ -794,6 +794,18 @@ export class QueryBinder extends ExpressionVisitor {
         if (methodName === "is" && args.length === 1)
             return SmartEqualizer.polymorphicEqual(source, this.visit(args[0]));
 
+        // A `@quoted` expression-member (Signum's AutoExpressionField) called on an entity
+        // reference. Direct calls on a concrete type are inlined by the quote transform;
+        // this handles the shapes it can't resolve statically — a polymorphic reference.
+        // Mirrors Signum's QueryBinder: an @implementedBy dispatches the call to each
+        // implementation (re-binding `impl.method(args)`), a concrete entity expands its
+        // `@quoted` body, and a lite recurses onto its wrapped reference.
+        {
+            const expanded = this.tryExpandQuotedMember(source, methodName, args, resultType);
+            if (expanded != null)
+                return expanded;
+        }
+
         // some/every over a captured in-memory collection (Signum's BindAnyAll
         // constant-source branch): expand to `pred(v0) OR/AND pred(v1) …`, binding
         // the predicate's parameter to each captured element. (A query/subquery
@@ -1181,6 +1193,62 @@ export class QueryBinder extends ExpressionVisitor {
         // `@quoted` toStrings — the lite keeps an empty model rather than failing the
         // whole query.
         return undefined;
+    }
+
+    // A `@quoted` expression-member (Signum's AutoExpressionField) called on an entity
+    // reference. Returns undefined when it isn't one (caller falls back to the residual
+    // call). Concrete calls are already inlined by the quote transform; this covers the
+    // shapes it couldn't resolve statically — chiefly a member navigated through a
+    // polymorphic `combineUnion()`/`combineCase()` reference. Mirrors Signum's QueryBinder
+    // (HasExpansions on a concrete EntityExpression; DispatchIb over an ImplementedBy).
+    private tryExpandQuotedMember(source: Expression, methodName: string, args: readonly Expression[], resultType: Type): Expression | undefined {
+        if (source instanceof LiteReferenceExpression)
+            return this.tryExpandQuotedMember(source.reference, methodName, args, resultType);
+
+        // Polymorphic: dispatch the call to each implementation (re-bind `impl.method(args)`)
+        // and combine (CASE / UNION). Only when every implementation declares the member.
+        if (source instanceof ImplementedByExpression) {
+            const impls = [...source.implementations.values()];
+            if (impls.length === 0 || !impls.every(ee => this.quotedMemberOf(ee, methodName) != null))
+                return undefined;
+            return this.dispatchIb(source, ee => this.bindMethodCall(methodName, ee, args, resultType));
+        }
+
+        // Concrete entity: expand its `@quoted` body (this = the entity, plus any args).
+        if (source instanceof EntityExpression) {
+            const method = this.quotedMemberOf(source, methodName);
+            if (method == null)
+                return undefined;
+            const argTypes = args.map(a => this.visit(a).type ?? LiteralType.null);
+            const lambda = Expression.fromQuotedLambda(method as never, [source.type, ...argTypes]);
+            return this.bindQuotedBody(lambda, source, args);
+        }
+
+        return undefined;
+    }
+
+    // The `@quoted` method named `methodName` on the entity's runtime type, or undefined.
+    private quotedMemberOf(ee: EntityExpression, methodName: string): Function | undefined {
+        const ctor = ee.type instanceof ClassType ? ee.type.constructorFunction : undefined;
+        const method = (ctor?.prototype as Record<string, unknown> | undefined)?.[methodName];
+        return typeof method === "function" && (method as { __quoted?: unknown }).__quoted != null
+            ? method as Function
+            : undefined;
+    }
+
+    // Bind a `@quoted` member's captured lambda body: parameter 0 is the receiver
+    // (`this` = `thisValue`); remaining parameters map to the (visited) call arguments.
+    private bindQuotedBody(lambda: LambdaExpression, thisValue: Expression, args: readonly Expression[]): Expression {
+        const params = lambda.parameters;
+        const olds = params.map(p => this.map.get(p));
+        this.map.set(params[0], thisValue);
+        for (let i = 1; i < params.length; i++)
+            this.map.set(params[i], this.visit(args[i - 1]));
+        try {
+            return this.visit(lambda.body);
+        } finally {
+            params.forEach((p, i) => olds[i] === undefined ? this.map.delete(p) : this.map.set(p, olds[i]!));
+        }
     }
 
     // The SQL-valued argument of an aggregate: a reference (typed, polymorphic, or
