@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2022",
+    // ES2022 default libs (DOM/DOM.Iterable — entities/logic use `types: []`, so they get
+    // `console`/`URL`/… from DOM) plus ESNext.Disposable for `Disposable` / `Symbol.dispose`
+    // (the `using` declaration — e.g. `Clock.overrideNow`). react overrides `lib` itself.
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "ESNext.Disposable"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "composite": true,

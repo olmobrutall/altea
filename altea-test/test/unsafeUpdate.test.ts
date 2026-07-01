@@ -240,8 +240,6 @@ describe("UnsafeUpdateTest", { skip: !hasDb }, () => {
 
     // ArtistEntity michael = Database.Query<ArtistEntity>().SingleEx(a => a.Dead);
     // Database.Query<NoteWithDateEntity>().UnsafeUpdate().Set(a => a.Target, a => a.CreationTime > Clock.Now ? michael : null!).Execute();
-    // TODO(api): bulk update (executeUpdate)
-    // TODO(api): Clock.Now (server-now constant) in query
     txTest("UpdateIbaConditional", async () => {
         const michael = await table(ArtistEntity).single(a => a.dead);
         const count = await table(NoteWithDateEntity)
@@ -251,8 +249,6 @@ describe("UnsafeUpdateTest", { skip: !hasDb }, () => {
 
     // ArtistEntity michael = Database.Query<ArtistEntity>().SingleEx(a => a.Dead);
     // Database.Query<NoteWithDateEntity>().UnsafeUpdate().Set(a => a.OtherTarget, a => a.CreationTime > Clock.Now ? michael.ToLite() : null).Execute();
-    // TODO(api): bulk update (executeUpdate)
-    // TODO(api): Clock.Now (server-now constant) in query
     txTest("UpdateIbaLiteConditional", async () => {
         const michael = await table(ArtistEntity).single(a => a.dead);
         const count = await table(NoteWithDateEntity)

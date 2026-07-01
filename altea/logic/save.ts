@@ -3,8 +3,8 @@ import type { Type, PrimaryKey } from '../entities/entity';
 import { TypeLogic } from './typeLogic';
 import { referenceKey } from '../entities/changes';
 import { Lite } from '../entities/lite';
-import { Temporal } from '../entities/basics';
 import { Connector } from './connection/connector';
+import { normalizeScalar } from './normalizeScalar';
 import type { IColumn } from './schema/column';
 import type { Table } from './schema/table';
 import {
@@ -168,32 +168,6 @@ function pushFieldValues(field: Field, value: unknown, out: ColumnValue[]): void
             pushFieldValues(ef.field, present ? ef.getter(value) : null, out);
         return;
     }
-}
-
-// Primitives pass through; Date is left as-is for the driver. Temporal values are
-// formatted to dialect-portable strings: datetime/time are capped at millisecond
-// precision (Temporal's native nanoseconds overflow SQL Server's datetime2(7)), and
-// a Duration is rendered as a clock time HH:MM:SS — the literal both a SQL Server
-// `time` and a Postgres `interval` accept ("PT4M54S" is rejected by SQL Server).
-function normalizeScalar(value: unknown): unknown {
-    if (value == null) return null;
-    if (value instanceof Date) return value;
-
-    if (value instanceof Temporal.PlainDate) return value.toString();
-    if (value instanceof Temporal.PlainDateTime) return value.toString({ fractionalSecondDigits: 3 });
-    if (value instanceof Temporal.PlainTime) return value.toString({ fractionalSecondDigits: 3 });
-    if (value instanceof Temporal.ZonedDateTime) return value.toString({ fractionalSecondDigits: 3 });
-    if (value instanceof Temporal.Instant) return value.toString({ fractionalSecondDigits: 3 });
-    if (value instanceof Temporal.Duration) {
-        const total = Math.floor(Math.abs(value.total('seconds')));
-        const hh = String(Math.floor(total / 3600)).padStart(2, '0');
-        const mm = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
-        const ss = String(total % 60).padStart(2, '0');
-        return `${hh}:${mm}:${ss}`;
-    }
-
-    if (typeof value === 'object') return String(value); // Decimal & friends
-    return value;
 }
 
 // The primary-key id behind a reference (full Entity or Lite). Delegates to the

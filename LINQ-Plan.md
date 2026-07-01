@@ -39,8 +39,8 @@ a named `PropertyExpression`, `BinaryExpression "=="`) not C# `MethodCallExpress
 
 ## Status
 
-Runs against both dialects. **Current stable baseline: Postgres 460 / SQL Server
-~444 pass of 552** (deterministic since the `noCommit` isolation below; one SQL
+Runs against both dialects. **Current stable baseline: Postgres 463 / SQL Server
+~447 pass of 552** (deterministic since the `noCommit` isolation below; one SQL
 Server `select` test flakes under parallel load — `SelectCount`/`SelectEmbedded`/
 `SelectGroupLast` — all pass in isolation). For done work the **code is the source
 of truth**; this is a map, not a spec.
@@ -97,10 +97,16 @@ of truth**; this is a map, not a spec.
   referenced entity, as a Type expression (same `getEntityType` path as `.constructor`):
   projected, compared (`=== Ctor`, altea's `Type.Is` — via `SmartEqualizer.typeEqual`),
   or used as a group key.
+- **`Clock.now`** (Signum's `Clock.Now`) — a server-clock abstraction reading UTC or
+  machine-local time (`Clock.mode`), overridable for tests (`Clock.overrideNow`). In a
+  query the getter is folded to a constant by the ExpressionSimplifier (Signum
+  partial-evaluates `Clock.Now`). A bound Temporal parameter is normalised to a portable
+  string (shared `normalizeScalar`) — the mssql driver throws on a raw Temporal object.
 
 **Pending / out of scope** (each flagged `TODO(api)` in its suite):
 
-- `Temporal.Now` / `Clock.now` (server-now constant); `since(x).total(unit)` diff.
+- `Temporal.Now.*()` folded as a server-now constant in a query (e.g. `plainDateISO()`);
+  `since(x).total(unit)` diff.
 - `minBy`/`maxBy`, `ofType`/`cast`, `view()`/temp tables, `OrderAlsoByKeys`
   (stable pagination over a non-unique key).
 - Deferred subsystems: FullText, Vector (pgvector), SystemTime/temporal.

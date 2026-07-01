@@ -14,6 +14,7 @@ import {
     CommandAggregateExpression,
 } from "./expressions.sql";
 import { ObjectName } from "../schema/objectName";
+import { normalizeScalar } from "../normalizeScalar";
 import { Alias } from "./AliasGenerator";
 import { LiteralType } from "../../entities/types";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
@@ -79,7 +80,10 @@ export class QueryFormatter extends DbExpressionVisitor {
     }
 
     private addParameter(value: unknown): string {
-        this.parameters.push(value);
+        // Normalise to a driver-portable form (same as the save path): notably a bound
+        // Temporal value — e.g. a folded `Clock.now` constant — must become a string, as
+        // the mssql driver throws calling valueOf on a Temporal object.
+        this.parameters.push(normalizeScalar(value));
         return this.isPostgres ? `$${this.parameters.length}` : `@p${this.parameters.length - 1}`;
     }
 

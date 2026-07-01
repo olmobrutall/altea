@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / … (SQL-mappable)
 import { hasDb, start } from "./setup";
+import { Clock } from "@altea/altea/entities/clock";
 import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
 import {
     ArtistEntity, AlbumEntity, BandEntity, LabelEntity,
@@ -94,10 +95,10 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // Select(a => new { Clock.Now, Album = (AlbumEntity?)null, Artist = (Lite<ArtistEntity>?)null })
-    // TODO(api): Clock.Now (server-now constant) and typed null literals in projection
+    // Clock.now folds to a constant; the C# typed-null casts are just plain `null` in altea.
     test("SelectNoColumns", async () => {
         const list = await table(AlbumEntity)
-            .map(a => ({ now: Date.now(), album: null, artist: null }))
+            .map(a => ({ now: Clock.now, album: null, artist: null }))
             .toArray();
         assert.ok(Array.isArray(list));
     });
