@@ -7,6 +7,17 @@ import {
     ArtistEntity, AlbumEntity, LabelEntity, CountryEntity,
     AlbumEntity_Songs,
 } from "../entities/music";
+import { Lite } from "@altea/altea/entities/lite";
+import { tableName } from "@altea/altea/entities/decorators";
+import { Administrator } from "@altea/altea/logic/Administrator";
+
+// Signum's MyTempView — a temporary-table view (its `[TableName("#MyTempView")]` names
+// the temp table). Database.View / temporary tables aren't modelled in altea; the view
+// type + @tableName lock the shape, and Administrator.createTemporaryTable stays red.
+@tableName("#MyTempView")
+class MyTempView {
+    artist!: Lite<ArtistEntity>;
+}
 
 // Port of Signum.Test/LinqProvider/UnsafeInsertTest.cs (set-based bulk INSERT,
 // i.e. INSERT ... SELECT — materialise new rows directly from a query).
@@ -116,9 +127,10 @@ describe("UnsafeInsertTest", { skip: !hasDb }, () => {
     // TODO(api): bulk insert view (executeInsertView) — temporary IView is not modelled
     // TODO(api): Database.View<T>() / CreateTemporaryTable
     txTest("UnsafeInsertMyView", async () => {
-        // BLOCKED: Database.View / temporary tables are not modelled in altea (no part entity to retarget to).
-        // await table(ArtistEntity).filter(a => a.name.startsWith("M"))
-        //     .executeInsertView(MyTempView, a => ({ artist: a.toLite() }));
-        // assert.ok(true);
+        await Administrator.createTemporaryTable(MyTempView);
+        // UnsafeInsertView is just an UnsafeInsert whose target is the temp-table view.
+        await table(ArtistEntity).filter(a => a.name.startsWith("M"))
+            .executeInsert(MyTempView, a => ({ artist: a.toLite() }));
+        assert.ok(true);
     });
 });

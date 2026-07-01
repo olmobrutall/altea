@@ -2054,10 +2054,11 @@ export class QueryBinder extends ExpressionVisitor {
     // `Entity` for `author: Entity`. Used only for the IB/IBA expression's nominal
     // `.type`; the reader materialises the concrete implementation, never this.
     private refCleanCtor(fi: FieldInfo): Function {
-        const ctor = resolveType(fi.typeName);
-        if (ctor == null)
-            throw new Error(`Cannot resolve base type '${fi.typeName}' of polymorphic field '${fi.name}'`);
-        return ctor;
+        // The polymorphic reference's nominal base type. A field declared with an
+        // interface type (e.g. `author: IAuthorEntity`, Signum-style) has no runtime
+        // constructor — the base is nominal only (the reader picks the concrete
+        // implementation), so fall back to Entity. Concrete base types resolve normally.
+        return resolveType(fi.typeName) ?? Entity;
     }
 
     // Maps a value field's declared type name to a SQL literal type. The entity

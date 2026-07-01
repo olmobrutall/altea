@@ -74,7 +74,15 @@ function baseTypeOfFieldInfo(fi: FieldInfo): Type {
         case "Duration": return new TemporalType("duration");
     }
     const ctor = resolveType(fi.typeName);
-    return ctor != null ? new ClassType(ctor) : LiteralType.null;
+    if (ctor != null)
+        return new ClassType(ctor);
+    // A polymorphic reference declared with an interface type (e.g. `author:
+    // IAuthorEntity`) has no runtime constructor, but it is still an entity reference:
+    // type it as Entity so member/method dispatch works (the binder resolves the
+    // concrete implementations). Non-reference unresolved types stay null.
+    if (fi.implementations != null)
+        return new ClassType(Entity);
+    return LiteralType.null;
 }
 
 // ---- well-known built-in functions ------------------------------------------
@@ -411,9 +419,15 @@ export abstract class Expression {
                             if (lambda[0] != "=>")
                                 throw new Error("Unexpected non-lambda");
 
-                            lambda[1].forEach((p, i) => bindings.set(p, i == 0 ? obj! : argsExp[i - 1]));
+                            // A method's quoted body takes the receiver as its first parameter
+                            // (`this`), followed by the declared arguments; a free function's
+                            // (`withQuoted((x) => …)`) parameters map straight to the call args.
+                            if (obj != null)
+                                lambda[1].forEach((p, i) => bindings.set(p, i == 0 ? obj! : argsExp[i - 1]));
+                            else
+                                lambda[1].forEach((p, i) => bindings.set(p, argsExp[i]));
                             var body = fromQuoted(lambda[2]);
-                            lambda[1].forEach((p, i) => bindings.delete(p));
+                            lambda[1].forEach((p) => bindings.delete(p));
                             return body;
                         }
 

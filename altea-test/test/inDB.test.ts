@@ -73,17 +73,15 @@ describe("InDbTest", { skip: !hasDb }, () => {
     // Assert.True(list.Count > 0);
     // TODO(api): InDB bridge
     test("InDbQueryTestSimple", async () => {
-        // BLOCKED: a query terminal (.single()) / collection .contains used INSIDE a filter
-        // lambda is typed Promise<…> (async-terminal-in-lambda gap); needs InDB + that gap resolved.
-        // const female = await getFemale();
-        // let list = await table(ArtistEntity)
-        //     .filter(a => a.sex != female.inDB().map(a2 => a2.sex).single())
-        //     .toArray();
-        // assert.ok(list.length > 0);
-        // list = await table(ArtistEntity)
-        //     .filter(a => a.sex != female.toLite().inDB().map(a2 => a2.sex).single())
-        //     .toArray();
-        // assert.ok(list.length > 0);
+        const female = await getFemale();
+        let list = await table(ArtistEntity)
+            .filter(a => a.sex != female.inDB().map(a2 => a2.sex).single().$v)
+            .toArray();
+        assert.ok(list.length > 0);
+        list = await table(ArtistEntity)
+            .filter(a => a.sex != female.toLite().inDB().map(a2 => a2.sex).single().$v)
+            .toArray();
+        assert.ok(list.length > 0);
     });
 
     // var female = GetFemale();
@@ -94,17 +92,15 @@ describe("InDbTest", { skip: !hasDb }, () => {
     // TODO(api): InDB bridge
     // TODO(api): Lite-element Contains over a part-entity collection subquery (a2.friends.contains(a.toLite()))
     test("InDbQueryTestSimpleList", async () => {
-        // BLOCKED: a query terminal (.single()) / collection .contains used INSIDE a filter
-        // lambda is typed Promise<…> (async-terminal-in-lambda gap); needs InDB + that gap resolved.
-        // const female = await getFemale();
-        // let list = await table(ArtistEntity)
-        //     .filter(a => female.inDB().map(a2 => a2.friends).single().contains(a.toLite()))
-        //     .toArray();
-        // assert.ok(list.length > 0);
-        // list = await table(ArtistEntity)
-        //     .filter(a => female.toLite().inDB().map(a2 => a2.friends).single().contains(a.toLite()))
-        //     .toArray();
-        // assert.ok(list.length > 0);
+        const female = await getFemale();
+        let list = await table(ArtistEntity)
+            .filter(a => female.inDB().map(a2 => a2.friends).single().$v.some(f => f.friend.is(a.toLite())))
+            .toArray();
+        assert.ok(list.length > 0);
+        list = await table(ArtistEntity)
+            .filter(a => female.toLite().inDB().map(a2 => a2.friends).single().$v.some(f => f.friend.is(a.toLite())))
+            .toArray();
+        assert.ok(list.length > 0);
     });
 
     // var female = GetFemale();
@@ -133,17 +129,15 @@ describe("InDbTest", { skip: !hasDb }, () => {
     // TODO(api): InDB bridge
     // TODO(api): Lite-element Contains over a part-entity collection subquery (friends.contains(a.toLite()))
     test("InDbQueryTestSimpleListSelector", async () => {
-        // BLOCKED: a query terminal (.single()) / collection .contains used INSIDE a filter
-        // lambda is typed Promise<…> (async-terminal-in-lambda gap); needs InDB + that gap resolved.
-        // const female = await getFemale();
-        // let list = await table(ArtistEntity)
-        //     .filter(a => female.inDB(a2 => a2.friends).contains(a.toLite()))
-        //     .toArray();
-        // assert.ok(list.length > 0);
-        // list = await table(ArtistEntity)
-        //     .filter(a => female.toLite().inDB(a2 => a2.friends).contains(a.toLite()))
-        //     .toArray();
-        // assert.ok(list.length > 0);
+        const female = await getFemale();
+        let list = await table(ArtistEntity)
+            .filter(a => female.inDB(a2 => a2.friends).some(f => f.friend.is(a.toLite())))
+            .toArray();
+        assert.ok(list.length > 0);
+        list = await table(ArtistEntity)
+            .filter(a => female.toLite().inDB(a2 => a2.friends).some(f => f.friend.is(a.toLite())))
+            .toArray();
+        assert.ok(list.length > 0);
     });
 
     // var artistsInBands = (from b in Database.Query<BandEntity>() from a in b.Members

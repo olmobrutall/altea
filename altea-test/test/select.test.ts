@@ -156,14 +156,12 @@ describe("SelectTest", { skip: !hasDb }, () => {
     // TODO(api): Lite.entity dereference (l.owner.entity) inside a query projection
     // TODO(api): block-bodied lambda
     test("SelectConditionalToLiteNull", async () => {
-        // BLOCKED: block-bodied lambda — the quote-transformer can't quote a statement block.
-        // const list = await table(LabelEntity)
-        //     .map(l => {
-        //         const owner = (l.owner == null ? null : l.owner)!.entity;
-        //         return owner.toLite(owner.name);
-        //     })
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        // Expression-bodied (the quote-transformer can't quote a statement block); the
+        // `let owner = …` is inlined — both conditional branches are `l.owner`.
+        const list = await table(LabelEntity)
+            .map(l => (l.owner == null ? null : l.owner)!.entity.toLite((l.owner == null ? null : l.owner)!.entity.name))
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // from l … select (l.Owner == null ? l : l.Owner.Entity).GetType()
@@ -619,14 +617,13 @@ describe("SelectTest", { skip: !hasDb }, () => {
     // TODO(api): entity cast in query ((x as GrammyAwardEntity)) and InSql() force-evaluate-in-SQL hint
     // TODO(api): block-bodied lambda
     test("SelectConditionEnum", async () => {
-        // BLOCKED: block-bodied lambda — the quote-transformer can't quote a statement block.
-        // const results = await table(BandEntity)
-        //     .map(b => {
-        //         const ga = b.lastAward as GrammyAwardEntity;
-        //         return ga.result < ga.result ? ga.result : ga.result;
-        //     })
-        //     .toArray();
-        // assert.ok(Array.isArray(results));
+        // Expression-bodied (no statement block); the `let ga = …` cast is inlined.
+        const results = await table(BandEntity)
+            .map(b => (b.lastAward as GrammyAwardEntity).result < (b.lastAward as GrammyAwardEntity).result
+                ? (b.lastAward as GrammyAwardEntity).result
+                : (b.lastAward as GrammyAwardEntity).result)
+            .toArray();
+        assert.ok(Array.isArray(results));
     });
 
     // Database.Query<ArtistEntity>().SelectMany(a => a.Friends).Select(a => a.Id).ToList();

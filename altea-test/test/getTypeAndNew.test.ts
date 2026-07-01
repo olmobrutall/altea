@@ -125,11 +125,12 @@ describe("GetTypeAndNewTest", { skip: !hasDb }, () => {
     // TODO(api): ToTypeEntity() in query
     // TODO(api): typeof(X) comparison in query
     test("SelectToTypeLite", async () => {
-        // BLOCKED: GetType in query (Type.is on a lite entityType) - unmodelled.
-        // const list = await table(ArtistEntity)
-        //     .filter(f => f.toLite().entityType.is(ArtistEntity))
-        //     .toArray();
-        // assert.ok(list.length > 0);
+        // Signum's `f.ToLite().EntityType.ToTypeEntity().Is(...)`; altea has no Type.Is,
+        // so the natural form is a runtime-type equality (Lite.EntityType is unmodelled → red).
+        const list = await table(ArtistEntity)
+            .filter(f => f.toLite().entityType === ArtistEntity)
+            .toArray();
+        assert.ok(list.length > 0);
     });
 
     // from f in Database.Query<ArtistEntity>() where f.GetType().ToTypeEntity().Is(typeof(ArtistEntity).ToTypeEntity()) select f

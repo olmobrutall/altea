@@ -43,24 +43,23 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<BandEntity>().SelectMany(b => b.Members, (b, a) => new { Artist = a.ToLite(), Band = b.ToLite() }).ToList();
-    // TODO(api): flatMap index/result-selector overload — altea flatMap takes ONE collection selector only.
+    // altea's flatMap takes ONE collection selector; the C# result-selector is expressed by
+    // projecting the outer entity inside the collection map (b captured in the inner map).
     test("SelectMany2", async () => {
-        // BLOCKED: flatMap result-selector overload not modelled (one collection selector only).
-        // const list = await table(BandEntity)
-        //     .flatMap(b => b.members, (b, a) => ({ artist: a.member, band: b.toLite() }))
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(BandEntity)
+            .flatMap(b => b.members.map(a => ({ artist: a.member, band: b.toLite() })))
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Database.Query<BandEntity>().SelectMany((b, i) => b.Members.Select(m => new { Artist = m.ToLite(), i }), (b, a) => new { a.Artist, a.i, Band = b.ToLite() }).ToList();
-    // TODO(api): flatMap index/result-selector overload — altea flatMap takes ONE collection selector only.
+    // Single collection selector: the outer entity (b, with its index i) is projected inside
+    // the collection map, folding the C# result-selector into it.
     test("SelectMany2Index", async () => {
-        // BLOCKED: flatMap result-selector overload not modelled (one collection selector only).
-        // const list = await table(BandEntity)
-        //     .flatMap((b, i) => b.members.map(m => ({ artist: m.member, i })),
-        //              (b, a) => ({ artist: a.artist, i: a.i, band: b.toLite() }))
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(BandEntity)
+            .flatMap((b, i) => b.members.map(m => ({ artist: m.member, i, band: b.toLite() })))
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Database.Query<BandEntity>().SelectMany(b => b.Members.Where(a => a.IsMale)).Select(a => new { Artist = a.ToLite() }).ToList();
@@ -83,13 +82,12 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AlbumEntity>().SelectMany(a => a.Songs, (a, s) => s.Name).ToList();
-    // TODO(api): flatMap index/result-selector overload — altea flatMap takes ONE collection selector only.
+    // Single collection selector: the result-selector `s.Name` becomes the collection map.
     test("SelectManyEmbedded", async () => {
-        // BLOCKED: flatMap result-selector overload not modelled (one collection selector only).
-        // const list = await table(AlbumEntity)
-        //     .flatMap(a => a.songs, (a, s) => s.name)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .flatMap(a => a.songs.map(s => s.name))
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Database.Query<ArtistEntity>().SelectMany(a => a.Friends).ToList();

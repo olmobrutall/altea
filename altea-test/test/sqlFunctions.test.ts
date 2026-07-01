@@ -177,14 +177,10 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
     // Select(a => (DayOfWeek?)Query<NoteWithDateEntity>().Where(n => n.Target.Is(a)).FirstOrDefault()!.CreationTime.DayOfWeek); Assert.Contains(null, list)
     // TODO(api): DayOfWeek extraction in query and a correlated subquery (firstOrNull over a filtered table) inside a projection
     test("DayOfWeekSelectNullable", async () => {
-        // BLOCKED (stays commented): a correlated table sub-query in a projection.
-        // `table(...).firstOrNull()` is typed `Promise<T>` (async terminal), and the
-        // quote-transformer can't quote an `as any`/`as unknown` bridge to strip it —
-        // this needs the async-subquery typing gap (PromiseType/`.$v`) resolved first.
-        // const list: (number | null)[] = await table(ArtistEntity)
-        //     .map(a => table(NoteWithDateEntity).filter(n => n.target.is(a)).firstOrNull()!.creationTime.dayOfWeek)
-        //     .toArray();
-        // assert.ok(list.contains(null));
+        const list: (number | null)[] = await table(ArtistEntity)
+            .map(a => table(NoteWithDateEntity).filter(n => n.target.is(a)).firstOrNull().$v!.creationTime.dayOfWeek)
+            .toArray();
+        assert.ok(list.contains(null));
     });
 
     // mem vs db Select(a => a.CreationTime.DayOfWeek == DayOfWeek.Sunday) and CreationDate.DayOfWeek

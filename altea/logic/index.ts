@@ -13,7 +13,7 @@ import type { IQuery } from '../entities/iquery';
 import type { Quoted } from 'quote-transformer/quoted';
 import { Saver } from './saver';
 import { table } from './table';
-import { asStaticFunction } from './query';
+import { asStaticFunction, Query } from './query';
 import { ArrayType, FunctionType, LiteType, LiteralType, Type } from '../entities/types';
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, ParameterExpression, PropertyExpression } from './linq/expressions';
 import { ExpressionVisitor } from './linq/visitors/ExpressionVisitor';
@@ -21,6 +21,7 @@ import { ExpressionVisitor } from './linq/visitors/ExpressionVisitor';
 // Logic-layer barrel: re-exports the common server entry points alongside installing
 // the entity/lite extension-method prototypes (below).
 export { table, view } from './table';
+export { deleteList } from './Database';
 // from ./schema/schemaBuilder (not the ./schema barrel) — `./schema` is ambiguous at
 // runtime (a schema.ts file and a schema/ directory both exist; ESM resolves to the dir).
 export { SchemaBuilder } from './schema/schemaBuilder';
@@ -34,6 +35,10 @@ declare module '../entities/entity' {
         // `inDB()` yields a one-row query; `inDB(selector)` projects it to a scalar.
         inDB(): IQuery<this>;
         inDB<V>(selector: Quoted<(entity: this) => V>): V;
+        // Delete this single entity from the database (Signum's Entity.Delete): a
+        // one-row query (inDB) followed by a set-based delete; exactly one row must be
+        // affected, otherwise the entity was already deleted / concurrently modified.
+        delete(): Promise<void>;
         // Polymorphic combine hint over an @implementedBy reference (Signum's
         // CombineUnion / CombineCase): picks how the query provider merges the
         // implementations when a member is navigated — combineUnion() a UNION ALL
@@ -56,6 +61,8 @@ declare module '../entities/lite' {
         retrieve(): T;
         // Retrieve the referenced entity and cache it on the lite (Signum's RetrieveAndRemember).
         retrieveAndRemember(): T;
+        // Delete the referenced entity (Signum's Lite.Delete) — see Entity.delete.
+        delete(): Promise<void>;
     }
 }
 
@@ -104,6 +111,21 @@ liteInDBSf.__lambdaType = [(ot: Type) => [entityTypeOf(ot)]];
 liteInDBSf.__resultType = (ot: Type, selType?: Type) => selType instanceof FunctionType ? selType.returnType : new ArrayType(entityTypeOf(ot));
 liteInDBSf.__methodExpander = expandInDB;
 (Lite.prototype as any).inDB = liteInDB;
+
+// Delete a single row (Signum's Entity.Delete / Lite.Delete): re-query it as a one-row
+// query (inDB) and run a set-based delete over that query. Exactly one row must be
+// affected — anything else means the row was already gone / concurrently changed.
+async function deleteOne(query: IQuery<Entity>, target: unknown): Promise<void> {
+    const affected = await (query as unknown as Query<Entity>).executeDelete();
+    if (affected !== 1)
+        throw new Error(`Delete of '${target}' affected ${affected} rows, expected 1.`);
+}
+Entity.prototype.delete = function (this: Entity): Promise<void> {
+    return deleteOne(this.inDB(), this);
+};
+Lite.prototype.delete = function (this: Lite<Entity>): Promise<void> {
+    return deleteOne(this.inDB(), this);
+};
 
 // Signum's InDbExpander (run in ExpressionSimplifier, not the binder): rewrites an
 // `x.inDB(sel)` call inside a quoted lambda into a source expression, before binding.

@@ -132,6 +132,15 @@ export function primaryKey(type: PrimaryKeyType) {
     };
 }
 
+// Sets an explicit database table/view name for the type (Signum's [TableName]),
+// overriding the name derived from the class. Used e.g. for temporary views
+// (`@tableName("#MyTempView")`); consumed by SchemaBuilder / Administrator.
+export function tableName(name: string) {
+    return function (target: Function): void {
+        getOrCreateTypeInfo(target).tableName = name;
+    };
+}
+
 export function allowUnauthenticated(target: Function): void {
     (target as any)[allowUnauthenticatedKey] = true;
 }

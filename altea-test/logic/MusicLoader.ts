@@ -313,6 +313,9 @@ export namespace MusicLoader {
 
         b.name = "B2";
         await b.save();
-        // NOT YET: Entity.delete() — the original loader deletes x, b, a here.
+
+        await x.delete();
+        await b.delete();
+        await a.delete();
     }
 }

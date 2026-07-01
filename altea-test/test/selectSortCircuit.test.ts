@@ -4,12 +4,23 @@ import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // collection .some on a part-entity collection
 import { hasDb, start } from "./setup";
 import { AlbumEntity, BandEntity } from "../entities/music";
+import { Temporal } from "@altea/altea/entities/basics";
 
 // A short-circuit helper (Signum's Throw<T>()) — the right side of a ?? / || / && the
 // optimiser proves unreachable. Not SQL-mappable; the in-memory body just throws.
 function Throw<T>(): T {
     throw new Error("Throw<T>() is a query-only short-circuit helper with no in-memory body");
 }
+
+// A nullable date alias — a bare identifier so the quote-transformer can name the
+// cast (it can't name a qualified `Temporal.PlainDate`); the cast itself is a SQL
+// no-op the binder drops. Lets `(x as MaybeDate) ?? Throw()` type as reachable.
+type MaybeDate = Temporal.PlainDate | null;
+
+// A `string | null` constant for the `?? Throw()` short-circuit: casting the literal
+// `"Hola"` doesn't help (TS proves the literal non-null via control flow and still
+// flags the `??` right operand unreachable), so capture it as a nullable-typed const.
+const holaOrNull: string | null = "Hola";
 
 // Port of Signum.Test/LinqProvider/SelectSortCirtuitTest.cs. C# → altea idiom:
 //   Database.Query<T>()  → table(T)            .Where(...) → .filter(...)
@@ -32,24 +43,22 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
     // Query<AlbumEntity>().Where(a => ("Hola" ?? Throw<string>()) == null).Select(a => a.Year).ToList();
     // TODO(api): short-circuit ?? with a throwing helper (Throw<T>()) — not SQL-mappable
     test("SortCircuitCoalesce", async () => {
-        // BLOCKED: short-circuit ?? with Throw<T>() (left never nullish) - not SQL-mappable.
-        // const list = await table(AlbumEntity)
-        //     .filter(a => ("Hola" ?? Throw<string>()) == null)
-        //     .map(a => a.year)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .filter(a => (holaOrNull ?? Throw<string>()) == null)
+            .map(a => a.year)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Where(a => (((DateTime?)DateTime.Now) ?? Throw<DateTime>()) == DateTime.Today).Select(a => a.Year).ToList();
     // TODO(api): short-circuit ?? with a throwing helper (Throw<T>()) — not SQL-mappable
     // TODO(api): Clock.Now / DateTime.Now / DateTime.Today server-now constants in query
     test("SortCircuitCoalesceNullable", async () => {
-        // BLOCKED: ?? with Throw<T>() + Date/PlainDate constant - not SQL-mappable.
-        // const list = await table(AlbumEntity)
-        //     .filter(a => ((Date.now() as Date | null) ?? Throw<Date>()) == today)
-        //     .map(a => a.year)
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity)
+            .filter(a => ((Temporal.Now.plainDateISO() as MaybeDate) ?? Throw<Temporal.PlainDate>()) == Temporal.Now.plainDateISO())
+            .map(a => a.year)
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 
     // Where(a => "Hola" == "Hola" ? true : Throw<bool>()).Select(a => a.Year).ToList();

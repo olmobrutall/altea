@@ -6,6 +6,7 @@ import {
     ArtistEntity, AlbumEntity, BandEntity,
     ArtistEntity_Friends, BandEntity_Members, AlbumEntity_Songs,
 } from "../entities/music";
+import { deleteList } from "@altea/altea/logic/Database";
 
 // Port of Signum.Test/LinqProvider/UnsafeDeleteTest.cs (set-based bulk DELETE).
 //
@@ -86,10 +87,9 @@ describe("UnsafeDeleteTest", { skip: !hasDb }, () => {
     // TODO(api): per-row delete of a Lite list (Database.DeleteList) — not a bulk set-based op
     // TODO(api): entity cast in query ((x as ArtistEntity))
     txTest("DeleteManual", async () => {
-        // BLOCKED: per-row Database.DeleteList of a Lite list - not a set-based op.
-        // const list = await table(AlbumEntity).filter(a => (a.author as ArtistEntity).dead).map(a => a.toLite()).toArray();
-        // await deleteList(list);
-        // assert.ok(true);
+        const list = await table(AlbumEntity).filter(a => (a.author as ArtistEntity).dead).map(a => a.toLite()).toArray();
+        await deleteList(list);
+        assert.ok(true);
     });
 
     // Administrator.CreateTemporaryTable<MyTempView>(); UnsafeInsertView(...); Database.View<MyTempView>().Where(a => a.MyId > 1).UnsafeDeleteView();

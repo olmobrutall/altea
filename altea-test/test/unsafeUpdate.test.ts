@@ -342,14 +342,9 @@ describe("UnsafeUpdateTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AlbumEntity>().UnsafeUpdate().Set(a => ((ISecretContainer)a).Secret, a => "Hi").Execute();
-    // TODO(api): bulk update (executeUpdate)
-    // TODO(api): explicit interface-implemented field ((ISecretContainer)a).Secret
-    txTest("UpdateExplicitInterfaceImplementedField", async () => {
-        // BLOCKED: explicit interface-implemented field ((a as ISecretContainer).secret) - unmodelled.
-        // const count = await table(AlbumEntity)
-        //     .executeUpdate(u => u.set(a => (a as ISecretContainer).secret, a => "Hi"));
-        // assert.ok(true);
-    });
+    // Not ported: this tests explicit interface implementation (a member reachable only
+    // by casting to the interface that declares it) — a C#-only concept with no TypeScript
+    // equivalent, so there is nothing to model here.
 
     // Database.Query<LabelEntity>().UnsafeUpdatePart(lb => lb.Owner!.Entity.Country).Set(ctr => ctr.Name, lb => lb.Name).Execute();
     // TODO(api): bulk update part (executeUpdatePart) — navigate Lite.entity then update the navigated entity

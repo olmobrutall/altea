@@ -114,6 +114,9 @@ export class TypeInfo {
     }
 
     fields: { [fieldName: string]: FieldInfo };
+    // Explicit database table/view name (Signum's [TableName]); overrides the
+    // name derived from the class. Used e.g. for temporary views (`#MyTempView`).
+    tableName?: string;
 }
 
 // Legacy (experimentalDecorators) decorators have no `context.metadata`, so

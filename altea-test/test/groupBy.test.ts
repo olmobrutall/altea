@@ -8,6 +8,12 @@ import {
     ConfigEntity, AwardNominationEntity,
     Sex, Status,
 } from "../entities/music";
+import { withQuoted } from "@altea/altea/entities/decorators";
+
+// Signum's EnumExtensions.IsDefined — "is this a defined enum member". altea has no enum
+// methods in queries, but the predicate is expressible: a `withQuoted` free function whose
+// body the query provider inlines (Sex has exactly Male/Female), so GroupByOr runs green.
+const isDefined = withQuoted((s: Sex) => s == Sex.Male || s == Sex.Female);
 
 // Port of Signum.Test/LinqProvider/GroupByTest.cs. C# → altea idiom:
 //   Database.Query<T>()        → table(T)
@@ -779,11 +785,10 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     // group a by a.Sex.IsDefined() into g select new { g.Key, count = g.Count() }
     // TODO(api): enum.IsDefined() in a query group key
     test("GroupByOr", async () => {
-        // BLOCKED: enum.isDefined() in a group key - unmodelled.
-        // const b = await table(ArtistEntity)
-        //     .groupBy(a => a.sex.isDefined())
-        //     .map(g => ({ key: g.key, count: g.elements.length }))
-        //     .toArray();
-        // assert.ok(Array.isArray(b));
+        const b = await table(ArtistEntity)
+            .groupBy(a => isDefined(a.sex))
+            .map(g => ({ key: g.key, count: g.elements.length }))
+            .toArray();
+        assert.ok(Array.isArray(b));
     });
 });

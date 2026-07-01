@@ -78,8 +78,21 @@ export class NoteWithDateEntity_Colaborators extends Entity {
     colaborator: Lite<ArtistEntity>;
 }
 
+// Signum's IAuthorEntity: the shared interface behind AlbumEntity.Author /
+// AwardNominationEntity.Author, implemented by ArtistEntity and BandEntity. altea has
+// no runtime interface type — this is a compile-time contract so a polymorphic
+// `author` reference can navigate the members both implementations share. It is the
+// static type `combineUnion()` / `combineCase()` return (they are `(): this`), which
+// is what makes `a.author.combineUnion().name` / `.lastAward` / `.fullName()` typecheck.
+export interface IAuthorEntity extends Entity {
+    name: string;
+    lastAward: Entity | null;
+    fullName(): string;
+    lonely(): boolean;
+}
+
 @reflect
-export class ArtistEntity extends Entity {
+export class ArtistEntity extends Entity implements IAuthorEntity {
     name: string;
     dead: boolean;
     sex: Sex;
@@ -136,7 +149,7 @@ export enum Status {
 }
 
 @reflect
-export class BandEntity extends Entity {
+export class BandEntity extends Entity implements IAuthorEntity {
     name: string;
     // Signum's MList<ArtistEntity> Members → band/member part entity.
     @include(() => BandEntity_Members)
@@ -228,7 +241,7 @@ export class AlbumEntity extends Entity {
     name: string;
     year: int;
     @implementedBy(() => [ArtistEntity, BandEntity])
-    author: Entity;
+    author: IAuthorEntity;
     // Signum's [PreserveOrder] MList<SongEmbedded> Songs → owned part rows.
     @include(() => AlbumEntity_Songs)
     songs: AlbumEntity_Songs[];
@@ -282,7 +295,7 @@ export class SongEmbedded extends EmbeddedEntity {
 @reflect
 export class AwardNominationEntity extends Entity {
     @implementedBy(() => [ArtistEntity, BandEntity])
-    author: Lite<Entity>;
+    author: Lite<IAuthorEntity>;
     @implementedBy(() => [GrammyAwardEntity, PersonalAwardEntity, AmericanMusicAwardEntity])
     award: Lite<Entity>;
     year: int = toInt(0);   // C# value-type default; the loader leaves these unset
