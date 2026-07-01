@@ -153,7 +153,7 @@ describe("InDbTest", { skip: !hasDb }, () => {
     test("SelectManyInDB", async () => {
         const artistsInBands = await table(BandEntity)
             .flatMap(b => b.members)
-            .map(a => ({ maxAlbum: a.member.entity.inDB(ar => ar.isMale()) }))
+            .map(a => ({ name: a.member.entity.name, isMale: a.member.entity.inDB(ar => ar.isMale()) }))
             .toArray();
         assert.ok(Array.isArray(artistsInBands));
     });

@@ -42,8 +42,8 @@ declare module '../entities/entity' {
         // altea has no interface type to upcast to (unlike Signum's `IFooEntity`); the
         // navigated member (`.name`, `.lastAward`, …) is resolved by the binder against
         // the concrete implementations.
-        combineUnion(): any;
-        combineCase(): any;
+        combineUnion(): this;
+        combineCase(): this;
     }
 }
 
