@@ -274,6 +274,31 @@ export class AggregateExpression extends DbExpression {
     }
 }
 
+// Signum's RowNumberExpression: ROW_NUMBER() OVER (ORDER BY …), the source of the
+// index in an indexed selector (`map((x, i) => …)`). Signum starts with an empty
+// orderBy and fills it from gathered orderings in a later pass; altea passes the
+// enclosing select's orderBy through directly and the formatter falls back to a
+// constant ORDER BY when it's empty (the query imposes no order).
+export class RowNumberExpression extends DbExpression {
+    constructor(
+        public readonly orderBy: readonly OrderExpression[],
+    ) {
+        super("RowNumber", LiteralType.number);
+    }
+
+    toString(): string {
+        return "ROW_NUMBER()";
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitRowNumber(this);
+    }
+
+    updateRowNumber(orderBy: readonly OrderExpression[]): RowNumberExpression {
+        return orderBy === this.orderBy ? this : new RowNumberExpression(orderBy);
+    }
+}
+
 // Signum's AggregateRequestsExpression: a deferred aggregate that logically
 // belongs to the GROUP BY select identified by `groupByAlias`. The binder emits
 // it for an aggregate written over a grouping's elements (e.g. `g.elements.sum()`);

@@ -7,7 +7,7 @@ import {
     SelectExpression, ProjectionExpression, ColumnExpression, PrimaryKeyExpression,
     FieldBinding, EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
     SqlConstantExpression, TableExpression, OrderExpression, OrderType, UniqueFunction,
-    AggregateExpression, AggregateRequestsExpression, AggregateSqlFunction, ColumnDeclaration, InExpression,
+    AggregateExpression, AggregateRequestsExpression, AggregateSqlFunction, RowNumberExpression, ColumnDeclaration, InExpression,
     SourceExpression, SqlFunctionExpression, SqlCastExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression, JoinType,
     LiteReferenceExpression, LiteReferenceTarget, ScalarExpression, ExistsExpression,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
@@ -958,11 +958,11 @@ export class QueryBinder extends ExpressionVisitor {
     }
 
     private bindSelect(projection: ProjectionExpression, selector: LambdaExpression): ProjectionExpression {
-        const expression = this.mapVisitExpand(selector, projection);
+        const { expression, projection: proj } = this.mapVisitExpandIndexed(selector, projection);
         const alias = this.aliasGenerator.nextSelectAlias();
         const pc = this.projectColumns(expression, alias);
         return new ProjectionExpression(
-            new SelectExpression(alias, false, undefined, pc.columns, projection.select, undefined, [], []),
+            new SelectExpression(alias, false, undefined, pc.columns, proj.select, undefined, [], []),
             pc.projector, undefined, new ArrayType(expression.type));
     }
 
@@ -1365,6 +1365,43 @@ export class QueryBinder extends ExpressionVisitor {
     // projector (Signum's MapVisitExpand).
     private mapVisitExpand(lambda: LambdaExpression, projection: ProjectionExpression): Expression {
         return this.mapVisitExpandCore(lambda, projection.projector, projection.select);
+    }
+
+    // Signum's WithIndex: wrap `projection` in a select carrying a 0-based row-index
+    // column (`ROW_NUMBER() OVER(…) - 1`), and return that column so an indexed
+    // selector's second parameter can bind to it. The RowNumber inherits the inner
+    // select's orderBy (empty → the formatter falls back to a constant order).
+    private withIndex(projection: ProjectionExpression): { projection: ProjectionExpression, index: ColumnExpression } {
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const pc = this.projectColumns(projection.projector, alias);
+        const rowNum = new BinaryExpression("-",
+            new RowNumberExpression(projection.select.orderBy),
+            new SqlConstantExpression(1, LiteralType.number));
+        const cd = new ColumnDeclaration("_rowNum", rowNum);
+        const index = new ColumnExpression(LiteralType.number, alias, "_rowNum");
+        const select = new SelectExpression(alias, false, undefined, [cd, ...pc.columns],
+            projection.select, undefined, [], [], SelectOptions.HasIndex);
+        return { projection: new ProjectionExpression(select, pc.projector, projection.uniqueFunction, projection.type), index };
+    }
+
+    // mapVisitExpand for a possibly-indexed selector (`(x, i) => …`): when the lambda
+    // has a second parameter, wrap the projection with a row-index column and bind that
+    // parameter to it (Signum's MapVisitExpandWithIndex). Returns the bound body and the
+    // projection its FROM should read from (the indexed one when an index was added).
+    private mapVisitExpandIndexed(lambda: LambdaExpression, projection: ProjectionExpression): { expression: Expression, projection: ProjectionExpression } {
+        if (lambda.parameters.length <= 1)
+            return { expression: this.mapVisitExpand(lambda, projection), projection };
+
+        const { projection: indexed, index } = this.withIndex(projection);
+        const p1 = lambda.parameters[1];
+        const old = this.map.get(p1);
+        this.map.set(p1, index);
+        try {
+            return { expression: this.mapVisitExpand(lambda, indexed), projection: indexed };
+        } finally {
+            if (old == null) this.map.delete(p1);
+            else this.map.set(p1, old);
+        }
     }
 
     // The general form: bind a lambda body with its parameter mapped to `projector`
@@ -1941,12 +1978,12 @@ export class QueryBinder extends ExpressionVisitor {
     // Signum's BindSelectMany (single-selector form; result-selector / index /
     // DefaultIfEmpty overloads are not surfaced by altea's flatMap yet).
     private bindSelectMany(projection: ProjectionExpression, selector: LambdaExpression): ProjectionExpression {
-        const coll = this.mapVisitExpand(selector, projection);
+        const { expression: coll, projection: proj } = this.mapVisitExpandIndexed(selector, projection);
         const collProj = this.asProjection(coll);
 
         const alias = this.aliasGenerator.nextSelectAlias();
         const pc = this.projectColumns(collProj.projector, alias);
-        const join = new JoinExpression("CrossApply", projection.select, collProj.select, undefined);
+        const join = new JoinExpression("CrossApply", proj.select, collProj.select, undefined);
         return new ProjectionExpression(
             new SelectExpression(alias, false, undefined, pc.columns, join, undefined, [], []),
             pc.projector, undefined, collProj.type);

@@ -39,8 +39,8 @@ a named `PropertyExpression`, `BinaryExpression "=="`) not C# `MethodCallExpress
 
 ## Status
 
-Runs against both dialects. **Current stable baseline: Postgres 476 / SQL Server
-~467 pass of 552** (last run 2026-07-01). Postgres is deterministic since the
+Runs against both dialects. **Current stable baseline: Postgres 479 / SQL Server
+~470 pass of 552** (last run 2026-07-01). Postgres is deterministic since the
 `noCommit` isolation below; SQL Server floats a bit because a handful of
 aggregate/group-by/select tests flake under parallel load — the specific tests
 vary run-to-run (e.g. `All`/`None`/`GroupByCount`/`GroupByAllAny`), all pass in
@@ -80,6 +80,14 @@ a spec.
   `(a ?? b).m()` → `(a != null) ? a.m() : b.m()`; a null-literal branch propagates to
   null. Covers `.name`/field, `.constructor` (GetType) and `.toLite()` over either
   branch, including a nullable-Lite `.entity` dereference.
+- **Indexed selectors** (`map`/`flatMap` `(x, i) => …`) — the binder's `withIndex`
+  (Signum's `WithIndex`/`MapVisitExpandWithIndex`) wraps the source select with a
+  0-based `ROW_NUMBER() OVER(…) - 1` column and binds the second lambda parameter to
+  it. New `RowNumberExpression` SQL node + `visitRowNumber` (base visitor / formatter);
+  its ORDER BY inherits the enclosing select's, falling back to a constant `(SELECT 1)`
+  when the query imposes no order (rather than porting Signum's gathered-orderings
+  fill). String `+` with the numeric index also casts to text on SQL Server (which uses
+  `+` for concat, unlike Postgres's `||`).
 - **Optimiser passes** — `OrderByRewriter`, `QueryRebinder`, `RedundantSubqueryRemover`,
   `ConditionsRewriter` (SQL-Server), `AggregateRewriter`, `ScalarSubqueryRewriter`,
   `GroupEntityCleaner`, `CommandSimplifier`, `AssignAdapterExpander`.

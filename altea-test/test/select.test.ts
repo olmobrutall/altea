@@ -39,7 +39,6 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AlbumEntity>().Select((a, i) => a.Name + i).ToList();
-    // TODO(api): indexed map
     test("SelectIndex", async () => {
         const list = await table(AlbumEntity).map((a, i) => a.name + i).toArray();
         assert.ok(Array.isArray(list));

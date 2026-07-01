@@ -7,7 +7,7 @@ import {
     SourceExpression, TableExpression, SelectExpression, JoinExpression,
     SetOperatorExpression, SourceWithAliasExpression,
     ColumnExpression, ColumnDeclaration, OrderExpression, JoinType,
-    AggregateExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression,
+    AggregateExpression, RowNumberExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression,
     CaseExpression, LikeExpression, ScalarExpression, ExistsExpression, InExpression,
     IsNullExpression, IsNotNullExpression, PrimaryKeyExpression, SqlCastExpression,
     CommandExpression, DeleteExpression, UpdateExpression, InsertSelectExpression,
@@ -201,6 +201,17 @@ export class QueryFormatter extends DbExpressionVisitor {
         this.visit(o.expression);
         this.append(` ${o.orderType === "Ascending" ? "ASC" : "DESC"}`);
         return o;
+    }
+
+    // ROW_NUMBER() OVER (ORDER BY …). SQL Server requires an ORDER BY inside OVER;
+    // when the query imposes no order fall back to a constant (`(SELECT 1)`, the same
+    // idiom the OFFSET/FETCH path uses), valid on both dialects.
+    override visitRowNumber(e: RowNumberExpression): Expression {
+        if (e.orderBy.length === 0)
+            this.append("ROW_NUMBER() OVER (ORDER BY (SELECT 1))");
+        else
+            this.append(`ROW_NUMBER() OVER (ORDER BY ${e.orderBy.map(o => this.capture(() => this.visitOrderBy(o))).join(", ")})`);
+        return e;
     }
 
     private quoteAlias(alias: Alias): string {
@@ -463,6 +474,17 @@ export class QueryFormatter extends DbExpressionVisitor {
         // both). When either operand is string-typed, emit `||` on Postgres.
         if (e.kind === "+" && this.isPostgres && (e.left.type === LiteralType.string || e.right.type === LiteralType.string)) {
             this.append(`(${this.capture(() => this.visit(e.left))} || ${this.capture(() => this.visit(e.right))})`);
+            return;
+        }
+
+        // SQL Server also uses `+` to concatenate, but with a numeric operand it does
+        // arithmetic (converting the string operand to a number, which fails). Cast the
+        // non-string operand(s) to text so `+` concatenates — e.g. `a.name + i`.
+        if (e.kind === "+" && !this.isPostgres && (e.left.type === LiteralType.string || e.right.type === LiteralType.string)) {
+            const side = (x: Expression) => x.type === LiteralType.string
+                ? this.capture(() => this.visit(x))
+                : `CAST(${this.capture(() => this.visit(x))} AS nvarchar(max))`;
+            this.append(`(${side(e.left)} + ${side(e.right)})`);
             return;
         }
 

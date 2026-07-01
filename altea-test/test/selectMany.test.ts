@@ -34,7 +34,8 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<BandEntity>().SelectMany((b, i) => b.Members.Select(m => new { Artist = m.ToLite(), i })).ToList();
-    // TODO(api): flatMap index/result-selector overload — altea flatMap takes ONE collection selector only.
+    // altea's flatMap takes ONE collection selector; the C# result-selector is folded into
+    // the collection map. The `(b, i)` index overload binds `i` to a ROW_NUMBER column.
     test("SelectManyIndex", async () => {
         const list = await table(BandEntity)
             .flatMap((b, i) => b.members.map(m => ({ artist: m.member, i })))
