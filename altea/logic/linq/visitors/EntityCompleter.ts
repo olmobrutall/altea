@@ -1,7 +1,7 @@
 import { Expression } from "../expressions";
 import {
     ProjectionExpression, SelectExpression, LiteReferenceExpression, LiteValueExpression, EntityExpression,
-    FieldBinding, MixinEntityExpression, PrimaryKeyExpression, FieldEntityArrayExpression,
+    ImplementedByExpression, FieldBinding, MixinEntityExpression, PrimaryKeyExpression, FieldEntityArrayExpression,
 } from "../expressions.sql";
 import type { Table } from "../../schema/table";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
@@ -67,9 +67,17 @@ export class EntityCompleter extends DbExpressionVisitor {
         // column / navigation join); after that the bindings are no longer referenced,
         // so a lite over a fully-retrieved root entity projects just id + type + toStr
         // rather than every column of the entity.
-        const toStr = lite.toStr ?? this.binder.liteModelExpression(lite.reference);
-        const typeId = this.binder.liteTypeId(lite.reference);
-        const id = this.binder.liteId(lite.reference);
+        const reference = lite.reference;
+        const typeId = this.binder.liteTypeId(reference);
+        const id = this.binder.liteId(reference);
+        // An @implementedBy reference keeps a per-implementation model map (Signum's
+        // GetModels) instead of one combined CASE, so the polymorphic display string is
+        // dispatched by type in the reader — never a CASE in the projector.
+        if (reference instanceof ImplementedByExpression && lite.toStr == null) {
+            const models = this.binder.liteImplementationModels(reference);
+            return new LiteValueExpression(lite.type, typeId, id, undefined, models);
+        }
+        const toStr = lite.toStr ?? this.binder.liteModelExpression(reference);
         return new LiteValueExpression(lite.type, typeId, id, toStr ?? undefined);
     }
 

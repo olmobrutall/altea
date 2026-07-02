@@ -658,23 +658,32 @@ export class LiteReferenceExpression extends DbExpression {
 // The reduced, ready-to-project form of a Lite<T> (Signum's LiteValueExpression).
 // EntityCompleter rewrites every projected LiteReferenceExpression into this: it keeps
 // only the identity (`typeId` — a TypeEntity/TypeImplementedBy/TypeImplementedByAll
-// expression — plus the coalesced `id`) and the display `toStr`, DROPPING the wrapped
+// expression — plus the coalesced `id`) and the display model, DROPPING the wrapped
 // entity's field bindings. That is what stops a lite over a fully-retrieved (bound) root
-// entity from dragging every one of its columns into the SELECT: only id + type + toStr
-// remain referenced, so UnusedColumnRemover prunes the rest. The reader materialises a
-// LiteImp straight from typeId + id + toStr.
+// entity from dragging every one of its columns into the SELECT: only id + type + model
+// remain referenced, so UnusedColumnRemover prunes the rest.
+//
+// The display model is either a single `toStr` (a typed reference or @implementedByAll) or,
+// for an @implementedBy reference, a per-implementation `models` map (Signum's GetModels
+// dictionary) — one model expression per concrete type, NOT a combined CASE. The reader
+// dispatches on the runtime type and evaluates that implementation's model client-side, so
+// no CASE / IS NULL is ever pushed into the projector.
 export class LiteValueExpression extends DbExpression {
     constructor(
         type: Type,
         public readonly typeId: Expression,
         public readonly id: Expression,
         public readonly toStr: Expression | undefined,
+        public readonly models: ReadonlyMap<Function, Expression> | undefined = undefined,
     ) {
         super("LiteValue", type);
     }
 
     toString(): string {
-        return `LiteValue(${this.typeId}; ${this.id}; ${this.toStr ?? "-"})`;
+        const model = this.models != null
+            ? `{${[...this.models].map(([c, e]) => `${c.name}: ${e}`).join(", ")}}`
+            : (this.toStr ?? "-");
+        return `LiteValue(${this.typeId}; ${this.id}; ${model})`;
     }
 
     accept(visitor: ExpressionVisitor) {

@@ -204,8 +204,19 @@ export class DbExpressionVisitor extends ExpressionVisitor {
         const typeId = this.visit(lite.typeId);
         const id = this.visit(lite.id);
         const toStr = this.visit(lite.toStr);
-        if (typeId !== lite.typeId || id !== lite.id || toStr !== lite.toStr)
-            return new LiteValueExpression(lite.type, typeId, id, toStr);
+        let models = lite.models;
+        if (lite.models != null) {
+            let changed = false;
+            const next = new Map<Function, Expression>();
+            for (const [ctor, model] of lite.models) {
+                const v = this.visit(model);
+                if (v !== model) changed = true;
+                next.set(ctor, v);
+            }
+            if (changed) models = next;
+        }
+        if (typeId !== lite.typeId || id !== lite.id || toStr !== lite.toStr || models !== lite.models)
+            return new LiteValueExpression(lite.type, typeId, id, toStr, models);
         return lite;
     }
 

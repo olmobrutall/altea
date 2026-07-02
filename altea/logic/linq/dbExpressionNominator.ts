@@ -37,6 +37,10 @@ class DbExpressionNominator extends DbExpressionVisitor {
     // ISO conversion folded into server SQL (coerceDayOfWeek). In the plain `nominate` path (a
     // projector) the comparison stays client-side over the raw column, so the conversion never
     // contaminates the SELECT.
+    // Set while visiting a CASE's branches, so a string concat inside a CASE is kept in
+    // SQL (a CASE must nominate as one server column) even in the plain projection path.
+    private insideCase = false;
+
     constructor(private readonly isPostgres: boolean, private readonly fullTranslate: boolean = false) {
         super();
     }
@@ -137,7 +141,13 @@ class DbExpressionNominator extends DbExpressionVisitor {
     }
 
     override visitCase(node: CaseExpression): Expression {
+        // Visit the branches with `insideCase` set so a string concat among them stays in
+        // SQL (see visitBinary): a CASE must translate as one self-contained server column,
+        // never split into client-side pieces that would leave a CASE in the projector.
+        const old = this.insideCase;
+        this.insideCase = true;
         const r = super.visitCase(node) as CaseExpression;
+        this.insideCase = old;
         return this.nominateIfAll(r, [...r.whens.flatMap(w => [w.condition, w.value]), r.defaultValue]);
     }
 
@@ -158,6 +168,18 @@ class DbExpressionNominator extends DbExpressionVisitor {
         const right = this.coerceDayOfWeek(r.right);
         if (left !== r.left || right !== r.right)
             r = new BinaryExpression(r.kind, left, right);
+        // String concatenation is materialised in the projector (client-side), not the
+        // SELECT, UNLESS we're fully translating (WHERE / ORDER BY / aggregate). Mirrors
+        // Signum's DbExpressionNominator, which only ConvertToSqlAddition's + nominates an
+        // `Add` under IsFullNominateOrAggresive. Leaving the concat un-nominated lets the
+        // ColumnProjector select the leaf columns and concatenate them in memory — so e.g.
+        // an entity's composite `toString` reads its component columns rather than pushing
+        // the whole `||` into SQL. Numeric `+` (arithmetic, substring offsets) stays
+        // nominated regardless. A concat *inside a CASE* (e.g. a polymorphic reference's
+        // per-implementation toString) is kept in SQL so the whole CASE stays a single
+        // server column — the projector never has to evaluate a CASE client-side.
+        if (r.kind === "+" && r.type === LiteralType.string && !this.fullTranslate && !this.insideCase)
+            return r;
         return this.nominateIfAll(r, [r.left, r.right]);
     }
 

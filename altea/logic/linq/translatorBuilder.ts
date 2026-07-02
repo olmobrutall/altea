@@ -8,7 +8,7 @@ import {
     ChildProjectionExpression, LookupToken,
     ImplementedByExpression, ImplementedByAllExpression,
     TypeEntityExpression, TypeImplementedByExpression, TypeImplementedByAllExpression,
-    ToDayOfWeekExpression,
+    ToDayOfWeekExpression, SqlConstantExpression,
 } from "./expressions.sql";
 import { QueryFormatter } from "./queryFormatter";
 import { Connector } from "../connection/connector";
@@ -346,7 +346,9 @@ class ProjectionBuilder extends DbExpressionVisitor {
         }
 
         // Lite over @implementedBy: whichever implementation id column is non-null picks
-        // the ctor; the lite is built with the coalesced id (equal to that column).
+        // the ctor; the lite is built with the coalesced id (equal to that column) and that
+        // implementation's own display model (Signum's per-type Models) — dispatched here
+        // client-side rather than as a SQL CASE.
         if (typeId instanceof TypeImplementedByExpression) {
             let code = "null";
             const entries = [...typeId.typeImplementations];
@@ -355,7 +357,13 @@ class ProjectionBuilder extends DbExpressionVisitor {
                 const ctorIndex = this.pushConst(ctor);
                 this.visit(implId.value);
                 const implIdCode = this.pop();
-                code = `(${implIdCode} != null ? retriever.lite(consts[${ctorIndex}], ${idCode}, ${toStrCode}) : ${code})`;
+                let modelCode = toStrCode;
+                const model = e.models?.get(ctor);
+                if (model != null) {
+                    this.visit(model);
+                    modelCode = this.pop();
+                }
+                code = `(${implIdCode} != null ? retriever.lite(consts[${ctorIndex}], ${idCode}, ${modelCode}) : ${code})`;
             }
             this.stack.push(code);
             return e;
@@ -507,6 +515,15 @@ class ProjectionBuilder extends DbExpressionVisitor {
         this.visit(e.right);
         const right = this.pop();
         this.stack.push(`(${left} ${jsOperator(e.kind)} ${right})`);
+        return e;
+    }
+
+    // A SQL constant that reached the projector as an operand of a client-side expression
+    // (e.g. the literal chunks of a projected string concatenation) — inline its value.
+    // Matches Signum's TranslatorBuilder.VisitSqlConstant. CASE / IS NULL never reach the
+    // projector: the nominator keeps them (and any concat inside them) as one SQL column.
+    override visitSqlConstant(e: SqlConstantExpression): Expression {
+        this.stack.push(`consts[${this.pushConst(e.value)}]`);
         return e;
     }
 }

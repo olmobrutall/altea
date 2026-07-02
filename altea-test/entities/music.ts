@@ -56,7 +56,9 @@ export class NoteWithDateEntity extends Entity {
     creationDate: Temporal.PlainDate;
     releaseDate: Temporal.PlainDate | null;
 
-    @quoted
+    // Hand-written (not @quoted), matching Signum's NoteWithDateEntity.ToString (a plain
+    // override, not [AutoExpressionField]). Its body interpolates a date the query provider
+    // can't translate, so it's materialised into a stored ToStr column at save time.
     toString(): string {
         return `${this.creationTime.toString()} -> ${this.title}`;
     }
@@ -122,6 +124,9 @@ export class ArtistEntity extends Entity implements IAuthorEntity {
     @quoted
     friendsCovariant(): ArtistEntity[] { return this.friends.map(f => f.friend.entity); }
 
+    // Signum's [AutoExpressionField] ToString => Name: a translatable expression, so
+    // it's expanded inline in queries and the entity carries no stored ToStr column.
+    @quoted
     toString(): string {
         return this.name;
     }
@@ -166,6 +171,9 @@ export class BandEntity extends Entity implements IAuthorEntity {
     @quoted
     lonely(): boolean { return this.members.length == 0; }
 
+    // Signum's [AutoExpressionField] ToString => Name (see ArtistEntity): expanded
+    // inline, no stored ToStr column.
+    @quoted
     toString(): string {
         return this.name;
     }
@@ -222,6 +230,8 @@ export class LabelEntity extends Entity {
     owner: Lite<LabelEntity> | null; // self-reference
     // NOT YET: SqlHierarchyId Node (hierarchy type unsupported)
 
+    // Signum's [AutoExpressionField] ToString => Name.
+    @quoted
     toString(): string {
         return this.name;
     }
@@ -249,8 +259,14 @@ export class AlbumEntity extends Entity {
     label: LabelEntity;
     state: AlbumState;
 
+    // Signum's [AutoExpressionField] ToString => $"{Name} ({Author})". `author` is an
+    // @implementedBy reference; its `.toString()` lowers to a CASE over each implementation's
+    // display string (Artist/Band → name). Computed inline, so no stored ToStr column.
+    // (`.toString()` is explicit — the quote transform captures `${this.author}` as a bare
+    // reference, unlike C# where the compiler inserts the ToString call.)
+    @quoted
     toString(): string {
-        return `${this.name} (${this.year})`;
+        return `${this.name} (${this.author.toString()})`;
     }
 }
 
@@ -349,6 +365,8 @@ export class FolderEntity extends Entity {
     name: string;
     parent: Lite<FolderEntity> | null;
 
+    // Signum's [AutoExpressionField] ToString => Name.
+    @quoted
     toString(): string {
         return this.name;
     }

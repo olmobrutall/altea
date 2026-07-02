@@ -429,6 +429,20 @@ export class QueryBinder extends ExpressionVisitor {
         return this.entityToStringOf(reference);
     }
 
+    // Per-implementation display models for an @implementedBy lite (Signum's
+    // EntityCompleter.GetModels dictionary): each concrete type's own ToString, completed
+    // independently — NOT combined into a CASE. The reader dispatches on the runtime type
+    // and evaluates the matching model client-side, so no CASE reaches the projector.
+    liteImplementationModels(ib: ImplementedByExpression): Map<Function, Expression> {
+        const models = new Map<Function, Expression>();
+        for (const [ctor, ee] of ib.implementations) {
+            const model = this.entityToString(ee);
+            if (model != null)
+                models.set(ctor, model);
+        }
+        return models;
+    }
+
     // The id / type-discriminator of a lite's reference (Signum's binder.GetId /
     // binder.GetEntityType), exposed for EntityCompleter to build a LiteValueExpression.
     liteId(reference: LiteReferenceTarget): Expression {
@@ -1341,13 +1355,15 @@ export class QueryBinder extends ExpressionVisitor {
                 new SqlConstantExpression(niceName(ctor!) + " ", LiteralType.string),
                 new SqlCastExpression(LiteralType.string, this.unwrapPk(ee.externalId), this.isPostgres ? "varchar" : "nvarchar(max)"));
 
-        // A subclass's own `@quoted` toString could be expanded by binding its captured
-        // body against `ee` (Expression.fromQuotedLambda + bindWithParam), but those
-        // bodies often reach not-yet-translatable tiers (e.g. `date.toString()`), which
-        // would throw mid-projection. Until those land, skip the eager fill for custom
-        // `@quoted` toStrings — the lite keeps an empty model rather than failing the
-        // whole query.
-        return undefined;
+        // A subclass's own `@quoted` toString (Signum's [AutoExpressionField] ToString):
+        // expand its captured body against `ee` (this = the entity), exactly like any
+        // other @quoted member — e.g. `() => this.name` becomes the name column, so the
+        // display string is computed inline and the entity needs no stored ToStr column.
+        // A `@quoted` toString is expected to be translatable (that is the contract that
+        // lets it replace a stored ToStr column); a body that isn't should be a plain
+        // (non-`@quoted`) override with a ToStr column instead, like NoteWithDateEntity.
+        const lambda = Expression.fromQuotedLambda(ts as never, [ee.type]);
+        return this.bindQuotedBody(lambda, ee, []);
     }
 
     // A `@quoted` expression-member (Signum's AutoExpressionField) called on an entity

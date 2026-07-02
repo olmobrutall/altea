@@ -592,11 +592,18 @@ export class BinaryExpression extends Expression {
 
     private static calculateType(operator: OpBinary, left: Expression, right: Expression): Type {
         switch (operator) {
+            // `+` is string concatenation when either side is a string (JS/C# `+`
+            // semantics), and the result stays string so it propagates up a chain like
+            // `name + " (" + year + ")"` — otherwise a composite concat node reads as
+            // numeric and the formatter would emit arithmetic `+` instead of `||`/CAST.
+            case "+":
+                return (left.type === LiteralType.string || right.type === LiteralType.string)
+                    ? LiteralType.string
+                    : LiteralType.number;
             case "**":
             case "*":
             case "/":
             case "%":
-            case "+":
             case "-":
                 return LiteralType.number;
             case "<":

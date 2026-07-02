@@ -142,6 +142,25 @@ describe("QueryBinder (step 2)", () => {
         assert.match(sub2.sql, /SUBSTRING\(/i);
     });
 
+    test("string concat with a non-string operand is SQL-concatenated in a filter", () => {
+        // In a WHERE the concat is fully translated (FullNominate): `` `${a.name} (${a.year})` ``
+        // weaves the int `year` in with the string operator — `||` on Postgres, `+` with a
+        // CAST on SQL Server — never arithmetic `+`, thanks to the `+`-stays-string typing.
+        const pg = QueryFormatter.format(bindPg(table(AlbumEntity).filter(a => `${a.name} (${a.year})`.contains("x"))).select, true).sql;
+        assert.match(pg, /\|\|/);
+        const ss = QueryFormatter.format(bind(table(AlbumEntity).filter(a => `${a.name} (${a.year})`.contains("x"))).select, false).sql;
+        assert.match(ss, /CAST\([^)]*Year[^)]*AS nvarchar/i);
+    });
+
+    test("string concat in a projection is materialised client-side, not in SQL", () => {
+        // Matching Signum, a projected concatenation isn't nominated: the SELECT reads the
+        // leaf columns and the projector concatenates them in memory, so no `||` is emitted.
+        const pg = QueryFormatter.format(bindPg(table(AlbumEntity).map(a => ({ t: `${a.name} (${a.year})` }))).select, true).sql;
+        assert.doesNotMatch(pg, /\|\|/, "a projected concat must not push `||` into SQL");
+        assert.match(pg, /a\.name/i);
+        assert.match(pg, /a\.year/i);
+    });
+
     test("indexOf binds to CHARINDEX (SQL Server) minus one", () => {
         const proj = bind(table(ArtistEntity).filter(a => a.name.indexOf("M") == 0));
         const { sql } = QueryFormatter.format(proj.select, false);
