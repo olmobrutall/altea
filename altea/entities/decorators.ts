@@ -94,6 +94,14 @@ export function isAllowUnauthenticated(target: object): boolean {
     return (ctorOf(target) as any)?.[allowUnauthenticatedKey] === true;
 }
 
+// Field-level decorator — Signum's [AvoidExpandQuery]. Marks a reference field so a query
+// retrieving the owner does NOT eager-expand this reference (it stays a lazy stub instead
+// of joining the target). It's a per-reference concern (one FK, not the whole entity), so
+// it belongs on the field, like Signum.
+export function avoidExpandOnRetrieving(target: object, propertyKey: string | symbol): void {
+    getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).avoidExpandOnRetrieving = true;
+}
+
 // Marks a class as a persistent entity. Like @reflect it creates reflection
 // metadata and registers the type (so the quote-transformer auto-injects @field
 // on its properties); additionally it records the EntityKind / EntityData.

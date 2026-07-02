@@ -426,6 +426,12 @@ export class QueryBinder extends ExpressionVisitor {
         return this.projectColumns(projector, alias);
     }
 
+    // Public wrapper over `completed` for EntityCompleter (Signum calls binder.Completed
+    // from EntityCompleter.VisitEntity to eager-expand a retrieved reference).
+    completeEntity(ee: EntityExpression): EntityExpression {
+        return this.completed(ee);
+    }
+
     bindQuery(expr: Expression): ProjectionExpression {
         this.root = expr;
         const result = this.visit(expr);
@@ -727,8 +733,19 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.bindUnique(source, "Single", call.args[0] as LambdaExpression | undefined);
                 case "singleOrNull":
                     return this.bindUnique(source, "SingleOrDefault", call.args[0] as LambdaExpression | undefined);
-                case "count":
+                case "count": {
+                    // Disassemble the UNBOUND source (Signum's DisassembleAggregate) so a
+                    // `map(sel).filter(notNull).distinct().count()` shape lowers to
+                    // COUNT(DISTINCT sel) instead of a correlated COUNT(*) subquery.
+                    const dis = this.disassembleAggregate("Count", property.object, call.args[0] as LambdaExpression | undefined);
+                    if (dis.distinct) {
+                        let inner = this.visit(dis.source);
+                        if (inner instanceof FieldEntityArrayExpression)
+                            inner = this.fieldEntityArrayProjection(inner);
+                        return this.bindAggregate(this.asProjection(inner), "Count", dis.selector, call === this.root, true);
+                    }
                     return this.bindAggregate(source, "Count", call.args[0] as LambdaExpression | undefined, call === this.root);
+                }
                 case "min":
                     return this.bindAggregate(source, "Min", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "max":
@@ -1032,8 +1049,12 @@ export class QueryBinder extends ExpressionVisitor {
 
         const alias = this.aliasGenerator.nextSelectAlias();
         const pc = this.projectColumns(projection.projector, alias);
+        // Mark the single-row select OrderAlsoByKeys so OrderByRewriter appends the
+        // source's primary key to the ORDER BY (Signum's stable-top behaviour): picking
+        // one row of a non-unique order (`orderBy(dead).last()`) must be deterministic.
+        const top = uniqueFunction === "First" || uniqueFunction === "FirstOrDefault" ? new ConstantExpression(1) : undefined;
         return new ProjectionExpression(
-            new SelectExpression(alias, false, uniqueFunction === "First" || uniqueFunction === "FirstOrDefault" ? new ConstantExpression(1) : undefined, pc.columns, projection.select, undefined, [], []),
+            new SelectExpression(alias, false, top, pc.columns, projection.select, undefined, [], [], SelectOptions.OrderAlsoByKeys),
             pc.projector, uniqueFunction, projection.type);
     }
 
@@ -1068,34 +1089,112 @@ export class QueryBinder extends ExpressionVisitor {
     //      ScalarExpression (a correlated scalar subquery).
     // The distinct-fast disassembly (Count over Select.Distinct → COUNT(DISTINCT))
     // is not ported; those route through (b) as a correct COUNT(*)-over-subquery.
-    private bindAggregate(projection: ProjectionExpression, aggregateFunction: AggregateSqlFunction, selector: LambdaExpression | undefined, isRoot: boolean): Expression {
+    // Peel a `X.<method>(args)` source call (undefined if `expr` isn't that shape).
+    private extractCall(expr: Expression, method: string): { object: Expression, args: readonly Expression[] } | undefined {
+        return expr instanceof CallExpression && expr.func instanceof PropertyExpression && expr.func.propertyName === method
+            ? { object: expr.func.object, args: expr.args }
+            : undefined;
+    }
+
+    // The value tested by a `x => <value> != null` lambda, else undefined.
+    private notNullValue(lambda: LambdaExpression): Expression | undefined {
+        const b = lambda.body;
+        if (b instanceof BinaryExpression && (b.kind === "!=" || b.kind === "!=="))
+            return isNullLiteral(b.right) ? b.left : isNullLiteral(b.left) ? b.right : undefined;
+        return undefined;
+    }
+
+    // Structural equality of two member-access chains, treating the two lambdas'
+    // parameters as equivalent (`a.name` from one lambda ≡ `b.name` from another).
+    private sameValue(a: Expression, aParam: ParameterExpression, b: Expression, bParam: ParameterExpression): boolean {
+        if (a instanceof ParameterExpression && b instanceof ParameterExpression)
+            return (a === aParam && b === bParam) || a === b;
+        if (a instanceof PropertyExpression && b instanceof PropertyExpression)
+            return a.propertyName === b.propertyName && this.sameValue(a.object, aParam, b.object, bParam);
+        return false;
+    }
+
+    // Port of Signum's DisassembleAggregate (the Count cases): recognise a
+    // Select/Distinct/Where(notNull) combination under a Count so it lowers to
+    // `COUNT(DISTINCT selector)` rather than a correlated `COUNT(*)` over a
+    // `SELECT DISTINCT …` subquery. Returns the reduced (still unbound) inner source,
+    // the value selector, and whether it is a distinct count.
+    private disassembleAggregate(func: AggregateSqlFunction, source: Expression, selectorOrPredicate: LambdaExpression | undefined):
+        { source: Expression, selector: LambdaExpression | undefined, distinct: boolean } {
+        if (func !== "Count")
+            return { source, selector: selectorOrPredicate, distinct: false };
+
+        // Count(predicate) → filter(predicate).count(), so the notNull patterns can see it.
+        const src = selectorOrPredicate == null ? source
+            : new CallExpression(new PropertyExpression(source, "filter"), [selectorOrPredicate], source.type);
+
+        // Select · Distinct · Where(notNull):  X.map(sel).distinct().filter(a => a != null)
+        {
+            const w = this.extractCall(src, "filter");
+            const d = w && this.extractCall(w.object, "distinct");
+            const s = d && this.extractCall(d.object, "map");
+            if (w && d && s && s.args.length === 1) {
+                const pred = w.args[0] as LambdaExpression, v = this.notNullValue(pred);
+                if (v != null && v === pred.parameters[0])
+                    return { source: s.object, selector: s.args[0] as LambdaExpression, distinct: true };
+            }
+        }
+        // Select · Where(notNull) · Distinct:  X.map(sel).filter(a => a != null).distinct()
+        {
+            const d = this.extractCall(src, "distinct");
+            const w = d && this.extractCall(d.object, "filter");
+            const s = w && this.extractCall(w.object, "map");
+            if (d && w && s && s.args.length === 1) {
+                const pred = w.args[0] as LambdaExpression, v = this.notNullValue(pred);
+                if (v != null && v === pred.parameters[0])
+                    return { source: s.object, selector: s.args[0] as LambdaExpression, distinct: true };
+            }
+        }
+        // Where(notNull) · Select · Distinct:  X.filter(a => a.x != null).map(a => a.x).distinct()
+        {
+            const d = this.extractCall(src, "distinct");
+            const s = d && this.extractCall(d.object, "map");
+            const w = s && this.extractCall(s.object, "filter");
+            if (d && s && w && s.args.length === 1) {
+                const sel = s.args[0] as LambdaExpression, pred = w.args[0] as LambdaExpression, v = this.notNullValue(pred);
+                if (v != null && this.sameValue(v, pred.parameters[0], sel.body, sel.parameters[0]))
+                    return { source: w.object, selector: sel, distinct: true };
+            }
+        }
+        return { source: src, selector: undefined, distinct: false };
+    }
+
+    private bindAggregate(projection: ProjectionExpression, aggregateFunction: AggregateSqlFunction, selector: LambdaExpression | undefined, isRoot: boolean, distinct: boolean = false): Expression {
         const info = this.groupByMap.get(projection.select.alias);
         if (info != null) {
             const exp: Expression | undefined =
                 aggregateFunction === "Count" && selector == null ? undefined :       // Count(*)
-                aggregateFunction === "Count" ? this.mapVisitExpandCore(toNotNullPredicate(selector!), info.projector, info.source) :
-                selector != null ? this.mapVisitExpandCore(selector, info.projector, info.source) : // Sum(x), Avg(x), …
+                aggregateFunction === "Count" && !distinct ? this.mapVisitExpandCore(toNotNullPredicate(selector!), info.projector, info.source) :
+                selector != null ? this.mapVisitExpandCore(selector, info.projector, info.source) : // Sum(x), Avg(x), CountDistinct(x)
                 info.projector;                                                        // Sum() over an element-selected group
 
             const arg = exp == null ? undefined : this.aggregateArgument(exp);
             const aggregate = new AggregateExpression(
                 aggregateFunction === "Count" ? LiteralType.number : (arg?.type ?? LiteralType.number),
-                aggregateFunction,
+                distinct ? "CountDistinct" : aggregateFunction,
                 arg == null ? [] : [arg],
                 undefined);
             return new AggregateRequestsExpression(info.groupAlias, aggregate);
         }
 
-        // Complicated subquery / root. Count(predicate) → WHERE then Count(*).
-        if (aggregateFunction === "Count" && selector != null) {
+        // Complicated subquery / root. Count(predicate) → WHERE then Count(*) (not for a
+        // distinct count — its selector names the value to count distinctly).
+        if (aggregateFunction === "Count" && selector != null && !distinct) {
             projection = this.bindWhere(projection, selector);
             selector = undefined;
         }
 
         const argument = selector == null ? projection.projector : this.fullNominate(this.mapVisitExpand(selector, projection));
-        const aggregate = aggregateFunction === "Count"
-            ? new AggregateExpression(LiteralType.number, aggregateFunction, [], undefined)
-            : (() => { const a = this.aggregateArgument(argument); return new AggregateExpression(a.type, aggregateFunction, [a], undefined); })();
+        const aggregate = aggregateFunction === "Count" && !distinct
+            ? new AggregateExpression(LiteralType.number, "Count", [], undefined)
+            : aggregateFunction === "Count"
+                ? new AggregateExpression(LiteralType.number, "CountDistinct", [this.aggregateArgument(argument)], undefined)
+                : (() => { const a = this.aggregateArgument(argument); return new AggregateExpression(a.type, aggregateFunction, [a], undefined); })();
         // NB: Signum coalesces a non-nullable Sum over no rows to 0, but altea's port
         // dropped the `(int?)` cast that distinguishes RootSumZero (→0) from
         // RootSumNull (→null) — the queries are identical here, so neither coalesce
@@ -1375,13 +1474,26 @@ export class QueryBinder extends ExpressionVisitor {
         const alias = this.aliasGenerator.nextSelectAlias();
         const pc = this.projectColumns(projection.projector, alias);
         const rowNum = new BinaryExpression("-",
-            new RowNumberExpression(projection.select.orderBy),
+            new RowNumberExpression(this.indexOrderBy(projection)),
             new SqlConstantExpression(1, LiteralType.number));
         const cd = new ColumnDeclaration("_rowNum", rowNum);
         const index = new ColumnExpression(LiteralType.number, alias, "_rowNum");
         const select = new SelectExpression(alias, false, undefined, [cd, ...pc.columns],
             projection.select, undefined, [], [], SelectOptions.HasIndex);
         return { projection: new ProjectionExpression(select, pc.projector, projection.uniqueFunction, projection.type), index };
+    }
+
+    // The ORDER BY for a row-index window: the query's own ordering if it has one, else
+    // the source entity's primary key (Signum fills the RowNumber from gathered orderings,
+    // which resolve to the PK). A stable key makes `(x, i) => …` deterministic — a bare
+    // `ORDER BY (SELECT 1)` (the formatter's last-resort fallback) does not.
+    private indexOrderBy(projection: ProjectionExpression): OrderExpression[] {
+        if (projection.select.orderBy.length)
+            return [...projection.select.orderBy];
+        const p = projection.projector;
+        if (p instanceof EntityExpression)
+            return [new OrderExpression("Ascending", p.externalId.value)];
+        return [];
     }
 
     // mapVisitExpand for a possibly-indexed selector (`(x, i) => …`): when the lambda
@@ -1428,6 +1540,19 @@ export class QueryBinder extends ExpressionVisitor {
     // ---- member access ----------------------------------------------------
 
     private bindMemberAccess(pe: PropertyExpression): Expression {
+        // `coll.length` is a Count over the collection; disassemble the UNBOUND source
+        // first so `map(sel).filter(notNull).distinct().length` lowers to COUNT(DISTINCT
+        // sel) (same as `.count()`). A non-collection `.length` (string) doesn't match the
+        // patterns, so it falls through unchanged.
+        if (pe.propertyName === "length") {
+            const dis = this.disassembleAggregate("Count", pe.object, undefined);
+            if (dis.distinct) {
+                let inner = this.visit(dis.source);
+                if (inner instanceof FieldEntityArrayExpression)
+                    inner = this.fieldEntityArrayProjection(inner);
+                return this.bindAggregate(this.asProjection(inner), "Count", dis.selector, false, true);
+            }
+        }
         return this.bindMember(this.visit(pe.object), pe.propertyName, pe.isOptionalChaining);
     }
 
@@ -2194,7 +2319,7 @@ export class QueryBinder extends ExpressionVisitor {
             const refTable = f.column.referenceTable!;
             const refType = new ClassType(refTable.type as any);
             const externalId = new PrimaryKeyExpression(new ColumnExpression(LiteralType.number, alias, f.column.name));
-            const entity = new EntityExpression(refType, refTable, externalId, undefined, undefined, undefined, false);
+            const entity = new EntityExpression(refType, refTable, externalId, undefined, undefined, undefined, f.avoidExpandOnRetrieving);
             // A Lite<T> field projects as a Lite, not a full entity; navigation
             // through it (.entity) unwraps to this same reference.
             return f.column.isLite ? new LiteReferenceExpression(refType, entity, undefined) : entity;
@@ -2226,7 +2351,7 @@ export class QueryBinder extends ExpressionVisitor {
                 const implTable = col.referenceTable!;
                 const implCtor = implTable.type as unknown as Function;
                 const externalId = new PrimaryKeyExpression(new ColumnExpression(LiteralType.number, alias, col.name));
-                implementations.set(implCtor, new EntityExpression(new ClassType(implCtor), implTable, externalId, undefined, undefined, undefined, false));
+                implementations.set(implCtor, new EntityExpression(new ClassType(implCtor), implTable, externalId, undefined, undefined, undefined, f.avoidExpandOnRetrieving));
             }
             const ib = new ImplementedByExpression(new ClassType(this.refCleanCtor(ef.fieldInfo)), "Case", implementations);
             return f.isLite ? new LiteReferenceExpression(new LiteType(ib.type), ib, undefined) : ib;

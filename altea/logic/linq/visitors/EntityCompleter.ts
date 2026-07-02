@@ -1,7 +1,9 @@
 import { Expression } from "../expressions";
 import {
     ProjectionExpression, SelectExpression, LiteReferenceExpression, EntityExpression,
+    FieldBinding, MixinEntityExpression, PrimaryKeyExpression,
 } from "../expressions.sql";
+import type { Table } from "../../schema/table";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 import type { QueryBinder } from "./QueryBinder";
 
@@ -14,12 +16,16 @@ import type { QueryBinder } from "./QueryBinder";
 // the new outer select, never turning the top projection itself into a join. The
 // completed `toStr` column then lives at an alias visible to the outer select.
 //
-// Scope vs. Signum: conservative. `visitEntity` is a no-op (altea keeps single entity
-// references lazy/stubbed on retrieve and does not eager-complete them here), so only
-// *directly-projected* lites get an eager model; lites buried inside a materialised
-// entity's bindings keep an empty/lazy model. ExpandLite hints and IBA-lite models are
-// not wired yet (entityToStringOf returns undefined for those → the lite is unchanged).
+// `visitEntity` eager-completes a retrieved entity's references (Signum's VisitEntity):
+// each single reference is joined (`binder.completeEntity`) and its bindings recursed
+// into, so the whole graph loads in one query instead of lazily per navigation. A
+// `previousTypes` stack (by table identity) breaks reference cycles — a self/back
+// reference already on the stack stays a lazy stub, exactly like Signum. Lites break
+// cycles naturally (they are not expanded to entities). `avoidExpandOnRetrieving`
+// entities are also left as stubs.
 export class EntityCompleter extends DbExpressionVisitor {
+    private readonly previousTables: Table[] = [];
+
     constructor(private readonly binder: QueryBinder) {
         super();
     }
@@ -29,7 +35,21 @@ export class EntityCompleter extends DbExpressionVisitor {
     }
 
     override visitEntity(ee: EntityExpression): Expression {
-        return ee;
+        // Cycle / opt-out: keep a lazy stub (no bindings), like Signum. `avoidExpandOnRetrieving`
+        // rides on the reference EntityExpression (set from the FK field's flag in bindField).
+        if (this.previousTables.includes(ee.table) || ee.avoidExpandOnRetrieving)
+            return new EntityExpression(ee.type, ee.table, ee.externalId, undefined, undefined, undefined, ee.avoidExpandOnRetrieving);
+
+        const completed = this.binder.completeEntity(ee);
+        this.previousTables.push(completed.table);
+        try {
+            const externalId = this.visit(completed.externalId) as PrimaryKeyExpression;
+            const bindings = completed.bindings?.map(b => new FieldBinding(b.fieldInfo, this.visit(b.binding)));
+            const mixins = completed.mixins?.map(m => this.visitMixinEntity(m) as MixinEntityExpression);
+            return new EntityExpression(completed.type, completed.table, externalId, completed.tableAlias, bindings, mixins, completed.avoidExpandOnRetrieving);
+        } finally {
+            this.previousTables.pop();
+        }
     }
 
     override visitLiteReference(lite: LiteReferenceExpression): Expression {

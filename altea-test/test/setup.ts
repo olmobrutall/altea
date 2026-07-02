@@ -1,5 +1,7 @@
-import { test } from "node:test";
-import { Connector, ConsoleSqlLogger } from "@altea/altea/logic/connection/connector";
+import { test, beforeEach, afterEach } from "node:test";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { Connector, ConsoleSqlLogger, type SqlLogger } from "@altea/altea/logic/connection/connector";
 import { Transaction } from "@altea/altea/logic/connection/transaction";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { MusicLogic } from "../logic/MusicLogic";
@@ -35,6 +37,43 @@ export function txTest(name: string, fn: (t: unknown) => void | Promise<void>): 
     });
 }
 
+// ---- Per-test SQL dump (SQL_DUMP=1) --------------------------------------
+// Writes each test's generated SQL to `<SQL_DUMP_DIR>/<Class>.<Test>.<pg|ss>.sql`,
+// for cross-checking against the C# Signum LinqProvider suite (which dumps the same
+// shape via its SqlDumpTextWriter). The describe/test names already match Signum's
+// class/method names, so the files line up 1:1. Inert unless SQL_DUMP=1.
+const sqlDumpEnabled = process.env.SQL_DUMP === "1";
+const sqlDumpDir = process.env.SQL_DUMP_DIR ?? "D:/Altea/eastwind/sqlcmp/altea";
+let sqlDumpSuffix = "unknown";
+let sqlDumpBuffer: string[] = [];
+let sqlDumpName: { cls: string, test: string } | undefined;
+
+class FileSqlLogger implements SqlLogger {
+    log(sql: string, parameters: unknown[]): void {
+        sqlDumpBuffer.push(sql);
+        if (parameters.length)
+            sqlDumpBuffer.push(`-- params: ${JSON.stringify(parameters)}`);
+    }
+}
+
+if (sqlDumpEnabled) {
+    beforeEach((t) => {
+        const full = (t as { fullName?: string; name: string }).fullName ?? t.name;
+        const parts = full.split(" > ");
+        sqlDumpName = { cls: parts[0], test: parts[parts.length - 1] };
+        sqlDumpBuffer = [];
+    });
+    afterEach(() => {
+        if (sqlDumpName && sqlDumpBuffer.length) {
+            fs.mkdirSync(sqlDumpDir, { recursive: true });
+            const file = path.join(sqlDumpDir, `${sqlDumpName.cls}.${sqlDumpName.test}.${sqlDumpSuffix}.sql`);
+            fs.writeFileSync(file, sqlDumpBuffer.join("\n") + "\n");
+        }
+        sqlDumpName = undefined;
+        sqlDumpBuffer = [];
+    });
+}
+
 let started: Promise<Connector> | undefined;
 
 // Connects and builds the in-memory schema — and nothing else. No DDL, no data
@@ -51,6 +90,12 @@ export function start(): Promise<Connector> {
 
         const sb = new SchemaBuilder();
         const connector = await MusicStarter.connectorFromEnv(sb.schema, process.env.ALTEA_TEST_DB!);
+
+        // Per-test SQL dump wins over the console logger when enabled.
+        if (sqlDumpEnabled) {
+            Connector.currentLogger = new FileSqlLogger();
+            sqlDumpSuffix = connector.isPostgres ? "pg" : "ss";
+        }
         Connector.default = connector;
         sb.settings.isPostgres = connector.isPostgres;
         MusicLogic.start(sb);

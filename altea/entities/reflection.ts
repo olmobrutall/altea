@@ -58,6 +58,10 @@ export class FieldInfo {
     isNullable?: boolean;
     ignore: boolean = false;
     fkPropertyName?: string;
+    // Set by @avoidExpandOnRetrieving on a reference field (Signum's [AvoidExpandQuery]):
+    // a query retrieving the owner does NOT eager-expand this reference (it stays a lazy
+    // stub). A per-reference concern, so it lives on the field, not the entity.
+    avoidExpandOnRetrieving?: boolean;
     // Set by @include: a user-written thunk returning the referenced
     // constructor(s). Because the thunk references the type as a *value* in
     // source, the import survives elision (no verbatimModuleSyntax needed) and

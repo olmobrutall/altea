@@ -75,6 +75,12 @@ function pascalToSnake(value: string): string {
         .toLowerCase();
 }
 
+// Capitalise the first letter — turns altea's camelCase field name into the PascalCase
+// segment Signum builds column names from (`sex` → `Sex`, `bonusTrack` → `BonusTrack`).
+function cap(value: string): string {
+    return value.length === 0 ? value : value[0].toUpperCase() + value.slice(1);
+}
+
 // Physical table name (mirrors Signum's GenerateTableName, adapted). SQL Server
 // keeps the PascalCase clean name (segments joined by "_"): AwardNomination_Points.
 // Postgres snake-cases each segment and joins them with a DOUBLE underscore, so
@@ -181,7 +187,7 @@ export class SchemaBuilder {
         // gen_random_uuid() on Postgres, NEWID()/NEWSEQUENTIALID() (uuid7) on SQL
         // Server. The default key type is int.
         const isGuid = pkType === 'uuid' || pkType === 'uuid7';
-        const pkColumn = new PrimaryKeyColumn('id', pkDbType, /* identity */ !isGuid && !isSeeded);
+        const pkColumn = new PrimaryKeyColumn(this.colName('ID'), pkDbType, /* identity */ !isGuid && !isSeeded);
         if (isGuid)
             pkColumn.default = this.settings.isPostgres
                 ? 'gen_random_uuid()'
@@ -192,7 +198,7 @@ export class SchemaBuilder {
 
         if (!isSeeded) {
             const ticksInfo = typeInfo.fields['ticks'] ?? new FieldInfo('ticks');
-            const ticks = new FieldTicks(new ValueColumn('ticks', this.settings.ticksDbType, IsNullable.No));
+            const ticks = new FieldTicks(new ValueColumn(this.colName('Ticks'), this.settings.ticksDbType, IsNullable.No));
             table.ticks = ticks;
             table.fields['ticks'] = new EntityField(ticksInfo, ticks, makeGetter('ticks'));
         }
@@ -202,6 +208,7 @@ export class SchemaBuilder {
             if (fi.ignore || RESERVED_FIELDS.has(name))
                 continue;
             const field = this.generateField(table, fi, preName);
+            field.avoidExpandOnRetrieving = fi.avoidExpandOnRetrieving === true;
             table.fields[name] = new EntityField(fi, field, makeGetter(name));
         }
 
@@ -214,6 +221,7 @@ export class SchemaBuilder {
                 if (mfi.ignore || RESERVED_FIELDS.has(name))
                     continue;
                 const field = this.generateField(table, mfi, preName);
+                field.avoidExpandOnRetrieving = mfi.avoidExpandOnRetrieving === true;
                 mixinFields[name] = new EntityField(mfi, field, makeGetter(name));
             }
             table.mixins[(mixinCtor as { name: string }).name] = new FieldMixin(mixinFields);
@@ -241,7 +249,7 @@ export class SchemaBuilder {
             const proto = (typeConstructor(type) as { prototype?: any }).prototype;
             const toStr = proto?.toString;
             if (typeof toStr === "function" && toStr !== Object.prototype.toString && (toStr as { __quoted?: unknown }).__quoted == null)
-                table.toStrColumn = new ValueColumn("toStr", defaultDbType("String", undefined)!, IsNullable.Yes);
+                table.toStrColumn = new ValueColumn(this.colName("ToStr"), defaultDbType("String", undefined)!, IsNullable.Yes);
         }
 
         table.generateColumns();
@@ -276,16 +284,16 @@ export class SchemaBuilder {
         // Polymorphic references.
         if (fi.implementations != null) {
             if (fi.implementations.kind === 'implementedByAll') {
-                const idColumn = new ImplementedByAllIdColumn(preName.add(`${fi.name}Id`).toString(), this.settings.primaryKeyDbType);
+                const idColumn = new ImplementedByAllIdColumn(this.colName(preName.add(`${cap(fi.name)}ID`).toString()), this.settings.primaryKeyDbType);
                 // The type discriminator is the target's TypeEntity int id, so the
                 // column references the (auto-included) TypeEntity table.
                 const typeTable = this.include(TypeEntity as unknown as Type<Entity>);
-                const typeColumn = new ImplementedByAllTypeColumn(preName.add(`${fi.name}Type`).toString(), typeTable);
+                const typeColumn = new ImplementedByAllTypeColumn(this.colName(preName.add(`${cap(fi.name)}ID_Type`).toString()), typeTable);
                 return new FieldImplementedByAll(idColumn, typeColumn, isLite);
             }
             const columns = fi.implementations.types().map(implType => {
                 const refTable = this.include(implType);
-                const colName = preName.add(`${fi.name}_${cleanTypeName(implType)}Id`).toString();
+                const colName = this.colName(preName.add(`${cap(fi.name)}ID_${cleanTypeName(implType)}`).toString());
                 return new ImplementationColumn(colName, refTable, isLite);
             });
             return new FieldImplementedBy(columns, isLite);
@@ -296,8 +304,8 @@ export class SchemaBuilder {
             if (!isEntityCtor(elementType))
                 throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: Lite container without an entity element type.`);
             const refTable = this.include(elementType);
-            const baseName = fi.fkPropertyName ?? `${fi.name}Id`;
-            return new FieldReference(new ReferenceColumn(preName.add(baseName).toString(), refTable, nullable, isLite));
+            const baseName = fi.fkPropertyName ?? this.colName(preName.add(`${cap(fi.name)}ID`).toString());
+            return new FieldReference(new ReferenceColumn(baseName, refTable, nullable, isLite));
         }
 
         // Single embedded value object.
@@ -312,8 +320,8 @@ export class SchemaBuilder {
             if (enumObject == null)
                 throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: enum '${fi.typeName}' is not registered. Enums declared in the same file as the entity are auto-registered; call registerEnum(${fi.typeName}) by hand for cross-file enums.`);
             const refTable = this.include(EnumEntity.typeFor(enumObject));
-            const colName = fi.fkPropertyName ?? `${fi.name}Id`;
-            return new FieldEnum(new ReferenceColumn(preName.add(colName).toString(), refTable, nullable, /* isLite */ false));
+            const colName = fi.fkPropertyName ?? this.colName(preName.add(`${cap(fi.name)}ID`).toString());
+            return new FieldEnum(new ReferenceColumn(colName, refTable, nullable, /* isLite */ false));
         }
 
         // JS Date is intentionally unsupported — use Temporal types instead.
@@ -324,7 +332,7 @@ export class SchemaBuilder {
         const dbType = this.resolveValueDbType(fi);
         if (dbType == null)
             throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: cannot determine a DB type for '${fi.typeName}'. If it is an entity/embedded, ensure its module is imported so it is registered.`);
-        const column = new ValueColumn(preName.add(this.columnName(fi)).toString(), dbType, nullable, fi.columnOptions?.size, fi.columnOptions?.precision);
+        const column = new ValueColumn(this.colName(preName.add(this.columnName(fi)).toString()), dbType, nullable, fi.columnOptions?.size, fi.columnOptions?.precision);
         return new FieldValue(column);
     }
 
@@ -336,7 +344,7 @@ export class SchemaBuilder {
 
         const embeddedPre = preName.add(this.columnName(fi));
         const hasValue = fi.isNullable === true
-            ? new EmbeddedHasValueColumn(embeddedPre.add('hasValue').toString())
+            ? new EmbeddedHasValueColumn(this.colName(embeddedPre.add('HasValue').toString()))
             : undefined;
 
         const embeddedFields: { [name: string]: EntityField } = {};
@@ -344,6 +352,7 @@ export class SchemaBuilder {
             if (efi.ignore || RESERVED_FIELDS.has(name))
                 continue;
             const field = this.generateField(table, efi, embeddedPre);
+            field.avoidExpandOnRetrieving = efi.avoidExpandOnRetrieving === true;
             // A nullable embedded can be entirely absent, so every flattened
             // sub-column must be nullable regardless of the sub-field's own
             // nullability — presence is tracked by the hasValue column.
@@ -389,6 +398,13 @@ export class SchemaBuilder {
     }
 
     private columnName(fi: FieldInfo): string {
-        return fi.columnOptions?.columnName ?? fi.name;
+        return fi.columnOptions?.columnName ?? cap(fi.name);
+    }
+
+    // Final physical column name for the given logical (PascalCase) name: Signum uses the
+    // PascalCase form verbatim on SQL Server and snake_cases it on Postgres, so both
+    // dialects match Signum (`SexID` / `sex_id`, `AuthorID_Artist` / `author_id_artist`).
+    private colName(logical: string): string {
+        return this.settings.isPostgres ? pascalToSnake(logical) : logical;
     }
 }

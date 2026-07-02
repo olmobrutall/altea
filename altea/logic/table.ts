@@ -10,6 +10,7 @@ import { AggregateRewriter } from "./linq/visitors/AggregateRewriter";
 import { OrderByRewriter } from "./linq/visitors/OrderByRewriter";
 import { QueryRebinder } from "./linq/visitors/QueryRebinder";
 import { RedundantSubqueryRemover } from "./linq/visitors/RedundantSubqueryRemover";
+import { UnusedColumnRemover } from "./linq/visitors/UnusedColumnRemover";
 import { ConditionsRewriter } from "./linq/visitors/ConditionsRewriter";
 import { ScalarSubqueryRewriter } from "./linq/visitors/ScalarSubqueryRewriter";
 import { ChildProjectionFlattener } from "./linq/visitors/ChildProjectionFlattener";
@@ -17,6 +18,7 @@ import { CommandSimplifier } from "./linq/visitors/CommandSimplifier";
 import { ProjectionExpression, CommandExpression, CommandAggregateExpression } from "./linq/expressions.sql";
 import { buildTranslateResult } from "./linq/translatorBuilder";
 import { QueryFormatter } from "./linq/queryFormatter";
+import type { Schema } from "./schema/schema";
 
 
 
@@ -59,6 +61,36 @@ asStaticFunction(table).__resultType = (_, entityTypeType) => new ArrayType(new 
 // `ConstantExpression(table)` at the root of a query CallExpression chain.
 (table as unknown as { __isQuerySource?: boolean }).__isQuerySource = true;
 
+// Bind a source expression to a fully-optimised ProjectionExpression: the exact pipeline
+// the runtime uses, factored out so tests (binder.test.ts) can observe the same
+// post-optimiser shape the executor sees (not the raw pre-optimiser tree). Mirrors the
+// relevant slice of Signum's DbQueryProvider.Optimize. (UnusedColumnRemover still pending.)
+export function bindAndOptimize(expression: Expression, schema: Schema, isPostgres: boolean): ProjectionExpression {
+    const simplified = expressionSimplifier()(expression);
+    const binder = new QueryBinder(schema, isPostgres);
+    let projection: Expression = binder.bindQuery(simplified);
+    // Hoist deferred group aggregates (g.elements.sum()…) into their GROUP BY select as
+    // columns — Signum runs AggregateRewriter first in Optimize.
+    projection = AggregateRewriter.rewrite(projection);
+    projection = OrderByRewriter.rewrite(projection);
+    projection = QueryRebinder.rebind(projection);
+    // Drop columns (and dead single-row joins) no enclosing scope references — Signum
+    // runs UnusedColumnRemover here, right before collapsing redundant subqueries.
+    projection = UnusedColumnRemover.remove(projection);
+    projection = RedundantSubqueryRemover.remove(projection, isPostgres);
+    if (!isPostgres)
+        projection = ConditionsRewriter.rewrite(projection);
+    // SQL Server can't aggregate over a scalar subquery — lift those to OUTER APPLYs
+    // (no-op on Postgres, which allows scalar subqueries in aggregates).
+    projection = ScalarSubqueryRewriter.rewrite(projection, isPostgres);
+    if (!(projection instanceof ProjectionExpression))
+        throw new Error("Optimiser pipeline did not preserve the ProjectionExpression");
+    // Eager-load nested projections (e.g. map(l => …toArray())) as separate child
+    // queries, then re-clean the selects the flattener introduced.
+    const flattened = ChildProjectionFlattener.flatten(projection, binder.aliases);
+    return RedundantSubqueryRemover.remove(flattened, isPostgres) as ProjectionExpression;
+}
+
 class MyQueryTranslator implements IQueryTranslator {
 
     static instance: IQueryTranslator = new MyQueryTranslator();
@@ -73,27 +105,8 @@ class MyQueryTranslator implements IQueryTranslator {
     // the relevant slice of Signum's DbQueryProvider.Optimize. (UnusedColumnRemover
     // still pending.)
     bind(expression: Expression): ProjectionExpression {
-        const simplified = expressionSimplifier()(expression);
         const connector = Connector.current();
-        const binder = new QueryBinder(connector.schema, connector.isPostgres);
-        let projection: Expression = binder.bindQuery(simplified);
-        // Hoist deferred group aggregates (g.elements.sum()…) into their GROUP BY
-        // select as columns — Signum runs AggregateRewriter first in Optimize.
-        projection = AggregateRewriter.rewrite(projection);
-        projection = OrderByRewriter.rewrite(projection);
-        projection = QueryRebinder.rebind(projection);
-        projection = RedundantSubqueryRemover.remove(projection, connector.isPostgres);
-        if (!connector.isPostgres)
-            projection = ConditionsRewriter.rewrite(projection);
-        // SQL Server can't aggregate over a scalar subquery — lift those to OUTER
-        // APPLYs (no-op on Postgres, which allows scalar subqueries in aggregates).
-        projection = ScalarSubqueryRewriter.rewrite(projection, connector.isPostgres);
-        if (!(projection instanceof ProjectionExpression))
-            throw new Error("Optimiser pipeline did not preserve the ProjectionExpression");
-        // Eager-load nested projections (e.g. map(l => …toArray())) as separate
-        // child queries, then re-clean the selects the flattener introduced.
-        const flattened = ChildProjectionFlattener.flatten(projection, binder.aliases);
-        return RedundantSubqueryRemover.remove(flattened, connector.isPostgres) as ProjectionExpression;
+        return bindAndOptimize(expression, connector.schema, connector.isPostgres);
     }
 
     execute(expression: Expression): Promise<unknown> {

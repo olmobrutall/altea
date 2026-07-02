@@ -174,7 +174,11 @@ export class SqlBuilder {
     insertTypeEntities(table: Table, rows: { id: number | string; tableName: string; cleanName: string; namespace: string; className: string }[]): SqlPreCommand | undefined {
         if (rows.length === 0)
             return undefined;
-        const cols = ['id', 'tableName', 'cleanName', 'namespace', 'className'];
+        // Resolve each logical field to its physical column name (dialect-cased by the
+        // SchemaBuilder — e.g. `tableName` → `TableName` / `table_name`), never hardcoded.
+        const physical = (f: string): string =>
+            f === 'id' ? table.primaryKey.column.name : table.fields[f].field.columns()[0].name;
+        const cols = ['id', 'tableName', 'cleanName', 'namespace', 'className'].map(physical);
         const colList = `(${cols.map(c => this.sqlEscape(c)).join(', ')})`;
         const rowSql = rows.map(r =>
             `(${r.id}, ${this.quoteString(r.tableName)}, ${this.quoteString(r.cleanName)}, ${this.quoteString(r.namespace)}, ${this.quoteString(r.className)})`

@@ -26,6 +26,9 @@ export class EntityField {
 // generation is deferred to a later milestone.)
 export abstract class Field {
     abstract columns(): IColumn[];
+    // Signum's AvoidExpandOnRetrieving (from @avoidExpandOnRetrieving on the property):
+    // a reference field so marked is not eager-expanded when its owner is retrieved.
+    avoidExpandOnRetrieving = false;
 }
 
 export class FieldPrimaryKey extends Field {

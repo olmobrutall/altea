@@ -14,6 +14,7 @@ import {
     CommandAggregateExpression,
 } from "./expressions.sql";
 import { ObjectName } from "../schema/objectName";
+import { sqlEscape } from "./sqlEscape";
 import { normalizeScalar } from "../normalizeScalar";
 import { Alias } from "./AliasGenerator";
 import { LiteralType } from "../../entities/types";
@@ -75,8 +76,11 @@ export class QueryFormatter extends DbExpressionVisitor {
         return result;
     }
 
+    // Quote an identifier only when it must be (reserved word / non-simple name / not
+    // already lowercase on PG) — Signum's SqlEscape. So altea emits `a.sex_id`, not
+    // `"a"."sex_id"`.
     private quote(id: string): string {
-        return this.isPostgres ? `"${id}"` : `[${id}]`;
+        return sqlEscape(id, this.isPostgres);
     }
 
     private addParameter(value: unknown): string {
@@ -90,8 +94,9 @@ export class QueryFormatter extends DbExpressionVisitor {
     // ---- sources ----------------------------------------------------------
 
     override visitSelect(s: SelectExpression): Expression {
+        // One column per line, indented — Signum's column layout.
         const cols = s.columns.length
-            ? s.columns.map(c => this.capture(() => this.visitColumnDeclaration(c))).join(", ")
+            ? "\n  " + s.columns.map(c => this.capture(() => this.visitColumnDeclaration(c))).join(", \n  ")
             : "*";
 
         // SQL Server: TOP and OFFSET/FETCH are mutually exclusive — when there is an
@@ -127,19 +132,20 @@ export class QueryFormatter extends DbExpressionVisitor {
     }
 
     private quoteObjectName(on: ObjectName): string {
-        return on.schema?.name
-            ? `${this.quote(on.schema.name)}.${this.quote(on.name)}`
-            : this.quote(on.name);
+        // Qualify with the schema (Signum always does): the explicit one, else the
+        // dialect default the tables actually live in — `public` (PG) / `dbo` (SS).
+        const schema = on.schema?.name || (this.isPostgres ? "public" : "dbo");
+        return `${this.quote(schema)}.${this.quote(on.name)}`;
     }
 
     protected override visitSource(src: SourceExpression): SourceExpression {
         if (src instanceof TableExpression) {
-            this.append(`${this.quoteObjectName(src.table.name)} ${this.quoteAlias(src.alias)}`);
+            this.append(`${this.quoteObjectName(src.table.name)} AS ${this.quoteAlias(src.alias)}`);
             return src;
         }
 
         if (src instanceof SelectExpression) {
-            this.append(`(\n${this.capture(() => this.visitSelect(src))}\n) ${this.quoteAlias(src.alias)}`);
+            this.append(`(\n${this.capture(() => this.visitSelect(src))}\n) AS ${this.quoteAlias(src.alias)}`);
             return src;
         }
 
@@ -149,7 +155,7 @@ export class QueryFormatter extends DbExpressionVisitor {
         }
 
         if (src instanceof SetOperatorExpression) {
-            this.append(`(\n${this.renderSetOperatorBody(src)}\n) ${this.quoteAlias(src.alias)}`);
+            this.append(`(\n${this.renderSetOperatorBody(src)}\n) AS ${this.quoteAlias(src.alias)}`);
             return src;
         }
 
@@ -193,7 +199,11 @@ export class QueryFormatter extends DbExpressionVisitor {
 
     override visitColumnDeclaration(c: ColumnDeclaration): ColumnDeclaration {
         this.visit(c.expression);
-        this.append(` AS ${this.quote(c.name)}`);
+        // Omit a redundant alias — Signum's AppendColumn skips `AS x` when the expression
+        // is a column already named `x` (so `a.id`, not `a.id AS id`).
+        const redundant = c.expression instanceof ColumnExpression && c.expression.name === c.name;
+        if (c.name && !redundant)
+            this.append(` AS ${this.quote(c.name)}`);
         return c;
     }
 
