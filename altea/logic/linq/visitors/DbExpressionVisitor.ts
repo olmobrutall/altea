@@ -3,7 +3,7 @@ import {
     DbExpression,
     SourceExpression, TableExpression, SelectExpression, JoinExpression, SetOperatorExpression,
     ColumnExpression, ColumnDeclaration, OrderExpression,
-    AggregateExpression, AggregateRequestsExpression, RowNumberExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression, SqlCastExpression,
+    AggregateExpression, AggregateRequestsExpression, RowNumberExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression, SqlCastExpression, ToDayOfWeekExpression,
     CaseExpression, When, LikeExpression,
     ScalarExpression, ExistsExpression, InExpression,
     IsNullExpression, IsNotNullExpression,
@@ -108,6 +108,13 @@ export class DbExpressionVisitor extends ExpressionVisitor {
         if (exp !== cast.expression)
             return new SqlCastExpression(cast.type, exp, cast.sqlType);
         return cast;
+    }
+
+    visitToDayOfWeek(e: ToDayOfWeekExpression): Expression {
+        const exp = this.visit(e.expression);
+        if (exp !== e.expression)
+            return new ToDayOfWeekExpression(exp);
+        return e;
     }
 
     visitSqlLiteral(sle: SqlLiteralExpression): Expression {

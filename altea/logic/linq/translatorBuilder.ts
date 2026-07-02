@@ -8,6 +8,7 @@ import {
     ChildProjectionExpression, LookupToken,
     ImplementedByExpression, ImplementedByAllExpression,
     TypeEntityExpression, TypeImplementedByExpression, TypeImplementedByAllExpression,
+    ToDayOfWeekExpression,
 } from "./expressions.sql";
 import { QueryFormatter } from "./queryFormatter";
 import { Connector } from "../connection/connector";
@@ -175,6 +176,16 @@ function compileProjector(projector: Expression): CompiledProjector {
     const fn = new Function("row", "consts", "retriever", "lookups", "requests", body) as
         (row: any, consts: unknown[], retriever: Retriever, lookups: Lookups, requests: Requests) => unknown;
     return (row: any, retriever: Retriever, lookups: Lookups, requests: Requests) => fn(row, builder.consts, retriever, lookups, requests);
+}
+
+// Normalises a raw SQL Server DATEPART(weekday) value to the ISO day-of-week (Mon=1..Sun=7)
+// using the session's DATEFIRST, read from the current connector at projection time — the
+// client half of ToDayOfWeekExpression (Signum's ToDayOfWeekSql). Postgres never hits this
+// (its EXTRACT(isodow) is already ISO).
+function toDayOfWeekIsoFromSqlServer(raw: number | null): number | null {
+    if (raw == null) return null;
+    const dateFirst = Connector.current().dateFirst ?? 7;
+    return ((raw + dateFirst + 5) % 7) + 1;
 }
 
 // Registers (or reuses) the array a lazy MList child fills after the main query. One array
@@ -421,6 +432,18 @@ class ProjectionBuilder extends DbExpressionVisitor {
 
     override visitCast(e: CastExpression): Expression {
         this.visit(e.expression);
+        return e;
+    }
+
+    // A ToDayOfWeek that reached the projector (SQL Server only — Postgres uses the
+    // already-ISO EXTRACT(isodow)): the raw DATEPART(weekday) is a column, so normalise it
+    // to the ISO day-of-week here, keeping the DATEFIRST arithmetic out of the SQL. Signum's
+    // TranslatorBuilder.VisitToDayOfWeek.
+    override visitToDayOfWeek(e: ToDayOfWeekExpression): Expression {
+        this.visit(e.expression);
+        const rawCode = this.pop();
+        const fnIndex = this.pushConst(toDayOfWeekIsoFromSqlServer);
+        this.stack.push(`consts[${fnIndex}](${rawCode})`);
         return e;
     }
 

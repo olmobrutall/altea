@@ -105,7 +105,15 @@ export class SqlServerConnector extends Connector {
     }
 
     async openConnection(): Promise<ConnectionHandle> {
-        return new SqlServerConnectionHandle(await this.getPool());
+        const handle = new SqlServerConnectionHandle(await this.getPool());
+        // The projector normalises a raw DATEPART(weekday) to the ISO day-of-week using the
+        // session DATEFIRST (ToDayOfWeekExpression), so cache it once. Read directly on the
+        // handle (not executeQuery) so it never shows up in a SQL dump.
+        if (this.dateFirst === undefined) {
+            const rows = await handle.executeQuery("SELECT @@DATEFIRST AS df");
+            this.dateFirst = Number((rows[0] as { df: number }).df);
+        }
+        return handle;
     }
 
     async closeConnection(): Promise<void> {

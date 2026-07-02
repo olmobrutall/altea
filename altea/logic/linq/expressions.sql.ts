@@ -363,6 +363,27 @@ export class SqlCastExpression extends DbExpression {
     }
 }
 
+// Wraps a raw SQL day-of-week extraction (`DATEPART(weekday, x)`) whose value must be
+// normalised to the Temporal-ISO weekday (Mon=1..Sun=7) — but only in the *projector*, so
+// the DATEFIRST arithmetic doesn't contaminate the SELECT/GROUP BY. Signum's
+// ToDayOfWeekExpression. SQL Server only: Postgres uses `EXTRACT(isodow …)`, which is ISO
+// with no conversion, so it never needs this wrapper. Non-nominated in projection contexts
+// (the raw inner becomes the column, the conversion is compiled by TranslatorBuilder);
+// inlined server-side in a WHERE/predicate (see the nominator).
+export class ToDayOfWeekExpression extends DbExpression {
+    constructor(public readonly expression: Expression) {
+        super("ToDayOfWeek", LiteralType.number);
+    }
+
+    toString(): string {
+        return `ToDayOfWeek(${this.expression})`;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitToDayOfWeek(this);
+    }
+}
+
 export class SqlConstantExpression extends DbExpression {
     constructor(
         public readonly value: unknown,

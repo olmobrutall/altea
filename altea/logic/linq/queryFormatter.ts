@@ -380,6 +380,14 @@ export class QueryFormatter extends DbExpressionVisitor {
         return e;
     }
 
+    // A ToDayOfWeek that survived into a server position (e.g. ORDER BY over the group key)
+    // renders as its raw inner weekday — the ISO conversion is a client concern and is
+    // order-preserving enough (Signum likewise orders by the raw DATEPART).
+    override visitToDayOfWeek(e: ToDayOfWeekExpression): Expression {
+        this.visit(e.expression);
+        return e;
+    }
+
     override visitCase(e: CaseExpression): Expression {
         const whens = e.whens
             .map(w => `WHEN ${this.capture(() => this.visit(w.condition))} THEN ${this.capture(() => this.visit(w.value))}`)

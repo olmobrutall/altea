@@ -7,7 +7,7 @@ import {
     ColumnExpression, SqlConstantExpression, SqlLiteralExpression, PrimaryKeyExpression,
     IsNullExpression, IsNotNullExpression, LikeExpression, SqlFunctionExpression, SqlCastExpression,
     AggregateExpression, AggregateRequestsExpression, CaseExpression, When, ScalarExpression, ExistsExpression, InExpression,
-    ProjectionExpression,
+    ProjectionExpression, ToDayOfWeekExpression,
 } from "./expressions.sql";
 import { EnumType, LiteralType, TemporalType, Type } from "../../entities/types";
 import { enumEntityMembers } from "../../entities/enumEntity";
@@ -32,7 +32,12 @@ import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 class DbExpressionNominator extends DbExpressionVisitor {
     private readonly candidates = new Set<Expression>();
 
-    constructor(private readonly isPostgres: boolean) {
+    // `fullTranslate` = the FullNominate path (WHERE / ORDER BY / predicate), where the whole
+    // expression must live in SQL. There a day-of-week VALUE compared in a predicate has its
+    // ISO conversion folded into server SQL (coerceDayOfWeek). In the plain `nominate` path (a
+    // projector) the comparison stays client-side over the raw column, so the conversion never
+    // contaminates the SELECT.
+    constructor(private readonly isPostgres: boolean, private readonly fullTranslate: boolean = false) {
         super();
     }
 
@@ -48,7 +53,7 @@ class DbExpressionNominator extends DbExpressionVisitor {
     // arguments, where the rewritten predicate/key is what we want. Mirrors C#'s
     // `FullNominate`, minus the "throws if anything is left untranslated" assertion.
     static translate(expr: Expression, isPostgres: boolean): Expression {
-        return new DbExpressionNominator(isPostgres).visit(expr);
+        return new DbExpressionNominator(isPostgres, /* fullTranslate */ true).visit(expr);
     }
 
     private add<T extends Expression>(expression: T): T {
@@ -147,7 +152,12 @@ class DbExpressionNominator extends DbExpressionVisitor {
     }
 
     override visitBinary(node: BinaryExpression): Expression {
-        const r = super.visitBinary(node) as BinaryExpression;
+        let r = super.visitBinary(node) as BinaryExpression;
+        // A day-of-week operand compared in SQL folds its ISO conversion inline here.
+        const left = this.coerceDayOfWeek(r.left);
+        const right = this.coerceDayOfWeek(r.right);
+        if (left !== r.left || right !== r.right)
+            r = new BinaryExpression(r.kind, left, right);
         return this.nominateIfAll(r, [r.left, r.right]);
     }
 
@@ -462,7 +472,7 @@ class DbExpressionNominator extends DbExpressionVisitor {
     // opaque (its own scope), like the other subquery nodes.
     override visitIn(node: InExpression): Expression {
         if (node.select == null) {
-            const expr = this.visit(node.expression);
+            const expr = this.coerceDayOfWeek(this.visit(node.expression));
             return this.add(expr === node.expression ? node : InExpression.fromValues(expr, node.values!));
         }
         return this.add(node);
@@ -541,13 +551,43 @@ class DbExpressionNominator extends DbExpressionVisitor {
     // conversion into SQL so the DB value already equals the Temporal one.)
     private dayOfWeekIso(source: Expression): Expression {
         if (this.isPostgres)
+            // `isodow` is already ISO (Mon=1..Sun=7) — a single clean expression, no
+            // conversion to delay.
             return this.sqlFunction(LiteralType.number, "EXTRACT", new SqlLiteralExpression("isodow"), source);
-        const weekday = this.sqlFunction(LiteralType.number, "DATEPART", new SqlLiteralExpression("weekday"), source);
+        // SQL Server: DATEPART(weekday) is DATEFIRST-dependent. Wrap the RAW weekday in a
+        // ToDayOfWeek marker so the ISO conversion is delayed to the projector (Signum's
+        // ToDayOfWeekExpression) and doesn't contaminate the SELECT/GROUP BY. In a WHERE the
+        // marker is folded to server SQL instead (visitToDayOfWeek / fullTranslate).
+        return new ToDayOfWeekExpression(this.sqlFunction(LiteralType.number, "DATEPART", new SqlLiteralExpression("weekday"), source));
+    }
+
+    // The server-side ISO normalisation of a raw SQL Server weekday, used only where the
+    // value must live in SQL (a WHERE/predicate): ((weekday + @@DATEFIRST + 5) % 7) + 1.
+    private ssWeekdayToIsoSql(weekday: Expression): Expression {
         const shifted = new BinaryExpression("+",
             new BinaryExpression("+", weekday, new SqlLiteralExpression("@@DATEFIRST", LiteralType.number)),
             new SqlConstantExpression(5, LiteralType.number));
         const mod = new BinaryExpression("%", shifted, new SqlConstantExpression(7, LiteralType.number));
         return new BinaryExpression("+", mod, new SqlConstantExpression(1, LiteralType.number));
+    }
+
+    // A raw weekday wrapped for delayed ISO conversion. Always left in place, nominating only
+    // the raw inner: a projector compiles the ISO conversion (TranslatorBuilder), a comparison
+    // folds it into server SQL (coerceDayOfWeek, below), and a bare ORDER BY key renders as
+    // the raw inner (the formatter) — ordering by the raw weekday, exactly like Signum.
+    override visitToDayOfWeek(node: ToDayOfWeekExpression): Expression {
+        const inner = this.visit(node.expression);
+        return inner === node.expression ? node : new ToDayOfWeekExpression(inner);
+    }
+
+    // In a predicate (fullTranslate) a day-of-week VALUE compared in SQL must have its ISO
+    // conversion evaluated server-side (Signum's ExtractDayOfWeek). In a projector the
+    // comparison is left client-side (the projector converts the raw column). A bare
+    // ToDayOfWeek key in ORDER BY is never a binary operand, so it renders as the raw weekday.
+    private coerceDayOfWeek(e: Expression): Expression {
+        return this.fullTranslate && e instanceof ToDayOfWeekExpression
+            ? this.visit(this.ssWeekdayToIsoSql(e.expression))
+            : e;
     }
 
     override visitLambda(node: LambdaExpression): Expression {

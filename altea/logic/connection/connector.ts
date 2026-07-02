@@ -82,6 +82,12 @@ export abstract class Connector {
         this.sqlBuilder = new SqlBuilder(this);
     }
 
+    // The session's SET DATEFIRST value (SQL Server), used by the projector to normalise a
+    // raw DATEPART(weekday) to the ISO day-of-week (ToDayOfWeekExpression). Loaded lazily by
+    // the SQL Server connector; stays undefined elsewhere (Postgres uses EXTRACT(isodow),
+    // which is already ISO and needs no DATEFIRST).
+    dateFirst: number | undefined;
+
     // ---- Ambient access -----------------------------------------------------
 
     static default: Connector | undefined;
