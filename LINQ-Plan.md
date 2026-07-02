@@ -24,6 +24,12 @@ a named `PropertyExpression`, `BinaryExpression "=="`) not C# `MethodCallExpress
 
 ## Key decisions
 
+- **Follow Signum as closely as possible** — it is battle-tested over many years and
+  well understood. Port class/method shape, visitor pipeline, naming and control flow
+  pass-for-pass; keep the same expression model and pass ordering. Diverge only where
+  TypeScript / `quote-transformer` / the async runtime genuinely forces it, and record
+  each divergence below. Staying faithful is also what keeps the generated SQL close to
+  Signum's — when in doubt, read the C# and mirror it rather than inventing an altea path.
 - **Async terminals** — `toArray`/`first`/`count`/… return Promises (the Node
   connectors are async-only). `IQuery` + `Query` updated together.
 - **TDD-first** — all Signum `LinqProvider/*.cs` tests are ported into `altea-test`
@@ -236,6 +242,26 @@ corepack pnpm --filter @altea/altea-test test:postgres  # fast: connect + run (p
 
 Run a `gen:*` first when the data is stale (an empty/stale DB fails suites on
 missing data).
+
+**After a feature is complete, compare the generated SQL to Signum's.** Staying close
+to Signum's SQL shape is a goal (see Key decisions), so every finished feature ends with
+a shape diff against the C# reference dumps in `sqlcmp/cs/` (produced by Signum.Test's
+`SqlDumpTextWriter` with `SQL_DUMP=1` per dialect):
+
+```powershell
+# 1. dump altea's SQL for BOTH dialects (one file per test: <Class>.<Test>.<pg|ss>.sql)
+$env:SQL_DUMP=1; $env:SQL_DUMP_DIR="D:/Altea/eastwind/sqlcmp/altea"
+corepack pnpm --filter @altea/altea-test test:postgres
+corepack pnpm --filter @altea/altea-test test:sqlserver
+# 2. normalise + score altea vs Signum, per dialect (writes sqlcmp/report/*)
+node sqlcmp/compare.mjs pg
+node sqlcmp/compare.mjs ss
+```
+
+`compare.mjs` normalises away cosmetics (quoting, params, aliases, whitespace) and
+buckets each pair identical / minor / moderate / major; it is size-skewed, so treat it as
+a triage ranking and read the actual `sqlcmp/report/diffs.*.txt` for anything that
+diverges in shape. Regenerate the C# dumps only when Signum itself changes.
 
 **Mutating suites are transaction-isolated.** The suites share one loaded database
 and run in parallel. The `executeXXX` suites (`unsafeUpdate`/`unsafeDelete`/
