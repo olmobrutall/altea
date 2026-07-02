@@ -95,11 +95,11 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
     return RedundantSubqueryRemover.remove(flattened, isPostgres) as ProjectionExpression;
 }
 
-// Signum's Database.RetrieveList, injected into the Retriever (which can't import the
-// query pipeline). Batch-loads `ctor` rows whose id is in `ids` into the SAME retriever,
-// so the id-only stubs it left behind get populated in place. The predicate expression is
-// hand-built (`e => ids.contains(e.id)`) — no quoted lambda needed at runtime.
-Retriever.retrieveListImpl = async (ctor: new () => Entity, ids: PrimaryKey[], retriever: Retriever): Promise<void> => {
+// Binds `table(ctor).filter(e => ids.contains(e.id))` — the shared shape behind both the
+// Retriever's batch stub-completion and Database.retrieveList. The predicate is hand-built
+// (no quoted lambda needed at runtime); the captured id array is a ConstantExpression the
+// binder lowers to an `IN (…)`.
+function retrieveByIdsProjection(ctor: new () => Entity, ids: PrimaryKey[]): ProjectionExpression {
     const connector = Connector.current();
     const q = table(ctor);
     const param = new ParameterExpression("e", q.elementType);
@@ -107,9 +107,26 @@ Retriever.retrieveListImpl = async (ctor: new () => Entity, ids: PrimaryKey[], r
         new CallExpression(new PropertyExpression(new ConstantExpression(ids), "contains"),
             [new PropertyExpression(param, "id")], LiteralType.boolean));
     const filterExpr = new CallExpression(new PropertyExpression(q.expression, "filter"), [predicate], q.type);
-    const projection = bindAndOptimize(filterExpr, connector.schema, connector.isPostgres, /* alreadySimplified */ true);
-    await buildTranslateResult(projection, connector.isPostgres).executeInto(retriever);
+    return bindAndOptimize(filterExpr, connector.schema, connector.isPostgres, /* alreadySimplified */ true);
+}
+
+// Signum's Database.RetrieveList, injected into the Retriever (which can't import the
+// query pipeline). Batch-loads `ctor` rows whose id is in `ids` into the SAME retriever,
+// so the id-only stubs it left behind get populated in place.
+Retriever.retrieveListImpl = async (ctor: new () => Entity, ids: PrimaryKey[], retriever: Retriever): Promise<void> => {
+    const connector = Connector.current();
+    await buildTranslateResult(retrieveByIdsProjection(ctor, ids), connector.isPostgres).executeInto(retriever);
 };
+
+// Materialise the `ctor` rows whose id is in `ids` (a single `WHERE id IN (…)` query) as a
+// fresh list. The DB half of Database.retrieveList — order/missing handling and chunking
+// live there. Returns [] for an empty id list without touching the database.
+export async function retrieveEntitiesByIds<T extends Entity>(ctor: new () => T, ids: PrimaryKey[]): Promise<T[]> {
+    if (ids.length === 0)
+        return [];
+    const connector = Connector.current();
+    return await buildTranslateResult(retrieveByIdsProjection(ctor, ids), connector.isPostgres).execute() as T[];
+}
 
 class MyQueryTranslator implements IQueryTranslator {
 

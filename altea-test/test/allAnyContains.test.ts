@@ -1,6 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
+import { retrieve } from "@altea/altea/logic/Database";
 import "@altea/altea/entities/globals"; // Array.contains / String.startsWith (SQL-mappable)
 import { hasDb, start } from "./setup";
 import { ArtistEntity, AlbumEntity, BandEntity, NoteWithDateEntity, Sex, Status } from "../entities/music";
@@ -81,10 +82,13 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
 
     // var bands = new List<IAuthorEntity> { Database.Retrieve<ArtistEntity>(5), Database.Retrieve<BandEntity>(1) };
     // var albums = (from a in Database.Query<AlbumEntity>() where !bands.Contains(a.Author) select a.ToLite()).ToList();
-    // TODO(api): Database.Retrieve<T>(id) (retrieving an entity by bare id) has no altea equivalent.
-    // TODO(api): IAuthorEntity polymorphic author interface has no altea equivalent (author is a bare Entity).
+    // `bands` is a heterogeneous in-memory entity list (an artist + a band), fetched by id
+    // via Database.Retrieve (altea's `retrieve`). Ids are read from the DB first so the test
+    // doesn't depend on loader ordering.
     test("ContainsListEntityIB", async () => {
-        const bands: any[] = [];
+        const artist = await table(ArtistEntity).orderBy(a => a.name).first();
+        const band = await table(BandEntity).orderBy(a => a.name).first();
+        const bands: any[] = [await retrieve(ArtistEntity, artist.id), await retrieve(BandEntity, band.id)];
         const albums = await table(AlbumEntity)
             .filter(a => !bands.contains(a.author))
             .map(a => a.toLite())

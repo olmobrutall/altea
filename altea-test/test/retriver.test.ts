@@ -1,11 +1,12 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
+import { retrieve, retrieveList, retrieveFromListOfLite } from "@altea/altea/logic/Database";
 import { Connector } from "@altea/altea/logic/connection/connector";
 import { hasDb, start } from "./setup";
 import {
     CountryEntity, GrammyAwardEntity, LabelEntity,
-    NoteWithDateEntity, ArtistEntity, AlbumEntity,
+    NoteWithDateEntity, ArtistEntity, AlbumEntity, BandEntity,
 } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/RetriverTest.cs. C# → altea idiom:
@@ -74,7 +75,45 @@ describe("RetrieverTest", { skip: !hasDb }, () => {
     // TODO(api): Lite.RetrieveAndRemember() (retrieve an entity from a lite) and comparing its MList count
     test("RetrieveWithMListCount", async () => {
         const artist = await table(ArtistEntity).orderBy(a => a.name).first();
-        assert.equal(artist.toLite().retrieveAndRemember().friends.length, artist.friends.length);
+        const retrieved = await artist.toLite().retrieveAndRemember();
+        assert.equal(retrieved.friends.length, artist.friends.length);
+    });
+
+    // Database.Retrieve<T>(id) — fetch a single entity by bare id.
+    test("Retrieve", async () => {
+        const some = await table(ArtistEntity).orderBy(a => a.name).first();
+        const got = await retrieve(ArtistEntity, some.id);
+        assert.equal(got.id, some.id);
+        assert.ok(got instanceof ArtistEntity);
+    });
+
+    // Database.RetrieveList<T>(ids) — order preserved, duplicates repeat the same instance.
+    test("RetrieveList", async () => {
+        const all = await table(ArtistEntity).orderBy(a => a.name).toArray();
+        const ids = all.map(a => a.id);
+        const requested = [ids[ids.length - 1], ids[0], ids[0]]; // reversed + a duplicate
+        const list = await retrieveList(ArtistEntity, requested);
+        assert.deepEqual(list.map(a => a.id), requested);
+        assert.equal(list[1], list[2]); // same instance for the duplicate id
+    });
+
+    // Database.RetrieveFromListOfLite — a MIXED list of lites (artists + bands) materialised
+    // to their entities, grouped by type internally, reassembled in the original order.
+    test("RetrieveFromListOfLite", async () => {
+        const artists = await table(ArtistEntity).orderBy(a => a.name).toArray();
+        const bands = await table(BandEntity).orderBy(a => a.name).toArray();
+        const lites: any[] = [
+            artists[0].toLite(),
+            bands[0].toLite(),
+            artists[artists.length - 1].toLite(),
+            bands[0].toLite(), // duplicate, different type interleaved
+        ];
+        const entities = await retrieveFromListOfLite(lites);
+        assert.equal(entities.length, lites.length);
+        assert.ok(entities[0] instanceof ArtistEntity && entities[0].id === artists[0].id);
+        assert.ok(entities[1] instanceof BandEntity && entities[1].id === bands[0].id);
+        assert.ok(entities[2] instanceof ArtistEntity && entities[2].id === artists[artists.length - 1].id);
+        assert.equal(entities[1], entities[3]); // same instance for the duplicate lite
     });
 
     // FieldEntityArray collections load eagerly on a bare retrieval (Signum's MList

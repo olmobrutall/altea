@@ -6,6 +6,8 @@ import {
 import type { Table } from "../../schema/table";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 import type { QueryBinder } from "./QueryBinder";
+import { isCachedType } from "../../cache";
+import type { Entity } from "../../../entities/entity";
 
 // Port of Signum's EntityCompleter — the pass that, over the bound projector,
 // fills the eager model (`toStr`) of projected lites. The decisive structural piece
@@ -42,9 +44,12 @@ export class EntityCompleter extends DbExpressionVisitor {
     }
 
     override visitEntity(ee: EntityExpression): Expression {
-        // Cycle / opt-out: keep a lazy stub (no bindings), like Signum. `avoidExpandOnRetrieving`
-        // rides on the reference EntityExpression (set from the FK field's flag in bindField).
-        if (this.previousTables.includes(ee.table) || ee.avoidExpandOnRetrieving)
+        // Cycle / opt-out / cached: keep a lazy stub (no bindings), like Signum. A cache-
+        // controlled type (isCached, Signum's EntityCompleter.IsCached) is likewise left
+        // un-expanded — the cache fills the reference, so it must not be joined in SQL.
+        // `avoidExpandOnRetrieving` rides on the reference EntityExpression (set from the
+        // FK field's flag in bindField).
+        if (this.previousTables.includes(ee.table) || ee.avoidExpandOnRetrieving || this.isCached(ee))
             return new EntityExpression(ee.type, ee.table, ee.externalId, undefined, undefined, undefined, ee.avoidExpandOnRetrieving);
 
         const completed = this.binder.completeEntity(ee);
@@ -57,6 +62,13 @@ export class EntityCompleter extends DbExpressionVisitor {
         } finally {
             this.previousTables.pop();
         }
+    }
+
+    // Signum's EntityCompleter.IsCached: the entity's type is cache-controlled (and enabled),
+    // so its references stay id-only stubs instead of being expanded/joined in the query.
+    private isCached(ee: EntityExpression): boolean {
+        const ctor = ee.table.type;
+        return typeof ctor === "function" && isCachedType(ctor as new () => Entity);
     }
 
     override visitLiteReference(lite: LiteReferenceExpression): Expression {

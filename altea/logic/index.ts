@@ -12,6 +12,7 @@ import { Lite } from '../entities/lite';
 import type { IQuery } from '../entities/iquery';
 import type { Quoted } from 'quote-transformer/quoted';
 import { Saver } from './saver';
+import { retrieve } from './Database';
 import { table } from './table';
 import { asStaticFunction, Query } from './query';
 import { ArrayType, FunctionType, LiteType, LiteralType, Type } from '../entities/types';
@@ -21,7 +22,9 @@ import { ExpressionVisitor } from './linq/visitors/ExpressionVisitor';
 // Logic-layer barrel: re-exports the common server entry points alongside installing
 // the entity/lite extension-method prototypes (below).
 export { table, view } from './table';
-export { deleteList } from './Database';
+export { deleteList, retrieve, retrieveList, retrieveFromListOfLite } from './Database';
+export { registerCacheController, unregisterCacheController, getCacheController } from './cache';
+export type { CacheController } from './cache';
 // from ./schema/schemaBuilder (not the ./schema barrel) — `./schema` is ambiguous at
 // runtime (a schema.ts file and a schema/ directory both exist; ESM resolves to the dir).
 export { SchemaBuilder } from './schema/schemaBuilder';
@@ -57,10 +60,11 @@ declare module '../entities/lite' {
         // Re-query the referenced entity (Signum's Lite.InDB).
         inDB(): IQuery<T>;
         inDB<V>(selector: Quoted<(entity: T) => V>): V;
-        // Retrieve the referenced entity from the database.
-        retrieve(): T;
-        // Retrieve the referenced entity and cache it on the lite (Signum's RetrieveAndRemember).
-        retrieveAndRemember(): T;
+        // Retrieve the referenced entity from the database (Signum's Lite.Retrieve) —
+        // returns the already-attached entity when the lite is fat.
+        retrieve(): Promise<T>;
+        // Retrieve the referenced entity and attach it to the lite (Signum's RetrieveAndRemember).
+        retrieveAndRemember(): Promise<T>;
         // Delete the referenced entity (Signum's Lite.Delete) — see Entity.delete.
         delete(): Promise<void>;
     }
@@ -182,12 +186,20 @@ class ParamReplacer extends ExpressionVisitor {
     }
 }
 
-Lite.prototype.retrieve = function (this: Lite<Entity>): never {
-    throw new Error("retrieve (lite→entity) is not implemented yet");
+// Lite → entity (Signum's Lite.Retrieve / RetrieveAndRemember). `retrieve` returns the
+// already-attached entity when the lite is fat, else fetches it by (type, id) via the
+// cache-aware Database.retrieve. `retrieveAndRemember` additionally attaches it to the lite.
+Lite.prototype.retrieve = async function (this: Lite<Entity>): Promise<Entity> {
+    return this.entityOrNull ?? await retrieve(this.entityType, this.id);
 };
 
-Lite.prototype.retrieveAndRemember = function (this: Lite<Entity>): never {
-    throw new Error("retrieveAndRemember is not implemented yet");
+Lite.prototype.retrieveAndRemember = async function (this: Lite<Entity>): Promise<Entity> {
+    if (this.entityOrNull != null)
+        return this.entityOrNull;
+
+    const entity = await this.retrieve();
+    this.setEntity(entity);
+    return entity;
 };
 
 // Relational joins on a collection — the in-quoted-lambda analogue of Query's
