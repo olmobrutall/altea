@@ -1,8 +1,9 @@
 
-import { Entity } from "../entities/entity";
-import { CallExpression, ConstantExpression, Expression } from "./linq/expressions";
+import { Entity, PrimaryKey } from "../entities/entity";
+import { CallExpression, ConstantExpression, Expression, PropertyExpression, ParameterExpression, LambdaExpression } from "./linq/expressions";
+import { Retriever } from "./linq/Retriever";
 import { asStaticFunction, IQueryTranslator, Query } from "./query";
-import { ArrayType, FunctionType, ClassType, Type } from "../entities/types";
+import { ArrayType, FunctionType, ClassType, Type, LiteralType } from "../entities/types";
 import { expressionSimplifier } from "./linq/visitors/ExpressionSimplifier";
 import { Connector } from "./connection/connector";
 import { QueryBinder } from "./linq/visitors/QueryBinder";
@@ -65,8 +66,11 @@ asStaticFunction(table).__resultType = (_, entityTypeType) => new ArrayType(new 
 // the runtime uses, factored out so tests (binder.test.ts) can observe the same
 // post-optimiser shape the executor sees (not the raw pre-optimiser tree). Mirrors the
 // relevant slice of Signum's DbQueryProvider.Optimize. (UnusedColumnRemover still pending.)
-export function bindAndOptimize(expression: Expression, schema: Schema, isPostgres: boolean): ProjectionExpression {
-    const simplified = expressionSimplifier()(expression);
+export function bindAndOptimize(expression: Expression, schema: Schema, isPostgres: boolean, alreadySimplified = false): ProjectionExpression {
+    // `alreadySimplified` skips the partial-evaluation pass for a hand-built expression
+    // (the batch-retrieve query): its captured id array is a literal ConstantExpression,
+    // which the simplifier would wrongly fold on the `.contains` property access.
+    const simplified = alreadySimplified ? expression : expressionSimplifier()(expression);
     const binder = new QueryBinder(schema, isPostgres);
     let projection: Expression = binder.bindQuery(simplified);
     // Hoist deferred group aggregates (g.elements.sum()…) into their GROUP BY select as
@@ -90,6 +94,22 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
     const flattened = ChildProjectionFlattener.flatten(projection, binder.aliases);
     return RedundantSubqueryRemover.remove(flattened, isPostgres) as ProjectionExpression;
 }
+
+// Signum's Database.RetrieveList, injected into the Retriever (which can't import the
+// query pipeline). Batch-loads `ctor` rows whose id is in `ids` into the SAME retriever,
+// so the id-only stubs it left behind get populated in place. The predicate expression is
+// hand-built (`e => ids.contains(e.id)`) — no quoted lambda needed at runtime.
+Retriever.retrieveListImpl = async (ctor: new () => Entity, ids: PrimaryKey[], retriever: Retriever): Promise<void> => {
+    const connector = Connector.current();
+    const q = table(ctor);
+    const param = new ParameterExpression("e", q.elementType);
+    const predicate = new LambdaExpression([param],
+        new CallExpression(new PropertyExpression(new ConstantExpression(ids), "contains"),
+            [new PropertyExpression(param, "id")], LiteralType.boolean));
+    const filterExpr = new CallExpression(new PropertyExpression(q.expression, "filter"), [predicate], q.type);
+    const projection = bindAndOptimize(filterExpr, connector.schema, connector.isPostgres, /* alreadySimplified */ true);
+    await buildTranslateResult(projection, connector.isPostgres).executeInto(retriever);
+};
 
 class MyQueryTranslator implements IQueryTranslator {
 

@@ -38,8 +38,19 @@ export class TranslateResult {
     ) { }
 
     async execute(): Promise<unknown> {
-        const connector = Connector.current();
         const retriever = new Retriever();
+        const result = await this.executeInto(retriever);
+        // Batch-complete any referenced rows left as id-only stubs (IBA/cycle/AvoidExpand),
+        // then the projected instances are fully loaded — Signum's Retriever.CompleteAll.
+        await retriever.completeAll();
+        return result;
+    }
+
+    // Read and project this query's rows into the given retriever's identity map, without
+    // creating a new retriever or running completion (the caller's completeAll drives it).
+    // Used both by execute() and by the batch retrieve in Retriever.completeAll.
+    async executeInto(retriever: Retriever): Promise<unknown> {
+        const connector = Connector.current();
         const lookups: Lookups = new Map();
 
         // Fill each child lookup first (children are ordered deepest-first, so a

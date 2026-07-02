@@ -10,13 +10,21 @@ import { TypeLogic } from "../typeLogic";
 // calls into the Retriever, which constructs instances, caches by (type,id), and
 // takes the clean change-tracking snapshot on load (the Phase-C "retrieve" half).
 // The IRetriever surface the generated code targets.
+// Port of Signum's RealRetriever: an identity map plus a set of pending "requests"
+// (referenced rows known only by id — IBA targets, cycle-broken and AvoidExpand
+// references). After the main query is read, `completeAll` batch-loads each pending
+// type (`WHERE id IN (…)`) into the SAME identity map, populating the stub instances
+// in place, and loops until nothing is pending (a batch load can surface new stubs).
 export class Retriever {
-    private readonly cache = new Map<string, Entity>();
+    // Injected by table.ts to break the import cycle (this file must not import the
+    // query pipeline). Runs `table(ctor).filter(e => ids.contains(e.id))` into `this`.
+    static retrieveListImpl: ((ctor: new () => Entity, ids: PrimaryKey[], retriever: Retriever) => Promise<void>) | undefined;
 
-    // Build-or-reuse a fully-populated entity. `populate` sets the row's columns
-    // (and nested references) before the clean snapshot is taken.
-    entity(ctor: new () => Entity, id: PrimaryKey | null, populate: (e: any) => void): Entity | null {
-        if (id == null) return null;
+    private readonly cache = new Map<string, Entity>();
+    private readonly populated = new Set<Entity>();
+    private readonly requests = new Map<string, { ctor: new () => Entity, ids: Map<string, Entity> }>();
+
+    private getOrCreate(ctor: new () => Entity, id: PrimaryKey): Entity {
         const key = ctor.name + ":" + id;
         let e = this.cache.get(key);
         if (e == null) {
@@ -24,26 +32,59 @@ export class Retriever {
             (e as any).id = id;
             e.isNew = false;
             this.cache.set(key, e);
+        }
+        return e;
+    }
+
+    // Build-or-reuse an entity and populate it (its columns + nested references). Also
+    // completes a previously-stubbed instance: the batch retrieve in `completeAll` reaches
+    // its rows here and fills the same object.
+    entity(ctor: new () => Entity, id: PrimaryKey | null, populate: (e: any) => void): Entity | null {
+        if (id == null) return null;
+        const e = this.getOrCreate(ctor, id);
+        if (!this.populated.has(e)) {
+            this.populated.add(e);
+            this.requests.get(ctor.name)?.ids.delete(String(id));
             populate(e);
             cleanModified(e);
         }
         return e;
     }
 
-    // A referenced entity known only by id (no columns loaded). Deferred batch
-    // completion is a later step; for now it's an id-only instance.
+    // A referenced entity known only by id: return the id-only instance and register it
+    // for batch completion (unless it's already fully populated).
     stub(ctor: new () => Entity, id: PrimaryKey | null): Entity | null {
         if (id == null) return null;
-        const key = ctor.name + ":" + id;
-        let e = this.cache.get(key);
-        if (e == null) {
-            e = new ctor();
-            (e as any).id = id;
-            e.isNew = false;
+        const e = this.getOrCreate(ctor, id);
+        if (!this.populated.has(e)) {
             cleanModified(e);
-            this.cache.set(key, e);
+            let group = this.requests.get(ctor.name);
+            if (group == null)
+                this.requests.set(ctor.name, group = { ctor, ids: new Map() });
+            group.ids.set(String(id), e);
         }
         return e;
+    }
+
+    // Signum's RealRetriever.CompleteAll: drain the pending requests, batch-loading each
+    // type by id into this same retriever, until none remain (a load can add more).
+    async completeAll(): Promise<void> {
+        if (Retriever.retrieveListImpl == null)
+            return;
+        while (this.requests.size > 0) {
+            // Largest group first (Signum's MaxBy) — fewer round-trips overall.
+            let best: { ctor: new () => Entity, ids: Map<string, Entity> } | undefined;
+            for (const g of this.requests.values())
+                if (best == null || g.ids.size > best.ids.size) best = g;
+            if (best == null || best.ids.size === 0) {
+                for (const [k, g] of this.requests) if (g.ids.size === 0) this.requests.delete(k);
+                continue;
+            }
+            const ctor = best.ctor;
+            const ids = [...best.ids.values()].map(e => (e as any).id as PrimaryKey);
+            this.requests.delete(ctor.name);
+            await Retriever.retrieveListImpl(ctor, ids, this);
+        }
     }
 
     // A Lite<T> loaded by id (+ optional display string). Builds a thin LiteImp —
