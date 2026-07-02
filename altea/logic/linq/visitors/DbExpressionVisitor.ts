@@ -8,7 +8,7 @@ import {
     ScalarExpression, ExistsExpression, InExpression,
     IsNullExpression, IsNotNullExpression,
     ProjectionExpression, ChildProjectionExpression, FieldEntityArrayExpression,
-    LiteReferenceExpression, LiteReferenceTarget, PrimaryKeyExpression, FieldBinding,
+    LiteReferenceExpression, LiteValueExpression, LiteReferenceTarget, PrimaryKeyExpression, FieldBinding,
     EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
     TypeEntityExpression, TypeImplementedByExpression,
@@ -197,6 +197,15 @@ export class DbExpressionVisitor extends ExpressionVisitor {
         const toStr = this.visit(lite.toStr);
         if (reference !== lite.reference || toStr !== lite.toStr)
             return new LiteReferenceExpression(lite.type, reference, toStr);
+        return lite;
+    }
+
+    visitLiteValue(lite: LiteValueExpression): Expression {
+        const typeId = this.visit(lite.typeId);
+        const id = this.visit(lite.id);
+        const toStr = this.visit(lite.toStr);
+        if (typeId !== lite.typeId || id !== lite.id || toStr !== lite.toStr)
+            return new LiteValueExpression(lite.type, typeId, id, toStr);
         return lite;
     }
 

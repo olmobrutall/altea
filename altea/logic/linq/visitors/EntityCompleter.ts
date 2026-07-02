@@ -1,6 +1,6 @@
 import { Expression } from "../expressions";
 import {
-    ProjectionExpression, SelectExpression, LiteReferenceExpression, EntityExpression,
+    ProjectionExpression, SelectExpression, LiteReferenceExpression, LiteValueExpression, EntityExpression,
     FieldBinding, MixinEntityExpression, PrimaryKeyExpression, FieldEntityArrayExpression,
 } from "../expressions.sql";
 import type { Table } from "../../schema/table";
@@ -60,10 +60,17 @@ export class EntityCompleter extends DbExpressionVisitor {
     }
 
     override visitLiteReference(lite: LiteReferenceExpression): Expression {
-        if (lite.toStr != null)
-            return lite;
-        const model = this.binder.liteModelExpression(lite.reference);
-        return model == null ? lite : new LiteReferenceExpression(lite.type, lite.reference, model);
+        // Signum's EntityCompleter.VisitLiteReference: reduce the lite to a
+        // LiteValueExpression carrying only its identity (typeId + id) and display
+        // string, DROPPING the wrapped entity's field bindings. Computing the toStr
+        // model against the still-intact reference is what completes it (its ToStr
+        // column / navigation join); after that the bindings are no longer referenced,
+        // so a lite over a fully-retrieved root entity projects just id + type + toStr
+        // rather than every column of the entity.
+        const toStr = lite.toStr ?? this.binder.liteModelExpression(lite.reference);
+        const typeId = this.binder.liteTypeId(lite.reference);
+        const id = this.binder.liteId(lite.reference);
+        return new LiteValueExpression(lite.type, typeId, id, toStr ?? undefined);
     }
 
     // Eager-load a collection binding (Signum's VisitMList): realise the marker into a

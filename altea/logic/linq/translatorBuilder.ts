@@ -4,7 +4,7 @@ import {
 } from "./expressions";
 import {
     ProjectionExpression, ColumnExpression, PrimaryKeyExpression, UniqueFunction,
-    EntityExpression, EmbeddedEntityExpression, LiteReferenceExpression,
+    EntityExpression, EmbeddedEntityExpression, LiteReferenceExpression, LiteValueExpression,
     ChildProjectionExpression, LookupToken,
     ImplementedByExpression, ImplementedByAllExpression,
     TypeEntityExpression, TypeImplementedByExpression, TypeImplementedByAllExpression,
@@ -317,6 +317,53 @@ class ProjectionBuilder extends DbExpressionVisitor {
         const ctorIndex = this.pushConst(ctorOf(ref.type));
         this.visit(ref.externalId.value);
         const idCode = this.pop();
+        this.stack.push(`retriever.lite(consts[${ctorIndex}], ${idCode}, ${toStrCode})`);
+        return e;
+    }
+
+    // The reduced lite (Signum's LiteValueExpression) — read straight from its identity
+    // (typeId + id) and display string, no entity reference. Mirrors visitLiteReference's
+    // three cases, but keyed on the type-discriminator expression rather than the wrapped
+    // reference, and using the single coalesced id column.
+    override visitLiteValue(e: LiteValueExpression): Expression {
+        let toStrCode = "null";
+        if (e.toStr != null) {
+            this.visit(e.toStr);
+            toStrCode = this.pop();
+        }
+
+        this.visit(e.id);
+        const idCode = this.pop();
+
+        const typeId = e.typeId;
+
+        // Lite over @implementedByAll: resolve the type discriminator → ctor by id.
+        if (typeId instanceof TypeImplementedByAllExpression) {
+            this.visit(typeId.typeColumn);
+            const typeCode = this.pop();
+            this.stack.push(`retriever.liteImplementedByAll(${idCode}, ${typeCode}, ${toStrCode})`);
+            return e;
+        }
+
+        // Lite over @implementedBy: whichever implementation id column is non-null picks
+        // the ctor; the lite is built with the coalesced id (equal to that column).
+        if (typeId instanceof TypeImplementedByExpression) {
+            let code = "null";
+            const entries = [...typeId.typeImplementations];
+            for (let i = entries.length - 1; i >= 0; i--) {
+                const [ctor, implId] = entries[i];
+                const ctorIndex = this.pushConst(ctor);
+                this.visit(implId.value);
+                const implIdCode = this.pop();
+                code = `(${implIdCode} != null ? retriever.lite(consts[${ctorIndex}], ${idCode}, ${toStrCode}) : ${code})`;
+            }
+            this.stack.push(code);
+            return e;
+        }
+
+        // Lite over a typed reference.
+        const te = typeId as TypeEntityExpression;
+        const ctorIndex = this.pushConst(ctorOf(te.typeValue));
         this.stack.push(`retriever.lite(consts[${ctorIndex}], ${idCode}, ${toStrCode})`);
         return e;
     }

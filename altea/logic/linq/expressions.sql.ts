@@ -655,6 +655,33 @@ export class LiteReferenceExpression extends DbExpression {
     }
 }
 
+// The reduced, ready-to-project form of a Lite<T> (Signum's LiteValueExpression).
+// EntityCompleter rewrites every projected LiteReferenceExpression into this: it keeps
+// only the identity (`typeId` — a TypeEntity/TypeImplementedBy/TypeImplementedByAll
+// expression — plus the coalesced `id`) and the display `toStr`, DROPPING the wrapped
+// entity's field bindings. That is what stops a lite over a fully-retrieved (bound) root
+// entity from dragging every one of its columns into the SELECT: only id + type + toStr
+// remain referenced, so UnusedColumnRemover prunes the rest. The reader materialises a
+// LiteImp straight from typeId + id + toStr.
+export class LiteValueExpression extends DbExpression {
+    constructor(
+        type: Type,
+        public readonly typeId: Expression,
+        public readonly id: Expression,
+        public readonly toStr: Expression | undefined,
+    ) {
+        super("LiteValue", type);
+    }
+
+    toString(): string {
+        return `LiteValue(${this.typeId}; ${this.id}; ${this.toStr ?? "-"})`;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitLiteValue(this);
+    }
+}
+
 // ---- Entity-semantic nodes (rewritten away before SQL) -------------------
 
 // A field name paired with the expression it binds to in an entity constructor.

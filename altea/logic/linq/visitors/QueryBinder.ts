@@ -429,6 +429,16 @@ export class QueryBinder extends ExpressionVisitor {
         return this.entityToStringOf(reference);
     }
 
+    // The id / type-discriminator of a lite's reference (Signum's binder.GetId /
+    // binder.GetEntityType), exposed for EntityCompleter to build a LiteValueExpression.
+    liteId(reference: LiteReferenceTarget): Expression {
+        return this.idOfReference(reference);
+    }
+
+    liteTypeId(reference: LiteReferenceTarget): Expression {
+        return this.getEntityType(reference);
+    }
+
     // Split a projector into SELECT columns + a rebuilt projector (Signum's
     // ColumnProjector.ProjectColumns), used by EntityCompleter to re-project a wrapped
     // select.
