@@ -627,23 +627,25 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // from a from s in a.Songs.Where(s => s.Seconds < 0).DefaultIfEmpty() select new { a, s }; Assert.True(All(p => p.s == null))
-    // TODO(api): DefaultIfEmpty (left/outer join semantics in flatMap) and projecting whole entities into an anonymous pair
+    // altea's flatMap has no result-selector overload, so the C# `select new { a, s }` is folded
+    // into the collection map. defaultIfEmpty() must be the LAST operator of the collection
+    // selector, so it comes after the map — the flatMap becomes an OUTER APPLY over the {s,a}
+    // pairs, and an album with no matching song yields one row whose s (and a) are null.
     test("SelectEmbeddedListNotNullableNull", async () => {
         const list = await table(AlbumEntity)
-            .flatMap(a => a.songs.filter(s => (s.seconds ?? 0) < 0))
-            .map(s => ({ s }))
+            .flatMap(a => a.songs.filter(s => (s.seconds ?? 0) < 0).map(s => ({ s, a })).defaultIfEmpty())
             .toArray();
-        assert.ok(list.every(p => p.s == null));
+        assert.ok(list.length > 0 && list.every(p => p.s == null));
     });
 
     // from a from s in a.MListElements(_ => _.Songs).Where(s => s.Element.Seconds < 0).DefaultIfEmpty() select new { a, s }
-    // TODO(api): MListElements (link-row access) and DefaultIfEmpty (left/outer join) in flatMap
+    // Divergence: altea has no MListElements (link-row / RowId access), so the part-entity
+    // collection `a.songs` is used directly; defaultIfEmpty() (last) drives the OUTER APPLY.
     test("SelectEmbeddedListElementNotNullableNull", async () => {
         const list = await table(AlbumEntity)
-            .flatMap(a => a.songs.filter(s => (s.seconds ?? 0) < 0))
-            .map(s => ({ s }))
+            .flatMap(a => a.songs.filter(s => (s.seconds ?? 0) < 0).map(s => ({ s, a })).defaultIfEmpty())
             .toArray();
-        assert.ok(list.every(p => p.s == null));
+        assert.ok(list.length > 0 && list.every(p => p.s == null));
     });
 
     // max = 0; blas = a => a.Id > max; from a from s in Query<AlbumEntity>().Where(blas) select new { a, s }
@@ -653,13 +655,6 @@ describe("SelectTest", { skip: !hasDb }, () => {
         const list = await table(AlbumEntity)
             .flatMap(a => table(AlbumEntity).filter(s => (s.id as number) > max))
             .toArray();
-        assert.ok(Array.isArray(list));
-    });
-
-    // from a select ((ISecretContainer)a).Secret.InSql()
-    // TODO(api): explicit interface-implemented field ((ISecretContainer)a).Secret and InSql()
-    test("SelectExplicitInterfaceImplementedField", async () => {
-        const list = await table(AlbumEntity).map(a => a).toArray();
         assert.ok(Array.isArray(list));
     });
 

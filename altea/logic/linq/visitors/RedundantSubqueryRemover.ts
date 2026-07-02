@@ -153,7 +153,13 @@ class SubqueryRemover extends DbExpressionVisitor {
         const mapped = cols.get(column.name!);
         if (mapped == null)
             throw new Error(`Reference to undefined column ${column}`);
-        return mapped;
+        // Re-visit the mapped expression (matching Signum's SubqueryRemover.VisitColumn,
+        // which returns `Visit(expr)`). When several selects are spliced in one pass and
+        // one's column resolves to a column of another removed select (e.g. a collection
+        // map that projects an outer entity's columns through the apply's left subquery),
+        // this chains the remap down to the surviving alias instead of leaving a dangling
+        // reference to an already-removed select.
+        return this.visit(mapped);
     }
 }
 

@@ -69,7 +69,8 @@ a spec.
   column (the pg pool keeps temporal OIDs as raw text so the exact wall-clock is parsed;
   the mssql driver's UTC `Date`s are read via their UTC components). This is the read-side
   inverse of `normalizeScalar`, so `entity.creationTime.dayOfWeek` etc. work in memory.
-- **Query operators** — `filter`, `map`, `flatMap` (→ CROSS APPLY), `orderBy`/
+- **Query operators** — `filter`, `map`, `flatMap` (→ CROSS APPLY; `defaultIfEmpty()` on the
+  collection → OUTER APPLY, keeping the outer row with a null inner), `orderBy`/
   `thenBy`(+`Descending`), `top`, `skip` (OFFSET/FETCH · LIMIT/OFFSET), `distinct`,
   `first`/`single`/`last`(+`OrNull`), `reverse`, `count`/`min`/`max`/`sum`/`avg`,
   `some`/`every`/`contains`, the join family (`innerJoin`/`leftJoin`/`rightJoin`/
@@ -211,15 +212,35 @@ a spec.
   `Entity.prototype`. IBA type-discriminator constants emit as inline SQL literals
   (not bound params) so an all-branch `CASE` types unambiguously.
 - **`DayOfWeek` is Temporal-ISO, not .NET** — Signum's `DateTime.DayOfWeek` is .NET
-  (Sun=0..Sat=6) and it normalises the DB result to match (`ToDayOfWeek`, per dialect).
-  altea instead aligns to the **in-memory `Temporal.PlainDateTime.dayOfWeek`** value
-  (ISO Mon=1..Sun=7): the `DayOfWeek` enum is ISO (only Sunday differs from .NET, 0→7)
-  and the translation folds the ISO normalisation into SQL (`dbExpressionNominator.dayOfWeekIso`)
-  so the DB value already equals the Temporal one — Postgres `EXTRACT(isodow …)`, SQL Server
-  `((DATEPART(weekday, x) + @@DATEFIRST + 5) % 7) + 1` (DATEFIRST-independent, since the
-  session setting isn't guaranteed to be 1). So a `.dayOfWeek` group key / comparison agrees
-  between the DB and a materialised entity on both dialects, at the cost of a small SQL-shape
-  divergence from Signum on this extraction (Signum converts client-side in the projector).
+  (Sun=0..Sat=6); altea aligns to the **in-memory `Temporal.PlainDateTime.dayOfWeek`** value
+  (ISO Mon=1..Sun=7). The `DayOfWeek` enum is ISO (only Sunday differs from .NET, 0→7).
+  Postgres uses `EXTRACT(isodow …)`, already ISO. **SQL Server delays the conversion to the
+  projector** (Signum's `ToDayOfWeekExpression`): `dayOfWeekIso` emits a raw
+  `DATEPART(weekday, x)` wrapped in a `ToDayOfWeekExpression`, so the SELECT / GROUP BY /
+  ORDER BY stay clean (raw weekday), and `TranslatorBuilder` compiles the DATEFIRST→ISO
+  conversion client-side (`toDayOfWeekIsoFromSqlServer`, using `@@DATEFIRST` cached on the
+  connector). Where a day-of-week is *compared* in a predicate, the nominator folds the
+  conversion back into server SQL (`coerceDayOfWeek` in `visitBinary`/`visitIn`, the analogue
+  of Signum's `ExtractDayOfWeek`); in a projector the comparison stays client-side. The one
+  divergence from Signum's SQL is that comparisons carry the inline
+  `((DATEPART(weekday) + @@DATEFIRST + 5) % 7) + 1` (Signum converts the *constant* instead).
+- **`defaultIfEmpty` drives only the SelectMany outer-apply** — Signum's `DefaultIfEmpty`
+  is overloaded: it turns a `SelectMany` into an outer apply *and* is how a query expresses
+  left/right/full joins. altea has explicit `leftJoin`/`rightJoin`/`fullJoin` operators (and
+  `join` is reserved for string concatenation), so `defaultIfEmpty()` is used **only** for the
+  flatMap outer-apply. Following Signum's `OverloadingSimplifier.ExtractDefaultIfEmpty`,
+  `bindSelectMany` peels a `.defaultIfEmpty()` off the collection selector *before* binding
+  (`extractDefaultIfEmpty`) and emits `OuterApply` when present, else `CrossApply` — no marker
+  on `ProjectionExpression`. **`defaultIfEmpty()` must be the last (outermost) operator of the
+  collection selector**; it wraps whatever collection precedes it (`filter`, the folded
+  result-selector `map`, or both — `a.songs.filter(…).map(s => ({ s, a })).defaultIfEmpty()`),
+  and the OUTER APPLY is over that collection (so an empty inner yields one all-null row — the
+  captured outer entity is null too, matching `collection.DefaultIfEmpty()` semantics). On
+  Postgres an `OuterApply` renders as `LEFT JOIN LATERAL … ON true` (the formatter supplies the
+  `ON`, which `CROSS JOIN LATERAL` doesn't need). **Position is enforced**: a `defaultIfEmpty()`
+  anywhere but the outermost position is never extracted, so the binder reaches it and throws
+  (its `defaultIfEmpty` dispatch case is unconditionally an error) — a following `map`/other
+  operator, the query root, or inside a projection all fail.
 - **`queryBinder.ts` / `columnProjector.ts`** at the `linq/` root are shims over the
   `visitors/` implementations — keep imports/casing consistent (stale build output
   can otherwise load a different module identity).

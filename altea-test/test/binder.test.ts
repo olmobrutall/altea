@@ -15,7 +15,7 @@ import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { Connector } from "@altea/altea/logic/connection/connector";
 import { MusicLogic } from "../logic/MusicLogic";
 import { TypeLogic } from "@altea/altea/logic/typeLogic";
-import { AlbumEntity, LabelEntity, SongEmbedded, ArtistEntity, NoteWithDateEntity } from "../entities/music";
+import { AlbumEntity, LabelEntity, SongEmbedded, ArtistEntity, NoteWithDateEntity, BandEntity } from "../entities/music";
 
 // A connector that returns canned rows instead of hitting a database, so the
 // full format→execute→project pipeline can be tested offline.
@@ -447,5 +447,74 @@ describe("Join shape (tier 3)", () => {
         const proj = bind(table(AlbumEntity).fullJoin(table(AlbumEntity), a => a!.year, b => b!.year, (a, b) => ({ x: a!.name })));
         const { sql } = QueryFormatter.format(proj.select, false);
         assert.match(sql, /FULL OUTER JOIN/i);
+    });
+});
+
+describe("SelectMany projecting the captured outer entity (fold correlation)", () => {
+    // flatMap(b => b.members.map(a => ({ band: b, ... }))) captures the outer band inside
+    // the collection map. It's projected through the CROSS APPLY's left subquery; the
+    // RedundantSubqueryRemover must chain-remap that correlated reference down to the
+    // surviving table alias, not leave a dangling reference to the removed outer select.
+    test("outer entity columns resolve to the band table alias (no dangling subquery ref)", () => {
+        const { sql } = QueryFormatter.format(
+            bindPg(table(BandEntity).flatMap(b => b.members.map(a => ({ band: b, m: a.member })))).select, true);
+        // The band's own columns and its lastAward joins correlate to the band table (b),
+        // which is the CROSS JOIN LATERAL's left. No orphaned select alias may survive.
+        assert.match(sql, /FROM public\.band AS b/i);
+        assert.match(sql, /b\.last_award_id_grammy_award = ga\.id/i);
+        assert.doesNotMatch(sql, /\bs0\./, "outer band columns must not reference a removed subquery alias");
+    });
+
+    test("projecting the outer entity's toLite() likewise correlates to the table alias", () => {
+        const { sql } = QueryFormatter.format(
+            bindPg(table(BandEntity).flatMap(b => b.members.map(a => ({ band: b.toLite(), m: a.member })))).select, true);
+        assert.match(sql, /FROM public\.band AS b/i);
+        assert.doesNotMatch(sql, /\bs0\./, "outer band lite columns must not reference a removed subquery alias");
+    });
+});
+
+describe("defaultIfEmpty position guard", () => {
+    // defaultIfEmpty() is legal only as the LAST operator of a flatMap collection selector →
+    // OUTER APPLY over whatever collection precedes it. Anywhere else it throws.
+
+    // Valid — bare collection.
+    test("valid: last op of the collection selector", () => {
+        const { sql } = QueryFormatter.format(bind(table(AlbumEntity).flatMap(a => a.songs.defaultIfEmpty())).select, false);
+        assert.match(sql, /OUTER APPLY/i);
+    });
+
+    // Valid — last, after a projecting map (`…map(s => ({ s, a })).defaultIfEmpty()`).
+    test("valid: last, after a map", () => {
+        const { sql } = QueryFormatter.format(bind(table(AlbumEntity)
+            .flatMap(a => a.songs.filter(s => (s.seconds ?? 0) < 0).map(s => ({ s, a })).defaultIfEmpty())).select, false);
+        assert.match(sql, /OUTER APPLY/i);
+    });
+
+    // Valid — last, after map then filter (`…map(...).filter(...).defaultIfEmpty()`).
+    test("valid: last, after map then filter", () => {
+        const { sql } = QueryFormatter.format(bind(table(AlbumEntity)
+            .flatMap(a => a.songs.map(s => ({ s, a })).filter(b => (b.s.seconds ?? 0) < 0).defaultIfEmpty())).select, false);
+        assert.match(sql, /OUTER APPLY/i);
+    });
+
+    // Illegal — NOT the last operator: a map follows defaultIfEmpty.
+    test("throws: map after defaultIfEmpty", () => {
+        assert.throws(() => bind(table(AlbumEntity)
+            .flatMap(a => a.songs.filter(s => (s.seconds ?? 0) < 0).defaultIfEmpty().map(s => ({ s, a })))), /defaultIfEmpty/);
+    });
+
+    // Illegal — another operator follows defaultIfEmpty.
+    test("throws: another operator after defaultIfEmpty", () => {
+        assert.throws(() => bind(table(AlbumEntity).flatMap(a => a.songs.defaultIfEmpty().distinct())), /defaultIfEmpty/);
+    });
+
+    // Illegal — at the query root (not inside a flatMap).
+    test("throws: at the query root", () => {
+        assert.throws(() => bind(table(AlbumEntity).defaultIfEmpty()), /defaultIfEmpty/);
+    });
+
+    // Illegal — inside a projection.
+    test("throws: inside a projection", () => {
+        assert.throws(() => bind(table(AlbumEntity).map(a => a.songs.defaultIfEmpty())), /defaultIfEmpty/);
     });
 });

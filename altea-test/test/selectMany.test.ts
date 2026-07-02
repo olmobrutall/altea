@@ -28,7 +28,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     test("SelectMany", async () => {
         const list = await table(BandEntity)
             .flatMap(b => b.members)
-            .map(a => ({ artist: a.member }))
+            .map(a => ({ artist: a.member.toLite() }))
             .toArray();
         assert.ok(Array.isArray(list));
     });
@@ -38,7 +38,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     // the collection map. The `(b, i)` index overload binds `i` to a ROW_NUMBER column.
     test("SelectManyIndex", async () => {
         const list = await table(BandEntity)
-            .flatMap((b, i) => b.members.map(m => ({ artist: m.member, i })))
+            .flatMap((b, i) => b.members.map(m => ({ artist: m.member.toLite(), i })))
             .toArray();
         assert.ok(Array.isArray(list));
     });
@@ -48,7 +48,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     // projecting the outer entity inside the collection map (b captured in the inner map).
     test("SelectMany2", async () => {
         const list = await table(BandEntity)
-            .flatMap(b => b.members.map(a => ({ artist: a.member, band: b.toLite() })))
+            .flatMap(b => b.members.map(a => ({ artist: a.member.toLite(), band: b.toLite() })))
             .toArray();
         assert.ok(Array.isArray(list));
     });
@@ -58,7 +58,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     // the collection map, folding the C# result-selector into it.
     test("SelectMany2Index", async () => {
         const list = await table(BandEntity)
-            .flatMap((b, i) => b.members.map(m => ({ artist: m.member, i, band: b.toLite() })))
+            .flatMap((b, i) => b.members.map(m => ({ artist: m.member.toLite(), i, band: b.toLite() })))
             .toArray();
         assert.ok(Array.isArray(list));
     });
@@ -67,7 +67,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     test("SelectManyWhere1", async () => {
         const list = await table(BandEntity)
             .flatMap(b => b.members.filter(a => a.member.sex == Sex.Male))
-            .map(a => ({ artist: a.member }))
+            .map(a => ({ artist: a.member.toLite() }))
             .toArray();
         assert.ok(Array.isArray(list));
     });
@@ -77,7 +77,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
         const list = await table(BandEntity)
             .filter(b => b.lastAward != null)
             .flatMap(b => b.members.filter(a => a.member.sex == Sex.Male))
-            .map(a => a.member)
+            .map(a => a.member.toLite())
             .toArray();
         assert.ok(Array.isArray(list));
     });
@@ -104,7 +104,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     test("SelectManyDefaultIfEmpty", async () => {
         const list = await table(BandEntity)
             .flatMap(b => b.members.defaultIfEmpty())
-            .map(a => ({ artist: a!.member }))
+            .map(a => ({ artist: a!.member.toLite() }))
             .toArray();
         assert.ok(Array.isArray(list));
     });
@@ -123,7 +123,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     // TODO(api): query-syntax SelectMany that projects over BOTH the outer and the collection element (flatMap exposes only the collection element, not the outer entity).
     test("SelectManyDefaultIfEmptyTwo", async () => {
         const list = await table(ArtistEntity)
-            .flatMap(a1 => a1.friends.defaultIfEmpty().map(a => ({ artist: a1.toLite(), friend: a.friend })))
+            .flatMap(a1 => a1.friends.map(a => ({ artist: a1.toLite(), friend: a.friend })).defaultIfEmpty())
             .toArray();
         assert.ok(Array.isArray(list));
     });
@@ -133,7 +133,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     // TODO(api): query-syntax SelectMany that projects over BOTH the outer and the collection element (flatMap exposes only the collection element, not the outer entity).
     test("SelectManyDefaultIfEmptyNotNull", async () => {
         const list = await table(ArtistEntity)
-            .flatMap(a1 => a1.friends.defaultIfEmpty().map(a => ({ artist: a1.toLite(), friend: a.friend, hasFriend: a != null })))
+            .flatMap(a1 => a1.friends.map(a => ({ artist: a1.toLite(), friend: a.friend, hasFriend: a != null })).defaultIfEmpty())
             .toArray();
         assert.ok(Array.isArray(list));
     });
@@ -147,7 +147,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
         const list = await table(BandEntity)
             .flatMap(b => b.members.map(a => ({
                 maxAlbum: table(ArtistEntity)
-                    .filter(n => n.friends.some(f => f.friend.is(a.member)))
+                    .filter(n => n.friends.some(f => f.friend.is(a.member.toLite())))
                     .max(n => (n.id as number | null)),
             })))
             .toArray();

@@ -179,7 +179,11 @@ export class QueryFormatter extends DbExpressionVisitor {
         const keyword = this.joinKeyword(j.joinType);
         const left = this.capture(() => this.visitSource(j.left));
         const right = this.capture(() => this.visitSource(j.right));
-        const on = j.condition != null ? ` ON ${this.capture(() => this.visit(j.condition))}` : "";
+        let on = j.condition != null ? ` ON ${this.capture(() => this.visit(j.condition))}` : "";
+        // Postgres renders OUTER APPLY as LEFT JOIN LATERAL, which (unlike CROSS JOIN LATERAL)
+        // requires an ON clause; an apply has no join condition, so supply `ON true`.
+        if (on === "" && this.isPostgres && j.joinType === "OuterApply")
+            on = " ON true";
         this.append(`${left}\n${keyword} ${right}${on}`);
         return j;
     }

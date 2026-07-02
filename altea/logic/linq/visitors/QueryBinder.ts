@@ -54,6 +54,16 @@ function isReferenceish(e: Expression): boolean {
         || e instanceof ImplementedByAllExpression || e instanceof LiteReferenceExpression;
 }
 
+// A `receiver.<name>(...)` call in the source AST (a CallExpression on a named
+// PropertyExpression) — used to inspect a flatMap selector body before binding.
+function isMethodCall(e: Expression, name: string): boolean {
+    return e instanceof CallExpression && e.func instanceof PropertyExpression && e.func.propertyName === name;
+}
+
+function isNoArgMethodCall(e: Expression, name: string): boolean {
+    return isMethodCall(e, name) && (e as CallExpression).args.length === 0;
+}
+
 // A bound expression that denotes the runtime type of a reference (Signum's three
 // Type* nodes) — the cases SmartEqualizer.typeEqual knows how to compare.
 function isTypeExpression(e: Expression): boolean {
@@ -704,6 +714,11 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.bindSelect(source, call.args[0] as LambdaExpression);
                 case "flatMap":
                     return this.bindSelectMany(source, call.args[0] as LambdaExpression);
+                case "defaultIfEmpty":
+                    // The only legal defaultIfEmpty is peeled off a flatMap collection selector
+                    // by extractDefaultIfEmpty *before* binding, so it never reaches here —
+                    // anything that does (root, chained, in a projection) is misuse.
+                    throw new Error("defaultIfEmpty() is only valid as the tail of a flatMap collection selector.");
                 case "groupBy":
                     return this.bindGroupBy(source, property.object, call.args[0] as LambdaExpression, call.args[1] as LambdaExpression | undefined);
                 case "toArray":
@@ -2151,20 +2166,37 @@ export class QueryBinder extends ExpressionVisitor {
         throw new Error("Expected a collection/projection but got: " + e.toString());
     }
 
-    // SelectMany (flatMap): bind the collection selector against the source, then
-    // CROSS APPLY the (correlated) collection sub-projection onto the source.
-    // Signum's BindSelectMany (single-selector form; result-selector / index /
-    // DefaultIfEmpty overloads are not surfaced by altea's flatMap yet).
-    private bindSelectMany(projection: ProjectionExpression, selector: LambdaExpression): ProjectionExpression {
+    // SelectMany (flatMap): bind the collection selector against the source, then APPLY the
+    // (correlated) collection sub-projection onto the source. Signum's BindSelectMany
+    // (single-selector form). A trailing `.defaultIfEmpty()` on the collection selector is
+    // peeled off *before* binding (Signum's OverloadingSimplifier.ExtractDefaultIfEmpty) and
+    // makes the apply an OUTER APPLY (outer rows survive with a null inner); otherwise a CROSS
+    // APPLY.
+    private bindSelectMany(projection: ProjectionExpression, selectorRaw: LambdaExpression): ProjectionExpression {
+        const { selector, outer } = this.extractDefaultIfEmpty(selectorRaw);
         const { expression: coll, projection: proj } = this.mapVisitExpandIndexed(selector, projection);
         const collProj = this.asProjection(coll);
 
         const alias = this.aliasGenerator.nextSelectAlias();
         const pc = this.projectColumns(collProj.projector, alias);
-        const join = new JoinExpression("CrossApply", proj.select, collProj.select, undefined);
+        const join = new JoinExpression(outer ? "OuterApply" : "CrossApply", proj.select, collProj.select, undefined);
         return new ProjectionExpression(
             new SelectExpression(alias, false, undefined, pc.columns, join, undefined, [], []),
             pc.projector, undefined, collProj.type);
+    }
+
+    // Signum's OverloadingSimplifier.ExtractDefaultIfEmpty: strip a `.defaultIfEmpty()` that is
+    // the *outermost* (last) operator of the flatMap collection selector → OUTER APPLY; the
+    // collection it wraps (however built — filter/map/…) is bound as-is. A `defaultIfEmpty()`
+    // anywhere else is left in place and errors when the binder reaches it (the `defaultIfEmpty`
+    // dispatch case), so it must genuinely be the last operator.
+    private extractDefaultIfEmpty(selector: LambdaExpression): { selector: LambdaExpression, outer: boolean } {
+        const body = selector.body;
+        if (isNoArgMethodCall(body, "defaultIfEmpty")) {
+            const receiver = ((body as CallExpression).func as PropertyExpression).object;
+            return { selector: new LambdaExpression(selector.parameters, receiver), outer: true };
+        }
+        return { selector, outer: false };
     }
 
     // Join — port of Signum's BindJoin. The join type is explicit (the binder is

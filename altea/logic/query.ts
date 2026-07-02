@@ -411,6 +411,20 @@ export class Query<T> implements IQuery<T> {
         return new Query<T>(call, this.translator);
     }
 
+    // defaultIfEmpty — used inside a flatMap collection selector, it makes the SelectMany an
+    // OUTER APPLY (the outer row survives with a null inner). Signum's DefaultIfEmpty.
+    // Divergence: Signum also uses DefaultIfEmpty to express left/right/full joins; altea has
+    // explicit join operators for those (join stays string concatenation), so DefaultIfEmpty
+    // here is only the outer-apply marker. At the query root it is a no-op.
+    @resultType(ot => ot)
+    defaultIfEmpty(): Query<T> {
+        var call = new CallExpression(
+            new PropertyExpression(this.expression, "defaultIfEmpty"),
+            [],
+            this.type);
+        return new Query<T>(call, this.translator);
+    }
+
     groupBy<K>(keySelector: Quoted<(element: T) => K>): Query<{ key: K, elements: T[] }>;
     groupBy<K, E>(keySelector: Quoted<(element: T) => K>, elementSelector: Quoted<(element: T) => E>): Query<{ key: K, elements: E[] }>;
 
