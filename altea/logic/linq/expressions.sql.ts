@@ -806,16 +806,19 @@ export class TypeImplementedByAllExpression extends DbExpression {
 // reader resolves the discriminator string to a constructor and builds the
 // matching row by id.
 export class ImplementedByAllExpression extends DbExpression {
+    // One id expression per primary-key type (Signum's Ids dictionary): the target can be
+    // any entity, so its id lives in the column matching its PK type. Keyed by the altea
+    // PrimaryKeyType ('int' | 'long' | 'uuid'); exactly one is non-null per row.
     constructor(
         type: Type,
-        public readonly id: Expression,
+        public readonly ids: ReadonlyMap<string, Expression>,
         public readonly typeId: TypeImplementedByAllExpression,
     ) {
         super("ImplementedByAll", type);
     }
 
     toString(): string {
-        return `ImplementedByAll{ Id = ${this.id}, Type = ${this.typeId} }`;
+        return `ImplementedByAll{ Ids = [${[...this.ids.keys()].join(",")}], Type = ${this.typeId} }`;
     }
 
     accept(visitor: ExpressionVisitor) {

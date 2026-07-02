@@ -1,6 +1,7 @@
 import { Entity, typeConstructor } from '../entities/entity';
 import type { Type, PrimaryKey } from '../entities/entity';
 import { TypeLogic } from './typeLogic';
+import { getTypeInfo } from '../entities/reflection';
 import { referenceKey } from '../entities/changes';
 import { Lite } from '../entities/lite';
 import { Connector } from './connection/connector';
@@ -154,7 +155,11 @@ function pushFieldValues(field: Field, value: unknown, out: ColumnValue[]): void
     }
 
     if (field instanceof FieldImplementedByAll) {
-        out.push({ column: field.idColumn, value: value == null ? null : referenceId(value as Lite<Entity> | Entity) });
+        // Write the id into the column matching the target's PK type; NULL the others.
+        const ctor = value == null ? undefined : entityConstructorOf(value);
+        const valuePk = ctor == null ? undefined : (getTypeInfo(ctor)?.fields["id"]?.columnOptions?.primaryKey ?? "int");
+        for (const col of field.idColumns)
+            out.push({ column: col, value: (value != null && col.pkType === valuePk) ? referenceId(value as Lite<Entity> | Entity) : null });
         // The discriminator is the target type's TypeEntity id (Signum's TypeToId).
         out.push({ column: field.typeColumn, value: value == null ? null : TypeLogic.typeToId(entityConstructorOf(value)) });
         return;

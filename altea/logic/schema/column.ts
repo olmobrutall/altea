@@ -1,4 +1,5 @@
 import { AbstractDbType, IsNullable } from './dbType';
+import type { PrimaryKeyType } from '../../entities/reflection';
 import type { Table } from './table';
 
 // A single physical column in a table. Mirrors Signum's IColumn. Every Field
@@ -97,7 +98,10 @@ export class ImplementationColumn extends ColumnBase {
 
 // The id half of @implementedByAll (stores the target row's primary key value).
 export class ImplementedByAllIdColumn extends ColumnBase {
-    constructor(name: string, dbType: AbstractDbType) {
+    // Signum stores an @implementedByAll id in one column per primary-key TYPE (int /
+    // long / guid); only the column matching the target's PK type is non-null. `pkType`
+    // records which type this column serves, so materialisation/equality can pick it.
+    constructor(name: string, dbType: AbstractDbType, public readonly pkType: PrimaryKeyType) {
         super(name, dbType);
         this.nullable = IsNullable.Yes;
     }

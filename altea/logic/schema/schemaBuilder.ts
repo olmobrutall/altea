@@ -1,7 +1,7 @@
 import { Entity, EmbeddedEntity, isGenericType, typeConstructor } from '../../entities/entity';
 import type { Type } from '../../entities/entity';
 import { MixinDeclarations } from '../../entities/mixinDeclarations';
-import { getTypeInfo, resolveType, resolveEnum, enumNameOf, FieldInfo } from '../../entities/reflection';
+import { getTypeInfo, resolveType, resolveEnum, enumNameOf, FieldInfo, PrimaryKeyType } from '../../entities/reflection';
 import { AbstractDbType, IsNullable, defaultDbType, primaryKeyDbType } from './dbType';
 import {
     PrimaryKeyColumn,
@@ -106,6 +106,16 @@ export class SchemaSettings {
     // Drives dialect-specific physical naming (snake_case for Postgres). Set from
     // the bound connector before the schema is built.
     isPostgres = false;
+
+    // Signum's ImplementedByAllPrimaryKeyTypes: an @implementedByAll reference gets one id
+    // column per entry (named `<Field>ID_<name>`), since its target can be any entity and
+    // entities may have different PK types. `pkType` links each column to the entity PK
+    // type it serves. (Signum defaults to {int}; the test schema uses all three.)
+    implementedByAllPrimaryKeyTypes: { pkType: PrimaryKeyType, name: string, dbType: AbstractDbType }[] = [
+        { pkType: 'int', name: 'Int32', dbType: new AbstractDbType('int', 'int4') },
+        { pkType: 'long', name: 'Int64', dbType: new AbstractDbType('bigint', 'int8') },
+        { pkType: 'uuid', name: 'Guid', dbType: new AbstractDbType('uniqueidentifier', 'uuid') },
+    ];
 
     tableName(type: Type<Entity>): string {
         return physicalTableName(type, this.isPostgres);
@@ -284,12 +294,14 @@ export class SchemaBuilder {
         // Polymorphic references.
         if (fi.implementations != null) {
             if (fi.implementations.kind === 'implementedByAll') {
-                const idColumn = new ImplementedByAllIdColumn(this.colName(preName.add(`${cap(fi.name)}ID`).toString()), this.settings.primaryKeyDbType);
+                // One id column per configured PK type: `<Field>ID_<Int32|Int64|Guid>`.
+                const idColumns = this.settings.implementedByAllPrimaryKeyTypes.map(t =>
+                    new ImplementedByAllIdColumn(this.colName(preName.add(`${cap(fi.name)}ID_${t.name}`).toString()), t.dbType, t.pkType));
                 // The type discriminator is the target's TypeEntity int id, so the
                 // column references the (auto-included) TypeEntity table.
                 const typeTable = this.include(TypeEntity as unknown as Type<Entity>);
                 const typeColumn = new ImplementedByAllTypeColumn(this.colName(preName.add(`${cap(fi.name)}ID_Type`).toString()), typeTable);
-                return new FieldImplementedByAll(idColumn, typeColumn, isLite);
+                return new FieldImplementedByAll(idColumns, typeColumn, isLite);
             }
             const columns = fi.implementations.types().map(implType => {
                 const refTable = this.include(implType);

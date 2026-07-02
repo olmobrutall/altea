@@ -205,10 +205,16 @@ export class DbExpressionVisitor extends ExpressionVisitor {
     }
 
     visitImplementedByAll(iba: ImplementedByAllExpression): Expression {
-        const id = this.visit(iba.id);
+        let changed = false;
+        const ids = new Map<string, Expression>();
+        for (const [pk, e] of iba.ids) {
+            const v = this.visit(e);
+            if (v !== e) changed = true;
+            ids.set(pk, v);
+        }
         const typeId = this.visit(iba.typeId) as TypeImplementedByAllExpression;
-        if (id !== iba.id || typeId !== iba.typeId)
-            return new ImplementedByAllExpression(iba.type, id, typeId);
+        if (changed || typeId !== iba.typeId)
+            return new ImplementedByAllExpression(iba.type, ids, typeId);
         return iba;
     }
 

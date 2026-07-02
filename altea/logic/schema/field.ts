@@ -88,7 +88,9 @@ export class FieldImplementedBy extends Field {
 // Polymorphic reference to any entity: an id column + a type discriminator.
 export class FieldImplementedByAll extends Field {
     constructor(
-        public readonly idColumn: ImplementedByAllIdColumn,
+        // One id column per configured primary-key type (Signum's ImplementedByAllPrimaryKeyTypes);
+        // only the column matching the target's PK type is populated per row.
+        public readonly idColumns: readonly ImplementedByAllIdColumn[],
         public readonly typeColumn: ImplementedByAllTypeColumn,
         public readonly isLite: boolean,
     ) {
@@ -96,7 +98,7 @@ export class FieldImplementedByAll extends Field {
     }
 
     columns(): IColumn[] {
-        return [this.idColumn, this.typeColumn];
+        return [...this.idColumns, this.typeColumn];
     }
 }
 

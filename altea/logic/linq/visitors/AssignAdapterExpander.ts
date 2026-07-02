@@ -9,7 +9,30 @@ import {
 } from "../expressions.sql";
 import { LiteralType, Type } from "../../../entities/types";
 import { TypeLogic } from "../../typeLogic";
+import { getTypeInfo } from "../../../entities/reflection";
 import { Entity } from "../../../entities/entity";
+
+// The altea PrimaryKeyType of an entity ctor's id, from its @primaryKey (default 'int') —
+// picks which @implementedByAll id column an assigned value populates.
+function pkTypeOfCtor(ctor: Function | undefined): string {
+    return (ctor != null ? getTypeInfo(ctor)?.fields["id"]?.columnOptions?.primaryKey as string | undefined : undefined) ?? "int";
+}
+
+// The per-PK-type id expression of an IBA (NULL when that type isn't present).
+function idOr(iba: ImplementedByAllExpression, pk: string): Expression {
+    return iba.ids.get(pk) ?? new SqlConstantExpression(null, LiteralType.null);
+}
+
+function isNullConst(e: Expression): boolean {
+    return e instanceof SqlConstantExpression && e.value == null;
+}
+
+// Combine two per-PK-type id expressions with `op`, but if BOTH are null, keep a single
+// null — a `CASE WHEN … THEN NULL ELSE NULL` types as text and clashes with the (typed) id
+// column on assignment, whereas a bare NULL is coerced to the column type.
+function combineId(a: Expression, b: Expression, op: (a: Expression, b: Expression) => Expression): Expression {
+    return isNullConst(a) && isNullConst(b) ? a : op(a, b);
+}
 import { Lite } from "../../../entities/lite";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 
@@ -80,10 +103,13 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
             return new ImplementedByExpression(col.type, col.strategy, impls);
         }
 
-        if (col instanceof ImplementedByAllExpression && t instanceof ImplementedByAllExpression && f instanceof ImplementedByAllExpression)
-            return new ImplementedByAllExpression(col.type,
-                new ConditionalExpression(test, t.id, f.id),
+        if (col instanceof ImplementedByAllExpression && t instanceof ImplementedByAllExpression && f instanceof ImplementedByAllExpression) {
+            const ids = new Map<string, Expression>();
+            for (const pk of col.ids.keys())
+                ids.set(pk, combineId(idOr(t, pk), idOr(f, pk), (a, b) => new ConditionalExpression(test, a, b)));
+            return new ImplementedByAllExpression(col.type, ids,
                 new TypeImplementedByAllExpression(new ConditionalExpression(test, t.typeId.typeColumn, f.typeId.typeColumn)));
+        }
 
         if (col instanceof EmbeddedEntityExpression && t instanceof EmbeddedEntityExpression && f instanceof EmbeddedEntityExpression)
             return new EmbeddedEntityExpression(col.type,
@@ -102,10 +128,13 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
                 new PrimaryKeyExpression(new BinaryExpression("??", left.externalId.value, right.externalId.value)),
                 undefined, undefined, undefined, false);
 
-        if (col instanceof ImplementedByAllExpression && left instanceof ImplementedByAllExpression && right instanceof ImplementedByAllExpression)
-            return new ImplementedByAllExpression(col.type,
-                new BinaryExpression("??", left.id, right.id),
+        if (col instanceof ImplementedByAllExpression && left instanceof ImplementedByAllExpression && right instanceof ImplementedByAllExpression) {
+            const ids = new Map<string, Expression>();
+            for (const pk of col.ids.keys())
+                ids.set(pk, combineId(idOr(left, pk), idOr(right, pk), (a, b) => new BinaryExpression("??", a, b)));
+            return new ImplementedByAllExpression(col.type, ids,
                 new TypeImplementedByAllExpression(new BinaryExpression("??", left.typeId.typeColumn, right.typeId.typeColumn)));
+        }
 
         if (col instanceof EmbeddedEntityExpression && left instanceof EmbeddedEntityExpression && right instanceof EmbeddedEntityExpression)
             return new EmbeddedEntityExpression(col.type,
@@ -148,11 +177,14 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
     private ibToIba(col: ImplementedByAllExpression, ib: ImplementedByExpression): ImplementedByAllExpression {
         // Coalesce the (mutually-exclusive) implementation ids into the single IBA id;
         // the type discriminator is a CASE over which implementation is non-null.
-        const ids = [...ib.implementations.values()].map(ee => ee.externalId.value);
-        const id = ids.reduce((a, b) => new BinaryExpression("??", a, b));
+        const idVals = [...ib.implementations.values()].map(ee => ee.externalId.value);
+        const id = idVals.reduce((a, b) => new BinaryExpression("??", a, b));
         const whens = [...ib.implementations].map(([ctor, ee]) =>
             new When(new IsNotNullExpression(ee.externalId.value), new SqlConstantExpression(TypeLogic.typeToId(ctor), LiteralType.number)));
-        return new ImplementedByAllExpression(col.type, id,
+        // The combined implementation ids share the target's id-column type (impls are
+        // typed entities); key the value under that column so Assign routes it correctly.
+        const pk = pkTypeOfCtor([...ib.implementations.keys()][0]);
+        return new ImplementedByAllExpression(col.type, new Map([[pk, id]]),
             new TypeImplementedByAllExpression(new CaseExpression(whens, undefined)));
     }
 
@@ -203,7 +235,8 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
 
     private entityToIba(type: Type, idExpr: Expression, ctor: Function | undefined): ImplementedByAllExpression {
         const typeId = ctor != null ? TypeLogic.typeToId(ctor) : null;
-        return new ImplementedByAllExpression(type, idExpr,
+        // The constant's id populates only the column matching its PK type.
+        return new ImplementedByAllExpression(type, new Map([[pkTypeOfCtor(ctor), idExpr]]),
             new TypeImplementedByAllExpression(new SqlConstantExpression(typeId, LiteralType.number)));
     }
 

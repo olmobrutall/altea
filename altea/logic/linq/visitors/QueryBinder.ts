@@ -626,11 +626,13 @@ export class QueryBinder extends ExpressionVisitor {
             return [...col.implementations].map(([ctor, ee]) =>
                 this.assignColumn(ee.externalId.value, value.implementations.get(ctor)!.externalId.value));
 
-        if (col instanceof ImplementedByAllExpression && value instanceof ImplementedByAllExpression)
-            return [
-                this.assignColumn(col.id, value.id),
-                this.assignColumn(col.typeId.typeColumn, value.typeId.typeColumn),
-            ];
+        if (col instanceof ImplementedByAllExpression && value instanceof ImplementedByAllExpression) {
+            // Set the id column matching the value's PK type; NULL the others.
+            const result = [...col.ids].map(([pk, colId]) =>
+                this.assignColumn(colId, value.ids.get(pk) ?? new SqlConstantExpression(null, LiteralType.null)));
+            result.push(this.assignColumn(col.typeId.typeColumn, value.typeId.typeColumn));
+            return result;
+        }
 
         throw new Error(`Cannot assign ${col} from ${value}`);
     }
@@ -935,7 +937,9 @@ export class QueryBinder extends ExpressionVisitor {
             }
             if (expr instanceof ImplementedByAllExpression) {
                 const refTable = this.schema.table(targetCtor as any);
-                return new EntityExpression(new ClassType(targetCtor), refTable, new PrimaryKeyExpression(expr.id), undefined, undefined, undefined, false);
+                // Casting to a concrete type reads the id column matching that type's PK type.
+                const id = expr.ids.get(this.pkTypeOf(targetCtor)) ?? [...expr.ids.values()][0];
+                return new EntityExpression(new ClassType(targetCtor), refTable, new PrimaryKeyExpression(id), undefined, undefined, undefined, false);
             }
         }
 
@@ -1737,7 +1741,7 @@ export class QueryBinder extends ExpressionVisitor {
         if (ref instanceof EntityExpression)
             return ref.externalId;
         if (ref instanceof ImplementedByAllExpression)
-            return new PrimaryKeyExpression(ref.id);
+            return new PrimaryKeyExpression(this.ibaId(ref));
         // IB has one id column per implementation; `.id` of an IB lite is the first
         // non-null implementation id (Signum coalesces them).
         return this.dispatchIb(ref, ee => ee.externalId.value);
@@ -1859,11 +1863,19 @@ export class QueryBinder extends ExpressionVisitor {
         // Mixed IB/IBA implementations (e.g. a member typed IBA on one impl, IB on
         // another) also land here: each is reduced to its id value and type id.
         if (values.some(v => v instanceof ImplementedByAllExpression)) {
-            const ids = mapValues(expressions, v => this.idValueOf(v));
-            const id = this.combineImplementations(strategy, ids, LiteralType.number);
+            // Combine per PK type (Signum's CombineImplementations over ImplementedByAllPrimaryKeyTypes):
+            // for each PK type any source can contribute, combine each source's id-for-that-type, so the
+            // combined column stays that type (no cross-type UNION/COALESCE mismatch).
+            const pkTypes = new Set<string>();
+            for (const v of values) for (const pk of this.idPkTypes(v)) pkTypes.add(pk);
+            const ids = new Map<string, Expression>();
+            for (const pk of pkTypes) {
+                const perType = mapValues(expressions, v => this.getIdAsType(v, pk));
+                ids.set(pk, this.combineImplementations(strategy, perType, LiteralType.number));
+            }
             const typeIds = mapValues(expressions, v => this.extractTypeId(this.getEntityType(v)));
             const typeId = this.combineImplementations(strategy, typeIds, LiteralType.number);
-            return new ImplementedByAllExpression(returnType, id, new TypeImplementedByAllExpression(typeId));
+            return new ImplementedByAllExpression(returnType, ids, new TypeImplementedByAllExpression(typeId));
         }
 
         // All typed-or-@implementedBy → combine to @implementedBy over the union of
@@ -1928,7 +1940,7 @@ export class QueryBinder extends ExpressionVisitor {
         if (ref instanceof EntityExpression)
             return ref.externalId.value;
         if (ref instanceof ImplementedByAllExpression)
-            return ref.id;
+            return this.ibaId(ref);
         if (ref instanceof ImplementedByExpression)
             return this.dispatchIb(ref, ee => ee.externalId.value);
         throw new Error(`Cannot take the id of ${ref.toString()}`);
@@ -1954,9 +1966,49 @@ export class QueryBinder extends ExpressionVisitor {
 
     // @implementedByAll exposes only `.id` on queries (Signum throws for any other
     // member — the concrete fields are reachable only through a cast).
+    // The altea PrimaryKeyType an entity's id column uses (from its PK column's db type),
+    // to pick the matching @implementedByAll id column when the target type is known.
+    private pkTypeOf(ctor: Function): string {
+        const pg = this.schema.table(ctor as any).primaryKey.column.dbType.postgres;
+        return pg === "int8" ? "long" : pg === "uuid" ? "uuid" : "int";
+    }
+
+    // The single logical id of an @implementedByAll reference: COALESCE over the per-PK-type
+    // id columns (only one is non-null). Their SQL types differ, so each is cast to text —
+    // Signum treats a polymorphic id as an IComparable.
+    private ibaId(iba: ImplementedByAllExpression): Expression {
+        const cast = (e: Expression) => new SqlCastExpression(LiteralType.string, e, this.isPostgres ? "varchar" : "nvarchar(max)");
+        const parts: Expression[] = [...iba.ids.values()].map(cast);
+        return parts.reduce((a, b) => new BinaryExpression("??", a, b));
+    }
+
+    // The PK types a reference can contribute when combined into an @implementedByAll
+    // (its target entities' PK types), used to build the combined per-type ids map.
+    private idPkTypes(v: Expression): string[] {
+        if (v instanceof LiteReferenceExpression) return this.idPkTypes(v.reference);
+        if (v instanceof EntityExpression) return [this.pkTypeOf(ctorOfType(v.type))];
+        if (v instanceof ImplementedByExpression) return [...v.implementations.keys()].map(c => this.pkTypeOf(c));
+        if (v instanceof ImplementedByAllExpression) return [...v.ids.keys()];
+        return [];
+    }
+
+    // A reference's id for a specific PK type (NULL when it can't be that type) — Signum's
+    // GetIdAsType. Keeps a combined @implementedByAll column single-typed.
+    private getIdAsType(v: Expression, pk: string): Expression {
+        const nul = new SqlConstantExpression(null, LiteralType.null);
+        if (v instanceof LiteReferenceExpression) return this.getIdAsType(v.reference, pk);
+        if (v instanceof EntityExpression) return this.pkTypeOf(ctorOfType(v.type)) === pk ? v.externalId.value : nul;
+        if (v instanceof ImplementedByExpression) {
+            const matching = [...v.implementations].filter(([c]) => this.pkTypeOf(c) === pk).map(([, ee]) => ee.externalId.value);
+            return matching.length ? matching.reduce((a, b) => new BinaryExpression("??", a, b)) : nul;
+        }
+        if (v instanceof ImplementedByAllExpression) return v.ids.get(pk) ?? nul;
+        return nul;
+    }
+
     private bindImplementedByAllMember(iba: ImplementedByAllExpression, name: string): Expression {
         if (name === "id")
-            return new PrimaryKeyExpression(iba.id);
+            return new PrimaryKeyExpression(this.ibaId(iba));
         throw new Error(`Member '${name}' of @implementedByAll is not accessible on queries (cast to a concrete type first)`);
     }
 
@@ -2358,10 +2410,13 @@ export class QueryBinder extends ExpressionVisitor {
         }
 
         if (f instanceof FieldImplementedByAll) {
-            const id = new ColumnExpression(LiteralType.number, alias, f.idColumn.name);
-            // The discriminator column holds the target's TypeEntity int id.
+            // One id column per PK type ('int'/'long'/'uuid'); the discriminator holds the
+            // target's TypeEntity int id.
+            const ids = new Map<string, Expression>();
+            for (const col of f.idColumns)
+                ids.set(col.pkType, new ColumnExpression(LiteralType.number, alias, col.name));
             const typeId = new TypeImplementedByAllExpression(new ColumnExpression(LiteralType.number, alias, f.typeColumn.name));
-            const iba = new ImplementedByAllExpression(new ClassType(this.refCleanCtor(ef.fieldInfo)), id, typeId);
+            const iba = new ImplementedByAllExpression(new ClassType(this.refCleanCtor(ef.fieldInfo)), ids, typeId);
             return f.isLite ? new LiteReferenceExpression(new LiteType(iba.type), iba, undefined) : iba;
         }
 

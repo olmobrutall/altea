@@ -8,7 +8,15 @@ import {
 import { ClassType } from "../../entities/types";
 import { Entity } from "../../entities/entity";
 import { Lite } from "../../entities/lite";
+import { getTypeInfo } from "../../entities/reflection";
 import { TypeLogic } from "../typeLogic";
+
+// The @implementedByAll id column matching a known target ctor's PK type (NULL if absent):
+// comparisons against a typed value resolve to the one column that can hold its id.
+function ibaIdOf(iba: ImplementedByAllExpression, ctor: Function): Expression {
+    const pk = (getTypeInfo(ctor)?.fields["id"]?.columnOptions?.primaryKey as string | undefined) ?? "int";
+    return iba.ids.get(pk) ?? new ConstantExpression(null);
+}
 
 // Port of Signum's SmartEqualizer (Engine/Linq/ExpressionVisitor/SmartEqualizer.cs),
 // scoped to what altea models. SQL has no notion of "entity equality": a reference
@@ -178,9 +186,9 @@ export class SmartEqualizer {
             return impl != null ? this.equalNullable(impl.externalId.value, idConstant(c)) : this.False;
         }
 
-        // ImplementedByAll
+        // ImplementedByAll: compare the id column matching the constant's PK type.
         return this.and(
-            this.equalNullable(node.id, idConstant(c)),
+            this.equalNullable(ibaIdOf(node, c.ctor!), idConstant(c)),
             this.equalNullable(node.typeId.typeColumn, typeConstant(c.ctor!)));
     }
 
@@ -216,7 +224,7 @@ export class SmartEqualizer {
 
     private static entityIbaEquals(ee: EntityExpression, iba: ImplementedByAllExpression): Expression {
         return this.and(
-            this.equalNullable(ee.externalId.value, iba.id),
+            this.equalNullable(ee.externalId.value, ibaIdOf(iba, ctorOf(ee.type))),
             this.equalNullable(typeConstant(ctorOf(ee.type)), iba.typeId.typeColumn));
     }
 
@@ -235,14 +243,17 @@ export class SmartEqualizer {
         for (const [ctor, impl] of ib.implementations)
             terms.push(this.and(
                 this.equalNullable(iba.typeId.typeColumn, typeConstant(ctor)),
-                this.equalNullable(iba.id, impl.externalId.value)));
+                this.equalNullable(ibaIdOf(iba, ctor), impl.externalId.value)));
         return this.orAll(terms);
     }
 
     private static ibaIbaEquals(iba1: ImplementedByAllExpression, iba2: ImplementedByAllExpression): Expression {
+        // Same type discriminator, and every per-PK-type id column matches.
+        const idTerms = [...iba1.ids.keys()].map(pk =>
+            this.equalNullable(iba1.ids.get(pk)!, iba2.ids.get(pk) ?? new ConstantExpression(null)));
         return this.and(
             this.equalNullable(iba1.typeId.typeColumn, iba2.typeId.typeColumn),
-            this.equalNullable(iba1.id, iba2.id));
+            this.andAll(idTerms));
     }
 
     // ---- null comparison --------------------------------------------------
@@ -252,8 +263,8 @@ export class SmartEqualizer {
             return this.equalsToNull(node.externalId);
         if (node instanceof ImplementedByExpression)
             return this.andAll([...node.implementations.values()].map(e => this.equalsToNull(e.externalId)));
-        // ImplementedByAll
-        return this.eqNull(node.id);
+        // ImplementedByAll: null when its type discriminator is unset (no target).
+        return this.eqNull(node.typeId.typeColumn);
     }
 
     // ---- primitive builders (Signum's EqualNullable & friends) ------------

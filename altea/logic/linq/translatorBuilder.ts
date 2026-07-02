@@ -198,8 +198,7 @@ class ProjectionBuilder extends DbExpressionVisitor {
 
         // Lite over @implementedByAll: resolve the type discriminator → ctor by id.
         if (ref instanceof ImplementedByAllExpression) {
-            this.visit(ref.id);
-            const idCode = this.pop();
+            const idCode = this.ibaIdCode(ref);
             this.visit(ref.typeId.typeColumn);
             const typeCode = this.pop();
             this.stack.push(`retriever.liteImplementedByAll(${idCode}, ${typeCode}, ${toStrCode})`);
@@ -227,9 +226,15 @@ class ProjectionBuilder extends DbExpressionVisitor {
         return e;
     }
 
+    // The @implementedByAll id, coalesced client-side over the per-PK-type columns (only
+    // one is non-null) — Signum coalesces in the projector too, preserving the native type.
+    private ibaIdCode(e: ImplementedByAllExpression): string {
+        const parts = [...e.ids.values()].map(id => { this.visit(id); return this.pop(); });
+        return parts.length === 1 ? parts[0] : `(${parts.join(" ?? ")})`;
+    }
+
     override visitImplementedByAll(e: ImplementedByAllExpression): Expression {
-        this.visit(e.id);
-        const idCode = this.pop();
+        const idCode = this.ibaIdCode(e);
         this.visit(e.typeId.typeColumn);
         const typeCode = this.pop();
         this.stack.push(`retriever.implementedByAll(${idCode}, ${typeCode})`);
