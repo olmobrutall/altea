@@ -60,7 +60,12 @@ a spec.
   `ColumnProjector`/`ColumnGenerator`, `QueryFormatter`, `TranslatorBuilder` +
   `Retriever` (materialisation).
 - **Materialisation** — full entities, embeddeds, mixins; the clean change-tracking
-  snapshot is taken on load (closes the Phase-C retrieve gap).
+  snapshot is taken on load (closes the Phase-C retrieve gap). Temporal columns are
+  read back into their declared `Temporal` type (`PlainDateTime`/`PlainDate`/`Duration`),
+  not a raw JS `Date` — the projector runs `denormalizeTemporal` on any `TemporalType`
+  column (the pg pool keeps temporal OIDs as raw text so the exact wall-clock is parsed;
+  the mssql driver's UTC `Date`s are read via their UTC components). This is the read-side
+  inverse of `normalizeScalar`, so `entity.creationTime.dayOfWeek` etc. work in memory.
 - **Query operators** — `filter`, `map`, `flatMap` (→ CROSS APPLY), `orderBy`/
   `thenBy`(+`Descending`), `top`, `skip` (OFFSET/FETCH · LIMIT/OFFSET), `distinct`,
   `first`/`single`/`last`(+`OrNull`), `reverse`, `count`/`min`/`max`/`sum`/`avg`,
@@ -176,6 +181,14 @@ a spec.
   entity instance methods (`toLite`/`is`/combine*) on a lost-type receiver dispatch on
   `Entity.prototype`. IBA type-discriminator constants emit as inline SQL literals
   (not bound params) so an all-branch `CASE` types unambiguously.
+- **`DayOfWeek` is Temporal-ISO, not .NET** — Signum's `DateTime.DayOfWeek` is .NET
+  (Sun=0..Sat=6) and it normalises the DB result to match (`ToDayOfWeek`, per dialect).
+  altea instead aligns to the **in-memory `Temporal.PlainDateTime.dayOfWeek`** value
+  (ISO Mon=1..Sun=7): the `DayOfWeek` enum is ISO (only Sunday differs from .NET, 0→7)
+  and the Postgres translation uses `EXTRACT(isodow …)` rather than `dow`. SQL Server's
+  `DATEPART(weekday …)` already yields ISO under `DATEFIRST 1`. So a `.dayOfWeek` group
+  key / comparison agrees between the DB and a materialised entity, at the cost of a
+  one-line SQL-shape divergence from Signum on this specific extraction.
 - **`queryBinder.ts` / `columnProjector.ts`** at the `linq/` root are shims over the
   `visitors/` implementations — keep imports/casing consistent (stale build output
   can otherwise load a different module identity).
@@ -198,7 +211,7 @@ a spec.
 | `ExpressionVisitor/AggregateFinder+Rewriter.cs` | `logic/linq/visitors/AggregateRewriter.ts` | Ported (folded together) |
 | `ExpressionVisitor/ChildProjectionFlattener.cs` | `logic/linq/visitors/ChildProjectionFlattener.ts` | Ported (scoped, eager-only) |
 | `ExpressionVisitor/ConditionsRewriter.cs` (+Postgres) | `logic/linq/visitors/ConditionsRewriter.ts` | Ported (SQL-Server-only; PG variant not needed) |
-| `ExpressionVisitor/EntityCompleter.cs` | `logic/linq/visitors/{QueryBinder(completed),EntityCompleter}.ts` | Partial |
+| `ExpressionVisitor/EntityCompleter.cs` | `logic/linq/visitors/{QueryBinder(completed),EntityCompleter}.ts` | Ported (VisitEntity + VisitMList; eager references and collections) |
 | `ExpressionVisitor/GroupEntityCleaner.cs` | `logic/linq/visitors/GroupEntityCleaner.ts` | Ported (scoped; Type key → discriminator) |
 | `ExpressionVisitor/OrderByRewriter.cs` | `logic/linq/visitors/OrderByRewriter.ts` | Ported (Reverse + float-to-outermost/TOP/OFFSET; key machinery dormant) |
 | `ExpressionVisitor/QueryRebinder.cs` | `logic/linq/visitors/QueryRebinder.ts` | Ported (scoped) |
@@ -224,6 +237,14 @@ Ported LinqProvider suites live in `altea-test/test/*.test.ts` (one per Signum
 uncommented (the compile-clean API-stability gate). Suites not ported:
 `FullTextSearch`, `SystemTime`, `VectorSearch` (need features altea doesn't model).
 Per-suite pass counts move with each tier; use a live run for the current numbers.
+
+**Prefer the `globals.ts` in-memory operators in ported tests** so the TypeScript
+reads like the C# LINQ it mirrors and the mem-vs-db arms stay symmetric: use
+`orderBy`/`orderByDescending` (not native `Array.prototype.sort`), `groupBy` (not a
+hand-rolled `Map`/loop), and `min`/`max`/`sum`/`avg`/`count` (not a bare `reduce`).
+This keeps the in-memory arm shaped like the DB arm — ideally the same
+`.groupBy(k).map(gr => …)` chain over either a query or a `toArray()`ed list — which
+both aids review and keeps the SQL dump comparable to Signum's.
 
 ## Verification
 

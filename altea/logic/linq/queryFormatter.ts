@@ -363,6 +363,12 @@ export class QueryFormatter extends DbExpressionVisitor {
     }
 
     override visitSqlFunction(e: SqlFunctionExpression): Expression {
+        // Postgres EXTRACT(<part> from <source>) — Signum's QueryFormatter special-cases
+        // it the same way (the part is an unquoted keyword, not a comma-separated arg).
+        if (this.isPostgres && e.sqlFunction === "EXTRACT") {
+            this.append(`EXTRACT(${this.capture(() => this.visit(e.arguments[0]))} from ${this.capture(() => this.visit(e.arguments[1]))})`);
+            return e;
+        }
         this.append(`${e.sqlFunction}(${e.arguments.map(a => this.capture(() => this.visit(a))).join(", ")})`);
         return e;
     }

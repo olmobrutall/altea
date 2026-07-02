@@ -11,9 +11,10 @@ import {
 } from "./expressions.sql";
 import { QueryFormatter } from "./queryFormatter";
 import { Connector } from "../connection/connector";
-import { ClassType, Type } from "../../entities/types";
+import { ClassType, TemporalType, Type } from "../../entities/types";
 import { Retriever } from "./Retriever";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
+import { denormalizeTemporal } from "../normalizeScalar";
 
 // A lookup maps a serialised correlation key to the child values for that key.
 type Lookups = Map<LookupToken, Map<string, unknown[]>>;
@@ -141,7 +142,15 @@ class ProjectionBuilder extends DbExpressionVisitor {
     }
 
     override visitColumn(e: ColumnExpression): Expression {
-        this.stack.push(`row[${JSON.stringify(e.name)}]`);
+        const read = `row[${JSON.stringify(e.name)}]`;
+        // A temporal column is materialised into its declared Temporal type (the driver
+        // hands back a string/Date) — mirrors Signum reading DateTime/DateOnly/TimeSpan.
+        if (e.type instanceof TemporalType) {
+            const fnIndex = this.pushConst(denormalizeTemporal);
+            this.stack.push(`consts[${fnIndex}](${read}, ${JSON.stringify(e.type.kind)})`);
+        } else {
+            this.stack.push(read);
+        }
         return e;
     }
 

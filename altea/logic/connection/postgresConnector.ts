@@ -7,10 +7,20 @@ import type { Schema } from '../schema/schema';
 // per-pool parser coerces OID 20 (int8) → Number; everything else keeps pg's default
 // parser (notably numeric/OID 1700 stays a string for decimal.js). int4 ids are
 // unaffected (already numbers).
+// OIDs of the temporal types (date/time/timestamp/timestamptz/interval). node-postgres'
+// default parsers build JS Date objects in the *local* timezone, which shifts a
+// `timestamp without time zone` wall-clock; instead keep the raw text and let the
+// projector parse it into a Temporal (see denormalizeTemporal).
+const PG_TEMPORAL_OIDS = new Set([1082, 1083, 1114, 1184, 1186]);
+
+const identityParser = (value: string | null) => value;
+
 const ALTEA_PG_TYPES = {
     getTypeParser(oid: number, format?: unknown): unknown {
         if (oid === 20)
             return (value: string | null) => (value == null ? null : Number(value));
+        if (PG_TEMPORAL_OIDS.has(oid))
+            return identityParser;
         return (pgTypes.getTypeParser as (oid: number, format?: unknown) => unknown)(oid, format);
     },
 };

@@ -41,16 +41,18 @@ declare module "temporal-polyfill" {
     }
 }
 
-// DayOfWeek with the .NET ordering (Sunday = 0), so DayOfWeek constants line up with
-// Signum's queries. (SQL extraction is normalised to this in the translator.)
+// DayOfWeek with the Temporal-ISO ordering (Monday = 1 … Sunday = 7), so the constants
+// line up with the in-memory `Temporal.PlainDateTime.dayOfWeek` value and with the SQL the
+// translator emits (Postgres `EXTRACT(isodow …)`, SQL Server `DATEPART(weekday …)`). This
+// diverges from Signum/.NET (Sunday = 0); only Sunday differs — Mon–Sat are 1–6 in both.
 export enum DayOfWeek {
-    Sunday = 0,
     Monday = 1,
     Tuesday = 2,
     Wednesday = 3,
     Thursday = 4,
     Friday = 5,
     Saturday = 6,
+    Sunday = 7,
 }
 
 const queryOnly = (name: string) => function (): never {

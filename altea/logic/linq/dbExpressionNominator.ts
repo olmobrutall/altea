@@ -360,16 +360,16 @@ class DbExpressionNominator extends DbExpressionVisitor {
             new BinaryExpression("*", this.extract("month", age), new SqlConstantExpression(12, LiteralType.number)));
     }
 
-    // Postgres date_part('<part>', x) → number (same value as EXTRACT(part FROM x),
-    // but a plain function call so it renders through the generic formatter).
+    // Postgres EXTRACT(<part> from x) → number (Signum's GetDatePart on Postgres). The
+    // formatter special-cases the EXTRACT function name to render `<part> from <source>`.
     private extract(part: string, source: Expression): Expression {
-        return this.sqlFunction(LiteralType.number, "date_part", new SqlLiteralExpression(`'${part}'`), source);
+        return this.sqlFunction(LiteralType.number, "EXTRACT", new SqlLiteralExpression(part), source);
     }
 
-    // DATEPART(<kw>, x) on SQL Server; date_part('<kw>', x) on Postgres → number.
+    // DATEPART(<kw>, x) on SQL Server; EXTRACT(<kw> from x) on Postgres → number.
     private datePartFn(ss: string, pg: string, source: Expression): SqlFunctionExpression {
         return this.isPostgres
-            ? this.sqlFunction(LiteralType.number, "date_part", new SqlLiteralExpression(`'${pg}'`), source)
+            ? this.sqlFunction(LiteralType.number, "EXTRACT", new SqlLiteralExpression(pg), source)
             : this.sqlFunction(LiteralType.number, "DATEPART", new SqlLiteralExpression(ss), source);
     }
 
@@ -481,7 +481,7 @@ class DbExpressionNominator extends DbExpressionVisitor {
     }
 
     // Date/time part access on a temporal column (`creationTime.year`, `.dayOfWeek`, …)
-    // → DATEPART / date_part. Signum handles date MemberExpressions in the nominator;
+    // → DATEPART / EXTRACT. Signum handles date MemberExpressions in the nominator;
     // the binder leaves them as residual PropertyExpressions for us to lower. Any other
     // residual property (e.g. on a captured constant) passes through untranslated.
     override visitProperty(node: PropertyExpression): Expression {
@@ -496,7 +496,7 @@ class DbExpressionNominator extends DbExpressionVisitor {
     }
 
     // The datepart keyword per dialect for a JS date property (SQL Server name,
-    // Postgres name). SQL Server: DATEPART(<kw>, x); Postgres: date_part('<kw>', x).
+    // Postgres name). SQL Server: DATEPART(<kw>, x); Postgres: EXTRACT(<kw> from x).
     private static readonly dateParts: Record<string, readonly [string, string]> = {
         year: ["year", "year"],
         month: ["month", "month"],
@@ -506,7 +506,10 @@ class DbExpressionNominator extends DbExpressionVisitor {
         second: ["second", "second"],
         millisecond: ["millisecond", "milliseconds"],
         dayOfYear: ["dayofyear", "doy"],
-        dayOfWeek: ["weekday", "dow"],
+        // altea's dayOfWeek is Temporal-ISO (Mon=1..Sun=7). SQL Server DATEPART(weekday)
+        // already yields that (DATEFIRST=1); Postgres `dow` is .NET-style (Sun=0..Sat=6),
+        // so use `isodow` (Mon=1..Sun=7) to match the in-memory Temporal value.
+        dayOfWeek: ["weekday", "isodow"],
         // Temporal.Duration component members are plural.
         hours: ["hour", "hour"],
         minutes: ["minute", "minute"],

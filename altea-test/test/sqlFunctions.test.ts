@@ -216,14 +216,29 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
         assert.ok(Array.isArray(listy0));
     });
 
-    // GroupBy(a => a.CreationTime.DayOfWeek).Select(gr => new { gr.Key, Count = gr.Count() }); compare ordered mem vs db
-    // TODO(api): DayOfWeek extraction in query and groupBy over a DayOfWeek key
+    // GroupBy(a => a.CreationTime.DayOfWeek).Select(gr => new { gr.Key, Count = gr.Count() }); compare ordered mem vs db, twice
     test("DayOfWeekGroupBy", async () => {
+        // listX.OrderBy(a => a.Key).ToString(a => $"{a.Key} {a.Count}", ",")
+        const fmt = (rows: { key: number; count: number }[]) =>
+            rows.orderBy(a => a.key).map(a => `${a.key} ${a.count}`).join(",");
+        // notes.GroupBy(a => a.CreationTime.DayOfWeek).Select(gr => new { gr.Key, Count = gr.Count() })
+        const byDow = (notes: NoteWithDateEntity[]) => notes
+            .groupBy(a => a.creationTime.dayOfWeek)
+            .map(gr => ({ key: gr.key, count: gr.elements.length }));
+
         const listA = await table(NoteWithDateEntity)
             .groupBy(a => a.creationTime.dayOfWeek)
             .map(gr => ({ key: gr.key, count: gr.elements.length }))
             .toArray();
-        assert.ok(Array.isArray(listA));
+        const listB = byDow(await table(NoteWithDateEntity).toArray());
+        assert.equal(fmt(listA), fmt(listB));
+
+        const listA2 = await table(NoteWithDateEntity)
+            .groupBy(a => a.creationTime.dayOfWeek)
+            .map(gr => ({ key: gr.key, count: gr.elements.length }))
+            .toArray();
+        const listB2 = byDow(await table(NoteWithDateEntity).toArray());
+        assert.equal(fmt(listA2), fmt(listB2));
     });
 
     // Dump (CreationTime - CreationTime).Total{Days,Hours,Minutes,Seconds} + (AddDays(1)-CreationTime).TotalMilliseconds + (CreationDate.DayNumber - CreationDate.DayNumber)

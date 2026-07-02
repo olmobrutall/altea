@@ -382,7 +382,7 @@ export class SqlConstantExpression extends DbExpression {
 
 // Raw SQL text rendered verbatim — no quoting, no parameter (Signum's
 // SqlLiteralExpression). Used for tokens that aren't values, e.g. the date-part
-// keyword in `DATEPART(year, …)` or the quoted field in `date_part('year', …)`.
+// keyword in `DATEPART(year, …)` or `EXTRACT(year from …)`.
 export class SqlLiteralExpression extends DbExpression {
     constructor(
         public readonly value: string,

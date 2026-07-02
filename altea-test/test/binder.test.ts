@@ -237,6 +237,19 @@ describe("QueryFormatter (step 3)", () => {
         assert.match(sql, / IN \(@p0, @p1, @p2\)/i);
         assert.deepEqual(parameters, ids);
     });
+
+    // Date-part access lowers to EXTRACT(<part> from x) on Postgres (Signum's
+    // GetDatePart) and DATEPART(<kw>, x) on SQL Server — matching Signum's SQL shape.
+    // dayOfWeek uses `isodow` (Mon=1..Sun=7) so it matches the in-memory Temporal value.
+    test("postgres dayOfWeek → EXTRACT(isodow from …)", () => {
+        const { sql } = QueryFormatter.format(bindPg(table(NoteWithDateEntity).map(a => a.creationTime.dayOfWeek)).select, true);
+        assert.match(sql, /EXTRACT\(isodow from /i);
+    });
+
+    test("sql server dayOfWeek → DATEPART(weekday, …)", () => {
+        const { sql } = QueryFormatter.format(bind(table(NoteWithDateEntity).map(a => a.creationTime.dayOfWeek)).select, false);
+        assert.match(sql, /DATEPART\(weekday, /i);
+    });
 });
 
 describe("ProjectionReader end-to-end (step 3, fake connector)", () => {
