@@ -2124,7 +2124,8 @@ export class QueryBinder extends ExpressionVisitor {
     // The WHERE references the owner alias (the correlation); it becomes valid when
     // this select is spliced in as the right side of a CROSS APPLY (bindSelectMany)
     // or wrapped as a scalar/EXISTS subquery.
-    private fieldEntityArrayProjection(fea: FieldEntityArrayExpression): ProjectionExpression {
+    // Public for EntityCompleter (Signum calls binder.MListProjection from VisitMList).
+    fieldEntityArrayProjection(fea: FieldEntityArrayExpression): ProjectionExpression {
         const childProj = this.getTableProjectionForTable(fea.childTable, fea.type);
         const childEntity = childProj.projector as EntityExpression;
         let fkBinding = childEntity.bindings?.find(b => b.fieldInfo.name === fea.fkProperty)?.binding;
@@ -2313,8 +2314,8 @@ export class QueryBinder extends ExpressionVisitor {
 
     // Builds the EntityExpression for a table: id → externalId, value/enum → a
     // column, embedded → inlined EmbeddedEntityExpression, single reference → a
-    // lazy EntityExpression (completed on navigation, step 5). ImplementedBy*,
-    // collections (FieldEntityArray) are skipped for now.
+    // lazy EntityExpression (completed on navigation, step 5), collection
+    // (FieldEntityArray) → an eager marker EntityCompleter expands into a child query.
     private createEntityExpression(table: Table, alias: Alias, externalIdOverride?: PrimaryKeyExpression): EntityExpression {
         const idColumn = table.primaryKey.column;
         // Root tables read their id from their own alias; a completed reference
@@ -2327,7 +2328,7 @@ export class QueryBinder extends ExpressionVisitor {
         for (const ef of Object.values(table.fields)) {
             if (ef.field instanceof FieldPrimaryKey)
                 continue;
-            const binding = this.bindField(ef, alias);
+            const binding = this.bindField(ef, alias, externalId.value);
             if (binding != null)
                 bindings.push(new FieldBinding(ef.fieldInfo, binding));
         }
@@ -2336,7 +2337,7 @@ export class QueryBinder extends ExpressionVisitor {
         for (const fm of Object.values(table.mixins)) {
             const mixinBindings: FieldBinding[] = [];
             for (const ef of Object.values(fm.fields)) {
-                const binding = this.bindField(ef, alias);
+                const binding = this.bindField(ef, alias, externalId.value);
                 if (binding != null)
                     mixinBindings.push(new FieldBinding(ef.fieldInfo, binding));
             }
@@ -2350,7 +2351,7 @@ export class QueryBinder extends ExpressionVisitor {
             mixins.length ? mixins : undefined, false);
     }
 
-    private bindField(ef: EntityField, alias: Alias): Expression | undefined {
+    private bindField(ef: EntityField, alias: Alias, ownerId?: Expression): Expression | undefined {
         const f = ef.field;
 
         // FieldEnum extends FieldReference — check before FieldReference. Stored as
@@ -2420,7 +2421,20 @@ export class QueryBinder extends ExpressionVisitor {
             return f.isLite ? new LiteReferenceExpression(new LiteType(iba.type), iba, undefined) : iba;
         }
 
-        // FieldEntityArray: navigation-only (no column); handled in bindEntityMember.
+        // FieldEntityArray: an eager collection (Signum's MList). Bind a marker carrying
+        // the correlation key (the owner's id); EntityCompleter.visitFieldEntityArray
+        // realises it into a correlated child projection and recurses (so element entities'
+        // own references/collections expand too), which ChildProjectionFlattener then
+        // eager-loads as one extra query per level — matching Signum's VisitMList. An
+        // embedded sub-field has no owning id (ownerId == null), so its collections, if
+        // any, stay lazy navigation targets.
+        if (f instanceof FieldEntityArray) {
+            if (ownerId == null)
+                return undefined;
+            const childTable = this.schema.table(f.childType as any);
+            return new FieldEntityArrayExpression(new ClassType(f.childType as any), childTable, f.childFkProperty, ownerId);
+        }
+
         return undefined;
     }
 

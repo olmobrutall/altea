@@ -1,6 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
+import { Connector } from "@altea/altea/logic/connection/connector";
 import { hasDb, start } from "./setup";
 import {
     CountryEntity, GrammyAwardEntity, LabelEntity,
@@ -74,5 +75,32 @@ describe("RetrieverTest", { skip: !hasDb }, () => {
     test("RetrieveWithMListCount", async () => {
         const artist = await table(ArtistEntity).orderBy(a => a.name).first();
         assert.equal(artist.toLite().retrieveAndRemember().friends.length, artist.friends.length);
+    });
+
+    // FieldEntityArray collections load eagerly on a bare retrieval (Signum's MList
+    // eagerness). Validate the eager-loaded in-memory arrays match a direct SQL count of
+    // the same collection, per row — proves the correlation/materialisation is correct.
+    test("RetrieveEagerMList", async () => {
+        const artists = await table(ArtistEntity).orderBy(a => a.name).toArray();
+        const dbCounts = await table(ArtistEntity).orderBy(a => a.name).map(a => a.friends.length).toArray();
+        assert.deepEqual(artists.map(a => a.friends.length), dbCounts);
+    });
+
+    // A retrieval that matches no parent rows must NOT fire the eager collection child
+    // queries — Signum's lazy-child skip (`requests == null → return`). Only the main
+    // SELECT runs, so `table(Artist).filter(no-match)` stays a single round-trip even
+    // though Artist has an eager `friends` collection.
+    test("EagerMListSkippedWhenNoRows", async () => {
+        let queries = 0;
+        const previous = Connector.currentLogger;
+        Connector.currentLogger = { log: () => { queries++; } };
+        let empty: ArtistEntity[];
+        try {
+            empty = await table(ArtistEntity).filter(a => a.name == "___no_such_artist___").toArray();
+        } finally {
+            Connector.currentLogger = previous;
+        }
+        assert.equal(empty.length, 0);
+        assert.equal(queries, 1);
     });
 });

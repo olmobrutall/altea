@@ -19,7 +19,7 @@ import { ArtistEntity, AlbumEntity, BandEntity, NoteWithDateEntity, Sex, Status 
 //
 // Music-model note: Signum's MList<T> collections are part-entity arrays here.
 //   BandEntity.Members (MList<ArtistEntity>) → band.members, each row a
-//     BandEntity_Members with a `.member: Lite<ArtistEntity>` value field.
+//     BandEntity_Members with a full `.member: ArtistEntity` value field.
 //   ArtistEntity.Friends (MList<Lite<ArtistEntity>>) → artist.friends, each row
 //     an ArtistEntity_Friends with a `.friend: Lite<ArtistEntity>` value field.
 
@@ -53,17 +53,16 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     // var artistsInBands = Database.Query<BandEntity>().SelectMany(b => b.Members).Select(a => a.ToLite()).ToList();
     // var michael = Database.Query<ArtistEntity>().SingleEx(a => !artistsInBands.Contains(a.ToLite()));
     test("ContainsListLite", async () => {
-        const artistsInBands = await table(BandEntity).flatMap(b => b.members).map(a => a.member).toArray();
+        const artistsInBands = await table(BandEntity).flatMap(b => b.members).map(a => a.member.toLite()).toArray();
         const michael = await table(ArtistEntity).single(a => !artistsInBands.contains(a.toLite()));
         assert.ok(michael != null);
     });
 
     // var artistsInBands = Database.Query<BandEntity>().SelectMany(b => b.Members).Select(a => a).ToList();
     // var michael = Database.Query<ArtistEntity>().SingleEx(a => !artistsInBands.Contains(a));
-    // TODO(api): the in-bands collection is a Lite<ArtistEntity> (BandEntity_Members.member), so an entity-level Contains has no entity values to compare against without a retrieve.
     test("ContainsListEntities", async () => {
         const artistsInBands = await table(BandEntity).flatMap(b => b.members).map(a => a.member).toArray();
-        const michael = await table(ArtistEntity).single(a => !artistsInBands.contains(a.toLite()));
+        const michael = await table(ArtistEntity).single(a => !artistsInBands.contains(a));
         assert.ok(michael != null);
     });
 
@@ -158,14 +157,14 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
 
     // BandEntity smashing = Database.Query<BandEntity>().SingleEx(b => b.Members.Any(a => a.Sex == Sex.Female));
     test("AnySql", async () => {
-        const smashing = await table(BandEntity).single(b => b.members.some(a => a.member.entity.sex == Sex.Female));
+        const smashing = await table(BandEntity).single(b => b.members.some(a => a.member.sex == Sex.Female));
         assert.ok(smashing != null);
     });
 
     // BandEntity smashing = Database.Query<BandEntity>().SingleEx(b => b.Members.None(a => a.Sex == Sex.Female));
     // TODO(api): collection .None() (negated Any) has no altea equivalent; expressed as !(... .some(...)).
     test("NoneSql", async () => {
-        const smashing = await table(BandEntity).single(b => !b.members.some(a => a.member.entity.sex == Sex.Female));
+        const smashing = await table(BandEntity).single(b => !b.members.some(a => a.member.sex == Sex.Female));
         assert.ok(smashing != null);
     });
 
@@ -186,7 +185,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
 
     // BandEntity sigur = Database.Query<BandEntity>().SingleEx(b => b.Members.All(a => a.Sex == Sex.Male));
     test("AllSql", async () => {
-        const sigur = await table(BandEntity).single(b => b.members.every(a => a.member.entity.sex == Sex.Male));
+        const sigur = await table(BandEntity).single(b => b.members.every(a => a.member.sex == Sex.Male));
         assert.ok(sigur != null);
     });
 

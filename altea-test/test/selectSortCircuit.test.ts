@@ -26,7 +26,7 @@ const holaOrNull: string | null = "Hola";
 //   Database.Query<T>()  → table(T)            .Where(...) → .filter(...)
 //   .Select(...)         → .map(...)           .ToList()   → await .toArray()
 //   b.ToLite()           → b.toLite()          b.Members.Any(p) → b.members.some(p)
-//   a.Name == "A"        → a.member.entity.name == "A" (navigate the lite)
+//   a.Name == "A"        → a.member.name == "A" (navigate the lite)
 // These tests assert the SQL translator SHORT-CIRCUITS: the C# `Throw<T>()` helper
 // throws if evaluated, so each must compile to SQL that never executes the
 // throwing branch (?? / ?: / |/|| / &/&& constant folding). altea cannot embed a
@@ -74,7 +74,7 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
     // Where(b => b.Name == "Olmo" ? b.Members.Any(a => a.Name == "A") : true).Select(b => b.ToLite()).ToList();
     test("NonSortCircuitCondicional", async () => {
         const list = await table(BandEntity)
-            .filter(b => b.name == "Olmo" ? b.members.some(a => a.member.entity.name == "A") : true)
+            .filter(b => b.name == "Olmo" ? b.members.some(a => a.member.name == "A") : true)
             .map(b => b.toLite())
             .toArray();
         assert.ok(Array.isArray(list));

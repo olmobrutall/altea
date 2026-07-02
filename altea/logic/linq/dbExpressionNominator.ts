@@ -506,10 +506,8 @@ class DbExpressionNominator extends DbExpressionVisitor {
         second: ["second", "second"],
         millisecond: ["millisecond", "milliseconds"],
         dayOfYear: ["dayofyear", "doy"],
-        // altea's dayOfWeek is Temporal-ISO (Mon=1..Sun=7). SQL Server DATEPART(weekday)
-        // already yields that (DATEFIRST=1); Postgres `dow` is .NET-style (Sun=0..Sat=6),
-        // so use `isodow` (Mon=1..Sun=7) to match the in-memory Temporal value.
-        dayOfWeek: ["weekday", "isodow"],
+        // dayOfWeek is handled specially (dayOfWeekIso) — it needs a DATEFIRST-independent
+        // normalisation on SQL Server, not a plain DATEPART.
         // Temporal.Duration component members are plural.
         hours: ["hour", "hour"],
         minutes: ["minute", "minute"],
@@ -528,9 +526,28 @@ class DbExpressionNominator extends DbExpressionVisitor {
                 return this.isPostgres
                     ? new BinaryExpression("-", source, new SqlLiteralExpression("DATE '0001-01-01'"))
                     : this.sqlFunction(LiteralType.number, "DATEDIFF", new SqlLiteralExpression("day"), new SqlLiteralExpression("'0001-01-01'"), source);
+            // dayOfWeek is Temporal-ISO (Mon=1..Sun=7); normalised per dialect (see below).
+            case "dayOfWeek": return this.dayOfWeekIso(source);
         }
         const parts = DbExpressionNominator.dateParts[name];
         return parts == null ? undefined : this.datePartFn(parts[0], parts[1], source);
+    }
+
+    // The ISO day-of-week (Mon=1..Sun=7), matching the in-memory `Temporal.dayOfWeek`.
+    // Postgres `EXTRACT(isodow …)` yields it directly. SQL Server `DATEPART(weekday …)`
+    // depends on the session's `SET DATEFIRST`, so normalise it to ISO independently of
+    // that setting: ((DATEPART(weekday, x) + @@DATEFIRST + 5) % 7) + 1. (Signum instead
+    // reads the raw weekday and converts in the projector via @@DATEFIRST; altea folds the
+    // conversion into SQL so the DB value already equals the Temporal one.)
+    private dayOfWeekIso(source: Expression): Expression {
+        if (this.isPostgres)
+            return this.sqlFunction(LiteralType.number, "EXTRACT", new SqlLiteralExpression("isodow"), source);
+        const weekday = this.sqlFunction(LiteralType.number, "DATEPART", new SqlLiteralExpression("weekday"), source);
+        const shifted = new BinaryExpression("+",
+            new BinaryExpression("+", weekday, new SqlLiteralExpression("@@DATEFIRST", LiteralType.number)),
+            new SqlConstantExpression(5, LiteralType.number));
+        const mod = new BinaryExpression("%", shifted, new SqlConstantExpression(7, LiteralType.number));
+        return new BinaryExpression("+", mod, new SqlConstantExpression(1, LiteralType.number));
     }
 
     override visitLambda(node: LambdaExpression): Expression {

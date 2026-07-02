@@ -18,7 +18,7 @@ quoted lambda, so the *idiom* must change (not just add API):
 ## B. Lite navigation typing (idiom clarification, no new API)
 - `lite.name` / `lite.sex` (30×) — agents navigated a `Lite<T>`'s fields
   directly. `Lite<T>` doesn't expose `T`'s members; go through `.entity`
-  (`a.member.entity.sex`). The binder turns lite-nav into a no-op/join.
+  (`f.friend.entity.name`). The binder turns lite-nav into a no-op/join.
 → FIX: cheat-sheet rule "navigate a Lite via `.entity`"; re-pass affected files.
 
 ## C. PrimaryKey comparability (typing)

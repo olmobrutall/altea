@@ -46,11 +46,11 @@ describe("ToStringTest", { skip: !hasDb }, () => {
     test("ToStringSubCollection", async () => {
         const result1 = await table(BandEntity)
             .orderBy(b => b.name)
-            .map(b => ({ name: b.name, membersToString: b.members.orderBy(a => a.member.entity.name).map(a => a.member.entity.name).join(" | ") }))
+            .map(b => ({ name: b.name, membersToString: b.members.orderBy(a => a.member.name).map(a => a.member.name).join(" | ") }))
             .toArray();
         const result2 = await table(BandEntity)
             .orderBy(b => b.name)
-            .map(b => ({ name: b.name, membersToString: b.members.orderBy(a => a.member.entity.name).map(a => a.member.entity.name).join(" | ") }))
+            .map(b => ({ name: b.name, membersToString: b.members.orderBy(a => a.member.name).map(a => a.member.name).join(" | ") }))
             .toArray();
         assert.deepEqual(result1, result2);
     });

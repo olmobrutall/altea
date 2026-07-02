@@ -9,7 +9,7 @@ import {
     ColumnExpression, ColumnDeclaration, OrderExpression, JoinType,
     AggregateExpression, RowNumberExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression,
     CaseExpression, LikeExpression, ScalarExpression, ExistsExpression, InExpression,
-    IsNullExpression, IsNotNullExpression, PrimaryKeyExpression, SqlCastExpression,
+    IsNullExpression, IsNotNullExpression, PrimaryKeyExpression, SqlCastExpression, ToDayOfWeekExpression,
     CommandExpression, DeleteExpression, UpdateExpression, InsertSelectExpression,
     CommandAggregateExpression,
 } from "./expressions.sql";
@@ -145,7 +145,7 @@ export class QueryFormatter extends DbExpressionVisitor {
         }
 
         if (src instanceof SelectExpression) {
-            this.append(`(\n${this.capture(() => this.visitSelect(src))}\n) AS ${this.quoteAlias(src.alias)}`);
+            this.append(`(\n${indent(this.capture(() => this.visitSelect(src)))}\n) AS ${this.quoteAlias(src.alias)}`);
             return src;
         }
 
@@ -155,7 +155,7 @@ export class QueryFormatter extends DbExpressionVisitor {
         }
 
         if (src instanceof SetOperatorExpression) {
-            this.append(`(\n${this.renderSetOperatorBody(src)}\n) AS ${this.quoteAlias(src.alias)}`);
+            this.append(`(\n${indent(this.renderSetOperatorBody(src))}\n) AS ${this.quoteAlias(src.alias)}`);
             return src;
         }
 
@@ -546,4 +546,12 @@ export class QueryFormatter extends DbExpressionVisitor {
             default: throw new Error("Unsupported SQL binary operator: " + op);
         }
     }
+}
+
+// Indent every line of a nested subquery by two spaces, so a derived table / APPLY /
+// set-operator source reads as a visually nested block (Signum's QueryFormatter does the
+// same). Nesting compounds naturally — each enclosing source indents the already-indented
+// inner text again.
+function indent(sql: string): string {
+    return sql.replace(/^/gm, "  ");
 }

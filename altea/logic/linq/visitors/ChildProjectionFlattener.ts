@@ -3,6 +3,7 @@ import {
     SelectExpression, ProjectionExpression, JoinExpression, TableExpression,
     ColumnExpression, ColumnDeclaration, OrderExpression, SqlConstantExpression,
     SourceExpression, ChildProjectionExpression, LookupToken,
+    EntityExpression, EmbeddedEntityExpression,
 } from "../expressions.sql";
 import { LiteralType } from "../../../entities/types";
 import { Alias, AliasGenerator } from "../AliasGenerator";
@@ -29,11 +30,30 @@ let tokenSeq = 0;
 // RowNumber sources are not modelled.
 export class ChildProjectionFlattener extends DbExpressionVisitor {
     private currentSource: SelectExpression | undefined;
+    // Depth of enclosing entity/embedded materialisation. A nested projection found here
+    // is an entity's collection field (a FieldEntityArray — the only projection-valued
+    // entity binding), so it becomes a *lazy* MList child (filled after the main query,
+    // skipped when no parent row registered it). A nested projection outside any entity is
+    // an explicitly projected collection (`map(a => a.songs)`), which stays eager. Mirrors
+    // Signum flagging MList child projections (RowIdElement) as IsLazyMList.
+    private insideEntity = 0;
 
     constructor(private readonly aliasGenerator: AliasGenerator) { super(); }
 
     static flatten(proj: ProjectionExpression, aliasGenerator: AliasGenerator): ProjectionExpression {
         return new ChildProjectionFlattener(aliasGenerator).visit(proj) as ProjectionExpression;
+    }
+
+    override visitEntity(e: EntityExpression): Expression {
+        this.insideEntity++;
+        try { return super.visitEntity(e); }
+        finally { this.insideEntity--; }
+    }
+
+    override visitEmbeddedEntity(e: EmbeddedEntityExpression): Expression {
+        this.insideEntity++;
+        try { return super.visitEmbeddedEntity(e); }
+        finally { this.insideEntity--; }
     }
 
     override visitProjection(proj: ProjectionExpression): Expression {
@@ -55,7 +75,7 @@ export class ChildProjectionFlattener extends DbExpressionVisitor {
             const projector = this.visit(proj.projector);
             const key = new SqlConstantExpression(0, LiteralType.number);
             const childProj = new ProjectionExpression(proj.select, kvp(key, projector), proj.uniqueFunction, proj.type);
-            return new ChildProjectionExpression(childProj, new SqlConstantExpression(0, LiteralType.number), false, proj.type, new LookupToken(tokenSeq++));
+            return new ChildProjectionExpression(childProj, new SqlConstantExpression(0, LiteralType.number), this.insideEntity > 0, proj.type, new LookupToken(tokenSeq++));
         }
 
         let external: SelectExpression;
@@ -104,7 +124,7 @@ export class ChildProjectionFlattener extends DbExpressionVisitor {
         const childProj = new ProjectionExpression(selectMany, kvp(keyInChild, projector), proj.uniqueFunction, proj.type);
 
         const outerKey = singleOrObject(columns);
-        return new ChildProjectionExpression(childProj, outerKey, false, proj.type, new LookupToken(tokenSeq++));
+        return new ChildProjectionExpression(childProj, outerKey, this.insideEntity > 0, proj.type, new LookupToken(tokenSeq++));
     }
 }
 

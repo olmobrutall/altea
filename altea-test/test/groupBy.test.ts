@@ -346,7 +346,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     // Database.Query<BandEntity>().Where(a => a.Members.Sum(m => m.Name.Length) > 0).ToList();
     test("SumWhere", async () => {
         const songsAlbum = await table(BandEntity)
-            .filter(a => a.members.sum(m => m.member.entity.name.length) > 0)
+            .filter(a => a.members.sum(m => m.member.name.length) > 0)
             .toArray();
         assert.ok(Array.isArray(songsAlbum));
     });
@@ -354,7 +354,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     // Database.Query<BandEntity>().Select(a => new { a.Name, Sum = a.Members.Sum(m => m.Name.Length) }).Select(a => a.Name).ToList();
     test("SumSimplification", async () => {
         const songsAlbum = await table(BandEntity)
-            .map(a => ({ name: a.name, sum: a.members.sum(m => m.member.entity.name.length) }))
+            .map(a => ({ name: a.name, sum: a.members.sum(m => m.member.name.length) }))
             .map(a => a.name)
             .toArray();
         assert.ok(Array.isArray(songsAlbum));
@@ -431,7 +431,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
         const minSex = await table(ArtistEntity).filter(a => false).min(a => a.sex);
         assert.equal(minSex, null);
         const minSexs = await table(BandEntity)
-            .map(b => b.members.filter(a => false).min(a => a.member.entity.sex))
+            .map(b => b.members.filter(a => false).min(a => a.member.sex))
             .toArray();
         assert.ok(Array.isArray(minSexs));
     });
@@ -525,7 +525,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     test("SelectExpansionCount", async () => {
         const albums = await table(BandEntity)
             .flatMap(b => b.members)
-            .map(a => ({ album: a.member, count: table(ArtistEntity).count(a2 => a2.sex == a.member.entity.sex) }))
+            .map(a => ({ album: a.member, count: table(ArtistEntity).count(a2 => a2.sex == a.member.sex) }))
             .toArray();
         assert.ok(Array.isArray(albums));
     });

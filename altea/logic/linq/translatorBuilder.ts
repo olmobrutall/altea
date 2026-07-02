@@ -16,9 +16,14 @@ import { Retriever } from "./Retriever";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 import { denormalizeTemporal } from "../normalizeScalar";
 
-// A lookup maps a serialised correlation key to the child values for that key.
+// A lookup maps a serialised correlation key to the child values for that key (eager
+// children, prefilled before projection — Signum's Lookup).
 type Lookups = Map<LookupToken, Map<string, unknown[]>>;
-type CompiledProjector = (row: any, retriever: Retriever, lookups: Lookups) => unknown;
+// A request registry maps a serialised correlation key to the (single) array a lazy MList
+// child will fill after the main query. The projector both registers and returns it, so the
+// array placed in the entity is the one mutated on fill (Signum's LookupRequest).
+type Requests = Map<LookupToken, Map<string, unknown[]>>;
+type CompiledProjector = (row: any, retriever: Retriever, lookups: Lookups, requests: Requests) => unknown;
 
 // A flattened child query: its own SQL plus a projector yielding {k, v} rows that
 // are grouped by k into a lookup keyed by `token`.
@@ -35,7 +40,16 @@ export class TranslateResult {
         public readonly parameters: unknown[],
         private readonly projector: CompiledProjector,
         private readonly uniqueFunction: UniqueFunction | undefined,
-        private readonly children: readonly ChildPlan[],
+        // Eager children (explicitly projected collections) are filled before the main
+        // query, deepest-first; lazy children (entity MLists) after it, shallowest-first.
+        // Signum's TranslateResult.{EagerProjections, LazyChildProjections}.
+        // TODO(remove-eager): in TypeScript every collection is a plain array we can fill
+        // after the fact, so *all* child projections could be lazy (skip-when-empty) and the
+        // eager path deleted. Kept for now only so the generated SQL matches Signum's Eager/
+        // Lazy split for the sqlcmp comparison; collapse to lazy-only once that's no longer
+        // needed. See LINQ-Plan.md.
+        private readonly eagerChildren: readonly ChildPlan[],
+        private readonly lazyChildren: readonly ChildPlan[],
     ) { }
 
     async execute(): Promise<unknown> {
@@ -53,14 +67,16 @@ export class TranslateResult {
     async executeInto(retriever: Retriever): Promise<unknown> {
         const connector = Connector.current();
         const lookups: Lookups = new Map();
+        const requests: Requests = new Map();
 
-        // Fill each child lookup first (children are ordered deepest-first, so a
-        // nested child's lookup is ready before the projector that reads it).
-        for (const child of this.children) {
-            const rows = await connector.executeQuery(child.sql, child.parameters);
+        // Eager child projections first, deepest-first, unconditionally (Signum's
+        // EagerProjections): an explicitly projected collection has no entity to defer
+        // into, so it is prefilled into a lookup the projector reads.
+        for (const child of this.eagerChildren) {
+            const childRows = await connector.executeQuery(child.sql, child.parameters);
             const map = new Map<string, unknown[]>();
-            for (const r of rows) {
-                const kv = child.kvProjector(r, retriever, lookups) as { k: unknown; v: unknown };
+            for (const r of childRows) {
+                const kv = child.kvProjector(r, retriever, lookups, requests) as { k: unknown; v: unknown };
                 const keyStr = JSON.stringify(kv.k ?? null);
                 const bucket = map.get(keyStr);
                 if (bucket != null) bucket.push(kv.v);
@@ -69,30 +85,74 @@ export class TranslateResult {
             lookups.set(child.token, map);
         }
 
+        // Main query. For each entity MList it materialises, the projector places an empty
+        // array in the entity and registers it in `requests` under the parent key.
         const rows = await connector.executeQuery(this.sql, this.parameters);
-        const list = rows.map(r => this.projector(r, retriever, lookups));
+        const list = rows.map(r => this.projector(r, retriever, lookups, requests));
+
+        // Lazy child projections after the main query, shallowest-first (Signum's
+        // LazyChildProjections). Each is SKIPPED when no parent registered a request — so
+        // `table(Order).filter(() => false)` never queries order lines, at any level.
+        // Filling a level materialises its element entities, which register the next
+        // level's requests; shallowest-first guarantees they exist before that level fills.
+        let filledAny = false;
+        for (const child of this.lazyChildren) {
+            const req = requests.get(child.token);
+            if (req == null || req.size === 0)
+                continue;
+            filledAny = true;
+            const childRows = await connector.executeQuery(child.sql, child.parameters);
+            const grouped = new Map<string, unknown[]>();
+            for (const r of childRows) {
+                const kv = child.kvProjector(r, retriever, lookups, requests) as { k: unknown; v: unknown };
+                const keyStr = JSON.stringify(kv.k ?? null);
+                const bucket = grouped.get(keyStr);
+                if (bucket != null) bucket.push(kv.v);
+                else grouped.set(keyStr, [kv.v]);
+            }
+            // Fill each registered array in place (identity is what the entity holds).
+            for (const [keyStr, arr] of req) {
+                const vals = grouped.get(keyStr);
+                if (vals != null)
+                    for (const v of vals) arr.push(v);
+            }
+        }
+
+        // Collections were mutated after their owners' snapshots were taken; refresh them so
+        // a freshly-retrieved entity isn't reported dirty (Signum's ModifiablePostRetrieving).
+        if (filledAny)
+            retriever.reclean();
+
         return this.uniqueFunction != null ? applyUnique(list, this.uniqueFunction) : list;
     }
 }
 
 export function buildTranslateResult(projection: ProjectionExpression, isPostgres: boolean): TranslateResult {
-    const children = gatherChildProjections(projection.projector).map<ChildPlan>(cp => {
+    const build = (cp: ChildProjectionExpression): ChildPlan => {
         const { sql, parameters } = QueryFormatter.format(cp.projection.select, isPostgres);
         return { token: cp.token, sql, parameters, kvProjector: compileProjector(cp.projection.projector) };
-    });
+    };
+    const eagerChildren = gatherChildProjections(projection.projector, false).map(build);
+    const lazyChildren = gatherChildProjections(projection.projector, true).map(build);
     const { sql, parameters } = QueryFormatter.format(projection.select, isPostgres);
-    return new TranslateResult(sql, parameters, compileProjector(projection.projector), projection.uniqueFunction, children);
+    return new TranslateResult(sql, parameters, compileProjector(projection.projector),
+        projection.uniqueFunction, eagerChildren, lazyChildren);
 }
 
-// Collects every ChildProjectionExpression in a projector, deepest-first: a
-// child's own projector is searched (for nested children) before the child itself
-// is recorded, so lookups fill in dependency order.
-function gatherChildProjections(projector: Expression): ChildProjectionExpression[] {
+// Collects the ChildProjectionExpressions of one kind. Eager (isLazyMList false) are
+// gathered deepest-first (post-order) so a nested child's lookup fills before the child
+// that reads it; lazy MLists are gathered shallowest-first (pre-order) so a parent level
+// fills (registering the next level's requests) before that level. Mirrors Signum's
+// Eager/LazyChildProjectionGatherer.
+function gatherChildProjections(projector: Expression, lazy: boolean): ChildProjectionExpression[] {
     const result: ChildProjectionExpression[] = [];
     const gatherer = new (class extends DbExpressionVisitor {
         override visitChildProjection(child: ChildProjectionExpression): Expression {
+            if (lazy && child.isLazyMList)
+                result.push(child);
             this.visit(child.projection.projector);
-            result.push(child);
+            if (!lazy && !child.isLazyMList)
+                result.push(child);
             return child;
         }
     })();
@@ -112,9 +172,20 @@ function ctorOf(type: Type): new () => any {
 function compileProjector(projector: Expression): CompiledProjector {
     const builder = new ProjectionBuilder();
     const body = "return " + builder.build(projector) + ";";
-    const fn = new Function("row", "consts", "retriever", "lookups", body) as
-        (row: any, consts: unknown[], retriever: Retriever, lookups: Lookups) => unknown;
-    return (row: any, retriever: Retriever, lookups: Lookups) => fn(row, builder.consts, retriever, lookups);
+    const fn = new Function("row", "consts", "retriever", "lookups", "requests", body) as
+        (row: any, consts: unknown[], retriever: Retriever, lookups: Lookups, requests: Requests) => unknown;
+    return (row: any, retriever: Retriever, lookups: Lookups, requests: Requests) => fn(row, builder.consts, retriever, lookups, requests);
+}
+
+// Registers (or reuses) the array a lazy MList child fills after the main query. One array
+// per parent key — the same reference is placed in the entity and mutated on fill. Signum's
+// IProjectionRow.LookupRequest.
+function lazyRequestArray(requests: Requests, token: LookupToken, keyStr: string): unknown[] {
+    let byKey = requests.get(token);
+    if (byKey == null) { byKey = new Map(); requests.set(token, byKey); }
+    let arr = byKey.get(keyStr);
+    if (arr == null) { arr = []; byKey.set(keyStr, arr); }
+    return arr;
 }
 
 class ProjectionBuilder extends DbExpressionVisitor {
@@ -188,8 +259,18 @@ class ProjectionBuilder extends DbExpressionVisitor {
         const tokenIndex = this.pushConst(e.token);
         this.visit(e.outerKey);
         const keyCode = this.pop();
-        // The child rows for this parent's key (already grouped during fill).
-        const listCode = `((lookups.get(consts[${tokenIndex}]) || new Map()).get(JSON.stringify(${keyCode} ?? null)) || [])`;
+        const keyStr = `JSON.stringify(${keyCode} ?? null)`;
+
+        // A lazy MList: register (and return) the array this parent's collection will get,
+        // to be filled after the main query. Same array reference the entity keeps.
+        if (e.isLazyMList) {
+            const fnIndex = this.pushConst(lazyRequestArray);
+            this.stack.push(`consts[${fnIndex}](requests, consts[${tokenIndex}], ${keyStr})`);
+            return e;
+        }
+
+        // Eager: the child rows for this parent's key (already grouped during fill).
+        const listCode = `((lookups.get(consts[${tokenIndex}]) || new Map()).get(${keyStr}) || [])`;
         // A single-result child (first/single) yields the element; a list child
         // (toArray) yields the whole slice.
         this.stack.push(e.projection.uniqueFunction != null ? `(${listCode}[0] ?? null)` : listCode);

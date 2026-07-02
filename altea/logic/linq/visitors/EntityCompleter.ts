@@ -1,7 +1,7 @@
 import { Expression } from "../expressions";
 import {
     ProjectionExpression, SelectExpression, LiteReferenceExpression, EntityExpression,
-    FieldBinding, MixinEntityExpression, PrimaryKeyExpression,
+    FieldBinding, MixinEntityExpression, PrimaryKeyExpression, FieldEntityArrayExpression,
 } from "../expressions.sql";
 import type { Table } from "../../schema/table";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
@@ -23,6 +23,13 @@ import type { QueryBinder } from "./QueryBinder";
 // reference already on the stack stays a lazy stub, exactly like Signum. Lites break
 // cycles naturally (they are not expanded to entities). `avoidExpandOnRetrieving`
 // entities are also left as stubs.
+//
+// `visitFieldEntityArray` eager-completes a retrieved entity's collections (Signum's
+// VisitMList): each FieldEntityArray marker is realised into a correlated child
+// projection and recursed into, so `entity.friends` / `.colaborators` / … load with the
+// entity (as one extra query per level, spliced by ChildProjectionFlattener) rather than
+// lazily. In altea, an entity array always implies an eager UI table, so eagerness is the
+// rule; the same cycle guard bounds the cascade.
 export class EntityCompleter extends DbExpressionVisitor {
     private readonly previousTables: Table[] = [];
 
@@ -57,6 +64,16 @@ export class EntityCompleter extends DbExpressionVisitor {
             return lite;
         const model = this.binder.liteModelExpression(lite.reference);
         return model == null ? lite : new LiteReferenceExpression(lite.type, lite.reference, model);
+    }
+
+    // Eager-load a collection binding (Signum's VisitMList): realise the marker into a
+    // correlated child projection and recurse, so the element entities' own references and
+    // collections expand too. The result is a nested ProjectionExpression in the entity
+    // binding, which ChildProjectionFlattener later turns into one child query per level.
+    // Cycles are broken by visitEntity's `previousTables` guard when the element expands.
+    override visitFieldEntityArray(fea: FieldEntityArrayExpression): Expression {
+        const projection = this.binder.fieldEntityArrayProjection(fea);
+        return this.visit(projection);
     }
 
     override visitProjection(proj: ProjectionExpression): Expression {

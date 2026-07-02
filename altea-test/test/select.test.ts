@@ -451,8 +451,8 @@ describe("SelectTest", { skip: !hasDb }, () => {
         const list = await table(BandEntity)
             .map(b => ({
                 count: b.members.length,
-                anyDead: b.members.some(m => m.member.entity.dead),
-                deadCount: b.members.filter(m => m.member.entity.dead).length,
+                anyDead: b.members.some(m => m.member.dead),
+                deadCount: b.members.filter(m => m.member.dead).length,
                 minId: b.members.map(m => (m.member.id as number)).min(),
                 maxId: b.members.map(m => (m.member.id as number)).max(),
                 avgId: b.members.map(m => (m.member.id as number)).avg(),
@@ -515,7 +515,7 @@ describe("SelectTest", { skip: !hasDb }, () => {
     test("SelectMListEntity", async () => {
         const lists = await table(BandEntity)
             .flatMap(a => a.members)
-            .map(mle => ({ band: mle.band.entity.name, artis: mle.member.entity.name }))
+            .map(mle => ({ band: mle.band.entity.name, artis: mle.member.name }))
             .toArray();
         assert.ok(Array.isArray(lists));
     });

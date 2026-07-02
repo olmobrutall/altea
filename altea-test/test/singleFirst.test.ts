@@ -36,20 +36,20 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     test("SelectFirstOrDefault", async () => {
         // TODO(api): collection-to-string aggregate (MList.ToString(selector, separator)) + string interpolation/FormatWith
         const bandsCount = await table(BandEntity)
-            .map(b => ({ name: b.name, members: b.members.map(a => ({ name: a.member.entity.name, sex: a.member.entity.sex })).map(p => p.name + " (" + p.sex + ")").join("\n") }))
+            .map(b => ({ name: b.name, members: b.members.map(a => ({ name: a.member.name, sex: a.member.sex })).map(p => p.name + " (" + p.sex + ")").join("\n") }))
             .toArray();
         assert.ok(Array.isArray(bandsCount));
 
         // TODO(api): collection-level terminals (members.firstOrNull/first/singleOrNull/single) inside a projection
-        const bands1 = await table(BandEntity).map(b => ({ name: b.name, member: b.members.firstOrNull()!.member.entity.name })).toArray();
-        const bands2 = await table(BandEntity).map(b => ({ name: b.name, member: b.members.first().member.entity.name })).toArray();
-        const bands3 = await table(BandEntity).map(b => ({ name: b.name, member: b.members.singleOrNull()!.member.entity.name })).toArray();
-        const bands4 = await table(BandEntity).map(b => ({ name: b.name, member: b.members.single().member.entity.name })).toArray();
+        const bands1 = await table(BandEntity).map(b => ({ name: b.name, member: b.members.firstOrNull()!.member.name })).toArray();
+        const bands2 = await table(BandEntity).map(b => ({ name: b.name, member: b.members.first().member.name })).toArray();
+        const bands3 = await table(BandEntity).map(b => ({ name: b.name, member: b.members.singleOrNull()!.member.name })).toArray();
+        const bands4 = await table(BandEntity).map(b => ({ name: b.name, member: b.members.single().member.name })).toArray();
 
-        const bands1b = await table(BandEntity).map(b => ({ name: b.name, member: b.members.firstOrNull(a => a.member.entity.sex == Sex.Female)!.member.entity.name })).toArray();
-        const bands2b = await table(BandEntity).map(b => ({ name: b.name, member: b.members.first(a => a.member.entity.sex == Sex.Female).member.entity.name })).toArray();
-        const bands3b = await table(BandEntity).map(b => ({ name: b.name, member: b.members.singleOrNull(a => a.member.entity.sex == Sex.Female)!.member.entity.name })).toArray();
-        const bands4b = await table(BandEntity).map(b => ({ name: b.name, member: b.members.single(a => a.member.entity.sex == Sex.Female).member.entity.name })).toArray();
+        const bands1b = await table(BandEntity).map(b => ({ name: b.name, member: b.members.firstOrNull(a => a.member.sex == Sex.Female)!.member.name })).toArray();
+        const bands2b = await table(BandEntity).map(b => ({ name: b.name, member: b.members.first(a => a.member.sex == Sex.Female).member.name })).toArray();
+        const bands3b = await table(BandEntity).map(b => ({ name: b.name, member: b.members.singleOrNull(a => a.member.sex == Sex.Female)!.member.name })).toArray();
+        const bands4b = await table(BandEntity).map(b => ({ name: b.name, member: b.members.single(a => a.member.sex == Sex.Female).member.name })).toArray();
         assert.ok(Array.isArray(bands1) && Array.isArray(bands2) && Array.isArray(bands3) && Array.isArray(bands4));
         assert.ok(Array.isArray(bands1b) && Array.isArray(bands2b) && Array.isArray(bands3b) && Array.isArray(bands4b));
     });
@@ -58,7 +58,7 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     test("SelectSingleCellWhere", async () => {
         // TODO(api): collection-level ordering + projection + terminal (members.orderBy(...).map(...).first()) inside a predicate
         const list = await table(BandEntity)
-            .filter(b => b.members.orderBy(a => a.member.entity.sex).map(a => a.member.entity.sex).first() == Sex.Male)
+            .filter(b => b.members.orderBy(a => a.member.sex).map(a => a.member.sex).first() == Sex.Male)
             .map(a => a.name)
             .toArray();
         assert.ok(Array.isArray(list));
@@ -68,10 +68,10 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     test("SelectSingleCellSingle", async () => {
         // TODO(api): collection-level projection + terminal (members.map(...).first()/firstOrNull()/single()/singleOrNull()) inside a projection
         const list = await table(BandEntity).map(b => ({
-            firstName: b.members.map(m => m.member.entity.name).first(),
-            firstOrDefaultName: b.members.map(m => m.member.entity.name).firstOrNull(),
-            singleName: b.members.map(m => m.member.entity.name).single(),
-            singleOrDefaultName: b.members.map(m => m.member.entity.name).singleOrNull(),
+            firstName: b.members.map(m => m.member.name).first(),
+            firstOrDefaultName: b.members.map(m => m.member.name).firstOrNull(),
+            singleName: b.members.map(m => m.member.name).single(),
+            singleOrDefaultName: b.members.map(m => m.member.name).singleOrNull(),
         })).toArray();
         assert.ok(Array.isArray(list));
     });
@@ -80,9 +80,9 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     test("SelectDoubleSingle", async () => {
         // TODO(api): collection-level terminal (members.first()) inside a projection
         const query = table(BandEntity).map(b => ({
-            name: b.members.first().member.entity.name,
-            dead: b.members.first().member.entity.dead,
-            sex: b.members.first().member.entity.sex,
+            name: b.members.first().member.name,
+            dead: b.members.first().member.dead,
+            sex: b.members.first().member.sex,
         }));
         await query.toArray();
 
@@ -95,7 +95,7 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     test("SelecteNestedFirstOrDefault", async () => {
         // TODO(api): collection-level projection + terminal (members.map(...).firstOrNull()) as the projected value
         const neasted = await table(BandEntity)
-            .map(b => b.members.map(a => a.member.entity.sex).firstOrNull())
+            .map(b => b.members.map(a => a.member.sex).firstOrNull())
             .toArray();
         assert.ok(Array.isArray(neasted));
     });
@@ -105,7 +105,7 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
         // TODO(api): collection-level filter + projection + terminal (members.filter(...).map(...).firstOrNull()) as the projected value
         // TODO(api): enum-to-nullable cast ((Sex?)a.Sex)
         const neasted = await table(BandEntity)
-            .map(b => b.members.filter(a => a.member.entity.name.startsWith("a")).map(a => (a.member.entity.sex as Sex | null)).firstOrNull())
+            .map(b => b.members.filter(a => a.member.name.startsWith("a")).map(a => (a.member.sex as Sex | null)).firstOrNull())
             .toArray();
         assert.ok(Array.isArray(neasted));
     });
@@ -143,7 +143,7 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     test("FirstInSelectAndWhere", async () => {
         // TODO(api): collection-level terminal (members.first()) inside both a predicate and a projection
         const firstMembers = await table(BandEntity)
-            .filter(a => a.members.first().member.entity.name.startsWith("a"))
+            .filter(a => a.members.first().member.name.startsWith("a"))
             .map(a => a.members.first())
             .toArray();
         assert.ok(Array.isArray(firstMembers));
@@ -158,8 +158,8 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
         const result = await table(BandEntity)
             .map(a => ({
                 id: a.id,
-                count: a.members.filter(m => m.member.entity.sex == michael.inDB(x => x.sex)).length,
-                any: a.members.filter(m => m.member.entity.sex == michael.inDB(x => x.sex)).some(a => a.member.entity.name.startsWith("a")),
+                count: a.members.filter(m => m.member.sex == michael.inDB(x => x.sex)).length,
+                any: a.members.filter(m => m.member.sex == michael.inDB(x => x.sex)).some(a => a.member.name.startsWith("a")),
             }))
             .toArray();
         assert.ok(Array.isArray(result));

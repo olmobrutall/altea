@@ -77,8 +77,9 @@ A quoted lambda body is a single expression the transformer captures. It now
 SUPPORTS `x as T` casts and `x!` non-null assertions. It still CANNOT capture
 `...spread` or block bodies `{ … }`. Inside `filter`/`map`/etc. lambdas:
 - **Navigate a `Lite<T>` via `.entity`** — `Lite<T>` does NOT expose `T`'s
-  fields. `a.member.entity.sex`, not `a.member.sex`. (The binder makes lite-nav
-  a no-op/join.)
+  fields. `f.friend.entity.name`, not `f.friend.name` (friend is a `Lite<ArtistEntity>`).
+  (The binder makes lite-nav a no-op/join.) A full reference (e.g. `a.member: ArtistEntity`,
+  matching Signum's `MList<ArtistEntity>`) is navigated directly — `a.member.sex`, no `.entity`.
 - **`x as T` casts ARE supported** — use them for entity downcasts
   (`(a.lastAward as PersonalAwardEntity)`) and to type a `PrimaryKey`:
   **`(a.id as number) > 1`**, `(a.id as number)` wherever an id is used as a
@@ -95,7 +96,7 @@ SUPPORTS `x as T` casts and `x!` non-null assertions. It still CANNOT capture
   `(a.id as number)` for compares/arithmetic, `(a.id as string)` for concat.
 
 ## Rules
-- Entity field names are **camelCase** in altea — check `../entities/music.ts` for the exact names (e.g. `Year`→`year`, `LastAward`→`lastAward`, `Author`→`author`, `Members`→`members`). Collections that were `MList` are part-entity arrays (e.g. `Band.Members` → `band.members`, elements have a `.member` value field — see music.ts).
+- Entity field names are **camelCase** in altea — check `../entities/music.ts` for the exact names (e.g. `Year`→`year`, `LastAward`→`lastAward`, `Author`→`author`, `Members`→`members`). Collections that were `MList` are part-entity arrays (e.g. `Band.Members` → `band.members`; the element's value field mirrors Signum's `MList<T>` element — a full `.member: ArtistEntity` for `MList<ArtistEntity>`, a `.friend: Lite<ArtistEntity>` for `MList<Lite<…>>` — see music.ts).
 - All terminals are **async** → always `await`.
 - Keep the C# test method order; put the original C# one-liner as a comment above each.
 - If a test uses a feature with no altea API yet, **still write the most natural altea form**, mark it `test.skip(...)` or add `{ skip: true }`, and put a `// TODO(api): <what's missing>` comment. Do NOT invent new entity/Query methods beyond the table above.

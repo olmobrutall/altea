@@ -75,7 +75,7 @@ export class NoteWithDateEntity_Colaborators extends Entity {
     noteWithDate: Lite<NoteWithDateEntity>;
 
     @valueField
-    colaborator: Lite<ArtistEntity>;
+    colaborator: ArtistEntity;
 }
 
 // Signum's IAuthorEntity: the shared interface behind AlbumEntity.Author /
@@ -178,7 +178,7 @@ export class BandEntity_Members extends Entity {
     band: Lite<BandEntity>;
 
     @valueField
-    member: Lite<ArtistEntity>;
+    member: ArtistEntity;
 }
 
 // Link rows for BandEntity.otherAwards (MList<AwardEntity>, polymorphic award).
@@ -189,7 +189,7 @@ export class BandEntity_OtherAwards extends Entity {
 
     @implementedBy(() => [GrammyAwardEntity, AmericanMusicAwardEntity])
     @valueField
-    award: Lite<Entity>;
+    award: Entity;
 }
 
 // Abstract base — only the concrete subclasses get tables. Fields are inherited

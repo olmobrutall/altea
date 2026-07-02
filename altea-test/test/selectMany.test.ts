@@ -15,7 +15,7 @@ import { ArtistEntity, AlbumEntity, BandEntity, BandEntity_Members, Sex } from "
 //
 // Music-model note: Signum's MList<T> collections are part-entity arrays here.
 //   BandEntity.Members (MList<ArtistEntity>) → band.members, each row a
-//     BandEntity_Members with a `.member: Lite<ArtistEntity>` value field.
+//     BandEntity_Members with a full `.member: ArtistEntity` value field.
 //   ArtistEntity.Friends (MList<Lite<ArtistEntity>>) → artist.friends, each row
 //     an ArtistEntity_Friends with a `.friend: Lite<ArtistEntity>` value field.
 //   AlbumEntity.Songs (MList<SongEmbedded>) → album.songs, each an
@@ -66,7 +66,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     // Database.Query<BandEntity>().SelectMany(b => b.Members.Where(a => a.IsMale)).Select(a => new { Artist = a.ToLite() }).ToList();
     test("SelectManyWhere1", async () => {
         const list = await table(BandEntity)
-            .flatMap(b => b.members.filter(a => a.member.entity.sex == Sex.Male))
+            .flatMap(b => b.members.filter(a => a.member.sex == Sex.Male))
             .map(a => ({ artist: a.member }))
             .toArray();
         assert.ok(Array.isArray(list));
@@ -76,7 +76,7 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
     test("SelectManyWhere2", async () => {
         const list = await table(BandEntity)
             .filter(b => b.lastAward != null)
-            .flatMap(b => b.members.filter(a => a.member.entity.sex == Sex.Male))
+            .flatMap(b => b.members.filter(a => a.member.sex == Sex.Male))
             .map(a => a.member)
             .toArray();
         assert.ok(Array.isArray(list));

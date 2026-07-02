@@ -40,13 +40,16 @@ a named `PropertyExpression`, `BinaryExpression "=="`) not C# `MethodCallExpress
   `new Function` (mirrors C#'s `Expression.Compile()`), not a tree interpreter.
 - **Collections ≈ MList** — altea has no MList tables; `FieldEntityArray` /
   `@backReference` part-entities play that role. The collection projection machinery
-  is a near-port of Signum's MList* nodes.
+  is a near-port of Signum's MList* nodes. **Collections are always eager** on retrieval
+  (like Signum): an entity array is a UI model for an editable table, so it must load with
+  its owner. (The music test model leans on this heavily — deep collection graphs — which
+  is about exercising the feature, not modelling for production performance.)
 - **Ask before diverging** beyond the ones already recorded here.
 
 ## Status
 
-Runs against both dialects. **Current stable baseline: Postgres 479 / SQL Server
-~470 pass of 552** (last run 2026-07-01). Postgres is deterministic since the
+Runs against both dialects. **Current stable baseline: Postgres 484 / SQL Server
+~473 pass of 556** (last run 2026-07-02). Postgres is deterministic since the
 `noCommit` isolation below; SQL Server floats a bit because a handful of
 aggregate/group-by/select tests flake under parallel load — the specific tests
 vary run-to-run (e.g. `All`/`None`/`GroupByCount`/`GroupByAllAny`), all pass in
@@ -74,6 +77,22 @@ a spec.
   eager nested projections (`ChildProjectionFlattener`).
 - **Navigation → JOIN** — single-reference navigation of any depth (`EntityCompleter`
   inline in the binder + `QueryJoinExpander` splicing SingleRow LEFT OUTER JOINs).
+- **Eager collections (MList)** — a retrieved entity's `FieldEntityArray` collections
+  (`.friends`, `.colaborators`, `.songs`, …) load eagerly, matching Signum's `VisitMList`:
+  `createEntityExpression` binds each collection as a marker, `EntityCompleter.visitFieldEntityArray`
+  realises it into a correlated child projection and recurses (so element entities' own
+  references/collections expand), and `ChildProjectionFlattener` turns each into one extra
+  query per level (flagged `isLazyMList`, since it is an entity's collection binding, not an
+  explicitly projected collection). An entity array implies an editable UI table, so
+  eagerness is the rule (see Key decisions); the `previousTables` cycle guard bounds the
+  cascade. **Per-level lazy skip** (Signum's `EagerProjections`/`LazyChildProjections`):
+  `TranslateResult` fills eager children (explicit projected collections) before the main
+  query (deepest-first), then lazy children (entity MLists) after it (shallowest-first).
+  Each lazy child is skipped when no parent row registered a request — the main projector
+  drops an empty array into the entity and registers it (`lazyRequestArray`), the fill
+  pushes into that same array and `retriever.reclean()` refreshes snapshots. So
+  `table(Order).filter(() => false)` fires no line queries, and a band with no members
+  fires no member-friends query either — the skip is independent at every level.
 - **Polymorphism** — `@implementedBy` / `@implementedByAll` projection, navigation,
   cast, `instanceof`, equality (`SmartEqualizer`); `Lite<T>` projection, `.entity`,
   `.is`, `toLite`, eager `toStr` model. `GetType`/`typeof` (`.constructor`) over
@@ -145,6 +164,16 @@ a spec.
 - `TypeLogic` "Sync" (load ids from the DB instead of computing them) and
   `TypeEntity` unique indexes; the documented out-of-scope `unsafe*` cases
   (`Clock.now`, identity-insert, MList row-index, typed-NULL-in-CASE).
+- **`TODO(remove-eager)` — collapse child projections to lazy-only.** Signum keeps an
+  `EagerProjections` list because C# `new { Friends = p.Friends().ToArray() }` /
+  `.ToReadOnlyList()` produce concrete collections it can't fill after the fact — only
+  `MList` can be deferred. In TypeScript every projected collection is a plain array we can
+  fill in place, so *all* child projections could be lazy (empty array + register + fill +
+  `reclean`), giving the skip-when-empty guarantee uniformly and deleting the eager path in
+  `translatorBuilder.ts` (`eagerChildren`, `gatherChildProjections(false)`, the eager branch
+  of `visitChildProjection`) plus the `isLazyMList` split in `ChildProjectionFlattener`.
+  **Kept for now only** so the generated SQL still matches Signum's Eager/Lazy execution
+  order for the `sqlcmp` comparison; do this once that comparison is no longer needed.
 
 ## Key divergences from Signum
 
@@ -185,10 +214,12 @@ a spec.
   (Sun=0..Sat=6) and it normalises the DB result to match (`ToDayOfWeek`, per dialect).
   altea instead aligns to the **in-memory `Temporal.PlainDateTime.dayOfWeek`** value
   (ISO Mon=1..Sun=7): the `DayOfWeek` enum is ISO (only Sunday differs from .NET, 0→7)
-  and the Postgres translation uses `EXTRACT(isodow …)` rather than `dow`. SQL Server's
-  `DATEPART(weekday …)` already yields ISO under `DATEFIRST 1`. So a `.dayOfWeek` group
-  key / comparison agrees between the DB and a materialised entity, at the cost of a
-  one-line SQL-shape divergence from Signum on this specific extraction.
+  and the translation folds the ISO normalisation into SQL (`dbExpressionNominator.dayOfWeekIso`)
+  so the DB value already equals the Temporal one — Postgres `EXTRACT(isodow …)`, SQL Server
+  `((DATEPART(weekday, x) + @@DATEFIRST + 5) % 7) + 1` (DATEFIRST-independent, since the
+  session setting isn't guaranteed to be 1). So a `.dayOfWeek` group key / comparison agrees
+  between the DB and a materialised entity on both dialects, at the cost of a small SQL-shape
+  divergence from Signum on this extraction (Signum converts client-side in the projector).
 - **`queryBinder.ts` / `columnProjector.ts`** at the `linq/` root are shims over the
   `visitors/` implementations — keep imports/casing consistent (stale build output
   can otherwise load a different module identity).
@@ -200,7 +231,7 @@ a spec.
 | `AliasGenerator.cs` | `logic/linq/AliasGenerator.ts` | Ported/simplified |
 | `DbExpressions.{Sql,Signum}.cs` | `logic/linq/expressions.sql.ts` | Partial port |
 | `DbQueryProvider.cs` | `logic/table.ts`, `logic/query.ts`, `logic/linq/translatorBuilder.ts` | Runtime split |
-| `TranslateResult.cs` · `ProjectionReader.cs` | `logic/linq/translatorBuilder.ts` (+ `Retriever.ts`) | Partial port |
+| `TranslateResult.cs` · `ProjectionReader.cs` | `logic/linq/translatorBuilder.ts` (+ `Retriever.ts`) | Ported (Eager before / Lazy after the main query; per-token lazy skip + fill-in-place; `TODO(remove-eager)` — collapse to lazy-only, see below) |
 | `ExpressionVisitor/DbExpressionVisitor.cs` | `logic/linq/visitors/DbExpressionVisitor.ts` | Partial port |
 | `ExpressionVisitor/QueryBinder.cs` | `logic/linq/visitors/QueryBinder.ts` (+ `queryBinder.ts` shim) | Partial port |
 | `ExpressionVisitor/QueryFormatter.cs` | `logic/linq/queryFormatter.ts` | Partial port |

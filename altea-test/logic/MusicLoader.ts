@@ -55,7 +55,7 @@ export namespace MusicLoader {
         const members = "Billy Corgan, James Iha, D'arcy Wretzky, Jimmy Chamberlin".split(",").map(s => artist(s.trim()));
         const smashingPumpkins = await BandEntity.create({
             name: "Smashing Pumpkins",
-            members: members.map(a => BandEntity_Members.create({ member: a.toLite(true) })),
+            members: members.map(a => BandEntity_Members.create({ member: a })),
             lastAward: ama,
         }).save();
 
@@ -175,7 +175,7 @@ export namespace MusicLoader {
             otherTarget: null,
         });
         corruptNote.mixin(ColaboratorsMixin).colaborators = [
-            NoteWithDateEntity_Colaborators.create({ colaborator: michael.toLite() }),
+            NoteWithDateEntity_Colaborators.create({ colaborator: michael }),
         ];
         await corruptNote.save();
 
@@ -249,7 +249,7 @@ export namespace MusicLoader {
 
         const sigurRos = await BandEntity.create({
             name: "Sigur Ros",
-            members: sigurMembers.map(a => BandEntity_Members.create({ member: a.toLite() })),
+            members: sigurMembers.map(a => BandEntity_Members.create({ member: a })),
             lastAward: ga,
         }).save();
 

@@ -230,7 +230,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
     // TODO(api): collection element enum projection + contains in subquery filter
     test("SelectContainsEnum", async () => {
         const result = await table(BandEntity)
-            .filter(b => b.members.some(m => m.member.entity.sex == Sex.Female))
+            .filter(b => b.members.some(m => m.member.sex == Sex.Female))
             .map(b => b.toLite())
             .toArray();
         assert.ok(Array.isArray(result));

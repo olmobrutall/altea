@@ -66,6 +66,16 @@ export class Retriever {
         return e;
     }
 
+    // Re-take the clean change-tracking snapshot of every populated entity. Called after a
+    // lazy MList collection is filled in place (post main query): the snapshot taken when the
+    // entity was materialised predates the fill, so without this the freshly-retrieved entity
+    // reads as dirty. Signum's `retriever.ModifiablePostRetrieving` per filled MList — altea's
+    // snapshot inlines a collection as an id-list, so re-cleaning the owner suffices.
+    reclean(): void {
+        for (const e of this.populated)
+            cleanModified(e);
+    }
+
     // Signum's RealRetriever.CompleteAll: drain the pending requests, batch-loading each
     // type by id into this same retriever, until none remain (a load can add more).
     async completeAll(): Promise<void> {

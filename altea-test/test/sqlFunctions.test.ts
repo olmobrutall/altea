@@ -79,8 +79,8 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
     // TODO(api): per-row firstOrNull over a part-entity collection (b.members) inside a projection, with coalesce of entities
     test("CoalesceFirstOrDefault", async () => {
         const list = await table(BandEntity)
-            .map(b => b.members.firstOrNull(a => a.member.entity.sex == Sex.Female)
-                ?? b.members.firstOrNull(a => a.member.entity.sex == Sex.Male)!)
+            .map(b => b.members.firstOrNull(a => a.member.sex == Sex.Female)
+                ?? b.members.firstOrNull(a => a.member.sex == Sex.Male)!)
             .map(a => a.toLite())
             .toArray();
         assert.ok(Array.isArray(list));
