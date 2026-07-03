@@ -693,9 +693,13 @@ export class QueryBinder extends ExpressionVisitor {
     override visitCall(call: CallExpression): Expression {
         const func = call.func;
 
-        // table(T) source: a constant call on the marked `table` function.
+        // table(T) / view(T) source: a constant call on a marked query-source function.
+        // `__isViewSource` resolves the ctor through schema.view() (a ViewBuilder view
+        // table); otherwise through schema.table() (an included entity table).
         if (func instanceof ConstantExpression && (func.value as { __isQuerySource?: boolean })?.__isQuerySource) {
             const ctor = (call.args[0] as ConstantExpression).value as new () => object;
+            if ((func.value as { __isViewSource?: boolean }).__isViewSource)
+                return this.getTableProjectionForTable(this.schema.view(ctor as any), new ClassType(ctor));
             return this.getTableProjection(ctor);
         }
 

@@ -3,6 +3,7 @@ import { typeConstructor } from '../../entities/entity';
 import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
 import { installDefaultGenerating } from '../sync/schemaGenerator';
 import type { Table } from './table';
+import { ViewBuilder } from './viewBuilder';
 
 // A step in the generation pipeline: given the schema, contributes a piece of the
 // create script, or nothing. Combined in registration order by generationScript().
@@ -41,5 +42,21 @@ export class Schema {
 
     tryTable(type: Type<Entity>): Table | undefined {
         return this.tables.get(type);
+    }
+
+    // Raw database views (Signum's IView), built lazily by ViewBuilder and cached — the
+    // analogue of Signum's Schema.View<T>(). A view is not `include`d like an entity; it is
+    // materialised on first use (by Database.view / the binder's view source, or when a
+    // @quoted navigation references another view).
+    readonly views = new Map<Type<Entity>, Table>();
+
+    view<T extends Entity>(type: Type<T>): Table {
+        const key = type as unknown as Type<Entity>;
+        let table = this.views.get(key);
+        if (table == null) {
+            table = new ViewBuilder().newView(key);
+            this.views.set(key, table);
+        }
+        return table;
     }
 }

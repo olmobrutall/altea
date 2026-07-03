@@ -26,7 +26,49 @@ export class AbstractDbType {
     toString(): string {
         return `${this.sqlServer} / ${this.postgres}`;
     }
+
+    // Structural equality of two abstract types. Mirrors Signum's AbstractDbType.Equals,
+    // which compares whichever underlying dialect type is set. Altea stores both dialect
+    // names, so we compare both slots (a DB-read DiffColumn fills both via the reader's
+    // reverse mapping, so both are meaningful).
+    equals(other: AbstractDbType): boolean {
+        return this.sqlServer === other.sqlServer && this.postgres === other.postgres;
+    }
+
+    // Type-family predicates — the altea analogue of Signum's AbstractDbType.IsString()/
+    // IsDecimal()/… extension methods. Signum reads a single SqlDbType?/NpgsqlDbType?; altea
+    // stores both dialect *names*, so each predicate tests membership of the union of both
+    // dialects' names for that family. The families are disjoint, so this is dialect-agnostic
+    // and needs no ambient Connector (keeping dbType.ts free of the connector import cycle).
+    isString(): boolean { return inFamily(this, STRING_TYPES); }
+    isBinary(): boolean { return inFamily(this, BINARY_TYPES); }
+    isDecimal(): boolean { return inFamily(this, DECIMAL_TYPES); }
+    isNumber(): boolean { return inFamily(this, NUMBER_TYPES); }
+    isBoolean(): boolean { return inFamily(this, BOOLEAN_TYPES); }
+    isDate(): boolean { return inFamily(this, DATE_TYPES); }
+    isTime(): boolean { return inFamily(this, TIME_TYPES); }
+    isGuid(): boolean { return inFamily(this, GUID_TYPES); }
 }
+
+// True when either dialect name of `t` is in `family` (case-insensitive).
+function inFamily(t: AbstractDbType, family: Set<string>): boolean {
+    return family.has(t.sqlServer.toLowerCase()) || family.has(t.postgres.toLowerCase());
+}
+
+const STRING_TYPES = new Set(['nvarchar', 'varchar', 'nchar', 'char', 'text', 'ntext']);
+const BINARY_TYPES = new Set(['binary', 'varbinary', 'image', 'bytea']);
+const DECIMAL_TYPES = new Set(['decimal', 'numeric', 'money', 'smallmoney']);
+// "Number" = every non-decimal numeric type + the decimal ones (Signum's IsNumber is the
+// broad numeric family; IsDecimal is the narrow scaled subset).
+const NUMBER_TYPES = new Set([
+    'int', 'int4', 'bigint', 'int8', 'smallint', 'int2', 'tinyint',
+    'float', 'float8', 'real', 'float4',
+    'decimal', 'numeric', 'money', 'smallmoney',
+]);
+const BOOLEAN_TYPES = new Set(['bit', 'bool', 'boolean']);
+const DATE_TYPES = new Set(['date', 'datetime', 'datetime2', 'smalldatetime', 'datetimeoffset', 'timestamp', 'timestamptz']);
+const TIME_TYPES = new Set(['time', 'interval']);
+const GUID_TYPES = new Set(['uniqueidentifier', 'uuid']);
 
 // Default DB type for a value field, derived from its runtime type *name* (the
 // `typeName` emitted by the transformer, e.g. "Number", "Date", "Decimal",

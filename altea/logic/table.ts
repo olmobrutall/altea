@@ -49,18 +49,31 @@ export function table<T extends Entity>(entityType: { new(): T }): Query<T> {
     return new Query<T>(callExpression, MyQueryTranslator.instance);
 }
 
-// `view(MyView)` — a query over a Database.View / temporary table (Signum's view()).
-// Temporary views aren't modelled in altea yet, so this is a throwing stub that locks
-// the call shape (used by the GroupJoin LeftOuterMyView test, which runs red).
+// `view(MyView)` — a query over a raw database view (Signum's Database.View<T>()). Mirrors
+// `table()`, but the binder resolves the source via `schema.view()` (ViewBuilder) rather
+// than `schema.table()`; the extra `__isViewSource` marker selects that path.
 export function view<T>(viewType: { new(): T }): Query<T> {
-    throw new Error("view (Database.View / temporary table) is not implemented yet");
+    const arrayType = new ArrayType(new ClassType(viewType as any));
+    const callExpression = new CallExpression(
+        new ConstantExpression(view, new FunctionType(view, arrayType)),
+        [new ConstantExpression(viewType, new FunctionType(viewType as any, new ClassType(viewType as any)))],
+        arrayType,
+    );
+    return new Query<T>(callExpression, MyQueryTranslator.instance);
 }
 
 asStaticFunction(table).__resultType = (_, entityTypeType) => new ArrayType(new ClassType((entityTypeType as FunctionType).func!));
+asStaticFunction(view).__resultType = (_, viewTypeType) => new ArrayType(new ClassType((viewTypeType as FunctionType).func!));
 
 // Marks `table` as a query source so the QueryBinder recognises the
 // `ConstantExpression(table)` at the root of a query CallExpression chain.
 (table as unknown as { __isQuerySource?: boolean }).__isQuerySource = true;
+
+// `view` is also a query source; the extra `__isViewSource` flag tells the binder to
+// resolve the ctor through `schema.view()` (a ViewBuilder-built view table) instead of
+// `schema.table()`.
+(view as unknown as { __isQuerySource?: boolean; __isViewSource?: boolean }).__isQuerySource = true;
+(view as unknown as { __isViewSource?: boolean }).__isViewSource = true;
 
 // Bind a source expression to a fully-optimised ProjectionExpression: the exact pipeline
 // the runtime uses, factored out so tests (binder.test.ts) can observe the same

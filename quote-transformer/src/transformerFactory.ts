@@ -349,7 +349,7 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
   // Auto @field injection is triggered by @reflect (a generic, ORM-agnostic
   // marker in ./reflection) and by the entity decorators @entity / @partEntity,
   // so it applies to entities, part entities, models, DTOs, views, etc.
-  const FIELD_INJECTING_DECORATORS = new Set(["reflect", "entity", "partEntity"]);
+  const FIELD_INJECTING_DECORATORS = new Set(["reflect", "entity", "partEntity", "view"]);
   function hasReflectionDecorator(node: ts.ClassDeclaration): boolean {
     return node.modifiers?.some(m =>
       ts.isDecorator(m) && (
@@ -549,7 +549,10 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     });
     if (hasFieldImport) return sourceFile;
 
-    // Find the import that has 'entity' and add 'field' alongside it
+    // Find the import that has 'reflect' and add 'field' alongside it. 'field' and
+    // 'reflect' both live in the reflection module, so field auto-injection anchors on
+    // the reflect import. Every reflected file (entity / partEntity / view) imports
+    // 'reflect' for exactly this reason.
     let patched = false;
     const newStatements = sourceFile.statements.map(stmt => {
       if (patched || !ts.isImportDeclaration(stmt)) return stmt;

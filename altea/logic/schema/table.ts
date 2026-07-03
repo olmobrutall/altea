@@ -13,6 +13,10 @@ export class Table {
     columns: { [name: string]: IColumn } = {};
     primaryKey!: FieldPrimaryKey;
     ticks?: FieldTicks;
+    // True for a raw database view (Signum's ITable.IsView) built by ViewBuilder —
+    // no ticks/toStr, raw column names, an explicit @viewPrimaryKey. Generation
+    // (CREATE TABLE / FK / enum seeding) skips views.
+    isView = false;
     // Physical display-string column (Signum's `ToStr`), present only when the
     // entity's `toString()` is a hand-written method (not a `@quoted` expression the
     // query provider can translate). Written at save time = `entity.toString()`.

@@ -1,8 +1,9 @@
 import type { Connector } from '../connection/connector';
 import type { IColumn } from '../schema/column';
-import { isNullableToBool } from '../schema/dbType';
+import { AbstractDbType, isNullableToBool } from '../schema/dbType';
 import { ObjectName, SchemaName } from '../schema/objectName';
 import type { Table } from '../schema/table';
+import type { DiffColumn } from './diffModels';
 import { SqlPreCommand, SqlPreCommandSimple, Spacing } from './sqlPreCommand';
 
 // Renders dialect-specific DDL fragments from the in-memory schema model. Mirrors
@@ -86,7 +87,7 @@ export class SqlBuilder {
             c.identity ? (this.isPostgres ? 'GENERATED ALWAYS AS IDENTITY' : 'IDENTITY') : undefined,
             c.collation != null ? `COLLATE ${c.collation}` : undefined,
             isNullableToBool(c.nullable) ? 'NULL' : 'NOT NULL',
-            c.default != null ? `DEFAULT ${this.quote(c, c.default)}` : undefined,
+            c.default != null ? `DEFAULT ${this.quote(c.dbType, c.default)}` : undefined,
         ];
         return parts.filter(p => p != null).join(' ');
     }
@@ -127,14 +128,6 @@ export class SqlBuilder {
         return t === 'nvarchar' || t === 'varchar' || t === 'nchar' || t === 'char' || t === 'text';
     }
 
-    private quote(c: IColumn, value: string): string {
-        const t = (this.isPostgres ? c.dbType.postgres : c.dbType.sqlServer).toLowerCase();
-        const isString = t.includes('char') || t.includes('text');
-        if (isString && !value.startsWith("'"))
-            return `'${value.replace(/'/g, "''")}'`;
-        return value;
-    }
-
     // ---- Foreign keys -------------------------------------------------------
 
     // One ALTER TABLE ... ADD CONSTRAINT per FK column. Run after every table
@@ -143,15 +136,26 @@ export class SqlBuilder {
     alterTableForeignKeys(table: Table): SqlPreCommand | undefined {
         const cmds = Object.values(table.columns)
             .filter(c => c.referenceTable != null && !c.avoidForeignKey)
-            .map(c => this.alterTableAddConstraintForeignKey(table, c));
+            .map(c => this.alterTableAddConstraintForeignKey(table, c.name, c.referenceTable!));
         return SqlPreCommand.combine(Spacing.Simple, ...cmds);
     }
 
-    private alterTableAddConstraintForeignKey(table: Table, column: IColumn): SqlPreCommand {
-        const target = column.referenceTable!;
+    // Faithful to Signum's two AlterTableAddConstraintForeignKey overloads: the Table/column
+    // form (used by generation) delegates to the ObjectName form (used by synchronization).
+    alterTableAddConstraintForeignKey(table: Table, fieldName: string, foreignTable: Table): SqlPreCommand | undefined;
+    alterTableAddConstraintForeignKey(parentTable: ObjectName, parentColumn: string, targetTable: ObjectName, targetPrimaryKey: string): SqlPreCommand | undefined;
+    alterTableAddConstraintForeignKey(a: Table | ObjectName, b: string, c: Table | ObjectName, d?: string): SqlPreCommand | undefined {
+        if (a instanceof ObjectName)
+            return this.alterTableAddConstraintForeignKeyCore(a, b, c as ObjectName, d!);
+
+        const foreignTable = c as Table;
+        return this.alterTableAddConstraintForeignKeyCore(a.name, b, foreignTable.name, foreignTable.primaryKey.column.name);
+    }
+
+    private alterTableAddConstraintForeignKeyCore(parentTable: ObjectName, parentColumn: string, targetTable: ObjectName, targetPrimaryKey: string): SqlPreCommand {
         return new SqlPreCommandSimple(
-            `ALTER TABLE ${this.objectName(table.name)} ADD CONSTRAINT ${this.sqlEscape(this.foreignKeyName(table.name.name, column.name))} ` +
-            `FOREIGN KEY (${this.sqlEscape(column.name)}) REFERENCES ${this.objectName(target.name)}(${this.sqlEscape(target.primaryKey.column.name)});`,
+            `ALTER TABLE ${this.objectName(parentTable)} ADD CONSTRAINT ${this.sqlEscape(this.foreignKeyName(parentTable.name, parentColumn))} ` +
+            `FOREIGN KEY (${this.sqlEscape(parentColumn)}) REFERENCES ${this.objectName(targetTable)}(${this.sqlEscape(targetPrimaryKey)});`,
         );
     }
 
@@ -212,6 +216,155 @@ export class SqlBuilder {
         const hash = hash8(name);
         return name.substring(0, max - hash.length - 1) + '_' + hash;
     }
+
+    // ---- Synchronization emitters -------------------------------------------
+    //
+    // Ported from Signum's SqlBuilder, scoped to the lean synchronizer (no system-versioning /
+    // temporal `withHistory` variants, no partitions, no computed/check constraints). Signum's
+    // GoBefore/GoAfter statement-ordering flags are dropped — altea's SqlPreCommand orders
+    // purely by combine order, so callers must sequence statements themselves. (Divergence.)
+
+    dropTable(tableName: ObjectName): SqlPreCommandSimple {
+        return new SqlPreCommandSimple(`DROP TABLE ${this.objectName(tableName)};`);
+    }
+
+    dropView(viewName: ObjectName): SqlPreCommandSimple {
+        return new SqlPreCommandSimple(`DROP VIEW ${this.objectName(viewName)};`);
+    }
+
+    alterTableDropColumn(tableName: ObjectName, columnName: string): SqlPreCommand {
+        return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} DROP COLUMN ${this.sqlEscape(columnName)};`);
+    }
+
+    alterTableAddColumn(tableName: ObjectName, column: IColumn, tempDefault?: DefaultConstraint): SqlPreCommand {
+        const line = tempDefault == null
+            ? this.columnLine(column)
+            : `${this.columnLine(column)} ${this.isPostgres
+                ? `DEFAULT ${tempDefault.quotedDefinition}`
+                : `CONSTRAINT ${this.sqlEscape(tempDefault.name!)} DEFAULT ${tempDefault.quotedDefinition}`}`;
+        return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} ADD ${line};`);
+    }
+
+    // In-place column change. SQL Server re-states the whole column (type + nullability);
+    // Postgres issues separate ALTER COLUMN … TYPE / SET|DROP NOT NULL statements, only for
+    // the facets that actually differ (Signum's AlterTableAlterColumn).
+    alterTableAlterColumn(table: Table, column: IColumn, diffColumn: DiffColumn, forceTableName?: ObjectName): SqlPreCommand {
+        const tableName = forceTableName ?? table.name;
+        const escName = this.sqlEscape(column.name);
+        const nullable = isNullableToBool(column.nullable);
+        const collate = column.collation != null ? ` COLLATE ${column.collation}` : '';
+
+        if (!this.isPostgres) {
+            return new SqlPreCommandSimple(
+                `ALTER TABLE ${this.objectName(tableName)} ALTER COLUMN ${escName} ${this.getColumnType(column)}${collate} ${nullable ? 'NULL' : 'NOT NULL'};`);
+        }
+
+        const typeChanged = !diffColumn.dbType.equals(column.dbType) || diffColumn.collation !== column.collation
+            || !diffColumn.scaleEquals(column) || !diffColumn.sizeEquals(column) || !diffColumn.precisionEquals(column);
+
+        const parts: (SqlPreCommand | undefined)[] = [
+            typeChanged ? new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} ALTER COLUMN ${escName} TYPE ${this.getColumnType(column)}${collate};`) : undefined,
+            diffColumn.nullable && !nullable ? new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} ALTER COLUMN ${escName} SET NOT NULL;`) : undefined,
+            !diffColumn.nullable && nullable ? new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} ALTER COLUMN ${escName} DROP NOT NULL;`) : undefined,
+        ];
+
+        return SqlPreCommand.combine(Spacing.Simple, ...parts)
+            ?? new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} ALTER COLUMN ${escName} -- UNEXPECTED COLUMN CHANGE!!`);
+    }
+
+    // The DF_ default-constraint descriptor for a column that declares a default, or undefined.
+    getDefaultConstaint(tableName: ObjectName, c: IColumn): DefaultConstraint | undefined {
+        if (c.default == null)
+            return undefined;
+
+        return new DefaultConstraint(c.name, `DF_${tableName.name}_${c.name}`, this.quote(c.dbType, c.default));
+    }
+
+    alterTableDropDefaultConstaint(tableName: ObjectName, columnName: string, constraintName?: string): SqlPreCommand {
+        if (this.isPostgres)
+            return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} ALTER COLUMN ${this.sqlEscape(columnName)} DROP DEFAULT;`);
+        return this.alterTableDropConstraint(tableName, constraintName!);
+    }
+
+    alterTableAddDefaultConstraint(tableName: ObjectName, defCons: DefaultConstraint): SqlPreCommandSimple {
+        if (this.isPostgres)
+            return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} ALTER COLUMN ${this.sqlEscape(defCons.columnName)} SET DEFAULT ${defCons.quotedDefinition};`);
+        return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} ADD CONSTRAINT ${this.sqlEscape(defCons.name!)} DEFAULT ${defCons.quotedDefinition} FOR ${this.sqlEscape(defCons.columnName)};`);
+    }
+
+    alterTableDropConstraint(tableName: ObjectName, constraintName: string | ObjectName): SqlPreCommand {
+        const name = constraintName instanceof ObjectName ? constraintName.name : constraintName;
+        return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} DROP CONSTRAINT ${this.sqlEscape(name)};`);
+    }
+
+    renameForeignKey(tn: ObjectName, foreignKeyName: ObjectName, newName: string): SqlPreCommand {
+        if (this.isPostgres)
+            return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tn)} RENAME CONSTRAINT ${this.sqlEscape(foreignKeyName.name)} TO ${this.sqlEscape(newName)};`);
+        return this.spRename(`${tn.schema.name ? this.sqlEscape(tn.schema.name) + '.' : ''}${this.sqlEscape(foreignKeyName.name)}`, newName, 'OBJECT');
+    }
+
+    renameTable(oldName: ObjectName, newName: string): SqlPreCommand {
+        if (this.isPostgres)
+            return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(oldName)} RENAME TO ${this.sqlEscape(newName)};`);
+        return this.spRename(this.objectName(oldName), newName, undefined);
+    }
+
+    alterSchema(oldName: ObjectName, schemaName: SchemaName): SqlPreCommandSimple {
+        if (this.isPostgres)
+            return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(oldName)} SET SCHEMA ${this.sqlEscape(schemaName.name)};`);
+        return new SqlPreCommandSimple(`ALTER SCHEMA ${this.sqlEscape(schemaName.name)} TRANSFER ${this.objectName(oldName)};`);
+    }
+
+    renameColumn(tableName: ObjectName, oldName: string, newName: string): SqlPreCommand {
+        if (this.isPostgres)
+            return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} RENAME COLUMN ${this.sqlEscape(oldName)} TO ${this.sqlEscape(newName)};`);
+        return this.spRename(`${this.objectName(tableName)}.${oldName}`, newName, 'COLUMN');
+    }
+
+    dropSchema(schemaName: SchemaName): SqlPreCommand {
+        return new SqlPreCommandSimple(`DROP SCHEMA ${this.sqlEscape(schemaName.name)};`);
+    }
+
+    // Drops whatever primary-key constraint the table currently has (its name is discovered
+    // at run time), so a PK-type change can recreate it. SQL Server only — Postgres renames
+    // the constraint directly. Faithful to Signum's DropPrimaryKeyConstraint.
+    dropPrimaryKeyConstraint(tableName: ObjectName): SqlPreCommandSimple {
+        const full = this.objectName(tableName);
+        const varName = 'PrimaryKey_Constraint_' + tableName.name;
+        const command =
+`DECLARE @${varName} nvarchar(max)
+SELECT  @${varName} = 'ALTER TABLE ${full} DROP CONSTRAINT [' + kc.name  + '];'
+FROM sys.key_constraints kc
+WHERE kc.parent_object_id = OBJECT_ID('${full}')
+EXEC dbo.sp_executesql @${varName}`;
+        return new SqlPreCommandSimple(command);
+    }
+
+    // SQL Server's sp_rename. Divergence from Signum: no cross-database prefix (altea is
+    // single-database).
+    private spRename(oldName: string, newName: string, objectType: string | undefined): SqlPreCommandSimple {
+        return new SqlPreCommandSimple(`EXEC SP_RENAME '${oldName}' , '${newName}'${objectType != null ? `, '${objectType}'` : ''};`);
+    }
+
+    // Quote a scalar default/literal for its abstract type — string/char types get single
+    // quotes (Signum's Quote(AbstractDbType, string)).
+    quote(dbType: AbstractDbType, value: string): string {
+        const t = (this.isPostgres ? dbType.postgres : dbType.sqlServer).toLowerCase();
+        const isString = t.includes('char') || t.includes('text');
+        if (isString && !value.startsWith("'"))
+            return `'${value.replace(/'/g, "''")}'`;
+        return value;
+    }
+}
+
+// A default-value constraint descriptor (Signum's SqlBuilder.DefaultConstraint) — the column
+// it defaults, an optional constraint name (SQL Server), and the already-quoted definition.
+export class DefaultConstraint {
+    constructor(
+        public columnName: string,
+        public name: string | undefined,
+        public quotedDefinition: string,
+    ) { }
 }
 
 // Sentinel size meaning "max length" (nvarchar(MAX) / text). Reserved; the

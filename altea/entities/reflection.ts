@@ -79,6 +79,9 @@ export class FieldInfo {
     // Set by @valueField: this field holds the element value of a non-embedded
     // MList row (the scalar/reference the MList<T> stored).
     isValueField?: boolean;
+    // Set by @viewPrimaryKey on an IView field (Signum's [ViewPrimaryKey]): this
+    // raw column is (part of) the view's primary key. Consumed by ViewBuilder.
+    viewPrimaryKey?: boolean;
     columnOptions?: ColumnOptions;
 
     validators: Validator[] = [];
@@ -121,6 +124,10 @@ export class TypeInfo {
     // Explicit database table/view name (Signum's [TableName]); overrides the
     // name derived from the class. Used e.g. for temporary views (`#MyTempView`).
     tableName?: string;
+    // Set by @view: this reflected class is a raw database view (Signum's IView) —
+    // built by ViewBuilder with raw column names, an explicit @viewPrimaryKey, and
+    // none of the entity conventions (id/ticks/toStr/lites).
+    isView?: boolean;
 }
 
 // Legacy (experimentalDecorators) decorators have no `context.metadata`, so
