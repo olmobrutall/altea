@@ -1,7 +1,20 @@
 import { AbstractDbType } from '../schema/dbType';
 import type { IColumn } from '../schema/column';
-import { ObjectName, SchemaName } from '../schema/objectName';
+import { ObjectName, SchemaName, DatabaseName } from '../schema/objectName';
 import { Connector } from '../connection/connector';
+import { View } from '../../entities/entity';
+
+// The default schema of either dialect ('dbo' / 'public') maps to altea's empty default
+// SchemaName, so introspected object names match the model's. Neither is a real user schema.
+function normalizeSchema(name: string): string {
+    return name === 'dbo' || name === 'public' ? '' : name;
+}
+
+// Build an ObjectName from a (possibly default) schema + object name. Kept here so the
+// create() factories can turn the plain strings a query projects into ObjectNames.
+function objectNameOf(schema: string, name: string): ObjectName {
+    return new ObjectName(name, new SchemaName(normalizeSchema(schema), new DatabaseName('')));
+}
 
 // Port of Signum's Engine/Sync/DiffModels.cs — the in-memory description of what the
 // *database* currently contains, produced by the catalog readers (PostgresCatalogSchema /
@@ -19,12 +32,27 @@ export class DiffSchema {
     owner?: string;
 }
 
-export class DiffTable {
+export class DiffTable extends View {
     name!: ObjectName;
 
     primaryKeyName?: ObjectName;
 
     columns!: { [name: string]: DiffColumn };
+
+    // Build a DiffTable from a query projection (or TS) out of plain strings + the columns
+    // array (built in the query as DiffColumn.create({ … })). The schema/name strings become
+    // ObjectNames (default schema normalised), the columns array is indexed by name, and
+    // single-column foreign keys are hoisted onto their columns. Overrides View.create.
+    static create(values: { schemaName: string; tableName: string; primaryKeyName?: string | null; owner?: string; columns: DiffColumn[]; multiForeignKeys?: DiffForeignKey[] }): DiffTable {
+        const t = new DiffTable();
+        t.name = objectNameOf(values.schemaName, values.tableName);
+        t.primaryKeyName = values.primaryKeyName == null ? undefined : objectNameOf(values.schemaName, values.primaryKeyName);
+        t.owner = values.owner;
+        t.columns = Object.fromEntries(values.columns.map(c => [c.name, c]));
+        t.multiForeignKeys = values.multiForeignKeys ?? [];
+        t.foreignKeysToColumns();
+        return t;
+    }
 
     // Kept as plain data holders — populated by the readers, but not diffed by the lean
     // synchronizer (no index model to compare against). Signum's SimpleIndices/ViewIndices
@@ -89,12 +117,12 @@ export class DiffIndex {
     }
 }
 
-export class DiffDefaultConstraint {
+export class DiffDefaultConstraint extends View {
     name?: string;
     definition!: string;
 }
 
-export class DiffColumn {
+export class DiffColumn extends View {
     name!: string;
     dbType!: AbstractDbType;
     nullable!: boolean;
@@ -108,6 +136,32 @@ export class DiffColumn {
     foreignKey?: DiffForeignKey;
 
     defaultConstraint?: DiffDefaultConstraint;
+
+    // Build a DiffColumn from a query projection (or TS) out of the semi-raw catalog facets:
+    // the dialect type NAME becomes the AbstractDbType (only the active dialect's slot is
+    // compared, so both slots mirror it), and a default definition becomes a
+    // DiffDefaultConstraint. `primaryKey` stays false (columnEquals ignores it — PK is handled
+    // via DiffTable.primaryKeyName). Length is stored raw; SQL Server's byte→char halving is
+    // applied later by fixSqlColumnLengthSqlServer.
+    static create(v: {
+        name: string; typeName: string; nullable: boolean;
+        length?: number; precision?: number; scale?: number; identity?: boolean;
+        collation?: string | null; defaultName?: string | null; defaultDefinition?: string | null;
+    }): DiffColumn {
+        const c = new DiffColumn();
+        c.name = v.name;
+        c.dbType = new AbstractDbType(v.typeName, v.typeName);
+        c.nullable = v.nullable;
+        c.collation = v.collation ?? undefined;
+        c.length = v.length ?? -1;
+        c.precision = v.precision ?? 0;
+        c.scale = v.scale ?? 0;
+        c.identity = v.identity ?? false;
+        c.primaryKey = false;
+        if (v.defaultDefinition != null)
+            c.defaultConstraint = DiffDefaultConstraint.create({ name: v.defaultName ?? undefined, definition: v.defaultDefinition });
+        return c;
+    }
 
     // Faithful to Signum's DiffColumn.ColumnEquals, minus the computed-column, check,
     // user-defined-type and generated-always comparisons (altea's IColumn models none of
@@ -204,19 +258,31 @@ export class DiffColumn {
     }
 }
 
-export class DiffForeignKey {
+export class DiffForeignKey extends View {
     name!: ObjectName;
     targetTable!: ObjectName;
     isDisabled = false;
     isNotTrusted = false;
     columns!: DiffForeignKeyColumn[];
 
+    // Build from plain strings (the constraint schema/name and the target table schema/name)
+    // + the DiffForeignKeyColumn array — so a query can construct it directly.
+    static create(values: { schemaName: string; conname: string; targetSchema: string; targetName: string; columns: DiffForeignKeyColumn[]; isDisabled?: boolean; isNotTrusted?: boolean }): DiffForeignKey {
+        const fk = new DiffForeignKey();
+        fk.name = objectNameOf(values.schemaName, values.conname);
+        fk.targetTable = objectNameOf(values.targetSchema, values.targetName);
+        fk.columns = values.columns;
+        fk.isDisabled = values.isDisabled ?? false;
+        fk.isNotTrusted = values.isNotTrusted ?? false;
+        return fk;
+    }
+
     toString(): string {
         return this.name.toString();
     }
 }
 
-export class DiffForeignKeyColumn {
+export class DiffForeignKeyColumn extends View {
     parent!: string;
     referenced!: string;
 

@@ -16,6 +16,7 @@ import { Connector } from "@altea/altea/logic/connection/connector";
 import { MusicLogic } from "../logic/MusicLogic";
 import { TypeLogic } from "@altea/altea/logic/typeLogic";
 import { AlbumEntity, LabelEntity, SongEmbedded, ArtistEntity, NoteWithDateEntity, BandEntity } from "../entities/music";
+import { View } from "@altea/altea/entities/entity";
 
 // A connector that returns canned rows instead of hitting a database, so the
 // full format→execute→project pipeline can be tested offline.
@@ -535,5 +536,32 @@ describe("defaultIfEmpty position guard", () => {
     // Illegal — inside a projection.
     test("throws: inside a projection", () => {
         assert.throws(() => bind(table(AlbumEntity).map(a => a.songs.defaultIfEmpty())), /defaultIfEmpty/);
+    });
+});
+
+// A View subclass constructed in a query projection (View.create). The projector builds
+// real instances per row, and — crucially — `ma.name` on the created object resolves to the
+// bound source expression (`a.name`), because a create-tagged ObjectExpression is still an
+// ObjectExpression whose members bindMember reads from its properties.
+class MiniAlbum extends View {
+    name!: string;
+}
+
+describe("View.create in a query projection", () => {
+    test("filter on a created View's member resolves to the source column (ma.name → a.name)", () => {
+        const proj = bind(table(AlbumEntity).map(a => MiniAlbum.create({ name: a.name })).filter(ma => ma.name.startsWith("Bla")));
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /\bName\b/, "projects the album Name column");
+        assert.match(sql, /LIKE/i, "startsWith on ma.name → LIKE on the source column");
+    });
+
+    test("materialises MiniAlbum instances via create", async () => {
+        const q = table(AlbumEntity).map(a => MiniAlbum.create({ name: a.name }));
+        const colName = bind(q).select.columns[0].name;
+        const fake = new FakeConnector(sb.schema, [{ [colName]: "Blabla" }, { [colName]: "Zeitgeist" }]);
+        const result = await Connector.withConnector(fake, () => q.toArray()) as MiniAlbum[];
+        assert.ok(result[0] instanceof MiniAlbum, "row materialises to a MiniAlbum");
+        assert.equal(result[0].name, "Blabla");
+        assert.equal(result[1].name, "Zeitgeist");
     });
 });

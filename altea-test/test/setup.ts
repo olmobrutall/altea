@@ -14,7 +14,7 @@ import { MusicStarter } from "../logic/MusicStarter";
 // `node --test` runs each test file in its own process, so anything a suite's
 // `before` does is paid once PER FILE. The expensive part — dropping/recreating
 // the tables and loading the sample graph — is therefore split out into
-// `generateEnvironment()`, run ONCE out of band (the `gen:*` scripts). Suites
+// `generateMusicEnvironment()`, run ONCE out of band (the `gen:*` scripts). Suites
 // only `start()` (connect + build the in-memory schema), so each file pays just
 // the connection cost.
 //
@@ -78,7 +78,7 @@ let started: Promise<Connector> | undefined;
 
 // Connects and builds the in-memory schema — and nothing else. No DDL, no data
 // load. This is all a test SUITE needs in its `before`; the sample data is
-// generated separately by `generateEnvironment()`. Memoised per process.
+// generated separately by `generateMusicEnvironment()`. Memoised per process.
 export function start(): Promise<Connector> {
     return (started ??= (async () => {
         // altea analog of Signum's `Connector.CurrentLogger = new DebugTextWriter()`:
@@ -107,7 +107,7 @@ export function start(): Promise<Connector> {
 // Drops/recreates the tables and loads the full sample graph. Run ONCE before a
 // test run (the `gen:*` scripts / the "Generate altea-test DB" launch config);
 // the suites themselves only `start()`.
-export async function generateEnvironment(): Promise<Connector> {
+export async function generateMusicEnvironment(): Promise<Connector> {
     const connector = await start();
     await connector.cleanDatabase();
     await connector.schema.generationScript()?.executeNonQuery();

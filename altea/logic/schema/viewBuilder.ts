@@ -66,18 +66,26 @@ export class ViewBuilder {
     }
 
     private generateViewField(ctor: Function, fi: FieldInfo): FieldValue {
-        if (fi.array)
-            throw new Error(`View field '${fi.name}' on ${ctor.name}: array/collection view columns are not supported yet.`);
         if (fi.implementations != null || fi.include != null || fi.isEnum)
             throw new Error(`View field '${fi.name}' on ${ctor.name}: entity/enum view columns are not supported (views navigate via @quoted sub-queries, not FK columns).`);
 
-        const dbType = this.resolveViewDbType(fi);
+        let dbType = this.resolveViewDbType(fi);
         if (dbType == null)
             throw new Error(`View field '${fi.name}' on ${ctor.name}: cannot determine a DB type for '${fi.typeName}'.`);
 
         const nullable = fi.isNullable === true ? IsNullable.Yes : IsNullable.No;
+        // A primitive array view column (e.g. a catalog `int2[]` like pg_constraint.conkey).
+        // The db type becomes the array form and the column is flagged `collection`; the pg
+        // driver parses the array value into a JS array on read. (Views are read-only, so no
+        // DDL/diff needs the exact array element type.)
+        if (fi.array)
+            dbType = new AbstractDbType(dbType.sqlServer + "[]", dbType.postgres + "[]");
+
         // Column name = field name verbatim (raw catalog column, no PascalCase/snake_case).
-        return new FieldValue(new ValueColumn(fi.name, dbType, nullable, fi.columnOptions?.size, fi.columnOptions?.precision));
+        const column = new ValueColumn(fi.name, dbType, nullable, fi.columnOptions?.size, fi.columnOptions?.precision);
+        if (fi.array)
+            column.collection = true;
+        return new FieldValue(column);
     }
 
     private resolveViewDbType(fi: FieldInfo): AbstractDbType | undefined {

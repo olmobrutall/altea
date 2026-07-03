@@ -34,7 +34,7 @@ import {
 } from "../../schema/field";
 import type { FieldInfo } from "../../../entities/reflection";
 import { resolveType, resolveEnum } from "../../../entities/registration";
-import { Entity } from "../../../entities/entity";
+import { Entity, View } from "../../../entities/entity";
 import { Lite } from "../../../entities/lite";
 import { niceName } from "../../../entities/utils/localization";
 import { ArrayType, ClassType, EnumType, LiteType, LiteralType, TemporalType, Type } from "../../../entities/types";
@@ -52,6 +52,11 @@ import { DbExpressionVisitor } from "./DbExpressionVisitor";
 function isReferenceish(e: Expression): boolean {
     return e instanceof EntityExpression || e instanceof ImplementedByExpression
         || e instanceof ImplementedByAllExpression || e instanceof LiteReferenceExpression;
+}
+
+// A View subclass constructor — the target of an in-query `Ctor.create({ … })` projection.
+function isViewCtor(value: unknown): value is Function {
+    return typeof value === "function" && (value === View || (value as Function).prototype instanceof View);
 }
 
 // A `receiver.<name>(...)` call in the source AST (a CallExpression on a named
@@ -728,6 +733,17 @@ export class QueryBinder extends ExpressionVisitor {
                 return this.bindGroupJoin(property.object, call.args[0], call.args[1] as LambdaExpression, call.args[2] as LambdaExpression, call.args[3] as LambdaExpression);
 
             let source = this.visit(property.object);
+
+            // `Ctor.create({ … })` where Ctor is a View subclass: build a typed instance per
+            // row. Bind the object-literal argument and tag it with the constructor so the
+            // projector materialises `Ctor.create({ … })` instead of a plain object literal.
+            if (op === "create" && source instanceof ConstantExpression && isViewCtor(source.value)) {
+                const arg = this.visit(call.args[0]);
+                if (!(arg instanceof ObjectExpression))
+                    throw new Error(`${(source.value as Function).name}.create(...) expects an object literal argument`);
+                return new ObjectExpression(arg.properties, source.value as Function);
+            }
+
             // A navigated collection (a.friends) realises into a correlated
             // sub-projection so the standard operators below apply to it directly.
             if (source instanceof FieldEntityArrayExpression)

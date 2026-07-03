@@ -465,7 +465,13 @@ class ProjectionBuilder extends DbExpressionVisitor {
             this.visit(value);
             props.push(`${JSON.stringify(key)}: ${this.pop()}`);
         }
-        this.stack.push(`({ ${props.join(", ")} })`);
+        const literal = `{ ${props.join(", ")} }`;
+        // `Ctor.create({ … })` (a View subclass) materialises a typed instance per row; a
+        // plain object literal otherwise.
+        if (e.ctor != null)
+            this.stack.push(`consts[${this.pushConst(e.ctor)}].create(${literal})`);
+        else
+            this.stack.push(`(${literal})`);
         return e;
     }
 

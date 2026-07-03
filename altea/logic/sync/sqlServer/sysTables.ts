@@ -2,6 +2,7 @@ import { reflect } from "../../../entities/reflection";
 import { tableName, viewPrimaryKey, quoted } from "../../../entities/decorators";
 import { int } from "../../../entities/basics";
 import { view } from "../../table";
+import { View } from "../../../entities/entity";
 import type { Query } from "../../query";
 
 // Port of Signum's Engine/Sync/SqlServer/SysTables.cs — the strongly-typed IView classes
@@ -20,7 +21,7 @@ import type { Query } from "../../query";
 
 @reflect
 @tableName("sys.databases")
-export class SysDatabases {
+export class SysDatabases extends View {
     @viewPrimaryKey database_id!: int;
     name!: string;
     collation_name!: string;
@@ -28,7 +29,7 @@ export class SysDatabases {
 
 @reflect
 @tableName("sys.schemas")
-export class SysSchemas {
+export class SysSchemas extends View {
     @viewPrimaryKey schema_id!: int;
     name!: string;
 
@@ -38,7 +39,7 @@ export class SysSchemas {
 
 @reflect
 @tableName("sys.tables")
-export class SysTables {
+export class SysTables extends View {
     name!: string;
     @viewPrimaryKey object_id!: int;
     schema_id!: int;
@@ -58,7 +59,7 @@ export class SysTables {
 
 @reflect
 @tableName("sys.columns")
-export class SysColumns {
+export class SysColumns extends View {
     name!: string;
     @viewPrimaryKey object_id!: int;
     column_id!: int;
@@ -78,7 +79,7 @@ export class SysColumns {
 
 @reflect
 @tableName("sys.default_constraints")
-export class SysDefaultConstraints {
+export class SysDefaultConstraints extends View {
     name!: string;
     @viewPrimaryKey object_id!: int;
     parent_object_id!: int;
@@ -89,7 +90,7 @@ export class SysDefaultConstraints {
 
 @reflect
 @tableName("sys.types")
-export class SysTypes {
+export class SysTypes extends View {
     @viewPrimaryKey system_type_id!: int;
     user_type_id!: int;
     name!: string;
@@ -97,7 +98,7 @@ export class SysTypes {
 
 @reflect
 @tableName("sys.key_constraints")
-export class SysKeyConstraints {
+export class SysKeyConstraints extends View {
     name!: string;
     @viewPrimaryKey object_id!: int;
     schema_id!: int;
@@ -110,7 +111,7 @@ export class SysKeyConstraints {
 
 @reflect
 @tableName("sys.foreign_keys")
-export class SysForeignKeys {
+export class SysForeignKeys extends View {
     @viewPrimaryKey object_id!: int;
     schema_id!: int;
     name!: string;
@@ -131,7 +132,7 @@ export class SysForeignKeys {
 
 @reflect
 @tableName("sys.foreign_key_columns")
-export class SysForeignKeyColumns {
+export class SysForeignKeyColumns extends View {
     @viewPrimaryKey constraint_object_id!: int;
     constraint_column_id!: int;
     parent_object_id!: int;

@@ -6,7 +6,7 @@ import { Temporal } from "../../entities/basics";
 import { resolveType } from "../../entities/registration";
 import { tryGetTypeInfo, type FieldInfo } from "../../entities/reflection";
 import { Lite } from "../../entities/lite";
-import { Entity } from "../../entities/entity";
+import { Entity, View } from "../../entities/entity";
 import { getLambdaTypeResolvers, getResultTypeResolver, LambdaTypeResolver, OrderedQuery, Query, ResultTypeResolver, StaticFunction } from "../query";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 
@@ -15,6 +15,11 @@ import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 // → ClassType, value → LiteralType). This feeds both the flatMap array-guard and
 // the method-call dispatch in fromQuoted (which keys off ArrayType/ClassType).
 // Unknown owners/fields (temporal types, enums, unreflected types) stay null.
+// A View subclass constructor — the target of an in-query `Ctor.create({ … })` projection.
+function isViewCtorValue(value: unknown): value is Function {
+    return typeof value === "function" && (value === View || (value as Function).prototype instanceof View);
+}
+
 function resolveMemberType(ownerType: Type, propertyName: string): Type {
     // Navigating through a Lite<T>: `.entity`/`.entityOrNull` yield the wrapped
     // entity (so `lite.entity.field` types correctly); other members stay null.
@@ -350,6 +355,15 @@ export abstract class Expression {
                     {
                         const fun = fromQuoted(q[1]);
                         const args = q[2];
+
+                        // `Ctor.create({ … })` where Ctor is a View subclass: build a typed
+                        // instance per row. Typed as the instance (ClassType) so downstream
+                        // navigation works; the QueryBinder tags the object with the ctor.
+                        if (fun instanceof PropertyExpression && fun.propertyName === "create"
+                            && fun.object instanceof ConstantExpression && isViewCtorValue(fun.object.value)) {
+                            const createArgs = (args as QuotedEx[]).map(a => fromQuoted(a));
+                            return new CallExpression(fun, createArgs, new ClassType(fun.object.value as Function));
+                        }
 
                         let sf: StaticFunction<Function>;
                         let obj: Expression | undefined;
@@ -809,7 +823,11 @@ export class LambdaExpression extends Expression {
 
 export class ObjectExpression extends Expression {
     constructor(
-        public readonly properties: Readonly<Record<string, Expression>>
+        public readonly properties: Readonly<Record<string, Expression>>,
+        // When set (via a `Ctor.create({ … })` projection over a `View` subclass) the
+        // projector materialises `Ctor.create({ … })` per row instead of a plain object
+        // literal — so a query can build typed instances (e.g. DiffTable / DiffColumn).
+        public readonly ctor?: Function,
     ) {
         var type = new ObjectType(Object.fromEntries(Object.entries(properties).map(([name, exp]) => [name, exp.type])));
 
@@ -821,7 +839,7 @@ export class ObjectExpression extends Expression {
             .map(([name, value]) => `${name}: ${value.toString()}`)
             .join(',\n');
 
-        return `{\n${propertiesString}\n}`;
+        return `${this.ctor?.name ?? ""}{\n${propertiesString}\n}`;
     }
 
     accept(visitor: ExpressionVisitor): Expression {
@@ -833,7 +851,7 @@ export class ObjectExpression extends Expression {
             return this;
         }
 
-        return new ObjectExpression(properties);
+        return new ObjectExpression(properties, this.ctor);
     }
 }
 

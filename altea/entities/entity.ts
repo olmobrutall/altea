@@ -98,6 +98,22 @@ export abstract class BaseEntity {
     }
 }
 
+// Base for raw database views (Signum's IView) and, more generally, any reflected class
+// that a query projection constructs directly via `create` (e.g. the sync DiffTable /
+// DiffColumn model). Like Entity it exposes a static `create(values)` factory; the query
+// projector recognises `View.create({ … })` and materialises a real instance per row
+// (instead of a plain object literal). No id/ticks/change-tracking — a view/DTO is not a
+// persisted entity.
+export abstract class View {
+    // Runtime factory the query projector calls per row for `Ctor.create({ … })`. Loosely
+    // typed (`values: any`) so subclasses can override with their own value shape — e.g.
+    // DiffTable.create takes a columns *array* and indexes it. Typed helpers on concrete
+    // subclasses (or a plain `new`) give call-site safety where it matters.
+    static create(values: any): any {
+        return Object.assign(new (this as unknown as new () => View)(), values);
+    }
+}
+
 @reflect
 @entity()
 export abstract class Entity extends BaseEntity {

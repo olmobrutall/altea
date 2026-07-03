@@ -8,6 +8,7 @@ import { SqlBuilder, DefaultConstraint } from "./sqlBuilder";
 import { SqlPreCommand, SqlPreCommandSimple, Spacing } from "./sqlPreCommand";
 import { Synchronizer, Replacements } from "./synchronizer";
 import { getDatabaseDescription as getSqlServerDescription } from "./sqlServer/sysTablesSchema";
+import { getDatabaseDescription as getPostgresDescription } from "./postgres/postgresCatalogSchema";
 
 // Port of Signum's Engine/Sync/SchemaSynchronizer.SynchronizeTablesScript, scoped to the
 // lean synchronizer: schemas/tables/columns/foreign keys. The huge feature set Signum also
@@ -29,10 +30,7 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
     for (const t of schema.tables.values())
         modelTables.set(t.name.toString(), t);
 
-    if (isPostgres)
-        throw new Error("SchemaSynchronizer: the Postgres catalog reader is not ported yet (M3-Postgres). SQL Server only for now.");
-
-    let databaseTables = await getSqlServerDescription();
+    let databaseTables = isPostgres ? await getPostgresDescription() : await getSqlServerDescription();
 
     replacements.askForReplacements(new Set(databaseTables.keys()), new Set(modelTables.keys()), Replacements.keyTables);
     databaseTables = replacements.applyReplacementsToOld(databaseTables, Replacements.keyTables);
