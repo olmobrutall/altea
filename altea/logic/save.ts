@@ -98,6 +98,49 @@ export class ConcurrencyException extends Error {
     }
 }
 
+// ---- Synchronization SQL (single row, no execution) ------------------------
+//
+// The SQL that INSERTs / UPDATEs / DELETEs one row, returned as a SqlPreCommand rather
+// than executed. Used by SchemaSynchronizer.synchronizeEnumsScript (Signum's Table.
+// InsertSqlSync / UpdateSqlSync / DeleteSqlSync). Unlike insertEntityRow these write the
+// primary key EXPLICITLY (enum ids are fixed values, not identity), and cover every
+// column — value/enum/reference/embedded AND mixin columns — via collectAssignments, so an
+// enum with a mixin syncs its full row.
+
+// INSERT with an explicit primary key + all columns (incl mixins).
+export function insertSqlSync(table: Table, entity: Entity): SqlPreCommandSimple {
+    const sb = Connector.current().sqlBuilder;
+    const assignments: ColumnValue[] = [{ column: table.primaryKey.column, value: entity.id }, ...collectAssignments(table, entity)];
+    const cols = assignments.map(a => sb.sqlEscape(a.column.name)).join(', ');
+    const values = assignments.map((_, i) => placeholder(sb.isPostgres, i)).join(', ');
+    return new SqlPreCommandSimple(`INSERT INTO ${sb.objectName(table.name)} (${cols}) VALUES (${values});`, namedParameters(assignments));
+}
+
+// UPDATE all non-PK columns (incl mixins) of the row WHERE id = entity.id. No optimistic
+// concurrency (enum tables have no ticks).
+export function updateSqlSync(table: Table, entity: Entity): SqlPreCommandSimple {
+    return buildUpdate(table, collectAssignments(table, entity), entity.id);
+}
+
+// DELETE the row WHERE id = entity.id.
+export function deleteSqlSync(table: Table, entity: Entity): SqlPreCommandSimple {
+    const sb = Connector.current().sqlBuilder;
+    const idCol = sb.sqlEscape(table.primaryKey.column.name);
+    return new SqlPreCommandSimple(
+        `DELETE FROM ${sb.objectName(table.name)} WHERE ${idCol} = ${placeholder(sb.isPostgres, 0)};`,
+        [{ name: "p0", value: entity.id }]);
+}
+
+// The full column-value image of an entity's row (incl PK + mixins), for comparing a
+// "should" enum row against the current DB row (→ decide whether an UPDATE is needed).
+export function rowImage(table: Table, entity: Entity): Map<string, unknown> {
+    const image = new Map<string, unknown>();
+    image.set(table.primaryKey.column.name, entity.id);
+    for (const a of collectAssignments(table, entity))
+        image.set(a.column.name, a.value);
+    return image;
+}
+
 // ---- Value extraction ------------------------------------------------------
 
 // Flattens every (non-PK) field's column values for this entity, including mixins.

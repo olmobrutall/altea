@@ -1,11 +1,16 @@
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
-import { generateMusicEnvironment, hasDb } from "./setup";
+import { generateMusicEnvironment, hasDb, txTest } from "./setup";
 import { Connector } from "@altea/altea/logic/connection/connector";
 import { getDatabaseDescription as getSqlServerDescription } from "@altea/altea/logic/sync/sqlServer/sysTablesSchema";
 import { getDatabaseDescription as getPostgresDescription } from "@altea/altea/logic/sync/postgres/postgresCatalogSchema";
-import { synchronizeTablesScript } from "@altea/altea/logic/sync/schemaSynchronizer";
-import { Replacements } from "@altea/altea/logic/sync/synchronizer";
+import { Replacements, type AutoReplacementContext, type Selection } from "@altea/altea/logic/sync/synchronizer";
+import type { SqlPreCommand } from "@altea/altea/logic/sync/sqlPreCommand";
+import { ObjectName } from "@altea/altea/logic/schema/objectName";
+import { ValueColumn } from "@altea/altea/logic/schema/column";
+import { AbstractDbType, IsNullable } from "@altea/altea/logic/schema/dbType";
+import { AlbumEntity, ArtistEntity_Friends } from "../entities/music";
+import { getBoundEnum } from "@altea/altea/entities/enumEntity";
 
 // The synchronizer pipeline end to end against a REAL database (no fakes): generate the
 // schema, introspect it with the IView catalog readers, and diff. DB-gated; SKIPs without
@@ -37,11 +42,100 @@ describe("SchemaSynchronizer (live DB)", { skip: !hasDb }, () => {
         const replacements = new Replacements();
         replacements.interactive = false; // any needed rename ⇒ throw (a real mismatch), never a prompt
 
-        const script = await synchronizeTablesScript(replacements);
+        const script = await connector.schema.synchronizationScript(replacements);
 
         if (script != null)
             console.log("\n[synchronizer] UNEXPECTED non-empty sync script:\n" + script.plainSql() + "\n");
 
         assert.equal(script, undefined, "a freshly generated schema must need no synchronization");
+    });
+
+    // ---- negative round-trips: manually drift the DB, then prove the synchronizer both
+    // DETECTS the drift (non-empty script) and FIXES it (empty on re-sync after applying it).
+    // Each runs inside txTest (Transaction.noCommit) so the DDL is visible to the sync reader
+    // but rolled back afterwards — the shared baseline is untouched. This is the guard that
+    // the empty-script assertion above isn't trivially empty.
+
+    const sync = (autoReplacement?: (ctx: AutoReplacementContext) => Selection | null): Promise<SqlPreCommand | undefined> => {
+        const r = new Replacements();
+        r.interactive = false; // never prompt; a rename either resolves via autoReplacement or throws
+        if (autoReplacement != null)
+            r.autoReplacement = autoReplacement;
+        return connector.schema.synchronizationScript(r);
+    };
+    const run = async (cmd: SqlPreCommand | undefined): Promise<void> => { if (cmd != null) await cmd.executeNonQuery(); };
+    // Physical column name of a model field (dialect-cased).
+    const colOf = (entity: any, field: string): string => connector.schema.table(entity).fields[field].field.columns()[0].name;
+
+    // Answers the rename prompt: a `<name>_ren` old name maps back to `<name>` (so the
+    // synchronizer emits a real RENAME rather than drop+create).
+    const renameBack = (ctx: AutoReplacementContext): Selection | null => {
+        const stripped = ctx.oldValue.replace(/_ren$/, "");
+        return ctx.newValues?.includes(stripped) ? { oldValue: ctx.oldValue, newValue: stripped } : null;
+    };
+
+    async function assertRoundTrip(mutate: () => Promise<void>, autoReplacement?: (ctx: AutoReplacementContext) => Selection | null): Promise<void> {
+        await mutate();
+        const drift = await sync(autoReplacement);
+        assert.ok(drift != null, "the synchronizer must detect the manual drift (non-empty script)");
+        await run(drift);
+        const after = await sync(autoReplacement);
+        if (after != null)
+            console.log("\n[synchronizer] drift not fully repaired:\n" + after.plainSql() + "\n");
+        assert.equal(after, undefined, "re-sync after applying the fix must be empty");
+    }
+
+    // ---- tables --------------------------------------------------------------
+
+    txTest("DropExtraTable", async () => {
+        const schema = connector.schema.table(AlbumEntity).name.schema;
+        const extra = new ObjectName("SyncNegExtraTable", schema);
+        await assertRoundTrip(async () => {
+            await connector.executeNonQuery(`CREATE TABLE ${connector.sqlBuilder.objectName(extra)} (${connector.sqlBuilder.sqlEscape("id")} int NOT NULL)`);
+        });
+    });
+
+    txTest("CreateMissingTable", async () => {
+        const friends = connector.schema.table(ArtistEntity_Friends);
+        await assertRoundTrip(() => run(connector.sqlBuilder.dropTable(friends.name)));
+    });
+
+    txTest("RenameTable", async () => {
+        const friends = connector.schema.table(ArtistEntity_Friends);
+        await assertRoundTrip(() => run(connector.sqlBuilder.renameTable(friends.name, friends.name.name + "_ren")), renameBack);
+    });
+
+    // ---- columns -------------------------------------------------------------
+
+    txTest("DropExtraColumn", async () => {
+        const album = connector.schema.table(AlbumEntity);
+        const extraCol = new ValueColumn("SyncNegExtraCol", new AbstractDbType("int", "int4"), IsNullable.Yes);
+        await assertRoundTrip(() => run(connector.sqlBuilder.alterTableAddColumn(album.name, extraCol)));
+    });
+
+    txTest("CreateMissingColumn", async () => {
+        const album = connector.schema.table(AlbumEntity);
+        await assertRoundTrip(() => run(connector.sqlBuilder.alterTableDropColumn(album.name, colOf(AlbumEntity, "year"))));
+    });
+
+    txTest("RenameColumn", async () => {
+        const album = connector.schema.table(AlbumEntity);
+        const year = colOf(AlbumEntity, "year");
+        await assertRoundTrip(() => run(connector.sqlBuilder.renameColumn(album.name, year, year + "_ren")), renameBack);
+    });
+
+    // ---- enum rows -----------------------------------------------------------
+
+    // A spurious enum row not in the enum definition → the enum-row sync must DELETE it
+    // (proving synchronizeEnumsScript detects and fixes row drift, not just the DDL steps).
+    txTest("SyncExtraEnumRow", async () => {
+        const sb = connector.sqlBuilder;
+        const enumTable = [...connector.schema.tables.values()].find(t => getBoundEnum(t.type) != null);
+        assert.ok(enumTable != null, "the schema should contain at least one enum table");
+        const pk = sb.sqlEscape(enumTable!.primaryKey.column.name);
+        const nameCol = sb.sqlEscape(enumTable!.fields["name"].field.columns()[0].name);
+        await assertRoundTrip(async () => {
+            await connector.executeNonQuery(`INSERT INTO ${sb.objectName(enumTable!.name)} (${pk}, ${nameCol}) VALUES (999, 'SyncNegEnum')`);
+        });
     });
 });

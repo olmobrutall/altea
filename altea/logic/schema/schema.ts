@@ -10,6 +10,13 @@ import { ViewBuilder } from './viewBuilder';
 // Taking the schema as a parameter avoids each handler capturing it in a closure.
 export type GeneratingHandler = (schema: Schema) => SqlPreCommand | undefined;
 
+// A step in the synchronization pipeline (mirrors Signum's Schema.Synchronizing). Given the
+// user's rename Replacements, contributes a piece of the migration script, or nothing. Async
+// because the steps introspect the live database (the IView catalog readers). The default
+// steps (schemas → tables/columns/FKs → enum rows) are installed by
+// installDefaultSynchronizing; apps may push more.
+export type SynchronizingHandler = (replacements: unknown) => Promise<SqlPreCommand | undefined>;
+
 // Registry of all included tables, keyed by entity constructor, with name maps
 // for query/serialization lookups. Built by SchemaBuilder. (EntityEvents and
 // other runtime hooks are deferred to the save/query milestone.)
@@ -22,6 +29,13 @@ export class Schema {
     // the default schema/table/FK steps; apps may push more (e.g. seed data).
     readonly generating: GeneratingHandler[] = [];
 
+    // Synchronization event chain (mirrors Signum's Schema.Synchronizing). Empty until
+    // installDefaultSynchronizing(this) seeds the schema / tables / enum-row steps — done
+    // out of band (not in the constructor) because those steps import the IView catalog
+    // readers, which reference table()→Schema and would form an import cycle here. Apps may
+    // push more handlers afterwards.
+    readonly synchronizing: SynchronizingHandler[] = [];
+
     constructor() {
         installDefaultGenerating(this);
     }
@@ -31,6 +45,16 @@ export class Schema {
     // Returns undefined when the schema is empty.
     generationScript(): SqlPreCommand | undefined {
         return SqlPreCommand.combine(Spacing.Triple, ...this.generating.map(h => h(this)));
+    }
+
+    // Combines every registered synchronizing step into the full migration script (Signum's
+    // Schema.SynchronizationScript). Requires an active Connector (the steps introspect it).
+    // Returns undefined when the database already matches the model.
+    async synchronizationScript(replacements: unknown): Promise<SqlPreCommand | undefined> {
+        const parts: (SqlPreCommand | undefined)[] = [];
+        for (const handler of this.synchronizing)
+            parts.push(await handler(replacements));
+        return SqlPreCommand.combine(Spacing.Triple, ...parts);
     }
 
     table<T extends Entity>(type: Type<T>): Table {

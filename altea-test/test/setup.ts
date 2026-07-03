@@ -100,6 +100,11 @@ export function start(): Promise<Connector> {
         sb.settings.isPostgres = connector.isPostgres;
         MusicLogic.start(sb);
         sb.complete();
+        // Seed the synchronization event with the default steps (schemas → tables → enum
+        // rows). Done here rather than in the Schema constructor to avoid an import cycle
+        // (the sync steps pull in the IView catalog readers).
+        const { installDefaultSynchronizing } = await import("@altea/altea/logic/sync/schemaSynchronizer");
+        installDefaultSynchronizing(sb.schema);
         return connector;
     })());
 }

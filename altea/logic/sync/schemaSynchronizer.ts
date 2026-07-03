@@ -1,7 +1,8 @@
 import { Connector } from "../connection/connector";
 import type { IColumn } from "../schema/column";
-import type { ObjectName } from "../schema/objectName";
+import { ObjectName, SchemaName, DatabaseName } from "../schema/objectName";
 import type { Table } from "../schema/table";
+import type { Schema } from "../schema/schema";
 import { AbstractDbType } from "../schema/dbType";
 import { DiffColumn, DiffTable } from "./diffModels";
 import { SqlBuilder, DefaultConstraint } from "./sqlBuilder";
@@ -9,6 +10,22 @@ import { SqlPreCommand, SqlPreCommandSimple, Spacing } from "./sqlPreCommand";
 import { Synchronizer, Replacements } from "./synchronizer";
 import { getDatabaseDescription as getSqlServerDescription } from "./sqlServer/sysTablesSchema";
 import { getDatabaseDescription as getPostgresDescription } from "./postgres/postgresCatalogSchema";
+import { EnumEntity, getBoundEnum, enumEntityMembers } from "../../entities/enumEntity";
+import { insertSqlSync, updateSqlSync, deleteSqlSync, rowImage } from "../save";
+import type { PrimaryKey } from "../../entities/entity";
+
+// Installs the default synchronizing steps (schemas → tables/columns/FKs → enum rows) onto
+// a schema's `synchronizing` event, mirroring Signum. Done out of band (not in the Schema
+// constructor) because these steps import the IView catalog readers, which reference
+// table()→Schema — installing them here would be an import cycle. Call once after building
+// the schema (apps / test setup); apps may push more handlers afterwards.
+export function installDefaultSynchronizing(schema: Schema): void {
+    schema.synchronizing.push(
+        r => synchronizeSchemasScript(r as Replacements),
+        r => synchronizeTablesScript(r as Replacements),
+        r => synchronizeEnumsScript(r as Replacements),
+    );
+}
 
 // Port of Signum's Engine/Sync/SchemaSynchronizer.SynchronizeTablesScript, scoped to the
 // lean synchronizer: schemas/tables/columns/foreign keys. The huge feature set Signum also
@@ -196,4 +213,166 @@ function applyColumnReplacements(columns: { [name: string]: DiffColumn }, replac
     for (const [name, col] of Object.entries(columns))
         result[rep.get(name) ?? name] = col;
     return result;
+}
+
+// ---- schema (CREATE / DROP SCHEMA) sync -------------------------------------
+
+// Port of the schema half of Signum's SynchronizeTablesScript (createSchemas). Creates any
+// named (non-default) schema the model needs that the database lacks. The music model uses
+// only the default schema, so this is a no-op there. (DROP SCHEMA of a removed named schema
+// is deferred — it needs the late-ordering Signum gives it within the one combined script.)
+export async function synchronizeSchemasScript(_replacements: Replacements): Promise<SqlPreCommand | undefined> {
+    const connector = Connector.current();
+    const sqlBuilder = connector.sqlBuilder;
+
+    const modelSchemas = new Set<string>();
+    for (const t of connector.schema.tables.values())
+        if (t.name.schema.name !== "")
+            modelSchemas.add(t.name.schema.name);
+
+    if (modelSchemas.size === 0)
+        return undefined; // only the default schema — nothing to create
+
+    const existing = await readSchemaNames(connector);
+    const creates = [...modelSchemas]
+        .filter(s => !existing.has(s))
+        .map(s => sqlBuilder.createSchema(new SchemaName(s, new DatabaseName(""))));
+    return SqlPreCommand.combine(Spacing.Double, ...creates);
+}
+
+async function readSchemaNames(connector: Connector): Promise<Set<string>> {
+    const sql = connector.isPostgres
+        ? "SELECT nspname AS name FROM pg_catalog.pg_namespace"
+        : "SELECT name FROM sys.schemas";
+    const rows = await connector.executeQuery(sql) as { name: string }[];
+    return new Set(rows.map(r => r.name));
+}
+
+// ---- enum-row sync (SynchronizeEnumsScript) ---------------------------------
+
+// Port of Signum's SchemaSynchronizer.SynchronizeEnumsScript. For every EnumEntity<T> table,
+// diff the *rows*: the expected members (from the enum definition) vs the current DB rows,
+// producing INSERT / UPDATE / DELETE. NOT a shortcut: it reads and writes EVERY column of the
+// enum table (so an enum with a mixin syncs its mixin columns), and it reads the current rows
+// tolerant of renamed columns (via the column Replacements the tables step also uses). Row
+// renames (a member renamed) are asked via the enum Replacements; a member that changed id is
+// re-inserted, its incoming references moved, and the old row deleted.
+export async function synchronizeEnumsScript(replacements: Replacements): Promise<SqlPreCommand | undefined> {
+    const connector = Connector.current();
+    const schema = connector.schema;
+    const sqlBuilder = connector.sqlBuilder;
+    const commands: (SqlPreCommand | undefined)[] = [];
+
+    for (const table of schema.tables.values()) {
+        const enumObject = getBoundEnum(table.type);
+        if (enumObject == null)
+            continue;
+
+        const nameCol = table.fields["name"].field.columns()[0].name;
+        const pkCol = table.primaryKey.column.name;
+
+        // should: the expected rows, as full entities (id + name; a mixin's columns come from
+        // the entity's own defaults). insertSqlSync/updateSqlSync/rowImage cover mixins.
+        const shouldByName = new Map<string, EnumEntity>();
+        for (const m of enumEntityMembers(enumObject)) {
+            const e = new EnumEntity(enumObject);
+            e.id = m.id;
+            e.name = m.name;
+            shouldByName.set(m.name, e);
+        }
+
+        // current: the DB rows (every column, incl mixins; renamed columns read via the
+        // tables step's column replacements), keyed by member name.
+        const currentByName = new Map<string, { id: PrimaryKey; image: Map<string, unknown> }>();
+        for (const row of await retrieveEnumRows(table, replacements))
+            currentByName.set(String(row.get(nameCol)), { id: row.get(pkCol) as PrimaryKey, image: row });
+
+        // Ask which removed member each new member renames (by name), then apply.
+        const key = Replacements.keyEnumsForTable(table.name.name);
+        replacements.askForReplacements(new Set(currentByName.keys()), new Set(shouldByName.keys()), key);
+        const rep = replacements.tryGetC(key);
+        const current = new Map<string, { id: PrimaryKey; image: Map<string, unknown> }>();
+        for (const [name, v] of currentByName)
+            current.set(rep?.get(name) ?? name, v);
+
+        for (const name of new Set([...shouldByName.keys(), ...current.keys()])) {
+            const should = shouldByName.get(name);
+            const cur = current.get(name);
+
+            if (should != null && cur == null) {
+                commands.push(insertSqlSync(table, should));
+            } else if (should == null && cur != null) {
+                commands.push(deleteSqlSync(table, enumRowWithId(enumObject, cur.id)));
+            } else if (should != null && cur != null) {
+                if (should.id === cur.id) {
+                    if (!imageEquals(rowImage(table, should), cur.image))
+                        commands.push(updateSqlSync(table, should));
+                } else {
+                    // Re-id: insert the member at its new id, move every incoming reference,
+                    // delete the old row. (The temporary-middle-id dance Signum uses to avoid
+                    // a collision when the new id is still in use is not ported yet.)
+                    commands.push(insertSqlSync(table, should));
+                    commands.push(moveReferences(schema, sqlBuilder, table, cur.id, should.id));
+                    commands.push(deleteSqlSync(table, enumRowWithId(enumObject, cur.id)));
+                }
+            }
+        }
+    }
+
+    return SqlPreCommand.combine(Spacing.Double, ...commands);
+}
+
+// A bare EnumEntity carrying just an id, for building a DELETE (deleteSqlSync reads only id).
+function enumRowWithId(enumObject: object, id: PrimaryKey): EnumEntity {
+    const e = new EnumEntity(enumObject);
+    e.id = id;
+    return e;
+}
+
+// Reads every row of an enum table, one Map<physicalColumnName, value> per row. Selects each
+// column by the name it currently has in the DB (the tables step's column replacement maps a
+// DB-old name → model-new name; we invert it to read the old name AS the model name), so a
+// column renamed in the model is still read correctly at generation time.
+async function retrieveEnumRows(table: Table, replacements: Replacements): Promise<Map<string, unknown>[]> {
+    const connector = Connector.current();
+    const sqlBuilder = connector.sqlBuilder;
+    const columns = Object.values(table.columns);
+
+    const colRep = replacements.tryGetC(Replacements.keyColumnsForTable(table.name.name));
+    const dbNameOf = (modelName: string): string => {
+        if (colRep == null)
+            return modelName;
+        for (const [oldName, newName] of colRep)
+            if (newName === modelName)
+                return oldName;
+        return modelName;
+    };
+
+    const select = columns.map(c => `${sqlBuilder.sqlEscape(dbNameOf(c.name))} AS ${sqlBuilder.sqlEscape(c.name)}`).join(", ");
+    const rows = await connector.executeQuery(`SELECT ${select} FROM ${sqlBuilder.objectName(table.name)}`) as Record<string, unknown>[];
+    return rows.map(r => new Map(columns.map(c => [c.name, r[c.name]])));
+}
+
+// Loose equality of two column-value images (keyed by physical column name). Values are
+// coerced to string (null → "") since the DB round-trips numbers/strings loosely.
+function imageEquals(a: Map<string, unknown>, b: Map<string, unknown>): boolean {
+    if (a.size !== b.size)
+        return false;
+    for (const [k, v] of a)
+        if (norm(v) !== norm(b.get(k)))
+            return false;
+    return true;
+}
+function norm(v: unknown): string {
+    return v == null ? "" : String(v);
+}
+
+// UPDATE every incoming reference to an enum row from oldId to newId (Signum's re-index move).
+function moveReferences(schema: Schema, sqlBuilder: SqlBuilder, enumTable: Table, oldId: PrimaryKey, newId: PrimaryKey): SqlPreCommand | undefined {
+    const cmds: SqlPreCommand[] = [];
+    for (const t of schema.tables.values())
+        for (const col of Object.values(t.columns))
+            if (col.referenceTable === enumTable)
+                cmds.push(new SqlPreCommandSimple(`UPDATE ${sqlBuilder.objectName(t.name)} SET ${sqlBuilder.sqlEscape(col.name)} = ${newId} WHERE ${sqlBuilder.sqlEscape(col.name)} = ${oldId};`));
+    return SqlPreCommand.combine(Spacing.Simple, ...cmds);
 }
