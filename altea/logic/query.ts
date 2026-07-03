@@ -3,7 +3,7 @@ import { ExLambda, Quoted } from "quote-transformer/quoted";
 import { Entity } from "../entities/entity";
 import { IQuery, IOrderedQuery } from "../entities/iquery";
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, MethodExpander, PropertyExpression } from "./linq/expressions";
-import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType, PromiseType } from "../entities/types";
+import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType } from "../entities/types";
 
 // The query-expression metadata model. `@quoted` / `withQuoted` (which entities use to
 // mark expression members) live in entities/decorators so the entity model doesn't
@@ -121,7 +121,7 @@ export class Query<T> implements IQuery<T> {
     ) {
     }
 
-    @resultType(ot => new PromiseType(ot))
+    @resultType(ot => ot)
     toArray(): Promise<T[]> {
         return this.translator.execute(this.expression) as Promise<T[]>;
     }
@@ -189,7 +189,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => new PromiseType(SimpleType.number))
+    @resultType(ot => SimpleType.number)
     count<R>(predicate?: Quoted<(element: T) => boolean>): Promise<number> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -203,7 +203,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => new PromiseType(SimpleType.boolean))
+    @resultType(ot => SimpleType.boolean)
     some<R>(predicate?: Quoted<(element: T) => boolean>): Promise<boolean> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -217,7 +217,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => new PromiseType(SimpleType.boolean))
+    @resultType(ot => SimpleType.boolean)
     every<R>(predicate?: Quoted<(element: T) => boolean>): Promise<boolean> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -230,7 +230,7 @@ export class Query<T> implements IQuery<T> {
         return this.translator.execute(call) as Promise<boolean>;
     }
 
-    @resultType(ot => new PromiseType(SimpleType.boolean))
+    @resultType(ot => SimpleType.boolean)
     contains(element: T): Promise<boolean> {
         var call = new CallExpression(
             new PropertyExpression(this.expression, "contains"),
@@ -243,7 +243,7 @@ export class Query<T> implements IQuery<T> {
     min(): Promise<T & (number | string | boolean | null | undefined)>;
     min<V extends (number | string | boolean | null | undefined)>(valueSelector: Quoted<(element: T) => V>): Promise<V>;
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType((ot, selType) => new PromiseType(selType ? (selType as FunctionType).returnType : (ot as ArrayType).elementType))
+    @resultType((ot, selType) => selType ? (selType as FunctionType).returnType : (ot as ArrayType).elementType)
     min(valueSelector?: Quoted<(element: T) => unknown>): Promise<unknown> {
         var lambda = valueSelector == null ? null : Expression.fromQuotedLambda(valueSelector, [this.elementType]);
 
@@ -258,7 +258,7 @@ export class Query<T> implements IQuery<T> {
     max(): Promise<T & (number | string | boolean | null | undefined)>;
     max<V extends (number | string | boolean | null | undefined)>(valueSelector: Quoted<(element: T) => V>): Promise<V>;
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType((ot, selType) => new PromiseType(selType ? (selType as FunctionType).returnType : (ot as ArrayType).elementType))
+    @resultType((ot, selType) => selType ? (selType as FunctionType).returnType : (ot as ArrayType).elementType)
     max(valueSelector?: Quoted<(element: T) => unknown>): Promise<unknown> {
         var lambda = valueSelector == null ? null : Expression.fromQuotedLambda(valueSelector, [this.elementType]);
 
@@ -273,7 +273,7 @@ export class Query<T> implements IQuery<T> {
     sum(): Promise<T & (number | null | undefined)>;
     sum<V extends (number | null | undefined)>(valueSelector: Quoted<(element: T) => V>): Promise<V>;
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType((ot, at) => new PromiseType(SimpleType.number))
+    @resultType((ot, selType) => selType ? (selType as FunctionType).returnType : (ot as ArrayType).elementType)
     sum(valueSelector?: Quoted<(element: T) => unknown>): Promise<unknown> {
         var lambda = valueSelector == null ? null : Expression.fromQuotedLambda(valueSelector, [this.elementType]);
 
@@ -288,7 +288,7 @@ export class Query<T> implements IQuery<T> {
     avg(): Promise<T & (number | null | undefined)>;
     avg<V extends (number | null | undefined)>(valueSelector: Quoted<(element: T) => V>): Promise<V>;
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType((ot, at) => new PromiseType(SimpleType.number))
+    @resultType((ot, selType) => selType ? (selType as FunctionType).returnType : (ot as ArrayType).elementType)
     avg(valueSelector?: Quoted<(element: T) => unknown>): Promise<unknown> {
         var lambda = valueSelector == null ? null : Expression.fromQuotedLambda(valueSelector, [this.elementType]);
 
@@ -319,7 +319,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
+    @resultType(ot => (ot as ArrayType).elementType)
     first<R>(predicate?: Quoted<(element: T) => boolean>): Promise<T> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -333,7 +333,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
+    @resultType(ot => (ot as ArrayType).elementType)
     firstOrNull<R>(predicate?: Quoted<(element: T) => boolean>): Promise<T | null> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -347,7 +347,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
+    @resultType(ot => (ot as ArrayType).elementType)
     last<R>(predicate?: Quoted<(element: T) => boolean>): Promise<T> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -361,7 +361,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
+    @resultType(ot => (ot as ArrayType).elementType)
     lastOrNull<R>(predicate?: Quoted<(element: T) => boolean>): Promise<T | null> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -375,7 +375,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
+    @resultType(ot => (ot as ArrayType).elementType)
     single<R>(predicate?: Quoted<(element: T) => boolean>): Promise<T> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -389,7 +389,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
+    @resultType(ot => (ot as ArrayType).elementType)
     singleOrNull<R>(predicate?: Quoted<(element: T) => boolean>): Promise<T | null> {
 
         var lambda = predicate == null ? null : Expression.fromQuotedLambda(predicate, [this.elementType]);
@@ -457,7 +457,7 @@ export class Query<T> implements IQuery<T> {
     // the projected values with a separator (SQL STRING_AGG). `join` is *only* the
     // string aggregate now — the relational joins are innerJoin/leftJoin/rightJoin/
     // fullJoin below.
-    @resultType(() => new PromiseType(SimpleType.string))
+    @resultType(() => SimpleType.string)
     join(separator: string): Promise<string> {
         var call = new CallExpression(
             new PropertyExpression(this.expression, "join"),
@@ -555,7 +555,7 @@ export class Query<T> implements IQuery<T> {
     // values loose, since `int`/`PrimaryKey` are branded numbers and value expressions
     // widen to `number`).
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(() => new PromiseType(SimpleType.number))
+    @resultType(() => SimpleType.number)
     executeUpdate(setter: Quoted<(element: T) => UpdateValues<T>>): Promise<number> {
         var lambda = Expression.fromQuotedLambda(setter, [this.elementType]);
         var call = new CallExpression(new PropertyExpression(this.expression, "executeUpdate"), [lambda], SimpleType.number);
@@ -563,7 +563,7 @@ export class Query<T> implements IQuery<T> {
     }
 
     // table(T)[.filter(…)].executeDelete() → affected rows.
-    @resultType(() => new PromiseType(SimpleType.number))
+    @resultType(() => SimpleType.number)
     executeDelete(): Promise<number> {
         var call = new CallExpression(new PropertyExpression(this.expression, "executeDelete"), [], SimpleType.number);
         return this.translator.executeCommand(call);
@@ -571,7 +571,7 @@ export class Query<T> implements IQuery<T> {
 
     // table(S)[.filter(…)].executeInsert(TargetEntity, s => ({ …fields })) → inserted rows.
     @lambdaTypeForParam(1, ot => [(ot as ArrayType).elementType])
-    @resultType(() => new PromiseType(SimpleType.number))
+    @resultType(() => SimpleType.number)
     executeInsert<E>(target: new () => E, selector: Quoted<(element: T) => UpdateValues<E>>): Promise<number> {
         var lambda = Expression.fromQuotedLambda(selector, [this.elementType]);
         var call = new CallExpression(
@@ -585,14 +585,14 @@ export class Query<T> implements IQuery<T> {
     // the binder rewrites to orderBy[Descending](selector).firstOrNull()). Decorated so it
     // also types when used inside a query group (`g.elements.maxBy(…)`).
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
+    @resultType(ot => (ot as ArrayType).elementType)
     minBy(selector: Quoted<(element: T) => unknown>): Promise<T | null> {
         const lambda = Expression.fromQuotedLambda(selector, [this.elementType]);
         const call = new CallExpression(new PropertyExpression(this.expression, "minBy"), [lambda], this.elementType);
         return this.translator.execute(call) as Promise<T | null>;
     }
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @resultType(ot => new PromiseType((ot as ArrayType).elementType))
+    @resultType(ot => (ot as ArrayType).elementType)
     maxBy(selector: Quoted<(element: T) => unknown>): Promise<T | null> {
         const lambda = Expression.fromQuotedLambda(selector, [this.elementType]);
         const call = new CallExpression(new PropertyExpression(this.expression, "maxBy"), [lambda], this.elementType);
@@ -642,7 +642,7 @@ export class Query<T> implements IQuery<T> {
     // (Signum's UnsafeUpdatePart): `partSelector` picks the entity/reference to update.
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
     @lambdaTypeForParam(1, (_ot, partSelType) => [(partSelType as FunctionType).returnType])
-    @resultType(() => new PromiseType(SimpleType.number))
+    @resultType(() => SimpleType.number)
     executeUpdatePart<P>(partSelector: Quoted<(element: T) => P>, setter: Quoted<(part: P) => UpdateValues<P>>): Promise<number> {
         var partLambda = Expression.fromQuotedLambda(partSelector, [this.elementType]);
         var setterLambda = Expression.fromQuotedLambda(setter, [partLambda.body.type!]);

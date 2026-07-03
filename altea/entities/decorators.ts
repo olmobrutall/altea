@@ -149,22 +149,11 @@ export function tableName(name: string) {
     };
 }
 
-// Marks a class as a raw database view (Signum's `: IView` + `[TableName(...)]`).
-// Like @reflect/@entity it creates reflection metadata and registers the type (so
-// the quote-transformer auto-injects @field on its properties); additionally it
-// flags the TypeInfo as a view and records the mapped table/view name. Consumed by
-// ViewBuilder / Schema.view / Database.view.
-export function view(name: string) {
-    return function (target: Function): void {
-        const typeInfo = getOrCreateTypeInfo(target);
-        typeInfo.isView = true;
-        typeInfo.tableName = name;
-        registerType(target);
-    };
-}
-
 // Field-level marker on an IView class (Signum's [ViewPrimaryKey]): this raw column
-// is (part of) the view's primary key. Consumed by ViewBuilder.
+// is (part of) the view's primary key. Consumed by ViewBuilder. A view class is
+// declared with `@reflect` (the reflection/@field trigger, standing in for Signum's
+// `: IView`) + `@tableName("schema.view")` (Signum's [TableName]); ViewBuilder reads
+// those to build the view table.
 export function viewPrimaryKey(target: object, propertyKey: string | symbol): void {
     getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).viewPrimaryKey = true;
 }

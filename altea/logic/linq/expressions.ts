@@ -1,7 +1,7 @@
 
 import { isOptionalChain } from "typescript";
 import { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
-import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, PromiseType, ObjectType, TemporalType, Type } from "../../entities/types";
+import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, Type } from "../../entities/types";
 import { Temporal } from "../../entities/basics";
 import { resolveType } from "../../entities/registration";
 import { tryGetTypeInfo, type FieldInfo } from "../../entities/reflection";
@@ -21,10 +21,12 @@ function resolveMemberType(ownerType: Type, propertyName: string): Type {
     if (ownerType instanceof LiteType)
         return propertyName === "entity" || propertyName === "entityOrNull" ? ownerType.entityType : LiteralType.null;
 
-    // `promise.$v` unwraps a Promise<T> to T (the query-compiler marker — SQL has
-    // no async); the binder turns the awaited sub-query into a scalar subquery.
-    if (ownerType instanceof PromiseType)
-        return propertyName === "$v" ? ownerType.inner : LiteralType.null;
+    // `promise.$v` is the Promise<T>→T compile-time cast (SQL has no async). It carries no
+    // SQL meaning, so at the expression level it is a pure identity: the type of `x.$v` is
+    // the type of `x`. (The AST never carries a PromiseType — query terminals are typed as
+    // their unwrapped value.)
+    if (propertyName === "$v")
+        return ownerType;
 
     // An anonymous result (e.g. a grouping `{ key, elements }`): the member type is
     // the declared property type, so `g.elements` types as the element array and
@@ -459,13 +461,10 @@ export abstract class Expression {
                             );
                         }
 
-                        const rawResultType = getResultType(obj?.type ?? LiteralType.null, ...argsExp.map(a => a.type));
-                        // Query terminals are async at the top level (PromiseType), but a
-                        // query expression has no async: when their resolver is borrowed for
-                        // an Array<T> / sub-query, unwrap the Promise to its inner value.
-                        const resultType = obj?.type instanceof ArrayType && rawResultType instanceof PromiseType
-                            ? rawResultType.inner
-                            : rawResultType;
+                        // @resultType returns the unwrapped value type (identical to the type
+                        // the eager Query method builds its CallExpression with) — the AST
+                        // never carries a Promise, so no unwrap is needed here.
+                        const resultType = getResultType(obj?.type ?? LiteralType.null, ...argsExp.map(a => a.type));
                         const call = new CallExpression(fun, argsExp, resultType);
                         call.methodExpander = sf.__methodExpander;
                         return call;

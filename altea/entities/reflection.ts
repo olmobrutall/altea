@@ -122,12 +122,9 @@ export class TypeInfo {
 
     fields: { [fieldName: string]: FieldInfo };
     // Explicit database table/view name (Signum's [TableName]); overrides the
-    // name derived from the class. Used e.g. for temporary views (`#MyTempView`).
+    // name derived from the class. For a view class (@reflect + @tableName) this is
+    // the raw view name ViewBuilder maps to, e.g. "pg_catalog.pg_namespace".
     tableName?: string;
-    // Set by @view: this reflected class is a raw database view (Signum's IView) —
-    // built by ViewBuilder with raw column names, an explicit @viewPrimaryKey, and
-    // none of the entity conventions (id/ticks/toStr/lites).
-    isView?: boolean;
 }
 
 // Legacy (experimentalDecorators) decorators have no `context.metadata`, so

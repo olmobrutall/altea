@@ -8,25 +8,26 @@ import { ObjectName, SchemaName, DatabaseName } from './objectName';
 import { Table } from './table';
 
 // Port of Signum's ViewBuilder (Engine/Schema/SchemaBuilder/SchemaBuilder.cs). Builds the
-// in-memory Table for a raw database view (a class marked `@view("schema.name")` with
-// `@viewPrimaryKey` fields — Signum's `: IView` + `[TableName]` + `[ViewPrimaryKey]`).
+// in-memory Table for a raw database view. A view class is declared with `@reflect` (the
+// reflection/@field trigger, standing in for Signum's `: IView`), `@tableName("schema.name")`
+// (Signum's [TableName]), and `@viewPrimaryKey` fields (Signum's [ViewPrimaryKey]).
 //
 // Unlike SchemaBuilder.include: NO naming convention (column name = field name verbatim),
 // NO id/ticks/toStr conventions, and the primary key comes from @viewPrimaryKey rather than
 // a synthetic `id`. Views are queried, never generated, so DDL/enum steps skip them.
 //
 // Scope: catalog views map only scalar columns and navigate via @quoted sub-queries
-// (`Database.View<X>().Where(...)`), never FK columns — so view fields are FieldValue.
-// Array columns (pg int[]/short[]/byte[]) are a later milestone; entity/embedded view
-// fields are rejected until a reader needs them.
+// (view(X).filter(...)), never FK columns — so view fields are FieldValue. Array columns
+// (pg int[]/short[]/byte[]) are a later milestone; entity/embedded view fields are rejected
+// until a reader needs them.
 export class ViewBuilder {
     newView(type: Type<Entity>): Table {
         const ctor = typeConstructor(type);
         const typeInfo = getTypeInfo(ctor);
-        if (typeInfo == null || !typeInfo.isView)
-            throw new Error(`Type '${ctor.name}' is not a view. Decorate it with @view("schema.name").`);
+        if (typeInfo == null)
+            throw new Error(`View '${ctor.name}' has no reflection metadata. Decorate it with @reflect.`);
         if (typeInfo.tableName == null)
-            throw new Error(`View '${ctor.name}' has no mapped name. @view requires the raw view name, e.g. @view("pg_catalog.pg_namespace").`);
+            throw new Error(`View '${ctor.name}' has no mapped name. Add @tableName("pg_catalog.pg_namespace") (the raw view name).`);
 
         const table = new Table(type, parseViewName(typeInfo.tableName));
         table.isView = true;

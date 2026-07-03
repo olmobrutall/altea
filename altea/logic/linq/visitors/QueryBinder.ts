@@ -1696,11 +1696,19 @@ export class QueryBinder extends ExpressionVisitor {
         if (name === "length" && (obj instanceof ProjectionExpression || obj instanceof FieldEntityArrayExpression))
             return this.bindAggregate(this.asProjection(obj), "Count", undefined, false);
 
-        // promise.$v — the await marker (SQL has no async). Unwraps an awaited
-        // sub-query: a single-result projection becomes a scalar subquery; anything
-        // already a value passes through.
+        // promise.$v — the await marker (SQL has no async). A pure Promise<T>→T cast with no
+        // SQL meaning: it should be transparent. For a single-result sub-query whose result
+        // is a *navigable* shape (entity / lite / embedded / nested collection), pass the
+        // projection through so a following `.member`/`.method` navigates it (via the
+        // uniqueFunction path above / bindMethodCall). Only when the single result is a plain
+        // scalar value do we collapse to a scalar subquery (the value itself). Anything
+        // already a value passes through unchanged.
+        // `.$v` (the Promise<T>→T await marker) carries no SQL meaning: binding `obj.$v` is
+        // exactly binding `obj`. Turning a single-row sub-query into a scalar subquery is the
+        // job of the *consuming* context (a comparison operand, a projected scalar column, a
+        // member access), not of `.$v` — see coerceScalar / the uniqueFunction paths.
         if (name === "$v")
-            return obj instanceof ProjectionExpression ? new ScalarExpression(obj.type, obj.select) : obj;
+            return obj;
 
         // string.length → SQL string-length function (Signum's string.Length).
         // LEN on SQL Server, length() on Postgres.

@@ -114,7 +114,14 @@ export class DiffColumn {
     // these). Compares dialect type, collation, nullability, size/precision/scale, and —
     // unless ignored — identity and primary-key flags.
     columnEquals(other: IColumn, ignorePrimaryKey: boolean, ignoreIdentity: boolean): boolean {
-        return this.dbType.equals(other.dbType)
+        // Compare only the ACTIVE dialect's type name. Signum's AbstractDbType holds a
+        // single dialect type; altea's holds both, but a DB-read DiffColumn only populates
+        // the dialect it read, so comparing both slots would spuriously differ.
+        const isPostgres = Connector.current().isPostgres;
+        const dbTypeEquals = isPostgres
+            ? this.dbType.postgres === other.dbType.postgres
+            : this.dbType.sqlServer === other.dbType.sqlServer;
+        return dbTypeEquals
             && this.collation === other.collation
             && this.nullable === isNullableToBool(other)
             && this.sizeEquals(other)
