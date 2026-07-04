@@ -54,6 +54,9 @@ export class SysTables extends View {
     keyConstraints(): Query<SysKeyConstraints> { return view(SysKeyConstraints).filter(fk => fk.parent_object_id == this.object_id); }
 
     @quoted
+    indices(): Query<SysIndexes> { return view(SysIndexes).filter(ix => ix.object_id == this.object_id); }
+
+    @quoted
     schema(): Promise<SysSchemas> { return view(SysSchemas).single(a => a.schema_id == this.schema_id); }
 }
 
@@ -139,4 +142,32 @@ export class SysForeignKeyColumns extends View {
     parent_column_id!: int;
     referenced_object_id!: int;
     referenced_column_id!: int;
+}
+
+@reflect
+@tableName("sys.indexes")
+export class SysIndexes extends View {
+    @viewPrimaryKey index_id!: int;
+    name!: string;
+    object_id!: int;
+    is_unique!: boolean;
+    is_primary_key!: boolean;
+    type!: int;
+    filter_definition!: string;
+
+    @quoted
+    indexColumns(): Query<SysIndexColumn> { return view(SysIndexColumn).filter(ixc => ixc.index_id == this.index_id && ixc.object_id == this.object_id); }
+}
+
+@reflect
+@tableName("sys.index_columns")
+export class SysIndexColumn extends View {
+    @viewPrimaryKey object_id!: int;
+    index_id!: int;
+    column_id!: int;
+    index_column_id!: int;
+    key_ordinal!: int;
+    partition_ordinal!: int;
+    is_included_column!: boolean;
+    is_descending_key!: boolean;
 }

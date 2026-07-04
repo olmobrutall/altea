@@ -158,6 +158,48 @@ export function viewPrimaryKey(target: object, propertyKey: string | symbol): vo
     getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).viewPrimaryKey = true;
 }
 
+// Index selector options shared by the lambda forms of @index / @uniqueIndex.
+export interface IndexDecoratorOptions<T> {
+    includeFields?: (element: T) => unknown;
+    // Filtered (partial) index predicate as an SQL string (see IndexOptions.where).
+    where?: string;
+}
+
+// @index — Signum's [Index] (field) plus a class-level composite form. Two shapes:
+//   • field:  `@index code!: string;`                    — a non-unique index on that column
+//   • class:  `@index(e => [e.a, e.b])`                  — a composite non-unique index
+// The class form stores the raw selector lambda; the SchemaBuilder resolves it to columns.
+export function index(target: object, propertyKey: string | symbol): void;
+export function index<T>(fields: (element: T) => unknown, options?: IndexDecoratorOptions<T>): (target: Function) => void;
+export function index(arg1: unknown, arg2?: unknown): unknown {
+    return indexDecorator(false, arg1, arg2);
+}
+
+// @uniqueIndex — Signum's [UniqueIndex] (field) plus a class-level composite form:
+//   • field:  `@uniqueIndex code!: string;`              — a unique index on that column
+//   • class:  `@uniqueIndex(e => [e.name, e.country])`   — a composite unique index
+export function uniqueIndex(target: object, propertyKey: string | symbol): void;
+export function uniqueIndex<T>(fields: (element: T) => unknown, options?: IndexDecoratorOptions<T>): (target: Function) => void;
+export function uniqueIndex(arg1: unknown, arg2?: unknown): unknown {
+    return indexDecorator(true, arg1, arg2);
+}
+
+function indexDecorator(unique: boolean, arg1: unknown, arg2: unknown): unknown {
+    // Field form: (target, propertyKey).
+    if (typeof arg2 === 'string' || typeof arg2 === 'symbol') {
+        const fi = getOrCreateFieldInfo(getOrCreateTypeInfo(arg1 as object), String(arg2));
+        if (unique) fi.uniqueIndex = true; else fi.index = true;
+        return undefined;
+    }
+    // Class form: (fields lambda, options?) → a class decorator storing the raw selectors.
+    const fields = arg1 as (element: any) => unknown;
+    const options = arg2 as IndexDecoratorOptions<any> | undefined;
+    return function (target: Function): void {
+        const ti = getOrCreateTypeInfo(target);
+        (ti.indexes ??= []).push({ unique, fields, includeFields: options?.includeFields, where: options?.where });
+    };
+}
+
 export function allowUnauthenticated(target: Function): void {
     (target as any)[allowUnauthenticatedKey] = true;
 }

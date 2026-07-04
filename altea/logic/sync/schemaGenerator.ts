@@ -44,6 +44,14 @@ export function createTablesScript(schema: Schema): SqlPreCommand | undefined {
     return SqlPreCommand.combine(Spacing.Triple, createTables, foreignKeys);
 }
 
+// CREATE INDEX for every table's indexes (the automatic FK indexes + @index/@uniqueIndex +
+// withIndex). Runs after CREATE TABLE + FOREIGN KEY so the indexed columns exist.
+export function createIndicesScript(schema: Schema): SqlPreCommand | undefined {
+    const sqlBuilder = Connector.current().sqlBuilder;
+    const cmds = [...schema.tables.values()].flatMap(t => t.indexes.map(ix => sqlBuilder.createIndex(ix)));
+    return SqlPreCommand.combine(Spacing.Simple, ...cmds);
+}
+
 // INSERT one row per member into each EnumEntity<T> table. Runs after the tables
 // (and FKs) exist; enum tables have no incoming FK so order among them is free.
 export function createEnumValuesScript(schema: Schema): SqlPreCommand | undefined {
@@ -61,5 +69,5 @@ export function createEnumValuesScript(schema: Schema): SqlPreCommand | undefine
 export function installDefaultGenerating(schema: Schema): void {
     // Each handler takes the schema as its argument (GeneratingHandler), so they
     // can be registered directly rather than wrapped in schema-capturing closures.
-    schema.generating.push(createSchemasScript, createTablesScript, createEnumValuesScript);
+    schema.generating.push(createSchemasScript, createTablesScript, createIndicesScript, createEnumValuesScript);
 }

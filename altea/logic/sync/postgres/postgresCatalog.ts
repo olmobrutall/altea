@@ -47,6 +47,9 @@ export class PgClass extends View {
     constraints(): Query<PgConstraint> { return view(PgConstraint).filter(t => t.conrelid == this.oid); }
 
     @quoted
+    indices(): Query<PgIndex> { return view(PgIndex).filter(t => t.indrelid == this.oid); }
+
+    @quoted
     namespace(): Promise<PgNamespace> { return view(PgNamespace).single(t => t.oid == this.relnamespace); }
 }
 
@@ -104,3 +107,23 @@ export const ConstraintType = {
     PrimaryKey: "p",
     Unique: "u",
 } as const;
+
+@reflect
+@tableName("pg_catalog.pg_index")
+export class PgIndex extends View {
+    @viewPrimaryKey indexrelid!: int;
+    indrelid!: int;
+    // Total attributes vs *key* attributes: positions >= indnkeyatts are INCLUDE (covering)
+    // columns (Signum's PgIndex.indnatts / indnkeyatts).
+    indnkeyatts!: int;
+    indisunique!: boolean;
+    indisprimary!: boolean;
+    // The indexed columns' attnums (pg's int2vector). Read as an array; the reader resolves
+    // each attnum to a column name in TS (the partial predicate `indpred` is a pg_node_tree,
+    // fetched separately via pg_get_expr, so it is not a field here).
+    indkey!: number[];
+
+    // The index's row in pg_class carries its NAME (Signum's PgIndex.Class().relname).
+    @quoted
+    class(): Promise<PgClass> { return view(PgClass).single(t => t.oid == this.indexrelid); }
+}

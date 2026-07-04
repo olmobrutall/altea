@@ -3,8 +3,10 @@ import type { IColumn } from '../schema/column';
 import { AbstractDbType, isNullableToBool } from '../schema/dbType';
 import { ObjectName, SchemaName } from '../schema/objectName';
 import type { Table } from '../schema/table';
+import type { TableIndex } from '../schema/tableIndex';
 import type { DiffColumn } from './diffModels';
 import { SqlPreCommand, SqlPreCommandSimple, Spacing } from './sqlPreCommand';
+import { chopHash, codify, HASH_SIZE } from './stringHash';
 
 // Renders dialect-specific DDL fragments from the in-memory schema model. Mirrors
 // Signum's SqlBuilder, scoped to schema *generation*: CREATE SCHEMA / CREATE
@@ -159,6 +161,51 @@ export class SqlBuilder {
         );
     }
 
+    // ---- Indexes ------------------------------------------------------------
+
+    // Index name (Signum's TableIndex.GetIndexName): IX_ / UIX_ prefix (lowercased on
+    // Postgres) + table + column signature, chop-hashed to the length limit, plus a
+    // WHERE/INCLUDE signature so a filtered/covering variant on the same columns gets a
+    // distinct, deterministic name.
+    indexName(index: TableIndex): string {
+        const prefix = index.unique ? (this.isPostgres ? 'uix' : 'UIX') : (this.isPostgres ? 'ix' : 'IX');
+        const cols = index.columns.map(c => c.name).join('_');
+        // Reserve room for the "__" + 7-char WHERE signature (Signum's MaxNameLength()).
+        const base = chopHash(`${prefix}_${index.table.name.name}_${cols}`, this.maxNameLength - HASH_SIZE - 2, this.isPostgres);
+        return base + this.whereSignature(index);
+    }
+
+    // "__" + hash of the WHERE clause + INCLUDE columns (Signum's TableIndex.WhereSignature),
+    // or "" when the index is a plain full index over its key columns.
+    private whereSignature(index: TableIndex): string {
+        const include = index.includeColumns != null && index.includeColumns.length > 0
+            ? index.includeColumns.map(c => c.name).join('_')
+            : '';
+        if ((index.where == null || index.where === '') && include === '')
+            return '';
+        return '__' + codify((index.where ?? '') + include, this.isPostgres);
+    }
+
+    // CREATE [UNIQUE] INDEX name ON table(cols) [INCLUDE(...)] [WHERE ...] (Signum's
+    // CreateIndexBasic; clustered/partitioned/indexed-view variants are deferred). Postgres
+    // and SQL Server share this shape once the default-filegroup `ON 'PRIMARY'` is dropped.
+    createIndex(index: TableIndex): SqlPreCommand {
+        const name = this.sqlEscape(this.indexName(index));
+        const cols = index.columns.map(c => this.sqlEscape(c.name)).join(', ');
+        const include = index.includeColumns != null && index.includeColumns.length > 0
+            ? ` INCLUDE (${index.includeColumns.map(c => this.sqlEscape(c.name)).join(', ')})`
+            : '';
+        const where = index.where != null && index.where !== '' ? ` WHERE ${index.where}` : '';
+        return new SqlPreCommandSimple(
+            `CREATE ${index.unique ? 'UNIQUE ' : ''}INDEX ${name} ON ${this.objectName(index.table.name)} (${cols})${include}${where};`);
+    }
+
+    dropIndex(tableName: ObjectName, indexName: string): SqlPreCommand {
+        if (this.isPostgres)
+            return new SqlPreCommandSimple(`DROP INDEX ${this.sqlEscape(indexName)};`);
+        return new SqlPreCommandSimple(`DROP INDEX ${this.sqlEscape(indexName)} ON ${this.objectName(tableName)};`);
+    }
+
     // ---- Enum side-tables ---------------------------------------------------
 
     // One multi-row INSERT seeding an enum side-table: id = the member's
@@ -198,23 +245,18 @@ export class SqlBuilder {
 
     foreignKeyName(table: string, column: string): string {
         const prefix = this.isPostgres ? 'fk' : 'FK';
-        return this.chopHash(`${prefix}_${table}_${column}`);
+        return this.chopName(`${prefix}_${table}_${column}`);
     }
 
     primaryKeyName(table: string): string {
         const prefix = this.isPostgres ? 'pk' : 'PK';
-        return this.chopHash(`${prefix}_${table}`);
+        return this.chopName(`${prefix}_${table}`);
     }
 
-    // Truncates an over-long identifier and appends a short deterministic hash so
-    // it stays unique within the DB's name-length limit. Mirrors Signum's
-    // StringHashEncoder.ChopHash.
-    private chopHash(name: string): string {
-        const max = this.maxNameLength;
-        if (name.length <= max)
-            return name;
-        const hash = hash8(name);
-        return name.substring(0, max - hash.length - 1) + '_' + hash;
+    // Chop an over-long identifier to the DB's name-length limit, appending a short hash of
+    // the truncated tail (Signum's StringHashEncoder.ChopHash).
+    private chopName(name: string): string {
+        return chopHash(name, this.maxNameLength, this.isPostgres);
     }
 
     // ---- Synchronization emitters -------------------------------------------
@@ -370,17 +412,6 @@ export class DefaultConstraint {
 // Sentinel size meaning "max length" (nvarchar(MAX) / text). Reserved; the
 // schema builder does not emit it yet.
 export const MAX_SIZE = -1;
-
-// 8-char base-36 hash of a string (FNV-1a). Deterministic, collision-resistant
-// enough for disambiguating truncated constraint names.
-function hash8(s: string): string {
-    let h = 0x811c9dc5;
-    for (let i = 0; i < s.length; i++) {
-        h ^= s.charCodeAt(i);
-        h = Math.imul(h, 0x01000193);
-    }
-    return (h >>> 0).toString(36).padStart(7, '0').slice(0, 8);
-}
 
 // Reserved words common to SQL Server and PostgreSQL that we always quote when
 // used as identifiers (column/table names). Not exhaustive — the bare-identifier

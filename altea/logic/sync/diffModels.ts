@@ -1,5 +1,6 @@
 import { AbstractDbType } from '../schema/dbType';
 import type { IColumn } from '../schema/column';
+import type { TableIndex } from '../schema/tableIndex';
 import { ObjectName, SchemaName, DatabaseName } from '../schema/objectName';
 import { Connector } from '../connection/connector';
 import { View } from '../../entities/entity';
@@ -43,20 +44,20 @@ export class DiffTable extends View {
     // array (built in the query as DiffColumn.create({ … })). The schema/name strings become
     // ObjectNames (default schema normalised), the columns array is indexed by name, and
     // single-column foreign keys are hoisted onto their columns. Overrides View.create.
-    static create(values: { schemaName: string; tableName: string; primaryKeyName?: string | null; owner?: string; columns: DiffColumn[]; multiForeignKeys?: DiffForeignKey[] }): DiffTable {
+    static create(values: { schemaName: string; tableName: string; primaryKeyName?: string | null; owner?: string; columns: DiffColumn[]; multiForeignKeys?: DiffForeignKey[]; indices?: DiffIndex[] }): DiffTable {
         const t = new DiffTable();
         t.name = objectNameOf(values.schemaName, values.tableName);
         t.primaryKeyName = values.primaryKeyName == null ? undefined : objectNameOf(values.schemaName, values.primaryKeyName);
         t.owner = values.owner;
         t.columns = Object.fromEntries(values.columns.map(c => [c.name, c]));
         t.multiForeignKeys = values.multiForeignKeys ?? [];
+        t.indices = Object.fromEntries((values.indices ?? []).map(i => [i.indexName, i]));
         t.foreignKeysToColumns();
         return t;
     }
 
-    // Kept as plain data holders — populated by the readers, but not diffed by the lean
-    // synchronizer (no index model to compare against). Signum's SimpleIndices/ViewIndices
-    // accessors and the temporal/period/versioning fields are intentionally omitted.
+    // The DB's indexes keyed by name (Signum's DiffTable.Indices), populated by the catalog
+    // readers and diffed against the model's TableIndexes by SchemaSynchronizer.
     indices: { [name: string]: DiffIndex } = {};
 
     owner?: string;
@@ -90,12 +91,23 @@ export class DiffTable extends View {
     }
 }
 
-export class DiffIndexColumn {
+export class DiffIndexColumn extends View {
     index!: number;
     columnName!: string;
     isDescending = false;
-    isIncluded = false;
     type: DiffIndexColumnType = DiffIndexColumnType.Key;
+
+    // Build from a query projection. `included` (SQL Server's is_included_column / a Postgres
+    // INCLUDE column) marks a covering column; a partition column is not modelled by the lean
+    // synchronizer (it collapses to Key). Overrides View.create.
+    static create(v: { index: number; columnName: string; isDescending?: boolean; included?: boolean }): DiffIndexColumn {
+        const c = new DiffIndexColumn();
+        c.index = v.index;
+        c.columnName = v.columnName;
+        c.isDescending = v.isDescending ?? false;
+        c.type = v.included ? DiffIndexColumnType.Included : DiffIndexColumnType.Key;
+        return c;
+    }
 }
 
 export enum DiffIndexColumnType {
@@ -104,17 +116,90 @@ export enum DiffIndexColumnType {
     Partition = 'Partition',
 }
 
-// Inert data holder (see DiffTable.indices). The full DiffIndex/IndexEquals machinery from
-// Signum is deferred until altea grows a TableIndex model.
-export class DiffIndex {
+// Port of Signum's Engine/Sync/DiffModels.cs DiffIndex, scoped to what altea's TableIndex
+// models: (non-)unique multi-column indexes with optional INCLUDE columns and a filtered
+// WHERE. The temporal/heap/clustered/vector/full-text/data-space concerns Signum also
+// compares here are omitted (altea has no model for them).
+export class DiffIndex extends View {
     isUnique = false;
     isPrimary = false;
     indexName!: string;
+    // The DB's filtered-index predicate (SQL Server's filter_definition / Postgres' partial
+    // predicate). Not compared directly — the WHERE is folded into the index name's signature,
+    // so a changed filter surfaces as a name mismatch. Kept for completeness/diagnostics.
+    filterDefinition?: string;
     columns: DiffIndexColumn[] = [];
+
+    // Build from a query projection: the index facets + its (already ordered) columns array
+    // (built in-query as DiffIndexColumn.create({ … })). Overrides View.create.
+    static create(v: { indexName: string; isUnique?: boolean; isPrimary?: boolean; filterDefinition?: string | null; columns: DiffIndexColumn[] }): DiffIndex {
+        const ix = new DiffIndex();
+        ix.indexName = v.indexName;
+        ix.isUnique = v.isUnique ?? false;
+        ix.isPrimary = v.isPrimary ?? false;
+        ix.filterDefinition = v.filterDefinition ?? undefined;
+        // Order by the catalog's column ordinal (Signum's `orderby ic.index_column_id`) so key
+        // columns precede included ones and both match the model's declaration order. Done
+        // client-side to keep the reader query free of an ordered projection.
+        ix.columns = [...v.columns].sort((a, b) => a.index - b.index);
+        return ix;
+    }
+
+    // Faithful to Signum's DiffIndex.IndexEquals, scoped: uniqueness and the WHERE/INCLUDE
+    // signature are encoded in the index NAME (so they surface via the dictionary key, not
+    // here), leaving column identity + the primary-key flag to compare. A model TableIndex is
+    // never a primary key in altea (the PK is a separate concern), so isPrimary must be false.
+    indexEquals(dif: DiffTable, mix: TableIndex, _isPostgres: boolean): boolean {
+        if (this.columnsChanged(dif, mix))
+            return false;
+
+        if (this.isPrimary)
+            return false;
+
+        return true;
+    }
+
+    // Whether the DB index's key/included columns differ from the model index's (Signum's
+    // DiffIndex.ColumnsChanged).
+    private columnsChanged(dif: DiffTable, mix: TableIndex): boolean {
+        const keyCols = this.columns.filter(a => a.type === DiffIndexColumnType.Key);
+        const incCols = this.columns.filter(a => a.type === DiffIndexColumnType.Included);
+        const sameCols = identicalColumns(dif, mix.columns, keyCols);
+        const sameInc = identicalColumns(dif, mix.includeColumns, incCols);
+        return !(sameCols && sameInc);
+    }
+
+    // A "controlled" index is one altea itself generates — its name carries the IX_/UIX_/CIX_
+    // prefix (lowercased on Postgres). Signum only ever drops/recreates controlled indexes
+    // automatically; a hand-made index (other prefix) is left alone. (Signum's IsControlledIndex.)
+    isControlledIndex(isPostgres: boolean): boolean {
+        return (
+            this.indexName.startsWith(isPostgres ? 'ix_' : 'IX_') ||
+            this.indexName.startsWith(isPostgres ? 'uix_' : 'UIX_') ||
+            this.indexName.startsWith(isPostgres ? 'cix_' : 'CIX_')
+        );
+    }
 
     toString(): string {
         return `${this.indexName} (${this.columns.map(c => c.columnName).join(', ')})`;
     }
+}
+
+// Signum's DiffIndex.IdenticalColumns: the model columns (in declaration order) match the DB
+// index columns (in index order) one-for-one, comparing each by ColumnEquals (ignoring PK /
+// identity, as an index never depends on those). undefined model columns count as empty.
+function identicalColumns(dif: DiffTable, modColumns: IColumn[] | undefined, diffColumns: DiffIndexColumn[]): boolean {
+    if ((modColumns?.length ?? 0) !== diffColumns.length)
+        return false;
+
+    if (diffColumns.length === 0)
+        return true;
+
+    return diffColumns.every((dc, i) => {
+        const difCol = Object.values(dif.columns).find(c => c.name === dc.columnName);
+        const modCol = modColumns![i];
+        return difCol != null && modCol != null && difCol.columnEquals(modCol, /* ignorePrimaryKey */ true, /* ignoreIdentity */ true);
+    });
 }
 
 export class DiffDefaultConstraint extends View {

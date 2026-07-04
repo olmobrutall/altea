@@ -8,6 +8,7 @@ import { Replacements, type AutoReplacementContext, type Selection } from "@alte
 import type { SqlPreCommand } from "@altea/altea/logic/sync/sqlPreCommand";
 import { ObjectName } from "@altea/altea/logic/schema/objectName";
 import { ValueColumn } from "@altea/altea/logic/schema/column";
+import { TableIndex } from "@altea/altea/logic/schema/tableIndex";
 import { AbstractDbType, IsNullable } from "@altea/altea/logic/schema/dbType";
 import { AlbumEntity, ArtistEntity_Friends } from "../entities/music";
 import { getBoundEnum } from "@altea/altea/entities/enumEntity";
@@ -122,6 +123,30 @@ describe("SchemaSynchronizer (live DB)", { skip: !hasDb }, () => {
         const album = connector.schema.table(AlbumEntity);
         const year = colOf(AlbumEntity, "year");
         await assertRoundTrip(() => run(connector.sqlBuilder.renameColumn(album.name, year, year + "_ren")), renameBack);
+    });
+
+    // ---- indexes -------------------------------------------------------------
+
+    // Drop one of the model's own (controlled) indexes from the DB → the synchronizer must
+    // detect it's missing and re-CREATE it (proving addIndices' create path + that the readers
+    // read indexes back with the exact name SqlBuilder emits, so a match is a no-op).
+    txTest("CreateMissingIndex", async () => {
+        const album = connector.schema.table(AlbumEntity);
+        const ix = album.indexes.find(i => i.columns.length >= 1);
+        assert.ok(ix != null, "AlbumEntity should have at least one generated index (its FK columns)");
+        const name = connector.sqlBuilder.indexName(ix!);
+        await assertRoundTrip(() => run(connector.sqlBuilder.dropIndex(album.name, name)));
+    });
+
+    // A controlled (IX_/UIX_/CIX_-named) index present in the DB but not in the model → the
+    // synchronizer must DROP it (dropIndices' removeOld honours IsControlledIndex). We index a
+    // plain value column, which never gets an automatic model index, so it's genuinely extra.
+    txTest("DropExtraControlledIndex", async () => {
+        const album = connector.schema.table(AlbumEntity);
+        const target = Object.values(album.columns).find(c => !c.identity && c.referenceTable == null);
+        assert.ok(target != null, "AlbumEntity should have a plain value column to index");
+        const extra = new TableIndex(album, [target!]);
+        await assertRoundTrip(() => run(connector.sqlBuilder.createIndex(extra)));
     });
 
     // ---- enum rows -----------------------------------------------------------

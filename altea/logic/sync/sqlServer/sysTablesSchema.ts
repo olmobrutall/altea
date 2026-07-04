@@ -1,6 +1,6 @@
 import "../../../entities/globals"; // Array.prototype.toMap
 import { Connector } from "../../connection/connector";
-import { DiffTable, DiffColumn, DiffForeignKey, DiffForeignKeyColumn } from "../diffModels";
+import { DiffTable, DiffColumn, DiffForeignKey, DiffForeignKeyColumn, DiffIndex, DiffIndexColumn } from "../diffModels";
 import { view } from "../../table";
 import {
     SysSchemas, SysTables, SysTypes, SysDefaultConstraints,
@@ -62,6 +62,29 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
                         .map(fkc => DiffForeignKeyColumn.create({
                             parent: st.t.columns().single(c => c.column_id == fkc.parent_column_id).$v.name,
                             referenced: fr.rt.columns().single(c => c.column_id == fkc.referenced_column_id).$v.name,
+                        }))
+                        .toArray().$v,
+                }))
+                .toArray().$v,
+
+            // The table's indexes: each index with its (key + included) columns resolved to
+            // names by joining sys.index_columns back to sys.columns on column_id (Signum's
+            // SimpleIndices). is_primary_key rows are read too (the synchronizer filters them);
+            // the heap row (index_id 0, NULL name — Signum's DiffIndexType.Heap) is skipped.
+            indices: st.t.indices()
+                .filter(i => i.name != null)
+                .map(i => DiffIndex.create({
+                    indexName: i.name,
+                    isUnique: i.is_unique,
+                    isPrimary: i.is_primary_key,
+                    filterDefinition: i.filter_definition,
+                    columns: i.indexColumns()
+                        .innerJoin(st.t.columns(), ic => ic.column_id, c => c.column_id, (ic, c) => ({ ic, c }))
+                        .map(x => DiffIndexColumn.create({
+                            index: x.ic.index_column_id,
+                            columnName: x.c.name,
+                            isDescending: x.ic.is_descending_key,
+                            included: x.ic.is_included_column,
                         }))
                         .toArray().$v,
                 }))

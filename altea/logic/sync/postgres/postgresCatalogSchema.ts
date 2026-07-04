@@ -1,6 +1,6 @@
 import "../../../entities/globals"; // Array.prototype.toMap
 import { Connector } from "../../connection/connector";
-import { DiffTable, DiffColumn, DiffForeignKey, DiffForeignKeyColumn } from "../diffModels";
+import { DiffTable, DiffColumn, DiffForeignKey, DiffForeignKeyColumn, DiffIndex, DiffIndexColumn } from "../diffModels";
 import { view } from "../../table";
 import { PgNamespace, PgType } from "./postgresCatalog";
 
@@ -23,6 +23,9 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
     const types = await view(PgType).map(t => ({ oid: t.oid, typname: t.typname })).toArray() as { oid: number; typname: string }[];
     const typeNameByOid = types.toMap(t => t.oid, t => t.typname);
     const defaultByCol = await getColumnDefaults();
+    // Filtered-index predicates keyed by the index's pg_class oid (indexrelid). pg_get_expr
+    // decompiles the stored pg_node_tree predicate — done via raw SQL, like column defaults.
+    const predByIndex = await getIndexPredicates();
 
     // Faithful giant query: namespaces (non-internal) → their tables → columns + FKs.
     const rows = await view(PgNamespace)
@@ -49,6 +52,21 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
             foreignKeys: x.t.constraints()
                 .filter(c => c.contype == "f")
                 .map(fk => ({ conname: fk.conname, conkey: fk.conkey, confkey: fk.confkey, confrelid: fk.confrelid }))
+                .toArray().$v,
+
+            // Indexes: the flags + the index name (from the index's own pg_class row) + the raw
+            // indkey attnum vector. Column names are resolved from indkey in TS (pg's array
+            // indexing / generate_subscripts aren't modelled in the LINQ provider), mirroring
+            // how FK columns are resolved from conkey/confkey below.
+            indices: x.t.indices()
+                .map(ix => ({
+                    indexName: ix.class().$v.relname,
+                    indexrelid: ix.indexrelid,
+                    indisunique: ix.indisunique,
+                    indisprimary: ix.indisprimary,
+                    indnkeyatts: ix.indnkeyatts,
+                    indkey: ix.indkey,
+                }))
                 .toArray().$v,
         }))
         .toArray() as RawTableRow[];
@@ -77,6 +95,22 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
                 })),
             });
         }),
+        indices: r.indices.map(ix => DiffIndex.create({
+            indexName: ix.indexName,
+            isUnique: ix.indisunique,
+            isPrimary: ix.indisprimary,
+            filterDefinition: predByIndex.get(ix.indexrelid) ?? null,
+            // indkey positions >= indnkeyatts are INCLUDE columns. Attnum 0 marks an expression
+            // column (not modelled) — drop it.
+            columns: toIntArray(ix.indkey)
+                .map((attnum, i) => ({ attnum, i }))
+                .filter(x => x.attnum > 0)
+                .map(x => DiffIndexColumn.create({
+                    index: x.i,
+                    columnName: attNameByKey.get(`${r.oid}:${x.attnum}`)!,
+                    included: x.i >= ix.indnkeyatts,
+                })),
+        })),
     }));
 
     return tables.toMap(t => t.name.toString());
@@ -89,9 +123,23 @@ interface RawColumnRow {
     attnotnull: boolean; attidentity: string;
 }
 interface RawFkRow { conname: string; conkey: number[]; confkey: number[]; confrelid: number; }
+interface RawIndexRow {
+    indexName: string; indexrelid: number; indisunique: boolean; indisprimary: boolean;
+    indnkeyatts: number; indkey: unknown;
+}
 interface RawTableRow {
     oid: number; schemaName: string; tableName: string; primaryKeyName: string | null;
-    columns: RawColumnRow[]; foreignKeys: RawFkRow[];
+    columns: RawColumnRow[]; foreignKeys: RawFkRow[]; indices: RawIndexRow[];
+}
+
+// pg's int2vector (indkey) may reach the driver as a JS array or as a space-separated string
+// ("1 2 3") since node-postgres has no parser for the int2vector type; normalise to numbers.
+function toIntArray(v: unknown): number[] {
+    if (Array.isArray(v))
+        return v.map(Number);
+    if (typeof v === "string")
+        return v.trim() === "" ? [] : v.trim().split(/\s+/).map(Number);
+    return [];
 }
 
 // ---- helpers ----------------------------------------------------------------
@@ -119,4 +167,12 @@ async function getColumnDefaults(): Promise<Map<string, string>> {
     const rows = await Connector.current().executeQuery(
         "SELECT adrelid, adnum, pg_get_expr(adbin, adrelid) AS def FROM pg_catalog.pg_attrdef") as { adrelid: number; adnum: number; def: string }[];
     return rows.toMap(r => `${r.adrelid}:${r.adnum}`, r => r.def);
+}
+
+// Filtered-index predicates keyed by indexrelid. pg_get_expr decompiles indpred (a
+// pg_node_tree) into SQL text; done via raw SQL since pg_get_expr isn't a modelled LINQ function.
+async function getIndexPredicates(): Promise<Map<number, string>> {
+    const rows = await Connector.current().executeQuery(
+        "SELECT indexrelid, pg_get_expr(indpred, indrelid) AS def FROM pg_catalog.pg_index WHERE indpred IS NOT NULL") as { indexrelid: number; def: string }[];
+    return rows.toMap(r => r.indexrelid, r => r.def);
 }

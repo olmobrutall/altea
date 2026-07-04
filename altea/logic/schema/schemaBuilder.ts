@@ -1,9 +1,10 @@
 import { Entity, EmbeddedEntity, isGenericType, typeConstructor } from '../../entities/entity';
 import type { Type } from '../../entities/entity';
 import { MixinDeclarations } from '../../entities/mixinDeclarations';
-import { getTypeInfo, resolveType, resolveEnum, enumNameOf, FieldInfo, PrimaryKeyType } from '../../entities/reflection';
+import { getTypeInfo, resolveType, resolveEnum, enumNameOf, FieldInfo, TypeInfo, PrimaryKeyType } from '../../entities/reflection';
 import { AbstractDbType, IsNullable, defaultDbType, primaryKeyDbType } from './dbType';
 import {
+    IColumn,
     PrimaryKeyColumn,
     ValueColumn,
     ReferenceColumn,
@@ -29,7 +30,8 @@ import {
 import { NameSequence } from './nameSequence';
 import { ObjectName, SchemaName, defaultSchemaName } from './objectName';
 import { Schema } from './schema';
-import { Table } from './table';
+import { Table, FluentTable } from './table';
+import { TableIndex, recordAccessedFields } from './tableIndex';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../entities/enumEntity';
 import { TypeEntity } from '../../entities/typeEntity';
 import { TypeLogic } from '../typeLogic';
@@ -130,11 +132,11 @@ export class SchemaBuilder {
 
     constructor(public readonly settings: SchemaSettings = new SchemaSettings()) { }
 
-    include<T extends Entity>(type: Type<T>): Table {
+    include<T extends Entity>(type: Type<T>): FluentTable<T> {
         const entityType = type as unknown as Type<Entity>;
         const existing = this.schema.tables.get(entityType);
         if (existing != null)
-            return existing;
+            return existing as FluentTable<T>;
 
         const name = new ObjectName(this.settings.tableName(entityType), this.settings.schemaName);
         const table = new Table(entityType, name);
@@ -147,7 +149,7 @@ export class SchemaBuilder {
         this.schema.nameToType.set(clean, entityType);
 
         this.completeTable(table, type);
-        return table;
+        return table as FluentTable<T>;
     }
 
     // Validates cross-table back-references once every table is present. Call
@@ -263,6 +265,42 @@ export class SchemaBuilder {
         }
 
         table.generateColumns();
+        this.generateIndexes(table, typeInfo);
+    }
+
+    // Builds the table's indexes (Signum's Table.GenerateAllIndexes): an automatic non-unique
+    // index on every foreign-key column, the field-level @index / @uniqueIndex, and the
+    // class-level composite @index / @uniqueIndex(e => …) lambdas. Enum/system tables have no
+    // FK columns, so they pick up nothing unless explicitly indexed.
+    private generateIndexes(table: Table, typeInfo: TypeInfo): void {
+        const addFieldIndexes = (fi: FieldInfo, columns: IColumn[]): void => {
+            if (fi.uniqueIndex)
+                table.indexes.push(new TableIndex(table, columns, { unique: true }));
+            else if (fi.index)
+                table.indexes.push(new TableIndex(table, columns));
+            else
+                // Default: a non-unique index per foreign-key column (Signum's
+                // FieldReference.GenerateIndexes) — one index each, so an @implementedBy's
+                // implementation columns are indexed individually.
+                for (const col of columns)
+                    if (col.referenceTable != null && !col.avoidForeignKey)
+                        table.indexes.push(new TableIndex(table, [col]));
+        };
+
+        for (const ef of Object.values(table.fields))
+            if (!(ef.field instanceof FieldPrimaryKey))
+                addFieldIndexes(ef.fieldInfo, ef.field.columns());
+        for (const mixin of Object.values(table.mixins))
+            for (const ef of Object.values(mixin.fields))
+                addFieldIndexes(ef.fieldInfo, ef.field.columns());
+
+        // Class-level composite indexes: run the stored selector lambdas against a recording
+        // proxy to get the covered fields, then resolve to columns.
+        for (const desc of typeInfo.indexes ?? []) {
+            const columns = table.columnsFromFields(recordAccessedFields(desc.fields));
+            const includeColumns = desc.includeFields == null ? undefined : table.columnsFromFields(recordAccessedFields(desc.includeFields));
+            table.indexes.push(new TableIndex(table, columns, { unique: desc.unique, includeColumns, where: desc.where }));
+        }
     }
 
     private generateField(table: Table, fi: FieldInfo, preName: NameSequence): Field {

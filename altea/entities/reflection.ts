@@ -82,6 +82,10 @@ export class FieldInfo {
     // Set by @viewPrimaryKey on an IView field (Signum's [ViewPrimaryKey]): this
     // raw column is (part of) the view's primary key. Consumed by ViewBuilder.
     viewPrimaryKey?: boolean;
+    // Set by field-level @index / @uniqueIndex (Signum's [Index] / [UniqueIndex]): a single-
+    // column (non-)unique index on this field's column. Consumed by SchemaBuilder.
+    index?: boolean;
+    uniqueIndex?: boolean;
     columnOptions?: ColumnOptions;
 
     validators: Validator[] = [];
@@ -125,6 +129,11 @@ export class TypeInfo {
     // name derived from the class. For a view class (@reflect + @tableName) this is
     // the raw view name ViewBuilder maps to, e.g. "pg_catalog.pg_namespace".
     tableName?: string;
+    // Set by class-level @index / @uniqueIndex(e => [e.a, e.b]): composite indexes declared
+    // by column-selector lambdas. Stored as the raw selectors (entities/ can't import the
+    // logic-layer field recorder); the SchemaBuilder runs them against a recording proxy to
+    // resolve the covered fields → columns.
+    indexes?: { unique: boolean; fields: (element: any) => unknown; includeFields?: (element: any) => unknown; where?: string }[];
 }
 
 // Legacy (experimentalDecorators) decorators have no `context.metadata`, so

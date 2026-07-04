@@ -3,8 +3,9 @@ import type { IColumn } from "../schema/column";
 import { ObjectName, SchemaName, DatabaseName } from "../schema/objectName";
 import type { Table } from "../schema/table";
 import type { Schema } from "../schema/schema";
+import type { TableIndex } from "../schema/tableIndex";
 import { AbstractDbType } from "../schema/dbType";
-import { DiffColumn, DiffTable } from "./diffModels";
+import { DiffColumn, DiffTable, DiffIndex, DiffIndexColumn } from "./diffModels";
 import { SqlBuilder, DefaultConstraint } from "./sqlBuilder";
 import { SqlPreCommand, SqlPreCommandSimple, Spacing } from "./sqlPreCommand";
 import { Synchronizer, Replacements } from "./synchronizer";
@@ -14,18 +15,10 @@ import { EnumEntity, getBoundEnum, enumEntityMembers } from "../../entities/enum
 import { insertSqlSync, updateSqlSync, deleteSqlSync, rowImage } from "../save";
 import type { PrimaryKey } from "../../entities/entity";
 
-// Installs the default synchronizing steps (schemas → tables/columns/FKs → enum rows) onto
-// a schema's `synchronizing` event, mirroring Signum. Done out of band (not in the Schema
-// constructor) because these steps import the IView catalog readers, which reference
-// table()→Schema — installing them here would be an import cycle. Call once after building
-// the schema (apps / test setup); apps may push more handlers afterwards.
-export function installDefaultSynchronizing(schema: Schema): void {
-    schema.synchronizing.push(
-        r => synchronizeSchemasScript(r as Replacements),
-        r => synchronizeTablesScript(r as Replacements),
-        r => synchronizeEnumsScript(r as Replacements),
-    );
-}
+// The default synchronizing steps (synchronizeSchemasScript / synchronizeTablesScript /
+// synchronizeEnumsScript, exported below) are seeded onto Schema.synchronizing by the Schema
+// constructor — automatic, like Signum. They only reference Schema as a *type*, so wiring
+// them from schema.ts is cycle-free.
 
 // Port of Signum's Engine/Sync/SchemaSynchronizer.SynchronizeTablesScript, scoped to the
 // lean synchronizer: schemas/tables/columns/foreign keys. The huge feature set Signum also
@@ -90,6 +83,30 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
                     || !dbTypeEqualsActive(colDb.dbType, colModel.dbType, isPostgres))
                     ? sqlBuilder.alterTableDropConstraint(dif.name, colDb.foreignKey.name)
                     : undefined),
+    );
+
+    // ---- drop indexes that changed, or whose column was removed/modified -----
+    // Runs before column changes (an index must be dropped before its column can be dropped
+    // or altered). Mirrors Signum's dropIndices. Primary-key indexes are excluded (the PK is
+    // handled separately); a controlled index (IX_/UIX_/CIX_) that no longer matches the model
+    // is dropped and recreated in addIndices.
+    const dropIndices = Synchronizer.synchronizeScript(
+        Spacing.Double,
+        modelTables,
+        databaseTables,
+        undefined,
+        (tn, dif) => SqlPreCommand.combine(Spacing.Simple,
+            ...Object.values(dif.indices).filter(ix => !ix.isPrimary).map(ix => sqlBuilder.dropIndex(dif.name, ix.indexName))),
+        (tn, tab, dif) => Synchronizer.synchronizeScript(
+            Spacing.Simple,
+            modelIndexMap(sqlBuilder, tab),
+            diffIndexMap(dif),
+            undefined,
+            (i, dix) => dix.isControlledIndex(isPostgres) || dix.columns.some(c => isColumnRemovedOrModified(tab, dif, c))
+                ? sqlBuilder.dropIndex(dif.name, dix.indexName)
+                : undefined,
+            (i, mix, dix) => !dix.indexEquals(dif, mix, isPostgres) ? sqlBuilder.dropIndex(dif.name, dix.indexName) : undefined,
+        ),
     );
 
     // ---- create / drop / alter tables ---------------------------------------
@@ -165,13 +182,69 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
         ),
     );
 
-    return SqlPreCommand.combine(Spacing.Triple, dropForeignKeys, tables, addForeignKeys);
+    // ---- add indexes missing in the database (or recreate changed ones) ------
+    // Runs after columns/FKs exist. Mirrors Signum's addIndices: a brand-new model table gets
+    // all its (non-primary) indexes; for an existing table, an index missing in the DB is
+    // created, and one whose columns changed is recreated (a plain rename when only the name
+    // differs — but our names are the dictionary keys, so a match here means identical names).
+    const addIndices = Synchronizer.synchronizeScript(
+        Spacing.Double,
+        modelTables,
+        databaseTables,
+        (tn, tab) => SqlPreCommand.combine(Spacing.Simple,
+            ...tab.indexes.map(index => sqlBuilder.createIndex(index))),
+        undefined,
+        (tn, tab, dif) => Synchronizer.synchronizeScript(
+            Spacing.Simple,
+            modelIndexMap(sqlBuilder, tab),
+            diffIndexMap(dif),
+            (i, mix) => sqlBuilder.createIndex(mix),
+            undefined,
+            (i, mix, dix) => !dix.indexEquals(dif, mix, isPostgres) ? sqlBuilder.createIndex(mix) : undefined,
+        ),
+    );
+
+    return SqlPreCommand.combine(Spacing.Triple, dropForeignKeys, dropIndices, tables, addForeignKeys, addIndices);
 }
 
 // ---- helpers ----------------------------------------------------------------
 
 function colMap(columns: { [name: string]: IColumn } | { [name: string]: DiffColumn }): Map<string, any> {
     return new Map(Object.entries(columns));
+}
+
+// The model table's indexes keyed by their computed name (the same name SqlBuilder emits in
+// CREATE INDEX), so they align with the DB indexes read by the catalog readers. Uniqueness and
+// the WHERE/INCLUDE signature are folded into that name, so a change to either surfaces as a
+// key mismatch (drop + create) rather than a merge.
+function modelIndexMap(sqlBuilder: SqlBuilder, tab: Table): Map<string, TableIndex> {
+    const m = new Map<string, TableIndex>();
+    for (const ix of tab.indexes)
+        m.set(sqlBuilder.indexName(ix), ix);
+    return m;
+}
+
+// The DB table's indexes keyed by name, excluding the primary-key index (handled separately).
+function diffIndexMap(dif: DiffTable): Map<string, DiffIndex> {
+    const m = new Map<string, DiffIndex>();
+    for (const [name, ix] of Object.entries(dif.indices))
+        if (!ix.isPrimary)
+            m.set(name, ix);
+    return m;
+}
+
+// Whether a DB index column's underlying column was removed from the model, or its type
+// changed (so the index must be dropped rather than kept). The DiffIndexColumn carries the DB
+// (old) column name; map it through the applied column replacements to the model key, then
+// compare (Signum's IsColumnRemovedOrModified).
+function isColumnRemovedOrModified(tab: Table, dif: DiffTable, c: DiffIndexColumn): boolean {
+    const newName = dif.columns[c.columnName] != null
+        ? c.columnName
+        : Object.entries(dif.columns).find(([, v]) => v.name === c.columnName)?.[0];
+    if (newName == null)
+        return true;
+    const tc = tab.columns[newName];
+    return tc == null || !dif.columns[newName].columnEquals(tc, /* ignorePrimaryKey */ true, /* ignoreIdentity */ true);
 }
 
 // Add a column, seeding a temporary default for a NOT NULL column so existing rows get a
