@@ -26,6 +26,20 @@ import { EntityCompleter } from "./EntityCompleter";
 import { GroupEntityCleaner } from "./GroupEntityCleaner";
 import { SmartEqualizer } from "../smartEqualizer";
 import { TypeLogic } from "../../typeLogic";
+import { ExpandLite, ExpandEntity } from "../../query";
+import type { ExpandLiteHint } from "../expressions.sql";
+
+// Map the altea ExpandLite enum (its member order differs from Signum's) to the neutral
+// string hint carried on LiteReferenceExpression.
+function expandLiteHintOf(v: ExpandLite): ExpandLiteHint {
+    switch (v) {
+        case ExpandLite.EntityEager: return "EntityEager";
+        case ExpandLite.ModelEager: return "ModelEager";
+        case ExpandLite.ModelLazy: return "ModelLazy";
+        case ExpandLite.ModelNull: return "ModelNull";
+        default: throw new Error("Unknown ExpandLite hint: " + v);
+    }
+}
 import type { Schema } from "../../schema/schema";
 import type { Table } from "../../schema/table";
 import type { EntityField } from "../../schema/field";
@@ -796,6 +810,10 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.bindSkip(source, call.args[0]);
                 case "distinct":
                     return this.bindDistinct(source);
+                case "expandLite":
+                    return this.bindExpandLite(source, call.args[0] as LambdaExpression, call.args[1] as ConstantExpression);
+                case "expandEntity":
+                    return this.bindExpandEntity(source, call.args[0] as LambdaExpression, call.args[1] as ConstantExpression);
                 case "first":
                     return this.bindUnique(source, "First", call.args[0] as LambdaExpression | undefined);
                 case "firstOrNull":
@@ -1121,6 +1139,45 @@ export class QueryBinder extends ExpressionVisitor {
         return new ProjectionExpression(
             new SelectExpression(alias, true, undefined, pc.columns, projection.select, undefined, [], []),
             pc.projector, undefined, projection.type);
+    }
+
+    // Signum's BindExpandLite: tag the Lite the selector points at with the load hint, so
+    // EntityCompleter decides its model (toStr) eager / lazy / null. Only the identity selector
+    // (`a => a`) is supported — the projected value itself is the Lite.
+    private bindExpandLite(projection: ProjectionExpression, selector: LambdaExpression, hint: ConstantExpression): ProjectionExpression {
+        const expand = expandLiteHintOf(hint.value as ExpandLite);
+        const projector = this.changeExpandTarget(projection.projector, selector, e => {
+            if (!(e instanceof LiteReferenceExpression))
+                throw new Error("expandLite: the selected value is not a Lite");
+            return new LiteReferenceExpression(e.type, e.reference, e.toStr, expand);
+        });
+        return new ProjectionExpression(projection.select, projector, projection.uniqueFunction, projection.type);
+    }
+
+    // Signum's BindExpandEntity: EagerEntity retrieves the entity's columns (the default),
+    // LazyEntity leaves an id-only stub — which altea already expresses as
+    // avoidExpandOnRetrieving on the EntityExpression (see EntityCompleter.visitEntity).
+    private bindExpandEntity(projection: ProjectionExpression, selector: LambdaExpression, hint: ConstantExpression): ProjectionExpression {
+        const lazy = (hint.value as ExpandEntity) === ExpandEntity.LazyEntity;
+        const withHint = (e: Expression): Expression => {
+            if (e instanceof EntityExpression)
+                return new EntityExpression(e.type, e.table, e.externalId, e.tableAlias, e.bindings, e.mixins, lazy);
+            if (e instanceof ImplementedByExpression)
+                return new ImplementedByExpression(e.type, e.strategy,
+                    new Map([...e.implementations].map(([c, ee]) => [c, withHint(ee) as EntityExpression])));
+            throw new Error("expandEntity: the selected value is not an entity");
+        };
+        const projector = this.changeExpandTarget(projection.projector, selector, withHint);
+        return new ProjectionExpression(projection.select, projector, projection.uniqueFunction, projection.type);
+    }
+
+    // Apply `change` to the projector node the (identity) selector points at. Only `a => a`
+    // (body === parameter) is supported for now; a member-path selector would need a
+    // projector rewrite (Signum's ChangeProjector).
+    private changeExpandTarget(projector: Expression, selector: LambdaExpression, change: (e: Expression) => Expression): Expression {
+        if (selector.body === selector.parameters[0])
+            return change(projector);
+        throw new Error("expandLite/expandEntity currently supports only the identity selector (a => a)");
     }
 
     private bindUnique(projection: ProjectionExpression, uniqueFunction: UniqueFunction, predicate: LambdaExpression | undefined): ProjectionExpression {

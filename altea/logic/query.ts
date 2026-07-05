@@ -650,13 +650,24 @@ export class Query<T> implements IQuery<T> {
         return this.translator.executeCommand(call);
     }
 
-    // Lite-model / entity eager-load hints (Signum's ExpandLite/ExpandEntity). Not
-    // implemented yet — the ExpandTest suite runs red.
-    expandLite(liteSelector: (element: T) => unknown, hint: ExpandLite): Query<T> {
-        throw new Error("expandLite (Lite-model load hint) is not implemented yet");
+    // Lite-model / entity eager-load hints (Signum's ExpandLite/ExpandEntity): tag the
+    // selected Lite/Entity in the projector so materialization loads its model/entity eager,
+    // lazy, or not at all. The selector navigates to the target (identity `a => a` = the whole
+    // projected value); the hint travels as a constant the binder reads.
+    @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
+    expandLite(liteSelector: Quoted<(element: T) => unknown>, hint: ExpandLite): Query<T> {
+        const lambda = Expression.fromQuotedLambda(liteSelector, [this.elementType]);
+        const call = new CallExpression(new PropertyExpression(this.expression, "expandLite"),
+            [lambda, new ConstantExpression(hint)], this.type);
+        return new Query<T>(call, this.translator);
     }
-    expandEntity(entitySelector: (element: T) => unknown, hint: ExpandEntity): Query<T> {
-        throw new Error("expandEntity (entity load hint) is not implemented yet");
+
+    @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
+    expandEntity(entitySelector: Quoted<(element: T) => unknown>, hint: ExpandEntity): Query<T> {
+        const lambda = Expression.fromQuotedLambda(entitySelector, [this.elementType]);
+        const call = new CallExpression(new PropertyExpression(this.expression, "expandEntity"),
+            [lambda, new ConstantExpression(hint)], this.type);
+        return new Query<T>(call, this.translator);
     }
 }
 

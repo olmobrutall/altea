@@ -212,7 +212,7 @@ export class DbExpressionVisitor extends ExpressionVisitor {
         const reference = this.visit(lite.reference) as LiteReferenceTarget;
         const toStr = this.visit(lite.toStr);
         if (reference !== lite.reference || toStr !== lite.toStr)
-            return new LiteReferenceExpression(lite.type, reference, toStr);
+            return new LiteReferenceExpression(lite.type, reference, toStr, lite.expandLite);
         return lite;
     }
 

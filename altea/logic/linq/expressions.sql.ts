@@ -686,11 +686,17 @@ export type LiteReferenceTarget = EntityExpression | ImplementedByExpression | I
 // so a Lite loads id+type, never the full entity. `toStr` is deferred (a proper
 // server-side toString expression per type is a later tier), so lites currently
 // materialise with an empty display string.
+// Signum's ExpandLite hint (from LinqExpandHints): how a projected Lite's display model /
+// entity is loaded. Carried as a neutral string so expressions.sql stays free of the query
+// enum. Absent = the default (ModelEager — EntityCompleter computes the toStr).
+export type ExpandLiteHint = "EntityEager" | "ModelEager" | "ModelLazy" | "ModelNull";
+
 export class LiteReferenceExpression extends DbExpression {
     constructor(
         type: Type,
         public readonly reference: LiteReferenceTarget,
         public readonly toStr: Expression | undefined,
+        public readonly expandLite: ExpandLiteHint | undefined = undefined,
     ) {
         super("LiteReference", type);
     }

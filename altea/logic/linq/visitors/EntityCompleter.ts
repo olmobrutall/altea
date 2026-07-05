@@ -82,6 +82,12 @@ export class EntityCompleter extends DbExpressionVisitor {
         const reference = lite.reference;
         const typeId = this.binder.liteTypeId(reference);
         const id = this.binder.liteId(reference);
+        // ExpandLite hint (Signum's ExpandLite): ModelNull / ModelLazy don't eager-load the
+        // display model (no toStr column selected — lazy is loaded later, null stays null); the
+        // default (ModelEager / EntityEager / unset) computes it. (Full-entity-in-lite for
+        // EntityEager isn't modelled yet, so it behaves like ModelEager.)
+        if (lite.expandLite === "ModelNull" || lite.expandLite === "ModelLazy")
+            return new LiteValueExpression(lite.type, typeId, id, undefined, undefined);
         // An @implementedBy reference keeps a per-implementation model map (Signum's
         // GetModels) instead of one combined CASE, so the polymorphic display string is
         // dispatched by type in the reader — never a CASE in the projector.
