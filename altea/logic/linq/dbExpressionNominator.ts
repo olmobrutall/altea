@@ -7,7 +7,7 @@ import {
     ColumnExpression, SqlConstantExpression, SqlLiteralExpression, PrimaryKeyExpression,
     IsNullExpression, IsNotNullExpression, LikeExpression, SqlFunctionExpression, SqlCastExpression,
     AggregateExpression, AggregateRequestsExpression, CaseExpression, When, ScalarExpression, ExistsExpression, InExpression,
-    ProjectionExpression, ToDayOfWeekExpression,
+    ProjectionExpression, ToDayOfWeekExpression, SqlArrayIndexExpression,
 } from "./expressions.sql";
 import { EnumType, LiteralType, TemporalType, Type } from "../../entities/types";
 import { enumEntityMembers } from "../../entities/enumEntity";
@@ -120,6 +120,11 @@ class DbExpressionNominator extends DbExpressionVisitor {
     override visitSqlFunction(node: SqlFunctionExpression): Expression {
         const r = super.visitSqlFunction(node) as SqlFunctionExpression;
         return this.nominateIfAll(r, [r.object, ...r.arguments]);
+    }
+
+    override visitArrayIndex(node: SqlArrayIndexExpression): Expression {
+        const r = super.visitArrayIndex(node) as SqlArrayIndexExpression;
+        return this.nominateIfAll(r, [r.array, r.index]);
     }
 
     override visitSqlCast(node: SqlCastExpression): Expression {

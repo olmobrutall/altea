@@ -9,6 +9,13 @@ import type { SqlPreCommand } from "@altea/altea/logic/sync/sqlPreCommand";
 import { ObjectName } from "@altea/altea/logic/schema/objectName";
 import { ValueColumn } from "@altea/altea/logic/schema/column";
 import { TableIndex } from "@altea/altea/logic/schema/tableIndex";
+import { getIndexWhere } from "@altea/altea/logic/schema/indexWhere";
+import type { Quoted } from "quote-transformer/quoted";
+
+// A filtered-index predicate, captured by the quote-transformer (assigned to a Quoted-typed
+// const). Used to build a *filtered* controlled index in the DB and prove the reader reads it
+// back (filter_definition / indpred) and the synchronizer round-trips it.
+const albumRecent: Quoted<(a: AlbumEntity) => boolean> = a => a.year == 2000;
 import { AbstractDbType, IsNullable } from "@altea/altea/logic/schema/dbType";
 import { AlbumEntity, ArtistEntity_Friends } from "../entities/music";
 import { getBoundEnum } from "@altea/altea/entities/enumEntity";
@@ -147,6 +154,19 @@ describe("SchemaSynchronizer (live DB)", { skip: !hasDb }, () => {
         assert.ok(target != null, "AlbumEntity should have a plain value column to index");
         const extra = new TableIndex(album, [target!]);
         await assertRoundTrip(() => run(connector.sqlBuilder.createIndex(extra)));
+    });
+
+    // Same, but a FILTERED (partial) index: the WHERE predicate lambda is translated to SQL by
+    // IndexWhereExpressionVisitor, emitted in CREATE INDEX, read back by the catalog reader
+    // (filter_definition / indpred), and the extra controlled index is then dropped.
+    txTest("DropExtraFilteredIndex", async () => {
+        const album = connector.schema.table(AlbumEntity);
+        const target = Object.values(album.columns).find(c => !c.identity && c.referenceTable == null);
+        assert.ok(target != null, "AlbumEntity should have a plain value column to index");
+        const extra = new TableIndex(album, [target!], { where: getIndexWhere(albumRecent, album, connector.isPostgres) });
+        const create = connector.sqlBuilder.createIndex(extra);
+        assert.match(create.plainSql(), / WHERE /, "the filtered index emits a WHERE clause");
+        await assertRoundTrip(() => run(create));
     });
 
     // ---- enum rows -----------------------------------------------------------

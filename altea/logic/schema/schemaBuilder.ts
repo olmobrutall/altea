@@ -32,6 +32,7 @@ import { ObjectName, SchemaName, defaultSchemaName } from './objectName';
 import { Schema } from './schema';
 import { Table, FluentTable } from './table';
 import { TableIndex, recordAccessedFields } from './tableIndex';
+import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../entities/enumEntity';
 import { TypeEntity } from '../../entities/typeEntity';
 import { TypeLogic } from '../typeLogic';
@@ -140,6 +141,8 @@ export class SchemaBuilder {
 
         const name = new ObjectName(this.settings.tableName(entityType), this.settings.schemaName);
         const table = new Table(entityType, name);
+        // Carry the dialect so withIndex can render a filtered predicate to SQL at registration.
+        table.isPostgres = this.settings.isPostgres;
 
         // Register before completing so recursive / cyclic includes (self-FKs,
         // mutual references) resolve to this in-progress table.
@@ -299,7 +302,9 @@ export class SchemaBuilder {
         for (const desc of typeInfo.indexes ?? []) {
             const columns = table.columnsFromFields(recordAccessedFields(desc.fields));
             const includeColumns = desc.includeFields == null ? undefined : table.columnsFromFields(recordAccessedFields(desc.includeFields));
-            table.indexes.push(new TableIndex(table, columns, { unique: desc.unique, includeColumns, where: desc.where }));
+            // Render the class-level filtered predicate to SQL now (Quoted → Expression → string).
+            const whereSql = desc.where == null ? undefined : getIndexWhere(desc.where, table, this.settings.isPostgres);
+            table.indexes.push(new TableIndex(table, columns, { unique: desc.unique, includeColumns, where: whereSql }));
         }
     }
 

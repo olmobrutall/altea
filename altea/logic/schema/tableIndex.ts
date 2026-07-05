@@ -2,15 +2,16 @@ import type { IColumn } from './column';
 import type { Table } from './table';
 
 // Port of Signum's Engine/Schema/TableIndexes.cs TableIndex, scoped to what altea models: a
-// (possibly unique) index over one or more columns, with optional INCLUDE columns. The index
-// NAME is computed by the SqlBuilder (IX_/UIX_ prefix + table + column signature + hash), not
-// stored here, so a single place owns naming for both generation and synchronization. The
-// WHERE/filtered-index, clustered, partitioned and indexed-view cases Signum also handles are
-// deferred (no altea model yet).
+// (possibly unique) index over one or more columns, with optional INCLUDE columns and an
+// optional filtered (partial) WHERE predicate. Like Signum's TableIndex.Where, the predicate is
+// stored PRE-RENDERED to SQL — the filtered-index lambda is translated once at registration
+// time (IndexWhereExpressionVisitor / getIndexWhere), when the dialect is known. The index NAME
+// is still computed by the SqlBuilder. The clustered / partitioned / indexed-view cases Signum
+// also handles are deferred (no altea model yet).
 export class TableIndex {
     includeColumns?: IColumn[];
     unique: boolean;
-    // A filtered (partial) index's WHERE clause, already rendered to SQL (Signum's
+    // The filtered (partial) index's WHERE clause, already rendered to SQL (Signum's
     // TableIndex.Where). Undefined for a full index.
     where?: string;
 
@@ -23,15 +24,6 @@ export class TableIndex {
         this.includeColumns = options?.includeColumns;
         this.where = options?.where;
     }
-}
-
-// Options for the fluent withIndex / withUniqueIndex and the @index / @uniqueIndex lambda
-// decorators. `includeFields` selects INCLUDE (covering) columns; `where` is the filtered
-// (partial) index predicate as an SQL string (a lambda→SQL form would need transformer
-// capture like a query `filter`, deferred).
-export interface IndexOptions<T> {
-    includeFields?: (element: T) => unknown;
-    where?: string;
 }
 
 // Records the entity fields a selector lambda touches by running it against a proxy that

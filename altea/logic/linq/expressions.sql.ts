@@ -343,6 +343,55 @@ export class SqlFunctionExpression extends DbExpression {
     }
 }
 
+// `array[index]` — a Postgres array subscript (1-based). Port of the `conkey[i]` pattern in
+// Signum's PostgresCatalogSchema; altea reaches it through the `arrayGet(arr, i)` marker
+// (element access can't be quoted). Postgres-only.
+export class SqlArrayIndexExpression extends DbExpression {
+    constructor(
+        type: Type,
+        public readonly array: Expression,
+        public readonly index: Expression,
+    ) {
+        super("SqlArrayIndex", type);
+    }
+
+    toString(): string {
+        return `${this.array}[${this.index}]`;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitArrayIndex(this);
+    }
+}
+
+// A set-returning function used as a FROM source: `functionName(args) AS alias(columnName)`.
+// Port of Signum's use of `generate_subscripts(...)` as a queryable; formatted as a LATERAL
+// source when it correlates with an outer row. Postgres-only.
+export class SqlTableValuedFunctionExpression extends SourceWithAliasExpression {
+    readonly arguments: readonly Expression[];
+    constructor(
+        alias: Alias,
+        public readonly functionName: string,
+        public readonly columnName: string,
+        args: readonly Expression[],
+    ) {
+        super("SqlTableValuedFunction", alias);
+        this.arguments = args;
+    }
+
+    knownAliases(): Alias[] {
+        return [this.alias];
+    }
+
+    toString(): string {
+        return `${this.functionName}(${this.arguments.join(", ")}) as ${this.alias}`;
+    }
+
+    accept(visitor: ExpressionVisitor): Expression {
+        return asDbVisitor(visitor).visitTableValuedFunction(this);
+    }
+}
+
 // `CAST(expression AS sqlType)` — a minimal port of Signum's SqlCastExpression. The
 // `sqlType` is the dialect-specific target SQL type text (e.g. "varchar"/"nvarchar(max)").
 export class SqlCastExpression extends DbExpression {

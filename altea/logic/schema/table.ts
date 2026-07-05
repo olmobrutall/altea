@@ -1,8 +1,10 @@
+import type { Quoted } from 'quote-transformer/quoted';
 import type { Type, Entity } from '../../entities/entity';
 import { ObjectName } from './objectName';
 import { EntityField, FieldPrimaryKey, FieldTicks, FieldMixin } from './field';
 import type { IColumn } from './column';
-import { TableIndex, IndexOptions, recordAccessedFields } from './tableIndex';
+import { TableIndex, recordAccessedFields } from './tableIndex';
+import { getIndexWhere } from './indexWhere';
 
 // In-memory description of one entity's table. `fields` holds the reflected
 // entity fields (incl. id/ticks); `columns` is the flattened physical layout
@@ -18,6 +20,11 @@ export class Table {
     // no ticks/toStr, raw column names, an explicit @viewPrimaryKey. Generation
     // (CREATE TABLE / FK / enum seeding) skips views.
     isView = false;
+    // The dialect of the schema this table belongs to (set by SchemaBuilder from
+    // settings.isPostgres). Needed at registration time to render a filtered index's WHERE
+    // predicate to dialect-correct SQL in withIndex — the analogue of Signum's
+    // Schema.Current.Settings.IsPostgres inside AddIndex.
+    isPostgres = false;
     // Physical display-string column (Signum's `ToStr`), present only when the
     // entity's `toString()` is a hand-written method (not a `@quoted` expression the
     // query provider can translate). Written at save time = `entity.toString()`.
@@ -33,23 +40,27 @@ export class Table {
         this.name = name;
     }
 
-    // Fluent index declaration (Signum's FluentInclude.WithIndex / WithUniqueIndex). The
-    // selector reads the entity fields the index covers (`e => e.code`, `e => [e.a, e.b]`);
-    // options.includeFields selects INCLUDE columns. Returns the table for chaining.
-    withIndex(fields: (element: any) => unknown, options?: IndexOptions<any>): Table {
-        this.addFluentIndex(fields, false, options);
+    // Fluent index declaration (Signum's FluentInclude.WithIndex / WithUniqueIndex, whose
+    // signature is `(fields, where?, includeFields?)`). `fields` reads the covered columns
+    // (`e => e.code`, `e => [e.a, e.b]`); `where` is a filtered-index predicate captured by the
+    // transformer (`e => e.active`); `includeFields` selects INCLUDE columns. Returns the table
+    // for chaining.
+    withIndex(fields: (element: any) => unknown, where?: Quoted<(element: any) => boolean>, includeFields?: (element: any) => unknown): Table {
+        this.addFluentIndex(fields, false, where, includeFields);
         return this;
     }
 
-    withUniqueIndex(fields: (element: any) => unknown, options?: IndexOptions<any>): Table {
-        this.addFluentIndex(fields, true, options);
+    withUniqueIndex(fields: (element: any) => unknown, where?: Quoted<(element: any) => boolean>, includeFields?: (element: any) => unknown): Table {
+        this.addFluentIndex(fields, true, where, includeFields);
         return this;
     }
 
-    private addFluentIndex(fields: (element: any) => unknown, unique: boolean, options?: IndexOptions<any>): void {
+    private addFluentIndex(fields: (element: any) => unknown, unique: boolean, where?: Quoted<(element: any) => boolean>, includeFields?: (element: any) => unknown): void {
         const columns = this.columnsFromFields(recordAccessedFields(fields));
-        const includeColumns = options?.includeFields == null ? undefined : this.columnsFromFields(recordAccessedFields(options.includeFields));
-        this.indexes.push(new TableIndex(this, columns, { unique, includeColumns, where: options?.where }));
+        const includeColumns = includeFields == null ? undefined : this.columnsFromFields(recordAccessedFields(includeFields));
+        // Render the predicate to SQL now (registration time), like Signum's AddIndex.
+        const whereSql = where == null ? undefined : getIndexWhere(where, this, this.isPostgres);
+        this.indexes.push(new TableIndex(this, columns, { unique, includeColumns, where: whereSql }));
     }
 
     // Resolves entity field names (own or mixin) to their physical columns.
@@ -99,6 +110,6 @@ export class Table {
 // selectors are strongly typed to the entity (Signum's FluentInclude<T>). It IS the Table
 // (extends it), so the internal builder uses that still work.
 export interface FluentTable<T> extends Table {
-    withIndex(fields: (element: T) => unknown, options?: IndexOptions<T>): FluentTable<T>;
-    withUniqueIndex(fields: (element: T) => unknown, options?: IndexOptions<T>): FluentTable<T>;
+    withIndex(fields: (element: T) => unknown, where?: Quoted<(element: T) => boolean>, includeFields?: (element: T) => unknown): FluentTable<T>;
+    withUniqueIndex(fields: (element: T) => unknown, where?: Quoted<(element: T) => boolean>, includeFields?: (element: T) => unknown): FluentTable<T>;
 }

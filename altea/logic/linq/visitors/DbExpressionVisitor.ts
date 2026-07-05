@@ -14,6 +14,7 @@ import {
     TypeEntityExpression, TypeImplementedByExpression,
     SourceWithAliasExpression, CommandExpression, ColumnAssignment,
     DeleteExpression, UpdateExpression, InsertSelectExpression, CommandAggregateExpression,
+    SqlArrayIndexExpression, SqlTableValuedFunctionExpression,
 } from "../expressions.sql";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 
@@ -101,6 +102,21 @@ export class DbExpressionVisitor extends ExpressionVisitor {
 
     visitSqlConstant(sce: SqlConstantExpression): Expression {
         return sce;
+    }
+
+    visitArrayIndex(e: SqlArrayIndexExpression): Expression {
+        const array = this.visit(e.array);
+        const index = this.visit(e.index);
+        if (array !== e.array || index !== e.index)
+            return new SqlArrayIndexExpression(e.type, array, index);
+        return e;
+    }
+
+    visitTableValuedFunction(e: SqlTableValuedFunctionExpression): Expression {
+        const args = this.visitArray(e.arguments, a => this.visit(a));
+        if (args !== e.arguments)
+            return new SqlTableValuedFunctionExpression(e.alias, e.functionName, e.columnName, args);
+        return e;
     }
 
     visitSqlCast(cast: SqlCastExpression): Expression {

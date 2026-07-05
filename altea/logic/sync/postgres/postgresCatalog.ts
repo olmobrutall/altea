@@ -77,6 +77,20 @@ export class PgAttribute extends View {
 
     @quoted
     type(): Promise<PgType> { return view(PgType).single(t => t.oid == this.atttypid); }
+
+    // The column's default row in pg_attrdef, or null (Signum's PgAttribute.AttrDef()).
+    @quoted
+    attrDef(): Promise<PgAttrDef | null> { return view(PgAttrDef).filter(d => d.adrelid == this.attrelid && d.adnum == this.attnum).firstOrNull(); }
+}
+
+@reflect
+@tableName("pg_catalog.pg_attrdef")
+export class PgAttrDef extends View {
+    @viewPrimaryKey oid!: int;
+    adrelid!: int;
+    adnum!: int;
+    // The stored default expression (a pg_node_tree); decompiled to SQL text via pg_get_expr.
+    adbin!: string;
 }
 
 @reflect
@@ -98,6 +112,13 @@ export class PgConstraint extends View {
     conkey!: number[];
     confrelid!: int;
     confkey!: number[];
+
+    @quoted
+    namespace(): Promise<PgNamespace> { return view(PgNamespace).single(n => n.oid == this.connamespace); }
+
+    // The referenced (target) table of a foreign key (Signum's PgConstraint.TargetTable()).
+    @quoted
+    targetTable(): Promise<PgClass> { return view(PgClass).single(c => c.oid == this.confrelid); }
 }
 
 // pg_constraint.contype values (Signum's ConstraintType).
@@ -118,10 +139,11 @@ export class PgIndex extends View {
     indnkeyatts!: int;
     indisunique!: boolean;
     indisprimary!: boolean;
-    // The indexed columns' attnums (pg's int2vector). Read as an array; the reader resolves
-    // each attnum to a column name in TS (the partial predicate `indpred` is a pg_node_tree,
-    // fetched separately via pg_get_expr, so it is not a field here).
+    // The indexed columns' attnums (pg's int2vector, 0-based). generate_subscripts + arrayGet
+    // resolve each attnum to a column name in the query.
     indkey!: number[];
+    // The partial-index predicate (a pg_node_tree); decompiled to SQL text via pg_get_expr.
+    indpred!: string;
 
     // The index's row in pg_class carries its NAME (Signum's PgIndex.Class().relname).
     @quoted

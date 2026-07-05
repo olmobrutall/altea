@@ -181,14 +181,16 @@ export class SqlBuilder {
         const include = index.includeColumns != null && index.includeColumns.length > 0
             ? index.includeColumns.map(c => c.name).join('_')
             : '';
-        if ((index.where == null || index.where === '') && include === '')
+        const where = index.where ?? '';
+        if (where === '' && include === '')
             return '';
-        return '__' + codify((index.where ?? '') + include, this.isPostgres);
+        return '__' + codify(where + include, this.isPostgres);
     }
 
     // CREATE [UNIQUE] INDEX name ON table(cols) [INCLUDE(...)] [WHERE ...] (Signum's
     // CreateIndexBasic; clustered/partitioned/indexed-view variants are deferred). Postgres
     // and SQL Server share this shape once the default-filegroup `ON 'PRIMARY'` is dropped.
+    // `index.where` is already the rendered SQL predicate (translated at registration time).
     createIndex(index: TableIndex): SqlPreCommand {
         const name = this.sqlEscape(this.indexName(index));
         const cols = index.columns.map(c => this.sqlEscape(c.name)).join(', ');

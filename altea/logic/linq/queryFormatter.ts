@@ -11,7 +11,7 @@ import {
     CaseExpression, LikeExpression, ScalarExpression, ExistsExpression, InExpression,
     IsNullExpression, IsNotNullExpression, PrimaryKeyExpression, SqlCastExpression, ToDayOfWeekExpression,
     CommandExpression, DeleteExpression, UpdateExpression, InsertSelectExpression,
-    CommandAggregateExpression,
+    CommandAggregateExpression, SqlArrayIndexExpression, SqlTableValuedFunctionExpression,
 } from "./expressions.sql";
 import { ObjectName } from "../schema/objectName";
 import { sqlEscape } from "./sqlEscape";
@@ -156,6 +156,14 @@ export class QueryFormatter extends DbExpressionVisitor {
 
         if (src instanceof SetOperatorExpression) {
             this.append(`(\n${indent(this.renderSetOperatorBody(src))}\n) AS ${this.quoteAlias(src.alias)}`);
+            return src;
+        }
+
+        if (src instanceof SqlTableValuedFunctionExpression) {
+            const args = src.arguments.map(a => this.capture(() => this.visit(a))).join(", ");
+            // `func(args) AS alias(colName)` — the explicit column name lets the projector
+            // reference the single output column deterministically.
+            this.append(`${src.functionName}(${args}) AS ${this.quoteAlias(src.alias)}(${this.quote(src.columnName)})`);
             return src;
         }
 
@@ -381,6 +389,15 @@ export class QueryFormatter extends DbExpressionVisitor {
         this.append("CAST(");
         this.visit(e.expression);
         this.append(` AS ${e.sqlType})`);
+        return e;
+    }
+
+    override visitArrayIndex(e: SqlArrayIndexExpression): Expression {
+        this.append("(");
+        this.visit(e.array);
+        this.append(")[");
+        this.visit(e.index);
+        this.append("]");
         return e;
     }
 

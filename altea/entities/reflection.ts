@@ -1,6 +1,7 @@
 
 import { DescriptionManager } from './utils/localization';
 import type { Type, Entity } from './entity';
+import type { Quoted } from 'quote-transformer/quoted';
 import { registerType } from './registration';
 
 // The runtime type of a primary key. `int`/`long` are identity-style integers;
@@ -133,7 +134,7 @@ export class TypeInfo {
     // by column-selector lambdas. Stored as the raw selectors (entities/ can't import the
     // logic-layer field recorder); the SchemaBuilder runs them against a recording proxy to
     // resolve the covered fields → columns.
-    indexes?: { unique: boolean; fields: (element: any) => unknown; includeFields?: (element: any) => unknown; where?: string }[];
+    indexes?: { unique: boolean; fields: (element: any) => unknown; includeFields?: (element: any) => unknown; where?: Quoted<(element: any) => boolean> }[];
 }
 
 // Legacy (experimentalDecorators) decorators have no `context.metadata`, so

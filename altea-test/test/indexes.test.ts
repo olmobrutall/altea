@@ -97,18 +97,21 @@ describe("Index generation", () => {
         });
     });
 
-    test("filtered index (where) emits WHERE and a WhereSignature-suffixed name", () => {
+    test("filtered index (where lambda) emits WHERE and a WhereSignature-suffixed name", () => {
         const { customer, sb } = build();
         const fake = new FakeConnector(sb.schema);
         Connector.withConnector(fake, () => {
-            const codeCol = col(customer, "code");
-            customer.withIndex(c => c.name);                                       // plain index on name
+            const targetCol = col(customer, "target");
+            customer.withIndex(c => c.name);                            // plain index on name
             const plain = customer.indexes.at(-1)!;
-            customer.withIndex(c => c.name, { where: `${codeCol} IS NOT NULL` });  // filtered, same column
+            customer.withIndex(c => c.name, c => c.target != null);     // filtered on a nullable FK, via a predicate lambda
             const filtered = customer.indexes.at(-1)!;
 
+            // The predicate lambda is translated to SQL (Signum's IndexWhereExpressionVisitor):
+            // a nullable reference `!= null` → `<col> IS NOT NULL`.
             const sql = fake.sqlBuilder.createIndex(filtered).plainSql();
-            assert.match(sql, new RegExp(`WHERE ${codeCol} IS NOT NULL`), "emits the WHERE clause");
+            assert.match(sql, / WHERE /, "emits a WHERE clause");
+            assert.match(sql, new RegExp(`${targetCol} IS NOT NULL`), "translates c.target != null to IS NOT NULL");
 
             // The WhereSignature: "__" + a 7-char base-32 hash, so a filtered index never
             // collides with a plain index over the same column.

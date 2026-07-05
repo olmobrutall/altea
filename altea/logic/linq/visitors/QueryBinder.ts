@@ -15,6 +15,7 @@ import {
     CaseExpression, When, IsNotNullExpression, IsNullExpression, SetOperatorExpression, SourceWithAliasExpression,
     CommandExpression, CommandAggregateExpression, ColumnAssignment,
     DeleteExpression, UpdateExpression, InsertSelectExpression,
+    SqlArrayIndexExpression, SqlTableValuedFunctionExpression,
 } from "../expressions.sql";
 import { AssignAdapterExpander } from "./AssignAdapterExpander";
 import { AliasGenerator, Alias } from "../AliasGenerator";
@@ -706,6 +707,21 @@ export class QueryBinder extends ExpressionVisitor {
             if ((func.value as { __isViewSource?: boolean }).__isViewSource)
                 return this.getTableProjectionForTable(this.schema.view(ctor as any), new ClassType(ctor));
             return this.getTableProjection(ctor);
+        }
+
+        // Postgres catalog-reader functions (PostgresFunctions), recognised by their brand:
+        //   generate_subscripts(arr, dim) → a set-returning-function source (a Query<number>)
+        //   pg_get_expr / _pg_char_max_length → scalar SQL functions
+        //   arrayGet(arr, i) → an array subscript arr[i]
+        // Each is a free function (a ConstantExpression callee), like table()/view().
+        if (func instanceof ConstantExpression) {
+            const brand = func.value as { __srfName?: string; __scalarSqlName?: string; __arrayIndex?: boolean } | null;
+            if (brand?.__srfName != null)
+                return this.bindTableValuedFunction(brand.__srfName, call.args);
+            if (brand?.__scalarSqlName != null)
+                return new SqlFunctionExpression(call.type, undefined, brand.__scalarSqlName, call.args.map(a => this.visit(a)));
+            if (brand?.__arrayIndex === true)
+                return new SqlArrayIndexExpression(call.type, this.visit(call.args[0]), this.visit(call.args[1]));
         }
 
 
@@ -2163,6 +2179,23 @@ export class QueryBinder extends ExpressionVisitor {
 
     private getTableProjection(ctor: new () => object): ProjectionExpression {
         return this.getTableProjectionForTable(this.schema.table(ctor as any), new ClassType(ctor));
+    }
+
+    // A set-returning function used as a source (Signum's generate_subscripts(...)): a SELECT
+    // of its single output column over a SqlTableValuedFunctionExpression, projected as a
+    // scalar (number). The function arguments are bound in the current scope, so when they
+    // reference outer columns the formatter emits a CROSS JOIN LATERAL.
+    private bindTableValuedFunction(functionName: string, args: readonly Expression[]): ProjectionExpression {
+        const boundArgs = args.map(a => this.visit(a));
+        const tableAlias = this.aliasGenerator.nextTableAlias(functionName);
+        const columnName = "value";
+        const source = new SqlTableValuedFunctionExpression(tableAlias, functionName, columnName, boundArgs);
+        const projector = new ColumnExpression(LiteralType.number, tableAlias, columnName);
+        const selectAlias = this.aliasGenerator.nextSelectAlias();
+        const pc = this.projectColumns(projector, selectAlias);
+        return new ProjectionExpression(
+            new SelectExpression(selectAlias, false, undefined, pc.columns, source, undefined, [], []),
+            pc.projector, undefined, new ArrayType(LiteralType.number));
     }
 
     private getTableProjectionForTable(table: Table, elementType: Type): ProjectionExpression {
