@@ -316,7 +316,8 @@ export class SchemaBuilder {
         // the registry. undefined for value types and enums, which are classified
         // by name / the isEnum flag below.
         const elementType = this.resolveFieldType(fi);
-        const nullable = fi.isNullable === true ? IsNullable.Yes : IsNullable.No;
+        // @forceNullable → a nullable COLUMN for a non-null field (Signum's IsNullable.Forced).
+        const nullable = fi.forceNullable ? IsNullable.Forced : fi.isNullable === true ? IsNullable.Yes : IsNullable.No;
 
         // Arrays — only `PartEntity[]` referenced with @include(() => Part) is
         // supported (Altea's MList replacement). The part entity marks its

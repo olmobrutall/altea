@@ -82,7 +82,7 @@ describe("UnsafeInsertTest", { skip: !hasDb }, () => {
     // TODO(api): bulk insert mlist (executeInsertMList) over an MListQuery (link/part rows)
     txTest("InsertMListSimple", async () => {
         const value = await table(AlbumEntity_Songs)
-            .executeInsert(AlbumEntity_Songs, mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, order: mle.order }));
+            .executeInsert(AlbumEntity_Songs, mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, index: mle.index, order: mle.order }));
         assert.ok(true);
     });
 
@@ -90,7 +90,7 @@ describe("UnsafeInsertTest", { skip: !hasDb }, () => {
     // TODO(api): bulk insert mlist (executeInsertMList) over an MListQuery (link/part rows) — pre-projected then identity insert
     txTest("InsertMListParameter", async () => {
         const value = await table(AlbumEntity_Songs)
-            .map(mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, order: mle.order }))
+            .map(mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, index: mle.index, order: mle.order }))
             .executeInsert(AlbumEntity_Songs, mle => mle);
         assert.ok(true);
     });
@@ -99,7 +99,7 @@ describe("UnsafeInsertTest", { skip: !hasDb }, () => {
     // TODO(api): bulk insert mlist (executeInsertMList) — DisableIdentity + explicit RowId on link/part rows
     txTest("InsertMListId", async () => {
         const value = await table(AlbumEntity_Songs)
-            .executeInsert(AlbumEntity_Songs, mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, id: (mle.id as number) + 1000, order: mle.order }));
+            .executeInsert(AlbumEntity_Songs, mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, index: mle.index, id: (mle.id as number) + 1000, order: mle.order }));
         assert.ok(true);
     });
 

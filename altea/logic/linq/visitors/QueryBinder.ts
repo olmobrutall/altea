@@ -982,7 +982,8 @@ export class QueryBinder extends ExpressionVisitor {
                 const eq = SmartEqualizer.typeEqual(left, right);
                 return negate ? SmartEqualizer.not(eq) : eq;
             }
-            if (isReferenceish(left) || isReferenceish(right)) {
+            if (isReferenceish(left) || isReferenceish(right)
+                || left instanceof EmbeddedEntityExpression || right instanceof EmbeddedEntityExpression) {
                 const eq = SmartEqualizer.polymorphicEqual(left, right);
                 return negate ? SmartEqualizer.not(eq) : eq;
             }

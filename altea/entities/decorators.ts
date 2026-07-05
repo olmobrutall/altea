@@ -269,6 +269,13 @@ export function rowOrder(target: object, propertyKey: string | symbol): void {
     getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).isRowOrder = true;
 }
 
+// Signum's [ForceNullable]: the column is generated NULL even though the field's type is
+// non-null. The object model still treats the field as required (queries navigate it without a
+// null guard); only the physical column accepts NULL (e.g. a set-based UPDATE to null).
+export function forceNullable(target: object, propertyKey: string | symbol): void {
+    getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).forceNullable = true;
+}
+
 // Marks the element-value field of a non-embedded MList row (the scalar /
 // reference the MList<T> held), e.g. `@valueField colaborator: Lite<ArtistEntity>`.
 export function valueField(target: object, propertyKey: string | symbol): void {

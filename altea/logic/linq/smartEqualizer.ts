@@ -2,7 +2,7 @@ import { Expression, BinaryExpression, ConstantExpression, UnaryExpression } fro
 import {
     EntityExpression, ImplementedByExpression, ImplementedByAllExpression,
     LiteReferenceExpression, LiteReferenceTarget, PrimaryKeyExpression,
-    IsNullExpression,
+    IsNullExpression, EmbeddedEntityExpression,
     TypeEntityExpression, TypeImplementedByExpression, TypeImplementedByAllExpression,
 } from "./expressions.sql";
 import { ClassType } from "../../entities/types";
@@ -54,6 +54,14 @@ export class SmartEqualizer {
         // Two bound references.
         if (isReferenceNode(n1) && isReferenceNode(n2))
             return this.entityEquals(n1, n2);
+
+        // A (nullable) embedded compared to null → test its HasValue column: an embedded is
+        // "null" exactly when it has no value (Signum's SmartEqualizer embedded handling). A
+        // non-nullable embedded has a constant-true HasValue, so this folds to False.
+        if (n1 instanceof EmbeddedEntityExpression && isNullConstant(e2))
+            return this.equalNullable(n1.hasValue, this.False);
+        if (n2 instanceof EmbeddedEntityExpression && isNullConstant(e1))
+            return this.equalNullable(n2.hasValue, this.False);
 
         // Neither is an entity reference — a plain value comparison.
         return this.equalNullable(e1, e2);
@@ -333,6 +341,11 @@ export class SmartEqualizer {
 
 function isReferenceNode(e: Expression): e is LiteReferenceTarget {
     return e instanceof EntityExpression || e instanceof ImplementedByExpression || e instanceof ImplementedByAllExpression;
+}
+
+// A `null` literal on one side of a comparison (the quoted `== null` operand).
+function isNullConstant(e: Expression): boolean {
+    return e instanceof ConstantExpression && e.value == null;
 }
 
 function ctorOf(type: unknown): Function {

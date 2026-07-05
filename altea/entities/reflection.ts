@@ -57,6 +57,10 @@ export class FieldInfo {
     isEnum?: boolean;
     kind?: string;
     isNullable?: boolean;
+    // Set by @forceNullable (Signum's [ForceNullable]): the COLUMN is nullable
+    // (IsNullable.Forced) while the field stays non-null in the object model — so queries
+    // navigate it as a normal non-null reference but the column accepts NULL.
+    forceNullable?: boolean;
     ignore: boolean = false;
     fkPropertyName?: string;
     // Set by @avoidExpandOnRetrieving on a reference field (Signum's [AvoidExpandQuery]):

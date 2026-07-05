@@ -483,10 +483,19 @@ export class QueryFormatter extends DbExpressionVisitor {
     }
 
     override visitInsertSelect(e: InsertSelectExpression): Expression {
+        // Explicit-id insert: the projection assigns the identity PK column (Signum's
+        // Administrator.DisableIdentity). SQL Server needs SET IDENTITY_INSERT ON/OFF around
+        // the statement; Postgres needs OVERRIDING SYSTEM VALUE (its PKs are GENERATED ALWAYS).
+        const pkCol = e.table.primaryKey.column;
+        const identityInsert = pkCol.identity && e.assignments.some(a => a.column === pkCol.name);
+
         const core = this.capture(() => {
             this.append(`INSERT INTO ${this.quoteObjectName(e.name)}(`);
             this.append(e.assignments.map(a => this.quote(a.column)).join(", "));
-            this.append(")\nSELECT ");
+            this.append(")");
+            if (identityInsert && this.isPostgres)
+                this.append(" OVERRIDING SYSTEM VALUE");
+            this.append("\nSELECT ");
             e.assignments.forEach((a, i) => {
                 if (i > 0) this.append(", ");
                 this.visit(a.expression);
@@ -494,7 +503,12 @@ export class QueryFormatter extends DbExpressionVisitor {
             this.append("\nFROM ");
             this.visitSource(e.source);
         });
-        this.append(this.wrapRowCount(core, e.returnRowCount));
+        let sql = this.wrapRowCount(core, e.returnRowCount);
+        if (identityInsert && !this.isPostgres) {
+            const t = this.quoteObjectName(e.name);
+            sql = `SET IDENTITY_INSERT ${t} ON;\n${sql}\nSET IDENTITY_INSERT ${t} OFF;`;
+        }
+        this.append(sql);
         return e;
     }
 

@@ -24,12 +24,13 @@ function idOr(iba: ImplementedByAllExpression, pk: string): Expression {
 }
 
 function isNullConst(e: Expression): boolean {
-    return e instanceof SqlConstantExpression && e.value == null;
+    return (e instanceof SqlConstantExpression || e instanceof ConstantExpression) && e.value == null;
 }
 
-// Combine two per-PK-type id expressions with `op`, but if BOTH are null, keep a single
-// null — a `CASE WHEN … THEN NULL ELSE NULL` types as text and clashes with the (typed) id
-// column on assignment, whereas a bare NULL is coerced to the column type.
+// Combine two leaf-column expressions with `op` (a CASE/COALESCE), but if BOTH are null, keep a
+// single null — `CASE WHEN … THEN NULL ELSE NULL` (or `COALESCE(NULL, NULL)`) types as text and
+// clashes with the (typed) target column on assignment, whereas a bare NULL is coerced to the
+// column's type. Used for IB/IBA implementation ids and embedded field bindings alike.
 function combineId(a: Expression, b: Expression, op: (a: Expression, b: Expression) => Expression): Expression {
     return isNullConst(a) && isNullConst(b) ? a : op(a, b);
 }
@@ -95,11 +96,15 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
 
         if (col instanceof ImplementedByExpression && t instanceof ImplementedByExpression && f instanceof ImplementedByExpression) {
             const impls = new Map<Function, EntityExpression>();
-            for (const [ctor, ee] of col.implementations)
-                impls.set(ctor, new EntityExpression(ee.type, ee.table,
-                    new PrimaryKeyExpression(new ConditionalExpression(test,
-                        t.implementations.get(ctor)!.externalId.value, f.implementations.get(ctor)!.externalId.value)),
+            for (const [ctor, ee] of col.implementations) {
+                // For an implementation absent from BOTH branches, both ids are NULL — keep a
+                // single (typeless) NULL instead of `CASE WHEN … THEN NULL ELSE NULL`, which
+                // types as text and clashes with the integer id column (combineId, as for IBA).
+                const id = combineId(t.implementations.get(ctor)!.externalId.value, f.implementations.get(ctor)!.externalId.value,
+                    (a, b) => new ConditionalExpression(test, a, b));
+                impls.set(ctor, new EntityExpression(ee.type, ee.table, new PrimaryKeyExpression(id),
                     undefined, undefined, undefined, false));
+            }
             return new ImplementedByExpression(col.type, col.strategy, impls);
         }
 
@@ -115,7 +120,9 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
             return new EmbeddedEntityExpression(col.type,
                 new ConditionalExpression(test, t.hasValue, f.hasValue),
                 col.bindings.map(b => new FieldBinding(b.fieldInfo,
-                    this.withCol(b.binding, () => new ConditionalExpression(test, bindingOf(t, b), bindingOf(f, b))))),
+                    // A binding null in BOTH branches collapses to a single NULL (combineId), so
+                    // the CASE doesn't type as text and clash with the (typed) column.
+                    this.withCol(b.binding, () => combineId(bindingOf(t, b), bindingOf(f, b), (x, y) => new ConditionalExpression(test, x, y))))),
                 undefined);
 
         return undefined;

@@ -5,7 +5,7 @@ import {
     entity, partEntity, mixin, primaryKey,
     implementedBy, implementedByAll, backReference, rowOrder, valueField,
     include, stringLengthValidator, EntityData, EntityKind,
-    quoted, column,
+    quoted, column, forceNullable,
 } from "@altea/altea/entities/decorators";
 import { Temporal, int, toInt } from "@altea/altea/entities/basics";
 
@@ -256,6 +256,7 @@ export class AlbumEntity extends Entity {
     @include(() => AlbumEntity_Songs)
     songs: AlbumEntity_Songs[];
     bonusTrack: SongEmbedded | null; // single (nullable) embedded
+    @forceNullable // Signum's [ForceNullable]: non-null field, nullable column
     label: LabelEntity;
     state: AlbumState;
 
