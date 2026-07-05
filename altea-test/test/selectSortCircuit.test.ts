@@ -12,10 +12,6 @@ function Throw<T>(): T {
     throw new Error("Throw<T>() is a query-only short-circuit helper with no in-memory body");
 }
 
-// A nullable date alias — a bare identifier so the quote-transformer can name the
-// cast (it can't name a qualified `Temporal.PlainDate`); the cast itself is a SQL
-// no-op the binder drops. Lets `(x as MaybeDate) ?? Throw()` type as reachable.
-type MaybeDate = Temporal.PlainDate | null;
 
 // A `string | null` constant for the `?? Throw()` short-circuit: casting the literal
 // `"Hola"` doesn't help (TS proves the literal non-null via control flow and still
@@ -55,7 +51,7 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
     // TODO(api): Clock.Now / DateTime.Now / DateTime.Today server-now constants in query
     test("SortCircuitCoalesceNullable", async () => {
         const list = await table(AlbumEntity)
-            .filter(a => ((Temporal.Now.plainDateISO() as MaybeDate) ?? Throw<Temporal.PlainDate>()) == Temporal.Now.plainDateISO())
+            .filter(a => (Temporal.Now.plainDateISO() ?? Throw<Temporal.PlainDate>()) == Temporal.Now.plainDateISO())
             .map(a => a.year)
             .toArray();
         assert.ok(Array.isArray(list));

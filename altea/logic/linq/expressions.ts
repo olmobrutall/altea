@@ -10,6 +10,120 @@ import { Entity, View } from "../../entities/entity";
 import { getLambdaTypeResolvers, getResultTypeResolver, LambdaTypeResolver, OrderedQuery, Query, ResultTypeResolver, StaticFunction } from "../query";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 
+// ---- constant folding (used by fromQuoted) --------------------------------------------------
+// fromQuoted folds parameter-free subtrees to constants BOTTOM-UP, in the same single pass that
+// builds the Expression tree (a port of the constant part of Signum's PartialEval). A node
+// folds when its already-built children are ConstantExpressions — so there's no separate
+// param-free scan. Short-circuit operators build the controlling operand first and skip the
+// dead branch, so an unreachable, un-typeable branch (Throw<T>(), a null-guarded `.name`) is
+// never built.
+
+// A value that must NOT be frozen to a constant: a query source (table/view), a set-returning /
+// scalar / array-index SQL marker (PostgresFunctions), or a Query — all must stay translatable
+// to SQL rather than run at query-build time.
+function isQueryMarker(v: unknown): boolean {
+    if (v instanceof Query)
+        return true;
+    if (typeof v !== "function")
+        return false;
+    const f = v as { __isQuerySource?: unknown; __srfName?: unknown; __scalarSqlName?: unknown; __arrayIndex?: unknown };
+    return f.__isQuerySource === true || f.__srfName != null || f.__scalarSqlName != null || f.__arrayIndex === true;
+}
+
+function evalUnaryOp(op: OpUnary, a: any): unknown {
+    switch (op) {
+        case "!": return !a;
+        case "~": return ~a;
+        case "+u": return +a;
+        case "-u": return -a;
+    }
+}
+
+function evalBinaryOp(op: OpBinary, a: any, b: any): unknown {
+    switch (op) {
+        case "==": return a == b;
+        case "===": return a === b;
+        case "!=": return a != b;
+        case "!==": return a !== b;
+        case "<": return a < b;
+        case "<=": return a <= b;
+        case ">": return a > b;
+        case ">=": return a >= b;
+        case "+": return a + b;
+        case "-": return a - b;
+        case "*": return a * b;
+        case "/": return a / b;
+        case "%": return a % b;
+        case "**": return a ** b;
+        case "<<": return a << b;
+        case ">>": return a >> b;
+        case ">>>": return a >>> b;
+        case "&": return a & b;
+        case "|": return a | b;
+        case "^": return a ^ b;
+        case "instanceof": return a instanceof (b as Function);
+        default: throw new Error("evalBinaryOp: unsupported operator " + op);
+    }
+}
+
+// Fold `obj.name` when `obj` is a constant and the value is plain — a function (method group
+// like `ids.contains`) or a Query is left as a PropertyExpression so the binder can dispatch /
+// translate it. `?.` on a null constant folds to undefined.
+function foldOrProperty(obj: Expression, name: string, optional: boolean): Expression {
+    if (obj instanceof ConstantExpression) {
+        if (obj.value == null) {
+            if (optional)
+                return new ConstantExpression(undefined);
+        } else {
+            const v = (obj.value as Record<string, unknown>)[name];
+            if (typeof v !== "function" && !(v instanceof Query))
+                return new ConstantExpression(v);
+        }
+    }
+    return new PropertyExpression(obj, name, optional);
+}
+
+// The compile-time value of a constant expression or a constant *path* (`Ns.Member.…`, e.g.
+// `Temporal.PlainDate`). A method group like `ids.contains` is NOT folded to a constant (see
+// foldOrProperty), so its receiver arrives as a PropertyExpression; this recovers the receiver's
+// value so a fully-constant call on it can still fold. Bounded by the path depth. Returns null
+// for anything that isn't a constant path (e.g. rooted at a query parameter).
+function constValueOf(exp: Expression): { value: unknown } | null {
+    if (exp instanceof ConstantExpression)
+        return { value: exp.value };
+    if (exp instanceof PropertyExpression && !exp.isOptionalChaining) {
+        const o = constValueOf(exp.object);
+        if (o != null && o.value != null)
+            return { value: (o.value as Record<string, unknown>)[exp.propertyName] };
+    }
+    return null;
+}
+
+// Fold a call with all-constant receiver/callee + args to a constant value. Returns null when
+// it must stay structural: a non-constant/absent receiver, a query source/marker, or a result
+// that is a Query (e.g. `x.inDB()` must reach its @methodExpander). Only called when there are
+// no lambda args (a lambda is never constant).
+function tryFoldCall(fun: Expression, argVals: unknown[], optional: boolean): Expression | null {
+    if (fun instanceof PropertyExpression) {
+        const recvC = constValueOf(fun.object);
+        if (recvC == null)
+            return null;
+        const recv = recvC.value as Record<string, unknown> | null;
+        if (recv == null)
+            return optional ? new ConstantExpression(undefined) : null;
+        const fn = recv[fun.propertyName];
+        if (typeof fn !== "function" || isQueryMarker(fn))
+            return null;
+        const result = (fn as (...a: unknown[]) => unknown).apply(recv, argVals);
+        return result instanceof Query ? null : new ConstantExpression(result);
+    }
+    if (fun instanceof ConstantExpression && typeof fun.value === "function" && !isQueryMarker(fun.value)) {
+        const result = (fun.value as (...a: unknown[]) => unknown)(...argVals);
+        return result instanceof Query ? null : new ConstantExpression(result);
+    }
+    return null;
+}
+
 // Resolves the static type of `owner.propertyName` from the entity metadata, so
 // PropertyExpression carries a real type (collection field → ArrayType, reference
 // → ClassType, value → LiteralType). This feeds both the flatMap array-guard and
@@ -301,8 +415,34 @@ export abstract class Expression {
                 case "+u":
                 case "-u":
                 case "~":
-                case "!":
-                    return new UnaryExpression(q[0], fromQuoted(q[1]));
+                case "!": {
+                    const e = fromQuoted(q[1]);
+                    // Fold a constant operand (PartialEval).
+                    if (e instanceof ConstantExpression)
+                        return new ConstantExpression(evalUnaryOp(q[0], e.value));
+                    return new UnaryExpression(q[0], e);
+                }
+                // Short-circuit operators: build the controlling operand first; if it's a
+                // constant, only the reachable branch is built — so a proven-dead branch
+                // (Throw<T>(), a null-guarded member) is never converted or typed.
+                case "&&": {
+                    const l = fromQuoted(q[1]);
+                    if (l instanceof ConstantExpression)
+                        return l.value ? fromQuoted(q[2]) : l;
+                    return new BinaryExpression("&&", l, fromQuoted(q[2]));
+                }
+                case "||": {
+                    const l = fromQuoted(q[1]);
+                    if (l instanceof ConstantExpression)
+                        return l.value ? l : fromQuoted(q[2]);
+                    return new BinaryExpression("||", l, fromQuoted(q[2]));
+                }
+                case "??": {
+                    const l = fromQuoted(q[1]);
+                    if (l instanceof ConstantExpression)
+                        return l.value != null ? l : fromQuoted(q[2]);
+                    return new BinaryExpression("??", l, fromQuoted(q[2]));
+                }
                 case "**":
                 case "*":
                 case "/":
@@ -323,38 +463,30 @@ export abstract class Expression {
                 case "!==":
                 case "&":
                 case "|":
-                case "^":
-                case "&&":
-                case "||":
-                case "??":
-                    return new BinaryExpression(
-                        q[0],
-                        fromQuoted(q[1]),
-                        fromQuoted(q[2])
-                    );
-                case "?:":
-                    return new ConditionalExpression(
-                        fromQuoted(q[1]),
-                        fromQuoted(q[2]),
-                        fromQuoted(q[3])
-                    );
+                case "^": {
+                    const l = fromQuoted(q[1]);
+                    const r = fromQuoted(q[2]);
+                    // Fold when both operands are constants (PartialEval).
+                    if (l instanceof ConstantExpression && r instanceof ConstantExpression)
+                        return new ConstantExpression(evalBinaryOp(q[0], l.value, r.value));
+                    return new BinaryExpression(q[0], l, r);
+                }
+                case "?:": {
+                    const cond = fromQuoted(q[1]);
+                    // Build only the reachable branch when the condition is a constant.
+                    if (cond instanceof ConstantExpression)
+                        return cond.value ? fromQuoted(q[2]) : fromQuoted(q[3]);
+                    return new ConditionalExpression(cond, fromQuoted(q[2]), fromQuoted(q[3]));
+                }
                 case ".":
-                    return new PropertyExpression(
-                        fromQuoted(q[1]),
-                        q[2],
-                        false,
-                    );
                 case "?.":
-                    return new PropertyExpression(
-                        fromQuoted(q[1]),
-                        q[2],
-                        true,
-                    );
+                    return foldOrProperty(fromQuoted(q[1]), q[2], q[0] === "?.");
                 case "()":
                 case "?.()":
                     {
                         const fun = fromQuoted(q[1]);
                         const args = q[2];
+                        const optional = q[0] === "?.()";
 
                         // `Ctor.create({ … })` where Ctor is a View subclass: build a typed
                         // instance per row. Typed as the instance (ClassType) so downstream
@@ -363,6 +495,21 @@ export abstract class Expression {
                             && fun.object instanceof ConstantExpression && isViewCtorValue(fun.object.value)) {
                             const createArgs = (args as QuotedEx[]).map(a => fromQuoted(a));
                             return new CallExpression(fun, createArgs, new ClassType(fun.object.value as Function));
+                        }
+
+                        // Constant fold (PartialEval): a call with no lambda args whose
+                        // receiver/callee and args are all constant folds to a value — e.g.
+                        // `Temporal.Now.plainDateISO()` — without needing __resultType, honouring
+                        // the surrounding short-circuit (a dead branch was never built). Non-lambda
+                        // args are built ONCE here and reused by the dispatch loop below.
+                        let prebuiltArgs: Expression[] | undefined;
+                        if (!(args as QuotedEx[]).some(a => a[0] === "=>")) {
+                            prebuiltArgs = (args as QuotedEx[]).map(a => fromQuoted(a));
+                            if (prebuiltArgs.every(a => a instanceof ConstantExpression)) {
+                                const folded = tryFoldCall(fun, prebuiltArgs.map(a => (a as ConstantExpression).value), optional);
+                                if (folded != null)
+                                    return folded;
+                            }
                         }
 
                         let sf: StaticFunction<Function>;
@@ -431,7 +578,8 @@ export abstract class Expression {
                                 argsExp[i] = fromQuoted(a, paramTypes);
                             }
                             else {
-                                argsExp[i] = fromQuoted(a);
+                                // Reuse the args already built for the constant-fold check.
+                                argsExp[i] = prebuiltArgs ? prebuiltArgs[i] : fromQuoted(a);
                             }
                         }
 
@@ -492,19 +640,29 @@ export abstract class Expression {
 
                     return new LambdaExpression(params, body);
 
-                case "{}":
+                case "{}": {
                     const objectProperties: Record<string, Expression> = {};
-                    for (const [name, value] of Object.entries(q[1])) {
+                    for (const [name, value] of Object.entries(q[1]))
                         objectProperties[name] = fromQuoted(value);
-                    }
+                    // Fold an all-constant object literal to a constant value.
+                    if (Object.values(objectProperties).every(v => v instanceof ConstantExpression))
+                        return new ConstantExpression(Object.fromEntries(Object.entries(objectProperties).map(([k, v]) => [k, (v as ConstantExpression).value])));
                     return new ObjectExpression(objectProperties);
-                case "new":
-                    return new NewExpression(
-                        q[1],
-                        q[2].map(arg => fromQuoted(arg))
-                    );
-                case "as":
-                    return new CastExpression(fromQuoted(q[1]), resolveCastType(q[2]));
+                }
+                case "new": {
+                    const newArgs = q[2].map(arg => fromQuoted(arg));
+                    // Fold `new Ctor(...const)` to the constructed value.
+                    if (newArgs.every(a => a instanceof ConstantExpression))
+                        return new ConstantExpression(new (q[1] as new (...a: unknown[]) => unknown)(...newArgs.map(a => (a as ConstantExpression).value)));
+                    return new NewExpression(q[1], newArgs);
+                }
+                case "as": {
+                    const inner = fromQuoted(q[1]);
+                    // A cast is a runtime no-op; a constant passes straight through.
+                    if (inner instanceof ConstantExpression)
+                        return inner;
+                    return new CastExpression(inner, resolveCastType(q[2]));
+                }
                 default:
                     throw new Error(`Unsupported quoted expression: ${JSON.stringify(q)}`);
         }

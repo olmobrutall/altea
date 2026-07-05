@@ -4,7 +4,7 @@ import { CallExpression, ConstantExpression, Expression, PropertyExpression, Par
 import { Retriever } from "./linq/Retriever";
 import { asStaticFunction, IQueryTranslator, Query } from "./query";
 import { ArrayType, FunctionType, ClassType, Type, LiteralType } from "../entities/types";
-import { expressionSimplifier } from "./linq/visitors/ExpressionSimplifier";
+import { OverloadingSimplifier } from "./linq/visitors/OverloadingSimplifier";
 import { Connector } from "./connection/connector";
 import { QueryBinder } from "./linq/visitors/QueryBinder";
 import { AggregateRewriter } from "./linq/visitors/AggregateRewriter";
@@ -80,10 +80,10 @@ asStaticFunction(view).__resultType = (_, viewTypeType) => new ArrayType(new Cla
 // post-optimiser shape the executor sees (not the raw pre-optimiser tree). Mirrors the
 // relevant slice of Signum's DbQueryProvider.Optimize. (UnusedColumnRemover still pending.)
 export function bindAndOptimize(expression: Expression, schema: Schema, isPostgres: boolean, alreadySimplified = false): ProjectionExpression {
-    // `alreadySimplified` skips the partial-evaluation pass for a hand-built expression
-    // (the batch-retrieve query): its captured id array is a literal ConstantExpression,
-    // which the simplifier would wrongly fold on the `.contains` property access.
-    const simplified = alreadySimplified ? expression : expressionSimplifier()(expression);
+    // `alreadySimplified` skips the OverloadingSimplifier for a hand-built expression (the
+    // batch-retrieve query): it already uses only core operators (filter/contains), so there's
+    // no sugar/methodExpander to lower.
+    const simplified = alreadySimplified ? expression : OverloadingSimplifier.simplify(expression);
     const binder = new QueryBinder(schema, isPostgres);
     let projection: Expression = binder.bindQuery(simplified);
     // Hoist deferred group aggregates (g.elements.sum()…) into their GROUP BY select as
@@ -170,7 +170,7 @@ class MyQueryTranslator implements IQueryTranslator {
     // for SQL Server, format, and execute returning the affected row count scalar.
     async executeCommand(expression: Expression): Promise<number> {
         const connector = Connector.current();
-        const simplified = expressionSimplifier()(expression);
+        const simplified = OverloadingSimplifier.simplify(expression);
         const binder = new QueryBinder(connector.schema, connector.isPostgres);
         const command = binder.bindCommand(simplified);
 
