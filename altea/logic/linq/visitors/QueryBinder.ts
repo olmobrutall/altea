@@ -1113,12 +1113,14 @@ export class QueryBinder extends ExpressionVisitor {
         const alias = this.aliasGenerator.nextSelectAlias();
         const pc = this.projectColumns(projection.projector, alias);
         const orderBy = append ? [...projection.select.orderBy] : [];
-        orderBy.push(new OrderExpression(orderType, this.fullNominate(this.mapVisitExpand(selector, projection))));
+        for (const key of this.orderExpressions(selector, projection))
+            orderBy.push(new OrderExpression(orderType, key));
 
         if (myThenBys != null) {
             for (let i = myThenBys.length - 1; i >= 0; i--) {
                 const thenBy = myThenBys[i];
-                orderBy.push(new OrderExpression(thenBy.orderType, this.fullNominate(this.mapVisitExpand(thenBy.expression as LambdaExpression, projection))));
+                for (const key of this.orderExpressions(thenBy.expression as LambdaExpression, projection))
+                    orderBy.push(new OrderExpression(thenBy.orderType, key));
             }
         }
 
@@ -2102,6 +2104,50 @@ export class QueryBinder extends ExpressionVisitor {
         if (ref instanceof ImplementedByExpression)
             return this.dispatchIb(ref, ee => ee.externalId.value);
         throw new Error(`Cannot take the id of ${ref.toString()}`);
+    }
+
+    // Signum's GetOrderExpression: bind an order-by selector and expand it into the SQL
+    // order keys, which may be SEVERAL per selector. A reference doesn't order by its FK —
+    // it orders by its display string first, then its id (so rows sort the way a user
+    // reads them); a polymorphic reference fans out over each implementation; a runtime
+    // type (GetType()/`.constructor`) becomes its type-id discriminator. Each key is
+    // unwrapped from a PrimaryKey and fully nominated. A plain scalar stays a single key.
+    private orderExpressions(selector: LambdaExpression, projection: ProjectionExpression): Expression[] {
+        const expr = this.mapVisitExpand(selector, projection);
+
+        // Signum's local GetExpressionOrder: order a single entity by its ToString
+        // (its CustomOrder isn't modelled yet); fall back to its id when it has none.
+        const expressionOrder = (ee: EntityExpression): Expression =>
+            this.entityToStringOf(ee) ?? this.unwrapPk(ee.externalId);
+
+        const perImplementation = (ib: ImplementedByExpression): Expression[] =>
+            [...ib.implementations.values()].flatMap(ee => [expressionOrder(ee), ee.externalId]);
+
+        let keys: Expression[];
+        if (expr instanceof LiteReferenceExpression) {
+            const ref = expr.reference;
+            if (ref instanceof ImplementedByAllExpression)
+                keys = [ref.typeId, ...ref.ids.values()];
+            else if (ref instanceof EntityExpression)
+                keys = [expressionOrder(ref), ref.externalId];
+            else if (ref instanceof ImplementedByExpression)
+                keys = perImplementation(ref);
+            else
+                throw new Error(`Cannot order by a lite of ${(ref as Expression).toString()}`);
+        } else if (expr instanceof EntityExpression) {
+            keys = [expressionOrder(expr), expr.externalId];
+        } else if (expr instanceof ImplementedByExpression) {
+            keys = perImplementation(expr);
+        } else if (expr instanceof ImplementedByAllExpression) {
+            keys = [expr.typeId, ...expr.ids.values()];
+        } else {
+            keys = [expr];
+        }
+
+        // A runtime-type key (the standalone GetType() case, or an @implementedByAll's
+        // typeId which altea models as a Type* node) lowers to its type-id discriminator;
+        // a PrimaryKey unwraps to its scalar. Then nominate each to a server expression.
+        return keys.map(k => this.fullNominate(this.unwrapPk(isTypeExpression(k) ? this.extractTypeId(k) : k)));
     }
 
     // Signum's ExtractTypeId: the @implementedByAll type-discriminator *value* (the

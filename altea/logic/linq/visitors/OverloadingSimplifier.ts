@@ -1,5 +1,5 @@
 
-import { BinaryExpression, CallExpression, CastExpression, ConstantExpression, Expression, LambdaExpression, ParameterExpression, PropertyExpression } from "../expressions";
+import { BinaryExpression, CallExpression, CastExpression, ConditionalExpression, ConstantExpression, Expression, LambdaExpression, ParameterExpression, PropertyExpression } from "../expressions";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 import { ClassType, LiteralType, Type } from "../../../entities/types";
 
@@ -38,6 +38,35 @@ export class OverloadingSimplifier extends ExpressionVisitor {
         }
 
         return node.updateCall(func, args);
+    }
+
+    // Signum's OverloadingSimplifier.VisitBinary: a mixed-type string concatenation
+    // (`a + ""` where one side is a string and the other is not) becomes a real
+    // string concat of both sides run through CallToString. Without this the non-string
+    // operand (e.g. a whole entity) stays raw and the binder never lowers it to its
+    // ToString, so the formatter flattens all its columns into a garbage identifier.
+    visitBinary(node: BinaryExpression): Expression {
+        const b = super.visitBinary(node) as BinaryExpression;
+        if (b instanceof BinaryExpression && b.kind === "+"
+            && isStringType(b.left.type) !== isStringType(b.right.type))
+            return new BinaryExpression("+", this.callToString(b.left), this.callToString(b.right));
+        return b;
+    }
+
+    // Signum's CallToString: coerce an operand to string for concatenation. A string
+    // is already fine; a constant folds to its string value; anything else (an entity,
+    // lite or value) becomes `expr == null ? null : expr.toString()` — the null-guarded
+    // ToString the binder then lowers (an entity → its ToStr column, a value → a CAST).
+    private callToString(expr: Expression): Expression {
+        if (isStringType(expr.type))
+            return expr;
+        if (expr instanceof ConstantExpression)
+            return new ConstantExpression(expr.value == null ? null : String(expr.value), LiteralType.string);
+        const toStr = new CallExpression(new PropertyExpression(expr, "toString"), [], LiteralType.string);
+        return new ConditionalExpression(
+            new BinaryExpression("==", expr, new ConstantExpression(null)),
+            new ConstantExpression(null, LiteralType.string),
+            toStr);
     }
 
     // Rewrite a "sugar" query operator on `source.op(args)` to a chain of core operators.
@@ -80,4 +109,9 @@ export class OverloadingSimplifier extends ExpressionVisitor {
             return arg.value as Function;
         throw new Error(`cast/ofType expects a constructor argument, but got ${arg?.toString() ?? "nothing"}`);
     }
+}
+
+// Signum's `type == typeof(string)` test for the mixed-concat rule.
+function isStringType(type: Type): boolean {
+    return type === LiteralType.string;
 }
