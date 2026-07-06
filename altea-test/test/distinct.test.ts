@@ -62,7 +62,7 @@ describe("DistinctTest", { skip: !hasDb }, () => {
         // (band.members → .member) and a further flatMap into m.friends with an inner
         // .distinct() is not expressible with the current Query<T> collection API.
         const bla = await table(BandEntity)
-            .flatMap(a => a.members.flatMap(m => m.member.friends.flatMap(f => f.friend)).distinct())
+            .flatMap(a => a.members.map(m => m.member.friends.map(f => f.friend)).distinct())
             .top(4)
             .toArray();
         assert.ok(Array.isArray(bla));
