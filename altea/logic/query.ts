@@ -663,13 +663,16 @@ export class Query<T> implements IQuery<T> {
     }
 
     // executeUpdatePart — update a *navigated* entity reached from each source row
-    // (Signum's UnsafeUpdatePart): `partSelector` picks the entity/reference to update.
+    // (Signum's UnsafeUpdatePart): `partSelector` picks the entity/reference to update; the
+    // `setter` object's KEYS name the part's columns, while its VALUES are read from the
+    // ROOT source element (Signum binds the value selector to the root, so a value can
+    // reach any field of the source projection, not only the navigated part).
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
-    @lambdaTypeForParam(1, (_ot, partSelType) => [(partSelType as FunctionType).returnType])
+    @lambdaTypeForParam(1, ot => [(ot as ArrayType).elementType])
     @resultType(() => SimpleType.number)
-    executeUpdatePart<P>(partSelector: Quoted<(element: T) => P>, setter: Quoted<(part: P) => UpdateValues<P>>): Promise<number> {
+    executeUpdatePart<P>(partSelector: Quoted<(element: T) => P>, setter: Quoted<(root: T) => UpdateValues<P>>): Promise<number> {
         var partLambda = Expression.fromQuotedLambda(partSelector, [this.elementType]);
-        var setterLambda = Expression.fromQuotedLambda(setter, [partLambda.body.type!]);
+        var setterLambda = Expression.fromQuotedLambda(setter, [this.elementType]);
         var call = new CallExpression(new PropertyExpression(this.expression, "executeUpdatePart"), [partLambda, setterLambda], SimpleType.number);
         return this.translator.executeCommand(call);
     }

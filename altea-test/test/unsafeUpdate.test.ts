@@ -293,11 +293,13 @@ describe("UnsafeUpdateTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AlbumEntity>().Select(a => new { a.Label, Album = a }).UnsafeUpdatePart(p => p.Label!).Set(a => a.Name, p => p.Label!.Name + "/" + p.Album!.Id).Execute();
-    // TODO(api): bulk update part (executeUpdatePart) — update a navigated entity from a projection
+    // executeUpdatePart(partSelector, setter): the setter's object KEYS name the part's
+    // columns; its VALUES read the ROOT projection (Signum binds the value selector to the
+    // root, so it can reach any source field — here the label's name and the album's id).
     txTest("UnsafeUpdatePart", async () => {
         const count = await table(AlbumEntity)
             .map(a => ({ label: a.label, album: a }))
-            .executeUpdatePart(p => p.label, x => ({ name: x.name + "/x" }));
+            .executeUpdatePart(p => p.label, x => ({ name: x.label.name + "/" + (x.album.id as number) }));
         assert.ok(true);
     });
 
@@ -343,10 +345,11 @@ describe("UnsafeUpdateTest", { skip: !hasDb }, () => {
     // equivalent, so there is nothing to model here.
 
     // Database.Query<LabelEntity>().UnsafeUpdatePart(lb => lb.Owner!.Entity.Country).Set(ctr => ctr.Name, lb => lb.Name).Execute();
-    // TODO(api): bulk update part (executeUpdatePart) — navigate Lite.entity then update the navigated entity
+    // Part = each label's owner's country; set that country's Name to the ROOT label's name
+    // (the value selector binds to the root, per Signum — see UnsafeUpdatePart above).
     txTest("UnsafeUpdatePartExpand", async () => {
         const count = await table(LabelEntity)
-            .executeUpdatePart(lb => lb.owner!.entity.country, ctr => ({ name: ctr.name }));
+            .executeUpdatePart(lb => lb.owner!.entity.country, lb => ({ name: lb.name }));
         assert.ok(true);
     });
 

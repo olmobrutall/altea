@@ -2,7 +2,7 @@ import { Expression } from "../expressions";
 import {
     SelectExpression, ProjectionExpression, JoinExpression, TableExpression,
     ScalarExpression, ColumnExpression, ColumnDeclaration, OrderExpression,
-    SourceExpression,
+    SourceExpression, UpdateExpression, InsertSelectExpression, SourceWithAliasExpression,
 } from "../expressions.sql";
 import { Alias } from "../AliasGenerator";
 import { ColumnGenerator } from "../ColumnGenerator";
@@ -134,6 +134,41 @@ export class QueryRebinder extends DbExpressionVisitor {
 
     // Scratch space carrying AnswerAndExpand's results out of the inner scope.
     private readonly askedAnswers = new Map<string, ColumnExpression>();
+
+    // Signum's QueryRebinder.VisitUpdate: an UPDATE's WHERE and assignment VALUES sit
+    // outside the source SELECT but reference aliases nested inside it (after join
+    // expansion + WrapSelect the completion joins live in the wrapped source). Collect the
+    // columns they read against the source's known aliases so visitSelect answers them
+    // (exposing each as a column of the wrapped select), then visit the source and the
+    // consumers so those references are rewritten to the source's own alias.
+    override visitUpdate(update: UpdateExpression): Expression {
+        const coll = this.getColumnCollector(update.source.knownAliases());
+        coll.visit(update.where);
+        for (const ca of update.assignments)
+            coll.visit(ca.expression);
+
+        const source = this.visit(update.source) as SourceWithAliasExpression;
+        const where = this.visit(update.where);
+        const assignments = this.visitArray(update.assignments, a => this.visitColumnAssignment(a));
+        if (source !== update.source || where !== update.where || assignments !== update.assignments)
+            return new UpdateExpression(update.table, source, where, assignments, update.returnRowCount);
+        return update;
+    }
+
+    // Signum's QueryRebinder.VisitInsertSelect: same as VisitUpdate but for an INSERT's
+    // assignment values (an insert has no WHERE) — float their column references through
+    // the (possibly join-expanded + wrapped) source SELECT.
+    override visitInsertSelect(insert: InsertSelectExpression): Expression {
+        const coll = this.getColumnCollector(insert.source.knownAliases());
+        for (const ca of insert.assignments)
+            coll.visit(ca.expression);
+
+        const source = this.visit(insert.source) as SourceWithAliasExpression;
+        const assignments = this.visitArray(insert.assignments, a => this.visitColumnAssignment(a));
+        if (source !== insert.source || assignments !== insert.assignments)
+            return new InsertSelectExpression(insert.table, source, assignments, insert.returnRowCount);
+        return insert;
+    }
 
     override visitTable(table: TableExpression): Expression {
         for (const c of this.currentScope.keys())

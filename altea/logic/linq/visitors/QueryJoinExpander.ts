@@ -1,9 +1,11 @@
 import { Expression } from "../expressions";
 import {
     SourceExpression, SelectExpression, JoinExpression, TableExpression,
-    ProjectionExpression,
+    ProjectionExpression, SourceWithAliasExpression, UpdateExpression,
+    InsertSelectExpression, ColumnDeclaration,
 } from "../expressions.sql";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
+import { AliasGenerator } from "../AliasGenerator";
 
 // Port of Signum's QueryJoinExpander (the second half of entity completion). The
 // QueryBinder records, per source, the implicit joins that a navigation needs
@@ -37,14 +39,50 @@ function isUnionRequest(r: ExpansionRequest): r is UnionRequest {
 }
 
 export class QueryJoinExpander extends DbExpressionVisitor {
-    constructor(private readonly requests: ReadonlyMap<SourceExpression, readonly ExpansionRequest[]>) {
+    constructor(
+        private readonly requests: ReadonlyMap<SourceExpression, readonly ExpansionRequest[]>,
+        private readonly aliasGenerator?: AliasGenerator,
+    ) {
         super();
     }
 
-    static expand(expression: Expression, requests: ReadonlyMap<SourceExpression, readonly ExpansionRequest[]>): Expression {
+    static expand(expression: Expression, requests: ReadonlyMap<SourceExpression, readonly ExpansionRequest[]>, aliasGenerator?: AliasGenerator): Expression {
         if (requests.size === 0)
             return expression;
-        return new QueryJoinExpander(requests).visit(expression);
+        return new QueryJoinExpander(requests, aliasGenerator).visit(expression);
+    }
+
+    // A command's source (Signum's VisitUpdate/VisitInsertSelect): when join expansion
+    // turns the source into a JoinExpression, the UPDATE/INSERT source slot needs a
+    // SourceWithAliasExpression, so wrap the join in a fresh (empty-column) SELECT — the
+    // QueryRebinder fills its columns and UnusedColumnRemover prunes them. Without this the
+    // base visitor casts the join to SourceWithAlias and emits an unbindable command.
+    override visitUpdate(update: UpdateExpression): Expression {
+        const source = this.visitSource(update.source);
+        const where = this.visit(update.where);
+        const assignments = this.visitArray(update.assignments, a => this.visitColumnAssignment(a));
+        if (source === update.source && where === update.where && assignments === update.assignments)
+            return update;
+        const select = source instanceof SourceWithAliasExpression ? source : this.wrapSelect(source);
+        return new UpdateExpression(update.table, select, where, assignments, update.returnRowCount);
+    }
+
+    override visitInsertSelect(insert: InsertSelectExpression): Expression {
+        const source = this.visitSource(insert.source);
+        const assignments = this.visitArray(insert.assignments, a => this.visitColumnAssignment(a));
+        if (source === insert.source && assignments === insert.assignments)
+            return insert;
+        const select = source instanceof SourceWithAliasExpression ? source : this.wrapSelect(source);
+        return new InsertSelectExpression(insert.table, select, assignments, insert.returnRowCount);
+    }
+
+    // Signum's WrapSelect: an empty-column pass-through SELECT over `source`; the columns
+    // are backfilled by the later Rebinder pass and pruned by UnusedColumnRemover.
+    private wrapSelect(source: SourceExpression): SelectExpression {
+        if (this.aliasGenerator == null)
+            throw new Error("QueryJoinExpander needs an alias generator to wrap a command source in a SELECT");
+        const alias = this.aliasGenerator.nextSelectAlias();
+        return new SelectExpression(alias, false, undefined, [] as ColumnDeclaration[], source, undefined, [], []);
     }
 
     // Match Signum: visit the projection's select through visitSource so a

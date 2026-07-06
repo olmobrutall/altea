@@ -78,7 +78,7 @@ asStaticFunction(view).__resultType = (_, viewTypeType) => new ArrayType(new Cla
 // Bind a source expression to a fully-optimised ProjectionExpression: the exact pipeline
 // the runtime uses, factored out so tests (binder.test.ts) can observe the same
 // post-optimiser shape the executor sees (not the raw pre-optimiser tree). Mirrors the
-// relevant slice of Signum's DbQueryProvider.Optimize. (UnusedColumnRemover still pending.)
+// relevant slice of Signum's DbQueryProvider.Optimize.
 export function bindAndOptimize(expression: Expression, schema: Schema, isPostgres: boolean, alreadySimplified = false): ProjectionExpression {
     // `alreadySimplified` skips the OverloadingSimplifier for a hand-built expression (the
     // batch-retrieve query): it already uses only core operators (filter/contains), so there's
@@ -152,8 +152,7 @@ class MyQueryTranslator implements IQueryTranslator {
     // RedundantSubqueryRemover (collapse/merge the pass-through selects) →
     // ConditionsRewriter (boolean condition/value normalisation; SQL Server only —
     // Postgres has a native boolean type so its variant is a near no-op). Mirrors
-    // the relevant slice of Signum's DbQueryProvider.Optimize. (UnusedColumnRemover
-    // still pending.)
+    // the relevant slice of Signum's DbQueryProvider.Optimize.
     bind(expression: Expression): ProjectionExpression {
         const connector = Connector.current();
         return bindAndOptimize(expression, connector.schema, connector.isPostgres);
@@ -186,6 +185,11 @@ class MyQueryTranslator implements IQueryTranslator {
         for (const cmd of commands) {
             let c: Expression = OrderByRewriter.rewrite(cmd);
             c = QueryRebinder.rebind(c);
+            // Drop subquery columns no enclosing scope references (Signum runs
+            // UnusedColumnRemover in Optimize for commands too) — so an update-part's
+            // source SELECT projects only the correlation FK + the columns its SET values
+            // read, not every column of the source entity.
+            c = UnusedColumnRemover.remove(c);
             c = RedundantSubqueryRemover.remove(c, connector.isPostgres);
             if (!connector.isPostgres)
                 c = ConditionsRewriter.rewrite(c);

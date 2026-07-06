@@ -282,6 +282,25 @@ function defaultColumnName(exp: Expression): string {
 // Signum's ColumnUnionProjector: rewrite a per-implementation leaf so its nominated
 // candidate columns/expressions are projected into that implementation's union
 // columns and read back from the union alias.
+// Signum's UsedAliasGatherer.Externals: the distinct table aliases a (correlation)
+// expression reads columns from. Used by GetCurrentSource to decide which stacked
+// source a completion join must attach to.
+class AliasGatherer extends DbExpressionVisitor {
+    readonly aliases: Alias[] = [];
+
+    static gather(e: Expression): Alias[] {
+        const g = new AliasGatherer();
+        g.visit(e);
+        return g.aliases;
+    }
+
+    override visitColumn(c: ColumnExpression): Expression {
+        if (!this.aliases.some(a => a.equals(c.alias)))
+            this.aliases.push(c.alias);
+        return c;
+    }
+}
+
 class ColumnUnionProjector extends DbExpressionVisitor {
     private readonly map = new Map<ColumnExpression, ColumnExpression>();
 
@@ -528,8 +547,9 @@ export class QueryBinder extends ExpressionVisitor {
         }
 
         // Splice the implicit navigation joins (filter / setter-value navigations)
-        // recorded during binding into the command's source selects.
-        return QueryJoinExpander.expand(command, this.requests) as CommandExpression;
+        // recorded during binding into the command's source selects. The alias generator
+        // lets QueryJoinExpander wrap a join-expanded source back into a SELECT.
+        return QueryJoinExpander.expand(command, this.requests, this.aliasGenerator) as CommandExpression;
     }
 
     private bindSourceProjection(sourceExpr: Expression): ProjectionExpression {
@@ -580,10 +600,16 @@ export class QueryBinder extends ExpressionVisitor {
         const tableAlias = this.aliasGenerator.table(table.name);
         const toUpdate = this.createEntityExpression(table, tableAlias);
 
-        // Columns come from the target table (toUpdate); the setter's values are read
-        // from the source row — the navigated part itself when updating a part.
-        const valueSource = partSelector == null ? pr.projector : entity;
-        const assignments = this.buildAssignments(toUpdate, setter, pr.select, valueSource);
+        // Signum's BindUpdate: the assignment COLUMNS name the target table (toUpdate),
+        // but the assignment VALUES are read from the ROOT source row (pr.projector) — the
+        // update-part correlates the target to the source, so a value can reach any field
+        // of the source projection, not just the navigated part. Setter navigations bind
+        // against `pr.select` (Signum uses `pr.Select.From!`, but altea materialises a
+        // projection's columns eagerly, so the projector's ids reference pr.select's own
+        // alias — the completion join must attach there). QueryJoinExpander then wraps the
+        // join-expanded source back into a SELECT so the UPDATE joins the target only via
+        // `where` (the inner query stays a normal SELECT).
+        const assignments = this.buildAssignments(toUpdate, setter, pr.select, pr.projector);
 
         const idCol = new ColumnExpression(LiteralType.number, tableAlias, table.primaryKey.column.name);
         const where = new BinaryExpression("==", idCol, this.unwrapPk(entity.externalId));
@@ -2286,14 +2312,58 @@ export class QueryBinder extends ExpressionVisitor {
     }
 
     private addRequest(request: TableRequest): void {
-        const source = this.sourceStack[this.sourceStack.length - 1];
-        if (source == null)
-            throw new Error("Entity completion requested with no current source on the stack");
+        const source = this.getCurrentSource(request);
         const list = this.requests.get(source);
         if (list != null)
             list.push(request);
         else
             this.requests.set(source, [request]);
+    }
+
+    // Signum's GetCurrentSource: a completion join must attach to the source that owns
+    // the alias(es) its correlation reads (the FK column's table), NOT blindly the top of
+    // the stack. This is what lets the join splice INTO the inner subquery that declares
+    // the FK (e.g. `Album A LEFT JOIN Label L ON A.LabelID = L.ID`), instead of wrapping
+    // an outer select — the latter leaves the join and its columns unbindable (the
+    // update-part bug). Searches the stack from the top, so the innermost matching source
+    // wins; when a request carries no external alias it falls back to the top.
+    private getCurrentSource(request: TableRequest): SourceExpression {
+        const stack = this.sourceStack;
+        if (stack.length === 0)
+            throw new Error("Entity completion requested with no current source on the stack");
+        const external = AliasGatherer.gather(request.condition).filter(a => !a.equals(request.table.alias));
+        if (external.length === 0)
+            return stack[stack.length - 1];
+        for (let i = stack.length - 1; i >= 0; i--) {
+            const known = this.knownAliasesExpanded(stack[i]);
+            if (external.some(a => known.some(k => k.equals(a))))
+                return stack[i];
+        }
+        throw new Error("Impossible to get current source for aliases " + external.map(a => a.toString()).join(", "));
+    }
+
+    // Signum's KnownAliases + ExpandKnowAlias: a source knows its own aliases plus those
+    // of any completion table already joined to a source it fully contains (chained
+    // navigations — the second join's FK lives on the first join's table).
+    private knownAliasesExpanded(source: SourceExpression): Alias[] {
+        const result: Alias[] = [...source.knownAliases()];
+        const has = (a: Alias) => result.some(x => x.equals(a));
+        let changed = true;
+        while (changed) {
+            changed = false;
+            for (const [key, reqs] of this.requests) {
+                if (!key.knownAliases().every(has))
+                    continue;
+                for (const r of reqs) {
+                    const alias = "table" in r ? r.table.alias : undefined;
+                    if (alias != null && !has(alias)) {
+                        result.push(alias);
+                        changed = true;
+                    }
+                }
+            }
+        }
+        return result;
     }
 
     private getTableProjection(ctor: new () => object): ProjectionExpression {
