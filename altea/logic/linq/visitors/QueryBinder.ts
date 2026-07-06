@@ -849,6 +849,10 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.bindAggregate(source, "Sum", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "avg":
                     return this.bindAggregate(source, "Average", call.args[0] as LambdaExpression | undefined, call === this.root);
+                case "stdDev":
+                    return this.bindAggregate(source, "StdDev", call.args[0] as LambdaExpression | undefined, call === this.root);
+                case "stdDevP":
+                    return this.bindAggregate(source, "StdDevP", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "some":
                     return this.bindAnyAll(source, call.args[0] as LambdaExpression | undefined, false, call === this.root);
                 case "every":

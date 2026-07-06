@@ -230,6 +230,7 @@ const wellKnownResultTypes: Readonly<Record<string, Type>> = {
     "string.end": LiteralType.string,
     "string.reverse": LiteralType.string,
     "string.replicate": LiteralType.string,
+    "string.etc": LiteralType.string,
 
     "Array.contains": LiteralType.boolean,
 
@@ -259,6 +260,13 @@ const wellKnownResultTypes: Readonly<Record<string, Type>> = {
     "date.daysTo": LiteralType.number,
     "date.monthsTo": LiteralType.number,
     "date.yearsTo": LiteralType.number,
+    // Temporal arithmetic: `add(duration)` keeps the kind; `since(other)` is a Duration;
+    // `duration.total(unit)` is a number. The nominator lowers these to DATEADD / DATEDIFF.
+    "dateTime.add": new TemporalType("dateTime"),
+    "date.add": new TemporalType("date"),
+    "dateTime.since": new TemporalType("duration"),
+    "date.since": new TemporalType("duration"),
+    "duration.total": LiteralType.number,
 
     // Math.* — all number → number (the SQL Math-function tier).
     "Math.sign": LiteralType.number,

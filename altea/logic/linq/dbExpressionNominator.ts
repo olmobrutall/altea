@@ -13,6 +13,23 @@ import { EnumType, LiteralType, TemporalType, Type } from "../../entities/types"
 import { enumEntityMembers } from "../../entities/enumEntity";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 
+// A since() difference marker — a SqlFunctionExpression carrying (start, end) until
+// duration.total(unit) turns it into a real DATEDIFF. Never reaches the formatter.
+const TIMESPAN_MARKER = "__timespan__";
+
+// Temporal unit → SQL DATEADD/DATEDIFF part + seconds-per-unit (for the Postgres EPOCH divisor
+// in duration.total). Keyed by Temporal.Duration's plural field names.
+const DIFF_UNITS: Record<string, { ss: string; seconds: number }> = {
+    years: { ss: "year", seconds: 31557600 },
+    months: { ss: "month", seconds: 2629800 },
+    weeks: { ss: "week", seconds: 604800 },
+    days: { ss: "day", seconds: 86400 },
+    hours: { ss: "hour", seconds: 3600 },
+    minutes: { ss: "minute", seconds: 60 },
+    seconds: { ss: "second", seconds: 1 },
+    milliseconds: { ss: "millisecond", seconds: 0.001 },
+};
+
 // Port of Signum's DbExpressionNominator. Like Signum's it does two jobs in one
 // bottom-up pass and is a DbExpressionVisitor (dispatch is `accept` double-dispatch):
 //
@@ -224,6 +241,8 @@ class DbExpressionNominator extends DbExpressionVisitor {
             return this.translateMath(name, args);
         if (ns === "dateTime" || ns === "date")
             return this.translateDateMethod(name, source, args);
+        if (ns === "duration")
+            return this.translateDurationMethod(name, source, args);
         // enum.toString() → a value→name CASE (Signum reads the enum's Name).
         if (name === "toString" && args.length === 0 && source.type instanceof EnumType)
             return this.enumToString(source, source.type);
@@ -275,6 +294,22 @@ class DbExpressionNominator extends DbExpressionVisitor {
                 return args.length === 0 ? this.sqlFunction(LiteralType.string, this.isPostgres ? "reverse" : "REVERSE", source) : undefined;
             case "string.replicate":
                 return args.length === 1 ? this.sqlFunction(LiteralType.string, this.isPostgres ? "repeat" : "REPLICATE", source, this.asSqlLiteral(args[0])) : undefined;
+            // StringExtensions.Etc(max[, etcString]): truncate to `max` chars, appending
+            // `etcString` (default "(…)") when longer — `str.Length > max ? str.Start(max -
+            // etcString.Length) + etcString : str`. Lowered to a CASE so the concat stays
+            // server-side; Start → LEFT/left, Length → LEN/length.
+            case "string.etc": {
+                if (args.length < 1 || args.length > 2)
+                    return undefined;
+                const len = (e: Expression) => this.sqlFunction(LiteralType.number, this.isPostgres ? "length" : "LEN", e);
+                const max = this.asSqlLiteral(args[0]);
+                const etc = args.length === 2 ? args[1] : new SqlConstantExpression("(…)", LiteralType.string);
+                const truncated = new BinaryExpression("+",
+                    this.sqlFunction(LiteralType.string, this.isPostgres ? "left" : "LEFT",
+                        source, new BinaryExpression("-", max, len(etc))),
+                    etc);
+                return new CaseExpression([new When(new BinaryExpression(">", len(source), max), truncated)], source);
+            }
             default:
                 return undefined;
         }
@@ -351,8 +386,62 @@ class DbExpressionNominator extends DbExpressionVisitor {
             case "daysTo": return args.length === 1 ? this.datePartTo("day", source, args[0]) : undefined;
             case "monthsTo": return args.length === 1 ? this.datePartTo("month", source, args[0]) : undefined;
             case "yearsTo": return args.length === 1 ? this.datePartTo("year", source, args[0]) : undefined;
+            // Temporal.add(duration) → DATEADD (SQL Server) / date + interval (Postgres).
+            case "add": return args.length === 1 ? this.dateAdd(source, args[0]) : undefined;
+            // Temporal.since(other) → a lazy difference marker consumed by duration.total(unit).
+            case "since": return args.length === 1 ? this.timeSpanMarker(args[0], source) : undefined;
             default: return undefined;
         }
+    }
+
+    // Duration methods. `total(unit)` turns a since() difference into a number of `unit`s:
+    // DATEDIFF(part, start, end) on SQL Server; EXTRACT(EPOCH …)/divisor on Postgres.
+    private translateDurationMethod(name: string, source: Expression, args: readonly Expression[]): Expression | undefined {
+        if (name !== "total" || args.length !== 1)
+            return undefined;
+        if (!(source instanceof SqlFunctionExpression) || source.sqlFunction !== TIMESPAN_MARKER)
+            return undefined; // only a since() difference is supported (not a stored duration)
+        const [start, end] = source.arguments;
+        const unit = args[0] instanceof ConstantExpression ? String((args[0] as ConstantExpression).value) : undefined;
+        const part = unit != null ? DIFF_UNITS[unit] : undefined;
+        if (part == null)
+            return undefined;
+        if (!this.isPostgres)
+            return this.sqlFunction(LiteralType.number, "DATEDIFF", new SqlLiteralExpression(part.ss), start, end);
+        // Postgres: seconds between the two, divided into the requested unit.
+        const epoch = this.sqlFunction(LiteralType.number, "EXTRACT", new SqlLiteralExpression("EPOCH"), new BinaryExpression("-", end, start));
+        return new BinaryExpression("/", epoch, new SqlConstantExpression(part.seconds, LiteralType.number));
+    }
+
+    // Temporal.add({ days, hours, … }) → chained DATEADD (SQL Server) / `+ N * interval '1 unit'`
+    // (Postgres). The argument is a constant Duration-like object.
+    private dateAdd(source: Expression, arg: Expression): Expression | undefined {
+        if (!(arg instanceof ConstantExpression) || arg.value == null || typeof arg.value !== "object")
+            return undefined;
+        const isDate = source.type instanceof TemporalType && source.type.kind === "date";
+        const pgType = isDate ? "date" : "timestamp";
+        let acc = source;
+        for (const [unit, amount] of Object.entries(arg.value as Record<string, number>)) {
+            const part = DIFF_UNITS[unit];
+            if (part == null || typeof amount !== "number")
+                return undefined;
+            const amt = new SqlConstantExpression(amount, LiteralType.number);
+            if (this.isPostgres) {
+                // Cast the (date + interval) back to the source temporal type so a following
+                // .since() still sees a date/timestamp.
+                const interval = new BinaryExpression("*", amt, new SqlLiteralExpression(`INTERVAL '1 ${part.ss}'`));
+                acc = new SqlCastExpression(source.type, new BinaryExpression("+", acc, interval), pgType);
+            } else {
+                acc = this.sqlFunction(source.type, "DATEADD", new SqlLiteralExpression(part.ss), amt, acc);
+            }
+        }
+        return acc;
+    }
+
+    // The since() difference marker: a SqlFunctionExpression that merely carries (start, end)
+    // until duration.total(unit) turns it into a real DATEDIFF. Never formatted directly.
+    private timeSpanMarker(start: Expression, end: Expression): Expression {
+        return new SqlFunctionExpression(new TemporalType("duration"), undefined, TIMESPAN_MARKER, [start, end]);
     }
 
     // date_trunc('part', x) (Postgres) / DATETRUNC(part, x) (SQL Server 2022+). The

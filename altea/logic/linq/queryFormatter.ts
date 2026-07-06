@@ -368,7 +368,11 @@ export class QueryFormatter extends DbExpressionVisitor {
         const inner = e.arguments.length ? e.arguments.map(a => this.capture(() => this.visit(a))).join(", ") : "*";
         const fn = e.aggregateFunction === "Average" ? "AVG"
             : e.aggregateFunction === "CountDistinct" ? "COUNT"
-                : e.aggregateFunction.toUpperCase();
+                // Sample / population standard deviation: SQL Server STDEV/STDEVP,
+                // Postgres STDDEV_SAMP/STDDEV_POP.
+                : e.aggregateFunction === "StdDev" ? (this.isPostgres ? "STDDEV_SAMP" : "STDEV")
+                    : e.aggregateFunction === "StdDevP" ? (this.isPostgres ? "STDDEV_POP" : "STDEVP")
+                        : e.aggregateFunction.toUpperCase();
         const distinct = e.aggregateFunction === "CountDistinct" ? "DISTINCT " : "";
         this.append(`${fn}(${distinct}${inner})`);
         return e;

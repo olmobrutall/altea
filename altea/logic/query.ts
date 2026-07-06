@@ -300,6 +300,26 @@ export class Query<T> implements IQuery<T> {
         return this.translator.execute(call);
     }
 
+    // Sample / population standard deviation (Signum's StdDev / StdDevP). Over the element
+    // values, or the projected `valueSelector`. Returns a nullable float.
+    @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
+    @resultType(() => SimpleType.number)
+    stdDev(valueSelector?: Quoted<(element: T) => unknown>): Promise<number | null> {
+        return this.aggregateCall("stdDev", valueSelector);
+    }
+
+    @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
+    @resultType(() => SimpleType.number)
+    stdDevP(valueSelector?: Quoted<(element: T) => unknown>): Promise<number | null> {
+        return this.aggregateCall("stdDevP", valueSelector);
+    }
+
+    private aggregateCall(op: string, valueSelector?: Quoted<(element: T) => unknown>): Promise<number | null> {
+        const lambda = valueSelector == null ? null : Expression.fromQuotedLambda(valueSelector, [this.elementType]);
+        const call = new CallExpression(new PropertyExpression(this.expression, op), lambda ? [lambda] : [], SimpleType.number);
+        return this.translator.execute(call) as Promise<number | null>;
+    }
+
     @resultType(ot => ot)
     top(count: number): Query<T> {
         var call = new CallExpression(

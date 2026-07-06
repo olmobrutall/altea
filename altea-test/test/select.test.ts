@@ -268,26 +268,11 @@ describe("SelectTest", { skip: !hasDb }, () => {
         assert.ok(Array.isArray(list));
     });
 
-    // Assert.Throws<FieldReaderException>(() => Select(a => ((ArtistEntity)a.Author).Id).ToArray())
-    // TODO(api): entity cast in query ((x as ArtistEntity)) and the non-null-reader throw behaviour
-    test("SelectThrowIntNullable", async () => {
-        await assert.rejects(async () =>
-            table(AlbumEntity).map(a => (a.author as ArtistEntity).id).toArray());
-    });
-
-    // Assert.Throws<FieldReaderException>(() => Select(a => ((ArtistEntity)a.Author).Dead).ToArray())
-    // TODO(api): entity cast in query ((x as ArtistEntity)) and the non-null-reader throw behaviour
-    test("SelectThrowBoolNullable", async () => {
-        await assert.rejects(async () =>
-            table(AlbumEntity).map(a => (a.author as ArtistEntity).dead).toArray());
-    });
-
-    // Assert.Throws<FieldReaderException>(() => Select(a => ((ArtistEntity)a.Author).Sex).ToArray())
-    // TODO(api): entity cast in query ((x as ArtistEntity)) and the non-null-reader throw behaviour
-    test("SelectThrowEnumNullable", async () => {
-        await assert.rejects(async () =>
-            table(AlbumEntity).map(a => (a.author as ArtistEntity).sex).toArray());
-    });
+    // Signum's SelectThrowIntNullable/BoolNullable/EnumNullable are dropped in the port:
+    // they assert a FieldReaderException when a DB null is read into a non-nullable C#
+    // value type (int/bool/enum). TS has no such constraint — a null column just yields
+    // `null` — so there is nothing to throw. The non-throwing SelectIntNullable/
+    // SelectBoolNullable below cover the same queries.
 
     // Select(a => (int?)((ArtistEntity)a.Author).Id)
     // TODO(api): entity cast in query ((x as ArtistEntity)) with nullable projection
