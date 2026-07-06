@@ -1,4 +1,4 @@
-import { test, beforeEach, afterEach } from "node:test";
+import { test, beforeEach, afterEach, after } from "node:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Connector, ConsoleSqlLogger, type SqlLogger } from "@altea/altea/logic/connection/connector";
@@ -73,6 +73,13 @@ if (sqlDumpEnabled) {
         sqlDumpBuffer = [];
     });
 }
+
+// Close the pooled connection when the file's tests finish. `node --test` runs each
+// test file in its own process; the pg Pool / mssql ConnectionPool keeps the event
+// loop alive, so without this the process idles until the pool's idle-timeout (~10s
+// on pg) before exiting — ×N files serially that dominated the whole run. Closing the
+// pool lets each process exit as soon as its tests are done.
+after(async () => { await Connector.default?.closeConnection(); });
 
 let started: Promise<Connector> | undefined;
 

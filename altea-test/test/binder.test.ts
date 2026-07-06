@@ -21,7 +21,7 @@ import { View } from "@altea/altea/entities/entity";
 // A connector that returns canned rows instead of hitting a database, so the
 // full format→execute→project pipeline can be tested offline.
 class FakeConnector extends Connector {
-    constructor(schema: any, public rows: unknown[]) { super(schema, false, 128); }
+    constructor(schema: any, public rows: unknown[] = [], isPostgres = false) { super(schema, isPostgres, 128); }
     override executeQuery(): Promise<unknown[]> { return Promise.resolve(this.rows); }
     openConnection(): Promise<any> { throw new Error("not used"); }
     closeConnection(): Promise<void> { return Promise.resolve(); }
@@ -37,8 +37,12 @@ sb.settings.isPostgres = false;
 MusicLogic.start(sb);
 sb.complete();
 
+// Binding resolves type discriminators via the active connection's schema
+// (TypeLogic → Connector.current().schema), so offline binds run inside a fake
+// connector context whose schema is the one being bound.
+const fakeSb = new FakeConnector(sb.schema, [], false);
 function bind(query: { expression: any }): ProjectionExpression {
-    return bindAndOptimize(query.expression, sb.schema, false);
+    return Connector.withConnector(fakeSb, () => bindAndOptimize(query.expression, sb.schema, false));
 }
 
 // A second schema/binder on the Postgres dialect, so function-selection that
@@ -49,8 +53,9 @@ sbPg.settings.isPostgres = true;
 MusicLogic.start(sbPg);
 sbPg.complete();
 
+const fakeSbPg = new FakeConnector(sbPg.schema, [], true);
 function bindPg(query: { expression: any }): ProjectionExpression {
-    return bindAndOptimize(query.expression, sbPg.schema, true);
+    return Connector.withConnector(fakeSbPg, () => bindAndOptimize(query.expression, sbPg.schema, true));
 }
 
 describe("QueryBinder (step 2)", () => {
@@ -394,7 +399,7 @@ describe("ImplementedBy / ImplementedByAll (SmartEqualizer)", () => {
         const proj = bind(table(NoteWithDateEntity).filter(n => n.target instanceof AlbumEntity));
         const { sql, parameters } = QueryFormatter.format(proj.select, false);
         assert.match(sql, /TargetID_Type/i);
-        assert.ok(parameters.includes(TypeLogic.typeToId(AlbumEntity)), "compares against the target's TypeEntity id");
+        assert.ok(parameters.includes(Connector.withConnector(fakeSb, () => TypeLogic.typeToId(AlbumEntity))), "compares against the target's TypeEntity id");
     });
 
     // (x as Concrete) on @implementedBy narrows to that implementation; navigating a

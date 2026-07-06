@@ -17,8 +17,8 @@
     "build:types": "tspc -b",
     "gen:postgres": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.postgres dist/test/generateEnvironment.js",
     "gen:sqlserver": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.sqlserver dist/test/generateEnvironment.js",
-    "test:postgres": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.postgres --test \"dist/test/**/*.test.js\"",
-    "test:sqlserver": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.sqlserver --test \"dist/test/**/*.test.js\""
+    "test:postgres": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.postgres --test --test-isolation=none \"dist/test/**/*.test.js\"",
+    "test:sqlserver": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.sqlserver --test --test-isolation=none \"dist/test/**/*.test.js\""
   },
   "keywords": [],
   "author": "Olmo del Corral",

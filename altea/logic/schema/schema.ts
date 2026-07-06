@@ -1,4 +1,5 @@
-import type { Entity, Type } from '../../entities/entity';
+import type { Entity, Type, PrimaryKey } from '../../entities/entity';
+import type { TypeEntity } from '../../entities/typeEntity';
 import { typeConstructor } from '../../entities/entity';
 import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
 import { installDefaultGenerating } from '../sync/schemaGenerator';
@@ -36,6 +37,16 @@ export class Schema {
     // functions import the IView catalog readers, but only reference Schema as a *type*, so
     // wiring them here is cycle-free.
     readonly synchronizing: SynchronizingHandler[] = [];
+
+    // Type-discriminator caches (Signum's TypeLogic caches, held per-schema instead of
+    // in process-global statics so multiple schemas can coexist in one process — e.g.
+    // the offline binder tests, or a `--test-isolation=none` run). Populated by
+    // TypeLogic.start() from SchemaBuilder.complete(); read via the active connector's
+    // schema (Connector.current().schema) during query translation / materialisation.
+    readonly typeToIdMap = new Map<Function, PrimaryKey>();
+    readonly idToTypeMap = new Map<PrimaryKey, Function>();
+    readonly idToEntityMap = new Map<PrimaryKey, TypeEntity>();
+    readonly typeRows: { id: PrimaryKey; tableName: string; cleanName: string; namespace: string; className: string }[] = [];
 
     constructor() {
         installDefaultGenerating(this);

@@ -26,19 +26,23 @@ import type { SqlPreCommand } from "./sync/sqlPreCommand";
 export class TypeLogic {
     private constructor() {}
 
-    private static typeToIdMap = new Map<Function, PrimaryKey>();
-    private static idToTypeMap = new Map<PrimaryKey, Function>();
-    private static idToEntityMap = new Map<PrimaryKey, TypeEntity>();
+    // The caches live on the Schema (not process-global statics), so multiple schemas
+    // coexist in one process without clobbering each other. The read methods resolve the
+    // registry from the active connection's schema (Signum reaches its caches via
+    // Schema.Current); the offline binder tests wrap binding in Connector.withConnector.
+    private static get schema(): Schema {
+        return Connector.current().schema;
+    }
 
-    // Assigns each entity type its TypeEntity id, builds the bidirectional caches,
-    // and registers the generation step that seeds the rows. Called from
-    // SchemaBuilder.complete() once every table is included (Signum's
-    // TypeLogic.Start + the typeCaches lazy). Idempotent per schema.
+    // Assigns each entity type its TypeEntity id, builds the bidirectional caches on the
+    // *given* schema, and registers the generation step that seeds the rows. Called from
+    // SchemaBuilder.complete() once every table is included (Signum's TypeLogic.Start +
+    // the typeCaches lazy). Idempotent per schema.
     static start(schema: Schema): void {
-        this.typeToIdMap = new Map();
-        this.idToTypeMap = new Map();
-        this.idToEntityMap = new Map();
-        rows = [];
+        schema.typeToIdMap.clear();
+        schema.idToTypeMap.clear();
+        schema.idToEntityMap.clear();
+        schema.typeRows.length = 0;
 
         // Only real entity constructors (skip enum side-tables, which are keyed by a
         // generic descriptor). Sorted by constructor name so the id assignment is
@@ -53,8 +57,8 @@ export class TypeLogic {
             const id = i + 1;
             const cleanName = cleanTypeName(ctor);
             const tableName = table.name.name;
-            this.typeToIdMap.set(ctor, id);
-            this.idToTypeMap.set(id, ctor);
+            schema.typeToIdMap.set(ctor, id);
+            schema.idToTypeMap.set(id, ctor);
 
             const te = new TypeEntity();
             (te as { id: PrimaryKey }).id = id;
@@ -63,9 +67,9 @@ export class TypeLogic {
             te.cleanName = cleanName;
             te.namespace = "";
             te.className = ctor.name;
-            this.idToEntityMap.set(id, te);
+            schema.idToEntityMap.set(id, te);
 
-            rows.push({ id, tableName, cleanName, namespace: "", className: ctor.name });
+            schema.typeRows.push({ id, tableName, cleanName, namespace: "", className: ctor.name });
         });
 
         if (!schema.generating.includes(seedTypeEntities))
@@ -74,7 +78,7 @@ export class TypeLogic {
 
     // The discriminator id for an entity type (Signum's TypeToId.GetOrThrow).
     static typeToId(ctor: Function): PrimaryKey {
-        const id = this.typeToIdMap.get(ctor);
+        const id = this.schema.typeToIdMap.get(ctor);
         if (id == null)
             throw new Error(`Type '${ctor.name}' is not registered in TypeLogic. Was its table included before SchemaBuilder.complete()?`);
         return id;
@@ -83,11 +87,11 @@ export class TypeLogic {
     // The entity type for a discriminator id, or undefined if unknown (Signum's
     // Schema.GetType / IdToType lookup — the IBA materialisation path).
     static tryGetType(id: PrimaryKey | null): Function | undefined {
-        return id == null ? undefined : this.idToTypeMap.get(id);
+        return id == null ? undefined : this.schema.idToTypeMap.get(id);
     }
 
     static getType(id: PrimaryKey): Function {
-        const ctor = this.idToTypeMap.get(id);
+        const ctor = this.schema.idToTypeMap.get(id);
         if (ctor == null)
             throw new Error(`No registered entity type for TypeEntity id '${id}'.`);
         return ctor;
@@ -95,7 +99,7 @@ export class TypeLogic {
 
     // The TypeEntity row for a discriminator id (Signum's IdToType + TypeToEntity).
     static idToEntity(id: PrimaryKey): TypeEntity | undefined {
-        return this.idToEntityMap.get(id);
+        return this.schema.idToEntityMap.get(id);
     }
 
     // The clean type name (Signum's Reflector.CleanTypeName) — used to populate the
@@ -105,24 +109,13 @@ export class TypeLogic {
     }
 }
 
-interface TypeRow {
-    readonly id: PrimaryKey;
-    readonly tableName: string;
-    readonly cleanName: string;
-    readonly namespace: string;
-    readonly className: string;
-}
-
-// The rows the last `start()` assigned, seeded by the generation step below.
-// Module-level so the named handler can be deduped in `schema.generating`.
-let rows: TypeRow[] = [];
-
 // Generation step (Signum's TypeLogic.Schema_Generating): INSERT one row per
 // entity type into the TypeEntity table with its assigned id. Runs after the
-// tables exist (pushed last onto `schema.generating`).
+// tables exist (pushed last onto `schema.generating`). Reads the rows off the
+// schema it is invoked with — no module-global state.
 function seedTypeEntities(schema: Schema): SqlPreCommand | undefined {
     const table = schema.tryTable(TypeEntity as never);
-    if (table == null || rows.length === 0)
+    if (table == null || schema.typeRows.length === 0)
         return undefined;
-    return Connector.current().sqlBuilder.insertTypeEntities(table, rows);
+    return Connector.current().sqlBuilder.insertTypeEntities(table, schema.typeRows);
 }
