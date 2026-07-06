@@ -451,10 +451,14 @@ export class Query<T> implements IQuery<T> {
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
     @lambdaTypeForParam(1, ot => [(ot as ArrayType).elementType])
-    @resultType((ot, keyType, elemType) => new ObjectType({
+    // groupBy yields a *collection* of groupings, so the nested/quoted result type must
+    // be an ArrayType(grouping) — matching the eager body's `new ArrayType(groupingType)`
+    // below. (Returning a bare ObjectType broke a following `.map`/`.length` in a
+    // correlated flatMap — GroupTake.)
+    @resultType((ot, keyType, elemType) => new ArrayType(new ObjectType({
         key: (keyType as FunctionType).returnType,
         elements: elemType ? new ArrayType(elemType) : ot
-    }))
+    })))
     groupBy(keySelector: Quoted<(element: T) => unknown>, elementSelector?: Quoted<(element: T) => unknown>): Query<{ key: unknown, elements: unknown[] }> {
         var lambdaKey = Expression.fromQuotedLambda(keySelector, [this.elementType]);
         var lambdaElement = elementSelector == null ? null : Expression.fromQuotedLambda(elementSelector, [this.elementType]);

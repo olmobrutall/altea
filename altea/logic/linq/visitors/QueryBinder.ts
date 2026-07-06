@@ -2365,8 +2365,8 @@ export class QueryBinder extends ExpressionVisitor {
     // (right), fullJoin both. The result selector takes two parameters (outer, inner)
     // and binds against the join, so navigations in it splice on via QueryJoinExpander.
     private bindJoin(joinType: JoinType, outerSourceRaw: Expression, innerSourceRaw: Expression, outerKey: LambdaExpression, innerKey: LambdaExpression, resultSelector: LambdaExpression): ProjectionExpression {
-        const outerProj = this.visit(outerSourceRaw) as ProjectionExpression;
-        const innerProj = this.visit(innerSourceRaw) as ProjectionExpression;
+        const outerProj = this.asProjection(this.visit(outerSourceRaw));
+        const innerProj = this.asProjection(this.visit(innerSourceRaw));
 
         const outerKeyExpr = this.mapVisitExpand(outerKey, outerProj);
         const innerKeyExpr = this.mapVisitExpand(innerKey, innerProj);
@@ -2408,8 +2408,8 @@ export class QueryBinder extends ExpressionVisitor {
     // group join always preserves the outer row (its group is empty when unmatched),
     // i.e. a LEFT OUTER join to the grouping — matching C#'s GroupJoin semantics.
     private bindGroupJoin(outerSourceRaw: Expression, innerSourceRaw: Expression, outerKey: LambdaExpression, innerKey: LambdaExpression, resultSelector: LambdaExpression): ProjectionExpression {
-        const outerProj = this.visit(outerSourceRaw) as ProjectionExpression;
-        const innerProj = this.visit(innerSourceRaw) as ProjectionExpression;
+        const outerProj = this.asProjection(this.visit(outerSourceRaw));
+        const innerProj = this.asProjection(this.visit(innerSourceRaw));
 
         const grouped = this.bindGroupBy(innerProj, innerSourceRaw, innerKey, undefined);
         const groupingProjector = grouped.projector as ObjectExpression;
@@ -2455,7 +2455,12 @@ export class QueryBinder extends ExpressionVisitor {
     // `sourceExpr` is the (unvisited) source — visited a second time to build an
     // independent element subquery, exactly as Signum visits the source twice.
     private bindGroupBy(projection: ProjectionExpression, sourceExpr: Expression, keySelector: LambdaExpression, elementSelector: LambdaExpression | undefined): ProjectionExpression {
-        const subqueryProjection = this.visit(sourceExpr) as ProjectionExpression;
+        // Re-visit the source for an independent element subquery (Signum visits the source
+        // twice). Route through asProjection (our VisitCastProjection) so a navigated-collection
+        // source (`band.members.groupBy(…)` in a correlated flatMap) is realised into a
+        // correlated sub-projection — a raw `this.visit(...) as ProjectionExpression` leaves a
+        // FieldEntityArrayExpression whose absent projector maps the lambda param to undefined.
+        const subqueryProjection = this.asProjection(this.visit(sourceExpr));
 
         const alias = this.aliasGenerator.nextSelectAlias();
 
