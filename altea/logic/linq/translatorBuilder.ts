@@ -4,7 +4,7 @@ import {
 } from "./expressions";
 import {
     ProjectionExpression, ColumnExpression, PrimaryKeyExpression, UniqueFunction,
-    EntityExpression, EmbeddedEntityExpression, LiteReferenceExpression, LiteValueExpression,
+    EntityExpression, EmbeddedEntityExpression, MixinEntityExpression, LiteReferenceExpression, LiteValueExpression,
     ChildProjectionExpression, LookupToken,
     ImplementedByExpression, ImplementedByAllExpression,
     TypeEntityExpression, TypeImplementedByExpression, TypeImplementedByAllExpression,
@@ -442,6 +442,13 @@ class ProjectionBuilder extends DbExpressionVisitor {
             code = `(${idCode} != null ? ${build(ctorIndex, idCode)} : ${code})`;
         }
         return code;
+    }
+
+    // A mixin projected on its own (`map(a => a.mixin(X))`) can't be materialised — a mixin
+    // has no identity of its own. (Its fields inside an entity are read directly by
+    // visitEntity, never through here.) Signum throws the same way.
+    override visitMixinEntity(e: MixinEntityExpression): MixinEntityExpression {
+        throw new Error(`Mixins (${e.type}) can't be projected without their main entity.`);
     }
 
     override visitEmbeddedEntity(e: EmbeddedEntityExpression): Expression {

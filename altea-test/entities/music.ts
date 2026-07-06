@@ -8,6 +8,7 @@ import {
     quoted, column, forceNullable,
 } from "@altea/altea/entities/decorators";
 import { Temporal, int, toInt } from "@altea/altea/entities/basics";
+import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
 
 // Port of Signum.Test's Environment/Entities.cs (the "Music" domain), adapted to
 // altea and the *currently implemented* feature set. Entities, interleaved enums
@@ -33,8 +34,7 @@ import { Temporal, int, toInt } from "@altea/altea/entities/basics";
 // (and trigger @field injection) so cross-references resolve by name.
 
 @entity(EntityKind.Shared, EntityData.Transactional)
-@mixin(() => [ColaboratorsMixin])
-//@mixin(() => [CorruptMixin])
+@mixin(() => [ColaboratorsMixin, CorruptMixin])
 @primaryKey("uuid")
 export class NoteWithDateEntity extends Entity {
 

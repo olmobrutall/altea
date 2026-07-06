@@ -239,7 +239,7 @@ export class SchemaBuilder {
                 field.avoidExpandOnRetrieving = mfi.avoidExpandOnRetrieving === true;
                 mixinFields[name] = new EntityField(mfi, field, makeGetter(name));
             }
-            table.mixins[(mixinCtor as { name: string }).name] = new FieldMixin(mixinFields);
+            table.mixins[(mixinCtor as { name: string }).name] = new FieldMixin(mixinFields, mixinCtor as Type<Entity>);
         }
 
         // EnumEntity's `name` column carries an explicit width (Signum's

@@ -6,5 +6,5 @@ import { reflect } from "./reflection";
 // model), not the test stubs.
 @reflect
 export class CorruptMixin extends MixinEntity {
-    corrupt: boolean;
+    corrupt: boolean = false; // C# bool default — new rows are not corrupt
 }

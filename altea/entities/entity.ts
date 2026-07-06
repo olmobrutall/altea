@@ -2,7 +2,8 @@
 import { Lite, LiteImp, getLiteModelConstructor } from './lite';
 import { entity, EntityData, ignore, quoted } from './decorators';
 import { niceName, newNiceName } from './utils/localization';
-import { reflect } from './reflection';
+import { reflect, getTypeInfo } from './reflection';
+import { MixinDeclarations } from './mixinDeclarations';
 import { enumNameOf } from './registration';
 import { isGraphModified, isModifiedSelf } from './changes';
 import { LiteralType, LiteType, type Type as ExpressionType } from './types';
@@ -89,6 +90,10 @@ export abstract class BaseEntity {
     // `InitValues` excludes method-typed properties from the accepted shape.
     static create<T extends BaseEntity>(this: new () => T, values: InitValues<T>): T {
         const instance = new this();
+        // Seed the mixin fields with their defaults. altea's `mixin()` returns `this`, so mixin
+        // fields live flat on the entity but aren't declared on it — their initializers
+        // (e.g. CorruptMixin.corrupt = false) would otherwise never run. Values override.
+        applyMixinDefaults(instance, this);
         Object.assign(instance, values);
         return instance;
     }
@@ -202,3 +207,20 @@ export abstract class ModelEntity extends BaseEntity { }
 // the entity and its fields are folded into the owner's table by the schema
 // builder.
 export abstract class MixinEntity extends BaseEntity { }
+
+// Copy each declared mixin field's default onto a freshly-created entity. altea inlines mixin
+// fields onto the entity (mixin() returns `this`) but doesn't declare them there, so their
+// initializers (e.g. `corrupt = false`) never run on `new Entity()` — this seeds them. Only
+// declared mixin fields with a defined default are copied (never base bookkeeping props).
+function applyMixinDefaults(instance: object, ctor: Function): void {
+    for (const mixinCtor of MixinDeclarations.getMixins(ctor as Type<BaseEntity>)) {
+        const info = getTypeInfo(mixinCtor as unknown as object);
+        if (info == null)
+            continue;
+        const defaults = new (mixinCtor as unknown as new () => object)() as Record<string, unknown>;
+        for (const fieldName of Object.keys(info.fields)) {
+            if (defaults[fieldName] !== undefined)
+                (instance as Record<string, unknown>)[fieldName] = defaults[fieldName];
+        }
+    }
+}

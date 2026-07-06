@@ -126,6 +126,9 @@ export class FieldEmbedded extends Field {
 export class FieldMixin extends Field {
     constructor(
         public readonly fields: { [name: string]: EntityField },
+        // The mixin class this field group belongs to (Signum's MixinEntity type), so a query's
+        // `entity.mixin(X)` can be matched to the right mixin.
+        public readonly mixinType?: Type<Entity>,
     ) {
         super();
     }

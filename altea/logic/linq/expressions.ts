@@ -345,6 +345,11 @@ function wellKnownResultType(obj: Expression | undefined, propertyName: string):
     // entity/lite; the value/enum cases stay residual).
     if (propertyName === "toString")
         return () => LiteralType.string;
+    // `entity.mixin(MixinClass)` → the mixin's ClassType (from the ctor argument), so a
+    // following `.field` / `.collection` resolves against the mixin's reflected fields.
+    if (propertyName === "mixin")
+        return (_thisType: Type, argType?: Type) =>
+            argType instanceof FunctionType && argType.func != null ? new ClassType(argType.func) : LiteralType.null;
     const ns = wellKnownNamespace(obj);
     if (ns == null)
         return undefined;

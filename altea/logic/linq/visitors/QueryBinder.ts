@@ -899,6 +899,17 @@ export class QueryBinder extends ExpressionVisitor {
             return source;
         }
 
+        // entity.mixin(X) → the matching MixinEntityExpression on the (completed) entity
+        // (Signum's BindMixin). `.field` off it then reads the mixin's column via bindMember.
+        if (methodName === "mixin" && source instanceof EntityExpression) {
+            const mixinCtor = this.constantCtor(args[0]);
+            const completed = source.mixins != null ? source : this.completed(source);
+            const mixin = completed.mixins?.find(m => m.type instanceof ClassType && m.type.constructorFunction === mixinCtor);
+            if (mixin == null)
+                throw new Error(`Mixin '${mixinCtor.name}' is not declared on '${(source.type as ClassType).constructorFunction?.name}'`);
+            return mixin;
+        }
+
         // entity.toLite() → a Lite over that reference (Signum's BindToLite). Works
         // over a typed reference or a polymorphic IB/IBA one.
         if (methodName === "toLite" && (source instanceof EntityExpression || source instanceof ImplementedByExpression || source instanceof ImplementedByAllExpression))
@@ -2518,9 +2529,10 @@ export class QueryBinder extends ExpressionVisitor {
                 if (binding != null)
                     mixinBindings.push(new FieldBinding(ef.fieldInfo, binding));
             }
-            // The mixin's own type is not directly available here; reuse the
-            // owner type as a placeholder (mixin typing refined later).
-            mixins.push(new MixinEntityExpression(new ClassType(table.type as any), mixinBindings, alias));
+            // Type the mixin by its own class (FieldMixin.mixinType) so a query's
+            // `entity.mixin(X)` can match it; fall back to the owner type if unknown.
+            const mixinType = fm.mixinType != null ? new ClassType(fm.mixinType as any) : new ClassType(table.type as any);
+            mixins.push(new MixinEntityExpression(mixinType, mixinBindings, alias));
         }
 
         return new EntityExpression(
