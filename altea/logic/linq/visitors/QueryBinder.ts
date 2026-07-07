@@ -1,7 +1,7 @@
 import {
     Expression, CallExpression, PropertyExpression, ParameterExpression,
     LambdaExpression, ConstantExpression, CastExpression, BinaryExpression,
-    ConditionalExpression, ObjectExpression, UnaryExpression,
+    ConditionalExpression, ObjectExpression, UnaryExpression, viewColumns,
 } from "../expressions";
 import {
     SelectExpression, ProjectionExpression, ColumnExpression, PrimaryKeyExpression,
@@ -54,7 +54,7 @@ import { resolveType, resolveEnum } from "../../../entities/registration";
 import { Entity, View } from "../../../entities/entity";
 import { Lite } from "../../../entities/lite";
 import { niceName } from "../../../entities/utils/localization";
-import { ArrayType, ClassType, EnumType, LiteType, LiteralType, TemporalType, Type } from "../../../entities/types";
+import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, Type } from "../../../entities/types";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 
@@ -665,7 +665,11 @@ export class QueryBinder extends ExpressionVisitor {
     private bindInsert(sourceExpr: Expression, targetCtorExpr: Expression, selector: LambdaExpression): CommandExpression {
         const pr = this.bindSourceProjection(sourceExpr);
         const targetCtor = (targetCtorExpr as ConstantExpression).value as new () => object;
-        const table = this.schema.table(targetCtor as any);
+        // The target is either an included entity (schema.table) or a view / temp-table
+        // (schema.view — Signum's UnsafeInsertView). An entity not in `tables` resolves
+        // through the ViewBuilder, so `INSERT INTO #MyTempView (...) SELECT ...` targets the
+        // temp table with its FK columns.
+        const table = this.schema.tryTable(targetCtor as any) ?? this.schema.view(targetCtor as any);
         const toInsert = this.createEntityExpression(table, this.aliasGenerator.table(table.name));
 
         const assignments = this.buildAssignments(toInsert, selector, pr.select, pr.projector);
@@ -795,17 +799,16 @@ export class QueryBinder extends ExpressionVisitor {
             return this.getTableProjection(ctor);
         }
 
-        // Postgres catalog-reader functions (PostgresFunctions), recognised by their brand:
-        //   generate_subscripts(arr, dim) → a set-returning-function source (a Query<number>)
-        //   pg_get_expr / _pg_char_max_length → scalar SQL functions
-        //   arrayGet(arr, i) → an array subscript arr[i]
+        // Query-only SQL functions recognised by their brand:
+        //   __sqlMethod (Signum's [SqlMethod]) → a table-/set-returning source when the result
+        //     type is an array (generate_subscripts, dbo.MinimumTableValued), else a scalar SQL
+        //     function (pg_get_expr, …). See bindSqlMethod.
+        //   __arrayIndex → an array subscript arr[i] (the arrayGet stand-in).
         // Each is a free function (a ConstantExpression callee), like table()/view().
         if (func instanceof ConstantExpression) {
-            const brand = func.value as { __srfName?: string; __scalarSqlName?: string; __arrayIndex?: boolean } | null;
-            if (brand?.__srfName != null)
-                return this.bindTableValuedFunction(brand.__srfName, call.args);
-            if (brand?.__scalarSqlName != null)
-                return new SqlFunctionExpression(call.type, undefined, brand.__scalarSqlName, call.args.map(a => this.visit(a)));
+            const brand = func.value as { __sqlMethod?: string; __arrayIndex?: boolean } | null;
+            if (brand?.__sqlMethod != null)
+                return this.bindSqlMethod(brand.__sqlMethod, call);
             if (brand?.__arrayIndex === true)
                 return new SqlArrayIndexExpression(call.type, this.visit(call.args[0]), this.visit(call.args[1]));
         }
@@ -821,6 +824,18 @@ export class QueryBinder extends ExpressionVisitor {
             if (op === "entityId" && property.object instanceof ConstantExpression
                 && (property.object.value as { __isEntityContext?: boolean } | null)?.__isEntityContext)
                 return this.bindEntityId(call.args[0]);
+            // A SQL function exposed as a static method (Signum's [SqlMethod] on a static class,
+            // e.g. `MinimumExtensions.MinimumTableValued(...)` / `PostgresFunctions.pg_get_expr(...)`):
+            // the receiver is a captured constant class and the member function carries the brand.
+            // Route it exactly like a branded free-function call (below).
+            if (property.object instanceof ConstantExpression) {
+                const member = (property.object.value as Record<string, unknown> | null)?.[op];
+                if (typeof member === "function") {
+                    const brand = member as { __sqlMethod?: string };
+                    if (brand.__sqlMethod != null)
+                        return this.bindSqlMethod(brand.__sqlMethod, call);
+                }
+            }
             if (op === "thenBy")
                 return this.bindThenBy(property.object, call.args[0] as LambdaExpression, "Ascending");
             if (op === "thenByDescending")
@@ -831,8 +846,6 @@ export class QueryBinder extends ExpressionVisitor {
             const joinType = JOIN_TYPES.get(op);
             if (joinType != null)
                 return this.bindJoin(joinType, property.object, call.args[0], call.args[1] as LambdaExpression, call.args[2] as LambdaExpression, call.args[3] as LambdaExpression);
-            if (op === "groupJoin")
-                return this.bindGroupJoin(property.object, call.args[0], call.args[1] as LambdaExpression, call.args[2] as LambdaExpression, call.args[3] as LambdaExpression);
 
             let source = this.visit(property.object);
 
@@ -2494,21 +2507,59 @@ export class QueryBinder extends ExpressionVisitor {
         return this.getTableProjectionForTable(this.schema.table(ctor as any), new ClassType(ctor));
     }
 
-    // A set-returning function used as a source (Signum's generate_subscripts(...)): a SELECT
-    // of its single output column over a SqlTableValuedFunctionExpression, projected as a
-    // scalar (number). The function arguments are bound in the current scope, so when they
-    // reference outer columns the formatter emits a CROSS JOIN LATERAL.
-    private bindTableValuedFunction(functionName: string, args: readonly Expression[]): ProjectionExpression {
+    // A query-only SQL function (Signum's [SqlMethod]). The result type tells scalar from
+    // table-/set-returning: an ArrayType result → a table-valued-function source (a view or a
+    // scalar column, see bindTableValuedFunction); any other (scalar) result → a plain
+    // `<name>(args)` SqlFunctionExpression.
+    private bindSqlMethod(functionName: string, call: CallExpression): Expression {
+        if (call.type instanceof ArrayType)
+            return this.bindTableValuedFunction(functionName, call.args, call.type);
+        return new SqlFunctionExpression(call.type, undefined, functionName, call.args.map(a => this.visit(a)));
+    }
+
+    // A set-returning / table-valued function used as a source. Two shapes, told apart by the
+    // element of the call's result type (@returnType, carried in __resultType):
+    //   • a scalar element (Postgres generate_subscripts → number): a single output column
+    //     named "value" projected as that scalar → Query<number>.
+    //   • an IView element (an inline TVF UDF like dbo.MinimumTableValued, Signum's
+    //     `IQueryable<IntValue>`): the view's fields become the output columns, projected as
+    //     `{ field: <column>, … }` so `.map(m => m.field)` binds → Query<{ field: … }>.
+    // The function arguments are bound in the current scope, so when they reference outer
+    // columns the formatter emits a CROSS JOIN LATERAL / CROSS APPLY.
+    private bindTableValuedFunction(functionName: string, args: readonly Expression[], resultType: Type): ProjectionExpression {
         const boundArgs = args.map(a => this.visit(a));
         const tableAlias = this.aliasGenerator.nextTableAlias(functionName);
-        const columnName = "value";
-        const source = new SqlTableValuedFunctionExpression(tableAlias, functionName, columnName, boundArgs);
-        const projector = new ColumnExpression(LiteralType.number, tableAlias, columnName);
+
+        // The IView row type is the ClassType element of the ArrayType result; a scalar element
+        // (or an untyped call, e.g. generate_subscripts) has no view.
+        const element = resultType instanceof ArrayType ? resultType.elementType : undefined;
+        const viewCtor = element instanceof ClassType ? element.constructorFunction : undefined;
+
+        let source: SqlTableValuedFunctionExpression;
+        let projector: Expression;
+        let elementType: Type;
+        if (viewCtor != null) {
+            // Reflect the IView row type into its output columns (Signum reflects the SqlMethod's
+            // IQueryable<T> element). The Postgres column-alias list (see queryFormatter) names a
+            // single column, so a TVF view maps to exactly one column for now.
+            const cols = viewColumns(viewCtor);
+            if (cols.length !== 1)
+                throw new Error(`Table-valued function '${functionName}' view '${viewCtor.name}' must declare exactly one column (got ${cols.length}).`);
+            const [c] = cols;
+            source = new SqlTableValuedFunctionExpression(tableAlias, functionName, c.column, boundArgs);
+            projector = new ObjectExpression({ [c.property]: new ColumnExpression(c.type, tableAlias, c.column) });
+            elementType = new ObjectType({ [c.property]: c.type });
+        } else {
+            source = new SqlTableValuedFunctionExpression(tableAlias, functionName, "value", boundArgs);
+            projector = new ColumnExpression(LiteralType.number, tableAlias, "value");
+            elementType = LiteralType.number;
+        }
+
         const selectAlias = this.aliasGenerator.nextSelectAlias();
         const pc = this.projectColumns(projector, selectAlias);
         return new ProjectionExpression(
             new SelectExpression(selectAlias, false, undefined, pc.columns, source, undefined, [], []),
-            pc.projector, undefined, new ArrayType(LiteralType.number));
+            pc.projector, undefined, new ArrayType(elementType));
     }
 
     private getTableProjectionForTable(table: Table, elementType: Type): ProjectionExpression {
@@ -2623,52 +2674,6 @@ export class QueryBinder extends ExpressionVisitor {
         const old1 = this.map.get(p1);
         this.map.set(p0, outerProj.projector);
         this.map.set(p1, innerProj.projector);
-        this.sourceStack.push(join);
-        let resultExpr: Expression;
-        try {
-            resultExpr = this.visit(resultSelector.body);
-        } finally {
-            this.sourceStack.pop();
-            if (old0 === undefined) this.map.delete(p0); else this.map.set(p0, old0);
-            if (old1 === undefined) this.map.delete(p1); else this.map.set(p1, old1);
-        }
-
-        const pc = this.projectColumns(resultExpr, alias);
-        return new ProjectionExpression(
-            new SelectExpression(alias, false, undefined, pc.columns, join, undefined, [], []),
-            pc.projector, undefined, new ArrayType(resultExpr.type));
-    }
-
-    // GroupJoin — Signum lowers `groupJoin(inner, ok, ik, (o, g) => r)` to
-    // `join(outer, inner.groupBy(ik), ok, gr => gr.key, (o, gr) => r)` where the
-    // result's `g` is the grouping's matching elements. We build the same shape by
-    // reusing bindGroupBy (→ a `{ key, elements }` grouping) and joining the outer
-    // to it on `outerKey == group.key`; the result selector's group param binds to
-    // the grouping's `elements` (so `g.count()` / `g.toArray()` work as usual). A
-    // group join always preserves the outer row (its group is empty when unmatched),
-    // i.e. a LEFT OUTER join to the grouping — matching C#'s GroupJoin semantics.
-    private bindGroupJoin(outerSourceRaw: Expression, innerSourceRaw: Expression, outerKey: LambdaExpression, innerKey: LambdaExpression, resultSelector: LambdaExpression): ProjectionExpression {
-        const outerProj = this.asProjection(this.visit(outerSourceRaw));
-        const innerProj = this.asProjection(this.visit(innerSourceRaw));
-
-        const grouped = this.bindGroupBy(innerProj, innerSourceRaw, innerKey, undefined);
-        const groupingProjector = grouped.projector as ObjectExpression;
-        const groupKey = groupingProjector.properties["key"];
-        const groupElements = groupingProjector.properties["elements"];
-
-        const outerKeyExpr = this.mapVisitExpand(outerKey, outerProj);
-        const condition = SmartEqualizer.polymorphicEqual(outerKeyExpr, groupKey);
-
-        const joinType: JoinType = "LeftOuterJoin";
-        const alias = this.aliasGenerator.nextSelectAlias();
-        const join = new JoinExpression(joinType, outerProj.select, grouped.select, condition);
-
-        const p0 = resultSelector.parameters[0];
-        const p1 = resultSelector.parameters[1];
-        const old0 = this.map.get(p0);
-        const old1 = this.map.get(p1);
-        this.map.set(p0, outerProj.projector);
-        this.map.set(p1, groupElements);
         this.sourceStack.push(join);
         let resultExpr: Expression;
         try {

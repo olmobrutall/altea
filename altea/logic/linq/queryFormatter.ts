@@ -132,6 +132,10 @@ export class QueryFormatter extends DbExpressionVisitor {
     }
 
     private quoteObjectName(on: ObjectName): string {
+        // A SQL Server temp table (`#Name`) lives in tempdb and is referenced unqualified —
+        // never schema-prefixed (`dbo.#Name` is invalid). Same on Postgres temp tables.
+        if (on.name.startsWith("#"))
+            return this.quote(on.name);
         // Qualify with the schema (Signum always does): the explicit one, else the
         // dialect default the tables actually live in — `public` (PG) / `dbo` (SS).
         const schema = on.schema?.name || (this.isPostgres ? "public" : "dbo");
@@ -161,9 +165,13 @@ export class QueryFormatter extends DbExpressionVisitor {
 
         if (src instanceof SqlTableValuedFunctionExpression) {
             const args = src.arguments.map(a => this.capture(() => this.visit(a))).join(", ");
-            // `func(args) AS alias(colName)` — the explicit column name lets the projector
-            // reference the single output column deterministically.
-            this.append(`${src.functionName}(${args}) AS ${this.quoteAlias(src.alias)}(${this.quote(src.columnName)})`);
+            // Postgres SRFs (generate_subscripts) take a column-alias list — `func(args) AS
+            // alias(colName)` — which names the output column so the projector can reference it.
+            // SQL Server rejects a column alias on a table-valued function ("cannot have a column
+            // alias"): the UDF already declares its column names, so emit only `func(args) AS alias`
+            // and let the projector reference `alias.ColName`.
+            const columnAlias = this.isPostgres ? `(${this.quote(src.columnName)})` : "";
+            this.append(`${src.functionName}(${args}) AS ${this.quoteAlias(src.alias)}${columnAlias}`);
             return src;
         }
 

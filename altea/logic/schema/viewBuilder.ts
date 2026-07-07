@@ -1,11 +1,12 @@
 import type { Entity, Type } from '../../entities/entity';
 import { typeConstructor } from '../../entities/entity';
-import { getTypeInfo, FieldInfo } from '../../entities/reflection';
+import { getTypeInfo, FieldInfo, resolveType } from '../../entities/reflection';
 import { AbstractDbType, IsNullable, defaultDbType } from './dbType';
-import { PrimaryKeyColumn, ValueColumn } from './column';
-import { FieldValue, FieldPrimaryKey, EntityField } from './field';
+import { PrimaryKeyColumn, ValueColumn, ReferenceColumn } from './column';
+import { FieldValue, FieldReference, FieldPrimaryKey, EntityField, Field } from './field';
 import { ObjectName, SchemaName, DatabaseName } from './objectName';
 import { Table } from './table';
+import type { Schema } from './schema';
 
 // Port of Signum's ViewBuilder (Engine/Schema/SchemaBuilder/SchemaBuilder.cs). Builds the
 // in-memory Table for a raw database view. A view class is declared with `@reflect` (the
@@ -21,6 +22,11 @@ import { Table } from './table';
 // (pg int[]/short[]/byte[]) are a later milestone; entity/embedded view fields are rejected
 // until a reader needs them.
 export class ViewBuilder {
+    // The schema is needed to resolve FK view columns (a temp-table view's Lite<T>
+    // reference) to the target entity's already-built Table. Catalog views (scalar
+    // columns only) never touch it, so it stays optional for those.
+    constructor(private readonly schema?: Schema) { }
+
     newView(type: Type<Entity>): Table {
         const ctor = typeConstructor(type);
         const typeInfo = getTypeInfo(ctor);
@@ -29,25 +35,32 @@ export class ViewBuilder {
         if (typeInfo.tableName == null)
             throw new Error(`View '${ctor.name}' has no mapped name. Add @tableName("pg_catalog.pg_namespace") (the raw view name).`);
 
+        // A SQL Server temp-table view (Signum's Administrator.CreateTemporaryTable target):
+        // its [TableName] starts with '#'. Unlike a catalog view it maps FK columns and needs
+        // no @viewPrimaryKey (its rows are projected/inserted directly, never dedup'd).
+        const isTempTable = typeInfo.tableName.startsWith('#');
+
         const table = new Table(type, parseViewName(typeInfo.tableName));
         table.isView = true;
 
         let pkFieldInfo: FieldInfo | undefined;
-        let pkColumn: ValueColumn | undefined;
+        let pkColumn: ValueColumn | ReferenceColumn | undefined;
 
         for (const [name, fi] of Object.entries(typeInfo.fields)) {
             if (fi.ignore)
                 continue;
-            const field = this.generateViewField(ctor, fi);
+            const field = this.generateViewField(ctor, fi, isTempTable);
             table.fields[name] = new EntityField(fi, field, (e: any) => e[name]);
 
+            const firstCol = field.columns()[0];
             // Signum's [ViewPrimaryKey]. The first such column is the representative PK
-            // (the EntityExpression's externalId). It stays a regular FieldValue binding so
-            // `view.oid` resolves as an ordinary column; table.primaryKey references the same
-            // column but is NOT added to `fields` (so generateColumns doesn't duplicate it).
-            if (fi.viewPrimaryKey && pkFieldInfo == null) {
+            // (the EntityExpression's externalId). It stays a regular binding so `view.oid`
+            // resolves as an ordinary column; table.primaryKey references the same column but
+            // is NOT added to `fields` (so generateColumns doesn't duplicate it). A temp-table
+            // view has no @viewPrimaryKey, so its first column stands in as the representative.
+            if ((fi.viewPrimaryKey || (isTempTable && pkFieldInfo == null)) && pkFieldInfo == null && firstCol != null) {
                 pkFieldInfo = fi;
-                pkColumn = field.column;
+                pkColumn = firstCol as ValueColumn | ReferenceColumn;
             }
         }
 
@@ -59,13 +72,31 @@ export class ViewBuilder {
         // genuinely composite view PK — altea's Table.primaryKey is single-column, so a
         // composite view uses its first @viewPrimaryKey column as the representative id (the
         // readers project columns directly and never dedup view rows, so this is sufficient).
+        // The representative PK is NOT a physical column of the table (it aliases an existing
+        // one), so the readers that project it drop it as unused; the CREATE TABLE for a temp
+        // view therefore omits the synthetic PK constraint (see sqlBuilder.createTableSql).
         table.primaryKey = new FieldPrimaryKey(new PrimaryKeyColumn(pkColumn.name, pkColumn.dbType, /* identity */ false));
 
         table.generateColumns();
         return table;
     }
 
-    private generateViewField(ctor: Function, fi: FieldInfo): FieldValue {
+    private generateViewField(ctor: Function, fi: FieldInfo, isTempTable: boolean): Field {
+        // A temp-table view maps a real FK column (Signum's temp views hold Lite<T>
+        // references, e.g. MyTempView.Artist). Reuse the entity reference-field shape so
+        // binding `b.artist` yields a lite reference, exactly like an entity FK.
+        if (isTempTable && (fi.lite === true || (fi.implementations == null && this.resolveEntityRef(fi) != null))) {
+            if (fi.implementations != null || fi.isEnum || fi.array)
+                throw new Error(`Temp-table view field '${fi.name}' on ${ctor.name}: only scalar and single Lite<T>/entity FK columns are supported.`);
+            const refTable = this.resolveEntityRef(fi);
+            if (refTable == null)
+                throw new Error(`Temp-table view field '${fi.name}' on ${ctor.name}: cannot resolve referenced entity '${fi.typeName}'. Ensure its module is imported and the schema is complete.`);
+            const nullable = fi.isNullable === true ? IsNullable.Yes : IsNullable.No;
+            // Column name follows the entity FK convention: `<Field>ID` (PascalCase field + "ID").
+            const colName = fi.fkPropertyName ?? `${cap(fi.name)}ID`;
+            return new FieldReference(new ReferenceColumn(colName, refTable, nullable, /* isLite */ fi.lite === true));
+        }
+
         if (fi.implementations != null || fi.include != null || fi.isEnum)
             throw new Error(`View field '${fi.name}' on ${ctor.name}: entity/enum view columns are not supported (views navigate via @quoted sub-queries, not FK columns).`);
 
@@ -94,6 +125,22 @@ export class ViewBuilder {
             return new AbstractDbType(co.sqlDbType ?? co.pgDbType!, co.pgDbType ?? co.sqlDbType!);
         return defaultDbType(fi.typeName, fi.kind);
     }
+
+    // Resolves a temp-view FK field's referenced entity Table from the (completed) schema,
+    // or undefined when the field isn't an entity reference / can't be resolved.
+    private resolveEntityRef(fi: FieldInfo): Table | undefined {
+        if (this.schema == null)
+            return undefined;
+        const refCtor = resolveType(fi.typeName);
+        if (refCtor == null)
+            return undefined;
+        return this.schema.tryTable(refCtor as Type<Entity>);
+    }
+}
+
+// PascalCase first letter, matching the entity SchemaBuilder's FK column naming (`<Field>ID`).
+function cap(s: string): string {
+    return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1);
 }
 
 // Parse a raw view name ("pg_catalog.pg_namespace" / "sys.tables" / "MyView") into an

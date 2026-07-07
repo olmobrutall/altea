@@ -2,7 +2,7 @@ import "../../../entities/globals"; // Array.prototype.toMap
 import { DiffTable, DiffColumn, DiffForeignKey, DiffForeignKeyColumn, DiffIndex, DiffIndexColumn } from "../diffModels";
 import { view } from "../../table";
 import { PgNamespace } from "./postgresCatalog";
-import { generateSubscripts, arrayGet, pg_get_expr, _pg_char_max_length } from "./postgresFunctions";
+import { generateSubscripts, arrayGet, PostgresFunctions } from "./postgresFunctions";
 
 // Port of Signum's Engine/Sync/Postgres/PostgresCatalogSchema.GetDatabaseDescription, now
 // faithful to Signum's single giant query: `from ns in PgNamespace where !ns.IsInternal()
@@ -41,13 +41,13 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
                     nullable: !a.attnotnull,
                     // char/varchar declared length (NULL → -1 in create); numeric packs
                     // precision/scale into atttypmod - 4 (high/low 16 bits).
-                    length: _pg_char_max_length(a.atttypid, a.atttypmod),
+                    length: PostgresFunctions._pg_char_max_length(a.atttypid, a.atttypmod),
                     precision: a.atttypid == NUMERIC_OID && a.atttypmod > 0 ? (a.atttypmod - 4) / 65536 : 0,
                     scale: a.atttypid == NUMERIC_OID && a.atttypmod > 0 ? (a.atttypmod - 4) % 65536 : 0,
                     identity: a.attidentity == "a", // GENERATED ALWAYS AS IDENTITY
                     // pg_get_expr decompiles the stored default; NULL (no default) → NULL.
                     // adrelid == attrelid, so we pass attrelid directly and read adbin via the nav.
-                    defaultDefinition: pg_get_expr(a.attrDef().$v!.adbin, a.attrelid),
+                    defaultDefinition: PostgresFunctions.pg_get_expr(a.attrDef().$v!.adbin, a.attrelid),
                 }))
                 .toArray().$v,
 
@@ -73,7 +73,7 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
                     indexName: ix.class().$v.relname,
                     isUnique: ix.indisunique,
                     isPrimary: ix.indisprimary,
-                    filterDefinition: pg_get_expr(ix.indpred, ix.indrelid),
+                    filterDefinition: PostgresFunctions.pg_get_expr(ix.indpred, ix.indrelid),
                     // indkey is a 0-based int2vector; generate_subscripts yields 0..n-1, and a
                     // subscript >= indnkeyatts is an INCLUDE column (Signum).
                     columns: generateSubscripts(ix.indkey, 1).map(i => DiffIndexColumn.create({

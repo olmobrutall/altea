@@ -5,6 +5,7 @@ import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
 import { installDefaultGenerating } from '../sync/schemaGenerator';
 import { synchronizeSchemasScript, synchronizeTablesScript, synchronizeEnumsScript } from '../sync/schemaSynchronizer';
 import type { Replacements } from '../sync/synchronizer';
+import { SchemaAssets } from '../sync/schemaAssets';
 import type { Table } from './table';
 import { ViewBuilder } from './viewBuilder';
 
@@ -38,6 +39,13 @@ export class Schema {
     // wiring them here is cycle-free.
     readonly synchronizing: SynchronizingHandler[] = [];
 
+    // The schema's Views + stored procedures / user-defined functions (Signum's Schema.Assets).
+    // Apps register assets on it (IncludeView / IncludeUserDefinedFunction / IncludeStoreProcedure)
+    // and its four schema_* methods are wired into the generating / synchronizing pipelines below,
+    // in Signum's order: procedures-before-tables FIRST in generating, views + procedures LAST;
+    // the same before/after split in synchronizing.
+    readonly assets = new SchemaAssets();
+
     // Type-discriminator caches (Signum's TypeLogic caches, held per-schema instead of
     // in process-global statics so multiple schemas can coexist in one process — e.g.
     // the offline binder tests, or a `--test-isolation=none` run). Populated by
@@ -50,7 +58,20 @@ export class Schema {
 
     constructor() {
         installDefaultGenerating(this);
-        this.synchronizing.push(synchronizeSchemasScript, synchronizeTablesScript, synchronizeEnumsScript);
+        // Assets.Schema_GeneratingBeforeTables runs BEFORE the table steps (a UDF a table may
+        // reference must exist first), Assets.Schema_Generating LAST — mirroring Signum's
+        // Generating chain order. installDefaultGenerating seeded [schemas, tables, indices,
+        // enums]; splice the before-tables handler in front and append the after handler.
+        this.generating.unshift(() => this.assets.schema_GeneratingBeforeTables());
+        this.generating.push(() => this.assets.schema_Generating());
+
+        // Assets.Schema_SynchronizingBeforeTables FIRST, Assets.Schema_Synchronizing LAST —
+        // mirroring Signum's Synchronizing chain order.
+        this.synchronizing.push(
+            r => this.assets.schema_SynchronizingBeforeTables(r),
+            synchronizeSchemasScript, synchronizeTablesScript, synchronizeEnumsScript,
+            r => this.assets.schema_Synchronizing(r),
+        );
     }
 
     // Combines every registered generating step into the full create script.
@@ -91,7 +112,9 @@ export class Schema {
         const key = type as unknown as Type<Entity>;
         let table = this.views.get(key);
         if (table == null) {
-            table = new ViewBuilder().newView(key);
+            // Pass `this` so a temp-table view's FK column can resolve its target entity's
+            // already-built Table (catalog views ignore it — they map scalar columns only).
+            table = new ViewBuilder(this).newView(key);
             this.views.set(key, table);
         }
         return table;

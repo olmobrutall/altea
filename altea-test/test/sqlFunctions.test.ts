@@ -7,17 +7,11 @@ import { DayOfWeek } from "@altea/altea/entities/dateTimeExtensions"; // + Tempo
 import { hasDb, start } from "./setup";
 import {
     ArtistEntity, AlbumEntity, BandEntity, LabelEntity,
-    NoteWithDateEntity, Sex, Status,
+    NoteWithDateEntity, Sex, Status, MinimumExtensions,
 } from "../entities/music";
 
-// Local enum/UDF stand-ins for tests still pending real support (kept red, not commented).
+// Local enum stand-in for tests still pending real support (kept red, not commented).
 enum AlbumSize { Small, Medium, Large }
-const MinimumExtensions = {
-    // Signum's table-valued UDF; unimplemented in altea — a query using it stays red.
-    minimumTableValued(_a: number, _b: number): { minValue: number }[] {
-        throw new Error("MinimumExtensions.minimumTableValued (table-valued function) is not implemented");
-    },
-};
 // Port of Signum.Test/LinqProvider/SqlFunctionsTest.cs. C# → altea idiom:
 //   Database.Query<T>()  → table(T)            .Where(...) → .filter(...)
 //   .Select(...)         → .map(...)           .ToList()/.ToArray() → await .toArray()
@@ -37,6 +31,9 @@ const MinimumExtensions = {
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
 describe("SqlFunctionsTest", { skip: !hasDb }, () => {
+    // The MinimumTableValued UDF the TableValuedFunction test queries is now created by schema
+    // generation (MinimumExtensions.includeFunction, registered on the schema's SchemaAssets in
+    // MusicLogic — mirroring Signum), not here. This before() just connects + builds the schema.
     before(async () => { await start(); });
 
     // StringFunctions: IndexOf/Contains/StartsWith/EndsWith/Like + Length/ToLower/ToUpper/Trim*/Substring + Start/End/Reverse/Replicate.InSql

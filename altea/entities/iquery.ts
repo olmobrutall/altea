@@ -73,13 +73,6 @@ export interface IQuery<T> {
         otherKeySelector: Quoted<(otherElement: O) => K>,
         resultSelector: Quoted<(element: T | null, otherElement: O | null) => R>,
     ): IQuery<R>;
-
-    groupJoin<K, O, R>(
-        otherSource: IQuery<O>,
-        keySelector: Quoted<(element: T) => K>,
-        otherKeySelector: Quoted<(otherElement: O) => K>,
-        resultSelector: Quoted<(element: T, group: O[]) => R>,
-    ): IQuery<R>;
 }
 
 export interface IOrderedQuery<T> extends IQuery<T> {

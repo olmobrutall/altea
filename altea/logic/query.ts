@@ -16,6 +16,11 @@ export interface StaticFunction<T extends Function> {
     __resultType?: ResultTypeResolver;
     __quoted?: () => ExLambda;
     __methodExpander?: MethodExpander;
+    // Signum's [SqlMethod(Name = "…")]: the SQL name of a query-only table-valued function
+    // (set by @sqlMethod). The QueryBinder lowers a call to `<__sqlMethod>(args)` and builds
+    // the row projector by reflecting the IView element of the call's result type (@returnType,
+    // carried in __resultType) — no separate view field is needed.
+    __sqlMethod?: string;
 }
 
 export function asStaticFunction<T extends Function>(func: T): StaticFunction<T> {
@@ -52,6 +57,31 @@ export function resultType(typeResolver: ResultTypeResolver) {
             throw new Error(`@resultType can only be applied to methods, but '${String(propertyKey)}' is not a method`);
 
         (value as StaticFunction<Function>).__resultType = typeResolver;
+    };
+}
+
+// Signum's [SqlMethod(Name = "…")]: marks a static method as a query-only SQL function whose
+// call is translated to `<name>(args)`. For a table-valued function the row shape is declared
+// separately with @returnType; the QueryBinder recognises the __sqlMethod brand and lowers the
+// call to a table-valued-function source.
+export function sqlMethod(name: string) {
+    return function (_target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
+        const value = descriptor.value;
+        if (typeof value !== "function")
+            throw new Error(`@sqlMethod can only be applied to methods, but '${String(propertyKey)}' is not a method`);
+        (value as StaticFunction<Function>).__sqlMethod = name;
+    };
+}
+
+// The IView row type a table-valued @sqlMethod yields (Signum's `IQueryable<IntValue>` return
+// type). Sets the method's result type to `View[]`, both so `.map(m => m.field)` / terminals
+// type-check downstream and so the binder can reflect the view's columns off the element type.
+export function returnType(viewType: new () => object) {
+    return function (_target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
+        const value = descriptor.value;
+        if (typeof value !== "function")
+            throw new Error(`@returnType can only be applied to methods, but '${String(propertyKey)}' is not a method`);
+        (value as StaticFunction<Function>).__resultType = () => new ArrayType(new ClassType(viewType));
     };
 }
 
@@ -538,30 +568,6 @@ export class Query<T> implements IQuery<T> {
         // operator name (innerJoin/leftJoin/…) tells the binder the SQL join type.
         var call = new CallExpression(
             new PropertyExpression(this.expression, op),
-            [otherSource.expression, lambdaKey, lambdaOtherKey, lambdaResult],
-            new ArrayType(lambdaResult.body.type!));
-
-        return new Query<R>(call, this.translator);
-    }
-
-    // GroupJoin: like join, but the result selector's second parameter is the group
-    // of matching `other` elements (an array), so `g.count()` / `g.toArray()` work.
-    @lambdaTypeForParam(1, ot => [(ot as ArrayType).elementType])
-    @lambdaTypeForParam(2, (_ot, other) => [(other as ArrayType).elementType])
-    @lambdaTypeForParam(3, (ot, other) => [(ot as ArrayType).elementType, other])
-    @resultType((_ot, _other, _key, _otherKey, result) => new ArrayType((result as FunctionType).returnType))
-    groupJoin<K, O, R>(
-        otherSource: Query<O>,
-        keySelector: Quoted<(element: T) => K>,
-        otherKeySelector: Quoted<(otherElement: O) => K>,
-        resultSelector: Quoted<(element: T, group: O[]) => R>
-    ): Query<R> {
-        var lambdaKey = Expression.fromQuotedLambda(keySelector, [this.elementType]);
-        var lambdaOtherKey = Expression.fromQuotedLambda(otherKeySelector, [otherSource.elementType]);
-        var lambdaResult = Expression.fromQuotedLambda(resultSelector, [this.elementType, otherSource.type]);
-
-        var call = new CallExpression(
-            new PropertyExpression(this.expression, "groupJoin"),
             [otherSource.expression, lambdaKey, lambdaOtherKey, lambdaResult],
             new ArrayType(lambdaResult.body.type!));
 

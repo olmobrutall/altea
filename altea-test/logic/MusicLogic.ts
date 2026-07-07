@@ -15,6 +15,7 @@ import {
     NoteWithDateEntity,
     FolderEntity,
     SimplePassageEntity,
+    MinimumExtensions,
 } from "../entities/music";
 
 // Registers every Music table in the schema. Mirrors Signum.Test's
@@ -53,6 +54,11 @@ export namespace MusicLogic {
         sb.include(FolderEntity);
 
         sb.include(SimplePassageEntity);
+
+        // Signum's MusicLogic: MinimumExtensions.IncludeFunction(sb.Schema.Assets). Registers the
+        // MinimumTableValued UDF on the schema's assets so it is created by schema generation
+        // (replacing the old test-only before() hook).
+        MinimumExtensions.includeFunction(sb.schema.assets, sb.settings.isPostgres);
     }
 }
 

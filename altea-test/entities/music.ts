@@ -1,5 +1,5 @@
 import { reflect } from "@altea/altea/entities/reflection";
-import { Entity, EmbeddedEntity, MixinEntity } from "@altea/altea/entities/entity";
+import { Entity, EmbeddedEntity, MixinEntity, View } from "@altea/altea/entities/entity";
 import { Lite } from "@altea/altea/entities/lite";
 import {
     entity, partEntity, mixin, primaryKey,
@@ -9,6 +9,8 @@ import {
 } from "@altea/altea/entities/decorators";
 import { Temporal, int, toInt } from "@altea/altea/entities/basics";
 import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
+import { sqlMethod, returnType } from "@altea/altea/logic/query";
+import type { SchemaAssets } from "@altea/altea/logic/sync/schemaAssets";
 
 // Port of Signum.Test's Environment/Entities.cs (the "Music" domain), adapted to
 // altea and the *currently implemented* feature set. Entities, interleaved enums
@@ -380,4 +382,52 @@ export class SimplePassageEntity extends Entity {
     // NOT YET: Vector? Embedding (pgvector unsupported)
     chunk: string;
     index: int = toInt(0); // C# value-type default (0); the loader relies on it
+}
+
+// Port of Signum's `IntValue : IView` (Entities.cs) — the row type of the MinimumTableValued
+// table-valued function. A plain `@reflect` view: never built into a Table, its single field
+// just describes the function's output column so the binder can project `m.minValue`.
+@reflect
+export class IntValue extends View {
+    // Signum types this `int?`; the UDF's COALESCE makes it effectively non-null, so it is a
+    // plain number here (keeps `m.minValue > 2` clean without a null check).
+    minValue: number;
+}
+
+// Port of Signum's `MinimumExtensions` (Entities.cs) — the [SqlMethod]-marked UDFs used only
+// inside a query. `minimumTableValued` is an inline table-valued function returning `IntValue`
+// rows (Signum's `IQueryable<IntValue>`); a query-only marker whose body throws. @sqlMethod
+// names the SQL function and @returnType declares the row view, so the QueryBinder lowers the
+// call to a `dbo.MinimumTableValued(...)` source. The UDF itself is created by
+// MinimumExtensions.includeFunction (registered on the schema's SchemaAssets in MusicLogic).
+export class MinimumExtensions {
+    @sqlMethod("dbo.MinimumTableValued")
+    @returnType(IntValue)
+    static minimumTableValued(_a: number, _b: number): IntValue[] {
+        throw new Error("MinimumExtensions.minimumTableValued is a query-only SQL function marker.");
+    }
+
+    // Port of Signum's MinimumExtensions.IncludeFunction (Entities.cs) — registers the
+    // MinimumTableValued inline table-valued UDF on the schema's SchemaAssets, so schema
+    // generation creates it (and synchronization round-trips it). Called from MusicLogic.start.
+    // The exact SQL is Signum's; `isPostgres` picks the dialect (Signum reads
+    // Schema.Current.Settings.IsPostgres). MinimumScalar is out of scope (see task).
+    static includeFunction(assets: SchemaAssets, isPostgres: boolean): void {
+        if (isPostgres) {
+            assets.includeUserDefinedFunction("MinimumTableValued", `(p1 integer, p2 integer)
+RETURNS TABLE(min_value integer)
+AS $$
+BEGIN
+RETURN QUERY
+SELECT Case When p1 < p2 Then p1
+       Else COALESCE(p2, p1) End as MinValue;
+            END
+$$ LANGUAGE plpgsql;`);
+        } else {
+            assets.includeUserDefinedFunction("MinimumTableValued", `(@Param1 Integer, @Param2 Integer)
+RETURNS Table As
+RETURN (SELECT Case When @Param1 < @Param2 Then @Param1
+           Else COALESCE(@Param2, @Param1) End MinValue)`);
+        }
+    }
 }

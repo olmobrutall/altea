@@ -159,6 +159,40 @@ export class SysIndexes extends View {
     indexColumns(): Query<SysIndexColumn> { return view(SysIndexColumn).filter(ixc => ixc.index_id == this.index_id && ixc.object_id == this.object_id); }
 }
 
+// sys.objects / sys.sql_modules — read by SchemaAssets.SyncProcedures/SyncViews to recover the
+// existing stored procedures, functions and views (and their verbatim definition text) from the
+// catalog. `type` is the 2-char object type ("P" procedure, "FN"/"IF"/"TF" function, "V" view);
+// sys.sql_modules.definition is the CREATE text as stored (Signum keys the diff off it).
+@reflect
+@tableName("sys.objects")
+export class SysObjects extends View {
+    @viewPrimaryKey object_id!: int;
+    schema_id!: int;
+    name!: string;
+    type!: string;
+
+    @quoted
+    schema(): Promise<SysSchemas> { return view(SysSchemas).single(a => a.schema_id == this.schema_id); }
+}
+
+@reflect
+@tableName("sys.sql_modules")
+export class SysSqlModules extends View {
+    @viewPrimaryKey object_id!: int;
+    definition!: string;
+}
+
+@reflect
+@tableName("sys.views")
+export class SysViews extends View {
+    @viewPrimaryKey object_id!: int;
+    schema_id!: int;
+    name!: string;
+
+    @quoted
+    schema(): Promise<SysSchemas> { return view(SysSchemas).single(a => a.schema_id == this.schema_id); }
+}
+
 @reflect
 @tableName("sys.index_columns")
 export class SysIndexColumn extends View {

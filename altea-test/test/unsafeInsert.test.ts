@@ -7,17 +7,8 @@ import {
     ArtistEntity, AlbumEntity, LabelEntity, CountryEntity,
     AlbumEntity_Songs,
 } from "../entities/music";
-import { Lite } from "@altea/altea/entities/lite";
-import { tableName } from "@altea/altea/entities/decorators";
 import { Administrator } from "@altea/altea/logic/Administrator";
-
-// Signum's MyTempView — a temporary-table view (its `[TableName("#MyTempView")]` names
-// the temp table). Database.View / temporary tables aren't modelled in altea; the view
-// type + @tableName lock the shape, and Administrator.createTemporaryTable stays red.
-@tableName("#MyTempView")
-class MyTempView {
-    artist!: Lite<ArtistEntity>;
-}
+import { MyTempView } from "./_myTempView";
 
 // Port of Signum.Test/LinqProvider/UnsafeInsertTest.cs (set-based bulk INSERT,
 // i.e. INSERT ... SELECT — materialise new rows directly from a query).

@@ -19,15 +19,16 @@ import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 // never built.
 
 // A value that must NOT be frozen to a constant: a query source (table/view), a set-returning /
-// scalar / array-index SQL marker (PostgresFunctions), or a Query — all must stay translatable
-// to SQL rather than run at query-build time.
+// scalar SQL marker (@sqlMethod), an array-index marker, or a Query — all must stay translatable
+// to SQL rather than run at query-build time. (Scalar functions exposed as static-class methods,
+// e.g. PostgresFunctions, are reached via the class receiver, not by branding the value here.)
 function isQueryMarker(v: unknown): boolean {
     if (v instanceof Query)
         return true;
     if (typeof v !== "function")
         return false;
-    const f = v as { __isQuerySource?: unknown; __srfName?: unknown; __scalarSqlName?: unknown; __arrayIndex?: unknown };
-    return f.__isQuerySource === true || f.__srfName != null || f.__scalarSqlName != null || f.__arrayIndex === true;
+    const f = v as { __isQuerySource?: unknown; __sqlMethod?: unknown; __arrayIndex?: unknown };
+    return f.__isQuerySource === true || f.__sqlMethod != null || f.__arrayIndex === true;
 }
 
 function evalUnaryOp(op: OpUnary, a: any): unknown {
@@ -204,6 +205,29 @@ function baseTypeOfFieldInfo(fi: FieldInfo): Type {
     if (fi.implementations != null)
         return new ClassType(Entity);
     return LiteralType.null;
+}
+
+// One output column of a table-valued function's IView row type (Signum's `IQueryable<IntValue>`
+// element). `property` is the field name the projector exposes (`m.minValue`); `column` is the raw
+// SQL column name (verbatim, matching ViewBuilder's "column name = field name" convention); `type`
+// is its expression type. Used by QueryBinder.bindTableValuedFunction to build the row projector
+// from the view's reflection metadata instead of hard-coded column strings.
+export interface ViewColumn {
+    readonly property: string;
+    readonly column: string;
+    readonly type: Type;
+}
+
+// Reflects a table-valued function's IView row type into its output columns. The view is a plain
+// `@reflect class … extends View` (Signum's `IntValue : IView`); it is never built into a Table —
+// only its fields describe the function's result shape.
+export function viewColumns(viewCtor: Function): ViewColumn[] {
+    const typeInfo = tryGetTypeInfo(viewCtor);
+    if (typeInfo == null)
+        throw new Error(`Table-valued function view '${viewCtor.name}' has no reflection metadata. Decorate it with @reflect.`);
+    return Object.values(typeInfo.fields)
+        .filter(fi => !fi.ignore)
+        .map(fi => ({ property: fi.name, column: fi.name, type: baseTypeOfFieldInfo(fi) }));
 }
 
 // ---- well-known built-in functions ------------------------------------------
@@ -385,10 +409,11 @@ function staticReceiverObject(obj: Expression | undefined): object | undefined {
     const v = staticReceiverValue(obj);
     if (staticNamespaceReceivers.has(v))
         return v as object;
-    // A captured helper object (e.g. `EntityContext`): dispatch its methods on the object
-    // itself, so one carrying query metadata (__resultType/__quoted) resolves. A method
-    // without metadata still errors below ("Missing @resultType").
-    if (obj instanceof ConstantExpression && typeof v === "object" && v !== null)
+    // A captured helper object (e.g. `EntityContext`) or a class with static query methods
+    // (e.g. `MinimumExtensions`, Signum's [SqlMethod] holders): dispatch its methods on the
+    // receiver itself, so one carrying query metadata (__resultType/__sqlMethod/__quoted)
+    // resolves. A method without metadata still errors below ("Missing @resultType").
+    if (obj instanceof ConstantExpression && v !== null && (typeof v === "object" || typeof v === "function"))
         return v as object;
     return undefined;
 }

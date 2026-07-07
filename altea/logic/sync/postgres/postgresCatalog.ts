@@ -53,6 +53,45 @@ export class PgClass extends View {
     namespace(): Promise<PgNamespace> { return view(PgNamespace).single(t => t.oid == this.relnamespace); }
 }
 
+// pg_proc / pg_extension / pg_depend — read by SchemaAssets.SyncProcedures (Postgres branch) to
+// recover the existing functions/procedures (and their decompiled definition text via
+// pg_get_functiondef). `Extension()` filters out functions owned by an installed extension (they
+// are not part of the schema Signum manages).
+@reflect
+@tableName("pg_catalog.pg_proc")
+export class PgProc extends View {
+    @viewPrimaryKey oid!: int;
+    pronamespace!: int;
+    proname!: string;
+
+    @quoted
+    namespace(): Promise<PgNamespace | null> { return view(PgNamespace).firstOrNull(t => t.oid == this.pronamespace); }
+
+    // The extension that owns this function (via a pg_depend deptype='e' edge), or null.
+    @quoted
+    extension(): Promise<PgExtension | null> {
+        return view(PgDepend)
+            .filter(t => t.deptype == "e" && t.objid == this.oid)
+            .map(d => view(PgExtension).single(e => e.oid == d.refobjid).$v)
+            .firstOrNull();
+    }
+}
+
+@reflect
+@tableName("pg_catalog.pg_extension")
+export class PgExtension extends View {
+    @viewPrimaryKey oid!: int;
+    extname!: string;
+}
+
+@reflect
+@tableName("pg_catalog.pg_depend")
+export class PgDepend extends View {
+    @viewPrimaryKey objid!: int;
+    deptype!: string;
+    refobjid!: int;
+}
+
 // pg_class.relkind values (Signum's RelKind).
 export const RelKind = {
     Table: "r",

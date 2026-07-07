@@ -7,7 +7,7 @@ import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { tableName, viewPrimaryKey } from "@altea/altea/entities/decorators";
 import { int } from "@altea/altea/entities/basics";
-import { generateSubscripts, arrayGet, pg_get_expr, _pg_char_max_length } from "@altea/altea/logic/sync/postgres/postgresFunctions";
+import { generateSubscripts, arrayGet, PostgresFunctions } from "@altea/altea/logic/sync/postgres/postgresFunctions";
 
 // The PostgresFunctions "mini LINQ provider": generate_subscripts (a set-returning function
 // source), array subscripting (arrayGet → arr[i]), and the scalar pg_get_expr /
@@ -54,12 +54,12 @@ describe("PostgresFunctions", () => {
     });
 
     test("pg_get_expr scalar function", () => {
-        const sql = sqlPg(view(PgAttrDef).map(d => pg_get_expr(d.adbin, d.adrelid)));
+        const sql = sqlPg(view(PgAttrDef).map(d => PostgresFunctions.pg_get_expr(d.adbin, d.adrelid)));
         assert.match(sql, /pg_get_expr\(/, "emits pg_get_expr(...)");
     });
 
     test("_pg_char_max_length scalar function", () => {
-        const sql = sqlPg(view(PgConstraint).map(c => _pg_char_max_length(c.oid, c.conrelid)));
+        const sql = sqlPg(view(PgConstraint).map(c => PostgresFunctions._pg_char_max_length(c.oid, c.conrelid)));
         assert.match(sql, /information_schema\._pg_char_max_length\(/, "emits the schema-qualified function");
     });
 });

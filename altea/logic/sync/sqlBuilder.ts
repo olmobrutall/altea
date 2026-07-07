@@ -70,12 +70,17 @@ export class SqlBuilder {
         const lines = Object.values(table.columns).map(c => this.columnLine(c));
 
         const pk = table.primaryKey.column;
-        const pkName = this.sqlEscape(this.primaryKeyName(table.name.name));
-        const pkCol = this.sqlEscape(pk.name);
-        const pkConstraint = this.isPostgres
-            ? `CONSTRAINT ${pkName} PRIMARY KEY (${pkCol})`
-            : `CONSTRAINT ${pkName} PRIMARY KEY CLUSTERED (${pkCol} ASC)`;
-        lines.push(pkConstraint);
+        // A temp-table view's representative PK aliases an existing column (it's not a
+        // physical column of its own), so there's no PK constraint to emit — its rows are
+        // never dedup'd. Only add the constraint when the PK is a real column of the table.
+        if (table.columns[pk.name] === pk) {
+            const pkName = this.sqlEscape(this.primaryKeyName(table.name.name));
+            const pkCol = this.sqlEscape(pk.name);
+            const pkConstraint = this.isPostgres
+                ? `CONSTRAINT ${pkName} PRIMARY KEY (${pkCol})`
+                : `CONSTRAINT ${pkName} PRIMARY KEY CLUSTERED (${pkCol} ASC)`;
+            lines.push(pkConstraint);
+        }
 
         const body = lines.map(l => `  ${l}`).join(',\n');
         return new SqlPreCommandSimple(`CREATE TABLE ${this.objectName(table.name)}(\n${body}\n);`);

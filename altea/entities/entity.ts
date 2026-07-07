@@ -119,6 +119,12 @@ export abstract class View {
     }
 }
 
+// A reference to a view type (Signum's `Type` for an `IView`): a constructor for a {@link View}
+// subclass. The view analogue of {@link Type} — used where an API takes a view rather than an
+// entity (e.g. Administrator.createTemporaryTable / SqlBuilder.createTableSql over a temp-table
+// view). A view has no closed-generic form, so this is just the constructor.
+export type ViewType<T extends View = View> = new () => T;
+
 @reflect
 @entity()
 export abstract class Entity extends BaseEntity {

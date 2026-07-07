@@ -2,15 +2,11 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / … (SQL-mappable)
-import { hasDb, start } from "./setup";
+import { hasDb, start, txTest } from "./setup";
 import { view } from "@altea/altea/logic/table";
-import { Lite } from "@altea/altea/entities/lite";
 import { ArtistEntity, AlbumEntity } from "../entities/music";
-
-// A temporary IView used by the LeftOuterMyView test (Database.View / temporary table).
-class MyTempView {
-    artist: Lite<ArtistEntity>;
-}
+import { MyTempView } from "./_myTempView";
+import { Administrator } from "@altea/altea/logic/Administrator";
 
 // Port of Signum.Test/LinqProvider/JoinGroupTest.cs. C# → altea idiom:
 //   Database.Query<T>()           → table(T)
@@ -29,8 +25,9 @@ class MyTempView {
 // rightJoin the inner. Signum names by which source carries DefaultIfEmpty, so its
 // "LeftOuter…" (DefaultIfEmpty on the outer source, inner preserved) maps to altea's
 // `rightJoin`, and vice-versa — the test NAMES are kept from the C# port even where
-// the altea operator reads the other way. GroupJoin always preserves the outer row
-// (empty group when unmatched), so `groupJoin` needs no marker. The temp-view test
+// the altea operator reads the other way. altea has no `groupJoin` (Signum's `into g`);
+// the C# JoinGroup / LeftOuterJoinGroup tests, which only exercised it, are dropped, and
+// LeftOuterMyView (a temp-view read-back) uses a `leftJoin` instead. The temp-view test
 // additionally needs Database.View / temporary tables / UnsafeInsertView.
 
 describe("JoinGroupTest", { skip: !hasDb }, () => {
@@ -174,42 +171,28 @@ describe("JoinGroupTest", { skip: !hasDb }, () => {
         assert.ok(Array.isArray(songsAlbum));
     });
 
-    // from a in Query<ArtistEntity>() join b in Query<AlbumEntity>() on a equals b.Author into g select new { a.Name, Albums = (int?)g.Count() }
-    test("JoinGroup", async () => {
-        const songsAlbum = await table(ArtistEntity)
-            .groupJoin(
-                table(AlbumEntity),
-                a => a,
-                b => b.author,
-                (a, g) => ({ name: a.name, albums: g.length }))
-            .toArray();
-        assert.ok(Array.isArray(songsAlbum));
-    });
-
-    // from a in Query<ArtistEntity>() join b in Query<AlbumEntity>().DefaultIfEmpty() on a equals b.Author into g select new { a.Name, Albums = (int?)g.Count() }
-    test("LeftOuterJoinGroup", async () => {
-        const songsAlbum = await table(ArtistEntity)
-            .groupJoin(
-                table(AlbumEntity),
-                a => a,
-                b => b.author,
-                (a, g) => ({ name: a.name, albums: g.length }))
-            .toArray();
-        assert.ok(Array.isArray(songsAlbum));
-    });
-
     // using (tr) { CreateTemporaryTable<MyTempView>(); Query<ArtistEntity>().Where(a => a.Name.StartsWith("M")).UnsafeInsertView(a => new MyTempView { Artist = a.ToLite() });
-    //   from a join b in View<MyTempView>() on a.ToLite() equals b.Artist into g select a.ToLite(); Assert.True(all StartsWith("M")); Assert.Equal(View count, Where(StartsWith "M") count); tr.Commit(); }
-    // TODO(api): groupJoin/defaultIfEmpty
-    // TODO(api): Database.View<T>() / temporary tables / UnsafeInsertView
-    test("LeftOuterMyView", async () => {
-        const artists = await table(ArtistEntity)
-            .groupJoin(
-                view(MyTempView),
-                a => a.toLite(),
+    //   from b in View<MyTempView>() join a in Query<ArtistEntity>() on b.Artist equals a.ToLite() select a.ToLite();
+    //   Assert.True(all StartsWith("M")); Assert.Equal(View count, Where(StartsWith "M") count); tr.Commit(); }
+    // The temp table + UnsafeInsertView populate the view (only "M" artists), then the join
+    // reads it back. The C# uses a groupJoin (`into g`), but altea has no groupJoin; the
+    // equivalent here keeps the view as the row-preserving (outer) side of a `leftJoin` to the
+    // artists — every view row matches its artist, so the result is exactly the "M" artists.
+    // Runs inside a Transaction (txTest) so the CREATE, INSERT and SELECT share one pinned
+    // connection — a SQL Server temp table is connection-scoped.
+    txTest("LeftOuterMyView", async () => {
+        await Administrator.createTemporaryTable(MyTempView);
+        await table(ArtistEntity).filter(a => a.name.startsWith("M"))
+            .executeInsert(MyTempView, a => ({ artist: a.toLite() }));
+
+        const artists = await view(MyTempView)
+            .leftJoin(
+                table(ArtistEntity),
                 b => b.artist,
-                (a, g) => a.toLite())
+                a => a.toLite(),
+                (b, a) => a!.toLite())
             .toArray();
         assert.ok(artists.every(a => a.toString().startsWith("M")));
+        assert.equal(await view(MyTempView).count(), await table(ArtistEntity).filter(a => a.name.startsWith("M")).count());
     });
 });
