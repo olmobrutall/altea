@@ -52,6 +52,7 @@ import {
 import type { FieldInfo } from "../../../entities/reflection";
 import { resolveType, resolveEnum } from "../../../entities/registration";
 import { Entity, View } from "../../../entities/entity";
+import { TypeEntity } from "../../../entities/typeEntity";
 import { Lite } from "../../../entities/lite";
 import { niceName } from "../../../entities/utils/localization";
 import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, Type } from "../../../entities/types";
@@ -1034,6 +1035,17 @@ export class QueryBinder extends ExpressionVisitor {
         // constants and null — comparing id and, for polymorphic refs, type).
         if (methodName === "is" && args.length === 1)
             return SmartEqualizer.polymorphicEqual(source, this.visit(args[0]));
+
+        // f.constructor.toTypeEntity() / lite.entityType.toTypeEntity() (Signum's
+        // Type.ToTypeEntity()): the TypeEntity row for a runtime-type expression, referenced by
+        // its type-id discriminator and materialised as a full TypeEntity entity.
+        if (methodName === "toTypeEntity" && isTypeExpression(source))
+            return this.toTypeEntityRef(source);
+        // f.constructor.niceName() (Signum's Type.NiceName()): the localized display name — a
+        // constant for a typed entity, a CASE of per-implementation constants for an
+        // @implementedBy; an @implementedByAll has no static type, so it throws.
+        if (methodName === "niceName" && isTypeExpression(source))
+            return this.typeNiceName(source);
 
         // A `@quoted` expression-member (Signum's AutoExpressionField) called on an entity
         // reference. Direct calls on a concrete type are inlined by the quote transform;
@@ -2385,17 +2397,50 @@ export class QueryBinder extends ExpressionVisitor {
     }
 
     // `Type.FullName` (altea's `.constructor.name`): the JS constructor name of the
-    // runtime type. Statically a constant for a typed reference; a CASE over which
-    // implementation column is non-null for an @implementedBy.
+    // runtime type. A typed reference has a statically-known name, but the runtime type is NULL
+    // when the reference is null, so the constant is guarded by the reference's id being non-null
+    // (like extractTypeId); an @implementedBy is a CASE over which implementation column is set.
     private typeName(typeExpr: Expression): Expression {
         if (typeExpr instanceof TypeEntityExpression)
-            return new SqlConstantExpression(ctorOfType(typeExpr.typeValue).name, LiteralType.string);
+            return new CaseExpression(
+                [new When(new IsNotNullExpression(typeExpr.externalId.value),
+                    new SqlConstantExpression(ctorOfType(typeExpr.typeValue).name, LiteralType.string))],
+                undefined);
         if (typeExpr instanceof TypeImplementedByExpression) {
             const whens = [...typeExpr.typeImplementations].map(([ctor, id]) =>
                 new When(new IsNotNullExpression(id.value), new SqlConstantExpression(ctor.name, LiteralType.string)));
-            return new CaseExpression(whens, new SqlConstantExpression(null, LiteralType.null));
+            return new CaseExpression(whens, undefined);
         }
         throw new Error(`Type.name is not supported for ${typeExpr.toString()}`);
+    }
+
+    // Signum's Type.ToTypeEntity(): the TypeEntity row identified by a runtime-type's
+    // discriminator id. Built as an ordinary entity reference to the TypeEntity table keyed by the
+    // type id (extractTypeId gives the id for a typed / IB / IBA reference), so it completes and
+    // materialises like any other reference.
+    private toTypeEntityRef(typeExpr: Expression): EntityExpression {
+        const typeId = this.extractTypeId(typeExpr);
+        const table = this.schema.table(TypeEntity as any);
+        return new EntityExpression(new ClassType(TypeEntity), table, new PrimaryKeyExpression(typeId), undefined, undefined, undefined, false);
+    }
+
+    // Signum's Type.NiceName(): the localized display name. Like typeName but using the localized
+    // niceName(ctor); an @implementedByAll reference has no static type (its type is a runtime id
+    // column), so there is no constant to emit — throw (the decided scope: constants for a typed
+    // entity / @implementedBy only).
+    private typeNiceName(typeExpr: Expression): Expression {
+        if (typeExpr instanceof TypeEntityExpression)
+            // NULL when the reference is null (guard on its id), else the localized name constant.
+            return new CaseExpression(
+                [new When(new IsNotNullExpression(typeExpr.externalId.value),
+                    new SqlConstantExpression(niceName(ctorOfType(typeExpr.typeValue)), LiteralType.string))],
+                undefined);
+        if (typeExpr instanceof TypeImplementedByExpression) {
+            const whens = [...typeExpr.typeImplementations].map(([ctor, id]) =>
+                new When(new IsNotNullExpression(id.value), new SqlConstantExpression(niceName(ctor), LiteralType.string)));
+            return new CaseExpression(whens, undefined);
+        }
+        throw new Error(`Type.niceName() is not supported for an @implementedByAll reference (no static type to localize)`);
     }
 
     private findBinding(bindings: readonly FieldBinding[], name: string, ownerType: Type): Expression {

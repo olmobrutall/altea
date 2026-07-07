@@ -35,7 +35,6 @@ describe("OrderByTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AlbumEntity>().OrderBy(a => a.Author.GetType()).ToList();
-    // TODO(api): GetType
     test("OrderByGetType", async () => {
         const songsAlbum = await table(AlbumEntity).orderBy(a => a.author.constructor).toArray();
         assert.ok(Array.isArray(songsAlbum));

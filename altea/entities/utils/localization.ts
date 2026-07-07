@@ -23,6 +23,20 @@ export function newNiceName(ctor: Function): string {
     return "New " + niceName(ctor);
 }
 
+// `f.constructor.niceName()` in a query (Signum's Type.NiceName() on a runtime type): `this` is
+// the entity constructor, so it delegates to niceName(). A real in-memory body (so it also works
+// when a lambda runs in memory) plus the query `__resultType` fromQuoted reads to type the call;
+// the QueryBinder lowers the call to SQL. Lives here alongside niceName().
+declare global {
+    interface Function {
+        niceName(): string;
+    }
+}
+Function.prototype.niceName = function (this: Function): string {
+    return niceName(this);
+};
+(Function.prototype.niceName as { __resultType?: () => unknown }).__resultType = () => LiteralType.string;
+
 // `niceName`/`newNiceName` are used inside the `@quoted` default `Entity.toString()`;
 // the quote model needs a result type for them (both → string). The binder resolves
 // the call to a constant per the receiver's static type.

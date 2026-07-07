@@ -136,6 +136,15 @@ function isViewCtorValue(value: unknown): value is Function {
 }
 
 function resolveMemberType(ownerType: Type, propertyName: string): Type {
+    // `x.constructor` (GetType) / `lite.entityType` (Lite.EntityType) → a runtime-type token,
+    // typed as ClassType(Function): `=== SomeClass` type-checks (both sides are constructors) and
+    // `.toTypeEntity()`/`.niceName()` dispatch via the Function-prototype methods (TypeLogic /
+    // localization). The binder lowers the token itself through getEntityType.
+    if (propertyName === "constructor" && (ownerType instanceof ClassType || ownerType instanceof LiteType))
+        return new ClassType(Function);
+    if (propertyName === "entityType" && ownerType instanceof LiteType)
+        return new ClassType(Function);
+
     // Navigating through a Lite<T>: `.entity`/`.entityOrNull` yield the wrapped
     // entity (so `lite.entity.field` types correctly); other members stay null.
     if (ownerType instanceof LiteType)

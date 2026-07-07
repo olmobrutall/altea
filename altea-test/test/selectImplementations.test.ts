@@ -33,19 +33,19 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     before(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().Select(a => a.GetType()).ToList();
-    // TODO(api): GetType in query (a.constructor)
     test("SelectType", async () => {
         const list = await table(AlbumEntity).map(a => a.constructor).toArray();
-        assert.ok(Array.isArray(list));
+        // GetType() projects the runtime type — the AlbumEntity constructor for a single-table entity.
+        assert.ok(list.length > 0 && list.every(t => t === AlbumEntity));
     });
 
     // Database.Query<LabelEntity>().Select(a => new { Label = a.ToLite(), a.Owner, OwnerType = a.Owner!.Entity.GetType() }).ToList();
-    // TODO(api): GetType in query (a.constructor) — and Lite.entity dereference in projection
     test("SelectTypeNull", async () => {
         const list = await table(LabelEntity)
             .map(a => ({ label: a.toLite(), owner: a.owner, ownerType: a.owner!.entity.constructor }))
             .toArray();
-        assert.ok(Array.isArray(list));
+        // owner is a nullable Lite<LabelEntity>; its entity's runtime type is LabelEntity (null when absent).
+        assert.ok(list.length > 0 && list.every(x => x.ownerType == null || x.ownerType === LabelEntity));
     });
 
     // Database.Query<AlbumEntity>().Select(a => a.Author.ToLite()).ToList();
@@ -81,12 +81,12 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // Database.Query<NoteWithDateEntity>().Select(a => new { Type = a.Target.GetType(), Target = a.Target.ToLite() }).ToList();
-    // TODO(api): GetType in query (a.constructor)
     test("SelectTypeIBA", async () => {
         const list = await table(NoteWithDateEntity)
             .map(a => ({ type: a.target.constructor, target: a.target.toLite() }))
             .toArray();
-        assert.ok(Array.isArray(list));
+        // target is @implementedByAll: GetType() resolves its stored type-id column to a constructor.
+        assert.ok(list.length > 0 && list.every(x => x.type == null || typeof x.type === "function"));
     });
 
     // Database.Query<AwardNominationEntity>().Select(a => a.Award.EntityType).ToList();
@@ -131,7 +131,6 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // Where(a => a.Award.Entity.GetType() == typeof(GrammyAwardEntity)).ToList();
-    // TODO(api): GetType/typeof comparison in query
     test("SelectEntityWithLiteIbType", async () => {
         const list = await table(AwardNominationEntity)
             .filter(a => a.award.entity.constructor === GrammyAwardEntity)
@@ -140,7 +139,6 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // Type[] types = { typeof(GrammyAwardEntity) }; Where(a => types.Contains(a.Award.Entity.GetType())).ToList();
-    // TODO(api): GetType/typeof comparison in query (types.Contains over runtime type)
     test("SelectEntityWithLiteIbTypeContains", async () => {
         const types: Function[] = [GrammyAwardEntity];
         const list = await table(AwardNominationEntity)

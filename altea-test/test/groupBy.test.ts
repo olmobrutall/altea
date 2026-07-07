@@ -214,23 +214,23 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AlbumEntity>().GroupBy(a => a.GetType()).Select(gr => new { gr.Key, Count = gr.Count() }).ToList();
-    // TODO(api): GetType in query (group by the runtime entity type)
     test("GroupEntityByTypeFieCount", async () => {
         const list = await table(AlbumEntity)
             .groupBy(a => a.constructor)
             .map(gr => ({ key: gr.key, count: gr.elements.length }))
             .toArray();
-        assert.ok(Array.isArray(list));
+        // A single-table entity has one runtime type — the AlbumEntity constructor.
+        assert.ok(list.length > 0 && list.every(g => g.key === AlbumEntity));
     });
 
     // Database.Query<AlbumEntity>().GroupBy(a => a.Author.GetType()).Select(gr => new { gr.Key, Count = gr.Count() }).ToList();
-    // TODO(api): GetType in query (group by the runtime type of an @implementedBy reference)
     test("GroupEntityByTypeIbCount", async () => {
         const list = await table(AlbumEntity)
             .groupBy(a => a.author.constructor)
             .map(gr => ({ key: gr.key, count: gr.elements.length }))
             .toArray();
-        assert.ok(Array.isArray(list));
+        // Author is @implementedBy(Artist, Band): each group key is one of those constructors.
+        assert.ok(list.length > 0 && list.every(g => g.key === ArtistEntity || g.key === BandEntity));
     });
 
     // group a by a.Label.Name into g select new { g.Key, Count = g.Count() }

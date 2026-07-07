@@ -1,6 +1,8 @@
 import { Connector } from "./connection/connector";
 import { cleanTypeName } from "../entities/registration";
 import { TypeEntity } from "../entities/typeEntity";
+import { asStaticFunction } from "./query";
+import { ClassType } from "../entities/types";
 import type { PrimaryKey } from "../entities/entity";
 import type { Schema } from "./schema/schema";
 import type { Table } from "./schema/table";
@@ -119,3 +121,20 @@ function seedTypeEntities(schema: Schema): SqlPreCommand | undefined {
         return undefined;
     return Connector.current().sqlBuilder.insertTypeEntities(table, schema.typeRows);
 }
+
+// `f.constructor.toTypeEntity()` in a query (Signum's Type.ToTypeEntity() on a runtime type):
+// `this` is the entity constructor, so this returns its TypeEntity row via TypeLogic's caches. A
+// real in-memory body (so it also works when a lambda runs in memory) plus the query `__resultType`
+// fromQuoted reads to type the call; the QueryBinder lowers it to SQL. `f.constructor` (GetType)
+// and `lite.entityType` are runtime-type tokens typed `Function`, so this method lives on Function;
+// `Type.FullName` maps to native `Function.name`. Lives here in TypeLogic — the entity-type ↔
+// TypeEntity facade it resolves against. (`.niceName()` lives in localization.ts.)
+declare global {
+    interface Function {
+        toTypeEntity(): TypeEntity;
+    }
+}
+Function.prototype.toTypeEntity = function (this: Function): TypeEntity {
+    return TypeLogic.idToEntity(TypeLogic.typeToId(this))!;
+};
+asStaticFunction(Function.prototype.toTypeEntity).__resultType = () => new ClassType(TypeEntity);
