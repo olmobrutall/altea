@@ -130,26 +130,40 @@ describe("OrderByTest", { skip: !hasDb }, () => {
 
     // Database.Query<AlbumEntity>().SelectMany(a => a.Songs.OrderBy(a => a.Index))
     //     .GroupBy(s => s.Name, (a, songs) => songs.Sum(a => a.Seconds ?? 0)).ToList();
-    // TODO(api): groupBy result-selector (altea groupBy yields { key, elements }, no (key, group) => result form)
+    // altea has no result-selector groupBy overload; its groupings are { key, elements }, so
+    // C#'s `GroupBy(key, (k, g) => …)` is `groupBy(key).map(g => f(g.key, g.elements))`.
     test("RemoveOrderByGroupBy", async () => {
         const list = await table(AlbumEntity)
             .flatMap(a => a.songs.orderBy(a => a.index))
             .groupBy(s => s.name)
-            .map(g => g.elements.reduce((acc, a) => acc + (a.seconds ?? 0), 0))
+            .map(g => g.elements.sum(a => a.seconds ?? 0))
             .toArray();
         assert.ok(Array.isArray(list));
     });
 
     // Database.Query<AlbumEntity>().SelectMany(a => a.Songs.OrderBy(a => a.Index))
     //     .GroupBy(s => new object(), (a, songs) => songs.Sum(a => a.Seconds ?? 0)).ToList();
-    // TODO(api): groupBy result-selector (altea groupBy yields { key, elements }, no (key, group) => result form)
     test("RemoveOrderByGroupByTrivial", async () => {
         const list = await table(AlbumEntity)
             .flatMap(a => a.songs.orderBy(a => a.index))
             .groupBy(s => ({}))
-            .map(g => g.elements.reduce((acc, a) => acc + (a.seconds ?? 0), 0))
+            .map(g => g.elements.sum(a => a.seconds ?? 0))
             .toArray();
         assert.ok(Array.isArray(list));
+    });
+
+    // `reduce` (the JS Array method) has no SQL translation — a natural instinct when a dev
+    // wants to fold a group's members, but the query engine can't lower it. It must fail with
+    // an educational message pointing to the real SQL aggregates (sum/min/max/count/average),
+    // not the cryptic "Missing @lambdaTypeForParam 'reduce'".
+    test("ReduceInQueryEducatesToUseAggregate", async () => {
+        await assert.rejects(
+            async () => table(AlbumEntity)
+                .flatMap(a => a.songs)
+                .groupBy(s => s.name)
+                .map(g => g.elements.reduce((acc, a) => acc + (a.seconds ?? 0), 0))
+                .toArray(),
+            /sum, min, max, count, or average/);
     });
 
     // OrderByIgnore: a series of queries where the ORDER BY must be elided.

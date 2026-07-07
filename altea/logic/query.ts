@@ -727,3 +727,21 @@ export class OrderedQuery<T> extends Query<T> implements IOrderedQuery<T> {
         return new OrderedQuery<T>(call, this.translator);
     }
 }
+
+// `reduce` has no SQL translation — a dev reaching for it in a query (e.g.
+// `g.elements.reduce((acc, a) => acc + a.value, 0)`) almost always wants a SQL aggregate.
+// A collection in a quoted query dispatches its methods to OrderedQuery.prototype, so
+// attaching throwing query-metadata to `reduce` turns the otherwise cryptic
+// "Missing @lambdaTypeForParam 'reduce'" front-end error into a clear, educational one.
+// This only affects quoted queries; native Array.reduce over a materialised array is untouched.
+function rejectReduceInQuery(): never {
+    throw new Error(
+        "'reduce' cannot be translated to SQL. Use a SQL aggregate instead — sum, min, max, " +
+        "count, or average — e.g. `g.elements.sum(a => a.value)` (and `count(a => predicate)` " +
+        "to count matches).");
+}
+(OrderedQuery.prototype as unknown as { reduce: StaticFunction<Function> }).reduce =
+    Object.assign(function (): never { return rejectReduceInQuery(); }, {
+        __lambdaType: [rejectReduceInQuery as unknown as LambdaTypeResolver],
+        __resultType: rejectReduceInQuery as unknown as ResultTypeResolver,
+    });
