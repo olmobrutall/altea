@@ -2,7 +2,7 @@ import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
 import { table, bindAndOptimize } from "@altea/altea/logic/table";
 import { buildTranslateResult } from "@altea/altea/logic/linq/translatorBuilder";
-import { FieldReaderError } from "@altea/altea/logic/linq/FieldReaderError";
+import { ProjectionError } from "@altea/altea/logic/linq/ProjectionError";
 import { Connector } from "@altea/altea/logic/connection/connector";
 import { hasDb, start } from "./setup";
 import { NoteWithDateEntity } from "../entities/music";
@@ -11,17 +11,17 @@ import { NoteWithDateEntity } from "../entities/music";
 // FieldReaderException — TypeScript has no non-nullable value type, so those cases just yield
 // null (see the RootMax/MinNull and SelectIntSumNullable tests). But a projector CAN still
 // fail for real — e.g. a temporal column whose driver value the Temporal parser rejects — and
-// when it does altea raises a FieldReaderError carrying the same diagnostics Signum attaches:
-// the failing column, the row index, the projector source, and the SQL command.
+// when it does altea raises a ProjectionError carrying the diagnostics Signum attaches: the
+// row index, the projector source, and the SQL command.
 //
 // This is driven against a fake row source (no real DB round-trip) so the malformed value is
 // deterministic on any dialect: SQL Server hands temporal columns back as Date objects, so the
 // parser's throwing string path is only reachable with a value we inject here.
-describe("FieldReaderTest", { skip: !hasDb }, () => {
+describe("ProjectionErrorTest", { skip: !hasDb }, () => {
     let connector!: Connector;
     before(async () => { connector = await start(); });
 
-    test("FieldReaderError carries row, projector and SQL", async () => {
+    test("ProjectionError carries row, projector and SQL", async () => {
         // A real query projecting a temporal column; its projector runs the temporal
         // denormaliser per row — the production throw path.
         const q = table(NoteWithDateEntity).map(a => a.creationDate);
@@ -41,20 +41,20 @@ describe("FieldReaderTest", { skip: !hasDb }, () => {
 
         await Connector.withConnector(fakeConnector, async () => {
             await assert.rejects(tr.execute(), (error: unknown) => {
-                assert.ok(error instanceof FieldReaderError, "expected a FieldReaderError");
-                const fieldError = error as FieldReaderError;
-                assert.equal(fieldError.rowIndex, 1);                 // the second (bad) row
-                assert.match(fieldError.sql ?? "", /SELECT/i);        // the SQL command
-                assert.match(fieldError.projector ?? "", /denormalizeTemporal|row\[/); // the projector source
+                assert.ok(error instanceof ProjectionError, "expected a ProjectionError");
+                const projectionError = error as ProjectionError;
+                assert.equal(projectionError.rowIndex, 1);                 // the second (bad) row
+                assert.match(projectionError.sql ?? "", /SELECT/i);        // the SQL command
+                assert.match(projectionError.projector ?? "", /denormalizeTemporal|row\[/); // the projector source
                 // The composed message stitches the diagnostics together (Signum's format).
-                assert.match(fieldError.message, /Row: 1/);
+                assert.match(projectionError.message, /Row: 1/);
                 return true;
             });
         });
     });
 
     // A well-formed value reads cleanly through the same path (no false positives).
-    test("valid rows project without a FieldReaderError", async () => {
+    test("valid rows project without a ProjectionError", async () => {
         const q = table(NoteWithDateEntity).map(a => a.creationDate);
         const projection = bindAndOptimize(q.expression, connector.schema, connector.isPostgres);
         const tr = buildTranslateResult(projection, connector.isPostgres);

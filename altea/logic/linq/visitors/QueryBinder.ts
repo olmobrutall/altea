@@ -20,6 +20,7 @@ import {
 import { AssignAdapterExpander } from "./AssignAdapterExpander";
 import { AliasGenerator, Alias } from "../AliasGenerator";
 import { projectColumns as projectColumnsImpl, ProjectedColumns } from "./ColumnProjector";
+import { ColumnGenerator } from "../ColumnGenerator";
 import { fullNominate as fullNominateImpl, nominate } from "../dbExpressionNominator";
 import { QueryJoinExpander, TableRequest, ExpansionRequest } from "./QueryJoinExpander";
 import { EntityCompleter } from "./EntityCompleter";
@@ -299,6 +300,43 @@ class AliasGatherer extends DbExpressionVisitor {
             this.aliases.push(c.alias);
         return c;
     }
+}
+
+// Signum's ContainsAggregateVisitor: does an expression contain a SQL aggregate anywhere
+// (including inside a correlated subquery)? Used by bindGroupBy to detect a grouping key that
+// SQL Server won't accept directly (it must be projected into an intermediate select first).
+class ContainsAggregateVisitor extends DbExpressionVisitor {
+    private found = false;
+
+    static test(e: Expression): boolean {
+        const visitor = new ContainsAggregateVisitor();
+        visitor.visit(e);
+        return visitor.found;
+    }
+
+    override visitAggregate(aggregate: AggregateExpression): Expression {
+        this.found = true;
+        return aggregate;
+    }
+}
+
+// Signum's ColumnReplacerVisitor: rewrite every ColumnExpression that matches one of the
+// replacements (keyed by alias|name) to its replacement. Used to re-point a group key's
+// projector at the wrapping group-by select after the key was pushed into an intermediate.
+class ColumnReplacerVisitor extends DbExpressionVisitor {
+    constructor(private readonly replacements: Map<string, ColumnExpression>) { super(); }
+
+    static replace(replacements: Map<string, ColumnExpression>, e: Expression): Expression {
+        return new ColumnReplacerVisitor(replacements).visit(e);
+    }
+
+    override visitColumn(column: ColumnExpression): Expression {
+        return this.replacements.get(columnKey(column)) ?? column;
+    }
+}
+
+function columnKey(column: ColumnExpression): string {
+    return `${column.alias}|${column.name}`;
 }
 
 class ColumnUnionProjector extends DbExpressionVisitor {
@@ -2578,14 +2616,28 @@ export class QueryBinder extends ExpressionVisitor {
         // FieldEntityArrayExpression whose absent projector maps the lambda param to undefined.
         const subqueryProjection = this.asProjection(this.visit(sourceExpr));
 
-        const alias = this.aliasGenerator.nextSelectAlias();
+        let alias = this.aliasGenerator.nextSelectAlias();
 
         const key = GroupEntityCleaner.clean(this.mapVisitExpand(keySelector, projection));
-        const keyPC = this.projectColumns(key, alias);
+        let keyPC = this.projectColumns(key, alias);
 
-        const select = projection.select;
-        // (Signum's "key contains an aggregate" intermediate-select branch is not
-        //  ported — no non-skipped test groups by an aggregate.)
+        let select = projection.select;
+
+        // SQL Server rejects an aggregate/subquery as a grouping key (error 144: "Cannot use
+        // an aggregate or a subquery in an expression used for the group by list"). When the
+        // key contains one (e.g. `groupBy(a => a.songs.length)` — a correlated COUNT), wrap the
+        // source in an intermediate SELECT that projects the key as a column, then GROUP BY a
+        // plain reference to that column. Signum's BindGroupBy "key contains an aggregate" branch.
+        if (keyPC.columns.some(c => ContainsAggregateVisitor.test(c.expression))) {
+            select = new SelectExpression(alias, false, undefined, keyPC.columns, projection.select, undefined, [], []);
+            alias = this.aliasGenerator.nextSelectAlias();
+            const cg = new ColumnGenerator();
+            const newColumns = keyPC.columns.map(cd => cg.mapColumn(cd.getReference(select.alias)));
+            const replacements = new Map<string, ColumnExpression>();
+            for (const cd of newColumns)
+                replacements.set(columnKey(cd.expression as ColumnExpression), cd.getReference(alias));
+            keyPC = { columns: newColumns, projector: ColumnReplacerVisitor.replace(replacements, keyPC.projector) };
+        }
 
         const elemExpr = elementSelector != null
             ? this.mapVisitExpand(elementSelector, projection)
