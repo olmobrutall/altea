@@ -16,6 +16,7 @@ import { ClassType, LiteralType, TemporalType, Type } from "../../entities/types
 import { Retriever } from "./Retriever";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 import { denormalizeTemporal } from "../normalizeScalar";
+import { FieldReaderError } from "./FieldReaderError";
 
 // A lookup maps a serialised correlation key to the child values for that key (eager
 // children, prefilled before projection — Signum's Lookup).
@@ -33,6 +34,7 @@ interface ChildPlan {
     readonly sql: string;
     readonly parameters: unknown[];
     readonly kvProjector: CompiledProjector;
+    readonly projectorSource: string;
 }
 
 export class TranslateResult {
@@ -40,6 +42,7 @@ export class TranslateResult {
         public readonly sql: string,
         public readonly parameters: unknown[],
         private readonly projector: CompiledProjector,
+        private readonly projectorSource: string,
         private readonly uniqueFunction: UniqueFunction | undefined,
         // Eager children (explicitly projected collections) are filled before the main
         // query, deepest-first; lazy children (entity MLists) after it, shallowest-first.
@@ -76,20 +79,20 @@ export class TranslateResult {
         for (const child of this.eagerChildren) {
             const childRows = await connector.executeQuery(child.sql, child.parameters);
             const map = new Map<string, unknown[]>();
-            for (const r of childRows) {
-                const kv = child.kvProjector(r, retriever, lookups, requests) as { k: unknown; v: unknown };
+            childRows.forEach((r, i) => {
+                const kv = projectRow(child.kvProjector, r, i, child.sql, child.projectorSource, retriever, lookups, requests) as { k: unknown; v: unknown };
                 const keyStr = JSON.stringify(kv.k ?? null);
                 const bucket = map.get(keyStr);
                 if (bucket != null) bucket.push(kv.v);
                 else map.set(keyStr, [kv.v]);
-            }
+            });
             lookups.set(child.token, map);
         }
 
         // Main query. For each entity MList it materialises, the projector places an empty
         // array in the entity and registers it in `requests` under the parent key.
         const rows = await connector.executeQuery(this.sql, this.parameters);
-        const list = rows.map(r => this.projector(r, retriever, lookups, requests));
+        const list = rows.map((r, i) => projectRow(this.projector, r, i, this.sql, this.projectorSource, retriever, lookups, requests));
 
         // Lazy child projections after the main query, shallowest-first (Signum's
         // LazyChildProjections). Each is SKIPPED when no parent registered a request — so
@@ -104,13 +107,13 @@ export class TranslateResult {
             filledAny = true;
             const childRows = await connector.executeQuery(child.sql, child.parameters);
             const grouped = new Map<string, unknown[]>();
-            for (const r of childRows) {
-                const kv = child.kvProjector(r, retriever, lookups, requests) as { k: unknown; v: unknown };
+            childRows.forEach((r, i) => {
+                const kv = projectRow(child.kvProjector, r, i, child.sql, child.projectorSource, retriever, lookups, requests) as { k: unknown; v: unknown };
                 const keyStr = JSON.stringify(kv.k ?? null);
                 const bucket = grouped.get(keyStr);
                 if (bucket != null) bucket.push(kv.v);
                 else grouped.set(keyStr, [kv.v]);
-            }
+            });
             // Fill each registered array in place (identity is what the entity holds).
             for (const [keyStr, arr] of req) {
                 const vals = grouped.get(keyStr);
@@ -128,15 +131,28 @@ export class TranslateResult {
     }
 }
 
+// Project one row, wrapping any failure in a FieldReaderError enriched with the row index,
+// SQL command and projector source (Signum's TranslateResult per-row catch).
+function projectRow(project: CompiledProjector, row: any, rowIndex: number, sql: string, projectorSource: string,
+    retriever: Retriever, lookups: Lookups, requests: Requests): unknown {
+    try {
+        return project(row, retriever, lookups, requests);
+    } catch (error) {
+        throw new FieldReaderError(error).enrich({ rowIndex, sql, projector: projectorSource });
+    }
+}
+
 export function buildTranslateResult(projection: ProjectionExpression, isPostgres: boolean): TranslateResult {
     const build = (cp: ChildProjectionExpression): ChildPlan => {
         const { sql, parameters } = QueryFormatter.format(cp.projection.select, isPostgres);
-        return { token: cp.token, sql, parameters, kvProjector: compileProjector(cp.projection.projector) };
+        const { project, source } = compileProjector(cp.projection.projector);
+        return { token: cp.token, sql, parameters, kvProjector: project, projectorSource: source };
     };
     const eagerChildren = gatherChildProjections(projection.projector, false).map(build);
     const lazyChildren = gatherChildProjections(projection.projector, true).map(build);
     const { sql, parameters } = QueryFormatter.format(projection.select, isPostgres);
-    return new TranslateResult(sql, parameters, compileProjector(projection.projector),
+    const { project, source } = compileProjector(projection.projector);
+    return new TranslateResult(sql, parameters, project, source,
         projection.uniqueFunction, eagerChildren, lazyChildren);
 }
 
@@ -170,12 +186,13 @@ function ctorOf(type: Type): new () => any {
 // Generates a `(row, consts, retriever, lookups) => value` body and closes it over
 // the captured constants/ctors. Entity/embedded/lite nodes emit Retriever calls;
 // a ChildProjection reads its grouped slice out of `lookups`.
-function compileProjector(projector: Expression): CompiledProjector {
+function compileProjector(projector: Expression): { project: CompiledProjector; source: string } {
     const builder = new ProjectionBuilder();
     const body = "return " + builder.build(projector) + ";";
     const fn = new Function("row", "consts", "retriever", "lookups", "requests", body) as
         (row: any, consts: unknown[], retriever: Retriever, lookups: Lookups, requests: Requests) => unknown;
-    return (row: any, retriever: Retriever, lookups: Lookups, requests: Requests) => fn(row, builder.consts, retriever, lookups, requests);
+    const project = (row: any, retriever: Retriever, lookups: Lookups, requests: Requests) => fn(row, builder.consts, retriever, lookups, requests);
+    return { project, source: body };
 }
 
 // Normalises a raw SQL Server DATEPART(weekday) value to the ISO day-of-week (Mon=1..Sun=7)
@@ -227,6 +244,8 @@ class ProjectionBuilder extends DbExpressionVisitor {
         const read = `row[${JSON.stringify(e.name)}]`;
         // A temporal column is materialised into its declared Temporal type (the driver
         // hands back a string/Date) — mirrors Signum reading DateTime/DateOnly/TimeSpan.
+        // A malformed driver value the Temporal parser rejects surfaces as a FieldReaderError
+        // via the row loop (see projectRow).
         if (e.type instanceof TemporalType) {
             const fnIndex = this.pushConst(denormalizeTemporal);
             this.stack.push(`consts[${fnIndex}](${read}, ${JSON.stringify(e.type.kind)})`);

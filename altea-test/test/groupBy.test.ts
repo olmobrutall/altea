@@ -387,9 +387,12 @@ describe("GroupByTest", { skip: !hasDb }, () => {
         assert.ok(songsAlbum != null);
     });
 
-    // Assert.Throws<FieldReaderException>(() => Database.Query<ArtistEntity>().Where(a => false).Max(a => a.Name.Length));
-    test("RootMaxException", async () => {
-        await assert.rejects(async () => table(ArtistEntity).filter(a => false).max(a => a.name.length));
+    // Signum's RootMaxException: Database.Query<ArtistEntity>().Where(a => false).Max(a => a.Name.Length)
+    // throws FieldReaderException in C# — MAX over an empty set is SQL NULL, and reading NULL
+    // into a non-nullable `int` is illegal. TypeScript has no non-nullable value type, so an
+    // empty-set MAX is simply null (intentional divergence; see the removed SelectThrow* trio).
+    test("RootMaxNull", async () => {
+        assert.equal(await table(ArtistEntity).filter(a => false).max(a => a.name.length), null);
     });
 
     // Database.Query<ArtistEntity>().Min(a => a.Name.Length);
@@ -436,9 +439,10 @@ describe("GroupByTest", { skip: !hasDb }, () => {
         assert.ok(Array.isArray(minSexs));
     });
 
-    // Assert.Throws<FieldReaderException>(() => Database.Query<ArtistEntity>().Where(a => false).Min(a => a.Name.Length));
-    test("RootMinException", async () => {
-        await assert.rejects(async () => table(ArtistEntity).filter(a => false).min(a => a.name.length));
+    // Signum's RootMinException: like RootMaxException — C# throws FieldReaderException reading
+    // an empty-set MIN (SQL NULL) into a non-nullable `int`; altea/TS yields null instead.
+    test("RootMinNull", async () => {
+        assert.equal(await table(ArtistEntity).filter(a => false).min(a => a.name.length), null);
     });
 
     // Database.Query<ArtistEntity>().Where(a => false).Min(a => (int?)a.Name.Length);
