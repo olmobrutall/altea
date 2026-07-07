@@ -360,9 +360,12 @@ describe("GroupByTest", { skip: !hasDb }, () => {
         assert.ok(Array.isArray(songsAlbum));
     });
 
-    // Assert.Equal(0, Database.Query<ArtistEntity>().Where(a => false).Sum(a => a.Name.Length));
+    // Signum's RootSumZero: Where(false).Sum(a => a.Name.Length) is 0 in C# — Enumerable.Sum
+    // over an empty set of a non-nullable `int` returns 0. SQL SUM over no rows is NULL, and
+    // TypeScript has no non-nullable value type for altea to coalesce toward, so an empty SUM
+    // is null (same as RootSumNull below; the C# 0-vs-null distinction has no TS equivalent).
     test("RootSumZero", async () => {
-        assert.equal(await table(ArtistEntity).filter(a => false).sum(a => a.name.length), 0);
+        assert.equal(await table(ArtistEntity).filter(a => false).sum(a => a.name.length), null);
     });
 
     // Assert.Null(Database.Query<ArtistEntity>().Where(a => false).Sum(a => (int?)a.Name.Length));

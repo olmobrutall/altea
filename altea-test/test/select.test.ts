@@ -663,12 +663,15 @@ describe("SelectTest", { skip: !hasDb }, () => {
         assert.ok(true);
     });
 
-    // Assert.Throws<InvalidOperationException>(() => Select(l => l.Owner!.RetrieveAndRemember()).ToList()); Assert.Contains("not supported", …)
-    // TODO(api): RetrieveAndRemember() in a query (not supported) — and Lite dereference
+    // Signum's SelectRetrieve: Select(l => l.Owner!.RetrieveAndRemember()) throws
+    // InvalidOperationException("not supported"). retrieveAndRemember() loads the entity at
+    // runtime and has no SQL translation — a common mistake is calling it to dereference a
+    // lite inside a query instead of navigating with `.entity`. altea rejects it with a clear,
+    // educational message (see logic/index.ts).
     test("SelectRetrieve", async () => {
         await assert.rejects(
-            async () => table(LabelEntity).map(l => l.owner!.entity).toArray(),
-            /not supported/);
+            async () => table(LabelEntity).map(l => l.owner!.retrieveAndRemember()).toArray(),
+            /can't be used inside a query/);
     });
 
     // Database.Query<AlbumEntity>().WithHint("INDEX(IX_Album_LabelID)").Select(a => a.Label.Name).ToList();

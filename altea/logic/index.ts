@@ -202,6 +202,21 @@ Lite.prototype.retrieveAndRemember = async function (this: Lite<Entity>): Promis
     return entity;
 };
 
+// `retrieve`/`retrieveAndRemember` load the entity at RUNTIME (each issues its own query), so
+// they have no SQL translation and must not appear inside a quoted query — a common mistake
+// (using them to "dereference" a lite in a projection/filter instead of navigating `.entity`).
+// A `__resultType` resolver is what the query front-end (fromQuoted) consults to type a method
+// call; making it throw rejects the call at that exact point with a clear, educational message,
+// while leaving the normal runtime methods above untouched (their JS bodies never read this).
+const rejectRuntimeLiteMethodInQuery = (name: string) => (): never => {
+    throw new Error(
+        `Lite.${name}() loads the entity at runtime and has no SQL translation, so it can't be ` +
+        `used inside a query. To navigate the reference within the query use '.entity' (a join); ` +
+        `to load it eagerly, call ${name}() outside the query on the materialised result.`);
+};
+(Lite.prototype.retrieve as { __resultType?: () => never }).__resultType = rejectRuntimeLiteMethodInQuery("retrieve");
+(Lite.prototype.retrieveAndRemember as { __resultType?: () => never }).__resultType = rejectRuntimeLiteMethodInQuery("retrieveAndRemember");
+
 // Relational joins on a collection — the in-quoted-lambda analogue of Query's
 // innerJoin/leftJoin/rightJoin/fullJoin (they borrow Query's lambda/result-type
 // metadata by name in the expression layer). They are query-only; calling them on a

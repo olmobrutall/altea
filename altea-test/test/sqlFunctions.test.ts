@@ -369,6 +369,11 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
         const dbEtc = (await table(AlbumEntity).map(a => a.name.etc(10)).toArray()).orderBy(s => s);
         const memEtc = (await table(AlbumEntity).map(a => a.name).toArray()).map(l => l.etc(10)).orderBy(s => s);
         assert.deepEqual(dbEtc, memEtc);
+
+        // Etc is a NO-OP inside a predicate: `Etc(10)` truncates a value for display (a SELECT),
+        // but when it appears in a WHERE it must fall away so the filter still matches the FULL
+        // text — you can show a truncated cell yet search anywhere in the string. So the count of
+        // names whose Etc(10) ends in "s" equals the count of names that end in "s".
         assert.equal(
             await table(AlbumEntity).count(a => a.name.etc(10).endsWith("s")),
             await table(AlbumEntity).count(a => a.name.endsWith("s")));

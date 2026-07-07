@@ -301,6 +301,12 @@ class DbExpressionNominator extends DbExpressionVisitor {
             case "string.etc": {
                 if (args.length < 1 || args.length > 2)
                     return undefined;
+                // Signum's TryEtc: Etc truncates a value for display (a SELECT), but in a
+                // full-translate context (a WHERE / predicate / order-by) it is a NO-OP so the
+                // expression matches the FULL string — a column can show truncated text yet a
+                // filter over `Etc(n)` still finds a match anywhere in it.
+                if (this.fullTranslate)
+                    return source;
                 const len = (e: Expression) => this.sqlFunction(LiteralType.number, this.isPostgres ? "length" : "LEN", e);
                 const max = this.asSqlLiteral(args[0]);
                 const etc = args.length === 2 ? args[1] : new SqlConstantExpression("(…)", LiteralType.string);
