@@ -5,7 +5,7 @@
 // TypeScript has no such constraint (a NULL is just `null`), so in altea the wrapped error is
 // a genuine conversion failure — e.g. a temporal column whose driver value the Temporal
 // parser rejects.
-export class FieldReaderError extends Error {
+export class ProjectionError extends Error {
     rowIndex?: number;
     sql?: string;
     projector?: string;

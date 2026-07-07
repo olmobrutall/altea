@@ -16,7 +16,7 @@ import { ClassType, LiteralType, TemporalType, Type } from "../../entities/types
 import { Retriever } from "./Retriever";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 import { denormalizeTemporal } from "../normalizeScalar";
-import { FieldReaderError } from "./FieldReaderError";
+import { ProjectionError } from "./ProjectionError";
 
 // A lookup maps a serialised correlation key to the child values for that key (eager
 // children, prefilled before projection — Signum's Lookup).
@@ -138,7 +138,7 @@ function projectRow(project: CompiledProjector, row: any, rowIndex: number, sql:
     try {
         return project(row, retriever, lookups, requests);
     } catch (error) {
-        throw new FieldReaderError(error).enrich({ rowIndex, sql, projector: projectorSource });
+        throw new ProjectionError(error).enrich({ rowIndex, sql, projector: projectorSource });
     }
 }
 
