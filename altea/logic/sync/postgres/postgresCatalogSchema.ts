@@ -2,7 +2,7 @@ import "../../../entities/globals"; // Array.prototype.toMap
 import { DiffTable, DiffColumn, DiffForeignKey, DiffForeignKeyColumn, DiffIndex, DiffIndexColumn } from "../diffModels";
 import { view } from "../../table";
 import { PgNamespace } from "./postgresCatalog";
-import { generateSubscripts, arrayGet, PostgresFunctions } from "./postgresFunctions";
+import { generateSubscripts, PostgresFunctions } from "./postgresFunctions";
 
 // Port of Signum's Engine/Sync/Postgres/PostgresCatalogSchema.GetDatabaseDescription, now
 // faithful to Signum's single giant query: `from ns in PgNamespace where !ns.IsInternal()
@@ -62,8 +62,8 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
                     // / confkey[i] give the parent/referenced attnums, resolved to names via the
                     // attribute tables.
                     columns: generateSubscripts(fk.conkey, 1).map(i => DiffForeignKeyColumn.create({
-                        parent: x.t.attributes().single(c => c.attnum == arrayGet(fk.conkey, i)).$v.attname,
-                        referenced: fk.targetTable().$v.attributes().single(c => c.attnum == arrayGet(fk.confkey, i)).$v.attname,
+                        parent: x.t.attributes().single(c => c.attnum == fk.conkey[i]).$v.attname,
+                        referenced: fk.targetTable().$v.attributes().single(c => c.attnum == fk.confkey[i]).$v.attname,
                     })).toArray().$v,
                 }))
                 .toArray().$v,
@@ -78,7 +78,7 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
                     // subscript >= indnkeyatts is an INCLUDE column (Signum).
                     columns: generateSubscripts(ix.indkey, 1).map(i => DiffIndexColumn.create({
                         index: i,
-                        columnName: x.t.attributes().single(a => a.attnum == arrayGet(ix.indkey, i)).$v.attname,
+                        columnName: x.t.attributes().single(a => a.attnum == ix.indkey[i]).$v.attname,
                         included: i >= ix.indnkeyatts,
                     })).toArray().$v,
                 }))

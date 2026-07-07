@@ -10,6 +10,7 @@ test((a: number) => a - (-a) == 0);
 test((a: number) => (b: number) => a + b);
 test((a: number) => a + 1);
 test((a: number) => [a, a]);
+test((a: number[]) => a[0]);
 test((a: number) => ({ a, b: a }));
 test((a: number) => a > 0 ? a : -a);
 test((a: number) => a++);

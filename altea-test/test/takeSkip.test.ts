@@ -1,7 +1,8 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
-import "@altea/altea/entities/globals"; // String.contains (SQL-mappable)
+import { Query } from "@altea/altea/logic/query";
+import "@altea/altea/entities/globals"; // String.contains, Array.range (SQL-mappable + helpers)
 import { hasDb, start } from "./setup";
 import { ArtistEntity, AlbumEntity } from "../entities/music";
 
@@ -171,16 +172,20 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
     //     Assert.Equal(list, list2);
     // }
     // TODO(api): OrderAlsoByKeys — no equivalent in Query<T> (needed for stable pagination)
-    async function testPaginate<T>(query: { toArray(): Promise<T[]> }): Promise<void> {
-        const list = await (query as any).toArray() as T[];
+    async function testPaginate<T>(query: Query<T>): Promise<void> {
+        // Match Signum's TestPaginate: OrderAlsoByKeys appends the source entity's primary key as
+        // a tie-breaker, so a non-unique ORDER BY (e.g. by Sex) paginates in a stable total order
+        // — otherwise the full list and the pages disagree on the order of tied rows.
+        const q = query.orderAlsoByKeys();
+        const list = await q.toArray();
 
         const pageSize = 2;
 
-        const list2: T[] = [];
-        for (let page = 0; page < (Math.floor(list.length / pageSize) + 1); page++) {
-            const chunk = await (query as any).skip(pageSize * page).top(pageSize).toArray() as T[];
-            list2.push(...chunk);
-        }
+        // Signum: 0.To((list.Count / pageSize) + 1).SelectMany(page => q.Skip(...).Take(...).ToList())
+        const pages = await Promise.all(
+            Array.range(0, Math.floor(list.length / pageSize) + 1)
+                .map(page => q.skip(pageSize * page).top(pageSize).toArray()));
+        const list2 = pages.flatMap(chunk => chunk);
 
         assert.deepEqual(list, list2);
     }

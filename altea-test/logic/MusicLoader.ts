@@ -95,9 +95,11 @@ export namespace MusicLoader {
             year: toInt(1995),
             author: smashingPumpkins,
             songs: AlbumEntity_Songs.createMany([
-                { name: "Zero", duration: Temporal.Duration.from({ seconds: 123 }) },
+                // Signum's SongEmbedded.Duration setter derives Seconds; altea's plain create
+                // doesn't run a setter, so set seconds explicitly (= the duration's whole seconds).
+                { name: "Zero", duration: Temporal.Duration.from({ seconds: 123 }), seconds: toInt(123) },
                 { name: "1976" },
-                { name: "Tonight, Tonight", duration: Temporal.Duration.from({ seconds: 376 }) },
+                { name: "Tonight, Tonight", duration: Temporal.Duration.from({ seconds: 376 }), seconds: toInt(376) },
             ]),
             bonusTrack: SongEmbedded.create({ name: "Jellybelly", duration: null, seconds: null, index: toInt(0) }),
             label: virgin,
@@ -128,7 +130,7 @@ export namespace MusicLoader {
             name: "American Gothic",
             year: toInt(2008),
             author: smashingPumpkins,
-            songs: AlbumEntity_Songs.createMany([{ name: "The Rose March", duration: Temporal.Duration.from({ seconds: 276 }) }]),
+            songs: AlbumEntity_Songs.createMany([{ name: "The Rose March", duration: Temporal.Duration.from({ seconds: 276 }), seconds: toInt(276) }]),
             bonusTrack: null,
             label: wea,
         }).save();

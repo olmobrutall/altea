@@ -5,7 +5,7 @@ import {
     entity, partEntity, mixin, primaryKey,
     implementedBy, implementedByAll, backReference, rowOrder, valueField,
     include, stringLengthValidator, EntityData, EntityKind,
-    quoted, column, forceNullable,
+    quoted, column, forceNullable, tableName,
 } from "@altea/altea/entities/decorators";
 import { Temporal, int, toInt } from "@altea/altea/entities/basics";
 import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
@@ -384,6 +384,18 @@ export class SimplePassageEntity extends Entity {
     index: int = toInt(0); // C# value-type default (0); the loader relies on it
 }
 
+// Signum's MyTempView (JoinGroupTest's temporary-table view) — a view whose
+// [TableName("#MyTempView")] names a SQL Server temp table. A view class = @reflect (Signum's
+// `: IView`) + @tableName; its single FK column `artist` is a Lite<ArtistEntity> reference.
+// Unlike a catalog view it has NO @viewPrimaryKey (temp-table views project columns directly and
+// never dedup rows, so ViewBuilder synthesizes a representative PK from the first column). Used
+// by the UnsafeInsertMyView / LeftOuterMyView / Unsafe*View temp-table tests.
+@reflect
+@tableName("#MyTempView")
+export class MyTempView extends View {
+    artist!: Lite<ArtistEntity>;
+}
+
 // Port of Signum's `IntValue : IView` (Entities.cs) — the row type of the MinimumTableValued
 // table-valued function. A plain `@reflect` view: never built into a Table, its single field
 // just describes the function's output column so the binder can project `m.minValue`.
@@ -397,11 +409,12 @@ export class IntValue extends View {
 // Port of Signum's `MinimumExtensions` (Entities.cs) — the [SqlMethod]-marked UDFs used only
 // inside a query. `minimumTableValued` is an inline table-valued function returning `IntValue`
 // rows (Signum's `IQueryable<IntValue>`); a query-only marker whose body throws. @sqlMethod
-// names the SQL function and @returnType declares the row view, so the QueryBinder lowers the
-// call to a `dbo.MinimumTableValued(...)` source. The UDF itself is created by
+// names the SQL function (unqualified — the binder qualifies a table-valued UDF with the dialect
+// default schema, `dbo.`/`public.`) and @returnType declares the row view, so the QueryBinder
+// lowers the call to a `<schema>.MinimumTableValued(...)` source. The UDF itself is created by
 // MinimumExtensions.includeFunction (registered on the schema's SchemaAssets in MusicLogic).
 export class MinimumExtensions {
-    @sqlMethod("dbo.MinimumTableValued")
+    @sqlMethod("MinimumTableValued")
     @returnType(IntValue)
     static minimumTableValued(_a: number, _b: number): IntValue[] {
         throw new Error("MinimumExtensions.minimumTableValued is a query-only SQL function marker.");
@@ -414,15 +427,23 @@ export class MinimumExtensions {
     // Schema.Current.Settings.IsPostgres). MinimumScalar is out of scope (see task).
     static includeFunction(assets: SchemaAssets, isPostgres: boolean): void {
         if (isPostgres) {
+            // The body is written in the exact form `pg_get_functiondef` reports back (leading
+            // space before RETURNS/LANGUAGE, `$function$` dollar-quote, LANGUAGE before AS), so the
+            // synchronizer's clean()-comparison round-trips to an empty script. Postgres
+            // canonicalises a function definition on read regardless of the submitted formatting,
+            // so this is the only form that byte-matches (Signum's SchemaAssets workflow: register
+            // what the DB reports). Keep in sync if the target Postgres version changes its
+            // pg_get_functiondef formatting.
             assets.includeUserDefinedFunction("MinimumTableValued", `(p1 integer, p2 integer)
-RETURNS TABLE(min_value integer)
-AS $$
+ RETURNS TABLE(min_value integer)
+ LANGUAGE plpgsql
+AS $function$
 BEGIN
 RETURN QUERY
 SELECT Case When p1 < p2 Then p1
        Else COALESCE(p2, p1) End as MinValue;
             END
-$$ LANGUAGE plpgsql;`);
+$function$`);
         } else {
             assets.includeUserDefinedFunction("MinimumTableValued", `(@Param1 Integer, @Param2 Integer)
 RETURNS Table As

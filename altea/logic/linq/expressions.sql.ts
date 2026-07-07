@@ -344,8 +344,8 @@ export class SqlFunctionExpression extends DbExpression {
 }
 
 // `array[index]` — a Postgres array subscript (1-based). Port of the `conkey[i]` pattern in
-// Signum's PostgresCatalogSchema; altea reaches it through the `arrayGet(arr, i)` marker
-// (element access can't be quoted). Postgres-only.
+// Signum's PostgresCatalogSchema; altea reaches it through a quoted element access (ExIndex →
+// IndexExpression, lowered by the QueryBinder). Postgres-only.
 export class SqlArrayIndexExpression extends DbExpression {
     constructor(
         type: Type,

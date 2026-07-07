@@ -4,8 +4,7 @@ import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / … (SQL-mappable)
 import { hasDb, start, txTest } from "./setup";
 import { view } from "@altea/altea/logic/table";
-import { ArtistEntity, AlbumEntity } from "../entities/music";
-import { MyTempView } from "./_myTempView";
+import { ArtistEntity, AlbumEntity, MyTempView } from "../entities/music";
 import { Administrator } from "@altea/altea/logic/Administrator";
 
 // Port of Signum.Test/LinqProvider/JoinGroupTest.cs. C# → altea idiom:

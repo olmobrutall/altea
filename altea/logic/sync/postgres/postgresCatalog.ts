@@ -178,8 +178,8 @@ export class PgIndex extends View {
     indnkeyatts!: int;
     indisunique!: boolean;
     indisprimary!: boolean;
-    // The indexed columns' attnums (pg's int2vector, 0-based). generate_subscripts + arrayGet
-    // resolve each attnum to a column name in the query.
+    // The indexed columns' attnums (pg's int2vector, 0-based). generate_subscripts + `arr[i]`
+    // subscripting resolve each attnum to a column name in the query.
     indkey!: number[];
     // The partial-index predicate (a pg_node_tree); decompiled to SQL text via pg_get_expr.
     indpred!: string;

@@ -88,6 +88,15 @@ describe('quote-transformer', () => {
         );
     });
 
+    test('element access', () => {
+        assertSimpleTransform(
+            `test((a: number[]) => a[0]);`,
+            `test(Object.assign((a: number[]) => a[0], {
+    __quoted: () => ((a: ExParam) => ["=>", [a], ["[i]", a, ["c", 0]]])(["p", "a"])
+}));`
+        );
+    });
+
     test('object literal', () => {
         assertSimpleTransform(
             `test((a: number) => ({ a, b: a }));`,

@@ -636,6 +636,15 @@ export class Query<T> implements IQuery<T> {
         return new Query<T>(call, this.translator);
     }
 
+    // orderAlsoByKeys — append the source entities' primary keys as ORDER BY tie-breakers
+    // (Signum's OrderAlsoByKeys), so a query ordered by a non-unique key paginates in a stable,
+    // deterministic total order. The binder lowers it via the OrderAlsoByKeys flag.
+    @resultType(ot => ot)
+    orderAlsoByKeys(): Query<T> {
+        var call = new CallExpression(new PropertyExpression(this.expression, "orderAlsoByKeys"), [], this.type);
+        return new Query<T>(call, this.translator);
+    }
+
     // ofType / cast — narrow a polymorphic-reference query to one implementation
     // (Signum's OfType/Cast). The binder rewrites cast(T) to `map(x => x as T)` and
     // ofType(T) to `filter(x => x instanceof T).map(x => x as T)`.

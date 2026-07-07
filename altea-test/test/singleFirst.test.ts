@@ -22,7 +22,8 @@ import {
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
 describe("SingleFirstTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+    let isPostgres = false;
+    before(async () => { isPostgres = (await start()).isPostgres; });
 
     // var bandsCount = Database.Query<BandEntity>().Select(b => new { b.Name, Members = b.Members.Select(a => new { a.Name, a.Sex }).ToString(p => "{0} ({1})".FormatWith(p.Name, p.Sex), "\n") }).ToList();
     // var bands1 = Database.Query<BandEntity>().Select(b => new { b.Name, Member = b.Members.FirstOrDefault()!.Name }).ToList();
@@ -107,8 +108,12 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
         const rows = await query.toArray();
         assert.ok(Array.isArray(rows));
 
-        const outerApplies = (query.queryTextForDebug().match(/OUTER APPLY/g) ?? []).length;
-        assert.equal(outerApplies, 2, `expected two OUTER APPLYs (one per distinct predicate), got ${outerApplies}`);
+        // One correlated apply per distinct predicate (the two identical predicates dedupe). The
+        // OUTER-join-to-a-single-row apply is `OUTER APPLY` on SQL Server, `LEFT JOIN LATERAL` on
+        // Postgres.
+        const applyRe = isPostgres ? /LEFT JOIN LATERAL/g : /OUTER APPLY/g;
+        const applies = (query.queryTextForDebug().match(applyRe) ?? []).length;
+        assert.equal(applies, 2, `expected two correlated applies (one per distinct predicate), got ${applies}`);
     });
 
     // var neasted = (from b in Database.Query<BandEntity>() select b.Members.Select(a => a.Sex).FirstOrDefault()).ToList();

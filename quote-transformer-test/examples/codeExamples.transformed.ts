@@ -23,6 +23,9 @@ test(Object.assign((a: number) => a + 1, {
 test(Object.assign((a: number) => [a, a], {
     __quoted: () => ((a: ExParam) => ["=>", [a], ["[]", [a, a]]])(["p", "a"])
 }));
+test(Object.assign((a: number[]) => a[0], {
+    __quoted: () => ((a: ExParam) => ["=>", [a], ["[i]", a, ["c", 0]]])(["p", "a"])
+}));
 test(Object.assign((a: number) => ({ a, b: a }), {
     __quoted: () => ((a: ExParam) => ["=>", [a], ["{}", {
                 a: a,

@@ -171,7 +171,12 @@ export class QueryFormatter extends DbExpressionVisitor {
             // alias"): the UDF already declares its column names, so emit only `func(args) AS alias`
             // and let the projector reference `alias.ColName`.
             const columnAlias = this.isPostgres ? `(${this.quote(src.columnName)})` : "";
-            this.append(`${src.functionName}(${args}) AS ${this.quoteAlias(src.alias)}${columnAlias}`);
+            // Escape each dot-separated segment of the (possibly schema-qualified) function name,
+            // so a mixed-case UDF like public."MinimumTableValued" is quoted on Postgres (unquoted
+            // it would fold to lowercase and not resolve). Built-in lowercase names (generate_subscripts,
+            // pg_catalog.*) stay bare.
+            const funcName = src.functionName.split(".").map(p => sqlEscape(p, this.isPostgres)).join(".");
+            this.append(`${funcName}(${args}) AS ${this.quoteAlias(src.alias)}${columnAlias}`);
             return src;
         }
 
@@ -279,15 +284,23 @@ export class QueryFormatter extends DbExpressionVisitor {
             return e;
         }
         const placeholder = this.parameterFor(e.value);
-        // A non-integer numeric value stays a bound parameter (cache-friendly, safe) but
-        // is given an explicit type: Postgres otherwise infers an untyped parameter from
-        // its context — `intColumn + $1` coerces a `0.5` parameter to integer and rejects
-        // it ("invalid input syntax for type integer"). The CAST keeps the SQL text
-        // constant across values, so the plan still caches.
-        if (typeof e.value === "number" && !Number.isInteger(e.value))
+        // A numeric value stays a bound parameter (cache-friendly, safe) but on Postgres is
+        // given an explicit type: node-postgres sends parameters untyped, so Postgres infers
+        // them from context and defaults to `text` where there is none — e.g.
+        // `AVG(CASE WHEN … THEN $1 ELSE $2 END)` becomes `avg(text)` and fails, and
+        // `intColumn + $1` coerces a `0.5` parameter to integer. A CAST keeps the SQL text
+        // constant across values, so the plan still caches. SQL Server infers parameter types
+        // from context, so it needs none. Integers use the narrowest type that fits (so an
+        // int4 column's index stays usable); non-integers use float.
+        if (this.isPostgres && typeof e.value === "number") {
+            const castType = !Number.isInteger(e.value) ? "float"
+                : (e.value >= -2147483648 && e.value <= 2147483647) ? "integer" : "bigint";
+            this.append(`CAST(${placeholder} AS ${castType})`);
+        } else if (typeof e.value === "number" && !Number.isInteger(e.value)) {
             this.append(`CAST(${placeholder} AS float)`);
-        else
+        } else {
             this.append(placeholder);
+        }
         return e;
     }
 

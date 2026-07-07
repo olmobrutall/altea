@@ -1,5 +1,5 @@
 import {
-    Expression, CallExpression, PropertyExpression, ParameterExpression,
+    Expression, CallExpression, PropertyExpression, IndexExpression, ParameterExpression,
     LambdaExpression, ConstantExpression, CastExpression, BinaryExpression,
     ConditionalExpression, ObjectExpression, UnaryExpression, viewColumns,
 } from "../expressions";
@@ -786,6 +786,13 @@ export class QueryBinder extends ExpressionVisitor {
             : e;
     }
 
+    // `obj[index]` → a Postgres array subscript `(...)[i]` (arrays are 1-based). The old
+    // arrayGet(arr, i) marker lowered here too; now real element access flows through
+    // IndexExpression.
+    override visitIndex(node: IndexExpression): Expression {
+        return new SqlArrayIndexExpression(node.type, this.visit(node.object), this.visit(node.index));
+    }
+
     override visitCall(call: CallExpression): Expression {
         const func = call.func;
 
@@ -803,14 +810,11 @@ export class QueryBinder extends ExpressionVisitor {
         //   __sqlMethod (Signum's [SqlMethod]) → a table-/set-returning source when the result
         //     type is an array (generate_subscripts, dbo.MinimumTableValued), else a scalar SQL
         //     function (pg_get_expr, …). See bindSqlMethod.
-        //   __arrayIndex → an array subscript arr[i] (the arrayGet stand-in).
         // Each is a free function (a ConstantExpression callee), like table()/view().
         if (func instanceof ConstantExpression) {
-            const brand = func.value as { __sqlMethod?: string; __arrayIndex?: boolean } | null;
+            const brand = func.value as { __sqlMethod?: string } | null;
             if (brand?.__sqlMethod != null)
                 return this.bindSqlMethod(brand.__sqlMethod, call);
-            if (brand?.__arrayIndex === true)
-                return new SqlArrayIndexExpression(call.type, this.visit(call.args[0]), this.visit(call.args[1]));
         }
 
 
@@ -905,6 +909,8 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.bindUnique(source, "FirstOrDefault", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "reverse":
                     return this.bindReverse(source);
+                case "orderAlsoByKeys":
+                    return this.bindOrderAlsoByKeys(source);
                 case "last":
                     return this.bindLast(source, "First", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "lastOrNull":
@@ -1356,6 +1362,19 @@ export class QueryBinder extends ExpressionVisitor {
         const pc = this.projectColumns(projection.projector, alias);
         return new ProjectionExpression(
             new SelectExpression(alias, false, undefined, pc.columns, projection.select, undefined, [], [], SelectOptions.Reverse),
+            pc.projector, undefined, projection.type);
+    }
+
+    // Signum's `OrderAlsoByKeys()` (used by TestPaginate / paging): mark the select so
+    // OrderByRewriter appends the source entities' primary keys as ORDER BY tie-breakers,
+    // giving a deterministic total order (a bare `orderBy(nonUniqueKey)` otherwise paginates
+    // inconsistently — the DB returns tied rows in an unstable order). The flag is resolved by
+    // OrderByRewriter's gatheredKeys machinery; the binder just sets it.
+    private bindOrderAlsoByKeys(projection: ProjectionExpression): ProjectionExpression {
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const pc = this.projectColumns(projection.projector, alias);
+        return new ProjectionExpression(
+            new SelectExpression(alias, false, undefined, pc.columns, projection.select, undefined, [], [], SelectOptions.OrderAlsoByKeys),
             pc.projector, undefined, projection.type);
     }
 
@@ -2546,7 +2565,13 @@ export class QueryBinder extends ExpressionVisitor {
             if (cols.length !== 1)
                 throw new Error(`Table-valued function '${functionName}' view '${viewCtor.name}' must declare exactly one column (got ${cols.length}).`);
             const [c] = cols;
-            source = new SqlTableValuedFunctionExpression(tableAlias, functionName, c.column, boundArgs);
+            // A user-defined TVF in a FROM clause must be schema-qualified on SQL Server (an
+            // unqualified TVF name is rejected there); Postgres resolves it via search_path but a
+            // qualified name is equally valid. Qualify an unqualified @sqlMethod name with the
+            // dialect default schema (built-in set-returning functions carry their own qualified
+            // name and take the bare-column branch below, so they're unaffected).
+            const qualifiedName = functionName.includes(".") ? functionName : `${this.isPostgres ? "public" : "dbo"}.${functionName}`;
+            source = new SqlTableValuedFunctionExpression(tableAlias, qualifiedName, c.column, boundArgs);
             projector = new ObjectExpression({ [c.property]: new ColumnExpression(c.type, tableAlias, c.column) });
             elementType = new ObjectType({ [c.property]: c.type });
         } else {

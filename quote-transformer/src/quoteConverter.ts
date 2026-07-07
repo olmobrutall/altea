@@ -231,6 +231,28 @@ export function getQuoteConverter(tsInstance: typeof ts2) {
             ]);
         }
 
+        // `obj[index]` computed element access → ["[i]", obj, index]. Distinct from
+        // an array literal (ArrayLiteralExpression): an ElementAccessExpression has an
+        // `.expression` (the indexed object) and `.argumentExpression` (the key).
+        if (ts.isElementAccessExpression(node)) {
+            if (node.questionDotToken)
+                return new QuoteError(node, "Unable to quote optional element access obj?.[i]");
+
+            const expr = quoteExpression(node.expression, idents);
+            if (expr instanceof QuoteError)
+                return expr;
+
+            const index = quoteExpression(node.argumentExpression, idents);
+            if (index instanceof QuoteError)
+                return index;
+
+            return ts.factory.createArrayLiteralExpression([
+                ts.factory.createStringLiteral("[i]"),
+                expr,
+                index,
+            ]);
+        }
+
         if (ts.isCallExpression(node)) {
             const expr = quoteExpression(node.expression, idents);
             if (expr instanceof QuoteError)

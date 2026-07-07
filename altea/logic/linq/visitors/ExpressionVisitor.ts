@@ -1,6 +1,6 @@
 import {
     Expression, ConstantExpression, ParameterExpression, UnaryExpression,
-    BinaryExpression, ConditionalExpression, PropertyExpression, CallExpression,
+    BinaryExpression, ConditionalExpression, PropertyExpression, IndexExpression, CallExpression,
     LambdaExpression, ObjectExpression, NewExpression, CastExpression,
 } from "../expressions";
 
@@ -53,6 +53,10 @@ export class ExpressionVisitor {
 
     visitProperty(node: PropertyExpression): Expression {
         return node.updateProperty(this.visit(node.object));
+    }
+
+    visitIndex(node: IndexExpression): Expression {
+        return node.updateIndex(this.visit(node.object), this.visit(node.index));
     }
 
     visitCall(node: CallExpression): Expression {

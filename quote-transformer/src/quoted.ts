@@ -9,6 +9,7 @@ export type QuotedEx =
     ExBinary |
     ExConditional |
     ExProperty |
+    ExIndex |
     ExCall |
     ExParam |
     ExLambda |
@@ -23,6 +24,9 @@ export type ExUnary = [OpUnary, QuotedEx];
 export type ExBinary = [OpBinary, QuotedEx, QuotedEx];
 export type ExConditional = ["?:", QuotedEx, QuotedEx, QuotedEx];
 export type ExProperty = ["." | "?.", QuotedEx, string];
+// Computed element access `obj[index]` (e.g. a Postgres array subscript `arr[i]`).
+// The named-member counterpart is ExProperty; here the key is an arbitrary expression.
+export type ExIndex = ["[i]", QuotedEx, QuotedEx];
 export type ExCall = ["()" | "?.()", QuotedEx, QuotedEx[]];
 export type ExParam = ["p", string];
 export type ExLambda = ["=>", ExParam[], QuotedEx]

@@ -1,4 +1,4 @@
-import { LiteralType, ArrayType, Type } from "../../../entities/types";
+import { LiteralType, ArrayType } from "../../../entities/types";
 import { asStaticFunction, Query, sqlMethod, resultType } from "../../query";
 
 // Port of Signum's Engine/Sync/Postgres/PostgresFunctions.cs — the "mini LINQ provider" of
@@ -14,14 +14,6 @@ import { asStaticFunction, Query, sqlMethod, resultType } from "../../query";
 // CROSS JOIN LATERAL over the SRF, exactly like Signum's `generate_subscripts(...).Select(...)`.
 export function generateSubscripts(_array: unknown[], _dim: number): Query<number> {
     throw new Error("generateSubscripts is a query-only Postgres function marker.");
-}
-
-// Array element access `arr[index]` (Postgres arrays are 1-based). Signum writes `conkey[i]`,
-// but the quote-transformer has no computed-element-access node (ExProperty is a named `.prop`,
-// ExArray is an array literal), so a subscript can't be quoted — this call stands in and lowers
-// to a SqlArrayIndexExpression.
-export function arrayGet<T>(_array: T[], _index: number): T {
-    throw new Error("arrayGet is a query-only Postgres function marker.");
 }
 
 // Signum's `PostgresFunctions` static class: the scalar SQL functions the catalog reader /
@@ -62,17 +54,14 @@ export class PostgresFunctions {
 }
 
 // ---- brands the QueryBinder keys off (see visitCall) ----
-// The scalar functions above are branded declaratively by @sqlMethod. The two free-function
-// markers below carry their own brands: generate_subscripts is a set-returning source
-// (__sqlMethod + an array result type), arrayGet is an array subscript.
+// The scalar functions above are branded declaratively by @sqlMethod. The free-function marker
+// below carries its own brand: generate_subscripts is a set-returning source (__sqlMethod + an
+// array result type). Element access `arr[i]` is quoted directly (ExIndex → IndexExpression),
+// so it needs no marker.
 
 interface Srf { __sqlMethod?: string }
-interface ArrayIndexFn { __arrayIndex?: boolean }
 
 (generateSubscripts as unknown as Srf).__sqlMethod = "generate_subscripts";
-(arrayGet as unknown as ArrayIndexFn).__arrayIndex = true;
 
 // fromQuoted types each free-function call via __resultType (the AST never carries a Promise).
 asStaticFunction(generateSubscripts).__resultType = () => new ArrayType(LiteralType.number);
-asStaticFunction(arrayGet).__resultType = (_thisType: Type, arrType: Type) =>
-    arrType instanceof ArrayType && arrType.elementType != null ? arrType.elementType : LiteralType.number;

@@ -19,16 +19,16 @@ import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 // never built.
 
 // A value that must NOT be frozen to a constant: a query source (table/view), a set-returning /
-// scalar SQL marker (@sqlMethod), an array-index marker, or a Query — all must stay translatable
-// to SQL rather than run at query-build time. (Scalar functions exposed as static-class methods,
-// e.g. PostgresFunctions, are reached via the class receiver, not by branding the value here.)
+// scalar SQL marker (@sqlMethod), or a Query — all must stay translatable to SQL rather than run
+// at query-build time. (Scalar functions exposed as static-class methods, e.g. PostgresFunctions,
+// are reached via the class receiver, not by branding the value here.)
 function isQueryMarker(v: unknown): boolean {
     if (v instanceof Query)
         return true;
     if (typeof v !== "function")
         return false;
-    const f = v as { __isQuerySource?: unknown; __sqlMethod?: unknown; __arrayIndex?: unknown };
-    return f.__isQuerySource === true || f.__sqlMethod != null || f.__arrayIndex === true;
+    const f = v as { __isQuerySource?: unknown; __sqlMethod?: unknown };
+    return f.__isQuerySource === true || f.__sqlMethod != null;
 }
 
 function evalUnaryOp(op: OpUnary, a: any): unknown {
@@ -519,6 +519,16 @@ export abstract class Expression {
                 case ".":
                 case "?.":
                     return foldOrProperty(fromQuoted(q[1]), q[2], q[0] === "?.");
+                case "[i]": {
+                    // Computed element access `obj[index]`. Its type is the object's array
+                    // element type (matching the old arrayGet result resolver); a non-array
+                    // object falls back to number so the offline binder stays happy.
+                    const obj = fromQuoted(q[1]);
+                    const index = fromQuoted(q[2]);
+                    const elementType = obj.type instanceof ArrayType && obj.type.elementType != null
+                        ? obj.type.elementType : LiteralType.number;
+                    return new IndexExpression(obj, index, elementType);
+                }
                 case "()":
                 case "?.()":
                     {
@@ -927,6 +937,33 @@ export class PropertyExpression extends Expression {
         }
 
         return new PropertyExpression(object, this.propertyName, this.isOptionalChaining);
+    }
+}
+
+// Computed element access `object[index]` (the front-end counterpart of ExProperty's named
+// `.member`). The type is the object's array element type. The QueryBinder lowers it to a
+// SqlArrayIndexExpression (`(...)[i]`, Postgres 1-based); it exists only up to binding.
+export class IndexExpression extends Expression {
+    constructor(
+        public readonly object: Expression,
+        public readonly index: Expression,
+        type: Type,
+    ) {
+        super("[i]", type);
+    }
+
+    toString(): string {
+        return `${this.object.toString()}[${this.index.toString()}]`;
+    }
+
+    accept(visitor: ExpressionVisitor): Expression {
+        return visitor.visitIndex(this);
+    }
+
+    updateIndex(object: Expression, index: Expression): IndexExpression {
+        if (this.object === object && this.index === index)
+            return this;
+        return new IndexExpression(object, index, this.type);
     }
 }
 

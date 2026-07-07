@@ -5,10 +5,9 @@ import "@altea/altea/entities/globals"; // String methods (startsWith etc.), SQL
 import { hasDb, start, txTest } from "./setup";
 import {
     ArtistEntity, AlbumEntity, LabelEntity, CountryEntity,
-    AlbumEntity_Songs,
+    AlbumEntity_Songs, MyTempView,
 } from "../entities/music";
 import { Administrator } from "@altea/altea/logic/Administrator";
-import { MyTempView } from "./_myTempView";
 
 // Port of Signum.Test/LinqProvider/UnsafeInsertTest.cs (set-based bulk INSERT,
 // i.e. INSERT ... SELECT — materialise new rows directly from a query).

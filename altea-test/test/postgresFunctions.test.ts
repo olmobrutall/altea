@@ -7,10 +7,10 @@ import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { tableName, viewPrimaryKey } from "@altea/altea/entities/decorators";
 import { int } from "@altea/altea/entities/basics";
-import { generateSubscripts, arrayGet, PostgresFunctions } from "@altea/altea/logic/sync/postgres/postgresFunctions";
+import { generateSubscripts, PostgresFunctions } from "@altea/altea/logic/sync/postgres/postgresFunctions";
 
 // The PostgresFunctions "mini LINQ provider": generate_subscripts (a set-returning function
-// source), array subscripting (arrayGet → arr[i]), and the scalar pg_get_expr /
+// source), array subscripting (arr[i]), and the scalar pg_get_expr /
 // _pg_char_max_length. These let the Postgres catalog reader build DiffTable in the query (the
 // way SQL Server does). Bound + formatted offline — we only check the emitted SQL shape.
 
@@ -47,8 +47,8 @@ describe("PostgresFunctions", () => {
         assert.match(sql, /CROSS JOIN LATERAL/i, "correlates as a lateral source");
     });
 
-    test("arrayGet lowers to an array subscript arr[i]", () => {
-        const sql = sqlPg(view(PgConstraint).flatMap(fk => generateSubscripts(fk.conkey, 1).map(i => arrayGet(fk.conkey, i))));
+    test("array subscript arr[i]", () => {
+        const sql = sqlPg(view(PgConstraint).flatMap(fk => generateSubscripts(fk.conkey, 1).map(i => fk.conkey[i])));
         assert.match(sql, /\)\[/, "emits an array subscript (...)[...]");
         assert.match(sql, /conkey/, "indexes the conkey column");
     });
