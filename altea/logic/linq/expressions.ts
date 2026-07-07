@@ -708,6 +708,11 @@ export class ConstantExpression extends Expression {
             // than the bare Array.prototype.
             if (Array.isArray(value))
                 return new ArrayType(value.length ? ConstantExpression.calculateType(value[0]) : LiteralType.null);
+            // A captured Lite must type as LiteType(entity), not ClassType(LiteImp) — else
+            // `entityTypeOf`/`.entity` can't unwrap it (e.g. `female.toLite().inDB(a2 => a2.friends)`
+            // constant-folds `toLite()` to a Lite value; without this its members won't resolve).
+            if (value instanceof Lite)
+                return new LiteType(new ClassType(value.entityType as unknown as Function));
             if (value.constructor == Object)
                 return new ObjectType({});
 
