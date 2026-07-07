@@ -1,9 +1,10 @@
 
 import { ExLambda, Quoted } from "quote-transformer/quoted";
-import { Entity } from "../entities/entity";
+import { EmbeddedEntity, Entity } from "../entities/entity";
 import { IQuery, IOrderedQuery } from "../entities/iquery";
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, MethodExpander, PropertyExpression } from "./linq/expressions";
 import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType } from "../entities/types";
+import { toInt, toLong } from "../entities/basics";
 
 // The query-expression metadata model. `@quoted` / `withQuoted` (which entities use to
 // mark expression members) live in entities/decorators so the entity model doesn't
@@ -126,6 +127,13 @@ export const EntityContext = {
 (EntityContext as { __isEntityContext?: boolean }).__isEntityContext = true;
 // entityId returns a primary-key (number); the binder resolves the actual id expression.
 asStaticFunction(EntityContext.entityId).__resultType = () => SimpleType.number;
+
+// toInt/toLong (entities/basics) are compile-time int/long BRANDS over a number — used in query
+// values (e.g. `year: toInt(a.year * 2)`) to satisfy a branded column's type. In a query the
+// brand is meaningless, so the binder lowers the call to its argument (identity); here we just
+// give it a result type so fromQuoted can type the call node.
+asStaticFunction(toInt).__resultType = () => SimpleType.number;
+asStaticFunction(toLong).__resultType = () => SimpleType.number;
 
 export class Query<T> implements IQuery<T> {
 
@@ -489,7 +497,7 @@ export class Query<T> implements IQuery<T> {
         key: (keyType as FunctionType).returnType,
         elements: elemType ? new ArrayType(elemType) : ot
     })))
-    groupBy(keySelector: Quoted<(element: T) => unknown>, elementSelector?: Quoted<(element: T) => unknown>): Query<{ key: unknown, elements: unknown[] }> {
+    groupBy(keySelector: Quoted<(element: T) => unknown>, elementSelector?: Quoted<(element: T) => unknown>): Query<{ key: any, elements: any[] }> {
         var lambdaKey = Expression.fromQuotedLambda(keySelector, [this.elementType]);
         var lambdaElement = elementSelector == null ? null : Expression.fromQuotedLambda(elementSelector, [this.elementType]);
 
@@ -586,7 +594,7 @@ export class Query<T> implements IQuery<T> {
     // widen to `number`).
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
     @resultType(() => SimpleType.number)
-    executeUpdate(setter: Quoted<(element: T) => UpdateValues<T>>): Promise<number> {
+    executeUpdate(setter: Quoted<(element: T) => PartialRec<T>>): Promise<number> {
         var lambda = Expression.fromQuotedLambda(setter, [this.elementType]);
         var call = new CallExpression(new PropertyExpression(this.expression, "executeUpdate"), [lambda], SimpleType.number);
         return this.translator.executeCommand(call);
@@ -602,7 +610,7 @@ export class Query<T> implements IQuery<T> {
     // table(S)[.filter(…)].executeInsert(TargetEntity, s => ({ …fields })) → inserted rows.
     @lambdaTypeForParam(1, ot => [(ot as ArrayType).elementType])
     @resultType(() => SimpleType.number)
-    executeInsert<E>(target: new () => E, selector: Quoted<(element: T) => UpdateValues<E>>): Promise<number> {
+    executeInsert<E>(target: new () => E, selector: Quoted<(element: T) => PartialRec<E>>): Promise<number> {
         var lambda = Expression.fromQuotedLambda(selector, [this.elementType]);
         var call = new CallExpression(
             new PropertyExpression(this.expression, "executeInsert"),
@@ -685,7 +693,7 @@ export class Query<T> implements IQuery<T> {
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
     @lambdaTypeForParam(1, ot => [(ot as ArrayType).elementType])
     @resultType(() => SimpleType.number)
-    executeUpdatePart<P>(partSelector: Quoted<(element: T) => P>, setter: Quoted<(root: T) => UpdateValues<P>>): Promise<number> {
+    executeUpdatePart<P>(partSelector: Quoted<(element: T) => P>, setter: Quoted<(root: T) => PartialRec<P>>): Promise<number> {
         var partLambda = Expression.fromQuotedLambda(partSelector, [this.elementType]);
         var setterLambda = Expression.fromQuotedLambda(setter, [this.elementType]);
         var call = new CallExpression(new PropertyExpression(this.expression, "executeUpdatePart"), [partLambda, setterLambda], SimpleType.number);
@@ -716,7 +724,6 @@ export class Query<T> implements IQuery<T> {
 // The partial set of columns an executeUpdate writes: `{ field: value, … }`. Keys are
 // validated against the entity (typos caught); values are loose because `int`/`PrimaryKey`
 // are branded numbers and update value expressions (`a.year * 2`) widen to `number`.
-export type UpdateValues<T> = { [K in keyof T]?: unknown };
 
 export class OrderedQuery<T> extends Query<T> implements IOrderedQuery<T> {
 
@@ -760,3 +767,10 @@ function rejectReduceInQuery(): never {
         __lambdaType: [rejectReduceInQuery as unknown as LambdaTypeResolver],
         __resultType: rejectReduceInQuery as unknown as ResultTypeResolver,
     });
+
+type PartialRec<T> = {
+    [P in keyof T]?:
+    T[P] extends EmbeddedEntity ? PartialRec<T[P]> :
+    T[P] extends EmbeddedEntity | null ? PartialRec<T[P]> | null :
+    T[P];
+};

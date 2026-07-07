@@ -5,7 +5,7 @@ import {
     entity, partEntity, mixin, primaryKey,
     implementedBy, implementedByAll, backReference, rowOrder, valueField,
     include, stringLengthValidator, EntityData, EntityKind,
-    quoted, column, forceNullable, tableName,
+    quoted, column, forceNullable, tableName, viewPrimaryKey,
 } from "@altea/altea/entities/decorators";
 import { Temporal, int, toInt } from "@altea/altea/entities/basics";
 import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
@@ -389,11 +389,21 @@ export class SimplePassageEntity extends Entity {
 // `: IView`) + @tableName; its single FK column `artist` is a Lite<ArtistEntity> reference.
 // Unlike a catalog view it has NO @viewPrimaryKey (temp-table views project columns directly and
 // never dedup rows, so ViewBuilder synthesizes a representative PK from the first column). Used
-// by the UnsafeInsertMyView / LeftOuterMyView / Unsafe*View temp-table tests.
+// by the UnsafeInsertMyView (unsafeInsert) and LeftOuterMyView (joinGroup) tests.
 @reflect
 @tableName("#MyTempView")
 export class MyTempView extends View {
     artist!: Lite<ArtistEntity>;
+}
+
+// Signum's UnsafeUpdateTest.MyTempView — a SEPARATE `#MyView` class (distinct from the JoinGroup
+// one above), renamed here to avoid the collision. `myId` is the @viewPrimaryKey (the correlation
+// key UnsafeUpdateView needs); `used` is a plain value column. Used by UnsafeUpdateMyView.
+@reflect
+@tableName("#MyTempView2")
+export class MyTempView2 extends View {
+    @viewPrimaryKey myId: int;
+    used: boolean;
 }
 
 // Port of Signum's `IntValue : IView` (Entities.cs) — the row type of the MinimumTableValued

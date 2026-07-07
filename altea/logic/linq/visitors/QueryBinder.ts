@@ -53,6 +53,7 @@ import type { FieldInfo } from "../../../entities/reflection";
 import { resolveType, resolveEnum } from "../../../entities/registration";
 import { Entity, View } from "../../../entities/entity";
 import { TypeEntity } from "../../../entities/typeEntity";
+import { toInt, toLong } from "../../../entities/basics";
 import { Lite } from "../../../entities/lite";
 import { niceName } from "../../../entities/utils/localization";
 import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, Type } from "../../../entities/types";
@@ -711,7 +712,7 @@ export class QueryBinder extends ExpressionVisitor {
                 throw new Error("Bulk-DML setter must be an object literal (or the identity parameter)");
 
             for (const [name, value] of entries) {
-                const colExpr = this.bindMember(target, name, false);
+                const colExpr = this.setterColumn(target, name);
                 assignments.push(...this.adaptAssign(colExpr, value));
             }
         } finally {
@@ -721,7 +722,26 @@ export class QueryBinder extends ExpressionVisitor {
         return assignments;
     }
 
+    // Resolves a bulk-DML setter key (`{ field: value }`) to its target column expression. A key
+    // is either a direct entity field or a MIXIN field (Signum's `a.Mixin<X>().Field` — altea
+    // flattens a mixin's columns into the owner table, so the mixin field is a valid top-level
+    // setter key, e.g. `executeUpdate(a => ({ corrupt: true } as Partial<CorruptMixin & T>))`).
+    private setterColumn(target: EntityExpression, name: string): Expression {
+        if (target.bindings?.some(b => b.fieldInfo.name === name))
+            return this.bindMember(target, name, false);
+        for (const mixin of target.mixins ?? [])
+            if (mixin.bindings.some(b => b.fieldInfo.name === name))
+                return this.bindMember(mixin, name, false);
+        // Not a direct or mixin field — bindMember throws a clear "field not found" error.
+        return this.bindMember(target, name, false);
+    }
+
     private adaptAssign(colExpr: Expression, value: Expression): ColumnAssignment[] {
+        // A partial-embedded setter value (a nested `{ subField: expr, … }` object literal) is
+        // paired sub-field by sub-field in `assign`; each leaf is adapted there, so the object as
+        // a whole must NOT be run through AssignAdapterExpander (which reshapes leaf values only).
+        if (value instanceof ObjectExpression)
+            return this.assign(colExpr, value);
         return this.assign(colExpr, AssignAdapterExpander.adapt(value, colExpr));
     }
 
@@ -747,6 +767,16 @@ export class QueryBinder extends ExpressionVisitor {
                 if (v == null) throw new Error("Missing embedded binding for " + b.fieldInfo.name);
                 result.push(...this.adaptAssign(b.binding, v.binding));
             }
+            return result;
+        }
+
+        // A PARTIAL embedded update: a nested `{ subField: expr, … }` object literal sets only the
+        // named sub-fields (Signum's `.Set(a => a.BonusTrack.Name, …)`). HasValue is left untouched
+        // (setting a sub-column of a currently-null embedded leaves it null, as in Signum).
+        if (col instanceof EmbeddedEntityExpression && value instanceof ObjectExpression) {
+            const result: ColumnAssignment[] = [];
+            for (const [subName, subVal] of Object.entries(value.properties))
+                result.push(...this.adaptAssign(this.bindMember(col, subName, false), subVal));
             return result;
         }
 
@@ -816,6 +846,10 @@ export class QueryBinder extends ExpressionVisitor {
             const brand = func.value as { __sqlMethod?: string } | null;
             if (brand?.__sqlMethod != null)
                 return this.bindSqlMethod(brand.__sqlMethod, call);
+            // toInt/toLong (entities/basics) are compile-time int/long brands over a number;
+            // in a query the brand is meaningless, so lower the call to its argument (identity).
+            if (func.value === toInt || func.value === toLong)
+                return this.visit(call.args[0]);
         }
 
 
