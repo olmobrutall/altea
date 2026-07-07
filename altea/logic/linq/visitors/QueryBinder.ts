@@ -1045,11 +1045,15 @@ export class QueryBinder extends ExpressionVisitor {
         const visitedArgs = args.map(a => this.visit(a));
 
         if (methodName === "contains" && source instanceof ConstantExpression && Array.isArray(source.value) && visitedArgs.length === 1) {
-            // A captured collection of entities/lites → id-comparison membership
-            // (Signum's EntityIn); a collection of values → `item IN (…)`.
-            return isReferenceish(visitedArgs[0])
-                ? SmartEqualizer.entityIn(visitedArgs[0], source.value)
-                : InExpression.fromValues(visitedArgs[0], source.value);
+            // A captured collection of types (`types.contains(x.constructor)`) → an OR of
+            // type-equalities (Signum's TypeIn) — else the Type* node flattens to garbage and
+            // the ctor is bound as a value. A captured collection of entities/lites →
+            // id-comparison membership (Signum's EntityIn); a collection of values → `item IN (…)`.
+            return isTypeExpression(visitedArgs[0])
+                ? SmartEqualizer.typeIn(visitedArgs[0], source.value)
+                : isReferenceish(visitedArgs[0])
+                    ? SmartEqualizer.entityIn(visitedArgs[0], source.value)
+                    : InExpression.fromValues(visitedArgs[0], source.value);
         }
 
         // Any other instance method (string functions: contains/startsWith/endsWith/

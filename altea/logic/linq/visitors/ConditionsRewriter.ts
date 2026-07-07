@@ -7,6 +7,8 @@ import {
     OrderExpression, CaseExpression, When, AggregateExpression, SqlFunctionExpression,
     SqlConstantExpression, LikeExpression, InExpression, ExistsExpression,
     IsNullExpression, IsNotNullExpression, SourceExpression,
+    DeleteExpression, UpdateExpression, InsertSelectExpression, CommandAggregateExpression,
+    ColumnAssignment, SourceWithAliasExpression,
 } from "../expressions.sql";
 import { LiteralType } from "../../../entities/types";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
@@ -248,5 +250,54 @@ export class ConditionsRewriter extends DbExpressionVisitor {
         if (source !== proj.select || projector !== proj.projector)
             return new ProjectionExpression(source, projector, proj.uniqueFunction, proj.type);
         return proj;
+    }
+
+    // A command runs entirely in SQL. Signum sets this once in VisitCommandAggregate
+    // (InSql()) for the whole aggregate; altea's command pipeline rewrites each sub-command
+    // on its own, so every command entry (delete/update/insert) also establishes the in-SQL
+    // scope. Without it a command's source SELECT is visited with inSql=false and a bare
+    // boolean column in its WHERE (`WHERE A1.Dead`) is left unconverted — SQL Server error
+    // 4145 (non-boolean type where a condition is expected); wrapping yields `WHERE (A1.Dead = 1)`.
+    override visitCommandAggregate(cea: CommandAggregateExpression): Expression {
+        return this.withInSql(() => super.visitCommandAggregate(cea));
+    }
+
+    // Signum has no VisitDelete — its VisitCommandAggregate InSql() + the base visitor
+    // suffice. Here the per-command entry sets inSql so the source SELECT's WHERE gets
+    // condition-normalised (the DELETE's own where is already a correlation comparison).
+    override visitDelete(del: DeleteExpression): Expression {
+        return this.withInSql(() => super.visitDelete(del));
+    }
+
+    // Signum's VisitUpdate: the SET values are SQL VALUES (a boolean condition assigned to a
+    // bit column becomes `CASE … END`, a bare bool stays a bit). Wrapped in inSql for altea's
+    // per-command pipeline; the WHERE is the target↔source correlation (already a condition).
+    override visitUpdate(update: UpdateExpression): Expression {
+        return this.withInSql(() => {
+            const source = this.visitSource(update.source) as SourceWithAliasExpression;
+            const where = this.visit(update.where);
+            const assignments = this.visitArray(update.assignments, a => this.visitAssignmentValue(a));
+            if (source !== update.source || where !== update.where || assignments !== update.assignments)
+                return new UpdateExpression(update.table, source, where, assignments, update.returnRowCount);
+            return update;
+        });
+    }
+
+    // Signum's VisitInsertSelect: like VisitUpdate, sans WHERE.
+    override visitInsertSelect(insert: InsertSelectExpression): Expression {
+        return this.withInSql(() => {
+            const source = this.visitSource(insert.source) as SourceWithAliasExpression;
+            const assignments = this.visitArray(insert.assignments, a => this.visitAssignmentValue(a));
+            if (source !== insert.source || assignments !== insert.assignments)
+                return new InsertSelectExpression(insert.table, source, assignments, insert.returnRowCount);
+            return insert;
+        });
+    }
+
+    // A column-assignment value is a SQL value (Signum inlines MakeSqlValue in VisitUpdate/
+    // VisitInsertSelect). No-op for a non-boolean value; a bit/condition is normalised.
+    private visitAssignmentValue(c: ColumnAssignment): ColumnAssignment {
+        const exp = this.makeSqlValue(this.visit(c.expression))!;
+        return exp !== c.expression ? new ColumnAssignment(c.column, exp) : c;
     }
 }

@@ -74,6 +74,14 @@ export class SmartEqualizer {
         return this.orAll(values.map(v => this.polymorphicEqual(item, new ConstantExpression(v))));
     }
 
+    // `capturedTypes.contains(x.GetType())` — Signum's TypeIn. Membership of a runtime-type
+    // expression in a captured collection of types (ctors) is an OR of typeEqual against each
+    // captured ctor — which for an @implementedBy reduces per type to its implementation FK
+    // `IS NOT NULL`. Empty → False.
+    static typeIn(item: Expression, values: readonly unknown[]): Expression {
+        return this.orAll(values.map(v => this.typeEqual(item, new ConstantExpression(v))));
+    }
+
     // `x instanceof Ctor` (C#'s `x is Ctor`). True when the reference points at a
     // row of that concrete type: for a typed reference, the static type must match;
     // for IB, the matching implementation column must be non-null; for IBA, the type
