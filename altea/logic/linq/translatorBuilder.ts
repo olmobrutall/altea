@@ -12,7 +12,7 @@ import {
 } from "./expressions.sql";
 import { QueryFormatter } from "./queryFormatter";
 import { Connector } from "../connection/connector";
-import { ClassType, TemporalType, Type } from "../../entities/types";
+import { ClassType, LiteralType, TemporalType, Type } from "../../entities/types";
 import { Retriever } from "./Retriever";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 import { denormalizeTemporal } from "../normalizeScalar";
@@ -230,6 +230,13 @@ class ProjectionBuilder extends DbExpressionVisitor {
         if (e.type instanceof TemporalType) {
             const fnIndex = this.pushConst(denormalizeTemporal);
             this.stack.push(`consts[${fnIndex}](${read}, ${JSON.stringify(e.type.kind)})`);
+        } else if (e.type === LiteralType.boolean) {
+            // A boolean aggregate/scalar comes back as an int on SQL Server (the CASE …
+            // THEN 1 ELSE 0 an Any/All/`==` lowers to), so coerce a non-null read to a JS
+            // boolean — mirrors Signum reading a bit column into a CLR bool. Postgres
+            // already yields true/false, for which `!!` is a no-op; a nullable column's
+            // null is preserved.
+            this.stack.push(`(${read} == null ? null : !!${read})`);
         } else {
             this.stack.push(read);
         }
