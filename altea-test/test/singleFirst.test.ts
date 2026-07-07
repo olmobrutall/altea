@@ -91,6 +91,26 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
         assert.ok(typeof text == "string");
     });
 
+    // Two DISTINCT firstOrNull predicates, each read for several members (the
+    // goodFriend/worstEnemy shape): the shared single-row subquery must dedup PER predicate
+    // (one APPLY, not one per member access), while the two DISTINCT predicates stay
+    // separate. So the UniqueRequest dedup must produce EXACTLY two OUTER APPLYs — not one
+    // (over-dedup: it failed to tell `> 100` from `< 100`) nor four (no dedup). Guards the
+    // canonical-signature key against similar-but-different predicates.
+    test("SelectTwoDistinctFirstOrDefault", async () => {
+        const query = table(AlbumEntity).map(a => ({
+            longName: a.songs.firstOrNull(s => s.seconds! > 100)!.name,
+            longIndex: a.songs.firstOrNull(s => s.seconds! > 100)!.index,
+            shortName: a.songs.firstOrNull(s => s.seconds! < 100)!.name,
+            shortIndex: a.songs.firstOrNull(s => s.seconds! < 100)!.index,
+        }));
+        const rows = await query.toArray();
+        assert.ok(Array.isArray(rows));
+
+        const outerApplies = (query.queryTextForDebug().match(/OUTER APPLY/g) ?? []).length;
+        assert.equal(outerApplies, 2, `expected two OUTER APPLYs (one per distinct predicate), got ${outerApplies}`);
+    });
+
     // var neasted = (from b in Database.Query<BandEntity>() select b.Members.Select(a => a.Sex).FirstOrDefault()).ToList();
     test("SelecteNestedFirstOrDefault", async () => {
         // TODO(api): collection-level projection + terminal (members.map(...).firstOrNull()) as the projected value

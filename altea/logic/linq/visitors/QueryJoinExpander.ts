@@ -12,10 +12,11 @@ import { AliasGenerator } from "../AliasGenerator";
 // (see `QueryBinder.completed`); this pass walks the bound tree and, after
 // visiting each source, splices those joins in around it.
 //
-// Two request kinds are modelled: TableRequest (a single-row LEFT OUTER JOIN to a
-// referenced table — single-reference navigation) and UnionRequest (the @implementedBy
-// UNION combine strategy — a UNION ALL sub-select joined once). UniqueRequest (apply)
-// is folded into the collection tiers elsewhere.
+// Three request kinds are modelled: TableRequest (a single-row LEFT OUTER JOIN to a
+// referenced table — single-reference navigation), UnionRequest (the @implementedBy
+// UNION combine strategy — a UNION ALL sub-select joined once), and UniqueRequest (a
+// CROSS/OUTER APPLY of a single-row subquery — a `first()/single(...)` used inside a
+// projector or predicate, whose element stays navigable).
 
 // A pending join: LEFT OUTER JOIN `table` ON `condition`. The condition links the
 // owner's FK column to the joined table's primary key (built in the binder).
@@ -32,10 +33,23 @@ export interface UnionRequest {
     readonly union: { buildJoin(source: SourceExpression): SourceExpression };
 }
 
-export type ExpansionRequest = TableRequest | UnionRequest;
+// A pending correlated APPLY (Signum's UniqueRequest): a `first()/single(...)` used
+// inside a projector/predicate becomes a CROSS APPLY (First/Single) or OUTER APPLY
+// (FirstOrDefault/SingleOrDefault) of the single-row `select`, whose (navigable)
+// projector was returned to the binding site in place of the terminal.
+export interface UniqueRequest {
+    readonly select: SelectExpression;
+    readonly outerApply: boolean;
+}
+
+export type ExpansionRequest = TableRequest | UnionRequest | UniqueRequest;
 
 function isUnionRequest(r: ExpansionRequest): r is UnionRequest {
     return (r as UnionRequest).union != null;
+}
+
+function isUniqueRequest(r: ExpansionRequest): r is UniqueRequest {
+    return (r as UniqueRequest).select != null;
 }
 
 export class QueryJoinExpander extends DbExpressionVisitor {
@@ -109,10 +123,18 @@ export class QueryJoinExpander extends DbExpressionVisitor {
 
     private applyExpansions(source: SourceExpression, expansions: readonly ExpansionRequest[]): SourceExpression {
         let result = source;
-        for (const r of expansions)
-            result = isUnionRequest(r)
-                ? r.union.buildJoin(result)
-                : new JoinExpression("SingleRowLeftOuterJoin", result, r.table, r.condition);
+        for (const r of expansions) {
+            if (isUnionRequest(r)) {
+                result = r.union.buildJoin(result);
+            } else if (isUniqueRequest(r)) {
+                // Signum's UniqueRequest branch: VisitSource(ur.Select) so nested
+                // expansions inside the subquery are spliced, then CROSS/OUTER APPLY it.
+                const newSelect = this.visitSource(r.select);
+                result = new JoinExpression(r.outerApply ? "OuterApply" : "CrossApply", result, newSelect, undefined);
+            } else {
+                result = new JoinExpression("SingleRowLeftOuterJoin", result, r.table, r.condition);
+            }
+        }
         return result;
     }
 }

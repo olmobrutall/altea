@@ -22,7 +22,8 @@ import { AliasGenerator, Alias } from "../AliasGenerator";
 import { projectColumns as projectColumnsImpl, ProjectedColumns } from "./ColumnProjector";
 import { ColumnGenerator } from "../ColumnGenerator";
 import { fullNominate as fullNominateImpl, nominate } from "../dbExpressionNominator";
-import { QueryJoinExpander, TableRequest, ExpansionRequest } from "./QueryJoinExpander";
+import { QueryJoinExpander, TableRequest, ExpansionRequest, UniqueRequest } from "./QueryJoinExpander";
+import { AliasReplacer, DeclaredAliasGatherer, UniqueRequestKey } from "./AliasReplacer";
 import { EntityCompleter } from "./EntityCompleter";
 import { GroupEntityCleaner } from "./GroupEntityCleaner";
 import { SmartEqualizer } from "../smartEqualizer";
@@ -472,6 +473,13 @@ export class QueryBinder extends ExpressionVisitor {
     // implementedByReplacements) — the same combineUnion() reference navigated more
     // than once reuses one UNION ALL join.
     private readonly unionReplacements = new Map<ImplementedByExpression, UnionAllRequest>();
+    // Dedupe correlated APPLY subqueries (Signum's uniqueFunctionReplacements, keyed by
+    // DbExpressionComparer). The same `first()/single(...)` subquery used more than once
+    // (e.g. in a filter AND a map) must emit exactly one APPLY. We key by a canonical
+    // signature: the subquery's OWN declared aliases renamed to positional names, so two
+    // structurally-identical selects that differ only in their fresh aliases collide.
+    // Value is the navigable projector returned to every binding site.
+    private readonly uniqueFunctionReplacements = new Map<string, Expression>();
 
     constructor(
         private readonly schema: Schema,
@@ -879,19 +887,19 @@ export class QueryBinder extends ExpressionVisitor {
                 case "expandEntity":
                     return this.bindExpandEntity(source, call.args[0] as LambdaExpression, call.args[1] as ConstantExpression);
                 case "first":
-                    return this.bindUnique(source, "First", call.args[0] as LambdaExpression | undefined);
+                    return this.bindUnique(source, "First", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "firstOrNull":
-                    return this.bindUnique(source, "FirstOrDefault", call.args[0] as LambdaExpression | undefined);
+                    return this.bindUnique(source, "FirstOrDefault", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "reverse":
                     return this.bindReverse(source);
                 case "last":
-                    return this.bindLast(source, "First", call.args[0] as LambdaExpression | undefined);
+                    return this.bindLast(source, "First", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "lastOrNull":
-                    return this.bindLast(source, "FirstOrDefault", call.args[0] as LambdaExpression | undefined);
+                    return this.bindLast(source, "FirstOrDefault", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "single":
-                    return this.bindUnique(source, "Single", call.args[0] as LambdaExpression | undefined);
+                    return this.bindUnique(source, "Single", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "singleOrNull":
-                    return this.bindUnique(source, "SingleOrDefault", call.args[0] as LambdaExpression | undefined);
+                    return this.bindUnique(source, "SingleOrDefault", call.args[0] as LambdaExpression | undefined, call === this.root);
                 case "count": {
                     // Disassemble the UNBOUND source (Signum's DisassembleAggregate) so a
                     // `map(sel).filter(notNull).distinct().count()` shape lowers to
@@ -1261,19 +1269,65 @@ export class QueryBinder extends ExpressionVisitor {
         throw new Error("expandLite/expandEntity currently supports only the identity selector (a => a)");
     }
 
-    private bindUnique(projection: ProjectionExpression, uniqueFunction: UniqueFunction, predicate: LambdaExpression | undefined): ProjectionExpression {
-        if (predicate != null)
-            projection = this.bindWhere(projection, predicate);
+    // Port of Signum's BindUniqueRow. A collection terminal (first/firstOrNull/single/
+    // singleOrNull), optionally predicated, over a (sub-)projection.
+    //  (a) make the subquery self-contained: splice its own implicit joins in
+    //      (ExpandJoins, cleanRequests:false) then rename its declared aliases to fresh
+    //      ones (AliasReplacer) so the same collection used twice yields two independent
+    //      subqueries before dedup collapses structurally-equal ones.
+    //  (b) build a single-row SELECT (TOP 1 for First/FirstOrDefault; no TOP for
+    //      Single/SingleOrDefault) with the (optional) predicate as its WHERE.
+    //  (c) scalar fast-path: a nested First/FirstOrDefault whose projector is a single
+    //      column → a correlated scalar subquery `(SELECT TOP 1 val …)`.
+    //  (d) at the root → a ProjectionExpression carrying uniqueFunction (materialised as
+    //      one row by the executor).
+    //  (e) nested non-scalar → register a UniqueRequest (CROSS/OUTER APPLY, deduped by
+    //      canonical signature) and return the *navigable* projector so a following
+    //      `.member` / `.toLite()` navigates it instead of collapsing to a scalar.
+    private bindUnique(rawProjection: ProjectionExpression, uniqueFunction: UniqueFunction, predicate: LambdaExpression | undefined, isRoot: boolean): Expression {
+        // (a) Self-contain the subquery: expand its own pending joins, then freshen aliases.
+        const expanded = QueryJoinExpander.expand(rawProjection, this.requests) as ProjectionExpression;
+        const projection = AliasReplacer.replace(expanded, this.aliasGenerator) as ProjectionExpression;
+
+        const where = predicate == null ? undefined : this.fullNominate(this.mapVisitExpand(predicate, projection));
 
         const alias = this.aliasGenerator.nextSelectAlias();
-        const pc = this.projectColumns(projection.projector, alias);
-        // Mark the single-row select OrderAlsoByKeys so OrderByRewriter appends the
-        // source's primary key to the ORDER BY (Signum's stable-top behaviour): picking
-        // one row of a non-unique order (`orderBy(dead).last()`) must be deterministic.
         const top = uniqueFunction === "First" || uniqueFunction === "FirstOrDefault" ? new ConstantExpression(1) : undefined;
-        return new ProjectionExpression(
-            new SelectExpression(alias, false, top, pc.columns, projection.select, undefined, [], [], SelectOptions.OrderAlsoByKeys),
+        const pc = this.projectColumns(projection.projector, alias);
+
+        // (c) scalar fast-path (Signum: !isRoot && projector is ColumnExpression && First/FirstOrDefault):
+        // a single-column projector becomes a correlated scalar subquery. `pc.columns` is the
+        // one server-side declaration over `projection.select` (referencing the subquery's own
+        // aliases); `pc.projector` reads it back at the new alias — but a scalar subquery IS its
+        // value, so the SELECT list carries the declaration and the ScalarExpression wraps it.
+        if (!isRoot && pc.projector instanceof ColumnExpression && pc.columns.length === 1 && (uniqueFunction === "First" || uniqueFunction === "FirstOrDefault")) {
+            const decl = new ColumnDeclaration("val", pc.columns[0].expression);
+            const select = new SelectExpression(alias, false, top, [decl], projection.select, where, [], []);
+            return new ScalarExpression(pc.projector.type, select);
+        }
+
+        const newProjection = new ProjectionExpression(
+            new SelectExpression(alias, false, top, pc.columns, projection.select, where, [], []),
             pc.projector, uniqueFunction, projection.type);
+
+        // (d) root → the single-row projection itself.
+        if (isRoot)
+            return newProjection;
+
+        // (e) nested non-scalar → dedup + register APPLY, return the navigable projector.
+        const key = UniqueRequestKey.of(newProjection.select);
+        const cached = this.uniqueFunctionReplacements.get(key);
+        if (cached != null)
+            return cached;
+
+        const request: UniqueRequest = {
+            select: newProjection.select,
+            outerApply: uniqueFunction === "SingleOrDefault" || uniqueFunction === "FirstOrDefault",
+        };
+        const source = this.getCurrentSource(request);
+        this.addRequest(request, source);
+        this.uniqueFunctionReplacements.set(key, newProjection.projector);
+        return newProjection.projector;
     }
 
     // reverse() — Signum's BindReverse: wraps the source in a SELECT marked
@@ -1291,9 +1345,9 @@ export class QueryBinder extends ExpressionVisitor {
     // Last/LastOrDefault. Signum's OverloadingSimplifier rewrites them to
     // Reverse → (optional Where) → First/FirstOrDefault. The Reverse flag (not an
     // eager order inversion) is what OrderByRewriter consumes.
-    private bindLast(source: ProjectionExpression, uniqueFunction: UniqueFunction, predicate: LambdaExpression | undefined): ProjectionExpression {
+    private bindLast(source: ProjectionExpression, uniqueFunction: UniqueFunction, predicate: LambdaExpression | undefined, isRoot: boolean): Expression {
         const reversed = this.bindReverse(source);
-        return this.bindUnique(reversed, uniqueFunction, predicate);
+        return this.bindUnique(reversed, uniqueFunction, predicate, isRoot);
     }
 
     // Port of Signum's BindAggregate. Two shapes:
@@ -1780,6 +1834,14 @@ export class QueryBinder extends ExpressionVisitor {
     // bindMemberAccess so it can be reused to navigate a member on the projector of a
     // single-result sub-query (see the uniqueFunction branch below).
     private bindMember(obj: Expression, name: string, isOptionalChaining: boolean): Expression {
+        // `.$v` (the Promise<T>→T await marker) carries no SQL meaning: binding `obj.$v` is
+        // exactly binding `obj`. Handled first — before the entity/embedded dispatch — so a
+        // navigable projector returned by a nested unique terminal (`view(T).single(…).$v`,
+        // `coll.firstOrNull().$v`) passes straight through instead of being looked up as a
+        // field. Turning a single-row sub-query into a scalar is the consuming context's job.
+        if (name === "$v")
+            return obj;
+
         // Distribute a member access over a conditional / coalesce so each branch binds
         // against its own source (Signum's BindMemberAccess Conditional/Coalesce cases):
         // `(t ? a : b).m` → `t ? a.m : b.m`; `(a ?? b).m` → `(a != null) ? a.m : b.m`.
@@ -1866,20 +1928,6 @@ export class QueryBinder extends ExpressionVisitor {
         // handled below.
         if (name === "length" && (obj instanceof ProjectionExpression || obj instanceof FieldEntityArrayExpression))
             return this.bindAggregate(this.asProjection(obj), "Count", undefined, false);
-
-        // promise.$v — the await marker (SQL has no async). A pure Promise<T>→T cast with no
-        // SQL meaning: it should be transparent. For a single-result sub-query whose result
-        // is a *navigable* shape (entity / lite / embedded / nested collection), pass the
-        // projection through so a following `.member`/`.method` navigates it (via the
-        // uniqueFunction path above / bindMethodCall). Only when the single result is a plain
-        // scalar value do we collapse to a scalar subquery (the value itself). Anything
-        // already a value passes through unchanged.
-        // `.$v` (the Promise<T>→T await marker) carries no SQL meaning: binding `obj.$v` is
-        // exactly binding `obj`. Turning a single-row sub-query into a scalar subquery is the
-        // job of the *consuming* context (a comparison operand, a projected scalar column, a
-        // member access), not of `.$v` — see coerceScalar / the uniqueFunction paths.
-        if (name === "$v")
-            return obj;
 
         // string.length → SQL string-length function (Signum's string.Length).
         // LEN on SQL Server, length() on Postgres.
@@ -2349,13 +2397,29 @@ export class QueryBinder extends ExpressionVisitor {
         return completed;
     }
 
-    private addRequest(request: TableRequest): void {
-        const source = this.getCurrentSource(request);
+    private addRequest(request: ExpansionRequest, source?: SourceExpression): void {
+        source ??= this.getCurrentSource(request);
         const list = this.requests.get(source);
         if (list != null)
             list.push(request);
         else
             this.requests.set(source, [request]);
+    }
+
+    // Signum's ExpansionRequest.ExternalAlias: the correlation aliases a request reads
+    // from an *outer* source. A TableRequest reads the FK column's alias (its condition,
+    // minus its own table alias). A UniqueRequest reads the aliases its subquery uses but
+    // does not itself declare (used − declared, with declared expanded transitively).
+    private externalAlias(request: ExpansionRequest): Alias[] {
+        if ("table" in request)
+            return AliasGatherer.gather(request.condition).filter(a => !a.equals(request.table.alias));
+        if ("select" in request) {
+            const declared = DeclaredAliasGatherer.gather(request.select);
+            this.expandKnownAlias(declared);
+            return AliasGatherer.gather(request.select).filter(a => !declared.some(d => d.equals(a)));
+        }
+        // UnionRequest attaches to the top source (added directly by addUnionRequest).
+        return [];
     }
 
     // Signum's GetCurrentSource: a completion join must attach to the source that owns
@@ -2365,13 +2429,18 @@ export class QueryBinder extends ExpressionVisitor {
     // an outer select — the latter leaves the join and its columns unbindable (the
     // update-part bug). Searches the stack from the top, so the innermost matching source
     // wins; when a request carries no external alias it falls back to the top.
-    private getCurrentSource(request: TableRequest): SourceExpression {
+    private getCurrentSource(request: ExpansionRequest): SourceExpression {
         const stack = this.sourceStack;
         if (stack.length === 0)
-            throw new Error("Entity completion requested with no current source on the stack");
-        const external = AliasGatherer.gather(request.condition).filter(a => !a.equals(request.table.alias));
+            throw new Error("Expansion requested with no current source on the stack");
+        const external = this.externalAlias(request);
         if (external.length === 0)
-            return stack[stack.length - 1];
+            // Signum's GetCurrentSource returns currentSource.Last() (the OUTERMOST source)
+            // for a request with no outer correlation. A UniqueRequest apply may be shared
+            // across disjoint sibling scopes (dedup), so it must attach where both can see it
+            // — the outermost source. TableRequest completions keep altea's innermost
+            // fallback (the update-part fix relies on it).
+            return "select" in request ? stack[0] : stack[stack.length - 1];
         for (let i = stack.length - 1; i >= 0; i--) {
             const known = this.knownAliasesExpanded(stack[i]);
             if (external.some(a => known.some(k => k.equals(a))))
@@ -2385,7 +2454,17 @@ export class QueryBinder extends ExpressionVisitor {
     // navigations — the second join's FK lives on the first join's table).
     private knownAliasesExpanded(source: SourceExpression): Alias[] {
         const result: Alias[] = [...source.knownAliases()];
+        this.expandKnownAlias(result);
+        return result;
+    }
+
+    // Signum's ExpandKnowAlias: grow `result` in place with the aliases contributed by any
+    // request whose source is already fully known — a TableRequest adds its joined table's
+    // alias; a UniqueRequest adds all the aliases its APPLY subquery declares; a
+    // UnionRequest adds its union alias. Repeated to a fixpoint (chained navigations).
+    private expandKnownAlias(result: Alias[]): void {
         const has = (a: Alias) => result.some(x => x.equals(a));
+        const add = (a: Alias) => { if (!has(a)) { result.push(a); return true; } return false; };
         let changed = true;
         while (changed) {
             changed = false;
@@ -2393,15 +2472,18 @@ export class QueryBinder extends ExpressionVisitor {
                 if (!key.knownAliases().every(has))
                     continue;
                 for (const r of reqs) {
-                    const alias = "table" in r ? r.table.alias : undefined;
-                    if (alias != null && !has(alias)) {
-                        result.push(alias);
-                        changed = true;
+                    if ("table" in r) {
+                        if (add(r.table.alias)) changed = true;
+                    } else if ("select" in r) {
+                        for (const a of r.select.knownAliases())
+                            if (add(a)) changed = true;
+                    } else if ("union" in r) {
+                        const ua = (r.union as unknown as { unionAlias?: Alias }).unionAlias;
+                        if (ua != null && add(ua)) changed = true;
                     }
                 }
             }
         }
-        return result;
     }
 
     private getTableProjection(ctor: new () => object): ProjectionExpression {
