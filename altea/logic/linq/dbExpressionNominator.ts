@@ -3,6 +3,7 @@ import {
     ConstantExpression, CastExpression, CallExpression, PropertyExpression,
     ParameterExpression, LambdaExpression,
 } from "./expressions";
+import { inSql } from "../../entities/basics";
 import {
     ColumnExpression, SqlConstantExpression, SqlLiteralExpression, PrimaryKeyExpression,
     IsNullExpression, IsNotNullExpression, LikeExpression, SqlFunctionExpression, SqlCastExpression,
@@ -16,6 +17,24 @@ import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 // A since() difference marker — a SqlFunctionExpression carrying (start, end) until
 // duration.total(unit) turns it into a real DATEDIFF. Never reaches the formatter.
 const TIMESPAN_MARKER = "__timespan__";
+
+// Binary operators that a projection leaves for CLIENT-SIDE evaluation (the reader combines
+// the selected leaf columns) rather than nominating to a SQL column: arithmetic, comparison
+// and string concatenation (`+`). Logical (`&&`/`||`), coalesce (`??`) and bitwise stay in
+// SQL. Only applies outside a full-translate / inside-CASE context; `InSql()` overrides it.
+const CLIENT_PROJECTOR_OPS = new Set<string>([
+    "+", "-", "*", "/", "%",
+    "<", "<=", ">", ">=", "==", "!=", "===", "!==",
+]);
+
+// A type the reader can operate on with a plain JS operator (`+`, `<`, …). Arithmetic /
+// comparison over these can move client-side; other types must stay in SQL — a
+// Temporal (date/time) throws on JS `-`/`<` (`valueOf`), and Decimal/entity/etc. don't
+// compare with native operators either. Enums materialise as their numeric value.
+function isClientScalar(t: Type | undefined): boolean {
+    return t === LiteralType.number || t === LiteralType.string || t === LiteralType.boolean
+        || t instanceof EnumType;
+}
 
 // Temporal unit → SQL DATEADD/DATEDIFF part + seconds-per-unit (for the Postgres EPOCH divisor
 // in duration.total). Keyed by Temporal.Duration's plural field names.
@@ -54,18 +73,41 @@ class DbExpressionNominator extends DbExpressionVisitor {
     // ISO conversion folded into server SQL (coerceDayOfWeek). In the plain `nominate` path (a
     // projector) the comparison stays client-side over the raw column, so the conversion never
     // contaminates the SELECT.
-    // Set while visiting a CASE's branches, so a string concat inside a CASE is kept in
-    // SQL (a CASE must nominate as one server column) even in the plain projection path.
-    private insideCase = false;
+    // > 0 while visiting the children of a SQL-mandatory node (a CASE, function, cast, LIKE,
+    // aggregate, array index): a composite (arithmetic / comparison / conditional / concat)
+    // found there is kept in SQL — its parent must nominate as one self-contained server
+    // expression, never split into client-side pieces the reader can't recombine into e.g. a
+    // `FLOOR(year + 0.5)`. Generalises Signum's insideCase to every enclosing SQL node.
+    private mustNominateDepth = 0;
 
-    constructor(private readonly isPostgres: boolean, private readonly fullTranslate: boolean = false) {
+    // Visit under a "must nominate" scope, so composites in the built subtree stay server-side.
+    private nominateChildren<T>(build: () => T): T {
+        this.mustNominateDepth++;
+        try { return build(); }
+        finally { this.mustNominateDepth--; }
+    }
+
+    // `aggressive` = Signum's group-key / distinct nomination: like fullTranslate it forces
+    // composite operators (arithmetic / comparison / conditional / concat) into SQL, so a
+    // DISTINCT or GROUP BY key dedupes/groups on the COMPUTED value rather than its raw leaf
+    // columns. It differs from fullTranslate only in intent (a projected key, not a predicate).
+    constructor(private readonly isPostgres: boolean, private readonly fullTranslate: boolean = false, private readonly aggressive: boolean = false) {
         super();
+    }
+
+    // Signum's DbExpressionNominator.IsFullNominateOrAggresive: the projection carve-outs
+    // (lazy client-side arithmetic / comparison / conditional / concat) apply only when this
+    // is false — i.e. a plain projection. A predicate (fullTranslate) or a group key / distinct
+    // (aggressive) keeps everything in SQL.
+    private get isFullNominateOrAggresive(): boolean {
+        return this.fullTranslate || this.aggressive;
     }
 
     // Translate + nominate: returns the rewritten tree and the candidate set (the
     // server-evaluable subtrees of it). Mirrors C#'s `Nominate(e, out newExpression)`.
-    static nominate(expr: Expression, isPostgres: boolean): { candidates: Set<Expression>; expression: Expression } {
-        const n = new DbExpressionNominator(isPostgres);
+    // `aggressive` forces full nomination for a group key / distinct projector.
+    static nominate(expr: Expression, isPostgres: boolean, aggressive = false): { candidates: Set<Expression>; expression: Expression } {
+        const n = new DbExpressionNominator(isPostgres, /* fullTranslate */ false, aggressive);
         const expression = n.visit(expr);
         return { candidates: n.candidates, expression };
     }
@@ -100,6 +142,8 @@ class DbExpressionNominator extends DbExpressionVisitor {
     }
 
     override visitSqlConstant(sqlConstant: SqlConstantExpression): Expression {
+        if (this.leaveNullInline(sqlConstant.value))
+            return sqlConstant;
         return this.add(sqlConstant);
     }
 
@@ -108,7 +152,19 @@ class DbExpressionNominator extends DbExpressionVisitor {
     }
 
     override visitConstant(constant: ConstantExpression): Expression {
+        if (this.leaveNullInline(constant.value))
+            return constant;
         return this.add(constant);
+    }
+
+    // A bare NULL selected as its own column is typed `text` by Postgres, which then clashes
+    // in a downstream CASE (`CASE … THEN <that null column> ELSE <int> END`). In a plain
+    // projection leave a NULL constant UN-nominated so it stays inline for the reader — and so
+    // an aggressive re-nomination (a DISTINCT / GROUP BY key over the value) renders it inline
+    // in the CASE, where the DBMS infers its type from the other branch. Non-null constants and
+    // full-translate / group-key contexts still nominate normally.
+    private leaveNullInline(value: unknown): boolean {
+        return value == null && !this.isFullNominateOrAggresive && this.mustNominateDepth === 0;
     }
 
     // The id wrapper recurses to its column (rebuilding if it changed) but is not
@@ -120,37 +176,37 @@ class DbExpressionNominator extends DbExpressionVisitor {
     // ---- composite SQL nodes: candidate iff every operand is -------------
 
     override visitIsNull(node: IsNullExpression): Expression {
-        const r = super.visitIsNull(node) as IsNullExpression;
+        const r = this.nominateChildren(() => super.visitIsNull(node) as IsNullExpression);
         return this.nominateIfAll(r, [r.expression]);
     }
 
     override visitIsNotNull(node: IsNotNullExpression): Expression {
-        const r = super.visitIsNotNull(node) as IsNotNullExpression;
+        const r = this.nominateChildren(() => super.visitIsNotNull(node) as IsNotNullExpression);
         return this.nominateIfAll(r, [r.expression]);
     }
 
     override visitLike(node: LikeExpression): Expression {
-        const r = super.visitLike(node) as LikeExpression;
+        const r = this.nominateChildren(() => super.visitLike(node) as LikeExpression);
         return this.nominateIfAll(r, [r.expression, r.pattern]);
     }
 
     override visitSqlFunction(node: SqlFunctionExpression): Expression {
-        const r = super.visitSqlFunction(node) as SqlFunctionExpression;
+        const r = this.nominateChildren(() => super.visitSqlFunction(node) as SqlFunctionExpression);
         return this.nominateIfAll(r, [r.object, ...r.arguments]);
     }
 
     override visitArrayIndex(node: SqlArrayIndexExpression): Expression {
-        const r = super.visitArrayIndex(node) as SqlArrayIndexExpression;
+        const r = this.nominateChildren(() => super.visitArrayIndex(node) as SqlArrayIndexExpression);
         return this.nominateIfAll(r, [r.array, r.index]);
     }
 
     override visitSqlCast(node: SqlCastExpression): Expression {
-        const r = super.visitSqlCast(node) as SqlCastExpression;
+        const r = this.nominateChildren(() => super.visitSqlCast(node) as SqlCastExpression);
         return this.nominateIfAll(r, [r.expression]);
     }
 
     override visitAggregate(node: AggregateExpression): Expression {
-        const r = super.visitAggregate(node) as AggregateExpression;
+        const r = this.nominateChildren(() => super.visitAggregate(node) as AggregateExpression);
         return this.nominateIfAll(r, r.arguments);
     }
 
@@ -163,18 +219,17 @@ class DbExpressionNominator extends DbExpressionVisitor {
     }
 
     override visitCase(node: CaseExpression): Expression {
-        // Visit the branches with `insideCase` set so a string concat among them stays in
-        // SQL (see visitBinary): a CASE must translate as one self-contained server column,
-        // never split into client-side pieces that would leave a CASE in the projector.
-        const old = this.insideCase;
-        this.insideCase = true;
-        const r = super.visitCase(node) as CaseExpression;
-        this.insideCase = old;
+        // Visit the branches under nominateChildren so a composite among them stays in SQL
+        // (see visitBinary): a CASE must translate as one self-contained server column, never
+        // split into client-side pieces that would leave a CASE in the projector.
+        const r = this.nominateChildren(() => super.visitCase(node) as CaseExpression);
         return this.nominateIfAll(r, [...r.whens.flatMap(w => [w.condition, w.value]), r.defaultValue]);
     }
 
     override visitUnary(node: UnaryExpression): Expression {
         const r = super.visitUnary(node) as UnaryExpression;
+        if (!this.isFullNominateOrAggresive && this.mustNominateDepth === 0 && isClientScalar(r.expression.type))
+            return r;
         return this.nominateIfAll(r, [r.expression]);
     }
 
@@ -190,23 +245,25 @@ class DbExpressionNominator extends DbExpressionVisitor {
         const right = this.coerceDayOfWeek(r.right);
         if (left !== r.left || right !== r.right)
             r = new BinaryExpression(r.kind, left, right);
-        // String concatenation is materialised in the projector (client-side), not the
-        // SELECT, UNLESS we're fully translating (WHERE / ORDER BY / aggregate). Mirrors
-        // Signum's DbExpressionNominator, which only ConvertToSqlAddition's + nominates an
-        // `Add` under IsFullNominateOrAggresive. Leaving the concat un-nominated lets the
-        // ColumnProjector select the leaf columns and concatenate them in memory — so e.g.
-        // an entity's composite `toString` reads its component columns rather than pushing
-        // the whole `||` into SQL. Numeric `+` (arithmetic, substring offsets) stays
-        // nominated regardless. A concat *inside a CASE* (e.g. a polymorphic reference's
-        // per-implementation toString) is kept in SQL so the whole CASE stays a single
-        // server column — the projector never has to evaluate a CASE client-side.
-        if (r.kind === "+" && r.type === LiteralType.string && !this.fullTranslate && !this.insideCase)
+        // Lazy projector (Signum's DbExpressionNominator): in a projection — not a
+        // full-translate context (WHERE / ORDER BY / aggregate) and not inside a nominated
+        // CASE — user arithmetic, comparison and string concatenation are left UN-nominated
+        // so the ColumnProjector selects only their leaf columns and the reader combines
+        // them client-side, relieving the DBMS. `inSql()` forces the subtree back into SQL
+        // (see visitCall). Logical/coalesce/bitwise stay nominated (SQL three-valued logic /
+        // COALESCE). A concat inside a CASE stays SQL so the whole CASE is one server column.
+        if (!this.isFullNominateOrAggresive && this.mustNominateDepth === 0
+            && CLIENT_PROJECTOR_OPS.has(r.kind) && isClientScalar(r.left.type) && isClientScalar(r.right.type))
             return r;
         return this.nominateIfAll(r, [r.left, r.right]);
     }
 
     override visitConditional(node: ConditionalExpression): Expression {
         const r = super.visitConditional(node) as ConditionalExpression;
+        // A projected conditional is evaluated client-side (a JS ternary in the reader);
+        // only a full-translate / group-key / inside-CASE conditional becomes a SQL CASE.
+        if (!this.isFullNominateOrAggresive && this.mustNominateDepth === 0)
+            return r;
         return this.nominateIfAll(r, [r.condition, r.whenTrue, r.whenFalse]);
     }
 
@@ -217,6 +274,12 @@ class DbExpressionNominator extends DbExpressionVisitor {
     // call to its SQL form, then nominate the lowered server expression.
 
     override visitCall(node: CallExpression): Expression {
+        // inSql(x) (Signum's LinqHints.InSql, handled in its DbExpressionNominator.VisitMethodCall):
+        // visit the argument fully in SQL and nominate it as one server expression, then strip
+        // the call — forcing the subtree into SQL and defeating the lazy projector. In a
+        // full-translate context it is a no-op beyond stripping.
+        if (node.func instanceof ConstantExpression && node.func.value === inSql)
+            return this.add(this.nominateChildren(() => this.visit(node.args[0])));
         if (node.func instanceof PropertyExpression) {
             const receiver = this.visit(node.func.object);
             const args = node.args.map(a => this.visit(a));
@@ -301,11 +364,11 @@ class DbExpressionNominator extends DbExpressionVisitor {
             case "string.etc": {
                 if (args.length < 1 || args.length > 2)
                     return undefined;
-                // Signum's TryEtc: Etc truncates a value for display (a SELECT), but in a
-                // full-translate context (a WHERE / predicate / order-by) it is a NO-OP so the
-                // expression matches the FULL string — a column can show truncated text yet a
-                // filter over `Etc(n)` still finds a match anywhere in it.
-                if (this.fullTranslate)
+                // Signum's TryEtc: Etc truncates a value for display (a SELECT), but under
+                // IsFullNominateOrAggresive (a WHERE / predicate / order-by / group key) it is a
+                // NO-OP so the expression matches the FULL string — a column can show truncated
+                // text yet a filter/group over `Etc(n)` still uses the whole value.
+                if (this.isFullNominateOrAggresive)
                     return source;
                 const len = (e: Expression) => this.sqlFunction(LiteralType.number, this.isPostgres ? "length" : "LEN", e);
                 const max = this.asSqlLiteral(args[0]);
@@ -702,12 +765,13 @@ class DbExpressionNominator extends DbExpressionVisitor {
         return inner === node.expression ? node : new ToDayOfWeekExpression(inner);
     }
 
-    // In a predicate (fullTranslate) a day-of-week VALUE compared in SQL must have its ISO
-    // conversion evaluated server-side (Signum's ExtractDayOfWeek). In a projector the
-    // comparison is left client-side (the projector converts the raw column). A bare
-    // ToDayOfWeek key in ORDER BY is never a binary operand, so it renders as the raw weekday.
+    // Under IsFullNominateOrAggresive (a predicate / order-by / group key) a day-of-week VALUE
+    // compared in SQL must have its ISO conversion evaluated server-side (Signum's
+    // ExtractDayOfWeek). In a plain projector the comparison is left client-side (the projector
+    // converts the raw column). A bare ToDayOfWeek key in ORDER BY is never a binary operand,
+    // so it renders as the raw weekday.
     private coerceDayOfWeek(e: Expression): Expression {
-        return this.fullTranslate && e instanceof ToDayOfWeekExpression
+        return this.isFullNominateOrAggresive && e instanceof ToDayOfWeekExpression
             ? this.visit(this.ssWeekdayToIsoSql(e.expression))
             : e;
     }
@@ -717,8 +781,8 @@ class DbExpressionNominator extends DbExpressionVisitor {
     }
 }
 
-export function nominate(expr: Expression, isPostgres: boolean): { candidates: Set<Expression>; expression: Expression } {
-    return DbExpressionNominator.nominate(expr, isPostgres);
+export function nominate(expr: Expression, isPostgres: boolean, aggressive = false): { candidates: Set<Expression>; expression: Expression } {
+    return DbExpressionNominator.nominate(expr, isPostgres, aggressive);
 }
 
 export function fullNominate(expr: Expression, isPostgres: boolean): Expression {

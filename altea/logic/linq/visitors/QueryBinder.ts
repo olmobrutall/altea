@@ -53,7 +53,7 @@ import type { FieldInfo } from "../../../entities/reflection";
 import { resolveType, resolveEnum } from "../../../entities/registration";
 import { Entity, View } from "../../../entities/entity";
 import { TypeEntity } from "../../../entities/typeEntity";
-import { toInt, toLong } from "../../../entities/basics";
+import { toInt, toLong, inSql } from "../../../entities/basics";
 import { Lite } from "../../../entities/lite";
 import { niceName } from "../../../entities/utils/localization";
 import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, Type } from "../../../entities/types";
@@ -850,6 +850,12 @@ export class QueryBinder extends ExpressionVisitor {
             // in a query the brand is meaningless, so lower the call to its argument (identity).
             if (func.value === toInt || func.value === toLong)
                 return this.visit(call.args[0]);
+            // inSql(x) (Signum's LinqHints.InSql): leave it a CallExpression marker (no
+            // dedicated node — Signum keeps the MethodCallExpression) with the argument bound;
+            // the nominator recognises it, force-nominates the argument into SQL and strips the
+            // marker (defeating the lazy projector). Just re-bind the argument here.
+            if (func.value === inSql)
+                return new CallExpression(func, [this.visit(call.args[0])], call.type);
         }
 
 
@@ -1205,6 +1211,22 @@ export class QueryBinder extends ExpressionVisitor {
                 if (narrowed != null)
                     return new LiteReferenceExpression(new LiteType(new ClassType(targetCtor)), narrowed, expr.toStr, expr.expandLite);
             }
+            // Concrete-entity cast: a cast up/down/across the *same* inheritance line is a
+            // no-op (the row is that table). A cast to a DISJOINT type — a sibling in a
+            // per-type-table hierarchy, e.g. `(AmericanMusicAwardEntity)(GrammyAwardEntity)` —
+            // can never match a row, so it yields a null-id entity of the target (the
+            // projection then reads null, matching a C# hard cast to the wrong runtime type).
+            if (expr instanceof EntityExpression && expr.type instanceof ClassType) {
+                const sourceCtor = expr.type.constructorFunction;
+                const disjoint = sourceCtor !== targetCtor
+                    && !(sourceCtor.prototype instanceof targetCtor)
+                    && !(targetCtor.prototype instanceof sourceCtor);
+                const refTable = disjoint ? this.schema.tryTable(targetCtor as any) : undefined;
+                if (refTable != null)
+                    return new EntityExpression(new ClassType(targetCtor), refTable,
+                        new PrimaryKeyExpression(new SqlConstantExpression(null, LiteralType.null)),
+                        undefined, undefined, undefined, false);
+            }
         }
 
         return expr;
@@ -1239,8 +1261,8 @@ export class QueryBinder extends ExpressionVisitor {
 
     // Column projection and translation both depend on the dialect; thread it through
     // so the nominator can pick CHARINDEX vs strpos, etc.
-    private projectColumns(projector: Expression, alias: Alias): ProjectedColumns {
-        return projectColumnsImpl(projector, alias, this.isPostgres);
+    private projectColumns(projector: Expression, alias: Alias, aggressive = false): ProjectedColumns {
+        return projectColumnsImpl(projector, alias, this.isPostgres, aggressive);
     }
 
     // Translate the residual SQL-function method calls in a predicate / order key /
@@ -1324,7 +1346,10 @@ export class QueryBinder extends ExpressionVisitor {
 
     private bindDistinct(projection: ProjectionExpression): ProjectionExpression {
         const alias = this.aliasGenerator.nextSelectAlias();
-        const pc = this.projectColumns(projection.projector, alias);
+        // DISTINCT dedupes on the SELECTed columns, so the projector must be nominated
+        // aggressively (its computed value becomes the columns) — otherwise a lazy projection
+        // would DISTINCT on the raw leaf columns and dedupe the wrong thing.
+        const pc = this.projectColumns(projection.projector, alias, /* aggressive */ true);
         return new ProjectionExpression(
             new SelectExpression(alias, true, undefined, pc.columns, projection.select, undefined, [], []),
             pc.projector, undefined, projection.type);
@@ -2844,8 +2869,10 @@ export class QueryBinder extends ExpressionVisitor {
 
         let alias = this.aliasGenerator.nextSelectAlias();
 
+        // The grouping key must be nominated aggressively (its computed value forms the GROUP
+        // BY columns) — a lazy projection would group on the key's raw leaf columns instead.
         const key = GroupEntityCleaner.clean(this.mapVisitExpand(keySelector, projection));
-        let keyPC = this.projectColumns(key, alias);
+        let keyPC = this.projectColumns(key, alias, /* aggressive */ true);
 
         let select = projection.select;
 
@@ -2870,7 +2897,7 @@ export class QueryBinder extends ExpressionVisitor {
             : projection.projector;
 
         const subqueryKey = GroupEntityCleaner.clean(this.mapVisitExpand(keySelector, subqueryProjection));
-        const subqueryKeyPC = this.projectColumns(subqueryKey, this.aliasGenerator.raw("basura"));
+        const subqueryKeyPC = this.projectColumns(subqueryKey, this.aliasGenerator.raw("basura"), /* aggressive */ true);
         const subqueryElemExpr = elementSelector != null
             ? this.mapVisitExpand(elementSelector, subqueryProjection)
             : subqueryProjection.projector;

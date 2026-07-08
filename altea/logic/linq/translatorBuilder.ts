@@ -549,6 +549,10 @@ class ProjectionBuilder extends DbExpressionVisitor {
     }
 
     override visitBinary(e: BinaryExpression): Expression {
+        // A client-side binary in the last projector uses native JS semantics — like Signum's
+        // C# projector, which relies on the CLR's operators rather than reproducing SQL's
+        // (so `null + 1 === 1` here, vs SQL/`inSql()` NULL). Callers that need SQL semantics
+        // wrap the expression in `inSql()`.
         this.visit(e.left);
         const left = this.pop();
         this.visit(e.right);

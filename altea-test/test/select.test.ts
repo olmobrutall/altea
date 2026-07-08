@@ -11,6 +11,7 @@ import {
     NoteWithDateEntity, GrammyAwardEntity, AwardEntity, AmericanMusicAwardEntity,
     Sex, AwardResult, IAuthorEntity,
 } from "../entities/music";
+import { inSql } from "@altea/altea/entities/basics";
 
 // Port of Signum.Test/LinqProvider/SelectTest.cs. C# → altea idiom:
 //   Database.Query<T>()  → table(T)            .Select(...) → .map(...)
@@ -311,19 +312,18 @@ describe("SelectTest", { skip: !hasDb }, () => {
     // Signum's SelectThrowsIntSumNullable: Select(a => (int)a.Id + (int)((ArtistEntity)a.Author).Id)
     // throws FieldReaderException in C# — a band-authored album's Artist FK is NULL, `X + NULL`
     // is SQL NULL, and reading that into a non-nullable `int` is illegal. TypeScript has no
-    // non-nullable value type: altea projects Id and the Artist FK as two columns and sums them
-    // client-side, where JS `number + null === number` (the null coerces to 0). So the query
-    // succeeds with a number per row — no throw. Intentional divergence.
+    // non-nullable value type: the lazy projector sums client-side with native JS semantics
+    // (`number + null === number`, null → 0), so every row is a number — no throw. Intentional
+    // divergence (the C# lifted-arithmetic null is not reproduced; use inSql() for SQL semantics).
     test("SelectIntSumNullable", async () => {
         const list = await table(AlbumEntity).map(a => (a.id as number) + ((a.author as ArtistEntity).id as number)).toArray();
         assert.ok(list.length > 0);
-        assert.ok(list.every(x => typeof x === "number")); // no throw; band-authored rows sum id + 0
+        assert.ok(list.every(x => typeof x === "number")); // band-authored rows sum id + 0
     });
 
     // Signum's SelectThrowaIntSumNullableCasting: the same query with the C# result cast to
-    // (int?). In C# the inner (int) read still throws before the outer int? cast can help; in
-    // TypeScript the int-vs-int? distinction doesn't exist, so this behaves identically to
-    // SelectIntSumNullable above (kept for the 1:1 port mapping).
+    // (int?). The int-vs-int? distinction doesn't exist in TS, so this behaves identically to
+    // SelectIntSumNullable (kept for the 1:1 port mapping).
     test("SelectIntSumNullableCasting", async () => {
         const list = await table(AlbumEntity).map(a => (a.id as number) + ((a.author as ArtistEntity).id as number)).toArray();
         assert.ok(list.length > 0);
@@ -331,14 +331,17 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // Select(a => (int?)((int)a.Id + (int)((ArtistEntity)a.Author).Id).InSql())
-    // The .InSql() force-evaluate-in-SQL hint has no altea form, but the underlying sum runs
-    // client-side (JS `number + null === number`) — same behaviour as SelectIntSumNullable.
+    // inSql() forces the sum into SQL (a single `(A.ID + A.AuthorID_Artist)` column). Unlike the
+    // client-side lazy versions above (native JS `id + null === id`), SQL `id + NULL` is NULL, so
+    // a band-authored album yields null here — inSql changes both where the sum runs and, because
+    // JS and SQL differ on null arithmetic, the result.
     test("SelectThrowaIntSumNullableCastingInSql", async () => {
         const list = await table(AlbumEntity)
-            .map(a => (a.id as number) + ((a.author as ArtistEntity).id as number))
+            .map(a => inSql((a.id as number) + ((a.author as ArtistEntity).id as number)))
             .toArray();
         assert.ok(list.length > 0);
-        assert.ok(list.every(x => typeof x === "number"));
+        assert.ok(list.every(x => x == null || typeof x === "number"));
+        assert.ok(list.some(x => x == null));
     });
 
     // Select(a => (Sex?)((ArtistEntity)a.Author).Sex)
@@ -495,22 +498,23 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // Select(a => ((AmericanMusicAwardEntity)(AwardEntity)a).Category)  — cross-hierarchy cast → null
-    // TODO(api): entity cast in query — a cross-hierarchy cast (Grammy → AmericanMusicAward) should
-    // yield null per row; altea does not null-out on the wrong runtime type yet.
+    // A GrammyAward row cast to the sibling AmericanMusicAward can never match (disjoint
+    // per-type tables), so the cast yields a null-id entity and .category reads null per row.
     test("SelectOutsideStringNull", async () => {
         const awards = await table(GrammyAwardEntity)
             .map(a => ((a as AwardEntity) as AmericanMusicAwardEntity).category)
             .toArray();
-        assert.ok(Array.isArray(awards));
+        assert.ok(awards.length > 0);
+        assert.ok(awards.every(c => c == null));
     });
 
     // Select(a => ((AmericanMusicAwardEntity)(AwardEntity)a).ToLite())  — cross-hierarchy cast → null
-    // TODO(api): entity cast in query — see SelectOutsideStringNull (cross-hierarchy cast → null).
     test("SelectOutsideLiteNull", async () => {
         const awards = await table(GrammyAwardEntity)
             .map(a => ((a as AwardEntity) as AmericanMusicAwardEntity).toLite())
             .toArray();
-        assert.ok(Array.isArray(awards));
+        assert.ok(awards.length > 0);
+        assert.ok(awards.every(l => l == null));
     });
 
     // from mle in Database.MListQuery((ArtistEntity a) => a.Friends) select new { Artis = mle.Parent.Name, Friend = mle.Element.Entity.Name }
@@ -623,16 +627,20 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // from b let ga = (GrammyAwardEntity?)b.LastAward select (AwardResult?)(ga.Result < ga.Result ? (int)ga.Result : (int)ga.Result).InSql()
-    // TODO(api): entity cast in query ((x as GrammyAwardEntity)) and InSql() force-evaluate-in-SQL hint
-    // TODO(api): block-bodied lambda
+    // Divergences: the `let ga = …` cast is inlined (expression body, no statement block) and
+    // InSql() (a force-evaluate-in-SQL hint) is dropped — the value is computed in SQL anyway.
+    // b.lastAward is @implementedBy(Grammy, AMA); the cast narrows to Grammy (null for AMA), so
+    // the projected AwardResult enum (a number) is null for a non-Grammy lastAward.
     test("SelectConditionEnum", async () => {
-        // Expression-bodied (no statement block); the `let ga = …` cast is inlined.
         const results = await table(BandEntity)
             .map(b => (b.lastAward as GrammyAwardEntity).result < (b.lastAward as GrammyAwardEntity).result
                 ? (b.lastAward as GrammyAwardEntity).result
                 : (b.lastAward as GrammyAwardEntity).result)
             .toArray();
-        assert.ok(Array.isArray(results));
+        assert.ok(results.every(r => r == null || typeof r === "number"));
+        const grammyLastAward = await table(BandEntity).filter(b => GrammyAwardEntity.isInstance(b.lastAward)).count();
+        assert.equal(results.filter(r => r != null).length, grammyLastAward);
+        assert.ok(grammyLastAward > 0);
     });
 
     // Database.Query<ArtistEntity>().SelectMany(a => a.Friends).Select(a => a.Id).ToList();

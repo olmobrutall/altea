@@ -98,30 +98,38 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // Select(a => a.LastAward == null ? null : a.LastAward.Id.ToString()).ToList();
-    // TODO(api): Lite.id of an @implementedByAll reference + enum/id ToString in query
+    // The id of an @implementedByAll reference is the per-PK-type id columns cast to string
+    // and coalesced (ibaId), so `.id` yields a string; null when the reference is null.
     test("SelectIdLiteIBA", async () => {
         const list = await table(ArtistEntity)
             .map(a => a.lastAward == null ? null : (a.lastAward.id as string))
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.every(x => x == null || typeof x === "string"));
+        assert.ok(list.some(x => x != null)); // Michael Jackson has a lastAward
     });
 
     // Where(a => a.LastAward!.Id.ToString() == "3").ToList();
-    // TODO(api): Lite.id of an @implementedByAll reference + id ToString in query
     test("WhereIdLiteIB", async () => {
         const list = await table(ArtistEntity)
             .filter(a => (a.lastAward!.id as string) == "3")
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.every(a => a instanceof ArtistEntity));
+        // Positive check: read an artist's lastAward id back, filter by it, find the artist.
+        const michaelAwardId = await table(ArtistEntity)
+            .filter(a => a.name == "Michael Jackson").map(a => a.lastAward!.id as string).firstOrNull();
+        assert.ok(michaelAwardId != null);
+        const matched = await table(ArtistEntity).filter(a => (a.lastAward!.id as string) == michaelAwardId!).toArray();
+        assert.ok(matched.some(a => a.name === "Michael Jackson"));
     });
 
     // Where(a => a.Friends.Select(a => a.ToString()).Contains(a.LastAward!.Id.ToString())).ToList();
-    // TODO(api): Lite.id of an @implementedByAll reference + ToString of a Lite element in subquery
+    // The @implementedByAll .id binds inside a correlated subquery-membership test. No seeded
+    // row has a friend whose ToString equals the lastAward id string, so the set is empty.
     test("ContainsIdLiteIB", async () => {
         const list = await table(ArtistEntity)
             .filter(a => a.friends.map(f => f.friend.toString()).contains(a.lastAward!.id as string))
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.every(a => a instanceof ArtistEntity));
     });
 
     // Database.Query<AwardNominationEntity>().Where(a => a.Award.Entity is GrammyAwardEntity).ToList();
@@ -308,12 +316,17 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // from a select (int?)a.Award!.Entity.Year
-    // TODO(api): Lite.entity dereference of an @implementedBy reference with nullable projection
+    // a.award is a Lite<Entity> over @implementedBy(Grammy, Personal, AMA); .entity derefs to
+    // the IB reference, the cast narrows to Grammy (null for the other impls / null award),
+    // and .year reads the Grammy column — null for a non-Grammy nomination.
     test("SelectCastIBPolymorphicForceNullify", async () => {
         const list = await table(AwardNominationEntity)
             .map(a => (a.award!.entity as GrammyAwardEntity).year)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.every(y => y == null || typeof y === "number"));
+        const grammyNoms = await table(AwardNominationEntity).filter(a => GrammyAwardEntity.isLite(a.award)).count();
+        assert.equal(list.filter(y => y != null).length, grammyNoms);
+        assert.ok(grammyNoms > 0);
     });
 
     // from a select a.Author.CombineUnion().LastAward.Try(la => la.ToLite())
