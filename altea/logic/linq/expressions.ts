@@ -19,12 +19,23 @@ import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 // dead branch, so an unreachable, un-typeable branch (Throw<T>(), a null-guarded `.name`) is
 // never built.
 
+// The Temporal constructors (`Temporal.PlainDateTime.from(…)` etc.): NOT folded to a value,
+// so the QueryBinder can translate the construction to a SQL date-part function
+// (MAKE_DATE / DATETIMEFROMPARTS / …) — mirroring Signum's `new DateTime(y,m,d)` →
+// `MAKE_DATE(@p0,@p1,@p2)`. As a SQL expression (not a constant) it also survives a
+// constant-folding ORDER BY.
+const TEMPORAL_CONSTRUCTORS: ReadonlySet<unknown> = new Set<unknown>([
+    Temporal.PlainDateTime.from, Temporal.PlainDate.from, Temporal.PlainTime.from, Temporal.Duration.from,
+]);
+
 // A value that must NOT be frozen to a constant: a query source (table/view), a set-returning /
-// scalar SQL marker (@sqlMethod), or a Query — all must stay translatable to SQL rather than run
-// at query-build time. (Scalar functions exposed as static-class methods, e.g. PostgresFunctions,
-// are reached via the class receiver, not by branding the value here.)
+// scalar SQL marker (@sqlMethod), a Temporal constructor, or a Query — all must stay translatable
+// to SQL rather than run at query-build time. (Scalar functions exposed as static-class methods,
+// e.g. PostgresFunctions, are reached via the class receiver, not by branding the value here.)
 function isQueryMarker(v: unknown): boolean {
     if (v instanceof Query)
+        return true;
+    if (TEMPORAL_CONSTRUCTORS.has(v))
         return true;
     if (typeof v !== "function")
         return false;

@@ -736,9 +736,16 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // Select(a => ((int)a.Id / 10m)).Select(a => ((decimal?)a).InSql()); Assert.Contains(list, a => a.Value != Math.Round(a.Value))
-    // TODO(api): decimal arithmetic + InSql() to preserve decimal places (avoid CAST as decimal in SQL)
+    // Signum's `10m` makes the division decimal so SQL preserves the places under InSql().
+    // altea has no decimal literal (id / 10 is int/int), so instead the LAZY projector computes
+    // it CLIENT-SIDE in JS float — 5/10 = 0.5 — which is the idiomatic way to keep decimal
+    // places without a SQL cast. Forcing it into SQL with inSql() integer-divides (truncates),
+    // the very cast the client-side path avoids. (TODO(api): a decimal literal / decimal
+    // arithmetic would let inSql() preserve places server-side too, like Signum's 10m.)
     test("AvoidDecimalCastinInSql", async () => {
-        const list = await table(ArtistEntity).map(a => (a.id as number) / 10).toArray();
-        assert.ok(list.some(a => a !== Math.round(a)));
+        const clientSide = await table(ArtistEntity).map(a => (a.id as number) / 10).toArray();
+        assert.ok(clientSide.some(a => !Number.isInteger(a)));      // lazy JS keeps the .5
+        const forcedToSql = await table(ArtistEntity).map(a => inSql((a.id as number) / 10)).toArray();
+        assert.ok(forcedToSql.every(a => Number.isInteger(a)));     // SQL int-division truncates
     });
 });

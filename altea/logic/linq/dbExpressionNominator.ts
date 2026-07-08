@@ -3,7 +3,7 @@ import {
     ConstantExpression, CastExpression, CallExpression, PropertyExpression,
     ParameterExpression, LambdaExpression,
 } from "./expressions";
-import { inSql } from "../../entities/basics";
+import { inSql, Temporal } from "../../entities/basics";
 import {
     ColumnExpression, SqlConstantExpression, SqlLiteralExpression, PrimaryKeyExpression,
     IsNullExpression, IsNotNullExpression, LikeExpression, SqlFunctionExpression, SqlCastExpression,
@@ -25,6 +25,18 @@ const TIMESPAN_MARKER = "__timespan__";
 const CLIENT_PROJECTOR_OPS = new Set<string>([
     "+", "-", "*", "/", "%",
     "<", "<=", ">", ">=", "==", "!=", "===", "!==",
+]);
+
+// The captured Temporal class → the kind its `from({…})` constructs. A date/time literal
+// (`Temporal.PlainDate.from({ year, month, day })`, the altea analog of Signum's
+// `new DateTime(…)`) is translated to a SQL date-part constructor here, mirroring Signum's
+// DbExpressionNominator.VisitNew.
+type TemporalKind = "dateTime" | "date" | "time" | "duration";
+const TEMPORAL_CTOR_KINDS: ReadonlyMap<unknown, TemporalKind> = new Map<unknown, TemporalKind>([
+    [Temporal.PlainDateTime, "dateTime"],
+    [Temporal.PlainDate, "date"],
+    [Temporal.PlainTime, "time"],
+    [Temporal.Duration, "duration"],
 ]);
 
 // A type the reader can operate on with a plain JS operator (`+`, `<`, …). Arithmetic /
@@ -291,6 +303,59 @@ class DbExpressionNominator extends DbExpressionVisitor {
         throw new Error("Unexpected call reached the nominator: " + node.toString());
     }
 
+    // The temporal kind a receiver's `from(...)` constructs, when the receiver is a captured
+    // Temporal class — `Temporal.PlainDate` (a PropertyExpression off the captured Temporal
+    // namespace) or the class captured directly. Otherwise undefined.
+    private temporalCtorKind(source: Expression): TemporalKind | undefined {
+        let ctor: unknown;
+        if (source instanceof ConstantExpression)
+            ctor = source.value;
+        else if (source instanceof PropertyExpression && source.object instanceof ConstantExpression && source.object.value != null)
+            ctor = (source.object.value as Record<string, unknown>)[source.propertyName];
+        return ctor == null ? undefined : TEMPORAL_CTOR_KINDS.get(ctor);
+    }
+
+    // Translate a constant date/time component object to a SQL date-part constructor —
+    // MAKE_DATE / MAKE_TIMESTAMP / MAKE_TIME / MAKE_INTERVAL on Postgres, DATEFROMPARTS /
+    // DATETIMEFROMPARTS / TIMEFROMPARTS on SQL Server (Signum's VisitNew per DateTime / DateOnly /
+    // TimeOnly / TimeSpan). Only a constant components object is supported (the literal forms).
+    private temporalConstructor(kind: TemporalKind, arg: Expression): Expression {
+        if (!(arg instanceof ConstantExpression) || arg.value == null || typeof arg.value !== "object")
+            throw new Error("A date/time literal (Temporal.*.from(...)) requires a constant { year, month, … } object");
+        const o = arg.value as Record<string, number | undefined>;
+        const kindType = new TemporalType(kind === "date" ? "date" : kind === "dateTime" ? "dateTime" : "duration");
+        // Components are bound PARAMETERS, not inline literals: SQL Server rejects an all-constant
+        // expression in ORDER BY (error 408), but a parameterised one is fine — and this matches
+        // Signum's `MAKE_DATE(@p0, @p1, @p2)`. Exception: TIMEFROMPARTS's scale must be a literal.
+        const p = (v: number) => new ConstantExpression(v);
+        const lit = (v: number) => new SqlConstantExpression(v, LiteralType.number);
+        const fn = (name: string, args: Expression[]) => new SqlFunctionExpression(kindType, undefined, name, args);
+
+        const year = o.year ?? 1, month = o.month ?? 1, day = o.day ?? 1;
+        const hour = o.hour ?? 0, minute = o.minute ?? 0, second = o.second ?? 0, ms = o.millisecond ?? 0;
+        switch (kind) {
+            case "date":
+                return this.isPostgres ? fn("MAKE_DATE", [p(year), p(month), p(day)]) : fn("DATEFROMPARTS", [p(year), p(month), p(day)]);
+            case "dateTime":
+                // Postgres MAKE_TIMESTAMP takes fractional seconds (a double); SQL Server's
+                // DATETIMEFROMPARTS takes a separate integer milliseconds argument.
+                return this.isPostgres
+                    ? fn("MAKE_TIMESTAMP", [p(year), p(month), p(day), p(hour), p(minute), p(second + ms / 1000)])
+                    : fn("DATETIMEFROMPARTS", [p(year), p(month), p(day), p(hour), p(minute), p(second), p(ms)]);
+            case "time":
+                return this.isPostgres
+                    ? fn("MAKE_TIME", [p(hour), p(minute), p(second + ms / 1000)])
+                    : fn("TIMEFROMPARTS", [p(hour), p(minute), p(second), p(ms), lit(3)]);
+            case "duration": {
+                // A TimeSpan/Duration up to a day maps to a SQL interval / time value.
+                const dh = o.hours ?? 0, dmi = o.minutes ?? 0, ds = o.seconds ?? 0, dms = o.milliseconds ?? 0;
+                return this.isPostgres
+                    ? fn("MAKE_INTERVAL", [p(0), p(0), p(0), p(0), p(dh), p(dmi), p(ds + dms / 1000)])
+                    : fn("TIMEFROMPARTS", [p(dh), p(dmi), p(ds), p(dms), lit(3)]);
+            }
+        }
+    }
+
     // Port of DbExpressionNominator.HardCodedMethods. Cases are keyed
     // "<receiverType>.<method>" — Signum switches on `DeclaringType.TypeName() + "." +
     // MethodName` ("string.IndexOf"), so a method only matches on the right receiver
@@ -299,6 +364,13 @@ class DbExpressionNominator extends DbExpressionVisitor {
     // 0-based) but the emitted SQL is the same. Returns undefined for an unrecognised
     // receiver/method/arity (visitCall then throws).
     private hardCodedMethod(name: string, source: Expression, args: readonly Expression[]): Expression | undefined {
+        // Date/time literal `Temporal.PlainDate.from({ … })` (Signum's `new DateTime(…)`,
+        // handled in DbExpressionNominator.VisitNew) → a SQL date-part constructor.
+        if (name === "from") {
+            const kind = this.temporalCtorKind(source);
+            if (kind != null)
+                return this.temporalConstructor(kind, args[0]);
+        }
         const ns = this.receiverNamespace(source);
         if (ns === "Math")
             return this.translateMath(name, args);
