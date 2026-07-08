@@ -69,15 +69,18 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
 
     // var bands = new List<Lite<IAuthorEntity>> { Lite.Create<ArtistEntity>(5), Lite.Create<BandEntity>(1) };
     // var albums = (from a in Database.Query<AlbumEntity>() where !bands.Contains(a.Author.ToLite()) select a.ToLite()).ToList();
-    // TODO(api): Lite.Create<T>(id) (constructing a thin Lite from a bare id) has no altea equivalent.
-    // TODO(api): IAuthorEntity polymorphic author interface has no altea equivalent (author is a bare Entity).
+    // Not ported: Lite.Create<T>(id) (thin Lite from a bare id) and the IAuthorEntity polymorphic
+    // author interface — altea's author is a bare Entity. With an empty exclusion list the
+    // in-memory-list Contains still exercises (matches nothing), so every album is returned.
     test("ContainsListLiteIB", async () => {
         const bands: any[] = [];
         const albums = await table(AlbumEntity)
             .filter(a => !bands.contains(a.author.toLite()))
             .map(a => a.toLite())
             .toArray();
-        assert.ok(Array.isArray(albums));
+        const total = await table(AlbumEntity).count();
+        assert.equal(albums.length, total);
+        assert.ok(albums.every(l => l.entityType === AlbumEntity));
     });
 
     // var bands = new List<IAuthorEntity> { Database.Retrieve<ArtistEntity>(5), Database.Retrieve<BandEntity>(1) };
@@ -99,7 +102,9 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     // var lites = Database.Query<ArtistEntity>().Where(a => a.Dead).Select(a => a.ToLite<IAuthorEntity>()).ToArray()
     //     .Concat(Database.Query<BandEntity>().Where(a => a.Name.StartsWith("Smash")).Select(a => a.ToLite<IAuthorEntity>())).ToArray();
     // var albums = (from a in Database.Query<NoteWithDateEntity>() where lites.Contains(a.Target.ToLite()) select a.ToLite()).ToList();
-    // TODO(api): ToLite<IAuthorEntity>() (lite typed to a polymorphic interface) has no altea equivalent.
+    // Not ported: ToLite<IAuthorEntity>() (a lite typed to a polymorphic interface). The lites are
+    // built as bare (Artist/Band) lites into an untyped list — the heterogeneous in-memory-list
+    // Contains against a polymorphic Target still runs.
     test("ContainsListLiteIBA", async () => {
         const dead = await table(ArtistEntity).filter(a => a.dead).map(a => a.toLite()).toArray();
         const smash = await table(BandEntity).filter(a => a.name.startsWith("Smash")).map(a => a.toLite()).toArray();
@@ -108,13 +113,15 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
             .filter(a => lites.contains(a.target.toLite()))
             .map(a => a.toLite())
             .toArray();
-        assert.ok(Array.isArray(albums));
+        assert.ok(albums.every(l => l.entityType === NoteWithDateEntity));
     });
 
     // var entities = Database.Query<ArtistEntity>().Where(a => a.Dead).Select(a => (IEntity)a).ToArray()
     //     .Concat(Database.Query<BandEntity>().Where(a => a.Name.StartsWith("Smash")).Select(a => (IEntity)a)).ToArray();
     // var albums = (from a in Database.Query<NoteWithDateEntity>() where entities.Contains(a.Target) select a.ToLite()).ToList();
-    // TODO(api): (IEntity)a entity-interface cast / heterogeneous in-memory entity list for an entity-level Contains has no altea equivalent.
+    // Not ported: the (IEntity)a entity-interface cast. The heterogeneous in-memory entity list
+    // (an artist + a band) is built untyped and the entity-level Contains against the polymorphic
+    // Target still runs.
     test("ContainsListEntityIBA", async () => {
         const dead = await table(ArtistEntity).filter(a => a.dead).toArray();
         const smash = await table(BandEntity).filter(a => a.name.startsWith("Smash")).toArray();
@@ -123,7 +130,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
             .filter(a => entities.contains(a.target))
             .map(a => a.toLite())
             .toArray();
-        assert.ok(Array.isArray(albums));
+        assert.ok(albums.every(l => l.entityType === NoteWithDateEntity));
     });
 
     // var singles = new[] { Status.Single };
@@ -143,9 +150,9 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     });
 
     // Assert.False(Database.Query<ArtistEntity>().None(a => a.Sex == Sex.Female));
-    // TODO(api): .None() (negated Any) has no altea equivalent; expressed as !(... .some(...)).
+    // altea has no .None(); the negated-Any is the idiomatic !(await ... .some(...)).
     test("None", async () => {
-        assert.equal(await table(ArtistEntity).some(a => a.sex == Sex.Female), true);
+        assert.equal(!(await table(ArtistEntity).some(a => a.sex == Sex.Female)), false);
     });
 
     // var years = new[] { 1992, 1993, 1995 };
@@ -166,20 +173,22 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     });
 
     // BandEntity smashing = Database.Query<BandEntity>().SingleEx(b => b.Members.None(a => a.Sex == Sex.Female));
-    // TODO(api): collection .None() (negated Any) has no altea equivalent; expressed as !(... .some(...)).
+    // altea has no collection .None(); the negated existence check is the idiomatic !coll.some(...).
     test("NoneSql", async () => {
         const smashing = await table(BandEntity).single(b => !b.members.some(a => a.member.sex == Sex.Female));
         assert.ok(smashing != null);
+        assert.ok(smashing.members.every(a => a.member.sex != Sex.Female));
     });
 
     // var withFriends = Database.Query<ArtistEntity>().Where(b => b.Friends.Any()).Select(a => a.Name).ToList();
-    // TODO(api): collection .some() requires a predicate; the no-argument existence check (C# Any()) has no altea equivalent.
+    // C#'s arg-less Any() (existence) is expressed in altea as .some(a => true) — an always-true predicate.
     test("AnySqlNonPredicate", async () => {
         const withFriends = await table(ArtistEntity)
             .filter(b => b.friends.some(a => true))
             .map(a => a.name)
             .toArray();
-        assert.ok(Array.isArray(withFriends));
+        assert.ok(withFriends.length > 0);
+        assert.ok(withFriends.every(n => n != null));
     });
 
     // Assert.False(Database.Query<ArtistEntity>().All(a => a.Sex == Sex.Male));

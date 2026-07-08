@@ -58,30 +58,27 @@ describe("DistinctTest", { skip: !hasDb }, () => {
 
     // Database.Query<BandEntity>().SelectMany(a => a.Members.SelectMany(m => m.Friends).Distinct()).Take(4).ToList();
     test("DistinctTake", async () => {
-        // TODO(api): nested collection projection — flatMap over a part-entity collection
-        // (band.members → .member) and a further flatMap into m.friends with an inner
-        // .distinct() is not expressible with the current Query<T> collection API.
         const bla = await table(BandEntity)
             .flatMap(a => a.members.map(m => m.member.friends.map(f => f.friend)).distinct())
             .top(4)
             .toArray();
-        assert.ok(Array.isArray(bla));
+        assert.ok(bla.length > 0);
+        assert.ok(bla.length <= 4);
     });
 
     // from b in Database.Query<BandEntity>()
     // from g in b.Members.GroupBy(a => a.Sex).Select(gr => new { gr.Key, Count = gr.Count() })
     // select new { Band = b.ToLite(), g.Key, g.Count } ).Take(2).ToList();
     test("GroupTake", async () => {
-        // TODO(api): correlated cross-apply with a per-row GroupBy — the comprehension
-        // joins each band to a grouping over its own members and is not expressible with
-        // the current flatMap/groupBy API.
         const bla = await table(BandEntity)
             .flatMap(b => b.members
                 .groupBy(a => a.member.sex)
                 .map(gr => ({ band: b.toLite(), key: gr.key, count: gr.elements.length })))
             .top(2)
             .toArray();
-        assert.ok(Array.isArray(bla));
+        assert.ok(bla.length > 0);
+        assert.ok(bla.length <= 2);
+        assert.ok(bla.every(x => x.count > 0));
     });
 
     // nullableList = ...Select(a => a == null ? (Sex?)null : a.Sex).Distinct().ToList();

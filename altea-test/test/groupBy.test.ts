@@ -27,11 +27,11 @@ const isDefined = withQuoted((s: Sex) => s == Sex.Male || s == Sex.Female);
 //
 // altea's groupBy has no C# result-selector overload — `GroupBy(k, g => result)`
 // patterns are written as `.groupBy(k).map(g => …over g.elements…)`. Aggregates
-// over the group use the Array operators on `g.elements`. Features with no altea
-// API yet (StdDev, MaxBy/MinBy, MListQuery, GetType/EntityType, arg-less
-// Average/Sum on the query, cross-table SelectMany source, GroupBy().SelectMany,
-// GroupBy().All over a grouping) are written in their most natural altea form,
-// marked `{ skip: true }`, and flagged with a `// TODO(api): …` comment.
+// over the group use the Array operators on `g.elements`. Signum features once
+// thought missing here (StdDev/StdDevP, MaxBy/MinBy, GetType/EntityType, arg-less
+// Average/Sum, cross-table SelectMany source, GroupBy().SelectMany, GroupBy().All
+// over a grouping, empty-key whole-table aggregate, MListQuery-via-flatMap) all run
+// green in their natural altea form. C#-only constructs are noted `// Not ported:`.
 
 describe("GroupByTest", { skip: !hasDb }, () => {
     before(async () => { await start(); });
@@ -117,7 +117,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     });
 
     // group a.Name.Length by new { } into g select new { g.Key, Count, Sum, Min, Max, Avg }
-    // TODO(api): grouping by an empty key (group by new { }) — whole-table aggregate via groupBy
+    // Grouping by an empty key collapses the whole table into a single group (whole-table aggregate).
     test("GroupMultiAggregateNoKeys", async () => {
         const sexos = await table(ArtistEntity)
             .groupBy(a => ({}), a => a.name.length)
@@ -130,11 +130,12 @@ describe("GroupByTest", { skip: !hasDb }, () => {
                 avg: g.elements.avg(),
             }))
             .toArray();
-        assert.ok(Array.isArray(sexos));
+        assert.equal(sexos.length, 1);
+        // Number() coerces — SQL Server returns SUM/MIN/MAX/AVG over the aggregate as numeric strings.
+        assert.ok(sexos[0].count > 0 && Number(sexos[0].sum) > 0 && Number(sexos[0].max) >= Number(sexos[0].min));
     });
 
     // group a.Name.Length by a.Sex into g select new { g.Key, StdDev, StdDevInMemory, StdDevP, StdDevPInMemory }
-    // TODO(api): StdDev / StdDevP aggregate functions
     test("GroupStdDev", async () => {
         const sexos = await table(ArtistEntity)
             .groupBy(a => a.sex, a => a.name.length)
@@ -144,7 +145,9 @@ describe("GroupByTest", { skip: !hasDb }, () => {
                 stdDevP: g.elements.stdDevP(),
             }))
             .toArray();
-        assert.ok(Array.isArray(sexos));
+        assert.ok(sexos.length > 0);
+        // Population stdDev <= sample stdDev where both are defined (single-element groups give null/0).
+        assert.ok(sexos.every(g => g.stdDev == null || g.stdDevP == null || g.stdDevP! <= g.stdDev!));
     });
 
     // Database.Query<ArtistEntity>().GroupBy(a => a.Sex).ToList();
@@ -156,13 +159,14 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     // (commented out in C#) GroupBy(a => a.GetType()) — omitted
 
     // GroupBy(a => new { DefaultLabel = … EmbeddedConfig.DefaultLabel.Entity.Country }).Select(gr => new { gr.Key, Count })
-    // TODO(api): Lite.entity dereference (DefaultLabel.entity.country) inside a group key
+    // Dereferencing a Lite to its entity (DefaultLabel.entity.country) inside a group key works.
     test("GroupByEntityInOptionalEmbedded", async () => {
         const list = await table(ConfigEntity)
             .groupBy(a => ({ defaultLabel: a.embeddedConfig == null ? null : a.embeddedConfig!.defaultLabel!.entity.country }))
             .map(gr => ({ key: gr.key, count: gr.elements.length }))
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.length > 0);
+        assert.ok(list.every(gr => gr.count > 0));
     });
 
     // Database.Query<AwardNominationEntity>().GroupBy(a => a.Award.EntityType).ToList();
@@ -528,23 +532,25 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     });
 
     // from b from a in b.Members let count = Query<ArtistEntity>().Count(a2 => a2.Sex == a.Sex) select new { Album = a.ToLite(), Count = count }
-    // TODO(api): correlated subquery — table(...).count(...) referencing the outer flatMap element inside a projection
+    // A correlated subquery — table(...).count(...) referencing the outer flatMap element — works inside a projection.
     test("SelectExpansionCount", async () => {
         const albums = await table(BandEntity)
             .flatMap(b => b.members)
             .map(a => ({ album: a.member, count: table(ArtistEntity).count(a2 => a2.sex == a.member.sex) }))
             .toArray();
-        assert.ok(Array.isArray(albums));
+        assert.ok(albums.length > 0);
+        assert.ok(albums.every(x => x.album != null && (x.count as unknown as number) > 0));
     });
 
     // Database.Query<ArtistEntity>().GroupBy(a => a.Sex).SelectMany(a => a).ToList();
-    // TODO(api): SelectMany over a grouping (flatMap g => g.elements after groupBy)
+    // SelectMany over a grouping (flatMap g => g.elements after groupBy) flattens back to every row.
     test("GroupBySelectMany", async () => {
         const songsAlbum = await table(ArtistEntity)
             .groupBy(a => a.sex)
             .flatMap(a => a.elements)
             .toArray();
-        assert.ok(Array.isArray(songsAlbum));
+        const total = await table(ArtistEntity).count();
+        assert.equal(songsAlbum.length, total);
     });
 
     // Database.Query<BandEntity>().Sum(b => b.Members.Sum(m => (int)m.Id.Object));
@@ -754,7 +760,8 @@ describe("GroupByTest", { skip: !hasDb }, () => {
     });
 
     // from mle in MListQuery((AlbumEntity a) => a.Songs) group mle.Element by mle.Parent into g where g.Count() > 1 select new { FirstName, FirstDuration, Last }
-    // TODO(api): MListQuery (query the link/part-entity rows directly) and a where-clause over a grouping
+    // The MListQuery source is expressed by flatMap over the child collection; grouping the flattened
+    // rows and filtering on the group (where g.Count() > 1) works.
     test("FirstLastGroup", async () => {
         const list = await table(AlbumEntity)
             .flatMap(a => a.songs)
@@ -766,11 +773,12 @@ describe("GroupByTest", { skip: !hasDb }, () => {
                 last: g.elements.orderByDescending(s => s.name).firstOrNull(),
             }))
             .toArray();
+        assert.ok(list.length > 0);
         assert.ok(list.every(a => a.firstName != a.last!.name));
     });
 
     // select a.Songs into songs where songs.Count > 1 select new { FirstName, FirstDuration, Last }
-    // TODO(api): projecting an entire child collection (a.songs) into a downstream query then filtering on it
+    // Projecting an entire child collection (a.songs) into a downstream query and filtering on it works.
     test("FirstLastList", async () => {
         const list = await table(AlbumEntity)
             .map(a => a.songs)
@@ -781,16 +789,21 @@ describe("GroupByTest", { skip: !hasDb }, () => {
                 last: songs.orderByDescending(s => s.name).firstOrNull(),
             }))
             .toArray();
+        assert.ok(list.length > 0);
         assert.ok(list.every(a => a.firstName != a.last!.name));
     });
 
     // group a by a.Sex.IsDefined() into g select new { g.Key, count = g.Count() }
-    // TODO(api): enum.IsDefined() in a query group key
+    // Signum's enum.IsDefined() has no altea method form, but the predicate (Sex is Male or Female)
+    // is expressible as a `withQuoted` free function the binder inlines into the group key.
     test("GroupByOr", async () => {
         const b = await table(ArtistEntity)
             .groupBy(a => isDefined(a.sex))
             .map(g => ({ key: g.key, count: g.elements.length }))
             .toArray();
-        assert.ok(Array.isArray(b));
+        // Every artist has a defined Sex, so there is exactly one group, keyed true.
+        assert.equal(b.length, 1);
+        assert.equal(b[0].key, true);
+        assert.ok(b[0].count > 0);
     });
 });

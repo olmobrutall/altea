@@ -47,10 +47,9 @@ describe("OrderByTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<ArtistEntity>().OrderBy(a => a.Dead).Reverse().Select(a => a.Name);
-    // TODO(api): Query.reverse
     test("OrderByReverse", async () => {
         const artists = await table(ArtistEntity).orderBy(a => a.dead).reverse().map(a => a.name).toArray();
-        assert.ok(Array.isArray(artists));
+        assert.ok(artists.length > 0);
     });
 
     // var michael = Database.Query<ArtistEntity>().OrderBy(a => a.Dead).Last();
@@ -78,14 +77,12 @@ describe("OrderByTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<ArtistEntity>().OrderByDescending(a => a.Dead).ThenBy(a => a.Name).Reverse().Last();
-    // TODO(api): Query.reverse
     test("OrderByThenByReverseLast", async () => {
         const michael = await table(ArtistEntity).orderByDescending(a => a.dead).thenBy(a => a.name).reverse().last();
         assert.ok(michael != null);
     });
 
     // Database.Query<ArtistEntity>().OrderByDescending(a => a.Dead).Take(2).Reverse().FirstEx(); //reverse ignored
-    // TODO(api): Query.reverse
     test("OrderByTakeReverse", async () => {
         const michael = await table(ArtistEntity).orderByDescending(a => a.dead).top(2).reverse().first();
         assert.ok(michael != null);
@@ -104,10 +101,9 @@ describe("OrderByTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<ArtistEntity>().OrderBy(a => a.Dead).Where(a => a.Id != 0).ToList();
-    // TODO(api): Entity.id in query
     test("OrderByNotLast", async () => {
         const songsAlbum = await table(ArtistEntity).orderBy(a => a.dead).filter(a => a.id != 0).toArray();
-        assert.ok(Array.isArray(songsAlbum));
+        assert.ok(songsAlbum.length > 0);
     });
 
     // Database.Query<ArtistEntity>().OrderBy(a => a.Dead).Distinct().ToList();
@@ -118,13 +114,14 @@ describe("OrderByTest", { skip: !hasDb }, () => {
 
     // Database.Query<ArtistEntity>().OrderBy(a => a.Dead)
     //     .GroupBy(a => a.Sex, (s, gr) => new { Sex = s, Count = gr.Count() }).ToList();
-    // TODO(api): groupBy result-selector (altea groupBy yields { key, elements }, no (key, group) => result form)
+    // altea has no result-selector groupBy overload; its groupings are { key, elements }, so
+    // C#'s `GroupBy(key, (s, gr) => …)` is `groupBy(key).map(g => f(g.key, g.elements))`.
     test("OrderByGroupBy", async () => {
         const songsAlbum = await table(ArtistEntity).orderBy(a => a.dead)
             .groupBy(a => a.sex)
             .map(g => ({ sex: g.key, count: g.elements.length }))
             .toArray();
-        assert.ok(Array.isArray(songsAlbum));
+        assert.ok(songsAlbum.length > 0);
     });
 
     // Database.Query<AlbumEntity>().SelectMany(a => a.Songs.OrderBy(a => a.Index))
@@ -170,23 +167,23 @@ describe("OrderByTest", { skip: !hasDb }, () => {
     //   assertion harness and just build+execute each query.
     test("OrderByIgnore", async () => {
         // Database.Query<AlbumEntity>().Where(a => a.Songs.OrderBy(s => s.Name).Count() > 1).Select(a => a.Id).ToList();
-        // TODO(api): Entity.id in query
         const a = await table(AlbumEntity).filter(a => a.songs.orderBy(s => s.name).length > 1).map(a => a.id).toArray();
+        assert.ok(Array.isArray(a));
 
         // Database.Query<AlbumEntity>().Where(a => a.Songs.OrderBy(s => s.Name).Sum(s => s.Name.Length) > 1).Select(a => a.Id).ToList();
-        // TODO(api): Entity.id in query
         const b = await table(AlbumEntity).filter(a => a.songs.orderBy(s => s.name).sum(s => s.name.length) > 1).map(a => a.id).toArray();
+        assert.ok(Array.isArray(b));
 
         // Database.Query<AlbumEntity>().Where(a => a.Songs.OrderBy(s => s.Name).Any(s => s.Name.StartsWith("a"))).Select(a => a.Id).ToList();
-        // TODO(api): Entity.id in query
         const c = await table(AlbumEntity).filter(a => a.songs.orderBy(s => s.name).some(s => s.name.startsWith("a"))).map(a => a.id).toArray();
+        assert.ok(Array.isArray(c));
 
         // Database.Query<AlbumEntity>().Where(a => a.Songs.OrderBy(s => s.Name).All(s => s.Name.StartsWith("a"))).Select(a => a.Id).ToList();
-        // TODO(api): Entity.id in query
         const d = await table(AlbumEntity).filter(a => a.songs.orderBy(s => s.name).every(s => s.name.startsWith("a"))).map(a => a.id).toArray();
+        assert.ok(Array.isArray(d));
 
         // Database.Query<AlbumEntity>().Where(a => a.Songs.OrderBy(s => s.Name).Contains(null!)).Select(a => a.Id).ToList();
-        // TODO(api): Entity.id in query + collection Contains in lambda
+        // TODO(api): collection Contains(null) in a lambda predicate
 
         // Database.Query<AlbumEntity>().OrderBy(a => a.Name).Count();
         const f = await table(AlbumEntity).orderBy(a => a.name).count();

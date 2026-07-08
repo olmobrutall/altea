@@ -14,11 +14,9 @@ import { BandEntity } from "../entities/music";
 // *Async terminals map to the SAME altea await: there is no separate sync/async
 // split. ToListAsync/ToArrayAsync therefore port live as `await .toArray()`.
 // AverageAsync/MinAsync take a selector that counts a part-entity collection per
-// row (a.members.length); that per-row sub-aggregate over a collection has no
-// altea query API yet (same gap as SelectTest.SelectSingleCellAggregate), so
-// those two are written in their natural altea form, marked `{ skip: true }`,
-// and flagged. Live execution is gated on ALTEA_TEST_DB; without it the suite is
-// skipped but still compiles.
+// row (a.members.length) — a per-row sub-aggregate over a collection, which altea
+// translates to a correlated COUNT subquery. Live execution is gated on
+// ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
 describe("AsyncTest", { skip: !hasDb }, () => {
     before(async () => { await start(); });
@@ -36,16 +34,14 @@ describe("AsyncTest", { skip: !hasDb }, () => {
     });
 
     // var artistsInBands = await Database.Query<BandEntity>().AverageAsync(a => a.Members.Count);
-    // TODO(api): per-row aggregate over a part-entity collection inside a selector (a.members.length)
     test("AverageAsync", async () => {
         const artistsInBands = await table(BandEntity).avg(a => a.members.length);
-        assert.ok(artistsInBands != null);
+        assert.ok(artistsInBands! > 0);
     });
 
     // var artistsInBands = await Database.Query<BandEntity>().MinAsync(a => a.Members.Count);
-    // TODO(api): per-row aggregate over a part-entity collection inside a selector (a.members.length)
     test("MinAsync", async () => {
         const artistsInBands = await table(BandEntity).min(a => a.members.length);
-        assert.ok(artistsInBands != null);
+        assert.ok(artistsInBands! >= 0);
     });
 });

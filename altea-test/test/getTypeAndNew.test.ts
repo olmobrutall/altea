@@ -27,8 +27,8 @@ import {
 //                                                      entity / @implementedBy, throws for IBA)
 //   type.FullName          → type.name               (the class-name string)
 // GetType comparisons lower to the type-id discriminator (a CASE / the IB FK-not-null / the
-// IBA type column); toTypeEntity() references the TypeEntity table by that id. `IsNew` in a
-// query is still unsupported (see TestIsNew).
+// IBA type column); toTypeEntity() references the TypeEntity table by that id. `f.isNew` in a
+// query lowers to an id-is-null test.
 
 describe("GetTypeAndNewTest", { skip: !hasDb }, () => {
     before(async () => { await start(); });
@@ -79,7 +79,6 @@ describe("GetTypeAndNewTest", { skip: !hasDb }, () => {
     });
 
     // from f in Database.Query<AlbumEntity>() where (f.IsNew ? "New" : "Old") == "Old" select new { f.Name }
-    // TODO(api): IsNew flag in query
     test("TestIsNew", async () => {
         const list = await table(AlbumEntity)
             .filter(f => (f.isNew ? "New" : "Old") === "Old")
@@ -96,7 +95,8 @@ describe("GetTypeAndNewTest", { skip: !hasDb }, () => {
     });
 
     // from f in Database.Query<ArtistEntity>() select ((Entity)f).GetType().ToTypeEntity()
-    // TODO(api): entity upcast in query — altea has no `(Entity)f` cast; the runtime type is the same.
+    // Not ported: the C# `(Entity)f` upcast is a compile-time no-op — the runtime type is
+    // unchanged, so altea just reads f.constructor directly (identical to the non-upcast form).
     test("SelectToTypeEntity_UpCast", async () => {
         const list = await table(ArtistEntity).map(f => f.constructor.toTypeEntity()).toArray();
         assert.ok(list.every(t => t.cleanName === "Artist"));

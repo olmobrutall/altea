@@ -17,32 +17,30 @@ import { ArtistEntity, AlbumEntity, BandEntity, Sex } from "../entities/music";
 // EVERY ToStringTest method exercises the collection-aggregate ToString —
 // either query-level `query.ToString(selector, separator)` / `query.ToString(separator)`
 // or per-row `collection.ToString(selector, separator)` / `list.ToString(separator)`.
-// altea has no string-join aggregate API yet, so every method is written in its
-// most natural altea form, marked `{ skip: true }`, and flagged with a
-// `// TODO(api): collection toString aggregate` comment.
+// altea's equivalent is `.map(sel).join(separator)` (a string_agg over the (sub)query),
+// which the binder translates to SQL — so every method runs live.
 
 describe("ToStringTest", { skip: !hasDb }, () => {
     before(async () => { await start(); });
 
     // Assert.Equal(Query<ArtistEntity>().Select(a => a.Name).ToString(" | "), Query<ArtistEntity>().ToString(a => a.Name, " | "));
-    // TODO(api): collection toString aggregate
     test("ToStringMainQuery", async () => {
         const a = await table(ArtistEntity).map(a => a.name).join(" | ");
         const b = await table(ArtistEntity).map(a => a.name).join(" | ");
         assert.equal(a, b);
+        assert.ok(a.includes(" | "));
     });
 
     // Assert.Equal(Query<ArtistEntity>().Select(a => a.Name).ToString(" | "), Query<ArtistEntity>().ToString(" | "));
-    // TODO(api): collection toString aggregate
     test("ToStringEntity", async () => {
         const a = await table(ArtistEntity).map(a => a.name).join(" | ");
         const b = await table(ArtistEntity).join(" | ");
         assert.equal(a, b);
+        assert.ok(a.length > 0);
     });
 
     // from b orderby b.Name select new { b.Name, MembersToString = b.Members.OrderBy(a => a.Name).ToString(a => a.Name, " | ") }
     //   vs new { b.Name, MembersToString = b.Members.OrderBy(a => a.Name).Select(a => a.Name).ToList().ToString(" | ") }; Assert.True(SequenceEqual)
-    // TODO(api): collection toString aggregate
     test("ToStringSubCollection", async () => {
         const result1 = await table(BandEntity)
             .orderBy(b => b.name)
@@ -53,11 +51,12 @@ describe("ToStringTest", { skip: !hasDb }, () => {
             .map(b => ({ name: b.name, membersToString: b.members.orderBy(a => a.member.name).map(a => a.member.name).join(" | ") }))
             .toArray();
         assert.deepEqual(result1, result2);
+        assert.ok(result1.length > 0);
+        assert.ok(result1.some(r => r.membersToString.includes(" | ")));
     });
 
     // from b orderby b.Name select new { b.Name, AlbumnsToString = Query<AlbumEntity>().Where(a => a.Author == b).OrderBy(a => a.Name).ToString(a => a.Name, " | ") }
     //   vs … .Select(a => a.Name).ToList().ToString(" | "); Assert.Equal(result1, result2)
-    // TODO(api): collection toString aggregate
     test("ToStringSubQuery", async () => {
         const result1 = await table(BandEntity)
             .orderBy(b => b.name)
@@ -68,28 +67,28 @@ describe("ToStringTest", { skip: !hasDb }, () => {
             .map(b => ({ name: b.name, albumnsToString: table(AlbumEntity).filter(a => a.author.is(b)).orderBy(a => a.name).map(a => a.name).join(" | ") }))
             .toArray();
         assert.deepEqual(result1, result2);
+        assert.ok(result1.length > 0);
     });
 
     // from b orderby b.Name select new { b.Name, AlbumnsToString = Query<AlbumEntity>().Where(a => a.Author == b).ToString(a => a.Author.Id.ToString(), " | ") }
-    // TODO(api): collection toString aggregate
     test("ToStringSubQueryIdIB", async () => {
         const result1 = await table(ArtistEntity)
             .orderBy(b => b.name)
             .map(b => ({ name: b.name, albumnsToString: table(AlbumEntity).filter(a => a.author.is(b)).map(a => (a.author.id as number).toString()).join(" | ") }))
             .toArray();
+        assert.ok(result1.length > 0);
     });
 
     // from b orderby b.Name select new { b.Name, AlbumnsToString = Query<AlbumEntity>().Where(a => a.Author == b).OrderBy(a => a.Author.Id).ToString(a => a.Author.Id.ToString(), " | ") }
-    // TODO(api): collection toString aggregate
     test("ToStringSubQueryIdIBOrdering", async () => {
         const result1 = await table(ArtistEntity)
             .orderBy(b => b.name)
             .map(b => ({ name: b.name, albumnsToString: table(AlbumEntity).filter(a => a.author.is(b)).orderBy(a => (a.author.id as number)).map(a => (a.author.id as number).toString()).join(" | ") }))
             .toArray();
+        assert.ok(result1.length > 0);
     });
 
     // from b group b by b.Sex into g select new { g.Key, NamesInOrder = g.OrderBy(a => a.Name).ToString(" | "), NamesInRevereOrder = g.OrderByDescending(a => a.Name).ToString(" | ") }
-    // TODO(api): collection toString aggregate
     test("ToStringGroupByOrdering", async () => {
         const result1 = await table(ArtistEntity)
             .groupBy(b => b.sex)
@@ -99,10 +98,17 @@ describe("ToStringTest", { skip: !hasDb }, () => {
                 namesInRevereOrder: g.elements.orderByDescending(a => a.name).map(a => a.name).join(" | "),
             }))
             .toArray();
+        assert.ok(result1.length > 0);
+        // Ascending and descending joins are permutations of each other per group
+        // (identical multiset of names, just re-ordered).
+        assert.ok(result1.every(g =>
+            g.namesInOrder.split(" | ").sort().join(" | ") ===
+            g.namesInRevereOrder.split(" | ").sort().join(" | ")));
     });
 
     // result1: …ToString(a => a.Id.ToString(), " | "); result2: …Select(a => a.Id).ToString(" | "); result3: toString = list => list.ToString(" | ") over …Select(a => a.Id).ToList(); Assert SequenceEqual(result1,result2) & (result2,result3)
-    // TODO(api): collection toString aggregate
+    // TODO(api): materialise a correlated sub-query (its toArray()) inside a projection then
+    //   pass it to a client-side helper — an async terminal cannot run inside a quoted lambda (result3).
     test("ToStringNumbers", async () => {
         const result1 = await table(BandEntity)
             .orderBy(b => b.name)
@@ -119,5 +125,6 @@ describe("ToStringTest", { skip: !hasDb }, () => {
         //     .map(b => ({ name: b.name, albumnsToString: toString(table(AlbumEntity).filter(a => a.author.is(b)).orderBy(a => a.name).map(a => a.id).toArray()) }))
         //     .toArray();
         assert.deepEqual(result1, result2);
+        assert.ok(result1.length > 0);
     });
 });

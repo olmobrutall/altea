@@ -23,13 +23,12 @@ const holaOrNull: string | null = "Hola";
 //   .Select(...)         → .map(...)           .ToList()   → await .toArray()
 //   b.ToLite()           → b.toLite()          b.Members.Any(p) → b.members.some(p)
 //   a.Name == "A"        → a.member.name == "A" (navigate the lite)
-// These tests assert the SQL translator SHORT-CIRCUITS: the C# `Throw<T>()` helper
+// These tests assert the SQL translator SHORT-CIRCUITS: the `Throw<T>()` helper
 // throws if evaluated, so each must compile to SQL that never executes the
-// throwing branch (?? / ?: / |/|| / &/&& constant folding). altea cannot embed a
-// throwing helper call inside a quoted lambda (it's not SQL-mappable), so every
-// test whose body references Throw<T>() is written in its natural altea form,
-// marked `{ skip: true }`, and flagged. The two short-circuit cases that DON'T
-// need Throw (NonSortCircuitCondicional, SortEqualsTrue/False) port live.
+// throwing branch (?? / ?: / |/|| / &/&& constant folding). altea proves the
+// throwing branch unreachable at translation time — the query runs (the helper is
+// never invoked), which is exactly what these bodies verify. The assertions check
+// the folded predicate's truth value (empty vs. whole-table result).
 // Terminals are async (the connector is async-only). Live execution is gated on
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
@@ -37,18 +36,21 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
     before(async () => { await start(); });
 
     // Query<AlbumEntity>().Where(a => ("Hola" ?? Throw<string>()) == null).Select(a => a.Year).ToList();
-    // TODO(api): short-circuit ?? with a throwing helper (Throw<T>()) — not SQL-mappable
     test("SortCircuitCoalesce", async () => {
+        // ("Hola" ?? throw) == null folds to false → no rows (throw never evaluated).
         const list = await table(AlbumEntity)
             .filter(a => (holaOrNull ?? Throw<string>()) == null)
             .map(a => a.year)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.equal(list.length, 0);
     });
 
     // Where(a => (((DateTime?)DateTime.Now) ?? Throw<DateTime>()) == DateTime.Today).Select(a => a.Year).ToList();
-    // TODO(api): short-circuit ?? with a throwing helper (Throw<T>()) — not SQL-mappable
-    // TODO(api): Clock.Now / DateTime.Now / DateTime.Today server-now constants in query
+    // The `?? Throw` short-circuit itself folds fine, but this predicate compares two
+    // client-side `Temporal.Now.plainDateISO()` reads (each a fresh JS value, not a single
+    // server-now constant), so they need not be equal — hence no equality on the result count.
+    // TODO(api): a single server-now constant in a query (Signum's Clock.Now / DateTime.Today
+    //   materialised once server-side) so two now-reads in one predicate compare equal.
     test("SortCircuitCoalesceNullable", async () => {
         const list = await table(AlbumEntity)
             .filter(a => (Temporal.Now.plainDateISO() ?? Throw<Temporal.PlainDate>()) == Temporal.Now.plainDateISO())
@@ -58,13 +60,14 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
     });
 
     // Where(a => "Hola" == "Hola" ? true : Throw<bool>()).Select(a => a.Year).ToList();
-    // TODO(api): short-circuit ?: with a throwing helper (Throw<T>()) — not SQL-mappable
     test("SortCircuitConditionalIf", async () => {
+        // "Hola" == "Hola" ? true : throw folds to true → all rows (throw never evaluated).
+        const total = await table(AlbumEntity).count();
         const list = await table(AlbumEntity)
             .filter(a => "Hola" == "Hola" ? true : Throw<boolean>())
             .map(a => a.year)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.equal(list.length, total);
     });
 
     // Where(b => b.Name == "Olmo" ? b.Members.Any(a => a.Name == "A") : true).Select(b => b.ToLite()).ToList();
@@ -77,43 +80,43 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
     });
 
     // Where(a => true | Throw<bool>()).Select(a => a.Year).ToList();
-    // TODO(api): short-circuit | (bitwise-or) with a throwing helper (Throw<T>()) — not SQL-mappable
     test("SortCircuitOr", async () => {
+        // true || throw folds to true → all rows (throw never evaluated).
+        const total = await table(AlbumEntity).count();
         const list = await table(AlbumEntity)
             .filter(a => true || Throw<boolean>())
             .map(a => a.year)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.equal(list.length, total);
     });
 
     // Where(a => true || Throw<bool>()).Select(a => a.Year).ToList();
-    // TODO(api): short-circuit || with a throwing helper (Throw<T>()) — not SQL-mappable
     test("SortCircuitOrElse", async () => {
+        const total = await table(AlbumEntity).count();
         const list = await table(AlbumEntity)
             .filter(a => true || Throw<boolean>())
             .map(a => a.year)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.equal(list.length, total);
     });
 
     // Where(a => false & Throw<bool>()).Select(a => a.Year).ToList();
-    // TODO(api): short-circuit & (bitwise-and) with a throwing helper (Throw<T>()) — not SQL-mappable
     test("SortCircuitAnd", async () => {
+        // false && throw folds to false → no rows (throw never evaluated).
         const list = await table(AlbumEntity)
             .filter(a => false && Throw<boolean>())
             .map(a => a.year)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.equal(list.length, 0);
     });
 
     // Where(a => false && Throw<bool>()).Select(a => a.Year).ToList();
-    // TODO(api): short-circuit && with a throwing helper (Throw<T>()) — not SQL-mappable
     test("SortCircuitAndAlso", async () => {
         const list = await table(AlbumEntity)
             .filter(a => false && Throw<boolean>())
             .map(a => a.year)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.equal(list.length, 0);
     });
 
     // Where(a => true == (a.Year == 1900)).Select(a => a.Year).ToList();
@@ -122,7 +125,7 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
             .filter(a => true == (a.year == 1900))
             .map(a => a.year)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.every(y => y == 1900));
     });
 
     // Where(a => false == (a.Year == 1900)).Select(a => a.Year).ToList();
@@ -131,6 +134,6 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
             .filter(a => false == (a.year == 1900))
             .map(a => a.year)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.every(y => y != 1900));
     });
 });

@@ -273,12 +273,13 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // from a select ((ArtistEntity)a.Author).Name ?? ((BandEntity)a.Author).Name
-    // TODO(api): entity cast in query ((x as ArtistEntity))
+    // Casting an @implementedBy reference to a concrete implementation reads that impl's column
+    // (null when the row is the other impl); the ?? coalesces to the author's name.
     test("SelectCastIB", async () => {
         const list = await table(AlbumEntity)
             .map(a => (a.author as ArtistEntity).name ?? (a.author as BandEntity).name)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.length > 0 && list.every(n => n != null));
     });
 
     // from a select a.Author.CombineUnion().Name
@@ -340,12 +341,11 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // from a select (a.Author is ArtistEntity ? ((ArtistEntity)a.Author).Name : ((BandEntity)a.Author).Name)
-    // TODO(api): entity cast in query ((x as ArtistEntity))
     test("SelectCastIsIB", async () => {
         const list = await table(AlbumEntity)
             .map(a => a.author instanceof ArtistEntity ? (a.author as ArtistEntity).name : (a.author as BandEntity).name)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.length > 0 && list.every(n => n != null));
     });
 
     // from n select n.Target is ArtistEntity ? ((ArtistEntity)n.Target).Name : ((BandEntity)n.Target).Name

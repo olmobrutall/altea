@@ -11,63 +11,60 @@ import { CountryEntity } from "../entities/music";
 // Terminals are async (the connector is async-only). Live execution is gated on
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 //
-// Every method here uses ExpandLite(...) / ExpandEntity(...) — query hints that
+// Every method here uses expandLite(...) / expandEntity(...) — query hints that
 // control whether a Lite's model (ToString) or full entity is eager-loaded,
-// lazy-loaded, or left null. altea has no equivalent hint API yet, so each test
-// is written in its most natural form, marked `{ skip: true }`, with the body
-// commented out and flagged with a `// TODO(api): …` comment. (The
-// `ExpandLite`/`ExpandEntity` enums are not modelled, so the bodies stay
-// commented so those symbols never have to compile.)
+// lazy-loaded, or left null. altea implements both (the ExpandLite / ExpandEntity
+// enums live in logic/query), so each test issues the real hinted query.
 
 describe("ExpandTest", { skip: !hasDb }, () => {
     before(async () => { await start(); });
 
     // Database.Query<CountryEntity>().Select(a => a.ToLite()).ExpandLite(a => a, ExpandLite.ModelNull).ToList();
-    // TODO(api): ExpandLite (Lite model eager/lazy/null load hint) on a query
     test("ExpandToStringNull", async () => {
         const list = await table(CountryEntity)
             .map(a => a.toLite())
             .expandLite(a => a, ExpandLite.ModelNull)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.length > 0);
+        assert.ok(list.every(l => l.entityType === CountryEntity));
     });
 
     // Database.Query<CountryEntity>().Select(a => a.ToLite()).ExpandLite(a => a, ExpandLite.ModelLazy).ToList();
-    // TODO(api): ExpandLite (Lite model eager/lazy/null load hint) on a query
     test("ExpandToStringLazy", async () => {
         const list = await table(CountryEntity)
             .map(a => a.toLite())
             .expandLite(a => a, ExpandLite.ModelLazy)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.length > 0);
+        assert.ok(list.every(l => l.entityType === CountryEntity));
     });
 
     // Database.Query<CountryEntity>().Select(a => a.ToLite()).ExpandLite(a => a, ExpandLite.ModelEager).ToList();
-    // TODO(api): ExpandLite (Lite model eager/lazy/null load hint) on a query
     test("ExpandToStringEager", async () => {
         const list = await table(CountryEntity)
             .map(a => a.toLite())
             .expandLite(a => a, ExpandLite.ModelEager)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.length > 0);
+        assert.ok(list.every(l => l.entityType === CountryEntity && l.toString() != null));
     });
 
     // var list = Database.Query<CountryEntity>().Select(a => a.ToLite()).ExpandLite(a => a, ExpandLite.EntityEager).ToList();
-    // TODO(api): ExpandLite (Lite entity eager-load hint) on a query
     test("ExpandEntityEager", async () => {
         const list = await table(CountryEntity)
             .map(a => a.toLite())
             .expandLite(a => a, ExpandLite.EntityEager)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.length > 0);
+        assert.ok(list.every(l => l.entityType === CountryEntity));
     });
 
     // var list = Database.Query<CountryEntity>().ExpandEntity(a => a, ExpandEntity.LazyEntity).ToList();
-    // TODO(api): ExpandEntity (entity lazy-load hint) on a query
     test("ExpandLazyEntity", async () => {
         const list = await table(CountryEntity)
             .expandEntity(a => a, ExpandEntity.LazyEntity)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.length > 0);
+        assert.ok(list.every(a => a instanceof CountryEntity));
     });
 });

@@ -35,13 +35,13 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
     // var bands3b = Database.Query<BandEntity>().Select(b => new { b.Name, Member = b.Members.SingleOrDefaultEx(a => a.Sex == Sex.Female)!.Name }).ToList();
     // var bands4b = Database.Query<BandEntity>().Select(b => new { b.Name, Member = b.Members.SingleEx(a => a.Sex == Sex.Female).Name }).ToList();
     test("SelectFirstOrDefault", async () => {
-        // TODO(api): collection-to-string aggregate (MList.ToString(selector, separator)) + string interpolation/FormatWith
         const bandsCount = await table(BandEntity)
             .map(b => ({ name: b.name, members: b.members.map(a => ({ name: a.member.name, sex: a.member.sex })).map(p => p.name + " (" + p.sex + ")").join("\n") }))
             .toArray();
-        assert.ok(Array.isArray(bandsCount));
+        assert.ok(bandsCount.every(b => typeof b.members === "string"));
 
-        // TODO(api): collection-level terminals (members.firstOrNull/first/singleOrNull/single) inside a projection
+        // Collection-level terminals (firstOrNull/first/singleOrNull/single) inside a projection
+        // lower to a correlated APPLY (the UniqueRequest feature).
         const bands1 = await table(BandEntity).map(b => ({ name: b.name, member: b.members.firstOrNull()!.member.name })).toArray();
         const bands2 = await table(BandEntity).map(b => ({ name: b.name, member: b.members.first().member.name })).toArray();
         const bands3 = await table(BandEntity).map(b => ({ name: b.name, member: b.members.singleOrNull()!.member.name })).toArray();
@@ -57,7 +57,6 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
 
     // Database.Query<BandEntity>().Where(b => b.Members.OrderBy(a => a.Sex).Select(a => a.Sex).FirstEx() == Sex.Male).Select(a => a.Name).ToList();
     test("SelectSingleCellWhere", async () => {
-        // TODO(api): collection-level ordering + projection + terminal (members.orderBy(...).map(...).first()) inside a predicate
         const list = await table(BandEntity)
             .filter(b => b.members.orderBy(a => a.member.sex).map(a => a.member.sex).first() == Sex.Male)
             .map(a => a.name)
@@ -67,7 +66,6 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
 
     // Database.Query<BandEntity>().Select(b => new { FirstName = b.Members.Select(m => m.Name).FirstEx(), FirstOrDefaultName = b.Members.Select(m => m.Name).FirstOrDefault(), SingleName = b.Members.Select(m => m.Name).SingleEx(), SingleOrDefaultName = b.Members.Select(m => m.Name).SingleOrDefaultEx() }).ToList();
     test("SelectSingleCellSingle", async () => {
-        // TODO(api): collection-level projection + terminal (members.map(...).first()/firstOrNull()/single()/singleOrNull()) inside a projection
         const list = await table(BandEntity).map(b => ({
             firstName: b.members.map(m => m.member.name).first(),
             firstOrDefaultName: b.members.map(m => m.member.name).firstOrNull(),
@@ -79,7 +77,6 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
 
     // var query = Database.Query<BandEntity>().Select(b => new { b.Members.FirstEx().Name, b.Members.FirstEx().Dead, b.Members.FirstEx().Sex }); query.ToList(); Assert.Equal(1, query.QueryText().CountRepetitions(IsPostgres ? "LATERAL" : "APPLY"));
     test("SelectDoubleSingle", async () => {
-        // TODO(api): collection-level terminal (members.first()) inside a projection
         const query = table(BandEntity).map(b => ({
             name: b.members.first().member.name,
             dead: b.members.first().member.dead,
@@ -87,9 +84,10 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
         }));
         await query.toArray();
 
-        // TODO(api): QueryText().CountRepetitions(...) helper + Schema.Current.Settings.IsPostgres for the APPLY/LATERAL assertion
-        const text = query.queryTextForDebug();
-        assert.ok(typeof text == "string");
+        // The three .first() member accesses share ONE correlated apply (dedup) — CROSS APPLY on
+        // SQL Server, CROSS JOIN LATERAL on Postgres.
+        const applyRe = isPostgres ? /CROSS JOIN LATERAL/g : /CROSS APPLY/g;
+        assert.equal((query.queryTextForDebug().match(applyRe) ?? []).length, 1);
     });
 
     // Two DISTINCT firstOrNull predicates, each read for several members (the
@@ -118,7 +116,6 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
 
     // var neasted = (from b in Database.Query<BandEntity>() select b.Members.Select(a => a.Sex).FirstOrDefault()).ToList();
     test("SelecteNestedFirstOrDefault", async () => {
-        // TODO(api): collection-level projection + terminal (members.map(...).firstOrNull()) as the projected value
         const neasted = await table(BandEntity)
             .map(b => b.members.map(a => a.member.sex).firstOrNull())
             .toArray();
@@ -127,8 +124,6 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
 
     // var neasted = (from b in Database.Query<BandEntity>() select b.Members.Where(a => a.Name.StartsWith("a")).Select(a => (Sex?)a.Sex).FirstOrDefault()).ToList();
     test("SelecteNestedFirstOrDefaultNullify", async () => {
-        // TODO(api): collection-level filter + projection + terminal (members.filter(...).map(...).firstOrNull()) as the projected value
-        // TODO(api): enum-to-nullable cast ((Sex?)a.Sex)
         const neasted = await table(BandEntity)
             .map(b => b.members.filter(a => a.member.name.startsWith("a")).map(a => (a.member.sex as Sex | null)).firstOrNull())
             .toArray();
@@ -137,7 +132,9 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
 
     // var result = (from lab in Database.Query<LabelEntity>() join al in Database.Query<AlbumEntity>().DefaultIfEmpty() on lab equals al.Label into g select new { lab.Id, lab.Name, NumExecutions = (int?)g.Count(), LastExecution = (from al2 in Database.Query<AlbumEntity>() where (int?)al2.Id == g.Max(a => (int?)a.Id) select al2.ToLite()).FirstOrDefault() }).ToList();
     test("SelectGroupLast", async () => {
-        // TODO(api): group join with DefaultIfEmpty (join ... into g), group aggregates (g.Count()/g.Max(...)), correlated subquery projection, and lab.Id access
+        // Divergence: C#'s left-outer group join (join … DefaultIfEmpty … into g) is written here as
+        // an innerJoin + groupBy, so labels with no albums are dropped (altea has no group-join with
+        // DefaultIfEmpty). The group aggregates, the correlated-subquery projection and lab.Id all work.
         const result = await table(LabelEntity)
             .innerJoin(
                 table(AlbumEntity),
@@ -166,7 +163,6 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
 
     // var firstMembers = Database.Query<BandEntity>().Where(a => a.Members.FirstEx().Name.StartsWith("a")).Select(a => a.Members.FirstEx()).ToList();
     test("FirstInSelectAndWhere", async () => {
-        // TODO(api): collection-level terminal (members.first()) inside both a predicate and a projection
         const firstMembers = await table(BandEntity)
             .filter(a => a.members.first().member.name.startsWith("a"))
             .map(a => a.members.first())
@@ -176,10 +172,10 @@ describe("SingleFirstTest", { skip: !hasDb }, () => {
 
     // var michael = Database.Query<ArtistEntity>().FirstEx().ToLite(); Database.Query<BandEntity>().Select(a => new { a.Id, Count = a.Members.Where(m => m.Sex == michael.InDB(a => a.Sex)).Count(), Any = a.Members.Where(m => m.Sex == michael.InDB(a => a.Sex)).Any(a => a.Name.StartsWith("a")) }).ToList();
     test("DoubleUniqueExpansionWithInDB", async () => {
-        // TODO(api): collection-level terminal (artists.first()) producing an entity to .toLite()
         const michael = (await table(ArtistEntity).first()).toLite();
 
-        // TODO(api): Lite.inDB(selector) subquery expansion (no altea API), plus collection-level filter + count/some inside a projection, plus a.Id access
+        // michael.inDB(selector) expands to a correlated single-row subquery (the InDB bridge);
+        // used inside a collection filter whose count()/some() lowers to a correlated APPLY.
         const result = await table(BandEntity)
             .map(a => ({
                 id: a.id,

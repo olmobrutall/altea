@@ -46,31 +46,33 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
     });
 
     // var allAggregates = Database.Query<ArtistEntity>().GroupBy(a => new { }).Select(gr => new { Count = gr.Count(), MaxId = gr.Max(a=>a.Id) }).Skip(2).ToList();
-    // TODO(api): aggregate over group elements (gr.Count() / gr.Max(...)) — no aggregation API on grouping.elements yet
-    // TODO(api): aggregate over group elements (spread + PrimaryKey-as-number)
     test("SkipAllAggregates", async () => {
         const allAggregates = await table(ArtistEntity)
             .groupBy(a => ({}))
             .map(gr => ({ count: gr.elements.length, maxId: gr.elements.max(a => a.id) }))
             .skip(2)
             .toArray();
-        assert.ok(Array.isArray(allAggregates));
+        // GroupBy(new {}) yields a single all-rows group, so Skip(2) drops it entirely.
+        assert.equal(allAggregates.length, 0);
     });
 
     // var allAggregates = Database.Query<ArtistEntity>().GroupBy(a => new { }).Select(gr => new { Count = gr.Count(), MaxId = gr.Max(a => a.Id) }).OrderBy(a => a.Count).OrderAlsoByKeys().ToList();
-    // TODO(api): aggregate over group elements (gr.Count() / gr.Max(...)) — no aggregation API on grouping.elements yet
-    // TODO(api): OrderAlsoByKeys — no equivalent in Query<T>
     test("AllAggregatesOrderByAndByKeys", async () => {
         const allAggregates = await table(ArtistEntity)
             .groupBy(a => ({}))
             .map(gr => ({ count: gr.elements.length, maxId: gr.elements.max(a => a.id) }))
             .orderBy(a => a.count)
+            .orderAlsoByKeys()
             .toArray();
-        assert.ok(Array.isArray(allAggregates));
+        // Single all-rows group: one aggregate row whose Count/MaxId match the whole table.
+        assert.equal(allAggregates.length, 1);
+        const total = await table(ArtistEntity).count();
+        const maxId = await table(ArtistEntity).max(a => a.id);
+        assert.equal(allAggregates[0].count, total);
+        assert.equal(allAggregates[0].maxId, maxId);
     });
 
     // var allAggregates = Database.Query<ArtistEntity>().GroupBy(a => new { }).Select(gr => new { Count = gr.Count(), MaxId = gr.Max(a => a.Id) }).OrderBy(a=>a.Count).Skip(2).ToList();
-    // TODO(api): aggregate over group elements (gr.Count() / gr.Max(...)) — no aggregation API on grouping.elements yet
     test("SkipAllAggregatesOrderBy", async () => {
         const allAggregates = await table(ArtistEntity)
             .groupBy(a => ({}))
@@ -78,11 +80,11 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
             .orderBy(a => a.count)
             .skip(2)
             .toArray();
-        assert.ok(Array.isArray(allAggregates));
+        // Single all-rows group, so Skip(2) drops it.
+        assert.equal(allAggregates.length, 0);
     });
 
     // var count = Database.Query<ArtistEntity>().GroupBy(a => new { }).Select(gr => new { Count = gr.Count(), MaxId = gr.Max(a => a.Id) }).OrderBy(a => a.Count).Count();
-    // TODO(api): aggregate over group elements (gr.Count() / gr.Max(...)) — no aggregation API on grouping.elements yet
     test("AllAggregatesCount", async () => {
         const count = await table(ArtistEntity)
             .groupBy(a => ({}))
@@ -119,7 +121,8 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
     });
 
     // var result = Database.Query<AlbumEntity>().Where(dr => dr.Songs.OrderByDescending(a => a.Seconds).Take(1).Where(a => a.Name.Contains("Zero")).Any()).Select(a => a.ToLite()).ToList();
-    // TODO(api): collection .some() terminal requires a predicate arg (no zero-arg overload)
+    // API-shape note: altea's collection .some() takes a required predicate (no C# zero-arg Any());
+    // the extra .filter is folded into `.some(a => true)`.
     test("InnerTake", async () => {
         const result = await table(AlbumEntity)
             .filter(dr => dr.songs.orderByDescending(a => a.seconds).top(1).filter(a => a.name.contains("Zero")).some(a => true))
@@ -129,37 +132,37 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().OrderBy(a => a.Sex).Select(a => a.Name));
-    // TODO(api): subquery membership variance (Query<string> not assignable to Query<Entity>)
+    // TS-typing: testPaginate is generic over Query<T>, so a projected Query<string> flows through.
     test("OrderByCommonSelectPaginate", async () => {
         await testPaginate(table(ArtistEntity).orderBy(a => a.sex).map(a => a.name));
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().OrderBy(a => a.Name).Select(a => a.Name));
-    // TODO(api): subquery membership variance (Query<string> not assignable to Query<Entity>)
+    // TS-typing: testPaginate is generic over Query<T>, so a projected Query<string> flows through.
     test("OrderBySelectPaginate", async () => {
         await testPaginate(table(ArtistEntity).orderBy(a => a.name).map(a => a.name));
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().OrderByDescending(a => a.Name).Select(a => a.Name));
-    // TODO(api): subquery membership variance (Query<string> not assignable to Query<Entity>)
+    // TS-typing: testPaginate is generic over Query<T>, so a projected Query<string> flows through.
     test("OrderByDescendingSelectPaginate", async () => {
         await testPaginate(table(ArtistEntity).orderByDescending(a => a.name).map(a => a.name));
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().OrderBy(a => a.Name).ThenBy(a => a.Id).Select(a => a.Name));
-    // TODO(api): subquery membership variance (Query<string> not assignable to Query<Entity>)
+    // TS-typing: testPaginate is generic over Query<T>, so a projected Query<string> flows through.
     test("OrderByThenBySelectPaginate", async () => {
         await testPaginate(table(ArtistEntity).orderBy(a => a.name).thenBy(a => a.id).map(a => a.name));
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().Select(a => a.Name).OrderBy(a => a));
-    // TODO(api): subquery membership variance (OrderedQuery<string> not assignable to Query<Entity>)
+    // TS-typing: testPaginate is generic over Query<T>, so a projected OrderedQuery<string> flows through.
     test("SelectOrderByPaginate", async () => {
         await testPaginate(table(ArtistEntity).map(a => a.name).orderBy(a => a));
     });
 
     // TestPaginate(Database.Query<ArtistEntity>().Select(a => a.Name).OrderByDescending(a => a));
-    // TODO(api): subquery membership variance (OrderedQuery<string> not assignable to Query<Entity>)
+    // TS-typing: testPaginate is generic over Query<T>, so a projected OrderedQuery<string> flows through.
     test("SelectOrderByDescendingPaginate", async () => {
         await testPaginate(table(ArtistEntity).map(a => a.name).orderByDescending(a => a));
     });
@@ -171,7 +174,6 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
     //         query.OrderAlsoByKeys().Skip(pageSize * page).Take(pageSize).ToList()).ToList();
     //     Assert.Equal(list, list2);
     // }
-    // TODO(api): OrderAlsoByKeys — no equivalent in Query<T> (needed for stable pagination)
     async function testPaginate<T>(query: Query<T>): Promise<void> {
         // Match Signum's TestPaginate: OrderAlsoByKeys appends the source entity's primary key as
         // a tie-breaker, so a non-unique ORDER BY (e.g. by Sex) paginates in a stable total order

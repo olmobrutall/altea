@@ -22,7 +22,8 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
     before(async () => { await start(); });
 
     // from l in Query<LabelEntity>() select (from a in Query<AlbumEntity>() where a.Label.Is(l) select a.ToLite()).ToList()
-    // TODO(api): nested query projection — no way to project an inner Query into the outer .map
+    // TODO(api): nested query projection — an inner Query projected into the outer .map isn't
+    // materialised (the inner .toArray() stays a Promise per row), so it can't be verified here.
     test("SelecteNested", async () => {
         const neasted = await table(LabelEntity)
             .map(l => table(AlbumEntity).filter(a => a.label.is(l)).map(a => a.toLite()).toArray())
@@ -40,7 +41,8 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
     });
 
     // from l in Query<LabelEntity>() join o in Query<LabelEntity>().DefaultIfEmpty() on l.Owner!.Entity equals o group l.ToLite() by o.ToLite() into g select new { Owner = g.Key, List = g.ToList(), Count = g.Count() }
-    // TODO(api): defaultIfEmpty / left outer join — no .defaultIfEmpty() on Query
+    // Divergence: altea has no group-join with DefaultIfEmpty (left-outer grouping), so this uses an
+    // innerJoin + groupBy — labels whose owner has no match are dropped.
     test("SelecteNullableLookupColumns", async () => {
         const neasted = await table(LabelEntity)
             .innerJoin(table(LabelEntity), l => l.owner, o => o.toLite(), (l, o) => ({ owner: o.toLite(), label: l.toLite() }))
@@ -217,7 +219,7 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
     });
 
     // from b in Query<BandEntity>() where b.Members.Select(a => a.Id).Contains(1) select b.ToLite()
-    // TODO(api): collection element id projection + contains in subquery filter
+    // altea idiom: C#'s `Members.Select(a => a.Id).Contains(1)` is `members.some(m => m.member.id == 1)`.
     test("SelectContainsInt", async () => {
         const result = await table(BandEntity)
             .filter(b => b.members.some(m => m.member.id == 1))
@@ -227,12 +229,12 @@ describe("SelectNestedTest", { skip: !hasDb }, () => {
     });
 
     // from b in Query<BandEntity>() where b.Members.Select(a => a.Sex).Contains(Sex.Female) select b.ToLite()
-    // TODO(api): collection element enum projection + contains in subquery filter
+    // altea idiom: C#'s `Members.Select(a => a.Sex).Contains(Sex.Female)` is `members.some(m => m.member.sex == Sex.Female)`.
     test("SelectContainsEnum", async () => {
         const result = await table(BandEntity)
             .filter(b => b.members.some(m => m.member.sex == Sex.Female))
             .map(b => b.toLite())
             .toArray();
-        assert.ok(Array.isArray(result));
+        assert.ok(result.length > 0);
     });
 });
