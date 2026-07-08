@@ -923,6 +923,8 @@ export class QueryBinder extends ExpressionVisitor {
                     // Materialises the (sub-)query as a list. At the root it's a
                     // no-op; nested in a projector it stays a ProjectionExpression
                     // for ChildProjectionFlattener to extract as eager-loaded rows.
+                    // (Inside a projector the caller writes `.toArray().$v` — the $v
+                    // marker just casts the Promise<T[]> element type to T[].)
                     return source;
                 case "orderBy":
                     return this.bindOrderBy(source, call.args[0] as LambdaExpression, "Ascending");
