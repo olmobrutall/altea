@@ -6,7 +6,7 @@ import { reflect, getTypeInfo } from './reflection';
 import { MixinDeclarations } from './mixinDeclarations';
 import { enumNameOf } from './registration';
 import { isGraphModified, isModifiedSelf } from './changes';
-import { LiteralType, LiteType, type Type as ExpressionType } from './types';
+import { LiteralType, LiteType, quotedFunction, type Type as ExpressionType } from './types';
 
 export type PrimaryKey = string | number;
 
@@ -192,6 +192,36 @@ export abstract class Entity extends BaseEntity {
     toString(): string {
         return this.isNew ? newNiceName(this.constructor) : niceName(this.constructor) + " " + this.id.toString();
     }
+
+    /**
+     * Runtime-type test on an *entity* reference: `AlbumEntity.isInstance(x)` is the
+     * static-method form of `x instanceof AlbumEntity`, and a TypeScript type guard —
+     * `x` narrows to the instance type of the class it is called on (the polymorphic
+     * `this` constructor parameter captures that type). In a query the provider lowers
+     * it to a reference type-test (SmartEqualizer.entityIsInstance): for a concrete/IB
+     * reference an id-not-null guard, for an @implementedByAll reference a type-column
+     * comparison.
+     */
+    static isInstance<T extends Entity>(this: abstract new (...args: any[]) => T, entity: Entity | null | undefined): entity is T {
+        return entity instanceof (this as unknown as Function);
+    }
+
+    /**
+     * Runtime-type test on a *lite*: `AlbumEntity.isLite(l)` is the Signum
+     * `l is Lite<AlbumEntity>`, and a TypeScript type guard narrowing `l` to
+     * `Lite<AlbumEntity>`. TypeScript erases `Lite<AlbumEntity>` to `Lite`, so
+     * `l instanceof …` can't discriminate the pointed-to type — this reads the lite's
+     * `entityType` instead (matching subclasses). In a query the provider lowers it to
+     * the same reference type-test as {@link isInstance} (entityIsInstance unwraps the
+     * lite to its reference first).
+     */
+    static isLite<T extends Entity>(this: abstract new (...args: any[]) => T, lite: Lite<Entity> | null | undefined): lite is Lite<T> {
+        if (lite == null)
+            return false;
+        const ctor = this as unknown as Function;
+        const t = lite.entityType as unknown as Function;
+        return t === ctor || t.prototype instanceof ctor;
+    }
 }
 
 // Query-expression metadata for the quote-transformer: lets `.is(...)` and
@@ -199,10 +229,15 @@ export abstract class Entity extends BaseEntity {
 // off the method to type the call; the QueryBinder then lowers `.is(...)` to an id
 // comparison and `.toLite()` to a LiteReference. `is` → boolean; `toLite` → a
 // `Lite<this>`.
-(Entity.prototype.is as { __resultType?: (t: ExpressionType, ...a: ExpressionType[]) => ExpressionType }).__resultType =
-    () => LiteralType.boolean;
-(Entity.prototype.toLite as { __resultType?: (t: ExpressionType, ...a: ExpressionType[]) => ExpressionType }).__resultType =
-    (ownerType: ExpressionType) => new LiteType(ownerType);
+quotedFunction(Entity.prototype.is).__resultType = () => LiteralType.boolean;
+quotedFunction(Entity.prototype.toLite).__resultType = (ownerType: ExpressionType) => new LiteType(ownerType);
+
+// `Ctor.isInstance(x)` / `Ctor.isLite(l)` are boolean type-tests. fromQuoted reads
+// __resultType to type the call; the QueryBinder lowers them directly to a reference
+// type-test (SmartEqualizer.entityIsInstance, which unwraps a lite) — no `instanceof`
+// node is ever produced.
+quotedFunction(Entity.isInstance).__resultType = () => LiteralType.boolean;
+quotedFunction(Entity.isLite).__resultType = () => LiteralType.boolean;
 
 export abstract class EmbeddedEntity extends BaseEntity { }
 

@@ -873,6 +873,12 @@ export class QueryBinder extends ExpressionVisitor {
                     const brand = member as { __sqlMethod?: string };
                     if (brand.__sqlMethod != null)
                         return this.bindSqlMethod(brand.__sqlMethod, call);
+                    // Runtime type-tests (entity.ts): `Ctor.isInstance(entity)` /
+                    // `Ctor.isLite(lite)`. The receiver constant IS the type to test against;
+                    // entityIsInstance lowers both (it unwraps a lite reference first), so a
+                    // lite never goes through an `instanceof` that would fail at runtime.
+                    if (member === Entity.isInstance || member === Entity.isLite)
+                        return SmartEqualizer.entityIsInstance(this.visit(call.args[0]), property.object.value as Function);
                 }
             }
             if (op === "thenBy")
@@ -1182,20 +1188,43 @@ export class QueryBinder extends ExpressionVisitor {
         const targetCtor = cast.type instanceof ClassType ? cast.type.constructorFunction : undefined;
 
         if (targetCtor != null) {
-            if (expr instanceof ImplementedByExpression) {
-                const impl = expr.implementations.get(targetCtor);
-                if (impl != null)
-                    return impl;
+            // Entity downcast: narrow a polymorphic reference to one implementation.
+            if (expr instanceof ImplementedByExpression || expr instanceof ImplementedByAllExpression) {
+                const narrowed = this.narrowReference(expr, targetCtor);
+                if (narrowed != null)
+                    return narrowed;
             }
-            if (expr instanceof ImplementedByAllExpression) {
-                const refTable = this.schema.table(targetCtor as any);
-                // Casting to a concrete type reads the id column matching that type's PK type.
-                const id = expr.ids.get(this.pkTypeOf(targetCtor)) ?? [...expr.ids.values()][0];
-                return new EntityExpression(new ClassType(targetCtor), refTable, new PrimaryKeyExpression(id), undefined, undefined, undefined, false);
+            // Lite downcast (`x as Lite<T>`): narrow the lite's *reference* the same way,
+            // then rewrap as a lite of T. Rows whose type isn't T get a null id (the
+            // narrowed reference's externalId is null), so the lite reads as null —
+            // matching a C# `(Lite<T>)` downcast. toStr/expandLite are recomputed by the
+            // completer, so carry them through unchanged.
+            if (expr instanceof LiteReferenceExpression
+                && (expr.reference instanceof ImplementedByExpression || expr.reference instanceof ImplementedByAllExpression)) {
+                const narrowed = this.narrowReference(expr.reference, targetCtor);
+                if (narrowed != null)
+                    return new LiteReferenceExpression(new LiteType(new ClassType(targetCtor)), narrowed, expr.toStr, expr.expandLite);
             }
         }
 
         return expr;
+    }
+
+    // Narrow a polymorphic reference (IB / IBA) to a single concrete implementation
+    // (Signum's cast lowering). IB → the matching implementation's EntityExpression, whose
+    // own FK column is already null for non-matching rows (undefined when `targetCtor` isn't
+    // one of the implementations → the cast stays a no-op). IBA → a typed EntityExpression
+    // reading the shared id column, but guarded by the type discriminator so a row of another
+    // type nulls out (a bare id read would join a same-id row of the target table).
+    private narrowReference(ref: ImplementedByExpression | ImplementedByAllExpression, targetCtor: Function): EntityExpression | undefined {
+        if (ref instanceof ImplementedByExpression)
+            return ref.implementations.get(targetCtor);
+        const refTable = this.schema.table(targetCtor as any);
+        const rawId = ref.ids.get(this.pkTypeOf(targetCtor)) ?? [...ref.ids.values()][0];
+        // CASE WHEN <type column> = typeof(targetCtor) THEN <id> ELSE NULL END
+        const typeMatch = SmartEqualizer.entityIsInstance(ref, targetCtor);
+        const id = new CaseExpression([new When(typeMatch, rawId)], undefined);
+        return new EntityExpression(new ClassType(targetCtor), refTable, new PrimaryKeyExpression(id), undefined, undefined, undefined, false);
     }
 
     // The constructor behind the right operand of `instanceof` (a captured ctor).

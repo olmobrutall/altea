@@ -1,40 +1,24 @@
 
-import { ExLambda, Quoted } from "quote-transformer/quoted";
+import { Quoted } from "quote-transformer/quoted";
 import { EmbeddedEntity, Entity } from "../entities/entity";
 import { IQuery, IOrderedQuery } from "../entities/iquery";
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, MethodExpander, PropertyExpression } from "./linq/expressions";
-import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType } from "../entities/types";
+import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType, QuotedFunction, quotedFunction, LambdaTypeResolver, ResultTypeResolver } from "../entities/types";
 import { toInt, toLong } from "../entities/basics";
 
-// The query-expression metadata model. `@quoted` / `withQuoted` (which entities use to
-// mark expression members) live in entities/decorators so the entity model doesn't
-// depend on logic; the resolver/carrier helpers below stay here in the query layer.
-export type LambdaTypeResolver = (thisType: Type, ...argsTypes: Type[]) => Type[];
-export type ResultTypeResolver = (thisType: Type, ...argsTypes: Type[]) => Type;
-
-export interface StaticFunction<T extends Function> {
-    __lambdaType?: LambdaTypeResolver[];
-    __resultType?: ResultTypeResolver;
-    __quoted?: () => ExLambda;
-    __methodExpander?: MethodExpander;
-    // Signum's [SqlMethod(Name = "…")]: the SQL name of a query-only table-valued function
-    // (set by @sqlMethod). The QueryBinder lowers a call to `<__sqlMethod>(args)` and builds
-    // the row projector by reflecting the IView element of the call's result type (@returnType,
-    // carried in __resultType) — no separate view field is needed.
-    __sqlMethod?: string;
-}
-
-export function asStaticFunction<T extends Function>(func: T): StaticFunction<T> {
-    return func as any as StaticFunction<T>;
-}
+// The query-expression metadata carrier (QuotedFunction) and its cast helper
+// (quotedFunction) live in entities/types so entity classes can attach metadata to
+// their own methods without depending on logic. Re-exported here for the query layer,
+// which augments QuotedFunction with __methodExpander (see logic/linq/expressions.ts).
+export { QuotedFunction, quotedFunction, type LambdaTypeResolver, type ResultTypeResolver } from "../entities/types";
 
 export function getLambdaTypeResolvers(target: object, key: string): LambdaTypeResolver[] | undefined {
-    const fn = (target as any)?.[key] as StaticFunction<Function> | undefined;
+    const fn = (target as any)?.[key] as QuotedFunction | undefined;
     return fn?.__lambdaType;
 }
 
 export function getResultTypeResolver(target: object, key: string): ResultTypeResolver | undefined {
-    const fn = (target as any)?.[key] as StaticFunction<Function> | undefined;
+    const fn = (target as any)?.[key] as QuotedFunction | undefined;
     return fn?.__resultType;
 }
 
@@ -44,7 +28,7 @@ export function lambdaTypeForParam(paramNumber: number, typeResolver: LambdaType
         if (typeof value !== "function")
             throw new Error(`@lambdaTypeForParam can only be applied to methods, but '${String(propertyKey)}' is not a method`);
 
-        const sf = value as StaticFunction<Function>;
+        const sf = quotedFunction(value as Function);
         var lambdaParams = (sf.__lambdaType ?? []) as LambdaTypeResolver[];
         lambdaParams[paramNumber] = typeResolver;
         sf.__lambdaType = lambdaParams;
@@ -57,7 +41,7 @@ export function resultType(typeResolver: ResultTypeResolver) {
         if (typeof value !== "function")
             throw new Error(`@resultType can only be applied to methods, but '${String(propertyKey)}' is not a method`);
 
-        (value as StaticFunction<Function>).__resultType = typeResolver;
+        quotedFunction(value as Function).__resultType = typeResolver;
     };
 }
 
@@ -70,7 +54,7 @@ export function sqlMethod(name: string) {
         const value = descriptor.value;
         if (typeof value !== "function")
             throw new Error(`@sqlMethod can only be applied to methods, but '${String(propertyKey)}' is not a method`);
-        (value as StaticFunction<Function>).__sqlMethod = name;
+        quotedFunction(value as Function).__sqlMethod = name;
     };
 }
 
@@ -82,7 +66,7 @@ export function returnType(viewType: new () => object) {
         const value = descriptor.value;
         if (typeof value !== "function")
             throw new Error(`@returnType can only be applied to methods, but '${String(propertyKey)}' is not a method`);
-        (value as StaticFunction<Function>).__resultType = () => new ArrayType(new ClassType(viewType));
+        quotedFunction(value as Function).__resultType = () => new ArrayType(new ClassType(viewType));
     };
 }
 
@@ -95,7 +79,7 @@ export function methodExpander(expander: MethodExpander) {
         if (typeof value !== "function")
             throw new Error(`@methodExpander can only be applied to methods, but '${String(propertyKey)}' is not a method`);
 
-        (value as StaticFunction<Function>).__methodExpander = expander;
+        quotedFunction(value as Function).__methodExpander = expander;
     };
 }
 
@@ -126,14 +110,14 @@ export const EntityContext = {
 // object itself, and the QueryBinder recognises it by this brand (no import cycle).
 (EntityContext as { __isEntityContext?: boolean }).__isEntityContext = true;
 // entityId returns a primary-key (number); the binder resolves the actual id expression.
-asStaticFunction(EntityContext.entityId).__resultType = () => SimpleType.number;
+quotedFunction(EntityContext.entityId).__resultType = () => SimpleType.number;
 
 // toInt/toLong (entities/basics) are compile-time int/long BRANDS over a number — used in query
 // values (e.g. `year: toInt(a.year * 2)`) to satisfy a branded column's type. In a query the
 // brand is meaningless, so the binder lowers the call to its argument (identity); here we just
 // give it a result type so fromQuoted can type the call node.
-asStaticFunction(toInt).__resultType = () => SimpleType.number;
-asStaticFunction(toLong).__resultType = () => SimpleType.number;
+quotedFunction(toInt).__resultType = () => SimpleType.number;
+quotedFunction(toLong).__resultType = () => SimpleType.number;
 
 export class Query<T> implements IQuery<T> {
 
@@ -762,7 +746,7 @@ function rejectReduceInQuery(): never {
         "count, or average — e.g. `g.elements.sum(a => a.value)` (and `count(a => predicate)` " +
         "to count matches).");
 }
-(OrderedQuery.prototype as unknown as { reduce: StaticFunction<Function> }).reduce =
+(OrderedQuery.prototype as unknown as { reduce: QuotedFunction }).reduce =
     Object.assign(function (): never { return rejectReduceInQuery(); }, {
         __lambdaType: [rejectReduceInQuery as unknown as LambdaTypeResolver],
         __resultType: rejectReduceInQuery as unknown as ResultTypeResolver,

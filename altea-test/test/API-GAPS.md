@@ -71,8 +71,9 @@ OUTSTANDING, grouped (each is a `// TODO(api)` somewhere in test/):
 - collection no-arg `.some()` (C# `Any()`), collection `.toString(sel, sep)` aggregate, per-row collection sub-aggregates in a projection.
 
 **Polymorphism / types**
-- `GetType()` / `typeof(X)` compare / `Type.FullName`/`NiceName` / `ToTypeEntity` in query; `Lite.entityType`; `is Lite<T>` runtime test.
-- `combineUnion()` / `combineCase()`; `Cast<T>()` / `OfType<T>()` query operators; `@implementedBy` **interface** types (e.g. `IAuthorEntity`) — altea uses bare `Entity`.
+- `is Lite<T>` runtime test in query. (DONE: `GetType()` / `typeof(X)` compare / `Type.FullName`/`NiceName` / `ToTypeEntity` / `Lite.entityType`.)
+- Interface **upcast** works (`x as IAuthorEntity` / `as Lite<IAuthorEntity>` — an unregistered interface resolves to a null cast type, so the binder treats it as identity). Interface-typed `@implementedBy` **references**, `combineUnion()`/`combineCase()`, and `@quoted` interface **members** reached through a concrete cast (`(ArtistEntity)x).fullName()`) also work. Still missing: `Cast<T>()` / `OfType<T>()` query operators; a `@quoted` member reached through the *null-typed* polymorphic `combineUnion()` result (no test yet).
+- Lite **downcast** projection (`x as Lite<ArtistEntity>`). (DONE: `is Lite<T>` runtime-type test → `Ctor.isLite(lite)`; entity type-test → `Ctor.isInstance(entity)` — both static methods on Entity, work in memory and in query.)
 - `IsNew` flag in query; `Lite.id`/`toString` of an `@implementedByAll` ref.
 
 **Expression members / functions**

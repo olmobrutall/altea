@@ -9,8 +9,9 @@ export type { ColumnOptions } from './reflection';
 // `@quoted` / `withQuoted` mark a method (or function) whose body the quote-transformer
 // captures as a translatable expression, stored on `__quoted`. They live here (entities)
 // so the entity model can annotate expression members without depending on the query
-// layer; the resolver/carrier helpers (StaticFunction, lambdaTypeForParam, …) stay in
-// logic/query. We touch only `__quoted`, so a minimal local carrier type suffices.
+// layer. The metadata carrier (QuotedFunction) + cast helper (quotedFunction) live in
+// entities/types; the query-layer decorators (@lambdaTypeForParam, …) stay in logic/query.
+// We touch only `__quoted` here, so a minimal local carrier type suffices.
 type Quotable = { __quoted?: () => ExLambda };
 
 // Two call shapes:

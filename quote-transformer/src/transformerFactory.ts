@@ -167,9 +167,9 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     return false;
   }
 
-  const quoteExpression = getQuoteConverter(ts);
-
   const typeChecker = program.getTypeChecker();
+
+  const quoteExpression = getQuoteConverter(ts, typeChecker);
 
   const printer = ts.createPrinter();
   let generatedExParam = false;

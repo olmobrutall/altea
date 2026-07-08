@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.startsWith / contains / … (SQL-mappable)
 import { hasDb, start } from "./setup";
+import { Lite } from "@altea/altea/entities/lite";
 import {
     ArtistEntity, AlbumEntity, BandEntity, LabelEntity,
     NoteWithDateEntity, AwardNominationEntity, GrammyAwardEntity,
+    IAuthorEntity,
 } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/SelectImplementations.cs (class
@@ -123,11 +125,13 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AwardNominationEntity>().Where(a => a.Award.Entity is GrammyAwardEntity).ToList();
+    // GrammyAwardEntity.isInstance(x) is the static-method form of `x instanceof GrammyAwardEntity`.
     test("SelectEntityWithLiteIb", async () => {
         const list = await table(AwardNominationEntity)
-            .filter(a => a.award.entity instanceof GrammyAwardEntity)
+            .filter(a => GrammyAwardEntity.isInstance(a.award.entity))
+            .map(a => a.award)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.every(l => l.entityType === GrammyAwardEntity));
     });
 
     // Where(a => a.Award.Entity.GetType() == typeof(GrammyAwardEntity)).ToList();
@@ -162,13 +166,16 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // SelectMany(a => a.Friends).Select(a => (Lite<IAuthorEntity>)a).ToList();
-    // TODO(api): implementedBy interface (Lite<IAuthorEntity> upcast does not exist in altea)
+    // The `as Lite<IAuthorEntity>` upcast is a compile-time no-op: IAuthorEntity is an
+    // unregistered interface, so the binder's visitCast falls through to identity and the
+    // projected lite stays a Lite<ArtistEntity> at runtime.
     test("SelectLiteCastUpcast", async () => {
         const list = await table(ArtistEntity)
             .flatMap(a => a.friends)
-            .map(a => a.friend)
+            .map(a => a.friend as Lite<IAuthorEntity>)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.length > 0);
+        assert.ok(list.every(l => l.entityType === ArtistEntity && l.id != null));
     });
 
     // SelectMany(a => a.Friends).Select(a => (Lite<ArtistEntity>)a).ToList();
@@ -181,17 +188,23 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // Select(a => (Lite<ArtistEntity>)a.Author.ToLite()).ToList();
-    // TODO(api): Lite downcast in query ((x as Lite<ArtistEntity>))
+    // Lite downcast: a.author is @implementedBy(Artist, Band); narrowing the lite to
+    // Lite<ArtistEntity> keeps the artist-authored rows (null for band-authored).
     test("SelectLiteCastDowncast", async () => {
-        const list = await table(AlbumEntity).map(a => a.author.toLite()).toArray();
-        assert.ok(Array.isArray(list));
+        const list = await table(AlbumEntity).map(a => a.author.toLite() as Lite<ArtistEntity>).toArray();
+        assert.ok(list.every(l => l == null || l.entityType === ArtistEntity));
+        const artistAuthored = await table(AlbumEntity).filter(a => ArtistEntity.isInstance(a.author)).count();
+        assert.equal(list.filter(l => l != null).length, artistAuthored);
+        assert.ok(artistAuthored > 0);
     });
 
     // SelectAuthorsLite<ArtistEntity, IAuthorEntity>(): Select(a => a.ToLite<LT>())
-    // TODO(api): implementedBy interface (generic ToLite<IAuthorEntity> upcast does not exist in altea)
+    // altea has no generic `toLite<IAuthorEntity>()`; the interface-typed lite is the
+    // ordinary `toLite()` upcast with `as Lite<IAuthorEntity>` (identity in the binder).
     test("SelectLiteGenericUpcast", async () => {
-        const list = await table(ArtistEntity).map(a => a.toLite()).toArray();
-        assert.ok(Array.isArray(list));
+        const list = await table(ArtistEntity).map(a => a.toLite() as Lite<IAuthorEntity>).toArray();
+        assert.ok(list.length > 0);
+        assert.ok(list.every(l => l.entityType === ArtistEntity && l.id != null));
     });
 
     // from a let band = (BandEntity)a.Author select new { Artist = band.ToString(), Author = a.Author.CombineUnion().ToString() }
@@ -320,12 +333,15 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // from n select ((ArtistEntity)n.Target).Name ?? ((AlbumEntity)n.Target).Name ?? ((BandEntity)n.Target).Name
-    // TODO(api): entity cast in query ((x as ArtistEntity)) over @implementedByAll target
+    // Each IBA cast reads the id guarded by the type discriminator, so a target of the wrong
+    // type yields a null name and the coalesce falls through to the matching type's cast.
     test("SelectCastIBA", async () => {
         const list = await table(NoteWithDateEntity)
             .map(n => (n.target as ArtistEntity).name ?? (n.target as AlbumEntity).name ?? (n.target as BandEntity).name)
             .toArray();
-        assert.ok(Array.isArray(list));
+        // Every seeded note targets an Artist/Album/Band, so every row coalesces to a name.
+        assert.ok(list.length > 0);
+        assert.ok(list.every(n => typeof n === "string"));
     });
 
     // (from n select n.Target).Cast<BandEntity>().ToList();
@@ -349,17 +365,19 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     });
 
     // from n select n.Target is ArtistEntity ? ((ArtistEntity)n.Target).Name : ((BandEntity)n.Target).Name
-    // TODO(api): entity cast in query ((x as ArtistEntity)) over @implementedByAll target
+    // Artist targets → artist name; the else-branch casts to Band, so a Band target → band
+    // name and any other type (e.g. the Album target) → null (type-guarded id nulls out).
     test("SelectCastIsIBA", async () => {
         const list = await table(NoteWithDateEntity)
             .map(n => n.target instanceof ArtistEntity ? (n.target as ArtistEntity).name : (n.target as BandEntity).name)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.some(n => n != null));
+        assert.ok(list.every(n => n == null || typeof n === "string"));
     });
 
     // from n select new { Name = … ? ((ArtistEntity)n.Target).Name : ((BandEntity)n.Target).Name, FullName = … ? ((ArtistEntity)n.Target).FullName : ((BandEntity)n.Target).FullName }
-    // TODO(api): implementedBy interface (FullName lives on IAuthorEntity, not on the altea Entity)
-    // TODO(api): entity cast in query ((x as ArtistEntity))
+    // IBA downcast + .name works; fullName() is a @quoted method, inlined by fromQuoted from
+    // the concrete cast type (ArtistEntity/BandEntity.prototype.fullName.__quoted).
     test("SelectCastIsIBADouble", async () => {
         const list = await table(NoteWithDateEntity)
             .map(n => ({
@@ -367,51 +385,58 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
                 fullName: n.target instanceof ArtistEntity ? (n.target as ArtistEntity).fullName() : (n.target as BandEntity).fullName(),
             }))
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.length > 0);
+        // fullName() is @quoted `() => this.name` on both, so it equals the name branch.
+        assert.ok(list.every(x => x.fullName === x.name));
     });
 
     // from n where (… ? ((ArtistEntity)n.Target).Name : ((BandEntity)n.Target).Name).Length > 0 select … ((ArtistEntity)n.Target).FullName : ((BandEntity)n.Target).FullName
-    // TODO(api): implementedBy interface (FullName lives on IAuthorEntity, not on the altea Entity)
-    // TODO(api): entity cast in query ((x as ArtistEntity))
+    // IBA downcast + .name/.length + the @quoted fullName() all bind; a @quoted body inlines
+    // in both a WHERE (via fullNominate) and a projection.
     test("SelectCastIsIBADoubleWhere", async () => {
         const list = await table(NoteWithDateEntity)
             .filter(n => (n.target instanceof ArtistEntity ? (n.target as ArtistEntity).name : (n.target as BandEntity).name).length > 0)
             .map(n => n.target instanceof ArtistEntity ? (n.target as ArtistEntity).fullName() : (n.target as BandEntity).fullName())
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.every(s => s == null || typeof s === "string"));
     });
 
     // from n where n.Target.ToLite() is Lite<AlbumEntity> select n.Target.ToLite()
-    // TODO(api): `is Lite<T>` runtime-type test on a Lite in query
+    // `is Lite<AlbumEntity>` → AlbumEntity.isLite(...) (TS erases the generic, so a
+    // dedicated method reads the lite's entityType instead of `instanceof`).
     test("SelectIsIBLite", async () => {
         const list = await table(NoteWithDateEntity)
-            .filter(n => n.target.toLite() instanceof AlbumEntity)
+            .filter(n => AlbumEntity.isLite(n.target.toLite()))
             .map(n => n.target.toLite())
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.every(l => l.entityType === AlbumEntity));
     });
 
     // from a where a.Author is Lite<BandEntity> select a.Author
-    // TODO(api): `is Lite<T>` runtime-type test on an @implementedBy Lite in query
+    // a.Author is a Lite<IAuthorEntity> (@implementedBy Artist/Band); isLite narrows to Band.
     test("SelectIsIBALite", async () => {
         const list = await table(AwardNominationEntity)
-            .filter(a => a.author instanceof BandEntity)
+            .filter(a => BandEntity.isLite(a.author))
             .map(a => a.author)
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.every(l => l.entityType === BandEntity));
     });
 
     // from n select (Lite<AlbumEntity>)n.Target.ToLite()
-    // TODO(api): Lite downcast in query ((x as Lite<AlbumEntity>))
+    // Lite downcast over an @implementedByAll target: narrows to the album rows.
     test("SelectCastIBALite", async () => {
-        const list = await table(NoteWithDateEntity).map(n => n.target.toLite()).toArray();
-        assert.ok(Array.isArray(list));
+        const list = await table(NoteWithDateEntity).map(n => n.target.toLite() as Lite<AlbumEntity>).toArray();
+        assert.ok(list.every(l => l == null || l.entityType === AlbumEntity));
+        const albumTargets = await table(NoteWithDateEntity).filter(n => AlbumEntity.isInstance(n.target)).count();
+        assert.equal(list.filter(l => l != null).length, albumTargets);
     });
 
     // from a select (Lite<BandEntity>)a.Author
-    // TODO(api): Lite downcast in query ((x as Lite<BandEntity>))
+    // Lite downcast on a Lite<IAuthorEntity> field (@implementedBy): narrows to band rows.
     test("SelectCastIBLite", async () => {
-        const list = await table(AwardNominationEntity).map(a => a.author).toArray();
-        assert.ok(Array.isArray(list));
+        const list = await table(AwardNominationEntity).map(a => a.author as Lite<BandEntity>).toArray();
+        assert.ok(list.every(l => l == null || l.entityType === BandEntity));
+        const bandAuthored = await table(AwardNominationEntity).filter(a => BandEntity.isLite(a.author)).count();
+        assert.equal(list.filter(l => l != null).length, bandAuthored);
     });
 });

@@ -7,7 +7,8 @@ import { resolveType } from "../../entities/registration";
 import { tryGetTypeInfo, type FieldInfo } from "../../entities/reflection";
 import { Lite } from "../../entities/lite";
 import { Entity, View } from "../../entities/entity";
-import { getLambdaTypeResolvers, getResultTypeResolver, LambdaTypeResolver, OrderedQuery, Query, ResultTypeResolver, StaticFunction } from "../query";
+import { getLambdaTypeResolvers, getResultTypeResolver, LambdaTypeResolver, OrderedQuery, Query, ResultTypeResolver } from "../query";
+import { QuotedFunction } from "../../entities/types";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 
 // ---- constant folding (used by fromQuoted) --------------------------------------------------
@@ -569,7 +570,7 @@ export abstract class Expression {
                             }
                         }
 
-                        let sf: StaticFunction<Function>;
+                        let sf: QuotedFunction;
                         let obj: Expression | undefined;
                         if (fun instanceof PropertyExpression) {
                             obj = fun.object;
@@ -584,22 +585,22 @@ export abstract class Expression {
                                                 obj.type === LiteralType.number ? Number.prototype :
                                                     obj.type === LiteralType.boolean ? Boolean.prototype :
                                                         staticReceiverObject(obj) ??
-                                                            // `toString()` is universal (Object.prototype has it),
-                                                            // so it dispatches on any receiver — e.g. an enum or
-                                                            // other null-typed column. The result is typed string
-                                                            // by wellKnownResultType and lowered in the nominator.
-                                                            (fun.propertyName === "toString" ? Object.prototype :
-                                                                // An entity instance method (`toLite`/`is`/combine*) on a
-                                                                // receiver whose static type was lost — e.g. a member reached
-                                                                // through a polymorphic `combineCase()`/`combineUnion()` result,
-                                                                // which has no interface type in altea — dispatches on
-                                                                // Entity.prototype; the binder resolves it against the reference.
-                                                                (obj.type === LiteralType.null && isEntityInstanceMethod(fun.propertyName)) ? Entity.prototype : undefined);
+                                                        // `toString()` is universal (Object.prototype has it),
+                                                        // so it dispatches on any receiver — e.g. an enum or
+                                                        // other null-typed column. The result is typed string
+                                                        // by wellKnownResultType and lowered in the nominator.
+                                                        (fun.propertyName === "toString" ? Object.prototype :
+                                                            // An entity instance method (`toLite`/`is`/combine*) on a
+                                                            // receiver whose static type was lost — e.g. a member reached
+                                                            // through a polymorphic `combineCase()`/`combineUnion()` result,
+                                                            // which has no interface type in altea — dispatches on
+                                                            // Entity.prototype; the binder resolves it against the reference.
+                                                            (obj.type === LiteralType.null && isEntityInstanceMethod(fun.propertyName)) ? Entity.prototype : undefined);
 
                             if (type == undefined)
                                 throw new Error(`Unexpected object type when calling ${fun.propertyName}`);
 
-                            const propertyFunction = (type as Record<string, unknown>)[fun.propertyName] as StaticFunction<Function> | undefined;
+                            const propertyFunction = (type as Record<string, unknown>)[fun.propertyName] as QuotedFunction | undefined;
                             // The inherited default `Entity.toString()` is `@quoted`, but its body
                             // (`niceName(this.constructor) + this.id`) is not directly bindable —
                             // especially over a polymorphic receiver. Leave it as a call so the
@@ -613,7 +614,7 @@ export abstract class Expression {
                                 __methodExpander: propertyFunction?.__methodExpander,
                             };
                         } else if (fun instanceof ConstantExpression) {
-                            sf = fun.value as StaticFunction<Function>;
+                            sf = fun.value as QuotedFunction;
                         }
                         else
                             throw new Error("Unable to call function on node " + fun.toString());
@@ -722,9 +723,9 @@ export abstract class Expression {
                 }
                 default:
                     throw new Error(`Unsupported quoted expression: ${JSON.stringify(q)}`);
+            }
         }
     }
-}
 
 }
 
@@ -981,6 +982,15 @@ export class IndexExpression extends Expression {
 // `instance` is the receiver (undefined for a static call); `args` are the visited
 // arguments (a selector arrives as a LambdaExpression).
 export type MethodExpander = (instance: Expression | undefined, args: readonly Expression[]) => Expression;
+
+// `__methodExpander` needs the Expression API, which entities/ can't depend on, so it
+// is added to the entity-side QuotedFunction carrier here by declaration merging
+// (Signum's [MethodExpander] attribute). fromQuoted reads it off the called method.
+declare module "../../entities/types" {
+    interface QuotedFunction<T extends Function = Function> {
+        __methodExpander?: MethodExpander;
+    }
+}
 
 export class CallExpression extends Expression {
     // Set by fromQuoted when the called method carries a `@methodExpander` — the

@@ -2,7 +2,7 @@
 import { Entity, PrimaryKey } from "../entities/entity";
 import { CallExpression, ConstantExpression, Expression, PropertyExpression, ParameterExpression, LambdaExpression } from "./linq/expressions";
 import { Retriever } from "./linq/Retriever";
-import { asStaticFunction, IQueryTranslator, Query } from "./query";
+import { quotedFunction, IQueryTranslator, Query } from "./query";
 import { ArrayType, FunctionType, ClassType, Type, LiteralType } from "../entities/types";
 import { OverloadingSimplifier } from "./linq/visitors/OverloadingSimplifier";
 import { Connector } from "./connection/connector";
@@ -62,8 +62,8 @@ export function view<T>(viewType: { new(): T }): Query<T> {
     return new Query<T>(callExpression, MyQueryTranslator.instance);
 }
 
-asStaticFunction(table).__resultType = (_, entityTypeType) => new ArrayType(new ClassType((entityTypeType as FunctionType).func!));
-asStaticFunction(view).__resultType = (_, viewTypeType) => new ArrayType(new ClassType((viewTypeType as FunctionType).func!));
+quotedFunction(table).__resultType = (_, entityTypeType) => new ArrayType(new ClassType((entityTypeType as FunctionType).func!));
+quotedFunction(view).__resultType = (_, viewTypeType) => new ArrayType(new ClassType((viewTypeType as FunctionType).func!));
 
 // Marks `table` as a query source so the QueryBinder recognises the
 // `ConstantExpression(table)` at the root of a query CallExpression chain.

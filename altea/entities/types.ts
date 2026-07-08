@@ -1,4 +1,4 @@
-
+import type { ExLambda } from "quote-transformer/quoted";
 
 export abstract class Type {
     // The element type when this is a collection type (ArrayType); null otherwise.
@@ -68,4 +68,31 @@ export class EnumType extends Type {
     constructor(public readonly enumObject: object, public readonly enumName: string) {
         super()
     }
+}
+
+// Query-expression metadata carried on a function value (Signum's method attributes:
+// [SqlMethod], expression bodies, computed result/lambda types). It lives here in
+// entities/ — rather than logic/ — so entity classes can attach metadata to their own
+// methods (`quotedFunction(Entity.isLite).__resultType = …`) without an unsafe
+// `{ __resultType?: … }` cast and without depending on the query engine.
+//
+// Fields whose types need the Expression API (logic/) can't be declared here; logic
+// adds them by declaration-merging this interface (see `__methodExpander` in
+// logic/linq/expressions.ts).
+export type LambdaTypeResolver = (thisType: Type, ...argsTypes: Type[]) => Type[];
+export type ResultTypeResolver = (thisType: Type, ...argsTypes: Type[]) => Type;
+
+export interface QuotedFunction<T extends Function = Function> {
+    __lambdaType?: LambdaTypeResolver[];
+    __resultType?: ResultTypeResolver;
+    __quoted?: () => ExLambda;
+    // Signum's [SqlMethod(Name = "…")]: the SQL name of a query-only (table-valued or
+    // scalar) function. The QueryBinder lowers a call to `<__sqlMethod>(args)`.
+    __sqlMethod?: string;
+}
+
+// Cast a function to its query metadata carrier (Signum's attribute access). A no-op
+// at runtime; only the static type changes.
+export function quotedFunction<T extends Function>(func: T): QuotedFunction<T> {
+    return func as unknown as QuotedFunction<T>;
 }

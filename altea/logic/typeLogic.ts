@@ -1,7 +1,7 @@
 import { Connector } from "./connection/connector";
 import { cleanTypeName } from "../entities/registration";
 import { TypeEntity } from "../entities/typeEntity";
-import { asStaticFunction } from "./query";
+import { quotedFunction } from "./query";
 import { ClassType } from "../entities/types";
 import type { PrimaryKey } from "../entities/entity";
 import type { Schema } from "./schema/schema";
@@ -137,4 +137,4 @@ declare global {
 Function.prototype.toTypeEntity = function (this: Function): TypeEntity {
     return TypeLogic.idToEntity(TypeLogic.typeToId(this))!;
 };
-asStaticFunction(Function.prototype.toTypeEntity).__resultType = () => new ClassType(TypeEntity);
+quotedFunction(Function.prototype.toTypeEntity).__resultType = () => new ClassType(TypeEntity);

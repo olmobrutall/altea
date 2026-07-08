@@ -1,5 +1,5 @@
 import { LiteralType, ArrayType } from "../../../entities/types";
-import { asStaticFunction, Query, sqlMethod, resultType } from "../../query";
+import { quotedFunction, Query, sqlMethod, resultType } from "../../query";
 
 // Port of Signum's Engine/Sync/Postgres/PostgresFunctions.cs — the "mini LINQ provider" of
 // Postgres-only functions the catalog reader / SchemaAssets need to build DiffTable and read
@@ -64,4 +64,4 @@ interface Srf { __sqlMethod?: string }
 (generateSubscripts as unknown as Srf).__sqlMethod = "generate_subscripts";
 
 // fromQuoted types each free-function call via __resultType (the AST never carries a Promise).
-asStaticFunction(generateSubscripts).__resultType = () => new ArrayType(LiteralType.number);
+quotedFunction(generateSubscripts).__resultType = () => new ArrayType(LiteralType.number);

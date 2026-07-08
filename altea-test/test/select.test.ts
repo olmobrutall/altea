@@ -9,7 +9,7 @@ import {
     ArtistEntity, AlbumEntity, BandEntity, LabelEntity,
     ColaboratorsMixin,
     NoteWithDateEntity, GrammyAwardEntity, AwardEntity, AmericanMusicAwardEntity,
-    Sex, AwardResult,
+    Sex, AwardResult, IAuthorEntity,
 } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/SelectTest.cs. C# → altea idiom:
@@ -195,10 +195,11 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // from n … select (IAuthorEntity)n  (just to full-nominate)
-    // Not ported: the C# `(IAuthorEntity)n` is a compile-time interface upcast (a no-op at
-    // runtime). In TS the projection is just `n`, so this verifies whole-entity projection.
+    // The C# `(IAuthorEntity)n` is a compile-time interface upcast (a runtime no-op).
+    // IAuthorEntity is an unregistered interface, so the binder's visitCast falls through
+    // to identity and the whole entity still materialises as an ArtistEntity.
     test("SelectUpCast", async () => {
-        const list = await table(ArtistEntity).map(n => n).toArray();
+        const list = await table(ArtistEntity).map(n => n as IAuthorEntity).toArray();
         assert.ok(list.length > 0);
         assert.ok(list.every(n => n instanceof ArtistEntity));
     });
@@ -545,12 +546,17 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // from a select new { a.Name, Songs = a.Songs.ToList() }
-    // TODO(api): projecting an entire child collection to a nested list (a.songs.toArray()) inside a projection
     test("SelectMListEmbeddedToList", async () => {
         const lists = await table(AlbumEntity)
             .map(a => ({ name: a.name, songs: a.songs }))
             .toArray();
-        assert.ok(Array.isArray(lists));
+        assert.ok(lists.length > 0);
+        // Each album carries its own eager-loaded song list, fields materialised.
+        assert.ok(lists.every(x => typeof x.name === "string" && Array.isArray(x.songs)));
+        assert.ok(lists.every(x => x.songs.every(s => typeof s.name === "string")));
+        // The per-album buckets partition all song rows.
+        const total = (await table(AlbumEntity).flatMap(a => a.songs).toArray()).length;
+        assert.equal(lists.reduce((n, x) => n + x.songs.length, 0), total);
     });
 
     // from alb let mich = ((ArtistEntity)alb.Author) where mich.Name.Contains("Michael") select mich
