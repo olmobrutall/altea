@@ -1,6 +1,8 @@
 import { Pool, types as pgTypes } from 'pg';
 import type { PoolConfig, PoolClient } from 'pg';
+import { from as copyFrom } from 'pg-copy-streams';
 import type { Schema } from '../schema/schema';
+import type { IColumn } from '../schema/column';
 
 // Postgres returns int8 (bigint — the type of COUNT(*), SUM(int), and Ticks) as a
 // string to avoid precision loss past 2^53. altea treats these as JS numbers, so a
@@ -74,9 +76,36 @@ class PostgresConnectionHandle implements ConnectionHandle {
         return res.rows;
     }
 
+    // COPY … FROM STDIN in the default TEXT format. Values arrive already normalised
+    // (Temporal/Decimal → strings) so encoding is per JS runtime type; nulls are \N and
+    // tab/newline/backslash are escaped. Signum's Npgsql path uses BeginBinaryImport;
+    // node-pg has no binary importer, so text COPY is the portable equivalent.
+    async bulkInsert(destinationTable: string, columns: IColumn[], rows: unknown[][]): Promise<void> {
+        const cols = columns.map(c => '"' + c.name.replace(/"/g, '""') + '"').join(', ');
+        const stream = this.client.query(copyFrom(`COPY ${destinationTable} (${cols}) FROM STDIN`));
+        await new Promise<void>((resolve, reject) => {
+            stream.on('error', reject);
+            stream.on('finish', () => resolve());
+            for (const row of rows)
+                stream.write(row.map(encodeCopyText).join('\t') + '\n');
+            stream.end();
+        });
+    }
+
     async dispose(): Promise<void> {
         this.client.release();
     }
+}
+
+// Encodes one value for a COPY text stream: \N for null, 't'/'f' for booleans, ISO for
+// Dates, and backslash/tab/newline/CR escaped for text. Everything else is stringified
+// (numbers, and the strings normalizeScalar already produced for Temporal/Decimal).
+function encodeCopyText(value: unknown): string {
+    if (value == null) return '\\N';
+    if (value === true) return 't';
+    if (value === false) return 'f';
+    const s = value instanceof Date ? value.toISOString() : String(value);
+    return s.replace(/\\/g, '\\\\').replace(/\t/g, '\\t').replace(/\n/g, '\\n').replace(/\r/g, '\\r');
 }
 
 // PostgreSQL connector. Dialect: postgres column types, double-quote escaping,

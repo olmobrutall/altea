@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Schema } from '../schema/schema';
+import type { IColumn } from '../schema/column';
 import { SqlBuilder } from '../sync/sqlBuilder';
 import type { SqlPreCommand, SqlPreCommandSimple } from '../sync/sqlPreCommand';
 import { currentCoreTransaction } from './transaction';
@@ -56,6 +57,12 @@ export interface ConnectionHandle {
     // Runs a statement on this pinned connection.
     executeNonQuery(sql: string, parameters?: unknown[]): Promise<number>;
     executeQuery(sql: string, parameters?: unknown[]): Promise<unknown[]>;
+    // Bulk-copies rows into `destinationTable` using the driver's native bulk API
+    // (SqlBulkCopy on SQL Server, COPY FROM STDIN on Postgres). `columns` describes the
+    // target columns (name + dbType, in the same order as each row's values); `rows` are
+    // driver-ready values (Temporal/Decimal already normalised to strings). The analog of
+    // Signum's Connector.BulkCopy.
+    bulkInsert(destinationTable: string, columns: IColumn[], rows: unknown[][]): Promise<void>;
     // Returns the connection to the pool / closes it.
     dispose(): Promise<void>;
 }
@@ -136,6 +143,13 @@ export abstract class Connector {
     executeQuery(sql: string, parameters: unknown[] = []): Promise<unknown[]> {
         return this.withLogging(sql, parameters, () =>
             this.ensureConnection(handle => handle.executeQuery(sql, parameters)));
+    }
+
+    // Bulk-copies rows into a table on the current connection (joining the active
+    // Transaction, like executeQuery). Dispatches to the driver-specific handle.
+    bulkInsert(destinationTable: string, columns: IColumn[], rows: unknown[][]): Promise<void> {
+        return this.withLogging(`-- BULK INSERT ${destinationTable} (${rows.length} rows)`, [], () =>
+            this.ensureConnection(handle => handle.bulkInsert(destinationTable, columns, rows)));
     }
 
     // Times `run` and reports the statement to Connector.currentLogger when one is

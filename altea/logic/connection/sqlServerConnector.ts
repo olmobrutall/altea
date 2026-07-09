@@ -8,8 +8,33 @@ const { ConnectionPool, Transaction: MssqlTransaction, Request: MssqlRequest, IS
 type ConnectionPool = InstanceType<typeof ConnectionPool>;
 type MssqlTransaction = InstanceType<typeof MssqlTransaction>;
 import type { Schema } from '../schema/schema';
+import type { IColumn } from '../schema/column';
+import { isNullableToBool } from '../schema/dbType';
 import { Connector } from './connector';
 import type { ConnectionHandle, IsolationLevel } from './connector';
+
+// Maps altea's dialect-neutral column type to the mssql type SqlBulkCopy needs. Uses the
+// AbstractDbType family predicates + the SQL Server type name for the numeric/date subtypes.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- mssql's TYPES are loosely typed
+function mssqlType(col: IColumn): any {
+    const t = col.dbType;
+    const name = t.sqlServer.toLowerCase();
+    const c = col as { precision?: number; scale?: number; size?: number };
+    if (t.isGuid()) return mssql.UniqueIdentifier;
+    if (t.isBoolean()) return mssql.Bit;
+    if (t.isString()) return mssql.NVarChar(mssql.MAX);
+    if (t.isBinary()) return mssql.VarBinary(mssql.MAX);
+    if (t.isDecimal()) return mssql.Decimal(c.precision ?? 18, c.scale ?? 2);
+    if (t.isDate()) return name === 'date' ? mssql.Date
+        : name === 'datetimeoffset' ? mssql.DateTimeOffset : mssql.DateTime2;
+    if (t.isTime()) return mssql.Time;
+    if (t.isNumber()) return name === 'bigint' ? mssql.BigInt
+        : name === 'smallint' ? mssql.SmallInt
+        : name === 'tinyint' ? mssql.TinyInt
+        : name === 'float' ? mssql.Float
+        : name === 'real' ? mssql.Real : mssql.Int;
+    return mssql.NVarChar(mssql.MAX);
+}
 
 // Maps a dialect-neutral isolation level to mssql's numeric constant.
 function mssqlIsolation(isolation: IsolationLevel): number {
@@ -65,6 +90,17 @@ class SqlServerConnectionHandle implements ConnectionHandle {
         parameters.forEach((p, i) => req.input(`p${i}`, p));
         const res = await req.query(sql);
         return res.recordset ?? [];
+    }
+
+    // SqlBulkCopy via mssql's Table + request.bulk. The request is bound to the active
+    // transaction (see request()), so the bulk copy participates in it and rolls back with it.
+    async bulkInsert(destinationTable: string, columns: IColumn[], rows: unknown[][]): Promise<void> {
+        const tbl = new mssql.Table(destinationTable);
+        for (const c of columns)
+            tbl.columns.add(c.name, mssqlType(c), { nullable: isNullableToBool(c.nullable) });
+        for (const row of rows)
+            (tbl.rows as { add: (...v: unknown[]) => void }).add(...row);
+        await this.request().bulk(tbl);
     }
 
     async dispose(): Promise<void> {
