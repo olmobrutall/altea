@@ -8,7 +8,7 @@ import {
     saveDependencyGraph,
     fullIntegrityCheck,
 } from './graphExplorer';
-import { insertEntityRow, updateEntityRow } from './save';
+import { insertEntityRows, updateEntityRow } from './save';
 import { Transaction } from './connection/transaction';
 
 // Port of Signum's Saver (Engine/Saver.cs), adapted to altea's snapshot model.
@@ -73,26 +73,44 @@ export namespace Saver {
             if (hasBackEdges)
                 graph.removeEdges(backEdges.edges);
 
-            // Topological save, sinks first. `inv` (fixed) tells removeFullNode which
-            // in-edges to drop as each node is written, freeing its referrers to become
-            // sinks — Signum's SaveGraph loop, one row per statement (no InsertMany here;
-            // bulk paths are bulkInsert/unsafeUpdate).
+            // Topological save, level by level. Each pass takes every current sink (no
+            // out-edge → every new entity it references is already written) and processes
+            // the whole level, then removes it so its referrers become the next level's
+            // sinks. `inv` (fixed) tells removeFullNode which in-edges to drop. New rows are
+            // INSERTed grouped by table into one multi-row statement (the batching win for
+            // collections); existing rows UPDATE one at a time (updates don't batch cleanly
+            // on node-pg — bulk stays bulkInsert/unsafeUpdate).
             const inv = graph.inverse();
+            // Entity's cycle-deferral set (empty when there are no back edges → harmless).
+            const forbiddenOf = (e: Entity): ReadonlySet<Entity> => backEdges.tryRelatedTo(e);
             while (graph.count > 0) {
-                const sinks = graph.sinks();
-                if (sinks.size === 0)
+                const sinks = [...graph.sinks()];
+                if (sinks.length === 0)
                     throw new Error(
                         'Save-time reference cycle survived feedback-edge removal among: ' +
                         [...graph.nodes].map(e => e.constructor.name).join(', '));
 
-                for (const e of sinks) {
-                    const forbidden = hasBackEdges ? backEdges.tryRelatedTo(e) : undefined;
-                    if (e.id == null)
-                        await insertEntityRow(e, forbidden);
-                    else
-                        await updateEntityRow(e, forbidden);
+                // INSERT new entities grouped by table, one multi-row statement per group.
+                // `isNew` (Signum's discriminator) — not `id == null` — so a new entity that
+                // already carries a client-assigned key still inserts (insertEntityRows writes
+                // its explicit PK); an existing row (isNew == false) updates.
+                const insertGroups = new Map<Function, Entity[]>();
+                for (const e of sinks)
+                    if (e.isNew) {
+                        let group = insertGroups.get(e.constructor);
+                        if (group == null) { group = []; insertGroups.set(e.constructor, group); }
+                        group.push(e);
+                    }
+                for (const group of insertGroups.values())
+                    await insertEntityRows(group, group.map(forbiddenOf));
+
+                // UPDATE existing entities individually.
+                for (const e of sinks)
+                    if (!e.isNew)
+                        await updateEntityRow(e, forbiddenOf(e));
+
+                for (const e of sinks)
                     graph.removeFullNode(e, inv.relatedTo(e));
-                }
             }
 
             // Deferred-FK pass: each back-edge source was written with a NULL cyclic FK;

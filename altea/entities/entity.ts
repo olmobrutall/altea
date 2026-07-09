@@ -129,7 +129,11 @@ export type ViewType<T extends View = View> = new () => T;
 @entity()
 export abstract class Entity extends BaseEntity {
     id: PrimaryKey;
-    @ignore isNew: boolean;
+    // Signum's `Entity.IsNew`: true for a freshly constructed entity, cleared to false once it
+    // is retrieved (Retriever.getOrCreate / TypeLogic) or saved (Saver). Authoritative — the
+    // Saver keys insert-vs-update on it, and the default toString() branches on it. @ignore so
+    // it is never a column and never enters change tracking.
+    @ignore isNew: boolean = true;
     ticks: number;
 
     /**

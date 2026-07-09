@@ -47,22 +47,61 @@ interface ColumnValue {
 export type Forbidden = ReadonlySet<Entity>;
 const NO_FORBIDDEN: Forbidden = new Set<Entity>();
 
-// INSERTs a new entity (no id yet), assigning the database-generated id and
-// clearing isNew. Returns nothing — the caller re-baselines after the graph commits.
-export async function insertEntityRow(entity: Entity, forbidden: Forbidden = NO_FORBIDDEN): Promise<void> {
-    const connector = Connector.current();
-    const table = connector.schema.table(entity.constructor as Type<Entity>);
-    const assignments = collectAssignments(table, entity, forbidden);
+// INSERTs a single new entity. Thin wrapper over the batched path.
+export function insertEntityRow(entity: Entity, forbidden: Forbidden = NO_FORBIDDEN): Promise<void> {
+    return insertEntityRows([entity], [forbidden]);
+}
 
-    const rows = await buildInsert(table, assignments).executeQuery();
-    const idColumn = table.primaryKey.column.name;
-    const row = rows[0] as Record<string, unknown> | undefined;
-    entity.id = (row?.[idColumn] ?? row?.['id']) as PrimaryKey;
-    // The row was written with ticks = 0 (collectAssignments), so the in-memory
+// INSERTs a group of new entities of the SAME table in one multi-row statement
+// (`INSERT INTO t (cols) VALUES (…),(…),… `), the Saver's batching win for collections
+// (many part-entity rows of one type at the same dependency level). Two modes, decided by
+// whether the database assigns the primary key:
+//   - generated (id == null): omit the PK column, read the DB-assigned ids back via
+//     RETURNING (pg) / OUTPUT (SS), and map them to the entities BY POSITION (a single
+//     multi-row INSERT returns them in VALUES order on both dialects, as Signum relies on);
+//   - explicit (id already set — a client/UUID/enum key, "without identity"): write the PK
+//     in each tuple and skip the read-back.
+// `forbiddens[i]` is entity i's cycle-deferral set (its FK to a not-yet-saved target is
+// NULLed, filled later by the Saver's deferred UPDATE). No pre-compiled parameter builder —
+// `collectAssignments` reflects per row, which is negligible next to the round-trip.
+export async function insertEntityRows(entities: Entity[], forbiddens?: Forbidden[]): Promise<void> {
+    if (entities.length === 0) return;
+    const connector = Connector.current();
+    const table = connector.schema.table(entities[0].constructor as Type<Entity>);
+    const generated = entities[0].id == null;
+
+    const rows = entities.map((e, i) => {
+        const a = collectAssignments(table, e, forbiddens?.[i] ?? NO_FORBIDDEN);
+        return generated ? a : [{ column: table.primaryKey.column, value: e.id }, ...a];
+    });
+
+    // No non-PK columns + generated id (e.g. an all-defaults table): can't put two
+    // `DEFAULT VALUES` in one statement, so fall back to a single-row insert per entity.
+    if (generated && rows[0].length === 0) {
+        const idColumn = table.primaryKey.column.name;
+        for (const e of entities) {
+            const back = await buildInsert(table, []).executeQuery();
+            const row = back[0] as Record<string, unknown> | undefined;
+            e.id = (row?.[idColumn] ?? row?.['id']) as PrimaryKey;
+        }
+    } else if (generated) {
+        const idColumn = table.primaryKey.column.name;
+        const result = await buildInsertMany(table, rows, true).executeQuery() as Record<string, unknown>[];
+        entities.forEach((e, i) => {
+            const row = result[i];
+            e.id = (row?.[idColumn] ?? row?.['id']) as PrimaryKey;
+        });
+    } else {
+        await buildInsertMany(table, rows, false).executeNonQuery();
+    }
+
+    // The rows were written with ticks = 0 (collectAssignments), so the in-memory
     // concurrency token starts there too.
-    if (table.ticks != null)
-        entity.ticks = 0;
-    entity.isNew = false;
+    for (const e of entities) {
+        if (table.ticks != null)
+            e.ticks = 0;
+        e.isNew = false;
+    }
 }
 
 // UPDATEs an existing entity in place. Enforces optimistic concurrency when the
@@ -288,6 +327,35 @@ function buildInsert(table: Table, assignments: ColumnValue[]): SqlPreCommandSim
         ? `INSERT INTO ${tableName} (${cols}) VALUES (${values}) RETURNING ${idCol};`
         : `INSERT INTO ${tableName} (${cols}) OUTPUT INSERTED.${idCol} VALUES (${values});`;
     return new SqlPreCommandSimple(sql, namedParameters(assignments));
+}
+
+// One multi-row INSERT for a group of same-table rows. Each `rows[k]` is that row's
+// column/value list (identical columns and order across rows — collectAssignments is
+// deterministic per table). Parameters are flattened p0..pN across all tuples. When
+// `generated`, the DB assigns the PK, so add RETURNING (pg) / OUTPUT INSERTED.<pk> (SS) to
+// stream the new ids back in row order; otherwise the PK is already in each row's values.
+function buildInsertMany(table: Table, rows: ColumnValue[][], generated: boolean): SqlPreCommandSimple {
+    const sb = Connector.current().sqlBuilder;
+    const tableName = sb.objectName(table.name);
+    const idCol = sb.sqlEscape(table.primaryKey.column.name);
+    const cols = rows[0].map(a => sb.sqlEscape(a.column.name)).join(', ');
+
+    const params: SqlParameter[] = [];
+    let p = 0;
+    const tuples = rows
+        .map(assignments => {
+            const placeholders = assignments.map(a => {
+                params.push({ name: `p${p}`, value: a.value });
+                return placeholder(sb.isPostgres, p++);
+            });
+            return `(${placeholders.join(', ')})`;
+        })
+        .join(', ');
+
+    const sql = sb.isPostgres
+        ? `INSERT INTO ${tableName} (${cols}) VALUES ${tuples}${generated ? ` RETURNING ${idCol}` : ''};`
+        : `INSERT INTO ${tableName} (${cols})${generated ? ` OUTPUT INSERTED.${idCol}` : ''} VALUES ${tuples};`;
+    return new SqlPreCommandSimple(sql, params);
 }
 
 function buildUpdate(

@@ -2,8 +2,9 @@ import { before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import { retrieve } from "@altea/altea/logic/Database";
+import { Connector } from "@altea/altea/logic/connection/connector";
 import { hasDb, start, txTest } from "./setup";
-import { CountryEntity, LabelEntity } from "../entities/music";
+import { CountryEntity, LabelEntity, BandEntity, BandEntity_Members, ArtistEntity } from "../entities/music";
 
 // Exercises the graph Saver's cycle handling (Signum's DirectedGraph.FeedbackEdgeSet +
 // Forbidden deferred-FK). LabelEntity.owner is a NULLABLE self-reference, so two new
@@ -55,5 +56,39 @@ describe("SaverTest", { skip: !hasDb }, () => {
         assert.ok(self.id != null && !self.isNew);
         const dbSelf = await retrieve(LabelEntity, self.id);
         assert.equal(dbSelf.owner?.id, self.id, "self.owner persisted as itself");
+    });
+
+    // The batching win: a new band with 3 members (same table, same dependency level) is
+    // saved with the members going in ONE multi-row INSERT — so the whole graph is 2 insert
+    // round-trips (band + members), not 4 (band + 3 × member). Proven by counting the INSERT
+    // statements the connector actually issues.
+    txTest("BatchesCollectionInsertsInOneStatement", async () => {
+        const artists = (await table(ArtistEntity).orderBy(a => a.name).toArray()).slice(0, 3);
+        assert.equal(artists.length, 3, "need 3 seeded artists");
+
+        const band = BandEntity.create({
+            name: "Batch Band",
+            members: artists.map(a => BandEntity_Members.create({ member: a })),
+            lastAward: null,
+            otherAwards: [],
+        });
+
+        const sqls: string[] = [];
+        const previous = Connector.currentLogger;
+        Connector.currentLogger = { log: (sql: string) => { sqls.push(sql); } };
+        try {
+            await band.save();
+        } finally {
+            Connector.currentLogger = previous;
+        }
+
+        const inserts = sqls.filter(s => /insert\s+into/i.test(s));
+        assert.equal(inserts.length, 2, `band + one batched members insert (got ${inserts.length})`);
+        // The members statement carries 3 value tuples → two "),(" separators.
+        assert.ok(
+            inserts.some(s => (s.match(/\)\s*,\s*\(/g) ?? []).length === 2),
+            "the 3 member rows are one multi-row VALUES statement");
+        assert.ok(band.members.every(m => m.id != null), "every member row got an id");
+        assert.equal(new Set(band.members.map(m => m.id)).size, 3, "distinct ids, mapped by position");
     });
 });
