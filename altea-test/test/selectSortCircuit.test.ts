@@ -46,11 +46,11 @@ describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
     });
 
     // Where(a => (((DateTime?)DateTime.Now) ?? Throw<DateTime>()) == DateTime.Today).Select(a => a.Year).ToList();
-    // The `?? Throw` short-circuit itself folds fine, but this predicate compares two
-    // client-side `Temporal.Now.plainDateISO()` reads (each a fresh JS value, not a single
-    // server-now constant), so they need not be equal — hence no equality on the result count.
-    // TODO(api): a single server-now constant in a query (Signum's Clock.Now / DateTime.Today
-    //   materialised once server-side) so two now-reads in one predicate compare equal.
+    // `Temporal.Now.plainDateISO()` partial-evaluates to a client date constant — like Signum's
+    // Clock.Now / DateTime.Now (the SqlFunctions doc claims GETDATE(), but the provider folds it
+    // client-side; there is no GETDATE translation). So `?? Throw()` short-circuits over the
+    // non-null constant and the Throw is never built. The two independent now-reads are separate
+    // constants, so the count isn't asserted (as in the C#, which just .ToList()s).
     test("SortCircuitCoalesceNullable", async () => {
         const list = await table(AlbumEntity)
             .filter(a => (Temporal.Now.plainDateISO() ?? Throw<Temporal.PlainDate>()) == Temporal.Now.plainDateISO())

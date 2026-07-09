@@ -19,23 +19,19 @@ import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 // dead branch, so an unreachable, un-typeable branch (Throw<T>(), a null-guarded `.name`) is
 // never built.
 
-// The Temporal constructors (`Temporal.PlainDateTime.from(…)` etc.): NOT folded to a value,
-// so the QueryBinder can translate the construction to a SQL date-part function
-// (MAKE_DATE / DATETIMEFROMPARTS / …) — mirroring Signum's `new DateTime(y,m,d)` →
-// `MAKE_DATE(@p0,@p1,@p2)`. As a SQL expression (not a constant) it also survives a
-// constant-folding ORDER BY.
-const TEMPORAL_CONSTRUCTORS: ReadonlySet<unknown> = new Set<unknown>([
-    Temporal.PlainDateTime.from, Temporal.PlainDate.from, Temporal.PlainTime.from, Temporal.Duration.from,
-]);
-
 // A value that must NOT be frozen to a constant: a query source (table/view), a set-returning /
-// scalar SQL marker (@sqlMethod), a Temporal constructor, or a Query — all must stay translatable
-// to SQL rather than run at query-build time. (Scalar functions exposed as static-class methods,
-// e.g. PostgresFunctions, are reached via the class receiver, not by branding the value here.)
+// scalar SQL marker (@sqlMethod), or a Query — all must stay translatable to SQL rather than run
+// at query-build time. (Scalar functions exposed as static-class methods, e.g. PostgresFunctions,
+// are reached via the class receiver, not by branding the value here.)
+//
+// A `Temporal.X.from({…})` construction is NOT marked here: with all-constant components it folds
+// to a date value (a param) — the natural, correct behaviour, and a constant ORDER BY over it is a
+// genuine no-op that's dropped; with a NON-constant component (e.g. a column) it can't fold, so it
+// survives to the QueryBinder → a SQL date-part function (MAKE_DATE, Signum's VisitNew). Likewise
+// `Temporal.Now.*` folds to a client value (Signum partial-evaluates Clock.Now; it does not emit
+// GETDATE()).
 function isQueryMarker(v: unknown): boolean {
     if (v instanceof Query)
-        return true;
-    if (TEMPORAL_CONSTRUCTORS.has(v))
         return true;
     if (typeof v !== "function")
         return false;
@@ -333,7 +329,8 @@ const wellKnownResultTypes: Readonly<Record<string, Type>> = {
     "Math.round": LiteralType.number,
     "Math.trunc": LiteralType.number,
 
-    // Temporal constructors (`Temporal.PlainDateTime.from(…)` etc.) → their kind.
+    // Temporal constructors (`Temporal.PlainDateTime.from(…)` etc.) → their kind. Only reached
+    // when a component is non-constant (a constant construction folds to a value first).
     "PlainDateTime.from": new TemporalType("dateTime"),
     "PlainDate.from": new TemporalType("date"),
     "PlainTime.from": new TemporalType("duration"),

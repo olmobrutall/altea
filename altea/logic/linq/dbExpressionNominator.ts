@@ -1,7 +1,7 @@
 import {
     Expression, BinaryExpression, UnaryExpression, ConditionalExpression,
     ConstantExpression, CastExpression, CallExpression, PropertyExpression,
-    ParameterExpression, LambdaExpression,
+    ParameterExpression, LambdaExpression, ObjectExpression,
 } from "./expressions";
 import { inSql, Temporal } from "../../entities/basics";
 import {
@@ -315,44 +315,56 @@ class DbExpressionNominator extends DbExpressionVisitor {
         return ctor == null ? undefined : TEMPORAL_CTOR_KINDS.get(ctor);
     }
 
-    // Translate a constant date/time component object to a SQL date-part constructor —
-    // MAKE_DATE / MAKE_TIMESTAMP / MAKE_TIME / MAKE_INTERVAL on Postgres, DATEFROMPARTS /
-    // DATETIMEFROMPARTS / TIMEFROMPARTS on SQL Server (Signum's VisitNew per DateTime / DateOnly /
-    // TimeOnly / TimeSpan). Only a constant components object is supported (the literal forms).
+    // Translate a `Temporal.*.from({ … })` construction with a NON-constant component to a SQL
+    // date-part constructor — MAKE_DATE / MAKE_TIMESTAMP / MAKE_TIME / MAKE_INTERVAL on Postgres,
+    // DATEFROMPARTS / DATETIMEFROMPARTS / TIMEFROMPARTS on SQL Server (Signum's VisitNew per
+    // DateTime / DateOnly / TimeOnly / TimeSpan). An all-constant construction never reaches here —
+    // it folds to a date value; only a non-constant one (e.g. a column component) survives.
     private temporalConstructor(kind: TemporalKind, arg: Expression): Expression {
-        if (!(arg instanceof ConstantExpression) || arg.value == null || typeof arg.value !== "object")
-            throw new Error("A date/time literal (Temporal.*.from(...)) requires a constant { year, month, … } object");
-        const o = arg.value as Record<string, number | undefined>;
+        if (!(arg instanceof ObjectExpression))
+            throw new Error("A date/time constructor (Temporal.*.from(...)) requires an object literal argument");
+        const props = arg.properties;
         const kindType = new TemporalType(kind === "date" ? "date" : kind === "dateTime" ? "dateTime" : "duration");
-        // Components are bound PARAMETERS, not inline literals: SQL Server rejects an all-constant
-        // expression in ORDER BY (error 408), but a parameterised one is fine — and this matches
-        // Signum's `MAKE_DATE(@p0, @p1, @p2)`. Exception: TIMEFROMPARTS's scale must be a literal.
-        const p = (v: number) => new ConstantExpression(v);
         const lit = (v: number) => new SqlConstantExpression(v, LiteralType.number);
+        const numOf = (e: Expression | undefined): number | undefined =>
+            (e instanceof ConstantExpression || e instanceof SqlConstantExpression) && typeof e.value === "number" ? e.value : undefined;
+        // Each integer component: a constant → an inline literal; a non-constant (a column, e.g.
+        // `EXTRACT(year …)`) → cast to integer on Postgres, where MAKE_* wants int (SQL Server's
+        // DATEPART already yields int). Missing → 0.
+        const comp = (name: string): Expression => {
+            const e = props[name];
+            if (e == null) return lit(0);
+            const v = numOf(e);
+            if (v != null) return lit(v);
+            return this.isPostgres ? new SqlCastExpression(LiteralType.number, e, "integer") : e;
+        };
+        // Postgres MAKE_TIMESTAMP/MAKE_TIME take fractional (double) seconds: fold second + ms/1000
+        // when both are constant (the usual case); a non-constant second passes through as-is.
+        const pgSeconds = (secName: string, msName: string): Expression => {
+            const s = numOf(props[secName]), ms = numOf(props[msName]);
+            return s != null && ms != null ? lit(s + ms / 1000) : (props[secName] ?? lit(0));
+        };
         const fn = (name: string, args: Expression[]) => new SqlFunctionExpression(kindType, undefined, name, args);
 
-        const year = o.year ?? 1, month = o.month ?? 1, day = o.day ?? 1;
-        const hour = o.hour ?? 0, minute = o.minute ?? 0, second = o.second ?? 0, ms = o.millisecond ?? 0;
         switch (kind) {
             case "date":
-                return this.isPostgres ? fn("MAKE_DATE", [p(year), p(month), p(day)]) : fn("DATEFROMPARTS", [p(year), p(month), p(day)]);
+                return this.isPostgres ? fn("MAKE_DATE", [comp("year"), comp("month"), comp("day")])
+                    : fn("DATEFROMPARTS", [comp("year"), comp("month"), comp("day")]);
             case "dateTime":
-                // Postgres MAKE_TIMESTAMP takes fractional seconds (a double); SQL Server's
-                // DATETIMEFROMPARTS takes a separate integer milliseconds argument.
+                // SQL Server's DATETIMEFROMPARTS takes a separate integer milliseconds argument.
                 return this.isPostgres
-                    ? fn("MAKE_TIMESTAMP", [p(year), p(month), p(day), p(hour), p(minute), p(second + ms / 1000)])
-                    : fn("DATETIMEFROMPARTS", [p(year), p(month), p(day), p(hour), p(minute), p(second), p(ms)]);
+                    ? fn("MAKE_TIMESTAMP", [comp("year"), comp("month"), comp("day"), comp("hour"), comp("minute"), pgSeconds("second", "millisecond")])
+                    : fn("DATETIMEFROMPARTS", [comp("year"), comp("month"), comp("day"), comp("hour"), comp("minute"), comp("second"), comp("millisecond")]);
             case "time":
+                // TIMEFROMPARTS's scale (last arg) must be a literal, not a parameter.
                 return this.isPostgres
-                    ? fn("MAKE_TIME", [p(hour), p(minute), p(second + ms / 1000)])
-                    : fn("TIMEFROMPARTS", [p(hour), p(minute), p(second), p(ms), lit(3)]);
-            case "duration": {
+                    ? fn("MAKE_TIME", [comp("hour"), comp("minute"), pgSeconds("second", "millisecond")])
+                    : fn("TIMEFROMPARTS", [comp("hour"), comp("minute"), comp("second"), comp("millisecond"), lit(3)]);
+            case "duration":
                 // A TimeSpan/Duration up to a day maps to a SQL interval / time value.
-                const dh = o.hours ?? 0, dmi = o.minutes ?? 0, ds = o.seconds ?? 0, dms = o.milliseconds ?? 0;
                 return this.isPostgres
-                    ? fn("MAKE_INTERVAL", [p(0), p(0), p(0), p(0), p(dh), p(dmi), p(ds + dms / 1000)])
-                    : fn("TIMEFROMPARTS", [p(dh), p(dmi), p(ds), p(dms), lit(3)]);
-            }
+                    ? fn("MAKE_INTERVAL", [lit(0), lit(0), lit(0), lit(0), comp("hours"), comp("minutes"), pgSeconds("seconds", "milliseconds")])
+                    : fn("TIMEFROMPARTS", [comp("hours"), comp("minutes"), comp("seconds"), comp("milliseconds"), lit(3)]);
         }
     }
 

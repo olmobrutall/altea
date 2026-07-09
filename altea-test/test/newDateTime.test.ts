@@ -11,12 +11,13 @@ import { NoteWithDateEntity } from "../entities/music";
 //   new DateTime(...)    → Temporal.PlainDateTime.from({...})  new DateOnly(...) → Temporal.PlainDate.from({...})
 //   new TimeOnly(...)    → Temporal.PlainTime.from({...})      new TimeSpan(...) → Temporal.Duration.from({...})
 //
-// A date/time literal is translated to a SQL date-part constructor (Signum's
-// DbExpressionNominator.VisitNew): MAKE_DATE / MAKE_TIMESTAMP / MAKE_TIME / MAKE_INTERVAL on
-// Postgres, DATEFROMPARTS / DATETIMEFROMPARTS / TIMEFROMPARTS on SQL Server — with the
-// components as bound parameters (so the plan caches and SQL Server accepts it in ORDER BY,
-// which rejects a purely-constant expression). Because it's a SQL expression (not a folded
-// constant), the ORDER BY survives — each test asserts the emitted SQL keeps its ORDER BY.
+// A date/time construction with ALL-constant components folds to a value (a param), and a
+// constant ORDER BY over it is a no-op that's dropped — so to exercise SQL RENDERING these
+// use a NON-constant component (a value pulled off the row, like `n.creationTime.year`), the
+// altea analog of C#'s `new X()` never being a constant sub-expression. That forces a
+// date-part constructor into SQL (Signum's DbExpressionNominator.VisitNew): MAKE_DATE /
+// MAKE_TIMESTAMP / MAKE_TIME / MAKE_INTERVAL on Postgres, DATEFROMPARTS / DATETIMEFROMPARTS /
+// TIMEFROMPARTS on SQL Server — so the ORDER BY survives. Each test asserts the ORDER BY renders.
 
 describe("NewDateTimeTest", { skip: !hasDb }, () => {
     before(async () => { await start(); });
@@ -24,17 +25,17 @@ describe("NewDateTimeTest", { skip: !hasDb }, () => {
     // Database.Query<NoteWithDateEntity>().OrderBy(n => new DateTime(2020, 1, 1)).Select(n => n.Id).ToList();
     test("NewDateTime", async () => {
         const q = table(NoteWithDateEntity)
-            .orderBy(n => Temporal.PlainDateTime.from({ year: 2020, month: 1, day: 1 }))
-            .map(n => n.id);
-        assert.match(q.queryTextForDebug(), /ORDER BY/i); // the literal renders, not folded away
+            .orderBy(n => Temporal.PlainDateTime.from({ year: n.creationTime.year, month: 1, day: 1 }))
+            .map(n => n.title);
+        assert.match(q.queryTextForDebug(), /ORDER BY/i);
         assert.ok((await q.toArray()).length > 0);
     });
 
     // Database.Query<NoteWithDateEntity>().OrderBy(n => new DateTime(2020, 1, 1, 12, 30, 0)).Select(n => n.Id).ToList();
     test("NewDateTimeHMS", async () => {
         const q = table(NoteWithDateEntity)
-            .orderBy(n => Temporal.PlainDateTime.from({ year: 2020, month: 1, day: 1, hour: 12, minute: 30, second: 0 }))
-            .map(n => n.id);
+            .orderBy(n => Temporal.PlainDateTime.from({ year: n.creationTime.year, month: 1, day: 1, hour: 12, minute: 30, second: 0 }))
+            .map(n => n.title);
         assert.match(q.queryTextForDebug(), /ORDER BY/i);
         assert.ok((await q.toArray()).length > 0);
     });
@@ -42,8 +43,8 @@ describe("NewDateTimeTest", { skip: !hasDb }, () => {
     // Database.Query<NoteWithDateEntity>().OrderBy(n => new DateTime(2020, 1, 1, 12, 30, 0, 500)).Select(n => n.Id).ToList();
     test("NewDateTimeHMSMS", async () => {
         const q = table(NoteWithDateEntity)
-            .orderBy(n => Temporal.PlainDateTime.from({ year: 2020, month: 1, day: 1, hour: 12, minute: 30, second: 0, millisecond: 500 }))
-            .map(n => n.id);
+            .orderBy(n => Temporal.PlainDateTime.from({ year: n.creationTime.year, month: 1, day: 1, hour: 12, minute: 30, second: 0, millisecond: 500 }))
+            .map(n => n.title);
         assert.match(q.queryTextForDebug(), /ORDER BY/i);
         assert.ok((await q.toArray()).length > 0);
     });
@@ -51,8 +52,8 @@ describe("NewDateTimeTest", { skip: !hasDb }, () => {
     // Database.Query<NoteWithDateEntity>().OrderBy(n => new DateOnly(2020, 1, 1)).Select(n => n.Id).ToList();
     test("NewDateOnly", async () => {
         const q = table(NoteWithDateEntity)
-            .orderBy(n => Temporal.PlainDate.from({ year: 2020, month: 1, day: 1 }))
-            .map(n => n.id);
+            .orderBy(n => Temporal.PlainDate.from({ year: n.creationTime.year, month: 1, day: 1 }))
+            .map(n => n.title);
         assert.match(q.queryTextForDebug(), /ORDER BY/i);
         assert.ok((await q.toArray()).length > 0);
     });
@@ -60,8 +61,8 @@ describe("NewDateTimeTest", { skip: !hasDb }, () => {
     // Database.Query<NoteWithDateEntity>().OrderBy(n => new TimeOnly(12, 30, 0)).Select(n => n.Id).ToList();
     test("NewTimeOnly", async () => {
         const q = table(NoteWithDateEntity)
-            .orderBy(n => Temporal.PlainTime.from({ hour: 12, minute: 30, second: 0 }))
-            .map(n => n.id);
+            .orderBy(n => Temporal.PlainTime.from({ hour: n.creationTime.hour, minute: 30, second: 0 }))
+            .map(n => n.title);
         assert.match(q.queryTextForDebug(), /ORDER BY/i);
         assert.ok((await q.toArray()).length > 0);
     });
@@ -69,8 +70,8 @@ describe("NewDateTimeTest", { skip: !hasDb }, () => {
     // Database.Query<NoteWithDateEntity>().OrderBy(n => new TimeSpan(12, 30, 0)).Select(n => n.Id).ToList();
     test("NewTimeSpan", async () => {
         const q = table(NoteWithDateEntity)
-            .orderBy(n => Temporal.Duration.from({ hours: 12, minutes: 30, seconds: 0 }))
-            .map(n => n.id);
+            .orderBy(n => Temporal.Duration.from({ hours: n.creationTime.hour, minutes: 30, seconds: 0 }))
+            .map(n => n.title);
         assert.match(q.queryTextForDebug(), /ORDER BY/i);
         assert.ok((await q.toArray()).length > 0);
     });
