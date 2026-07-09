@@ -35,7 +35,7 @@ import { SqlPreCommandSimple, SqlParameter } from './sync/sqlPreCommand';
 // table yet to map it to an int). Child arrays (@backReference) carry no columns of
 // their own here — ./saver persists them as their own rows.
 
-interface ColumnValue {
+export interface ColumnValue {
     column: IColumn;
     value: unknown;
 }
@@ -189,8 +189,9 @@ export function rowImage(table: Table, entity: Entity): Map<string, unknown> {
 
 // ---- Value extraction ------------------------------------------------------
 
-// Flattens every (non-PK) field's column values for this entity, including mixins.
-function collectAssignments(table: Table, entity: Entity, forbidden: Forbidden = NO_FORBIDDEN): ColumnValue[] {
+// Flattens every (non-PK) field's column values for this entity, including mixins. Shared by
+// the single/batched insert path and the bulk inserter (Signum's Table.BulkInsertDataRow).
+export function collectAssignments(table: Table, entity: Entity, forbidden: Forbidden = NO_FORBIDDEN): ColumnValue[] {
     const out: ColumnValue[] = [];
 
     for (const ef of Object.values(table.fields)) {
@@ -352,9 +353,16 @@ function buildInsertMany(table: Table, rows: ColumnValue[][], generated: boolean
         })
         .join(', ');
 
-    const sql = sb.isPostgres
-        ? `INSERT INTO ${tableName} (${cols}) VALUES ${tuples}${generated ? ` RETURNING ${idCol}` : ''};`
+    // Writing an explicit value into a real identity/serial PK needs an override: pg's
+    // GENERATED ALWAYS PKs want OVERRIDING SYSTEM VALUE; SQL Server needs SET IDENTITY_INSERT
+    // around the statement (mirrors queryFormatter.visitInsertSelect).
+    const identityOverride = !generated && table.primaryKey.column.identity;
+
+    let sql = sb.isPostgres
+        ? `INSERT INTO ${tableName} (${cols})${identityOverride ? ' OVERRIDING SYSTEM VALUE' : ''} VALUES ${tuples}${generated ? ` RETURNING ${idCol}` : ''};`
         : `INSERT INTO ${tableName} (${cols})${generated ? ` OUTPUT INSERTED.${idCol}` : ''} VALUES ${tuples};`;
+    if (identityOverride && !sb.isPostgres)
+        sql = `SET IDENTITY_INSERT ${tableName} ON;\n${sql}\nSET IDENTITY_INSERT ${tableName} OFF;`;
     return new SqlPreCommandSimple(sql, params);
 }
 

@@ -133,8 +133,8 @@ export namespace Saver {
 // forEachField — and, on each element, sets the field flagged @backReference to the
 // owner and the field flagged @rowOrder to the element's index. The back-reference
 // is set to the owner *entity* (not a snapshot lite) so its live id is read at
-// INSERT time, after the owner has been written.
-function wireOwnedChildren(owner: Entity): void {
+// INSERT time, after the owner has been written. Shared with the bulk inserter.
+export function wireOwnedChildren(owner: Entity): void {
     forEachField(owner, (fi, value) => {
         if (!fi.array || !Array.isArray(value)) return;
 
