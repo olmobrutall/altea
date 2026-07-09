@@ -4,6 +4,7 @@ import { Lite } from '../entities/lite';
 import { forEachField, collectChildren, isModifiedSelf } from '../entities/changes';
 import { entityIntegrityCheck } from '../entities/validation';
 import type { IntegrityCheck } from '../entities/validation';
+import { DirectedGraph } from './directedGraph';
 
 // Port of Signum's GraphExplorer (Entities/Reflection/GraphExplorer.cs).
 //
@@ -159,6 +160,32 @@ export function collectionChildren(entity: Entity): Entity[] {
             if (el instanceof Entity) out.push(el);
     });
     return out;
+}
+
+// ---- Save-order dependency graph -------------------------------------------
+
+/**
+ * The directed dependency graph the Saver topologically orders: a node per entity in
+ * the save set, and an edge `A → B` when A points at B (a reference or fat lite, via
+ * {@link forwardReferences}) **and B is new**. The edge means "B must be inserted
+ * before A", so B carries an id when A's row writes the foreign key.
+ *
+ * Only new targets get an edge (Signum's `identifiables.RemoveEdges(e => !e.To.IsNew)`):
+ * a reference to an already-saved entity imposes no ordering — its id predates this save.
+ * Collection children are excluded (they are `forwardReferences`' business: they hold the
+ * back-reference and are saved *after* their owner), so an owner/child pair is not a cycle.
+ * Genuine cycles come only from mutual non-collection references (e.g. two new labels each
+ * owning the other) and are resolved by {@link DirectedGraph.feedbackEdgeSet} in the Saver.
+ */
+export function saveDependencyGraph(saveSet: Set<Entity>): DirectedGraph<Entity> {
+    const graph = new DirectedGraph<Entity>();
+    for (const e of saveSet) {
+        graph.add(e);
+        for (const target of forwardReferences(e))
+            if (target.id == null && saveSet.has(target))
+                graph.addEdge(e, target);
+    }
+    return graph;
 }
 
 // ---- Integrity -------------------------------------------------------------

@@ -40,12 +40,19 @@ interface ColumnValue {
     value: unknown;
 }
 
+// The entities whose foreign keys must be written as NULL on this row because they are
+// not saved yet — the back-edge targets of a save-time reference cycle (Signum's
+// `Forbidden`). A later UPDATE pass fills them once those targets have ids. Empty for
+// the common acyclic case.
+export type Forbidden = ReadonlySet<Entity>;
+const NO_FORBIDDEN: Forbidden = new Set<Entity>();
+
 // INSERTs a new entity (no id yet), assigning the database-generated id and
 // clearing isNew. Returns nothing — the caller re-baselines after the graph commits.
-export async function insertEntityRow(entity: Entity): Promise<void> {
+export async function insertEntityRow(entity: Entity, forbidden: Forbidden = NO_FORBIDDEN): Promise<void> {
     const connector = Connector.current();
     const table = connector.schema.table(entity.constructor as Type<Entity>);
-    const assignments = collectAssignments(table, entity);
+    const assignments = collectAssignments(table, entity, forbidden);
 
     const rows = await buildInsert(table, assignments).executeQuery();
     const idColumn = table.primaryKey.column.name;
@@ -62,10 +69,10 @@ export async function insertEntityRow(entity: Entity): Promise<void> {
 // table has a ticks column: the row is written with ticks = old + 1 guarded by
 // `WHERE id = ? AND ticks = old`, so a row modified or deleted by someone else
 // since this entity was retrieved matches zero rows and raises ConcurrencyException.
-export async function updateEntityRow(entity: Entity): Promise<void> {
+export async function updateEntityRow(entity: Entity, forbidden: Forbidden = NO_FORBIDDEN): Promise<void> {
     const connector = Connector.current();
     const table = connector.schema.table(entity.constructor as Type<Entity>);
-    const assignments = collectAssignments(table, entity);
+    const assignments = collectAssignments(table, entity, forbidden);
 
     if (table.ticks == null) {
         await buildUpdate(table, assignments, entity.id).executeNonQuery();
@@ -144,18 +151,18 @@ export function rowImage(table: Table, entity: Entity): Map<string, unknown> {
 // ---- Value extraction ------------------------------------------------------
 
 // Flattens every (non-PK) field's column values for this entity, including mixins.
-function collectAssignments(table: Table, entity: Entity): ColumnValue[] {
+function collectAssignments(table: Table, entity: Entity, forbidden: Forbidden = NO_FORBIDDEN): ColumnValue[] {
     const out: ColumnValue[] = [];
 
     for (const ef of Object.values(table.fields)) {
         if (ef.field instanceof FieldPrimaryKey)
             continue; // id is handled separately (identity insert / WHERE clause)
-        pushFieldValues(ef.field, ef.getter(entity), out);
+        pushFieldValues(ef.field, ef.getter(entity), out, forbidden);
     }
 
     for (const mixin of Object.values(table.mixins))
         for (const ef of Object.values(mixin.fields))
-            pushFieldValues(ef.field, ef.getter(entity), out);
+            pushFieldValues(ef.field, ef.getter(entity), out, forbidden);
 
     // Pre-saving (Signum's SetToStrField): materialise the display string into the
     // ToStr column so queries can read it without running the JS toString().
@@ -165,7 +172,7 @@ function collectAssignments(table: Table, entity: Entity): ColumnValue[] {
     return out;
 }
 
-function pushFieldValues(field: Field, value: unknown, out: ColumnValue[]): void {
+function pushFieldValues(field: Field, value: unknown, out: ColumnValue[], forbidden: Forbidden = NO_FORBIDDEN): void {
     // Child arrays (@backReference) live in the child's table — no parent column.
     if (field instanceof FieldEntityArray)
         return;
@@ -183,6 +190,11 @@ function pushFieldValues(field: Field, value: unknown, out: ColumnValue[]): void
         out.push({ column: field.column, value: normalizeScalar(value) });
         return;
     }
+
+    // A reference to a not-yet-saved cycle target is written NULL now and filled by the
+    // Saver's deferred UPDATE pass (Signum's Forbidden) — treat it as an absent reference.
+    if (isForbidden(value, forbidden))
+        value = null;
 
     if (field instanceof FieldReference) {
         out.push({ column: field.column, value: referenceId(value) });
@@ -213,9 +225,23 @@ function pushFieldValues(field: Field, value: unknown, out: ColumnValue[]): void
         if (field.hasValue != null)
             out.push({ column: field.hasValue, value: present });
         for (const ef of Object.values(field.embeddedFields))
-            pushFieldValues(ef.field, present ? ef.getter(value) : null, out);
+            pushFieldValues(ef.field, present ? ef.getter(value) : null, out, forbidden);
         return;
     }
+}
+
+// The entity a reference value points at (a full Entity, or the entity of a fat Lite),
+// or undefined for a null / thin-lite reference. Used to test cycle membership.
+function referencedEntity(value: unknown): Entity | undefined {
+    if (value instanceof Lite) return value.entityOrNull ?? undefined;
+    if (value instanceof Entity) return value;
+    return undefined;
+}
+
+function isForbidden(value: unknown, forbidden: Forbidden): boolean {
+    if (forbidden.size === 0) return false;
+    const e = referencedEntity(value);
+    return e != null && forbidden.has(e);
 }
 
 // The primary-key id behind a reference (full Entity or Lite). Delegates to the

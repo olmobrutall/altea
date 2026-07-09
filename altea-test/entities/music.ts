@@ -110,10 +110,11 @@ export class ArtistEntity extends Entity implements IAuthorEntity {
     // by AwardNominationEntity.author (an @implementedBy reference, so it can't be
     // a plain part entity here). Navigate it through AwardNominationEntity.
 
-    // Computed query members (Signum's [AutoExpressionField]) — @quoted captures the
-    // body as a translatable expression (no real column); methods, so the @field
-    // transformer skips them. The binder doesn't expand @quoted entity members yet, so
-    // queries using them run red.
+    // Computed query members (Signum's [AutoExpressionField]) — @quoted captures the body as a
+    // translatable expression (no real column); methods, so the @field transformer skips them.
+    // The binder inlines the @quoted body when the member is called in a query (fromQuoted reads
+    // `__quoted` off the method), so `a.isMale()`, `a.fullName()`, `a.friendsCovariant()`, etc.
+    // translate to SQL like any other expression.
     @quoted
     isMale(): boolean { return this.sex == Sex.Male; }
     @quoted

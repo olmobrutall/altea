@@ -651,11 +651,14 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<ArtistEntity>().SelectMany(a => a.FriendsCovariant()).Select(a => a.Id).ToList();
-    // TODO(api): FriendsCovariant() — an As.Expression collection method returning a covariant MList
-    // TODO(api): @quoted expression member
+    // friendsCovariant() is a @quoted member — its body `friends.map(f => f.friend.entity)` is
+    // inlined (expanded) into the query, so it produces the same friend ids as navigating
+    // `friends` directly. The projection optimises to just the FriendID column.
     test("SelectMListIdCovariance", async () => {
         const list = await table(ArtistEntity).flatMap(a => a.friendsCovariant()).map(a => a.id).toArray();
-        assert.ok(Array.isArray(list));
+        const direct = await table(ArtistEntity).flatMap(a => a.friends).map(f => f.friend.id).toArray();
+        assert.ok(list.length > 0);
+        assert.deepEqual([...list].sort((x, y) => (x as number) - (y as number)), [...direct].sort((x, y) => (x as number) - (y as number)));
     });
 
     // from a from s in a.Songs.Where(s => s.Seconds < 0).DefaultIfEmpty() select new { a, s }; Assert.True(All(p => p.s == null))
@@ -681,13 +684,17 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // max = 0; blas = a => a.Id > max; from a from s in Query<AlbumEntity>().Where(blas) select new { a, s }
-    // TODO(api): cross join — flatMap over a second independent table query (correlated/uncorrelated subquery source)
+    // Cross join: flatMap over a second independent `table(...)` scan becomes a CROSS APPLY
+    // (SQL Server) / CROSS JOIN LATERAL (Postgres). Every album is paired with every album
+    // whose id > 0 (all of them), so the flattened result is n² albums.
     test("SelectWhereExpressionInSelectMany", async () => {
         const max = 0;
+        const n = await table(AlbumEntity).count();
         const list = await table(AlbumEntity)
             .flatMap(a => table(AlbumEntity).filter(s => (s.id as number) > max))
             .toArray();
-        assert.ok(Array.isArray(list));
+        assert.equal(list.length, n * n);
+        assert.ok(list.every(x => x instanceof AlbumEntity));
     });
 
     // Database.Query<AlbumEntity>().SelectMany(a => a.Songs).ToList();

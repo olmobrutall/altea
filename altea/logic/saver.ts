@@ -5,7 +5,7 @@ import { IntegrityCheckException } from '../entities/validation';
 import {
     exploreModifiables,
     propagateModifications,
-    forwardReferences,
+    saveDependencyGraph,
     fullIntegrityCheck,
 } from './graphExplorer';
 import { insertEntityRow, updateEntityRow } from './save';
@@ -59,34 +59,52 @@ export namespace Saver {
             wireOwnedChildren(owner);
 
         await Transaction.create(async () => {
-            const saved = new Set<Entity>();
-            const pending = new Set(saveSet);
+            // Dependency graph over the save set: edge A → B means "A references the new
+            // entity B", so B must be inserted before A. Sinks (no out-edges) reference no
+            // unsaved entity and can be written now.
+            const graph = saveDependencyGraph(saveSet);
 
-            while (pending.size > 0) {
-                // Ready = every in-saveSet reference it points at has been written
-                // (so its FK id is available). Existing/clean references are always
-                // satisfied — their id predates this save.
-                const ready = [...pending].filter(e =>
-                    forwardReferences(e).every(r => !saveSet.has(r) || saved.has(r)));
+            // Break reference cycles (e.g. two new entities that own each other): the
+            // feedback edges are inserted with their FK left NULL (Forbidden) and filled by
+            // a deferred UPDATE once both ends have an id. Requires the cyclic FK to be a
+            // nullable column — as in Signum, at least one edge of every cycle must be.
+            const backEdges = graph.feedbackEdgeSet();
+            const hasBackEdges = !backEdges.isEmpty;
+            if (hasBackEdges)
+                graph.removeEdges(backEdges.edges);
 
-                if (ready.length === 0)
+            // Topological save, sinks first. `inv` (fixed) tells removeFullNode which
+            // in-edges to drop as each node is written, freeing its referrers to become
+            // sinks — Signum's SaveGraph loop, one row per statement (no InsertMany here;
+            // bulk paths are bulkInsert/unsafeUpdate).
+            const inv = graph.inverse();
+            while (graph.count > 0) {
+                const sinks = graph.sinks();
+                if (sinks.size === 0)
                     throw new Error(
-                        'Save-time reference cycle detected among: ' +
-                        [...pending].map(e => e.constructor.name).join(', ') +
-                        '. Deferred-FK cycle handling is not yet implemented.');
+                        'Save-time reference cycle survived feedback-edge removal among: ' +
+                        [...graph.nodes].map(e => e.constructor.name).join(', '));
 
-                for (const e of ready) {
+                for (const e of sinks) {
+                    const forbidden = hasBackEdges ? backEdges.tryRelatedTo(e) : undefined;
                     if (e.id == null)
-                        await insertEntityRow(e);
+                        await insertEntityRow(e, forbidden);
                     else
-                        await updateEntityRow(e);
-                    saved.add(e);
-                    pending.delete(e);
+                        await updateEntityRow(e, forbidden);
+                    graph.removeFullNode(e, inv.relatedTo(e));
                 }
             }
 
+            // Deferred-FK pass: each back-edge source was written with a NULL cyclic FK;
+            // now that its targets have ids, re-UPDATE it to fill the real foreign key.
+            if (hasBackEdges) {
+                const deferredSources = new Set(backEdges.edges.map(x => x.from));
+                for (const e of deferredSources)
+                    await updateEntityRow(e);
+            }
+
             // Commit-time re-baseline: every saved row now matches the database.
-            for (const e of saved)
+            for (const e of saveSet)
                 cleanModified(e);
         });
     }

@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
 import { retrieve, retrieveList, retrieveFromListOfLite } from "@altea/altea/logic/Database";
 import { Connector } from "@altea/altea/logic/connection/connector";
+import { Entity } from "@altea/altea/entities/entity";
+import { exploreModifiables } from "@altea/altea/logic/graphExplorer";
+import { isModifiedSelf } from "@altea/altea/entities/changes";
 import { hasDb, start } from "./setup";
 import {
     CountryEntity, GrammyAwardEntity, LabelEntity,
@@ -18,62 +21,69 @@ import {
 // async (the connector is async-only). Live execution is gated on ALTEA_TEST_DB;
 // without it the suite is skipped but still compiles.
 //
-// Signum's AssertRetrieved<T> walks the object graph (GraphExplorer.FromRoots)
-// and fails if any reachable Entity is still IsNew / has a null id — i.e. it
-// proves every row (and its related entities/lites/MLists) was actually
-// retrieved, not left as a stub. altea has no GraphExplorer graph-walk yet, so
-// each test asserts the ROOT rows are fully materialized (typed instances with a
-// non-null id, not new); the deep reachable-graph completeness stays flagged.
+// Port of Signum's AssertRetrieved<T> (RetriverTest.cs): explore the whole graph reachable
+// from the retrieved roots (GraphExplorer.FromRoots → altea's `exploreModifiables`, which
+// follows references, fat lites, embeddeds and MList elements), and fail if any reachable
+// node is a still-unretrieved stub — a graph-modified Entity with a null id or one that is
+// still `isNew`. A freshly retrieved graph is clean (unmodified), so nothing is flagged;
+// anything left as a `new` placeholder would be. Lites are references, not required to be
+// loaded, so (as in Signum) only Entity nodes are checked.
+function assertRetrieved(roots: Iterable<Entity>): void {
+    const problematic = [...exploreModifiables(roots)].filter(
+        a => a instanceof Entity && isModifiedSelf(a) && (a.id == null || a.isNew));
+    assert.equal(problematic.length, 0,
+        `Some non-retrieved elements: ${problematic.map(a => a.constructor.name).join(", ")}`);
+}
 
 describe("RetrieverTest", { skip: !hasDb }, () => {
     before(async () => { await start(); });
 
     // var list = Database.Query<CountryEntity>().ToList(); AssertRetrieved(list);
-    // TODO(api): deep GraphExplorer.FromRoots reachable-graph completeness (AssertRetrieved walks related entities/lites/MLists); here only the root rows are checked.
     test("RetrieveSimple", async () => {
         const list = await table(CountryEntity).toArray();
         assert.ok(list.length > 0);
-        assert.ok(list.every(e => e instanceof CountryEntity && e.id != null && !e.isNew));
+        assert.ok(list.every(e => e instanceof CountryEntity));
+        assertRetrieved(list);
     });
 
     // var list = Database.Query<GrammyAwardEntity>().ToList(); AssertRetrieved(list);
-    // TODO(api): deep GraphExplorer.FromRoots reachable-graph completeness (AssertRetrieved walks related entities/lites/MLists); here only the root rows are checked.
     test("RetrieveWithEnum", async () => {
         const list = await table(GrammyAwardEntity).toArray();
         assert.ok(list.length > 0);
-        assert.ok(list.every(e => e instanceof GrammyAwardEntity && e.id != null && !e.isNew));
+        assert.ok(list.every(e => e instanceof GrammyAwardEntity));
+        assertRetrieved(list);
     });
 
     // var list = Database.Query<LabelEntity>().ToList(); AssertRetrieved(list);
-    // TODO(api): deep GraphExplorer.FromRoots reachable-graph completeness (AssertRetrieved walks related entities/lites/MLists); here only the root rows are checked.
     test("RetrieveWithRelatedEntityAndLite", async () => {
         const list = await table(LabelEntity).toArray();
         assert.ok(list.length > 0);
-        assert.ok(list.every(e => e instanceof LabelEntity && e.id != null && !e.isNew));
+        assert.ok(list.every(e => e instanceof LabelEntity));
+        assertRetrieved(list);
     });
 
     // var list = Database.Query<NoteWithDateEntity>().ToList(); AssertRetrieved(list);
-    // TODO(api): deep GraphExplorer.FromRoots reachable-graph completeness (AssertRetrieved walks related entities/lites/MLists); here only the root rows are checked.
     test("RetrieveWithIBA", async () => {
         const list = await table(NoteWithDateEntity).toArray();
         assert.ok(list.length > 0);
-        assert.ok(list.every(e => e instanceof NoteWithDateEntity && e.id != null && !e.isNew));
+        assert.ok(list.every(e => e instanceof NoteWithDateEntity));
+        assertRetrieved(list);
     });
 
     // var list = Database.Query<ArtistEntity>().ToList(); AssertRetrieved(list);
-    // TODO(api): deep GraphExplorer.FromRoots reachable-graph completeness (AssertRetrieved walks related entities/lites/MLists); here only the root rows are checked.
     test("RetrieveWithMList", async () => {
         const list = await table(ArtistEntity).toArray();
         assert.ok(list.length > 0);
-        assert.ok(list.every(e => e instanceof ArtistEntity && e.id != null && !e.isNew));
+        assert.ok(list.every(e => e instanceof ArtistEntity));
+        assertRetrieved(list);
     });
 
     // var list = Database.Query<AlbumEntity>().ToList(); AssertRetrieved(list);
-    // TODO(api): deep GraphExplorer.FromRoots reachable-graph completeness (AssertRetrieved walks related entities/lites/MLists); here only the root rows are checked.
     test("RetrieveWithMListEmbedded", async () => {
         const list = await table(AlbumEntity).toArray();
         assert.ok(list.length > 0);
-        assert.ok(list.every(e => e instanceof AlbumEntity && e.id != null && !e.isNew));
+        assert.ok(list.every(e => e instanceof AlbumEntity));
+        assertRetrieved(list);
     });
 
     // var artist = Query<ArtistEntity>().OrderBy(a => a.Name).First();
