@@ -1,4 +1,5 @@
 import { Entity } from '../entities/entity';
+import type { Type, PrimaryKey } from '../entities/entity';
 import { cleanModified, forEachField } from '../entities/changes';
 import { getTypeInfo } from '../entities/reflection';
 import { IntegrityCheckException } from '../entities/validation';
@@ -9,6 +10,9 @@ import {
     fullIntegrityCheck,
 } from './graphExplorer';
 import { insertEntityRows, updateEntityRow } from './save';
+import { deleteRowsByIds } from './Database';
+import { FieldEntityArray } from './schema/field';
+import { Connector } from './connection/connector';
 import { Transaction } from './connection/transaction';
 
 // Port of Signum's Saver (Engine/Saver.cs), adapted to altea's snapshot model.
@@ -59,6 +63,13 @@ export namespace Saver {
             wireOwnedChildren(owner);
 
         await Transaction.create(async () => {
+            // Orphan removal: a child dropped from an existing owner's collection is no longer
+            // reachable, so it never enters the save set. Detect it by diffing the owner's
+            // snapshot id-list against the current collection and delete the missing rows (with
+            // owned-child cascade). Signum gets this from MList's tracked old rows.
+            for (const owner of saveSet)
+                await deleteCollectionOrphans(owner);
+
             // Dependency graph over the save set: edge A → B means "A references the new
             // entity B", so B must be inserted before A. Sinks (no out-edges) reference no
             // unsaved entity and can be written now.
@@ -126,6 +137,40 @@ export namespace Saver {
                 cleanModified(e);
         });
     }
+}
+
+// Deletes the rows of an existing owner's collections that are no longer present — the
+// children a `save()` dropped from a `T[]` field. The owner's snapshot (its clean baseline)
+// holds each collection as the ordered id-list that was in the database; anything in that list
+// whose id isn't among the current elements is an orphan. The child table + FK come from the
+// schema's FieldEntityArray, so an emptied collection (no live element to read a ctor off) is
+// handled too. A new owner (no snapshot) has no prior rows, so there is nothing to remove.
+async function deleteCollectionOrphans(owner: Entity): Promise<void> {
+    const snapshot = owner._snapshot as Record<string, unknown> | undefined;
+    if (snapshot == null) return;
+
+    const table = Connector.current().schema.table(owner.constructor as Type<Entity>);
+    const orphans: { type: Type<Entity>; ids: PrimaryKey[] }[] = [];
+
+    forEachField(owner, (fi, value) => {
+        if (!fi.array) return;
+        const oldIds = snapshot[fi.name];
+        if (!Array.isArray(oldIds) || oldIds.length === 0) return;
+
+        const current = new Set<unknown>(
+            (Array.isArray(value) ? value : [])
+                .filter((c): c is Entity => c instanceof Entity)
+                .map(c => c.id));
+        const removed = oldIds.filter((id): id is PrimaryKey => id != null && !current.has(id));
+        if (removed.length === 0) return;
+
+        const field = table.fields[fi.name]?.field;
+        if (field instanceof FieldEntityArray)
+            orphans.push({ type: field.childType, ids: removed });
+    });
+
+    for (const { type, ids } of orphans)
+        await deleteRowsByIds(type, ids);
 }
 
 // Points each owned child row at its owner and assigns its row order. Reads the

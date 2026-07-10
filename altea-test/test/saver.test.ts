@@ -58,6 +58,33 @@ describe("SaverTest", { skip: !hasDb }, () => {
         assert.equal(dbSelf.owner?.id, self.id, "self.owner persisted as itself");
     });
 
+    // Orphan removal: dropping a child from an existing owner's collection and re-saving must
+    // DELETE the orphaned row (it's no longer reachable, so it never enters the save set — the
+    // saver diffs the owner's snapshot id-list against the current collection).
+    txTest("SaveRemovesOrphanedCollectionRows", async () => {
+        const artists = (await table(ArtistEntity).orderBy(a => a.name).toArray()).slice(0, 3);
+        const band = BandEntity.create({
+            name: "Orphan Band",
+            members: artists.map(a => BandEntity_Members.create({ member: a })),
+            lastAward: null,
+            otherAwards: [],
+        });
+        await band.save();
+        assert.equal(band.members.length, 3);
+
+        const removed = band.members[1];
+        assert.ok(removed.id != null);
+
+        band.members = band.members.filter((_, i) => i !== 1);
+        await band.save();
+
+        // The dropped row is gone; the other two survive, still under the band.
+        const survivorCount = await table(BandEntity_Members).filter(m => m.id == removed.id).count();
+        assert.equal(survivorCount, 0, "orphaned member row was deleted");
+        const dbBand = await retrieve(BandEntity, band.id);
+        assert.equal(dbBand.members.length, 2);
+    });
+
     // The batching win: a new band with 3 members (same table, same dependency level) is
     // saved with the members going in ONE multi-row INSERT — so the whole graph is 2 insert
     // round-trips (band + members), not 4 (band + 3 × member). Proven by counting the INSERT

@@ -111,11 +111,17 @@ export async function deleteList<T extends Entity>(list: (Lite<T> | T)[]): Promi
         if (arr != null) arr.push(id); else idsByType.set(type, [id]);
     }
 
-    for (const [type, ids] of idsByType) {
-        const ctor = ctorOf(type);
-        for (let i = 0; i < ids.length; i += MAX_IN_PARAMETERS) {
-            const chunk = ids.slice(i, i + MAX_IN_PARAMETERS);
-            await table(ctor).filter(e => chunk.contains(e.id)).executeDelete();
-        }
+    for (const [type, ids] of idsByType)
+        await deleteRowsByIds(type, ids);
+}
+
+// Deletes the rows of ONE entity type by id, set-based and chunked (id IN (…), under the
+// max-parameters cap). executeDelete cascades owned-child rows before the parent. Used by
+// deleteList and by the Saver to remove collection orphans (children dropped from a collection).
+export async function deleteRowsByIds<T extends Entity>(type: Type<T>, ids: PrimaryKey[]): Promise<void> {
+    const ctor = ctorOf(type);
+    for (let i = 0; i < ids.length; i += MAX_IN_PARAMETERS) {
+        const chunk = ids.slice(i, i + MAX_IN_PARAMETERS);
+        await table(ctor).filter(e => chunk.contains(e.id)).executeDelete();
     }
 }
