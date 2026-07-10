@@ -847,16 +847,26 @@ export class QueryBinder extends ExpressionVisitor {
             const brand = func.value as { __sqlMethod?: string } | null;
             if (brand?.__sqlMethod != null)
                 return this.bindSqlMethod(brand.__sqlMethod, call);
-            // toInt/toLong (entities/basics) are compile-time int/long brands over a number;
-            // in a query the brand is meaningless, so lower the call to its argument (identity).
-            if (func.value === toInt || func.value === toLong)
-                return this.visit(call.args[0]);
+            // toInt/toLong (entities/basics) are compile-time int/long brands over a number; in a
+            // query the brand is meaningless over a numeric argument, so lower to it (identity).
+            // Over a BOOLEAN, though, it's a real bool→int cast (e.g. `toInt(a.id > 10)`), so leave
+            // it residual for the nominator to lower (Signum lowers Convert in its nominator too).
+            if (func.value === toInt || func.value === toLong) {
+                const arg = this.visit(call.args[0]);
+                return arg.type === LiteralType.boolean
+                    ? new CallExpression(func, [arg], LiteralType.number)
+                    : arg;
+            }
             // inSql(x) (Signum's LinqHints.InSql): leave it a CallExpression marker (no
             // dedicated node — Signum keeps the MethodCallExpression) with the argument bound;
             // the nominator recognises it, force-nominates the argument into SQL and strips the
             // marker (defeating the lazy projector). Just re-bind the argument here.
             if (func.value === inSql)
                 return new CallExpression(func, [this.visit(call.args[0])], call.type);
+            // Number(x) (Signum's Convert-to-double): bind the argument and leave the call residual;
+            // the nominator lowers it to a SQL CAST to a floating type (like Signum's VisitUnary).
+            if (func.value === Number)
+                return new CallExpression(func, [this.visit(call.args[0])], LiteralType.number);
         }
 
 

@@ -183,7 +183,8 @@ describe("OrderByTest", { skip: !hasDb }, () => {
         assert.ok(Array.isArray(d));
 
         // Database.Query<AlbumEntity>().Where(a => a.Songs.OrderBy(s => s.Name).Contains(null!)).Select(a => a.Id).ToList();
-        // TODO(api): collection Contains(null) in a lambda predicate
+        const e = await table(AlbumEntity).filter(a => a.songs.orderBy(s => s.name).contains(null!)).map(a => a.id).toArray();
+        assert.ok(Array.isArray(e));
 
         // Database.Query<AlbumEntity>().OrderBy(a => a.Name).Count();
         const f = await table(AlbumEntity).orderBy(a => a.name).count();
@@ -202,6 +203,7 @@ describe("OrderByTest", { skip: !hasDb }, () => {
         assert.ok(typeof i === "boolean");
 
         // Database.Query<AlbumEntity>().OrderBy(a => a.Name).Contains(null!);
-        // TODO(api): Query.contains terminal
+        const j = await table(AlbumEntity).orderBy(a => a.name).contains(null!);
+        assert.ok(typeof j === "boolean");
     });
 });

@@ -7,12 +7,12 @@ export type long = number & { readonly __brand: 'long' };
 export type uuid = string & { readonly __brand: 'uuid' };
 export type uuid7 = string & { readonly __brand: 'uuid7' };
 
-export function toInt(n: number): int {
-    return Math.trunc(n) as int;
+export function toInt(n: number | boolean | string): int {
+    return Math.trunc(Number(n)) as int;
 }
 
-export function toLong(n: number): long {
-    return Math.trunc(n) as long;
+export function toLong(n: number | boolean | string): long {
+    return Math.trunc(Number(n)) as long;
 }
 
 // Signum's LinqHints.InSql: a query hint that forces `value` to be evaluated in the

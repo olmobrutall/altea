@@ -157,22 +157,18 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
 
     // from b in Database.Query<BandEntity>() join mle in Database.MListQuery((BandEntity b) => b.Members) on b equals mle.Parent
     //   select new { MaxAlbum = Database.Query<ArtistEntity>().Where(n => n.Friends.Contains(mle.Element.ToLite())).Max(n => (int?)n.Id) }
-    // Database.MListQuery is NOT a gap: an MList's link rows are queried directly as
-    // `table(BandEntity_Members)` (see the commented body). The remaining gap is the join KEY
-    // mismatch — `b => b` yields BandEntity but `m => m.band` yields Lite<BandEntity>, and
-    // navigating the lite to the full entity inside a join key isn't supported yet.
-    // TODO(api): join key navigating a Lite → full entity.
-    // (The correlated-subquery contains + nullable-int MAX below are NOT gaps — see SelectManySingleJoinExpander.)
+    // Database.MListQuery is just `table(BandEntity_Members)`, and the join key is aligned by
+    // taking `b.toLite()` so both sides are Lite<BandEntity> (matching `m.band` — SmartEqualizer
+    // compares lite==lite). The correlated-subquery contains + nullable-int MAX resolve too.
     test("JoinSingleJoinExpander", async () => {
-        // BLOCKED: join key mismatch (b => b is BandEntity, m => m.band is Lite<BandEntity>) + correlated subquery.
-        // const mle = table(BandEntity_Members);
-        // const list = await table(BandEntity)
-        //     .join(mle, b => b, m => m.band, (b, m) => ({
-        //         maxAlbum: table(ArtistEntity)
-        //             .filter(n => n.friends.some(f => f.friend.is(m.member)))
-        //             .max(n => (n.id as number | null)),
-        //     }))
-        //     .toArray();
-        // assert.ok(Array.isArray(list));
+        const mle = table(BandEntity_Members);
+        const list = await table(BandEntity)
+            .innerJoin(mle, b => b.toLite(), m => m.band, (b, m) => ({
+                maxAlbum: table(ArtistEntity)
+                    .filter(n => n.friends.some(f => f.friend.is(m.member)))
+                    .max(n => (n.id as number | null)),
+            }))
+            .toArray();
+        assert.ok(Array.isArray(list));
     });
 });

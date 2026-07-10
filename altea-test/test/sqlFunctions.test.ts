@@ -274,17 +274,18 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
         assert.ok(list.every(dow => dow != DayOfWeek.Sunday));
     });
 
-    // if (IsDbType(TimeSpan)): MListQuery(Songs).Select(mle => mle.Element.Duration).Where(d => d != null); Duration.Hours/Minutes/Seconds/Milliseconds + (CreationTime ± Duration)
-    // Not exercised here: MListQuery as a standalone source, and DateTime ± Duration arithmetic.
-    // TODO(api): Duration part extraction (hours/minutes/seconds/milliseconds) differs by dialect —
-    // SQL Server yields the calendar parts, Postgres's interval EXTRACT does not match here — so the
-    // per-part ranges aren't verified cross-dialect yet.
+    // if (IsDbType(TimeSpan)): MListQuery(Songs).Select(mle => mle.Element.Duration).Where(d => d != null); Duration.Hours/Minutes/Seconds/Milliseconds
+    // Duration part extraction lowers to DATEPART (SQL Server `time`) / EXTRACT (Postgres `interval`).
+    // Both yield calendar parts: minutes/seconds land in [0,59] and hours ≥ 0 (a song is under an hour).
     test("TimeSpanFunction", async () => {
         const durations = table(AlbumEntity).flatMap(a => a.songs).map(s => s.duration).filter(d => d != null);
         const hours = await durations.map(d => d!.hours).toArray();
         const minutes = await durations.map(d => d!.minutes).toArray();
         const seconds = await durations.map(d => d!.seconds).toArray();
-        assert.ok(Array.isArray(hours) && Array.isArray(minutes) && Array.isArray(seconds));
+        assert.ok(hours.length > 0);
+        assert.ok(hours.every(h => h >= 0));
+        assert.ok(minutes.every(m => m >= 0 && m < 60), `minutes out of range: ${minutes}`);
+        assert.ok(seconds.every(s => s >= 0 && s < 60), `seconds out of range: ${seconds}`);
     });
 
     // SqlHierarchyId: nodes, GetAncestor/GetLevel/IsDescendantOf/GetReparentedValue/GetDescendant/GetRoot

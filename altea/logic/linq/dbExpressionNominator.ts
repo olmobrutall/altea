@@ -3,7 +3,7 @@ import {
     ConstantExpression, CastExpression, CallExpression, PropertyExpression,
     ParameterExpression, LambdaExpression, ObjectExpression,
 } from "./expressions";
-import { inSql, Temporal } from "../../entities/basics";
+import { inSql, toInt, toLong, Temporal } from "../../entities/basics";
 import {
     ColumnExpression, SqlConstantExpression, SqlLiteralExpression, PrimaryKeyExpression,
     IsNullExpression, IsNotNullExpression, LikeExpression, SqlFunctionExpression, SqlCastExpression,
@@ -292,6 +292,21 @@ class DbExpressionNominator extends DbExpressionVisitor {
         // full-translate context it is a no-op beyond stripping.
         if (node.func instanceof ConstantExpression && node.func.value === inSql)
             return this.add(this.nominateChildren(() => this.visit(node.args[0])));
+        // Numeric casts (Signum lowers Convert here, in DbExpressionNominator.VisitUnary): Number(x)
+        // → a floating type; toInt/toLong(x) over a boolean → an integer. A boolean is a value on
+        // Postgres (`bool::integer`) but a predicate on SQL Server, so there it becomes CASE 1/0.
+        // Building the node and re-visiting lets visitSqlCast / visitConditional nominate it.
+        if (node.func instanceof ConstantExpression) {
+            const arg = node.args[0];
+            if (node.func.value === Number)
+                return this.visit(new SqlCastExpression(LiteralType.number, arg, this.isPostgres ? "double precision" : "float"));
+            if (node.func.value === toInt || node.func.value === toLong) {
+                if (arg.type === LiteralType.boolean && !this.isPostgres)
+                    return this.visit(new ConditionalExpression(arg,
+                        new SqlConstantExpression(1, LiteralType.number), new SqlConstantExpression(0, LiteralType.number)));
+                return this.visit(new SqlCastExpression(LiteralType.number, arg, node.func.value === toLong ? "bigint" : "integer"));
+            }
+        }
         if (node.func instanceof PropertyExpression) {
             const receiver = this.visit(node.func.object);
             const args = node.args.map(a => this.visit(a));

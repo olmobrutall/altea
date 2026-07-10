@@ -123,6 +123,11 @@ quotedFunction(toLong).__resultType = () => SimpleType.number;
 // type. The binder keeps it a CallExpression marker; the nominator force-nominates its arg.
 quotedFunction(inSql).__resultType = (_ot, argType) => argType ?? SimpleType.null;
 
+// Number(x) (Signum's Convert to double): a query-side numeric cast. fromQuoted needs a result
+// type to type the call node; the binder leaves it residual and the nominator lowers it to a SQL
+// CAST to a floating type.
+quotedFunction(Number as unknown as Function).__resultType = () => SimpleType.number;
+
 export class Query<T> implements IQuery<T> {
 
     get type(): ArrayType {

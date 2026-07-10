@@ -6,6 +6,7 @@ import { hasDb, start } from "./setup";
 import { Connector } from "@altea/altea/logic/connection/connector";
 import { PgClass } from "@altea/altea/logic/sync/postgres/postgresCatalog";
 import { SysDatabases } from "@altea/altea/logic/sync/sqlServer/sysTables";
+import type { Quoted } from "quote-transformer/quoted";
 import { Clock } from "@altea/altea/entities/clock";
 import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
 import {
@@ -14,7 +15,7 @@ import {
     NoteWithDateEntity, GrammyAwardEntity, AwardEntity, AmericanMusicAwardEntity,
     Sex, AwardResult, IAuthorEntity,
 } from "../entities/music";
-import { inSql } from "@altea/altea/entities/basics";
+import { inSql, toInt } from "@altea/altea/entities/basics";
 
 // Port of Signum.Test/LinqProvider/SelectTest.cs. C# → altea idiom:
 //   Database.Query<T>()  → table(T)            .Select(...) → .map(...)
@@ -652,10 +653,14 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<ArtistEntity>().SelectMany(a => a.Friends).Select(a => a.Id).ToList();
-    // TODO(api): .id of a part-entity link row vs the Lite element (a.friends elements are link rows; .id semantics differ)
+    // Signum models Friends as MList<Lite<ArtistEntity>>, so `.Id` is the friend's id; altea models
+    // it as a link part-entity (ArtistEntity_Friends), so `a.id` here is the LINK ROW's id — a plain
+    // number per link row. (For the friend's id, project `f.friend.id`, as SelectMListIdCovariance does.)
     test("SelectMListId", async () => {
         const list = await table(ArtistEntity).flatMap(a => a.friends).map(a => a.id).toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.length > 0);
+        assert.ok(list.every(id => typeof id === "number"));
+        assert.equal(new Set(list).size, list.length); // link-row ids are distinct
     });
 
     // Database.Query<ArtistEntity>().SelectMany(a => a.FriendsCovariant()).Select(a => a.Id).ToList();
@@ -743,11 +748,17 @@ describe("SelectTest", { skip: !hasDb }, () => {
         assert.ok(Array.isArray(list));
     });
 
-    // selectorDouble = (double)(a.Id > 10); Database.Query<AlbumEntity>().Average(selectorDouble)
-    // TODO(api): Average over a bool-cast-to-double selector (boolean → numeric coercion in avg)
+    // Expression<Func<AlbumEntity,bool>> selector = a => a.Id > 10;
+    // Expression<Func<AlbumEntity,double>> selectorDouble = Convert(selector.Body, double);
+    // var list = Database.Query<AlbumEntity>().Average(selectorDouble);   // C# asserts nothing on the value
+    // Like C#, the selector is its own variable. Signum's bool→double is TWO casts; altea spells
+    // both out honestly: `toInt(a.id > 10)` is the bool→int cast, `Number(...)` the int→double cast.
+    // Each lowers to a single SQL CAST in the nominator (on SQL Server the bool is a predicate, so
+    // toInt emits `CASE WHEN … THEN 1 ELSE 0 END`), so AVG runs over a floating type. Value unchecked.
     test("SelectAverageBool", async () => {
-        const result = await table(AlbumEntity).avg(a => (a.id as number) > 10 ? 1 : 0);
-        assert.ok(result != null);
+        const selectorDouble: Quoted<(a: AlbumEntity) => number> = a => Number(toInt((a.id as number) > 10));
+        const result = await table(AlbumEntity).avg(selectorDouble);
+        assert.ok(result != null); // ran (SS: int; pg: numeric → decimal) — like C#, the value isn't checked
     });
 
     // var list = Query<ArtistEntity>().ToList(); Assert.True(!Query<ArtistEntity>().QueryText().Contains("DISTINCT"))

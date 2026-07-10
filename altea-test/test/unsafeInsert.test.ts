@@ -92,16 +92,18 @@ describe("UnsafeInsertTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AlbumEntity>().UnsafeInsert(a => new AlbumEntity { ..., Label = Database.Query<LabelEntity>().Single(l => l.Is(a.Label)), ... }.SetReadonly(_ => _.Ticks, a.Ticks));
-    // TODO(api): correlated subquery (.single) inside an insert projection — an async terminal
-    //   (table(..).single(..)) cannot appear inside a synchronous quoted setter lambda.
+    // The correlated `.single(...)` is a scalar subquery for the label FK; `.$v` casts its
+    // Promise<LabelEntity> to the entity so it fits the setter (the binder passes a nested unique
+    // terminal's projector straight through — see QueryBinder.bindMember `$v`).
     txTest("InsertSimpleSingle", async () => {
-        // BLOCKED: correlated subquery (.single) inside an insert projection - async-terminal-in-lambda gap.
-        // const value = await table(AlbumEntity).executeInsert(AlbumEntity, a => ({
-        //     author: a.author, bonusTrack: a.bonusTrack,
-        //     label: table(LabelEntity).single(l => l.is(a.label)),
-        //     name: a.name + "copy", state: a.state, year: a.year, ticks: a.ticks,
-        // }));
-        assert.ok(true);
+        const before = await table(AlbumEntity).count();
+        const value = await table(AlbumEntity).executeInsert(AlbumEntity, a => ({
+            author: a.author, bonusTrack: a.bonusTrack,
+            label: table(LabelEntity).single(l => l.is(a.label)).$v,
+            name: a.name + "copy", state: a.state, year: a.year, ticks: a.ticks,
+        }));
+        assert.ok(value > 0);
+        assert.equal(await table(AlbumEntity).count(), before + value);
     });
 
     // Database.Query<LabelEntity>().Select(a => a.Country).Distinct().UnsafeInsert(c => new CountryEntity { Name = "Clone of " + c.Name, Ticks = 0 });
