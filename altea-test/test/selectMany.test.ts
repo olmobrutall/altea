@@ -157,8 +157,11 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
 
     // from b in Database.Query<BandEntity>() join mle in Database.MListQuery((BandEntity b) => b.Members) on b equals mle.Parent
     //   select new { MaxAlbum = Database.Query<ArtistEntity>().Where(n => n.Friends.Contains(mle.Element.ToLite())).Max(n => (int?)n.Id) }
-    // TODO(api): Database.MListQuery (querying MList link rows directly as a standalone source).
-    // TODO(api): join key mismatch — `b => b` yields BandEntity but `m => m.band` yields Lite<BandEntity>; navigating the lite to the full entity inside a join key is a gap.
+    // Database.MListQuery is NOT a gap: an MList's link rows are queried directly as
+    // `table(BandEntity_Members)` (see the commented body). The remaining gap is the join KEY
+    // mismatch — `b => b` yields BandEntity but `m => m.band` yields Lite<BandEntity>, and
+    // navigating the lite to the full entity inside a join key isn't supported yet.
+    // TODO(api): join key navigating a Lite → full entity.
     // (The correlated-subquery contains + nullable-int MAX below are NOT gaps — see SelectManySingleJoinExpander.)
     test("JoinSingleJoinExpander", async () => {
         // BLOCKED: join key mismatch (b => b is BandEntity, m => m.band is Lite<BandEntity>) + correlated subquery.

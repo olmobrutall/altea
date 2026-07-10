@@ -6,7 +6,7 @@ import { Temporal } from "@altea/altea/entities/basics";
 import { DayOfWeek } from "@altea/altea/entities/dateTimeExtensions"; // + Temporal date-helper augmentations
 import { hasDb, start } from "./setup";
 import {
-    ArtistEntity, AlbumEntity, BandEntity, LabelEntity,
+    ArtistEntity, AlbumEntity, AlbumEntity_Songs, BandEntity, LabelEntity,
     NoteWithDateEntity, Sex, Status, MinimumExtensions,
 } from "../entities/music";
 
@@ -389,17 +389,58 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
         assert.ok(list.every(id => (id as number) > 2));
     });
 
-    // Cross-join songs x4 with MinimumTableValued vs MinimumScalar perf comparison
-    // TODO(api): MListQuery, table-valued function (MinimumTableValued), scalar UDF (MinimumScalar) and cross joins
-    test("TableValuedPerformanceTest", async () => {
-        // Requires MListQuery + table-valued/scalar UDFs + cross joins.
+    // var songs = Database.MListQuery((AlbumEntity a) => a.Songs).Select(a => a.Element);
+    // from s1 in songs from s2 … from s4 select MinimumTableValued(
+    //   MinimumTableValued(s1.Seconds, s2.Seconds).First().MinValue,
+    //   MinimumTableValued(s3.Seconds, s4.Seconds).First().MinValue).First().MinValue
+    // A 4-way cross join of the song link rows over a reused `songs` query (Signum's
+    // `var songs = …; from s1 in songs … from s4 in songs`), computing min(s1,s2,s3,s4).seconds
+    // two ways: `fast` nests the table-valued MinimumTableValued, `slow` nests the scalar
+    // MinimumScalar UDF — Signum times the two; here we just assert both agree with the JS mins.
+    // Bounded with top(3) so the cross join stays 3⁴ rows (Signum runs it unbounded as a perf test).
+    test("TableValuedPerformanceTest", async (t) => {
+        const songs = table(AlbumEntity_Songs).filter(s => s.seconds != null).orderBy(s => s.id).top(3);
+        const secs = (await songs.map(s => s.seconds).toArray()) as number[];
+
+        const t1 = performance.now();
+        const fast = await songs.flatMap(s1 => songs.flatMap(s2 => songs.flatMap(s3 => songs.map(s4 =>
+            MinimumExtensions.minimumTableValued(
+                MinimumExtensions.minimumTableValued(s1.seconds!, s2.seconds!).map(m => m.minValue).first(),
+                MinimumExtensions.minimumTableValued(s3.seconds!, s4.seconds!).map(m => m.minValue).first(),
+            ).map(m => m.minValue).first())))).toArray();
+
+        const t2 = performance.now();
+        const slow = await songs.flatMap(s1 => songs.flatMap(s2 => songs.flatMap(s3 => songs.map(s4 =>
+            MinimumExtensions.minimumScalar(
+                MinimumExtensions.minimumScalar(s1.seconds, s2.seconds),
+                MinimumExtensions.minimumScalar(s3.seconds, s4.seconds)))))).toArray();
+        const t3 = performance.now();
+
+        // Signum's Debug.WriteLine timing — informational, via node:test's diagnostic channel.
+        t.diagnostic(`MinimumTableValued: ${(t2 - t1).toFixed(1)} ms · MinimumScalar: ${(t3 - t2).toFixed(1)} ms`);
+
+        const expected: number[] = [];
+        for (const a of secs) for (const b of secs) for (const c of secs) for (const d of secs)
+            expected.push(Math.min(a, b, c, d));
+        const sort = (xs: (number | null)[]) => [...xs].map(Number).sort((x, y) => x - y);
+        assert.equal(fast.length, expected.length);
+        assert.deepEqual(sort(fast), sort(expected));
+        assert.deepEqual(sort(slow), sort(expected));
     });
 
     // from b let min = MinimumExtensions.MinimumTableValued((int)b.Id, (int)b.Id).FirstOrDefault()!.MinValue select b.Name
-    // TODO(api): table-valued function (MinimumTableValued) in a let/projection
+    // The table-valued function is invoked in the projection (a CROSS APPLY over the UDF, then
+    // First of its single column). MinimumTableValued(id, id) = min(id, id) = id, so each row's
+    // MinValue equals the band's own id — asserted against a plain id projection. (Signum's test
+    // additionally checks the simplifier drops an *unused* TVF via a discard `let`; altea has no
+    // statement-bodied let, so only the used-in-projection shape is exercised.)
     test("SimplifyMinimumTableValued", async () => {
-        const result = await table(BandEntity).map(b => b.name).toArray();
-        assert.ok(Array.isArray(result));
+        const mins = await table(BandEntity)
+            .map(b => MinimumExtensions.minimumTableValued(b.id as number, b.id as number).map(m => m.minValue).first())
+            .toArray();
+        const ids = await table(BandEntity).map(b => b.id).toArray();
+        assert.ok(mins.length > 0);
+        assert.deepEqual([...mins].sort((a, b) => a - b), [...ids].map(Number).sort((a, b) => a - b));
     });
 
     // Select(a => (a.Songs.Count > 10 ? Large : a.Songs.Count > 5 ? Medium : Small).InSql())

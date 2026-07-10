@@ -9,7 +9,8 @@ import {
 } from "@altea/altea/entities/decorators";
 import { Temporal, int, toInt } from "@altea/altea/entities/basics";
 import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
-import { sqlMethod, returnType } from "@altea/altea/logic/query";
+import { sqlMethod, returnType, resultType } from "@altea/altea/logic/query";
+import { LiteralType } from "@altea/altea/entities/types";
 import type { SchemaAssets } from "@altea/altea/logic/sync/schemaAssets";
 
 // Port of Signum.Test's Environment/Entities.cs (the "Music" domain), adapted to
@@ -431,11 +432,20 @@ export class MinimumExtensions {
         throw new Error("MinimumExtensions.minimumTableValued is a query-only SQL function marker.");
     }
 
+    // Signum's scalar [SqlMethod("MinimumScalar")]: a plain int-returning UDF. No @returnType (a
+    // scalar, not an IView row set), so the binder lowers the call to a scalar SqlFunctionExpression
+    // — schema-qualified (public./dbo.) so SQL Server accepts it (an unqualified name resolves as a
+    // built-in there).
+    @sqlMethod("MinimumScalar")
+    @resultType(() => LiteralType.number)
+    static minimumScalar(_a: int | null, _b: int | null): int | null {
+        throw new Error("MinimumExtensions.minimumScalar is a query-only SQL function marker.");
+    }
+
     // Port of Signum's MinimumExtensions.IncludeFunction (Entities.cs) — registers the
-    // MinimumTableValued inline table-valued UDF on the schema's SchemaAssets, so schema
-    // generation creates it (and synchronization round-trips it). Called from MusicLogic.start.
-    // The exact SQL is Signum's; `isPostgres` picks the dialect (Signum reads
-    // Schema.Current.Settings.IsPostgres). MinimumScalar is out of scope (see task).
+    // MinimumTableValued inline table-valued UDF and the MinimumScalar scalar UDF on the schema's
+    // SchemaAssets, so schema generation creates them. Called from MusicLogic.start. The exact SQL
+    // is Signum's; `isPostgres` picks the dialect (Signum reads Schema.Current.Settings.IsPostgres).
     static includeFunction(assets: SchemaAssets, isPostgres: boolean): void {
         if (isPostgres) {
             // The body is written in the exact form `pg_get_functiondef` reports back (leading
@@ -455,11 +465,27 @@ SELECT Case When p1 < p2 Then p1
        Else COALESCE(p2, p1) End as MinValue;
             END
 $function$`);
+            assets.includeUserDefinedFunction("MinimumScalar", `(p1 integer, p2 integer)
+ RETURNS integer
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+RETURN (Case When p1 < p2 Then p1
+       Else COALESCE(p2, p1) End);
+END
+$function$`);
         } else {
             assets.includeUserDefinedFunction("MinimumTableValued", `(@Param1 Integer, @Param2 Integer)
 RETURNS Table As
 RETURN (SELECT Case When @Param1 < @Param2 Then @Param1
            Else COALESCE(@Param2, @Param1) End MinValue)`);
+            assets.includeUserDefinedFunction("MinimumScalar", `(@Param1 Integer, @Param2 Integer)
+RETURNS Integer
+AS
+BEGIN
+   RETURN (Case When @Param1 < @Param2 Then @Param1
+       Else COALESCE(@Param2, @Param1) End);
+END`);
         }
     }
 }

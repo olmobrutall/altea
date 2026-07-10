@@ -19,6 +19,7 @@ import {
 } from "../expressions.sql";
 import { AssignAdapterExpander } from "./AssignAdapterExpander";
 import { AliasGenerator, Alias } from "../AliasGenerator";
+import { sqlEscape } from "../sqlEscape";
 import { projectColumns as projectColumnsImpl, ProjectedColumns } from "./ColumnProjector";
 import { ColumnGenerator } from "../ColumnGenerator";
 import { fullNominate as fullNominateImpl, nominate } from "../dbExpressionNominator";
@@ -28,7 +29,7 @@ import { EntityCompleter } from "./EntityCompleter";
 import { GroupEntityCleaner } from "./GroupEntityCleaner";
 import { SmartEqualizer } from "../smartEqualizer";
 import { TypeLogic } from "../../typeLogic";
-import { ExpandLite, ExpandEntity } from "../../query";
+import { ExpandLite, ExpandEntity, Query } from "../../query";
 import type { ExpandLiteHint } from "../expressions.sql";
 
 // Map the altea ExpandLite enum (its member order differs from Signum's) to the neutral
@@ -1145,6 +1146,17 @@ export class QueryBinder extends ExpressionVisitor {
 
     override visitParameter(parameter: ParameterExpression): Expression {
         return this.map.get(parameter) ?? parameter;
+    }
+
+    // A Query captured as a constant in a quoted lambda (e.g. `const songs = table(X)…` reused as
+    // `a.flatMap(s => songs.flatMap(s2 => …))`) is bound by splicing in its underlying expression
+    // — freshly each time, so the alias generator gives every use independent aliases and the
+    // same collection reused across a cross join yields independent subqueries. Any other
+    // constant is left as-is.
+    override visitConstant(node: ConstantExpression): Expression {
+        if (node.value instanceof Query)
+            return this.visit(node.value.expression);
+        return node;
     }
 
     override visitProperty(property: PropertyExpression): Expression {
@@ -2668,7 +2680,15 @@ export class QueryBinder extends ExpressionVisitor {
     private bindSqlMethod(functionName: string, call: CallExpression): Expression {
         if (call.type instanceof ArrayType)
             return this.bindTableValuedFunction(functionName, call.args, call.type);
-        return new SqlFunctionExpression(call.type, undefined, functionName, call.args.map(a => this.visit(a)));
+        // A scalar UDF must be schema-qualified on SQL Server (an unqualified name resolves as a
+        // built-in and fails). An UNQUALIFIED @sqlMethod name is a user function in the dialect
+        // default schema — qualify it and escape both segments (case-preserving, matching the
+        // quoted CREATE, like the table-valued path). A name that already carries a schema
+        // (built-ins such as pg_catalog.pg_get_expr) is emitted verbatim.
+        const name = functionName.includes(".")
+            ? functionName
+            : `${sqlEscape(this.isPostgres ? "public" : "dbo", this.isPostgres)}.${sqlEscape(functionName, this.isPostgres)}`;
+        return new SqlFunctionExpression(call.type, undefined, name, call.args.map(a => this.visit(a)));
     }
 
     // A set-returning / table-valued function used as a source. Two shapes, told apart by the

@@ -23,7 +23,7 @@ export function generateSubscripts(_array: unknown[], _dim: number): Query<numbe
 export class PostgresFunctions {
     // `pg_get_expr(pg_node_tree, relid)` — decompiles a stored expression (a column default's
     // adbin, or an index's indpred) to its SQL text.
-    @sqlMethod("pg_get_expr")
+    @sqlMethod("pg_catalog.pg_get_expr")
     @resultType(() => LiteralType.string)
     static pg_get_expr(_node: unknown, _relid: number): string {
         throw new Error("PostgresFunctions.pg_get_expr is a query-only Postgres function marker.");

@@ -1,8 +1,11 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { table } from "@altea/altea/logic/table";
+import { table, view } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / … (SQL-mappable)
 import { hasDb, start } from "./setup";
+import { Connector } from "@altea/altea/logic/connection/connector";
+import { PgClass } from "@altea/altea/logic/sync/postgres/postgresCatalog";
+import { SysDatabases } from "@altea/altea/logic/sync/sqlServer/sysTables";
 import { Clock } from "@altea/altea/entities/clock";
 import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
 import {
@@ -577,10 +580,15 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<ArtistEntity>().Select(a => a.LastAward.Try(la => la.Id)).ToList();
-    // TODO(api): null-safe navigation Try(la => la.Id) over a nullable @implementedByAll reference
+    // C#'s `.Try(la => la.Id)` is Signum's null-propagation helper — it simulates `?.` inside an
+    // expression tree (C# can't put `?.` in one). altea writes it directly as `a.lastAward?.id`.
+    // lastAward is a nullable @implementedByAll; its `.id` lowers to the COALESCEd per-type id
+    // string, so the projection is `string | null` — null for the artists with no lastAward.
     test("SelectIBAId", async () => {
         const list = await table(ArtistEntity).map(a => a.lastAward?.id).toArray();
-        assert.ok(Array.isArray(list));
+        assert.ok(list.length > 0);
+        assert.ok(list.every(x => x == null || typeof x === "string"));
+        assert.ok(list.some(x => x != null)); // e.g. Michael Jackson has a lastAward
     });
 
     // Database.Query<NoteWithDateEntity>().Select(a => a.ToStringProperty).ToList();
@@ -704,9 +712,17 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // Database.View<PgClass>() / Database.View<SysDatabases>()
-    // TODO(api): Database.View<T>() — system/database views are not modelled
+    // Database.View<T>() is `view(T)` in altea. The very system catalog views Signum's test uses
+    // ARE modelled here (the synchronizer introspects through them): PgClass (pg_class) on
+    // Postgres, SysDatabases (sys.databases) on SQL Server. Query the dialect's one live.
     test("SelectView", async () => {
-        assert.ok(true);
+        if (Connector.current().isPostgres) {
+            const names = await view(PgClass).filter(c => c.relkind == "r").map(c => c.relname).toArray();
+            assert.ok(names.length > 0 && names.every(n => typeof n === "string"));
+        } else {
+            const names = await view(SysDatabases).map(d => d.name).toArray();
+            assert.ok(names.length > 0 && names.every(n => typeof n === "string"));
+        }
     });
 
     // Signum's SelectRetrieve: Select(l => l.Owner!.RetrieveAndRemember()) throws
@@ -735,7 +751,9 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // var list = Query<ArtistEntity>().ToList(); Assert.True(!Query<ArtistEntity>().QueryText().Contains("DISTINCT"))
-    // TODO(api): virtual-MList no-distinct guarantee — relies on Nominations virtual MList not being modelled here
+    // A "virtual MList" (Signum's back-referenced collection with no link table) has no special
+    // construct in altea — its rows are queried directly as `table(TheChildEntity)`, so nothing
+    // injects a DISTINCT. This asserts the plain root query stays DISTINCT-free.
     test("SelectVirtualMListNoDistinct", async () => {
         const list = await table(ArtistEntity).toArray();
         assert.ok(Array.isArray(list));
