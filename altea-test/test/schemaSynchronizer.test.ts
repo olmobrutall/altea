@@ -183,4 +183,35 @@ describe("SchemaSynchronizer (live DB)", { skip: !hasDb }, () => {
             await connector.executeNonQuery(`INSERT INTO ${sb.objectName(enumTable!.name)} (${pk}, ${nameCol}) VALUES (999, 'SyncNegEnum')`);
         });
     });
+
+    // ---- functions (SchemaAssets.SyncProcedures) -----------------------------
+    // The full pipeline already round-trips the registered UDFs to empty (SynchronizeTablesScriptEmpty
+    // covers MinimumTableValued / MinimumScalar). These prove the function-sync path also DETECTS
+    // and FIXES drift, exercising createNew (missing) and mergeBoth (changed body).
+
+    const minimumScalar = () => {
+        const p = [...connector.schema.assets.storeProcedures.values()].find(x => x.name.name === "MinimumScalar");
+        assert.ok(p != null, "MinimumScalar UDF should be registered");
+        return p!;
+    };
+
+    // A dropped UDF → the (before-tables) function sync must recreate it.
+    txTest("SyncMissingFunction", async () => {
+        await assertRoundTrip(async () => { await run(minimumScalar().dropSql()); });
+    });
+
+    // A UDF whose body drifted → the function sync must ALTER it back to the model definition.
+    txTest("SyncChangedFunction", async () => {
+        const p = minimumScalar();
+        // Redefine the body to something different but valid (returns p1 unconditionally).
+        const drifted = connector.isPostgres
+            ? `(p1 integer, p2 integer)\n RETURNS integer\n LANGUAGE plpgsql\nAS $function$\nBEGIN\nRETURN p1;\nEND\n$function$`
+            : `(@Param1 Integer, @Param2 Integer)\nRETURNS Integer\nAS\nBEGIN\n   RETURN @Param1;\nEND`;
+        await assertRoundTrip(async () => {
+            const sql = connector.isPostgres
+                ? `CREATE OR REPLACE FUNCTION ${connector.sqlBuilder.objectName(p.name)} ${drifted}`
+                : `ALTER FUNCTION ${connector.sqlBuilder.objectName(p.name)} ${drifted}`;
+            await connector.executeNonQuery(sql);
+        });
+    });
 });
