@@ -910,6 +910,11 @@ export class QueryBinder extends ExpressionVisitor {
             if (joinType != null)
                 return this.bindJoin(joinType, property.object, call.args[0], call.args[1] as LambdaExpression, call.args[2] as LambdaExpression, call.args[3] as LambdaExpression);
 
+            // withHint sets the pending table hint BEFORE visiting the source, so the table
+            // built while visiting picks it up (Signum's BindWithHints / currentTableHint).
+            if (op === "withHint")
+                return this.bindWithHints(property.object, call.args[0] as ConstantExpression);
+
             let source = this.visit(property.object);
 
             // `Ctor.create({ … })` where Ctor is a View subclass: build a typed instance per
@@ -2780,11 +2785,33 @@ export class QueryBinder extends ExpressionVisitor {
             pc.projector, undefined, new ArrayType(elementType));
     }
 
+    // Signum's WithHint / currentTableHint: a table hint pending until the next table
+    // is built. `withHint(source, hint)` sets it, visits the source (which consumes it
+    // when it constructs the primary table), then asserts it was applied — a hint that
+    // doesn't reach a table is an error.
+    private currentTableHint: string | undefined;
+
+    private bindWithHints(source: Expression, hint: ConstantExpression): Expression {
+        const oldHint = this.currentTableHint;
+        try {
+            this.currentTableHint = hint.value as string;
+            const projection = this.visit(source);
+            if (this.currentTableHint != null)
+                throw new Error(`Table hint '${this.currentTableHint}' was not applied — withHint must wrap a table query.`);
+            return projection;
+        } finally {
+            this.currentTableHint = oldHint;
+        }
+    }
+
     private getTableProjectionForTable(table: Table, elementType: Type): ProjectionExpression {
         const tableAlias = this.aliasGenerator.nextTableAlias(table.name.name);
         const entity = this.createEntityExpression(table, tableAlias);
 
-        const tableExpr = new TableExpression(tableAlias, table);
+        // Consume the pending WithHint (if any) into this table, then clear it so it
+        // applies to exactly one table (Signum: currentTableHint = null after use).
+        const tableExpr = new TableExpression(tableAlias, table, this.currentTableHint);
+        this.currentTableHint = undefined;
         const selectAlias = this.aliasGenerator.nextSelectAlias();
         const pc = this.projectColumns(entity, selectAlias);
 

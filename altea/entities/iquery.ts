@@ -33,6 +33,7 @@ export interface IQuery<T> {
 
     top(count: number): IQuery<T>;
     skip(count: number): IQuery<T>;
+    withHint(hint: string): IQuery<T>;
 
     first(predicate?: Quoted<(element: T) => boolean>): Promise<T>;
     firstOrNull(predicate?: Quoted<(element: T) => boolean>): Promise<T | null>;

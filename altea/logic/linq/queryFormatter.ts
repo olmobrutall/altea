@@ -145,6 +145,11 @@ export class QueryFormatter extends DbExpressionVisitor {
     protected override visitSource(src: SourceExpression): SourceExpression {
         if (src instanceof TableExpression) {
             this.append(`${this.quoteObjectName(src.table.name)} AS ${this.quoteAlias(src.alias)}`);
+            // SQL Server table hint (WithHint) — `WITH(NOLOCK)` / `WITH(INDEX(…))`. Postgres has
+            // no table-hint syntax, so the hint is dropped there (advisory; matches Signum's
+            // SQL-Server-only render).
+            if (src.withHint != null && !this.isPostgres)
+                this.append(` WITH(${src.withHint})`);
             return src;
         }
 

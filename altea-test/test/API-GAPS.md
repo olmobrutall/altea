@@ -83,7 +83,7 @@ OUTSTANDING, grouped (each is a `// TODO(api)` somewhere in test/):
 
 **Entity/ORM bridges**
 - `InDB(selector)` / `Lite.InDB()` entity→query bridge; `Lite.RetrieveAndRemember`; `Lite` custom model/`toLite(model)` + LiteModel projection; `ExpandLite`/`ExpandEntity` eager-load hints; `EntityContext.EntityId`/`MListRowId`.
-- Mixin in query (`mixin(M).field`); `CorruptMixin` not modelled; `Database.View<T>()`; `MListQuery` (link-row access); `WithHint`.
+- Mixin in query (`mixin(M).field`); `CorruptMixin` not modelled; `Database.View<T>()`; `MListQuery` (link-row access). (DONE: `WithHint` — SQL Server table hint, `.withHint("NOLOCK")`; dropped on Postgres.)
 
 **Bulk DML (delayed tier)** — `executeUpdate(u => u.set(sel, val))` (+ `UpdatePart`/`UpdateMList`/`UpdateView`), `executeInsert(Target, row => {...})` (+ `setReadonly`, `InsertMList`), `executeDelete()` (+ chunks/`MList`/`View`). Shapes captured in the unsafe*.test.ts headers.
 

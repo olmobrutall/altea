@@ -33,8 +33,8 @@ import { inSql, toInt, toDecimal } from "@altea/altea/entities/basics";
 // projection, and DefaultIfEmpty outer-apply are all supported now. A handful of
 // C#-only constructs (typed-null casts, interface upcasts, FormatWith) are noted
 // inline as `// Not ported:`. The genuinely still-missing features (MListQuery as a
-// standalone source, Database.View<T>(), WithHint, InSql, cross-join over a second
-// independent table, custom-model ToLite) keep a narrow `// TODO(api): …` comment.
+// standalone source, Database.View<T>(), InSql, cross-join over a second independent
+// table, custom-model ToLite) keep a narrow `// TODO(api): …` comment.
 
 describe("SelectTest", { skip: !hasDb }, () => {
     before(async () => { await start(); });
@@ -742,10 +742,20 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // Database.Query<AlbumEntity>().WithHint("INDEX(IX_Album_LabelID)").Select(a => a.Label.Name).ToList();
-    // TODO(api): WithHint (SQL query hint) on a query
+    // WithHint attaches a SQL Server table hint to the primary table. C# uses an INDEX hint keyed
+    // to a specific index name; altea uses NOLOCK — the same feature exercised without depending on
+    // altea's (dialect-cased) generated index names. SQL Server renders `… AS a WITH(NOLOCK)`;
+    // Postgres has no table-hint syntax so the hint is dropped and the query runs unhinted.
     test("SelectWithHint", async () => {
-        const list = await table(AlbumEntity).map(a => a.label.name).toArray();
+        const query = table(AlbumEntity).withHint("NOLOCK").map(a => a.label.name);
+        const list = await query.toArray();
         assert.ok(Array.isArray(list));
+        assert.ok(list.length > 0);
+        const sql = query.queryTextForDebug();
+        if (Connector.default!.isPostgres)
+            assert.doesNotMatch(sql, /WITH\s*\(/i);
+        else
+            assert.match(sql, /WITH\(NOLOCK\)/i);
     });
 
     // Expression<Func<AlbumEntity,bool>> selector = a => a.Id > 10;

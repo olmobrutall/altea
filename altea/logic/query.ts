@@ -463,6 +463,18 @@ export class Query<T> implements IQuery<T> {
         return new Query<T>(call, this.translator);
     }
 
+    // table(T).withHint("NOLOCK" | "INDEX(...)" | …) — a SQL Server table hint (Signum's
+    // WithHint), rendered as `<table> AS <alias> WITH(<hint>)`. The hint must land on a table
+    // (the binder throws otherwise). Postgres has no table-hint syntax, so it is dropped there.
+    @resultType(ot => ot)
+    withHint(hint: string): Query<T> {
+        var call = new CallExpression(
+            new PropertyExpression(this.expression, "withHint"),
+            [new ConstantExpression(hint)],
+            this.type);
+        return new Query<T>(call, this.translator);
+    }
+
     // defaultIfEmpty — used inside a flatMap collection selector, it makes the SelectMany an
     // OUTER APPLY (the outer row survives with a null inner). Signum's DefaultIfEmpty.
     // Divergence: Signum also uses DefaultIfEmpty to express left/right/full joins; altea has
