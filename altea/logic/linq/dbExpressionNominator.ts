@@ -3,7 +3,7 @@ import {
     ConstantExpression, CastExpression, CallExpression, PropertyExpression,
     ParameterExpression, LambdaExpression, ObjectExpression,
 } from "./expressions";
-import { inSql, toInt, toLong, Temporal } from "../../entities/basics";
+import { inSql, toInt, toLong, toDecimal, Temporal } from "../../entities/basics";
 import {
     ColumnExpression, SqlConstantExpression, SqlLiteralExpression, PrimaryKeyExpression,
     IsNullExpression, IsNotNullExpression, LikeExpression, SqlFunctionExpression, SqlCastExpression,
@@ -300,6 +300,8 @@ class DbExpressionNominator extends DbExpressionVisitor {
             const arg = node.args[0];
             if (node.func.value === Number)
                 return this.visit(new SqlCastExpression(LiteralType.number, arg, this.isPostgres ? "double precision" : "float"));
+            if (node.func.value === toDecimal)
+                return this.visit(new SqlCastExpression(LiteralType.number, arg, this.isPostgres ? "numeric" : "decimal"));
             if (node.func.value === toInt || node.func.value === toLong) {
                 if (arg.type === LiteralType.boolean && !this.isPostgres)
                     return this.visit(new ConditionalExpression(arg,

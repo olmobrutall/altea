@@ -4,7 +4,7 @@ import { EmbeddedEntity, Entity } from "../entities/entity";
 import { IQuery, IOrderedQuery } from "../entities/iquery";
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, MethodExpander, PropertyExpression } from "./linq/expressions";
 import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType, QuotedFunction, quotedFunction, LambdaTypeResolver, ResultTypeResolver } from "../entities/types";
-import { toInt, toLong, inSql } from "../entities/basics";
+import { toInt, toLong, toDecimal, inSql } from "../entities/basics";
 
 // The query-expression metadata carrier (QuotedFunction) and its cast helper
 // (quotedFunction) live in entities/types so entity classes can attach metadata to
@@ -118,6 +118,7 @@ quotedFunction(EntityContext.entityId).__resultType = () => SimpleType.number;
 // give it a result type so fromQuoted can type the call node.
 quotedFunction(toInt).__resultType = () => SimpleType.number;
 quotedFunction(toLong).__resultType = () => SimpleType.number;
+quotedFunction(toDecimal).__resultType = () => SimpleType.number;
 
 // inSql(x) (Signum's LinqHints.InSql) is identity for typing — its result is its argument's
 // type. The binder keeps it a CallExpression marker; the nominator force-nominates its arg.

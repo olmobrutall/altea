@@ -107,8 +107,13 @@ describe("ToStringTest", { skip: !hasDb }, () => {
     });
 
     // result1: …ToString(a => a.Id.ToString(), " | "); result2: …Select(a => a.Id).ToString(" | "); result3: toString = list => list.ToString(" | ") over …Select(a => a.Id).ToList(); Assert SequenceEqual(result1,result2) & (result2,result3)
-    // TODO(api): materialise a correlated sub-query (its toArray()) inside a projection then
-    //   pass it to a client-side helper — an async terminal cannot run inside a quoted lambda (result3).
+    // result1: ToString(a => a.Id.ToString(), " | ") over the sub-query; result2: Select(a=>a.Id).ToString(" | ").
+    // Both join SERVER-side (STRING_AGG). result3 in C# feeds Select(a=>a.Id).ToList() to a COMPILED
+    // client Func `list => list.ToString(" | ")` — the provider can't translate a Func, so it
+    // materialises the ids and joins them IN-MEMORY (not a string aggregate). altea does the same:
+    // `.toArray().$v` materialises the id-array per row (a child projection), and the join runs in
+    // plain JS afterwards (an arbitrary client Func inside the quoted projection isn't supported, so
+    // the in-memory step lives in the outer map). Same result, but genuinely client-side.
     test("ToStringNumbers", async () => {
         const result1 = await table(BandEntity)
             .orderBy(b => b.name)
@@ -118,13 +123,16 @@ describe("ToStringTest", { skip: !hasDb }, () => {
             .orderBy(b => b.name)
             .map(b => ({ name: b.name, albumnsToString: table(AlbumEntity).filter(a => a.author.is(b)).orderBy(a => a.name).map(a => a.id).join(" | ") }))
             .toArray();
-        // BLOCKED (result3): a correlated sub-query's toArray() is Promise<…> inside a projection (async-terminal-in-lambda gap).
-        // const toString = (list: (string | number)[]) => list.toString(" | ");
-        // const result3 = await table(BandEntity)
-        //     .orderBy(b => b.name)
-        //     .map(b => ({ name: b.name, albumnsToString: toString(table(AlbumEntity).filter(a => a.author.is(b)).orderBy(a => a.name).map(a => a.id).toArray()) }))
-        //     .toArray();
+        const bands = await table(BandEntity)
+            .orderBy(b => b.name)
+            .map(b => ({ name: b.name, albumIds: table(AlbumEntity).filter(a => a.author.is(b)).orderBy(a => a.name).map(a => a.id).toArray().$v }))
+            .toArray();
+        const result3 = bands.map(b => ({ name: b.name, albumnsToString: b.albumIds.join(" | ") }));
+
+        // All three are ordered by the sub-query's OrderBy(a.Name): result1/result2 via STRING_AGG
+        // now carries the ORDER BY (bindToString), result3 via the ordered child projection.
         assert.deepEqual(result1, result2);
+        assert.deepEqual(result2 as unknown, result3);
         assert.ok(result1.length > 0);
     });
 });

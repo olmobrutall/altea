@@ -54,7 +54,7 @@ import type { FieldInfo } from "../../../entities/reflection";
 import { resolveType, resolveEnum } from "../../../entities/registration";
 import { Entity, View } from "../../../entities/entity";
 import { TypeEntity } from "../../../entities/typeEntity";
-import { toInt, toLong, inSql } from "../../../entities/basics";
+import { toInt, toLong, toDecimal, inSql } from "../../../entities/basics";
 import { Lite } from "../../../entities/lite";
 import { niceName } from "../../../entities/utils/localization";
 import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, Type } from "../../../entities/types";
@@ -863,9 +863,10 @@ export class QueryBinder extends ExpressionVisitor {
             // marker (defeating the lazy projector). Just re-bind the argument here.
             if (func.value === inSql)
                 return new CallExpression(func, [this.visit(call.args[0])], call.type);
-            // Number(x) (Signum's Convert-to-double): bind the argument and leave the call residual;
-            // the nominator lowers it to a SQL CAST to a floating type (like Signum's VisitUnary).
-            if (func.value === Number)
+            // Number(x) / toDecimal(x) (Signum's Convert to double / decimal): bind the argument
+            // and leave the call residual; the nominator lowers it to a SQL CAST (like Signum's
+            // VisitUnary) — Number to a floating type, toDecimal to decimal/numeric.
+            if (func.value === Number || func.value === toDecimal)
                 return new CallExpression(func, [this.visit(call.args[0])], LiteralType.number);
         }
 
@@ -1644,8 +1645,8 @@ export class QueryBinder extends ExpressionVisitor {
     // SQL STRING_AGG). The source projector is the already-mapped scalar to concatenate
     // (altea's `join(sep)` has no selector — a prior `.map` did the projection); the
     // separator must be a constant string. Aggregating an entity's display string needs
-    // the separate entity-ToString tier, so a non-scalar projector is rejected. Like
-    // Signum, no ORDER BY is placed inside the aggregate.
+    // the separate entity-ToString tier, so a non-scalar projector is rejected. The sub-query's
+    // ORDER BY is carried into the aggregate (see below) so the concatenation is ordered.
     private bindToString(projection: ProjectionExpression, separatorExpr: Expression, isRoot: boolean): Expression {
         const separator = this.visit(separatorExpr);
         if (!(separator instanceof ConstantExpression) || typeof separator.value !== "string")
@@ -1674,16 +1675,43 @@ export class QueryBinder extends ExpressionVisitor {
         if (nominated.type !== LiteralType.string)
             nominated = new SqlCastExpression(LiteralType.string, nominated, this.isPostgres ? "varchar" : "nvarchar(max)");
 
+        // Carry the sub-query's ORDER BY into the aggregate — STRING_AGG(x, sep ORDER BY key) on
+        // Postgres / STRING_AGG(x, sep) WITHIN GROUP (ORDER BY key) on SQL Server — so the
+        // concatenation is ordered (mirrors Signum, whose STUFF/FOR XML PATH honours the source
+        // order). A plain sub-query ORDER BY feeding an aggregate is otherwise dropped as
+        // irrelevant. `.orderBy(k).map(v)` pushes the ORDER BY onto `select.from` (bindSelect
+        // clears the map select's own order), so walk the from-chain to recover it; its key
+        // columns reference the base table, which survives select flattening.
+        const aggOrders = this.gatherAggregateOrderings(source.select);
+
         const aggregate = new AggregateExpression(
             LiteralType.string, "string_agg",
             [nominated, new SqlConstantExpression(separator.value, LiteralType.string)],
-            undefined);
+            aggOrders);
 
         const alias = this.aliasGenerator.nextSelectAlias();
         const select = new SelectExpression(alias, false, undefined, [new ColumnDeclaration("c0", aggregate)], source.select, undefined, [], []);
         if (isRoot)
             return new ProjectionExpression(select, new ColumnExpression(LiteralType.string, alias, "c0"), "Single", LiteralType.string);
         return new ScalarExpression(LiteralType.string, select);
+    }
+
+    // Recover the ORDER BY that feeds a string aggregate. `.orderBy(k).map(v).join(sep)`
+    // leaves the order on `select.from` (bindSelect zeroes the map select's own orderBy), so
+    // descend the from-chain to the first select that carries one. Stop at any level whose
+    // top/offset/distinct/groupBy makes a deeper order irrelevant (that order was legitimately
+    // dropped). The returned OrderExpressions reference base-table columns, valid inside the
+    // aggregate after flattening.
+    private gatherAggregateOrderings(sel: SelectExpression): OrderExpression[] | undefined {
+        let cur: Expression | undefined = sel;
+        while (cur instanceof SelectExpression) {
+            if (cur.orderBy.length > 0)
+                return [...cur.orderBy];
+            if (cur.top != null || cur.offset != null || cur.isDistinct || cur.groupBy.length > 0)
+                return undefined;
+            cur = cur.from;
+        }
+        return undefined;
     }
 
     // The display-string SQL expression of an entity / lite / IB reference: an entity's

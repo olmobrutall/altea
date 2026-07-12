@@ -395,6 +395,17 @@ export class QueryFormatter extends DbExpressionVisitor {
                     : e.aggregateFunction === "StdDevP" ? (this.isPostgres ? "STDDEV_POP" : "STDEVP")
                         : e.aggregateFunction.toUpperCase();
         const distinct = e.aggregateFunction === "CountDistinct" ? "DISTINCT " : "";
+        // An ordered aggregate (string_agg from `.join()` over an ordered sub-query): Postgres puts
+        // the ORDER BY inside the call, SQL Server appends WITHIN GROUP (ORDER BY …).
+        if (e.orderBy != null && e.orderBy.length > 0) {
+            const orderSql = e.orderBy
+                .map(o => `${this.capture(() => this.visit(o.expression))}${o.orderType === "Ascending" ? " ASC" : " DESC"}`)
+                .join(", ");
+            this.append(this.isPostgres
+                ? `${fn}(${distinct}${inner} ORDER BY ${orderSql})`
+                : `${fn}(${distinct}${inner}) WITHIN GROUP (ORDER BY ${orderSql})`);
+            return e;
+        }
         this.append(`${fn}(${distinct}${inner})`);
         return e;
     }

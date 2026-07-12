@@ -1,5 +1,6 @@
 export type int = number & { readonly __brand: 'int' };
 export type long = number & { readonly __brand: 'long' };
+export type decimal = number & { readonly __brand: 'decimal' };
 
 // Primary-key identifier types. `uuid7` is a time-ordered UUID (better index
 // locality); both share the same column storage (uniqueidentifier / uuid) and
@@ -13,6 +14,14 @@ export function toInt(n: number | boolean | string): int {
 
 export function toLong(n: number | boolean | string): long {
     return Math.trunc(Number(n)) as long;
+}
+
+// Signum's `(decimal)x` cast. Runtime identity (a JS number); inside a query the nominator
+// lowers it to a SQL CAST to decimal/numeric, so subsequent arithmetic is decimal — e.g.
+// `toDecimal(a.id) / 10` divides in decimal and keeps the fractional places (Signum's `10m`),
+// rather than integer-dividing and truncating.
+export function toDecimal(n: number | boolean | string): decimal {
+    return Number(n) as decimal;
 }
 
 // Signum's LinqHints.InSql: a query hint that forces `value` to be evaluated in the

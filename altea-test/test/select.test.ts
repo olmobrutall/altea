@@ -15,7 +15,7 @@ import {
     NoteWithDateEntity, GrammyAwardEntity, AwardEntity, AmericanMusicAwardEntity,
     Sex, AwardResult, IAuthorEntity,
 } from "../entities/music";
-import { inSql, toInt } from "@altea/altea/entities/basics";
+import { inSql, toInt, toDecimal } from "@altea/altea/entities/basics";
 
 // Port of Signum.Test/LinqProvider/SelectTest.cs. C# → altea idiom:
 //   Database.Query<T>()  → table(T)            .Select(...) → .map(...)
@@ -772,16 +772,17 @@ describe("SelectTest", { skip: !hasDb }, () => {
     });
 
     // Select(a => ((int)a.Id / 10m)).Select(a => ((decimal?)a).InSql()); Assert.Contains(list, a => a.Value != Math.Round(a.Value))
-    // Signum's `10m` makes the division decimal so SQL preserves the places under InSql().
-    // altea has no decimal literal (id / 10 is int/int), so instead the LAZY projector computes
-    // it CLIENT-SIDE in JS float — 5/10 = 0.5 — which is the idiomatic way to keep decimal
-    // places without a SQL cast. Forcing it into SQL with inSql() integer-divides (truncates),
-    // the very cast the client-side path avoids. (TODO(api): a decimal literal / decimal
-    // arithmetic would let inSql() preserve places server-side too, like Signum's 10m.)
+    // Signum's `10m` makes the division decimal so SQL preserves the places under InSql(). altea's
+    // equivalent is `toDecimal(a.id)` — a CAST to decimal/numeric, so `toDecimal(a.id) / 10`
+    // divides in decimal and keeps the .5 server-side. Three ways: lazy client-side float (keeps
+    // places), plain int/int forced to SQL (integer division truncates), and toDecimal in SQL
+    // (decimal division keeps places, matching Signum's 10m).
     test("AvoidDecimalCastinInSql", async () => {
         const clientSide = await table(ArtistEntity).map(a => (a.id as number) / 10).toArray();
-        assert.ok(clientSide.some(a => !Number.isInteger(a)));      // lazy JS keeps the .5
-        const forcedToSql = await table(ArtistEntity).map(a => inSql((a.id as number) / 10)).toArray();
-        assert.ok(forcedToSql.every(a => Number.isInteger(a)));     // SQL int-division truncates
+        assert.ok(clientSide.some(a => !Number.isInteger(a)));                  // lazy JS keeps the .5
+        const intInSql = await table(ArtistEntity).map(a => inSql((a.id as number) / 10)).toArray();
+        assert.ok(intInSql.every(a => Number.isInteger(a)));                    // SQL int-division truncates
+        const decimalInSql = await table(ArtistEntity).map(a => inSql(toDecimal(a.id as number) / 10)).toArray();
+        assert.ok(decimalInSql.some(a => Number(a) % 1 !== 0));                 // decimal division keeps the .5
     });
 });
