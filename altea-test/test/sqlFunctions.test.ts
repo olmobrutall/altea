@@ -1,6 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/logic/table";
+import { Transaction } from "@altea/altea/logic/connection/transaction";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / endsWith / … (SQL-mappable)
 import { Temporal } from "@altea/altea/entities/basics";
 import { DayOfWeek } from "@altea/altea/entities/dateTimeExtensions"; // + Temporal date-helper augmentations
@@ -25,9 +26,10 @@ enum AlbumSize { Small, Medium, Large }
 // Most SQL-only functions now translate (Like, Start/End/Reverse/Replicate, DateTime
 // parts/diffs/truncation, Math.*, DayOfWeek, table-valued functions, polymorphic
 // Combine, enum/entity ToString in query) and are asserted against real values.
-// The few genuinely-missing features keep a narrow `// TODO(api): …` (SqlHierarchyId,
-// MListQuery as a standalone source, scalar UDF + cross joins, Expression.Evaluate /
-// String.Try*/Before/After, UnsafeUpdate/InDB); C#-only semantics are marked `// Not ported:`.
+// The String Before/After/BeforeLast/AfterLast + Try* helpers now translate (LEFT/RIGHT +
+// CHARINDEX/strpos wrapped in a NULL-guarding CASE), exercised via UnsafeUpdate + a single-
+// entity InDB read (EvaluateBeforeAfter). The few genuinely-missing features keep a narrow
+// `// TODO(api): …` (SqlHierarchyId); C#-only semantics are marked `// Not ported:`.
 // Terminals are async (the connector is async-only). Live execution is gated on
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
@@ -453,9 +455,47 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
         assert.ok(list.every(v => v == AlbumSize.Small || v == AlbumSize.Medium || v == AlbumSize.Large));
     });
 
-    // note = Select(a => a.ToLite()).FirstEx(); for each value: UnsafeUpdate Title then read InDB(function.Evaluate(Title).InSql()) — TryBefore/TryAfter/TryBeforeLast/TryAfterLast/Before/After/BeforeLast/AfterLast
-    // TODO(api): UnsafeUpdate, InDB single-entity read, Expression.Evaluate, InSql() and the String.Try*/Before/After helpers in query
+    // note = Select(a => a.ToLite()).FirstEx(); Test<T>(value, function): in a Transaction,
+    // UnsafeUpdate the Title to `value`, then read InDB(function.Evaluate(Title).InSql()).
+    // C# parameterises the helper via an Expression<Func<string,T>> spliced by Evaluate;
+    // altea inlines each helper at the inDB call site (the quote-transformer only captures
+    // lambdas written inline), which is equivalent. Each read runs in its own rolled-back
+    // Transaction (Signum's `using (var tr = new Transaction())` without a Commit), so the
+    // Title mutation never persists into the shared sample graph.
     test("EvaluateBeforeAfter", async () => {
-        // Requires UnsafeUpdate + InDB read + per-value transactions + String.tryBefore/tryAfter/... in SQL.
+        const note = await table(NoteWithDateEntity).map(a => a.toLite()).first();
+
+        async function withTitle<T>(value: string, read: () => Promise<T>): Promise<T> {
+            return await Transaction.noCommit(async () => {
+                await table(NoteWithDateEntity).filter(n => n.is(note)).executeUpdate(() => ({ title: value }));
+                return await read();
+            });
+        }
+
+        assert.equal("A", await withTitle("A=>B=>C", async () => await note.inDB(n => n.title.tryBefore("=>"))));
+        assert.equal("B=>C", await withTitle("A=>B=>C", async () => await note.inDB(n => n.title.tryAfter("=>"))));
+        assert.equal("A=>B", await withTitle("A=>B=>C", async () => await note.inDB(n => n.title.tryBeforeLast("=>"))));
+        assert.equal("C", await withTitle("A=>B=>C", async () => await note.inDB(n => n.title.tryAfterLast("=>"))));
+
+        assert.equal("A", await withTitle("A_B_C", async () => await note.inDB(n => n.title.tryBefore("_"))));
+        assert.equal("B_C", await withTitle("A_B_C", async () => await note.inDB(n => n.title.tryAfter("_"))));
+        assert.equal("A_B", await withTitle("A_B_C", async () => await note.inDB(n => n.title.tryBeforeLast("_"))));
+        assert.equal("C", await withTitle("A_B_C", async () => await note.inDB(n => n.title.tryAfterLast("_"))));
+
+        assert.equal(null, await withTitle("ABC", async () => await note.inDB(n => n.title.tryBefore("_"))));
+        assert.equal(null, await withTitle("ABC", async () => await note.inDB(n => n.title.tryAfter("_"))));
+        assert.equal(null, await withTitle("ABC", async () => await note.inDB(n => n.title.tryBeforeLast("_"))));
+        assert.equal(null, await withTitle("ABC", async () => await note.inDB(n => n.title.tryAfterLast("_"))));
+
+        // In the database, Before behaves like TryBefore, etc. (NULL when the separator is absent).
+        assert.equal("A", await withTitle("A_B_C", async () => await note.inDB(n => n.title.before("_"))));
+        assert.equal("B_C", await withTitle("A_B_C", async () => await note.inDB(n => n.title.after("_"))));
+        assert.equal("A_B", await withTitle("A_B_C", async () => await note.inDB(n => n.title.beforeLast("_"))));
+        assert.equal("C", await withTitle("A_B_C", async () => await note.inDB(n => n.title.afterLast("_"))));
+
+        assert.equal(null, await withTitle("ABC", async () => await note.inDB(n => n.title.before("_"))));
+        assert.equal(null, await withTitle("ABC", async () => await note.inDB(n => n.title.after("_"))));
+        assert.equal(null, await withTitle("ABC", async () => await note.inDB(n => n.title.beforeLast("_"))));
+        assert.equal(null, await withTitle("ABC", async () => await note.inDB(n => n.title.afterLast("_"))));
     });
 });

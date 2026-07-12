@@ -272,6 +272,16 @@ const wellKnownResultTypes: Readonly<Record<string, Type>> = {
     "string.reverse": LiteralType.string,
     "string.replicate": LiteralType.string,
     "string.etc": LiteralType.string,
+    // StringExtensions.Before/After/BeforeLast/AfterLast + the Try* variants — the
+    // substring before/after the first/last occurrence of a separator (NULL if absent).
+    "string.before": LiteralType.string,
+    "string.after": LiteralType.string,
+    "string.beforeLast": LiteralType.string,
+    "string.afterLast": LiteralType.string,
+    "string.tryBefore": LiteralType.string,
+    "string.tryAfter": LiteralType.string,
+    "string.tryBeforeLast": LiteralType.string,
+    "string.tryAfterLast": LiteralType.string,
 
     "Array.contains": LiteralType.boolean,
 

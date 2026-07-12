@@ -458,6 +458,21 @@ class DbExpressionNominator extends DbExpressionVisitor {
                 return args.length === 0 ? this.sqlFunction(LiteralType.string, this.isPostgres ? "reverse" : "REVERSE", source) : undefined;
             case "string.replicate":
                 return args.length === 1 ? this.sqlFunction(LiteralType.string, this.isPostgres ? "repeat" : "REPLICATE", source, this.asSqlLiteral(args[0])) : undefined;
+            // StringExtensions.Before/After/BeforeLast/AfterLast + Try* — all lower the
+            // same way (Signum's TryBeforeAfter): in SQL the non-Try variants also yield
+            // NULL when the separator is absent.
+            case "string.before":
+            case "string.tryBefore":
+                return args.length === 1 ? this.tryBeforeAfter("before", source, args[0]) : undefined;
+            case "string.after":
+            case "string.tryAfter":
+                return args.length === 1 ? this.tryBeforeAfter("after", source, args[0]) : undefined;
+            case "string.beforeLast":
+            case "string.tryBeforeLast":
+                return args.length === 1 ? this.tryBeforeAfter("beforeLast", source, args[0]) : undefined;
+            case "string.afterLast":
+            case "string.tryAfterLast":
+                return args.length === 1 ? this.tryBeforeAfter("afterLast", source, args[0]) : undefined;
             // StringExtensions.Etc(max[, etcString]): truncate to `max` chars, appending
             // `etcString` (default "(…)") when longer — `str.Length > max ? str.Start(max -
             // etcString.Length) + etcString : str`. Lowered to a CASE so the concat stays
@@ -732,6 +747,60 @@ class DbExpressionNominator extends DbExpressionVisitor {
 
     private plusOne(e: Expression): Expression {
         return new BinaryExpression("+", e, new SqlConstantExpression(1, LiteralType.number));
+    }
+
+    // StringExtensions.Before/After/BeforeLast/AfterLast — the substring before/after the
+    // first (or last) occurrence of a separator. Port of Signum's TryBeforeAfter: the value
+    // is a LEFT/RIGHT sliced at the separator position (SQL Server CHARINDEX(needle, haystack)
+    // / Postgres strpos(haystack, needle); both 1-based, 0 when absent), wrapped in a CASE that
+    // returns NULL when the separator isn't found — so the non-Try variants behave like Try* in
+    // SQL. A one-char separator skips the `- (sepLen - 1)` correction (Signum's IsOneLength).
+    private tryBeforeAfter(op: "before" | "after" | "beforeLast" | "afterLast", source: Expression, sep: Expression): Expression {
+        const num = LiteralType.number;
+        const str = LiteralType.string;
+        const lit = (v: number) => new SqlConstantExpression(v, num);
+        const sub = (a: Expression, b: Expression) => new BinaryExpression("-", a, b);
+        const len = (e: Expression) => this.sqlFunction(num, this.isPostgres ? "length" : "LEN", e);
+        const left = (s: Expression, n: Expression) => this.sqlFunction(str, this.isPostgres ? "left" : "LEFT", s, n);
+        const right = (s: Expression, n: Expression) => this.sqlFunction(str, this.isPostgres ? "right" : "RIGHT", s, n);
+        const reverse = (e: Expression) => this.sqlFunction(str, this.isPostgres ? "reverse" : "REVERSE", e);
+        // position of `needle` in `haystack` — the two dialects flip the argument order.
+        const charIndex = (needle: Expression, haystack: Expression) => this.isPostgres
+            ? this.sqlFunction(num, "strpos", haystack, needle)
+            : this.sqlFunction(num, "CHARINDEX", needle, haystack);
+
+        const constSep = sep instanceof ConstantExpression && typeof sep.value === "string" ? sep.value : undefined;
+        const isOneLength = constSep != null && constSep.length === 1;
+        const sepLen = (): Expression => constSep != null ? lit(constSep.length) : len(sep);
+        const reverseSep = (): Expression => constSep != null
+            ? new SqlConstantExpression([...constSep].reverse().join(""), str)
+            : reverse(sep);
+
+        // The length of the tail after a separator at `index` (After / BeforeLast).
+        const tailLen = (index: Expression) => isOneLength
+            ? sub(len(source), index)
+            : sub(sub(len(source), index), sub(sepLen(), lit(1)));
+
+        let value: Expression;
+        switch (op) {
+            case "before":
+                value = left(source, sub(charIndex(sep, source), lit(1)));
+                break;
+            case "after":
+                value = right(source, tailLen(charIndex(sep, source)));
+                break;
+            case "beforeLast":
+                value = left(source, tailLen(charIndex(reverseSep(), reverse(source))));
+                break;
+            case "afterLast":
+                value = right(source, sub(charIndex(reverseSep(), reverse(source)), lit(1)));
+                break;
+        }
+
+        // NULL when the separator is absent (a forward CHARINDEX/strpos of 0), else the slice.
+        return new CaseExpression(
+            [new When(new BinaryExpression("==", charIndex(sep, source), lit(0)), new SqlConstantExpression(null, str))],
+            value);
     }
 
     // A captured numeric literal becomes an inline SqlConstant so arithmetic over it
