@@ -118,9 +118,10 @@ describe("QueryBinder (step 2)", () => {
         assert.equal(proj.select.columns.length, 1);
     });
 
-    test("string contains in filter binds to LIKE", () => {
+    test("string contains in filter binds to CHARINDEX", () => {
         const proj = bind(table(AlbumEntity).filter(a => a.name.contains("Zero")));
-        assert.equal(proj.select.where?.kind, "Like");
+        const { sql } = QueryFormatter.format(proj.select, false);
+        assert.match(sql, /CHARINDEX\(@p0, .*\bName\b.*\) >= 1/i);
     });
 
     test("array contains in filter binds to IN", () => {
@@ -248,11 +249,12 @@ describe("QueryFormatter (step 3)", () => {
         assert.match(sql, /SELECT DISTINCT/i);
     });
 
-    test("string contains renders LIKE parameter", () => {
+    test("string contains renders a CHARINDEX parameter", () => {
         const proj = bind(table(AlbumEntity).filter(a => a.name.contains("Zero")));
         const { sql, parameters } = QueryFormatter.format(proj.select, false);
-        assert.match(sql, /LIKE @p0/i);
-        assert.deepEqual(parameters, ["%Zero%"]);
+        assert.match(sql, /CHARINDEX\(@p0,/i);
+        // The search value is used literally (Signum's TryCharIndex), not wrapped in %-wildcards.
+        assert.deepEqual(parameters, ["Zero"]);
     });
 
     test("array contains renders IN parameters", () => {
@@ -557,7 +559,7 @@ describe("View.create in a query projection", () => {
         const proj = bind(table(AlbumEntity).map(a => MiniAlbum.create({ name: a.name })).filter(ma => ma.name.startsWith("Bla")));
         const { sql } = QueryFormatter.format(proj.select, false);
         assert.match(sql, /\bName\b/, "projects the album Name column");
-        assert.match(sql, /LIKE/i, "startsWith on ma.name → LIKE on the source column");
+        assert.match(sql, /CHARINDEX\(@p0, .*\bName\b/i, "startsWith on ma.name → CHARINDEX on the source column");
     });
 
     test("materialises MiniAlbum instances via create", async () => {

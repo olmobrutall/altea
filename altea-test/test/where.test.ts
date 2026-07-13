@@ -67,4 +67,16 @@ describe("WhereTest", { skip: !hasDb }, () => {
         const someMale = await table(ArtistEntity).firstOrNull(a => a.sex == Sex.Male);
         assert.ok(someMale != null);
     });
+
+    // contains/startsWith/endsWith translate to CHARINDEX/strpos (Signum's TryCharIndex), so the
+    // search value may be any expression — including a NON-CONSTANT column, not just a literal.
+    // Using the column as its own search value is always true (position 1), so the filtered count
+    // equals the total — proving a column search value translates and is semantically correct.
+    test("WhereNonConstantSearch", async () => {
+        const total = await table(ArtistEntity).count();
+        assert.ok(total > 0);
+        assert.equal(await table(ArtistEntity).count(a => a.name.contains(a.name)), total);
+        assert.equal(await table(ArtistEntity).count(a => a.name.startsWith(a.name)), total);
+        assert.equal(await table(ArtistEntity).count(a => a.name.endsWith(a.name)), total);
+    });
 });

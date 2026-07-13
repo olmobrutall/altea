@@ -421,11 +421,11 @@ class DbExpressionNominator extends DbExpressionVisitor {
             return undefined;
         switch (`${ns}.${name}`) {
             case "string.contains":
-                return args.length === 1 ? new LikeExpression(source, this.likePattern("%", args[0], "%")) : undefined;
+                return args.length === 1 ? this.translateStringSearch("contains", source, args[0]) : undefined;
             case "string.startsWith":
-                return args.length === 1 ? new LikeExpression(source, this.likePattern("", args[0], "%")) : undefined;
+                return args.length === 1 ? this.translateStringSearch("startsWith", source, args[0]) : undefined;
             case "string.endsWith":
-                return args.length === 1 ? new LikeExpression(source, this.likePattern("%", args[0], "")) : undefined;
+                return args.length === 1 ? this.translateStringSearch("endsWith", source, args[0]) : undefined;
             // Signum's StringExtensions.Like: the pattern is a raw SQL LIKE string
             // (its own % / _ wildcards), passed through verbatim.
             case "string.like":
@@ -702,10 +702,22 @@ class DbExpressionNominator extends DbExpressionVisitor {
         return new SqlFunctionExpression(type, undefined, fn, args);
     }
 
-    private likePattern(prefix: string, expression: Expression, suffix: string): Expression {
-        if (expression instanceof ConstantExpression && typeof expression.value === "string")
-            return new ConstantExpression(`${prefix}${expression.value}${suffix}`);
-        throw new Error("Non-constant LIKE patterns are not implemented yet");
+    // `str.contains/startsWith/endsWith(value)` → Signum's TryCharIndex (it never builds a LIKE
+    // pattern here — the explicit `.like(pattern)` is the LIKE path). A CHARINDEX/strpos of the
+    // (literal) value compared to a position: contains → position >= 1, startsWith → = 1,
+    // endsWith → = 1 over the reversed string and value. SQL Server CHARINDEX(needle, haystack);
+    // Postgres strpos(haystack, needle). Works uniformly for a constant OR a column search value.
+    private translateStringSearch(kind: "contains" | "startsWith" | "endsWith", source: Expression, value: Expression): Expression {
+        const charIndex = (needle: Expression, haystack: Expression) => this.isPostgres
+            ? this.sqlFunction(LiteralType.number, "strpos", haystack, needle)
+            : this.sqlFunction(LiteralType.number, "CHARINDEX", needle, haystack);
+        const reverse = (e: Expression) => this.sqlFunction(LiteralType.string, this.isPostgres ? "reverse" : "REVERSE", e);
+        const one = new SqlConstantExpression(1, LiteralType.number);
+        if (kind === "contains")
+            return new BinaryExpression(">=", charIndex(value, source), one);
+        if (kind === "startsWith")
+            return new BinaryExpression("==", charIndex(value, source), one);
+        return new BinaryExpression("==", charIndex(reverse(value), reverse(source)), one);
     }
 
     // `str.indexOf(value[, startIndex])` → 0-based position. SQL search functions are
