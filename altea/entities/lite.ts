@@ -69,6 +69,18 @@ export abstract class Lite<out T extends Entity> {
         const otherEntity = isEntity ? (other as Entity) : (other as Lite<Entity>).entityOrNull;
         return this.entityOrNull === otherEntity;
     }
+
+    /**
+     * Runtime-type test on this lite: `lite.isInstanceOf(AlbumEntity)` — the method form of
+     * `AlbumEntity.isLite(lite)` and of the `lite instanceof AlbumEntity` operator. It is a
+     * TypeScript type guard (narrows `this` to `Lite<S>`), subtype-inclusive (matches
+     * subclasses), and — unlike the raw `instanceof` operator — honest in memory: a lite is
+     * never a JS instance of the entity class, so it reads the lite's `entityType` instead.
+     * In a quoted query the binder lowers it to a reference type-test (entityIsInstance).
+     */
+    isInstanceOf<S extends Entity>(ctor: abstract new (...args: any[]) => S): this is Lite<S> {
+        return (ctor as unknown as { isLite(lite: Lite<Entity>): boolean }).isLite(this);
+    }
 }
 
 // Query-expression metadata: a lite value (LiteType) routes method calls in a
@@ -76,6 +88,8 @@ export abstract class Lite<out T extends Entity> {
 // lowers it to an id comparison, same as Entity.is. (`lite.entity` is a property,
 // typed by resolveMemberType, so it needs no metadata.)
 quotedFunction(Lite.prototype.is).__resultType = () => LiteralType.boolean;
+// `lite.isInstanceOf(Ctor)` → boolean; the binder lowers it via SmartEqualizer.entityIsInstance.
+quotedFunction(Lite.prototype.isInstanceOf).__resultType = () => LiteralType.boolean;
 
 export class LiteImp<T extends Entity> extends Lite<T> {
     constructor(

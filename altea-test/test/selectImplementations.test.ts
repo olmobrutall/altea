@@ -452,4 +452,58 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
         const bandAuthored = await table(AwardNominationEntity).filter(a => BandEntity.isLite(a.author)).count();
         assert.equal(list.filter(l => l != null).length, bandAuthored);
     });
+
+    // The `instanceof` operator on a LITE is ALWAYS false in the provider (as it is in plain JS —
+    // a lite is never a runtime instance of the entity), so this filter returns NO rows. The real
+    // lite type-test is `AlbumEntity.isLite(lite)` / `lite.isInstanceOf(AlbumEntity)` below.
+    test("SelectIsIBLiteOperatorAlwaysFalse", async () => {
+        const viaOperator = await table(NoteWithDateEntity)
+            .filter(n => n.target.toLite() instanceof AlbumEntity)
+            .map(n => n.target.toLite())
+            .toArray();
+        assert.equal(viaOperator.length, 0);
+        // …while the method form really does find the album-targeted rows.
+        const viaMethod = await table(NoteWithDateEntity).count(n => AlbumEntity.isLite(n.target.toLite()));
+        assert.ok(viaMethod > 0);
+    });
+
+    // The `lite.isInstanceOf(Ctor)` method form inside a query — the same lowering as the operator.
+    test("SelectIsIBLiteIsInstanceOfMethod", async () => {
+        const list = await table(NoteWithDateEntity)
+            .filter(n => n.target.toLite().isInstanceOf(AlbumEntity))
+            .map(n => n.target.toLite())
+            .toArray();
+        assert.ok(list.every(l => l.entityType === AlbumEntity));
+        const viaStatic = await table(NoteWithDateEntity).count(n => AlbumEntity.isLite(n.target.toLite()));
+        assert.equal(list.length, viaStatic);
+    });
+
+    // On an @implementedBy lite field (author = Lite<IAuthorEntity>): the `instanceof` operator is
+    // always-false (empty), the `isInstanceOf` method is the real test (matches `isLite`).
+    test("SelectIsIBALiteOperatorVsMethod", async () => {
+        const viaOperator = await table(AwardNominationEntity).filter(a => a.author instanceof BandEntity).count();
+        const viaMethod = await table(AwardNominationEntity).filter(a => a.author.isInstanceOf(BandEntity)).count();
+        const viaStatic = await table(AwardNominationEntity).count(a => BandEntity.isLite(a.author));
+        assert.equal(viaOperator, 0);
+        assert.equal(viaMethod, viaStatic);
+        assert.ok(viaStatic > 0);
+    });
+
+    // The `instanceof` operator on an ENTITY reference (already worked; locks parity with isInstance).
+    test("SelectAuthorInstanceOfBand", async () => {
+        const viaOperator = await table(AlbumEntity).filter(a => a.author instanceof BandEntity).count();
+        const viaStatic = await table(AlbumEntity).count(a => BandEntity.isInstance(a.author));
+        assert.equal(viaOperator, viaStatic);
+        assert.ok(viaOperator > 0);
+    });
+
+    // In memory: `lite.isInstanceOf(Ctor)` is honest (reads the lite's entityType, subtype-inclusive).
+    // The raw `instanceof` operator can't be — a lite is never a JS instance of the entity — hence the method.
+    test("IsInstanceOfInMemory", async () => {
+        const artist = await table(ArtistEntity).first();
+        const lite = artist.toLite();
+        assert.equal(lite.isInstanceOf(ArtistEntity), true);
+        assert.equal(lite.isInstanceOf(BandEntity), false);
+        assert.equal(lite instanceof ArtistEntity, false); // the operator lies in memory — use isInstanceOf
+    });
 });

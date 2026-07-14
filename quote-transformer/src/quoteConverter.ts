@@ -11,40 +11,6 @@ export function getQuoteConverter(tsInstance: typeof ts2, typeChecker?: ts2.Type
     const ts = tsInstance;
     var printer = ts.createPrinter();
 
-    // `lite instanceof AlbumEntity` is an erasure trap: TypeScript erases `Lite<AlbumEntity>`
-    // to `Lite`, so the test compiles but is always false at runtime (a lite is never an
-    // instance of the entity it points to). Detect an `instanceof` whose LEFT operand is
-    // statically a Lite and whose RIGHT operand is not the `Lite` class itself, and reject it
-    // — the safe form is `AlbumEntity.isLite(lite)` (or `.isInstance(entity)` for an entity).
-    function typeIsLite(type: ts2.Type): boolean {
-        const parts = type.isUnion() ? type.types : [type];
-        return parts.some(t => {
-            if (t.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined | ts.TypeFlags.Any | ts.TypeFlags.Unknown))
-                return false;
-            const sym = t.getSymbol() ?? t.aliasSymbol;
-            if (sym != null && (sym.name === "Lite" || sym.name === "LiteImp"))
-                return true;
-            // Structural fallback: `entityType` is Lite-specific (entities don't have it).
-            return typeChecker!.getPropertyOfType(t, "entityType") != null;
-        });
-    }
-
-    function instanceOfLiteError(node: ts2.BinaryExpression): QuoteError | null {
-        if (typeChecker == null || node.operatorToken.kind !== ts.SyntaxKind.InstanceOfKeyword)
-            return null;
-        // `x instanceof Lite` (asking "is x a lite at all") is fine; only forbid a Lite LHS
-        // against some other class.
-        const rhsSymbol = typeChecker.getSymbolAtLocation(node.right);
-        if (rhsSymbol?.name === "Lite")
-            return null;
-        if (!typeIsLite(typeChecker.getTypeAtLocation(node.left)))
-            return null;
-        const rhsName = ts.isIdentifier(node.right) ? node.right.text : "<EntityType>";
-        return new QuoteError(node,
-            "`instanceof` is unreliable on a Lite: TypeScript erases Lite<T> to Lite, so this is always false at runtime. " +
-            `Use ${rhsName}.isLite(lite) to test a lite's type (or ${rhsName}.isInstance(entity) for an entity).`);
-    }
-
     function binaryOperatorLiteral(sk: ts2.BinaryOperator): string | undefined {
         switch (sk) {
 
@@ -147,10 +113,11 @@ export function getQuoteConverter(tsInstance: typeof ts2, typeChecker?: ts2.Type
             if (literal == null)
                 return new QuoteError(node, "Unable to quote binary operator " + ts.tokenToString(node.operatorToken.kind));
 
-            const liteError = instanceOfLiteError(node);
-            if (liteError != null)
-                return liteError;
-
+            // `lite instanceof Ctor` used to be rejected here. It is now quotable, but the binder
+            // translates it to constant `false` (matching plain JS — a lite is never a runtime
+            // instance of the entity — so the query stays consistent with in-memory execution).
+            // The real lite type-test is `Ctor.isLite(lite)` / `lite.isInstanceOf(Ctor)`; the
+            // `instanceof` operator only does a real test on an actual entity reference.
             const left = quoteExpression(node.left, idents);
             if (left instanceof QuoteError)
                 return left;

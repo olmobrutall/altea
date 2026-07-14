@@ -915,6 +915,12 @@ export class QueryBinder extends ExpressionVisitor {
             if (op === "withHint")
                 return this.bindWithHints(property.object, call.args[0] as ConstantExpression);
 
+            // `lite.isInstanceOf(Ctor)` — the method form of `Ctor.isLite(lite)` / `lite instanceof
+            // Ctor`. The receiver is the lite; the argument is the type. entityIsInstance unwraps
+            // the lite reference (same lowering as `isInstance`/`isLite` and the instanceof operator).
+            if (op === "isInstanceOf")
+                return SmartEqualizer.entityIsInstance(this.visit(property.object), this.constantCtor(call.args[0]));
+
             let source = this.visit(property.object);
 
             // `Ctor.create({ … })` where Ctor is a View subclass: build a typed instance per
@@ -1184,8 +1190,15 @@ export class QueryBinder extends ExpressionVisitor {
     override visitBinary(b: BinaryExpression): Expression {
         if (b.kind === "instanceof") {
             const expr = this.visit(b.left);
-            const ctor = this.constantCtor(b.right);
-            return SmartEqualizer.entityIsInstance(expr, ctor);
+            // `lite instanceof SomeEntity` is ALWAYS false in plain JS — a lite is never a runtime
+            // instance of the entity it points to. A LINQ provider must match in-memory semantics,
+            // so it translates to a constant false (a filter over it returns no rows, exactly like
+            // Array.filter would). The consistent way to type-test a lite is `Ctor.isLite(lite)` /
+            // `lite.isInstanceOf(Ctor)` — both real tests in memory AND in SQL. Only the operator
+            // on an actual entity reference does the type-test (that matches JS `entity instanceof`).
+            if (expr instanceof LiteReferenceExpression)
+                return SmartEqualizer.False;
+            return SmartEqualizer.entityIsInstance(expr, this.constantCtor(b.right));
         }
 
         if (b.kind === "==" || b.kind === "===" || b.kind === "!=" || b.kind === "!==") {
