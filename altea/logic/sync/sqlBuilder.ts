@@ -7,6 +7,7 @@ import type { TableIndex } from '../schema/tableIndex';
 import type { DiffColumn } from './diffModels';
 import { SqlPreCommand, SqlPreCommandSimple, Spacing } from './sqlPreCommand';
 import { chopHash, codify, HASH_SIZE } from './stringHash';
+import { VERSIONING_FUNCTION } from './postgres/versioning';
 
 // Renders dialect-specific DDL fragments from the in-memory schema model. Mirrors
 // Signum's SqlBuilder, scoped to schema *generation*: CREATE SCHEMA / CREATE
@@ -53,6 +54,17 @@ export class SqlBuilder {
             .join('.');
     }
 
+    // Like objectName but always schema-qualified — an empty (default) schema becomes the
+    // dialect default (dbo / public). SQL Server's SYSTEM_VERSIONING HISTORY_TABLE clause
+    // rejects a one-part name, so the history table must be spelled out in two parts.
+    qualifiedName(name: ObjectName): string {
+        const schema = name.schema.name !== '' ? name.schema.name : (this.isPostgres ? 'public' : 'dbo');
+        return [name.schema.database.name, schema, name.name]
+            .filter(p => p !== '')
+            .map(p => this.sqlEscape(p))
+            .join('.');
+    }
+
     // ---- Schemas ------------------------------------------------------------
 
     createSchema(schema: SchemaName): SqlPreCommand {
@@ -67,6 +79,7 @@ export class SqlBuilder {
     // ---- Tables -------------------------------------------------------------
 
     createTableSql(table: Table): SqlPreCommand {
+        const sv = table.systemVersioned;
         const lines = Object.values(table.columns).map(c => this.columnLine(c));
 
         const pk = table.primaryKey.column;
@@ -82,8 +95,49 @@ export class SqlBuilder {
             lines.push(pkConstraint);
         }
 
+        // SQL Server system-versioning: the PERIOD declaration lives in the table body and the
+        // WITH (SYSTEM_VERSIONING = ON …) clause follows the column list; SQL Server auto-creates
+        // the named history table. (Postgres has no native support — the sys_period column is an
+        // ordinary column here; the history table + trigger are emitted separately.)
+        let suffix = '';
+        if (sv != null && !this.isPostgres) {
+            lines.push(`PERIOD FOR SYSTEM_TIME (${this.sqlEscape(sv.startColumnName!)}, ${this.sqlEscape(sv.endColumnName!)})`);
+            // SQL Server requires HISTORY_TABLE in two-part (schema-qualified) form.
+            suffix = `\nWITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = ${this.qualifiedName(sv.historyTableName)}))`;
+        }
+
         const body = lines.map(l => `  ${l}`).join(',\n');
-        return new SqlPreCommandSimple(`CREATE TABLE ${this.objectName(table.name)}(\n${body}\n);`);
+        return new SqlPreCommandSimple(`CREATE TABLE ${this.objectName(table.name)}(\n${body}\n)${suffix};`);
+    }
+
+    // ---- system-versioning (temporal tables) --------------------------------
+
+    // The generic Postgres versioning() trigger function (altea's own — see postgres/versioning.ts).
+    // Installed once before the versioned tables; SQL Server needs no such function (native).
+    createVersioningFunction(): SqlPreCommand {
+        return new SqlPreCommandSimple(VERSIONING_FUNCTION + ';');
+    }
+
+    // Postgres history table: `CREATE TABLE <hist> (LIKE <main>)` copies the column definitions
+    // (names/types/NOT NULL) without PK/identity/FK/indexes — a plain archive of row versions.
+    createHistoryTableSql(table: Table): SqlPreCommand {
+        const sv = table.systemVersioned!;
+        return new SqlPreCommandSimple(`CREATE TABLE ${this.objectName(sv.historyTableName)} (LIKE ${this.objectName(table.name)});`);
+    }
+
+    // Postgres per-table versioning trigger, emitted as a one-liner. Passes the generic function
+    // the sys_period column, the (qualified) history table, and the comma-separated column list
+    // (every physical column except sys_period) — the Option C design.
+    createVersioningTrigger(table: Table): SqlPreCommand {
+        const sv = table.systemVersioned!;
+        const sysPeriod = sv.postgresSysPeriodColumnName!;
+        const cols = Object.values(table.columns)
+            .filter(c => c.name !== sysPeriod)
+            .map(c => this.sqlEscape(c.name))
+            .join(',');
+        return new SqlPreCommandSimple(
+            `CREATE TRIGGER versioning_trigger BEFORE INSERT OR UPDATE OR DELETE ON ${this.objectName(table.name)} ` +
+            `FOR EACH ROW EXECUTE FUNCTION versioning('${sysPeriod}', '${this.objectName(sv.historyTableName)}', '${cols}');`);
     }
 
     // A single column declaration: name type [IDENTITY] (NULL|NOT NULL) [DEFAULT].
@@ -91,6 +145,10 @@ export class SqlBuilder {
         const parts: (string | undefined)[] = [
             this.sqlEscape(c.name),
             this.getColumnType(c),
+            // SQL Server period columns are engine-maintained row start/end timestamps.
+            // (Postgres' sys_period is an ordinary tstzrange column — no marker here.)
+            c.systemVersion === 'start' ? 'GENERATED ALWAYS AS ROW START HIDDEN'
+                : c.systemVersion === 'end' ? 'GENERATED ALWAYS AS ROW END HIDDEN' : undefined,
             c.identity ? (this.isPostgres ? 'GENERATED ALWAYS AS IDENTITY' : 'IDENTITY') : undefined,
             c.collation != null ? `COLLATE ${c.collation}` : undefined,
             isNullableToBool(c.nullable) ? 'NULL' : 'NOT NULL',

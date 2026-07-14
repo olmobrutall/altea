@@ -213,6 +213,25 @@ open cur
 close cur
 deallocate cur`;
 
+        // A system-versioned (temporal) table can't be dropped while SYSTEM_VERSIONING is ON, and
+        // its history table is locked to it — so turn versioning OFF first, which detaches both
+        // into ordinary tables the `tables` step can then drop. temporal_type 2 = the versioned
+        // main table (its history table is 1, freed by the same ALTER).
+        const disableVersioning = `declare @schema nvarchar(128), @tbl nvarchar(128)
+DECLARE @sql nvarchar(255)
+declare cur cursor fast_forward for
+select s.name, t.name from sys.tables t join sys.schemas s on t.schema_id = s.schema_id where t.temporal_type = 2
+open cur
+    fetch next from cur into @schema, @tbl
+    while @@fetch_status <> -1
+    begin
+        select @sql = 'ALTER TABLE [' + @schema + '].[' + @tbl + '] SET (SYSTEM_VERSIONING = OFF);'
+        exec sp_executesql @sql
+        fetch next from cur into @schema, @tbl
+    end
+close cur
+deallocate cur`;
+
         const constraints = `declare @schema nvarchar(128), @tbl nvarchar(128), @constraint nvarchar(128)
 DECLARE @sql nvarchar(255)
 declare cur cursor fast_forward for
@@ -261,6 +280,6 @@ open cur
 close cur
 deallocate cur`;
 
-        return [procedures, views, constraints, tables, schemas];
+        return [procedures, views, disableVersioning, constraints, tables, schemas];
     }
 }

@@ -15,7 +15,8 @@ import { Saver } from './saver';
 import { retrieve } from './Database';
 import { table } from './table';
 import { quotedFunction, Query } from './query';
-import { ArrayType, FunctionType, LiteType, LiteralType, Type } from '../entities/types';
+import { ArrayType, FunctionType, LiteType, LiteralType, Type, IntervalType, TemporalType } from '../entities/types';
+import { NullableInterval } from '../entities/systemTime';
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, ParameterExpression, PropertyExpression } from './linq/expressions';
 import { ExpressionVisitor } from './linq/visitors/ExpressionVisitor';
 
@@ -52,6 +53,11 @@ declare module '../entities/entity' {
         // the concrete implementations.
         combineUnion(): this;
         combineCase(): this;
+        // The system-versioning period of this row version (Signum's SystemPeriod()) — only
+        // valid inside a query over a @systemVersioned table (throws at runtime otherwise). The
+        // binder lowers it to the period columns; `.min`/`.max` are translatable, and a projected
+        // period materialises to a NullableInterval whose `.overlaps`/`.contains` run in memory.
+        systemPeriod(): NullableInterval;
     }
 }
 
@@ -86,6 +92,16 @@ quotedFunction(combineUnion).__resultType = (ot: Type) => ot;
 quotedFunction(combineCase).__resultType = (ot: Type) => ot;
 (Entity.prototype as any).combineUnion = combineUnion;
 (Entity.prototype as any).combineCase = combineCase;
+
+// entity.systemPeriod() — query-only (Signum's SystemPeriod). At runtime it has no meaning
+// (throws); in a query the binder lowers it to the versioned table's period columns. `__resultType`
+// is what the quote front-end reads to type the call: an IntervalType over dateTime, so `.min`/
+// `.max` resolve to a (nullable) dateTime and a projected period materialises to a NullableInterval.
+const systemPeriod = function (this: Entity): NullableInterval {
+    throw new Error("systemPeriod() is only valid inside a query over a @systemVersioned table.");
+};
+quotedFunction(systemPeriod).__resultType = () => new IntervalType(new TemporalType('dateTime'));
+(Entity.prototype as any).systemPeriod = systemPeriod;
 
 // Entity → query bridge (Signum's Database.InDB): a one-row query filtered to this
 // entity's id. `inDB(selector)` projects and takes the single row. Used at the top

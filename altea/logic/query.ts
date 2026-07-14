@@ -5,6 +5,7 @@ import { IQuery, IOrderedQuery } from "../entities/iquery";
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, MethodExpander, PropertyExpression } from "./linq/expressions";
 import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType, QuotedFunction, quotedFunction, LambdaTypeResolver, ResultTypeResolver } from "../entities/types";
 import { toInt, toLong, toDecimal, inSql } from "../entities/basics";
+import { SystemTime } from "../entities/systemTime";
 
 // The query-expression metadata carrier (QuotedFunction) and its cast helper
 // (quotedFunction) live in entities/types so entity classes can attach metadata to
@@ -471,6 +472,19 @@ export class Query<T> implements IQuery<T> {
         var call = new CallExpression(
             new PropertyExpression(this.expression, "withHint"),
             [new ConstantExpression(hint)],
+            this.type);
+        return new Query<T>(call, this.translator);
+    }
+
+    // table(T).overrideSystemTime(new SystemTime.AsOf(instant) | .All(…) | …) — query a
+    // system-versioned table's history for THIS query only (Signum's OverrideSystemTime), the
+    // per-query counterpart of the ambient SystemTime.override(). The SystemTime travels as a
+    // constant the binder reads onto the versioned table's TableExpression.
+    @resultType(ot => ot)
+    overrideSystemTime(systemTime: SystemTime): Query<T> {
+        var call = new CallExpression(
+            new PropertyExpression(this.expression, "overrideSystemTime"),
+            [new ConstantExpression(systemTime)],
             this.type);
         return new Query<T>(call, this.translator);
     }

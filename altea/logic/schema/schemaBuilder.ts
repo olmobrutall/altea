@@ -31,6 +31,7 @@ import { NameSequence } from './nameSequence';
 import { ObjectName, SchemaName, defaultSchemaName } from './objectName';
 import { Schema } from './schema';
 import { Table, FluentTable } from './table';
+import { SystemVersionedInfo } from './systemVersioned';
 import { TableIndex, recordAccessedFields } from './tableIndex';
 import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../entities/enumEntity';
@@ -268,7 +269,31 @@ export class SchemaBuilder {
         }
 
         table.generateColumns();
+        this.applySystemVersioning(table, typeInfo);
         this.generateIndexes(table, typeInfo);
+    }
+
+    // @systemVersioned (Signum's [SystemVersioned]): attach the dialect-specific
+    // SystemVersionedInfo and add the period columns to the physical layout. SQL Server keeps
+    // a start/end datetime2 pair (GENERATED ALWAYS AS ROW START/END HIDDEN); Postgres a single
+    // sys_period tstzrange. The history table (default `<Table>History`) is auto-created by SQL
+    // Server via SYSTEM_VERSIONING, or by `CREATE TABLE … (LIKE …)` + a versioning trigger on PG.
+    private applySystemVersioning(table: Table, typeInfo: TypeInfo): void {
+        const cfg = typeInfo.systemVersioned;
+        if (cfg == null)
+            return;
+        // Default history table name: snake `<table>_history` on Postgres, `<Table>History` on
+        // SQL Server — each unquoted-clean in its dialect (overridable via the decorator).
+        const defaultHistory = table.name.name + (this.settings.isPostgres ? '_history' : 'History');
+        const historyName = new ObjectName(cfg.historyTableName ?? defaultHistory, table.name.schema);
+        const sv = this.settings.isPostgres
+            ? SystemVersionedInfo.postgres(historyName, cfg.sysPeriodColumnName ?? this.colName('SysPeriod'))
+            : SystemVersionedInfo.sqlServer(historyName,
+                cfg.startColumnName ?? this.colName('SysStartDate'),
+                cfg.endColumnName ?? this.colName('SysEndDate'));
+        table.systemVersioned = sv;
+        for (const col of sv.columns())
+            table.columns[col.name] = col;
     }
 
     // Builds the table's indexes (Signum's Table.GenerateAllIndexes): an automatic non-unique

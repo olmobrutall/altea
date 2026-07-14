@@ -41,7 +41,22 @@ export function createTablesScript(schema: Schema): SqlPreCommand | undefined {
     const createTables = SqlPreCommand.combine(Spacing.Double, ...tables.map(t => sqlBuilder.createTableSql(t)));
     const foreignKeys = SqlPreCommand.combine(Spacing.Double, ...tables.map(t => sqlBuilder.alterTableForeignKeys(t)));
 
-    return SqlPreCommand.combine(Spacing.Triple, createTables, foreignKeys);
+    // Postgres system-versioning: after the main tables (and FKs), install the generic
+    // versioning() function once, then a `(LIKE main)` history table + a one-liner trigger per
+    // versioned table. SQL Server handles all of this natively via WITH SYSTEM_VERSIONING (in
+    // createTableSql), so this block is Postgres-only.
+    let versioning: SqlPreCommand | undefined;
+    if (sqlBuilder.isPostgres) {
+        const versioned = tables.filter(t => t.systemVersioned != null);
+        if (versioned.length > 0) {
+            versioning = SqlPreCommand.combine(Spacing.Double,
+                sqlBuilder.createVersioningFunction(),
+                ...versioned.map(t => sqlBuilder.createHistoryTableSql(t)),
+                ...versioned.map(t => sqlBuilder.createVersioningTrigger(t)));
+        }
+    }
+
+    return SqlPreCommand.combine(Spacing.Triple, createTables, foreignKeys, versioning);
 }
 
 // CREATE INDEX for every table's indexes (the automatic FK indexes + @index/@uniqueIndex +

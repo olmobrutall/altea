@@ -42,6 +42,15 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
 
     let databaseTables = isPostgres ? await getPostgresDescription() : await getSqlServerDescription();
 
+    // A system-versioned table's history table (SQL Server auto-creates it via SYSTEM_VERSIONING;
+    // Postgres has an explicit `(LIKE main)` copy) exists in the database but is NOT a standalone
+    // model table — so drop it from the diff, else it reads as an "extra" table and gets dropped
+    // (Signum's modelTablesHistory). Its columns track the main table's: automatically on SQL
+    // Server, and via the versioned-table drift path on Postgres.
+    for (const t of schema.tables.values())
+        if (t.systemVersioned != null)
+            databaseTables.delete(t.systemVersioned.historyTableName.toString());
+
     replacements.askForReplacements(new Set(databaseTables.keys()), new Set(modelTables.keys()), Replacements.keyTables);
     databaseTables = replacements.applyReplacementsToOld(databaseTables, Replacements.keyTables);
 

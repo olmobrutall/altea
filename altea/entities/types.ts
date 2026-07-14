@@ -62,6 +62,16 @@ export class ObjectType extends Type {
     }
 }
 
+// A time period (Signum's NullableInterval<DateTime>) — the result of `entity.systemPeriod()`
+// on a system-versioned table. `.min`/`.max` are the (nullable) bounds of `elementType`
+// (a dateTime); the whole value materialises to a NullableInterval whose `.overlaps`/`.contains`
+// run in memory. The binder lowers it to an IntervalExpression over the period columns.
+export class IntervalType extends Type {
+    constructor(public readonly boundType: Type) {
+        super()
+    }
+}
+
 // An enum column/value. Stored as its underlying int, but carries the enum object
 // so the query layer can translate `.toString()` to a value→name CASE.
 export class EnumType extends Type {

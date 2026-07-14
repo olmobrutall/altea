@@ -5,7 +5,7 @@ import {
     entity, partEntity, mixin, primaryKey,
     implementedBy, implementedByAll, backReference, rowOrder, valueField,
     include, stringLengthValidator, EntityData, EntityKind,
-    quoted, column, forceNullable, tableName, viewPrimaryKey,
+    quoted, column, forceNullable, tableName, viewPrimaryKey, systemVersioned,
 } from "@altea/altea/entities/decorators";
 import { Temporal, int, toInt } from "@altea/altea/entities/basics";
 import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
@@ -366,6 +366,7 @@ export class ConfigEntity_Awards extends Entity {
 }
 
 @reflect
+@systemVersioned
 export class FolderEntity extends Entity {
     name: string;
     parent: Lite<FolderEntity> | null;
