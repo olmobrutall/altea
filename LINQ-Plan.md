@@ -161,7 +161,10 @@ a spec.
   `since(x).total(unit)` diff.
 - `view()`/temp tables, `OrderAlsoByKeys`
   (stable pagination over a non-unique key).
-- Deferred subsystems: FullText, Vector (pgvector), SystemTime/temporal.
+- Deferred subsystems: FullText, Vector (pgvector). **SystemTime / system-versioned
+  (temporal) tables are IMPLEMENTED** (see the SystemTime section below); only the dynamic
+  time-series path (`AsOfExpression` / `QueryTimeSeriesLogic`) and the SQL-Server
+  enable/disable-versioning schema transitions remain out of scope.
 - `TypeLogic` "Sync" (load ids from the DB instead of computing them) and
   `TypeEntity` unique indexes; the documented out-of-scope `unsafe*` cases
   (`Clock.now`, identity-insert, MList row-index, typed-NULL-in-CASE).
@@ -175,6 +178,50 @@ a spec.
   of `visitChildProjection`) plus the `isLazyMList` split in `ChildProjectionFlattener`.
   **Kept for now only** so the generated SQL still matches Signum's Eager/Lazy execution
   order for the `sqlcmp` comparison; do this once that comparison is no longer needed.
+
+## SystemTime / system-versioned (temporal) tables
+
+Faithful port of Signum's system-versioned tables + `SystemTime` query scope, on BOTH
+dialects. Enable per entity with `@systemVersioned`; query a past state with
+`SystemTime.override(st, () => query…)` (the async-scoped analogue of Signum's
+`using (SystemTime.Override(st))`), and project a row's period with `entity.systemPeriod()`.
+Core modes only: `AsOf` / `All` / `Between` / `ContainedIn` / `HistoryTable` (the dynamic
+`AsOfExpression` / time-series path is out of scope).
+
+- **Model** — `@systemVersioned` → `SystemVersionedInfo` on the `Table` (`logic/schema/
+  systemVersioned.ts`): SQL Server keeps two `datetime2 GENERATED ALWAYS AS ROW START/END
+  HIDDEN` period columns; Postgres keeps one `sys_period tstzrange` column + an explicit
+  history table.
+- **DDL** (`sqlBuilder.createTableSql`) — SQL Server emits `PERIOD FOR SYSTEM_TIME` +
+  `WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = …))` and the engine maintains history
+  natively. Postgres has no native support: altea installs its own generic `versioning()`
+  plpgsql function (Option C — `logic/sync/postgres/versioning.ts`, no third-party
+  dependency), a `(LIKE main)` history table, and a one-liner trigger carrying
+  `(sys_period, historyTable, columnList)`.
+- **Query** — the binder stamps the ambient `SystemTime` onto the versioned `TableExpression`.
+  SQL Server renders `… FOR SYSTEM_TIME AS OF / BETWEEN / CONTAINED IN / ALL`. Postgres has
+  no such clause, so `DuplicateHistory` (Postgres-only, runs last in the optimize pipeline)
+  rewrites the versioned table into `UNION ALL(main, history)` with a `sys_period` range
+  predicate (`@>` / `&&` / `<@`). `systemPeriod()` materialises as a `NullableInterval`.
+- **Sync drift** (`schemaSynchronizer`) — SQL Server keeps versioning ON and propagates every
+  column change to history automatically, so the ordinary column diff on the main table is
+  enough. Postgres is manual: the column diff is built as `SqlPreCommandWithHistory` pairs
+  (Signum's `SqlPreCommand_WithHistory`) whose `forNormal` half runs on the main table and
+  `forHistory` half replays on the history table; a `historyTables` pass owns the history
+  table's create/drop; and a `versioningTriggers` pass re-emits the trigger via
+  `CREATE OR REPLACE` when its decoded `tgargs` (history table + column list) drift from
+  `SqlBuilder.versioningTriggerArgs`. The reader detects versioning off the Postgres
+  `versioning` trigger (`PgTrigger`) and decodes `pg_trigger.tgargs`.
+- **Deferred (documented in-code):** the dynamic `AsOfExpression` / `QueryTimeSeriesLogic`
+  path; SQL Server enable/disable-versioning schema transitions, `DropTable`-disable-first, and
+  `StrongColumnChanges` (unreachable for an always-versioned entity — they need Signum's
+  delayed-command + `GoBefore`/`GoAfter` ordering machinery); Postgres history-*table* RENAME
+  on an entity-table rename (needs Signum's `RenameOrMove` row move — currently recreates the
+  history table); column-default forking on history (altea's versioned entities declare none).
+- **Refs** — `logic/systemTime.ts` (API, `AsyncLocalStorage`-scoped), `logic/linq/visitors/
+  DuplicateHistory.ts`, `logic/sync/{sqlBuilder,schemaSynchronizer,sqlPreCommand}.ts`,
+  `logic/sync/postgres/{versioning,postgresCatalog,postgresCatalogSchema}.ts`; tests in
+  `altea-test/test/{systemTime,schemaSynchronizer}.test.ts`.
 
 ## Key divergences from Signum
 
@@ -277,7 +324,8 @@ a spec.
 | `AssignAdapterExpander` (nested in QueryBinder.cs) | `logic/linq/visitors/AssignAdapterExpander.ts` | Ported (scoped) |
 | `Engine/Basics/TypeLogic.cs` + `Basics/Type.cs` | `logic/typeLogic.ts` + `entities/typeEntity.ts` | Ported (no Sync; ids computed) |
 | `IMethodExpander` / `ExpressionCleaner` | `@methodExpander` (`query.ts`) + `ExpressionSimplifier` hook | Ported (scoped) |
-| `AliasProjectionReplacer`, `UnusedColumnRemover`, `AliasGatherer`, `DbExpressionComparer`, `DuplicateHistory`, `QueryFilterer`, `AsOfExpressionVisitor`, `Meta/*` | none | Not ported |
+| `ExpressionVisitor/DuplicateHistory.cs` | `logic/linq/visitors/DuplicateHistory.ts` | Ported (Postgres-only — system-versioned UNION rewrite) |
+| `AliasProjectionReplacer`, `UnusedColumnRemover`, `AliasGatherer`, `DbExpressionComparer`, `QueryFilterer`, `AsOfExpressionVisitor`, `Meta/*` | none | Not ported |
 
 `logic/linq/expressions.ts` has no direct Signum mapping — it is the altea
 source-expression model bridging `quote-transformer` into the SQL pipeline.
@@ -286,8 +334,9 @@ source-expression model bridging `quote-transformer` into the SQL pipeline.
 
 Ported LinqProvider suites live in `altea-test/test/*.test.ts` (one per Signum
 `LinqProvider/*.cs`), plus the DB-free `binder.test.ts` (27). All bodies are
-uncommented (the compile-clean API-stability gate). Suites not ported:
-`FullTextSearch`, `SystemTime`, `VectorSearch` (need features altea doesn't model).
+uncommented (the compile-clean API-stability gate). `SystemTimeTest` IS ported
+(`systemTime.test.ts`, core modes — see the SystemTime section). Suites not ported:
+`FullTextSearch`, `VectorSearch` (need features altea doesn't model).
 Per-suite pass counts move with each tier; use a live run for the current numbers.
 
 **Prefer the `globals.ts` in-memory operators in ported tests** so the TypeScript

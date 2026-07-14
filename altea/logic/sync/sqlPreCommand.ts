@@ -121,3 +121,53 @@ export class SqlPreCommandConcat extends SqlPreCommand {
 export function combineCommands(spacing: Spacing, commands: (SqlPreCommand | undefined)[]): SqlPreCommand | undefined {
     return SqlPreCommand.combine(spacing, ...commands);
 }
+
+// Port of Signum's SqlPreCommand_WithHistory (Engine/Sync/SqlPreCommand.cs). A single node
+// carrying BOTH a `normal` command (targeting the main table) and its `history` counterpart
+// (the same change retargeted at the system-versioned history table). The synchronizer builds a
+// column diff whose commands are these pairs, then splits the tree into two streams with the
+// static `forNormal` / `forHistory` — the main-table script and the (delayed) history-table
+// script. On SQL Server the history table follows the main automatically, so the diff is never
+// built with-history and these never appear; they are Postgres-only (altea's history table is an
+// explicit `(LIKE main)` copy that must be maintained by hand). A WithHistory node must be split
+// before rendering — leaves()/plainSql() throw if one survives into the final tree.
+export class SqlPreCommandWithHistory extends SqlPreCommand {
+    constructor(
+        public readonly normal: SqlPreCommand | undefined,
+        public readonly history: SqlPreCommand | undefined,
+    ) {
+        super();
+    }
+
+    leaves(): SqlPreCommandSimple[] {
+        throw new Error("SqlPreCommandWithHistory must be resolved via forNormal/forHistory before execution");
+    }
+
+    plainSql(): string {
+        throw new Error("SqlPreCommandWithHistory must be resolved via forNormal/forHistory before rendering");
+    }
+
+    // The main-table stream: plain commands pass through, concats recurse, a WithHistory node
+    // yields its `normal` half (Signum's ForNormal).
+    static forNormal(command: SqlPreCommand | undefined): SqlPreCommand | undefined {
+        if (command == null)
+            return undefined;
+        if (command instanceof SqlPreCommandWithHistory)
+            return command.normal;
+        if (command instanceof SqlPreCommandConcat)
+            return SqlPreCommand.combine(command.spacing, ...command.commands.map(c => SqlPreCommandWithHistory.forNormal(c)));
+        return command; // SqlPreCommandSimple
+    }
+
+    // The history-table stream: plain commands pass through, concats recurse, a WithHistory node
+    // yields its `history` half (Signum's ForHistory).
+    static forHistory(command: SqlPreCommand | undefined): SqlPreCommand | undefined {
+        if (command == null)
+            return undefined;
+        if (command instanceof SqlPreCommandWithHistory)
+            return command.history;
+        if (command instanceof SqlPreCommandConcat)
+            return SqlPreCommand.combine(command.spacing, ...command.commands.map(c => SqlPreCommandWithHistory.forHistory(c)));
+        return command; // SqlPreCommandSimple
+    }
+}

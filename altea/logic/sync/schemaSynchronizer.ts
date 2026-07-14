@@ -7,7 +7,7 @@ import type { TableIndex } from "../schema/tableIndex";
 import { AbstractDbType } from "../schema/dbType";
 import { DiffColumn, DiffTable, DiffIndex, DiffIndexColumn } from "./diffModels";
 import { SqlBuilder, DefaultConstraint } from "./sqlBuilder";
-import { SqlPreCommand, SqlPreCommandSimple, Spacing } from "./sqlPreCommand";
+import { SqlPreCommand, SqlPreCommandSimple, SqlPreCommandWithHistory, Spacing } from "./sqlPreCommand";
 import { Synchronizer, Replacements } from "./synchronizer";
 import { getDatabaseDescription as getSqlServerDescription } from "./sqlServer/sysTablesSchema";
 import { getDatabaseDescription as getPostgresDescription } from "./postgres/postgresCatalogSchema";
@@ -44,12 +44,25 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
 
     // A system-versioned table's history table (SQL Server auto-creates it via SYSTEM_VERSIONING;
     // Postgres has an explicit `(LIKE main)` copy) exists in the database but is NOT a standalone
-    // model table — so drop it from the diff, else it reads as an "extra" table and gets dropped
-    // (Signum's modelTablesHistory). Its columns track the main table's: automatically on SQL
-    // Server, and via the versioned-table drift path on Postgres.
-    for (const t of schema.tables.values())
-        if (t.systemVersioned != null)
-            databaseTables.delete(t.systemVersioned.historyTableName.toString());
+    // model table — so drop it from the main diff, else it reads as an "extra" table and gets
+    // dropped (Signum's modelTablesHistory). Its columns track the main table's: automatically on
+    // SQL Server, and — since Postgres has no native support — via a dedicated history-table drift
+    // pass below. Capture the diffed history tables (keyed by history name) and a parallel map of
+    // the owning MODEL tables so that pass can diff them; both are Postgres-only.
+    const modelTablesHistory = new Map<string, Table>();
+    const databaseTablesHistory = new Map<string, DiffTable>();
+    for (const t of schema.tables.values()) {
+        if (t.systemVersioned == null)
+            continue;
+        const historyKey = t.systemVersioned.historyTableName.toString();
+        if (isPostgres) {
+            modelTablesHistory.set(historyKey, t);
+            const diffHistory = databaseTables.get(historyKey);
+            if (diffHistory != null)
+                databaseTablesHistory.set(historyKey, diffHistory);
+        }
+        databaseTables.delete(historyKey);
+    }
 
     replacements.askForReplacements(new Set(databaseTables.keys()), new Set(modelTables.keys()), Replacements.keyTables);
     databaseTables = replacements.applyReplacementsToOld(databaseTables, Replacements.keyTables);
@@ -119,6 +132,15 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
     );
 
     // ---- create / drop / alter tables ---------------------------------------
+    // On Postgres a system-versioned table's column changes must also be applied to its explicit
+    // `(LIKE main)` history table. Following Signum, the column diff is built ONCE and each command
+    // is a SqlPreCommandWithHistory carrying a `normal` (main table) and `history` (history table)
+    // variant; `forNormal` feeds the main script here, `forHistory` is collected into
+    // `delayedHistoryColumns` and replayed on the history table after the main tables. SQL Server
+    // keeps versioning ON and propagates automatically, so it is never built with-history. (Signum
+    // additionally forks for its SS disable/enable strong-change path — deferred in altea.)
+    const delayedHistoryColumns: (SqlPreCommand | undefined)[] = [];
+
     const tables = Synchronizer.synchronizeScript(
         Spacing.Double,
         modelTables,
@@ -128,37 +150,103 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
         (tn, tab, dif) => {
             const rename = dif.name.toString() !== tab.name.toString() ? sqlBuilder.renameTable(dif.name, tab.name.name) : undefined;
 
+            // Fork column changes to the history table only when the model is versioned AND the DB
+            // is actually versioned (the trigger is present) — Signum's `withHistory` gate. On a
+            // freshly-versioned table with no trigger yet, the history table is created afresh
+            // (LIKE main) by the historyTables pass, so there is nothing to replay.
+            const withHistory = isPostgres && tab.systemVersioned != null && dif.versioningTrigger != null;
+
             const columnBoth = Synchronizer.synchronizeScript(
                 Spacing.Simple,
                 colMap(tab.columns),
                 colMap(dif.columns),
-                (cn, tabCol) => alterTableAddColumn(sqlBuilder, tab, tabCol),
+                (cn, tabCol) => alterTableAddColumnDefault(sqlBuilder, tab, tabCol, withHistory),
                 (cn, difCol) => SqlPreCommand.combine(Spacing.Simple,
                     difCol.defaultConstraint?.name != null ? sqlBuilder.alterTableDropConstraint(tab.name, difCol.defaultConstraint.name) : undefined,
-                    sqlBuilder.alterTableDropColumn(tab.name, cn)),
+                    sqlBuilder.alterTableDropColumn(tab, cn, withHistory)),
                 (cn, tabCol, difCol) => {
                     if (!difCol.compatibleTypes(tabCol) || difCol.identity !== tabCol.identity) {
-                        // Incompatible: drop and recreate the column.
+                        // Incompatible: drop and recreate the column (with a zero/empty backfill),
+                        // forking both to the history table when versioned.
+                        const addColumn = withHistory
+                            ? new SqlPreCommandWithHistory(
+                                alterTableAddColumnDefaultZero(sqlBuilder, tab, tabCol, /* forHistory */ false),
+                                alterTableAddColumnDefaultZero(sqlBuilder, tab, tabCol, /* forHistory */ true))
+                            : alterTableAddColumnDefaultZero(sqlBuilder, tab, tabCol, /* forHistory */ false);
                         return SqlPreCommand.combine(Spacing.Simple,
                             difCol.defaultConstraint != null ? sqlBuilder.alterTableDropDefaultConstaint(tab.name, difCol.name, difCol.defaultConstraint.name) : undefined,
-                            sqlBuilder.alterTableDropColumn(tab.name, difCol.name),
-                            alterTableAddColumn(sqlBuilder, tab, tabCol));
+                            sqlBuilder.alterTableDropColumn(tab, difCol.name, withHistory),
+                            addColumn);
                     }
 
                     const columnEquals = difCol.columnEquals(tabCol, /* ignorePrimaryKey */ true, /* ignoreIdentity */ false);
                     const defaultEquals = difCol.defaultEquals(tabCol);
 
+                    // NOTE: the default-constraint drop/add stay main-only (plain) — Signum forks
+                    // the drop too, but altea's system-versioned entities never declare column
+                    // defaults, so this branch can't fork in practice (documented divergence).
                     return SqlPreCommand.combine(Spacing.Simple,
-                        difCol.name === tabCol.name ? undefined : sqlBuilder.renameColumn(tab.name, difCol.name, tabCol.name),
+                        difCol.name === tabCol.name ? undefined : sqlBuilder.renameColumn(tab, difCol.name, tabCol.name, withHistory),
                         (!columnEquals || !defaultEquals) && difCol.defaultConstraint != null ? sqlBuilder.alterTableDropDefaultConstaint(tab.name, difCol.name, difCol.defaultConstraint.name) : undefined,
-                        columnEquals ? undefined : sqlBuilder.alterTableAlterColumn(tab, tabCol, difCol),
+                        columnEquals ? undefined : sqlBuilder.alterTableAlterColumn(tab, tabCol, difCol, withHistory),
                         (!columnEquals || !defaultEquals) && tabCol.default != null ? sqlBuilder.alterTableAddDefaultConstraint(tab.name, sqlBuilder.getDefaultConstaint(tab.name, tabCol)!) : undefined);
                 },
             );
 
-            return SqlPreCommand.combine(Spacing.Simple, rename, columnBoth);
+            const columns = SqlPreCommandWithHistory.forNormal(columnBoth);
+            if (withHistory) {
+                const columnsHistory = SqlPreCommandWithHistory.forHistory(columnBoth);
+                if (columnsHistory != null)
+                    delayedHistoryColumns.push(columnsHistory);
+            }
+
+            return SqlPreCommand.combine(Spacing.Simple, rename, columns);
         },
     );
+
+    // ---- Postgres history tables + versioning triggers -----------------------
+    // SQL Server maintains the history table automatically, so both passes are Postgres-only.
+    // `historyTables` owns only the history table's own lifecycle — CREATE (LIKE main) when
+    // missing, DROP when the model is no longer versioned — mirroring Signum's historyTables pass;
+    // its COLUMNS are kept in step by the delayed `forHistory` replay above, not by an independent
+    // diff. mergeBoth is a no-op: both maps are keyed by the model history name, so a match means
+    // the DB history table already has the right name. A history-table RENAME (which only arises
+    // when the entity's own table is renamed) would need the Replacements/RenameOrMove wiring
+    // Signum uses to move rows across the old→new name; that is deferred, so an entity-table rename
+    // currently recreates the history table (via createNew/removeOld) rather than renaming it.
+    const historyTables = !isPostgres ? undefined : Synchronizer.synchronizeScript(
+        Spacing.Double,
+        modelTablesHistory,
+        databaseTablesHistory,
+        (hn, tab) => sqlBuilder.createHistoryTableSql(tab),
+        (hn, dif) => sqlBuilder.dropTable(dif.name),
+        (_hn, _tab, _dif) => undefined,
+    );
+
+    // The versioning trigger: create it when the model is versioned but the DB has none, drop it
+    // when the model is no longer versioned, and CREATE OR REPLACE it when its stored arguments
+    // (the sys_period column, history table, AND — Option C — the column list) drifted from what
+    // the model would emit. The args come from the reader's decode of pg_trigger.tgargs; comparing
+    // them (Signum compares the parsed history-table name via ParseVersionFunctionParam — altea
+    // also compares the column list, which its generic function carries).
+    const versioningTriggers = !isPostgres ? undefined : Synchronizer.synchronizeScript(
+        Spacing.Double,
+        modelTables,
+        databaseTables,
+        (tn, tab) => tab.systemVersioned != null ? sqlBuilder.createVersioningTrigger(tab) : undefined,
+        undefined,
+        (tn, tab, dif) => {
+            if (tab.systemVersioned == null)
+                return dif.versioningTrigger == null ? undefined : sqlBuilder.dropVersioningTrigger(tab.name, dif.versioningTrigger.tgname);
+            if (dif.versioningTrigger == null)
+                return sqlBuilder.createVersioningTrigger(tab);
+            return triggerArgsEqual(dif.versioningTrigger.args, sqlBuilder.versioningTriggerArgs(tab))
+                ? undefined
+                : sqlBuilder.createVersioningTrigger(tab, /* replace */ true);
+        },
+    );
+
+    const delayedHistory = SqlPreCommand.combine(Spacing.Double, ...delayedHistoryColumns);
 
     // ---- add foreign keys ----------------------------------------------------
     const addForeignKeys = Synchronizer.synchronizeScript(
@@ -213,7 +301,10 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
         ),
     );
 
-    return SqlPreCommand.combine(Spacing.Triple, dropForeignKeys, dropIndices, tables, addForeignKeys, addIndices);
+    // Order: main tables, then the history tables' own lifecycle, then the delayed history-column
+    // replay (targets history tables that now exist), then the trigger re-emit last (after the
+    // history columns match). historyTables/delayedHistory/versioningTriggers are no-ops on SS.
+    return SqlPreCommand.combine(Spacing.Triple, dropForeignKeys, dropIndices, tables, historyTables, delayedHistory, versioningTriggers, addForeignKeys, addIndices);
 }
 
 // ---- helpers ----------------------------------------------------------------
@@ -256,18 +347,71 @@ function isColumnRemovedOrModified(tab: Table, dif: DiffTable, c: DiffIndexColum
     return tc == null || !dif.columns[newName].columnEquals(tc, /* ignorePrimaryKey */ true, /* ignoreIdentity */ true);
 }
 
-// Add a column, seeding a temporary default for a NOT NULL column so existing rows get a
-// value (Signum's AlterTableAddColumnDefault, trimmed: no HasValue/PartitionId/history
-// special cases — those don't occur when syncing a freshly generated DB).
-function alterTableAddColumn(sqlBuilder: SqlBuilder, table: Table, column: IColumn): SqlPreCommand {
-    if (column.nullable !== "No" || column.identity || column.default != null)
-        return sqlBuilder.alterTableAddColumn(table.name, column);
+// Port of Signum's AlterTableAddColumnDefault (scoped: no Forced/HasValue/PartitionId/Embedded
+// paths — altea's columns are plain value / reference / identity-PK / period). Adds a column,
+// seeding a temporary default so a NOT NULL column's existing rows are backfilled, then dropping
+// it. When `withHistory`, returns a SqlPreCommandWithHistory whose history half retargets the same
+// add at the history table — which HAS rows, so the backfill matters there too.
+function alterTableAddColumnDefault(sqlBuilder: SqlBuilder, table: Table, column: IColumn, withHistory: boolean): SqlPreCommand {
+    const addColumnWithHistory = (): SqlPreCommand => !withHistory
+        ? sqlBuilder.alterTableAddColumn(table, column)
+        : new SqlPreCommandWithHistory(
+            sqlBuilder.alterTableAddColumn(table, column),
+            sqlBuilder.alterTableAddColumn(table, column, undefined, /* forHistory */ true));
 
-    const defaultValue = defaultValueFor(column.dbType, sqlBuilder.isPostgres);
-    const tempDefault = new DefaultConstraint(column.name, "DF_TEMP_" + column.name, sqlBuilder.quote(column.dbType, defaultValue));
-    return SqlPreCommand.combine(Spacing.Simple,
-        sqlBuilder.alterTableAddColumn(table.name, column, tempDefault),
+    if (!needsDefaultValue(column, /* forHistory */ false))
+        return addColumnWithHistory();
+
+    const tempDefault = tempDefaultFor(sqlBuilder, column);
+    const mainPair = SqlPreCommand.combine(Spacing.Simple,
+        sqlBuilder.alterTableAddColumn(table, column, tempDefault),
         sqlBuilder.alterTableDropDefaultConstaint(table.name, column.name, tempDefault.name))!;
+    if (!withHistory)
+        return mainPair;
+
+    const historyName = table.systemVersioned!.historyTableName;
+    const historyPair = SqlPreCommand.combine(Spacing.Simple,
+        sqlBuilder.alterTableAddColumn(historyName, column, tempDefault, /* forHistory */ true),
+        sqlBuilder.alterTableDropDefaultConstaint(historyName, column.name, tempDefault.name))!;
+    return new SqlPreCommandWithHistory(mainPair, historyPair);
+}
+
+// Port of Signum's AlterTableAddColumnDefaultZero — the incompatible-type recreate path. Adds the
+// column (retargeted to the history table when `forHistory`) with a zero/empty temporary default
+// backfilling a NOT NULL column, then drops it.
+function alterTableAddColumnDefaultZero(sqlBuilder: SqlBuilder, table: Table, column: IColumn, forHistory: boolean): SqlPreCommand {
+    const tableName = forHistory ? table.systemVersioned!.historyTableName : table.name;
+    if (!needsDefaultValue(column, forHistory))
+        return sqlBuilder.alterTableAddColumn(tableName, column, undefined, forHistory);
+
+    const tempDefault = tempDefaultFor(sqlBuilder, column);
+    return SqlPreCommand.combine(Spacing.Simple,
+        sqlBuilder.alterTableAddColumn(tableName, column, tempDefault, forHistory),
+        sqlBuilder.alterTableDropDefaultConstaint(tableName, column.name, tempDefault.name))!;
+}
+
+// Whether adding `column` needs a temporary backfill default (Signum's NeedsDefaultValue, scoped).
+// A nullable column never does; an identity or defaulted column needs one only on the history
+// table (which has no identity/default of its own but holds rows); everything else (a NOT NULL
+// plain column) does.
+function needsDefaultValue(column: IColumn, forHistory: boolean): boolean {
+    if (column.nullable !== "No")
+        return false;
+    if (column.identity || column.default != null)
+        return forHistory;
+    return true;
+}
+
+// The DF_TEMP_ zero/empty default used to backfill a new NOT NULL column's existing rows.
+function tempDefaultFor(sqlBuilder: SqlBuilder, column: IColumn): DefaultConstraint {
+    const defaultValue = defaultValueFor(column.dbType, sqlBuilder.isPostgres);
+    return new DefaultConstraint(column.name, "DF_TEMP_" + column.name, sqlBuilder.quote(column.dbType, defaultValue));
+}
+
+// Element-wise equality of a DB trigger's decoded args vs the model's expected args (undefined
+// DB args ⇒ not equal, so the trigger is re-emitted).
+function triggerArgsEqual(dbArgs: string[] | undefined, modelArgs: string[]): boolean {
+    return dbArgs != null && dbArgs.length === modelArgs.length && dbArgs.every((v, i) => v === modelArgs[i]);
 }
 
 // A type-appropriate zero/empty default for backfilling a new NOT NULL column.

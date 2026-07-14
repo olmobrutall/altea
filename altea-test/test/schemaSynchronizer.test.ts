@@ -17,7 +17,7 @@ import type { Quoted } from "quote-transformer/quoted";
 // back (filter_definition / indpred) and the synchronizer round-trips it.
 const albumRecent: Quoted<(a: AlbumEntity) => boolean> = a => a.year == 2000;
 import { AbstractDbType, IsNullable } from "@altea/altea/logic/schema/dbType";
-import { AlbumEntity, ArtistEntity_Friends } from "../entities/music";
+import { AlbumEntity, ArtistEntity_Friends, FolderEntity } from "../entities/music";
 import { getBoundEnum } from "@altea/altea/entities/enumEntity";
 
 // The synchronizer pipeline end to end against a REAL database (no fakes): generate the
@@ -213,5 +213,187 @@ describe("SchemaSynchronizer (live DB)", { skip: !hasDb }, () => {
                 : `ALTER FUNCTION ${connector.sqlBuilder.objectName(p.name)} ${drifted}`;
             await connector.executeNonQuery(sql);
         });
+    });
+
+    // ---- system-versioned (temporal) tables ---------------------------------
+    // FolderEntity is @systemVersioned, and the two dialects are maintained very differently, so
+    // their drift tests differ. SQL Server keeps versioning ON and PROPAGATES every main-table
+    // column change to the history table automatically — so its tests just confirm a column
+    // round-trips, with no explicit history handling in the synchronizer. Postgres has no native
+    // support: altea keeps an explicit `(LIKE main)` history table plus a trigger that carries the
+    // column list, so its tests exercise the dedicated history-table + versioning-trigger sync
+    // passes (a column added/dropped must be mirrored on the history table AND the trigger
+    // re-emitted). `onlyPostgres` / `onlySqlServer` skip at run time (the connector is only known
+    // after `before`).
+
+    const onlyPostgres = (t: unknown): boolean => {
+        if (connector.isPostgres) return true;
+        (t as { skip(m?: string): void }).skip("Postgres-only versioning drift");
+        return false;
+    };
+    const onlySqlServer = (t: unknown): boolean => {
+        if (!connector.isPostgres) return true;
+        (t as { skip(m?: string): void }).skip("SQL Server-only versioning drift");
+        return false;
+    };
+
+    // SQL Server: dropping a column from a versioned table (versioning ON) auto-drops it from the
+    // history table; the synchronizer re-adds it to the main table and SQL Server auto-adds it
+    // back to history — round-trip empty, no history handling needed.
+    txTest("Versioned_CreateMissingColumn_SqlServer", async (t) => {
+        if (!onlySqlServer(t)) return;
+        const folder = connector.schema.table(FolderEntity);
+        await assertRoundTrip(() => run(connector.sqlBuilder.alterTableDropColumn(folder.name, colOf(FolderEntity, "name"))));
+    });
+
+    // SQL Server: an extra column added to the versioned main table (auto-added to history) → the
+    // synchronizer drops it (auto-dropped from history).
+    txTest("Versioned_DropExtraColumn_SqlServer", async (t) => {
+        if (!onlySqlServer(t)) return;
+        const folder = connector.schema.table(FolderEntity);
+        const extra = new ValueColumn("SyncNegVersionedCol", new AbstractDbType("int", "int4"), IsNullable.Yes);
+        await assertRoundTrip(() => run(connector.sqlBuilder.alterTableAddColumn(folder.name, extra)));
+    });
+
+    // Postgres: the versioning trigger is dropped → the versioning-trigger sync pass recreates it.
+    txTest("Versioned_MissingTrigger_Postgres", async (t) => {
+        if (!onlyPostgres(t)) return;
+        const folder = connector.schema.table(FolderEntity);
+        await assertRoundTrip(async () => {
+            await connector.executeNonQuery(`DROP TRIGGER versioning_trigger ON ${connector.sqlBuilder.objectName(folder.name)}`);
+        });
+    });
+
+    // Postgres: the `(LIKE main)` history table is dropped → the history-table sync pass recreates
+    // it (the trigger, which references it by name, stays and is valid again once it exists).
+    txTest("Versioned_MissingHistoryTable_Postgres", async (t) => {
+        if (!onlyPostgres(t)) return;
+        const folder = connector.schema.table(FolderEntity);
+        const hist = folder.systemVersioned!.historyTableName;
+        await assertRoundTrip(() => run(connector.sqlBuilder.dropTable(hist)));
+    });
+
+    // Postgres: a column dropped from BOTH the main and history tables → the main pass re-adds it
+    // to the main table, the history pass re-adds it to the history table, and (the column list
+    // having changed) the trigger is re-emitted with CREATE OR REPLACE.
+    txTest("Versioned_CreateMissingColumn_Postgres", async (t) => {
+        if (!onlyPostgres(t)) return;
+        const folder = connector.schema.table(FolderEntity);
+        const hist = folder.systemVersioned!.historyTableName;
+        const nameCol = colOf(FolderEntity, "name");
+        await assertRoundTrip(async () => {
+            await run(connector.sqlBuilder.alterTableDropColumn(folder.name, nameCol));
+            await run(connector.sqlBuilder.alterTableDropColumn(hist, nameCol));
+        });
+    });
+
+    // Postgres: an extra column present on BOTH the main and history tables → dropped from both,
+    // and the trigger re-emitted.
+    txTest("Versioned_DropExtraColumn_Postgres", async (t) => {
+        if (!onlyPostgres(t)) return;
+        const folder = connector.schema.table(FolderEntity);
+        const hist = folder.systemVersioned!.historyTableName;
+        const extra = new ValueColumn("SyncNegVersionedCol", new AbstractDbType("int", "int4"), IsNullable.Yes);
+        await assertRoundTrip(async () => {
+            await run(connector.sqlBuilder.alterTableAddColumn(folder.name, extra));
+            await run(connector.sqlBuilder.alterTableAddColumn(hist, extra));
+        });
+    });
+
+    // Postgres: the trigger's stored argument list drifts from the model (a stale column list) →
+    // the versioning-trigger pass must CREATE OR REPLACE it. Exercises the tgargs decode +
+    // comparison (SqlBuilder.versioningTriggerArgs vs the reader's decoded pg_trigger.tgargs):
+    // re-create the trigger with a deliberately truncated column list, then sync must restore it.
+    txTest("Versioned_TriggerArgsDrift_Postgres", async (t) => {
+        if (!onlyPostgres(t)) return;
+        const folder = connector.schema.table(FolderEntity);
+        const sb = connector.sqlBuilder;
+        const [sysPeriod, histName] = sb.versioningTriggerArgs(folder); // reuse the real sys_period + history name
+        await assertRoundTrip(async () => {
+            await connector.executeNonQuery(`DROP TRIGGER versioning_trigger ON ${sb.objectName(folder.name)}`);
+            // A stale column list ('id' only) — differs from the model's full list, forcing a replace.
+            await connector.executeNonQuery(
+                `CREATE TRIGGER versioning_trigger BEFORE INSERT OR UPDATE OR DELETE ON ${sb.objectName(folder.name)} ` +
+                `FOR EACH ROW EXECUTE FUNCTION versioning('${sysPeriod}', '${histName}', 'id')`);
+        });
+    });
+
+    // Postgres: a nullability change on both the main and history tables → the main pass restores
+    // NOT NULL on the main table, and the history pass restores it on the history table
+    // (exercising the history-table ALTER-column branch, which add/drop tests don't reach).
+    txTest("Versioned_AlterColumn_Postgres", async (t) => {
+        if (!onlyPostgres(t)) return;
+        const folder = connector.schema.table(FolderEntity);
+        const hist = folder.systemVersioned!.historyTableName;
+        const nameCol = colOf(FolderEntity, "name");
+        await assertRoundTrip(async () => {
+            await connector.executeNonQuery(`ALTER TABLE ${connector.sqlBuilder.objectName(folder.name)} ALTER COLUMN ${connector.sqlBuilder.sqlEscape(nameCol)} DROP NOT NULL`);
+            await connector.executeNonQuery(`ALTER TABLE ${connector.sqlBuilder.objectName(hist)} ALTER COLUMN ${connector.sqlBuilder.sqlEscape(nameCol)} DROP NOT NULL`);
+        });
+    });
+
+    // SQL Server: a nullability change on the versioned main table (versioning ON) is propagated
+    // to history automatically; the synchronizer restores NOT NULL on the main table and SQL
+    // Server restores it on history — round-trip empty.
+    txTest("Versioned_AlterColumn_SqlServer", async (t) => {
+        if (!onlySqlServer(t)) return;
+        const folder = connector.schema.table(FolderEntity);
+        const nameModelCol = folder.fields["name"].field.columns()[0];
+        const nameCol = nameModelCol.name;
+        const type = connector.sqlBuilder.getColumnType(nameModelCol);
+        await assertRoundTrip(async () => {
+            await connector.executeNonQuery(`ALTER TABLE ${connector.sqlBuilder.objectName(folder.name)} ALTER COLUMN ${connector.sqlBuilder.sqlEscape(nameCol)} ${type} NULL`);
+        });
+    });
+
+    // ---- renames on versioned tables (the WithHistory fork preserves history data) ----------
+
+    // Postgres: a column renamed on BOTH the main and history tables → the synchronizer must emit
+    // a RENAME on EACH (via the SqlPreCommandWithHistory fork), NEVER a drop+re-add — that is the
+    // whole point of the fork, so the history column keeps its data. Asserts the SQL shape
+    // directly (two RENAME COLUMN, zero DROP COLUMN), then that it round-trips to empty.
+    txTest("Versioned_RenameColumn_Postgres", async (t) => {
+        if (!onlyPostgres(t)) return;
+        const folder = connector.schema.table(FolderEntity);
+        const hist = folder.systemVersioned!.historyTableName;
+        const nameCol = colOf(FolderEntity, "name");
+        await run(connector.sqlBuilder.renameColumn(folder.name, nameCol, nameCol + "_ren"));
+        await run(connector.sqlBuilder.renameColumn(hist, nameCol, nameCol + "_ren"));
+
+        const drift = await sync(renameBack);
+        assert.ok(drift != null, "the column rename must be detected");
+        const sql = drift!.plainSql();
+        assert.doesNotMatch(sql, /DROP COLUMN/, "a versioned column rename must RENAME the history column, never drop it (data preserved)");
+        assert.equal((sql.match(/RENAME COLUMN/g) ?? []).length, 2, "the rename is applied to BOTH the main and history tables");
+
+        await run(drift);
+        const after = await sync(renameBack);
+        assert.equal(after, undefined, "re-sync after applying the fix must be empty");
+    });
+
+    // SQL Server: renaming the main column propagates to the history table automatically
+    // (versioning ON), so the synchronizer renames only the main column and it round-trips.
+    txTest("Versioned_RenameColumn_SqlServer", async (t) => {
+        if (!onlySqlServer(t)) return;
+        const folder = connector.schema.table(FolderEntity);
+        const nameCol = colOf(FolderEntity, "name");
+        await assertRoundTrip(() => run(connector.sqlBuilder.renameColumn(folder.name, nameCol, nameCol + "_ren")), renameBack);
+    });
+
+    // Postgres: the versioned MAIN table itself is renamed → the synchronizer renames it back. The
+    // versioning trigger follows the table rename and still targets the (unchanged) history table,
+    // so no trigger re-emit is needed — the round-trip is empty.
+    txTest("Versioned_RenameTable_Postgres", async (t) => {
+        if (!onlyPostgres(t)) return;
+        const folder = connector.schema.table(FolderEntity);
+        await assertRoundTrip(() => run(connector.sqlBuilder.renameTable(folder.name, folder.name.name + "_ren")), renameBack);
+    });
+
+    // SQL Server: renaming a system-versioned table (its history link is by object id, not name)
+    // round-trips — the synchronizer renames it back with versioning left intact.
+    txTest("Versioned_RenameTable_SqlServer", async (t) => {
+        if (!onlySqlServer(t)) return;
+        const folder = connector.schema.table(FolderEntity);
+        await assertRoundTrip(() => run(connector.sqlBuilder.renameTable(folder.name, folder.name.name + "_ren")), renameBack);
     });
 });

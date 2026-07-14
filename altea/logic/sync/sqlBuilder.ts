@@ -5,7 +5,7 @@ import { ObjectName, SchemaName } from '../schema/objectName';
 import type { Table } from '../schema/table';
 import type { TableIndex } from '../schema/tableIndex';
 import type { DiffColumn } from './diffModels';
-import { SqlPreCommand, SqlPreCommandSimple, Spacing } from './sqlPreCommand';
+import { SqlPreCommand, SqlPreCommandSimple, SqlPreCommandWithHistory, Spacing } from './sqlPreCommand';
 import { chopHash, codify, HASH_SIZE } from './stringHash';
 import { VERSIONING_FUNCTION } from './postgres/versioning';
 
@@ -127,29 +127,55 @@ export class SqlBuilder {
 
     // Postgres per-table versioning trigger, emitted as a one-liner. Passes the generic function
     // the sys_period column, the (qualified) history table, and the comma-separated column list
-    // (every physical column except sys_period) — the Option C design.
-    createVersioningTrigger(table: Table): SqlPreCommand {
+    // (every physical column except sys_period) — the Option C design. `replace` emits
+    // CREATE OR REPLACE TRIGGER (Signum's CreateVersioningTrigger(replace)), used by the
+    // synchronizer when the column list drifts (altea passes the columns as a trigger arg, so an
+    // added/dropped column requires re-emitting the trigger — a divergence from Signum's
+    // column-agnostic generic function).
+    createVersioningTrigger(table: Table, replace = false): SqlPreCommand {
+        const [sysPeriod, historyName, cols] = this.versioningTriggerArgs(table);
+        return new SqlPreCommandSimple(
+            `CREATE ${replace ? 'OR REPLACE ' : ''}TRIGGER versioning_trigger BEFORE INSERT OR UPDATE OR DELETE ON ${this.objectName(table.name)} ` +
+            `FOR EACH ROW EXECUTE FUNCTION versioning('${sysPeriod}', '${historyName}', '${cols}');`);
+    }
+
+    // The three string arguments altea passes to the generic versioning() trigger function
+    // (Signum's VersioningTriggerArgs, extended for Option C): the sys_period column, the
+    // (qualified) history table, and the comma-separated column list (every physical column
+    // except sys_period). The reader decodes pg_trigger.tgargs into the same three-element array,
+    // so the synchronizer can compare them and CREATE OR REPLACE the trigger when either the
+    // history table OR the column list has drifted.
+    versioningTriggerArgs(table: Table): string[] {
         const sv = table.systemVersioned!;
         const sysPeriod = sv.postgresSysPeriodColumnName!;
         const cols = Object.values(table.columns)
             .filter(c => c.name !== sysPeriod)
             .map(c => this.sqlEscape(c.name))
             .join(',');
-        return new SqlPreCommandSimple(
-            `CREATE TRIGGER versioning_trigger BEFORE INSERT OR UPDATE OR DELETE ON ${this.objectName(table.name)} ` +
-            `FOR EACH ROW EXECUTE FUNCTION versioning('${sysPeriod}', '${this.objectName(sv.historyTableName)}', '${cols}');`);
+        return [sysPeriod, this.objectName(sv.historyTableName), cols];
     }
 
-    // A single column declaration: name type [IDENTITY] (NULL|NOT NULL) [DEFAULT].
-    columnLine(c: IColumn): string {
+    // Drop a Postgres versioning trigger by name (Signum's DropVersionningTrigger). Used when a
+    // table is no longer system-versioned in the model.
+    dropVersioningTrigger(tableName: ObjectName, triggerName: string): SqlPreCommand {
+        return new SqlPreCommandSimple(`DROP TRIGGER ${this.sqlEscape(triggerName)} ON ${this.objectName(tableName)};`);
+    }
+
+    // A single column declaration: name type [IDENTITY] (NULL|NOT NULL) [DEFAULT]. `forHistory`
+    // (Signum's ColumnLine forHistoryTable) suppresses the identity and GENERATED-ALWAYS period
+    // markers: a Postgres history table is a plain `(LIKE main)` archive whose columns are never
+    // engine-maintained (no identity, no ROW START/END), so a column added to it must not carry
+    // those attributes.
+    columnLine(c: IColumn, forHistory = false): string {
         const parts: (string | undefined)[] = [
             this.sqlEscape(c.name),
             this.getColumnType(c),
             // SQL Server period columns are engine-maintained row start/end timestamps.
             // (Postgres' sys_period is an ordinary tstzrange column — no marker here.)
-            c.systemVersion === 'start' ? 'GENERATED ALWAYS AS ROW START HIDDEN'
+            forHistory ? undefined
+                : c.systemVersion === 'start' ? 'GENERATED ALWAYS AS ROW START HIDDEN'
                 : c.systemVersion === 'end' ? 'GENERATED ALWAYS AS ROW END HIDDEN' : undefined,
-            c.identity ? (this.isPostgres ? 'GENERATED ALWAYS AS IDENTITY' : 'IDENTITY') : undefined,
+            c.identity && !forHistory ? (this.isPostgres ? 'GENERATED ALWAYS AS IDENTITY' : 'IDENTITY') : undefined,
             c.collation != null ? `COLLATE ${c.collation}` : undefined,
             isNullableToBool(c.nullable) ? 'NULL' : 'NOT NULL',
             c.default != null ? `DEFAULT ${this.quote(c.dbType, c.default)}` : undefined,
@@ -339,14 +365,34 @@ export class SqlBuilder {
         return new SqlPreCommandSimple(`DROP VIEW ${this.objectName(viewName)};`);
     }
 
-    alterTableDropColumn(tableName: ObjectName, columnName: string): SqlPreCommand {
+    // Two forms (Signum's overloads): the plain ObjectName form, and — for a system-versioned
+    // table — a Table + `withHistory` form that returns a SqlPreCommandWithHistory forking the
+    // drop to BOTH the main and the history table (only when withHistory).
+    alterTableDropColumn(tableName: ObjectName, columnName: string): SqlPreCommand;
+    alterTableDropColumn(table: Table, columnName: string, withHistory: boolean): SqlPreCommand;
+    alterTableDropColumn(a: ObjectName | Table, columnName: string, withHistory?: boolean): SqlPreCommand {
+        if (a instanceof ObjectName)
+            return this.alterTableDropColumnCore(a, columnName);
+
+        const normal = this.alterTableDropColumnCore(a.name, columnName);
+        if (!withHistory)
+            return normal;
+        return new SqlPreCommandWithHistory(normal, this.alterTableDropColumnCore(a.systemVersioned!.historyTableName, columnName));
+    }
+
+    private alterTableDropColumnCore(tableName: ObjectName, columnName: string): SqlPreCommand {
         return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} DROP COLUMN ${this.sqlEscape(columnName)};`);
     }
 
-    alterTableAddColumn(tableName: ObjectName, column: IColumn, tempDefault?: DefaultConstraint): SqlPreCommand {
+    // The ObjectName form emits the ADD; the Table form (Signum's ITable overload) retargets at
+    // the history table when `forHistory` and suppresses identity/period markers via columnLine.
+    alterTableAddColumn(tableName: ObjectName, column: IColumn, tempDefault?: DefaultConstraint, forHistory?: boolean): SqlPreCommand;
+    alterTableAddColumn(table: Table, column: IColumn, tempDefault?: DefaultConstraint, forHistory?: boolean): SqlPreCommand;
+    alterTableAddColumn(a: ObjectName | Table, column: IColumn, tempDefault?: DefaultConstraint, forHistory = false): SqlPreCommand {
+        const tableName = a instanceof ObjectName ? a : (forHistory ? a.systemVersioned!.historyTableName : a.name);
         const line = tempDefault == null
-            ? this.columnLine(column)
-            : `${this.columnLine(column)} ${this.isPostgres
+            ? this.columnLine(column, forHistory)
+            : `${this.columnLine(column, forHistory)} ${this.isPostgres
                 ? `DEFAULT ${tempDefault.quotedDefinition}`
                 : `CONSTRAINT ${this.sqlEscape(tempDefault.name!)} DEFAULT ${tempDefault.quotedDefinition}`}`;
         return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} ADD ${line};`);
@@ -354,8 +400,23 @@ export class SqlBuilder {
 
     // In-place column change. SQL Server re-states the whole column (type + nullability);
     // Postgres issues separate ALTER COLUMN … TYPE / SET|DROP NOT NULL statements, only for
-    // the facets that actually differ (Signum's AlterTableAlterColumn).
-    alterTableAlterColumn(table: Table, column: IColumn, diffColumn: DiffColumn, forceTableName?: ObjectName): SqlPreCommand {
+    // the facets that actually differ (Signum's AlterTableAlterColumn). Three call shapes: a
+    // plain change to `table`; a change retargeted via `forceTableName` (used to alter the
+    // history table directly); and — Signum's withHistory overload — a boolean that forks the
+    // change to BOTH the main and history tables as a SqlPreCommandWithHistory.
+    alterTableAlterColumn(table: Table, column: IColumn, diffColumn: DiffColumn, forceTableName?: ObjectName): SqlPreCommand;
+    alterTableAlterColumn(table: Table, column: IColumn, diffColumn: DiffColumn, withHistory: boolean): SqlPreCommand;
+    alterTableAlterColumn(table: Table, column: IColumn, diffColumn: DiffColumn, p4?: ObjectName | boolean): SqlPreCommand {
+        if (typeof p4 === "boolean") {
+            const normal = this.alterTableAlterColumnCore(table, column, diffColumn);
+            if (!p4)
+                return normal;
+            return new SqlPreCommandWithHistory(normal, this.alterTableAlterColumnCore(table, column, diffColumn, table.systemVersioned!.historyTableName));
+        }
+        return this.alterTableAlterColumnCore(table, column, diffColumn, p4);
+    }
+
+    private alterTableAlterColumnCore(table: Table, column: IColumn, diffColumn: DiffColumn, forceTableName?: ObjectName): SqlPreCommand {
         const tableName = forceTableName ?? table.name;
         const escName = this.sqlEscape(column.name);
         const nullable = isNullableToBool(column.nullable);
@@ -422,7 +483,21 @@ export class SqlBuilder {
         return new SqlPreCommandSimple(`ALTER SCHEMA ${this.sqlEscape(schemaName.name)} TRANSFER ${this.objectName(oldName)};`);
     }
 
-    renameColumn(tableName: ObjectName, oldName: string, newName: string): SqlPreCommand {
+    // Plain ObjectName form, plus a Table + `withHistory` form (Signum's overload) that forks the
+    // rename to the history table too when withHistory.
+    renameColumn(tableName: ObjectName, oldName: string, newName: string): SqlPreCommand;
+    renameColumn(table: Table, oldName: string, newName: string, withHistory: boolean): SqlPreCommand;
+    renameColumn(a: ObjectName | Table, oldName: string, newName: string, withHistory?: boolean): SqlPreCommand {
+        if (a instanceof ObjectName)
+            return this.renameColumnCore(a, oldName, newName);
+
+        const normal = this.renameColumnCore(a.name, oldName, newName);
+        if (!withHistory)
+            return normal;
+        return new SqlPreCommandWithHistory(normal, this.renameColumnCore(a.systemVersioned!.historyTableName, oldName, newName));
+    }
+
+    private renameColumnCore(tableName: ObjectName, oldName: string, newName: string): SqlPreCommand {
         if (this.isPostgres)
             return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} RENAME COLUMN ${this.sqlEscape(oldName)} TO ${this.sqlEscape(newName)};`);
         return this.spRename(`${this.objectName(tableName)}.${oldName}`, newName, 'COLUMN');

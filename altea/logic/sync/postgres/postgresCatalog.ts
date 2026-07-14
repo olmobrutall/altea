@@ -49,8 +49,34 @@ export class PgClass extends View {
     @quoted
     indices(): Query<PgIndex> { return view(PgIndex).filter(t => t.indrelid == this.oid); }
 
+    // The triggers defined on this table (Signum's PgClass.Triggers()). Used to detect the
+    // system-versioning trigger (its function is `versioning`).
+    @quoted
+    triggers(): Query<PgTrigger> { return view(PgTrigger).filter(t => t.tgrelid == this.oid); }
+
     @quoted
     namespace(): Promise<PgNamespace> { return view(PgNamespace).single(t => t.oid == this.relnamespace); }
+}
+
+// pg_trigger — read by PostgresCatalogSchema to detect a table's system-versioning trigger.
+// `tgfoid` is the OID of the trigger's function (joined to pg_proc for its name); altea's
+// versioning trigger runs the generic `versioning` function.
+@reflect
+@tableName("pg_catalog.pg_trigger")
+export class PgTrigger extends View {
+    @viewPrimaryKey oid!: int;
+    tgrelid!: int;
+    tgfoid!: int;
+    tgname!: string;
+    // The trigger's arguments: a `bytea` holding the NUL-separated string literals from the
+    // CREATE TRIGGER call. Declared string for reflection (like adbin, an internal pg type); at
+    // run time node-pg yields a Buffer, which the catalog reader decodes (Signum's
+    // ParseVersionFunctionParam does the same UTF-8 split in C#).
+    tgargs!: string;
+
+    // The function this trigger executes (Signum's PgTrigger.Proc()).
+    @quoted
+    proc(): Promise<PgProc> { return view(PgProc).single(p => p.oid == this.tgfoid); }
 }
 
 // pg_proc / pg_extension / pg_depend — read by SchemaAssets.SyncProcedures (Postgres branch) to

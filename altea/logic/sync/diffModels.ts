@@ -33,10 +33,28 @@ export class DiffSchema {
     owner?: string;
 }
 
+// The Postgres system-versioning trigger read off a table (Signum's DiffPostgresVersioningTrigger).
+// Its presence marks the table as system-versioned in the database. `args` is pg_trigger.tgargs
+// decoded (the raw bytea is a NUL-separated list) into the three values altea's Option C trigger
+// carries: [sys_period, historyTable, columnList] — the synchronizer compares them against
+// SqlBuilder.versioningTriggerArgs to decide whether the trigger must be re-emitted (a column
+// list or history-table drift). `tgargsRaw` holds the undecoded value until the reader decodes it.
+export interface DiffPostgresVersioningTrigger {
+    tgname: string;
+    tgargsRaw?: unknown;
+    args?: string[];
+}
+
 export class DiffTable extends View {
     name!: ObjectName;
 
     primaryKeyName?: ObjectName;
+
+    // The Postgres versioning trigger on this table, or undefined (Signum's
+    // DiffTable.VersionningTrigger). SQL Server tracks system-versioning natively (temporal_type),
+    // so this stays undefined there; altea's lean synchronizer only reads it on Postgres, where the
+    // history table + trigger are managed explicitly.
+    versioningTrigger?: DiffPostgresVersioningTrigger;
 
     columns!: { [name: string]: DiffColumn };
 
@@ -44,11 +62,12 @@ export class DiffTable extends View {
     // array (built in the query as DiffColumn.create({ … })). The schema/name strings become
     // ObjectNames (default schema normalised), the columns array is indexed by name, and
     // single-column foreign keys are hoisted onto their columns. Overrides View.create.
-    static create(values: { schemaName: string; tableName: string; primaryKeyName?: string | null; owner?: string; columns: DiffColumn[]; multiForeignKeys?: DiffForeignKey[]; indices?: DiffIndex[] }): DiffTable {
+    static create(values: { schemaName: string; tableName: string; primaryKeyName?: string | null; owner?: string; columns: DiffColumn[]; multiForeignKeys?: DiffForeignKey[]; indices?: DiffIndex[]; versioningTrigger?: DiffPostgresVersioningTrigger | null }): DiffTable {
         const t = new DiffTable();
         t.name = objectNameOf(values.schemaName, values.tableName);
         t.primaryKeyName = values.primaryKeyName == null ? undefined : objectNameOf(values.schemaName, values.primaryKeyName);
         t.owner = values.owner;
+        t.versioningTrigger = values.versioningTrigger ?? undefined;
         t.columns = Object.fromEntries(values.columns.map(c => [c.name, c]));
         t.multiForeignKeys = values.multiForeignKeys ?? [];
         t.indices = Object.fromEntries((values.indices ?? []).map(i => [i.indexName, i]));

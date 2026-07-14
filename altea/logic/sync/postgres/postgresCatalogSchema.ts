@@ -28,6 +28,17 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
             schemaName: x.ns.nspname,
             tableName: x.t.relname,
 
+            // The system-versioning trigger, if any (Signum's DiffTable.VersionningTrigger): the
+            // trigger on this table whose function is the generic `versioning`. Its presence marks
+            // the table as system-versioned in the database.
+            // The `tgname == null ? null` guard mirrors Signum: a correlated firstOrNull over an
+            // empty set projects a NULL-filled sentinel row rather than a null object, so map the
+            // sentinel (null tgname) back to null. tgargs (the raw bytea) is decoded below.
+            versioningTrigger: x.t.triggers()
+                .filter(tr => tr.proc().$v.proname == "versioning")
+                .map(tr => tr.tgname == null ? null : ({ tgname: tr.tgname, tgargsRaw: tr.tgargs }))
+                .firstOrNull().$v,
+
             primaryKeyName: x.t.constraints()
                 .filter(c => c.contype == "p")
                 .map(c => c.conname)
@@ -86,5 +97,34 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
         }))
         .toArray();
 
+    // Decode each versioning trigger's tgargs (Signum's ParseVersionFunctionParam, done client-
+    // side): pg_trigger.tgargs is a bytea holding each string literal followed by a NUL, so split
+    // on NUL and drop the trailing empty. Leaves `args` = [sys_period, historyTable, columnList],
+    // matching SqlBuilder.versioningTriggerArgs, so the synchronizer can compare them.
+    for (const t of tables)
+        if (t.versioningTrigger != null)
+            t.versioningTrigger.args = decodeTgargs(t.versioningTrigger.tgargsRaw);
+
     return tables.toMap(t => t.name.toString());
+}
+
+// pg_trigger.tgargs: NUL-separated, NUL-terminated string literals. node-pg returns bytea as a
+// Buffer; a text driver might yield a `\x…` hex string — handle both, then split on NUL.
+function decodeTgargs(raw: unknown): string[] {
+    let text: string;
+    if (raw == null)
+        return [];
+    else if (Buffer.isBuffer(raw))
+        text = raw.toString("utf8");
+    else if (raw instanceof Uint8Array)
+        text = Buffer.from(raw).toString("utf8");
+    else if (typeof raw === "string" && raw.startsWith("\\x"))
+        text = Buffer.from(raw.slice(2), "hex").toString("utf8");
+    else
+        text = String(raw);
+
+    const parts = text.split("\0");
+    if (parts.length > 0 && parts[parts.length - 1] === "")
+        parts.pop();
+    return parts;
 }
