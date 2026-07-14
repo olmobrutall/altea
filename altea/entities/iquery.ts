@@ -34,7 +34,8 @@ export interface IQuery<T> {
     top(count: number): IQuery<T>;
     skip(count: number): IQuery<T>;
     withHint(hint: string): IQuery<T>;
-    overrideSystemTime(systemTime: import('./systemTime').SystemTime): IQuery<T>;
+    // overrideSystemTime is added by interface expansion in logic/query.ts (it's a
+    // server-only feature whose SystemTime type lives in the logic layer).
 
     first(predicate?: Quoted<(element: T) => boolean>): Promise<T>;
     firstOrNull(predicate?: Quoted<(element: T) => boolean>): Promise<T | null>;

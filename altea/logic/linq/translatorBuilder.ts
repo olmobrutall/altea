@@ -8,8 +8,9 @@ import {
     ChildProjectionExpression, LookupToken,
     ImplementedByExpression, ImplementedByAllExpression,
     TypeEntityExpression, TypeImplementedByExpression, TypeImplementedByAllExpression,
-    ToDayOfWeekExpression, SqlConstantExpression,
+    ToDayOfWeekExpression, SqlConstantExpression, IntervalExpression,
 } from "./expressions.sql";
+import { NullableInterval } from "../systemTime";
 import { QueryFormatter } from "./queryFormatter";
 import { Connector } from "../connection/connector";
 import { ClassType, LiteralType, TemporalType, Type } from "../../entities/types";
@@ -505,6 +506,18 @@ class ProjectionBuilder extends DbExpressionVisitor {
             this.stack.push(`consts[${this.pushConst(e.ctor)}].create(${literal})`);
         else
             this.stack.push(`(${literal})`);
+        return e;
+    }
+
+    // A projected systemPeriod() → a NullableInterval built from the (already-nominated) min/max
+    // reads. Both dialects populate min/max (SQL Server start/end columns, Postgres lower/upper of
+    // the range), so this is dialect-uniform.
+    override visitInterval(e: IntervalExpression): Expression {
+        this.visit(e.min!);
+        const minCode = this.pop();
+        this.visit(e.max!);
+        const maxCode = this.pop();
+        this.stack.push(`new consts[${this.pushConst(NullableInterval)}](${minCode}, ${maxCode})`);
         return e;
     }
 

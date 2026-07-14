@@ -4,7 +4,7 @@ import {
     SourceExpression, TableExpression, SelectExpression, JoinExpression, SetOperatorExpression,
     ColumnExpression, ColumnDeclaration, OrderExpression,
     AggregateExpression, AggregateRequestsExpression, RowNumberExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression, SqlCastExpression, ToDayOfWeekExpression,
-    CaseExpression, When, LikeExpression,
+    CaseExpression, When, LikeExpression, IntervalExpression,
     ScalarExpression, ExistsExpression, InExpression,
     IsNullExpression, IsNotNullExpression,
     ProjectionExpression, ChildProjectionExpression, FieldEntityArrayExpression,
@@ -166,6 +166,15 @@ export class DbExpressionVisitor extends ExpressionVisitor {
         if (select !== scalar.select)
             return new ScalarExpression(scalar.type, select);
         return scalar;
+    }
+
+    visitInterval(interval: IntervalExpression): Expression {
+        const min = interval.min == null ? undefined : this.visit(interval.min);
+        const max = interval.max == null ? undefined : this.visit(interval.max);
+        const range = interval.postgresRange == null ? undefined : this.visit(interval.postgresRange);
+        if (min !== interval.min || max !== interval.max || range !== interval.postgresRange)
+            return new IntervalExpression(interval.boundType, min, max, range);
+        return interval;
     }
 
     visitExists(exists: ExistsExpression): Expression {

@@ -1,7 +1,7 @@
 
 import { isOptionalChain } from "typescript";
 import { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
-import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, Type } from "../../entities/types";
+import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, IntervalType, Type } from "../../entities/types";
 import { Temporal } from "../../entities/basics";
 import { resolveType } from "../../entities/registration";
 import { tryGetTypeInfo, type FieldInfo } from "../../entities/reflection";
@@ -170,6 +170,12 @@ function resolveMemberType(ownerType: Type, propertyName: string): Type {
     // `g.elements.sum()` dispatches via the Array (OrderedQuery) prototype.
     if (ownerType instanceof ObjectType)
         return ownerType.bindings[propertyName] ?? LiteralType.null;
+
+    // A systemPeriod() interval: `.min`/`.max` are the (nullable) period bounds. `.overlaps`/
+    // `.contains` are in-memory methods on the materialised NullableInterval (typed by the .d.ts,
+    // not translated), so they stay null here.
+    if (ownerType instanceof IntervalType)
+        return propertyName === "min" || propertyName === "max" ? ownerType.boundType : LiteralType.null;
 
     // Date/time part properties (`.year`, `.dayOfWeek`, `.hour`, …) → number; `.date`
     // → a date. (Methods like `.quarter()` are typed via wellKnownResultTypes.)

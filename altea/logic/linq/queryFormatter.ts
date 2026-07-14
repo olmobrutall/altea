@@ -16,6 +16,7 @@ import {
 import { ObjectName } from "../schema/objectName";
 import { sqlEscape } from "./sqlEscape";
 import { normalizeScalar } from "../normalizeScalar";
+import { SystemTime, SystemTimeAsOf, SystemTimeBetween, SystemTimeContainedIn, SystemTimeAll, SystemTimeHistoryTable } from "../systemTime";
 import { Alias } from "./AliasGenerator";
 import { LiteralType } from "../../entities/types";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
@@ -91,6 +92,21 @@ export class QueryFormatter extends DbExpressionVisitor {
         return this.isPostgres ? `$${this.parameters.length}` : `@p${this.parameters.length - 1}`;
     }
 
+    // SQL Server's FOR SYSTEM_TIME clause for a versioned table (Signum's WriteSystemTime).
+    // Instant bounds go through the parameter list (normalized to a driver value like any
+    // constant). HistoryTable / Postgres are handled elsewhere (never reach here).
+    private systemTimeClause(st: SystemTime): string {
+        if (st instanceof SystemTimeAsOf)
+            return `FOR SYSTEM_TIME AS OF ${this.addParameter(st.dateTime)}`;
+        if (st instanceof SystemTimeBetween)
+            return `FOR SYSTEM_TIME BETWEEN ${this.addParameter(st.startDateTime)} AND ${this.addParameter(st.endDateTime)}`;
+        if (st instanceof SystemTimeContainedIn)
+            return `FOR SYSTEM_TIME CONTAINED IN (${this.addParameter(st.startDateTime)}, ${this.addParameter(st.endDateTime)})`;
+        if (st instanceof SystemTimeAll)
+            return `FOR SYSTEM_TIME ALL`;
+        throw new Error(`Unsupported SystemTime mode in the SQL Server formatter: ${st}`);
+    }
+
     // ---- sources ----------------------------------------------------------
 
     override visitSelect(s: SelectExpression): Expression {
@@ -144,7 +160,14 @@ export class QueryFormatter extends DbExpressionVisitor {
 
     protected override visitSource(src: SourceExpression): SourceExpression {
         if (src instanceof TableExpression) {
-            this.append(`${this.quoteObjectName(src.table.name)} AS ${this.quoteAlias(src.alias)}`);
+            // SQL Server FOR SYSTEM_TIME clause sits between the table name and its alias
+            // (`Folder FOR SYSTEM_TIME ALL AS f`). Postgres has no native temporal syntax — its
+            // history is read via the DuplicateHistory UNION rewrite, so nothing renders here;
+            // HistoryTable mode likewise (that rewrite selects the history table directly).
+            const st = src.systemTime;
+            const forSystemTime = st != null && !this.isPostgres && !(st instanceof SystemTimeHistoryTable)
+                ? ` ${this.systemTimeClause(st)}` : "";
+            this.append(`${this.quoteObjectName(src.table.name)}${forSystemTime} AS ${this.quoteAlias(src.alias)}`);
             // SQL Server table hint (WithHint) — `WITH(NOLOCK)` / `WITH(INDEX(…))`. Postgres has
             // no table-hint syntax, so the hint is dropped there (advisory; matches Signum's
             // SQL-Server-only render).

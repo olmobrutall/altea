@@ -15,8 +15,10 @@ import {
     CaseExpression, When, IsNotNullExpression, IsNullExpression, SetOperatorExpression, SourceWithAliasExpression,
     CommandExpression, CommandAggregateExpression, ColumnAssignment,
     DeleteExpression, UpdateExpression, InsertSelectExpression,
-    SqlArrayIndexExpression, SqlTableValuedFunctionExpression,
+    SqlArrayIndexExpression, SqlTableValuedFunctionExpression, IntervalExpression,
 } from "../expressions.sql";
+import type { SystemVersionedInfo } from "../../schema/systemVersioned";
+import { SystemTime } from "../../systemTime";
 import { AssignAdapterExpander } from "./AssignAdapterExpander";
 import { AliasGenerator, Alias } from "../AliasGenerator";
 import { sqlEscape } from "../sqlEscape";
@@ -459,6 +461,11 @@ export class QueryBinder extends ExpressionVisitor {
     // that *is* the root materialises as a one-row ProjectionExpression; a nested
     // one becomes a scalar subquery / a deferred group AggregateRequest.
     private root: Expression | undefined;
+
+    // The active system-time scope (Signum's binder.systemTime): the ambient
+    // SystemTime.current() captured at bind time, swapped by `.overrideSystemTime(st)`. Stamped
+    // onto a @systemVersioned table's TableExpression so the formatter / PG rewrite reads history.
+    private systemTime: SystemTime | undefined = SystemTime.current();
 
     // Signum's groupByMap: element-subquery alias → the info needed to lower an
     // aggregate over that group into a GROUP BY column (via AggregateRewriter).
@@ -915,6 +922,19 @@ export class QueryBinder extends ExpressionVisitor {
             if (op === "withHint")
                 return this.bindWithHints(property.object, call.args[0] as ConstantExpression);
 
+            // overrideSystemTime swaps the active SystemTime for the duration of the source
+            // bind (Signum's OverrideSystemTime branch), so a @systemVersioned table built while
+            // visiting reads that history scope. Restored afterward (per-query, not ambient).
+            if (op === "overrideSystemTime") {
+                const old = this.systemTime;
+                try {
+                    this.systemTime = (call.args[0] as ConstantExpression).value as SystemTime;
+                    return this.visit(property.object);
+                } finally {
+                    this.systemTime = old;
+                }
+            }
+
             // `lite.isInstanceOf(Ctor)` — the method form of `Ctor.isLite(lite)` / `lite instanceof
             // Ctor`. The receiver is the lite; the argument is the type. entityIsInstance unwraps
             // the lite reference (same lowering as `isInstance`/`isLite` and the instanceof operator).
@@ -1075,6 +1095,17 @@ export class QueryBinder extends ExpressionVisitor {
             if (mixin == null)
                 throw new Error(`Mixin '${mixinCtor.name}' is not declared on '${(source.type as ClassType).constructorFunction?.name}'`);
             return mixin;
+        }
+
+        // entity.systemPeriod() → the versioned table's period as an IntervalExpression over its
+        // period columns (Signum's SystemPeriod → Table.GenerateSystemPeriod). The entity must be
+        // completed so it has a table alias to read the columns from.
+        if (methodName === "systemPeriod" && source instanceof EntityExpression) {
+            const completed = source.tableAlias != null ? source : this.completed(source);
+            const sv = completed.table.systemVersioned;
+            if (sv == null)
+                throw new Error(`systemPeriod() requires a @systemVersioned entity; '${completed.table.name}' is not versioned.`);
+            return this.systemPeriodExpression(sv, completed.tableAlias!);
         }
 
         // entity.toLite() → a Lite over that reference (Signum's BindToLite). Works
@@ -2048,6 +2079,11 @@ export class QueryBinder extends ExpressionVisitor {
         if (name === "$v")
             return obj;
 
+        // `interval.min` / `interval.max` on a systemPeriod() — the period's bounds (already
+        // start/end columns on SQL Server, lower()/upper() of the tstzrange on Postgres).
+        if (obj instanceof IntervalExpression && (name === "min" || name === "max"))
+            return (name === "min" ? obj.min : obj.max)!;
+
         // Distribute a member access over a conditional / coalesce so each branch binds
         // against its own source (Signum's BindMemberAccess Conditional/Coalesce cases):
         // `(t ? a : b).m` → `t ? a.m : b.m`; `(a ?? b).m` → `(a != null) ? a.m : b.m`.
@@ -2284,7 +2320,7 @@ export class QueryBinder extends ExpressionVisitor {
             const innerAlias = this.aliasGenerator.nextTableAlias(ee.table.name.name);
             implementations.set(ctor, {
                 entity: this.createEntityExpression(ee.table, innerAlias),
-                tableExpr: new TableExpression(innerAlias, ee.table),
+                tableExpr: new TableExpression(innerAlias, ee.table, undefined, ee.table.systemVersioned != null ? this.systemTime : undefined),
                 selectAlias: this.aliasGenerator.nextSelectAlias(),
             });
         }
@@ -2631,7 +2667,10 @@ export class QueryBinder extends ExpressionVisitor {
 
         const newId = new ColumnExpression(LiteralType.number, newAlias, table.primaryKey.column.name);
         const condition = new BinaryExpression("==", ee.externalId.value, newId);
-        this.addRequest({ table: new TableExpression(newAlias, table), condition });
+        // A completion join to a @systemVersioned table carries the active SystemTime too, so
+        // `a.parent.entity.systemPeriod()` reads the joined table under the same history scope.
+        const joinSystemTime = table.systemVersioned != null ? this.systemTime : undefined;
+        this.addRequest({ table: new TableExpression(newAlias, table, undefined, joinSystemTime), condition });
 
         return completed;
     }
@@ -2804,6 +2843,27 @@ export class QueryBinder extends ExpressionVisitor {
     // doesn't reach a table is an error.
     private currentTableHint: string | undefined;
 
+    // Build the IntervalExpression for `entity.systemPeriod()` from the versioned table's period
+    // columns at the entity's alias (Signum's Table.GenerateSystemPeriod). SQL Server exposes a
+    // start/end datetime2 pair; Postgres a single sys_period tstzrange (its bounds unwrap via
+    // lower()/upper() when .min/.max are navigated).
+    private systemPeriodExpression(sv: SystemVersionedInfo, alias: Alias): IntervalExpression {
+        const dt = new TemporalType("dateTime");
+        if (sv.postgresSysPeriodColumnName != null) {
+            // Postgres: one tstzrange column. Populate min/max as lower()/upper() so `.min`/`.max`
+            // and projection read uniformly with SQL Server; keep the raw range for period predicates.
+            const range = new ColumnExpression(dt, alias, sv.postgresSysPeriodColumnName);
+            return new IntervalExpression(dt,
+                new SqlFunctionExpression(dt, undefined, "lower", [range]),
+                new SqlFunctionExpression(dt, undefined, "upper", [range]),
+                range);
+        }
+        return new IntervalExpression(dt,
+            new ColumnExpression(dt, alias, sv.startColumnName!),
+            new ColumnExpression(dt, alias, sv.endColumnName!),
+            undefined);
+    }
+
     private bindWithHints(source: Expression, hint: ConstantExpression): Expression {
         const oldHint = this.currentTableHint;
         try {
@@ -2822,8 +2882,11 @@ export class QueryBinder extends ExpressionVisitor {
         const entity = this.createEntityExpression(table, tableAlias);
 
         // Consume the pending WithHint (if any) into this table, then clear it so it
-        // applies to exactly one table (Signum: currentTableHint = null after use).
-        const tableExpr = new TableExpression(tableAlias, table, this.currentTableHint);
+        // applies to exactly one table (Signum: currentTableHint = null after use). A
+        // @systemVersioned table also picks up the active SystemTime scope (Signum's
+        // `table.SystemVersioned != null ? this.systemTime : null`).
+        const systemTime = table.systemVersioned != null ? this.systemTime : undefined;
+        const tableExpr = new TableExpression(tableAlias, table, this.currentTableHint, systemTime);
         this.currentTableHint = undefined;
         const selectAlias = this.aliasGenerator.nextSelectAlias();
         const pc = this.projectColumns(entity, selectAlias);

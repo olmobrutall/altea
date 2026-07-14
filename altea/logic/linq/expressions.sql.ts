@@ -1,5 +1,6 @@
 import { Expression } from "./expressions";
-import { LiteralType, Type } from "../../entities/types";
+import { LiteralType, Type, IntervalType } from "../../entities/types";
+import type { SystemTime } from "../systemTime";
 import type { FieldInfo } from "../../entities/reflection";
 import type { Table } from "../schema/table";
 import { Alias } from "./AliasGenerator";
@@ -83,6 +84,10 @@ export class TableExpression extends SourceWithAliasExpression {
         alias: Alias,
         public readonly table: Table,
         public readonly withHint?: string,
+        // The system-time scope this table is read under (Signum's TableExpression.SystemTime).
+        // Set only for a @systemVersioned table under an active SystemTime override; drives the
+        // FOR SYSTEM_TIME clause (SQL Server) / the history UNION rewrite (Postgres).
+        public readonly systemTime?: SystemTime,
     ) {
         super("Table", alias);
     }
@@ -514,6 +519,30 @@ export class LikeExpression extends DbExpression {
 
     accept(visitor: ExpressionVisitor) {
         return asDbVisitor(visitor).visitLike(this);
+    }
+}
+
+// A time period (Signum's IntervalExpression), the bound form of `entity.systemPeriod()`.
+// SQL Server represents it as a `min`/`max` datetime2 pair; Postgres as a single `postgresRange`
+// tstzrange column (its bounds are `lower()`/`upper()`). `boundType` is the nullable element type
+// (a dateTime). `.min`/`.max` navigate to the bounds; a projected interval materialises to a
+// NullableInterval.
+export class IntervalExpression extends DbExpression {
+    constructor(
+        public readonly boundType: Type,
+        public readonly min: Expression | undefined,
+        public readonly max: Expression | undefined,
+        public readonly postgresRange: Expression | undefined,
+    ) {
+        super("Interval", new IntervalType(boundType));
+    }
+
+    toString(): string {
+        return this.postgresRange != null ? `Interval(${this.postgresRange})` : `Interval(${this.min}, ${this.max})`;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitInterval(this);
     }
 }
 

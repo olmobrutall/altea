@@ -81,7 +81,7 @@ export class AliasReplacer extends DbExpressionVisitor {
     override visitTable(table: TableExpression): Expression {
         const newAlias = this.map(table.alias);
         if (!newAlias.equals(table.alias))
-            return new TableExpression(newAlias, table.table, table.withHint);
+            return new TableExpression(newAlias, table.table, table.withHint, table.systemTime);
         return table;
     }
 
@@ -163,7 +163,7 @@ class CanonicalAliasVisitor extends DbExpressionVisitor {
 
     override visitTable(table: TableExpression): Expression {
         const newAlias = this.map(table.alias);
-        return !newAlias.equals(table.alias) ? new TableExpression(newAlias, table.table, table.withHint) : table;
+        return !newAlias.equals(table.alias) ? new TableExpression(newAlias, table.table, table.withHint, table.systemTime) : table;
     }
 
     override visitSelect(select: SelectExpression): Expression {

@@ -1,10 +1,13 @@
-import { Statics } from './utils/context';
-import { Temporal } from './basics';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { Temporal } from '../entities/basics';
 
 // Port of Signum's SystemTime (Entities/SystemTime.cs) — the query-time scope that selects
-// which row versions a query over a system-versioned table sees. Signum uses a thread
-// variable + an IDisposable `Override`; altea uses an ambient context variable scoped by a
-// callback (`SystemTime.override(st, () => …)`), plus a per-query `.overrideSystemTime(st)`.
+// which row versions a query over a system-versioned table sees. Unlike Clock (a static,
+// test-only wall-clock override), SystemTime is a SERVER-ONLY, async-scoped feature: the
+// active scope is an AsyncLocalStorage context variable, so concurrent requests each get their
+// own (Signum uses a thread variable). Hence it lives in logic/, and its use inside a query is
+// expressed callback-scoped (`SystemTime.override(st, () => query.toArray())`), the altea
+// analogue of Signum's `using (SystemTime.Override(st))`.
 //
 // Modes (core set — the dynamic AsOfExpression / time-series path is not ported):
 //   • AsOf(instant)              — the single version live at that instant
@@ -18,18 +21,22 @@ export enum SystemTimeJoinMode {
     AllCompatible = 'AllCompatible',
 }
 
-export abstract class SystemTime {
-    private static readonly variable = Statics.newContextVariable<SystemTime | undefined>();
+// Server-only, so the async scope is a Node AsyncLocalStorage directly (no browser/context
+// abstraction). Safe to create at module load — an AsyncLocalStorage needs no registration,
+// unlike Statics.newContextVariable() which threw before context.node had run.
+const storage = new AsyncLocalStorage<SystemTime | undefined>();
 
-    // The ambient SystemTime for the current scope (Signum's SystemTime.Current).
+export abstract class SystemTime {
+    // The ambient SystemTime for the current async scope (Signum's SystemTime.Current).
     static current(): SystemTime | undefined {
-        return SystemTime.variable.getValue();
+        return storage.getStore();
     }
 
     // Runs `fn` with this SystemTime in scope (Signum's `using (SystemTime.Override(st))`).
-    // Every query executed inside sees the versioned rows the mode selects.
+    // Every query built inside sees the versioned rows the mode selects. Callback-scoped
+    // because AsyncLocalStorage is scope-based (no imperative push/pop).
     static override<R>(systemTime: SystemTime | undefined, fn: () => R): R {
-        return SystemTime.variable.withValue(systemTime, fn);
+        return storage.run(systemTime, fn);
     }
 
     // Nested-class constructors (Signum's SystemTime.AsOf / .All / …), attached below so callers

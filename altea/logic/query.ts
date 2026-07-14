@@ -5,7 +5,16 @@ import { IQuery, IOrderedQuery } from "../entities/iquery";
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, MethodExpander, PropertyExpression } from "./linq/expressions";
 import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType, QuotedFunction, quotedFunction, LambdaTypeResolver, ResultTypeResolver } from "../entities/types";
 import { toInt, toLong, toDecimal, inSql } from "../entities/basics";
-import { SystemTime } from "../entities/systemTime";
+import { SystemTime } from "./systemTime";
+
+// Interface expansion (rather than declaring it in entities/iquery.ts): overrideSystemTime is a
+// server-only feature whose SystemTime type lives in the logic layer, so entities/ must not
+// reference it. Augment the IQuery interface here instead.
+declare module "../entities/iquery" {
+    interface IQuery<T> {
+        overrideSystemTime(systemTime: SystemTime): IQuery<T>;
+    }
+}
 
 // The query-expression metadata carrier (QuotedFunction) and its cast helper
 // (quotedFunction) live in entities/types so entity classes can attach metadata to
