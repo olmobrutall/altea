@@ -139,6 +139,11 @@ export class TypeInfo {
     // logic-layer field recorder); the SchemaBuilder runs them against a recording proxy to
     // resolve the covered fields → columns.
     indexes?: { unique: boolean; fields: (element: any) => unknown; includeFields?: (element: any) => unknown; where?: Quoted<(element: any) => boolean> }[];
+    // Set by @systemVersioned (Signum's [SystemVersioned]): the type's table keeps a full
+    // history of every row version. The optional fields override the period column / history
+    // table names; the SchemaBuilder fills dialect defaults. Stored as a bare shape here
+    // (entities/ must not import the logic layer's SystemVersionedInfo).
+    systemVersioned?: { startColumnName?: string; endColumnName?: string; sysPeriodColumnName?: string; historyTableName?: string };
 }
 
 // Legacy (experimentalDecorators) decorators have no `context.metadata`, so

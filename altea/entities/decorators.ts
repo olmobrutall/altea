@@ -150,6 +150,25 @@ export function tableName(name: string) {
     };
 }
 
+// Class-level marker (Signum's [SystemVersioned]): the type's table is system-versioned —
+// it keeps a full history of every row version (temporal table). Bare `@systemVersioned`
+// uses dialect-default period/history names; `@systemVersioned({ historyTableName, … })`
+// overrides them. Consumed by the SchemaBuilder (period columns + history table + SS
+// SYSTEM_VERSIONING / PG versioning trigger).
+type SystemVersionedOptions = { startColumnName?: string; endColumnName?: string; sysPeriodColumnName?: string; historyTableName?: string };
+export function systemVersioned(target: Function): void;
+export function systemVersioned(options: SystemVersionedOptions): (target: Function) => void;
+export function systemVersioned(arg?: unknown): unknown {
+    if (typeof arg === 'function') {
+        getOrCreateTypeInfo(arg).systemVersioned = {};
+        return;
+    }
+    const options = (arg ?? {}) as SystemVersionedOptions;
+    return function (target: Function): void {
+        getOrCreateTypeInfo(target).systemVersioned = { ...options };
+    };
+}
+
 // Field-level marker on an IView class (Signum's [ViewPrimaryKey]): this raw column
 // is (part of) the view's primary key. Consumed by ViewBuilder. A view class is
 // declared with `@reflect` (the reflection/@field trigger, standing in for Signum's

@@ -2,6 +2,12 @@ import { AbstractDbType, IsNullable } from './dbType';
 import type { PrimaryKeyType } from '../../entities/reflection';
 import type { Table } from './table';
 
+// A system-versioning period column's role (Signum's SystemVersionColumnType + the
+// Postgres range variant): SQL Server has a `start`/`end` pair, Postgres a single
+// `period` tstzrange. Marks the column so the DDL generator emits GENERATED ALWAYS AS
+// ROW START/END (SS) and the reader/synchronizer treats it as system-managed.
+export type SystemVersionKind = 'start' | 'end' | 'period';
+
 // A single physical column in a table. Mirrors Signum's IColumn. Every Field
 // produces zero or more of these via Field.columns(); Table flattens them into
 // its `columns` dictionary. `readonly` here documents the consumer contract —
@@ -24,6 +30,9 @@ export interface IColumn {
     // Native array column (e.g. Postgres text[]). Reserved — always false today,
     // since primitive collections are rejected by the builder for now.
     readonly collection: boolean;
+    // Set on a system-versioning period column (Signum's SqlServerPeriodColumn /
+    // PostgresPeriodColumn). Undefined for ordinary columns.
+    readonly systemVersion?: SystemVersionKind;
 }
 
 // Base implementation with sensible defaults; subclasses tweak fields in their
@@ -41,6 +50,7 @@ export class ColumnBase implements IColumn {
     referenceTable?: Table;
     avoidForeignKey = false;
     collection = false;
+    systemVersion?: SystemVersionKind;
 
     constructor(
         public name: string,

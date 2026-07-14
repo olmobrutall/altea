@@ -5,6 +5,7 @@ import { EntityField, FieldPrimaryKey, FieldTicks, FieldMixin } from './field';
 import type { IColumn } from './column';
 import { TableIndex, recordAccessedFields } from './tableIndex';
 import { getIndexWhere } from './indexWhere';
+import type { SystemVersionedInfo } from './systemVersioned';
 
 // In-memory description of one entity's table. `fields` holds the reflected
 // entity fields (incl. id/ticks); `columns` is the flattened physical layout
@@ -32,6 +33,9 @@ export class Table {
     // The table's indexes (Signum's ITable.MultiColumnIndexes / GenerateAllIndexes): the
     // automatic FK indexes, the @index/@uniqueIndex ones, and any added via withIndex.
     indexes: TableIndex[] = [];
+    // Set when the entity is @systemVersioned (Signum's ITable.SystemVersioned): the period
+    // columns + history table describing the temporal versioning. Undefined for ordinary tables.
+    systemVersioned?: SystemVersionedInfo;
 
     constructor(
         public readonly type: Type<Entity>,
