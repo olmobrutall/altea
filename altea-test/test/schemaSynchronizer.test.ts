@@ -396,4 +396,41 @@ describe("SchemaSynchronizer (live DB)", { skip: !hasDb }, () => {
         const folder = connector.schema.table(FolderEntity);
         await assertRoundTrip(() => run(connector.sqlBuilder.renameTable(folder.name, folder.name.name + "_ren")), renameBack);
     });
+
+    // ---- SQL Server versioning transitions --------------------------------------------------
+
+    // SQL Server: the table is drifted to fully NON-versioned (versioning off, period + period
+    // columns + history table dropped) → the synchronizer must turn it back into a system-versioned
+    // table: add the period columns + PERIOD (fused) and SET SYSTEM_VERSIONING = ON (which
+    // auto-creates the history table). Exercises the enable transition end to end.
+    txTest("Versioned_EnableVersioning_SqlServer", async (t) => {
+        if (!onlySqlServer(t)) return;
+        const folder = connector.schema.table(FolderEntity);
+        const sv = folder.systemVersioned!;
+        const sb = connector.sqlBuilder;
+        const full = sb.objectName(folder.name);
+        await assertRoundTrip(async () => {
+            await connector.executeNonQuery(`ALTER TABLE ${full} SET (SYSTEM_VERSIONING = OFF)`);
+            await connector.executeNonQuery(`ALTER TABLE ${full} DROP PERIOD FOR SYSTEM_TIME`);
+            await connector.executeNonQuery(`ALTER TABLE ${full} DROP COLUMN ${sb.sqlEscape(sv.startColumnName!)}`);
+            await connector.executeNonQuery(`ALTER TABLE ${full} DROP COLUMN ${sb.sqlEscape(sv.endColumnName!)}`);
+            await run(sb.dropTable(sv.historyTableName));
+        });
+    });
+
+    // SQL Server: a "strong" column change — the DB column is drifted to NULLABLE while the model
+    // has it NOT NULL — which SQL Server can't ALTER while versioning is ON. The synchronizer must
+    // disable versioning, ALTER the column on BOTH the main and history tables, and re-enable.
+    txTest("Versioned_StrongColumnChange_SqlServer", async (t) => {
+        if (!onlySqlServer(t)) return;
+        const folder = connector.schema.table(FolderEntity);
+        const nameModelCol = folder.fields["name"].field.columns()[0];
+        const type = connector.sqlBuilder.getColumnType(nameModelCol);
+        const full = connector.sqlBuilder.objectName(folder.name);
+        const col = connector.sqlBuilder.sqlEscape(nameModelCol.name);
+        await assertRoundTrip(async () => {
+            // Drift the column to nullable (SQL Server propagates it to the history table).
+            await connector.executeNonQuery(`ALTER TABLE ${full} ALTER COLUMN ${col} ${type} NULL`);
+        });
+    });
 });

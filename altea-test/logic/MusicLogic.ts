@@ -17,6 +17,7 @@ import {
     SimplePassageEntity,
     MinimumExtensions,
 } from "../entities/music";
+import { includeGetDatesInRange } from "@altea/altea/logic/queryTimeSeries";
 
 // Registers every Music table in the schema. Mirrors Signum.Test's
 // MusicLogic.Start (the include(...) calls): takes the SchemaBuilder and returns
@@ -59,6 +60,11 @@ export namespace MusicLogic {
         // MinimumTableValued UDF on the schema's assets so it is created by schema generation
         // (replacing the old test-only before() hook).
         MinimumExtensions.includeFunction(sb.schema.assets, sb.settings.isPostgres);
+
+        // Signum registers GetDatesInRange framework-side (QueryTimeSeriesLogic.Start); altea has
+        // no framework module start, so the time-series TVF is registered here (it drives the
+        // system-versioned time-series queries — a per-date AS OF over FolderEntity).
+        includeGetDatesInRange(sb.schema.assets, sb.settings.isPostgres);
     }
 }
 

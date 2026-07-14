@@ -27,6 +27,18 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
             schemaName: st.s.name,
             tableName: st.t.name,
 
+            // System-versioning state (Signum's TemporalType / Period / TemporalTableName). The
+            // period column names come from sys.periods joined back to sys.columns by column_id;
+            // scalar firstOrNull yields null (not a sentinel) when the table has no period.
+            temporalType: st.t.temporal_type,
+            periodStartColumn: st.t.periods().map(p => st.t.columns().single(c => c.column_id == p.start_column_id).$v.name).firstOrNull().$v,
+            periodEndColumn: st.t.periods().map(p => st.t.columns().single(c => c.column_id == p.end_column_id).$v.name).firstOrNull().$v,
+            // The history table + its schema, navigated off the same nullable temporalTable() — the
+            // two navs unify to one sys.tables OUTER APPLY, and SysTables.schema() is singleOrNull so
+            // its OUTER APPLY preserves non-versioned tables (a null temporalTable → null schema).
+            temporalTableName: st.t.temporalTable().$v!.name,
+            temporalTableSchema: st.t.temporalTable().$v!.schema().$v!.name,
+
             primaryKeyName: st.t.keyConstraints().filter(k => k.type == "PK").map(k => k.name).firstOrNull().$v,
 
             columns: st.t.columns()
@@ -56,7 +68,7 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
                     conname: fr.fk.name,
                     isDisabled: fr.fk.is_disabled,
                     isNotTrusted: fr.fk.is_not_trusted,
-                    targetSchema: fr.rt.schema().$v.name,
+                    targetSchema: fr.rt.schema().$v!.name,
                     targetName: fr.rt.name,
                     columns: fr.fk.foreignKeyColumns()
                         .map(fkc => DiffForeignKeyColumn.create({

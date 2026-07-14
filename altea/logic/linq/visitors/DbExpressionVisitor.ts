@@ -31,6 +31,11 @@ export class DbExpressionVisitor extends ExpressionVisitor {
     }
 
     visitTable(table: TableExpression): Expression {
+        // Recurse into the system-time scope's per-row expression, if any (only AsOfExpression
+        // carries one), so alias-remapping passes reach it (Signum's VisitSystemTime).
+        const st = table.systemTime?.mapExpression(e => this.visit(e as Expression));
+        if (st !== table.systemTime)
+            return new TableExpression(table.alias, table.table, table.withHint, st);
         return table;
     }
 

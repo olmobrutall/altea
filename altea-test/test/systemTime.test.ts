@@ -4,6 +4,7 @@ import { table } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals";
 import { SystemTime, SystemTimeJoinMode, NullableInterval } from "@altea/altea/logic/systemTime";
 import { Temporal } from "@altea/altea/entities/basics";
+import { getDatesInRange, TimeSeriesUnit } from "@altea/altea/logic/queryTimeSeries";
 import { hasDb, start } from "./setup";
 import { FolderEntity } from "../entities/music";
 
@@ -98,5 +99,52 @@ describe("SystemTimeTest", { skip: !hasDb }, () => {
         const nowSnapshot = await SystemTime.override(new SystemTime.AsOf(Temporal.Now.instant()), async () =>
             table(FolderEntity).map(f => f.name).toArray());
         assert.deepEqual(nowSnapshot, []);
+    });
+
+    // GetDatesInRange TVF in isolation (Signum's QueryTimeSeriesLogic.GetDatesInRange): a series of
+    // timestamps generated in SQL. Here 1-second steps across a 2-second window → 3 rows.
+    test("GetDatesInRange", async () => {
+        const startDt = Temporal.PlainDateTime.from("2020-01-01T00:00:00");
+        const endDt = startDt.add({ seconds: 2 });
+        const dates = await getDatesInRange(startDt, endDt, TimeSeriesUnit.Second, 1).map(d => d.date).toArray();
+        assert.equal(dates.length, 3, "0s, 1s, 2s");
+        assert.ok(dates.every(d => d != null));
+    });
+
+    // The earliest version start across all history (Signum's `Min(a => a.SystemPeriod().Min!.Value)`).
+    // altea's min() aggregate is typed for scalars, not Temporal, so reduce client-side.
+    async function earliestVersionStart(): Promise<Temporal.PlainDateTime> {
+        const mins = await SystemTime.override(new SystemTime.All(SystemTimeJoinMode.AllCompatible), async () =>
+            table(FolderEntity).map(f => f.systemPeriod().min).toArray());
+        const present = mins.filter((m): m is Temporal.PlainDateTime => m != null);
+        assert.ok(present.length > 0, "history has version starts");
+        return present.reduce((a, b) => Temporal.PlainDateTime.compare(a, b) <= 0 ? a : b);
+    }
+
+    // Signum's TimeSeriesOneValue: a series of dates, each carrying a scalar aggregate computed AS
+    // OF that date — one composed query where the per-row date drives an AsOfExpression AS OF over
+    // the versioned table (a correlated COUNT subquery). Asserts it translates and runs.
+    test("TimeSeriesOneValue", async () => {
+        const min = await earliestVersionStart();
+        const series = await getDatesInRange(min, min.add({ seconds: 2 }), TimeSeriesUnit.Millisecond, 50)
+            .map(dv => ({
+                date: dv.date,
+                count: table(FolderEntity).overrideSystemTime(new SystemTime.AsOf(dv.date)).count(),
+            }))
+            .toArray();
+        assert.ok(Array.isArray(series));
+        assert.ok(series.every(r => r.date != null && typeof r.count === "number"));
+    });
+
+    // Signum's TimeSeriesManyValue: for each date in the series, the folders live AS OF that date
+    // (a SelectMany / flatMap correlating the date with the versioned rows AS OF it).
+    test("TimeSeriesManyValue", async () => {
+        const min = await earliestVersionStart();
+        const series = await getDatesInRange(min, min.add({ seconds: 2 }), TimeSeriesUnit.Millisecond, 50)
+            .flatMap(dv => table(FolderEntity)
+                .overrideSystemTime(new SystemTime.AsOf(dv.date))
+                .map(f => ({ date: dv.date, folder: f.name })))
+            .toArray();
+        assert.ok(Array.isArray(series));
     });
 });

@@ -33,6 +33,24 @@ export class DiffSchema {
     owner?: string;
 }
 
+// SQL Server's PERIOD FOR SYSTEM_TIME as read from the catalog (Signum's DiffPeriod): the start /
+// end period column names. `periodEquals` checks they match a model table's SystemVersionedInfo.
+export class DiffPeriod {
+    constructor(public startColumnName: string, public endColumnName: string) { }
+
+    periodEquals(sv: { startColumnName?: string; endColumnName?: string }): boolean {
+        return sv.startColumnName === this.startColumnName && sv.endColumnName === this.endColumnName;
+    }
+}
+
+// SQL Server's system-versioning temporal type (sys.tables.temporal_type / Signum's
+// SysTableTemporalType): the table is not versioned, is a history table, or is a versioned main.
+export enum SysTableTemporalType {
+    None = 0,
+    HistoryTable = 1,
+    SystemVersionTemporalTable = 2,
+}
+
 // The Postgres system-versioning trigger read off a table (Signum's DiffPostgresVersioningTrigger).
 // Its presence marks the table as system-versioned in the database. `args` is pg_trigger.tgargs
 // decoded (the raw bytea is a NUL-separated list) into the three values altea's Option C trigger
@@ -56,18 +74,30 @@ export class DiffTable extends View {
     // history table + trigger are managed explicitly.
     versioningTrigger?: DiffPostgresVersioningTrigger;
 
+    // SQL Server system-versioning state read from the catalog (Signum's DiffTable.TemporalType /
+    // Period / TemporalTableName). Drive the versioning transitions (enable/disable/period). Unset
+    // on Postgres (which uses the trigger above).
+    temporalType: SysTableTemporalType = SysTableTemporalType.None;
+    period?: DiffPeriod;
+    temporalTableName?: ObjectName;
+
     columns!: { [name: string]: DiffColumn };
 
     // Build a DiffTable from a query projection (or TS) out of plain strings + the columns
     // array (built in the query as DiffColumn.create({ … })). The schema/name strings become
     // ObjectNames (default schema normalised), the columns array is indexed by name, and
     // single-column foreign keys are hoisted onto their columns. Overrides View.create.
-    static create(values: { schemaName: string; tableName: string; primaryKeyName?: string | null; owner?: string; columns: DiffColumn[]; multiForeignKeys?: DiffForeignKey[]; indices?: DiffIndex[]; versioningTrigger?: DiffPostgresVersioningTrigger | null }): DiffTable {
+    static create(values: { schemaName: string; tableName: string; primaryKeyName?: string | null; owner?: string; columns: DiffColumn[]; multiForeignKeys?: DiffForeignKey[]; indices?: DiffIndex[]; versioningTrigger?: DiffPostgresVersioningTrigger | null; temporalType?: number | null; periodStartColumn?: string | null; periodEndColumn?: string | null; temporalTableSchema?: string | null; temporalTableName?: string | null }): DiffTable {
         const t = new DiffTable();
         t.name = objectNameOf(values.schemaName, values.tableName);
         t.primaryKeyName = values.primaryKeyName == null ? undefined : objectNameOf(values.schemaName, values.primaryKeyName);
         t.owner = values.owner;
         t.versioningTrigger = values.versioningTrigger ?? undefined;
+        t.temporalType = (values.temporalType ?? SysTableTemporalType.None) as SysTableTemporalType;
+        if (values.periodStartColumn != null && values.periodEndColumn != null)
+            t.period = new DiffPeriod(values.periodStartColumn, values.periodEndColumn);
+        if (values.temporalTableName != null)
+            t.temporalTableName = objectNameOf(values.temporalTableSchema ?? values.schemaName, values.temporalTableName);
         t.columns = Object.fromEntries(values.columns.map(c => [c.name, c]));
         t.multiForeignKeys = values.multiForeignKeys ?? [];
         t.indices = Object.fromEntries((values.indices ?? []).map(i => [i.indexName, i]));

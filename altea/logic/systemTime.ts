@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Temporal } from '../entities/basics';
+import { quotedFunction, ClassType } from '../entities/types';
 
 // Port of Signum's SystemTime (Entities/SystemTime.cs) — the query-time scope that selects
 // which row versions a query over a system-versioned table sees. Unlike Clock (a static,
@@ -37,6 +38,14 @@ export abstract class SystemTime {
     // because AsyncLocalStorage is scope-based (no imperative push/pop).
     static override<R>(systemTime: SystemTime | undefined, fn: () => R): R {
         return storage.run(systemTime, fn);
+    }
+
+    // Map the inner query expression a mode may carry — only the internal AsOfExpression (defined
+    // in the linq layer) does; the user-facing modes carry none, so return `this` unchanged. Lets
+    // DbExpressionVisitor traverse/remap a per-row AS OF expression without this dependency-light,
+    // server-only module importing the linq Expression type (hence the loose signature).
+    mapExpression(_fn: (e: unknown) => unknown): SystemTime {
+        return this;
     }
 
     // Nested-class constructors (Signum's SystemTime.AsOf / .All / …), attached below so callers
@@ -90,6 +99,13 @@ SystemTime.All = SystemTimeAll;
 SystemTime.Between = SystemTimeBetween;
 SystemTime.ContainedIn = SystemTimeContainedIn;
 SystemTime.HistoryTable = SystemTimeHistoryTable;
+
+// Make `new SystemTime.AsOf(expr)` quotable INSIDE a query lambda (the time-series per-row AS OF):
+// the quote builder rejects a constructor call whose callee carries no result type. The type is a
+// placeholder — never rendered — because the QueryBinder turns the construction into an internal
+// AsOfExpression (see QueryBinder.toSystemTime). Outside a quoted lambda, `new SystemTime.AsOf(…)`
+// runs normally, so this brand is inert there.
+quotedFunction(SystemTimeAsOf).__resultType = () => new ClassType(SystemTimeAsOf);
 
 // The materialised result of `entity.systemPeriod()` (Signum's NullableInterval<DateTime>): a
 // half-open period [min, max). An open (still-current) version has max == null. `.min`/`.max`

@@ -16,6 +16,7 @@ import { ConditionsRewriter } from "./linq/visitors/ConditionsRewriter";
 import { ScalarSubqueryRewriter } from "./linq/visitors/ScalarSubqueryRewriter";
 import { ChildProjectionFlattener } from "./linq/visitors/ChildProjectionFlattener";
 import { DuplicateHistory } from "./linq/visitors/DuplicateHistory";
+import { AsOfExpressionVisitor } from "./linq/visitors/AsOfExpressionVisitor";
 import { CommandSimplifier } from "./linq/visitors/CommandSimplifier";
 import { ProjectionExpression, CommandExpression, CommandAggregateExpression } from "./linq/expressions.sql";
 import { buildTranslateResult } from "./linq/translatorBuilder";
@@ -63,6 +64,21 @@ export function view<T>(viewType: { new(): T }): Query<T> {
     return new Query<T>(callExpression, MyQueryTranslator.instance);
 }
 
+// Start a top-level query whose source is a table-valued @sqlMethod marker (e.g. GetDatesInRange).
+// Mirrors table()/view() but the root CallExpression targets the branded TVF function, so the
+// QueryBinder lowers it via bindSqlMethod → bindTableValuedFunction (Signum's
+// `new Query<DateValue>(provider, Expression.Call(GetDatesInRange, …))`). `viewType` is the row
+// IView; `args` become the function's SQL arguments (parametrised).
+export function sqlMethodQuery<T>(marker: Function, viewType: new () => T, args: unknown[]): Query<T> {
+    const arrayType = new ArrayType(new ClassType(viewType as any));
+    const call = new CallExpression(
+        new ConstantExpression(marker, new FunctionType(marker, arrayType)),
+        args.map(a => new ConstantExpression(a)),
+        arrayType,
+    );
+    return new Query<T>(call, MyQueryTranslator.instance);
+}
+
 quotedFunction(table).__resultType = (_, entityTypeType) => new ArrayType(new ClassType((entityTypeType as FunctionType).func!));
 quotedFunction(view).__resultType = (_, viewTypeType) => new ArrayType(new ClassType((viewTypeType as FunctionType).func!));
 
@@ -91,6 +107,13 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
     // columns — Signum runs AggregateRewriter first in Optimize.
     projection = AggregateRewriter.rewrite(projection);
     projection = OrderByRewriter.rewrite(projection);
+    // A versioned table under a per-row AsOfExpression (a dynamic AS OF whose instant is a column —
+    // a time-series query) is rewritten to `FOR SYSTEM_TIME ALL WHERE period.contains(expr)` on
+    // BOTH dialects (SQL Server's FOR SYSTEM_TIME AS OF can't take a column). Runs EARLY (Signum's
+    // order: before the rebinder), so the AS OF's outer-column reference is exposed before the join
+    // correlation is finalised — else a correlated flatMap renders as a plain (non-LATERAL) join.
+    // DuplicateHistory (Postgres, below) later turns the ALL into the history UNION.
+    projection = AsOfExpressionVisitor.rewrite(projection, binder.aliases);
     projection = QueryRebinder.rebind(projection);
     // Drop columns (and dead single-row joins) no enclosing scope references — Signum
     // runs UnusedColumnRemover here, right before collapsing redundant subqueries.

@@ -162,9 +162,11 @@ a spec.
 - `view()`/temp tables, `OrderAlsoByKeys`
   (stable pagination over a non-unique key).
 - Deferred subsystems: FullText, Vector (pgvector). **SystemTime / system-versioned
-  (temporal) tables are IMPLEMENTED** (see the SystemTime section below); only the dynamic
-  time-series path (`AsOfExpression` / `QueryTimeSeriesLogic`) and the SQL-Server
-  enable/disable-versioning schema transitions remain out of scope.
+  (temporal) tables are IMPLEMENTED** (see the SystemTime section below), including the dynamic
+  time-series path (`GetDatesInRange` + `AsOfExpression`) and the SQL-Server versioning
+  transitions (enable / disable / strong-column-change / drop). Only the cross-table ordering of
+  simultaneous transitions (Signum's `GoBefore`/`GoAfter`) and backfilling a non-empty table that
+  becomes versioned remain out of scope.
 - `TypeLogic` "Sync" (load ids from the DB instead of computing them) and
   `TypeEntity` unique indexes; the documented out-of-scope `unsafe*` cases
   (`Clock.now`, identity-insert, MList row-index, typed-NULL-in-CASE).
@@ -185,8 +187,9 @@ Faithful port of Signum's system-versioned tables + `SystemTime` query scope, on
 dialects. Enable per entity with `@systemVersioned`; query a past state with
 `SystemTime.override(st, () => query…)` (the async-scoped analogue of Signum's
 `using (SystemTime.Override(st))`), and project a row's period with `entity.systemPeriod()`.
-Core modes only: `AsOf` / `All` / `Between` / `ContainedIn` / `HistoryTable` (the dynamic
-`AsOfExpression` / time-series path is out of scope).
+Modes: `AsOf` / `All` / `Between` / `ContainedIn` / `HistoryTable`, plus the dynamic time-series
+path — `getDatesInRange(start, end, unit, step)` (a SQL table-valued function) composed with a
+per-row `overrideSystemTime(new SystemTime.AsOf(dv.date))` for a series of AS OF queries.
 
 - **Model** — `@systemVersioned` → `SystemVersionedInfo` on the `Table` (`logic/schema/
   systemVersioned.ts`): SQL Server keeps two `datetime2 GENERATED ALWAYS AS ROW START/END
@@ -203,6 +206,14 @@ Core modes only: `AsOf` / `All` / `Between` / `ContainedIn` / `HistoryTable` (th
   no such clause, so `DuplicateHistory` (Postgres-only, runs last in the optimize pipeline)
   rewrites the versioned table into `UNION ALL(main, history)` with a `sys_period` range
   predicate (`@>` / `&&` / `<@`). `systemPeriod()` materialises as a `NullableInterval`.
+- **Time series (dynamic AS OF)** — a per-row `new SystemTime.AsOf(<column>)` becomes the internal
+  `AsOfExpression`; `AsOfExpressionVisitor` (runs early, both dialects) rewrites the versioned table
+  to `FOR SYSTEM_TIME ALL WHERE period.contains(expr)` (SQL Server's native AS OF takes only a
+  constant, so both dialects use this + the Postgres UNION). Composed with `getDatesInRange` (a SQL
+  TVF: SQL Server WHILE-loop multi-statement TVF, Postgres `generate_series`), a correlated
+  `flatMap`/scalar-subquery drives one query with a series of AS OF snapshots (a `CROSS APPLY` /
+  `CROSS JOIN LATERAL`). `new SystemTime.AsOf` is made quotable inside a lambda by branding the
+  constructor with a placeholder `__resultType`.
 - **Sync drift** (`schemaSynchronizer`) — SQL Server keeps versioning ON and propagates every
   column change to history automatically, so the ordinary column diff on the main table is
   enough. Postgres is manual: the column diff is built as `SqlPreCommandWithHistory` pairs
@@ -212,14 +223,24 @@ Core modes only: `AsOf` / `All` / `Between` / `ContainedIn` / `HistoryTable` (th
   `CREATE OR REPLACE` when its decoded `tgargs` (history table + column list) drift from
   `SqlBuilder.versioningTriggerArgs`. The reader detects versioning off the Postgres
   `versioning` trigger (`PgTrigger`) and decodes `pg_trigger.tgargs`.
-- **Deferred (documented in-code):** the dynamic `AsOfExpression` / `QueryTimeSeriesLogic`
-  path; SQL Server enable/disable-versioning schema transitions, `DropTable`-disable-first, and
-  `StrongColumnChanges` (unreachable for an always-versioned entity — they need Signum's
-  delayed-command + `GoBefore`/`GoAfter` ordering machinery); Postgres history-*table* RENAME
-  on an entity-table rename (needs Signum's `RenameOrMove` row move — currently recreates the
-  history table); column-default forking on history (altea's versioned entities declare none).
-- **Refs** — `logic/systemTime.ts` (API, `AsyncLocalStorage`-scoped), `logic/linq/visitors/
-  DuplicateHistory.ts`, `logic/sync/{sqlBuilder,schemaSynchronizer,sqlPreCommand}.ts`,
+- **SQL Server versioning transitions** — when a table's versioned-ness changes, the synchronizer
+  brackets the change with `SET (SYSTEM_VERSIONING = OFF/ON)` + `ADD/DROP PERIOD`: **enable**
+  (un-versioned → versioned: add the period columns + `PERIOD` fused, then `SYSTEM_VERSIONING = ON`,
+  which auto-creates the history table), **disable** (drop period + columns), **strong column
+  change** (Signum's `StrongColumnChanges` — making a column NOT NULL or an incompatible type,
+  which SQL Server refuses with versioning on → disable, alter BOTH tables via
+  `SqlPreCommandWithHistory`, re-enable), and **drop** (`dropTable(diff)` disables first). The SS
+  reader detects the state off `sys.tables.temporal_type` + `sys.periods` + `history_table_id`.
+- **Deferred (documented in-code):** cross-table ordering of simultaneous versioning transitions
+  (Signum's `GoBefore`/`GoAfter` + delayed-command lists — altea sequences per-table via combine
+  order); backfilling a *non-empty* table that becomes versioned (the period columns are added
+  without a DEFAULT, so the table must be empty); Postgres history-*table* RENAME on an
+  entity-table rename (needs Signum's `RenameOrMove` row move — currently recreates the history
+  table); column-default forking on history (altea's versioned entities declare none); the
+  DynamicQuery-layer `TimeSeriesToken` (altea has no DynamicQuery/UI).
+- **Refs** — `logic/systemTime.ts` (API, `AsyncLocalStorage`-scoped), `logic/queryTimeSeries.ts`
+  (`GetDatesInRange`/`DateValue`), `logic/linq/visitors/{DuplicateHistory,AsOfExpressionVisitor}.ts`,
+  `logic/sync/{sqlBuilder,schemaSynchronizer,sqlPreCommand}.ts`,
   `logic/sync/postgres/{versioning,postgresCatalog,postgresCatalogSchema}.ts`; tests in
   `altea-test/test/{systemTime,schemaSynchronizer}.test.ts`.
 
@@ -325,7 +346,9 @@ Core modes only: `AsOf` / `All` / `Between` / `ContainedIn` / `HistoryTable` (th
 | `Engine/Basics/TypeLogic.cs` + `Basics/Type.cs` | `logic/typeLogic.ts` + `entities/typeEntity.ts` | Ported (no Sync; ids computed) |
 | `IMethodExpander` / `ExpressionCleaner` | `@methodExpander` (`query.ts`) + `ExpressionSimplifier` hook | Ported (scoped) |
 | `ExpressionVisitor/DuplicateHistory.cs` | `logic/linq/visitors/DuplicateHistory.ts` | Ported (Postgres-only — system-versioned UNION rewrite) |
-| `AliasProjectionReplacer`, `UnusedColumnRemover`, `AliasGatherer`, `DbExpressionComparer`, `QueryFilterer`, `AsOfExpressionVisitor`, `Meta/*` | none | Not ported |
+| `Engine/Linq/AsOfExpressionVisitor.cs` | `logic/linq/visitors/AsOfExpressionVisitor.ts` | Ported (per-row AS OF → FOR SYSTEM_TIME ALL + period predicate) |
+| `Basics/QueryTimeSeriesLogic.cs` (`GetDatesInRange`, `DateValue`) | `logic/queryTimeSeries.ts` | Ported (both dialects; drives time-series queries) |
+| `AliasProjectionReplacer`, `UnusedColumnRemover`, `AliasGatherer`, `DbExpressionComparer`, `QueryFilterer`, `Meta/*` | none | Not ported |
 
 `logic/linq/expressions.ts` has no direct Signum mapping — it is the altea
 source-expression model bridging `quote-transformer` into the SQL pipeline.

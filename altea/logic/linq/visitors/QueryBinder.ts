@@ -15,10 +15,10 @@ import {
     CaseExpression, When, IsNotNullExpression, IsNullExpression, SetOperatorExpression, SourceWithAliasExpression,
     CommandExpression, CommandAggregateExpression, ColumnAssignment,
     DeleteExpression, UpdateExpression, InsertSelectExpression,
-    SqlArrayIndexExpression, SqlTableValuedFunctionExpression, IntervalExpression,
+    SqlArrayIndexExpression, SqlTableValuedFunctionExpression, IntervalExpression, AsOfExpression,
 } from "../expressions.sql";
 import type { SystemVersionedInfo } from "../../schema/systemVersioned";
-import { SystemTime } from "../../systemTime";
+import { SystemTime, SystemTimeAsOf } from "../../systemTime";
 import { AssignAdapterExpander } from "./AssignAdapterExpander";
 import { AliasGenerator, Alias } from "../AliasGenerator";
 import { sqlEscape } from "../sqlEscape";
@@ -56,7 +56,7 @@ import type { FieldInfo } from "../../../entities/reflection";
 import { resolveType, resolveEnum } from "../../../entities/registration";
 import { Entity, View } from "../../../entities/entity";
 import { TypeEntity } from "../../../entities/typeEntity";
-import { toInt, toLong, toDecimal, inSql } from "../../../entities/basics";
+import { toInt, toLong, toDecimal, inSql, Temporal } from "../../../entities/basics";
 import { Lite } from "../../../entities/lite";
 import { niceName } from "../../../entities/utils/localization";
 import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, Type } from "../../../entities/types";
@@ -928,7 +928,7 @@ export class QueryBinder extends ExpressionVisitor {
             if (op === "overrideSystemTime") {
                 const old = this.systemTime;
                 try {
-                    this.systemTime = (call.args[0] as ConstantExpression).value as SystemTime;
+                    this.systemTime = this.toSystemTime(call.args[0]);
                     return this.visit(property.object);
                 } finally {
                     this.systemTime = old;
@@ -2796,7 +2796,7 @@ export class QueryBinder extends ExpressionVisitor {
     // The function arguments are bound in the current scope, so when they reference outer
     // columns the formatter emits a CROSS JOIN LATERAL / CROSS APPLY.
     private bindTableValuedFunction(functionName: string, args: readonly Expression[], resultType: Type): ProjectionExpression {
-        const boundArgs = args.map(a => this.visit(a));
+        const boundArgs = args.map(a => this.castTvfArg(this.visit(a)));
         const tableAlias = this.aliasGenerator.nextTableAlias(functionName);
 
         // The IView row type is the ClassType element of the ArrayType result; a scalar element
@@ -2837,6 +2837,29 @@ export class QueryBinder extends ExpressionVisitor {
             pc.projector, undefined, new ArrayType(elementType));
     }
 
+    // node-postgres sends bound parameters untyped, so a parametrised constant passed to a
+    // user-defined table-valued function (e.g. GetDatesInRange(timestamptz, …, varchar, …)) reaches
+    // Postgres as `unknown` and no overload matches ("function … does not exist"). Wrap a constant
+    // temporal/string TVF argument in an explicit CAST so the function resolves — the same
+    // node-pg-untyped-parameter workaround DuplicateHistory uses for its period instants. Numbers
+    // are already cast by the formatter; column/expression args carry their own type. SQL Server
+    // infers parameter types from context, so this is Postgres-only.
+    private castTvfArg(arg: Expression): Expression {
+        if (!this.isPostgres || !(arg instanceof ConstantExpression))
+            return arg;
+        // Key off the runtime value: a captured Temporal constant's inferred type isn't a
+        // TemporalType, so detect the value directly (PlainDateTime/Instant/ZonedDateTime → the
+        // timestamptz the date functions expect).
+        const v = arg.value;
+        if (v instanceof Temporal.PlainDateTime || v instanceof Temporal.Instant || v instanceof Temporal.ZonedDateTime)
+            return new SqlCastExpression(arg.type, arg, "timestamptz");
+        if (v instanceof Temporal.PlainDate)
+            return new SqlCastExpression(arg.type, arg, "date");
+        if (typeof v === "string" || arg.type === LiteralType.string)
+            return new SqlCastExpression(arg.type, arg, "varchar");
+        return arg;
+    }
+
     // Signum's WithHint / currentTableHint: a table hint pending until the next table
     // is built. `withHint(source, hint)` sets it, visits the source (which consumes it
     // when it constructs the primary table), then asserts it was applied — a hint that
@@ -2847,6 +2870,37 @@ export class QueryBinder extends ExpressionVisitor {
     // columns at the entity's alias (Signum's Table.GenerateSystemPeriod). SQL Server exposes a
     // start/end datetime2 pair; Postgres a single sys_period tstzrange (its bounds unwrap via
     // lower()/upper() when .min/.max are navigated).
+    // Resolve the argument of `.overrideSystemTime(...)` to a SystemTime (Signum's
+    // QueryBinder.ToSystemTime). A constant SystemTime value passes through (the static modes);
+    // `new SystemTime.AsOf(<expr>)` — quoted as a construction/call of the AsOf constructor with a
+    // possibly non-constant argument — binds + nominates its argument into the internal
+    // AsOfExpression (a per-row AS OF, used by the time-series queries).
+    private toSystemTime(arg: Expression): SystemTime {
+        if (arg instanceof ConstantExpression && arg.value instanceof SystemTime)
+            return arg.value;
+
+        const asOfArg = this.asOfConstructionArgument(arg);
+        if (asOfArg != null)
+            return new AsOfExpression(this.fullNominate(this.visit(asOfArg)));
+
+        throw new Error("overrideSystemTime expects a SystemTime value or `new SystemTime.AsOf(expr)`, got: " + arg);
+    }
+
+    // If `arg` is `new SystemTime.AsOf(x)` (a single-argument construction/call whose callee
+    // resolves to the SystemTimeAsOf constructor), return the bound-able argument `x`; else
+    // undefined. The callee may be a captured constant (the class) or a property access
+    // `SystemTime.AsOf` off the captured SystemTime namespace.
+    private asOfConstructionArgument(arg: Expression): Expression | undefined {
+        if (!(arg instanceof CallExpression) || arg.args.length !== 1)
+            return undefined;
+        const callee = arg.func;
+        const ctor = callee instanceof ConstantExpression ? callee.value
+            : callee instanceof PropertyExpression && callee.object instanceof ConstantExpression
+                ? (callee.object.value as Record<string, unknown>)?.[callee.propertyName]
+                : undefined;
+        return ctor === SystemTimeAsOf ? arg.args[0] : undefined;
+    }
+
     private systemPeriodExpression(sv: SystemVersionedInfo, alias: Alias): IntervalExpression {
         const dt = new TemporalType("dateTime");
         if (sv.postgresSysPeriodColumnName != null) {

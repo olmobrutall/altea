@@ -4,7 +4,7 @@ import { AbstractDbType, isNullableToBool } from '../schema/dbType';
 import { ObjectName, SchemaName } from '../schema/objectName';
 import type { Table } from '../schema/table';
 import type { TableIndex } from '../schema/tableIndex';
-import type { DiffColumn } from './diffModels';
+import type { DiffColumn, DiffTable } from './diffModels';
 import { SqlPreCommand, SqlPreCommandSimple, SqlPreCommandWithHistory, Spacing } from './sqlPreCommand';
 import { chopHash, codify, HASH_SIZE } from './stringHash';
 import { VERSIONING_FUNCTION } from './postgres/versioning';
@@ -101,7 +101,7 @@ export class SqlBuilder {
         // ordinary column here; the history table + trigger are emitted separately.)
         let suffix = '';
         if (sv != null && !this.isPostgres) {
-            lines.push(`PERIOD FOR SYSTEM_TIME (${this.sqlEscape(sv.startColumnName!)}, ${this.sqlEscape(sv.endColumnName!)})`);
+            lines.push(this.periodClause(sv));
             // SQL Server requires HISTORY_TABLE in two-part (schema-qualified) form.
             suffix = `\nWITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = ${this.qualifiedName(sv.historyTableName)}))`;
         }
@@ -159,6 +159,49 @@ export class SqlBuilder {
     // table is no longer system-versioned in the model.
     dropVersioningTrigger(tableName: ObjectName, triggerName: string): SqlPreCommand {
         return new SqlPreCommandSimple(`DROP TRIGGER ${this.sqlEscape(triggerName)} ON ${this.objectName(tableName)};`);
+    }
+
+    // ---- SQL Server system-versioning transitions --------------------------
+    // Toggling `SYSTEM_VERSIONING` and the `PERIOD FOR SYSTEM_TIME` — used when a table becomes /
+    // stops being versioned, or for a "strong" column change SQL Server rejects with versioning on
+    // (Signum's AlterTable{Disable,Enable}SystemVersioning / AlterTable{Add,Drop}Period). SQL
+    // Server-only; Postgres manages versioning via its trigger + history table.
+
+    alterTableDisableSystemVersioning(tableName: ObjectName): SqlPreCommandSimple {
+        return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} SET (SYSTEM_VERSIONING = OFF);`);
+    }
+
+    alterTableEnableSystemVersioning(table: Table): SqlPreCommandSimple {
+        // HISTORY_TABLE rejects a one-part name, so qualify it (dbo./public.) like createTableSql.
+        return new SqlPreCommandSimple(
+            `ALTER TABLE ${this.objectName(table.name)} SET (SYSTEM_VERSIONING = ON (HISTORY_TABLE = ${this.qualifiedName(table.systemVersioned!.historyTableName)}));`);
+    }
+
+    alterTableAddPeriod(table: Table): SqlPreCommandSimple {
+        return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(table.name)} ADD ${this.periodClause(table.systemVersioned!)};`);
+    }
+
+    // Fused `ALTER TABLE t ADD <startCol>, <endCol>, PERIOD FOR SYSTEM_TIME(...)` — adds the two
+    // GENERATED-ALWAYS period columns AND the PERIOD in one statement when a table becomes
+    // system-versioned (Signum's combinedAddPeriod). No DEFAULT is emitted on the period columns,
+    // so the table must be empty; a non-empty table becoming versioned would need backfill
+    // defaults (deferred — the always-versioned model never populates a table before versioning).
+    alterTableAddPeriodWithColumns(table: Table): SqlPreCommandSimple {
+        const sv = table.systemVersioned!;
+        const startCol = table.columns[sv.startColumnName!];
+        const endCol = table.columns[sv.endColumnName!];
+        return new SqlPreCommandSimple(
+            `ALTER TABLE ${this.objectName(table.name)} ADD\n  ${this.columnLine(startCol)},\n  ${this.columnLine(endCol)},\n  ${this.periodClause(sv)};`);
+    }
+
+    alterTableDropPeriod(table: Table): SqlPreCommandSimple {
+        return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(table.name)} DROP PERIOD FOR SYSTEM_TIME;`);
+    }
+
+    // `PERIOD FOR SYSTEM_TIME (start, end)` (Signum's SqlBuilder.Period), shared by createTableSql
+    // and alterTableAddPeriod.
+    private periodClause(sv: { startColumnName?: string; endColumnName?: string }): string {
+        return `PERIOD FOR SYSTEM_TIME (${this.sqlEscape(sv.startColumnName!)}, ${this.sqlEscape(sv.endColumnName!)})`;
     }
 
     // A single column declaration: name type [IDENTITY] (NULL|NOT NULL) [DEFAULT]. `forHistory`
@@ -357,8 +400,16 @@ export class SqlBuilder {
     // GoBefore/GoAfter statement-ordering flags are dropped — altea's SqlPreCommand orders
     // purely by combine order, so callers must sequence statements themselves. (Divergence.)
 
-    dropTable(tableName: ObjectName): SqlPreCommandSimple {
-        return new SqlPreCommandSimple(`DROP TABLE ${this.objectName(tableName)};`);
+    dropTable(tableName: ObjectName): SqlPreCommandSimple;
+    dropTable(diff: DiffTable): SqlPreCommand;
+    dropTable(arg: ObjectName | DiffTable): SqlPreCommand {
+        if (arg instanceof ObjectName)
+            return new SqlPreCommandSimple(`DROP TABLE ${this.objectName(arg)};`);
+        // A versioned table can't be dropped while SYSTEM_VERSIONING is ON — disable it first
+        // (SQL Server only; Postgres drops the trigger/history separately). Signum's DropTable.
+        const disable = !this.isPostgres && arg.temporalTableName != null
+            ? this.alterTableDisableSystemVersioning(arg.name) : undefined;
+        return SqlPreCommand.combine(Spacing.Simple, disable, new SqlPreCommandSimple(`DROP TABLE ${this.objectName(arg.name)};`))!;
     }
 
     dropView(viewName: ObjectName): SqlPreCommandSimple {

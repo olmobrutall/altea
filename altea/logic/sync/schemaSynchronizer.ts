@@ -5,7 +5,7 @@ import type { Table } from "../schema/table";
 import type { Schema } from "../schema/schema";
 import type { TableIndex } from "../schema/tableIndex";
 import { AbstractDbType } from "../schema/dbType";
-import { DiffColumn, DiffTable, DiffIndex, DiffIndexColumn } from "./diffModels";
+import { DiffColumn, DiffTable, DiffIndex, DiffIndexColumn, SysTableTemporalType } from "./diffModels";
 import { SqlBuilder, DefaultConstraint } from "./sqlBuilder";
 import { SqlPreCommand, SqlPreCommandSimple, SqlPreCommandWithHistory, Spacing } from "./sqlPreCommand";
 import { Synchronizer, Replacements } from "./synchronizer";
@@ -146,19 +146,44 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
         modelTables,
         databaseTables,
         (tn, tab) => sqlBuilder.createTableSql(tab),
-        (tn, dif) => sqlBuilder.dropTable(dif.name),
+        (tn, dif) => sqlBuilder.dropTable(dif), // DiffTable overload: SQL Server disables versioning first
         (tn, tab, dif) => {
             const rename = dif.name.toString() !== tab.name.toString() ? sqlBuilder.renameTable(dif.name, tab.name.name) : undefined;
 
-            // Fork column changes to the history table only when the model is versioned AND the DB
-            // is actually versioned (the trigger is present) — Signum's `withHistory` gate. On a
-            // freshly-versioned table with no trigger yet, the history table is created afresh
-            // (LIKE main) by the historyTables pass, so there is nothing to replay.
-            const withHistory = isPostgres && tab.systemVersioned != null && dif.versioningTrigger != null;
+            // ---- SQL Server versioning transitions (Signum's disable/enable/period machinery) ----
+            // A "strong" change (making a column NOT NULL, or an incompatible type) can't be applied
+            // while SYSTEM_VERSIONING is ON, so it must be bracketed by disable → change both tables
+            // → enable. The same disable/enable brackets a table that stops (or the history table
+            // that changes) being versioned. altea sequences these per-table via combine order
+            // (Signum uses GoBefore/GoAfter to also order them across tables — deferred).
+            const dbVersioned = dif.temporalType === SysTableTemporalType.SystemVersionTemporalTable;
+            const historyMismatch = dif.temporalTableName != null && tab.systemVersioned != null
+                && dif.temporalTableName.toString() !== tab.systemVersioned.historyTableName.toString();
+            const strongChange = !isPostgres && tab.systemVersioned != null && dbVersioned && strongColumnChanges(tab, dif);
+
+            const disableSystemVersioning = !isPostgres && dif.temporalType !== SysTableTemporalType.None
+                && (tab.systemVersioned == null || historyMismatch || strongChange)
+                ? sqlBuilder.alterTableDisableSystemVersioning(tab.name) : undefined;
+            const dropPeriod = !isPostgres && dif.period != null
+                && (tab.systemVersioned == null || !dif.period.periodEquals(tab.systemVersioned))
+                ? sqlBuilder.alterTableDropPeriod(tab) : undefined;
+
+            // Fork column changes to the history table: on Postgres whenever versioned (the trigger
+            // is present); on SQL Server ONLY during a strong change (versioning is temporarily off,
+            // so the history table must be altered by hand — otherwise SQL Server auto-propagates).
+            const withHistory = strongChange || (isPostgres && tab.systemVersioned != null && dif.versioningTrigger != null);
+
+            // Becoming versioned: the DB has no period, so the period columns don't exist there.
+            // They are added (fused with ADD PERIOD) by combinedAddPeriod below, NOT as ordinary
+            // columns, so exclude them from the column diff (else it adds them without GENERATED).
+            const enablingVersioning = !isPostgres && tab.systemVersioned != null && dif.period == null;
+            const modelColumns = enablingVersioning
+                ? Object.fromEntries(Object.entries(tab.columns).filter(([, c]) => c.systemVersion == null))
+                : tab.columns;
 
             const columnBoth = Synchronizer.synchronizeScript(
                 Spacing.Simple,
-                colMap(tab.columns),
+                colMap(modelColumns),
                 colMap(dif.columns),
                 (cn, tabCol) => alterTableAddColumnDefault(sqlBuilder, tab, tabCol, withHistory),
                 (cn, difCol) => SqlPreCommand.combine(Spacing.Simple,
@@ -193,14 +218,27 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
                 },
             );
 
-            const columns = SqlPreCommandWithHistory.forNormal(columnBoth);
-            if (withHistory) {
-                const columnsHistory = SqlPreCommandWithHistory.forHistory(columnBoth);
-                if (columnsHistory != null)
-                    delayedHistoryColumns.push(columnsHistory);
+            const normalColumns = SqlPreCommandWithHistory.forNormal(columnBoth);
+            const historyColumns = withHistory ? SqlPreCommandWithHistory.forHistory(columnBoth) : undefined;
+            // Postgres replays history-column changes in a delayed pass; SQL Server (strong change,
+            // versioning off) alters the history table inline, in the same disabled window.
+            let columns = normalColumns;
+            if (historyColumns != null) {
+                if (isPostgres)
+                    delayedHistoryColumns.push(historyColumns);
+                else
+                    columns = SqlPreCommand.combine(Spacing.Simple, normalColumns, historyColumns);
             }
 
-            return SqlPreCommand.combine(Spacing.Simple, rename, columns);
+            // Becoming versioned: add the period columns + PERIOD (fused), then turn versioning ON
+            // (SQL Server auto-creates the history table if it doesn't exist).
+            const combinedAddPeriod = enablingVersioning ? sqlBuilder.alterTableAddPeriodWithColumns(tab) : undefined;
+            const addSystemVersioning = !isPostgres && tab.systemVersioned != null
+                && (dif.period == null || dif.temporalTableName == null || historyMismatch || strongChange)
+                ? sqlBuilder.alterTableEnableSystemVersioning(tab) : undefined;
+
+            return SqlPreCommand.combine(Spacing.Simple,
+                rename, disableSystemVersioning, dropPeriod, combinedAddPeriod, columns, addSystemVersioning);
         },
     );
 
@@ -412,6 +450,20 @@ function tempDefaultFor(sqlBuilder: SqlBuilder, column: IColumn): DefaultConstra
 // DB args ⇒ not equal, so the trigger is re-emitted).
 function triggerArgsEqual(dbArgs: string[] | undefined, modelArgs: string[]): boolean {
     return dbArgs != null && dbArgs.length === modelArgs.length && dbArgs.every((v, i) => v === modelArgs[i]);
+}
+
+// Signum's StrongColumnChanges: a column change SQL Server rejects while SYSTEM_VERSIONING is ON —
+// making a column NOT NULL that the DB has as nullable, or an incompatible type change. Such a
+// change must be bracketed by disable/enable versioning (and applied to the history table too).
+function strongColumnChanges(tab: Table, dif: DiffTable): boolean {
+    for (const [cn, tabCol] of Object.entries(tab.columns)) {
+        const difCol = dif.columns[cn];
+        if (difCol == null)
+            continue;
+        if ((tabCol.nullable === "No" && difCol.nullable) || !difCol.compatibleTypes(tabCol))
+            return true;
+    }
+    return false;
 }
 
 // A type-appropriate zero/empty default for backfilling a new NOT NULL column.

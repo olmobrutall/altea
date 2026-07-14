@@ -1,6 +1,6 @@
 import { Expression } from "./expressions";
 import { LiteralType, Type, IntervalType } from "../../entities/types";
-import type { SystemTime } from "../systemTime";
+import { SystemTime } from "../systemTime";
 import type { FieldInfo } from "../../entities/reflection";
 import type { Table } from "../schema/table";
 import { Alias } from "./AliasGenerator";
@@ -543,6 +543,27 @@ export class IntervalExpression extends DbExpression {
 
     accept(visitor: ExpressionVisitor) {
         return asDbVisitor(visitor).visitInterval(this);
+    }
+}
+
+// Internal SystemTime mode (Signum's SystemTime.AsOfExpression): AS OF a per-row bound
+// Expression (typically a column of an outer query), not a constant instant. The binder produces
+// it when `overrideSystemTime` receives `new SystemTime.AsOf(<non-constant>)`; the
+// AsOfExpressionVisitor then rewrites a table under it to `<table> FOR SYSTEM_TIME ALL WHERE
+// period.contains(expr)`, so the dynamic AS OF works on BOTH dialects (SQL Server's native
+// FOR SYSTEM_TIME AS OF accepts only a constant/parameter, never a column). Lives here, not in
+// systemTime.ts, because it carries an Expression (which systemTime.ts, kept dependency-light for
+// the server-only scope, must not import).
+export class AsOfExpression extends SystemTime {
+    constructor(public readonly expression: Expression) { super(); }
+    toString(): string { return `AS OF (${this.expression})`; }
+
+    // DbExpressionVisitor traversal (Signum's DbExpressionVisitor.VisitSystemTime): map the
+    // carried per-row expression so alias-remapping passes reach it, returning a new node only
+    // when it changed.
+    override mapExpression(fn: (e: unknown) => unknown): SystemTime {
+        const mapped = fn(this.expression) as Expression;
+        return mapped === this.expression ? this : new AsOfExpression(mapped);
     }
 }
 

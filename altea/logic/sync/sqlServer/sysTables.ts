@@ -43,9 +43,24 @@ export class SysTables extends View {
     name!: string;
     @viewPrimaryKey object_id!: int;
     schema_id!: int;
+    // System-versioning (temporal) metadata (SQL Server 2016+). temporal_type: 0 none,
+    // 1 history table, 2 system-versioned main table. history_table_id points a versioned main
+    // table at its history table (in sys.tables).
+    temporal_type!: int;
+    history_table_id!: int;
 
     @quoted
     columns(): Query<SysColumns> { return view(SysColumns).filter(c => c.object_id == this.object_id); }
+
+    // The table's PERIOD FOR SYSTEM_TIME definition, if any (Signum's SysTables.Periods()).
+    @quoted
+    periods(): Query<SysPeriods> { return view(SysPeriods).filter(p => p.object_id == this.object_id); }
+
+    // The history table a system-versioned table versions into (null if not versioned) — Signum's
+    // TemporalTableName lookup by history_table_id. Nullable, so navigations off it read through
+    // OUTER APPLYs.
+    @quoted
+    temporalTable(): Promise<SysTables | null> { return view(SysTables).firstOrNull(ht => ht.object_id == this.history_table_id); }
 
     @quoted
     foreignKeys(): Query<SysForeignKeys> { return view(SysForeignKeys).filter(fk => fk.parent_object_id == this.object_id); }
@@ -56,8 +71,23 @@ export class SysTables extends View {
     @quoted
     indices(): Query<SysIndexes> { return view(SysIndexes).filter(ix => ix.object_id == this.object_id); }
 
+    // singleOrNull (not single) so navigating `.schema()` off a NULLABLE SysTables reference — e.g.
+    // `temporalTable().$v!.schema()` for a table with no history — reads through an OUTER APPLY and
+    // preserves the outer row. A `single()` here is a CROSS APPLY, which by design drops the row
+    // when the receiver's schema_id is null. (For a non-null receiver the schema always exists, so
+    // singleOrNull returns it just the same.)
     @quoted
-    schema(): Promise<SysSchemas> { return view(SysSchemas).single(a => a.schema_id == this.schema_id); }
+    schema(): Promise<SysSchemas | null> { return view(SysSchemas).singleOrNull(a => a.schema_id == this.schema_id); }
+}
+
+// sys.periods — the PERIOD FOR SYSTEM_TIME of a system-versioned table (Signum's SysPeriods).
+// start_column_id / end_column_id resolve to the period columns via sys.columns.
+@reflect
+@tableName("sys.periods")
+export class SysPeriods extends View {
+    @viewPrimaryKey object_id!: int;
+    start_column_id!: int;
+    end_column_id!: int;
 }
 
 @reflect
