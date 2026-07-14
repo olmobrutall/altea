@@ -52,8 +52,13 @@ export class SystemTimeHistoryTable extends SystemTime {
     toString(): string { return 'HistoryTable'; }
 }
 
+// A system-time bound. Ideally a UTC Temporal.Instant; a PlainDateTime is also accepted because
+// altea currently materialises period bounds (systemPeriod().min/max) as tz-naive PlainDateTime
+// (no Instant reader yet), and those bounds are commonly fed back into AsOf/Between/ContainedIn.
+export type SystemTimeBound = Temporal.Instant | Temporal.PlainDateTime;
+
 export class SystemTimeAsOf extends SystemTime {
-    constructor(readonly dateTime: Temporal.Instant) { super(); }
+    constructor(readonly dateTime: SystemTimeBound) { super(); }
     toString(): string { return `AS OF ${this.dateTime.toString()}`; }
 }
 
@@ -63,14 +68,14 @@ export abstract class SystemTimeInterval extends SystemTime {
 }
 
 export class SystemTimeBetween extends SystemTimeInterval {
-    constructor(readonly startDateTime: Temporal.Instant, readonly endDateTime: Temporal.Instant, joinMode: SystemTimeJoinMode) {
+    constructor(readonly startDateTime: SystemTimeBound, readonly endDateTime: SystemTimeBound, joinMode: SystemTimeJoinMode) {
         super(joinMode);
     }
     toString(): string { return `BETWEEN ${this.startDateTime} AND ${this.endDateTime}`; }
 }
 
 export class SystemTimeContainedIn extends SystemTimeInterval {
-    constructor(readonly startDateTime: Temporal.Instant, readonly endDateTime: Temporal.Instant, joinMode: SystemTimeJoinMode) {
+    constructor(readonly startDateTime: SystemTimeBound, readonly endDateTime: SystemTimeBound, joinMode: SystemTimeJoinMode) {
         super(joinMode);
     }
     toString(): string { return `CONTAINED IN (${this.startDateTime}, ${this.endDateTime})`; }
@@ -91,23 +96,31 @@ SystemTime.HistoryTable = SystemTimeHistoryTable;
 // are also translatable to the period's start/end columns inside a query; `.overlaps`/`.contains`
 // run in memory on the materialised value.
 export class NullableInterval {
-    constructor(readonly min: Temporal.Instant | null, readonly max: Temporal.Instant | null) { }
+    constructor(readonly min: SystemTimeBound | null, readonly max: SystemTimeBound | null) { }
 
     // True if this period and `other` share any instant (half-open [min, max) semantics).
     overlaps(other: NullableInterval): boolean {
-        const aMin = this.min, aMax = this.max, bMin = other.min, bMax = other.max;
-        const aBeforeB = aMax != null && bMin != null && Temporal.Instant.compare(aMax, bMin) <= 0;
-        const bBeforeA = bMax != null && aMin != null && Temporal.Instant.compare(bMax, aMin) <= 0;
+        const aMax = this.max, bMin = other.min, bMax = other.max, aMin = this.min;
+        const aBeforeB = aMax != null && bMin != null && compareBounds(aMax, bMin) <= 0;
+        const bBeforeA = bMax != null && aMin != null && compareBounds(bMax, aMin) <= 0;
         return !aBeforeB && !bBeforeA;
     }
 
     // True if `instant` falls within [min, max).
-    contains(instant: Temporal.Instant): boolean {
-        return (this.min == null || Temporal.Instant.compare(this.min, instant) <= 0)
-            && (this.max == null || Temporal.Instant.compare(instant, this.max) < 0);
+    contains(instant: SystemTimeBound): boolean {
+        return (this.min == null || compareBounds(this.min, instant) <= 0)
+            && (this.max == null || compareBounds(instant, this.max) < 0);
     }
 
     toString(): string {
         return `[${this.min?.toString() ?? '-∞'}, ${this.max?.toString() ?? '∞'})`;
     }
+}
+
+// Compare two bounds of the same Temporal kind (both Instant, or both PlainDateTime — altea reads
+// period bounds as PlainDateTime today; user-supplied bounds may be Instant).
+function compareBounds(a: SystemTimeBound, b: SystemTimeBound): number {
+    return a instanceof Temporal.Instant
+        ? Temporal.Instant.compare(a, b as Temporal.Instant)
+        : Temporal.PlainDateTime.compare(a, b as Temporal.PlainDateTime);
 }

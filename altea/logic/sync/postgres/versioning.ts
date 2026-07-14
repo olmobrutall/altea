@@ -23,6 +23,14 @@ DECLARE
 BEGIN
   IF TG_OP = 'UPDATE' OR TG_OP = 'DELETE' THEN
     EXECUTE format('SELECT lower(($1).%I)', sys_period) USING OLD INTO lower_ts;
+    -- Mitigate same-transaction changes (temporal_tables' behaviour): when a row is inserted
+    -- and updated within one transaction, current_timestamp is unchanged, so [lower_ts, now_ts)
+    -- would be an EMPTY range (its lower/upper both read back NULL — an unbounded period that
+    -- matches every AsOf). Nudge the end forward so the archived period is non-empty. (SQL Server
+    -- simply drops such zero-width history rows; this keeps Postgres history clean too.)
+    IF lower_ts IS NOT NULL AND lower_ts >= now_ts THEN
+      now_ts := lower_ts + interval '1 microsecond';
+    END IF;
     EXECUTE format(
       'INSERT INTO %s (%s, %I) VALUES (%s, tstzrange($2, $3, ''[)''))',
       history_table, cols, sys_period, '$1.' || replace(cols, ',', ',$1.')

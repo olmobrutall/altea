@@ -15,6 +15,7 @@ import { UnusedColumnRemover } from "./linq/visitors/UnusedColumnRemover";
 import { ConditionsRewriter } from "./linq/visitors/ConditionsRewriter";
 import { ScalarSubqueryRewriter } from "./linq/visitors/ScalarSubqueryRewriter";
 import { ChildProjectionFlattener } from "./linq/visitors/ChildProjectionFlattener";
+import { DuplicateHistory } from "./linq/visitors/DuplicateHistory";
 import { CommandSimplifier } from "./linq/visitors/CommandSimplifier";
 import { ProjectionExpression, CommandExpression, CommandAggregateExpression } from "./linq/expressions.sql";
 import { buildTranslateResult } from "./linq/translatorBuilder";
@@ -105,7 +106,17 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
     // Eager-load nested projections (e.g. map(l => …toArray())) as separate child
     // queries, then re-clean the selects the flattener introduced.
     const flattened = ChildProjectionFlattener.flatten(projection, binder.aliases);
-    return RedundantSubqueryRemover.remove(flattened, isPostgres) as ProjectionExpression;
+    let result = RedundantSubqueryRemover.remove(flattened, isPostgres) as ProjectionExpression;
+    // Postgres has no native FOR SYSTEM_TIME: rewrite each versioned table under a SystemTime
+    // scope into a UNION ALL of the main + history tables with a period predicate (Signum's
+    // DuplicateHistory, Postgres-only). Runs LAST, after the optimisers: a union spliced as a
+    // SELECT's direct FROM doesn't survive UnusedColumnRemover's column pruning (it collapses to
+    // undefined columns), so we rewrite once the column set is settled. The union over-projects
+    // all physical columns, which is valid (just slightly wider SQL) since the enclosing SELECT
+    // was already pruned. Present-only queries (no override) are untouched.
+    if (isPostgres)
+        result = DuplicateHistory.rewrite(result, binder.aliases) as ProjectionExpression;
+    return result;
 }
 
 // Binds `table(ctor).filter(e => ids.contains(e.id))` — the shared shape behind both the

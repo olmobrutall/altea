@@ -167,7 +167,12 @@ export class QueryFormatter extends DbExpressionVisitor {
             const st = src.systemTime;
             const forSystemTime = st != null && !this.isPostgres && !(st instanceof SystemTimeHistoryTable)
                 ? ` ${this.systemTimeClause(st)}` : "";
-            this.append(`${this.quoteObjectName(src.table.name)}${forSystemTime} AS ${this.quoteAlias(src.alias)}`);
+            // A HistoryTable-mode table (produced by the Postgres DuplicateHistory rewrite) reads
+            // the separate physical history table instead of the main table.
+            const name = st instanceof SystemTimeHistoryTable && src.table.systemVersioned != null
+                ? this.quoteObjectName(src.table.systemVersioned.historyTableName)
+                : this.quoteObjectName(src.table.name);
+            this.append(`${name}${forSystemTime} AS ${this.quoteAlias(src.alias)}`);
             // SQL Server table hint (WithHint) — `WITH(NOLOCK)` / `WITH(INDEX(…))`. Postgres has
             // no table-hint syntax, so the hint is dropped there (advisory; matches Signum's
             // SQL-Server-only render).
@@ -439,6 +444,12 @@ export class QueryFormatter extends DbExpressionVisitor {
     }
 
     override visitSqlFunction(e: SqlFunctionExpression): Expression {
+        // Postgres range operators (system-versioning period predicates) render infix, not as a
+        // call: `sys_period @> $ts`, `sys_period && tstzrange(…)`, `sys_period <@ tstzrange(…)`.
+        if ((e.sqlFunction === "@>" || e.sqlFunction === "&&" || e.sqlFunction === "<@") && e.arguments.length === 2) {
+            this.append(`(${this.capture(() => this.visit(e.arguments[0]))} ${e.sqlFunction} ${this.capture(() => this.visit(e.arguments[1]))})`);
+            return e;
+        }
         // Postgres EXTRACT(<part> from <source>) — Signum's QueryFormatter special-cases
         // it the same way (the part is an unquoted keyword, not a comma-separated arg).
         if (this.isPostgres && e.sqlFunction === "EXTRACT") {
