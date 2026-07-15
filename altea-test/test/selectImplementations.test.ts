@@ -7,7 +7,7 @@ import { Lite } from "@altea/altea/entities/lite";
 import {
     ArtistEntity, AlbumEntity, BandEntity, LabelEntity,
     NoteWithDateEntity, AwardNominationEntity, GrammyAwardEntity,
-    IAuthorEntity,
+    type IAuthorEntity,
 } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/SelectImplementations.cs (class

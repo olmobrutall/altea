@@ -8,7 +8,7 @@ import {
     ScalarExpression, ExistsExpression, InExpression,
     IsNullExpression, IsNotNullExpression,
     ProjectionExpression, ChildProjectionExpression, FieldEntityArrayExpression,
-    LiteReferenceExpression, LiteValueExpression, LiteReferenceTarget, PrimaryKeyExpression, FieldBinding,
+    LiteReferenceExpression, LiteValueExpression, type LiteReferenceTarget, PrimaryKeyExpression, FieldBinding,
     EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
     TypeEntityExpression, TypeImplementedByExpression,

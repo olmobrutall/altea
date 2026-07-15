@@ -47,8 +47,8 @@ describe('field-transformer', () => {
     @field({ typeName: "Boolean" }) isActive!: boolean;
     @field({ typeName: "Date" }) dateOfBirth!: Date;
     @field({ typeName: "Date", nullable: true }) dateOfDeath!: Date | null;
-    @field({ typeName: "Person", nullable: true, lite: true }) bestFriend!: Lite<Person> | null;
-    @field({ typeName: "Person", array: true }) otherFriends!: Person[];
+    @field({ type: () => Person, typeName: "Person", nullable: true, lite: true }) bestFriend!: Lite<Person> | null;
+    @field({ type: () => Person, typeName: "Person", array: true }) otherFriends!: Person[];
 }`
         );
     });
@@ -86,8 +86,8 @@ class EmployeeEntity {
             `@entity
 class EmployeeEntity {
     @field({ typeName: "String" }) name!: string;
-    @field({ typeName: "EmployeeEntity", nullable: true, lite: true }) manager!: Lite<EmployeeEntity> | null;
-    @field({ typeName: "EmployeeEntity", array: true }) reports!: EmployeeEntity[];
+    @field({ type: () => EmployeeEntity, typeName: "EmployeeEntity", nullable: true, lite: true }) manager!: Lite<EmployeeEntity> | null;
+    @field({ type: () => EmployeeEntity, typeName: "EmployeeEntity", array: true }) reports!: EmployeeEntity[];
 }
 registerType(EmployeeEntity, "EmployeeEntity", __fileInfo);`
         );
@@ -132,7 +132,7 @@ class Item {
 }`,
             `enum Color { Red, Green, Blue }
 class Item {
-    @field({ typeName: "Color", enum: true }) color!: Color;
+    @field({ type: () => Color, typeName: "Color", enum: true }) color!: Color;
     @field({ typeName: "String" }) name!: string;
 }`
         );
@@ -228,7 +228,7 @@ const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };
 enum Sex { Male, Female }
 @reflect
 class ArtistEntity {
-    @field({ typeName: "Sex", enum: true }) sex!: Sex;
+    @field({ type: () => Sex, typeName: "Sex", enum: true }) sex!: Sex;
 }
 registerType(ArtistEntity, "ArtistEntity", __fileInfo);
 registerEnum(Sex, "Sex", __fileInfo);`

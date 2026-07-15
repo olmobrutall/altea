@@ -1,7 +1,7 @@
 
 import type { ColumnOptions } from "../entities/reflection";
 
-export { ColumnOptions };
+export type { ColumnOptions };
 
 // Schema layer barrel. The implementation lives under ./schema/.
 export * from "./schema/dbType";

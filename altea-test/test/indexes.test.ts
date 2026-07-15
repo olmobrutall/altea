@@ -5,7 +5,7 @@ import { reflect } from "@altea/altea/entities/reflection";
 import { Entity } from "@altea/altea/entities/entity";
 import { Lite } from "@altea/altea/entities/lite";
 import { include, index, uniqueIndex } from "@altea/altea/entities/decorators";
-import { int, toInt } from "@altea/altea/entities/basics";
+import { type int, toInt } from "@altea/altea/entities/basics";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import type { FluentTable } from "@altea/altea/logic/schema/table";
 import { Connector } from "@altea/altea/logic/connection/connector";

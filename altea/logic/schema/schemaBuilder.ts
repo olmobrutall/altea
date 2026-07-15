@@ -1,10 +1,10 @@
 import { Entity, EmbeddedEntity, isGenericType, typeConstructor } from '../../entities/entity';
 import type { Type } from '../../entities/entity';
 import { MixinDeclarations } from '../../entities/mixinDeclarations';
-import { getTypeInfo, resolveType, resolveEnum, enumNameOf, FieldInfo, TypeInfo, PrimaryKeyType } from '../../entities/reflection';
+import { getTypeInfo, resolveType, resolveEnum, enumNameOf, FieldInfo, TypeInfo, type PrimaryKeyType } from '../../entities/reflection';
 import { AbstractDbType, IsNullable, defaultDbType, primaryKeyDbType } from './dbType';
 import {
-    IColumn,
+    type IColumn,
     PrimaryKeyColumn,
     ValueColumn,
     ReferenceColumn,
@@ -30,7 +30,7 @@ import {
 import { NameSequence } from './nameSequence';
 import { ObjectName, SchemaName, defaultSchemaName } from './objectName';
 import { Schema } from './schema';
-import { Table, FluentTable } from './table';
+import { Table, type FluentTable } from './table';
 import { SystemVersionedInfo } from './systemVersioned';
 import { TableIndex, recordAccessedFields } from './tableIndex';
 import { getIndexWhere } from './indexWhere';

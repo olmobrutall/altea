@@ -8,7 +8,7 @@ import { reflect } from "@altea/altea/entities/reflection";
 import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { tableName, viewPrimaryKey, quoted } from "@altea/altea/entities/decorators";
-import { int } from "@altea/altea/entities/basics";
+import type { int } from "@altea/altea/entities/basics";
 
 // M2c proof: a raw database view (IView) queried through the view() query root. The view
 // class maps to a raw catalog table with verbatim column names and an explicit

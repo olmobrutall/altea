@@ -60,10 +60,16 @@ export type EntitySnapshot = Record<string, unknown>;
 
 export abstract class BaseEntity {
     // The clean baseline used for snapshot-based change tracking: the normalized
-    // row image taken on load / after save. `undefined` means "never persisted"
-    // (a freshly created instance), which counts as modified. Maintained by
-    // ./changes (cleanModified); @ignore so it is never treated as a column.
-    @ignore _snapshot?: EntitySnapshot;
+    // row image taken on load / after save. Three states (see ./changes.isModifiedSelf):
+    //   - a projection (Record) → diff the live values against it;
+    //   - `true`      → known-modified with no baseline: a freshly created entity, or one
+    //                   deserialized with `modified: true` and no resolved original;
+    //   - `undefined` → known-clean with no baseline: an entity deserialized WITHOUT the
+    //                   `modified` flag (the JSON codec's client-receive path).
+    // Defaults to `true`, so a freshly constructed entity is modified (needs saving) —
+    // exactly as before this sentinel existed. Maintained by ./changes (cleanModified)
+    // and the JSON codec (entities/json.ts); @ignore so it is never treated as a column.
+    @ignore _snapshot?: EntitySnapshot | true = true;
 
     mixin<M extends BaseEntity>(mixinClass: Type<M>): M {
         return this as unknown as M;

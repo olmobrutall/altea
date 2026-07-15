@@ -685,11 +685,27 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     const resolved = resolveElementType(typeNode, false);
     if (resolved == null) return null;
 
-    const { typeName, name, nullable, lite, array, isEnum } = resolved;
+    const { typeName, name, nullable, lite, array, isEnum, thunkNode } = resolved;
 
-    const props: ts.ObjectLiteralElementLike[] = [
-      ts.factory.createPropertyAssignment("typeName", ts.factory.createStringLiteral(typeName)),
-    ];
+    const props: ts.ObjectLiteralElementLike[] = [];
+    if (thunkNode != null) {
+      if (isTypeOnlyImported(thunkNode))
+        throw new Error(
+          `@field: '${thunkNode.text}' is used as a runtime type reference but is imported with 'import type'. ` +
+          `Import it as a value (\`import { ${thunkNode.text} }\`) so the transformer can emit a ` +
+          `\`() => ${thunkNode.text}\` reference (needed for registration under verbatimModuleSyntax).`,
+        );
+      // A value reference (entity/embedded class or enum): emit a lazy ctor thunk.
+      // This makes the module graph mirror the entity reference graph — importing an
+      // owner transitively loads and registers the referenced type — and gives
+      // rename-/load-order-proof resolution. `typeName` is kept alongside it for
+      // name-based consumers (schema/query) and clean-name (wire/URL) derivation.
+      props.push(ts.factory.createPropertyAssignment("type",
+        ts.factory.createArrowFunction(undefined, undefined, [], undefined,
+          ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
+          ts.factory.createIdentifier(thunkNode.text))));
+    }
+    props.push(ts.factory.createPropertyAssignment("typeName", ts.factory.createStringLiteral(typeName)));
     if (name != null)
       props.push(ts.factory.createPropertyAssignment("name", ts.factory.createStringLiteral(name)));
     if (nullable === true)
@@ -711,6 +727,55 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     lite?: true;
     array?: true;
     isEnum?: true;
+    // When the element type is a runtime *value* (an entity/embedded class or an
+    // enum), the identifier to emit as a `type: () => X` thunk. Value types
+    // (Number/String/Date/Decimal/Temporal.*/interfaces) leave it unset and keep
+    // only the `typeName` string.
+    thunkNode?: ts.Identifier;
+  }
+
+  // Type names that map to a value by NAME (in logic/schema/dbType), so they stay
+  // plain `typeName` strings and never get a `() => X` thunk — even though Date /
+  // Decimal are runtime classes. (Number/String/Boolean arrive as keywords, and
+  // Temporal.* as qualified names, so they never reach the thunk check anyway; the
+  // set makes the intent explicit and guards the direct-import edge cases.)
+  const VALUE_TYPE_NAMES: ReadonlySet<string> = new Set([
+    "Number", "String", "Boolean", "BigInt", "Date", "Decimal",
+    "PlainDate", "PlainDateTime", "PlainTime", "Instant", "ZonedDateTime",
+    "Duration", "PlainYearMonth", "PlainMonthDay",
+  ]);
+
+  // True when a type-reference identifier resolves to a runtime value — a class or a
+  // (non-const) enum — i.e. something a `() => X` thunk can reference. Interfaces and
+  // type aliases have no value declaration and return false (those stay name strings,
+  // e.g. @implementedBy interface references).
+  function resolvesToValue(name: ts.Identifier): boolean {
+    let symbol = typeChecker.getSymbolAtLocation(name);
+    if (symbol == null) return false;
+    if (symbol.flags & ts.SymbolFlags.Alias) {
+      try { symbol = typeChecker.getAliasedSymbol(symbol); } catch { return false; }
+    }
+    if (symbol.flags & ts.SymbolFlags.ConstEnum) return false; // inlined, no runtime object
+    return (symbol.flags & ts.SymbolFlags.Value) !== 0;
+  }
+
+  // True when the identifier is brought in by a type-only import (`import type { X }`
+  // or a type-only specifier). Emitting `() => X` for such a reference would compile
+  // but crash at runtime (the import is erased under verbatimModuleSyntax), so the
+  // transformer refuses it with a clear error instead.
+  function isTypeOnlyImported(name: ts.Identifier): boolean {
+    const symbol = typeChecker.getSymbolAtLocation(name);
+    if (symbol == null) return false;
+    for (const decl of symbol.declarations ?? []) {
+      if (ts.isImportSpecifier(decl)) {
+        if (decl.isTypeOnly) return true;
+        const clause = decl.parent.parent;
+        if (ts.isImportClause(clause) && clause.isTypeOnly) return true;
+      } else if (ts.isImportClause(decl) && decl.isTypeOnly) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // Resolves the element/inner type to its runtime *name* plus container/nullable
@@ -763,21 +828,31 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
         };
       }
 
-      // Regular enum: Color  →  @field({ typeName: "Color", enum: true })
+      // Regular enum: Color  →  @field({ type: () => Color, typeName: "Color", enum: true }).
+      // The thunk keeps the enum registered across files (import edge); typeName + enum
+      // flag drive the existing enum handling.
       if (isEnumType(type)) {
         return {
           typeName: type.typeName.text,
           isEnum: true,
           nullable: elementNullable,
+          thunkNode: type.typeName,
         };
       }
     }
 
     // Fallback: keyword (number, string, boolean) or a plain named type reference
-    // (class, Date, Decimal, Temporal.*, entity, embedded) — emitted by name.
+    // (class, Date, Decimal, Temporal.*, entity, embedded).
     const typeName = typeNameOf(type);
     if (typeName == null) return null;
-    return { typeName, nullable: elementNullable };
+    const result: ElementTypeResult = { typeName, nullable: elementNullable };
+    // Entity/embedded class reference (a runtime value that isn't a by-name value
+    // type) → emit a `() => X` thunk. Interfaces (@implementedBy targets), Date,
+    // Decimal, Temporal.* and keywords stay name-only.
+    if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName)
+      && !VALUE_TYPE_NAMES.has(typeName) && resolvesToValue(type.typeName))
+      result.thunkNode = type.typeName;
+    return result;
   }
 
   // The runtime *name* of a type node: built-in keywords map to their wrapper

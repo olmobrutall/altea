@@ -13,7 +13,7 @@ import {
     ArtistEntity, AlbumEntity, BandEntity, LabelEntity,
     ColaboratorsMixin,
     NoteWithDateEntity, GrammyAwardEntity, AwardEntity, AmericanMusicAwardEntity,
-    Sex, AwardResult, IAuthorEntity,
+    Sex, AwardResult, type IAuthorEntity,
 } from "../entities/music";
 import { inSql, toInt, toDecimal } from "@altea/altea/entities/basics";
 

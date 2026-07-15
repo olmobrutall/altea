@@ -68,8 +68,10 @@ export function forEachField(
         visit(mixinClass as unknown as Function);
 }
 
-// The shallow normalized projection of a modifiable (see file header).
-function project(m: BaseEntity): EntitySnapshot {
+// The shallow normalized projection of a modifiable (see file header). Exported so
+// the JSON codec (entities/json.ts) can compare an incoming payload against a
+// resolved entity's clean baseline for its not-modified consistency check.
+export function project(m: BaseEntity): EntitySnapshot {
     const snapshot: EntitySnapshot = {};
     forEachField(m, (fi, value) => {
         snapshot[fi.name] = projectValue(value);
@@ -106,7 +108,8 @@ export function referenceKey(value: Lite<Entity> | Entity | null | undefined): P
 // Deep equality over two projections. Leaves are primitives/strings; nested objects
 // are inlined embedded projections (records) or collection id-lists (arrays) — both
 // compare element-by-element with a length check (Object.keys covers array indices).
-function snapshotEqual(a: unknown, b: unknown): boolean {
+// Exported for the JSON codec's not-modified consistency check.
+export function snapshotEqual(a: unknown, b: unknown): boolean {
     if (Object.is(a, b)) return true;
     if (a == null || b == null) return a === b;
     if (typeof a !== 'object' || typeof b !== 'object') return false;
@@ -132,12 +135,16 @@ export function cleanModified(m: BaseEntity): void {
 
 /**
  * True when this modifiable's *own* fields differ from its snapshot (Signum's
- * `SelfModified`). A modifiable with no snapshot is treated as modified — it has
- * never been persisted (a freshly `create()`d entity) or its baseline was cleared.
+ * `SelfModified`). The snapshot has three states (see {@link BaseEntity._snapshot}):
+ * the `true` sentinel is unconditionally modified (freshly created, or deserialized
+ * with `modified: true`); the `undefined` sentinel is unconditionally clean
+ * (deserialized without the flag); a real projection is diffed against the live values.
  */
 export function isModifiedSelf(m: BaseEntity): boolean {
-    if (m._snapshot == null) return true;
-    return !snapshotEqual(m._snapshot, project(m));
+    const s = m._snapshot;
+    if (s === true) return true;         // sentinel: known-modified, no baseline
+    if (s === undefined) return false;   // sentinel: known-clean, no baseline
+    return !snapshotEqual(s, project(m));
 }
 
 // Collects the modifiable graph children of `m`: referenced entities (full or via a

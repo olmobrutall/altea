@@ -76,9 +76,9 @@ class Person {
     dateOfBirth!: Date;
     @field({ typeName: "Date", nullable: true })
     dateOfDeath!: Date | null;
-    @field({ typeName: "Person", nullable: true, lite: true })
+    @field({ type: () => Person, typeName: "Person", nullable: true, lite: true })
     bestFriend!: Lite<Person> | null;
-    @field({ typeName: "Person", array: true })
+    @field({ type: () => Person, typeName: "Person", array: true })
     otherFriends!: Person[];
     @quoted(() => ((_this: ExParam) => ["=>", [_this], ["<", ["()", [".", [".", _this, "dateOfBirth"], "getFullYear"], []], ["c", 1950]]])(["p", "_this"]))
     isOld(): boolean {

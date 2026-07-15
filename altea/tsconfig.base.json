@@ -6,6 +6,7 @@
     // (the `using` declaration — e.g. `Clock.overrideNow`). react overrides `lib` itself.
     "lib": ["ES2022", "DOM", "DOM.Iterable", "ESNext.Disposable"],
     "module": "esnext",
+    "verbatimModuleSyntax": true,
     "moduleResolution": "bundler",
     "composite": true,
     "incremental": true,

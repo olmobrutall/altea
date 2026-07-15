@@ -1,7 +1,7 @@
 import type { Type, Entity } from '../../entities/entity';
 import type { FieldInfo } from '../../entities/reflection';
 import {
-    IColumn,
+    type IColumn,
     PrimaryKeyColumn,
     ValueColumn,
     ReferenceColumn,

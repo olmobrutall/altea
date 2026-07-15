@@ -7,7 +7,7 @@ import {
     include, stringLengthValidator, EntityData, EntityKind,
     quoted, column, forceNullable, tableName, viewPrimaryKey, systemVersioned,
 } from "@altea/altea/entities/decorators";
-import { Temporal, int, toInt } from "@altea/altea/entities/basics";
+import { Temporal, type int, toInt } from "@altea/altea/entities/basics";
 import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
 import { sqlMethod, returnType, resultType } from "@altea/altea/logic/query";
 import { LiteralType } from "@altea/altea/entities/types";

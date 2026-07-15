@@ -146,8 +146,11 @@ export namespace Saver {
 // schema's FieldEntityArray, so an emptied collection (no live element to read a ctor off) is
 // handled too. A new owner (no snapshot) has no prior rows, so there is nothing to remove.
 async function deleteCollectionOrphans(owner: Entity): Promise<void> {
-    const snapshot = owner._snapshot as Record<string, unknown> | undefined;
-    if (snapshot == null) return;
+    const snapshot = owner._snapshot;
+    // A real projection is needed to know the prior collection id-lists. The `true`
+    // sentinel (fresh / deserialized-modified) and `undefined` (no baseline) both mean
+    // there are no known prior rows to orphan — nothing to remove.
+    if (snapshot == null || snapshot === true) return;
 
     const table = Connector.current().schema.table(owner.constructor as Type<Entity>);
     const orphans: { type: Type<Entity>; ids: PrimaryKey[] }[] = [];

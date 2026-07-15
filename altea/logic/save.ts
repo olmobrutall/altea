@@ -20,7 +20,7 @@ import {
     FieldEmbedded,
     FieldEntityArray,
 } from './schema/field';
-import { SqlPreCommandSimple, SqlParameter } from './sync/sqlPreCommand';
+import { SqlPreCommandSimple, type SqlParameter } from './sync/sqlPreCommand';
 
 // Low-level, single-row persistence: the SQL that writes ONE entity's row. The
 // graph orchestration (ordering, cascade of owned child rows, change detection,

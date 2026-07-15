@@ -1,6 +1,6 @@
 import { reflect } from "../../../entities/reflection";
 import { tableName, viewPrimaryKey, quoted } from "../../../entities/decorators";
-import { int } from "../../../entities/basics";
+import type { int } from "../../../entities/basics";
 import { view } from "../../table";
 import { View } from "../../../entities/entity";
 import type { Query } from "../../query";

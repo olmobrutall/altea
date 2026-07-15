@@ -6,7 +6,7 @@ import { reflect } from "@altea/altea/entities/reflection";
 import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { tableName, viewPrimaryKey } from "@altea/altea/entities/decorators";
-import { int } from "@altea/altea/entities/basics";
+import type { int } from "@altea/altea/entities/basics";
 import { generateSubscripts, PostgresFunctions } from "@altea/altea/logic/sync/postgres/postgresFunctions";
 
 // The PostgresFunctions "mini LINQ provider": generate_subscripts (a set-returning function

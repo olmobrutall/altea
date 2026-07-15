@@ -1,4 +1,4 @@
-import { Quoted } from "quote-transformer/quoted";
+import type { Quoted } from "quote-transformer/quoted";
 
 // Shared, server-agnostic query surface. Lives in entities/ so entity classes
 // can *declare* navigation methods that return IQuery<T> (e.g. via same-module

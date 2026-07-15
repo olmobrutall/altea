@@ -3,7 +3,7 @@ import {
     ConstantExpression, CastExpression, ObjectExpression,
 } from "./expressions";
 import {
-    ProjectionExpression, ColumnExpression, PrimaryKeyExpression, UniqueFunction,
+    ProjectionExpression, ColumnExpression, PrimaryKeyExpression, type UniqueFunction,
     EntityExpression, EmbeddedEntityExpression, MixinEntityExpression, LiteReferenceExpression, LiteValueExpression,
     ChildProjectionExpression, LookupToken,
     ImplementedByExpression, ImplementedByAllExpression,

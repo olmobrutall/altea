@@ -1,9 +1,9 @@
 
-import { Quoted } from "quote-transformer/quoted";
+import type { Quoted } from "quote-transformer/quoted";
 import { EmbeddedEntity, Entity } from "../entities/entity";
-import { IQuery, IOrderedQuery } from "../entities/iquery";
-import { CallExpression, ConstantExpression, Expression, LambdaExpression, MethodExpander, PropertyExpression } from "./linq/expressions";
-import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType, QuotedFunction, quotedFunction, LambdaTypeResolver, ResultTypeResolver } from "../entities/types";
+import type { IQuery, IOrderedQuery } from "../entities/iquery";
+import { CallExpression, ConstantExpression, Expression, LambdaExpression, type MethodExpander, PropertyExpression } from "./linq/expressions";
+import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType, type QuotedFunction, quotedFunction, type LambdaTypeResolver, type ResultTypeResolver } from "../entities/types";
 import { toInt, toLong, toDecimal, inSql } from "../entities/basics";
 import { SystemTime } from "./systemTime";
 
@@ -20,7 +20,7 @@ declare module "../entities/iquery" {
 // (quotedFunction) live in entities/types so entity classes can attach metadata to
 // their own methods without depending on logic. Re-exported here for the query layer,
 // which augments QuotedFunction with __methodExpander (see logic/linq/expressions.ts).
-export { QuotedFunction, quotedFunction, type LambdaTypeResolver, type ResultTypeResolver } from "../entities/types";
+export { type QuotedFunction, quotedFunction, type LambdaTypeResolver, type ResultTypeResolver } from "../entities/types";
 
 export function getLambdaTypeResolvers(target: object, key: string): LambdaTypeResolver[] | undefined {
     const fn = (target as any)?.[key] as QuotedFunction | undefined;

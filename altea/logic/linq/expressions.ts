@@ -1,14 +1,14 @@
 
 import { isOptionalChain } from "typescript";
-import { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
+import type { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
 import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, IntervalType, Type } from "../../entities/types";
 import { Temporal } from "../../entities/basics";
 import { resolveType } from "../../entities/registration";
 import { tryGetTypeInfo, type FieldInfo } from "../../entities/reflection";
 import { Lite } from "../../entities/lite";
 import { Entity, View } from "../../entities/entity";
-import { getLambdaTypeResolvers, getResultTypeResolver, LambdaTypeResolver, OrderedQuery, Query, ResultTypeResolver } from "../query";
-import { QuotedFunction } from "../../entities/types";
+import { getLambdaTypeResolvers, getResultTypeResolver, type LambdaTypeResolver, OrderedQuery, Query, type ResultTypeResolver } from "../query";
+import type { QuotedFunction } from "../../entities/types";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 
 // ---- constant folding (used by fromQuoted) --------------------------------------------------

@@ -59,6 +59,13 @@ export function registerType(ctor: Function, name?: string, fileInfo?: FileInfo)
         }
     }
     typeRegistry.set(key, ctor);
+    // Also register under the clean name (trailing "Entity" stripped), so
+    // resolveType("Order") works — the clean name is the canonical id used in the JSON
+    // wire format and in user-facing URLs (/view/order/1). The full name stays the
+    // primary key; the clean alias is only added when free, so a type literally named
+    // "Order" is never shadowed by OrderEntity's alias.
+    const clean = key.replace(/Entity$/, '');
+    if (clean !== key && !typeRegistry.has(clean)) typeRegistry.set(clean, ctor);
     if (fileInfo != null) locationRegistry.set(key, fileInfo);
 }
 

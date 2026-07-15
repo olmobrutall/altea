@@ -1,5 +1,5 @@
 import { cleanModified } from "../../entities/changes";
-import { Entity, PrimaryKey, BaseEntity, Type } from "../../entities/entity";
+import { Entity, type PrimaryKey, BaseEntity, type Type } from "../../entities/entity";
 import { Lite, LiteImp } from "../../entities/lite";
 import { TypeLogic } from "../typeLogic";
 

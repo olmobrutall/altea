@@ -2,11 +2,11 @@ import {
     Expression, BinaryExpression, UnaryExpression, ConditionalExpression,
     ConstantExpression, CastExpression,
 } from "./expressions";
-import { OpBinary } from "quote-transformer/quoted";
+import type { OpBinary } from "quote-transformer/quoted";
 import {
     SourceExpression, TableExpression, SelectExpression, JoinExpression,
     SetOperatorExpression, SourceWithAliasExpression,
-    ColumnExpression, ColumnDeclaration, OrderExpression, JoinType,
+    ColumnExpression, ColumnDeclaration, OrderExpression, type JoinType,
     AggregateExpression, RowNumberExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression,
     CaseExpression, LikeExpression, ScalarExpression, ExistsExpression, InExpression,
     IsNullExpression, IsNotNullExpression, PrimaryKeyExpression, SqlCastExpression, ToDayOfWeekExpression,

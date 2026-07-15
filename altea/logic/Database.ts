@@ -4,7 +4,7 @@
 // by id. The cache extension point (`./cache`) is consulted first, so a cached type is
 // served from memory instead of the database.
 
-import { Entity, PrimaryKey, Type, typeConstructor, typeName } from "../entities/entity";
+import { Entity, type PrimaryKey, type Type, typeConstructor, typeName } from "../entities/entity";
 import { Lite } from "../entities/lite";
 import { getCacheController } from "./cache";
 import { retrieveEntitiesByIds, table } from "./table";

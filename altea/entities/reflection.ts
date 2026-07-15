@@ -2,7 +2,7 @@
 import { DescriptionManager } from './utils/localization';
 import type { Type, Entity } from './entity';
 import type { Quoted } from 'quote-transformer/quoted';
-import { registerType } from './registration';
+import { registerType, resolveType } from './registration';
 
 // The runtime type of a primary key. `int`/`long` are identity-style integers;
 // `uuid`/`uuid7` are GUID columns (uuid7 is time-ordered). Maps to an
@@ -33,12 +33,18 @@ export type ImplementationsInfo =
     | { kind: 'implementedByAll' };
 
 export interface FieldOptions {
-    // The runtime type's *name* (e.g. "CustomerEntity", "Number", "Date") rather
-    // than a `() => Type` factory — so the transformer never emits a runtime
-    // reference to an imported type (which TS would elide). Entity/embedded names
-    // resolve to constructors via the type registry; value-type names resolve in
-    // defaultDbType; enums are flagged with `enum`.
+    // The runtime type's *name* (e.g. "CustomerEntity", "Number", "Date"). Always
+    // present. For value types it is the sole type carrier (resolves in defaultDbType);
+    // for entity/embedded/enum references it accompanies `type` (below) and drives
+    // name-based lookups + the clean-name (wire/URL) derivation.
     typeName: string;
+    // Lazy runtime reference to the entity/embedded class or enum object, e.g.
+    // `type: () => CustomerEntity`. Emitted by the transformer for value-typed
+    // references (under verbatimModuleSyntax) so the import survives: the module graph
+    // then mirrors the entity reference graph (importing an owner transitively loads +
+    // registers everything reachable) and resolution is rename-/load-order-proof.
+    // Absent for value types and @implementedBy interface references (name-only).
+    type?: () => unknown;
     name?: string;
     nullable?: boolean;
     // Container flags: set by the transformer for `Lite<T>` and `T[]`.
@@ -52,6 +58,10 @@ export interface FieldOptions {
 export class FieldInfo {
     readonly name: string;
     typeName!: string;
+    // Lazy runtime reference to the field's entity/embedded class or enum object (see
+    // FieldOptions.type). Prefer {@link fieldType} over reading this or resolving
+    // `typeName` through the registry.
+    type?: () => unknown;
     lite?: boolean;
     array?: boolean;
     isEnum?: boolean;
@@ -225,6 +235,18 @@ export function getTypeInfo(target: object): TypeInfo | undefined {
     return ctor?.[typeInfoKey] as TypeInfo | undefined;
 }
 
+// Resolves a field's entity/embedded class (or enum object) — the single accessor for
+// a reference field's runtime type. Prefers the transformer-emitted `type` thunk
+// (rename-/load-order-proof, and it kept the import alive so the type is registered),
+// falling back to a name lookup for hand-written `@field({ typeName })` metadata.
+// Returns undefined for value-typed fields (their `typeName`, e.g. "Number", isn't in
+// the type registry — those resolve in defaultDbType instead).
+export function fieldType(fi: FieldInfo): Function | undefined {
+    if (fi.type != null)
+        return fi.type() as Function;
+    return fi.typeName != null ? resolveType(fi.typeName) : undefined;
+}
+
 // Bare @field: exists so source type-checks (tsc checks the original AST). The
 // quote-transformer rewrites it to @field({ typeName: ... }) before emit, so
 // reaching this overload at runtime means the transform never ran.
@@ -249,6 +271,8 @@ export function field(arg1: unknown, arg2?: unknown): unknown {
         const typeInfo = getOrCreateTypeInfo(target);
         const fi = getOrCreateFieldInfo(typeInfo, key);
         fi.typeName = options.typeName;
+        if (options.type != null)
+            fi.type = options.type;
         if (options.name != null)
             fi.kind = options.name;
         if (options.nullable != null)

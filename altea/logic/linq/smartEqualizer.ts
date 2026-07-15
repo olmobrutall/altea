@@ -1,7 +1,7 @@
 import { Expression, BinaryExpression, ConstantExpression, UnaryExpression } from "./expressions";
 import {
     EntityExpression, ImplementedByExpression, ImplementedByAllExpression,
-    LiteReferenceExpression, LiteReferenceTarget, PrimaryKeyExpression,
+    LiteReferenceExpression, type LiteReferenceTarget, PrimaryKeyExpression,
     IsNullExpression, EmbeddedEntityExpression,
     TypeEntityExpression, TypeImplementedByExpression, TypeImplementedByAllExpression,
 } from "./expressions.sql";

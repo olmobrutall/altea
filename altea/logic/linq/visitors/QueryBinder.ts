@@ -6,12 +6,12 @@ import {
 import {
     SelectExpression, ProjectionExpression, ColumnExpression, PrimaryKeyExpression,
     FieldBinding, EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
-    SqlConstantExpression, TableExpression, OrderExpression, OrderType, UniqueFunction,
-    AggregateExpression, AggregateRequestsExpression, AggregateSqlFunction, RowNumberExpression, ColumnDeclaration, InExpression,
-    SourceExpression, SqlFunctionExpression, SqlCastExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression, JoinType,
-    LiteReferenceExpression, LiteReferenceTarget, ScalarExpression, ExistsExpression,
+    SqlConstantExpression, TableExpression, OrderExpression, type OrderType, type UniqueFunction,
+    AggregateExpression, AggregateRequestsExpression, type AggregateSqlFunction, RowNumberExpression, ColumnDeclaration, InExpression,
+    SourceExpression, SqlFunctionExpression, SqlCastExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression, type JoinType,
+    LiteReferenceExpression, type LiteReferenceTarget, ScalarExpression, ExistsExpression,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
-    TypeEntityExpression, TypeImplementedByExpression, CombineStrategy,
+    TypeEntityExpression, TypeImplementedByExpression, type CombineStrategy,
     CaseExpression, When, IsNotNullExpression, IsNullExpression, SetOperatorExpression, SourceWithAliasExpression,
     CommandExpression, CommandAggregateExpression, ColumnAssignment,
     DeleteExpression, UpdateExpression, InsertSelectExpression,
@@ -22,10 +22,10 @@ import { SystemTime, SystemTimeAsOf } from "../../systemTime";
 import { AssignAdapterExpander } from "./AssignAdapterExpander";
 import { AliasGenerator, Alias } from "../AliasGenerator";
 import { sqlEscape } from "../sqlEscape";
-import { projectColumns as projectColumnsImpl, ProjectedColumns } from "./ColumnProjector";
+import { projectColumns as projectColumnsImpl, type ProjectedColumns } from "./ColumnProjector";
 import { ColumnGenerator } from "../ColumnGenerator";
 import { fullNominate as fullNominateImpl, nominate } from "../dbExpressionNominator";
-import { QueryJoinExpander, TableRequest, ExpansionRequest, UniqueRequest } from "./QueryJoinExpander";
+import { QueryJoinExpander, type TableRequest, type ExpansionRequest, type UniqueRequest } from "./QueryJoinExpander";
 import { AliasReplacer, DeclaredAliasGatherer, UniqueRequestKey } from "./AliasReplacer";
 import { EntityCompleter } from "./EntityCompleter";
 import { GroupEntityCleaner } from "./GroupEntityCleaner";
