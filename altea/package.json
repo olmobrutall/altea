@@ -4,6 +4,10 @@
   "description": "",
   "type": "module",
   "exports": {
+    "./entities/globals": {
+      "types": "./dist/entities/globals/index.d.ts",
+      "default": "./dist/entities/globals/index.js"
+    },
     "./entities/*": {
       "types": "./dist/entities/*.d.ts",
       "default": "./dist/entities/*.js"

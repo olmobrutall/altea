@@ -15,7 +15,7 @@ import { Saver } from './saver';
 import { retrieve } from './Database';
 import { table } from './table';
 import { quotedFunction, Query } from './query';
-import { ArrayType, FunctionType, LiteType, LiteralType, Type, IntervalType, TemporalType } from '../entities/runtimeTypes';
+import { ArrayType, FunctionType, LiteType, LiteralType, RuntimeType, IntervalType, TemporalType } from '../entities/runtimeTypes';
 import { NullableInterval } from './systemTime';
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, ParameterExpression, PropertyExpression } from './linq/expressions';
 import { ExpressionVisitor } from './linq/visitors/ExpressionVisitor';
@@ -88,8 +88,8 @@ Entity.prototype.save = async function (this: Entity): Promise<Entity> {
 // receiver's type through the quote transform.
 const combineUnion = function (this: Entity): unknown { return this; };
 const combineCase = function (this: Entity): unknown { return this; };
-quotedFunction(combineUnion).__resultType = (ot: Type) => ot;
-quotedFunction(combineCase).__resultType = (ot: Type) => ot;
+quotedFunction(combineUnion).__resultType = (ot: RuntimeType) => ot;
+quotedFunction(combineCase).__resultType = (ot: RuntimeType) => ot;
 (Entity.prototype as any).combineUnion = combineUnion;
 (Entity.prototype as any).combineCase = combineCase;
 
@@ -115,8 +115,8 @@ const entityInDB = function (this: Entity, selector?: Quoted<(e: Entity) => unkn
 // selector's parameter (the entity) and result type (the selector's return), the way
 // the binder's inDB expander needs.
 const entityInDBSf = quotedFunction(entityInDB);
-entityInDBSf.__lambdaType = [(ot: Type) => [ot]];
-entityInDBSf.__resultType = (ot: Type, selType?: Type) => selType instanceof FunctionType ? selType.returnType : new ArrayType(ot);
+entityInDBSf.__lambdaType = [(ot: RuntimeType) => [ot]];
+entityInDBSf.__resultType = (ot: RuntimeType, selType?: RuntimeType) => selType instanceof FunctionType ? selType.returnType : new ArrayType(ot);
 entityInDBSf.__methodExpander = expandInDB;
 (Entity.prototype as any).inDB = entityInDB;
 
@@ -125,10 +125,10 @@ const liteInDB = function (this: Lite<Entity>, selector?: Quoted<(e: Entity) => 
     const query = table(self.entityType as any).filter(e => e.is(self));
     return selector == null ? query : query.map(selector as any).single();
 };
-const entityTypeOf = (ot: Type): Type => ot instanceof LiteType ? ot.entityType : ot;
+const entityTypeOf = (ot: RuntimeType): RuntimeType => ot instanceof LiteType ? ot.entityType : ot;
 const liteInDBSf = quotedFunction(liteInDB);
-liteInDBSf.__lambdaType = [(ot: Type) => [entityTypeOf(ot)]];
-liteInDBSf.__resultType = (ot: Type, selType?: Type) => selType instanceof FunctionType ? selType.returnType : new ArrayType(entityTypeOf(ot));
+liteInDBSf.__lambdaType = [(ot: RuntimeType) => [entityTypeOf(ot)]];
+liteInDBSf.__resultType = (ot: RuntimeType, selType?: RuntimeType) => selType instanceof FunctionType ? selType.returnType : new ArrayType(entityTypeOf(ot));
 liteInDBSf.__methodExpander = expandInDB;
 (Lite.prototype as any).inDB = liteInDB;
 

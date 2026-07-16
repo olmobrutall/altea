@@ -1,26 +1,26 @@
 import type { ExLambda } from "quote-transformer/quoted";
 
-export abstract class Type {
+export abstract class RuntimeType {
     // The element type when this is a collection type (ArrayType); null otherwise.
-    get elementType(): Type | null { return null; }
+    get elementType(): RuntimeType | null { return null; }
 }
 
-export class ArrayType extends Type {
-    constructor(private readonly element: Type) {
+export class ArrayType extends RuntimeType {
+    constructor(private readonly element: RuntimeType) {
         super()
     }
-    override get elementType(): Type { return this.element; }
+    override get elementType(): RuntimeType { return this.element; }
 }
 
-export class FunctionType extends Type {
+export class FunctionType extends RuntimeType {
     constructor(
         public readonly func: Function | undefined,
-        public readonly returnType: Type) {
+        public readonly returnType: RuntimeType) {
         super()
     }
 }
 
-export class LiteralType extends Type {
+export class LiteralType extends RuntimeType {
 
     static readonly boolean: LiteralType = new LiteralType("boolean");
     static readonly number: LiteralType = new LiteralType("number");
@@ -32,7 +32,7 @@ export class LiteralType extends Type {
     }
 }
 
-export class ClassType extends Type {
+export class ClassType extends RuntimeType {
     constructor(public readonly constructorFunction: Function) {
         super()
     }
@@ -41,8 +41,8 @@ export class ClassType extends Type {
 // A Lite<T> reference. `entityType` is the wrapped entity type (T). Distinct from
 // ClassType so the query layer can tell a lite from a full entity — e.g. method
 // dispatch routes to Lite.prototype, and `lite.entity` resolves to `entityType`.
-export class LiteType extends Type {
-    constructor(public readonly entityType: Type) {
+export class LiteType extends RuntimeType {
+    constructor(public readonly entityType: RuntimeType) {
         super()
     }
 }
@@ -50,14 +50,14 @@ export class LiteType extends Type {
 // A temporal column/value (Temporal.PlainDateTime / PlainDate / Duration). Distinct
 // so the query layer can translate date-part access (`.year`, `.quarter()`, `.dayOfWeek`)
 // to SQL and dispatch date methods to the right prototype.
-export class TemporalType extends Type {
+export class TemporalType extends RuntimeType {
     constructor(public readonly kind: "dateTime" | "date" | "duration") {
         super()
     }
 }
 
-export class ObjectType extends Type {
-    constructor(public readonly bindings: { [name: string]: Type | undefined }) {
+export class ObjectType extends RuntimeType {
+    constructor(public readonly bindings: { [name: string]: RuntimeType | undefined }) {
         super()
     }
 }
@@ -66,15 +66,15 @@ export class ObjectType extends Type {
 // on a system-versioned table. `.min`/`.max` are the (nullable) bounds of `elementType`
 // (a dateTime); the whole value materialises to a NullableInterval whose `.overlaps`/`.contains`
 // run in memory. The binder lowers it to an IntervalExpression over the period columns.
-export class IntervalType extends Type {
-    constructor(public readonly boundType: Type) {
+export class IntervalType extends RuntimeType {
+    constructor(public readonly boundType: RuntimeType) {
         super()
     }
 }
 
 // An enum column/value. Stored as its underlying int, but carries the enum object
 // so the query layer can translate `.toString()` to a value→name CASE.
-export class EnumType extends Type {
+export class EnumType extends RuntimeType {
     constructor(public readonly enumObject: object, public readonly enumName: string) {
         super()
     }
@@ -89,8 +89,8 @@ export class EnumType extends Type {
 // Fields whose types need the Expression API (logic/) can't be declared here; logic
 // adds them by declaration-merging this interface (see `__methodExpander` in
 // logic/linq/expressions.ts).
-export type LambdaTypeResolver = (thisType: Type, ...argsTypes: Type[]) => Type[];
-export type ResultTypeResolver = (thisType: Type, ...argsTypes: Type[]) => Type;
+export type LambdaTypeResolver = (thisType: RuntimeType, ...argsTypes: RuntimeType[]) => RuntimeType[];
+export type ResultTypeResolver = (thisType: RuntimeType, ...argsTypes: RuntimeType[]) => RuntimeType;
 
 export interface QuotedFunction<T extends Function = Function> {
     __lambdaType?: LambdaTypeResolver[];

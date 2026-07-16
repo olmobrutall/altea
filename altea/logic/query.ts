@@ -3,7 +3,7 @@ import type { Quoted } from "quote-transformer/quoted";
 import { EmbeddedEntity, Entity } from "../entities/entity";
 import type { IQuery, IOrderedQuery } from "../entities/iquery";
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, type MethodExpander, PropertyExpression } from "./linq/expressions";
-import { ArrayType, LiteralType as SimpleType, ClassType, Type, FunctionType, ObjectType, type QuotedFunction, quotedFunction, type LambdaTypeResolver, type ResultTypeResolver } from "../entities/runtimeTypes";
+import { ArrayType, LiteralType as SimpleType, ClassType, RuntimeType, FunctionType, ObjectType, type QuotedFunction, quotedFunction, type LambdaTypeResolver, type ResultTypeResolver } from "../entities/runtimeTypes";
 import { toInt, toLong, toDecimal, inSql } from "../entities/basics";
 import { SystemTime } from "./systemTime";
 

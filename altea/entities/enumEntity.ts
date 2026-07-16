@@ -1,7 +1,6 @@
 import { Entity, isGenericType } from './entity';
 import type { Type, GenericType } from './entity';
-import { reflect } from './reflection';
-import { column, serialize } from './decorators';
+import { reflect, field } from './reflection';
 import { enumNameOf } from './registration';
 
 // Port of Signum's EnumEntity<T>: a database enum modelled as a real entity (and
@@ -21,9 +20,9 @@ import { enumNameOf } from './registration';
 export class EnumEntity<T = unknown> extends Entity {
     // The enum this row belongs to. TS erases the generic `T`, so an instance
     // carries its enum object explicitly — that's how runtime code tells an
-    // EnumEntity<Sex> from an EnumEntity<Color>. @column(false): identity lives in code, it is
-    // never a column; @serialize(false): it is a runtime enum object, never sent on the wire.
-    @column(false) @serialize(false)
+    // EnumEntity<Sex> from an EnumEntity<Color>. @field(false): a runtime enum object with no
+    // reflection metadata at all — never a column, never change-tracked, never serialized.
+    @field(false)
     readonly enumObject: object;
 
     // The enum member name (Signum's ToStringColumn "Name"). Sized by the builder.

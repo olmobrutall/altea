@@ -4,7 +4,7 @@ import { table } from "@altea/altea/logic/table";
 import { Transaction } from "@altea/altea/logic/connection/transaction";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / endsWith / … (SQL-mappable)
 import { Temporal } from "@altea/altea/entities/basics";
-import { DayOfWeek } from "@altea/altea/entities/dateTimeExtensions"; // + Temporal date-helper augmentations
+import { DayOfWeek } from "@altea/altea/entities/globals/dateTimeExtensions"; // + Temporal date-helper augmentations
 import { hasDb, start } from "./setup";
 import {
     ArtistEntity, AlbumEntity, AlbumEntity_Songs, BandEntity, LabelEntity,

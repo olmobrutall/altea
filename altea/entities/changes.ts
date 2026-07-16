@@ -1,5 +1,5 @@
 
-import type { BaseEntity, EntitySnapshot, PrimaryKey } from './entity';
+import type { BaseEntity, EntitySnapshot, PrimaryKey, Type } from './entity';
 import { Entity, EmbeddedEntity } from './entity';
 import { Lite } from './lite';
 import { getTypeInfo } from './reflection';
@@ -17,14 +17,21 @@ import { MixinDeclarations } from './mixinDeclarations';
 //
 // The snapshot is a normalized, shallow projection:
 //   - value/enum fields  → the primitive (Date → epoch ms, Temporal/Decimal → string);
-//   - references         → the target's primary-key id (a Lite or full Entity both
-//                          collapse to their id — pointing at a *different* instance
-//                          with the *same* id is not a row change, since the FK
-//                          column is unchanged; saving that target is the graph's job);
+//   - references         → the target's `[type, id]` (a Lite or full Entity both
+//                          collapse to it — pointing at a *different* instance with the
+//                          *same* type+id is not a row change, since the FK column(s)
+//                          are unchanged; saving that target is the graph's job). The
+//                          *type* is part of the key because a scalar reference can be
+//                          ImplementedBy / ImplementedByAll — repointing it at another
+//                          concrete type changes the FK even when the id coincides;
 //   - single embeddeds   → recursed inline (an embedded has no table identity of its
 //                          own; its fields belong to the owner's row), so an embedded
 //                          field change shows up directly in the owner's image;
-//   - collections (`T[]`)→ the ordered list of element ids. A collection is *owned*
+//   - collections (`T[]`)→ the ordered list of element ids. Elements collapse to their
+//                          id alone (not the `[type, id]` of a scalar reference): an
+//                          owned MList — or a `Lite` list — has a single element type,
+//                          so there is no ImplementedBy polymorphism to track and the id
+//                          identifies the row. A collection is *owned*
 //                          by its entity (Signum's MList semantics), so adding,
 //                          removing or reordering elements makes the OWNER
 //                          self-modified — its row is then re-saved and its `ticks`
@@ -52,9 +59,9 @@ export function forEachField(
     m: BaseEntity,
     callback: (fieldInfo: FieldInfo, value: unknown) => void,
 ): void {
-    const ctor = m.constructor as Function;
+    const ctor = m.constructor as Type<BaseEntity>;
 
-    const visit = (owner: Function): void => {
+    const visit = (owner: Type<BaseEntity>): void => {
         const ti = getTypeInfo(owner);
         if (ti == null) return;
         for (const fi of Object.values(ti.fields)) {
@@ -65,27 +72,40 @@ export function forEachField(
 
     visit(ctor);
     for (const mixinClass of MixinDeclarations.getMixins(ctor as any))
-        visit(mixinClass as unknown as Function);
+        visit(mixinClass);
 }
 
 // The shallow normalized projection of a modifiable (see file header). Exported so
 // the JSON codec (entities/json.ts) can compare an incoming payload against a
 // resolved entity's clean baseline for its not-modified consistency check.
-export function project(m: BaseEntity): EntitySnapshot {
+export function getSnapshot(m: BaseEntity): EntitySnapshot {
     const snapshot: EntitySnapshot = {};
     forEachField(m, (fi, value) => {
-        snapshot[fi.name] = projectValue(value);
+        snapshot[fi.name] = valueSnapshot(value);
     });
     return snapshot;
 }
 
-function projectValue(value: unknown): unknown {
+function valueSnapshot(value: unknown): unknown {
     if (value == null) return null;
     // A collection projects to the ordered list of element ids: membership and
     // order changes thus make the owner self-modified (owned-collection semantics).
-    if (Array.isArray(value)) return value.map(projectValue);
+    if (Array.isArray(value)) return value.map(elementSnapshot);
     if (value instanceof Lite || value instanceof Entity) return referenceKey(value);
-    if (value instanceof EmbeddedEntity) return project(value); // inline, no identity
+    if (value instanceof EmbeddedEntity) return getSnapshot(value); // inline, no identity
+    if (value instanceof Date) return value.getTime();
+    if (typeof value === 'object') return String(value); // Temporal.* / Decimal / etc.
+    return value; // primitives, including enum numbers
+}
+
+// The projection of a *collection element*. Unlike a scalar reference (which keeps its
+// `[type, id]` to catch an ImplementedBy/ImplementedByAll type change), a collection has
+// a single element type, so a referenced element collapses to its id alone — the shape the
+// saver's orphan-deletion reads back as a plain id-list. Embeddeds still recurse inline.
+function elementSnapshot(value: unknown): unknown {
+    if (value == null) return null;
+    if (value instanceof Lite || value instanceof Entity) return referenceKey(value)?.[1] ?? null;
+    if (value instanceof EmbeddedEntity) return getSnapshot(value); // inline, no identity
     if (value instanceof Date) return value.getTime();
     if (typeof value === 'object') return String(value); // Temporal.* / Decimal / etc.
     return value; // primitives, including enum numbers
@@ -98,11 +118,11 @@ function projectValue(value: unknown): unknown {
  * back to the lite's own id for a thin lite. Shared by the snapshot projection and
  * the save path so both agree on what a reference column holds.
  */
-export function referenceKey(value: Lite<Entity> | Entity | null | undefined): PrimaryKey | null {
+export function referenceKey(value: Lite<Entity> | Entity | null | undefined): [Type<Entity>, PrimaryKey | null] | null {
     if (value == null) return null;
     if (value instanceof Lite)
-        return value.entityOrNull?.id ?? value.id ?? null;
-    return value.id ?? null;
+        return [value.entityType, value.entityOrNull?.id ?? value.id ?? null];
+    return [value.getType(), value.id ?? null];
 }
 
 // Deep equality over two projections. Leaves are primitives/strings; nested objects
@@ -130,7 +150,7 @@ export function snapshotEqual(a: unknown, b: unknown): boolean {
  * of Signum's `SetCleanModified` / `CleanModifications`.
  */
 export function cleanModified(m: BaseEntity): void {
-    m._snapshot = project(m);
+    m._snapshot = getSnapshot(m);
 }
 
 /**
@@ -144,7 +164,7 @@ export function isModifiedSelf(m: BaseEntity): boolean {
     const s = m._snapshot;
     if (s === true) return true;         // sentinel: known-modified, no baseline
     if (s === undefined) return false;   // sentinel: known-clean, no baseline
-    return !snapshotEqual(s, project(m));
+    return !snapshotEqual(s, getSnapshot(m));
 }
 
 // Collects the modifiable graph children of `m`: referenced entities (full or via a

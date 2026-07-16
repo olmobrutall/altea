@@ -10,7 +10,7 @@ import {
     AggregateExpression, AggregateRequestsExpression, CaseExpression, When, ScalarExpression, ExistsExpression, InExpression,
     ProjectionExpression, ToDayOfWeekExpression, SqlArrayIndexExpression,
 } from "./expressions.sql";
-import { EnumType, LiteralType, TemporalType, Type } from "../../entities/runtimeTypes";
+import { EnumType, LiteralType, TemporalType, RuntimeType } from "../../entities/runtimeTypes";
 import { enumEntityMembers } from "../../entities/enumEntity";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 
@@ -43,7 +43,7 @@ const TEMPORAL_CTOR_KINDS: ReadonlyMap<unknown, TemporalKind> = new Map<unknown,
 // comparison over these can move client-side; other types must stay in SQL — a
 // Temporal (date/time) throws on JS `-`/`<` (`valueOf`), and Decimal/entity/etc. don't
 // compare with native operators either. Enums materialise as their numeric value.
-function isClientScalar(t: Type | undefined): boolean {
+function isClientScalar(t: RuntimeType | undefined): boolean {
     return t === LiteralType.number || t === LiteralType.string || t === LiteralType.boolean
         || t instanceof EnumType;
 }
@@ -698,7 +698,7 @@ class DbExpressionNominator extends DbExpressionVisitor {
         return undefined;
     }
 
-    private sqlFunction(type: Type, fn: string, ...args: Expression[]): SqlFunctionExpression {
+    private sqlFunction(type: RuntimeType, fn: string, ...args: Expression[]): SqlFunctionExpression {
         return new SqlFunctionExpression(type, undefined, fn, args);
     }
 

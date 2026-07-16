@@ -4,12 +4,14 @@
 // reflection metadata + runtime types, imports nothing from the logic/ (DB) layer, and
 // rebuilds real class instances on either end via the type registry.
 //
-// Modular design: one `Serializer` per kind (ValueSerializer, TemporalSerializer,
+// Public API: the `Serializer` namespace — `Serializer.stringify(obj)` / `Serializer.parse(json)`.
+//
+// Modular design: one `JsonSerializer` per kind (ValueSerializer, TemporalSerializer,
 // DecimalSerializer, DateSerializer, EnumSerializer, LiteSerializer, ArraySerializer,
 // PartCollectionSerializer, EmbeddedSerializer, EntitySerializer, PolyReferenceSerializer,
 // DynamicSerializer). A `SerializerFactory` resolves the serializer for each field once and
 // caches a per-entity-type `EntitySerializer` whose field plan is PRECOMPUTED from
-// reflection — so serialize/deserialize never re-walk metadata per call.
+// reflection — so stringify/parse never re-walk metadata per call.
 //
 // Wire shapes (clean type names as the `$type`/`$lite` discriminators):
 //   entity    { "$type": "Album", "id": 1, "ticks": 3, "toStr": "…", "modified": true, …fields }
@@ -27,7 +29,7 @@
 import { Entity, EmbeddedEntity, typeConstructor } from './entity';
 import type { Type, PrimaryKey, BaseEntity } from './entity';
 import { Lite, LiteImp } from './lite';
-import { isModifiedSelf, project, snapshotEqual } from './changes';
+import { isModifiedSelf, getSnapshot, snapshotEqual } from './changes';
 import { fieldType, fieldEnum, getTypeInfo } from './reflection';
 import type { FieldInfo } from './reflection';
 import { resolveCleanType, cleanTypeName } from './registration';
@@ -55,12 +57,12 @@ export interface DeserializeOptions {
     onWarn?: (message: string) => void;
 }
 
-interface SerContext {
+interface SerializationContext {
     writeTypes: WriteTypes;
     path: Set<BaseEntity>;   // cycle guard for full-entity references
 }
 
-interface DesContext {
+interface DeserializationContext {
     idMap: Map<string, Entity>;   // intra-payload identity, keyed "TypeName|id"
     resolve?: DeserializeOptions['resolve'];
     onWarn?: DeserializeOptions['onWarn'];
@@ -73,9 +75,9 @@ interface Slot {
     index?: number;
 }
 
-interface Serializer {
-    toJson(value: unknown, sc: SerContext, writeType: boolean, parented?: boolean): unknown;
-    fromJson(json: unknown, dc: DesContext, existing: unknown, slot?: Slot): unknown;
+interface JsonSerializer {
+    toJson(value: unknown, sc: SerializationContext, writeType: boolean, parented?: boolean): unknown;
+    fromJson(json: unknown, dc: DeserializationContext, existing: unknown, slot?: Slot): unknown;
 }
 
 // ---- Custom lite registry --------------------------------------------------
@@ -155,28 +157,28 @@ function safeToString(m: { toString(): string }): string | undefined {
 
 // ---- Leaf serializers ------------------------------------------------------
 
-const ValueSerializer: Serializer = {
+const ValueSerializer: JsonSerializer = {
     toJson: v => v,
     fromJson: j => j,
 };
 
-class TemporalSerializer implements Serializer {
+class TemporalSerializer implements JsonSerializer {
     constructor(private readonly kind: string) { }
     toJson(v: unknown): unknown { return (v as { toString(): string }).toString(); }
     fromJson(j: unknown): unknown { return temporalFrom(this.kind, j as string); }
 }
 
-const DecimalSerializer: Serializer = {
+const DecimalSerializer: JsonSerializer = {
     toJson: v => (v as Decimal).toString(),
     fromJson: j => new Decimal(j as Decimal.Value),
 };
 
-const DateSerializer: Serializer = {
+const DateSerializer: JsonSerializer = {
     toJson: v => (v as Date).toISOString(),
     fromJson: j => new Date(j as string),
 };
 
-class EnumSerializer implements Serializer {
+class EnumSerializer implements JsonSerializer {
     constructor(private readonly enumObj: Record<string, unknown>) { }
     toJson(v: unknown): unknown { return enumMemberName(this.enumObj, v); }
     fromJson(j: unknown): unknown { return enumMemberValue(this.enumObj, j as string); }
@@ -184,12 +186,12 @@ class EnumSerializer implements Serializer {
 
 // A plain (non-part) collection: `Lite<T>[]` or a value array. Maps element-wise; no
 // identity reconciliation (that is PartCollectionSerializer's job for owned part entities).
-class ArraySerializer implements Serializer {
-    constructor(private readonly element: Serializer) { }
-    toJson(value: unknown, sc: SerContext, writeType: boolean): unknown {
+class ArraySerializer implements JsonSerializer {
+    constructor(private readonly element: JsonSerializer) { }
+    toJson(value: unknown, sc: SerializationContext, writeType: boolean): unknown {
         return (value as unknown[]).map(v => v == null ? null : this.element.toJson(v, sc, writeType));
     }
-    fromJson(json: unknown, dc: DesContext): unknown {
+    fromJson(json: unknown, dc: DeserializationContext): unknown {
         return (json as unknown[]).map(v => v == null ? null : this.element.fromJson(v, dc, undefined));
     }
 }
@@ -200,10 +202,10 @@ const LITE_RESERVED_KEYS = new Set(['id', 'entityType', 'toStr', '_entity']);
 
 // `expectedCtor` is the declared target entity type (undefined for a polymorphic
 // `Lite<Entity>` / `@implementedBy` lite — which then always carries `$lite` on the wire).
-class LiteSerializer implements Serializer {
+class LiteSerializer implements JsonSerializer {
     constructor(private readonly expectedCtor: Function | undefined) { }
 
-    toJson(value: unknown, sc: SerContext, writeType: boolean): unknown {
+    toJson(value: unknown, sc: SerializationContext, writeType: boolean): unknown {
         const lite = value as Lite<Entity>;
         const o: Record<string, unknown> = {};
         if (writeType || sc.writeTypes === 'Always' || this.expectedCtor == null)
@@ -221,7 +223,7 @@ class LiteSerializer implements Serializer {
         return o;
     }
 
-    fromJson(json: unknown, dc: DesContext, _existing?: unknown, _slot?: Slot): unknown {
+    fromJson(json: unknown, dc: DeserializationContext, _existing?: unknown, _slot?: Slot): unknown {
         const j = json as Record<string, unknown>;
         const wire = j.$lite as string | undefined;
         const ctor = wire != null ? resolveCleanType(wire) : this.expectedCtor;
@@ -244,12 +246,12 @@ class LiteSerializer implements Serializer {
 
 // ---- Polymorphic full-entity reference (@implementedBy / @implementedByAll, non-lite) ------
 
-class PolyReferenceSerializer implements Serializer {
-    toJson(value: unknown, sc: SerContext): unknown {
+class PolyReferenceSerializer implements JsonSerializer {
+    toJson(value: unknown, sc: SerializationContext): unknown {
         const entity = value as Entity;
         return factory.forEntity(entity.constructor as Function).toJson(entity, sc, /* writeType */ true);
     }
-    fromJson(json: unknown, dc: DesContext, existing: unknown, slot?: Slot): unknown {
+    fromJson(json: unknown, dc: DeserializationContext, existing: unknown, slot?: Slot): unknown {
         const j = json as Record<string, unknown>;
         const ctor = resolveCleanType(j.$type as string);
         if (ctor == null) throw new Error(`Cannot deserialize polymorphic reference: unknown type "${String(j.$type)}"`);
@@ -261,19 +263,19 @@ class PolyReferenceSerializer implements Serializer {
 
 interface FieldPlan {
     name: string;
-    serializer: Serializer;
+    serializer: JsonSerializer;
     isBackReference: boolean;
     isRowOrder: boolean;
 }
 
-abstract class ModifiableSerializer implements Serializer {
+abstract class ModifiableSerializer implements JsonSerializer {
     plan: FieldPlan[] = [];   // precomputed by the factory (see build)
     constructor(readonly ctor: Function) { }
 
-    abstract toJson(value: unknown, sc: SerContext, writeType: boolean, parented?: boolean): unknown;
-    abstract fromJson(json: unknown, dc: DesContext, existing: unknown, slot?: Slot): unknown;
+    abstract toJson(value: unknown, sc: SerializationContext, writeType: boolean, parented?: boolean): unknown;
+    abstract fromJson(json: unknown, dc: DeserializationContext, existing: unknown, slot?: Slot): unknown;
 
-    protected serializeFields(m: BaseEntity, sc: SerContext, o: Record<string, unknown>, parented: boolean): void {
+    protected serializeFields(m: BaseEntity, sc: SerializationContext, o: Record<string, unknown>, parented: boolean): void {
         const fieldWriteType = sc.writeTypes === 'Always';
         for (const entry of this.plan) {
             if (parented && (entry.isBackReference || entry.isRowOrder)) continue;   // recoverable
@@ -282,7 +284,7 @@ abstract class ModifiableSerializer implements Serializer {
         }
     }
 
-    protected applyFields(m: BaseEntity, json: Record<string, unknown>, dc: DesContext): void {
+    protected applyFields(m: BaseEntity, json: Record<string, unknown>, dc: DeserializationContext): void {
         const target = m as unknown as Record<string, unknown>;
         for (const entry of this.plan) {
             if (!Object.prototype.hasOwnProperty.call(json, entry.name)) continue;
@@ -297,7 +299,7 @@ abstract class ModifiableSerializer implements Serializer {
 // ---- Embedded --------------------------------------------------------------
 
 class EmbeddedSerializer extends ModifiableSerializer {
-    toJson(value: unknown, sc: SerContext, writeType: boolean): unknown {
+    toJson(value: unknown, sc: SerializationContext, writeType: boolean): unknown {
         const em = value as EmbeddedEntity;
         const o: Record<string, unknown> = {};
         if (writeType) o.$type = cleanTypeName(em.constructor);
@@ -305,7 +307,7 @@ class EmbeddedSerializer extends ModifiableSerializer {
         this.serializeFields(em, sc, o, false);
         return o;
     }
-    fromJson(json: unknown, dc: DesContext, existing: unknown): unknown {
+    fromJson(json: unknown, dc: DeserializationContext, existing: unknown): unknown {
         const j = json as Record<string, unknown>;
         const inst = (existing instanceof EmbeddedEntity && existing.constructor === this.ctor)
             ? existing
@@ -319,7 +321,7 @@ class EmbeddedSerializer extends ModifiableSerializer {
 // ---- Entity ----------------------------------------------------------------
 
 class EntitySerializer extends ModifiableSerializer {
-    toJson(value: unknown, sc: SerContext, writeType: boolean, parented = false): unknown {
+    toJson(value: unknown, sc: SerializationContext, writeType: boolean, parented = false): unknown {
         const entity = value as Entity;
         if (sc.path.has(entity))
             throw new Error(`Cycle detected serializing ${entity.constructor.name} (id=${String(entity.id)}); break entity reference cycles with a Lite<T>.`);
@@ -339,7 +341,7 @@ class EntitySerializer extends ModifiableSerializer {
         }
     }
 
-    fromJson(json: unknown, dc: DesContext, existing: unknown, slot?: Slot): unknown {
+    fromJson(json: unknown, dc: DeserializationContext, existing: unknown, slot?: Slot): unknown {
         const j = json as Record<string, unknown>;
         // Concrete-type delegation: an Always-mode or subtype `$type` routes to that serializer.
         const wire = j.$type as string | undefined;
@@ -408,11 +410,11 @@ class EntitySerializer extends ModifiableSerializer {
 
     // Not-modified consistency tripwire: build the incoming payload in isolation and diff its
     // projection against the resolved original's clean baseline. Never changes data.
-    private checkClean(json: Record<string, unknown>, original: Entity, dc: DesContext): void {
+    private checkClean(json: Record<string, unknown>, original: Entity, dc: DeserializationContext): void {
         const snap = original._snapshot;
         if (snap == null || snap === true) return;   // no real baseline to compare against
         const pure = this.fromJson(json, { idMap: new Map() }, undefined) as Entity;
-        if (!snapshotEqual(project(pure), snap)) {
+        if (!snapshotEqual(getSnapshot(pure), snap)) {
             const msg = `deserialize: ${cleanTypeName(this.ctor)} (id=${String(json.id)}) arrived without "modified" but its values differ from the resolved entity; changes were NOT applied.`;
             (dc.onWarn ?? ((m: string) => console.warn(m)))(msg);
         }
@@ -421,14 +423,14 @@ class EntitySerializer extends ModifiableSerializer {
 
 // ---- Owned part-entity collection (Altea's MList: `Child[]`) ----------------
 
-class PartCollectionSerializer implements Serializer {
+class PartCollectionSerializer implements JsonSerializer {
     constructor(private readonly element: EntitySerializer) { }
 
-    toJson(value: unknown, sc: SerContext, writeType: boolean): unknown {
+    toJson(value: unknown, sc: SerializationContext, writeType: boolean): unknown {
         return (value as unknown[]).map(el => el == null ? null : this.element.toJson(el, sc, writeType, /* parented */ true));
     }
 
-    fromJson(json: unknown, dc: DesContext, existing: unknown, slot?: Slot): unknown {
+    fromJson(json: unknown, dc: DeserializationContext, existing: unknown, slot?: Slot): unknown {
         const owner = slot?.owner;
         // Index existing elements by Type+id so a moved element is reused (not rebuilt),
         // preserving its identity and clean snapshot.
@@ -450,8 +452,8 @@ class PartCollectionSerializer implements Serializer {
 
 // ---- Dynamic (runtime-dispatched) — top level, dict values, untyped @column(false) fields ---------
 
-class DynamicSerializer implements Serializer {
-    toJson(value: unknown, sc: SerContext, _writeType?: boolean, _parented?: boolean): unknown {
+class DynamicSerializer implements JsonSerializer {
+    toJson(value: unknown, sc: SerializationContext, _writeType?: boolean, _parented?: boolean): unknown {
         if (value == null) return null;
         if (value instanceof Lite) return LITE_DYNAMIC.toJson(value, sc, true);
         if (value instanceof Entity) return factory.forEntity(value.constructor as Function).toJson(value, sc, true);
@@ -468,7 +470,7 @@ class DynamicSerializer implements Serializer {
         return value;
     }
 
-    fromJson(json: unknown, dc: DesContext, existing: unknown): unknown {
+    fromJson(json: unknown, dc: DeserializationContext, existing: unknown): unknown {
         if (json == null) return null;
         if (Array.isArray(json)) return json.map(v => this.fromJson(v, dc, undefined));
         if (typeof json === 'object') {
@@ -535,7 +537,7 @@ class SerializerFactory {
     }
 
     // The serializer for a field's value, including the array wrapper.
-    private serializerFor(fi: FieldInfo): Serializer {
+    private serializerFor(fi: FieldInfo): JsonSerializer {
         if (!fi.array) return this.elementSerializer(fi);
         const element = this.elementSerializer(fi);
         // A `Child[]` of owned part entities gets identity reconciliation + back-ref/order
@@ -544,7 +546,7 @@ class SerializerFactory {
     }
 
     // The serializer for a single (non-array) value.
-    private elementSerializer(fi: FieldInfo): Serializer {
+    private elementSerializer(fi: FieldInfo): JsonSerializer {
         if (fi.isEnum) {
             const e = fieldEnum(fi) as Record<string, unknown> | undefined;
             if (e == null) throw new Error(`Cannot build serializer: enum field '${fi.name}' is not registered`);
@@ -585,12 +587,25 @@ function eachFieldInfo(ctor: Function, cb: (fi: FieldInfo) => void): void {
 
 // ---- Public API ------------------------------------------------------------
 
-export function serialize(obj: unknown, options?: SerializeOptions): string {
-    const sc: SerContext = { writeTypes: options?.writeTypes ?? 'Auto', path: new Set() };
-    return JSON.stringify(factory.dynamic.toJson(obj, sc, true));
-}
+// The entity-graph JSON codec. Named to mirror the built-in `JSON` object — `stringify` / `parse`
+// — and kept distinct from the `@serialize(false)` field decorator (which only toggles whether a
+// field is included here).
+export const Serializer = {
+    /**
+     * Serialize an entity graph, a `Lite<T>`, an array, or a plain object of such values to a
+     * JSON string. Discriminators follow `options.writeTypes` (default "Auto").
+     */
+    stringify(obj: unknown, options?: SerializeOptions): string {
+        const sc: SerializationContext = { writeTypes: options?.writeTypes ?? 'Auto', path: new Set() };
+        return JSON.stringify(factory.dynamic.toJson(obj, sc, true));
+    },
 
-export function deserialize(json: string, options?: DeserializeOptions): unknown {
-    const dc: DesContext = { idMap: new Map(), resolve: options?.resolve, onWarn: options?.onWarn };
-    return factory.dynamic.fromJson(JSON.parse(json), dc, undefined);
-}
+    /**
+     * Parse a JSON string produced by {@link stringify} back into real entity / lite / value
+     * instances. Pass `options.resolve` for the retrieve-and-apply (server) path.
+     */
+    parse(json: string, options?: DeserializeOptions): unknown {
+        const dc: DeserializationContext = { idMap: new Map(), resolve: options?.resolve, onWarn: options?.onWarn };
+        return factory.dynamic.fromJson(JSON.parse(json), dc, undefined);
+    },
+};

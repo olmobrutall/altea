@@ -6,7 +6,7 @@ import { reflect, getTypeInfo } from './reflection';
 import { MixinDeclarations } from './mixinDeclarations';
 import { enumNameOf } from './registration';
 import { isGraphModified, isModifiedSelf } from './changes';
-import { LiteralType, LiteType, quotedFunction, type Type as ExpressionType } from './runtimeTypes';
+import { LiteralType, LiteType, quotedFunction, type RuntimeType as ExpressionType } from './runtimeTypes';
 
 export type PrimaryKey = string | number;
 
@@ -233,6 +233,10 @@ export abstract class Entity extends BaseEntity {
         const ctor = this as unknown as Function;
         const t = lite.entityType as unknown as Function;
         return t === ctor || t.prototype instanceof ctor;
+    }
+
+    getType(): Type<this> {
+        return this.constructor as Type<this>;
     }
 }
 

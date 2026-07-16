@@ -289,7 +289,13 @@ function isForbidden(value: unknown, forbidden: Forbidden): boolean {
 // fat lites of new entities, whose live id is read rather than the null captured
 // at lite creation.
 function referenceId(value: unknown): PrimaryKey | null {
-    return referenceKey(value as Lite<Entity> | Entity | null);
+    if (value == null)
+        return null;
+    if (value instanceof Lite)
+        return value.entityOrNull?.id ?? value.id ?? null;
+    if (value instanceof Entity)
+        return value.id ?? null;
+    return null;
 }
 
 function entityConstructorOf(value: unknown): Function {

@@ -7,7 +7,7 @@ import {
     PrimaryKeyExpression, FieldBinding, SqlConstantExpression,
     CaseExpression, When, IsNotNullExpression,
 } from "../expressions.sql";
-import { LiteralType, Type } from "../../../entities/runtimeTypes";
+import { LiteralType, RuntimeType } from "../../../entities/runtimeTypes";
 import { TypeLogic } from "../../typeLogic";
 import { getTypeInfo } from "../../../entities/reflection";
 import { Entity } from "../../../entities/entity";
@@ -240,7 +240,7 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
         return new ImplementedByExpression(col.type, col.strategy, impls);
     }
 
-    private entityToIba(type: Type, idExpr: Expression, ctor: Function | undefined): ImplementedByAllExpression {
+    private entityToIba(type: RuntimeType, idExpr: Expression, ctor: Function | undefined): ImplementedByAllExpression {
         const typeId = ctor != null ? TypeLogic.typeToId(ctor) : null;
         // The constant's id populates only the column matching its PK type.
         return new ImplementedByAllExpression(type, new Map([[pkTypeOfCtor(ctor), idExpr]]),
@@ -276,7 +276,7 @@ function idObject(ent: Entity | null | undefined): unknown {
     return ent.id;
 }
 
-function ctorOf(type: Type): Function {
+function ctorOf(type: RuntimeType): Function {
     return (type as { constructorFunction?: Function }).constructorFunction ?? (type as unknown as Function);
 }
 

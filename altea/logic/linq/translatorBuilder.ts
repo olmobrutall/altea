@@ -13,7 +13,7 @@ import {
 import { NullableInterval } from "../systemTime";
 import { QueryFormatter } from "./queryFormatter";
 import { Connector } from "../connection/connector";
-import { ClassType, LiteralType, TemporalType, Type } from "../../entities/runtimeTypes";
+import { ClassType, LiteralType, TemporalType, RuntimeType } from "../../entities/runtimeTypes";
 import { Retriever } from "./Retriever";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 import { denormalizeTemporal } from "../normalizeScalar";
@@ -178,7 +178,7 @@ function gatherChildProjections(projector: Expression, lazy: boolean): ChildProj
     return result;
 }
 
-function ctorOf(type: Type): new () => any {
+function ctorOf(type: RuntimeType): new () => any {
     if (type instanceof ClassType)
         return type.constructorFunction as new () => any;
     throw new Error("Cannot materialise a value of non-class type: " + type.constructor.name);

@@ -1,5 +1,5 @@
 import { Expression } from "./expressions";
-import { LiteralType, Type, IntervalType } from "../../entities/runtimeTypes";
+import { LiteralType, RuntimeType, IntervalType } from "../../entities/runtimeTypes";
 import { SystemTime } from "../systemTime";
 import type { FieldInfo } from "../../entities/reflection";
 import type { Table } from "../schema/table";
@@ -18,7 +18,7 @@ import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 // Type*, Interval/temporal, TVF, RowNumber, SqlCast, hierarchy.
 
 // Source nodes (FROM clauses) carry no SQL value type of their own.
-const SOURCE_TYPE: Type = LiteralType.null;
+const SOURCE_TYPE: RuntimeType = LiteralType.null;
 
 export function asDbVisitor(visitor: ExpressionVisitor): DbExpressionVisitor {
     if (visitor instanceof DbExpressionVisitor)
@@ -28,7 +28,7 @@ export function asDbVisitor(visitor: ExpressionVisitor): DbExpressionVisitor {
 }
 
 export abstract class DbExpression extends Expression {
-    constructor(kind: string, type: Type) {
+    constructor(kind: string, type: RuntimeType) {
         super(kind, type);
     }
 
@@ -109,7 +109,7 @@ export class TableExpression extends SourceWithAliasExpression {
 
 export class ColumnExpression extends DbExpression {
     constructor(
-        type: Type,
+        type: RuntimeType,
         public readonly alias: Alias,
         public readonly name: string | undefined,
     ) {
@@ -260,7 +260,7 @@ export class SetOperatorExpression extends SourceWithAliasExpression {
 export class AggregateExpression extends DbExpression {
     readonly arguments: readonly Expression[];
     constructor(
-        type: Type,
+        type: RuntimeType,
         public readonly aggregateFunction: AggregateSqlFunction,
         args: readonly Expression[],
         public readonly orderBy: readonly OrderExpression[] | undefined,
@@ -329,7 +329,7 @@ export class AggregateRequestsExpression extends DbExpression {
 export class SqlFunctionExpression extends DbExpression {
     readonly arguments: readonly Expression[];
     constructor(
-        type: Type,
+        type: RuntimeType,
         public readonly object: Expression | undefined,
         public readonly sqlFunction: string,
         args: readonly Expression[],
@@ -353,7 +353,7 @@ export class SqlFunctionExpression extends DbExpression {
 // IndexExpression, lowered by the QueryBinder). Postgres-only.
 export class SqlArrayIndexExpression extends DbExpression {
     constructor(
-        type: Type,
+        type: RuntimeType,
         public readonly array: Expression,
         public readonly index: Expression,
     ) {
@@ -401,7 +401,7 @@ export class SqlTableValuedFunctionExpression extends SourceWithAliasExpression 
 // `sqlType` is the dialect-specific target SQL type text (e.g. "varchar"/"nvarchar(max)").
 export class SqlCastExpression extends DbExpression {
     constructor(
-        type: Type,
+        type: RuntimeType,
         public readonly expression: Expression,
         public readonly sqlType: string,
     ) {
@@ -441,7 +441,7 @@ export class ToDayOfWeekExpression extends DbExpression {
 export class SqlConstantExpression extends DbExpression {
     constructor(
         public readonly value: unknown,
-        type: Type,
+        type: RuntimeType,
     ) {
         super("SqlConstant", type);
     }
@@ -461,7 +461,7 @@ export class SqlConstantExpression extends DbExpression {
 export class SqlLiteralExpression extends DbExpression {
     constructor(
         public readonly value: string,
-        type: Type = LiteralType.string,
+        type: RuntimeType = LiteralType.string,
     ) {
         super("SqlLiteral", type);
     }
@@ -529,7 +529,7 @@ export class LikeExpression extends DbExpression {
 // NullableInterval.
 export class IntervalExpression extends DbExpression {
     constructor(
-        public readonly boundType: Type,
+        public readonly boundType: RuntimeType,
         public readonly min: Expression | undefined,
         public readonly max: Expression | undefined,
         public readonly postgresRange: Expression | undefined,
@@ -568,13 +568,13 @@ export class AsOfExpression extends SystemTime {
 }
 
 export abstract class SubqueryExpression extends DbExpression {
-    constructor(kind: string, type: Type, public readonly select: SelectExpression | undefined) {
+    constructor(kind: string, type: RuntimeType, public readonly select: SelectExpression | undefined) {
         super(kind, type);
     }
 }
 
 export class ScalarExpression extends SubqueryExpression {
-    constructor(type: Type, select: SelectExpression) {
+    constructor(type: RuntimeType, select: SelectExpression) {
         super("Scalar", type, select);
     }
 
@@ -658,7 +658,7 @@ export class ProjectionExpression extends DbExpression {
         public readonly select: SelectExpression,
         public readonly projector: Expression,
         public readonly uniqueFunction: UniqueFunction | undefined,
-        resultType: Type,
+        resultType: RuntimeType,
     ) {
         super("Projection", resultType);
     }
@@ -682,7 +682,7 @@ export class ChildProjectionExpression extends DbExpression {
         public readonly projection: ProjectionExpression,
         public readonly outerKey: Expression,
         public readonly isLazyMList: boolean,
-        type: Type,
+        type: RuntimeType,
         public readonly token: LookupToken,
     ) {
         super("ChildProjection", type);
@@ -706,7 +706,7 @@ export class ChildProjectionExpression extends DbExpression {
 // key); `fkProperty` names the child's back-reference.
 export class FieldEntityArrayExpression extends DbExpression {
     constructor(
-        type: Type,
+        type: RuntimeType,
         public readonly childTable: Table,
         public readonly fkProperty: string,
         public readonly ownerId: Expression,
@@ -743,7 +743,7 @@ export type ExpandLiteHint = "EntityEager" | "ModelEager" | "ModelLazy" | "Model
 
 export class LiteReferenceExpression extends DbExpression {
     constructor(
-        type: Type,
+        type: RuntimeType,
         public readonly reference: LiteReferenceTarget,
         public readonly toStr: Expression | undefined,
         public readonly expandLite: ExpandLiteHint | undefined = undefined,
@@ -775,7 +775,7 @@ export class LiteReferenceExpression extends DbExpression {
 // no CASE / IS NULL is ever pushed into the projector.
 export class LiteValueExpression extends DbExpression {
     constructor(
-        type: Type,
+        type: RuntimeType,
         public readonly typeId: Expression,
         public readonly id: Expression,
         public readonly toStr: Expression | undefined,
@@ -828,7 +828,7 @@ export class PrimaryKeyExpression extends DbExpression {
 
 export class EntityExpression extends DbExpression {
     constructor(
-        type: Type,
+        type: RuntimeType,
         public readonly table: Table,
         public readonly externalId: PrimaryKeyExpression,
         public readonly tableAlias: Alias | undefined,
@@ -860,7 +860,7 @@ export class EntityExpression extends DbExpression {
 
 export class EmbeddedEntityExpression extends DbExpression {
     constructor(
-        type: Type,
+        type: RuntimeType,
         public readonly hasValue: Expression,
         public readonly bindings: readonly FieldBinding[],
         public readonly mixins: readonly MixinEntityExpression[] | undefined,
@@ -886,7 +886,7 @@ export class EmbeddedEntityExpression extends DbExpression {
 
 export class MixinEntityExpression extends DbExpression {
     constructor(
-        type: Type,
+        type: RuntimeType,
         public readonly bindings: readonly FieldBinding[],
         public readonly mainEntityAlias: Alias | undefined,
     ) {
@@ -926,7 +926,7 @@ export type CombineStrategy = "Case" | "Union";
 export class ImplementedByExpression extends DbExpression {
     readonly implementations: ReadonlyMap<Function, EntityExpression>;
     constructor(
-        type: Type,
+        type: RuntimeType,
         public readonly strategy: CombineStrategy,
         implementations: ReadonlyMap<Function, EntityExpression>,
     ) {
@@ -972,7 +972,7 @@ export class ImplementedByAllExpression extends DbExpression {
     // any entity, so its id lives in the column matching its PK type. Keyed by the altea
     // PrimaryKeyType ('int' | 'long' | 'uuid'); exactly one is non-null per row.
     constructor(
-        type: Type,
+        type: RuntimeType,
         public readonly ids: ReadonlyMap<string, Expression>,
         public readonly typeId: TypeImplementedByAllExpression,
     ) {
@@ -997,7 +997,7 @@ export class ImplementedByAllExpression extends DbExpression {
 export class TypeEntityExpression extends DbExpression {
     constructor(
         public readonly externalId: PrimaryKeyExpression,
-        public readonly typeValue: Type,
+        public readonly typeValue: RuntimeType,
     ) {
         super("TypeEntity", LiteralType.string);
     }
@@ -1039,7 +1039,7 @@ export class TypeImplementedByExpression extends DbExpression {
 // row count (the formatter appends `SELECT @@rowcount` on SQL Server, or wraps the
 // statement in a `WITH rows AS (… RETURNING 1) SELECT count(*)` CTE on Postgres).
 
-const COMMAND_TYPE: Type = LiteralType.null;
+const COMMAND_TYPE: RuntimeType = LiteralType.null;
 
 export abstract class CommandExpression extends DbExpression {
     constructor(kind: string) {

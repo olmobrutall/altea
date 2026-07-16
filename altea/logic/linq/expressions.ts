@@ -1,7 +1,7 @@
 
 import { isOptionalChain } from "typescript";
 import type { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
-import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, IntervalType, Type } from "../../entities/runtimeTypes";
+import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, IntervalType, RuntimeType } from "../../entities/runtimeTypes";
 import { Temporal } from "../../entities/basics";
 import { resolveType } from "../../entities/registration";
 import { tryGetTypeInfo, fieldType, type FieldInfo } from "../../entities/reflection";
@@ -143,7 +143,7 @@ function isViewCtorValue(value: unknown): value is Function {
     return typeof value === "function" && (value === View || (value as Function).prototype instanceof View);
 }
 
-function resolveMemberType(ownerType: Type, propertyName: string): Type {
+function resolveMemberType(ownerType: RuntimeType, propertyName: string): RuntimeType {
     // `x.constructor` (GetType) / `lite.entityType` (Lite.EntityType) → a runtime-type token,
     // typed as ClassType(Function): `=== SomeClass` type-checks (both sides are constructors) and
     // `.toTypeEntity()`/`.niceName()` dispatch via the Function-prototype methods (TypeLogic /
@@ -207,7 +207,7 @@ function resolveMemberType(ownerType: Type, propertyName: string): Type {
     return t;
 }
 
-function baseTypeOfFieldInfo(fi: FieldInfo): Type {
+function baseTypeOfFieldInfo(fi: FieldInfo): RuntimeType {
     if (fi.isEnum)
         return LiteralType.null; // enums are not modelled as a Type yet
     switch (fi.typeName) {
@@ -238,7 +238,7 @@ function baseTypeOfFieldInfo(fi: FieldInfo): Type {
 export interface ViewColumn {
     readonly property: string;
     readonly column: string;
-    readonly type: Type;
+    readonly type: RuntimeType;
 }
 
 // Reflects a table-valued function's IView row type into its output columns. The view is a plain
@@ -261,7 +261,7 @@ export function viewColumns(viewCtor: Function): ViewColumn[] {
 // `DeclaringType.TypeName() + "." + MethodName` ("string.IndexOf", "Math.Sin").
 // To type a new built-in inside quoted lambdas, add an entry here; the binder
 // (bindMethodCall) still owns its actual SQL translation.
-const wellKnownResultTypes: Readonly<Record<string, Type>> = {
+const wellKnownResultTypes: Readonly<Record<string, RuntimeType>> = {
     "string.contains": LiteralType.boolean,
     "string.startsWith": LiteralType.boolean,
     "string.endsWith": LiteralType.boolean,
@@ -414,7 +414,7 @@ function wellKnownResultType(obj: Expression | undefined, propertyName: string):
     // `entity.mixin(MixinClass)` → the mixin's ClassType (from the ctor argument), so a
     // following `.field` / `.collection` resolves against the mixin's reflected fields.
     if (propertyName === "mixin")
-        return (_thisType: Type, argType?: Type) =>
+        return (_thisType: RuntimeType, argType?: RuntimeType) =>
             argType instanceof FunctionType && argType.func != null ? new ClassType(argType.func) : LiteralType.null;
     const ns = wellKnownNamespace(obj);
     if (ns == null)
@@ -455,7 +455,7 @@ function staticReceiverObject(obj: Expression | undefined): object | undefined {
 export abstract class Expression {
     constructor(
         public readonly kind: string,
-        public readonly type: Type) {
+        public readonly type: RuntimeType) {
     }
 
     abstract toString(): string;
@@ -463,7 +463,7 @@ export abstract class Expression {
     abstract accept(visitor: ExpressionVisitor): Expression;
 
 
-    static fromQuotedLambda<T extends Function>(lambda: Quoted<T>, types: Type[]): LambdaExpression {
+    static fromQuotedLambda<T extends Function>(lambda: Quoted<T>, types: RuntimeType[]): LambdaExpression {
         const quoted = lambda.__quoted;
         if (quoted == undefined)
             throw new Error("The following lambda has not been quoted. Are you using ts-path and quote-transformer?");
@@ -472,7 +472,7 @@ export abstract class Expression {
 
         return fromQuoted(quoted(), types) as LambdaExpression;
 
-        function fromQuoted(q: QuotedEx, lambdaArgTypes?: Type[]): Expression {
+        function fromQuoted(q: QuotedEx, lambdaArgTypes?: RuntimeType[]): Expression {
 
             switch (q[0]) {
                 case "c":
@@ -756,12 +756,12 @@ export abstract class Expression {
 export class ConstantExpression extends Expression {
     constructor(
         public readonly value: unknown,
-        type?: Type
+        type?: RuntimeType
     ) {
         super("c", type ?? ConstantExpression.calculateType(value));
     }
 
-    private static calculateType(value: unknown): Type {
+    private static calculateType(value: unknown): RuntimeType {
         if (value == null)
             return LiteralType.null;
         if (typeof value === "number")
@@ -848,7 +848,7 @@ export class BinaryExpression extends Expression {
         super(kind, BinaryExpression.calculateType(kind, left, right));
     }
 
-    private static calculateType(operator: OpBinary, left: Expression, right: Expression): Type {
+    private static calculateType(operator: OpBinary, left: Expression, right: Expression): RuntimeType {
         switch (operator) {
             // `+` is string concatenation when either side is a string (JS/C# `+`
             // semantics), and the result stays string so it propagates up a chain like
@@ -910,7 +910,7 @@ export class ConditionalExpression extends Expression {
         super("?:", ConditionalExpression.calculateType(whenTrue, whenFalse));
     }
 
-    private static calculateType(trueExpression: Expression, falseExpression: Expression): Type {
+    private static calculateType(trueExpression: Expression, falseExpression: Expression): RuntimeType {
         return trueExpression.type || falseExpression.type;
     }
 
@@ -940,7 +940,7 @@ export class PropertyExpression extends Expression {
         super(".", PropertyExpression.calculateType(object, propertyName));
     }
 
-    private static calculateType(object: Expression, propertyName: string): Type {
+    private static calculateType(object: Expression, propertyName: string): RuntimeType {
         if (object instanceof ObjectExpression)
             return object.properties[propertyName]?.type ?? LiteralType.null;
 
@@ -981,7 +981,7 @@ export class IndexExpression extends Expression {
     constructor(
         public readonly object: Expression,
         public readonly index: Expression,
-        type: Type,
+        type: RuntimeType,
     ) {
         super("[i]", type);
     }
@@ -1024,7 +1024,7 @@ export class CallExpression extends Expression {
     constructor(
         public readonly func: Expression,
         public readonly args: readonly Expression[],
-        public readonly type: Type,
+        public readonly type: RuntimeType,
         public readonly isOptionalChaining: boolean = false
     ) {
         super("()", type);
@@ -1061,7 +1061,7 @@ export class CallExpression extends Expression {
 export class ParameterExpression extends Expression {
     constructor(
         public readonly name: string,
-        type: Type
+        type: RuntimeType
     ) {
         super("p", type);
     }
@@ -1169,7 +1169,7 @@ export class NewExpression extends Expression {
 export class CastExpression extends Expression {
     constructor(
         public readonly expression: Expression,
-        type: Type,
+        type: RuntimeType,
     ) {
         super("as", type);
     }
@@ -1189,7 +1189,7 @@ export class CastExpression extends Expression {
     }
 }
 
-function resolveCastType(name: string): Type {
+function resolveCastType(name: string): RuntimeType {
     switch (name) {
         case "number": return LiteralType.number;
         case "string": return LiteralType.string;
@@ -1199,6 +1199,6 @@ function resolveCastType(name: string): Type {
     return ctor != null ? new ClassType(ctor) : LiteralType.null;
 }
 
-function getType(object: Expression, propertyName: string): Type {
+function getType(object: Expression, propertyName: string): RuntimeType {
     throw new Error("Function not implemented.");
 }

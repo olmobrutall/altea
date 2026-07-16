@@ -59,7 +59,7 @@ import { TypeEntity } from "../../../entities/typeEntity";
 import { toInt, toLong, toDecimal, inSql, Temporal } from "../../../entities/basics";
 import { Lite } from "../../../entities/lite";
 import { niceName } from "../../../entities/utils/localization";
-import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, Type } from "../../../entities/runtimeTypes";
+import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, RuntimeType } from "../../../entities/runtimeTypes";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 
@@ -98,7 +98,7 @@ function isTypeExpression(e: Expression): boolean {
         || e instanceof TypeImplementedByAllExpression;
 }
 
-function ctorOfType(type: Type): Function {
+function ctorOfType(type: RuntimeType): Function {
     if (type instanceof ClassType)
         return type.constructorFunction;
     throw new Error("Expected a ClassType for an entity reference");
@@ -106,7 +106,7 @@ function ctorOfType(type: Type): Function {
 
 // The inner (referenced) type of a `Lite<T>` — the type to combine when the
 // selector returns a Lite over each implementation.
-function liteInner(type: Type): Type {
+function liteInner(type: RuntimeType): RuntimeType {
     return type instanceof LiteType ? type.entityType : type;
 }
 
@@ -117,7 +117,7 @@ function liteInner(type: Type): Type {
 // the leaves. The Case strategy (SwitchStrategy) builds a CASE; the Union strategy
 // (a UnionAllRequest, added later) projects the leaves into union columns.
 interface ICombineStrategy {
-    combineValues(implementations: ReadonlyMap<Function, Expression>, returnType: Type): Expression;
+    combineValues(implementations: ReadonlyMap<Function, Expression>, returnType: RuntimeType): Expression;
 }
 
 // Signum's SwitchStrategy: combine the per-implementation values with a CASE keyed
@@ -127,7 +127,7 @@ interface ICombineStrategy {
 class SwitchStrategy implements ICombineStrategy {
     constructor(private readonly ib: ImplementedByExpression) { }
 
-    combineValues(implementations: ReadonlyMap<Function, Expression>, _returnType: Type): Expression {
+    combineValues(implementations: ReadonlyMap<Function, Expression>, _returnType: RuntimeType): Expression {
         const whens: When[] = [];
         for (const [ctor, ee] of this.ib.implementations)
             whens.push(new When(new IsNotNullExpression(ee.externalId.value), implementations.get(ctor)!));
@@ -191,7 +191,7 @@ class UnionAllRequest implements ICombineStrategy {
 
     // Declare a union column whose value per implementation is `getColumn(ctor)`.
     // Returns the outer reference to it (unionAlias.name).
-    addUnionColumn(type: Type, suggestedName: string, getColumn: (ctor: Function) => Expression): ColumnExpression {
+    addUnionColumn(type: RuntimeType, suggestedName: string, getColumn: (ctor: Function) => Expression): ColumnExpression {
         const name = this.uniqueName(suggestedName || ("c" + this.nextName++));
         const perImpl = new Map<Function, Expression>();
         for (const ctor of this.implementations.keys())
@@ -201,7 +201,7 @@ class UnionAllRequest implements ICombineStrategy {
     }
 
     // A union column carrying `expression` only for `implementation` (NULL elsewhere).
-    addIndependentColumn(type: Type, suggestedName: string, implementation: Function, expression: Expression): ColumnExpression {
+    addIndependentColumn(type: RuntimeType, suggestedName: string, implementation: Function, expression: Expression): ColumnExpression {
         const nullValue = new SqlConstantExpression(null, type);
         return this.addUnionColumn(type, suggestedName, ctor => ctor === implementation ? expression : nullValue);
     }
@@ -222,7 +222,7 @@ class UnionAllRequest implements ICombineStrategy {
         return { kind: "dirty", projector: expression, candidates };
     }
 
-    combineValues(implementations: ReadonlyMap<Function, Expression>, returnType: Type): Expression {
+    combineValues(implementations: ReadonlyMap<Function, Expression>, returnType: RuntimeType): Expression {
         const values = new Map<Function, Nominable>();
         for (const [ctor, exp] of implementations)
             values.set(ctor, this.getNominable(exp));
@@ -1055,7 +1055,7 @@ export class QueryBinder extends ExpressionVisitor {
         throw new Error("Unexpected call in query: " + call.toString());
     }
 
-    private bindMethodCall(methodName: string, source: Expression, args: readonly Expression[], resultType: Type): Expression {
+    private bindMethodCall(methodName: string, source: Expression, args: readonly Expression[], resultType: RuntimeType): Expression {
         // Distribute an entity-value method over a conditional / coalesce receiver — the
         // method-call analogue of the bindMember distribution (Signum re-binds the call
         // per branch, as the IB dispatch below already does): `(t ? a : b).m()` →
@@ -1837,7 +1837,7 @@ export class QueryBinder extends ExpressionVisitor {
     // shapes it couldn't resolve statically — chiefly a member navigated through a
     // polymorphic `combineUnion()`/`combineCase()` reference. Mirrors Signum's QueryBinder
     // (HasExpansions on a concrete EntityExpression; DispatchIb over an ImplementedBy).
-    private tryExpandQuotedMember(source: Expression, methodName: string, args: readonly Expression[], resultType: Type): Expression | undefined {
+    private tryExpandQuotedMember(source: Expression, methodName: string, args: readonly Expression[], resultType: RuntimeType): Expression | undefined {
         if (source instanceof LiteReferenceExpression)
             return this.tryExpandQuotedMember(source.reference, methodName, args, resultType);
 
@@ -2353,7 +2353,7 @@ export class QueryBinder extends ExpressionVisitor {
     // and defers to `strategy.combineValues` only at scalar leaves. `returnType` is
     // the combined reference's nominal type; the concrete type is recovered at read
     // time from the discriminator, so it is only load-bearing for scalar column types.
-    private combineImplementations(strategy: ICombineStrategy, expressions: ReadonlyMap<Function, Expression>, returnType: Type): Expression {
+    private combineImplementations(strategy: ICombineStrategy, expressions: ReadonlyMap<Function, Expression>, returnType: RuntimeType): Expression {
         const values = [...expressions.values()];
 
         // All Lite<T> → combine the wrapped references and re-wrap as a Lite.
@@ -2636,7 +2636,7 @@ export class QueryBinder extends ExpressionVisitor {
         throw new Error(`Type.niceName() is not supported for an @implementedByAll reference (no static type to localize)`);
     }
 
-    private findBinding(bindings: readonly FieldBinding[], name: string, ownerType: Type): Expression {
+    private findBinding(bindings: readonly FieldBinding[], name: string, ownerType: RuntimeType): Expression {
         const fb = bindings.find(b => b.fieldInfo.name === name);
         if (fb == null)
             throw new Error(`Field '${name}' not found on ${ownerType.toString()}`);
@@ -2794,7 +2794,7 @@ export class QueryBinder extends ExpressionVisitor {
     //     `{ field: <column>, … }` so `.map(m => m.field)` binds → Query<{ field: … }>.
     // The function arguments are bound in the current scope, so when they reference outer
     // columns the formatter emits a CROSS JOIN LATERAL / CROSS APPLY.
-    private bindTableValuedFunction(functionName: string, args: readonly Expression[], resultType: Type): ProjectionExpression {
+    private bindTableValuedFunction(functionName: string, args: readonly Expression[], resultType: RuntimeType): ProjectionExpression {
         const boundArgs = args.map(a => this.castTvfArg(this.visit(a)));
         const tableAlias = this.aliasGenerator.nextTableAlias(functionName);
 
@@ -2805,7 +2805,7 @@ export class QueryBinder extends ExpressionVisitor {
 
         let source: SqlTableValuedFunctionExpression;
         let projector: Expression;
-        let elementType: Type;
+        let elementType: RuntimeType;
         if (viewCtor != null) {
             // Reflect the IView row type into its output columns (Signum reflects the SqlMethod's
             // IQueryable<T> element). The Postgres column-alias list (see queryFormatter) names a
@@ -2930,7 +2930,7 @@ export class QueryBinder extends ExpressionVisitor {
         }
     }
 
-    private getTableProjectionForTable(table: Table, elementType: Type): ProjectionExpression {
+    private getTableProjectionForTable(table: Table, elementType: RuntimeType): ProjectionExpression {
         const tableAlias = this.aliasGenerator.nextTableAlias(table.name.name);
         const entity = this.createEntityExpression(table, tableAlias);
 
@@ -3192,7 +3192,7 @@ export class QueryBinder extends ExpressionVisitor {
         // to a value→name CASE (falls back to number when the enum isn't registered).
         if (f instanceof FieldEnum) {
             const enumObj = fieldEnum(ef.fieldInfo);
-            const type: Type = enumObj != null ? new EnumType(enumObj, fieldTypeName(ef.fieldInfo) ?? '') : LiteralType.number;
+            const type: RuntimeType = enumObj != null ? new EnumType(enumObj, fieldTypeName(ef.fieldInfo) ?? '') : LiteralType.number;
             return new ColumnExpression(type, alias, f.column.name);
         }
 
@@ -3224,7 +3224,7 @@ export class QueryBinder extends ExpressionVisitor {
             // Resolve the embedded's ctor from the field's type name so the reader
             // can construct it.
             const embCtor = fieldType(ef.fieldInfo);
-            const embType: Type = embCtor != null ? new ClassType(embCtor) : LiteralType.null;
+            const embType: RuntimeType = embCtor != null ? new ClassType(embCtor) : LiteralType.null;
             return new EmbeddedEntityExpression(embType, hasValue, subBindings, undefined);
         }
 
@@ -3286,7 +3286,7 @@ export class QueryBinder extends ExpressionVisitor {
     // metadata uses capitalized JS type names ("String"/"Number"/"Boolean", as
     // emitted by the @field transformer). Temporal/enum/etc. stay null-typed until
     // those Types are modelled.
-    private valueType(fi: FieldInfo): Type {
+    private valueType(fi: FieldInfo): RuntimeType {
         switch (fi.typeName) {
             case "String": return LiteralType.string;
             case "Number": return LiteralType.number;

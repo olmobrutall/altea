@@ -1,7 +1,7 @@
 
 import { BinaryExpression, CallExpression, CastExpression, ConditionalExpression, ConstantExpression, Expression, LambdaExpression, ParameterExpression, PropertyExpression } from "../expressions";
 import { ExpressionVisitor } from "./ExpressionVisitor";
-import { ClassType, LiteralType, Type } from "../../../entities/runtimeTypes";
+import { ClassType, LiteralType, RuntimeType } from "../../../entities/runtimeTypes";
 
 // Port of Signum's OverloadingSimplifier — the pre-binding lowering pass. It does two things,
 // both on the query-operator chain (which the front-end PartialEval in fromQuoted never touches):
@@ -72,7 +72,7 @@ export class OverloadingSimplifier extends ExpressionVisitor {
     // Rewrite a "sugar" query operator on `source.op(args)` to a chain of core operators.
     // `source` (func.object) and `args` are already visited. Returns undefined for any other
     // method (left as a normal call).
-    private rewriteSugarOperator(func: PropertyExpression, args: readonly Expression[], resultType: Type): Expression | undefined {
+    private rewriteSugarOperator(func: PropertyExpression, args: readonly Expression[], resultType: RuntimeType): Expression | undefined {
         const source = func.object;
         switch (func.propertyName) {
             // minBy/maxBy → orderBy[Descending](key).firstOrNull() — the element with the
@@ -98,7 +98,7 @@ export class OverloadingSimplifier extends ExpressionVisitor {
     }
 
     // A `x => x as T` selector over an element of `elementType` (T from the ctor arg).
-    private castLambda(elementType: Type | null, ctorArg: Expression): LambdaExpression {
+    private castLambda(elementType: RuntimeType | null, ctorArg: Expression): LambdaExpression {
         const p = new ParameterExpression("x", elementType ?? LiteralType.null);
         return new LambdaExpression([p], new CastExpression(p, new ClassType(this.ctorArg(ctorArg))));
     }
@@ -112,6 +112,6 @@ export class OverloadingSimplifier extends ExpressionVisitor {
 }
 
 // Signum's `type == typeof(string)` test for the mixed-concat rule.
-function isStringType(type: Type): boolean {
+function isStringType(type: RuntimeType): boolean {
     return type === LiteralType.string;
 }
