@@ -6,7 +6,7 @@ import {
 } from "../expressions.sql";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 import { TypeLogic } from "../../typeLogic";
-import { ClassType, LiteralType } from "../../../entities/types";
+import { ClassType, LiteralType } from "../../../entities/runtimeTypes";
 
 // Port of Signum's GroupEntityCleaner
 // (Engine/Linq/ExpressionVisitor/GroupEntityCleaner.cs), scoped to what altea

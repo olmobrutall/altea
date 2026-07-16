@@ -695,17 +695,19 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
           `Import it as a value (\`import { ${thunkNode.text} }\`) so the transformer can emit a ` +
           `\`() => ${thunkNode.text}\` reference (needed for registration under verbatimModuleSyntax).`,
         );
-      // A value reference (entity/embedded class or enum): emit a lazy ctor thunk.
-      // This makes the module graph mirror the entity reference graph — importing an
-      // owner transitively loads and registers the referenced type — and gives
-      // rename-/load-order-proof resolution. `typeName` is kept alongside it for
-      // name-based consumers (schema/query) and clean-name (wire/URL) derivation.
+      // A value reference (entity/embedded class or enum): emit a lazy `type` thunk and
+      // NOT `typeName`. The thunk makes the module graph mirror the entity reference
+      // graph (importing an owner transitively loads + registers the referenced type)
+      // and gives rename-/load-order-proof resolution; consumers read it via fieldType /
+      // fieldEnum, and the clean wire/URL name is derived from the resolved ctor. Only
+      // value types (which have no runtime value to thunk) carry `typeName`.
       props.push(ts.factory.createPropertyAssignment("type",
         ts.factory.createArrowFunction(undefined, undefined, [], undefined,
           ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
           ts.factory.createIdentifier(thunkNode.text))));
+    } else {
+      props.push(ts.factory.createPropertyAssignment("typeName", ts.factory.createStringLiteral(typeName)));
     }
-    props.push(ts.factory.createPropertyAssignment("typeName", ts.factory.createStringLiteral(typeName)));
     if (name != null)
       props.push(ts.factory.createPropertyAssignment("name", ts.factory.createStringLiteral(name)));
     if (nullable === true)

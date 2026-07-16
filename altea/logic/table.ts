@@ -3,7 +3,7 @@ import { Entity, type PrimaryKey } from "../entities/entity";
 import { CallExpression, ConstantExpression, Expression, PropertyExpression, ParameterExpression, LambdaExpression } from "./linq/expressions";
 import { Retriever } from "./linq/Retriever";
 import { quotedFunction, type IQueryTranslator, Query } from "./query";
-import { ArrayType, FunctionType, ClassType, Type, LiteralType } from "../entities/types";
+import { ArrayType, FunctionType, ClassType, Type, LiteralType } from "../entities/runtimeTypes";
 import { OverloadingSimplifier } from "./linq/visitors/OverloadingSimplifier";
 import { Connector } from "./connection/connector";
 import { QueryBinder } from "./linq/visitors/QueryBinder";

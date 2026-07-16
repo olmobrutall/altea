@@ -3,7 +3,7 @@ import {
     Expression, LambdaExpression, BinaryExpression, UnaryExpression,
     PropertyExpression, ConstantExpression, CastExpression,
 } from "../linq/expressions";
-import { ClassType } from "../../entities/types";
+import { ClassType } from "../../entities/runtimeTypes";
 import type { Table } from "./table";
 import type { IColumn } from "./column";
 import { sqlEscape } from "../linq/sqlEscape";

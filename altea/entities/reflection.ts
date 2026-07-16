@@ -2,7 +2,7 @@
 import { DescriptionManager } from './utils/localization';
 import type { Type, Entity } from './entity';
 import type { Quoted } from 'quote-transformer/quoted';
-import { registerType, resolveType } from './registration';
+import { registerType, resolveType, resolveEnum, enumNameOf } from './registration';
 
 // The runtime type of a primary key. `int`/`long` are identity-style integers;
 // `uuid`/`uuid7` are GUID columns (uuid7 is time-ordered). Maps to an
@@ -77,16 +77,10 @@ export class FieldInfo {
     // a query retrieving the owner does NOT eager-expand this reference (it stays a lazy
     // stub). A per-reference concern, so it lives on the field, not the entity.
     avoidExpandOnRetrieving?: boolean;
-    // Set by @include: a user-written thunk returning the referenced
-    // constructor(s). Because the thunk references the type as a *value* in
-    // source, the import survives elision (no verbatimModuleSyntax needed) and
-    // the schema builder gets the constructor by reference (no name registry).
-    // `true` means a bare @include that defers to a sibling @implementedBy.
-    include?: (() => unknown) | boolean;
     implementations?: ImplementationsInfo;
     // Set by the child-side @backReference marker (bare): this FK field points
-    // back to the owner entity. The owner's collection (@include(() => Child))
-    // finds it as the back-pointing FK. Per-row equivalent of an MList element.
+    // back to the owner entity. The owner's collection (a `Child[]` field) finds it as
+    // the back-pointing FK. Per-row equivalent of an MList element.
     isBackReference?: boolean;
     // Set by @rowOrder: this int column preserves MList row order (Signum's
     // [PreserveOrder]).
@@ -235,16 +229,38 @@ export function getTypeInfo(target: object): TypeInfo | undefined {
     return ctor?.[typeInfoKey] as TypeInfo | undefined;
 }
 
-// Resolves a field's entity/embedded class (or enum object) — the single accessor for
+// Resolves a field's referenced entity/embedded *constructor* — the single accessor for
 // a reference field's runtime type. Prefers the transformer-emitted `type` thunk
 // (rename-/load-order-proof, and it kept the import alive so the type is registered),
 // falling back to a name lookup for hand-written `@field({ typeName })` metadata.
-// Returns undefined for value-typed fields (their `typeName`, e.g. "Number", isn't in
-// the type registry — those resolve in defaultDbType instead).
+// Returns undefined for value-typed and enum fields (their `typeName`, e.g. "Number", is
+// not an entity ctor — value types resolve in defaultDbType, enums via {@link fieldEnum}).
 export function fieldType(fi: FieldInfo): Function | undefined {
-    if (fi.type != null)
-        return fi.type() as Function;
-    return fi.typeName != null ? resolveType(fi.typeName) : undefined;
+    const t = fi.type != null ? fi.type() : (fi.typeName != null ? resolveType(fi.typeName) : undefined);
+    return typeof t === 'function' ? t as Function : undefined;
+}
+
+// Resolves an enum field's runtime enum object (the counterpart of {@link fieldType} for
+// `@field({ enum: true })` fields). Prefers the `type` thunk, else the enum registry.
+export function fieldEnum(fi: FieldInfo): object | undefined {
+    if (fi.type != null) {
+        const t = fi.type();
+        return typeof t === 'object' && t != null ? t as object : undefined;
+    }
+    return fi.typeName != null ? resolveEnum(fi.typeName) : undefined;
+}
+
+// The display/registry NAME of a field's type — the entity/embedded class name or the
+// enum's registered name — derived from the `type` thunk when present, else the stored
+// `typeName`. Used for error messages, table naming and EnumType metadata now that
+// thunked fields carry no `typeName` string.
+export function fieldTypeName(fi: FieldInfo): string | undefined {
+    if (fi.type != null) {
+        const t = fi.type();
+        if (typeof t === 'function') return (t as Function).name;
+        if (t != null) return enumNameOf(t as object) ?? undefined;
+    }
+    return fi.typeName;
 }
 
 // Bare @field: exists so source type-checks (tsc checks the original AST). The

@@ -31,7 +31,7 @@ import { Entity, EmbeddedEntity, typeConstructor } from './entity';
 import type { Type, PrimaryKey, BaseEntity } from './entity';
 import { Lite, LiteImp } from './lite';
 import { forEachField, isModifiedSelf, project, snapshotEqual } from './changes';
-import { fieldType, resolveEnum } from './reflection';
+import { fieldType, fieldEnum } from './reflection';
 import { resolveCleanType, cleanTypeName } from './registration';
 import type { FieldInfo } from './reflection';
 import { Temporal, Decimal, toInt } from './basics';
@@ -188,8 +188,8 @@ function toJson(value: unknown, slot: Slot, ctx: SerCtx): unknown {
 function serializeFieldValue(fi: FieldInfo, value: unknown, ctx: SerCtx): unknown {
     if (value == null) return null;
     if (fi.isEnum) {
-        const e = resolveEnum(fi.typeName) as Record<string, unknown> | undefined;
-        if (e == null) throw new Error(`Cannot serialize enum field '${fi.name}': enum "${fi.typeName}" is not registered`);
+        const e = fieldEnum(fi) as Record<string, unknown> | undefined;
+        if (e == null) throw new Error(`Cannot serialize enum field '${fi.name}': enum is not registered`);
         return fi.array ? (value as unknown[]).map(v => enumName(e, v)) : enumName(e, value);
     }
     if (fi.array) {
@@ -251,7 +251,9 @@ function serializeLite(lite: Lite<Entity>, writeType: boolean, ctx: SerCtx): Rec
 // ---- Deserialize -----------------------------------------------------------
 
 interface DesCtx {
-    expectedTypeName?: string;
+    // The expected entity/embedded constructor from field context (via fieldType), used
+    // when the value carries no $type/$lite discriminator (Auto mode, monomorphic).
+    expectedType?: Function;
     parented?: boolean;
     owner?: Entity;
     index?: number;
@@ -276,7 +278,7 @@ class Deserializer {
         if (typeof json === 'object') {
             const j = json as Record<string, unknown>;
             if ('$lite' in j) return this.lite(j, ctx);
-            if ('$type' in j || ctx.expectedTypeName != null) return this.modifiable(j, ctx, undefined);
+            if ('$type' in j || ctx.expectedType != null) return this.modifiable(j, ctx, undefined);
             const o: Record<string, unknown> = {};   // plain dictionary of roots
             for (const [k, v] of Object.entries(j)) o[k] = this.value(v, {});
             return o;
@@ -285,14 +287,14 @@ class Deserializer {
     }
 
     private modifiable(json: Record<string, unknown>, ctx: DesCtx, existing: unknown): BaseEntity {
-        // The discriminator is a clean name ("Album"); the field context is the full
-        // declared name ("AlbumEntity"). resolveCleanType resolves both.
-        const ctorName = (json.$type as string | undefined) ?? ctx.expectedTypeName;
-        if (ctorName == null)
-            throw new Error('Cannot deserialize object: no $type discriminator and no field context');
-        const ctor = resolveCleanType(ctorName);
+        // The wire discriminator is a clean name ("Album"), resolved through the registry;
+        // otherwise the constructor comes straight from field context (fieldType).
+        const wire = json.$type as string | undefined;
+        const ctor = wire != null ? resolveCleanType(wire) : ctx.expectedType;
         if (ctor == null)
-            throw new Error(`Cannot deserialize: unknown type "${ctorName}"`);
+            throw new Error(wire != null
+                ? `Cannot deserialize: unknown type "${wire}"`
+                : 'Cannot deserialize object: no $type discriminator and no field context');
 
         if (ctorIsEmbedded(ctor))
             return this.embedded(json, ctor as new () => EmbeddedEntity, existing);
@@ -376,8 +378,8 @@ class Deserializer {
         const target = inst as unknown as Record<string, unknown>;
         if (jv == null) { target[fi.name] = null; return; }
         if (fi.isEnum) {
-            const e = resolveEnum(fi.typeName) as Record<string, unknown> | undefined;
-            if (e == null) throw new Error(`Cannot deserialize enum field '${fi.name}': enum "${fi.typeName}" is not registered`);
+            const e = fieldEnum(fi) as Record<string, unknown> | undefined;
+            if (e == null) throw new Error(`Cannot deserialize enum field '${fi.name}': enum is not registered`);
             target[fi.name] = fi.array ? (jv as unknown[]).map(n => enumValue(e, n as string)) : enumValue(e, jv as string);
             return;
         }
@@ -387,11 +389,11 @@ class Deserializer {
 
     private single(fi: FieldInfo, jv: unknown, existing: unknown): unknown {
         if (fi.lite)
-            return this.lite(jv as Record<string, unknown>, { expectedTypeName: fi.typeName });
+            return this.lite(jv as Record<string, unknown>, { expectedType: fieldType(fi) });
 
         const ctor = fieldType(fi);
         if (ctor != null && (ctorIsEntity(ctor) || ctorIsEmbedded(ctor)))
-            return this.modifiable(jv as Record<string, unknown>, { expectedTypeName: fi.typeName }, existing);
+            return this.modifiable(jv as Record<string, unknown>, { expectedType: ctor }, existing);
 
         // Polymorphic reference whose declared type is an interface not in the registry:
         // the concrete type rides on the value's own discriminator.
@@ -422,24 +424,24 @@ class Deserializer {
                 const elCtor = ej.$type != null ? resolveCleanType(ej.$type as string) : fieldType(fi);
                 const elId = ej.id;
                 const existingEl = (elId != null && elCtor != null) ? byId.get(elCtor.name + '|' + String(elId)) : undefined;
-                return this.modifiable(ej, { expectedTypeName: elCtor?.name ?? fi.typeName, parented: true, owner, index: i }, existingEl);
+                return this.modifiable(ej, { expectedType: elCtor, parented: true, owner, index: i }, existingEl);
             });
         }
 
         if (fi.lite)
-            return jsonArr.map(v => this.lite(v as Record<string, unknown>, { expectedTypeName: fi.typeName }));
+            return jsonArr.map(v => this.lite(v as Record<string, unknown>, { expectedType: fieldType(fi) }));
         if (TEMPORAL_TYPE_NAMES.has(fi.typeName)) return jsonArr.map(v => temporalFrom(fi.typeName, v as string));
         if (fi.typeName === 'Decimal') return jsonArr.map(v => new Decimal(v as Decimal.Value));
         return jsonArr.slice();   // Number / String / Boolean
     }
 
     private lite(json: Record<string, unknown>, ctx: DesCtx): Lite<Entity> {
-        const liteTypeName = (json.$lite as string | undefined) ?? ctx.expectedTypeName;
-        if (liteTypeName == null)
-            throw new Error('Cannot deserialize lite: no $lite discriminator and no field context');
-        const ctor = resolveCleanType(liteTypeName);
+        const wire = json.$lite as string | undefined;
+        const ctor = wire != null ? resolveCleanType(wire) : ctx.expectedType;
         if (ctor == null)
-            throw new Error(`Cannot deserialize lite: unknown type "${liteTypeName}"`);
+            throw new Error(wire != null
+                ? `Cannot deserialize lite: unknown type "${wire}"`
+                : 'Cannot deserialize lite: no $lite discriminator and no field context');
 
         const id = (json.id === undefined ? null : json.id) as PrimaryKey;
         let lite: Lite<Entity> | undefined;
@@ -449,7 +451,7 @@ class Deserializer {
         lite ??= new LiteImp(id, ctor as Type<Entity>, (json.toStr as string | undefined) ?? '');
 
         if (json.entity != null)
-            lite.setEntity(this.modifiable(json.entity as Record<string, unknown>, { expectedTypeName: liteTypeName }, undefined) as Entity);
+            lite.setEntity(this.modifiable(json.entity as Record<string, unknown>, { expectedType: ctor }, undefined) as Entity);
         return lite;
     }
 
@@ -458,7 +460,7 @@ class Deserializer {
     private checkClean(json: Record<string, unknown>, ctor: new () => Entity, original: Entity): void {
         const snap = original._snapshot;
         if (snap == null || snap === true) return;   // no real baseline to compare against
-        const pure = new Deserializer({}).modifiable(json, { expectedTypeName: ctor.name }, undefined);
+        const pure = new Deserializer({}).modifiable(json, { expectedType: ctor }, undefined);
         if (!snapshotEqual(project(pure), snap)) {
             const msg = `deserialize: ${cleanTypeName(ctor)} (id=${String(json.id)}) arrived without "modified" but its values differ from the resolved entity; changes were NOT applied.`;
             (this.opts.onWarn ?? ((m: string) => console.warn(m)))(msg);

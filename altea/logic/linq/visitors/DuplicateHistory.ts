@@ -4,7 +4,7 @@ import {
     ColumnDeclaration, SqlFunctionExpression, SqlCastExpression,
 } from "../expressions.sql";
 import { Expression, ConstantExpression } from "../expressions";
-import { LiteralType } from "../../../entities/types";
+import { LiteralType } from "../../../entities/runtimeTypes";
 import { AliasGenerator } from "../AliasGenerator";
 import {
     SystemTime, SystemTimeHistoryTable, SystemTimeAsOf, SystemTimeBetween, SystemTimeContainedIn, SystemTimeAll,

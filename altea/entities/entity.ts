@@ -6,7 +6,7 @@ import { reflect, getTypeInfo } from './reflection';
 import { MixinDeclarations } from './mixinDeclarations';
 import { enumNameOf } from './registration';
 import { isGraphModified, isModifiedSelf } from './changes';
-import { LiteralType, LiteType, quotedFunction, type Type as ExpressionType } from './types';
+import { LiteralType, LiteType, quotedFunction, type Type as ExpressionType } from './runtimeTypes';
 
 export type PrimaryKey = string | number;
 

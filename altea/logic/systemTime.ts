@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Temporal } from '../entities/basics';
-import { quotedFunction, ClassType } from '../entities/types';
+import { quotedFunction, ClassType } from '../entities/runtimeTypes';
 
 // Port of Signum's SystemTime (Entities/SystemTime.cs) — the query-time scope that selects
 // which row versions a query over a system-versioned table sees. Unlike Clock (a static,

@@ -10,7 +10,7 @@ import {
     DeleteExpression, UpdateExpression, InsertSelectExpression, CommandAggregateExpression,
     ColumnAssignment, SourceWithAliasExpression,
 } from "../expressions.sql";
-import { LiteralType } from "../../../entities/types";
+import { LiteralType } from "../../../entities/runtimeTypes";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 
 // Port of Signum's ConditionsRewriter

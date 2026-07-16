@@ -10,7 +10,7 @@ import {
     AggregateExpression, AggregateRequestsExpression, CaseExpression, When, ScalarExpression, ExistsExpression, InExpression,
     ProjectionExpression, ToDayOfWeekExpression, SqlArrayIndexExpression,
 } from "./expressions.sql";
-import { EnumType, LiteralType, TemporalType, Type } from "../../entities/types";
+import { EnumType, LiteralType, TemporalType, Type } from "../../entities/runtimeTypes";
 import { enumEntityMembers } from "../../entities/enumEntity";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 

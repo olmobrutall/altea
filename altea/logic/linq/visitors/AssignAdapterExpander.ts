@@ -7,7 +7,7 @@ import {
     PrimaryKeyExpression, FieldBinding, SqlConstantExpression,
     CaseExpression, When, IsNotNullExpression,
 } from "../expressions.sql";
-import { LiteralType, Type } from "../../../entities/types";
+import { LiteralType, Type } from "../../../entities/runtimeTypes";
 import { TypeLogic } from "../../typeLogic";
 import { getTypeInfo } from "../../../entities/reflection";
 import { Entity } from "../../../entities/entity";

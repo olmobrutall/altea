@@ -18,7 +18,7 @@ import { sqlEscape } from "./sqlEscape";
 import { normalizeScalar } from "../normalizeScalar";
 import { SystemTime, SystemTimeAsOf, SystemTimeBetween, SystemTimeContainedIn, SystemTimeAll, SystemTimeHistoryTable } from "../systemTime";
 import { Alias } from "./AliasGenerator";
-import { LiteralType } from "../../entities/types";
+import { LiteralType } from "../../entities/runtimeTypes";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 
 // Port of Signum's QueryFormatter. Like the C# formatter, this is a visitor

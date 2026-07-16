@@ -1,6 +1,6 @@
 import type { Entity, Type } from '../../entities/entity';
 import { typeConstructor } from '../../entities/entity';
-import { getTypeInfo, FieldInfo, resolveType } from '../../entities/reflection';
+import { getTypeInfo, FieldInfo, fieldType, fieldTypeName } from '../../entities/reflection';
 import { AbstractDbType, IsNullable, defaultDbType } from './dbType';
 import { PrimaryKeyColumn, ValueColumn, ReferenceColumn } from './column';
 import { FieldValue, FieldReference, FieldPrimaryKey, EntityField, Field } from './field';
@@ -90,14 +90,14 @@ export class ViewBuilder {
                 throw new Error(`Temp-table view field '${fi.name}' on ${ctor.name}: only scalar and single Lite<T>/entity FK columns are supported.`);
             const refTable = this.resolveEntityRef(fi);
             if (refTable == null)
-                throw new Error(`Temp-table view field '${fi.name}' on ${ctor.name}: cannot resolve referenced entity '${fi.typeName}'. Ensure its module is imported and the schema is complete.`);
+                throw new Error(`Temp-table view field '${fi.name}' on ${ctor.name}: cannot resolve referenced entity '${fieldTypeName(fi) ?? fi.name}'. Ensure its module is imported and the schema is complete.`);
             const nullable = fi.isNullable === true ? IsNullable.Yes : IsNullable.No;
             // Column name follows the entity FK convention: `<Field>ID` (PascalCase field + "ID").
             const colName = fi.fkPropertyName ?? `${cap(fi.name)}ID`;
             return new FieldReference(new ReferenceColumn(colName, refTable, nullable, /* isLite */ fi.lite === true));
         }
 
-        if (fi.implementations != null || fi.include != null || fi.isEnum)
+        if (fi.implementations != null || fieldType(fi) != null || fi.isEnum)
             throw new Error(`View field '${fi.name}' on ${ctor.name}: entity/enum view columns are not supported (views navigate via @quoted sub-queries, not FK columns).`);
 
         let dbType = this.resolveViewDbType(fi);
@@ -131,7 +131,7 @@ export class ViewBuilder {
     private resolveEntityRef(fi: FieldInfo): Table | undefined {
         if (this.schema == null)
             return undefined;
-        const refCtor = resolveType(fi.typeName);
+        const refCtor = fieldType(fi);
         if (refCtor == null)
             return undefined;
         return this.schema.tryTable(refCtor as Type<Entity>);

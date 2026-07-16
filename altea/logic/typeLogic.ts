@@ -2,7 +2,7 @@ import { Connector } from "./connection/connector";
 import { cleanTypeName } from "../entities/registration";
 import { TypeEntity } from "../entities/typeEntity";
 import { quotedFunction } from "./query";
-import { ClassType } from "../entities/types";
+import { ClassType } from "../entities/runtimeTypes";
 import type { PrimaryKey } from "../entities/entity";
 import type { Schema } from "./schema/schema";
 import type { Table } from "./schema/table";
@@ -26,7 +26,7 @@ import type { SqlPreCommand } from "./sync/sqlPreCommand";
 //  - enum side-tables (keyed by a generic descriptor, not a constructor) get no
 //    TypeEntity row — they are never `@implementedByAll` targets.
 export class TypeLogic {
-    private constructor() {}
+    private constructor() { }
 
     // The caches live on the Schema (not process-global statics), so multiple schemas
     // coexist in one process without clobbering each other. The read methods resolve the

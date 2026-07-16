@@ -257,32 +257,11 @@ export function column(options: ColumnOptions = {}) {
     };
 }
 
-// Provides the referenced entity constructor(s) for a field via a user-written
-// thunk, e.g. `@include(() => OrderLineEntity)`. Two wins over resolving the type
-// by name: (1) the `() => X` arrow is a value-use in source, so TS never elides
-// the import (no verbatimModuleSyntax, no transformer magic — works the same on
-// tsc and tsgo); (2) the schema builder gets the constructor by reference, so it
-// is immune to bundler renames and needs no registration order.
-//
-// Bare `@include` (no thunk) defers to a sibling `@implementedBy(() => [...])`,
-// whose own lambda already supplies the constructors — so the types aren't
-// repeated.
-// Bare @include defers to a sibling @implementedBy; @include(() => X) supplies
-// the referenced constructor(s). The bare overload exists so source type-checks
-// (tsc checks the original AST, before the transformer runs).
-export function include(target: object, propertyKey: string | symbol): void;
-export function include(types: () => unknown): (target: object, propertyKey: string | symbol) => void;
-export function include(arg1: unknown, arg2?: unknown): unknown {
-    // Bare @include applied directly as a property decorator.
-    if (typeof arg2 === 'string' || typeof arg2 === 'symbol') {
-        getOrCreateFieldInfo(getOrCreateTypeInfo(arg1 as object), String(arg2)).include = true;
-        return;
-    }
-    const types = arg1 as () => unknown;
-    return function (target: object, propertyKey: string | symbol): void {
-        getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).include = types;
-    };
-}
+// (Former `@include(() => Child)` removed: the quote-transformer now auto-emits a
+// `type: () => X` thunk for every entity/embedded field — including `Child[]`
+// collections — so the referenced constructor is captured by reference automatically.
+// The schema builder resolves it via `fieldType(fi)`; part entities are still pulled
+// into the schema transitively from that ctor.)
 
 // Marks the int column that preserves MList row order (Signum's [PreserveOrder]).
 export function rowOrder(target: object, propertyKey: string | symbol): void {
@@ -314,10 +293,10 @@ export function implementedByAll(target: object, propertyKey: string | symbol): 
 
 // Child-side marker (Altea's MList replacement): tags the single FK field on a
 // part entity that points back to its owner, e.g. `@backReference album: Lite<AlbumEntity>`
-// inside `AlbumEntity_Songs`. The owner declares the collection with
-// `@include(() => AlbumEntity_Songs)`; the SchemaBuilder finds this marked field
-// as the back-pointing FK, so the relationship is described from both sides
-// without repeating the property name.
+// inside `AlbumEntity_Songs`. The owner declares the collection as a plain
+// `AlbumEntity_Songs[]` field (the transformer's `type` thunk supplies the child ctor);
+// the SchemaBuilder finds this marked field as the back-pointing FK, so the relationship
+// is described from both sides without repeating the property name.
 export function backReference(target: object, propertyKey: string | symbol): void {
     getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).isBackReference = true;
 }

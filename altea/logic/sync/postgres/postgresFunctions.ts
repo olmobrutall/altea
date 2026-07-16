@@ -1,4 +1,4 @@
-import { LiteralType, ArrayType } from "../../../entities/types";
+import { LiteralType, ArrayType } from "../../../entities/runtimeTypes";
 import { quotedFunction, Query, sqlMethod, resultType } from "../../query";
 
 // Port of Signum's Engine/Sync/Postgres/PostgresFunctions.cs — the "mini LINQ provider" of

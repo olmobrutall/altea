@@ -1,4 +1,4 @@
-import { Temporal } from "./basics";
+import { Temporal } from "../basics";
 
 // How the clock reads the wall time (Signum's TimeZoneMode). Apps that store UTC in the
 // database use `Utc`; apps that store local time use `Local`.

@@ -1,6 +1,6 @@
 
 import type { IContextVariable, IContextStorage } from './context';
-import { LiteralType, quotedFunction } from '../types';
+import { LiteralType, quotedFunction } from '../runtimeTypes';
 
 // Re-exported from the import-free registration leaf so the quote-transformer can
 // attach `registerObject` to the `msg` import in localization files (which don't

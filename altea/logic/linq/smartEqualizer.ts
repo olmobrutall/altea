@@ -5,7 +5,7 @@ import {
     IsNullExpression, EmbeddedEntityExpression,
     TypeEntityExpression, TypeImplementedByExpression, TypeImplementedByAllExpression,
 } from "./expressions.sql";
-import { ClassType } from "../../entities/types";
+import { ClassType } from "../../entities/runtimeTypes";
 import { Entity } from "../../entities/entity";
 import { Lite } from "../../entities/lite";
 import { getTypeInfo } from "../../entities/reflection";

@@ -13,7 +13,7 @@ import {
 import { NullableInterval } from "../systemTime";
 import { QueryFormatter } from "./queryFormatter";
 import { Connector } from "../connection/connector";
-import { ClassType, LiteralType, TemporalType, Type } from "../../entities/types";
+import { ClassType, LiteralType, TemporalType, Type } from "../../entities/runtimeTypes";
 import { Retriever } from "./Retriever";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 import { denormalizeTemporal } from "../normalizeScalar";

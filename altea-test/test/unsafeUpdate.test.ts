@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { table, view } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals"; // String methods (toUpperCase etc.), SQL-mappable
 import { hasDb, start, txTest } from "./setup";
-import { Clock } from "@altea/altea/entities/clock";
+import { Clock } from "@altea/altea/entities/utils/clock";
 import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
 import { Administrator } from "@altea/altea/logic/Administrator";
 import {

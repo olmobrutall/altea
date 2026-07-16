@@ -15,7 +15,7 @@ import { Saver } from './saver';
 import { retrieve } from './Database';
 import { table } from './table';
 import { quotedFunction, Query } from './query';
-import { ArrayType, FunctionType, LiteType, LiteralType, Type, IntervalType, TemporalType } from '../entities/types';
+import { ArrayType, FunctionType, LiteType, LiteralType, Type, IntervalType, TemporalType } from '../entities/runtimeTypes';
 import { NullableInterval } from './systemTime';
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, ParameterExpression, PropertyExpression } from './linq/expressions';
 import { ExpressionVisitor } from './linq/visitors/ExpressionVisitor';

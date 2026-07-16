@@ -3,7 +3,7 @@ import { Temporal } from "../entities/basics";
 import { reflect } from "../entities/reflection";
 import { viewPrimaryKey } from "../entities/decorators";
 import { quotedFunction, Query } from "./query";
-import { ArrayType, ClassType } from "../entities/types";
+import { ArrayType, ClassType } from "../entities/runtimeTypes";
 import { sqlMethodQuery } from "./table";
 import type { SchemaAssets } from "./sync/schemaAssets";
 

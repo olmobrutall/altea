@@ -7,7 +7,7 @@ import { Connector } from "@altea/altea/logic/connection/connector";
 import { PgClass } from "@altea/altea/logic/sync/postgres/postgresCatalog";
 import { SysDatabases } from "@altea/altea/logic/sync/sqlServer/sysTables";
 import type { Quoted } from "quote-transformer/quoted";
-import { Clock } from "@altea/altea/entities/clock";
+import { Clock } from "@altea/altea/entities/utils/clock";
 import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
 import {
     ArtistEntity, AlbumEntity, BandEntity, LabelEntity,

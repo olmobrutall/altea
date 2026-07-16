@@ -1,7 +1,7 @@
 
 import type { Entity, Type, PrimaryKey } from './entity';
 import { typeName } from './entity';
-import { LiteralType, quotedFunction, type Type as ExpressionType } from './types';
+import { LiteralType, quotedFunction } from './runtimeTypes';
 
 export abstract class Lite<out T extends Entity> {
     abstract readonly id: PrimaryKey;

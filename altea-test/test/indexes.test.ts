@@ -4,7 +4,7 @@ import "@altea/altea/entities/globals";
 import { reflect } from "@altea/altea/entities/reflection";
 import { Entity } from "@altea/altea/entities/entity";
 import { Lite } from "@altea/altea/entities/lite";
-import { include, index, uniqueIndex } from "@altea/altea/entities/decorators";
+import { index, uniqueIndex } from "@altea/altea/entities/decorators";
 import { type int, toInt } from "@altea/altea/entities/basics";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import type { FluentTable } from "@altea/altea/logic/schema/table";
@@ -26,7 +26,6 @@ class IdxCustomer extends Entity {
     @uniqueIndex code: string = "";      // field-level unique index
     name: string = "";
     @index age: int = toInt(0);          // field-level non-unique index
-    @include(() => IdxTarget)
     target: Lite<IdxTarget> | null = null; // FK → automatic non-unique index
 }
 

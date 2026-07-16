@@ -1,7 +1,7 @@
 
 import { BinaryExpression, CallExpression, CastExpression, ConditionalExpression, ConstantExpression, Expression, LambdaExpression, ParameterExpression, PropertyExpression } from "../expressions";
 import { ExpressionVisitor } from "./ExpressionVisitor";
-import { ClassType, LiteralType, Type } from "../../../entities/types";
+import { ClassType, LiteralType, Type } from "../../../entities/runtimeTypes";
 
 // Port of Signum's OverloadingSimplifier — the pre-binding lowering pass. It does two things,
 // both on the query-operator chain (which the front-end PartialEval in fromQuoted never touches):

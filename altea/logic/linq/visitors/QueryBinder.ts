@@ -53,13 +53,13 @@ import {
     FieldImplementedBy, FieldImplementedByAll,
 } from "../../schema/field";
 import type { FieldInfo } from "../../../entities/reflection";
-import { resolveType, resolveEnum } from "../../../entities/registration";
+import { fieldType, fieldEnum, fieldTypeName } from "../../../entities/reflection";
 import { Entity, View } from "../../../entities/entity";
 import { TypeEntity } from "../../../entities/typeEntity";
 import { toInt, toLong, toDecimal, inSql, Temporal } from "../../../entities/basics";
 import { Lite } from "../../../entities/lite";
 import { niceName } from "../../../entities/utils/localization";
-import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, Type } from "../../../entities/types";
+import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, Type } from "../../../entities/runtimeTypes";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 
@@ -1601,8 +1601,7 @@ export class QueryBinder extends ExpressionVisitor {
     // `COUNT(DISTINCT selector)` rather than a correlated `COUNT(*)` over a
     // `SELECT DISTINCT …` subquery. Returns the reduced (still unbound) inner source,
     // the value selector, and whether it is a distinct count.
-    private disassembleAggregate(func: AggregateSqlFunction, source: Expression, selectorOrPredicate: LambdaExpression | undefined):
-        { source: Expression, selector: LambdaExpression | undefined, distinct: boolean } {
+    private disassembleAggregate(func: AggregateSqlFunction, source: Expression, selectorOrPredicate: LambdaExpression | undefined): { source: Expression, selector: LambdaExpression | undefined, distinct: boolean } {
         if (func !== "Count")
             return { source, selector: selectorOrPredicate, distinct: false };
 
@@ -1651,9 +1650,9 @@ export class QueryBinder extends ExpressionVisitor {
         if (info != null) {
             const exp: Expression | undefined =
                 aggregateFunction === "Count" && selector == null ? undefined :       // Count(*)
-                aggregateFunction === "Count" && !distinct ? this.mapVisitExpandCore(toNotNullPredicate(selector!), info.projector, info.source) :
-                selector != null ? this.mapVisitExpandCore(selector, info.projector, info.source) : // Sum(x), Avg(x), CountDistinct(x)
-                info.projector;                                                        // Sum() over an element-selected group
+                    aggregateFunction === "Count" && !distinct ? this.mapVisitExpandCore(toNotNullPredicate(selector!), info.projector, info.source) :
+                        selector != null ? this.mapVisitExpandCore(selector, info.projector, info.source) : // Sum(x), Avg(x), CountDistinct(x)
+                            info.projector;                                                        // Sum() over an element-selected group
 
             const arg = exp == null ? undefined : this.aggregateArgument(exp);
             const aggregate = new AggregateExpression(
@@ -3192,8 +3191,8 @@ export class QueryBinder extends ExpressionVisitor {
         // its numeric value; typed EnumType so the nominator can lower `.toString()`
         // to a value→name CASE (falls back to number when the enum isn't registered).
         if (f instanceof FieldEnum) {
-            const enumObj = resolveEnum(ef.fieldInfo.typeName);
-            const type: Type = enumObj != null ? new EnumType(enumObj, ef.fieldInfo.typeName) : LiteralType.number;
+            const enumObj = fieldEnum(ef.fieldInfo);
+            const type: Type = enumObj != null ? new EnumType(enumObj, fieldTypeName(ef.fieldInfo) ?? '') : LiteralType.number;
             return new ColumnExpression(type, alias, f.column.name);
         }
 
@@ -3224,7 +3223,7 @@ export class QueryBinder extends ExpressionVisitor {
             }
             // Resolve the embedded's ctor from the field's type name so the reader
             // can construct it.
-            const embCtor = resolveType(ef.fieldInfo.typeName);
+            const embCtor = fieldType(ef.fieldInfo);
             const embType: Type = embCtor != null ? new ClassType(embCtor) : LiteralType.null;
             return new EmbeddedEntityExpression(embType, hasValue, subBindings, undefined);
         }
@@ -3280,7 +3279,7 @@ export class QueryBinder extends ExpressionVisitor {
         // interface type (e.g. `author: IAuthorEntity`, Signum-style) has no runtime
         // constructor — the base is nominal only (the reader picks the concrete
         // implementation), so fall back to Entity. Concrete base types resolve normally.
-        return resolveType(fi.typeName) ?? Entity;
+        return fieldType(fi) ?? Entity;
     }
 
     // Maps a value field's declared type name to a SQL literal type. The entity

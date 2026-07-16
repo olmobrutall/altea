@@ -4,13 +4,13 @@ import { Lite } from "@altea/altea/entities/lite";
 import {
     entity, partEntity, mixin, primaryKey,
     implementedBy, implementedByAll, backReference, rowOrder, valueField,
-    include, stringLengthValidator, EntityData, EntityKind,
+    stringLengthValidator, EntityData, EntityKind,
     quoted, column, forceNullable, tableName, viewPrimaryKey, systemVersioned,
 } from "@altea/altea/entities/decorators";
 import { Temporal, type int, toInt } from "@altea/altea/entities/basics";
 import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
 import { sqlMethod, returnType, resultType } from "@altea/altea/logic/query";
-import { LiteralType } from "@altea/altea/entities/types";
+import { LiteralType } from "@altea/altea/entities/runtimeTypes";
 import type { SchemaAssets } from "@altea/altea/logic/sync/schemaAssets";
 
 // Port of Signum.Test's Environment/Entities.cs (the "Music" domain), adapted to
@@ -21,12 +21,13 @@ import type { SchemaAssets } from "@altea/altea/logic/sync/schemaAssets";
 // Where Signum used MList<T>, altea has no MList: each collection becomes a
 // "part" entity, placed immediately after its owner and named
 // `<OwnerEntity>_<Property>` (e.g. AlbumEntity_Songs for AlbumEntity.Songs):
-//   - the owner declares the collection with @include(() => Child);
+//   - the owner declares the collection as a plain `Child[]` field (the
+//     transformer's `type` thunk supplies the child ctor by reference);
 //   - the child is a @partEntity that marks its owner FK with a bare
 //     @backReference, the element value with @valueField, and (for
 //     [PreserveOrder] MLists) the row order with @rowOrder on an int `order`;
 //   - embedded MList elements are flattened into the child's columns.
-// Part entities are pulled into the schema transitively via @include, so they
+// Part entities are pulled into the schema transitively from that ctor, so they
 // are NOT listed in MusicLogic's sb.include calls.
 //
 // Features still not supported are commented out with a NOT-YET note, namely:
@@ -69,7 +70,6 @@ export class NoteWithDateEntity extends Entity {
 
 @reflect
 export class ColaboratorsMixin extends MixinEntity {
-    @include(() => NoteWithDateEntity_Colaborators)
     colaborators: NoteWithDateEntity_Colaborators[];
 }
 
@@ -105,7 +105,6 @@ export class ArtistEntity extends Entity implements IAuthorEntity {
     @implementedByAll
     lastAward: Entity | null;
     // Signum's MList<Lite<ArtistEntity>> Friends → self many-to-many part entity.
-    @include(() => ArtistEntity_Friends)
     friends: ArtistEntity_Friends[];
     // Signum's MList<AwardNominationEntity> Nominations is a *virtual* MList keyed
     // by AwardNominationEntity.author (an @implementedBy reference, so it can't be
@@ -161,12 +160,10 @@ export enum Status {
 export class BandEntity extends Entity implements IAuthorEntity {
     name: string;
     // Signum's MList<ArtistEntity> Members → band/member part entity.
-    @include(() => BandEntity_Members)
     members: BandEntity_Members[];
     @implementedBy(() => [GrammyAwardEntity, AmericanMusicAwardEntity])
     lastAward: Entity | null;
     // Signum's MList<AwardEntity> OtherAwards → band/award part entity.
-    @include(() => BandEntity_OtherAwards)
     otherAwards: BandEntity_OtherAwards[];
 
     // Computed query members (Signum's [AutoExpressionField]) — see ArtistEntity.
@@ -257,7 +254,6 @@ export class AlbumEntity extends Entity {
     @implementedBy(() => [ArtistEntity, BandEntity])
     author: IAuthorEntity;
     // Signum's [PreserveOrder] MList<SongEmbedded> Songs → owned part rows.
-    @include(() => AlbumEntity_Songs)
     songs: AlbumEntity_Songs[];
     bonusTrack: SongEmbedded | null; // single (nullable) embedded
     @forceNullable // Signum's [ForceNullable]: non-null field, nullable column
@@ -322,7 +318,6 @@ export class AwardNominationEntity extends Entity {
     year: int = toInt(0);   // C# value-type default; the loader leaves these unset
     order: int = toInt(0);
     // Signum's [PreserveOrder] MList<NominationPointEmbedded> Points → owned part rows.
-    @include(() => AwardNominationEntity_Points)
     points: AwardNominationEntity_Points[];
 }
 
@@ -344,7 +339,6 @@ export class ConfigEntity extends Entity {
     embeddedConfig: EmbeddedConfigEmbedded | null;
     // Signum's EmbeddedConfig.Awards (MList<Lite<GrammyAwardEntity>>) → part entity.
     // An MList can't live inside an embedded here, so it hangs off ConfigEntity.
-    @include(() => ConfigEntity_Awards)
     awards: ConfigEntity_Awards[];
 }
 

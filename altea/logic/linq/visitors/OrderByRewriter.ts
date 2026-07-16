@@ -5,7 +5,7 @@ import {
     ColumnExpression, OrderExpression, SqlConstantExpression,
     AggregateExpression, IsNullExpression, SelectOptions,
 } from "../expressions.sql";
-import { LiteralType } from "../../../entities/types";
+import { LiteralType } from "../../../entities/runtimeTypes";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 
 // Port of Signum's OrderByRewriter (Engine/Linq/ExpressionVisitor/OrderByRewriter.cs).

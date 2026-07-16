@@ -1,7 +1,7 @@
 import { Entity, EmbeddedEntity, isGenericType, typeConstructor } from '../../entities/entity';
 import type { Type } from '../../entities/entity';
 import { MixinDeclarations } from '../../entities/mixinDeclarations';
-import { getTypeInfo, resolveType, resolveEnum, enumNameOf, FieldInfo, TypeInfo, type PrimaryKeyType } from '../../entities/reflection';
+import { getTypeInfo, fieldType, fieldEnum, fieldTypeName, enumNameOf, FieldInfo, TypeInfo, type PrimaryKeyType } from '../../entities/reflection';
 import { AbstractDbType, IsNullable, defaultDbType, primaryKeyDbType } from './dbType';
 import {
     type IColumn,
@@ -336,20 +336,18 @@ export class SchemaBuilder {
     private generateField(table: Table, fi: FieldInfo, preName: NameSequence): Field {
         const isArray = fi.array === true;
         const isLite = fi.lite === true;
-        // Prefer the @include thunk's constructor (captured by reference, so it's
-        // import-safe and rename-proof); fall back to resolving the typeName via
-        // the registry. undefined for value types and enums, which are classified
-        // by name / the isEnum flag below.
+        // The field's referenced entity/embedded constructor, resolved by reference via
+        // the transformer's `type` thunk (import-safe, rename-proof). undefined for value
+        // types and enums, which are classified by name / the isEnum flag below.
         const elementType = this.resolveFieldType(fi);
         // @forceNullable → a nullable COLUMN for a non-null field (Signum's IsNullable.Forced).
         const nullable = fi.forceNullable ? IsNullable.Forced : fi.isNullable === true ? IsNullable.Yes : IsNullable.No;
 
-        // Arrays — only `PartEntity[]` referenced with @include(() => Part) is
-        // supported (Altea's MList replacement). The part entity marks its
-        // back-pointing FK with a bare @backReference; we locate that field here.
+        // Arrays — only `PartEntity[]` is supported (Altea's MList replacement). The part
+        // entity marks its back-pointing FK with a bare @backReference; we locate it here.
         if (isArray) {
             if (!isEntityCtor(elementType))
-                throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: collections of non-entity types are not supported (no MList). Model the collection as a part entity referenced with @include(() => Child).`);
+                throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: collections of non-entity types are not supported (no MList). Model the collection as a part entity (a PartEntity[] field).`);
             this.include(elementType);
             const childInfo = getTypeInfo(elementType as object);
             const fkEntry = childInfo == null
@@ -397,9 +395,9 @@ export class SchemaBuilder {
         // enum becomes a real included entity (so it supports mixins / polymorphic
         // references); the column stores its underlying int value, referencing <Enum>(id).
         if (fi.isEnum) {
-            const enumObject = resolveEnum(fi.typeName);
+            const enumObject = fieldEnum(fi);
             if (enumObject == null)
-                throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: enum '${fi.typeName}' is not registered. Enums declared in the same file as the entity are auto-registered; call registerEnum(${fi.typeName}) by hand for cross-file enums.`);
+                throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: enum '${fieldTypeName(fi) ?? fi.name}' is not registered. Enums declared in the same file as the entity are auto-registered; call registerEnum(...) by hand for cross-file enums.`);
             const refTable = this.include(EnumEntity.typeFor(enumObject));
             const colName = fi.fkPropertyName ?? this.colName(preName.add(`${cap(fi.name)}ID`).toString());
             return new FieldEnum(new ReferenceColumn(colName, refTable, nullable, /* isLite */ false));
@@ -421,7 +419,7 @@ export class SchemaBuilder {
         const embeddedType = this.resolveFieldType(fi);
         const typeInfo = embeddedType != null ? getTypeInfo(embeddedType) : undefined;
         if (typeInfo == null)
-            throw new Error(`Embedded type '${fi.typeName}' (field '${fi.name}') has no reflection metadata.`);
+            throw new Error(`Embedded type '${fieldTypeName(fi) ?? fi.name}' (field '${fi.name}') has no reflection metadata.`);
 
         const embeddedPre = preName.add(this.columnName(fi));
         const hasValue = fi.isNullable === true
@@ -459,16 +457,12 @@ export class SchemaBuilder {
             throw new Error(`@backReference '${fi.name}' on ${rawTypeName(parentTable.type)}: child property '${field.childFkProperty}' must be a reference back to ${rawTypeName(parentTable.type)}.`);
     }
 
-    // Resolves a field's referenced constructor: the @include thunk if present
-    // (by reference — import-safe, rename-proof, no registration order), else the
-    // typeName via the registry. A bare @include (`true`) carries no constructor
-    // of its own — its types come from @implementedBy — so it falls through.
+    // Resolves a field's referenced entity/embedded constructor via the transformer-emitted
+    // `type` thunk (captured by reference — import-safe, rename-proof, no registration
+    // order), falling back to the name registry for hand-written metadata. undefined for
+    // value/enum fields and @implementedBy interface references (handled by their branches).
     private resolveFieldType(fi: FieldInfo): unknown {
-        if (typeof fi.include === 'function') {
-            const resolved = fi.include();
-            return Array.isArray(resolved) ? resolved[0] : resolved;
-        }
-        return resolveType(fi.typeName);
+        return fieldType(fi);
     }
 
     private resolveValueDbType(fi: FieldInfo): AbstractDbType | undefined {
