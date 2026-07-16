@@ -76,7 +76,7 @@ export function forEachField(
 }
 
 // The shallow normalized projection of a modifiable (see file header). Exported so
-// the JSON codec (entities/json.ts) can compare an incoming payload against a
+// the JSON codec (entities/serializer) can compare an incoming payload against a
 // resolved entity's clean baseline for its not-modified consistency check.
 export function getSnapshot(m: BaseEntity): EntitySnapshot {
     const snapshot: EntitySnapshot = {};

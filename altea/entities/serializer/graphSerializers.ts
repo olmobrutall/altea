@@ -1,200 +1,30 @@
-
-// JSON serialization of the entity graph — the wire format between an altea server and
-// an altea React client. Isomorphic and reflection-driven (like ./changes.ts): reads only
-// reflection metadata + runtime types, imports nothing from the logic/ (DB) layer, and
-// rebuilds real class instances on either end via the type registry.
+// The entity-graph–aware serializers and the factory that wires them. These are mutually
+// recursive with the shared `factory` singleton (a serializer resolves nested serializers
+// through it), so they live in one module; the factory-free leaves are in ./leafSerializers.
 //
-// Public API: the `Serializer` namespace — `Serializer.stringify(obj)` / `Serializer.parse(json)`.
-//
-// Modular design: one `JsonSerializer` per kind (ValueSerializer, TemporalSerializer,
-// DecimalSerializer, DateSerializer, EnumSerializer, LiteSerializer, ArraySerializer,
-// PartCollectionSerializer, EmbeddedSerializer, EntitySerializer, PolyReferenceSerializer,
-// DynamicSerializer). A `SerializerFactory` resolves the serializer for each field once and
-// caches a per-entity-type `EntitySerializer` whose field plan is PRECOMPUTED from
-// reflection — so stringify/parse never re-walk metadata per call.
-//
-// Wire shapes (clean type names as the `$type`/`$lite` discriminators):
-//   entity    { "$type": "Album", "id": 1, "ticks": 3, "toStr": "…", "modified": true, …fields }
-//   embedded  { "$type": "SongEmbedded", …fields }                       (no id/ticks/toStr)
-//   lite      { "$lite": "Artist", "id": 7, "toStr": "…", …custom fields, "entity"?: {…} }
-//   collection  plain array of part-entity objects (@backReference/@rowOrder recovered on read)
-//   enum        member-name string;  Temporal.*/Decimal  string;  number/string/bool  as-is
-//
-// writeTypes: "Always" writes every discriminator; "Auto" writes them only for roots and
-// @implementedBy(All) references (everything else is inferred from the field's serializer).
-//
-// Field selection: every reflected field is serialized (including @column(false) ones) EXCEPT
-// those marked @serialize(false); `id`/`ticks` are handled specially by EntitySerializer.
+// A `SerializerFactory` resolves the serializer for each field once and caches a
+// per-entity-type `EntitySerializer` whose field plan is PRECOMPUTED from reflection — so
+// stringify/parse never re-walk metadata per call.
 
-import { Entity, EmbeddedEntity, typeConstructor } from './entity';
-import type { Type, PrimaryKey, BaseEntity } from './entity';
-import { Lite, LiteImp } from './lite';
-import { isModifiedSelf, getSnapshot, snapshotEqual } from './changes';
-import { fieldType, fieldEnum, getTypeInfo } from './reflection';
-import type { FieldInfo } from './reflection';
-import { resolveCleanType, cleanTypeName } from './registration';
-import { MixinDeclarations } from './mixinDeclarations';
-import { Temporal, Decimal, toInt } from './basics';
-
-// ---- Options & contexts ----------------------------------------------------
-
-export type WriteTypes = 'Always' | 'Auto';
-
-export interface SerializeOptions {
-    /** Discriminator verbosity; defaults to "Auto". */
-    writeTypes?: WriteTypes;
-}
-
-export interface DeserializeOptions {
-    /**
-     * Supplies the authoritative "original" for an existing entity (id present) so the codec
-     * applies onto it — overlaying when `modified`, else keeping it and warning on a baseline
-     * mismatch. The returned entity is assumed to carry its clean snapshot. Omit for the
-     * client-receive path (build fresh + seed the snapshot from the `modified` flag).
-     */
-    resolve?: (typeName: string, id: PrimaryKey) => Entity | undefined | null;
-    /** Overrides the default console.warn for the not-modified consistency tripwire. */
-    onWarn?: (message: string) => void;
-}
-
-interface SerializationContext {
-    writeTypes: WriteTypes;
-    path: Set<BaseEntity>;   // cycle guard for full-entity references
-}
-
-interface DeserializationContext {
-    idMap: Map<string, Entity>;   // intra-payload identity, keyed "TypeName|id"
-    resolve?: DeserializeOptions['resolve'];
-    onWarn?: DeserializeOptions['onWarn'];
-}
-
-// The containing entity for a value being deserialized. `index != null` marks a part-entity
-// collection element (so its @backReference/@rowOrder get recovered from the owner + index).
-interface Slot {
-    owner?: Entity;
-    index?: number;
-}
-
-interface JsonSerializer {
-    toJson(value: unknown, sc: SerializationContext, writeType: boolean, parented?: boolean): unknown;
-    fromJson(json: unknown, dc: DeserializationContext, existing: unknown, slot?: Slot): unknown;
-}
-
-// ---- Custom lite registry --------------------------------------------------
-
-// A custom lite carries display fields directly on the lite instance (altea has no separate
-// "model"). Multiple may be registered per entity type; on read the first whose
-// isCompatible(json) returns true is chosen, else a plain LiteImp.
-export interface CustomLiteClass {
-    isCompatible(json: Record<string, unknown>): boolean;
-    fromJson(json: Record<string, unknown>): Lite<Entity>;
-}
-
-const customLiteRegistry = new Map<Function, CustomLiteClass[]>();
-
-/** Registers a custom lite class for an entity type (registration order = match order). */
-export function registerCustomLite(entityType: Type<Entity>, liteClass: CustomLiteClass): void {
-    const ctor = typeConstructor(entityType);
-    const arr = customLiteRegistry.get(ctor) ?? [];
-    arr.push(liteClass);
-    customLiteRegistry.set(ctor, arr);
-}
-
-// ---- Shared helpers --------------------------------------------------------
-
-function ctorIsEntity(ctor: Function): boolean {
-    return ctor === Entity || ctor.prototype instanceof Entity;
-}
-
-function ctorIsEmbedded(ctor: Function): boolean {
-    return ctor === EmbeddedEntity || ctor.prototype instanceof EmbeddedEntity;
-}
-
-const TEMPORAL_TYPE_NAMES: ReadonlySet<string> = new Set([
-    'PlainDate', 'PlainDateTime', 'PlainTime', 'Duration',
-    'Instant', 'ZonedDateTime', 'PlainYearMonth', 'PlainMonthDay',
-]);
-
-const TEMPORAL_CTORS = [
-    Temporal.PlainDate, Temporal.PlainDateTime, Temporal.PlainTime, Temporal.Duration,
-    Temporal.Instant, Temporal.ZonedDateTime, Temporal.PlainYearMonth, Temporal.PlainMonthDay,
-];
-
-function isTemporal(v: unknown): boolean {
-    return TEMPORAL_CTORS.some(c => v instanceof (c as unknown as Function));
-}
-
-function temporalFrom(name: string, s: string): unknown {
-    switch (name) {
-        case 'PlainDate': return Temporal.PlainDate.from(s);
-        case 'PlainDateTime': return Temporal.PlainDateTime.from(s);
-        case 'PlainTime': return Temporal.PlainTime.from(s);
-        case 'Duration': return Temporal.Duration.from(s);
-        case 'Instant': return Temporal.Instant.from(s);
-        case 'ZonedDateTime': return Temporal.ZonedDateTime.from(s);
-        case 'PlainYearMonth': return Temporal.PlainYearMonth.from(s);
-        case 'PlainMonthDay': return Temporal.PlainMonthDay.from(s);
-        default: return s;
-    }
-}
-
-// Enum <-> member name. Works for numeric enums (reverse map built by TS) and string enums.
-function enumMemberName(enumObj: Record<string, unknown>, value: unknown): string {
-    const reverse = enumObj[value as string];
-    if (typeof reverse === 'string') return reverse;   // numeric enum: enumObj[0] === "Male"
-    for (const k of Object.keys(enumObj))
-        if (enumObj[k] === value) return k;
-    return String(value);
-}
-
-function enumMemberValue(enumObj: Record<string, unknown>, name: string): unknown {
-    return enumObj[name];
-}
-
-function safeToString(m: { toString(): string }): string | undefined {
-    try { return m.toString(); } catch { return undefined; }
-}
-
-// ---- Leaf serializers ------------------------------------------------------
-
-const ValueSerializer: JsonSerializer = {
-    toJson: v => v,
-    fromJson: j => j,
-};
-
-class TemporalSerializer implements JsonSerializer {
-    constructor(private readonly kind: string) { }
-    toJson(v: unknown): unknown { return (v as { toString(): string }).toString(); }
-    fromJson(j: unknown): unknown { return temporalFrom(this.kind, j as string); }
-}
-
-const DecimalSerializer: JsonSerializer = {
-    toJson: v => (v as Decimal).toString(),
-    fromJson: j => new Decimal(j as Decimal.Value),
-};
-
-const DateSerializer: JsonSerializer = {
-    toJson: v => (v as Date).toISOString(),
-    fromJson: j => new Date(j as string),
-};
-
-class EnumSerializer implements JsonSerializer {
-    constructor(private readonly enumObj: Record<string, unknown>) { }
-    toJson(v: unknown): unknown { return enumMemberName(this.enumObj, v); }
-    fromJson(j: unknown): unknown { return enumMemberValue(this.enumObj, j as string); }
-}
-
-// A plain (non-part) collection: `Lite<T>[]` or a value array. Maps element-wise; no
-// identity reconciliation (that is PartCollectionSerializer's job for owned part entities).
-class ArraySerializer implements JsonSerializer {
-    constructor(private readonly element: JsonSerializer) { }
-    toJson(value: unknown, sc: SerializationContext, writeType: boolean): unknown {
-        return (value as unknown[]).map(v => v == null ? null : this.element.toJson(v, sc, writeType));
-    }
-    fromJson(json: unknown, dc: DeserializationContext): unknown {
-        return (json as unknown[]).map(v => v == null ? null : this.element.fromJson(v, dc, undefined));
-    }
-}
+import { Entity, EmbeddedEntity, typeConstructor } from '../entity';
+import type { Type, PrimaryKey, BaseEntity } from '../entity';
+import { Lite, LiteImp } from '../lite';
+import { isModifiedSelf, getSnapshot, snapshotEqual } from '../changes';
+import { fieldType, fieldEnum } from '../reflection';
+import type { FieldInfo } from '../reflection';
+import { resolveCleanType, cleanTypeName } from '../registration';
+import { toInt, Decimal } from '../basics';
+import type {
+    JsonSerializer, FieldPlan, Slot,
+    SerializationContext, DeserializationContext, SerializeOptions, DeserializeOptions,
+} from './types';
+import {
+    ctorIsEntity, ctorIsEmbedded, TEMPORAL_TYPE_NAMES, isTemporal, safeToString, eachFieldInfo,
+} from './helpers';
+import { customLitesFor } from './customLite';
+import {
+    ValueSerializer, TemporalSerializer, DecimalSerializer, DateSerializer, EnumSerializer, ArraySerializer,
+} from './leafSerializers';
 
 // ---- Lite ------------------------------------------------------------------
 
@@ -234,7 +64,7 @@ class LiteSerializer implements JsonSerializer {
 
         const id = (j.id === undefined ? null : j.id) as PrimaryKey;
         let lite: Lite<Entity> | undefined;
-        for (const candidate of customLiteRegistry.get(ctor) ?? [])
+        for (const candidate of customLitesFor(ctor))
             if (candidate.isCompatible(j)) { lite = candidate.fromJson(j); break; }
         lite ??= new LiteImp(id, ctor as Type<Entity>, (j.toStr as string | undefined) ?? '');
 
@@ -260,13 +90,6 @@ class PolyReferenceSerializer implements JsonSerializer {
 }
 
 // ---- Modifiable base (shared entity/embedded field-plan machinery) ---------
-
-interface FieldPlan {
-    name: string;
-    serializer: JsonSerializer;
-    isBackReference: boolean;
-    isRowOrder: boolean;
-}
 
 abstract class ModifiableSerializer implements JsonSerializer {
     plan: FieldPlan[] = [];   // precomputed by the factory (see build)
@@ -569,21 +392,6 @@ class SerializerFactory {
 
 const factory = new SerializerFactory();
 const LITE_DYNAMIC = new LiteSerializer(undefined);
-
-// A ctor-based iterator over a modifiable's reflected fields — own + inherited (the reflection
-// metadata copies base fields into each subclass) + mixin. No instance needed, so the plan is
-// precomputed per type. (Distinct from changes.forEachField, which needs an instance and skips
-// @column(false)/reserved fields — the codec serializes @column(false) fields.)
-function eachFieldInfo(ctor: Function, cb: (fi: FieldInfo) => void): void {
-    const visit = (owner: Function): void => {
-        const ti = getTypeInfo(owner);
-        if (ti == null) return;
-        for (const fi of Object.values(ti.fields)) cb(fi);
-    };
-    visit(ctor);
-    for (const mixin of MixinDeclarations.getMixins(ctor as Type<BaseEntity>))
-        visit(mixin as unknown as Function);
-}
 
 // ---- Public API ------------------------------------------------------------
 

@@ -74,7 +74,7 @@ export class FieldInfo {
     // Set by @column(false): excluded from the DB schema + change tracking (present only in the
     // object model), but still serialized to JSON by default.
     notMapped: boolean = false;
-    // Set by @serialize(false): the JSON codec (entities/json.ts) skips this field. Distinct
+    // Set by @serialize(false): the JSON codec (entities/serializer) skips this field. Distinct
     // from @column(false) (which excludes a field from the DB schema + change tracking but leaves
     // it serializable) — used for pure bookkeeping like `isNew` / `_snapshot`.
     noSerialize?: boolean;

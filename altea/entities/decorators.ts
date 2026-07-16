@@ -222,7 +222,7 @@ export function allowUnauthenticated(target: Function): void {
     (target as any)[allowUnauthenticatedKey] = true;
 }
 
-// Controls whether a field is serialized to JSON (entities/json.ts). `@serialize(false)` is
+// Controls whether a field is serialized to JSON (entities/serializer). `@serialize(false)` is
 // the opt-out — for pure bookkeeping (e.g. isNew / _snapshot) or transient/server-only state
 // that must never leave the server. Fields are serialized by default (even @column(false)
 // ones, which are absent from the DB but still on the wire), so `@serialize(true)` / bare

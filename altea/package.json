@@ -8,6 +8,10 @@
       "types": "./dist/entities/globals/index.d.ts",
       "default": "./dist/entities/globals/index.js"
     },
+    "./entities/serializer": {
+      "types": "./dist/entities/serializer/index.d.ts",
+      "default": "./dist/entities/serializer/index.js"
+    },
     "./entities/*": {
       "types": "./dist/entities/*.d.ts",
       "default": "./dist/entities/*.js"

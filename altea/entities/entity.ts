@@ -68,7 +68,7 @@ export abstract class BaseEntity {
     //                   `modified` flag (the JSON codec's client-receive path).
     // Defaults to `true`, so a freshly constructed entity is modified (needs saving) —
     // exactly as before this sentinel existed. Maintained by ./changes (cleanModified)
-    // and the JSON codec (entities/json.ts); @column(false) so it is never treated as a column,
+    // and the JSON codec (entities/serializer); @column(false) so it is never treated as a column,
     // @serialize(false) so it never rides the wire (it is the baseline, rebuilt on each end).
     @column(false) @serialize(false) _snapshot?: EntitySnapshot | true = true;
 

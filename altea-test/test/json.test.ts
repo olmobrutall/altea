@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { Serializer, registerCustomLite } from "@altea/altea/entities/json";
+import { Serializer, registerCustomLite } from "@altea/altea/entities/serializer";
 const { stringify: serialize, parse: deserialize } = Serializer;   // local aliases for the tests
 import { Lite, LiteImp } from "@altea/altea/entities/lite";
 import type { PrimaryKey } from "@altea/altea/entities/entity";
