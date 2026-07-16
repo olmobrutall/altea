@@ -2,7 +2,6 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table, bindAndOptimize } from "@altea/altea/logic/table";
 import "@altea/altea/entities/globals";
-import { QueryBinder } from "@altea/altea/logic/linq/queryBinder";
 import {
     ProjectionExpression, SelectExpression, TableExpression, ColumnExpression,
     JoinExpression,
@@ -10,7 +9,6 @@ import {
 import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
 import { AggregateRewriter } from "@altea/altea/logic/linq/visitors/AggregateRewriter";
 import { CallExpression, PropertyExpression, ObjectExpression } from "@altea/altea/logic/linq/expressions";
-import { expressionSimplifier } from "@altea/altea/logic/linq/visitors/expressionSimplifier";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { Connector } from "@altea/altea/logic/connection/connector";
 import { MusicLogic } from "../logic/MusicLogic";
