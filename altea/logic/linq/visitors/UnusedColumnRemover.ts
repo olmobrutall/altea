@@ -6,7 +6,7 @@ import {
     SourceExpression, SourceWithAliasExpression, DeleteExpression, UpdateExpression, InsertSelectExpression,
     ColumnAssignment,
 } from "../expressions.sql";
-import { Alias } from "../AliasGenerator";
+import { Alias } from "../aliasGenerator";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 
 // Port of Signum's UnusedColumnRemover. A top-down pass that drops SELECT columns not

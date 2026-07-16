@@ -5,7 +5,7 @@ import {
 } from "../expressions.sql";
 import { Expression, ConstantExpression } from "../expressions";
 import { LiteralType } from "../../../entities/runtimeTypes";
-import { AliasGenerator } from "../AliasGenerator";
+import { AliasGenerator } from "../aliasGenerator";
 import {
     SystemTime, SystemTimeHistoryTable, SystemTimeAsOf, SystemTimeBetween, SystemTimeContainedIn, SystemTimeAll,
 } from "../../systemTime";

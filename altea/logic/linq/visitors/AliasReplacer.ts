@@ -5,7 +5,7 @@ import {
     SourceWithAliasExpression,
 } from "../expressions.sql";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
-import { Alias, AliasGenerator } from "../AliasGenerator";
+import { Alias, AliasGenerator } from "../aliasGenerator";
 
 // Port of Signum's DeclaredAliasGatherer.GatherDeclared: the aliases *introduced*
 // by a source tree (the alias of every Select / Table / SetOperator / TVF node).

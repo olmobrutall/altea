@@ -6,7 +6,7 @@ import {
     EntityExpression, EmbeddedEntityExpression,
 } from "../expressions.sql";
 import { LiteralType } from "../../../entities/runtimeTypes";
-import { Alias, AliasGenerator } from "../AliasGenerator";
+import { Alias, AliasGenerator } from "../aliasGenerator";
 import { ColumnGenerator } from "../ColumnGenerator";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 

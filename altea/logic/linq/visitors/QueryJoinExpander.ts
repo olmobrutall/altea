@@ -5,7 +5,7 @@ import {
     InsertSelectExpression, ColumnDeclaration,
 } from "../expressions.sql";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
-import { AliasGenerator } from "../AliasGenerator";
+import { AliasGenerator } from "../aliasGenerator";
 
 // Port of Signum's QueryJoinExpander (the second half of entity completion). The
 // QueryBinder records, per source, the implicit joins that a navigation needs

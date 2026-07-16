@@ -3,7 +3,7 @@ import { LiteralType, RuntimeType, IntervalType } from "../../entities/runtimeTy
 import { SystemTime } from "../systemTime";
 import type { FieldInfo } from "../../entities/reflection";
 import type { Table } from "../schema/table";
-import { Alias } from "./AliasGenerator";
+import { Alias } from "./aliasGenerator";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 

@@ -20,7 +20,7 @@ import {
 import type { SystemVersionedInfo } from "../../schema/systemVersioned";
 import { SystemTime, SystemTimeAsOf } from "../../systemTime";
 import { AssignAdapterExpander } from "./AssignAdapterExpander";
-import { AliasGenerator, Alias } from "../AliasGenerator";
+import { AliasGenerator, Alias } from "../aliasGenerator";
 import { sqlEscape } from "../sqlEscape";
 import { projectColumns as projectColumnsImpl, type ProjectedColumns } from "./ColumnProjector";
 import { ColumnGenerator } from "../ColumnGenerator";
