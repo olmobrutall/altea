@@ -71,7 +71,13 @@ export class FieldInfo {
     // (IsNullable.Forced) while the field stays non-null in the object model — so queries
     // navigate it as a normal non-null reference but the column accepts NULL.
     forceNullable?: boolean;
-    ignore: boolean = false;
+    // Set by @column(false): excluded from the DB schema + change tracking (present only in the
+    // object model), but still serialized to JSON by default.
+    notMapped: boolean = false;
+    // Set by @serialize(false): the JSON codec (entities/json.ts) skips this field. Distinct
+    // from @column(false) (which excludes a field from the DB schema + change tracking but leaves
+    // it serializable) — used for pure bookkeeping like `isNew` / `_snapshot`.
+    noSerialize?: boolean;
     fkPropertyName?: string;
     // Set by @avoidExpandOnRetrieving on a reference field (Signum's [AvoidExpandQuery]):
     // a query retrieving the owner does NOT eager-expand this reference (it stays a lazy

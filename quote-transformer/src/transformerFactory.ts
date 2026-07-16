@@ -339,13 +339,6 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     return args.length === 1 && args[0].kind === ts.SyntaxKind.FalseKeyword;
   }
 
-  function isIgnoreDecorator(modifier: ts.ModifierLike): boolean {
-    return ts.isDecorator(modifier) && (
-      (ts.isIdentifier(modifier.expression) && modifier.expression.text == "ignore") ||
-      (ts.isCallExpression(modifier.expression) && ts.isIdentifier(modifier.expression.expression) && modifier.expression.expression.text == "ignore")
-    );
-  }
-
   // Auto @field injection is triggered by @reflect (a generic, ORM-agnostic
   // marker in ./reflection) and by the entity decorators @entity / @partEntity,
   // so it applies to entities, part entities, models, DTOs, views, etc.
@@ -911,9 +904,10 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
       }
 
       const hasField = member.modifiers?.some(m => isFieldDecorator(m)) ?? false;
-      const hasIgnore = member.modifiers?.some(m => isIgnoreDecorator(m)) ?? false;
       const hasFieldFalse = member.modifiers?.some(m => isFieldFalseDecorator(m)) ?? false;
-      if (hasField || hasIgnore || hasFieldFalse || !member.type) return member;
+      // Only @field / @field(false) suppress auto-injection. @column(false) does NOT — a
+      // non-mapped field still gets reflection type metadata (client-side UI controls, JSON).
+      if (hasField || hasFieldFalse || !member.type) return member;
 
       const factories = buildFieldFactories(member.type);
       if (factories == null) {

@@ -47,7 +47,7 @@ export class ViewBuilder {
         let pkColumn: ValueColumn | ReferenceColumn | undefined;
 
         for (const [name, fi] of Object.entries(typeInfo.fields)) {
-            if (fi.ignore)
+            if (fi.notMapped)
                 continue;
             const field = this.generateViewField(ctor, fi, isTempTable);
             table.fields[name] = new EntityField(fi, field, (e: any) => e[name]);

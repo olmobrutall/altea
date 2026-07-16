@@ -221,7 +221,7 @@ export class SchemaBuilder {
 
         const preName = NameSequence.void();
         for (const [name, fi] of Object.entries(typeInfo.fields)) {
-            if (fi.ignore || RESERVED_FIELDS.has(name))
+            if (fi.notMapped || RESERVED_FIELDS.has(name))
                 continue;
             const field = this.generateField(table, fi, preName);
             field.avoidExpandOnRetrieving = fi.avoidExpandOnRetrieving === true;
@@ -234,7 +234,7 @@ export class SchemaBuilder {
                 continue;
             const mixinFields: { [name: string]: EntityField } = {};
             for (const [name, mfi] of Object.entries(mixinInfo.fields)) {
-                if (mfi.ignore || RESERVED_FIELDS.has(name))
+                if (mfi.notMapped || RESERVED_FIELDS.has(name))
                     continue;
                 const field = this.generateField(table, mfi, preName);
                 field.avoidExpandOnRetrieving = mfi.avoidExpandOnRetrieving === true;
@@ -428,7 +428,7 @@ export class SchemaBuilder {
 
         const embeddedFields: { [name: string]: EntityField } = {};
         for (const [name, efi] of Object.entries(typeInfo.fields)) {
-            if (efi.ignore || RESERVED_FIELDS.has(name))
+            if (efi.notMapped || RESERVED_FIELDS.has(name))
                 continue;
             const field = this.generateField(table, efi, embeddedPre);
             field.avoidExpandOnRetrieving = efi.avoidExpandOnRetrieving === true;

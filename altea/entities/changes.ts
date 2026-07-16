@@ -46,7 +46,7 @@ const RESERVED_FIELDS = new Set(['id', 'ticks', 'isNew', '_snapshot']);
 
 // Visits every persistent field of a modifiable — its own reflected fields plus,
 // for entities, the fields contributed by each registered mixin (mixin fields are
-// stored on the same instance, since `.mixin<M>()` is a cast). Skips @ignore'd and
+// stored on the same instance, since `.mixin<M>()` is a cast). Skips @column(false) and
 // reserved infrastructure fields.
 export function forEachField(
     m: BaseEntity,
@@ -58,7 +58,7 @@ export function forEachField(
         const ti = getTypeInfo(owner);
         if (ti == null) return;
         for (const fi of Object.values(ti.fields)) {
-            if (fi.ignore || RESERVED_FIELDS.has(fi.name)) continue;
+            if (fi.notMapped || RESERVED_FIELDS.has(fi.name)) continue;
             callback(fi, (m as unknown as Record<string, unknown>)[fi.name]);
         }
     };

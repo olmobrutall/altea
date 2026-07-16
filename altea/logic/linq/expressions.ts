@@ -249,7 +249,7 @@ export function viewColumns(viewCtor: Function): ViewColumn[] {
     if (typeInfo == null)
         throw new Error(`Table-valued function view '${viewCtor.name}' has no reflection metadata. Decorate it with @reflect.`);
     return Object.values(typeInfo.fields)
-        .filter(fi => !fi.ignore)
+        .filter(fi => !fi.notMapped)
         .map(fi => ({ property: fi.name, column: fi.name, type: baseTypeOfFieldInfo(fi) }));
 }
 
@@ -1010,7 +1010,7 @@ export type MethodExpander = (instance: Expression | undefined, args: readonly E
 // `__methodExpander` needs the Expression API, which entities/ can't depend on, so it
 // is added to the entity-side QuotedFunction carrier here by declaration merging
 // (Signum's [MethodExpander] attribute). fromQuoted reads it off the called method.
-declare module "../../entities/types" {
+declare module "../../entities/runtimeTypes" {
     interface QuotedFunction<T extends Function = Function> {
         __methodExpander?: MethodExpander;
     }

@@ -9,6 +9,7 @@ import {
     CountryEntity, ArtistEntity, AlbumEntity, AlbumEntity_Songs, SongEmbedded,
     NoteWithDateEntity, Sex, Status, AlbumState,
 } from "../entities/music";
+import { GadgetEntity } from "../entities/gadget";   // @column(false) / @serialize(false) fixture
 
 // Unit tests for the JSON codec (Phase E). No database — the codec is pure and
 // reflection-driven, so it round-trips hand-built entity graphs on either end.
@@ -257,6 +258,23 @@ describe("EntityJson", () => {
         let warned3 = false;
         deserialize(serialize(match), { resolve: () => original3, onWarn: () => { warned3 = true; } });
         assert.equal(warned3, false);
+    });
+
+    test("@column(false) fields serialize; @serialize(false) fields do not", () => {
+        const g = GadgetEntity.create({ name: "G", cachedLabel: "cached", secret: "hunter2" });
+        g.id = 1; g.isNew = false; cleanModified(g);
+
+        const o = parse(serialize(g));
+        assert.equal(o.name, "G");
+        assert.equal(o.cachedLabel, "cached");        // @column(false) ⇒ still serialized
+        assert.equal("secret" in o, false);           // @serialize(false) ⇒ omitted
+        assert.equal("isNew" in o, false);            // framework bookkeeping (@serialize(false))
+        assert.equal("_snapshot" in o, false);
+
+        const back = deserialize(serialize(g)) as GadgetEntity;
+        assert.equal(back.cachedLabel, "cached");     // @column(false) field round-trips
+        assert.equal(back.secret, "");                // @serialize(false) field left at its default
+        assert.equal(serialize(back), serialize(g));  // idempotent
     });
 
     test("dynamic top-level: array, dictionary, identity reuse", () => {

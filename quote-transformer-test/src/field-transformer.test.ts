@@ -55,21 +55,19 @@ describe('field-transformer', () => {
 
     test('auto-injects @field for @entity classes', () => {
         assertFieldTransform(
-            `function ignore(_value: undefined, _context: ClassFieldDecoratorContext): void { }
-@entity
+            `@entity
 class PersonEntity {
     name!: string;
     age!: number;
     static count: number;
-    @ignore hidden!: string;
+    @field(false) hidden!: string;
 }`,
-            `function ignore(_value: undefined, _context: ClassFieldDecoratorContext): void { }
-@entity
+            `@entity
 class PersonEntity {
     @field({ typeName: "String" }) name!: string;
     @field({ typeName: "Number" }) age!: number;
     static count: number;
-    @ignore hidden!: string;
+    @field(false) hidden!: string;
 }
 registerType(PersonEntity, "PersonEntity", __fileInfo);`
         );

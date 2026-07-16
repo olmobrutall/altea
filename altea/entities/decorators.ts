@@ -222,8 +222,15 @@ export function allowUnauthenticated(target: Function): void {
     (target as any)[allowUnauthenticatedKey] = true;
 }
 
-export function ignore(target: object, propertyKey: string | symbol): void {
-    getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).ignore = true;
+// Controls whether a field is serialized to JSON (entities/json.ts). `@serialize(false)` is
+// the opt-out — for pure bookkeeping (e.g. isNew / _snapshot) or transient/server-only state
+// that must never leave the server. Fields are serialized by default (even @column(false)
+// ones, which are absent from the DB but still on the wire), so `@serialize(true)` / bare
+// `@serialize()` is only ever needed to override an inherited `@serialize(false)`.
+export function serialize(value: boolean = true) {
+    return function (target: object, propertyKey: string | symbol): void {
+        getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).noSerialize = !value;
+    };
 }
 
 export function fkProperty(propertyName: string) {
@@ -232,20 +239,29 @@ export function fkProperty(propertyName: string) {
     };
 }
 
-// Field-level decorator: overrides column mapping (name / db types / size /
-// precision / nullability) for a field. Stored on FieldInfo.columnOptions and
-// consumed by SchemaBuilder. Lives in entities/ (the entity model owns its column
-// annotations); the schema layer re-exports it for back-compat.
-export function column(options: ColumnOptions = {}) {
+// Field-level decorator: overrides column mapping (name / db types / size / precision /
+// nullability) for a field. Stored on FieldInfo.columnOptions and consumed by SchemaBuilder.
+// `@column(false)` instead marks the field as NOT mapped to a column (Signum's [Ignore] / EF's
+// [NotMapped]) — excluded from the DB schema and change tracking, but it KEEPS its reflection
+// type metadata (the transformer still auto-injects @field, so client-side UI controls and JSON
+// see the type) and is still serialized to JSON unless also marked `@serialize(false)`. Lives in
+// entities/ (the entity model owns its column annotations); the schema layer re-exports it.
+export function column(options: ColumnOptions | false = {}) {
     return function (target: object, propertyKey: string | symbol) {
         const key = String(propertyKey);
+        const typeInfo = getOrCreateTypeInfo(target);
+        const existing = getOrCreateFieldInfo(typeInfo, key);
+
+        if (options === false) {   // not mapped to a column
+            existing.notMapped = true;
+            typeInfo.fields[key] = existing;
+            return;
+        }
+
         const normalizedOptions: ColumnOptions = {
             ...options,
             columnName: options.columnName ?? key,
         };
-
-        const typeInfo = getOrCreateTypeInfo(target);
-        const existing = getOrCreateFieldInfo(typeInfo, key);
         existing.columnOptions = normalizedOptions;
         // Mirror an explicit nullable into the field's nullability so the column
         // is generated NULL even when the TS type isn't `| null` (Signum's

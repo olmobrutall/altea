@@ -1,6 +1,6 @@
 
 import { Lite, LiteImp, getLiteModelConstructor } from './lite';
-import { entity, EntityData, ignore, quoted } from './decorators';
+import { entity, EntityData, column, serialize, quoted } from './decorators';
 import { niceName, newNiceName } from './utils/localization';
 import { reflect, getTypeInfo } from './reflection';
 import { MixinDeclarations } from './mixinDeclarations';
@@ -68,8 +68,9 @@ export abstract class BaseEntity {
     //                   `modified` flag (the JSON codec's client-receive path).
     // Defaults to `true`, so a freshly constructed entity is modified (needs saving) —
     // exactly as before this sentinel existed. Maintained by ./changes (cleanModified)
-    // and the JSON codec (entities/json.ts); @ignore so it is never treated as a column.
-    @ignore _snapshot?: EntitySnapshot | true = true;
+    // and the JSON codec (entities/json.ts); @column(false) so it is never treated as a column,
+    // @serialize(false) so it never rides the wire (it is the baseline, rebuilt on each end).
+    @column(false) @serialize(false) _snapshot?: EntitySnapshot | true = true;
 
     mixin<M extends BaseEntity>(mixinClass: Type<M>): M {
         return this as unknown as M;
@@ -137,9 +138,10 @@ export abstract class Entity extends BaseEntity {
     id: PrimaryKey;
     // Signum's `Entity.IsNew`: true for a freshly constructed entity, cleared to false once it
     // is retrieved (Retriever.getOrCreate / TypeLogic) or saved (Saver). Authoritative — the
-    // Saver keys insert-vs-update on it, and the default toString() branches on it. @ignore so
-    // it is never a column and never enters change tracking.
-    @ignore isNew: boolean = true;
+    // Saver keys insert-vs-update on it, and the default toString() branches on it.
+    // @column(false) so it is never a column / never enters change tracking; @serialize(false)
+    // so it stays off the wire (it is derived from id == null on each end).
+    @column(false) @serialize(false) isNew: boolean = true;
     ticks: number;
 
     /**
