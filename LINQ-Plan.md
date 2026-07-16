@@ -317,7 +317,7 @@ per-row `overrideSystemTime(new SystemTime.AsOf(dv.date))` for a series of AS OF
 
 | Signum C# | Altea | Status |
 | --- | --- | --- |
-| `AliasGenerator.cs` | `logic/linq/AliasGenerator.ts` | Ported/simplified |
+| `AliasGenerator.cs` | `logic/linq/aliasGenerator.ts` | Ported/simplified |
 | `DbExpressions.{Sql,Signum}.cs` | `logic/linq/expressions.sql.ts` | Partial port |
 | `DbQueryProvider.cs` | `logic/table.ts`, `logic/query.ts`, `logic/linq/translatorBuilder.ts` | Runtime split |
 | `TranslateResult.cs` · `ProjectionReader.cs` | `logic/linq/translatorBuilder.ts` (+ `Retriever.ts`) | Ported (Eager before / Lazy after the main query; per-token lazy skip + fill-in-place; `TODO(remove-eager)` — collapse to lazy-only, see below) |

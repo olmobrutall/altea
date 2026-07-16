@@ -4,7 +4,7 @@ import {
     ScalarExpression, ColumnExpression, ColumnDeclaration, OrderExpression,
     SourceExpression, UpdateExpression, InsertSelectExpression, SourceWithAliasExpression,
 } from "../expressions.sql";
-import { Alias } from "../AliasGenerator";
+import { Alias } from "../aliasGenerator";
 import { ColumnGenerator } from "../ColumnGenerator";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 

@@ -17,7 +17,7 @@ import { ObjectName } from "../schema/objectName";
 import { sqlEscape } from "./sqlEscape";
 import { normalizeScalar } from "../normalizeScalar";
 import { SystemTime, SystemTimeAsOf, SystemTimeBetween, SystemTimeContainedIn, SystemTimeAll, SystemTimeHistoryTable } from "../systemTime";
-import { Alias } from "./AliasGenerator";
+import { Alias } from "./aliasGenerator";
 import { LiteralType } from "../../entities/runtimeTypes";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 

@@ -5,7 +5,7 @@ import {
 } from "../expressions.sql";
 import { Expression, BinaryExpression } from "../expressions";
 import { LiteralType, TemporalType } from "../../../entities/runtimeTypes";
-import { AliasGenerator } from "../AliasGenerator";
+import { AliasGenerator } from "../aliasGenerator";
 import { SystemTimeAll, SystemTimeJoinMode } from "../../systemTime";
 import type { SystemVersionedInfo } from "../../schema/systemVersioned";
 
@@ -47,7 +47,7 @@ export class AsOfExpressionVisitor extends DbExpressionVisitor {
 
 // The versioned table's period at `alias` (mirrors QueryBinder.systemPeriodExpression): SQL Server
 // a start/end datetime2 pair; Postgres a single sys_period range (min/max = lower()/upper()).
-function intervalAt(sv: SystemVersionedInfo, alias: import("../AliasGenerator").Alias): IntervalExpression {
+function intervalAt(sv: SystemVersionedInfo, alias: import("../aliasGenerator").Alias): IntervalExpression {
     const dt = new TemporalType("dateTime");
     if (sv.postgresSysPeriodColumnName != null) {
         const range = new ColumnExpression(dt, alias, sv.postgresSysPeriodColumnName);

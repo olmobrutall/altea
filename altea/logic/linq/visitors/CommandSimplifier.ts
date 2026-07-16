@@ -3,7 +3,7 @@ import {
     CommandExpression, DeleteExpression, SelectExpression, TableExpression,
     ColumnExpression, PrimaryKeyExpression,
 } from "../expressions.sql";
-import { AliasGenerator } from "../AliasGenerator";
+import { AliasGenerator } from "../aliasGenerator";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 
 // Port of Signum's CommandSimplifier (UpdateDeleteSimplifier.cs). On SQL Server,

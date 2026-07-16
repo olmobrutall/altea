@@ -1,6 +1,6 @@
 import { Expression } from "../expressions";
 import { ColumnExpression, ColumnDeclaration, ProjectionExpression, ChildProjectionExpression } from "../expressions.sql";
-import { Alias } from "../AliasGenerator";
+import { Alias } from "../aliasGenerator";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 import { nominate } from "../dbExpressionNominator";
 import { ColumnGenerator } from "../ColumnGenerator";
