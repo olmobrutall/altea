@@ -1,8 +1,8 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { Serializer, registerCustomLite } from "@altea/altea/entities/serializer";
+import { Serializer } from "@altea/altea/entities/serializer";
 const { stringify: serialize, parse: deserialize } = Serializer;   // local aliases for the tests
-import { Lite, LiteImp } from "@altea/altea/entities/lite";
+import { Lite, LiteImp, registerCustomLite } from "@altea/altea/entities/lite";
 import type { PrimaryKey } from "@altea/altea/entities/entity";
 import { cleanModified, isModifiedSelf } from "@altea/altea/entities/changes";
 import { Temporal, toInt } from "@altea/altea/entities/basics";
@@ -121,7 +121,7 @@ describe("EntityJson", () => {
         assert.equal(fatLite.entity.name, "Alanis");
     });
 
-    test("custom lite: isCompatible selection with LiteImp fallback", () => {
+    test("custom lite: default toLite builder + isCompatible selection with LiteImp fallback", () => {
         class CountryLite extends LiteImp<CountryEntity> {
             constructor(id: PrimaryKey, toStr: string, readonly iso: string) {
                 super(id, CountryEntity, toStr);
@@ -133,10 +133,21 @@ describe("EntityJson", () => {
                 return new CountryLite(json.id as PrimaryKey, (json.toStr as string) ?? "", json.iso as string);
             }
         }
-        registerCustomLite(CountryEntity, CountryLite);
+        // Registered as the default custom lite: toLite() builds it from the entity (deriving iso),
+        // and the codec rebuilds it from JSON via CountryLite.isCompatible / .fromJson.
+        registerCustomLite(
+            CountryEntity, CountryLite,
+            e => new CountryLite(e.id, e.toString(), e.name.substring(0, 2).toUpperCase()),
+            true,
+        );
 
-        const custom = new CountryLite(10, "USA", "US");
-        const json = serialize(custom);
+        // toLite() now yields the custom lite, carrying its model field.
+        const usa = CountryEntity.create({ name: "USA" }); usa.id = 10; usa.isNew = false; cleanModified(usa);
+        const built = usa.toLite();
+        assert.ok(built instanceof CountryLite);
+        assert.equal((built as CountryLite).iso, "US");
+
+        const json = serialize(built);
         const o = parse(json);
         assert.equal(o.$lite, "Country");
         assert.equal(o.iso, "US");                                  // custom field, flat on the lite
@@ -146,9 +157,9 @@ describe("EntityJson", () => {
         assert.equal(back.iso, "US");
         assert.equal(serialize(back), json);
 
-        // A country lite without the custom field falls back to LiteImp.
-        const usa = CountryEntity.create({ name: "USA" }); usa.id = 10; usa.isNew = false; cleanModified(usa);
-        const plain = deserialize(serialize(usa.toLite()));
+        // A lite whose JSON lacks the custom field (isCompatible=false) falls back to LiteImp.
+        const plainLite = new LiteImp<CountryEntity>(10, CountryEntity, "USA");
+        const plain = deserialize(serialize(plainLite));
         assert.ok(plain instanceof LiteImp);
         assert.ok(!(plain instanceof CountryLite));
     });

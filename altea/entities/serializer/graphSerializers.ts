@@ -8,7 +8,7 @@
 
 import { Entity, EmbeddedEntity, typeConstructor } from '../entity';
 import type { Type, PrimaryKey, BaseEntity } from '../entity';
-import { Lite, LiteImp } from '../lite';
+import { Lite, LiteImp, getCustomLites } from '../lite';
 import { isModifiedSelf, getSnapshot, snapshotEqual } from '../changes';
 import { fieldType, fieldEnum } from '../reflection';
 import type { FieldInfo } from '../reflection';
@@ -21,7 +21,6 @@ import type {
 import {
     ctorIsEntity, ctorIsEmbedded, TEMPORAL_TYPE_NAMES, isTemporal, safeToString, eachFieldInfo,
 } from './helpers';
-import { customLitesFor } from './customLite';
 import {
     ValueSerializer, TemporalSerializer, DecimalSerializer, DateSerializer, EnumSerializer, ArraySerializer,
 } from './leafSerializers';
@@ -64,7 +63,7 @@ class LiteSerializer implements JsonSerializer {
 
         const id = (j.id === undefined ? null : j.id) as PrimaryKey;
         let lite: Lite<Entity> | undefined;
-        for (const candidate of customLitesFor(ctor))
+        for (const candidate of getCustomLites(ctor))
             if (candidate.isCompatible(j)) { lite = candidate.fromJson(j); break; }
         lite ??= new LiteImp(id, ctor as Type<Entity>, (j.toStr as string | undefined) ?? '');
 

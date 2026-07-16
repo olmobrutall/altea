@@ -1,6 +1,6 @@
 
 import type { Entity, Type, PrimaryKey } from './entity';
-import { typeName } from './entity';
+import { typeName, typeConstructor } from './entity';
 import { LiteralType, quotedFunction } from './runtimeTypes';
 
 export abstract class Lite<out T extends Entity> {
@@ -105,13 +105,30 @@ export class LiteImp<T extends Entity> extends Lite<T> {
     }
 }
 
-const liteModelConstructors = new Map<Type<Entity>, (entity: Entity) => Lite<Entity>>();
+// A custom lite class: a {@link LiteImp} subclass that carries display/model fields directly on
+// the lite instance (altea has no separate "model" entity). Besides being constructible into a
+// Lite<T>, it declares two statics so the JSON codec can rebuild it from the wire: isCompatible
+// picks it among the type's registered custom lites, fromJson materialises it.
+export interface CustomLiteClass {
+    isCompatible(json: Record<string, unknown>): boolean;
+    fromJson(json: Record<string, unknown>): Lite<Entity>;
+}
+
+// One registration: the class (for JSON round-trip via its statics), the from-entity builder
+// (for Entity.toLite()), and whether it is the default builder for the type.
+interface CustomLiteRegistration {
+    liteClass: CustomLiteClass;
+    fromEntity: (entity: Entity) => Lite<Entity>;
+    isDefault: boolean;
+}
+
+const customLiteRegistry = new Map<Function, CustomLiteRegistration[]>();
 
 /**
- * Registers the constructor used by `Entity.toLite()` to build the lite (and
- * its model) for a given entity type. Instead of a separate `LiteModel` class
- * (as in Signum), altea subclasses {@link LiteImp} and stores the model fields
- * on the lite itself:
+ * Registers a custom lite for an entity type. Instead of a separate `LiteModel` class (as in
+ * Signum), altea subclasses {@link LiteImp} and stores the model fields on the lite itself; the
+ * class also implements {@link CustomLiteClass} (`isCompatible`/`fromJson`) so the JSON codec can
+ * rebuild it from the wire.
  *
  * ```ts
  * export class EmployeeLite extends LiteImp<EmployeeEntity> {
@@ -120,25 +137,51 @@ const liteModelConstructors = new Map<Type<Entity>, (entity: Entity) => Lite<Ent
  *         readonly lastName: string) {
  *         super(id, EmployeeEntity, toStr);
  *     }
+ *     static isCompatible(json: Record<string, unknown>): boolean {
+ *         return typeof json.firstName === "string";
+ *     }
+ *     static fromJson(json: Record<string, unknown>): Lite<EmployeeEntity> {
+ *         return new EmployeeLite(json.id as PrimaryKey, (json.toStr as string) ?? "",
+ *             json.firstName as string, json.lastName as string);
+ *     }
  * }
  *
- * registerLiteModelConstructor(EmployeeEntity, e =>
- *     new EmployeeLite(e.id, e.toString(), e.firstName, e.lastName));
+ * registerCustomLite(EmployeeEntity, EmployeeLite,
+ *     e => new EmployeeLite(e.id, e.toString(), e.firstName, e.lastName), true);
  * ```
  *
- * When no constructor is registered, `Entity.toLite()` falls back to a plain
- * {@link LiteImp} whose model is just the `toString()`.
+ * More than one custom lite may be registered per entity type; the one flagged `isDefault` is
+ * the builder {@link Entity.toLite} uses (its `fromEntity` lambda). On read, the JSON codec tries
+ * each registered class's `isCompatible` in registration order and uses the first match, falling
+ * back to a plain {@link LiteImp} when none matches (or none is registered).
  */
-export function registerLiteModelConstructor<T extends Entity>(
+export function registerCustomLite<T extends Entity>(
     entityType: Type<T>,
-    constructor: (entity: T) => Lite<T>,
+    liteClass: CustomLiteClass,
+    fromEntity: (entity: T) => Lite<T>,
+    isDefault = false,
 ): void {
-    liteModelConstructors.set(entityType, constructor as unknown as (entity: Entity) => Lite<Entity>);
+    const ctor = typeConstructor(entityType);
+    const arr = customLiteRegistry.get(ctor) ?? [];
+    arr.push({ liteClass, fromEntity: fromEntity as unknown as (entity: Entity) => Lite<Entity>, isDefault });
+    customLiteRegistry.set(ctor, arr);
 }
 
-/** Returns the registered constructor for an entity type, if any. */
-export function getLiteModelConstructor<T extends Entity>(
+/**
+ * The from-entity builder {@link Entity.toLite} uses for a type: the `fromEntity` lambda of the
+ * default registration (or the first, if none is flagged default), or `undefined` when the type
+ * has no custom lite (then `toLite()` builds a plain {@link LiteImp}).
+ */
+export function getCustomLiteConstructor<T extends Entity>(
     entityType: Type<T>,
 ): ((entity: T) => Lite<T>) | undefined {
-    return liteModelConstructors.get(entityType) as ((entity: T) => Lite<T>) | undefined;
+    const arr = customLiteRegistry.get(typeConstructor(entityType));
+    if (arr == null || arr.length === 0)
+        return undefined;
+    return (arr.find(r => r.isDefault) ?? arr[0]).fromEntity as unknown as (entity: T) => Lite<T>;
+}
+
+/** The custom lite classes registered for a ctor, in registration (isCompatible match) order. */
+export function getCustomLites(ctor: Function): CustomLiteClass[] {
+    return (customLiteRegistry.get(ctor) ?? []).map(r => r.liteClass);
 }

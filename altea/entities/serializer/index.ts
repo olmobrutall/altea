@@ -21,6 +21,8 @@
 // those marked @serialize(false); `id`/`ticks` are handled specially by EntitySerializer.
 
 export { Serializer } from './graphSerializers';
-export { registerCustomLite } from './customLite';
-export type { CustomLiteClass } from './customLite';
+// Custom-lite registration lives with Lite itself now (../lite); re-exported here for the
+// codec's public surface, since custom lites are what shape the lite wire format.
+export { registerCustomLite } from '../lite';
+export type { CustomLiteClass } from '../lite';
 export type { WriteTypes, SerializeOptions, DeserializeOptions } from './types';

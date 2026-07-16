@@ -1,5 +1,5 @@
 
-import { Lite, LiteImp, getLiteModelConstructor } from './lite';
+import { Lite, LiteImp, getCustomLiteConstructor } from './lite';
 import { entity, EntityData, column, serialize, quoted } from './decorators';
 import { niceName, newNiceName } from './utils/localization';
 import { reflect, getTypeInfo } from './reflection';
@@ -73,6 +73,13 @@ export abstract class BaseEntity {
     @column(false) @serialize(false) _snapshot?: EntitySnapshot | true = true;
 
     mixin<M extends BaseEntity>(mixinClass: Type<M>): M {
+        // altea inlines a mixin's fields onto the owner, so `mixin()` is just a typed cast —
+        // but assert the mixin is actually declared on this entity (Signum's MixinDeclarations
+        // guard, mirrored by the query binder's `entity.mixin(X)` check). Without it a typo or
+        // an undeclared mixin would silently return `this` and read/write phantom fields.
+        const declared = MixinDeclarations.getMixins(this.constructor as Type<BaseEntity>);
+        if (!declared.some(m => typeConstructor(m) === typeConstructor(mixinClass)))
+            throw new Error(`Mixin '${typeName(mixinClass)}' is not declared on '${this.constructor.name}'`);
         return this as unknown as M;
     }
 
@@ -146,7 +153,7 @@ export abstract class Entity extends BaseEntity {
 
     /**
      * Builds a {@link Lite} pointing to this entity. Uses the
-     * {@link registerLiteModelConstructor | registered} constructor for this
+     * {@link registerCustomLite | registered} custom-lite constructor for this
      * entity type to attach model data, falling back to a plain {@link LiteImp}.
      *
      * @param fat when `true` (a.k.a. `toLiteFat()`), embeds the full entity so
@@ -160,7 +167,7 @@ export abstract class Entity extends BaseEntity {
             throw new Error('toLite() is not allowed for new entities (no id yet), use toLiteFat() instead');
 
         const type = this.constructor as Type<this>;
-        const constructor = getLiteModelConstructor(type);
+        const constructor = getCustomLiteConstructor(type);
         const lite = constructor != null
             ? constructor(this)
             : new LiteImp<this>(this.id, type, this.toString());
