@@ -92,10 +92,10 @@ export class EntityCompleter extends DbExpressionVisitor {
         // GetModels) instead of one combined CASE, so the polymorphic display string is
         // dispatched by type in the reader — never a CASE in the projector.
         if (reference instanceof ImplementedByExpression && lite.toStr == null) {
-            const models = this.binder.liteImplementationModels(reference);
+            const models = this.binder.liteImplementationModels(reference, lite.fieldCustomLite);
             return new LiteValueExpression(lite.type, typeId, id, undefined, models);
         }
-        const toStr = lite.toStr ?? this.binder.liteModelExpression(reference);
+        const toStr = lite.toStr ?? this.binder.liteModelExpression(reference, lite.fieldCustomLite);
         return new LiteValueExpression(lite.type, typeId, id, toStr ?? undefined);
     }
 

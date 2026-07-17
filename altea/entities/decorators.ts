@@ -2,6 +2,7 @@
 import { getOrCreateTypeInfo, getOrCreateFieldInfo, registerType, FieldInfo, ctorOf } from './reflection';
 import type { PrimaryKeyType, ColumnOptions } from './reflection';
 import type { Type, Entity } from './entity';
+import type { CustomLiteClass } from './lite';
 import type { ExLambda, Quoted } from 'quote-transformer/quoted';
 
 export type { ColumnOptions } from './reflection';
@@ -305,6 +306,19 @@ export function implementedBy(types: () => Type<Entity>[]) {
 
 export function implementedByAll(target: object, propertyKey: string | symbol): void {
     getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).implementations = { kind: 'implementedByAll' };
+}
+
+// Overrides the custom lite used for a `Lite<T>` field (Signum's [LiteModel(type, ForEntityType)]):
+// for this field, a value of `forEntityType` builds/rebuilds as `liteClass` instead of the type's
+// default custom lite. Both args are thunks so the classes may be declared after the owner. May be
+// applied more than once on one field — one per concrete type of a polymorphic (@implementedBy)
+// lite, each pushing an entry — e.g. `@customLite(() => BandLite, () => BandEntity)` on an
+// `author: Lite<IAuthorEntity>`.
+export function customLite(liteClass: () => CustomLiteClass, forEntityType: () => Type<Entity>) {
+    return function (target: object, propertyKey: string | symbol): void {
+        const fi = getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey));
+        (fi.customLite ??= []).push({ liteClass, forEntityType });
+    };
 }
 
 // Child-side marker (Altea's MList replacement): tags the single FK field on a

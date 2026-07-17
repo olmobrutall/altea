@@ -1,6 +1,6 @@
 import {
     Expression, BinaryExpression, UnaryExpression, ConditionalExpression,
-    ConstantExpression, CastExpression, ObjectExpression,
+    ConstantExpression, CastExpression, ObjectExpression, NewExpression,
 } from "./expressions";
 import {
     ProjectionExpression, ColumnExpression, PrimaryKeyExpression, type UniqueFunction,
@@ -374,8 +374,9 @@ class ProjectionBuilder extends DbExpressionVisitor {
 
         // Lite over @implementedBy: whichever implementation id column is non-null picks
         // the ctor; the lite is built with the coalesced id (equal to that column) and that
-        // implementation's own display model (Signum's per-type Models) — dispatched here
-        // client-side rather than as a SQL CASE.
+        // implementation's own model — dispatched here client-side rather than as a SQL CASE.
+        // A custom-lite model (a NewExpression) IS the whole lite, so it is emitted directly;
+        // a display-string model goes through retriever.lite.
         if (typeId instanceof TypeImplementedByExpression) {
             let code = "null";
             const entries = [...typeId.typeImplementations];
@@ -384,22 +385,30 @@ class ProjectionBuilder extends DbExpressionVisitor {
                 const ctorIndex = this.pushConst(ctor);
                 this.visit(implId.value);
                 const implIdCode = this.pop();
-                let modelCode = toStrCode;
                 const model = e.models?.get(ctor);
-                if (model != null) {
+                let built: string;
+                if (model instanceof NewExpression) {
                     this.visit(model);
-                    modelCode = this.pop();
+                    built = this.pop();
+                } else {
+                    let modelCode = toStrCode;
+                    if (model != null) { this.visit(model); modelCode = this.pop(); }
+                    built = `retriever.lite(consts[${ctorIndex}], ${idCode}, ${modelCode})`;
                 }
-                code = `(${implIdCode} != null ? retriever.lite(consts[${ctorIndex}], ${idCode}, ${modelCode}) : ${code})`;
+                code = `(${implIdCode} != null ? ${built} : ${code})`;
             }
             this.stack.push(code);
             return e;
         }
 
-        // Lite over a typed reference.
+        // Lite over a typed reference. A custom-lite model (a NewExpression in `toStr`) IS the
+        // whole lite — emit it directly, guarded by id; otherwise build a LiteImp from the toStr.
         const te = typeId as TypeEntityExpression;
         const ctorIndex = this.pushConst(ctorOf(te.typeValue));
-        this.stack.push(`retriever.lite(consts[${ctorIndex}], ${idCode}, ${toStrCode})`);
+        if (e.toStr instanceof NewExpression)
+            this.stack.push(`(${idCode} != null ? ${toStrCode} : null)`);
+        else
+            this.stack.push(`retriever.lite(consts[${ctorIndex}], ${idCode}, ${toStrCode})`);
         return e;
     }
 
@@ -490,6 +499,15 @@ class ProjectionBuilder extends DbExpressionVisitor {
         }
 
         this.stack.push(`(${hasValue} ? retriever.embedded(consts[${ctorIndex}], function(e){ ${assigns.join(" ")} }) : null)`);
+        return e;
+    }
+
+    // `new Ctor(arg0, …)` — client-side construction (a custom-lite model built from projected
+    // columns, e.g. `new ArtistLite(id, toStr, sex)`). Each arg was already column-projected, so
+    // this just reads them back and constructs the instance.
+    override visitNew(e: NewExpression): Expression {
+        const argCodes = e.args.map(a => { this.visit(a); return this.pop(); });
+        this.stack.push(`new consts[${this.pushConst(e.constructorFunction)}](${argCodes.join(", ")})`);
         return e;
     }
 

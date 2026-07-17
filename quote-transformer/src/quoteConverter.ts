@@ -287,10 +287,6 @@ export function getQuoteConverter(tsInstance: typeof ts2, typeChecker?: ts2.Type
         }
 
         if (ts.isNewExpression(node)) {
-            const expr = quoteExpression(node.expression, idents);
-            if (expr instanceof QuoteError)
-                return expr;
-
             const args: ts2.Expression[] = [];
             if (node.arguments) {
                 for (let i = 0; i < node.arguments.length; i++) {
@@ -301,9 +297,12 @@ export function getQuoteConverter(tsInstance: typeof ts2, typeChecker?: ts2.Type
                 }
             }
 
+            // ExNew is ["new", <constructor value>, [args]] — the second element is the live
+            // constructor reference (fromQuoted uses it directly as `new q[1](...)`), NOT a quoted
+            // sub-expression. Emitting node.expression verbatim keeps the class value at runtime.
             return ts.factory.createArrayLiteralExpression([
-                ts.factory.createStringLiteral("()"),
-                expr,
+                ts.factory.createStringLiteral("new"),
+                node.expression,
                 ts.factory.createArrayLiteralExpression(args),
             ]);
         }

@@ -1,7 +1,7 @@
 import {
     Expression, CallExpression, PropertyExpression, IndexExpression, ParameterExpression,
     LambdaExpression, ConstantExpression, CastExpression, BinaryExpression,
-    ConditionalExpression, ObjectExpression, UnaryExpression, viewColumns,
+    ConditionalExpression, ObjectExpression, NewExpression, UnaryExpression, viewColumns,
 } from "../expressions";
 import {
     SelectExpression, ProjectionExpression, ColumnExpression, PrimaryKeyExpression,
@@ -9,7 +9,7 @@ import {
     SqlConstantExpression, TableExpression, OrderExpression, type OrderType, type UniqueFunction,
     AggregateExpression, AggregateRequestsExpression, type AggregateSqlFunction, RowNumberExpression, ColumnDeclaration, InExpression,
     SourceExpression, SqlFunctionExpression, SqlCastExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression, type JoinType,
-    LiteReferenceExpression, type LiteReferenceTarget, ScalarExpression, ExistsExpression,
+    LiteReferenceExpression, type LiteReferenceTarget, type FieldCustomLite, ScalarExpression, ExistsExpression,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
     TypeEntityExpression, TypeImplementedByExpression, type CombineStrategy,
     CaseExpression, When, IsNotNullExpression, IsNullExpression, SetOperatorExpression, SourceWithAliasExpression,
@@ -54,10 +54,12 @@ import {
 } from "../../schema/field";
 import type { FieldInfo } from "../../../entities/reflection";
 import { fieldType, fieldEnum, fieldTypeName } from "../../../entities/reflection";
-import { Entity, View } from "../../../entities/entity";
+import { Entity, View, typeConstructor } from "../../../entities/entity";
+import type { Type } from "../../../entities/entity";
 import { TypeEntity } from "../../../entities/typeEntity";
 import { toInt, toLong, toDecimal, inSql, Temporal } from "../../../entities/basics";
-import { Lite } from "../../../entities/lite";
+import { Lite, getCustomLiteConstructor, getCustomLiteConstructorFor } from "../../../entities/lite";
+import type { CustomLiteClass } from "../../../entities/lite";
 import { niceName } from "../../../entities/utils/localization";
 import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, RuntimeType } from "../../../entities/runtimeTypes";
 import { ExpressionVisitor } from "./ExpressionVisitor";
@@ -517,25 +519,63 @@ export class QueryBinder extends ExpressionVisitor {
         finally { this.sourceStack.pop(); }
     }
 
-    // The display-string (`toStr`) SQL expression for a lite's reference, completing it
-    // (a LEFT-OUTER-JOIN request) so its ToStr column is reachable; undefined when the
-    // reference has no translatable ToString (IBA / @quoted with no column).
-    liteModelExpression(reference: Expression): Expression | undefined {
+    // The display model SQL for a lite's reference. When the reference's type has a custom lite
+    // (a registered default, or the field's @customLite override), that lite's `fromEntity`
+    // expression — e.g. `new ArtistLite(a.id, a.toString(), a.sex)` — is bound against the
+    // reference and returned as the model (a NewExpression the reader constructs client-side).
+    // Otherwise it falls back to the display string (`toStr`), completing the reference (a LEFT-
+    // OUTER-JOIN request) so its ToStr column is reachable; undefined when neither is possible.
+    liteModelExpression(reference: Expression, fieldCustomLite?: FieldCustomLite): Expression | undefined {
+        if (reference instanceof EntityExpression && reference.type instanceof ClassType) {
+            const model = this.customLiteModel(reference.type.constructorFunction, reference, fieldCustomLite);
+            if (model != null)
+                return model;
+        }
         return this.entityToStringOf(reference);
     }
 
     // Per-implementation display models for an @implementedBy lite (Signum's
-    // EntityCompleter.GetModels dictionary): each concrete type's own ToString, completed
-    // independently — NOT combined into a CASE. The reader dispatches on the runtime type
-    // and evaluates the matching model client-side, so no CASE reaches the projector.
-    liteImplementationModels(ib: ImplementedByExpression): Map<Function, Expression> {
+    // EntityCompleter.GetModels dictionary): each concrete type's own model, completed
+    // independently — NOT combined into a CASE. A type with a custom lite (default or the
+    // field's @customLite override) contributes its `fromEntity` NewExpression; the rest their
+    // ToString. The reader dispatches on the runtime type and evaluates the matching model
+    // client-side, so no CASE reaches the projector.
+    liteImplementationModels(ib: ImplementedByExpression, fieldCustomLite?: FieldCustomLite): Map<Function, Expression> {
         const models = new Map<Function, Expression>();
         for (const [ctor, ee] of ib.implementations) {
-            const model = this.entityToString(ee);
+            const model = this.customLiteModel(ctor, ee, fieldCustomLite) ?? this.entityToString(ee);
             if (model != null)
                 models.set(ctor, model);
         }
         return models;
+    }
+
+    // The bound custom-lite model expression for a concrete type, or undefined when the type has
+    // no applicable custom lite. The field's @customLite for that type wins; otherwise the type's
+    // registered default is used. The chosen `fromEntity` (a Quoted lambda) is bound against the
+    // reference exactly like a @quoted toString, yielding a NewExpression whose args project the
+    // model's columns.
+    private customLiteModel(ctor: Function, ee: EntityExpression, fieldCustomLite?: FieldCustomLite): Expression | undefined {
+        const override = fieldCustomLite?.get(ctor as unknown as Type<Entity>);
+        const fromEntity: { __quoted?: unknown } | undefined = override != null
+            ? getCustomLiteConstructorFor(ctor as unknown as Type<Entity>, override)
+            : getCustomLiteConstructor(ctor as unknown as Type<Entity>);
+        if (fromEntity == null || fromEntity.__quoted == null)
+            return undefined;
+        const lambda = Expression.fromQuotedLambda(fromEntity as never, [ee.type]);
+        return this.bindQuotedBody(lambda, ee, []);
+    }
+
+    // Resolve a field's @customLite decorator list into the Map<entity type, CustomLiteClass> that
+    // LiteReferenceExpression carries (undefined when the field has none).
+    private fieldCustomLiteMap(fi: FieldInfo): FieldCustomLite | undefined {
+        const list = fi.customLite;
+        if (list == null || list.length === 0)
+            return undefined;
+        const map = new Map<Type<Entity>, CustomLiteClass>();
+        for (const c of list)
+            map.set(typeConstructor(c.forEntityType() as Type<Entity>) as unknown as Type<Entity>, c.liteClass() as CustomLiteClass);
+        return map;
     }
 
     // The id / type-discriminator of a lite's reference (Signum's binder.GetId /
@@ -1281,7 +1321,7 @@ export class QueryBinder extends ExpressionVisitor {
                 && (expr.reference instanceof ImplementedByExpression || expr.reference instanceof ImplementedByAllExpression)) {
                 const narrowed = this.narrowReference(expr.reference, targetCtor);
                 if (narrowed != null)
-                    return new LiteReferenceExpression(new LiteType(new ClassType(targetCtor)), narrowed, expr.toStr, expr.expandLite);
+                    return new LiteReferenceExpression(new LiteType(new ClassType(targetCtor)), narrowed, expr.toStr, expr.expandLite, expr.fieldCustomLite);
             }
             // Concrete-entity cast: a cast up/down/across the *same* inheritance line is a
             // no-op (the row is that table). A cast to a DISJOINT type — a sibling in a
@@ -1435,7 +1475,7 @@ export class QueryBinder extends ExpressionVisitor {
         const projector = this.changeExpandTarget(projection.projector, selector, e => {
             if (!(e instanceof LiteReferenceExpression))
                 throw new Error("expandLite: the selected value is not a Lite");
-            return new LiteReferenceExpression(e.type, e.reference, e.toStr, expand);
+            return new LiteReferenceExpression(e.type, e.reference, e.toStr, expand, e.fieldCustomLite);
         });
         return new ProjectionExpression(projection.select, projector, projection.uniqueFunction, projection.type);
     }
@@ -2890,6 +2930,10 @@ export class QueryBinder extends ExpressionVisitor {
     // undefined. The callee may be a captured constant (the class) or a property access
     // `SystemTime.AsOf` off the captured SystemTime namespace.
     private asOfConstructionArgument(arg: Expression): Expression | undefined {
+        // `new SystemTime.AsOf(x)` now binds to a NewExpression (the transformer captures `new` as
+        // ExNew); its constructorFunction is the SystemTimeAsOf class directly.
+        if (arg instanceof NewExpression && arg.args.length === 1)
+            return arg.constructorFunction === SystemTimeAsOf ? arg.args[0] : undefined;
         if (!(arg instanceof CallExpression) || arg.args.length !== 1)
             return undefined;
         const callee = arg.func;
@@ -3207,8 +3251,9 @@ export class QueryBinder extends ExpressionVisitor {
             const externalId = new PrimaryKeyExpression(new ColumnExpression(LiteralType.number, alias, f.column.name));
             const entity = new EntityExpression(refType, refTable, externalId, undefined, undefined, undefined, f.avoidExpandOnRetrieving);
             // A Lite<T> field projects as a Lite, not a full entity; navigation
-            // through it (.entity) unwraps to this same reference.
-            return f.column.isLite ? new LiteReferenceExpression(refType, entity, undefined) : entity;
+            // through it (.entity) unwraps to this same reference. The field's @customLite (if any)
+            // rides along so EntityCompleter picks it over the type's default when building the model.
+            return f.column.isLite ? new LiteReferenceExpression(refType, entity, undefined, undefined, this.fieldCustomLiteMap(ef.fieldInfo)) : entity;
         }
 
         if (f instanceof FieldEmbedded) {
@@ -3240,7 +3285,7 @@ export class QueryBinder extends ExpressionVisitor {
                 implementations.set(implCtor, new EntityExpression(new ClassType(implCtor), implTable, externalId, undefined, undefined, undefined, f.avoidExpandOnRetrieving));
             }
             const ib = new ImplementedByExpression(new ClassType(this.refCleanCtor(ef.fieldInfo)), "Case", implementations);
-            return f.isLite ? new LiteReferenceExpression(new LiteType(ib.type), ib, undefined) : ib;
+            return f.isLite ? new LiteReferenceExpression(new LiteType(ib.type), ib, undefined, undefined, this.fieldCustomLiteMap(ef.fieldInfo)) : ib;
         }
 
         if (f instanceof FieldImplementedByAll) {
@@ -3251,7 +3296,7 @@ export class QueryBinder extends ExpressionVisitor {
                 ids.set(col.pkType, new ColumnExpression(LiteralType.number, alias, col.name));
             const typeId = new TypeImplementedByAllExpression(new ColumnExpression(LiteralType.number, alias, f.typeColumn.name));
             const iba = new ImplementedByAllExpression(new ClassType(this.refCleanCtor(ef.fieldInfo)), ids, typeId);
-            return f.isLite ? new LiteReferenceExpression(new LiteType(iba.type), iba, undefined) : iba;
+            return f.isLite ? new LiteReferenceExpression(new LiteType(iba.type), iba, undefined, undefined, this.fieldCustomLiteMap(ef.fieldInfo)) : iba;
         }
 
         // FieldEntityArray: an eager collection (Signum's MList). Bind a marker carrying

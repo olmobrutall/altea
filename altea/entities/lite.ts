@@ -2,6 +2,7 @@
 import type { Entity, Type, PrimaryKey } from './entity';
 import { typeName, typeConstructor } from './entity';
 import { LiteralType, quotedFunction } from './runtimeTypes';
+import type { Quoted } from 'quote-transformer/quoted';
 
 export abstract class Lite<out T extends Entity> {
     abstract readonly id: PrimaryKey;
@@ -115,10 +116,13 @@ export interface CustomLiteClass {
 }
 
 // One registration: the class (for JSON round-trip via its statics), the from-entity builder
-// (for Entity.toLite()), and whether it is the default builder for the type.
+// (for Entity.toLite() and query projection), and whether it is the default builder for the type.
+// `fromEntity` is a Quoted lambda: it runs directly for in-memory toLite/toCustomLite, and the
+// query provider reads its `__quoted` expression tree to project the model's columns in SQL and
+// construct the lite in the reader.
 interface CustomLiteRegistration {
     liteClass: CustomLiteClass;
-    fromEntity: (entity: Entity) => Lite<Entity>;
+    fromEntity: Quoted<(entity: Entity) => Lite<Entity>>;
     isDefault: boolean;
 }
 
@@ -154,34 +158,53 @@ const customLiteRegistry = new Map<Function, CustomLiteRegistration[]>();
  * the builder {@link Entity.toLite} uses (its `fromEntity` lambda). On read, the JSON codec tries
  * each registered class's `isCompatible` in registration order and uses the first match, falling
  * back to a plain {@link LiteImp} when none matches (or none is registered).
+ *
+ * `fromEntity` is a {@link Quoted} lambda (the transformer captures its body): it runs verbatim
+ * in memory, and the query provider translates its expression — e.g. `new EmployeeLite(e.id,
+ * e.toString(), e.firstName, …)` — into projected columns so a query returns the typed custom
+ * lite too, not just a plain {@link LiteImp}. Keep the body translatable (columns + `@quoted`
+ * navigations), like a `@quoted` toString.
  */
+
 export function registerCustomLite<T extends Entity>(
     entityType: Type<T>,
     liteClass: CustomLiteClass,
-    fromEntity: (entity: T) => Lite<T>,
+    fromEntity: Quoted<(entity: T) => Lite<T>>,
     isDefault = false,
 ): void {
     const ctor = typeConstructor(entityType);
     const arr = customLiteRegistry.get(ctor) ?? [];
-    arr.push({ liteClass, fromEntity: fromEntity as unknown as (entity: Entity) => Lite<Entity>, isDefault });
+    arr.push({ liteClass, fromEntity: fromEntity as unknown as Quoted<(entity: Entity) => Lite<Entity>>, isDefault });
     customLiteRegistry.set(ctor, arr);
 }
 
 /**
  * The from-entity builder {@link Entity.toLite} uses for a type: the `fromEntity` lambda of the
- * default registration (or the first, if none is flagged default), or `undefined` when the type
- * has no custom lite (then `toLite()` builds a plain {@link LiteImp}).
+ * registration flagged `isDefault`, or `undefined` when the type has no *default* custom lite
+ * (then `toLite()` builds a plain {@link LiteImp}). A non-default custom lite is reached only via
+ * {@link Entity.toCustomLite} or a field's `@customLite`, never by plain `toLite()`.
  */
 export function getCustomLiteConstructor<T extends Entity>(
     entityType: Type<T>,
-): ((entity: T) => Lite<T>) | undefined {
+): Quoted<(entity: T) => Lite<T>> | undefined {
     const arr = customLiteRegistry.get(typeConstructor(entityType));
-    if (arr == null || arr.length === 0)
-        return undefined;
-    return (arr.find(r => r.isDefault) ?? arr[0]).fromEntity as unknown as (entity: T) => Lite<T>;
+    return arr?.find(r => r.isDefault)?.fromEntity as unknown as Quoted<(entity: T) => Lite<T>> | undefined;
 }
 
 /** The custom lite classes registered for a ctor, in registration (isCompatible match) order. */
 export function getCustomLites(ctor: Function): CustomLiteClass[] {
     return (customLiteRegistry.get(ctor) ?? []).map(r => r.liteClass);
+}
+
+/**
+ * The from-entity builder registered for a specific (entity type, custom lite class) pair —
+ * used by {@link Entity.toCustomLite} to build a *named* custom lite rather than the default one.
+ * `undefined` when that class was never registered for the type.
+ */
+export function getCustomLiteConstructorFor<T extends Entity>(
+    entityType: Type<T>,
+    liteClass: CustomLiteClass,
+): Quoted<(entity: T) => Lite<T>> | undefined {
+    const arr = customLiteRegistry.get(typeConstructor(entityType));
+    return arr?.find(r => r.liteClass === liteClass)?.fromEntity as unknown as Quoted<(entity: T) => Lite<T>> | undefined;
 }

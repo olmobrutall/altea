@@ -13,9 +13,10 @@ import { AwardNominationEntity, GrammyAwardEntity, AmericanMusicAwardEntity } fr
 // The query (filter award != null, project the polymorphic award Lite) runs live.
 // altea discriminates a lite's runtime type via its `entityType` (the analog of
 // C#'s `a is Lite<AmericanMusicAwardEntity>`), and surfaces the model through
-// `toString()`. A distinct typed LiteModel object (C#'s `a.Model is AwardLiteModel`)
-// has no altea equivalent — the test entities register no lite-model constructor —
-// so that finer distinction is not asserted here.
+// `toString()`. Query-side typed custom lites now DO work (see customLite.test.ts:
+// ArtistLite / BandLite materialise from a query), but the Award types here register
+// no custom lite, so their projected lites are plain LiteImp — hence a distinct typed
+// model (C#'s `a.Model is AwardLiteModel`) is not asserted in this particular test.
 
 describe("SelectLiteModel", { skip: !hasDb }, () => {
     before(async () => { await start(); });

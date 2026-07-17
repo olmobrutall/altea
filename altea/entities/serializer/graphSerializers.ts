@@ -9,6 +9,7 @@
 import { Entity, EmbeddedEntity, typeConstructor } from '../entity';
 import type { Type, PrimaryKey, BaseEntity } from '../entity';
 import { Lite, LiteImp, getCustomLites } from '../lite';
+import type { CustomLiteClass } from '../lite';
 import { isModifiedSelf, getSnapshot, snapshotEqual } from '../changes';
 import { fieldType, fieldEnum } from '../reflection';
 import type { FieldInfo } from '../reflection';
@@ -31,8 +32,14 @@ const LITE_RESERVED_KEYS = new Set(['id', 'entityType', 'toStr', '_entity']);
 
 // `expectedCtor` is the declared target entity type (undefined for a polymorphic
 // `Lite<Entity>` / `@implementedBy` lite — which then always carries `$lite` on the wire).
+// `fieldCustomLite` is the field's @customLite override list (Signum's [LiteModel]): a value whose
+// resolved type matches an entry's `forEntityType` rebuilds as that class, taking priority over the
+// type's globally-registered custom lites.
 class LiteSerializer implements JsonSerializer {
-    constructor(private readonly expectedCtor: Function | undefined) { }
+    constructor(
+        private readonly expectedCtor: Function | undefined,
+        private readonly fieldCustomLite?: { liteClass: () => unknown; forEntityType: () => unknown }[],
+    ) { }
 
     toJson(value: unknown, sc: SerializationContext, writeType: boolean): unknown {
         const lite = value as Lite<Entity>;
@@ -63,8 +70,16 @@ class LiteSerializer implements JsonSerializer {
 
         const id = (j.id === undefined ? null : j.id) as PrimaryKey;
         let lite: Lite<Entity> | undefined;
-        for (const candidate of getCustomLites(ctor))
-            if (candidate.isCompatible(j)) { lite = candidate.fromJson(j); break; }
+        // The field's @customLite override is authoritative for its declared type: a lite of that
+        // type on this field IS that model (Signum's [LiteModel] on the property).
+        if (this.fieldCustomLite != null) {
+            const match = this.fieldCustomLite.find(c => typeConstructor(c.forEntityType() as Type<Entity>) === ctor);
+            if (match != null)
+                lite = (match.liteClass() as CustomLiteClass).fromJson(j);
+        }
+        if (lite == null)
+            for (const candidate of getCustomLites(ctor))
+                if (candidate.isCompatible(j)) { lite = candidate.fromJson(j); break; }
         lite ??= new LiteImp(id, ctor as Type<Entity>, (j.toStr as string | undefined) ?? '');
 
         if (j.entity != null)
@@ -374,7 +389,7 @@ class SerializerFactory {
             if (e == null) throw new Error(`Cannot build serializer: enum field '${fi.name}' is not registered`);
             return new EnumSerializer(e);
         }
-        if (fi.lite) return new LiteSerializer(fieldType(fi));         // undefined ctor ⇒ polymorphic lite
+        if (fi.lite) return new LiteSerializer(fieldType(fi), fi.customLite);   // undefined ctor ⇒ polymorphic lite
         if (fi.implementations != null) return new PolyReferenceSerializer();
 
         const ctor = fieldType(fi);

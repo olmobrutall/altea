@@ -2,6 +2,8 @@ import { Expression } from "./expressions";
 import { LiteralType, RuntimeType, IntervalType } from "../../entities/runtimeTypes";
 import { SystemTime } from "../systemTime";
 import type { FieldInfo } from "../../entities/reflection";
+import type { Type, Entity } from "../../entities/entity";
+import type { CustomLiteClass } from "../../entities/lite";
 import type { Table } from "../schema/table";
 import { Alias } from "./aliasGenerator";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
@@ -741,12 +743,18 @@ export type LiteReferenceTarget = EntityExpression | ImplementedByExpression | I
 // enum. Absent = the default (ModelEager — EntityCompleter computes the toStr).
 export type ExpandLiteHint = "EntityEager" | "ModelEager" | "ModelLazy" | "ModelNull";
 
+// A field's @customLite overrides (Signum's [LiteModel(class, ForEntityType)]), resolved from the
+// field's decorator list and carried from bindField so EntityCompleter can pick the field's
+// custom-lite class for the matching implementation type. Keyed by the concrete entity type.
+export type FieldCustomLite = ReadonlyMap<Type<Entity>, CustomLiteClass>;
+
 export class LiteReferenceExpression extends DbExpression {
     constructor(
         type: RuntimeType,
         public readonly reference: LiteReferenceTarget,
         public readonly toStr: Expression | undefined,
         public readonly expandLite: ExpandLiteHint | undefined = undefined,
+        public readonly fieldCustomLite: FieldCustomLite | undefined = undefined,
     ) {
         super("LiteReference", type);
     }

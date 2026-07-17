@@ -1,10 +1,11 @@
 import { reflect } from "@altea/altea/entities/reflection";
 import { Entity, EmbeddedEntity, MixinEntity, View } from "@altea/altea/entities/entity";
-import { Lite } from "@altea/altea/entities/lite";
+import type { PrimaryKey } from "@altea/altea/entities/entity";
+import { Lite, LiteImp, registerCustomLite } from "@altea/altea/entities/lite";
 import {
     entity, partEntity, mixin, primaryKey,
     implementedBy, implementedByAll, backReference, rowOrder, valueField,
-    stringLengthValidator, EntityData, EntityKind,
+    stringLengthValidator, EntityData, EntityKind, customLite,
     quoted, column, forceNullable, tableName, viewPrimaryKey, systemVersioned,
 } from "@altea/altea/entities/decorators";
 import { Temporal, type int, toInt } from "@altea/altea/entities/basics";
@@ -311,6 +312,10 @@ export class SongEmbedded extends EmbeddedEntity {
 
 @reflect
 export class AwardNominationEntity extends Entity {
+    // A polymorphic (Artist|Band) lite author. Artists use their default custom lite (ArtistLite);
+    // bands, whose default is a plain LiteImp, use BandLite ONLY on this field via @customLite
+    // (Signum's [LiteModel(typeof(BandLite), ForEntityType = typeof(BandEntity))]).
+    @customLite(() => BandLite, () => BandEntity)
     @implementedBy(() => [ArtistEntity, BandEntity])
     author: Lite<IAuthorEntity>;
     @implementedBy(() => [GrammyAwardEntity, PersonalAwardEntity, AmericanMusicAwardEntity])
@@ -484,3 +489,44 @@ END`);
         }
     }
 }
+
+// ---- Custom lites (Signum's LiteModel) --------------------------------------
+// altea has no separate LiteModel entity: a custom lite is a LiteImp subclass carrying its model
+// fields directly, plus the isCompatible/fromJson statics the JSON codec uses to rebuild it. The
+// registration below is a module-load side effect (Signum does the analog in MusicStarter), so any
+// test that imports the Music model — with or without the logic layer — sees these lites.
+
+// The DEFAULT custom lite for an artist: carries the artist's sex. `sex` is a plain column, so the
+// fromEntity model translates to SQL and a query returns ArtistLite too (not just a LiteImp).
+export class ArtistLite extends LiteImp<ArtistEntity> {
+    constructor(id: PrimaryKey, toStr: string, readonly sex: Sex) {
+        super(id, ArtistEntity, toStr);
+    }
+    static isCompatible(json: Record<string, unknown>): boolean {
+        return typeof json.sex === "number";
+    }
+    static fromJson(json: Record<string, unknown>): Lite<ArtistEntity> {
+        return new ArtistLite(json.id as PrimaryKey, (json.toStr as string) ?? "", json.sex as Sex);
+    }
+}
+
+// A NON-default custom lite for a band: carries the member count (a translatable subquery). Because
+// it is not the default, band.toLite() yields a plain LiteImp; BandLite is reached via
+// band.toCustomLite(BandLite) or the @customLite override on AwardNominationEntity.author.
+export class BandLite extends LiteImp<BandEntity> {
+    constructor(id: PrimaryKey, toStr: string, readonly memberCount: number) {
+        super(id, BandEntity, toStr);
+    }
+    static isCompatible(json: Record<string, unknown>): boolean {
+        return typeof json.memberCount === "number";
+    }
+    static fromJson(json: Record<string, unknown>): Lite<BandEntity> {
+        return new BandLite(json.id as PrimaryKey, (json.toStr as string) ?? "", json.memberCount as number);
+    }
+}
+
+// `fromEntity` is a Quoted lambda: it runs verbatim in memory (toLite/toCustomLite) and the query
+// provider translates its body — `new ArtistLite(a.id, a.toString(), a.sex)` — into projected
+// columns so queries return the typed lite too.
+registerCustomLite(ArtistEntity, ArtistLite, a => new ArtistLite(a.id, a.toString(), a.sex), true);
+registerCustomLite(BandEntity, BandLite, b => new BandLite(b.id, b.toString(), b.members.length), false);

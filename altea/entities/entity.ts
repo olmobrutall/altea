@@ -1,5 +1,6 @@
 
-import { Lite, LiteImp, getCustomLiteConstructor } from './lite';
+import { Lite, LiteImp, getCustomLiteConstructor, getCustomLiteConstructorFor } from './lite';
+import type { CustomLiteClass } from './lite';
 import { entity, EntityData, column, serialize, quoted } from './decorators';
 import { niceName, newNiceName } from './utils/localization';
 import { reflect, getTypeInfo } from './reflection';
@@ -184,6 +185,27 @@ export abstract class Entity extends BaseEntity {
      * compared by reference. In a quoted query the binder lowers `.is(...)` to an
      * id comparison (SmartEqualizer); this body is the in-memory fallback.
      */
+    /**
+     * Builds a {@link Lite} using a *specific* registered custom lite class, rather than the
+     * type's default (what {@link toLite} uses). The class must have been registered for this
+     * entity type via {@link registerCustomLite} — its `fromEntity` builder is what runs here.
+     * `fat` embeds the full entity, exactly like {@link toLite}.
+     */
+    toCustomLite(liteClass: CustomLiteClass, fat = false): Lite<this> {
+        if (!fat && this.id == null)
+            throw new Error('toCustomLite() is not allowed for new entities (no id yet), use toCustomLite(class, true) instead');
+
+        const type = this.constructor as Type<this>;
+        const constructor = getCustomLiteConstructorFor(type, liteClass);
+        if (constructor == null)
+            throw new Error(`No custom lite '${(liteClass as { name?: string }).name ?? '?'}' is registered for '${this.constructor.name}'`);
+
+        const lite = constructor(this);
+        if (fat)
+            lite.setEntity(this);
+        return lite;
+    }
+
     is(other: Entity | Lite<Entity> | null | undefined): boolean {
         if (other == null)
             return false;

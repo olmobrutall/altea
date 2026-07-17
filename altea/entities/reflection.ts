@@ -84,6 +84,14 @@ export class FieldInfo {
     // stub). A per-reference concern, so it lives on the field, not the entity.
     avoidExpandOnRetrieving?: boolean;
     implementations?: ImplementationsInfo;
+    // Set by @customLite (Signum's [LiteModel]): overrides which custom lite this field's lite
+    // value uses, per implementation type. A field may carry several (one per concrete type of a
+    // polymorphic @implementedBy lite), so this is a list — each `@customLite` on the field pushes
+    // one entry. `liteClass` is the CustomLiteClass to build; `forEntityType` the concrete entity
+    // type it applies to. Both are thunks so the classes may be declared after the owner. Typed
+    // loosely here (like `type`) to keep reflection independent of lite.ts/entity.ts; consumers
+    // cast. Consumed by the JSON codec and the query provider.
+    customLite?: { liteClass: () => unknown; forEntityType: () => unknown }[];
     // Set by the child-side @backReference marker (bare): this FK field points
     // back to the owner entity. The owner's collection (a `Child[]` field) finds it as
     // the back-pointing FK. Per-row equivalent of an MList element.
