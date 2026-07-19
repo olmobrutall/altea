@@ -13,3 +13,4 @@ export * from "./dateToken";
 export * from "./moduloToken";
 export * from "./countToken";
 export * from "./collectionElementToken";
+export * from "./collectionAnyAllToken";

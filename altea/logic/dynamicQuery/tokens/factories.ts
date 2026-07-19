@@ -8,6 +8,7 @@ import { DateToken } from "./dateToken";
 import { ModuloToken } from "./moduloToken";
 import { CountToken } from "./countToken";
 import { CollectionElementToken, CollectionElementType } from "./collectionElementToken";
+import { CollectionAnyAllToken, CollectionAnyAllType } from "./collectionAnyAllToken";
 
 // Single wiring point for the base's factory hook. Importing this module (or the `tokens` barrel)
 // registers every concrete token so QueryToken.subTokensBase can construct them without a static
@@ -24,4 +25,5 @@ registerTokenFactories({
     modulo: (parent, divisor) => new ModuloToken(parent, divisor),
     count: (parent) => new CountToken(parent),
     collectionElement: (parent, elementType) => new CollectionElementToken(parent, elementType as CollectionElementType),
+    collectionAnyAll: (parent, anyAllType) => new CollectionAnyAllToken(parent, anyAllType as CollectionAnyAllType),
 });

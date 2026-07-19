@@ -268,6 +268,9 @@ export abstract class QueryToken {
         if (options & SubTokensOptions.CanElement)
             for (const et of ["Element", "Element2", "Element3"])
                 tokens.push(tokenFactories!.collectionElement(this, et));
+        if (options & SubTokensOptions.CanAnyAll)
+            for (const aa of ["Any", "All", "NotAny", "NotAll"])
+                tokens.push(tokenFactories!.collectionAnyAll(this, aa));
         return tokens;
     }
 
@@ -383,6 +386,7 @@ export interface TokenFactories {
     modulo(parent: QueryToken, divisor: number): QueryToken;
     count(parent: QueryToken): QueryToken;
     collectionElement(parent: QueryToken, elementType: string): QueryToken;
+    collectionAnyAll(parent: QueryToken, anyAllType: string): QueryToken;
 }
 let tokenFactories: TokenFactories | undefined;
 export function registerTokenFactories(f: TokenFactories): void {

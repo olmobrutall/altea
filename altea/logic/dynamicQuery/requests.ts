@@ -1,9 +1,10 @@
-import { Expression, BinaryExpression, ConstantExpression, PropertyExpression, CallExpression } from "../linq/expressions";
-import { LiteralType } from "../../entities/runtimeTypes";
+import { Expression, ParameterExpression, BinaryExpression, ConstantExpression, PropertyExpression, CallExpression } from "../linq/expressions";
+import { LiteralType, ArrayType } from "../../entities/runtimeTypes";
 import type { Implementations } from "../../entities/implementations";
 import type { RuntimeType } from "../../entities/runtimeTypes";
-import { QueryToken, BuildExpressionContext } from "./tokens/queryToken";
+import { QueryToken, BuildExpressionContext, ExpressionBox, buildLite } from "./tokens/queryToken";
 import { CollectionElementToken } from "./tokens/collectionElementToken";
+import { CollectionAnyAllToken } from "./tokens/collectionAnyAllToken";
 import type { QueryName } from "./queryUtils";
 
 // Port of Signum's DynamicQuery request model (DynamicQuery/Requests/*.cs): the filter / order /
@@ -53,6 +54,65 @@ export abstract class Filter {
     abstract getTokens(): QueryToken[];
     // The deepest CollectionNested token, if any (drives nested-query filtering). Not modelled yet.
     getDeepestNestedToken(): QueryToken | undefined { return undefined; }
+}
+
+export enum FilterGroupOperation { And = "And", Or = "Or" }
+
+// Port of Signum's `FilterGroup`: an AND/OR group of filters, optionally scoped to a `token`. When
+// that token passes through a CollectionAnyAllToken, the whole group becomes a correlated
+// `some`/`every` subquery — so element-level and outer-level conditions combine inside one
+// quantifier (`a.friends.some(f => f.name == "john" && a.age == 20)`).
+export class FilterGroup extends Filter {
+    constructor(
+        public readonly groupOperation: FilterGroupOperation,
+        public readonly token: QueryToken | undefined,
+        public readonly filters: Filter[],
+    ) { super(); }
+
+    getTokens(): QueryToken[] {
+        return [...(this.token != undefined ? [this.token] : []), ...this.filters.flatMap(f => f.getTokens())];
+    }
+
+    getExpression(context: BuildExpressionContext): Expression {
+        const anyAll = this.findAnyAll(context);
+        if (anyAll == undefined) {
+            const exprs = this.filters.map(f => f.getExpression(context));
+            if (exprs.length === 0)
+                return new ConstantExpression(this.groupOperation === FilterGroupOperation.And);
+            const op = this.groupOperation === FilterGroupOperation.And ? "&&" : "||";
+            return exprs.reduce((a, b) => new BinaryExpression(op, a, b));
+        }
+        return this.getExpressionWithAnyAll(context, anyAll);
+    }
+
+    // Signum's `Token?.Follow(Parent).OfType<CollectionAnyAllToken>().TakeWhile(not-bound).LastOrDefault()`
+    // — the shallowest not-yet-bound quantifier in the group token's parent chain.
+    private findAnyAll(context: BuildExpressionContext): CollectionAnyAllToken | undefined {
+        const chain: CollectionAnyAllToken[] = [];
+        for (let p: QueryToken | undefined = this.token; p != undefined; p = p.parent) {
+            if (p instanceof CollectionAnyAllToken) {
+                if (context.replacements.has(p.fullKey()))
+                    break;
+                chain.push(p);
+            }
+        }
+        return chain.length > 0 ? chain[chain.length - 1] : undefined;
+    }
+
+    // Signum's GetExpressionWithAnyAll: bind the element parameter, build the group body (element
+    // conditions now resolve to the parameter, outer conditions still to the outer row), then wrap
+    // it in the quantifier. Mutates replacements transiently (add → build → remove), as Signum does.
+    private getExpressionWithAnyAll(context: BuildExpressionContext, anyAll: CollectionAnyAllToken): Expression {
+        const collection = anyAll.parent!.buildExpression(context);
+        void (collection.type as ArrayType); // element type carried by the parameter below
+        const param = anyAll.createParameter();
+
+        context.replacements.set(anyAll.fullKey(), new ExpressionBox(buildLite(param)));
+        const body = this.getExpression(context);
+        context.replacements.delete(anyAll.fullKey());
+
+        return anyAll.buildAnyAll(collection, param, body);
+    }
 }
 
 // Port of Signum's `FilterCondition`: a token compared to a value.

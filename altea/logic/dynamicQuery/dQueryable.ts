@@ -1,4 +1,4 @@
-import { ArrayType, ObjectType, RuntimeType } from "../../entities/runtimeTypes";
+import { ArrayType, ObjectType, RuntimeType, LiteralType } from "../../entities/runtimeTypes";
 import {
     Expression, ParameterExpression, LambdaExpression, CallExpression, PropertyExpression, ObjectExpression,
     BinaryExpression, ConstantExpression,
@@ -166,6 +166,19 @@ export class DQueryable {
         return bindAndOptimize(this.query, connector.schema, connector.isPostgres, /* alreadySimplified */ true);
     }
 
+    // The `<query>.count()` aggregate over the built query (Signum's Untyped.Count).
+    private countCall(): Expression {
+        return new CallExpression(new PropertyExpression(this.query, "count"), [], LiteralType.number);
+    }
+    bindCountProjection(): ProjectionExpression {
+        const connector = Connector.current();
+        return bindAndOptimize(this.countCall(), connector.schema, connector.isPostgres, true);
+    }
+    async countAsync(): Promise<number> {
+        const connector = Connector.current();
+        return await buildTranslateResult(this.bindCountProjection(), connector.isPostgres).execute() as number;
+    }
+
     // Execute the built query and return the raw projected rows.
     async executeAsync(): Promise<unknown[]> {
         const connector = Connector.current();
@@ -178,18 +191,40 @@ export class DQueryable {
         return new DEnumerable(await this.executeAsync(), this.context);
     }
 
+    // SQL-side pagination (Signum's TryPaginate on DQueryable): apply TOP / OFFSET-FETCH to the query,
+    // execute the single page, and get the total via a separate COUNT — skipping the COUNT when the
+    // returned page is short (we've reached the end). Returns a materialised DEnumerableCount.
+    // Note: no OrderAlsoByKeys yet (stable tie-break for pagination) — see TODO.md.
+    async tryPaginateAsync(pagination: Pagination): Promise<DEnumerableCount> {
+        if (pagination instanceof Pagination.Firsts) {
+            const rows = await this.top(pagination.topElements).executeAsync();
+            return new DEnumerableCount(rows, this.context, undefined);
+        }
+        if (pagination instanceof Pagination.Paginate) {
+            const size = pagination.elementsPerPage;
+            const offset = pagination.skip();
+            let dq: DQueryable = this;
+            if (pagination.currentPage !== 1)
+                dq = dq.skip(offset);
+            const rows = await dq.top(size).executeAsync();
+            // A short page means the end was reached, so total = offset + page; else run the COUNT.
+            const total = rows.length < size ? offset + rows.length : await this.countAsync();
+            return new DEnumerableCount(rows, this.context, total);
+        }
+        // All: execute everything; total is the row count.
+        const all = await this.executeAsync();
+        return new DEnumerableCount(all, this.context, all.length);
+    }
+
     // The QueryRequest pipeline that materialises a result (Signum's AllQueryOperations →
-    // DEnumerableCount). Builds+executes the SQL query, then paginates in memory.
-    // TODO(phase5+): push pagination to SQL (TOP/OFFSET) + a separate COUNT for the total, matching
-    // Signum's TryPaginate-on-DQueryable; today it materialises then paginates in memory.
+    // DEnumerableCount): SelectMany → Where → OrderBy → Select → TryPaginate (SQL-side).
     async allQueryOperationsAsync(request: QueryRequest): Promise<DEnumerableCount> {
-        const de = await this
+        return await this
             .selectMany(request.multiplications())
             .where(request.filters)
             .orderBy(request.orders)
             .select(request.columns.map(c => c.token))
-            .toDEnumerableAsync();
-        return de.tryPaginate(request.pagination);
+            .tryPaginateAsync(request.pagination);
     }
 }
 

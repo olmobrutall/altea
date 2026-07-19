@@ -43,13 +43,26 @@ DONE (in-memory arm):
 - [x] `DQueryable.toDEnumerableAsync()` / `allQueryOperationsAsync(request)` terminals (execute → wrap →
       paginate in memory).
 
+DONE (SQL-side pagination + count):
+- [x] `DQueryable.tryPaginateAsync(pagination)` — Firsts → `top`; Paginate → `skip().top()` (OFFSET/FETCH)
+      with a short-page COUNT skip, else `countAsync()` (`SELECT COUNT(*)`); All → execute + length.
+      `allQueryOperationsAsync` now paginates SQL-side (was: materialise-all then in-memory slice).
+- [x] `countAsync()` / `bindCountProjection()` — `<query>.count()`.
+
 TODO:
+- [ ] `OrderAlsoByKeys` — a stable tie-break key for pagination (Signum adds it before Skip/Take so
+      pages don't overlap on a non-unique order); altea paginates without it today.
 - [ ] Recover OUTER APPLY / keep-empty-owner semantics for selectMany.
-- [ ] Push pagination to SQL (TOP/OFFSET) + a separate COUNT query for the total in
-      `allQueryOperationsAsync` (today it materialises all rows then paginates in memory — fine for
-      small/combined sets, not for large tables).
-- [ ] `FilterGroup` (AND/OR groups) + full-text/nested filters; `Filter.GetExpression` currently
-      covers FilterCondition comparison/string/IsIn ops only.
+- [x] `FilterGroup` (AND/OR groups) + nested any/all filters — `requests.ts` `FilterGroup` +
+      `tokens/collectionAnyAllToken.ts` (`Any`/`All`/`NotAny`/`NotAll` + `buildAnyAll`). A group whose
+      token passes a CollectionAnyAllToken → correlated `some`/`every` subquery combining element +
+      outer conditions (`a.songs.some(s => s.name=='X' && a.year==20)` → `WHERE EXISTS(… AlbumID=A.ID
+      AND …Name=@p AND A.Year=@p)`). Wired into `collectionProperties` (CanAnyAll).
+- [ ] IN-MEMORY (DEnumerable) any/all: the `evalExpr` interpreter can't evaluate a `.some`/`.every`
+      lambda yet, so a FilterGroup-with-anyAll only works on the SQL (DQueryable) side. Simple
+      (tokenless) AND/OR groups work in memory.
+- [ ] Full-text filters (`FilterSqlServerFullText`) + `ToTableFilter`; `FilterCondition` still covers
+      comparison/string/IsIn ops only.
 - [ ] `groupBy` (GroupResults), `SelectWithNestedQueries` / `CollectionNestedToken`.
 - [ ] `CollectionAnyAllToken` (`.Any`/`.All`/`.NoOne`), `CollectionToArrayToken` (`.ToArray*`),
       `MListElementPropertyToken` (RowId/RowOrder).
