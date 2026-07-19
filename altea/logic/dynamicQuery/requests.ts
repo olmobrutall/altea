@@ -5,7 +5,16 @@ import type { RuntimeType } from "../../entities/runtimeTypes";
 import { QueryToken, BuildExpressionContext, ExpressionBox, buildLite } from "./tokens/queryToken";
 import { CollectionElementToken } from "./tokens/collectionElementToken";
 import { CollectionAnyAllToken } from "./tokens/collectionAnyAllToken";
+import { AggregateToken } from "./tokens/aggregateToken";
 import type { QueryName } from "./queryUtils";
+
+// True if the token is an aggregate (or nested under one) — Signum's IsAggregate.
+function tokenIsAggregate(token: QueryToken | undefined): boolean {
+    for (let p = token; p != undefined; p = p.parent)
+        if (p instanceof AggregateToken)
+            return true;
+    return false;
+}
 
 // Port of Signum's DynamicQuery request model (DynamicQuery/Requests/*.cs): the filter / order /
 // column / pagination descriptors that drive a query, plus the top-level QueryRequest. These are
@@ -54,6 +63,8 @@ export abstract class Filter {
     abstract getTokens(): QueryToken[];
     // The deepest CollectionNested token, if any (drives nested-query filtering). Not modelled yet.
     getDeepestNestedToken(): QueryToken | undefined { return undefined; }
+    // Signum's Filter.IsAggregate: whether this filter is a HAVING (applied after GroupBy).
+    isAggregate(): boolean { return false; }
 }
 
 export enum FilterGroupOperation { And = "And", Or = "Or" }
@@ -72,6 +83,8 @@ export class FilterGroup extends Filter {
     getTokens(): QueryToken[] {
         return [...(this.token != undefined ? [this.token] : []), ...this.filters.flatMap(f => f.getTokens())];
     }
+
+    override isAggregate(): boolean { return this.filters.some(f => f.isAggregate()); }
 
     getExpression(context: BuildExpressionContext): Expression {
         const anyAll = this.findAnyAll(context);
@@ -124,6 +137,8 @@ export class FilterCondition extends Filter {
     ) { super(); }
 
     getTokens(): QueryToken[] { return [this.token]; }
+
+    override isAggregate(): boolean { return tokenIsAggregate(this.token); }
 
     getExpression(context: BuildExpressionContext): Expression {
         const left = this.token.buildExpression(context);
@@ -203,7 +218,24 @@ export class QueryRequest {
         public orders: Order[] = [],
         public columns: Column[] = [],
         public pagination: Pagination = new Pagination.All(),
+        // Signum's QueryRequest.GroupResults: when true the query GROUPs BY the non-aggregate columns
+        // and computes the aggregate columns per group.
+        public groupResults: boolean = false,
     ) { }
+
+    // Every token referenced by the request (columns + orders + filters).
+    allTokens(): QueryToken[] {
+        return [...this.columns.map(c => c.token), ...this.orders.map(o => o.token), ...this.filters.flatMap(f => f.getTokens())];
+    }
+
+    // The distinct aggregate tokens referenced anywhere (Signum's AllTokens().OfType<AggregateToken>()).
+    aggregateTokens(): AggregateToken[] {
+        const seen = new Map<string, AggregateToken>();
+        for (const t of this.allTokens())
+            if (t instanceof AggregateToken)
+                seen.set(t.fullKey(), t);
+        return [...seen.values()];
+    }
 
     // Signum's QueryRequest.Multiplications: the collection-element tokens reachable from all
     // referenced tokens (drives DQueryable.SelectMany).

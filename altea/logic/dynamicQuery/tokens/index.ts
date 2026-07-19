@@ -14,3 +14,4 @@ export * from "./moduloToken";
 export * from "./countToken";
 export * from "./collectionElementToken";
 export * from "./collectionAnyAllToken";
+export * from "./aggregateToken";

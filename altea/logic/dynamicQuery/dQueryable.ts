@@ -11,6 +11,7 @@ import type { Query } from "../query";
 import { QueryToken, BuildExpressionContext, ExpressionBox, buildLite } from "./tokens/queryToken";
 import { CollectionElementToken } from "./tokens/collectionElementToken";
 import { ColumnToken } from "./tokens/columnToken";
+import { AggregateToken } from "./tokens/aggregateToken";
 import { ColumnDescription, QueryDescription } from "./queryDescription";
 import { Filter, Order, Column, OrderType, Pagination, QueryRequest } from "./requests";
 import { DEnumerable, DEnumerableCount } from "./dEnumerable";
@@ -129,6 +130,40 @@ export class DQueryable {
         return new DQueryable(mapped, new BuildExpressionContext(tuple.type, tupleParam, newReplacements));
     }
 
+    // ---- GroupBy (Signum's DQueryable.GroupBy) ------------------------------------------------
+    // Groups by the key tokens and computes the aggregate tokens over each group. Builds
+    //   source.groupBy(row => { k0, k1, … }).map(g => { k0: g.key.k0, …, a0: <agg over g.elements>, … })
+    // (altea has no result-selector groupBy overload — it's `groupBy(key).map(g => …)`). The new
+    // context resolves each key token to `gr.kI` and each aggregate token to `gr.aI`.
+    groupBy(keyTokens: QueryToken[], aggregateTokens: AggregateToken[]): DQueryable {
+        // Key selector: row => { k0: key0, k1: key1, … }
+        const keyProps: Record<string, Expression> = {};
+        keyTokens.forEach((t, i) => { keyProps["k" + i] = t.buildExpression(this.context); });
+        const keyTuple = new ObjectExpression(keyProps);
+        const keyLambda = new LambdaExpression([this.context.parameter], keyTuple);
+
+        const groupingType = new ObjectType({ key: keyTuple.type, elements: new ArrayType(this.context.elementType) });
+        const groupBy = new CallExpression(new PropertyExpression(this.query, "groupBy"), [keyLambda], new ArrayType(groupingType));
+
+        // Result selector: g => { k0: g.key.k0, …, a0: <aggregate over g.elements>, … }
+        const gParam = new ParameterExpression("g", groupingType);
+        const gKey = new PropertyExpression(gParam, "key");
+        const gElements = new PropertyExpression(gParam, "elements");
+        const resultProps: Record<string, Expression> = {};
+        keyTokens.forEach((_t, i) => { resultProps["k" + i] = new PropertyExpression(gKey, "k" + i); });
+        aggregateTokens.forEach((at, i) => { resultProps["a" + i] = at.buildAggregate(gElements, this.context); });
+        const resultTuple = new ObjectExpression(resultProps);
+        const resultLambda = new LambdaExpression([gParam], resultTuple);
+        const mapped = new CallExpression(new PropertyExpression(groupBy, "map"), [resultLambda], new ArrayType(resultTuple.type));
+
+        // New context: key token → gr.kI, aggregate token → gr.aI.
+        const grParam = new ParameterExpression("gr", resultTuple.type as ObjectType);
+        const replacements = new Map<string, ExpressionBox>();
+        keyTokens.forEach((t, i) => replacements.set(t.fullKey(), new ExpressionBox(new PropertyExpression(grParam, "k" + i))));
+        aggregateTokens.forEach((at, i) => replacements.set(at.fullKey(), new ExpressionBox(new PropertyExpression(grParam, "a" + i))));
+        return new DQueryable(mapped, new BuildExpressionContext(resultTuple.type, grParam, replacements));
+    }
+
     // ---- TryPaginate (Signum's DQueryable.TryPaginate) ----------------------------------------
     tryPaginate(pagination: Pagination): DQueryable {
         if (pagination instanceof Pagination.Firsts)
@@ -143,19 +178,6 @@ export class DQueryable {
     }
     private skip(n: number): DQueryable {
         return new DQueryable(new CallExpression(new PropertyExpression(this.query, "skip"), [new ConstantExpression(n)], this.query.type), this.context);
-    }
-
-    // ---- AllQueryOperations (Signum's DQueryable.AllQueryOperations) --------------------------
-    // The full pipeline a QueryRequest drives. (Signum returns a materialised DEnumerableCount;
-    // altea returns the built DQueryable — call executeAsync() / bindProjection() to run it.
-    // TODO(phase5+): DEnumerable / ResultTable materialisation + total-count.)
-    allQueryOperations(request: QueryRequest): DQueryable {
-        return this
-            .selectMany(request.multiplications())
-            .where(request.filters)
-            .orderBy(request.orders)
-            .select(request.columns.map(c => c.token))
-            .tryPaginate(request.pagination);
     }
 
     // ---- Terminals ----------------------------------------------------------------------------
@@ -216,15 +238,40 @@ export class DQueryable {
         return new DEnumerableCount(all, this.context, all.length);
     }
 
-    // The QueryRequest pipeline that materialises a result (Signum's AllQueryOperations →
-    // DEnumerableCount): SelectMany → Where → OrderBy → Select → TryPaginate (SQL-side).
-    async allQueryOperationsAsync(request: QueryRequest): Promise<DEnumerableCount> {
-        return await this
+    // The QueryRequest pipeline up to (but not including) pagination (Signum's AllQueryOperations
+    // body). Branches on GroupResults: the group path splits filters into WHERE (simple) vs HAVING
+    // (aggregate) and GROUPs BY the non-aggregate columns; the plain path filters/orders/selects.
+    private buildQueryOperations(request: QueryRequest): DQueryable {
+        if (request.groupResults) {
+            const keys = request.columns.map(c => c.token).filter(t => !(t instanceof AggregateToken));
+            const aggregates = request.aggregateTokens();
+            const simpleFilters = request.filters.filter(f => !f.isAggregate());
+            const aggregateFilters = request.filters.filter(f => f.isAggregate());
+            return this
+                .selectMany(request.multiplications())
+                .where(simpleFilters)
+                .groupBy(keys, aggregates)
+                .where(aggregateFilters)   // HAVING
+                .orderBy(request.orders);
+            // No trailing select — groupBy already projected the key + aggregate columns; the
+            // ResultTable reads request.columns straight off the grouped context.
+        }
+        return this
             .selectMany(request.multiplications())
             .where(request.filters)
             .orderBy(request.orders)
-            .select(request.columns.map(c => c.token))
-            .tryPaginateAsync(request.pagination);
+            .select(request.columns.map(c => c.token));
+    }
+
+    // Build the full QueryRequest pipeline (SQL side), including pagination as a query builder.
+    allQueryOperations(request: QueryRequest): DQueryable {
+        return this.buildQueryOperations(request).tryPaginate(request.pagination);
+    }
+
+    // Materialise a result (Signum's AllQueryOperations → DEnumerableCount): the pipeline above then
+    // SQL-side pagination.
+    async allQueryOperationsAsync(request: QueryRequest): Promise<DEnumerableCount> {
+        return await this.buildQueryOperations(request).tryPaginateAsync(request.pagination);
     }
 }
 

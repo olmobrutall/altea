@@ -2,7 +2,7 @@ import { ObjectType } from "../../entities/runtimeTypes";
 import {
     Expression, ParameterExpression, PropertyExpression, ConstantExpression, BinaryExpression,
     CallExpression, ObjectExpression, ConditionalExpression, UnaryExpression, CastExpression,
-    evalBinaryOp, evalUnaryOp,
+    LambdaExpression, evalBinaryOp, evalUnaryOp,
 } from "../linq/expressions";
 import { BuildExpressionContext, ExpressionBox } from "./tokens/queryToken";
 import type { QueryToken } from "./tokens/queryToken";
@@ -27,7 +27,7 @@ export class DEnumerable {
     where(filters: Filter[]): DEnumerable {
         if (filters.length === 0)
             return this;
-        const predicate = (row: unknown) => filters.every(f => truthy(evalExpr(f.getExpression(this.context), this.context.parameter, row)));
+        const predicate = (row: unknown) => filters.every(f => truthy(evalRow(f.getExpression(this.context), this.context.parameter, row)));
         return new DEnumerable(this.collection.filter(predicate), this.context);
     }
 
@@ -36,7 +36,7 @@ export class DEnumerable {
             return this;
         const keyed = this.collection.map(row => ({
             row,
-            keys: orders.map(o => evalExpr(o.token.buildExpression(this.context), this.context.parameter, row)),
+            keys: orders.map(o => evalRow(o.token.buildExpression(this.context), this.context.parameter, row)),
         }));
         keyed.sort((a, b) => {
             for (let i = 0; i < orders.length; i++) {
@@ -55,7 +55,7 @@ export class DEnumerable {
         const tokens = columns.map(c => c instanceof Column ? c.token : c);
         const rows = this.collection.map(row => {
             const t: Record<string, unknown> = {};
-            tokens.forEach((tok, i) => { t["c" + i] = evalExpr(tok.buildExpression(this.context), this.context.parameter, row); });
+            tokens.forEach((tok, i) => { t["c" + i] = evalRow(tok.buildExpression(this.context), this.context.parameter, row); });
             return t;
         });
         const tupleParam = new ParameterExpression("_s", new ObjectType(Object.fromEntries(tokens.map((t, i) => ["c" + i, t.type]))));
@@ -89,7 +89,7 @@ export class DEnumerable {
     toResultTable(columns: (QueryToken | Column)[], pagination: Pagination = new Pagination.All(), totalElements?: number): ResultTable {
         const tokens = columns.map(c => c instanceof Column ? c.token : c);
         const resultColumns = tokens.map(tok => {
-            const values = this.collection.map(row => evalExpr(tok.buildExpression(this.context), this.context.parameter, row));
+            const values = this.collection.map(row => evalRow(tok.buildExpression(this.context), this.context.parameter, row));
             return new ResultColumn(tok, values);
         });
         return new ResultTable(resultColumns, totalElements ?? this.collection.length, pagination);
@@ -111,46 +111,69 @@ export class DEnumerableCount extends DEnumerable {
 }
 
 // ---- Minimal in-memory expression interpreter ----------------------------------------------
-// Handles the expression shapes a post-select token produces (tuple accessors) plus enough to
-// evaluate filters/orders directly: parameter, member access, constants, binary/unary ops,
-// conditionals, casts, and string/array method calls.
-export function evalExpr(expr: Expression, param: ParameterExpression, row: unknown): unknown {
+// Handles the expression shapes tokens produce: parameter, member access, constants, binary/unary
+// ops, conditionals, casts, object literals, and method calls. A lambda argument (e.g. the predicate
+// of `.some`/`.every`) becomes a real JS closure that EXTENDS the environment — so a quantifier's
+// element parameter and the outer row are both in scope, letting a FilterGroup any/all correlate
+// element conditions with outer conditions in memory (`a.songs.some(s => s.name=='X' && a.year==20)`).
+type Env = Map<ParameterExpression, unknown>;
+
+export function evalExpr(expr: Expression, env: Env): unknown {
     if (expr instanceof ParameterExpression)
-        return expr === param ? row : undefined;
+        return env.get(expr);
     if (expr instanceof ConstantExpression)
         return expr.value;
     if (expr instanceof CastExpression)
-        return evalExpr(expr.expression, param, row);
+        return evalExpr(expr.expression, env);
     if (expr instanceof PropertyExpression) {
-        const obj = evalExpr(expr.object, param, row);
+        const obj = evalExpr(expr.object, env);
         return obj == null ? undefined : (obj as Record<string, unknown>)[expr.propertyName];
     }
     if (expr instanceof UnaryExpression)
-        return evalUnaryOp(expr.kind, evalExpr(expr.expression, param, row));
+        return evalUnaryOp(expr.kind, evalExpr(expr.expression, env));
     if (expr instanceof BinaryExpression) {
-        const l = evalExpr(expr.left, param, row);
-        if (expr.kind === "&&") return truthy(l) ? evalExpr(expr.right, param, row) : l;
-        if (expr.kind === "||") return truthy(l) ? l : evalExpr(expr.right, param, row);
-        if (expr.kind === "??") return l != null ? l : evalExpr(expr.right, param, row);
-        return evalBinaryOp(expr.kind, l, evalExpr(expr.right, param, row));
+        const l = evalExpr(expr.left, env);
+        if (expr.kind === "&&") return truthy(l) ? evalExpr(expr.right, env) : l;
+        if (expr.kind === "||") return truthy(l) ? l : evalExpr(expr.right, env);
+        if (expr.kind === "??") return l != null ? l : evalExpr(expr.right, env);
+        return evalBinaryOp(expr.kind, l, evalExpr(expr.right, env));
     }
     if (expr instanceof ConditionalExpression)
-        return truthy(evalExpr(expr.condition, param, row)) ? evalExpr(expr.whenTrue, param, row) : evalExpr(expr.whenFalse, param, row);
+        return truthy(evalExpr(expr.condition, env)) ? evalExpr(expr.whenTrue, env) : evalExpr(expr.whenFalse, env);
     if (expr instanceof ObjectExpression) {
         const o: Record<string, unknown> = {};
         for (const [k, e] of Object.entries(expr.properties))
-            o[k] = evalExpr(e, param, row);
+            o[k] = evalExpr(e, env);
         return o;
     }
+    if (expr instanceof LambdaExpression)
+        return makeClosure(expr, env);
     if (expr instanceof CallExpression && expr.func instanceof PropertyExpression) {
-        const target = evalExpr(expr.func.object, param, row);
-        const args = expr.args.map(a => evalExpr(a, param, row));
+        const target = evalExpr(expr.func.object, env);
+        // A lambda argument (`.some(p => …)`) becomes a closure over the current env; other args
+        // evaluate normally.
+        const args = expr.args.map(a => a instanceof LambdaExpression ? makeClosure(a, env) : evalExpr(a, env));
         const fn = (target as Record<string, unknown>)?.[expr.func.propertyName];
         if (typeof fn === "function")
             return (fn as (...a: unknown[]) => unknown).apply(target, args);
         return undefined;
     }
     throw new Error(`evalExpr: unsupported expression ${expr.constructor.name}`);
+}
+
+// A lambda → a JS function that binds its parameters into a child environment and evaluates the body
+// (so `array.some(closure)` / `.every(closure)` run natively with the element bound).
+function makeClosure(lambda: LambdaExpression, env: Env): (...vals: unknown[]) => unknown {
+    return (...vals: unknown[]) => {
+        const child: Env = new Map(env);
+        lambda.parameters.forEach((p, i) => child.set(p, vals[i]));
+        return evalExpr(lambda.body, child);
+    };
+}
+
+// Evaluate an expression against a single-row context (the common case).
+function evalRow(expr: Expression, param: ParameterExpression, row: unknown): unknown {
+    return evalExpr(expr, new Map([[param, row]]));
 }
 
 function truthy(v: unknown): boolean { return !!v; }

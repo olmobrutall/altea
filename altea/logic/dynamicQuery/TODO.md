@@ -58,12 +58,22 @@ TODO:
       token passes a CollectionAnyAllToken → correlated `some`/`every` subquery combining element +
       outer conditions (`a.songs.some(s => s.name=='X' && a.year==20)` → `WHERE EXISTS(… AlbumID=A.ID
       AND …Name=@p AND A.Year=@p)`). Wired into `collectionProperties` (CanAnyAll).
-- [ ] IN-MEMORY (DEnumerable) any/all: the `evalExpr` interpreter can't evaluate a `.some`/`.every`
-      lambda yet, so a FilterGroup-with-anyAll only works on the SQL (DQueryable) side. Simple
-      (tokenless) AND/OR groups work in memory.
+- [x] IN-MEMORY (DEnumerable) any/all — `evalExpr` is now environment-based (`Map<ParameterExpression,
+      value>`); a lambda argument becomes a real JS closure that extends the env, so `.some`/`.every`
+      run natively with the element param bound while the outer row stays in scope. FilterGroup-with-
+      anyAll works in memory (element + outer conditions correlate), matching the SQL EXISTS form.
 - [ ] Full-text filters (`FilterSqlServerFullText`) + `ToTableFilter`; `FilterCondition` still covers
       comparison/string/IsIn ops only.
-- [ ] `groupBy` (GroupResults), `SelectWithNestedQueries` / `CollectionNestedToken`.
+- [x] `groupBy` — `DQueryable.groupBy(keyTokens, aggregateTokens)` + `tokens/aggregateToken.ts`
+      (`AggregateFunction` Count/Sum/Min/Max/Average; `buildAggregate`). Builds
+      `source.groupBy(row => {k…}).map(g => {k…, a…over g.elements})` → `GROUP BY … COUNT(*)/SUM(…)/…`.
+      The grouped context resolves key tokens to `gr.kI` and aggregate tokens to `gr.aI`.
+- [x] `QueryRequest.groupResults` wired into `allQueryOperations`/`allQueryOperationsAsync`
+      (`buildQueryOperations` branch): keys = non-aggregate columns, aggregates = `request.aggregateTokens()`,
+      filters split into simple (WHERE, before group) vs aggregate (HAVING, `Filter.isAggregate()`).
+      `a.year>1900` + `count>=2` group → `… WHERE A.Year>@p GROUP BY … ) WHERE agg>=@p ORDER BY agg`.
+      TODO: `GetRootKeyTokens`/`Dominates` dedup of nested keys; Count-with-filter/Distinct.
+- [ ] `SelectWithNestedQueries` / `CollectionNestedToken` (nested result sub-tables).
 - [ ] `CollectionAnyAllToken` (`.Any`/`.All`/`.NoOne`), `CollectionToArrayToken` (`.ToArray*`),
       `MListElementPropertyToken` (RowId/RowOrder).
 - [ ] `ColumnDescriptionFactory` (auto-derive columns from a `withQuery` projection) — today callers
