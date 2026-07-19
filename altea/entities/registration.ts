@@ -125,3 +125,55 @@ export function resolveObject(name: string): object | undefined {
 export function getLocation(name: string): FileInfo | undefined {
     return locationRegistry.get(name);
 }
+
+// ---------------------------------------------------------------------------
+// Symbol support (Signum's Symbol / SymbolLogic, client/declaration side).
+//
+// A "symbol" is a SystemString entity keyed by a unique string (OperationSymbol,
+// TypeConditionSymbol, …). Containers are declared as
+//   export namespace XOperation { export const Y: ExecuteSymbol<E> = init(); }
+// and the quote-transformer rewrites each `init()` into
+//   init(OperationSymbol, "XOperation.Y", __fileInfo)
+// passing the concrete Symbol CONSTRUCTOR (base-walked from the declared container type
+// — the class directly extending `Symbol`) as a value, plus a value import of it. So
+// init just `new`s it — no kind string, no ctor registry (this mirrors Signum's AutoInit
+// `new OperationSymbol(typeof(Container), field)`). Kept in this import-free leaf so any
+// entity file can `init()` without a runtime cycle (as with `msg()`).
+
+// The minimal shape init() stamps. Declared locally (not `import { Symbol }`) so the
+// leaf stays runtime-import-free — the concrete constructor is passed in by init()'s
+// caller, and its Entity machinery is irrelevant to the stamping here.
+interface SymbolLike { key: string; isNew: boolean }
+type SymbolCtor = new () => SymbolLike;
+
+// ctor → (key → declared symbol instance). Every init() records its symbol here so
+// SymbolLogic can enumerate the declared symbols of a type (Signum's getSymbols()).
+const declaredSymbols = new Map<SymbolCtor, Map<string, SymbolLike>>();
+
+// Developer-facing: authors write `= init()`; the quote-transformer supplies
+// (SymbolClass, key, fileInfo). The zero-arg overload returns the declared symbol type S
+// so the const type-checks before transformation (no cast needed).
+export function init<S>(): S;
+export function init(ctor: SymbolCtor, key: string, fileInfo?: FileInfo): SymbolLike;
+export function init(ctor?: SymbolCtor, key?: string, fileInfo?: FileInfo): unknown {
+    if (ctor == null || key == null)
+        throw new Error("init() was not processed by the quote-transformer. Declare the symbol as `export const X: SomeSymbol = init()` inside an `export namespace`, with the transformer enabled for this package.");
+
+    const sym = new ctor();
+    sym.key = key;
+    sym.isNew = false; // symbols are pre-existing rows; SymbolLogic assigns the id
+
+    let byKey = declaredSymbols.get(ctor);
+    if (byKey == null) declaredSymbols.set(ctor, byKey = new Map());
+    byKey.set(key, sym);
+
+    if (fileInfo != null) locationRegistry.set(key, fileInfo);
+    return sym;
+}
+
+// All declared symbols of a concrete Symbol type (Signum's getSymbols()); consumed by
+// SymbolLogic<T>.
+export function declaredSymbolsForType(ctor: SymbolCtor): SymbolLike[] {
+    const byKey = declaredSymbols.get(ctor);
+    return byKey == null ? [] : [...byKey.values()];
+}

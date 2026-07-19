@@ -310,6 +310,127 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     );
   }
 
+  // A bare `init()` (the symbol-declaration marker). Only the zero-arg form is
+  // rewritten — an already-augmented `init(kind, key, …)` is left untouched.
+  function isInitCall(node: ts.CallExpression): boolean {
+    return ts.isIdentifier(node.expression) && node.expression.text === 'init' && node.arguments.length === 0;
+  }
+
+  // Rewrites `init()` → `init(<SymbolClass>, "<key>", __fileInfo)` — passing the concrete
+  // Symbol entity CONSTRUCTOR as a value (not a string kind), so init just `new`s it. The
+  // __fileInfo arg is omitted when the file has no resolvable package.
+  function transformInitCall(call: ts.CallExpression, symbolClass: string, key: string, loc: SourceLocation | null): ts.CallExpression {
+    const args: ts.Expression[] = [
+      ts.factory.createIdentifier(symbolClass),
+      ts.factory.createStringLiteral(key),
+    ];
+    if (loc != null) {
+      usedFileInfo = true;
+      args.push(ts.factory.createIdentifier(FILE_INFO_LOCAL));
+    }
+    return ts.factory.updateCallExpression(call, call.expression, call.typeArguments, args);
+  }
+
+  // The concrete Symbol entity class name for an `init()` from its declared container
+  // type: base-walk to the class/interface directly extending `Symbol`
+  // (ExecuteSymbol<E> / ConstructSymbol<E,…> → "OperationSymbol"; TypeConditionSymbol →
+  // itself). That class is emitted as the value reference passed to init(). null when the
+  // type does not descend from a `Symbol` base. Walks declaration heritage clauses (not
+  // getBaseTypes) so it is robust to generic instantiations like ExecuteSymbol<E>.
+  function deriveSymbolClassName(typeNode: ts.TypeNode): string | null {
+    let sym: ts.Symbol | undefined;
+    try {
+      sym = typeChecker.getTypeFromTypeNode(typeNode).getSymbol();
+    } catch {
+      return null;
+    }
+    return sym == null ? null : findSymbolClass(sym, new Set());
+  }
+
+  function findSymbolClass(sym: ts.Symbol, seen: Set<ts.Symbol>): string | null {
+    if (seen.has(sym)) return null;
+    seen.add(sym);
+
+    const name = sym.getName();
+    for (const decl of sym.getDeclarations() ?? []) {
+      if (!ts.isInterfaceDeclaration(decl) && !ts.isClassDeclaration(decl)) continue;
+      for (const heritage of decl.heritageClauses ?? []) {
+        if (heritage.token !== ts.SyntaxKind.ExtendsKeyword) continue;
+        for (const baseExpr of heritage.types) {
+          const baseName = cleanTypeName(exprToEntityName(baseExpr.expression));
+          if (baseName === 'Symbol')
+            return name; // the class directly extending Symbol (e.g. OperationSymbol)
+          let baseSym = typeChecker.getSymbolAtLocation(baseExpr.expression)
+            ?? typeChecker.getTypeAtLocation(baseExpr).getSymbol();
+          if (baseSym != null && (baseSym.flags & ts.SymbolFlags.Alias) !== 0) {
+            try { baseSym = typeChecker.getAliasedSymbol(baseSym); } catch { /* keep alias */ }
+          }
+          if (baseSym != null) {
+            const deeper = findSymbolClass(baseSym, seen);
+            if (deeper != null) return deeper;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  // The module specifier the declared Symbol type was imported from (e.g.
+  // "@altea/altea/entities/operations" for `ConstructSymbol` or `Operations.ConstructSymbol`).
+  // Used to emit a side-effect import so the entity module's registerSymbolKind runs.
+  function symbolModuleSpecifier(typeNode: ts.TypeNode): string | null {
+    if (!ts.isTypeReferenceNode(typeNode))
+      return null;
+    // Bare `ConstructSymbol` → resolve the identifier's import; qualified
+    // `Operations.ConstructSymbol` → resolve the `Operations` namespace import.
+    const target = ts.isQualifiedName(typeNode.typeName) ? typeNode.typeName.left : typeNode.typeName;
+    const ref = ts.isQualifiedName(target) ? target.right : target;
+    const sym = typeChecker.getSymbolAtLocation(ref);
+    for (const decl of sym?.declarations ?? []) {
+      if (ts.isImportSpecifier(decl)) {
+        const importDecl = decl.parent.parent.parent; // ImportSpecifier→NamedImports→ImportClause→ImportDeclaration
+        if (ts.isImportDeclaration(importDecl) && ts.isStringLiteral(importDecl.moduleSpecifier))
+          return importDecl.moduleSpecifier.text;
+      } else if (ts.isNamespaceImport(decl)) {
+        const importDecl = decl.parent.parent; // NamespaceImport→ImportClause→ImportDeclaration
+        if (ts.isImportDeclaration(importDecl) && ts.isStringLiteral(importDecl.moduleSpecifier))
+          return importDecl.moduleSpecifier.text;
+      }
+    }
+    return null;
+  }
+
+  // Prepends `import { <name> } from "<spec>";` unless a value (non-type-only) binding of
+  // <name> from <spec> already exists — so init(<name>, …) has the Symbol constructor in
+  // scope even when the file otherwise only `import type`s from that module.
+  function ensureNamedValueImport(sourceFile: ts.SourceFile, name: string, spec: string): ts.SourceFile {
+    const alreadyValue = sourceFile.statements.some(s => {
+      if (!ts.isImportDeclaration(s) || !ts.isStringLiteral(s.moduleSpecifier) || s.moduleSpecifier.text !== spec) return false;
+      const clause = s.importClause;
+      if (clause == null || clause.isTypeOnly) return false;
+      const nb = clause.namedBindings;
+      return nb != null && ts.isNamedImports(nb) && nb.elements.some(e => e.name.text === name && !e.isTypeOnly);
+    });
+    if (alreadyValue)
+      return sourceFile;
+    const imp = ts.factory.createImportDeclaration(
+      undefined,
+      ts.factory.createImportClause(false, undefined, ts.factory.createNamedImports([
+        ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier(name)),
+      ])),
+      ts.factory.createStringLiteral(spec),
+    );
+    return ts.factory.updateSourceFile(sourceFile, [imp, ...sourceFile.statements]);
+  }
+
+  // The rightmost identifier of an `extends X` / `extends A.B` expression, as an
+  // EntityName for cleanTypeName. Returns undefined for exotic expressions.
+  function exprToEntityName(expr: ts.Expression): ts.EntityName {
+    if (ts.isIdentifier(expr)) return expr;
+    if (ts.isPropertyAccessExpression(expr) && ts.isIdentifier(expr.name)) return expr.name;
+    return ts.factory.createIdentifier(""); // no match → cleanTypeName yields ""
+  }
+
   function isWithQuotedCall(node: ts.CallExpression): boolean {
     return ts.isIdentifier(node.expression) && node.expression.text == "withQuoted";
   }
@@ -958,6 +1079,16 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
       let quotedContextDepth = 0;
       let msgModuleName: string | null = null;
       let msgMemberName: string | null = null;
+      // The declared type of the current namespace member (e.g. the
+      // `ExecuteSymbol<UserEntity>` on `export const Save = init()`), used to derive an
+      // init()'s symbol-kind. Only set inside symbol/msg containers.
+      let msgMemberType: ts.TypeNode | null = null;
+      // Concrete Symbol classes referenced by init() calls in this file → the module
+      // they come from. A value `import { <Class> } from "<spec>"` is emitted for each so
+      // init(<Class>, …) has the constructor in scope (and, being a value import, it also
+      // loads the module). The declared symbol TYPE imports are erased `import type`, so
+      // they can't supply the value themselves.
+      let symbolClassImports: Map<string, string> = new Map();
 
       function visitWithQuotedContext<TNode extends ts.Node>(node: TNode): TNode {
         quotedContextDepth++;
@@ -987,6 +1118,40 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
           msgModuleName = node.name.text;
           const result = ts.visitEachChild(node, visit, ctx);
           msgModuleName = prev;
+          return result;
+        }
+
+        // Track container name for msg()/init() rewriting inside a top-level
+        // `export namespace X { ... }` — the declaration shape used for symbol
+        // containers (XOperation, XTypeCondition) and, going forward, message
+        // containers. The namespace name is the "module" half of the key.
+        if (ts.isModuleDeclaration(node) &&
+          ts.isIdentifier(node.name) &&
+          node.body != null && ts.isModuleBlock(node.body) &&
+          ts.isSourceFile(node.parent)
+        ) {
+          const prev = msgModuleName;
+          msgModuleName = node.name.text;
+          const result = ts.visitEachChild(node, visit, ctx);
+          msgModuleName = prev;
+          return result;
+        }
+
+        // Track member name/type for msg()/init() rewriting inside a namespace:
+        // each `export const Y: <Type> = <call>` supplies the member half of the key
+        // (Y) and, for init(), the declared type used to derive the symbol kind.
+        if (ts.isVariableDeclaration(node) &&
+          msgModuleName != null &&
+          ts.isIdentifier(node.name) &&
+          node.initializer && ts.isCallExpression(node.initializer)
+        ) {
+          const prevM = msgMemberName;
+          const prevT = msgMemberType;
+          msgMemberName = node.name.text;
+          msgMemberType = node.type ?? null;
+          const result = ts.visitEachChild(node, visit, ctx);
+          msgMemberName = prevM;
+          msgMemberType = prevT;
           return result;
         }
 
@@ -1029,6 +1194,22 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
             // A msg() container const: remember it so it gets registerObject'd.
             if (!registerObjectNames.includes(msgModuleName)) registerObjectNames.push(msgModuleName);
             return transformMsgCall(afterQuote, msgMemberName, msgModuleName);
+          }
+
+          if (ts.isCallExpression(afterQuote) && isInitCall(afterQuote) && msgModuleName != null && msgMemberName != null) {
+            // A symbol container const `= init()`: derive the kind from the declared
+            // type and inject (kind, "Container.member", __fileInfo). Signum's AutoInit.
+            const symbolClass = msgMemberType != null ? deriveSymbolClassName(msgMemberType) : null;
+            if (symbolClass == null) {
+              addNodeError(sourceFile, afterQuote, "init() must be assigned to a Symbol-typed `export const` inside a namespace, e.g. `export const Save: ExecuteSymbol<E> = init();`");
+              return afterQuote;
+            }
+            // Record a value import of the Symbol class so init(<Class>, …) resolves it
+            // (and loads its module). When the class is declared in this file (no import
+            // to resolve), it is already in scope — nothing to inject.
+            const spec = symbolModuleSpecifier(msgMemberType!);
+            if (spec != null) symbolClassImports.set(symbolClass, spec);
+            return transformInitCall(afterQuote, symbolClass, `${msgModuleName}.${msgMemberName}`, sourceLocation);
           }
 
           if (ts.isCallExpression(afterQuote))
@@ -1157,6 +1338,11 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
         if (registerObjectNames.length > 0) result = ensureImported(result, "registerObject", OBJECT_ANCHOR);
         result = appendRegistrations(result, registerNames, autoEnumNames, registerObjectNames, null);
       }
+
+      // Ensure each Symbol class passed to an init() is imported as a value.
+      for (const [name, spec] of symbolClassImports)
+        result = ensureNamedValueImport(result, name, spec);
+
       return result;
 
     };

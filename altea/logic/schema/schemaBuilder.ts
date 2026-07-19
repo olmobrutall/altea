@@ -36,6 +36,7 @@ import { TableIndex, recordAccessedFields } from './tableIndex';
 import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../entities/enumEntity';
 import { TypeEntity } from '../../entities/typeEntity';
+import { isSymbolType } from '../../entities/symbol';
 import { TypeLogic } from '../typeLogic';
 
 // Entity base fields handled specially (id, ticks) or excluded from the schema.
@@ -189,7 +190,10 @@ export class SchemaBuilder {
         // assigned by TypeLogic, [TicksColumn(false)] in Signum), so it shares the
         // non-identity-PK / no-ticks treatment.
         const isEnumEntity = isEnumEntityType(type);
-        const isSeeded = isEnumEntity || typeConstructor(type) === TypeEntity;
+        // Symbol tables (OperationSymbol, …) join TypeEntity/enum tables in the seeded
+        // set: SymbolLogic assigns and seeds their ids, so they need a non-identity PK
+        // and no ticks column.
+        const isSeeded = isEnumEntity || typeConstructor(type) === TypeEntity || isSymbolType(typeConstructor(type));
 
         // Primary key + ticks first, so FK columns can read the PK db type.
         const idInfo = typeInfo.fields['id'] ?? new FieldInfo('id');

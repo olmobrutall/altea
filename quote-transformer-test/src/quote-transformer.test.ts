@@ -290,4 +290,73 @@ registerObject(ValidationMessage, "ValidationMessage", __fileInfo);`
             `const ValidationMessage = { _0IsNotSet: other() };`
         );
     });
+
+    test('msg() inside a namespace injects member and module and registers the namespace', () => {
+        assertSimpleTransform(
+            MSG_DECL +
+            `export namespace UserMessage {
+    export const UserIsNotActive: any = msg();
+}`,
+            MSG_DECL +
+            `export namespace UserMessage {
+    export const UserIsNotActive: any = msg(undefined, "UserIsNotActive", "UserMessage");
+}
+registerObject(UserMessage, "UserMessage", __fileInfo);`
+        );
+    });
+});
+
+describe('init() symbol-declaration transform', () => {
+    // Minimal Symbol hierarchy so the type checker can base-walk the kind:
+    // ExecuteSymbol/… base-walk to OperationSymbol (the class extending Symbol), which is
+    // emitted as the value ref passed to init(). Declared inline here, so it's already in
+    // scope — no value-import is injected (that only happens for imported Symbol classes).
+    const SYM_DECL =
+        `function init<S>(): S;\n` +
+        `function init(...args: any[]): any { return null; }\n` +
+        `class Symbol { key: string; }\n` +
+        `class OperationSymbol extends Symbol { }\n` +
+        `interface ExecuteSymbol<T> extends OperationSymbol { _execute_: T }\n` +
+        `interface DeleteSymbol<T> extends OperationSymbol { _delete_: T }\n` +
+        `interface ConstructSymbol_Simple<T> extends OperationSymbol { _construct_: T }\n` +
+        `class UserEntity { id: number; }\n`;
+
+    test('init() injects the Symbol class + key + __fileInfo for each namespace member', () => {
+        assertSimpleTransform(
+            SYM_DECL +
+            `export namespace UserOperation {
+    export const Create: ConstructSymbol_Simple<UserEntity> = init();
+    export const Save: ExecuteSymbol<UserEntity> = init();
+    export const Delete: DeleteSymbol<UserEntity> = init();
+}`,
+            SYM_DECL +
+            `export namespace UserOperation {
+    export const Create: ConstructSymbol_Simple<UserEntity> = init(OperationSymbol, "UserOperation.Create", __fileInfo);
+    export const Save: ExecuteSymbol<UserEntity> = init(OperationSymbol, "UserOperation.Save", __fileInfo);
+    export const Delete: DeleteSymbol<UserEntity> = init(OperationSymbol, "UserOperation.Delete", __fileInfo);
+}`
+        );
+    });
+
+    test('init() without a Symbol-typed annotation is left untouched', () => {
+        assertSimpleTransform(
+            SYM_DECL +
+            `export namespace UserOperation {
+    export const Loose = init();
+}`,
+            SYM_DECL +
+            `export namespace UserOperation {
+    export const Loose = init();
+}`
+        );
+    });
+
+    test('init() outside a namespace is left untouched', () => {
+        assertSimpleTransform(
+            SYM_DECL +
+            `export const Save: ExecuteSymbol<UserEntity> = init();`,
+            SYM_DECL +
+            `export const Save: ExecuteSymbol<UserEntity> = init();`
+        );
+    });
 });

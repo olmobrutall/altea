@@ -227,6 +227,7 @@ export {
     registerEnum, resolveEnum, enumNameOf,
     registerObject, resolveObject,
     getLocation,
+    init, declaredSymbolsForType,
 } from './registration';
 export type { FileInfo } from './registration';
 
