@@ -23,6 +23,8 @@ export class ColumnToken extends QueryToken {
     get parent(): QueryToken | undefined { return undefined; }
     override get queryName(): QueryName { return this._queryName; }
 
+    override isEntity(): boolean { return this.column.isEntity; }
+
     get key(): string { return this.column.name; }
     override toString(): string { return this.column.displayName; }
     niceName(): string { return this.column.displayName; }

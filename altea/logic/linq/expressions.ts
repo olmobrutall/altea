@@ -39,7 +39,7 @@ function isQueryMarker(v: unknown): boolean {
     return f.__isQuerySource === true || f.__sqlMethod != null;
 }
 
-function evalUnaryOp(op: OpUnary, a: any): unknown {
+export function evalUnaryOp(op: OpUnary, a: any): unknown {
     switch (op) {
         case "!": return !a;
         case "~": return ~a;
@@ -48,7 +48,7 @@ function evalUnaryOp(op: OpUnary, a: any): unknown {
     }
 }
 
-function evalBinaryOp(op: OpBinary, a: any, b: any): unknown {
+export function evalBinaryOp(op: OpBinary, a: any, b: any): unknown {
     switch (op) {
         case "==": return a == b;
         case "===": return a === b;

@@ -123,6 +123,13 @@ export abstract class QueryToken {
         return this.parent!.queryName;
     }
 
+    // Signum's GetElementImplementations: the implementations of a collection's element type
+    // (this token's property route + "Item").
+    getElementImplementations(): Implementations | undefined {
+        const pr = this.getPropertyRoute();
+        return pr != undefined ? pr.add("Item").tryGetImplementations() : undefined;
+    }
+
     // Signum's QueryToken.BuildExpression: resolve from the seeded replacements (a projected
     // column), else recurse into buildExpressionInternal. (Auth value-hiding is not modelled.)
     buildExpression(context: BuildExpressionContext): Expression {
@@ -134,6 +141,12 @@ export abstract class QueryToken {
 
     fullKey(): string {
         return this.parent == undefined ? this.key : this.parent.fullKey() + "." + this.key;
+    }
+
+    // Signum's QueryToken.IsEntity(): true only for the row's own "Entity" ColumnToken. Overridden
+    // by ColumnToken; false for every other token.
+    isEntity(): boolean {
+        return false;
     }
 
     // ---- Sub-token discovery + cache (Signum's CachedSubTokensOverride/SubTokenInternal/…) ----
@@ -187,20 +200,39 @@ export abstract class QueryToken {
 
     // ---- SubTokensBase — the type-driven sub-token generator (Signum's SubTokensBase) --------
 
-    protected subTokensBase(type: RuntimeType, _options: SubTokensOptions, implementations: Implementations | undefined): QueryToken[] {
+    protected subTokensBase(type: RuntimeType, options: SubTokensOptions, implementations: Implementations | undefined): QueryToken[] {
         if (type === LiteralType.string)
             return this.andHasValue(this.stringTokens());
 
-        // TODO(phase3b): StepTokens (number) + DateTimeProperties (temporal). HasValue still applies.
-        if (type === LiteralType.number || type === LiteralType.boolean || type instanceof EnumType || type instanceof TemporalType)
+        // Integer buckets. TODO(phase3b+): StepTokens (the Step/Multiplier/Rounding chain).
+        // altea's RuntimeType collapses int/decimal to number, so modulo is offered for all numbers.
+        if (type === LiteralType.number)
+            return this.andHasValue(this.andModuloTokens([]));
+
+        if (type instanceof TemporalType) {
+            if (type.kind === "dateTime")
+                return this.andHasValue(this.dateTimeProperties());
+            if (type.kind === "date")
+                return this.andHasValue(this.dateOnlyProperties());
+            return this.andHasValue([]); // duration TODO(phase3b+): TimeSpanProperties
+        }
+
+        if (type === LiteralType.boolean || type instanceof EnumType)
             return this.andHasValue([]);
 
         const ct = cleanType(type);
         const entityCtor = entityCtorOf(ct);
         if (entityCtor != undefined) {
             const imp = implementations;
-            if (imp == undefined || imp.isByAll)
-                return []; // TODO(phase4): EntityTypeToken + GetImplementedByAllSubTokens (needs Schema).
+            if (imp == undefined)
+                return [];
+            if (imp.isByAll) {
+                // @implementedByAll: one AsTypeToken per mapped entity type assignable to `entityCtor`
+                // (Signum's QueryLogic.GetImplementedByAllSubTokens). The provider is wired by
+                // queryLogic.ts (needs the Schema). TODO(phase3c): PreAnd(EntityTypeToken).
+                const provider = implementedByAllTypesProvider;
+                return provider == undefined ? [] : provider(entityCtor).map(t => tokenFactories!.asType(this, t));
+            }
 
             const only = imp.only();
             if (only != undefined && only === entityCtor) {
@@ -214,7 +246,7 @@ export abstract class QueryToken {
             }
 
             // Polymorphic (implementedBy many): one AsTypeToken per implementation.
-            // TODO(phase3b): PreAnd(EntityTypeToken).
+            // TODO(phase3c): PreAnd(EntityTypeToken) — the "[EntityType]" sub-token.
             return imp.types.map(t => tokenFactories!.asType(this, t));
         }
 
@@ -223,9 +255,20 @@ export abstract class QueryToken {
             return this.andHasValue(this.entityProperties(embeddedCtor));
 
         if (type instanceof ArrayType)
-            return []; // TODO(phase3b): CollectionProperties (Count / element / anyAll / toArray).
+            return this.collectionProperties(options);
 
         return [];
+    }
+
+    // Signum's CollectionProperties: the sub-tokens of a collection. Count + one CollectionElement
+    // token per CollectionElementType (Element/Element2/Element3, gated by CanElement).
+    // TODO(phase3d+): CanNested/CanAnyAll/CanToArray + MListElementPropertyToken (RowId/RowOrder).
+    protected collectionProperties(options: SubTokensOptions): QueryToken[] {
+        const tokens: QueryToken[] = [tokenFactories!.count(this)];
+        if (options & SubTokensOptions.CanElement)
+            for (const et of ["Element", "Element2", "Element3"])
+                tokens.push(tokenFactories!.collectionElement(this, et));
+        return tokens;
     }
 
     // Signum's list.AndHasValue(this): every value/entity list gets a trailing HasValue token.
@@ -237,6 +280,34 @@ export abstract class QueryToken {
     // Signum's StringTokens(): the string `Length` sub-token. (FullText/Snippet/Translated TODO.)
     protected stringTokens(): QueryToken[] {
         return [tokenFactories!.netProperty(this, "length", LiteralType.number, "Length", false)];
+    }
+
+    // Signum's AndModuloTokens: integer bucket sub-tokens.
+    protected andModuloTokens(list: QueryToken[]): QueryToken[] {
+        for (const d of [10, 100, 1000, 10000])
+            list.push(tokenFactories!.modulo(this, d));
+        return list;
+    }
+
+    // Signum's DateTimeProperties: the date/time part sub-tokens. Members are altea's binder names
+    // (quarter is a method; weekNumber is unsupported by the binder → skipped, as are the
+    // DatePartStart "Month/Quarter/… Start" and TimeOfDay tokens — Phase 3b+).
+    protected dateTimeProperties(): QueryToken[] {
+        const part = (name: string, method = false) =>
+            tokenFactories!.netProperty(this, name, LiteralType.number, capitalize(name), method);
+        return [
+            part("year"), part("quarter", true), part("month"),
+            part("dayOfYear"), part("day"), part("dayOfWeek"),
+            part("hour"), part("minute"), part("second"), part("millisecond"),
+            tokenFactories!.dateToken(this),
+        ];
+    }
+
+    // Signum's DateOnlyProperties: the date (no time) part sub-tokens.
+    protected dateOnlyProperties(): QueryToken[] {
+        const part = (name: string, method = false) =>
+            tokenFactories!.netProperty(this, name, LiteralType.number, capitalize(name), method);
+        return [part("year"), part("quarter", true), part("month"), part("dayOfYear"), part("day"), part("dayOfWeek")];
     }
 
     // Signum's EntityProperties: one EntityPropertyToken per queryable field of `type` (mixins
@@ -294,6 +365,10 @@ function getQueryKey(queryName: QueryName): string {
     return typeof queryName === "function" ? queryName.name : String(queryName);
 }
 
+function capitalize(s: string): string {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 // Factory hook (Signum builds these directly; altea injects them to break the static import cycle
 // — every concrete token extends QueryToken, so the base can't import them). `tokens/factories.ts`
 // imports all concrete tokens and registers them; consumers import that module (or the barrel).
@@ -304,8 +379,21 @@ export interface TokenFactories {
     hasValue(parent: QueryToken): QueryToken;
     netProperty(parent: QueryToken, memberName: string, resultType: RuntimeType, displayName: string, isMethod: boolean, format?: string, unit?: string): QueryToken;
     asType(parent: QueryToken, entityCtor: Function): QueryToken;
+    dateToken(parent: QueryToken): QueryToken;
+    modulo(parent: QueryToken, divisor: number): QueryToken;
+    count(parent: QueryToken): QueryToken;
+    collectionElement(parent: QueryToken, elementType: string): QueryToken;
 }
 let tokenFactories: TokenFactories | undefined;
 export function registerTokenFactories(f: TokenFactories): void {
     tokenFactories = f;
+}
+
+// The source of implementations for an @implementedByAll reference: all mapped entity types
+// assignable to the given clean type (Signum's QueryLogic.GetImplementedByAllSubTokens type set).
+// Wired by queryLogic.ts (needs the Schema, so it can't live in the base). Unset ⇒ byAll yields no
+// sub-tokens.
+let implementedByAllTypesProvider: ((cleanTypeCtor: Function) => Function[]) | undefined;
+export function setImplementedByAllTypesProvider(fn: (cleanTypeCtor: Function) => Function[]): void {
+    implementedByAllTypesProvider = fn;
 }
