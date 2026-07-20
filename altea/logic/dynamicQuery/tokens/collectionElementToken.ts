@@ -27,6 +27,8 @@ export class CollectionElementToken extends QueryToken {
         this.elementType = et;
     }
 
+    override isCollectionToken(): boolean { return true; }
+
     get parent(): QueryToken | undefined { return this._parent; }
     get key(): string { return this.collectionElementType; }
     override toString(): string { return this.collectionElementType; }

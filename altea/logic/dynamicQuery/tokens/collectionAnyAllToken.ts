@@ -31,6 +31,8 @@ export class CollectionAnyAllToken extends QueryToken {
         this.elementType = et;
     }
 
+    override isCollectionToken(): boolean { return true; }
+
     get parent(): QueryToken | undefined { return this._parent; }
     get key(): string { return this.anyAllType; }
     override toString(): string { return this.anyAllType; }

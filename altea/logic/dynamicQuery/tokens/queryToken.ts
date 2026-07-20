@@ -149,6 +149,25 @@ export abstract class QueryToken {
         return false;
     }
 
+    // A collection quantifier/element token (Element/AnyAll/Nested). Overridden by those tokens; used
+    // by `dominates` to reset domination across a collection boundary (avoids the base importing the
+    // subclasses — an import cycle).
+    isCollectionToken(): boolean {
+        return false;
+    }
+
+    // Port of Signum's QueryToken.Dominates: `this` is a strict ancestor of `t` reached by pure
+    // navigation — no collection token (Element/AnyAll/Nested) in between. Crossing a collection
+    // multiplies rows, so a descendant there is NOT functionally determined by the ancestor and
+    // domination stops. Used by GroupBy to drop redundant (determined) group keys.
+    dominates(t: QueryToken): boolean {
+        if (t.isCollectionToken())
+            return false;
+        if (t.parent == undefined)
+            return false;
+        return t.parent.equals(this) || this.dominates(t.parent);
+    }
+
     // ---- Sub-token discovery + cache (Signum's CachedSubTokensOverride/SubTokenInternal/…) ----
 
     private subTokenCache = new Map<SubTokensOptions, Map<string, QueryToken>>();

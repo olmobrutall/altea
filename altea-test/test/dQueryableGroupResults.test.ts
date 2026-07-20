@@ -50,7 +50,7 @@ const requestSql = (req: QueryRequest) =>
 describe("groupResults wired into allQueryOperations", () => {
     test("aggregate columns → GROUP BY the non-aggregate columns", () => {
         const req = new QueryRequest(AlbumEntity, [], [],
-            [new Column(tok("state")), new Column(new AggregateToken(AggregateFunction.Count, undefined, AlbumEntity))],
+            [new Column(tok("state")), new Column(new AggregateToken(AggregateFunction.Count, undefined, { queryName: AlbumEntity }))],
             new Pagination.All(), /* groupResults */ true);
         const s = requestSql(req);
         assert.match(s, /group by a\.stateid/);
@@ -58,7 +58,7 @@ describe("groupResults wired into allQueryOperations", () => {
     });
 
     test("simple filter → WHERE before the group; aggregate filter → HAVING (outer WHERE on the aggregate)", () => {
-        const count = new AggregateToken(AggregateFunction.Count, undefined, AlbumEntity);
+        const count = new AggregateToken(AggregateFunction.Count, undefined, { queryName: AlbumEntity });
         const req = new QueryRequest(AlbumEntity,
             [
                 new FilterCondition(tok("year"), FilterOperation.GreaterThan, 1900),        // WHERE
@@ -81,7 +81,7 @@ describe("groupResults wired into allQueryOperations", () => {
     });
 
     test("isAggregate classifies filters", () => {
-        const count = new AggregateToken(AggregateFunction.Count, undefined, AlbumEntity);
+        const count = new AggregateToken(AggregateFunction.Count, undefined, { queryName: AlbumEntity });
         assert.equal(new FilterCondition(count, FilterOperation.GreaterThan, 1).isAggregate(), true);
         assert.equal(new FilterCondition(tok("year"), FilterOperation.GreaterThan, 1).isAggregate(), false);
     });

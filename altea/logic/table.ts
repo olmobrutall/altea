@@ -11,6 +11,7 @@ import { AggregateRewriter } from "./linq/visitors/AggregateRewriter";
 import { OrderByRewriter } from "./linq/visitors/OrderByRewriter";
 import { QueryRebinder } from "./linq/visitors/QueryRebinder";
 import { RedundantSubqueryRemover } from "./linq/visitors/RedundantSubqueryRemover";
+import { RedundantJoinRemover } from "./linq/visitors/RedundantJoinRemover";
 import { UnusedColumnRemover } from "./linq/visitors/UnusedColumnRemover";
 import { ConditionsRewriter } from "./linq/visitors/ConditionsRewriter";
 import { ScalarSubqueryRewriter } from "./linq/visitors/ScalarSubqueryRewriter";
@@ -119,6 +120,9 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
     // runs UnusedColumnRemover here, right before collapsing redundant subqueries.
     projection = UnusedColumnRemover.remove(projection);
     projection = RedundantSubqueryRemover.remove(projection, isPostgres);
+    // Merge identical entity-completion joins (e.g. `label.toLite()` + `label.name` → one Label join)
+    // now that subquery collapse has settled both onto the same owner FK.
+    projection = RedundantJoinRemover.remove(projection) as ProjectionExpression;
     if (!isPostgres)
         projection = ConditionsRewriter.rewrite(projection);
     // SQL Server can't aggregate over a scalar subquery — lift those to OUTER APPLYs

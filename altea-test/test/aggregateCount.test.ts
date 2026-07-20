@@ -12,12 +12,12 @@ import { SubTokensOptionsAll } from "@altea/altea/logic/dynamicQuery/tokens/quer
 import { ColumnToken } from "@altea/altea/logic/dynamicQuery/tokens/columnToken";
 import { AggregateToken, AggregateFunction } from "@altea/altea/logic/dynamicQuery/tokens/aggregateToken";
 import { DQueryable } from "@altea/altea/logic/dynamicQuery/dQueryable";
+import { FilterOperation } from "@altea/altea/logic/dynamicQuery/requests";
 import "@altea/altea/logic/dynamicQuery/tokens/factories";
 import { MusicLogic } from "../logic/MusicLogic";
 import { AlbumEntity } from "../entities/music";
 
-// Phase-5: DQueryable.groupBy — group by key tokens, compute aggregate tokens over each group
-// (Signum's DQueryable.GroupBy), onto altea's `groupBy(key).map(g => …over g.elements…)`.
+// Phase-5: Count variants — Count where <token> <op> <value> and Count distinct.
 
 const O = SubTokensOptionsAll;
 const sb = new SchemaBuilder();
@@ -32,55 +32,45 @@ class FakeConnector extends Connector {
     cleanDatabase(): Promise<void> { return Promise.resolve(); }
 }
 const fake = new FakeConnector();
-
 const et = () => {
     const col = new ColumnDescription("Entity", new ClassType(AlbumEntity), "Album");
     col.implementations = Implementations.by(AlbumEntity);
     return new ColumnToken(col, AlbumEntity);
 };
 const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s, O), et());
-const base = () => { const q = table(AlbumEntity); return DQueryable.fromEntity(q.elementType, q.expression); };
-const groupSql = (keys: any[], aggs: AggregateToken[]) =>
+const groupSql = (agg: AggregateToken) =>
     Connector.withConnector(fake, () =>
-        QueryFormatter.format(base().groupBy(keys, aggs).select([...keys, ...aggs]).bindProjection().select, false)
+        QueryFormatter.format(
+            DQueryable.fromEntity(table(AlbumEntity).elementType, table(AlbumEntity).expression)
+                .groupBy([tok("state")], [agg]).select([tok("state"), agg]).bindProjection().select, false)
             .sql.replace(/\s+/g, " ").toLowerCase());
 
-describe("DQueryable.groupBy → GROUP BY + aggregates", () => {
-    test("group by state, count + sum(year)", () => {
-        const s = groupSql([tok("state")], [
-            new AggregateToken(AggregateFunction.Count, undefined, { queryName: AlbumEntity }),
-            new AggregateToken(AggregateFunction.Sum, tok("year")),
-        ]);
-        assert.match(s, /group by a\.stateid/);
+describe("Count variants", () => {
+    test("plain Count → COUNT(*)", () => {
+        const s = groupSql(new AggregateToken(AggregateFunction.Count, undefined, { queryName: AlbumEntity }));
         assert.match(s, /count\(\*\)/);
-        assert.match(s, /sum\(a\.year\)/);
     });
 
-    test("min + max over the group", () => {
-        const s = groupSql([tok("state")], [
-            new AggregateToken(AggregateFunction.Min, tok("year")),
-            new AggregateToken(AggregateFunction.Max, tok("year")),
-        ]);
-        assert.match(s, /min\(a\.year\)/);
-        assert.match(s, /max\(a\.year\)/);
+    test("Count where year > 1990 → filtered count (CASE)", () => {
+        const s = groupSql(new AggregateToken(AggregateFunction.Count, tok("year"), { filterOperation: FilterOperation.GreaterThan, value: 1990 }));
+        assert.match(s, /count\(case when \(a\.year > @p/);
     });
 
-    test("multi-key group (state, year)", () => {
-        const s = groupSql([tok("state"), tok("year")], [
-            new AggregateToken(AggregateFunction.Count, undefined, { queryName: AlbumEntity }),
-        ]);
-        assert.match(s, /group by/);
-        assert.match(s, /stateid/);
-        assert.match(s, /year/);
+    test("Count distinct year → COUNT(DISTINCT …) (not a subquery)", () => {
+        const s = groupSql(new AggregateToken(AggregateFunction.Count, tok("year"), { distinct: true }));
+        // The LINQ provider's disassembleAggregate lowers map(sel).distinct().filter(notNull).count()
+        // to a real COUNT(DISTINCT sel) — no `SELECT DISTINCT` subquery.
+        assert.match(s, /count\(distinct a\.year\)/);
+        assert.doesNotMatch(s, /select distinct/);
     });
-});
 
-describe("grouped context resolves key + aggregate tokens", () => {
-    test("select after groupBy reads the key and the aggregate slots", () => {
-        const stateTok = tok("state");
-        const countAgg = new AggregateToken(AggregateFunction.Count, undefined, { queryName: AlbumEntity });
-        const grouped = base().groupBy([stateTok], [countAgg]);
-        const proj = Connector.withConnector(fake, () => grouped.select([stateTok, countAgg]).bindProjection());
-        assert.equal(proj.select.columns.length, 2);
+    test("distinct vs filtered Counts have distinct keys", () => {
+        const plain = new AggregateToken(AggregateFunction.Count, undefined, { queryName: AlbumEntity });
+        const distinct = new AggregateToken(AggregateFunction.Count, tok("year"), { distinct: true });
+        const where = new AggregateToken(AggregateFunction.Count, tok("year"), { filterOperation: FilterOperation.GreaterThan, value: 1990 });
+        assert.notEqual(plain.key, distinct.key);
+        assert.notEqual(distinct.key, where.key);
+        assert.equal(plain.key, "Count");
+        assert.equal(distinct.key, "CountDistinct");
     });
 });

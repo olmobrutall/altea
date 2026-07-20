@@ -136,31 +136,48 @@ export class DQueryable {
     // (altea has no result-selector groupBy overload — it's `groupBy(key).map(g => …)`). The new
     // context resolves each key token to `gr.kI` and each aggregate token to `gr.aI`.
     groupBy(keyTokens: QueryToken[], aggregateTokens: AggregateToken[]): DQueryable {
-        // Key selector: row => { k0: key0, k1: key1, … }
+        // Signum's GetRootKeyTokens: a key dominated by another key is functionally determined by it
+        // (`Customer.Name` given `Customer`), so it's dropped from the GROUP BY and recovered as a
+        // constant read off the group's key. Only the root keys become real GROUP BY columns.
+        const rootKeys = getRootKeyTokens(keyTokens);
+        const redundantKeys = keyTokens.filter(t => !rootKeys.includes(t));
+
+        // Key selector over ROOT keys only: row => { k0: root0, k1: root1, … }
         const keyProps: Record<string, Expression> = {};
-        keyTokens.forEach((t, i) => { keyProps["k" + i] = t.buildExpression(this.context); });
+        rootKeys.forEach((t, i) => { keyProps["k" + i] = t.buildExpression(this.context); });
         const keyTuple = new ObjectExpression(keyProps);
         const keyLambda = new LambdaExpression([this.context.parameter], keyTuple);
 
         const groupingType = new ObjectType({ key: keyTuple.type, elements: new ArrayType(this.context.elementType) });
         const groupBy = new CallExpression(new PropertyExpression(this.query, "groupBy"), [keyLambda], new ArrayType(groupingType));
 
-        // Result selector: g => { k0: g.key.k0, …, a0: <aggregate over g.elements>, … }
         const gParam = new ParameterExpression("g", groupingType);
         const gKey = new PropertyExpression(gParam, "key");
         const gElements = new PropertyExpression(gParam, "elements");
+
+        // A temp context resolving each root key to its key-tuple slot, so a redundant key navigates
+        // off the group's key (`g.key.k0.name`) — the constant-per-group value.
+        const tempReplacements = new Map<string, ExpressionBox>();
+        rootKeys.forEach((t, i) => tempReplacements.set(t.fullKey(), new ExpressionBox(new PropertyExpression(gKey, "k" + i))));
+        // (Param is unused — a redundant key's chain hits a root-key replacement before the param.)
+        const tempContext = new BuildExpressionContext(keyTuple.type, gParam, tempReplacements);
+
+        // Result selector: one slot per root key, redundant key, and aggregate (all named cN so the
+        // grouped context resolves any requested column token by fullKey).
+        const entries: { token: QueryToken; expr: Expression }[] = [
+            ...rootKeys.map((t, i) => ({ token: t, expr: new PropertyExpression(gKey, "k" + i) as Expression })),
+            ...redundantKeys.map(t => ({ token: t, expr: t.buildExpression(tempContext) })),
+            ...aggregateTokens.map(at => ({ token: at as QueryToken, expr: at.buildAggregate(gElements, this.context) })),
+        ];
         const resultProps: Record<string, Expression> = {};
-        keyTokens.forEach((_t, i) => { resultProps["k" + i] = new PropertyExpression(gKey, "k" + i); });
-        aggregateTokens.forEach((at, i) => { resultProps["a" + i] = at.buildAggregate(gElements, this.context); });
+        entries.forEach((e, i) => { resultProps["c" + i] = e.expr; });
         const resultTuple = new ObjectExpression(resultProps);
         const resultLambda = new LambdaExpression([gParam], resultTuple);
         const mapped = new CallExpression(new PropertyExpression(groupBy, "map"), [resultLambda], new ArrayType(resultTuple.type));
 
-        // New context: key token → gr.kI, aggregate token → gr.aI.
         const grParam = new ParameterExpression("gr", resultTuple.type as ObjectType);
         const replacements = new Map<string, ExpressionBox>();
-        keyTokens.forEach((t, i) => replacements.set(t.fullKey(), new ExpressionBox(new PropertyExpression(grParam, "k" + i))));
-        aggregateTokens.forEach((at, i) => replacements.set(at.fullKey(), new ExpressionBox(new PropertyExpression(grParam, "a" + i))));
+        entries.forEach((e, i) => replacements.set(e.token.fullKey(), new ExpressionBox(new PropertyExpression(grParam, "c" + i))));
         return new DQueryable(mapped, new BuildExpressionContext(resultTuple.type, grParam, replacements));
     }
 
@@ -273,5 +290,11 @@ export class DQueryable {
     async allQueryOperationsAsync(request: QueryRequest): Promise<DEnumerableCount> {
         return await this.buildQueryOperations(request).tryPaginateAsync(request.pagination);
     }
+}
+
+// Signum's GetRootKeyTokens: the group keys not dominated by another key (their descendants are
+// redundant — functionally determined — and are recovered per-group instead of grouped on).
+function getRootKeyTokens(keyTokens: QueryToken[]): QueryToken[] {
+    return keyTokens.filter(t => !keyTokens.some(t2 => t2 !== t && t2.dominates(t)));
 }
 
