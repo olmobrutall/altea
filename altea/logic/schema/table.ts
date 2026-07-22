@@ -49,12 +49,12 @@ export class Table {
     // (`e => e.code`, `e => [e.a, e.b]`); `where` is a filtered-index predicate captured by the
     // transformer (`e => e.active`); `includeFields` selects INCLUDE columns. Returns the table
     // for chaining.
-    withIndex(fields: (element: any) => unknown, where?: Quoted<(element: any) => boolean>, includeFields?: (element: any) => unknown): Table {
+    addIndex(fields: (element: any) => unknown, where?: Quoted<(element: any) => boolean>, includeFields?: (element: any) => unknown): Table {
         this.addFluentIndex(fields, false, where, includeFields);
         return this;
     }
 
-    withUniqueIndex(fields: (element: any) => unknown, where?: Quoted<(element: any) => boolean>, includeFields?: (element: any) => unknown): Table {
+    addUniqueIndex(fields: (element: any) => unknown, where?: Quoted<(element: any) => boolean>, includeFields?: (element: any) => unknown): Table {
         this.addFluentIndex(fields, true, where, includeFields);
         return this;
     }
@@ -108,12 +108,4 @@ export class Table {
 
         this.columns = columns;
     }
-}
-
-// The Table returned by SchemaBuilder.include<T>(), typed so its withIndex/withUniqueIndex
-// selectors are strongly typed to the entity (Signum's FluentInclude<T>). It IS the Table
-// (extends it), so the internal builder uses that still work.
-export interface FluentTable<T> extends Table {
-    withIndex(fields: (element: T) => unknown, where?: Quoted<(element: T) => boolean>, includeFields?: (element: T) => unknown): FluentTable<T>;
-    withUniqueIndex(fields: (element: T) => unknown, where?: Quoted<(element: T) => boolean>, includeFields?: (element: T) => unknown): FluentTable<T>;
 }

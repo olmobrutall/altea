@@ -98,8 +98,6 @@ TODO:
 - [ ] `SelectWithNestedQueries` / `CollectionNestedToken` (nested result sub-tables).
 - [ ] `CollectionAnyAllToken` (`.Any`/`.All`/`.NoOne`), `CollectionToArrayToken` (`.ToArray*`),
       `MListElementPropertyToken` (RowId/RowOrder).
-- [ ] `ColumnDescriptionFactory` (auto-derive columns from a `withQuery` projection) — today callers
-      build ColumnDescriptions / navigate tokens by hand.
 
 ## 3c — Remaining leaf tokens  (not blocked; low priority)
 
@@ -122,15 +120,35 @@ TODO:
 - [ ] `QueryLogic.Start(sb)` — `Include<QueryEntity>().WithQuery(...)`, the `QueryNameToEntity` /
       `liteToEntity` caches, `Schema_Generating` (seed QueryEntity rows), `SynchronizeQueries` (diff
       rows via the existing Synchronizer). Mirror TypeLogic/SymbolLogic.
-- [ ] `DynamicQueryContainer` (`DynamicQuery/DynamicQueryContainer.cs`) — real query registration via
-      `sb.include(T).withQuery(() => selector)`; replaces the interim `QueryLogic.registerQuery`.
-      `GetQueryNames` / `GetEntityImplementations` / `GetTypeQueries`.
-- [ ] `ExpressionContainer` (`DynamicQuery/ExpressionContainer.cs`) + `ExtensionToken` — registered
-      cross-entity expression sub-tokens (Signum's `QueryLogic.Expressions`). Merge into
-      `QueryToken.cachedSubTokensOverride` (the TODO(phase4) hook there).
-- [ ] `ColumnDescriptionFactory` (`DynamicQuery/ColumnDescriptionFactory.cs`) + `Meta.cs` — auto-derive
-      a query's `ColumnDescription[]` (Type/Implementations/PropertyRoutes/Format/Unit) from a
-      `withQuery` projection, replacing hand-built ColumnDescriptions.
+- [x] `FluentInclude<T>` (`schema/fluentInclude.ts`) — `sb.include(T)` now returns a FluentInclude
+      wrapping `{ table, schemaBuilder }` with `withIndex`/`withUniqueIndex` (+ `withQuery`/`withExpressionTo`
+      by declaration merging from the dynamicQuery layer), like Signum. Internal callers use `.table`.
+- [x] `withQuery` (`dynamicQuery/fluentIncludeQuery.ts`) — `sb.include(T).withQuery(r => ({ Entity: r,
+      name: r.name, … }))` registers a lazy `AutoDynamicQueryCore` into `QueryLogic.Queries` (the
+      DynamicQueryContainer), keyed by the entity type. Its QueryDescription is derived via
+      ColumnDescriptionFactory; its runnable source is `table(T).map(selector)`.
+- [x] `ColumnDescriptionFactory` (`dynamicQuery/columnDescriptionFactory.ts`) — derives each column's
+      PropertyRoute by walking the projection member expression from the row param (altea reads the
+      route off the quoted expression; no Meta.cs visitor). Type = reference→Lite, else route.type;
+      implementations = route.tryGetImplementations().
+- [x] `ExpressionContainer` + `ExtensionToken` (`dynamicQuery/expressionContainer.ts`,
+      `tokens/extensionToken.ts`) — `QueryLogic.expressions` (instantiated + owned by QueryLogic, which
+      also wires `setExtensionTokensProvider`/`setBuildExtensionExpr`) / `withExpressionTo(a =>
+      a.albumCount())` + `withExpressionFrom(SourceType, s => …)` register a cross-entity expression as
+      a sub-token; BuildExpression inlines the registered lambda against the parent (ParameterReplacer).
+      Key derived from the RAW quoted body's tail member (the expanded body loses the method name).
+      Wired into `QueryToken.cachedSubTokensOverride`. `withExpressionFrom`'s source = the lambda's
+      param type (a DIFFERENT entity), passed explicitly since altea can't read it off a quoted lambda.
+- [x] `DynamicQueryContainer` (`dynamicQuery/dynamicQueryContainer.ts`) + `DynamicQueryCore` /
+      `AutoDynamicQueryCore` (`dynamicQuery/dynamicQueryCore.ts`) — the registry of executable queries
+      behind `QueryLogic.Queries`. Each query is a lazy bucket (Signum's ResetLazy) keyed by
+      `getKey(queryName)`; `register`/`getQueryNames`/`tryGetCore`/`getCore`/`queryDescription`/
+      `executeQueryAsync`. `AutoDynamicQueryCore.executeQueryAsync` = `toDQueryable(table(T).map(sel),
+      desc).allQueryOperationsAsync(request).toResultTable(columns, pagination)`. `QueryLogic.
+      getQueryDescription`/`tryGetQueryDescription` now delegate here (the interim description Map is gone).
+- [ ] `DynamicQueryCore.Manual` (the manual-query flavor, arbitrary `request → ResultTable` lambda) —
+      only AutoDynamicQueryCore (FromSelector) is ported. `GetTypeQueries` (query-name→entity grouping)
+      also not ported.
 - [ ] QueryEntity unique index on `key` + DB generation (deferred with TypeEntity's, no Synchronizer-
       driven unique-index support yet).
 

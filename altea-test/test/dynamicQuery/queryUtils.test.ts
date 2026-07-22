@@ -6,13 +6,12 @@ import { LiteralType } from "@altea/altea/entities/runtimeTypes";
 import {
     FilterType, tryGetFilterType, tryGetFilterTypeFromTypeName, getKey, getNiceName,
 } from "@altea/altea/logic/dynamicQuery/queryUtils";
-import { QueryDescription, ColumnDescription } from "@altea/altea/logic/dynamicQuery/queryDescription";
 import {
     AlbumEntity, AlbumEntity_Songs, LabelEntity, ArtistEntity,
-} from "../entities/music";
+} from "../../entities/music";
 
-// Phase-1 DynamicQuery port: QueryUtils (FilterType + keys) + QueryDescription/ColumnDescription.
-// DB-free — classifies types read off PropertyRoute (Phase 0).
+// Phase-1 DynamicQuery port: QueryUtils (FilterType + keys). DB-free — classifies types read off
+// PropertyRoute (Phase 0).
 
 describe("QueryUtils.tryGetFilterType", () => {
     const ft = (root: Function, path: string) => tryGetFilterType(PropertyRoute.parse(root, path).type);
@@ -57,22 +56,3 @@ describe("QueryUtils keys", () => {
     });
 });
 
-describe("QueryDescription / ColumnDescription", () => {
-    test("the Entity column is flagged; others are not", () => {
-        const entityCol = new ColumnDescription("Entity", LiteralType.null, "Album");
-        const nameCol = new ColumnDescription("Name", LiteralType.string, "Name");
-        assert.equal(entityCol.isEntity, true);
-        assert.equal(nameCol.isEntity, false);
-        assert.equal(entityCol.toString(), "Album");
-    });
-
-    test("QueryDescription holds name + columns", () => {
-        const qd = new QueryDescription(AlbumEntity, [
-            new ColumnDescription("Entity", LiteralType.null, "Album"),
-            new ColumnDescription("Name", LiteralType.string, "Name"),
-        ]);
-        assert.equal(getKey(qd.queryName), "Album");
-        assert.equal(qd.columns.length, 2);
-        assert.equal(qd.columns[0].isEntity, true);
-    });
-});

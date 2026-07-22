@@ -6,7 +6,7 @@ import { Implementations } from "@altea/altea/entities/implementations";
 import { ClassType, LiteType, ArrayType, EnumType, LiteralType } from "@altea/altea/entities/runtimeTypes";
 import {
     AlbumEntity, AlbumEntity_Songs, LabelEntity, CountryEntity, ArtistEntity, BandEntity,
-} from "../entities/music";
+} from "../../entities/music";
 
 // Phase-0 DynamicQuery port: PropertyRoute + Implementations. DB-free — routes are pure
 // reflection over the imported entity metadata, so no schema/connector is needed.

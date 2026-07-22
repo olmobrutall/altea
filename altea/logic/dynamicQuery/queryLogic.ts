@@ -1,7 +1,11 @@
 import { Connector } from "../connection/connector";
 import { tryGetTypeInfo } from "../../entities/reflection";
-import { setImplementedByAllTypesProvider } from "./tokens/queryToken";
+import { setImplementedByAllTypesProvider, setExtensionTokensProvider } from "./tokens/queryToken";
+import { setBuildExtensionExpr } from "./tokens/extensionToken";
 import { getKey, type QueryName } from "./queryUtils";
+import type { QueryToken } from "./tokens/queryToken";
+import { DynamicQueryContainer } from "./dynamicQueryContainer";
+import { ExpressionContainer } from "./expressionContainer";
 
 // Partial port of Signum's `QueryLogic` (Signum/Basics/QueryLogic.cs). Delivered here: the query
 // name registry, the `@implementedByAll` sub-token type source (wired into the token layer), and
@@ -13,6 +17,25 @@ export namespace QueryLogic {
 
     export function registerQuery(queryName: QueryName): void {
         queryNamesByKey.set(getKey(queryName), queryName);
+    }
+
+    // Signum's QueryLogic.Queries: the registry of executable queries (FluentInclude.withQuery
+    // registers an AutoDynamicQueryCore here). registerQuery is kept for name-only registration.
+    export const queries = new DynamicQueryContainer();
+
+    // Signum's QueryLogic.Expressions: the registry of cross-entity extension expressions
+    // (FluentInclude.withExpressionTo / withExpressionFrom register here). Owned by QueryLogic (the
+    // token-layer hooks below point at this instance).
+    export const expressions = new ExpressionContainer();
+
+    // The entity-root token of a registered query (Signum's GetQueryDescription is gone — the query's
+    // shape is a reflected type, columns are the root token's sub-tokens).
+    export function tryGetRootToken(queryName: QueryName): QueryToken | undefined {
+        return queries.tryGetCore(queryName) != undefined ? queries.rootToken(queryName) : undefined;
+    }
+
+    export function getRootToken(queryName: QueryName): QueryToken {
+        return queries.rootToken(queryName);
     }
 
     export function queryNames(): ReadonlyMap<string, QueryName> {
@@ -65,6 +88,9 @@ export namespace QueryLogic {
     // (extension tokens), both unported. See TODO.md.
 }
 
-// Wire the token layer's @implementedByAll provider (Signum sets this via the QueryLogic hooks in
-// its static ctor / Start). Importing queryLogic activates byAll navigation.
+// Wire the token layer's hooks (Signum sets these via the QueryLogic hooks in its static ctor /
+// Start). Importing queryLogic activates @implementedByAll navigation AND registered-expression
+// sub-tokens.
 setImplementedByAllTypesProvider(QueryLogic.getImplementedByAllTypes);
+setExtensionTokensProvider(parent => QueryLogic.expressions.getExtensionsTokens(parent));
+setBuildExtensionExpr((info, parentExpression) => QueryLogic.expressions.buildExtension(info, parentExpression));

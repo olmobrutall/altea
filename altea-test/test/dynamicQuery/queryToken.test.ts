@@ -11,24 +11,21 @@ import {
 } from "@altea/altea/logic/linq/expressions";
 import { ClassType, ArrayType } from "@altea/altea/entities/runtimeTypes";
 import { Implementations } from "@altea/altea/entities/implementations";
-import { ColumnDescription } from "@altea/altea/logic/dynamicQuery/queryDescription";
 import { BuildExpressionContext, ExpressionBox, SubTokensOptionsAll } from "@altea/altea/logic/dynamicQuery/tokens/queryToken";
-import { ColumnToken } from "@altea/altea/logic/dynamicQuery/tokens/columnToken";
+import { RootToken } from "@altea/altea/logic/dynamicQuery/tokens/rootToken";
 import "@altea/altea/logic/dynamicQuery/tokens/factories"; // registers token factories
-import { MusicLogic } from "../logic/MusicLogic";
-import { AlbumEntity } from "../entities/music";
+import { MusicLogic } from "../../logic/MusicLogic";
+import { AlbumEntity } from "../../entities/music";
 
-// Phase-2 DynamicQuery port: QueryToken base + ColumnToken + EntityPropertyToken. The core is the
+// Phase-2 DynamicQuery port: QueryToken base + RootToken + EntityPropertyToken. The core is the
 // BuildExpression retarget — a token tree hand-builds altea Expression nodes the Phase-D binder
 // consumes (the retrieveByIdsProjection recipe).
 
 const O = SubTokensOptionsAll;
 
 // The root "Entity" column token for the Album query.
-function entityToken(): ColumnToken {
-    const col = new ColumnDescription("Entity", new ClassType(AlbumEntity), "Album");
-    col.implementations = Implementations.by(AlbumEntity);
-    return new ColumnToken(col, AlbumEntity);
+function entityToken(): RootToken {
+    return new RootToken(AlbumEntity);
 }
 
 // A BuildExpressionContext with the row parameter seeded as the "Entity" column (stands in for
@@ -60,9 +57,9 @@ describe("QueryToken — navigation", () => {
         assert.deepEqual(new Set(asKeys), new Set(["(Artist)", "(Band)"]));
     });
 
-    test("fullKey chains the token path", () => {
+    test("fullKey chains the token path (rootless — the entity root is \"\")", () => {
         const name = entityToken().subToken("label", O)!.subToken("name", O)!;
-        assert.equal(name.fullKey(), "Entity.label.name");
+        assert.equal(name.fullKey(), "label.name");
     });
 });
 

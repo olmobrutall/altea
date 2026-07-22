@@ -3,7 +3,7 @@
 import "./factories";
 
 export * from "./queryToken";
-export * from "./columnToken";
+export * from "./rootToken";
 export * from "./entityPropertyToken";
 export * from "./entityToStringToken";
 export * from "./hasValueToken";

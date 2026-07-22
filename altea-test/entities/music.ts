@@ -125,8 +125,11 @@ export class ArtistEntity extends Entity implements IAuthorEntity {
     // augments this interface (entities/ must not reference logic/).
     @quoted
     lonely(): boolean { return this.friends.length == 0; }
+    // Signum's ArtistEntity.FriendsCovariant() => (IEnumerable<Lite<Entity>>)Friends — a covariant
+    // downcast to the base type, exercising covariant collection handling. altea returns Entity[]
+    // (the friends navigated to their full entities, widened to the Entity base).
     @quoted
-    friendsCovariant(): ArtistEntity[] { return this.friends.map(f => f.friend.entity); }
+    friendsCovariant(): Entity[] { return this.friends.map(f => f.friend.entity); }
 
     // Signum's [AutoExpressionField] ToString => Name: a translatable expression, so
     // it's expanded inline in queries and the entity carries no stored ToStr column.

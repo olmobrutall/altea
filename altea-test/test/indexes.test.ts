@@ -7,7 +7,8 @@ import { Lite } from "@altea/altea/entities/lite";
 import { index, uniqueIndex } from "@altea/altea/entities/decorators";
 import { type int, toInt } from "@altea/altea/entities/basics";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
-import type { FluentTable } from "@altea/altea/logic/schema/table";
+import type { Table } from "@altea/altea/logic/schema/table";
+import { FluentInclude } from "@altea/altea/logic/schema/fluentInclude";
 import { Connector } from "@altea/altea/logic/connection/connector";
 
 // Index support: automatic FK indexes, field-level @index / @uniqueIndex, class-level
@@ -38,13 +39,25 @@ class FakeConnector extends Connector {
     cleanDatabase(): Promise<void> { return Promise.resolve(); }
 }
 
-function build(): { customer: FluentTable<IdxCustomer>; sb: SchemaBuilder } {
+function build(): { customer: Table; sb: SchemaBuilder } {
     const sb = new SchemaBuilder();
     sb.include(IdxTarget);
-    const customer = sb.include(IdxCustomer);
+    const customer = sb.include(IdxCustomer).table;
     sb.complete();
     return { customer, sb };
 }
+
+// The fluent handle itself (Signum's FluentInclude<T>): sb.include(T) returns a FluentInclude
+// wrapping the Table, and withIndex chains on it.
+test("include(T) returns a FluentInclude with .table and chainable withIndex", () => {
+    const sb = new SchemaBuilder();
+    const fi = sb.include(IdxCustomer);
+    assert.ok(fi instanceof FluentInclude);
+    const before = fi.table.indexes.length;
+    const chained = fi.withIndex(c => c.name);
+    assert.equal(chained, fi, "withIndex returns the FluentInclude for chaining");
+    assert.equal(fi.table.indexes.length, before + 1);
+});
 
 // Does `table` have an index over exactly `columnNames` (order-sensitive) with the given unique flag?
 function hasIndex(table: any, columnNames: string[], unique: boolean): boolean {
@@ -79,7 +92,7 @@ describe("Index generation", () => {
     test("include(...).withIndex(...) adds an index", () => {
         const { customer } = build();
         const before = customer.indexes.length;
-        customer.withIndex(c => c.name);
+        customer.addIndex(c => c.name);
         assert.equal(customer.indexes.length, before + 1);
         assert.ok(hasIndex(customer, [col(customer, "name")], false), "non-unique index on name via withIndex");
     });
@@ -101,9 +114,9 @@ describe("Index generation", () => {
         const fake = new FakeConnector(sb.schema);
         Connector.withConnector(fake, () => {
             const targetCol = col(customer, "target");
-            customer.withIndex(c => c.name);                            // plain index on name
+            customer.addIndex(c => c.name);                            // plain index on name
             const plain = customer.indexes.at(-1)!;
-            customer.withIndex(c => c.name, c => c.target != null);     // filtered on a nullable FK, via a predicate lambda
+            customer.addIndex(c => c.name, c => c.target != null);     // filtered on a nullable FK, via a predicate lambda
             const filtered = customer.indexes.at(-1)!;
 
             // The predicate lambda is translated to SQL (Signum's IndexWhereExpressionVisitor):

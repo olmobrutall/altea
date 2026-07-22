@@ -7,16 +7,15 @@ import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
 import { ClassType } from "@altea/altea/entities/runtimeTypes";
 import { Implementations } from "@altea/altea/entities/implementations";
-import { ColumnDescription, QueryDescription } from "@altea/altea/logic/dynamicQuery/queryDescription";
 import { SubTokensOptionsAll } from "@altea/altea/logic/dynamicQuery/tokens/queryToken";
-import { ColumnToken } from "@altea/altea/logic/dynamicQuery/tokens/columnToken";
+import { RootToken } from "@altea/altea/logic/dynamicQuery/tokens/rootToken";
 import { DQueryable } from "@altea/altea/logic/dynamicQuery/dQueryable";
 import {
     Filter, FilterCondition, FilterOperation, Order, OrderType, Column, Pagination, QueryRequest,
 } from "@altea/altea/logic/dynamicQuery/requests";
 import "@altea/altea/logic/dynamicQuery/tokens/factories";
-import { MusicLogic } from "../logic/MusicLogic";
-import { AlbumEntity } from "../entities/music";
+import { MusicLogic } from "../../logic/MusicLogic";
+import { AlbumEntity } from "../../entities/music";
 
 // Phase-5 DynamicQuery port: the DQueryable authoring API (Signum's DQueryable.cs) — a query paired
 // with its token context, threaded through where / orderBy / select / tryPaginate, as app code uses
@@ -39,9 +38,7 @@ const fake = new FakeConnector();
 
 // The "Album" query description (one Entity column). Tokens are navigated off it.
 const entityToken = () => {
-    const col = new ColumnDescription("Entity", new ClassType(AlbumEntity), "Album");
-    col.implementations = Implementations.by(AlbumEntity);
-    return new ColumnToken(col, AlbumEntity);
+    return new RootToken(AlbumEntity);
 };
 const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s, O), entityToken());
 const sql = (dq: DQueryable) => QueryFormatter.format(dq.bindProjection().select, false).sql.toLowerCase();

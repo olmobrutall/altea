@@ -11,22 +11,19 @@ import {
 } from "@altea/altea/logic/linq/expressions";
 import { ClassType, ArrayType, LiteralType } from "@altea/altea/entities/runtimeTypes";
 import { Implementations } from "@altea/altea/entities/implementations";
-import { ColumnDescription } from "@altea/altea/logic/dynamicQuery/queryDescription";
 import { BuildExpressionContext, ExpressionBox, SubTokensOptionsAll } from "@altea/altea/logic/dynamicQuery/tokens/queryToken";
-import { ColumnToken } from "@altea/altea/logic/dynamicQuery/tokens/columnToken";
+import { RootToken } from "@altea/altea/logic/dynamicQuery/tokens/rootToken";
 import "@altea/altea/logic/dynamicQuery/tokens/factories"; // registers token factories
-import { MusicLogic } from "../logic/MusicLogic";
-import { AlbumEntity } from "../entities/music";
+import { MusicLogic } from "../../logic/MusicLogic";
+import { AlbumEntity } from "../../entities/music";
 
 // Phase-3a DynamicQuery port: leaf tokens (HasValue, EntityToString, NetPropertyToken/StringTokens,
-// AsType). Extends Phase 2's ColumnToken + EntityPropertyToken navigation.
+// AsType). Extends Phase 2's RootToken + EntityPropertyToken navigation.
 
 const O = SubTokensOptionsAll;
 
-function entityToken(): ColumnToken {
-    const col = new ColumnDescription("Entity", new ClassType(AlbumEntity), "Album");
-    col.implementations = Implementations.by(AlbumEntity);
-    return new ColumnToken(col, AlbumEntity);
+function entityToken(): RootToken {
+    return new RootToken(AlbumEntity);
 }
 function contextFor() {
     const param = new ParameterExpression("e", new ClassType(AlbumEntity));

@@ -7,15 +7,14 @@ import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
 import { ClassType } from "@altea/altea/entities/runtimeTypes";
 import { Implementations } from "@altea/altea/entities/implementations";
-import { ColumnDescription } from "@altea/altea/logic/dynamicQuery/queryDescription";
 import { SubTokensOptionsAll } from "@altea/altea/logic/dynamicQuery/tokens/queryToken";
-import { ColumnToken } from "@altea/altea/logic/dynamicQuery/tokens/columnToken";
+import { RootToken } from "@altea/altea/logic/dynamicQuery/tokens/rootToken";
 import { DQueryable } from "@altea/altea/logic/dynamicQuery/dQueryable";
 import { DEnumerableCount } from "@altea/altea/logic/dynamicQuery/dEnumerable";
 import { Column, Pagination } from "@altea/altea/logic/dynamicQuery/requests";
 import "@altea/altea/logic/dynamicQuery/tokens/factories";
-import { MusicLogic } from "../logic/MusicLogic";
-import { AlbumEntity } from "../entities/music";
+import { MusicLogic } from "../../logic/MusicLogic";
+import { AlbumEntity } from "../../entities/music";
 
 // Phase-5: SQL-side pagination + count (Signum's DQueryable.TryPaginate). Paginate → OFFSET/FETCH,
 // a short page skips the COUNT, a full page runs COUNT(*).
@@ -39,9 +38,7 @@ class PagingConnector extends Connector {
 }
 
 const et = () => {
-    const col = new ColumnDescription("Entity", new ClassType(AlbumEntity), "Album");
-    col.implementations = Implementations.by(AlbumEntity);
-    return new ColumnToken(col, AlbumEntity);
+    return new RootToken(AlbumEntity);
 };
 const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s, O), et());
 const base = () => {

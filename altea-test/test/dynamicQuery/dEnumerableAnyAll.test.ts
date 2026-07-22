@@ -4,14 +4,13 @@ import "@altea/altea/entities/globals";
 import { table } from "@altea/altea/logic/table";
 import { ClassType } from "@altea/altea/entities/runtimeTypes";
 import { SubTokensOptionsAll } from "@altea/altea/logic/dynamicQuery/tokens/queryToken";
-import { ColumnDescription } from "@altea/altea/logic/dynamicQuery/queryDescription";
-import { ColumnToken } from "@altea/altea/logic/dynamicQuery/tokens/columnToken";
+import { RootToken } from "@altea/altea/logic/dynamicQuery/tokens/rootToken";
 import { Implementations } from "@altea/altea/entities/implementations";
 import { DQueryable } from "@altea/altea/logic/dynamicQuery/dQueryable";
 import { DEnumerable } from "@altea/altea/logic/dynamicQuery/dEnumerable";
 import { FilterGroup, FilterGroupOperation, FilterCondition, FilterOperation } from "@altea/altea/logic/dynamicQuery/requests";
 import "@altea/altea/logic/dynamicQuery/tokens/factories";
-import { AlbumEntity } from "../entities/music";
+import { AlbumEntity } from "../../entities/music";
 
 // Phase-5: in-memory quantifier eval. The DEnumerable interpreter (evalExpr) runs a FilterGroup
 // any/all as a native `.some`/`.every` with the element parameter bound — so an element condition
@@ -19,9 +18,7 @@ import { AlbumEntity } from "../entities/music";
 
 const O = SubTokensOptionsAll;
 const et = () => {
-    const col = new ColumnDescription("Entity", new ClassType(AlbumEntity), "Album");
-    col.implementations = Implementations.by(AlbumEntity);
-    return new ColumnToken(col, AlbumEntity);
+    return new RootToken(AlbumEntity);
 };
 const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s, O), et());
 

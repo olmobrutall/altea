@@ -11,23 +11,20 @@ import {
 } from "@altea/altea/logic/linq/expressions";
 import { ClassType, ArrayType } from "@altea/altea/entities/runtimeTypes";
 import { Implementations } from "@altea/altea/entities/implementations";
-import { ColumnDescription } from "@altea/altea/logic/dynamicQuery/queryDescription";
 import { BuildExpressionContext, ExpressionBox, SubTokensOptionsAll } from "@altea/altea/logic/dynamicQuery/tokens/queryToken";
-import { ColumnToken } from "@altea/altea/logic/dynamicQuery/tokens/columnToken";
+import { RootToken } from "@altea/altea/logic/dynamicQuery/tokens/rootToken";
 import { DQueryable } from "@altea/altea/logic/dynamicQuery/dQueryable";
 import "@altea/altea/logic/dynamicQuery/tokens/factories";
-import { MusicLogic } from "../logic/MusicLogic";
-import { AlbumEntity } from "../entities/music";
+import { MusicLogic } from "../../logic/MusicLogic";
+import { AlbumEntity } from "../../entities/music";
 
 // Phase-3d DynamicQuery port: collection sub-tokens (Count + CollectionElementToken) and the
 // DQueryable-style expansion (flatMap) that seeds an element token's expression.
 
 const O = SubTokensOptionsAll;
 
-function entityToken(): ColumnToken {
-    const col = new ColumnDescription("Entity", new ClassType(AlbumEntity), "Album");
-    col.implementations = Implementations.by(AlbumEntity);
-    return new ColumnToken(col, AlbumEntity);
+function entityToken(): RootToken {
+    return new RootToken(AlbumEntity);
 }
 function tok(path: string) {
     let t: any = entityToken();

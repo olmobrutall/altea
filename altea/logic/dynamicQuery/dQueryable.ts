@@ -10,9 +10,7 @@ import { buildTranslateResult } from "../linq/translatorBuilder";
 import type { Query } from "../query";
 import { QueryToken, BuildExpressionContext, ExpressionBox, buildLite } from "./tokens/queryToken";
 import { CollectionElementToken } from "./tokens/collectionElementToken";
-import { ColumnToken } from "./tokens/columnToken";
 import { AggregateToken } from "./tokens/aggregateToken";
-import { ColumnDescription, QueryDescription } from "./queryDescription";
 import { Filter, Order, Column, OrderType, Pagination, QueryRequest } from "./requests";
 import { DEnumerable, DEnumerableCount } from "./dEnumerable";
 
@@ -30,25 +28,19 @@ export class DQueryable {
         public readonly context: BuildExpressionContext,
     ) { }
 
-    // Signum's `IQueryable.ToDQueryable(QueryDescription)`: seed the context with one ColumnToken per
-    // described column, each resolving to the matching member of the query's (projected) element.
-    static toDQueryable<T>(query: Query<T>, description: QueryDescription): DQueryable {
-        const pe = new ParameterExpression("e", query.elementType);
-        const replacements = new Map<string, ExpressionBox>();
-        for (const cd of description.columns) {
-            const token = new ColumnToken(cd, description.queryName);
-            const member = new PropertyExpression(pe, cd.name);
-            replacements.set(token.fullKey(), new ExpressionBox(buildLite(member)));
-        }
-        return new DQueryable(query.expression, new BuildExpressionContext(query.elementType, pe, replacements));
-    }
-
-    // Seed directly from a root parameter (the common "Entity" column) — a convenience for callers
-    // that navigate tokens off the entity rather than a projected anonymous type.
+    // Seed the context off the entity root: the query IS the entity, so its entity-root token (keyed
+    // "") maps to the row itself. Navigations ("Name", "Customer.Name") build off it. No projected
+    // tuple — the query's shape is the reflected entity/model type (Signum's ToDQueryable over
+    // `Database.Query<T>()`). The "" replacement lets the pipeline (selectMany/groupBy) thread the row.
     static fromEntity(elementType: RuntimeType, sourceExpression: Expression): DQueryable {
         const pe = new ParameterExpression("e", elementType);
-        const replacements = new Map<string, ExpressionBox>([[ColumnDescription.entityColumnName, new ExpressionBox(pe)]]);
+        const replacements = new Map<string, ExpressionBox>([["", new ExpressionBox(pe)]]);
         return new DQueryable(sourceExpression, new BuildExpressionContext(elementType, pe, replacements));
+    }
+
+    // Convenience overload taking a Query<T> directly.
+    static forEntityQuery<T>(query: Query<T>): DQueryable {
+        return DQueryable.fromEntity(query.elementType, query.expression);
     }
 
     // ---- SelectMany (Signum's DQueryable.SelectMany + SelectManyConstructor) ------------------

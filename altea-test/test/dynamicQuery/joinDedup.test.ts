@@ -7,14 +7,13 @@ import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
 import { ClassType } from "@altea/altea/entities/runtimeTypes";
 import { Implementations } from "@altea/altea/entities/implementations";
-import { ColumnDescription } from "@altea/altea/logic/dynamicQuery/queryDescription";
 import { SubTokensOptionsAll } from "@altea/altea/logic/dynamicQuery/tokens/queryToken";
-import { ColumnToken } from "@altea/altea/logic/dynamicQuery/tokens/columnToken";
+import { RootToken } from "@altea/altea/logic/dynamicQuery/tokens/rootToken";
 import { AggregateToken, AggregateFunction } from "@altea/altea/logic/dynamicQuery/tokens/aggregateToken";
 import { DQueryable } from "@altea/altea/logic/dynamicQuery/dQueryable";
 import "@altea/altea/logic/dynamicQuery/tokens/factories";
-import { MusicLogic } from "../logic/MusicLogic";
-import { AlbumEntity } from "../entities/music";
+import { MusicLogic } from "../../logic/MusicLogic";
+import { AlbumEntity } from "../../entities/music";
 
 // RedundantJoinRemover: two references to the same entity via different paths (toLite display model
 // vs direct navigation) must produce ONE join, not two identical ones.
@@ -50,9 +49,7 @@ describe("RedundantJoinRemover", () => {
 
     test("grouped: group by label + label.name → one Label join", () => {
         const et = () => {
-            const col = new ColumnDescription("Entity", new ClassType(AlbumEntity), "Album");
-            col.implementations = Implementations.by(AlbumEntity);
-            return new ColumnToken(col, AlbumEntity);
+            return new RootToken(AlbumEntity);
         };
         const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s, O), et());
         const sql = Connector.withConnector(fake, () => {

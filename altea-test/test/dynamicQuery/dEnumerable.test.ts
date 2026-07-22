@@ -4,16 +4,15 @@ import "@altea/altea/entities/globals";
 import { table } from "@altea/altea/logic/table";
 import { ClassType } from "@altea/altea/entities/runtimeTypes";
 import { Implementations } from "@altea/altea/entities/implementations";
-import { ColumnDescription } from "@altea/altea/logic/dynamicQuery/queryDescription";
 import { SubTokensOptionsAll } from "@altea/altea/logic/dynamicQuery/tokens/queryToken";
-import { ColumnToken } from "@altea/altea/logic/dynamicQuery/tokens/columnToken";
+import { RootToken } from "@altea/altea/logic/dynamicQuery/tokens/rootToken";
 import { DQueryable } from "@altea/altea/logic/dynamicQuery/dQueryable";
 import { DEnumerable, DEnumerableCount } from "@altea/altea/logic/dynamicQuery/dEnumerable";
 import {
     FilterCondition, FilterOperation, Order, OrderType, Column, Pagination,
 } from "@altea/altea/logic/dynamicQuery/requests";
 import "@altea/altea/logic/dynamicQuery/tokens/factories";
-import { AlbumEntity } from "../entities/music";
+import { AlbumEntity } from "../../entities/music";
 
 // Phase-5 (in-memory arm): DEnumerable / DEnumerableCount + ResultTable. Tests run DB-free by
 // constructing DEnumerables from fixed materialised rows over a real (post-select) tuple context —
@@ -21,9 +20,7 @@ import { AlbumEntity } from "../entities/music";
 
 const O = SubTokensOptionsAll;
 const et = () => {
-    const col = new ColumnDescription("Entity", new ClassType(AlbumEntity), "Album");
-    col.implementations = Implementations.by(AlbumEntity);
-    return new ColumnToken(col, AlbumEntity);
+    return new RootToken(AlbumEntity);
 };
 const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s, O), et());
 

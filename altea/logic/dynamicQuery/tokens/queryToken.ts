@@ -99,7 +99,7 @@ export class BuildExpressionContext {
 }
 
 // Faithful port of Signum's abstract `QueryToken` (DynamicQuery/Tokens/QueryToken.cs), scoped to
-// Phase 2 (base + ColumnToken + EntityPropertyToken). Leaf/value-type/collection sub-token
+// Phase 2 (base + RootToken + EntityPropertyToken). Leaf/value-type/collection sub-token
 // generators are Phase 3 — stubbed to [] and marked TODO below, so navigation through entity /
 // embedded references works end to end now.
 export abstract class QueryToken {
@@ -140,11 +140,16 @@ export abstract class QueryToken {
     }
 
     fullKey(): string {
-        return this.parent == undefined ? this.key : this.parent.fullKey() + "." + this.key;
+        if (this.parent == undefined)
+            return this.key;
+        // The entity-root token has key "" (altea's rootless convention — no "Entity." prefix), so a
+        // child of it is just its own key: navigations read "State", "Customer.Name", not ".State".
+        const pk = this.parent.fullKey();
+        return pk === "" ? this.key : pk + "." + this.key;
     }
 
-    // Signum's QueryToken.IsEntity(): true only for the row's own "Entity" ColumnToken. Overridden
-    // by ColumnToken; false for every other token.
+    // Signum's QueryToken.IsEntity(): true only for the row's own "Entity" RootToken. Overridden
+    // by RootToken; false for every other token.
     isEntity(): boolean {
         return false;
     }
@@ -178,7 +183,13 @@ export abstract class QueryToken {
             m = new Map();
             for (const t of this.subTokensOverride(options))
                 m.set(t.key, t);
-            // TODO(phase4): merge QueryLogic.Expressions extension tokens here.
+            // Registered cross-entity expression tokens (Signum's QueryLogic.Expressions.
+            // GetExtensionsTokens). The provider is wired by expressionContainer.ts; a normal member
+            // never gets overridden (only added when absent).
+            if (extensionTokensProvider != undefined)
+                for (const t of extensionTokensProvider(this))
+                    if (!m.has(t.key))
+                        m.set(t.key, t);
             this.subTokenCache.set(options, m);
         }
         return m;
@@ -419,4 +430,11 @@ export function registerTokenFactories(f: TokenFactories): void {
 let implementedByAllTypesProvider: ((cleanTypeCtor: Function) => Function[]) | undefined;
 export function setImplementedByAllTypesProvider(fn: (cleanTypeCtor: Function) => Function[]): void {
     implementedByAllTypesProvider = fn;
+}
+
+// Registered-expression sub-tokens (Signum's QueryLogic.Expressions.GetExtensionsTokens). Wired by
+// expressionContainer.ts; unset ⇒ no extension tokens.
+let extensionTokensProvider: ((parent: QueryToken) => QueryToken[]) | undefined;
+export function setExtensionTokensProvider(fn: (parent: QueryToken) => QueryToken[]): void {
+    extensionTokensProvider = fn;
 }

@@ -11,13 +11,12 @@ import {
 } from "@altea/altea/logic/linq/expressions";
 import { ClassType, ArrayType } from "@altea/altea/entities/runtimeTypes";
 import { Implementations } from "@altea/altea/entities/implementations";
-import { ColumnDescription } from "@altea/altea/logic/dynamicQuery/queryDescription";
 import { BuildExpressionContext, ExpressionBox, SubTokensOptionsAll } from "@altea/altea/logic/dynamicQuery/tokens/queryToken";
-import { ColumnToken } from "@altea/altea/logic/dynamicQuery/tokens/columnToken";
+import { RootToken } from "@altea/altea/logic/dynamicQuery/tokens/rootToken";
 import { QueryLogic } from "@altea/altea/logic/dynamicQuery/queryLogic"; // side-effect: wires the byAll provider
 import "@altea/altea/logic/dynamicQuery/tokens/factories";
-import { MusicLogic } from "../logic/MusicLogic";
-import { ArtistEntity, AlbumEntity, LabelEntity } from "../entities/music";
+import { MusicLogic } from "../../logic/MusicLogic";
+import { ArtistEntity, AlbumEntity, LabelEntity } from "../../entities/music";
 
 // Phase-4 DynamicQuery port: QueryLogic core (query-name registry + the @implementedByAll token
 // source). The byAll navigation needs the Schema, so those tests run inside a connector context.
@@ -37,10 +36,8 @@ class FakeConnector extends Connector {
 }
 const fake = new FakeConnector();
 
-function entityToken(ctor: Function): ColumnToken {
-    const col = new ColumnDescription("Entity", new ClassType(ctor), ctor.name);
-    col.implementations = Implementations.by(ctor);
-    return new ColumnToken(col, ctor);
+function entityToken(ctor: Function): RootToken {
+    return new RootToken(ctor);
 }
 
 describe("QueryLogic — query name registry", () => {

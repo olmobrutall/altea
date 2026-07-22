@@ -30,7 +30,8 @@ import {
 import { NameSequence } from './nameSequence';
 import { ObjectName, SchemaName, defaultSchemaName } from './objectName';
 import { Schema } from './schema';
-import { Table, type FluentTable } from './table';
+import { Table } from './table';
+import { FluentInclude } from './fluentInclude';
 import { SystemVersionedInfo } from './systemVersioned';
 import { TableIndex, recordAccessedFields } from './tableIndex';
 import { getIndexWhere } from './indexWhere';
@@ -135,11 +136,11 @@ export class SchemaBuilder {
 
     constructor(public readonly settings: SchemaSettings = new SchemaSettings()) { }
 
-    include<T extends Entity>(type: Type<T>): FluentTable<T> {
+    include<T extends Entity>(type: Type<T>): FluentInclude<T> {
         const entityType = type as unknown as Type<Entity>;
         const existing = this.schema.tables.get(entityType);
         if (existing != null)
-            return existing as FluentTable<T>;
+            return new FluentInclude<T>(existing, this);
 
         const name = new ObjectName(this.settings.tableName(entityType), this.settings.schemaName);
         const table = new Table(entityType, name);
@@ -154,7 +155,7 @@ export class SchemaBuilder {
         this.schema.nameToType.set(clean, entityType);
 
         this.completeTable(table, type);
-        return table as FluentTable<T>;
+        return new FluentInclude<T>(table, this);
     }
 
     // Validates cross-table back-references once every table is present. Call
@@ -370,12 +371,12 @@ export class SchemaBuilder {
                     new ImplementedByAllIdColumn(this.colName(preName.add(`${cap(fi.name)}ID_${t.name}`).toString()), t.dbType, t.pkType));
                 // The type discriminator is the target's TypeEntity int id, so the
                 // column references the (auto-included) TypeEntity table.
-                const typeTable = this.include(TypeEntity as unknown as Type<Entity>);
+                const typeTable = this.include(TypeEntity as unknown as Type<Entity>).table;
                 const typeColumn = new ImplementedByAllTypeColumn(this.colName(preName.add(`${cap(fi.name)}ID_Type`).toString()), typeTable);
                 return new FieldImplementedByAll(idColumns, typeColumn, isLite);
             }
             const columns = fi.implementations.types().map(implType => {
-                const refTable = this.include(implType);
+                const refTable = this.include(implType).table;
                 const colName = this.colName(preName.add(`${cap(fi.name)}ID_${cleanTypeName(implType)}`).toString());
                 return new ImplementationColumn(colName, refTable, isLite);
             });
@@ -386,7 +387,7 @@ export class SchemaBuilder {
         if (isLite || isEntityCtor(elementType)) {
             if (!isEntityCtor(elementType))
                 throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: Lite container without an entity element type.`);
-            const refTable = this.include(elementType);
+            const refTable = this.include(elementType).table;
             const baseName = fi.fkPropertyName ?? this.colName(preName.add(`${cap(fi.name)}ID`).toString());
             return new FieldReference(new ReferenceColumn(baseName, refTable, nullable, isLite));
         }
@@ -402,7 +403,7 @@ export class SchemaBuilder {
             const enumObject = fieldEnum(fi);
             if (enumObject == null)
                 throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: enum '${fieldTypeName(fi) ?? fi.name}' is not registered. Enums declared in the same file as the entity are auto-registered; call registerEnum(...) by hand for cross-file enums.`);
-            const refTable = this.include(EnumEntity.typeFor(enumObject));
+            const refTable = this.include(EnumEntity.typeFor(enumObject)).table;
             const colName = fi.fkPropertyName ?? this.colName(preName.add(`${cap(fi.name)}ID`).toString());
             return new FieldEnum(new ReferenceColumn(colName, refTable, nullable, /* isLite */ false));
         }

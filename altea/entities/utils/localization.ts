@@ -23,6 +23,13 @@ export function newNiceName(ctor: Function): string {
     return "New " + niceName(ctor);
 }
 
+// Plural of the entity type's nice name (Signum's `Type.NicePluralName()`). Signum runs a real
+// pluralizer keyed on the UI culture; altea uses a naive English "+s" stand-in for now (good enough
+// for the default query/expression display names — swap for a culture-aware pluralizer later).
+export function nicePluralName(ctor: Function): string {
+    return niceName(ctor) + "s";
+}
+
 // `f.constructor.niceName()` in a query (Signum's Type.NiceName() on a runtime type): `this` is
 // the entity constructor, so it delegates to niceName(). A real in-memory body (so it also works
 // when a lambda runs in memory) plus the query `__resultType` fromQuoted reads to type the call;
