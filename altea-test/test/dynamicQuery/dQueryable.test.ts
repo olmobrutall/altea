@@ -44,7 +44,7 @@ const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s
 const sql = (dq: DQueryable) => QueryFormatter.format(dq.bindProjection().select, false).sql.toLowerCase();
 
 describe("DQueryable pipeline builds the query", () => {
-    const base = () => { const q = table(AlbumEntity); return DQueryable.fromEntity(q.elementType, q.expression); };
+    const base = () => { const q = table(AlbumEntity); return q.toDQueryable(); };
 
     test("where → filter (year > 1990)", () => {
         const dq = base().where([new FilterCondition(tok("year"), FilterOperation.GreaterThan, 1990)]).select([tok("name")]);
@@ -78,7 +78,7 @@ describe("DQueryable.allQueryOperations (QueryRequest-driven, cf. CustomersLogic
             [new Column(tok("name")), new Column(tok("year"))],
             new Pagination.Firsts(10),
         );
-        const built = DQueryable.fromEntity(q.elementType, q.expression).allQueryOperations(request);
+        const built = q.toDQueryable().allQueryOperations(request);
         const s = Connector.withConnector(fake, () => sql(built));
         assert.match(s, /where/);
         assert.match(s, /order by/);
@@ -95,7 +95,7 @@ describe("DQueryable.allQueryOperations (QueryRequest-driven, cf. CustomersLogic
             [new Column(tok("songs.Element.name"))],
             new Pagination.All(),
         );
-        const built = DQueryable.fromEntity(q.elementType, q.expression).allQueryOperations(request);
+        const built = q.toDQueryable().allQueryOperations(request);
         const s = Connector.withConnector(fake, () => sql(built));
         assert.match(s, /song/);       // CROSS APPLY into Album_Songs
         assert.match(s, /cross apply|join/);

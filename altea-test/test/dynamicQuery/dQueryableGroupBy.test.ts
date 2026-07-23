@@ -36,7 +36,7 @@ const et = () => {
     return new RootToken(AlbumEntity);
 };
 const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s, O), et());
-const base = () => { const q = table(AlbumEntity); return DQueryable.fromEntity(q.elementType, q.expression); };
+const base = () => { const q = table(AlbumEntity); return q.toDQueryable(); };
 const groupSql = (keys: any[], aggs: AggregateToken[]) =>
     Connector.withConnector(fake, () =>
         QueryFormatter.format(base().groupBy(keys, aggs).select([...keys, ...aggs]).bindProjection().select, false)

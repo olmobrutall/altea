@@ -43,7 +43,7 @@ const et = () => {
 const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s, O), et());
 const base = () => {
     const q = table(AlbumEntity);
-    return DQueryable.fromEntity(q.elementType, q.expression).select([tok("name"), tok("year")]);
+    return q.toDQueryable().select([tok("name"), tok("year")]);
 };
 const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ c0: "n" + i, c1: i }));
 

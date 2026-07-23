@@ -37,6 +37,12 @@ export class EntityPropertyToken extends QueryToken {
 
     get key(): string { return this.fieldInfo.name; }
 
+    // The row-identity column of a ModelEntity query: its top-level `entity` field (Signum's "Entity"
+    // column). Flagged so ResultTable splits it out as the row's navigable entity (the row link).
+    override isEntity(): boolean {
+        return this.fieldInfo.name === "entity" && this._parent.parent == undefined;
+    }
+
     override toString(): string { return this.fieldInfo.niceToString(); }
     niceName(): string { return this.fieldInfo.niceToString(); }
 

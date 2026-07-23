@@ -29,7 +29,7 @@ const yearTok = tok("year");
 
 // A post-select tuple context (name → _s.c0, year → _s.c1), reused for both fixed-row sources.
 const q = table(AlbumEntity);
-const context = DQueryable.fromEntity(q.elementType, q.expression).select([nameTok, yearTok]).context;
+const context = q.toDQueryable().select([nameTok, yearTok]).context;
 
 // Rows as they'd look after materialisation of that select.
 const rowsA = () => new DEnumerableCount([{ c0: "Brahms", c1: 1870 }, { c0: "Adele", c1: 2015 }], context, 2);

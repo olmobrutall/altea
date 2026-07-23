@@ -53,7 +53,7 @@ describe("RedundantJoinRemover", () => {
         };
         const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s, O), et());
         const sql = Connector.withConnector(fake, () => {
-            const dq = DQueryable.fromEntity(table(AlbumEntity).elementType, table(AlbumEntity).expression)
+            const dq = table(AlbumEntity).toDQueryable()
                 .groupBy([tok("label"), tok("label.name")], [new AggregateToken(AggregateFunction.Count, undefined, { queryName: AlbumEntity })])
                 .select([tok("label"), tok("label.name")]);
             return QueryFormatter.format(dq.bindProjection().select, false).sql;

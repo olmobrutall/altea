@@ -99,7 +99,7 @@ describe("collection tokens bind to SQL", () => {
 
         const sql = Connector.withConnector(fake, () => {
             // The DQueryable pipeline: seed the Entity column, expand the collection, project the name.
-            const dq = DQueryable.fromEntity(q.elementType, q.expression)
+            const dq = q.toDQueryable()
                 .selectMany([elementToken as any])
                 .select([nameToken]);
             return fmt(dq.bindProjection());
@@ -112,7 +112,7 @@ describe("collection tokens bind to SQL", () => {
         const nameToArray = tok("songs.SeparatedByComma.name");
         const q = table(AlbumEntity);
         const sql = Connector.withConnector(fake, () => {
-            const dq = DQueryable.fromEntity(q.elementType, q.expression).select([nameToArray]);
+            const dq = q.toDQueryable().select([nameToArray]);
             return fmt(dq.bindProjection());
         });
         assert.match(sql, /string_agg/); // collapsed to one delimited-string cell

@@ -38,7 +38,7 @@ const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s
 const groupSql = (agg: AggregateToken) =>
     Connector.withConnector(fake, () =>
         QueryFormatter.format(
-            DQueryable.fromEntity(table(AlbumEntity).elementType, table(AlbumEntity).expression)
+            table(AlbumEntity).toDQueryable()
                 .groupBy([tok("state")], [agg]).select([tok("state"), agg]).bindProjection().select, false)
             .sql.replace(/\s+/g, " ").toLowerCase());
 

@@ -2,7 +2,7 @@ import type { Entity } from "../../entities/entity";
 import { ClassType, type RuntimeType } from "../../entities/runtimeTypes";
 import { table } from "../table";
 import type { Query } from "../query";
-import { DQueryable } from "./dQueryable";
+import "./dQueryable"; // augments Query with .toDQueryable()
 import type { ResultTable } from "./resultTable";
 import type { QueryRequest } from "./requests";
 
@@ -50,9 +50,7 @@ export class AutoDynamicQueryCore implements DynamicQueryCore {
     // Signum's ExecuteQueryAsync: seed the context off the query (the row root "") → AllQuery
     // Operations → ToResultTable.
     async executeQueryAsync(request: QueryRequest): Promise<ResultTable> {
-        const q = this.getQuery();
-        const dq = DQueryable.fromEntity(q.elementType, q.expression);
-        const result = await dq.allQueryOperationsAsync(request);
+        const result = await this.getQuery().toDQueryable().allQueryOperationsAsync(request);
         return result.toResultTable(request.columns, request.pagination);
     }
 }

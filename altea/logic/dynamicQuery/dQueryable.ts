@@ -7,7 +7,7 @@ import { ProjectionExpression } from "../linq/expressions.sql";
 import { Connector } from "../connection/connector";
 import { bindAndOptimize } from "../table";
 import { buildTranslateResult } from "../linq/translatorBuilder";
-import type { Query } from "../query";
+import { Query } from "../query";
 import { QueryToken, BuildExpressionContext, ExpressionBox, buildLite } from "./tokens/queryToken";
 import { CollectionElementToken } from "./tokens/collectionElementToken";
 import { CollectionToArrayToken, toArraySeparator, toArrayDistinct } from "./tokens/collectionToArrayToken";
@@ -33,15 +33,12 @@ export class DQueryable {
     // "") maps to the row itself. Navigations ("Name", "Customer.Name") build off it. No projected
     // tuple — the query's shape is the reflected entity/model type (Signum's ToDQueryable over
     // `Database.Query<T>()`). The "" replacement lets the pipeline (selectMany/groupBy) thread the row.
+    // The ergonomic entry is `query.toDQueryable()` (augmented onto Query below); this static takes the
+    // raw element type + expression for callers that hold those directly.
     static fromEntity(elementType: RuntimeType, sourceExpression: Expression): DQueryable {
         const pe = new ParameterExpression("e", elementType);
         const replacements = new Map<string, ExpressionBox>([["", new ExpressionBox(pe)]]);
         return new DQueryable(sourceExpression, new BuildExpressionContext(elementType, pe, replacements));
-    }
-
-    // Convenience overload taking a Query<T> directly.
-    static forEntityQuery<T>(query: Query<T>): DQueryable {
-        return DQueryable.fromEntity(query.elementType, query.expression);
     }
 
     // ---- SelectMany (Signum's DQueryable.SelectMany + SelectManyConstructor) ------------------
@@ -246,7 +243,7 @@ export class DQueryable {
 
     // Materialise into the in-memory arm (Signum's DQueryable.ToDEnumerable): execute the query and
     // wrap the rows + context so they can be combined (Concat) / re-ordered / paginated in memory.
-    async toDEnumerableAsync(): Promise<DEnumerable> {
+    async toDEnumerable(): Promise<DEnumerable> {
         return new DEnumerable(await this.executeAsync(), this.context);
     }
 
@@ -317,4 +314,17 @@ export class DQueryable {
 function getRootKeyTokens(keyTokens: QueryToken[]): QueryToken[] {
     return keyTokens.filter(t => !keyTokens.some(t2 => t2 !== t && t2.dominates(t)));
 }
+
+// Signum's `IQueryable.ToDQueryable()` — an extension method starting the DQueryable pipeline. altea
+// adds it to `Query<T>` by declaration merging + prototype augmentation (the schema/query layer must
+// not depend on the DynamicQuery layer, so it can't be a plain method on Query). The query's shape is
+// its element type (a full entity or a projected ModelEntity); the request's tokens navigate that row.
+declare module "../query" {
+    interface Query<T> {
+        toDQueryable(): DQueryable;
+    }
+}
+Query.prototype.toDQueryable = function <T>(this: Query<T>): DQueryable {
+    return DQueryable.fromEntity(this.elementType, this.expression);
+};
 

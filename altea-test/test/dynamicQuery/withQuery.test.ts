@@ -77,7 +77,7 @@ describe("the query executes off table(T), navigating tokens (no projection)", (
 
     test("select the name column off the entity query", () => {
         const sql = Connector.withConnector(fake, () => {
-            const dq = DQueryable.forEntityQuery(table(AlbumEntity)).select([tok("name")]);
+            const dq = table(AlbumEntity).toDQueryable().select([tok("name")]);
             const proj = bindAndOptimize(dq.query, sb.schema, false, true) as ProjectionExpression;
             assert.ok(proj instanceof ProjectionExpression);
             return QueryFormatter.format(proj.select, false).sql.toLowerCase();

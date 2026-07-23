@@ -56,7 +56,7 @@ describe("Dominates", () => {
 
 describe("GroupBy drops redundant keys", () => {
     test("group by label + label.name → GROUP BY only the label id", () => {
-        const dq = DQueryable.fromEntity(table(AlbumEntity).elementType, table(AlbumEntity).expression)
+        const dq = table(AlbumEntity).toDQueryable()
             .groupBy([tok("label"), tok("label.name")], [new AggregateToken(AggregateFunction.Count, undefined, { queryName: AlbumEntity })]);
         const sql = Connector.withConnector(fake, () =>
             QueryFormatter.format(dq.select([tok("label.name")]).bindProjection().select, false).sql.replace(/\s+/g, " ").toLowerCase());

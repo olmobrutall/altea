@@ -39,7 +39,7 @@ const et = () => {
     return new RootToken(AlbumEntity);
 };
 const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s, O), et());
-const base = () => { const q = table(AlbumEntity); return DQueryable.fromEntity(q.elementType, q.expression); };
+const base = () => { const q = table(AlbumEntity); return q.toDQueryable(); };
 const whereSql = (group: FilterGroup) =>
     Connector.withConnector(fake, () =>
         QueryFormatter.format(base().where([group]).select([tok("name")]).bindProjection().select, false).sql.replace(/\s+/g, " ").toLowerCase());

@@ -23,7 +23,7 @@ const et = () => {
 const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s, O), et());
 
 // A context whose "Entity" column is the row itself; rows are album-like objects.
-const context = DQueryable.fromEntity(new ClassType(AlbumEntity), table(AlbumEntity).expression).context;
+const context = table(AlbumEntity).toDQueryable().context;
 
 const rows = () => [
     { year: 20, songs: [{ name: "X" }, { name: "Y" }] }, // has song X AND year 20  → match
