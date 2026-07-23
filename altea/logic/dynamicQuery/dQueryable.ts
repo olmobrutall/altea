@@ -302,10 +302,17 @@ export class DQueryable {
         return this.buildQueryOperations(request).tryPaginate(request.pagination);
     }
 
-    // Materialise a result (Signum's AllQueryOperations → DEnumerableCount): the pipeline above then
-    // SQL-side pagination.
-    async allQueryOperationsAsync(request: QueryRequest): Promise<DEnumerableCount> {
-        return await this.buildQueryOperations(request).tryPaginateAsync(request.pagination);
+    // Materialise a result (Signum's AllQueryOperationsAsync → DEnumerableCount): the pipeline above
+    // then SQL-side pagination. `forConcat` (Signum's forConcat flag) SKIPS pagination — the caller
+    // concatenates several sources first and paginates the combined result (cf. CustomersLogic's
+    // Person + Company union); the returned count is just this source's materialised row count.
+    async allQueryOperationsAsync(request: QueryRequest, forConcat = false): Promise<DEnumerableCount> {
+        const dq = this.buildQueryOperations(request);
+        if (forConcat) {
+            const de = await dq.toDEnumerable();
+            return new DEnumerableCount(de.collection, de.context, de.collection.length);
+        }
+        return await dq.tryPaginateAsync(request.pagination);
     }
 }
 
