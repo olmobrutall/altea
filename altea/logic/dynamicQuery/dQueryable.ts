@@ -58,17 +58,22 @@ export class DQueryable {
         const elemType = (collection.type as ArrayType).elementType as RuntimeType;
         const elemParam = new ParameterExpression("_elem", elemType);
 
+        // Signum's DQueryable.SelectMany uses the 2-arg SelectMany + DefaultIfEmpty → OUTER APPLY: the
+        // outer keys (the prior replacements) come from the OUTER row via the result selector, so an
+        // empty collection keeps the owner (populated) with a null element — not a whole-null row.
+        const collWithDefault = new CallExpression(new PropertyExpression(collection, "defaultIfEmpty"), [], collection.type);
+        const collectionSelector = new LambdaExpression([outerParam], collWithDefault);
+
         const keys = [...this.context.replacements.keys()];
         const props: Record<string, Expression> = {};
-        keys.forEach((k, i) => { props["c" + i] = this.context.replacements.get(k)!.rawExpression; });
+        keys.forEach((k, i) => { props["c" + i] = this.context.replacements.get(k)!.rawExpression; }); // reference the OUTER param
         const elemSlot = "c" + keys.length;
         props[elemSlot] = buildLite(elemParam);
         const tuple = new ObjectExpression(props);
+        const resultSelector = new LambdaExpression([outerParam, elemParam], tuple);
 
-        const innerMap = new CallExpression(new PropertyExpression(collection, "map"),
-            [new LambdaExpression([elemParam], tuple)], new ArrayType(tuple.type));
         const flatMap = new CallExpression(new PropertyExpression(this.query, "flatMap"),
-            [new LambdaExpression([outerParam], innerMap)], new ArrayType(tuple.type));
+            [collectionSelector, resultSelector], new ArrayType(tuple.type));
 
         const tupleParam = new ParameterExpression("_t", tuple.type as ObjectType);
         const newReplacements = new Map<string, ExpressionBox>();

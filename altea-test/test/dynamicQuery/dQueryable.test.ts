@@ -97,7 +97,7 @@ describe("DQueryable.allQueryOperations (QueryRequest-driven, cf. CustomersLogic
         );
         const built = q.toDQueryable().allQueryOperations(request);
         const s = Connector.withConnector(fake, () => sql(built));
-        assert.match(s, /song/);       // CROSS APPLY into Album_Songs
-        assert.match(s, /cross apply|join/);
+        assert.match(s, /song/);       // OUTER APPLY into Album_Songs (Signum's SelectMany + DefaultIfEmpty)
+        assert.match(s, /outer apply|left join lateral/); // keeps empty-collection owners
     });
 });

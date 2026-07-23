@@ -1010,7 +1010,13 @@ export class QueryBinder extends ExpressionVisitor {
                 case "map":
                     return this.bindSelect(source, call.args[0] as LambdaExpression);
                 case "flatMap":
-                    return this.bindSelectMany(source, call.args[0] as LambdaExpression);
+                    // Two-arg SelectMany (collection + result selector, Signum's BindSelectMany with a
+                    // resultSelector): lets the OUTER row survive an OUTER APPLY with its own columns
+                    // (the DQueryable SelectMany relies on this). One-arg → the collection projector is
+                    // the result (whole-tuple-null on empty).
+                    return call.args.length >= 2
+                        ? this.bindSelectManyResult(source, call.args[0] as LambdaExpression, call.args[1] as LambdaExpression)
+                        : this.bindSelectMany(source, call.args[0] as LambdaExpression);
                 case "defaultIfEmpty":
                     // The only legal defaultIfEmpty is peeled off a flatMap collection selector
                     // by extractDefaultIfEmpty *before* binding, so it never reaches here —
@@ -3056,6 +3062,42 @@ export class QueryBinder extends ExpressionVisitor {
         return new ProjectionExpression(
             new SelectExpression(alias, false, undefined, pc.columns, join, undefined, [], []),
             pc.projector, undefined, collProj.type);
+    }
+
+    // Two-arg SelectMany (Signum's BindSelectMany with a resultSelector): APPLY the collection onto
+    // the source, then build the result from (outer, inner). Unlike the single-arg form, the outer
+    // columns come from the OUTER row (proj.projector), so an OUTER APPLY (a `.defaultIfEmpty()`
+    // collection) keeps the owner populated with a null inner — Signum's `from a in src from x in
+    // a.Coll.DefaultIfEmpty() select new { a, x }`. This is what the DQueryable SelectMany uses.
+    private bindSelectManyResult(projection: ProjectionExpression, collectionSelectorRaw: LambdaExpression, resultSelector: LambdaExpression): ProjectionExpression {
+        const { selector, outer } = this.extractDefaultIfEmpty(collectionSelectorRaw);
+        const { expression: coll, projection: proj } = this.mapVisitExpandIndexed(selector, projection);
+        const collProj = this.asProjection(coll);
+        const join = new JoinExpression(outer ? "OuterApply" : "CrossApply", proj.select, collProj.select, undefined);
+
+        // Bind the result selector with the outer + inner params mapped, against the join (mirrors
+        // bindJoin's result-selector handling).
+        const p0 = resultSelector.parameters[0];
+        const p1 = resultSelector.parameters[1];
+        const old0 = this.map.get(p0);
+        const old1 = this.map.get(p1);
+        this.map.set(p0, proj.projector);
+        this.map.set(p1, collProj.projector);
+        this.sourceStack.push(join);
+        let resultExpr: Expression;
+        try {
+            resultExpr = this.visit(resultSelector.body);
+        } finally {
+            this.sourceStack.pop();
+            if (old0 === undefined) this.map.delete(p0); else this.map.set(p0, old0);
+            if (old1 === undefined) this.map.delete(p1); else this.map.set(p1, old1);
+        }
+
+        const alias = this.aliasGenerator.nextSelectAlias();
+        const pc = this.projectColumns(resultExpr, alias);
+        return new ProjectionExpression(
+            new SelectExpression(alias, false, undefined, pc.columns, join, undefined, [], []),
+            pc.projector, undefined, new ArrayType(resultExpr.type));
     }
 
     // Signum's OverloadingSimplifier.ExtractDefaultIfEmpty: strip a `.defaultIfEmpty()` that is

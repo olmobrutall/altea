@@ -139,6 +139,20 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
         assert.ok(list.some(x => x == null || !x.hasFriend));
     });
 
+    // Two-arg SelectMany (Signum's `SelectMany(coll, (a1, a) => new { … })`): unlike the single-arg
+    // form (whole-null row on empty), the OUTER row survives populated with a null inner — the
+    // faithful `from a1 … from a in a1.Friends.DefaultIfEmpty() select new { Artist = a1.ToLite(), Friend = a }`.
+    test("SelectManyResultSelectorOuterApply", async () => {
+        const list = await table(ArtistEntity)
+            .flatMap(a1 => a1.friends.defaultIfEmpty(), (a1, f) => ({ artist: a1.toLite(), friend: f?.friend }))
+            .toArray();
+        assert.ok(list.length > 0);
+        // The discriminating property: the OUTER artist is ALWAYS populated (single-arg would give a
+        // whole-null row for a friendless artist); a friendless artist is kept with a null friend.
+        assert.ok(list.every(x => x.artist != null));
+        assert.ok(list.some(x => x.friend == null));
+    });
+
     // from b in Database.Query<BandEntity>() from a in b.Members
     //   select new { MaxAlbum = Database.Query<ArtistEntity>().Where(n => n.Friends.Contains(a.ToLite())).Max(n => (int?)n.Id) }
     // A correlated subquery whose Where uses a friends-collection existence check (contains over

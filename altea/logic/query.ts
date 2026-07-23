@@ -194,18 +194,30 @@ export class Query<T> implements IQuery<T> {
         return new Query<R>(call, this.translator);
     }
 
+    // SelectMany. One-arg: the collection selector's result IS each output row (CROSS/OUTER APPLY per
+    // a trailing `.defaultIfEmpty()`, but the whole row is null on an empty collection). Two-arg
+    // (Signum's `SelectMany(coll, (outer, inner) => result)`): the result selector combines the OUTER
+    // row with each (possibly-null) inner element, so an OUTER APPLY keeps the owner populated — this
+    // is the faithful `from a in src from x in a.Coll.DefaultIfEmpty() select new { a, x }`.
+    flatMap<R>(colSelector: Quoted<(element: T, index: number) => R[] | Query<R>>): Query<R>;
+    flatMap<R, S>(colSelector: Quoted<(element: T, index: number) => R[] | Query<R>>, resultSelector: Quoted<(element: T, collectionElement: R) => S>): Query<S>;
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType, SimpleType.number])
-    @resultType((ot, colSelType) => (colSelType as FunctionType).returnType)
-    flatMap<R>(colSelector: Quoted<(element: T, index: number) => R[] | Query<R>>): Query<R> {
-        var lambda = Expression.fromQuotedLambda(colSelector, [this.elementType]);
+    @lambdaTypeForParam(1, (ot, colSel) => [(ot as ArrayType).elementType, ((colSel as FunctionType).returnType as ArrayType).elementType])
+    @resultType((ot, colSel, resultSel) => resultSel != null ? new ArrayType((resultSel as FunctionType).returnType) : (colSel as FunctionType).returnType)
+    flatMap<R, S>(colSelector: Quoted<(element: T, index: number) => R[] | Query<R>>, resultSelector?: Quoted<(element: T, collectionElement: R) => S>): Query<R> | Query<S> {
+        var colLambda = Expression.fromQuotedLambda(colSelector, [this.elementType]);
+        if (!(colLambda.body.type instanceof ArrayType))
+            throw new Error("colSelector should return an Array but returned " + (colLambda.body.type?.toString() ?? "null"));
 
-        if (!(lambda.body.type instanceof ArrayType))
-            throw new Error("colSelector should return an Array but returned " + (lambda.body.type?.toString() ?? "null"));
-        var call = new CallExpression(
-            new PropertyExpression(this.expression, "flatMap"),
-            [lambda],
-            lambda.body.type);
-        return new Query<R>(call, this.translator);
+        if (resultSelector == undefined) {
+            var call = new CallExpression(new PropertyExpression(this.expression, "flatMap"), [colLambda], colLambda.body.type);
+            return new Query<R>(call, this.translator);
+        }
+
+        const elemType = (colLambda.body.type as ArrayType).elementType as RuntimeType;
+        const resultLambda = Expression.fromQuotedLambda(resultSelector, [this.elementType, elemType]);
+        const call2 = new CallExpression(new PropertyExpression(this.expression, "flatMap"), [colLambda, resultLambda], new ArrayType(resultLambda.body.type));
+        return new Query<S>(call2, this.translator);
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])

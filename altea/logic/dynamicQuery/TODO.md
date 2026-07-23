@@ -33,10 +33,11 @@ request/result model, and the query registry.
   (Count/Sum/Min/Max/Average + Count-where/Count-distinct), `ExtensionToken`.
 - **BuildExpression retarget** — tokens hand-build altea `Expression` nodes → `bindAndOptimize`.
   `@implementedByAll` sub-token source wired via `QueryLogic.getImplementedByAllTypes`.
-- **DQueryable** (`dQueryable.ts`) — the authoring pipeline: `fromEntity`/`forEntityQuery`,
-  `selectMany`, `where`, `orderBy`, `select` (+ the CollectionToArray collect-path), `groupBy`
-  (+ `Dominates`/`getRootKeyTokens` redundant-key dedup), `tryPaginate`/`tryPaginateAsync`,
-  `count`/`countAsync`, `allQueryOperations(Async)` (+ `groupResults` WHERE/HAVING split).
+- **DQueryable** (`dQueryable.ts`) — the authoring pipeline (entry: `Query.toDQueryable()`):
+  `selectMany` (2-arg `flatMap` + `defaultIfEmpty` → OUTER APPLY, owners kept populated), `where`,
+  `orderBy`, `select` (+ the CollectionToArray collect-path), `groupBy` (+ `Dominates`/`getRootKeyTokens`
+  redundant-key dedup), `toDEnumerable`, `tryPaginate`/`tryPaginateAsync`, `count`/`countAsync`,
+  `allQueryOperations(Async)` (+ `groupResults` WHERE/HAVING split, + `forConcat` to skip pagination).
 - **DEnumerable / DEnumerableCount** (`dEnumerable.ts`) — in-memory arm (`where`/`orderBy`/`select`/
   `concat`/`tryPaginate`) via an env-based `evalExpr` (supports `.some`/`.every` closures).
 - **ResultTable / ResultColumn / ResultRow** (`resultTable.ts`) — columnar materialisation; the
@@ -60,8 +61,6 @@ request/result model, and the query registry.
 Pipeline:
 - [ ] `OrderAlsoByKeys` — a stable tie-break key before Skip/Take so pages don't overlap on a
       non-unique order.
-- [ ] OUTER APPLY / keep-empty-owner for `selectMany` — today a plain `flatMap` → CROSS APPLY drops
-      empty-collection owners (Signum's 2-arg SelectMany + DefaultIfEmpty).
 - [ ] Full-text filters (`FilterSqlServerFullText` / PG) + `ToTableFilter`; `FilterCondition` covers
       comparison / string / IsIn only.
 - [ ] `CollectionNestedToken` / `SelectWithNestedQueries` — nested result sub-tables.
