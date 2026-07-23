@@ -18,7 +18,7 @@ import { MusicLogic } from "../../logic/MusicLogic";
 import { AlbumEntity, NoteWithDateEntity } from "../../entities/music";
 
 // Phase-3b DynamicQuery port: date-part sub-tokens (DateTimeProperties/DateOnlyProperties via
-// NetPropertyToken + DateToken) and integer ModuloToken.
+// ObjectPropertyToken + DateToken) and integer ModuloToken.
 
 const O = SubTokensOptionsAll;
 

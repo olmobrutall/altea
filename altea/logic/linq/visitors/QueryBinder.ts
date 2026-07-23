@@ -54,7 +54,7 @@ import {
 } from "../../schema/field";
 import type { FieldInfo } from "../../../entities/reflection";
 import { fieldType, fieldEnum, fieldTypeName } from "../../../entities/reflection";
-import { Entity, View, typeConstructor } from "../../../entities/entity";
+import { Entity, View, ModelEntity, typeConstructor } from "../../../entities/entity";
 import type { Type } from "../../../entities/entity";
 import { TypeEntity } from "../../../entities/typeEntity";
 import { toInt, toLong, toDecimal, inSql, Temporal } from "../../../entities/basics";
@@ -78,9 +78,13 @@ function isReferenceish(e: Expression): boolean {
         || e instanceof ImplementedByAllExpression || e instanceof LiteReferenceExpression;
 }
 
-// A View subclass constructor — the target of an in-query `Ctor.create({ … })` projection.
+// A constructor materialisable in a query projection via `Ctor.create({ … })`: a View subclass
+// (TVF / catalog-view rows) or a ModelEntity subclass (a DynamicQuery Type-2 projection shape).
 function isViewCtor(value: unknown): value is Function {
-    return typeof value === "function" && (value === View || (value as Function).prototype instanceof View);
+    if (typeof value !== "function")
+        return false;
+    const proto = (value as Function).prototype;
+    return value === View || proto instanceof View || value === ModelEntity || proto instanceof ModelEntity;
 }
 
 // A `receiver.<name>(...)` call in the source AST (a CallExpression on a named

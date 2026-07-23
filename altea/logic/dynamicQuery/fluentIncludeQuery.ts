@@ -36,7 +36,7 @@ FluentInclude.prototype.withQuery = function <T extends Entity>(this: FluentIncl
     const rootType = typeConstructor(this.table.type);
     // Register an executable auto-query (Signum's WithQuery). Its shape is the entity itself; its
     // source is `table(T)` (no projection) — see AutoDynamicQueryCore.
-    QueryLogic.queries.register(rootType, () => new AutoDynamicQueryCore(rootType));
+    QueryLogic.queries.register(rootType, () => AutoDynamicQueryCore.fromEntity(rootType));
     return this;
 };
 

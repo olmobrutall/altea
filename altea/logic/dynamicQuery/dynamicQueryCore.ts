@@ -1,5 +1,7 @@
 import type { Entity } from "../../entities/entity";
+import { ClassType, type RuntimeType } from "../../entities/runtimeTypes";
 import { table } from "../table";
+import type { Query } from "../query";
 import { DQueryable } from "./dQueryable";
 import type { ResultTable } from "./resultTable";
 import type { QueryRequest } from "./requests";
@@ -14,22 +16,61 @@ export interface DynamicQueryCore {
     executeQueryAsync(request: QueryRequest): Promise<ResultTable>;
 }
 
-// Port of Signum's `AutoDynamicQueryCore<T>` for a plain entity query (`WithQuery`). altea's WithQuery
-// takes NO selector: the query IS `table(T)`, so its shape is just the reflected entity. Columns are
-// navigated as rootless tokens off it ("Name", "Customer.Name", …); computed columns are registered
-// expressions. Custom projections / joins are a separate manually-registered core, not this.
+// The concrete entity/model ctor behind a query's element type.
+function shapeCtorOf(elementType: RuntimeType): Function {
+    if (elementType instanceof ClassType)
+        return elementType.constructorFunction;
+    throw new Error(`A query's element type must be a reflected entity/model class, got ${elementType}`);
+}
+
+// Port of Signum's `AutoDynamicQueryCore<T>` — a query backed by an IQueryable (altea: a `Query<T>`
+// factory). Covers BOTH `WithQuery` (Type 1, `table(T)`) and a manually-registered query that
+// filters/joins/projects (Type 2, e.g. `() => table(User).filter(u => u.isActive)` or
+// `() => table(User).flatMap(…).map(u => SomeModel.create({ entity: u, … }))`). The shape is the
+// query's element type — a full entity or a projected ModelEntity — and the request's tokens navigate
+// that row directly. No selector/projection metadata: it all comes from reflection on the shape type.
 export class AutoDynamicQueryCore implements DynamicQueryCore {
-    constructor(private readonly rootType: Function) { }
+    private _rootType: Function | undefined;
+
+    constructor(private readonly getQuery: () => Query<any>, rootType?: Function) {
+        this._rootType = rootType;
+    }
+
+    // WithQuery convenience (Type 1): the query is just `table(T)`, root type known up front.
+    static fromEntity(rootType: Function): AutoDynamicQueryCore {
+        return new AutoDynamicQueryCore(() => table(rootType as new () => Entity), rootType);
+    }
+
+    getRootType(): Function {
+        // For a manual Type-2 query the shape is inferred from the factory's element type (building the
+        // query AST is cheap — it does not execute). Cached after first use.
+        return this._rootType ??= shapeCtorOf(this.getQuery().elementType);
+    }
+
+    // Signum's ExecuteQueryAsync: seed the context off the query (the row root "") → AllQuery
+    // Operations → ToResultTable.
+    async executeQueryAsync(request: QueryRequest): Promise<ResultTable> {
+        const q = this.getQuery();
+        const dq = DQueryable.fromEntity(q.elementType, q.expression);
+        const result = await dq.allQueryOperationsAsync(request);
+        return result.toResultTable(request.columns, request.pagination);
+    }
+}
+
+// Port of Signum's `DynamicQueryCore.Manual` (Type 3): an arbitrary imperative `request → ResultTable`
+// executor. Its shape is still a declared reflected model type (so the token tree / column metadata
+// come from reflection, exactly like every other query) — only the EXECUTION is hand-written.
+export class ManualDynamicQueryCore implements DynamicQueryCore {
+    constructor(
+        private readonly rootType: Function,
+        private readonly executor: (request: QueryRequest) => Promise<ResultTable>,
+    ) { }
 
     getRootType(): Function {
         return this.rootType;
     }
 
-    // Signum's ExecuteQueryAsync: seed the context off `table(T)` (the entity root "") → AllQuery
-    // Operations → ToResultTable. The request's tokens navigate the entity directly.
-    async executeQueryAsync(request: QueryRequest): Promise<ResultTable> {
-        const dq = DQueryable.forEntityQuery(table(this.rootType as new () => Entity));
-        const result = await dq.allQueryOperationsAsync(request);
-        return result.toResultTable(request.columns, request.pagination);
+    executeQueryAsync(request: QueryRequest): Promise<ResultTable> {
+        return this.executor(request);
     }
 }

@@ -10,6 +10,7 @@ import { buildTranslateResult } from "../linq/translatorBuilder";
 import type { Query } from "../query";
 import { QueryToken, BuildExpressionContext, ExpressionBox, buildLite } from "./tokens/queryToken";
 import { CollectionElementToken } from "./tokens/collectionElementToken";
+import { CollectionToArrayToken, toArraySeparator, toArrayDistinct } from "./tokens/collectionToArrayToken";
 import { AggregateToken } from "./tokens/aggregateToken";
 import { Filter, Order, Column, OrderType, Pagination, QueryRequest } from "./requests";
 import { DEnumerable, DEnumerableCount } from "./dEnumerable";
@@ -109,7 +110,12 @@ export class DQueryable {
     select(columns: (QueryToken | Column)[]): DQueryable {
         const tokens = columns.map(c => c instanceof Column ? c.token : c);
         const props: Record<string, Expression> = {};
-        tokens.forEach((t, i) => { props["c" + i] = t.buildExpression(this.context); });
+        tokens.forEach((t, i) => {
+            // A token under a CollectionToArray ancestor is string-aggregated over the collection
+            // (Signum's BuildToArrayExpression) instead of navigated plainly.
+            const cta = t.hasToArray();
+            props["c" + i] = cta != undefined ? this.buildToArray(t, cta) : t.buildExpression(this.context);
+        });
         const tuple = new ObjectExpression(props);
 
         const selector = new LambdaExpression([this.context.parameter], tuple);
@@ -120,6 +126,28 @@ export class DQueryable {
         tokens.forEach((t, i) => newReplacements.set(t.fullKey(), new ExpressionBox(new PropertyExpression(tupleParam, "c" + i))));
 
         return new DQueryable(mapped, new BuildExpressionContext(tuple.type, tupleParam, newReplacements));
+    }
+
+    // Signum's BuildToArrayExpression: string-aggregate a token's value over a collection. Builds
+    // `<collection>.map(elem => <leaf over elem>)[.distinct()].join(separator)` → a STRING_AGG column.
+    // `token` is the leaf being selected; `cta` is its CollectionToArray ancestor.
+    private buildToArray(token: QueryToken, cta: CollectionToArrayToken): Expression {
+        const collection = cta.parent!.buildExpression(this.context);
+        const elemType = (collection.type as ArrayType).elementType as RuntimeType;
+        const elemParam = new ParameterExpression("_cta", elemType);
+        // Seed the CollectionToArray token as the element (like selectMany seeds a CollectionElement),
+        // then build the leaf against it.
+        const subCtx = new BuildExpressionContext(elemType, elemParam,
+            new Map([[cta.fullKey(), new ExpressionBox(buildLite(elemParam))]]));
+        const leaf = token.buildExpression(subCtx);
+
+        const mapped = new CallExpression(new PropertyExpression(collection, "map"),
+            [new LambdaExpression([elemParam], leaf)], new ArrayType(leaf.type));
+        const distincted = toArrayDistinct(cta.toArrayType)
+            ? new CallExpression(new PropertyExpression(mapped, "distinct"), [], mapped.type)
+            : mapped;
+        return new CallExpression(new PropertyExpression(distincted, "join"),
+            [new ConstantExpression(toArraySeparator(cta.toArrayType), LiteralType.string)], LiteralType.string);
     }
 
     // ---- GroupBy (Signum's DQueryable.GroupBy) ------------------------------------------------

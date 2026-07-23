@@ -1,5 +1,6 @@
 import { PropertyRoute } from "../../../entities/propertyRoute";
 import { Implementations } from "../../../entities/implementations";
+import { Entity } from "../../../entities/entity";
 import { ClassType, type RuntimeType } from "../../../entities/runtimeTypes";
 import { niceName } from "../../../entities/utils/localization";
 import type { Expression } from "../../linq/expressions";
@@ -33,7 +34,12 @@ export class RootToken extends QueryToken {
     get format(): string | undefined { return undefined; }
     get unit(): string | undefined { return undefined; }
 
-    getImplementations(): Implementations | undefined { return Implementations.by(this.shapeType); }
+    // Only a full-entity shape has entity implementations; a ModelEntity projection row does not
+    // (its `entity` FIELD carries the row identity instead).
+    getImplementations(): Implementations | undefined {
+        const isEntity = this.shapeType === Entity || this.shapeType.prototype instanceof Entity;
+        return isEntity ? Implementations.by(this.shapeType) : undefined;
+    }
     getPropertyRoute(): PropertyRoute | undefined { return PropertyRoute.root(this.shapeType); }
     isAllowed(): string | null { return null; }
 

@@ -47,6 +47,14 @@ describe("collection sub-tokens", () => {
         assert.ok(keys.includes("id"));
     });
 
+    test("a collection exposes the CollectionToArray string-aggregation tokens", () => {
+        const keys = tok("songs").subTokens(O).map((t: any) => t.key);
+        for (const k of ["SeparatedByComma", "SeparatedByCommaDistinct", "SeparatedByNewLine", "SeparatedByNewLineDistinct"])
+            assert.ok(keys.includes(k), `missing ToArray token ${k}`);
+        // …and it navigates the element's properties (songs.SeparatedByComma.name).
+        assert.ok(tok("songs.SeparatedByComma").subTokens(O).map((t: any) => t.key).includes("name"));
+    });
+
     test("CollectionElementToken.buildExpression throws without expansion", () => {
         const { ctx } = withCtx();
         assert.throws(() => tok("songs.Element").buildExpression(ctx), /should have a replacement/);
@@ -98,5 +106,16 @@ describe("collection tokens bind to SQL", () => {
         });
         assert.match(sql, /song/);  // AlbumEntity_Songs table
         assert.match(sql, /name/);
+    });
+
+    test("songs.SeparatedByComma.name → STRING_AGG of the song names over the album's songs", () => {
+        const nameToArray = tok("songs.SeparatedByComma.name");
+        const q = table(AlbumEntity);
+        const sql = Connector.withConnector(fake, () => {
+            const dq = DQueryable.fromEntity(q.elementType, q.expression).select([nameToArray]);
+            return fmt(dq.bindProjection());
+        });
+        assert.match(sql, /string_agg/); // collapsed to one delimited-string cell
+        assert.match(sql, /song/);
     });
 });

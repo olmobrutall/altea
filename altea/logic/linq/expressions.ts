@@ -6,7 +6,7 @@ import { Temporal } from "../../entities/basics";
 import { resolveType } from "../../entities/registration";
 import { tryGetTypeInfo, fieldType, type FieldInfo } from "../../entities/reflection";
 import { Lite } from "../../entities/lite";
-import { Entity, View } from "../../entities/entity";
+import { Entity, View, ModelEntity } from "../../entities/entity";
 import { getLambdaTypeResolvers, getResultTypeResolver, type LambdaTypeResolver, OrderedQuery, Query, type ResultTypeResolver } from "../query";
 import type { QuotedFunction } from "../../entities/runtimeTypes";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
@@ -138,9 +138,14 @@ function tryFoldCall(fun: Expression, argVals: unknown[], optional: boolean): Ex
 // → ClassType, value → LiteralType). This feeds both the flatMap array-guard and
 // the method-call dispatch in fromQuoted (which keys off ArrayType/ClassType).
 // Unknown owners/fields (temporal types, enums, unreflected types) stay null.
-// A View subclass constructor — the target of an in-query `Ctor.create({ … })` projection.
-function isViewCtorValue(value: unknown): value is Function {
-    return typeof value === "function" && (value === View || (value as Function).prototype instanceof View);
+// A constructor that can be materialised inside a query projection via `Ctor.create({ … })`: a View
+// subclass (table-valued-function / catalog view rows) or a ModelEntity subclass (a DynamicQuery
+// Type-2 projection shape, e.g. `table(User).map(u => UserRowModel.create({ entity: u, … }))`).
+function isProjectableCtorValue(value: unknown): value is Function {
+    if (typeof value !== "function")
+        return false;
+    const proto = (value as Function).prototype;
+    return value === View || proto instanceof View || value === ModelEntity || proto instanceof ModelEntity;
 }
 
 function resolveMemberType(ownerType: RuntimeType, propertyName: string): RuntimeType {
@@ -570,11 +575,11 @@ export abstract class Expression {
                         const args = q[2];
                         const optional = q[0] === "?.()";
 
-                        // `Ctor.create({ … })` where Ctor is a View subclass: build a typed
-                        // instance per row. Typed as the instance (ClassType) so downstream
+                        // `Ctor.create({ … })` where Ctor is a View or ModelEntity subclass: build a
+                        // typed instance per row. Typed as the instance (ClassType) so downstream
                         // navigation works; the QueryBinder tags the object with the ctor.
                         if (fun instanceof PropertyExpression && fun.propertyName === "create"
-                            && fun.object instanceof ConstantExpression && isViewCtorValue(fun.object.value)) {
+                            && fun.object instanceof ConstantExpression && isProjectableCtorValue(fun.object.value)) {
                             const createArgs = (args as QuotedEx[]).map(a => fromQuoted(a));
                             return new CallExpression(fun, createArgs, new ClassType(fun.object.value as Function));
                         }

@@ -17,7 +17,7 @@ import "@altea/altea/logic/dynamicQuery/tokens/factories"; // registers token fa
 import { MusicLogic } from "../../logic/MusicLogic";
 import { AlbumEntity } from "../../entities/music";
 
-// Phase-3a DynamicQuery port: leaf tokens (HasValue, EntityToString, NetPropertyToken/StringTokens,
+// Phase-3a DynamicQuery port: leaf tokens (HasValue, EntityToString, ObjectPropertyToken/StringTokens,
 // AsType). Extends Phase 2's RootToken + EntityPropertyToken navigation.
 
 const O = SubTokensOptionsAll;

@@ -4,11 +4,12 @@ import type { RuntimeType } from "../../../entities/runtimeTypes";
 import { Expression, PropertyExpression, CallExpression } from "../../linq/expressions";
 import { QueryToken, BuildExpressionContext, SubTokensOptions } from "./queryToken";
 
-// Port of Signum's `NetPropertyToken`: a ".NET member" sub-token — a property or parameterless
-// method on a value type (String.Length, DateTime.Year, DateTime.Quarter(), …). The generators on
-// QueryToken (stringTokens, and Phase-3b DateTimeProperties/StepTokens) build these. `memberName`
-// is the altea member the binder understands (lowercase: "length", "year", "quarter", …).
-export class NetPropertyToken extends QueryToken {
+// Port of Signum's `NetPropertyToken` (renamed: altea has no ".NET" — it's a plain object/value
+// member). A property or parameterless method on a value type (string.length, date.year,
+// date.quarter(), …). The generators on QueryToken (stringTokens, and Phase-3b DateTimeProperties/
+// StepTokens) build these. `memberName` is the altea member the binder understands (lowercase:
+// "length", "year", "quarter", …).
+export class ObjectPropertyToken extends QueryToken {
     constructor(
         private readonly _parent: QueryToken,
         public readonly memberName: string,

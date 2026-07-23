@@ -9,6 +9,7 @@ import {
     Expression, ParameterExpression, PropertyExpression, CallExpression,
 } from "../../linq/expressions";
 import { FilterType, tryGetFilterType, type QueryName } from "../queryUtils";
+import type { CollectionToArrayToken } from "./collectionToArrayToken";
 
 // Port of Signum's `SubTokensOptions` (DynamicQuery/QueryUtils.cs). A bit-flag set controlling
 // which families of sub-tokens a token exposes (aggregates, element access, operations, …).
@@ -161,6 +162,13 @@ export abstract class QueryToken {
         return false;
     }
 
+    // Signum's QueryToken.HasToArray(): the nearest CollectionToArrayToken ancestor (itself included),
+    // or undefined. The DQueryable select layer uses it to string-aggregate a token's value over the
+    // collection instead of navigating it plainly. Overridden by CollectionToArrayToken to return this.
+    hasToArray(): CollectionToArrayToken | undefined {
+        return this.parent?.hasToArray();
+    }
+
     // Port of Signum's QueryToken.Dominates: `this` is a strict ancestor of `t` reached by pure
     // navigation — no collection token (Element/AnyAll/Nested) in between. Crossing a collection
     // multiplies rows, so a descendant there is NOT functionally determined by the ancestor and
@@ -301,6 +309,9 @@ export abstract class QueryToken {
         if (options & SubTokensOptions.CanAnyAll)
             for (const aa of ["Any", "All", "NotAny", "NotAll"])
                 tokens.push(tokenFactories!.collectionAnyAll(this, aa));
+        if (options & SubTokensOptions.CanToArray)
+            for (const ta of ["SeparatedByComma", "SeparatedByCommaDistinct", "SeparatedByNewLine", "SeparatedByNewLineDistinct"])
+                tokens.push(tokenFactories!.collectionToArray(this, ta));
         return tokens;
     }
 
@@ -312,7 +323,7 @@ export abstract class QueryToken {
 
     // Signum's StringTokens(): the string `Length` sub-token. (FullText/Snippet/Translated TODO.)
     protected stringTokens(): QueryToken[] {
-        return [tokenFactories!.netProperty(this, "length", LiteralType.number, "Length", false)];
+        return [tokenFactories!.objectProperty(this, "length", LiteralType.number, "Length", false)];
     }
 
     // Signum's AndModuloTokens: integer bucket sub-tokens.
@@ -327,7 +338,7 @@ export abstract class QueryToken {
     // DatePartStart "Month/Quarter/… Start" and TimeOfDay tokens — Phase 3b+).
     protected dateTimeProperties(): QueryToken[] {
         const part = (name: string, method = false) =>
-            tokenFactories!.netProperty(this, name, LiteralType.number, capitalize(name), method);
+            tokenFactories!.objectProperty(this, name, LiteralType.number, capitalize(name), method);
         return [
             part("year"), part("quarter", true), part("month"),
             part("dayOfYear"), part("day"), part("dayOfWeek"),
@@ -339,7 +350,7 @@ export abstract class QueryToken {
     // Signum's DateOnlyProperties: the date (no time) part sub-tokens.
     protected dateOnlyProperties(): QueryToken[] {
         const part = (name: string, method = false) =>
-            tokenFactories!.netProperty(this, name, LiteralType.number, capitalize(name), method);
+            tokenFactories!.objectProperty(this, name, LiteralType.number, capitalize(name), method);
         return [part("year"), part("quarter", true), part("month"), part("dayOfYear"), part("day"), part("dayOfWeek")];
     }
 
@@ -410,13 +421,14 @@ export interface TokenFactories {
     idProperty(parent: QueryToken): QueryToken;
     entityToString(parent: QueryToken): QueryToken;
     hasValue(parent: QueryToken): QueryToken;
-    netProperty(parent: QueryToken, memberName: string, resultType: RuntimeType, displayName: string, isMethod: boolean, format?: string, unit?: string): QueryToken;
+    objectProperty(parent: QueryToken, memberName: string, resultType: RuntimeType, displayName: string, isMethod: boolean, format?: string, unit?: string): QueryToken;
     asType(parent: QueryToken, entityCtor: Function): QueryToken;
     dateToken(parent: QueryToken): QueryToken;
     modulo(parent: QueryToken, divisor: number): QueryToken;
     count(parent: QueryToken): QueryToken;
     collectionElement(parent: QueryToken, elementType: string): QueryToken;
     collectionAnyAll(parent: QueryToken, anyAllType: string): QueryToken;
+    collectionToArray(parent: QueryToken, toArrayType: string): QueryToken;
 }
 let tokenFactories: TokenFactories | undefined;
 export function registerTokenFactories(f: TokenFactories): void {
