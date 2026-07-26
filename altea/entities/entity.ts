@@ -2,10 +2,10 @@
 import { Lite, LiteImp, getCustomLiteConstructor, getCustomLiteConstructorFor } from './lite';
 import type { CustomLiteClass } from './lite';
 import { entity, EntityData, column, serialize, quoted } from './decorators';
-import { niceName, newNiceName } from './utils/localization';
+import { niceName, newNiceName, nicePluralName } from './utils/localization';
 import { reflect, getTypeInfo } from './reflection';
 import { MixinDeclarations } from './mixinDeclarations';
-import { enumNameOf } from './registration';
+import { enumNameOf, cleanTypeName } from './registration';
 import { isGraphModified, isModifiedSelf } from './changes';
 import { LiteralType, LiteType, quotedFunction, type RuntimeType as ExpressionType } from './runtimeTypes';
 
@@ -116,6 +116,17 @@ export abstract class BaseEntity {
     static createMany<T extends BaseEntity>(this: new () => T, valuesArray: InitValues<T>[]): T[] {
         return valuesArray.map(values => (this as any).create(values) as T);
     }
+
+    // --- Static "Type<T>-object" API (Signum's Type<T>) ---
+    // altea has real entity classes, so a class doubles as Signum's Type descriptor: ported
+    // React client code calls OrderEntity.typeName / .niceName() / .nicePluralName() directly
+    // instead of holding a separate `new Type("Order")` object. `this` binds to the concrete
+    // subclass constructor. (`niceName()` also exists on Function.prototype for query
+    // expressions; declared here too as the canonical anchor + the react-layer static hook.)
+    // `token()` is deferred until the client QueryToken (QueryTokenString) is ported.
+    static get typeName(): string { return cleanTypeName(this); }
+    static niceName(this: Function): string { return niceName(this); }
+    static nicePluralName(this: Function): string { return nicePluralName(this); }
 }
 
 // Base for raw database views (Signum's IView) and, more generally, any reflected class

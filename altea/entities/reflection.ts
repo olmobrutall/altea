@@ -121,6 +121,19 @@ export class FieldInfo {
     niceToString(): string {
         return DescriptionManager.inferDescription(this.name);
     }
+
+    // Runs this field's validators (then any customValidation) against `entity`, returning the
+    // first error message or null. Single source of field validation — used by BOTH
+    // entityIntegrityCheck (whole entity) and the client Binding.getError (per-field, live),
+    // so the two never diverge.
+    validate(entity: any): string | null {
+        const value = entity[this.name];
+        for (const validator of this.validators) {
+            const error = validator.error(value, entity, this);
+            if (error != null) return error;
+        }
+        return this.customValidation != null ? this.customValidation(entity, this) : null;
+    }
 }
 
 // Validator is declared here (forward-reference) to break the circular dep

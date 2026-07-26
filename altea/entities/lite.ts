@@ -1,6 +1,7 @@
 
 import type { Entity, Type, PrimaryKey } from './entity';
 import { typeName, typeConstructor } from './entity';
+import { cleanTypeName, resolveCleanType } from './registration';
 import { LiteralType, quotedFunction } from './runtimeTypes';
 import type { Quoted } from 'quote-transformer/quoted';
 
@@ -69,6 +70,20 @@ export abstract class Lite<out T extends Entity> {
 
         const otherEntity = isEntity ? (other as Entity) : (other as Lite<Entity>).entityOrNull;
         return this.entityOrNull === otherEntity;
+    }
+
+    /** The canonical "CleanType;id" key of this lite (Signum's free `liteKey`). */
+    key(): string {
+        return cleanTypeName(typeConstructor(this.entityType)) + ";" + this.id;
+    }
+
+    /** Builds a thin lite from its "CleanType;id" key (Signum's free `parseLite`). */
+    static parse(key: string): Lite<Entity> {
+        const [type, id] = key.split(";");
+        const ctor = resolveCleanType(type);
+        if (ctor == null)
+            throw new Error(`Lite.parse: type '${type}' is not registered`);
+        return new LiteImp(id as PrimaryKey, ctor as unknown as Type<Entity>, "");
     }
 
     /**

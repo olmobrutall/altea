@@ -22,23 +22,18 @@ export interface IntegrityCheck {
 export function entityIntegrityCheck(m: BaseEntity): IntegrityCheck | null {
     let errors: { [field: string]: string } | undefined;
 
-    forEachField(m, (fi, value) => {
-        let error: string | null = null;
-
-        for (const validator of fi.validators) {
-            error = validator.error(value, m, fi);
-            if (error != null) break;
-        }
-
-        if (error == null && fi.customValidation != null)
-            error = fi.customValidation(m, fi);
-
+    forEachField(m, fi => {
+        const error = fi.validate(m);
         if (error != null)
             (errors ??= {})[fi.name] = error;
     });
 
     return errors == null ? null : { entity: m, errors };
 }
+
+// The property-path -> error map the server returns in a 400 ModelState (Signum's ModelState;
+// see api-controller-approach). Same shape as IntegrityCheck.errors, one entry per failing field.
+export interface ModelState { [prefixError: string]: string; }
 
 // Thrown by the Saver when one or more modifiables fail their integrity check —
 // the port of Signum's IntegrityCheckException.
