@@ -1,4 +1,4 @@
-import { Entity, EmbeddedEntity, isGenericType, typeConstructor } from '../../entities/entity';
+import { Entity, EmbeddedEntity, typeConstructor } from '../../entities/entity';
 import type { Type } from '../../entities/entity';
 import { MixinDeclarations } from '../../entities/mixinDeclarations';
 import { getTypeInfo, fieldType, fieldEnum, fieldTypeName, enumNameOf, FieldInfo, TypeInfo, type PrimaryKeyType } from '../../entities/reflection';
@@ -39,6 +39,7 @@ import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../entities/enumE
 import { TypeEntity } from '../../entities/typeEntity';
 import { isSymbolType } from '../../entities/symbol';
 import { TypeLogic } from '../typeLogic';
+import type { WebBuilder } from '../webApi';
 
 // Entity base fields handled specially (id, ticks) or excluded from the schema.
 const RESERVED_FIELDS = new Set(['id', 'ticks', 'isNew', '_snapshot']);
@@ -55,12 +56,9 @@ function isEmbeddedCtor(t: unknown): boolean {
 // "Sex" (mirrors Signum's EnumEntity.Extract — the table is named after the enum);
 // other generics fall back to the open class name.
 function rawTypeName(type: Type<Entity>): string {
-    if (isGenericType(type)) {
-        const enumObject = getBoundEnum(type);
-        if (enumObject != null)
-            return enumNameOf(enumObject) ?? 'UnknownEnum';
-        return (type.genericType as { name: string }).name;
-    }
+    const enumObject = getBoundEnum(type);
+    if (enumObject != null)
+        return enumNameOf(enumObject) ?? 'UnknownEnum';
     return (type as { name: string }).name;
 }
 
@@ -133,6 +131,13 @@ export class SchemaSettings {
 // entity back-references (FieldEntityArray, zero columns) or rejected.
 export class SchemaBuilder {
     readonly schema = new Schema();
+
+    // The typed Express wrapper that *Server modules register their HTTP API on (Signum's
+    // SchemaBuilder.WebServerBuilder). NULLABLE + initialized FROM THE OUTSIDE: a web host
+    // (Southwind.Server-style) assigns it (`sb.webBuilder = new WebBuilder(express())`); a terminal /
+    // CLI / test build (Southwind.Terminal-style) leaves it undefined. So each logic guards:
+    //   if (sb.webBuilder) OrderServer.start(sb.webBuilder);
+    webBuilder?: WebBuilder;
 
     constructor(public readonly settings: SchemaSettings = new SchemaSettings()) { }
 

@@ -1,6 +1,6 @@
-import { Entity, isGenericType } from './entity';
-import type { Type, GenericType } from './entity';
-import { reflect, field } from './reflection';
+import { Entity } from './entity';
+import type { Type } from './entity';
+import { reflect, field, getOrCreateTypeInfo } from './reflection';
 import { enumNameOf } from './registration';
 
 // Port of Signum's EnumEntity<T>: a database enum modelled as a real entity (and
@@ -33,31 +33,39 @@ export class EnumEntity<T = unknown> extends Entity {
         this.enumObject = enumObject;
     }
 
-    // The closed type EnumEntity<E> as data. Cached per enum object so the
-    // descriptor has a stable identity (schema.tables / include() dedupe on it,
-    // and mixins register against it). The enum must already be registered.
+    // The closed type EnumEntity<E> as a real constructor: a per-enum subclass that carries the
+    // enum as a static `boundEnum` and is 0-arg constructable (so it's a valid `Type<T>` = ctor,
+    // no GenericType descriptor). Cached per enum for stable identity (schema.tables / include()
+    // dedupe on it, mixins register against it). Its own TypeInfo is seeded (copying EnumEntity's
+    // reflected fields) so tryGetTypeInfo works on it. The enum must already be registered.
     static typeFor<E extends object>(enumObject: E): Type<EnumEntity<E>> {
-        let descriptor = cache.get(enumObject);
-        if (descriptor == null) {
+        let ctor = cache.get(enumObject);
+        if (ctor == null) {
             if (enumNameOf(enumObject) == null)
                 throw new Error('EnumEntity.typeFor(...) requires the enum to be registered first (registerEnum). Enums declared in the same file as a referencing entity are auto-registered; call registerEnum(MyEnum) by hand for cross-file enums.');
-            descriptor = { genericType: EnumEntity, genericArguments: [enumObject] };
-            cache.set(enumObject, descriptor);
+            const bound = class extends EnumEntity<E> {
+                static readonly boundEnum: object = enumObject;
+                constructor() { super(enumObject); }
+            };
+            Object.defineProperty(bound, 'name', { value: `EnumEntity<${enumNameOf(enumObject)}>`, configurable: true });
+            getOrCreateTypeInfo(bound); // seed its own TypeInfo (inherits EnumEntity's fields)
+            cache.set(enumObject, bound);
+            ctor = bound;
         }
-        return descriptor as Type<EnumEntity<E>>;
+        return ctor as unknown as Type<EnumEntity<E>>;
     }
 }
 
-const cache = new WeakMap<object, GenericType>();
+const cache = new WeakMap<object, new () => EnumEntity>();
 
-// True for a closed EnumEntity<…> type reference.
+// True for a closed EnumEntity<…> type: a constructor carrying the `boundEnum` static.
 export function isEnumEntityType(type: unknown): boolean {
-    return isGenericType(type) && type.genericType === EnumEntity;
+    return typeof type === 'function' && (type as { boundEnum?: object }).boundEnum != null;
 }
 
 // The enum object a closed EnumEntity<…> type is bound to (undefined otherwise).
 export function getBoundEnum(type: unknown): object | undefined {
-    return isEnumEntityType(type) ? (type as GenericType).genericArguments[0] as object : undefined;
+    return typeof type === 'function' ? (type as { boundEnum?: object }).boundEnum : undefined;
 }
 
 // The rows to seed for an enum: id = the member's underlying numeric value,

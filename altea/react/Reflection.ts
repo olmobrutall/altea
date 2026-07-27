@@ -5,7 +5,7 @@
 // client-only PseudoType / getTypeName / New helpers over altea's REAL classes. The `Binding`
 // system was extracted to ./binding.
 
-import { Entity, BaseEntity, typeConstructor, isGenericType, typeName } from '../entities/entity';
+import { Entity, BaseEntity, typeConstructor } from '../entities/entity';
 import type { Type } from '../entities/entity';
 import { Lite } from '../entities/lite';
 import { PropertyRoute, PropertyRouteType } from '../entities/propertyRoute';
@@ -29,7 +29,7 @@ export type PseudoType = IType | string;
 export function isType(obj: unknown): obj is IType {
   // Distinguish an entity/mixin CONSTRUCTOR from a plain lambda (both are `function` in altea):
   // a ctor's prototype is a BaseEntity, a lambda's is not.
-  return isGenericType(obj) || (typeof obj === 'function' && (obj as Function).prototype instanceof BaseEntity);
+  return typeof obj === 'function' && (obj as Function).prototype instanceof BaseEntity;
 }
 
 export function getTypeName(pseudoType: PseudoType | Lite<Entity> | BaseEntity): string {
@@ -39,8 +39,6 @@ export function getTypeName(pseudoType: PseudoType | Lite<Entity> | BaseEntity):
     return cleanTypeName(pseudoType.constructor as Function);
   if (typeof pseudoType === 'string')
     return pseudoType;
-  if (isGenericType(pseudoType))
-    return typeName(pseudoType as Type<BaseEntity>);
   if (typeof pseudoType === 'function')
     return cleanTypeName(pseudoType);
   throw new Error("Unexpected pseudoType " + pseudoType);
@@ -53,7 +51,6 @@ function pseudoCtor(type: PseudoType | Lite<Entity> | BaseEntity | undefined | n
   if (type instanceof BaseEntity) return type.constructor as Function;
   if (typeof type === 'string') return resolveCleanType(type) ?? resolveType(type);
   if (typeof type === 'function') return type;
-  if (isGenericType(type)) return typeConstructor(type as Type<BaseEntity>);
   return undefined;
 }
 

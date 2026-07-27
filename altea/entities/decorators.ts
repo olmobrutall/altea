@@ -111,7 +111,9 @@ export function avoidExpandOnRetrieving(target: object, propertyKey: string | sy
 export function entity(kind?: EntityKind, data?: EntityData) {
     return function (target: Function): void {
         (target as any)[entityInfoKey] = { kind, data } satisfies EntityInfo;
-        getOrCreateTypeInfo(target);
+        const ti = getOrCreateTypeInfo(target);
+        ti.entityKind = kind;
+        ti.entityData = data;
         registerType(target);
     };
 }
@@ -120,7 +122,9 @@ export function entity(kind?: EntityKind, data?: EntityData) {
 // that replace a Signum MList. Triggers the same @field injection as @entity.
 export function partEntity(target: Function): void {
     (target as any)[entityInfoKey] = { kind: EntityKind.Part, data: EntityData.Transactional } satisfies EntityInfo;
-    getOrCreateTypeInfo(target);
+    const ti = getOrCreateTypeInfo(target);
+    ti.entityKind = EntityKind.Part;
+    ti.entityData = EntityData.Transactional;
     registerType(target);
 }
 

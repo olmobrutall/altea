@@ -1,6 +1,7 @@
 
-import { DescriptionManager } from './utils/localization';
+import { DescriptionManager, niceName, nicePluralName } from './utils/localization';
 import type { Type, Entity } from './entity';
+import type { EntityKind, EntityData } from './decorators';
 import type { Quoted } from 'quote-transformer/quoted';
 import { registerType, resolveType, resolveEnum, enumNameOf } from './registration';
 
@@ -175,6 +176,44 @@ export class TypeInfo {
     // table names; the SchemaBuilder fills dialect defaults. Stored as a bare shape here
     // (entities/ must not import the logic layer's SystemVersionedInfo).
     systemVersioned?: { startColumnName?: string; endColumnName?: string; sysPeriodColumnName?: string; historyTableName?: string };
+
+    // ---- Client TypeInfo surface (Signum's TypeInfo) ----
+    // Back-reference to the constructor this describes (set in getOrCreateTypeInfo) so the
+    // culture-dependent display names can be computed on demand.
+    ctor?: Function;
+
+    // Signum's EntityKind / EntityData — stamped by @entity / @partEntity (see decorators).
+    entityKind?: EntityKind;
+    entityData?: EntityData;
+
+    // TODO: wire to OperationLogic (operations-symbol-port) / the reflection types blob.
+    operations?: { [operationKey: string]: OperationInfo };
+    hasConstructorOperation?: boolean;
+    gender?: string;
+
+    // niceName / nicePluralName are METHODS (not cached fields): the display name is
+    // culture-dependent, so a cached string would be stale after a culture switch (esp. on the
+    // server). `niceName`/`nicePluralName` here are the module-scope functions (localization).
+    // Named get* (not `niceName`) so Signum's field-style `ti.niceName` is a COMPILE error to
+    // sweep, instead of compiling to a function ref that fails at runtime.
+    getNiceName(): string { return niceName(this.ctor!); }
+    getNicePluralName(): string { return nicePluralName(this.ctor!); }
+
+    // Signum's TypeInfo.members — altea's fields (keyed by the real property name, not capitalized).
+    get members(): { [fieldName: string]: FieldInfo } { return this.fields; }
+
+    // Signum's TypeInfo.kind. altea attaches TypeInfo only to reflected classes -> "Entity".
+    get kind(): "Entity" | "Enum" | "SymbolContainer" { return "Entity"; } // TODO: enum / symbol containers
+}
+
+// Minimal client OperationInfo (Signum's OperationInfo). TODO: full shape from OperationLogic.
+export interface OperationInfo {
+    key: string;
+    operationType: "Execute" | "Delete" | "Constructor" | "ConstructorFrom" | "ConstructorFromMany";
+    canBeNew?: boolean;
+    canBeModified?: boolean;
+    hasCanExecute?: boolean;
+    hasStates?: boolean;
 }
 
 // Legacy (experimentalDecorators) decorators have no `context.metadata`, so
@@ -215,6 +254,7 @@ export function getOrCreateTypeInfo(target: object): TypeInfo {
 
     const inherited = ctor[typeInfoKey] as TypeInfo | undefined;
     const created = new TypeInfo();
+    created.ctor = ctor;
     if (inherited != null)
         Object.assign(created.fields, inherited.fields);
 

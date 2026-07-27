@@ -5,52 +5,27 @@ import { entity, EntityData, column, serialize, quoted } from './decorators';
 import { niceName, newNiceName, nicePluralName } from './utils/localization';
 import { reflect, getTypeInfo } from './reflection';
 import { MixinDeclarations } from './mixinDeclarations';
-import { enumNameOf, cleanTypeName } from './registration';
+import { cleanTypeName, resolveCleanType } from './registration';
 import { isGraphModified, isModifiedSelf } from './changes';
 import { LiteralType, LiteType, quotedFunction, type RuntimeType as ExpressionType } from './runtimeTypes';
 
 export type PrimaryKey = string | number;
 
-// A closed generic entity type carried as data (the open generic class + its type
-// arguments), e.g. EnumEntity.typeFor(Sex) → { genericType: EnumEntity,
-// genericArguments: [Sex] }. TypeScript erases generics at runtime, so this is how
-// a parameterised entity type (EnumEntity<Sex>) flows through reflection / schema
-// building instead of fabricating a class per instantiation.
-export interface GenericType<T extends BaseEntity = BaseEntity> {
-    readonly genericType: Function;          // the open generic class, e.g. EnumEntity
-    readonly genericArguments: readonly unknown[];
-    readonly __closed?: T;                   // phantom: ties the descriptor to T
-}
+// A reference to an entity type: ALWAYS a constructor. Closed generic entity types like
+// EnumEntity<Sex> are real constructors too — see EnumEntity.typeFor, which returns a cached
+// per-enum subclass carrying its enum as a static `boundEnum`. (Formerly a `(new()=>T) |
+// GenericType<T>` union; the GenericType data-descriptor form was removed.)
+export type Type<T extends BaseEntity> = new () => T;
 
-// A reference to an entity type: either a constructor or a closed generic type.
-export type Type<T extends BaseEntity> = (new () => T) | GenericType<T>;
-
-export function isGenericType(type: unknown): type is GenericType {
-    return typeof type === 'object' && type !== null && 'genericType' in type;
-}
-
-// The underlying constructor of a type reference (the open generic class for a
-// GenericType; the constructor itself otherwise). Used to read reflection metadata.
+// The constructor behind a type reference. Now that Type<T> is always a constructor this is the
+// identity — kept as a named accessor during the transition (call sites inline it over time).
 export function typeConstructor(type: Type<BaseEntity>): Function {
-    return isGenericType(type) ? type.genericType : type;
+    return type;
 }
 
-// A human-readable type name: a closed generic renders as "EnumEntity<Sex>"
-// (each argument named via its class name or registered enum name); a plain
-// constructor renders as its class name.
+// A human-readable type name — the constructor's name (e.g. "OrderEntity", "EnumEntity<Sex>").
 export function typeName(type: Type<BaseEntity>): string {
-    if (!isGenericType(type))
-        return (type as { name: string }).name;
-    const args = type.genericArguments.map(genericArgumentName).join(', ');
-    return `${(type.genericType as { name: string }).name}<${args}>`;
-}
-
-function genericArgumentName(arg: unknown): string {
-    if (typeof arg === 'function')
-        return (arg as { name: string }).name;
-    if (typeof arg === 'object' && arg !== null)
-        return enumNameOf(arg) ?? '?';
-    return String(arg);
+    return (type as { name: string }).name;
 }
 
 export type InitValues<T> = Partial<{
@@ -127,6 +102,20 @@ export abstract class BaseEntity {
     static get typeName(): string { return cleanTypeName(this); }
     static niceName(this: Function): string { return niceName(this); }
     static nicePluralName(this: Function): string { return nicePluralName(this); }
+
+    // Resolve a clean type name (the $type / URL discriminator) to its Type, checking it inherits
+    // from the class this is called on: `Entity.resolveType("Order")` -> Type<OrderEntity> typed as
+    // Type<Entity>; `ModelEntity.resolveType(...)` restricts to models; `BaseEntity.resolveType(...)`
+    // accepts anything reflected. Throws if unregistered or of the wrong branch.
+    static resolveType<T extends BaseEntity>(this: abstract new (...args: any[]) => T, cleanName: string): Type<T> {
+        const ctor = resolveCleanType(cleanName);
+        if (ctor == null)
+            throw new Error(`Type '${cleanName}' is not registered`);
+        const base = this as unknown as Function;
+        if (ctor !== base && !(ctor.prototype instanceof base))
+            throw new Error(`Type '${cleanName}' does not inherit from '${base.name}'`);
+        return ctor as unknown as Type<T>;
+    }
 }
 
 // Base for raw database views (Signum's IView) and, more generally, any reflected class
