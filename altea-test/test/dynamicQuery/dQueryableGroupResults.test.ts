@@ -7,14 +7,14 @@ import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
 import { ClassType } from "@altea/altea/entities/runtimeTypes";
 import { Implementations } from "@altea/altea/entities/implementations";
-import { SubTokensOptionsAll } from "@altea/altea/logic/dynamicQuery/tokens/queryToken";
-import { RootToken } from "@altea/altea/logic/dynamicQuery/tokens/rootToken";
-import { AggregateToken, AggregateFunction } from "@altea/altea/logic/dynamicQuery/tokens/aggregateToken";
+import { SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
+import { RootToken } from "@altea/altea/entities/dynamicQuery/tokens/rootToken";
+import { AggregateToken, AggregateFunction } from "@altea/altea/entities/dynamicQuery/tokens/aggregateToken";
 import { DQueryable } from "@altea/altea/logic/dynamicQuery/dQueryable";
 import {
     Column, Order, OrderType, FilterCondition, FilterOperation, Pagination, QueryRequest,
 } from "@altea/altea/logic/dynamicQuery/requests";
-import "@altea/altea/logic/dynamicQuery/tokens/factories";
+import "@altea/altea/logic/dynamicQuery/tokenExpressions";
 import { MusicLogic } from "../../logic/MusicLogic";
 import { AlbumEntity } from "../../entities/music";
 

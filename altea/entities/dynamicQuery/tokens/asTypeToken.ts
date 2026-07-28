@@ -1,17 +1,16 @@
-import { PropertyRoute } from "../../../entities/propertyRoute";
-import { Implementations } from "../../../entities/implementations";
-import { cleanTypeName } from "../../../entities/registration";
-import { niceName } from "../../../entities/utils/localization";
-import { RuntimeType, ClassType, LiteType } from "../../../entities/runtimeTypes";
-import { Expression, CastExpression } from "../../linq/expressions";
-import { QueryToken, BuildExpressionContext, SubTokensOptions, extractEntity, buildLite } from "./queryToken";
+import { PropertyRoute } from "../../propertyRoute";
+import { Implementations } from "../../implementations";
+import { cleanTypeName } from "../../registration";
+import { niceName } from "../../utils/localization";
+import { RuntimeType, ClassType, LiteType } from "../../runtimeTypes";
+import { QueryToken, SubTokensOptions } from "./queryToken";
 
 // Port of Signum's `AsTypeToken`: casts a polymorphic (@implementedBy) reference to one concrete
 // implementation, so its members become navigable — `author.(Artist).name`. Key is "(CleanName)".
 export class AsTypeToken extends QueryToken {
     constructor(
         private readonly _parent: QueryToken,
-        private readonly entityCtor: Function,
+        public readonly entityCtor: Function,
     ) {
         super();
         this.priority = 8;
@@ -27,13 +26,6 @@ export class AsTypeToken extends QueryToken {
     getImplementations(): Implementations | undefined { return Implementations.by(this.entityCtor); }
     getPropertyRoute(): PropertyRoute | undefined { return PropertyRoute.root(this.entityCtor); }
     isAllowed(): string | null { return this._parent.isAllowed() ?? this.getPropertyRoute()!.isAllowed(); }
-
-    protected buildExpressionInternal(context: BuildExpressionContext): Expression {
-        const base = this._parent.buildExpression(context);
-        // (base.entity as EntityType), then project as a Lite.
-        const cast = new CastExpression(extractEntity(base, false), new ClassType(this.entityCtor));
-        return buildLite(cast);
-    }
 
     protected subTokensOverride(options: SubTokensOptions): QueryToken[] {
         return this.subTokensBase(this.type, options, this.getImplementations());

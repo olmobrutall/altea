@@ -2,11 +2,9 @@ import { Expression, ParameterExpression, BinaryExpression, ConstantExpression, 
 import { LiteralType, ArrayType } from "../../entities/runtimeTypes";
 import type { Implementations } from "../../entities/implementations";
 import type { RuntimeType } from "../../entities/runtimeTypes";
-import { QueryToken, BuildExpressionContext, ExpressionBox, buildLite } from "./tokens/queryToken";
-import { CollectionElementToken } from "./tokens/collectionElementToken";
-import { CollectionAnyAllToken } from "./tokens/collectionAnyAllToken";
-import { AggregateToken } from "./tokens/aggregateToken";
-import type { QueryName } from "./queryUtils";
+import { BuildExpressionContext, ExpressionBox, buildLite } from "./tokenExpressions";
+import { QueryToken, CollectionElementToken, CollectionAnyAllToken, AggregateToken } from "../../entities/dynamicQuery/tokens";
+import type { QueryName } from "../../entities/dynamicQuery/queryUtils";
 
 // True if the token is an aggregate (or nested under one) — Signum's IsAggregate.
 function tokenIsAggregate(token: QueryToken | undefined): boolean {

@@ -9,13 +9,14 @@ import { ProjectionExpression } from "@altea/altea/logic/linq/expressions.sql";
 import { ParameterExpression, CallExpression, PropertyExpression, LambdaExpression } from "@altea/altea/logic/linq/expressions";
 import { ClassType, ArrayType, LiteralType } from "@altea/altea/entities/runtimeTypes";
 import { Implementations } from "@altea/altea/entities/implementations";
-import { BuildExpressionContext, ExpressionBox, SubTokensOptionsAll } from "@altea/altea/logic/dynamicQuery/tokens/queryToken";
-import { RootToken } from "@altea/altea/logic/dynamicQuery/tokens/rootToken";
-import { ExtensionToken } from "@altea/altea/logic/dynamicQuery/tokens/extensionToken";
+import { SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
+import { BuildExpressionContext, ExpressionBox } from "@altea/altea/logic/dynamicQuery/tokenExpressions";
+import { RootToken } from "@altea/altea/entities/dynamicQuery/tokens/rootToken";
+import { ExtensionToken } from "@altea/altea/entities/dynamicQuery/tokens/extensionToken";
 import { QueryLogic } from "@altea/altea/logic/dynamicQuery/queryLogic";
 import { PropertyRoute } from "@altea/altea/entities/propertyRoute";
 import "@altea/altea/logic/dynamicQuery/fluentIncludeQuery"; // withExpressionTo / withExpressionFrom
-import "@altea/altea/logic/dynamicQuery/tokens/factories";
+import "@altea/altea/logic/dynamicQuery/tokenExpressions";
 import { MusicLogic } from "../../logic/MusicLogic";
 import { ArtistEntity, BandEntity, AlbumEntity } from "../../entities/music";
 

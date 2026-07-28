@@ -1,8 +1,7 @@
-import type { PropertyRoute } from "../../../entities/propertyRoute";
-import type { Implementations } from "../../../entities/implementations";
-import { RuntimeType, ClassType, LiteType, ArrayType } from "../../../entities/runtimeTypes";
-import type { Expression } from "../../linq/expressions";
-import { QueryToken, BuildExpressionContext, SubTokensOptions, entityCtorOf } from "./queryToken";
+import type { PropertyRoute } from "../../propertyRoute";
+import type { Implementations } from "../../implementations";
+import { RuntimeType, ClassType, LiteType, ArrayType } from "../../runtimeTypes";
+import { QueryToken, SubTokensOptions, entityCtorOf } from "./queryToken";
 
 // Signum's CollectionElementType (DynamicQuery/Tokens/CollectionElementToken.cs).
 export enum CollectionElementType {
@@ -51,10 +50,6 @@ export class CollectionElementToken extends QueryToken {
         if (pr != undefined && pr.type instanceof ArrayType)
             return pr.add("Item");
         return pr;
-    }
-
-    protected buildExpressionInternal(_context: BuildExpressionContext): Expression {
-        throw new Error("CollectionElementToken should have a replacement at this stage (expand collections first — see queryExpansion.ts)");
     }
 
     protected subTokensOverride(options: SubTokensOptions): QueryToken[] {

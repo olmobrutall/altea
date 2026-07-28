@@ -1,13 +1,10 @@
-import { Entity, EmbeddedEntity, ModelEntity } from "../../../entities/entity";
-import { PropertyRoute } from "../../../entities/propertyRoute";
-import { tryGetTypeInfo, type FieldInfo } from "../../../entities/reflection";
-import { Implementations } from "../../../entities/implementations";
+import { Entity, EmbeddedEntity, ModelEntity } from "../../entity";
+import { PropertyRoute } from "../../propertyRoute";
+import { tryGetTypeInfo, type FieldInfo } from "../../reflection";
+import { Implementations } from "../../implementations";
 import {
     RuntimeType, ClassType, LiteType, ArrayType, EnumType, TemporalType, LiteralType,
-} from "../../../entities/runtimeTypes";
-import {
-    Expression, ParameterExpression, PropertyExpression, CallExpression,
-} from "../../linq/expressions";
+} from "../../runtimeTypes";
 import { FilterType, tryGetFilterType, type QueryName } from "../queryUtils";
 import type { CollectionToArrayToken } from "./collectionToArrayToken";
 
@@ -48,56 +45,12 @@ function embeddedOrModelCtorOf(rt: RuntimeType): Function | undefined {
     return undefined;
 }
 
-// ---- Expression helpers — the BuildExpression retarget onto altea's model -------------------
-// Ports of Signum's ExtractEntity / BuildLiteNullifyUnwrapPrimaryKey (QueryUtils.cs). They emit
-// altea `Expression` nodes the Phase-D binder already understands (`.entity`, `.toLite`).
-
-// Signum's `ExtractEntity`: yield the entity behind a reference expression. A `toLite(x)` call is
-// unwrapped straight back to `x` (so navigation through a reference column stays clean, no
-// `toLite().entity` round-trip); a plain Lite value dereferences via `.entity`; a full entity is
-// returned as-is. `late` (id / toString) is a no-op — the binder late-binds `.id`/`.toString`
-// over either a lite or an entity.
-export function extractEntity(expr: Expression, late = false): Expression {
-    if (isToLiteCall(expr))
-        return expr.func.object;
-    if (!late && expr.type instanceof LiteType)
-        return new PropertyExpression(expr, "entity");
-    return expr;
-}
-
-function isToLiteCall(expr: Expression): expr is CallExpression & { func: PropertyExpression } {
-    return expr instanceof CallExpression && expr.func instanceof PropertyExpression && expr.func.propertyName === "toLite";
-}
-
-// Signum's `BuildLiteNullifyUnwrapPrimaryKey`: a full-entity reference projects as a `Lite<T>`
-// (altea's decision that queries return the typed lite). A value / already-lite / embedded
-// expression is returned unchanged.
-export function buildLite(expr: Expression): Expression {
-    const t = expr.type;
-    if (t instanceof ClassType && isEntityCtor(t.constructorFunction))
-        return new CallExpression(new PropertyExpression(expr, "toLite"), [], new LiteType(t));
-    return expr;
-}
-
-// ---- BuildExpressionContext / ExpressionBox (Signum's, in QueryToken.cs) --------------------
-
-// One replacement entry: the raw altea expression a token resolves to. (Signum's MListElementRoute
-// / SubQueryContext / AlreadyHidden are not modelled yet — no MList, no auth-hiding.)
-export class ExpressionBox {
-    constructor(public readonly rawExpression: Expression) { }
-    getExpression(): Expression { return this.rawExpression; }
-}
-
-// The context threaded through BuildExpression: the row parameter plus the map of already-known
-// token expressions (seeded from the query's projected columns). Keyed by `token.fullKey()` — a
-// string key gives value equality where JS Map object-identity would not.
-export class BuildExpressionContext {
-    constructor(
-        public readonly elementType: RuntimeType,
-        public readonly parameter: ParameterExpression,
-        public readonly replacements: Map<string, ExpressionBox>,
-    ) { }
-}
+// NOTE: the ExpressionTree-building half of the token model (extractEntity / buildLite /
+// ExpressionBox / BuildExpressionContext and every token's buildExpressionInternal) is EXTERNALIZED
+// to logic/dynamicQuery/tokenExpressions.ts. It can't live here: it depends on logic/linq/expressions,
+// and this module is the shared (client-runnable) token MODEL. tokenExpressions augments the classes
+// below (prototypal augmentation) with buildExpression/buildExpressionInternal. This file therefore
+// carries only metadata + sub-token GENERATION, which the client can run without a server round-trip.
 
 // Faithful port of Signum's abstract `QueryToken` (DynamicQuery/Tokens/QueryToken.cs), scoped to
 // Phase 2 (base + RootToken + EntityPropertyToken). Leaf/value-type/collection sub-token
@@ -117,7 +70,6 @@ export abstract class QueryToken {
     abstract getImplementations(): Implementations | undefined;
     abstract getPropertyRoute(): PropertyRoute | undefined;
     abstract isAllowed(): string | null;
-    protected abstract buildExpressionInternal(context: BuildExpressionContext): Expression;
     protected abstract subTokensOverride(options: SubTokensOptions): QueryToken[];
 
     get queryName(): QueryName {
@@ -129,15 +81,6 @@ export abstract class QueryToken {
     getElementImplementations(): Implementations | undefined {
         const pr = this.getPropertyRoute();
         return pr != undefined ? pr.add("Item").tryGetImplementations() : undefined;
-    }
-
-    // Signum's QueryToken.BuildExpression: resolve from the seeded replacements (a projected
-    // column), else recurse into buildExpressionInternal. (Auth value-hiding is not modelled.)
-    buildExpression(context: BuildExpressionContext): Expression {
-        const box = context.replacements.get(this.fullKey());
-        if (box != undefined)
-            return box.getExpression();
-        return this.buildExpressionInternal(context);
     }
 
     fullKey(): string {

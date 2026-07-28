@@ -8,10 +8,8 @@ import { Connector } from "../connection/connector";
 import { bindAndOptimize } from "../table";
 import { buildTranslateResult } from "../linq/translatorBuilder";
 import { Query } from "../query";
-import { QueryToken, BuildExpressionContext, ExpressionBox, buildLite } from "./tokens/queryToken";
-import { CollectionElementToken } from "./tokens/collectionElementToken";
-import { CollectionToArrayToken, toArraySeparator, toArrayDistinct } from "./tokens/collectionToArrayToken";
-import { AggregateToken } from "./tokens/aggregateToken";
+import { BuildExpressionContext, ExpressionBox, buildLite } from "./tokenExpressions";
+import { QueryToken, CollectionElementToken, CollectionToArrayToken, toArraySeparator, toArrayDistinct, AggregateToken } from "../../entities/dynamicQuery/tokens";
 import { Filter, Order, Column, OrderType, Pagination, QueryRequest } from "./requests";
 import { DEnumerable, DEnumerableCount } from "./dEnumerable";
 

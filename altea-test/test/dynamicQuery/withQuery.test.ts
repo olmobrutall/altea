@@ -8,12 +8,12 @@ import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
 import { ProjectionExpression } from "@altea/altea/logic/linq/expressions.sql";
 import { LiteralType, LiteType, ClassType } from "@altea/altea/entities/runtimeTypes";
 import { QueryLogic } from "@altea/altea/logic/dynamicQuery/queryLogic";
-import { SubTokensOptionsAll } from "@altea/altea/logic/dynamicQuery/tokens/queryToken";
+import { SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
 import { DQueryable } from "@altea/altea/logic/dynamicQuery/dQueryable";
 import { Column, QueryRequest } from "@altea/altea/logic/dynamicQuery/requests";
 import { table } from "@altea/altea/logic/table";
 import "@altea/altea/logic/dynamicQuery/fluentIncludeQuery"; // activates FluentInclude.withQuery
-import "@altea/altea/logic/dynamicQuery/tokens/factories";
+import "@altea/altea/logic/dynamicQuery/tokenExpressions";
 import { MusicLogic } from "../../logic/MusicLogic";
 import { AlbumEntity, LabelEntity, ArtistEntity, BandEntity } from "../../entities/music";
 

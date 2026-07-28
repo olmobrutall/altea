@@ -1,4 +1,4 @@
-import type { QueryToken } from "./tokens/queryToken";
+import type { QueryToken } from "../../entities/dynamicQuery/tokens";
 import { Pagination } from "./requests";
 
 // Port of Signum's `ResultColumn`/`ResultTable`/`ResultRow` (DynamicQuery/Requests/ResultTable.cs):

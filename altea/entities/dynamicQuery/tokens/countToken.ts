@@ -1,8 +1,7 @@
-import type { PropertyRoute } from "../../../entities/propertyRoute";
-import type { Implementations } from "../../../entities/implementations";
-import { RuntimeType, LiteralType } from "../../../entities/runtimeTypes";
-import { Expression, PropertyExpression, CallExpression } from "../../linq/expressions";
-import { QueryToken, BuildExpressionContext, SubTokensOptions } from "./queryToken";
+import type { PropertyRoute } from "../../propertyRoute";
+import type { Implementations } from "../../implementations";
+import { RuntimeType, LiteralType } from "../../runtimeTypes";
+import { QueryToken, SubTokensOptions } from "./queryToken";
 
 // Port of Signum's `CountToken`: the element count of a collection — `col.count()` (a correlated
 // scalar subquery). Self-contained (no expansion needed): the parent collection token builds the
@@ -22,11 +21,6 @@ export class CountToken extends QueryToken {
     getImplementations(): Implementations | undefined { return undefined; }
     getPropertyRoute(): PropertyRoute | undefined { return undefined; }
     isAllowed(): string | null { return this._parent.isAllowed(); }
-
-    protected buildExpressionInternal(context: BuildExpressionContext): Expression {
-        const collection = this._parent.buildExpression(context);
-        return new CallExpression(new PropertyExpression(collection, "count"), [], LiteralType.number);
-    }
 
     protected subTokensOverride(_options: SubTokensOptions): QueryToken[] {
         return [];

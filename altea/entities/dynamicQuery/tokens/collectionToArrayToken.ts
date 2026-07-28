@@ -1,8 +1,7 @@
-import type { PropertyRoute } from "../../../entities/propertyRoute";
-import type { Implementations } from "../../../entities/implementations";
-import { type RuntimeType, ClassType, LiteType, ArrayType } from "../../../entities/runtimeTypes";
-import type { Expression } from "../../linq/expressions";
-import { QueryToken, BuildExpressionContext, SubTokensOptions, entityCtorOf } from "./queryToken";
+import type { PropertyRoute } from "../../propertyRoute";
+import type { Implementations } from "../../implementations";
+import { type RuntimeType, ClassType, LiteType, ArrayType } from "../../runtimeTypes";
+import { QueryToken, SubTokensOptions, entityCtorOf } from "./queryToken";
 
 // Signum's `CollectionToArrayType` (DynamicQuery/Tokens/CollectionToArrayToken.cs): aggregate a
 // collection's navigated values into a single delimited STRING (SQL STRING_AGG), optionally DISTINCT.
@@ -63,10 +62,6 @@ export class CollectionToArrayToken extends QueryToken {
     }
 
     override hasToArray(): CollectionToArrayToken | undefined { return this; }
-
-    protected buildExpressionInternal(_context: BuildExpressionContext): Expression {
-        throw new Error("CollectionToArrayToken is collected by the DQueryable select layer (map(...).join())");
-    }
 
     protected subTokensOverride(options: SubTokensOptions): QueryToken[] {
         return this.subTokensBase(this.type, options, this.getImplementations());

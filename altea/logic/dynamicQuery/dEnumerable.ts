@@ -4,8 +4,8 @@ import {
     CallExpression, ObjectExpression, ConditionalExpression, UnaryExpression, CastExpression,
     LambdaExpression, evalBinaryOp, evalUnaryOp,
 } from "../linq/expressions";
-import { BuildExpressionContext, ExpressionBox } from "./tokens/queryToken";
-import type { QueryToken } from "./tokens/queryToken";
+import { BuildExpressionContext, ExpressionBox } from "./tokenExpressions";
+import type { QueryToken } from "../../entities/dynamicQuery/tokens";
 import { Filter, Order, Column, OrderType, Pagination } from "./requests";
 import { ResultColumn, ResultTable } from "./resultTable";
 

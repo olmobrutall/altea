@@ -6,9 +6,9 @@ import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { QueryLogic } from "@altea/altea/logic/dynamicQuery/queryLogic";
 import { Column, QueryRequest, Pagination } from "@altea/altea/logic/dynamicQuery/requests";
 import { ResultTable } from "@altea/altea/logic/dynamicQuery/resultTable";
-import { SubTokensOptionsAll } from "@altea/altea/logic/dynamicQuery/tokens/queryToken";
+import { SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
 import "@altea/altea/logic/dynamicQuery/fluentIncludeQuery"; // activates FluentInclude.withQuery
-import "@altea/altea/logic/dynamicQuery/tokens/factories";
+import "@altea/altea/logic/dynamicQuery/tokenExpressions";
 import { MusicLogic } from "../../logic/MusicLogic";
 import { AlbumEntity } from "../../entities/music";
 

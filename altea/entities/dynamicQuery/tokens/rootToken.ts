@@ -1,11 +1,10 @@
-import { PropertyRoute } from "../../../entities/propertyRoute";
-import { Implementations } from "../../../entities/implementations";
-import { Entity } from "../../../entities/entity";
-import { ClassType, type RuntimeType } from "../../../entities/runtimeTypes";
-import { niceName } from "../../../entities/utils/localization";
-import type { Expression } from "../../linq/expressions";
+import { PropertyRoute } from "../../propertyRoute";
+import { Implementations } from "../../implementations";
+import { Entity } from "../../entity";
+import { ClassType, type RuntimeType } from "../../runtimeTypes";
+import { niceName } from "../../utils/localization";
 import type { QueryName } from "../queryUtils";
-import { QueryToken, BuildExpressionContext, SubTokensOptions } from "./queryToken";
+import { QueryToken, SubTokensOptions } from "./queryToken";
 
 // The root token of a query (Signum's "Entity" ColumnToken, renamed since altea has no other column
 // tokens). altea's redesign: a query's shape is a reflected entity/model type, so this token IS that
@@ -42,10 +41,6 @@ export class RootToken extends QueryToken {
     }
     getPropertyRoute(): PropertyRoute | undefined { return PropertyRoute.root(this.shapeType); }
     isAllowed(): string | null { return null; }
-
-    protected buildExpressionInternal(context: BuildExpressionContext): Expression {
-        return context.parameter; // the row itself (also seeded as replacements[""] by the pipeline)
-    }
 
     protected subTokensOverride(options: SubTokensOptions): QueryToken[] {
         return this.subTokensBase(this.type, options, this.getImplementations());

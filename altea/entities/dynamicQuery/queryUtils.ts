@@ -1,32 +1,18 @@
-import { Entity, EmbeddedEntity, ModelEntity } from "../../entities/entity";
-import { cleanTypeName } from "../../entities/registration";
-import { niceName } from "../../entities/utils/localization";
+import { Entity, EmbeddedEntity, ModelEntity } from "../entity";
+import { cleanTypeName } from "../registration";
+import { niceName } from "../utils/localization";
 import {
     RuntimeType, ClassType, LiteType, EnumType, TemporalType, LiteralType,
-} from "../../entities/runtimeTypes";
+} from "../runtimeTypes";
 
 // A query's name (Signum's `object queryName`): an entity constructor (the common case —
 // "the Album query") or a bare string key.
 export type QueryName = Function | string;
 
-// Port of Signum's `QueryUtils.FilterType` (DynamicQuery/Requests/Filter.cs). Drives
-// QueryToken.IsGroupable / NiceTypeName and (later) the filter-operation catalogue.
-// TsVector/Vector are declared for parity but altea does not model them yet.
-export enum FilterType {
-    Integer = "Integer",
-    Decimal = "Decimal",
-    String = "String",
-    DateTime = "DateTime",
-    Time = "Time",
-    Lite = "Lite",
-    Embedded = "Embedded",
-    Model = "Model",
-    Boolean = "Boolean",
-    Enum = "Enum",
-    Guid = "Guid",
-    TsVector = "TsVector",
-    Vector = "Vector",
-}
+// Signum's `QueryUtils.FilterType` — single home in the DynamicQuery enums file (this used to
+// declare its own byte-identical copy; deduplicated here).
+export { FilterType } from "../dynamicQueries";
+import { FilterType } from "../dynamicQueries";
 
 function isEntityCtor(ctor: Function): boolean {
     return ctor === Entity || ctor.prototype instanceof Entity;

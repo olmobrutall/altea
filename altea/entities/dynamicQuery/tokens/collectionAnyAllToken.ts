@@ -1,10 +1,7 @@
-import type { PropertyRoute } from "../../../entities/propertyRoute";
-import type { Implementations } from "../../../entities/implementations";
-import { RuntimeType, ClassType, LiteType, ArrayType, LiteralType } from "../../../entities/runtimeTypes";
-import {
-    Expression, ParameterExpression, LambdaExpression, CallExpression, PropertyExpression, UnaryExpression,
-} from "../../linq/expressions";
-import { QueryToken, BuildExpressionContext, SubTokensOptions, entityCtorOf } from "./queryToken";
+import type { PropertyRoute } from "../../propertyRoute";
+import type { Implementations } from "../../implementations";
+import { RuntimeType, ClassType, LiteType, ArrayType } from "../../runtimeTypes";
+import { QueryToken, SubTokensOptions, entityCtorOf } from "./queryToken";
 
 // Signum's CollectionAnyAllType (DynamicQuery/Tokens/CollectionAnyAllToken.cs).
 export enum CollectionAnyAllType {
@@ -21,7 +18,7 @@ export enum CollectionAnyAllType {
 // the group binds the element parameter, so inner conditions on the element AND on the outer row
 // combine inside one quantifier.
 export class CollectionAnyAllToken extends QueryToken {
-    private readonly elementType: RuntimeType;
+    readonly elementType: RuntimeType;
 
     constructor(private readonly _parent: QueryToken, public readonly anyAllType: CollectionAnyAllType) {
         super();
@@ -56,37 +53,7 @@ export class CollectionAnyAllToken extends QueryToken {
         return pr;
     }
 
-    // The element parameter type (so a FilterGroup can create the quantifier parameter).
-    createParameter(): ParameterExpression {
-        const name = "_" + (this.elementType instanceof ClassType ? this.elementType.constructorFunction.name[0].toLowerCase() : "e");
-        return new ParameterExpression(name, this.elementType);
-    }
-
-    protected buildExpressionInternal(_context: BuildExpressionContext): Expression {
-        throw new Error("CollectionAnyAllToken should have a replacement at this stage (used inside a FilterGroup)");
-    }
-
     protected subTokensOverride(options: SubTokensOptions): QueryToken[] {
         return this.subTokensBase(this.type, options, this.getImplementations());
-    }
-
-    // Port of Signum's BuildAnyAll: wrap the group's `body` in the quantifier over `collection`,
-    //   Any    → collection.some(param => body)
-    //   All    → collection.every(param => body)
-    //   NotAny → !collection.some(param => body)
-    //   NotAll → collection.some(param => !body)
-    buildAnyAll(collection: Expression, param: ParameterExpression, body: Expression): Expression {
-        let b = body;
-        if (this.anyAllType === CollectionAnyAllType.NotAll)
-            b = new UnaryExpression("!", b);
-
-        const lambda = new LambdaExpression([param], b);
-        const method = this.anyAllType === CollectionAnyAllType.All ? "every" : "some";
-        let result: Expression = new CallExpression(new PropertyExpression(collection, method), [lambda], LiteralType.boolean);
-
-        if (this.anyAllType === CollectionAnyAllType.NotAny)
-            result = new UnaryExpression("!", result);
-
-        return result;
     }
 }

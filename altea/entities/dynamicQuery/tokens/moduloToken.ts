@@ -1,8 +1,7 @@
-import type { PropertyRoute } from "../../../entities/propertyRoute";
-import type { Implementations } from "../../../entities/implementations";
-import { RuntimeType, LiteralType } from "../../../entities/runtimeTypes";
-import { Expression, BinaryExpression, ConstantExpression } from "../../linq/expressions";
-import { QueryToken, BuildExpressionContext, SubTokensOptions } from "./queryToken";
+import type { PropertyRoute } from "../../propertyRoute";
+import type { Implementations } from "../../implementations";
+import { RuntimeType, LiteralType } from "../../runtimeTypes";
+import { QueryToken, SubTokensOptions } from "./queryToken";
 
 // Port of Signum's `ModuloToken`: `value % divisor` — a grouping bucket for integers.
 export class ModuloToken extends QueryToken {
@@ -21,10 +20,6 @@ export class ModuloToken extends QueryToken {
     getImplementations(): Implementations | undefined { return this._parent.getImplementations(); }
     getPropertyRoute(): PropertyRoute | undefined { return this._parent.getPropertyRoute(); }
     isAllowed(): string | null { return this._parent.isAllowed(); }
-
-    protected buildExpressionInternal(context: BuildExpressionContext): Expression {
-        return new BinaryExpression("%", this._parent.buildExpression(context), new ConstantExpression(this.divisor));
-    }
 
     protected subTokensOverride(_options: SubTokensOptions): QueryToken[] {
         return [];

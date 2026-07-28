@@ -5,7 +5,7 @@ import { PropertyRoute } from "@altea/altea/entities/propertyRoute";
 import { LiteralType } from "@altea/altea/entities/runtimeTypes";
 import {
     FilterType, tryGetFilterType, tryGetFilterTypeFromTypeName, getKey, getNiceName,
-} from "@altea/altea/logic/dynamicQuery/queryUtils";
+} from "@altea/altea/entities/dynamicQuery/queryUtils";
 import {
     AlbumEntity, AlbumEntity_Songs, LabelEntity, ArtistEntity,
 } from "../../entities/music";

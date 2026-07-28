@@ -1,8 +1,7 @@
-import type { PropertyRoute } from "../../../entities/propertyRoute";
-import type { Implementations } from "../../../entities/implementations";
-import type { RuntimeType } from "../../../entities/runtimeTypes";
-import { Expression, PropertyExpression, CallExpression } from "../../linq/expressions";
-import { QueryToken, BuildExpressionContext, SubTokensOptions } from "./queryToken";
+import type { PropertyRoute } from "../../propertyRoute";
+import type { Implementations } from "../../implementations";
+import type { RuntimeType } from "../../runtimeTypes";
+import { QueryToken, SubTokensOptions } from "./queryToken";
 
 // Port of Signum's `NetPropertyToken` (renamed: altea has no ".NET" — it's a plain object/value
 // member). A property or parameterless method on a value type (string.length, date.year,
@@ -15,7 +14,7 @@ export class ObjectPropertyToken extends QueryToken {
         public readonly memberName: string,
         private readonly resultType: RuntimeType,
         private readonly displayName: string,
-        private readonly isMethod: boolean,
+        public readonly isMethod: boolean,
         private readonly _format?: string,
         private readonly _unit?: string,
     ) {
@@ -32,12 +31,6 @@ export class ObjectPropertyToken extends QueryToken {
     getImplementations(): Implementations | undefined { return undefined; }
     getPropertyRoute(): PropertyRoute | undefined { return undefined; }
     isAllowed(): string | null { return this._parent.isAllowed(); }
-
-    protected buildExpressionInternal(context: BuildExpressionContext): Expression {
-        const base = this._parent.buildExpression(context);
-        const member = new PropertyExpression(base, this.memberName);
-        return this.isMethod ? new CallExpression(member, [], this.resultType) : member;
-    }
 
     protected subTokensOverride(options: SubTokensOptions): QueryToken[] {
         return this.subTokensBase(this.type, options, undefined);

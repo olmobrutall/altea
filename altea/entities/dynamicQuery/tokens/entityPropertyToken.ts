@@ -1,12 +1,8 @@
-import { PropertyRoute } from "../../../entities/propertyRoute";
-import { FieldInfo } from "../../../entities/reflection";
-import type { Implementations } from "../../../entities/implementations";
-import { RuntimeType, ClassType, LiteType, LiteralType } from "../../../entities/runtimeTypes";
-import { Expression, PropertyExpression } from "../../linq/expressions";
-import {
-    QueryToken, BuildExpressionContext, SubTokensOptions,
-    extractEntity, buildLite, cleanType, entityCtorOf,
-} from "./queryToken";
+import { PropertyRoute } from "../../propertyRoute";
+import { FieldInfo } from "../../reflection";
+import type { Implementations } from "../../implementations";
+import { RuntimeType, ClassType, LiteType, LiteralType } from "../../runtimeTypes";
+import { QueryToken, SubTokensOptions, cleanType, entityCtorOf } from "./queryToken";
 
 // Port of Signum's `EntityPropertyToken` (DynamicQuery/Tokens/EntityPropertyToken.cs): navigation
 // into a field/property of an entity or embedded. `isId` marks the synthetic `Entity.Id` token
@@ -17,7 +13,7 @@ export class EntityPropertyToken extends QueryToken {
         private readonly _parent: QueryToken,
         public readonly fieldInfo: FieldInfo,
         public readonly route: PropertyRoute,
-        private readonly isId = false,
+        public readonly isId = false,
     ) {
         super();
     }
@@ -68,19 +64,6 @@ export class EntityPropertyToken extends QueryToken {
 
     isAllowed(): string | null {
         return this._parent.isAllowed() ?? this.route.isAllowed();
-    }
-
-    protected buildExpressionInternal(context: BuildExpressionContext): Expression {
-        const base = this._parent.buildExpression(context);
-
-        if (this.isId)
-            // Late-bound `.id` over a lite or an entity (Signum's ExtractEntity(true) + Id).
-            return new PropertyExpression(extractEntity(base, true), "id");
-
-        // TODO(phase3): mixin route step → wrap `entity.mixin(M)`; ToString property.
-        const entity = extractEntity(base, false);
-        const prop = new PropertyExpression(entity, this.fieldInfo.name);
-        return buildLite(prop);
     }
 
     protected subTokensOverride(options: SubTokensOptions): QueryToken[] {
