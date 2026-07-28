@@ -1,212 +1,33 @@
-// Port of Signum.React/QueryToken.ts — the query-token tree model + the helpers that classify a
-// token (getFilterType), name it (getNiceTypeName / completeToken), and walk its parents. altea
-// sweeps:
-//   - FilterType is a real enum (entities/dynamicQueries), so the returned/compared values are enum
-//     members (FilterType.Lite) instead of Signum's string literals.
-//   - TypeInfo display name is a METHOD in altea: `ti.niceName` → `ti.getNiceName()`; a resolved
-//     TypeInfo has no `.name`, so the "is there an entity here" probe is a null check.
-//   - The message enums (QueryTokenMessage / QueryTokenDateMessage / CollectionMessage) are altea
-//     LocalizableMessage containers (entities/dynamicQueries).
+// Client surface for the query-token layer. The token MODEL — the `QueryToken` class, its sub-token
+// generation, and the `filterType` / `niceTypeName` / `isGroupable` classification — now lives in
+// entities/dynamicQuery/tokens and is generated LOCALLY on the client (server-only tokens arrive via
+// QueryClient). This file is a thin re-export of that model plus the CLIENT-only bits Signum kept in
+// QueryToken.ts: the token-tree colour (CSS) and the parent-walking helpers.
+//
+// Where Signum's client used a `queryTokenType` string discriminator (its client token was a flat
+// DTO with no class identity), altea categorizes with `instanceof` against the real token subclasses.
 
-import { getTypeInfo, IsByAll, isTypeEnum, isTypeModel, QueryTokenString, tryGetTypeInfos, type TypeReference } from './Reflection';
-import { FilterType, QueryTokenMessage, QueryTokenDateMessage, CollectionMessage } from '../entities/dynamicQueries';
-import type { Entity } from '../entities/entity';
-import type { Lite } from '../entities/lite';
+import { QueryToken, AggregateToken, CollectionElementToken, CollectionAnyAllToken, CollectionAnyAllType, CollectionToArrayToken } from '../entities/dynamicQuery/tokens';
+import { FilterType } from '../entities/dynamicQueries';
+import { ArrayType } from '../entities/runtimeTypes';
+import { QueryTokenString } from './Reflection';
 
-export interface QueryToken {
-    readonly toStr: string;
-    readonly niceName: string;
-    readonly key: string;
-    readonly format?: string;
-    readonly unit?: string;
-    readonly type: TypeReference;
-    readonly niceTypeName: string;
-    readonly isGroupable: boolean;
-    readonly queryTokenColor: string;
-    readonly hasOrderAdapter?: boolean;
-    readonly tsVectorFor?: string[];
-    readonly preferEquals?: boolean;
-    readonly filterType?: FilterType;
-    readonly autoExpand?: boolean;
-    readonly hideInAutoExpand?: boolean;
-    readonly fullKey: string;
-    readonly queryTokenType?: QueryTokenType;
-    readonly parent?: QueryToken;
-    readonly propertyRoute?: string;
-    readonly __isCached__?: true;
-}
+export { QueryToken, SubTokensOptions, SubTokensOptionsAll } from '../entities/dynamicQuery/tokens';
 
-export type QueryTokenType = "Aggregate" | "Element" | "AnyOrAll" | "OperationContainer" | "ToArray" | "Manual" | "Nested" | "Snippet" | "TimeSeries" | "IndexerContainer";
+// ---- Presentation: the token-tree colour (CSS variables) -------------------------------------
 
-export enum SubTokensOptions {
-  CanAggregate = 1,
-  CanAnyAll = 2,
-  CanElement = 4,
-  CanOperation = 8,
-  CanToArray = 16,
-  CanSnippet = 32,
-  CanManual = 64,
-  CanTimeSeries = 128,
-  CanNested = 256,
-}
+export function getQueryTokenColor(token: QueryToken): string {
+  // Aggregate / collection-navigation tokens (Signum's Aggregate/AnyOrAll/Element/ToArray/Nested).
+  if (token instanceof AggregateToken || token instanceof CollectionAnyAllToken ||
+    token instanceof CollectionElementToken || token instanceof CollectionToArrayToken)
+    return "var(--qt-keyword)" /*#0000FF*/;
+  // TODO(phase3+): Nested/Indexer/Manual/Operation/Snippet/TimeSeries tokens → "var(--qt-exotic)".
 
-export type Writable<T> = {
-  -readonly [P in keyof T]: T[P];
-};
-
-export function completeToken(token: QueryToken): QueryToken {
-
-  var t = token as Writable<QueryToken>;
-
-  if (t.fullKey == null)
-    t.fullKey = t.parent == null ? t.key : t.parent.fullKey + "." + t.key;
-
-  if (t.toStr == null)
-    t.toStr = t.key;
-
-  if (t.niceName == null)
-    t.niceName = t.toStr;
-
-  t.queryTokenColor = getQueryTokenColor(t);
-  if (t.filterType == null)
-    t.filterType = getFilterType(t.type);
-  t.niceTypeName =
-    t.type.isCollection ? QueryTokenMessage.ListOf0.niceToString(getNiceTypeName({ ...t.type, isCollection: false })) :
-      getNiceTypeName(token.type, token.filterType);
-
-  return t;
-}
-
-export function getFilterType(tr: TypeReference): FilterType | undefined {
-
-  if (tr.isCollection)
-    return undefined;
-
-  if (tr.isLite)
-    return FilterType.Lite;
-
-  // NOTE: these cases are the wire type-name vocabulary (TypeReference.name). Kept as Signum's C#
-  // names — TODO reconcile with altea's query TypeReference names (altea value types are
-  // "Number"/"String"/"Boolean") once QueryToken is wired to the altea query layer.
-  switch (tr.name) {
-    case "boolean":
-      return FilterType.Boolean;
-
-    case "double":
-    case "decimal":
-    case "float":
-      return FilterType.Decimal;
-
-    case "byte":
-    case "sbyte":
-    case "short":
-    case "int":
-    case "long":
-    case "ushort":
-    case "uint":
-    case "ulong":
-      return FilterType.Integer;
-
-    case "char":
-    case "string":
-      return FilterType.String;
-
-    case "Guid":
-      return FilterType.Guid;
-
-    case "DateOnly":
-    case "DateTime":
-    case "DateTimeOffset":
-      return FilterType.DateTime;
-
-    case "TimeSpan":
-    case "TimeOnly":
-      return FilterType.Time;
-
-    case "NpgsqlTsVector":
-      return FilterType.TsVector;
-
-    case "Vector":
-      return FilterType.Vector;
-  }
-
-  if (isTypeEnum(tr.name))
-    return FilterType.Enum;
-
-  if (tr.isLite || tryGetTypeInfos(tr)[0] != null)
-    return FilterType.Lite;
-
-  if (tr.isEmbedded)
-    return isTypeModel(tr.name) ? FilterType.Model : FilterType.Embedded;
-
-  return undefined;
-}
-
-function getNiceTypeName(tr: TypeReference, filterType?: FilterType): string {
-
-  filterType = filterType ?? getFilterType(tr);
-
-  if (tr.name == "CellOperationDTO")
-    return QueryTokenMessage.CellOperation.niceToString();
-
-  if (tr.name == "OperationsContainerToken")
-    return QueryTokenMessage.ContainerOfCellOperations.niceToString();
-
-  if (tr.name == "IndexerContainerToken")
-    return QueryTokenMessage.IndexerContainer.niceToString();
-
-  switch (filterType) {
-    case FilterType.Integer: return QueryTokenMessage.Number.niceToString();
-    case FilterType.Decimal: return QueryTokenMessage.DecimalNumber.niceToString();
-    case FilterType.String: return QueryTokenMessage.Text.niceToString();
-    case FilterType.Time: return QueryTokenDateMessage.TimeOfDay.niceToString();
-    case FilterType.DateTime:
-      if (tr.name == "DateOnly")
-        return QueryTokenDateMessage.Date.niceToString();
-
-      return QueryTokenMessage.DateTime.niceToString();
-
-    case FilterType.Boolean: return QueryTokenMessage.Check.niceToString();
-    case FilterType.Guid: return QueryTokenMessage.GlobalUniqueIdentifier.niceToString();
-    case FilterType.Enum: return getTypeInfo(tr.name).getNiceName();
-
-    case FilterType.Lite: {
-      if (tr.name == IsByAll)
-        return QueryTokenMessage.AnyEntity.niceToString();
-
-      return tryGetTypeInfos(tr).map(a => a?.getNiceName()).joinComma(CollectionMessage.Or.niceToString());
-    }
-
-    case FilterType.Embedded:
-      return tr.typeNiceName!;
-
-    default:
-      return tr.name;
-  }
-}
-
-function getQueryTokenColor(token: QueryToken): string {
-  switch (token.queryTokenType) {
-    case "Aggregate":
-    case "AnyOrAll":
-    case "Element":
-    case "ToArray":
-    case "Nested":
-      return "var(--qt-keyword)" /*#0000FF*/;
-
-    case "IndexerContainer":
-    case "Manual":
-    case "OperationContainer":
-    case "Snippet":
-    case "TimeSeries":
-      return "var(--qt-exotic)"; /*#7D7D7D */
-  }
-
-  if (token.type.isCollection)
+  if (token.type instanceof ArrayType)
     return "var(--qt-collection)"; /*#CE6700*/
 
-
-  if (token.parent == null && token.key == "Entity")
+  // The query's entity root (altea's rootless RootToken has no parent and key "").
+  if (token.parent == undefined)
     return "var(--qt-main-entity)" /*#2B78AF*/;
 
   switch (token.filterType) {
@@ -215,7 +36,7 @@ function getQueryTokenColor(token: QueryToken): string {
     case FilterType.String:
     case FilterType.Guid:
     case FilterType.Boolean:
-      return "var(--qt-value)"; //"var(--bs-body-color)"
+      return "var(--qt-value)";
 
     case FilterType.DateTime:
       return "var(--qt-date)" /*#5100A1*/;
@@ -232,38 +53,21 @@ function getQueryTokenColor(token: QueryToken): string {
   }
 }
 
-
-export interface ManualToken {
-  toStr: string;
-  niceName: string;
-  key: string;
-  typeColor?: string;
-  niceTypeName: string;
-  subToken?: Promise<ManualToken[]>;
-}
-
-export interface ManualCellDto {
-  lite: Lite<Entity>;
-  manualContainerTokenKey: string;
-  manualTokenKey: string;
-}
+// ---- Tree walkers (Signum's QueryToken.ts free functions), over the entities class -----------
+// `fullKey` is a METHOD on the altea class; a token's category is its subclass, tested by instanceof.
 
 function getFullKey(token: QueryToken | QueryTokenString<any> | string): string {
   if (token instanceof QueryTokenString)
     return token.token;
-
   if (typeof token == "object")
-    return token.fullKey;
-
+    return token.fullKey();
   return token;
 }
 
 export function tokenStartsWith(token: QueryToken | QueryTokenString<any> | string, tokenStart: QueryToken | QueryTokenString<any> | string): boolean {
-
-  token = getFullKey(token);
-  tokenStart = getFullKey(token);
-
-  return token == tokenStart || token.startsWith(tokenStart + ".");
+  const t = getFullKey(token);
+  const s = getFullKey(tokenStart); // ALTEA: fixed Signum bug (it re-computed from `token`, not `tokenStart`)
+  return t == s || t.startsWith(s + ".");
 }
 
 export function getTokenParents(token: QueryToken | null | undefined): QueryToken[] {
@@ -275,108 +79,44 @@ export function getTokenParents(token: QueryToken | null | undefined): QueryToke
   return result;
 }
 
-
+export function isPrefix(prefix: QueryToken, token: QueryToken): boolean {
+  return prefix.fullKey() == token.fullKey() || token.fullKey().startsWith(prefix.fullKey() + ".");
+}
 
 export function hasAnyOrAll(token: QueryToken | undefined, recursive: boolean = true): boolean {
   if (token == undefined)
     return false;
-
-  if (token.queryTokenType == "AnyOrAll")
+  if (token instanceof CollectionAnyAllToken)
     return true;
-
   return recursive && hasAnyOrAll(token.parent);
 }
 
 export function hasAny(token: QueryToken | undefined): boolean {
   if (token == undefined)
     return false;
-
-  if (token.queryTokenType == "AnyOrAll" && token.key == "Any")
+  if (token instanceof CollectionAnyAllToken && token.anyAllType == CollectionAnyAllType.Any)
     return true;
-
   return hasAny(token.parent);
 }
 
-export function isPrefix(prefix: QueryToken, token: QueryToken): boolean {
-  return prefix.fullKey == token.fullKey || token.fullKey.startsWith(prefix.fullKey + ".");
-}
-
 export function hasAggregate(token: QueryToken | undefined): boolean {
-  if (token == undefined)
-    return false;
-
-  if (token.queryTokenType == "Aggregate")
-    return true;
-
-  return false;
+  return token instanceof AggregateToken;
 }
 
 export function hasElement(token: QueryToken | undefined): boolean {
   if (token == undefined)
     return false;
-
-  if (token.queryTokenType == "Element")
+  if (token instanceof CollectionElementToken)
     return true;
-
   return hasElement(token.parent);
 }
 
-export function hasOperation(token: QueryToken | undefined): boolean {
-  if (token == undefined)
-    return false;
-
-  if (token.queryTokenType == "OperationContainer")
-    return true;
-
-  return false;
-}
-
-export function hasManual(token: QueryToken | undefined): boolean {
-  if (token == undefined)
-    return false;
-
-  if (token.queryTokenType == "Manual")
-    return true;
-
-  return false;
-}
-
-export function hasNested(token: QueryToken | undefined): boolean {
-  if (token == undefined)
-    return false;
-
-  if (token.queryTokenType == "Nested")
-    return true;
-
-  return hasNested(token.parent);
-}
-
-export function hasTimeSeries(token: QueryToken | undefined): boolean {
-  if (token == undefined)
-    return false;
-
-  if (token.queryTokenType == "TimeSeries")
-    return true;
-
-  return hasTimeSeries(token.parent);
-}
-
-export function hasSnippet(token: QueryToken | undefined): boolean {
-  if (token == undefined)
-    return false;
-
-  if (token.queryTokenType == "Snippet")
-    return true;
-
-  return false;
-}
-
+// The nearest CollectionToArray ancestor, or undefined. altea's class already implements this
+// (walking parents) — the free function is kept for Signum call-site parity.
 export function hasToArray(token: QueryToken | undefined): QueryToken | undefined {
-  if (token == undefined)
-    return undefined;
-
-  if (token.queryTokenType == "ToArray")
-    return token;
-
-  return hasToArray(token.parent);
+  return token?.hasToArray();
 }
+
+// TODO(phase3+): hasOperation / hasManual / hasNested / hasTimeSeries / hasSnippet — the
+// corresponding token subclasses (OperationContainer / Manual / Nested / TimeSeries / Snippet) are
+// not ported yet, so these are omitted (add them alongside their token classes).

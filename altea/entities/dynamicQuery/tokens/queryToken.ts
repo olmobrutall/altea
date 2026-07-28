@@ -5,7 +5,9 @@ import { Implementations } from "../../implementations";
 import {
     RuntimeType, ClassType, LiteType, ArrayType, EnumType, TemporalType, LiteralType,
 } from "../../runtimeTypes";
-import { FilterType, tryGetFilterType, type QueryName } from "../queryUtils";
+import { FilterType, tryGetFilterType, tryGetFilterTypeFromTypeName, type QueryName } from "../queryUtils";
+import { niceName } from "../../utils/localization";
+import { QueryTokenMessage, QueryTokenDateMessage, CollectionMessage } from "../../dynamicQueries";
 import type { CollectionToArrayToken } from "./collectionToArrayToken";
 
 // Port of Signum's `SubTokensOptions` (DynamicQuery/QueryUtils.cs). A bit-flag set controlling
@@ -318,7 +320,15 @@ export abstract class QueryToken {
         return tokenFactories!.idProperty(this);
     }
 
-    // ---- Classification (Signum's IsGroupable / NiceTypeName) --------------------------------
+    // ---- Classification (Signum's IsGroupable / FilterType / NiceTypeName) -----------------------
+    // (Signum's client "queryTokenType" string discriminator is not needed: altea's client has the
+    // real token subclasses, so callers categorize with `instanceof` — see react/QueryToken.)
+
+    // Signum's QueryToken.FilterType — the value category, refined by the field's declared typeName
+    // (the Integer-vs-Decimal split that the plain RuntimeType loses).
+    get filterType(): FilterType | undefined {
+        return tryGetFilterTypeFromTypeName(this.getPropertyRoute()?.fieldInfo?.typeName, this.type);
+    }
 
     get isGroupable(): boolean {
         switch (tryGetFilterType(this.type)) {
@@ -333,6 +343,15 @@ export abstract class QueryToken {
             default:
                 return false;
         }
+    }
+
+    // Signum's QueryToken.NiceTypeName — a human label for the token's value type (used by the
+    // client's token tree). A collection reads "List of <element>".
+    niceTypeName(): string {
+        const t = this.type;
+        if (t instanceof ArrayType)
+            return QueryTokenMessage.ListOf0.niceToString(niceTypeNameOf(t.elementType!, undefined, undefined));
+        return niceTypeNameOf(t, this.filterType, this.getImplementations());
     }
 
     // ---- Equality (Signum's Equals/GetHashCode over FullKey + QueryName) ----------------------
@@ -354,6 +373,46 @@ function getQueryKey(queryName: QueryName): string {
 
 function capitalize(s: string): string {
     return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// Port of Signum's getNiceTypeName, over an altea RuntimeType: a human label for a value type. The
+// Signum server-token special result types (CellOperationDTO / OperationsContainerToken / …) are not
+// modelled in altea, so those special cases are omitted.
+function niceTypeNameOf(type: RuntimeType, filterType: FilterType | undefined, implementations: Implementations | undefined): string {
+    filterType ??= tryGetFilterType(type);
+    switch (filterType) {
+        case FilterType.Integer: return QueryTokenMessage.Number.niceToString();
+        case FilterType.Decimal: return QueryTokenMessage.DecimalNumber.niceToString();
+        case FilterType.String: return QueryTokenMessage.Text.niceToString();
+        case FilterType.Time: return QueryTokenDateMessage.TimeOfDay.niceToString();
+        case FilterType.DateTime:
+            return type instanceof TemporalType && type.kind === "date"
+                ? QueryTokenDateMessage.Date.niceToString()
+                : QueryTokenMessage.DateTime.niceToString();
+        case FilterType.Boolean: return QueryTokenMessage.Check.niceToString();
+        case FilterType.Guid: return QueryTokenMessage.GlobalUniqueIdentifier.niceToString();
+        case FilterType.Enum: return type instanceof EnumType ? type.enumName : ""; // TODO: localized enum type name
+        case FilterType.Lite: {
+            const impl = implementations ?? implementationsOf(type);
+            if (impl == undefined || impl.isByAll)
+                return QueryTokenMessage.AnyEntity.niceToString();
+            return impl.types.map(t => niceName(t)).joinComma(CollectionMessage.Or.niceToString());
+        }
+        case FilterType.Embedded:
+        case FilterType.Model: {
+            const ct = cleanType(type);
+            return ct instanceof ClassType ? niceName(ct.constructorFunction) : "";
+        }
+        default:
+            return "";
+    }
+}
+
+// The implementations implied by a reference type alone (for the collection-element recursion, which
+// has no token to ask). A single concrete entity ctor; undefined for non-references.
+function implementationsOf(type: RuntimeType): Implementations | undefined {
+    const ec = entityCtorOf(cleanType(type));
+    return ec != undefined ? Implementations.by(ec) : undefined;
 }
 
 // Factory hook (Signum builds these directly; altea injects them to break the static import cycle
@@ -392,4 +451,28 @@ export function setImplementedByAllTypesProvider(fn: (cleanTypeCtor: Function) =
 let extensionTokensProvider: ((parent: QueryToken) => QueryToken[]) | undefined;
 export function setExtensionTokensProvider(fn: (parent: QueryToken) => QueryToken[]): void {
     extensionTokensProvider = fn;
+}
+
+// The ASYNC source of the sub-tokens a caller can't compute from local metadata alone (extensions,
+// and later manual / operations). This is the divergent extension point: on the SERVER it is unset —
+// `subTokens` already merges the sync `extensionTokensProvider` off the local registration table — so
+// `getSubTokens` is purely local; on the CLIENT it is wired to a cached ajax request that fetches the
+// server-only tokens and rebuilds them as entities instances (via tokenSerializer.deserializeServerToken).
+let serverTokensProvider: ((token: QueryToken, options: SubTokensOptions) => Promise<QueryToken[]>) | undefined;
+export function setServerTokensProvider(fn: ((token: QueryToken, options: SubTokensOptions) => Promise<QueryToken[]>) | undefined): void {
+    serverTokensProvider = fn;
+}
+
+// The public, side-agnostic way to expand a token's sub-tokens: the locally-generated metadata
+// tokens, plus (when a server-token source is wired) the fetched server-only tokens. A local member
+// wins over a server token of the same key (Signum: extensions never override normal members). The
+// merged set is re-sorted like `subTokens` (priority desc, then display name).
+export async function getSubTokens(token: QueryToken, options: SubTokensOptions): Promise<QueryToken[]> {
+    const local = token.subTokens(options);
+    if (serverTokensProvider == undefined)
+        return local;
+    const server = await serverTokensProvider(token, options);
+    const seen = new Set(local.map(t => t.key));
+    const merged = [...local, ...server.filter(t => !seen.has(t.key))];
+    return merged.sort((a, b) => (b.priority - a.priority) || a.toString().localeCompare(b.toString()));
 }

@@ -1,6 +1,6 @@
 import { Connector } from "../connection/connector";
 import { tryGetTypeInfo } from "../../entities/reflection";
-import { setImplementedByAllTypesProvider, setExtensionTokensProvider, type QueryToken } from "../../entities/dynamicQuery/tokens";
+import { setImplementedByAllTypesProvider, setExtensionTokensProvider, RootToken, SubTokensOptions, type QueryToken } from "../../entities/dynamicQuery/tokens";
 import { setBuildExtensionExpr } from "./tokenExpressions";
 import { getKey, type QueryName } from "../../entities/dynamicQuery/queryUtils";
 import { DynamicQueryContainer } from "./dynamicQueryContainer";
@@ -35,6 +35,26 @@ export namespace QueryLogic {
 
     export function getRootToken(queryName: QueryName): QueryToken {
         return queries.rootToken(queryName);
+    }
+
+    // Resolve a token from its fullKey string, walking down from the query's entity root (Signum's
+    // QueryUtils.SubToken over a QueryDescription). An empty string ⇒ the root token itself. A
+    // registered query supplies its own root; otherwise an entity-ctor queryName roots a plain
+    // RootToken (so navigation works for any entity, not only explicitly registered queries).
+    // NOTE: splits on "." — good for the common navigations; the dotted special tokens
+    // ("[Operations].X", indexers) need a smarter parser (TODO, Signum's tokenizer).
+    export function getToken(queryName: QueryName, tokenString: string, options: SubTokensOptions): QueryToken {
+        let token = tryGetRootToken(queryName)
+            ?? (typeof queryName === "function" ? new RootToken(queryName) : undefined);
+        if (token == undefined)
+            throw new Error(`Query '${getKey(queryName)}' is not registered and is not an entity type`);
+        for (const part of tokenString.split(".").filter(p => p.length > 0)) {
+            const sub: QueryToken | undefined = token.subToken(part, options);
+            if (sub == undefined)
+                throw new Error(`Token '${part}' not found on '${token.fullKey()}' (query '${getKey(queryName)}')`);
+            token = sub;
+        }
+        return token;
     }
 
     export function queryNames(): ReadonlyMap<string, QueryName> {
