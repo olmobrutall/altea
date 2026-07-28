@@ -3,10 +3,14 @@
 // query-layer vocabulary shared by the client (Finder / SearchControl) and the server (query
 // controller): filter operations/types, ordering, pagination, system-time, etc.
 //
-// Representation: STRING-VALUED enums — the value IS the wire discriminator (e.g. FilterOperation.
-// IsIn === "IsIn"), so they round-trip through altea/json as their member name AND the ported
-// query code that compares against string literals keeps working. Use the enum members
-// (FilterOperation.IsIn) in new code; the string form is what crosses the wire.
+// Representation: each vocabulary term is a PAIR —
+//   * `XEnum` — a NUMERIC enum (Signum's C# int-backed enum). Reserved for stored entity columns
+//     (e.g. a future UserQueryEntity persists the mode as its ordinal). Not used at runtime/wire yet.
+//   * `X = keyof typeof XEnum` — the STRING-LITERAL UNION of the member names ("IsIn" | …). This is
+//     the client/runtime + wire form: FindOptions / Finder / QueryToken compare against bare string
+//     literals exactly like Signum's React client, and the value that crosses altea/json IS the
+//     member name string. Use the string literal ("IsIn") in query/client code; reach for `XEnum`
+//     only when you need the numeric ordinal for entity storage.
 
 import { msg } from './utils/localization';
 
@@ -20,7 +24,9 @@ export const QueryTokenMessage = {
     CellOperation: msg(),
     Check: msg(),
     ContainerOfCellOperations: msg(),
+    Date: msg(),
     DateTime: msg(),
+    DateTimeOffset: msg(),
     DecimalNumber: msg(),
     GlobalUniqueIdentifier: msg(),
     IndexerContainer: msg(),
@@ -38,129 +44,143 @@ export const CollectionMessage = {
     Or: msg(),
 };
 
-export enum ColumnOptionsMode {
-    Add = "Add",
-    Remove = "Remove",
-    ReplaceAll = "ReplaceAll",
-    InsertStart = "InsertStart",
-    ReplaceOrAdd = "ReplaceOrAdd",
+export enum ColumnOptionsModeEnum {
+    Add,
+    Remove,
+    ReplaceAll,
+    InsertStart,
+    ReplaceOrAdd,
 }
+export type ColumnOptionsMode = keyof typeof ColumnOptionsModeEnum;
 
-export enum CombineRows {
-    EqualValue = "EqualValue",
-    EqualEntity = "EqualEntity",
+export enum CombineRowsEnum {
+    EqualValue,
+    EqualEntity,
 }
+export type CombineRows = keyof typeof CombineRowsEnum;
 
-export enum DashboardBehaviour {
-    PromoteToDasboardPinnedFilter = "PromoteToDasboardPinnedFilter",
-    UseAsInitialSelection = "UseAsInitialSelection",
-    UseWhenNoFilters = "UseWhenNoFilters",
+export enum DashboardBehaviourEnum {
+    PromoteToDasboardPinnedFilter,
+    UseAsInitialSelection,
+    UseWhenNoFilters,
 }
+export type DashboardBehaviour = keyof typeof DashboardBehaviourEnum;
 
-export enum FilterGroupOperation {
-    And = "And",
-    Or = "Or",
+export enum FilterGroupOperationEnum {
+    And,
+    Or,
 }
+export type FilterGroupOperation = keyof typeof FilterGroupOperationEnum;
 
-export enum FilterOperation {
-    EqualTo = "EqualTo",
-    DistinctTo = "DistinctTo",
-    GreaterThan = "GreaterThan",
-    GreaterThanOrEqual = "GreaterThanOrEqual",
-    LessThan = "LessThan",
-    LessThanOrEqual = "LessThanOrEqual",
-    Contains = "Contains",
-    StartsWith = "StartsWith",
-    EndsWith = "EndsWith",
-    Like = "Like",
-    NotContains = "NotContains",
-    NotStartsWith = "NotStartsWith",
-    NotEndsWith = "NotEndsWith",
-    NotLike = "NotLike",
-    IsIn = "IsIn",
-    IsNotIn = "IsNotIn",
-    ComplexCondition = "ComplexCondition",
-    FreeText = "FreeText",
-    TsQuery = "TsQuery",
-    TsQuery_Plain = "TsQuery_Plain",
-    TsQuery_Phrase = "TsQuery_Phrase",
-    TsQuery_WebSearch = "TsQuery_WebSearch",
-    SmartSearch = "SmartSearch",
-    Between = "Between",
-    BetweenNoEnd = "BetweenNoEnd",
+export enum FilterOperationEnum {
+    EqualTo,
+    DistinctTo,
+    GreaterThan,
+    GreaterThanOrEqual,
+    LessThan,
+    LessThanOrEqual,
+    Contains,
+    StartsWith,
+    EndsWith,
+    Like,
+    NotContains,
+    NotStartsWith,
+    NotEndsWith,
+    NotLike,
+    IsIn,
+    IsNotIn,
+    ComplexCondition,
+    FreeText,
+    TsQuery,
+    TsQuery_Plain,
+    TsQuery_Phrase,
+    TsQuery_WebSearch,
+    SmartSearch,
+    Between,
+    BetweenNoEnd,
 }
+export type FilterOperation = keyof typeof FilterOperationEnum;
 
-export enum FilterType {
-    Integer = "Integer",
-    Decimal = "Decimal",
-    String = "String",
-    DateTime = "DateTime",
-    Time = "Time",
-    Lite = "Lite",
-    Embedded = "Embedded",
-    Model = "Model",
-    Boolean = "Boolean",
-    Enum = "Enum",
-    Guid = "Guid",
-    TsVector = "TsVector",
-    Vector = "Vector",
+export enum FilterTypeEnum {
+    Integer,
+    Decimal,
+    String,
+    DateTime,
+    Time,
+    Lite,
+    Embedded,
+    Model,
+    Boolean,
+    Enum,
+    Guid,
+    TsVector,
+    Vector,
 }
+export type FilterType = keyof typeof FilterTypeEnum;
 
-export enum OrderType {
-    Ascending = "Ascending",
-    Descending = "Descending",
+export enum OrderTypeEnum {
+    Ascending,
+    Descending,
 }
+export type OrderType = keyof typeof OrderTypeEnum;
 
-export enum PaginationMode {
-    All = "All",
-    Firsts = "Firsts",
-    Paginate = "Paginate",
+export enum PaginationModeEnum {
+    All,
+    Firsts,
+    Paginate,
 }
+export type PaginationMode = keyof typeof PaginationModeEnum;
 
-export enum PinnedFilterActive {
-    Always = "Always",
-    WhenHasValue = "WhenHasValue",
-    Checkbox_Checked = "Checkbox_Checked",
-    Checkbox_Unchecked = "Checkbox_Unchecked",
-    NotCheckbox_Checked = "NotCheckbox_Checked",
-    NotCheckbox_Unchecked = "NotCheckbox_Unchecked",
+export enum PinnedFilterActiveEnum {
+    Always,
+    WhenHasValue,
+    Checkbox_Checked,
+    Checkbox_Unchecked,
+    NotCheckbox_Checked,
+    NotCheckbox_Unchecked,
 }
+export type PinnedFilterActive = keyof typeof PinnedFilterActiveEnum;
 
-export enum RefreshMode {
-    Auto = "Auto",
-    Manual = "Manual",
+export enum RefreshModeEnum {
+    Auto,
+    Manual,
 }
+export type RefreshMode = keyof typeof RefreshModeEnum;
 
-export enum SystemTimeJoinMode {
-    Current = "Current",
-    FirstCompatible = "FirstCompatible",
-    AllCompatible = "AllCompatible",
+export enum SystemTimeJoinModeEnum {
+    Current,
+    FirstCompatible,
+    AllCompatible,
 }
+export type SystemTimeJoinMode = keyof typeof SystemTimeJoinModeEnum;
 
-export enum SystemTimeMode {
-    AsOf = "AsOf",
-    Between = "Between",
-    ContainedIn = "ContainedIn",
-    All = "All",
-    TimeSeries = "TimeSeries",
+export enum SystemTimeModeEnum {
+    AsOf,
+    Between,
+    ContainedIn,
+    All,
+    TimeSeries,
 }
+export type SystemTimeMode = keyof typeof SystemTimeModeEnum;
 
-export enum TimeSeriesUnit {
-    Year = "Year",
-    Quarter = "Quarter",
-    Month = "Month",
-    Week = "Week",
-    Day = "Day",
-    Hour = "Hour",
-    Minute = "Minute",
-    Second = "Second",
-    Millisecond = "Millisecond",
+export enum TimeSeriesUnitEnum {
+    Year,
+    Quarter,
+    Month,
+    Week,
+    Day,
+    Hour,
+    Minute,
+    Second,
+    Millisecond,
 }
+export type TimeSeriesUnit = keyof typeof TimeSeriesUnitEnum;
 
-export enum UniqueType {
-    First = "First",
-    FirstOrDefault = "FirstOrDefault",
-    Single = "Single",
-    SingleOrDefault = "SingleOrDefault",
-    Only = "Only",
+export enum UniqueTypeEnum {
+    First,
+    FirstOrDefault,
+    Single,
+    SingleOrDefault,
+    Only,
 }
+export type UniqueType = keyof typeof UniqueTypeEnum;

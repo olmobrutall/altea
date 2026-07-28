@@ -45,7 +45,7 @@ export class AggregateToken extends QueryToken {
         const distinct = this.options.distinct ? "Distinct" : "";
         const op = this.options.filterOperation == undefined ? "" :
             this.options.filterOperation === "EqualTo" ? "" :
-            this.options.filterOperation === "DistinctTo" ? "Not" : this.options.filterOperation;
+                this.options.filterOperation === "DistinctTo" ? "Not" : this.options.filterOperation;
         const value = this.options.filterOperation == undefined ? "" : this.options.value == undefined ? "Null" : String(this.options.value);
         return this.aggregateFunction + distinct + op + value;
     }

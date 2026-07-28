@@ -11,8 +11,9 @@ export type QueryName = Function | string;
 
 // Signum's `QueryUtils.FilterType` — single home in the DynamicQuery enums file (this used to
 // declare its own byte-identical copy; deduplicated here).
-export { FilterType } from "../dynamicQueries";
-import { FilterType } from "../dynamicQueries";
+export type { FilterType } from "../dynamicQueries";
+export { FilterTypeEnum } from "../dynamicQueries";
+import type { FilterType } from "../dynamicQueries";
 
 function isEntityCtor(ctor: Function): boolean {
     return ctor === Entity || ctor.prototype instanceof Entity;
@@ -21,35 +22,35 @@ function isEntityCtor(ctor: Function): boolean {
 // Port of Signum's `QueryUtils.TryGetFilterType`, over an altea `RuntimeType`.
 //
 // Divergence: altea's RuntimeType collapses `int`/`number` to `LiteralType.number`, so this
-// returns `FilterType.Integer` for every plain number — the Integer-vs-Decimal split needs the
+// returns `"Integer"` for every plain number — the Integer-vs-Decimal split needs the
 // field's declared typeName ("Decimal"), which only a PropertyRoute/FieldInfo carries.
 // `tryGetFilterTypeFromTypeName` below refines it when that context is available.
 export function tryGetFilterType(type: RuntimeType): FilterType | undefined {
     if (type instanceof EnumType)
-        return FilterType.Enum;
+        return "Enum";
 
-    // A Lite<T>, or a full entity reference — Signum maps both to FilterType.Lite.
+    // A Lite<T>, or a full entity reference — Signum maps both to "Lite".
     if (type instanceof LiteType)
-        return FilterType.Lite;
+        return "Lite";
 
     if (type instanceof TemporalType)
-        return type.kind === "duration" ? FilterType.Time : FilterType.DateTime;
+        return type.kind === "duration" ? "Time" : "DateTime";
 
     if (type === LiteralType.boolean)
-        return FilterType.Boolean;
+        return "Boolean";
     if (type === LiteralType.number)
-        return FilterType.Integer;
+        return "Integer";
     if (type === LiteralType.string)
-        return FilterType.String;
+        return "String";
 
     if (type instanceof ClassType) {
         const c = type.constructorFunction;
         if (isEntityCtor(c))
-            return FilterType.Lite;
+            return "Lite";
         if (c.prototype instanceof EmbeddedEntity)
-            return FilterType.Embedded;
+            return "Embedded";
         if (c.prototype instanceof ModelEntity)
-            return FilterType.Model;
+            return "Model";
     }
 
     return undefined;
@@ -60,9 +61,9 @@ export function tryGetFilterType(type: RuntimeType): FilterType | undefined {
 // RuntimeType classification.
 export function tryGetFilterTypeFromTypeName(typeName: string | undefined, type: RuntimeType): FilterType | undefined {
     if (typeName === "Decimal")
-        return FilterType.Decimal;
+        return "Decimal";
     if (typeName === "Number")
-        return FilterType.Integer;
+        return "Integer";
     return tryGetFilterType(type);
 }
 

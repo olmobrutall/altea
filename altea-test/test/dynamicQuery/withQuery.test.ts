@@ -8,7 +8,7 @@ import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
 import { ProjectionExpression } from "@altea/altea/logic/linq/expressions.sql";
 import { LiteralType, LiteType, ClassType } from "@altea/altea/entities/runtimeTypes";
 import { QueryLogic } from "@altea/altea/logic/dynamicQuery/queryLogic";
-import { SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
+import { QueryToken, SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
 import { DQueryable } from "@altea/altea/logic/dynamicQuery/dQueryable";
 import { Column, QueryRequest } from "@altea/altea/logic/dynamicQuery/requests";
 import { table } from "@altea/altea/logic/table";
@@ -49,7 +49,7 @@ describe("withQuery() → entity-root token", () => {
 describe("tokens are navigated rootlessly off the entity", () => {
     // The entity-root token (key "") is what QueryLogic exposes; navigations hang off it.
     const root = () => QueryLogic.getRootToken(AlbumEntity);
-    const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s, O), root());
+    const tok = (path: string) => path.split(".").reduce<QueryToken>((t, s) => t.subToken(s, O)!, root());
 
     test("the entity root has fullKey \"\"; value/reference columns are rootless", () => {
         assert.equal(root().fullKey(), "");
@@ -73,7 +73,7 @@ describe("tokens are navigated rootlessly off the entity", () => {
 
 describe("the query executes off table(T), navigating tokens (no projection)", () => {
     const root = () => QueryLogic.getRootToken(AlbumEntity);
-    const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s, O), root());
+    const tok = (path: string) => path.split(".").reduce<QueryToken>((t, s) => t.subToken(s, O)!, root());
 
     test("select the name column off the entity query", () => {
         const sql = Connector.withConnector(fake, () => {

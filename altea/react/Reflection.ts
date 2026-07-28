@@ -6,13 +6,12 @@
 // system was extracted to ./binding.
 
 import { Entity, BaseEntity, ModelEntity, typeConstructor } from '../entities/entity';
-import type { Type, MixinEntity, PrimaryKey } from '../entities/entity';
+import type { Type, PrimaryKey } from '../entities/entity';
 import { Lite, LiteImp } from '../entities/lite';
 import { PropertyRoute, PropertyRouteType } from '../entities/propertyRoute';
 import { TypeInfo, tryGetTypeInfo as alteaTryGetTypeInfo } from '../entities/reflection';
 import type { FieldInfo } from '../entities/reflection';
 import { cleanTypeName, resolveType, resolveCleanType, resolveEnum } from '../entities/registration';
-import { getLambdaMembers } from './binding';
 
 // ---- Re-exports of altea's native reflection ---------------------------------------------------
 export { PropertyRoute, PropertyRouteType, TypeInfo };
@@ -105,9 +104,6 @@ export const IsByAll = "[ALL]";
 const numberTypeNames = new Set(["byte", "sbyte", "short", "ushort", "int", "uint", "long", "ulong", "float", "double", "decimal", "Number"]);
 export function isNumberType(name: string): boolean {
   return numberTypeNames.has(name);
-}
-export function isDecimalType(name: string): boolean {
-  return name === "float" || name === "double" || name === "decimal" || name === "Decimal";
 }
 
 // altea type-kind tests. Signum read the TypeInfo blob's kind/entityKind; altea derives the answer
@@ -203,80 +199,22 @@ export class QueryKey {
   }
 }
 
-// The element type of a collection token (Signum stripped MListElement here; altea has no
-// MListElement — a `@part` collection is a plain array — so it is simply the array element).
-type ArrayElement<A> = A extends (infer E)[] ? E : never;
-
-// Turns a property lambda into a dotted, PascalCased token path (Signum's tokenSequence). The
-// leading "entity" hop of a `Lite<T>` navigation is dropped for convenience; `toStr` maps to the
-// query column "ToString".
-function tokenSequence(lambdaToProperty: Function, isFirst: boolean): string {
-  return getLambdaMembers(lambdaToProperty)
-    .filter((a, i) => a.name !== "entity" || (i === 0 && isFirst))
-    .map(a => a.name === "toStr" ? "ToString" : a.name.firstUpper())
-    .join(".");
+// Signum's getQueryKey / isQueryDefined. A query is named by an entity Type (ctor), a QueryKey, or a
+// clean-name string. altea has no separate client query-name registry yet, so a type resolving to a
+// TypeInfo is taken as "query defined".
+export function getQueryKey(queryName: PseudoType | QueryKey): string {
+  if (queryName instanceof QueryKey)
+    return queryName.name;
+  return getTypeName(queryName);
 }
 
-// A typed, chainable query-token string (Signum's QueryTokenString<T>). `T` is PHANTOM — the class
-// only carries `token: string`; the type parameter drives the fluent builder's return types. The
-// FindOptions-dependent builders (filter/column/order/filterGroup) and operation()/mlistElement*
-// are DEFERRED to Finder step 5 (they reference FindOptions / OperationSymbol types not yet ported).
-export class QueryTokenString<T> {
-  token: string;
-  constructor(token: string) { this.token = token; }
-
-  toString(): string { return this.token; }
-
-  static entity<T extends Entity = Entity>(): QueryTokenString<T> { return new QueryTokenString<T>("Entity"); }
-  static readonly count: QueryTokenString<number> = new QueryTokenString<number>("Count");
-  static readonly timeSeries: QueryTokenString<string> = new QueryTokenString<string>("TimeSeries");
-
-  systemValidFrom(): QueryTokenString<unknown> { return new QueryTokenString<unknown>(this.token + ".SystemValidFrom"); }
-  systemValidTo(): QueryTokenString<unknown> { return new QueryTokenString<unknown>(this.token + ".SystemValidTo"); }
-  getToString(): QueryTokenString<string> { return new QueryTokenString<string>(this.token + ".ToString"); }
-
-  // ALTEA: a `Type<R>`-typed value doesn't expose the static `typeName` through its construct
-  // signature, so the clean name comes from getTypeName(t) (Signum used `t.typeName` directly).
-  cast<R extends Entity>(t: Type<R>): QueryTokenString<R> { return new QueryTokenString<R>(this.token + ".(" + getTypeName(t) + ")"); }
-
-  append<S>(lambdaToProperty: (v: T) => S): QueryTokenString<S> {
-    const seq = tokenSequence(lambdaToProperty, !this.token);
-    return new QueryTokenString<S>(this.token + (this.token && seq ? "." : "") + seq);
-  }
-
-  mixin<M extends MixinEntity>(_t: Type<M>): QueryTokenString<M> { return new QueryTokenString<M>(this.token); }
-
-  expression<S>(expressionName: string): QueryTokenString<S> { return new QueryTokenString<S>(this.token + (this.token ? "." : "") + expressionName); }
-
-  any(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".Any"); }
-  all(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".All"); }
-  notAll(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".NotAll"); }
-  notAny(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".NotAny"); }
-
-  separatedByComma(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".SeparatedByComma"); }
-  separatedByCommaDistinct(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".SeparatedByCommaDistinct"); }
-  separatedByNewLine(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".SeparatedByNewLine"); }
-  separatedByNewLineDistinct(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".SeparatedByNewLineDistinct"); }
-
-  nested(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".Nested"); }
-  nestedMap<S>(selector: (n: QueryTokenString<ArrayElement<T>>) => S): S { return selector(new QueryTokenString<ArrayElement<T>>(this.token + ".Nested")); }
-
-  element(index = 1): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + (this.token ? "." : "") + "Element" + (index === 1 ? "" : index)); }
-
-  count(option?: "Distinct" | "Null" | "NotNull"): QueryTokenString<number> { return new QueryTokenString<number>(this.token + (this.token ? "." : "") + "Count" + (option == undefined ? "" : option)); }
-
-  min(): QueryTokenString<T> { return new QueryTokenString<T>(this.token + ".Min"); }
-  max(): QueryTokenString<T> { return new QueryTokenString<T>(this.token + ".Max"); }
-  sum(): QueryTokenString<T> { return new QueryTokenString<T>(this.token + ".Sum"); }
-  average(): QueryTokenString<T> { return new QueryTokenString<T>(this.token + ".Average"); }
-
-  hasValue(): QueryTokenString<boolean> { return new QueryTokenString<boolean>(this.token + ".HasValue"); }
-  matchSnippet(): QueryTokenString<string> { return new QueryTokenString<string>(this.token + ".Snippet"); }
-  matchRank(): QueryTokenString<number> { return new QueryTokenString<number>(this.token + ".Rank"); }
-  tsvector(column = "tsvector"): QueryTokenString<string> { return new QueryTokenString<string>(this.token + "." + column); }
-  translated(): QueryTokenString<string> { return new QueryTokenString<string>(this.token + ".Translated"); }
-  indexer<S>(prefix: string, key: string): QueryTokenString<S> { return new QueryTokenString<S>(this.token + ".[" + prefix + "].[" + key + "]"); }
+export function isQueryDefined(queryName: PseudoType | QueryKey): boolean {
+  if (queryName instanceof QueryKey)
+    return true;
+  return tryGetTypeInfo(queryName) != null; // TODO(port): a real query-defined registry (Signum's TypeInfo.queryDefined).
 }
+
+// QueryTokenString<T> lives in ./QueryTokenString (extracted from this file).
 
 // NOTE: Signum's free `New(type, props)` is gone — construct via the class factory `Entity.create`
 // (or `resolveType(name).create(...)` when only a runtime type name is known).

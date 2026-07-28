@@ -15,7 +15,7 @@ export type PrimaryKey = string | number;
 // EnumEntity<Sex> are real constructors too — see EnumEntity.typeFor, which returns a cached
 // per-enum subclass carrying its enum as a static `boundEnum`. (Formerly a `(new()=>T) |
 // GenericType<T>` union; the GenericType data-descriptor form was removed.)
-export type Type<T extends BaseEntity> = new () => T;
+export type Type<T extends BaseEntity> = abstract new () => T;
 
 // The constructor behind a type reference. Now that Type<T> is always a constructor this is the
 // identity — kept as a named accessor during the transition (call sites inline it over time).

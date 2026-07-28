@@ -4,7 +4,7 @@ import "@altea/altea/entities/globals";
 import { PropertyRoute } from "@altea/altea/entities/propertyRoute";
 import { LiteralType } from "@altea/altea/entities/runtimeTypes";
 import {
-    FilterType, tryGetFilterType, tryGetFilterTypeFromTypeName, getKey, getNiceName,
+    tryGetFilterType, tryGetFilterTypeFromTypeName, getKey, getNiceName, type FilterType,
 } from "@altea/altea/entities/dynamicQuery/queryUtils";
 import {
     AlbumEntity, AlbumEntity_Songs, LabelEntity, ArtistEntity,
@@ -17,30 +17,30 @@ describe("QueryUtils.tryGetFilterType", () => {
     const ft = (root: Function, path: string) => tryGetFilterType(PropertyRoute.parse(root, path).type);
 
     test("scalars", () => {
-        assert.equal(ft(LabelEntity, "name"), FilterType.String);
-        assert.equal(ft(AlbumEntity, "year"), FilterType.Integer);
-        assert.equal(ft(ArtistEntity, "dead"), FilterType.Boolean);
-        assert.equal(ft(ArtistEntity, "sex"), FilterType.Enum);
+        assert.equal(ft(LabelEntity, "name"), "String");
+        assert.equal(ft(AlbumEntity, "year"), "Integer");
+        assert.equal(ft(ArtistEntity, "dead"), "Boolean");
+        assert.equal(ft(ArtistEntity, "sex"), "Enum");
     });
 
     test("temporal", () => {
-        assert.equal(ft(AlbumEntity_Songs, "duration"), FilterType.Time); // Duration
+        assert.equal(ft(AlbumEntity_Songs, "duration"), "Time"); // Duration
     });
 
     test("references map to Lite (entity, lite, and polymorphic)", () => {
-        assert.equal(ft(LabelEntity, "country"), FilterType.Lite); // plain entity ref
-        assert.equal(ft(LabelEntity, "owner"), FilterType.Lite);   // Lite<LabelEntity>
-        assert.equal(ft(AlbumEntity, "author"), FilterType.Lite);  // @implementedBy
+        assert.equal(ft(LabelEntity, "country"), "Lite"); // plain entity ref
+        assert.equal(ft(LabelEntity, "owner"), "Lite");   // Lite<LabelEntity>
+        assert.equal(ft(AlbumEntity, "author"), "Lite");  // @implementedBy
     });
 
     test("embedded", () => {
-        assert.equal(ft(AlbumEntity, "bonusTrack"), FilterType.Embedded);
+        assert.equal(ft(AlbumEntity, "bonusTrack"), "Embedded");
     });
 
     test("Integer/Decimal split via typeName", () => {
-        assert.equal(tryGetFilterTypeFromTypeName("Decimal", LiteralType.number), FilterType.Decimal);
-        assert.equal(tryGetFilterTypeFromTypeName("Number", LiteralType.number), FilterType.Integer);
-        assert.equal(tryGetFilterTypeFromTypeName("String", LiteralType.string), FilterType.String);
+        assert.equal(tryGetFilterTypeFromTypeName("Decimal", LiteralType.number), "Decimal");
+        assert.equal(tryGetFilterTypeFromTypeName("Number", LiteralType.number), "Integer");
+        assert.equal(tryGetFilterTypeFromTypeName("String", LiteralType.string), "String");
     });
 });
 

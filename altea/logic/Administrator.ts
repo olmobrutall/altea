@@ -2,7 +2,7 @@
 // schema rather than on data — creating temporary tables/views, resetting sequences, etc.
 
 import { Connector } from "./connection/connector";
-import type { Entity, Type, View, ViewType } from "../entities/entity";
+import { Entity, type Type, type View, type ViewType } from "../entities/entity";
 
 // Signum's Administrator.CreateTemporaryTable<T>() — materialise a SQL Server temp table
 // for a `@tableName("#...")` view type, to be populated with executeInsert (Signum's
@@ -21,3 +21,4 @@ export const Administrator = {
         await create.executeNonQuery();
     },
 };
+

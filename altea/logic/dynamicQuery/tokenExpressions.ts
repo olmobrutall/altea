@@ -248,8 +248,8 @@ AggregateToken.prototype.buildAggregate = function (elements: Expression, groupC
     const body = this.parent!.buildExpression(groupContext);
     const method =
         this.aggregateFunction === AggregateFunction.Sum ? "sum" :
-        this.aggregateFunction === AggregateFunction.Min ? "min" :
-        this.aggregateFunction === AggregateFunction.Max ? "max" : "average";
+            this.aggregateFunction === AggregateFunction.Min ? "min" :
+                this.aggregateFunction === AggregateFunction.Max ? "max" : "average";
     return new CallExpression(new PropertyExpression(elements, method),
         [new LambdaExpression([rowParam], body)], this.type);
 };

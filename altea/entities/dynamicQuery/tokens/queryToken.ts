@@ -5,7 +5,7 @@ import { Implementations } from "../../implementations";
 import {
     RuntimeType, ClassType, LiteType, ArrayType, EnumType, TemporalType, LiteralType,
 } from "../../runtimeTypes";
-import { FilterType, tryGetFilterType, tryGetFilterTypeFromTypeName, type QueryName } from "../queryUtils";
+import { tryGetFilterType, tryGetFilterTypeFromTypeName, type QueryName, type FilterType } from "../queryUtils";
 import { niceName } from "../../utils/localization";
 import { QueryTokenMessage, QueryTokenDateMessage, CollectionMessage } from "../../dynamicQueries";
 import type { CollectionToArrayToken } from "./collectionToArrayToken";
@@ -332,12 +332,12 @@ export abstract class QueryToken {
 
     get isGroupable(): boolean {
         switch (tryGetFilterType(this.type)) {
-            case FilterType.Boolean:
-            case FilterType.Enum:
-            case FilterType.Guid:
-            case FilterType.Integer:
-            case FilterType.Lite:
-            case FilterType.String:
+            case "Boolean":
+            case "Enum":
+            case "Guid":
+            case "Integer":
+            case "Lite":
+            case "String":
                 return true;
             // TODO(phase3): DateTime is groupable only at Days precision (DateOnly / validator).
             default:
@@ -381,25 +381,25 @@ function capitalize(s: string): string {
 function niceTypeNameOf(type: RuntimeType, filterType: FilterType | undefined, implementations: Implementations | undefined): string {
     filterType ??= tryGetFilterType(type);
     switch (filterType) {
-        case FilterType.Integer: return QueryTokenMessage.Number.niceToString();
-        case FilterType.Decimal: return QueryTokenMessage.DecimalNumber.niceToString();
-        case FilterType.String: return QueryTokenMessage.Text.niceToString();
-        case FilterType.Time: return QueryTokenDateMessage.TimeOfDay.niceToString();
-        case FilterType.DateTime:
+        case "Integer": return QueryTokenMessage.Number.niceToString();
+        case "Decimal": return QueryTokenMessage.DecimalNumber.niceToString();
+        case "String": return QueryTokenMessage.Text.niceToString();
+        case "Time": return QueryTokenDateMessage.TimeOfDay.niceToString();
+        case "DateTime":
             return type instanceof TemporalType && type.kind === "date"
                 ? QueryTokenDateMessage.Date.niceToString()
                 : QueryTokenMessage.DateTime.niceToString();
-        case FilterType.Boolean: return QueryTokenMessage.Check.niceToString();
-        case FilterType.Guid: return QueryTokenMessage.GlobalUniqueIdentifier.niceToString();
-        case FilterType.Enum: return type instanceof EnumType ? type.enumName : ""; // TODO: localized enum type name
-        case FilterType.Lite: {
+        case "Boolean": return QueryTokenMessage.Check.niceToString();
+        case "Guid": return QueryTokenMessage.GlobalUniqueIdentifier.niceToString();
+        case "Enum": return type instanceof EnumType ? type.enumName : ""; // TODO: localized enum type name
+        case "Lite": {
             const impl = implementations ?? implementationsOf(type);
             if (impl == undefined || impl.isByAll)
                 return QueryTokenMessage.AnyEntity.niceToString();
             return impl.types.map(t => niceName(t)).joinComma(CollectionMessage.Or.niceToString());
         }
-        case FilterType.Embedded:
-        case FilterType.Model: {
+        case "Embedded":
+        case "Model": {
             const ct = cleanType(type);
             return ct instanceof ClassType ? niceName(ct.constructorFunction) : "";
         }

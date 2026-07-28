@@ -8,9 +8,9 @@
 // DTO with no class identity), altea categorizes with `instanceof` against the real token subclasses.
 
 import { QueryToken, AggregateToken, CollectionElementToken, CollectionAnyAllToken, CollectionAnyAllType, CollectionToArrayToken } from '../entities/dynamicQuery/tokens';
-import { FilterType } from '../entities/dynamicQueries';
+import type { FilterType } from '../entities/dynamicQueries';
 import { ArrayType } from '../entities/runtimeTypes';
-import { QueryTokenString } from './Reflection';
+import { QueryTokenString } from './QueryTokenString';
 
 export { QueryToken, SubTokensOptions, SubTokensOptionsAll } from '../entities/dynamicQuery/tokens';
 
@@ -31,22 +31,22 @@ export function getQueryTokenColor(token: QueryToken): string {
     return "var(--qt-main-entity)" /*#2B78AF*/;
 
   switch (token.filterType) {
-    case FilterType.Integer:
-    case FilterType.Decimal:
-    case FilterType.String:
-    case FilterType.Guid:
-    case FilterType.Boolean:
+    case "Integer":
+    case "Decimal":
+    case "String":
+    case "Guid":
+    case "Boolean":
       return "var(--qt-value)";
 
-    case FilterType.DateTime:
+    case "DateTime":
       return "var(--qt-date)" /*#5100A1*/;
-    case FilterType.Time:
+    case "Time":
       return "var(--qt-time)" /*#9956db*/;
-    case FilterType.Enum:
+    case "Enum":
       return "var(--qt-enum)" /*#800046*/;
-    case FilterType.Lite:
+    case "Lite":
       return "var(--qt-lite)" /* #2B91AF*/;
-    case FilterType.Embedded:
+    case "Embedded":
       return "var(--qt-embedded)" /* #156F8A*/;
     default:
       return "var(--qt-exotic)" /*  #7D7D7D */;
@@ -119,4 +119,17 @@ export function hasToArray(token: QueryToken | undefined): QueryToken | undefine
 
 // TODO(phase3+): hasOperation / hasManual / hasNested / hasTimeSeries / hasSnippet — the
 // corresponding token subclasses (OperationContainer / Manual / Nested / TimeSeries / Snippet) are
-// not ported yet, so these are omitted (add them alongside their token classes).
+// not ported yet, so these always return false for now.
+export function hasOperation(_token: QueryToken | undefined): boolean { return false; }
+export function hasManual(_token: QueryToken | undefined): boolean { return false; }
+export function hasNested(_token: QueryToken | undefined): boolean { return false; }
+export function hasTimeSeries(_token: QueryToken | undefined): boolean { return false; }
+export function hasSnippet(_token: QueryToken | undefined): boolean { return false; }
+
+// Signum's `Writable<T>` — strips `readonly` (used to mutate a token/DTO while building it).
+export type Writable<T> = { -readonly [P in keyof T]: T[P]; };
+
+// Signum's `completeToken` fills a flat DTO's derived fields (fullKey/niceName/colour/filterType).
+// altea's QueryToken is a class that computes those lazily, so a client token is always complete —
+// this is a no-op kept for Signum call-site parity.
+export function completeToken(token: QueryToken): QueryToken { return token; }

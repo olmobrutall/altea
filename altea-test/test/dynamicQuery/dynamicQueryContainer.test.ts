@@ -45,7 +45,7 @@ describe("DynamicQueryContainer", () => {
     });
 
     test("tryGetCore of an unregistered query is undefined; getCore throws", () => {
-        class Unregistered {}
+        class Unregistered { }
         assert.equal(Queries.tryGetCore(Unregistered), undefined);
         assert.throws(() => Queries.getCore(Unregistered));
     });
