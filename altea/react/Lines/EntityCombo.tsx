@@ -8,6 +8,7 @@
 //   - the DropdownList (onRenderItem) branch is wrapped in <Localization> (Intl localizer), matching
 //     EnumLine; the plain <select> branch needs none. Data loads via the active Finder query APIs
 //     (getResultTable / defaultNoColumnsAllRows), so the combo is fully functional.
+import { fieldTypeName } from '../../entities/reflection'
 import * as React from 'react'
 import { BaseEntity, Entity } from '../../entities/entity'
 import { Lite } from '../../entities/lite'
@@ -81,7 +82,7 @@ export class EntityComboController<V extends Entity | Lite<Entity> | null> exten
 
   override overrideProps(p: EntityComboProps<V>, overridenProps: EntityComboProps<V>): void {
     super.overrideProps(p, overridenProps);
-    if (p.onRenderItem === undefined && p.type && tryGetTypeInfos(p.type.typeName).some(a => a != null && Navigator.getSettings(cleanTypeName(a.ctor!))?.renderLite)) {
+    if (p.onRenderItem === undefined && p.type && tryGetTypeInfos((fieldTypeName(p.type) ?? "")).some(a => a != null && Navigator.getSettings(cleanTypeName(a.ctor!))?.renderLite)) {
       p.onRenderItem = (row, role, searchTerm) => row == null ? <span className="mx-2">-</span> : (row?.entity && Navigator.renderLite(row.entity, TextHighlighter.fromString(searchTerm))) ?? "";
     }
   }
@@ -251,24 +252,24 @@ export function EntityComboSelect<V extends Entity | Lite<Entity> | null>(p: Ent
   React.useEffect(() => {
     if (p.data) {
       if (requestStarted.current)
-        console.warn(`The 'data' was set too late. Consider using [] as default value to avoid automatic query. EntityCombo: ${p.type.typeName}`);
+        console.warn(`The 'data' was set too late. Consider using [] as default value to avoid automatic query. EntityCombo: ${(fieldTypeName(p.type) ?? "")}`);
       setData(p.data);
     } else if (!p.ctx.readOnly && loadData) {
       requestStarted.current = true;
 
-      if (p.type.typeName.contains(",") && !p.findOptions) {
-        Promise.all(getTypeInfos(p.type.typeName).map(t => {
+      if ((fieldTypeName(p.type) ?? "").contains(",") && !p.findOptions) {
+        Promise.all(getTypeInfos((fieldTypeName(p.type) ?? "")).map(t => {
           const tn = cleanTypeName(t.ctor!);
           var fo = p.findOptionsDictionary?.[tn] ?? { queryName: tn };
           return Finder.getResultTable(Finder.defaultNoColumnsAllRows(fo, undefined))
         })).then(array => setData(array.flatMap(a => a.rows.map(a => a.entity! as AsLite<V>))));
       } else {
-        const fo = p.findOptions ?? { queryName: p.type.typeName };
+        const fo = p.findOptions ?? { queryName: (fieldTypeName(p.type) ?? "") };
         Finder.getResultTable(Finder.defaultNoColumnsAllRows(fo, undefined))
           .then(data => setData(data));
       }
     }
-  }, [normalizeEmptyArray(p.data), p.type.typeName, loadData, p.ctx.readOnly, p.findOptions && Finder.findOptionsPath(p.findOptions), ...(p.deps ?? [])]);
+  }, [normalizeEmptyArray(p.data), (fieldTypeName(p.type) ?? ""), loadData, p.ctx.readOnly, p.findOptions && Finder.findOptionsPath(p.findOptions), ...(p.deps ?? [])]);
 
   const lite = getLite();
 

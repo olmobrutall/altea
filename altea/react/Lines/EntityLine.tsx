@@ -7,6 +7,7 @@
 //     route (`ctx.propertyRoute.type`); with no property route (e.g. a modal AutoLine) autocomplete is
 //     skipped.
 //   - dropped unused Signum imports (JavascriptMessage / toLite / liteKey / useAPI).
+import { fieldTypeName } from '../../entities/reflection'
 import * as React from 'react'
 import { Navigator } from '../Navigator'
 import { classes } from '../../entities/globals'
@@ -96,7 +97,7 @@ export class EntityLineController<V extends BaseEntity | Lite<Entity> | null> ex
     super.overrideProps(p, overridenProps);
     if (p.type) {
       if (p.showType == undefined)
-        p.showType = p.type.typeName.contains(",");
+        p.showType = (fieldTypeName(p.type) ?? "").contains(",");
 
       if (p.autocomplete === undefined)
         p.autocomplete = p.ctx.propertyRoute == null ? null :

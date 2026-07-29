@@ -8,7 +8,8 @@
 //     MultiValueLine; no @valueField (owned parts) → EntityRepeater if the field is @implementedBy
 //     (polymorphic, per-row views), else EntityTable (grid).
 import * as React from 'react'
-import { IsByAll, PropertyRoute, isNumberType, tryGetTypeInfos } from '../Reflection'
+import { PropertyRoute, isNumberType, tryGetTypeInfos, fieldIsEmbedded, fieldIsEntity, fieldIsByAll } from '../Reflection'
+import { fieldTypeName } from '../../entities/reflection'
 import type { FieldInfo } from '../../entities/reflection'
 import { LineBaseController, type LineBaseProps } from './LineBase'
 import { CheckboxLine } from './CheckboxLine'
@@ -23,6 +24,8 @@ import { EntityDetail } from './EntityDetail'
 import { EntityStrip } from './EntityStrip'
 import { EntityTable } from './EntityTable'
 import { EntityRepeater } from './EntityRepeater'
+import { EntityCombo } from './EntityCombo'
+import { EntityCheckboxList } from './EntityCheckboxList'
 import { MultiValueLine } from './MultiValueLine'
 import { tryGetValueField } from './EntityListBase'
 
@@ -40,7 +43,7 @@ export function AutoLine(p: AutoLineProps): React.ReactElement | null {
     return null;
 
   const fi = p.type ?? pr!.fieldInfo!;
-  const factory = React.useMemo(() => AutoLine.getComponentFactory(fi, p.propertyRoute ?? pr), [(p.propertyRoute ?? pr)?.toString(), fi?.typeName]);
+  const factory = React.useMemo(() => AutoLine.getComponentFactory(fi, p.propertyRoute ?? pr), [(p.propertyRoute ?? pr)?.toString(), fieldTypeName(fi)]);
 
   return factory(p);
 }
@@ -67,7 +70,7 @@ export namespace AutoLine {
 
   export function getComponentFactory(fi: FieldInfo, pr?: PropertyRoute): (props: AutoLineProps) => React.ReactElement {
 
-    const customs = customTypeComponent[fi.typeName]?.map(rule => rule.factory(fi, pr)).notNull().first();
+    const customs = customTypeComponent[fieldTypeName(fi) ?? fi.typeName]?.map(rule => rule.factory(fi, pr)).notNull().first();
 
     if (customs != null)
       return customs
@@ -78,11 +81,19 @@ export namespace AutoLine {
     //   - value collection whose value is a scalar → MultiValueLine (not ported yet);
     //   - no @valueField (owned 1-N part rows) → EntityTable / EntityRepeater (not ported yet).
     if (fi.array) {
-      const vf = tryGetValueField(fi.typeName);
+      // ALTEA: `fi.typeName` is undefined for thunked (`type: () => X`) array fields, so resolve the row
+      // type name from the thunk (fieldTypeName) for the @valueField lookup.
+      const rowTypeName = fieldTypeName(fi);
+      const vf = rowTypeName != null ? tryGetValueField(rowTypeName) : null;
       if (vf != null) {
-        const valueIsReference = vf.lite || tryGetTypeInfos(vf.typeName).notNull().length > 0;
-        if (valueIsReference)
+        const valueIsReference = vf.lite || fieldIsEntity(vf);
+        if (valueIsReference) {
+          // Low-population value type (few rows) → a checkbox list of all options; else the chip strip.
+          const tis = tryGetTypeInfos(fieldTypeName(vf) ?? "").notNull();
+          if (tis.length > 0 && tis.every(t => t.lowPopulation))
+            return p => <EntityCheckboxList {...p} />;
           return p => <EntityStrip {...p} />;
+        }
         return p => <MultiValueLine {...p} />;
       }
       // Owned 1-N part rows: a polymorphic (@implementedBy) element has no uniform column set, so it
@@ -92,14 +103,19 @@ export namespace AutoLine {
       return p => <EntityTable {...p} />;
     }
 
-    // Entity / Lite reference (incl. @implementedBy(All)) → EntityLine (the AutoLine default; the
-    // EntityCombo variant is opt-in via registerComponent).
-    if (fi.typeName == IsByAll || fi.lite || tryGetTypeInfos(fi.typeName).notNull().length > 0)
-      return p => <EntityLine {...p} />;
-
-    // Embedded entity → EntityDetail (Signum's AutoLine default for embedded).
-    if (fi.kind == "Embedded")
+    // Embedded entity → EntityDetail. ALTEA: detect via the field's actual class (EmbeddedEntity
+    // subclass), NOT the string `kind` (undefined for embeddeds) or `typeName` (absent for thunks).
+    if (fieldIsEmbedded(fi))
       return p => <EntityDetail {...p} />;
+
+    // Entity / Lite reference (incl. @implementedBy interface [typeName-only] / @implementedByAll).
+    // A single low-population target → EntityCombo (a dropdown of all rows); else EntityLine.
+    if (fieldIsByAll(fi) || fi.lite || fieldIsEntity(fi) || fi.implementations != null) {
+      const tis = tryGetTypeInfos(fieldTypeName(fi) ?? "").notNull();
+      if (tis.length > 0 && tis.every(t => t.lowPopulation))
+        return p => <EntityCombo {...p} />;
+      return p => <EntityLine {...p} />;
+    }
 
     if (fi.isEnum || (fi.typeName == "Boolean" && fi.isNullable))
       return p => <EnumLine {...p} />;
@@ -132,6 +148,6 @@ export namespace AutoLine {
     if (fi.typeName == "Duration" || fi.typeName == "PlainTime")
       return p => <TimeLine {...p} />;
 
-    return () => <span className="text-danger">Not supported type {fi.typeName} by AutoLine</span>;
+    return () => <span className="text-danger">Not supported type {fieldTypeName(fi) ?? fi.typeName} by AutoLine</span>;
   }
 }

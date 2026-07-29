@@ -17,8 +17,7 @@ import { tryGetValueField } from "./EntityListBase";
 import { type LineBaseProps, LineBaseController, useController, genericMemo } from "./LineBase";
 import { classes, KeyGenerator } from "../../entities/globals";
 import { BaseEntity } from "../../entities/entity";
-import { resolveType } from "../../entities/registration";
-import type { FieldInfo } from "../../entities/reflection";
+import { fieldType, fieldTypeName, type FieldInfo } from "../../entities/reflection";
 import { SearchMessage } from "../../entities/uiMessages";
 import { LinkButton } from "../Basics/LinkButton";
 
@@ -46,17 +45,17 @@ export class MultiValueLineController<R extends BaseEntity> extends LineBaseCont
 
   // The row type's @valueField (the scalar the row wraps). Required — MultiValueLine is a value line.
   getValueField(): FieldInfo {
-    const vf = tryGetValueField(this.props.type!.typeName);
+    const vf = tryGetValueField(fieldTypeName(this.props.type!) ?? "");
     if (vf == null)
-      throw new Error(`MultiValueLine: row type '${this.props.type?.typeName}' must declare a @valueField`);
+      throw new Error(`MultiValueLine: row type '${fieldTypeName(this.props.type!)}' must declare a @valueField`);
     return vf;
   }
 
   // Wrap a scalar value into a new row: `RowType.create({ [valueField]: value })`.
   createRow(value: unknown): R {
-    const ctor = resolveType(this.props.type!.typeName);
+    const ctor = fieldType(this.props.type!);
     if (ctor == null)
-      throw new Error(`MultiValueLine: row type '${this.props.type?.typeName}' is not registered`);
+      throw new Error(`MultiValueLine: row type '${fieldTypeName(this.props.type!)}' is not registered`);
     return (ctor as unknown as { create(v: any): R }).create({ [this.getValueField().name]: value });
   }
 

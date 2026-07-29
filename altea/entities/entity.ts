@@ -1,7 +1,7 @@
 
 import { Lite, LiteImp, getCustomLiteConstructor, getCustomLiteConstructorFor } from './lite';
 import type { CustomLiteClass } from './lite';
-import { entity, EntityData, column, serialize, quoted } from './decorators';
+import { column, serialize, quoted } from './decorators';
 import { niceName, newNiceName, nicePluralName } from './utils/localization';
 import { reflect, getTypeInfo } from './reflection';
 import { MixinDeclarations } from './mixinDeclarations';
@@ -141,7 +141,6 @@ export abstract class View {
 export type ViewType<T extends View = View> = new () => T;
 
 @reflect
-@entity()
 export abstract class Entity extends BaseEntity {
     id: PrimaryKey;
     // Signum's `Entity.IsNew`: true for a freshly constructed entity, cleared to false once it

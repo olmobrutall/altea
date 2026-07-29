@@ -190,9 +190,17 @@ export class TypeInfo {
     // culture-dependent display names can be computed on demand.
     ctor?: Function;
 
-    // Signum's EntityKind / EntityData — stamped by @entity / @partEntity (see decorators).
+    // Signum's EntityKind / EntityData — stamped by @entity (see decorators). `entityKind` is mandatory
+    // on concrete entities (the abstract base uses @reflect, so it stays undefined here).
     entityKind?: EntityKind;
+
+    // Effective EntityData. For a non-Part it is the value passed to @entity (mandatory there). For a
+    // "Part" @entity may omit it: SchemaBuilder.include then fills it in from the FIRST entity that
+    // includes the Part (propagated down the real reference graph — including polymorphic @implementedBy
+    // part references that have no @backReference to follow — so it can't be derived from reflection
+    // alone). `lowPopulation` = Signum's isLowPopulation.
     entityData?: EntityData;
+    lowPopulation?: boolean;
 
     // TODO: wire to OperationLogic (operations-symbol-port) / the reflection types blob.
     operations?: { [operationKey: string]: OperationInfo };

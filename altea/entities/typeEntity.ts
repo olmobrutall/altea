@@ -1,6 +1,6 @@
 import { Entity } from './entity';
 import { reflect } from './reflection';
-import { entity, EntityKind, EntityData } from './decorators';
+import { entity } from './decorators';
 
 // Port of Signum's TypeEntity (Signum/Basics/Type.cs): the system table that maps
 // every persistent entity type to a stable int id. That id is the discriminator
@@ -19,7 +19,7 @@ import { entity, EntityKind, EntityData } from './decorators';
 //    (no test depends on a TypeEntity display string), so there is no `ToStr`
 //    column.
 @reflect
-@entity(EntityKind.SystemString, EntityData.Master)
+@entity("SystemString", "Master")
 export class TypeEntity extends Entity {
     // The physical table name of the type (e.g. "Artist" / "note_with_date").
     tableName: string;

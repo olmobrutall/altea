@@ -1,6 +1,7 @@
 import { Entity, EmbeddedEntity, typeConstructor } from '../../entities/entity';
 import type { Type } from '../../entities/entity';
 import { MixinDeclarations } from '../../entities/mixinDeclarations';
+import type { EntityData } from '../../entities/decorators';
 import { getTypeInfo, fieldType, fieldEnum, fieldTypeName, enumNameOf, FieldInfo, TypeInfo, type PrimaryKeyType } from '../../entities/reflection';
 import { AbstractDbType, IsNullable, defaultDbType, primaryKeyDbType } from './dbType';
 import {
@@ -141,7 +142,11 @@ export class SchemaBuilder {
 
     constructor(public readonly settings: SchemaSettings = new SchemaSettings()) { }
 
-    include<T extends Entity>(type: Type<T>): FluentInclude<T> {
+    // `inheritedData` is set only on the recursive includes SchemaBuilder issues while completing a
+    // table (see generateField): a "Part" whose @entity omitted EntityData inherits it from the FIRST
+    // entity that includes it. The public/root include leaves it undefined. Because an already-included
+    // table short-circuits at the top, "first includer wins" falls out naturally.
+    include<T extends Entity>(type: Type<T>, inheritedData?: EntityData): FluentInclude<T> {
         const entityType = type as unknown as Type<Entity>;
         const existing = this.schema.tables.get(entityType);
         if (existing != null)
@@ -159,6 +164,12 @@ export class SchemaBuilder {
         this.schema.typeToName.set(entityType, clean);
         this.schema.nameToType.set(clean, entityType);
 
+        // Part EntityData inheritance — set BEFORE completeTable so this Part's own sub-parts inherit it
+        // transitively when generateField recurses into them below.
+        const ti = getTypeInfo(typeConstructor(type));
+        if (ti != null && ti.entityData == null && ti.entityKind === "Part" && inheritedData != null)
+            ti.entityData = inheritedData;
+
         this.completeTable(table, type);
         return new FluentInclude<T>(table, this);
     }
@@ -170,6 +181,9 @@ export class SchemaBuilder {
         // type↔id mapping), even when no @implementedByAll field referenced it.
         this.include(TypeEntity as unknown as Type<Entity>);
 
+        // Collected so one build reports EVERY unclassified entity at once, not just the first.
+        const missingKind: string[] = [];
+        const missingData: string[] = [];
         for (const table of this.schema.tables.values()) {
             for (const ef of Object.values(table.fields))
                 if (ef.field instanceof FieldEntityArray)
@@ -178,7 +192,25 @@ export class SchemaBuilder {
                 for (const ef of Object.values(mixin.fields))
                     if (ef.field instanceof FieldEntityArray)
                         this.validateEntityArray(table, ef.field, ef.fieldInfo);
+
+            // Every schema entity must be classified via @entity(kind, data): @reflect is only for
+            // ModelEntity / View / mixins / embeddeds, never a real table. Framework-seeded tables (the
+            // enum tables, TypeEntity, and symbol tables) are managed internally and exempt.
+            const isSeeded = isEnumEntityType(table.type) || typeConstructor(table.type) === TypeEntity || isSymbolType(typeConstructor(table.type));
+            if (!isSeeded) {
+                const ti = getTypeInfo(typeConstructor(table.type));
+                if (ti?.entityKind == null)
+                    missingKind.push(cleanTypeName(table.type));
+                // EntityData: explicit for most kinds; a "Part" may instead inherit it from the first
+                // entity that includes it (done in include()). Undetermined means neither happened.
+                else if (ti.entityData == null)
+                    missingData.push(cleanTypeName(table.type));
+            }
         }
+        if (missingKind.length > 0)
+            throw new Error(`Schema entities without an EntityKind: ${missingKind.join(', ')}. A schema entity must be decorated @entity(kind, data); @reflect is only for ModelEntity / View / mixins / embeddeds.`);
+        if (missingData.length > 0)
+            throw new Error(`Schema entities without an EntityData: ${missingData.join(', ')}. Pass it to @entity(kind, data); a "Part" may inherit it from the first entity that includes it, but none did here.`);
 
         // Assign each entity type its TypeEntity id, build the type↔id caches, and
         // register the row-seeding generation step (Signum's TypeLogic.Start).
@@ -353,12 +385,17 @@ export class SchemaBuilder {
         // @forceNullable → a nullable COLUMN for a non-null field (Signum's IsNullable.Forced).
         const nullable = fi.forceNullable ? IsNullable.Forced : fi.isNullable === true ? IsNullable.Yes : IsNullable.No;
 
+        // The owner's (already-resolved) EntityData, propagated to any referenced Part below so a Part
+        // with no explicit EntityData inherits it from the first entity that includes it (owned arrays,
+        // polymorphic @implementedBy part references, and single 1-1 part references alike).
+        const ownerData = getTypeInfo(typeConstructor(table.type))?.entityData;
+
         // Arrays — only `PartEntity[]` is supported (Altea's MList replacement). The part
         // entity marks its back-pointing FK with a bare @backReference; we locate it here.
         if (isArray) {
             if (!isEntityCtor(elementType))
                 throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: collections of non-entity types are not supported (no MList). Model the collection as a part entity (a PartEntity[] field).`);
-            this.include(elementType);
+            this.include(elementType, ownerData);
             const childInfo = getTypeInfo(elementType as object);
             const fkEntry = childInfo == null
                 ? undefined
@@ -381,7 +418,7 @@ export class SchemaBuilder {
                 return new FieldImplementedByAll(idColumns, typeColumn, isLite);
             }
             const columns = fi.implementations.types().map(implType => {
-                const refTable = this.include(implType).table;
+                const refTable = this.include(implType, ownerData).table;
                 const colName = this.colName(preName.add(`${cap(fi.name)}ID_${cleanTypeName(implType)}`).toString());
                 return new ImplementationColumn(colName, refTable, isLite);
             });
@@ -392,7 +429,7 @@ export class SchemaBuilder {
         if (isLite || isEntityCtor(elementType)) {
             if (!isEntityCtor(elementType))
                 throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: Lite container without an entity element type.`);
-            const refTable = this.include(elementType).table;
+            const refTable = this.include(elementType, ownerData).table;
             const baseName = fi.fkPropertyName ?? this.colName(preName.add(`${cap(fi.name)}ID`).toString());
             return new FieldReference(new ReferenceColumn(baseName, refTable, nullable, isLite));
         }

@@ -9,7 +9,7 @@
 import * as React from 'react'
 import { DropdownList, Combobox, Localization } from 'react-widgets-up'
 import { Dic, classes } from '../../entities/globals'
-import { resolveEnum } from '../../entities/registration'
+import { fieldEnum } from '../../entities/reflection'
 import { type MemberInfo } from '../Reflection'
 import { genericMemo, LineBaseController, useController } from './LineBase'
 import { FormGroup } from './FormGroup'
@@ -320,8 +320,10 @@ function enumMemberNames(enumObj: object): string[] {
 
 function getOptionsItems(el: EnumLineController<any>): OptionItem[] {
 
+  // ALTEA: enum fields are thunked (`field({ type: () => Sex, enum: true })`) so `typeName` is undefined;
+  // resolve the enum object via the thunk (fieldEnum). `typeName` stays for the nullable-Boolean branch.
   const typeName = el.props.type!.typeName;
-  const enumObj = resolveEnum(typeName);
+  const enumObj = fieldEnum(el.props.type!);
 
   if (el.props.optionItems) {
     return el.props.optionItems

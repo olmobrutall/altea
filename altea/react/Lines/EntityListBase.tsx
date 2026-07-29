@@ -30,9 +30,9 @@ import { TypeContext, mlistItemContext } from '../TypeContext'
 import { EntityBaseController } from './EntityBase'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { LineBaseController, type LineBaseProps, tasks } from './LineBase'
-import { getTypeInfo, tryGetTypeInfo, IsByAll, PropertyRoute, PropertyRouteType, tryGetTypeInfos, getTypeName } from '../Reflection'
-import type { FieldInfo } from '../../entities/reflection'
-import { cleanTypeName, resolveType } from '../../entities/registration'
+import { getTypeInfo, tryGetTypeInfo, PropertyRoute, PropertyRouteType, tryGetTypeInfos, getTypeName, fieldIsEmbedded, fieldIsByAll } from '../Reflection'
+import { fieldType, fieldTypeName, type FieldInfo } from '../../entities/reflection'
+import { cleanTypeName } from '../../entities/registration'
 import { toAbsoluteUrl } from '../AppContext'
 import { KeyNames } from '../Components'
 import { LinkButton } from '../Basics/LinkButton'
@@ -105,20 +105,20 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
       // (needsValue), else the row (collection) type.
       let targetFi = state.type;
       if (this.needsValue) {
-        const vf = tryGetValueField(state.type.typeName);
+        const vf = tryGetValueField(fieldTypeName(state.type) ?? "");
         if (vf == null)
-          throw new Error(`${this.constructor.name}: row type '${state.type.typeName}' must declare a @valueField`);
+          throw new Error(`${this.constructor.name}: row type '${fieldTypeName(state.type)}' must declare a @valueField`);
         targetFi = vf;
       }
 
       state.create = EntityBaseController.defaultIsCreable(targetFi, false);
       state.view = EntityBaseController.defaultIsViewable(targetFi, false);
       state.find = EntityBaseController.defaultIsFindable(targetFi);
-      state.findOptions = Navigator.defaultFindOptions(targetFi.typeName);
+      state.findOptions = Navigator.defaultFindOptions(fieldTypeName(targetFi) ?? "");
 
       state.viewOnCreate = true;
       state.remove = true;
-      state.paste = (targetFi.typeName == IsByAll ? true : undefined);
+      state.paste = (fieldIsByAll(targetFi) ? true : undefined);
     }
     super.getDefaultProps(state);
     state.moveMode ??= "DragIcon";
@@ -130,9 +130,9 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
   getValueField(): FieldInfo | null {
     if (!this.needsValue)
       return null;
-    const vf = tryGetValueField(this.props.type!.typeName);
+    const vf = tryGetValueField(fieldTypeName(this.props.type!) ?? "");
     if (vf == null)
-      throw new Error(`${this.constructor.name}: row type '${this.props.type?.typeName}' must declare a @valueField`);
+      throw new Error(`${this.constructor.name}: row type '${fieldTypeName(this.props.type!)}' must declare a @valueField`);
     return vf;
   }
 
@@ -147,9 +147,9 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
     const vf = this.getValueField();
     if (vf == null)
       return value as R;
-    const ctor = resolveType(this.props.type!.typeName);
+    const ctor = fieldType(this.props.type!);
     if (ctor == null)
-      throw new Error(`EntityListBase: row type '${this.props.type?.typeName}' is not registered`);
+      throw new Error(`EntityListBase: row type '${fieldTypeName(this.props.type!)}' is not registered`);
     return (ctor as unknown as { create(v: any): R }).create({ [vf.name]: value });
   }
 
@@ -248,15 +248,18 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
   async convert(entityOrLite: R | Lite<Entity>): Promise<R> {
     const type = this.props.type!;
     const entityType = getTypeName(entityOrLite as any);
+    const typeName = fieldTypeName(type);
 
-    if (type.kind == "Embedded") {
-      if (entityType != type.typeName || entityOrLite instanceof Lite)
-        throw new Error(`Impossible to convert '${entityType}' to '${type.typeName}'`);
+    if (fieldIsEmbedded(type)) {
+      if (entityType != typeName || entityOrLite instanceof Lite)
+        throw new Error(`Impossible to convert '${entityType}' to '${typeName}'`);
       return entityOrLite as R;
     }
     else {
-      if (type.typeName != IsByAll && !type.typeName.split(',').map(a => a.trim()).contains(entityType))
-        throw new Error(`Impossible to convert '${entityType}' to '${type.typeName}'`);
+      // ALTEA: only enforce the name match for a plain single-type reference; @implementedBy /
+      // @implementedByAll accept any of their (polymorphic) implementations.
+      if (!fieldIsByAll(type) && type.implementations == null && typeName != null && !typeName.split(',').map(a => a.trim()).contains(entityType))
+        throw new Error(`Impossible to convert '${entityType}' to '${typeName}'`);
 
       if (!!(entityOrLite instanceof Lite) == !!type.lite)
         return entityOrLite as unknown as R;
@@ -275,7 +278,7 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
     const vf = this.getValueField();
     const targetFi = vf ?? this.props.type!;
 
-    var typeName = await EntityBaseController.chooseType(targetFi, t => this.props.create /*Hack?*/ || Navigator.isCreable(cleanTypeName(t.ctor!), { customComponent: !!this.props.getComponent || !!this.props.getViewPromise, isEmbedded: targetFi.kind == "Embedded" }));
+    var typeName = await EntityBaseController.chooseType(targetFi, t => this.props.create /*Hack?*/ || Navigator.isCreable(cleanTypeName(t.ctor!), { customComponent: !!this.props.getComponent || !!this.props.getViewPromise, isEmbedded: fieldIsEmbedded(targetFi) }));
     if (typeName == null)
       return undefined;
 
@@ -459,7 +462,7 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
       return;
 
     const vf = this.getValueField();
-    const targetTypeName = vf?.typeName ?? this.props.type!.typeName;
+    const targetTypeName = (vf != null ? fieldTypeName(vf) : fieldTypeName(this.props.type!)) ?? "";
     const tis = tryGetTypeInfos(targetTypeName).notNull();
     if (tis.length > 0)
       lites = lites.filter(l => tis.some(ti => cleanTypeName(ti.ctor!) == getTypeName(l)));
@@ -687,7 +690,7 @@ export function taskSetMove(lineBase: LineBaseController<LineBaseProps, unknown>
     (state as EntityListBaseProps<any>).move == undefined &&
     state.ctx.propertyRoute &&
     state.ctx.propertyRoute.propertyRouteType == PropertyRouteType.FieldOrProperty &&
-    state.type && rowHasRowOrder(state.type.typeName)) {
+    state.type && rowHasRowOrder(fieldTypeName(state.type) ?? "")) {
     (state as EntityListBaseProps<any>).move = true;
   }
 }

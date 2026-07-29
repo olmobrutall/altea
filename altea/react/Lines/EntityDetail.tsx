@@ -11,7 +11,8 @@ import { Lite } from '../../entities/lite'
 import { EntityBaseController, type EntityBaseProps } from './EntityBase'
 import { RenderEntity } from './RenderEntity'
 import { genericMemo, useController } from './LineBase'
-import { tryGetTypeInfos } from '../Reflection'
+import { tryGetTypeInfos, fieldIsEmbedded } from '../Reflection'
+import { fieldTypeName } from '../../entities/reflection'
 import { TypeBadge } from './AutoCompleteConfig'
 import { getTimeMachineIcon } from './TimeMachineIcon'
 import { type HeaderType, Title } from './GroupHeader'
@@ -44,10 +45,10 @@ export const EntityDetail: <V extends BaseEntity | Lite<Entity> | null>(props: E
   if (c.isHidden)
     return null;
 
-  var ti = tryGetTypeInfos(p.type!.typeName).onlyOrNull();
+  var ti = tryGetTypeInfos((fieldTypeName(p.type!) ?? "")).onlyOrNull();
 
   var showAsCheckBox = p.showAsCheckBox ??
-    ((p.type!.kind == "Embedded" || ti != null && ti.entityKind == "Part") && p.extraButtons == undefined && p.extraButtonsBefore == undefined);
+    ((fieldIsEmbedded(p.type!) || ti != null && ti.entityKind == "Part") && p.extraButtons == undefined && p.extraButtonsBefore == undefined);
 
 
   function renderType() {
@@ -56,7 +57,7 @@ export const EntityDetail: <V extends BaseEntity | Lite<Entity> | null>(props: E
       return null;
 
     if (entity instanceof Lite || entity instanceof Entity) {
-      if (p.showType ?? tryGetTypeInfos(p.type!.typeName).length > 1)
+      if (p.showType ?? tryGetTypeInfos((fieldTypeName(p.type!) ?? "")).length > 1)
         return <TypeBadge entity={entity!} />;
     }
 

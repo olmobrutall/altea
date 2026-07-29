@@ -24,7 +24,8 @@ import { Finder } from '../Finder'
 import type { FindOptions } from '../FindOptions'
 import type { TypeContext } from '../TypeContext'
 import { PropertyRoute } from '../../entities/propertyRoute'
-import { tryGetTypeInfos, TypeInfo, IsByAll, getTypeInfo, getTypeInfos, getTypeName } from '../Reflection'
+import { tryGetTypeInfos, TypeInfo, getTypeInfo, getTypeInfos, getTypeName, fieldIsEmbedded, fieldIsByAll } from '../Reflection'
+import { fieldTypeName } from '../../entities/reflection'
 import type { FieldInfo } from '../../entities/reflection'
 import { cleanTypeName } from '../../entities/registration'
 import { BaseEntity, Entity } from '../../entities/entity'
@@ -103,21 +104,21 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
   }
 
   static defaultIsCreable(type: FieldInfo, customComponent: boolean): boolean {
-    return type.kind == "Embedded" ? Navigator.isCreable(type.typeName, { customComponent, isEmbedded: true }) :
-      type.typeName == IsByAll ? false :
-        tryGetTypeInfos(type.typeName).some(ti => ti != null && Navigator.isCreable(cleanTypeName(ti.ctor!), { customComponent }));
+    return fieldIsEmbedded(type) ? Navigator.isCreable(fieldTypeName(type) ?? "", { customComponent, isEmbedded: true }) :
+      fieldIsByAll(type) ? false :
+        tryGetTypeInfos(fieldTypeName(type) ?? "").some(ti => ti != null && Navigator.isCreable(cleanTypeName(ti.ctor!), { customComponent }));
   }
 
   static defaultIsViewable(type: FieldInfo, customComponent: boolean): boolean {
-    return type.kind == "Embedded" ? Navigator.isViewable(type.typeName, { customComponent, isEmbedded: true }) :
-      type.typeName == IsByAll ? true :
-        tryGetTypeInfos(type.typeName).some(ti => ti != null && Navigator.isViewable(cleanTypeName(ti.ctor!), { customComponent }));
+    return fieldIsEmbedded(type) ? Navigator.isViewable(fieldTypeName(type) ?? "", { customComponent, isEmbedded: true }) :
+      fieldIsByAll(type) ? true :
+        tryGetTypeInfos(fieldTypeName(type) ?? "").some(ti => ti != null && Navigator.isViewable(cleanTypeName(ti.ctor!), { customComponent }));
   }
 
   static defaultIsFindable(type: FieldInfo): boolean {
-    return type.kind == "Embedded" ? false :
-      type.typeName == IsByAll ? true :
-        tryGetTypeInfos(type.typeName).some(ti => ti != null && Navigator.isFindable(cleanTypeName(ti.ctor!)));
+    return fieldIsEmbedded(type) ? false :
+      fieldIsByAll(type) ? true :
+        tryGetTypeInfos(fieldTypeName(type) ?? "").some(ti => ti != null && Navigator.isFindable(cleanTypeName(ti.ctor!)));
   }
 
   static override propEquals(prevProps: EntityBaseProps<any>, nextProps: EntityBaseProps<any>): boolean {
@@ -137,11 +138,11 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
       state.create = EntityBaseController.defaultIsCreable(type, false);
       state.view = EntityBaseController.defaultIsViewable(type, false);
       state.find = EntityBaseController.defaultIsFindable(type);
-      state.findOptions = Navigator.defaultFindOptions(type.typeName);
+      state.findOptions = Navigator.defaultFindOptions(fieldTypeName(type) ?? "");
 
       state.viewOnCreate = true;
       state.remove = true;
-      state.paste = (type.typeName == IsByAll ? true : undefined);
+      state.paste = (fieldIsByAll(type) ? true : undefined);
     }
   }
 
@@ -151,15 +152,18 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
 
     const entityType = getTypeName(entityOrLite as any);
 
-    if (type.kind == "Embedded") {
-      if (entityType != type.typeName || entityOrLite instanceof Lite)
-        throw new Error(`Impossible to convert '${entityType}' to '${type.typeName}'`);
+    const typeName = fieldTypeName(type);
+    if (fieldIsEmbedded(type)) {
+      if (entityType != typeName || entityOrLite instanceof Lite)
+        throw new Error(`Impossible to convert '${entityType}' to '${typeName}'`);
 
       return entityOrLite as unknown as V;
     }
     else {
-      if (type.typeName != IsByAll && !type.typeName.split(',').map(a => a.trim()).contains(entityType))
-        throw new Error(`Impossible to convert '${entityType}' to '${type.typeName}'`);
+      // ALTEA: only enforce the name match for a plain single-type reference; @implementedBy /
+      // @implementedByAll accept any of their (polymorphic) implementations.
+      if (!fieldIsByAll(type) && type.implementations == null && typeName != null && !typeName.split(',').map(a => a.trim()).contains(entityType))
+        throw new Error(`Impossible to convert '${entityType}' to '${typeName}'`);
 
       if (!!(entityOrLite instanceof Lite) == !!type.lite)
         return entityOrLite as unknown as V;
@@ -213,7 +217,7 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
     const ctx = this.props.ctx;
     const entity = ctx.value as V;
 
-    const openWindow = (event.button == 1 || event.ctrlKey) && !(this.props.type!.kind == "Embedded");
+    const openWindow = (event.button == 1 || event.ctrlKey) && !fieldIsEmbedded(this.props.type!);
     if (openWindow) {
       event.preventDefault();
       const route = Navigator.navigateRoute(entity as Lite<Entity> /*or Entity*/);
@@ -249,13 +253,13 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
 
   static chooseType(t: FieldInfo, predicate: (ti: TypeInfo) => boolean): Promise<string | undefined> {
 
-    if (t.kind == "Embedded")
-      return Promise.resolve(t.typeName);
+    if (fieldIsEmbedded(t))
+      return Promise.resolve(fieldTypeName(t));
 
-    if (t.typeName == IsByAll)
+    if (fieldIsByAll(t))
       return Finder.find(TypeEntity, { title: SelectorMessage.PleaseSelectAType.niceToString() }).then(t => t ? t.toString() /*CleanName*/ : undefined);
 
-    const tis = tryGetTypeInfos(t.typeName).notNull().filter(ti => predicate(ti));
+    const tis = tryGetTypeInfos(fieldTypeName(t) ?? "").notNull().filter(ti => predicate(ti));
 
     return SelectorModal.chooseType(tis)
       .then(ti => ti ? cleanTypeName(ti.ctor!) : undefined);
@@ -270,7 +274,7 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
 
   async defaultCreate(pr: PropertyRoute): Promise<Aprox<V> | undefined> {
 
-    var typeName = await EntityBaseController.chooseType(this.props.type!, t => this.props.create /*Hack?*/ || Navigator.isCreable(cleanTypeName(t.ctor!), { customComponent: !!this.props.getComponent || !!this.props.getViewPromise, isEmbedded: pr.fieldInfo?.kind == "Embedded" }));
+    var typeName = await EntityBaseController.chooseType(this.props.type!, t => this.props.create /*Hack?*/ || Navigator.isCreable(cleanTypeName(t.ctor!), { customComponent: !!this.props.getComponent || !!this.props.getViewPromise, isEmbedded: pr.fieldInfo != null && fieldIsEmbedded(pr.fieldInfo) }));
 
     if (typeName == null)
       return undefined;
@@ -316,7 +320,7 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
     if (lites.length == 0)
       return;
 
-    var tis = getTypeInfos(this.props.type!.typeName);
+    var tis = getTypeInfos(fieldTypeName(this.props.type!) ?? "");
     lites = lites.filter(lite => tis.length == 0 || tis.singleOrNull(ti => cleanTypeName(ti.ctor!) == getTypeName(lite)) != null);
     if (lites.length == 0)
       return;

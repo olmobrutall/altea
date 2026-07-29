@@ -3,9 +3,9 @@ import { Entity, EmbeddedEntity, MixinEntity, View } from "@altea/altea/entities
 import type { PrimaryKey } from "@altea/altea/entities/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/entities/lite";
 import {
-    entity, partEntity, mixin, primaryKey,
+    entity, mixin, primaryKey,
     implementedBy, implementedByAll, backReference, rowOrder, valueField,
-    stringLengthValidator, EntityData, EntityKind, customLite,
+    stringLengthValidator, customLite,
     quoted, column, forceNullable, tableName, viewPrimaryKey, systemVersioned,
 } from "@altea/altea/entities/decorators";
 import { Temporal, type int, toInt } from "@altea/altea/entities/basics";
@@ -38,7 +38,7 @@ import type { SchemaAssets } from "@altea/altea/logic/sync/schemaAssets";
 // `@reflect` / `@entity` / `@partEntity` register each class in the type registry
 // (and trigger @field injection) so cross-references resolve by name.
 
-@entity(EntityKind.Shared, EntityData.Transactional)
+@entity("Shared", "Transactional")
 @mixin(() => [ColaboratorsMixin, CorruptMixin])
 @primaryKey("uuid")
 export class NoteWithDateEntity extends Entity {
@@ -75,7 +75,7 @@ export class ColaboratorsMixin extends MixinEntity {
 }
 
 // Link rows for NoteWithDateEntity.colaborators (MList<ArtistEntity>).
-@partEntity
+@entity("Part")
 export class NoteWithDateEntity_Colaborators extends Entity {
     @backReference
     noteWithDate: Lite<NoteWithDateEntity>;
@@ -97,7 +97,7 @@ export interface IAuthorEntity extends Entity {
     lonely(): boolean;
 }
 
-@reflect
+@entity("Main", "Master")
 export class ArtistEntity extends Entity implements IAuthorEntity {
     name: string;
     dead: boolean;
@@ -140,7 +140,7 @@ export class ArtistEntity extends Entity implements IAuthorEntity {
 }
 
 // Self many-to-many link rows for ArtistEntity.friends (MList<Lite<ArtistEntity>>).
-@partEntity
+@entity("Part")
 export class ArtistEntity_Friends extends Entity {
     @backReference
     artist: Lite<ArtistEntity>;
@@ -160,7 +160,7 @@ export enum Status {
     Married,
 }
 
-@reflect
+@entity("Main", "Master")
 export class BandEntity extends Entity implements IAuthorEntity {
     name: string;
     // Signum's MList<ArtistEntity> Members → band/member part entity.
@@ -185,7 +185,7 @@ export class BandEntity extends Entity implements IAuthorEntity {
 }
 
 // Many-to-many link rows for BandEntity.members (MList<ArtistEntity>).
-@partEntity
+@entity("Part")
 export class BandEntity_Members extends Entity {
     @backReference
     band: Lite<BandEntity>;
@@ -195,7 +195,7 @@ export class BandEntity_Members extends Entity {
 }
 
 // Link rows for BandEntity.otherAwards (MList<AwardEntity>, polymorphic award).
-@partEntity
+@entity("Part")
 export class BandEntity_OtherAwards extends Entity {
     @backReference
     band: Lite<BandEntity>;
@@ -219,16 +219,16 @@ export enum AwardResult {
     Nominated,
 }
 
-@reflect
+@entity("String", "Master")
 export class GrammyAwardEntity extends AwardEntity { }
 
-@reflect
+@entity("String", "Master")
 export class AmericanMusicAwardEntity extends AwardEntity { }
 
-@reflect
+@entity("String", "Master")
 export class PersonalAwardEntity extends AwardEntity { }
 
-@reflect
+@entity("String", "Master")
 export class LabelEntity extends Entity {
     name: string;
     country: CountryEntity;          // plain (non-lite) entity reference
@@ -242,7 +242,7 @@ export class LabelEntity extends Entity {
     }
 }
 
-@reflect
+@entity("String", "Master")
 export class CountryEntity extends Entity {
     name: string;
 
@@ -251,7 +251,7 @@ export class CountryEntity extends Entity {
     }
 }
 
-@reflect
+@entity("Main", "Master")
 export class AlbumEntity extends Entity {
     name: string;
     year: int;
@@ -277,7 +277,7 @@ export class AlbumEntity extends Entity {
 
 // Owned child rows for AlbumEntity.songs (the per-row equivalent of SongEmbedded,
 // whose embedded fields are flattened in here).
-@partEntity
+@entity("Part")
 export class AlbumEntity_Songs extends Entity {
     @backReference
     album: Lite<AlbumEntity>;
@@ -313,7 +313,7 @@ export class SongEmbedded extends EmbeddedEntity {
     }
 }
 
-@reflect
+@entity("Main", "Transactional")
 export class AwardNominationEntity extends Entity {
     // A polymorphic (Artist|Band) lite author. Artists use their default custom lite (ArtistLite);
     // bands, whose default is a plain LiteImp, use BandLite ONLY on this field via @customLite
@@ -331,7 +331,7 @@ export class AwardNominationEntity extends Entity {
 
 // Owned child rows for AwardNominationEntity.points. NominationPointEmbedded held
 // a single `Point` field, flattened in here.
-@partEntity
+@entity("Part")
 export class AwardNominationEntity_Points extends Entity {
     @backReference
     awardNomination: Lite<AwardNominationEntity>;
@@ -342,7 +342,7 @@ export class AwardNominationEntity_Points extends Entity {
     point: int;
 }
 
-@reflect
+@entity("Main", "Master")
 export class ConfigEntity extends Entity {
     embeddedConfig: EmbeddedConfigEmbedded | null;
     // Signum's EmbeddedConfig.Awards (MList<Lite<GrammyAwardEntity>>) → part entity.
@@ -358,7 +358,7 @@ export class EmbeddedConfigEmbedded extends EmbeddedEntity {
 }
 
 // Link rows for ConfigEntity.awards (EmbeddedConfig.Awards MList).
-@partEntity
+@entity("Part")
 export class ConfigEntity_Awards extends Entity {
     @backReference
     config: Lite<ConfigEntity>;
@@ -367,7 +367,7 @@ export class ConfigEntity_Awards extends Entity {
     award: Lite<GrammyAwardEntity>;
 }
 
-@reflect
+@entity("String", "Master")
 @systemVersioned
 export class FolderEntity extends Entity {
     name: string;
@@ -380,7 +380,7 @@ export class FolderEntity extends Entity {
     }
 }
 
-@reflect
+@entity("String", "Master")
 export class SimplePassageEntity extends Entity {
     note: Lite<NoteWithDateEntity>;
     isTitle: boolean;

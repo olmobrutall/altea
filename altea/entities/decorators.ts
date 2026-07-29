@@ -61,26 +61,55 @@ export {
 // entity decorators. Implementation lives in ./mixinDeclarations.
 export { mixin, MixinDeclarations } from './mixinDeclarations';
 
-export enum EntityKind {
-    /** Detailed diagnostic information. */
-    SystemString = 'SystemString',
-    System = 'System',
-    Relational = 'Relational',
-    String = 'String',
-    Shared = 'Shared',
-    Main = 'Main',
-    Part = 'Part',
-    SharedPart = 'SharedPart',
-}
+// Signum's EntityKind / EntityData (Signum.Entities/TypeAttributes.cs) — string-union TYPES here (were
+// enums). Kind is mandatory on every entity; data is mandatory for every kind EXCEPT "Part" (a Part
+// inherits the EntityData of the entity that owns it — see TypeInfo.entityData). Member docs copied
+// from Signum:
+export type EntityKind =
+    /** Doesn't make sense to view it from other entity, since there's not to much to see. Not editable.
+     * Not RequiresSaveOperation. ie: PermissionSymbol */
+    | "SystemString"
+    /** Not editable. Not RequiresSaveOperation. ie: ExceptionEntity */
+    | "System"
+    /** An entity that connects two entitities to implement a N to N relationship in a symetric way (no
+     * MLists). RequiresSaveOperation, not vieable, not creable (override on SearchControl).
+     * ie: DiscountProductEntity */
+    | "Relational"
+    /** Doesn't make sense to view it from other entity, since there's not to much to see.
+     * RequiresSaveOperation. ie: CountryEntity */
+    | "String"
+    /** Used and shared by other entities, can be created from other entity. RequiresSaveOperation.
+     * ie: CustomerEntity (can create new while creating the order) */
+    | "Shared"
+    /** Used and shared by other entities, but too big to create it from other entity.
+     * RequiresSaveOperation. ie: OrderEntity */
+    | "Main"
+    /** Entity that belongs to just one entity and should be saved together, but that can not be
+     * implemented as EmbeddedEntity (usually to enable polymorphisim). Not RequiresSaveOperation.
+     * ie: ProductExtensionEntity */
+    | "Part"
+    /** Entity that can be created on the fly and saved with the parent entity, but could also be shared
+     * with other entities to save space. Not RequiresSaveOperation. ie: AddressEntity */
+    | "SharedPart";
 
-export enum EntityData {
-    Transactional = 'Transactional',
-    Master = 'Master',
+export type EntityData =
+    /** Entity created for business definition. By default ordered by id Ascending.
+     * ie: ProductEntity, OperationSymbol, PermissionSymbol, CountryEntity... */
+    | "Master"
+    /** Entity created while the business is running. By default is ordered by id Descending.
+     * ie: OrderEntity, ExceptionEntity, OperationLogEntity... */
+    | "Transactional";
+
+export interface EntityOptions {
+    // Signum's isLowPopulation: few enough rows to load them all — drives the AutoLine default to
+    // EntityCombo (single) / EntityCheckboxList (collection) instead of EntityLine / EntityStrip.
+    lowPopulation?: boolean;
 }
 
 export interface EntityInfo {
-    kind?: EntityKind;
+    kind: EntityKind;
     data?: EntityData;
+    lowPopulation?: boolean;
 }
 
 const entityInfoKey = Symbol.for('altea:entityInfo');
@@ -104,28 +133,22 @@ export function avoidExpandOnRetrieving(target: object, propertyKey: string | sy
     getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).avoidExpandOnRetrieving = true;
 }
 
-// Marks a class as a persistent entity. Like @reflect it creates reflection
-// metadata and registers the type (so the quote-transformer auto-injects @field
-// on its properties); additionally it records the EntityKind / EntityData.
-// `@entity()` (no args) is valid for the base Entity class.
-export function entity(kind?: EntityKind, data?: EntityData) {
+// Marks a class as a persistent entity. Like @reflect it creates reflection metadata and registers
+// the type (so the quote-transformer auto-injects @field on its properties); additionally it records
+// the EntityKind / EntityData / lowPopulation. `kind` is MANDATORY; `data` is required for every kind
+// EXCEPT "Part" (parts inherit their owner's data — the overloads enforce this at the type level).
+// The abstract base Entity uses @reflect (not @entity), so there is no no-arg form.
+export function entity(kind: "Part", data?: EntityData, options?: EntityOptions): (target: Function) => void;
+export function entity(kind: Exclude<EntityKind, "Part">, data: EntityData, options?: EntityOptions): (target: Function) => void;
+export function entity(kind: EntityKind, data?: EntityData, options?: EntityOptions): (target: Function) => void {
     return function (target: Function): void {
-        (target as any)[entityInfoKey] = { kind, data } satisfies EntityInfo;
+        (target as any)[entityInfoKey] = { kind, data, lowPopulation: options?.lowPopulation } satisfies EntityInfo;
         const ti = getOrCreateTypeInfo(target);
         ti.entityKind = kind;
         ti.entityData = data;
+        ti.lowPopulation = options?.lowPopulation;
         registerType(target);
     };
-}
-
-// A "part" entity: owned/embedded-style table (EntityKind.Part), e.g. the rows
-// that replace a Signum MList. Triggers the same @field injection as @entity.
-export function partEntity(target: Function): void {
-    (target as any)[entityInfoKey] = { kind: EntityKind.Part, data: EntityData.Transactional } satisfies EntityInfo;
-    const ti = getOrCreateTypeInfo(target);
-    ti.entityKind = EntityKind.Part;
-    ti.entityData = EntityData.Transactional;
-    registerType(target);
 }
 
 // Sets the runtime type of the entity's primary key (Signum's

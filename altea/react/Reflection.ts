@@ -10,7 +10,7 @@ import type { Type, PrimaryKey } from '../entities/entity';
 import { Lite, LiteImp } from '../entities/lite';
 import { PropertyRoute, PropertyRouteType } from '../entities/propertyRoute';
 import { RuntimeType, ArrayType, LiteType, ClassType, EnumType as RuntimeEnumType, LiteralType, TemporalType } from '../entities/runtimeTypes';
-import { TypeInfo, tryGetTypeInfo as alteaTryGetTypeInfo } from '../entities/reflection';
+import { TypeInfo, tryGetTypeInfo as alteaTryGetTypeInfo, fieldType, fieldTypeName } from '../entities/reflection';
 import type { FieldInfo } from '../entities/reflection';
 import { cleanTypeName, resolveType, resolveCleanType, resolveEnum } from '../entities/registration';
 
@@ -102,6 +102,26 @@ export function isRuntimeCollection(rt: RuntimeType): boolean { return rt instan
 export function isRuntimeLite(rt: RuntimeType): boolean { return rt instanceof LiteType; }
 export function isRuntimeEmbedded(rt: RuntimeType): boolean {
   return rt instanceof ClassType && (rt.constructorFunction === EmbeddedEntity || rt.constructorFunction.prototype instanceof EmbeddedEntity);
+}
+
+// A field's category, resolved from its ACTUAL runtime class (the `type` thunk) — NOT the string
+// `FieldInfo.kind` (which the transformer sets only for aliased value types, e.g. `int`, and leaves
+// undefined for entity/embedded/enum refs) nor `FieldInfo.typeName` (absent for thunked refs). These
+// mirror altea's own `isEntityCtor`/`isRuntimeEmbedded`. `fieldType(fi)` returns the field's class
+// ctor (or undefined for value/enum/name-only-interface fields).
+export function fieldIsEmbedded(fi: FieldInfo): boolean {
+  const ctor = fieldType(fi);
+  return ctor != null && (ctor === EmbeddedEntity || ctor.prototype instanceof EmbeddedEntity);
+}
+export function fieldIsEntity(fi: FieldInfo): boolean {
+  const ctor = fieldType(fi);
+  return ctor != null && (ctor === Entity || ctor.prototype instanceof Entity);
+}
+// @implementedByAll (Signum's ImplementedByAll — "any entity"). Detected via the implementations
+// marker, NOT `typeName == IsByAll` (the transformer emits `field({ type: () => Entity })` for it, so
+// `typeName` is undefined, never "[ALL]").
+export function fieldIsByAll(fi: FieldInfo): boolean {
+  return fi.implementations?.kind === 'implementedByAll';
 }
 
 // The @implementedByAll discriminator (a column typed as "any entity"): its name resolves to no

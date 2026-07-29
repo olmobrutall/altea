@@ -1,5 +1,5 @@
 import { reflect } from './reflection';
-import { entity, EntityKind, EntityData } from './decorators';
+import { entity } from './decorators';
 import { Symbol } from './symbol';
 
 // Port of Signum's OperationSymbol (Signum/Operations/Operation.cs): the single concrete
@@ -11,6 +11,6 @@ import { Symbol } from './symbol';
 // transformer injects `import { OperationSymbol } from ".../operations"`, which re-exports
 // it), so no self-registration is needed.
 @reflect
-@entity(EntityKind.SystemString, EntityData.Master)
+@entity("SystemString", "Master")
 export class OperationSymbol extends Symbol {
 }

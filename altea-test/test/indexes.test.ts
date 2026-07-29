@@ -1,10 +1,10 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "@altea/altea/entities/globals";
-import { reflect } from "@altea/altea/entities/reflection";
+import { reflect } from "@altea/altea/entities/reflection"; // anchor for the transformer's @field injection
 import { Entity } from "@altea/altea/entities/entity";
 import { Lite } from "@altea/altea/entities/lite";
-import { index, uniqueIndex } from "@altea/altea/entities/decorators";
+import { entity, index, uniqueIndex } from "@altea/altea/entities/decorators";
 import { type int, toInt } from "@altea/altea/entities/basics";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import type { Table } from "@altea/altea/logic/schema/table";
@@ -15,14 +15,14 @@ import { Connector } from "@altea/altea/logic/connection/connector";
 // composite @uniqueIndex(e => [..]) lambda, the fluent include().withIndex(...), and the
 // CREATE INDEX SQL. DB-free — builds the schema in memory and inspects table.indexes.
 
-@reflect
+@entity("Main", "Master")
 class IdxTarget extends Entity {
     name: string = "";
 }
 
 // Class-level composite unique index via a selector lambda.
 @uniqueIndex((c: IdxCustomer) => [c.code, c.name])
-@reflect
+@entity("Main", "Master")
 class IdxCustomer extends Entity {
     @uniqueIndex code: string = "";      // field-level unique index
     name: string = "";

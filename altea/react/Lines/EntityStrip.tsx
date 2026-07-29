@@ -17,6 +17,7 @@ import { Lite, parseLiteList } from '../../entities/lite'
 import { EntityControlMessage } from '../../entities/uiMessages'
 import { Typeahead } from '../Components'
 import { EntityListBaseController, type EntityListBaseProps, tryGetValueField, type DragConfig, type MoveConfig } from './EntityListBase'
+import { fieldTypeName } from '../../entities/reflection'
 import { type AutocompleteConfig, TypeBadge } from './AutoCompleteConfig'
 import { EntityBaseController } from './EntityBase'
 import { useController } from './LineBase'
@@ -59,11 +60,11 @@ export class EntityStripController<R extends BaseEntity> extends EntityListBaseC
     if (p.type) {
       // Autocomplete/showType key off the ELEMENT type = the row's @valueField (guaranteed present:
       // getDefaultProps already validated it for a needsValue line).
-      const vf = tryGetValueField(p.type.typeName);
+      const vf = tryGetValueField(fieldTypeName(p.type) ?? "");
       const elementPr = vf ? p.ctx.propertyRoute?.add("Item").add(vf.name) : p.ctx.propertyRoute?.add("Item");
 
       if (p.showType == undefined)
-        p.showType = ((vf ?? p.type).typeName).contains(",");
+        p.showType = (fieldTypeName(vf ?? p.type) ?? "").contains(",");
 
       if (p.autocomplete === undefined) {
         p.autocomplete = elementPr == null ? null :
