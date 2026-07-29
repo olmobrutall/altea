@@ -7,7 +7,8 @@
 //   - unused Signum imports (getLambdaMembers / TypeInfo / message enums / Lines) dropped.
 
 import * as React from "react";
-import { QueryKey, tryGetTypeInfos, isTypeEnum, isNumberType, type PseudoType, type Type, type TypeReference } from './Reflection';
+import { QueryKey, isRuntimeEmbedded, type PseudoType, type Type } from './Reflection';
+import { RuntimeType, LiteralType, TemporalType, EnumType, LiteType, ClassType } from '../entities/runtimeTypes';
 import { QueryTokenString } from './QueryTokenString';
 import type { Lite } from '../entities/lite';
 import type { Entity, BaseEntity } from '../entities/entity';
@@ -414,20 +415,22 @@ export function getFilterOperations(qt: QueryToken): FilterOperation[] {
   return filterOperations[qt.filterType];
 }
 
-export function getFilterGroupUnifiedFilterType(tr: TypeReference): FilterType | null {
-  if (isNumberType(tr.name) || tr.name == "boolean" || tr.name == "string" || tr.name == "Guid")
+// ALTEA: a query column's type is a RuntimeType (Signum's TypeReference is gone). Number/String/
+// Boolean (and Guid, which altea models as a string) unify to the "String" group.
+export function getFilterGroupUnifiedFilterType(rt: RuntimeType): FilterType | null {
+  if (rt instanceof LiteralType)
     return "String";
 
-  if (tr.name == "DateTime")
+  if (rt instanceof TemporalType && rt.kind != "duration")
     return "DateTime";
 
-  if (tr.isEmbedded)
+  if (isRuntimeEmbedded(rt))
     return "Embedded";
 
-  if (isTypeEnum(tr.name))
+  if (rt instanceof EnumType)
     return "Enum";
 
-  if (tr.isLite || tryGetTypeInfos(tr)[0] != null)
+  if (rt instanceof LiteType || rt instanceof ClassType)
     return "Lite";
 
   return null;

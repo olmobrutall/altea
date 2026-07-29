@@ -48,9 +48,10 @@ import { TypeEntity } from '../entities/typeEntity';
 
 import {
   QueryKey, getQueryKey, isQueryDefined, getTypeName, getTypeInfo, tryGetTypeInfos, getTypeInfos, tryGetTypeInfo, isTypeModel, isNumberType,
-  TypeInfo, PropertyRoute,
-  type Type, type TypeReference, type PseudoType,
+  TypeInfo, PropertyRoute, runtimeTypeName, isRuntimeCollection,
+  type Type, type PseudoType,
 } from './Reflection';
+import type { FieldInfo } from '../entities/reflection';
 // TODO(port): getEnumInfo, toLuxonFormat, toNumberFormat, onReloadTypesActions, toLuxonDurationFormat,
 // toFormatWithFixes, numberLimits, isDecimalType — formatter/query-registry layer not ported.
 
@@ -361,14 +362,14 @@ export namespace Finder {
     return query;
   }
 
-  export function getTypeNiceName(tr: TypeReference): string {
+  export function getTypeNiceName(rt: RuntimeType): string {
 
-    const niceName = tr.typeNiceName ??
-      tryGetTypeInfos(tr)
-        .map(ti => ti == undefined ? getSimpleTypeNiceName(tr.name) : ti.getNiceName())
-        .joinComma(CollectionMessage.Or.niceToString());
+    const name = runtimeTypeName(rt);
+    const niceName = tryGetTypeInfos(name)
+      .map(ti => ti == undefined ? getSimpleTypeNiceName(name) : ti.getNiceName())
+      .joinComma(CollectionMessage.Or.niceToString());
 
-    return tr.isCollection ? QueryTokenMessage.ListOf0.niceToString(niceName) : niceName;
+    return isRuntimeCollection(rt) ? QueryTokenMessage.ListOf0.niceToString(niceName) : niceName;
   }
 
   export function getSimpleTypeNiceName(name: string): string {
@@ -627,10 +628,7 @@ export namespace Finder {
       if (!mi)
         return;
 
-      // ALTEA: a member's type is a FieldInfo (lazy ctor thunk + flags), not Signum's TypeReference;
-      // adapt it to the react TypeReference tryConvert expects.
-      const miType: TypeReference = { name: mi.typeName, isLite: mi.lite, isCollection: mi.array };
-      const valueOrPromise = tryConvert(fo.value, miType, retrieveEntityInPromise);
+      const valueOrPromise = tryConvert(fo.value, mi, retrieveEntityInPromise);
 
       result[mi.name.firstLower()] = valueOrPromise;
     });
@@ -638,12 +636,14 @@ export namespace Finder {
     return result;
   }
 
-  export function tryConvert(value: any, type: TypeReference, retrieveEntityInPromise: boolean): any | undefined {
+  // ALTEA: the member's type is a FieldInfo (Signum's TypeReference is gone). Field flags read off
+  // fieldInfo (lite / typeName), with altea's typeName vocab (String / Boolean / PlainDate / …).
+  export function tryConvert(value: any, type: FieldInfo, retrieveEntityInPromise: boolean): any | undefined {
 
     if (value == null)
       return null;
 
-    if (type.isLite) {
+    if (type.lite) {
 
       if (value instanceof Lite)
         return value;
@@ -654,7 +654,7 @@ export namespace Finder {
       return undefined;
     }
 
-    const ti = tryGetTypeInfo(type.name);
+    const ti = tryGetTypeInfo(type.typeName);
 
     if (ti?.kind == "Entity") {
 
@@ -667,19 +667,19 @@ export namespace Finder {
       return undefined;
     }
 
-    if (type.name == "string" || type.name == "Guid" || type.name == "DateOnly" || ti?.kind == "Enum") {
+    if (type.typeName == "String" || type.typeName == "Guid" || type.typeName == "PlainDate" || ti?.kind == "Enum") {
       if (typeof value === "string")
         return value;
 
       return undefined;
     }
 
-    if (type.name == "boolean") {
+    if (type.typeName == "Boolean") {
       if (typeof value === "boolean")
         return value;
     }
 
-    if (isNumberType(type.name)) {
+    if (isNumberType(type.typeName) || type.typeName == "Decimal") {
       if (typeof value === "number")
         return value;
     }
@@ -2159,8 +2159,8 @@ export namespace Finder {
     initFilterValueFormatRules: (): FilterValueFormatter[] => [],
   };
 
-  export function isSystemVersioned(tr?: TypeReference): boolean {
-    return tr != null && getTypeInfos(tr).some(ti => ti.systemVersioned != null)
+  export function isSystemVersioned(rt?: RuntimeType): boolean {
+    return rt != null && getTypeInfos(runtimeTypeName(rt)).some(ti => ti.systemVersioned != null)
   }
 
   interface GetFormatterOptions {

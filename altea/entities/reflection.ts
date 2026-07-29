@@ -111,6 +111,14 @@ export class FieldInfo {
     index?: boolean;
     uniqueIndex?: boolean;
     columnOptions?: ColumnOptions;
+    // Signum's MemberInfo display metadata (the client Lines layer reads these off the PropertyRoute's
+    // field). Not wired by altea decorators yet, so undefined ⇒ default rendering — same as Signum
+    // without the attrs. (Signum's MemberInfo.required has no altea field: it's `!isNullable`.)
+    isReadOnly?: boolean;
+    format?: string;
+    unit?: string;
+    isMultiline?: boolean;
+    maxLength?: number;
 
     validators: Validator[] = [];
     customValidation?: (entity: any, fieldInfo: FieldInfo) => string | null;

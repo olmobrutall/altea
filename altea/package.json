@@ -36,6 +36,11 @@
   "author": "Olmo del Corral",
   "license": "MIT",
   "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^7.3.1",
+    "@fortawesome/free-regular-svg-icons": "^7.3.1",
+    "@fortawesome/free-solid-svg-icons": "^7.3.1",
+    "@fortawesome/react-fontawesome": "^3.5.0",
+    "bootstrap": "^5.3.8",
     "decimal.js": "^10.6.0",
     "express": "^5.2.1",
     "mssql": "^12.6.0",
@@ -43,7 +48,9 @@
     "pg-copy-streams": "^7.0.0",
     "quote-transformer": "workspace:*",
     "react": "^19.0.0",
+    "react-bootstrap": "^2.10.10",
     "react-router": "^8.3.0",
+    "react-widgets-up": "^6.0.14",
     "temporal-polyfill": "^0.3.2"
   },
   "devDependencies": {
