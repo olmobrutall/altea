@@ -5,6 +5,7 @@
 export { default as TextArea } from './Components/TextArea';
 export { Typeahead, TypeaheadController, TypeaheadOptions, TextHighlighter } from './Components/Typeahead';
 export type { TypeaheadProps } from './Components/Typeahead';
+export { ErrorBoundary } from './Components/ErrorBoundary';
 
 // Bootstrap sizing token (Signum's BsSize), used by ModalFindOptions.modalSize.
 export type BsSize = "xs" | "sm" | "md" | "lg" | "xl";

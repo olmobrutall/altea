@@ -179,7 +179,25 @@ export namespace Finder {
 
     return isFindableEvent.every(f => f(queryKey, fullScreen, context));
   }
-  // 
+
+  // ALTEA STUB: `find` opens the search modal, which needs the SearchControl / SearchModal layer
+  // (not ported yet). The entity Lines (EntityBase find button) reference it, so it must exist and
+  // typecheck; it throws at runtime until SearchControl lands. Restore the real body (commented
+  // below) once Options.getSearchModal + SearchModal are ported.
+  export function find<T extends Entity = Entity>(findOptions: FindOptions<T>, modalOptions?: ModalFindOptions): Promise<Lite<T> | undefined>;
+  export function find<T extends Entity>(type: Type<T>, modalOptions?: ModalFindOptions): Promise<Lite<T> | undefined>;
+  export function find(obj: FindOptions | Type<any>, modalOptions?: ModalFindOptions): Promise<Lite<Entity> | undefined> {
+    throw new Error("TODO(port): Finder.find — the SearchControl/SearchModal layer is not ported yet");
+  }
+
+  // ALTEA STUB (same rationale as `find`): the multi-select search modal is not ported yet. The entity
+  // list Lines (EntityListBase find button) reference it, so it must typecheck; throws until SearchControl lands.
+  export function findMany<T extends Entity = Entity>(findOptions: FindOptions<T>, modalOptions?: ModalFindOptionsMany): Promise<Lite<T>[] | undefined>;
+  export function findMany<T extends Entity>(type: Type<T>, modalOptions?: ModalFindOptionsMany): Promise<Lite<T>[] | undefined>;
+  export function findMany(findOptions: FindOptions | Type<any>, modalOptions?: ModalFindOptionsMany): Promise<Lite<Entity>[] | undefined> {
+    throw new Error("TODO(port): Finder.findMany — the SearchControl/SearchModal layer is not ported yet");
+  }
+  //
   //   export function find<T extends Entity = Entity>(findOptions: FindOptions<T>, modalOptions?: ModalFindOptions): Promise<Lite<T> | undefined>;
   //   export function find<T extends Entity>(type: Type<T>, modalOptions?: ModalFindOptions): Promise<Lite<T> | undefined>;
   //   export function find(obj: FindOptions | Type<any>, modalOptions?: ModalFindOptions): Promise<Lite<Entity> | undefined> {

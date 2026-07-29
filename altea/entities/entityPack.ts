@@ -7,3 +7,8 @@ export interface EntityPack<T extends BaseEntity = BaseEntity> {
     entity: T;
     canExecute: { [operationKey: string]: string };
 }
+
+// Signum's `isEntityPack` type guard: an object carrying both `entity` and `canExecute`.
+export function isEntityPack(obj: unknown): obj is EntityPack {
+    return obj != null && (obj as EntityPack).entity !== undefined && (obj as EntityPack).canExecute !== undefined;
+}

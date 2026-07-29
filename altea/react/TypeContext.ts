@@ -1,8 +1,9 @@
 import * as React from 'react'
 import { PropertyRoute, PropertyRouteType, getTypeName, isType, tryGetTypeInfo } from './Reflection'
 import type { Type, PseudoType, MemberInfo, IType } from './Reflection'
-import { ReadonlyBinding, createBinding, getLambdaMembers, getFieldMembers } from './binding'
-import type { IBinding, LambdaMember, Binding } from './binding'
+import { ReadonlyBinding, createBinding, getLambdaMembers, getFieldMembers, Binding } from './binding'
+import type { IBinding, LambdaMember } from './binding'
+import type { Quoted } from 'quote-transformer/quoted'
 import { BaseEntity } from '../entities/entity'
 import type { Entity, MixinEntity, ModelEntity } from '../entities/entity'
 import type { EntityPack } from '../entities/entityPack'
@@ -255,11 +256,11 @@ export interface BsColumns {
 
 // ALTEA sweep helpers: altea's PropertyRoute is string/route-based (add(name)), not lambda-based
 // (Signum's addLambda/tryAddLambdaMember). These translate a parsed LambdaMember / a whole lambda
-// into altea route navigation ("Item" for collection indexers, "[Mixin]" for mixins).
+// into altea route navigation ("Item" for collection indexers, addMixin for mixins).
 function addLambdaMember(pr: PropertyRoute, m: LambdaMember): PropertyRoute {
   switch (m.type) {
     case "Member": return pr.add(m.name);
-    case "Mixin": return pr.add("[" + m.name + "]");
+    case "Mixin": return pr.addMixin(m.name);
     case "Indexer": return pr.add("Item");
   }
 }
@@ -269,11 +270,11 @@ function tryAddLambdaMember(pr: PropertyRoute | undefined, m: LambdaMember): Pro
   try { return addLambdaMember(pr, m); } catch { return undefined; }
 }
 
-function addLambda(pr: PropertyRoute, lambda: (val: any) => any): PropertyRoute {
+function addLambda(pr: PropertyRoute, lambda: Quoted<(val: any) => any>): PropertyRoute {
   return getLambdaMembers(lambda).reduce(addLambdaMember, pr);
 }
 
-function tryAddLambda(pr: PropertyRoute, lambda: (val: any) => any): PropertyRoute | undefined {
+function tryAddLambda(pr: PropertyRoute, lambda: Quoted<(val: any) => any>): PropertyRoute | undefined {
   try { return addLambda(pr, lambda); } catch { return undefined; }
 }
 
@@ -328,10 +329,10 @@ export class TypeContext<T> extends StyleContext {
   }
 
   subCtx(styleOptions: StyleOptions): TypeContext<T>
-  subCtx<R>(property: (val: T) => R, styleOptions?: StyleOptions): TypeContext<R>
+  subCtx<R>(property: Quoted<(val: T) => R>, styleOptions?: StyleOptions): TypeContext<R>
   subCtx<M extends MixinEntity>(mixin: Type<M>, styleOptions?: StyleOptions): TypeContext<M> //Only id T extends Entity!
   subCtx(field: string, styleOptions?: StyleOptions): TypeContext<any>
-  subCtx(arg: ((val: T) => any) | IType | string | StyleOptions, styleOptions?: StyleOptions): TypeContext<any> {
+  subCtx(arg: Quoted<(val: T) => any> | IType | string | StyleOptions, styleOptions?: StyleOptions): TypeContext<any> {
     if (typeof arg == "object" && !isType(arg)) {
       var nc = new TypeContext<T>(this, arg, this.propertyRoute, this.binding, this.prefix);
       nc.previousVersion = this.previousVersion;
@@ -386,7 +387,7 @@ export class TypeContext<T> extends StyleContext {
     return new TypeContext<any>(this, undefined, newPr, new ReadonlyBinding(entity, ""));
   }
 
-  niceName(property?: (val: T) => any): string {
+  niceName(property?: Quoted<(val: T) => any>): string {
 
     if (this.propertyRoute == undefined)
       throw new Error("No propertyRoute");
@@ -399,7 +400,7 @@ export class TypeContext<T> extends StyleContext {
     return addLambda(this.propertyRoute, property).fieldInfo!.niceToString();
   }
 
-  tryMemberInfo(property?: (val: T) => any): MemberInfo | undefined {
+  tryMemberInfo(property?: Quoted<(val: T) => any>): MemberInfo | undefined {
 
     if (this.propertyRoute == undefined)
       throw new Error("No propertyRoute");
@@ -410,7 +411,7 @@ export class TypeContext<T> extends StyleContext {
     return tryAddLambda(this.propertyRoute, property)?.fieldInfo;
   }
 
-  memberInfo(property?: (val: T) => any): MemberInfo {
+  memberInfo(property?: Quoted<(val: T) => any>): MemberInfo {
 
     if (this.propertyRoute == undefined)
       throw new Error("No propertyRoute");
@@ -547,4 +548,22 @@ export interface EntityFrame<T extends BaseEntity = BaseEntity> {
   previousDate?: string;
 
   hideAndClose?: boolean;
+}
+
+// ALTEA: Signum's `mlistItemContext` (Signum.React/TypeContext.tsx). Signum bound each MList row via
+// an MListElementBinding on `{ rowId, element }`; altea has NO MList wrapper — a collection field is a
+// plain `T[]` of the sustaining ROW entities — so each element binds by its numeric array index (a
+// plain Binding, see TypeContext.index). Returns one TypeContext per row, routed through the
+// collection's element PropertyRoute (`add("Item")`). Time-machine previousVersion alignment (Signum
+// matched by rowId) is not reproduced here — altea rows have no rowId — so element contexts carry no
+// previousVersion for now (TODO if list time-travel is needed).
+export function mlistItemContext<T>(ctx: TypeContext<T[]>): TypeContext<T>[] {
+  const list = ctx.value;
+  if (list == null)
+    return [];
+
+  const itemRoute = ctx.propertyRoute?.add("Item");
+
+  return list.map((_item, i) =>
+    new TypeContext<T>(ctx, undefined, itemRoute, new Binding<T>(list, i, "[" + i + "]")));
 }

@@ -210,6 +210,32 @@ export class TypeInfo {
     // Signum's TypeInfo.members — altea's fields (keyed by the real property name, not capitalized).
     get members(): { [fieldName: string]: FieldInfo } { return this.fields; }
 
+    // O(1) access to the (at most one) field carrying each of altea's MList-replacement markers —
+    // the boolean flags (FieldInfo.isValueField / isRowOrder / isBackReference) remain the source of
+    // truth (the serializer + saver iterate them per-field); these are just a lazily-computed index
+    // over `fields`, memoized once per TypeInfo (fields are frozen after boot). Computed on first
+    // access — at render/save time — so inherited markers (merged into `fields` at registration) are
+    // already present. The cache slot is `undefined` until computed, then `FieldInfo | null`; gating
+    // on `=== undefined` (NOT `??=`, which would re-scan the null/not-found case forever) memoizes both
+    // the found and the not-found result. Getters return `FieldInfo | null` (null = no such field).
+    #valueField?: FieldInfo | null;
+    get valueField(): FieldInfo | null {
+        return this.#valueField !== undefined ? this.#valueField :
+            (this.#valueField = Object.values(this.fields).find(f => f.isValueField) ?? null);
+    }
+
+    #rowOrderField?: FieldInfo | null;
+    get rowOrderField(): FieldInfo | null {
+        return this.#rowOrderField !== undefined ? this.#rowOrderField :
+            (this.#rowOrderField = Object.values(this.fields).find(f => f.isRowOrder) ?? null);
+    }
+
+    #backReferenceField?: FieldInfo | null;
+    get backReferenceField(): FieldInfo | null {
+        return this.#backReferenceField !== undefined ? this.#backReferenceField :
+            (this.#backReferenceField = Object.values(this.fields).find(f => f.isBackReference) ?? null);
+    }
+
     // Signum's TypeInfo.kind. altea attaches TypeInfo only to reflected classes -> "Entity".
     get kind(): "Entity" | "Enum" | "SymbolContainer" { return "Entity"; } // TODO: enum / symbol containers
 }

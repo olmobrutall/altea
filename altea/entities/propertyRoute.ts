@@ -4,6 +4,8 @@ import { typeConstructor } from './entity';
 import type { FieldInfo } from './reflection';
 import { tryGetTypeInfo, fieldType, fieldEnum, fieldTypeName } from './reflection';
 import { cleanTypeName, resolveCleanType } from './registration';
+import { getLambdaMembers } from './lambdaMembers';
+import type { Quoted } from 'quote-transformer/quoted';
 import { MixinDeclarations } from './mixinDeclarations';
 import { Implementations } from './implementations';
 import {
@@ -155,14 +157,41 @@ export class PropertyRoute {
         return r;
     }
 
+    // Signum's `PropertyRoute.addMember(...)` — altea's single navigation step is `add(name)` (it
+    // already dispatches Item / Entity / mixin), so addMember is the Signum-named alias.
+    addMember(member: string): PropertyRoute {
+        return this.add(member);
+    }
+
+    // Signum's `PropertyRoute.addLambda(e => e.a.b)` — navigate a property-access lambda (incl.
+    // `a.mixin(SomeMixin).field`). Each parsed member becomes a step: Mixin → addMixin, Indexer → the
+    // collection "Item", plain member → add(name). (getLambdaMembers returns them root-first.)
+    addLambda(lambda: Quoted<(val: any) => any>): PropertyRoute {
+        return getLambdaMembers(lambda).reduce<PropertyRoute>(
+            (pr, m) => m.type == "Mixin" ? pr.addMixin(m.name) : pr.add(m.type == "Indexer" ? "Item" : m.name),
+            this);
+    }
+
+    tryAddLambda(lambda: Quoted<(val: any) => any>): PropertyRoute | undefined {
+        try {
+            return this.addLambda(lambda);
+        } catch {
+            return undefined;
+        }
+    }
+
+    // Signum's `PropertyRoute.subMembers()` — the fields navigable from here (the fields of the type
+    // whose next member this route reads: the referenced entity, embedded, or root/mixin type).
+    subMembers(): { [name: string]: FieldInfo } {
+        const owner = this.ownerCtor();
+        return owner ? (tryGetTypeInfo(owner)?.fields ?? {}) : {};
+    }
+
     // Port of Signum's `PropertyRoute.Add` (+ `AddImp`): appends one navigation step. Navigating
     // through a single-implementation entity reference RE-ROOTS at the referenced concrete type
     // (Signum's AddImp), so a sub-route belongs to that entity, not the owner. A polymorphic
     // (implementedBy-many / byAll) reference throws — cast first (AsTypeToken).
     add(member: string): PropertyRoute {
-        if (member.startsWith("["))
-            return this.addMixin(member);
-
         if (this.propertyRouteType !== PropertyRouteType.Root && this.entityCtor() != undefined) {
             const imp = this.getImplementations();
             const only = imp.only();
@@ -191,13 +220,16 @@ export class PropertyRoute {
         return new PropertyRoute(PropertyRouteType.FieldOrProperty, this, undefined, fi, undefined);
     }
 
-    private addMixin(member: string): PropertyRoute {
-        const mixinName = member.slice(1, -1); // strip the surrounding [ ]
+    // Navigate into a mixin declared on the owner (Signum's mixin route step). `mixinName` is the
+    // mixin class name — from `a.mixin(SomeMixin)` in a Quoted lambda (getLambdaMembers) or the
+    // subCtx(Type) overload. altea keeps mixin fields flat on the entity, but the route still models
+    // the mixin so `.field` off it resolves against the mixin's reflected fields.
+    addMixin(mixinName: string): PropertyRoute {
         const owner = this.ownerCtor();
         const mixinCtor = owner == undefined ? undefined :
             MixinDeclarations.getMixins(owner as Type<BaseEntity>).map(typeConstructor).find(m => m.name === mixinName);
         if (mixinCtor == undefined)
-            throw new Error(`Mixin ${member} does not exist on ${owner?.name} (route ${this})`);
+            throw new Error(`Mixin '${mixinName}' does not exist on ${owner?.name} (route ${this})`);
         return new PropertyRoute(PropertyRouteType.Mixin, this, undefined, undefined, mixinCtor);
     }
 

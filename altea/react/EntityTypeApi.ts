@@ -18,6 +18,7 @@ import {
   type TokenFunction, type Anonymous,
 } from './QueryTokenString';
 import type { FindOptions, FetchOptions, TypedResultsOptions, ResultObject, OptionalQueryName } from './FindOptions';
+import type { Quoted } from 'quote-transformer/quoted';
 
 // Add the statics to the entity-class side (namespace ⋈ class merge → static members; inherited by
 // every entity subclass). `this: Type<T>` binds to the concrete entity constructor at the call site.
@@ -26,7 +27,7 @@ declare module '../entities/entity' {
     /** A {@link QueryTokenString} rooted at this type (Signum's Type.token). `S` (the column result
      * type) is the explicit type arg; `T` infers from `this`, so `token<number>("Expr")` works. */
     export function token<T extends BaseEntity>(this: Type<T>): QueryTokenString<Anonymous<T>>;
-    export function token<S, T extends BaseEntity = BaseEntity>(this: Type<T>, lambdaToColumn: (v: Anonymous<T>) => S): QueryTokenString<S>;
+    export function token<S, T extends BaseEntity = BaseEntity>(this: Type<T>, lambdaToColumn: Quoted<(v: Anonymous<T>) => S>): QueryTokenString<S>;
     export function token<S = unknown, T extends BaseEntity = BaseEntity>(this: Type<T>, columnName: string): QueryTokenString<S>;
 
     /** A strongly-typed {@link FindOptions} rooted at this type; `queryName` defaults to this type. */

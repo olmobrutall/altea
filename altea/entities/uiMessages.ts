@@ -6,11 +6,18 @@
 import { msg } from './utils/localization';
 
 export const EntityControlMessage = {
+    Add: msg("Add"),
     Create: msg(),
     Find: msg(),
     Paste: msg(),
     Remove: msg(),
     View: msg(),
+    MoveUp: msg("Move up"),
+    MoveDown: msg("Move down"),
+    MoveRight: msg("Move right"),
+    MoveLeft: msg("Move left"),
+    MoveWithDragAndDropOrCtrlUpDown: msg("Move (with drag and drop or Ctrl + Up / Down)"),
+    MoveWithDragAndDropOrCtrlLeftRight: msg("Move (with drag and drop or Ctrl + Left / Right)"),
 };
 
 export const JavascriptMessage = {
@@ -22,6 +29,8 @@ export const JavascriptMessage = {
 export const SearchMessage = {
     Search: msg("Search"),
     CreateNew0_G: msg("Create new {0}"),
+    AddValue: msg("Add value"),
+    DeleteFilter: msg("Delete filter"),
 };
 
 export const SelectorMessage = {

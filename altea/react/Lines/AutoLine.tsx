@@ -3,10 +3,10 @@
 //     `.isCollection`→`.array`, `.isLite`→`.lite`, `.isEmbedded`→`.kind=="Embedded"`,
 //     `.isNotNullable`→`!.isNullable`; altea value typeNames (String/Number/Decimal/Boolean/
 //     PlainDate/PlainDateTime/Guid/Duration/PlainTime); enum via `fieldInfo.isEnum`.
-//   - ENTITY + COLLECTION branches are STUBBED: the entity lines (EntityLine/Combo/Detail/Strip/
-//     Table/Repeater/CheckboxList/MultiSelect) and MultiValueLine aren't ported yet (they need
-//     Typeahead / Navigator.view / Constructor / SelectorModal). They render a TODO placeholder;
-//     restore the real dispatch once those land.
+//   - single entity/Lite → EntityLine; embedded → EntityDetail. COLLECTION (R[], no MList): branch on
+//     the row type's @valueField — reference @valueField → EntityStrip; scalar @valueField →
+//     MultiValueLine; no @valueField (owned parts) → EntityRepeater if the field is @implementedBy
+//     (polymorphic, per-row views), else EntityTable (grid).
 import * as React from 'react'
 import { IsByAll, PropertyRoute, isNumberType, tryGetTypeInfos } from '../Reflection'
 import type { FieldInfo } from '../../entities/reflection'
@@ -18,6 +18,13 @@ import { NumberLine } from './NumberLine'
 import { TextAreaLine } from './TextAreaLine'
 import { TextBoxLine, PasswordLine, GuidLine, ColorLine } from './TextBoxLine'
 import { TimeLine } from './TimeLine'
+import { EntityLine } from './EntityLine'
+import { EntityDetail } from './EntityDetail'
+import { EntityStrip } from './EntityStrip'
+import { EntityTable } from './EntityTable'
+import { EntityRepeater } from './EntityRepeater'
+import { MultiValueLine } from './MultiValueLine'
+import { tryGetValueField } from './EntityListBase'
 
 export interface AutoLineProps extends LineBaseProps<any> {
   propertyRoute?: PropertyRoute; //For AutoLineModal
@@ -65,15 +72,34 @@ export namespace AutoLine {
     if (customs != null)
       return customs
 
-    if (fi.array)
-      return notPorted("collection lines (EntityStrip / EntityTable / EntityRepeater / MultiValueLine)");
+    // Collection (R[]): altea has no MList — the array holds ROW entities. Branch on whether the row
+    // type declares a @valueField (FieldInfo.isValueField):
+    //   - value collection whose value is a reference (entity/Lite) → EntityStrip (the value line);
+    //   - value collection whose value is a scalar → MultiValueLine (not ported yet);
+    //   - no @valueField (owned 1-N part rows) → EntityTable / EntityRepeater (not ported yet).
+    if (fi.array) {
+      const vf = tryGetValueField(fi.typeName);
+      if (vf != null) {
+        const valueIsReference = vf.lite || tryGetTypeInfos(vf.typeName).notNull().length > 0;
+        if (valueIsReference)
+          return p => <EntityStrip {...p} />;
+        return p => <MultiValueLine {...p} />;
+      }
+      // Owned 1-N part rows: a polymorphic (@implementedBy) element has no uniform column set, so it
+      // renders per-row via EntityRepeater; a single concrete row type → EntityTable's grid.
+      if (fi.implementations != null)
+        return p => <EntityRepeater {...p} />;
+      return p => <EntityTable {...p} />;
+    }
 
-    // Entity / Lite reference (incl. @implementedBy(All)) → EntityLine / EntityCombo / EntityDetail.
+    // Entity / Lite reference (incl. @implementedBy(All)) → EntityLine (the AutoLine default; the
+    // EntityCombo variant is opt-in via registerComponent).
     if (fi.typeName == IsByAll || fi.lite || tryGetTypeInfos(fi.typeName).notNull().length > 0)
-      return notPorted("entity lines (EntityLine / EntityCombo / EntityDetail)");
+      return p => <EntityLine {...p} />;
 
+    // Embedded entity → EntityDetail (Signum's AutoLine default for embedded).
     if (fi.kind == "Embedded")
-      return notPorted("EntityDetail (embedded)");
+      return p => <EntityDetail {...p} />;
 
     if (fi.isEnum || (fi.typeName == "Boolean" && fi.isNullable))
       return p => <EnumLine {...p} />;

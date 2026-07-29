@@ -4,7 +4,8 @@ import "@altea/altea/entities/globals";
 import "@altea/altea/react/EntityTypeApi"; // installs the token / findOptions statics onto the entity classes
 import { QueryTokenString } from "@altea/altea/react/QueryTokenString";
 import type { FilterOperation, OrderType } from "@altea/altea/entities/dynamicQueries";
-import { ArtistEntity } from "../../entities/music";
+import { ArtistEntity, NoteWithDateEntity } from "../../entities/music";
+import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
 
 // Signum's Type<T>.token / findOptions family, in altea implemented as STATICS on the entity class
 // (the class doubles as the Type descriptor). Verifies the namespace-merge augmentation binds `this`
@@ -16,6 +17,11 @@ describe("Entity static Type<T> API", () => {
     assert.equal(ArtistEntity.token().toString(), "");
     assert.equal(ArtistEntity.token(a => a.name).toString(), "Name");
     assert.equal(ArtistEntity.token<number>("SomeExpression").toString(), "SomeExpression");
+  });
+
+  test("token(a => a.mixin(M).field) extracts the mixin step from the Quoted expression tree", () => {
+    // Exercises getLambdaMembers' `.mixin(ctor)` ExCall handling: [Mixin CorruptMixin, Member corrupt].
+    assert.equal(NoteWithDateEntity.token(a => a.mixin(CorruptMixin).corrupt).toString(), "CorruptMixin.Corrupt");
   });
 
   test("findOptions(token => ...) roots queryName at the type and builds the options", () => {

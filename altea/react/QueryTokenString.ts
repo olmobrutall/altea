@@ -9,6 +9,7 @@ import type { FilterOperation } from '../entities/dynamicQueries';
 import type { OrderType, FilterGroupOperation } from '../entities/dynamicQueries';
 import { getLambdaMembers } from './binding';
 import { getTypeName } from './Reflection';
+import type { Quoted } from 'quote-transformer/quoted';
 import type {
   FilterConditionOption, FilterGroupOption, FilterOption, OrderOption, ColumnOption,
   ExtraFilterConditionOptions, ExtraFilterGroupOptions, ColumnDisplayOptions,
@@ -21,7 +22,7 @@ type ArrayElement<A> = A extends (infer E)[] ? E : never;
 // Turns a property lambda into a dotted, PascalCased token path (Signum's tokenSequence). The
 // leading "entity" hop of a `Lite<T>` navigation is dropped for convenience; `toStr` maps to the
 // query column "ToString".
-export function tokenSequence(lambdaToProperty: Function, isFirst: boolean): string {
+export function tokenSequence(lambdaToProperty: Quoted<Function>, isFirst: boolean): string {
   return getLambdaMembers(lambdaToProperty)
     .filter((a, i) => a.name !== "entity" || (i === 0 && isFirst))
     .map(a => a.name === "toStr" ? "ToString" : a.name.firstUpper())
@@ -46,7 +47,7 @@ export class QueryTokenString<T> {
   // signature, so the clean name comes from getTypeName(t) (Signum used `t.typeName` directly).
   cast<R extends Entity>(t: Type<R>): QueryTokenString<R> { return new QueryTokenString<R>(this.token + ".(" + getTypeName(t) + ")"); }
 
-  append<S>(lambdaToProperty: (v: T) => S): QueryTokenString<S> {
+  append<S>(lambdaToProperty: Quoted<(v: T) => S>): QueryTokenString<S> {
     const seq = tokenSequence(lambdaToProperty, !this.token);
     return new QueryTokenString<S>(this.token + (this.token && seq ? "." : "") + seq);
   }
@@ -145,13 +146,13 @@ export interface TokenFunction<T> {
   /** `token()` — the token this factory is rooted at (the entity, or the collection element after any()/all()/element()). */
   (): QueryTokenString<T>;
   /** `token(a => a.name)` — navigates the entity graph; the accessed property path becomes the token. */
-  <S>(lambdaToColumn: (v: AnonymousOf<T>) => S): QueryTokenString<S>;
+  <S>(lambdaToColumn: Quoted<(v: AnonymousOf<T>) => S>): QueryTokenString<S>;
   /** `token<V>("Key")` — escape hatch for a query-only column with no entity-graph home. */
   <S = unknown>(columnName: string): QueryTokenString<S>;
 }
 
 export function createTokenFunction<T>(base: QueryTokenString<any>): TokenFunction<T> {
-  return ((arg?: ((v: any) => any) | string): QueryTokenString<any> =>
+  return ((arg?: Quoted<(v: any) => any> | string): QueryTokenString<any> =>
     arg == null ? base :
       typeof arg == "string" ? base.expression(arg) :
         base.append(arg)) as TokenFunction<T>;

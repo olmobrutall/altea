@@ -121,6 +121,24 @@ export class LiteImp<T extends Entity> extends Lite<T> {
     }
 }
 
+// Signum's free `parseLiteList` (Signum.Entities): scans free text for "CleanType;id" tokens (as
+// produced by CopyLiteButton / clipboard) and materialises each into a thin Lite. Used by the
+// entity Lines' paste feature. Tokens that don't resolve to a registered type are skipped.
+export function parseLiteList(text: string): Lite<Entity>[] {
+    const matches = text.match(/[A-Za-z_][A-Za-z0-9_]*;[^\s,;]+/g);
+    if (matches == null)
+        return [];
+    const result: Lite<Entity>[] = [];
+    for (const m of matches) {
+        try {
+            result.push(Lite.parse(m));
+        } catch {
+            // not a registered type — skip
+        }
+    }
+    return result;
+}
+
 // A custom lite class: a {@link LiteImp} subclass that carries display/model fields directly on
 // the lite instance (altea has no separate "model" entity). Besides being constructible into a
 // Lite<T>, it declares two statics so the JSON codec can rebuild it from the wire: isCompatible

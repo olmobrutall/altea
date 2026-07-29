@@ -7,6 +7,9 @@
 
 import { BaseEntity } from '../entities/entity';
 import { tryGetTypeInfo } from '../entities/reflection';
+import { getLambdaMembers, getFieldMembers } from '../entities/lambdaMembers';
+import type { LambdaMember, MemberType } from '../entities/lambdaMembers';
+import type { Quoted } from 'quote-transformer/quoted';
 
 export interface IBinding<T> {
   getValue(): T;
@@ -30,12 +33,12 @@ export class Binding<T> implements IBinding<T> {
     this.suffix = suffix || ("." + member);
   }
 
-  static create<F, T>(parentValue: F, fieldAccessor: (from: F) => T): Binding<T> {
+  static create<F, T>(parentValue: F, fieldAccessor: Quoted<(from: F) => T>): Binding<T> {
     const memberName = Binding.getSingleMember(fieldAccessor);
     return new Binding<T>(parentValue, memberName, "." + memberName);
   }
 
-  static getSingleMember(fieldAccessor: (from: any) => any): string {
+  static getSingleMember(fieldAccessor: Quoted<(from: any) => any>): string {
     const members = getLambdaMembers(fieldAccessor);
     if (members.length != 1 || members[0].type != "Member")
       throw Error("invalid function 'fieldAccessor'");
@@ -143,68 +146,7 @@ export function createBinding(parentValue: any, lambdaMembers: LambdaMember[]): 
 }
 
 // ---- Member-path parsing (Signum's getLambdaMembers / getFieldMembers) --------------------------
-
-const functionRegex = /^function\s*\(\s*(?<param>[$a-zA-Z_][0-9a-zA-Z_$]*)\s*\)\s*{\s*(\"use strict\"\;)?\s*(var [^;]*;)?\s*return\s*(?<body>[^;]*)\s*;?\s*}$/;
-const lambdaRegex = /^\s*\(?\s*(?<param>[$a-zA-Z_][0-9a-zA-Z_$]*)\s*\)?\s*=>\s*(({\s*(\"use strict\"\;)?\s*(var [^;]*;)?\s*return\s*(?<body>[^;]*)\s*;?\s*})|(?<body2>[^;]*))\s*$/;
-const memberRegex = /^(.*?)\??\.([$a-zA-Z_][0-9a-zA-Z_$]*)$/;
-const memberIndexerRegex = /^(.*?)(\?\.)?\["([$a-zA-Z_][0-9a-zA-Z_$]*)"\]$/;
-const indexRegex = /^(.*?)(\?\.)?\[(\d+)\]$/;
-
-export function getLambdaMembers(lambda: Function): LambdaMember[] {
-
-  const lambdaStr = (lambda as any).toString();
-
-  const lambdaMatch = functionRegex.exec(lambdaStr) || lambdaRegex.exec(lambdaStr);
-
-  if (lambdaMatch == undefined)
-    throw Error("invalid function");
-
-  const parameter = lambdaMatch.groups!.param;
-  let body = lambdaMatch.groups!.body ?? lambdaMatch.groups!.body2;
-  const result: LambdaMember[] = [];
-
-  while (body != parameter) {
-    let m: RegExpExecArray | null;
-
-    if (m = memberRegex.exec(body)) {
-      result.push({ name: m[2], type: "Member" });
-      body = m[1];
-    }
-    else if (m = memberIndexerRegex.exec(body)) {
-      result.push({ name: m[3], type: "Member" });
-      body = m[1];
-    }
-    else if (m = indexRegex.exec(body)) {
-      result.push({ name: m[3], type: "Indexer" });
-      body = m[1];
-    }
-    else {
-      throw new Error(`Impossible to extract the properties from: ${body}` +
-        (body.contains("Mixin") ? "\n Consider using subCtx(MyMixin) directly." : ""));
-    }
-  }
-
-  return result.reverse();
-}
-
-export function getFieldMembers(field: string): LambdaMember[] {
-  if (field.contains(".")) {
-    const mixinType = field.before(".").after("[").before("]");
-    const fieldName = field.after(".");
-    return [
-      { type: "Mixin", name: mixinType },
-      { type: "Member", name: fieldName.firstLower() }
-    ];
-  } else {
-    return [
-      { type: "Member", name: field.firstLower() }
-    ];
-  }
-}
-
-export interface LambdaMember {
-  name: string;
-  type: MemberType;
-}
-
-export type MemberType = "Member" | "Mixin" | "Indexer";
+// MOVED to entities/lambdaMembers.ts (so PropertyRoute.addLambda can use it); re-exported here so
+// binding's existing importers (TypeContext, QueryTokenString, FindOptions, EntityTable…) are unchanged.
+export { getLambdaMembers, getFieldMembers };
+export type { LambdaMember, MemberType };
