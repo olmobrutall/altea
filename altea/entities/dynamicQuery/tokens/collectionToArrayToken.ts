@@ -1,6 +1,6 @@
 import type { PropertyRoute } from "../../propertyRoute";
 import type { Implementations } from "../../implementations";
-import { type RuntimeType, ClassType, LiteType, ArrayType } from "../../runtimeTypes";
+import { TypeReference } from "../../reflection";
 import { QueryToken, SubTokensOptions, entityCtorOf } from "./queryToken";
 
 // Signum's `CollectionToArrayType` (DynamicQuery/Tokens/CollectionToArrayToken.cs): aggregate a
@@ -27,7 +27,7 @@ export function toArrayDistinct(t: CollectionToArrayType): boolean {
 // `collection.map(e => leaf)[.distinct()].join(separator)`. (Signum's MList RowId/RowOrder branch is
 // intentionally not ported — altea models MList as part-entities.)
 export class CollectionToArrayToken extends QueryToken {
-    private readonly elementType: RuntimeType;
+    private readonly elementType: TypeReference;
 
     constructor(private readonly _parent: QueryToken, public readonly toArrayType: CollectionToArrayType) {
         super();
@@ -43,10 +43,10 @@ export class CollectionToArrayToken extends QueryToken {
     niceName(): string { return `${this.toArrayType} of ${this._parent.toString()}`; }
 
     // Navigation uses the element type; a reference element navigates as a Lite.
-    get type(): RuntimeType {
-        if (this.elementType instanceof ClassType && entityCtorOf(this.elementType) != undefined)
-            return new LiteType(this.elementType);
-        return this.elementType;
+    get type(): TypeReference {
+        return entityCtorOf(this.elementType) != undefined
+            ? Object.assign(new TypeReference(), this.elementType, { lite: true })
+            : this.elementType;
     }
 
     get format(): string | undefined { return this._parent.format; }
@@ -56,7 +56,7 @@ export class CollectionToArrayToken extends QueryToken {
 
     getPropertyRoute(): PropertyRoute | undefined {
         const pr = this._parent.getPropertyRoute();
-        if (pr != undefined && pr.type instanceof ArrayType)
+        if (pr != undefined && pr.type.array)
             return pr.add("Item");
         return pr;
     }

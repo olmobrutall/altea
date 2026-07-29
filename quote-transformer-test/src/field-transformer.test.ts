@@ -100,7 +100,7 @@ class Order {
 }`,
             `type int = number;
 class Order {
-    @field({ typeName: "Number", name: "int" }) quantity!: int;
+    @field({ typeName: "Number", subTypeName: "int" }) quantity!: int;
     @field({ typeName: "Number" }) price!: number;
 }`
         );
@@ -115,7 +115,7 @@ class Order {
 }`,
             `type int = number;
 class Order {
-    @field({ typeName: "Number", name: "int", nullable: true, array: true }) nums!: (int | null)[];
+    @field({ typeName: "Number", subTypeName: "int", nullable: true, array: true }) nums!: (int | null)[];
     @field({ typeName: "String", array: true }) tags!: string[];
 }`
         );
@@ -130,7 +130,7 @@ class Item {
 }`,
             `enum Color { Red, Green, Blue }
 class Item {
-    @field({ type: () => Color, enum: true }) color!: Color;
+    @field({ type: () => Color }) color!: Color;
     @field({ typeName: "String" }) name!: string;
 }`
         );
@@ -226,7 +226,7 @@ const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };
 enum Sex { Male, Female }
 @reflect
 class ArtistEntity {
-    @field({ type: () => Sex, enum: true }) sex!: Sex;
+    @field({ type: () => Sex }) sex!: Sex;
 }
 registerType(ArtistEntity, "ArtistEntity", __fileInfo);
 registerEnum(Sex, "Sex", __fileInfo);`

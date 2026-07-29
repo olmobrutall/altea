@@ -1,7 +1,7 @@
 import type { PropertyRoute } from "../../propertyRoute";
 import type { Implementations } from "../../implementations";
-import { RuntimeType, LiteralType } from "../../runtimeTypes";
-import { QueryToken, SubTokensOptions } from "./queryToken";
+import type { TypeReference } from "../../reflection";
+import { QueryToken, SubTokensOptions, TR_INT } from "./queryToken";
 
 // Port of Signum's `CountToken`: the element count of a collection — `col.count()` (a correlated
 // scalar subquery). Self-contained (no expansion needed): the parent collection token builds the
@@ -15,7 +15,7 @@ export class CountToken extends QueryToken {
     get key(): string { return "Count"; }
     override toString(): string { return "Count"; }
     niceName(): string { return `Count of ${this._parent.toString()}`; }
-    get type(): RuntimeType { return LiteralType.number; }
+    get type(): TypeReference { return TR_INT; }
     get format(): string | undefined { return undefined; }
     get unit(): string | undefined { return undefined; }
     getImplementations(): Implementations | undefined { return undefined; }

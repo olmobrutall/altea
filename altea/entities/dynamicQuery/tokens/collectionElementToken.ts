@@ -1,6 +1,6 @@
 import type { PropertyRoute } from "../../propertyRoute";
 import type { Implementations } from "../../implementations";
-import { RuntimeType, ClassType, LiteType, ArrayType } from "../../runtimeTypes";
+import { TypeReference } from "../../reflection";
 import { QueryToken, SubTokensOptions, entityCtorOf } from "./queryToken";
 
 // Signum's CollectionElementType (DynamicQuery/Tokens/CollectionElementToken.cs).
@@ -16,7 +16,7 @@ export enum CollectionElementType {
 // with a flatMap over the collection and SEEDS this token's expression in the
 // BuildExpressionContext.replacements before any navigation is built.
 export class CollectionElementToken extends QueryToken {
-    private readonly elementType: RuntimeType;
+    private readonly elementType: TypeReference;
 
     constructor(private readonly _parent: QueryToken, public readonly collectionElementType: CollectionElementType) {
         super();
@@ -34,10 +34,10 @@ export class CollectionElementToken extends QueryToken {
     niceName(): string { return `${this.collectionElementType} of ${this._parent.toString()}`; }
 
     // A reference element projects as a Lite (Signum's BuildLiteNullifyUnwrapPrimaryKey).
-    get type(): RuntimeType {
-        if (this.elementType instanceof ClassType && entityCtorOf(this.elementType) != undefined)
-            return new LiteType(this.elementType);
-        return this.elementType;
+    get type(): TypeReference {
+        return entityCtorOf(this.elementType) != undefined
+            ? Object.assign(new TypeReference(), this.elementType, { lite: true })
+            : this.elementType;
     }
 
     get format(): string | undefined { return this._parent.format; }
@@ -47,7 +47,7 @@ export class CollectionElementToken extends QueryToken {
 
     getPropertyRoute(): PropertyRoute | undefined {
         const pr = this._parent.getPropertyRoute();
-        if (pr != undefined && pr.type instanceof ArrayType)
+        if (pr != undefined && pr.type.array)
             return pr.add("Item");
         return pr;
     }

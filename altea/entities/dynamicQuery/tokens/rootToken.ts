@@ -1,7 +1,7 @@
 import { PropertyRoute } from "../../propertyRoute";
 import { Implementations } from "../../implementations";
 import { Entity } from "../../entity";
-import { ClassType, type RuntimeType } from "../../runtimeTypes";
+import { TypeReference } from "../../reflection";
 import { niceName } from "../../utils/localization";
 import type { QueryName } from "../queryUtils";
 import { QueryToken, SubTokensOptions } from "./queryToken";
@@ -29,7 +29,7 @@ export class RootToken extends QueryToken {
     override toString(): string { return niceName(this.shapeType); }
     niceName(): string { return niceName(this.shapeType); }
 
-    get type(): RuntimeType { return new ClassType(this.shapeType); }
+    get type(): TypeReference { return new TypeReference({ type: () => this.shapeType }); }
     get format(): string | undefined { return undefined; }
     get unit(): string | undefined { return undefined; }
 

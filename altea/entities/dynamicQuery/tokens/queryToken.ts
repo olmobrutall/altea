@@ -1,11 +1,8 @@
 import { Entity, EmbeddedEntity, ModelEntity } from "../../entity";
 import { PropertyRoute } from "../../propertyRoute";
-import { tryGetTypeInfo, type FieldInfo } from "../../reflection";
+import { tryGetTypeInfo, TypeReference, type FieldInfo } from "../../reflection";
 import { Implementations } from "../../implementations";
-import {
-    RuntimeType, ClassType, LiteType, ArrayType, EnumType, TemporalType, LiteralType,
-} from "../../runtimeTypes";
-import { tryGetFilterType, tryGetFilterTypeFromTypeName, type QueryName, type FilterType } from "../queryUtils";
+import { tryGetFilterType, type QueryName, type FilterType } from "../queryUtils";
 import { niceName } from "../../utils/localization";
 import { QueryTokenMessage, QueryTokenDateMessage, CollectionMessage } from "../../dynamicQueries";
 import type { CollectionToArrayToken } from "./collectionToArrayToken";
@@ -28,23 +25,23 @@ export const SubTokensOptionsAll =
     SubTokensOptions.CanOperation | SubTokensOptions.CanToArray | SubTokensOptions.CanSnippet |
     SubTokensOptions.CanManual | SubTokensOptions.CanTimeSeries | SubTokensOptions.CanNested;
 
-// ---- RuntimeType helpers (Signum's Type.CleanType()/ElementType()/IsIEntity()) -------------
+// ---- TypeReference helpers (Signum's Type.CleanType()/IsIEntity()) --------------------------
 
-export function cleanType(rt: RuntimeType): RuntimeType {
-    return rt instanceof LiteType ? rt.entityType : rt;
+// Value-type TypeReference singletons for computed tokens (Signum's LiteralType.number etc.). Count /
+// date-parts / string length are integers (subTypeName "int" — the Integer-vs-Decimal accuracy that
+// the old RuntimeType.number lost).
+export const TR_INT = new TypeReference({ typeName: "Number", subTypeName: "int" });
+export const TR_STRING = new TypeReference({ typeName: "String" });
+export const TR_BOOLEAN = new TypeReference({ typeName: "Boolean" });
+export const TR_DATE = new TypeReference({ typeName: "PlainDate" });
+
+// The concrete entity ctor a reference type points to — `is`/`getFunction` are lite-agnostic, so no
+// CleanType() unwrap is needed. undefined for value / embedded / enum / name-only-interface references.
+export function entityCtorOf(tr: TypeReference): Function | undefined {
+    return tr.is(Entity) ? tr.getFunction() : undefined;
 }
-function isEntityCtor(ctor: Function): boolean {
-    return ctor === Entity || ctor.prototype instanceof Entity;
-}
-// The concrete entity ctor a type references (through a Lite), or undefined.
-export function entityCtorOf(rt: RuntimeType): Function | undefined {
-    const ct = cleanType(rt);
-    return ct instanceof ClassType && isEntityCtor(ct.constructorFunction) ? ct.constructorFunction : undefined;
-}
-function embeddedOrModelCtorOf(rt: RuntimeType): Function | undefined {
-    if (rt instanceof ClassType && (rt.constructorFunction.prototype instanceof EmbeddedEntity || rt.constructorFunction.prototype instanceof ModelEntity))
-        return rt.constructorFunction;
-    return undefined;
+function embeddedOrModelCtorOf(tr: TypeReference): Function | undefined {
+    return (tr.is(EmbeddedEntity) || tr.is(ModelEntity)) ? tr.getFunction() : undefined;
 }
 
 // NOTE: the ExpressionTree-building half of the token model (extractEntity / buildLite /
@@ -64,7 +61,7 @@ export abstract class QueryToken {
     abstract get key(): string;
     abstract toString(): string;
     abstract niceName(): string;
-    abstract get type(): RuntimeType;
+    abstract get type(): TypeReference;
     abstract get format(): string | undefined;
     abstract get unit(): string | undefined;
     abstract get parent(): QueryToken | undefined;
@@ -167,13 +164,12 @@ export abstract class QueryToken {
     // ---- Property-route normalisation (Signum's NormalizePropertyRoute) ----------------------
 
     protected normalizePropertyRoute(): PropertyRoute | undefined {
-        const modelCtor = this.type instanceof ClassType && this.type.constructorFunction.prototype instanceof ModelEntity
-            ? this.type.constructorFunction : undefined;
+        const modelCtor = this.type.is(ModelEntity) ? this.type.getFunction() : undefined;
         if (modelCtor != undefined)
             return PropertyRoute.root(modelCtor);
 
         // Only a Lite re-roots here; a full-entity reference re-roots inside PropertyRoute.add (AddImp).
-        if (this.type instanceof LiteType) {
+        if (this.type.lite) {
             const ec = entityCtorOf(this.type);
             if (ec != undefined)
                 return PropertyRoute.root(ec);
@@ -183,29 +179,33 @@ export abstract class QueryToken {
 
     // ---- SubTokensBase — the type-driven sub-token generator (Signum's SubTokensBase) --------
 
-    protected subTokensBase(type: RuntimeType, options: SubTokensOptions, implementations: Implementations | undefined): QueryToken[] {
-        if (type === LiteralType.string)
+    protected subTokensBase(type: TypeReference, options: SubTokensOptions, implementations: Implementations | undefined): QueryToken[] {
+        // Collection first: an array TypeReference also carries an entity/value element type, so it
+        // must be matched before the element-type checks below.
+        if (type.array)
+            return this.collectionProperties(options);
+
+        if (type.typeName === "String")
             return this.andHasValue(this.stringTokens());
 
         // Integer buckets. TODO(phase3b+): StepTokens (the Step/Multiplier/Rounding chain).
-        // altea's RuntimeType collapses int/decimal to number, so modulo is offered for all numbers.
-        if (type === LiteralType.number)
+        if (type.typeName === "Number" || type.typeName === "Decimal")
             return this.andHasValue(this.andModuloTokens([]));
 
-        if (type instanceof TemporalType) {
-            if (type.kind === "dateTime")
-                return this.andHasValue(this.dateTimeProperties());
-            if (type.kind === "date")
-                return this.andHasValue(this.dateOnlyProperties());
-            return this.andHasValue([]); // duration TODO(phase3b+): TimeSpanProperties
-        }
+        if (type.typeName === "PlainDateTime")
+            return this.andHasValue(this.dateTimeProperties());
+        if (type.typeName === "PlainDate")
+            return this.andHasValue(this.dateOnlyProperties());
+        if (type.typeName === "Duration" || type.typeName === "PlainTime")
+            return this.andHasValue([]); // TODO(phase3b+): TimeSpanProperties
 
-        if (type === LiteralType.boolean || type instanceof EnumType)
+        if (type.typeName === "Boolean" || type.getEnum() != undefined)
             return this.andHasValue([]);
 
-        const ct = cleanType(type);
-        const entityCtor = entityCtorOf(ct);
-        if (entityCtor != undefined) {
+        // Entity reference — is(Entity) also holds for a polymorphic @implementedBy interface (which
+        // has no single ctor, so getFunction() is undefined; it takes the implementedBy-many path).
+        if (type.is(Entity)) {
+            const entityCtor = type.getFunction();
             const imp = implementations;
             if (imp == undefined)
                 return [];
@@ -214,7 +214,7 @@ export abstract class QueryToken {
                 // (Signum's QueryLogic.GetImplementedByAllSubTokens). The provider is wired by
                 // queryLogic.ts (needs the Schema). TODO(phase3c): PreAnd(EntityTypeToken).
                 const provider = implementedByAllTypesProvider;
-                return provider == undefined ? [] : provider(entityCtor).map(t => tokenFactories!.asType(this, t));
+                return provider == undefined || entityCtor == undefined ? [] : provider(entityCtor).map(t => tokenFactories!.asType(this, t));
             }
 
             const only = imp.only();
@@ -236,9 +236,6 @@ export abstract class QueryToken {
         const embeddedCtor = embeddedOrModelCtorOf(type);
         if (embeddedCtor != undefined)
             return this.andHasValue(this.entityProperties(embeddedCtor));
-
-        if (type instanceof ArrayType)
-            return this.collectionProperties(options);
 
         return [];
     }
@@ -268,7 +265,7 @@ export abstract class QueryToken {
 
     // Signum's StringTokens(): the string `Length` sub-token. (FullText/Snippet/Translated TODO.)
     protected stringTokens(): QueryToken[] {
-        return [tokenFactories!.objectProperty(this, "length", LiteralType.number, "Length", false)];
+        return [tokenFactories!.objectProperty(this, "length", TR_INT, "Length", false)];
     }
 
     // Signum's AndModuloTokens: integer bucket sub-tokens.
@@ -283,7 +280,7 @@ export abstract class QueryToken {
     // DatePartStart "Month/Quarter/… Start" and TimeOfDay tokens — Phase 3b+).
     protected dateTimeProperties(): QueryToken[] {
         const part = (name: string, method = false) =>
-            tokenFactories!.objectProperty(this, name, LiteralType.number, capitalize(name), method);
+            tokenFactories!.objectProperty(this, name, TR_INT, capitalize(name), method);
         return [
             part("year"), part("quarter", true), part("month"),
             part("dayOfYear"), part("day"), part("dayOfWeek"),
@@ -295,7 +292,7 @@ export abstract class QueryToken {
     // Signum's DateOnlyProperties: the date (no time) part sub-tokens.
     protected dateOnlyProperties(): QueryToken[] {
         const part = (name: string, method = false) =>
-            tokenFactories!.objectProperty(this, name, LiteralType.number, capitalize(name), method);
+            tokenFactories!.objectProperty(this, name, TR_INT, capitalize(name), method);
         return [part("year"), part("quarter", true), part("month"), part("dayOfYear"), part("day"), part("dayOfWeek")];
     }
 
@@ -324,10 +321,11 @@ export abstract class QueryToken {
     // (Signum's client "queryTokenType" string discriminator is not needed: altea's client has the
     // real token subclasses, so callers categorize with `instanceof` — see react/QueryToken.)
 
-    // Signum's QueryToken.FilterType — the value category, refined by the field's declared typeName
-    // (the Integer-vs-Decimal split that the plain RuntimeType loses).
+    // Signum's QueryToken.FilterType — the value category. The TypeReference carries typeName +
+    // subTypeName, so tryGetFilterType alone recovers the Integer-vs-Decimal split (no separate
+    // fromTypeName pass needed).
     get filterType(): FilterType | undefined {
-        return tryGetFilterTypeFromTypeName(this.getPropertyRoute()?.fieldInfo?.typeName, this.type);
+        return tryGetFilterType(this.type);
     }
 
     get isGroupable(): boolean {
@@ -349,7 +347,7 @@ export abstract class QueryToken {
     // client's token tree). A collection reads "List of <element>".
     niceTypeName(): string {
         const t = this.type;
-        if (t instanceof ArrayType)
+        if (t.array)
             return QueryTokenMessage.ListOf0.niceToString(niceTypeNameOf(t.elementType!, undefined, undefined));
         return niceTypeNameOf(t, this.filterType, this.getImplementations());
     }
@@ -378,7 +376,7 @@ function capitalize(s: string): string {
 // Port of Signum's getNiceTypeName, over an altea RuntimeType: a human label for a value type. The
 // Signum server-token special result types (CellOperationDTO / OperationsContainerToken / …) are not
 // modelled in altea, so those special cases are omitted.
-function niceTypeNameOf(type: RuntimeType, filterType: FilterType | undefined, implementations: Implementations | undefined): string {
+function niceTypeNameOf(type: TypeReference, filterType: FilterType | undefined, implementations: Implementations | undefined): string {
     filterType ??= tryGetFilterType(type);
     switch (filterType) {
         case "Integer": return QueryTokenMessage.Number.niceToString();
@@ -386,12 +384,12 @@ function niceTypeNameOf(type: RuntimeType, filterType: FilterType | undefined, i
         case "String": return QueryTokenMessage.Text.niceToString();
         case "Time": return QueryTokenDateMessage.TimeOfDay.niceToString();
         case "DateTime":
-            return type instanceof TemporalType && type.kind === "date"
+            return type.typeName === "PlainDate"
                 ? QueryTokenDateMessage.Date.niceToString()
                 : QueryTokenMessage.DateTime.niceToString();
         case "Boolean": return QueryTokenMessage.Check.niceToString();
         case "Guid": return QueryTokenMessage.GlobalUniqueIdentifier.niceToString();
-        case "Enum": return type instanceof EnumType ? type.enumName : ""; // TODO: localized enum type name
+        case "Enum": return type.getTypeName() ?? ""; // TODO: localized enum type name
         case "Lite": {
             const impl = implementations ?? implementationsOf(type);
             if (impl == undefined || impl.isByAll)
@@ -400,8 +398,8 @@ function niceTypeNameOf(type: RuntimeType, filterType: FilterType | undefined, i
         }
         case "Embedded":
         case "Model": {
-            const ct = cleanType(type);
-            return ct instanceof ClassType ? niceName(ct.constructorFunction) : "";
+            const ctor = type.getFunction();
+            return ctor != undefined ? niceName(ctor) : "";
         }
         default:
             return "";
@@ -409,10 +407,10 @@ function niceTypeNameOf(type: RuntimeType, filterType: FilterType | undefined, i
 }
 
 // The implementations implied by a reference type alone (for the collection-element recursion, which
-// has no token to ask). A single concrete entity ctor; undefined for non-references.
-function implementationsOf(type: RuntimeType): Implementations | undefined {
-    const ec = entityCtorOf(cleanType(type));
-    return ec != undefined ? Implementations.by(ec) : undefined;
+// has no token to ask) — the @implementedBy list, else a single concrete entity ctor; undefined for
+// non-references. Reuses Implementations.tryFromFieldInfo (which reads a TypeReference's facets).
+function implementationsOf(type: TypeReference): Implementations | undefined {
+    return Implementations.tryFromFieldInfo(type);
 }
 
 // Factory hook (Signum builds these directly; altea injects them to break the static import cycle
@@ -423,7 +421,7 @@ export interface TokenFactories {
     idProperty(parent: QueryToken): QueryToken;
     entityToString(parent: QueryToken): QueryToken;
     hasValue(parent: QueryToken): QueryToken;
-    objectProperty(parent: QueryToken, memberName: string, resultType: RuntimeType, displayName: string, isMethod: boolean, format?: string, unit?: string): QueryToken;
+    objectProperty(parent: QueryToken, memberName: string, resultType: TypeReference, displayName: string, isMethod: boolean, format?: string, unit?: string): QueryToken;
     asType(parent: QueryToken, entityCtor: Function): QueryToken;
     dateToken(parent: QueryToken): QueryToken;
     modulo(parent: QueryToken, divisor: number): QueryToken;

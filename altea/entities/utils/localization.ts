@@ -1,6 +1,5 @@
 
 import type { IContextVariable, IContextStorage } from './context';
-import { LiteralType, quotedFunction } from '../runtimeTypes';
 
 // Re-exported from the import-free registration leaf so the quote-transformer can
 // attach `registerObject` to the `msg` import in localization files (which don't
@@ -42,13 +41,8 @@ declare global {
 Function.prototype.niceName = function (this: Function): string {
     return niceName(this);
 };
-quotedFunction(Function.prototype.niceName).__resultType = () => LiteralType.string;
-
-// `niceName`/`newNiceName` are used inside the `@quoted` default `Entity.toString()`;
-// the quote model needs a result type for them (both → string). The binder resolves
-// the call to a constant per the receiver's static type.
-quotedFunction(niceName).__resultType = () => LiteralType.string;
-quotedFunction(newNiceName).__resultType = () => LiteralType.string;
+// NOTE: the query `__resultType` metadata for Function.prototype.niceName / niceName / newNiceName
+// (all → string) is RuntimeType, so it lives in logic/index.ts (server); entities/ stays RuntimeType-free.
 
 export class LocalizableMessage {
     private _inferred?: string;

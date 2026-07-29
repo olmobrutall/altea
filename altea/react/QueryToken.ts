@@ -9,7 +9,6 @@
 
 import { QueryToken, AggregateToken, CollectionElementToken, CollectionAnyAllToken, CollectionAnyAllType, CollectionToArrayToken } from '../entities/dynamicQuery/tokens';
 import type { FilterType } from '../entities/dynamicQueries';
-import { ArrayType } from '../entities/runtimeTypes';
 import { QueryTokenString } from './QueryTokenString';
 
 export { QueryToken, SubTokensOptions, SubTokensOptionsAll } from '../entities/dynamicQuery/tokens';
@@ -23,7 +22,7 @@ export function getQueryTokenColor(token: QueryToken): string {
     return "var(--qt-keyword)" /*#0000FF*/;
   // TODO(phase3+): Nested/Indexer/Manual/Operation/Snippet/TimeSeries tokens → "var(--qt-exotic)".
 
-  if (token.type instanceof ArrayType)
+  if (token.type.array)
     return "var(--qt-collection)"; /*#CE6700*/
 
   // The query's entity root (altea's rootless RootToken has no parent and key "").

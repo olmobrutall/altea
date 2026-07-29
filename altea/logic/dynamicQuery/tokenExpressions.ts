@@ -13,7 +13,7 @@ import {
     BinaryExpression, ConstantExpression, LambdaExpression, UnaryExpression,
 } from "../linq/expressions";
 import { Entity } from "../../entities/entity";
-import { RuntimeType, ClassType, LiteType, ArrayType, LiteralType } from "../../entities/runtimeTypes";
+import { RuntimeType, ClassType, LiteType, ArrayType, LiteralType } from "../runtimeTypes";
 import {
     QueryToken, RootToken, EntityPropertyToken, EntityToStringToken, HasValueToken, ObjectPropertyToken,
     AsTypeToken, DateToken, ModuloToken, CountToken,
@@ -99,7 +99,7 @@ declare module "../../entities/dynamicQuery/tokens/queryToken" {
 }
 declare module "../../entities/dynamicQuery/tokens/collectionAnyAllToken" {
     interface CollectionAnyAllToken {
-        createParameter(): ParameterExpression;
+        createParameter(elementType: RuntimeType): ParameterExpression;
         buildAnyAll(collection: Expression, param: ParameterExpression, body: Expression): Expression;
     }
 }
@@ -142,11 +142,13 @@ EntityToStringToken.prototype.buildExpressionInternal = function (context: Build
 HasValueToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
     const base = this.parent!.buildExpression(context);
 
-    if (this.parent!.type instanceof ArrayType)
+    // Source the collection/string test off the BUILT expression's RuntimeType (base.type), not the
+    // token's TypeReference — the token no longer carries a RuntimeType.
+    if (base.type instanceof ArrayType)
         return new CallExpression(new PropertyExpression(base, "some"), [], LiteralType.boolean);
 
     const notNull = new BinaryExpression("!=", base, new ConstantExpression(null));
-    if (this.parent!.type === LiteralType.string)
+    if (base.type === LiteralType.string)
         return new BinaryExpression("&&", notNull, new BinaryExpression("!=", base, new ConstantExpression("")));
     return notNull;
 };
@@ -154,7 +156,9 @@ HasValueToken.prototype.buildExpressionInternal = function (context: BuildExpres
 ObjectPropertyToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
     const base = this.parent!.buildExpression(context);
     const member = new PropertyExpression(base, this.memberName);
-    return this.isMethod ? new CallExpression(member, [], this.type) : member;
+    // The only method-form ObjectPropertyToken is a date part (quarter()) → number; the property forms
+    // (length, year, …) self-type via the PropertyExpression. (Token .type is now a TypeReference.)
+    return this.isMethod ? new CallExpression(member, [], LiteralType.number) : member;
 };
 
 AsTypeToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
@@ -194,9 +198,11 @@ AggregateToken.prototype.buildExpressionInternal = function (_context: BuildExpr
 };
 
 // The element parameter (so a FilterGroup can create the quantifier parameter).
-CollectionAnyAllToken.prototype.createParameter = function (): ParameterExpression {
-    const name = "_" + (this.elementType instanceof ClassType ? this.elementType.constructorFunction.name[0].toLowerCase() : "e");
-    return new ParameterExpression(name, this.elementType);
+CollectionAnyAllToken.prototype.createParameter = function (elementType: RuntimeType): ParameterExpression {
+    // The element RuntimeType is passed in from the built collection expression (collection.type
+    // .elementType) — the token's own `elementType` is a TypeReference, not a RuntimeType.
+    const name = "_" + (elementType instanceof ClassType ? elementType.constructorFunction.name[0].toLowerCase() : "e");
+    return new ParameterExpression(name, elementType);
 };
 
 // Port of Signum's BuildAnyAll: wrap the group's `body` in the quantifier over `collection`.
@@ -250,8 +256,11 @@ AggregateToken.prototype.buildAggregate = function (elements: Expression, groupC
         this.aggregateFunction === AggregateFunction.Sum ? "sum" :
             this.aggregateFunction === AggregateFunction.Min ? "min" :
                 this.aggregateFunction === AggregateFunction.Max ? "max" : "average";
+    // Result RuntimeType from the aggregate semantics + the built body expression (not token .type,
+    // now a TypeReference): Average → number; Sum/Min/Max keep the aggregated value's type.
+    const resultType = this.aggregateFunction === AggregateFunction.Average ? LiteralType.number : body.type;
     return new CallExpression(new PropertyExpression(elements, method),
-        [new LambdaExpression([rowParam], body)], this.type);
+        [new LambdaExpression([rowParam], body)], resultType);
 };
 
 ExtensionToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {

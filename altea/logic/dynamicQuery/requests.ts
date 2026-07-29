@@ -1,7 +1,7 @@
 import { Expression, ParameterExpression, BinaryExpression, ConstantExpression, PropertyExpression, CallExpression } from "../linq/expressions";
-import { LiteralType, ArrayType } from "../../entities/runtimeTypes";
+import { LiteralType, ArrayType } from "../runtimeTypes";
 import type { Implementations } from "../../entities/implementations";
-import type { RuntimeType } from "../../entities/runtimeTypes";
+import type { RuntimeType } from "../runtimeTypes";
 import { BuildExpressionContext, ExpressionBox, buildLite } from "./tokenExpressions";
 import { QueryToken, CollectionElementToken, CollectionAnyAllToken, AggregateToken } from "../../entities/dynamicQuery/tokens";
 import type { QueryName } from "../../entities/dynamicQuery/queryUtils";
@@ -115,8 +115,7 @@ export class FilterGroup extends Filter {
     // it in the quantifier. Mutates replacements transiently (add → build → remove), as Signum does.
     private getExpressionWithAnyAll(context: BuildExpressionContext, anyAll: CollectionAnyAllToken): Expression {
         const collection = anyAll.parent!.buildExpression(context);
-        void (collection.type as ArrayType); // element type carried by the parameter below
-        const param = anyAll.createParameter();
+        const param = anyAll.createParameter((collection.type as ArrayType).elementType!);
 
         context.replacements.set(anyAll.fullKey(), new ExpressionBox(buildLite(param)));
         const body = this.getExpression(context);

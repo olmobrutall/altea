@@ -1,5 +1,5 @@
 import { Expression } from "./expressions";
-import { LiteralType, RuntimeType, IntervalType } from "../../entities/runtimeTypes";
+import { LiteralType, RuntimeType, IntervalType } from "../runtimeTypes";
 import { SystemTime } from "../systemTime";
 import type { FieldInfo } from "../../entities/reflection";
 import type { Type, Entity } from "../../entities/entity";

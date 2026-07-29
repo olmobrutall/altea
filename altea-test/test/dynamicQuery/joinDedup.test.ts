@@ -5,7 +5,7 @@ import { table, bindAndOptimize } from "@altea/altea/logic/table";
 import { Connector } from "@altea/altea/logic/connection/connector";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
-import { ClassType } from "@altea/altea/entities/runtimeTypes";
+import { ClassType } from "@altea/altea/logic/runtimeTypes";
 import { Implementations } from "@altea/altea/entities/implementations";
 import { SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
 import { RootToken } from "@altea/altea/entities/dynamicQuery/tokens/rootToken";

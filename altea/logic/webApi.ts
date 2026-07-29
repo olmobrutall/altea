@@ -15,7 +15,7 @@
 import express, { type Express, type Request, type Response, type RequestHandler } from "express";
 import { BaseEntity, type Entity } from "../entities/entity";
 import type { Lite } from "../entities/lite";
-import { RuntimeType, ClassType, ArrayType, LiteType, LiteralType } from "../entities/runtimeTypes";
+import { RuntimeType, ClassType, ArrayType, LiteType, LiteralType } from "./runtimeTypes";
 import { Serializer } from "../entities/serializer";
 import type { IntegrityCheck } from "../entities/validation";
 

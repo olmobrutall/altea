@@ -6,7 +6,7 @@ import { Connector } from "@altea/altea/logic/connection/connector";
 import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
 import { ProjectionExpression } from "@altea/altea/logic/linq/expressions.sql";
-import { LiteralType, LiteType, ClassType } from "@altea/altea/entities/runtimeTypes";
+import { LiteralType, LiteType, ClassType } from "@altea/altea/logic/runtimeTypes";
 import { QueryLogic } from "@altea/altea/logic/dynamicQuery/queryLogic";
 import { QueryToken, SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
 import { DQueryable } from "@altea/altea/logic/dynamicQuery/dQueryable";
@@ -42,7 +42,7 @@ describe("withQuery() → entity-root token", () => {
         assert.equal(root.fullKey(), "");
         assert.equal(root.isEntity(), true);
         assert.equal(root.getImplementations()!.only(), AlbumEntity);
-        assert.equal(root.type instanceof ClassType && root.type.constructorFunction, AlbumEntity);
+        assert.equal(root.type.getFunction(), AlbumEntity);
     });
 });
 
@@ -59,10 +59,10 @@ describe("tokens are navigated rootlessly off the entity", () => {
     });
 
     test("value/reference tokens carry the right type + property route", () => {
-        assert.equal(tok("name").type, LiteralType.string);
+        assert.equal(tok("name").type.typeName, "String");
         assert.equal(tok("name").getPropertyRoute()!.toString(), "(Album).name");
-        assert.equal(tok("year").type, LiteralType.number);
-        assert.ok(tok("label").type instanceof LiteType);
+        assert.equal(tok("year").type.typeName, "Number");
+        assert.ok(tok("label").type.lite);
         assert.equal(tok("label").getImplementations()!.only(), LabelEntity);
     });
 

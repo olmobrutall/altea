@@ -9,7 +9,6 @@ import type { ResultRow, ResultTable } from '../../entities/dynamicQuery/queryRe
 import { BaseEntity, Entity } from '../../entities/entity'
 import { Lite } from '../../entities/lite'
 import { EntityListBaseController, type EntityListBaseProps, tryGetValueField } from './EntityListBase'
-import { fieldTypeName } from '../../entities/reflection'
 import { Navigator } from '../Navigator'
 import { Multiselect } from 'react-widgets-up'
 import { useController } from './LineBase'
@@ -56,8 +55,8 @@ export class EntityMultiSelectController<R extends BaseEntity> extends EntityLis
 
     if (p.type) {
       if (p.showType == undefined) {
-        const vf = tryGetValueField(fieldTypeName(p.type) ?? "");
-        p.showType = (fieldTypeName(vf ?? p.type) ?? "").contains(",");
+        const vf = tryGetValueField(p.type.getTypeName() ?? "");
+        p.showType = ((vf ?? p.type).getTypeName() ?? "").contains(",");
       }
     }
   }
@@ -95,7 +94,7 @@ export function EntityMultiSelect<R extends BaseEntity>(props: EntityMultiSelect
   React.useEffect(() => {
     if (p.data) {
       if (requestStarted.current)
-        console.warn(`The 'data' was set too late. Consider using [] as default value to avoid automatic query. EntityMultiSelect: ${fieldTypeName(p.type!)}`);
+        console.warn(`The 'data' was set too late. Consider using [] as default value to avoid automatic query. EntityMultiSelect: ${p.type!.getTypeName()}`);
       setData(p.data);
     } else if (loadData) {
       requestStarted.current = true;
@@ -106,10 +105,10 @@ export function EntityMultiSelect<R extends BaseEntity>(props: EntityMultiSelect
       }
       else
         // ALTEA: options come from the @valueField's type (Signum used p.type directly).
-        Finder.API.fetchAllLites({ types: fieldTypeName(c.getValueField()!) ?? "" })
+        Finder.API.fetchAllLites({ types: c.getValueField()!.getTypeName() ?? "" })
           .then(data => setData(data.orderBy(a => a.toString())));
     }
-  }, [normalizeEmptyArray(p.data), fieldTypeName(p.type!), p.deps, loadData, p.findOptions && Finder.findOptionsPath(p.findOptions)]);
+  }, [normalizeEmptyArray(p.data), p.type!.getTypeName(), p.deps, loadData, p.findOptions && Finder.findOptionsPath(p.findOptions)]);
 
   var optionsRows = getOptionRows();
 

@@ -11,7 +11,7 @@ import {
 import { Temporal, type int, toInt } from "@altea/altea/entities/basics";
 import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
 import { sqlMethod, returnType, resultType } from "@altea/altea/logic/query";
-import { LiteralType } from "@altea/altea/entities/runtimeTypes";
+import { LiteralType } from "@altea/altea/logic/runtimeTypes";
 import type { SchemaAssets } from "@altea/altea/logic/sync/schemaAssets";
 
 // Port of Signum.Test's Environment/Entities.cs (the "Music" domain), adapted to

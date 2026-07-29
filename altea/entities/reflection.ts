@@ -44,30 +44,130 @@ export interface FieldOptions {
     // references (under verbatimModuleSyntax) so the import survives: the module graph
     // then mirrors the entity reference graph (importing an owner transitively loads +
     // registers everything reachable) and resolution is rename-/load-order-proof.
-    // Absent for value types and @implementedBy interface references (name-only).
-    type?: () => unknown;
-    name?: string;
+    // Absent for value types and @implementedBy interface references (name-only). For an enum field the
+    // thunk resolves to the enum OBJECT (not a class) — that is what marks the field as an enum, so
+    // there is no separate `enum` flag.
+    type?: () => Function | object;
+    // The precise .NET-style value alias (e.g. "int"), emitted by the transformer from the source
+    // primitive alias. Stored on FieldInfo as `subTypeName`. (Was `name`.)
+    subTypeName?: SubTypeName;
     nullable?: boolean;
     // Container flags: set by the transformer for `Lite<T>` and `T[]`.
     // `lite` + `array` together = `Lite<T>[]`.
     lite?: boolean;
     array?: boolean;
-    // Set for enum-typed fields (the type registry doesn't hold enums).
-    enum?: boolean;
 }
 
-export class FieldInfo {
-    readonly name: string;
-    typeName!: string;
-    // Lazy runtime reference to the field's entity/embedded class or enum object (see
-    // FieldOptions.type). Prefer {@link fieldType} over reading this or resolving
-    // `typeName` through the registry.
-    type?: () => unknown;
+// The coarse value-type name a field / query token exposes (Signum's TypeReference.name for value
+// types). Open union: the literal members give autocomplete for the value types the query + UI layers
+// switch on, while enum names and name-only @implementedBy interface names — which also land in
+// `typeName` — stay assignable. The int-vs-double precision lives in `subTypeName`.
+export type TypeName =
+    | "String" | "Number" | "Boolean" | "Decimal" | "Guid"
+    | "PlainDate" | "PlainDateTime" | "PlainTime" | "Duration" | "Instant" | "ZonedDateTime"
+    | (string & {});
+
+// The precise .NET-style value alias (Signum drove int-vs-double `<NumberLine/>` formatting off this).
+// Emitted by the transformer from the source primitive alias (see entities/basics); undefined ⇒ the
+// typeName's default (e.g. Number ⇒ float/double).
+export type SubTypeName = "int" | "long" | "decimal" | "uuid" | "uuid7";
+
+// The type FACET of a field or a query token — "what type is this value": the value/enum/entity it
+// holds, whether it is a collection / Lite / nullable, and (for references) the polymorphic
+// implementations. Signum called this TypeReference and carried ONE on both MemberInfo and QueryToken;
+// altea does the same — `FieldInfo extends TypeReference`, and QueryToken.type is a TypeReference —
+// so the Lines layer and the FilterBuilder speak a single descriptor. (Signum's flat wire DTO becomes
+// a class here so the resolution logic — the `type` thunk → ctor/enum → name — lives with the data.)
+export class TypeReference {
+    // The value / enum / interface type name (see {@link TypeName}). For entity/embedded/enum
+    // references the resolved name comes from the `type` thunk instead (see {@link getTypeName}).
+    typeName!: TypeName;
+    // The precise value alias (see {@link SubTypeName}) — e.g. Number + "int". Was FieldInfo.kind.
+    subTypeName?: SubTypeName;
+    // Lazy runtime reference to the referenced type: a class constructor (entity/embedded) OR an enum
+    // object. Transformer-emitted (see FieldOptions.type). Read it via {@link getFunction}/{@link getEnum}.
+    type?: () => Function | object;
+    // Polymorphic reference target(s): @implementedBy list or @implementedByAll.
+    implementations?: ImplementationsInfo;
     lite?: boolean;
     array?: boolean;
-    isEnum?: boolean;
-    kind?: string;
     isNullable?: boolean;
+
+    // Build a TypeReference from a partial (query tokens / PropertyRoute construct these directly, e.g.
+    // `new TypeReference({ typeName: "Number", subTypeName: "int" })` or `{ type: () => ArtistEntity,
+    // lite: true }`). FieldInfo calls `super()` with no init and fills its fields via the @field decorator.
+    constructor(init?: Partial<Pick<TypeReference, 'typeName' | 'subTypeName' | 'type' | 'implementations' | 'lite' | 'array' | 'isNullable'>>) {
+        if (init != null) Object.assign(this, init);
+    }
+
+    // The referenced entity/embedded *constructor* — `type()` when it resolves to a class. undefined
+    // for value types, enums, and name-only @implementedBy interface references (which have no thunk;
+    // their concrete targets are reached via {@link is}/`implementations`). Was the free `fieldType`.
+    getFunction(): Function | undefined {
+        const t = this.type?.();
+        return typeof t === 'function' ? t : undefined;
+    }
+
+    // The referenced enum OBJECT — `type()` when it resolves to a (non-function) object. Enums are NOT
+    // resolved through the registry: the transformer always emits the `() => TheEnum` thunk, so the
+    // presence of a non-function `type()` result IS what marks an enum field (no `isEnum` flag needed).
+    // Was the free `fieldEnum`.
+    getEnum(): object | undefined {
+        const t = this.type?.();
+        return t != null && typeof t !== 'function' ? t : undefined;
+    }
+
+    // The display/registry NAME — the class name or enum name via `type()`, else the value `typeName`.
+    // Mainly for error messages / display; dispatch should prefer the structured predicates. Was the
+    // free `fieldTypeName`.
+    getTypeName(): string | undefined {
+        if (this.type != null) {
+            const t = this.type();
+            if (typeof t === 'function') return t.name;
+            if (t != null) return enumNameOf(t) ?? undefined;
+        }
+        return this.typeName;
+    }
+
+    // True when the field's resolved runtime type IS `baseClass` or a subclass of it — e.g.
+    // tr.is(Entity), tr.is(EmbeddedEntity), tr.is(ModelEntity). Resolved from the ACTUAL runtime class
+    // (via {@link getFunction}), NOT the coarse `typeName` (which the transformer leaves unset for
+    // thunked refs). The CALLER supplies the class, so reflection.ts needn't import or late-bind the
+    // entity base classes — sidestepping the entity↔reflection cycle — and it generalises to any class.
+    //
+    // A polymorphic @implementedBy reference (e.g. `@implementedBy(() => [ArtistEntity, BandEntity])
+    // author: IAuthorEntity`) has NO single ctor — `type` is null and `typeName` is the interface name —
+    // yet it is still an entity reference: it satisfies `is(baseClass)` when EVERY concrete
+    // implementation does, so `is(Entity)` / `is(BaseEntity)` hold. (@implementedByAll carries a
+    // `() => Entity` thunk, so it resolves through getFunction above; see also {@link isByAll}.)
+    is(baseClass: Function): boolean {
+        const ctor = this.getFunction();
+        if (ctor != null)
+            return ctor === baseClass || ctor.prototype instanceof baseClass;
+        const impl = this.implementations;
+        if (impl != null && impl.kind === 'implementedBy') {
+            const types = impl.types();
+            return types.length > 0 && types.every(t => t === baseClass || t.prototype instanceof baseClass);
+        }
+        return false;
+    }
+
+    // An enum field (Signum's isEnum) — derived from `type()` resolving to an enum object, not a flag.
+    get isEnum(): boolean { return this.getEnum() != null; }
+
+    // The element TypeReference of a collection (`array`), else null — the same reference with `array`
+    // stripped. Counterpart of the query engine's RuntimeType.elementType; the collection query tokens
+    // read `parent.type.elementType`.
+    get elementType(): TypeReference | null {
+        return this.array ? Object.assign(new TypeReference(), this, { array: false }) : null;
+    }
+
+    // @implementedByAll (a reference typed as "any entity").
+    isByAll(): boolean { return this.implementations?.kind === 'implementedByAll'; }
+}
+
+export class FieldInfo extends TypeReference {
+    readonly name: string;
     // Set by @forceNullable (Signum's [ForceNullable]): the COLUMN is nullable
     // (IsNullable.Forced) while the field stays non-null in the object model — so queries
     // navigate it as a normal non-null reference but the column accepts NULL.
@@ -84,7 +184,6 @@ export class FieldInfo {
     // a query retrieving the owner does NOT eager-expand this reference (it stays a lazy
     // stub). A per-reference concern, so it lives on the field, not the entity.
     avoidExpandOnRetrieving?: boolean;
-    implementations?: ImplementationsInfo;
     // Set by @customLite (Signum's [LiteModel]): overrides which custom lite this field's lite
     // value uses, per implementation type. A field may carry several (one per concrete type of a
     // polymorphic @implementedBy lite), so this is a list — each `@customLite` on the field pushes
@@ -124,6 +223,7 @@ export class FieldInfo {
     customValidation?: (entity: any, fieldInfo: FieldInfo) => string | null;
 
     constructor(name: string) {
+        super();
         this.name = name;
     }
 
@@ -166,7 +266,7 @@ export abstract class Validator {
 
 export class TypeInfo {
     constructor() {
-        this.fields = {};
+        this.fields = Object.create(null); // null-proto: `fields["toString"]` etc. is undefined, not an inherited Object.prototype member
     }
 
     fields: { [fieldName: string]: FieldInfo };
@@ -339,40 +439,6 @@ export function getTypeInfo(target: object): TypeInfo | undefined {
     return ctor?.[typeInfoKey] as TypeInfo | undefined;
 }
 
-// Resolves a field's referenced entity/embedded *constructor* — the single accessor for
-// a reference field's runtime type. Prefers the transformer-emitted `type` thunk
-// (rename-/load-order-proof, and it kept the import alive so the type is registered),
-// falling back to a name lookup for hand-written `@field({ typeName })` metadata.
-// Returns undefined for value-typed and enum fields (their `typeName`, e.g. "Number", is
-// not an entity ctor — value types resolve in defaultDbType, enums via {@link fieldEnum}).
-export function fieldType(fi: FieldInfo): Function | undefined {
-    const t = fi.type != null ? fi.type() : (fi.typeName != null ? resolveType(fi.typeName) : undefined);
-    return typeof t === 'function' ? t as Function : undefined;
-}
-
-// Resolves an enum field's runtime enum object (the counterpart of {@link fieldType} for
-// `@field({ enum: true })` fields). Prefers the `type` thunk, else the enum registry.
-export function fieldEnum(fi: FieldInfo): object | undefined {
-    if (fi.type != null) {
-        const t = fi.type();
-        return typeof t === 'object' && t != null ? t as object : undefined;
-    }
-    return fi.typeName != null ? resolveEnum(fi.typeName) : undefined;
-}
-
-// The display/registry NAME of a field's type — the entity/embedded class name or the
-// enum's registered name — derived from the `type` thunk when present, else the stored
-// `typeName`. Used for error messages, table naming and EnumType metadata now that
-// thunked fields carry no `typeName` string.
-export function fieldTypeName(fi: FieldInfo): string | undefined {
-    if (fi.type != null) {
-        const t = fi.type();
-        if (typeof t === 'function') return (t as Function).name;
-        if (t != null) return enumNameOf(t as object) ?? undefined;
-    }
-    return fi.typeName;
-}
-
 // Bare @field: exists so source type-checks (tsc checks the original AST). The
 // quote-transformer rewrites it to @field({ typeName: ... }) before emit, so
 // reaching this overload at runtime means the transform never ran.
@@ -399,15 +465,13 @@ export function field(arg1: unknown, arg2?: unknown): unknown {
         fi.typeName = options.typeName;
         if (options.type != null)
             fi.type = options.type;
-        if (options.name != null)
-            fi.kind = options.name;
+        if (options.subTypeName != null)
+            fi.subTypeName = options.subTypeName;
         if (options.nullable != null)
             fi.isNullable = options.nullable;
         if (options.lite != null)
             fi.lite = options.lite;
         if (options.array != null)
             fi.array = options.array;
-        if (options.enum != null)
-            fi.isEnum = options.enum;
     };
 }

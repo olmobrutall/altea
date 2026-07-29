@@ -1,6 +1,6 @@
 import type { PropertyRoute } from "../../propertyRoute";
 import type { Implementations } from "../../implementations";
-import type { RuntimeType } from "../../runtimeTypes";
+import type { TypeReference } from "../../reflection";
 import { QueryToken, SubTokensOptions } from "./queryToken";
 
 // Port of Signum's `NetPropertyToken` (renamed: altea has no ".NET" — it's a plain object/value
@@ -12,7 +12,7 @@ export class ObjectPropertyToken extends QueryToken {
     constructor(
         private readonly _parent: QueryToken,
         public readonly memberName: string,
-        private readonly resultType: RuntimeType,
+        private readonly resultType: TypeReference,
         private readonly displayName: string,
         public readonly isMethod: boolean,
         private readonly _format?: string,
@@ -25,7 +25,7 @@ export class ObjectPropertyToken extends QueryToken {
     get key(): string { return this.memberName; }
     override toString(): string { return this.displayName; }
     niceName(): string { return `${this.displayName} of ${this._parent.toString()}`; }
-    get type(): RuntimeType { return this.resultType; }
+    get type(): TypeReference { return this.resultType; }
     get format(): string | undefined { return this._format; }
     get unit(): string | undefined { return this._unit; }
     getImplementations(): Implementations | undefined { return undefined; }

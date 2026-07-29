@@ -8,8 +8,8 @@
 //     MultiValueLine; no @valueField (owned parts) → EntityRepeater if the field is @implementedBy
 //     (polymorphic, per-row views), else EntityTable (grid).
 import * as React from 'react'
-import { PropertyRoute, isNumberType, tryGetTypeInfos, fieldIsEmbedded, fieldIsEntity, fieldIsByAll } from '../Reflection'
-import { fieldTypeName } from '../../entities/reflection'
+import { PropertyRoute, isNumberType, tryGetTypeInfos } from '../Reflection'
+import { Entity, EmbeddedEntity } from '../../entities/entity'
 import type { FieldInfo } from '../../entities/reflection'
 import { LineBaseController, type LineBaseProps } from './LineBase'
 import { CheckboxLine } from './CheckboxLine'
@@ -43,7 +43,7 @@ export function AutoLine(p: AutoLineProps): React.ReactElement | null {
     return null;
 
   const fi = p.type ?? pr!.fieldInfo!;
-  const factory = React.useMemo(() => AutoLine.getComponentFactory(fi, p.propertyRoute ?? pr), [(p.propertyRoute ?? pr)?.toString(), fieldTypeName(fi)]);
+  const factory = React.useMemo(() => AutoLine.getComponentFactory(fi, p.propertyRoute ?? pr), [(p.propertyRoute ?? pr)?.toString(), fi.getTypeName()]);
 
   return factory(p);
 }
@@ -70,7 +70,7 @@ export namespace AutoLine {
 
   export function getComponentFactory(fi: FieldInfo, pr?: PropertyRoute): (props: AutoLineProps) => React.ReactElement {
 
-    const customs = customTypeComponent[fieldTypeName(fi) ?? fi.typeName]?.map(rule => rule.factory(fi, pr)).notNull().first();
+    const customs = customTypeComponent[fi.getTypeName() ?? fi.typeName]?.map(rule => rule.factory(fi, pr)).notNull().first();
 
     if (customs != null)
       return customs
@@ -83,13 +83,13 @@ export namespace AutoLine {
     if (fi.array) {
       // ALTEA: `fi.typeName` is undefined for thunked (`type: () => X`) array fields, so resolve the row
       // type name from the thunk (fieldTypeName) for the @valueField lookup.
-      const rowTypeName = fieldTypeName(fi);
+      const rowTypeName = fi.getTypeName();
       const vf = rowTypeName != null ? tryGetValueField(rowTypeName) : null;
       if (vf != null) {
-        const valueIsReference = vf.lite || fieldIsEntity(vf);
+        const valueIsReference = vf.lite || vf.is(Entity);
         if (valueIsReference) {
           // Low-population value type (few rows) → a checkbox list of all options; else the chip strip.
-          const tis = tryGetTypeInfos(fieldTypeName(vf) ?? "").notNull();
+          const tis = tryGetTypeInfos(vf.getTypeName() ?? "").notNull();
           if (tis.length > 0 && tis.every(t => t.lowPopulation))
             return p => <EntityCheckboxList {...p} />;
           return p => <EntityStrip {...p} />;
@@ -105,13 +105,13 @@ export namespace AutoLine {
 
     // Embedded entity → EntityDetail. ALTEA: detect via the field's actual class (EmbeddedEntity
     // subclass), NOT the string `kind` (undefined for embeddeds) or `typeName` (absent for thunks).
-    if (fieldIsEmbedded(fi))
+    if (fi.is(EmbeddedEntity))
       return p => <EntityDetail {...p} />;
 
     // Entity / Lite reference (incl. @implementedBy interface [typeName-only] / @implementedByAll).
     // A single low-population target → EntityCombo (a dropdown of all rows); else EntityLine.
-    if (fieldIsByAll(fi) || fi.lite || fieldIsEntity(fi) || fi.implementations != null) {
-      const tis = tryGetTypeInfos(fieldTypeName(fi) ?? "").notNull();
+    if (fi.isByAll() || fi.lite || fi.is(Entity) || fi.implementations != null) {
+      const tis = tryGetTypeInfos(fi.getTypeName() ?? "").notNull();
       if (tis.length > 0 && tis.every(t => t.lowPopulation))
         return p => <EntityCombo {...p} />;
       return p => <EntityLine {...p} />;
@@ -148,6 +148,6 @@ export namespace AutoLine {
     if (fi.typeName == "Duration" || fi.typeName == "PlainTime")
       return p => <TimeLine {...p} />;
 
-    return () => <span className="text-danger">Not supported type {fieldTypeName(fi) ?? fi.typeName} by AutoLine</span>;
+    return () => <span className="text-danger">Not supported type {fi.getTypeName() ?? fi.typeName} by AutoLine</span>;
   }
 }

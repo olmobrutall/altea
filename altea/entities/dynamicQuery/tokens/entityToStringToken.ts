@@ -1,7 +1,7 @@
 import type { PropertyRoute } from "../../propertyRoute";
 import type { Implementations } from "../../implementations";
-import { RuntimeType, LiteralType } from "../../runtimeTypes";
-import { QueryToken, SubTokensOptions } from "./queryToken";
+import type { TypeReference } from "../../reflection";
+import { QueryToken, SubTokensOptions, TR_STRING } from "./queryToken";
 
 // Port of Signum's `EntityToStringToken`: the "[ToStr]" sub-token on an entity — its display string.
 // `base.toString()` (the binder lowers it to the ToStr column or expands a @quoted toString).
@@ -15,7 +15,7 @@ export class EntityToStringToken extends QueryToken {
     get key(): string { return "ToString"; }
     override toString(): string { return "[ToStr]"; }
     niceName(): string { return `ToStr of ${this._parent.toString()}`; }
-    get type(): RuntimeType { return LiteralType.string; }
+    get type(): TypeReference { return TR_STRING; }
     get format(): string | undefined { return undefined; }
     get unit(): string | undefined { return undefined; }
     getImplementations(): Implementations | undefined { return undefined; }
@@ -23,6 +23,6 @@ export class EntityToStringToken extends QueryToken {
     isAllowed(): string | null { return this._parent.isAllowed(); }
 
     protected subTokensOverride(options: SubTokensOptions): QueryToken[] {
-        return this.subTokensBase(LiteralType.string, options, undefined);
+        return this.subTokensBase(TR_STRING, options, undefined);
     }
 }

@@ -1,4 +1,4 @@
-import { ObjectType } from "../../entities/runtimeTypes";
+import { ObjectType } from "../runtimeTypes";
 import {
     Expression, ParameterExpression, PropertyExpression, ConstantExpression, BinaryExpression,
     CallExpression, ObjectExpression, ConditionalExpression, UnaryExpression, CastExpression,

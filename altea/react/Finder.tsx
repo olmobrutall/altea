@@ -36,7 +36,6 @@ import { QueryTokenString, type Anonymous } from './QueryTokenString';
 
 import { FilterOperationEnum, PinnedFilterActiveEnum } from '../entities/dynamicQueries'; // numeric companions, for wire-ordinal encode/decode
 import type { FilterOperation, FilterGroupOperation, PinnedFilterActive, FilterType, PaginationMode, OrderType } from '../entities/dynamicQueries';
-import { RuntimeType, EnumType } from '../entities/runtimeTypes';
 
 import { Entity, BaseEntity, EmbeddedEntity, ModelEntity } from '../entities/entity';
 import { Lite } from '../entities/lite';
@@ -48,7 +47,7 @@ import { TypeEntity } from '../entities/typeEntity';
 
 import {
   QueryKey, getQueryKey, isQueryDefined, getTypeName, getTypeInfo, tryGetTypeInfos, getTypeInfos, tryGetTypeInfo, isTypeModel, isNumberType,
-  TypeInfo, PropertyRoute, runtimeTypeName, isRuntimeCollection,
+  TypeInfo, TypeReference, PropertyRoute,
   type Type, type PseudoType,
 } from './Reflection';
 import type { FieldInfo } from '../entities/reflection';
@@ -248,14 +247,13 @@ export namespace Finder {
 
     entityColumnHeader: (() => "") as () => React.ReactElement | string | null | undefined,
 
-    // ALTEA: qt.type is a RuntimeType (not Signum's TypeReference), so filterType comparisons use the
-    // enum + isState reads the RuntimeType. TODO(port): the DateOnly-vs-DateTime distinction (Signum
-    // checked the property route's member type) — revisit with the format/route layer.
+    // ALTEA: qt.type is a TypeReference; isState reads the enum's name off it. TODO(port): the
+    // DateOnly-vs-DateTime distinction — revisit with the format/route layer.
     tokenCanSetPropery: (qt: QueryToken): boolean =>
       qt.filterType == "Lite" && qt.key != "Entity" ||
       qt.filterType == "Enum" && !Options.isState(qt.type),
 
-    isState: (t: RuntimeType): boolean => t instanceof EnumType && t.enumName.endsWith("State"),
+    isState: (t: TypeReference): boolean => t.getEnum() != null && (t.getTypeName() ?? "").endsWith("State"),
 
     defaultPagination: {
       mode: "Paginate",
@@ -380,14 +378,14 @@ export namespace Finder {
     return query;
   }
 
-  export function getTypeNiceName(rt: RuntimeType): string {
+  export function getTypeNiceName(rt: TypeReference): string {
 
-    const name = runtimeTypeName(rt);
+    const name = rt.getTypeName() ?? "";
     const niceName = tryGetTypeInfos(name)
       .map(ti => ti == undefined ? getSimpleTypeNiceName(name) : ti.getNiceName())
       .joinComma(CollectionMessage.Or.niceToString());
 
-    return isRuntimeCollection(rt) ? QueryTokenMessage.ListOf0.niceToString(niceName) : niceName;
+    return rt.array ? QueryTokenMessage.ListOf0.niceToString(niceName) : niceName;
   }
 
   export function getSimpleTypeNiceName(name: string): string {
@@ -2177,8 +2175,8 @@ export namespace Finder {
     initFilterValueFormatRules: (): FilterValueFormatter[] => [],
   };
 
-  export function isSystemVersioned(rt?: RuntimeType): boolean {
-    return rt != null && getTypeInfos(runtimeTypeName(rt)).some(ti => ti.systemVersioned != null)
+  export function isSystemVersioned(rt?: TypeReference): boolean {
+    return rt != null && getTypeInfos(rt.getTypeName() ?? "").some(ti => ti.systemVersioned != null)
   }
 
   interface GetFormatterOptions {

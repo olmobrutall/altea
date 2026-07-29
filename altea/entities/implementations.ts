@@ -1,6 +1,5 @@
 import { Entity, typeConstructor } from './entity';
-import type { FieldInfo } from './reflection';
-import { fieldType } from './reflection';
+import type { TypeReference } from './reflection';
 import { cleanTypeName } from './registration';
 
 // Port of Signum's `Implementations` (Entities/FieldAttributes.cs): the set of concrete
@@ -42,12 +41,12 @@ export class Implementations {
     // Resolve a reference field's implementations from its reflection metadata (Signum's
     // `Implementations.TryFromAttributes`). Returns undefined for a non-reference field
     // (value/enum/embedded).
-    static tryFromFieldInfo(fi: FieldInfo): Implementations | undefined {
+    static tryFromFieldInfo(fi: TypeReference): Implementations | undefined {
         const impl = fi.implementations;
         if (impl != undefined)
             return impl.kind === 'implementedByAll' ? Implementations.byAll : Implementations.by(...impl.types().map(typeConstructor));
 
-        const ctor = fieldType(fi);
+        const ctor = fi.getFunction();
         if (ctor != undefined && Implementations.error(ctor) == null)
             return Implementations.by(ctor);
 

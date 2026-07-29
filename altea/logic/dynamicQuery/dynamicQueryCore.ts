@@ -1,5 +1,5 @@
 import type { Entity } from "../../entities/entity";
-import { ClassType, type RuntimeType } from "../../entities/runtimeTypes";
+import { ClassType, type RuntimeType } from "../runtimeTypes";
 import { table } from "../table";
 import type { Query } from "../query";
 import "./dQueryable"; // augments Query with .toDQueryable()

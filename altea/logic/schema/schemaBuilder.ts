@@ -2,7 +2,7 @@ import { Entity, EmbeddedEntity, typeConstructor } from '../../entities/entity';
 import type { Type } from '../../entities/entity';
 import { MixinDeclarations } from '../../entities/mixinDeclarations';
 import type { EntityData } from '../../entities/decorators';
-import { getTypeInfo, fieldType, fieldEnum, fieldTypeName, enumNameOf, FieldInfo, TypeInfo, type PrimaryKeyType } from '../../entities/reflection';
+import { getTypeInfo, enumNameOf, FieldInfo, TypeInfo, type PrimaryKeyType } from '../../entities/reflection';
 import { AbstractDbType, IsNullable, defaultDbType, primaryKeyDbType } from './dbType';
 import {
     type IColumn,
@@ -442,9 +442,9 @@ export class SchemaBuilder {
         // enum becomes a real included entity (so it supports mixins / polymorphic
         // references); the column stores its underlying int value, referencing <Enum>(id).
         if (fi.isEnum) {
-            const enumObject = fieldEnum(fi);
+            const enumObject = fi.getEnum();
             if (enumObject == null)
-                throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: enum '${fieldTypeName(fi) ?? fi.name}' is not registered. Enums declared in the same file as the entity are auto-registered; call registerEnum(...) by hand for cross-file enums.`);
+                throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: enum '${fi.getTypeName() ?? fi.name}' is not registered. Enums declared in the same file as the entity are auto-registered; call registerEnum(...) by hand for cross-file enums.`);
             const refTable = this.include(EnumEntity.typeFor(enumObject)).table;
             const colName = fi.fkPropertyName ?? this.colName(preName.add(`${cap(fi.name)}ID`).toString());
             return new FieldEnum(new ReferenceColumn(colName, refTable, nullable, /* isLite */ false));
@@ -466,7 +466,7 @@ export class SchemaBuilder {
         const embeddedType = this.resolveFieldType(fi);
         const typeInfo = embeddedType != null ? getTypeInfo(embeddedType) : undefined;
         if (typeInfo == null)
-            throw new Error(`Embedded type '${fieldTypeName(fi) ?? fi.name}' (field '${fi.name}') has no reflection metadata.`);
+            throw new Error(`Embedded type '${fi.getTypeName() ?? fi.name}' (field '${fi.name}') has no reflection metadata.`);
 
         const embeddedPre = preName.add(this.columnName(fi));
         const hasValue = fi.isNullable === true
@@ -509,14 +509,14 @@ export class SchemaBuilder {
     // order), falling back to the name registry for hand-written metadata. undefined for
     // value/enum fields and @implementedBy interface references (handled by their branches).
     private resolveFieldType(fi: FieldInfo): unknown {
-        return fieldType(fi);
+        return fi.getFunction();
     }
 
     private resolveValueDbType(fi: FieldInfo): AbstractDbType | undefined {
         const co = fi.columnOptions;
         if (co?.sqlDbType != null || co?.pgDbType != null)
             return new AbstractDbType(co.sqlDbType ?? co.pgDbType!, co.pgDbType ?? co.sqlDbType!);
-        return defaultDbType(fi.typeName, fi.kind);
+        return defaultDbType(fi.typeName, fi.subTypeName);
     }
 
     private columnName(fi: FieldInfo): string {

@@ -9,7 +9,7 @@ import { ProjectionExpression } from "@altea/altea/logic/linq/expressions.sql";
 import {
     ParameterExpression, LambdaExpression, CallExpression, PropertyExpression,
 } from "@altea/altea/logic/linq/expressions";
-import { ClassType, ArrayType } from "@altea/altea/entities/runtimeTypes";
+import { ClassType, ArrayType } from "@altea/altea/logic/runtimeTypes";
 import { Implementations } from "@altea/altea/entities/implementations";
 import { SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
 import { BuildExpressionContext, ExpressionBox } from "@altea/altea/logic/dynamicQuery/tokenExpressions";

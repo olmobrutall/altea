@@ -5,7 +5,7 @@ import {
     SourceExpression, ChildProjectionExpression, LookupToken,
     EntityExpression, EmbeddedEntityExpression,
 } from "../expressions.sql";
-import { LiteralType } from "../../../entities/runtimeTypes";
+import { LiteralType } from "../../runtimeTypes";
 import { Alias, AliasGenerator } from "../aliasGenerator";
 import { ColumnGenerator } from "../ColumnGenerator";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";

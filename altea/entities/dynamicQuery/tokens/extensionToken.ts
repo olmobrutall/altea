@@ -1,6 +1,6 @@
 import type { PropertyRoute } from "../../propertyRoute";
 import type { Implementations } from "../../implementations";
-import type { RuntimeType } from "../../runtimeTypes";
+import type { TypeReference } from "../../reflection";
 import { QueryToken, SubTokensOptions } from "./queryToken";
 
 // The client-relevant metadata of an ExtensionToken (Signum's ExtensionInfo, reduced to what the
@@ -16,7 +16,7 @@ export interface ExtensionInfo {
     // wires the live niceName, the JSON codec resolves it to a value and the client rebuilds a
     // constant thunk from that value.
     readonly niceName: () => string;
-    readonly resultType: RuntimeType;
+    readonly resultType: TypeReference;
     readonly isProjection: boolean;
     readonly implementations?: Implementations;
     // From the expression's Meta on the server: a clean single-route expression exposes that route
@@ -48,7 +48,7 @@ export class ExtensionToken extends QueryToken {
     get key(): string { return this.info.key; }
     override toString(): string { return this.info.niceName(); }
     niceName(): string { return this.info.niceName(); }
-    get type(): RuntimeType { return this.info.resultType; }
+    get type(): TypeReference { return this.info.resultType; }
     // unit/format aren't modelled on altea fields yet; once they are they come from the token's
     // single clean route (Signum's CleanMeta.PropertyRoutes → Format/Unit).
     get format(): string | undefined { return undefined; }

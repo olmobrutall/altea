@@ -10,7 +10,7 @@ import * as React from 'react'
 import { Navigator } from '../Navigator'
 import { ViewPromise } from '../EntitySettings'
 import { TypeContext, type EntityFrame } from '../TypeContext'
-import { PropertyRoute, tryGetTypeInfo, getTypeName, isRuntimeLite } from '../Reflection'
+import { PropertyRoute, tryGetTypeInfo, getTypeName } from '../Reflection'
 import { ReadonlyBinding } from '../binding'
 import { BaseEntity, Entity } from '../../entities/entity'
 import { Lite } from '../../entities/lite'
@@ -79,7 +79,7 @@ export function RenderEntity<V extends BaseEntity | Lite<Entity> | null>(p: Rend
 
   const pr = !ti ? ctx.propertyRoute : PropertyRoute.root(ti.ctor!);
 
-  const prefix = isRuntimeLite(ctx.propertyRoute!.type) ? ctx.prefix + ".entity" : ctx.prefix;
+  const prefix = ctx.propertyRoute!.type.lite ? ctx.prefix + ".entity" : ctx.prefix;
   const frame: EntityFrame<BaseEntity> = {
     tabs: undefined,
     frameComponent: { forceUpdate: () => { forceUpdate(); p.onRefresh?.(); }, type: RenderEntity },

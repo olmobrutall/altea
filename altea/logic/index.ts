@@ -15,7 +15,7 @@ import { Saver } from './saver';
 import { retrieve } from './Database';
 import { table } from './table';
 import { quotedFunction, Query } from './query';
-import { ArrayType, FunctionType, LiteType, LiteralType, RuntimeType, IntervalType, TemporalType } from '../entities/runtimeTypes';
+import { ArrayType, ClassType, FunctionType, LiteType, LiteralType, RuntimeType, IntervalType, TemporalType } from './runtimeTypes';
 import { NullableInterval } from './systemTime';
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, ParameterExpression, PropertyExpression } from './linq/expressions';
 import { ExpressionVisitor } from './linq/visitors/ExpressionVisitor';
@@ -102,6 +102,26 @@ const systemPeriod = function (this: Entity): NullableInterval {
 };
 quotedFunction(systemPeriod).__resultType = () => new IntervalType(new TemporalType('dateTime'));
 (Entity.prototype as any).systemPeriod = systemPeriod;
+
+// Query-expression result types for the built-in Entity/Lite/niceName methods that appear inside
+// @quoted query lambdas (Signum's method attributes). These are RuntimeType metadata — a SERVER
+// (LINQ-provider) concern — so they live here, NOT in the shared entities/ modules (which must stay
+// RuntimeType-free). The binder reads `__resultType` off the function to type the call.
+quotedFunction(Entity.prototype.is).__resultType = () => LiteralType.boolean;
+quotedFunction(Entity.prototype.toLite).__resultType = (ownerType: RuntimeType) => new LiteType(ownerType);
+quotedFunction(Entity.isInstance).__resultType = () => LiteralType.boolean;
+quotedFunction(Entity.isLite).__resultType = () => LiteralType.boolean;
+quotedFunction(Lite.prototype.is).__resultType = () => LiteralType.boolean;
+quotedFunction(Lite.prototype.isInstanceOf).__resultType = () => LiteralType.boolean;
+quotedFunction(Function.prototype.niceName).__resultType = () => LiteralType.string;
+
+// entity.getType() (Signum's GetType) inside a @quoted lambda — e.g. the default toString's
+// `this.getType().niceName()`. It lowers to `this.constructor` (the runtime-type token, which the
+// binder types as ClassType(Function) and localizes via typeNiceName). __resultType matches so
+// fromQuoted types the call; the expander rewrites it to the constructor access.
+const getTypeSf = quotedFunction(Entity.prototype.getType);
+getTypeSf.__resultType = () => new ClassType(Function);
+getTypeSf.__methodExpander = (instance: Expression | undefined) => new PropertyExpression(instance!, "constructor");
 
 // Entity → query bridge (Signum's Database.InDB): a one-row query filtered to this
 // entity's id. `inDB(selector)` projects and takes the single row. Used at the top

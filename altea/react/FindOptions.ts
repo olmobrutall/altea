@@ -7,11 +7,11 @@
 //   - unused Signum imports (getLambdaMembers / TypeInfo / message enums / Lines) dropped.
 
 import * as React from "react";
-import { QueryKey, isRuntimeEmbedded, type PseudoType, type Type } from './Reflection';
-import { RuntimeType, LiteralType, TemporalType, EnumType, LiteType, ClassType } from '../entities/runtimeTypes';
+import { QueryKey, TypeReference, type PseudoType, type Type } from './Reflection';
+import { Entity, EmbeddedEntity } from '../entities/entity';
 import { QueryTokenString } from './QueryTokenString';
 import type { Lite } from '../entities/lite';
-import type { Entity, BaseEntity } from '../entities/entity';
+import type { BaseEntity } from '../entities/entity';
 import type {
   PaginationMode, OrderType, FilterOperation, ColumnOptionsMode, UniqueType,
   FilterGroupOperation, PinnedFilterActive, DashboardBehaviour, CombineRows, FilterType,
@@ -415,23 +415,24 @@ export function getFilterOperations(qt: QueryToken): FilterOperation[] {
   return filterOperations[qt.filterType];
 }
 
-// ALTEA: a query column's type is a RuntimeType (Signum's TypeReference is gone). Number/String/
-// Boolean (and Guid, which altea models as a string) unify to the "String" group.
-export function getFilterGroupUnifiedFilterType(rt: RuntimeType): FilterType | null {
-  if (rt instanceof LiteralType)
-    return "String";
-
-  if (rt instanceof TemporalType && rt.kind != "duration")
-    return "DateTime";
-
-  if (isRuntimeEmbedded(rt))
-    return "Embedded";
-
-  if (rt instanceof EnumType)
+// ALTEA: a query column's type is a TypeReference. Number/String/Boolean/Guid unify to the "String"
+// group; a plain-value TypeReference has a `typeName`, references resolve via is()/lite/getEnum.
+export function getFilterGroupUnifiedFilterType(tr: TypeReference): FilterType | null {
+  if (tr.getEnum() != undefined)
     return "Enum";
 
-  if (rt instanceof LiteType || rt instanceof ClassType)
+  if (tr.lite || tr.is(Entity))
     return "Lite";
+
+  if (tr.is(EmbeddedEntity))
+    return "Embedded";
+
+  switch (tr.typeName) {
+    case "Number": case "Decimal": case "String": case "Boolean": case "Guid":
+      return "String";
+    case "PlainDate": case "PlainDateTime":
+      return "DateTime";
+  }
 
   return null;
 }

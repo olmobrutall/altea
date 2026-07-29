@@ -4,7 +4,7 @@ import {
     IntervalExpression, SqlFunctionExpression, AsOfExpression,
 } from "../expressions.sql";
 import { Expression, BinaryExpression } from "../expressions";
-import { LiteralType, TemporalType } from "../../../entities/runtimeTypes";
+import { LiteralType, TemporalType } from "../../runtimeTypes";
 import { AliasGenerator } from "../aliasGenerator";
 import { SystemTimeAll, SystemTimeJoinMode } from "../../systemTime";
 import type { SystemVersionedInfo } from "../../schema/systemVersioned";

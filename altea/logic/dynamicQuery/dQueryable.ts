@@ -1,4 +1,4 @@
-import { ArrayType, ObjectType, RuntimeType, LiteralType } from "../../entities/runtimeTypes";
+import { ArrayType, ObjectType, RuntimeType, LiteralType } from "../runtimeTypes";
 import {
     Expression, ParameterExpression, LambdaExpression, CallExpression, PropertyExpression, ObjectExpression,
     BinaryExpression, ConstantExpression,

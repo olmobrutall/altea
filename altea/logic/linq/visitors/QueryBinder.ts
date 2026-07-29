@@ -53,7 +53,6 @@ import {
     FieldImplementedBy, FieldImplementedByAll,
 } from "../../schema/field";
 import type { FieldInfo } from "../../../entities/reflection";
-import { fieldType, fieldEnum, fieldTypeName } from "../../../entities/reflection";
 import { Entity, View, ModelEntity, typeConstructor } from "../../../entities/entity";
 import type { Type } from "../../../entities/entity";
 import { TypeEntity } from "../../../entities/typeEntity";
@@ -61,7 +60,7 @@ import { toInt, toLong, toDecimal, inSql, Temporal } from "../../../entities/bas
 import { Lite, getCustomLiteConstructor, getCustomLiteConstructorFor } from "../../../entities/lite";
 import type { CustomLiteClass } from "../../../entities/lite";
 import { niceName } from "../../../entities/utils/localization";
-import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, RuntimeType } from "../../../entities/runtimeTypes";
+import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, RuntimeType } from "../../runtimeTypes";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 
@@ -3281,8 +3280,8 @@ export class QueryBinder extends ExpressionVisitor {
         // its numeric value; typed EnumType so the nominator can lower `.toString()`
         // to a value→name CASE (falls back to number when the enum isn't registered).
         if (f instanceof FieldEnum) {
-            const enumObj = fieldEnum(ef.fieldInfo);
-            const type: RuntimeType = enumObj != null ? new EnumType(enumObj, fieldTypeName(ef.fieldInfo) ?? '') : LiteralType.number;
+            const enumObj = ef.fieldInfo.getEnum();
+            const type: RuntimeType = enumObj != null ? new EnumType(enumObj, ef.fieldInfo.getTypeName() ?? '') : LiteralType.number;
             return new ColumnExpression(type, alias, f.column.name);
         }
 
@@ -3314,7 +3313,7 @@ export class QueryBinder extends ExpressionVisitor {
             }
             // Resolve the embedded's ctor from the field's type name so the reader
             // can construct it.
-            const embCtor = fieldType(ef.fieldInfo);
+            const embCtor = ef.fieldInfo.getFunction();
             const embType: RuntimeType = embCtor != null ? new ClassType(embCtor) : LiteralType.null;
             return new EmbeddedEntityExpression(embType, hasValue, subBindings, undefined);
         }
@@ -3370,7 +3369,7 @@ export class QueryBinder extends ExpressionVisitor {
         // interface type (e.g. `author: IAuthorEntity`, Signum-style) has no runtime
         // constructor — the base is nominal only (the reader picks the concrete
         // implementation), so fall back to Entity. Concrete base types resolve normally.
-        return fieldType(fi) ?? Entity;
+        return fi.getFunction() ?? Entity;
     }
 
     // Maps a value field's declared type name to a SQL literal type. The entity

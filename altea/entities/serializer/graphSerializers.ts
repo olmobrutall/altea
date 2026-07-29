@@ -11,7 +11,6 @@ import type { Type, PrimaryKey, BaseEntity } from '../entity';
 import { Lite, LiteImp, getCustomLites } from '../lite';
 import type { CustomLiteClass } from '../lite';
 import { isModifiedSelf, getSnapshot, snapshotEqual } from '../changes';
-import { fieldType, fieldEnum } from '../reflection';
 import type { FieldInfo } from '../reflection';
 import { resolveCleanType, cleanTypeName } from '../registration';
 import { toInt, Decimal } from '../basics';
@@ -385,14 +384,14 @@ class SerializerFactory {
     // The serializer for a single (non-array) value.
     private elementSerializer(fi: FieldInfo): JsonSerializer {
         if (fi.isEnum) {
-            const e = fieldEnum(fi) as Record<string, unknown> | undefined;
+            const e = fi.getEnum() as Record<string, unknown> | undefined;
             if (e == null) throw new Error(`Cannot build serializer: enum field '${fi.name}' is not registered`);
             return new EnumSerializer(e);
         }
-        if (fi.lite) return new LiteSerializer(fieldType(fi), fi.customLite);   // undefined ctor ⇒ polymorphic lite
+        if (fi.lite) return new LiteSerializer(fi.getFunction(), fi.customLite);   // undefined ctor ⇒ polymorphic lite
         if (fi.implementations != null) return new PolyReferenceSerializer();
 
-        const ctor = fieldType(fi);
+        const ctor = fi.getFunction();
         if (ctor != null && ctorIsEntity(ctor)) return this.forEntity(ctor);
         if (ctor != null && ctorIsEmbedded(ctor)) return this.forEmbedded(ctor);
 

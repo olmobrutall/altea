@@ -304,7 +304,7 @@ export function column(options: ColumnOptions | false = {}) {
 // (Former `@include(() => Child)` removed: the quote-transformer now auto-emits a
 // `type: () => X` thunk for every entity/embedded field — including `Child[]`
 // collections — so the referenced constructor is captured by reference automatically.
-// The schema builder resolves it via `fieldType(fi)`; part entities are still pulled
+// The schema builder resolves it via `fi.getFunction()`; part entities are still pulled
 // into the schema transitively from that ctor.)
 
 // Marks the int column that preserves MList row order (Signum's [PreserveOrder]).

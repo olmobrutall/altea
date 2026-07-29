@@ -1,14 +1,14 @@
 
 import { isOptionalChain } from "typescript";
 import type { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
-import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, IntervalType, RuntimeType } from "../../entities/runtimeTypes";
+import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, IntervalType, RuntimeType } from "../runtimeTypes";
 import { Temporal } from "../../entities/basics";
 import { resolveType } from "../../entities/registration";
-import { tryGetTypeInfo, fieldType, type FieldInfo } from "../../entities/reflection";
+import { tryGetTypeInfo, type FieldInfo } from "../../entities/reflection";
 import { Lite } from "../../entities/lite";
 import { Entity, View, ModelEntity } from "../../entities/entity";
 import { getLambdaTypeResolvers, getResultTypeResolver, type LambdaTypeResolver, OrderedQuery, Query, type ResultTypeResolver } from "../query";
-import type { QuotedFunction } from "../../entities/runtimeTypes";
+import type { QuotedFunction } from "../runtimeTypes";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 
 // ---- constant folding (used by fromQuoted) --------------------------------------------------
@@ -223,7 +223,7 @@ function baseTypeOfFieldInfo(fi: FieldInfo): RuntimeType {
         case "PlainDate": return new TemporalType("date");
         case "Duration": return new TemporalType("duration");
     }
-    const ctor = fieldType(fi);
+    const ctor = fi.getFunction();
     if (ctor != null)
         return new ClassType(ctor);
     // A polymorphic reference declared with an interface type (e.g. `author:
@@ -1015,7 +1015,7 @@ export type MethodExpander = (instance: Expression | undefined, args: readonly E
 // `__methodExpander` needs the Expression API, which entities/ can't depend on, so it
 // is added to the entity-side QuotedFunction carrier here by declaration merging
 // (Signum's [MethodExpander] attribute). fromQuoted reads it off the called method.
-declare module "../../entities/runtimeTypes" {
+declare module "../runtimeTypes" {
     interface QuotedFunction<T extends Function = Function> {
         __methodExpander?: MethodExpander;
     }

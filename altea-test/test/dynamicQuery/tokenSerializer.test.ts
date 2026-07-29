@@ -6,9 +6,9 @@ import { RootToken } from "@altea/altea/entities/dynamicQuery/tokens/rootToken";
 import { ExtensionToken, type ExtensionInfo } from "@altea/altea/entities/dynamicQuery/tokens/extensionToken";
 import { SubTokensOptionsAll, getSubTokens, setServerTokensProvider } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
 import { Implementations } from "@altea/altea/entities/implementations";
-import { ClassType, LiteType, ArrayType, LiteralType, TemporalType } from "@altea/altea/entities/runtimeTypes";
+import { TypeReference } from "@altea/altea/entities/reflection";
 import {
-    serializeServerToken, deserializeServerToken, serializeRuntimeType, deserializeRuntimeType,
+    serializeServerToken, deserializeServerToken, serializeTypeReference, deserializeTypeReference,
 } from "@altea/altea/entities/dynamicQuery/tokenSerializer";
 import { ArtistEntity, AlbumEntity } from "../../entities/music";
 
@@ -19,20 +19,22 @@ import { ArtistEntity, AlbumEntity } from "../../entities/music";
 const O = SubTokensOptionsAll;
 
 describe("token serializer", () => {
-    test("RuntimeType round-trips by clean type name / tag", () => {
+    test("TypeReference round-trips by clean type name / value facets", () => {
         const cases = [
-            new ClassType(AlbumEntity),
-            new LiteType(new ClassType(AlbumEntity)),
-            new ArrayType(new LiteType(new ClassType(AlbumEntity))),
-            LiteralType.string, LiteralType.number, LiteralType.boolean,
-            new TemporalType("date"),
+            new TypeReference({ type: () => AlbumEntity }),
+            new TypeReference({ type: () => AlbumEntity, lite: true }),
+            new TypeReference({ type: () => AlbumEntity, lite: true, array: true }),
+            new TypeReference({ typeName: "String" }),
+            new TypeReference({ typeName: "Number", subTypeName: "int" }),
+            new TypeReference({ typeName: "Boolean" }),
+            new TypeReference({ typeName: "PlainDate" }),
         ];
-        for (const rt of cases)
-            assert.deepEqual(serializeRuntimeType(deserializeRuntimeType(serializeRuntimeType(rt))), serializeRuntimeType(rt));
+        for (const tr of cases)
+            assert.deepEqual(serializeTypeReference(deserializeTypeReference(serializeTypeReference(tr))), serializeTypeReference(tr));
 
         // a class rehydrates to the SAME constructor (via the clean-name registry)
-        const c = deserializeRuntimeType(serializeRuntimeType(new ClassType(AlbumEntity)));
-        assert.ok(c instanceof ClassType && c.constructorFunction === AlbumEntity);
+        const c = deserializeTypeReference(serializeTypeReference(new TypeReference({ type: () => AlbumEntity })));
+        assert.ok(c.getFunction() === AlbumEntity);
     });
 
     test("an ExtensionToken serializes and rebuilds off the client's local parent", () => {
@@ -40,7 +42,7 @@ describe("token serializer", () => {
         const info: ExtensionInfo = {
             key: "albums",
             niceName: () => "Albums",
-            resultType: new ArrayType(new LiteType(new ClassType(AlbumEntity))),
+            resultType: new TypeReference({ type: () => AlbumEntity, lite: true, array: true }),
             isProjection: true,
             implementations: Implementations.by(AlbumEntity),
             propertyRoute: undefined,
@@ -78,7 +80,7 @@ describe("token serializer", () => {
         // simulate the client's cached-ajax source returning one serialized server-only extension token
         const serverJson = serializeServerToken(new ExtensionToken(parent, {
             key: "albums", niceName: () => "Albums", isProjection: true,
-            resultType: new ArrayType(new LiteType(new ClassType(AlbumEntity))),
+            resultType: new TypeReference({ type: () => AlbumEntity, lite: true, array: true }),
             implementations: Implementations.by(AlbumEntity),
         }));
         try {
@@ -97,7 +99,7 @@ describe("token serializer", () => {
         const info: ExtensionInfo = {
             key: "artistName",
             niceName: () => "Artist Name",
-            resultType: LiteralType.string,
+            resultType: new TypeReference({ typeName: "String" }),
             isProjection: false,
             allowedReason: () => "Denied",
         };

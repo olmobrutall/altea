@@ -2,7 +2,6 @@
 import type { Entity, Type, PrimaryKey } from './entity';
 import { typeName, typeConstructor } from './entity';
 import { cleanTypeName, resolveCleanType } from './registration';
-import { LiteralType, quotedFunction } from './runtimeTypes';
 import type { Quoted } from 'quote-transformer/quoted';
 
 export abstract class Lite<out T extends Entity> {
@@ -99,13 +98,8 @@ export abstract class Lite<out T extends Entity> {
     }
 }
 
-// Query-expression metadata: a lite value (LiteType) routes method calls in a
-// quoted lambda to Lite.prototype, so `lite.is(...)` resolves here. The binder
-// lowers it to an id comparison, same as Entity.is. (`lite.entity` is a property,
-// typed by resolveMemberType, so it needs no metadata.)
-quotedFunction(Lite.prototype.is).__resultType = () => LiteralType.boolean;
-// `lite.isInstanceOf(Ctor)` → boolean; the binder lowers it via SmartEqualizer.entityIsInstance.
-quotedFunction(Lite.prototype.isInstanceOf).__resultType = () => LiteralType.boolean;
+// NOTE: the query-expression result-type metadata for `lite.is()` / `lite.isInstanceOf()` is
+// RuntimeType (a LINQ-provider concern) and lives in logic/index.ts (server), not here.
 
 export class LiteImp<T extends Entity> extends Lite<T> {
     constructor(

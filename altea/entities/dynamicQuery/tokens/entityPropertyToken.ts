@@ -1,8 +1,7 @@
 import { PropertyRoute } from "../../propertyRoute";
-import { FieldInfo } from "../../reflection";
+import { FieldInfo, TypeReference } from "../../reflection";
 import type { Implementations } from "../../implementations";
-import { RuntimeType, ClassType, LiteType, LiteralType } from "../../runtimeTypes";
-import { QueryToken, SubTokensOptions, cleanType, entityCtorOf } from "./queryToken";
+import { QueryToken, SubTokensOptions, entityCtorOf, TR_INT } from "./queryToken";
 
 // Port of Signum's `EntityPropertyToken` (DynamicQuery/Tokens/EntityPropertyToken.cs): navigation
 // into a field/property of an entity or embedded. `isId` marks the synthetic `Entity.Id` token
@@ -19,11 +18,12 @@ export class EntityPropertyToken extends QueryToken {
     }
 
     static idProperty(parent: QueryToken): QueryToken {
-        const ctor = entityCtorOf(cleanType(parent.type));
+        const ctor = entityCtorOf(parent.type);
         if (ctor == undefined)
             throw new Error(`IdProperty on a non-entity token ${parent.fullKey()}`);
         const fi = new FieldInfo("id");
         fi.typeName = "Number";
+        fi.subTypeName = "int";
         const t = new EntityPropertyToken(parent, fi, PropertyRoute.root(ctor), true);
         t.priority = 10;
         return t;
@@ -44,12 +44,13 @@ export class EntityPropertyToken extends QueryToken {
 
     // Signum's Type: a reference field projects as `Lite<T>` (BuildLite), a primary key unwraps to
     // its scalar. Value / already-lite / embedded fields keep the field's own type.
-    get type(): RuntimeType {
+    get type(): TypeReference {
         if (this.isId)
-            return LiteralType.number;
+            return TR_INT;
         const t = this.route.type;
-        if (t instanceof ClassType && entityCtorOf(t) != undefined)
-            return new LiteType(t);
+        // A reference field projects as Lite<T> (Signum's BuildLite): the same TypeReference marked lite.
+        if (entityCtorOf(t) != undefined)
+            return Object.assign(new TypeReference(), t, { lite: true });
         return t;
     }
 

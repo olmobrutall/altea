@@ -2,12 +2,11 @@
 import { Lite, LiteImp, getCustomLiteConstructor, getCustomLiteConstructorFor } from './lite';
 import type { CustomLiteClass } from './lite';
 import { column, serialize, quoted } from './decorators';
-import { niceName, newNiceName, nicePluralName } from './utils/localization';
+import { niceName, nicePluralName } from './utils/localization';
 import { reflect, getTypeInfo } from './reflection';
 import { MixinDeclarations } from './mixinDeclarations';
 import { cleanTypeName, resolveCleanType } from './registration';
 import { isGraphModified, isModifiedSelf } from './changes';
-import { LiteralType, LiteType, quotedFunction, type RuntimeType as ExpressionType } from './runtimeTypes';
 
 export type PrimaryKey = string | number;
 
@@ -230,7 +229,7 @@ export abstract class Entity extends BaseEntity {
      */
     @quoted
     toString(): string {
-        return this.isNew ? newNiceName(this.constructor) : niceName(this.constructor) + " " + this.id.toString();
+        return this.isNew ? "New " + this.getType().niceName() : this.getType().niceName() + " " + this.id.toString();
     }
 
     /**
@@ -268,20 +267,9 @@ export abstract class Entity extends BaseEntity {
     }
 }
 
-// Query-expression metadata for the quote-transformer: lets `.is(...)` and
-// `.toLite()` appear inside quoted query lambdas. fromQuoted reads `__resultType`
-// off the method to type the call; the QueryBinder then lowers `.is(...)` to an id
-// comparison and `.toLite()` to a LiteReference. `is` → boolean; `toLite` → a
-// `Lite<this>`.
-quotedFunction(Entity.prototype.is).__resultType = () => LiteralType.boolean;
-quotedFunction(Entity.prototype.toLite).__resultType = (ownerType: ExpressionType) => new LiteType(ownerType);
-
-// `Ctor.isInstance(x)` / `Ctor.isLite(l)` are boolean type-tests. fromQuoted reads
-// __resultType to type the call; the QueryBinder lowers them directly to a reference
-// type-test (SmartEqualizer.entityIsInstance, which unwraps a lite) — no `instanceof`
-// node is ever produced.
-quotedFunction(Entity.isInstance).__resultType = () => LiteralType.boolean;
-quotedFunction(Entity.isLite).__resultType = () => LiteralType.boolean;
+// NOTE: the query-expression result-type metadata for `.is()` / `.toLite()` / `Ctor.isInstance` /
+// `Ctor.isLite` (Signum's method attributes) is RuntimeType — a LINQ-provider concern — so it lives in
+// logic/index.ts (server), not here: entities/ stays RuntimeType-free.
 
 export abstract class EmbeddedEntity extends BaseEntity { }
 

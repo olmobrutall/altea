@@ -2,7 +2,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "@altea/altea/entities/globals";
 import { table } from "@altea/altea/logic/table";
-import { ClassType } from "@altea/altea/entities/runtimeTypes";
+import { ClassType } from "@altea/altea/logic/runtimeTypes";
 import { SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
 import { RootToken } from "@altea/altea/entities/dynamicQuery/tokens/rootToken";
 import { Implementations } from "@altea/altea/entities/implementations";

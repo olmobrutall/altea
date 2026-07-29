@@ -7,7 +7,7 @@ import { SchemaBuilder } from "@altea/altea/logic/schema";
 import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
 import { ProjectionExpression } from "@altea/altea/logic/linq/expressions.sql";
 import { ParameterExpression, CallExpression, PropertyExpression, LambdaExpression } from "@altea/altea/logic/linq/expressions";
-import { ClassType, ArrayType, LiteralType } from "@altea/altea/entities/runtimeTypes";
+import { ClassType, ArrayType, LiteralType } from "@altea/altea/logic/runtimeTypes";
 import { Implementations } from "@altea/altea/entities/implementations";
 import { SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
 import { BuildExpressionContext, ExpressionBox } from "@altea/altea/logic/dynamicQuery/tokenExpressions";

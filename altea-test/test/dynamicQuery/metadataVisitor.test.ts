@@ -2,7 +2,7 @@ import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import "@altea/altea/entities/globals";
 import { ParameterExpression, PropertyExpression, CallExpression, LambdaExpression, BinaryExpression } from "@altea/altea/logic/linq/expressions";
-import { ClassType, LiteralType } from "@altea/altea/entities/runtimeTypes";
+import { ClassType, LiteralType } from "@altea/altea/logic/runtimeTypes";
 import { PropertyRoute } from "@altea/altea/entities/propertyRoute";
 import { CleanMeta, DirtyMeta } from "@altea/altea/logic/dynamicQuery/meta";
 import { MetadataVisitor } from "@altea/altea/logic/dynamicQuery/metadataVisitor";

@@ -26,11 +26,11 @@ import type { EntityWhen, ViewPromise, AutocompleteConstructor, AutocompleteCons
 import { Finder } from './Finder';
 import { Constructor } from './Constructor';
 import { TextHighlighter } from './Components/Typeahead';
-import { IsByAll, isRuntimeEmbedded, runtimeTypeName, tryGetTypeInfos, getTypeInfos, TypeInfo } from './Reflection';
+import { IsByAll, tryGetTypeInfos, getTypeInfos, TypeInfo, TypeReference } from './Reflection';
 import type { PropertyRoute } from './Reflection';
+import { EmbeddedEntity } from '../entities/entity';
 import { cleanTypeName } from '../entities/registration';
 import { softCast } from '../entities/globals';
-import type { RuntimeType } from '../entities/runtimeTypes';
 import type { FindOptions } from './FindOptions';
 import type { BsSize } from './Components';
 import type { TypeContext } from './TypeContext';
@@ -45,7 +45,7 @@ import { ajaxGet, ajaxPost, clearContextHeaders } from './Services';
 import { Lite, Entity, ModifiableEntity, EntityPack, isEntity, isLite, isEntityPack, toLite, liteKey, FrameMessage, ModelEntity, getToString, isModifiableEntity, EnumEntity, SearchMessage } from './Signum.Entities'; // -> ../entities/*, .is()/.toString()/.key()
 import { TypeEntity, ExceptionEntity } from './Signum.Basics';
 import { PropertyRoute, PseudoType, Type, getTypeInfo, tryGetTypeInfos, getTypeName, isTypeModel, OperationType, runtimeTypeName, isRuntimeEmbedded, IsByAll, isTypeEntity, tryGetTypeInfo, getTypeInfos, newLite, TypeInfo, EnumType } from './Reflection';
-import type { RuntimeType } from '../entities/runtimeTypes';
+import type { RuntimeType } from './runtimeTypes';
 import { ButtonBarElement, ButtonsContext, EntityFrame, TypeContext } from './TypeContext';
 import * as AppContext from './AppContext';
 import { Finder } from './Finder';
@@ -699,11 +699,11 @@ export namespace Navigator {
     }
   }
 
-  export function defaultFindOptions(type: RuntimeType): FindOptions | undefined {
-    if (isRuntimeEmbedded(type) || runtimeTypeName(type) == IsByAll)
+  export function defaultFindOptions(type: TypeReference): FindOptions | undefined {
+    if (type.is(EmbeddedEntity) || type.isByAll())
       return undefined;
 
-    const types = tryGetTypeInfos(runtimeTypeName(type));
+    const types = tryGetTypeInfos(type.getTypeName() ?? "");
 
     if (types.length == 1 && types[0] != null) {
       var s = getSettings(types[0]);
@@ -716,11 +716,11 @@ export namespace Navigator {
     return undefined;
   }
 
-  export function getAutoComplete(type: RuntimeType, findOptions: FindOptions | undefined, findOptionsDictionary: { [typeName: string]: FindOptions } | undefined, ctx: TypeContext<any>, create: boolean, showType?: boolean): AutocompleteConfig<any> | null {
-    if (isRuntimeEmbedded(type) || runtimeTypeName(type) == IsByAll)
+  export function getAutoComplete(type: TypeReference, findOptions: FindOptions | undefined, findOptionsDictionary: { [typeName: string]: FindOptions } | undefined, ctx: TypeContext<any>, create: boolean, showType?: boolean): AutocompleteConfig<any> | null {
+    if (type.is(EmbeddedEntity) || type.isByAll())
       return null;
 
-    let types = tryGetTypeInfos(runtimeTypeName(type)).notNull();
+    let types = tryGetTypeInfos(type.getTypeName() ?? "").notNull();
     showType ??= types.length > 1;
 
     types = types.filter(t => isFindable(t, { fullScreenSearch: false }));
@@ -944,8 +944,8 @@ export namespace Navigator {
   }
 
 
-  export function getAutocompleteConstructors(tr: RuntimeType, str: string, aac: AutocompleteConstructorContext): AutocompleteConstructor<ModifiableEntity>[] {
-    return getTypeInfos(runtimeTypeName(tr)).map(ti => {
+  export function getAutocompleteConstructors(tr: TypeReference, str: string, aac: AutocompleteConstructorContext): AutocompleteConstructor<ModifiableEntity>[] {
+    return getTypeInfos(tr.getTypeName() ?? "").map(ti => {
       var es = getSettings(ti);
 
       if (es == null || es.autocompleteConstructor == null)
@@ -1411,22 +1411,24 @@ export namespace Navigator {
   // ALTEA: overloaded to also accept a type NAME string — the Lines layer (EntityBase) carries a
   // FieldInfo (whose `.typeName` is a plain name), not a query-column RuntimeType. Signum's single
   // TypeReference covered both; here the string form is the field-line path.
-  export function defaultFindOptions(type: RuntimeType): FindOptions | undefined;
+  export function defaultFindOptions(type: TypeReference): FindOptions | undefined;
   export function defaultFindOptions(typeName: string): FindOptions | undefined;
-  export function defaultFindOptions(type: RuntimeType | string): FindOptions | undefined {
-    const typeName = typeof type == "string" ? type : runtimeTypeName(type);
-    if ((typeof type != "string" && isRuntimeEmbedded(type)) || typeName == IsByAll)
+  export function defaultFindOptions(type: TypeReference | string): FindOptions | undefined {
+    if (typeof type != "string" && (type.is(EmbeddedEntity) || type.isByAll()))
       return undefined;
-    // TODO(port): polymorphic @implementedBy uses the FIRST impl only (runtimeTypeName gives one name).
+    const typeName = typeof type == "string" ? type : (type.getTypeName() ?? "");
+    if (typeName == IsByAll)
+      return undefined;
+    // TODO(port): polymorphic @implementedBy uses the FIRST impl only (getTypeName gives one name).
     return getSettings(typeName)?.defaultFindOptions;
   }
 
   // ---- entity autocomplete (AutoCompleteConfig; Finder query APIs + Typeahead) ----
-  export function getAutoComplete(type: RuntimeType, findOptions: FindOptions | undefined, findOptionsDictionary: { [typeName: string]: FindOptions } | undefined, ctx: TypeContext<any>, create: boolean, showType?: boolean): AutocompleteConfig<any> | null {
-    if (isRuntimeEmbedded(type) || runtimeTypeName(type) == IsByAll)
+  export function getAutoComplete(type: TypeReference, findOptions: FindOptions | undefined, findOptionsDictionary: { [typeName: string]: FindOptions } | undefined, ctx: TypeContext<any>, create: boolean, showType?: boolean): AutocompleteConfig<any> | null {
+    if (type.is(EmbeddedEntity) || type.isByAll())
       return null;
 
-    let types = tryGetTypeInfos(runtimeTypeName(type)).notNull();
+    let types = tryGetTypeInfos(type.getTypeName() ?? "").notNull();
     showType ??= types.length > 1;
 
     types = types.filter(t => isFindable(cleanTypeName(t.ctor!), { fullScreenSearch: false }));

@@ -1,9 +1,7 @@
 import { Entity, EmbeddedEntity, ModelEntity } from "../entity";
 import { cleanTypeName } from "../registration";
 import { niceName } from "../utils/localization";
-import {
-    RuntimeType, ClassType, LiteType, EnumType, TemporalType, LiteralType,
-} from "../runtimeTypes";
+import type { TypeReference } from "../reflection";
 
 // A query's name (Signum's `object queryName`): an entity constructor (the common case —
 // "the Album query") or a bare string key.
@@ -15,62 +13,39 @@ export type { FilterType } from "../dynamicQueries";
 export { FilterTypeEnum } from "../dynamicQueries";
 import type { FilterType } from "../dynamicQueries";
 
-function isEntityCtor(ctor: Function): boolean {
-    return ctor === Entity || ctor.prototype instanceof Entity;
-}
-
-// Port of Signum's `QueryUtils.TryGetFilterType`, over an altea `RuntimeType`.
-//
-// Divergence: altea's RuntimeType collapses `int`/`number` to `LiteralType.number`, so this
-// returns `"Integer"` for every plain number — the Integer-vs-Decimal split needs the
-// field's declared typeName ("Decimal"), which only a PropertyRoute/FieldInfo carries.
-// `tryGetFilterTypeFromTypeName` below refines it when that context is available.
-export function tryGetFilterType(type: RuntimeType): FilterType | undefined {
-    if (type instanceof EnumType)
+// Port of Signum's `QueryUtils.TryGetFilterType`, over an altea `TypeReference`. Unlike the old
+// RuntimeType form this needs no `fromTypeName` refinement: the TypeReference carries `typeName` +
+// `subTypeName`, so the Integer-vs-Decimal split is recovered directly.
+export function tryGetFilterType(type: TypeReference): FilterType | undefined {
+    if (type.getEnum() != undefined)
         return "Enum";
 
-    // A Lite<T>, or a full entity reference — Signum maps both to "Lite".
-    if (type instanceof LiteType)
+    // A Lite<T>, or a full/polymorphic entity reference — Signum maps all to "Lite".
+    if (type.lite || type.is(Entity))
         return "Lite";
+    if (type.is(EmbeddedEntity))
+        return "Embedded";
+    if (type.is(ModelEntity))
+        return "Model";
 
-    if (type instanceof TemporalType)
-        return type.kind === "duration" ? "Time" : "DateTime";
-
-    if (type === LiteralType.boolean)
-        return "Boolean";
-    if (type === LiteralType.number)
-        return "Integer";
-    if (type === LiteralType.string)
-        return "String";
-
-    if (type instanceof ClassType) {
-        const c = type.constructorFunction;
-        if (isEntityCtor(c))
-            return "Lite";
-        if (c.prototype instanceof EmbeddedEntity)
-            return "Embedded";
-        if (c.prototype instanceof ModelEntity)
-            return "Model";
+    switch (type.typeName) {
+        case "Boolean": return "Boolean";
+        case "String": return "String";
+        case "Guid": return "Guid";
+        case "Decimal": return "Decimal";
+        case "Number": return type.subTypeName === "decimal" ? "Decimal" : "Integer";
+        case "PlainDate":
+        case "PlainDateTime": return "DateTime";
+        case "Duration":
+        case "PlainTime": return "Time";
     }
-
     return undefined;
 }
 
-// Refine `tryGetFilterType` with the field's declared typeName, recovering the split altea's
-// RuntimeType loses: "Decimal" → Decimal, "Number" → Integer. Other typeNames defer to the
-// RuntimeType classification.
-export function tryGetFilterTypeFromTypeName(typeName: string | undefined, type: RuntimeType): FilterType | undefined {
-    if (typeName === "Decimal")
-        return "Decimal";
-    if (typeName === "Number")
-        return "Integer";
-    return tryGetFilterType(type);
-}
-
-export function getFilterType(type: RuntimeType): FilterType {
+export function getFilterType(type: TypeReference): FilterType {
     const ft = tryGetFilterType(type);
     if (ft == undefined)
-        throw new Error(`Type ${type.constructor.name} not supported`);
+        throw new Error(`Type ${type.getTypeName() ?? "?"} not supported`);
     return ft;
 }
 

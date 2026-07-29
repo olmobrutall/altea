@@ -9,52 +9,49 @@
 // DESERIALIZES. It maps the value objects a token carries — RuntimeType, Implementations, PropertyRoute
 // — to/from their name-based wire forms (a ctor can't cross the wire; its clean name can).
 
-import { cleanTypeName, resolveCleanType, resolveEnum } from "../registration";
-import {
-    RuntimeType, ClassType, LiteType, ArrayType, LiteralType, TemporalType, EnumType,
-} from "../runtimeTypes";
+import { cleanTypeName, resolveCleanType, resolveEnum, enumNameOf } from "../registration";
+import { TypeReference, type TypeName, type SubTypeName } from "../reflection";
 import { Implementations } from "../implementations";
 import { PropertyRoute } from "../propertyRoute";
 import type { QueryToken } from "./tokens/queryToken";
 import { ExtensionToken, type ExtensionInfo } from "./tokens/extensionToken";
 
-// ---- RuntimeType <-> JSON --------------------------------------------------------------------
+// ---- TypeReference <-> JSON ------------------------------------------------------------------
+// A ctor/enum can't cross the wire — its clean name can; the client rebuilds the `type` thunk via the
+// registry (resolveCleanType / resolveEnum). Value types travel as typeName + subTypeName.
 
-export type RuntimeTypeJson =
-    | { k: "class"; type: string }
-    | { k: "lite"; inner: RuntimeTypeJson }
-    | { k: "array"; inner: RuntimeTypeJson }
-    | { k: "lit"; t: "boolean" | "number" | "string" | "null" }
-    | { k: "temporal"; kind: "dateTime" | "date" | "duration" }
-    | { k: "enum"; name: string };
-
-export function serializeRuntimeType(rt: RuntimeType): RuntimeTypeJson {
-    if (rt instanceof ClassType) return { k: "class", type: cleanTypeName(rt.constructorFunction) };
-    if (rt instanceof LiteType) return { k: "lite", inner: serializeRuntimeType(rt.entityType) };
-    if (rt instanceof ArrayType) return { k: "array", inner: serializeRuntimeType(rt.elementType!) };
-    if (rt instanceof LiteralType) return { k: "lit", t: rt.typeName };
-    if (rt instanceof TemporalType) return { k: "temporal", kind: rt.kind };
-    if (rt instanceof EnumType) return { k: "enum", name: rt.enumName };
-    throw new Error(`serializeRuntimeType: unsupported RuntimeType ${rt.constructor.name} in a query token`);
+export interface TypeReferenceJson {
+    typeName?: TypeName;
+    subTypeName?: SubTypeName;
+    ref?: string;                    // clean name of the referenced entity/embedded ctor or enum
+    refKind?: "class" | "enum";
+    lite?: boolean;
+    array?: boolean;
+    isNullable?: boolean;
 }
 
-export function deserializeRuntimeType(j: RuntimeTypeJson): RuntimeType {
-    switch (j.k) {
-        case "class": {
-            const ctor = resolveCleanType(j.type);
-            if (ctor == undefined) throw new Error(`deserializeRuntimeType: type '${j.type}' is not registered`);
-            return new ClassType(ctor);
-        }
-        case "lite": return new LiteType(deserializeRuntimeType(j.inner));
-        case "array": return new ArrayType(deserializeRuntimeType(j.inner));
-        case "lit": return LiteralType[j.t];
-        case "temporal": return new TemporalType(j.kind);
-        case "enum": {
-            const e = resolveEnum(j.name);
-            if (e == undefined) throw new Error(`deserializeRuntimeType: enum '${j.name}' is not registered`);
-            return new EnumType(e, j.name);
-        }
+export function serializeTypeReference(tr: TypeReference): TypeReferenceJson {
+    const j: TypeReferenceJson = {};
+    const ctor = tr.getFunction();
+    const en = tr.getEnum();
+    if (ctor != undefined) { j.ref = cleanTypeName(ctor); j.refKind = "class"; }
+    else if (en != undefined) { j.ref = enumNameOf(en) ?? ""; j.refKind = "enum"; }
+    else { j.typeName = tr.typeName; if (tr.subTypeName != undefined) j.subTypeName = tr.subTypeName; }
+    if (tr.lite) j.lite = true;
+    if (tr.array) j.array = true;
+    if (tr.isNullable) j.isNullable = true;
+    return j;
+}
+
+export function deserializeTypeReference(j: TypeReferenceJson): TypeReference {
+    const tr = new TypeReference({ typeName: j.typeName, subTypeName: j.subTypeName, lite: j.lite, array: j.array, isNullable: j.isNullable });
+    if (j.ref != undefined) {
+        const name = j.ref;
+        tr.type = j.refKind === "enum"
+            ? () => { const e = resolveEnum(name); if (e == undefined) throw new Error(`deserializeTypeReference: enum '${name}' is not registered`); return e; }
+            : () => { const c = resolveCleanType(name); if (c == undefined) throw new Error(`deserializeTypeReference: type '${name}' is not registered`); return c; };
     }
+    return tr;
 }
 
 // ---- Implementations <-> JSON (the @implementedBy clean-name list, or "[ALL]") ---------------
@@ -84,7 +81,7 @@ export interface ServerTokenJson {
     tokenType: "Extension";
     key: string;
     niceName: string;
-    resultType: RuntimeTypeJson;
+    resultType: TypeReferenceJson;
     isProjection: boolean;
     implementations?: string;
     propertyRoute?: string;
@@ -107,7 +104,7 @@ export function serializeServerToken(token: QueryToken): ServerTokenJson {
             tokenType: "Extension",
             key: i.key,
             niceName: i.niceName(),
-            resultType: serializeRuntimeType(i.resultType),
+            resultType: serializeTypeReference(i.resultType),
             isProjection: i.isProjection,
             implementations: serializeImplementations(i.implementations),
             propertyRoute: i.propertyRoute?.toString(),
@@ -126,7 +123,7 @@ export function deserializeServerToken(json: ServerTokenJson, parent: QueryToken
             const info: ExtensionInfo = {
                 key: json.key,
                 niceName: () => json.niceName,
-                resultType: deserializeRuntimeType(json.resultType),
+                resultType: deserializeTypeReference(json.resultType),
                 isProjection: json.isProjection,
                 implementations: deserializeImplementations(json.implementations),
                 propertyRoute: json.propertyRoute != undefined ? PropertyRoute.parseFull(json.propertyRoute) : undefined,

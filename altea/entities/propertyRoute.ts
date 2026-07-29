@@ -2,15 +2,12 @@ import { Entity } from './entity';
 import type { BaseEntity, Type } from './entity';
 import { typeConstructor } from './entity';
 import type { FieldInfo } from './reflection';
-import { tryGetTypeInfo, fieldType, fieldEnum, fieldTypeName } from './reflection';
+import { tryGetTypeInfo, TypeReference } from './reflection';
 import { cleanTypeName, resolveCleanType } from './registration';
 import { getLambdaMembers } from './lambdaMembers';
 import type { Quoted } from 'quote-transformer/quoted';
 import { MixinDeclarations } from './mixinDeclarations';
 import { Implementations } from './implementations';
-import {
-    RuntimeType, ClassType, LiteType, ArrayType, EnumType, TemporalType, LiteralType,
-} from './runtimeTypes';
 
 // Port of Signum's `PropertyRouteType` (Basics/PropertyRoute.cs). String-valued (not the
 // numeric C# enum) so route dumps read clearly.
@@ -20,50 +17,6 @@ export enum PropertyRouteType {
     Mixin = "Mixin",
     LiteEntity = "LiteEntity",
     MListItems = "MListItems",
-}
-
-// A field's altea RuntimeType (Phase-0 counterpart of the binder's private `baseTypeOfFieldInfo`,
-// with container flags applied). Diverges from the binder in one place: an enum field yields a
-// real `EnumType` here (the token layer classifies enums — IsGroupable, sub-tokens), whereas the
-// binder's `resolveMemberType` still returns null for enums. The two are consumed independently:
-// this feeds token metadata; expression nodes type themselves via the binder.
-function fieldRuntimeType(fi: FieldInfo): RuntimeType {
-    let t = baseFieldType(fi);
-    if (fi.lite)
-        t = new LiteType(t);
-    if (fi.array)
-        t = new ArrayType(t);
-    return t;
-}
-
-// An entity reference targets a concrete entity, an abstract entity base (an inheritance
-// root like AwardEntity), or the `Entity` base itself (a polymorphic @implementedBy(All)
-// reference typed as Entity/an interface). All three re-root / carry implementations.
-function isEntityCtor(ctor: Function): boolean {
-    return ctor === Entity || ctor.prototype instanceof Entity;
-}
-
-function baseFieldType(fi: FieldInfo): RuntimeType {
-    if (fi.isEnum) {
-        const e = fieldEnum(fi);
-        return e != undefined ? new EnumType(e, fieldTypeName(fi) ?? "") : LiteralType.null;
-    }
-    switch (fi.typeName) {
-        case "Number": return LiteralType.number;
-        case "String": return LiteralType.string;
-        case "Boolean": return LiteralType.boolean;
-        case "PlainDateTime": return new TemporalType("dateTime");
-        case "PlainDate": return new TemporalType("date");
-        case "Duration": return new TemporalType("duration");
-    }
-    const ctor = fieldType(fi);
-    if (ctor != undefined)
-        return new ClassType(ctor);
-    // A polymorphic reference declared with an interface type (no runtime ctor) is still an
-    // entity reference — type it as the Entity base (mirrors the binder's baseTypeOfFieldInfo).
-    if (fi.implementations != undefined)
-        return new ClassType(Entity);
-    return LiteralType.null;
 }
 
 // Faithful port of Signum's `PropertyRoute` (Basics/PropertyRoute.cs), scoped to what the
@@ -101,16 +54,17 @@ export class PropertyRoute {
         return r;
     }
 
-    // The route's runtime type.
-    get type(): RuntimeType {
+    // The route's type facet. For a field/property it IS the field's FieldInfo (a TypeReference);
+    // Root/Mixin wrap the class; MListItems unwraps the collection element; LiteEntity unwraps the Lite.
+    get type(): TypeReference {
         switch (this.propertyRouteType) {
-            case PropertyRouteType.Root: return new ClassType(this.rootCtor!);
-            case PropertyRouteType.Mixin: return new ClassType(this.mixinCtor!);
-            case PropertyRouteType.FieldOrProperty: return fieldRuntimeType(this.fieldInfo!);
-            case PropertyRouteType.MListItems: return this.parent!.type.elementType ?? LiteralType.null;
+            case PropertyRouteType.Root: return new TypeReference({ type: () => this.rootCtor! });
+            case PropertyRouteType.Mixin: return new TypeReference({ type: () => this.mixinCtor! });
+            case PropertyRouteType.FieldOrProperty: return this.fieldInfo!;
+            case PropertyRouteType.MListItems: return this.parent!.type.elementType ?? new TypeReference();
             case PropertyRouteType.LiteEntity: {
                 const p = this.parent!.type;
-                return p instanceof LiteType ? p.entityType : LiteralType.null;
+                return p.lite ? Object.assign(new TypeReference(), p, { lite: false }) : new TypeReference();
             }
         }
     }
@@ -131,10 +85,8 @@ export class PropertyRoute {
     // if it is not an entity reference (value / embedded / collection).
     private entityCtor(): Function | undefined {
         const t = this.type;
-        const ct = t instanceof LiteType ? t.entityType : t;
-        if (ct instanceof ClassType && isEntityCtor(ct.constructorFunction))
-            return ct.constructorFunction;
-        return undefined;
+        if (t.array) return undefined;                 // a collection is not a single entity reference
+        return t.is(Entity) ? t.getFunction() : undefined;
     }
 
     // The ctor whose fields the next member is read from.
@@ -142,11 +94,7 @@ export class PropertyRoute {
         switch (this.propertyRouteType) {
             case PropertyRouteType.Root: return this.rootCtor!;
             case PropertyRouteType.Mixin: return this.mixinCtor!;
-            default: {
-                const t = this.type;
-                const ct = t instanceof LiteType ? t.entityType : t;
-                return ct instanceof ClassType ? ct.constructorFunction : undefined;
-            }
+            default: return this.type.getFunction();
         }
     }
 
@@ -192,7 +140,10 @@ export class PropertyRoute {
     // (Signum's AddImp), so a sub-route belongs to that entity, not the owner. A polymorphic
     // (implementedBy-many / byAll) reference throws — cast first (AsTypeToken).
     add(member: string): PropertyRoute {
-        if (this.propertyRouteType !== PropertyRouteType.Root && this.entityCtor() != undefined) {
+        // An entity/lite reference (NOT a collection — that navigates via "Item" below) re-roots.
+        // is(Entity) also holds for a polymorphic @implementedBy interface (no single ctor), so this
+        // fires for it too — and getImplementations().only() being undefined then throws "Cast first".
+        if (this.propertyRouteType !== PropertyRouteType.Root && !this.type.array && this.type.is(Entity)) {
             const imp = this.getImplementations();
             const only = imp.only();
             if (imp.isByAll || only == undefined)
@@ -201,12 +152,12 @@ export class PropertyRoute {
         }
 
         // Collection element (Signum's "Item").
-        if ((member === "Item" || member === "item") && this.type instanceof ArrayType)
+        if ((member === "Item" || member === "item") && this.type.array)
             return new PropertyRoute(PropertyRouteType.MListItems, this, undefined, undefined, undefined);
 
         // Lite dereference (Signum's ".Entity").
         if ((member === "Entity" || member === "entity" || member === "EntityOrNull" || member === "entityOrNull")
-            && this.type instanceof LiteType)
+            && this.type.lite)
             return new PropertyRoute(PropertyRouteType.LiteEntity, this, undefined, undefined, undefined);
 
         const owner = this.ownerCtor();
@@ -236,7 +187,9 @@ export class PropertyRoute {
     // ---- Implementations -------------------------------------------------------------------
 
     tryGetImplementations(): Implementations | undefined {
-        if (this.propertyRouteType !== PropertyRouteType.Root && this.entityCtor() != undefined)
+        // An entity reference (incl. a polymorphic @implementedBy interface, which has no single ctor
+        // but is still is(Entity)); collections and value/embedded fields have none.
+        if (this.propertyRouteType !== PropertyRouteType.Root && !this.type.array && this.type.is(Entity))
             return this.getImplementations();
         return undefined;
     }

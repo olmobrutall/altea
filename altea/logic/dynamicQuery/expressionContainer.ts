@@ -2,10 +2,11 @@ import type { Quoted } from "quote-transformer/quoted";
 import { Entity } from "../../entities/entity";
 import { Implementations } from "../../entities/implementations";
 import { niceName, nicePluralName } from "../../entities/utils/localization";
-import { ClassType, ArrayType, LiteType, RuntimeType } from "../../entities/runtimeTypes";
+import { ClassType, ArrayType, LiteType, EnumType, TemporalType, LiteralType, RuntimeType } from "../runtimeTypes";
+import { TypeReference } from "../../entities/reflection";
 import { Expression, ParameterExpression } from "../linq/expressions";
 import { ExpressionVisitor } from "../linq/visitors/ExpressionVisitor";
-import { QueryToken, entityCtorOf, cleanType } from "../../entities/dynamicQuery/tokens";
+import { QueryToken, entityCtorOf } from "../../entities/dynamicQuery/tokens";
 import { extractEntity } from "./tokenExpressions";
 import { ExtensionToken, type ExtensionInfo } from "../../entities/dynamicQuery/tokens";
 import { Meta, CleanMeta } from "./meta";
@@ -47,7 +48,7 @@ export class ExpressionContainer {
         // Default niceName (Signum's WithExpressionFrom/To behaviour): when the result is an entity,
         // use the target type's NicePluralName (collection/projection) or NiceName (single); otherwise
         // fall back to the key. A thunk, since the display name is culture-dependent.
-        const targetCtor = entityCtorOf(cleanType(elementType));
+        const targetCtor = entityCtorOf(toTypeReference(elementType));
         const defaultNiceName: () => string = targetCtor != undefined
             ? (isProjection ? () => nicePluralName(targetCtor) : () => niceName(targetCtor))
             : () => key;
@@ -72,7 +73,7 @@ export class ExpressionContainer {
     // and the auth reason from the expression's Meta — while stashing the registration as the token's
     // opaque `serverInfo` so buildExtension can inline the lambda.
     getExtensionsTokens(parent: QueryToken): QueryToken[] {
-        const ctor = entityCtorOf(cleanType(parent.type));
+        const ctor = entityCtorOf(parent.type);
         if (ctor == undefined)
             return [];
         const out: QueryToken[] = [];
@@ -93,7 +94,7 @@ export class ExpressionContainer {
         return {
             key: reg.key,
             niceName: reg.niceName,
-            resultType: reg.resultType,
+            resultType: toTypeReference(reg.resultType),
             isProjection: reg.isProjection,
             implementations: reg.implementations,
             propertyRoute,
@@ -136,10 +137,21 @@ function tailMember(node: unknown): string {
 }
 
 function autoImplementations(elementType: RuntimeType): Implementations | undefined {
-    const ct = cleanType(elementType);
-    const ctor = ct instanceof ClassType && (ct.constructorFunction === Entity || ct.constructorFunction.prototype instanceof Entity)
-        ? ct.constructorFunction : undefined;
+    const ctor = entityCtorOf(toTypeReference(elementType));
     return ctor != undefined ? Implementations.by(ctor) : undefined;
+}
+
+// Map an expression's RuntimeType (the server query engine's type system) to the client-facing
+// TypeReference an extension token carries. The one place a RuntimeType→TypeReference bridge is needed:
+// extension tokens are server-produced, so their result type is derived from the built expression.
+export function toTypeReference(rt: RuntimeType): TypeReference {
+    if (rt instanceof ArrayType) return Object.assign(toTypeReference(rt.elementType!), { array: true });
+    if (rt instanceof LiteType) return Object.assign(toTypeReference(rt.entityType), { lite: true });
+    if (rt instanceof ClassType) return new TypeReference({ type: () => rt.constructorFunction });
+    if (rt instanceof EnumType) return new TypeReference({ type: () => rt.enumObject });
+    if (rt instanceof TemporalType) return new TypeReference({ typeName: rt.kind === "date" ? "PlainDate" : rt.kind === "duration" ? "Duration" : "PlainDateTime" });
+    if (rt instanceof LiteralType) return new TypeReference({ typeName: rt.typeName === "boolean" ? "Boolean" : rt.typeName === "string" ? "String" : rt.typeName === "number" ? "Number" : "String" });
+    return new TypeReference();
 }
 
 // Replaces the lambda's parameter with the parent expression when inlining a registered expression.

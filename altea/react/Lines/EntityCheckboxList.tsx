@@ -17,7 +17,6 @@ import { Lite } from '../../entities/lite'
 import { EntityListBaseController, type EntityListBaseProps } from './EntityListBase'
 import { useController } from './LineBase'
 import { normalizeEmptyArray } from './EntityCombo'
-import { fieldTypeName } from '../../entities/reflection'
 import { Navigator } from '../Navigator'
 import { GroupHeader, type HeaderType } from './GroupHeader'
 
@@ -146,7 +145,7 @@ export function EntityCheckboxListSelect<R extends BaseEntity>(props: EntityChec
   React.useEffect(() => {
     if (p.data) {
       if (requestStarted.current)
-        console.warn(`The 'data' was set too late. Consider using [] as default value to avoid automatic query. EntityCheckboxList: ${fieldTypeName(p.type!)}`);
+        console.warn(`The 'data' was set too late. Consider using [] as default value to avoid automatic query. EntityCheckboxList: ${p.type!.getTypeName()}`);
       setData(p.data);
     } else {
       requestStarted.current = true;
@@ -157,11 +156,11 @@ export function EntityCheckboxListSelect<R extends BaseEntity>(props: EntityChec
       }
       else {
         // ALTEA: options come from the @valueField's type (Signum used getLiteFromElement/typeReference).
-        Finder.API.fetchAllLites({ types: fieldTypeName(c.getValueField()!) ?? "" })
+        Finder.API.fetchAllLites({ types: c.getValueField()!.getTypeName() ?? "" })
           .then(data => setData(data.orderBy(a => a.toString())));
       }
     }
-  }, [normalizeEmptyArray(p.data), fieldTypeName(p.type!), p.deps, p.findOptions && Finder.findOptionsPath(p.findOptions)]);
+  }, [normalizeEmptyArray(p.data), p.type!.getTypeName(), p.deps, p.findOptions && Finder.findOptionsPath(p.findOptions)]);
 
 
   return (

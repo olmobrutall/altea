@@ -1,6 +1,6 @@
 import type { PropertyRoute } from "../../propertyRoute";
 import type { Implementations } from "../../implementations";
-import { RuntimeType, ClassType, LiteType, ArrayType } from "../../runtimeTypes";
+import { TypeReference } from "../../reflection";
 import { QueryToken, SubTokensOptions, entityCtorOf } from "./queryToken";
 
 // Signum's CollectionAnyAllType (DynamicQuery/Tokens/CollectionAnyAllToken.cs).
@@ -18,7 +18,7 @@ export enum CollectionAnyAllType {
 // the group binds the element parameter, so inner conditions on the element AND on the outer row
 // combine inside one quantifier.
 export class CollectionAnyAllToken extends QueryToken {
-    readonly elementType: RuntimeType;
+    readonly elementType: TypeReference;
 
     constructor(private readonly _parent: QueryToken, public readonly anyAllType: CollectionAnyAllType) {
         super();
@@ -35,10 +35,10 @@ export class CollectionAnyAllToken extends QueryToken {
     override toString(): string { return this.anyAllType; }
     niceName(): string { return `${this.anyAllType} of ${this._parent.toString()}`; }
 
-    get type(): RuntimeType {
-        if (this.elementType instanceof ClassType && entityCtorOf(this.elementType) != undefined)
-            return new LiteType(this.elementType);
-        return this.elementType;
+    get type(): TypeReference {
+        return entityCtorOf(this.elementType) != undefined
+            ? Object.assign(new TypeReference(), this.elementType, { lite: true })
+            : this.elementType;
     }
 
     get format(): string | undefined { return this._parent.format; }
@@ -48,7 +48,7 @@ export class CollectionAnyAllToken extends QueryToken {
 
     getPropertyRoute(): PropertyRoute | undefined {
         const pr = this._parent.getPropertyRoute();
-        if (pr != undefined && pr.type instanceof ArrayType)
+        if (pr != undefined && pr.type.array)
             return pr.add("Item");
         return pr;
     }

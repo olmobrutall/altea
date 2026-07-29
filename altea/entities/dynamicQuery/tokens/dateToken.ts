@@ -1,7 +1,7 @@
 import type { PropertyRoute } from "../../propertyRoute";
 import type { Implementations } from "../../implementations";
-import { RuntimeType, TemporalType } from "../../runtimeTypes";
-import { QueryToken, SubTokensOptions } from "./queryToken";
+import type { TypeReference } from "../../reflection";
+import { QueryToken, SubTokensOptions, TR_DATE } from "./queryToken";
 
 // Port of Signum's `DateToken`: the date (day-truncated) part of a date/time — `dt.date`
 // (Signum's ToDateOnly). Groupable.
@@ -14,7 +14,7 @@ export class DateToken extends QueryToken {
     get key(): string { return "Date"; }
     override toString(): string { return "Date"; }
     niceName(): string { return `Date of ${this._parent.toString()}`; }
-    get type(): RuntimeType { return new TemporalType("date"); }
+    get type(): TypeReference { return TR_DATE; }
     get format(): string | undefined { return "d"; }
     get unit(): string | undefined { return undefined; }
     override get isGroupable(): boolean { return true; }

@@ -2,9 +2,9 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "@altea/altea/entities/globals";
 import { PropertyRoute } from "@altea/altea/entities/propertyRoute";
-import { LiteralType } from "@altea/altea/entities/runtimeTypes";
+import { TypeReference } from "@altea/altea/entities/reflection";
 import {
-    tryGetFilterType, tryGetFilterTypeFromTypeName, getKey, getNiceName, type FilterType,
+    tryGetFilterType, getKey, getNiceName, type FilterType,
 } from "@altea/altea/entities/dynamicQuery/queryUtils";
 import {
     AlbumEntity, AlbumEntity_Songs, LabelEntity, ArtistEntity,
@@ -37,10 +37,11 @@ describe("QueryUtils.tryGetFilterType", () => {
         assert.equal(ft(AlbumEntity, "bonusTrack"), "Embedded");
     });
 
-    test("Integer/Decimal split via typeName", () => {
-        assert.equal(tryGetFilterTypeFromTypeName("Decimal", LiteralType.number), "Decimal");
-        assert.equal(tryGetFilterTypeFromTypeName("Number", LiteralType.number), "Integer");
-        assert.equal(tryGetFilterTypeFromTypeName("String", LiteralType.string), "String");
+    test("Integer/Decimal split via typeName + subTypeName", () => {
+        assert.equal(tryGetFilterType(new TypeReference({ typeName: "Decimal" })), "Decimal");
+        assert.equal(tryGetFilterType(new TypeReference({ typeName: "Number", subTypeName: "decimal" })), "Decimal");
+        assert.equal(tryGetFilterType(new TypeReference({ typeName: "Number" })), "Integer");
+        assert.equal(tryGetFilterType(new TypeReference({ typeName: "String" })), "String");
     });
 });
 

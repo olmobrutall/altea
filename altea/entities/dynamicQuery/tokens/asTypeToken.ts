@@ -2,7 +2,7 @@ import { PropertyRoute } from "../../propertyRoute";
 import { Implementations } from "../../implementations";
 import { cleanTypeName } from "../../registration";
 import { niceName } from "../../utils/localization";
-import { RuntimeType, ClassType, LiteType } from "../../runtimeTypes";
+import { TypeReference } from "../../reflection";
 import { QueryToken, SubTokensOptions } from "./queryToken";
 
 // Port of Signum's `AsTypeToken`: casts a polymorphic (@implementedBy) reference to one concrete
@@ -20,7 +20,7 @@ export class AsTypeToken extends QueryToken {
     get key(): string { return `(${cleanTypeName(this.entityCtor)})`; }
     override toString(): string { return `As ${niceName(this.entityCtor)}`; }
     niceName(): string { return `${this._parent.toString()} as ${niceName(this.entityCtor)}`; }
-    get type(): RuntimeType { return new LiteType(new ClassType(this.entityCtor)); }
+    get type(): TypeReference { return new TypeReference({ type: () => this.entityCtor, lite: true }); }
     get format(): string | undefined { return undefined; }
     get unit(): string | undefined { return undefined; }
     getImplementations(): Implementations | undefined { return Implementations.by(this.entityCtor); }

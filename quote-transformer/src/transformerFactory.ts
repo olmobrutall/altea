@@ -791,7 +791,7 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
   // First arg is always the element/inner type; second arg is an options object when needed.
   // e.g. @field(() => Person, { array: true }) for Person[]
   //      @field(() => Person, { lite: true }) for Lite<Person>
-  //      @field(() => Number, { name: "int", nullable: true, array: true }) for (int | null)[]
+  //      @field(() => Number, { subTypeName: "int", nullable: true, array: true }) for (int | null)[]
   // The container is described by boolean flags (lite / array) rather than a
   // runtime `() => Lite`/`() => Array` reference — so the transformer never emits
   // a value reference to the imported `Lite` type (which TS would elide).
@@ -799,7 +799,7 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     const resolved = resolveElementType(typeNode, false);
     if (resolved == null) return null;
 
-    const { typeName, name, nullable, lite, array, isEnum, thunkNode } = resolved;
+    const { typeName, subTypeName, nullable, lite, array, thunkNode } = resolved;
 
     const props: ts.ObjectLiteralElementLike[] = [];
     if (thunkNode != null) {
@@ -822,23 +822,21 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     } else {
       props.push(ts.factory.createPropertyAssignment("typeName", ts.factory.createStringLiteral(typeName)));
     }
-    if (name != null)
-      props.push(ts.factory.createPropertyAssignment("name", ts.factory.createStringLiteral(name)));
+    if (subTypeName != null)
+      props.push(ts.factory.createPropertyAssignment("subTypeName", ts.factory.createStringLiteral(subTypeName)));
     if (nullable === true)
       props.push(ts.factory.createPropertyAssignment("nullable", ts.factory.createTrue()));
     if (lite === true)
       props.push(ts.factory.createPropertyAssignment("lite", ts.factory.createTrue()));
     if (array === true)
       props.push(ts.factory.createPropertyAssignment("array", ts.factory.createTrue()));
-    if (isEnum === true)
-      props.push(ts.factory.createPropertyAssignment("enum", ts.factory.createTrue()));
 
     return [ts.factory.createObjectLiteralExpression(props)];
   }
 
   interface ElementTypeResult {
     typeName: string;
-    name?: string;
+    subTypeName?: string;
     nullable?: true;
     lite?: true;
     array?: true;
@@ -934,12 +932,12 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     }
 
     if (ts.isTypeReferenceNode(type) && !type.typeArguments?.length && ts.isIdentifier(type.typeName)) {
-      // Primitive alias: type int = number  →  @field({ typeName: "Number", name: "int" })
+      // Primitive alias: type int = number  →  @field({ typeName: "Number", subTypeName: "int" })
       const alias = resolvePrimitiveAlias(type);
       if (alias != null) {
         return {
           typeName: alias.constructorName,
-          name: alias.aliasName,
+          subTypeName: alias.aliasName,
           nullable: elementNullable,
         };
       }

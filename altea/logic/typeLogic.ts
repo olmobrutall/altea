@@ -2,7 +2,7 @@ import { Connector } from "./connection/connector";
 import { cleanTypeName } from "../entities/registration";
 import { TypeEntity } from "../entities/typeEntity";
 import { quotedFunction } from "./query";
-import { ClassType } from "../entities/runtimeTypes";
+import { ClassType } from "./runtimeTypes";
 import type { PrimaryKey } from "../entities/entity";
 import type { Schema } from "./schema/schema";
 import type { Table } from "./schema/table";

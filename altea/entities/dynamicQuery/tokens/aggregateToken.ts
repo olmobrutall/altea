@@ -1,7 +1,7 @@
 import type { PropertyRoute } from "../../propertyRoute";
 import type { Implementations } from "../../implementations";
-import { RuntimeType, LiteralType } from "../../runtimeTypes";
-import { QueryToken, SubTokensOptions } from "./queryToken";
+import type { TypeReference } from "../../reflection";
+import { QueryToken, SubTokensOptions, TR_INT } from "./queryToken";
 import type { QueryName } from "../queryUtils";
 
 // Signum's AggregateFunction (DynamicQuery/Tokens/AggregateToken.cs).
@@ -53,9 +53,9 @@ export class AggregateToken extends QueryToken {
     override toString(): string { return this._parent == undefined ? this.aggregateFunction : `${this.aggregateFunction} of ${this._parent.toString()}`; }
     niceName(): string { return this.toString(); }
 
-    get type(): RuntimeType {
+    get type(): TypeReference {
         if (this.aggregateFunction === AggregateFunction.Count || this.aggregateFunction === AggregateFunction.Average)
-            return LiteralType.number;
+            return TR_INT;
         return this._parent!.type; // Sum / Min / Max keep the aggregated value's type
     }
 
