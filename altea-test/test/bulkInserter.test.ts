@@ -40,7 +40,7 @@ describe("BulkInserterTest", { skip: !hasDb }, () => {
             otherAwards: [],
         }));
 
-        const n = await BulkInserter.bulkInsert(bands, b => b.name);
+        const n = await BulkInserter.bulkInsertQueryIds(bands, b => b.name);
 
         assert.equal(n, 3);
         assert.ok(bands.every(b => b.id != null && !b.isNew), "band ids assigned via key query-back");

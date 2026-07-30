@@ -153,6 +153,14 @@ export abstract class Entity extends BaseEntity {
      * `lite.entity` / `lite.entityOrNull` resolve without a round-trip. Needed
      * for new (unsaved) entities and for LINQ navigation through the lite.
      */
+    /**
+     * Builds a thin {@link Lite} from just an id (Signum's `Lite.Create<T>(id)`) — used when you
+     * hold a foreign-key value but not the entity, e.g. bulk loaders: `EmployeeEntity.newLite(id, "")`.
+     */
+    static newLite<T extends Entity>(this: Type<T>, id: PrimaryKey, toStr = ""): Lite<T> {
+        return new LiteImp<T>(id, this, toStr);
+    }
+
     toLite(fat?: boolean): Lite<this>;
     toLite(model: string): Lite<this>;
     toLite(fat: boolean | string = false): Lite<this> {

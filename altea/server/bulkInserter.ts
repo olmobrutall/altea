@@ -19,14 +19,20 @@ import { table as queryTable } from './table';
 //
 //   - bulkInsertTable(entities): one table only, via the connector. Identity PKs are left to
 //     the database (omitted from the copy, not read back); a non-identity PK (uuid/enum) is
-//     copied as-is. No collections.
-//   - bulkInsert(entities, keySelector): the whole entity. Bulk-copy the main rows, query the
-//     new rows back and assign ids by `keySelector` (a plain in-memory function returning a
-//     unique scalar or tuple), then wire and bulk-copy each collection (one level, as Signum).
+//     copied as-is. No collections (Signum's BulkInsertTable).
+//   - bulkInsert(entities): the whole entity graph WITHOUT querying ids back (Signum's BulkInsert).
+//     Preset ids (Signum's disableIdentity) are copied as-is and owned collections cascade. If the
+//     entities have owned collections but database-generated ids, it throws — the collection rows
+//     carry the owner id as a back-reference FK, which is unknown until queried back, so use
+//     bulkInsertQueryIds instead.
+//   - bulkInsertQueryIds(entities, keySelector): Signum's BulkInsertQueryIds. Bulk-copy the main
+//     rows on an identity table, query the just-inserted rows back (id > max) and match them to the
+//     in-memory entities by `keySelector` (a plain in-memory function returning a unique scalar or
+//     tuple) to learn the generated ids, then wire and bulk-copy each collection (one level).
 
 export namespace BulkInserter {
     // Bulk-inserts the rows of a single table (no collections). For an identity table the
-    // generated ids are NOT retrieved (use bulkInsert with a key selector when you need them).
+    // generated ids are NOT retrieved (use bulkInsertQueryIds when you need them).
     export function bulkInsertTable<T extends Entity>(entities: T[]): Promise<number> {
         return Transaction.create(async () => {
             assertAllNew(entities);
@@ -40,10 +46,34 @@ export namespace BulkInserter {
         });
     }
 
-    // Bulk-inserts entities and their collection children. `keySelector` must return a value
-    // unique per entity (used to match the queried-back rows to the in-memory entities on an
-    // identity table). Ignored for a non-identity table, whose ids are already known.
-    export function bulkInsert<T extends Entity>(entities: T[], keySelector: (e: T) => unknown): Promise<number> {
+    // Signum's BulkInsert: bulk-insert entities + cascade their owned collections, WITHOUT a
+    // query-back. Preset ids (disableIdentity) copy as-is; identity entities are allowed only when
+    // they carry no populated owned collection (their generated ids can't be matched to the
+    // collection rows without a key — use bulkInsertQueryIds).
+    export function bulkInsert<T extends Entity>(entities: T[]): Promise<number> {
+        return Transaction.create(async () => {
+            assertAllNew(entities);
+            if (entities.length === 0) return 0;
+
+            const generated = entities[0].id == null;
+            if (generated && hasPopulatedOwnedCollections(entities))
+                throw new Error(
+                    `bulkInsert of ${entities[0].constructor.name}: the entities have owned collections (MList) but ` +
+                    `database-generated ids. Use bulkInsertQueryIds(entities, keySelector) to query the ids back, or ` +
+                    `preset entity.id before calling.`);
+
+            await bulkCopyOneTable(entities);
+            for (const e of entities) e.isNew = false;
+            await insertOwnedCollections(entities);
+            for (const e of entities) cleanModified(e);
+            return entities.length;
+        });
+    }
+
+    // Signum's BulkInsertQueryIds: bulk-copy the main (identity) rows, query them back to learn the
+    // generated ids (matched by `keySelector`), then cascade the owned collections. `keySelector`
+    // must return a value unique per entity; it is ignored for preset-id (non-identity) entities.
+    export function bulkInsertQueryIds<T extends Entity>(entities: T[], keySelector: (e: T) => unknown): Promise<number> {
         return Transaction.create(() => bulkInsertGraph(entities, keySelector));
     }
 }
@@ -62,9 +92,10 @@ async function bulkInsertGraph<T extends Entity>(entities: T[], keySelector: (e:
     const generated = entities[0].id == null;
     if (generated && !table.primaryKey.column.identity)
         throw new Error(
-            `bulkInsert of ${ctor.name}: database-generated non-identity keys (e.g. UUID) are not supported; assign ids before bulk-inserting.`);
+            `bulkInsertQueryIds of ${ctor.name}: database-generated non-identity keys (e.g. UUID) are not supported; assign ids before bulk-inserting.`);
 
-    // The largest existing id, so the post-copy query only reads back the rows we just added.
+    // The largest existing id, so the post-copy query only reads back the rows we just added
+    // (Signum's GetFilterAutomatic: a => a.Id > max).
     const maxBefore = generated ? ((await queryTable(ctor).max(a => a.id as number)) ?? 0) : 0;
 
     await bulkCopyOneTable(entities);
@@ -75,9 +106,18 @@ async function bulkInsertGraph<T extends Entity>(entities: T[], keySelector: (e:
     for (const e of entities)
         e.isNew = false;
 
-    // Collections: now that the owners carry ids, wire each child (back-reference FK to the
-    // owner + row order) and bulk-copy them grouped by child table. One level, like Signum's
-    // BulkInsertMLists — a child's own id is never needed, so it is not queried back.
+    await insertOwnedCollections(entities);
+
+    for (const e of entities)
+        cleanModified(e);
+
+    return entities.length;
+}
+
+// Cascade the owned collections (Signum's BulkInsertMLists): now that the owners carry ids, wire
+// each child (back-reference FK to the owner + @rowOrder) and bulk-copy them grouped by child table.
+// One level — a child's own id is never needed, so it is not queried back.
+async function insertOwnedCollections(entities: Entity[]): Promise<void> {
     for (const e of entities)
         wireOwnedChildren(e);
 
@@ -100,11 +140,20 @@ async function bulkInsertGraph<T extends Entity>(entities: T[], keySelector: (e:
             cleanModified(c);
         }
     }
+}
 
-    for (const e of entities)
-        cleanModified(e);
-
-    return entities.length;
+// True if any entity carries a non-empty owned entity-collection (an MList). Used to reject an
+// identity bulkInsert whose collection rows would need the owner's generated id.
+function hasPopulatedOwnedCollections(entities: Entity[]): boolean {
+    for (const e of entities) {
+        let found = false;
+        forEachField(e, (fi, value) => {
+            if (fi.array && Array.isArray(value) && value.length > 0 && value[0] instanceof Entity)
+                found = true;
+        });
+        if (found) return true;
+    }
+    return false;
 }
 
 // Queries the rows inserted by this bulk copy (id > maxBefore) and assigns each entity its
