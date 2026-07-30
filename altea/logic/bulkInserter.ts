@@ -53,8 +53,8 @@ async function bulkInsertGraph<T extends Entity>(entities: T[], keySelector: (e:
     if (entities.length === 0) return 0;
 
     const connector = Connector.current();
-    const ctor = entities[0].constructor as new () => T;
-    const table = connector.schema.table(ctor as unknown as Type<Entity>);
+    const ctor = entities[0].constructor as Type<T>;
+    const table = connector.schema.table(ctor);
 
     // "generated" = the database assigns the PK (entities came in id-less). Query-back only
     // makes sense then, and only for a numeric identity PK (id > maxBefore isolates the new
@@ -112,7 +112,7 @@ async function bulkInsertGraph<T extends Entity>(entities: T[], keySelector: (e:
 // entities — so the selector needs no query translation, just to be derived from persisted
 // columns. Signum's BulkInsertQueryIds.
 async function assignIdsByKey<T extends Entity>(
-    entities: T[], ctor: new () => T, keySelector: (e: T) => unknown, maxBefore: number,
+    entities: T[], ctor: Type<T>, keySelector: (e: T) => unknown, maxBefore: number,
 ): Promise<void> {
     const inserted = await queryTable(ctor).filter(a => (a.id as number) > maxBefore).toArray() as T[];
 

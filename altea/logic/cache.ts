@@ -12,7 +12,7 @@
 // altea ships no controller by default, so both paths are inert until a module registers
 // one via `registerCacheController`.
 
-import type { Entity, PrimaryKey } from "../entities/entity";
+import type { Entity, PrimaryKey, Type } from "../entities/entity";
 
 export interface CacheController<T extends Entity = Entity> {
     // Whether the cache is currently serving this type (Signum's CacheController.Enabled).
@@ -23,21 +23,21 @@ export interface CacheController<T extends Entity = Entity> {
     getEntity(id: PrimaryKey): T | null;
 }
 
-const controllers = new Map<new () => Entity, CacheController>();
+const controllers = new Map<Type<Entity>, CacheController>();
 
 // Register (or replace) the cache controller for an entity type. The one hook a cache
 // module needs; everything else consults the controller through `getCacheController`.
-export function registerCacheController<T extends Entity>(ctor: new () => T, controller: CacheController<T>): void {
+export function registerCacheController<T extends Entity>(ctor: Type<T>, controller: CacheController<T>): void {
     controllers.set(ctor, controller as unknown as CacheController);
 }
 
-export function unregisterCacheController(ctor: new () => Entity): void {
+export function unregisterCacheController(ctor: Type<Entity>): void {
     controllers.delete(ctor);
 }
 
 // Signum's `Database.GetCacheController<T>()`: the enabled, loaded controller for `ctor`,
 // or null when none is registered / it's disabled. Loads on demand before returning.
-export async function getCacheController(ctor: new () => Entity): Promise<CacheController | null> {
+export async function getCacheController(ctor: Type<Entity>): Promise<CacheController | null> {
     const cc = controllers.get(ctor);
     if (cc == null || !cc.enabled)
         return null;
@@ -49,7 +49,7 @@ export async function getCacheController(ctor: new () => Entity): Promise<CacheC
 // controller, in which case the query provider keeps its references as id-only stubs
 // (the cache fills them) rather than expanding/joining them in SQL. Synchronous — the
 // binder can't await; a cache module is expected to have loaded the type beforehand.
-export function isCachedType(ctor: new () => Entity): boolean {
+export function isCachedType(ctor: Type<Entity>): boolean {
     const cc = controllers.get(ctor);
     return cc != null && cc.enabled;
 }

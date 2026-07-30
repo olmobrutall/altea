@@ -1,4 +1,4 @@
-import type { Entity } from "../../entities/entity";
+import type { Entity, Type } from "../../entities/entity";
 import { ClassType, type RuntimeType } from "../runtimeTypes";
 import { table } from "../table";
 import type { Query } from "../query";
@@ -38,7 +38,7 @@ export class AutoDynamicQueryCore implements DynamicQueryCore {
 
     // WithQuery convenience (Type 1): the query is just `table(T)`, root type known up front.
     static fromEntity(rootType: Function): AutoDynamicQueryCore {
-        return new AutoDynamicQueryCore(() => table(rootType as new () => Entity), rootType);
+        return new AutoDynamicQueryCore(() => table(rootType as Type<Entity>), rootType);
     }
 
     getRootType(): Function {

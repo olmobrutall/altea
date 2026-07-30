@@ -34,7 +34,7 @@ export namespace EntitiesServer {
         ws.get("/api/fetchAll/:type",
             { params: CustomType<{ type: string }>(), res: ArrayOf(Entity) },
             async (req, res) => {
-                const all = await table(Entity.resolveType(req.params.type) as new () => Entity).toArray();
+                const all = await table(Entity.resolveType(req.params.type)).toArray();
                 return res.jsonTyped(all);
             });
 

@@ -25,8 +25,7 @@ export async function retrieveList<T extends Entity>(type: Type<T>, ids: Primary
     const distinct = [...new Set(ids)];
     const byId = new Map<PrimaryKey, T>();
 
-    const ctor = type as new () => T;
-    const cc = await getCacheController(ctor);
+    const cc = await getCacheController(type);
     if (cc != null) {
         for (const id of distinct) {
             const e = cc.getEntity(id) as T | null;
@@ -36,7 +35,7 @@ export async function retrieveList<T extends Entity>(type: Type<T>, ids: Primary
     } else {
         for (let i = 0; i < distinct.length; i += MAX_IN_PARAMETERS) {
             const chunk = distinct.slice(i, i + MAX_IN_PARAMETERS);
-            for (const e of await retrieveEntitiesByIds(ctor, chunk))
+            for (const e of await retrieveEntitiesByIds(type, chunk))
                 byId.set(e.id, e);
         }
     }

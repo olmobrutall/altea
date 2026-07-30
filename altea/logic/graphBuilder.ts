@@ -1,4 +1,4 @@
-import type { Entity } from "../entities/entity";
+import type { Entity, Type } from "../entities/entity";
 import type { Lite } from "../entities/lite";
 import type {
     ExecuteSymbol, DeleteSymbol,
@@ -62,10 +62,10 @@ export interface GraphRegistration {
     register(): void;
 }
 
-export function graph<T extends Entity>(type: new () => T, define: (g: GraphBuilder<T, never>) => void): GraphRegistration;
-export function graph<T extends Entity, E extends object>(type: new () => T, stateEnum: E, define: (g: GraphBuilder<T, E[keyof E]>) => void): GraphRegistration;
+export function graph<T extends Entity>(type: Type<T>, define: (g: GraphBuilder<T, never>) => void): GraphRegistration;
+export function graph<T extends Entity, E extends object>(type: Type<T>, stateEnum: E, define: (g: GraphBuilder<T, E[keyof E]>) => void): GraphRegistration;
 export function graph<T extends Entity>(
-    _type: new () => T,
+    _type: Type<T>,
     defineOrEnum: unknown,
     maybeDefine?: (g: GraphBuilder<T, any>) => void,
 ): GraphRegistration {
