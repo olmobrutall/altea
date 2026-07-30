@@ -29,6 +29,8 @@ export class CollectionAnyAllToken extends QueryToken {
     }
 
     override isCollectionToken(): boolean { return true; }
+    override isAnyOrAll(): boolean { return true; }
+    override hasAny(): boolean { return this.anyAllType == CollectionAnyAllType.Any || super.hasAny(); }
 
     get parent(): QueryToken | undefined { return this._parent; }
     get key(): string { return this.anyAllType; }

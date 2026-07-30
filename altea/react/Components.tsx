@@ -9,6 +9,7 @@ export { ErrorBoundary } from './Components/ErrorBoundary';
 
 // Bootstrap sizing token (Signum's BsSize), used by ModalFindOptions.modalSize.
 export type BsSize = "xs" | "sm" | "md" | "lg" | "xl";
+export type BsColor = "primary" | "secondary" | "success" | "danger" | "warning" | "info" | "light" | "dark";
 
 // Ported from Signum.React/Components/Basic.tsx — KeyboardEvent.key constants used by the Lines
 // value editors (number key filtering, arrow increments, etc.).

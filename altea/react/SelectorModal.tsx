@@ -9,7 +9,8 @@ import type { Lite } from '../entities/lite'
 import type { Entity, Type } from '../entities/entity'
 import { cleanTypeName } from '../entities/registration'
 import { TypeInfo } from '../entities/reflection'
-import { EnumType, getTypeInfo } from './Reflection'
+import { getTypeInfo } from './Reflection'
+import { Enum } from '../entities/enum'
 import type { BsSize } from './Components';
 import { Modal } from 'react-bootstrap';
 
@@ -197,13 +198,13 @@ namespace SelectorModal {
       });
   }
 
-  export function chooseEnum<T extends string>(enumType: EnumType<T>, values?: T[], config?: SelectorConfig<T>): Promise<T | undefined> {
-    return SelectorModal.chooseElement(values ?? enumType.values(),
+  export function chooseEnum<E extends Record<string, string | number>>(enumObj: E, values?: Extract<keyof E, string>[], config?: SelectorConfig<Extract<keyof E, string>>): Promise<Extract<keyof E, string> | undefined> {
+    return SelectorModal.chooseElement(values ?? Enum.values(enumObj),
       {
-        buttonDisplay: a => enumType.niceToString(a),
+        buttonDisplay: a => Enum.niceName(enumObj, a),
         buttonName: a => a,
-        title: SelectorMessage._0Selector.niceToString(enumType.niceTypeName()),
-        message: SelectorMessage.PleaseChooseA0ToContinue.niceToString(enumType.niceTypeName()),
+        title: SelectorMessage._0Selector.niceToString(Enum.niceTypeName(enumObj)),
+        message: SelectorMessage.PleaseChooseA0ToContinue.niceToString(Enum.niceTypeName(enumObj)),
         size: "md",
         ...config
       });

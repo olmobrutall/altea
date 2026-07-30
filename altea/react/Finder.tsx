@@ -29,7 +29,7 @@ import {
   getFilterOperations, isFilterGroup, isFilterCondition, isGroupList, toColumnOption,
 } from './FindOptions';
 // TODO(port): QueryDescriptionDTO / QueryTokenWithoutParent dropped in altea (client builds the token tree locally).
-import { completeToken, hasAggregate, hasAnyOrAll, hasElement, hasManual, hasNested, hasOperation, hasSnippet, hasTimeSeries, hasToArray, QueryToken, SubTokensOptions, type Writable } from './QueryToken';
+import { completeToken, QueryToken, SubTokensOptions, type Writable } from './QueryToken';
 import { getSubTokens as generateSubTokens, SubTokensOptionsAll } from '../entities/dynamicQuery/tokens/queryToken';
 import { RootToken } from '../entities/dynamicQuery/tokens/rootToken';
 import { QueryTokenString, type Anonymous } from './QueryTokenString';
@@ -188,7 +188,11 @@ export namespace Finder {
   export function find<T extends Entity = Entity>(findOptions: FindOptions<T>, modalOptions?: ModalFindOptions): Promise<Lite<T> | undefined>;
   export function find<T extends Entity>(type: Type<T>, modalOptions?: ModalFindOptions): Promise<Lite<T> | undefined>;
   export function find(obj: FindOptions | Type<any>, modalOptions?: ModalFindOptions): Promise<Lite<Entity> | undefined> {
-    throw new Error("TODO(port): Finder.find — the SearchControl/SearchModal layer is not ported yet");
+    const fo = (obj as FindOptions).queryName ? obj as FindOptions : { queryName: obj as Type<any> } as FindOptions;
+    if (fo.groupResults)
+      throw new Error("Use findRow instead");
+    // TODO(port): the qs.onFind override + autoSelectIfOne / autoSkipIfZero fast-paths (need fetchLites shape).
+    return Options.getSearchModal().then(m => m.default.open(fo, modalOptions)).then(a => a?.row.entity);
   }
 
   // ALTEA STUB (same rationale as `find`): the multi-select search modal is not ported yet. The entity
@@ -196,7 +200,9 @@ export namespace Finder {
   export function findMany<T extends Entity = Entity>(findOptions: FindOptions<T>, modalOptions?: ModalFindOptionsMany): Promise<Lite<T>[] | undefined>;
   export function findMany<T extends Entity>(type: Type<T>, modalOptions?: ModalFindOptionsMany): Promise<Lite<T>[] | undefined>;
   export function findMany(findOptions: FindOptions | Type<any>, modalOptions?: ModalFindOptionsMany): Promise<Lite<Entity>[] | undefined> {
-    throw new Error("TODO(port): Finder.findMany — the SearchControl/SearchModal layer is not ported yet");
+    const fo = (findOptions as FindOptions).queryName ? findOptions as FindOptions : { queryName: findOptions as Type<any> } as FindOptions;
+    // TODO(port): the qs.onFindMany override.
+    return Options.getSearchModal().then(m => m.default.openMany(fo, modalOptions)).then(a => a?.rows.map(r => r.entity!));
   }
   //
   //   export function find<T extends Entity = Entity>(findOptions: FindOptions<T>, modalOptions?: ModalFindOptions): Promise<Lite<T> | undefined>;
@@ -237,9 +243,10 @@ export namespace Finder {
   //   }
 
   export const Options = {
-    // TODO(port): SearchControl not ported — these open the search page/modal.
+    // TODO(port): SearchPage not ported yet. SearchModal IS ported (lazy dynamic import to avoid a
+    // Finder↔SearchModal module-init cycle).
     getSearchPage(): Promise<any> { throw new Error("TODO(port): SearchControl/SearchPage not ported"); },
-    getSearchModal(): Promise<any> { throw new Error("TODO(port): SearchControl/SearchModal not ported"); },
+    getSearchModal(): Promise<typeof import('./SearchControl/SearchModal')> { return import('./SearchControl/SearchModal'); },
 
     /** Extension point to override the leading content of the search page title. Used by SearchPage. */
     // TODO(port): typed against SearchControlLoaded once SearchControl lands.
@@ -442,7 +449,7 @@ export namespace Finder {
 
   export function getDefaultColumns(qd: QueryDescription): QueryToken[] {
     return Dic.getValues(qd.columns)
-      .filter(a => a.fullKey() != "Entity" && !hasAggregate(a) && !hasTimeSeries(a));
+      .filter(a => a.fullKey() != "Entity" && !a.hasAggregate() && !a.hasTimeSeries());
 
   }
 
@@ -846,7 +853,7 @@ export namespace Finder {
     if (isFilterGroup(fop))
       return fop.filters.some(f => isAggregate(f));
 
-    return fop.token != null && hasAggregate(fop.token);
+    return fop.token != null && fop.token.hasAggregate();
   }
 
   export function toFilterOptions(filterOptionsParsed: FilterOptionParsed[]): FilterOption[] {
@@ -1015,7 +1022,7 @@ export namespace Finder {
   export function getSummaryQueryRequest(fo: FindOptionsParsed): QueryRequest | null {
 
     var summaryTokens = fo.columnOptions.filter(a => a.summaryToken != undefined).map(a => a.summaryToken!)
-      .filter(a => hasAggregate(a));
+      .filter(a => a.hasAggregate());
 
     if (summaryTokens.length == 0)
       return null;
@@ -1487,15 +1494,15 @@ export namespace Finder {
 
   // Which sub-token family (if any) is disallowed by `options` — the reason, or null when allowed.
   function tokenNotAllowedReason(t: QueryToken, options: SubTokensOptions): string | null {
-    if ((options & SubTokensOptions.CanAggregate) == 0 && hasAggregate(t)) return "aggregates";
-    if ((options & SubTokensOptions.CanAnyAll) == 0 && hasAnyOrAll(t)) return "Any/All";
-    if ((options & SubTokensOptions.CanElement) == 0 && hasElement(t)) return "Element";
-    if ((options & SubTokensOptions.CanOperation) == 0 && hasOperation(t)) return "Operation";
-    if ((options & SubTokensOptions.CanToArray) == 0 && hasToArray(t)) return "ToArray";
-    if ((options & SubTokensOptions.CanSnippet) == 0 && hasSnippet(t)) return "Snippet";
-    if ((options & SubTokensOptions.CanManual) == 0 && hasManual(t)) return "Manual";
-    if ((options & SubTokensOptions.CanNested) == 0 && hasNested(t)) return "Nested";
-    if ((options & SubTokensOptions.CanTimeSeries) == 0 && hasTimeSeries(t)) return "TimeSeries";
+    if ((options & SubTokensOptions.CanAggregate) == 0 && t.hasAggregate()) return "aggregates";
+    if ((options & SubTokensOptions.CanAnyAll) == 0 && t.hasAnyOrAll()) return "Any/All";
+    if ((options & SubTokensOptions.CanElement) == 0 && t.hasElement()) return "Element";
+    if ((options & SubTokensOptions.CanOperation) == 0 && t.hasOperation()) return "Operation";
+    if ((options & SubTokensOptions.CanToArray) == 0 && t.hasToArray()) return "ToArray";
+    if ((options & SubTokensOptions.CanSnippet) == 0 && t.hasSnippet()) return "Snippet";
+    if ((options & SubTokensOptions.CanManual) == 0 && t.hasManual()) return "Manual";
+    if ((options & SubTokensOptions.CanNested) == 0 && t.hasNested()) return "Nested";
+    if ((options & SubTokensOptions.CanTimeSeries) == 0 && t.hasTimeSeries()) return "TimeSeries";
     return null;
   }
 

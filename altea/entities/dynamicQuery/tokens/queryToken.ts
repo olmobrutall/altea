@@ -57,6 +57,10 @@ function embeddedOrModelCtorOf(tr: TypeReference): Function | undefined {
 // embedded references works end to end now.
 export abstract class QueryToken {
     priority = 0;
+    // Signum's QueryToken.preferEquals: a token (id / lite / enum) that should default to the EqualTo
+    // operation when first selected in a filter. TODO(port): set true for id/lite/enum tokens; false
+    // (the base default) keeps FilterBuilder falling back to getFilterOperations().first().
+    preferEquals = false;
 
     abstract get key(): string;
     abstract toString(): string;
@@ -350,6 +354,72 @@ export abstract class QueryToken {
         if (t.array)
             return QueryTokenMessage.ListOf0.niceToString(niceTypeNameOf(t.elementType!, undefined, undefined));
         return niceTypeNameOf(t, this.filterType, this.getImplementations());
+    }
+
+    // ---- Token-category predicates (Signum's client `queryTokenType` string discriminator) --------
+    // altea has no discriminator string: the base returns false and the collection/aggregate token
+    // SUBCLASSES override their own to true (no `instanceof` in the base → no base→subclass cycle).
+    // The `has*` walkers climb the parent chain. Exposed as instance methods (were react/QueryToken
+    // free functions). `hasToArray()` is defined above (returns the ancestor token, not a boolean).
+    isAggregate(): boolean { return false; }
+    isAnyOrAll(): boolean { return false; }
+    isElement(): boolean { return false; }
+    isToArray(): boolean { return false; }
+
+    // Not-yet-ported exotic token kinds (Operation/Manual/Nested/TimeSeries/Snippet) — always false.
+    hasOperation(): boolean { return false; }
+    hasManual(): boolean { return false; }
+    hasNested(): boolean { return false; }
+    hasTimeSeries(): boolean { return false; }
+    hasSnippet(): boolean { return false; }
+
+    hasAnyOrAll(recursive: boolean = true): boolean {
+        return this.isAnyOrAll() || (recursive && (this.parent?.hasAnyOrAll() ?? false));
+    }
+    hasAny(): boolean { return this.parent?.hasAny() ?? false; }
+    hasAggregate(): boolean { return this.isAggregate(); }
+    hasElement(): boolean { return this.isElement() || (this.parent?.hasElement() ?? false); }
+
+    // Signum's getQueryTokenColor — a CSS custom-property colour for the token-tree picker, keyed by
+    // its category (keyword for aggregate/collection-nav tokens, then collection/entity-root/filterType).
+    get queryTokenColor(): string {
+        if (this.isAggregate() || this.isAnyOrAll() || this.isElement() || this.isToArray())
+            return "var(--qt-keyword)";
+        if (this.type.array)
+            return "var(--qt-collection)";
+        if (this.parent == undefined)
+            return "var(--qt-main-entity)";
+        switch (this.filterType) {
+            case "Integer":
+            case "Decimal":
+            case "String":
+            case "Guid":
+            case "Boolean": return "var(--qt-value)";
+            case "DateTime": return "var(--qt-date)";
+            case "Time": return "var(--qt-time)";
+            case "Enum": return "var(--qt-enum)";
+            case "Lite": return "var(--qt-lite)";
+            case "Embedded": return "var(--qt-embedded)";
+            default: return "var(--qt-exotic)";
+        }
+    }
+
+    // The ancestor chain from the ROOT down to (and including) this token — Signum's free
+    // `getTokenParents`. Root-first so `[0]` is the query root and the last is `this`.
+    getTokenParents(): QueryToken[] {
+        const result: QueryToken[] = [];
+        let token: QueryToken | undefined = this;
+        while (token) {
+            result.unshift(token);
+            token = token.parent;
+        }
+        return result;
+    }
+
+    // Whether THIS token is a prefix of `token` (same token, or `token`'s fullKey starts with
+    // `this.fullKey() + "."`). Signum's free `isPrefix(prefix, token)` with `this` as the prefix.
+    isPrefixOf(token: QueryToken): boolean {
+        return this.fullKey() == token.fullKey() || token.fullKey().startsWith(this.fullKey() + ".");
     }
 
     // ---- Equality (Signum's Equals/GetHashCode over FullKey + QueryName) ----------------------

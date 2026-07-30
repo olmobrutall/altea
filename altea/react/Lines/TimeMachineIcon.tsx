@@ -8,3 +8,10 @@ import type { StyleContext } from '../TypeContext';
 export function getTimeMachineIcon(p: { ctx: StyleContext; isContainer?: boolean; translateY?: string }): null {
   return null;
 }
+
+// Signum's TimeMachineColors (Lines/TimeMachineIcon.tsx): the colours the version-diff icon uses to
+// mark changed vs unchanged values in the Time Machine UI.
+export const TimeMachineColors = {
+  changed: "#FF9800",
+  noChange: "#B0BEC5",
+};

@@ -1,3 +1,5 @@
+import * as React from 'react';
+
 // Ported from Signum.React/AppContext.tsx — MINIMAL SLICE.
 // Only `toAbsoluteUrl` is needed by the first migrated files (Services). The rest of
 // AppContext (routing history, current-user context, ScrollRestoration, view-related
@@ -37,4 +39,77 @@ export function toAbsoluteUrl(appRelativeUrl: string, baseName?: string): string
     return baseName + appRelativeUrl.after("~"); // For backwards compatibility
 
   return appRelativeUrl;
+}
+
+// Signum's AppContext.navigate: SPA navigation via the router history. altea hasn't wired a shared
+// history object yet, so this is a hard-navigation fallback (full page load). TODO(port): route it
+// through the react-router navigate once AppContext owns the history.
+export function navigate(url: string): void {
+  window.location.assign(toAbsoluteUrl(url));
+}
+
+// ---- HTML-returning string/array helpers (Signum's Globals `formatHtml`/`joinCommaHtml`/`joinHtml`) --
+// The JSX-returning variants of `format`/`joinComma`/`join`: they interleave React nodes as separators
+// / placeholder substitutions and return a React element. Client-only (return React nodes), so they
+// live here in the react layer — NOT in entities/globals (which must stay React-free). Import this
+// module once at client startup to install them (Navigator/Finder/Services already do).
+declare global {
+  interface String {
+    formatHtml(...parameters: any[]): React.ReactElement;
+  }
+
+  interface Array<T> {
+    joinCommaHtml(this: Array<T>, lastSeparator: string): React.ReactElement;
+    joinHtml(this: Array<T>, separator: string | React.ReactElement): React.ReactElement;
+  }
+}
+
+String.prototype.formatHtml = function (this: string) {
+  const regex = /\{([\w-]+)(?:\:([\w\.]*)(?:\((.*?)?\))?)?\}/g;
+
+  const args = arguments;
+
+  const parts = this.split(regex);
+
+  const result: (string | React.ReactElement)[] = [];
+  for (let i = 0; i < parts.length - 4; i += 4) {
+    result.push(parts[i]);
+    result.push(args[parseInt(parts[i + 1])]);
+  }
+  result.push(parts[parts.length - 1]);
+
+  return React.createElement(React.Fragment, undefined, ...result);
+};
+
+Array.prototype.joinCommaHtml = function (this: any[], lastSeparator: string) {
+  const result: (string | React.ReactElement)[] = [];
+  for (let i = 0; i < this.length - 2; i++) {
+    result.push(this[i]);
+    result.push(", ");
+  }
+
+  if (this.length >= 2) {
+    result.push(this[this.length - 2]);
+    result.push(lastSeparator)
+  }
+
+  if (this.length >= 1) {
+    result.push(this[this.length - 1]);
+  }
+
+  return React.createElement("span", undefined, ...result);
+}
+
+Array.prototype.joinHtml = function (this: any[], separator: string | React.ReactElement) {
+  const result: (string | React.ReactElement)[] = [];
+  for (let i = 0; i < this.length - 1; i++) {
+    result.push(this[i]);
+    result.push(separator);
+  }
+
+  if (this.length >= 1) {
+    result.push(this[this.length - 1]);
+  }
+
+  return React.createElement("span", undefined, ...result);
 }

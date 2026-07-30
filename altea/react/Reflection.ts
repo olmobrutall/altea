@@ -102,51 +102,8 @@ function getMemberInfo(ti: TypeInfo, memberName: string): MemberInfo {
   return member;
 }
 
-// Signum's client enum wrapper, keyed by the enum's type name. The member metadata (values +
-// nice names) comes from the type's TypeInfo — in altea that is the enum's bound EnumEntity
-// TypeInfo (or, in future, the reflection translation blob for raw enums).
-export class EnumType<T extends string> {
-  constructor(public typeName: string) { }
-
-  typeInfo(): TypeInfo {
-    return getTypeInfo(this.typeName);
-  }
-
-  #values: T[] | undefined;
-  values(): T[] {
-    return (this.#values ??= Object.keys(this.typeInfo().members) as T[]);
-  }
-
-  #notIgnoredValues: T[] | undefined;
-  notIgnoredValues(): T[] {
-    return (this.#notIgnoredValues ??= Object.values(this.typeInfo().members)
-      .filter(a => !(a as { isIgnoredEnum?: boolean }).isIgnoredEnum)
-      .map(a => a.name) as T[]);
-  }
-
-  isDefined(val: any): val is T {
-    return typeof val === "string" && this.typeInfo().members[val] != null;
-  }
-
-  assertDefined(val: any): T {
-    if (this.isDefined(val))
-      return val;
-    throw new Error(`'${val}' is not a valid ${this.typeName}`);
-  }
-
-  value(val: T): T { return val; }
-
-  index(val: T): number { return this.values().indexOf(val); }
-
-  min(a: T, b: T): T { return this.index(a) < this.index(b) ? a : b; }
-  max(a: T, b: T): T { return this.index(a) > this.index(b) ? a : b; }
-
-  niceTypeName(): string | undefined { return this.typeInfo().getNiceName(); }
-
-  niceToString(value: T): string {
-    return getMemberInfo(this.typeInfo(), value as string).niceToString();
-  }
-}
+// (Signum's client `EnumType<T>` wrapper is gone — altea uses the entity-level `Enum` helper
+// (entities/enum) over the numeric enum objects: `Enum.values(SexEnum)` / `Enum.niceName(SexEnum, x)`.)
 
 // A query column's key: its owning type + member name (Signum's QueryKey).
 export class QueryKey {
@@ -176,6 +133,16 @@ export function isQueryDefined(queryName: PseudoType | QueryKey): boolean {
   if (queryName instanceof QueryKey)
     return true;
   return tryGetTypeInfo(queryName) != null; // TODO(port): a real query-defined registry (Signum's TypeInfo.queryDefined).
+}
+
+// Signum's getQueryNiceName: the human label for a query. A query named by an entity Type resolves to
+// that type's PLURAL nice name; a QueryKey uses its member nice name; an unresolved string falls back
+// to itself. (Signum also consulted a client query-name registry — altea has none yet.)
+export function getQueryNiceName(queryName: PseudoType | QueryKey): string {
+  if (queryName instanceof QueryKey)
+    return queryName.niceName();
+  const ti = tryGetTypeInfo(queryName);
+  return ti != null ? ti.getNicePluralName() : getQueryKey(queryName);
 }
 
 // QueryTokenString<T> lives in ./QueryTokenString (extracted from this file).

@@ -13,7 +13,14 @@ export { registerObject } from '../registration';
 // the display string must be computable from the type + id alone, so building a lite's
 // model never forces the (potentially unloaded) entity to be retrieved.
 export function niceName(ctor: Function): string {
-    const raw = ctor.name.replace(/Entity$/, "");
+    return niceNameFromName(ctor.name);
+}
+
+// De-camelCase a raw identifier into a display label: "GrammyAwardEntity" → "Grammy Award",
+// "FilterOperation" → "Filter Operation". The string-only core of `niceName(ctor)`, shared with
+// the `Enum` helper's `niceTypeName` (entities/enum) so enum type names humanise identically.
+export function niceNameFromName(name: string): string {
+    const raw = name.replace(/Entity$/, "");
     return raw.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2").trim();
 }
 
@@ -124,8 +131,14 @@ export namespace DescriptionManager {
 
     export function lookup(msg: LocalizableMessage): string | undefined {
         if (msg.module == null || msg.member == null) return undefined;
-        const key = `${msg.module}.${msg.member}`;
-        return _translations.get(currentUICulture())?.[key];
+        return translate(msg.module, msg.member);
+    }
+
+    // Plain-string translation lookup (the `module.member` key, current UI culture). Used by
+    // the `Enum` helper (entities/enum) to localise enum member names without building a
+    // throwaway LocalizableMessage.
+    export function translate(module: string, member: string): string | undefined {
+        return _translations.get(currentUICulture())?.[`${module}.${member}`];
     }
 
     // Infers a human-readable description from a member name.

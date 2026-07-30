@@ -14,6 +14,8 @@ export const ValidationMessage = {
     _0IsNotSet: msg("{0} is not set"),
     NumberIsTooSmall: msg("Number is too small"),
     NumberIsTooBig: msg("Number is too big"),
+    EachRowRepresentsAGroupOf0WithSame1: msg("Each row represents a group of {0} with same {1}"),
+    TheNumberOf0IsBeingMultipliedBy1: msg("The number of {0} is being multiplied by {1}"),
 };
 
 function addValidator(target: object, propertyKey: string | symbol, validator: Validator): void {

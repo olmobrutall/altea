@@ -2,6 +2,7 @@ import { Entity } from './entity';
 import type { Type } from './entity';
 import { reflect, field, getOrCreateTypeInfo } from './reflection';
 import { enumNameOf } from './registration';
+import { Enum } from './enum';
 
 // Port of Signum's EnumEntity<T>: a database enum modelled as a real entity (and
 // therefore a real table) rather than an inline column. The row Id is the enum
@@ -70,9 +71,12 @@ export function getBoundEnum(type: unknown): object | undefined {
 
 // The rows to seed for an enum: id = the member's underlying numeric value,
 // name = the member name. TS numeric enums carry reverse value→name entries too;
-// keep only the name→number side.
+// keep only the name→number side. Members marked not-mapped (Enum.markAsNotMapped) are
+// excluded, so they never get a database row — this is the hook by which not-mapped members
+// influence both the Schema Generator (insertEnumValues) and the Synchronizer.
 export function enumEntityMembers(enumObject: object): { id: number; name: string }[] {
     return Object.entries(enumObject)
         .filter(([, v]) => typeof v === 'number')
+        .filter(([name]) => !Enum.isNotMapped(enumObject as Record<string, string | number>, name))
         .map(([name, v]) => ({ id: v as number, name }));
 }

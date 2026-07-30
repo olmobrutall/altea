@@ -42,6 +42,7 @@ export const QueryTokenDateMessage = {
 
 export const CollectionMessage = {
     Or: msg(),
+    And: msg(),
 };
 
 export enum ColumnOptionsModeEnum {
@@ -140,6 +141,10 @@ export enum PinnedFilterActiveEnum {
     NotCheckbox_Unchecked,
 }
 export type PinnedFilterActive = keyof typeof PinnedFilterActiveEnum;
+
+// The per-enum `values()`/`niceToString()` companions that used to live here are gone — the ported
+// query UI now uses the single entity-level `Enum` helper (entities/enum) over the numeric `XEnum`
+// objects: `Enum.values(FilterGroupOperationEnum)` / `Enum.niceName(FilterOperationEnum, x)`.
 
 export enum RefreshModeEnum {
     Auto,

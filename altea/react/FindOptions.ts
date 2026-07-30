@@ -19,7 +19,7 @@ import type {
 } from '../entities/dynamicQueries';
 import type { SearchControlProps, SearchControlLoaded } from "./Search";
 import type { BsSize } from './Components';
-import { hasAggregate, hasAny, QueryToken } from './QueryToken';
+import { QueryToken } from './QueryToken';
 // The DynamicQuery wire DTOs live in entities/dynamicQuery/queryRequest.ts (shared client/server);
 // consumers import them from there directly. FindOptions uses a few (FilterRequest, Pagination, …) in
 // its own signatures below.
@@ -285,7 +285,7 @@ export type FindMode = "Find" | "Explore";
 
 export function withoutAggregate(fop: FilterOptionParsed): FilterOptionParsed | undefined {
 
-  if (hasAggregate(fop.token))
+  if (fop.token?.hasAggregate())
     return undefined;
 
   if (isFilterGroup(fop)) {
@@ -335,7 +335,7 @@ export function canSplitValue(fo: FilterOptionParsed): boolean | undefined {
     return fo.pinned != null;
 
   else {
-    return fo.operation && isList(fo.operation) && hasAny(fo.token) ||
+    return fo.operation && isList(fo.operation) && fo.token?.hasAny() ||
       fo.token && fo.token.filterType == "String";
   }
 }

@@ -62,6 +62,7 @@ export class CollectionToArrayToken extends QueryToken {
     }
 
     override hasToArray(): CollectionToArrayToken | undefined { return this; }
+    override isToArray(): boolean { return true; }
 
     protected subTokensOverride(options: SubTokensOptions): QueryToken[] {
         return this.subTokensBase(this.type, options, this.getImplementations());
