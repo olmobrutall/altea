@@ -2,18 +2,32 @@
 // Register on a SchemaBuilder's webBuilder alongside EntitiesServer:
 //   if (sb.webBuilder) QueryServer.start(sb.webBuilder);
 //
-// Today it serves the SERVER-ONLY sub-tokens (extensions — later manual / operations). The client
-// generates the metadata sub-tokens locally off the shared token model and fetches only these,
-// merging them in via getSubTokens (see entities/dynamicQuery/tokens/queryToken). The response is a
-// plain-JSON array (ServerTokenJson — no entity graph), so it goes out via res.json, not the
-// entity Serializer.
+// Two layers of contract cross here:
+//   - the SERVER-ONLY sub-tokens (serverTokens) — plain JSON, no entity graph, so res.json.
+//   - executeQuery — the client POSTs a wire QueryRequest (string tokens, filters, orders,
+//     pagination — entities/dynamicQuery/queryRequest); the server PARSES it into the engine's
+//     QueryRequest (parsed QueryTokens), runs it, and serialises the ResultTable back through the
+//     entity Serializer (res.jsonTyped) so the lites/values in the rows go out in wire form.
 
+import { Entity } from "../entities/entity";
+import { Temporal } from "../entities/basics";
 import { resolveCleanType } from "../entities/registration";
 import { SubTokensOptionsAll } from "../entities/dynamicQuery/tokens";
 import {
     isServerOnlyToken, serializeServerToken, type ServerTokenJson,
 } from "../entities/dynamicQuery/tokenSerializer";
+import type { QueryName } from "../entities/dynamicQuery/queryUtils";
+import type { QueryToken } from "../entities/dynamicQuery/tokens";
+import type {
+    QueryRequest as WireQueryRequest, ResultTable as WireResultTable,
+    FilterRequest, Pagination as WirePagination,
+} from "../entities/dynamicQuery/queryRequest";
 import { QueryLogic } from "./dynamicQuery/queryLogic";
+import {
+    QueryRequest, Column, Order, type Filter, FilterCondition, FilterGroup, Pagination,
+    FilterOperation, type FilterGroupOperation, type OrderType,
+} from "./dynamicQuery/requests";
+import type { ResultTable } from "./dynamicQuery/resultTable";
 import { WebBuilder, CustomType } from "./webApi";
 
 export namespace QueryServer {
@@ -37,5 +51,124 @@ export namespace QueryServer {
                 const serverTokens = parent.subTokens(options).filter(isServerOnlyToken).map(serializeServerToken);
                 res.json(serverTokens);
             });
+
+        // POST /api/query/executeQuery/:queryKey — run a query request → ResultTable (Signum's
+        // QueryController.ExecuteQuery). The row entity + column values (lites/entities/dates) are
+        // serialised through the entity Serializer by res.jsonTyped.
+        ws.post("/api/query/executeQuery/:queryKey",
+            { params: CustomType<{ queryKey: string }>(), req: CustomType<WireQueryRequest>(), res: CustomType<WireResultTable>() },
+            async (req, res) => {
+                const wire = await req.jsonTyped() as WireQueryRequest;
+                const request = parseQueryRequest(wire);
+                const rt = await QueryLogic.queries.executeQueryAsync(request);
+                res.jsonTyped(toWireResultTable(rt, wire));
+            });
     }
+}
+
+// ---- wire → engine ---------------------------------------------------------------------------
+
+function resolveQueryName(queryKey: string): QueryName {
+    const qn = QueryLogic.tryToQueryName(queryKey) ?? resolveCleanType(queryKey);
+    if (qn == undefined)
+        throw new Error(`Query '${queryKey}' not found`);
+    return qn;
+}
+
+function parseQueryRequest(wire: WireQueryRequest): QueryRequest {
+    const queryName = resolveQueryName(wire.queryKey);
+    const opt = SubTokensOptionsAll;
+    const token = (s: string): QueryToken => QueryLogic.getToken(queryName, s, opt);
+
+    const columns = (wire.columns ?? []).map(c => new Column(token(c.token), c.displayName));
+    const orders = (wire.orders ?? []).map(o => new Order(token(o.token), o.orderType as OrderType));
+    const filters = (wire.filters ?? []).map(f => parseFilter(token, f));
+    const pagination = parsePagination(wire.pagination);
+
+    return new QueryRequest(queryName, filters, orders, columns, pagination, wire.groupResults ?? false);
+}
+
+function parseFilter(token: (s: string) => QueryToken, f: FilterRequest): Filter {
+    if ("filters" in f) // FilterGroupRequest
+        return new FilterGroup(
+            f.groupOperation as FilterGroupOperation,
+            f.token != undefined ? token(f.token) : undefined,
+            f.filters.map(sub => parseFilter(token, sub)));
+    const t = token(f.token);
+    const op = f.operation as FilterOperation;
+    return new FilterCondition(t, op, deserializeFilterValue(t, op, f.value));
+}
+
+// Signum's FilterValueConverter: deserialize a wire filter value against the token's type. IsIn /
+// IsNotIn carry an ARRAY of that type. Lites/entities/embeddeds already arrive decoded (the request
+// body went through the entity Serializer); enums (member-name string), dates and primitives don't.
+function deserializeFilterValue(token: QueryToken, operation: FilterOperation, raw: unknown): unknown {
+    if (operation === FilterOperation.IsIn || operation === FilterOperation.IsNotIn)
+        return Array.isArray(raw) ? raw.map(v => deserializeSingle(token, v)) : raw;
+    return deserializeSingle(token, raw);
+}
+
+function deserializeSingle(token: QueryToken, raw: unknown): unknown {
+    if (raw == null) return raw;
+    switch (token.filterType) {
+        case "Integer":
+        case "Decimal": return typeof raw === "number" ? raw : Number(raw);
+        case "Boolean": return typeof raw === "boolean" ? raw : raw === "true";
+        case "Enum": {
+            // The wire carries the enum member NAME; the column stores its ordinal value.
+            const e = token.type.getEnum() as Record<string, unknown> | undefined;
+            return e != null && typeof raw === "string" && raw in e ? e[raw] : raw;
+        }
+        case "DateTime":
+        case "Time": return coerceTemporal(token, raw);
+        case "String":
+        case "Guid": return String(raw);
+        default: return raw; // Lite / Embedded / Model — already decoded by the Serializer
+    }
+}
+
+// ISO string → the token's Temporal type (the column materialises as a Temporal, so the filter
+// constant must be one too), keyed by the token's typeName.
+function coerceTemporal(token: QueryToken, raw: unknown): unknown {
+    if (typeof raw !== "string") return raw;
+    switch (token.type.typeName) {
+        case "PlainDate": return Temporal.PlainDate.from(raw);
+        case "PlainDateTime": return Temporal.PlainDateTime.from(raw);
+        case "PlainTime": return Temporal.PlainTime.from(raw);
+        default: return raw;
+    }
+}
+
+function parsePagination(p: WirePagination | undefined): Pagination {
+    switch (p?.mode) {
+        case "Firsts": return new Pagination.Firsts(p.elementsPerPage ?? 20);
+        case "Paginate": return new Pagination.Paginate(p.elementsPerPage ?? 20, p.currentPage ?? 1);
+        default: return new Pagination.All();
+    }
+}
+
+// ---- engine → wire ---------------------------------------------------------------------------
+
+// The row entity as a Lite (the wire contract): a materialised full entity → its lite, otherwise
+// passed through (already a lite, or undefined).
+function liteify(value: unknown): WireResultTable["rows"][number]["entity"] {
+    return value instanceof Entity
+        ? value.toLite() as WireResultTable["rows"][number]["entity"]
+        : value as WireResultTable["rows"][number]["entity"];
+}
+
+function toWireResultTable(rt: ResultTable, wire: WireQueryRequest): WireResultTable {
+    return {
+        columns: rt.columns.map(c => c.token.fullKey()),
+        uniqueValues: {},
+        // The row's entity (a Lite) and each display column's value at the row index. Lites / entities
+        // / Temporal dates are encoded by the Serializer when res.jsonTyped stringifies this object.
+        rows: rt.rows.map(row => ({
+            // The wire contract is a Lite for the row entity; altea's root ("") token materialises the
+            // full entity, so lite-ify it here (Signum's Entity column is a lite).
+            entity: liteify(rt.entityColumn?.values[row.index]),
+            columns: rt.columns.map(c => c.values[row.index]),
+        })),
+        pagination: wire.pagination,
+    };
 }
