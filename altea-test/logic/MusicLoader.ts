@@ -1,5 +1,5 @@
 import { type int, Temporal, toInt } from "@altea/altea/entities/basics";
-import "@altea/altea/logic"; // installs save()/inDB()/retrieve*() entity+lite extension methods
+import "@altea/altea/server"; // installs save()/inDB()/retrieve*() entity+lite extension methods
 import {
     CountryEntity,
     LabelEntity,

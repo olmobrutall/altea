@@ -1,10 +1,10 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { table } from "@altea/altea/logic/table";
-import { retrieve, retrieveList, retrieveFromListOfLite } from "@altea/altea/logic/Database";
-import { Connector } from "@altea/altea/logic/connection/connector";
+import { table } from "@altea/altea/server/table";
+import { retrieve, retrieveList, retrieveFromListOfLite } from "@altea/altea/server/Database";
+import { Connector } from "@altea/altea/server/connection/connector";
 import { Entity } from "@altea/altea/entities/entity";
-import { exploreModifiables } from "@altea/altea/logic/graphExplorer";
+import { exploreModifiables } from "@altea/altea/server/graphExplorer";
 import { isModifiedSelf } from "@altea/altea/entities/changes";
 import { hasDb, start } from "./setup";
 import {

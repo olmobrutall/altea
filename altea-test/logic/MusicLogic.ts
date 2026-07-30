@@ -1,8 +1,8 @@
-import { SchemaBuilder } from "@altea/altea/logic/schema";
-import { table } from "@altea/altea/logic/table";
+import { SchemaBuilder } from "@altea/altea/server/schema";
+import { table } from "@altea/altea/server/table";
 import { withQuoted } from "@altea/altea/entities/decorators";
 import type { IQuery } from "@altea/altea/entities/iquery";
-import "@altea/altea/logic/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery / withExpressionTo / withExpressionFrom
+import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery / withExpressionTo / withExpressionFrom
 import {
     CountryEntity,
     LabelEntity,
@@ -19,7 +19,7 @@ import {
     SimplePassageEntity,
     MinimumExtensions,
 } from "../entities/music";
-import { includeGetDatesInRange } from "@altea/altea/logic/queryTimeSeries";
+import { includeGetDatesInRange } from "@altea/altea/server/queryTimeSeries";
 
 // Registers every Music table in the schema. Mirrors Signum.Test's
 // MusicLogic.Start (the include(...) calls): takes the SchemaBuilder and returns

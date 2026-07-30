@@ -1,7 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { table } from "@altea/altea/logic/table";
-import { retrieve } from "@altea/altea/logic/Database";
+import { table } from "@altea/altea/server/table";
+import { retrieve } from "@altea/altea/server/Database";
 import "@altea/altea/entities/globals"; // Array.contains / String.startsWith (SQL-mappable)
 import { hasDb, start } from "./setup";
 import { ArtistEntity, AlbumEntity, BandEntity, NoteWithDateEntity, Sex, Status } from "../entities/music";

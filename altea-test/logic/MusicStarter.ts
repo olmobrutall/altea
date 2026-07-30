@@ -1,7 +1,7 @@
-import "@altea/altea/logic/context.node"; // register server context storage first
-import { Connector } from "@altea/altea/logic/connection/connector";
-import { SchemaBuilder } from "@altea/altea/logic/schema";
-import type { Schema } from "@altea/altea/logic/schema";
+import "@altea/altea/server/context.node"; // register server context storage first
+import { Connector } from "@altea/altea/server/connection/connector";
+import { SchemaBuilder } from "@altea/altea/server/schema";
+import type { Schema } from "@altea/altea/server/schema";
 import { MusicLogic } from "./MusicLogic";
 import { MusicLoader } from "./MusicLoader";
 
@@ -26,10 +26,10 @@ export namespace MusicStarter {
     // in the mssql driver and vice versa (Rollup keeps these as separate chunks).
     export async function connectorFromEnv(schema: Schema, connStr: string): Promise<Connector> {
         if (connStr.startsWith("postgres")) {
-            const { PostgresConnector } = await import("@altea/altea/logic/connection/postgresConnector");
+            const { PostgresConnector } = await import("@altea/altea/server/connection/postgresConnector");
             return new PostgresConnector(schema, connStr);
         }
-        const { SqlServerConnector } = await import("@altea/altea/logic/connection/sqlServerConnector");
+        const { SqlServerConnector } = await import("@altea/altea/server/connection/sqlServerConnector");
         return new SqlServerConnector(schema, connStr);
     }
 

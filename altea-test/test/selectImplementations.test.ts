@@ -1,6 +1,6 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { table } from "@altea/altea/logic/table";
+import { table } from "@altea/altea/server/table";
 import "@altea/altea/entities/globals"; // String.startsWith / contains / … (SQL-mappable)
 import { hasDb, start } from "./setup";
 import { Lite } from "@altea/altea/entities/lite";

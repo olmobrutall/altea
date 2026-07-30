@@ -1,6 +1,6 @@
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
-import { table } from "@altea/altea/logic/table";
+import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "./setup";
 import { Serializer } from "@altea/altea/entities/serializer";
 const { stringify: serialize, parse: deserialize } = Serializer;

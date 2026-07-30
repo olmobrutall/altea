@@ -1,8 +1,8 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "@altea/altea/entities/globals";
-import "@altea/altea/react/EntityTypeApi"; // installs the token / findOptions statics onto the entity classes
-import { QueryTokenString } from "@altea/altea/react/QueryTokenString";
+import "@altea/altea/client/EntityTypeApi"; // installs the token / findOptions statics onto the entity classes
+import { QueryTokenString } from "@altea/altea/client/QueryTokenString";
 import type { FilterOperation, OrderType } from "@altea/altea/entities/dynamicQueries";
 import { ArtistEntity, NoteWithDateEntity } from "../../entities/music";
 import { CorruptMixin } from "@altea/altea/entities/corruptMixin";

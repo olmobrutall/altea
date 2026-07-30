@@ -1,11 +1,11 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { table } from "@altea/altea/logic/table";
+import { table } from "@altea/altea/server/table";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / … (SQL-mappable)
 import { hasDb, start, txTest } from "./setup";
-import { view } from "@altea/altea/logic/table";
+import { view } from "@altea/altea/server/table";
 import { ArtistEntity, AlbumEntity, MyTempView } from "../entities/music";
-import { Administrator } from "@altea/altea/logic/Administrator";
+import { Administrator } from "@altea/altea/server/Administrator";
 
 // Port of Signum.Test/LinqProvider/JoinGroupTest.cs. C# → altea idiom:
 //   Database.Query<T>()           → table(T)

@@ -1,11 +1,11 @@
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import "@altea/altea/entities/globals";
-import { ParameterExpression, PropertyExpression, CallExpression, LambdaExpression, BinaryExpression } from "@altea/altea/logic/linq/expressions";
-import { ClassType, LiteralType } from "@altea/altea/logic/runtimeTypes";
+import { ParameterExpression, PropertyExpression, CallExpression, LambdaExpression, BinaryExpression } from "@altea/altea/server/linq/expressions";
+import { ClassType, LiteralType } from "@altea/altea/server/runtimeTypes";
 import { PropertyRoute } from "@altea/altea/entities/propertyRoute";
-import { CleanMeta, DirtyMeta } from "@altea/altea/logic/dynamicQuery/meta";
-import { MetadataVisitor } from "@altea/altea/logic/dynamicQuery/metadataVisitor";
+import { CleanMeta, DirtyMeta } from "@altea/altea/server/dynamicQuery/meta";
+import { MetadataVisitor } from "@altea/altea/server/dynamicQuery/metadataVisitor";
 import { AlbumEntity, AlbumEntity_Songs, LabelEntity, ArtistEntity, BandEntity } from "../../entities/music";
 
 // MetadataVisitor: track which entity PropertyRoutes an expression reads, producing a Meta

@@ -1,18 +1,18 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { table, bindAndOptimize } from "@altea/altea/logic/table";
+import { table, bindAndOptimize } from "@altea/altea/server/table";
 import "@altea/altea/entities/globals";
 import {
     ProjectionExpression, SelectExpression, TableExpression, ColumnExpression,
     JoinExpression,
-} from "@altea/altea/logic/linq/expressions.sql";
-import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
-import { AggregateRewriter } from "@altea/altea/logic/linq/visitors/AggregateRewriter";
-import { CallExpression, PropertyExpression, ObjectExpression } from "@altea/altea/logic/linq/expressions";
-import { SchemaBuilder } from "@altea/altea/logic/schema";
-import { Connector } from "@altea/altea/logic/connection/connector";
+} from "@altea/altea/server/linq/expressions.sql";
+import { QueryFormatter } from "@altea/altea/server/linq/queryFormatter";
+import { AggregateRewriter } from "@altea/altea/server/linq/visitors/AggregateRewriter";
+import { CallExpression, PropertyExpression, ObjectExpression } from "@altea/altea/server/linq/expressions";
+import { SchemaBuilder } from "@altea/altea/server/schema";
+import { Connector } from "@altea/altea/server/connection/connector";
 import { MusicLogic } from "../logic/MusicLogic";
-import { TypeLogic } from "@altea/altea/logic/typeLogic";
+import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { AlbumEntity, LabelEntity, SongEmbedded, ArtistEntity, NoteWithDateEntity, BandEntity } from "../entities/music";
 import { View } from "@altea/altea/entities/entity";
 

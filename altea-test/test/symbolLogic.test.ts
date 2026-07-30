@@ -1,11 +1,11 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { SchemaBuilder } from "@altea/altea/logic/schema";
-import { Connector } from "@altea/altea/logic/connection/connector";
-import { SymbolLogic } from "@altea/altea/logic/symbolLogic";
+import { SchemaBuilder } from "@altea/altea/server/schema";
+import { Connector } from "@altea/altea/server/connection/connector";
+import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { OperationSymbol } from "@altea/altea/entities/operations";
-import { Replacements } from "@altea/altea/logic/sync/synchronizer";
-import type { SqlPreCommand } from "@altea/altea/logic/sync/sqlPreCommand";
+import { Replacements } from "@altea/altea/server/sync/synchronizer";
+import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
 import "../entities/testOperations"; // declares the ArtistOperation.* symbols via init()
 
 // Phase 2 — SymbolLogic. Offline (no DB): build a schema that includes OperationSymbol

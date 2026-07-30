@@ -1,6 +1,6 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { table } from "@altea/altea/logic/table";
+import { table } from "@altea/altea/server/table";
 import "@altea/altea/entities/globals"; // collection .some on a part-entity collection
 import { hasDb, start } from "./setup";
 import { AlbumEntity, BandEntity } from "../entities/music";

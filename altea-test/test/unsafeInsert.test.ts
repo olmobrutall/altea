@@ -1,13 +1,13 @@
 import { before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { table } from "@altea/altea/logic/table";
+import { table } from "@altea/altea/server/table";
 import "@altea/altea/entities/globals"; // String methods (startsWith etc.), SQL-mappable
 import { hasDb, start, txTest } from "./setup";
 import {
     ArtistEntity, AlbumEntity, LabelEntity, CountryEntity,
     AlbumEntity_Songs, MyTempView,
 } from "../entities/music";
-import { Administrator } from "@altea/altea/logic/Administrator";
+import { Administrator } from "@altea/altea/server/Administrator";
 
 // Port of Signum.Test/LinqProvider/UnsafeInsertTest.cs (set-based bulk INSERT,
 // i.e. INSERT ... SELECT — materialise new rows directly from a query).

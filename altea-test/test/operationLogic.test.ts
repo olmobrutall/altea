@@ -1,9 +1,9 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { Connector } from "@altea/altea/logic/connection/connector";
-import { graph } from "@altea/altea/logic/graphBuilder";
-import { Graph } from "@altea/altea/logic/graph";
-import { Operations, OperationLogic } from "@altea/altea/logic/operationLogic";
+import { Connector } from "@altea/altea/server/connection/connector";
+import { graph } from "@altea/altea/server/graphBuilder";
+import { Graph } from "@altea/altea/server/graph";
+import { Operations, OperationLogic } from "@altea/altea/server/operationLogic";
 import { AlbumEntity, AlbumState, ArtistEntity } from "../entities/music";
 import { AlbumOperation } from "../entities/testOperations";
 

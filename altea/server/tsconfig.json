@@ -2,8 +2,8 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": ".",
-    "outDir": "../dist/react",
-    "lib": ["ESNext", "DOM", "DOM.Iterable"]
+    "outDir": "../dist/server",
+    "types": ["node"]
   },
   "include": ["**/*"],
   "references": [{ "path": "../entities" }]

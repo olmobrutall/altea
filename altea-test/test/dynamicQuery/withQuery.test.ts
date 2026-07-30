@@ -1,19 +1,19 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "@altea/altea/entities/globals";
-import { bindAndOptimize } from "@altea/altea/logic/table";
-import { Connector } from "@altea/altea/logic/connection/connector";
-import { SchemaBuilder } from "@altea/altea/logic/schema";
-import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
-import { ProjectionExpression } from "@altea/altea/logic/linq/expressions.sql";
-import { LiteralType, LiteType, ClassType } from "@altea/altea/logic/runtimeTypes";
-import { QueryLogic } from "@altea/altea/logic/dynamicQuery/queryLogic";
+import { bindAndOptimize } from "@altea/altea/server/table";
+import { Connector } from "@altea/altea/server/connection/connector";
+import { SchemaBuilder } from "@altea/altea/server/schema";
+import { QueryFormatter } from "@altea/altea/server/linq/queryFormatter";
+import { ProjectionExpression } from "@altea/altea/server/linq/expressions.sql";
+import { LiteralType, LiteType, ClassType } from "@altea/altea/server/runtimeTypes";
+import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { QueryToken, SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
-import { DQueryable } from "@altea/altea/logic/dynamicQuery/dQueryable";
-import { Column, QueryRequest } from "@altea/altea/logic/dynamicQuery/requests";
-import { table } from "@altea/altea/logic/table";
-import "@altea/altea/logic/dynamicQuery/fluentIncludeQuery"; // activates FluentInclude.withQuery
-import "@altea/altea/logic/dynamicQuery/tokenExpressions";
+import { DQueryable } from "@altea/altea/server/dynamicQuery/dQueryable";
+import { Column, QueryRequest } from "@altea/altea/server/dynamicQuery/requests";
+import { table } from "@altea/altea/server/table";
+import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // activates FluentInclude.withQuery
+import "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { MusicLogic } from "../../logic/MusicLogic";
 import { AlbumEntity, LabelEntity, ArtistEntity, BandEntity } from "../../entities/music";
 

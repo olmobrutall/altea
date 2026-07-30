@@ -1,17 +1,17 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "@altea/altea/entities/globals";
-import { table } from "@altea/altea/logic/table";
-import { ClassType } from "@altea/altea/logic/runtimeTypes";
+import { table } from "@altea/altea/server/table";
+import { ClassType } from "@altea/altea/server/runtimeTypes";
 import { Implementations } from "@altea/altea/entities/implementations";
 import { SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
 import { RootToken } from "@altea/altea/entities/dynamicQuery/tokens/rootToken";
-import { DQueryable } from "@altea/altea/logic/dynamicQuery/dQueryable";
-import { DEnumerable, DEnumerableCount } from "@altea/altea/logic/dynamicQuery/dEnumerable";
+import { DQueryable } from "@altea/altea/server/dynamicQuery/dQueryable";
+import { DEnumerable, DEnumerableCount } from "@altea/altea/server/dynamicQuery/dEnumerable";
 import {
     FilterCondition, FilterOperation, Order, OrderType, Column, Pagination,
-} from "@altea/altea/logic/dynamicQuery/requests";
-import "@altea/altea/logic/dynamicQuery/tokenExpressions";
+} from "@altea/altea/server/dynamicQuery/requests";
+import "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { AlbumEntity } from "../../entities/music";
 
 // Phase-5 (in-memory arm): DEnumerable / DEnumerableCount + ResultTable. Tests run DB-free by

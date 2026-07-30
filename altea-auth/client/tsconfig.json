@@ -2,12 +2,12 @@
   "extends": "../../altea/tsconfig.base.json",
   "compilerOptions": {
     "rootDir": ".",
-    "outDir": "../dist/logic",
-    "types": ["node"]
+    "outDir": "../dist/client",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
   "include": ["**/*"],
   "references": [
     { "path": "../entities" },
-    { "path": "../../altea/logic" }
+    { "path": "../../altea/client" }
   ]
 }

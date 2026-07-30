@@ -1,13 +1,13 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { view, bindAndOptimize } from "@altea/altea/logic/table";
+import { view, bindAndOptimize } from "@altea/altea/server/table";
 import "@altea/altea/entities/globals";
 import { reflect } from "@altea/altea/entities/reflection";
-import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
-import { SchemaBuilder } from "@altea/altea/logic/schema";
+import { QueryFormatter } from "@altea/altea/server/linq/queryFormatter";
+import { SchemaBuilder } from "@altea/altea/server/schema";
 import { tableName, viewPrimaryKey } from "@altea/altea/entities/decorators";
 import type { int } from "@altea/altea/entities/basics";
-import { generateSubscripts, PostgresFunctions } from "@altea/altea/logic/sync/postgres/postgresFunctions";
+import { generateSubscripts, PostgresFunctions } from "@altea/altea/server/sync/postgres/postgresFunctions";
 
 // The PostgresFunctions "mini LINQ provider": generate_subscripts (a set-returning function
 // source), array subscripting (arr[i]), and the scalar pg_get_expr /

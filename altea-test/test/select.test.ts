@@ -1,11 +1,11 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { table, view } from "@altea/altea/logic/table";
+import { table, view } from "@altea/altea/server/table";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / … (SQL-mappable)
 import { hasDb, start } from "./setup";
-import { Connector } from "@altea/altea/logic/connection/connector";
-import { PgClass } from "@altea/altea/logic/sync/postgres/postgresCatalog";
-import { SysDatabases } from "@altea/altea/logic/sync/sqlServer/sysTables";
+import { Connector } from "@altea/altea/server/connection/connector";
+import { PgClass } from "@altea/altea/server/sync/postgres/postgresCatalog";
+import { SysDatabases } from "@altea/altea/server/sync/sqlServer/sysTables";
 import type { Quoted } from "quote-transformer/quoted";
 import { Clock } from "@altea/altea/entities/utils/clock";
 import { CorruptMixin } from "@altea/altea/entities/corruptMixin";

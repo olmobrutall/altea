@@ -1,8 +1,8 @@
 import { before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { table } from "@altea/altea/logic/table";
-import { retrieve } from "@altea/altea/logic/Database";
-import { Connector } from "@altea/altea/logic/connection/connector";
+import { table } from "@altea/altea/server/table";
+import { retrieve } from "@altea/altea/server/Database";
+import { Connector } from "@altea/altea/server/connection/connector";
 import { hasDb, start, txTest } from "./setup";
 import { CountryEntity, LabelEntity, BandEntity, BandEntity_Members, ArtistEntity } from "../entities/music";
 

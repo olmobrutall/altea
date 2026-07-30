@@ -6,10 +6,10 @@ import { Entity } from "@altea/altea/entities/entity";
 import { Lite } from "@altea/altea/entities/lite";
 import { entity, index, uniqueIndex } from "@altea/altea/entities/decorators";
 import { type int, toInt } from "@altea/altea/entities/basics";
-import { SchemaBuilder } from "@altea/altea/logic/schema";
-import type { Table } from "@altea/altea/logic/schema/table";
-import { FluentInclude } from "@altea/altea/logic/schema/fluentInclude";
-import { Connector } from "@altea/altea/logic/connection/connector";
+import { SchemaBuilder } from "@altea/altea/server/schema";
+import type { Table } from "@altea/altea/server/schema/table";
+import { FluentInclude } from "@altea/altea/server/schema/fluentInclude";
+import { Connector } from "@altea/altea/server/connection/connector";
 
 // Index support: automatic FK indexes, field-level @index / @uniqueIndex, class-level
 // composite @uniqueIndex(e => [..]) lambda, the fluent include().withIndex(...), and the

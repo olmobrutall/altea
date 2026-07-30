@@ -9,7 +9,7 @@
   "references": [
     { "path": "../entities" },
     { "path": "../logic" },
-    { "path": "../../altea/logic" },
-    { "path": "../../altea/react" }
+    { "path": "../../altea/server" },
+    { "path": "../../altea/client" }
   ]
 }

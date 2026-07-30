@@ -1,8 +1,8 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { table } from "@altea/altea/logic/table";
+import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "./setup";
-import { EntityContext } from "@altea/altea/logic/query";
+import { EntityContext } from "@altea/altea/server/query";
 import { AlbumEntity } from "../entities/music";
 
 // Port of Signum.Test/LinqProvider/EntityContextTest.cs. C# → altea idiom:

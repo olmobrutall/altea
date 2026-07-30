@@ -1,10 +1,10 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { table } from "@altea/altea/logic/table";
+import { table } from "@altea/altea/server/table";
 import "@altea/altea/entities/globals";
-import { SystemTime, SystemTimeJoinMode, NullableInterval } from "@altea/altea/logic/systemTime";
+import { SystemTime, SystemTimeJoinMode, NullableInterval } from "@altea/altea/server/systemTime";
 import { Temporal } from "@altea/altea/entities/basics";
-import { getDatesInRange, TimeSeriesUnit } from "@altea/altea/logic/queryTimeSeries";
+import { getDatesInRange, TimeSeriesUnit } from "@altea/altea/server/queryTimeSeries";
 import { hasDb, start } from "./setup";
 import { FolderEntity } from "../entities/music";
 

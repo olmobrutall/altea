@@ -1,22 +1,22 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "@altea/altea/entities/globals";
-import { table, bindAndOptimize } from "@altea/altea/logic/table";
-import { Connector } from "@altea/altea/logic/connection/connector";
-import { SchemaBuilder } from "@altea/altea/logic/schema";
-import { QueryFormatter } from "@altea/altea/logic/linq/queryFormatter";
-import { ProjectionExpression } from "@altea/altea/logic/linq/expressions.sql";
-import { ParameterExpression, CallExpression, PropertyExpression, LambdaExpression } from "@altea/altea/logic/linq/expressions";
-import { ClassType, ArrayType, LiteralType } from "@altea/altea/logic/runtimeTypes";
+import { table, bindAndOptimize } from "@altea/altea/server/table";
+import { Connector } from "@altea/altea/server/connection/connector";
+import { SchemaBuilder } from "@altea/altea/server/schema";
+import { QueryFormatter } from "@altea/altea/server/linq/queryFormatter";
+import { ProjectionExpression } from "@altea/altea/server/linq/expressions.sql";
+import { ParameterExpression, CallExpression, PropertyExpression, LambdaExpression } from "@altea/altea/server/linq/expressions";
+import { ClassType, ArrayType, LiteralType } from "@altea/altea/server/runtimeTypes";
 import { Implementations } from "@altea/altea/entities/implementations";
 import { SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
-import { BuildExpressionContext, ExpressionBox } from "@altea/altea/logic/dynamicQuery/tokenExpressions";
+import { BuildExpressionContext, ExpressionBox } from "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { RootToken } from "@altea/altea/entities/dynamicQuery/tokens/rootToken";
 import { ExtensionToken } from "@altea/altea/entities/dynamicQuery/tokens/extensionToken";
-import { QueryLogic } from "@altea/altea/logic/dynamicQuery/queryLogic";
+import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { PropertyRoute } from "@altea/altea/entities/propertyRoute";
-import "@altea/altea/logic/dynamicQuery/fluentIncludeQuery"; // withExpressionTo / withExpressionFrom
-import "@altea/altea/logic/dynamicQuery/tokenExpressions";
+import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // withExpressionTo / withExpressionFrom
+import "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { MusicLogic } from "../../logic/MusicLogic";
 import { ArtistEntity, BandEntity, AlbumEntity } from "../../entities/music";
 

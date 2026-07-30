@@ -1,22 +1,22 @@
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
 import { generateMusicEnvironment, hasDb, txTest } from "./setup";
-import { Connector } from "@altea/altea/logic/connection/connector";
-import { getDatabaseDescription as getSqlServerDescription } from "@altea/altea/logic/sync/sqlServer/sysTablesSchema";
-import { getDatabaseDescription as getPostgresDescription } from "@altea/altea/logic/sync/postgres/postgresCatalogSchema";
-import { Replacements, type AutoReplacementContext, type Selection } from "@altea/altea/logic/sync/synchronizer";
-import type { SqlPreCommand } from "@altea/altea/logic/sync/sqlPreCommand";
-import { ObjectName } from "@altea/altea/logic/schema/objectName";
-import { ValueColumn } from "@altea/altea/logic/schema/column";
-import { TableIndex } from "@altea/altea/logic/schema/tableIndex";
-import { getIndexWhere } from "@altea/altea/logic/schema/indexWhere";
+import { Connector } from "@altea/altea/server/connection/connector";
+import { getDatabaseDescription as getSqlServerDescription } from "@altea/altea/server/sync/sqlServer/sysTablesSchema";
+import { getDatabaseDescription as getPostgresDescription } from "@altea/altea/server/sync/postgres/postgresCatalogSchema";
+import { Replacements, type AutoReplacementContext, type Selection } from "@altea/altea/server/sync/synchronizer";
+import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
+import { ObjectName } from "@altea/altea/server/schema/objectName";
+import { ValueColumn } from "@altea/altea/server/schema/column";
+import { TableIndex } from "@altea/altea/server/schema/tableIndex";
+import { getIndexWhere } from "@altea/altea/server/schema/indexWhere";
 import type { Quoted } from "quote-transformer/quoted";
 
 // A filtered-index predicate, captured by the quote-transformer (assigned to a Quoted-typed
 // const). Used to build a *filtered* controlled index in the DB and prove the reader reads it
 // back (filter_definition / indpred) and the synchronizer round-trips it.
 const albumRecent: Quoted<(a: AlbumEntity) => boolean> = a => a.year == 2000;
-import { AbstractDbType, IsNullable } from "@altea/altea/logic/schema/dbType";
+import { AbstractDbType, IsNullable } from "@altea/altea/server/schema/dbType";
 import { AlbumEntity, ArtistEntity_Friends, FolderEntity } from "../entities/music";
 import { getBoundEnum } from "@altea/altea/entities/enumEntity";
 

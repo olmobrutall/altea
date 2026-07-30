@@ -1,14 +1,14 @@
 import { before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { table, view } from "@altea/altea/logic/table";
+import { table, view } from "@altea/altea/server/table";
 import { hasDb, start, txTest } from "./setup";
 import {
     ArtistEntity, AlbumEntity, BandEntity,
     ArtistEntity_Friends, BandEntity_Members, AlbumEntity_Songs,
     MyTempView2,
 } from "../entities/music";
-import { deleteList } from "@altea/altea/logic/Database";
-import { Administrator } from "@altea/altea/logic/Administrator";
+import { deleteList } from "@altea/altea/server/Database";
+import { Administrator } from "@altea/altea/server/Administrator";
 import { toInt } from "@altea/altea/entities/basics";
 
 // Port of Signum.Test/LinqProvider/UnsafeDeleteTest.cs (set-based bulk DELETE).

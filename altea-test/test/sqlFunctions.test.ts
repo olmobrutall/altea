@@ -1,7 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { table } from "@altea/altea/logic/table";
-import { Transaction } from "@altea/altea/logic/connection/transaction";
+import { table } from "@altea/altea/server/table";
+import { Transaction } from "@altea/altea/server/connection/transaction";
 import "@altea/altea/entities/globals"; // String.contains / startsWith / endsWith / … (SQL-mappable)
 import { Temporal } from "@altea/altea/entities/basics";
 import { DayOfWeek } from "@altea/altea/entities/globals/dateTimeExtensions"; // + Temporal date-helper augmentations

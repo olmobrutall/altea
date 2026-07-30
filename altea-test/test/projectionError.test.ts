@@ -1,9 +1,9 @@
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
-import { table, bindAndOptimize } from "@altea/altea/logic/table";
-import { buildTranslateResult } from "@altea/altea/logic/linq/translatorBuilder";
-import { ProjectionError } from "@altea/altea/logic/linq/ProjectionError";
-import { Connector } from "@altea/altea/logic/connection/connector";
+import { table, bindAndOptimize } from "@altea/altea/server/table";
+import { buildTranslateResult } from "@altea/altea/server/linq/translatorBuilder";
+import { ProjectionError } from "@altea/altea/server/linq/ProjectionError";
+import { Connector } from "@altea/altea/server/connection/connector";
 import { hasDb, start } from "./setup";
 import { NoteWithDateEntity } from "../entities/music";
 

@@ -1,6 +1,6 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { table } from "@altea/altea/logic/table";
+import { table } from "@altea/altea/server/table";
 import "@altea/altea/entities/globals"; // String.contains / startsWith and the Array aggregate operators on entity collections
 import { hasDb, start } from "./setup";
 import {

@@ -1,9 +1,9 @@
 import { test, beforeEach, afterEach, after } from "node:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Connector, ConsoleSqlLogger, type SqlLogger } from "@altea/altea/logic/connection/connector";
-import { Transaction } from "@altea/altea/logic/connection/transaction";
-import { SchemaBuilder } from "@altea/altea/logic/schema";
+import { Connector, ConsoleSqlLogger, type SqlLogger } from "@altea/altea/server/connection/connector";
+import { Transaction } from "@altea/altea/server/connection/transaction";
+import { SchemaBuilder } from "@altea/altea/server/schema";
 import { MusicLogic } from "../logic/MusicLogic";
 import { MusicStarter } from "../logic/MusicStarter";
 
