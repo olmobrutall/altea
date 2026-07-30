@@ -376,14 +376,20 @@ export class TypeInfo {
     get kind(): "Entity" | "Enum" | "SymbolContainer" { return "Entity"; } // TODO: enum / symbol containers
 }
 
-// Minimal client OperationInfo (Signum's OperationInfo). TODO: full shape from OperationLogic.
+// Client OperationInfo (Signum's OperationInfo).
+export type OperationType = "Execute" | "Delete" | "Constructor" | "ConstructorFrom" | "ConstructorFromMany";
+
 export interface OperationInfo {
     key: string;
-    operationType: "Execute" | "Delete" | "Constructor" | "ConstructorFrom" | "ConstructorFromMany";
+    niceName: string;
+    operationType: OperationType;
     canBeNew?: boolean;
     canBeModified?: boolean;
     hasCanExecute?: boolean;
+    hasCanExecuteExpression?: boolean;
     hasStates?: boolean;
+    resultIsSaved?: boolean;
+    forReadonlyEntity?: boolean;
 }
 
 // Legacy (experimentalDecorators) decorators have no `context.metadata`, so

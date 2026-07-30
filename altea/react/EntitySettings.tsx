@@ -20,8 +20,12 @@ import type { BsSize } from './Components';
 import type { FindOptions } from './FindOptions';
 import type { PseudoType } from './Reflection';
 
-// TODO(port): real types land with their modules (Frames / AutoCompleteConfig / SearchControl).
-export type ViewReplacer<T extends BaseEntity> = any;
+// ViewReplacer is the real Frames class now (re-exported so `import { ViewReplacer } from
+// './EntitySettings'` keeps working). ReactVisitor imports only React + TypeContext types → no cycle.
+export { ViewReplacer } from './Frames/ReactVisitor';
+import { ViewReplacer } from './Frames/ReactVisitor';
+
+// TODO(port): real types land with their modules (AutoCompleteConfig / SearchControl).
 type AutocompleteConfig<A> = any;
 type ContextualItemsContext<T extends Entity> = any;
 type MenuItemBlock = any;
@@ -207,10 +211,24 @@ export class ViewPromise<T extends BaseEntity> {
     return result;
   }
 
-  // TODO(port): view overrides need ViewReplacer + the view dispatcher (Frames layer). No-op for now,
-  // so a view renders without any registered overrides applied.
+  // Wraps the resolved view component so the EntitySettings' registered `overrideView` callbacks run
+  // over its element tree (via ViewReplacer) before it renders. Navigator is imported lazily inside
+  // the async callback to avoid the EntitySettings <-> Navigator module cycle.
   applyViewOverrides(typeName: string, viewName?: string): ViewPromise<T> {
-    return this;
+    const result = new ViewPromise<T>();
+    result.promise = this.promise.then(async func => {
+      const { Navigator } = await import('./Navigator');
+      const overrides = (Navigator.getSettings(typeName)?.viewOverrides ?? []).filter(vo => vo.viewName == viewName);
+      if (overrides.length == 0)
+        return func;
+
+      return (ctx: TypeContext<T>): React.ReactElement => {
+        const replacer = new ViewReplacer<T>(func(ctx), ctx, func);
+        overrides.forEach(vo => vo.override(replacer as ViewReplacer<BaseEntity>));
+        return replacer.result as React.ReactElement;
+      };
+    });
+    return result;
   }
 
   static flat<T extends BaseEntity>(promise: Promise<ViewPromise<T>>): ViewPromise<T> {

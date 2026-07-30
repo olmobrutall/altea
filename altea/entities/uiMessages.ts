@@ -19,6 +19,7 @@ export const EntityControlMessage = {
     MoveWithDragAndDropOrCtrlUpDown: msg("Move (with drag and drop or Ctrl + Up / Down)"),
     MoveWithDragAndDropOrCtrlLeftRight: msg("Move (with drag and drop or Ctrl + Left / Right)"),
     Close: msg("Close"),
+    Reload: msg("Reload"),
     Changed: msg("Changed"),
     NoChanges: msg("No changes"),
 };
@@ -26,6 +27,11 @@ export const EntityControlMessage = {
 export const JavascriptMessage = {
     ok: msg("OK"),
     cancel: msg("Cancel"),
+    yes: msg("Yes"),
+    no: msg("No"),
+    executed: msg("Executed"),
+    error: msg("Error"),
+    Close: msg("Close"),
     loading: msg("Loading…"),
     Date: msg("Date"),
     Selected: msg("Selected"),
@@ -38,13 +44,25 @@ export const JavascriptMessage = {
     removeOtherColumns: msg("Remove other columns"),
     restoreDefaultColumns: msg("Restore default columns"),
     searchForResults: msg("Search for results"),
+    loseCurrentChanges: msg("There are changes in the current entity without saving. Do you want to lose them?"),
+    saveChangesBeforeOrPressCancel: msg("Save changes before or press cancel"),
 };
 
 export const FrameMessage = {
     Fullscreen: msg("Fullscreen"),
+    ThereAreErrors: msg("There are errors"),
+    Main: msg("Main"),
+};
+
+// SaveChanges (Signum's SaveChangesMessage) — the lose-changes modal.
+export const SaveChangesMessage = {
+    ThereAreChanges: msg("There are changes"),
+    YoureTryingToCloseAnEntityWithChanges: msg("You're trying to close an entity with changes. What do you want to do?"),
+    LoseChanges: msg("Lose changes"),
 };
 
 export const SearchMessage = {
+    Operations: msg("Operations"),
     Search: msg("Search"),
     CreateNew0_G: msg("Create new {0}"),
     AddValue: msg("Add value"),
@@ -141,4 +159,57 @@ export const SelectorMessage = {
     PleaseSelectAtLeastOneValueToContinue: msg("Please select at least one value to continue"),
     TypeSelector: msg("Type selector"),
     _0Selector: msg("{0} selector"),
+};
+
+// Operations (Signum's OperationMessage). Members used by the Operations client layer.
+export const OperationMessage = {
+    Create: msg("Create…"),
+    // Simplifies a ConstructorFrom nice name inside a Create group ("Create Order from Customer" → group 1).
+    CreateFromRegex: msg("^Create (.+?)( from .+)?$"),
+    Create0: msg("Create {0}"),
+    Confirm: msg("Confirm"),
+    PleaseConfirmYouWouldLikeToDelete0FromTheSystem: msg("Please confirm that you would like to delete {0} from the system"),
+    As: msg("as"),
+    PleaseConfirmYouWouldLikeTo01: msg("Please confirm you would like to {0} {1}"),
+    _0AndClose: msg("{0} and close"),
+    _0AndNew: msg("{0} and new"),
+    MultiSetter: msg("(Multi setter)"),
+    Executing0: msg("Executing {0}"),
+    Deleting: msg("Deleting…"),
+    _0Errors: msg("{0} errors"),
+    CancelOperation: msg("Cancel operation"),
+    AreYouSureYouWantToCancelTheOperation: msg("Are you sure you want to cancel the operation?"),
+    ClosingThisModalOrBrowserTabWillCancelTheOperation: msg("Closing this modal or browser tab will cancel the operation"),
+    PleaseConfirmThatYouWouldLikeToApplyTheAboveChangesAndExecute0Over12: msg("Please confirm that you would like to apply the above changes and execute {0} over {1} {2}"),
+};
+
+// Engine (Signum's EngineMessage) — the members the Operations layer reads.
+export const EngineMessage = {
+    TheEntity0IsNew: msg("The entity {0} is new"),
+};
+
+// NormalControl (Signum's NormalControlMessage) — the members the Operations layer reads.
+export const NormalControlMessage = {
+    SaveChangesFirst: msg("Save changes first!"),
+};
+
+// Connection (Signum's ConnectionMessage) — used by ErrorModal.
+export const ConnectionMessage = {
+    VersionInfo: msg("Version info"),
+    ANewVersionHasJustBeenDeployedSaveChangesAnd0: msg("A new version has just been deployed! Save changes and {0}"),
+    OutdatedClientApplication: msg("This application has been updated, please refresh the page!"),
+    ANewVersionHasJustBeenDeployedConsiderReload: msg("A new version has just been deployed! Consider reloading the page."),
+    Refresh: msg("Refresh"),
+};
+
+// CascadeDelete (Signum's CascadeDeleteMessage) — used by DeleteErrorModal.
+export const CascadeDeleteMessage = {
+    ThisEntityIsStillReferenced: msg("This entity is still referenced"),
+    TheFollowingEntitiesStillReference0RemoveThemBeforeDeleting: msg("The following entities still reference {0}. Remove them before deleting."),
+    NoReferencesFoundYouCanNowDeleteThisEntity: msg("No references found. You can now delete this entity."),
+    Refresh: msg("Refresh"),
+    ReferencedVia: msg("Referenced via"),
+    Delete: msg("Delete"),
+    ErrorDetails: msg("Error details"),
+    _0MoreNotVisibleForYou: msg("{0} more not visible for you"),
 };

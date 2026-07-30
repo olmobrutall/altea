@@ -9,7 +9,10 @@ import { Entity, BaseEntity, EmbeddedEntity, ModelEntity } from '../entities/ent
 import type { Type, PrimaryKey } from '../entities/entity';
 import { Lite, LiteImp } from '../entities/lite';
 import { TypeInfo, tryGetTypeInfo as alteaTryGetTypeInfo } from '../entities/reflection';
-import type { FieldInfo } from '../entities/reflection';
+import type { FieldInfo, OperationInfo, OperationType } from '../entities/reflection';
+import type { ModelState } from '../entities/validation';
+export type { OperationInfo, OperationType };
+export { TypeInfo };
 import { cleanTypeName, resolveType, resolveCleanType } from '../entities/registration';
 
 // The reflection DATA MODEL (PropertyRoute / TypeInfo / TypeReference / FieldInfo / Type) lives in
@@ -143,6 +146,54 @@ export function getQueryNiceName(queryName: PseudoType | QueryKey): string {
     return queryName.niceName();
   const ti = tryGetTypeInfo(queryName);
   return ti != null ? ti.getNicePluralName() : getQueryKey(queryName);
+}
+
+// Signum's getOperationInfo: the OperationInfo for a key on a type (throws if the type has no
+// operations metadata / the key is absent — matching Signum's `operations![key]`).
+export function getOperationInfo(operation: string | { key: string }, type: PseudoType | Lite<Entity> | BaseEntity): OperationInfo {
+  const operationKey = typeof operation == "string" ? operation : operation.key;
+  return getTypeInfo(type).operations![operationKey];
+}
+
+// Signum's GraphExplorer walked the entity graph to (a) set `modified` flags before a save and (b)
+// distribute / collect server ModelState onto each modifiable's `.error`. altea tracks modified in the
+// serializer / entities/changes layer, and altea entities carry no `.error` field, so:
+//   - propagateAll is a no-op shim (modified handled elsewhere),
+//   - set/collectModelState store the flat ModelState keyed by the root entity in a WeakMap (enough
+//     for ValidationErrors, which reads the root entity + a prefix).
+const modelStates = new WeakMap<object, ModelState>();
+export namespace GraphExplorer {
+  export function propagateAll(..._args: unknown[]): void { }
+
+  export function setModelState(entity: object, modelState: ModelState | undefined, _initialPrefix?: string): void {
+    if (modelState == null)
+      modelStates.delete(entity);
+    else
+      modelStates.set(entity, modelState);
+  }
+
+  export function collectModelState(entity: object, prefix: string): ModelState {
+    const ms = modelStates.get(entity);
+    const result: ModelState = {};
+    if (ms)
+      for (const key of Object.keys(ms))
+        if (!prefix || key == prefix || key.startsWith(prefix + "."))
+          result[key] = ms[key];
+    return result;
+  }
+}
+
+// Signum's `entityInfo(e)` — the `data-main-entity` marker string ("TypeName;id;N|O"). Used by the
+// frame to tag the rendered entity's root DOM node.
+export function entityInfo(entity: BaseEntity): string {
+  const e = entity as BaseEntity & { id?: unknown; isNew?: boolean };
+  return getTypeName(entity) + ";" + (e.id ?? "") + ";" + (e.isNew ? "N" : "O");
+}
+
+// Signum's `parseId(ti, id)` — coerce a route id string to the type's PK JS form (numeric ids parse to
+// number; string/uuid ids stay strings). altea simplification: numeric-looking → number, else string.
+export function parseId(ti: TypeInfo, id: string): number | string {
+  return /^-?\d+$/.test(id) ? parseInt(id, 10) : id;
 }
 
 // QueryTokenString<T> lives in ./QueryTokenString (extracted from this file).

@@ -31,6 +31,7 @@ export const QueryTokenMessage = {
     GlobalUniqueIdentifier: msg(),
     IndexerContainer: msg(),
     ListOf0: msg("List of {0}"),
+    Embedded0: msg("Embedded {0}"),
     Number: msg(),
     Text: msg(),
 };

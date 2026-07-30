@@ -7,8 +7,10 @@
 
 // --- Active altea imports (what the ported / activated code needs) ---
 import * as React from "react";
+import type { RouteObject } from 'react-router';
+import { ImportComponent } from './ImportComponent';
 import { ajaxGet, ajaxGetRaw, wrapRequest } from './Services';
-import { toAbsoluteUrl } from './AppContext';
+import { toAbsoluteUrl, navigate } from './AppContext';
 import { getTypeName, tryGetTypeInfo } from './Reflection';
 import type { PseudoType } from './Reflection';
 import type { Type } from '../entities/entity';
@@ -1507,7 +1509,84 @@ export namespace Navigator {
     }
   }
 
-  // ---- view (STUB: opens a FrameModal — the Frames view-render layer is not ported yet) ----
+  // ---- view — opens a FrameModal (Frames view-render layer). ----
+  export function getFrameModal(): Promise<typeof import("./Frames/FrameModal")> {
+    return import("./Frames/FrameModal");
+  }
+
+  export function getFramePage(): Promise<typeof import("./Frames/FramePage")> {
+    return import("./Frames/FramePage");
+  }
+
+  // Registers the entity view/create page routes. A client app calls this at bootstrap with its
+  // react-router route array. (Signum's full `start` also cleared events / installed defaults — those
+  // stay in the commented staging block above until their deps land.)
+  export function start(options: { routes: RouteObject[] }): void {
+    options.routes.push({ path: "/view/:type/:id", element: <ImportComponent onImport={() => getFramePage()} /> });
+    options.routes.push({ path: "/create/:type", element: <ImportComponent onImport={() => getFramePage()} /> });
+  }
+
+  export function onFramePageCreationCancelled(): void {
+    navigate("/");
+  }
+
+  // Activated for the Operations client layer (Signum's versions live in the commented staging block;
+  // altea fixes: lite.EntityType→lite.entityType, getSettings by clean name, window data-transfer cast).
+  export function someNonViewable(lites: Lite<Entity>[]): boolean {
+    return lites.groupBy(a => a.entityType).some(gr => {
+      var isViewable = getSettings(gr.key)?.isViewableLite;
+      return Boolean(isViewable) && gr.elements.some(lite => !isViewable!(lite, { isSearch: "main" }));
+    });
+  }
+
+  export function createInNewTab(pack: EntityPack<Entity>, viewName?: string): void {
+    var url = "/create/" + getTypeName(pack.entity) + (viewName ? "?viewName=" + viewName : "") + (viewName ? "&" : "?") + "waitOpenerData=true";
+    (window as { dataForChildWindow?: unknown }).dataForChildWindow = pack;
+    window.open(toAbsoluteUrl(url));
+  }
+
+  export function createNavigateOrTab(pack: EntityPack<Entity> | undefined, event: React.MouseEvent<any>): Promise<void> {
+    if (!pack || !pack.entity)
+      return Promise.resolve();
+
+    const es = getSettings(getTypeName(pack.entity));
+    if (es?.avoidPopup || event.ctrlKey || event.button == 1) {
+      createInNewTab(pack);
+      return Promise.resolve();
+    }
+    return view(pack, { buttons: "close" }).then(() => undefined);
+  }
+
+  export function typeDefaultButtons(typeName: string, isEmbedded: boolean | undefined): ViewButtons {
+    if (isEmbedded)
+      return "ok_cancel";
+
+    const ti = tryGetTypeInfo(typeName);
+    if (ti != null) {
+      if (ti.entityKind == undefined || ti.entityKind == "Part" || ti.entityKind == "SharedPart")
+        return "ok_cancel";
+    }
+
+    return "close";
+  }
+
+  // ALTEA: Signum's getTypeSubTitle used entity.Type + isTypeEntity/isTypeModel + defaultRenderSubTitle;
+  // altea uses instanceof + getNiceName().
+  export function getTypeSubTitle(entity: BaseEntity, pr: PropertyRoute | undefined): React.ReactNode | undefined {
+    const es = getSettings(getTypeName(entity));
+    if (es?.renderSubTitle)
+      return es.renderSubTitle(entity as Entity);
+
+    if (entity instanceof Entity) {
+      if (entity.isNew)
+        return null;
+      return tryGetTypeInfo(getTypeName(entity))?.getNiceName();
+    } else if (entity instanceof EmbeddedEntity) {
+      return pr?.type.getTypeName();
+    }
+    return undefined;
+  }
+
   export type ViewButtons = "ok_cancel" | "close" | undefined;
 
   export interface ViewOptions<T extends BaseEntity> {
@@ -1519,6 +1598,7 @@ export namespace Navigator {
     validate?: boolean;
     requiresSaveOperation?: boolean;
     avoidPromptLoseChange?: boolean;
+    isOperationVisible?: (eoc: any /*EntityOperationContext*/) => boolean;
     buttons?: ViewButtons;
     getViewPromise?: (entity: T) => undefined | string | ViewPromise<T>;
     createNew?: () => Promise<EntityPack<T> | undefined>;
@@ -1527,7 +1607,8 @@ export namespace Navigator {
   }
 
   export function view<T extends BaseEntity>(entityOrPack: Lite<T & Entity> | T | EntityPack<T>, viewOptions?: ViewOptions<T>): Promise<T | undefined> {
-    throw new Error("TODO(port): Navigator.view — the Frames view-render layer (FrameModal) is not ported yet");
+    return getFrameModal()
+      .then(NP => NP.FrameModalManager.openView(entityOrPack, viewOptions ?? {}));
   }
 }
 

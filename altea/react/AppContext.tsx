@@ -48,6 +48,27 @@ export function navigate(url: string): void {
   window.location.assign(toAbsoluteUrl(url));
 }
 
+// Ported from Signum.React/AppContext.tsx — sets document.title while the component is mounted.
+export function useTitle(title: string, deps?: React.DependencyList): void {
+  React.useEffect(() => {
+    document.title = title;
+  }, deps);
+}
+
+// Ported from Signum.React/AppContext.tsx — navigate, or open in a new tab on ctrl/middle-click.
+export function pushOrOpenInTab(path: string, e: React.MouseEvent<any> | React.KeyboardEvent<any> | undefined): void {
+  if (e && (e as React.MouseEvent<any>).button == 2)
+    return;
+
+  e?.preventDefault();
+  if (e && (e.ctrlKey || (e as React.MouseEvent<any>).button == 1))
+    window.open(toAbsoluteUrl(path));
+  else if (path.startsWith("http"))
+    window.location.href = path;
+  else
+    navigate(toAbsoluteUrl(path));
+}
+
 // ---- HTML-returning string/array helpers (Signum's Globals `formatHtml`/`joinCommaHtml`/`joinHtml`) --
 // The JSX-returning variants of `format`/`joinComma`/`join`: they interleave React nodes as separators
 // / placeholder substitutions and return a React element. Client-only (return React nodes), so they

@@ -40,3 +40,17 @@ export interface ConstructSymbol<T extends Entity, Src extends Simple | From<Ent
     _construct_: T /*TRICK*/;
     _constructSource_: Src /*TRICK*/;
 }
+
+// Signum's Signum.Operations PropertyOperation (the multi-setter operation kind). altea pair: numeric
+// XEnum for storage + string-union type for the wire/client (per the dynamicQuery enum convention).
+export enum PropertyOperationEnum {
+    Set,
+    AddElement,
+    AddNewElement,
+    ChangeElements,
+    RemoveElement,
+    RemoveElementsWhere,
+    ModifyEntity,
+    CreateNewEntity,
+}
+export type PropertyOperation = keyof typeof PropertyOperationEnum;

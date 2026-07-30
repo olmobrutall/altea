@@ -1,25 +1,221 @@
-// STUB (SearchControl port). Signum's MessageModal is the generic alert/confirm dialog. altea hasn't
-// ported it yet; SearchModal uses it once (the "return the newly-created entity?" prompt). The stub
-// resolves `undefined` (no button clicked) so callers take their default/else branch. TODO(port): the
-// full MessageModal (buttons yes/no/ok/cancel, icons, styles) once the modal chrome layer lands.
-import * as React from 'react';
+// Ported from Signum.React/Modals/MessageModal.tsx — copy-and-fix. altea fixes: import paths
+// (Globals→entities/globals, Signum.Entities→entities/uiMessages); Signum's BooleanEnum.niceToString
+// ("True"/"False") → JavascriptMessage.yes/no (altea has no BooleanEnum); dropped the unused AutoFocus
+// import; type-only IModalProps/IconProp/BsSize.
+import * as React from 'react'
+import { openModal } from '../Modals';
+import type { IModalProps } from '../Modals';
+import { classes } from '../../entities/globals';
+import { JavascriptMessage } from '../../entities/uiMessages'
+import type { IconProp } from '@fortawesome/fontawesome-svg-core';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import "./DialogModals.css"
+import type { BsSize } from '../Components';
+import { Modal } from 'react-bootstrap';
 
-export type MessageModalButtons = "ok" | "cancel" | "ok_cancel" | "yes_no" | "yes_no_cancel";
+export type MessageModalStyle = "success" | "info" | "warning" | "error";
+
+export type MessageModalIcon = "info" | "question" | "warning" | "error" | "success";
+
+export type MessageModalButtons = "ok" | "cancel" | "ok_cancel" | "yes_no" | "yes_cancel" | "yes_no_cancel";
+
 export type MessageModalResult = "ok" | "cancel" | "yes" | "no";
 
-export interface MessageModalOptions {
-  title: React.ReactNode;
-  message: React.ReactNode;
-  buttons?: MessageModalButtons;
-  style?: string;
-  customIcon?: unknown;
-  [key: string]: unknown;
+export interface MessageModalHandler {
+  handleButtonClicked(m: MessageModalResult): void;
 }
 
-const MessageModal = {
-  show(_options: MessageModalOptions): Promise<MessageModalResult | undefined> {
-    return Promise.resolve(undefined);
-  },
-};
+interface MessageModalProps extends IModalProps<MessageModalResult | undefined> {
+  title: string | React.ReactElement;
+  message: string | React.ReactElement | ((ctx: MessageModalHandler) => string | React.ReactElement);
+  style?: MessageModalStyle;
+  buttons: MessageModalButtons;
+  buttonContent?: (button: MessageModalResult) => string | React.ReactElement | null | undefined;
+  buttonHtmlAttributes?: (button: MessageModalResult) => React.ButtonHTMLAttributes<any> | null | undefined;
+  buttonClass?: (button: MessageModalResult) => string | undefined;
+  onButtonClicked?: (button: MessageModalResult) => void;
+  icon?: MessageModalIcon | null;
+  customIcon?: IconProp;
+  size?: BsSize;
+  shouldSelect?: boolean;
+  additionalDialogClassName?: string;
+  modalRef?: React.RefObject<MessageModalHandler | null>; //For closing the modal imperatively
+  autoFocusonTitle?: boolean;
+}
+
+
+function MessageModal(p: MessageModalProps): React.ReactElement {
+
+  const [show, setShow] = React.useState(true);
+
+  const selectedValue = React.useRef<MessageModalResult | undefined>(undefined);
+
+  React.useImperativeHandle(p.modalRef, () => {
+
+    return {
+      handleButtonClicked
+    }
+  }, []);
+
+  function handleButtonClicked(val: MessageModalResult) {
+    selectedValue.current = val;
+    setShow(false);
+  }
+
+  function handleCancelClicked() {
+    if (p.shouldSelect && !selectedValue)
+      return;
+
+    setShow(false);
+  }
+
+  function handleOnExited() {
+    p.onExited!(selectedValue.current);
+  }
+
+  function getButtonContent(button: MessageModalResult) {
+    const content = p.buttonContent && p.buttonContent(button);
+    if (content)
+      return content
+
+    switch (button) {
+      case "ok": return JavascriptMessage.ok.niceToString();
+      case "cancel": return JavascriptMessage.cancel.niceToString();
+      case "yes": return JavascriptMessage.yes.niceToString();
+      case "no": return JavascriptMessage.no.niceToString();
+    }
+  }
+
+  function setFocus(e: HTMLButtonElement | null) {
+    if (e) {
+      window.setTimeout(() => e.focus(), 200);
+    }
+  }
+
+  function getButton(res: MessageModalResult) {
+
+    const htmlAtts = p.buttonHtmlAttributes && p.buttonHtmlAttributes(res);
+
+    const baseButtonClass = classes("btn", p.buttonClass ? p.buttonClass(res) : (res == 'yes' || res == 'ok' ? "btn-primary" : "btn-secondary"), `sf-close-button sf-${res}-button ms-1`)
+
+    return (
+      <button
+        {...htmlAtts}
+        ref={((res == 'yes' || res == 'ok') && !p.autoFocusonTitle) ? setFocus : undefined}
+        className={classes(htmlAtts?.className, baseButtonClass)}
+        onClick={() => {
+          if (p.onButtonClicked)
+            p.onButtonClicked(res);
+          else
+            handleButtonClicked(res);
+        }}
+        name={res}>
+        {getButtonContent(res)}
+      </button>
+    );
+  }
+
+  function renderButtons(buttons: MessageModalButtons) {
+    switch (buttons) {
+      case "ok": return getButton('ok');
+      case "cancel": return getButton('cancel');
+      case "ok_cancel": return (<div className="btn-toolbar"> {getButton('ok')} {getButton('cancel')} </div>);
+      case "yes_no": return (<div className="btn-toolbar"> {getButton('yes')} {getButton('no')} </div>);
+      case "yes_cancel": return (<div className="btn-toolbar"> {getButton('yes')} {getButton('cancel')} </div>);
+      case "yes_no_cancel": return (<div className="btn-toolbar"> {getButton('yes')} {getButton('no')} {getButton('cancel')} </div>);
+    }
+  }
+
+  function getIcon(): IconProp | undefined {
+
+    if (p.customIcon)
+      return p.customIcon;
+
+
+    if (p.icon) {
+      switch (p.icon) {
+        case "info": return "info-circle";
+        case "error": return "exclamation-circle";
+        case "question": return "question-circle";
+        case "success": return "check-circle";
+        case "warning": return "exclamation-triangle";
+        case null: return undefined;
+      }
+    }
+
+    if (p.style) {
+      switch (p.style) {
+        case "info": return "info-circle";
+        case "error": return "exclamation-circle";
+        //case "question": return "question-circle";
+        case "success": return "check-circle";
+        case "warning": return "exclamation-triangle";
+      }
+    }
+
+    return undefined;
+  }
+
+  function renderTitle() {
+    var icon = getIcon();
+
+    var iconSpan = icon && <FontAwesomeIcon aria-hidden={true} icon={icon} />;
+
+    const titleRef = React.useRef<HTMLHeadingElement>(null);
+
+    React.useEffect(() => {
+      if (p.autoFocusonTitle && titleRef.current) {
+        setTimeout(() => titleRef.current?.focus(), 200);
+      }
+    }, [p.autoFocusonTitle]);
+
+    return (
+      <h1 ref={titleRef} tabIndex={0} className="modal-title h5">
+        {iconSpan}{iconSpan && <span>&nbsp;&nbsp;</span>}{p.title}
+      </h1>
+    );
+  }
+
+  return (
+    <Modal show={show} onExited={handleOnExited} backdrop={p.shouldSelect ? 'static' : undefined}
+      dialogClassName={classes("message-modal", p.size && "modal-" + p.size, p.additionalDialogClassName)}
+      onHide={handleCancelClicked} autoFocus={true}>
+      <div className={classes("modal-header", dialogHeaderClass(p.style))}>
+        {renderTitle()}
+      </div>
+      <div className="modal-body">
+        {
+          typeof p.message == "string" ? p.message.split("\n").map((line, i) => <p key={i}>{line}</p>) :
+            typeof p.message == "function" ? p.message({ handleButtonClicked }) :
+              p.message
+        }
+      </div>
+      <div className="modal-footer">
+        {renderButtons(p.buttons)}
+      </div>
+    </Modal>
+  );
+}
+
+namespace MessageModal {
+  export function show(options: MessageModalProps): Promise<MessageModalResult | undefined> {
+    return openModal<MessageModalResult | undefined>(<MessageModal {...options} />);
+  }
+
+  export function showError(message: React.ReactElement | string, title?: string): Promise<undefined> {
+    return MessageModal.show({ buttons: "ok", icon: "error", style: "error", title: title ?? JavascriptMessage.error.niceToString(), message: message })
+      .then(() => undefined);
+  }
+}
 
 export default MessageModal;
+
+function dialogHeaderClass(style: MessageModalStyle | undefined) {
+  switch (style) {
+    case "success": return "dialog-header-success";
+    case "info": return "dialog-header-info";
+    case "warning": return "dialog-header-warning";
+    case "error": return "dialog-header-error";
+    default: return "bg-primary text-light";
+  }
+}

@@ -11,9 +11,13 @@ import type { Entity, MixinEntity, ModelEntity, Type } from '../entities/entity'
 import type { EntityPack } from '../entities/entityPack'
 import type { ModelState } from '../entities/validation'
 
+// EntityOperationContext is the real class in ./Operations now (type-only import — Operations imports
+// TypeContext's types back, so both directions erase at runtime → no cycle).
+import type { EntityOperationContext as EntityOperationContextClass } from './Operations'
+type EntityOperationContext<T> = EntityOperationContextClass<T & Entity>;
+
 // --- Temporary stubs for modules not yet ported (Phase 2/3). Restore the real imports then:
-//   EntityOperationContext <- ./Operations,  ViewPromise <- ./Navigator,  EmbeddedWidget <- ./Frames/Widgets
-type EntityOperationContext<T> = any;
+//   ViewPromise <- ./Navigator,  EmbeddedWidget <- ./Frames/Widgets
 type ViewPromise<T> = any;
 type EmbeddedWidget = any;
 
