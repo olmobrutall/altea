@@ -147,7 +147,7 @@ class EmbeddedSerializer extends ModifiableSerializer {
         const j = json as Record<string, unknown>;
         const inst = (existing instanceof EmbeddedEntity && existing.constructor === this.ctor)
             ? existing
-            : new (this.ctor as new () => EmbeddedEntity)();
+            : new (this.ctor as Type<EmbeddedEntity>)();
         this.applyFields(inst, j, dc);
         inst._snapshot = j.modified === true ? true : undefined;
         return inst;
@@ -192,7 +192,7 @@ class EntitySerializer extends ModifiableSerializer {
 
         // New entity: build; _snapshot stays `true` (modified), like create()/new.
         if (id == null) {
-            const inst = new (this.ctor as new () => Entity)();
+            const inst = new (this.ctor as Type<Entity>)();
             this.applyFields(inst, j, dc);
             this.recover(inst, slot);
             return inst;
@@ -221,7 +221,7 @@ class EntitySerializer extends ModifiableSerializer {
         }
 
         // No baseline (client-receive path): build fresh with the id, seed the snapshot sentinel.
-        const inst = new (this.ctor as new () => Entity)();
+        const inst = new (this.ctor as Type<Entity>)();
         inst.id = id;
         inst.isNew = false;
         if (j.ticks != null) inst.ticks = j.ticks as number;

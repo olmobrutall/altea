@@ -164,7 +164,7 @@ function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[]): Project
 // Signum's Database.RetrieveList, injected into the Retriever (which can't import the
 // query pipeline). Batch-loads `ctor` rows whose id is in `ids` into the SAME retriever,
 // so the id-only stubs it left behind get populated in place.
-Retriever.retrieveListImpl = async (ctor: new () => Entity, ids: PrimaryKey[], retriever: Retriever): Promise<void> => {
+Retriever.retrieveListImpl = async (ctor: Type<Entity>, ids: PrimaryKey[], retriever: Retriever): Promise<void> => {
     const connector = Connector.current();
     await buildTranslateResult(retrieveByIdsProjection(ctor, ids), connector.isPostgres).executeInto(retriever);
 };

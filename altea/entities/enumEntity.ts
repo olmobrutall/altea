@@ -56,7 +56,7 @@ export class EnumEntity<T = unknown> extends Entity {
     }
 }
 
-const cache = new WeakMap<object, new () => EnumEntity>();
+const cache = new WeakMap<object, Type<EnumEntity>>();
 
 // True for a closed EnumEntity<…> type: a constructor carrying the `boundEnum` static.
 export function isEnumEntityType(type: unknown): boolean {

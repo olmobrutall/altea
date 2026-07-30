@@ -1,4 +1,4 @@
-import type { Entity, PrimaryKey } from "../entities/entity";
+import type { Entity, PrimaryKey, Type } from "../entities/entity";
 import { Symbol } from "../entities/symbol";
 import { declaredSymbolsForType } from "../entities/registration";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
@@ -36,7 +36,7 @@ import { insertSqlSync, updateSqlSync, deleteSqlSync, rowImage } from "./save";
 // GlobalLazy + Schema.Initializing load is unnecessary under deterministic ids.
 
 interface SymbolTypeLogic {
-    ctor: new () => Symbol;
+    ctor: Type<Symbol>;
     getSymbols: () => Symbol[];
     byKey: Map<string, Symbol>; // Signum's `lazy` cache: key -> symbol (id assigned)
 }
@@ -62,7 +62,7 @@ export namespace SymbolLogic {
     // OperationLogic.RegisteredOperations — which OperationLogic.start overrides it with).
     export function start<T extends Symbol>(
         sb: SchemaBuilder,
-        ctor: new () => T,
+        ctor: Type<T>,
         getSymbols: () => T[] = () => declaredSymbolsForType(ctor) as unknown as T[],
     ): void {
         let started = startedBySchema.get(sb.schema);
@@ -91,19 +91,19 @@ export namespace SymbolLogic {
     }
 
     // Signum's SymbolLogic<T>.Symbols / TryToSymbol / ToSymbol / AllUniqueKeys.
-    export function symbols<T extends Symbol>(ctor: new () => T): T[] {
+    export function symbols<T extends Symbol>(ctor: Type<T>): T[] {
         return [...assertStarted(ctor).byKey.values()] as T[];
     }
-    export function tryToSymbol<T extends Symbol>(ctor: new () => T, key: string): T | undefined {
+    export function tryToSymbol<T extends Symbol>(ctor: Type<T>, key: string): T | undefined {
         return assertStarted(ctor).byKey.get(key) as T | undefined;
     }
-    export function toSymbol<T extends Symbol>(ctor: new () => T, key: string): T {
+    export function toSymbol<T extends Symbol>(ctor: Type<T>, key: string): T {
         const s = assertStarted(ctor).byKey.get(key);
         if (s == null)
             throw new Error(`Symbol '${key}' is not registered for ${ctor.name}.`);
         return s as T;
     }
-    export function allUniqueKeys<T extends Symbol>(ctor: new () => T): Set<string> {
+    export function allUniqueKeys<T extends Symbol>(ctor: Type<T>): Set<string> {
         return new Set(assertStarted(ctor).byKey.keys());
     }
 }
@@ -132,7 +132,7 @@ function assignIds(stl: SymbolTypeLogic): void {
 // with its assigned id, through the same sync saver the reconcile step uses
 // (insertSqlSync — explicit PK + all columns). executeNonQuery runs each leaf with its
 // own parameters, so combining them is safe.
-function seedSymbols(schema: Schema, ctor: new () => Symbol): SqlPreCommand | undefined {
+function seedSymbols(schema: Schema, ctor: Type<Symbol>): SqlPreCommand | undefined {
     const stl = byCtor.get(ctor);
     const table = schema.tryTable(ctor);
     if (stl == null || table == null || stl.byKey.size === 0)
@@ -146,7 +146,7 @@ function seedSymbols(schema: Schema, ctor: new () => Symbol): SqlPreCommand | un
 // Synchronizer.synchronizeScriptReplacing — the mirror of Signum's
 // SynchronizeScriptReplacing. Rename (a key changed) is asked through Replacements and
 // lands in mergeBoth; genuine add/remove hit createNew/removeOld.
-async function synchronizeSymbols(replacements: Replacements, ctor: new () => Symbol): Promise<SqlPreCommand | undefined> {
+async function synchronizeSymbols(replacements: Replacements, ctor: Type<Symbol>): Promise<SqlPreCommand | undefined> {
     const connector = Connector.current();
     const schema = connector.schema;
     const stl = byCtor.get(ctor);
@@ -189,7 +189,7 @@ async function synchronizeSymbols(replacements: Replacements, ctor: new () => Sy
 }
 
 // A bare symbol carrying just an id, for building a DELETE (deleteSqlSync reads only id).
-function bareSymbol(ctor: new () => Symbol, id: PrimaryKey): Entity {
+function bareSymbol(ctor: Type<Symbol>, id: PrimaryKey): Entity {
     const s = new ctor();
     (s as { id: PrimaryKey }).id = id;
     return s as Entity;

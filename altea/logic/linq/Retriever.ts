@@ -18,13 +18,13 @@ import { TypeLogic } from "../typeLogic";
 export class Retriever {
     // Injected by table.ts to break the import cycle (this file must not import the
     // query pipeline). Runs `table(ctor).filter(e => ids.contains(e.id))` into `this`.
-    static retrieveListImpl: ((ctor: new () => Entity, ids: PrimaryKey[], retriever: Retriever) => Promise<void>) | undefined;
+    static retrieveListImpl: ((ctor: Type<Entity>, ids: PrimaryKey[], retriever: Retriever) => Promise<void>) | undefined;
 
     private readonly cache = new Map<string, Entity>();
     private readonly populated = new Set<Entity>();
-    private readonly requests = new Map<string, { ctor: new () => Entity, ids: Map<string, Entity> }>();
+    private readonly requests = new Map<string, { ctor: Type<Entity>, ids: Map<string, Entity> }>();
 
-    private getOrCreate(ctor: new () => Entity, id: PrimaryKey): Entity {
+    private getOrCreate(ctor: Type<Entity>, id: PrimaryKey): Entity {
         const key = ctor.name + ":" + id;
         let e = this.cache.get(key);
         if (e == null) {
@@ -39,7 +39,7 @@ export class Retriever {
     // Build-or-reuse an entity and populate it (its columns + nested references). Also
     // completes a previously-stubbed instance: the batch retrieve in `completeAll` reaches
     // its rows here and fills the same object.
-    entity(ctor: new () => Entity, id: PrimaryKey | null, populate: (e: any) => void): Entity | null {
+    entity(ctor: Type<Entity>, id: PrimaryKey | null, populate: (e: any) => void): Entity | null {
         if (id == null) return null;
         const e = this.getOrCreate(ctor, id);
         if (!this.populated.has(e)) {
@@ -53,7 +53,7 @@ export class Retriever {
 
     // A referenced entity known only by id: return the id-only instance and register it
     // for batch completion (unless it's already fully populated).
-    stub(ctor: new () => Entity, id: PrimaryKey | null): Entity | null {
+    stub(ctor: Type<Entity>, id: PrimaryKey | null): Entity | null {
         if (id == null) return null;
         const e = this.getOrCreate(ctor, id);
         if (!this.populated.has(e)) {
@@ -83,7 +83,7 @@ export class Retriever {
             return;
         while (this.requests.size > 0) {
             // Largest group first (Signum's MaxBy) — fewer round-trips overall.
-            let best: { ctor: new () => Entity, ids: Map<string, Entity> } | undefined;
+            let best: { ctor: Type<Entity>, ids: Map<string, Entity> } | undefined;
             for (const g of this.requests.values())
                 if (best == null || g.ids.size > best.ids.size) best = g;
             if (best == null || best.ids.size === 0) {
@@ -101,9 +101,9 @@ export class Retriever {
     // the full entity is NOT retrieved (that's the point of a lite). `toStr` is the
     // server-computed display string; a proper per-type toString expression is a
     // later tier, so it is usually empty for now.
-    lite(ctor: new () => Entity, id: PrimaryKey | null, toStr: string | null): Lite<Entity> | null {
+    lite(ctor: Type<Entity>, id: PrimaryKey | null, toStr: string | null): Lite<Entity> | null {
         if (id == null) return null;
-        return new LiteImp(id, ctor as unknown as Type<Entity>, toStr ?? "");
+        return new LiteImp(id, ctor, toStr ?? "");
     }
 
     // A @implementedByAll reference (id + TypeEntity-id discriminator): resolve the
@@ -112,7 +112,7 @@ export class Retriever {
         if (id == null || typeId == null) return null;
         const ctor = TypeLogic.tryGetType(typeId);
         if (ctor == null) return null;
-        return this.stub(ctor as new () => Entity, id);
+        return this.stub(ctor as Type<Entity>, id);
     }
 
     // A Lite<T> over a @implementedByAll reference: a thin LiteImp of the concrete
@@ -133,7 +133,7 @@ export class Retriever {
     }
 
     // An embedded value (no identity / no cache). The parent's snapshot inlines it.
-    embedded(ctor: new () => BaseEntity, populate: (e: any) => void): BaseEntity {
+    embedded(ctor: Type<BaseEntity>, populate: (e: any) => void): BaseEntity {
         const e = new ctor();
         populate(e);
         cleanModified(e);

@@ -10,11 +10,16 @@ import { isGraphModified, isModifiedSelf } from './changes';
 
 export type PrimaryKey = string | number;
 
-// A reference to an entity type: ALWAYS a constructor. Closed generic entity types like
-// EnumEntity<Sex> are real constructors too — see EnumEntity.typeFor, which returns a cached
-// per-enum subclass carrying its enum as a static `boundEnum`. (Formerly a `(new()=>T) |
-// GenericType<T>` union; the GenericType data-descriptor form was removed.)
-export type Type<T extends BaseEntity> = abstract new () => T;
+// A reference to an entity type: ALWAYS a concrete, instantiable constructor. Closed generic entity
+// types like EnumEntity<Sex> are real constructors too — see EnumEntity.typeFor, which returns a cached
+// per-enum subclass carrying its enum as a static `boundEnum`. (Formerly a `(new()=>T) | GenericType<T>`
+// union; the GenericType data-descriptor form was removed.)
+//
+// NON-abstract on purpose: a `Type<T>` is a runtime handle you can `new`, query, register, and cache —
+// so callers never juggle abstract-vs-concrete constructor types. An ABSTRACT base (Entity, View,
+// AwardEntity, …) is not a valid `Type<T>` value: it has no table of its own and can't be instantiated;
+// its concrete implementations are the `Type<T>`s (reached via Implementations / @implementedBy).
+export type Type<T extends BaseEntity> = new () => T;
 
 export type InitValues<T> = Partial<{
     [K in keyof T as T[K] extends Function ? never : K]: T[K]
@@ -66,7 +71,7 @@ export abstract class BaseEntity {
     // The explicit `this` parameter binds to the concrete subclass constructor,
     // so the result is typed as that subclass (and abstract bases can't call it).
     // `InitValues` excludes method-typed properties from the accepted shape.
-    static create<T extends BaseEntity>(this: new () => T, values: InitValues<T>): T {
+    static create<T extends BaseEntity>(this: Type<T>, values: InitValues<T>): T {
         const instance = new this();
         // Seed the mixin fields with their defaults. altea's `mixin()` returns `this`, so mixin
         // fields live flat on the entity but aren't declared on it — their initializers
@@ -76,7 +81,7 @@ export abstract class BaseEntity {
         return instance;
     }
 
-    static createMany<T extends BaseEntity>(this: new () => T, valuesArray: InitValues<T>[]): T[] {
+    static createMany<T extends BaseEntity>(this: Type<T>, valuesArray: InitValues<T>[]): T[] {
         return valuesArray.map(values => (this as any).create(values) as T);
     }
 
@@ -118,7 +123,7 @@ export abstract class View {
     // DiffTable.create takes a columns *array* and indexes it. Typed helpers on concrete
     // subclasses (or a plain `new`) give call-site safety where it matters.
     static create(values: any): any {
-        return Object.assign(new (this as unknown as new () => View)(), values);
+        return Object.assign(new (this as unknown as ViewType<View>)(), values);
     }
 }
 
