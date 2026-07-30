@@ -158,7 +158,9 @@ function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[]): Project
         new CallExpression(new PropertyExpression(new ConstantExpression(ids), "contains"),
             [new PropertyExpression(param, "id")], LiteralType.boolean));
     const filterExpr = new CallExpression(new PropertyExpression(q.expression, "filter"), [predicate], q.type);
-    return bindAndOptimize(filterExpr, connector.schema, connector.isPostgres, /* alreadySimplified */ true);
+    // Run the full simplifier (as the normal query path does): the OverloadingSimplifier is what
+    // establishes the default entity projection — skipping it yielded an empty SELECT column list.
+    return bindAndOptimize(filterExpr, connector.schema, connector.isPostgres);
 }
 
 // Signum's Database.RetrieveList, injected into the Retriever (which can't import the

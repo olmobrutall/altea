@@ -11,14 +11,26 @@
 // TODO: canExecute (OperationLogic), efficient exists, primary-key coercion, Serializer.parse
 // `resolve` overlay onto the DB original.
 
-import { Entity, type PrimaryKey } from "../entities/entity";
+import { Entity, type PrimaryKey, type Type } from "../entities/entity";
 import { Serializer } from "../entities/serializer";
 import { entityIntegrityCheck } from "../entities/validation";
 import type { EntityPack } from "../entities/entityPack";
 import * as Database from "./Database";
 import { Saver } from "./saver";
 import { table } from "./table";
+import { Connector } from "./connection/connector";
 import { WebBuilder, ArrayOf, Primitive, CustomType } from "./webApi";
+
+// Coerce a route-param id (always a string off the URL) to the entity's primary-key runtime type
+// (Signum's PrimaryKey.Parse(id, type)): numeric for int/long PKs, left as a string for uuid/string.
+function parseId(type: Type<Entity>, rawId: PrimaryKey): PrimaryKey {
+    const raw = String(rawId);
+    const col = Connector.current().schema.table(type).primaryKey.column;
+    // uuid/string PK → keep the string. Otherwise (int/long, incl. identity columns whose dbType
+    // family may be inconclusive) coerce an integer-looking id to a number so it matches e.id.
+    if (col.dbType.isGuid() || col.dbType.isString()) return raw;
+    return /^-?\d+$/.test(raw) ? Number(raw) : raw;
+}
 
 export namespace EntitiesServer {
 
@@ -27,7 +39,8 @@ export namespace EntitiesServer {
         ws.get("/api/entity/:type/:id",
             { params: CustomType<{ type: string; id: PrimaryKey }>(), res: Entity },
             async (req, res) => {
-                const e = await Database.retrieve(Entity.resolveType(req.params.type), req.params.id);
+                const type = Entity.resolveType(req.params.type);
+                const e = await Database.retrieve(type, parseId(type, req.params.id));
                 return res.jsonTyped(e);
             });
 
@@ -42,7 +55,8 @@ export namespace EntitiesServer {
             { params: CustomType<{ type: string; id: PrimaryKey }>(), res: Primitive("bool") },
             async (req, res) => {
                 let exists = true;
-                try { await Database.retrieve(Entity.resolveType(req.params.type), req.params.id); }
+                const type = Entity.resolveType(req.params.type);
+                try { await Database.retrieve(type, parseId(type, req.params.id)); }
                 catch { exists = false; }
                 return res.jsonTyped(exists);
             });
@@ -50,7 +64,8 @@ export namespace EntitiesServer {
         ws.get("/api/entityPack/:type/:id",
             { params: CustomType<{ type: string; id: PrimaryKey }>(), res: CustomType<EntityPack<Entity>>() },
             async (req, res) => {
-                const e = await Database.retrieve(Entity.resolveType(req.params.type), req.params.id);
+                const type = Entity.resolveType(req.params.type);
+                const e = await Database.retrieve(type, parseId(type, req.params.id));
                 // The entity is embedded as its serialized graph (the client re-parses it).
                 return res.jsonTyped({ entity: JSON.parse(Serializer.stringify(e)) as Entity, canExecute: {} });
             });

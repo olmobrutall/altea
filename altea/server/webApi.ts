@@ -145,3 +145,9 @@ export class WebBuilder {
     }
 }
 
+// Convenience factory (Signum's SignumServer host setup): a fresh Express app wrapped in a WebBuilder.
+// The Express app is reachable as `ws.app` for static serving / listen.
+export function createWebServer(): WebBuilder {
+    return new WebBuilder(express());
+}
+
