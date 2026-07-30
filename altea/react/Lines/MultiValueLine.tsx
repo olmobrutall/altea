@@ -3,8 +3,8 @@
 // returns VALUES, not rows). altea twist: the collection is `R[]` of ROW entities each carrying the
 // scalar on its @valueField (Signum stored the scalar directly in the MList). So each element edits
 // its row's @valueField sub-context via AutoLine; "add" creates a new row wrapping the value
-// (`RowType.create({ [valueField]: value })`), "remove" drops the row. `tryGetValueField` resolves the
-// @valueField at runtime (throws if the row type declares none — this is a value line).
+// (`RowType.create({ [valueField]: value })`), "remove" drops the row. `memberType.valueField()`
+// resolves the @valueField at runtime (throws if the row type declares none — this is a value line).
 import * as React from "react";
 import { TypeContext } from "../TypeContext";
 import { mlistItemContext } from "../TypeContext";
@@ -13,7 +13,6 @@ import { AutoLine, type AutoLineProps } from "./AutoLine";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ErrorBoundary } from "../Components";
 import { EntityBaseController } from "./EntityBase";
-import { tryGetValueField } from "./EntityListBase";
 import { type LineBaseProps, LineBaseController, useController, genericMemo } from "./LineBase";
 import { classes, KeyGenerator } from "../../entities/globals";
 import { BaseEntity } from "../../entities/entity";
@@ -45,17 +44,17 @@ export class MultiValueLineController<R extends BaseEntity> extends LineBaseCont
 
   // The row type's @valueField (the scalar the row wraps). Required — MultiValueLine is a value line.
   getValueField(): FieldInfo {
-    const vf = tryGetValueField(this.props.type!.getTypeName() ?? "");
+    const vf = this.props.ctx.memberType!.typeInfo().valueField;
     if (vf == null)
-      throw new Error(`MultiValueLine: row type '${this.props.type!.getTypeName()}' must declare a @valueField`);
+      throw new Error(`MultiValueLine: row type '${this.props.ctx.memberType!.getTypeName()}' must declare a @valueField`);
     return vf;
   }
 
   // Wrap a scalar value into a new row: `RowType.create({ [valueField]: value })`.
   createRow(value: unknown): R {
-    const ctor = this.props.type!.getFunction();
+    const ctor = this.props.ctx.memberType!.getFunction();
     if (ctor == null)
-      throw new Error(`MultiValueLine: row type '${this.props.type!.getTypeName()}' is not registered`);
+      throw new Error(`MultiValueLine: row type '${this.props.ctx.memberType!.getTypeName()}' is not registered`);
     return (ctor as unknown as { create(v: any): R }).create({ [this.getValueField().name]: value });
   }
 

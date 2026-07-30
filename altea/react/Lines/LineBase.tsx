@@ -20,7 +20,6 @@ export interface LineBaseProps<V = unknown> extends StyleOptions {
   ctx: TypeContext<V>;
   unit?: string;
   format?: string;
-  type?: FieldInfo; // ALTEA: FieldInfo is the type-metadata carrier (Signum's TypeReference removed).
   label?: React.ReactNode;
   labelIcon?: React.ReactNode;
   visible?: boolean;
@@ -119,7 +118,7 @@ export class LineBaseController<P extends LineBaseProps<V>, V> {
   }
 
   defaultResetValidationError(val: V): string | undefined {
-    if (!this.props.type!.isNullable && val == undefined)
+    if (!this.props.ctx.memberType!.isNullable && val == undefined)
       return ValidationMessage._0IsNotSet.niceToString(this.props.ctx.niceName());
 
     return undefined;
@@ -127,14 +126,16 @@ export class LineBaseController<P extends LineBaseProps<V>, V> {
 
   expandProps(props: P): P {
 
-    const { type, ctx,
+    const { ctx,
       readonlyAsPlainText, formSize, formGroupStyle, labelColumns, placeholderLabels, readOnly, valueColumns,
       ...otherProps
     } = props as LineBaseProps;
 
     const so: StyleOptions = { readonlyAsPlainText, formSize, formGroupStyle, labelColumns, placeholderLabels, readOnly, valueColumns };
 
-    const p = { ctx: ctx.subCtx(so), type: (type ?? ctx.propertyRoute?.fieldInfo) } as LineBaseProps as P;
+    // ALTEA: the line has NO `type` prop — its type facet comes from the ctx (ctx.memberType: the
+    // PropertyRoute's FieldInfo, or a bare TypeReference for FilterBuilder value editors).
+    const p = { ctx: ctx.subCtx(so) } as LineBaseProps as P;
 
     this.getDefaultProps(p);
     this.overrideProps(p, otherProps as P);
@@ -198,7 +199,7 @@ export class LineBaseController<P extends LineBaseProps<V>, V> {
   }
 
   get isHidden(): boolean | undefined {
-    return this.props.type == null || this.props.visible == false || this.props.ctx.binding.getIsHidden() || this.props.hideIfNull && (this.props.ctx.value == undefined || this.props.ctx.value == "");
+    return this.props.ctx.memberType == null || this.props.visible == false || this.props.ctx.binding.getIsHidden() || this.props.hideIfNull && (this.props.ctx.value == undefined || this.props.ctx.value == "");
   }
 }
 

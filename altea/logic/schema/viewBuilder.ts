@@ -1,5 +1,4 @@
 import type { Entity, Type } from '../../entities/entity';
-import { typeConstructor } from '../../entities/entity';
 import { getTypeInfo, FieldInfo } from '../../entities/reflection';
 import { AbstractDbType, IsNullable, defaultDbType } from './dbType';
 import { PrimaryKeyColumn, ValueColumn, ReferenceColumn } from './column';
@@ -28,7 +27,7 @@ export class ViewBuilder {
     constructor(private readonly schema?: Schema) { }
 
     newView(type: Type<Entity>): Table {
-        const ctor = typeConstructor(type);
+        const ctor = type;
         const typeInfo = getTypeInfo(ctor);
         if (typeInfo == null)
             throw new Error(`View '${ctor.name}' has no reflection metadata. Decorate it with @reflect.`);

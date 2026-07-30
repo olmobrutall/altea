@@ -6,7 +6,7 @@
 // per-entity-type `EntitySerializer` whose field plan is PRECOMPUTED from reflection — so
 // stringify/parse never re-walk metadata per call.
 
-import { Entity, EmbeddedEntity, typeConstructor } from '../entity';
+import { Entity, EmbeddedEntity } from '../entity';
 import type { Type, PrimaryKey, BaseEntity } from '../entity';
 import { Lite, LiteImp, getCustomLites } from '../lite';
 import type { CustomLiteClass } from '../lite';
@@ -44,7 +44,7 @@ class LiteSerializer implements JsonSerializer {
         const lite = value as Lite<Entity>;
         const o: Record<string, unknown> = {};
         if (writeType || sc.writeTypes === 'Always' || this.expectedCtor == null)
-            o.$lite = cleanTypeName(typeConstructor(lite.entityType));
+            o.$lite = cleanTypeName(lite.entityType);
         o.id = lite.id ?? null;
         const toStr = safeToString(lite);
         if (toStr != null) o.toStr = toStr;
@@ -72,7 +72,7 @@ class LiteSerializer implements JsonSerializer {
         // The field's @customLite override is authoritative for its declared type: a lite of that
         // type on this field IS that model (Signum's [LiteModel] on the property).
         if (this.fieldCustomLite != null) {
-            const match = this.fieldCustomLite.find(c => typeConstructor(c.forEntityType() as Type<Entity>) === ctor);
+            const match = this.fieldCustomLite.find(c => (c.forEntityType() as Type<Entity>) === ctor);
             if (match != null)
                 lite = (match.liteClass() as CustomLiteClass).fromJson(j);
         }

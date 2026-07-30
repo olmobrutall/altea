@@ -70,7 +70,7 @@ export const DateTimeLine: (props: DateTimeLineProps) => React.ReactNode | null 
     return null;
 
   const p = c.props;
-  const type = c.props.type!.typeName as "PlainDate" | "PlainDateTime";
+  const type = c.props.ctx.memberType!.typeName as "PlainDate" | "PlainDateTime";
   const options = toDateFormatOptions(p.format, type);
 
   const jsDate = p.ctx.value ? isoToDate(p.ctx.value) : undefined;

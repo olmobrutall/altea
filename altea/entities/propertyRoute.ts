@@ -1,6 +1,5 @@
 import { Entity } from './entity';
 import type { BaseEntity, Type } from './entity';
-import { typeConstructor } from './entity';
 import type { FieldInfo } from './reflection';
 import { tryGetTypeInfo, TypeReference } from './reflection';
 import { cleanTypeName, resolveCleanType } from './registration';
@@ -45,7 +44,7 @@ export class PropertyRoute {
     private static rootCache = new Map<Function, PropertyRoute>();
 
     static root(rootEntity: Function | Type<BaseEntity>): PropertyRoute {
-        const ctor = typeof rootEntity === 'function' ? rootEntity : typeConstructor(rootEntity);
+        const ctor = typeof rootEntity === 'function' ? rootEntity : rootEntity;
         let r = PropertyRoute.rootCache.get(ctor);
         if (r == undefined) {
             r = new PropertyRoute(PropertyRouteType.Root, undefined, ctor, undefined, undefined);
@@ -178,7 +177,7 @@ export class PropertyRoute {
     addMixin(mixinName: string): PropertyRoute {
         const owner = this.ownerCtor();
         const mixinCtor = owner == undefined ? undefined :
-            MixinDeclarations.getMixins(owner as Type<BaseEntity>).map(typeConstructor).find(m => m.name === mixinName);
+            MixinDeclarations.getMixins(owner as Type<BaseEntity>).find(m => m.name === mixinName);
         if (mixinCtor == undefined)
             throw new Error(`Mixin '${mixinName}' does not exist on ${owner?.name} (route ${this})`);
         return new PropertyRoute(PropertyRouteType.Mixin, this, undefined, undefined, mixinCtor);

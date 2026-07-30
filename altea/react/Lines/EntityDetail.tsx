@@ -1,6 +1,6 @@
 // Ported from Signum.React/Lines/EntityDetail.tsx — copy-paste + fix. altea fixes:
-//   - ModifiableEntity → BaseEntity; the line's `type` is a FieldInfo (`.isEmbedded`→`.kind=="Embedded"`,
-//     `tryGetTypeInfos(type)`→`tryGetTypeInfos(type.typeName)`).
+//   - ModifiableEntity → BaseEntity; the line's type comes from ctx.memberType (a TypeReference), and
+//     Signum's `tryGetTypeInfos(type)` string round-trip → `ctx.memberType.typeInfos()` (structured).
 //   - idioms: isLite(x)→x instanceof Lite; isEntity(x)→x instanceof Entity.
 //   - dropped unused Signum imports (getTypeInfos / FontAwesomeIcon / GroupHeader).
 import * as React from 'react'
@@ -11,7 +11,6 @@ import { Lite } from '../../entities/lite'
 import { EntityBaseController, type EntityBaseProps } from './EntityBase'
 import { RenderEntity } from './RenderEntity'
 import { genericMemo, useController } from './LineBase'
-import { tryGetTypeInfos } from '../Reflection'
 import { TypeBadge } from './AutoCompleteConfig'
 import { getTimeMachineIcon } from './TimeMachineIcon'
 import { type HeaderType, Title } from './GroupHeader'
@@ -44,10 +43,10 @@ export const EntityDetail: <V extends BaseEntity | Lite<Entity> | null>(props: E
   if (c.isHidden)
     return null;
 
-  var ti = tryGetTypeInfos((p.type!.getTypeName() ?? "")).onlyOrNull();
+  var ti = p.ctx.memberType!.typeInfos().onlyOrNull();
 
   var showAsCheckBox = p.showAsCheckBox ??
-    ((p.type!.is(EmbeddedEntity) || ti != null && ti.entityKind == "Part") && p.extraButtons == undefined && p.extraButtonsBefore == undefined);
+    ((p.ctx.memberType!.is(EmbeddedEntity) || ti != null && ti.entityKind == "Part") && p.extraButtons == undefined && p.extraButtonsBefore == undefined);
 
 
   function renderType() {
@@ -56,7 +55,7 @@ export const EntityDetail: <V extends BaseEntity | Lite<Entity> | null>(props: E
       return null;
 
     if (entity instanceof Lite || entity instanceof Entity) {
-      if (p.showType ?? tryGetTypeInfos((p.type!.getTypeName() ?? "")).length > 1)
+      if (p.showType ?? p.ctx.memberType!.typeInfos().length > 1)
         return <TypeBadge entity={entity!} />;
     }
 

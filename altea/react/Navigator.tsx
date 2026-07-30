@@ -9,8 +9,9 @@
 import * as React from "react";
 import { ajaxGet, ajaxGetRaw, wrapRequest } from './Services';
 import { toAbsoluteUrl } from './AppContext';
-import { getTypeName, tryGetTypeInfo, isTypeModel } from './Reflection';
-import type { PseudoType, Type } from './Reflection';
+import { getTypeName, tryGetTypeInfo } from './Reflection';
+import type { PseudoType } from './Reflection';
+import type { Type } from '../entities/entity';
 import { Dic } from '../entities/globals';
 import { Entity, BaseEntity } from '../entities/entity';
 import { Lite } from '../entities/lite';
@@ -26,8 +27,9 @@ import type { EntityWhen, ViewPromise, AutocompleteConstructor, AutocompleteCons
 import { Finder } from './Finder';
 import { Constructor } from './Constructor';
 import { TextHighlighter } from './Components/Typeahead';
-import { IsByAll, tryGetTypeInfos, getTypeInfos, TypeInfo, TypeReference } from './Reflection';
-import type { PropertyRoute } from './Reflection';
+import { IsByAll } from './Reflection';
+import { TypeInfo, TypeReference } from '../entities/reflection';
+import type { PropertyRoute } from '../entities/propertyRoute';
 import { EmbeddedEntity } from '../entities/entity';
 import { cleanTypeName } from '../entities/registration';
 import { softCast } from '../entities/globals';
@@ -1428,7 +1430,7 @@ export namespace Navigator {
     if (type.is(EmbeddedEntity) || type.isByAll())
       return null;
 
-    let types = tryGetTypeInfos(type.getTypeName() ?? "").notNull();
+    let types = type.typeInfos();
     showType ??= types.length > 1;
 
     types = types.filter(t => isFindable(cleanTypeName(t.ctor!), { fullScreenSearch: false }));

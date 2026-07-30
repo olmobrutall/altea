@@ -8,9 +8,10 @@
 //     MultiValueLine; no @valueField (owned parts) → EntityRepeater if the field is @implementedBy
 //     (polymorphic, per-row views), else EntityTable (grid).
 import * as React from 'react'
-import { PropertyRoute, isNumberType, tryGetTypeInfos } from '../Reflection'
+import { PropertyRoute } from '../../entities/propertyRoute'
+import { isNumberType } from '../numberFormat'
 import { Entity, EmbeddedEntity } from '../../entities/entity'
-import type { FieldInfo } from '../../entities/reflection'
+import { FieldInfo, type TypeReference } from '../../entities/reflection'
 import { LineBaseController, type LineBaseProps } from './LineBase'
 import { CheckboxLine } from './CheckboxLine'
 import { DateTimeLine } from './DateTimeLine'
@@ -27,7 +28,6 @@ import { EntityRepeater } from './EntityRepeater'
 import { EntityCombo } from './EntityCombo'
 import { EntityCheckboxList } from './EntityCheckboxList'
 import { MultiValueLine } from './MultiValueLine'
-import { tryGetValueField } from './EntityListBase'
 
 export interface AutoLineProps extends LineBaseProps<any> {
   propertyRoute?: PropertyRoute; //For AutoLineModal
@@ -38,11 +38,11 @@ export interface AutoLineProps extends LineBaseProps<any> {
 export function AutoLine(p: AutoLineProps): React.ReactElement | null {
   const pr = p.ctx.propertyRoute;
 
-  var isHidden = p.type == null && pr == null || p.visible == false || p.hideIfNull && (p.ctx.value == undefined || p.ctx.value == "");
+  var isHidden = p.ctx.memberType == null && pr == null || p.visible == false || p.hideIfNull && (p.ctx.value == undefined || p.ctx.value == "");
   if (isHidden)
     return null;
 
-  const fi = p.type ?? pr!.fieldInfo!;
+  const fi = p.ctx.memberType ?? pr!.fieldInfo!;
   const factory = React.useMemo(() => AutoLine.getComponentFactory(fi, p.propertyRoute ?? pr), [(p.propertyRoute ?? pr)?.toString(), fi.getTypeName()]);
 
   return factory(p);
@@ -50,7 +50,7 @@ export function AutoLine(p: AutoLineProps): React.ReactElement | null {
 
 export interface AutoLineFactoryRule {
   name: string;
-  factory: (fi: FieldInfo, pr?: PropertyRoute) => undefined | ((p: AutoLineProps) => React.ReactElement);
+  factory: (fi: TypeReference, pr?: PropertyRoute) => undefined | ((p: AutoLineProps) => React.ReactElement);
 }
 
 // TODO(port): the entity/collection lines (EntityLine/Combo/Detail/Strip/Table/Repeater/CheckboxList/
@@ -64,11 +64,11 @@ export namespace AutoLine {
     [typeName: string]: AutoLineFactoryRule[];
   } = {};
 
-  export function registerComponent(type: string, factory: (fi: FieldInfo, pr?: PropertyRoute) => undefined | ((p: AutoLineProps) => React.ReactElement), name?: string): void {
+  export function registerComponent(type: string, factory: (fi: TypeReference, pr?: PropertyRoute) => undefined | ((p: AutoLineProps) => React.ReactElement), name?: string): void {
     (customTypeComponent[type] ??= []).push({ name: name ?? type, factory });
   }
 
-  export function getComponentFactory(fi: FieldInfo, pr?: PropertyRoute): (props: AutoLineProps) => React.ReactElement {
+  export function getComponentFactory(fi: TypeReference, pr?: PropertyRoute): (props: AutoLineProps) => React.ReactElement {
 
     const customs = customTypeComponent[fi.getTypeName() ?? fi.typeName]?.map(rule => rule.factory(fi, pr)).notNull().first();
 
@@ -81,25 +81,26 @@ export namespace AutoLine {
     //   - value collection whose value is a scalar → MultiValueLine (not ported yet);
     //   - no @valueField (owned 1-N part rows) → EntityTable / EntityRepeater (not ported yet).
     if (fi.array) {
-      // ALTEA: `fi.typeName` is undefined for thunked (`type: () => X`) array fields, so resolve the row
-      // type name from the thunk (fieldTypeName) for the @valueField lookup.
-      const rowTypeName = fi.getTypeName();
-      const vf = rowTypeName != null ? tryGetValueField(rowTypeName) : null;
+      // Owned polymorphic rows (@implementedBy / @implementedByAll) have no uniform @valueField or
+      // column set → per-row EntityRepeater. Checked FIRST so the single-row-type `typeInfo()` below
+      // never sees a multi-type reference.
+      if (fi.implementations != null)
+        return p => <EntityRepeater {...p} />;
+
+      // Single concrete row type: a @valueField (resolved off the row's TypeInfo) means it's a value
+      // collection (junction / 1-N value); otherwise the whole row is an owned part → EntityTable grid.
+      const vf = fi.typeInfo().valueField;
       if (vf != null) {
         const valueIsReference = vf.lite || vf.is(Entity);
         if (valueIsReference) {
           // Low-population value type (few rows) → a checkbox list of all options; else the chip strip.
-          const tis = tryGetTypeInfos(vf.getTypeName() ?? "").notNull();
+          const tis = vf.typeInfos();
           if (tis.length > 0 && tis.every(t => t.lowPopulation))
             return p => <EntityCheckboxList {...p} />;
           return p => <EntityStrip {...p} />;
         }
         return p => <MultiValueLine {...p} />;
       }
-      // Owned 1-N part rows: a polymorphic (@implementedBy) element has no uniform column set, so it
-      // renders per-row via EntityRepeater; a single concrete row type → EntityTable's grid.
-      if (fi.implementations != null)
-        return p => <EntityRepeater {...p} />;
       return p => <EntityTable {...p} />;
     }
 
@@ -111,7 +112,7 @@ export namespace AutoLine {
     // Entity / Lite reference (incl. @implementedBy interface [typeName-only] / @implementedByAll).
     // A single low-population target → EntityCombo (a dropdown of all rows); else EntityLine.
     if (fi.isByAll() || fi.lite || fi.is(Entity) || fi.implementations != null) {
-      const tis = tryGetTypeInfos(fi.getTypeName() ?? "").notNull();
+      const tis = fi.typeInfos();
       if (tis.length > 0 && tis.every(t => t.lowPopulation))
         return p => <EntityCombo {...p} />;
       return p => <EntityLine {...p} />;
@@ -127,13 +128,16 @@ export namespace AutoLine {
       return p => <DateTimeLine {...p} />;
 
     if (fi.typeName == "String") {
-      if (fi.format == "Password")
+      // format / isMultiline are FieldInfo display members (not on a bare TypeReference — those come
+      // from a real field). A bare TypeReference String falls through to the plain TextBox.
+      const field = fi instanceof FieldInfo ? fi : undefined;
+      if (field?.format == "Password")
         return p => <PasswordLine {...p} />;
 
-      if (fi.format == "Color")
+      if (field?.format == "Color")
         return p => <ColorLine {...p} />;
 
-      if (fi.isMultiline)
+      if (field?.isMultiline)
         return p => <TextAreaLine {...p} />;
 
       return p => <TextBoxLine {...p} />;

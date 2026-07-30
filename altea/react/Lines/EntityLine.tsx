@@ -94,9 +94,9 @@ export class EntityLineController<V extends BaseEntity | Lite<Entity> | null> ex
 
   override overrideProps(p: EntityLineProps<V>, overridenProps: EntityLineProps<V>): void {
     super.overrideProps(p, overridenProps);
-    if (p.type) {
+    if (p.ctx.memberType) {
       if (p.showType == undefined)
-        p.showType = (p.type.getTypeName() ?? "").contains(",");
+        p.showType = (p.ctx.memberType.getTypeName() ?? "").contains(",");
 
       if (p.autocomplete === undefined)
         p.autocomplete = p.ctx.propertyRoute == null ? null :

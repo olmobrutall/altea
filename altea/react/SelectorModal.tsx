@@ -6,9 +6,10 @@ import * as React from 'react'
 import { openModal, type IModalProps } from './Modals';
 import { SelectorMessage, JavascriptMessage } from '../entities/uiMessages'
 import type { Lite } from '../entities/lite'
-import type { Entity } from '../entities/entity'
+import type { Entity, Type } from '../entities/entity'
 import { cleanTypeName } from '../entities/registration'
-import { TypeInfo, EnumType, getTypeInfo, type Type } from './Reflection'
+import { TypeInfo } from '../entities/reflection'
+import { EnumType, getTypeInfo } from './Reflection'
 import type { BsSize } from './Components';
 import { Modal } from 'react-bootstrap';
 

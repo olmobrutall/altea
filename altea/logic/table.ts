@@ -1,5 +1,5 @@
 
-import { Entity, type PrimaryKey } from "../entities/entity";
+import { Entity, type PrimaryKey, type Type, type ViewType, type View } from "../entities/entity";
 import { CallExpression, ConstantExpression, Expression, PropertyExpression, ParameterExpression, LambdaExpression } from "./linq/expressions";
 import { Retriever } from "./linq/Retriever";
 import { quotedFunction, type IQueryTranslator, Query } from "./query";
@@ -42,7 +42,7 @@ if (!Object.prototype.hasOwnProperty.call(Promise.prototype, "$v")) {
     });
 }
 
-export function table<T extends Entity>(entityType: { new(): T }): Query<T> {
+export function table<T extends Entity>(entityType: Type<T>): Query<T> {
     var arrayType = new ArrayType(new ClassType(entityType));
     var callExpression = new CallExpression(
         new ConstantExpression(table, new FunctionType(table, arrayType)),
@@ -55,11 +55,11 @@ export function table<T extends Entity>(entityType: { new(): T }): Query<T> {
 // `view(MyView)` — a query over a raw database view (Signum's Database.View<T>()). Mirrors
 // `table()`, but the binder resolves the source via `schema.view()` (ViewBuilder) rather
 // than `schema.table()`; the extra `__isViewSource` marker selects that path.
-export function view<T>(viewType: { new(): T }): Query<T> {
-    const arrayType = new ArrayType(new ClassType(viewType as any));
+export function view<T extends View>(viewType: ViewType<T>): Query<T> {
+    const arrayType = new ArrayType(new ClassType(viewType));
     const callExpression = new CallExpression(
         new ConstantExpression(view, new FunctionType(view, arrayType)),
-        [new ConstantExpression(viewType, new FunctionType(viewType as any, new ClassType(viewType as any)))],
+        [new ConstantExpression(viewType, new FunctionType(viewType, new ClassType(viewType)))],
         arrayType,
     );
     return new Query<T>(callExpression, MyQueryTranslator.instance);
@@ -70,8 +70,8 @@ export function view<T>(viewType: { new(): T }): Query<T> {
 // QueryBinder lowers it via bindSqlMethod → bindTableValuedFunction (Signum's
 // `new Query<DateValue>(provider, Expression.Call(GetDatesInRange, …))`). `viewType` is the row
 // IView; `args` become the function's SQL arguments (parametrised).
-export function sqlMethodQuery<T>(marker: Function, viewType: new () => T, args: unknown[]): Query<T> {
-    const arrayType = new ArrayType(new ClassType(viewType as any));
+export function sqlMethodQuery<T extends View>(marker: Function, viewType: ViewType<T>, args: unknown[]): Query<T> {
+    const arrayType = new ArrayType(new ClassType(viewType));
     const call = new CallExpression(
         new ConstantExpression(marker, new FunctionType(marker, arrayType)),
         args.map(a => new ConstantExpression(a)),
@@ -150,7 +150,7 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
 // Retriever's batch stub-completion and Database.retrieveList. The predicate is hand-built
 // (no quoted lambda needed at runtime); the captured id array is a ConstantExpression the
 // binder lowers to an `IN (…)`.
-function retrieveByIdsProjection(ctor: new () => Entity, ids: PrimaryKey[]): ProjectionExpression {
+function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[]): ProjectionExpression {
     const connector = Connector.current();
     const q = table(ctor);
     const param = new ParameterExpression("e", q.elementType);
@@ -172,7 +172,7 @@ Retriever.retrieveListImpl = async (ctor: new () => Entity, ids: PrimaryKey[], r
 // Materialise the `ctor` rows whose id is in `ids` (a single `WHERE id IN (…)` query) as a
 // fresh list. The DB half of Database.retrieveList — order/missing handling and chunking
 // live there. Returns [] for an empty id list without touching the database.
-export async function retrieveEntitiesByIds<T extends Entity>(ctor: new () => T, ids: PrimaryKey[]): Promise<T[]> {
+export async function retrieveEntitiesByIds<T extends Entity>(ctor: Type<T>, ids: PrimaryKey[]): Promise<T[]> {
     if (ids.length === 0)
         return [];
     const connector = Connector.current();

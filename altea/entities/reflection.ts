@@ -164,6 +164,34 @@ export class TypeReference {
 
     // @implementedByAll (a reference typed as "any entity").
     isByAll(): boolean { return this.implementations?.kind === 'implementedByAll'; }
+
+    // The concrete entity TypeInfos this reference targets: the single class for a mono-typed
+    // reference, or every @implementedBy implementation; [] for @implementedByAll, values, and enums.
+    // Only *resolved* TypeInfos are returned. Replaces Signum's client `getTypeInfos(name)` string
+    // round-trip — altea holds the target ctor(s) STRUCTURALLY, so a name-only @implementedBy interface
+    // (whose {@link getTypeName} is the unresolvable INTERFACE name) still yields its real
+    // implementations, and a polymorphic reference is detected by `typeInfos().length > 1` rather than
+    // by sniffing a ", " in the name.
+    typeInfos(): TypeInfo[] {
+        if (this.isByAll()) return [];
+        const impl = this.implementations;
+        if (impl != null && impl.kind === 'implementedBy')
+            return impl.types().map(t => tryGetTypeInfo(t)).filter((ti): ti is TypeInfo => ti != null);
+        const ctor = this.getFunction();
+        const ti = ctor != null ? tryGetTypeInfo(ctor) : undefined;
+        return ti != null ? [ti] : [];
+    }
+
+    // The single TypeInfo this reference targets, asserting there is EXACTLY one (Signum's `.single()`).
+    // Throws for a value/enum (zero), an @implementedByAll, or a multi-type @implementedBy — i.e. any
+    // caller that assumes a mono-typed reference: its @valueField / @rowOrder row-type lookups read
+    // `tr.typeInfo().valueField` / `.rowOrderField`. Use {@link typeInfos} where zero-or-many is valid.
+    typeInfo(): TypeInfo {
+        const tis = this.typeInfos();
+        if (tis.length !== 1)
+            throw new Error(`Expected exactly one TypeInfo for '${this.getTypeName()}', got ${tis.length}`);
+        return tis[0];
+    }
 }
 
 export class FieldInfo extends TypeReference {

@@ -1,6 +1,5 @@
 
 import type { Entity, Type, PrimaryKey } from './entity';
-import { typeName, typeConstructor } from './entity';
 import { cleanTypeName, resolveCleanType } from './registration';
 import type { Quoted } from 'quote-transformer/quoted';
 
@@ -34,7 +33,7 @@ export abstract class Lite<out T extends Entity> {
     get entity(): T {
         if (this._entity == null)
             throw new Error(
-                `The lite of ${typeName(this.entityType)} (Id ${this.id}) is not loaded. ` +
+                `The lite of ${this.entityType.name} (Id ${this.id}) is not loaded. ` +
                 `Use entityOrNull, or build it fat with toLiteFat() / toLite(true).`,
             );
         return this._entity as T;
@@ -73,7 +72,7 @@ export abstract class Lite<out T extends Entity> {
 
     /** The canonical "CleanType;id" key of this lite (Signum's free `liteKey`). */
     key(): string {
-        return cleanTypeName(typeConstructor(this.entityType)) + ";" + this.id;
+        return cleanTypeName(this.entityType) + ";" + this.id;
     }
 
     /** Builds a thin lite from its "CleanType;id" key (Signum's free `parseLite`). */
@@ -199,7 +198,7 @@ export function registerCustomLite<T extends Entity>(
     fromEntity: Quoted<(entity: T) => Lite<T>>,
     isDefault = false,
 ): void {
-    const ctor = typeConstructor(entityType);
+    const ctor = entityType;
     const arr = customLiteRegistry.get(ctor) ?? [];
     arr.push({ liteClass, fromEntity: fromEntity as unknown as Quoted<(entity: Entity) => Lite<Entity>>, isDefault });
     customLiteRegistry.set(ctor, arr);
@@ -214,7 +213,7 @@ export function registerCustomLite<T extends Entity>(
 export function getCustomLiteConstructor<T extends Entity>(
     entityType: Type<T>,
 ): Quoted<(entity: T) => Lite<T>> | undefined {
-    const arr = customLiteRegistry.get(typeConstructor(entityType));
+    const arr = customLiteRegistry.get(entityType);
     return arr?.find(r => r.isDefault)?.fromEntity as unknown as Quoted<(entity: T) => Lite<T>> | undefined;
 }
 
@@ -232,6 +231,6 @@ export function getCustomLiteConstructorFor<T extends Entity>(
     entityType: Type<T>,
     liteClass: CustomLiteClass,
 ): Quoted<(entity: T) => Lite<T>> | undefined {
-    const arr = customLiteRegistry.get(typeConstructor(entityType));
+    const arr = customLiteRegistry.get(entityType);
     return arr?.find(r => r.liteClass === liteClass)?.fromEntity as unknown as Quoted<(entity: T) => Lite<T>> | undefined;
 }

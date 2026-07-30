@@ -145,7 +145,7 @@ export function EntityCheckboxListSelect<R extends BaseEntity>(props: EntityChec
   React.useEffect(() => {
     if (p.data) {
       if (requestStarted.current)
-        console.warn(`The 'data' was set too late. Consider using [] as default value to avoid automatic query. EntityCheckboxList: ${p.type!.getTypeName()}`);
+        console.warn(`The 'data' was set too late. Consider using [] as default value to avoid automatic query. EntityCheckboxList: ${p.ctx.memberType!.getTypeName()}`);
       setData(p.data);
     } else {
       requestStarted.current = true;
@@ -160,7 +160,7 @@ export function EntityCheckboxListSelect<R extends BaseEntity>(props: EntityChec
           .then(data => setData(data.orderBy(a => a.toString())));
       }
     }
-  }, [normalizeEmptyArray(p.data), p.type!.getTypeName(), p.deps, p.findOptions && Finder.findOptionsPath(p.findOptions)]);
+  }, [normalizeEmptyArray(p.data), p.ctx.memberType!.getTypeName(), p.deps, p.findOptions && Finder.findOptionsPath(p.findOptions)]);
 
 
   return (

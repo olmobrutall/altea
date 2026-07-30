@@ -37,7 +37,7 @@ import { QueryTokenString, type Anonymous } from './QueryTokenString';
 import { FilterOperationEnum, PinnedFilterActiveEnum } from '../entities/dynamicQueries'; // numeric companions, for wire-ordinal encode/decode
 import type { FilterOperation, FilterGroupOperation, PinnedFilterActive, FilterType, PaginationMode, OrderType } from '../entities/dynamicQueries';
 
-import { Entity, BaseEntity, EmbeddedEntity, ModelEntity } from '../entities/entity';
+import { Entity, BaseEntity, EmbeddedEntity, ModelEntity, type Type } from '../entities/entity';
 import { Lite } from '../entities/lite';
 // TODO(port): Signum.Entities free helpers → altea idioms (methods): toLite→e.toLite(), liteKey→l.key(),
 // parseLite→Lite.parse, is→.is(), isLite/isEntity/isModifiableEntity→instanceof; MListElement/isMListElement
@@ -46,10 +46,12 @@ import { TypeEntity } from '../entities/typeEntity';
 // TODO(port): QueryEntity (Signum.Basics) not ported.
 
 import {
-  QueryKey, getQueryKey, isQueryDefined, getTypeName, getTypeInfo, tryGetTypeInfos, getTypeInfos, tryGetTypeInfo, isTypeModel, isNumberType,
-  TypeInfo, TypeReference, PropertyRoute,
-  type Type, type PseudoType,
+  QueryKey, getQueryKey, isQueryDefined, getTypeName, getTypeInfo, tryGetTypeInfo,
+  type PseudoType,
 } from './Reflection';
+import { isNumberType } from './numberFormat';
+import { TypeInfo, TypeReference } from '../entities/reflection';
+import { PropertyRoute } from '../entities/propertyRoute';
 import type { FieldInfo } from '../entities/reflection';
 // TODO(port): getEnumInfo, toLuxonFormat, toNumberFormat, onReloadTypesActions, toLuxonDurationFormat,
 // toFormatWithFixes, numberLimits, isDecimalType — formatter/query-registry layer not ported.
@@ -380,10 +382,10 @@ export namespace Finder {
 
   export function getTypeNiceName(rt: TypeReference): string {
 
-    const name = rt.getTypeName() ?? "";
-    const niceName = tryGetTypeInfos(name)
-      .map(ti => ti == undefined ? getSimpleTypeNiceName(name) : ti.getNiceName())
-      .joinComma(CollectionMessage.Or.niceToString());
+    const tis = rt.typeInfos();
+    const niceName = tis.length > 0
+      ? tis.map(ti => ti.getNiceName()).joinComma(CollectionMessage.Or.niceToString())
+      : getSimpleTypeNiceName(rt.getTypeName() ?? ""); // value/enum column (no TypeInfo)
 
     return rt.array ? QueryTokenMessage.ListOf0.niceToString(niceName) : niceName;
   }
@@ -1960,7 +1962,7 @@ export namespace Finder {
       if (value instanceof Lite)
         return value.key();
 
-      if (value instanceof BaseEntity && isTypeModel(getTypeName(value))) {
+      if (value instanceof ModelEntity) {
         return encodeModel[getTypeName(value)](value);
       }
 
@@ -2176,7 +2178,7 @@ export namespace Finder {
   };
 
   export function isSystemVersioned(rt?: TypeReference): boolean {
-    return rt != null && getTypeInfos(rt.getTypeName() ?? "").some(ti => ti.systemVersioned != null)
+    return rt != null && rt.typeInfos().some(ti => ti.systemVersioned != null)
   }
 
   interface GetFormatterOptions {

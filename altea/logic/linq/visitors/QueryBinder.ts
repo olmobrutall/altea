@@ -53,7 +53,7 @@ import {
     FieldImplementedBy, FieldImplementedByAll,
 } from "../../schema/field";
 import type { FieldInfo } from "../../../entities/reflection";
-import { Entity, View, ModelEntity, typeConstructor } from "../../../entities/entity";
+import { Entity, View, ModelEntity } from "../../../entities/entity";
 import type { Type } from "../../../entities/entity";
 import { TypeEntity } from "../../../entities/typeEntity";
 import { toInt, toLong, toDecimal, inSql, Temporal } from "../../../entities/basics";
@@ -577,7 +577,7 @@ export class QueryBinder extends ExpressionVisitor {
             return undefined;
         const map = new Map<Type<Entity>, CustomLiteClass>();
         for (const c of list)
-            map.set(typeConstructor(c.forEntityType() as Type<Entity>) as unknown as Type<Entity>, c.liteClass() as CustomLiteClass);
+            map.set(c.forEntityType() as Type<Entity>, c.liteClass() as CustomLiteClass);
         return map;
     }
 

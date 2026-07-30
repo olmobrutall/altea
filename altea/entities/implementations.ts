@@ -1,4 +1,4 @@
-import { Entity, typeConstructor } from './entity';
+import { Entity } from './entity';
 import type { TypeReference } from './reflection';
 import { cleanTypeName } from './registration';
 
@@ -44,7 +44,7 @@ export class Implementations {
     static tryFromFieldInfo(fi: TypeReference): Implementations | undefined {
         const impl = fi.implementations;
         if (impl != undefined)
-            return impl.kind === 'implementedByAll' ? Implementations.byAll : Implementations.by(...impl.types().map(typeConstructor));
+            return impl.kind === 'implementedByAll' ? Implementations.byAll : Implementations.by(...impl.types());
 
         const ctor = fi.getFunction();
         if (ctor != undefined && Implementations.error(ctor) == null)

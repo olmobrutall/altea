@@ -4,7 +4,7 @@
 // by id. The cache extension point (`./cache`) is consulted first, so a cached type is
 // served from memory instead of the database.
 
-import { Entity, type PrimaryKey, type Type, typeConstructor, typeName } from "../entities/entity";
+import { Entity, type PrimaryKey, type Type } from "../entities/entity";
 import { Lite } from "../entities/lite";
 import { getCacheController } from "./cache";
 import { retrieveEntitiesByIds, table } from "./table";
@@ -14,12 +14,6 @@ import "../entities/globals"; // Array.prototype.contains (SQL-mappable in the d
 // SchemaSettings.MaxNumberOfParameters). Kept conservative so both SQL Server (~2100) and
 // Postgres are safe.
 const MAX_IN_PARAMETERS = 1000;
-
-// The runtime constructor behind a type reference (the ctor itself for a plain entity, the
-// open class for a closed generic), as the query layer needs it.
-function ctorOf<T extends Entity>(type: Type<T>): new () => T {
-    return typeConstructor(type) as new () => T;
-}
 
 // Signum's Database.RetrieveList<T>(ids): the entities of `type` for `ids`, in the same
 // order (duplicate ids repeat the same instance). A cached type is served from its
@@ -31,7 +25,7 @@ export async function retrieveList<T extends Entity>(type: Type<T>, ids: Primary
     const distinct = [...new Set(ids)];
     const byId = new Map<PrimaryKey, T>();
 
-    const ctor = ctorOf(type);
+    const ctor = type as new () => T;
     const cc = await getCacheController(ctor);
     if (cc != null) {
         for (const id of distinct) {
@@ -50,7 +44,7 @@ export async function retrieveList<T extends Entity>(type: Type<T>, ids: Primary
     return ids.map(id => {
         const e = byId.get(id);
         if (e == null)
-            throw new Error(`Entity '${typeName(type)}' with id ${id} not found.`);
+            throw new Error(`Entity '${type.name}' with id ${id} not found.`);
         return e;
     });
 }
@@ -106,7 +100,7 @@ export async function deleteList<T extends Entity>(list: (Lite<T> | T)[]): Promi
         const type = item instanceof Entity ? (item.constructor as Type<T>) : (item as Lite<T>).entityType;
         const id = item.id;
         if (id == null)
-            throw new Error(`Cannot delete a ${typeName(type)} with no Id`);
+            throw new Error(`Cannot delete a ${type.name} with no Id`);
         const arr = idsByType.get(type);
         if (arr != null) arr.push(id); else idsByType.set(type, [id]);
     }
@@ -119,9 +113,8 @@ export async function deleteList<T extends Entity>(list: (Lite<T> | T)[]): Promi
 // max-parameters cap). executeDelete cascades owned-child rows before the parent. Used by
 // deleteList and by the Saver to remove collection orphans (children dropped from a collection).
 export async function deleteRowsByIds<T extends Entity>(type: Type<T>, ids: PrimaryKey[]): Promise<void> {
-    const ctor = ctorOf(type);
     for (let i = 0; i < ids.length; i += MAX_IN_PARAMETERS) {
         const chunk = ids.slice(i, i + MAX_IN_PARAMETERS);
-        await table(ctor).filter(e => chunk.contains(e.id)).executeDelete();
+        await table(type).filter(e => chunk.contains(e.id)).executeDelete();
     }
 }

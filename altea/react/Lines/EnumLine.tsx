@@ -68,7 +68,7 @@ function internalDropDownList<V extends string | number | boolean | null>(c: Enu
 
   var optionItems = getOptionsItems(c);
   const p = c.props;
-  if (p.type!.isNullable || p.ctx.value == undefined)
+  if (p.ctx.memberType!.isNullable || p.ctx.value == undefined)
     optionItems = [{ value: null, label: p.emptyLabel ?? " - " }].concat(optionItems);
 
   const isLabelVisible = !(p.ctx.formGroupStyle === "SrOnly" || "visually-hidden");
@@ -186,7 +186,7 @@ function internalComboBoxText<V extends string | number | boolean | null>(c: Enu
   var optionItems = getOptionsItems(c);
 
   const p = c.props;
-  if (p.type!.isNullable || p.ctx.value == undefined)
+  if (p.ctx.memberType!.isNullable || p.ctx.value == undefined)
     optionItems = [{ value: null, label: " - " }].concat(optionItems);
 
   const isLabelVisible = !(p.ctx.formGroupStyle === "SrOnly" || "visually-hidden");
@@ -321,8 +321,8 @@ function getOptionsItems(el: EnumLineController<any>): OptionItem[] {
 
   // ALTEA: enum fields are thunked (`field({ type: () => Sex, enum: true })`) so `typeName` is undefined;
   // resolve the enum object via the thunk (fieldEnum). `typeName` stays for the nullable-Boolean branch.
-  const typeName = el.props.type!.typeName;
-  const enumObj = el.props.type!.getEnum();
+  const typeName = el.props.ctx.memberType!.typeName;
+  const enumObj = el.props.ctx.memberType!.getEnum();
 
   if (el.props.optionItems) {
     return el.props.optionItems

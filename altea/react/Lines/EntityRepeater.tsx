@@ -1,7 +1,7 @@
 // Ported from Signum.React/Lines/EntityRepeater.tsx onto altea's EntityListBase. A row-editing line:
 // each row R is rendered in place via RenderEntity, so `needsValue=false` (super(false)) — a @valueField
 // on the row is IGNORED (the whole row is the element). altea fixes: MListElement gone → iterate
-// `getMListItemContext` (row contexts); `ctx.propertyRoute.typeReference().name`→`p.type.typeName` for
+// `getMListItemContext` (row contexts); `ctx.propertyRoute.typeReference().name`→`p.ctx.memberType.typeName` for
 // the showType impl-count; getComponent/getViewPromise are R-typed; TypeBadge accepts BaseEntity.
 import * as React from 'react'
 import { classes } from '../../entities/globals'
@@ -13,7 +13,6 @@ import { EntityControlMessage } from '../../entities/uiMessages'
 import { EntityBaseController } from './EntityBase'
 import { EntityListBaseController, type EntityListBaseProps, type DragConfig, type MoveConfig } from './EntityListBase'
 import { RenderEntity } from './RenderEntity'
-import { tryGetTypeInfos } from '../Reflection'
 import { useController } from './LineBase'
 import { TypeBadge } from './AutoCompleteConfig'
 import { getTimeMachineIcon } from './TimeMachineIcon'
@@ -80,7 +79,7 @@ export function EntityRepeater<R extends BaseEntity>(props: EntityRepeaterProps<
 
   function renderElements() {
     const readOnly = ctx.readOnly;
-    const showType = tryGetTypeInfos(p.type!.typeName).length > 1;
+    const showType = p.ctx.memberType!.typeInfos().length > 1;
     return (
       <div className="sf-repater-elements">
         {

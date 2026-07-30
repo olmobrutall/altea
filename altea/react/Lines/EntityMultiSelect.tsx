@@ -8,7 +8,7 @@ import * as React from 'react'
 import type { ResultRow, ResultTable } from '../../entities/dynamicQuery/queryRequest'
 import { BaseEntity, Entity } from '../../entities/entity'
 import { Lite } from '../../entities/lite'
-import { EntityListBaseController, type EntityListBaseProps, tryGetValueField } from './EntityListBase'
+import { EntityListBaseController, type EntityListBaseProps } from './EntityListBase'
 import { Navigator } from '../Navigator'
 import { Multiselect } from 'react-widgets-up'
 import { useController } from './LineBase'
@@ -53,10 +53,10 @@ export class EntityMultiSelectController<R extends BaseEntity> extends EntityLis
   override overrideProps(p: EntityMultiSelectProps<R>, overridenProps: EntityMultiSelectProps<R>): void {
     super.overrideProps(p, overridenProps);
 
-    if (p.type) {
+    if (p.ctx.memberType) {
       if (p.showType == undefined) {
-        const vf = tryGetValueField(p.type.getTypeName() ?? "");
-        p.showType = ((vf ?? p.type).getTypeName() ?? "").contains(",");
+        const vf = p.ctx.memberType.typeInfo().valueField;
+        p.showType = (vf ?? p.ctx.memberType).typeInfos().length > 1;
       }
     }
   }
@@ -94,7 +94,7 @@ export function EntityMultiSelect<R extends BaseEntity>(props: EntityMultiSelect
   React.useEffect(() => {
     if (p.data) {
       if (requestStarted.current)
-        console.warn(`The 'data' was set too late. Consider using [] as default value to avoid automatic query. EntityMultiSelect: ${p.type!.getTypeName()}`);
+        console.warn(`The 'data' was set too late. Consider using [] as default value to avoid automatic query. EntityMultiSelect: ${p.ctx.memberType!.getTypeName()}`);
       setData(p.data);
     } else if (loadData) {
       requestStarted.current = true;
@@ -104,11 +104,11 @@ export function EntityMultiSelect<R extends BaseEntity>(props: EntityMultiSelect
           .then(data => setData(data));
       }
       else
-        // ALTEA: options come from the @valueField's type (Signum used p.type directly).
+        // ALTEA: options come from the @valueField's type (Signum used p.ctx.memberType directly).
         Finder.API.fetchAllLites({ types: c.getValueField()!.getTypeName() ?? "" })
           .then(data => setData(data.orderBy(a => a.toString())));
     }
-  }, [normalizeEmptyArray(p.data), p.type!.getTypeName(), p.deps, loadData, p.findOptions && Finder.findOptionsPath(p.findOptions)]);
+  }, [normalizeEmptyArray(p.data), p.ctx.memberType!.getTypeName(), p.deps, loadData, p.findOptions && Finder.findOptionsPath(p.findOptions)]);
 
   var optionsRows = getOptionRows();
 

@@ -64,7 +64,7 @@ export const TimeLine: (props: TimeLineProps) => React.ReactNode | null =
       return null;
 
     const p = c.props;
-    const kind = (p.type!.typeName == "PlainTime" ? "PlainTime" : "Duration") as TimeKind;
+    const kind = (p.ctx.memberType!.typeName == "PlainTime" ? "PlainTime" : "Duration") as TimeKind;
 
     const isLabelVisible = !(p.ctx.formGroupStyle === "SrOnly" || "visually-hidden");
     var ariaAtts = p.ctx.readOnly ? c.baseAriaAttributes() : c.extendedAriaAttributes();

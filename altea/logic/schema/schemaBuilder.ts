@@ -1,4 +1,4 @@
-import { Entity, EmbeddedEntity, typeConstructor } from '../../entities/entity';
+import { Entity, EmbeddedEntity } from '../../entities/entity';
 import type { Type } from '../../entities/entity';
 import { MixinDeclarations } from '../../entities/mixinDeclarations';
 import type { EntityData } from '../../entities/decorators';
@@ -166,7 +166,7 @@ export class SchemaBuilder {
 
         // Part EntityData inheritance — set BEFORE completeTable so this Part's own sub-parts inherit it
         // transitively when generateField recurses into them below.
-        const ti = getTypeInfo(typeConstructor(type));
+        const ti = getTypeInfo(type);
         if (ti != null && ti.entityData == null && ti.entityKind === "Part" && inheritedData != null)
             ti.entityData = inheritedData;
 
@@ -196,9 +196,9 @@ export class SchemaBuilder {
             // Every schema entity must be classified via @entity(kind, data): @reflect is only for
             // ModelEntity / View / mixins / embeddeds, never a real table. Framework-seeded tables (the
             // enum tables, TypeEntity, and symbol tables) are managed internally and exempt.
-            const isSeeded = isEnumEntityType(table.type) || typeConstructor(table.type) === TypeEntity || isSymbolType(typeConstructor(table.type));
+            const isSeeded = isEnumEntityType(table.type) || table.type === TypeEntity || isSymbolType(table.type);
             if (!isSeeded) {
-                const ti = getTypeInfo(typeConstructor(table.type));
+                const ti = getTypeInfo(table.type);
                 if (ti?.entityKind == null)
                     missingKind.push(cleanTypeName(table.type));
                 // EntityData: explicit for most kinds; a "Part" may instead inherit it from the first
@@ -218,7 +218,7 @@ export class SchemaBuilder {
     }
 
     private completeTable(table: Table, type: Type<Entity>): void {
-        const typeInfo = getTypeInfo(typeConstructor(type));
+        const typeInfo = getTypeInfo(type);
         if (typeInfo == null)
             throw new Error(`Type '${rawTypeName(type)}' has no reflection metadata. Is it decorated with @entity?`);
 
@@ -231,7 +231,7 @@ export class SchemaBuilder {
         // Symbol tables (OperationSymbol, …) join TypeEntity/enum tables in the seeded
         // set: SymbolLogic assigns and seeds their ids, so they need a non-identity PK
         // and no ticks column.
-        const isSeeded = isEnumEntity || typeConstructor(type) === TypeEntity || isSymbolType(typeConstructor(type));
+        const isSeeded = isEnumEntity || type === TypeEntity || isSymbolType(type);
 
         // Primary key + ticks first, so FK columns can read the PK db type.
         const idInfo = typeInfo.fields['id'] ?? new FieldInfo('id');
@@ -304,7 +304,7 @@ export class SchemaBuilder {
             // inherited `@quoted` default). A hand-written, non-`@quoted` toString needs
             // a stored ToStr column; a `@quoted` one (incl. the inherited default) is
             // expanded inline by the query provider, so no column.
-            const proto = (typeConstructor(type) as { prototype?: any }).prototype;
+            const proto = (type as { prototype?: any }).prototype;
             const toStr = proto?.toString;
             if (typeof toStr === "function" && toStr !== Object.prototype.toString && (toStr as { __quoted?: unknown }).__quoted == null)
                 table.toStrColumn = new ValueColumn(this.colName("ToStr"), defaultDbType("String", undefined)!, IsNullable.Yes);
@@ -388,7 +388,7 @@ export class SchemaBuilder {
         // The owner's (already-resolved) EntityData, propagated to any referenced Part below so a Part
         // with no explicit EntityData inherits it from the first entity that includes it (owned arrays,
         // polymorphic @implementedBy part references, and single 1-1 part references alike).
-        const ownerData = getTypeInfo(typeConstructor(table.type))?.entityData;
+        const ownerData = getTypeInfo(table.type)?.entityData;
 
         // Arrays — only `PartEntity[]` is supported (Altea's MList replacement). The part
         // entity marks its back-pointing FK with a bare @backReference; we locate it here.

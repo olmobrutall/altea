@@ -7,8 +7,9 @@
 //   - unused Signum imports (getLambdaMembers / TypeInfo / message enums / Lines) dropped.
 
 import * as React from "react";
-import { QueryKey, TypeReference, type PseudoType, type Type } from './Reflection';
-import { Entity, EmbeddedEntity } from '../entities/entity';
+import { QueryKey, type PseudoType } from './Reflection';
+import { TypeReference } from '../entities/reflection';
+import { Entity, EmbeddedEntity, type Type } from '../entities/entity';
 import { QueryTokenString } from './QueryTokenString';
 import type { Lite } from '../entities/lite';
 import type { BaseEntity } from '../entities/entity';

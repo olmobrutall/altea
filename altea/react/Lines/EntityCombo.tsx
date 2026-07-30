@@ -15,8 +15,7 @@ import { Finder } from '../Finder'
 import type { FindOptions } from '../FindOptions'
 import type { ResultRow, ResultTable } from '../../entities/dynamicQuery/queryRequest'
 import type { TypeContext } from '../TypeContext'
-import { getTypeInfos, tryGetTypeInfos } from '../Reflection'
-import type { FieldInfo } from '../../entities/reflection'
+import type { TypeReference } from '../../entities/reflection'
 import { cleanTypeName } from '../../entities/registration'
 import { EntityBaseController, type EntityBaseProps, type AsLite, type Aprox } from './EntityBase'
 import { FormGroup } from './FormGroup'
@@ -81,7 +80,7 @@ export class EntityComboController<V extends Entity | Lite<Entity> | null> exten
 
   override overrideProps(p: EntityComboProps<V>, overridenProps: EntityComboProps<V>): void {
     super.overrideProps(p, overridenProps);
-    if (p.onRenderItem === undefined && p.type && tryGetTypeInfos((p.type.getTypeName() ?? "")).some(a => a != null && Navigator.getSettings(cleanTypeName(a.ctor!))?.renderLite)) {
+    if (p.onRenderItem === undefined && p.ctx.memberType && p.ctx.memberType.typeInfos().some(a => Navigator.getSettings(cleanTypeName(a.ctor!))?.renderLite)) {
       p.onRenderItem = (row, role, searchTerm) => row == null ? <span className="mx-2">-</span> : (row?.entity && Navigator.renderLite(row.entity, TextHighlighter.fromString(searchTerm))) ?? "";
     }
   }
@@ -163,7 +162,7 @@ export const EntityCombo: <V extends Entity | Lite<Entity> | null>(props: Entity
               ref={comboRef}
               ctx={p.ctx}
               onChange={c.handleOnChange}
-              type={p.type!}
+              type={p.ctx.memberType!}
               data={p.data}
               findOptions={p.findOptions}
               findOptionsDictionary={p.findOptionsDictionary}
@@ -189,7 +188,7 @@ export const EntityCombo: <V extends Entity | Lite<Entity> | null>(props: Entity
 export interface EntityComboSelectProps<V extends BaseEntity | Lite<Entity> | null> {
   ctx: TypeContext<V>;
   onChange: (e: React.SyntheticEvent | undefined, lite: AsLite<V> | null) => void;
-  type: FieldInfo;
+  type: TypeReference;
   findOptions?: FindOptions;
   findOptionsDictionary?: { [typeName: string]: FindOptions };
   data?: AsLite<V>[];
@@ -251,24 +250,25 @@ export function EntityComboSelect<V extends Entity | Lite<Entity> | null>(p: Ent
   React.useEffect(() => {
     if (p.data) {
       if (requestStarted.current)
-        console.warn(`The 'data' was set too late. Consider using [] as default value to avoid automatic query. EntityCombo: ${(p.type.getTypeName() ?? "")}`);
+        console.warn(`The 'data' was set too late. Consider using [] as default value to avoid automatic query. EntityCombo: ${(p.ctx.memberType!.getTypeName() ?? "")}`);
       setData(p.data);
     } else if (!p.ctx.readOnly && loadData) {
       requestStarted.current = true;
 
-      if ((p.type.getTypeName() ?? "").contains(",") && !p.findOptions) {
-        Promise.all(getTypeInfos((p.type.getTypeName() ?? "")).map(t => {
+      const tis = p.ctx.memberType!.typeInfos();
+      if (tis.length > 1 && !p.findOptions) {
+        Promise.all(tis.map(t => {
           const tn = cleanTypeName(t.ctor!);
           var fo = p.findOptionsDictionary?.[tn] ?? { queryName: tn };
           return Finder.getResultTable(Finder.defaultNoColumnsAllRows(fo, undefined))
         })).then(array => setData(array.flatMap(a => a.rows.map(a => a.entity! as AsLite<V>))));
       } else {
-        const fo = p.findOptions ?? { queryName: (p.type.getTypeName() ?? "") };
+        const fo = p.findOptions ?? { queryName: (p.ctx.memberType!.getTypeName() ?? "") };
         Finder.getResultTable(Finder.defaultNoColumnsAllRows(fo, undefined))
           .then(data => setData(data));
       }
     }
-  }, [normalizeEmptyArray(p.data), (p.type.getTypeName() ?? ""), loadData, p.ctx.readOnly, p.findOptions && Finder.findOptionsPath(p.findOptions), ...(p.deps ?? [])]);
+  }, [normalizeEmptyArray(p.data), (p.ctx.memberType!.getTypeName() ?? ""), loadData, p.ctx.readOnly, p.findOptions && Finder.findOptionsPath(p.findOptions), ...(p.deps ?? [])]);
 
   const lite = getLite();
 

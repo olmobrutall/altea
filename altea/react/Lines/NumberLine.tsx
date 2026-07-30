@@ -6,7 +6,7 @@
 //   - decimal-key detection: altea's decimal type name is "Decimal" (was Signum's lowercase "decimal").
 import * as React from 'react'
 import { classes } from '../../entities/globals'
-import { toNumberFormat, numberLimits } from '../Reflection'
+import { toNumberFormat, numberLimits } from '../numberFormat'
 import { genericMemo, LineBaseController, useController } from './LineBase'
 import { FormGroup } from './FormGroup'
 import { FormControlReadonly } from './FormControlReadonly'
@@ -33,7 +33,7 @@ export const NumberLine: (props: NumberLineProps) => React.ReactNode | null =
   if (c.isHidden)
     return null;
 
-  return numericTextBox(c, c.props.type!.typeName == "Decimal" ? isDecimalKey : isNumberKey);
+  return numericTextBox(c, c.props.ctx.memberType!.typeName == "Decimal" ? isDecimalKey : isNumberKey);
 }, (prev, next) => {
   if (next.extraButtons || prev.extraButtons)
     return false;
@@ -92,7 +92,7 @@ function numericTextBox(c: NumberLineController, validateKey: (e: React.Keyboard
   } as React.AllHTMLAttributes<any>;
   var mergedHtml = { ...htmlAttributes, ...ariaAtts };
 
-  const limits = numberLimits[p.type?.typeName!];
+  const limits = numberLimits[p.ctx.memberType?.subTypeName!];
 
   return (
     <FormGroup ctx={p.ctx} error={p.error} label={p.label} labelIcon={p.labelIcon} helpText={helpText} helpTextOnTop={helpTextOnTop} htmlAttributes={{ ...c.baseHtmlAttributes(), ...p.formGroupHtmlAttributes }} labelHtmlAttributes={p.labelHtmlAttributes} ariaAttributes={ariaAtts}>

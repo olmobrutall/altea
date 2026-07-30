@@ -30,7 +30,8 @@ import { TypeContext, mlistItemContext } from '../TypeContext'
 import { EntityBaseController } from './EntityBase'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { LineBaseController, type LineBaseProps, tasks } from './LineBase'
-import { getTypeInfo, tryGetTypeInfo, PropertyRoute, PropertyRouteType, tryGetTypeInfos, getTypeName } from '../Reflection'
+import { getTypeInfo, getTypeName } from '../Reflection'
+import { PropertyRoute, PropertyRouteType } from '../../entities/propertyRoute'
 import { type FieldInfo } from '../../entities/reflection'
 import { cleanTypeName } from '../../entities/registration'
 import { toAbsoluteUrl } from '../AppContext'
@@ -100,14 +101,14 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
   }
 
   override getDefaultProps(state: P): void {
-    if (state.type) {
+    if (state.ctx.memberType) {
       // Defaults key off the ELEMENT type: the @valueField's type when the line consumes a value
       // (needsValue), else the row (collection) type.
-      let targetFi = state.type;
+      let targetFi = state.ctx.memberType;
       if (this.needsValue) {
-        const vf = tryGetValueField(state.type.getTypeName() ?? "");
+        const vf = state.ctx.memberType.typeInfo().valueField;
         if (vf == null)
-          throw new Error(`${this.constructor.name}: row type '${state.type.getTypeName()}' must declare a @valueField`);
+          throw new Error(`${this.constructor.name}: row type '${state.ctx.memberType.getTypeName()}' must declare a @valueField`);
         targetFi = vf;
       }
 
@@ -130,9 +131,9 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
   getValueField(): FieldInfo | null {
     if (!this.needsValue)
       return null;
-    const vf = tryGetValueField(this.props.type!.getTypeName() ?? "");
+    const vf = this.props.ctx.memberType!.typeInfo().valueField;
     if (vf == null)
-      throw new Error(`${this.constructor.name}: row type '${this.props.type!.getTypeName()}' must declare a @valueField`);
+      throw new Error(`${this.constructor.name}: row type '${this.props.ctx.memberType!.getTypeName()}' must declare a @valueField`);
     return vf;
   }
 
@@ -147,9 +148,9 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
     const vf = this.getValueField();
     if (vf == null)
       return value as R;
-    const ctor = this.props.type!.getFunction();
+    const ctor = this.props.ctx.memberType!.getFunction();
     if (ctor == null)
-      throw new Error(`EntityListBase: row type '${this.props.type!.getTypeName()}' is not registered`);
+      throw new Error(`EntityListBase: row type '${this.props.ctx.memberType!.getTypeName()}' is not registered`);
     return (ctor as unknown as { create(v: any): R }).create({ [vf.name]: value });
   }
 
@@ -246,7 +247,7 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
 
   // ---- create / find / view flow (all in terms of R; @valueField wrapping is runtime) ----
   async convert(entityOrLite: R | Lite<Entity>): Promise<R> {
-    const type = this.props.type!;
+    const type = this.props.ctx.memberType!;
     const entityType = getTypeName(entityOrLite as any);
     const typeName = type.getTypeName();
 
@@ -276,7 +277,7 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
 
   async defaultCreate(pr: PropertyRoute): Promise<R | undefined> {
     const vf = this.getValueField();
-    const targetFi = vf ?? this.props.type!;
+    const targetFi = vf ?? this.props.ctx.memberType!;
 
     var typeName = await EntityBaseController.chooseType(targetFi, t => this.props.create /*Hack?*/ || Navigator.isCreable(cleanTypeName(t.ctor!), { customComponent: !!this.props.getComponent || !!this.props.getViewPromise, isEmbedded: targetFi.is(EmbeddedEntity) }));
     if (typeName == null)
@@ -292,7 +293,7 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
 
   defaultFindMany(): Promise<R[] | undefined> {
     const vf = this.getValueField();
-    const targetFi = vf ?? this.props.type!;
+    const targetFi = vf ?? this.props.ctx.memberType!;
 
     const wrap = (lites: (Entity | Lite<Entity>)[] | undefined): Promise<R[] | undefined> =>
       lites == undefined ? Promise.resolve(undefined) :
@@ -462,8 +463,7 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
       return;
 
     const vf = this.getValueField();
-    const targetTypeName = (vf != null ? vf.getTypeName() : this.props.type!.getTypeName()) ?? "";
-    const tis = tryGetTypeInfos(targetTypeName).notNull();
+    const tis = (vf ?? this.props.ctx.memberType!).typeInfos();
     if (tis.length > 0)
       lites = lites.filter(l => tis.some(ti => cleanTypeName(ti.ctor!) == getTypeName(l)));
     if (lites.length == 0)
@@ -676,13 +676,6 @@ export interface MoveConfig {
   renderMoveDown: () => (React.ReactElement | undefined);
 }
 
-// The row type's @valueField (Signum's [FieldInfo.isValueField]): the field a value collection stores
-// its element value in (N-M junction / 1-N value). Absent for owned 1-N part rows. Free (no throw) —
-// the controller's instance getValueField() adds the needsValue gating + throw. O(1) via the
-// TypeInfo.valueField index.
-export function tryGetValueField(rowTypeName: string): FieldInfo | null {
-  return tryGetTypeInfo(rowTypeName)?.valueField ?? null;
-}
 
 tasks.push(taskSetMove);
 export function taskSetMove(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps): void {
@@ -690,13 +683,9 @@ export function taskSetMove(lineBase: LineBaseController<LineBaseProps, unknown>
     (state as EntityListBaseProps<any>).move == undefined &&
     state.ctx.propertyRoute &&
     state.ctx.propertyRoute.propertyRouteType == PropertyRouteType.FieldOrProperty &&
-    state.type && rowHasRowOrder(state.type.getTypeName() ?? "")) {
+    // A polymorphic collection has >1 row type (no single @rowOrder) → onlyOrNull() yields null, no move.
+    state.ctx.memberType && state.ctx.memberType.typeInfos().onlyOrNull()?.rowOrderField != null) {
     (state as EntityListBaseProps<any>).move = true;
   }
 }
 
-// ALTEA: Signum's `member.preserveOrder` ([PreserveOrder] on the MList field) → the ROW type declaring
-// a @rowOrder field (TypeInfo.rowOrderField, O(1)).
-function rowHasRowOrder(rowTypeName: string): boolean {
-  return tryGetTypeInfo(rowTypeName)?.rowOrderField != null;
-}

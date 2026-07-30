@@ -16,17 +16,6 @@ export type PrimaryKey = string | number;
 // GenericType<T>` union; the GenericType data-descriptor form was removed.)
 export type Type<T extends BaseEntity> = abstract new () => T;
 
-// The constructor behind a type reference. Now that Type<T> is always a constructor this is the
-// identity — kept as a named accessor during the transition (call sites inline it over time).
-export function typeConstructor(type: Type<BaseEntity>): Function {
-    return type;
-}
-
-// A human-readable type name — the constructor's name (e.g. "OrderEntity", "EnumEntity<Sex>").
-export function typeName(type: Type<BaseEntity>): string {
-    return (type as { name: string }).name;
-}
-
 export type InitValues<T> = Partial<{
     [K in keyof T as T[K] extends Function ? never : K]: T[K]
 }>;
@@ -53,8 +42,8 @@ export abstract class BaseEntity {
         // guard, mirrored by the query binder's `entity.mixin(X)` check). Without it a typo or
         // an undeclared mixin would silently return `this` and read/write phantom fields.
         const declared = MixinDeclarations.getMixins(this.constructor as Type<BaseEntity>);
-        if (!declared.some(m => typeConstructor(m) === typeConstructor(mixinClass)))
-            throw new Error(`Mixin '${typeName(mixinClass)}' is not declared on '${this.constructor.name}'`);
+        if (!declared.some(m => m === mixinClass))
+            throw new Error(`Mixin '${mixinClass.name}' is not declared on '${this.constructor.name}'`);
         return this as unknown as M;
     }
 

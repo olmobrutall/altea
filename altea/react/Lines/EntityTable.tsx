@@ -19,7 +19,7 @@ import { EntityBaseController } from './EntityBase'
 import { EntityListBaseController, type EntityListBaseProps, type DragConfig, type MoveConfig } from './EntityListBase'
 import { Breakpoints, getBreakpoint, useForceUpdate } from '../Hooks'
 import { DomUtils } from '../domGlobals'
-import type { PropertyRoute } from '../Reflection'
+import type { PropertyRoute } from '../../entities/propertyRoute'
 import type { FieldInfo } from '../../entities/reflection'
 import type { Quoted } from 'quote-transformer/quoted'
 import { useController } from './LineBase'
@@ -215,7 +215,7 @@ export function EntityTable<R extends BaseEntity, RS>(props: EntityTableProps<R,
   const c = useController<EntityTableController<R, RS>, EntityTableProps<R, RS>, R[]>(EntityTableController, props);
   const p = c.props;
 
-  if (p.type && p.type.lite)
+  if (p.ctx.memberType && p.ctx.memberType.lite)
     throw new Error("Lite not supported");
 
   if (c.isHidden)

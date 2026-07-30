@@ -1,11 +1,13 @@
 import * as React from 'react'
-import { PropertyRoute, PropertyRouteType, getTypeName, isType, tryGetTypeInfo } from './Reflection'
-import type { Type, PseudoType, MemberInfo, IType } from './Reflection'
+import { getTypeName, tryGetTypeInfo } from './Reflection'
+import type { PseudoType, MemberInfo, IType } from './Reflection'
+import { PropertyRoute, PropertyRouteType } from '../entities/propertyRoute'
+import { TypeReference } from '../entities/reflection'
 import { ReadonlyBinding, createBinding, getLambdaMembers, getFieldMembers, Binding } from './binding'
 import type { IBinding, LambdaMember } from './binding'
 import type { Quoted } from 'quote-transformer/quoted'
 import { BaseEntity } from '../entities/entity'
-import type { Entity, MixinEntity, ModelEntity } from '../entities/entity'
+import type { Entity, MixinEntity, ModelEntity, Type } from '../entities/entity'
 import type { EntityPack } from '../entities/entityPack'
 import type { ModelState } from '../entities/validation'
 
@@ -254,6 +256,13 @@ export interface BsColumns {
 }
 
 
+// Distinguishes an entity/mixin CONSTRUCTOR from a plain selector lambda (both are `function` in
+// altea) — a ctor's prototype is a BaseEntity, a lambda's is not. Local to subCtx's arg dispatch
+// (was the exported Reflection.isType — the only caller).
+function isType(obj: unknown): obj is IType {
+  return typeof obj === 'function' && (obj as Function).prototype instanceof BaseEntity;
+}
+
 // ALTEA sweep helpers: altea's PropertyRoute is string/route-based (add(name)), not lambda-based
 // (Signum's addLambda/tryAddLambdaMember). These translate a parsed LambdaMember / a whole lambda
 // into altea route navigation ("Item" for collection indexers, addMixin for mixins).
@@ -282,6 +291,12 @@ function tryAddLambda(pr: PropertyRoute, lambda: Quoted<(val: any) => any>): Pro
 export class TypeContext<T> extends StyleContext {
 
   propertyRoute: PropertyRoute | undefined; /*Because of optional TypeInfo*/
+  // ALTEA (Stage 4 divergence from Signum): a TypeContext carries EITHER a PropertyRoute OR a bare
+  // TypeReference. The PropertyRoute path is the field/entity case (its fieldInfo is the type facet);
+  // the TypeReference path is for a value with no property route — e.g. a FilterBuilder value editor
+  // built off a QueryToken.type. When `typeReference` is used, unit/format must be passed manually to
+  // the line (there is no route to read them from). `memberType` returns whichever applies.
+  typeReference: TypeReference | undefined;
   binding: IBinding<T>; //Could be null on removed elements in Time Machine
   previousVersion?: { value: T, oldIndex?: number, isMoved?: boolean }; //Used for Time Machine
   prefix: string;
@@ -320,12 +335,21 @@ export class TypeContext<T> extends StyleContext {
     return new TypeContext(parent, styleOptions, PropertyRoute.root(value.constructor as Type<BaseEntity>), new ReadonlyBinding<T>(value, ""));
   }
 
-  constructor(parent: StyleContext | undefined, styleOptions: StyleOptions | undefined, propertyRoute: PropertyRoute | undefined, binding: IBinding<T>, prefix?: string) {
+  constructor(parent: StyleContext | undefined, styleOptions: StyleOptions | undefined, route: PropertyRoute | TypeReference | undefined, binding: IBinding<T>, prefix?: string) {
     super(parent, styleOptions);
-    this.propertyRoute = propertyRoute;
+    if (route instanceof PropertyRoute)
+      this.propertyRoute = route;
+    else
+      this.typeReference = route;
     this.binding = binding;
 
     this.prefix = prefix || ((parent && (parent as TypeContext<any>).prefix || "") + binding?.suffix);
+  }
+
+  // The type facet of this context: the property route's FieldInfo, or the bare TypeReference. Both
+  // are TypeReferences, so lines read type facts (typeName, is(Entity), lite, array, …) uniformly.
+  get memberType(): TypeReference | undefined {
+    return this.propertyRoute?.fieldInfo ?? this.typeReference;
   }
 
   subCtx(styleOptions: StyleOptions): TypeContext<T>
@@ -334,7 +358,7 @@ export class TypeContext<T> extends StyleContext {
   subCtx(field: string, styleOptions?: StyleOptions): TypeContext<any>
   subCtx(arg: Quoted<(val: T) => any> | IType | string | StyleOptions, styleOptions?: StyleOptions): TypeContext<any> {
     if (typeof arg == "object" && !isType(arg)) {
-      var nc = new TypeContext<T>(this, arg, this.propertyRoute, this.binding, this.prefix);
+      var nc = new TypeContext<T>(this, arg, this.propertyRoute ?? this.typeReference, this.binding, this.prefix);
       nc.previousVersion = this.previousVersion;
 
       return nc;
