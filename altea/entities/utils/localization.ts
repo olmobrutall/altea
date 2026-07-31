@@ -169,6 +169,19 @@ export namespace DescriptionManager {
         return _localized.get(currentUICulture())?.get(typeName);
     }
 
+    // Dump every loaded LocalizedType for a locale as a plain (deep-copied) LocalizedTypes — the
+    // Translations section of the /api/reflection/metadata blob. The client feeds it straight back
+    // into addLocalizedTypes, so the XML parser never ships to the browser. Empty object if the
+    // locale has no translations loaded (the client then falls back to niceNameFromName).
+    export function getLocalizedTypes(locale: string): LocalizedTypes {
+        const result: LocalizedTypes = {};
+        const byType = _localized.get(locale);
+        if (byType != null)
+            for (const [name, lt] of byType)
+                result[name] = { ...lt, members: { ...lt.members } };
+        return result;
+    }
+
     // Type-level translations (current UI culture) — the XML's <Type Description/PluralDescription/
     // Gender>. Consumed by niceName / nicePluralName.
     export function typeDescription(typeName: string): string | undefined { return localizedType(typeName)?.description; }
