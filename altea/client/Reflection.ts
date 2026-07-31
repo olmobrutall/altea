@@ -132,10 +132,22 @@ export function getQueryKey(queryName: PseudoType | QueryKey): string {
   return getTypeName(queryName);
 }
 
+// The keys of the queries the server declared (Signum's TypeInfo.queryDefined), populated at boot from
+// /api/reflection/metadata (ReflectionClient.loadReflectionMetadata). Before metadata arrives it is
+// empty and isQueryDefined falls back to the "resolves to a TypeInfo" heuristic.
+const definedQueries = new Set<string>();
+
+export function setDefinedQueries(keys: Iterable<string>): void {
+  definedQueries.clear();
+  for (const k of keys) definedQueries.add(k);
+}
+
 export function isQueryDefined(queryName: PseudoType | QueryKey): boolean {
   if (queryName instanceof QueryKey)
     return true;
-  return tryGetTypeInfo(queryName) != null; // TODO(port): a real query-defined registry (Signum's TypeInfo.queryDefined).
+  if (definedQueries.size > 0)
+    return definedQueries.has(getQueryKey(queryName));
+  return tryGetTypeInfo(queryName) != null; // pre-metadata fallback
 }
 
 // Signum's getQueryNiceName: the human label for a query. A query named by an entity Type resolves to

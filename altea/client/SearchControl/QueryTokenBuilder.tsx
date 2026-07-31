@@ -11,7 +11,6 @@
 import * as React from 'react'
 import { classes, Dic } from '../../entities/globals'
 import { Finder } from '../Finder'
-import type { QueryDescription } from '../FindOptions'
 import { SubTokensOptions } from '../QueryToken'
 import { QueryToken } from '../QueryToken';
 import "./QueryTokenBuilder.css"
@@ -42,7 +41,7 @@ export default function QueryTokenBuilder(p: QueryTokenBuilderProps): React.Reac
     setExpanded(false);
   }, [p.queryKey, p.prefixQueryToken]);
 
-  const qd = useAPI(() => Finder.getQueryDescription(p.queryKey), [p.queryKey]);
+  const qt = useAPI(() => Finder.getQueryRoot(p.queryKey), [p.queryKey]);
 
   function handleExpandButton(e: React.MouseEvent<any>) {
     setExpanded(true);
@@ -59,7 +58,7 @@ export default function QueryTokenBuilder(p: QueryTokenBuilderProps): React.Reac
   return (
     <div className={classes("sf-query-token-builder", p.className)} onKeyDown={handleKeyDown} data-token={p.queryToken?.fullKey()}>
       {initialIndex != 0 && <button type="button" onClick={handleExpandButton} className="btn btn-sm sf-prefix-btn">…</button>}
-      {qd && tokenList.map((a, i) => {
+      {qt && tokenList.map((a, i) => {
         if (i < initialIndex)
           return null;
 
@@ -67,7 +66,7 @@ export default function QueryTokenBuilder(p: QueryTokenBuilderProps): React.Reac
 
         return (
           <QueryTokenPart key={i == 0 ? "__first__" : parentToken!.fullKey()}
-            queryDescription={qd}
+            queryToken={qt}
             queryKey={p.queryKey}
             readOnly={p.readOnly}
             setLastTokenChange={(fullKey) => { setLastTokenChanged(fullKey); }}
@@ -106,7 +105,7 @@ export default function QueryTokenBuilder(p: QueryTokenBuilderProps): React.Reac
       var extraTokens = tokenParents.slice(newTokenParents.length);
 
       var tempToken = newToken;
-      var tokenCompleter = new Finder.TokenCompleter(qd!);
+      var tokenCompleter = new Finder.TokenCompleter(qt!);
       for (var i = 0; i < extraTokens.length; i++) {
         var key = extraTokens[i].key;
         var t = (await tokenCompleter.getSubTokens(tempToken, p.subTokenOptions, false)).singleOrNull(a => a.key == key);
@@ -144,7 +143,7 @@ export default function QueryTokenBuilder(p: QueryTokenBuilderProps): React.Reac
 
 
 interface QueryTokenPartProps {
-  queryDescription: QueryDescription;
+  queryToken: QueryToken;
   parentToken: QueryToken | undefined;
   selectedToken: QueryToken | undefined;
   onTokenSelected: (newToken: QueryToken | undefined, keyboard: boolean) => void;
@@ -168,7 +167,7 @@ export function QueryTokenPart(p: QueryTokenPartProps): React.ReactElement | nul
     if (manuals)
       return manuals.then(tokens => tokens.length == 0 ? tokens : [null, ...tokens]);
 
-    var tc = new Finder.TokenCompleter(p.queryDescription);
+    var tc = new Finder.TokenCompleter(p.queryToken);
 
     return tc.getSubTokens(p.parentToken, p.subTokenOptions, doAutoExpand)
       .then(tokens => tokens.length == 0 ? tokens : [null, ...tokens])

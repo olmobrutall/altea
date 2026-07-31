@@ -8,7 +8,6 @@ import {
   type FilterOptionParsed,
   isCheckBox,
   isFilterGroup,
-  type QueryDescription
 } from '../FindOptions'
 import { Binding } from '../binding'
 import { TypeContext } from '../TypeContext'
@@ -17,10 +16,10 @@ import { SearchMessage } from '../../entities/uiMessages';
 import { classes } from '../../entities/globals';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { Finder } from '../Finder'
-import { } from '../QueryToken'
+import { QueryToken } from '../QueryToken'
 
 interface PinnedFilterBuilderProps {
-  queryDescription: QueryDescription;
+  queryToken: QueryToken;
   filterOptions: FilterOptionParsed[];
   highlightFilter?: FilterOptionParsed;
   onFiltersChanged?: (filters: FilterOptionParsed[], avoidSearch?: boolean) => void;
@@ -146,7 +145,7 @@ export default function PinnedFilterBuilder(p: PinnedFilterBuilderProps): React.
 
     return Finder.renderFilterValue(f, {
       ctx,
-      queryDescription: p.queryDescription,
+      queryToken: p.queryToken,
       filterOptions: p.filterOptions,
       label: label,
       handleValueChange: handleValueChange,

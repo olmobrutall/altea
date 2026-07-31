@@ -7,7 +7,8 @@
 //   - `getNiceTypeName` (Operations/MultiPropertySetter, not ported) → `Finder.getTypeNiceName`.
 import * as React from 'react'
 import { classes } from '../../entities/globals';
-import type { ColumnOptionParsed, QueryDescription } from '../FindOptions'
+import type { ColumnOptionParsed } from '../FindOptions'
+import { getKey } from '../../entities/dynamicQuery/queryUtils'
 import { QueryToken, SubTokensOptions } from '../QueryToken';
 import { EntityControlMessage, SearchMessage } from '../../entities/uiMessages'
 import QueryTokenBuilder from './QueryTokenBuilder'
@@ -22,7 +23,7 @@ import { LinkButton } from '../Basics/LinkButton';
 interface ColumnEditorProps {
   columnOption: ColumnOptionParsed
   subTokensOptions: SubTokensOptions;
-  queryDescription: QueryDescription;
+  queryToken: QueryToken;
   onChange: (token?: QueryToken) => void;
   close: () => void;
 }
@@ -82,7 +83,7 @@ export default function ColumnEditor(p: ColumnEditorProps): React.ReactElement {
                 <QueryTokenBuilder
                   queryToken={co.token!}
                   onTokenChange={handleTokenChanged}
-                  queryKey={p.queryDescription.queryKey}
+                  queryKey={getKey(p.queryToken.queryName)}
                   subTokenOptions={p.subTokensOptions}
                   readOnly={false} />
               </div>
@@ -102,7 +103,7 @@ export default function ColumnEditor(p: ColumnEditorProps): React.ReactElement {
               {co.summaryToken && <QueryTokenBuilder
                 queryToken={co.summaryToken!}
                 onTokenChange={handleSummaryTokenChanged}
-                queryKey={p.queryDescription.queryKey}
+                queryKey={getKey(p.queryToken.queryName)}
                 subTokenOptions={p.subTokensOptions | SubTokensOptions.CanAggregate}
                 readOnly={false} />
               }
@@ -126,7 +127,7 @@ export default function ColumnEditor(p: ColumnEditorProps): React.ReactElement {
             <div className="flex-grow-1">
               <select className="form-select form-select-xs" id="combineRows" value={co.combineRows ?? ""} onChange={handleCombineEqualsVertically}>
                 <option value={""}>{" - "}</option>
-                <option value={"EqualEntity"}>{SearchMessage.Equal0.niceToString(Finder.getTypeNiceName(p.queryDescription.columns['Entity'].type))}</option>
+                <option value={"EqualEntity"}>{SearchMessage.Equal0.niceToString(Finder.getTypeNiceName(p.queryToken.type))}</option>
                 <option value={"EqualValue"}>{Enum.niceName(CombineRowsEnum, "EqualValue")}</option>
               </select>
             </div>
@@ -137,7 +138,7 @@ export default function ColumnEditor(p: ColumnEditorProps): React.ReactElement {
 
         <div className="col-sm-1">
           <button type="button" className="btn-close float-end" aria-label={EntityControlMessage.Close.niceToString()} onClick={p.close} />
-          <VisualTipIcon visualTip={SearchVisualTip.ColumnHelp} content={props => <ColumnHelp queryDescription={p.queryDescription} injected={props} />} />
+          <VisualTipIcon visualTip={SearchVisualTip.ColumnHelp} content={props => <ColumnHelp queryToken={p.queryToken} injected={props} />} />
         </div>
       </div>
     </div >

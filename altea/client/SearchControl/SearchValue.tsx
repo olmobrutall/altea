@@ -9,9 +9,10 @@ import * as React from 'react'
 import { classes } from '../../entities/globals'
 import { Navigator } from '../Navigator'
 import { Finder } from '../Finder'
-import type { FindOptions, FindOptionsParsed, QueryDescription } from '../FindOptions'
+import type { FindOptions, FindOptionsParsed } from '../FindOptions'
 import type { QueryValueRequest } from '../../entities/dynamicQuery/queryRequest'
 import { QueryToken, SubTokensOptions } from '../QueryToken'
+import { getKey } from '../../entities/dynamicQuery/queryUtils'
 import { Lite } from '../../entities/lite'
 import { Entity, EmbeddedEntity } from '../../entities/entity'
 import { EntityControlMessage } from '../../entities/uiMessages'
@@ -67,7 +68,7 @@ export interface SearchValueController {
   props: SearchValueProps;
   valueToken: QueryToken | null | undefined;
   value: unknown | undefined;
-  queryDescription: QueryDescription | undefined;
+  queryToken: QueryToken | undefined;
   hasHistoryChanges: boolean | undefined;
   renderValue(): React.ReactNode;
   refreshValue: () => void;
@@ -121,12 +122,12 @@ function SearchValue(p: SearchValueProps): React.ReactNode | null {
             throw Error(`Query ${getQueryKey(findOptions.queryName)} not allowed`);
         }
 
-        var qd = await Finder.getQueryDescription(findOptions.queryName);
-        controller.queryDescription = qd;
+        var qt = await Finder.getQueryRoot(findOptions.queryName);
+        controller.queryToken = qt;
 
-        var fop = await Finder.parseFindOptions(findOptions, qd, false);
+        var fop = await Finder.parseFindOptions(findOptions, qt, false);
 
-        const systemVersioned = findOptions.systemTime == undefined && p.ctx?.frame?.currentDate && Finder.isSystemVersioned(qd.columns["Entity"].type);
+        const systemVersioned = findOptions.systemTime == undefined && p.ctx?.frame?.currentDate && Finder.isSystemVersioned(qt.type);
         if (systemVersioned)
           fop.systemTime = { mode: 'AsOf', startDate: p.ctx?.frame!.currentDate };
 
@@ -139,7 +140,7 @@ function SearchValue(p: SearchValueProps): React.ReactNode | null {
           var sv = new QueryTokenString("Entity");
 
           controller.hasHistoryChanges = (await Finder.API.queryValue({
-            queryKey: qd.queryKey,
+            queryKey: getKey(qt.queryName),
             systemTime: { mode: "Between", startDate: p.ctx?.frame?.previousDate, endDate: p.ctx?.frame?.currentDate, joinMode: "FirstCompatible" },
             filters: [
               ...req.filters,
@@ -399,7 +400,7 @@ function SearchValue(p: SearchValueProps): React.ReactNode | null {
       else
         fo = { ...findOptions };
 
-      if (fo.systemTime == null && p.ctx?.frame?.currentDate && Finder.isSystemVersioned(controller.queryDescription!.columns["Entity"].type)) {
+      if (fo.systemTime == null && p.ctx?.frame?.currentDate && Finder.isSystemVersioned(controller.queryToken!.type)) {
         if (p.ctx?.frame?.previousDate)
           fo.systemTime = { mode: 'Between', startDate: p.ctx?.frame!.previousDate, endDate: p.ctx?.frame!.currentDate, joinMode: "FirstCompatible" };
         else

@@ -5,7 +5,7 @@ import * as React from 'react'
 import { classes } from '../../entities/globals'
 import { Finder } from '../Finder'
 import { Constructor } from '../Constructor'
-import type { FindOptions, FindOptionsParsed, QueryDescription } from '../FindOptions'
+import type { FindOptions, FindOptionsParsed } from '../FindOptions'
 import type { QueryValueRequest } from '../../entities/dynamicQuery/queryRequest'
 import { QueryToken } from '../QueryToken'
 import { Lite } from '../../entities/lite'
@@ -254,8 +254,8 @@ export default function SearchValueLine(p: SearchValueLineProps): React.JSX.Elem
 
       var fo = p.findOptions as FindOptions;
       const isWindowsOpen = e.button == 1 || e.ctrlKey;
-      Finder.getQueryDescription(fo.queryName).then(qd => {
-        chooseType(qd).then(tn => {
+      Finder.getQueryRoot(fo.queryName).then(qt => {
+        chooseType(qt).then(tn => {
           if (tn == null)
             return;
 
@@ -268,7 +268,7 @@ export default function SearchValueLine(p: SearchValueLineProps): React.JSX.Elem
 
             window.open(toAbsoluteUrl(Navigator.createRoute(tn, vp && typeof vp == "string" ? vp : undefined)));
           } else {
-            Finder.parseFilterOptions(fo.filterOptions || [], false, qd)
+            Finder.parseFilterOptions(fo.filterOptions || [], false, qt)
               .then(fos => Finder.getPropsFromFilters(tn, fos)
                 .then(props => Constructor.constructPack(tn, props))
                 .then(pack => pack && Navigator.view(pack!, {
@@ -283,9 +283,9 @@ export default function SearchValueLine(p: SearchValueLineProps): React.JSX.Elem
     }
   }
 
-  function chooseType(qd: QueryDescription): Promise<string | undefined> {
+  function chooseType(qt: QueryToken): Promise<string | undefined> {
 
-    const tis = qd.columns["Entity"].type.typeInfos()
+    const tis = qt.type.typeInfos()
       .filter(ti => Navigator.isCreable(cleanTypeName(ti.ctor!), { isSearch: true }));
 
     return SelectorModal.chooseType(tis)

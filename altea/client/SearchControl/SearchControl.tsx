@@ -1,11 +1,13 @@
 // Ported from Signum.React/SearchControl/SearchControl.tsx — copy-paste + fix. altea fixes: imports
 // retargeted (Signum.Entities→entities/*, ResultTable/ResultRow/QueryRequest→entities/dynamicQuery/
 // queryRequest, DynamicQuery→entities/dynamicQueries); ModifiableEntity→BaseEntity; csstype dropped
-// (maxResultsHeight→string|number); `tryGetTypeInfos(qd.columns.Entity.type)`→`.type.typeInfos()`;
+// (maxResultsHeight→string|number); `tryGetTypeInfos(qt.columns.Entity.type)`→`.type.typeInfos()`;
 // Navigator.isCreable/isViewable take a clean-name string (cleanTypeName(ti.ctor!)).
 import * as React from 'react'
 import { Finder } from '../Finder'
-import type { FindOptions, FindOptionsParsed, FilterOptionParsed, FilterOption, QueryDescription } from '../FindOptions'
+import type { FindOptions, FindOptionsParsed, FilterOptionParsed, FilterOption } from '../FindOptions'
+import { QueryToken } from '../QueryToken'
+import { getKey } from '../../entities/dynamicQuery/queryUtils'
 import type { ResultTable, ResultRow, QueryRequest } from '../../entities/dynamicQuery/queryRequest'
 import type { Lite } from '../../entities/lite'
 import type { Entity, BaseEntity as ModifiableEntity } from '../../entities/entity'
@@ -129,7 +131,7 @@ function SearchControl(p: SearchControlProps): React.JSX.Element | null {
   };
   React.useImperativeHandle(p.ref, () => handler, [p.findOptions, searchControlLoaded.current]);
 
-  const qd = useAPI<QueryDescription | "not-allowed">(() => {
+  const qt = useAPI<QueryToken | "not-allowed">(() => {
 
     if (!Finder.isFindable(p.findOptions.queryName, false)) {
       if (p.throwIfNotFindable)
@@ -138,12 +140,12 @@ function SearchControl(p: SearchControlProps): React.JSX.Element | null {
       return "not-allowed";
     }
 
-    return Finder.getQueryDescription(p.findOptions.queryName);
+    return Finder.getQueryRoot(p.findOptions.queryName);
   }, [getQueryKey(p.findOptions.queryName)]);
 
 
   const fop = useAPI<FindOptionsParsed | string | null>(async (abort, oldFop) => {
-    if (qd == null || qd == "not-allowed")
+    if (qt == null || qt == "not-allowed")
       return null;
 
     const message = Finder.validateNewEntities(p.findOptions);
@@ -151,15 +153,15 @@ function SearchControl(p: SearchControlProps): React.JSX.Element | null {
       return message;
 
     if (oldFop && typeof oldFop == "object") {
-      const oldFo = Finder.toFindOptions(oldFop, qd, p.defaultIncludeDefaultFilters!);
+      const oldFo = Finder.toFindOptions(oldFop, qt, p.defaultIncludeDefaultFilters!);
       if (Finder.findOptionsPath(p.findOptions) == Finder.findOptionsPath(oldFo))
         return oldFop;
     }
 
-    const fop = await Finder.parseFindOptions(p.findOptions, qd, p.defaultIncludeDefaultFilters!);
+    const fop = await Finder.parseFindOptions(p.findOptions, qt, p.defaultIncludeDefaultFilters!);
 
     if (fop.systemTime == undefined && p.ctx?.frame?.currentDate && p.ctx.frame!.previousDate &&
-      Finder.isSystemVersioned(qd.columns["Entity"].type)) {
+      Finder.isSystemVersioned(qt.type)) {
 
       fop.systemTime = {
         mode: 'Between',
@@ -171,7 +173,7 @@ function SearchControl(p: SearchControlProps): React.JSX.Element | null {
       const cops = await Finder.parseColumnOptions([
         { token: QueryTokenString.entity().systemValidFrom(), hiddenColumn: true },
         { token: QueryTokenString.entity().systemValidTo(), hiddenColumn: true }
-      ], fop.groupResults, qd);
+      ], fop.groupResults, qt);
 
       fop.columnOptions = [...cops, ...fop.columnOptions];
 
@@ -180,9 +182,9 @@ function SearchControl(p: SearchControlProps): React.JSX.Element | null {
 
     return fop;
 
-  }, [qd, Finder.findOptionsPath(p.findOptions), p.ctx?.frame?.currentDate, p.ctx?.frame?.previousDate], { avoidReset: true });
+  }, [qt, Finder.findOptionsPath(p.findOptions), p.ctx?.frame?.currentDate, p.ctx?.frame?.previousDate], { avoidReset: true });
 
-  if (qd == null || qd == "not-allowed")
+  if (qt == null || qt == "not-allowed")
     return null;
 
   if (fop == null)
@@ -197,19 +199,19 @@ function SearchControl(p: SearchControlProps): React.JSX.Element | null {
     );
   }
 
-  if (fop.queryKey != qd.queryKey)
+  if (fop.queryKey != getKey(qt.queryName))
     return null;
 
   const qs = Finder.getSettings(fop.queryKey);
 
-  const tis = qd.columns["Entity"].type.typeInfos();
+  const tis = qt.type.typeInfos();
 
   return (
     <ErrorBoundary>
-      {p.showTitle && <Title type={p.showTitle}>{p.title ?? getQueryNiceName(qd.queryKey)}</Title>}
+      {p.showTitle && <Title type={p.showTitle}>{p.title ?? getQueryNiceName(getKey(qt.queryName))}</Title>}
       <SearchControlLoaded ref={searchControlLoaded}
         findOptions={fop}
-        queryDescription={qd}
+        queryToken={qt}
         querySettings={qs}
 
         formatters={p.formatters}

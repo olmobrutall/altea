@@ -54,7 +54,7 @@ function SearchModal(p: SearchModalProps): React.ReactElement {
   React.useImperativeHandle(p.ref, () => ({
     getUIState(): UIState {
       const scl = searchControl.current?.searchControlLoaded;
-      return { name: "SearchModal", context: scl && Finder.toFindOptions(scl.props.findOptions, scl.props.queryDescription, scl.props.defaultIncudeDefaultFilters) };
+      return { name: "SearchModal", context: scl && Finder.toFindOptions(scl.props.findOptions, scl.props.queryToken, scl.props.defaultIncudeDefaultFilters) };
     }
   }));
 

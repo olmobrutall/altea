@@ -471,7 +471,11 @@ export function getOrCreateFieldInfo(typeInfo: TypeInfo, key: string): FieldInfo
     const existing = typeInfo.fields[key];
     if (existing) return existing;
     const created = new FieldInfo(key);
-    created.declaringType = typeInfo; // owner is known here; inherited fields keep their declaring type
+    // Owner is known here (inherited fields keep their declaring type). NON-ENUMERABLE on purpose: it is
+    // a back-reference (FieldInfo → TypeInfo → fields → FieldInfo) that would make the field graph
+    // circular for JSON.stringify — e.g. SearchControl snapshots parsed find-options (whose column
+    // tokens carry FieldInfos) via JSON. Property access (memberNiceName) is unaffected.
+    Object.defineProperty(created, "declaringType", { value: typeInfo, enumerable: false, writable: true, configurable: true });
     typeInfo.fields[key] = created;
     return created;
 }

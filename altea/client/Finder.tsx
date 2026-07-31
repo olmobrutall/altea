@@ -11,7 +11,7 @@ import { Dic, classes, isNumber, isPromise, softCast } from '../entities/globals
 import { ajaxGet, ajaxPost } from './Services';
 
 import type {
-  QueryDescription, FindOptions,
+  FindOptions,
   FindOptionsParsed, FilterOption, FilterOptionParsed, OrderOptionParsed,
   ColumnOption, ColumnOptionParsed,
   OrderOption, ModalFindOptions,
@@ -31,6 +31,7 @@ import {
 // TODO(port): QueryDescriptionDTO / QueryTokenWithoutParent dropped in altea (client builds the token tree locally).
 import { completeToken, QueryToken, SubTokensOptions, type Writable } from './QueryToken';
 import { getSubTokens as generateSubTokens, SubTokensOptionsAll } from '../entities/dynamicQuery/tokens/queryToken';
+import { getKey } from '../entities/dynamicQuery/queryUtils';
 import { RootToken } from '../entities/dynamicQuery/tokens/rootToken';
 import { QueryTokenString, type Anonymous } from './QueryTokenString';
 
@@ -61,7 +62,7 @@ import type { FieldInfo } from '../entities/reflection';
 // import SearchControlLoaded, { SearchControlMobileOptions, ColumnParsed } from './SearchControl/SearchControlLoaded';
 // import { clearContextualItems } from "./SearchControl/ContextualItems";
 // import { clearManualSubTokens } from "./SearchControl/QueryTokenBuilder";
-// import { ImportComponent } from './ImportComponent'
+import { ImportComponent } from './ImportComponent';
 // TODO(port): Lines not ported (TypeContext is separate).
 // import { EntityBaseController, TypeContext, EntityLine, FormGroup } from "./Lines";
 import { TypeContext, type ButtonBarElement } from "./TypeContext";
@@ -87,7 +88,6 @@ import { QueryTokenMessage } from '../entities/dynamicQueries';
 // AppContext.clientState (see IClientState) so a single newClientState() on login resets everything.
 interface FinderClientState {
   querySettings: { [queryKey: string]: Finder.QuerySettings };
-  queryDescriptionCache: Map<string, Promise<QueryDescription>>;
 }
 declare module "./AppContext" {
   interface IClientState {
@@ -107,7 +107,7 @@ export namespace Finder {
 
   // Lazily initialise + return Finder's slice of the per-user client state.
   function state(): FinderClientState {
-    return AppContext.clientState.finder ??= { querySettings: {}, queryDescriptionCache: new Map() };
+    return AppContext.clientState.finder ??= { querySettings: {} };
   }
 
   /** Finder's query settings, keyed by query key (stored in AppContext.clientState). */
@@ -120,8 +120,7 @@ export namespace Finder {
   }
 
   export function start(options: { routes: RouteObject[] }): void {
-    // TODO(port): register the /find/:queryName search page route once SearchControl + ImportComponent land.
-    // options.routes.push({ path: "/find/:queryName", element: <ImportComponent onImport={() => Options.getSearchPage()} /> });
+    options.routes.push({ path: "/find/:queryName", element: <ImportComponent onImport={() => Options.getSearchPage()} /> });
     // altea divergence: no clearSettingsActions — all module state resets via AppContext.newClientState()
     // (see IClientState). Signum registered clearContextualItems / clearQuerySettings /
     // clearQueryDescriptionCache / clearManualSubTokens / ButtonBarQuery.clearButtonBarElements /
@@ -245,7 +244,7 @@ export namespace Finder {
   export const Options = {
     // TODO(port): SearchPage not ported yet. SearchModal IS ported (lazy dynamic import to avoid a
     // Finder↔SearchModal module-init cycle).
-    getSearchPage(): Promise<any> { throw new Error("TODO(port): SearchControl/SearchPage not ported"); },
+    getSearchPage(): Promise<typeof import('./SearchControl/SearchPage')> { return import('./SearchControl/SearchPage'); },
     getSearchModal(): Promise<typeof import('./SearchControl/SearchModal')> { return import('./SearchControl/SearchModal'); },
 
     /** Extension point to override the leading content of the search page title. Used by SearchPage. */
@@ -447,15 +446,15 @@ export namespace Finder {
     return Dic.simplify(result)!;
   }
 
-  export function getDefaultColumns(qd: QueryDescription): QueryToken[] {
-    return Dic.getValues(qd.columns)
-      .filter(a => a.fullKey() != "Entity" && !a.hasAggregate() && !a.hasTimeSeries());
+  export function getDefaultColumns(queryToken: QueryToken): QueryToken[] {
+    return queryToken.subTokens(SubTokensOptionsAll)
+      .filter(a => !a.hasAggregate() && !a.hasTimeSeries());
 
   }
 
-  export function mergeColumns(qd: QueryDescription, mode: ColumnOptionsMode, columnOptions: ColumnOption[]): ColumnOption[] {
+  export function mergeColumns(queryToken: QueryToken, mode: ColumnOptionsMode, columnOptions: ColumnOption[]): ColumnOption[] {
 
-    var columns = getDefaultColumns(qd);
+    var columns = getDefaultColumns(queryToken);
 
     switch (mode) {
       case "Add":
@@ -488,7 +487,7 @@ export namespace Finder {
     }
   }
 
-  export function smartColumns(current: ColumnOptionParsed[], qd: QueryDescription): { mode: ColumnOptionsMode; columns: ColumnOption[] } {
+  export function smartColumns(current: ColumnOptionParsed[], queryToken: QueryToken): { mode: ColumnOptionsMode; columns: ColumnOption[] } {
 
     const similar = (c: ColumnOptionParsed, d: QueryToken) =>
       c.token!.fullKey() == d.fullKey() && (c.displayName == d.niceName()) && c.summaryToken == null && c.combineRows == null && !c.hiddenColumn;
@@ -501,7 +500,7 @@ export namespace Finder {
       hiddenColumn: c.hiddenColumn,
     }) as ColumnOption;
 
-    var ideal = Finder.getDefaultColumns(qd);
+    var ideal = Finder.getDefaultColumns(queryToken);
 
     current = current.filter(a => a.token != null);
 
@@ -558,9 +557,9 @@ export namespace Finder {
     return undefined;
   }
 
-  export function parseFilterOptions(fos: (FilterOption | null | undefined)[], groupResults: boolean, qd: QueryDescription): Promise<FilterOptionParsed[]> {
+  export function parseFilterOptions(fos: (FilterOption | null | undefined)[], groupResults: boolean, queryToken: QueryToken): Promise<FilterOptionParsed[]> {
 
-    const completer = new TokenCompleter(qd);
+    const completer = new TokenCompleter(queryToken);
     var sto = SubTokensOptions.CanElement | SubTokensOptions.CanAnyAll | (groupResults ? SubTokensOptions.CanAggregate : 0);
 
     fos.notNull().forEach(fo => completer.requestFilter(fo));
@@ -572,9 +571,9 @@ export namespace Finder {
 
 
 
-  export function parseOrderOptions(orderOptions: (OrderOption | null | undefined)[], groupResults: boolean, qd: QueryDescription): Promise<OrderOptionParsed[]> {
+  export function parseOrderOptions(orderOptions: (OrderOption | null | undefined)[], groupResults: boolean, queryToken: QueryToken): Promise<OrderOptionParsed[]> {
 
-    const completer = new TokenCompleter(qd);
+    const completer = new TokenCompleter(queryToken);
     var sto = SubTokensOptions.CanElement | SubTokensOptions.CanSnippet | (groupResults ? SubTokensOptions.CanAggregate : 0);
     orderOptions.notNull().forEach(a => completer.request(a.token.toString()));
 
@@ -585,9 +584,9 @@ export namespace Finder {
       }) as OrderOptionParsed));
   }
 
-  export function parseColumnOptions(columnOptions: ColumnOption[], groupResults: boolean, qd: QueryDescription): Promise<ColumnOptionParsed[]> {
+  export function parseColumnOptions(columnOptions: ColumnOption[], groupResults: boolean, queryToken: QueryToken): Promise<ColumnOptionParsed[]> {
 
-    const completer = new TokenCompleter(qd);
+    const completer = new TokenCompleter(queryToken);
     var sto = SubTokensOptions.CanElement | SubTokensOptions.CanToArray | SubTokensOptions.CanSnippet | (groupResults ? SubTokensOptions.CanAggregate : SubTokensOptions.CanOperation | SubTokensOptions.CanManual);
     columnOptions.forEach(a => completer.request(a.token.toString()));
     columnOptions.filter(a => a.summaryToken != null).forEach(a => completer.request(a.summaryToken!.toString()));
@@ -717,14 +716,14 @@ export namespace Finder {
     if (fo == null)
       return Promise.resolve(undefined);
 
-    return getQueryDescription(fo.queryName)
-      .then(qd => parseFindOptions(fo, qd, true))
+    return getQueryRoot(fo.queryName)
+      .then(qt => parseFindOptions(fo, qt, true))
       .then(fop => getPropsFromFilters(type, fop.filterOptions));
   }
 
-  export function toFindOptions(fo: FindOptionsParsed, qd: QueryDescription, defaultIncludeDefaultFilters: boolean): FindOptions {
+  export function toFindOptions(fo: FindOptionsParsed, queryToken: QueryToken, defaultIncludeDefaultFilters: boolean): FindOptions {
 
-    const pair = smartColumns(fo.columnOptions, qd);
+    const pair = smartColumns(fo.columnOptions, queryToken);
 
     const qs = getSettings(fo.queryKey);
 
@@ -746,14 +745,14 @@ export namespace Finder {
     } as FindOptions;
 
     if (!findOptions.groupResults && findOptions.orderOptions) {
-      var defaultOrder = getDefaultOrder(qd, qs);
+      var defaultOrder = getDefaultOrder(queryToken, qs);
 
       if (equalOrders(defaultOrder, findOptions.orderOptions.notNull()))
         findOptions.orderOptions = undefined;
     }
 
     if (findOptions.filterOptions) {
-      var defaultFilters = getDefaultFilter(qd, qs);
+      var defaultFilters = getDefaultFilter(queryToken, qs);
       var filterOptions = findOptions.filterOptions.notNull();
       if (defaultFilters && defaultFilters.length <= filterOptions.length) {
         if (equalFilters(defaultFilters, filterOptions.slice(0, defaultFilters.length))) {
@@ -808,15 +807,15 @@ export namespace Finder {
 
   export const defaultOrderColumn: string = "Id";
 
-  export function getDefaultOrder(qd: QueryDescription, qs: QuerySettings | undefined): OrderOption[] | undefined {
+  export function getDefaultOrder(queryToken: QueryToken, qs: QuerySettings | undefined): OrderOption[] | undefined {
     if (qs?.defaultOrders)
       return qs.defaultOrders;
 
     // ALTEA: the query's entity type comes from its queryKey (Signum read it off the "Entity" column's
     // TypeReference; altea columns carry a RuntimeType, and the root isn't a column entry).
-    const ti = tryGetTypeInfo(qd.queryKey);
+    const ti = tryGetTypeInfo(getKey(queryToken.queryName));
 
-    if (!qd.columns[defaultOrderColumn])
+    if (!queryToken.subTokens(SubTokensOptionsAll).find(t => t.fullKey() == defaultOrderColumn))
       return undefined;
 
     return [{
@@ -825,14 +824,14 @@ export namespace Finder {
     }];
   }
 
-  export function getDefaultFilter(qd: QueryDescription | undefined, qs: QuerySettings | undefined): FilterOption[] | undefined {
+  export function getDefaultFilter(queryToken: QueryToken | undefined, qs: QuerySettings | undefined): FilterOption[] | undefined {
     if (qs?.defaultFilters)
       return qs.defaultFilters;
 
     if (qs?.simpleFilterBuilder)
       return undefined;
 
-    if (qd == null || qd.columns["Entity"]) {
+    if (queryToken == null || queryToken) {
       return [
         {
           groupOperation: "Or",
@@ -888,22 +887,22 @@ export namespace Finder {
     return filterOptionsParsed.map(fop => toFilterOption(fop)).filter(fo => fo != null) as FilterOption[];
   }
 
-  export function parseFindOptions(findOptions: FindOptions, qd: QueryDescription, defaultIncludeDefaultFilters: boolean): Promise<FindOptionsParsed> {
+  export function parseFindOptions(findOptions: FindOptions, queryToken: QueryToken, defaultIncludeDefaultFilters: boolean): Promise<FindOptionsParsed> {
     const fo = autoRemoveTrivialColumns(findOptions);
 
-    fo.columnOptions = mergeColumns(qd, fo.columnOptionsMode ?? "Add", fo.columnOptions?.notNull().map(toColumnOption) ?? []);
+    fo.columnOptions = mergeColumns(queryToken, fo.columnOptionsMode ?? "Add", fo.columnOptions?.notNull().map(toColumnOption) ?? []);
 
-    var qs: QuerySettings | undefined = querySettings()[qd.queryKey];
+    var qs: QuerySettings | undefined = querySettings()[getKey(queryToken.queryName)];
 
     if (!fo.groupResults && (!fo.orderOptions || fo.orderOptions.length == 0)) {
-      var defaultOrder = getDefaultOrder(qd, qs);
+      var defaultOrder = getDefaultOrder(queryToken, qs);
 
       if (defaultOrder)
         fo.orderOptions = defaultOrder;
     }
 
     if (fo.includeDefaultFilters == null ? defaultIncludeDefaultFilters : fo.includeDefaultFilters) {
-      var defaultFilters = getDefaultFilter(qd, qs);
+      var defaultFilters = getDefaultFilter(queryToken, qs);
       if (defaultFilters)
         fo.filterOptions = [...defaultFilters, ...fo.filterOptions ?? []];
     }
@@ -915,7 +914,7 @@ export namespace Finder {
     const canAggregateXorOperation = (canAggregate != 0 ? canAggregate : SubTokensOptions.CanOperation | SubTokensOptions.CanManual);
     const canTimeSeries = (fo.systemTime?.mode == QueryTokenString.timeSeries.token ? SubTokensOptions.CanTimeSeries : 0);
 
-    const completer = new TokenCompleter(qd);
+    const completer = new TokenCompleter(queryToken);
 
 
     if (fo.filterOptions)
@@ -932,7 +931,7 @@ export namespace Finder {
     return completer.finished().then(() => {
 
       var result: FindOptionsParsed = {
-        queryKey: qd.queryKey,
+        queryKey: getKey(queryToken.queryName),
         groupResults: fo.groupResults == true,
         pagination: fixPagination(fo.pagination != null ? fo.pagination : qs?.pagination ?? Options.defaultPagination),
         systemTime: fo.systemTime && fixSystemTime(fo.systemTime),
@@ -1103,12 +1102,12 @@ export namespace Finder {
   }
 
   export function getQueryValue<T = number>(queryName: PseudoType | QueryKey, filterOptions: (FilterOption | null | undefined)[], valueToken?: QueryTokenString<T> | string, multipleValues?: boolean): Promise<T> {
-    return getQueryDescription(queryName).then(qd => {
-      return parseFilterOptions(filterOptions ?? [], false, qd).then(fops => {
+    return getQueryRoot(queryName).then(qt => {
+      return parseFilterOptions(filterOptions ?? [], false, qt).then(fops => {
 
         let filters = toFilterRequests(fops);
 
-        return API.queryValue({ queryKey: qd.queryKey, filters, valueToken: valueToken?.toString(), multipleValues });
+        return API.queryValue({ queryKey: getKey(qt.queryName), filters, valueToken: valueToken?.toString(), multipleValues });
       });
     });
   }
@@ -1276,13 +1275,13 @@ export namespace Finder {
 
   export async function fetchLites<T extends Entity>(fo: FetchOptions<T>): Promise<Lite<T>[]> {
 
-    var qd = await getQueryDescription(fo.queryName!);
-    var filters = await parseFilterOptions(fo.filterOptions ?? [], false, qd);
-    var orders = await parseOrderOptions(fo.orderOptions ?? [], false, qd);
+    var qt = await getQueryRoot(fo.queryName!);
+    var filters = await parseFilterOptions(fo.filterOptions ?? [], false, qt);
+    var orders = await parseOrderOptions(fo.orderOptions ?? [], false, qt);
 
     var result = await API.fetchLites({
 
-      queryKey: qd.queryKey,
+      queryKey: getKey(qt.queryName),
 
       filters: toFilterRequests(filters),
 
@@ -1298,13 +1297,13 @@ export namespace Finder {
   }
 
   export async function fetchEntities<T extends Entity>(fo: FetchOptions<T>): Promise<T[]> {
-    const qd = await getQueryDescription(fo.queryName!);
-    const filters = await parseFilterOptions(fo.filterOptions ?? [], false, qd);
-    const orders = await parseOrderOptions(fo.orderOptions ?? [], false, qd);
+    const qt = await getQueryRoot(fo.queryName!);
+    const filters = await parseFilterOptions(fo.filterOptions ?? [], false, qt);
+    const orders = await parseOrderOptions(fo.orderOptions ?? [], false, qt);
 
     const entities = await API.fetchEntities({
 
-      queryKey: qd.queryKey,
+      queryKey: getKey(qt.queryName),
 
       filters: toFilterRequests(filters),
 
@@ -1360,16 +1359,16 @@ export namespace Finder {
   }
   export async function parseSingleToken(queryName: PseudoType | QueryKey, token: string | QueryTokenString<any>, subTokenOptions: SubTokensOptions): Promise<QueryToken> {
 
-    var qd = await getQueryDescription(getQueryKey(queryName));
-    const completer = new TokenCompleter(qd);
+    var qt = await getQueryRoot(getQueryKey(queryName));
+    const completer = new TokenCompleter(qt);
     const result = completer.request(token.toString());
     await completer.finished();
     return completer.get(token.toString(), subTokenOptions);
   }
 
   export async function parseTokens(queryName: PseudoType | QueryKey, tokens: (string | QueryTokenString<any>)[], subTokenOptions: SubTokensOptions): Promise<QueryToken[]> {
-    var qd = await getQueryDescription(getQueryKey(queryName));
-    const completer = new TokenCompleter(qd);
+    var qt = await getQueryRoot(getQueryKey(queryName));
+    const completer = new TokenCompleter(qt);
     tokens.forEach(token => completer.request(token.toString()));
     await completer.finished();
     return tokens.map(token => completer.get(token.toString(), subTokenOptions));
@@ -1387,9 +1386,9 @@ export namespace Finder {
     private requested = new Set<string>();
     private readonly root: QueryToken;
 
-    constructor(public qd: QueryDescription) {
-      this.root = clientRootToken(qd.queryKey);
-      Dic.getValues(qd.columns).forEach(t => this.cache.set(t.fullKey(), t));
+    constructor(public queryToken: QueryToken) {
+      this.root = queryToken;
+      queryToken.subTokens(SubTokensOptionsAll).forEach(t => this.cache.set(t.fullKey(), t));
     }
 
     requestFilter(fo: FilterOption): void {
@@ -1437,16 +1436,16 @@ export namespace Finder {
     get(fullKey: string, options: SubTokensOptions): QueryToken {
       const token = this.cache.get(fullKey);
       if (!token)
-        throw new Error(`Token with key '${fullKey}' not found on query '${this.qd.queryKey}'`);
+        throw new Error(`Token with key '${fullKey}' not found on query '${getKey(this.queryToken.queryName)}'`);
 
       const invalid = tokenNotAllowedReason(token, options);
       if (invalid != null)
-        throw new Error(`Token with key '${fullKey}' on query '${this.qd.queryKey}' not valid (${invalid} not allowed)`);
+        throw new Error(`Token with key '${fullKey}' on query '${getKey(this.queryToken.queryName)}' not valid (${invalid} not allowed)`);
       return token;
     }
 
     async getSubTokens(parentToken: QueryToken | undefined, options: SubTokensOptions, _autoExpand: boolean): Promise<QueryToken[]> {
-      const candidates = parentToken == null ? Dic.getValues(this.qd.columns) : await generateSubTokens(parentToken, options);
+      const candidates = parentToken == null ? this.queryToken.subTokens(SubTokensOptionsAll) : await generateSubTokens(parentToken, options);
       candidates.forEach(t => this.cache.set(t.fullKey(), t));
       // TODO(port): autoExpand / hideInAutoExpand — altea QueryToken has no auto-expand flag yet.
       return candidates.filter(t => tokenNotAllowedReason(t, options) == null);
@@ -1513,28 +1512,13 @@ export namespace Finder {
   export function parseFilterValues(filterOptions: FilterOptionParsed[]): Promise<void> {
     return Promise.resolve();
   }
-  function clearQueryDescriptionCache() {
-    state().queryDescriptionCache.clear();
-  }
-
   // ALTEA REWRITE: Signum fetched the QueryDescription (its column token tree) from the server DTO.
-  // altea builds it CLIENT-SIDE: the entity-root token's direct sub-tokens ARE the query's columns
-  // (generated locally by the shared token model; server-only tokens fetched via QueryClient).
-  export function getQueryDescription(queryName: PseudoType | QueryKey): Promise<QueryDescription> {
-    const queryKey = getQueryKey(queryName);
-    const queryDescriptionCache = state().queryDescriptionCache;
-
-    if (!queryDescriptionCache.has(queryKey)) {
-      queryDescriptionCache.set(queryKey, (async () => {
-        const root = clientRootToken(queryKey);
-        const cols = await generateSubTokens(root, SubTokensOptionsAll);
-        const columns: { [name: string]: QueryToken } = {};
-        cols.forEach(t => columns[t.key] = t);
-        return Object.freeze({ queryKey, columns }) as QueryDescription;
-      })());
-    }
-
-    return queryDescriptionCache.get(queryKey)!;
+  // altea builds the query's ROOT token CLIENT-SIDE: the entity-root token carries the query
+  // name/type and its direct sub-tokens ARE the query's columns (generated locally by the shared
+  // token model; server-only tokens fetched via QueryClient). Kept async so awaiting callers are
+  // unchanged even though clientRootToken is cheap and synchronous.
+  export function getQueryRoot(queryName: PseudoType | QueryKey): Promise<QueryToken> {
+    return Promise.resolve(clientRootToken(getQueryKey(queryName)));
   }
 
   export function inDB<R>(entity: Entity | Lite<Entity>, token: QueryTokenString<R> | string): Promise<AddToLite<R> | null> {
@@ -1547,8 +1531,8 @@ export namespace Finder {
       columnOptionsMode: "ReplaceAll",
     };
 
-    return getQueryDescription(fo.queryName)
-      .then(qd => parseFindOptions(fo!, qd, false))
+    return getQueryRoot(fo.queryName)
+      .then(qt => parseFindOptions(fo!, qt, false))
       .then(fop => API.executeQuery(getQueryRequest(fop)))
       .then(rt => {
         if (rt.rows.length != 1)
@@ -1567,8 +1551,8 @@ export namespace Finder {
       columnOptionsMode: "ReplaceAll",
     };
 
-    return getQueryDescription(fo.queryName)
-      .then(qd => parseFindOptions(fo!, qd, false))
+    return getQueryRoot(fo.queryName)
+      .then(qt => parseFindOptions(fo!, qt, false))
       .then(fop => API.executeQuery(getQueryRequest(fop)))
       .then(rt => {
         if (rt.rows.length != 1)
@@ -1587,8 +1571,8 @@ export namespace Finder {
       columnOptionsMode: "ReplaceAll",
     };
 
-    return getQueryDescription(fo.queryName)
-      .then(qd => parseFindOptions(fo!, qd, false))
+    return getQueryRoot(fo.queryName)
+      .then(qt => parseFindOptions(fo!, qt, false))
       .then(fop => API.executeQuery(getQueryRequest(fop)))
       .then(rt => rt.rows.map(r => r.columns[0]).notNull());
   }
@@ -1725,8 +1709,8 @@ export namespace Finder {
 
     fo = defaultNoColumnsAllRows(fo, undefined);
 
-    return getQueryDescription(fo.queryName)
-      .then(qd => parseFindOptions(fo!, qd, defaultIncludeDefaultFilters))
+    return getQueryRoot(fo.queryName)
+      .then(qt => parseFindOptions(fo!, qt, defaultIncludeDefaultFilters))
       .then(fop => API.executeQuery(getQueryRequest(fop), signal));
   }
 
@@ -1823,9 +1807,9 @@ export namespace Finder {
 
   export namespace API {
 
-    // TODO(port): altea builds the QueryDescription CLIENT-SIDE (see getQueryDescription), so this
-    // server DTO fetch is likely obsolete; typed to QueryDescription for now.
-    export function fetchQueryDescription(queryKey: string): Promise<QueryDescription> {
+    // TODO(port): altea builds the query root token CLIENT-SIDE (see getQueryRoot), so this
+    // server DTO fetch is likely obsolete; typed as unknown for now.
+    export function fetchQueryDescription(queryKey: string): Promise<unknown> {
       return ajaxGet({ url: "/api/query/description/" + queryKey });
     }
 
@@ -2166,7 +2150,7 @@ export namespace Finder {
 
 
   export interface SimpleFilterBuilderContext {
-    queryDescription: QueryDescription;
+    queryToken: QueryToken;
     initialFilterOptions: FilterOptionParsed[];
     search: () => void;
     searchControl?: SearchControlLoaded
@@ -2174,15 +2158,37 @@ export namespace Finder {
 
 
 
-  // TODO(port): FinderRules (Signum's default format / entity / quick-filter / filter-value rule sets)
-  // is not ported. Stubbed to empty rule lists so the formatter registry compiles and runs (no default
-  // formatters yet); replace with the real FinderRules once the SearchControl layer lands.
+  // Minimal default rule sets (Signum's FinderRules). A full port — typed number/date/bool/enum/lite/
+  // color cell formatters + entity-link rendering — is future work; for now a single text formatter
+  // renders every cell (lite/entity columns via their toString), which is enough for search results to
+  // display. getCellFormatter/getEntityFormatter take the LAST applicable rule, so more specific rules
+  // added later override this catch-all.
   const FinderRules = {
-    initFormatRules: (): FormatRule[] => [],
-    initEntityFormatRules: (): EntityFormatRule[] => [],
+    initFormatRules: (): FormatRule[] => [
+      {
+        name: "Default",
+        isApplicable: () => true,
+        formatter: () => new CellFormatter(cell => cellToStr(cell), false),
+      },
+    ],
+    initEntityFormatRules: (): EntityFormatRule[] => [
+      {
+        name: "Default",
+        isApplicable: () => true,
+        formatter: new EntityFormatter(ctx => cellToStr(ctx.row.entity)),
+      },
+    ],
     initQuickFilterRules: (): QuickFilterRule[] => [],
     initFilterValueFormatRules: (): FilterValueFormatter[] => [],
   };
+
+  // Render any result-cell value as text: a Lite/entity/Temporal/Decimal shows its toString(), a plain
+  // value via String(). (Placeholder until the typed formatters land.)
+  function cellToStr(cell: any): string {
+    if (cell == null) return "";
+    if (typeof cell === "object") return (cell.toStr as string | undefined) ?? (typeof cell.toString === "function" ? cell.toString() : "");
+    return String(cell);
+  }
 
   export function isSystemVersioned(rt?: TypeReference): boolean {
     return rt != null && rt.typeInfos().some(ti => ti.systemVersioned != null)
@@ -2286,7 +2292,7 @@ export namespace Finder {
     label?: string;
     mandatory?: boolean;
     forceNullable?: boolean;
-    queryDescription: QueryDescription;
+    queryToken: QueryToken;
     filterOptions: FilterOptionParsed[];
     handleValueChange: (f: FilterOptionParsed, avoidSearch?: boolean) => void;
   }

@@ -1,5 +1,6 @@
 import * as React from 'react'
-import type { FindOptionsParsed, QueryDescription } from '../FindOptions'
+import type { FindOptionsParsed } from '../FindOptions'
+import type { QueryToken } from '../QueryToken'
 
 // STUB (SearchControl port). The system-time / temporal-query editor is DEFERRED — the full 303-line
 // port needs the SystemTime model UI, SearchValue, the AsOf/Between/TimeSeries date pickers
@@ -7,7 +8,7 @@ import type { FindOptionsParsed, QueryDescription } from '../FindOptions'
 // `fo.systemTime` is set. TODO(port).
 interface SystemTimeEditorProps {
   findOptions: FindOptionsParsed;
-  queryDescription: QueryDescription;
+  queryToken: QueryToken;
   onChanged: () => void;
 }
 

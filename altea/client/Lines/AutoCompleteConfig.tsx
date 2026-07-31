@@ -10,7 +10,8 @@
 import * as React from 'react'
 import { Finder } from '../Finder'
 import { AbortableRequest } from '../Services'
-import type { FindOptions, FilterOption, QueryDescription } from '../FindOptions'
+import type { FindOptions, FilterOption } from '../FindOptions'
+import type { QueryToken } from '../QueryToken'
 import type { ResultRow, ResultTable, QueryRequest } from '../../entities/dynamicQuery/queryRequest'
 import { getTypeInfo, getTypeName } from '../Reflection'
 import { QueryTokenString } from '../QueryTokenString'
@@ -189,7 +190,7 @@ export async function getLitesWithSubStr(fo: FindOptions, subStr: string, signal
 
   const foClean = Finder.defaultNoColumnsAllRows(fo, 5);
 
-  const qd = await Finder.getQueryDescription(fo.queryName);
+  const qt = await Finder.getQueryRoot(fo.queryName);
   const qs = Finder.getSettings(fo.queryName);
 
   const fop = await Finder.parseFindOptions({
@@ -198,9 +199,9 @@ export async function getLitesWithSubStr(fo: FindOptions, subStr: string, signal
       { token: "Entity.ToString.Length", orderType: "Ascending" },
       { token: "Entity.ToString", orderType: "Ascending" },
     ],
-    filterOptions: FindOptionsAutocompleteConfig.filtersWithSubStr(fo, qd, qs, subStr),
+    filterOptions: FindOptionsAutocompleteConfig.filtersWithSubStr(fo, qt, qs, subStr),
     includeDefaultFilters: false,
-  }, qd, true);
+  }, qt, true);
 
   var qr = Finder.getQueryRequest(fop);
 
@@ -256,13 +257,13 @@ export class FindOptionsAutocompleteConfig implements AutocompleteConfig<ResultR
 
   abortableRequest: AbortableRequest<QueryRequest, ResultTable> = new AbortableRequest((abortController, request: QueryRequest) => Finder.API.executeQuery(request, abortController));
 
-  static filtersWithSubStr(fo: FindOptions, qd: QueryDescription, qs: Finder.QuerySettings | undefined, subStr: string): FilterOption[] {
+  static filtersWithSubStr(fo: FindOptions, queryToken: QueryToken, qs: Finder.QuerySettings | undefined, subStr: string): FilterOption[] {
 
     var filters = [...fo.filterOptions?.notNull() ?? []];
 
     /*When overriden in Finder very often uses not seen columns (like Telephone) that are not seen in autocomplete, better to use false by default and you can opt-in by adding includeDefaultFilters if needed */
     if (fo.includeDefaultFilters ?? false) {
-      var defaultFilters = Finder.getDefaultFilter(qd, qs);
+      var defaultFilters = Finder.getDefaultFilter(queryToken, qs);
       if (defaultFilters)
         filters = [...defaultFilters, ...filters];
     }
@@ -308,15 +309,15 @@ export class FindOptionsAutocompleteConfig implements AutocompleteConfig<ResultR
     var fo = Finder.defaultNoColumnsAllRows(typeof this.findOptions == "object" ? this.findOptions : this.findOptions(subStr), this.count ?? 5);
     const qs = Finder.getSettings(fo.queryName);
 
-    return Finder.getQueryDescription(fo.queryName)
-      .then(qd => Finder.parseFindOptions({
+    return Finder.getQueryRoot(fo.queryName)
+      .then(qt => Finder.parseFindOptions({
         orderOptions: qs?.defaultOrdersAutocomplete ?? [
           { token: "Entity.ToString.Length", orderType: "Ascending" },
           { token: "Entity.ToString", orderType: "Ascending" },
         ],
         ...fo,
-        filterOptions: FindOptionsAutocompleteConfig.filtersWithSubStr(fo, qd, qs, subStr),
-      }, qd, true))
+        filterOptions: FindOptionsAutocompleteConfig.filtersWithSubStr(fo, qt, qs, subStr),
+      }, qt, true))
       .then(fop => this.abortableRequest.getData(Finder.getQueryRequest(fop)))
       .then(rt => {
         this.resultTable = rt;
@@ -389,8 +390,8 @@ export class FindOptionsAutocompleteConfig implements AutocompleteConfig<ResultR
       includeDefaultFilters: false,
     };
 
-    return Finder.getQueryDescription(fo.queryName)
-      .then(qd => Finder.parseFindOptions(fo, qd, false)
+    return Finder.getQueryRoot(fo.queryName)
+      .then(qt => Finder.parseFindOptions(fo, qt, false)
         .then(fop => Finder.API.executeQuery(Finder.getQueryRequest(fop)))
         .then(rt => {
           const result = rt.rows.filter(row => row.entity != null && row.entity.is(lite)).firstOrNull();

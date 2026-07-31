@@ -13,12 +13,13 @@ import { DomUtils } from '../domGlobals'
 import { classes, Dic, softCast, isNumber } from '../../entities/globals'
 import { Finder } from '../Finder'
 import type {
-  FindOptionsParsed, FilterOption, FilterOptionParsed, QueryDescription, ColumnOption, ColumnOptionParsed,
+  FindOptionsParsed, FilterOption, FilterOptionParsed, ColumnOption, ColumnOptionParsed,
   OrderOption, OrderOptionParsed, FindOptions
 } from '../FindOptions'
 import { filterOperations, isActive, isFilterCondition, withoutPinned } from '../FindOptions'
 import type { ResultTable, ResultRow, Pagination, QueryRequest } from '../../entities/dynamicQuery/queryRequest'
 import { QueryToken, SubTokensOptions } from '../QueryToken'
+import { getKey } from '../../entities/dynamicQuery/queryUtils'
 import { Temporal } from 'temporal-polyfill'
 import { cleanTypeName } from '../../entities/registration'
 import { SearchMessage, JavascriptMessage, FrameMessage } from '../../entities/uiMessages'
@@ -92,7 +93,7 @@ export interface OnDrilldownOptions {
 
 export interface SearchControlLoadedProps {
   findOptions: FindOptionsParsed;
-  queryDescription: QueryDescription;
+  queryToken: QueryToken;
   querySettings: Finder.QuerySettings | undefined;
 
   formatters?: { [token: string]: Finder.CellFormatter };
@@ -228,11 +229,11 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
   getSimpleFilterBuilderElement(): React.ReactElement<any, string | React.JSXElementConstructor<any>> | undefined {
     const fo = this.props.findOptions;
-    const qd = this.props.queryDescription;
+    const qt = this.props.queryToken;
     var qs = this.props.querySettings;
     return this.props.showSimpleFilterBuilder == false ? undefined :
-      this.props.simpleFilterBuilder ? this.props.simpleFilterBuilder({ queryDescription: qd, initialFilterOptions: fo.filterOptions, search: () => this.doSearchPage1(), searchControl: this }) :
-        qs?.simpleFilterBuilder ? qs.simpleFilterBuilder({ queryDescription: qd, initialFilterOptions: fo.filterOptions, search: () => this.doSearchPage1(), searchControl: this }) :
+      this.props.simpleFilterBuilder ? this.props.simpleFilterBuilder({ queryToken: qt, initialFilterOptions: fo.filterOptions, search: () => this.doSearchPage1(), searchControl: this }) :
+        qs?.simpleFilterBuilder ? qs.simpleFilterBuilder({ queryToken: qt, initialFilterOptions: fo.filterOptions, search: () => this.doSearchPage1(), searchControl: this }) :
           undefined;
   }
 
@@ -268,7 +269,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
   }
 
   entityColumn(): QueryToken {
-    return this.props.queryDescription.columns["Entity"];
+    return this.props.queryToken;
   }
 
   entityColumnTypeInfos(): TypeInfo[] {
@@ -373,7 +374,15 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
         this.simpleFilterBuilderInstance.onDataChanged();
 
       this.setState({ editingColumn: undefined }, () => this.handleHeightChanged());
-      var resultFindOptions = JSON.parse(JSON.stringify(fop));
+      // altea: fop's column/order/filter tokens are rich QueryToken class instances (not Signum's plain
+      // serializable DTOs), so a JSON round-trip would strip their methods (token.fullKey()). Shallow-copy
+      // the option arrays so the snapshot is decoupled from later edits, keeping the (immutable) token refs.
+      var resultFindOptions = {
+        ...fop,
+        filterOptions: fop.filterOptions.map(f => ({ ...f })),
+        orderOptions: fop.orderOptions.map(o => ({ ...o })),
+        columnOptions: fop.columnOptions.map(c => ({ ...c })),
+      };
 
       const qr = this.getQueryRequest();
       const qrSummary = this.getSummaryQueryRequest();
@@ -413,7 +422,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
   getFindOptionsWithSFB(): Promise<FindOptionsParsed> {
 
     const fo = this.props.findOptions;
-    const qd = this.props.queryDescription;
+    const qt = this.props.queryToken;
 
     if (this.simpleFilterBuilderInstance == undefined)
       return Promise.resolve(fo);
@@ -423,7 +432,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
     var filters = this.simpleFilterBuilderInstance.getFilters();
 
-    return Finder.parseFilterOptions(filters, false, qd).then(fos => {
+    return Finder.parseFilterOptions(filters, false, qt).then(fos => {
       fo.filterOptions = fos;
 
       return fo;
@@ -555,7 +564,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
   override render(): React.ReactElement {
     const p = this.props;
     const fo = this.props.findOptions;
-    const qd = this.props.queryDescription;
+    const qt = this.props.queryToken;
 
     const sfb = this.state.simpleFilterBuilder &&
       React.cloneElement(this.state.simpleFilterBuilder, { ref: (e: ISimpleFilterBuilder) => { this.simpleFilterBuilderInstance = e; } } as any);
@@ -573,7 +582,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
             {
               this.state.filterMode != 'Simple' ? <FilterBuilder
                 title={this.state.filterMode == "Pinned" ? SearchMessage.FilterDesigner.niceToString() : SearchMessage.AdvancedFilters.niceToString()}
-                queryDescription={qd}
+                queryToken={qt}
                 filterOptions={fo.filterOptions}
                 lastToken={this.state.lastToken}
                 subTokensOptions={SubTokensOptions.CanAnyAll | SubTokensOptions.CanElement | canAggregate | canTimeSeries}
@@ -592,7 +601,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
         {p.showHeader == true && p.largeToolbarButtons && this.renderToolBar()}
         {p.showHeader == true && <MultipliedMessage findOptions={fo} mainType={this.entityColumn().type} />}
         {p.showHeader == true && fo.groupResults && !p.avoidGroupByMessage && <GroupByMessage findOptions={fo} mainType={this.entityColumn().type} />}
-        {p.showHeader == true && fo.systemTime && <SystemTimeEditor findOptions={fo} queryDescription={qd} onChanged={() => this.forceUpdate()} />}
+        {p.showHeader == true && fo.systemTime && <SystemTimeEditor findOptions={fo} queryToken={qt} onChanged={() => this.forceUpdate()} />}
 
         <div className={p.avoidTableFooterContainer ? undefined : "sf-table-footer-container my-3 p-3 pb-1 bg-body rounded shadow-sm"}>
           {p.showHeader == true && !p.largeToolbarButtons && this.renderToolBar()}
@@ -602,7 +611,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
                 this.state.editingColumn && <ColumnEditor
                   columnOption={this.state.editingColumn}
                   onChange={this.handleColumnChanged}
-                  queryDescription={qd}
+                  queryToken={qt}
                   subTokensOptions={SubTokensOptions.CanElement | SubTokensOptions.CanToArray | SubTokensOptions.CanSnippet | canAggregateXorOperationOrManual | canTimeSeries}
                   close={this.handleColumnClose} />
               }
@@ -686,7 +695,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
 
     function toFindOptionsPath(fop: FindOptionsParsed) {
-      var fo = Finder.toFindOptions(fop, p.queryDescription, p.defaultIncudeDefaultFilters);
+      var fo = Finder.toFindOptions(fop, p.queryToken, p.defaultIncudeDefaultFilters);
       return Finder.findOptionsPath(fo);
     }
 
@@ -765,7 +774,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
   chooseType(): Promise<string | undefined> {
 
-    const tis = this.props.queryDescription.columns["Entity"].type.typeInfos()
+    const tis = this.props.queryToken.type.typeInfos()
       .filter(ti => Navigator.isCreable(cleanTypeName(ti.ctor!), { isSearch: true }));
 
     return SelectorModal.chooseType(tis)
@@ -843,7 +852,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
     ev.preventDefault();
 
-    const findOptions = Finder.toFindOptions(this.props.findOptions, this.props.queryDescription, this.props.defaultIncudeDefaultFilters || this.props.findOptions.filterOptions.some(a => a.pinned != null));
+    const findOptions = Finder.toFindOptions(this.props.findOptions, this.props.queryToken, this.props.defaultIncudeDefaultFilters || this.props.findOptions.filterOptions.some(a => a.pinned != null));
 
     const path = Finder.findOptionsPath(findOptions, this.extraUrlParams);
 
@@ -875,7 +884,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
       return SearchMessage._0ResultTable.niceToString().formatWith(types);
     }
     else {
-      const nn = getQueryNiceName(this.props.queryDescription.queryKey);
+      const nn = getQueryNiceName(getKey(this.props.queryToken.queryName));
       return SearchMessage._0ResultTable.niceToString(nn);
     }
   }
@@ -924,7 +933,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
       const options = {
         lites: [],
-        queryDescription: this.props.queryDescription,
+        queryToken: this.props.queryToken,
         markRows: this.markRows,
         container: this,
         styleContext: this.props.ctx,
@@ -1071,7 +1080,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
   handleEditAllColumns = (): void => {
     const fo = this.props.findOptions;
-    const qd = this.props.queryDescription;
+    const qt = this.props.queryToken;
 
     const clonedFO: FindOptionsParsed = {
       ...fo,
@@ -1079,7 +1088,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
       orderOptions: fo.orderOptions.map(oo => ({ ...oo })),
     };
 
-    ColumnEditorModal.show(clonedFO, qd, this.props.querySettings)
+    ColumnEditorModal.show(clonedFO, qt, this.props.querySettings)
       .then(ok => {
         if (ok) {
           fo.groupResults = clonedFO.groupResults;
@@ -1109,7 +1118,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     var parsedTokens: QueryToken[] = [];
     if (defAggregate) {
 
-      var tokenParser = new Finder.TokenCompleter(this.props.queryDescription);
+      var tokenParser = new Finder.TokenCompleter(this.props.queryToken);
 
       defAggregate.forEach(a => tokenParser.request(a.token.toString()));
       defAggregate.filter(a => a.summaryToken != null).forEach(a => tokenParser.request(a.summaryToken!.toString()));
@@ -1129,7 +1138,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
       }));
     }
     else {
-      var tokenParser = new Finder.TokenCompleter(this.props.queryDescription);
+      var tokenParser = new Finder.TokenCompleter(this.props.queryToken);
       tokenParser.request("Count");
       await tokenParser.finished();
       var count = tokenParser.get("Count", sto);
@@ -1173,7 +1182,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     fo.columnOptions.clear();
     if (timeSeriesColumn)
       fo.columnOptions.push(timeSeriesColumn);
-    fo.columnOptions.push(...Finder.getDefaultColumns(this.props.queryDescription)
+    fo.columnOptions.push(...Finder.getDefaultColumns(this.props.queryToken)
       .map(token => softCast<ColumnOptionParsed>({ displayName: token.niceName(), token: token })));
 
     if (fo.groupResults) {
@@ -2177,7 +2186,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     return (
       <AutoFocus disabled={!this.props.enableAutoFocus}>
         <PinnedFilterBuilder
-          queryDescription={this.props.queryDescription}
+          queryToken={this.props.queryToken}
           filterOptions={fo.filterOptions}
           pinnedFilterVisible={this.props.pinnedFilterVisible}
           onFiltersChanged={this.handlePinnedFilterChanged}
@@ -2428,7 +2437,7 @@ function SearchControlEllipsisMenu(p: { sc: SearchControlLoaded, isHidden: boole
 
   function handleEditColumns() {
     const fo = p.sc.props.findOptions;
-    const qd = p.sc.props.queryDescription;
+    const qt = p.sc.props.queryToken;
 
     const clonedFO: FindOptionsParsed = {
       queryKey: fo.queryKey,
@@ -2439,7 +2448,7 @@ function SearchControlEllipsisMenu(p: { sc: SearchControlLoaded, isHidden: boole
       orderOptions: fo.orderOptions.map(oo => ({ ...oo })),
     };
 
-    ColumnEditorModal.show(clonedFO, qd, p.sc.props.querySettings)
+    ColumnEditorModal.show(clonedFO, qt, p.sc.props.querySettings)
       .then(ok => {
         if (ok) {
           fo.groupResults = clonedFO.groupResults;

@@ -7,7 +7,7 @@
 //     Navigator.getSettings' Type<T> overload).
 //   - ErrorModal (not ported) → console.error in the block-error branch.
 import * as React from 'react'
-import type { QueryDescription } from '../FindOptions'
+import type { QueryToken } from '../QueryToken'
 import { Navigator } from '../Navigator'
 import type { Lite } from '../../entities/lite'
 import type { Entity } from '../../entities/entity'
@@ -33,7 +33,7 @@ export interface ContextMenuPack {
 
 export interface ContextualItemsContext<T extends Entity> {
   lites: Lite<T>[];
-  queryDescription: QueryDescription;
+  queryToken: QueryToken;
   markRows: (dictionary: MarkedRowsDictionary) => void;
   container?: React.Component<any, any>;
   styleContext?: StyleContext;

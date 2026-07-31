@@ -13,11 +13,12 @@
 import * as React from 'react'
 import { areEqual, classes, KeyGenerator } from '../../entities/globals'
 import {
-  type FilterOptionParsed, type QueryDescription, getFilterOperations, isList, isPair,
+  type FilterOptionParsed, getFilterOperations, isList, isPair,
   type FilterConditionOptionParsed, type FilterGroupOptionParsed,
   isCheckBox, canSplitValue, isFilterGroup, isFilterCondition
 } from '../FindOptions'
 import { QueryToken, SubTokensOptions } from '../QueryToken'
+import { getKey } from '../../entities/dynamicQuery/queryUtils'
 import { SearchMessage, EntityControlMessage } from '../../entities/uiMessages'
 import { Lite } from '../../entities/lite'
 import { StyleContext } from '../TypeContext'
@@ -44,7 +45,7 @@ import { LinkButton } from '../Basics/LinkButton'
 interface FilterBuilderProps {
   filterOptions: FilterOptionParsed[];
   subTokensOptions: SubTokensOptions;
-  queryDescription: QueryDescription;
+  queryToken: QueryToken;
   onTokenChanged?: (token: QueryToken | undefined) => void;
   lastToken?: QueryToken;
   onFiltersChanged?: (filters: FilterOptionParsed[]) => void;
@@ -298,7 +299,7 @@ export default function FilterBuilder(p: FilterBuilderProps): React.ReactElement
                   allFilterOptions={p.filterOptions}
                   currentFilterOptions={p.filterOptions}
                   prefixToken={undefined}
-                  subTokensOptions={p.subTokensOptions} queryDescription={p.queryDescription}
+                  subTokensOptions={p.subTokensOptions} queryToken={p.queryToken}
                   onTokenChanged={p.onTokenChanged} onFilterChanged={handleFilterChanged}
                   lastToken={p.lastToken} onHeightChanged={handleHeightChanged} renderValue={p.renderValue}
                   showPinnedFiltersOptions={showPinnedFiltersOptions}
@@ -312,7 +313,7 @@ export default function FilterBuilder(p: FilterBuilderProps): React.ReactElement
                   allFilterOptions={p.filterOptions}
                   currentFilterOptions={p.filterOptions}
                   prefixToken={undefined}
-                  subTokensOptions={p.subTokensOptions} queryDescription={p.queryDescription}
+                  subTokensOptions={p.subTokensOptions} queryToken={p.queryToken}
                   onTokenChanged={p.onTokenChanged} onFilterChanged={handleFilterChanged} renderValue={p.renderValue}
                   showPinnedFiltersOptions={showPinnedFiltersOptions}
                   showDashboardBehaviour={showDashboardBehaviour}
@@ -324,7 +325,7 @@ export default function FilterBuilder(p: FilterBuilderProps): React.ReactElement
               {!p.readOnly &&
                 <tr className="sf-filter-create">
                   <td colSpan={4}>
-                    {p.queryDescription && <VisualTipIcon visualTip={SearchVisualTip.FilterHelp} content={props => <FilterHelp queryDescription={p.queryDescription} injected={props} />} />}
+                    {p.queryToken && <VisualTipIcon visualTip={SearchVisualTip.FilterHelp} content={props => <FilterHelp queryToken={p.queryToken} injected={props} />} />}
                     <LinkButton title={StyleContext.default.titleLabels ? SearchMessage.AddFilter.niceToString() : undefined}
                       className="sf-line-button sf-create sf-create-condition"
                       tabIndex={0}
@@ -353,7 +354,7 @@ export default function FilterBuilder(p: FilterBuilderProps): React.ReactElement
 
       {showPinnedFiltersOptions && !p.avoidPreview && <div className="mb-3">
         <h1 className="lead ms-2 mb-0 h4">Preview</h1>
-        <PinnedFilterBuilder queryDescription={p.queryDescription} filterOptions={p.filterOptions} onFiltersChanged={handleFilterChanged} highlightFilter={highlightFilter} showGrid={true} />
+        <PinnedFilterBuilder queryToken={p.queryToken} filterOptions={p.filterOptions} onFiltersChanged={handleFilterChanged} highlightFilter={highlightFilter} showGrid={true} />
       </div>
       }
     </>
@@ -390,7 +391,7 @@ export interface FilterGroupComponentsProps {
   filterGroup: FilterGroupOptionParsed;
   readOnly: boolean;
   onDeleteFilter: (fo: FilterGroupOptionParsed) => void;
-  queryDescription: QueryDescription;
+  queryToken: QueryToken;
   subTokensOptions: SubTokensOptions;
   onTokenChanged?: (token: QueryToken | undefined) => void;
   onFilterChanged: () => void;
@@ -541,7 +542,7 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
                   prefixQueryToken={p.prefixToken}
                   queryToken={fg.token}
                   onTokenChange={handleTokenChanged}
-                  queryKey={p.queryDescription.queryKey}
+                  queryKey={getKey(p.queryToken.queryName)}
                   subTokenOptions={p.subTokensOptions}
                   readOnly={readOnly} />
               </div>
@@ -586,7 +587,7 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
           allFilterOptions={p.allFilterOptions}
           currentFilterOptions={fg.filters}
           prefixToken={fg.token}
-          subTokensOptions={p.subTokensOptions} queryDescription={p.queryDescription}
+          subTokensOptions={p.subTokensOptions} queryToken={p.queryToken}
           onTokenChanged={p.onTokenChanged} onFilterChanged={p.onFilterChanged}
           lastToken={p.lastToken} onHeightChanged={p.onHeightChanged} renderValue={p.renderValue}
           showPinnedFiltersOptions={p.showPinnedFiltersOptions}
@@ -601,7 +602,7 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
           allFilterOptions={p.allFilterOptions}
           currentFilterOptions={fg.filters}
           prefixToken={fg.token}
-          subTokensOptions={p.subTokensOptions} queryDescription={p.queryDescription}
+          subTokensOptions={p.subTokensOptions} queryToken={p.queryToken}
           onTokenChanged={p.onTokenChanged} onFilterChanged={p.onFilterChanged} renderValue={p.renderValue}
           showPinnedFiltersOptions={p.showPinnedFiltersOptions}
           showDashboardBehaviour={p.showDashboardBehaviour}
@@ -647,7 +648,7 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
 
     const ctx = new TypeContext<any>(undefined, { formGroupStyle: "None", readOnly: readOnly, formSize: "xs" }, undefined, Binding.create(f, a => a.value));
 
-    return Finder.renderFilterValue(f, { ctx, queryDescription: p.queryDescription, filterOptions: p.allFilterOptions, handleValueChange: handleValueChange });
+    return Finder.renderFilterValue(f, { ctx, queryToken: p.queryToken, filterOptions: p.allFilterOptions, handleValueChange: handleValueChange });
   }
 
   function handleValueChange() {
@@ -695,7 +696,7 @@ export interface FilterConditionComponentProps {
   prefixToken: QueryToken | undefined;
   readOnly: boolean;
   onDeleteFilter: (fo: FilterConditionOptionParsed) => void;
-  queryDescription: QueryDescription;
+  queryToken: QueryToken;
   subTokensOptions: SubTokensOptions;
   onTokenChanged?: (token: QueryToken | undefined) => void;
   onFilterChanged: () => void;
@@ -835,7 +836,7 @@ export function FilterConditionComponent(p: FilterConditionComponentProps): Reac
                 prefixQueryToken={p.prefixToken}
                 queryToken={f.token}
                 onTokenChange={handleTokenChanged}
-                queryKey={p.queryDescription.queryKey}
+                queryKey={getKey(p.queryToken.queryName)}
                 subTokenOptions={p.subTokensOptions}
                 readOnly={readOnly} />
             </div>
@@ -893,7 +894,7 @@ export function FilterConditionComponent(p: FilterConditionComponentProps): Reac
 
     const ctx = new TypeContext<any>(undefined, { formGroupStyle: "None", readOnly: readOnly, formSize: "xs" }, undefined, Binding.create(f, a => a.value));
 
-    return Finder.renderFilterValue(f, { ctx: ctx, queryDescription: p.queryDescription, filterOptions: p.allFilterOptions, handleValueChange });
+    return Finder.renderFilterValue(f, { ctx: ctx, queryToken: p.queryToken, filterOptions: p.allFilterOptions, handleValueChange });
   }
 
   function handleValueChange() {

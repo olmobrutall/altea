@@ -382,13 +382,6 @@ export namespace PaginateMath {
 }
 
 
-// Client-only: altea builds the column token map on the client (see Finder.getQueryDescription); the
-// server never sends it, so — unlike the wire DTOs — it stays here rather than in entities.
-export interface QueryDescription {
-  queryKey: string;
-  columns: { [name: string]: QueryToken };
-}
-
 export function isList(fo: FilterOperation): boolean {
   return fo == "IsIn" ||
     fo == "IsNotIn";
