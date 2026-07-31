@@ -12,6 +12,7 @@
 export interface FileInfo {
     packageName: string; // owning npm package name, e.g. "@altea/altea-test"
     fileName: string;    // path relative to that package, e.g. "entities/music.ts"
+    fileUrl?: string;    // the file's own import.meta.url — resolves the package root at runtime
 }
 
 // Type registry: maps a type's name to its runtime constructor. Populated at
@@ -124,6 +125,17 @@ export function resolveObject(name: string): object | undefined {
 // The package + file a registered type / enum / object was defined in, by name.
 export function getLocation(name: string): FileInfo | undefined {
     return locationRegistry.get(name);
+}
+
+// One representative FileInfo per distinct owning package, in registration (import) order — the
+// registry of "modules" (Signum's loaded assemblies). Drives the translation auto-loader: framework
+// packages register before the app (the app imports them), so loading in this order lets app
+// translations override framework ones (addLocalizedTypes merges later-over-earlier).
+export function getModuleLocations(): FileInfo[] {
+    const byPackage = new Map<string, FileInfo>();
+    for (const fi of locationRegistry.values())
+        if (!byPackage.has(fi.packageName)) byPackage.set(fi.packageName, fi);
+    return [...byPackage.values()];
 }
 
 // ---------------------------------------------------------------------------
