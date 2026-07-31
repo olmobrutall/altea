@@ -1411,7 +1411,7 @@ export namespace Finder {
 
     constructor(public queryToken: QueryToken) {
       this.root = queryToken;
-      queryToken.subTokens(SubTokensOptionsAll).forEach(t => this.cache.set(t.fullKey(), t));
+      queryToken.subTokens(SubTokensOptionsAll).forEach(t => this.cache.set(t.fullKey().toLowerCase(), t));
     }
 
     requestFilter(fo: FilterOption): void {
@@ -1424,7 +1424,10 @@ export namespace Finder {
     }
 
     request(fullKey: string): void {
-      if (fullKey != "" && !this.cache.has(fullKey))
+      // Token keys are matched case-insensitively: Type.token produces PascalCase strings
+      // (token(a => a.orderDate) → "OrderDate") while altea's field-token keys are camelCase
+      // ("orderDate"); the cache is keyed by lowercased fullKey so both resolve.
+      if (fullKey != "" && !this.cache.has(fullKey.toLowerCase()))
         this.requested.add(fullKey);
     }
 
@@ -1442,7 +1445,7 @@ export namespace Finder {
     private async resolveToken(fullKey: string): Promise<QueryToken | undefined> {
       if (fullKey == "")
         return this.root;
-      const existing = this.cache.get(fullKey);
+      const existing = this.cache.get(fullKey.toLowerCase());
       if (existing != null)
         return existing;
 
@@ -1452,12 +1455,12 @@ export namespace Finder {
         return undefined;
 
       const subs = await generateSubTokens(parent, SubTokensOptionsAll);
-      subs.forEach(t => this.cache.set(t.fullKey(), t));
-      return this.cache.get(fullKey);
+      subs.forEach(t => this.cache.set(t.fullKey().toLowerCase(), t));
+      return this.cache.get(fullKey.toLowerCase());
     }
 
     get(fullKey: string, options: SubTokensOptions): QueryToken {
-      const token = this.cache.get(fullKey);
+      const token = this.cache.get(fullKey.toLowerCase());
       if (!token)
         throw new Error(`Token with key '${fullKey}' not found on query '${getKey(this.queryToken.queryName)}'`);
 
@@ -1469,7 +1472,7 @@ export namespace Finder {
 
     async getSubTokens(parentToken: QueryToken | undefined, options: SubTokensOptions, _autoExpand: boolean): Promise<QueryToken[]> {
       const candidates = parentToken == null ? this.queryToken.subTokens(SubTokensOptionsAll) : await generateSubTokens(parentToken, options);
-      candidates.forEach(t => this.cache.set(t.fullKey(), t));
+      candidates.forEach(t => this.cache.set(t.fullKey().toLowerCase(), t));
       // TODO(port): autoExpand / hideInAutoExpand — altea QueryToken has no auto-expand flag yet.
       return candidates.filter(t => tokenNotAllowedReason(t, options) == null);
     }
