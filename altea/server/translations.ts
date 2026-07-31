@@ -1,9 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { isAbsolute, join, resolve } from "node:path";
 import { XMLParser } from "fast-xml-parser";
 import { DescriptionManager, type LocalizedType, type LocalizedTypes } from "../entities/utils/localization";
-import { getModuleLocations } from "../entities/registration";
 
 // Server-side reader for Signum's translation XML files (LocalizedAssembly format) — the Translations
 // half of the metadata format. Parsed here (Node) with fast-xml-parser and fed to DescriptionManager;
@@ -67,31 +65,31 @@ export function loadTranslationsFromDir(dir: string): void {
     }
 }
 
-// Auto-load translations for every registered module (Signum's per-assembly LocalizedAssembly
-// merge). Each package keeps its committed XMLs in a `translations/` folder at its package root
-// (a sibling of dist/, NOT in the compiled tree — so tsc never has to copy them). We find that root
-// from any registered file's import.meta.url (walking up to its package.json), so nothing depends on
-// exports maps or a build-time copy step. Packages with no translations/ folder are simply skipped.
-// Call once at server startup, after all entity modules are imported (so the registry is complete).
-export function loadRegisteredTranslations(): void {
-    for (const loc of getModuleLocations()) {
-        if (loc.fileUrl == null) continue;
-        const root = packageRootFromFileUrl(loc.fileUrl);
-        if (root == null) continue;
-        const dir = join(root, "translations");
-        if (existsSync(dir))
-            loadTranslationsFromDir(dir);
-    }
+// Resolve the application's single translations directory (Signum's one output folder per app). The
+// deployment controls one path, so this is robust across dev/Docker/bundling — no dependency on
+// node_modules layout or per-module resolution. Precedence:
+//   1. the explicit `dir` argument (a host that already knows its layout),
+//   2. env TRANSLATIONS_DIR (absolute, or relative to the base root),
+//   3. `<base>/translations`, where base = env TRANSLATIONS_ROOT ?? process.cwd().
+// In Docker: set WORKDIR to the app root and COPY translations there (or set TRANSLATIONS_ROOT to a
+// mounted volume). altea-translation writes each module's `<Module>.<culture>.xml` into this one dir.
+export function resolveTranslationsDir(dir?: string): string {
+    if (dir != null && dir !== "")
+        return dir;
+    const base = process.env["TRANSLATIONS_ROOT"] || process.cwd();
+    const configured = process.env["TRANSLATIONS_DIR"];
+    if (configured != null && configured !== "")
+        return isAbsolute(configured) ? configured : resolve(base, configured);
+    return join(base, "translations");
 }
 
-// Walk up from a file:// URL to the nearest ancestor holding a package.json — the owning package's
-// root directory. null if none is found (e.g. a file outside any package).
-function packageRootFromFileUrl(fileUrl: string): string | null {
-    let dir = dirname(fileURLToPath(fileUrl));
-    for (;;) {
-        if (existsSync(join(dir, "package.json"))) return dir;
-        const parent = dirname(dir);
-        if (parent === dir) return null;
-        dir = parent;
-    }
+// Load every module's translations from the app's single translations directory (all files merge via
+// addLocalizedTypes; filename/alpha order sets precedence — name the app's file so it sorts last if a
+// key must win). No-op if the directory does not exist. Call once at server startup.
+export function loadAppTranslations(dir?: string): string | undefined {
+    const resolved = resolveTranslationsDir(dir);
+    if (!existsSync(resolved))
+        return undefined;
+    loadTranslationsFromDir(resolved);
+    return resolved;
 }

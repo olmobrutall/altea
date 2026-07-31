@@ -740,7 +740,7 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     return ts.factory.updateCallExpression(node, node.expression, node.typeArguments, args);
   }
 
-  // Inserts `const __fileInfo = { packageName: "@pkg", fileName: "rel/file.ts", fileUrl: import.meta.url };` right
+  // Inserts `const __fileInfo = { packageName: "@pkg", fileName: "rel/file.ts" };` right
   // after the file's import section. A plain object literal (no FileInfo class, no
   // import), passed as the last arg of register* — so the package/file literals
   // aren't repeated per call, and manual registerEnum/registerObject calls can use it.
@@ -757,17 +757,6 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
           ts.factory.createObjectLiteralExpression([
             ts.factory.createPropertyAssignment("packageName", ts.factory.createStringLiteral(loc.packageName)),
             ts.factory.createPropertyAssignment("fileName", ts.factory.createStringLiteral(loc.fileName)),
-            // The file's own runtime URL — the deploy-safe way to find the owning package's
-            // root at runtime (walk up to package.json). Lets the translation auto-loader map
-            // each registered package to its translations/ dir without resolving package names
-            // against exports maps. Valid in every ESM module (the whole workspace is ESM).
-            ts.factory.createPropertyAssignment(
-              "fileUrl",
-              ts.factory.createPropertyAccessExpression(
-                ts.factory.createMetaProperty(ts.SyntaxKind.ImportKeyword, ts.factory.createIdentifier("meta")),
-                "url",
-              ),
-            ),
           ], false),
         )],
         ts.NodeFlags.Const,
