@@ -447,9 +447,30 @@ export namespace Finder {
   }
 
   export function getDefaultColumns(queryToken: QueryToken): QueryToken[] {
-    return queryToken.subTokens(SubTokensOptionsAll)
-      .filter(a => !a.hasAggregate() && !a.hasTimeSeries());
+    const qs = getSettings(getKey(queryToken.queryName));
+    if (qs?.defaultColumns != null && qs.defaultColumns.length > 0)
+      return qs.defaultColumns
+        .map(c => resolveColumnToken(queryToken, typeof c === "string" ? c : c.toString()))
+        .filter((t): t is QueryToken => t != null);
 
+    // Default: the first 5 non-collection columns (Signum showed every column; altea keeps the grid
+    // tidy and lets Type.querySettings override).
+    return queryToken.subTokens(SubTokensOptionsAll)
+      .filter(a => !a.hasAggregate() && !a.hasTimeSeries() && a.type?.array !== true)
+      .slice(0, 5);
+  }
+
+  // Resolve a (possibly dotted) column key to a sub-token, matching keys CASE-INSENSITIVELY: altea's
+  // entity-field tokens are camelCase (`orderDate`) while Type.token produces PascalCase strings
+  // (`token(a => a.orderDate)` → "OrderDate") and system tokens are PascalCase (`ToString`) — a
+  // case-insensitive match resolves all three. Returns undefined if any segment is unknown.
+  function resolveColumnToken(root: QueryToken, key: string): QueryToken | undefined {
+    let cur: QueryToken | undefined = root;
+    for (const part of key.split(".")) {
+      cur = cur!.subTokens(SubTokensOptionsAll).find(t => t.key.toLowerCase() === part.toLowerCase());
+      if (cur == null) return undefined;
+    }
+    return cur;
   }
 
   export function mergeColumns(queryToken: QueryToken, mode: ColumnOptionsMode, columnOptions: ColumnOption[]): ColumnOption[] {
@@ -2120,6 +2141,10 @@ export namespace Finder {
 
   export interface QuerySettings {
     queryName: PseudoType | QueryKey;
+    // The columns shown by default (Signum's [query columns]); build with Type.querySettings(token =>
+    // ({ defaultColumns: [token(a => a.name), ...] })). When unset, the first 5 non-collection columns
+    // are used. Entries are token keys / QueryTokenStrings, resolved case-insensitively.
+    defaultColumns?: (string | QueryTokenString<any>)[];
     pagination?: Pagination;
     allowSystemTime?: boolean;
     defaultOrders?: OrderOption[];
