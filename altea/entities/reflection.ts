@@ -196,6 +196,10 @@ export class TypeReference {
 
 export class FieldInfo extends TypeReference {
     readonly name: string;
+    // The TypeInfo that DECLARES this field (Signum's PropertyRoute.RootType). Set once at creation;
+    // inherited fields are shared by reference (see getOrCreateTypeInfo), so this stays the base type
+    // where the field is declared — which is also the type key its translation lives under.
+    declaringType?: TypeInfo;
     // Set by @forceNullable (Signum's [ForceNullable]): the COLUMN is nullable
     // (IsNullable.Forced) while the field stays non-null in the object model — so queries
     // navigate it as a normal non-null reference but the column accepts NULL.
@@ -256,7 +260,10 @@ export class FieldInfo extends TypeReference {
     }
 
     niceToString(): string {
-        return DescriptionManager.inferDescription(this.name);
+        const translated = this.declaringType?.ctor != null
+            ? DescriptionManager.memberNiceName(this.declaringType.ctor.name, this.name)
+            : undefined;
+        return translated ?? DescriptionManager.inferDescription(this.name);
     }
 
     // Runs this field's validators (then any customValidation) against `entity`, returning the
@@ -464,6 +471,7 @@ export function getOrCreateFieldInfo(typeInfo: TypeInfo, key: string): FieldInfo
     const existing = typeInfo.fields[key];
     if (existing) return existing;
     const created = new FieldInfo(key);
+    created.declaringType = typeInfo; // owner is known here; inherited fields keep their declaring type
     typeInfo.fields[key] = created;
     return created;
 }

@@ -43,6 +43,7 @@
     "bootstrap": "^5.3.8",
     "decimal.js": "^10.6.0",
     "express": "^5.2.1",
+    "fast-xml-parser": "^5.10.1",
     "mssql": "^12.6.0",
     "pg": "^8.22.0",
     "pg-copy-streams": "^7.0.0",

@@ -1,5 +1,18 @@
 
 import type { IContextVariable, IContextStorage } from './context';
+import { pluralize, detectGender } from './naturalLanguage';
+
+// One localised container (Signum's LocalizedType): its own description (+ plural/gender for a type)
+// and a member→description map (entity members / enum values / messages / operations / symbols). This
+// is the parsed shape the server ships to the client; XML parsing itself lives server-side
+// (server/translations.ts), so this model stays isomorphic and dependency-free.
+export interface LocalizedType {
+    description?: string;
+    pluralDescription?: string;
+    gender?: string;
+    members: Record<string, string>;
+}
+export type LocalizedTypes = Record<string, LocalizedType>;
 
 // Re-exported from the import-free registration leaf so the quote-transformer can
 // attach `registerObject` to the `msg` import in localization files (which don't
@@ -13,7 +26,7 @@ export { registerObject } from '../registration';
 // the display string must be computable from the type + id alone, so building a lite's
 // model never forces the (potentially unloaded) entity to be retrieved.
 export function niceName(ctor: Function): string {
-    return niceNameFromName(ctor.name);
+    return DescriptionManager.typeDescription(ctor.name) ?? niceNameFromName(ctor.name);
 }
 
 // De-camelCase a raw identifier into a display label: "GrammyAwardEntity" → "Grammy Award",
@@ -33,7 +46,15 @@ export function newNiceName(ctor: Function): string {
 // pluralizer keyed on the UI culture; altea uses a naive English "+s" stand-in for now (good enough
 // for the default query/expression display names — swap for a culture-aware pluralizer later).
 export function nicePluralName(ctor: Function): string {
-    return niceName(ctor) + "s";
+    return DescriptionManager.typePluralDescription(ctor.name)
+        ?? pluralize(niceName(ctor), DescriptionManager.currentUICulture());
+}
+
+// Grammatical gender of an entity type (Signum's Type gender): the translation's Gender attribute,
+// else detected from the (localised) nice name for the current UI culture (English has none).
+export function gender(ctor: Function): string | undefined {
+    return DescriptionManager.typeGender(ctor.name)
+        ?? detectGender(niceName(ctor), DescriptionManager.currentUICulture());
 }
 
 // `f.constructor.niceName()` in a query (Signum's Type.NiceName() on a runtime type): `this` is
@@ -122,23 +143,55 @@ export namespace DescriptionManager {
         return withCulture(locale, () => withUICulture(locale, fn));
     }
 
-    const _translations = new Map<string, Record<string, string>>();
+    // Translations keyed by locale → type name → LocalizedType (Signum's LocalizedAssembly model). A
+    // "type" is any named container the XML localises: entity/embedded (description + members), enum
+    // (members), message (members), operation/symbol container (members).
+    const _localized = new Map<string, Map<string, LocalizedType>>();
 
-    export function addTranslations(locale: string, dict: Record<string, string>): void {
-        const existing = _translations.get(locale);
-        _translations.set(locale, existing ? { ...existing, ...dict } : { ...dict });
+    // Merge parsed LocalizedTypes into a locale (later files override earlier keys).
+    export function addLocalizedTypes(locale: string, types: LocalizedTypes): void {
+        let byType = _localized.get(locale);
+        if (byType == null) { byType = new Map(); _localized.set(locale, byType); }
+        for (const [name, lt] of Object.entries(types)) {
+            const existing = byType.get(name);
+            if (existing == null) {
+                byType.set(name, { ...lt, members: { ...lt.members } });
+            } else {
+                if (lt.description != null) existing.description = lt.description;
+                if (lt.pluralDescription != null) existing.pluralDescription = lt.pluralDescription;
+                if (lt.gender != null) existing.gender = lt.gender;
+                Object.assign(existing.members, lt.members);
+            }
+        }
     }
+
+    function localizedType(typeName: string): LocalizedType | undefined {
+        return _localized.get(currentUICulture())?.get(typeName);
+    }
+
+    // Type-level translations (current UI culture) — the XML's <Type Description/PluralDescription/
+    // Gender>. Consumed by niceName / nicePluralName.
+    export function typeDescription(typeName: string): string | undefined { return localizedType(typeName)?.description; }
+    export function typePluralDescription(typeName: string): string | undefined { return localizedType(typeName)?.pluralDescription; }
+    export function typeGender(typeName: string): string | undefined { return localizedType(typeName)?.gender; }
 
     export function lookup(msg: LocalizableMessage): string | undefined {
         if (msg.module == null || msg.member == null) return undefined;
         return translate(msg.module, msg.member);
     }
 
-    // Plain-string translation lookup (the `module.member` key, current UI culture). Used by
-    // the `Enum` helper (entities/enum) to localise enum member names without building a
-    // throwaway LocalizableMessage.
+    // A container member's translation (current UI culture): the XML <Member> under <Type Name=module>.
+    // Used by the Enum helper (enum member names) and messages (msg containers) — their member names
+    // are already the PascalCase C# identifiers the XML uses.
     export function translate(module: string, member: string): string | undefined {
-        return _translations.get(currentUICulture())?.[`${module}.${member}`];
+        return localizedType(module)?.members[member];
+    }
+
+    // An entity member's display name (current UI culture): altea's member identifiers are camelCase
+    // but the XML uses the PascalCase C# name, so try the name as-is then capitalised.
+    export function memberNiceName(typeName: string, member: string): string | undefined {
+        const lt = localizedType(typeName);
+        return lt?.members[member] ?? lt?.members[member.charAt(0).toUpperCase() + member.slice(1)];
     }
 
     // Infers a human-readable description from a member name.
