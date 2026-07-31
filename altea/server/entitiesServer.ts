@@ -12,13 +12,13 @@
 // `resolve` overlay onto the DB original.
 
 import { Entity, type PrimaryKey, type Type } from "../entities/entity";
-import { Serializer } from "../entities/serializer";
 import { entityIntegrityCheck } from "../entities/validation";
 import type { EntityPack } from "../entities/entityPack";
 import * as Database from "./Database";
 import { Saver } from "./saver";
 import { table } from "./table";
 import { Connector } from "./connection/connector";
+import { getEntityPack } from "./operationServer";
 import { WebBuilder, ArrayOf, Primitive, CustomType } from "./webApi";
 
 // Coerce a route-param id (always a string off the URL) to the entity's primary-key runtime type
@@ -66,15 +66,14 @@ export namespace EntitiesServer {
             async (req, res) => {
                 const type = Entity.resolveType(req.params.type);
                 const e = await Database.retrieve(type, parseId(type, req.params.id));
-                // The entity is embedded as its serialized graph (the client re-parses it).
-                return res.jsonTyped({ entity: JSON.parse(Serializer.stringify(e)) as Entity, canExecute: {} });
+                return res.jsonTyped(getEntityPack(e));
             });
 
         ws.post("/api/entityPackEntity",
-            { req: Entity, res: CustomType<{ canExecute: {} }>() },
+            { req: Entity, res: CustomType<EntityPack<Entity>>() },
             async (req, res) => {
-                // The client keeps its own entity; the server only supplies canExecute (TODO: OperationLogic).
-                return res.jsonTyped({ canExecute: {} });
+                const entity = await req.jsonTyped();
+                return res.jsonTyped(getEntityPack(entity));
             });
 
         ws.post("/api/validateEntity",

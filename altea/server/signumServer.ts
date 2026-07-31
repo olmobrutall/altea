@@ -1,6 +1,7 @@
 import { WebBuilder } from "./webApi";
 import { EntitiesServer } from "./entitiesServer";
 import { QueryServer } from "./queryServer";
+import { OperationServer } from "./operationServer";
 
 // Port of Signum's SignumServer.Start (Signum/API/SignumServer.cs): mount the framework HTTP API on a
 // WebBuilder. The host (an app's web bootstrap) creates the WebBuilder (createWebServer), calls this
@@ -10,8 +11,9 @@ export namespace SignumServer {
     export function start(ws: WebBuilder): void {
         EntitiesServer.start(ws);
         QueryServer.start(ws);
-        // TODO (Phase 2): OperationServer (/api/operation/*), per-type ReflectionServer, query
-        // executeQuery/description, liteModels.
+        OperationServer.start(ws);
+        // TODO (Phase 2): per-type ReflectionServer (typeEntity/enumEntities), liteModels, query
+        // description.
         ws.useDefaultErrorHandler();
     }
 }
