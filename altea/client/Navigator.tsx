@@ -25,7 +25,8 @@ import { Serializer } from '../entities/serializer';
 // Staged Navigator activation (entity-nav): the FULL EntitySettings/ViewPromise live in ./EntitySettings
 // (view-override machinery stubbed). Navigator's earlier MINIMAL inline EntitySettings is replaced by this.
 import { EntitySettings } from './EntitySettings';
-import type { EntityWhen, ViewPromise, AutocompleteConstructor, AutocompleteConstructorContext } from './EntitySettings';
+import type { EntityWhen, AutocompleteConstructor, AutocompleteConstructorContext } from './EntitySettings';
+import { ViewPromise } from './EntitySettings';
 import { Finder } from './Finder';
 import { Constructor } from './Constructor';
 import { TextHighlighter } from './Components/Typeahead';
@@ -1494,15 +1495,15 @@ export namespace Navigator {
   export function getViewPromise<T extends BaseEntity>(entity: T, viewName?: string): ViewPromise<T> {
     const typeName = getTypeName(entity);
     const es = getSettings(typeName) as EntitySettings<T> | undefined;
-    if (!es)
-      throw new Error(`No EntitySettings registered for '${typeName}'`);
 
     if (viewName == undefined) {
-      if (!es.getViewPromise)
-        throw new Error(`The EntitySettings registered for '${typeName}' has no getViewPromise`);
+      // No registered view → auto-generate one from the entity's property routes (Signum's
+      // AutoComponent). The Frame renders whatever component this ViewPromise resolves to.
+      if (!es?.getViewPromise)
+        return new ViewPromise<T>(import('./AutoComponent')).applyViewOverrides(typeName);
       return es.getViewPromise(entity).applyViewOverrides(typeName);
     } else {
-      var nv = es.namedViews && es.namedViews[viewName];
+      var nv = es?.namedViews && es.namedViews[viewName];
       if (!nv?.getViewPromise)
         throw new Error(`The EntitySettings registered for '${typeName}' has no namedView '${viewName}'`);
       return nv.getViewPromise(entity).applyViewOverrides(typeName, viewName);

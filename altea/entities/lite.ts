@@ -45,7 +45,11 @@ export abstract class Lite<out T extends Entity> {
      * keep `Lite<T>` covariant.
      */
     setEntity(entity: Entity): this {
-        this._entity = entity;
+        // NON-ENUMERABLE: _entity is a cached back-reference to the full entity. Left enumerable it makes
+        // the entity graph circular for JSON.stringify — Entity → MList → child → backReference Lite →
+        // _entity → Entity (e.g. FramePage's change snapshot). The altea Serializer handles lites
+        // explicitly (never via enumeration), so hiding it from own-key enumeration is safe.
+        Object.defineProperty(this, "_entity", { value: entity, enumerable: false, writable: true, configurable: true });
         return this;
     }
 

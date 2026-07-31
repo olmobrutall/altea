@@ -127,9 +127,10 @@ export default function FramePage(): React.ReactElement {
                 AppContext.navigate(Navigator.navigateRoute(a.pack!.entity as Entity));
               }
             })
-          });
+          }).catch(err => { console.error("FramePage: loadComponent failed", err); });
         }
-      });
+      })
+      .catch(err => { console.error("FramePage: failed to load/render entity", err); }); // surface load/view errors
   }, [type, id, location.search]);
 
 

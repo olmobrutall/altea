@@ -37,8 +37,12 @@ export class DateTimeLineController extends ValueBaseController<DateTimeLineProp
   }
 }
 
-// ISO string → JS Date at local wall-clock time (react-widgets works with JS Date).
-function isoToDate(iso: string): Date {
+// ISO string → JS Date at local wall-clock time (react-widgets works with JS Date). Accepts a Temporal
+// value too: a deserialized entity carries its date fields as Temporal.PlainDate/PlainDateTime objects
+// (the Serializer type-decodes them), while a wire/search value arrives as a string — toString() gives
+// the ISO form in both cases.
+function isoToDate(value: string | { toString(): string }): Date {
+  const iso = typeof value === "string" ? value : value.toString();
   if (iso.length <= 10) { // date-only "YYYY-MM-DD"
     const pd = Temporal.PlainDate.from(iso);
     return new Date(pd.year, pd.month - 1, pd.day);

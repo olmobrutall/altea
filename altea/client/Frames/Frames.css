@@ -1,0 +1,36 @@
+/* Frame + modal styles for FramePage / FrameModal. Minimal port of Signum's Frames.css (its
+   `@import "./Tertiary.css"` and the bulk of its rules are deferred); Bootstrap covers the rest. */
+
+@media (min-width: 768px) {
+    .modal-md,
+    .modal-lg,
+    .modal-xl {
+        min-width: 730px;
+    }
+}
+
+@media (min-width: 992px) {
+    .modal-lg,
+    .modal-xl {
+        min-width: 960px;
+    }
+}
+
+@media (min-width: 1200px) {
+    .modal-lg,
+    .modal-xl {
+        min-width: 1160px;
+    }
+}
+
+.sf-main-control {
+    margin-bottom: 1rem;
+}
+
+.sf-button-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}

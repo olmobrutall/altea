@@ -70,7 +70,11 @@ export function registerType(ctor: Function, name?: string, fileInfo?: FileInfo)
 }
 
 export function resolveType(name: string): Function | undefined {
-    return typeRegistry.get(name);
+    // Direct hit for the canonical (PascalCase) names — the full name and the clean alias, incl. every
+    // wire $type. The firstLower fallback resolves names that come from URLs, where navigateRouteDefault
+    // lower-cases the first letter (`/view/order/1` → "order" → "Order"); PascalCase names never reach it.
+    return typeRegistry.get(name)
+        ?? (name.length > 0 ? typeRegistry.get(name[0].toUpperCase() + name.slice(1)) : undefined);
 }
 
 // The "clean" type name written as the @implementedByAll discriminator (and used
