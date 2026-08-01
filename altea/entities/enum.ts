@@ -1,5 +1,5 @@
 import { enumNameOf } from './registration';
-import { DescriptionManager, niceNameFromName } from './utils/localization';
+import { DescriptionManager, niceNameFromName, niceMemberName } from './utils/localization';
 
 // A single entity-level helper over altea's numeric TS enums (the runtime `XEnum` objects paired with
 // the string-union `type X = keyof typeof XEnum`). It replaces both the per-enum `enumAccessors`
@@ -44,8 +44,11 @@ export namespace Enum {
   export function niceName<E extends EnumObject>(e: E, value: EnumValue<E>): string {
     const name = toName(e, value);
     const typeName = enumNameOf(e);
+    // No translation → humanise the (PascalCase) member name (Signum's member.NiceName() =
+    // SpacePascalOrUnderscores): "Canceled" → "Canceled", "InProcess" → "In process". NOT
+    // inferDescription — that lowercases for message sentences ("BeNotNull" → "be not null").
     return (typeName != null ? DescriptionManager.translate(typeName, name) : undefined)
-      ?? DescriptionManager.inferDescription(name);
+      ?? niceMemberName(name);
   }
 
   /** The enum type's localised display name (its registered clean name, humanised). */

@@ -65,6 +65,7 @@ export const SaveChangesMessage = {
 export const SearchMessage = {
     Operations: msg("Operations"),
     Search: msg("Search"),
+    View: msg("View"),
     CreateNew0_G: msg("Create new {0}"),
     AddValue: msg("Add value"),
     DeleteFilter: msg("Delete filter"),

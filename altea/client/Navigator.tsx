@@ -1203,7 +1203,9 @@ export namespace Navigator {
   }
 
   function isEntityPack(x: unknown): x is EntityPack<BaseEntity> {
-    return x != null && (x as EntityPack<BaseEntity>).entity != null && (x as { canExecute?: unknown }).canExecute !== undefined;
+    // Check `canExecute` (a plain property) BEFORE `.entity`: reading `.entity` on a thin Lite throws
+    // ("not loaded"), so a Lite must be rejected here without ever touching its `.entity` getter.
+    return x != null && (x as { canExecute?: unknown }).canExecute !== undefined && (x as EntityPack<BaseEntity>).entity != null;
   }
 
   // Minimal view-dispatch: only hasDefaultView is needed by isCreable/isViewable; the real

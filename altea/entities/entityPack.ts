@@ -8,7 +8,9 @@ export interface EntityPack<T extends BaseEntity = BaseEntity> {
     canExecute: { [operationKey: string]: string };
 }
 
-// Signum's `isEntityPack` type guard: an object carrying both `entity` and `canExecute`.
+// Signum's `isEntityPack` type guard: an object carrying both `entity` and `canExecute`. Check
+// `canExecute` (a plain property) BEFORE `.entity`: reading `.entity` on a thin Lite throws ("not
+// loaded"), so a Lite must be rejected without ever touching its `.entity` getter.
 export function isEntityPack(obj: unknown): obj is EntityPack {
-    return obj != null && (obj as EntityPack).entity !== undefined && (obj as EntityPack).canExecute !== undefined;
+    return obj != null && (obj as EntityPack).canExecute !== undefined && (obj as EntityPack).entity !== undefined;
 }

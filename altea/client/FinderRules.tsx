@@ -16,8 +16,10 @@
 // Only the rules needing a DIFFERENT control stay distinct: low-population lites → combo, date pairs →
 // DateTimeRange, list ops → repeatable editor, filter groups → search box.
 import * as React from "react";
-import { Link } from "react-router";
 import { Finder } from "./Finder";
+import EntityLink from "./SearchControl/EntityLink";
+import type { Lite } from "../entities/lite";
+import type { Entity } from "../entities/entity";
 import type { FilterOptionParsed, FilterConditionOptionParsed } from "./FindOptions";
 import { isFilterCondition, isFilterGroup, isList, isPair, getFilterOperations } from "./FindOptions";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -41,21 +43,6 @@ function cellToStr(cell: any): string {
   if (cell == null) return "";
   if (typeof cell === "object") return (cell.toStr as string | undefined) ?? (typeof cell.toString === "function" ? cell.toString() : "");
   return String(cell);
-}
-
-// The entity view-route path for a wire lite — "/view/<cleanType.firstLower>/<id>", matching
-// Navigator.navigateRouteDefault, but built inline so this module doesn't import Navigator. Reads the
-// clean type name from `$lite` (already stripped of "Entity" by the wire serializer); also tolerates an
-// EntityType/entityType field (raw string or a Type object) and strips a trailing "Entity". Returns
-// undefined when the type name or id is missing.
-function liteViewPath(lite: any): string | undefined {
-  if (lite == null) return undefined;
-  const raw = lite.$lite ?? lite.EntityType ?? lite.entityType;
-  const typeName: string | undefined = typeof raw === "string" ? raw : raw?.name;
-  if (typeName == null || lite.id == null) return undefined;
-  const clean = typeName.endsWith("Entity") ? typeName.substring(0, typeName.length - "Entity".length) : typeName;
-  const lower = clean.charAt(0).toLowerCase() + clean.slice(1);
-  return "/view/" + lower + "/" + lite.id;
 }
 
 // Result-cell formatters (Signum's FinderRules.initFormatRules — altea's adapted set). The LAST applicable
@@ -214,18 +201,14 @@ export function initFormatRules(): Finder.FormatRule[] {
         }, false, "date-cell");
       },
     },
-    // Lite / entity reference: a react-router Link to the entity view route, built directly from the lite.
-    // Link text is the lite's toStr; null → "".
+    // Lite / entity reference: an EntityLink to the entity's view route (Signum's "Lite" rule). Renders
+    // the lite's display via Navigator.renderLite; `shy` dims it, `inSearch="related"` picks the search
+    // viewability rule, and onNavigated refreshes the row after a modal view.
     {
       name: "Lite",
       isApplicable: qt => qt.filterType == "Lite",
-      formatter: () => new Finder.CellFormatter((cell: any) => {
-        if (cell == null)
-          return "";
-        const path = liteViewPath(cell);
-        const text = cellToStr(cell);
-        return path == null ? <span className="try-no-wrap">{text}</span> : <Link to={path} className="try-no-wrap">{text}</Link>;
-      }, true),
+      formatter: () => new Finder.CellFormatter((cell: Lite<Entity> | undefined, ctx) =>
+        cell == null ? "" : <EntityLink lite={cell} onNavigated={ctx.refresh} inSearch="related" shy />, true),
     },
     // Collection/array: join the elements' toStr (never "[object Object]"). Last rule, so an array of
     // numbers/enums/lites lands here rather than in the by-element rules above.
@@ -257,17 +240,21 @@ export function initFormatRules(): Finder.FormatRule[] {
 // Row-entity formatters (Signum's FinderRules.initEntityFormatRules).
 export function initEntityFormatRules(): Finder.EntityFormatRule[] {
   return [
-    // Default row-entity rendering: a view Link (same as the Lite cell rule) for `ctx.row.entity`.
+    // Default row-entity rendering: an EntityLink wrapping the view icon (Signum's "View" rule). Hidden
+    // when the entity isn't viewable; onNavigated refreshes the search after a modal view.
     {
       name: "View",
       isApplicable: () => true,
       formatter: new Finder.EntityFormatter(ctx => {
-        const lite = ctx.row.entity as any;
+        const lite = ctx.row.entity;
         if (lite == null)
           return "";
-        const path = liteViewPath(lite);
-        const text = cellToStr(lite);
-        return path == null ? <span className="try-no-wrap">{text}</span> : <Link to={path} className="try-no-wrap">{text}</Link>;
+        return (
+          <EntityLink lite={lite} inSearch="main" hideIfNotViewable onNavigated={ctx.searchControl?.handleOnNavigated}
+            className="sf-line-button sf-view">
+            <span title={SearchMessage.View.niceToString()}>{EntityBaseController.getViewIcon()}</span>
+          </EntityLink>
+        );
       }, "centered-cell"),
     },
     // Grouped results: the row is a group, so the "view" button opens the group's rows instead of an
