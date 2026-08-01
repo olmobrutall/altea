@@ -72,14 +72,19 @@ import { useAPI, type APIHookOptions } from "./Hooks";
 import { QueryString } from "./QueryString";
 // TODO(port): similarToken (Search), FontAwesomeIcon, Components/Typeahead+ProgressBar, FinderRules,
 // Operations, Frames/Notify, Exceptions/Exception not ported.
-import type { SearchControlLoaded } from "./Search";
 // import { similarToken } from "./Search";
 // import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { type BsSize } from "./Components";
 import { CollectionMessage } from '../entities/dynamicQueries';
 import { QueryTokenMessage } from '../entities/dynamicQueries';
 // import { TextHighlighter } from "./Components/Typeahead";
-// import * as FinderRules from "./FinderRules";
+// The default filter-value editors + the Type.token/querySettings statics, imported LAST so Finder's own
+// module graph (Navigator, Lines-free helpers) evaluates first: FinderRules pulls in the UI Lines, which
+// import Finder back — safe because they only touch Finder inside render-time functions. This makes both
+// implicit on `import { Finder }` (no side-effect imports needed in the app's startup).
+import "./EntityTypeApi";
+import { initFormatRules, initEntityFormatRules, initQuickFilterRules, initFilterValueFormatRules as defaultFilterValueFormatRules } from "./FinderRules";
+import type SearchControlLoaded from "./SearchControl/SearchControlLoaded";
 // import { Operations } from "./Operations";
 // import ProgressBar from "./Components/ProgressBar";
 // import Notify, { NotifyOptions } from "./Frames/Notify";
@@ -2320,7 +2325,7 @@ export namespace Finder {
       },
     ],
     initQuickFilterRules: (): QuickFilterRule[] => [],
-    initFilterValueFormatRules: (): FilterValueFormatter[] => [],
+    initFilterValueFormatRules: (): FilterValueFormatter[] => filterValueFormatRulesProvider(),
   };
 
   // Render any result-cell value as text: a Lite/entity/Temporal/Decimal shows its toString() (a wire
@@ -2459,6 +2464,15 @@ export namespace Finder {
     applicable: (f: FilterOptionParsed, ffc: FilterFormatterContext) => boolean;
     renderValue: (f: FilterOptionParsed, ffc: FilterFormatterContext) => React.ReactElement;
   }
+
+  // The default filter-value editors live in ./FinderRules (Signum's FinderRules.tsx): they render Lines
+  // (AutoLine/EntityLine/…) which import Finder, so keeping them in a separate module keeps this file free
+  // of a self-referential Lines import. Finder imports that module for its `initFilterValueFormatRules`
+  // and installs it as the provider here, so `import { Finder }` is enough to get the editors — no extra
+  // side-effect import needed at app startup. A provider (not a one-off push) lets resetFormatRules re-read
+  // them. Safe despite the Finder→FinderRules→Lines cycle: the Lines only touch Finder inside render-time
+  // functions, and FinderRules exposes a plain init function (no top-level Finder mutation).
+  export let filterValueFormatRulesProvider: () => FilterValueFormatter[] = defaultFilterValueFormatRules;
 
   export const filterValueFormatRules: FilterValueFormatter[] = FinderRules.initFilterValueFormatRules();
 

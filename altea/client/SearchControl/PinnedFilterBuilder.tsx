@@ -141,7 +141,8 @@ export default function PinnedFilterBuilder(p: PinnedFilterBuilderProps): React.
       );
     }
 
-    const ctx = new TypeContext<any>(undefined, { formGroupStyle: "Basic", readOnly: readOnly, formSize: p.extraSmall ? "xs" : "sm" }, undefined as any, Binding.create(f, a => a.value));
+    // Carry the token's TypeReference so AutoLine (dispatches on ctx.memberType) renders the right editor.
+    const ctx = new TypeContext<any>(undefined, { formGroupStyle: "Basic", readOnly: readOnly, formSize: p.extraSmall ? "xs" : "sm" }, f.token?.type, Binding.create(f, a => a.value));
 
     return Finder.renderFilterValue(f, {
       ctx,

@@ -119,6 +119,60 @@ class GermanPluralizer implements Pluralizer {
     }
 }
 
+// ---- SpacePascal (Signum's NaturalLanguageTools.SpacePascal / SpacePascalOrUnderscores) --------
+// De-camelCases a PascalCase identifier into a display label while keeping abbreviations intact:
+// "FirstName" → "First Name", "HTTPServer" → "HTTP Server", "Name" → "Name". Faithful port of
+// Signum's char-kind classifier so member / enum nice names humanise exactly as the C# side does.
+enum CharKind { Lowercase, StartOfWord, StartOfSentence, StartOfAbbreviation, Abbreviation }
+
+// char.IsLetter / IsUpper / IsLower equivalents. IsUpper/IsLower return false for non-letters (a
+// char with no case maps to itself under both toUpperCase and toLowerCase), matching .NET.
+function isLetter(c: string): boolean { return /\p{L}/u.test(c); }
+function isUpper(c: string): boolean { return c !== c.toLowerCase() && c === c.toUpperCase(); }
+function isLower(c: string): boolean { return c !== c.toUpperCase() && c === c.toLowerCase(); }
+
+function charKind(s: string, i: number): CharKind {
+    if (i === 0) return CharKind.StartOfSentence;
+    if (!isLetter(s[i])) {
+        if (isLetter(s[i - 1])) return CharKind.StartOfWord;
+        return CharKind.Lowercase;
+    }
+    if (!isUpper(s[i])) return CharKind.Lowercase;
+    if (i + 1 === s.length || !isLetter(s[i + 1])) {
+        if (isUpper(s[i - 1])) return CharKind.Abbreviation;   // AX|
+        return CharKind.StartOfAbbreviation;                   // aX|
+    }
+    if (isLower(s[i + 1])) return CharKind.StartOfWord;        // Xb
+    if (!isUpper(s[i - 1])) {
+        if (i + 2 === s.length) return CharKind.StartOfAbbreviation; // aXB|
+        if (!isUpper(s[i + 2])) return CharKind.StartOfWord;         // aXBc
+        return CharKind.StartOfAbbreviation;                        // aXBC
+    }
+    return CharKind.Abbreviation;                             // AXB
+}
+
+// Signum's NaturalLanguageTools.SpacePascal. preserveUppercase keeps a word's leading capital.
+export function spacePascal(pascalStr: string, preserveUppercase = false): string {
+    if (!pascalStr) return pascalStr;
+    let sb = "";
+    for (let i = 0; i < pascalStr.length; i++) {
+        switch (charKind(pascalStr, i)) {
+            case CharKind.Lowercase: sb += pascalStr[i]; break;
+            case CharKind.StartOfWord: sb += " " + (preserveUppercase ? pascalStr[i] : pascalStr[i].toLowerCase()); break;
+            case CharKind.StartOfSentence: sb += pascalStr[i]; break;
+            case CharKind.Abbreviation: sb += pascalStr[i]; break;
+            case CharKind.StartOfAbbreviation: sb += " " + pascalStr[i]; break;
+        }
+    }
+    return sb;
+}
+
+// Signum's NaturalLanguageTools.SpacePascalOrUnderscores — underscore names become spaced words,
+// otherwise SpacePascal applies.
+export function spacePascalOrUnderscores(memberName: string): string {
+    return memberName.includes("_") ? memberName.replace(/_/g, " ") : spacePascal(memberName);
+}
+
 // ---- Registry (NaturalLanguageTools) ----------------------------------------------------------
 const _germanGender = new GermanGenderDetector();
 const _spanishGender = new SpanishGenderDetector();

@@ -646,7 +646,9 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
 
     const readOnly = p.readOnly || f.frozen;
 
-    const ctx = new TypeContext<any>(undefined, { formGroupStyle: "None", readOnly: readOnly, formSize: "xs" }, undefined, Binding.create(f, a => a.value));
+    // Carry the token's TypeReference so altea's Lines (AutoLine dispatches on ctx.memberType) know what
+    // editor to render for the value. A group may have no unifying token → undefined (handled by rules).
+    const ctx = new TypeContext<any>(undefined, { formGroupStyle: "None", readOnly: readOnly, formSize: "xs" }, f.token?.type, Binding.create(f, a => a.value));
 
     return Finder.renderFilterValue(f, { ctx, queryToken: p.queryToken, filterOptions: p.allFilterOptions, handleValueChange: handleValueChange });
   }
@@ -892,7 +894,9 @@ export function FilterConditionComponent(p: FilterConditionComponentProps): Reac
 
     const readOnly = p.readOnly || f.frozen;
 
-    const ctx = new TypeContext<any>(undefined, { formGroupStyle: "None", readOnly: readOnly, formSize: "xs" }, undefined, Binding.create(f, a => a.value));
+    // Carry the token's TypeReference so altea's Lines (AutoLine dispatches on ctx.memberType) know what
+    // editor to render for the value (text/number/date/enum/entity picker).
+    const ctx = new TypeContext<any>(undefined, { formGroupStyle: "None", readOnly: readOnly, formSize: "xs" }, f.token?.type, Binding.create(f, a => a.value));
 
     return Finder.renderFilterValue(f, { ctx: ctx, queryToken: p.queryToken, filterOptions: p.allFilterOptions, handleValueChange });
   }

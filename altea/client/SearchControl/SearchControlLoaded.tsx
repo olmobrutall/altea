@@ -59,7 +59,6 @@ import { type ButtonBarElement, StyleContext } from '../TypeContext';
 import { Button, ButtonGroup, Dropdown, DropdownButton, OverlayTrigger, Tooltip } from 'react-bootstrap'
 import { getBreakpoint, Breakpoints, useForceUpdate, useAPI } from '../Hooks'
 import type { IconProp } from '@fortawesome/fontawesome-svg-core'
-import { similarToken } from '../Search'
 import { SearchHelp } from './SearchControlVisualTips'
 import { VisualTipIcon, SearchVisualTip } from '../Basics/VisualTipIcon'
 import { TypeEntity } from '../../entities/typeEntity'
@@ -1020,7 +1019,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     const filterOptions = this.props.findOptions;
     var alreadyPinned = value != null && value != "" && filterOptions.filterOptions
       .firstOrNull(f => isFilterCondition(f) &&
-        similarToken(f.token?.fullKey(), token?.fullKey()) &&
+        f.token?.fullKey() == token?.fullKey() &&
         f.operation == operation &&
         (f.value == null || f.value == "") &&
         f.pinned != null && f.pinned?.active == "WhenHasValue"

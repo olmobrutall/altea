@@ -1,6 +1,6 @@
 
 import type { IContextVariable, IContextStorage } from './context';
-import { pluralize, detectGender } from './naturalLanguage';
+import { pluralize, detectGender, spacePascalOrUnderscores } from './naturalLanguage';
 
 // One localised container (Signum's LocalizedType): its own description (+ plural/gender for a type)
 // and a member→description map (entity members / enum values / messages / operations / symbols). This
@@ -35,6 +35,15 @@ export function niceName(ctor: Function): string {
 export function niceNameFromName(name: string): string {
     const raw = name.replace(/Entity$/, "");
     return raw.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2").trim();
+}
+
+// Default display name of an entity member when no translation is loaded (Signum's
+// DescriptionManager.DefaultMemberDescription → name.SpacePascalOrUnderscores()). altea member
+// identifiers are camelCase where Signum's C# names are PascalCase, so we capitalise the first
+// letter before de-camelCasing: "name" → "Name", "firstName" → "First Name", "isNew" → "Is New".
+export function niceMemberName(member: string): string {
+    const pascal = member.charAt(0).toUpperCase() + member.slice(1);
+    return spacePascalOrUnderscores(pascal);
 }
 
 // Display name of a new (unsaved) entity of this type (Signum's `Type.NewNiceName()`).

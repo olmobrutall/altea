@@ -1,5 +1,5 @@
 
-import { DescriptionManager, niceName, nicePluralName } from './utils/localization';
+import { DescriptionManager, niceName, niceMemberName, nicePluralName } from './utils/localization';
 import type { Type, Entity } from './entity';
 import type { EntityKind, EntityData } from './decorators';
 import type { Quoted } from 'quote-transformer/quoted';
@@ -263,7 +263,7 @@ export class FieldInfo extends TypeReference {
         const translated = this.declaringType?.ctor != null
             ? DescriptionManager.memberNiceName(this.declaringType.ctor.name, this.name)
             : undefined;
-        return translated ?? DescriptionManager.inferDescription(this.name);
+        return translated ?? niceMemberName(this.name);
     }
 
     // Runs this field's validators (then any customValidation) against `entity`, returning the

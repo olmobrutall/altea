@@ -17,7 +17,6 @@ import type {
   PaginationMode, OrderType, FilterOperation, ColumnOptionsMode, UniqueType,
   FilterGroupOperation, PinnedFilterActive, DashboardBehaviour, CombineRows, FilterType,
 } from '../entities/dynamicQueries';
-import type { SearchControlProps, SearchControlLoaded } from "./Search";
 import type { BsSize } from './Components';
 import { QueryToken } from './QueryToken';
 // The DynamicQuery wire DTOs live in entities/dynamicQuery/queryRequest.ts (shared client/server);
@@ -26,6 +25,8 @@ import { QueryToken } from './QueryToken';
 import type {
   FilterRequest, FilterGroupRequest, FilterConditionRequest, Pagination, SystemTime,
 } from '../entities/dynamicQuery/queryRequest';
+import type { SearchControlProps } from "./SearchControl/SearchControl";
+import type SearchControlLoaded from "./SearchControl/SearchControlLoaded";
 
 export type { PaginationMode, OrderType, FilterOperation, FilterType, ColumnOptionsMode, UniqueType };
 

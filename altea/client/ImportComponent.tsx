@@ -1,54 +1,29 @@
 // Ported from Signum.React/ImportComponent.tsx — copy-paste + fix. Lazily imports a module (its
 // `default` export must be a React component) and renders it once resolved. Used by Navigator's
 // `/view` `/create` routes and Finder's `/find` route to code-split the FramePage/SearchPage.
+//
+// MUST be a function component driven by useAPI keyed on `onImport.toString()` (Signum's design):
+// react-router renders <ImportComponent> at the SAME tree position for every code-split route, so
+// React reconciles by type+position and REUSES this instance across a route change (e.g. /find →
+// /view). A class that loads once in componentDidMount would keep rendering the STALE page under the
+// new route's params (SearchPage seeing an undefined queryName → "Unexpected pseudoType undefined").
+// useAPI returns undefined the moment the dep changes, so we render nothing until the new module
+// resolves instead of the previous route's component.
 import * as React from 'react'
+import { useAPI } from './Hooks'
 
 interface ImportComponentProps {
   onImport: () => Promise<{ default: React.ComponentType<any> }>;
-  onError?: (error: any) => React.ReactElement | null;
   componentProps?: {};
 }
 
-interface ImportComponentState {
-  component?: React.ComponentType<any>;
-  error?: any;
-}
+export function ImportComponent({ onImport, componentProps }: ImportComponentProps): React.ReactElement | null {
+  const module = useAPI(() => onImport(), [onImport.toString()]);
 
-export class ImportComponent extends React.Component<ImportComponentProps, ImportComponentState> {
+  if (!module)
+    return null;
 
-  constructor(props: ImportComponentProps) {
-    super(props);
-    this.state = { component: undefined };
-  }
-
-  mounted = false;
-
-  componentDidMount(): void {
-    this.mounted = true;
-    this.props.onImport()
-      .then(module => {
-        if (this.mounted)
-          this.setState({ component: module.default });
-      })
-      .catch(error => {
-        if (this.mounted)
-          this.setState({ error });
-      });
-  }
-
-  componentWillUnmount(): void {
-    this.mounted = false;
-  }
-
-  render(): React.ReactNode {
-    if (this.state.error !== undefined)
-      return this.props.onError ? this.props.onError(this.state.error) : null;
-
-    if (!this.state.component)
-      return null;
-
-    return React.createElement(this.state.component, this.props.componentProps);
-  }
+  return React.createElement(module.default, componentProps);
 }
 
 export default ImportComponent;
