@@ -1,10 +1,11 @@
-import type { Entity, Type } from "../../entities/entity";
+import { Entity, type Type } from "../../entities/entity";
 import { ClassType, type RuntimeType } from "../runtimeTypes";
 import { table } from "../table";
 import type { Query } from "../query";
 import "./dQueryable"; // augments Query with .toDQueryable()
 import type { ResultTable } from "./resultTable";
-import type { QueryRequest } from "./requests";
+import { Column, type QueryRequest } from "./requests";
+import { RootToken } from "../../entities/dynamicQuery/tokens";
 
 // Port of Signum's `IDynamicQueryCore` (DynamicQuery/DynamicQueryCore.cs): an executable query. Its
 // SHAPE is a reflected entity/model type (Signum's QueryDescription is gone — column metadata comes
@@ -50,8 +51,23 @@ export class AutoDynamicQueryCore implements DynamicQueryCore {
     // Signum's ExecuteQueryAsync: seed the context off the query (the row root "") → AllQuery
     // Operations → ToResultTable.
     async executeQueryAsync(request: QueryRequest): Promise<ResultTable> {
+        this.addEntityColumn(request);
         const result = await this.getQuery().toDQueryable().allQueryOperationsAsync(request);
         return result.toResultTable(request.columns, request.pagination);
+    }
+
+    // Signum's AutoDynamicQuery.ExecuteQuery: a search result carries an implicit "Entity" column — the
+    // ToLite of the root (built as a lite by DQueryable.select) — so the SearchControl can render the
+    // row's navigate link. Added ONLY when: the query is NOT grouping (a group row has no single entity),
+    // the request doesn't already ask for an entity column, and the shape is a full entity (a ModelEntity
+    // projection carries its identity in its own `entity` field, not in the row itself). The ResultTable
+    // splits this column out as `entityColumn`, so it never shows up as a visible result column.
+    private addEntityColumn(request: QueryRequest): void {
+        if (request.groupResults || request.columns.some(c => c.token.isEntity()))
+            return;
+        const rootType = this.getRootType();
+        if (rootType === Entity || rootType.prototype instanceof Entity)
+            request.columns = [new Column(new RootToken(rootType)), ...request.columns];
     }
 }
 

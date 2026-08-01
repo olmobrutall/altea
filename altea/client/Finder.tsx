@@ -2,7 +2,7 @@
 // yet ported are commented `// TODO(port): …` and the code using them is commented likewise, so the
 // API + parse foundation compiles now and the UI is un-commented as SearchControl/Lines/Operations land.
 import * as React from "react";
-import { type RouteObject, Link } from 'react-router'
+import { type RouteObject } from 'react-router'
 // TODO(port): luxon dropped in altea (uses Date / Temporal) — restore date/duration parse+format.
 // import { DateTime, Duration } from 'luxon'
 import * as AppContext from "./AppContext"
@@ -1833,16 +1833,15 @@ export namespace Finder {
         }
       }
     }
+
     return rt;
   }
 
   export namespace API {
 
-    // TODO(port): altea builds the query root token CLIENT-SIDE (see getQueryRoot), so this
-    // server DTO fetch is likely obsolete; typed as unknown for now.
-    export function fetchQueryDescription(queryKey: string): Promise<unknown> {
-      return ajaxGet({ url: "/api/query/description/" + queryKey });
-    }
+    // NOTE: Signum's `fetchQueryDescription` (GET /api/query/description/:queryKey) is intentionally
+    // ABSENT. altea builds the query root token CLIENT-SIDE from registered entity metadata (see
+    // getQueryRoot), so there is no QueryDescription DTO to fetch and no server route for one.
 
     // TODO(port): QueryEntity (the query-registration entity) is not ported yet.
     // export function fetchQueryEntity(queryKey: string): Promise<QueryEntity> {
@@ -2193,163 +2192,18 @@ export namespace Finder {
 
 
 
-  // Default result-cell / entity formatters (copy-and-fixed from Signum's FinderRules). Detection uses
-  // altea's typed query-token API: `column.filterType` (Integer/Decimal/Enum/Boolean/DateTime/Time/Lite/…)
-  // plus `column.type` (`.array`, `.typeName`, `.getEnum()`). getCellFormatter/getEntityFormatter take the
-  // LAST applicable rule, so rules run general → specific: the "Default" catch-all is first, and the
-  // "Collection" rule is last so an array column beats the by-element Number/Enum/Lite rules.
-  //
-  // Wire value shapes (the client JSON.parses the ResultTable — no typed decode, see Services.ajaxPost):
-  //   numbers  → JS number      booleans → boolean      strings → string
-  //   enums    → the ORDINAL integer (e.g. OrderState "Shipped" → 3)
-  //   DateOnly/DateTime/Time → ISO string (PlainDate/PlainDateTime/PlainTime/Duration serialized as text)
-  //   Lite/entity ref → { $lite: cleanTypeName, id, toStr }   collections → array of the above
+  // The concrete rule sets (cell / entity / quick / filter-value formatters) live in ./FinderRules
+  // (Signum's FinderRules.tsx), imported at the top of this file. This slim indirection object keeps the
+  // existing FinderRules.init*() call sites (const initializers + resetFormatRules) unchanged, and routes
+  // initFilterValueFormatRules through the provider so a swapped-in provider survives resetFormatRules.
+  // Only the rule TYPES + classes below (FormatRule / CellFormatter / EntityFormatter / EntityFormatRule /
+  // QuickFilterRule / FilterValueFormatter) stay in this file.
   const FinderRules = {
-    initFormatRules: (): FormatRule[] => [
-      // Catch-all: any value as text (objects with a `toStr`, e.g. a lite, via that). Loses to every
-      // more specific rule below because it is first and the last applicable rule wins.
-      {
-        name: "Default",
-        isApplicable: () => true,
-        formatter: () => new CellFormatter(cell => cellToStr(cell), false),
-      },
-      // Number (Integer/Decimal): right-aligned, `column.format`/`column.unit` applied via Intl. Falls
-      // back to String(cell) if the format throws.
-      {
-        name: "Number",
-        isApplicable: qt => qt.filterType == "Integer" || qt.filterType == "Decimal",
-        formatter: (qt, sc, opts) => {
-          const numberFormat = toNumberFormat(opts?.format ?? qt.format);
-          const unit = opts?.unit !== undefined && opts.unit !== null ? opts.unit : qt.unit;
-          return new CellFormatter((cell: any) => {
-            if (cell == null)
-              return "";
-            let str: string;
-            try { str = numberFormat.format(cell); }
-            catch { str = String(cell); }
-            if (unit)
-              str = str + " " + unit;
-            return <span className="try-no-wrap">{str}</span>;
-          }, false, "numeric-cell");
-        },
-      },
-      // Enum: the cell is the ORDINAL integer — Enum.niceName maps ordinal → member name → localized nice
-      // name (falling back to a humanized member name). Fixes the "state shows 3" bug.
-      {
-        name: "Enum",
-        isApplicable: qt => qt.filterType == "Enum",
-        formatter: qt => {
-          const en = qt.type.getEnum();
-          return new CellFormatter((cell: any) => {
-            if (cell == null)
-              return "";
-            if (en == null)
-              return String(cell);
-            try { return <span className="try-no-wrap">{Enum.niceName(en as Record<string, string | number>, cell)}</span>; }
-            catch { return String(cell); }
-          }, false);
-        },
-      },
-      // Boolean: a centered, disabled checkbox reflecting the value.
-      {
-        name: "Boolean",
-        isApplicable: qt => qt.filterType == "Boolean",
-        formatter: () => new CellFormatter((cell: any) => cell == null ? "" : <input type="checkbox" className="form-check-input" disabled={true} readOnly checked={Boolean(cell)} />, false, "centered-cell"),
-      },
-      // DateOnly / DateTime / Time: parse the ISO string with the matching Temporal type (keyed by
-      // `column.type.typeName`) and render its localized form; on a parse error fall back to the raw string.
-      {
-        name: "DateTime",
-        isApplicable: qt => qt.filterType == "DateTime" || qt.filterType == "Time",
-        formatter: qt => {
-          const tn = qt.type.typeName;
-          return new CellFormatter((cell: any) => {
-            if (cell == null || cell === "")
-              return "";
-            const s = String(cell);
-            try {
-              if (tn == "PlainDate")
-                return <bdi className="date try-no-wrap">{Temporal.PlainDate.from(s).toLocaleString()}</bdi>;
-              if (tn == "PlainDateTime")
-                return <bdi className="date try-no-wrap">{Temporal.PlainDateTime.from(s).toLocaleString()}</bdi>;
-              if (tn == "PlainTime")
-                return <bdi className="date try-no-wrap">{Temporal.PlainTime.from(s).toLocaleString()}</bdi>;
-              if (tn == "Duration")
-                return <bdi className="date try-no-wrap">{Temporal.Duration.from(s).toString()}</bdi>;
-            }
-            catch { return s; }
-            return s;
-          }, false, "date-cell");
-        },
-      },
-      // Lite / entity reference: a react-router Link to the entity view route, built directly from the
-      // lite (no Navigator import → no Finder↔Navigator cycle). Link text is the lite's toStr; null → "".
-      {
-        name: "Lite",
-        isApplicable: qt => qt.filterType == "Lite",
-        formatter: () => new CellFormatter((cell: any) => {
-          if (cell == null)
-            return "";
-          const path = liteViewPath(cell);
-          const text = cellToStr(cell);
-          return path == null ? <span className="try-no-wrap">{text}</span> : <Link to={path} className="try-no-wrap">{text}</Link>;
-        }, true),
-      },
-      // Collection/array: join the elements' toStr (never "[object Object]"). Last rule, so an array of
-      // numbers/enums/lites lands here rather than in the by-element rules above.
-      {
-        name: "Collection",
-        isApplicable: qt => qt.type.array === true,
-        formatter: () => new CellFormatter((cell: any) => {
-          if (cell == null)
-            return "";
-          if (!Array.isArray(cell))
-            return cellToStr(cell);
-          return cell.map(x => cellToStr(x)).join(", ");
-        }, false),
-      },
-    ],
-    initEntityFormatRules: (): EntityFormatRule[] => [
-      // Default row-entity rendering: a view Link (same as the Lite cell rule) for `ctx.row.entity`.
-      {
-        name: "View",
-        isApplicable: () => true,
-        formatter: new EntityFormatter(ctx => {
-          const lite = ctx.row.entity as any;
-          if (lite == null)
-            return "";
-          const path = liteViewPath(lite);
-          const text = cellToStr(lite);
-          return path == null ? <span className="try-no-wrap">{text}</span> : <Link to={path} className="try-no-wrap">{text}</Link>;
-        }, "centered-cell"),
-      },
-    ],
-    initQuickFilterRules: (): QuickFilterRule[] => [],
+    initFormatRules,
+    initEntityFormatRules,
+    initQuickFilterRules,
     initFilterValueFormatRules: (): FilterValueFormatter[] => filterValueFormatRulesProvider(),
   };
-
-  // Render any result-cell value as text: a Lite/entity/Temporal/Decimal shows its toString() (a wire
-  // lite via its `toStr`), a plain value via String().
-  function cellToStr(cell: any): string {
-    if (cell == null) return "";
-    if (typeof cell === "object") return (cell.toStr as string | undefined) ?? (typeof cell.toString === "function" ? cell.toString() : "");
-    return String(cell);
-  }
-
-  // The entity view-route path for a wire lite — "/view/<cleanType.firstLower>/<id>", matching
-  // Navigator.navigateRouteDefault, but built inline so Finder doesn't import Navigator (avoids the
-  // Finder↔Navigator cycle). Reads the clean type name from `$lite` (already stripped of "Entity" by the
-  // wire serializer); also tolerates an EntityType/entityType field (raw string or a Type object) and
-  // strips a trailing "Entity". Returns undefined when the type name or id is missing.
-  function liteViewPath(lite: any): string | undefined {
-    if (lite == null) return undefined;
-    const raw = lite.$lite ?? lite.EntityType ?? lite.entityType;
-    const typeName: string | undefined = typeof raw === "string" ? raw : raw?.name;
-    if (typeName == null || lite.id == null) return undefined;
-    const clean = typeName.endsWith("Entity") ? typeName.substring(0, typeName.length - "Entity".length) : typeName;
-    const lower = clean.charAt(0).toLowerCase() + clean.slice(1);
-    return "/view/" + lower + "/" + lite.id;
-  }
 
   export function isSystemVersioned(rt?: TypeReference): boolean {
     return rt != null && rt.typeInfos().some(ti => ti.systemVersioned != null)

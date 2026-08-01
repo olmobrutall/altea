@@ -19,7 +19,8 @@ import * as React from "react";
 import { Link } from "react-router";
 import { Finder } from "./Finder";
 import type { FilterOptionParsed, FilterConditionOptionParsed } from "./FindOptions";
-import { isFilterCondition, isFilterGroup, isList, isPair } from "./FindOptions";
+import { isFilterCondition, isFilterGroup, isList, isPair, getFilterOperations } from "./FindOptions";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { TypeContext } from "./TypeContext";
 import { Binding } from "./binding";
 import { AutoLine } from "./Lines/AutoLine";
@@ -32,7 +33,7 @@ import { useForceUpdate } from "./Hooks";
 import { Enum } from "../entities/enum";
 import { Temporal } from "../entities/basics";
 import { toNumberFormat } from "./numberFormat";
-import { SearchMessage } from "../entities/uiMessages";
+import { SearchMessage, JavascriptMessage } from "../entities/uiMessages";
 
 // Render any result-cell value as text: a Lite/entity/Temporal/Decimal shows its toString() (a wire lite
 // via its `toStr`), a plain value via String().
@@ -74,23 +75,75 @@ export function initFormatRules(): Finder.FormatRule[] {
       isApplicable: () => true,
       formatter: () => new Finder.CellFormatter(cell => cellToStr(cell), false),
     },
-    // Number (Integer/Decimal): right-aligned, `column.format`/`column.unit` applied via Intl. Falls back
-    // to String(cell) if the format throws.
+    // Embedded / Model entity: its toString (Signum's "Entity").
     {
-      name: "Number",
-      isApplicable: qt => qt.filterType == "Integer" || qt.filterType == "Decimal",
+      name: "Entity",
+      isApplicable: qt => qt.filterType == "Embedded" || qt.filterType == "Model",
+      formatter: () => new Finder.CellFormatter(cell => cell == null ? "" : <span className="try-no-wrap">{cellToStr(cell)}</span>, true),
+    },
+    // Multi-line string (member.isMultiline): rendered in a wrapping block (Signum's "MultiLine"; the
+    // keyword-highlight variant is dropped — needs the getKeywords/TextHighlighter search infra).
+    {
+      name: "MultiLine",
+      isApplicable: qt => qt.filterType == "String" && qt.getPropertyRoute()?.fieldInfo?.isMultiline == true,
+      formatter: () => new Finder.CellFormatter(cell => cell == null ? "" : <span className="multi-line">{cellToStr(cell)}</span>, true),
+    },
+    // Password column: masked dots (Signum's "Password").
+    {
+      name: "Password",
+      isApplicable: qt => qt.format == "Password",
+      formatter: () => new Finder.CellFormatter(cell => cell ? <span className="try-no-wrap">•••••••</span> : "", false),
+    },
+    // Guid: truncated "1234…cdef" (Signum's "Guid"; keyword bolding dropped).
+    {
+      name: "Guid",
+      isApplicable: qt => qt.filterType == "Guid",
+      formatter: () => new Finder.CellFormatter((cell: any) => {
+        if (!cell) return "";
+        const s = String(cell);
+        return <span className="guid try-no-wrap">{s.substring(0, 4) + "…" + s.substring(s.length - 4)}</span>;
+      }, false),
+    },
+    // Integer: right-aligned, `column.format` applied via Intl (Signum's "Integer", minus keyword bolding).
+    {
+      name: "Integer",
+      isApplicable: qt => qt.filterType == "Integer",
       formatter: (qt, sc, opts) => {
         const numberFormat = toNumberFormat(opts?.format ?? qt.format);
-        const unit = opts?.unit !== undefined && opts.unit !== null ? opts.unit : qt.unit;
         return new Finder.CellFormatter((cell: any) => {
-          if (cell == null)
-            return "";
+          if (cell == null) return "";
+          try { return <span className="try-no-wrap">{numberFormat.format(cell)}</span>; }
+          catch { return <span className="try-no-wrap">{String(cell)}</span>; }
+        }, false, "numeric-cell");
+      },
+    },
+    // Decimal: right-aligned, `column.format` applied via Intl (Signum's "Decimal").
+    {
+      name: "Decimal",
+      isApplicable: qt => qt.filterType == "Decimal",
+      formatter: (qt, sc, opts) => {
+        const numberFormat = toNumberFormat(opts?.format ?? qt.format);
+        return new Finder.CellFormatter((cell: any) => {
+          if (cell == null) return "";
+          try { return <span className="try-no-wrap">{numberFormat.format(cell)}</span>; }
+          catch { return <span className="try-no-wrap">{String(cell)}</span>; }
+        }, false, "numeric-cell");
+      },
+    },
+    // Number with Unit: appends the column/opts unit after the formatted number (Signum's "Number with
+    // Unit"). Placed after Integer/Decimal so it wins (via .last) when a unit is present.
+    {
+      name: "Number with Unit",
+      isApplicable: (qt, sc, opts) => (qt.filterType == "Integer" || qt.filterType == "Decimal") && Boolean(opts?.unit !== undefined ? opts.unit : qt.unit),
+      formatter: (qt, sc, opts) => {
+        const numberFormat = toNumberFormat(opts?.format ?? qt.format);
+        const unit = opts?.unit !== undefined ? opts.unit : qt.unit;
+        return new Finder.CellFormatter((cell: any) => {
+          if (cell == null) return "";
           let str: string;
           try { str = numberFormat.format(cell); }
           catch { str = String(cell); }
-          if (unit)
-            str = str + " " + unit;
-          return <span className="try-no-wrap">{str}</span>;
+          return <span className="try-no-wrap">{str + " " + unit}</span>;
         }, false, "numeric-cell");
       },
     },
@@ -117,11 +170,12 @@ export function initFormatRules(): Finder.FormatRule[] {
       isApplicable: qt => qt.filterType == "Boolean",
       formatter: () => new Finder.CellFormatter((cell: any) => cell == null ? "" : <input type="checkbox" className="form-check-input" disabled={true} readOnly checked={Boolean(cell)} />, false, "centered-cell"),
     },
-    // DateOnly / DateTime / Time: parse the ISO string with the matching Temporal type (keyed by
-    // `column.type.typeName`) and render its localized form; on a parse error fall back to the raw string.
+    // DateOnly / DateTime (filterType "DateTime"): parse the ISO string with the matching Temporal type
+    // (keyed by `column.type.typeName`) and render its localized form; on a parse error fall back to the
+    // raw string. `<bdi>` avoids flipping the hour/date order in RTL cultures (Signum's "DateTime").
     {
       name: "DateTime",
-      isApplicable: qt => qt.filterType == "DateTime" || qt.filterType == "Time",
+      isApplicable: qt => qt.filterType == "DateTime",
       formatter: qt => {
         const tn = qt.type.typeName;
         return new Finder.CellFormatter((cell: any) => {
@@ -133,6 +187,23 @@ export function initFormatRules(): Finder.FormatRule[] {
               return <bdi className="date try-no-wrap">{Temporal.PlainDate.from(s).toLocaleString()}</bdi>;
             if (tn == "PlainDateTime")
               return <bdi className="date try-no-wrap">{Temporal.PlainDateTime.from(s).toLocaleString()}</bdi>;
+          }
+          catch { return s; }
+          return s;
+        }, false, "date-cell");
+      },
+    },
+    // Time (filterType "Time"): PlainTime / Duration (Signum's "Time").
+    {
+      name: "Time",
+      isApplicable: qt => qt.filterType == "Time",
+      formatter: qt => {
+        const tn = qt.type.typeName;
+        return new Finder.CellFormatter((cell: any) => {
+          if (cell == null || cell === "")
+            return "";
+          const s = String(cell);
+          try {
             if (tn == "PlainTime")
               return <bdi className="date try-no-wrap">{Temporal.PlainTime.from(s).toLocaleString()}</bdi>;
             if (tn == "Duration")
@@ -169,6 +240,17 @@ export function initFormatRules(): Finder.FormatRule[] {
         return cell.map(x => cellToStr(x)).join(", ");
       }, false),
     },
+    // NOT PORTED (Signum rules that depend on infrastructure altea doesn't have yet — kept here as a
+    // checklist rather than silently dropped):
+    //   • "Object" keyword highlighting + "Snippet"/"SmallText"/"Phone"/"Email" — need the search
+    //     keyword infra (getKeywords/similarToken/findFilterValue in Search.tsx + TextHighlighter wiring)
+    //     and, for Phone/Email, FieldInfo.isPhone/isMail flags (absent — altea FieldInfo has no such
+    //     member metadata). Plain text is rendered by "Default"/"MultiLine" in the meantime.
+    //   • "LiteNoFill" (Navigator.getSettings(ti).avoidFillSearchColumnWidth → non-filling Lite cell) —
+    //     easy to add once desired; skipped to avoid a Navigator import here for a width-only tweak.
+    //   • "TimeSeries" — needs the QueryTokenString.timeSeries token + systemTime.timeSeriesUnit plumbing.
+    //   • "SystemValidFrom"/"SystemValidTo" — need the per-cell ctx.systemTime (mode/startDate/endDate) to
+    //     be populated in getCellFormatter's CellFormatterContext (currently not threaded through).
   ];
 }
 
@@ -188,12 +270,63 @@ export function initEntityFormatRules(): Finder.EntityFormatRule[] {
         return path == null ? <span className="try-no-wrap">{text}</span> : <Link to={path} className="try-no-wrap">{text}</Link>;
       }, "centered-cell"),
     },
+    // Grouped results: the row is a group, so the "view" button opens the group's rows instead of an
+    // entity (Signum's second "View" rule). Wins over the plain View via .last when groupResults is on.
+    {
+      name: "GroupView",
+      isApplicable: sc => sc?.state.resultFindOptions?.groupResults == true,
+      formatter: new Finder.EntityFormatter(ctx => {
+        const sc = ctx.searchControl;
+        return (
+          <LinkButton title={JavascriptMessage.ShowGroup.niceToString()} className="sf-line-button sf-view"
+            onClick={e => sc?.openRowGroup(ctx.row, e)}>
+            <FontAwesomeIcon aria-hidden={true} icon="layer-group" />
+          </LinkButton>
+        );
+      }, "centered-cell"),
+    },
   ];
 }
 
-// Quick-filter rules (Signum's FinderRules.initQuickFilterRules — not ported yet in altea).
+// Quick-filter rules (Signum's FinderRules.initQuickFilterRules): given a clicked cell, add the matching
+// filter. The LAST applicable rule wins (getQuickFilterRule uses .last), so "Default" is first.
 export function initQuickFilterRules(): Finder.QuickFilterRule[] {
-  return [];
+  return [
+    // Default: filter by the token's first operation and the cell value.
+    {
+      name: "Default",
+      applicable: () => true,
+      execute: async (qt, cellValue, sc) => sc.addQuickFilter(qt, getFilterOperations(qt).first(), cellValue),
+    },
+    // preferEquals tokens (id / lite / enum) default to EqualTo.
+    {
+      name: "PreferEquals",
+      applicable: qt => Boolean(qt.preferEquals),
+      execute: async (qt, cellValue, sc) => sc.addQuickFilter(qt, "EqualTo", cellValue),
+    },
+    // Model / Embedded: can't filter by value, only by presence — EqualTo null (has none) / DistinctTo null.
+    {
+      name: "Model",
+      applicable: qt => qt.filterType == "Model",
+      execute: async (qt, cellValue, sc) => sc.addQuickFilter(qt, cellValue == null ? "EqualTo" : "DistinctTo", null),
+    },
+    {
+      name: "Embedded",
+      applicable: qt => qt.filterType == "Embedded",
+      execute: async (qt, cellValue, sc) => sc.addQuickFilter(qt, cellValue == null ? "EqualTo" : "DistinctTo", null),
+    },
+    // ToArray column: re-point the token to the collection's "Any" element and IsIn the array value.
+    {
+      name: "ToArray",
+      applicable: qt => qt.hasToArray() != null,
+      execute: async (qt, cellValue, sc) => {
+        const toArray = qt.hasToArray()!;
+        const newToken = await sc.parseSingleFilterToken(qt.fullKey().split(".").map(p => p == toArray.key ? "Any" : p).join("."));
+        return sc.addQuickFilter(newToken, "IsIn", cellValue ?? []);
+      },
+    },
+    // NOT PORTED: Signum's "Snippet" quick filter — needs the full-text Snippet token (absent in altea).
+  ];
 }
 
 // A repeatable scalar-value editor for list operations (IsIn / IsNotIn). The filter value is a plain
@@ -299,6 +432,17 @@ export function initFilterValueFormatRules(): Finder.FilterValueFormatter[] {
           ? <AutoLine ctx={ffc.ctx} onChange={() => ffc.handleValueChange(f)} label={ffc.label} mandatory={ffc.mandatory} />
           : <span />,
     },
+    // NOT PORTED (Signum filter-value rules that need infrastructure altea lacks):
+    //   • "String" override (TextBoxLine autoTrimString=false), "Enum" (explicit EnumLine), "Embedded"/
+    //     "Model"/"Lite" (EntityLine) — all COLLAPSED into "Value" above: altea's AutoLine already
+    //     dispatches to the right editor from ctx.memberType, so separate rules would be redundant.
+    //   • "MultiEntity" — COLLAPSED into "MultiValue": AutoLine renders an EntityLine per Lite element.
+    //   • "Lite_IsByAll" / "Lite_TypeEntity" — need IsByAll handling + the TypeEntity query/cleanName
+    //     filtering; altea has TypeEntity but not the SearchControl wiring these rules assume.
+    //   • "TextArea" / "FilterGroup_TextArea" / "VectorSmartSearch" — full-text + vector search operations
+    //     (isFullTextSearch / SmartSearch), which altea's query engine doesn't expose yet.
+    //   • "FilterGroup_MultiValue" — multi-value editor across a group's unified type; the single
+    //     "FilterGroup" rule above covers the common (single-value) group case.
   ];
 }
 

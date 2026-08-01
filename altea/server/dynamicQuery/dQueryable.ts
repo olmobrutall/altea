@@ -114,7 +114,12 @@ export class DQueryable {
             // A token under a CollectionToArray ancestor is string-aggregated over the collection
             // (Signum's BuildToArrayExpression) instead of navigated plainly.
             const cta = t.hasToArray();
-            props["c" + i] = cta != undefined ? this.buildToArray(t, cta) : t.buildExpression(this.context);
+            // An entity-column token (the RootToken added by AutoDynamicQuery) projects as a Lite, like
+            // Signum's Entity column / BuildLiteNullifyUnwrapPrimaryKey — its buildExpression yields the
+            // raw row entity, so wrap it in buildLite. Idempotent for value/already-lite columns.
+            props["c" + i] = cta != undefined ? this.buildToArray(t, cta)
+                : t.isEntity() ? buildLite(t.buildExpression(this.context))
+                    : t.buildExpression(this.context);
         });
         const tuple = new ObjectExpression(props);
 

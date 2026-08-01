@@ -44,6 +44,7 @@ export const JavascriptMessage = {
     removeOtherColumns: msg("Remove other columns"),
     restoreDefaultColumns: msg("Restore default columns"),
     searchForResults: msg("Search for results"),
+    ShowGroup: msg("Show group"),
     loseCurrentChanges: msg("There are changes in the current entity without saving. Do you want to lose them?"),
     saveChangesBeforeOrPressCancel: msg("Save changes before or press cancel"),
 };

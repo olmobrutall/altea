@@ -8,6 +8,7 @@
 //     keeps Signum's generic JSON.stringify/JSON.parse for plain DTO/query payloads.
 import { Dic } from '../entities/globals';
 import { toAbsoluteUrl } from './AppContext';
+import { Serializer } from '../entities/serializer';
 import type { ModelEntity } from '../entities/entity';
 import type { ModelState } from '../entities/validation';
 
@@ -26,12 +27,29 @@ export interface AjaxOptions {
   credentials?: RequestCredentials;
   cache?: string;
   signal?: AbortSignal;
+
+  // ALTEA: (de)serialization is Serializer-based by default (rebuilds real Entity/Lite/Embedded/Temporal/
+  // Decimal instances from the { $type }/{ $lite }/… wire shapes, and writes them back on POST). Opt out
+  // per-request for endpoints whose payload is a plain DTO where reviving discriminators is unwanted or a
+  // waste — then the low-level generic JSON.parse / JSON.stringify is used instead.
+  /** Skip Serializer.parse on the response; use generic JSON.parse. */
+  avoidDeserialize?: boolean;
+  /** Skip Serializer.stringify on the POST body; use generic JSON.stringify. */
+  avoidSerialize?: boolean;
+}
+
+// Decode a response body: Serializer.parse (real class graph) by default, generic JSON.parse when opted
+// out. Empty body → null (matches Signum's ajax helpers).
+function parseResponse<T>(text: string, options: AjaxOptions): T | null {
+  if (!text.length)
+    return null;
+  return (options.avoidDeserialize ? JSON.parse(text) : Serializer.parse(text)) as T;
 }
 
 export function ajaxGet<T>(options: AjaxOptions): Promise<T> {
   return ajaxGetRaw(options)
     .then(res => res.text())
-    .then(text => text.length ? JSON.parse(text) : null);
+    .then(text => parseResponse<T>(text, options) as T);
 }
 
 export function ajaxGetRaw(options: AjaxOptions): Promise<Response> {
@@ -57,7 +75,7 @@ export function ajaxGetRaw(options: AjaxOptions): Promise<Response> {
 export function ajaxPost<T>(options: AjaxOptions, data: any): Promise<T> {
   return ajaxPostRaw(options, data)
     .then(res => res.text())
-    .then(text => text.length ? JSON.parse(text) : null);
+    .then(text => parseResponse<T>(text, options) as T);
 }
 
 export function ajaxPostRaw(options: AjaxOptions, data: any): Promise<Response> {
@@ -82,7 +100,9 @@ export function ajaxPostRaw(options: AjaxOptions, data: any): Promise<Response> 
       headers: headers,
       mode: options.mode,
       cache: options.cache || 'no-store',
-      body: isFormData ? data : JSON.stringify(data),
+      // Serializer.stringify (real entity/lite graph → wire) by default; FormData is sent as-is, and
+      // avoidSerialize falls back to generic JSON.stringify for plain DTO bodies.
+      body: isFormData ? data : (options.avoidSerialize ? JSON.stringify(data) : Serializer.stringify(data)),
       signal: options.signal
     } as RequestInit);
   });

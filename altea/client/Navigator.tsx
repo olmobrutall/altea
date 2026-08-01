@@ -9,7 +9,7 @@
 import * as React from "react";
 import type { RouteObject } from 'react-router';
 import { ImportComponent } from './ImportComponent';
-import { ajaxGet, ajaxGetRaw, wrapRequest } from './Services';
+import { ajaxGet, ajaxPost } from './Services';
 import { toAbsoluteUrl, navigate } from './AppContext';
 import { getTypeName, tryGetTypeInfo } from './Reflection';
 import type { PseudoType } from './Reflection';
@@ -1098,31 +1098,21 @@ export namespace Navigator {
   // fillLiteModels/custom-lite models, getEnumEntities, getType (need reflection endpoints).
   export namespace API {
 
-    // GET an entity graph and rebuild the real class instances (Serializer, not JSON.parse).
+    // GET an entity graph — ajaxGet already rebuilds the real class instances via Serializer.parse.
     function getEntity<T>(url: string): Promise<T> {
-      return ajaxGetRaw({ url })
-        .then(r => r.text())
-        .then(t => (t.length ? Serializer.parse(t) : null) as T);
+      return ajaxGet<T>({ url });
     }
 
-    // POST an entity (Serializer-encoded body) and JSON-decode the (non-entity) response.
+    // POST an entity — ajaxPost already Serializer-encodes the body (real graph → wire) and decodes the
+    // response (rebuilds any returned entity graph).
     function postEntity<T>(url: string, entity: unknown): Promise<T> {
-      const makeCall = (): Promise<Response> => window.fetch(toAbsoluteUrl(url, window.__baseNameAPI), {
-        method: "POST",
-        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-        credentials: "same-origin",
-        cache: "no-store",
-        body: Serializer.stringify(entity),
-      });
-      return wrapRequest({ url }, makeCall)
-        .then(r => r.text())
-        .then(t => (t.length ? JSON.parse(t) : null) as T);
+      return ajaxPost<T>({ url }, entity);
     }
 
-    // GET an EntityPack: the envelope is JSON, but its `entity` field is an entity graph.
+    // GET an EntityPack: the envelope is JSON and its `entity` field is an entity graph — ajaxGet's
+    // Serializer.parse revives the nested { $type } entity and leaves `canExecute` plain.
     function getEntityPack<T extends Entity>(url: string): Promise<EntityPack<T>> {
-      return ajaxGet<{ entity: unknown; canExecute: { [key: string]: string } }>({ url })
-        .then(pack => ({ canExecute: pack.canExecute, entity: Serializer.parse(JSON.stringify(pack.entity)) as T }));
+      return ajaxGet<EntityPack<T>>({ url });
     }
 
     export function fetchAll<T extends Entity>(type: Type<T>): Promise<Array<T>> {
