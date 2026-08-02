@@ -1,7 +1,9 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { XMLParser } from "fast-xml-parser";
-import { DescriptionManager, type LocalizedType, type LocalizedTypes } from "../entities/utils/localization";
+import { Localization } from "../entities/utils/localization";
+type LocalizedType = Localization.LocalizedType;
+type LocalizedTypes = Localization.LocalizedTypes;
 
 // Server-side reader for Signum's translation XML files (LocalizedAssembly format) — the Translations
 // half of the metadata format. Parsed here (Node) with fast-xml-parser and fed to DescriptionManager;
@@ -48,7 +50,7 @@ interface RawType {
 
 // Parse an XML string and merge it into a locale.
 export function loadSignumTranslations(locale: string, xml: string): void {
-    DescriptionManager.addLocalizedTypes(locale, parseSignumTranslations(xml));
+    Localization.addLocalizedTypes(locale, parseSignumTranslations(xml));
 }
 
 // Load one XML file for an explicit locale.

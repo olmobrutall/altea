@@ -1,5 +1,5 @@
 
-import { DescriptionManager, niceName, niceMemberName, nicePluralName } from './utils/localization';
+import { Localization } from './utils/localization';
 import type { Type, Entity } from './entity';
 import type { EntityKind, EntityData } from './decorators';
 import type { Quoted } from 'quote-transformer/quoted';
@@ -261,9 +261,9 @@ export class FieldInfo extends TypeReference {
 
     niceToString(): string {
         const translated = this.declaringType?.ctor != null
-            ? DescriptionManager.memberNiceName(this.declaringType.ctor.name, this.name)
+            ? Localization.memberNiceName(this.declaringType.ctor.name, this.name)
             : undefined;
-        return translated ?? niceMemberName(this.name);
+        return translated ?? Localization.niceMemberName(this.name);
     }
 
     // Runs this field's validators (then any customValidation) against `entity`, returning the
@@ -347,8 +347,8 @@ export class TypeInfo {
     // server). `niceName`/`nicePluralName` here are the module-scope functions (localization).
     // Named get* (not `niceName`) so Signum's field-style `ti.niceName` is a COMPILE error to
     // sweep, instead of compiling to a function ref that fails at runtime.
-    getNiceName(): string { return niceName(this.ctor!); }
-    getNicePluralName(): string { return nicePluralName(this.ctor!); }
+    getNiceName(): string { return Localization.niceName(this.ctor!); }
+    getNicePluralName(): string { return Localization.nicePluralName(this.ctor!); }
 
     // Signum's TypeInfo.members — altea's fields (keyed by the real property name, not capitalized).
     get members(): { [fieldName: string]: FieldInfo } { return this.fields; }
@@ -464,6 +464,9 @@ export {
     registerObject, resolveObject,
     getLocation,
     init, declaredSymbolsForType,
+    setDefaultTypeDescription, setDefaultMemberDescription, getDefaultDescription,
+    setDefaultCulture, getPackageCulture, cultureForName,
+    setDefaultDatabaseSchema, schemaForName,
 } from './registration';
 export type { FileInfo } from './registration';
 

@@ -54,7 +54,9 @@ export class EntityPropertyToken extends QueryToken {
         return t;
     }
 
-    get format(): string | undefined { return undefined; }  // TODO(phase3): Reflector.GetFormatString(route)
+    // Signum's Reflector.GetFormatString: the Id (a primary-key int) formats as "D" — decimal, NO
+    // thousands grouping (so "10248", not "10,248"); other fields use their own @format.
+    get format(): string | undefined { return this.isId ? "D" : this.fieldInfo?.format; }
     get unit(): string | undefined { return undefined; }    // TODO(phase3): UnitAttribute
 
     getImplementations(): Implementations | undefined {

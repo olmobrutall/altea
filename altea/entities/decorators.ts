@@ -1,5 +1,6 @@
 
-import { getOrCreateTypeInfo, getOrCreateFieldInfo, registerType, FieldInfo, ctorOf } from './reflection';
+import { getOrCreateTypeInfo, getOrCreateFieldInfo, registerType, FieldInfo, ctorOf, setDefaultTypeDescription, setDefaultMemberDescription } from './reflection';
+import type { Gender } from './utils/naturalLanguage';
 import type { PrimaryKeyType, ColumnOptions } from './reflection';
 import type { Type, Entity } from './entity';
 import type { CustomLiteClass } from './lite';
@@ -248,6 +249,46 @@ function indexDecorator(unique: boolean, arg1: unknown, arg2: unknown, arg3: unk
 
 export function allowUnauthenticated(target: Function): void {
     (target as any)[allowUnauthenticatedKey] = true;
+}
+
+// Sets the DEFAULT-language display name in code — Signum derived it from the C# identifier and let a
+// `[Description("…")]` attribute override it; altea has no attributes, so authors override the humanized
+// fallback explicitly. Works as BOTH a class decorator (the type's nice name) and a field decorator (a
+// member's nice name), so one import covers both:
+//
+//     @niceName("Person") @nicePluralName("People")
+//     class PersonEntity extends Entity {
+//         @niceName("e-Mail") email: string;
+//     }
+//
+// This is only the no-translation default: a loaded translation for the current UI culture still wins
+// (see DescriptionManager). Keyed by the constructor name — the same key translations use — via ctorOf
+// (which maps a class-decorator target (the ctor) and a field-decorator target (the prototype) alike).
+export function niceName(text: string): ClassDecorator & PropertyDecorator {
+    return ((target: object, propertyKey?: string | symbol): void => {
+        if (propertyKey == null)
+            setDefaultTypeDescription(ctorOf(target).name, { description: text });
+        else
+            setDefaultMemberDescription(ctorOf(target).name, String(propertyKey), text);
+    }) as ClassDecorator & PropertyDecorator;
+}
+
+// Class decorator: the type's DEFAULT-language plural name (Signum's PluralDescription). Without it
+// the plural is derived by the culture pluralizer from the (nice) singular; a loaded translation wins.
+export function nicePluralName(text: string): ClassDecorator {
+    return ((target: Function): void => {
+        setDefaultTypeDescription(target.name, { pluralDescription: text });
+    }) as ClassDecorator;
+}
+
+// Class decorator: the type's grammatical gender ("m" | "f" | "n"), e.g. `@gender("m") class PerroEntity`.
+// Without it the gender is auto-detected from the (nice) name for the current UI culture — English has
+// none, German/Spanish guess from the word ending — so this pins it where the guess would be wrong. A
+// loaded translation's Gender still wins (see Localization.typeGender / Localization.gender).
+export function gender(value: Gender): ClassDecorator {
+    return ((target: Function): void => {
+        setDefaultTypeDescription(target.name, { gender: value });
+    }) as ClassDecorator;
 }
 
 // Controls whether a field is serialized to JSON (entities/serializer). `@serialize(false)` is

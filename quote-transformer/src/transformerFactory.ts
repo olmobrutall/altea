@@ -310,16 +310,22 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     );
   }
 
-  // A bare `init()` (the symbol-declaration marker). Only the zero-arg form is
-  // rewritten — an already-augmented `init(kind, key, …)` is left untouched.
+  // A developer `init()` / `init({ … })` (the symbol-declaration marker). Only the bare form or a
+  // single options object literal is rewritten — an already-augmented `init(SymbolClass, "key", …)`
+  // (first arg an identifier) is left untouched.
   function isInitCall(node: ts.CallExpression): boolean {
-    return ts.isIdentifier(node.expression) && node.expression.text === 'init' && node.arguments.length === 0;
+    if (!ts.isIdentifier(node.expression) || node.expression.text !== 'init') return false;
+    if (node.arguments.length === 0) return true;
+    return node.arguments.length === 1 && ts.isObjectLiteralExpression(node.arguments[0]);
   }
 
-  // Rewrites `init()` → `init(<SymbolClass>, "<key>", __fileInfo)` — passing the concrete
-  // Symbol entity CONSTRUCTOR as a value (not a string kind), so init just `new`s it. The
-  // __fileInfo arg is omitted when the file has no resolvable package.
+  // Rewrites `init()` → `init(<SymbolClass>, "<key>", __fileInfo)` and `init({ … })` →
+  // `init(<SymbolClass>, "<key>", __fileInfo, { … })` — passing the concrete Symbol entity
+  // CONSTRUCTOR as a value (not a string kind), so init just `new`s it. The __fileInfo arg is omitted
+  // when the file has no resolvable package; when options are present but __fileInfo is not, `undefined`
+  // holds its slot so the options stay the 4th positional argument.
   function transformInitCall(call: ts.CallExpression, symbolClass: string, key: string, loc: SourceLocation | null): ts.CallExpression {
+    const optionsArg = call.arguments.length === 1 ? call.arguments[0] : null;
     const args: ts.Expression[] = [
       ts.factory.createIdentifier(symbolClass),
       ts.factory.createStringLiteral(key),
@@ -327,7 +333,10 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     if (loc != null) {
       usedFileInfo = true;
       args.push(ts.factory.createIdentifier(FILE_INFO_LOCAL));
+    } else if (optionsArg != null) {
+      args.push(ts.factory.createIdentifier('undefined'));
     }
+    if (optionsArg != null) args.push(optionsArg);
     return ts.factory.updateCallExpression(call, call.expression, call.typeArguments, args);
   }
 
@@ -738,6 +747,22 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
       args.push(ts.factory.createIdentifier(FILE_INFO_LOCAL));
     }
     return ts.factory.updateCallExpression(node, node.expression, node.typeArguments, args);
+  }
+
+  // Augments a package/folder-default call — setDefaultCulture("en") / setDefaultDatabaseSchema("dbo") —
+  // by appending the per-file __fileInfo, so the runtime knows the package + source directory the default
+  // was declared in (culture keys on the package, schema on the directory). Idempotent: a call that
+  // already carries the __fileInfo (2 args) is left untouched. When no package resolves, the call is
+  // left bare — the runtime then treats it as a process-wide fallback.
+  const DEFAULT_SCOPE_CALLS = new Set(["setDefaultCulture", "setDefaultDatabaseSchema"]);
+  function augmentDefaultScopeCall(node: ts.CallExpression, loc: SourceLocation | null): ts.CallExpression {
+    if (!ts.isIdentifier(node.expression) || !DEFAULT_SCOPE_CALLS.has(node.expression.text))
+      return node;
+    if (node.arguments.length !== 1 || loc == null)
+      return node; // already augmented, an unexpected shape, or no resolvable location
+    usedFileInfo = true;
+    return ts.factory.updateCallExpression(node, node.expression, node.typeArguments,
+      [node.arguments[0], ts.factory.createIdentifier(FILE_INFO_LOCAL)]);
   }
 
   // Inserts `const __fileInfo = { packageName: "@pkg", fileName: "rel/file.ts" };` right
@@ -1210,8 +1235,11 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
             return transformInitCall(afterQuote, symbolClass, `${msgModuleName}.${msgMemberName}`, sourceLocation);
           }
 
-          if (ts.isCallExpression(afterQuote))
+          if (ts.isCallExpression(afterQuote)) {
+            const scoped = augmentDefaultScopeCall(afterQuote, sourceLocation);
+            if (scoped !== afterQuote) return scoped;
             return augmentRegistrationCall(afterQuote, sourceLocation);
+          }
 
           return afterQuote;
         }

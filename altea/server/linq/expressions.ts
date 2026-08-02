@@ -416,6 +416,11 @@ function wellKnownResultType(obj: Expression | undefined, propertyName: string):
     // entity/lite; the value/enum cases stay residual).
     if (propertyName === "toString")
         return () => LiteralType.string;
+    // `<typeExpr>.niceName()` (Signum's Type.NiceName()) over a runtime-type expression → string. The
+    // runtime impl is BaseEntity's static (no Function.prototype method), so the metadata is resolved
+    // here by name; the binder lowers the call to the localized name (typeNiceName).
+    if (propertyName === "niceName" && obj?.type instanceof ClassType)
+        return () => LiteralType.string;
     // `entity.mixin(MixinClass)` → the mixin's ClassType (from the ctor argument), so a
     // following `.field` / `.collection` resolves against the mixin's reflected fields.
     if (propertyName === "mixin")

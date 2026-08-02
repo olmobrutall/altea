@@ -12,6 +12,9 @@ export namespace ArtistOperation {
     export const Save: ExecuteSymbol<ArtistEntity> = init();
     export const Delete: DeleteSymbol<ArtistEntity> = init();
     export const Create: ConstructSymbol<ArtistEntity> = init();
+    // A default-language operation label set inline (Signum's [Description] on the AutoInit field).
+    // The transformer forwards the options object as the 4th init() argument.
+    export const CreateFromScratch: ConstructSymbol<ArtistEntity> = init({ niceName: "Create Artist from scratch" });
 }
 
 // Phase 3 fixture: a small state-machine over AlbumEntity (AlbumState New/Saved). The

@@ -1,8 +1,7 @@
 import { PropertyRoute } from "../../propertyRoute";
 import { Implementations } from "../../implementations";
-import { Entity } from "../../entity";
+import { Entity, type BaseEntity, type Type } from "../../entity";
 import { TypeReference } from "../../reflection";
-import { niceName } from "../../utils/localization";
 import type { QueryName } from "../queryUtils";
 import { QueryToken, SubTokensOptions } from "./queryToken";
 
@@ -14,11 +13,18 @@ import { QueryToken, SubTokensOptions } from "./queryToken";
 // tokens (computed columns are registered expressions; the client picks display columns as token
 // paths), so RootToken is now purely the query root.
 export class RootToken extends QueryToken {
+    // The query's shape type (a reflected entity/model constructor), typed as Type<BaseEntity> so
+    // `shapeType.niceName()` reads its localized display name directly. The constructor accepts a bare
+    // Function — the surrounding query infra is Function-typed (getRootType(): Function) — and narrows
+    // here; the value is always an entity/model ctor.
+    private readonly shapeType: Type<BaseEntity>;
+
     constructor(
-        private readonly shapeType: Function,
+        shapeType: Function,
         private readonly _queryName: QueryName = shapeType,
     ) {
         super();
+        this.shapeType = shapeType as Type<BaseEntity>;
     }
 
     get parent(): QueryToken | undefined { return undefined; }
@@ -26,8 +32,8 @@ export class RootToken extends QueryToken {
     override isEntity(): boolean { return true; }
 
     get key(): string { return ""; }
-    override toString(): string { return niceName(this.shapeType); }
-    niceName(): string { return niceName(this.shapeType); }
+    override toString(): string { return this.shapeType.niceName(); }
+    niceName(): string { return this.shapeType.niceName(); }
 
     get type(): TypeReference { return new TypeReference({ type: () => this.shapeType }); }
     get format(): string | undefined { return undefined; }
@@ -36,7 +42,7 @@ export class RootToken extends QueryToken {
     // Only a full-entity shape has entity implementations; a ModelEntity projection row does not
     // (its `entity` FIELD carries the row identity instead).
     getImplementations(): Implementations | undefined {
-        const isEntity = this.shapeType === Entity || this.shapeType.prototype instanceof Entity;
+        const isEntity = (this.shapeType as Function) === Entity || this.shapeType.prototype instanceof Entity;
         return isEntity ? Implementations.by(this.shapeType) : undefined;
     }
     getPropertyRoute(): PropertyRoute | undefined { return PropertyRoute.root(this.shapeType); }

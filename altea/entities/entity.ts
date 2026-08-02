@@ -2,7 +2,19 @@
 import { Lite, LiteImp, getCustomLiteConstructor, getCustomLiteConstructorFor } from './lite';
 import type { CustomLiteClass } from './lite';
 import { column, serialize, quoted } from './decorators';
-import { niceName, nicePluralName } from './utils/localization';
+import { Localization } from './utils/localization';
+
+// Type-only surface for `Type.NiceName()` inside a query lambda: `f.constructor.niceName()` and
+// `getType().niceName()` receive a runtime-type value typed as `Function` (Type<T>), so this makes the
+// call type-check. The RUNTIME method is `BaseEntity.niceName` (the static above) — inherited by every
+// entity constructor, so no `Function.prototype.niceName` is assigned; the LINQ provider lowers the
+// call by name (server/linq). (The sibling `.toTypeEntity()` surface is declared the same way in
+// server/typeLogic.) Kept in the entities layer because BaseEntity.toString's `@quoted` body calls it.
+declare global {
+    interface Function {
+        niceName(): string;
+    }
+}
 import { reflect, getTypeInfo } from './reflection';
 import { MixinDeclarations } from './mixinDeclarations';
 import { cleanTypeName, resolveCleanType } from './registration';
@@ -89,12 +101,14 @@ export abstract class BaseEntity {
     // altea has real entity classes, so a class doubles as Signum's Type descriptor: ported
     // React client code calls OrderEntity.typeName / .niceName() / .nicePluralName() directly
     // instead of holding a separate `new Type("Order")` object. `this` binds to the concrete
-    // subclass constructor. (`niceName()` also exists on Function.prototype for query
-    // expressions; declared here too as the canonical anchor + the react-layer static hook.)
+    // subclass constructor — so `niceName` is the single implementation, inherited by every
+    // entity constructor. A query lambda's `f.constructor.niceName()` / `getType().niceName()`
+    // resolves to THIS static at runtime (via that inheritance); the global `Function` type
+    // augmentation below only makes those call sites type-check (see its comment).
     // `token()` is deferred until the client QueryToken (QueryTokenString) is ported.
     static get typeName(): string { return cleanTypeName(this); }
-    static niceName(this: Function): string { return niceName(this); }
-    static nicePluralName(this: Function): string { return nicePluralName(this); }
+    static niceName(this: Function): string { return Localization.niceName(this); }
+    static nicePluralName(this: Function): string { return Localization.nicePluralName(this); }
 
     // Resolve a clean type name (the $type / URL discriminator) to its Type, checking it inherits
     // from the class this is called on: `Entity.resolveType("Order")` -> Type<OrderEntity> typed as

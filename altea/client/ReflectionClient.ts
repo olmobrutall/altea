@@ -1,6 +1,8 @@
 import { tryGetTypeInfo, setDefinedQueries } from "./Reflection";
 import type { OperationType } from "../entities/reflection";
-import { DescriptionManager, niceNameFromName, type LocalizedTypes } from "../entities/utils/localization";
+import { Localization } from "../entities/utils/localization";
+import { CultureInfo } from "../entities/utils/cultureInfo";
+type LocalizedTypes = Localization.LocalizedTypes;
 
 // Client consumer of the server reflection metadata (Signum's ReflectionServer/reloadTypes). altea ships
 // the entity SHAPE at compile time (@reflect stamps TypeInfo/FieldInfo onto constructors), so this only
@@ -38,9 +40,9 @@ export async function loadReflectionMetadata(options?: { culture?: string }): Pr
 
 export function applyMetadata(meta: ServerMetadata): void {
     // Culture + translations (the client has no async-context, so the process default IS the UI culture).
-    DescriptionManager.setDefaultCulture(meta.culture);
-    DescriptionManager.setDefaultUICulture(meta.culture);
-    DescriptionManager.addLocalizedTypes(meta.culture, meta.translations);
+    CultureInfo.setDefaultCulture(meta.culture);
+    CultureInfo.setDefaultUICulture(meta.culture);
+    Localization.addLocalizedTypes(meta.culture, meta.translations);
 
     // Query-defined registry (Finder.isFindable / isQueryDefined).
     setDefinedQueries(meta.queries);
@@ -61,7 +63,7 @@ export function applyMetadata(meta: ServerMetadata): void {
 
         (ti.operations ??= {})[key] = {
             key,
-            niceName: DescriptionManager.translate(container, member) ?? niceNameFromName(member),
+            niceName: Localization.translate(container, member) ?? Localization.niceNameFromName(member),
             operationType: info.operationType,
             canBeNew: info.canBeNew,
             canBeModified: info.canBeModified,

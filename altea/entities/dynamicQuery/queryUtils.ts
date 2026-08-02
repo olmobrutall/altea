@@ -1,6 +1,6 @@
 import { Entity, EmbeddedEntity, ModelEntity } from "../entity";
 import { cleanTypeName } from "../registration";
-import { niceName } from "../utils/localization";
+import { Localization } from "../utils/localization";
 import type { TypeReference } from "../reflection";
 
 // A query's name (Signum's `object queryName`): an entity constructor (the common case —
@@ -57,5 +57,5 @@ export function getKey(queryName: QueryName): string {
 
 // Port of Signum's `QueryUtils.GetNiceName`: a display name (localized entity name, else the key).
 export function getNiceName(queryName: QueryName): string {
-    return typeof queryName === "function" ? niceName(queryName) : String(queryName);
+    return typeof queryName === "function" ? Localization.niceName(queryName) : String(queryName);
 }

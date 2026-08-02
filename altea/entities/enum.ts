@@ -1,5 +1,5 @@
 import { enumNameOf } from './registration';
-import { DescriptionManager, niceNameFromName, niceMemberName } from './utils/localization';
+import { Localization } from './utils/localization';
 
 // A single entity-level helper over altea's numeric TS enums (the runtime `XEnum` objects paired with
 // the string-union `type X = keyof typeof XEnum`). It replaces both the per-enum `enumAccessors`
@@ -28,6 +28,12 @@ type EnumValue<E> = EnumName<E> | number;
 // the Synchronizer.
 const notMappedMembers = new WeakMap<object, Set<string>>();
 
+// Per-enum code-declared DEFAULT-language member labels (Enum.setNiceName). Keyed by the enum object
+// identity — the same as notMappedMembers — because an enum has no registered name at the point
+// setNiceName is called (registration happens lazily when a field references the enum). Consulted by
+// niceName BELOW any loaded translation, so a translation file for the current UI culture still wins.
+const niceNameOverrides = new WeakMap<object, Map<string, string>>();
+
 export namespace Enum {
 
   /** The member NAMES in declaration order (drops the numeric reverse-map keys). */
@@ -44,17 +50,31 @@ export namespace Enum {
   export function niceName<E extends EnumObject>(e: E, value: EnumValue<E>): string {
     const name = toName(e, value);
     const typeName = enumNameOf(e);
-    // No translation → humanise the (PascalCase) member name (Signum's member.NiceName() =
-    // SpacePascalOrUnderscores): "Canceled" → "Canceled", "InProcess" → "In process". NOT
-    // inferDescription — that lowercases for message sentences ("BeNotNull" → "be not null").
-    return (typeName != null ? DescriptionManager.translate(typeName, name) : undefined)
-      ?? niceMemberName(name);
+    // Precedence: loaded translation (current UI culture) → code-declared default (setNiceName) →
+    // humanise the (PascalCase) member name (Signum's member.NiceName() = SpacePascalOrUnderscores):
+    // "Canceled" → "Canceled", "InProcess" → "In process". NOT inferDescription — that lowercases for
+    // message sentences ("BeNotNull" → "be not null").
+    return (typeName != null ? Localization.translate(typeName, name) : undefined)
+      ?? niceNameOverrides.get(e)?.get(name)
+      ?? Localization.niceMemberName(name);
+  }
+
+  /**
+   * Set a member's DEFAULT-language display name in code (Signum's [Description] on an enum member),
+   * e.g. `Enum.setNiceName(ColorEnum, "Weiss", "Weiß")`. This is only the no-translation default: a
+   * loaded translation for the current UI culture still wins. The member accepts either its string
+   * name or its numeric ordinal.
+   */
+  export function setNiceName<E extends EnumObject>(e: E, value: EnumValue<E>, niceName: string): void {
+    let map = niceNameOverrides.get(e);
+    if (map == null) niceNameOverrides.set(e, map = new Map<string, string>());
+    map.set(toName(e, value), niceName);
   }
 
   /** The enum type's localised display name (its registered clean name, humanised). */
   export function niceTypeName<E extends EnumObject>(e: E): string | undefined {
     const typeName = enumNameOf(e);
-    return typeName == null ? undefined : niceNameFromName(typeName);
+    return typeName == null ? undefined : Localization.niceNameFromName(typeName);
   }
 
   /** Whether `value` is a valid member NAME of the enum. */

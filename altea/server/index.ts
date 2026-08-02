@@ -113,7 +113,9 @@ quotedFunction(Entity.isInstance).__resultType = () => LiteralType.boolean;
 quotedFunction(Entity.isLite).__resultType = () => LiteralType.boolean;
 quotedFunction(Lite.prototype.is).__resultType = () => LiteralType.boolean;
 quotedFunction(Lite.prototype.isInstanceOf).__resultType = () => LiteralType.boolean;
-quotedFunction(Function.prototype.niceName).__resultType = () => LiteralType.string;
+// `<typeExpr>.niceName()` (Signum's Type.NiceName()) has no Function.prototype method to hang metadata
+// on — the runtime impl is BaseEntity's static (entities/entity) — so its result type is resolved by
+// name in the front-end's wellKnownResultType (server/linq/expressions), and the binder lowers the call.
 
 // entity.getType() (Signum's GetType) inside a @quoted lambda — e.g. the default toString's
 // `this.getType().niceName()`. It lowers to `this.constructor` (the runtime-type token, which the

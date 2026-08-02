@@ -12,7 +12,9 @@
 // tiers at startup): mixin registrations, lite-model constructors, implementedBy overrides.
 // Authorization is a future, per-user overlay (a separate endpoint), not part of this blob.
 
-import { DescriptionManager, type LocalizedTypes } from "../entities/utils/localization";
+import { Localization } from "../entities/utils/localization";
+import { CultureInfo } from "../entities/utils/cultureInfo";
+type LocalizedTypes = Localization.LocalizedTypes;
 import { getKey } from "../entities/dynamicQuery/queryUtils";
 import { QueryLogic } from "./dynamicQuery/queryLogic";
 import { OperationLogic } from "./operationLogic";
@@ -49,7 +51,7 @@ export namespace ReflectionServer {
     export function buildMetadata(culture: string): ServerMetadata {
         return {
             culture,
-            translations: DescriptionManager.getLocalizedTypes(culture),
+            translations: Localization.getLocalizedTypes(culture),
             queries: QueryLogic.queries.getQueryNames().map(getKey),
             operations: buildOperations(),
         };
@@ -61,7 +63,7 @@ export namespace ReflectionServer {
         ws.get("/api/reflection/metadata",
             { res: CustomType<ServerMetadata>() },
             (req, res) => {
-                const culture = (req.query["culture"] as string | undefined) ?? DescriptionManager.currentUICulture();
+                const culture = (req.query["culture"] as string | undefined) ?? CultureInfo.currentUICulture();
                 res.json(buildMetadata(culture));
             });
     }

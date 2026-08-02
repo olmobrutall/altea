@@ -1,7 +1,7 @@
 import type { Quoted } from "quote-transformer/quoted";
 import { Entity } from "../../entities/entity";
 import { Implementations } from "../../entities/implementations";
-import { niceName, nicePluralName } from "../../entities/utils/localization";
+import { Localization } from "../../entities/utils/localization";
 import { ClassType, ArrayType, LiteType, EnumType, TemporalType, LiteralType, RuntimeType } from "../runtimeTypes";
 import { TypeReference } from "../../entities/reflection";
 import { Expression, ParameterExpression } from "../linq/expressions";
@@ -50,7 +50,7 @@ export class ExpressionContainer {
         // fall back to the key. A thunk, since the display name is culture-dependent.
         const targetCtor = entityCtorOf(toTypeReference(elementType));
         const defaultNiceName: () => string = targetCtor != undefined
-            ? (isProjection ? () => nicePluralName(targetCtor) : () => niceName(targetCtor))
+            ? (isProjection ? () => Localization.nicePluralName(targetCtor) : () => Localization.niceName(targetCtor))
             : () => key;
         // Provenance of the expression (Signum's Meta): which source columns it reads, so the token
         // inherits IsAllowed from them. Computed once here off the inlined body + source parameter.

@@ -2,7 +2,7 @@ import { Entity, EmbeddedEntity } from '../../entities/entity';
 import type { Type } from '../../entities/entity';
 import { MixinDeclarations } from '../../entities/mixinDeclarations';
 import type { EntityData } from '../../entities/decorators';
-import { getTypeInfo, enumNameOf, FieldInfo, TypeInfo, type PrimaryKeyType } from '../../entities/reflection';
+import { getTypeInfo, enumNameOf, FieldInfo, TypeInfo, schemaForName, type PrimaryKeyType } from '../../entities/reflection';
 import { AbstractDbType, IsNullable, defaultDbType, primaryKeyDbType } from './dbType';
 import {
     type IColumn,
@@ -125,6 +125,15 @@ export class SchemaSettings {
     tableName(type: Type<Entity>): string {
         return physicalTableName(type, this.isPostgres);
     }
+
+    // The schema a type's table lands in. Defaults to `schemaName` (the connection's current schema),
+    // but a type covered by a `defaultDatabaseSchema(...)` declaration uses that — folder-scoped, so a
+    // whole package (or a sub-folder within it) groups into one schema without annotating each entity.
+    // `@tableName` still overrides the full object name for individual types (views, temp tables).
+    schemaForType(type: Type<Entity>): SchemaName {
+        const schema = schemaForName(type.name);
+        return schema ? new SchemaName(schema, this.schemaName.database) : this.schemaName;
+    }
 }
 
 // Walks reflected entity metadata to build an in-memory Schema (Tables →
@@ -152,7 +161,7 @@ export class SchemaBuilder {
         if (existing != null)
             return new FluentInclude<T>(existing, this);
 
-        const name = new ObjectName(this.settings.tableName(entityType), this.settings.schemaName);
+        const name = new ObjectName(this.settings.tableName(entityType), this.settings.schemaForType(entityType));
         const table = new Table(entityType, name);
         // Carry the dialect so withIndex can render a filtered predicate to SQL at registration.
         table.isPostgres = this.settings.isPostgres;

@@ -1,7 +1,7 @@
 import { PropertyRoute } from "../../propertyRoute";
 import { Implementations } from "../../implementations";
 import { cleanTypeName } from "../../registration";
-import { niceName } from "../../utils/localization";
+import type { Type, Entity } from "../../entity";
 import { TypeReference } from "../../reflection";
 import { QueryToken, SubTokensOptions } from "./queryToken";
 
@@ -10,7 +10,9 @@ import { QueryToken, SubTokensOptions } from "./queryToken";
 export class AsTypeToken extends QueryToken {
     constructor(
         private readonly _parent: QueryToken,
-        public readonly entityCtor: Function,
+        // A concrete entity type, so `entityCtor.niceName()` (the Type<T> static, inherited) reads its
+        // localized display name directly — no niceName(ctor) call.
+        public readonly entityCtor: Type<Entity>,
     ) {
         super();
         this.priority = 8;
@@ -18,8 +20,8 @@ export class AsTypeToken extends QueryToken {
 
     get parent(): QueryToken | undefined { return this._parent; }
     get key(): string { return `(${cleanTypeName(this.entityCtor)})`; }
-    override toString(): string { return `As ${niceName(this.entityCtor)}`; }
-    niceName(): string { return `${this._parent.toString()} as ${niceName(this.entityCtor)}`; }
+    override toString(): string { return `As ${this.entityCtor.niceName()}`; }
+    niceName(): string { return `${this._parent.toString()} as ${this.entityCtor.niceName()}`; }
     get type(): TypeReference { return new TypeReference({ type: () => this.entityCtor, lite: true }); }
     get format(): string | undefined { return undefined; }
     get unit(): string | undefined { return undefined; }

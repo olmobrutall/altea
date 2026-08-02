@@ -1,6 +1,21 @@
 /* Frame + modal styles for FramePage / FrameModal. Minimal port of Signum's Frames.css (its
    `@import "./Tertiary.css"` and the bulk of its rules are deferred); Bootstrap covers the rest. */
 
+/* The app-shell container (eastwind's Layout): a tinted page background so the white content cards
+   (search toolbar / results / filters, entity frames) stand out and their shadows read. Without this
+   the page is white-on-white and every `shadow-sm` panel disappears. Signum's Frames.css rule. */
+.sf-page-container {
+    display: flex;
+    flex-direction: column;
+    background: var(--bs-tertiary-bg);
+}
+
+.sf-page-container > main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
 @media (min-width: 768px) {
     .modal-md,
     .modal-lg,

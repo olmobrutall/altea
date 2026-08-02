@@ -3,7 +3,7 @@ import { PropertyRoute } from "../../propertyRoute";
 import { tryGetTypeInfo, TypeReference, type FieldInfo } from "../../reflection";
 import { Implementations } from "../../implementations";
 import { tryGetFilterType, type QueryName, type FilterType } from "../queryUtils";
-import { niceName } from "../../utils/localization";
+import { Localization } from "../../utils/localization";
 import { QueryTokenMessage, QueryTokenDateMessage, CollectionMessage } from "../../dynamicQueries";
 import type { CollectionToArrayToken } from "./collectionToArrayToken";
 
@@ -464,12 +464,12 @@ function niceTypeNameOf(type: TypeReference, filterType: FilterType | undefined,
             const impl = implementations ?? implementationsOf(type);
             if (impl == undefined || impl.isByAll)
                 return QueryTokenMessage.AnyEntity.niceToString();
-            return impl.types.map(t => niceName(t)).joinComma(CollectionMessage.Or.niceToString());
+            return impl.types.map(t => t.niceName()).joinComma(CollectionMessage.Or.niceToString());
         }
         case "Embedded":
         case "Model": {
             const ctor = type.getFunction();
-            return ctor != undefined ? niceName(ctor) : "";
+            return ctor != undefined ? Localization.niceName(ctor) : "";
         }
         default:
             return "";
