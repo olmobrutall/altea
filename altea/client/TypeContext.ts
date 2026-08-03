@@ -356,10 +356,20 @@ export class TypeContext<T> extends StyleContext {
     return this.propertyRoute?.fieldInfo ?? this.typeReference;
   }
 
-  subCtx(styleOptions: StyleOptions): TypeContext<T>
+  // ALTEA divergence from Signum's overload set (Signum: styleOptions / plain-lambda / mixin-ctor / string):
+  //   1. The property-lambda param is `Quoted<(val:T)=>R>` (the transformer needs a Quoted-typed param to
+  //      emit `__quoted`; getLambdaMembers has no toString fallback), and it MUST come first. StyleOptions
+  //      is all-optional, so a bare selector lambda is structurally assignable to it — with StyleOptions
+  //      first, overload resolution picks it and the lambda param silently degrades to implicit-any.
+  //   2. Signum's `subCtx(mixin: Type<M>): TypeContext<M>` overload is DROPPED. A constructor-typed overload
+  //      at the same argument position defeats TypeScript's contextual typing of a bare property lambda
+  //      (mixed call/construct signatures → the arrow param falls back to `any`), which would break EVERY
+  //      view. Mixin navigation is still available two ways with correct typing: the runtime `isType(arg)`
+  //      branch below (so `subCtx(SomeMixin)` works at runtime), and the lambda form `subCtx(a => a.mixin(X))`
+  //      which getLambdaMembers already parses. eastwind has no mixin call sites today.
   subCtx<R>(property: Quoted<(val: T) => R>, styleOptions?: StyleOptions): TypeContext<R>
-  subCtx<M extends MixinEntity>(mixin: Type<M>, styleOptions?: StyleOptions): TypeContext<M> //Only id T extends Entity!
   subCtx(field: string, styleOptions?: StyleOptions): TypeContext<any>
+  subCtx(styleOptions: StyleOptions): TypeContext<T>
   subCtx(arg: Quoted<(val: T) => any> | IType | string | StyleOptions, styleOptions?: StyleOptions): TypeContext<any> {
     if (typeof arg == "object" && !isType(arg)) {
       var nc = new TypeContext<T>(this, arg, this.propertyRoute ?? this.typeReference, this.binding, this.prefix);

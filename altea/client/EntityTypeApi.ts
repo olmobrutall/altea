@@ -18,7 +18,6 @@ import {
   type TokenFunction, type Anonymous,
 } from './QueryTokenString';
 import type { FindOptions, FetchOptions, TypedResultsOptions, ResultObject, OptionalQueryName } from './FindOptions';
-import type { Finder } from './Finder';
 import type { Quoted } from 'quote-transformer/quoted';
 
 // Add the statics to the entity-class side (namespace ⋈ class merge → static members; inherited by
@@ -37,10 +36,9 @@ declare module '../data/entity' {
     export function fetchOptions<T extends BaseEntity>(this: Type<T>, builder?: (token: TokenFunction<T>) => OptionalQueryName<FetchOptions<T>>): FetchOptions<T>;
     /** A {@link TypedResultsOptions} rooted at this type (Finder.getTypedResults). */
     export function typedResultsOptions<T extends BaseEntity, RO extends ResultObject>(this: Type<T>, builder: (token: TokenFunction<T>) => OptionalQueryName<TypedResultsOptions<RO>>): TypedResultsOptions<RO>;
-
-    /** Finder query settings rooted at this type (Signum's per-query settings registration). `queryName`
-     * defaults to this type; e.g. `CustomerEntity.querySettings(token => ({ defaultColumns: [token(a => a.name)] }))`. */
-    export function querySettings<T extends BaseEntity>(this: Type<T>, builder?: (token: TokenFunction<T>) => Omit<Partial<Finder.QuerySettings>, "queryName">): Finder.QuerySettings;
+    // NOTE: per-query settings registration moved OFF the Type<T> static onto the ClientBuilder fluent
+    // API — `cb.configure(Type).withQuerySettings(token => …)` (see ./ClientBuilder). The old
+    // `Type.querySettings(…)` static was removed.
   }
 }
 
@@ -75,10 +73,6 @@ const impls = {
     if (!to.queryName)
       to.queryName = this;
     return to as TypedResultsOptions<any>;
-  },
-  querySettings(this: Type<BaseEntity>, builder?: (token: TokenFunction<any>) => Record<string, unknown>): Finder.QuerySettings {
-    const settings = builder ? builder(createTokenFunction(new QueryTokenString(""))) : {};
-    return { queryName: this, ...settings } as Finder.QuerySettings;
   },
 };
 

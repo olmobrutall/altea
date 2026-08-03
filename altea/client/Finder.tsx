@@ -2150,9 +2150,10 @@ export namespace Finder {
 
   export interface QuerySettings {
     queryName: PseudoType | QueryKey;
-    // The columns shown by default (Signum's [query columns]); build with Type.querySettings(token =>
-    // ({ defaultColumns: [token(a => a.name), ...] })). When unset, the first 5 non-collection columns
-    // are used. Entries are token keys / QueryTokenStrings, resolved case-insensitively.
+    // The columns shown by default (Signum's [query columns]); build with
+    // cb.configure(Type).withQuerySettings(token => ({ defaultColumns: [token(a => a.name), ...] })).
+    // When unset, the first 5 non-collection columns are used. Entries are token keys /
+    // QueryTokenStrings, resolved case-insensitively.
     defaultColumns?: (string | QueryTokenString<any>)[];
     pagination?: Pagination;
     allowSystemTime?: boolean;
