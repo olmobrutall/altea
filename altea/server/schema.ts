@@ -1,5 +1,5 @@
 
-import type { ColumnOptions } from "../entities/reflection";
+import type { ColumnOptions } from "../data/reflection";
 
 export type { ColumnOptions };
 
@@ -15,4 +15,4 @@ export * from "./schema/schemaBuilder";
 
 // The `@column` field decorator now lives in entities/ (the entity model owns its
 // column annotations). Re-exported here for back-compat.
-export { column } from "../entities/decorators";
+export { column } from "../data/decorators";

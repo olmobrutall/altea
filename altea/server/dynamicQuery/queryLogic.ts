@@ -1,8 +1,8 @@
 import { Connector } from "../connection/connector";
-import { tryGetTypeInfo } from "../../entities/reflection";
-import { setImplementedByAllTypesProvider, setExtensionTokensProvider, RootToken, SubTokensOptions, type QueryToken } from "../../entities/dynamicQuery/tokens";
+import { tryGetTypeInfo } from "../../data/reflection";
+import { setImplementedByAllTypesProvider, setExtensionTokensProvider, RootToken, SubTokensOptions, type QueryToken } from "../../data/dynamicQuery/tokens";
 import { setBuildExtensionExpr } from "./tokenExpressions";
-import { getKey, type QueryName } from "../../entities/dynamicQuery/queryUtils";
+import { getKey, type QueryName } from "../../data/dynamicQuery/queryUtils";
 import { DynamicQueryContainer } from "./dynamicQueryContainer";
 import { ExpressionContainer } from "./expressionContainer";
 

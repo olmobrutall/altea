@@ -5,7 +5,7 @@ import {
     LambdaExpression, evalBinaryOp, evalUnaryOp,
 } from "../linq/expressions";
 import { BuildExpressionContext, ExpressionBox } from "./tokenExpressions";
-import type { QueryToken } from "../../entities/dynamicQuery/tokens";
+import type { QueryToken } from "../../data/dynamicQuery/tokens";
 import { Filter, Order, Column, OrderType, Pagination } from "./requests";
 import { ResultColumn, ResultTable } from "./resultTable";
 

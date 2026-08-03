@@ -2,11 +2,11 @@
 // paths; `.EntityType`→`.entityType`, `getToString(x)`→`x.toString()`, `liteKey`→`l.key()`.
 import * as React from "react"
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { Entity } from '../../entities/entity';
-import type { Lite } from '../../entities/lite';
-import { JavascriptMessage, OperationMessage, SearchMessage } from '../../entities/uiMessages';
+import { Entity } from '../../data/entity';
+import type { Lite } from '../../data/lite';
+import { JavascriptMessage, OperationMessage, SearchMessage } from '../../data/uiMessages';
 import { getTypeInfo } from '../Reflection';
-import { classes, softCast } from '../../entities/globals';
+import { classes, softCast } from '../../data/globals';
 import { Navigator } from '../Navigator';
 import MessageModal from '../Modals/MessageModal'
 import type { ContextualItemsContext, MenuItemBlock } from '../SearchControl/ContextualItems';
@@ -17,7 +17,7 @@ import { Dropdown, OverlayTrigger, Tooltip } from "react-bootstrap";
 import { MultiPropertySetterModal } from "./MultiPropertySetter";
 import type { BsColor } from "../Components";
 import SearchControlLoaded from "../SearchControl/SearchControlLoaded";
-import { CollectionMessage } from "../../entities/dynamicQueries";
+import { CollectionMessage } from "../../data/dynamicQueries";
 
 
 export namespace ContextualOperations {

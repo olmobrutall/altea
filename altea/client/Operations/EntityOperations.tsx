@@ -2,12 +2,12 @@
 // dropped free getToString/toLite (→ x.toString()/x.toLite()); `entity.modified`→`entity.isDirty()`
 // (altea graph-modified); dropped unused ModifiableEntity import.
 import * as React from "react"
-import { Entity } from '../../entities/entity';
-import type { EntityPack } from '../../entities/entityPack';
-import { JavascriptMessage, OperationMessage, NormalControlMessage } from '../../entities/uiMessages';
+import { Entity } from '../../data/entity';
+import type { EntityPack } from '../../data/entityPack';
+import { JavascriptMessage, OperationMessage, NormalControlMessage } from '../../data/uiMessages';
 import { getTypeInfo, GraphExplorer, tryGetTypeInfo, getTypeName } from '../Reflection';
 import type { OperationType } from '../Reflection';
-import { classes, ifError } from '../../entities/globals';
+import { classes, ifError } from '../../data/globals';
 import type { ButtonsContext, IOperationVisible, ButtonBarElement, FunctionalFrameComponent } from '../TypeContext';
 import { Navigator } from '../Navigator';
 import MessageModal from '../Modals/MessageModal'

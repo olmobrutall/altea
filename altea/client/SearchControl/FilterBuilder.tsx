@@ -11,16 +11,16 @@
 //     toNumberFormat from ../numberFormat; messages from entities/uiMessages.
 //   - visual-tips (VisualTipIcon/SearchVisualTip/FilterHelp) are DEFERRED stubs.
 import * as React from 'react'
-import { areEqual, classes, KeyGenerator } from '../../entities/globals'
+import { areEqual, classes, KeyGenerator } from '../../data/globals'
 import {
   type FilterOptionParsed, getFilterOperations, isList, isPair,
   type FilterConditionOptionParsed, type FilterGroupOptionParsed,
   isCheckBox, canSplitValue, isFilterGroup, isFilterCondition
 } from '../FindOptions'
 import { QueryToken, SubTokensOptions } from '../QueryToken'
-import { getKey } from '../../entities/dynamicQuery/queryUtils'
-import { SearchMessage, EntityControlMessage } from '../../entities/uiMessages'
-import { Lite } from '../../entities/lite'
+import { getKey } from '../../data/dynamicQuery/queryUtils'
+import { SearchMessage, EntityControlMessage } from '../../data/uiMessages'
+import { Lite } from '../../data/lite'
 import { StyleContext } from '../TypeContext'
 import { Binding } from '../binding'
 import { toNumberFormat } from '../numberFormat'
@@ -28,8 +28,8 @@ import { TypeContext } from '../TypeContext'
 import QueryTokenBuilder from './QueryTokenBuilder'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { type DashboardBehaviour, type FilterGroupOperation, type PinnedFilterActive, type FilterOperation,
-  DashboardBehaviourEnum, FilterGroupOperationEnum, PinnedFilterActiveEnum, FilterOperationEnum } from '../../entities/dynamicQueries';
-import { Enum } from '../../entities/enum';
+  DashboardBehaviourEnum, FilterGroupOperationEnum, PinnedFilterActiveEnum, FilterOperationEnum } from '../../data/dynamicQueries';
+import { Enum } from '../../data/enum';
 import "./FilterBuilder.css"
 import { useForceUpdate, useForceUpdatePromise } from '../Hooks'
 import { Dropdown } from 'react-bootstrap'

@@ -1,11 +1,11 @@
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
-import { MixinEntity } from "@altea/altea/entities/entity";
-import { cleanModified, isModifiedSelf, isGraphModified } from "@altea/altea/entities/changes";
-import { Temporal } from "@altea/altea/entities/basics";
-import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
-import { reflect } from "@altea/altea/entities/reflection";
+import { MixinEntity } from "@altea/altea/data/entity";
+import { cleanModified, isModifiedSelf, isGraphModified } from "@altea/altea/data/changes";
+import { Temporal } from "@altea/altea/data/basics";
+import { CorruptMixin } from "@altea/altea/data/corruptMixin";
+import { reflect } from "@altea/altea/data/reflection";
 import { hasDb, start } from "./setup";
 import {
     NoteWithDateEntity, ColaboratorsMixin, ArtistEntity, CountryEntity, Sex,

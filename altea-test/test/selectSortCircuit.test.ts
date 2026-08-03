@@ -1,10 +1,10 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
-import "@altea/altea/entities/globals"; // collection .some on a part-entity collection
+import "@altea/altea/data/globals"; // collection .some on a part-entity collection
 import { hasDb, start } from "./setup";
 import { AlbumEntity, BandEntity } from "../entities/music";
-import { Temporal } from "@altea/altea/entities/basics";
+import { Temporal } from "@altea/altea/data/basics";
 
 // A short-circuit helper (Signum's Throw<T>()) — the right side of a ?? / || / && the
 // optimiser proves unreachable. Not SQL-mappable; the in-memory body just throws.

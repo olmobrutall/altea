@@ -2,7 +2,7 @@ import { Connector } from '../connection/connector';
 import { SchemaName } from '../schema/objectName';
 import type { Schema } from '../schema/schema';
 import { SqlPreCommand, Spacing } from './sqlPreCommand';
-import { getBoundEnum, enumEntityMembers } from '../../entities/enumEntity';
+import { getBoundEnum, enumEntityMembers } from '../../data/enumEntity';
 
 // Builds the database-creation script from an in-memory Schema. Mirrors Signum's
 // SchemaGenerator, scoped to what the current schema model supports: named

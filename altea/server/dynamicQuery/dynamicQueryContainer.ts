@@ -1,8 +1,8 @@
 import type { ResultTable } from "./resultTable";
 import type { QueryRequest } from "./requests";
-import { RootToken, type QueryToken } from "../../entities/dynamicQuery/tokens";
+import { RootToken, type QueryToken } from "../../data/dynamicQuery/tokens";
 import type { DynamicQueryCore } from "./dynamicQueryCore";
-import { getKey, type QueryName } from "../../entities/dynamicQuery/queryUtils";
+import { getKey, type QueryName } from "../../data/dynamicQuery/queryUtils";
 
 // Port of Signum's `DynamicQueryContainer` (DynamicQuery/DynamicQueryContainer.cs): the registry of
 // executable queries. Each is registered as a lazy `DynamicQueryBucket` (Signum's ResetLazy) so the

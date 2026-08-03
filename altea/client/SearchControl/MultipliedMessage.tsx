@@ -7,10 +7,10 @@ import * as React from 'react'
 import type { FindOptionsParsed, FilterOptionParsed } from '../FindOptions'
 import { isFilterGroup } from '../FindOptions'
 import { QueryToken } from '../QueryToken';
-import type { TypeReference } from '../../entities/reflection'
+import type { TypeReference } from '../../data/reflection'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { CollectionMessage } from '../../entities/dynamicQueries';
-import { ValidationMessage } from '../../entities/validators';
+import { CollectionMessage } from '../../data/dynamicQueries';
+import { ValidationMessage } from '../../data/validators';
 import '../AppContext'
 
 export default function MultipliedMessage(p: { findOptions: FindOptionsParsed, mainType: TypeReference }): React.ReactElement | null {

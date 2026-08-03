@@ -5,15 +5,15 @@
 // client-only PseudoType / getTypeName / New helpers over altea's REAL classes. The `Binding`
 // system was extracted to ./binding.
 
-import { Entity, BaseEntity, EmbeddedEntity, ModelEntity } from '../entities/entity';
-import type { Type, PrimaryKey } from '../entities/entity';
-import { Lite, LiteImp } from '../entities/lite';
-import { TypeInfo, tryGetTypeInfo as alteaTryGetTypeInfo } from '../entities/reflection';
-import type { FieldInfo, OperationInfo, OperationType } from '../entities/reflection';
-import type { ModelState } from '../entities/validation';
+import { Entity, BaseEntity, EmbeddedEntity, ModelEntity } from '../data/entity';
+import type { Type, PrimaryKey } from '../data/entity';
+import { Lite, LiteImp } from '../data/lite';
+import { TypeInfo, tryGetTypeInfo as alteaTryGetTypeInfo } from '../data/reflection';
+import type { FieldInfo, OperationInfo, OperationType } from '../data/reflection';
+import type { ModelState } from '../data/validation';
 export type { OperationInfo, OperationType };
 export { TypeInfo };
-import { cleanTypeName, resolveType, resolveCleanType } from '../entities/registration';
+import { cleanTypeName, resolveType, resolveCleanType } from '../data/registration';
 
 // The reflection DATA MODEL (PropertyRoute / TypeInfo / TypeReference / FieldInfo / Type) lives in
 // entities/* — import it from there directly. This react shim no longer re-exports it (Signum

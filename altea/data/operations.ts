@@ -4,7 +4,7 @@ import { OperationSymbol } from './operationSymbol';
 // The typed symbol containers — the CLIENT-SAFE declaration side used to write
 // `export namespace XOperation { export const … = init() }` (mirroring `OrderEntity.cs`'s
 // `[AutoInit] static class OrderOperation`). The concrete entity lives in ./operationSymbol;
-// it is re-exported here so `@altea/altea/entities/operations` stays the single import for
+// it is re-exported here so `@altea/altea/data/operations` stays the single import for
 // the whole operation-declaration surface (and so the transformer's injected
 // `import { OperationSymbol }` — which targets this module — resolves). The operation
 // implementations (the Graph) live server-side in the logic layer.

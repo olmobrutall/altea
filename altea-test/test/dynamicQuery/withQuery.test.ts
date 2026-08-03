@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import "@altea/altea/entities/globals";
+import "@altea/altea/data/globals";
 import { bindAndOptimize } from "@altea/altea/server/table";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { SchemaBuilder } from "@altea/altea/server/schema";
@@ -8,7 +8,7 @@ import { QueryFormatter } from "@altea/altea/server/linq/queryFormatter";
 import { ProjectionExpression } from "@altea/altea/server/linq/expressions.sql";
 import { LiteralType, LiteType, ClassType } from "@altea/altea/server/runtimeTypes";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
-import { QueryToken, SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
+import { QueryToken, SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { DQueryable } from "@altea/altea/server/dynamicQuery/dQueryable";
 import { Column, QueryRequest } from "@altea/altea/server/dynamicQuery/requests";
 import { table } from "@altea/altea/server/table";

@@ -1,6 +1,6 @@
-import { Entity } from '../entities/entity';
-import type { Type, PrimaryKey } from '../entities/entity';
-import { forEachField, cleanModified } from '../entities/changes';
+import { Entity } from '../data/entity';
+import type { Type, PrimaryKey } from '../data/entity';
+import { forEachField, cleanModified } from '../data/changes';
 import { collectAssignments } from './save';
 import { wireOwnedChildren } from './saver';
 import { Connector } from './connection/connector';

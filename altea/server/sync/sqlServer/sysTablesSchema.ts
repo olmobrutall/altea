@@ -1,4 +1,4 @@
-import "../../../entities/globals"; // Array.prototype.toMap
+import "../../../data/globals"; // Array.prototype.toMap
 import { Connector } from "../../connection/connector";
 import { DiffTable, DiffColumn, DiffForeignKey, DiffForeignKeyColumn, DiffIndex, DiffIndexColumn } from "../diffModels";
 import { view } from "../../table";

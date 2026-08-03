@@ -1,4 +1,4 @@
-import "../../../entities/globals"; // Array.prototype.toMap
+import "../../../data/globals"; // Array.prototype.toMap
 import { DiffTable, DiffColumn, DiffForeignKey, DiffForeignKeyColumn, DiffIndex, DiffIndexColumn } from "../diffModels";
 import { view } from "../../table";
 import { PgNamespace } from "./postgresCatalog";

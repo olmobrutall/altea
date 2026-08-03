@@ -4,12 +4,12 @@
 // `getMListItemContext` (row contexts); `ctx.propertyRoute.typeReference().name`→`p.ctx.memberType.typeName` for
 // the showType impl-count; getComponent/getViewPromise are R-typed; TypeBadge accepts BaseEntity.
 import * as React from 'react'
-import { classes } from '../../entities/globals'
+import { classes } from '../../data/globals'
 import { ViewPromise } from '../EntitySettings'
 import type { TypeContext } from '../TypeContext'
-import { BaseEntity, Entity } from '../../entities/entity'
-import type { Lite } from '../../entities/lite'
-import { EntityControlMessage } from '../../entities/uiMessages'
+import { BaseEntity, Entity } from '../../data/entity'
+import type { Lite } from '../../data/lite'
+import { EntityControlMessage } from '../../data/uiMessages'
 import { EntityBaseController } from './EntityBase'
 import { EntityListBaseController, type EntityListBaseProps, type DragConfig, type MoveConfig } from './EntityListBase'
 import { RenderEntity } from './RenderEntity'

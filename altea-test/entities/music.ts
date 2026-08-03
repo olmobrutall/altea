@@ -1,15 +1,15 @@
-import { reflect } from "@altea/altea/entities/reflection";
-import { Entity, EmbeddedEntity, MixinEntity, View } from "@altea/altea/entities/entity";
-import type { PrimaryKey } from "@altea/altea/entities/entity";
-import { Lite, LiteImp, registerCustomLite } from "@altea/altea/entities/lite";
+import { reflect } from "@altea/altea/data/reflection";
+import { Entity, EmbeddedEntity, MixinEntity, View } from "@altea/altea/data/entity";
+import type { PrimaryKey } from "@altea/altea/data/entity";
+import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
     entity, mixin, primaryKey,
     implementedBy, implementedByAll, backReference, rowOrder, valueField,
     stringLengthValidator, customLite,
     quoted, column, forceNullable, tableName, viewPrimaryKey, systemVersioned,
-} from "@altea/altea/entities/decorators";
-import { Temporal, type int, toInt } from "@altea/altea/entities/basics";
-import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
+} from "@altea/altea/data/decorators";
+import { Temporal, type int, toInt } from "@altea/altea/data/basics";
+import { CorruptMixin } from "@altea/altea/data/corruptMixin";
 import { sqlMethod, returnType, resultType } from "@altea/altea/server/query";
 import { LiteralType } from "@altea/altea/server/runtimeTypes";
 import type { SchemaAssets } from "@altea/altea/server/sync/schemaAssets";

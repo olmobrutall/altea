@@ -1,9 +1,9 @@
-import type { Entity, Type } from "../entities/entity";
-import type { Lite } from "../entities/lite";
+import type { Entity, Type } from "../data/entity";
+import type { Lite } from "../data/lite";
 import type {
     ExecuteSymbol, DeleteSymbol,
     ConstructSymbol, From, FromMany,
-} from "../entities/operations";
+} from "../data/operations";
 import { Graph } from "./graph";
 
 // `graph(Order, OrderState, g => { g.GetState = o => o.state; g.Execute(sym, { … }); … })`

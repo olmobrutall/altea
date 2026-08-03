@@ -1,5 +1,5 @@
 import type { Quoted } from 'quote-transformer/quoted';
-import type { Type, Entity } from '../../entities/entity';
+import type { Type, Entity } from '../../data/entity';
 import { ObjectName } from './objectName';
 import { EntityField, FieldPrimaryKey, FieldTicks, FieldMixin } from './field';
 import type { IColumn } from './column';

@@ -1,11 +1,11 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import "@altea/altea/entities/globals";
+import "@altea/altea/data/globals";
 import { table } from "@altea/altea/server/table";
 import { ClassType } from "@altea/altea/server/runtimeTypes";
-import { SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
-import { RootToken } from "@altea/altea/entities/dynamicQuery/tokens/rootToken";
-import { Implementations } from "@altea/altea/entities/implementations";
+import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
+import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
+import { Implementations } from "@altea/altea/data/implementations";
 import { DQueryable } from "@altea/altea/server/dynamicQuery/dQueryable";
 import { DEnumerable } from "@altea/altea/server/dynamicQuery/dEnumerable";
 import { FilterGroup, FilterGroupOperation, FilterCondition, FilterOperation } from "@altea/altea/server/dynamicQuery/requests";

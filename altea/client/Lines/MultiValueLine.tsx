@@ -14,10 +14,10 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ErrorBoundary } from "../Components";
 import { EntityBaseController } from "./EntityBase";
 import { type LineBaseProps, LineBaseController, useController, genericMemo } from "./LineBase";
-import { classes, KeyGenerator } from "../../entities/globals";
-import { BaseEntity } from "../../entities/entity";
-import { type FieldInfo } from "../../entities/reflection";
-import { SearchMessage } from "../../entities/uiMessages";
+import { classes, KeyGenerator } from "../../data/globals";
+import { BaseEntity } from "../../data/entity";
+import { type FieldInfo } from "../../data/reflection";
+import { SearchMessage } from "../../data/uiMessages";
 import { LinkButton } from "../Basics/LinkButton";
 
 interface MultiValueLineProps<R extends BaseEntity> extends LineBaseProps<R[]> {

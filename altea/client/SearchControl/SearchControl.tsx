@@ -7,14 +7,14 @@ import * as React from 'react'
 import { Finder } from '../Finder'
 import type { FindOptions, FindOptionsParsed, FilterOptionParsed, FilterOption } from '../FindOptions'
 import { QueryToken } from '../QueryToken'
-import { getKey } from '../../entities/dynamicQuery/queryUtils'
-import type { ResultTable, ResultRow, QueryRequest } from '../../entities/dynamicQuery/queryRequest'
-import type { Lite } from '../../entities/lite'
-import type { Entity, BaseEntity as ModifiableEntity } from '../../entities/entity'
-import type { EntityPack } from '../../entities/entityPack'
+import { getKey } from '../../data/dynamicQuery/queryUtils'
+import type { ResultTable, ResultRow, QueryRequest } from '../../data/dynamicQuery/queryRequest'
+import type { Lite } from '../../data/lite'
+import type { Entity, BaseEntity as ModifiableEntity } from '../../data/entity'
+import type { EntityPack } from '../../data/entityPack'
 import { getQueryKey, getQueryNiceName, tryGetTypeInfo } from '../Reflection'
 import { QueryTokenString } from '../QueryTokenString'
-import { cleanTypeName } from '../../entities/registration'
+import { cleanTypeName } from '../../data/registration'
 import { Navigator } from '../Navigator'
 import type { ViewPromise } from '../EntitySettings'
 import SearchControlLoaded, { type OnDrilldownOptions, type SearchControlMobileOptions, type SelectionChangeReason, type ShowBarExtensionOption } from './SearchControlLoaded'
@@ -22,7 +22,7 @@ import { ErrorBoundary } from '../Components';
 import "./Search.css"
 import { type ButtonBarElement, StyleContext } from '../TypeContext';
 import { useAPI, usePrevious } from '../Hooks'
-import type { RefreshMode } from '../../entities/dynamicQueries';
+import type { RefreshMode } from '../../data/dynamicQueries';
 import { type HeaderType, Title } from '../Lines/GroupHeader'
 
 export interface SimpleFilterBuilderProps {

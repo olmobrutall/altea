@@ -1,10 +1,10 @@
-import type { Entity } from "../entities/entity";
-import type { Lite } from "../entities/lite";
-import { OperationSymbol } from "../entities/operations";
+import type { Entity } from "../data/entity";
+import type { Lite } from "../data/lite";
+import { OperationSymbol } from "../data/operations";
 import type {
     ExecuteSymbol, DeleteSymbol,
     ConstructSymbol, From, FromMany,
-} from "../entities/operations";
+} from "../data/operations";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
 import { SymbolLogic } from "./symbolLogic";
 import {

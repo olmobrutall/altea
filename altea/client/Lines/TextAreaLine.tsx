@@ -2,7 +2,7 @@
 // assertType uses altea typeName ("String"); member→fieldInfo (maxLength) + PropertyRouteType enum;
 // charCounter text inlined (EntityControlMessage — localized/gender-number-aware — not ported yet).
 import * as React from 'react'
-import { classes } from '../../entities/globals'
+import { classes } from '../../data/globals'
 import { genericMemo, LineBaseController, type LineBaseProps, tasks, useController } from './LineBase'
 import { FormGroup } from './FormGroup'
 import TextArea from '../Components/TextArea';
@@ -10,7 +10,7 @@ import { getTimeMachineIcon } from './TimeMachineIcon'
 import { TextBoxLineController } from './TextBoxLine'
 import { useForceUpdate } from '../Hooks'
 import { TextBaseController, type TextBaseProps } from './TextBase'
-import { PropertyRouteType } from '../../entities/propertyRoute'
+import { PropertyRouteType } from '../../data/propertyRoute'
 
 export interface TextAreaLineProps extends TextBaseProps<string | null> {
   autoResize?: boolean;

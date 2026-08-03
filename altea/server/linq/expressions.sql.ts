@@ -1,9 +1,9 @@
 import { Expression } from "./expressions";
 import { LiteralType, RuntimeType, IntervalType } from "../runtimeTypes";
 import { SystemTime } from "../systemTime";
-import type { FieldInfo } from "../../entities/reflection";
-import type { Type, Entity } from "../../entities/entity";
-import type { CustomLiteClass } from "../../entities/lite";
+import type { FieldInfo } from "../../data/reflection";
+import type { Type, Entity } from "../../data/entity";
+import type { CustomLiteClass } from "../../data/lite";
 import type { Table } from "../schema/table";
 import { Alias } from "./aliasGenerator";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";

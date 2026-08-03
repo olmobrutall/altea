@@ -8,12 +8,12 @@
 // span) needs EngineMessage._01NotFound, which isn't ported yet.
 import * as React from "react";
 import { Link } from "react-router";
-import type { Lite } from "../../entities/lite";
-import type { Entity, BaseEntity } from "../../entities/entity";
+import type { Lite } from "../../data/lite";
+import type { Entity, BaseEntity } from "../../data/entity";
 import { Navigator } from "../Navigator";
 import * as AppContext from "../AppContext";
 import { StyleContext } from "../TypeContext";
-import { classes } from "../../entities/globals";
+import { classes } from "../../data/globals";
 import type { ViewPromise } from "../EntitySettings";
 
 export interface EntityLinkProps extends React.HTMLAttributes<HTMLAnchorElement> {

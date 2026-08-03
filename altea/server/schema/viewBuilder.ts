@@ -1,5 +1,5 @@
-import type { Entity, Type } from '../../entities/entity';
-import { getTypeInfo, FieldInfo } from '../../entities/reflection';
+import type { Entity, Type } from '../../data/entity';
+import { getTypeInfo, FieldInfo } from '../../data/reflection';
 import { AbstractDbType, IsNullable, defaultDbType } from './dbType';
 import { PrimaryKeyColumn, ValueColumn, ReferenceColumn } from './column';
 import { FieldValue, FieldReference, FieldPrimaryKey, EntityField, Field } from './field';

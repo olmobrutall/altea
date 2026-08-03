@@ -1,7 +1,7 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
-import { Temporal } from "@altea/altea/entities/basics";
+import { Temporal } from "@altea/altea/data/basics";
 import { hasDb, start } from "./setup";
 import { NoteWithDateEntity } from "../entities/music";
 

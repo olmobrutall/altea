@@ -52,14 +52,14 @@ import {
     FieldPrimaryKey, FieldValue, FieldReference, FieldEnum, FieldEmbedded, FieldEntityArray,
     FieldImplementedBy, FieldImplementedByAll,
 } from "../../schema/field";
-import type { FieldInfo } from "../../../entities/reflection";
-import { Entity, View, ModelEntity } from "../../../entities/entity";
-import type { Type } from "../../../entities/entity";
-import { TypeEntity } from "../../../entities/typeEntity";
-import { toInt, toLong, toDecimal, inSql, Temporal } from "../../../entities/basics";
-import { Lite, getCustomLiteConstructor, getCustomLiteConstructorFor } from "../../../entities/lite";
-import type { CustomLiteClass } from "../../../entities/lite";
-import { Localization } from "../../../entities/utils/localization";
+import type { FieldInfo } from "../../../data/reflection";
+import { Entity, View, ModelEntity } from "../../../data/entity";
+import type { Type } from "../../../data/entity";
+import { TypeEntity } from "../../../data/typeEntity";
+import { toInt, toLong, toDecimal, inSql, Temporal } from "../../../data/basics";
+import { Lite, getCustomLiteConstructor, getCustomLiteConstructorFor } from "../../../data/lite";
+import type { CustomLiteClass } from "../../../data/lite";
+import { Localization } from "../../../data/utils/localization";
 import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, RuntimeType } from "../../runtimeTypes";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";

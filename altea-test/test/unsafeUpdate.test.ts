@@ -1,17 +1,17 @@
 import { before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table, view } from "@altea/altea/server/table";
-import "@altea/altea/entities/globals"; // String methods (toUpperCase etc.), SQL-mappable
+import "@altea/altea/data/globals"; // String methods (toUpperCase etc.), SQL-mappable
 import { hasDb, start, txTest } from "./setup";
-import { Clock } from "@altea/altea/entities/utils/clock";
-import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
+import { Clock } from "@altea/altea/data/utils/clock";
+import { CorruptMixin } from "@altea/altea/data/corruptMixin";
 import { Administrator } from "@altea/altea/server/Administrator";
 import {
     ArtistEntity, AlbumEntity, LabelEntity,
     NoteWithDateEntity, SongEmbedded, Sex, MyTempView2,
     ArtistEntity_Friends, BandEntity_Members, AlbumEntity_Songs,
 } from "../entities/music";
-import { toInt } from "@altea/altea/entities/basics";
+import { toInt } from "@altea/altea/data/basics";
 
 // Port of Signum.Test/LinqProvider/UnsafeUpdateTest.cs (set-based bulk UPDATE).
 //

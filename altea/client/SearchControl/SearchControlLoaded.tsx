@@ -10,23 +10,23 @@
 //   - ColumnEditorModal + SystemTimeEditor are DEFERRED stubs (see those files).
 import * as React from 'react'
 import { DomUtils } from '../domGlobals'
-import { classes, Dic, softCast, isNumber } from '../../entities/globals'
+import { classes, Dic, softCast, isNumber } from '../../data/globals'
 import { Finder } from '../Finder'
 import type {
   FindOptionsParsed, FilterOption, FilterOptionParsed, ColumnOption, ColumnOptionParsed,
   OrderOption, OrderOptionParsed, FindOptions
 } from '../FindOptions'
 import { filterOperations, isActive, isFilterCondition, withoutPinned } from '../FindOptions'
-import type { ResultTable, ResultRow, Pagination, QueryRequest } from '../../entities/dynamicQuery/queryRequest'
+import type { ResultTable, ResultRow, Pagination, QueryRequest } from '../../data/dynamicQuery/queryRequest'
 import { QueryToken, SubTokensOptions } from '../QueryToken'
-import { getKey } from '../../entities/dynamicQuery/queryUtils'
+import { getKey } from '../../data/dynamicQuery/queryUtils'
 import { Temporal } from 'temporal-polyfill'
-import { cleanTypeName } from '../../entities/registration'
-import { SearchMessage, JavascriptMessage, FrameMessage } from '../../entities/uiMessages'
-import { Lite } from '../../entities/lite'
-import { Entity, ModelEntity, EmbeddedEntity, BaseEntity as ModifiableEntity } from '../../entities/entity'
-import type { EntityPack } from '../../entities/entityPack'
-import { TypeInfo } from '../../entities/reflection'
+import { cleanTypeName } from '../../data/registration'
+import { SearchMessage, JavascriptMessage, FrameMessage } from '../../data/uiMessages'
+import { Lite } from '../../data/lite'
+import { Entity, ModelEntity, EmbeddedEntity, BaseEntity as ModifiableEntity } from '../../data/entity'
+import type { EntityPack } from '../../data/entityPack'
+import { TypeInfo } from '../../data/reflection'
 import { QueryTokenString } from '../QueryTokenString'
 import { getQueryNiceName, getTypeInfo } from '../Reflection'
 import { isNumberType } from '../numberFormat'
@@ -46,9 +46,9 @@ import { renderContextualItems, type ContextualItemsContext, type ContextualMenu
 import ContextMenu, { type ContextMenuPosition, getMouseEventPosition } from './ContextMenu'
 import SelectorModal from '../SelectorModal'
 import type { ISimpleFilterBuilder } from './SearchControl'
-import { type FilterOperation, type PaginationMode, type SystemTimeMode, SystemTimeModeEnum } from '../../entities/dynamicQueries';
-import type { RefreshMode } from '../../entities/dynamicQueries';
-import { Enum } from '../../entities/enum';
+import { type FilterOperation, type PaginationMode, type SystemTimeMode, SystemTimeModeEnum } from '../../data/dynamicQueries';
+import type { RefreshMode } from '../../data/dynamicQueries';
+import { Enum } from '../../data/enum';
 import SystemTimeEditor from './SystemTimeEditor';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import "./Search.css"
@@ -61,9 +61,9 @@ import { getBreakpoint, Breakpoints, useForceUpdate, useAPI } from '../Hooks'
 import type { IconProp } from '@fortawesome/fontawesome-svg-core'
 import { SearchHelp } from './SearchControlVisualTips'
 import { VisualTipIcon, SearchVisualTip } from '../Basics/VisualTipIcon'
-import { TypeEntity } from '../../entities/typeEntity'
+import { TypeEntity } from '../../data/typeEntity'
 import { KeyNames } from '../Components'
-import { CollectionMessage } from '../../entities/dynamicQueries'
+import { CollectionMessage } from '../../data/dynamicQueries'
 import { LinkButton } from '../Basics/LinkButton'
 import { AccessibleTable } from '../Basics/AccessibleTable'
 

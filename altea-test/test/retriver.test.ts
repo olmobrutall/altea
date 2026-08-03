@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { retrieve, retrieveList, retrieveFromListOfLite } from "@altea/altea/server/Database";
 import { Connector } from "@altea/altea/server/connection/connector";
-import { Entity } from "@altea/altea/entities/entity";
+import { Entity } from "@altea/altea/data/entity";
 import { exploreModifiables } from "@altea/altea/server/graphExplorer";
-import { isModifiedSelf } from "@altea/altea/entities/changes";
+import { isModifiedSelf } from "@altea/altea/data/changes";
 import { hasDb, start } from "./setup";
 import {
     CountryEntity, GrammyAwardEntity, LabelEntity,

@@ -1,7 +1,7 @@
 import * as React from "react";
 import type { TypeContext } from "./TypeContext";
 import { AutoLine } from "./Lines/AutoLine";
-import { Dic } from "../entities/globals";
+import { Dic } from "../data/globals";
 
 // Signum's AutoComponent: the default view generated when no component is registered for an entity.
 // It enumerates the entity's property routes (PropertyRoute.subMembers) and renders an AutoLine per

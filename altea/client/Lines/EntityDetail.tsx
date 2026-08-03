@@ -4,10 +4,10 @@
 //   - idioms: isLite(x)→x instanceof Lite; isEntity(x)→x instanceof Entity.
 //   - dropped unused Signum imports (getTypeInfos / FontAwesomeIcon / GroupHeader).
 import * as React from 'react'
-import { classes } from '../../entities/globals'
+import { classes } from '../../data/globals'
 import type { TypeContext } from '../TypeContext'
-import { BaseEntity, Entity, EmbeddedEntity } from '../../entities/entity'
-import { Lite } from '../../entities/lite'
+import { BaseEntity, Entity, EmbeddedEntity } from '../../data/entity'
+import { Lite } from '../../data/lite'
 import { EntityBaseController, type EntityBaseProps } from './EntityBase'
 import { RenderEntity } from './RenderEntity'
 import { genericMemo, useController } from './LineBase'

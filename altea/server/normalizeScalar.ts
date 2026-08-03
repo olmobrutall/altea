@@ -1,4 +1,4 @@
-import { Temporal } from '../entities/basics';
+import { Temporal } from '../data/basics';
 
 // Normalise a scalar value into a dialect-portable form the DB drivers accept as a
 // parameter. Primitives pass through; a JS Date is left as-is. Temporal values are

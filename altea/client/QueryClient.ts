@@ -8,9 +8,9 @@
 // wires the server-side hooks on import). `getSubTokens(token, options)` then returns the local
 // metadata tokens merged with the fetched ones.
 
-import { getKey } from "../entities/dynamicQuery/queryUtils";
-import { setServerTokensProvider, type QueryToken, type SubTokensOptions } from "../entities/dynamicQuery/tokens";
-import { deserializeServerToken, type ServerTokenJson } from "../entities/dynamicQuery/tokenSerializer";
+import { getKey } from "../data/dynamicQuery/queryUtils";
+import { setServerTokensProvider, type QueryToken, type SubTokensOptions } from "../data/dynamicQuery/tokens";
+import { deserializeServerToken, type ServerTokenJson } from "../data/dynamicQuery/tokenSerializer";
 
 // query key | token fullKey | options  ->  the in-flight/settled fetch. Cached as raw JSON (not token
 // instances) so each call rebuilds the tokens off the CALLER's local parent.

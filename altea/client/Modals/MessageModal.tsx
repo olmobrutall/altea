@@ -5,8 +5,8 @@
 import * as React from 'react'
 import { openModal } from '../Modals';
 import type { IModalProps } from '../Modals';
-import { classes } from '../../entities/globals';
-import { JavascriptMessage } from '../../entities/uiMessages'
+import { classes } from '../../data/globals';
+import { JavascriptMessage } from '../../data/uiMessages'
 import type { IconProp } from '@fortawesome/fontawesome-svg-core';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import "./DialogModals.css"

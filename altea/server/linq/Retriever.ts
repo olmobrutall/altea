@@ -1,6 +1,6 @@
-import { cleanModified } from "../../entities/changes";
-import { Entity, type PrimaryKey, BaseEntity, type Type } from "../../entities/entity";
-import { Lite, LiteImp } from "../../entities/lite";
+import { cleanModified } from "../../data/changes";
+import { Entity, type PrimaryKey, BaseEntity, type Type } from "../../data/entity";
+import { Lite, LiteImp } from "../../data/lite";
 import { TypeLogic } from "../typeLogic";
 
 // Port of Signum's TranslatorBuilder + TranslateResult + ProjectionReader.

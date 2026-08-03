@@ -7,10 +7,10 @@
 // Where Signum's client used a `queryTokenType` string discriminator (its client token was a flat
 // DTO with no class identity), altea categorizes with `instanceof` against the real token subclasses.
 
-import { QueryToken } from '../entities/dynamicQuery/tokens';
+import { QueryToken } from '../data/dynamicQuery/tokens';
 import { QueryTokenString } from './QueryTokenString';
 
-export { QueryToken, SubTokensOptions, SubTokensOptionsAll } from '../entities/dynamicQuery/tokens';
+export { QueryToken, SubTokensOptions, SubTokensOptionsAll } from '../data/dynamicQuery/tokens';
 
 // The token-CATEGORY predicates (isAggregate/isAnyOrAll/isElement/isToArray), the parent-walking
 // `has*` checks (hasAnyOrAll/hasAny/hasAggregate/hasElement/hasToArray/hasOperation/hasManual/…) and

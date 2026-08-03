@@ -9,7 +9,7 @@
 //     the `manualSubTokens` registry + register/clear stay as the public API, but `getManualSubTokens`
 //     always returns undefined for now (TODO(port): manual/cell tokens).
 import * as React from 'react'
-import { classes, Dic } from '../../entities/globals'
+import { classes, Dic } from '../../data/globals'
 import { Finder } from '../Finder'
 import { SubTokensOptions } from '../QueryToken'
 import { QueryToken } from '../QueryToken';

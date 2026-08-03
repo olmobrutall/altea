@@ -1,8 +1,8 @@
-import { reflect } from "../../../entities/reflection";
-import { tableName, viewPrimaryKey, quoted } from "../../../entities/decorators";
-import type { int } from "../../../entities/basics";
+import { reflect } from "../../../data/reflection";
+import { tableName, viewPrimaryKey, quoted } from "../../../data/decorators";
+import type { int } from "../../../data/basics";
 import { view } from "../../table";
-import { View } from "../../../entities/entity";
+import { View } from "../../../data/entity";
 import type { Query } from "../../query";
 
 // Port of Signum's Engine/Sync/Postgres/PostgresCatalog.cs — the strongly-typed IView classes

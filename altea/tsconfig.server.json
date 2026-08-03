@@ -1,0 +1,14 @@
+{
+  // SERVER layer (engine: connection, linq, schema, sync, dynamicQuery, logic). Both organisations
+  // accepted: the server/ directory OR co-located *.server.ts suffix files. node-only; references DATA.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo.server",
+    "types": ["node"]
+  },
+  "include": ["server/**/*", "**/*.server.ts"],
+  "exclude": ["data/**", "client/**"],
+  "references": [{ "path": "./tsconfig.data.json" }]
+}

@@ -1,6 +1,6 @@
-import type { Entity } from "../entities/entity";
-import type { Lite } from "../entities/lite";
-import type { OperationSymbol } from "../entities/operations";
+import type { Entity } from "../data/entity";
+import type { Lite } from "../data/lite";
+import type { OperationSymbol } from "../data/operations";
 
 // Port of Signum's operation-kind enum + the IOperation interface family (Internal.cs /
 // OperationLogic.cs), trimmed to what altea supports. The invoke methods are `doX` (not

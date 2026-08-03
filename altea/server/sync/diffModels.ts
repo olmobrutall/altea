@@ -3,7 +3,7 @@ import type { IColumn } from '../schema/column';
 import type { TableIndex } from '../schema/tableIndex';
 import { ObjectName, SchemaName, DatabaseName } from '../schema/objectName';
 import { Connector } from '../connection/connector';
-import { View } from '../../entities/entity';
+import { View } from '../../data/entity';
 
 // The default schema of either dialect ('dbo' / 'public') maps to altea's empty default
 // SchemaName, so introspected object names match the model's. Neither is a real user schema.

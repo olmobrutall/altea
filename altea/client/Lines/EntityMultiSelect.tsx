@@ -5,9 +5,9 @@
 // `instanceof BaseEntity`; select maps each to its value lite and diffs against the current rows
 // (`addValue` for new, `removeElement` for deselected). showType keys off the @valueField's type.
 import * as React from 'react'
-import type { ResultRow, ResultTable } from '../../entities/dynamicQuery/queryRequest'
-import { BaseEntity, Entity } from '../../entities/entity'
-import { Lite } from '../../entities/lite'
+import type { ResultRow, ResultTable } from '../../data/dynamicQuery/queryRequest'
+import { BaseEntity, Entity } from '../../data/entity'
+import { Lite } from '../../data/lite'
 import { EntityListBaseController, type EntityListBaseProps } from './EntityListBase'
 import { Navigator } from '../Navigator'
 import { Multiselect } from 'react-widgets-up'
@@ -17,7 +17,7 @@ import { Finder } from '../Finder'
 import { normalizeEmptyArray } from './EntityCombo'
 import { useMounted } from '../Hooks'
 import { FormGroup } from './FormGroup'
-import { classes } from '../../entities/globals'
+import { classes } from '../../data/globals'
 
 // null-safe entity/lite equality (BaseEntity has no `.is`).
 function isLiteEqual(a?: Entity | Lite<Entity>, b?: Entity | Lite<Entity>): boolean {

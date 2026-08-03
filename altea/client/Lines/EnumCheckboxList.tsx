@@ -4,7 +4,7 @@
 // and the Signum.Entities MList imports are dropped. Import paths retargeted; only the used
 // getTimeMachineCheckboxIcon is imported (Signum also imported an unused getTimeMachineIcon).
 import * as React from 'react'
-import { classes, Dic } from '../../entities/globals'
+import { classes, Dic } from '../../data/globals'
 import { mlistItemContext, TypeContext } from '../TypeContext'
 import { getTypeInfo } from '../Reflection'
 import { genericMemo, LineBaseController, useController } from '../Lines/LineBase'

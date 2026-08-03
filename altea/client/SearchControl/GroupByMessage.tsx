@@ -4,13 +4,13 @@
 //   - QueryToken is a class: `.queryTokenType != "Aggregate"` → `!a.isAggregate()`; `.fullKey`→`fullKey()`,
 //     `.niceName`→`niceName()`. formatHtml/joinCommaHtml installed via ../AppContext.
 import * as React from 'react'
-import { Dic } from '../../entities/globals'
+import { Dic } from '../../data/globals'
 import type { FindOptionsParsed } from '../FindOptions'
-import type { TypeReference } from '../../entities/reflection'
+import type { TypeReference } from '../../data/reflection'
 import { getQueryNiceName } from '../Reflection'
 import { } from '../QueryToken'
-import { ValidationMessage } from '../../entities/validators';
-import { CollectionMessage } from '../../entities/dynamicQueries';
+import { ValidationMessage } from '../../data/validators';
+import { CollectionMessage } from '../../data/dynamicQueries';
 import { VisualTipIcon, SearchVisualTip } from '../Basics/VisualTipIcon';
 import { GroupHelp } from './SearchControlVisualTips';
 import '../AppContext'

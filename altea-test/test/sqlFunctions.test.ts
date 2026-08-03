@@ -2,9 +2,9 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { Transaction } from "@altea/altea/server/connection/transaction";
-import "@altea/altea/entities/globals"; // String.contains / startsWith / endsWith / … (SQL-mappable)
-import { Temporal } from "@altea/altea/entities/basics";
-import { DayOfWeek } from "@altea/altea/entities/globals/dateTimeExtensions"; // + Temporal date-helper augmentations
+import "@altea/altea/data/globals"; // String.contains / startsWith / endsWith / … (SQL-mappable)
+import { Temporal } from "@altea/altea/data/basics";
+import { DayOfWeek } from "@altea/altea/data/globals/dateTimeExtensions"; // + Temporal date-helper augmentations
 import { hasDb, start } from "./setup";
 import {
     ArtistEntity, AlbumEntity, AlbumEntity_Songs, BandEntity, LabelEntity,

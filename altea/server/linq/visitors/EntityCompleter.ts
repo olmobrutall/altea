@@ -7,7 +7,7 @@ import type { Table } from "../../schema/table";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 import type { QueryBinder } from "./QueryBinder";
 import { isCachedType } from "../../cache";
-import type { Entity } from "../../../entities/entity";
+import type { Entity } from "../../../data/entity";
 
 // Port of Signum's EntityCompleter — the pass that, over the bound projector,
 // fills the eager model (`toStr`) of projected lites. The decisive structural piece

@@ -1,15 +1,15 @@
 import * as React from 'react'
 import { getTypeName, tryGetTypeInfo } from './Reflection'
 import type { PseudoType, MemberInfo, IType } from './Reflection'
-import { PropertyRoute, PropertyRouteType } from '../entities/propertyRoute'
-import { TypeReference } from '../entities/reflection'
+import { PropertyRoute, PropertyRouteType } from '../data/propertyRoute'
+import { TypeReference } from '../data/reflection'
 import { ReadonlyBinding, createBinding, getLambdaMembers, getFieldMembers, Binding } from './binding'
 import type { IBinding, LambdaMember } from './binding'
 import type { Quoted } from 'quote-transformer/quoted'
-import { BaseEntity } from '../entities/entity'
-import type { Entity, MixinEntity, ModelEntity, Type } from '../entities/entity'
-import type { EntityPack } from '../entities/entityPack'
-import type { ModelState } from '../entities/validation'
+import { BaseEntity } from '../data/entity'
+import type { Entity, MixinEntity, ModelEntity, Type } from '../data/entity'
+import type { EntityPack } from '../data/entityPack'
+import type { ModelState } from '../data/validation'
 
 // EntityOperationContext is the real class in ./Operations now (type-only import — Operations imports
 // TypeContext's types back, so both directions erase at runtime → no cycle).

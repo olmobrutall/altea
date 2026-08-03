@@ -6,11 +6,11 @@
 //     Operations layer isn't ported yet, so we fall through to a plain New with a TODO. Restore the
 //     operation-based construction (SelectorModal.chooseElement + ConstructorOperationContext) once
 //     react Operations lands.
-import { Dic } from '../entities/globals';
-import { BaseEntity, type Type } from '../entities/entity';
-import { isEntityPack, type EntityPack } from '../entities/entityPack';
-import { resolveType } from '../entities/registration';
-import { PropertyRoute } from '../entities/propertyRoute';
+import { Dic } from '../data/globals';
+import { BaseEntity, type Type } from '../data/entity';
+import { isEntityPack, type EntityPack } from '../data/entityPack';
+import { resolveType } from '../data/registration';
+import { PropertyRoute } from '../data/propertyRoute';
 import { tryGetTypeInfo } from './Reflection';
 import { Navigator } from './Navigator';
 

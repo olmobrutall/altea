@@ -2,7 +2,7 @@
 // name string in altea, its metadata is on fieldInfo).
 import * as React from 'react'
 import { type StyleContext, type TypeContext } from '../TypeContext';
-import { classes } from '../../entities/globals';
+import { classes } from '../../data/globals';
 import "./Lines.css"
 
 export interface FormGroupProps {

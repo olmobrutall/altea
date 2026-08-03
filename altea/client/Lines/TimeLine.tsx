@@ -6,8 +6,8 @@
 //   - dropped Reflection duration-format helpers (toLuxonDurationFormat/timeToString/timePlaceholder);
 //     display is a fixed HH:MM:SS for now (TODO: honor p.format).
 import * as React from 'react';
-import { classes } from '../../entities/globals';
-import { Temporal } from '../../entities/basics';
+import { classes } from '../../data/globals';
+import { Temporal } from '../../data/basics';
 import { genericMemo, LineBaseController, useController } from './LineBase';
 import { FormGroup } from './FormGroup';
 import { FormControlReadonly } from './FormControlReadonly';

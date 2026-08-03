@@ -13,11 +13,11 @@
 // swagger schema).
 
 import express, { type Express, type Request, type Response, type RequestHandler } from "express";
-import { BaseEntity, type Entity } from "../entities/entity";
-import type { Lite } from "../entities/lite";
+import { BaseEntity, type Entity } from "../data/entity";
+import type { Lite } from "../data/lite";
 import { RuntimeType, ClassType, ArrayType, LiteType, LiteralType } from "./runtimeTypes";
-import { Serializer } from "../entities/serializer";
-import type { IntegrityCheck } from "../entities/validation";
+import { Serializer } from "../data/serializer";
+import type { IntegrityCheck } from "../data/validation";
 
 // A class reference (abstract-tolerant, so `Entity`/`BaseEntity` bases are accepted).
 type Ctor<T> = abstract new (...args: any[]) => T;

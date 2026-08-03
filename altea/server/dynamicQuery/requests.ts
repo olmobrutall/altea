@@ -1,10 +1,10 @@
 import { Expression, ParameterExpression, BinaryExpression, ConstantExpression, PropertyExpression, CallExpression } from "../linq/expressions";
 import { LiteralType, ArrayType } from "../runtimeTypes";
-import type { Implementations } from "../../entities/implementations";
+import type { Implementations } from "../../data/implementations";
 import type { RuntimeType } from "../runtimeTypes";
 import { BuildExpressionContext, ExpressionBox, buildLite } from "./tokenExpressions";
-import { QueryToken, CollectionElementToken, CollectionAnyAllToken, AggregateToken } from "../../entities/dynamicQuery/tokens";
-import type { QueryName } from "../../entities/dynamicQuery/queryUtils";
+import { QueryToken, CollectionElementToken, CollectionAnyAllToken, AggregateToken } from "../../data/dynamicQuery/tokens";
+import type { QueryName } from "../../data/dynamicQuery/queryUtils";
 
 // True if the token is an aggregate (or nested under one) — Signum's IsAggregate.
 function tokenIsAggregate(token: QueryToken | undefined): boolean {

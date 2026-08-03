@@ -3,7 +3,7 @@ import {
     ConstantExpression, CastExpression, CallExpression, PropertyExpression,
     ParameterExpression, LambdaExpression, ObjectExpression,
 } from "./expressions";
-import { inSql, toInt, toLong, toDecimal, Temporal } from "../../entities/basics";
+import { inSql, toInt, toLong, toDecimal, Temporal } from "../../data/basics";
 import {
     ColumnExpression, SqlConstantExpression, SqlLiteralExpression, PrimaryKeyExpression,
     IsNullExpression, IsNotNullExpression, LikeExpression, SqlFunctionExpression, SqlCastExpression,
@@ -11,7 +11,7 @@ import {
     ProjectionExpression, ToDayOfWeekExpression, SqlArrayIndexExpression,
 } from "./expressions.sql";
 import { EnumType, LiteralType, TemporalType, RuntimeType } from "../runtimeTypes";
-import { enumEntityMembers } from "../../entities/enumEntity";
+import { enumEntityMembers } from "../../data/enumEntity";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 
 // A since() difference marker — a SqlFunctionExpression carrying (start, end) until

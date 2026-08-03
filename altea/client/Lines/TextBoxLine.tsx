@@ -1,6 +1,6 @@
 // Ported from Signum.React/Lines/TextBoxLine.tsx — copy-paste + fix (imports retargeted only).
 import * as React from 'react'
-import { classes } from '../../entities/globals'
+import { classes } from '../../data/globals'
 import { genericMemo, LineBaseController, useController } from './LineBase'
 import { FormGroup } from './FormGroup'
 import { FormControlReadonly } from './FormControlReadonly'

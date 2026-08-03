@@ -7,10 +7,10 @@
 // which returns 204. The request body (entity / lite / args, all possibly entity graphs) is decoded
 // by the entity Serializer via req.jsonTyped; the EntityPack is re-serialised by res.jsonTyped.
 
-import { Entity } from "../entities/entity";
-import type { Lite } from "../entities/lite";
-import type { OperationSymbol, ExecuteSymbol, DeleteSymbol, ConstructSymbol, From, FromMany } from "../entities/operations";
-import type { EntityPack } from "../entities/entityPack";
+import { Entity } from "../data/entity";
+import type { Lite } from "../data/lite";
+import type { OperationSymbol, ExecuteSymbol, DeleteSymbol, ConstructSymbol, From, FromMany } from "../data/operations";
+import type { EntityPack } from "../data/entityPack";
 import { OperationLogic, Operations } from "./operationLogic";
 import type { IEntityOperation } from "./operation";
 import * as Database from "./Database";

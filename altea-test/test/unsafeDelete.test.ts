@@ -9,7 +9,7 @@ import {
 } from "../entities/music";
 import { deleteList } from "@altea/altea/server/Database";
 import { Administrator } from "@altea/altea/server/Administrator";
-import { toInt } from "@altea/altea/entities/basics";
+import { toInt } from "@altea/altea/data/basics";
 
 // Port of Signum.Test/LinqProvider/UnsafeDeleteTest.cs (set-based bulk DELETE).
 //

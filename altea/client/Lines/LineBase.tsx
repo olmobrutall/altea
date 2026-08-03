@@ -3,11 +3,11 @@
 //     ../../entities/validators; ../TypeContext / ../Reflection / ../Hooks are altea react siblings.
 //   - verbatimModuleSyntax: type-only imports marked.
 import * as React from 'react'
-import { classes, Dic } from '../../entities/globals'
+import { classes, Dic } from '../../data/globals'
 import { type TypeContext, type StyleOptions } from '../TypeContext'
-import type { FieldInfo } from '../../entities/reflection'
-import { ValidationMessage } from '../../entities/validators'
-import { PropertyRouteType } from '../../entities/propertyRoute'
+import type { FieldInfo } from '../../data/reflection'
+import { ValidationMessage } from '../../data/validators'
+import { PropertyRouteType } from '../../data/propertyRoute'
 import { useForceUpdate } from '../Hooks'
 
 export interface ChangeEvent {

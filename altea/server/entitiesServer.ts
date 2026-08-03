@@ -11,9 +11,9 @@
 // TODO: canExecute (OperationLogic), efficient exists, primary-key coercion, Serializer.parse
 // `resolve` overlay onto the DB original.
 
-import { Entity, type PrimaryKey, type Type } from "../entities/entity";
-import { entityIntegrityCheck } from "../entities/validation";
-import type { EntityPack } from "../entities/entityPack";
+import { Entity, type PrimaryKey, type Type } from "../data/entity";
+import { entityIntegrityCheck } from "../data/validation";
+import type { EntityPack } from "../data/entityPack";
 import * as Database from "./Database";
 import { Saver } from "./saver";
 import { table } from "./table";

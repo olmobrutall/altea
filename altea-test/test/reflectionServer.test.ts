@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { init } from "@altea/altea/entities/reflection";
-import type { ConstructSymbol, From, ExecuteSymbol, DeleteSymbol } from "@altea/altea/entities/operations";
+import { init } from "@altea/altea/data/reflection";
+import type { ConstructSymbol, From, ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { graph } from "@altea/altea/server/graphBuilder";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { ReflectionServer } from "@altea/altea/server/reflectionServer";

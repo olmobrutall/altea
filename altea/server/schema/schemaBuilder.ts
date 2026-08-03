@@ -1,8 +1,8 @@
-import { Entity, EmbeddedEntity } from '../../entities/entity';
-import type { Type } from '../../entities/entity';
-import { MixinDeclarations } from '../../entities/mixinDeclarations';
-import type { EntityData } from '../../entities/decorators';
-import { getTypeInfo, enumNameOf, FieldInfo, TypeInfo, schemaForName, type PrimaryKeyType } from '../../entities/reflection';
+import { Entity, EmbeddedEntity } from '../../data/entity';
+import type { Type } from '../../data/entity';
+import { MixinDeclarations } from '../../data/mixinDeclarations';
+import type { EntityData } from '../../data/decorators';
+import { getTypeInfo, enumNameOf, FieldInfo, TypeInfo, schemaForName, type PrimaryKeyType } from '../../data/reflection';
 import { AbstractDbType, IsNullable, defaultDbType, primaryKeyDbType } from './dbType';
 import {
     type IColumn,
@@ -36,9 +36,9 @@ import { FluentInclude } from './fluentInclude';
 import { SystemVersionedInfo } from './systemVersioned';
 import { TableIndex, recordAccessedFields } from './tableIndex';
 import { getIndexWhere } from './indexWhere';
-import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../entities/enumEntity';
-import { TypeEntity } from '../../entities/typeEntity';
-import { isSymbolType } from '../../entities/symbol';
+import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../data/enumEntity';
+import { TypeEntity } from '../../data/typeEntity';
+import { isSymbolType } from '../../data/symbol';
 import { TypeLogic } from '../typeLogic';
 import type { WebBuilder } from '../webApi';
 

@@ -1,5 +1,5 @@
 
-import { Entity, type PrimaryKey, type Type, type ViewType, type View } from "../entities/entity";
+import { Entity, type PrimaryKey, type Type, type ViewType, type View } from "../data/entity";
 import { CallExpression, ConstantExpression, Expression, PropertyExpression, ParameterExpression, LambdaExpression } from "./linq/expressions";
 import { Retriever } from "./linq/Retriever";
 import { quotedFunction, type IQueryTranslator, Query } from "./query";

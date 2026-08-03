@@ -1,9 +1,9 @@
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import "@altea/altea/entities/globals";
+import "@altea/altea/data/globals";
 import { ParameterExpression, PropertyExpression, CallExpression, LambdaExpression, BinaryExpression } from "@altea/altea/server/linq/expressions";
 import { ClassType, LiteralType } from "@altea/altea/server/runtimeTypes";
-import { PropertyRoute } from "@altea/altea/entities/propertyRoute";
+import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { CleanMeta, DirtyMeta } from "@altea/altea/server/dynamicQuery/meta";
 import { MetadataVisitor } from "@altea/altea/server/dynamicQuery/metadataVisitor";
 import { AlbumEntity, AlbumEntity_Songs, LabelEntity, ArtistEntity, BandEntity } from "../../entities/music";

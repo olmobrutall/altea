@@ -1,14 +1,14 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
-import "@altea/altea/entities/globals"; // String.contains / startsWith and the Array aggregate operators on entity collections
+import "@altea/altea/data/globals"; // String.contains / startsWith and the Array aggregate operators on entity collections
 import { hasDb, start } from "./setup";
 import {
     ArtistEntity, AlbumEntity, BandEntity,
     ConfigEntity, AwardNominationEntity,
     Sex, Status,
 } from "../entities/music";
-import { withQuoted } from "@altea/altea/entities/decorators";
+import { withQuoted } from "@altea/altea/data/decorators";
 
 // Signum's EnumExtensions.IsDefined — "is this a defined enum member". altea has no enum
 // methods in queries, but the predicate is expressible: a `withQuoted` free function whose

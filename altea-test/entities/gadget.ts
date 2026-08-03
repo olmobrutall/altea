@@ -1,6 +1,6 @@
-import { reflect } from "@altea/altea/entities/reflection";
-import { Entity } from "@altea/altea/entities/entity";
-import { column, serialize } from "@altea/altea/entities/decorators";
+import { reflect } from "@altea/altea/data/reflection";
+import { Entity } from "@altea/altea/data/entity";
+import { column, serialize } from "@altea/altea/data/decorators";
 
 // Exercises the JSON codec's field-selection (see json.test.ts): a plain mapped field, a
 // @column(false) field (absent from the DB but still serialized), and a @serialize(false)

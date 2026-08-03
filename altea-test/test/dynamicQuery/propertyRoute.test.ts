@@ -1,8 +1,8 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import "@altea/altea/entities/globals";
-import { PropertyRoute, PropertyRouteType } from "@altea/altea/entities/propertyRoute";
-import { Implementations } from "@altea/altea/entities/implementations";
+import "@altea/altea/data/globals";
+import { PropertyRoute, PropertyRouteType } from "@altea/altea/data/propertyRoute";
+import { Implementations } from "@altea/altea/data/implementations";
 import {
     AlbumEntity, AlbumEntity_Songs, LabelEntity, CountryEntity, ArtistEntity, BandEntity,
 } from "../../entities/music";

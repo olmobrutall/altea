@@ -1,12 +1,12 @@
 import { test, describe, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import "@altea/altea/entities/globals";
+import "@altea/altea/data/globals";
 import "@altea/altea/server/dynamicQuery/tokenExpressions"; // register factories + expression prototypes
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
-import { SubTokensOptionsAll, getSubTokens, setServerTokensProvider } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
-import { RootToken } from "@altea/altea/entities/dynamicQuery/tokens/rootToken";
-import { isServerOnlyToken, serializeServerToken } from "@altea/altea/entities/dynamicQuery/tokenSerializer";
+import { SubTokensOptionsAll, getSubTokens, setServerTokensProvider } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
+import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
+import { isServerOnlyToken, serializeServerToken } from "@altea/altea/data/dynamicQuery/tokenSerializer";
 import { initQueryClient, setFetchServerTokens, clearServerTokenCache } from "@altea/altea/client/QueryClient";
 import { MusicLogic } from "../../logic/MusicLogic";
 import { ArtistEntity } from "../../entities/music";

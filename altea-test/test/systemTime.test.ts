@@ -1,9 +1,9 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
-import "@altea/altea/entities/globals";
+import "@altea/altea/data/globals";
 import { SystemTime, SystemTimeJoinMode, NullableInterval } from "@altea/altea/server/systemTime";
-import { Temporal } from "@altea/altea/entities/basics";
+import { Temporal } from "@altea/altea/data/basics";
 import { getDatesInRange, TimeSeriesUnit } from "@altea/altea/server/queryTimeSeries";
 import { hasDb, start } from "./setup";
 import { FolderEntity } from "../entities/music";

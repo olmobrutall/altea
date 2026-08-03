@@ -1,9 +1,9 @@
-import type { BaseEntity } from '../entities/entity';
-import { Entity, EmbeddedEntity } from '../entities/entity';
-import { Lite } from '../entities/lite';
-import { forEachField, collectChildren, isModifiedSelf } from '../entities/changes';
-import { entityIntegrityCheck } from '../entities/validation';
-import type { IntegrityCheck } from '../entities/validation';
+import type { BaseEntity } from '../data/entity';
+import { Entity, EmbeddedEntity } from '../data/entity';
+import { Lite } from '../data/lite';
+import { forEachField, collectChildren, isModifiedSelf } from '../data/changes';
+import { entityIntegrityCheck } from '../data/validation';
+import type { IntegrityCheck } from '../data/validation';
 import { DirectedGraph } from './directedGraph';
 
 // Port of Signum's GraphExplorer (Entities/Reflection/GraphExplorer.cs).

@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import "@altea/altea/entities/globals";
+import "@altea/altea/data/globals";
 import { table, bindAndOptimize } from "@altea/altea/server/table";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { SchemaBuilder } from "@altea/altea/server/schema";
@@ -10,10 +10,10 @@ import {
     ParameterExpression, LambdaExpression, CallExpression, PropertyExpression,
 } from "@altea/altea/server/linq/expressions";
 import { ClassType, ArrayType } from "@altea/altea/server/runtimeTypes";
-import { Implementations } from "@altea/altea/entities/implementations";
-import { SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
+import { Implementations } from "@altea/altea/data/implementations";
+import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { BuildExpressionContext, ExpressionBox } from "@altea/altea/server/dynamicQuery/tokenExpressions";
-import { RootToken } from "@altea/altea/entities/dynamicQuery/tokens/rootToken";
+import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic"; // side-effect: wires the byAll provider
 import "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { MusicLogic } from "../../logic/MusicLogic";

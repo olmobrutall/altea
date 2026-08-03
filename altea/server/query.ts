@@ -1,16 +1,16 @@
 
 import type { Quoted } from "quote-transformer/quoted";
-import { EmbeddedEntity, Entity } from "../entities/entity";
-import type { IQuery, IOrderedQuery } from "../entities/iquery";
+import { EmbeddedEntity, Entity } from "../data/entity";
+import type { IQuery, IOrderedQuery } from "../data/iquery";
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, type MethodExpander, PropertyExpression } from "./linq/expressions";
 import { ArrayType, LiteralType as SimpleType, ClassType, RuntimeType, FunctionType, ObjectType, type QuotedFunction, quotedFunction, type LambdaTypeResolver, type ResultTypeResolver } from "./runtimeTypes";
-import { toInt, toLong, toDecimal, inSql } from "../entities/basics";
+import { toInt, toLong, toDecimal, inSql } from "../data/basics";
 import { SystemTime } from "./systemTime";
 
 // Interface expansion (rather than declaring it in entities/iquery.ts): overrideSystemTime is a
 // server-only feature whose SystemTime type lives in the logic layer, so entities/ must not
 // reference it. Augment the IQuery interface here instead.
-declare module "../entities/iquery" {
+declare module "../data/iquery" {
     interface IQuery<T> {
         overrideSystemTime(systemTime: SystemTime): IQuery<T>;
     }

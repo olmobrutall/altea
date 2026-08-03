@@ -12,10 +12,10 @@
 // tiers at startup): mixin registrations, lite-model constructors, implementedBy overrides.
 // Authorization is a future, per-user overlay (a separate endpoint), not part of this blob.
 
-import { Localization } from "../entities/utils/localization";
-import { CultureInfo } from "../entities/utils/cultureInfo";
+import { Localization } from "../data/utils/localization";
+import { CultureInfo } from "../data/utils/cultureInfo";
 type LocalizedTypes = Localization.LocalizedTypes;
-import { getKey } from "../entities/dynamicQuery/queryUtils";
+import { getKey } from "../data/dynamicQuery/queryUtils";
 import { QueryLogic } from "./dynamicQuery/queryLogic";
 import { OperationLogic } from "./operationLogic";
 import type { OperationType } from "./operation";

@@ -9,7 +9,7 @@ import { bindAndOptimize } from "../table";
 import { buildTranslateResult } from "../linq/translatorBuilder";
 import { Query } from "../query";
 import { BuildExpressionContext, ExpressionBox, buildLite } from "./tokenExpressions";
-import { QueryToken, CollectionElementToken, CollectionToArrayToken, toArraySeparator, toArrayDistinct, AggregateToken } from "../../entities/dynamicQuery/tokens";
+import { QueryToken, CollectionElementToken, CollectionToArrayToken, toArraySeparator, toArrayDistinct, AggregateToken } from "../../data/dynamicQuery/tokens";
 import { Filter, Order, Column, OrderType, Pagination, QueryRequest } from "./requests";
 import { DEnumerable, DEnumerableCount } from "./dEnumerable";
 

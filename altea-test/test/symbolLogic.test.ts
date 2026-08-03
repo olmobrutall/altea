@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
-import { OperationSymbol } from "@altea/altea/entities/operations";
+import { OperationSymbol } from "@altea/altea/data/operations";
 import { Replacements } from "@altea/altea/server/sync/synchronizer";
 import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
 import "../entities/testOperations"; // declares the ArtistOperation.* symbols via init()

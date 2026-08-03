@@ -5,5 +5,5 @@
     "outDir": "../dist/entities"
   },
   "include": ["**/*"],
-  "references": [{ "path": "../../altea/entities" }]
+  "references": [{ "path": "../../altea/tsconfig.data.json" }]
 }

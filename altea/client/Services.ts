@@ -1,16 +1,16 @@
 // Ported from Signum.React/Services.ts. Near-verbatim; altea-specific fixes are marked ALTEA.
-//   - Globals moved to @altea/altea/entities/globals (Dic + Array/String prototype extensions).
+//   - Globals moved to @altea/altea/data/globals (Dic + Array/String prototype extensions).
 //   - luxon dropped: the only use (build-time comparison) is done with the native Date.
 //   - GraphExplorer.propagateAll removed: Signum walked the graph to set `modified` flags before
 //     JSON.stringify; altea computes modified from the snapshot inside the Serializer, so the
 //     low-level ajax stays generic. Entity request bodies must be pre-encoded via
 //     Serializer.stringify by the entity API layer (Navigator/EntitiesAPI, Phase 2) — this file
 //     keeps Signum's generic JSON.stringify/JSON.parse for plain DTO/query payloads.
-import { Dic } from '../entities/globals';
+import { Dic } from '../data/globals';
 import { toAbsoluteUrl } from './AppContext';
-import { Serializer } from '../entities/serializer';
-import type { ModelEntity } from '../entities/entity';
-import type { ModelState } from '../entities/validation';
+import { Serializer } from '../data/serializer';
+import type { ModelEntity } from '../data/entity';
+import type { ModelState } from '../data/validation';
 
 export interface AjaxOptions {
   url: string;

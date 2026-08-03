@@ -2,11 +2,11 @@
 // (Signum.Entities→entities/*, Globals→entities/globals); ModifiableEntity→BaseEntity; dropped the
 // unused EntityPack import; type-only TypeContext/EntityFrame.
 import * as React from 'react'
-import type { BaseEntity } from '../../entities/entity'
+import type { BaseEntity } from '../../data/entity'
 import type { TypeContext, EntityFrame } from '../TypeContext'
 import "./Widgets.css"
 import { ErrorBoundary } from '../Components';
-import { classes } from "../../entities/globals";
+import { classes } from "../../data/globals";
 
 export interface WidgetContext<T extends BaseEntity> {
   ctx: TypeContext<T>;

@@ -1,10 +1,10 @@
 // Ported from Signum.React/Lines/ValueBase.tsx — copy-paste + fix (imports retargeted; member is a
 // name string in altea → format/unit read off fieldInfo; propertyRouteType enum).
 import * as React from 'react';
-import { Dic } from '../../entities/globals';
+import { Dic } from '../../data/globals';
 import { LineBaseController, type LineBaseProps, setRefProp, tasks, useInitiallyFocused } from './LineBase';
 import { getTimeMachineIcon } from './TimeMachineIcon';
-import { PropertyRouteType } from '../../entities/propertyRoute';
+import { PropertyRouteType } from '../../data/propertyRoute';
 
 export interface ValueBaseProps<V = any> extends LineBaseProps<V> {
   format?: string;

@@ -4,12 +4,12 @@
 //     SearchMessage from entities. `.forGenderAndNumber`/`.formatHtml` are altea String helpers.
 import * as React from 'react'
 import { Finder } from '../Finder'
-import { classes } from '../../entities/globals'
-import type { ResultTable, Pagination } from '../../entities/dynamicQuery/queryRequest'
+import { classes } from '../../data/globals'
+import type { ResultTable, Pagination } from '../../data/dynamicQuery/queryRequest'
 import { PaginateMath } from '../FindOptions'
-import { type PaginationMode, PaginationModeEnum } from '../../entities/dynamicQueries'
-import { Enum } from '../../entities/enum'
-import { SearchMessage } from '../../entities/uiMessages'
+import { type PaginationMode, PaginationModeEnum } from '../../data/dynamicQueries'
+import { Enum } from '../../data/enum'
+import { SearchMessage } from '../../data/uiMessages'
 import { toNumberFormat } from '../numberFormat'
 import "./PaginationSelector.css"
 import { LinkButton } from '../Basics/LinkButton'

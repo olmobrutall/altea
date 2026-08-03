@@ -9,7 +9,7 @@
   "references": [
     { "path": "../entities" },
     { "path": "../logic" },
-    { "path": "../../altea/server" },
-    { "path": "../../altea/client" }
+    { "path": "../../altea/tsconfig.server.json" },
+    { "path": "../../altea/tsconfig.client.json" }
   ]
 }

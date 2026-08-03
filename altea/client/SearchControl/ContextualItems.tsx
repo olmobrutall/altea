@@ -9,8 +9,8 @@
 import * as React from 'react'
 import type { QueryToken } from '../QueryToken'
 import { Navigator } from '../Navigator'
-import type { Lite } from '../../entities/lite'
-import type { Entity } from '../../entities/entity'
+import type { Lite } from '../../data/lite'
+import type { Entity } from '../../data/entity'
 import type { StyleContext } from '../TypeContext';
 import { Dropdown } from 'react-bootstrap';
 

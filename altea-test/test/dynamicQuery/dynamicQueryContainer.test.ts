@@ -1,12 +1,12 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import "@altea/altea/entities/globals";
+import "@altea/altea/data/globals";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { Column, QueryRequest, Pagination } from "@altea/altea/server/dynamicQuery/requests";
 import { ResultTable } from "@altea/altea/server/dynamicQuery/resultTable";
-import { SubTokensOptionsAll } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
+import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // activates FluentInclude.withQuery
 import "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { MusicLogic } from "../../logic/MusicLogic";

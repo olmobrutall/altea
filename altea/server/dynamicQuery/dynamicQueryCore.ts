@@ -1,11 +1,11 @@
-import { Entity, type Type } from "../../entities/entity";
+import { Entity, type Type } from "../../data/entity";
 import { ClassType, type RuntimeType } from "../runtimeTypes";
 import { table } from "../table";
 import type { Query } from "../query";
 import "./dQueryable"; // augments Query with .toDQueryable()
 import type { ResultTable } from "./resultTable";
 import { Column, type QueryRequest } from "./requests";
-import { RootToken } from "../../entities/dynamicQuery/tokens";
+import { RootToken } from "../../data/dynamicQuery/tokens";
 
 // Port of Signum's `IDynamicQueryCore` (DynamicQuery/DynamicQueryCore.cs): an executable query. Its
 // SHAPE is a reflected entity/model type (Signum's QueryDescription is gone — column metadata comes

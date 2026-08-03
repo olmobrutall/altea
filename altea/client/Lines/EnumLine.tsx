@@ -8,7 +8,7 @@
 //     wrapped in <Localization> (Intl localizer from ReactWidgetsLocalizer). Plain <select> needs none.
 import * as React from 'react'
 import { DropdownList, Combobox, Localization } from 'react-widgets-up'
-import { Dic, classes } from '../../entities/globals'
+import { Dic, classes } from '../../data/globals'
 import { type MemberInfo } from '../Reflection'
 import { genericMemo, LineBaseController, useController } from './LineBase'
 import { FormGroup } from './FormGroup'

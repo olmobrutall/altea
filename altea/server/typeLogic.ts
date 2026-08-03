@@ -1,9 +1,9 @@
 import { Connector } from "./connection/connector";
-import { cleanTypeName } from "../entities/registration";
-import { TypeEntity } from "../entities/typeEntity";
+import { cleanTypeName } from "../data/registration";
+import { TypeEntity } from "../data/typeEntity";
 import { quotedFunction } from "./query";
 import { ClassType } from "./runtimeTypes";
-import type { PrimaryKey } from "../entities/entity";
+import type { PrimaryKey } from "../data/entity";
 import type { Schema } from "./schema/schema";
 import type { Table } from "./schema/table";
 import type { SqlPreCommand } from "./sync/sqlPreCommand";

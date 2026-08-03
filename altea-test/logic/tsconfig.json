@@ -8,6 +8,6 @@
   "include": ["**/*"],
   "references": [
     { "path": "../entities" },
-    { "path": "../../altea/server" }
+    { "path": "../../altea/tsconfig.server.json" }
   ]
 }

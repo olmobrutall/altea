@@ -2,8 +2,8 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "./setup";
-import { TypeEntity } from "@altea/altea/entities/typeEntity";
-import { Localization } from "@altea/altea/entities/utils/localization";
+import { TypeEntity } from "@altea/altea/data/typeEntity";
+import { Localization } from "@altea/altea/data/utils/localization";
 import {
     ArtistEntity, AlbumEntity, BandEntity, NoteWithDateEntity,
     GrammyAwardEntity,

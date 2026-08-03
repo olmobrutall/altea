@@ -1,11 +1,11 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { Serializer } from "@altea/altea/entities/serializer";
+import { Serializer } from "@altea/altea/data/serializer";
 const { stringify: serialize, parse: deserialize } = Serializer;   // local aliases for the tests
-import { Lite, LiteImp, registerCustomLite } from "@altea/altea/entities/lite";
-import type { PrimaryKey } from "@altea/altea/entities/entity";
-import { cleanModified, isModifiedSelf } from "@altea/altea/entities/changes";
-import { Temporal, toInt } from "@altea/altea/entities/basics";
+import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
+import type { PrimaryKey } from "@altea/altea/data/entity";
+import { cleanModified, isModifiedSelf } from "@altea/altea/data/changes";
+import { Temporal, toInt } from "@altea/altea/data/basics";
 import {
     CountryEntity, ArtistEntity, AlbumEntity, AlbumEntity_Songs, SongEmbedded,
     NoteWithDateEntity, Sex, Status, AlbumState,

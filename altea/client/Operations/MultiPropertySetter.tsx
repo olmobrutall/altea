@@ -7,9 +7,9 @@
 // DEFERRED (TODO(port)). `show()` resolves to no setters, i.e. a bulk operation runs without the
 // property-setter dialog (a safe degradation). See operations-client-port memory.
 import type { TypeInfo, OperationInfo } from '../Reflection';
-import type { Lite } from '../../entities/lite';
-import type { Entity } from '../../entities/entity';
-import type { PropertyRoute } from '../../entities/propertyRoute';
+import type { Lite } from '../../data/lite';
+import type { Entity } from '../../data/entity';
+import type { PropertyRoute } from '../../data/propertyRoute';
 import type { Operations } from '../Operations';
 
 export interface PropertySetterComponentProps {

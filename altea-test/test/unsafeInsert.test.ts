@@ -1,7 +1,7 @@
 import { before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
-import "@altea/altea/entities/globals"; // String methods (startsWith etc.), SQL-mappable
+import "@altea/altea/data/globals"; // String methods (startsWith etc.), SQL-mappable
 import { hasDb, start, txTest } from "./setup";
 import {
     ArtistEntity, AlbumEntity, LabelEntity, CountryEntity,

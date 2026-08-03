@@ -1,7 +1,7 @@
 import { tryGetTypeInfo, setDefinedQueries } from "./Reflection";
-import type { OperationType } from "../entities/reflection";
-import { Localization } from "../entities/utils/localization";
-import { CultureInfo } from "../entities/utils/cultureInfo";
+import type { OperationType } from "../data/reflection";
+import { Localization } from "../data/utils/localization";
+import { CultureInfo } from "../data/utils/cultureInfo";
 type LocalizedTypes = Localization.LocalizedTypes;
 
 // Client consumer of the server reflection metadata (Signum's ReflectionServer/reloadTypes). altea ships

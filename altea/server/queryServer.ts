@@ -9,19 +9,19 @@
 //     QueryRequest (parsed QueryTokens), runs it, and serialises the ResultTable back through the
 //     entity Serializer (res.jsonTyped) so the lites/values in the rows go out in wire form.
 
-import { Entity } from "../entities/entity";
-import { Temporal } from "../entities/basics";
-import { resolveCleanType } from "../entities/registration";
-import { SubTokensOptionsAll } from "../entities/dynamicQuery/tokens";
+import { Entity } from "../data/entity";
+import { Temporal } from "../data/basics";
+import { resolveCleanType } from "../data/registration";
+import { SubTokensOptionsAll } from "../data/dynamicQuery/tokens";
 import {
     isServerOnlyToken, serializeServerToken, type ServerTokenJson,
-} from "../entities/dynamicQuery/tokenSerializer";
-import type { QueryName } from "../entities/dynamicQuery/queryUtils";
-import type { QueryToken } from "../entities/dynamicQuery/tokens";
+} from "../data/dynamicQuery/tokenSerializer";
+import type { QueryName } from "../data/dynamicQuery/queryUtils";
+import type { QueryToken } from "../data/dynamicQuery/tokens";
 import type {
     QueryRequest as WireQueryRequest, ResultTable as WireResultTable,
     FilterRequest, Pagination as WirePagination,
-} from "../entities/dynamicQuery/queryRequest";
+} from "../data/dynamicQuery/queryRequest";
 import { QueryLogic } from "./dynamicQuery/queryLogic";
 import {
     QueryRequest, Column, Order, type Filter, FilterCondition, FilterGroup, Pagination,

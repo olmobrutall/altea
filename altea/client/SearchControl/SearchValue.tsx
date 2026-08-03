@@ -6,22 +6,22 @@
 // formatters). idioms: getToString→.toString(), isEntity/isLite→instanceof; the multiline check uses
 // `token.getPropertyRoute()?.fieldInfo?.isMultiline` (altea has no PropertyRoute.parseFull/.member).
 import * as React from 'react'
-import { classes } from '../../entities/globals'
+import { classes } from '../../data/globals'
 import { Navigator } from '../Navigator'
 import { Finder } from '../Finder'
 import type { FindOptions, FindOptionsParsed } from '../FindOptions'
-import type { QueryValueRequest } from '../../entities/dynamicQuery/queryRequest'
+import type { QueryValueRequest } from '../../data/dynamicQuery/queryRequest'
 import { QueryToken, SubTokensOptions } from '../QueryToken'
-import { getKey } from '../../entities/dynamicQuery/queryUtils'
-import { Lite } from '../../entities/lite'
-import { Entity, EmbeddedEntity } from '../../entities/entity'
-import { EntityControlMessage } from '../../entities/uiMessages'
+import { getKey } from '../../data/dynamicQuery/queryUtils'
+import { Lite } from '../../data/lite'
+import { Entity, EmbeddedEntity } from '../../data/entity'
+import { EntityControlMessage } from '../../data/uiMessages'
 import { getQueryKey, getTypeInfo, getTypeName } from '../Reflection'
 import { QueryTokenString } from '../QueryTokenString'
 import type { SearchControlProps } from "./SearchControl";
 import type { ColumnParsed } from "./SearchControlLoaded";
 import type { BsColor, BsSize } from '../Components';
-import { PropertyRoute } from '../../entities/propertyRoute'
+import { PropertyRoute } from '../../data/propertyRoute'
 import { StyleContext } from '../TypeContext'
 import { useAPI, usePrevious, useVersion } from '../Hooks'
 import * as Hooks from '../Hooks'

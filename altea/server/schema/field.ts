@@ -1,5 +1,5 @@
-import type { Type, Entity } from '../../entities/entity';
-import type { FieldInfo } from '../../entities/reflection';
+import type { Type, Entity } from '../../data/entity';
+import type { FieldInfo } from '../../data/reflection';
 import {
     type IColumn,
     PrimaryKeyColumn,

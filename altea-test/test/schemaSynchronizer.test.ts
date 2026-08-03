@@ -18,7 +18,7 @@ import type { Quoted } from "quote-transformer/quoted";
 const albumRecent: Quoted<(a: AlbumEntity) => boolean> = a => a.year == 2000;
 import { AbstractDbType, IsNullable } from "@altea/altea/server/schema/dbType";
 import { AlbumEntity, ArtistEntity_Friends, FolderEntity } from "../entities/music";
-import { getBoundEnum } from "@altea/altea/entities/enumEntity";
+import { getBoundEnum } from "@altea/altea/data/enumEntity";
 
 // The synchronizer pipeline end to end against a REAL database (no fakes): generate the
 // schema, introspect it with the IView catalog readers, and diff. DB-gated; SKIPs without

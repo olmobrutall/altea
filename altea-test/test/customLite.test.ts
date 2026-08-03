@@ -2,12 +2,12 @@ import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "./setup";
-import { Serializer } from "@altea/altea/entities/serializer";
+import { Serializer } from "@altea/altea/data/serializer";
 const { stringify: serialize, parse: deserialize } = Serializer;
-import { Lite, LiteImp } from "@altea/altea/entities/lite";
-import { cleanModified } from "@altea/altea/entities/changes";
-import { getTypeInfo } from "@altea/altea/entities/reflection";
-import { toInt } from "@altea/altea/entities/basics";
+import { Lite, LiteImp } from "@altea/altea/data/lite";
+import { cleanModified } from "@altea/altea/data/changes";
+import { getTypeInfo } from "@altea/altea/data/reflection";
+import { toInt } from "@altea/altea/data/basics";
 import {
     ArtistEntity, BandEntity, GrammyAwardEntity, AwardNominationEntity,
     ArtistLite, BandLite, Sex, AwardResult,

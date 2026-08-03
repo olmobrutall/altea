@@ -7,9 +7,9 @@
 // suite pulls it in via MusicLoader; the type augmentations are ambient (the file
 // is part of the @altea/altea program), so callers see the methods without importing.
 
-import { Entity } from '../entities/entity';
-import { Lite } from '../entities/lite';
-import type { IQuery } from '../entities/iquery';
+import { Entity } from '../data/entity';
+import { Lite } from '../data/lite';
+import type { IQuery } from '../data/iquery';
 import type { Quoted } from 'quote-transformer/quoted';
 import { Saver } from './saver';
 import { retrieve } from './Database';
@@ -30,7 +30,7 @@ export type { CacheController } from './cache';
 // runtime (a schema.ts file and a schema/ directory both exist; ESM resolves to the dir).
 export { SchemaBuilder } from './schema/schemaBuilder';
 
-declare module '../entities/entity' {
+declare module '../data/entity' {
     interface Entity {
         // Saves this entity and its reachable graph in one transaction, returning the
         // entity so calls chain inline (Signum's `new XEntity { … }.Execute(Save)`).
@@ -61,7 +61,7 @@ declare module '../entities/entity' {
     }
 }
 
-declare module '../entities/lite' {
+declare module '../data/lite' {
     interface Lite<out T extends Entity> {
         // Re-query the referenced entity (Signum's Lite.InDB).
         inDB(): IQuery<T>;

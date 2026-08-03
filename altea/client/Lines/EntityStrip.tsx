@@ -8,13 +8,13 @@
 // isLite/isEntity→instanceof, getToString(x)→valueToString; the avoidDuplicates helper (dead in
 // Signum's file) is omitted.
 import * as React from 'react'
-import { classes } from '../../entities/globals'
+import { classes } from '../../data/globals'
 import { Navigator } from '../Navigator'
 import type { TypeContext } from '../TypeContext'
 import { FormGroup } from './FormGroup'
-import { BaseEntity, Entity } from '../../entities/entity'
-import { Lite, parseLiteList } from '../../entities/lite'
-import { EntityControlMessage } from '../../entities/uiMessages'
+import { BaseEntity, Entity } from '../../data/entity'
+import { Lite, parseLiteList } from '../../data/lite'
+import { EntityControlMessage } from '../../data/uiMessages'
 import { Typeahead } from '../Components'
 import { EntityListBaseController, type EntityListBaseProps, type DragConfig, type MoveConfig } from './EntityListBase'
 import { type AutocompleteConfig, TypeBadge } from './AutoCompleteConfig'

@@ -2,11 +2,11 @@
 import { isOptionalChain } from "typescript";
 import type { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
 import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, IntervalType, RuntimeType } from "../runtimeTypes";
-import { Temporal } from "../../entities/basics";
-import { resolveType } from "../../entities/registration";
-import { tryGetTypeInfo, type FieldInfo } from "../../entities/reflection";
-import { Lite } from "../../entities/lite";
-import { Entity, View, ModelEntity } from "../../entities/entity";
+import { Temporal } from "../../data/basics";
+import { resolveType } from "../../data/registration";
+import { tryGetTypeInfo, type FieldInfo } from "../../data/reflection";
+import { Lite } from "../../data/lite";
+import { Entity, View, ModelEntity } from "../../data/entity";
 import { getLambdaTypeResolvers, getResultTypeResolver, type LambdaTypeResolver, OrderedQuery, Query, type ResultTypeResolver } from "../query";
 import type { QuotedFunction } from "../runtimeTypes";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";

@@ -4,17 +4,17 @@
   "description": "",
   "type": "module",
   "exports": {
-    "./entities/globals": {
-      "types": "./dist/entities/globals/index.d.ts",
-      "default": "./dist/entities/globals/index.js"
+    "./data/globals": {
+      "types": "./dist/data/globals/index.d.ts",
+      "default": "./dist/data/globals/index.js"
     },
-    "./entities/serializer": {
-      "types": "./dist/entities/serializer/index.d.ts",
-      "default": "./dist/entities/serializer/index.js"
+    "./data/serializer": {
+      "types": "./dist/data/serializer/index.d.ts",
+      "default": "./dist/data/serializer/index.js"
     },
-    "./entities/*": {
-      "types": "./dist/entities/*.d.ts",
-      "default": "./dist/entities/*.js"
+    "./data/*": {
+      "types": "./dist/data/*.d.ts",
+      "default": "./dist/data/*.js"
     },
     "./server": {
       "types": "./dist/server/index.d.ts",

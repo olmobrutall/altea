@@ -5,10 +5,10 @@
 import * as React from 'react'
 import { Link } from 'react-router'
 import * as Modals from '../Modals';
-import { Dic } from '../../entities/globals';
+import { Dic } from '../../data/globals';
 import { ajaxPost, ExternalServiceError, ServiceError, ValidationError } from '../Services';
-import { JavascriptMessage, FrameMessage, ConnectionMessage, EntityControlMessage } from '../../entities/uiMessages'
-import { ClientErrorModel } from '../../entities/clientError'
+import { JavascriptMessage, FrameMessage, ConnectionMessage, EntityControlMessage } from '../../data/uiMessages'
+import { ClientErrorModel } from '../../data/clientError'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import "./DialogModals.css"
 import { Modal } from 'react-bootstrap';

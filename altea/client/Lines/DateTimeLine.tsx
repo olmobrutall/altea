@@ -9,8 +9,8 @@ import * as React from 'react';
 import type { CalendarProps } from 'react-widgets-up/Calendar'
 import { DatePicker, Localization } from 'react-widgets-up';
 import type { RenderDayProp } from 'react-widgets-up/Month';
-import { Temporal } from '../../entities/basics';
-import { classes } from '../../entities/globals';
+import { Temporal } from '../../data/basics';
+import { classes } from '../../data/globals';
 import { getDateLocalizer, getNumberLocalizer, toDateFormatOptions, dateTimePlaceholder, formatDateValue } from './ReactWidgetsLocalizer';
 import { genericMemo, LineBaseController, useController } from './LineBase';
 import { FormGroup } from './FormGroup';

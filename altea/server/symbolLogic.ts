@@ -1,6 +1,6 @@
-import type { Entity, PrimaryKey, Type } from "../entities/entity";
-import { Symbol } from "../entities/symbol";
-import { declaredSymbolsForType } from "../entities/registration";
+import type { Entity, PrimaryKey, Type } from "../data/entity";
+import { Symbol } from "../data/symbol";
+import { declaredSymbolsForType } from "../data/registration";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
 import type { Schema } from "./schema/schema";
 import type { Table } from "./schema/table";

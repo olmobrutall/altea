@@ -8,15 +8,15 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { openModal, type IModalProps, type IGetUIState, type UIState } from '../Modals';
 import { Finder } from '../Finder';
 import type { FindOptions, FindMode, ModalFindOptions, ModalFindOptionsMany, FindOptionsParsed } from '../FindOptions'
-import type { ResultRow, ResultTable } from '../../entities/dynamicQuery/queryRequest'
+import type { ResultRow, ResultTable } from '../../data/dynamicQuery/queryRequest'
 import { getQueryNiceName, getTypeInfo, tryGetTypeInfo, QueryKey, type PseudoType } from '../Reflection'
 import SearchControl, { type SearchControlProps, type SearchControlHandler } from './SearchControl'
 import { AutoFocus } from '../Components/AutoFocus';
-import { Entity, BaseEntity as ModifiableEntity } from '../../entities/entity';
-import { Lite } from '../../entities/lite';
-import type { EntityPack } from '../../entities/entityPack';
-import { isEntityPack } from '../../entities/entityPack';
-import { FrameMessage, SearchMessage } from '../../entities/uiMessages';
+import { Entity, BaseEntity as ModifiableEntity } from '../../data/entity';
+import { Lite } from '../../data/lite';
+import type { EntityPack } from '../../data/entityPack';
+import { isEntityPack } from '../../data/entityPack';
+import { FrameMessage, SearchMessage } from '../../data/uiMessages';
 import { ModalFooterButtons, ModalHeaderButtons } from '../Components/ModalHeaderButtons';
 import { Modal, Dropdown } from 'react-bootstrap';
 import { useForceUpdate } from '../Hooks';

@@ -3,10 +3,10 @@
 // parameter drives the fluent return types). Used to write query tokens in a strongly-typed way,
 // e.g. `Type.token(a => a.name)` → "Name".
 
-import type { Entity, BaseEntity, MixinEntity, Type } from '../entities/entity';
-import type { Lite } from '../entities/lite';
-import type { FilterOperation } from '../entities/dynamicQueries';
-import type { OrderType, FilterGroupOperation } from '../entities/dynamicQueries';
+import type { Entity, BaseEntity, MixinEntity, Type } from '../data/entity';
+import type { Lite } from '../data/lite';
+import type { FilterOperation } from '../data/dynamicQueries';
+import type { OrderType, FilterGroupOperation } from '../data/dynamicQueries';
 import { getLambdaMembers } from './binding';
 import { getTypeName } from './Reflection';
 import type { Quoted } from 'quote-transformer/quoted';

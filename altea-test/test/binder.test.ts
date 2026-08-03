@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table, bindAndOptimize } from "@altea/altea/server/table";
-import "@altea/altea/entities/globals";
+import "@altea/altea/data/globals";
 import {
     ProjectionExpression, SelectExpression, TableExpression, ColumnExpression,
     JoinExpression,
@@ -14,7 +14,7 @@ import { Connector } from "@altea/altea/server/connection/connector";
 import { MusicLogic } from "../logic/MusicLogic";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { AlbumEntity, LabelEntity, SongEmbedded, ArtistEntity, NoteWithDateEntity, BandEntity } from "../entities/music";
-import { View } from "@altea/altea/entities/entity";
+import { View } from "@altea/altea/data/entity";
 
 // A connector that returns canned rows instead of hitting a database, so the
 // full format→execute→project pipeline can be tested offline.

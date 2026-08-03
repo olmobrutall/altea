@@ -6,9 +6,9 @@ import {
     TypeEntityExpression, TypeImplementedByExpression, TypeImplementedByAllExpression,
 } from "./expressions.sql";
 import { ClassType } from "../runtimeTypes";
-import { Entity } from "../../entities/entity";
-import { Lite } from "../../entities/lite";
-import { getTypeInfo } from "../../entities/reflection";
+import { Entity } from "../../data/entity";
+import { Lite } from "../../data/lite";
+import { getTypeInfo } from "../../data/reflection";
 import { TypeLogic } from "../typeLogic";
 
 // The @implementedByAll id column matching a known target ctor's PK type (NULL if absent):

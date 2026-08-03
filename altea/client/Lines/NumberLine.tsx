@@ -5,14 +5,14 @@
 //     ValidationMessage from ../../entities/validators.
 //   - decimal-key detection: altea's decimal type name is "Decimal" (was Signum's lowercase "decimal").
 import * as React from 'react'
-import { classes } from '../../entities/globals'
+import { classes } from '../../data/globals'
 import { toNumberFormat, numberLimits } from '../numberFormat'
 import { genericMemo, LineBaseController, useController } from './LineBase'
 import { FormGroup } from './FormGroup'
 import { FormControlReadonly } from './FormControlReadonly'
 import { KeyNames } from '../Components'
 import { ValueBaseController, type ValueBaseProps } from './ValueBase'
-import { ValidationMessage } from '../../entities/validators'
+import { ValidationMessage } from '../../data/validators'
 
 export interface NumberLineProps extends ValueBaseProps<number | null> {
   incrementWithArrow?: boolean | number;

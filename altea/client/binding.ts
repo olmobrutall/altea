@@ -5,10 +5,10 @@
 //     entityIntegrityCheck uses) — no stored error side-table.
 //   - collections are plain arrays: a collection element binds by numeric index (no MListElement).
 
-import { BaseEntity } from '../entities/entity';
-import { tryGetTypeInfo } from '../entities/reflection';
-import { getLambdaMembers, getFieldMembers } from '../entities/lambdaMembers';
-import type { LambdaMember, MemberType } from '../entities/lambdaMembers';
+import { BaseEntity } from '../data/entity';
+import { tryGetTypeInfo } from '../data/reflection';
+import { getLambdaMembers, getFieldMembers } from '../data/lambdaMembers';
+import type { LambdaMember, MemberType } from '../data/lambdaMembers';
 import type { Quoted } from 'quote-transformer/quoted';
 
 export interface IBinding<T> {

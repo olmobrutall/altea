@@ -12,14 +12,14 @@ import {
     Expression, ParameterExpression, PropertyExpression, CallExpression, CastExpression,
     BinaryExpression, ConstantExpression, LambdaExpression, UnaryExpression,
 } from "../linq/expressions";
-import { Entity } from "../../entities/entity";
+import { Entity } from "../../data/entity";
 import { RuntimeType, ClassType, LiteType, ArrayType, LiteralType } from "../runtimeTypes";
 import {
     QueryToken, RootToken, EntityPropertyToken, EntityToStringToken, HasValueToken, ObjectPropertyToken,
     AsTypeToken, DateToken, ModuloToken, CountToken,
     CollectionElementToken, CollectionAnyAllToken, CollectionAnyAllType, CollectionToArrayToken,
     AggregateToken, AggregateFunction, ExtensionToken,
-} from "../../entities/dynamicQuery/tokens";
+} from "../../data/dynamicQuery/tokens";
 
 // ---- BuildExpressionContext / ExpressionBox (Signum's, in QueryToken.cs) --------------------
 
@@ -89,7 +89,7 @@ export function setBuildExtensionExpr(fn: (serverInfo: unknown, parentExpression
 
 // ---- Prototype augmentation: declare the expression surface, then install the bodies --------
 
-declare module "../../entities/dynamicQuery/tokens/queryToken" {
+declare module "../../data/dynamicQuery/tokens/queryToken" {
     interface QueryToken {
         // Signum's QueryToken.BuildExpression: resolve from the seeded replacements (a projected
         // column), else recurse into buildExpressionInternal.
@@ -97,13 +97,13 @@ declare module "../../entities/dynamicQuery/tokens/queryToken" {
         buildExpressionInternal(context: BuildExpressionContext): Expression;
     }
 }
-declare module "../../entities/dynamicQuery/tokens/collectionAnyAllToken" {
+declare module "../../data/dynamicQuery/tokens/collectionAnyAllToken" {
     interface CollectionAnyAllToken {
         createParameter(elementType: RuntimeType): ParameterExpression;
         buildAnyAll(collection: Expression, param: ParameterExpression, body: Expression): Expression;
     }
 }
-declare module "../../entities/dynamicQuery/tokens/aggregateToken" {
+declare module "../../data/dynamicQuery/tokens/aggregateToken" {
     interface AggregateToken {
         buildAggregate(elements: Expression, groupContext: BuildExpressionContext): Expression;
     }

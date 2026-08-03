@@ -18,8 +18,8 @@
 import * as React from "react";
 import { Finder } from "./Finder";
 import EntityLink from "./SearchControl/EntityLink";
-import type { Lite } from "../entities/lite";
-import type { Entity } from "../entities/entity";
+import type { Lite } from "../data/lite";
+import type { Entity } from "../data/entity";
 import type { FilterOptionParsed, FilterConditionOptionParsed } from "./FindOptions";
 import { isFilterCondition, isFilterGroup, isList, isPair, getFilterOperations } from "./FindOptions";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -32,10 +32,10 @@ import { FormGroup } from "./Lines/FormGroup";
 import { EntityBaseController } from "./Lines/EntityBase";
 import { LinkButton } from "./Basics/LinkButton";
 import { useForceUpdate } from "./Hooks";
-import { Enum } from "../entities/enum";
-import { Temporal } from "../entities/basics";
+import { Enum } from "../data/enum";
+import { Temporal } from "../data/basics";
 import { toNumberFormat } from "./numberFormat";
-import { SearchMessage, JavascriptMessage } from "../entities/uiMessages";
+import { SearchMessage, JavascriptMessage } from "../data/uiMessages";
 
 // Render any result-cell value as text: a Lite/entity/Temporal/Decimal shows its toString() (a wire lite
 // via its `toStr`), a plain value via String().

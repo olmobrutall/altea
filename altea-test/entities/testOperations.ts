@@ -1,5 +1,5 @@
-import type { ConstructSymbol, From, FromMany, ExecuteSymbol, DeleteSymbol } from "@altea/altea/entities/operations";
-import { init } from "@altea/altea/entities/reflection";
+import type { ConstructSymbol, From, FromMany, ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
+import { init } from "@altea/altea/data/reflection";
 import { ArtistEntity, AlbumEntity } from "./music";
 
 // Operation containers declared exactly as a real one would be (Signum's `[AutoInit]

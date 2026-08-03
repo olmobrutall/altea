@@ -4,8 +4,8 @@
 import * as React from 'react'
 import { openModal } from '../Modals';
 import type { IModalProps } from '../Modals';
-import { classes } from '../../entities/globals';
-import { JavascriptMessage, SaveChangesMessage } from '../../entities/uiMessages'
+import { classes } from '../../data/globals';
+import { JavascriptMessage, SaveChangesMessage } from '../../data/uiMessages'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import "./DialogModals.css"
 import { Modal } from 'react-bootstrap';

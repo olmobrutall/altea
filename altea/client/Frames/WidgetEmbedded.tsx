@@ -2,8 +2,8 @@
 // ModifiableEntity→BaseEntity; dropped unused EntityPack import; `frame.pack.entity.Type`→
 // `getTypeName(frame.pack.entity)`; type-only TypeContext/EntityFrame.
 import * as React from 'react'
-import type { BaseEntity } from '../../entities/entity'
-import { FrameMessage } from '../../entities/uiMessages'
+import type { BaseEntity } from '../../data/entity'
+import { FrameMessage } from '../../data/uiMessages'
 import type { EntityFrame } from '../TypeContext'
 import "./Widgets.css"
 import { ErrorBoundary } from '../Components';

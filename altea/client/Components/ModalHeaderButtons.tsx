@@ -3,8 +3,8 @@
 import * as React from "react";
 import type { BsColor } from "../Components";
 import type { IconProp } from "@fortawesome/fontawesome-svg-core";
-import { classes } from "../../entities/globals";
-import { JavascriptMessage } from "../../entities/uiMessages";
+import { classes } from "../../data/globals";
+import { JavascriptMessage } from "../../data/uiMessages";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 interface ModalIconProps {

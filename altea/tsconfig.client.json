@@ -1,0 +1,15 @@
+{
+  // CLIENT layer (React UI kit: Navigator, Finder, SearchControl, Lines, …). Both organisations accepted:
+  // the client/ directory OR co-located *.client.ts suffix files, plus any *.tsx (components). References
+  // DATA only.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo.client",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
+  },
+  "include": ["client/**/*", "**/*.client.ts", "**/*.tsx"],
+  "exclude": ["data/**", "server/**"],
+  "references": [{ "path": "./tsconfig.data.json" }]
+}

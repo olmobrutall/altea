@@ -1,5 +1,5 @@
 
-import { Statics } from '../entities/utils/context';
+import { Statics } from '../data/utils/context';
 
 Statics.newContextVariable = <T>() => {
     let current: T | undefined = undefined;

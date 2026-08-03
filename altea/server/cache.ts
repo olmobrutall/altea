@@ -12,7 +12,7 @@
 // altea ships no controller by default, so both paths are inert until a module registers
 // one via `registerCacheController`.
 
-import type { Entity, PrimaryKey, Type } from "../entities/entity";
+import type { Entity, PrimaryKey, Type } from "../data/entity";
 
 export interface CacheController<T extends Entity = Entity> {
     // Whether the cache is currently serving this type (Signum's CacheController.Enabled).

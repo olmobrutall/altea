@@ -1,7 +1,7 @@
 // Ported from Signum.React/Lines/FormControlReadonly.tsx — copy-paste + fix (imports retargeted).
 import * as React from 'react'
 import { type StyleContext } from '../TypeContext';
-import { classes } from '../../entities/globals';
+import { classes } from '../../data/globals';
 import "./Lines.css"
 
 export interface FormControlReadonlyProps {

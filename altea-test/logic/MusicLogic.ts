@@ -1,7 +1,7 @@
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
-import { withQuoted } from "@altea/altea/entities/decorators";
-import type { IQuery } from "@altea/altea/entities/iquery";
+import { withQuoted } from "@altea/altea/data/decorators";
+import type { IQuery } from "@altea/altea/data/iquery";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery / withExpressionTo / withExpressionFrom
 import {
     CountryEntity,

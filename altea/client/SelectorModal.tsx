@@ -4,13 +4,13 @@
 // TypeInfo.name→cleanTypeName(ti.ctor!); getTypeInfo guarded for a TypeInfo argument.
 import * as React from 'react'
 import { openModal, type IModalProps } from './Modals';
-import { SelectorMessage, JavascriptMessage } from '../entities/uiMessages'
-import type { Lite } from '../entities/lite'
-import type { Entity, Type } from '../entities/entity'
-import { cleanTypeName } from '../entities/registration'
-import { TypeInfo } from '../entities/reflection'
+import { SelectorMessage, JavascriptMessage } from '../data/uiMessages'
+import type { Lite } from '../data/lite'
+import type { Entity, Type } from '../data/entity'
+import { cleanTypeName } from '../data/registration'
+import { TypeInfo } from '../data/reflection'
 import { getTypeInfo } from './Reflection'
-import { Enum } from '../entities/enum'
+import { Enum } from '../data/enum'
 import type { BsSize } from './Components';
 import { Modal } from 'react-bootstrap';
 

@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { XMLParser } from "fast-xml-parser";
-import { Localization } from "../entities/utils/localization";
+import { Localization } from "../data/utils/localization";
 type LocalizedType = Localization.LocalizedType;
 type LocalizedTypes = Localization.LocalizedTypes;
 

@@ -1,7 +1,7 @@
-import { View } from "../entities/entity";
-import { Temporal } from "../entities/basics";
-import { reflect } from "../entities/reflection";
-import { viewPrimaryKey } from "../entities/decorators";
+import { View } from "../data/entity";
+import { Temporal } from "../data/basics";
+import { reflect } from "../data/reflection";
+import { viewPrimaryKey } from "../data/decorators";
 import { quotedFunction, Query } from "./query";
 import { ArrayType, ClassType } from "./runtimeTypes";
 import { sqlMethodQuery } from "./table";

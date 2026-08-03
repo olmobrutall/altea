@@ -1,4 +1,4 @@
-import type { PrimaryKeyType } from '../../entities/reflection';
+import type { PrimaryKeyType } from '../../data/reflection';
 
 // Whether a column accepts NULL. `Forced` mirrors Signum: the object-model
 // property is non-null, but the column is nullable in the DB because it lives

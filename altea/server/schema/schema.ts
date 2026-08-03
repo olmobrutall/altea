@@ -1,5 +1,5 @@
-import type { Entity, Type, PrimaryKey } from '../../entities/entity';
-import type { TypeEntity } from '../../entities/typeEntity';
+import type { Entity, Type, PrimaryKey } from '../../data/entity';
+import type { TypeEntity } from '../../data/typeEntity';
 import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
 import { installDefaultGenerating } from '../sync/schemaGenerator';
 import { synchronizeSchemasScript, synchronizeTablesScript, synchronizeEnumsScript } from '../sync/schemaSynchronizer';

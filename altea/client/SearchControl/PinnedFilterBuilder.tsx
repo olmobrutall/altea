@@ -12,8 +12,8 @@ import {
 import { Binding } from '../binding'
 import { TypeContext } from '../TypeContext'
 import "./FilterBuilder.css"
-import { SearchMessage } from '../../entities/uiMessages';
-import { classes } from '../../entities/globals';
+import { SearchMessage } from '../../data/uiMessages';
+import { classes } from '../../data/globals';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { Finder } from '../Finder'
 import { QueryToken } from '../QueryToken'

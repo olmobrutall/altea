@@ -1,0 +1,10 @@
+{
+  // Solution file — builds the three layers (`tspc -b`). Source stays organised in data/ client/ server/
+  // directories; layer membership is by directory OR filename suffix (both accepted). One shared dist/.
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "./tsconfig.server.json" },
+    { "path": "./tsconfig.client.json" }
+  ]
+}

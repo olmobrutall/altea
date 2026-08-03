@@ -1,9 +1,9 @@
 import type { Quoted } from "quote-transformer/quoted";
-import type { Entity, Type } from "../../entities/entity";
+import type { Entity, Type } from "../../data/entity";
 import { FluentInclude } from "../schema/fluentInclude";
 import { QueryLogic } from "./queryLogic";
 import { AutoDynamicQueryCore } from "./dynamicQueryCore";
-import type { Implementations } from "../../entities/implementations";
+import type { Implementations } from "../../data/implementations";
 
 // Port of Signum's `DynamicQueryFluentInclude` (extension methods on FluentInclude, kept in the
 // DynamicQuery layer so the schema layer stays independent). altea adds them by declaration merging

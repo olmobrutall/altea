@@ -1,4 +1,4 @@
-import { type int, Temporal, toInt } from "@altea/altea/entities/basics";
+import { type int, Temporal, toInt } from "@altea/altea/data/basics";
 import "@altea/altea/server"; // installs save()/inDB()/retrieve*() entity+lite extension methods
 import {
     CountryEntity,

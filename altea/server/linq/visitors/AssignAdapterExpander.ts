@@ -9,8 +9,8 @@ import {
 } from "../expressions.sql";
 import { LiteralType, RuntimeType } from "../../runtimeTypes";
 import { TypeLogic } from "../../typeLogic";
-import { getTypeInfo } from "../../../entities/reflection";
-import { Entity } from "../../../entities/entity";
+import { getTypeInfo } from "../../../data/reflection";
+import { Entity } from "../../../data/entity";
 
 // The altea PrimaryKeyType of an entity ctor's id, from its @primaryKey (default 'int') —
 // picks which @implementedByAll id column an assigned value populates.
@@ -34,7 +34,7 @@ function isNullConst(e: Expression): boolean {
 function combineId(a: Expression, b: Expression, op: (a: Expression, b: Expression) => Expression): Expression {
     return isNullConst(a) && isNullConst(b) ? a : op(a, b);
 }
-import { Lite } from "../../../entities/lite";
+import { Lite } from "../../../data/lite";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 
 // Port of Signum's AssignAdapterExpander (nested in QueryBinder.cs). Rewrites an

@@ -8,10 +8,10 @@
 //     MultiValueLine; no @valueField (owned parts) → EntityRepeater if the field is @implementedBy
 //     (polymorphic, per-row views), else EntityTable (grid).
 import * as React from 'react'
-import { PropertyRoute } from '../../entities/propertyRoute'
+import { PropertyRoute } from '../../data/propertyRoute'
 import { isNumberType } from '../numberFormat'
-import { Entity, EmbeddedEntity } from '../../entities/entity'
-import { FieldInfo, type TypeReference } from '../../entities/reflection'
+import { Entity, EmbeddedEntity } from '../../data/entity'
+import { FieldInfo, type TypeReference } from '../../data/reflection'
 import { LineBaseController, type LineBaseProps } from './LineBase'
 import { CheckboxLine } from './CheckboxLine'
 import { DateTimeLine } from './DateTimeLine'

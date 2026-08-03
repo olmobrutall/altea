@@ -385,7 +385,7 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
   }
 
   // The module specifier the declared Symbol type was imported from (e.g.
-  // "@altea/altea/entities/operations" for `ConstructSymbol` or `Operations.ConstructSymbol`).
+  // "@altea/altea/data/operations" for `ConstructSymbol` or `Operations.ConstructSymbol`).
   // Used to emit a side-effect import so the entity module's registerSymbolKind runs.
   function symbolModuleSpecifier(typeNode: ts.TypeNode): string | null {
     if (!ts.isTypeReferenceNode(typeNode))

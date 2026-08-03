@@ -1,5 +1,5 @@
-import { PropertyRoute, PropertyRouteType } from "../../entities/propertyRoute";
-import { Implementations } from "../../entities/implementations";
+import { PropertyRoute, PropertyRouteType } from "../../data/propertyRoute";
+import { Implementations } from "../../data/implementations";
 import {
     Expression, ParameterExpression, PropertyExpression, CallExpression, ObjectExpression,
     LambdaExpression, BinaryExpression, ConditionalExpression, UnaryExpression, CastExpression,

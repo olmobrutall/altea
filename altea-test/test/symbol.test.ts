@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { OperationSymbol } from "@altea/altea/entities/operations";
-import { declaredSymbolsForType } from "@altea/altea/entities/reflection";
+import { OperationSymbol } from "@altea/altea/data/operations";
+import { declaredSymbolsForType } from "@altea/altea/data/reflection";
 import { ArtistOperation } from "../entities/testOperations";
 
 // Phase 1 (Symbol / init) — pure in-memory, no DB. Verifies the transformer +

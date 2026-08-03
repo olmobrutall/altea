@@ -7,7 +7,7 @@ import { openModal } from '../Modals';
 import type { IModalProps } from '../Modals';
 import type { Operations } from '../Operations';
 import { Modal, ProgressBar } from 'react-bootstrap';
-import { EntityControlMessage, JavascriptMessage, OperationMessage } from '../../entities/uiMessages';
+import { EntityControlMessage, JavascriptMessage, OperationMessage } from '../../data/uiMessages';
 import { useForceUpdate, useThrottle } from '../Hooks';
 import { ServiceError } from '../Services';
 import { jsonObjectStream } from './jsonObjectStream';

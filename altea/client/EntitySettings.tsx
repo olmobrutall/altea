@@ -8,12 +8,12 @@
 //     AutocompleteConfig (AutoCompleteConfig — wired for real when that ports), ContextualItemsContext
 //     / MenuItemBlock (SearchControl), Navigator view-option types.
 import * as React from 'react';
-import { Dic } from '../entities/globals';
-import { type Type } from '../entities/entity';
-import type { BaseEntity, Entity } from '../entities/entity';
-import type { Lite } from '../entities/lite';
-import type { EntityPack } from '../entities/entityPack';
-import type { EnumEntity } from '../entities/enumEntity';
+import { Dic } from '../data/globals';
+import { type Type } from '../data/entity';
+import type { BaseEntity, Entity } from '../data/entity';
+import type { Lite } from '../data/lite';
+import type { EntityPack } from '../data/entityPack';
+import type { EnumEntity } from '../data/enumEntity';
 import type { TypeContext, ButtonsContext, ButtonBarElement } from './TypeContext';
 import type { TextHighlighter } from './Components/Typeahead';
 import type { BsSize } from './Components';

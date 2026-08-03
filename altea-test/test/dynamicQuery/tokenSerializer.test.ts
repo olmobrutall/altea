@@ -1,15 +1,15 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import "@altea/altea/entities/globals";
-import "@altea/altea/entities/dynamicQuery/tokens/factories"; // register metadata factories → local subtoken gen
-import { RootToken } from "@altea/altea/entities/dynamicQuery/tokens/rootToken";
-import { ExtensionToken, type ExtensionInfo } from "@altea/altea/entities/dynamicQuery/tokens/extensionToken";
-import { SubTokensOptionsAll, getSubTokens, setServerTokensProvider } from "@altea/altea/entities/dynamicQuery/tokens/queryToken";
-import { Implementations } from "@altea/altea/entities/implementations";
-import { TypeReference } from "@altea/altea/entities/reflection";
+import "@altea/altea/data/globals";
+import "@altea/altea/data/dynamicQuery/tokens/factories"; // register metadata factories → local subtoken gen
+import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
+import { ExtensionToken, type ExtensionInfo } from "@altea/altea/data/dynamicQuery/tokens/extensionToken";
+import { SubTokensOptionsAll, getSubTokens, setServerTokensProvider } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
+import { Implementations } from "@altea/altea/data/implementations";
+import { TypeReference } from "@altea/altea/data/reflection";
 import {
     serializeServerToken, deserializeServerToken, serializeTypeReference, deserializeTypeReference,
-} from "@altea/altea/entities/dynamicQuery/tokenSerializer";
+} from "@altea/altea/data/dynamicQuery/tokenSerializer";
 import { ArtistEntity, AlbumEntity } from "../../entities/music";
 
 // Phase 2 of the QueryToken → entities move: the client generates the metadata sub-tokens locally,

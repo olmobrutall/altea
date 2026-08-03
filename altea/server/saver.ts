@@ -1,8 +1,8 @@
-import { Entity } from '../entities/entity';
-import type { Type, PrimaryKey } from '../entities/entity';
-import { cleanModified, forEachField } from '../entities/changes';
-import { getTypeInfo } from '../entities/reflection';
-import { IntegrityCheckException } from '../entities/validation';
+import { Entity } from '../data/entity';
+import type { Type, PrimaryKey } from '../data/entity';
+import { cleanModified, forEachField } from '../data/changes';
+import { getTypeInfo } from '../data/reflection';
+import { IntegrityCheckException } from '../data/validation';
 import {
     exploreModifiables,
     propagateModifications,

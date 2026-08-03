@@ -1,7 +1,7 @@
 // Ported from Signum.React/Components/Typeahead.tsx — copy-paste + fix (Globals→../../entities/globals;
 // dropped unused ReactDOM/softCast/DropdownMenu imports; react-bootstrap Dropdown + Hooks unchanged).
 import * as React from 'react'
-import { classes, Dic } from '../../entities/globals'
+import { classes, Dic } from '../../data/globals'
 import { Dropdown } from 'react-bootstrap';
 import { useStateWithPromise } from '../Hooks';
 

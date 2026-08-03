@@ -3,10 +3,10 @@
 // empty Finder import, OperationType); getToString(x)→x.toString(); coc.lite.EntityType→.entityType.
 import * as React from "react"
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { Entity } from '../../entities/entity'
-import { OperationMessage } from '../../entities/uiMessages'
+import { Entity } from '../../data/entity'
+import { OperationMessage } from '../../data/uiMessages'
 import { getTypeInfo } from '../Reflection';
-import { classes } from '../../entities/globals';
+import { classes } from '../../data/globals';
 import { Navigator } from '../Navigator';
 import MessageModal from '../Modals/MessageModal'
 import { Operations, CellOperationContext, EntityOperationSettings } from '../Operations'

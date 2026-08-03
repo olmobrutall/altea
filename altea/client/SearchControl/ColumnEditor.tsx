@@ -6,15 +6,15 @@
 //     Indexer container token checks are dropped (altea has no such token subclasses yet).
 //   - `getNiceTypeName` (Operations/MultiPropertySetter, not ported) → `Finder.getTypeNiceName`.
 import * as React from 'react'
-import { classes } from '../../entities/globals';
+import { classes } from '../../data/globals';
 import type { ColumnOptionParsed } from '../FindOptions'
-import { getKey } from '../../entities/dynamicQuery/queryUtils'
+import { getKey } from '../../data/dynamicQuery/queryUtils'
 import { QueryToken, SubTokensOptions } from '../QueryToken';
-import { EntityControlMessage, SearchMessage } from '../../entities/uiMessages'
+import { EntityControlMessage, SearchMessage } from '../../data/uiMessages'
 import QueryTokenBuilder from './QueryTokenBuilder'
 import { StyleContext } from '../TypeContext';
-import { type CombineRows, CombineRowsEnum } from '../../entities/dynamicQueries';
-import { Enum } from '../../entities/enum';
+import { type CombineRows, CombineRowsEnum } from '../../data/dynamicQueries';
+import { Enum } from '../../data/enum';
 import { VisualTipIcon, SearchVisualTip } from '../Basics/VisualTipIcon';
 import { ColumnHelp } from './SearchControlVisualTips';
 import { Finder } from '../Finder';

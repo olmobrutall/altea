@@ -12,7 +12,7 @@
 //
 // Import this module once at client startup to install the statics (mirrors ./QueryClient).
 
-import { BaseEntity, type Type } from '../entities/entity';
+import { BaseEntity, type Type } from '../data/entity';
 import {
   QueryTokenString, tokenSequence, createTokenFunction,
   type TokenFunction, type Anonymous,
@@ -23,7 +23,7 @@ import type { Quoted } from 'quote-transformer/quoted';
 
 // Add the statics to the entity-class side (namespace ⋈ class merge → static members; inherited by
 // every entity subclass). `this: Type<T>` binds to the concrete entity constructor at the call site.
-declare module '../entities/entity' {
+declare module '../data/entity' {
   namespace BaseEntity {
     /** A {@link QueryTokenString} rooted at this type (Signum's Type.token). `S` (the column result
      * type) is the explicit type arg; `T` infers from `this`, so `token<number>("Expr")` works. */

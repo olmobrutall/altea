@@ -1,8 +1,8 @@
 // Ported from Signum.React/Frames/Notify.tsx — copy-and-fix. altea fixes: import paths only
 // (Globals→../../entities/globals, Signum.Entities→../../entities/uiMessages, Hooks sibling).
 import * as React from 'react'
-import { classes } from '../../entities/globals'
-import { JavascriptMessage } from '../../entities/uiMessages'
+import { classes } from '../../data/globals'
+import { JavascriptMessage } from '../../data/uiMessages'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconProp } from '@fortawesome/fontawesome-svg-core';
 import "./Notify.css"

@@ -1,21 +1,21 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table, view } from "@altea/altea/server/table";
-import "@altea/altea/entities/globals"; // String.contains / startsWith / … (SQL-mappable)
+import "@altea/altea/data/globals"; // String.contains / startsWith / … (SQL-mappable)
 import { hasDb, start } from "./setup";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { PgClass } from "@altea/altea/server/sync/postgres/postgresCatalog";
 import { SysDatabases } from "@altea/altea/server/sync/sqlServer/sysTables";
 import type { Quoted } from "quote-transformer/quoted";
-import { Clock } from "@altea/altea/entities/utils/clock";
-import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
+import { Clock } from "@altea/altea/data/utils/clock";
+import { CorruptMixin } from "@altea/altea/data/corruptMixin";
 import {
     ArtistEntity, AlbumEntity, BandEntity, LabelEntity,
     ColaboratorsMixin,
     NoteWithDateEntity, GrammyAwardEntity, AwardEntity, AmericanMusicAwardEntity,
     Sex, AwardResult, type IAuthorEntity,
 } from "../entities/music";
-import { inSql, toInt, toDecimal } from "@altea/altea/entities/basics";
+import { inSql, toInt, toDecimal } from "@altea/altea/data/basics";
 
 // Port of Signum.Test/LinqProvider/SelectTest.cs. C# → altea idiom:
 //   Database.Query<T>()  → table(T)            .Select(...) → .map(...)

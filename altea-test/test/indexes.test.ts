@@ -1,11 +1,11 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import "@altea/altea/entities/globals";
-import { reflect } from "@altea/altea/entities/reflection"; // anchor for the transformer's @field injection
-import { Entity } from "@altea/altea/entities/entity";
-import { Lite } from "@altea/altea/entities/lite";
-import { entity, index, uniqueIndex } from "@altea/altea/entities/decorators";
-import { type int, toInt } from "@altea/altea/entities/basics";
+import "@altea/altea/data/globals";
+import { reflect } from "@altea/altea/data/reflection"; // anchor for the transformer's @field injection
+import { Entity } from "@altea/altea/data/entity";
+import { Lite } from "@altea/altea/data/lite";
+import { entity, index, uniqueIndex } from "@altea/altea/data/decorators";
+import { type int, toInt } from "@altea/altea/data/basics";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import type { Table } from "@altea/altea/server/schema/table";
 import { FluentInclude } from "@altea/altea/server/schema/fluentInclude";

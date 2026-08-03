@@ -11,9 +11,9 @@ import { SqlPreCommand, SqlPreCommandSimple, SqlPreCommandWithHistory, Spacing }
 import { Synchronizer, Replacements } from "./synchronizer";
 import { getDatabaseDescription as getSqlServerDescription } from "./sqlServer/sysTablesSchema";
 import { getDatabaseDescription as getPostgresDescription } from "./postgres/postgresCatalogSchema";
-import { EnumEntity, getBoundEnum, enumEntityMembers } from "../../entities/enumEntity";
+import { EnumEntity, getBoundEnum, enumEntityMembers } from "../../data/enumEntity";
 import { insertSqlSync, updateSqlSync, deleteSqlSync, rowImage } from "../save";
-import type { PrimaryKey } from "../../entities/entity";
+import type { PrimaryKey } from "../../data/entity";
 
 // The default synchronizing steps (synchronizeSchemasScript / synchronizeTablesScript /
 // synchronizeEnumsScript, exported below) are seeded onto Schema.synchronizing by the Schema

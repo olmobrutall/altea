@@ -1,5 +1,5 @@
 import type { Quoted } from "quote-transformer/quoted";
-import type { Entity } from "../../entities/entity";
+import type { Entity } from "../../data/entity";
 import type { Table } from "./table";
 import type { SchemaBuilder } from "./schemaBuilder";
 

@@ -1,11 +1,11 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import "@altea/altea/entities/globals";
+import "@altea/altea/data/globals";
 import "@altea/altea/client/EntityTypeApi"; // installs the token / findOptions statics onto the entity classes
 import { QueryTokenString } from "@altea/altea/client/QueryTokenString";
-import type { FilterOperation, OrderType } from "@altea/altea/entities/dynamicQueries";
+import type { FilterOperation, OrderType } from "@altea/altea/data/dynamicQueries";
 import { ArtistEntity, NoteWithDateEntity } from "../../entities/music";
-import { CorruptMixin } from "@altea/altea/entities/corruptMixin";
+import { CorruptMixin } from "@altea/altea/data/corruptMixin";
 
 // Signum's Type<T>.token / findOptions family, in altea implemented as STATICS on the entity class
 // (the class doubles as the Type descriptor). Verifies the namespace-merge augmentation binds `this`

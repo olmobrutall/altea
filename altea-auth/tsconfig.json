@@ -1,0 +1,11 @@
+{
+  // Solution file — builds the three suffix-driven layers (`tspc -b`). Layer membership is by filename
+  // suffix, not directory; the single auth module lives flat at the package root
+  // (User.data.ts, Auth.server.ts, Auth.client.ts). One shared `dist/` tree.
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "./tsconfig.server.json" },
+    { "path": "./tsconfig.client.json" }
+  ]
+}

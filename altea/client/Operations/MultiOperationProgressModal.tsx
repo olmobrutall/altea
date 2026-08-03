@@ -7,16 +7,16 @@ import { openModal } from '../Modals';
 import type { IModalProps } from '../Modals';
 import type { Operations } from '../Operations';
 import { Modal, ProgressBar } from 'react-bootstrap';
-import type { Entity } from '../../entities/entity';
-import type { Lite } from '../../entities/lite';
-import { EntityControlMessage, JavascriptMessage, OperationMessage } from '../../entities/uiMessages';
+import type { Entity } from '../../data/entity';
+import type { Lite } from '../../data/lite';
+import { EntityControlMessage, JavascriptMessage, OperationMessage } from '../../data/uiMessages';
 import { useForceUpdate, useThrottle } from '../Hooks';
 import { getOperationInfo, getTypeInfo } from '../Reflection';
 import type { OperationInfo } from '../Reflection';
-import { softCast } from '../../entities/globals';
+import { softCast } from '../../data/globals';
 import { jsonObjectStream } from './jsonObjectStream';
-import { CollectionMessage } from '../../entities/dynamicQueries';
-import { OperationSymbol } from '../../entities/operations';
+import { CollectionMessage } from '../../data/dynamicQueries';
+import { OperationSymbol } from '../../data/operations';
 import ErrorModal from '../Modals/ErrorModal';
 
 

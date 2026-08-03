@@ -1,14 +1,14 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { view, bindAndOptimize } from "@altea/altea/server/table";
-import "@altea/altea/entities/globals";
+import "@altea/altea/data/globals";
 // A view class is declared like Signum's `: IView` + `[TableName]`: @reflect (the
 // reflection/@field trigger) + @tableName(rawName) + @viewPrimaryKey fields.
-import { reflect } from "@altea/altea/entities/reflection";
+import { reflect } from "@altea/altea/data/reflection";
 import { QueryFormatter } from "@altea/altea/server/linq/queryFormatter";
 import { SchemaBuilder } from "@altea/altea/server/schema";
-import { tableName, viewPrimaryKey, quoted } from "@altea/altea/entities/decorators";
-import type { int } from "@altea/altea/entities/basics";
+import { tableName, viewPrimaryKey, quoted } from "@altea/altea/data/decorators";
+import type { int } from "@altea/altea/data/basics";
 
 // M2c proof: a raw database view (IView) queried through the view() query root. The view
 // class maps to a raw catalog table with verbatim column names and an explicit

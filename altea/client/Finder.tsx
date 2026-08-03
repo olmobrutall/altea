@@ -7,7 +7,7 @@ import { type RouteObject } from 'react-router'
 // import { DateTime, Duration } from 'luxon'
 import * as AppContext from "./AppContext"
 import { Navigator } from "./Navigator" // TODO(port): ViewPromise not exported by altea Navigator yet.
-import { Dic, classes, isNumber, isPromise, softCast } from '../entities/globals'
+import { Dic, classes, isNumber, isPromise, softCast } from '../data/globals'
 import { ajaxGet, ajaxPost } from './Services';
 
 import type {
@@ -23,27 +23,27 @@ import type {
   QueryValueRequest, QueryRequest, QueryEntitiesRequest, Pagination,
   ResultTable, ResultRow, FilterRequest, OrderRequest,
   FilterGroupRequest, FilterConditionRequest, SystemTime,
-} from '../entities/dynamicQuery/queryRequest';
+} from '../data/dynamicQuery/queryRequest';
 import {
   isList, isPair, type ColumnOptionsMode, toPinnedFilterParsed, isActive, canSplitValue,
   getFilterOperations, isFilterGroup, isFilterCondition, isGroupList, toColumnOption,
 } from './FindOptions';
 // TODO(port): QueryDescriptionDTO / QueryTokenWithoutParent dropped in altea (client builds the token tree locally).
 import { completeToken, QueryToken, SubTokensOptions, type Writable } from './QueryToken';
-import { getSubTokens as generateSubTokens, SubTokensOptionsAll } from '../entities/dynamicQuery/tokens/queryToken';
-import { getKey } from '../entities/dynamicQuery/queryUtils';
-import { RootToken } from '../entities/dynamicQuery/tokens/rootToken';
+import { getSubTokens as generateSubTokens, SubTokensOptionsAll } from '../data/dynamicQuery/tokens/queryToken';
+import { getKey } from '../data/dynamicQuery/queryUtils';
+import { RootToken } from '../data/dynamicQuery/tokens/rootToken';
 import { QueryTokenString, type Anonymous } from './QueryTokenString';
 
-import { FilterOperationEnum, PinnedFilterActiveEnum } from '../entities/dynamicQueries'; // numeric companions, for wire-ordinal encode/decode
-import type { FilterOperation, FilterGroupOperation, PinnedFilterActive, FilterType, PaginationMode, OrderType } from '../entities/dynamicQueries';
+import { FilterOperationEnum, PinnedFilterActiveEnum } from '../data/dynamicQueries'; // numeric companions, for wire-ordinal encode/decode
+import type { FilterOperation, FilterGroupOperation, PinnedFilterActive, FilterType, PaginationMode, OrderType } from '../data/dynamicQueries';
 
-import { Entity, BaseEntity, EmbeddedEntity, ModelEntity, type Type } from '../entities/entity';
-import { Lite } from '../entities/lite';
+import { Entity, BaseEntity, EmbeddedEntity, ModelEntity, type Type } from '../data/entity';
+import { Lite } from '../data/lite';
 // TODO(port): Signum.Entities free helpers → altea idioms (methods): toLite→e.toLite(), liteKey→l.key(),
 // parseLite→Lite.parse, is→.is(), isLite/isEntity/isModifiableEntity→instanceof; MListElement/isMListElement
 // gone (no MList); getToString; SearchMessage/JavascriptMessage message containers not ported.
-import { TypeEntity } from '../entities/typeEntity';
+import { TypeEntity } from '../data/typeEntity';
 // TODO(port): QueryEntity (Signum.Basics) not ported.
 
 import {
@@ -51,11 +51,11 @@ import {
   type PseudoType,
 } from './Reflection';
 import { isNumberType, toNumberFormat } from './numberFormat';
-import { Enum } from '../entities/enum';
-import { Temporal } from '../entities/basics';
-import { TypeInfo, TypeReference } from '../entities/reflection';
-import { PropertyRoute } from '../entities/propertyRoute';
-import type { FieldInfo } from '../entities/reflection';
+import { Enum } from '../data/enum';
+import { Temporal } from '../data/basics';
+import { TypeInfo, TypeReference } from '../data/reflection';
+import { PropertyRoute } from '../data/propertyRoute';
+import type { FieldInfo } from '../data/reflection';
 // TODO(port): getEnumInfo, toLuxonFormat, toNumberFormat, onReloadTypesActions, toLuxonDurationFormat,
 // toFormatWithFixes, numberLimits, isDecimalType — formatter/query-registry layer not ported.
 
@@ -75,8 +75,8 @@ import { QueryString } from "./QueryString";
 // import { similarToken } from "./Search";
 // import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { type BsSize } from "./Components";
-import { CollectionMessage } from '../entities/dynamicQueries';
-import { QueryTokenMessage } from '../entities/dynamicQueries';
+import { CollectionMessage } from '../data/dynamicQueries';
+import { QueryTokenMessage } from '../data/dynamicQueries';
 // import { TextHighlighter } from "./Components/Typeahead";
 // The default filter-value editors + the Type.token/querySettings statics, imported LAST so Finder's own
 // module graph (Navigator, Lines-free helpers) evaluates first: FinderRules pulls in the UI Lines, which

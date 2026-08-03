@@ -7,13 +7,13 @@
 // dropped (altea list ctxs carry no previousVersion). Data (the option lites) is fetched from the VALUE
 // field's type (getValueField().typeName) or the findOptions query.
 import * as React from 'react'
-import { classes } from '../../entities/globals'
+import { classes } from '../../data/globals'
 import { Finder } from '../Finder'
 import type { FindOptions } from '../FindOptions'
-import type { ResultRow, ResultTable } from '../../entities/dynamicQuery/queryRequest'
+import type { ResultRow, ResultTable } from '../../data/dynamicQuery/queryRequest'
 import { mlistItemContext, type TypeContext } from '../TypeContext'
-import { BaseEntity, Entity } from '../../entities/entity'
-import { Lite } from '../../entities/lite'
+import { BaseEntity, Entity } from '../../data/entity'
+import { Lite } from '../../data/lite'
 import { EntityListBaseController, type EntityListBaseProps } from './EntityListBase'
 import { useController } from './LineBase'
 import { normalizeEmptyArray } from './EntityCombo'

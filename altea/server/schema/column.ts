@@ -1,5 +1,5 @@
 import { AbstractDbType, IsNullable } from './dbType';
-import type { PrimaryKeyType } from '../../entities/reflection';
+import type { PrimaryKeyType } from '../../data/reflection';
 import type { Table } from './table';
 
 // A system-versioning period column's role (Signum's SystemVersionColumnType + the

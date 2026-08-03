@@ -1,9 +1,9 @@
-import { Entity } from '../entities/entity';
-import type { Type, PrimaryKey } from '../entities/entity';
+import { Entity } from '../data/entity';
+import type { Type, PrimaryKey } from '../data/entity';
 import { TypeLogic } from './typeLogic';
-import { getTypeInfo } from '../entities/reflection';
-import { referenceKey } from '../entities/changes';
-import { Lite } from '../entities/lite';
+import { getTypeInfo } from '../data/reflection';
+import { referenceKey } from '../data/changes';
+import { Lite } from '../data/lite';
 import { Connector } from './connection/connector';
 import { normalizeScalar } from './normalizeScalar';
 import type { IColumn } from './schema/column';

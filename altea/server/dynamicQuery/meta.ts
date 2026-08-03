@@ -1,5 +1,5 @@
-import type { Implementations } from "../../entities/implementations";
-import type { PropertyRoute } from "../../entities/propertyRoute";
+import type { Implementations } from "../../data/implementations";
+import type { PropertyRoute } from "../../data/propertyRoute";
 
 // Port of Signum's `Meta` / `CleanMeta` / `DirtyMeta` (DynamicQuery/Meta.cs). A column's derived
 // metadata — its `implementations` and `IsAllowed` (and, once altea models them, unit/format/niceName)

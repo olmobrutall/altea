@@ -1,11 +1,11 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import "@altea/altea/entities/globals";
-import { PropertyRoute } from "@altea/altea/entities/propertyRoute";
-import { TypeReference } from "@altea/altea/entities/reflection";
+import "@altea/altea/data/globals";
+import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { TypeReference } from "@altea/altea/data/reflection";
 import {
     tryGetFilterType, getKey, getNiceName, type FilterType,
-} from "@altea/altea/entities/dynamicQuery/queryUtils";
+} from "@altea/altea/data/dynamicQuery/queryUtils";
 import {
     AlbumEntity, AlbumEntity_Songs, LabelEntity, ArtistEntity,
 } from "../../entities/music";

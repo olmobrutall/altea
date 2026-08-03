@@ -8,15 +8,15 @@
 
 import * as React from "react";
 import { QueryKey, type PseudoType } from './Reflection';
-import { TypeReference } from '../entities/reflection';
-import { Entity, EmbeddedEntity, type Type } from '../entities/entity';
+import { TypeReference } from '../data/reflection';
+import { Entity, EmbeddedEntity, type Type } from '../data/entity';
 import { QueryTokenString } from './QueryTokenString';
-import type { Lite } from '../entities/lite';
-import type { BaseEntity } from '../entities/entity';
+import type { Lite } from '../data/lite';
+import type { BaseEntity } from '../data/entity';
 import type {
   PaginationMode, OrderType, FilterOperation, ColumnOptionsMode, UniqueType,
   FilterGroupOperation, PinnedFilterActive, DashboardBehaviour, CombineRows, FilterType,
-} from '../entities/dynamicQueries';
+} from '../data/dynamicQueries';
 import type { BsSize } from './Components';
 import { QueryToken } from './QueryToken';
 // The DynamicQuery wire DTOs live in entities/dynamicQuery/queryRequest.ts (shared client/server);
@@ -24,7 +24,7 @@ import { QueryToken } from './QueryToken';
 // its own signatures below.
 import type {
   FilterRequest, FilterGroupRequest, FilterConditionRequest, Pagination, SystemTime,
-} from '../entities/dynamicQuery/queryRequest';
+} from '../data/dynamicQuery/queryRequest';
 import type { SearchControlProps } from "./SearchControl/SearchControl";
 import type SearchControlLoaded from "./SearchControl/SearchControlLoaded";
 

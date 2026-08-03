@@ -1,14 +1,14 @@
 import type { Quoted } from "quote-transformer/quoted";
-import { Entity } from "../../entities/entity";
-import { Implementations } from "../../entities/implementations";
-import { Localization } from "../../entities/utils/localization";
+import { Entity } from "../../data/entity";
+import { Implementations } from "../../data/implementations";
+import { Localization } from "../../data/utils/localization";
 import { ClassType, ArrayType, LiteType, EnumType, TemporalType, LiteralType, RuntimeType } from "../runtimeTypes";
-import { TypeReference } from "../../entities/reflection";
+import { TypeReference } from "../../data/reflection";
 import { Expression, ParameterExpression } from "../linq/expressions";
 import { ExpressionVisitor } from "../linq/visitors/ExpressionVisitor";
-import { QueryToken, entityCtorOf } from "../../entities/dynamicQuery/tokens";
+import { QueryToken, entityCtorOf } from "../../data/dynamicQuery/tokens";
 import { extractEntity } from "./tokenExpressions";
-import { ExtensionToken, type ExtensionInfo } from "../../entities/dynamicQuery/tokens";
+import { ExtensionToken, type ExtensionInfo } from "../../data/dynamicQuery/tokens";
 import { Meta, CleanMeta } from "./meta";
 import { MetadataVisitor } from "./metadataVisitor";
 

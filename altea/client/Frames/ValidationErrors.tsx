@@ -2,8 +2,8 @@
 // (Globals→entities/globals); ModifiableEntity→BaseEntity; altea ModelState values are single strings
 // (not string[]), so `value.join("\n")` → `value`.
 import * as React from 'react'
-import { Dic } from '../../entities/globals'
-import type { BaseEntity } from '../../entities/entity'
+import { Dic } from '../../data/globals'
+import type { BaseEntity } from '../../data/entity'
 import { GraphExplorer } from '../Reflection'
 import { useForceUpdate } from '../Hooks';
 

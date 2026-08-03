@@ -1,10 +1,10 @@
-import type { Entity } from "../entities/entity";
-import type { Lite } from "../entities/lite";
-import type { OperationSymbol } from "../entities/operations";
+import type { Entity } from "../data/entity";
+import type { Lite } from "../data/lite";
+import type { OperationSymbol } from "../data/operations";
 import type {
     ExecuteSymbol, DeleteSymbol,
     ConstructSymbol, From, FromMany,
-} from "../entities/operations";
+} from "../data/operations";
 import { Transaction } from "./connection/transaction";
 import {
     OperationType,

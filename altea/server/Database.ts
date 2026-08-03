@@ -4,11 +4,11 @@
 // by id. The cache extension point (`./cache`) is consulted first, so a cached type is
 // served from memory instead of the database.
 
-import { Entity, type PrimaryKey, type Type } from "../entities/entity";
-import { Lite } from "../entities/lite";
+import { Entity, type PrimaryKey, type Type } from "../data/entity";
+import { Lite } from "../data/lite";
 import { getCacheController } from "./cache";
 import { retrieveEntitiesByIds, table } from "./table";
-import "../entities/globals"; // Array.prototype.contains (SQL-mappable in the delete filter)
+import "../data/globals"; // Array.prototype.contains (SQL-mappable in the delete filter)
 
 // Chunk id lists to stay well under the database's max-parameters-per-statement (Signum's
 // SchemaSettings.MaxNumberOfParameters). Kept conservative so both SQL Server (~2100) and

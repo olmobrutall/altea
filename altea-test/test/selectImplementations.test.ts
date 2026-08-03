@@ -1,9 +1,9 @@
 import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
-import "@altea/altea/entities/globals"; // String.startsWith / contains / … (SQL-mappable)
+import "@altea/altea/data/globals"; // String.startsWith / contains / … (SQL-mappable)
 import { hasDb, start } from "./setup";
-import { Lite } from "@altea/altea/entities/lite";
+import { Lite } from "@altea/altea/data/lite";
 import {
     ArtistEntity, AlbumEntity, BandEntity, LabelEntity,
     NoteWithDateEntity, AwardNominationEntity, GrammyAwardEntity,

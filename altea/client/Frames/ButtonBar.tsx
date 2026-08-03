@@ -2,7 +2,7 @@
 // (Globals→entities/globals); dropped the junk `namespace from 'd3'`; `p.pack.entity.Type`→
 // `getTypeName(p.pack.entity)` (no `.Type` in altea); type-only imports for verbatimModuleSyntax.
 import * as React from 'react'
-import { classes } from '../../entities/globals'
+import { classes } from '../../data/globals'
 import { Navigator } from '../Navigator'
 import type { IRenderButtons, ButtonsContext, ButtonBarElement } from '../TypeContext'
 import { getTypeName } from '../Reflection'

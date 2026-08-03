@@ -1,7 +1,7 @@
 // Ported from Signum.React/Lines/CheckboxLine.tsx — copy-paste + fix (imports retargeted; TypeContext
 // from ../TypeContext; requiredIndicator already stubbed to false in Signum source).
 import * as React from 'react'
-import { classes } from '../../entities/globals'
+import { classes } from '../../data/globals'
 import { genericMemo, LineBaseController, useController } from './LineBase'
 import { FormGroup } from './FormGroup'
 import { getTimeMachineIcon } from './TimeMachineIcon'
