@@ -1,0 +1,194 @@
+import { test, before, describe } from "node:test";
+import assert from "node:assert/strict";
+import { table } from "@altea/altea/server/table";
+import { Query } from "@altea/altea/server/query";
+import "@altea/altea/data/globals"; // String.contains, Array.range (SQL-mappable + helpers)
+import { hasDb, start } from "../setup";
+import { ArtistEntity, AlbumEntity } from "../../data/music";
+
+// Port of Signum.Test/LinqProvider/TakeSkipTest.cs. C# → altea idiom:
+//   Database.Query<T>()  → table(T)              .Take(n)/.Skip(n) → .top(n)/.skip(n)
+//   .Where(...)          → .filter(...)          .Select(...)      → .map(...)
+//   .OrderBy(...)        → .orderBy(...)         .ThenBy(...)      → .thenBy(...)
+//   .ToList()/.ToArray() → await .toArray()      .Any()            → await .some()
+//   .Count()             → await .count()        .Max(sel)         → await .max(sel)
+//   new { X = .. }       → { x: .. }             a.ToLite()        → a.toLite()
+// Terminals are async (the connector is async-only). Live execution is gated on
+// ALTEA_TEST_DB; without it the suite is skipped but still compiles.
+
+describe("TakeSkipTest", { skip: !hasDb }, () => {
+    before(async () => { await start(); });
+
+    // var takeArtist = Database.Query<ArtistEntity>().Take(2).ToList();
+    test("Take", async () => {
+        const takeArtist = await table(ArtistEntity).top(2).toArray();
+        assert.equal(takeArtist.length, 2);
+    });
+
+    // var takeArtist = Database.Query<ArtistEntity>().OrderBy(a => a.Name).Take(2).ToList();
+    test("TakeOrder", async () => {
+        const takeArtist = await table(ArtistEntity).orderBy(a => a.name).top(2).toArray();
+        assert.equal(takeArtist.length, 2);
+    });
+
+    // var takeAlbum = Database.Query<AlbumEntity>().Select(a => new { a.Name, TwoSongs = a.Songs.Take(2) }).ToList();
+    test("TakeSql", async () => {
+        const takeAlbum = await table(AlbumEntity)
+            .map(a => ({ name: a.name, twoSongs: a.songs.top(2) }))
+            .toArray();
+        assert.ok(takeAlbum.every(a => a.twoSongs.length <= 2));
+    });
+
+    // var skipArtist = Database.Query<ArtistEntity>().Skip(2).ToList();
+    test("Skip", async () => {
+        const skipArtist = await table(ArtistEntity).skip(2).toArray();
+        assert.ok(Array.isArray(skipArtist));
+    });
+
+    // var allAggregates = Database.Query<ArtistEntity>().GroupBy(a => new { }).Select(gr => new { Count = gr.Count(), MaxId = gr.Max(a=>a.Id) }).Skip(2).ToList();
+    test("SkipAllAggregates", async () => {
+        const allAggregates = await table(ArtistEntity)
+            .groupBy(a => ({}))
+            .map(gr => ({ count: gr.elements.length, maxId: gr.elements.max(a => a.id) }))
+            .skip(2)
+            .toArray();
+        // GroupBy(new {}) yields a single all-rows group, so Skip(2) drops it entirely.
+        assert.equal(allAggregates.length, 0);
+    });
+
+    // var allAggregates = Database.Query<ArtistEntity>().GroupBy(a => new { }).Select(gr => new { Count = gr.Count(), MaxId = gr.Max(a => a.Id) }).OrderBy(a => a.Count).OrderAlsoByKeys().ToList();
+    test("AllAggregatesOrderByAndByKeys", async () => {
+        const allAggregates = await table(ArtistEntity)
+            .groupBy(a => ({}))
+            .map(gr => ({ count: gr.elements.length, maxId: gr.elements.max(a => a.id) }))
+            .orderBy(a => a.count)
+            .orderAlsoByKeys()
+            .toArray();
+        // Single all-rows group: one aggregate row whose Count/MaxId match the whole table.
+        assert.equal(allAggregates.length, 1);
+        const total = await table(ArtistEntity).count();
+        const maxId = await table(ArtistEntity).max(a => a.id);
+        assert.equal(allAggregates[0].count, total);
+        assert.equal(allAggregates[0].maxId, maxId);
+    });
+
+    // var allAggregates = Database.Query<ArtistEntity>().GroupBy(a => new { }).Select(gr => new { Count = gr.Count(), MaxId = gr.Max(a => a.Id) }).OrderBy(a=>a.Count).Skip(2).ToList();
+    test("SkipAllAggregatesOrderBy", async () => {
+        const allAggregates = await table(ArtistEntity)
+            .groupBy(a => ({}))
+            .map(gr => ({ count: gr.elements.length, maxId: gr.elements.max(a => a.id) }))
+            .orderBy(a => a.count)
+            .skip(2)
+            .toArray();
+        // Single all-rows group, so Skip(2) drops it.
+        assert.equal(allAggregates.length, 0);
+    });
+
+    // var count = Database.Query<ArtistEntity>().GroupBy(a => new { }).Select(gr => new { Count = gr.Count(), MaxId = gr.Max(a => a.Id) }).OrderBy(a => a.Count).Count();
+    test("AllAggregatesCount", async () => {
+        const count = await table(ArtistEntity)
+            .groupBy(a => ({}))
+            .map(gr => ({ count: gr.elements.length, maxId: gr.elements.max(a => a.id) }))
+            .orderBy(a => a.count)
+            .count();
+        assert.equal(count, 1);
+    });
+
+    // var skipArtist = Database.Query<ArtistEntity>().OrderBy(a => a.Name).Skip(2).ToList();
+    test("SkipOrder", async () => {
+        const skipArtist = await table(ArtistEntity).orderBy(a => a.name).skip(2).toArray();
+        assert.ok(Array.isArray(skipArtist));
+    });
+
+    // var takeAlbum = Database.Query<AlbumEntity>().Select(a => new { a.Name, TwoSongs = a.Songs.Skip(2) }).ToList();
+    test("SkipSql", async () => {
+        const takeAlbum = await table(AlbumEntity)
+            .map(a => ({ name: a.name, twoSongs: a.songs.skip(2) }))
+            .toArray();
+        assert.ok(Array.isArray(takeAlbum));
+    });
+
+    // var skipArtist = Database.Query<ArtistEntity>().Skip(2).Take(1).ToList();
+    test("SkipTake", async () => {
+        const skipArtist = await table(ArtistEntity).skip(2).top(1).toArray();
+        assert.ok(Array.isArray(skipArtist));
+    });
+
+    // var skipArtist = Database.Query<ArtistEntity>().OrderBy(a => a.Name).Skip(2).Take(1).ToList();
+    test("SkipTakeOrder", async () => {
+        const skipArtist = await table(ArtistEntity).orderBy(a => a.name).skip(2).top(1).toArray();
+        assert.ok(Array.isArray(skipArtist));
+    });
+
+    // var result = Database.Query<AlbumEntity>().Where(dr => dr.Songs.OrderByDescending(a => a.Seconds).Take(1).Where(a => a.Name.Contains("Zero")).Any()).Select(a => a.ToLite()).ToList();
+    // API-shape note: altea's collection .some() takes a required predicate (no C# zero-arg Any());
+    // the extra .filter is folded into `.some(a => true)`.
+    test("InnerTake", async () => {
+        const result = await table(AlbumEntity)
+            .filter(dr => dr.songs.orderByDescending(a => a.seconds).top(1).filter(a => a.name.contains("Zero")).some(a => true))
+            .map(a => a.toLite())
+            .toArray();
+        assert.equal(result.length, 0);
+    });
+
+    // TestPaginate(Database.Query<ArtistEntity>().OrderBy(a => a.Sex).Select(a => a.Name));
+    // TS-typing: testPaginate is generic over Query<T>, so a projected Query<string> flows through.
+    test("OrderByCommonSelectPaginate", async () => {
+        await testPaginate(table(ArtistEntity).orderBy(a => a.sex).map(a => a.name));
+    });
+
+    // TestPaginate(Database.Query<ArtistEntity>().OrderBy(a => a.Name).Select(a => a.Name));
+    // TS-typing: testPaginate is generic over Query<T>, so a projected Query<string> flows through.
+    test("OrderBySelectPaginate", async () => {
+        await testPaginate(table(ArtistEntity).orderBy(a => a.name).map(a => a.name));
+    });
+
+    // TestPaginate(Database.Query<ArtistEntity>().OrderByDescending(a => a.Name).Select(a => a.Name));
+    // TS-typing: testPaginate is generic over Query<T>, so a projected Query<string> flows through.
+    test("OrderByDescendingSelectPaginate", async () => {
+        await testPaginate(table(ArtistEntity).orderByDescending(a => a.name).map(a => a.name));
+    });
+
+    // TestPaginate(Database.Query<ArtistEntity>().OrderBy(a => a.Name).ThenBy(a => a.Id).Select(a => a.Name));
+    // TS-typing: testPaginate is generic over Query<T>, so a projected Query<string> flows through.
+    test("OrderByThenBySelectPaginate", async () => {
+        await testPaginate(table(ArtistEntity).orderBy(a => a.name).thenBy(a => a.id).map(a => a.name));
+    });
+
+    // TestPaginate(Database.Query<ArtistEntity>().Select(a => a.Name).OrderBy(a => a));
+    // TS-typing: testPaginate is generic over Query<T>, so a projected OrderedQuery<string> flows through.
+    test("SelectOrderByPaginate", async () => {
+        await testPaginate(table(ArtistEntity).map(a => a.name).orderBy(a => a));
+    });
+
+    // TestPaginate(Database.Query<ArtistEntity>().Select(a => a.Name).OrderByDescending(a => a));
+    // TS-typing: testPaginate is generic over Query<T>, so a projected OrderedQuery<string> flows through.
+    test("SelectOrderByDescendingPaginate", async () => {
+        await testPaginate(table(ArtistEntity).map(a => a.name).orderByDescending(a => a));
+    });
+
+    // private void TestPaginate<T>(IQueryable<T> query) {
+    //     var list = query.OrderAlsoByKeys().ToList();
+    //     int pageSize = 2;
+    //     var list2 = 0.To(((list.Count / pageSize) + 1)).SelectMany(page =>
+    //         query.OrderAlsoByKeys().Skip(pageSize * page).Take(pageSize).ToList()).ToList();
+    //     Assert.Equal(list, list2);
+    // }
+    async function testPaginate<T>(query: Query<T>): Promise<void> {
+        // Match Signum's TestPaginate: OrderAlsoByKeys appends the source entity's primary key as
+        // a tie-breaker, so a non-unique ORDER BY (e.g. by Sex) paginates in a stable total order
+        // — otherwise the full list and the pages disagree on the order of tied rows.
+        const q = query.orderAlsoByKeys();
+        const list = await q.toArray();
+
+        const pageSize = 2;
+
+        // Signum: 0.To((list.Count / pageSize) + 1).SelectMany(page => q.Skip(...).Take(...).ToList())
+        const pages = await Promise.all(
+            Array.range(0, Math.floor(list.length / pageSize) + 1)
+                .map(page => q.skip(pageSize * page).top(pageSize).toArray()));
+        const list2 = pages.flatMap(chunk => chunk);
+
+        assert.deepEqual(list, list2);
+    }
+});

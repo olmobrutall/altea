@@ -1,8 +1,12 @@
 {
+  // Solution file — three tiers by what they exercise: data (entity API, DB-free), client (client API,
+  // DB-free), server (the DB-backed bulk, with linq/ + dynamicQueries/ subfolders). Shared-root: the
+  // tier configs live here at the package root (tsconfig.{data,client,server}.json); source stays in the
+  // data/ client/ server/ directories. `tspc -b`.
   "files": [],
   "references": [
-    { "path": "entities" },
-    { "path": "logic" },
-    { "path": "test" }
+    { "path": "./tsconfig.data.json" },
+    { "path": "./tsconfig.server.json" },
+    { "path": "./tsconfig.client.json" }
   ]
 }

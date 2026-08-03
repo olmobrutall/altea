@@ -1,0 +1,18 @@
+{
+  // CLIENT tier — the few client-API tests (DB-free). Accepts the client/ directory OR co-located
+  // *.client.ts suffix files. References the local DATA project + altea's data + client layers.
+  "extends": "../altea/tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo.client",
+    "types": ["node"]
+  },
+  "include": ["client/**/*", "**/*.client.ts"],
+  "exclude": ["data/**", "server/**"],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" }
+  ]
+}
