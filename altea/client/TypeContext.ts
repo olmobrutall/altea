@@ -1,13 +1,13 @@
 import * as React from 'react'
 import { getTypeName, tryGetTypeInfo } from './Reflection'
-import type { PseudoType, MemberInfo, IType } from './Reflection'
+import type { PseudoType, MemberInfo } from './Reflection'
 import { PropertyRoute, PropertyRouteType } from '../data/propertyRoute'
 import { TypeReference } from '../data/reflection'
 import { ReadonlyBinding, createBinding, getLambdaMembers, getFieldMembers, Binding } from './binding'
 import type { IBinding, LambdaMember } from './binding'
 import type { Quoted } from 'quote-transformer/quoted'
 import { BaseEntity } from '../data/entity'
-import type { Entity, MixinEntity, ModelEntity, Type } from '../data/entity'
+import type { Entity, ModelEntity, Type } from '../data/entity'
 import type { EntityPack } from '../data/entityPack'
 import type { ModelState } from '../data/validation'
 
@@ -260,13 +260,6 @@ export interface BsColumns {
 }
 
 
-// Distinguishes an entity/mixin CONSTRUCTOR from a plain selector lambda (both are `function` in
-// altea) — a ctor's prototype is a BaseEntity, a lambda's is not. Local to subCtx's arg dispatch
-// (was the exported Reflection.isType — the only caller).
-function isType(obj: unknown): obj is IType {
-  return typeof obj === 'function' && (obj as Function).prototype instanceof BaseEntity;
-}
-
 // ALTEA sweep helpers: altea's PropertyRoute is string/route-based (add(name)), not lambda-based
 // (Signum's addLambda/tryAddLambdaMember). These translate a parsed LambdaMember / a whole lambda
 // into altea route navigation ("Item" for collection indexers, addMixin for mixins).
@@ -356,34 +349,33 @@ export class TypeContext<T> extends StyleContext {
     return this.propertyRoute?.fieldInfo ?? this.typeReference;
   }
 
-  // ALTEA divergence from Signum's overload set (Signum: styleOptions / plain-lambda / mixin-ctor / string):
+  // ALTEA divergence from Signum's subCtx overloads:
   //   1. The property-lambda param is `Quoted<(val:T)=>R>` (the transformer needs a Quoted-typed param to
-  //      emit `__quoted`; getLambdaMembers has no toString fallback), and it MUST come first. StyleOptions
-  //      is all-optional, so a bare selector lambda is structurally assignable to it — with StyleOptions
-  //      first, overload resolution picks it and the lambda param silently degrades to implicit-any.
-  //   2. Signum's `subCtx(mixin: Type<M>): TypeContext<M>` overload is DROPPED. A constructor-typed overload
-  //      at the same argument position defeats TypeScript's contextual typing of a bare property lambda
-  //      (mixed call/construct signatures → the arrow param falls back to `any`), which would break EVERY
-  //      view. Mixin navigation is still available two ways with correct typing: the runtime `isType(arg)`
-  //      branch below (so `subCtx(SomeMixin)` works at runtime), and the lambda form `subCtx(a => a.mixin(X))`
-  //      which getLambdaMembers already parses. eastwind has no mixin call sites today.
+  //      emit `__quoted`; getLambdaMembers has no toString fallback) and MUST precede the StyleOptions
+  //      overload. StyleOptions is all-optional, so a bare selector lambda is assignable to it — were it
+  //      first, overload resolution would pick it and the lambda param would silently degrade to any.
+  //   2. Signum's `subCtx(mixin: Type<M>): TypeContext<M>` overload is DROPPED as redundant. A mixin step is
+  //      navigated INSIDE the property lambda instead — `subCtx(a => a.mixin(SomeMixin).someProperty)` — the
+  //      same Quoted path getLambdaMembers already parses into a Mixin member (proven by
+  //      `Type.token(a => a.mixin(X).prop)` in altea-test, which resolves to "X.Prop"). Bonus: a
+  //      constructor-typed overload at this arg position would ALSO defeat contextual typing of that lambda
+  //      (mixed call/construct signatures → the arrow param falls to any), so dropping it is doubly right.
   subCtx<R>(property: Quoted<(val: T) => R>, styleOptions?: StyleOptions): TypeContext<R>
   subCtx(field: string, styleOptions?: StyleOptions): TypeContext<any>
   subCtx(styleOptions: StyleOptions): TypeContext<T>
-  subCtx(arg: Quoted<(val: T) => any> | IType | string | StyleOptions, styleOptions?: StyleOptions): TypeContext<any> {
-    if (typeof arg == "object" && !isType(arg)) {
+  subCtx(arg: Quoted<(val: T) => any> | string | StyleOptions, styleOptions?: StyleOptions): TypeContext<any> {
+    if (typeof arg == "object") {
       var nc = new TypeContext<T>(this, arg, this.propertyRoute ?? this.typeReference, this.binding, this.prefix);
       nc.previousVersion = this.previousVersion;
 
       return nc;
     }
 
-    // ALTEA: a mixin Type is a real CONSTRUCTOR (a function), so isType(arg) must be tested BEFORE
-    // the `typeof arg == "function"` lambda branch (Signum's mixin Type was a { typeName } object).
+    // A property lambda (`function`) is parsed via its `__quoted` tree — mixin steps (`a.mixin(X).f`) become
+    // Mixin members there; a plain string is a field path.
     const lambdaMembers: LambdaMember[] =
-      isType(arg) ? [{ type: "Mixin", name: (arg as Function).name } as LambdaMember] :
-        typeof arg == "function" ? getLambdaMembers(arg as (val: T) => any) :
-          getFieldMembers(arg as string);
+      typeof arg == "function" ? getLambdaMembers(arg as (val: T) => any) :
+        getFieldMembers(arg as string);
 
     const subRoute = lambdaMembers.reduce<PropertyRoute | undefined>((pr, m) => tryAddLambdaMember(pr, m), this.propertyRoute);
 
