@@ -295,7 +295,7 @@ export function EntityComboSelect<V extends Entity | Lite<Entity> | null>(p: Ent
           title={comboToString(lite)}
           filter={(e, query) => {
             var toStr = comboToString((e as ResultRow).entity).toLowerCase();
-            return query.toLowerCase().split(' ').every(part => toStr.contains(part));
+            return query.toLowerCase().split(' ').every(part => toStr.includes(part));
           }}
           renderValue={a => p.onRenderItem!(a.item?.entity == null ? undefined : a.item, "Value")}
           renderListItem={a => p.onRenderItem!(a.item?.entity == null ? undefined : a.item, "ListItem", a.searchTerm)}

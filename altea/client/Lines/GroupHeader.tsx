@@ -7,10 +7,10 @@ export function Title(p: { children: React.ReactNode, type: HeaderType }): React
 
   var ElementType =
     p.type == "lead" ? "p" as const :
-    p.type.contains("display-") ? ("h" + p.type.after("display-")) as "h1" :
+    p.type.includes("display-") ? ("h" + p.type.after("display-")) as "h1" :
     p.type as "h1";
 
-  const className = p.type.contains("display-") || p.type == "lead" ? p.type : undefined;
+  const className = p.type.includes("display-") || p.type == "lead" ? p.type : undefined;
 
   return <ElementType className={classes("mt-3", className)}>{p.children}</ElementType>;
 }

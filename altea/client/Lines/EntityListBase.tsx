@@ -259,7 +259,7 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
     else {
       // ALTEA: only enforce the name match for a plain single-type reference; @implementedBy /
       // @implementedByAll accept any of their (polymorphic) implementations.
-      if (!type.isByAll() && type.implementations == null && typeName != null && !typeName.split(',').map(a => a.trim()).contains(entityType))
+      if (!type.isByAll() && type.implementations == null && typeName != null && !typeName.split(',').map(a => a.trim()).includes(entityType))
         throw new Error(`Impossible to convert '${entityType}' to '${typeName}'`);
 
       if (!!(entityOrLite instanceof Lite) == !!type.lite)

@@ -101,7 +101,7 @@ function SelectorModal(p: SelectorModalProps): React.ReactElement {
                 {gr.elements.map((o, i) =>
                   p.multiSelect ?
                     <label className="m-2" style={{ display: "block", userSelect: "none" }} onDoubleClick={e => { e.preventDefault(); handleDoubleClickClicked(o.value); }} key={i}>
-                      <input type={p.multiSelect?.maxElements == 1 ? "radio" : "checkbox"} onChange={e => handleCheckboxOnChange(e, o.value)} className={"form-check-input"} name={o.displayName?.toString()!} checked={selectedItems.contains(o.value)} />
+                      <input type={p.multiSelect?.maxElements == 1 ? "radio" : "checkbox"} onChange={e => handleCheckboxOnChange(e, o.value)} className={"form-check-input"} name={o.displayName?.toString()!} checked={selectedItems.includes(o.value)} />
                       {" "}{o.displayName}
                     </label> :
                     <button key={i} type="button" onClick={() => handleButtonClicked(o.value)} name={o.name}

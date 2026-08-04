@@ -67,14 +67,14 @@ export class SmartEqualizer {
         return this.equalNullable(e1, e2);
     }
 
-    // `capturedList.contains(reference)` — Signum's EntityIn. A reference can't be
+    // `capturedList.includes(reference)` — Signum's EntityIn. A reference can't be
     // compared column-wise, so membership in a captured collection of entities/lites
     // is an OR of id (+ type) comparisons against each captured element. Empty → False.
     static entityIn(item: Expression, values: readonly unknown[]): Expression {
         return this.orAll(values.map(v => this.polymorphicEqual(item, new ConstantExpression(v))));
     }
 
-    // `capturedTypes.contains(x.GetType())` — Signum's TypeIn. Membership of a runtime-type
+    // `capturedTypes.includes(x.GetType())` — Signum's TypeIn. Membership of a runtime-type
     // expression in a captured collection of types (ctors) is an OR of typeEqual against each
     // captured ctor — which for an @implementedBy reduces per type to its implementation FK
     // `IS NOT NULL`. Empty → False.

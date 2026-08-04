@@ -207,7 +207,7 @@ export function QueryTokenPart(p: QueryTokenPartProps): React.ReactElement | nul
           disabled={p.readOnly}
           selectIcon={open && doAutoExpand ? <FontAwesomeIcon aria-hidden={true} icon="magnifying-glass" /> : undefined}
           onToggle={isOpen => setOpen(isOpen)}
-          filter={(item, searchTerm) => item != null && searchTerm.toLowerCase().split(" ").filter(a => a != "").every(part => parentsUntil(item, p.parentToken).some(t => t.key.toLowerCase().contains(part) || t.toString().toLowerCase().contains(part)))}
+          filter={(item, searchTerm) => item != null && searchTerm.toLowerCase().split(" ").filter(a => a != "").every(part => parentsUntil(item, p.parentToken).some(t => t.key.toLowerCase().includes(part) || t.toString().toLowerCase().includes(part)))}
           autoComplete="off"
           focusFirstItem={true}
           data={subTokens?.orderBy(a => a?.parent != null) ?? []}

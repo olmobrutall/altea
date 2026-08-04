@@ -55,25 +55,25 @@ describe("OrderByTest", { skip: !hasDb }, () => {
     // var michael = Database.Query<ArtistEntity>().OrderBy(a => a.Dead).Last();
     test("OrderByLast", async () => {
         const michael = await table(ArtistEntity).orderBy(a => a.dead).last();
-        assert.ok(michael.name.contains("Michael"));
+        assert.ok(michael.name.includes("Michael"));
     });
 
     // var michael = Database.Query<ArtistEntity>().OrderBy(a => a.Dead).Last(a => a.Name.Length > 1);
     test("OrderByLastPredicate", async () => {
         const michael = await table(ArtistEntity).orderBy(a => a.dead).last(a => a.name.length > 1);
-        assert.ok(michael.name.contains("Michael"));
+        assert.ok(michael.name.includes("Michael"));
     });
 
     // var michael = Database.Query<ArtistEntity>().OrderBy(a => a.Dead).LastOrDefault()!;
     test("OrderByLastOrDefault", async () => {
         const michael = (await table(ArtistEntity).orderBy(a => a.dead).lastOrNull())!;
-        assert.ok(michael.name.contains("Michael"));
+        assert.ok(michael.name.includes("Michael"));
     });
 
     // var michael = Database.Query<ArtistEntity>().OrderBy(a => a.Dead).LastOrDefault(a => a.Name.Length > 1)!;
     test("OrderByLastOrDefaultPredicate", async () => {
         const michael = (await table(ArtistEntity).orderBy(a => a.dead).lastOrNull(a => a.name.length > 1))!;
-        assert.ok(michael.name.contains("Michael"));
+        assert.ok(michael.name.includes("Michael"));
     });
 
     // Database.Query<ArtistEntity>().OrderByDescending(a => a.Dead).ThenBy(a => a.Name).Reverse().Last();
@@ -183,7 +183,7 @@ describe("OrderByTest", { skip: !hasDb }, () => {
         assert.ok(Array.isArray(d));
 
         // Database.Query<AlbumEntity>().Where(a => a.Songs.OrderBy(s => s.Name).Contains(null!)).Select(a => a.Id).ToList();
-        const e = await table(AlbumEntity).filter(a => a.songs.orderBy(s => s.name).contains(null!)).map(a => a.id).toArray();
+        const e = await table(AlbumEntity).filter(a => a.songs.orderBy(s => s.name).includes(null!)).map(a => a.id).toArray();
         assert.ok(Array.isArray(e));
 
         // Database.Query<AlbumEntity>().OrderBy(a => a.Name).Count();
@@ -203,7 +203,7 @@ describe("OrderByTest", { skip: !hasDb }, () => {
         assert.ok(typeof i === "boolean");
 
         // Database.Query<AlbumEntity>().OrderBy(a => a.Name).Contains(null!);
-        const j = await table(AlbumEntity).orderBy(a => a.name).contains(null!);
+        const j = await table(AlbumEntity).orderBy(a => a.name).includes(null!);
         assert.ok(typeof j === "boolean");
     });
 });

@@ -13,7 +13,7 @@ import { ArtistEntity, AlbumEntity, BandEntity, NoteWithDateEntity, Sex, Status 
 //   .ToList()/.ToArray() → await .toArray()    .Any(pred?)  → await .some(pred?)
 //   .All(pred)           → await .every(pred)  .SingleEx()  → await .single()
 //   coll.Any(pred)/.All(pred) (in lambda) → coll.some(pred)/coll.every(pred)
-//   xs.Contains(v)       → xs.contains(v)      a.ToLite()   → a.toLite()
+//   xs.Contains(v)       → xs.includes(v)      a.ToLite()   → a.toLite()
 //   a.Is(b) / lite.Is(x) → a.is(b) / lite.is(x)   Sex.Male  → Sex.Male
 // Terminals are async (the connector is async-only). Live execution is gated on
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
@@ -31,7 +31,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     // var artist = Database.Query<ArtistEntity>().Where(a => ids.Contains(a.Id)).ToList();
     test("ContainsIEnumerableId", async () => {
         const ids = [1, 2, 3];
-        const artist = await table(ArtistEntity).filter(a => ids.contains(a.id as number)).toArray();
+        const artist = await table(ArtistEntity).filter(a => ids.includes(a.id as number)).toArray();
         assert.ok(Array.isArray(artist));
     });
 
@@ -39,7 +39,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     // var artist = Database.Query<ArtistEntity>().Where(a => ids.Contains(a.Id)).ToList();
     test("ContainsArrayId", async () => {
         const ids = [1, 2, 3];
-        const artist = await table(ArtistEntity).filter(a => ids.contains(a.id as number)).toArray();
+        const artist = await table(ArtistEntity).filter(a => ids.includes(a.id as number)).toArray();
         assert.ok(Array.isArray(artist));
     });
 
@@ -47,7 +47,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     // var artist = Database.Query<ArtistEntity>().Where(a => ids.Contains(a.Id)).ToList();
     test("ContainsListId", async () => {
         const ids = [1, 2, 3];
-        const artist = await table(ArtistEntity).filter(a => ids.contains(a.id as number)).toArray();
+        const artist = await table(ArtistEntity).filter(a => ids.includes(a.id as number)).toArray();
         assert.ok(Array.isArray(artist));
     });
 
@@ -55,7 +55,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     // var michael = Database.Query<ArtistEntity>().SingleEx(a => !artistsInBands.Contains(a.ToLite()));
     test("ContainsListLite", async () => {
         const artistsInBands = await table(BandEntity).flatMap(b => b.members).map(a => a.member.toLite()).toArray();
-        const michael = await table(ArtistEntity).single(a => !artistsInBands.contains(a.toLite()));
+        const michael = await table(ArtistEntity).single(a => !artistsInBands.includes(a.toLite()));
         assert.ok(michael != null);
     });
 
@@ -63,7 +63,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     // var michael = Database.Query<ArtistEntity>().SingleEx(a => !artistsInBands.Contains(a));
     test("ContainsListEntities", async () => {
         const artistsInBands = await table(BandEntity).flatMap(b => b.members).map(a => a.member).toArray();
-        const michael = await table(ArtistEntity).single(a => !artistsInBands.contains(a));
+        const michael = await table(ArtistEntity).single(a => !artistsInBands.includes(a));
         assert.ok(michael != null);
     });
 
@@ -75,7 +75,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     test("ContainsListLiteIB", async () => {
         const bands: any[] = [];
         const albums = await table(AlbumEntity)
-            .filter(a => !bands.contains(a.author.toLite()))
+            .filter(a => !bands.includes(a.author.toLite()))
             .map(a => a.toLite())
             .toArray();
         const total = await table(AlbumEntity).count();
@@ -93,7 +93,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
         const band = await table(BandEntity).orderBy(a => a.name).first();
         const bands: any[] = [await retrieve(ArtistEntity, artist.id), await retrieve(BandEntity, band.id)];
         const albums = await table(AlbumEntity)
-            .filter(a => !bands.contains(a.author))
+            .filter(a => !bands.includes(a.author))
             .map(a => a.toLite())
             .toArray();
         assert.ok(Array.isArray(albums));
@@ -110,7 +110,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
         const smash = await table(BandEntity).filter(a => a.name.startsWith("Smash")).map(a => a.toLite()).toArray();
         const lites: any[] = [...dead, ...smash];
         const albums = await table(NoteWithDateEntity)
-            .filter(a => lites.contains(a.target.toLite()))
+            .filter(a => lites.includes(a.target.toLite()))
             .map(a => a.toLite())
             .toArray();
         assert.ok(albums.every(l => l.entityType === NoteWithDateEntity));
@@ -127,7 +127,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
         const smash = await table(BandEntity).filter(a => a.name.startsWith("Smash")).toArray();
         const entities: any[] = [...dead, ...smash];
         const albums = await table(NoteWithDateEntity)
-            .filter(a => entities.contains(a.target))
+            .filter(a => entities.includes(a.target))
             .map(a => a.toLite())
             .toArray();
         assert.ok(albums.every(l => l.entityType === NoteWithDateEntity));
@@ -138,7 +138,7 @@ describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     test("ContainsEnum", async () => {
         const singles = [Status.Single];
         const artists = await table(ArtistEntity)
-            .filter(r => singles.contains(r.status!))
+            .filter(r => singles.includes(r.status!))
             .map(a => a.toLite())
             .toArray();
         assert.ok(Array.isArray(artists));

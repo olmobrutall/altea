@@ -63,7 +63,7 @@ export class EntityStripController<R extends BaseEntity> extends EntityListBaseC
       const elementPr = vf ? p.ctx.propertyRoute?.add("Item").add(vf.name) : p.ctx.propertyRoute?.add("Item");
 
       if (p.showType == undefined)
-        p.showType = ((vf ?? p.ctx.memberType).getTypeName() ?? "").contains(",");
+        p.showType = ((vf ?? p.ctx.memberType).getTypeName() ?? "").includes(",");
 
       if (p.autocomplete === undefined) {
         p.autocomplete = elementPr == null ? null :

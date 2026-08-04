@@ -17,7 +17,7 @@ import { TypeLogic } from "../typeLogic";
 // in place, and loops until nothing is pending (a batch load can surface new stubs).
 export class Retriever {
     // Injected by table.ts to break the import cycle (this file must not import the
-    // query pipeline). Runs `table(ctor).filter(e => ids.contains(e.id))` into `this`.
+    // query pipeline). Runs `table(ctor).filter(e => ids.includes(e.id))` into `this`.
     static retrieveListImpl: ((ctor: Type<Entity>, ids: PrimaryKey[], retriever: Retriever) => Promise<void>) | undefined;
 
     private readonly cache = new Map<string, Entity>();

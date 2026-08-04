@@ -495,7 +495,7 @@ describe("GroupByTest", { skip: !hasDb }, () => {
         const first = await table(ArtistEntity).firstOrNull();
         const artistsBySex = await table(ArtistEntity)
             .groupBy(a => a.sex)
-            .every(g => g.elements.contains(first!));
+            .every(g => g.elements.includes(first!));
         assert.ok(typeof artistsBySex == "boolean");
     });
 

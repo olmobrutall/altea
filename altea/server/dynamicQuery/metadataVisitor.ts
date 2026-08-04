@@ -117,7 +117,7 @@ export class MetadataVisitor {
                 ])));
             }
             // Aggregates that carry NO provenance (Signum's BindCount / BindAny / BindAll / BindContains).
-            case "some": case "every": case "count": case "contains": case "includes":
+            case "some": case "every": case "count": case "includes":
                 return voidValue();
             // Aggregates that propagate their selector's meta (Signum's BindAggregate).
             case "sum": case "min": case "max": case "average": {

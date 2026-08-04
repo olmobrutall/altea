@@ -48,7 +48,7 @@ describe("WhereTest", { skip: !hasDb }, () => {
     // a.Dead ? a.Name.Contains("Michael") : a.Name.Contains("Billy")
     test("WhereCase", async () => {
         await table(ArtistEntity)
-            .filter(a => a.dead ? a.name.contains("Michael") : a.name.contains("Billy"))
+            .filter(a => a.dead ? a.name.includes("Michael") : a.name.includes("Billy"))
             .toArray();
     });
 
@@ -75,7 +75,7 @@ describe("WhereTest", { skip: !hasDb }, () => {
     test("WhereNonConstantSearch", async () => {
         const total = await table(ArtistEntity).count();
         assert.ok(total > 0);
-        assert.equal(await table(ArtistEntity).count(a => a.name.contains(a.name)), total);
+        assert.equal(await table(ArtistEntity).count(a => a.name.includes(a.name)), total);
         assert.equal(await table(ArtistEntity).count(a => a.name.startsWith(a.name)), total);
         assert.equal(await table(ArtistEntity).count(a => a.name.endsWith(a.name)), total);
     });

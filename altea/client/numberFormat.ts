@@ -64,7 +64,7 @@ export function toNumberFormatOptions(format: string | undefined): Intl.NumberFo
     style: suffix == "%" ? "percent" : "decimal",
     minimumFractionDigits: afterDot.replaceAll("#", "").length,
     maximumFractionDigits: afterDot.length,
-    useGrouping: f.contains(","),
+    useGrouping: f.includes(","),
   };
 
   if (match?.groups?.plus)

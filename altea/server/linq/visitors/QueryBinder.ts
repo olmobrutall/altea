@@ -1089,7 +1089,7 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.bindAnyAll(source, call.args[0] as LambdaExpression | undefined, false, call === this.root);
                 case "every":
                     return this.bindAnyAll(source, call.args[0] as LambdaExpression | undefined, true, call === this.root);
-                case "contains":
+                case "includes":
                     return this.bindContains(source, call.args[0], call === this.root);
                 case "join":
                     return this.bindToString(source, call.args[0], call === this.root);
@@ -1226,8 +1226,8 @@ export class QueryBinder extends ExpressionVisitor {
 
         const visitedArgs = args.map(a => this.visit(a));
 
-        if (methodName === "contains" && source instanceof ConstantExpression && Array.isArray(source.value) && visitedArgs.length === 1) {
-            // A captured collection of types (`types.contains(x.constructor)`) → an OR of
+        if (methodName === "includes" && source instanceof ConstantExpression && Array.isArray(source.value) && visitedArgs.length === 1) {
+            // A captured collection of types (`types.includes(x.constructor)`) → an OR of
             // type-equalities (Signum's TypeIn) — else the Type* node flattens to garbage and
             // the ctor is bound as a value. A captured collection of entities/lites →
             // id-comparison membership (Signum's EntityIn); a collection of values → `item IN (…)`.

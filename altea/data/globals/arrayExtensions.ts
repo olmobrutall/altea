@@ -105,7 +105,6 @@ declare global {
     onlyOrNull<S extends T>(this: Array<T>, predicate?: (element: T, index: number, array: T[]) => element is S): S | null;
     onlyOrNull(this: Array<T>, predicate?: (element: T, index: number, array: T[]) => unknown): T | null;
 
-    contains(this: Array<T>, element: T): boolean;
     remove(this: Array<T>, element: T): boolean;
     removeAt(this: Array<T>, index: number): void;
     moveUp(this: Array<T>, index: number): number;
@@ -643,9 +642,6 @@ Array.prototype.onlyOrNull = function (this: any[], predicate?: (element: any, i
   return array[0];
 };
 
-Array.prototype.contains = function (this: any[], element: any) {
-  return this.indexOf(element) !== -1;
-};
 
 Array.prototype.avg = function (this: any[], selector?: (e: any, i: number, a: any[]) => number) {
   if (this.length == 0) return 0;

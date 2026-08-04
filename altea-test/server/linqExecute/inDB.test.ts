@@ -9,7 +9,7 @@ import { ArtistEntity, BandEntity, Sex } from "../../data/music";
 //   Database.Query<T>()  → table(T)            .Where(...) → .filter(...)
 //   .Select(...)         → .map(...)           .SingleEx()/.Single() → await .single()
 //   .ToList()/.ToArray() → await .toArray()    a.Sex == Sex.Female → a.sex == Sex.Female
-//   a.ToLite()           → a.toLite()          a.Friends.Contains(x) → a.friends.contains(x)
+//   a.ToLite()           → a.toLite()          a.Friends.Contains(x) → a.friends.includes(x)
 // Terminals are async (the connector is async-only). Live execution is gated on
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 //

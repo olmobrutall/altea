@@ -3,7 +3,6 @@ export {}; // ensure this file is treated as a module (required for `declare glo
 declare global {
 
   interface String {
-    contains(this: string, str: string): boolean;
     startsWith(this: string, str: string): boolean;
     endsWith(this: string, str: string): boolean;
     /** SQL LIKE: `%` matches any run of characters, `_` a single one. In a query
@@ -48,10 +47,6 @@ if (!String.prototype.includes) {
   String.prototype.includes = function (this: string, str: string, start?: number) {
     return this.indexOf(str, start) !== -1;
   };
-}
-
-String.prototype.contains = function (this: string, str: string) {
-  return this.indexOf(str) !== -1;
 }
 
 String.prototype.startsWith = function (this: string, str: string) {

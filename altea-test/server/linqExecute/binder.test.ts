@@ -117,14 +117,14 @@ describe("QueryBinder (step 2)", () => {
     });
 
     test("string contains in filter binds to CHARINDEX", () => {
-        const proj = bind(table(AlbumEntity).filter(a => a.name.contains("Zero")));
+        const proj = bind(table(AlbumEntity).filter(a => a.name.includes("Zero")));
         const { sql } = QueryFormatter.format(proj.select, false);
         assert.match(sql, /CHARINDEX\(@p0, .*\bName\b.*\) >= 1/i);
     });
 
     test("array contains in filter binds to IN", () => {
         const ids: any[] = [1, 2, 3];
-        const proj = bind(table(AlbumEntity).filter(a => ids.contains(a.id)));
+        const proj = bind(table(AlbumEntity).filter(a => ids.includes(a.id)));
         assert.equal(proj.select.where?.kind, "In");
     });
 
@@ -151,9 +151,9 @@ describe("QueryBinder (step 2)", () => {
         // In a WHERE the concat is fully translated (FullNominate): `` `${a.name} (${a.year})` ``
         // weaves the int `year` in with the string operator — `||` on Postgres, `+` with a
         // CAST on SQL Server — never arithmetic `+`, thanks to the `+`-stays-string typing.
-        const pg = QueryFormatter.format(bindPg(table(AlbumEntity).filter(a => `${a.name} (${a.year})`.contains("x"))).select, true).sql;
+        const pg = QueryFormatter.format(bindPg(table(AlbumEntity).filter(a => `${a.name} (${a.year})`.includes("x"))).select, true).sql;
         assert.match(pg, /\|\|/);
-        const ss = QueryFormatter.format(bind(table(AlbumEntity).filter(a => `${a.name} (${a.year})`.contains("x"))).select, false).sql;
+        const ss = QueryFormatter.format(bind(table(AlbumEntity).filter(a => `${a.name} (${a.year})`.includes("x"))).select, false).sql;
         assert.match(ss, /CAST\([^)]*Year[^)]*AS nvarchar/i);
     });
 
@@ -248,7 +248,7 @@ describe("QueryFormatter (step 3)", () => {
     });
 
     test("string contains renders a CHARINDEX parameter", () => {
-        const proj = bind(table(AlbumEntity).filter(a => a.name.contains("Zero")));
+        const proj = bind(table(AlbumEntity).filter(a => a.name.includes("Zero")));
         const { sql, parameters } = QueryFormatter.format(proj.select, false);
         assert.match(sql, /CHARINDEX\(@p0,/i);
         // The search value is used literally (Signum's TryCharIndex), not wrapped in %-wildcards.
@@ -257,7 +257,7 @@ describe("QueryFormatter (step 3)", () => {
 
     test("array contains renders IN parameters", () => {
         const ids: any[] = [1, 2, 3];
-        const proj = bind(table(AlbumEntity).filter(a => ids.contains(a.id)));
+        const proj = bind(table(AlbumEntity).filter(a => ids.includes(a.id)));
         const { sql, parameters } = QueryFormatter.format(proj.select, false);
         assert.match(sql, / IN \(@p0, @p1, @p2\)/i);
         assert.deepEqual(parameters, ids);

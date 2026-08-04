@@ -251,7 +251,7 @@ function SearchValue(p: SearchValueProps): React.ReactNode | null {
         return null;
 
       if (token.filterType == "Lite") {
-        var showType = p.multipleValues.showType ?? (token.type.getTypeName() ?? "").contains(",");
+        var showType = p.multipleValues.showType ?? (token.type.getTypeName() ?? "").includes(",");
         return (
           <div className="sf-entity-strip sf-control-container">
             {!p.avoidRenderTimeMachineIcon && renderTimeMachineIcon(controller.hasHistoryChanges, `translate(-100%, -80%)`)}

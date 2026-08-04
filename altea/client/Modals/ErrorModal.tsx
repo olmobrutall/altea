@@ -316,7 +316,7 @@ export namespace ErrorModalOptions {
   }
 
   export function preferPreFormated(se: ServiceError): boolean {
-    return se.httpError.exceptionType.contains("FieldReaderException");
+    return se.httpError.exceptionType.includes("FieldReaderException");
   }
   export function renderServiceMessage(se: ServiceError): React.ReactNode {
     return <RenderServiceMessageDefault error={se} />;

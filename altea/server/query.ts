@@ -285,9 +285,9 @@ export class Query<T> implements IQuery<T> {
     }
 
     @resultType(ot => SimpleType.boolean)
-    contains(element: T): Promise<boolean> {
+    includes(element: T): Promise<boolean> {
         var call = new CallExpression(
-            new PropertyExpression(this.expression, "contains"),
+            new PropertyExpression(this.expression, "includes"),
             [new ConstantExpression(element)],
             SimpleType.boolean);
 

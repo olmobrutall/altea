@@ -146,7 +146,7 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
     return result;
 }
 
-// Binds `table(ctor).filter(e => ids.contains(e.id))` — the shared shape behind both the
+// Binds `table(ctor).filter(e => ids.includes(e.id))` — the shared shape behind both the
 // Retriever's batch stub-completion and Database.retrieveList. The predicate is hand-built
 // (no quoted lambda needed at runtime); the captured id array is a ConstantExpression the
 // binder lowers to an `IN (…)`.
@@ -155,7 +155,7 @@ function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[]): Project
     const q = table(ctor);
     const param = new ParameterExpression("e", q.elementType);
     const predicate = new LambdaExpression([param],
-        new CallExpression(new PropertyExpression(new ConstantExpression(ids), "contains"),
+        new CallExpression(new PropertyExpression(new ConstantExpression(ids), "includes"),
             [new PropertyExpression(param, "id")], LiteralType.boolean));
     const filterExpr = new CallExpression(new PropertyExpression(q.expression, "filter"), [predicate], q.type);
     // Run the full simplifier (as the normal query path does): the OverloadingSimplifier is what

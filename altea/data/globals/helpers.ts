@@ -19,8 +19,8 @@ export namespace Dic {
     if (objA == null || objB == null)
       return false;
 
-    if (simplesTypes.contains(typeof objA) ||
-      simplesTypes.contains(typeof objB))
+    if (simplesTypes.includes(typeof objA) ||
+      simplesTypes.includes(typeof objB))
       return false;
 
     if (objA instanceof Date && objB instanceof Date)
@@ -109,7 +109,7 @@ export namespace Dic {
     var result: { [key: string]: any } = {};
     for (const name in obj) {
       if (obj.hasOwnProperty == null || obj.hasOwnProperty(name)) {
-        if (!keys.contains(name))
+        if (!keys.includes(name))
           result[name] = obj[name];
       }
     }

@@ -151,9 +151,8 @@ export class FilterCondition extends Filter {
         }
 
         if (this.operation === FilterOperation.IsIn || this.operation === FilterOperation.IsNotIn) {
-            // `.contains` is altea's SQL-mappable array membership (→ IN (…), like retrieveByIds);
-            // `.includes` has no SQL translation.
-            const call = new CallExpression(new PropertyExpression(new ConstantExpression(this.value), "contains"), [left], LiteralType.boolean);
+            // `.includes` is altea's SQL-mappable array membership (→ IN (…), like retrieveByIds).
+            const call = new CallExpression(new PropertyExpression(new ConstantExpression(this.value), "includes"), [left], LiteralType.boolean);
             return this.operation === FilterOperation.IsNotIn ? new BinaryExpression("==", call, new ConstantExpression(false)) : call;
         }
 

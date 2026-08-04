@@ -574,7 +574,7 @@ describe("SelectTest", { skip: !hasDb }, () => {
     test("SelectMListPotentialDuplicates", async () => {
         const sp = await table(AlbumEntity)
             .map(alb => alb.author as ArtistEntity)
-            .filter(mich => mich.name.contains("Michael"))
+            .filter(mich => mich.name.includes("Michael"))
             .toArray();
         assert.ok(sp.length > 0);
         assert.ok(sp.every(m => m instanceof ArtistEntity && m.name.includes("Michael")));

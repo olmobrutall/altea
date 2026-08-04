@@ -125,7 +125,7 @@ describe("TakeSkipTest", { skip: !hasDb }, () => {
     // the extra .filter is folded into `.some(a => true)`.
     test("InnerTake", async () => {
         const result = await table(AlbumEntity)
-            .filter(dr => dr.songs.orderByDescending(a => a.seconds).top(1).filter(a => a.name.contains("Zero")).some(a => true))
+            .filter(dr => dr.songs.orderByDescending(a => a.seconds).top(1).filter(a => a.name.includes("Zero")).some(a => true))
             .map(a => a.toLite())
             .toArray();
         assert.equal(result.length, 0);

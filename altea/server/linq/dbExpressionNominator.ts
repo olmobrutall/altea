@@ -420,7 +420,7 @@ class DbExpressionNominator extends DbExpressionVisitor {
         if (ns !== "string")
             return undefined;
         switch (`${ns}.${name}`) {
-            case "string.contains":
+            case "string.includes":
                 return args.length === 1 ? this.translateStringSearch("contains", source, args[0]) : undefined;
             case "string.startsWith":
                 return args.length === 1 ? this.translateStringSearch("startsWith", source, args[0]) : undefined;

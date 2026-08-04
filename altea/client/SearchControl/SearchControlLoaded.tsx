@@ -473,7 +473,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
     if (rowIndex != undefined) {
       const row = this.state.resultTable!.rows[rowIndex];
-      if (!this.state.selectedRows!.contains(row)) {
+      if (!this.state.selectedRows!.includes(row)) {
         this.setState({
           selectedRows: [row],
           currentMenuPack: undefined
@@ -492,7 +492,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
   handleColumnChanged = (token: QueryToken | undefined): void => {
     if (this.props.findOptions.groupResults) {
       var allKeys = this.props.findOptions.columnOptions.filter(a => a.token && !a.token.isAggregate()).map(a => a.token!.fullKey());
-      this.props.findOptions.orderOptions = this.props.findOptions.orderOptions.filter(o => allKeys.contains(o.token.fullKey()));
+      this.props.findOptions.orderOptions = this.props.findOptions.orderOptions.filter(o => allKeys.includes(o.token.fullKey()));
     }
     this.setState({ lastToken: token });
   }
@@ -1299,7 +1299,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
           menuItems.push(<Dropdown.Divider />);
 
         const filter = this.state.contextualMenu?.filter;
-        const filtered = filter ? menuPack.items.filter(mi => !(mi as SearchableMenuItem).fullText || (mi as SearchableMenuItem).fullText.toLowerCase().contains(filter.toLowerCase())) : menuPack.items;
+        const filtered = filter ? menuPack.items.filter(mi => !(mi as SearchableMenuItem).fullText || (mi as SearchableMenuItem).fullText.toLowerCase().includes(filter.toLowerCase())) : menuPack.items;
 
         menuItems.splice(menuItems.length, 0, ...filtered.map(mi => (mi as SearchableMenuItem).menu ?? mi));
       }
@@ -1640,10 +1640,10 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
                 </span> :
                   this.props.findOptions.groupResults && co.token && !co.token.isAggregate() ? <span>
                     <FontAwesomeIcon icon="key" className="me-1"
-                      color={rootKeys.contains(co) ? "gray" : "lightgray"}
+                      color={rootKeys.includes(co) ? "gray" : "lightgray"}
                       role="img"
-                      aria-label={rootKeys.contains(co) ? SearchMessage.GroupKey.niceToString() : SearchMessage.DerivedGroupKey.niceToString()}
-                      title={rootKeys.contains(co) ? SearchMessage.GroupKey.niceToString() : SearchMessage.DerivedGroupKey.niceToString()} />
+                      aria-label={rootKeys.includes(co) ? SearchMessage.GroupKey.niceToString() : SearchMessage.DerivedGroupKey.niceToString()}
+                      title={rootKeys.includes(co) ? SearchMessage.GroupKey.niceToString() : SearchMessage.DerivedGroupKey.niceToString()} />
                   </span> : null
               }
               {co.displayName}
@@ -1708,7 +1708,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
         selectedRows.clear();
         selectedRows.push(row);
       } else {
-        if (!selectedRows.contains(row))
+        if (!selectedRows.includes(row))
           selectedRows.push(row);
       }
     } else {
@@ -1727,7 +1727,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     var keyFilters = resFo.columnOptions
       .filter(col => col.token != null)
       .map(col => ({ col, value: row.columns[resTable.columns.indexOf(col.token!.fullKey())] }))
-      .filter(a => rootKeys.contains(a.col))
+      .filter(a => rootKeys.includes(a.col))
       .map(a => ({ token: a.col.token!.fullKey(), operation: "EqualTo", value: a.value }) as FilterOption);
 
     var originalFilters = Finder.toFilterOptions(resFo.filterOptions.map(a => withoutPinned(a)).notNull().filter(f => !Finder.isAggregate(f)));
@@ -1874,7 +1874,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
       hasToArray: co.token?.hasToArray(),
       cellFormatter: (co.token && ((this.props.formatters && this.props.formatters[co.token.fullKey()]) || Finder.getCellFormatter(qs, co.token, this))),
       resultIndex: co.token == undefined || resultColumns == null ? -1 :
-        co.token.fullKey() == "Entity" && !this.state.resultTable?.columns.contains("Entity") ? "Entity" :
+        co.token.fullKey() == "Entity" && !this.state.resultTable?.columns.includes("Entity") ? "Entity" :
           resultColumns.indexOf(co.token.fullKey())
     }));
   }
@@ -1975,7 +1975,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
             mark?.status === "Muted" ? "text-muted" :
               undefined;
 
-      const selected = this.state.selectedRows?.contains(row);
+      const selected = this.state.selectedRows?.includes(row);
       var ra = this.getRowAttributes(row);
 
       function equals(a: unknown, b: unknown) {
@@ -2026,7 +2026,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
                 <input type={this.props.allowSelection == "single" ? "radio" : "checkbox"}
                   name={this.props.allowSelection == "single" ? `sf-td-selection-${this.props.findOptions.queryKey}` : undefined}
                   className="sf-td-selection form-check-input"
-                  checked={this.state.selectedRows!.contains(row)}
+                  checked={this.state.selectedRows!.includes(row)}
                   onChange={e => this.handleChecked(e, i)}
                   aria-label={`Select row ${i + 1}`}
                   data-index={i} />}
@@ -2144,7 +2144,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
               {this.props.allowSelection &&
                 <span className="row-selection">
                   {this.props.selectionFormatter ? this.props.selectionFormatter(this, row, i) :
-                    <input type={this.props.allowSelection == "single" ? "radio" : "checkbox"} name={this.props.allowSelection == "single" ? `sf-td-selection-${this.props.findOptions.queryKey}` : undefined} className="sf-td-selection form-check-input" checked={this.state.selectedRows!.contains(row)} onChange={e => this.handleChecked(e, i)} data-index={i} />}
+                    <input type={this.props.allowSelection == "single" ? "radio" : "checkbox"} name={this.props.allowSelection == "single" ? `sf-td-selection-${this.props.findOptions.queryKey}` : undefined} className="sf-td-selection form-check-input" checked={this.state.selectedRows!.includes(row)} onChange={e => this.handleChecked(e, i)} data-index={i} />}
                 </span>
               }
 

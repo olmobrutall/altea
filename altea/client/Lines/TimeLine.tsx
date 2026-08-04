@@ -190,7 +190,7 @@ export function TimeTextBox(p: TimeTextBoxProps): React.ReactElement {
 
   function fixCasual(val: string) {
 
-    if (val.contains(":"))
+    if (val.includes(":"))
       return val.split(":").map(a => a.padStart(2, "0")).join(":");
 
     if (val.length == 1)

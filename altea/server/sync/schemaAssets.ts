@@ -276,7 +276,7 @@ export class SchemaAssets {
         } else {
             const types = ["P", "IF", "FN", "TF"];
             const rows = await view(SysObjects)
-                .filter(p => types.contains(p.type))
+                .filter(p => types.includes(p.type))
                 .innerJoin(view(SysSqlModules), p => p.object_id, m => m.object_id, (p, m) => ({ p, m }))
                 .map(x => ({ schema: x.p.schema().$v.name, name: x.p.name, definition: x.m.definition }))
                 .toArray();

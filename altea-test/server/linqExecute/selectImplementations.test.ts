@@ -127,7 +127,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     // row has a friend whose ToString equals the lastAward id string, so the set is empty.
     test("ContainsIdLiteIB", async () => {
         const list = await table(ArtistEntity)
-            .filter(a => a.friends.map(f => f.friend.toString()).contains(a.lastAward!.id as string))
+            .filter(a => a.friends.map(f => f.friend.toString()).includes(a.lastAward!.id as string))
             .toArray();
         assert.ok(list.every(a => a instanceof ArtistEntity));
     });
@@ -154,7 +154,7 @@ describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
     test("SelectEntityWithLiteIbTypeContains", async () => {
         const types: Function[] = [GrammyAwardEntity];
         const list = await table(AwardNominationEntity)
-            .filter(a => types.contains(a.award.entity.constructor))
+            .filter(a => types.includes(a.award.entity.constructor))
             .toArray();
         assert.ok(Array.isArray(list));
     });

@@ -56,7 +56,7 @@ export function getLambdaMembers(lambda: Function): LambdaMember[] {
 }
 
 export function getFieldMembers(field: string): LambdaMember[] {
-  if (field.contains(".")) {
+  if (field.includes(".")) {
     const mixinType = field.before(".").after("[").before("]");
     const fieldName = field.after(".");
     return [

@@ -45,7 +45,7 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
         const artists = table(ArtistEntity);
         assert.ok(await artists.some(a => a.name.indexOf("M") == 0));
         assert.ok(await artists.some(a => a.name.indexOf("Mi") == 0));
-        assert.ok(await artists.some(a => a.name.contains("Jackson")));
+        assert.ok(await artists.some(a => a.name.includes("Jackson")));
         assert.ok(await artists.some(a => a.name.startsWith("Billy")));
         assert.ok(await artists.some(a => a.name.endsWith("Corgan")));
         assert.ok(await artists.some(a => a.name.like("%Michael%")));
@@ -67,12 +67,12 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
 
     // Assert.True(Query<AlbumEntity>().Any(a => a.Author.CombineUnion().Name.Contains("Jackson")))
     test("StringFunctionsPolymorphicUnion", async () => {
-        assert.ok(await table(AlbumEntity).some(a => a.author.combineUnion().name.contains("Jackson")));
+        assert.ok(await table(AlbumEntity).some(a => a.author.combineUnion().name.includes("Jackson")));
     });
 
     // Assert.True(Query<AlbumEntity>().Any(a => a.Author.CombineCase().Name.Contains("Jackson")))
     test("StringFunctionsPolymorphicSwitch", async () => {
-        assert.ok(await table(AlbumEntity).some(a => a.author.combineCase().name.contains("Jackson")));
+        assert.ok(await table(AlbumEntity).some(a => a.author.combineCase().name.includes("Jackson")));
     });
 
     // Select(b => b.Members.FirstOrDefault(a => a.Sex == Sex.Female) ?? b.Members.FirstOrDefault(a => a.Sex == Sex.Male)!).Select(a => a.ToLite())
@@ -89,7 +89,7 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
     // Where(a => !a.Author.CombineUnion().ToString()!.Contains("Hola"))
     test("StringContainsUnion", async () => {
         const list = await table(AlbumEntity)
-            .filter(a => !a.author.combineUnion().toString().contains("Hola"))
+            .filter(a => !a.author.combineUnion().toString().includes("Hola"))
             .toArray();
         assert.ok(Array.isArray(list));
     });
@@ -97,7 +97,7 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
     // Where(a => !a.Author.CombineCase().ToString()!.Contains("Hola"))
     test("StringContainsSwitch", async () => {
         const list = await table(AlbumEntity)
-            .filter(a => !a.author.combineCase().toString().contains("Hola"))
+            .filter(a => !a.author.combineCase().toString().includes("Hola"))
             .toArray();
         assert.ok(Array.isArray(list));
     });
@@ -179,7 +179,7 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
         const list: (number | null)[] = await table(ArtistEntity)
             .map(a => table(NoteWithDateEntity).filter(n => n.target.is(a)).firstOrNull().$v!.creationTime.dayOfWeek)
             .toArray();
-        assert.ok(list.contains(null));
+        assert.ok(list.includes(null));
     });
 
     // mem vs db Select(a => a.CreationTime.DayOfWeek == DayOfWeek.Sunday) and CreationDate.DayOfWeek
@@ -195,9 +195,9 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
     test("DayOfWeekContains", async () => {
         const dows = [DayOfWeek.Monday, DayOfWeek.Sunday];
         const memCount = (await table(NoteWithDateEntity).toArray())
-            .filter(a => dows.contains(a.creationTime.dayOfWeek)).length;
+            .filter(a => dows.includes(a.creationTime.dayOfWeek)).length;
         const dbCount = await table(NoteWithDateEntity)
-            .count(a => dows.contains(a.creationTime.dayOfWeek));
+            .count(a => dows.includes(a.creationTime.dayOfWeek));
         assert.equal(memCount, dbCount);
     });
 
@@ -362,9 +362,9 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
 
     // Where(a => (a + "").Contains("Michael")); Assert.True(list.Count == 1)
     test("ConcatenateStringFullNominate", async () => {
-        const list = await table(ArtistEntity).filter(a => (a + "").contains("Michael")).toArray();
+        const list = await table(ArtistEntity).filter(a => (a + "").includes("Michael")).toArray();
         assert.equal(list.length, 1);
-        assert.ok(list[0].name.contains("Michael"));
+        assert.ok(list[0].name.includes("Michael"));
     });
 
     // SequenceEqual(Select(a => a.Name.Etc(10)).OrderBy(), Select(a => a.Name).ToList().Select(l => l.Etc(10)).OrderBy()); Count(Etc(10).EndsWith("s")) == Count(Name.EndsWith("s"))

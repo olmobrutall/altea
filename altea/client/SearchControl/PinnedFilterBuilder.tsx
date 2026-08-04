@@ -86,14 +86,14 @@ export default function PinnedFilterBuilder(p: PinnedFilterBuilderProps): React.
               <div key={i} className={classes("row", p.showGrid && "py-2")}>
                 {Array.range(0, maxColumns).map((c, j) => {
                   var cellPinned = rowPinned.filter(a => (a.pinned!.column ?? 0) == c);
-                  if (hiddenColumns.contains(c) && cellPinned.length == 0)
+                  if (hiddenColumns.includes(c) && cellPinned.length == 0)
                     return null;
 
                   var colSpan = cellPinned.max(a => getColSpan(a)) ?? 1;
 
 
                   var error = cellPinned.some(a => a.pinned?.colSpan != null && a.pinned?.colSpan <= 0)
-                    || hiddenColumns.contains(c);
+                    || hiddenColumns.includes(c);
 
                   return (<div key={j} className={classes("col-sm-" + (bsBase * colSpan), error && "border-danger")}>
                     {cellPinned.map((f, i) => <div key={i} className={f == p.highlightFilter ? "sf-filter-highlight" : undefined}>{renderValue(f, i == 0 && !allCheckBox)}</div>)}

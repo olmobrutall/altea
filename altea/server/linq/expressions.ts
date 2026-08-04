@@ -1,5 +1,3 @@
-
-import { isOptionalChain } from "typescript";
 import type { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
 import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, IntervalType, RuntimeType } from "../runtimeTypes";
 import { Temporal } from "../../data/basics";
@@ -267,7 +265,7 @@ export function viewColumns(viewCtor: Function): ViewColumn[] {
 // To type a new built-in inside quoted lambdas, add an entry here; the binder
 // (bindMethodCall) still owns its actual SQL translation.
 const wellKnownResultTypes: Readonly<Record<string, RuntimeType>> = {
-    "string.contains": LiteralType.boolean,
+    "string.includes": LiteralType.boolean,
     "string.startsWith": LiteralType.boolean,
     "string.endsWith": LiteralType.boolean,
     "string.like": LiteralType.boolean,
@@ -782,7 +780,7 @@ export class ConstantExpression extends Expression {
             return LiteralType.boolean;
         if (typeof value === "object") {
             // A captured array → ArrayType (element type inferred from the first
-            // element), so `list.some(…)` / `.every(…)` / `.contains(…)` dispatch via
+            // element), so `list.some(…)` / `.every(…)` / `.includes(…)` dispatch via
             // the OrderedQuery prototype (which carries the quote decorators) rather
             // than the bare Array.prototype.
             if (Array.isArray(value))
