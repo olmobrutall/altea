@@ -19,6 +19,7 @@ import {
     SqlColumnListExpression,
 } from "../expressions.sql";
 import { SqlFullTextSearch } from "../../fullTextSearch";
+import { PgVectorSearch, SqlVectorSearch, pgVectorDistanceFunction, sqlVectorDistanceKeyword, sqlVectorNormKeyword, type PGVectorDistanceMetric, type SqlVectorDistanceMetric, type SqlVectorNormType } from "../../vectorSearch";
 import type { SystemVersionedInfo } from "../../schema/systemVersioned";
 import { SystemTime, SystemTimeAsOf } from "../../systemTime";
 import { AssignAdapterExpander } from "./AssignAdapterExpander";
@@ -946,6 +947,20 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.bindFullTextSearch("CONTAINS", call);
                 if (member === SqlFullTextSearch.freeText)
                     return this.bindFullTextSearch("FREETEXT", call);
+                // Vector search (Signum's PgVectorSearch / SqlVectorSearch) → the dialect's distance /
+                // norm / normalize SQL functions.
+                if (member === PgVectorSearch.distance)
+                    return this.bindPgVectorDistance(call);
+                if (member === PgVectorSearch.l2Norm)
+                    return this.bindPgVectorUnary("l2_norm", LiteralType.number, call);
+                if (member === PgVectorSearch.normalize)
+                    return this.bindPgVectorUnary("l2_normalize", LiteralType.null, call);
+                if (member === SqlVectorSearch.vectorDistance)
+                    return this.bindSqlVectorDistance(call);
+                if (member === SqlVectorSearch.vectorNorm)
+                    return this.bindSqlVectorNorm("VECTOR_NORM", LiteralType.number, call);
+                if (member === SqlVectorSearch.vectorNormalize)
+                    return this.bindSqlVectorNorm("VECTOR_NORMALIZE", LiteralType.null, call);
                 if (typeof member === "function") {
                     const brand = member as { __sqlMethod?: string };
                     if (brand.__sqlMethod != null)
@@ -2859,6 +2874,40 @@ export class QueryBinder extends ExpressionVisitor {
         else
             throw new Error(`SqlFullTextSearch.${functionName}: the first argument must be a full-text column or an entity.`);
         return new SqlFunctionExpression(LiteralType.boolean, undefined, functionName, [new SqlColumnListExpression(columns), condition]);
+    }
+
+    // ---- Vector search (Signum's PgVectorSearch / SqlVectorSearch) --------------------------------
+    // Cast a Vector argument to the DB vector type when it is a constant/param: altea sends a Vector
+    // as its `[…]` text literal (not a driver-typed vector), so pgvector / SQL Server can't resolve
+    // the distance function without a cast. A vector COLUMN is already typed, so it passes through.
+    private castVector(e: Expression): Expression {
+        return e instanceof ColumnExpression ? e : new SqlCastExpression(LiteralType.null, e, "vector");
+    }
+
+    // PgVectorSearch.distance(metric, v1, v2) → cosine_distance / l2_distance / inner_product / …
+    private bindPgVectorDistance(call: CallExpression): Expression {
+        const metric = String((call.args[0] as ConstantExpression).value) as PGVectorDistanceMetric;
+        const fn = pgVectorDistanceFunction(metric);
+        return new SqlFunctionExpression(LiteralType.number, undefined, fn, [this.castVector(this.visit(call.args[1])), this.castVector(this.visit(call.args[2]))]);
+    }
+
+    // PgVectorSearch.l2Norm(v) → l2_norm(v); PgVectorSearch.normalize(v) → l2_normalize(v).
+    private bindPgVectorUnary(fn: string, resultType: RuntimeType, call: CallExpression): Expression {
+        return new SqlFunctionExpression(resultType, undefined, fn, [this.castVector(this.visit(call.args[0]))]);
+    }
+
+    // SqlVectorSearch.vectorDistance(metric, v1, v2) → VECTOR_DISTANCE('cosine'|…, v1, v2).
+    private bindSqlVectorDistance(call: CallExpression): Expression {
+        const metric = sqlVectorDistanceKeyword(String((call.args[0] as ConstantExpression).value) as SqlVectorDistanceMetric);
+        return new SqlFunctionExpression(LiteralType.number, undefined, "VECTOR_DISTANCE",
+            [new SqlConstantExpression(metric, LiteralType.string), this.visit(call.args[1]), this.visit(call.args[2])]);
+    }
+
+    // SqlVectorSearch.vectorNorm(v, normType) → VECTOR_NORM(v, 'norm2'); vectorNormalize likewise.
+    private bindSqlVectorNorm(fn: string, resultType: RuntimeType, call: CallExpression): Expression {
+        const normType = sqlVectorNormKeyword(String((call.args[1] as ConstantExpression).value) as SqlVectorNormType);
+        return new SqlFunctionExpression(resultType, undefined, fn,
+            [this.visit(call.args[0]), new SqlConstantExpression(normType, LiteralType.string)]);
     }
 
     private bindSqlMethod(functionName: string, call: CallExpression): Expression {
