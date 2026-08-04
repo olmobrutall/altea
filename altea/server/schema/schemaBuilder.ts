@@ -34,7 +34,7 @@ import { Schema } from './schema';
 import { Table } from './table';
 import { FluentInclude } from './fluentInclude';
 import { SystemVersionedInfo } from './systemVersioned';
-import { TableIndex, FullTextTableIndex, recordAccessedFields } from './tableIndex';
+import { TableIndex, FullTextTableIndex, VectorTableIndex, recordAccessedFields } from './tableIndex';
 import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../data/enumEntity';
 import { TypeEntity } from '../../data/typeEntity';
@@ -395,6 +395,13 @@ export class SchemaBuilder {
             for (const col of index.generateColumns(this.settings.isPostgres))
                 table.columns[col.name] = col;
             // (FieldInfo.hasFullTextIndex is set by the @fullTextIndex decorator, isomorphically.)
+        }
+
+        // Class-level vector indexes (Signum's SchemaBuilder.AddVectorIndex): one vector column per
+        // index, resolved from the single-field selector.
+        for (const desc of typeInfo.vectorIndexes ?? []) {
+            const [column] = table.columnsFromFields(recordAccessedFields(desc.field));
+            table.indexes.push(new VectorTableIndex(table, column, { sqlServer: desc.sqlServer, postgres: desc.postgres }));
         }
     }
 

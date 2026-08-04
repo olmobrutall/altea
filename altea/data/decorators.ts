@@ -278,6 +278,27 @@ export function fullTextIndex<T>(
     };
 }
 
+// @vectorIndex — Signum's fluent WithVectorIndex as an altea class decorator (like @fullTextIndex).
+// Marks one `vector(N)` column for nearest-neighbour search:
+//
+//   @vectorIndex(e => e.embedding)
+//   @vectorIndex(e => e.embedding, { postgres: { indexType: "HNSW", metric: "Cosine" } })
+//
+// On SQL Server it becomes a CREATE VECTOR INDEX; on Postgres a pgvector hnsw/ivfflat index. The
+// single-field selector is stored raw; the SchemaBuilder resolves it to its column.
+export function vectorIndex<T>(
+    field: (element: T) => unknown,
+    options?: {
+        sqlServer?: { metric?: 'Cosine' | 'Euclidean' | 'DotProduct'; indexType?: 'DiskANN'; maxDegreeOfParallelism?: number };
+        postgres?: { indexType?: 'HNSW' | 'IVFFlat'; metric?: 'Cosine' | 'L2' | 'InnerProduct' | 'L1' | 'Hamming' | 'Jaccard'; lists?: number };
+    },
+): (target: Function) => void {
+    return function (target: Function): void {
+        const ti = getOrCreateTypeInfo(target);
+        (ti.vectorIndexes ??= []).push({ field: field as (element: any) => unknown, sqlServer: options?.sqlServer, postgres: options?.postgres });
+    };
+}
+
 export function allowUnauthenticated(target: Function): void {
     (target as any)[allowUnauthenticatedKey] = true;
 }

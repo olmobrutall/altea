@@ -104,6 +104,21 @@ export abstract class Connector {
         return true;
     }
 
+    // Whether this database supports vector COLUMNS (Signum's Connector.SupportsVectors). Postgres:
+    // the pgvector extension is available; SQL Server: version >= 2025 (native VECTOR). Defaults to
+    // true (both target databases support it); a connector may override with a probe.
+    get supportsVectors(): boolean {
+        return true;
+    }
+
+    // Whether this database supports creating a vector INDEX. Postgres (pgvector hnsw/ivfflat) does;
+    // SQL Server 2025's DiskANN vector index is a preview feature not enabled by default, so it is
+    // deferred there — the vector column is still created, and distance queries work without an index
+    // (Signum defers the SQL Server vector index via DelayCreation + an explicit CreateVectorIndex).
+    get supportsVectorIndexes(): boolean {
+        return this.isPostgres;
+    }
+
     // ---- Ambient access -----------------------------------------------------
 
     static default: Connector | undefined;

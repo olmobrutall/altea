@@ -5,6 +5,7 @@ import { ObjectName, SchemaName } from '../schema/objectName';
 import type { Table } from '../schema/table';
 import type { TableIndex } from '../schema/tableIndex';
 import { FullTextTableIndex, fullTextChangeTrackingSql, FULL_TEXT_INDEX_NAME } from '../schema/tableIndex';
+import { VectorTableIndex, pgVectorIndexMethod, pgVectorOperatorClass, sqlVectorMetric } from '../schema/tableIndex';
 import type { DiffColumn, DiffTable } from './diffModels';
 import { SqlPreCommand, SqlPreCommandSimple, SqlPreCommandWithHistory, Spacing } from './sqlPreCommand';
 import { chopHash, codify, HASH_SIZE } from './stringHash';
@@ -314,6 +315,11 @@ export class SqlBuilder {
         // its source columns, so it falls through to the default computation below.
         if (index instanceof FullTextTableIndex && !this.isPostgres)
             return FULL_TEXT_INDEX_NAME;
+        // A vector index uses a `vec_ix` / `VEC_IX` prefix (Signum's VectorTableIndex.GetIndexName).
+        if (index instanceof VectorTableIndex) {
+            const vprefix = this.isPostgres ? 'vec_ix' : 'VEC_IX';
+            return chopHash(`${vprefix}_${index.table.name.name}_${index.columns.map(c => c.name).join('_')}`, this.maxNameLength - HASH_SIZE - 2, this.isPostgres);
+        }
         const prefix = index.unique ? (this.isPostgres ? 'uix' : 'UIX') : (this.isPostgres ? 'ix' : 'IX');
         const cols = index.columns.map(c => c.name).join('_');
         // Reserve room for the "__" + 7-char WHERE signature (Signum's MaxNameLength()).
@@ -340,6 +346,8 @@ export class SqlBuilder {
     createIndex(index: TableIndex): SqlPreCommand {
         if (index instanceof FullTextTableIndex)
             return this.createFullTextIndex(index);
+        if (index instanceof VectorTableIndex)
+            return this.createVectorIndex(index);
         const name = this.sqlEscape(this.indexName(index));
         const cols = index.columns.map(c => this.sqlEscape(c.name)).join(', ');
         const include = index.includeColumns != null && index.includeColumns.length > 0
@@ -390,6 +398,37 @@ export class SqlBuilder {
     // DROP FULLTEXT INDEX targets the table, not a named index (Signum's DropIndex FullTextIndex).
     dropFullTextIndex(tableName: ObjectName): SqlPreCommand {
         return new SqlPreCommandSimple(`DROP FULLTEXT INDEX ON ${this.objectName(tableName)};`);
+    }
+
+    // ---- Vector indexes (Signum's CreateIndex VectorTableIndex branch) -------
+    //
+    // SQL Server: CREATE VECTOR INDEX … WITH (METRIC, TYPE[, MAXDOP]) (a separate batch — vector
+    // DDL cannot run in a transaction, satisfied by altea's autocommit leaf execution). Postgres:
+    // a pgvector `USING hnsw|ivfflat (col <operator_class>)` index, optionally WITH (lists = n).
+    createVectorIndex(index: VectorTableIndex): SqlPreCommand {
+        const name = this.sqlEscape(this.indexName(index));
+        const table = this.objectName(index.table.name);
+        const col = this.sqlEscape(index.columns[0].name);
+        if (this.isPostgres) {
+            const pg = index.postgres;
+            const method = pgVectorIndexMethod(pg.indexType);
+            const opClass = pgVectorOperatorClass(pg.metric);
+            const withClause = pg.indexType === 'IVFFlat' && pg.lists != null ? ` WITH (lists = ${pg.lists})` : '';
+            return new SqlPreCommandSimple(`CREATE INDEX ${name} ON ${table} USING ${method} (${col} ${opClass})${withClause};`);
+        }
+        const ss = index.sqlServer;
+        const options = [
+            `METRIC = '${sqlVectorMetric(ss.metric)}'`,
+            `TYPE = '${ss.indexType}'`,
+            ss.maxDegreeOfParallelism != null ? `MAXDOP = ${ss.maxDegreeOfParallelism}` : undefined,
+        ].filter((o): o is string => o != null);
+        return new SqlPreCommandSimple(`CREATE VECTOR INDEX ${name} ON ${table}(${col}) WITH (${options.join(', ')});`);
+    }
+
+    // CREATE EXTENSION IF NOT EXISTS "vector" (Signum's CreateExtensionIfNotExist) — Postgres only,
+    // emitted whenever the schema has any vector column so pgvector's `vector` type + operators exist.
+    createExtension(name: string): SqlPreCommand {
+        return new SqlPreCommandSimple(`CREATE EXTENSION IF NOT EXISTS "${name}";`);
     }
 
     // SQL Server FULLTEXT CATALOG management (Signum's CreateFullTextCatallog / DropFullTextCatallog).

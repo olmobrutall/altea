@@ -4,7 +4,7 @@ import { ObjectName, SchemaName, DatabaseName } from "../schema/objectName";
 import type { Table } from "../schema/table";
 import type { Schema } from "../schema/schema";
 import type { TableIndex } from "../schema/tableIndex";
-import { FullTextTableIndex } from "../schema/tableIndex";
+import { FullTextTableIndex, VectorTableIndex } from "../schema/tableIndex";
 import { AbstractDbType } from "../schema/dbType";
 import { DiffColumn, DiffTable, DiffIndex, DiffIndexColumn, SysTableTemporalType } from "./diffModels";
 import { SqlBuilder, DefaultConstraint } from "./sqlBuilder";
@@ -391,9 +391,16 @@ function colMap(columns: { [name: string]: IColumn } | { [name: string]: DiffCol
 // the WHERE/INCLUDE signature are folded into that name, so a change to either surfaces as a
 // key mismatch (drop + create) rather than a merge.
 function modelIndexMap(sqlBuilder: SqlBuilder, tab: Table): Map<string, TableIndex> {
+    // Where the database can't create vector indexes (SQL Server's preview DiskANN index), exclude
+    // them from the diff so the synchronizer neither creates nor manages them — the vector column
+    // still exists and distance queries work without an index.
+    const supportsVectorIndexes = Connector.current().supportsVectorIndexes;
     const m = new Map<string, TableIndex>();
-    for (const ix of tab.indexes)
+    for (const ix of tab.indexes) {
+        if (!supportsVectorIndexes && ix instanceof VectorTableIndex)
+            continue;
         m.set(sqlBuilder.indexName(ix), ix);
+    }
     return m;
 }
 

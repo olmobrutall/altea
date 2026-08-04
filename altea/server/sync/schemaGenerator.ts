@@ -1,7 +1,7 @@
 import { Connector } from '../connection/connector';
 import { SchemaName } from '../schema/objectName';
 import type { Schema } from '../schema/schema';
-import { FullTextTableIndex } from '../schema/tableIndex';
+import { FullTextTableIndex, VectorTableIndex } from '../schema/tableIndex';
 import { SqlPreCommand, Spacing } from './sqlPreCommand';
 import { getBoundEnum, enumEntityMembers } from '../../data/enumEntity';
 
@@ -14,6 +14,17 @@ import { getBoundEnum, enumEntityMembers } from '../../data/enumEntity';
 // Each step reads the dialect-specific SqlBuilder from the ambient
 // Connector.current(), so a connector must be active when generationScript()
 // runs (set Connector.default or wrap in Connector.withConnector).
+
+// CREATE EXTENSION IF NOT EXISTS "vector" when the schema has any vector column (Signum's
+// SchemaGenerator extension step). Postgres only — SQL Server's VECTOR type needs no extension.
+// Runs before CREATE TABLE so the `vector` type + operators exist when the columns are created.
+export function createExtensionsScript(schema: Schema): SqlPreCommand | undefined {
+    const sqlBuilder = Connector.current().sqlBuilder;
+    if (!sqlBuilder.isPostgres)
+        return undefined;
+    const hasVector = [...schema.tables.values()].some(t => Object.values(t.columns).some(c => c.dbType.postgres === 'vector'));
+    return hasVector ? sqlBuilder.createExtension('vector') : undefined;
+}
 
 // CREATE SCHEMA for every distinct non-default schema referenced by a table.
 export function createSchemasScript(schema: Schema): SqlPreCommand | undefined {
@@ -78,7 +89,12 @@ export function createIndicesScript(schema: Schema): SqlPreCommand | undefined {
         catalogs = SqlPreCommand.combine(Spacing.Simple, ...[...names].map(n => sqlBuilder.createFullTextCatalog(n)));
     }
 
-    const cmds = tables.flatMap(t => t.indexes.map(ix => sqlBuilder.createIndex(ix)));
+    // Vector indexes are skipped where the database doesn't support creating them (SQL Server's
+    // preview DiskANN index) — the column is still created and distance queries work without it.
+    const supportsVectorIndexes = Connector.current().supportsVectorIndexes;
+    const cmds = tables.flatMap(t => t.indexes
+        .filter(ix => supportsVectorIndexes || !(ix instanceof VectorTableIndex))
+        .map(ix => sqlBuilder.createIndex(ix)));
     return SqlPreCommand.combine(Spacing.Simple, catalogs, ...cmds);
 }
 
@@ -99,5 +115,5 @@ export function createEnumValuesScript(schema: Schema): SqlPreCommand | undefine
 export function installDefaultGenerating(schema: Schema): void {
     // Each handler takes the schema as its argument (GeneratingHandler), so they
     // can be registered directly rather than wrapped in schema-capturing closures.
-    schema.generating.push(createSchemasScript, createTablesScript, createIndicesScript, createEnumValuesScript);
+    schema.generating.push(createExtensionsScript, createSchemasScript, createTablesScript, createIndicesScript, createEnumValuesScript);
 }

@@ -468,6 +468,11 @@ function cleanParenthesis(p: string | undefined): string | undefined {
 // instead of the SqlDbType enum. `false` means the CAST/CONVERT is disallowed, so the
 // synchronizer must drop and recreate the column rather than ALTER it in place.
 function compatibleTypesSqlServer(fromType: string, toType: string): boolean {
+    // A conversion to the SAME type is always compatible (an in-place no-op) — covers types the
+    // switch below doesn't enumerate, e.g. `vector` (an unlisted type would otherwise fall through
+    // to a false and force a spurious drop-and-recreate on every sync).
+    if (fromType === toType)
+        return true;
     switch (fromType) {
         // BLACKLIST
         case 'binary':

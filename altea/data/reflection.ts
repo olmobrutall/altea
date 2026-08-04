@@ -328,6 +328,14 @@ export class TypeInfo {
         sqlServer?: { catalogName?: string; changeTracking?: 'Manual' | 'Auto' | 'Off' | 'Off_NoPopulation'; stoplistName?: string; propertyListName?: string };
         postgres?: { tsVectorColumnName?: string; configuration?: string; weights?: Record<string, 'A' | 'B' | 'C' | 'D'> };
     }[];
+    // Set by @vectorIndex(e => e.embedding, options?): a nearest-neighbour index over one vector
+    // column (Signum's WithVectorIndex). Stored as the raw single-column selector + per-dialect
+    // options as bare shapes; the SchemaBuilder resolves the column and builds a VectorTableIndex.
+    vectorIndexes?: {
+        field: (element: any) => unknown;
+        sqlServer?: { metric?: 'Cosine' | 'Euclidean' | 'DotProduct'; indexType?: 'DiskANN'; maxDegreeOfParallelism?: number };
+        postgres?: { indexType?: 'HNSW' | 'IVFFlat'; metric?: 'Cosine' | 'L2' | 'InnerProduct' | 'L1' | 'Hamming' | 'Jaccard'; lists?: number };
+    }[];
     // Set by @systemVersioned (Signum's [SystemVersioned]): the type's table keeps a full
     // history of every row version. The optional fields override the period column / history
     // table names; the SchemaBuilder fills dialect defaults. Stored as a bare shape here

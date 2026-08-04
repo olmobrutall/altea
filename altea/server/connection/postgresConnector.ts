@@ -172,11 +172,14 @@ BEGIN
             ) LOOP
                 EXECUTE format('DROP SEQUENCE %I.%I;', r.nspname, r.relname);
         END LOOP;
-        -- functions / procedures
+        -- functions / procedures (skip those owned by an extension, e.g. pgvector's — they
+        -- cannot be dropped individually; the extension itself is left in place, and re-generation
+        -- re-creates it idempotently via CREATE EXTENSION IF NOT EXISTS)
         FOR r IN (SELECT pns.nspname, pp.proname, pp.oid
                 FROM pg_proc pp, pg_namespace pns
                 WHERE pns.oid=pp.pronamespace
                     AND pns.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+                    AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = pp.oid AND d.deptype = 'e')
             ) LOOP
                 EXECUTE format('DROP FUNCTION %I.%I(%s);', r.nspname, r.proname,
                     pg_get_function_identity_arguments(r.oid));

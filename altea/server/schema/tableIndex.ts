@@ -123,6 +123,70 @@ export class FullTextTableIndex extends TableIndex {
     }
 }
 
+// ---- Vector index (Signum's VectorTableIndex) -----------------------------------------------
+
+export type PGVectorIndexType = 'HNSW' | 'IVFFlat';
+export type PGVectorDistanceMetric = 'Cosine' | 'L2' | 'InnerProduct' | 'L1' | 'Hamming' | 'Jaccard';
+export type SqlServerVectorIndexType = 'DiskANN';
+export type SqlVectorDistanceMetric = 'Cosine' | 'Euclidean' | 'DotProduct';
+
+// The Postgres access method (hnsw / ivfflat) for a vector index type (Signum's GetPGVectorIndex).
+export function pgVectorIndexMethod(t: PGVectorIndexType): string {
+    return t === 'IVFFlat' ? 'ivfflat' : 'hnsw';
+}
+
+// The pgvector operator class for a distance metric (Signum's GetPGVectorDistanceMetric).
+export function pgVectorOperatorClass(m: PGVectorDistanceMetric): string {
+    switch (m) {
+        case 'L2': return 'vector_l2_ops';
+        case 'InnerProduct': return 'vector_ip_ops';
+        case 'Cosine': return 'vector_cosine_ops';
+        case 'L1': return 'vector_l1_ops';
+        case 'Hamming': return 'bit_hamming_ops';
+        case 'Jaccard': return 'bit_jaccard_ops';
+    }
+}
+
+// The SQL Server METRIC keyword for a distance metric (Signum's GetSqlVectorDistanceMetric).
+export function sqlVectorMetric(m: SqlVectorDistanceMetric): string {
+    switch (m) {
+        case 'Cosine': return 'cosine';
+        case 'Euclidean': return 'euclidean';
+        case 'DotProduct': return 'dot';
+    }
+}
+
+export interface VectorSqlServerOptions {
+    metric: SqlVectorDistanceMetric;
+    indexType: SqlServerVectorIndexType;
+    maxDegreeOfParallelism?: number;
+}
+
+export interface VectorPostgresOptions {
+    indexType: PGVectorIndexType;
+    metric: PGVectorDistanceMetric;
+    lists?: number;
+}
+
+// A nearest-neighbour index over a single `vector(N)` column (Signum's VectorTableIndex). On SQL
+// Server it becomes `CREATE VECTOR INDEX … WITH (METRIC, TYPE, [MAXDOP])`; on Postgres a
+// `CREATE INDEX … USING hnsw|ivfflat (col <op_class>)` (pgvector). Non-unique. The vector column
+// is user-declared, so no columns are generated.
+export class VectorTableIndex extends TableIndex {
+    readonly sqlServer: VectorSqlServerOptions;
+    readonly postgres: VectorPostgresOptions;
+
+    constructor(
+        table: Table,
+        column: IColumn,
+        options?: { sqlServer?: Partial<VectorSqlServerOptions>; postgres?: Partial<VectorPostgresOptions> },
+    ) {
+        super(table, [column], { unique: false });
+        this.sqlServer = { metric: 'Cosine', indexType: 'DiskANN', ...options?.sqlServer };
+        this.postgres = { indexType: 'HNSW', metric: 'Cosine', ...options?.postgres };
+    }
+}
+
 // Records the entity fields a selector lambda touches by running it against a proxy that
 // notes each property read — the altea analogue of Signum's IndexKeyColumns.Split over an
 // expression tree. Supports flat field access (`e => e.name`, `e => [e.a, e.b]`); nested
