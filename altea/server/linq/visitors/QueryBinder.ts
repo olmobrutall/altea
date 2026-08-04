@@ -20,6 +20,7 @@ import {
 } from "../expressions.sql";
 import { SqlFullTextSearch } from "../../fullTextSearch";
 import { PgVectorSearch, SqlVectorSearch, pgVectorDistanceFunction, sqlVectorDistanceKeyword, sqlVectorNormKeyword, type PGVectorDistanceMetric, type SqlVectorDistanceMetric, type SqlVectorNormType } from "../../vectorSearch";
+import { Vector } from "../../../data/vector";
 import type { SystemVersionedInfo } from "../../schema/systemVersioned";
 import { SystemTime, SystemTimeAsOf } from "../../systemTime";
 import { AssignAdapterExpander } from "./AssignAdapterExpander";
@@ -2896,18 +2897,29 @@ export class QueryBinder extends ExpressionVisitor {
         return new SqlFunctionExpression(resultType, undefined, fn, [this.castVector(this.visit(call.args[0]))]);
     }
 
+    // Cast a Vector argument to the SQL Server `VECTOR(dim)` type. SQL Server's VECTOR_DISTANCE /
+    // VECTOR_NORM reject an untyped varchar param, and the CAST requires an explicit dimension — read
+    // it from a constant Vector's own length (available at bind time). A vector COLUMN is already
+    // typed VECTOR(n), so it passes through uncast.
+    private castSqlVector(e: Expression): Expression {
+        if (e instanceof ColumnExpression)
+            return e;
+        const dim = e instanceof ConstantExpression && e.value instanceof Vector ? e.value.dimensions : undefined;
+        return dim == null ? e : new SqlCastExpression(LiteralType.null, e, `VECTOR(${dim})`);
+    }
+
     // SqlVectorSearch.vectorDistance(metric, v1, v2) → VECTOR_DISTANCE('cosine'|…, v1, v2).
     private bindSqlVectorDistance(call: CallExpression): Expression {
         const metric = sqlVectorDistanceKeyword(String((call.args[0] as ConstantExpression).value) as SqlVectorDistanceMetric);
         return new SqlFunctionExpression(LiteralType.number, undefined, "VECTOR_DISTANCE",
-            [new SqlConstantExpression(metric, LiteralType.string), this.visit(call.args[1]), this.visit(call.args[2])]);
+            [new SqlConstantExpression(metric, LiteralType.string), this.castSqlVector(this.visit(call.args[1])), this.castSqlVector(this.visit(call.args[2]))]);
     }
 
     // SqlVectorSearch.vectorNorm(v, normType) → VECTOR_NORM(v, 'norm2'); vectorNormalize likewise.
     private bindSqlVectorNorm(fn: string, resultType: RuntimeType, call: CallExpression): Expression {
         const normType = sqlVectorNormKeyword(String((call.args[1] as ConstantExpression).value) as SqlVectorNormType);
         return new SqlFunctionExpression(resultType, undefined, fn,
-            [this.visit(call.args[0]), new SqlConstantExpression(normType, LiteralType.string)]);
+            [this.castSqlVector(this.visit(call.args[0])), new SqlConstantExpression(normType, LiteralType.string)]);
     }
 
     private bindSqlMethod(functionName: string, call: CallExpression): Expression {

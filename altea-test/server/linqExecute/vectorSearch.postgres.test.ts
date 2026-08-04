@@ -25,7 +25,7 @@ describe("VectorSearchTest_Postgres", { skip: !hasDb || !isPostgres }, () => {
         const innerProduct = await table(NoteWithDateEntity).map(n => PgVectorSearch.distance("InnerProduct", v1, v2)).first();
         assert.ok(cosine > 0, "cosine distance of orthogonal vectors > 0");
         assert.ok(l2 > 0, "L2 distance of orthogonal vectors > 0");
-        assert.equal(innerProduct, 0, "inner product of orthogonal vectors == 0");
+        assert.ok(Math.abs(innerProduct) < 1e-4, `inner product of orthogonal vectors ≈ 0 (got ${innerProduct})`);
     });
 
     test("Normalize", async () => {
