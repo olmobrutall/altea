@@ -48,6 +48,10 @@ export class RootToken extends QueryToken {
     getPropertyRoute(): PropertyRoute | undefined { return PropertyRoute.root(this.shapeType); }
     isAllowed(): string | null { return null; }
 
+    // Signum's ColumnToken.AutoExpandInternal => Column.IsEntity: the query root auto-expands so its
+    // members are reachable inline (and it anchors the recursion guard for same-typed descendants).
+    protected override get autoExpandInternal(): boolean { return this.isEntity() || super.autoExpandInternal; }
+
     protected subTokensOverride(options: SubTokensOptions): QueryToken[] {
         return this.subTokensBase(this.type, options, this.getImplementations());
     }

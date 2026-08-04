@@ -53,6 +53,9 @@ export class AggregateToken extends QueryToken {
     override toString(): string { return this._parent == undefined ? this.aggregateFunction : `${this.aggregateFunction} of ${this._parent.toString()}`; }
     niceName(): string { return this.toString(); }
     override isAggregate(): boolean { return true; }
+    // Signum's AggregateToken.HideInAutoExpand => Parent != null (a nested aggregate is hidden from a
+    // flattened list; the root Count of the group stays visible).
+    override get hideInAutoExpand(): boolean { return this._parent != undefined; }
 
     get type(): TypeReference {
         if (this.aggregateFunction === AggregateFunction.Count || this.aggregateFunction === AggregateFunction.Average)

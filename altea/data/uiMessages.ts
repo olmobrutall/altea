@@ -98,7 +98,7 @@ export const SearchMessage = {
     _01of2Results_N: msg("{0} - {1} of {2} results"),
     PaginationAll_0Elements: msg("Show {0} elements"),
     PaginationFirst_01Elements: msg("Show first {0} of {1} elements"),
-    PaginationPages_0Of01lements: msg("Show pages {0} of {1} elements"),
+    PaginationPages_0Of01lements: msg("{0} of {1} elements"),
     PaginationMode: msg("Pagination mode"),
     NumberOfElementsForPagination: msg("Number of elements per page"),
     // Column editor

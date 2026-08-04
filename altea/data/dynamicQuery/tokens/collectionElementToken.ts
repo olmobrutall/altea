@@ -1,6 +1,6 @@
 import type { PropertyRoute } from "../../propertyRoute";
 import type { Implementations } from "../../implementations";
-import { TypeReference } from "../../reflection";
+import { TypeReference, tryGetTypeInfo } from "../../reflection";
 import { QueryToken, SubTokensOptions, entityCtorOf } from "./queryToken";
 
 // Signum's CollectionElementType (DynamicQuery/Tokens/CollectionElementToken.cs).
@@ -28,6 +28,24 @@ export class CollectionElementToken extends QueryToken {
 
     override isCollectionToken(): boolean { return true; }
     override isElement(): boolean { return true; }
+
+    // Only the primary `Element` auto-expands / stays visible in a flattened list (Element2/Element3 are
+    // extra collection passes — hidden unless drilled into directly).
+    override get hideInAutoExpand(): boolean { return this.collectionElementType != CollectionElementType.Element; }
+
+    // Signum's CollectionElementToken.AutoExpandInternal. `super.autoExpandInternal` covers an embedded /
+    // collection element. altea divergence for the virtual-MList-of-Part case: a @part collection's row is
+    // a full Entity marked entityKind "Part"/"SharedPart" (Signum read this off IsVirtualMList); auto-expand
+    // its row properties inline so `songs.Element.name` is one hop, matching MList<EmbeddedEntity>.
+    protected override get autoExpandInternal(): boolean {
+        if (this.collectionElementType != CollectionElementType.Element)
+            return false;
+        if (super.autoExpandInternal)
+            return true;
+        const ctor = this.type.getFunction();
+        const ti = ctor != undefined ? tryGetTypeInfo(ctor) : undefined;
+        return ti != undefined && (ti.entityKind === "Part" || ti.entityKind === "SharedPart");
+    }
 
     get parent(): QueryToken | undefined { return this._parent; }
     get key(): string { return this.collectionElementType; }

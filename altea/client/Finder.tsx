@@ -33,6 +33,7 @@ import { completeToken, QueryToken, SubTokensOptions, type Writable } from './Qu
 import { getSubTokens as generateSubTokens, SubTokensOptionsAll } from '../data/dynamicQuery/tokens/queryToken';
 import { getKey } from '../data/dynamicQuery/queryUtils';
 import { RootToken } from '../data/dynamicQuery/tokens/rootToken';
+import { SearchMessage } from '../data/uiMessages';
 import { QueryTokenString, type Anonymous } from './QueryTokenString';
 
 import { FilterOperationEnum, PinnedFilterActiveEnum } from '../data/dynamicQueries'; // numeric companions, for wire-ordinal encode/decode
@@ -141,16 +142,8 @@ export namespace Finder {
   export function pinnedSearchFilter(): FilterGroupOption;
   export function pinnedSearchFilter<T extends Entity>(type: Type<T>, ...tokens: ((t: QueryTokenString<Anonymous<T>>) => (QueryTokenString<any> | FilterConditionOption))[]): FilterGroupOption;
   export function pinnedSearchFilter<T extends Entity>(type?: Type<T>, ...tokens: ((t: QueryTokenString<Anonymous<T>>) => (QueryTokenString<any> | FilterConditionOption))[]): FilterGroupOption {
-    if (type == null) {
-      return {
-        groupOperation: "Or",
-        pinned: { label: "Search" /* TODO(port): SearchMessage.Search.niceToString() */, splitValue: true, active: "WhenHasValue" },
-        filters: [
-          { token: "Entity.Id", operation: "EqualTo" },
-          { token: "Entity.ToString", operation: "Contains" },
-        ]
-      };
-    }
+    if (type == null)
+      return filterGroupSearch();
 
     return {
       groupOperation: "Or",
@@ -163,6 +156,22 @@ export namespace Finder {
 
         return res;
       })
+    };
+  }
+
+  // The pinned "Search" OR-group: pinned + split-value so one search box drives every inner filter.
+  // Defaults to a case-insensitive Contains over the row's ToString plus an exact Id match; pass
+  // `filters` to search a custom set of tokens instead. altea: rootless token keys ("ToString"/"Id",
+  // NOT Signum's "Entity.ToString"/"Entity.Id" — the root key is "", so the Signum keys don't resolve
+  // and would reject parseFindOptions).
+  export function filterGroupSearch(filters?: FilterOption[]): FilterGroupOption {
+    return {
+      groupOperation: "Or",
+      pinned: { label: SearchMessage.Search.niceToString(), splitValue: true, active: "WhenHasValue" },
+      filters: filters ?? [
+        { token: "ToString", operation: "Contains" },
+        { token: "Id", operation: "EqualTo" },
+      ]
     };
   }
 
@@ -658,7 +667,7 @@ export namespace Finder {
     function getMemberForToken(ti: TypeInfo, fullKey: string) {
       var token = fullKey.tryAfter("Entity.") ?? fullKey;
 
-      if (token.contains("."))
+      if (token.includes("."))
         return null;
 
       return ti.members[token];
@@ -866,21 +875,10 @@ export namespace Finder {
     // equivalent: the query root is a full entity (has implementations) — a ModelEntity projection row has
     // no whole-entity ToString/Id to search on. Tokens are rootless (root key is "", so "ToString"/"Id",
     // NOT Signum's "Entity.ToString"/"Entity.Id" — those don't resolve and reject parseFindOptions).
-    if (queryToken == null || queryToken.getImplementations() != undefined) {
-      return [
-        {
-          groupOperation: "Or",
-          pinned: { label: "Search" /* TODO(port): SearchMessage.Search.niceToString() */, splitValue: true, active: "WhenHasValue" },
-          filters: [
-            { token: "ToString", operation: "Contains" },
-            { token: "Id", operation: "EqualTo" },
-          ]
-        }
-      ];
-    }
-    else {
+    if (queryToken == null || queryToken.getImplementations() != undefined)
+      return [filterGroupSearch()];
+    else
       return undefined;
-    }
   }
 
   export function isAggregate(fop: FilterOptionParsed): boolean {
@@ -1036,7 +1034,7 @@ export namespace Finder {
 
     });
 
-    return result.filter(fo => fo && !toRemove.contains(fo));
+    return result.filter(fo => fo && !toRemove.includes(fo));
   }
 
   export function getQueryRequest(fo: FindOptionsParsed, qs?: QuerySettings, avoidHiddenColumns?: boolean): QueryRequest {
@@ -1389,7 +1387,7 @@ export namespace Finder {
 
   export function getTrivialColumns(fos: FilterOption[]): ColumnOption[] {
     return fos
-      .filter(fo => !isFilterGroup(fo) && (fo.operation == null || fo.operation == "EqualTo") && !fo.token.toString().contains(".") && fo.pinned == null && fo.value != null)
+      .filter(fo => !isFilterGroup(fo) && (fo.operation == null || fo.operation == "EqualTo") && !fo.token.toString().includes(".") && fo.pinned == null && fo.value != null)
       .map(fo => ({ token: fo.token }) as ColumnOption);
   }
   export async function parseSingleToken(queryName: PseudoType | QueryKey, token: string | QueryTokenString<any>, subTokenOptions: SubTokensOptions): Promise<QueryToken> {
@@ -1482,11 +1480,39 @@ export namespace Finder {
       return token;
     }
 
-    async getSubTokens(parentToken: QueryToken | undefined, options: SubTokensOptions, _autoExpand: boolean): Promise<QueryToken[]> {
+    async getSubTokens(parentToken: QueryToken | undefined, options: SubTokensOptions, autoExpand: boolean): Promise<QueryToken[]> {
       const candidates = parentToken == null ? this.queryToken.subTokens(SubTokensOptionsAll) : await generateSubTokens(parentToken, options);
       candidates.forEach(t => this.cache.set(t.fullKey().toLowerCase(), t));
-      // TODO(port): autoExpand / hideInAutoExpand — altea QueryToken has no auto-expand flag yet.
-      return candidates.filter(t => tokenNotAllowedReason(t, options) == null);
+
+      let flat = candidates;
+      if (autoExpand) {
+        // Signum's autoExpandToken: recursively pull an autoExpand token's OWN sub-tokens inline, so an
+        // embedded / collection / polymorphic reference (and altea's @part collections) reach their
+        // members without extra clicks. Direct children are ordered before the flattened descendants.
+        const expand = async (t: QueryToken): Promise<QueryToken[]> => {
+          if (!t.autoExpand)
+            return [t];
+          const subs = await generateSubTokens(t, options);
+          subs.forEach(s => this.cache.set(s.fullKey().toLowerCase(), s));
+          const out: QueryToken[] = [t];
+          for (const s of subs)
+            out.push(...await expand(s));
+          return out;
+        };
+        const expanded: QueryToken[] = [];
+        for (const t of candidates)
+          expanded.push(...await expand(t));
+        flat = expanded.orderBy(a => a.parent == parentToken ? 0 : 1);
+      }
+
+      return flat.filter(t => {
+        // hideInAutoExpand tokens (Count / HasValue / Any-All / ToArray / Element2-3 / …) are omitted from
+        // the flattened list UNLESS the user drilled directly into their parent. Harmless when not
+        // flattening: a direct child's parent IS parentToken, so the guard never fires.
+        if (t.hideInAutoExpand && t.parent?.fullKey() != parentToken?.fullKey())
+          return false;
+        return tokenNotAllowedReason(t, options) == null;
+      });
     }
 
     toFilterOptionParsed(fo: FilterOption, options: SubTokensOptions): FilterOptionParsed {
@@ -2038,8 +2064,8 @@ export namespace Finder {
         var col = parts[1];
         return ({
           label: unscapeTildes(parts[0]),
-          column: col.length ? (col.contains(".") ? parseInt(col.before(".")) : parseInt(col)) : undefined,
-          colSpan: col.length && col.contains(".") ? parseInt(col.after(".")) : undefined,
+          column: col.length ? (col.includes(".") ? parseInt(col.before(".")) : parseInt(col)) : undefined,
+          colSpan: col.length && col.includes(".") ? parseInt(col.after(".")) : undefined,
           row: parts[2].length ? parseInt(parts[2]) : undefined,
           active: parseInt(parts[3]) == 0 ? undefined : PinnedFilterActiveEnum[parseInt(parts[3])] as PinnedFilterActive,
           splitValue: parseInt(parts[4]) == 0 ? undefined : Boolean(parseInt(parts[4])),

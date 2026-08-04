@@ -14,6 +14,7 @@ export class HasValueToken extends QueryToken {
 
     get parent(): QueryToken | undefined { return this._parent; }
     get key(): string { return "HasValue"; }
+    override get hideInAutoExpand(): boolean { return true; }
     override toString(): string { return "[Has value]"; }
     niceName(): string { return `Has value of ${this._parent.toString()}`; }
     get type(): TypeReference { return TR_BOOLEAN; }

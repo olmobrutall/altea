@@ -30,6 +30,10 @@ export class CollectionAnyAllToken extends QueryToken {
 
     override isCollectionToken(): boolean { return true; }
     override isAnyOrAll(): boolean { return true; }
+
+    // A quantifier is a leaf navigation aid, never auto-expanded, and hidden from a flattened list.
+    protected override get autoExpandInternal(): boolean { return false; }
+    override get hideInAutoExpand(): boolean { return true; }
     override hasAny(): boolean { return this.anyAllType == CollectionAnyAllType.Any || super.hasAny(); }
 
     get parent(): QueryToken | undefined { return this._parent; }

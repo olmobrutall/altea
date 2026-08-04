@@ -15,6 +15,12 @@ import "./PaginationSelector.css"
 import { LinkButton } from '../Basics/LinkButton'
 import '../AppContext'
 
+// altea: the English default member labels (Signum's [Description] on PaginationMode — Firsts→"First",
+// Paginate→"Pages"). Registered as nice-name overrides so the mode dropdown reads "Pages" not "Paginate";
+// a translation file for the current UI culture still wins over these.
+Enum.setNiceName(PaginationModeEnum, "Firsts", "First");
+Enum.setNiceName(PaginationModeEnum, "Paginate", "Pages");
+
 interface PaginationSelectorProps {
   resultTable?: ResultTable;
   pagination: Pagination;

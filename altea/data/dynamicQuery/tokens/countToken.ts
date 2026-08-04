@@ -13,6 +13,7 @@ export class CountToken extends QueryToken {
 
     get parent(): QueryToken | undefined { return this._parent; }
     get key(): string { return "Count"; }
+    override get hideInAutoExpand(): boolean { return true; }
     override toString(): string { return "Count"; }
     niceName(): string { return `Count of ${this._parent.toString()}`; }
     get type(): TypeReference { return TR_INT; }

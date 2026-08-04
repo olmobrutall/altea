@@ -380,6 +380,53 @@ export abstract class QueryToken {
     hasAggregate(): boolean { return this.isAggregate(); }
     hasElement(): boolean { return this.isElement() || (this.parent?.hasElement() ?? false); }
 
+    // ---- Auto-expand (Signum's QueryToken.AutoExpand / AutoExpandInternal / HideInAutoExpand) --------
+    // When the token-tree picker expands a token's sub-tokens with auto-expand ON, an autoExpand token's
+    // OWN sub-tokens are pulled inline (flattened) into the same dropdown — so an embedded / collection /
+    // polymorphic reference doesn't need an extra click to reach its members. `hideInAutoExpand` tokens
+    // (Count, HasValue, Any/All, ToArray, Element2/3, …) are omitted from that flattened list unless the
+    // user drilled DIRECTLY into their parent. Consumed by the client TokenCompleter.getSubTokens.
+    private _autoExpand: boolean | undefined;
+    get autoExpand(): boolean {
+        return this._autoExpand ??= this.calculateAutoExpand();
+    }
+
+    get hideInAutoExpand(): boolean { return false; }
+
+    // Signum's CalculateAutoExpand: guard against a self-referential type expanding forever — walk the
+    // auto-expanded ancestor chain and stop if a same-typed ancestor is already present.
+    private calculateAutoExpand(): boolean {
+        if (!this.autoExpandInternal)
+            return false;
+        for (let p = this.parent; p != undefined; p = p.parent) {
+            if (!p.autoExpand)
+                break;
+            if (sameRuntimeType(p.type, this.type))
+                return false;
+        }
+        return true;
+    }
+
+    // Signum's AutoExpandInternal. altea divergences: (1) the AutoExpandSubTokensAttribute override is
+    // not ported (no such decorator yet); (2) Signum's `t.IsMList()` becomes `t.array` — altea models a
+    // collection as a plain array (Signum's MList<T>), so any collection auto-expands. Embedded refs and
+    // polymorphic (multi-implementation) entity refs also auto-expand; a mono-typed entity/lite ref does
+    // not (its members are one click away and expanding every FK would flood the dropdown).
+    protected get autoExpandInternal(): boolean {
+        const t = this.type;
+        if (t.is(EmbeddedEntity))
+            return true;
+        if (t.array)
+            return true;
+        if (t.is(Entity) || t.lite) {
+            const imp = this.getImplementations();
+            if (imp == undefined || imp.isByAll)
+                return false;
+            return imp.types.length != 1;
+        }
+        return false;
+    }
+
     // Signum's getQueryTokenColor — a CSS custom-property colour for the token-tree picker, keyed by
     // its category (keyword for aggregate/collection-nav tokens, then collection/entity-root/filterType).
     get queryTokenColor(): string {
@@ -481,6 +528,16 @@ function niceTypeNameOf(type: TypeReference, filterType: FilterType | undefined,
 // non-references. Reuses Implementations.tryFromFieldInfo (which reads a TypeReference's facets).
 function implementationsOf(type: TypeReference): Implementations | undefined {
     return Implementations.tryFromFieldInfo(type);
+}
+
+// Runtime-type equality for the auto-expand recursion guard (Signum's `p.Type == this.Type`): compare by
+// resolved ctor when either side is a class reference, else by value type name; array / lite facets must
+// match too so a collection and its element (or a lite and its entity) aren't treated as the same type.
+function sameRuntimeType(a: TypeReference, b: TypeReference): boolean {
+    const fa = a.getFunction(), fb = b.getFunction();
+    if (fa != undefined || fb != undefined)
+        return fa === fb && !!a.array === !!b.array && !!a.lite === !!b.lite;
+    return a.typeName === b.typeName && !!a.array === !!b.array;
 }
 
 // Factory hook (Signum builds these directly; altea injects them to break the static import cycle

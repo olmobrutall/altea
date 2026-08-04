@@ -64,6 +64,10 @@ export class CollectionToArrayToken extends QueryToken {
     override hasToArray(): CollectionToArrayToken | undefined { return this; }
     override isToArray(): boolean { return true; }
 
+    // A string-agg collapse is never auto-expanded, and hidden from a flattened list.
+    protected override get autoExpandInternal(): boolean { return false; }
+    override get hideInAutoExpand(): boolean { return true; }
+
     protected subTokensOverride(options: SubTokensOptions): QueryToken[] {
         return this.subTokensBase(this.type, options, this.getImplementations());
     }
