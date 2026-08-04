@@ -3,8 +3,9 @@ import { Connector } from "../../connection/connector";
 import { DiffTable, DiffColumn, DiffForeignKey, DiffForeignKeyColumn, DiffIndex, DiffIndexColumn } from "../diffModels";
 import { view } from "../../table";
 import {
-    SysSchemas, SysTables, SysTypes, SysDefaultConstraints,
+    SysSchemas, SysTables, SysTypes, SysDefaultConstraints, SysFullTextIndexes,
 } from "./sysTables";
+import { FULL_TEXT_INDEX_NAME } from "../../schema/tableIndex";
 
 // Port of Signum's Engine/Sync/SqlServer/SysTablesSchema.GetDatabaseDescription, scoped to
 // the lean synchronizer (tables / columns / foreign keys). Faithful to Signum's single
@@ -108,6 +109,34 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
     // FixSqlColumnLengthSqlServer). Client-side (dialect-specific).
     for (const t of tables)
         t.fixSqlColumnLengthSqlServer();
+
+    // Full-text indexes are not in sys.indexes — read them from sys.fulltext_indexes and attach a
+    // synthetic DiffIndex (fixed name FULL_TEXT_INDEX) to the owning table, carrying its catalog
+    // and covered columns (Signum's full-text section of SysTablesSchema). The model's
+    // FullTextTableIndex maps to the same FULL_TEXT_INDEX name, so the diff aligns them.
+    const fullTextIndexes = await view(SysFullTextIndexes)
+        .map(fti => ({
+            schemaName: fti.table().$v.schema().$v!.name,
+            tableName: fti.table().$v.name,
+            catalogName: fti.catalog().$v.name,
+            columns: fti.indexColumns()
+                .map(ic => fti.table().$v.columns().single(c => c.column_id == ic.column_id).$v.name)
+                .toArray().$v,
+        }))
+        .toArray();
+
+    for (const ft of fullTextIndexes) {
+        const schemaName = ft.schemaName === "dbo" ? "" : ft.schemaName;
+        const dt = tables.find(t => t.name.name === ft.tableName && t.name.schema.name === schemaName);
+        if (dt == null)
+            continue;
+        dt.indices[FULL_TEXT_INDEX_NAME] = DiffIndex.create({
+            indexName: FULL_TEXT_INDEX_NAME,
+            isFullText: true,
+            fullTextCatalogName: ft.catalogName,
+            columns: ft.columns.map(name => DiffIndexColumn.create({ index: 0, columnName: name })),
+        });
+    }
 
     return tables.toMap(t => t.name.toString());
 }

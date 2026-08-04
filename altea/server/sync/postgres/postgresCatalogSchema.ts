@@ -58,7 +58,11 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
                     identity: a.attidentity == "a", // GENERATED ALWAYS AS IDENTITY
                     // pg_get_expr decompiles the stored default; NULL (no default) → NULL.
                     // adrelid == attrelid, so we pass attrelid directly and read adbin via the nav.
-                    defaultDefinition: PostgresFunctions.pg_get_expr(a.attrDef().$v!.adbin, a.attrelid),
+                    // A STORED generated column (attgenerated == 's', e.g. the full-text tsvector
+                    // column) also keeps its expression in pg_attrdef, but it is a GENERATED ALWAYS
+                    // clause, not a DEFAULT — reading it as a default would make the synchronizer
+                    // churn (drop/re-add a phantom default), so skip it for generated columns.
+                    defaultDefinition: a.attgenerated == "s" ? null : PostgresFunctions.pg_get_expr(a.attrDef().$v!.adbin, a.attrelid),
                 }))
                 .toArray().$v,
 

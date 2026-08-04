@@ -1,6 +1,7 @@
 import { Connector } from '../connection/connector';
 import { SchemaName } from '../schema/objectName';
 import type { Schema } from '../schema/schema';
+import { FullTextTableIndex } from '../schema/tableIndex';
 import { SqlPreCommand, Spacing } from './sqlPreCommand';
 import { getBoundEnum, enumEntityMembers } from '../../data/enumEntity';
 
@@ -63,8 +64,22 @@ export function createTablesScript(schema: Schema): SqlPreCommand | undefined {
 // withIndex). Runs after CREATE TABLE + FOREIGN KEY so the indexed columns exist.
 export function createIndicesScript(schema: Schema): SqlPreCommand | undefined {
     const sqlBuilder = Connector.current().sqlBuilder;
-    const cmds = [...schema.tables.values()].flatMap(t => t.indexes.map(ix => sqlBuilder.createIndex(ix)));
-    return SqlPreCommand.combine(Spacing.Simple, ...cmds);
+    const tables = [...schema.tables.values()];
+
+    // SQL Server: every full-text index lives in a FULLTEXT CATALOG that must exist before the
+    // index is created (Signum's SchemaSynchronizer.createFullTextCatallogs). Postgres has none.
+    let catalogs: SqlPreCommand | undefined;
+    if (!sqlBuilder.isPostgres) {
+        const names = new Set<string>();
+        for (const t of tables)
+            for (const ix of t.indexes)
+                if (ix instanceof FullTextTableIndex)
+                    names.add(ix.sqlServer.catalogName);
+        catalogs = SqlPreCommand.combine(Spacing.Simple, ...[...names].map(n => sqlBuilder.createFullTextCatalog(n)));
+    }
+
+    const cmds = tables.flatMap(t => t.indexes.map(ix => sqlBuilder.createIndex(ix)));
+    return SqlPreCommand.combine(Spacing.Simple, catalogs, ...cmds);
 }
 
 // INSERT one row per member into each EnumEntity<T> table. Runs after the tables

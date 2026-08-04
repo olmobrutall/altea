@@ -1,5 +1,5 @@
 import { reflect } from "@altea/altea/data/reflection";
-import { entity, mixin, primaryKey, implementedByAll, backReference, valueField, stringLengthValidator, column } from "@altea/altea/data/decorators";
+import { entity, mixin, primaryKey, implementedByAll, backReference, valueField, stringLengthValidator, column, fullTextIndex } from "@altea/altea/data/decorators";
 import { Entity, MixinEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Temporal } from "@altea/altea/data/basics";
@@ -9,6 +9,8 @@ import { ArtistEntity } from "./artist";
 @entity("Shared", "Transactional")
 @mixin(() => [ColaboratorsMixin, CorruptMixin])
 @primaryKey("uuid")
+// Full-text index over Title + Text (Signum's MusicLogic: sb.AddFullTextIndex<NoteWithDateEntity>(a => new { a.Title, a.Text })).
+@fullTextIndex<NoteWithDateEntity>(a => [a.title, a.text])
 export class NoteWithDateEntity extends Entity {
 
     @column({ nullable: true })

@@ -4,6 +4,7 @@ import { ObjectName, SchemaName, DatabaseName } from "../schema/objectName";
 import type { Table } from "../schema/table";
 import type { Schema } from "../schema/schema";
 import type { TableIndex } from "../schema/tableIndex";
+import { FullTextTableIndex } from "../schema/tableIndex";
 import { AbstractDbType } from "../schema/dbType";
 import { DiffColumn, DiffTable, DiffIndex, DiffIndexColumn, SysTableTemporalType } from "./diffModels";
 import { SqlBuilder, DefaultConstraint } from "./sqlBuilder";
@@ -118,18 +119,45 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
         databaseTables,
         undefined,
         (tn, dif) => SqlPreCommand.combine(Spacing.Simple,
-            ...Object.values(dif.indices).filter(ix => !ix.isPrimary).map(ix => sqlBuilder.dropIndex(dif.name, ix.indexName))),
+            ...Object.values(dif.indices).filter(ix => !ix.isPrimary).map(ix => dropIndexCmd(sqlBuilder, dif, ix))),
         (tn, tab, dif) => Synchronizer.synchronizeScript(
             Spacing.Simple,
             modelIndexMap(sqlBuilder, tab),
             diffIndexMap(dif),
             undefined,
-            (i, dix) => dix.isControlledIndex(isPostgres) || dix.columns.some(c => isColumnRemovedOrModified(tab, dif, c))
-                ? sqlBuilder.dropIndex(dif.name, dix.indexName)
+            // A full-text index (fixed name FULL_TEXT_INDEX) is always altea-owned, so treat it as
+            // controlled even though its name lacks the IX_/UIX_/CIX_ prefix.
+            (i, dix) => dix.isFullText || dix.isControlledIndex(isPostgres) || dix.columns.some(c => isColumnRemovedOrModified(tab, dif, c))
+                ? dropIndexCmd(sqlBuilder, dif, dix)
                 : undefined,
-            (i, mix, dix) => !dix.indexEquals(dif, mix, isPostgres) ? sqlBuilder.dropIndex(dif.name, dix.indexName) : undefined,
+            (i, mix, dix) => !dix.indexEquals(dif, mix, isPostgres) ? dropIndexCmd(sqlBuilder, dif, dix) : undefined,
         ),
     );
+
+    // ---- full-text catalogs (SQL Server only; Signum's create/dropFullTextCatallogs) --------
+    // A full-text index lives in a FULLTEXT CATALOG, created before the index and dropped after it.
+    // Model catalogs come from the model's full-text indexes; the DB's are derived from the
+    // full-text indexes actually read back (a catalog in use is always referenced by its index —
+    // enough for round-trip; empty orphan catalogs are left alone, a safe divergence from Signum,
+    // which reads sys.fulltext_catalogs directly).
+    let createFullTextCatalogs: SqlPreCommand | undefined;
+    let dropFullTextCatalogs: SqlPreCommand | undefined;
+    if (!isPostgres) {
+        const modelCatalogs = new Set<string>();
+        for (const t of schema.tables.values())
+            for (const ix of t.indexes)
+                if (ix instanceof FullTextTableIndex)
+                    modelCatalogs.add(ix.sqlServer.catalogName);
+        if (modelCatalogs.size > 0 && !connector.supportsFullTextSearch)
+            throw new Error("The schema declares full-text indexes but the current connector reports no full-text search support.");
+        const dbCatalogs = new Set<string>();
+        for (const dt of databaseTables.values())
+            for (const ix of Object.values(dt.indices))
+                if (ix.isFullText && ix.fullTextCatalogName != null)
+                    dbCatalogs.add(ix.fullTextCatalogName);
+        createFullTextCatalogs = SqlPreCommand.combine(Spacing.Simple, ...[...modelCatalogs].filter(c => !dbCatalogs.has(c)).map(c => sqlBuilder.createFullTextCatalog(c)));
+        dropFullTextCatalogs = SqlPreCommand.combine(Spacing.Simple, ...[...dbCatalogs].filter(c => !modelCatalogs.has(c)).map(c => sqlBuilder.dropFullTextCatalog(c)));
+    }
 
     // ---- create / drop / alter tables ---------------------------------------
     // On Postgres a system-versioned table's column changes must also be applied to its explicit
@@ -342,7 +370,14 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
     // Order: main tables, then the history tables' own lifecycle, then the delayed history-column
     // replay (targets history tables that now exist), then the trigger re-emit last (after the
     // history columns match). historyTables/delayedHistory/versioningTriggers are no-ops on SS.
-    return SqlPreCommand.combine(Spacing.Triple, dropForeignKeys, dropIndices, tables, historyTables, delayedHistory, versioningTriggers, addForeignKeys, addIndices);
+    return SqlPreCommand.combine(Spacing.Triple, dropForeignKeys, dropIndices, dropFullTextCatalogs, tables, historyTables, delayedHistory, versioningTriggers, createFullTextCatalogs, addForeignKeys, addIndices);
+}
+
+// Drop a DB index, routing a SQL Server full-text index to DROP FULLTEXT INDEX (which targets the
+// table, not a named index) and everything else to DROP INDEX (Signum's DropIndex FullTextIndex
+// branch).
+function dropIndexCmd(sqlBuilder: SqlBuilder, dif: DiffTable, ix: DiffIndex): SqlPreCommand {
+    return ix.isFullText ? sqlBuilder.dropFullTextIndex(dif.name) : sqlBuilder.dropIndex(dif.name, ix.indexName);
 }
 
 // ---- helpers ----------------------------------------------------------------

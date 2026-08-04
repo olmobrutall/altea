@@ -235,3 +235,38 @@ export class SysIndexColumn extends View {
     is_included_column!: boolean;
     is_descending_key!: boolean;
 }
+
+// Full-text catalog / index system views (Signum's SysFullTextCatallog / full-text section of
+// SysTablesSchema). A full-text index lives in sys.fulltext_indexes (one row per base table, keyed
+// by object_id — NOT in sys.indexes), its covered columns in sys.fulltext_index_columns, and its
+// containing catalog in sys.fulltext_catalogs.
+@reflect
+@tableName("sys.fulltext_catalogs")
+export class SysFullTextCatalogs extends View {
+    @viewPrimaryKey fulltext_catalog_id!: int;
+    name!: string;
+}
+
+@reflect
+@tableName("sys.fulltext_indexes")
+export class SysFullTextIndexes extends View {
+    @viewPrimaryKey object_id!: int;
+    fulltext_catalog_id!: int;
+    is_enabled!: boolean;
+
+    @quoted
+    table(): Promise<SysTables> { return view(SysTables).single(t => t.object_id == this.object_id); }
+
+    @quoted
+    catalog(): Promise<SysFullTextCatalogs> { return view(SysFullTextCatalogs).single(c => c.fulltext_catalog_id == this.fulltext_catalog_id); }
+
+    @quoted
+    indexColumns(): Query<SysFullTextIndexColumns> { return view(SysFullTextIndexColumns).filter(ic => ic.object_id == this.object_id); }
+}
+
+@reflect
+@tableName("sys.fulltext_index_columns")
+export class SysFullTextIndexColumns extends View {
+    @viewPrimaryKey object_id!: int;
+    column_id!: int;
+}

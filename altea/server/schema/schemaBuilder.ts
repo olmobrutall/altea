@@ -34,7 +34,7 @@ import { Schema } from './schema';
 import { Table } from './table';
 import { FluentInclude } from './fluentInclude';
 import { SystemVersionedInfo } from './systemVersioned';
-import { TableIndex, recordAccessedFields } from './tableIndex';
+import { TableIndex, FullTextTableIndex, recordAccessedFields } from './tableIndex';
 import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../data/enumEntity';
 import { TypeEntity } from '../../data/typeEntity';
@@ -381,6 +381,24 @@ export class SchemaBuilder {
             // Render the class-level filtered predicate to SQL now (Quoted → Expression → string).
             const whereSql = desc.where == null ? undefined : getIndexWhere(desc.where, table, this.settings.isPostgres);
             table.indexes.push(new TableIndex(table, columns, { unique: desc.unique, includeColumns, where: whereSql }));
+        }
+
+        // Class-level full-text indexes (Signum's SchemaBuilder.AddFullTextIndex): resolve the
+        // selector to its string columns, build the FullTextTableIndex, and — on Postgres — append
+        // its generated tsvector column to the table's physical layout so the DDL emits it. Mark the
+        // covered fields with hasFullTextIndex (Signum's Schema.HasFullTextIndex → MemberInfo flag).
+        for (const desc of typeInfo.fullTextIndexes ?? []) {
+            const fieldNames = recordAccessedFields(desc.fields);
+            const columns = table.columnsFromFields(fieldNames);
+            const index = new FullTextTableIndex(table, columns, { sqlServer: desc.sqlServer, postgres: desc.postgres });
+            table.indexes.push(index);
+            for (const col of index.generateColumns(this.settings.isPostgres))
+                table.columns[col.name] = col;
+            for (const name of fieldNames) {
+                const ef = table.fields[name] ?? Object.values(table.mixins).map(m => m.fields[name]).find(f => f != null);
+                if (ef != null)
+                    ef.fieldInfo.hasFullTextIndex = true;
+            }
         }
     }
 

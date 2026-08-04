@@ -280,6 +280,25 @@ open cur
 close cur
 deallocate cur`;
 
-        return [procedures, views, disableVersioning, constraints, tables, schemas];
+        // Full-text catalogs are independent objects that survive DROP TABLE (a table's full-text
+        // INDEX is dropped with it, but its CATALOG is not) — so drop them explicitly, after the
+        // tables, or a re-generation fails with "a full-text catalog already exists". Empty on a
+        // database without the Full-Text Search feature (sys.fulltext_catalogs has no rows).
+        const fullTextCatalogs = `declare @cat nvarchar(128)
+DECLARE @sql nvarchar(255)
+declare cur cursor fast_forward for
+select name from sys.fulltext_catalogs
+open cur
+    fetch next from cur into @cat
+    while @@fetch_status <> -1
+    begin
+        select @sql = 'DROP FULLTEXT CATALOG [' + @cat + '];'
+        exec sp_executesql @sql
+        fetch next from cur into @cat
+    end
+close cur
+deallocate cur`;
+
+        return [procedures, views, disableVersioning, constraints, tables, fullTextCatalogs, schemas];
     }
 }

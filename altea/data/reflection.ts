@@ -241,6 +241,11 @@ export class FieldInfo extends TypeReference {
     // column (non-)unique index on this field's column. Consumed by SchemaBuilder.
     index?: boolean;
     uniqueIndex?: boolean;
+    // Set when this field's column is covered by a class-level @fullTextIndex (Signum's
+    // Schema.HasFullTextIndex(route), shipped on the member as MemberInfo.HasFullTextIndex).
+    // Drives the client's full-text filter operations and the Rank sub-token. Computed by the
+    // SchemaBuilder from TypeInfo.fullTextIndexes.
+    hasFullTextIndex?: boolean;
     columnOptions?: ColumnOptions;
     // Signum's MemberInfo display metadata (the client Lines layer reads these off the PropertyRoute's
     // field). Not wired by altea decorators yet, so undefined ⇒ default rendering — same as Signum
@@ -314,6 +319,15 @@ export class TypeInfo {
     // logic-layer field recorder); the SchemaBuilder runs them against a recording proxy to
     // resolve the covered fields → columns.
     indexes?: { unique: boolean; fields: (element: any) => unknown; includeFields?: (element: any) => unknown; where?: Quoted<(element: any) => boolean> }[];
+    // Set by class-level @fullTextIndex(e => [e.a, e.b], options?): a full-text index over the
+    // selected string columns (Signum's WithFullTextIndex). Stored as the raw selector plus the
+    // per-dialect options as bare shapes (entities/ can't import the server tableIndex types); the
+    // SchemaBuilder resolves the fields → columns and builds a FullTextTableIndex.
+    fullTextIndexes?: {
+        fields: (element: any) => unknown;
+        sqlServer?: { catalogName?: string; changeTracking?: 'Manual' | 'Auto' | 'Off' | 'Off_NoPopulation'; stoplistName?: string; propertyListName?: string };
+        postgres?: { tsVectorColumnName?: string; configuration?: string; weights?: Record<string, 'A' | 'B' | 'C' | 'D'> };
+    }[];
     // Set by @systemVersioned (Signum's [SystemVersioned]): the type's table keeps a full
     // history of every row version. The optional fields override the period column / history
     // table names; the SchemaBuilder fills dialect defaults. Stored as a bare shape here

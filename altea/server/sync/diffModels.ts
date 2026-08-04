@@ -1,6 +1,7 @@
 import { AbstractDbType } from '../schema/dbType';
 import type { IColumn } from '../schema/column';
 import type { TableIndex } from '../schema/tableIndex';
+import { FullTextTableIndex } from '../schema/tableIndex';
 import { ObjectName, SchemaName, DatabaseName } from '../schema/objectName';
 import { Connector } from '../connection/connector';
 import { View } from '../../data/entity';
@@ -178,15 +179,23 @@ export class DiffIndex extends View {
     // so a changed filter surfaces as a name mismatch. Kept for completeness/diagnostics.
     filterDefinition?: string;
     columns: DiffIndexColumn[] = [];
+    // Set on a SQL Server full-text index (Signum's DiffIndex.FullTextIndex): the index is read from
+    // sys.fulltext_indexes (not sys.indexes) under the fixed name FULL_TEXT_INDEX, and must be
+    // dropped with DROP FULLTEXT INDEX / diffed against the model's FullTextTableIndex. On Postgres
+    // the full-text index is an ordinary GIN index over the tsvector column, so this stays unset.
+    isFullText = false;
+    fullTextCatalogName?: string;
 
     // Build from a query projection: the index facets + its (already ordered) columns array
     // (built in-query as DiffIndexColumn.create({ … })). Overrides View.create.
-    static create(v: { indexName: string; isUnique?: boolean; isPrimary?: boolean; filterDefinition?: string | null; columns: DiffIndexColumn[] }): DiffIndex {
+    static create(v: { indexName: string; isUnique?: boolean; isPrimary?: boolean; filterDefinition?: string | null; columns: DiffIndexColumn[]; isFullText?: boolean; fullTextCatalogName?: string | null }): DiffIndex {
         const ix = new DiffIndex();
         ix.indexName = v.indexName;
         ix.isUnique = v.isUnique ?? false;
         ix.isPrimary = v.isPrimary ?? false;
         ix.filterDefinition = v.filterDefinition ?? undefined;
+        ix.isFullText = v.isFullText ?? false;
+        ix.fullTextCatalogName = v.fullTextCatalogName ?? undefined;
         // Order by the catalog's column ordinal (Signum's `orderby ic.index_column_id`) so key
         // columns precede included ones and both match the model's declaration order. Done
         // client-side to keep the reader query free of an ordered projection.
@@ -198,8 +207,8 @@ export class DiffIndex extends View {
     // signature are encoded in the index NAME (so they surface via the dictionary key, not
     // here), leaving column identity + the primary-key flag to compare. A model TableIndex is
     // never a primary key in altea (the PK is a separate concern), so isPrimary must be false.
-    indexEquals(dif: DiffTable, mix: TableIndex, _isPostgres: boolean): boolean {
-        if (this.columnsChanged(dif, mix))
+    indexEquals(dif: DiffTable, mix: TableIndex, isPostgres: boolean): boolean {
+        if (this.columnsChanged(dif, mix, isPostgres))
             return false;
 
         if (this.isPrimary)
@@ -210,7 +219,19 @@ export class DiffIndex extends View {
 
     // Whether the DB index's key/included columns differ from the model index's (Signum's
     // DiffIndex.ColumnsChanged).
-    private columnsChanged(dif: DiffTable, mix: TableIndex): boolean {
+    private columnsChanged(dif: DiffTable, mix: TableIndex, isPostgres: boolean): boolean {
+        // Full-text indexes compare differently (Signum's ColumnsChanged FullTextTableIndex branch):
+        //   • Postgres — the GIN index covers the single generated tsvector column, while the model
+        //     index lists the source columns, so match the DB column name to the tsvector column name.
+        //   • SQL Server — the index covers the source columns directly, but sys.fulltext_index_columns
+        //     has no ordering, so compare the column-name SETS (order-independent).
+        if (mix instanceof FullTextTableIndex) {
+            if (isPostgres)
+                return mix.postgres.tsVectorColumnName !== this.columns[0]?.columnName;
+            const modelNames = new Set(mix.columns.map(c => c.name));
+            const dbNames = this.columns.map(c => c.columnName);
+            return dbNames.length !== modelNames.size || !dbNames.every(n => modelNames.has(n));
+        }
         const keyCols = this.columns.filter(a => a.type === DiffIndexColumnType.Key);
         const incCols = this.columns.filter(a => a.type === DiffIndexColumnType.Included);
         const sameCols = identicalColumns(dif, mix.columns, keyCols);

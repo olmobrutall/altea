@@ -8,6 +8,15 @@ import type { Table } from './table';
 // ROW START/END (SS) and the reader/synchronizer treats it as system-managed.
 export type SystemVersionKind = 'start' | 'end' | 'period';
 
+// A computed (generated) column expression (Signum's Maps.ComputedColumn). `persisted`
+// STORED on Postgres / PERSISTED on SQL Server. Used by the Postgres full-text tsvector
+// column, which is a persisted GENERATED ALWAYS AS (setweight(to_tsvector(...))) STORED
+// column indexed by a GIN index.
+export interface ComputedColumn {
+    readonly expression: string;
+    readonly persisted: boolean;
+}
+
 // A single physical column in a table. Mirrors Signum's IColumn. Every Field
 // produces zero or more of these via Field.columns(); Table flattens them into
 // its `columns` dictionary. `readonly` here documents the consumer contract —
@@ -33,6 +42,9 @@ export interface IColumn {
     // Set on a system-versioning period column (Signum's SqlServerPeriodColumn /
     // PostgresPeriodColumn). Undefined for ordinary columns.
     readonly systemVersion?: SystemVersionKind;
+    // Set on a computed/generated column (Signum's IColumn.ComputedColumn). The DDL generator
+    // emits GENERATED ALWAYS AS (<expression>) [STORED|PERSISTED]. Undefined for ordinary columns.
+    readonly computedColumn?: ComputedColumn;
 }
 
 // Base implementation with sensible defaults; subclasses tweak fields in their
@@ -51,6 +63,7 @@ export class ColumnBase implements IColumn {
     avoidForeignKey = false;
     collection = false;
     systemVersion?: SystemVersionKind;
+    computedColumn?: ComputedColumn;
 
     constructor(
         public name: string,
@@ -138,3 +151,22 @@ export class EmbeddedHasValueColumn extends ColumnBase {
         this.nullable = IsNullable.No;
     }
 }
+
+// The synthetic `tsvector` column a Postgres full-text index materialises (Signum's
+// PostgresTsVectorColumn). It is a persisted generated column whose expression concatenates
+// `setweight(to_tsvector(<config>, COALESCE(<col>, '')), <weight>)` over the indexed source
+// columns; a GIN index is then built over it. SQL Server has no analogue — there the FULLTEXT
+// index covers the source columns directly, so this column is generated on Postgres only.
+export class PostgresTsVectorColumn extends ColumnBase {
+    static readonly DEFAULT_NAME = 'tsvector';
+
+    constructor(name: string, public readonly sourceColumns: IColumn[], computedColumn: ComputedColumn) {
+        super(name, TSVECTOR_DB_TYPE);
+        this.nullable = IsNullable.Yes;
+        this.computedColumn = computedColumn;
+    }
+}
+
+// tsvector is Postgres-only; the SQL Server slot is never emitted (the column only ever
+// exists on a Postgres table), but AbstractDbType requires both dialect names.
+export const TSVECTOR_DB_TYPE = new AbstractDbType('tsvector', 'tsvector');

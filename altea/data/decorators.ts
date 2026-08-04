@@ -247,6 +247,28 @@ function indexDecorator(unique: boolean, arg1: unknown, arg2: unknown, arg3: unk
     };
 }
 
+// @fullTextIndex — Signum's fluent WithFullTextIndex, expressed as an altea class decorator (the
+// same divergence as class-level @index). Marks one or more string columns for full-text search:
+//
+//   @fullTextIndex(e => [e.firstName, e.lastName, e.notes])
+//   @fullTextIndex(e => e.title, { postgres: { configuration: "spanish" }, sqlServer: { changeTracking: "Manual" } })
+//
+// The field selector is stored raw (the SchemaBuilder runs it against a recording proxy to resolve
+// the covered fields → columns). On SQL Server it becomes a CREATE FULLTEXT INDEX over those columns
+// bound to a catalog; on Postgres a persisted generated tsvector column + a GIN index.
+export function fullTextIndex<T>(
+    fields: (element: T) => unknown,
+    options?: {
+        sqlServer?: { catalogName?: string; changeTracking?: 'Manual' | 'Auto' | 'Off' | 'Off_NoPopulation'; stoplistName?: string; propertyListName?: string };
+        postgres?: { tsVectorColumnName?: string; configuration?: string; weights?: Record<string, 'A' | 'B' | 'C' | 'D'> };
+    },
+): (target: Function) => void {
+    return function (target: Function): void {
+        const ti = getOrCreateTypeInfo(target);
+        (ti.fullTextIndexes ??= []).push({ fields: fields as (element: any) => unknown, sqlServer: options?.sqlServer, postgres: options?.postgres });
+    };
+}
+
 export function allowUnauthenticated(target: Function): void {
     (target as any)[allowUnauthenticatedKey] = true;
 }

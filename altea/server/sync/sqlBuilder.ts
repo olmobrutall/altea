@@ -4,6 +4,7 @@ import { AbstractDbType, isNullableToBool } from '../schema/dbType';
 import { ObjectName, SchemaName } from '../schema/objectName';
 import type { Table } from '../schema/table';
 import type { TableIndex } from '../schema/tableIndex';
+import { FullTextTableIndex, fullTextChangeTrackingSql, FULL_TEXT_INDEX_NAME } from '../schema/tableIndex';
 import type { DiffColumn, DiffTable } from './diffModels';
 import { SqlPreCommand, SqlPreCommandSimple, SqlPreCommandWithHistory, Spacing } from './sqlPreCommand';
 import { chopHash, codify, HASH_SIZE } from './stringHash';
@@ -210,17 +211,25 @@ export class SqlBuilder {
     // engine-maintained (no identity, no ROW START/END), so a column added to it must not carry
     // those attributes.
     columnLine(c: IColumn, forHistory = false): string {
+        // GENERATED-ALWAYS clause (Signum's `generatedAlways`): a computed/generated column, or a
+        // SQL Server system-versioning row start/end. When present it also suppresses the
+        // NULL / NOT NULL marker (a generated column derives its nullability from its expression).
+        // A history table is a plain archive, so its columns never carry generated markers.
+        const generatedAlways = forHistory ? undefined
+            : c.computedColumn != null
+                ? (this.isPostgres
+                    ? `GENERATED ALWAYS AS (${c.computedColumn.expression})${c.computedColumn.persisted ? ' STORED' : ''}`
+                    : `AS (${c.computedColumn.expression})${c.computedColumn.persisted ? ' PERSISTED' : ''}`)
+                : c.systemVersion === 'start' ? 'GENERATED ALWAYS AS ROW START HIDDEN'
+                : c.systemVersion === 'end' ? 'GENERATED ALWAYS AS ROW END HIDDEN' : undefined;
+
         const parts: (string | undefined)[] = [
             this.sqlEscape(c.name),
             this.getColumnType(c),
-            // SQL Server period columns are engine-maintained row start/end timestamps.
-            // (Postgres' sys_period is an ordinary tstzrange column — no marker here.)
-            forHistory ? undefined
-                : c.systemVersion === 'start' ? 'GENERATED ALWAYS AS ROW START HIDDEN'
-                : c.systemVersion === 'end' ? 'GENERATED ALWAYS AS ROW END HIDDEN' : undefined,
             c.identity && !forHistory ? (this.isPostgres ? 'GENERATED ALWAYS AS IDENTITY' : 'IDENTITY') : undefined,
+            generatedAlways,
             c.collation != null ? `COLLATE ${c.collation}` : undefined,
-            isNullableToBool(c.nullable) ? 'NULL' : 'NOT NULL',
+            generatedAlways != null ? undefined : isNullableToBool(c.nullable) ? 'NULL' : 'NOT NULL',
             c.default != null ? `DEFAULT ${this.quote(c.dbType, c.default)}` : undefined,
         ];
         return parts.filter(p => p != null).join(' ');
@@ -300,6 +309,11 @@ export class SqlBuilder {
     // WHERE/INCLUDE signature so a filtered/covering variant on the same columns gets a
     // distinct, deterministic name.
     indexName(index: TableIndex): string {
+        // A SQL Server full-text index has the fixed catalog name FULL_TEXT_INDEX (Signum's
+        // FullTextTableIndex.GetIndexName); on Postgres it uses the ordinary hashed `ix_` name over
+        // its source columns, so it falls through to the default computation below.
+        if (index instanceof FullTextTableIndex && !this.isPostgres)
+            return FULL_TEXT_INDEX_NAME;
         const prefix = index.unique ? (this.isPostgres ? 'uix' : 'UIX') : (this.isPostgres ? 'ix' : 'IX');
         const cols = index.columns.map(c => c.name).join('_');
         // Reserve room for the "__" + 7-char WHERE signature (Signum's MaxNameLength()).
@@ -324,6 +338,8 @@ export class SqlBuilder {
     // and SQL Server share this shape once the default-filegroup `ON 'PRIMARY'` is dropped.
     // `index.where` is already the rendered SQL predicate (translated at registration time).
     createIndex(index: TableIndex): SqlPreCommand {
+        if (index instanceof FullTextTableIndex)
+            return this.createFullTextIndex(index);
         const name = this.sqlEscape(this.indexName(index));
         const cols = index.columns.map(c => this.sqlEscape(c.name)).join(', ');
         const include = index.includeColumns != null && index.includeColumns.length > 0
@@ -338,6 +354,51 @@ export class SqlBuilder {
         if (this.isPostgres)
             return new SqlPreCommandSimple(`DROP INDEX ${this.sqlEscape(indexName)};`);
         return new SqlPreCommandSimple(`DROP INDEX ${this.sqlEscape(indexName)} ON ${this.objectName(tableName)};`);
+    }
+
+    // ---- Full-text indexes (Signum's CreateIndex FullTextTableIndex branch) --
+    //
+    // SQL Server needs a FULLTEXT CATALOG object + a CREATE FULLTEXT INDEX bound to the table's PK
+    // (KEY INDEX). Postgres materialises a persisted tsvector column (emitted by columnLine) and a
+    // GIN index over it. Signum marks the SQL Server statements NoTransaction (full-text DDL cannot
+    // run inside a transaction); altea executes generation/sync leaves in autocommit (each statement
+    // is its own batch), so no transaction wrapper is added — the same effect without a mode flag.
+    createFullTextIndex(index: FullTextTableIndex): SqlPreCommand {
+        if (this.isPostgres) {
+            const name = this.sqlEscape(this.indexName(index));
+            const col = this.sqlEscape(index.postgres.tsVectorColumnName);
+            return new SqlPreCommandSimple(`CREATE INDEX ${name} ON ${this.objectName(index.table.name)} USING GIN (${col});`);
+        }
+        const sqls = index.sqlServer;
+        const columns = index.columns.map(c => this.sqlEscape(c.name)).join(', ');
+        // The full-text index is keyed by the table's (unique) primary-key index — its name.
+        const keyIndex = this.sqlEscape(this.primaryKeyName(index.table.name.name));
+        const options = [
+            sqls.changeTracking != null ? `CHANGE_TRACKING = ${fullTextChangeTrackingSql(sqls.changeTracking)}` : undefined,
+            sqls.stoplistName != null ? `STOPLIST = ${sqls.stoplistName}` : undefined,
+            sqls.propertyListName != null ? `SEARCH PROPERTY LIST = ${sqls.propertyListName}` : undefined,
+        ].filter((o): o is string => o != null);
+        const lines = [
+            `CREATE FULLTEXT INDEX ON ${this.objectName(index.table.name)}(${columns})`,
+            `KEY INDEX ${keyIndex}`,
+            `ON ${this.sqlEscape(sqls.catalogName)}`,
+            options.length > 0 ? `WITH ${options.join(', ')}` : undefined,
+        ].filter((l): l is string => l != null);
+        return new SqlPreCommandSimple(lines.join('\n') + ';');
+    }
+
+    // DROP FULLTEXT INDEX targets the table, not a named index (Signum's DropIndex FullTextIndex).
+    dropFullTextIndex(tableName: ObjectName): SqlPreCommand {
+        return new SqlPreCommandSimple(`DROP FULLTEXT INDEX ON ${this.objectName(tableName)};`);
+    }
+
+    // SQL Server FULLTEXT CATALOG management (Signum's CreateFullTextCatallog / DropFullTextCatallog).
+    createFullTextCatalog(catalogName: string): SqlPreCommand {
+        return new SqlPreCommandSimple(`CREATE FULLTEXT CATALOG ${this.sqlEscape(catalogName)};`);
+    }
+
+    dropFullTextCatalog(catalogName: string): SqlPreCommand {
+        return new SqlPreCommandSimple(`DROP FULLTEXT CATALOG ${this.sqlEscape(catalogName)};`);
     }
 
     // ---- Enum side-tables ---------------------------------------------------

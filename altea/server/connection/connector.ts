@@ -95,6 +95,15 @@ export abstract class Connector {
     // which is already ISO and needs no DATEFIRST).
     dateFirst: number | undefined;
 
+    // Whether this database supports full-text search (Signum's SqlServerConnector.
+    // SupportsFullTextSearch). Postgres always does; SQL Server does when the Full-Text Search
+    // feature is installed (SERVERPROPERTY('IsFullTextInstalled')). The synchronizer gates
+    // full-text catalog/index sync on this. Defaults to true; a connector may override with a
+    // runtime probe.
+    get supportsFullTextSearch(): boolean {
+        return true;
+    }
+
     // ---- Ambient access -----------------------------------------------------
 
     static default: Connector | undefined;
