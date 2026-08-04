@@ -843,7 +843,10 @@ export namespace Finder {
     // TypeReference; altea columns carry a RuntimeType, and the root isn't a column entry).
     const ti = tryGetTypeInfo(getKey(queryToken.queryName));
 
-    if (!queryToken.subTokens(SubTokensOptionsAll).find(t => t.fullKey() == defaultOrderColumn))
+    // Case-insensitive: the id token's fullKey is "id" (the field name) while defaultOrderColumn is "Id",
+    // so an exact `==` never matches and default ordering silently no-ops. The order token itself resolves
+    // fine downstream (the completer is case-insensitive).
+    if (!queryToken.subTokens(SubTokensOptionsAll).find(t => t.fullKey().toLowerCase() == defaultOrderColumn.toLowerCase()))
       return undefined;
 
     return [{
@@ -859,14 +862,18 @@ export namespace Finder {
     if (qs?.simpleFilterBuilder)
       return undefined;
 
-    if (queryToken == null || queryToken) {
+    // Signum gated this on `qd.columns["Entity"]` (a real entity query, not a custom projection). altea's
+    // equivalent: the query root is a full entity (has implementations) — a ModelEntity projection row has
+    // no whole-entity ToString/Id to search on. Tokens are rootless (root key is "", so "ToString"/"Id",
+    // NOT Signum's "Entity.ToString"/"Entity.Id" — those don't resolve and reject parseFindOptions).
+    if (queryToken == null || queryToken.getImplementations() != undefined) {
       return [
         {
           groupOperation: "Or",
           pinned: { label: "Search" /* TODO(port): SearchMessage.Search.niceToString() */, splitValue: true, active: "WhenHasValue" },
           filters: [
-            { token: "Entity.ToString", operation: "Contains" },
-            { token: "Entity.Id", operation: "EqualTo" },
+            { token: "ToString", operation: "Contains" },
+            { token: "Id", operation: "EqualTo" },
           ]
         }
       ];

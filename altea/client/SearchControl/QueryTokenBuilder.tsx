@@ -49,10 +49,18 @@ export default function QueryTokenBuilder(p: QueryTokenBuilderProps): React.Reac
 
   let tokenList: (QueryToken | undefined)[] = [...(p.queryToken?.getTokenParents() ?? [])];
 
+  // altea divergence: the query root is implicit. Its properties populate the first dropdown directly
+  // (no "Order › …" wrapper level), so the root token is never rendered as its own box — UNLESS it IS the
+  // selected token (the whole-entity filter, fullKey ""), where it stays as the single leaf box.
+  const rootIsSelected = p.queryToken != null && p.queryToken.parent == null;
+  if (!rootIsSelected && tokenList.length && tokenList[0]!.parent == null)
+    tokenList.shift();
+
   var initialIndex = !expanded && p.prefixQueryToken && p.queryToken && p.prefixQueryToken.isPrefixOf(p.queryToken) ?
     tokenList.findIndex(a => a!.fullKey() == p.prefixQueryToken!.fullKey()) + 1 : 0;
 
-  if (!p.readOnly)
+  // The whole-entity root token is a leaf (not expandable): no trailing "pick a sub-token" box after it.
+  if (!p.readOnly && !rootIsSelected)
     tokenList.push(undefined);
 
   return (
@@ -88,6 +96,12 @@ export default function QueryTokenBuilder(p: QueryTokenBuilderProps): React.Reac
   async function tryApplyToken(token: QueryToken | null | undefined, newToken: QueryToken | undefined): Promise<QueryToken | undefined> {
     if (newToken == undefined)
       return undefined;
+
+    // altea: the whole-entity root (parent-less, fullKey "") is a leaf selection — apply it as-is and
+    // never re-project the previous token's tail onto it. In altea only the root is parent-less, so the
+    // tail-reapply branch below is reserved for real navigations.
+    if (newToken.parent == null)
+      return newToken;
 
     if (token == null)
       return newToken;
@@ -169,7 +183,13 @@ export function QueryTokenPart(p: QueryTokenPartProps): React.ReactElement | nul
 
     var tc = new Finder.TokenCompleter(p.queryToken);
 
+    // altea: at the first level, offer the query root itself as a selectable whole-entity token
+    // (rendered as the entity's niceName, e.g. "Order"). Only for real entity queries — a custom
+    // ModelEntity projection has no implementations and can't be filtered as a whole, so it's omitted.
+    const rootOption = p.parentToken == null && p.queryToken.getImplementations() != undefined ? p.queryToken : undefined;
+
     return tc.getSubTokens(p.parentToken, p.subTokenOptions, doAutoExpand)
+      .then(tokens => rootOption ? [rootOption, ...tokens] : tokens)
       .then(tokens => tokens.length == 0 ? tokens : [null, ...tokens])
   }, [p.readOnly, p.parentToken && p.parentToken.fullKey(), p.subTokenOptions, p.queryKey])
 
@@ -187,7 +207,7 @@ export function QueryTokenPart(p: QueryTokenPartProps): React.ReactElement | nul
           disabled={p.readOnly}
           selectIcon={open && doAutoExpand ? <FontAwesomeIcon aria-hidden={true} icon="magnifying-glass" /> : undefined}
           onToggle={isOpen => setOpen(isOpen)}
-          filter={(item, searchTerm) => item != null && searchTerm.toLowerCase().split(" ").filter(a => a != "").every(part => parentsUntil(item, p.parentToken).some(t => t.key.toLowerCase().contains(part) || t.niceName().toLowerCase().contains(part)))}
+          filter={(item, searchTerm) => item != null && searchTerm.toLowerCase().split(" ").filter(a => a != "").every(part => parentsUntil(item, p.parentToken).some(t => t.key.toLowerCase().contains(part) || t.toString().toLowerCase().contains(part)))}
           autoComplete="off"
           focusFirstItem={true}
           data={subTokens?.orderBy(a => a?.parent != null) ?? []}
@@ -195,7 +215,7 @@ export function QueryTokenPart(p: QueryTokenPartProps): React.ReactElement | nul
           value={p.selectedToken}
           onChange={(value, metadata) => p.onTokenSelected(value ?? p.parentToken, metadata.originalEvent?.nativeEvent instanceof KeyboardEvent)}
           dataKey={(item: unknown) => (item as QueryToken | null)?.fullKey()}
-          textField={(item: unknown) => (item as QueryToken | null)?.niceName() ?? ""}
+          textField={(item: unknown) => (item as QueryToken | null)?.toString() ?? ""}
           onBlur={() => { p.selectedToken == null && p.setLastTokenChange(undefined); }}
           renderValue={a => <QueryTokenItem item={a.item} />}
           renderListItem={a => <QueryTokenListItem item={a.item} ancestor={p.parentToken} />}
@@ -229,7 +249,7 @@ export function QueryTokenItem(p: { item: QueryToken | null }): React.ReactEleme
       data-full-token={item.fullKey()}
       style={{ color: item.queryTokenColor }}
       title={StyleContext.default.titleLabels ? item.niceTypeName() : undefined}>
-      {item.niceName()}
+      {item.toString()}
     </span>
   );
 }
@@ -248,7 +268,7 @@ export function QueryTokenListItem(p: { item: QueryToken | null, ancestor: Query
         .map((qt, i) => (
           <React.Fragment key={i}>
             {i > 0 && " › "}
-            <span style={{ color: qt.queryTokenColor }} title={StyleContext.default.titleLabels ? qt.niceTypeName() : undefined}>{qt.niceName()}</span>
+            <span style={{ color: qt.queryTokenColor }} title={StyleContext.default.titleLabels ? qt.niceTypeName() : undefined}>{qt.toString()}</span>
           </React.Fragment>
         ))}
     </span>
@@ -263,6 +283,11 @@ function parentsUntil(token: QueryToken, ancestor?: QueryToken) {
   }
 
   tokens.reverse();
+
+  // altea: never render the implicit query root as a leading "Order ›" prefix segment — unless the item
+  // IS the root itself (the whole-entity option), which must still display its niceName.
+  if (tokens.length > 1 && tokens[0].parent == null)
+    tokens.shift();
 
   return tokens;
 }

@@ -160,10 +160,18 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
       return entityOrLite as unknown as V;
     }
     else {
-      // ALTEA: only enforce the name match for a plain single-type reference; @implementedBy /
-      // @implementedByAll accept any of their (polymorphic) implementations.
-      if (!type.isByAll() && type.implementations == null && typeName != null && !typeName.split(',').map(a => a.trim()).contains(entityType))
-        throw new Error(`Impossible to convert '${entityType}' to '${typeName}'`);
+      // ALTEA: verify the selected entity/lite is one of the reference's target types by REAL ctor
+      // reference, not by name. Signum compared clean-name STRINGS (`type.name.split(',')`), but altea's
+      // `TypeReference.getTypeName()` returns the raw class name while a lite/entity resolves to a
+      // possibly-different clean name, so a string compare spuriously rejects valid selections. The
+      // reference carries the target ctor(s) structurally: one for a single reference, several for
+      // @implementedBy; @implementedByAll accepts any entity.
+      if (!type.isByAll()) {
+        const allowedCtors = type.typeInfos().map(ti => ti.ctor);
+        const entityCtor = entityOrLite instanceof Lite ? entityOrLite.entityType : (entityOrLite as BaseEntity).constructor as Function;
+        if (allowedCtors.length > 0 && !allowedCtors.some(c => c === entityCtor))
+          throw new Error(`Impossible to convert '${entityType}' to '${typeName}'`);
+      }
 
       if (!!(entityOrLite instanceof Lite) == !!type.lite)
         return entityOrLite as unknown as V;

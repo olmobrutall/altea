@@ -1,5 +1,10 @@
-﻿.dialog-header-error {
-    background-color: var(--bs-danger-subtle);
+/* Ported from Signum.React/Modals/DialogModals.css. altea divergence: Signum's rules read
+   `var(--bs-danger-subtle)` etc., a variable defined by Signum/Southwind's own custom Bootstrap SCSS.
+   altea uses vanilla Bootstrap 5.3, whose subtle-background variables are named `--bs-<color>-bg-subtle`
+   (there is no plain `--bs-<color>-subtle`), so the header tints resolved to empty → transparent (no red
+   header). Point them at the real Bootstrap 5.3 tokens. */
+.dialog-header-error {
+    background-color: var(--bs-danger-bg-subtle);
     color: var(--bs-body-color);
 }
 
@@ -9,7 +14,7 @@
 
 
 .dialog-header-warning {
-    background-color: var(--bs-warning-subtle);
+    background-color: var(--bs-warning-bg-subtle);
     color: var(--bs-body-color);
 }
 
@@ -19,7 +24,7 @@
 
 
 .dialog-header-info {
-    background-color: var(--bs-info-subtle);
+    background-color: var(--bs-info-bg-subtle);
     color: var(--bs-body-color);
 }
 
@@ -29,7 +34,7 @@
 
 
 .dialog-header-success {
-    background-color: var(--bs-success-subtle);
+    background-color: var(--bs-success-bg-subtle);
     color: var(--bs-body-color);
 }
 

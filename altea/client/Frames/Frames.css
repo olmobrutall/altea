@@ -1,5 +1,6 @@
-/* Frame + modal styles for FramePage / FrameModal. Minimal port of Signum's Frames.css (its
-   `@import "./Tertiary.css"` and the bulk of its rules are deferred); Bootstrap covers the rest. */
+/* Frame + modal styles for FramePage / FrameModal. Minimal port of Signum's Frames.css (the bulk of
+   its rules are deferred; Bootstrap covers the rest). */
+@import "./Tertiary.css";
 
 /* The app-shell container (eastwind's Layout): a tinted page background so the white content cards
    (search toolbar / results / filters, entity frames) stand out and their shadows read. Without this
@@ -14,6 +15,18 @@
     flex-grow: 1;
     display: flex;
     flex-direction: column;
+}
+
+/* Modal chrome tint (Signum's Frames.css): the SearchModal / FrameModal get a gray header and a tinted
+   body+footer so the white content cards inside them read the same way they do on a page. Without these
+   the whole modal is white-on-white. */
+.modal-body,
+.modal-footer {
+    background: var(--bs-tertiary-bg);
+}
+
+.modal-header {
+    background: var(--bs-secondary-bg);
 }
 
 @media (min-width: 768px) {
