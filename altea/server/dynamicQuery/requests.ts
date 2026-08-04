@@ -1,5 +1,6 @@
 import { Expression, ParameterExpression, BinaryExpression, ConstantExpression, PropertyExpression, CallExpression } from "../linq/expressions";
-import { LiteralType, ArrayType } from "../runtimeTypes";
+import { LiteralType, ArrayType, TsVectorType, TsQueryType } from "../runtimeTypes";
+import { SqlFullTextSearch } from "../fullTextSearch";
 import type { Implementations } from "../../data/implementations";
 import type { RuntimeType } from "../runtimeTypes";
 import { BuildExpressionContext, ExpressionBox, buildLite } from "./tokenExpressions";
@@ -35,7 +36,24 @@ export enum FilterOperation {
     NotEndsWith = "NotEndsWith",
     IsIn = "IsIn",
     IsNotIn = "IsNotIn",
+    // Full-text operations (Signum's Filter.cs). SQL Server: FreeText → FREETEXT, ComplexCondition
+    // → CONTAINS. Postgres: TsQuery* → the matching `tsvector @@ *_tsquery(value)`. The string
+    // values match the client FilterOperationEnum (data/dynamicQueries.ts).
+    FreeText = "FreeText",
+    ComplexCondition = "ComplexCondition",
+    TsQuery = "TsQuery",
+    TsQuery_Plain = "TsQuery_Plain",
+    TsQuery_Phrase = "TsQuery_Phrase",
+    TsQuery_WebSearch = "TsQuery_WebSearch",
 }
+
+// The Postgres tsquery builder method (on String) for each TsQuery filter operation.
+const TS_QUERY_METHOD: Partial<Record<FilterOperation, string>> = {
+    [FilterOperation.TsQuery]: "toTsQuery",
+    [FilterOperation.TsQuery_Plain]: "toTsQuery_Plain",
+    [FilterOperation.TsQuery_Phrase]: "toTsQuery_Phrase",
+    [FilterOperation.TsQuery_WebSearch]: "toTsQuery_WebSearch",
+};
 
 const BINARY_OP: Partial<Record<FilterOperation, "==" | "!=" | ">" | ">=" | "<" | "<=">> = {
     [FilterOperation.EqualTo]: "==",
@@ -154,6 +172,26 @@ export class FilterCondition extends Filter {
             // `.includes` is altea's SQL-mappable array membership (→ IN (…), like retrieveByIds).
             const call = new CallExpression(new PropertyExpression(new ConstantExpression(this.value), "includes"), [left], LiteralType.boolean);
             return this.operation === FilterOperation.IsNotIn ? new BinaryExpression("==", call, new ConstantExpression(false)) : call;
+        }
+
+        // ---- Full-text (Signum's FilterFullText) ------------------------------------------------
+        // SQL Server: FREETEXT / CONTAINS over the token's column (`left`). The QueryBinder recognises
+        // the SqlFullTextSearch.freeText/contains call and lowers it to the predicate.
+        if (this.operation === FilterOperation.FreeText || this.operation === FilterOperation.ComplexCondition) {
+            const method = this.operation === FilterOperation.FreeText ? "freeText" : "contains";
+            return new CallExpression(
+                new PropertyExpression(new ConstantExpression(SqlFullTextSearch), method),
+                [left, new ConstantExpression(this.value)], LiteralType.boolean);
+        }
+        // Postgres: `entity.getTsVectorColumn() @@ <value>.toTsQuery*()`. The tsvector column covers
+        // ALL the entity's full-text columns, so the search is off the row entity (the token's
+        // parent), not the single token column.
+        const tsMethod = TS_QUERY_METHOD[this.operation];
+        if (tsMethod != undefined) {
+            const entity = this.token.parent!.buildExpression(context);
+            const tsVector = new CallExpression(new PropertyExpression(entity, "getTsVectorColumn"), [], new TsVectorType());
+            const tsQuery = new CallExpression(new PropertyExpression(new ConstantExpression(this.value), tsMethod), [], new TsQueryType());
+            return new CallExpression(new PropertyExpression(tsVector, "matches"), [tsQuery], LiteralType.boolean);
         }
 
         throw new Error(`FilterOperation ${this.operation} not supported yet`);
