@@ -1,6 +1,7 @@
 
 import { Lite, LiteImp, getCustomLiteConstructor, getCustomLiteConstructorFor } from './lite';
 import type { CustomLiteClass } from './lite';
+import type { TsVector } from './tsVector';
 import { column, serialize, quoted } from './decorators';
 import { Localization } from './utils/localization';
 
@@ -205,6 +206,14 @@ export abstract class Entity extends BaseEntity {
      * entity type via {@link registerCustomLite} — its `fromEntity` builder is what runs here.
      * `fat` embeds the full entity, exactly like {@link toLite}.
      */
+    // The entity's full-text tsvector column (Signum's Entity.GetTsVectorColumn), for use inside a
+    // query: `note.getTsVectorColumn().matches("hello".toTsQuery())`. Requires the entity to carry a
+    // @fullTextIndex on Postgres (the generated tsvector column). Query-only — the LINQ provider
+    // lowers it to the column reference; there is nothing to compute in memory, so this throws.
+    getTsVectorColumn(): TsVector {
+        throw new Error("getTsVectorColumn() is only supported inside a database query");
+    }
+
     toCustomLite(liteClass: CustomLiteClass, fat = false): Lite<this> {
         if (!fat && this.id == null)
             throw new Error('toCustomLite() is not allowed for new entities (no id yet), use toCustomLite(class, true) instead');

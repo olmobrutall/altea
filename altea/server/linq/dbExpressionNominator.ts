@@ -10,7 +10,7 @@ import {
     AggregateExpression, AggregateRequestsExpression, CaseExpression, When, ScalarExpression, ExistsExpression, InExpression,
     ProjectionExpression, ToDayOfWeekExpression, SqlArrayIndexExpression,
 } from "./expressions.sql";
-import { EnumType, LiteralType, TemporalType, RuntimeType } from "../runtimeTypes";
+import { EnumType, LiteralType, TemporalType, TsVectorType, TsQueryType, RuntimeType } from "../runtimeTypes";
 import { enumEntityMembers } from "../../data/enumEntity";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 
@@ -417,9 +417,26 @@ class DbExpressionNominator extends DbExpressionVisitor {
             return source.type === LiteralType.string
                 ? source
                 : new SqlCastExpression(LiteralType.string, source, this.isPostgres ? "varchar" : "nvarchar(max)");
+        // Postgres full-text search operators on the query-only tsvector / tsquery types.
+        if (ns === "tsvector")
+            return this.translateTsVectorMethod(name, source, args);
+        if (ns === "tsquery")
+            return this.translateTsQueryMethod(name, source, args);
         if (ns !== "string")
             return undefined;
         switch (`${ns}.${name}`) {
+            // Postgres full-text query builders on a string (Signum's TsVectorExtensions): the
+            // one-arg overload passes a language config first (`to_tsquery('english', value)`).
+            case "string.toTsVector":
+                return this.tsFullTextBuilder("to_tsvector", new TsVectorType(), source, args);
+            case "string.toTsQuery":
+                return this.tsFullTextBuilder("to_tsquery", new TsQueryType(), source, args);
+            case "string.toTsQuery_Plain":
+                return this.tsFullTextBuilder("plainto_tsquery", new TsQueryType(), source, args);
+            case "string.toTsQuery_Phrase":
+                return this.tsFullTextBuilder("phraseto_tsquery", new TsQueryType(), source, args);
+            case "string.toTsQuery_WebSearch":
+                return this.tsFullTextBuilder("websearch_to_tsquery", new TsQueryType(), source, args);
             case "string.includes":
                 return args.length === 1 ? this.translateStringSearch("contains", source, args[0]) : undefined;
             case "string.startsWith":
@@ -693,6 +710,10 @@ class DbExpressionNominator extends DbExpressionVisitor {
             return "Math";
         if (source.type instanceof TemporalType)
             return source.type.kind;
+        if (source.type instanceof TsVectorType)
+            return "tsvector";
+        if (source.type instanceof TsQueryType)
+            return "tsquery";
         if (source.type === LiteralType.string || source.type === LiteralType.null)
             return "string";
         return undefined;
@@ -700,6 +721,44 @@ class DbExpressionNominator extends DbExpressionVisitor {
 
     private sqlFunction(type: RuntimeType, fn: string, ...args: Expression[]): SqlFunctionExpression {
         return new SqlFunctionExpression(type, undefined, fn, args);
+    }
+
+    // A Postgres full-text builder over a string receiver (Signum's TsVectorExtensions
+    // to_tsvector / *_tsquery): `fn(value)`, or `fn(langConfig, value)` when a language-config
+    // argument is supplied. Returns the given tsvector / tsquery type.
+    private tsFullTextBuilder(fn: string, type: RuntimeType, source: Expression, args: readonly Expression[]): Expression | undefined {
+        if (args.length === 0)
+            return this.sqlFunction(type, fn, source);
+        if (args.length === 1)
+            return this.sqlFunction(type, fn, args[0], source);
+        return undefined;
+    }
+
+    // `tsvector.matches(q)` → `tsvector @@ tsquery` (boolean); `.rank(q)` / `.rankCoverDensity(q)`
+    // → ts_rank / ts_rank_cd (Signum's Matches / Rank / RankCoverDensity).
+    private translateTsVectorMethod(name: string, source: Expression, args: readonly Expression[]): Expression | undefined {
+        switch (name) {
+            case "matches":
+                return args.length === 1 ? this.sqlFunction(LiteralType.boolean, "@@", source, args[0]) : undefined;
+            case "rank":
+                return args.length === 1 ? this.sqlFunction(LiteralType.number, "ts_rank", source, args[0]) : undefined;
+            case "rankCoverDensity":
+                return args.length === 1 ? this.sqlFunction(LiteralType.number, "ts_rank_cd", source, args[0]) : undefined;
+            default:
+                return undefined;
+        }
+    }
+
+    // `tsquery.and(b)` / `.or(b)` → the Postgres tsquery `&&` / `||` operators (Signum's And / Or).
+    private translateTsQueryMethod(name: string, source: Expression, args: readonly Expression[]): Expression | undefined {
+        switch (name) {
+            case "and":
+                return args.length === 1 ? this.sqlFunction(new TsQueryType(), "&&", source, args[0]) : undefined;
+            case "or":
+                return args.length === 1 ? this.sqlFunction(new TsQueryType(), "||", source, args[0]) : undefined;
+            default:
+                return undefined;
+        }
     }
 
     // `str.contains/startsWith/endsWith(value)` → Signum's TryCharIndex (it never builds a LIKE

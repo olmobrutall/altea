@@ -5,6 +5,7 @@
 // Prototype / global augmentations (side-effect only — no value exports).
 import "./arrayExtensions";
 import "./stringExtensions";
+import "./tsVectorExtensions";
 import "./regExpExtensions";
 
 // Modules that both augment (Temporal) and export values.

@@ -1,5 +1,5 @@
 import type { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
-import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, IntervalType, RuntimeType } from "../runtimeTypes";
+import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, TsVectorType, TsQueryType, IntervalType, RuntimeType } from "../runtimeTypes";
 import { Temporal } from "../../data/basics";
 import { resolveType } from "../../data/registration";
 import { tryGetTypeInfo, type FieldInfo } from "../../data/reflection";
@@ -33,8 +33,12 @@ function isQueryMarker(v: unknown): boolean {
         return true;
     if (typeof v !== "function")
         return false;
-    const f = v as { __isQuerySource?: unknown; __sqlMethod?: unknown };
-    return f.__isQuerySource === true || f.__sqlMethod != null;
+    const f = v as { __isQuerySource?: unknown; __sqlMethod?: unknown; __avoidEager?: unknown };
+    // __avoidEager (Signum's [AvoidEagerEvaluation]): a query-only method with a real receiver
+    // (e.g. `"hello".toTsQuery()`) that must NOT be constant-folded by executing its (throwing)
+    // body — but is NOT a static [SqlMethod] (whose receiver is a captured class, not an argument).
+    // Unlike __sqlMethod it does not name a SQL function; the nominator lowers the residual call.
+    return f.__isQuerySource === true || f.__sqlMethod != null || f.__avoidEager === true;
 }
 
 export function evalUnaryOp(op: OpUnary, a: any): unknown {
@@ -294,6 +298,20 @@ const wellKnownResultTypes: Readonly<Record<string, RuntimeType>> = {
 
     "Array.contains": LiteralType.boolean,
 
+    // Postgres full-text builders / operators (query-only). `string.toTs*` build a tsvector/tsquery;
+    // `tsvector.matches` is the `@@` predicate; `tsvector.rank`/`rankCoverDensity` are ts_rank[_cd];
+    // `tsquery.and`/`or` combine tsqueries. `entity.getTsVectorColumn` is special-cased below.
+    "string.toTsVector": new TsVectorType(),
+    "string.toTsQuery": new TsQueryType(),
+    "string.toTsQuery_Plain": new TsQueryType(),
+    "string.toTsQuery_Phrase": new TsQueryType(),
+    "string.toTsQuery_WebSearch": new TsQueryType(),
+    "tsvector.matches": LiteralType.boolean,
+    "tsvector.rank": LiteralType.number,
+    "tsvector.rankCoverDensity": LiteralType.number,
+    "tsquery.and": new TsQueryType(),
+    "tsquery.or": new TsQueryType(),
+
     // Date/time methods (the rest are properties, typed by resolveMemberType). The
     // nominator lowers these to SQL (date_trunc / DATEADD-DATEDIFF / CAST / age).
     "dateTime.quarter": LiteralType.number,
@@ -397,8 +415,18 @@ function wellKnownNamespace(obj: Expression | undefined): string | undefined {
         return "Array";
     if (obj.type instanceof TemporalType)
         return obj.type.kind;
+    if (obj.type instanceof TsVectorType)
+        return "tsvector";
+    if (obj.type instanceof TsQueryType)
+        return "tsquery";
     return undefined;
 }
+
+// A dispatch target for the query-only tsvector / tsquery types: they have no runtime prototype
+// (the interface methods never run in memory), but fromQuoted needs a non-undefined object to look
+// the method name up on — the lookup returns undefined, so the method stays a residual call typed
+// by wellKnownResultType and lowered by the nominator.
+const tsFullTextProto: object = Object.create(null);
 
 // The Temporal prototype to look date/time method metadata up on, by kind.
 function temporalPrototype(t: TemporalType): object {
@@ -419,6 +447,11 @@ function wellKnownResultType(obj: Expression | undefined, propertyName: string):
     // here by name; the binder lowers the call to the localized name (typeNiceName).
     if (propertyName === "niceName" && obj?.type instanceof ClassType)
         return () => LiteralType.string;
+    // `entity.getTsVectorColumn()` → a tsvector value (its receiver is an entity ClassType, whose
+    // namespace isn't a well-known one, so it needs its own case). The QueryBinder lowers the call
+    // to the table's generated tsvector column.
+    if (propertyName === "getTsVectorColumn" && obj?.type instanceof ClassType)
+        return () => new TsVectorType();
     // `entity.mixin(MixinClass)` → the mixin's ClassType (from the ctor argument), so a
     // following `.field` / `.collection` resolves against the mixin's reflected fields.
     if (propertyName === "mixin")
@@ -613,6 +646,7 @@ export abstract class Expression {
                                 (obj.type === LiteralType.string || obj.type === LiteralType.null && isKnownStringMethod(fun.propertyName)) ? String.prototype :
                                     obj.type instanceof LiteType ? Lite.prototype :
                                         obj.type instanceof TemporalType ? temporalPrototype(obj.type) :
+                                            obj.type instanceof TsVectorType || obj.type instanceof TsQueryType ? tsFullTextProto :
                                             obj.type instanceof ClassType ? obj.type.constructorFunction.prototype :
                                                 obj.type === LiteralType.number ? Number.prototype :
                                                     obj.type === LiteralType.boolean ? Boolean.prototype :

@@ -60,7 +60,8 @@ import { toInt, toLong, toDecimal, inSql, Temporal } from "../../../data/basics"
 import { Lite, getCustomLiteConstructor, getCustomLiteConstructorFor } from "../../../data/lite";
 import type { CustomLiteClass } from "../../../data/lite";
 import { Localization } from "../../../data/utils/localization";
-import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, RuntimeType } from "../../runtimeTypes";
+import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, TsVectorType, RuntimeType } from "../../runtimeTypes";
+import { PostgresTsVectorColumn } from "../../schema/column";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 
@@ -1155,6 +1156,19 @@ export class QueryBinder extends ExpressionVisitor {
             if (sv == null)
                 throw new Error(`systemPeriod() requires a @systemVersioned entity; '${completed.table.name}' is not versioned.`);
             return this.systemPeriodExpression(sv, completed.tableAlias!);
+        }
+
+        // entity.getTsVectorColumn() → the table's generated tsvector column as a TsVectorType
+        // column reference (Signum's GetTsVectorColumn). Postgres-only; the entity must be completed
+        // so it has a table alias, and its table must carry a @fullTextIndex (the tsvector column).
+        // An optional constant string argument selects a specific tsvector column name.
+        if (methodName === "getTsVectorColumn" && source instanceof EntityExpression) {
+            const completed = source.tableAlias != null ? source : this.completed(source);
+            const explicitName = args.length === 1 && args[0] instanceof ConstantExpression && typeof args[0].value === "string" ? args[0].value : undefined;
+            const tsColumn = explicitName ?? Object.values(completed.table.columns).find(c => c instanceof PostgresTsVectorColumn)?.name;
+            if (tsColumn == null)
+                throw new Error(`getTsVectorColumn() requires a @fullTextIndex on Postgres; '${completed.table.name}' has no tsvector column.`);
+            return new ColumnExpression(new TsVectorType(), completed.tableAlias!, tsColumn);
         }
 
         // entity.toLite() → a Lite over that reference (Signum's BindToLite). Works

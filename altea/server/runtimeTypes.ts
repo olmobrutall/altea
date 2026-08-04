@@ -56,6 +56,16 @@ export class TemporalType extends RuntimeType {
     }
 }
 
+// A Postgres tsvector value (the result of `entity.getTsVectorColumn()` / `string.toTsVector()`).
+// Distinct so the query layer routes `.matches(...)` / `.rank(...)` to the full-text SQL operators.
+export class TsVectorType extends RuntimeType {
+}
+
+// A Postgres tsquery value (the result of `string.toTsQuery*()`), the right-hand side of the `@@`
+// match operator and the argument to ts_rank.
+export class TsQueryType extends RuntimeType {
+}
+
 export class ObjectType extends RuntimeType {
     constructor(public readonly bindings: { [name: string]: RuntimeType | undefined }) {
         super()

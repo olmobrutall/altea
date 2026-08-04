@@ -444,9 +444,10 @@ export class QueryFormatter extends DbExpressionVisitor {
     }
 
     override visitSqlFunction(e: SqlFunctionExpression): Expression {
-        // Postgres range operators (system-versioning period predicates) render infix, not as a
-        // call: `sys_period @> $ts`, `sys_period && tstzrange(…)`, `sys_period <@ tstzrange(…)`.
-        if ((e.sqlFunction === "@>" || e.sqlFunction === "&&" || e.sqlFunction === "<@") && e.arguments.length === 2) {
+        // Postgres infix operators render as `a OP b`, not as a call: the range/system-versioning
+        // predicates (`@>`, `&&`, `<@`) and the full-text operators (`@@` match, `||` / `&&` tsquery
+        // combine).
+        if ((e.sqlFunction === "@>" || e.sqlFunction === "&&" || e.sqlFunction === "<@" || e.sqlFunction === "@@" || e.sqlFunction === "||") && e.arguments.length === 2) {
             this.append(`(${this.capture(() => this.visit(e.arguments[0]))} ${e.sqlFunction} ${this.capture(() => this.visit(e.arguments[1]))})`);
             return e;
         }
