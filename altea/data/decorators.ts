@@ -266,6 +266,15 @@ export function fullTextIndex<T>(
     return function (target: Function): void {
         const ti = getOrCreateTypeInfo(target);
         (ti.fullTextIndexes ??= []).push({ fields: fields as (element: any) => unknown, sqlServer: options?.sqlServer, postgres: options?.postgres });
+        // Mark the covered fields with hasFullTextIndex (Signum's Schema.HasFullTextIndex →
+        // MemberInfo.HasFullTextIndex) so the client can offer the full-text filter operations. Set
+        // here (isomorphic) rather than in the server SchemaBuilder so it ships in the reflection
+        // blob. Run the selector against a recording proxy to discover the fields it reads.
+        const recorded: string[] = [];
+        const proxy = new Proxy({}, { get(_t, p): unknown { if (typeof p === "string") recorded.push(p); return undefined; } });
+        try { (fields as (element: any) => unknown)(proxy); } catch { /* a selector that does more than read is ignored */ }
+        for (const name of recorded)
+            getOrCreateFieldInfo(ti, name).hasFullTextIndex = true;
     };
 }
 

@@ -394,11 +394,7 @@ export class SchemaBuilder {
             table.indexes.push(index);
             for (const col of index.generateColumns(this.settings.isPostgres))
                 table.columns[col.name] = col;
-            for (const name of fieldNames) {
-                const ef = table.fields[name] ?? Object.values(table.mixins).map(m => m.fields[name]).find(f => f != null);
-                if (ef != null)
-                    ef.fieldInfo.hasFullTextIndex = true;
-            }
+            // (FieldInfo.hasFullTextIndex is set by the @fullTextIndex decorator, isomorphically.)
         }
     }
 

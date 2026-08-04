@@ -19,6 +19,7 @@ import type {
 } from '../data/dynamicQueries';
 import type { BsSize } from './Components';
 import { QueryToken } from './QueryToken';
+import { EntityPropertyToken } from '../data/dynamicQuery/tokens';
 // The DynamicQuery wire DTOs live in entities/dynamicQuery/queryRequest.ts (shared client/server);
 // consumers import them from there directly. FindOptions uses a few (FilterRequest, Pagination, …) in
 // its own signatures below.
@@ -400,13 +401,23 @@ export function isGroupList(fo: Pick<FilterGroupOption | FilterGroupOptionParsed
 
 
 
+// The full-text filter operations offered on a full-text-indexed column (Signum's FindOptions
+// full-text set): SQL Server FreeText / ComplexCondition (CONTAINS) and Postgres TsQuery*. All are
+// offered; the server applies the ones valid for its dialect.
+const fullTextOperations: FilterOperation[] = [
+  "ComplexCondition", "FreeText", "TsQuery", "TsQuery_Plain", "TsQuery_Phrase", "TsQuery_WebSearch",
+];
+
 export function getFilterOperations(qt: QueryToken): FilterOperation[] {
 
   if (qt.filterType == null)
     return [];
 
-  // TODO(phase later): prepend ComplexCondition/FreeText for a full-text-indexed column (Signum gated
-  // this on queryTokenType==null && propertyRoute; altea FieldInfo has no full-text flag yet).
+  // A full-text-indexed column also offers the full-text operations (Signum gated this on
+  // pr.member.hasFullTextIndex). The flag is set isomorphically by the @fullTextIndex decorator.
+  if (qt instanceof EntityPropertyToken && qt.fieldInfo?.hasFullTextIndex)
+    return [...fullTextOperations, ...filterOperations[qt.filterType]];
+
   return filterOperations[qt.filterType];
 }
 
