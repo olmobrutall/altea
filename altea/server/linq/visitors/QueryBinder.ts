@@ -16,7 +16,9 @@ import {
     CommandExpression, CommandAggregateExpression, ColumnAssignment,
     DeleteExpression, UpdateExpression, InsertSelectExpression,
     SqlArrayIndexExpression, SqlTableValuedFunctionExpression, IntervalExpression, AsOfExpression,
+    SqlColumnListExpression,
 } from "../expressions.sql";
+import { SqlFullTextSearch } from "../../fullTextSearch";
 import type { SystemVersionedInfo } from "../../schema/systemVersioned";
 import { SystemTime, SystemTimeAsOf } from "../../systemTime";
 import { AssignAdapterExpander } from "./AssignAdapterExpander";
@@ -938,6 +940,12 @@ export class QueryBinder extends ExpressionVisitor {
             // Route it exactly like a branded free-function call (below).
             if (property.object instanceof ConstantExpression) {
                 const member = (property.object.value as Record<string, unknown> | null)?.[op];
+                // SqlFullTextSearch.contains / freeText (Signum's SqlFullTextSearch) → a CONTAINS /
+                // FREETEXT predicate. Recognised by identity on the captured constant object.
+                if (member === SqlFullTextSearch.contains)
+                    return this.bindFullTextSearch("CONTAINS", call);
+                if (member === SqlFullTextSearch.freeText)
+                    return this.bindFullTextSearch("FREETEXT", call);
                 if (typeof member === "function") {
                     const brand = member as { __sqlMethod?: string };
                     if (brand.__sqlMethod != null)
@@ -2834,6 +2842,25 @@ export class QueryBinder extends ExpressionVisitor {
     // table-/set-returning: an ArrayType result → a table-valued-function source (a view or a
     // scalar column, see bindTableValuedFunction); any other (scalar) result → a plain
     // `<name>(args)` SqlFunctionExpression.
+    // SqlFullTextSearch.contains / freeText → a CONTAINS / FREETEXT SQL predicate (Signum's
+    // DbExpressionNominator SqlFullTextSearch case + ToLiteralColumns). The first argument is one
+    // full-text column (→ that column) or an entity (→ all its full-text columns, `*`); the second
+    // is the search condition. SQL Server only.
+    private bindFullTextSearch(functionName: "CONTAINS" | "FREETEXT", call: CallExpression): Expression {
+        if (this.isPostgres)
+            throw new Error(`SqlFullTextSearch.${functionName === "CONTAINS" ? "contains" : "freeText"} can only be used on SQL Server (use tsvector .matches on Postgres).`);
+        const target = this.visit(call.args[0]);
+        const condition = this.visit(call.args[1]);
+        let columns: ColumnExpression[];
+        if (target instanceof EntityExpression)
+            columns = []; // all full-text columns → `*`
+        else if (target instanceof ColumnExpression)
+            columns = [target];
+        else
+            throw new Error(`SqlFullTextSearch.${functionName}: the first argument must be a full-text column or an entity.`);
+        return new SqlFunctionExpression(LiteralType.boolean, undefined, functionName, [new SqlColumnListExpression(columns), condition]);
+    }
+
     private bindSqlMethod(functionName: string, call: CallExpression): Expression {
         if (call.type instanceof ArrayType)
             return this.bindTableValuedFunction(functionName, call.args, call.type);

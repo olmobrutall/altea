@@ -6,7 +6,7 @@ import {
 import { inSql, toInt, toLong, toDecimal, Temporal } from "../../data/basics";
 import {
     ColumnExpression, SqlConstantExpression, SqlLiteralExpression, PrimaryKeyExpression,
-    IsNullExpression, IsNotNullExpression, LikeExpression, SqlFunctionExpression, SqlCastExpression,
+    IsNullExpression, IsNotNullExpression, LikeExpression, SqlColumnListExpression, SqlFunctionExpression, SqlCastExpression,
     AggregateExpression, AggregateRequestsExpression, CaseExpression, When, ScalarExpression, ExistsExpression, InExpression,
     ProjectionExpression, ToDayOfWeekExpression, SqlArrayIndexExpression,
 } from "./expressions.sql";
@@ -205,6 +205,11 @@ class DbExpressionNominator extends DbExpressionVisitor {
     override visitSqlFunction(node: SqlFunctionExpression): Expression {
         const r = this.nominateChildren(() => super.visitSqlFunction(node) as SqlFunctionExpression);
         return this.nominateIfAll(r, [r.object, ...r.arguments]);
+    }
+
+    override visitSqlColumnList(node: SqlColumnListExpression): Expression {
+        const r = this.nominateChildren(() => super.visitSqlColumnList(node) as SqlColumnListExpression);
+        return this.nominateIfAll(r, r.columns);
     }
 
     override visitArrayIndex(node: SqlArrayIndexExpression): Expression {

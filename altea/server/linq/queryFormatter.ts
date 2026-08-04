@@ -8,7 +8,7 @@ import {
     SetOperatorExpression, SourceWithAliasExpression,
     ColumnExpression, ColumnDeclaration, OrderExpression, type JoinType,
     AggregateExpression, RowNumberExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression,
-    CaseExpression, LikeExpression, ScalarExpression, ExistsExpression, InExpression,
+    CaseExpression, LikeExpression, SqlColumnListExpression, ScalarExpression, ExistsExpression, InExpression,
     IsNullExpression, IsNotNullExpression, PrimaryKeyExpression, SqlCastExpression, ToDayOfWeekExpression,
     CommandExpression, DeleteExpression, UpdateExpression, InsertSelectExpression,
     CommandAggregateExpression, SqlArrayIndexExpression, SqlTableValuedFunctionExpression,
@@ -415,6 +415,23 @@ export class QueryFormatter extends DbExpressionVisitor {
         this.visit(e.expression);
         this.append(" LIKE ");
         this.visit(e.pattern);
+        return e;
+    }
+
+    // A SQL Server CONTAINS / FREETEXT column list (Signum's VisitSqlColumnList): `*` for the empty
+    // (all-columns) list, otherwise the alias-qualified columns, parenthesised when there is > 1.
+    override visitSqlColumnList(e: SqlColumnListExpression): Expression {
+        if (e.columns.length === 0) {
+            this.append("*");
+            return e;
+        }
+        const parens = e.columns.length > 1;
+        if (parens) this.append("(");
+        e.columns.forEach((c, i) => {
+            if (i > 0) this.append(", ");
+            this.visit(c);
+        });
+        if (parens) this.append(")");
         return e;
     }
 

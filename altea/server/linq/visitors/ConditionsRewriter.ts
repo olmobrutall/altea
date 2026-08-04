@@ -102,6 +102,11 @@ export class ConditionsRewriter extends DbExpressionVisitor {
             || exp instanceof ExistsExpression || exp instanceof IsNullExpression
             || exp instanceof IsNotNullExpression)
             return true;
+        // Full-text predicates are already conditions, not boolean values: SQL Server CONTAINS /
+        // FREETEXT (which reject a `= 1` comparison) and the Postgres tsvector `@@` match operator.
+        if (exp instanceof SqlFunctionExpression
+            && (exp.sqlFunction === "CONTAINS" || exp.sqlFunction === "FREETEXT" || exp.sqlFunction === "@@"))
+            return true;
         // Column / Case / Conditional / SqlConstant / Constant / SqlFunction /
         // Projection / Cast → boolean VALUE, not a condition.
         return false;

@@ -4,7 +4,7 @@ import {
     SourceExpression, TableExpression, SelectExpression, JoinExpression, SetOperatorExpression,
     ColumnExpression, ColumnDeclaration, OrderExpression,
     AggregateExpression, AggregateRequestsExpression, RowNumberExpression, SqlFunctionExpression, SqlConstantExpression, SqlLiteralExpression, SqlCastExpression, ToDayOfWeekExpression,
-    CaseExpression, When, LikeExpression, IntervalExpression,
+    CaseExpression, When, LikeExpression, SqlColumnListExpression, IntervalExpression,
     ScalarExpression, ExistsExpression, InExpression,
     IsNullExpression, IsNotNullExpression,
     ProjectionExpression, ChildProjectionExpression, FieldEntityArrayExpression,
@@ -164,6 +164,13 @@ export class DbExpressionVisitor extends ExpressionVisitor {
         if (exp !== like.expression || pattern !== like.pattern)
             return new LikeExpression(exp, pattern);
         return like;
+    }
+
+    // Default traversal for a CONTAINS/FREETEXT column list (Signum's VisitSqlColumnList): visit
+    // each column so alias-remapping / pruning passes reach them, rebuilding only on change.
+    visitSqlColumnList(node: SqlColumnListExpression): Expression {
+        const cols = node.columns.map(c => this.visit(c) as ColumnExpression);
+        return cols.some((c, i) => c !== node.columns[i]) ? new SqlColumnListExpression(cols) : node;
     }
 
     visitScalar(scalar: ScalarExpression): Expression {

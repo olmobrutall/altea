@@ -524,6 +524,25 @@ export class LikeExpression extends DbExpression {
     }
 }
 
+// The column-list argument of a SQL Server CONTAINS / FREETEXT predicate (Signum's
+// SqlColumnListExpression): an empty list renders `*` (all full-text columns), otherwise the
+// alias-qualified columns — a single `alias.name`, or `(alias.a, alias.b)` for several. The
+// columns are kept as real ColumnExpressions (not pre-rendered text) so alias-remapping / column
+// pruning reach them; the formatter renders the CONTAINS/FREETEXT-specific shape.
+export class SqlColumnListExpression extends DbExpression {
+    constructor(public readonly columns: readonly ColumnExpression[]) {
+        super("SqlColumnList", LiteralType.null);
+    }
+
+    toString(): string {
+        return this.columns.length === 0 ? "*" : `(${this.columns.join(", ")})`;
+    }
+
+    accept(visitor: ExpressionVisitor) {
+        return asDbVisitor(visitor).visitSqlColumnList(this);
+    }
+}
+
 // A time period (Signum's IntervalExpression), the bound form of `entity.systemPeriod()`.
 // SQL Server represents it as a `min`/`max` datetime2 pair; Postgres as a single `postgresRange`
 // tstzrange column (its bounds are `lower()`/`upper()`). `boundType` is the nullable element type
