@@ -51,6 +51,16 @@
     }
 }
 
+/* SelectorModal buttons: full width so each option stacks one below the other (Signum's Frames.css).
+   Without this the Bootstrap `.btn` (display: inline-block) buttons flow side by side. */
+.sf-chooser-button {
+    width: 100%;
+    margin-bottom: 6px;
+    color: var(--bs-body-color);
+    background-color: var(--bs-body-bg);
+    border-color: var(--bs-border-color);
+}
+
 .sf-main-control {
     margin-bottom: 1rem;
 }

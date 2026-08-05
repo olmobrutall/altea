@@ -1,5 +1,5 @@
 import { PropertyRoute } from "../../propertyRoute";
-import { FieldInfo, TypeReference } from "../../reflection";
+import { FieldInfo, TypeReference, tryGetTypeInfo } from "../../reflection";
 import type { Implementations } from "../../implementations";
 import { QueryToken, SubTokensOptions, entityCtorOf, TR_INT } from "./queryToken";
 
@@ -22,8 +22,16 @@ export class EntityPropertyToken extends QueryToken {
         if (ctor == undefined)
             throw new Error(`IdProperty on a non-entity token ${parent.fullKey()}`);
         const fi = new FieldInfo("id");
-        fi.typeName = "Number";
-        fi.subTypeName = "int";
+        // Reflect the entity's actual primary-key type (@primaryKey): a GUID key shows as "Guid"
+        // (truncated cell + guid filter editor), an int/long key as "Number". Signum keyed EntityId's
+        // type off PrimaryKeyAttribute the same way.
+        const pkType = tryGetTypeInfo(ctor)?.fields["id"]?.columnOptions?.primaryKey;
+        if (pkType === "uuid" || pkType === "uuid7") {
+            fi.typeName = "Guid";
+        } else {
+            fi.typeName = "Number";
+            fi.subTypeName = "int";
+        }
         const t = new EntityPropertyToken(parent, fi, PropertyRoute.root(ctor), true);
         t.priority = 10;
         return t;
@@ -46,7 +54,11 @@ export class EntityPropertyToken extends QueryToken {
     // its scalar. Value / already-lite / embedded fields keep the field's own type.
     get type(): TypeReference {
         if (this.isId)
-            return TR_INT;
+            // The synthetic id token's facets live on its FieldInfo (typeName set by idProperty from the
+            // entity's @primaryKey). A plain int key is still TR_INT; a GUID key surfaces as "Guid".
+            return this.fieldInfo.typeName === "Guid"
+                ? new TypeReference({ typeName: "Guid" })
+                : TR_INT;
         const t = this.route.type;
         // A reference field projects as Lite<T> (Signum's BuildLite): the same TypeReference marked lite.
         if (entityCtorOf(t) != undefined)
@@ -56,7 +68,7 @@ export class EntityPropertyToken extends QueryToken {
 
     // Signum's Reflector.GetFormatString: the Id (a primary-key int) formats as "D" — decimal, NO
     // thousands grouping (so "10248", not "10,248"); other fields use their own @format.
-    get format(): string | undefined { return this.isId ? "D" : this.fieldInfo?.format; }
+    get format(): string | undefined { return this.isId ? (this.fieldInfo.typeName === "Guid" ? undefined : "D") : this.fieldInfo?.format; }
     get unit(): string | undefined { return undefined; }    // TODO(phase3): UnitAttribute
 
     getImplementations(): Implementations | undefined {

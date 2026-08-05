@@ -4,8 +4,8 @@
 //     from entities/lite.
 //   - the line's `type` is a FieldInfo: `.name`→`.typeName`. Navigator.getAutoComplete takes a query
 //     RuntimeType (Signum's TypeReference covered both) — the field line derives it from the property
-//     route (`ctx.propertyRoute.type`); with no property route (e.g. a modal AutoLine) autocomplete is
-//     skipped.
+//     route (`ctx.propertyRoute.type`), falling back to the ctx's bare TypeReference (`memberType`) when
+//     there is no route (e.g. a FilterBuilder value editor) so autocomplete still works there.
 //   - dropped unused Signum imports (JavascriptMessage / toLite / liteKey / useAPI).
 import * as React from 'react'
 import { Navigator } from '../Navigator'
@@ -98,9 +98,14 @@ export class EntityLineController<V extends BaseEntity | Lite<Entity> | null> ex
       if (p.showType == undefined)
         p.showType = (p.ctx.memberType.getTypeName() ?? "").includes(",");
 
-      if (p.autocomplete === undefined)
-        p.autocomplete = p.ctx.propertyRoute == null ? null :
-          Navigator.getAutoComplete(p.ctx.propertyRoute.type, p.findOptions, p.findOptionsDictionary, p.ctx, p.create!, p.showType);
+      if (p.autocomplete === undefined) {
+        // Prefer the property route's type; else the ctx's TypeReference (memberType) — FilterBuilder
+        // value editors carry a bare token TypeReference and NO property route, so without this fallback
+        // their entity value line would have no autocomplete at all.
+        const acType = p.ctx.propertyRoute?.type ?? p.ctx.memberType;
+        p.autocomplete = acType == null ? null :
+          Navigator.getAutoComplete(acType, p.findOptions, p.findOptionsDictionary, p.ctx, p.create!, p.showType);
+      }
     }
   }
 

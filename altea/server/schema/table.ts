@@ -1,5 +1,5 @@
 import type { Quoted } from 'quote-transformer/quoted';
-import type { Type, Entity } from '../../data/entity';
+import type { Type, Entity, View, ViewType } from '../../data/entity';
 import { ObjectName } from './objectName';
 import { EntityField, FieldPrimaryKey, FieldTicks, FieldMixin } from './field';
 import type { IColumn } from './column';
@@ -38,7 +38,9 @@ export class Table {
     systemVersioned?: SystemVersionedInfo;
 
     constructor(
-        public readonly type: Type<Entity>,
+        // An entity ctor (the common case) or a View ctor (a raw database view / temp table, built by
+        // ViewBuilder). Entity and View share no base class, hence the union rather than a cast.
+        public readonly type: Type<Entity> | ViewType<View>,
         name: ObjectName,
     ) {
         this.name = name;

@@ -57,17 +57,20 @@ export class EntityStripController<R extends BaseEntity> extends EntityListBaseC
     this.typeahead = React.useRef<TypeaheadController>(null);
 
     if (p.ctx.memberType) {
-      // Autocomplete/showType key off the ELEMENT type = the row's @valueField (guaranteed present:
-      // getDefaultProps already validated it for a needsValue line).
-      const vf = p.ctx.memberType.typeInfo().valueField;
-      const elementPr = vf ? p.ctx.propertyRoute?.add("Item").add(vf.name) : p.ctx.propertyRoute?.add("Item");
+      // Autocomplete/showType key off the ELEMENT type. Normally that is the row's @valueField; in the
+      // direct-value-array mode (a filter's Lite<T>[] value) the memberType IS the element reference.
+      const vf = this.isDirectValueArray(p.ctx.memberType) ? null : p.ctx.memberType.typeInfo().valueField;
+      const elementType = vf ?? p.ctx.memberType;
+      const elementPr = p.ctx.propertyRoute == null ? undefined :
+        (vf ? p.ctx.propertyRoute.add("Item").add(vf.name) : p.ctx.propertyRoute.add("Item"));
 
       if (p.showType == undefined)
-        p.showType = ((vf ?? p.ctx.memberType).getTypeName() ?? "").includes(",");
+        p.showType = (elementType.getTypeName() ?? "").includes(",");
 
       if (p.autocomplete === undefined) {
-        p.autocomplete = elementPr == null ? null :
-          Navigator.getAutoComplete(elementPr.type, p.findOptions, p.findOptionsDictionary, p.ctx, p.create! || p.createOnFind!, p.showType);
+        // Prefer the property route's type when present; else the token TypeReference — FilterBuilder
+        // value editors carry no property route, so autocomplete must resolve from the element type.
+        p.autocomplete = Navigator.getAutoComplete(elementPr?.type ?? elementType, p.findOptions, p.findOptionsDictionary, p.ctx, p.create! || p.createOnFind!, p.showType);
       }
       if (p.iconStart == undefined && p.vertical)
         p.iconStart = true;

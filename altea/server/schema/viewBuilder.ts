@@ -1,4 +1,4 @@
-import type { Entity, Type } from '../../data/entity';
+import type { Entity, Type, View, ViewType } from '../../data/entity';
 import { getTypeInfo, FieldInfo } from '../../data/reflection';
 import { AbstractDbType, IsNullable, defaultDbType } from './dbType';
 import { PrimaryKeyColumn, ValueColumn, ReferenceColumn } from './column';
@@ -26,7 +26,7 @@ export class ViewBuilder {
     // columns only) never touch it, so it stays optional for those.
     constructor(private readonly schema?: Schema) { }
 
-    newView(type: Type<Entity>): Table {
+    newView<V extends View>(type: ViewType<V>): Table {
         const ctor = type;
         const typeInfo = getTypeInfo(ctor);
         if (typeInfo == null)
@@ -69,8 +69,11 @@ export class ViewBuilder {
         // Representative primary key: a PrimaryKeyColumn mirroring the @viewPrimaryKey column
         // (same name + db type, never identity). Divergence from Signum, which supports a
         // genuinely composite view PK — altea's Table.primaryKey is single-column, so a
-        // composite view uses its first @viewPrimaryKey column as the representative id (the
-        // readers project columns directly and never dedup view rows, so this is sufficient).
+        // composite view uses its first @viewPrimaryKey column as the representative id. That id
+        // can repeat across rows (a junction like EmployeeTerritories), so view rows are NEVER
+        // routed through the retriever's identity map — each projected row is its own instance
+        // (see Retriever.viewRow / translatorBuilder.visitEntity). Deduping by the representative
+        // id would otherwise return the first row's object for every sibling and drop columns.
         // The representative PK is NOT a physical column of the table (it aliases an existing
         // one), so the readers that project it drop it as unused; the CREATE TABLE for a temp
         // view therefore omits the synthetic PK constraint (see sqlBuilder.createTableSql).

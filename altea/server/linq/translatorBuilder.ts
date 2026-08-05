@@ -293,7 +293,10 @@ class ProjectionBuilder extends DbExpressionVisitor {
                 assigns.push(`e[${JSON.stringify(b.fieldInfo.name)}] = ${this.pop()};`);
             }
 
-        this.stack.push(`retriever.entity(consts[${ctorIndex}], ${idCode}, function(e){ ${assigns.join(" ")} })`);
+        // A view row bypasses the identity map (its representative PK may be non-unique — see
+        // Retriever.viewRow); an entity row is deduped/completed through it.
+        const method = e.table.isView ? "viewRow" : "entity";
+        this.stack.push(`retriever.${method}(consts[${ctorIndex}], ${idCode}, function(e){ ${assigns.join(" ")} })`);
         return e;
     }
 

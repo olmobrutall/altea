@@ -1,5 +1,5 @@
 import { cleanModified } from "../../data/changes";
-import { Entity, type PrimaryKey, BaseEntity, type Type } from "../../data/entity";
+import { Entity, type PrimaryKey, BaseEntity, type Type, View, type ViewType } from "../../data/entity";
 import { Lite, LiteImp } from "../../data/lite";
 import { TypeLogic } from "../typeLogic";
 
@@ -48,6 +48,24 @@ export class Retriever {
             populate(e);
             cleanModified(e);
         }
+        return e;
+    }
+
+    // A raw view row. Unlike `entity`, view rows are NEVER routed through the identity map:
+    // a view's representative primary key can be non-unique (altea collapses a composite
+    // @viewPrimaryKey — e.g. the EmployeeTerritories junction's (EmployeeID, TerritoryID) —
+    // to its FIRST column, so many rows share one id). Deduping by that id would return the
+    // first row's object for every sibling row, dropping the distinct columns. Views are
+    // read-only and navigate via sub-queries, not FK identity, so each projected row is its
+    // own fresh instance (Signum reads view rows the same way).
+    //
+    // A `View` is NOT an Entity: no id / isNew / change-tracking snapshot. The representative
+    // `id` is used SQL-side only (the EntityExpression's externalId for WHERE/JOIN correlation)
+    // and never read off the instance — the @viewPrimaryKey stays a normal column binding that
+    // `populate` fills under its real field name — so it is ignored here.
+    viewRow<V extends View>(ctor: ViewType<V>, _id: PrimaryKey | null, populate: (e: V) => void): V {
+        const e = new ctor();
+        populate(e);
         return e;
     }
 

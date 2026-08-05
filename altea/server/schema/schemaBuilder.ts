@@ -1,5 +1,5 @@
 import { Entity, EmbeddedEntity } from '../../data/entity';
-import type { Type } from '../../data/entity';
+import type { Type, View, ViewType } from '../../data/entity';
 import { MixinDeclarations } from '../../data/mixinDeclarations';
 import type { EntityData } from '../../data/decorators';
 import { getTypeInfo, enumNameOf, FieldInfo, TypeInfo, schemaForName, type PrimaryKeyType } from '../../data/reflection';
@@ -56,7 +56,7 @@ function isEmbeddedCtor(t: unknown): boolean {
 // The raw type name of a type reference. For a closed generic, EnumEntity<Sex> →
 // "Sex" (mirrors Signum's EnumEntity.Extract — the table is named after the enum);
 // other generics fall back to the open class name.
-function rawTypeName(type: Type<Entity>): string {
+function rawTypeName(type: Type<Entity> | ViewType<View>): string {
     const enumObject = getBoundEnum(type);
     if (enumObject != null)
         return enumNameOf(enumObject) ?? 'UnknownEnum';
@@ -68,7 +68,7 @@ function rawTypeName(type: Type<Entity>): string {
 // (altea's MList replacement) become `<Owner>_<Field>` (e.g.
 // AwardNominationEntity_Points -> "AwardNomination_Points"). Used for the type
 // registry / serialization names and @implementedBy column names.
-function cleanTypeName(type: Type<Entity>): string {
+function cleanTypeName(type: Type<Entity> | ViewType<View>): string {
     return rawTypeName(type).split('_').map(s => s.replace(/Entity$/, '')).join('_');
 }
 

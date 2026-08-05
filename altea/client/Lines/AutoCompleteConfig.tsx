@@ -195,9 +195,12 @@ export async function getLitesWithSubStr(fo: FindOptions, subStr: string, signal
 
   const fop = await Finder.parseFindOptions({
     ...fo,
+    // altea: ROOTLESS token keys ("ToString"/"Id", NOT Signum's "Entity.ToString"/"Entity.Id" — the
+    // query root key is "", so the Signum keys don't resolve and would reject parseFindOptions). Same
+    // divergence as Finder.filterGroupSearch.
     orderOptions: qs?.defaultOrdersAutocomplete ?? [
-      { token: "Entity.ToString.Length", orderType: "Ascending" },
-      { token: "Entity.ToString", orderType: "Ascending" },
+      { token: "ToString.Length", orderType: "Ascending" },
+      { token: "ToString", orderType: "Ascending" },
     ],
     filterOptions: FindOptionsAutocompleteConfig.filtersWithSubStr(fo, qt, qs, subStr),
     includeDefaultFilters: false,
@@ -275,7 +278,7 @@ export class FindOptionsAutocompleteConfig implements AutocompleteConfig<ResultR
       var id = subStr.slice(3)?.trim();
 
       filters.insertAt(0, {
-        token: "Entity.Id",
+        token: "Id",
         operation: "EqualTo",
         value: id
       });
@@ -285,12 +288,13 @@ export class FindOptionsAutocompleteConfig implements AutocompleteConfig<ResultR
     var searchBox = filters.firstOrNull(a => a.pinned != null && a.pinned.splitValue == true);
 
     if (searchBox == null) {
+      // altea: rootless token keys (see the order-options note above / Finder.filterGroupSearch).
       filters.insertAt(0, {
         groupOperation: "Or",
         pinned: { label: SearchMessage.Search.niceToString(), splitValue: true, active: "WhenHasValue" },
         filters: [
-          { token: "Entity.ToString", operation: "Contains" },
-          { token: "Entity.Id", operation: "EqualTo" },
+          { token: "ToString", operation: "Contains" },
+          { token: "Id", operation: "EqualTo" },
         ],
         value: subStr
       });
@@ -311,9 +315,10 @@ export class FindOptionsAutocompleteConfig implements AutocompleteConfig<ResultR
 
     return Finder.getQueryRoot(fo.queryName)
       .then(qt => Finder.parseFindOptions({
+        // altea: rootless token keys (see filtersWithSubStr / Finder.filterGroupSearch).
         orderOptions: qs?.defaultOrdersAutocomplete ?? [
-          { token: "Entity.ToString.Length", orderType: "Ascending" },
-          { token: "Entity.ToString", orderType: "Ascending" },
+          { token: "ToString.Length", orderType: "Ascending" },
+          { token: "ToString", orderType: "Ascending" },
         ],
         ...fo,
         filterOptions: FindOptionsAutocompleteConfig.filtersWithSubStr(fo, qt, qs, subStr),

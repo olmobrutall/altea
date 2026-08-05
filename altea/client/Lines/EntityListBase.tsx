@@ -105,7 +105,7 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
       // Defaults key off the ELEMENT type: the @valueField's type when the line consumes a value
       // (needsValue), else the row (collection) type.
       let targetFi = state.ctx.memberType;
-      if (this.needsValue) {
+      if (this.needsValue && !this.isDirectValueArray(state.ctx.memberType)) {
         const vf = state.ctx.memberType.typeInfo().valueField;
         if (vf == null)
           throw new Error(`${this.constructor.name}: row type '${state.ctx.memberType.getTypeName()}' must declare a @valueField`);
@@ -126,10 +126,21 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
   }
 
   // ---- @valueField runtime helpers (row ⇄ value) ----
-  // The row type's @valueField — ONLY when this line consumes a value (needsValue); returns undefined
-  // otherwise (so the whole row is the element), and THROWS when a value line's row type lacks one.
+  // A "direct value array": the bound array holds the VALUES themselves (Lite<T>[]) with NO wrapping
+  // row — the case for a FilterBuilder IsIn / IsNotIn editor, whose value is a plain Lite<T>[]. Signum
+  // modeled this as MList<Lite<T>>; altea has no MList, so the array element IS the value. Detected by
+  // the memberType being a lite reference (a real N-M/1-N collection field's memberType is the ROW
+  // type, never lite). In this mode there is no @valueField and no wrapping: getElementValue /
+  // createRowFromValue are identity.
+  isDirectValueArray(memberType = this.props.ctx.memberType): boolean {
+    return this.needsValue && memberType?.lite == true;
+  }
+
+  // The row type's @valueField — ONLY when this line consumes a value (needsValue) via a wrapping row;
+  // returns null otherwise (whole row / direct value is the element), and THROWS when a value line's row
+  // type lacks one.
   getValueField(): FieldInfo | null {
-    if (!this.needsValue)
+    if (!this.needsValue || this.isDirectValueArray())
       return null;
     const vf = this.props.ctx.memberType!.typeInfo().valueField;
     if (vf == null)
@@ -155,13 +166,14 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
   }
 
   // Match a found/created value to the @valueField's shape (lite↔entity); scalars / owned pass through.
+  // In direct-value-array mode there is no @valueField but the element is a Lite, so wantLite is read
+  // off the memberType instead.
   async convertValue(valueOrLite: unknown): Promise<unknown> {
     const vf = this.getValueField();
     const isRef = valueOrLite instanceof Lite || valueOrLite instanceof BaseEntity;
-    if (vf == null || !isRef)
+    const wantLite = vf ? !!vf.lite : this.isDirectValueArray();
+    if (!isRef || (vf == null && !wantLite))
       return valueOrLite;
-
-    const wantLite = !!vf.lite;
     const isLiteVal = valueOrLite instanceof Lite;
     if (isLiteVal == wantLite)
       return valueOrLite;

@@ -12,27 +12,34 @@
 // Signum's (which also has Guid/Color/Email/multiline/… rules). For the filter-value editors: Signum
 // passed an explicit `type={token.type}` to every Line; altea's Lines read the type off `ctx.memberType`
 // (FilterBuilder builds the value ctx already carrying `f.token.type`), so a single <AutoLine> dispatches
-// to the right editor and collapses Signum's Value/String/Enum/Embedded/Model/Lite/MultiEntity rules.
+// to the right editor and collapses Signum's Value/String/Enum/Embedded/Model/Lite rules.
 // Only the rules needing a DIFFERENT control stay distinct: low-population lites → combo, date pairs →
-// DateTimeRange, list ops → repeatable editor, filter groups → search box.
+// DateTimeRange, scalar list ops → repeatable editor, entity (Lite) list ops → EntityStrip (MultiEntity),
+// filter groups → search box.
 import * as React from "react";
 import { Finder } from "./Finder";
 import EntityLink from "./SearchControl/EntityLink";
 import type { Lite } from "../data/lite";
 import type { Entity } from "../data/entity";
-import type { FilterOptionParsed, FilterConditionOptionParsed } from "./FindOptions";
+import type { FilterOptionParsed, FilterConditionOptionParsed, FindOptions } from "./FindOptions";
 import { isFilterCondition, isFilterGroup, isList, isPair, getFilterOperations } from "./FindOptions";
+import type { FilterOperation } from "../data/dynamicQueries";
+import type { QueryToken } from "./QueryToken";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { TypeContext } from "./TypeContext";
+import { tokenSequence } from "./QueryTokenString";
 import { Binding } from "./binding";
 import { AutoLine } from "./Lines/AutoLine";
+import { EntityLine } from "./Lines/EntityLine";
 import { EntityCombo } from "./Lines/EntityCombo";
+import { EntityStrip } from "./Lines/EntityStrip";
 import { DateTimeRange } from "./Lines/DateTimeRange";
 import { FormGroup } from "./Lines/FormGroup";
 import { EntityBaseController } from "./Lines/EntityBase";
 import { LinkButton } from "./Basics/LinkButton";
 import { useForceUpdate } from "./Hooks";
 import { Enum } from "../data/enum";
+import { TelephoneValidator, EmailValidator } from "../data/validators";
 import { Temporal } from "../data/basics";
 import { toNumberFormat } from "./numberFormat";
 import { SearchMessage, JavascriptMessage } from "../data/uiMessages";
@@ -60,7 +67,7 @@ export function initFormatRules(): Finder.FormatRule[] {
     {
       name: "Default",
       isApplicable: () => true,
-      formatter: () => new Finder.CellFormatter(cell => cellToStr(cell), false),
+      formatter: () => new Finder.CellFormatter(cell => cell == null ? "" : <span className="try-no-wrap">{cellToStr(cell)}</span>, false),
     },
     // Embedded / Model entity: its toString (Signum's "Entity").
     {
@@ -74,6 +81,35 @@ export function initFormatRules(): Finder.FormatRule[] {
       name: "MultiLine",
       isApplicable: qt => qt.filterType == "String" && qt.getPropertyRoute()?.fieldInfo?.isMultiline == true,
       formatter: () => new Finder.CellFormatter(cell => cell == null ? "" : <span className="multi-line">{cellToStr(cell)}</span>, true),
+    },
+    // Telephone string (field carries a @telephoneValidator): comma-separated numbers rendered as tel:
+    // links (Signum's "Phone", which keys off MemberInfo.IsPhone — derived there from the same validator;
+    // keyword highlighting dropped — needs the search-keyword infra).
+    {
+      name: "Phone",
+      isApplicable: qt => qt.filterType == "String" && (qt.getPropertyRoute()?.fieldInfo?.validators.some(v => v instanceof TelephoneValidator) ?? false),
+      formatter: qt => {
+        const multiLineClass = qt.getPropertyRoute()?.fieldInfo?.isMultiline ? "multi-line" : "try-no-wrap";
+        return new Finder.CellFormatter((cell: string | undefined) => {
+          if (!cell) return "";
+          const parts = cell.split(",").map(t => t.trim());
+          return (
+            <span className={multiLineClass}>
+              {parts.map((t, i) => <React.Fragment key={i}>{i > 0 ? ", " : null}<a href={`tel:${t}`}>{t}</a></React.Fragment>)}
+            </span>
+          );
+        }, false, "telephone-link-cell");
+      },
+    },
+    // E-mail string (field carries a @emailValidator): rendered as a mailto: link (Signum's "Email").
+    {
+      name: "Email",
+      isApplicable: qt => qt.filterType == "String" && (qt.getPropertyRoute()?.fieldInfo?.validators.some(v => v instanceof EmailValidator) ?? false),
+      formatter: qt => {
+        const multiLineClass = qt.getPropertyRoute()?.fieldInfo?.isMultiline ? "multi-line" : "try-no-wrap";
+        return new Finder.CellFormatter((cell: string | undefined) =>
+          !cell ? "" : <span className={multiLineClass}><a href={`mailto:${cell}`}>{cell}</a></span>, false, "email-link-cell");
+      },
     },
     // Password column: masked dots (Signum's "Password").
     {
@@ -225,10 +261,11 @@ export function initFormatRules(): Finder.FormatRule[] {
     },
     // NOT PORTED (Signum rules that depend on infrastructure altea doesn't have yet — kept here as a
     // checklist rather than silently dropped):
-    //   • "Object" keyword highlighting + "Snippet"/"SmallText"/"Phone"/"Email" — need the search
-    //     keyword infra (getKeywords/similarToken/findFilterValue in Search.tsx + TextHighlighter wiring)
-    //     and, for Phone/Email, FieldInfo.isPhone/isMail flags (absent — altea FieldInfo has no such
-    //     member metadata). Plain text is rendered by "Default"/"MultiLine" in the meantime.
+    //   • "Object" keyword highlighting + "Snippet"/"SmallText" — need the search keyword infra
+    //     (getKeywords/similarToken/findFilterValue in Search.tsx + TextHighlighter wiring). Plain text is
+    //     rendered by "Default"/"MultiLine" in the meantime. ("Phone"/"Email" ARE ported above, minus the
+    //     keyword highlighting — detected by scanning the field's validators for Telephone/Email, since
+    //     altea has no MemberInfo.IsPhone/IsMail flag like Signum's ReflectionServer.)
     //   • "LiteNoFill" (Navigator.getSettings(ti).avoidFillSearchColumnWidth → non-filling Lite cell) —
     //     easy to add once desired; skipped to avoid a Navigator import here for a width-only tweak.
     //   • "TimeSeries" — needs the QueryTokenString.timeSeries token + systemTime.timeSeriesUnit plumbing.
@@ -357,6 +394,85 @@ function FilterMultiValue({ f, ffc }: { f: FilterConditionOptionParsed; ffc: Fin
   );
 }
 
+// ---- Domain-restricted filter-value pickers (Signum's getDomainFindOptions) ----
+// A Lite/entity filter-value picker can be DOMAIN-restricted: when the query ALREADY filters an ancestor
+// entity's domain field to a value, the picker only offers entities whose OWN domain field matches. E.g.
+// with `Finder.registerDomainForTokens(NeighborhoodEntity, n => n.city)`, a Neighborhood filter is
+// restricted to the City already filtered elsewhere in the same query. Dormant until an app registers a
+// domain (eastwind registers none yet), but kept faithful to Signum so it lights up when one does.
+//
+// altea divergences from Signum's getDomainFindOptions:
+//   - no QueryDescription: walk the token.parent chain + the query root (ffc.queryToken) instead;
+//   - no findFilterValue / similarToken port: match filters by fullKey() string;
+//   - ROOTLESS token keys: the picked entity's domain field is "City" (via type.token(getDomainField)),
+//     NOT Signum's "Entity.City" — same divergence as the autocomplete token keys;
+//   - liteKey(l) → l.key().
+function domainFindOptions(filterToken: QueryToken, ffc: Finder.FilterFormatterContext): FindOptions | undefined {
+  const typeName = filterToken.type.getTypeName();
+  if (typeName == null || !Finder.domainRegistry.has(typeName))
+    return undefined; // not a registered domain type → no restriction (picker searches all)
+
+  const entry = Finder.domainRegistry.get(typeName)!;
+
+  const allDomains: Lite<Entity>[] = [];
+  for (const parent of findParentTokensInRegistry(filterToken, ffc.queryToken)) {
+    const parentEntry = Finder.domainRegistry.get(parent.typeName)!;
+    // altea: Type<T> is a bare ctor (no `.token` static), so build the field token string directly via
+    // tokenSequence — exactly what Type.token(lambda) calls internally.
+    const fieldKey = tokenSequence(parentEntry.getDomainField, true);
+    const parentDomainKey = parent.tokenKey === "" ? fieldKey : parent.tokenKey + "." + fieldKey;
+    const val = findFilterValue(ffc.filterOptions, parentDomainKey, op => op == "EqualTo" || op == "IsIn");
+    if (val != null)
+      Array.isArray(val) ? allDomains.push(...val) : allDomains.push(val);
+  }
+
+  if (allDomains.length == 0)
+    return undefined;
+
+  const distinctDomains = allDomains.distinctBy(l => l.key());
+
+  return {
+    queryName: entry.type,
+    filterOptions: [{
+      token: tokenSequence(entry.getDomainField, true), // rootless: the picked entity's own domain field
+      operation: distinctDomains.length > 1 ? "IsIn" : "EqualTo",
+      value: distinctDomains.length > 1 ? distinctDomains : distinctDomains[0],
+    }],
+  };
+}
+
+// Ancestor tokens (the filter token's parent chain, skipping collections) plus the query ROOT entity,
+// whose type is itself a registered domain type. `tokenKey` is the rootless fullKey ("" for the root).
+function findParentTokensInRegistry(filterToken: QueryToken, root: QueryToken): { tokenKey: string; typeName: string }[] {
+  const result: { tokenKey: string; typeName: string }[] = [];
+  for (let p = filterToken.parent; p != null; p = p.parent) {
+    if (p.type.array)
+      continue;
+    const tn = p.type.getTypeName();
+    if (tn != null && Finder.domainRegistry.has(tn))
+      result.push({ tokenKey: p.fullKey(), typeName: tn });
+  }
+  const rootTn = root.type.getTypeName();
+  if (rootTn != null && Finder.domainRegistry.has(rootTn) && !result.some(r => r.typeName == rootTn))
+    result.push({ tokenKey: root.fullKey(), typeName: rootTn });
+  return result;
+}
+
+// Signum's findFilterValue (Search.tsx, not ported): the value of the first active filter CONDITION whose
+// token matches `tokenKey` (by rootless fullKey) and whose operation satisfies `opFilter`; recurses groups.
+function findFilterValue(filters: FilterOptionParsed[], tokenKey: string, opFilter: (op: FilterOperation) => boolean): any {
+  for (const f of filters) {
+    if (isFilterGroup(f)) {
+      const v = findFilterValue(f.filters, tokenKey, opFilter);
+      if (v != null)
+        return v;
+    } else if (f.token?.fullKey() == tokenKey && f.operation != null && opFilter(f.operation) && f.value != null) {
+      return f.value;
+    }
+  }
+  return undefined;
+}
+
 export function initFilterValueFormatRules(): Finder.FilterValueFormatter[] {
   return [
     // Single value: AutoLine dispatches on the token type carried by ffc.ctx (Boolean/DateTime/Decimal/
@@ -366,6 +482,19 @@ export function initFilterValueFormatRules(): Finder.FilterValueFormatter[] {
       applicable: (f, ffc) => isFilterCondition(f) && f.token != null && !(f.operation != null && isList(f.operation)),
       renderValue: (f, ffc) =>
         <AutoLine ctx={ffc.ctx} onChange={() => ffc.handleValueChange(f)} label={ffc.label} mandatory={ffc.mandatory} />,
+    },
+    // Single-value entity/Lite: an EntityLine with create={false} — a filter picks an EXISTING value, it
+    // never creates one — and domain-restricted findOptions (see getDomainFindOptions) when the picked
+    // type is registered. Signum's dedicated "Lite" rule (altea otherwise collapses single values into
+    // "Value" via AutoLine, but this rule wins for Lite tokens because it is declared AFTER "Value" and
+    // `renderFilterValue` picks the LAST applicable). Declared BEFORE "Lite_LowPopulation" so the
+    // low-population combo overrides it in turn.
+    {
+      name: "Lite",
+      applicable: (f, ffc) => isFilterCondition(f) && f.token?.filterType == "Lite" && !(f.operation != null && isList(f.operation)),
+      renderValue: (f, ffc) =>
+        <EntityLine ctx={ffc.ctx} create={false} findOptions={domainFindOptions(f.token!, ffc)}
+          onChange={() => ffc.handleValueChange(f)} label={ffc.label} mandatory={ffc.mandatory} />,
     },
     // Low-population lite → a dropdown of all instances instead of the autocomplete line.
     {
@@ -377,7 +506,7 @@ export function initFilterValueFormatRules(): Finder.FilterValueFormatter[] {
         return tis.length > 0 && tis.every(ti => ti.lowPopulation == true);
       },
       renderValue: (f, ffc) =>
-        <EntityCombo ctx={ffc.ctx} onChange={() => ffc.handleValueChange(f)} label={ffc.label} mandatory={ffc.mandatory} />,
+        <EntityCombo ctx={ffc.ctx} create={false} onChange={() => ffc.handleValueChange(f)} label={ffc.label} mandatory={ffc.mandatory} />,
     },
     // Date range: `Between` / `BetweenNoEnd` on a date column → two constrained DateTimeLines editing
     // f.value[0] / f.value[1], with the in-range days highlighted (Signum's DateRange rule).
@@ -409,6 +538,21 @@ export function initFilterValueFormatRules(): Finder.FilterValueFormatter[] {
       applicable: (f, ffc) => isFilterCondition(f) && f.token != null && f.operation != null && isList(f.operation),
       renderValue: (f, ffc) => <FilterMultiValue f={f as FilterConditionOptionParsed} ffc={ffc} />,
     },
+    // List operations on a Lite token (IsIn / IsNotIn over entities): an EntityStrip bound DIRECTLY to
+    // the Lite<T>[] filter value (Signum's dedicated "MultiEntity" rule). altea has no MList, so the
+    // strip runs its direct-value-array mode — each array element IS the picked Lite (no wrapping row /
+    // @valueField). create={false}: a filter picks existing entities. More specific than "MultiValue"
+    // and declared AFTER it, so `renderFilterValue`'s `.last(applicable)` selects this for lite lists.
+    {
+      name: "MultiEntity",
+      applicable: (f, ffc) => isFilterCondition(f) && f.token != null && f.operation != null && isList(f.operation) && f.token.filterType == "Lite",
+      renderValue: (f, ffc) => {
+        if (!Array.isArray((f as FilterConditionOptionParsed).value))
+          (f as FilterConditionOptionParsed).value = [];
+        return <EntityStrip ctx={ffc.ctx} create={false} findOptions={domainFindOptions(f.token!, ffc)}
+          onChange={() => ffc.handleValueChange(f)} label={ffc.label} />;
+      },
+    },
     // Filter group: a single value used to search across the group's conditions. Render the AutoLine when
     // the group has a unifying token type; otherwise nothing (no editable value).
     {
@@ -421,9 +565,12 @@ export function initFilterValueFormatRules(): Finder.FilterValueFormatter[] {
     },
     // NOT PORTED (Signum filter-value rules that need infrastructure altea lacks):
     //   • "String" override (TextBoxLine autoTrimString=false), "Enum" (explicit EnumLine), "Embedded"/
-    //     "Model"/"Lite" (EntityLine) — all COLLAPSED into "Value" above: altea's AutoLine already
-    //     dispatches to the right editor from ctx.memberType, so separate rules would be redundant.
-    //   • "MultiEntity" — COLLAPSED into "MultiValue": AutoLine renders an EntityLine per Lite element.
+    //     "Model" (EntityLine) — COLLAPSED into "Value" above: altea's AutoLine already dispatches to the
+    //     right editor from ctx.memberType, so separate rules would be redundant. ("Lite" IS kept separate
+    //     above — it needs create={false} + domain findOptions that the generic AutoLine can't supply.)
+    //   • "MultiEntity" — ported above as an EntityStrip over the Lite<T>[] value (direct-value-array
+    //     mode); "MultiValue" now handles only NON-Lite list tokens (scalars) since MultiEntity wins for
+    //     lites via `.last(applicable)`.
     //   • "Lite_IsByAll" / "Lite_TypeEntity" — need IsByAll handling + the TypeEntity query/cleanName
     //     filtering; altea has TypeEntity but not the SearchControl wiring these rules assume.
     //   • "TextArea" / "FilterGroup_TextArea" / "VectorSmartSearch" — full-text + vector search operations

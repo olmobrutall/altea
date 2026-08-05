@@ -503,7 +503,12 @@ export namespace Finder {
           .concat(columns.map(cd => softCast<ColumnOption>({ token: cd.fullKey() })));
 
       case "Remove":
-        return columns.filter(cd => !columnOptions.some(a => a.token == cd.fullKey()))
+        // Case-insensitive + toString: a columnOption token is a Type.token / QueryTokenString string
+        // (PascalCase, e.g. "Customer") while a resolved default column's fullKey is camelCase
+        // ("customer") — altea's field-token divergence (see resolveColumnToken). Signum compares these
+        // exactly because everything is PascalCase there; a case-sensitive `==` here would never match,
+        // so autoRemoveTrivialColumns (drop a column that is EqualTo-filtered) would silently no-op.
+        return columns.filter(cd => !columnOptions.some(a => a.token.toString().toLowerCase() == cd.fullKey().toLowerCase()))
           .map(cd => softCast<ColumnOption>({ token: cd.fullKey() }));
 
       case "ReplaceAll":

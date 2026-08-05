@@ -1,4 +1,4 @@
-import type { Entity, Type, PrimaryKey } from '../../data/entity';
+import type { Entity, Type, PrimaryKey, View, ViewType } from '../../data/entity';
 import type { TypeEntity } from '../../data/typeEntity';
 import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
 import { installDefaultGenerating } from '../sync/schemaGenerator';
@@ -105,16 +105,15 @@ export class Schema {
     // analogue of Signum's Schema.View<T>(). A view is not `include`d like an entity; it is
     // materialised on first use (by Database.view / the binder's view source, or when a
     // @quoted navigation references another view).
-    readonly views = new Map<Type<Entity>, Table>();
+    readonly views = new Map<ViewType, Table>();
 
-    view<T extends Entity>(type: Type<T>): Table {
-        const key = type as unknown as Type<Entity>;
-        let table = this.views.get(key);
+    view<T extends View>(type: ViewType<T>): Table {
+        let table = this.views.get(type);
         if (table == null) {
             // Pass `this` so a temp-table view's FK column can resolve its target entity's
             // already-built Table (catalog views ignore it — they map scalar columns only).
-            table = new ViewBuilder(this).newView(key);
-            this.views.set(key, table);
+            table = new ViewBuilder(this).newView(type);
+            this.views.set(type, table);
         }
         return table;
     }

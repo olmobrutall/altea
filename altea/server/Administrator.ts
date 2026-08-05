@@ -2,7 +2,7 @@
 // schema rather than on data — creating temporary tables/views, resetting sequences, etc.
 
 import { Connector } from "./connection/connector";
-import { Entity, type Type, type View, type ViewType } from "../data/entity";
+import { type View, type ViewType } from "../data/entity";
 
 // Signum's Administrator.CreateTemporaryTable<T>() — materialise a SQL Server temp table
 // for a `@tableName("#...")` view type, to be populated with executeInsert (Signum's
@@ -16,7 +16,7 @@ import { Entity, type Type, type View, type ViewType } from "../data/entity";
 export const Administrator = {
     async createTemporaryTable<V extends View>(viewType: ViewType<V>): Promise<void> {
         const connector = Connector.current();
-        const table = connector.schema.view(viewType as unknown as Type<Entity>);
+        const table = connector.schema.view(viewType);
         const create = connector.sqlBuilder.createTableSql(table);
         await create.executeNonQuery();
     },

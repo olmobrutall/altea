@@ -58,7 +58,7 @@ import {
 } from "../../schema/field";
 import type { FieldInfo } from "../../../data/reflection";
 import { Entity, View, ModelEntity } from "../../../data/entity";
-import type { Type } from "../../../data/entity";
+import type { Type, ViewType } from "../../../data/entity";
 import { TypeEntity } from "../../../data/typeEntity";
 import { toInt, toLong, toDecimal, inSql, Temporal } from "../../../data/basics";
 import { Lite, getCustomLiteConstructor, getCustomLiteConstructorFor } from "../../../data/lite";
@@ -727,7 +727,7 @@ export class QueryBinder extends ExpressionVisitor {
         // (schema.view — Signum's UnsafeInsertView). An entity not in `tables` resolves
         // through the ViewBuilder, so `INSERT INTO #MyTempView (...) SELECT ...` targets the
         // temp table with its FK columns.
-        const table = this.schema.tryTable(targetCtor as any) ?? this.schema.view(targetCtor as any);
+        const table = this.schema.tryTable(targetCtor as unknown as Type<Entity>) ?? this.schema.view(targetCtor as unknown as ViewType);
         const toInsert = this.createEntityExpression(table, this.aliasGenerator.table(table.name));
 
         const assignments = this.buildAssignments(toInsert, selector, pr.select, pr.projector);
@@ -889,7 +889,7 @@ export class QueryBinder extends ExpressionVisitor {
         if (func instanceof ConstantExpression && (func.value as { __isQuerySource?: boolean })?.__isQuerySource) {
             const ctor = (call.args[0] as ConstantExpression).value as new () => object;
             if ((func.value as { __isViewSource?: boolean }).__isViewSource)
-                return this.getTableProjectionForTable(this.schema.view(ctor as any), new ClassType(ctor));
+                return this.getTableProjectionForTable(this.schema.view(ctor as unknown as ViewType), new ClassType(ctor));
             return this.getTableProjection(ctor);
         }
 
