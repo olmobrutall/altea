@@ -1,4 +1,5 @@
 import { Temporal } from '../data/basics';
+import { Vector } from '../data/vector';
 
 // Normalise a scalar value into a dialect-portable form the DB drivers accept as a
 // parameter. Primitives pass through; a JS Date is left as-is. Temporal values are
@@ -49,6 +50,17 @@ export function denormalizeTemporal(value: unknown, kind: 'dateTime' | 'date' | 
         case 'dateTime': return toPlainDateTime(value);
         case 'duration': return toDuration(value);
     }
+}
+
+// Materialise a `vector(N)` column read into a Vector. Both pgvector and SQL Server's VECTOR return
+// the `[1,2,3]` text literal (Postgres keeps it as text; SQL Server via the driver), which
+// Vector.parse turns back into a Vector. Idempotent for an already-Vector value.
+export function denormalizeVector(value: unknown): Vector | null {
+    if (value == null)
+        return null;
+    if (value instanceof Vector)
+        return value;
+    return Vector.parse(String(value));
 }
 
 function toPlainDate(value: unknown): Temporal.PlainDate {

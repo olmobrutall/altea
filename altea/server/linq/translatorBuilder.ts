@@ -13,10 +13,10 @@ import {
 import { NullableInterval } from "../systemTime";
 import { QueryFormatter } from "./queryFormatter";
 import { Connector } from "../connection/connector";
-import { ClassType, LiteralType, TemporalType, RuntimeType } from "../runtimeTypes";
+import { ClassType, LiteralType, TemporalType, VectorType, RuntimeType } from "../runtimeTypes";
 import { Retriever } from "./Retriever";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
-import { denormalizeTemporal } from "../normalizeScalar";
+import { denormalizeTemporal, denormalizeVector } from "../normalizeScalar";
 import { ProjectionError } from "./ProjectionError";
 
 // A lookup maps a serialised correlation key to the child values for that key (eager
@@ -250,6 +250,10 @@ class ProjectionBuilder extends DbExpressionVisitor {
         if (e.type instanceof TemporalType) {
             const fnIndex = this.pushConst(denormalizeTemporal);
             this.stack.push(`consts[${fnIndex}](${read}, ${JSON.stringify(e.type.kind)})`);
+        } else if (e.type instanceof VectorType) {
+            // A vector column comes back as the `[…]` text literal — materialise it into a Vector.
+            const fnIndex = this.pushConst(denormalizeVector);
+            this.stack.push(`consts[${fnIndex}](${read})`);
         } else if (e.type === LiteralType.boolean) {
             // A boolean aggregate/scalar comes back as an int on SQL Server (the CASE …
             // THEN 1 ELSE 0 an Any/All/`==` lowers to), so coerce a non-null read to a JS

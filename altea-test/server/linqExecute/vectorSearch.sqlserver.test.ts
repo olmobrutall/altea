@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { SqlVectorSearch } from "@altea/altea/server/vectorSearch";
 import { Vector } from "@altea/altea/data/vector";
-import { hasDb, start } from "../setup";
-import { NoteWithDateEntity } from "../../data/music";
+import { hasDb, start, txTest } from "../setup";
+import { NoteWithDateEntity, SimplePassageEntity } from "../../data/music";
+
+const pad768 = (head: number[]): Vector => new Vector([...head, ...Array(768 - head.length).fill(0)]);
 
 // Port of Signum.Test/LinqProvider/VectorSearchTest.SqlServer.cs. C# → altea:
 //   SqlVectorSearch.Vector_Distance(metric, v1, v2) → SqlVectorSearch.vectorDistance(metric, v1, v2)
@@ -43,5 +45,30 @@ describe("VectorSearchTest_SqlServer", { skip: !hasDb || isPostgres }, () => {
         assert.equal(normalized.dimensions, 3);
         for (const a of normalized.values)
             assert.ok(a > 0 && a <= 1.0, `component ${a} in (0, 1]`);
+    });
+
+    // Seeded nearest-neighbour search over controlled embeddings (rolled back), plus read-path
+    // Vector materialization — the SQL Server counterpart of the Postgres Vector_Search test.
+    txTest("Vector_Search orders by cosine distance + materialises the embedding", async () => {
+        const note = (await table(NoteWithDateEntity).firstOrNull())!;
+        const seed = async (chunk: string, head: number[]): Promise<void> => {
+            await SimplePassageEntity.create({ note: note.toLite(), isTitle: false, chunk, embedding: pad768(head) }).save();
+        };
+        await seed("vt-A", [1, 0, 0]);
+        await seed("vt-C", [0.9, 0.1, 0]);
+        await seed("vt-B", [0, 1, 0]);
+
+        const q = pad768([1, 0, 0]);
+        const ordered = await table(SimplePassageEntity)
+            .orderBy(a => SqlVectorSearch.vectorDistance("Cosine", a.embedding!, q))
+            .map(a => a.chunk)
+            .toArray();
+        const mine = ordered.filter(ch => ch === "vt-A" || ch === "vt-B" || ch === "vt-C");
+        assert.deepEqual(mine, ["vt-A", "vt-C", "vt-B"], "closest (identical) first, orthogonal last");
+
+        const readA = await table(SimplePassageEntity).filter(a => a.chunk == "vt-A").map(a => a.embedding).firstOrNull();
+        assert.ok(readA instanceof Vector, "embedding materialised as a Vector");
+        assert.equal(readA.dimensions, 768);
+        assert.equal(readA.values[0], 1);
     });
 });

@@ -66,6 +66,11 @@ export class TsVectorType extends RuntimeType {
 export class TsQueryType extends RuntimeType {
 }
 
+// A vector column / value (a `vector(N)` column, Signum's Pgvector.Vector). Distinct so the query
+// layer materialises a read `[…]` literal back into a Vector object.
+export class VectorType extends RuntimeType {
+}
+
 export class ObjectType extends RuntimeType {
     constructor(public readonly bindings: { [name: string]: RuntimeType | undefined }) {
         super()

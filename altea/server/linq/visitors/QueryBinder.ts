@@ -64,7 +64,7 @@ import { toInt, toLong, toDecimal, inSql, Temporal } from "../../../data/basics"
 import { Lite, getCustomLiteConstructor, getCustomLiteConstructorFor } from "../../../data/lite";
 import type { CustomLiteClass } from "../../../data/lite";
 import { Localization } from "../../../data/utils/localization";
-import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, TsVectorType, RuntimeType } from "../../runtimeTypes";
+import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, TsVectorType, VectorType, RuntimeType } from "../../runtimeTypes";
 import { PostgresTsVectorColumn } from "../../schema/column";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
@@ -3479,6 +3479,10 @@ export class QueryBinder extends ExpressionVisitor {
     // emitted by the @field transformer). Temporal/enum/etc. stay null-typed until
     // those Types are modelled.
     private valueType(fi: FieldInfo): RuntimeType {
+        // A `vector` column (declared via @column pgDbType/sqlDbType, so it carries no auto-field
+        // typeName) → VectorType, so a read `[…]` literal materialises back into a Vector.
+        if (fi.typeName === "Vector" || fi.columnOptions?.pgDbType === "vector" || fi.columnOptions?.sqlDbType === "vector")
+            return new VectorType();
         switch (fi.typeName) {
             case "String": return LiteralType.string;
             case "Number": return LiteralType.number;
