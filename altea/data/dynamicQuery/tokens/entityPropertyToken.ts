@@ -1,7 +1,7 @@
 import { PropertyRoute } from "../../propertyRoute";
 import { FieldInfo, TypeReference, tryGetTypeInfo } from "../../reflection";
 import type { Implementations } from "../../implementations";
-import { QueryToken, SubTokensOptions, entityCtorOf, TR_INT } from "./queryToken";
+import { QueryToken, SubTokensOptions, entityCtorOf } from "./queryToken";
 
 // Port of Signum's `EntityPropertyToken` (DynamicQuery/Tokens/EntityPropertyToken.cs): navigation
 // into a field/property of an entity or embedded. `isId` marks the synthetic `Entity.Id` token
@@ -50,20 +50,26 @@ export class EntityPropertyToken extends QueryToken {
     override toString(): string { return this.fieldInfo.niceToString(); }
     niceName(): string { return this.fieldInfo.niceToString(); }
 
-    // Signum's Type: a reference field projects as `Lite<T>` (BuildLite), a primary key unwraps to
-    // its scalar. Value / already-lite / embedded fields keep the field's own type.
+    // Signum's Type: `PropertyInfo.PropertyType.BuildLiteNullifyUnwrapPrimaryKey`: a reference field
+    // projects as `Lite<T>` (BuildLite), a primary key unwraps to its scalar, and — for ALL branches —
+    // the result is NULLIFIED. A query column is always potentially null (joins / OUTER APPLY project
+    // the row's absence), so `isNullable` must be set: without it, a filter value editor on a required
+    // column (e.g. the `Customer` FK) would be treated as mandatory and `defaultResetValidationError`
+    // would call `ctx.niceName()` — which throws, since a filter value ctx has no propertyRoute.
     get type(): TypeReference {
         if (this.isId)
             // The synthetic id token's facets live on its FieldInfo (typeName set by idProperty from the
             // entity's @primaryKey). A plain int key is still TR_INT; a GUID key surfaces as "Guid".
             return this.fieldInfo.typeName === "Guid"
-                ? new TypeReference({ typeName: "Guid" })
-                : TR_INT;
+                ? new TypeReference({ typeName: "Guid", isNullable: true })
+                : new TypeReference({ typeName: "Number", subTypeName: "int", isNullable: true });
         const t = this.route.type;
         // A reference field projects as Lite<T> (Signum's BuildLite): the same TypeReference marked lite.
+        // NOTE: `t` may be the live FieldInfo (PropertyRoute.type returns it directly) — always copy, never
+        // mutate it, so the nullify does not corrupt the shared field metadata.
         if (entityCtorOf(t) != undefined)
-            return Object.assign(new TypeReference(), t, { lite: true });
-        return t;
+            return Object.assign(new TypeReference(), t, { lite: true, isNullable: true });
+        return Object.assign(new TypeReference(), t, { isNullable: true });
     }
 
     // Signum's Reflector.GetFormatString: the Id (a primary-key int) formats as "D" — decimal, NO

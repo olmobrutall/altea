@@ -51,7 +51,7 @@ function SearchPage(): React.ReactElement {
     <div id="divSearchPage" className="sf-search-page">
       <h1 className="display-6 sf-query-title h3">{getQueryNiceName(fo.queryName)}</h1>
       {qt && <SearchControl ref={setSearchControl}
-        defaultIncludeDefaultFilters={false}
+        defaultIncludeDefaultFilters={true}
         findOptions={fo}
         tag="SearchPage"
         throwIfNotFindable={true}

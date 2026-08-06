@@ -75,7 +75,15 @@ export default function ContextMenu({ position, onHide, children, alignRight, it
 
 
   const handleMenuClick = (e: React.MouseEvent<HTMLElement>) => {
-    (e.target as HTMLElement).matches(".dropdown-item:not(input, .disabled)") && onHide();
+    // ALTEA fix (diverges from Signum's `e.target.matches(".dropdown-item…")`): a menu item leads with an
+    // icon (`<span class="icon"><svg/></span>`) plus its text, so a click frequently lands on the icon/svg
+    // and `e.target` is that descendant — never the `.dropdown-item` anchor — so `matches` failed and the
+    // menu stayed open (e.g. clicking the "Add filter" icon added the filter but left the menu up). Resolve
+    // the clicked node to its enclosing item with `closest` first; still exclude the search `input` and
+    // disabled items (their class list includes `dropdown-item`, so match on the resolved element).
+    const item = (e.target as HTMLElement).closest<HTMLElement>(".dropdown-item");
+    if (item && !item.matches("input, .disabled"))
+      onHide();
   }
 
   const handleKeyDown = (event: React.KeyboardEvent<any>) => {

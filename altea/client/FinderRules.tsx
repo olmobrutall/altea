@@ -21,12 +21,14 @@ import { Finder } from "./Finder";
 import EntityLink from "./SearchControl/EntityLink";
 import type { Lite } from "../data/lite";
 import type { Entity } from "../data/entity";
-import type { FilterOptionParsed, FilterConditionOptionParsed, FindOptions } from "./FindOptions";
+import type { FilterOptionParsed, FilterConditionOptionParsed, FilterGroupOptionParsed, FindOptions } from "./FindOptions";
 import { isFilterCondition, isFilterGroup, isList, isPair, getFilterOperations } from "./FindOptions";
+import { TypeReference } from "../data/reflection";
 import type { FilterOperation } from "../data/dynamicQueries";
 import type { QueryToken } from "./QueryToken";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { TypeContext } from "./TypeContext";
+import { cellHighlighter } from "./searchHighlight";
 import { tokenSequence } from "./QueryTokenString";
 import { Binding } from "./binding";
 import { AutoLine } from "./Lines/AutoLine";
@@ -67,7 +69,10 @@ export function initFormatRules(): Finder.FormatRule[] {
     {
       name: "Default",
       isApplicable: () => true,
-      formatter: () => new Finder.CellFormatter(cell => cell == null ? "" : <span className="try-no-wrap">{cellToStr(cell)}</span>, false),
+      formatter: (qt, sc) => {
+        const hl = cellHighlighter(qt, sc);
+        return new Finder.CellFormatter(cell => cell == null ? "" : <span className="try-no-wrap">{hl.highlight(cellToStr(cell))}</span>, false);
+      },
     },
     // Embedded / Model entity: its toString (Signum's "Entity").
     {
@@ -75,40 +80,46 @@ export function initFormatRules(): Finder.FormatRule[] {
       isApplicable: qt => qt.filterType == "Embedded" || qt.filterType == "Model",
       formatter: () => new Finder.CellFormatter(cell => cell == null ? "" : <span className="try-no-wrap">{cellToStr(cell)}</span>, true),
     },
-    // Multi-line string (member.isMultiline): rendered in a wrapping block (Signum's "MultiLine"; the
-    // keyword-highlight variant is dropped — needs the getKeywords/TextHighlighter search infra).
+    // Multi-line string (member.isMultiline): rendered in a wrapping block (Signum's "MultiLine"), with
+    // the matched search keywords highlighted.
     {
       name: "MultiLine",
       isApplicable: qt => qt.filterType == "String" && qt.getPropertyRoute()?.fieldInfo?.isMultiline == true,
-      formatter: () => new Finder.CellFormatter(cell => cell == null ? "" : <span className="multi-line">{cellToStr(cell)}</span>, true),
+      formatter: (qt, sc) => {
+        const hl = cellHighlighter(qt, sc);
+        return new Finder.CellFormatter(cell => cell == null ? "" : <span className="multi-line">{hl.highlight(cellToStr(cell))}</span>, true);
+      },
     },
     // Telephone string (field carries a @telephoneValidator): comma-separated numbers rendered as tel:
-    // links (Signum's "Phone", which keys off MemberInfo.IsPhone — derived there from the same validator;
-    // keyword highlighting dropped — needs the search-keyword infra).
+    // links (Signum's "Phone", which keys off MemberInfo.IsPhone — derived there from the same validator),
+    // with matched search keywords highlighted inside each number.
     {
       name: "Phone",
       isApplicable: qt => qt.filterType == "String" && (qt.getPropertyRoute()?.fieldInfo?.validators.some(v => v instanceof TelephoneValidator) ?? false),
-      formatter: qt => {
+      formatter: (qt, sc) => {
         const multiLineClass = qt.getPropertyRoute()?.fieldInfo?.isMultiline ? "multi-line" : "try-no-wrap";
+        const hl = cellHighlighter(qt, sc);
         return new Finder.CellFormatter((cell: string | undefined) => {
           if (!cell) return "";
           const parts = cell.split(",").map(t => t.trim());
           return (
             <span className={multiLineClass}>
-              {parts.map((t, i) => <React.Fragment key={i}>{i > 0 ? ", " : null}<a href={`tel:${t}`}>{t}</a></React.Fragment>)}
+              {parts.map((t, i) => <React.Fragment key={i}>{i > 0 ? ", " : null}<a href={`tel:${t}`}>{hl.highlight(t)}</a></React.Fragment>)}
             </span>
           );
         }, false, "telephone-link-cell");
       },
     },
-    // E-mail string (field carries a @emailValidator): rendered as a mailto: link (Signum's "Email").
+    // E-mail string (field carries a @emailValidator): rendered as a mailto: link (Signum's "Email"), with
+    // matched search keywords highlighted.
     {
       name: "Email",
       isApplicable: qt => qt.filterType == "String" && (qt.getPropertyRoute()?.fieldInfo?.validators.some(v => v instanceof EmailValidator) ?? false),
-      formatter: qt => {
+      formatter: (qt, sc) => {
         const multiLineClass = qt.getPropertyRoute()?.fieldInfo?.isMultiline ? "multi-line" : "try-no-wrap";
+        const hl = cellHighlighter(qt, sc);
         return new Finder.CellFormatter((cell: string | undefined) =>
-          !cell ? "" : <span className={multiLineClass}><a href={`mailto:${cell}`}>{cell}</a></span>, false, "email-link-cell");
+          !cell ? "" : <span className={multiLineClass}><a href={`mailto:${cell}`}>{hl.highlight(cell)}</a></span>, false, "email-link-cell");
       },
     },
     // Password column: masked dots (Signum's "Password").
@@ -473,6 +484,26 @@ function findFilterValue(filters: FilterOptionParsed[], tokenKey: string, opFilt
   return undefined;
 }
 
+// Port of Signum's `getFilterGroupUnifiedFilterType` (FindOptions.ts): the broad category a value type
+// falls into when deciding whether a filter group's subfilters can share ONE value editor. Numbers,
+// boolean, string and Guid all collapse to "String" (a free-text box searches them all), so the default
+// id+text group counts as unified even though its token types differ. Returns the typeName for anything
+// not otherwise categorised (embedded/other), so distinct categories stay distinct.
+function filterGroupUnifiedCategory(tr: TypeReference): string {
+  const n = tr.typeName;
+  if (n == "Number" || n == "Decimal" || n == "Boolean" || n == "String" || n == "Guid")
+    return "String";
+  if (n == "PlainDate" || n == "PlainDateTime")
+    return "DateTime";
+  if (n == "PlainTime" || n == "Duration")
+    return "Time";
+  if (tr.getEnum())
+    return "Enum";
+  if (tr.lite || tr.typeInfos().length > 0)
+    return "Lite";
+  return n;
+}
+
 export function initFilterValueFormatRules(): Finder.FilterValueFormatter[] {
   return [
     // Single value: AutoLine dispatches on the token type carried by ffc.ctx (Boolean/DateTime/Decimal/
@@ -553,15 +584,42 @@ export function initFilterValueFormatRules(): Finder.FilterValueFormatter[] {
           onChange={() => ffc.handleValueChange(f)} label={ffc.label} />;
       },
     },
-    // Filter group: a single value used to search across the group's conditions. Render the AutoLine when
-    // the group has a unifying token type; otherwise nothing (no editable value).
+    // Filter group: a single value searched across the group's conditions (Signum's "FilterGroup" rule).
+    // ALWAYS renders an editor — mirroring Signum's `AutoLine type={tr ?? { name: "string" }}` / TextBoxLine
+    // fallback. altea's Lines read the value type from ctx.memberType (no `type` prop) and a group ctx has
+    // no token type, so we compute the unified editor type here and stamp it onto the ctx:
+    //   • any sub-group or tokenless condition → a free-text (String) search box;
+    //   • all subfilters share ONE type name → that type (e.g. an all-DateTime group → a date editor);
+    //   • otherwise → String (the default id+text search: ToString is String, Id is Number/Guid → mixed).
+    // The fallback String is nullable: a group value is always optional, so clearing it must not trip the
+    // mandatory check in LineBase.defaultResetValidationError (which calls ctx.niceName() on this route-less
+    // ctx and would throw "No propertyRoute").
     {
       name: "FilterGroup",
       applicable: (f, ffc) => isFilterGroup(f),
-      renderValue: (f, ffc) =>
-        ffc.ctx.memberType != null
-          ? <AutoLine ctx={ffc.ctx} onChange={() => ffc.handleValueChange(f)} label={ffc.label} mandatory={ffc.mandatory} />
-          : <span />,
+      renderValue: (f, ffc) => {
+        const fg = f as FilterGroupOptionParsed;
+        const label = ffc.label ?? SearchMessage.Search.niceToString();
+        const stringTr = new TypeReference({ typeName: "String", isNullable: true });
+
+        let tr: TypeReference;
+        if (fg.filters.some(a => isFilterGroup(a) || !(a as FilterConditionOptionParsed).token)) {
+          tr = stringTr;
+        } else {
+          const conds = fg.filters as FilterConditionOptionParsed[];
+          const distinct = conds.map(a => a.token!.type).distinctBy(t => t.typeName);
+          tr = distinct.length == 1 ? distinct[0] : stringTr;
+
+          // Signum resets a stale value when the group's subfilters no longer share a unified filter-type
+          // CATEGORY (numbers/bool/string/Guid all count as one "String" category — so the id+text search,
+          // whose types differ but share that category, keeps its value).
+          if (ffc.ctx.value != null && conds.map(a => filterGroupUnifiedCategory(a.token!.type)).distinctBy(c => c).length != 1)
+            ffc.ctx.value = undefined;
+        }
+
+        ffc.ctx.typeReference = tr;
+        return <AutoLine ctx={ffc.ctx} onChange={() => ffc.handleValueChange(f)} label={label} mandatory={ffc.mandatory} />;
+      },
     },
     // NOT PORTED (Signum filter-value rules that need infrastructure altea lacks):
     //   • "String" override (TextBoxLine autoTrimString=false), "Enum" (explicit EnumLine), "Embedded"/

@@ -180,6 +180,49 @@ export function isCheckBox(active: PinnedFilterActive | undefined): boolean {
     active == "NotCheckbox_Unchecked";
 }
 
+// Ported from Signum's Search.tsx `extractFilter` / `extractFilterValue`. Used by ISimpleFilterBuilder
+// implementations: find the first ACTIVE condition matching (token, operation[, valueCondition]) and
+// REMOVE it from the list. A simple filter builder pulls each value it can represent out of the incoming
+// filters this way, then checks whether the list is empty — if anything is left it can't represent the
+// query and bows out. `operation` may be a predicate to match a family of operations.
+//
+// ALTEA: Signum's `similarToken` (stripping a leading "Entity." step) is dropped — altea tokens are
+// rootless, so there is no "Entity." prefix. Token keys ARE compared case-INSENSITIVELY though: a caller
+// passes a Type.token()-style key ("Customer") while a parsed entity-property token's fullKey() is the
+// camelCase field name ("customer"), so an exact `==` would silently miss and the extract round-trip
+// would fail (matching altea's case-insensitive token resolution — see Finder.resolveColumnToken).
+function tokenKeyEquals(a: string | undefined, b: string): boolean {
+  return a != undefined && a.toLowerCase() == b.toLowerCase();
+}
+
+export function extractFilter(
+  filters: FilterOptionParsed[],
+  token: string | QueryTokenString<any>,
+  operation: FilterOperation | ((op: FilterOperation) => boolean),
+  valueCondition?: (v: any) => boolean,
+): FilterConditionOptionParsed | undefined {
+  const f = filters.firstOrNull(f => isFilterCondition(f) && isActive(f) &&
+    tokenKeyEquals(f.token?.fullKey(), token.toString()) &&
+    (typeof operation == "function" ? operation(f.operation!) : f.operation == operation) &&
+    (valueCondition == null || valueCondition(f.value))) as FilterConditionOptionParsed | undefined;
+
+  if (!f)
+    return undefined;
+
+  filters.remove(f);
+  return f;
+}
+
+export function extractFilterValue(
+  filters: FilterOptionParsed[],
+  token: string | QueryTokenString<any>,
+  operation: FilterOperation | ((op: FilterOperation) => boolean),
+  valueCondition?: (v: any) => boolean,
+): any {
+  const f = extractFilter(filters, token, operation, valueCondition);
+  return f == null ? undefined : f.value;
+}
+
 export interface FilterConditionOptionParsed {
   token?: QueryToken;
   frozen: boolean;

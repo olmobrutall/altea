@@ -6,6 +6,30 @@ import type { RuntimeType } from "../runtimeTypes";
 import { BuildExpressionContext, ExpressionBox, buildLite } from "./tokenExpressions";
 import { QueryToken, CollectionElementToken, CollectionAnyAllToken, AggregateToken } from "../../data/dynamicQuery/tokens";
 import type { QueryName } from "../../data/dynamicQuery/queryUtils";
+import { Connector } from "../connection/connector";
+
+// Port of Signum's `FilterCondition.ToLowerString` (wired in QueryLogic.Start, QueryLogic.cs). On a
+// case-SENSITIVE backend (Postgres) a dynamic-query string comparison must lower BOTH sides — the column
+// (SQL LOWER) and the value — so Contains / EqualTo / DistinctTo / StartsWith / EndsWith / IsIn (and
+// autocomplete, which is a ToString-Contains query) match case-INSENSITIVELY. That mirrors SQL Server's
+// default case-insensitive collation, where no lowering is needed. Signum lets a column opt out when it
+// carries an explicit case-insensitive collation (DbTypeAttribute.CollationPostgres_AvoidToLower); altea
+// does not resolve a token's column collation here yet, so it keys purely off the dialect — no eastwind
+// column defines a custom collation. Dialect is read from the active connector (altea's dialect is
+// per-connection, unlike Signum's process-wide Schema.Settings.IsPostgres).
+function toLowerStringFilter(_token: QueryToken): boolean {
+    return Connector.current().isPostgres;
+}
+
+// LOWER(expr): a `.toLowerCase()` call the QueryBinder/DbExpressionNominator lowers to SQL LOWER (and which
+// also evaluates correctly in the in-memory DEnumerable path, since JS strings have `.toLowerCase()`).
+function toLowerExpr(expr: Expression): Expression {
+    return new CallExpression(new PropertyExpression(expr, "toLowerCase"), [], LiteralType.string);
+}
+
+function toLowerValue(value: unknown): unknown {
+    return typeof value === "string" ? value.toLowerCase() : value;
+}
 
 // True if the token is an aggregate (or nested under one) — Signum's IsAggregate.
 function tokenIsAggregate(token: QueryToken | undefined): boolean {
@@ -158,19 +182,27 @@ export class FilterCondition extends Filter {
     getExpression(context: BuildExpressionContext): Expression {
         const left = this.token.buildExpression(context);
 
+        // Case-insensitive string comparison (Signum's FilterCondition.ToLowerString): on a case-sensitive
+        // backend lower the column AND the value(s) so string filters match regardless of case. Only for a
+        // string token — a non-string comparison (numbers/dates/enums) is untouched. NOTE: applies only to
+        // the value-comparison branches below; the full-text / TsQuery branches must keep the raw column.
+        const ci = this.token.type.typeName === "String" && toLowerStringFilter(this.token);
+        const cmpLeft = ci ? toLowerExpr(left) : left;
+
         const binOp = BINARY_OP[this.operation];
         if (binOp != undefined)
-            return new BinaryExpression(binOp, left, new ConstantExpression(this.value));
+            return new BinaryExpression(binOp, cmpLeft, new ConstantExpression(ci ? toLowerValue(this.value) : this.value));
 
         const sm = STRING_METHOD[this.operation];
         if (sm != undefined) {
-            const call = new CallExpression(new PropertyExpression(left, sm.method), [new ConstantExpression(this.value)], LiteralType.boolean);
+            const call = new CallExpression(new PropertyExpression(cmpLeft, sm.method), [new ConstantExpression(ci ? toLowerValue(this.value) : this.value)], LiteralType.boolean);
             return sm.negate ? new BinaryExpression("==", call, new ConstantExpression(false)) : call;
         }
 
         if (this.operation === FilterOperation.IsIn || this.operation === FilterOperation.IsNotIn) {
             // `.includes` is altea's SQL-mappable array membership (→ IN (…), like retrieveByIds).
-            const call = new CallExpression(new PropertyExpression(new ConstantExpression(this.value), "includes"), [left], LiteralType.boolean);
+            const values = ci && Array.isArray(this.value) ? this.value.map(toLowerValue) : this.value;
+            const call = new CallExpression(new PropertyExpression(new ConstantExpression(values), "includes"), [cmpLeft], LiteralType.boolean);
             return this.operation === FilterOperation.IsNotIn ? new BinaryExpression("==", call, new ConstantExpression(false)) : call;
         }
 
