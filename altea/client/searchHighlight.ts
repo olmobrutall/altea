@@ -4,6 +4,7 @@ import type { FilterOptionParsed, FilterConditionOptionParsed } from "./FindOpti
 import { isFilterCondition, isFilterGroup } from "./FindOptions";
 import type { FilterOperation } from "../data/dynamicQueries";
 import type SearchControlLoaded from "./SearchControl/SearchControlLoaded";
+import type { Quoted } from "quote-transformer/quoted";
 
 // Search-result highlighting (Signum's FinderRules getKeywords + similarTokenToStr + TextHighlighter),
 // extracted from FinderRules.tsx. The string cell formatters there bold the search terms that matched, so
@@ -13,11 +14,13 @@ import type SearchControlLoaded from "./SearchControl/SearchControlLoaded";
 // operators (NotContains/…) don't highlight. ALTEA: no "Entity." prefix (rootless tokens) and token keys
 // compared case-insensitively.
 
-// ---- ToString-dependency extraction --------------------------------------------------------------
+// ---- Expression-dependency extraction (@quoted toString / calculated properties) -----------------
 
 // Two tokens are "similar" for highlighting purposes (Signum's similarTokenToStr) when they refer to the
-// same searchable text — INCLUDING a `ToString` token vs the column(s) its @quoted toString() reads. That
-// is what lets a search on `ToStr` highlight the `CompanyName` column (Supplier.toString() → companyName).
+// same searchable text — INCLUDING an EXPRESSION token vs the column(s) its @quoted body reads. That is
+// what lets a search on `ToStr` highlight `CompanyName` (Supplier.toString → companyName), or a search on
+// a calculated `FullName` highlight `FirstName`/`LastName` (fullName → firstName + lastName), and vice
+// versa. Not limited to toString — any @quoted member (a calculated property) participates.
 export function similarTokenToStr(tokenF: QueryToken | undefined, tokenC: QueryToken): boolean {
   if (tokenF == undefined)
     return false;
@@ -25,51 +28,44 @@ export function similarTokenToStr(tokenF: QueryToken | undefined, tokenC: QueryT
   if (keyEq(tokenF.fullKey(), tokenC.fullKey()))
     return true;
 
-  // A ToString filter also matches the column(s) the entity's toString depends on (and vice versa).
-  if (tokenF.key == "ToString" && matchesToStringDep(tokenF, tokenC))
-    return true;
-  if (tokenC.key == "ToString" && matchesToStringDep(tokenC, tokenF))
-    return true;
-
-  return false;
+  // Either side may be an expression token whose @quoted body reads other columns — match against those.
+  return matchesExpressionDep(tokenF, tokenC) || matchesExpressionDep(tokenC, tokenF);
 }
 
 function keyEq(a: string | undefined, b: string | undefined): boolean {
   return a != undefined && b != undefined && a.toLowerCase() == b.toLowerCase();
 }
 
-// `toStringToken` is a ToString token; does `other` name one of the columns its toString reads? Each
-// dependency is joined onto the ToString's parent path (rootless → the dep IS the full key).
-function matchesToStringDep(toStringToken: QueryToken, other: QueryToken): boolean {
-  const steps = getToStringDependencies(toStringToken.parent);
+// Does `other` name one of the columns that `exprToken`'s @quoted expression reads? Each dependency is
+// joined onto the expression's parent path (rootless → the dep IS the full key).
+function matchesExpressionDep(exprToken: QueryToken, other: QueryToken): boolean {
+  const steps = getExpressionDependencies(exprToken);
   if (steps == null)
     return false;
 
-  const parentKey = toStringToken.parent?.fullKey() ?? "";
+  const parentKey = exprToken.parent?.fullKey() ?? "";
   return steps.some(dep => keyEq(parentKey ? parentKey + "." + dep : dep, other.fullKey()));
 }
 
-// The property paths an entity's @quoted toString() reads (Supplier → ["companyName"], Person →
-// ["firstName","lastName"]). Signum parses the serialized toString expression with a regex; altea walks
-// the quote-transformer's `__quoted` AST on the runtime toString method — exact and minification-proof.
-// Returns null when the toString has no `__quoted` (not a quoted property expression), in which case only
-// exact-key highlighting applies. Cached per ctor.
-const toStringDepsCache = new Map<Function, string[] | null>();
-
-export function getToStringDependencies(parent: QueryToken | undefined): string[] | null {
-  if (parent == null)
+// The columns a token's @quoted expression reads, or null when the token is a plain column with no quoted
+// expression (then only exact-key highlighting applies). Resolves the token's expression member on the
+// OWNER entity type (`token.parent.type`): `toString` for a ToString token, otherwise the token's own key
+// (a calculated @quoted property — e.g. a `fullName` method). Deps from every implementation are merged
+// (polymorphic references).
+export function getExpressionDependencies(token: QueryToken): string[] | null {
+  const owner = token.parent;
+  if (owner == null)
     return null;
 
-  const tis = parent.type.typeInfos();
-  if (tis.length == 0)
-    return null;
+  const memberName = token.key == "ToString" ? "toString" : token.key;
 
   const all: string[] = [];
   let any = false;
-  for (const ti of tis) {
-    if (ti.ctor == null)
+  for (const ti of owner.type.typeInfos()) {
+    const fn = (ti.ctor?.prototype as Record<string, unknown> | undefined)?.[memberName];
+    if (typeof fn != "function")
       continue;
-    const deps = toStringDepsForCtor(ti.ctor);
+    const deps = quotedDependencies(fn);
     if (deps != null) {
       any = true;
       all.push(...deps);
@@ -78,20 +74,27 @@ export function getToStringDependencies(parent: QueryToken | undefined): string[
   return any ? all.distinctBy(a => a) : null;
 }
 
-function toStringDepsForCtor(ctor: Function): string[] | null {
-  const cached = toStringDepsCache.get(ctor);
+// The member-path dependencies of ANY quoted function — the properties its body reads off the lambda
+// parameter (Supplier.toString → ["companyName"], a FullName expression → ["firstName","lastName"]). Signum
+// parses the serialized expression with a regex; altea walks the quote-transformer's `__quoted` AST — exact
+// and minification-proof. Null when the function carries no `__quoted` (a plain, non-quoted method). Cached
+// per function reference.
+const quotedDepsCache = new Map<Function, string[] | null>();
+
+function quotedDependencies(fn: Function): string[] | null {
+  const cached = quotedDepsCache.get(fn);
   if (cached !== undefined)
     return cached;
 
-  const q = ((ctor.prototype as { toString?: { __quoted?: () => any } }).toString?.__quoted)?.();
+  const ex = (fn as Quoted<Function>).__quoted?.();
   let result: string[] | null = null;
-  if (Array.isArray(q) && q[0] === "=>") {
-    const paramName = q[1]?.[0]?.[1];               // ExLambda = ["=>", [["p", name]], body]
+  if (Array.isArray(ex) && ex[0] === "=>") {
+    const paramName = ex[1]?.[0]?.[1];              // ExLambda = ["=>", [["p", name]], body]
     const out: string[] = [];
-    collectParamMemberPaths(q[2], paramName, out);
+    collectParamMemberPaths(ex[2], paramName, out);
     result = out.distinctBy(a => a);
   }
-  toStringDepsCache.set(ctor, result);
+  quotedDepsCache.set(fn, result);
   return result;
 }
 

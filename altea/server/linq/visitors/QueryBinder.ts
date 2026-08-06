@@ -37,6 +37,7 @@ import { SmartEqualizer } from "../smartEqualizer";
 import { TypeLogic } from "../../typeLogic";
 import { ExpandLite, ExpandEntity, Query } from "../../query";
 import type { ExpandLiteHint } from "../expressions.sql";
+import type { Quoted } from "quote-transformer/quoted";
 
 // Map the altea ExpandLite enum (its member order differs from Signum's) to the neutral
 // string hint carried on LiteReferenceExpression.
@@ -565,7 +566,7 @@ export class QueryBinder extends ExpressionVisitor {
     // model's columns.
     private customLiteModel(ctor: Function, ee: EntityExpression, fieldCustomLite?: FieldCustomLite): Expression | undefined {
         const override = fieldCustomLite?.get(ctor as unknown as Type<Entity>);
-        const fromEntity: { __quoted?: unknown } | undefined = override != null
+        const fromEntity: Quoted<Function> | undefined = override != null
             ? getCustomLiteConstructorFor(ctor as unknown as Type<Entity>, override)
             : getCustomLiteConstructor(ctor as unknown as Type<Entity>);
         if (fromEntity == null || fromEntity.__quoted == null)
@@ -1896,7 +1897,7 @@ export class QueryBinder extends ExpressionVisitor {
     private expandQuotedToString(ee: EntityExpression): Expression | undefined {
         const ctor = ee.type instanceof ClassType ? ee.type.constructorFunction : undefined;
         const ts = (ctor as { prototype?: { toString?: unknown } } | undefined)?.prototype?.toString;
-        if (typeof ts !== "function" || (ts as { __quoted?: unknown }).__quoted == null)
+        if (typeof ts !== "function" || (ts as Quoted<Function>).__quoted == null)
             return undefined;
 
         // Entity's inherited default `toString` (BaseToString): a persisted row reads
@@ -1954,7 +1955,7 @@ export class QueryBinder extends ExpressionVisitor {
     private quotedMemberOf(ee: EntityExpression, methodName: string): Function | undefined {
         const ctor = ee.type instanceof ClassType ? ee.type.constructorFunction : undefined;
         const method = (ctor?.prototype as Record<string, unknown> | undefined)?.[methodName];
-        return typeof method === "function" && (method as { __quoted?: unknown }).__quoted != null
+        return typeof method === "function" && (method as Quoted<Function>).__quoted != null
             ? method as Function
             : undefined;
     }

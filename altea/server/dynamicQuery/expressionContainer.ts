@@ -119,10 +119,10 @@ export class ExpressionContainer {
 // → "albumCount", `a => a.address` → "address". Mirrors Signum's ReflectionTools.GetMethodInfo /
 // property-name extraction from the un-inlined MethodCallExpression.
 function deriveKeyFromQuoted(lambda: unknown): string {
-    const q = (lambda as { __quoted?: () => unknown }).__quoted;
+    const q = (lambda as Quoted<Function>).__quoted;
     if (q == undefined)
         throw new Error("Extension lambda is not quoted (needs the quote-transformer); pass { key } explicitly");
-    const ex = q() as unknown[]; // ["=>", params, body]
+    const ex = q(); // ["=>", params, body]
     return tailMember(ex[2]);
 }
 

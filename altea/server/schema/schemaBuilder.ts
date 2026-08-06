@@ -1,5 +1,6 @@
 import { Entity, EmbeddedEntity } from '../../data/entity';
 import type { Type, View, ViewType } from '../../data/entity';
+import type { Quoted } from 'quote-transformer/quoted';
 import { MixinDeclarations } from '../../data/mixinDeclarations';
 import type { EntityData } from '../../data/decorators';
 import { getTypeInfo, enumNameOf, FieldInfo, TypeInfo, schemaForName, type PrimaryKeyType } from '../../data/reflection';
@@ -315,7 +316,7 @@ export class SchemaBuilder {
             // expanded inline by the query provider, so no column.
             const proto = (type as { prototype?: any }).prototype;
             const toStr = proto?.toString;
-            if (typeof toStr === "function" && toStr !== Object.prototype.toString && (toStr as { __quoted?: unknown }).__quoted == null)
+            if (typeof toStr === "function" && toStr !== Object.prototype.toString && (toStr as Quoted<Function>).__quoted == null)
                 table.toStrColumn = new ValueColumn(this.colName("ToStr"), defaultDbType("String", undefined)!, IsNullable.Yes);
         }
 

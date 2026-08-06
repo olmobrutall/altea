@@ -11,10 +11,9 @@ export type { ColumnOptions } from './reflection';
 // `@quoted` / `withQuoted` mark a method (or function) whose body the quote-transformer
 // captures as a translatable expression, stored on `__quoted`. They live here (entities)
 // so the entity model can annotate expression members without depending on the query
-// layer. The metadata carrier (QuotedFunction) + cast helper (quotedFunction) live in
-// entities/types; the query-layer decorators (@lambdaTypeForParam, …) stay in logic/query.
-// We touch only `__quoted` here, so a minimal local carrier type suffices.
-type Quotable = { __quoted?: () => ExLambda };
+// layer. The query-layer's richer carrier (QuotedFunction, with __resultType/__sqlMethod)
+// + cast helper (quotedFunction) stay in logic/query. Here we only touch `__quoted`, so the
+// transformer's own `Quoted<T> = T & { __quoted? }` is the carrier type.
 
 // Two call shapes:
 //   @quoted        — bare. The quote-transformer rewrites it to @quoted(() => <expr>)
@@ -38,7 +37,7 @@ export function quoted(arg1?: unknown, arg2?: unknown, _arg3?: unknown): unknown
         if (typeof fn != "function")
             throw new Error(`@quoted can only be applied to methods, but '${String(propertyKey)}' is not a method`);
 
-        (fn as Quotable).__quoted = exp;
+        (fn as Quoted<Function>).__quoted = exp;
     };
 }
 
@@ -46,7 +45,7 @@ export function quoted(arg1?: unknown, arg2?: unknown, _arg3?: unknown): unknown
 // (e.g. a prototype method added outside a class). The transformer rewrites
 // `withQuoted(fn)` to inject the captured expression as the second argument.
 export function withQuoted<T extends Function>(f: T, quoted?: () => ExLambda): T {
-    (f as unknown as Quotable).__quoted = quoted;
+    (f as Quoted<T>).__quoted = quoted;
     return f;
 }
 
