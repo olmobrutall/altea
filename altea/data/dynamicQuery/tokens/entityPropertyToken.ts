@@ -47,6 +47,10 @@ export class EntityPropertyToken extends QueryToken {
         return this.fieldInfo.name === "entity" && this._parent.parent == undefined;
     }
 
+    // altea divergence: this token navigates a @backReference field (the child-side FK back to its owner).
+    // Drives `dimAsBackNavigation` — the token-tree picker greys it when reached under a collection operator.
+    override isBackReferenceToken(): boolean { return this.fieldInfo.isBackReference === true; }
+
     override toString(): string { return this.fieldInfo.niceToString(); }
     niceName(): string { return this.fieldInfo.niceToString(); }
 

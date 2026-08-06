@@ -49,3 +49,10 @@
 .sf-prefix-btn:hover {
     border: 1px solid var(--bs-border-color);
 }
+
+/* altea divergence (not in Signum): a @backReference reached under a collection operator (Element/Any/
+   All/ToArray) navigates back to the collection's owner — a circular hop — so the token-tree picker
+   greys it as a de-emphasis hint. See QueryToken.dimAsBackNavigation. */
+.sf-token-back-navigation {
+    opacity: 0.5;
+}

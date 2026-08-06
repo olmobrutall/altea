@@ -366,6 +366,28 @@ export abstract class QueryToken {
     isElement(): boolean { return false; }
     isToArray(): boolean { return false; }
 
+    // altea divergence (NOT in Signum): a token navigating a @backReference field — the child-side FK
+    // that points back to the entity owning the collection. Overridden by EntityPropertyToken; the base
+    // returns false. Used by `dimAsBackNavigation` (below) to grey the token in the token-tree picker.
+    isBackReferenceToken(): boolean { return false; }
+
+    // altea divergence (NOT in Signum): the token-tree picker dims a @backReference (opacity 50%) WHEN it
+    // sits under a collection operator (Element / Any / All / ToArray). A @part row is always reached via
+    // its owner's collection and its @backReference points straight back to that owner — so under a
+    // collection operator the navigation is circular ("back where you came from") and gets a de-emphasis
+    // hint. Reached WITHOUT a collection ancestor (a direct query on the part, or a scalar reference) it is
+    // a normal forward navigation and stays full-opacity. NB: for a @backReference the nearest collection
+    // ancestor's owner IS the back-ref target, so "has a collection-operator ancestor" is exact — no
+    // target-type comparison is needed.
+    get dimAsBackNavigation(): boolean {
+        if (!this.isBackReferenceToken())
+            return false;
+        for (let p = this.parent; p != undefined; p = p.parent)
+            if (p.isElement() || p.isAnyOrAll() || p.isToArray())
+                return true;
+        return false;
+    }
+
     // Not-yet-ported exotic token kinds (Operation/Manual/Nested/TimeSeries/Snippet) — always false.
     hasOperation(): boolean { return false; }
     hasManual(): boolean { return false; }

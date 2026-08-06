@@ -247,6 +247,7 @@ export function QueryTokenItem(p: { item: QueryToken | null }): React.ReactEleme
   return (
     <span
       data-full-token={item.fullKey()}
+      className={classes(item.dimAsBackNavigation && "sf-token-back-navigation")}
       style={{ color: item.queryTokenColor }}
       title={StyleContext.default.titleLabels ? item.niceTypeName() : undefined}>
       {item.toString()}
@@ -268,7 +269,7 @@ export function QueryTokenListItem(p: { item: QueryToken | null, ancestor: Query
         .map((qt, i) => (
           <React.Fragment key={i}>
             {i > 0 && " › "}
-            <span style={{ color: qt.queryTokenColor }} title={StyleContext.default.titleLabels ? qt.niceTypeName() : undefined}>{qt.toString()}</span>
+            <span className={classes(qt.dimAsBackNavigation && "sf-token-back-navigation")} style={{ color: qt.queryTokenColor }} title={StyleContext.default.titleLabels ? qt.niceTypeName() : undefined}>{qt.toString()}</span>
           </React.Fragment>
         ))}
     </span>
