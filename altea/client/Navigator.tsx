@@ -41,6 +41,8 @@ import type { BsSize } from './Components';
 import type { TypeContext } from './TypeContext';
 import { FindOptionsAutocompleteConfig, MultiAutoCompleteConfig } from './Lines/AutoCompleteConfig';
 import type { AutocompleteConfig } from './Lines/AutoCompleteConfig';
+import CopyLiteButton from './Components/CopyLiteButton';
+import CopyLinkButton from './Components/CopyLinkButton';
 
 /* ===== Original Signum imports — rewire to altea modules as they are ported =====
 import * as React from "react"
@@ -1564,7 +1566,8 @@ export namespace Navigator {
   }
 
   // ALTEA: Signum's getTypeSubTitle used entity.Type + isTypeEntity/isTypeModel + defaultRenderSubTitle;
-  // altea uses instanceof + getNiceName().
+  // altea uses instanceof + getNiceName(). Now also renders the id + copy-lite / copy-link buttons
+  // (Signum's defaultRenderSubTitle → renderId), which fade in on hover via the `.sf-hide-id` CSS.
   export function getTypeSubTitle(entity: BaseEntity, pr: PropertyRoute | undefined): React.ReactNode | undefined {
     const es = getSettings(getTypeName(entity));
     if (es?.renderSubTitle)
@@ -1573,11 +1576,34 @@ export namespace Navigator {
     if (entity instanceof Entity) {
       if (entity.isNew)
         return null;
-      return tryGetTypeInfo(getTypeName(entity))?.getNiceName();
+      const niceName = tryGetTypeInfo(getTypeName(entity))?.getNiceName();
+      return <span>{niceName} {renderId(entity)}</span>;
     } else if (entity instanceof EmbeddedEntity) {
       return pr?.type.getTypeName();
     }
     return undefined;
+  }
+
+  // Ported from Signum's Navigator.renderId. altea fixes: id field via tryGetTypeInfo(...).members["id"]
+  // (real lowercase prop name, not "Id"); the Guid-default hideId reads the primary-key type off the id
+  // field's columnOptions (`uuid`/`uuid7`) instead of Signum's TypeReference.name == "Guid".
+  let renderId = (entity: Entity): React.ReactElement | string | number => {
+    const idField = tryGetTypeInfo(getTypeName(entity))?.members["id"];
+    const pk = idField?.columnOptions?.primaryKey;
+    const hideId = getSettings(getTypeName(entity))?.hideId ?? (pk == "uuid" || pk == "uuid7");
+    return (
+      <>
+        <span className={hideId ? "sf-hide-id" : ""}>
+          {entity.id}
+        </span>
+        <CopyLiteButton className={"sf-hide-id"} entity={entity} />
+        <CopyLinkButton className={"sf-hide-id"} entity={entity} />
+      </>
+    );
+  }
+
+  export function setRenderIdFunction(newFunction: (entity: Entity) => React.ReactElement | string | number): void {
+    renderId = newFunction;
   }
 
   export type ViewButtons = "ok_cancel" | "close" | undefined;

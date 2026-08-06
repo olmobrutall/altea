@@ -72,3 +72,38 @@
     align-items: center;
     margin-bottom: 0.75rem;
 }
+
+/* Entity-frame title chrome (Signum's Frames.css). The subtitle's id + copy-lite / copy-link buttons
+   carry `.sf-hide-id` and fade in only on hover / keyboard focus of the subtitle row. */
+.sf-entity-title {
+    font-size: 2rem;
+    font-weight: 300;
+    margin-top: 10px;
+}
+
+.sf-pointer {
+    cursor: pointer;
+}
+
+.sf-entity-sub-title {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.sf-hide-id {
+    opacity: 0;
+    transition: opacity 1s ease;
+}
+
+.sf-type-nice-name:focus-within .sf-hide-id {
+    opacity: 1;
+}
+
+.sf-entity-sub-title:hover .sf-hide-id {
+    opacity: 1;
+}
+
+.sf-frame-modal .modal-title {
+    margin-right: -25px;
+    overflow: inherit;
+}

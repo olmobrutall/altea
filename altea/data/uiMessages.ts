@@ -53,6 +53,7 @@ export const FrameMessage = {
     Fullscreen: msg("Fullscreen"),
     ThereAreErrors: msg("There are errors"),
     Main: msg("Main"),
+    Copied: msg("Copied"),
 };
 
 // SaveChanges (Signum's SaveChangesMessage) — the lose-changes modal.
@@ -193,6 +194,8 @@ export const EngineMessage = {
 // NormalControl (Signum's NormalControlMessage) — the members the Operations layer reads.
 export const NormalControlMessage = {
     SaveChangesFirst: msg("Save changes first!"),
+    CopyEntityTypeAndIdForAutocomplete: msg("Copy entity type and id (for autocomplete)"),
+    CopyEntityUrl: msg("Copy entity URL"),
 };
 
 // Connection (Signum's ConnectionMessage) — used by ErrorModal.
