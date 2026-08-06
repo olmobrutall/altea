@@ -32,7 +32,7 @@ declare module "../schema/fluentInclude" {
 }
 
 FluentInclude.prototype.withQuery = function <T extends Entity>(this: FluentInclude<T>): FluentInclude<T> {
-    const rootType = this.table.type;
+    const rootType = this.type;
     // Register an executable auto-query (Signum's WithQuery). Its shape is the entity itself; its
     // source is `table(T)` (no projection) — see AutoDynamicQueryCore.
     QueryLogic.queries.register(rootType, () => AutoDynamicQueryCore.fromEntity(rootType));
@@ -40,8 +40,8 @@ FluentInclude.prototype.withQuery = function <T extends Entity>(this: FluentIncl
 };
 
 FluentInclude.prototype.withExpressionTo = function <T extends Entity, S>(this: FluentInclude<T>, lambda: Quoted<(source: T) => S>, opts?: { key?: string; niceName?: () => string; implementations?: Implementations }): FluentInclude<T> {
-    // Source = this entity T (the lambda's parameter).
-    QueryLogic.expressions.register(this.table.type, lambda, opts);
+    // Source = this entity T (the lambda's parameter); `FluentInclude.type` is its `Type<T>`.
+    QueryLogic.expressions.register(this.type, lambda, opts);
     return this;
 };
 

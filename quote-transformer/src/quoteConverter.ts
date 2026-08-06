@@ -317,7 +317,7 @@ export function getQuoteConverter(tsInstance: typeof ts2, typeChecker?: ts2.Type
                     if (arg instanceof QuoteError)
                         return arg;
 
-                    elems.push(elem);
+                    elems.push(arg);
                 }
             }
 

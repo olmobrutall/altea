@@ -1,5 +1,5 @@
 import type { Quoted } from "quote-transformer/quoted";
-import type { Entity } from "../../data/entity";
+import type { Entity, Type } from "../../data/entity";
 import type { Table } from "./table";
 import type { SchemaBuilder } from "./schemaBuilder";
 
@@ -10,15 +10,20 @@ import type { SchemaBuilder } from "./schemaBuilder";
 export class FluentInclude<T extends Entity> {
     constructor(
         public readonly table: Table,
+        // The entity ctor this handle was included for (Signum's FluentInclude.Type). Held as
+        // `Type<T>` — `table.type` widens to `Type<Entity> | ViewType<View>` because Table is shared
+        // with views, but `FluentInclude<T extends Entity>` is always an entity, so this keeps the
+        // precise type without a cast at each use (e.g. DynamicQueryFluentInclude.withExpressionTo).
+        public readonly type: Type<T>,
         public readonly schemaBuilder: SchemaBuilder,
     ) { }
 
-    withIndex(fields: (element: T) => unknown, where?: Quoted<(element: T) => boolean>, includeFields?: (element: T) => unknown): this {
+    withIndex(fields: Quoted<(element: T) => unknown>, where?: Quoted<(element: T) => boolean>, includeFields?: Quoted<(element: T) => unknown>): this {
         this.table.addIndex(fields, where, includeFields);
         return this;
     }
 
-    withUniqueIndex(fields: (element: T) => unknown, where?: Quoted<(element: T) => boolean>, includeFields?: (element: T) => unknown): this {
+    withUniqueIndex(fields: Quoted<(element: T) => unknown>, where?: Quoted<(element: T) => boolean>, includeFields?: Quoted<(element: T) => unknown>): this {
         this.table.addUniqueIndex(fields, where, includeFields);
         return this;
     }

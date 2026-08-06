@@ -3,7 +3,8 @@ import type { Type, Entity, View, ViewType } from '../../data/entity';
 import { ObjectName } from './objectName';
 import { EntityField, FieldPrimaryKey, FieldTicks, FieldMixin } from './field';
 import type { IColumn } from './column';
-import { TableIndex, recordAccessedFields } from './tableIndex';
+import { TableIndex } from './tableIndex';
+import { accessedFields } from '../../data/accessedFields';
 import { getIndexWhere } from './indexWhere';
 import type { SystemVersionedInfo } from './systemVersioned';
 
@@ -51,19 +52,19 @@ export class Table {
     // (`e => e.code`, `e => [e.a, e.b]`); `where` is a filtered-index predicate captured by the
     // transformer (`e => e.active`); `includeFields` selects INCLUDE columns. Returns the table
     // for chaining.
-    addIndex(fields: (element: any) => unknown, where?: Quoted<(element: any) => boolean>, includeFields?: (element: any) => unknown): Table {
+    addIndex(fields: Quoted<(element: any) => unknown>, where?: Quoted<(element: any) => boolean>, includeFields?: Quoted<(element: any) => unknown>): Table {
         this.addFluentIndex(fields, false, where, includeFields);
         return this;
     }
 
-    addUniqueIndex(fields: (element: any) => unknown, where?: Quoted<(element: any) => boolean>, includeFields?: (element: any) => unknown): Table {
+    addUniqueIndex(fields: Quoted<(element: any) => unknown>, where?: Quoted<(element: any) => boolean>, includeFields?: Quoted<(element: any) => unknown>): Table {
         this.addFluentIndex(fields, true, where, includeFields);
         return this;
     }
 
-    private addFluentIndex(fields: (element: any) => unknown, unique: boolean, where?: Quoted<(element: any) => boolean>, includeFields?: (element: any) => unknown): void {
-        const columns = this.columnsFromFields(recordAccessedFields(fields));
-        const includeColumns = includeFields == null ? undefined : this.columnsFromFields(recordAccessedFields(includeFields));
+    private addFluentIndex(fields: Quoted<(element: any) => unknown>, unique: boolean, where?: Quoted<(element: any) => boolean>, includeFields?: Quoted<(element: any) => unknown>): void {
+        const columns = this.columnsFromFields(accessedFields(fields));
+        const includeColumns = includeFields == null ? undefined : this.columnsFromFields(accessedFields(includeFields));
         // Render the predicate to SQL now (registration time), like Signum's AddIndex.
         const whereSql = where == null ? undefined : getIndexWhere(where, this, this.isPostgres);
         this.indexes.push(new TableIndex(this, columns, { unique, includeColumns, where: whereSql }));

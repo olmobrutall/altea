@@ -35,7 +35,8 @@ import { Schema } from './schema';
 import { Table } from './table';
 import { FluentInclude } from './fluentInclude';
 import { SystemVersionedInfo } from './systemVersioned';
-import { TableIndex, FullTextTableIndex, VectorTableIndex, recordAccessedFields } from './tableIndex';
+import { TableIndex, FullTextTableIndex, VectorTableIndex } from './tableIndex';
+import { accessedFields } from '../../data/accessedFields';
 import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../data/enumEntity';
 import { TypeEntity } from '../../data/typeEntity';
@@ -160,7 +161,7 @@ export class SchemaBuilder {
         const entityType = type as unknown as Type<Entity>;
         const existing = this.schema.tables.get(entityType);
         if (existing != null)
-            return new FluentInclude<T>(existing, this);
+            return new FluentInclude<T>(existing, type, this);
 
         const name = new ObjectName(this.settings.tableName(entityType), this.settings.schemaForType(entityType));
         const table = new Table(entityType, name);
@@ -181,7 +182,7 @@ export class SchemaBuilder {
             ti.entityData = inheritedData;
 
         this.completeTable(table, type);
-        return new FluentInclude<T>(table, this);
+        return new FluentInclude<T>(table, type, this);
     }
 
     // Validates cross-table back-references once every table is present. Call
@@ -374,11 +375,11 @@ export class SchemaBuilder {
             for (const ef of Object.values(mixin.fields))
                 addFieldIndexes(ef.fieldInfo, ef.field.columns());
 
-        // Class-level composite indexes: run the stored selector lambdas against a recording
-        // proxy to get the covered fields, then resolve to columns.
+        // Class-level composite indexes: read the covered fields off each stored @quoted selector's
+        // AST (accessedFields), then resolve to columns.
         for (const desc of typeInfo.indexes ?? []) {
-            const columns = table.columnsFromFields(recordAccessedFields(desc.fields));
-            const includeColumns = desc.includeFields == null ? undefined : table.columnsFromFields(recordAccessedFields(desc.includeFields));
+            const columns = table.columnsFromFields(accessedFields(desc.fields));
+            const includeColumns = desc.includeFields == null ? undefined : table.columnsFromFields(accessedFields(desc.includeFields));
             // Render the class-level filtered predicate to SQL now (Quoted → Expression → string).
             const whereSql = desc.where == null ? undefined : getIndexWhere(desc.where, table, this.settings.isPostgres);
             table.indexes.push(new TableIndex(table, columns, { unique: desc.unique, includeColumns, where: whereSql }));
@@ -389,7 +390,7 @@ export class SchemaBuilder {
         // its generated tsvector column to the table's physical layout so the DDL emits it. Mark the
         // covered fields with hasFullTextIndex (Signum's Schema.HasFullTextIndex → MemberInfo flag).
         for (const desc of typeInfo.fullTextIndexes ?? []) {
-            const fieldNames = recordAccessedFields(desc.fields);
+            const fieldNames = accessedFields(desc.fields);
             const columns = table.columnsFromFields(fieldNames);
             const index = new FullTextTableIndex(table, columns, { sqlServer: desc.sqlServer, postgres: desc.postgres });
             table.indexes.push(index);
@@ -401,7 +402,7 @@ export class SchemaBuilder {
         // Class-level vector indexes (Signum's SchemaBuilder.AddVectorIndex): one vector column per
         // index, resolved from the single-field selector.
         for (const desc of typeInfo.vectorIndexes ?? []) {
-            const [column] = table.columnsFromFields(recordAccessedFields(desc.field));
+            const [column] = table.columnsFromFields(accessedFields(desc.field));
             table.indexes.push(new VectorTableIndex(table, column, { sqlServer: desc.sqlServer, postgres: desc.postgres }));
         }
     }

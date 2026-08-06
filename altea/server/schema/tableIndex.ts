@@ -186,22 +186,3 @@ export class VectorTableIndex extends TableIndex {
         this.postgres = { indexType: 'HNSW', metric: 'Cosine', ...options?.postgres };
     }
 }
-
-// Records the entity fields a selector lambda touches by running it against a proxy that
-// notes each property read — the altea analogue of Signum's IndexKeyColumns.Split over an
-// expression tree. Supports flat field access (`e => e.name`, `e => [e.a, e.b]`); nested
-// paths (`e => e.address.city`) are not modelled.
-export function recordAccessedFields(selector: (element: any) => unknown): string[] {
-    const fields: string[] = [];
-    const proxy = new Proxy({}, {
-        get(_target, prop): unknown {
-            if (typeof prop === 'string')
-                fields.push(prop);
-            return undefined;
-        },
-    });
-    selector(proxy);
-    if (fields.length === 0)
-        throw new Error('An index selector must read at least one field, e.g. e => [e.name] or e => e.code');
-    return fields;
-}

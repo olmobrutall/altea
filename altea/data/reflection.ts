@@ -316,24 +316,23 @@ export class TypeInfo {
     // the raw view name ViewBuilder maps to, e.g. "pg_catalog.pg_namespace".
     tableName?: string;
     // Set by class-level @index / @uniqueIndex(e => [e.a, e.b]): composite indexes declared
-    // by column-selector lambdas. Stored as the raw selectors (entities/ can't import the
-    // logic-layer field recorder); the SchemaBuilder runs them against a recording proxy to
-    // resolve the covered fields → columns.
-    indexes?: { unique: boolean; fields: (element: any) => unknown; includeFields?: (element: any) => unknown; where?: Quoted<(element: any) => boolean> }[];
+    // by column-selector lambdas. Stored as the @quoted selectors; the SchemaBuilder resolves the
+    // covered fields → columns by reading each captured AST (accessedFields), like `where`.
+    indexes?: { unique: boolean; fields: Quoted<(element: any) => unknown>; includeFields?: Quoted<(element: any) => unknown>; where?: Quoted<(element: any) => boolean> }[];
     // Set by class-level @fullTextIndex(e => [e.a, e.b], options?): a full-text index over the
-    // selected string columns (Signum's WithFullTextIndex). Stored as the raw selector plus the
+    // selected string columns (Signum's WithFullTextIndex). Stored as the @quoted selector plus the
     // per-dialect options as bare shapes (entities/ can't import the server tableIndex types); the
     // SchemaBuilder resolves the fields → columns and builds a FullTextTableIndex.
     fullTextIndexes?: {
-        fields: (element: any) => unknown;
+        fields: Quoted<(element: any) => unknown>;
         sqlServer?: { catalogName?: string; changeTracking?: 'Manual' | 'Auto' | 'Off' | 'Off_NoPopulation'; stoplistName?: string; propertyListName?: string };
         postgres?: { tsVectorColumnName?: string; configuration?: string; weights?: Record<string, 'A' | 'B' | 'C' | 'D'> };
     }[];
     // Set by @vectorIndex(e => e.embedding, options?): a nearest-neighbour index over one vector
-    // column (Signum's WithVectorIndex). Stored as the raw single-column selector + per-dialect
+    // column (Signum's WithVectorIndex). Stored as the @quoted single-column selector + per-dialect
     // options as bare shapes; the SchemaBuilder resolves the column and builds a VectorTableIndex.
     vectorIndexes?: {
-        field: (element: any) => unknown;
+        field: Quoted<(element: any) => unknown>;
         sqlServer?: { metric?: 'Cosine' | 'Euclidean' | 'DotProduct'; indexType?: 'DiskANN'; maxDegreeOfParallelism?: number };
         postgres?: { indexType?: 'HNSW' | 'IVFFlat'; metric?: 'Cosine' | 'L2' | 'InnerProduct' | 'L1' | 'Hamming' | 'Jaccard'; lists?: number };
     }[];

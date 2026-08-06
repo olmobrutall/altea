@@ -5,6 +5,7 @@ import type { PrimaryKeyType, ColumnOptions } from './reflection';
 import type { Type, Entity } from './entity';
 import type { CustomLiteClass } from './lite';
 import type { ExLambda, Quoted } from 'quote-transformer/quoted';
+import { accessedFields } from './accessedFields';
 
 export type { ColumnOptions } from './reflection';
 
@@ -212,7 +213,7 @@ export function viewPrimaryKey(target: object, propertyKey: string | symbol): vo
 // The class form (Signum's AddIndex(fields, where?, includeFields?)) stores the raw selector
 // lambdas; the SchemaBuilder resolves fields/includeFields to columns and renders `where`.
 export function index(target: object, propertyKey: string | symbol): void;
-export function index<T>(fields: (element: T) => unknown, where?: Quoted<(element: T) => boolean>, includeFields?: (element: T) => unknown): (target: Function) => void;
+export function index<T>(fields: Quoted<(element: T) => unknown>, where?: Quoted<(element: T) => boolean>, includeFields?: Quoted<(element: T) => unknown>): (target: Function) => void;
 export function index(arg1: unknown, arg2?: unknown, arg3?: unknown): unknown {
     return indexDecorator(false, arg1, arg2, arg3);
 }
@@ -221,7 +222,7 @@ export function index(arg1: unknown, arg2?: unknown, arg3?: unknown): unknown {
 //   • field:  `@uniqueIndex code!: string;`                        — a unique index on that column
 //   • class:  `@uniqueIndex(e => [e.name, e.country], e => e.active)` — composite unique, optionally filtered
 export function uniqueIndex(target: object, propertyKey: string | symbol): void;
-export function uniqueIndex<T>(fields: (element: T) => unknown, where?: Quoted<(element: T) => boolean>, includeFields?: (element: T) => unknown): (target: Function) => void;
+export function uniqueIndex<T>(fields: Quoted<(element: T) => unknown>, where?: Quoted<(element: T) => boolean>, includeFields?: Quoted<(element: T) => unknown>): (target: Function) => void;
 export function uniqueIndex(arg1: unknown, arg2?: unknown, arg3?: unknown): unknown {
     return indexDecorator(true, arg1, arg2, arg3);
 }
@@ -233,13 +234,13 @@ function indexDecorator(unique: boolean, arg1: unknown, arg2: unknown, arg3: unk
         if (unique) fi.uniqueIndex = true; else fi.index = true;
         return undefined;
     }
-    // Class form: (fields, where?, includeFields?) → a class decorator storing the raw
-    // selectors. `where` is a transformer-quoted predicate (a Quoted fn carrying __quoted);
-    // it's stored as-is so the SchemaBuilder can render it (Quoted → Expression → SQL) with
-    // the dialect known.
-    const fields = arg1 as (element: any) => unknown;
+    // Class form: (fields, where?, includeFields?) → a class decorator storing the transformer-
+    // quoted selectors (each a Quoted fn carrying __quoted). They're stored as-is so the
+    // SchemaBuilder can resolve them with the dialect known: `fields`/`includeFields` → columns via
+    // accessedFields, `where` → SQL via getIndexWhere (Quoted → Expression → string).
+    const fields = arg1 as Quoted<(element: any) => unknown>;
     const where = arg2 as Quoted<(element: any) => boolean> | undefined;
-    const includeFields = arg3 as ((element: any) => unknown) | undefined;
+    const includeFields = arg3 as Quoted<(element: any) => unknown> | undefined;
     return function (target: Function): void {
         const ti = getOrCreateTypeInfo(target);
         (ti.indexes ??= []).push({ unique, fields, includeFields, where });
@@ -256,7 +257,7 @@ function indexDecorator(unique: boolean, arg1: unknown, arg2: unknown, arg3: unk
 // the covered fields → columns). On SQL Server it becomes a CREATE FULLTEXT INDEX over those columns
 // bound to a catalog; on Postgres a persisted generated tsvector column + a GIN index.
 export function fullTextIndex<T>(
-    fields: (element: T) => unknown,
+    fields: Quoted<(element: T) => unknown>,
     options?: {
         sqlServer?: { catalogName?: string; changeTracking?: 'Manual' | 'Auto' | 'Off' | 'Off_NoPopulation'; stoplistName?: string; propertyListName?: string };
         postgres?: { tsVectorColumnName?: string; configuration?: string; weights?: Record<string, 'A' | 'B' | 'C' | 'D'> };
@@ -264,15 +265,13 @@ export function fullTextIndex<T>(
 ): (target: Function) => void {
     return function (target: Function): void {
         const ti = getOrCreateTypeInfo(target);
-        (ti.fullTextIndexes ??= []).push({ fields: fields as (element: any) => unknown, sqlServer: options?.sqlServer, postgres: options?.postgres });
+        const quotedFields = fields as Quoted<(element: any) => unknown>;
+        (ti.fullTextIndexes ??= []).push({ fields: quotedFields, sqlServer: options?.sqlServer, postgres: options?.postgres });
         // Mark the covered fields with hasFullTextIndex (Signum's Schema.HasFullTextIndex →
         // MemberInfo.HasFullTextIndex) so the client can offer the full-text filter operations. Set
         // here (isomorphic) rather than in the server SchemaBuilder so it ships in the reflection
-        // blob. Run the selector against a recording proxy to discover the fields it reads.
-        const recorded: string[] = [];
-        const proxy = new Proxy({}, { get(_t, p): unknown { if (typeof p === "string") recorded.push(p); return undefined; } });
-        try { (fields as (element: any) => unknown)(proxy); } catch { /* a selector that does more than read is ignored */ }
-        for (const name of recorded)
+        // blob. Read the fields off the @quoted selector's AST (accessedFields).
+        for (const name of accessedFields(quotedFields))
             getOrCreateFieldInfo(ti, name).hasFullTextIndex = true;
     };
 }
@@ -284,9 +283,9 @@ export function fullTextIndex<T>(
 //   @vectorIndex(e => e.embedding, { postgres: { indexType: "HNSW", metric: "Cosine" } })
 //
 // On SQL Server it becomes a CREATE VECTOR INDEX; on Postgres a pgvector hnsw/ivfflat index. The
-// single-field selector is stored raw; the SchemaBuilder resolves it to its column.
+// single-field @quoted selector is stored; the SchemaBuilder resolves it to its column.
 export function vectorIndex<T>(
-    field: (element: T) => unknown,
+    field: Quoted<(element: T) => unknown>,
     options?: {
         sqlServer?: { metric?: 'Cosine' | 'Euclidean' | 'DotProduct'; indexType?: 'DiskANN'; maxDegreeOfParallelism?: number };
         postgres?: { indexType?: 'HNSW' | 'IVFFlat'; metric?: 'Cosine' | 'L2' | 'InnerProduct' | 'L1' | 'Hamming' | 'Jaccard'; lists?: number };
@@ -294,7 +293,7 @@ export function vectorIndex<T>(
 ): (target: Function) => void {
     return function (target: Function): void {
         const ti = getOrCreateTypeInfo(target);
-        (ti.vectorIndexes ??= []).push({ field: field as (element: any) => unknown, sqlServer: options?.sqlServer, postgres: options?.postgres });
+        (ti.vectorIndexes ??= []).push({ field: field as Quoted<(element: any) => unknown>, sqlServer: options?.sqlServer, postgres: options?.postgres });
     };
 }
 
