@@ -199,7 +199,10 @@ export class LineBaseController<P extends LineBaseProps<V>, V> {
   }
 
   get isHidden(): boolean | undefined {
-    return this.props.ctx.memberType == null || this.props.visible == false || this.props.ctx.binding.getIsHidden() || this.props.hideIfNull && (this.props.ctx.value == undefined || this.props.ctx.value == "");
+    // ALTEA DIVERGENCE: strict `=== ""` (not Signum's loose `== ""`). altea dates are Temporal.PlainDate
+    // OBJECTS (luxon→Temporal), and `object == ""` forces ToPrimitive → Temporal.PlainDate.valueOf(), which
+    // throws "Cannot use valueOf" by design. `== undefined` still catches null/undefined without coercing.
+    return this.props.ctx.memberType == null || this.props.visible == false || this.props.ctx.binding.getIsHidden() || this.props.hideIfNull && (this.props.ctx.value == undefined || this.props.ctx.value === "");
   }
 }
 

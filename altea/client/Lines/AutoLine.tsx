@@ -38,7 +38,12 @@ export interface AutoLineProps extends LineBaseProps<any> {
 export function AutoLine(p: AutoLineProps): React.ReactElement | null {
   const pr = p.ctx.propertyRoute;
 
-  var isHidden = p.ctx.memberType == null && pr == null || p.visible == false || p.hideIfNull && (p.ctx.value == undefined || p.ctx.value == "");
+  // ALTEA DIVERGENCE: Signum's empty check is `p.ctx.value == ""` (loose). Signum dates are ISO STRINGS,
+  // so that's a plain string compare. altea dates are Temporal.PlainDate OBJECTS (luxon→Temporal), and a
+  // loose `object == ""` forces ToPrimitive → Temporal.PlainDate.valueOf(), which throws "Cannot use
+  // valueOf" by design. Use strict `=== ""` (an empty-string sentinel never needs coercion) — `== undefined`
+  // still catches null/undefined without coercing.
+  var isHidden = p.ctx.memberType == null && pr == null || p.visible == false || p.hideIfNull && (p.ctx.value == undefined || p.ctx.value === "");
   if (isHidden)
     return null;
 
