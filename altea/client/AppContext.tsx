@@ -41,11 +41,23 @@ export function toAbsoluteUrl(appRelativeUrl: string, baseName?: string): string
   return appRelativeUrl;
 }
 
-// Signum's AppContext.navigate: SPA navigation via the router history. altea hasn't wired a shared
-// history object yet, so this is a hard-navigation fallback (full page load). TODO(port): route it
-// through the react-router navigate once AppContext owns the history.
+// Signum's AppContext._internalRouter: the DataRouter created by createBrowserRouter at boot, stored
+// so navigate() can drive SPA (client-side) navigation. eastwind's MainPublic.client calls setRouter()
+// right after createBrowserRouter. altea divergence: typed as the minimal `{ navigate }` slice we use
+// (react-router doesn't export a stable DataRouter type name across versions).
+export let _internalRouter: { navigate(to: string): void | Promise<void> } | undefined;
+export function setRouter(r: { navigate(to: string): void | Promise<void> }): void {
+  _internalRouter = r;
+}
+
+// Signum's AppContext.navigate: SPA navigation via the router. If setRouter() has run we route through
+// the react-router DataRouter (fast, no full page reload); otherwise fall back to a hard navigation.
 export function navigate(url: string): void {
-  window.location.assign(toAbsoluteUrl(url));
+  const to = toAbsoluteUrl(url);
+  if (_internalRouter)
+    _internalRouter.navigate(to);
+  else
+    window.location.assign(to);
 }
 
 // Ported from Signum.React/AppContext.tsx — sets document.title while the component is mounted.
