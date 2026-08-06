@@ -3,6 +3,7 @@ import { BaseEntity, type Type } from '../data/entity';
 import { Navigator } from './Navigator';
 import { Finder } from './Finder';
 import { Operations } from './Operations';
+import { ExceptionClient } from './Exceptions/ExceptionClient';
 import { EntitySettings, type ViewModule } from './EntitySettings';
 import { QueryTokenString, createTokenFunction, type TokenFunction } from './QueryTokenString';
 
@@ -37,6 +38,10 @@ export class ClientBuilder {
     Operations.start();
     Navigator.start({ routes: this.routes });
     Finder.start({ routes: this.routes });
+    // Framework exception UI (Signum's ExceptionClient.start): registers the ExceptionEntity view the
+    // ErrorModal links to. In the framework init (not per-app) since the framework's ErrorModal depends
+    // on it. Also registers ExceptionEntity's client TypeInfo (fixes "No TypeInfo for 'exception'").
+    ExceptionClient.start();
   }
 
   /** Begin a fluent per-entity registration rooted at `type` (Signum registered view + query settings

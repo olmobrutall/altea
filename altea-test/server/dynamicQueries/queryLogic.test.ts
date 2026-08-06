@@ -11,7 +11,7 @@ import {
 } from "@altea/altea/server/linq/expressions";
 import { ClassType, ArrayType } from "@altea/altea/server/runtimeTypes";
 import { Implementations } from "@altea/altea/data/implementations";
-import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
+import { SubTokensOptions, SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { BuildExpressionContext, ExpressionBox } from "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic"; // side-effect: wires the byAll provider
@@ -68,7 +68,10 @@ describe("QueryLogic — @implementedByAll sub-tokens", () => {
     test("navigating an @implementedByAll reference yields an AsType token per mapped type", () => {
         // ArtistEntity.lastAward is `@implementedByAll Entity` → every mapped entity type.
         Connector.withConnector(fake, () => {
-            const keys = entityToken(ArtistEntity).subToken("lastAward", O)!.subTokens(O).map(t => t.key);
+            // Enumerate without CanAggregate so the reference exposes only its per-mapped-type AsType
+            // casts (not the group-aggregate Count-null / Count-distinct tokens it gets under CanAggregate).
+            const noAgg = O & ~SubTokensOptions.CanAggregate;
+            const keys = entityToken(ArtistEntity).subToken("lastAward", noAgg)!.subTokens(noAgg).map(t => t.key);
             assert.ok(keys.includes("(Album)"));
             assert.ok(keys.includes("(Artist)"));
             assert.ok(keys.includes("(Label)"));

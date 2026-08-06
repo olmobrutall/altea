@@ -248,8 +248,9 @@ export class FieldInfo extends TypeReference {
     hasFullTextIndex?: boolean;
     columnOptions?: ColumnOptions;
     // Signum's MemberInfo display metadata (the client Lines layer reads these off the PropertyRoute's
-    // field). Not wired by altea decorators yet, so undefined ⇒ default rendering — same as Signum
-    // without the attrs. (Signum's MemberInfo.required has no altea field: it's `!isNullable`.)
+    // field). undefined ⇒ default rendering — same as Signum without the attrs. (Signum's
+    // MemberInfo.required has no altea field: it's `!isNullable`.) `format` / `unit` are set by the
+    // @format / @unit decorators (Signum's [Format] / [Unit]) and flow to the query tokens.
     isReadOnly?: boolean;
     format?: string;
     unit?: string;

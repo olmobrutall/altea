@@ -7,6 +7,7 @@
 import { Entity, type PrimaryKey, type Type } from "../data/entity";
 import { Lite } from "../data/lite";
 import { getCacheController } from "./cache";
+import { EntityNotFoundException } from "./exceptions";
 import { retrieveEntitiesByIds, table } from "./table";
 import "../data/globals"; // Array.prototype.contains (SQL-mappable in the delete filter)
 
@@ -43,7 +44,7 @@ export async function retrieveList<T extends Entity>(type: Type<T>, ids: Primary
     return ids.map(id => {
         const e = byId.get(id);
         if (e == null)
-            throw new Error(`Entity '${type.name}' with id ${id} not found.`);
+            throw new EntityNotFoundException(type as Type<Entity>, [id]);
         return e;
     });
 }

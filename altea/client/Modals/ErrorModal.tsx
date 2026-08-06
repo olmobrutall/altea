@@ -307,16 +307,25 @@ export function RenderMessageDefault(p: { error: any }): React.ReactElement {
 }
 
 export namespace ErrorModalOptions {
+  // Signum's ExceptionClient wires these to Navigator (getExceptionUrl → the ExceptionEntity view
+  // route; isExceptionViewable → Navigator.isViewable(ExceptionEntity), i.e. the current user may see
+  // exceptions). eastwind has no auth yet, so isExceptionViewable is true in this dev build — which is
+  // what makes the modal reveal the StackTrace toggle + link the exceptionId to the saved row.
+  // TODO(auth): gate isExceptionViewable on an exception-view permission once altea-auth is wired, so
+  // stack traces are not exposed to unauthorized users in production.
   export function getExceptionUrl(exceptionId: number | string): string | undefined {
-    return undefined;
+    return `/view/exception/${exceptionId}`;
   }
 
   export function isExceptionViewable(): boolean {
-    return false;
+    return true;
   }
 
   export function preferPreFormated(se: ServiceError): boolean {
-    return se.httpError.exceptionType.includes("FieldReaderException");
+    // Signum's `se.httpError.exceptionType.contains(...)`. Guard against a missing exceptionType:
+    // although WebApiHttpError types it non-nullable, a malformed/legacy error response can omit it,
+    // and `undefined.includes(...)` would throw inside render and crash the whole modal.
+    return se.httpError.exceptionType?.includes("FieldReaderException") ?? false;
   }
   export function renderServiceMessage(se: ServiceError): React.ReactNode {
     return <RenderServiceMessageDefault error={se} />;

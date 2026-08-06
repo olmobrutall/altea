@@ -1,5 +1,5 @@
 import type { Quoted } from "quote-transformer/quoted";
-import { Entity } from "../../data/entity";
+import { Entity, type Type } from "../../data/entity";
 import { Implementations } from "../../data/implementations";
 import { Localization } from "../../data/utils/localization";
 import { ClassType, ArrayType, LiteType, EnumType, TemporalType, LiteralType, RuntimeType } from "../runtimeTypes";
@@ -35,7 +35,7 @@ export class ExpressionContainer {
     // sourceType clean-key → (extension key → server registration).
     private readonly registered = new Map<Function, Map<string, RegisteredExpression>>();
 
-    register<E extends Entity, S>(sourceType: Function, lambda: Quoted<(source: E) => S>, opts?: { key?: string; niceName?: () => string; implementations?: Implementations }): RegisteredExpression {
+    register<E extends Entity, S>(sourceType: Type<E>, lambda: Quoted<(source: E) => S>, opts?: { key?: string; niceName?: () => string; implementations?: Implementations }): RegisteredExpression {
         // resultType / isProjection come from the EXPANDED body (fromQuotedLambda inlines the @quoted
         // method); the key must come from the RAW quoted body's tail member, since after expansion the
         // original method name (`albumCount`) is gone (replaced by its body's tail, e.g. `count`).

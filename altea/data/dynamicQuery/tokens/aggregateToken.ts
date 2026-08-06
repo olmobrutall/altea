@@ -13,6 +13,11 @@ export enum AggregateFunction {
     Max = "Max",
 }
 
+// Signum's `" ".Combine(...)`: join the non-empty parts with a single space.
+function combineSpaced(...parts: (string | undefined)[]): string {
+    return parts.filter((p): p is string => p != undefined && p !== "").join(" ");
+}
+
 // Count variants (Signum's FilterOperation? + Distinct on AggregateToken). `filterOperation` is a
 // string (the FilterOperation enum value) to avoid an import cycle with requests.ts.
 export interface AggregateOptions {
@@ -50,8 +55,36 @@ export class AggregateToken extends QueryToken {
         return this.aggregateFunction + distinct + op + value;
     }
 
-    override toString(): string { return this._parent == undefined ? this.aggregateFunction : `${this.aggregateFunction} of ${this._parent.toString()}`; }
-    niceName(): string { return this.toString(); }
+    // Signum's AggregateToken.ToString: ONLY the function (+ Distinct / operation / value) — NO parent.
+    // The QueryTokenBuilder chip renders this (Signum's `toStr`), so a "Sum of Unit price" column shows
+    // just "Sum" in the token dropdown. The parent-qualified label lives in niceName (the column name).
+    override toString(): string {
+        return combineSpaced(this.aggregateFunction, this.niceDistinct(), this.niceOperation(), this.niceValue());
+    }
+
+    // Signum's AggregateToken.NiceName: the parent-qualified label used as the column header
+    // ("Count", "Sum of Unit price", "Count Not Null Unit price"). Divergence: Signum renders Sum as
+    // "Σ <parent>"; altea keeps the spelled-out "Sum of <parent>" (reads better as a column title).
+    niceName(): string {
+        if (this.aggregateFunction === AggregateFunction.Count) {
+            if (this._parent == undefined)
+                return this.aggregateFunction;
+            return combineSpaced(this.aggregateFunction, this.niceDistinct(), this.niceOperation(), this.niceValue(), this._parent.toString());
+        }
+        return combineSpaced(this.aggregateFunction, this.niceDistinct(), this.niceOperation(), this.niceValue(), "of", this._parent!.toString());
+    }
+
+    // Signum's GeNiceDistinct / GetNiceOperation / GetNiceValue — the Count-variant qualifiers.
+    // altea's enum members ARE their display strings (bare literals), so no niceToString lookup.
+    private niceDistinct(): string | undefined { return this.options.distinct ? "Distinct" : undefined; }
+    private niceOperation(): string | undefined {
+        const op = this.options.filterOperation;
+        return op == undefined || op === "EqualTo" ? undefined : op === "DistinctTo" ? "Not" : op;
+    }
+    private niceValue(): string | undefined {
+        if (this.options.filterOperation == undefined) return undefined;
+        return this.options.value == undefined ? "Null" : String(this.options.value);
+    }
     override isAggregate(): boolean { return true; }
     // Signum's AggregateToken.HideInAutoExpand => Parent != null (a nested aggregate is hidden from a
     // flattened list; the root Count of the group stays visible).
@@ -63,7 +96,16 @@ export class AggregateToken extends QueryToken {
         return this._parent!.type; // Sum / Min / Max keep the aggregated value's type
     }
 
-    get format(): string | undefined { return this.aggregateFunction === AggregateFunction.Count ? undefined : this._parent?.format; }
+    // Signum's AggregateToken.Format/Unit: Count has neither; every other aggregate inherits its
+    // parent's @format / @unit (so "Sum of Unit price" keeps "€"). Special case (Signum): an Average
+    // over an integer column (parent format "D") renders as "N2" — the average of ints is fractional.
+    get format(): string | undefined {
+        if (this.aggregateFunction === AggregateFunction.Count)
+            return undefined;
+        if (this.aggregateFunction === AggregateFunction.Average && this._parent?.format === "D")
+            return "N2";
+        return this._parent?.format;
+    }
     get unit(): string | undefined { return this.aggregateFunction === AggregateFunction.Count ? undefined : this._parent?.unit; }
     getImplementations(): Implementations | undefined { return undefined; }
     getPropertyRoute(): PropertyRoute | undefined { return undefined; }

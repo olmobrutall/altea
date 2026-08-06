@@ -170,5 +170,9 @@ function toWireResultTable(rt: ResultTable, wire: WireQueryRequest): WireResultT
             columns: rt.columns.map(c => c.values[row.index]),
         })),
         pagination: wire.pagination,
+        // The paged total (Signum's ResultTable.TotalElements): the client needs it to compute
+        // totalPages / the "N of M results" label. Without it totalPages is NaN and the pagination
+        // renders bogus extra pages that all return an empty page.
+        totalElements: rt.totalElements,
     };
 }

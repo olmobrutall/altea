@@ -11,7 +11,7 @@ import {
 } from "@altea/altea/server/linq/expressions";
 import { ClassType, ArrayType, LiteralType } from "@altea/altea/server/runtimeTypes";
 import { Implementations } from "@altea/altea/data/implementations";
-import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
+import { QueryToken, SubTokensOptions, SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { BuildExpressionContext, ExpressionBox } from "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import "@altea/altea/server/dynamicQuery/tokenExpressions"; // registers token factories
@@ -32,7 +32,7 @@ function contextFor() {
     return { param, ctx };
 }
 // Navigate a dotted token path from the Entity column.
-function tok(path: string) {
+function tok(path: string): QueryToken {
     let t: any = entityToken();
     for (const step of path.split("."))
         t = t.subToken(step, O);
@@ -41,7 +41,7 @@ function tok(path: string) {
 
 describe("leaf sub-tokens exist where Signum puts them", () => {
     test("string field → Length + HasValue", () => {
-        const keys = tok("name").subTokens(O).map((t: any) => t.key);
+        const keys = tok("name").subTokens(O).map(t => t.key);
         assert.ok(keys.includes("length"));
         assert.ok(keys.includes("HasValue"));
     });
@@ -54,7 +54,10 @@ describe("leaf sub-tokens exist where Signum puts them", () => {
     });
 
     test("polymorphic reference → one AsType token per implementation", () => {
-        const keys = tok("author").subTokens(O).map((t: any) => t.key);
+        // Enumerate without CanAggregate so the reference exposes only its AsType-per-implementation
+        // tokens (not the group-aggregate Count-null / Count-distinct tokens it gets under CanAggregate).
+        const noAgg = O & ~SubTokensOptions.CanAggregate;
+        const keys = tok("author").subTokens(noAgg).map(t => t.key);
         assert.deepEqual(new Set(keys), new Set(["(Artist)", "(Band)"]));
     });
 });

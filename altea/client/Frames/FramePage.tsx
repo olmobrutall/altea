@@ -127,10 +127,12 @@ export default function FramePage(): React.ReactElement {
                 AppContext.navigate(Navigator.navigateRoute(a.pack!.entity as Entity));
               }
             })
-          }).catch(err => { console.error("FramePage: loadComponent failed", err); });
+          });
         }
-      })
-      .catch(err => { console.error("FramePage: failed to load/render entity", err); }); // surface load/view errors
+      });
+    // No .catch here (matches Signum's FramePage): a load/view failure (e.g. EntityNotFoundException →
+    // ServiceError) rejects unhandled, which ErrorModal.register's window.onunhandledrejection turns into
+    // the ErrorModal. Swallowing it here would leave the page stuck on "Loading…" with no dialog.
   }, [type, id, location.search]);
 
 

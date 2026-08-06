@@ -669,7 +669,16 @@ async function retrieveEnumRows(table: Table, replacements: Replacements): Promi
     };
 
     const select = columns.map(c => `${sqlBuilder.sqlEscape(dbNameOf(c.name))} AS ${sqlBuilder.sqlEscape(c.name)}`).join(", ");
-    const rows = await connector.executeQuery(`SELECT ${select} FROM ${sqlBuilder.objectName(table.name)}`) as Record<string, unknown>[];
+    // Signum reads current enum rows via Administrator.TryRetrieveAll — the "Try" tolerates a table that
+    // doesn't exist in the DB yet (a NEWLY added enum type): its CREATE TABLE is only in the migration
+    // script being generated, not applied yet, so the SELECT would fail. Treat that as "no current rows"
+    // so every member becomes an INSERT (which runs after the CREATE, earlier in the same script).
+    let rows: Record<string, unknown>[];
+    try {
+        rows = await connector.executeQuery(`SELECT ${select} FROM ${sqlBuilder.objectName(table.name)}`) as Record<string, unknown>[];
+    } catch {
+        return [];
+    }
     return rows.map(r => new Map(columns.map(c => [c.name, r[c.name]])));
 }
 

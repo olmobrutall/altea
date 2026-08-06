@@ -135,6 +135,12 @@ export abstract class QueryToken {
         let m = this.subTokenCache.get(options);
         if (m == undefined) {
             m = new Map();
+            // Signum's SubTokens prepends AggregateTokens when CanAggregate is set (group aggregates:
+            // the root's Count, and each value token's Sum/Avg/Min/Max/Count variants). Priority 10 sorts
+            // them first; a real member of the same key still wins (added after, overriding the entry).
+            if (options & SubTokensOptions.CanAggregate)
+                for (const t of this.aggregateTokens())
+                    m.set(t.key, t);
             for (const t of this.subTokensOverride(options))
                 m.set(t.key, t);
             // Registered cross-entity expression tokens (Signum's QueryLogic.Expressions.
@@ -259,6 +265,45 @@ export abstract class QueryToken {
             for (const ta of ["SeparatedByComma", "SeparatedByCommaDistinct", "SeparatedByNewLine", "SeparatedByNewLineDistinct"])
                 tokens.push(tokenFactories!.collectionToArray(this, ta));
         return tokens;
+    }
+
+    // Signum's QueryUtils.AggregateTokens: the group-aggregate sub-tokens exposed when
+    // SubTokensOptions.CanAggregate is set. On the query root (no parent) it's the group row Count; on a
+    // value/reference token it's the numeric/date Sum/Avg/Min/Max plus the Count-null / Count-distinct
+    // variants. An aggregate token exposes none (Signum's `!(token is AggregateToken)`). Prepended by
+    // cachedSubTokensOverride, mirroring Signum's SubTokens inserting these at the front.
+    protected aggregateTokens(): QueryToken[] {
+        if (this.isAggregate())
+            return [];
+        // token == null in Signum ⇒ the query root: the group's row Count (queryName-anchored, no parent).
+        if (this.parent == undefined)
+            return [tokenFactories!.aggregate("Count", undefined, { queryName: this.queryName })];
+
+        const result: QueryToken[] = [];
+        const ft = this.filterType;
+        if (ft === "Integer" || ft === "Decimal" || ft === "Boolean") {
+            result.push(tokenFactories!.aggregate("Average", this));
+            result.push(tokenFactories!.aggregate("Sum", this));
+            result.push(tokenFactories!.aggregate("Min", this));
+            result.push(tokenFactories!.aggregate("Max", this));
+        }
+        else if (ft === "DateTime" || ft === "Time") {
+            result.push(tokenFactories!.aggregate("Min", this));
+            result.push(tokenFactories!.aggregate("Max", this));
+        }
+        if (ft != undefined) {
+            result.push(tokenFactories!.aggregate("Count", this, { filterOperation: "DistinctTo", value: null }));
+            result.push(tokenFactories!.aggregate("Count", this, { filterOperation: "EqualTo", value: null }));
+        }
+        if (this.isGroupable)
+            result.push(tokenFactories!.aggregate("Count", this, { distinct: true }));
+        if (ft === "Boolean") {
+            result.push(tokenFactories!.aggregate("Count", this, { filterOperation: "EqualTo", value: true }));
+            result.push(tokenFactories!.aggregate("Count", this, { filterOperation: "EqualTo", value: false }));
+        }
+        // TODO(port): FilterType.Enum per-value Count EqualTo/DistinctTo — Signum iterates Enum.GetValues;
+        // altea's enums are string-union + numeric XEnum, so this needs the enum's member set (deferred).
+        return result;
     }
 
     // Signum's list.AndHasValue(this): every value/entity list gets a trailing HasValue token.
@@ -575,6 +620,7 @@ export interface TokenFactories {
     dateToken(parent: QueryToken): QueryToken;
     modulo(parent: QueryToken, divisor: number): QueryToken;
     count(parent: QueryToken): QueryToken;
+    aggregate(aggregateFunction: string, parent: QueryToken | undefined, options?: { filterOperation?: string; value?: unknown; distinct?: boolean; queryName?: QueryName }): QueryToken;
     collectionElement(parent: QueryToken, elementType: string): QueryToken;
     collectionAnyAll(parent: QueryToken, anyAllType: string): QueryToken;
     collectionToArray(parent: QueryToken, toArrayType: string): QueryToken;

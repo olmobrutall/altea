@@ -54,7 +54,9 @@ describe("QueryToken — navigation", () => {
 
         // author is @implementedBy [Artist, Band] → one AsType token per implementation (Phase 3).
         const author = entityToken().subToken("author", O)!;
-        const asKeys = author.subTokens(O).map(t => t.key);
+        // Ignore the group-aggregate tokens a reference exposes under CanAggregate (Count-null /
+        // Count-distinct) — this asserts the AsType-per-implementation tokens.
+        const asKeys = author.subTokens(O).filter(t => !t.isAggregate()).map(t => t.key);
         assert.deepEqual(new Set(asKeys), new Set(["(Artist)", "(Band)"]));
     });
 

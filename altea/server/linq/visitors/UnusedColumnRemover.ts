@@ -58,14 +58,20 @@ export class UnusedColumnRemover extends DbExpressionVisitor {
         // the select single-row.
         const nonConst = select.columns.filter(c => !UnusedColumnRemover.isConstant(c.expression));
         const allAggregates = nonConst.length > 0 && nonConst.every(c => c.expression instanceof AggregateExpression);
+        // A GROUP BY select must keep real columns: pruning them all leaves `SELECT * … GROUP BY`,
+        // which is illegal SQL (every `*`-expanded column would have to be grouped or aggregated).
+        // This bites the pagination COUNT over a group query — `SELECT COUNT(*) FROM (grouped)` uses
+        // none of the inner columns, so all get pruned. Signum's UnusedColumnRemover leans on the
+        // wider `IsDistinct || GroupBy || IsAllAggregates` family (cf. OrderByRewriter) — mirror it.
+        const grouped = select.groupBy.length > 0;
         const columns: ColumnDeclaration[] = [];
         let columnsChanged = false;
         for (const c of select.columns) {
-            // Normal select: keep columns the outer uses by name. DISTINCT / all-aggregates
+            // Normal select: keep columns the outer uses by name. DISTINCT / all-aggregates / GROUP BY
             // select: keep every non-constant column (they define the row), and prune a
             // constant only when it is also unused — altea may project a group key as a
             // constant column that the outer still references (Signum inlines that key).
-            const keep = (select.isDistinct || allAggregates)
+            const keep = (select.isDistinct || allAggregates || grouped)
                 ? (!UnusedColumnRemover.isConstant(c.expression) || columnsUsed.has(c.name))
                 : columnsUsed.has(c.name);
             if (!keep) { columnsChanged = true; continue; }

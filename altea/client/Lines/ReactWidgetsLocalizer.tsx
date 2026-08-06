@@ -60,8 +60,12 @@ export function dateTimePlaceholder(options: Intl.DateTimeFormatOptions): string
     .join("");
 }
 
-// Format an ISO date/datetime string for read-only display (Signum's toFormatWithFixes).
-export function formatDateValue(iso: string, options: Intl.DateTimeFormatOptions): string {
+// Format an ISO date/datetime string for read-only display (Signum's toFormatWithFixes). Accepts a
+// Temporal value too (same as isoToDate above): a deserialized entity carries its date fields as
+// Temporal.PlainDate/PlainDateTime OBJECTS, so coerce via toString() — passing the object straight to
+// `new Date(object + "…")` would force valueOf() and throw "Cannot use valueOf".
+export function formatDateValue(value: string | { toString(): string }, options: Intl.DateTimeFormatOptions): string {
+  const iso = typeof value === "string" ? value : value.toString();
   const d = new Date(iso.length <= 10 ? iso + "T00:00:00" : iso);
   return new Intl.DateTimeFormat(undefined, options).format(d);
 }

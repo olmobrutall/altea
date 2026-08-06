@@ -359,6 +359,28 @@ export function fkProperty(propertyName: string) {
     };
 }
 
+// Field-level display metadata (Signum's [Format] / [Unit] from Entities/PropertyAttributes.cs).
+// Applied to a (usually numeric or date) field; recorded on FieldInfo and surfaced by AutoLine and
+// by the SearchControl result cells — and, crucially, by the query tokens: EntityPropertyToken reads
+// them off its FieldInfo, and AggregateToken (Sum/Min/Max/Average) inherits them from its parent
+// token, so a "Sum of Unit price" column keeps the "€" unit. Signum resolved these lazily from the
+// PropertyRoute's attributes (Reflector.GetFormatString / UnitAttribute); altea has no attributes, so
+// the decorator writes the value straight onto FieldInfo.
+
+// @format("0.0000") / @format("p") — the .NET-style format string the UI uses to render the value.
+export function format(formatString: string) {
+    return function (target: object, propertyKey: string | symbol): void {
+        getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).format = formatString;
+    };
+}
+
+// @unit("€") / @unit("Kg") — the unit symbol shown read-only beside the value.
+export function unit(unitName: string) {
+    return function (target: object, propertyKey: string | symbol): void {
+        getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).unit = unitName;
+    };
+}
+
 // Field-level decorator: overrides column mapping (name / db types / size / precision /
 // nullability) for a field. Stored on FieldInfo.columnOptions and consumed by SchemaBuilder.
 // `@column(false)` instead marks the field as NOT mapped to a column (Signum's [Ignore] / EF's

@@ -110,10 +110,13 @@ export class QueryFormatter extends DbExpressionVisitor {
     // ---- sources ----------------------------------------------------------
 
     override visitSelect(s: SelectExpression): Expression {
-        // One column per line, indented — Signum's column layout.
+        // One column per line, indented — Signum's column layout. An empty column list (every column
+        // pruned by UnusedColumnRemover — e.g. `COUNT(*)` over a grouped subquery references none of
+        // its columns) renders as Signum's `0 AS Dummy`, NOT `*`: a bare `SELECT *` over a GROUP BY is
+        // illegal ("column must appear in the GROUP BY clause"), while a constant needs no grouping.
         const cols = s.columns.length
             ? "\n  " + s.columns.map(c => this.capture(() => this.visitColumnDeclaration(c))).join(", \n  ")
-            : "*";
+            : "0 AS Dummy";
 
         // SQL Server: TOP and OFFSET/FETCH are mutually exclusive — when there is an
         // OFFSET, the row limit is expressed with FETCH NEXT (below), not TOP.
