@@ -146,12 +146,13 @@ export function initFormatRules(): Finder.FormatRule[] {
         const numberFormat = toNumberFormat(opts?.format ?? qt.format);
         return new Finder.CellFormatter((cell: any) => {
           if (cell == null) return "";
-          try { return <span className="try-no-wrap">{numberFormat.format(cell)}</span>; }
+          try { return <span className="try-no-wrap">{numberFormat.format(Number(cell))}</span>; }
           catch { return <span className="try-no-wrap">{String(cell)}</span>; }
         }, false, "numeric-cell");
       },
     },
-    // Decimal: right-aligned, `column.format` applied via Intl (Signum's "Decimal").
+    // Decimal: right-aligned, `column.format` applied via Intl (Signum's "Decimal"). A Decimal-typed
+    // cell arrives as a decimal.js Decimal (or its numeric string) — Number() coerces either for display.
     {
       name: "Decimal",
       isApplicable: qt => qt.filterType == "Decimal",
@@ -159,7 +160,7 @@ export function initFormatRules(): Finder.FormatRule[] {
         const numberFormat = toNumberFormat(opts?.format ?? qt.format);
         return new Finder.CellFormatter((cell: any) => {
           if (cell == null) return "";
-          try { return <span className="try-no-wrap">{numberFormat.format(cell)}</span>; }
+          try { return <span className="try-no-wrap">{numberFormat.format(Number(cell))}</span>; }
           catch { return <span className="try-no-wrap">{String(cell)}</span>; }
         }, false, "numeric-cell");
       },
@@ -175,7 +176,7 @@ export function initFormatRules(): Finder.FormatRule[] {
         return new Finder.CellFormatter((cell: any) => {
           if (cell == null) return "";
           let str: string;
-          try { str = numberFormat.format(cell); }
+          try { str = numberFormat.format(Number(cell)); }
           catch { str = String(cell); }
           return <span className="try-no-wrap">{str + " " + unit}</span>;
         }, false, "numeric-cell");

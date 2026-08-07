@@ -975,7 +975,7 @@ export function PinnedFilterEditor(p: PinnedFilterEditorProps): React.ReactEleme
       <NumberBox readonly={p.readonly} value={val == undefined ? null : val}
         format={numberFormat}
 
-        onChange={n => { binding.setValue(n == null ? undefined : n); p.onChange(); }}
+        onChange={n => { binding.setValue(n == null ? undefined : n as number); p.onChange(); }}
         validateKey={isNumberKey} formControlClass="form-control form-control-xs" htmlAttributes={{ placeholder: placeholder.toString(), title: title, style: { width: "60px" } }} />
     );
   }

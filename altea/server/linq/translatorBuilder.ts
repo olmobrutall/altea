@@ -16,7 +16,7 @@ import { Connector } from "../connection/connector";
 import { ClassType, LiteralType, TemporalType, VectorType, RuntimeType } from "../runtimeTypes";
 import { Retriever } from "./Retriever";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
-import { denormalizeTemporal, denormalizeVector } from "../normalizeScalar";
+import { denormalizeTemporal, denormalizeVector, denormalizeDecimal } from "../normalizeScalar";
 import { ProjectionError } from "./ProjectionError";
 
 // A lookup maps a serialised correlation key to the child values for that key (eager
@@ -253,6 +253,11 @@ class ProjectionBuilder extends DbExpressionVisitor {
         } else if (e.type instanceof VectorType) {
             // A vector column comes back as the `[…]` text literal — materialise it into a Vector.
             const fnIndex = this.pushConst(denormalizeVector);
+            this.stack.push(`consts[${fnIndex}](${read})`);
+        } else if (e.type === LiteralType.decimal) {
+            // A decimal/numeric column (or a lowered Decimal.* expression) materialises into a decimal.js
+            // Decimal — Postgres hands it back as a string (exact), SQL Server as a number.
+            const fnIndex = this.pushConst(denormalizeDecimal);
             this.stack.push(`consts[${fnIndex}](${read})`);
         } else if (e.type === LiteralType.boolean) {
             // A boolean aggregate/scalar comes back as an int on SQL Server (the CASE …

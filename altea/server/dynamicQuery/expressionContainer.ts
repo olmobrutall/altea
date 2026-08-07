@@ -167,7 +167,7 @@ export function toTypeReference(rt: RuntimeType): TypeReference {
     if (rt instanceof ClassType) return new TypeReference({ type: () => rt.constructorFunction });
     if (rt instanceof EnumType) return new TypeReference({ type: () => rt.enumObject });
     if (rt instanceof TemporalType) return new TypeReference({ typeName: rt.kind === "date" ? "PlainDate" : rt.kind === "duration" ? "Duration" : "PlainDateTime" });
-    if (rt instanceof LiteralType) return new TypeReference({ typeName: rt.typeName === "boolean" ? "Boolean" : rt.typeName === "string" ? "String" : rt.typeName === "number" ? "Number" : "String" });
+    if (rt instanceof LiteralType) return new TypeReference({ typeName: rt.typeName === "boolean" ? "Boolean" : rt.typeName === "string" ? "String" : rt.typeName === "number" ? "Number" : rt.typeName === "decimal" ? "Decimal" : "String" });
     return new TypeReference();
 }
 

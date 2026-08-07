@@ -219,6 +219,10 @@ function baseTypeOfFieldInfo(fi: FieldInfo): RuntimeType {
         return LiteralType.null; // enums are not modelled as a Type yet
     switch (fi.typeName) {
         case "Number": return LiteralType.number;
+        // A `Decimal` (decimal.js) field is a scalar decimal column (Signum's decimal). Name-only in
+        // reflection — the transformer keeps "Decimal" a value typeName with no `type: () => Decimal`
+        // thunk (VALUE_TYPE_NAMES) — so it resolves here by name, not via getFunction().
+        case "Decimal": return LiteralType.decimal;
         case "String": return LiteralType.string;
         case "Boolean": return LiteralType.boolean;
         case "PlainDateTime": return new TemporalType("dateTime");

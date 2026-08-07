@@ -7,6 +7,18 @@
 import * as React from 'react'
 import { classes } from '../../data/globals'
 import { toNumberFormat, numberLimits } from '../numberFormat'
+import { Decimal } from '../../data/basics'
+
+// A NumberLine value is a plain `number`, except a `Decimal` (decimal.js) field holds a Decimal object.
+// These bridge the two: `decToNum` for the number-based display/increment mechanics, `wrapDecimal` to
+// store the edited value back as a Decimal (so a decimal column keeps exact decimal semantics).
+function decToNum(v: number | Decimal | null | undefined): number | null | undefined {
+  return v instanceof Decimal ? v.toNumber() : v;
+}
+function numbersEqual(a: number | Decimal | null | undefined, b: number | Decimal | null | undefined): boolean {
+  if (a == null || b == null) return a == b;
+  return (a instanceof Decimal || b instanceof Decimal) ? new Decimal(a as Decimal.Value).eq(b as Decimal.Value) : a === b;
+}
 import { genericMemo, LineBaseController, useController } from './LineBase'
 import { FormGroup } from './FormGroup'
 import { FormControlReadonly } from './FormControlReadonly'
@@ -46,6 +58,7 @@ function numericTextBox(c: NumberLineController, validateKey: (e: React.Keyboard
   const p = c.props
 
   const numberFormat = toNumberFormat(p.format);
+  const isDecimal = p.ctx.memberType?.typeName === "Decimal";
 
   const isLabelVisible = !(p.ctx.formGroupStyle === "SrOnly" || "visually-hidden");
   var ariaAtts = p.ctx.readOnly ? c.baseAriaAttributes() : c.extendedAriaAttributes();
@@ -64,24 +77,26 @@ function numericTextBox(c: NumberLineController, validateKey: (e: React.Keyboard
       <FormGroup ctx={p.ctx} error={p.error} label={p.label} labelIcon={p.labelIcon} helpText={helpText} helpTextOnTop={helpTextOnTop} htmlAttributes={{ ...c.baseHtmlAttributes(), ...p.formGroupHtmlAttributes }} labelHtmlAttributes={p.labelHtmlAttributes} ariaAttributes={ariaAtts}>
         {inputId => c.withItemGroup(
           <FormControlReadonly id={inputId} htmlAttributes={mergedHtmlReadOnly} ctx={p.ctx} className={classes("numeric", c.mandatoryClass)} innerRef={c.setRefs}>
-            {p.ctx.value == null ? "" : numberFormat.format(p.ctx.value)}
+            {p.ctx.value == null ? "" : numberFormat.format(decToNum(p.ctx.value)!)}
           </FormControlReadonly>)}
       </FormGroup>
     );
 
-  const handleOnChange = (newValue: number | null) => {
-    c.setValue(newValue);
+  const handleOnChange = (newValue: number | Decimal | null) => {
+    c.setValue(newValue as any); // a Decimal field stores a Decimal; NumberLineController is typed number|null
   };
 
   var incNumber = typeof c.props.incrementWithArrow == "number" ? c.props.incrementWithArrow : 1;
 
+  const wrap = (n: number): number | Decimal => isDecimal ? new Decimal(n) : n;
   const handleKeyDown = (e: React.KeyboardEvent<any>) => {
+    const cur = decToNum(p.ctx.value) ?? 0;
     if (e.key == KeyNames.arrowDown) {
       e.preventDefault();
-      c.setValue((p.ctx.value ?? 0) - incNumber, e);
+      c.setValue(wrap(cur - incNumber) as any, e);
     } else if (e.key == KeyNames.arrowUp) {
       e.preventDefault();
-      c.setValue((p.ctx.value ?? 0) + incNumber, e);
+      c.setValue(wrap(cur + incNumber) as any, e);
     }
   }
 
@@ -104,6 +119,7 @@ function numericTextBox(c: NumberLineController, validateKey: (e: React.Keyboard
             maxValue={p.maxValue != undefined ? p.maxValue : limits?.max}
             htmlAttributes={mergedHtml}
             value={p.ctx.value}
+            isDecimal={isDecimal}
             onChange={handleOnChange}
             formControlClass={classes(p.ctx.formControlClass, c.mandatoryClass)}
             validateKey={validateKey}
@@ -124,9 +140,11 @@ function numericTextBox(c: NumberLineController, validateKey: (e: React.Keyboard
 }
 
 export interface NumberBoxProps {
-  value: number | null | undefined;
+  value: number | Decimal | null | undefined;
   readonly?: boolean;
-  onChange: (newValue: number | null) => void;
+  // A Decimal field parses input back into a Decimal (exact, from the typed string) rather than a number.
+  isDecimal?: boolean;
+  onChange: (newValue: number | Decimal | null) => void;
   validateKey: (e: React.KeyboardEvent<any>) => boolean;
   minValue?: number | null;
   maxValue?: number | null;
@@ -162,13 +180,15 @@ export function NumberBox(p: NumberBoxProps): React.ReactElement {
   const [text, setText] = React.useState<string | undefined>(undefined);
 
 
+  const numValue = decToNum(p.value); // Decimal → number for display + range checks (see below)
+
   const value = text != undefined ? text :
-    p.value != undefined ? p.format?.format(p.value) :
+    numValue != undefined ? p.format?.format(numValue) :
       "";
 
   const warning =
-    p.value != null && p.minValue != null && p.value < p.minValue ? ValidationMessage.NumberIsTooSmall.niceToString() :
-      p.value != null && p.maxValue != null && p.maxValue < p.value ? ValidationMessage.NumberIsTooBig.niceToString() :
+    numValue != null && p.minValue != null && numValue < p.minValue ? ValidationMessage.NumberIsTooSmall.niceToString() :
+      numValue != null && p.maxValue != null && p.maxValue < numValue ? ValidationMessage.NumberIsTooBig.niceToString() :
         undefined;
 
   return <input ref={p.innerRef}
@@ -201,7 +221,7 @@ export function NumberBox(p: NumberBoxProps): React.ReactElement {
 
       const result = value == undefined || value.length == 0 ? null : unformat(p.format, value);
       setText(undefined);
-      if (result != p.value)
+      if (!numbersEqual(result, p.value))
         p.onChange(result);
     }
   }
@@ -217,7 +237,7 @@ export function NumberBox(p: NumberBoxProps): React.ReactElement {
   }
 
 
-  function unformat(format: Intl.NumberFormat, str: string): number {
+  function unformat(format: Intl.NumberFormat, str: string): number | Decimal {
 
     var options = format.resolvedOptions();
 
@@ -230,6 +250,13 @@ export function NumberBox(p: NumberBoxProps): React.ReactElement {
 
     if (separators.decimal)
       str = str.replace(new RegExp('\\' + separators.decimal), '.');
+
+    // A Decimal field parses the cleaned string DIRECTLY into a Decimal (exact — no float round-trip);
+    // a percent divides by 100 in decimal too.
+    if (p.isDecimal) {
+      const d = new Decimal(str);
+      return isPercentage ? d.div(100) : d;
+    }
 
     var result = parseFloat(str);
 

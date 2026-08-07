@@ -1,4 +1,5 @@
 import { Dictionary, HashSet } from "./collections";
+import { Decimal } from "../basics";
 
 declare global {
 
@@ -56,6 +57,11 @@ declare global {
 
     sum(this: Array<number>): number;
     sum(this: Array<T>, selector: (element: T, index: number, array: T[]) => number): number;
+    // Decimal.js overloads LAST (so an `any`-returning selector still resolves to `number`): a Decimal
+    // element / selector sums with EXACT decimal arithmetic and returns a Decimal — a computed money
+    // column, e.g. Order.totalPrice = details.sum(d => d.subTotalPrice()).
+    sum(this: Array<Decimal>): Decimal;
+    sum(this: Array<T>, selector: (element: T, index: number, array: T[]) => Decimal): Decimal;
 
     // Standard-deviation aggregates (Signum's StdDev/StdDevP) — query-only (SQL STDEV/STDEVP).
     stdDev(this: Array<T>): number | null;
@@ -526,20 +532,27 @@ Array.prototype.min = function (this: any[], selector?: (element: any, index: nu
   return min;
 };
 
-Array.prototype.sum = function (this: any[], selector?: (element: any, index: number, array: any[]) => any) {
+Array.prototype.sum = function (this: any[], selector?: (element: any, index: number, array: any[]) => any): any {
 
   if (this.length == 0)
     return 0;
 
+  const val = (i: number): any => selector ? selector(this[i], i, this) : this[i];
+
+  // Decimal-aware: when the elements are decimal.js Decimals, accumulate with EXACT decimal arithmetic
+  // and return a Decimal (a plain `+=` would coerce Decimals to strings). Detected off the first
+  // non-null value, matching the isomorphic type overloads.
+  let first: any;
+  for (var i = 0; i < this.length; i++) { first = val(i); if (first != null) break; }
+  if (first instanceof Decimal) {
+    let acc = new Decimal(0);
+    for (var i = 0; i < this.length; i++) { const v = val(i); if (v != null) acc = acc.plus(v); }
+    return acc;
+  }
+
   var result = 0;
-  if (selector) {
-    for (var i = 0; i < this.length; i++) {
-      result += selector(this[i], i, this) ?? 0;
-    }
-  } else {
-    for (var i = 0; i < this.length; i++) {
-      result += this[i];
-    }
+  for (var i = 0; i < this.length; i++) {
+    result += val(i) ?? 0;
   }
 
   return result;

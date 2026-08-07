@@ -15,7 +15,7 @@ import {
     NoteWithDateEntity, GrammyAwardEntity, AwardEntity, AmericanMusicAwardEntity,
     Sex, AwardResult, type IAuthorEntity,
 } from "../../data/music";
-import { inSql, toInt, toDecimal } from "@altea/altea/data/basics";
+import { inSql, toInt, Decimal } from "@altea/altea/data/basics";
 
 // Port of Signum.Test/LinqProvider/SelectTest.cs. C# → altea idiom:
 //   Database.Query<T>()  → table(T)            .Select(...) → .map(...)
@@ -783,16 +783,16 @@ describe("SelectTest", { skip: !hasDb }, () => {
 
     // Select(a => ((int)a.Id / 10m)).Select(a => ((decimal?)a).InSql()); Assert.Contains(list, a => a.Value != Math.Round(a.Value))
     // Signum's `10m` makes the division decimal so SQL preserves the places under InSql(). altea's
-    // equivalent is `toDecimal(a.id)` — a CAST to decimal/numeric, so `toDecimal(a.id) / 10`
-    // divides in decimal and keeps the .5 server-side. Three ways: lazy client-side float (keeps
-    // places), plain int/int forced to SQL (integer division truncates), and toDecimal in SQL
-    // (decimal division keeps places, matching Signum's 10m).
+    // equivalent is `Decimal.div(a.id, 10)` — the nominator casts the dividend to numeric, so the
+    // division runs in decimal and keeps the .5 server-side (materialising a Decimal). Three ways: lazy
+    // client-side float (keeps places), plain int/int forced to SQL (integer division truncates), and
+    // Decimal.div in SQL (decimal division keeps places, matching Signum's 10m).
     test("AvoidDecimalCastinInSql", async () => {
         const clientSide = await table(ArtistEntity).map(a => (a.id as number) / 10).toArray();
         assert.ok(clientSide.some(a => !Number.isInteger(a)));                  // lazy JS keeps the .5
         const intInSql = await table(ArtistEntity).map(a => inSql((a.id as number) / 10)).toArray();
         assert.ok(intInSql.every(a => Number.isInteger(a)));                    // SQL int-division truncates
-        const decimalInSql = await table(ArtistEntity).map(a => inSql(toDecimal(a.id as number) / 10)).toArray();
-        assert.ok(decimalInSql.some(a => Number(a) % 1 !== 0));                 // decimal division keeps the .5
+        const decimalInSql = await table(ArtistEntity).map(a => inSql(Decimal.div(a.id as number, 10))).toArray();
+        assert.ok(decimalInSql.some(a => !(a as Decimal).mod(1).isZero()));     // decimal division keeps the .5
     });
 });

@@ -80,10 +80,6 @@ export function defaultDbType(typeName: string, kind: string | undefined): Abstr
     switch (kind) {
         case 'int': return new AbstractDbType('int', 'int4');
         case 'long': return new AbstractDbType('bigint', 'int8');
-        // A branded `decimal` alias (typeName "Number", subTypeName "decimal") stores as SQL
-        // decimal/numeric — exact money, same column type as the `Decimal` class case below.
-        // The runtime value stays a JS number (the pg numeric parser coerces it back).
-        case 'decimal': return new AbstractDbType('decimal', 'numeric');
     }
 
     switch (typeName) {

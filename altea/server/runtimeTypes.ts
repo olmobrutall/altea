@@ -24,10 +24,15 @@ export class LiteralType extends RuntimeType {
 
     static readonly boolean: LiteralType = new LiteralType("boolean");
     static readonly number: LiteralType = new LiteralType("number");
+    // A decimal.js `Decimal` value (Signum's SqlDbType.Decimal). Distinct from `number` so the query
+    // layer keeps decimal arithmetic in SQL (Decimal.add/mul/… lower to numeric ops) and materialises a
+    // read back into a `Decimal` object. Still a scalar, so ordering/comparison/aggregates treat it like
+    // a number.
+    static readonly decimal: LiteralType = new LiteralType("decimal");
     static readonly string: LiteralType = new LiteralType("string");
     static readonly null: LiteralType = new LiteralType("null");
 
-    constructor(public readonly typeName: "boolean" | "number" | "string" | "null") {
+    constructor(public readonly typeName: "boolean" | "number" | "decimal" | "string" | "null") {
         super()
     }
 }

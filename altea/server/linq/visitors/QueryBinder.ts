@@ -61,7 +61,7 @@ import type { FieldInfo } from "../../../data/reflection";
 import { Entity, View, ModelEntity } from "../../../data/entity";
 import type { Type, ViewType } from "../../../data/entity";
 import { TypeEntity } from "../../../data/typeEntity";
-import { toInt, toLong, toDecimal, inSql, Temporal } from "../../../data/basics";
+import { toInt, toLong, inSql, Temporal } from "../../../data/basics";
 import { Lite, getCustomLiteConstructor, getCustomLiteConstructorFor } from "../../../data/lite";
 import type { CustomLiteClass } from "../../../data/lite";
 import { Localization } from "../../../data/utils/localization";
@@ -919,10 +919,10 @@ export class QueryBinder extends ExpressionVisitor {
             // marker (defeating the lazy projector). Just re-bind the argument here.
             if (func.value === inSql)
                 return new CallExpression(func, [this.visit(call.args[0])], call.type);
-            // Number(x) / toDecimal(x) (Signum's Convert to double / decimal): bind the argument
-            // and leave the call residual; the nominator lowers it to a SQL CAST (like Signum's
-            // VisitUnary) — Number to a floating type, toDecimal to decimal/numeric.
-            if (func.value === Number || func.value === toDecimal)
+            // Number(x) (Signum's Convert to double): bind the argument and leave the call residual;
+            // the nominator lowers it to a SQL CAST to a floating type (like Signum's VisitUnary).
+            // (Decimal casts go through the Decimal.* static methods — see server/decimalFunctions.ts.)
+            if (func.value === Number)
                 return new CallExpression(func, [this.visit(call.args[0])], LiteralType.number);
         }
 

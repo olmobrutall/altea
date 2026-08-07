@@ -1,4 +1,4 @@
-import { Temporal } from '../data/basics';
+import { Temporal, Decimal } from '../data/basics';
 import { Vector } from '../data/vector';
 
 // Normalise a scalar value into a dialect-portable form the DB drivers accept as a
@@ -50,6 +50,18 @@ export function denormalizeTemporal(value: unknown, kind: 'dateTime' | 'date' | 
         case 'dateTime': return toPlainDateTime(value);
         case 'duration': return toDuration(value);
     }
+}
+
+// Materialise a `numeric`/`decimal` column read into a decimal.js `Decimal` (the read-side inverse of
+// normalizeScalar's `String(value)` write). Postgres hands numeric back as a string (kept unparsed by the
+// pool so no float precision is lost); SQL Server as a JS number. `new Decimal(...)` accepts both, exactly.
+// Idempotent: an already-Decimal value passes through.
+export function denormalizeDecimal(value: unknown): Decimal | null {
+    if (value == null)
+        return null;
+    if (value instanceof Decimal)
+        return value;
+    return new Decimal(value as Decimal.Value);
 }
 
 // Materialise a `vector(N)` column read into a Vector. Both pgvector and SQL Server's VECTOR return

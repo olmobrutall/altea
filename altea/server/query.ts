@@ -4,7 +4,7 @@ import { EmbeddedEntity, Entity } from "../data/entity";
 import type { IQuery, IOrderedQuery } from "../data/iquery";
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, type MethodExpander, PropertyExpression } from "./linq/expressions";
 import { ArrayType, LiteralType as SimpleType, ClassType, RuntimeType, FunctionType, ObjectType, type QuotedFunction, quotedFunction, type LambdaTypeResolver, type ResultTypeResolver } from "./runtimeTypes";
-import { toInt, toLong, toDecimal, inSql } from "../data/basics";
+import { toInt, toLong, inSql } from "../data/basics";
 import { SystemTime } from "./systemTime";
 
 // Interface expansion (rather than declaring it in entities/iquery.ts): overrideSystemTime is a
@@ -128,7 +128,6 @@ quotedFunction(EntityContext.entityId).__resultType = () => SimpleType.number;
 // give it a result type so fromQuoted can type the call node.
 quotedFunction(toInt).__resultType = () => SimpleType.number;
 quotedFunction(toLong).__resultType = () => SimpleType.number;
-quotedFunction(toDecimal).__resultType = () => SimpleType.number;
 
 // inSql(x) (Signum's LinqHints.InSql) is identity for typing — its result is its argument's
 // type. The binder keeps it a CallExpression marker; the nominator force-nominates its arg.

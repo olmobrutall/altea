@@ -19,6 +19,7 @@ import { ArrayType, ClassType, FunctionType, LiteType, LiteralType, RuntimeType,
 import { NullableInterval } from './systemTime';
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, ParameterExpression, PropertyExpression } from './linq/expressions';
 import { ExpressionVisitor } from './linq/visitors/ExpressionVisitor';
+import './decimalFunctions'; // side effect: attaches __resultType to the Decimal.* static arithmetic methods
 
 // Logic-layer barrel: re-exports the common server entry points alongside installing
 // the entity/lite extension-method prototypes (below).
