@@ -67,6 +67,12 @@ describe("Decimal arithmetic — SQL generation", () => {
                 assert.match(sql(table(AlbumEntity).map(a => inSql(Decimal.min(a.year, 100)))), /least\(/);
             });
 
+            test("INSTANCE methods (a.plus / .dividedBy) lower like the static ops", () => {
+                // Decimal.mul(...) gives a decimal-typed receiver; .plus(10) is the instance form of add.
+                assert.match(sql(table(AlbumEntity).map(a => inSql(Decimal.mul(a.year, 1).plus(10)))), new RegExp(`cast\\(\\(.*\\+.*\\) as ${numeric}\\)`));
+                assert.match(sql(table(AlbumEntity).map(a => inSql(Decimal.mul(a.year, 1).dividedBy(100)))), new RegExp(`cast\\(.*as ${numeric}\\) /`));
+            });
+
             test("the plain-number path is NOT cast to decimal (contrast)", () => {
                 const s = sql(table(AlbumEntity).map(a => inSql((a.year as number) / 100)));
                 assert.doesNotMatch(s, new RegExp(`cast\\(.*as ${numeric}\\)`));
@@ -100,5 +106,27 @@ describe("Decimal arithmetic — execution", { skip: !hasDb }, () => {
         const rows = await table(AlbumEntity).map(a => ({ y: a.year, diff: inSql(Decimal.sub(a.year, 3)), rem: inSql(Decimal.mod(a.year, 7)) })).toArray();
         assert.ok(rows.every(r => r.diff instanceof Decimal && r.diff.eq(new Decimal(r.y).minus(3))));
         assert.ok(rows.every(r => r.rem instanceof Decimal && r.rem.eq(new Decimal(r.y).mod(7))));
+    });
+
+    test("INSTANCE .plus / .dividedBy compute exactly in SQL", async () => {
+        const rows = await table(AlbumEntity).map(a => ({ y: a.year, v: inSql(Decimal.mul(a.year, 1).plus(10)) })).toArray();
+        assert.ok(rows.length > 0 && rows.every(r => r.v instanceof Decimal && r.v.eq(new Decimal(r.y).plus(10))));
+        const divs = await table(AlbumEntity).map(a => inSql(Decimal.mul(a.year, 1).dividedBy(100))).toArray();
+        assert.ok(divs.every(d => d instanceof Decimal) && divs.some(d => !d.mod(1).isZero()));
+    });
+});
+
+// No-DB: the isomorphic Array aggregates over decimal.js Decimals delegate to Decimal.sum/max/min
+// (exact decimal arithmetic — a plain `+`/`<` would be float / valueOf-string and wrong).
+describe("Array aggregates over Decimals (in-memory)", () => {
+    test("sum → Decimal.sum (exact), max/min → Decimal.max/min", () => {
+        const xs = [new Decimal("0.1"), new Decimal("0.2")];
+        assert.ok(xs.sum().eq(new Decimal("0.3")), "0.1 + 0.2 is exactly 0.3 (float would be 0.30000000000000004)");
+        assert.ok(xs.max()!.eq(new Decimal("0.2")));
+        assert.ok(xs.min()!.eq(new Decimal("0.1")));
+        // with a selector
+        const rows = [{ p: new Decimal("1.50") }, { p: new Decimal("2.25") }];
+        assert.ok(rows.sum(r => r.p).eq(new Decimal("3.75")));
+        assert.ok(rows.max(r => r.p)!.eq(new Decimal("2.25")));
     });
 });

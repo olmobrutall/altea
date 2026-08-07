@@ -1,29 +1,46 @@
-// Query metadata for the decimal.js `Decimal` static arithmetic methods (Signum's decimal operators).
+// Query metadata for the decimal.js `Decimal` arithmetic methods (Signum's decimal operators).
 //
-// A @quoted body computes money with `Decimal.add/sub/mul/div/…` instead of the `+ - * /` operators, so
-// the SAME body is BOTH exact in-memory (real decimal.js) AND translatable to SQL:
-//   - the quote front-end reads `__resultType` (attached here) to type each call as LiteralType.decimal;
-//   - DbExpressionNominator lowers `Decimal.add(a,b)` → the SQL numeric operator / function (see
-//     `decimalStaticCall` there — it keys off the SAME `Decimal` class + method name).
+// A @quoted body computes money with `Decimal.*` — as STATIC calls (`Decimal.add(a, b)`) OR INSTANCE
+// calls (`a.plus(b)`) — instead of the `+ - * /` operators, so the SAME body is BOTH exact in-memory
+// (real decimal.js) AND translatable to SQL:
+//   - the quote front-end reads `__resultType` (attached here, on both the static method and the
+//     prototype method) to type each call as LiteralType.decimal;
+//   - DbExpressionNominator lowers the call → the SQL numeric operator / function (see `decimalCall`
+//     there — it keys off the SAME method names, whether the receiver is the `Decimal` class (static)
+//     or a decimal-typed expression (instance)).
 //
-// Importing this module (side effect, via server/index.ts) installs the metadata. The mutation is on the
-// shared decimal.js static methods — a server (LINQ-provider) concern, like the Entity/Number metadata in
+// Importing this module (side effect, via server/index.ts) installs the metadata. The mutation is on
+// the shared decimal.js methods — a server (LINQ-provider) concern, like the Entity/Number metadata in
 // server/index.ts — so it lives in server/, never in the RuntimeType-free entities/ layer.
 
 import { Decimal } from "../data/basics";
 import { quotedFunction, LiteralType } from "./runtimeTypes";
 
-// name → result type. Every arithmetic/rounding result is a Decimal; `sign` is an integer.
-export const DECIMAL_RESULT_METHODS: readonly string[] = [
-    "add", "sub", "mul", "div", "mod",              // binary operators
-    "abs", "sqrt", "pow", "floor", "ceil", "round", "trunc", "max", "min", // SQL functions
+// Method names the nominator can lower to SQL (canonical + decimal.js aliases). Shared with
+// DbExpressionNominator.decimalCall so the two never drift. All yield a Decimal except `sign` (→ number).
+export const DECIMAL_METHODS: readonly string[] = [
+    "add", "plus",                 // +
+    "sub", "minus",                // -
+    "mul", "times",                // *
+    "div", "dividedBy",            // /
+    "mod", "modulo",               // %
+    "abs", "absoluteValue",        // ABS
+    "sqrt", "squareRoot",          // SQRT
+    "pow", "toPower",              // POWER
+    "neg", "negated",              // 0 - x
+    "floor", "ceil", "round", "trunc", "max", "min",
 ];
+const DECIMAL_NUMBER_METHODS: readonly string[] = ["sign"]; // return an integer, not a Decimal
 
-const D = Decimal as unknown as Record<string, unknown>;
+const asStatic = Decimal as unknown as Record<string, unknown>;
+const asProto = Decimal.prototype as unknown as Record<string, unknown>;
 
-for (const name of DECIMAL_RESULT_METHODS)
-    if (typeof D[name] === "function")
-        quotedFunction(D[name] as Function).__resultType = () => LiteralType.decimal;
+// Attach on BOTH the static method and the prototype (instance) method, when they exist — decimal.js
+// exposes most operators in both forms (Decimal.add / x.plus), and floor/ceil/round/max/min statically.
+function setResult(name: string, resultType: () => LiteralType): void {
+    if (typeof asStatic[name] === "function") quotedFunction(asStatic[name] as Function).__resultType = resultType;
+    if (typeof asProto[name] === "function") quotedFunction(asProto[name] as Function).__resultType = resultType;
+}
 
-if (typeof D["sign"] === "function")
-    quotedFunction(D["sign"] as Function).__resultType = () => LiteralType.number;
+for (const name of DECIMAL_METHODS) setResult(name, () => LiteralType.decimal);
+for (const name of DECIMAL_NUMBER_METHODS) setResult(name, () => LiteralType.number);

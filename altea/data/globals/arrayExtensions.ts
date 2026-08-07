@@ -496,12 +496,16 @@ Array.prototype.groupsOf = function (this: any[], groupSize: number, elementSize
 
 Array.prototype.max = function (this: any[], selector?: (element: any, index: number, array: any[]) => any) {
 
-  var array: number[] = selector ?
+  var array: any[] = selector ?
     this.map(selector).filter(a => a != null) :
     this.filter(a => a != null);
 
   if (array.length == 0)
     return null;
+
+  // Decimal.js elements: delegate to Decimal.max (a plain `<` compares via valueOf strings — wrong).
+  if (array[0] instanceof Decimal)
+    return Decimal.max(...array);
 
   var max = array[0];
   for (var i = 1; i < array.length; i++) {
@@ -515,12 +519,15 @@ Array.prototype.max = function (this: any[], selector?: (element: any, index: nu
 
 Array.prototype.min = function (this: any[], selector?: (element: any, index: number, array: any[]) => any) {
 
-  var array: number[] = selector ?
+  var array: any[] = selector ?
     this.map(selector).filter(a => a != null) :
     this.filter(a => a != null);
 
   if (array.length == 0)
     return null;
+
+  if (array[0] instanceof Decimal)
+    return Decimal.min(...array);
 
   var min = array[0];
   for (var i = 1; i < array.length; i++) {
@@ -539,15 +546,15 @@ Array.prototype.sum = function (this: any[], selector?: (element: any, index: nu
 
   const val = (i: number): any => selector ? selector(this[i], i, this) : this[i];
 
-  // Decimal-aware: when the elements are decimal.js Decimals, accumulate with EXACT decimal arithmetic
-  // and return a Decimal (a plain `+=` would coerce Decimals to strings). Detected off the first
-  // non-null value, matching the isomorphic type overloads.
+  // Decimal-aware: when the elements are decimal.js Decimals, delegate to Decimal.sum for EXACT decimal
+  // arithmetic (a plain `+=` would coerce Decimals to strings). Detected off the first non-null value,
+  // matching the isomorphic type overloads.
   let first: any;
   for (var i = 0; i < this.length; i++) { first = val(i); if (first != null) break; }
   if (first instanceof Decimal) {
-    let acc = new Decimal(0);
-    for (var i = 0; i < this.length; i++) { const v = val(i); if (v != null) acc = acc.plus(v); }
-    return acc;
+    const vals: any[] = [];
+    for (var i = 0; i < this.length; i++) { const v = val(i); if (v != null) vals.push(v); }
+    return vals.length == 0 ? new Decimal(0) : Decimal.sum(...vals);
   }
 
   var result = 0;

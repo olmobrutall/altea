@@ -301,14 +301,6 @@ class DbExpressionNominator extends DbExpressionVisitor {
         // → a floating type; toInt/toLong(x) over a boolean → an integer. A boolean is a value on
         // Postgres (`bool::integer`) but a predicate on SQL Server, so there it becomes CASE 1/0.
         // Building the node and re-visiting lets visitSqlCast / visitConditional nominate it.
-        // Decimal.<op>(a, b) — the decimal.js static arithmetic methods (see server/decimalFunctions.ts).
-        // The binder typed the call LiteralType.decimal; here we lower it to the SQL numeric operator /
-        // function. Detected by the captured `Decimal` class as the (static) receiver.
-        if (node.func instanceof PropertyExpression && node.func.object instanceof ConstantExpression
-            && node.func.object.value === Decimal) {
-            const args = node.args.map(a => this.visit(a));
-            return this.visit(this.decimalStaticCall(node.func.propertyName, args));
-        }
         if (node.func instanceof ConstantExpression) {
             const arg = node.args[0];
             if (node.func.value === Number)
@@ -321,9 +313,22 @@ class DbExpressionNominator extends DbExpressionVisitor {
             }
         }
         if (node.func instanceof PropertyExpression) {
-            const receiver = this.visit(node.func.object);
+            const obj = node.func.object;
+            // Decimal arithmetic (see server/decimalFunctions.ts) — STATIC `Decimal.add(a,b)` (receiver is
+            // the captured Decimal class) OR INSTANCE `x.plus(y)` (receiver is a decimal-typed expression).
+            // Both lower to the same SQL; the operands are the args (static) or receiver + args (instance).
+            const isStaticDecimal = obj instanceof ConstantExpression && obj.value === Decimal;
+            const receiver = isStaticDecimal ? undefined : this.visit(obj);
             const args = node.args.map(a => this.visit(a));
-            const translated = this.hardCodedMethod(node.func.propertyName, receiver, args);
+            if (isStaticDecimal || obj.type === LiteralType.decimal) {
+                const lowered = this.decimalCall(node.func.propertyName, isStaticDecimal ? args : [receiver!, ...args]);
+                if (lowered != null)
+                    return this.visit(lowered);
+                if (isStaticDecimal)
+                    throw new Error(`Decimal.${node.func.propertyName} cannot be translated to SQL`);
+                // an instance method that isn't a lowerable decimal op → fall through to the generic handler
+            }
+            const translated = this.hardCodedMethod(node.func.propertyName, receiver!, args);
             if (translated != null)
                 return this.visit(translated); // nominate the lowered server expression
             throw new Error(`The method '${node.func.propertyName}' cannot be translated to SQL`);
@@ -331,38 +336,42 @@ class DbExpressionNominator extends DbExpressionVisitor {
         throw new Error("Unexpected call reached the nominator: " + node.toString());
     }
 
-    // Lower a `Decimal.<op>(args)` static call (see server/decimalFunctions.ts) to SQL. Arithmetic
-    // becomes a BinaryExpression WRAPPED in a decimal cast — the cast both forces the SQL result numeric
-    // (so `int op int` stays decimal, not integer) AND re-types the node LiteralType.decimal (a bare
-    // BinaryExpression is always typed `number`), which is what makes a projected column materialise back
-    // into a `Decimal`. Non-operator functions are scalar SQL functions already typed decimal.
-    private decimalStaticCall(name: string, args: readonly Expression[]): Expression {
+    // Lower a decimal.js `Decimal` arithmetic call (static `Decimal.add(a,b)` or instance `a.plus(b)` —
+    // both reach here as `operands`; see server/decimalFunctions.ts) to SQL, keyed by method name +
+    // decimal.js alias. Binary ops become a BinaryExpression WRAPPED in a decimal cast — the cast both
+    // forces the SQL result numeric (so `int op int` stays decimal, not integer) AND re-types the node
+    // LiteralType.decimal (a bare BinaryExpression is always typed `number`), which is what makes a
+    // projected column materialise back into a `Decimal`. Non-operator functions are scalar SQL functions
+    // already typed decimal. Returns undefined for a name that isn't a lowerable decimal op.
+    private decimalCall(name: string, operands: readonly Expression[]): Expression | undefined {
         const dec = LiteralType.decimal;
         const numeric = this.isPostgres ? "numeric" : "decimal";
         const toNumeric = (e: Expression): Expression => new SqlCastExpression(dec, e, numeric);
         const arith = (kind: "+" | "-" | "*" | "/" | "%", left: Expression, right: Expression): Expression =>
             toNumeric(new BinaryExpression(kind, left, right));
+        const [a, b] = operands;
         switch (name) {
-            case "add": return arith("+", args[0], args[1]);
-            case "sub": return arith("-", args[0], args[1]);
-            case "mul": return arith("*", args[0], args[1]);
-            case "mod": return arith("%", args[0], args[1]);
+            case "add": case "plus": return arith("+", a, b);
+            case "sub": case "minus": return arith("-", a, b);
+            case "mul": case "times": return arith("*", a, b);
+            case "mod": case "modulo": return arith("%", a, b);
             // Cast the dividend to numeric FIRST so `int / int` is real (not integer) division.
-            case "div": return arith("/", toNumeric(args[0]), args[1]);
-            case "abs": return this.sqlFunction(dec, "ABS", args[0]);
-            case "sqrt": return this.sqlFunction(dec, "SQRT", args[0]);
-            case "pow": return this.sqlFunction(dec, "POWER", args[0], args[1]);
-            case "floor": return this.sqlFunction(dec, "FLOOR", args[0]);
-            case "ceil": return this.sqlFunction(dec, "CEILING", args[0]);
-            case "round": return this.sqlFunction(dec, "ROUND", args[0], new SqlConstantExpression(0, LiteralType.number));
+            case "div": case "dividedBy": return arith("/", toNumeric(a), b);
+            case "neg": case "negated": return arith("-", new SqlConstantExpression(0, dec), a);
+            case "abs": case "absoluteValue": return this.sqlFunction(dec, "ABS", a);
+            case "sqrt": case "squareRoot": return this.sqlFunction(dec, "SQRT", a);
+            case "pow": case "toPower": return this.sqlFunction(dec, "POWER", a, b);
+            case "floor": return this.sqlFunction(dec, "FLOOR", a);
+            case "ceil": return this.sqlFunction(dec, "CEILING", a);
+            case "round": return this.sqlFunction(dec, "ROUND", a, new SqlConstantExpression(0, LiteralType.number));
             case "trunc": return this.isPostgres
-                ? this.sqlFunction(dec, "TRUNC", args[0])
-                : this.sqlFunction(dec, "ROUND", args[0], new SqlConstantExpression(0, LiteralType.number), new SqlConstantExpression(1, LiteralType.number));
-            case "sign": return this.sqlFunction(LiteralType.number, "SIGN", args[0]);
-            case "max": return this.sqlFunction(dec, "GREATEST", ...args);
-            case "min": return this.sqlFunction(dec, "LEAST", ...args);
+                ? this.sqlFunction(dec, "TRUNC", a)
+                : this.sqlFunction(dec, "ROUND", a, new SqlConstantExpression(0, LiteralType.number), new SqlConstantExpression(1, LiteralType.number));
+            case "sign": return this.sqlFunction(LiteralType.number, "SIGN", a);
+            case "max": return this.sqlFunction(dec, "GREATEST", ...operands);
+            case "min": return this.sqlFunction(dec, "LEAST", ...operands);
         }
-        throw new Error(`Decimal.${name} cannot be translated to SQL`);
+        return undefined;
     }
 
     // The temporal kind a receiver's `from(...)` constructs, when the receiver is a captured

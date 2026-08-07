@@ -1,6 +1,6 @@
 import type { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
 import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, TsVectorType, TsQueryType, IntervalType, RuntimeType } from "../runtimeTypes";
-import { Temporal } from "../../data/basics";
+import { Temporal, Decimal } from "../../data/basics";
 import { resolveType } from "../../data/registration";
 import { tryGetTypeInfo, type FieldInfo } from "../../data/reflection";
 import { Lite } from "../../data/lite";
@@ -653,6 +653,7 @@ export abstract class Expression {
                                             obj.type instanceof TsVectorType || obj.type instanceof TsQueryType ? tsFullTextProto :
                                             obj.type instanceof ClassType ? obj.type.constructorFunction.prototype :
                                                 obj.type === LiteralType.number ? Number.prototype :
+                                                obj.type === LiteralType.decimal ? Decimal.prototype :
                                                     obj.type === LiteralType.boolean ? Boolean.prototype :
                                                         staticReceiverObject(obj) ??
                                                         // `toString()` is universal (Object.prototype has it),

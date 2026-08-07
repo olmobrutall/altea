@@ -10,7 +10,7 @@
 //     entity Serializer (res.jsonTyped) so the lites/values in the rows go out in wire form.
 
 import { Entity } from "../data/entity";
-import { Temporal } from "../data/basics";
+import { Temporal, Decimal } from "../data/basics";
 import { resolveCleanType } from "../data/registration";
 import { SubTokensOptionsAll } from "../data/dynamicQuery/tokens";
 import {
@@ -111,8 +111,10 @@ function deserializeFilterValue(token: QueryToken, operation: FilterOperation, r
 function deserializeSingle(token: QueryToken, raw: unknown): unknown {
     if (raw == null) return raw;
     switch (token.filterType) {
-        case "Integer":
-        case "Decimal": return typeof raw === "number" ? raw : Number(raw);
+        case "Integer": return typeof raw === "number" ? raw : Number(raw);
+        // A decimal filter value round-trips as a STRING (the client's DecimalSerializer); rebuild the
+        // exact Decimal so the SQL parameter keeps full precision (normalizeScalar stringifies it back).
+        case "Decimal": return raw instanceof Decimal ? raw : new Decimal(raw as Decimal.Value);
         case "Boolean": return typeof raw === "boolean" ? raw : raw === "true";
         case "Enum": {
             // The wire carries the enum member NAME; the column stores its ordinal value.
