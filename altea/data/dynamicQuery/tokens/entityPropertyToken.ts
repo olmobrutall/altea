@@ -1,5 +1,5 @@
 import { PropertyRoute } from "../../propertyRoute";
-import { FieldInfo, TypeReference, tryGetTypeInfo } from "../../reflection";
+import { FieldInfo, TypeReference, tryGetTypeInfo, defaultFormat } from "../../reflection";
 import type { Implementations } from "../../implementations";
 import { QueryToken, SubTokensOptions, entityCtorOf } from "./queryToken";
 
@@ -78,7 +78,7 @@ export class EntityPropertyToken extends QueryToken {
 
     // Signum's Reflector.GetFormatString: the Id (a primary-key int) formats as "D" — decimal, NO
     // thousands grouping (so "10248", not "10,248"); other fields use their own @format.
-    get format(): string | undefined { return this.isId ? (this.fieldInfo.typeName === "Guid" ? undefined : "D") : this.fieldInfo?.format; }
+    get format(): string | undefined { return this.isId ? (this.fieldInfo.typeName === "Guid" ? undefined : "D") : (this.fieldInfo?.format ?? defaultFormat(this.fieldInfo)); }
     // Signum's EntityPropertyToken.Unit: the field's [Unit] (altea's @unit, stored on FieldInfo). The
     // synthetic id token has no unit.
     get unit(): string | undefined { return this.isId ? undefined : this.fieldInfo?.unit; }

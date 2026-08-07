@@ -84,6 +84,9 @@ import { QueryTokenMessage } from '../data/dynamicQueries';
 // import Finder back — safe because they only touch Finder inside render-time functions. This makes both
 // implicit on `import { Finder }` (no side-effect imports needed in the app's startup).
 import "./EntityTypeApi";
+import "./QueryClient"; // side-effect: initQueryClient() wires the ASYNC server-only token source
+                        // (extensions/manual/ops). Without it getSubTokens returns local tokens only,
+                        // so registered-expression tokens (e.g. Order.totalPrice) never reach the client.
 import { initFormatRules, initEntityFormatRules, initQuickFilterRules, initFilterValueFormatRules as defaultFilterValueFormatRules } from "./FinderRules";
 import type SearchControlLoaded from "./SearchControl/SearchControlLoaded";
 // import { Operations } from "./Operations";
@@ -511,31 +514,40 @@ export namespace Finder {
 
   export function mergeColumns(queryToken: QueryToken, mode: ColumnOptionsMode, columnOptions: ColumnOption[]): ColumnOption[] {
 
-    var columns = getDefaultColumns(queryToken);
+    // The default columns as raw token-key strings. An explicit `qs.defaultColumns` may reference a
+    // SERVER-only token — a registered expression such as Order.totalPrice — which the client can't
+    // resolve synchronously (extension tokens are fetched async). getDefaultColumns' sync resolution
+    // would silently DROP it, so for the explicit case keep the keys as-is: they survive here and are
+    // resolved by the async TokenCompleter in parseFindOptions. Only the auto-derived fallback needs
+    // resolved tokens (to pick the entity's first N declared fields).
+    const qs = getSettings(getKey(queryToken.queryName));
+    const columns: string[] = qs?.defaultColumns != null && qs.defaultColumns.length > 0
+      ? qs.defaultColumns.map(c => c.toString())
+      : getDefaultColumns(queryToken).map(cd => cd.fullKey());
 
     switch (mode) {
       case "Add":
-        return columns.map(cd => softCast<ColumnOption>({ token: cd.fullKey() }))
+        return columns.map(key => softCast<ColumnOption>({ token: key }))
           .concat(columnOptions);
 
       case "InsertStart":
         return columnOptions
-          .concat(columns.map(cd => softCast<ColumnOption>({ token: cd.fullKey() })));
+          .concat(columns.map(key => softCast<ColumnOption>({ token: key })));
 
       case "Remove":
         // Case-insensitive + toString: a columnOption token is a Type.token / QueryTokenString string
-        // (PascalCase, e.g. "Customer") while a resolved default column's fullKey is camelCase
-        // ("customer") — altea's field-token divergence (see resolveColumnToken). Signum compares these
-        // exactly because everything is PascalCase there; a case-sensitive `==` here would never match,
-        // so autoRemoveTrivialColumns (drop a column that is EqualTo-filtered) would silently no-op.
-        return columns.filter(cd => !columnOptions.some(a => a.token.toString().toLowerCase() == cd.fullKey().toLowerCase()))
-          .map(cd => softCast<ColumnOption>({ token: cd.fullKey() }));
+        // (PascalCase, e.g. "Customer") while a default column key may be camelCase — altea's field-token
+        // divergence (see resolveColumnToken). Signum compares these exactly because everything is
+        // PascalCase there; a case-sensitive `==` here would never match, so autoRemoveTrivialColumns
+        // (drop a column that is EqualTo-filtered) would silently no-op.
+        return columns.filter(key => !columnOptions.some(a => a.token.toString().toLowerCase() == key.toLowerCase()))
+          .map(key => softCast<ColumnOption>({ token: key }));
 
       case "ReplaceAll":
         return columnOptions;
 
       case "ReplaceOrAdd": {
-        var original = columns.map(cd => softCast<ColumnOption>({ token: cd.fullKey() }));
+        var original = columns.map(key => softCast<ColumnOption>({ token: key }));
         columnOptions.forEach(toReplaceOrAdd => {
           var index = original.findIndex(co => co.token.toString() == toReplaceOrAdd.token.toString());
           if (index != -1)

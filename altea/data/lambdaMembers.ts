@@ -35,7 +35,7 @@ export function getLambdaMembers(lambda: Function): LambdaMember[] {
         node = node[1];
         break;
       case "()":
-      case "?.()": { // a method call — only `.mixin(SomeMixin)` is a valid step in a property path
+      case "?.()": { // a method call — `.mixin(SomeMixin)` OR an altea @quoted expression member
         const callee = node[1];
         if ((callee[0] === "." || callee[0] === "?.") && callee[2] === "mixin") {
           const ctor = node[2][0]?.[0] === "c" ? node[2][0][1] : undefined; // args[0] = ["c", MixinCtor]
@@ -45,7 +45,16 @@ export function getLambdaMembers(lambda: Function): LambdaMember[] {
           node = callee[1]; // continue from the receiver of `.mixin(...)`
           break;
         }
-        throw new Error("getLambdaMembers: only `.mixin(MixinClass)` calls are allowed in a property lambda");
+        // ALTEA DIVERGENCE: Signum's computed/expression members are C# PROPERTIES (`a.TotalPrice`);
+        // altea models them as @quoted METHODS (`a.totalPrice()`), so a navigation to one reaches it as
+        // a call off a property access. Treat the called member as a Member step (its name) so a query
+        // token can navigate an expression column: `token(a => a.totalPrice())` → "TotalPrice".
+        if (callee[0] === "." || callee[0] === "?.") {
+          result.push({ name: callee[2] as string, type: "Member" });
+          node = callee[1];
+          break;
+        }
+        throw new Error("getLambdaMembers: only `.mixin(MixinClass)` or an expression-member call (`a.foo()`) are allowed in a property lambda");
       }
       case "p": // reached the lambda parameter — done
         return result.reverse();

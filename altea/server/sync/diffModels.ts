@@ -344,7 +344,11 @@ export class DiffColumn extends View {
         if (!other.dbType.isDecimal())
             return true;
 
-        return other.scale == null || other.scale === this.scale;
+        // Precision/scale are integers, but the Postgres catalog read unpacks them from atttypmod with
+        // REAL division (`(atttypmod-4)/65536`), so `precision` can arrive as e.g. 18.00003 (the scale
+        // bits leak into the fraction). Round the DB-read value before comparing so an unchanged
+        // numeric(18,2) column doesn't re-ALTER on every sync (scale via `%` is already exact).
+        return other.scale == null || other.scale === Math.round(this.scale ?? 0);
     }
 
     sizeEquals(other: IColumn): boolean {
@@ -365,7 +369,8 @@ export class DiffColumn extends View {
         if (!other.dbType.isDecimal())
             return true;
 
-        return other.precision == null || other.precision === 0 || other.precision === this.precision;
+        // See scaleEquals: round the atttypmod-derived precision (e.g. 18.00003 → 18) before comparing.
+        return other.precision == null || other.precision === 0 || other.precision === Math.round(this.precision ?? 0);
     }
 
     defaultEquals(other: IColumn): boolean {

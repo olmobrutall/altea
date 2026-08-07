@@ -42,6 +42,14 @@ export class ExpressionContainer {
         const bound = Expression.fromQuotedLambda(lambda as never, [new ClassType(sourceType)]);
         const body = bound.body;
         const key = opts?.key ?? deriveKeyFromQuoted(lambda);
+        // Fail-fast on a forgotten @quoted. Signum catches this at compile time (the lambda IS the
+        // expression tree); here the tail method silently falls through to fromQuoted's residual-call
+        // path, which types the body as `null` — a token that then shows up broken (or not at all) on
+        // the client. A registered expression MUST resolve to a real value type, so reject a null body.
+        if (body.type instanceof LiteralType && body.type.typeName === "null")
+            throw new Error(
+                `Expression '${key}' on '${(sourceType as Function).name}' did not resolve to a translatable value: ` +
+                `its tail method is neither @quoted nor @resultType (a forgotten @quoted?).`);
         const isProjection = body.type instanceof ArrayType;
         const elementType = isProjection ? (body.type as ArrayType).elementType : body.type;
         const implementations = opts?.implementations ?? autoImplementations(elementType);
@@ -91,10 +99,19 @@ export class ExpressionContainer {
         // a computed/multi-route (DirtyMeta) expression has none.
         const propertyRoute = reg.meta instanceof CleanMeta && reg.meta.propertyRoutes.length === 1
             ? reg.meta.propertyRoutes[0] : undefined;
+        const resultType = toTypeReference(reg.resultType);
+        // Decimal inference. Signum gets this free from the C# `decimal` result type; altea's query
+        // value-type system collapses every numeric to "number" (see runtimeTypes), so infer it from the
+        // SOURCE columns: a numeric value computed from any decimal column is itself decimal. This lets a
+        // computed money column (e.g. Order.totalPrice = Σ subTotalPrice) format as "N2" / 0.00 like the
+        // columns it is built from, with no per-registration format needed.
+        if (!reg.isProjection && resultType.typeName === "Number" && resultType.subTypeName == null
+            && reg.meta.cleanRoutes.some(r => r.fieldInfo?.subTypeName === "decimal" || r.fieldInfo?.typeName === "Decimal"))
+            resultType.subTypeName = "decimal";
         return {
             key: reg.key,
             niceName: reg.niceName,
-            resultType: toTypeReference(reg.resultType),
+            resultType,
             isProjection: reg.isProjection,
             implementations: reg.implementations,
             propertyRoute,

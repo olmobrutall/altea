@@ -5,6 +5,7 @@ import { Dic } from '../../data/globals';
 import { LineBaseController, type LineBaseProps, setRefProp, tasks, useInitiallyFocused } from './LineBase';
 import { getTimeMachineIcon } from './TimeMachineIcon';
 import { PropertyRouteType } from '../../data/propertyRoute';
+import { defaultFormat } from '../../data/reflection';
 
 export interface ValueBaseProps<V = any> extends LineBaseProps<V> {
   format?: string;
@@ -108,7 +109,9 @@ export function taskSetFormat(lineBase: LineBaseController<LineBaseProps, unknow
     if (!vProps.format &&
       state.ctx.propertyRoute &&
       state.ctx.propertyRoute.propertyRouteType == PropertyRouteType.FieldOrProperty) {
-      vProps.format = state.ctx.propertyRoute.fieldInfo!.format;
+      // Explicit @format wins; otherwise fall back to the type's default (decimal → "N2" / 0.00).
+      const fi = state.ctx.propertyRoute.fieldInfo!;
+      vProps.format = fi.format ?? defaultFormat(fi);
     }
   }
 }

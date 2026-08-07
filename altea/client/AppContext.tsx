@@ -45,17 +45,21 @@ export function toAbsoluteUrl(appRelativeUrl: string, baseName?: string): string
 // so navigate() can drive SPA (client-side) navigation. eastwind's MainPublic.client calls setRouter()
 // right after createBrowserRouter. altea divergence: typed as the minimal `{ navigate }` slice we use
 // (react-router doesn't export a stable DataRouter type name across versions).
-export let _internalRouter: { navigate(to: string): void | Promise<void> } | undefined;
-export function setRouter(r: { navigate(to: string): void | Promise<void> }): void {
+export let _internalRouter: { navigate(to: string, opts?: { replace?: boolean }): void | Promise<void> } | undefined;
+export function setRouter(r: { navigate(to: string, opts?: { replace?: boolean }): void | Promise<void> }): void {
   _internalRouter = r;
 }
 
 // Signum's AppContext.navigate: SPA navigation via the router. If setRouter() has run we route through
 // the react-router DataRouter (fast, no full page reload); otherwise fall back to a hard navigation.
-export function navigate(url: string): void {
+// `replace: true` swaps the current history entry instead of pushing a new one (used by SearchPage's
+// URL sync so each in-place search doesn't stack a back-button entry).
+export function navigate(url: string, options?: { replace?: boolean }): void {
   const to = toAbsoluteUrl(url);
   if (_internalRouter)
-    _internalRouter.navigate(to);
+    _internalRouter.navigate(to, options);
+  else if (options?.replace)
+    window.location.replace(to);
   else
     window.location.assign(to);
 }

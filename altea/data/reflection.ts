@@ -21,6 +21,9 @@ export interface ColumnOptions {
     ignored?: boolean;
     size?: number;
     precision?: number;
+    // Decimal/numeric scale (digits after the point). Defaults to 2 for a decimal column
+    // when precision is likewise unset (Signum's money default numeric(18,2)).
+    scale?: number;
     // Set by @primaryKey on the entity's `id` field: overrides the schema's
     // default PK db type.
     primaryKey?: PrimaryKeyType;
@@ -508,6 +511,19 @@ export function getOrCreateFieldInfo(typeInfo: TypeInfo, key: string): FieldInfo
 export function getTypeInfo(target: object): TypeInfo | undefined {
     const ctor = ctorOf(target) as any;
     return ctor?.[typeInfoKey] as TypeInfo | undefined;
+}
+
+// The default display format for a value type when no explicit @format is given (Signum's
+// Reflector.FormatString). A decimal renders with two fixed fraction digits ("N2" → 0.00); everything
+// else has no default (the UI falls back to the locale default). Both altea decimal spellings resolve
+// here: the branded `decimal` alias (typeName "Number", subTypeName "decimal") and a `Decimal` value
+// type. Used wherever a format is read — Lines (taskSetFormat), the entity-property and extension tokens.
+export function defaultFormat(tr: Pick<TypeReference, 'typeName' | 'subTypeName'> | undefined): string | undefined {
+    if (tr == undefined)
+        return undefined;
+    if (tr.subTypeName === "decimal" || tr.typeName === "Decimal")
+        return "N2";
+    return undefined;
 }
 
 // Bare @field: exists so source type-checks (tsc checks the original AST). The

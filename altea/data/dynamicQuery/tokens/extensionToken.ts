@@ -1,6 +1,6 @@
 import type { PropertyRoute } from "../../propertyRoute";
 import type { Implementations } from "../../implementations";
-import type { TypeReference } from "../../reflection";
+import { type TypeReference, defaultFormat } from "../../reflection";
 import { QueryToken, SubTokensOptions } from "./queryToken";
 
 // The client-relevant metadata of an ExtensionToken (Signum's ExtensionInfo, reduced to what the
@@ -49,9 +49,10 @@ export class ExtensionToken extends QueryToken {
     override toString(): string { return this.info.niceName(); }
     niceName(): string { return this.info.niceName(); }
     get type(): TypeReference { return this.info.resultType; }
-    // unit/format aren't modelled on altea fields yet; once they are they come from the token's
-    // single clean route (Signum's CleanMeta.PropertyRoutes → Format/Unit).
-    get format(): string | undefined { return undefined; }
+    // Format is derived from the result type: a decimal-typed expression (e.g. Order.totalPrice, whose
+    // decimal-ness is inferred at registration from its source columns) formats as "N2" → 0.00, mirroring
+    // an entity-property token. Unit isn't modelled on registered expressions yet (Signum's CleanMeta.Unit).
+    get format(): string | undefined { return defaultFormat(this.info.resultType); }
     get unit(): string | undefined { return undefined; }
 
     // Allowed only if BOTH the parent chain and the expression's source columns are (Signum's token

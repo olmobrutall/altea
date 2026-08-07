@@ -490,7 +490,12 @@ export class SchemaBuilder {
         const dbType = this.resolveValueDbType(fi);
         if (dbType == null)
             throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: cannot determine a DB type for '${fi.typeName}'. If it is an entity/embedded, ensure its module is imported so it is registered.`);
-        const column = new ValueColumn(this.colName(preName.add(this.columnName(fi)).toString()), dbType, nullable, fi.columnOptions?.size, fi.columnOptions?.precision);
+        // A decimal/numeric column defaults to Signum's money shape numeric(18,2) when @column
+        // gives no explicit precision/scale — otherwise a bare `numeric` would store 0 decimals.
+        const isDecimal = dbType.isDecimal();
+        const precision = fi.columnOptions?.precision ?? (isDecimal ? 18 : undefined);
+        const scale = fi.columnOptions?.scale ?? (isDecimal ? 2 : undefined);
+        const column = new ValueColumn(this.colName(preName.add(this.columnName(fi)).toString()), dbType, nullable, fi.columnOptions?.size, precision, scale);
         return new FieldValue(column);
     }
 

@@ -4,11 +4,13 @@ import { from as copyFrom } from 'pg-copy-streams';
 import type { Schema } from '../schema/schema';
 import type { IColumn } from '../schema/column';
 
-// Postgres returns int8 (bigint — the type of COUNT(*), SUM(int), and Ticks) as a
-// string to avoid precision loss past 2^53. altea treats these as JS numbers, so a
-// per-pool parser coerces OID 20 (int8) → Number; everything else keeps pg's default
-// parser (notably numeric/OID 1700 stays a string for decimal.js). int4 ids are
-// unaffected (already numbers).
+// Postgres returns int8 (bigint — the type of COUNT(*), SUM(int), and Ticks) and numeric
+// (OID 1700 — the storage of a branded `decimal` field, and SUM(decimal)) as strings to
+// avoid precision loss past 2^53. altea treats both as JS numbers, so a per-pool parser
+// coerces OID 20 (int8) and OID 1700 (numeric) → Number; everything else keeps pg's default
+// parser. int4 ids are unaffected (already numbers). NOTE: this makes `numeric` columns read
+// as numbers — correct for the branded `decimal` alias (a JS number). If a field ever uses the
+// exact `Decimal` (decimal.js) class, it would need its own OID-1700 parser back to a string.
 // OIDs of the temporal types (date/time/timestamp/timestamptz/interval). node-postgres'
 // default parsers build JS Date objects in the *local* timezone, which shifts a
 // `timestamp without time zone` wall-clock; instead keep the raw text and let the
@@ -19,7 +21,7 @@ const identityParser = (value: string | null) => value;
 
 const ALTEA_PG_TYPES = {
     getTypeParser(oid: number, format?: unknown): unknown {
-        if (oid === 20)
+        if (oid === 20 || oid === 1700)
             return (value: string | null) => (value == null ? null : Number(value));
         if (PG_TEMPORAL_OIDS.has(oid))
             return identityParser;
