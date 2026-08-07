@@ -25,6 +25,51 @@ import { OperationLogic } from "./operationLogic";
 // runs in Transaction.create. Deferred: authorization, OperationLogEntity logging.
 //
 // The `graph(...)` sugar that news these up with T/S bound lives in ./graphBuilder.
+//
+// Each op takes its config as a second constructor argument (Signum's C# object-initializer
+// `new Graph<T>.Execute(sym) { CanBeNew = true, … }` has no TS equivalent, so the options object
+// stands in for it): `new Graph.Execute(sym, { execute, canBeNew: true })`. The constructor
+// Object.assigns them onto the instance, so callers never Object.assign themselves.
+
+// ---- Option objects (the second constructor arg of each Graph.* op) ---------------------------
+// Every field is the matching class field; all but the primary callback (`construct`/`execute`/
+// `delete`) are optional. `getState` may be set here per-op, or once for a whole graph via
+// GraphBuilder.GetState (graphBuilder.ts stamps it onto ops that didn't set their own).
+export interface ConstructOptions<T extends Entity, S = never> {
+    construct: (args: unknown[]) => T | Promise<T>;
+    toStates?: S[];
+    getState?: (entity: T) => S;
+}
+export interface ConstructFromOptions<T extends Entity, F extends Entity, S = never> {
+    construct: (from: F, args: unknown[]) => T | Promise<T>;
+    canConstruct?: (from: F) => string | null;
+    canBeNew?: boolean;
+    canBeModified?: boolean;
+    resultIsSaved?: boolean;
+    toStates?: S[];
+    getState?: (entity: T) => S;
+}
+export interface ConstructFromManyOptions<T extends Entity, F extends Entity, S = never> {
+    construct: (lites: Lite<F>[], args: unknown[]) => T | Promise<T>;
+    toStates?: S[];
+    getState?: (entity: T) => S;
+}
+export interface ExecuteOptions<T extends Entity, S = never> {
+    execute: (entity: T, args: unknown[]) => void | Promise<void>;
+    canExecute?: (entity: T) => string | null;
+    canBeNew?: boolean;
+    canBeModified?: boolean;
+    avoidImplicitSave?: boolean;
+    fromStates?: S[];
+    toStates?: S[];
+    getState?: (entity: T) => S;
+}
+export interface DeleteOptions<T extends Entity, S = never> {
+    delete: (entity: T, args: unknown[]) => void | Promise<void>;
+    canDelete?: (entity: T) => string | null;
+    fromStates?: S[];
+    getState?: (entity: T) => S;
+}
 
 const isNewError = "The entity is new.";
 
@@ -49,7 +94,7 @@ export namespace Graph {
         construct!: (args: unknown[]) => T | Promise<T>;
         toStates?: S[];
         getState?: (entity: T) => S;
-        constructor(readonly symbol: ConstructSymbol<T>) { }
+        constructor(readonly symbol: ConstructSymbol<T>, options: ConstructOptions<T, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         async doConstruct(args: unknown[]): Promise<Entity> {
@@ -76,7 +121,7 @@ export namespace Graph {
         resultIsSaved = false;
         toStates?: S[];
         getState?: (entity: T) => S;
-        constructor(readonly symbol: ConstructSymbol<T, From<F>>) { }
+        constructor(readonly symbol: ConstructSymbol<T, From<F>>, options: ConstructFromOptions<T, F, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         onCanExecute(from: F): string | null {
@@ -105,7 +150,7 @@ export namespace Graph {
         construct!: (lites: Lite<F>[], args: unknown[]) => T | Promise<T>;
         toStates?: S[];
         getState?: (entity: T) => S;
-        constructor(readonly symbol: ConstructSymbol<T, FromMany<F>>) { }
+        constructor(readonly symbol: ConstructSymbol<T, FromMany<F>>, options: ConstructFromManyOptions<T, F, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         async doConstructFromMany(lites: Lite<Entity>[], args: unknown[]): Promise<Entity> {
@@ -133,7 +178,7 @@ export namespace Graph {
         fromStates?: S[];
         toStates?: S[];
         getState?: (entity: T) => S;
-        constructor(readonly symbol: ExecuteSymbol<T>) { }
+        constructor(readonly symbol: ExecuteSymbol<T>, options: ExecuteOptions<T, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         onCanExecute(entity: T): string | null {
@@ -169,7 +214,7 @@ export namespace Graph {
         readonly canBeModified = false;
         fromStates?: S[];
         getState?: (entity: T) => S;
-        constructor(readonly symbol: DeleteSymbol<T>) { }
+        constructor(readonly symbol: DeleteSymbol<T>, options: DeleteOptions<T, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         onCanExecute(entity: T): string | null {

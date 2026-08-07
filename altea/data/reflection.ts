@@ -484,7 +484,7 @@ export function reflect(target: Function): void {
 // import cycle (reflection imports localization). Re-exported here so existing
 // `from './reflection'` consumers keep working unchanged.
 export {
-    registerType, resolveType,
+    registerType, resolveType, getRegisteredTypes,
     registerEnum, resolveEnum, enumNameOf,
     registerObject, resolveObject,
     getLocation,

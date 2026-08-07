@@ -1,5 +1,5 @@
 import { tryGetTypeInfo, setDefinedQueries } from "./Reflection";
-import type { OperationType } from "../data/reflection";
+import { getRegisteredTypes, getTypeInfo, type OperationType, type TypeInfo, type OperationInfo } from "../data/reflection";
 import { Localization } from "../data/utils/localization";
 import { CultureInfo } from "../data/utils/cultureInfo";
 type LocalizedTypes = Localization.LocalizedTypes;
@@ -61,7 +61,7 @@ export function applyMetadata(meta: ServerMetadata): void {
         if (ti == null)
             continue;
 
-        (ti.operations ??= {})[key] = {
+        const oi: OperationInfo = {
             key,
             niceName: Localization.translate(container, member) ?? Localization.niceNameFromName(member),
             operationType: info.operationType,
@@ -71,7 +71,33 @@ export function applyMetadata(meta: ServerMetadata): void {
             hasStates: info.hasStates,
             resultIsSaved: info.resultIsSaved,
         };
-        if (info.operationType !== "Execute" && info.operationType !== "Delete")
-            ti.hasConstructorOperation = true;
+
+        // Attach to the resolved type AND every concrete subclass. Signum registers an operation per
+        // concrete type (Southwind's `.WithSave(CustomerOperation.Save)` on both Person and Company), so
+        // a symbol typed on an ABSTRACT base (CustomerOperation → CustomerEntity) must reach the concrete
+        // subtypes that are actually viewed. altea gives each class its own TypeInfo and operations don't
+        // inherit, so we walk the registered ctors and copy the OperationInfo onto each descendant's
+        // TypeInfo. For a concrete type with no subclasses (OrderEntity) this is just `ti` itself.
+        for (const target of typeAndConcreteSubTypes(ti)) {
+            (target.operations ??= {})[key] = oi;
+            if (info.operationType !== "Execute" && info.operationType !== "Delete")
+                target.hasConstructorOperation = true;
+        }
     }
+}
+
+// `ti` plus the TypeInfos of every registered class that extends `ti.ctor` (its concrete subclasses).
+function typeAndConcreteSubTypes(ti: TypeInfo): TypeInfo[] {
+    const result = [ti];
+    const base = ti.ctor;
+    if (base != null) {
+        for (const ctor of getRegisteredTypes()) {
+            if (ctor !== base && ctor.prototype instanceof base) {
+                const sub = getTypeInfo(ctor);
+                if (sub != null && sub !== ti)
+                    result.push(sub);
+            }
+        }
+    }
+    return result;
 }

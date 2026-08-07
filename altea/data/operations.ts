@@ -18,8 +18,13 @@ export { OperationSymbol };
 // source `F`. Port of Signum's ExecuteSymbol<in T>, ConstructSymbol<T>.Simple/.From<F>/
 // .FromMany<F>, DeleteSymbol<in T> (TS cannot express `ConstructSymbol<T>.From<F>` as a
 // nested generic, so the source is the second type arg via the markers below).
-export interface ExecuteSymbol<T extends Entity> extends OperationSymbol { _execute_: T /*TRICK*/ }
-export interface DeleteSymbol<T extends Entity> extends OperationSymbol { _delete_: T /*TRICK*/ }
+// `in T` (contravariant), mirroring Signum's `ExecuteSymbol<in T>` / `DeleteSymbol<in T>`: a symbol
+// typed on a BASE entity is usable wherever a SUBTYPE's symbol is expected — so an operation declared
+// on an abstract base (e.g. `CustomerOperation.Save: ExecuteSymbol<CustomerEntity>`) can be wired via
+// `.withSave()` on a concrete subclass (Person/Company). The phantom sits in a function-parameter
+// position (compile-time only; `init()` returns a plain OperationSymbol) so TS enforces the variance.
+export interface ExecuteSymbol<in T extends Entity> extends OperationSymbol { _execute_: (entity: T) => void /*TRICK*/ }
+export interface DeleteSymbol<in T extends Entity> extends OperationSymbol { _delete_: (entity: T) => void /*TRICK*/ }
 
 // Source descriptors for ConstructSymbol's second type argument. They make a constructor
 // declaration read like a sentence — "construct <T>", "construct <T> From <F>", "construct

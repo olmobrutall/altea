@@ -164,12 +164,13 @@ describe("OperationLogic / graph", () => {
         assert.ok(original instanceof Graph.Execute);
 
         // A fresh standalone Graph.Execute with stricter fromStates, swapped in via replace.
-        const replacement = new Graph.Execute<AlbumEntity, AlbumState>(AlbumOperation.Save);
-        replacement.getState = a => a.state;
-        replacement.fromStates = [AlbumState.Saved];
-        replacement.toStates = [AlbumState.Saved];
-        replacement.avoidImplicitSave = true;
-        replacement.execute = () => { /* no-op */ };
+        const replacement = new Graph.Execute<AlbumEntity, AlbumState>(AlbumOperation.Save, {
+            getState: a => a.state,
+            fromStates: [AlbumState.Saved],
+            toStates: [AlbumState.Saved],
+            avoidImplicitSave: true,
+            execute: () => { /* no-op */ },
+        });
         OperationLogic.register(replacement, /* replace */ true);
         assert.equal(OperationLogic.findOperation(AlbumOperation.Save), replacement);
 

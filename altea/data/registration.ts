@@ -69,6 +69,13 @@ export function registerType(ctor: Function, name?: string, fileInfo?: FileInfo)
     if (fileInfo != null) locationRegistry.set(key, fileInfo);
 }
 
+// All DISTINCT constructors registered via registerType (deduped — each ctor is registered under both
+// its full and clean name). Used by ReflectionClient to propagate an abstract base type's operations to
+// its concrete subclasses, since altea gives every class its own TypeInfo (operations don't inherit).
+export function getRegisteredTypes(): Function[] {
+    return [...new Set(typeRegistry.values())];
+}
+
 export function resolveType(name: string): Function | undefined {
     // Direct hit for the canonical (PascalCase) names — the full name and the clean alias, incl. every
     // wire $type. The firstLower fallback resolves names that come from URLs, where navigateRouteDefault

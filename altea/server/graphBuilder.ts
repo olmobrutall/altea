@@ -1,47 +1,25 @@
 import type { Entity, Type } from "../data/entity";
-import type { Lite } from "../data/lite";
 import type {
     ExecuteSymbol, DeleteSymbol,
     ConstructSymbol, From, FromMany,
 } from "../data/operations";
 import { Graph } from "./graph";
+import type {
+    ExecuteOptions, DeleteOptions,
+    ConstructOptions, ConstructFromOptions, ConstructFromManyOptions,
+} from "./graph";
 
 // `graph(Order, OrderState, g => { g.GetState = o => o.state; g.Execute(sym, { … }); … })`
 // — sugar over the Graph.* operation classes (./graph): news each up with T (and S) bound
-// so they aren't repeated, Object.assigns the options onto it, stamps the graph's GetState
-// onto each, and registers them all on register(). The option objects mirror the classes'
-// fields (minus getState, which is set once per graph). For full control, skip this and
-// use the Graph.* classes directly.
+// so they aren't repeated, passing the options straight to the constructor, stamps the
+// graph's GetState onto each, and registers them all on register(). For full control, skip
+// this and use the `new Graph.Execute(sym, { … })` classes directly.
 
-export interface ExecuteOptions<T extends Entity, S> {
-    execute: (entity: T, args: unknown[]) => void | Promise<void>;
-    canExecute?: (entity: T) => string | null;
-    canBeNew?: boolean;
-    canBeModified?: boolean;
-    avoidImplicitSave?: boolean;
-    fromStates?: S[];
-    toStates?: S[];
-}
-export interface DeleteOptions<T extends Entity, S> {
-    delete: (entity: T, args: unknown[]) => void | Promise<void>;
-    canDelete?: (entity: T) => string | null;
-    fromStates?: S[];
-}
-export interface ConstructOptions<T extends Entity, S> {
-    construct: (args: unknown[]) => T | Promise<T>;
-    toStates?: S[];
-}
-export interface ConstructFromOptions<F extends Entity, T extends Entity, S> {
-    construct: (from: F, args: unknown[]) => T | Promise<T>;
-    canConstruct?: (from: F) => string | null;
-    canBeNew?: boolean;
-    resultIsSaved?: boolean;
-    toStates?: S[];
-}
-export interface ConstructFromManyOptions<F extends Entity, T extends Entity, S> {
-    construct: (lites: Lite<F>[], args: unknown[]) => T | Promise<T>;
-    toStates?: S[];
-}
+// The option objects are re-exported from ./graph (co-located with the op classes they configure).
+export type {
+    ExecuteOptions, DeleteOptions,
+    ConstructOptions, ConstructFromOptions, ConstructFromManyOptions,
+} from "./graph";
 
 export interface GraphBuilder<T extends Entity, S> {
     // Set once (Signum's `GetState = o => o.State`). graph() stamps it onto every op.
@@ -51,8 +29,8 @@ export interface GraphBuilder<T extends Entity, S> {
     Execute(symbol: ExecuteSymbol<T>, options: ExecuteOptions<T, S>): Graph.Execute<T, S>;
     Delete(symbol: DeleteSymbol<T>, options: DeleteOptions<T, S>): Graph.Delete<T, S>;
     Construct<R extends Entity>(symbol: ConstructSymbol<R>, options: ConstructOptions<R, S>): Graph.Construct<R, S>;
-    ConstructFrom<R extends Entity, F extends Entity>(symbol: ConstructSymbol<R, From<F>>, options: ConstructFromOptions<F, R, S>): Graph.ConstructFrom<R, F, S>;
-    ConstructFromMany<R extends Entity, F extends Entity>(symbol: ConstructSymbol<R, FromMany<F>>, options: ConstructFromManyOptions<F, R, S>): Graph.ConstructFromMany<R, F, S>;
+    ConstructFrom<R extends Entity, F extends Entity>(symbol: ConstructSymbol<R, From<F>>, options: ConstructFromOptions<R, F, S>): Graph.ConstructFrom<R, F, S>;
+    ConstructFromMany<R extends Entity, F extends Entity>(symbol: ConstructSymbol<R, FromMany<F>>, options: ConstructFromManyOptions<R, F, S>): Graph.ConstructFromMany<R, F, S>;
 }
 
 export interface GraphRegistration {
@@ -72,19 +50,18 @@ export function graph<T extends Entity>(
     const define = (maybeDefine ?? defineOrEnum) as (g: GraphBuilder<T, any>) => void;
 
     const collected: { register(replace?: boolean): unknown; getState?: unknown }[] = [];
-    const push = <O extends { register(replace?: boolean): unknown; getState?: unknown }>(op: O, options: object): O => {
-        Object.assign(op, options);
+    const collect = <O extends { register(replace?: boolean): unknown; getState?: unknown }>(op: O): O => {
         collected.push(op);
         return op;
     };
 
     const g: GraphBuilder<T, any> = {
         GetState: undefined,
-        Execute: (symbol, options) => push(new Graph.Execute<T, any>(symbol), options),
-        Delete: (symbol, options) => push(new Graph.Delete<T, any>(symbol), options),
-        Construct: (symbol, options) => push(new Graph.Construct(symbol), options),
-        ConstructFrom: (symbol, options) => push(new Graph.ConstructFrom(symbol), options),
-        ConstructFromMany: (symbol, options) => push(new Graph.ConstructFromMany(symbol), options),
+        Execute: (symbol, options) => collect(new Graph.Execute<T, any>(symbol, options)),
+        Delete: (symbol, options) => collect(new Graph.Delete<T, any>(symbol, options)),
+        Construct: (symbol, options) => collect(new Graph.Construct(symbol, options)),
+        ConstructFrom: (symbol, options) => collect(new Graph.ConstructFrom(symbol, options)),
+        ConstructFromMany: (symbol, options) => collect(new Graph.ConstructFromMany(symbol, options)),
     };
     define(g);
 

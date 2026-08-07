@@ -112,16 +112,19 @@ function resolve<S extends OperationSymbol>(key: string): S {
 // (Execute / Delete / ConstructorFrom — the ones with onCanExecute) applicable to it. Operations of
 // another type report a can't-execute reason (or throw, caught here), so they are simply omitted.
 export function getEntityPack(entity: Entity): EntityPack<Entity> {
-    // altea's EntityPack.canExecute records only the DISABLED operations (opKey → reason); an
-    // applicable-but-enabled operation is simply absent (onCanExecute returned null).
+    // EntityPack.canExecute records an entry for EVERY entity operation applicable to this entity —
+    // the reason string when disabled, "" when enabled (Signum's dict maps enabled → null). The KEY's
+    // PRESENCE is what the client uses to decide the operation applies (EntityOperations filters an
+    // existing entity's buttons on `oi.key in pack.canExecute`), so an enabled operation must still be
+    // listed or it would never render. altea has no server-side per-type registry, so we evaluate every
+    // registered operation; ones not applicable to this type throw (or report a state/reason) and are
+    // simply filtered out client-side by TypeInfo.operations.
     const canExecute: Record<string, string> = {};
     for (const symbol of OperationLogic.registeredOperations()) {
         const op = OperationLogic.tryFindOperation(symbol);
         if (op != undefined && "onCanExecute" in op) {
             try {
-                const reason = (op as IEntityOperation).onCanExecute(entity);
-                if (reason != null)
-                    canExecute[symbol.key] = reason;
+                canExecute[symbol.key] = (op as IEntityOperation).onCanExecute(entity) ?? "";
             } catch { /* operation not applicable to this entity type */ }
         }
     }
