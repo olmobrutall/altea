@@ -84,6 +84,12 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
   }
 
   function isQuotedLikeType(type: ts.Type): boolean {
+    // A union counts as quoted-like if ANY constituent is (e.g. `Quoted<...> | string` — the type of an
+    // optional `EntityTableColumn.property` / an overloaded param). An arrow can only ever satisfy the
+    // Quoted member, so rewriting it is correct; a non-arrow (string) is never visited here anyway.
+    if (type.isUnion())
+      return type.types.some(isQuotedLikeType);
+
     if (isQuoteOfT(type))
       return true;
 
@@ -162,6 +168,15 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     if (ts.isPropertyDeclaration(node.parent) && node.parent.initializer === node && node.parent.type != null) {
       const declaredType = typeChecker.getTypeFromTypeNode(node.parent.type);
       return isQuotedLikeType(declaredType);
+    }
+
+    // A lambda assigned to a property inside an OBJECT LITERAL — e.g. an EntityTable column
+    // `{ property: a => a.key }`, where `property: Quoted<(a: R) => unknown> | string`. The expected
+    // type comes from the object literal's contextual type (the surrounding array / prop / param), so
+    // we read the lambda's contextual type directly rather than a local declaration.
+    if (ts.isPropertyAssignment(node.parent) && node.parent.initializer === node) {
+      const contextualType = typeChecker.getContextualType(node);
+      return contextualType != null && isQuotedLikeType(contextualType);
     }
 
     return false;
