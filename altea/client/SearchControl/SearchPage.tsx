@@ -10,9 +10,10 @@ import { useAPI, useForceUpdate } from "../Hooks";
 
 // Full-page search (Signum's SearchControl/SearchPage): the element behind the /find/:queryName route.
 // Parses the route param + query string into a FindOptions, loads the QueryToken, and renders a
-// SearchControl. Trimmed vs Signum: no usePageUIState restore, and avoidChangeUrl is on (altea's
-// AppContext.navigate is still a full-page reload — Signum's replace-in-history URL sync waits until
-// AppContext routes through react-router history).
+// SearchControl. Trimmed vs Signum: no usePageUIState restore. URL sync IS wired (Signum's changeUrl):
+// after each search we rebuild the FindOptions path and replace it in history so filters/columns/paging
+// live in the URL (bookmarkable, shareable, survives reload) — now that AppContext.navigate routes
+// through the react-router DataRouter it's a history replace, not a full-page reload.
 function SearchPage(): React.ReactElement {
   const params = useParams<{ queryName: string }>();
   const location = useLocation();
@@ -43,6 +44,20 @@ function SearchPage(): React.ReactElement {
     onResize();
   }, []);
 
+  // Signum's SearchPage.changeUrl: after a search, reflect the current FindOptions in the URL (replace,
+  // not push). defaultIncludeDefaultFilters is true so the round-trip matches parseFindOptionsPath.
+  function changeUrl(): void {
+    const scl = searchControl.current?.searchControlLoaded;
+    if (!scl)
+      return;
+
+    const findOptions = Finder.toFindOptions(scl.props.findOptions, scl.props.queryToken, true);
+    const newPath = Finder.findOptionsPath(findOptions, scl.extraUrlParams);
+
+    if (location.pathname + location.search != newPath)
+      AppContext.navigate(newPath, { replace: true });
+  }
+
   if (!Finder.isFindable(fo.queryName, true))
     return <div id="divSearchPage"><h3 className="text-danger">Query “{params.queryName}” is not allowed</h3></div>;
 
@@ -62,10 +77,11 @@ function SearchPage(): React.ReactElement {
         showGroupButton={true}
         showSystemTimeButton={true}
         showFooter={true}
-        avoidChangeUrl={true}
+        avoidChangeUrl={false}
         maxResultsHeight={"none"}
         enableAutoFocus={true}
         onHeighChanged={onResize}
+        onSearch={() => changeUrl()}
         onPageTitleChanged={forceUpdate}
       />}
     </div>
