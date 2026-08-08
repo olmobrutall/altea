@@ -107,3 +107,8 @@
     margin-right: -25px;
     overflow: inherit;
 }
+
+/* ValidationErrors summary: drop the default <ul> bullet on each error line (Signum's Frames.css). */
+.validaton-summary li {
+    list-style: none;
+}

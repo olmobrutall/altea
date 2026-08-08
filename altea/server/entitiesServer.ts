@@ -15,6 +15,7 @@ import { Entity, type PrimaryKey, type Type } from "../data/entity";
 import { entityIntegrityCheck } from "../data/validation";
 import type { EntityPack } from "../data/entityPack";
 import * as Database from "./Database";
+import { assertGraphIntegrity } from "./graphExplorer";
 import { Saver } from "./saver";
 import { table } from "./table";
 import { Connector } from "./connection/connector";
@@ -76,11 +77,13 @@ export namespace EntitiesServer {
                 return res.jsonTyped(getEntityPack(entity));
             });
 
+        // The client's pre-flight "would this save?" check (FrameModal). Validate as the save would
+        // (the "Saving" phase, strictest) and return a 400 ModelState if invalid, else 200.
         ws.post("/api/validateEntity",
             { req: Entity },
             async (req, res) => {
                 const entity = await req.jsonTyped();
-                const ic = entityIntegrityCheck(entity);
+                const ic = entityIntegrityCheck(entity, "Saving");
                 if (ic) { res.modelState(ic); return; }
                 res.status(200).end();
             });
@@ -89,9 +92,8 @@ export namespace EntitiesServer {
             { req: Entity, res: Entity },
             async (req, res) => {
                 const entity = await req.jsonTyped();
-                const ic = entityIntegrityCheck(entity);
-                if (ic) return res.modelState(ic);
-                await Saver.save([entity]);
+                assertGraphIntegrity([entity], "ServerDeserialization"); // phase 2
+                await Saver.save([entity]);                              // phase 3 ("Saving") runs inside
                 return res.jsonTyped(entity); // Saver mutates the root with its new id / ticks
             });
     }

@@ -1,6 +1,6 @@
 
 import { getOrCreateTypeInfo, getOrCreateFieldInfo, Validator, registerImplicitNotNullValidator } from './reflection';
-import type { FieldInfo } from './reflection';
+import type { FieldInfo, IntegrityCheckEnvironment } from './reflection';
 import type { BaseEntity } from './entity';
 import { msg } from './utils/localization';
 
@@ -18,47 +18,46 @@ export const ValidationMessage = {
     TheNumberOf0IsBeingMultipliedBy1: msg("The number of {0} is being multiplied by {1}"),
 };
 
-function addValidator(target: object, propertyKey: string | symbol, validator: Validator): void {
+// Options common to EVERY validator (they map to fields on the base Validator, so any validator can
+// carry them). Each specific options interface extends this, and `addValidator` applies them uniformly.
+export interface ValidatorOptions {
+    // Per-environment opt-out (Signum's Disabled / DisabledInModelBinder, generalised). Return true to
+    // SKIP this validator in that phase: `() => true` (always off), `env => env === "Client"` (server-only),
+    // `env => env !== "Saving"` (only at save). See Validator.disabled / IntegrityCheckEnvironment.
+    disabled?: (env: IntegrityCheckEnvironment) => boolean;
+    // Only validate when this predicate holds for the entity (Signum's ValidatorAttribute.IsApplicable).
+    isApplicable?: (entity: any) => boolean;
+}
+
+function addValidator(target: object, propertyKey: string | symbol, validator: Validator, options?: ValidatorOptions): void {
+    if (options?.disabled != null) validator.disabled = options.disabled;
+    if (options?.isApplicable != null) validator.isApplicable = options.isApplicable;
     const typeInfo = getOrCreateTypeInfo(target);
     getOrCreateFieldInfo(typeInfo, String(propertyKey)).validators.push(validator);
 }
 
 // --- NotNullValidator ---
 //
-// Signum auto-adds one of these to every non-nullable reference/string property that does not already
-// declare one (see FieldInfo.getImplicitNotNull / computeNeedsImplicitNotNull). Declare it explicitly
-// only to OVERRIDE that default — most often to opt OUT of a required non-nullable field:
-//   @notNullValidator({ disabled: true })                     // never required
-//   @notNullValidator({ disableInServerDeserialization: true }) // required, but not during model binding
-// A non-null @backReference is exempt automatically (it is wired by the save cascade), so it needs no
-// `{ disabled: true }`.
+// Signum auto-adds one of these to every non-nullable property that does not already declare one (see
+// FieldInfo.getImplicitNotNull / computeNeedsImplicitNotNull). Declare it explicitly only to OVERRIDE
+// that default — most often to opt OUT of a required non-nullable field:
+//   @notNullValidator({ disabled: () => true })                 // never required
+//   @notNullValidator({ disabled: env => env === "Client" })    // required, but not on the client
+// A non-null @backReference / @rowOrder is exempt automatically (wired by the save cascade), no opt-out needed.
 
-export interface NotNullOptions {
-    // Makes the validator inert (Signum's NotNullValidator.Disabled) — the way to opt out of the
-    // implicit NotNull on a non-nullable field.
-    disabled?: boolean;
-    // Skip only while the server deserializes the request body (Signum's DisabledInModelBinder).
-    disableInServerDeserialization?: boolean;
-}
-
-export function notNullValidator(options: NotNullOptions = {}) {
-    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new NotNullValidator(options));
+export function notNullValidator(options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new NotNullValidator(), options);
 }
 
 export class NotNullValidator extends Validator {
-    constructor(public readonly options: NotNullOptions = {}) {
-        super();
-        this.disableInServerDeserialization = options.disableInServerDeserialization;
-    }
-
     override get isNotNull(): boolean { return true; }
     get helpMessage() { return 'be set'; }
 
     protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
-        if (this.options.disabled) return null;
         // Signum's NotNullValidator: null OR empty string counts as "not set". `== null` is the safe
         // null/undefined test (never calls valueOf, unlike `== ""` on a Temporal — see AutoLine); the
-        // `=== ""` is a strict compare that only matches actual empty strings.
+        // `=== ""` is a strict compare that only matches actual empty strings. (The disabled/env opt-out
+        // is handled once, in Validator.error.)
         if (value == null || value === '')
             return ValidationMessage._0IsNotSet.niceToString(fi.niceToString());
         return null;
@@ -71,7 +70,7 @@ registerImplicitNotNullValidator(() => new NotNullValidator());
 
 // --- fieldValidation ---
 
-export function customValidators<T>(fn: (entity: T, fi: FieldInfo) => string | null) {
+export function customValidators<T>(fn: (entity: T, fi: FieldInfo, env: IntegrityCheckEnvironment) => string | null) {
     return (target: object, propertyKey: string | symbol) => {
         const typeInfo = getOrCreateTypeInfo(target);
         getOrCreateFieldInfo(typeInfo, String(propertyKey)).customValidation = fn;
@@ -80,7 +79,7 @@ export function customValidators<T>(fn: (entity: T, fi: FieldInfo) => string | n
 
 // --- StringLengthValidator ---
 
-export interface StringLengthOptions {
+export interface StringLengthOptions extends ValidatorOptions {
     min?: number;
     max?: number;
     allowNulls?: boolean;
@@ -88,7 +87,7 @@ export interface StringLengthOptions {
 }
 
 export function stringLengthValidator(options: StringLengthOptions = {}) {
-    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new StringLengthValidator(options));
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new StringLengthValidator(options), options);
 }
 
 export class StringLengthValidator extends Validator {
@@ -120,8 +119,8 @@ export class StringLengthValidator extends Validator {
 
 const urlRegex = /^(https?:\/\/)[^\s/$.?#].[^\s]*$/i;
 
-export function urlValidator() {
-    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new UrlValidator());
+export function urlValidator(options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new UrlValidator(), options);
 }
 
 export class UrlValidator extends Validator {
@@ -139,8 +138,8 @@ export class UrlValidator extends Validator {
 
 const telephoneRegex = /^[\d+\-/() ]+$/;
 
-export function telephoneValidator() {
-    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new TelephoneValidator());
+export function telephoneValidator(options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new TelephoneValidator(), options);
 }
 
 export class TelephoneValidator extends Validator {
@@ -158,8 +157,8 @@ export class TelephoneValidator extends Validator {
 
 const emailRegex = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/i;
 
-export function emailValidator() {
-    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new EmailValidator());
+export function emailValidator(options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new EmailValidator(), options);
 }
 
 export class EmailValidator extends Validator {
@@ -175,8 +174,8 @@ export class EmailValidator extends Validator {
 
 // --- NoRepeatValidator ---
 
-export function noRepeatValidator() {
-    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new NoRepeatValidator());
+export function noRepeatValidator(options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new NoRepeatValidator(), options);
 }
 
 export class NoRepeatValidator extends Validator {

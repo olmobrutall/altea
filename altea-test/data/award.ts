@@ -36,15 +36,15 @@ export class AwardNominationEntity extends Entity {
     // bands, whose default is a plain LiteImp, use BandLite ONLY on this field via @customLite
     // (Signum's [LiteModel(typeof(BandLite), ForEntityType = typeof(BandEntity))]).
     // Signum: [NotNullValidator(Disabled = true)] — required by type, but the test seed constructs
-    // nominations before the author is known, so the implicit NotNull is opted out.
-    @notNullValidator({ disabled: true })
+    // nominations before the author is known, so the implicit NotNull is opted out (all environments).
+    @notNullValidator({ disabled: () => true })
     @customLite(() => BandLite, () => BandEntity)
     @implementedBy(() => [ArtistEntity, BandEntity])
     author: Lite<IAuthorEntity>;
     // Signum: [ForceNullable] + [NotNullValidator(Disabled = true)] — the seed stores a null-award
     // nomination (MusicLoader), so the column is forced nullable and the implicit NotNull is opted out.
     @forceNullable
-    @notNullValidator({ disabled: true })
+    @notNullValidator({ disabled: () => true })
     @implementedBy(() => [GrammyAwardEntity, PersonalAwardEntity, AmericanMusicAwardEntity])
     award: Lite<Entity>;
     year: int = toInt(0);   // C# value-type default; the loader leaves these unset

@@ -83,6 +83,14 @@ export function useExceptionFilter(ws: WebBuilder): void {
 }
 
 async function handle(error: unknown, req: Request, res: Response): Promise<void> {
+    // A failed integrity check is not an "error" to surface as a crash modal: emit the flat ModelState
+    // (no `exceptionType`) so the client's ThrowErrorFilter builds a ValidationError → field errors +
+    // summary. Same body shape as res.modelState, so the operation-save path and /api/save agree.
+    if (error instanceof IntegrityCheckException) {
+        res.status(400).type("application/json").send(JSON.stringify(error.modelState));
+        return;
+    }
+
     let exceptionId: string | null = null;
     if (shouldLogException(error)) {
         const exLog = await ExceptionLogic.logException(error, e => fillContext(e, req));

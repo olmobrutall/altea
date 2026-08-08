@@ -76,7 +76,10 @@ export class Binding<T> implements IBinding<T> {
     if (!(parent instanceof BaseEntity))
       return undefined;
     const fi = tryGetTypeInfo(parent)?.fields[String(this.member)];
-    return fi?.validate(parent) ?? undefined;
+    // Live per-field validation runs in the "Client" environment (the browser, before send) — so a
+    // validator disabled on the client (`disabled: env => env === "Client"`) stays quiet here and is
+    // only enforced server-side.
+    return fi?.validate(parent, "Client") ?? undefined;
   }
 
   // Server ModelState errors are applied per-binding as a forced override (there is no entity-level

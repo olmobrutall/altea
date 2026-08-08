@@ -261,7 +261,7 @@ export class FieldInfo extends TypeReference {
     maxLength?: number;
 
     validators: Validator[] = [];
-    customValidation?: (entity: any, fieldInfo: FieldInfo) => string | null;
+    customValidation?: (entity: any, fieldInfo: FieldInfo, env: IntegrityCheckEnvironment) => string | null;
 
     constructor(name: string) {
         super();
@@ -279,21 +279,21 @@ export class FieldInfo extends TypeReference {
     // first error message or null. Single source of field validation — used by BOTH
     // entityIntegrityCheck (whole entity) and the client Binding.getError (per-field, live),
     // so the two never diverge.
-    validate(entity: any): string | null {
+    validate(entity: any, env: IntegrityCheckEnvironment): string | null {
         const value = entity[this.name];
         // Signum auto-adds a NotNullValidator to every non-nullable reference/string property; altea
         // synthesises it here (see getImplicitNotNull) so it runs BEFORE the declared validators — a
         // not-set value should surface "is not set", not a downstream format error.
         const implicit = this.getImplicitNotNull();
         if (implicit != null) {
-            const error = implicit.error(value, entity, this);
+            const error = implicit.error(value, entity, this, env);
             if (error != null) return error;
         }
         for (const validator of this.validators) {
-            const error = validator.error(value, entity, this);
+            const error = validator.error(value, entity, this, env);
             if (error != null) return error;
         }
-        return this.customValidation != null ? this.customValidation(entity, this) : null;
+        return this.customValidation != null ? this.customValidation(entity, this, env) : null;
     }
 
     // Signum's implicit NotNullValidator (PropertyValidator ctor: a non-nullable, non-value-type
@@ -322,7 +322,7 @@ export class FieldInfo extends TypeReference {
         // be a no-op; "required = non-empty" is a separate CountIs concern, not NotNull.
         if (this.array) return false;
         // An explicit NotNullValidator wins — including a DISABLED one, which is exactly how you opt out
-        // of the implicit check (`@notNullValidator({ disabled: true })`).
+        // of the implicit check (`@notNullValidator({ disabled: () => true })`).
         if (this.validators.some(v => v.isNotNull)) return false;
         // DIVERGENCE from Signum: Signum's implicit NotNull is added ONLY to reference types
         // (`!pi.PropertyType.IsValueType`) because a non-nullable C# struct/enum PHYSICALLY can't be null,
@@ -335,16 +335,24 @@ export class FieldInfo extends TypeReference {
     }
 }
 
+// The three points at which an entity is validated, passed to every Validator so a validator can opt
+// out of a specific phase (Signum's single `Validator.InModelBinder` bool generalised to an enum):
+//   - "Client"               — in the browser, BEFORE the entity is sent (fail fast, no round-trip);
+//   - "ServerDeserialization"— on the server, right after the request body is deserialized (Signum's
+//                              model-binder validation) — the value may be filled by server logic later;
+//   - "Saving"               — on the server, immediately before the row is written (the last word).
+export type IntegrityCheckEnvironment = "Client" | "ServerDeserialization" | "Saving";
+
 // Validator is declared here (forward-reference) to break the circular dep
 // between reflection ↔ validators.  The full implementations live in validators.ts.
 export abstract class Validator {
     isApplicable?: (entity: any) => boolean;
     customError?: () => string;
-    // Signum's ValidatorAttribute.DisabledInModelBinder: skip this validator while the SERVER is
-    // deserializing an incoming request body (model binding). Used for a value the client is not
-    // expected to send because server logic fills it in before the real save-time validation runs.
-    // Set via `@<validator>({ disableInServerDeserialization: true })`.
-    disableInServerDeserialization?: boolean;
+    // Per-environment opt-out (Signum's ValidatorAttribute.DisabledInModelBinder, generalised): return
+    // true to SKIP this validator in the given environment. Set via `@<validator>({ disabled: env => … })`.
+    // Examples: `env => true` (always off — the plain opt-out), `env => env === "Client"` (server-only,
+    // e.g. a uniqueness check the browser can't run), `env => env !== "Saving"` (only enforced at save).
+    disabled?: (env: IntegrityCheckEnvironment) => boolean;
 
     // True for the NotNullValidator (Signum tests `v is NotNullValidatorAttribute`). Lets the reflection
     // layer detect an already-declared NotNull without importing validators.ts (cycle). Overridden there.
@@ -355,23 +363,12 @@ export abstract class Validator {
 
     protected abstract overrideError(value: unknown, entity: any, fieldName: FieldInfo): string | null;
 
-    error(value: unknown, entity: any, fieldName: FieldInfo): string | null {
-        if (this.disableInServerDeserialization && Validator.inServerDeserialization) return null;
+    error(value: unknown, entity: any, fieldName: FieldInfo, env: IntegrityCheckEnvironment): string | null {
+        if (this.disabled != null && this.disabled(env)) return null;
         if (this.isApplicable != null && !this.isApplicable(entity)) return null;
         const result = this.overrideError(value, entity, fieldName);
         if (result == null) return null;
         return this.customError != null ? this.customError() : result;
-    }
-
-    // Signum's `Validator.InModelBinder` thread variable + `ModelBinderScope()`. altea handles one
-    // request per async context; the server sets this true only around the synchronous body
-    // deserialization (webApi `req.jsonTyped` → Serializer.parse). DIVERGENCE: altea validates at
-    // save time, not during binding, so this flag only affects validation invoked inside that scope.
-    static inServerDeserialization = false;
-    static runInServerDeserialization<R>(fn: () => R): R {
-        const old = Validator.inServerDeserialization;
-        Validator.inServerDeserialization = true;
-        try { return fn(); } finally { Validator.inServerDeserialization = old; }
     }
 }
 

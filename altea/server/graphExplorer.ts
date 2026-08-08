@@ -2,8 +2,8 @@ import type { BaseEntity } from '../data/entity';
 import { Entity, EmbeddedEntity } from '../data/entity';
 import { Lite } from '../data/lite';
 import { forEachField, collectChildren, isModifiedSelf } from '../data/changes';
-import { entityIntegrityCheck } from '../data/validation';
-import type { IntegrityCheck } from '../data/validation';
+import { entityIntegrityCheck, IntegrityCheckException } from '../data/validation';
+import type { IntegrityCheck, IntegrityCheckEnvironment } from '../data/validation';
 import { DirectedGraph } from './directedGraph';
 
 // Port of Signum's GraphExplorer (Entities/Reflection/GraphExplorer.cs).
@@ -195,11 +195,24 @@ export function saveDependencyGraph(saveSet: Set<Entity>): DirectedGraph<Entity>
  * failing modifiable (empty when the whole graph is valid) — the port of
  * GraphExplorer.FullIntegrityCheck.
  */
-export function fullIntegrityCheck(modifiables: Iterable<BaseEntity>): IntegrityCheck[] {
+export function fullIntegrityCheck(modifiables: Iterable<BaseEntity>, env: IntegrityCheckEnvironment): IntegrityCheck[] {
     const result: IntegrityCheck[] = [];
     for (const m of modifiables) {
-        const check = entityIntegrityCheck(m);
+        const check = entityIntegrityCheck(m, env);
         if (check != null) result.push(check);
     }
     return result;
+}
+
+/**
+ * Validate the whole graph reachable from `roots` in the given phase and throw an
+ * {@link IntegrityCheckException} if anything fails. The exceptionFilter turns that into a 400
+ * ModelState the client renders. Used by the HTTP endpoints for the "ServerDeserialization" phase
+ * (right after the request body is deserialized, before the operation runs); the Saver runs the
+ * final "Saving" phase itself.
+ */
+export function assertGraphIntegrity(roots: Iterable<BaseEntity>, env: IntegrityCheckEnvironment): void {
+    const errors = fullIntegrityCheck(exploreModifiables(roots), env);
+    if (errors.length > 0)
+        throw new IntegrityCheckException(errors);
 }

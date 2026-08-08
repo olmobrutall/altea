@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { getTypeName, tryGetTypeInfo } from './Reflection'
+import { getTypeName, tryGetTypeInfo, GraphExplorer } from './Reflection'
 import type { PseudoType, MemberInfo } from './Reflection'
 import { PropertyRoute, PropertyRouteType } from '../data/propertyRoute'
 import { TypeReference } from '../data/reflection'
@@ -313,11 +313,29 @@ export class TypeContext<T> extends StyleContext {
     if (this.binding == undefined)
       return undefined as any; //React Dev Tools
 
-    return this.binding.getError();
+    // A live/forced binding error wins; otherwise surface a server-reported error for THIS field —
+    // looked up by full path in the root entity's ModelState (set by frame.setError on a 400). This is
+    // how a server-only validator (disabled on the "Client" phase, so the live check stays silent)
+    // still reddens its field, not only the summary.
+    const live = this.binding.getError();
+    if (live)
+      return live;
+    const root = this.rootEntity();
+    return root ? GraphExplorer.peekModelState(root)?.[this.prefix] : undefined;
   }
 
   set error(val: string | undefined) {
     this.binding.setError(val);
+  }
+
+  // The root entity of this context tree — the one the frame keys ModelState by. Walks up the parent
+  // chain to the topmost TypeContext and returns its value when it is a BaseEntity.
+  private rootEntity(): BaseEntity | undefined {
+    let c: TypeContext<any> = this;
+    while (c.parent instanceof TypeContext)
+      c = c.parent;
+    const v = c.value;
+    return v instanceof BaseEntity ? v : undefined;
   }
 
   get index(): number | undefined {
@@ -562,7 +580,7 @@ export interface EntityFrame<T extends BaseEntity = BaseEntity> {
   entityComponent: React.Component | null | undefined;
   pack: EntityPack<T>;
   onReload: (pack?: EntityPack<T>, reloadComponent?: boolean | string | ViewPromise<T>, callback?: () => void) => void;
-  setError: (modelState: ModelState, initialPrefix?: string) => void;
+  setError: (modelState: ModelState | undefined, initialPrefix?: string) => void;
   revalidate: () => void;
   onClose: (pack?: EntityPack<T>) => void;
   refreshCount: number;

@@ -7,6 +7,7 @@
 
 import { Entity, BaseEntity, EmbeddedEntity, ModelEntity } from '../data/entity';
 import type { Type, PrimaryKey } from '../data/entity';
+import { forEachField } from '../data/changes';
 import { Lite, LiteImp } from '../data/lite';
 import { TypeInfo, tryGetTypeInfo as alteaTryGetTypeInfo } from '../data/reflection';
 import type { FieldInfo, OperationInfo, OperationType } from '../data/reflection';
@@ -177,11 +178,21 @@ const modelStates = new WeakMap<object, ModelState>();
 export namespace GraphExplorer {
   export function propagateAll(..._args: unknown[]): void { }
 
-  export function setModelState(entity: object, modelState: ModelState | undefined, _initialPrefix?: string): void {
-    if (modelState == null)
+  // Store server (or client-computed) ModelState on the root entity, re-keying each entry by its FULL
+  // path so it lines up with the field contexts' `ctx.prefix` and the ValidationErrors summary. The
+  // server returns keys relative to the posted entity (e.g. "firstName", "address.city"); `initialPrefix`
+  // is the frame's root prefix ("framePage" / a modal prefix), so a stored key becomes "framePage.firstName".
+  export function setModelState(entity: object, modelState: ModelState | undefined, initialPrefix?: string): void {
+    if (modelState == null) {
       modelStates.delete(entity);
-    else
-      modelStates.set(entity, modelState);
+      return;
+    }
+    const prefixed: ModelState = {};
+    for (const key of Object.keys(modelState)) {
+      const full = initialPrefix ? (key ? initialPrefix + "." + key : initialPrefix) : key;
+      prefixed[full] = modelState[key];
+    }
+    modelStates.set(entity, prefixed);
   }
 
   export function collectModelState(entity: object, prefix: string): ModelState {
@@ -192,6 +203,40 @@ export namespace GraphExplorer {
         if (!prefix || key == prefix || key.startsWith(prefix + "."))
           result[key] = ms[key];
     return result;
+  }
+
+  // The stored (full-path-keyed) ModelState for a root entity, or undefined. Read by TypeContext.error
+  // so a server-reported error reddens the exact field even when the client's live validators pass
+  // (e.g. a server-only validator disabled on the "Client" phase).
+  export function peekModelState(entity: object): ModelState | undefined {
+    return modelStates.get(entity);
+  }
+
+  // Phase 1: validate the owned graph (root entity + its embeddeds + owned collection rows) in the
+  // "Client" environment, BEFORE sending. Returns a ModelState keyed by the path RELATIVE to the root
+  // (e.g. "firstName", "address.city", "territories[0].territory") — the same path scheme the frame's
+  // field contexts use (binding suffixes: ".field" for members, "[i]" for collection rows), so once the
+  // frame prefix is prepended (setModelState) each key lines up with a `ctx.prefix` for red fields + a
+  // clickable summary. Referenced OTHER aggregates (Lites) are NOT followed — they are saved separately.
+  export function clientModelState(root: BaseEntity): ModelState {
+    const ms: ModelState = {};
+    const walk = (m: BaseEntity, path: string): void => {
+      forEachField(m, (fi, value) => {
+        const key = path ? path + "." + fi.name : fi.name;
+        const error = fi.validate(m, "Client");
+        if (error != null)
+          ms[key] = error;
+        if (value instanceof EmbeddedEntity)
+          walk(value, key);
+        else if (fi.array && Array.isArray(value))
+          value.forEach((el, i) => {
+            if (el instanceof Entity || el instanceof EmbeddedEntity)
+              walk(el, key + "[" + i + "]");
+          });
+      });
+    };
+    walk(root, "");
+    return ms;
   }
 }
 

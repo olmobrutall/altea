@@ -164,7 +164,7 @@ export namespace EntityOperations {
 
       return Operations.API.constructFromEntity(eoc.entity, eoc.operationInfo.key, ...args)
         .then(eoc.onConstructFromSuccess ?? eoc.onConstructFromSuccess_Default)
-        .catch(ifError(ValidationError, e => eoc.frame.setError(e.modelState, "entity")));
+        .catch(ifError(ValidationError, e => eoc.frame.setError(e.modelState, eoc.frame.prefix)));
     });
   }
 
@@ -176,10 +176,21 @@ export namespace EntityOperations {
 
       return Operations.API.constructFromLite(eoc.entity.toLite(), eoc.operationInfo.key, ...args)
         .then(eoc.onConstructFromSuccess ?? eoc.onConstructFromSuccess_Default)
-        .catch(ifError(ValidationError, e => eoc.frame.setError(e.modelState, "entity")))
+        .catch(ifError(ValidationError, e => eoc.frame.setError(e.modelState, eoc.frame.prefix)))
     });
   }
 
+
+  // Phase 1 — validate the owned graph in the browser BEFORE sending (the new client-side pass). On any
+  // error it publishes the ModelState (red fields + clickable summary) and returns false so the caller
+  // skips the round-trip; on success it clears any stale ModelState. Validators disabled on the "Client"
+  // phase stay silent here and are only enforced server-side.
+  export function validateBeforeSend<T extends Entity>(eoc: EntityOperationContext<T>): boolean {
+    const ms = GraphExplorer.clientModelState(eoc.entity);
+    const ok = Object.keys(ms).length === 0;
+    eoc.frame.setError(ok ? undefined : ms, eoc.frame.prefix);
+    return ok;
+  }
 
   export function defaultExecuteEntity<T extends Entity>(eoc: EntityOperationContext<T>, ...args: any[]): Promise<void | undefined> {
 
@@ -187,9 +198,12 @@ export namespace EntityOperations {
       if (!conf)
         return;
 
+      if (!validateBeforeSend(eoc))
+        return;
+
       return Operations.API.executeEntity(eoc.entity, eoc.operationInfo.key, ...args)
         .then(eoc.onExecuteSuccess ?? eoc.onExecuteSuccess_Default)
-        .catch(ifError(ValidationError, e => eoc.frame.setError(e.modelState, "entity")));
+        .catch(ifError(ValidationError, e => eoc.frame.setError(e.modelState, eoc.frame.prefix)));
     });
   }
 
@@ -205,7 +219,7 @@ export namespace EntityOperations {
 
       return promise
         .then(eoc.onExecuteSuccess ?? eoc.onExecuteSuccess_Default)
-        .catch(ifError(ValidationError, e => eoc.frame.setError(e.modelState, "entity")));
+        .catch(ifError(ValidationError, e => eoc.frame.setError(e.modelState, eoc.frame.prefix)));
     });
   }
 
@@ -218,7 +232,7 @@ export namespace EntityOperations {
       return Operations.API.deleteEntity(eoc.entity, eoc.operationInfo.key, ...args)
         .then(eoc.onDeleteSuccess ?? eoc.onDeleteSuccess_Default)
         .catch(async e => {
-          if (e instanceof ValidationError) { eoc.frame.setError(e.modelState, "entity"); return; }
+          if (e instanceof ValidationError) { eoc.frame.setError(e.modelState, eoc.frame.prefix); return; }
           if (Options.onDeleteError) { const handled = await Options.onDeleteError!(eoc, e); if (handled) return; }
           throw e;
         });
@@ -234,7 +248,7 @@ export namespace EntityOperations {
       return Operations.API.deleteLite(eoc.entity.toLite(), eoc.operationInfo.key, ...args)
         .then(eoc.onDeleteSuccess ?? eoc.onDeleteSuccess_Default)
         .catch(async e => {
-          if (e instanceof ValidationError) { eoc.frame.setError(e.modelState, "entity"); return; }
+          if (e instanceof ValidationError) { eoc.frame.setError(e.modelState, eoc.frame.prefix); return; }
           if (Options.onDeleteError) { const handled = await Options.onDeleteError!(eoc, e); if (handled) return; }
           throw e;
         });

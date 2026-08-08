@@ -1,10 +1,14 @@
 
 import type { BaseEntity } from './entity';
+import type { IntegrityCheckEnvironment } from './reflection';
 import { forEachField } from './changes';
 // Side-effect import: validators.ts registers the implicit-NotNull factory the reflection layer needs
 // (registerImplicitNotNullValidator). Loading it here guarantees the factory is present on every
 // validation path — including server saves through entities that declare no explicit validators.
 import './validators';
+
+// Re-exported for callers that pick the phase (server Saver, webApi, client Operations).
+export type { IntegrityCheckEnvironment } from './reflection';
 
 // Reflection-driven validation — the port of Signum's ModifiableEntity.IntegrityCheck().
 // Like change tracking, it reads only reflection metadata (the validators a field
@@ -23,11 +27,11 @@ export interface IntegrityCheck {
  * modifiable's fields. Returns an {@link IntegrityCheck} with the failing fields,
  * or `null` when everything is valid — matching Signum's `IntegrityCheck()` return.
  */
-export function entityIntegrityCheck(m: BaseEntity): IntegrityCheck | null {
+export function entityIntegrityCheck(m: BaseEntity, env: IntegrityCheckEnvironment): IntegrityCheck | null {
     let errors: { [field: string]: string } | undefined;
 
     forEachField(m, fi => {
-        const error = fi.validate(m);
+        const error = fi.validate(m, env);
         if (error != null)
             (errors ??= {})[fi.name] = error;
     });
@@ -45,6 +49,17 @@ export class IntegrityCheckException extends Error {
     constructor(public readonly checks: IntegrityCheck[]) {
         super(IntegrityCheckException.format(checks));
         this.name = 'IntegrityCheckException';
+    }
+
+    // The failing fields flattened to one ModelState (field name → message) — the wire shape the client
+    // parses into a ValidationError. The exceptionFilter emits this (no `exceptionType`) so a save that
+    // fails integrity in the Saver reaches the client as field errors + summary, not a crash modal.
+    get modelState(): ModelState {
+        const ms: ModelState = {};
+        for (const check of this.checks)
+            for (const [field, message] of Object.entries(check.errors))
+                ms[field] = message;
+        return ms;
     }
 
     private static format(checks: IntegrityCheck[]): string {

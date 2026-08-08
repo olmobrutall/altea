@@ -46,7 +46,9 @@ export namespace Saver {
     export async function save(roots: Entity[]): Promise<void> {
         const all = exploreModifiables(roots);
 
-        const errors = fullIntegrityCheck(all);
+        // Phase 3: the last-word validation, right before writing rows. Server-only validators that
+        // were skipped earlier (disabled on "Client" / "ServerDeserialization") are enforced here.
+        const errors = fullIntegrityCheck(all, "Saving");
         if (errors.length > 0)
             throw new IntegrityCheckException(errors);
 
