@@ -198,6 +198,12 @@ async function bulkCopyOneTable(entities: Entity[]): Promise<void> {
     }
 
     await connector.bulkInsert(connector.sqlBuilder.objectName(table.name), columns, rows);
+
+    // Explicit ids just went into an identity PK (a "disable identity" seed): the bulk copy did NOT
+    // advance the identity generator, so re-align it with the rows now present — otherwise the next
+    // database-generated insert reuses a low id and collides on the PK. No-op for a non-identity PK.
+    if (includePk && table.primaryKey.column.identity)
+        await connector.resetIdentitySequence(table);
 }
 
 function assertAllNew(entities: Entity[]): void {

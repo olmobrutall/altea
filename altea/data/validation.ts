@@ -1,6 +1,10 @@
 
 import type { BaseEntity } from './entity';
 import { forEachField } from './changes';
+// Side-effect import: validators.ts registers the implicit-NotNull factory the reflection layer needs
+// (registerImplicitNotNullValidator). Loading it here guarantees the factory is present on every
+// validation path — including server saves through entities that declare no explicit validators.
+import './validators';
 
 // Reflection-driven validation — the port of Signum's ModifiableEntity.IntegrityCheck().
 // Like change tracking, it reads only reflection metadata (the validators a field

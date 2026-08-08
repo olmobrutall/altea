@@ -189,7 +189,7 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
   const printer = ts.createPrinter();
   let generatedExParam = false;
   let needsFieldImport = false;
-  // Source names of top-level @reflect/@entity/@partEntity classes in the
+  // Source names of top-level @reflect/@entity classes in the
   // current file; each gets an explicit registerType(Class, "Class") appended so
   // name-based type resolution survives bundling (see registerType).
   let registerNames: string[] = [];
@@ -485,9 +485,9 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
   }
 
   // Auto @field injection is triggered by @reflect (a generic, ORM-agnostic
-  // marker in ./reflection) and by the entity decorators @entity / @partEntity,
-  // so it applies to entities, part entities, models, DTOs, views, etc.
-  const FIELD_INJECTING_DECORATORS = new Set(["reflect", "entity", "partEntity"]);
+  // marker in ./reflection) and by the entity decorator @entity, so it applies
+  // to entities, part entities, models, DTOs, views, etc.
+  const FIELD_INJECTING_DECORATORS = new Set(["reflect", "entity"]);
   function hasReflectionDecorator(node: ts.ClassDeclaration): boolean {
     return node.modifiers?.some(m =>
       ts.isDecorator(m) && (
@@ -689,7 +689,7 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
 
     // Find the import that has 'reflect' and add 'field' alongside it. 'field' and
     // 'reflect' both live in the reflection module, so field auto-injection anchors on
-    // the reflect import. Every reflected file (entity / partEntity / view) imports
+    // the reflect import. Every reflected file (entity / view) imports
     // 'reflect' for exactly this reason.
     let patched = false;
     const newStatements = sourceFile.statements.map(stmt => {
@@ -1083,13 +1083,27 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
       const fieldDecorator = ts.factory.createDecorator(fieldCall);
 
       const newModifiers: ts.ModifierLike[] = [fieldDecorator, ...(member.modifiers ?? [])];
+
+      // Auto-seed collection fields. A reflected `x: T[]` with NO initializer compiles (under
+      // ES2022 class-field semantics — useDefineForClassFields defaults on) to `x = undefined`,
+      // so a freshly `new`'d entity carries an undefined collection. That is what forces Signum's
+      // per-entity manual `= []` init and makes the UI (EntityList/EntityTable) and callers guard
+      // every collection. Emit `= []` instead — but ONLY when the field declares no initializer of
+      // its own, so an explicit default (`x: T[] = something`) is never clobbered. Runs only here,
+      // inside the @reflect/@entity injection path, so plain (non-reflected) classes are untouched.
+      const resolved = resolveElementType(member.type, false);
+      const initializer =
+        (resolved?.array === true && member.initializer == null)
+          ? ts.factory.createArrayLiteralExpression([], false)
+          : member.initializer;
+
       return ts.factory.updatePropertyDeclaration(
         member,
         newModifiers,
         member.name,
         member.questionToken ?? member.exclamationToken,
         member.type,
-        member.initializer,
+        initializer,
       );
     });
 

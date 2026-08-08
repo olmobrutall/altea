@@ -118,7 +118,9 @@ export class LineBaseController<P extends LineBaseProps<V>, V> {
   }
 
   defaultResetValidationError(val: V): string | undefined {
-    if (!this.props.ctx.memberType!.isNullable && val == undefined)
+    // Match NotNullValidator: a non-nullable field is "not set" when null/undefined OR an empty string
+    // (`=== ""` is a strict compare — never coerces a Temporal, unlike `== ""`; see the AutoLine note).
+    if (!this.props.ctx.memberType!.isNullable && (val == undefined || (val as unknown) === ""))
       return ValidationMessage._0IsNotSet.niceToString(this.props.ctx.niceName());
 
     return undefined;

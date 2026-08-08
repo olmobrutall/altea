@@ -17,6 +17,7 @@ import { BaseEntity, type Entity } from "../data/entity";
 import type { Lite } from "../data/lite";
 import { RuntimeType, ClassType, ArrayType, LiteType, LiteralType } from "./runtimeTypes";
 import { Serializer } from "../data/serializer";
+import { Validator } from "../data/reflection";
 import type { IntegrityCheck } from "../data/validation";
 
 // A class reference (abstract-tolerant, so `Entity`/`BaseEntity` bases are accepted).
@@ -124,7 +125,9 @@ export class WebBuilder {
             // only for the OpenAPI schema below.
             (req as any).jsonTyped = () => {
                 const body = (req as { body?: string }).body;
-                return Promise.resolve(body ? Serializer.parse(body) : undefined);
+                // Signum's model-binding scope: mark the deserialization so a validator flagged
+                // @<v>({ disableInServerDeserialization: true }) is skipped while binding the body.
+                return Promise.resolve(body ? Validator.runInServerDeserialization(() => Serializer.parse(body)) : undefined);
             };
             (res as any).jsonTyped = (obj: unknown) => res.type("application/json").send(Serializer.stringify(obj));
             (res as any).modelState = (ic: IntegrityCheck) => res.status(400).json({ modelState: ic.errors });

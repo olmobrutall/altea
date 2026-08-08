@@ -1,5 +1,5 @@
 
-import { getOrCreateTypeInfo, getOrCreateFieldInfo, Validator } from './reflection';
+import { getOrCreateTypeInfo, getOrCreateFieldInfo, Validator, registerImplicitNotNullValidator } from './reflection';
 import type { FieldInfo } from './reflection';
 import type { BaseEntity } from './entity';
 import { msg } from './utils/localization';
@@ -22,6 +22,52 @@ function addValidator(target: object, propertyKey: string | symbol, validator: V
     const typeInfo = getOrCreateTypeInfo(target);
     getOrCreateFieldInfo(typeInfo, String(propertyKey)).validators.push(validator);
 }
+
+// --- NotNullValidator ---
+//
+// Signum auto-adds one of these to every non-nullable reference/string property that does not already
+// declare one (see FieldInfo.getImplicitNotNull / computeNeedsImplicitNotNull). Declare it explicitly
+// only to OVERRIDE that default — most often to opt OUT of a required non-nullable field:
+//   @notNullValidator({ disabled: true })                     // never required
+//   @notNullValidator({ disableInServerDeserialization: true }) // required, but not during model binding
+// A non-null @backReference is exempt automatically (it is wired by the save cascade), so it needs no
+// `{ disabled: true }`.
+
+export interface NotNullOptions {
+    // Makes the validator inert (Signum's NotNullValidator.Disabled) — the way to opt out of the
+    // implicit NotNull on a non-nullable field.
+    disabled?: boolean;
+    // Skip only while the server deserializes the request body (Signum's DisabledInModelBinder).
+    disableInServerDeserialization?: boolean;
+}
+
+export function notNullValidator(options: NotNullOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new NotNullValidator(options));
+}
+
+export class NotNullValidator extends Validator {
+    constructor(public readonly options: NotNullOptions = {}) {
+        super();
+        this.disableInServerDeserialization = options.disableInServerDeserialization;
+    }
+
+    override get isNotNull(): boolean { return true; }
+    get helpMessage() { return 'be set'; }
+
+    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
+        if (this.options.disabled) return null;
+        // Signum's NotNullValidator: null OR empty string counts as "not set". `== null` is the safe
+        // null/undefined test (never calls valueOf, unlike `== ""` on a Temporal — see AutoLine); the
+        // `=== ""` is a strict compare that only matches actual empty strings.
+        if (value == null || value === '')
+            return ValidationMessage._0IsNotSet.niceToString(fi.niceToString());
+        return null;
+    }
+}
+
+// Register the factory the reflection layer uses to build the IMPLICIT NotNull it auto-adds (kept here,
+// with the class, to avoid a reflection→validators import cycle).
+registerImplicitNotNullValidator(() => new NotNullValidator());
 
 // --- fieldValidation ---
 

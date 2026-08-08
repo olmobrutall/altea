@@ -220,7 +220,7 @@ class EntitySerializer extends ModifiableSerializer {
             return original;
         }
 
-        // No baseline (client-receive path): build fresh with the id, seed the snapshot sentinel.
+        // No baseline (client-receive path): build fresh with the id, then seed the snapshot.
         const inst = new (this.ctor as Type<Entity>)();
         inst.id = id;
         inst.isNew = false;
@@ -228,7 +228,13 @@ class EntitySerializer extends ModifiableSerializer {
         dc.idMap.set(key, inst);
         this.applyFields(inst, j, dc);
         this.recover(inst, slot);
-        inst._snapshot = modified ? true : undefined;
+        // `modified: true` → the `true` sentinel (unconditionally dirty). Otherwise seed a REAL clean
+        // baseline (getSnapshot), NOT the `undefined` "unconditionally clean" sentinel: the client has
+        // no change-tracking setters (unlike Signum), so a loaded entity is only diff-trackable if it
+        // carries a projection to compare later edits against. With `undefined` an edited field never
+        // flips isModifiedSelf, so the client would send no `modified` flag and the save would persist
+        // nothing. Equivalent to the server's cleanModified() after a DB retrieve.
+        inst._snapshot = modified ? true : getSnapshot(inst);
         return inst;
     }
 

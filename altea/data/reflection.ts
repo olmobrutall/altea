@@ -281,11 +281,57 @@ export class FieldInfo extends TypeReference {
     // so the two never diverge.
     validate(entity: any): string | null {
         const value = entity[this.name];
+        // Signum auto-adds a NotNullValidator to every non-nullable reference/string property; altea
+        // synthesises it here (see getImplicitNotNull) so it runs BEFORE the declared validators — a
+        // not-set value should surface "is not set", not a downstream format error.
+        const implicit = this.getImplicitNotNull();
+        if (implicit != null) {
+            const error = implicit.error(value, entity, this);
+            if (error != null) return error;
+        }
         for (const validator of this.validators) {
             const error = validator.error(value, entity, this);
             if (error != null) return error;
         }
         return this.customValidation != null ? this.customValidation(entity, this) : null;
+    }
+
+    // Signum's implicit NotNullValidator (PropertyValidator ctor: a non-nullable, non-value-type
+    // property with no explicit NotNullValidator gets one automatically). altea computes it lazily off
+    // reflection metadata and memoizes it (the field graph is frozen after boot). The validator INSTANCE
+    // is built by a factory validators.ts registers (registerImplicitNotNullValidator) — reflection.ts
+    // can't import validators.ts (cycle). Fetched lazily, so it is never wrongly cached as "absent" when
+    // the factory is registered after the first probe.
+    #needsImplicitNotNull?: boolean;
+    #implicitNotNull?: Validator;
+    private getImplicitNotNull(): Validator | undefined {
+        if (this.#needsImplicitNotNull === undefined)
+            this.#needsImplicitNotNull = this.computeNeedsImplicitNotNull();
+        if (!this.#needsImplicitNotNull) return undefined;
+        return this.#implicitNotNull ??= implicitNotNullValidatorFactory?.();
+    }
+
+    private computeNeedsImplicitNotNull(): boolean {
+        if (this.isNullable) return false;
+        // @backReference (owner FK) and @rowOrder (MList row index) are wired by the save cascade
+        // (saver.wireOwnedChildren), not the user — so, like Signum's implicit MList back-pointer /
+        // PreserveOrder column, they are never validated as required. (@valueField, by contrast, holds
+        // the actual element value and stays required.)
+        if (this.isBackReference || this.isRowOrder) return false;
+        // Collections default to [] (see the transformer's array init) — never null — so a NotNull would
+        // be a no-op; "required = non-empty" is a separate CountIs concern, not NotNull.
+        if (this.array) return false;
+        // An explicit NotNullValidator wins — including a DISABLED one, which is exactly how you opt out
+        // of the implicit check (`@notNullValidator({ disabled: true })`).
+        if (this.validators.some(v => v.isNotNull)) return false;
+        // DIVERGENCE from Signum: Signum's implicit NotNull is added ONLY to reference types
+        // (`!pi.PropertyType.IsValueType`) because a non-nullable C# struct/enum PHYSICALLY can't be null,
+        // so validating it is pointless. In TypeScript that guarantee does not exist — a non-nullable
+        // `number` / `boolean` / enum / `PlainDate` field is `undefined` on a freshly-constructed entity —
+        // so altea requires EVERY non-nullable field, value types included. The DB-generated framework
+        // fields (id / ticks / isNew / _snapshot) are never reached: forEachField (the validation driver)
+        // skips them via RESERVED_FIELDS, and the client only validates fields a Line actually binds.
+        return true;
     }
 }
 
@@ -294,6 +340,15 @@ export class FieldInfo extends TypeReference {
 export abstract class Validator {
     isApplicable?: (entity: any) => boolean;
     customError?: () => string;
+    // Signum's ValidatorAttribute.DisabledInModelBinder: skip this validator while the SERVER is
+    // deserializing an incoming request body (model binding). Used for a value the client is not
+    // expected to send because server logic fills it in before the real save-time validation runs.
+    // Set via `@<validator>({ disableInServerDeserialization: true })`.
+    disableInServerDeserialization?: boolean;
+
+    // True for the NotNullValidator (Signum tests `v is NotNullValidatorAttribute`). Lets the reflection
+    // layer detect an already-declared NotNull without importing validators.ts (cycle). Overridden there.
+    get isNotNull(): boolean { return false; }
 
     abstract get helpMessage(): string;
     isCompatibleWith?(type: Function): boolean;
@@ -301,11 +356,32 @@ export abstract class Validator {
     protected abstract overrideError(value: unknown, entity: any, fieldName: FieldInfo): string | null;
 
     error(value: unknown, entity: any, fieldName: FieldInfo): string | null {
+        if (this.disableInServerDeserialization && Validator.inServerDeserialization) return null;
         if (this.isApplicable != null && !this.isApplicable(entity)) return null;
         const result = this.overrideError(value, entity, fieldName);
         if (result == null) return null;
         return this.customError != null ? this.customError() : result;
     }
+
+    // Signum's `Validator.InModelBinder` thread variable + `ModelBinderScope()`. altea handles one
+    // request per async context; the server sets this true only around the synchronous body
+    // deserialization (webApi `req.jsonTyped` → Serializer.parse). DIVERGENCE: altea validates at
+    // save time, not during binding, so this flag only affects validation invoked inside that scope.
+    static inServerDeserialization = false;
+    static runInServerDeserialization<R>(fn: () => R): R {
+        const old = Validator.inServerDeserialization;
+        Validator.inServerDeserialization = true;
+        try { return fn(); } finally { Validator.inServerDeserialization = old; }
+    }
+}
+
+// The implicit NotNull validator (Signum auto-adds one to every non-nullable reference/string property
+// without an explicit NotNullValidator). Its CLASS and the `@notNullValidator` decorator live in
+// validators.ts; to avoid the reflection→validators import cycle, validators.ts registers a factory here
+// at module load. FieldInfo.getImplicitNotNull fetches it lazily, so registration order is irrelevant.
+let implicitNotNullValidatorFactory: (() => Validator) | undefined;
+export function registerImplicitNotNullValidator(factory: () => Validator): void {
+    implicitNotNullValidatorFactory = factory;
 }
 
 export class TypeInfo {

@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Schema } from '../schema/schema';
+import type { Table } from '../schema/table';
 import type { IColumn } from '../schema/column';
 import { SqlBuilder } from '../sync/sqlBuilder';
 import type { SqlPreCommand, SqlPreCommandSimple } from '../sync/sqlPreCommand';
@@ -174,6 +175,32 @@ export abstract class Connector {
     bulkInsert(destinationTable: string, columns: IColumn[], rows: unknown[][]): Promise<void> {
         return this.withLogging(`-- BULK INSERT ${destinationTable} (${rows.length} rows)`, [], () =>
             this.ensureConnection(handle => handle.bulkInsert(destinationTable, columns, rows)));
+    }
+
+    // Re-aligns a table's identity generator with the rows actually present, so the next
+    // DATABASE-GENERATED insert gets MAX(id)+1. Needed after inserting EXPLICIT primary-key values
+    // into an identity table (a bulk load / "disable identity" seed): neither Postgres COPY nor SQL
+    // Server's bulk copy advances the identity generator when the id is supplied, so without this the
+    // next generated insert reuses a low id and fails with a duplicate-PK error (`pk_...`). Signum
+    // leaves this to the caller; altea folds it into the bulk path (see BulkInserter.bulkCopyOneTable)
+    // so a freshly seeded table is immediately safe for ordinary saves. DIVERGENCE.
+    //
+    // Postgres: setval() on the column's owned sequence to MAX(id) (is_called=true ⇒ next = MAX+1);
+    // an empty table resets it to 1 (is_called=false). SQL Server: DBCC CHECKIDENT(..., RESEED) reseeds
+    // the current identity value to the column's max (a no-op when it is already ahead). The names come
+    // from schema metadata (not user input) and are dialect-escaped. Only meaningful for an identity PK
+    // — callers invoke it only for an identity table that was given explicit ids.
+    async resetIdentitySequence(table: Table): Promise<void> {
+        const objName = this.sqlBuilder.objectName(table.name);
+        const pkColName = table.primaryKey.column.name;
+        if (this.isPostgres) {
+            const maxExpr = `SELECT MAX(${this.sqlBuilder.sqlEscape(pkColName)}) FROM ${objName}`;
+            await this.executeNonQuery(
+                `SELECT setval(pg_get_serial_sequence('${objName}', '${pkColName}'), ` +
+                `COALESCE((${maxExpr}), 1), ((${maxExpr}) IS NOT NULL));`);
+        } else {
+            await this.executeNonQuery(`DBCC CHECKIDENT('${objName}', RESEED);`);
+        }
     }
 
     // Times `run` and reports the statement to Connector.currentLogger when one is
