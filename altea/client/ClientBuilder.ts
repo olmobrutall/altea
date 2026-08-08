@@ -3,6 +3,7 @@ import { BaseEntity, type Type } from '../data/entity';
 import { Navigator } from './Navigator';
 import { Finder } from './Finder';
 import { Operations } from './Operations';
+import { QuickLinkClient } from './QuickLinkClient';
 import { ExceptionClient } from './Exceptions/ExceptionClient';
 import { EntitySettings, type ViewModule } from './EntitySettings';
 import { QueryTokenString, createTokenFunction, type TokenFunction } from './QueryTokenString';
@@ -35,6 +36,9 @@ export class ClientBuilder {
    * and Finder). Each pushes its own ImportComponent routes (/view, /create, /find) onto `this.routes`.
    * Call once, before any domain `start(cb)`. */
   startFramework(): void {
+    // QuickLinks first so its widget / context-menu / cell-format registrations are in place before
+    // Operations.start pushes the global operation-log quick link (Signum's MainAdmin ordering).
+    QuickLinkClient.start();
     Operations.start();
     Navigator.start({ routes: this.routes });
     Finder.start({ routes: this.routes });

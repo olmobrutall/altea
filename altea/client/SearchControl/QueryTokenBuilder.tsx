@@ -13,6 +13,8 @@ import { classes, Dic } from '../../data/globals'
 import { Finder } from '../Finder'
 import { SubTokensOptions } from '../QueryToken'
 import { QueryToken } from '../QueryToken';
+import type { ManualToken as ManualTokenDescriptor } from '../QueryToken';
+import { ManualToken as ManualTokenClass, ManualContainerToken } from '../../data/dynamicQuery/tokens';
 import "./QueryTokenBuilder.css"
 import { DropdownList } from 'react-widgets-up'
 import { StyleContext } from '../TypeContext';
@@ -298,15 +300,38 @@ export function clearManualSubTokens(): void {
   Dic.clear(manualSubTokens);
 }
 
-export const manualSubTokens: { [key: string]: (entityType: string) => Promise<QueryToken[]> } = {};
+export const manualSubTokens: { [key: string]: (entityType: string) => Promise<ManualTokenDescriptor[]> } = {};
 
-export function registerManualSubTokens(key: string, func: (entityType: string) => Promise<QueryToken[]>): void {
+export function registerManualSubTokens(key: string, func: (entityType: string) => Promise<ManualTokenDescriptor[]>): void {
   Dic.addOrThrow(manualSubTokens, key, func);
 }
 
-// TODO(port): manual/cell sub-tokens are deferred — altea has no `queryTokenType` discriminator nor a
-// ManualToken query-token subclass yet, so no token is ever treated as a manual container. Returns
-// undefined so callers fall through to the normal server/local sub-token path.
-function getManualSubTokens(_token?: QueryToken): Promise<QueryToken[]> | undefined {
-  return undefined;
+// Port of Signum's getManualSubTokens (QueryTokenBuilder.tsx). When the token-tree picker asks for the
+// sub-tokens of a MANUAL CONTAINER token (one whose key is registered in `manualSubTokens`, e.g.
+// "[QuickLinks]"), we resolve the registered descriptors for the container's entity type and turn each
+// into a real ManualToken leaf. Any other token returns undefined → the caller falls through to the
+// normal metadata/server sub-token path. A manual LEAF (a ManualToken under a ManualContainerToken) has
+// no sub-tokens (short-circuit to [], never a server round-trip).
+function getManualSubTokens(token?: QueryToken): Promise<QueryToken[]> | undefined {
+
+  // A manual leaf under a manual container: no further sub-tokens (Signum prevents sending to server).
+  if (token?.parent && token.hasManual() && token.parent.hasManual())
+    return Promise.resolve([]);
+
+  // A manual container: its key is registered and it hangs off an entity token.
+  const container = token != undefined && token.parent != undefined && manualSubTokens[token.key] != undefined
+    ? (token as ManualContainerToken) : undefined;
+  if (container == undefined)
+    return undefined;
+
+  const entityType = container.parent!.type.getTypeName();
+  if (entityType == undefined)
+    return Promise.resolve([]);
+  return manualSubTokens[container.key](entityType)
+    .then(descriptors => descriptors.map(m => new ManualTokenClass(container, m.key, {
+      toStr: m.toStr,
+      niceName: m.niceName,
+      typeColor: m.typeColor,
+      niceTypeName: m.niceTypeName,
+    }) as unknown as QueryToken));
 }

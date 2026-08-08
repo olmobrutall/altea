@@ -207,6 +207,12 @@ export const ConnectionMessage = {
     Refresh: msg("Refresh"),
 };
 
+// QuickLink (Signum's QuickLinkMessage) — used by the QuickLinkClient widget / context menu / cell links.
+export const QuickLinkMessage = {
+    Quicklinks: msg("Quicklinks"),
+    No0Found: msg("No {0} found"),
+};
+
 // CascadeDelete (Signum's CascadeDeleteMessage) — used by DeleteErrorModal.
 export const CascadeDeleteMessage = {
     ThisEntityIsStillReferenced: msg("This entity is still referenced"),

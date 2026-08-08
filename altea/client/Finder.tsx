@@ -351,24 +351,24 @@ export namespace Finder {
   //       .then(a => a.default.openMany(fo, modalOptions));
   //   }
   // 
-  //   export function exploreWindowsOpen(findOptions: FindOptions, e: React.MouseEvent<any>): void {
-  //     e.preventDefault();
-  //     if (e.ctrlKey || e.button == 1)
-  //       window.open(AppContext.toAbsoluteUrl(findOptionsPath(findOptions)));
-  //     else
-  //       explore(findOptions);
-  //   }
-  // 
-  //   export function explore(findOptions: FindOptions, modalOptions?: ModalFindOptions): Promise<void> {
-  // 
-  //     var qs = getSettings(findOptions.queryName);
-  //     if (qs?.onExplore && !(modalOptions?.useDefaultBehaviour))
-  //       return qs.onExplore(findOptions, modalOptions);
-  // 
-  //     return Options.getSearchModal()
-  //       .then(a => a.default.explore(findOptions, modalOptions));
-  //   }
-  // 
+  export function exploreWindowsOpen(findOptions: FindOptions, e: React.MouseEvent<any>): void {
+    e.preventDefault();
+    if (e.ctrlKey || e.button == 1)
+      window.open(AppContext.toAbsoluteUrl(findOptionsPath(findOptions)));
+    else
+      explore(findOptions);
+  }
+
+  export function explore(findOptions: FindOptions, modalOptions?: ModalFindOptions): Promise<void> {
+
+    var qs = getSettings(findOptions.queryName);
+    if (qs?.onExplore && !(modalOptions?.useDefaultBehaviour))
+      return qs.onExplore(findOptions, modalOptions);
+
+    return Options.getSearchModal()
+      .then(a => a.default.explore(findOptions, modalOptions));
+  }
+
   export function findOptionsPath(fo: FindOptions, extra?: any): string {
 
     const query = findOptionsPathQuery(fo, extra);
@@ -1144,16 +1144,13 @@ export namespace Finder {
 
 
 
-  // TODO(port): exploreOrView needs Navigator.view (not yet on the ported Navigator) and Finder.explore
-  // (part of the commented-out find/explore UI family). Restore once those land.
   export function exploreOrView(findOptions: FindOptions): Promise<void> {
-    throw new Error("TODO(port): exploreOrView — Navigator.view + Finder.explore not ported yet");
-    // return fetchLites({ queryName: findOptions.queryName, filterOptions: findOptions.filterOptions ?? [], orderOptions: [], count: 2 }).then(list => {
-    //   if (list.length == 1)
-    //     return Navigator.view(list[0], { buttons: "close" }).then(() => undefined);
-    //   else
-    //     return explore(findOptions);
-    // });
+    return fetchLites({ queryName: findOptions.queryName, filterOptions: findOptions.filterOptions ?? [], orderOptions: [], count: 2 }).then(list => {
+      if (list.length == 1)
+        return Navigator.view(list[0], { buttons: "close" }).then(() => undefined);
+      else
+        return explore(findOptions);
+    });
   }
 
   export function useQueryValue<T = number>(queryName: PseudoType | QueryKey | null, filterOptions: (FilterOption | null | undefined)[], valueToken?: QueryTokenString<T> | string, multipleValues?: boolean, extraDeps?: React.DependencyList): T | null | undefined {

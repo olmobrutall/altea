@@ -229,11 +229,14 @@ export abstract class QueryToken {
 
             const only = imp.only();
             if (only != undefined && only === entityCtor) {
-                // Single concrete implementation: id + ToString + the entity's own properties.
-                // TODO(phase3b/4): EntityType/PartitionId, system-time, operations, manual.
+                // Single concrete implementation: id + ToString + (when CanManual) the [QuickLinks]
+                // manual container + the entity's own properties. Signum adds QuickLinksToken here
+                // (QueryToken.cs SubTokensBase, gated by CanManual), before EntityProperties.
+                // TODO(phase3b/4): EntityType/PartitionId, system-time, operations container.
                 return this.andHasValue([
                     this.idPropertyToken(),
                     tokenFactories!.entityToString(this),
+                    ...(options & SubTokensOptions.CanManual ? [tokenFactories!.quickLinksContainer(this)] : []),
                     ...this.entityProperties(entityCtor),
                 ]);
             }
@@ -624,6 +627,7 @@ export interface TokenFactories {
     collectionElement(parent: QueryToken, elementType: string): QueryToken;
     collectionAnyAll(parent: QueryToken, anyAllType: string): QueryToken;
     collectionToArray(parent: QueryToken, toArrayType: string): QueryToken;
+    quickLinksContainer(parent: QueryToken): QueryToken;
 }
 let tokenFactories: TokenFactories | undefined;
 export function registerTokenFactories(f: TokenFactories): void {

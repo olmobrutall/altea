@@ -21,8 +21,10 @@ import { DeleteErrorModal } from './Operations/DeleteErrorModal';
 import { MultiOperationProgressModal } from "./Operations/MultiOperationProgressModal";
 import { ProgressModal } from "./Operations/ProgressModal";
 import type { ProgressModalOptions } from "./Operations/ProgressModal";
-import { getOperationInfo, getTypeInfo, getTypeName, GraphExplorer } from './Reflection';
+import { getOperationInfo, getTypeInfo, tryGetTypeInfo, getQueryKey, getTypeName, GraphExplorer } from './Reflection';
 import type { OperationInfo, OperationType } from './Reflection';
+import { QuickLinkClient, QuickLinkExplore } from './QuickLinkClient';
+import { OperationLogEntity } from '../data/operationLog';
 import type { TypeInfo } from '../data/reflection';
 import type { QueryTokenString } from './QueryTokenString';
 import type { Type } from '../data/entity';
@@ -56,9 +58,22 @@ export namespace Operations {
     // ALTEA: Signum's AppContext.clearSettingsActions doesn't exist in altea (it diverged to per-user
     // client state); the operation-settings registry is cleared directly if/when needed.
 
-    // TODO(port): the operation-log global quick link needs the QuickLink subsystem + OperationLogEntity
-    // (a DB-backed framework entity + registered query), neither ported yet.
-    // QuickLinkClient.registerGlobalQuickLink(entityType => Promise.resolve([new QuickLinkExplore(...)]));
+    // Signum's operation-log global quick link (Operations.tsx start()): every entity type that HAS
+    // operations gets a quick link opening the OperationLog query filtered to that entity. Visible only
+    // when the type has registered operations AND the OperationLog query is findable (auth) — matching
+    // Signum's `getTypeInfo(entityType).operations && Finder.isFindable(OperationLogEntity, false)`.
+    QuickLinkClient.registerGlobalQuickLink(entityType => Promise.resolve([
+      new QuickLinkExplore(OperationLogEntity, ctx => OperationLogEntity.findOptions(token => ({
+        filterOptions: [token(e => e.target).filter("EqualTo", ctx.lite)],
+      })), {
+        key: getQueryKey(OperationLogEntity),
+        text: () => getTypeInfo(OperationLogEntity).getNicePluralName(),
+        isVisible: tryGetTypeInfo(entityType)?.operations != null && Finder.isFindable(OperationLogEntity, false),
+        icon: "clock-rotate-left",
+        iconColor: "green",
+        color: "success",
+      }),
+    ]));
 
     Finder.formatRules.push({
       name: "CellOperation",

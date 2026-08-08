@@ -17,3 +17,4 @@ export * from "./collectionAnyAllToken";
 export * from "./collectionToArrayToken";
 export * from "./aggregateToken";
 export * from "./extensionToken";
+export * from "./manualToken";

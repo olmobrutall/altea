@@ -10,7 +10,7 @@
 
 import {
     Expression, ParameterExpression, PropertyExpression, CallExpression, CastExpression,
-    BinaryExpression, ConstantExpression, LambdaExpression, UnaryExpression,
+    BinaryExpression, ConstantExpression, LambdaExpression, UnaryExpression, ObjectExpression,
 } from "../linq/expressions";
 import { Entity } from "../../data/entity";
 import { RuntimeType, ClassType, LiteType, ArrayType, LiteralType } from "../runtimeTypes";
@@ -19,6 +19,7 @@ import {
     AsTypeToken, DateToken, ModuloToken, CountToken,
     CollectionElementToken, CollectionAnyAllToken, CollectionAnyAllType, CollectionToArrayToken,
     AggregateToken, AggregateFunction, ExtensionToken,
+    ManualContainerToken, ManualToken,
 } from "../../data/dynamicQuery/tokens";
 
 // ---- BuildExpressionContext / ExpressionBox (Signum's, in QueryToken.cs) --------------------
@@ -267,4 +268,23 @@ ExtensionToken.prototype.buildExpressionInternal = function (context: BuildExpre
     if (buildExtensionExpr == undefined)
         throw new Error("ExtensionToken build hook not set (import logic/dynamicQuery/expressionContainer)");
     return buildExtensionExpr(this.info.serverInfo, this.parent!.buildExpression(context));
+};
+
+// Manual container (Signum's ManualContainerToken.BuildExpressionInternal): just its parent's entity
+// expression — the leaf below wraps it into the ManualCellDto projection.
+ManualContainerToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
+    return this.parent!.buildExpression(context);
+};
+
+// Manual leaf (Signum's ManualToken.BuildExpressionInternal): `new ManualCellDTO(entity.ToLite(),
+// containerKey, tokenKey)`. altea has no ManualCellDTO class registered, so it projects a plain object
+// literal with the same shape (ObjectExpression) — the client's CellQuickLink formatter reads it.
+ManualToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
+    const parentExpression = this.parent!.buildExpression(context);
+    const entity = extractEntity(parentExpression, false);
+    return new ObjectExpression({
+        lite: buildLite(entity),
+        manualContainerTokenKey: new ConstantExpression(this.parent!.key, LiteralType.string),
+        manualTokenKey: new ConstantExpression(this.key, LiteralType.string),
+    });
 };

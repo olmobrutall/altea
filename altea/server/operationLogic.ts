@@ -1,12 +1,17 @@
-import type { Entity } from "../data/entity";
+import { Entity } from "../data/entity";
 import type { Lite } from "../data/lite";
 import { OperationSymbol } from "../data/operations";
 import type {
     ExecuteSymbol, DeleteSymbol,
     ConstructSymbol, From, FromMany,
 } from "../data/operations";
+import { OperationLogEntity } from "../data/operationLog";
+import { Temporal } from "../data/basics";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
 import { SymbolLogic } from "./symbolLogic";
+import { Saver } from "./saver";
+import { ExceptionLogic } from "./exceptionLogic";
+import "./dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import {
     OperationType,
     type IOperation, type IEntityOperation, type IExecuteOperation, type IDeleteOperation,
@@ -54,9 +59,55 @@ export namespace OperationLogic {
     }
 
     // Signum's OperationLogic.Start: wires the OperationSymbol table through SymbolLogic,
-    // seeding only the RegisteredOperations. Call AFTER the graphs have registered.
+    // seeding only the RegisteredOperations, and includes the OperationLogEntity table + its query
+    // (Signum's sb.Include<OperationLogEntity>().WithQuery(...)). Call AFTER the graphs have registered.
     export function start(sb: SchemaBuilder): void {
         SymbolLogic.start(sb, OperationSymbol, () => registeredOperations());
+        sb.include(OperationLogEntity).withQuery();
+    }
+}
+
+// Signum wraps every operation execution in a transaction that also writes an OperationLogEntity
+// (OperationLogic.OnSuspiciousOperation / the OperationRunner). altea has no ambient transaction yet, so
+// the log is a best-effort side write: the operation runs, then the log row is persisted. A log-save
+// failure is swallowed (console.error) so it can NEVER mask the operation's own result — in particular,
+// if the OperationLog table hasn't been created yet (needs `terminal sync`), operations keep working and
+// logging is simply skipped. Divergence from Signum, whose logging is transactional.
+async function logOperation<T>(
+    symbol: OperationSymbol,
+    origin: Entity | null,
+    run: () => Promise<T>,
+    getTarget: (result: T) => Entity | null,
+): Promise<T> {
+    const log = new OperationLogEntity();
+    log.operation = symbol;
+    log.origin = origin == null || origin.isNew ? null : origin.toLite();
+    log.start = Temporal.Now.plainDateTimeISO();
+    try {
+        const result = await run();
+        log.setTarget(getTarget(result));
+        log.end = Temporal.Now.plainDateTimeISO();
+        await persistLog(log);
+        return result;
+    } catch (error) {
+        log.end = Temporal.Now.plainDateTimeISO();
+        // Link the exception row (Signum's OperationLogEntity.Exception) — best-effort.
+        try {
+            const ex = await ExceptionLogic.logException(error);
+            log.exception = ex.isNew ? null : ex.toLite();
+        } catch (exError) {
+            console.error("OperationLogic.logOperation: failed to log exception:", exError);
+        }
+        await persistLog(log);
+        throw error;
+    }
+}
+
+async function persistLog(log: OperationLogEntity): Promise<void> {
+    try {
+        await Saver.save([log]);
+    } catch (saveError) {
+        console.error("OperationLogic.logOperation: failed to persist OperationLogEntity:", saveError);
     }
 }
 
@@ -72,19 +123,29 @@ function find(symbol: OperationSymbol, type: OperationType): IOperation {
 // the symbol containers, so the compiler rejects the wrong operation kind / entity type.
 export const Operations = {
     async execute<T extends Entity>(entity: T, symbol: ExecuteSymbol<T>, ...args: unknown[]): Promise<T> {
-        return await (find(symbol, OperationType.Execute) as IExecuteOperation).doExecute(entity, args) as T;
+        return await logOperation(symbol, null,
+            () => (find(symbol, OperationType.Execute) as IExecuteOperation).doExecute(entity, args) as Promise<T>,
+            result => result);
     },
     async delete<T extends Entity>(entity: T, symbol: DeleteSymbol<T>, ...args: unknown[]): Promise<void> {
-        await (find(symbol, OperationType.Delete) as IDeleteOperation).doDelete(entity, args);
+        await logOperation(symbol, null,
+            () => (find(symbol, OperationType.Delete) as IDeleteOperation).doDelete(entity, args),
+            () => entity);
     },
     async construct<T extends Entity>(symbol: ConstructSymbol<T>, ...args: unknown[]): Promise<T> {
-        return await (find(symbol, OperationType.Constructor) as IConstructOperation).doConstruct(args) as T;
+        return await logOperation(symbol, null,
+            () => (find(symbol, OperationType.Constructor) as IConstructOperation).doConstruct(args) as Promise<T>,
+            result => result);
     },
     async constructFrom<T extends Entity, F extends Entity>(entity: F, symbol: ConstructSymbol<T, From<F>>, ...args: unknown[]): Promise<T> {
-        return await (find(symbol, OperationType.ConstructorFrom) as IConstructorFromOperation).doConstructFrom(entity, args) as T;
+        return await logOperation(symbol, entity,
+            () => (find(symbol, OperationType.ConstructorFrom) as IConstructorFromOperation).doConstructFrom(entity, args) as Promise<T>,
+            result => result);
     },
     async constructFromMany<T extends Entity, F extends Entity>(lites: Lite<F>[], symbol: ConstructSymbol<T, FromMany<F>>, ...args: unknown[]): Promise<T> {
-        return await (find(symbol, OperationType.ConstructorFromMany) as IConstructorFromManyOperation).doConstructFromMany(lites as Lite<Entity>[], args) as T;
+        return await logOperation(symbol, null,
+            () => (find(symbol, OperationType.ConstructorFromMany) as IConstructorFromManyOperation).doConstructFromMany(lites as Lite<Entity>[], args) as Promise<T>,
+            result => result);
     },
     // The button-state check (Signum's entity.CanExecute(symbol)).
     canExecute<T extends Entity>(entity: T, symbol: ExecuteSymbol<T> | DeleteSymbol<T>): string | null {

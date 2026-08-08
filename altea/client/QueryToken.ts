@@ -12,6 +12,20 @@ import { QueryTokenString } from './QueryTokenString';
 
 export { QueryToken, SubTokensOptions, SubTokensOptionsAll } from '../data/dynamicQuery/tokens';
 
+// Signum's react `ManualToken` / `ManualCellDto` (QueryToken.ts). `ManualToken` (here) is the lightweight
+// DESCRIPTOR a `registerManualSubTokens` provider returns — the QueryTokenBuilder turns each into a real
+// `ManualToken` token-class instance (data/dynamicQuery/tokens/manualToken). `ManualCellDto` is the
+// per-row value a manual column projects; the QuickLinkClient's CellQuickLink formatter reads it.
+export interface ManualToken {
+  toStr: string;
+  niceName: string;
+  key: string;
+  typeColor?: string;
+  niceTypeName: string;
+  subToken?: Promise<ManualToken[]>;
+}
+export type { ManualCellDto } from '../data/dynamicQuery/tokens/manualToken';
+
 // The token-CATEGORY predicates (isAggregate/isAnyOrAll/isElement/isToArray), the parent-walking
 // `has*` checks (hasAnyOrAll/hasAny/hasAggregate/hasElement/hasToArray/hasOperation/hasManual/…) and
 // the token-tree colour (`queryTokenColor`) are now INSTANCE METHODS on the entities QueryToken class
