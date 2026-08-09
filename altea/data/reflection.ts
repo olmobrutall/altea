@@ -66,7 +66,7 @@ export interface FieldOptions {
 // switch on, while enum names and name-only @implementedBy interface names — which also land in
 // `typeName` — stay assignable. The int-vs-double precision lives in `subTypeName`.
 export type TypeName =
-    | "String" | "Number" | "Boolean" | "Decimal" | "Guid"
+    | "String" | "Number" | "Boolean" | "Decimal" | "Guid" | "Blob"
     | "PlainDate" | "PlainDateTime" | "PlainTime" | "Duration" | "Instant" | "ZonedDateTime"
     | (string & {});
 
@@ -434,6 +434,10 @@ export class TypeInfo {
     // alone). `lowPopulation` = Signum's isLowPopulation.
     entityData?: EntityData;
     lowPopulation?: boolean;
+    // Signum's `[PrimaryKey(IdentityBehaviour = false)]`: the PK is NOT a DB identity — its ids are
+    // supplied externally (seeded by SymbolLogic / the enum value). Stamped by `@entity(..., { identity:
+    // false })`; default (undefined) = a normal DB identity PK. Read by the SchemaBuilder.
+    identity?: boolean;
 
     // TODO: wire to OperationLogic (operations-symbol-port) / the reflection types blob.
     operations?: { [operationKey: string]: OperationInfo };

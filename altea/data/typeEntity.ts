@@ -8,13 +8,12 @@ import { entity } from './decorators';
 // constructor when materialising a polymorphic reference — replacing the earlier
 // interim clean-name-string discriminator.
 //
-// Differences vs Signum (all because altea has no schema Synchronizer yet):
-//  - the PK is **non-identity**; ids are assigned deterministically in memory by
-//    `TypeLogic.start` and seeded with explicit values at generation (like enum
-//    side-tables), so the in-memory caches and the DB rows always agree without a
-//    read-back. (Signum lets the DB assign identity ids and loads them back.)
+// Differences vs Signum:
 //  - no `ticks` column (Signum's `[TicksColumn(false)]`); the SchemaBuilder
-//    special-cases this table alongside enum tables.
+//    special-cases this table alongside enum tables (see `isSeeded`). The PK is a
+//    real identity column, though (unlike the enum/symbol tables): generation inserts
+//    the rows without ids and `TypeLogic.load` reads the DB-assigned ids back, exactly
+//    as Signum does.
 //  - `toString()` is left as the inherited default rather than `CleanName`
 //    (no test depends on a TypeEntity display string), so there is no `ToStr`
 //    column.

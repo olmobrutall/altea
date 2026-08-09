@@ -13,6 +13,12 @@ export enum Spacing {
     Triple = 'Triple',
 }
 
+// True when `sql` has no executable content — only line/block comments and whitespace.
+function isCommentOnly(sql: string): boolean {
+    const stripped = sql.replace(/--[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "").trim();
+    return stripped.length === 0;
+}
+
 function separatorFor(spacing: Spacing): string {
     switch (spacing) {
         case Spacing.Simple: return '\n';
@@ -45,12 +51,17 @@ export abstract class SqlPreCommand {
     // Run against the *current* connector (Connector.current()). Set
     // Connector.default or wrap in Connector.withConnector before calling.
 
-    // Executes every leaf statement in order, returning the total affected rows.
+    // Executes every leaf statement in order, returning the total affected rows. A comment-only leaf
+    // (e.g. a `commentedError` emitted when a sync step failed) is skipped — it carries no executable
+    // SQL, and some drivers reject an all-comment batch.
     async executeNonQuery(): Promise<number> {
         const connector = Connector.current();
         let total = 0;
-        for (const leaf of this.leaves())
+        for (const leaf of this.leaves()) {
+            if (isCommentOnly(leaf.sql))
+                continue;
             total += await connector.executeNonQuery(leaf.sql, leaf.paramValues());
+        }
         return total;
     }
 

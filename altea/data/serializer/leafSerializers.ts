@@ -4,7 +4,8 @@
 
 import type { JsonSerializer, SerializationContext, DeserializationContext } from './types';
 import { Decimal } from '../basics';
-import { temporalFrom, enumMemberName, enumMemberValue } from './helpers';
+import { Enum } from '../enum';
+import { temporalFrom } from './temporalHelpers';
 
 export const ValueSerializer: JsonSerializer = {
     toJson: v => v,
@@ -28,9 +29,10 @@ export const DateSerializer: JsonSerializer = {
 };
 
 export class EnumSerializer implements JsonSerializer {
-    constructor(private readonly enumObj: Record<string, unknown>) { }
-    toJson(v: unknown): unknown { return enumMemberName(this.enumObj, v); }
-    fromJson(j: unknown): unknown { return enumMemberValue(this.enumObj, j as string); }
+    constructor(private readonly enumObj: Record<string, string | number>) { }
+    // Wire = the member NAME; stored/runtime value = the numeric ordinal.
+    toJson(v: unknown): unknown { return Enum.toName(this.enumObj, v as string | number); }
+    fromJson(j: unknown): unknown { return Enum.toValue(this.enumObj, j as string); }
 }
 
 // A plain (non-part) collection: `Lite<T>[]` or a value array. Maps element-wise; no

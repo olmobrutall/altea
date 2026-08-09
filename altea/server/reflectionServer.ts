@@ -45,6 +45,15 @@ export interface ServerMetadata {
 
 export namespace ReflectionServer {
 
+    // Per-request, per-user overlay hook (Signum's ReflectionServer.TypeExtension / QueryExtension /
+    // OperationExtension). An auth module installs it via setMetadataFilter; it runs inside the request's
+    // user scope so it can role-filter the blob (omit types/queries/operations the current role can't
+    // access). Undefined → the blob ships unfiltered (no auth module).
+    export type MetadataFilter = (meta: ServerMetadata) => ServerMetadata | Promise<ServerMetadata>;
+    let _metadataFilter: MetadataFilter | undefined;
+    export function setMetadataFilter(fn: MetadataFilter | undefined): void { _metadataFilter = fn; }
+    export function getMetadataFilter(): MetadataFilter | undefined { return _metadataFilter; }
+
     // Assemble the blob for a UI culture. Every section is either culture-independent (queries,
     // operations) or dumped for the explicit locale (translations), so this needs no current-culture
     // context — callable from a plain unit test as well as inside a request.
@@ -61,10 +70,16 @@ export namespace ReflectionServer {
         // GET /api/reflection/metadata?culture=xx — plain JSON (no entities), so res.json (not the
         // entity Serializer). Culture defaults to the process/context UI culture.
         ws.get("/api/reflection/metadata",
-            { res: CustomType<ServerMetadata>() },
-            (req, res) => {
+            // allowAnonymous: the client fetches this at boot to render (among other things) the login
+            // page, before any user is authenticated. The metadata itself is role-filtered once the
+            // authorization engine lands.
+            { res: CustomType<ServerMetadata>(), allowAnonymous: true },
+            async (req, res) => {
                 const culture = (req.query["culture"] as string | undefined) ?? CultureInfo.currentUICulture();
-                res.json(buildMetadata(culture));
+                let meta = buildMetadata(culture);
+                if (_metadataFilter != null)
+                    meta = await _metadataFilter(meta);
+                res.json(meta);
             });
     }
 }

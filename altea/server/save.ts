@@ -20,7 +20,7 @@ import {
     FieldEmbedded,
     FieldEntityArray,
 } from './schema/field';
-import { SqlPreCommandSimple, type SqlParameter } from './sync/sqlPreCommand';
+import { SqlPreCommand, SqlPreCommandSimple, Spacing, type SqlParameter } from './sync/sqlPreCommand';
 
 // Low-level, single-row persistence: the SQL that writes ONE entity's row. The
 // graph orchestration (ordering, cascade of owned child rows, change detection,
@@ -162,19 +162,39 @@ export function insertSqlSync(table: Table, entity: Entity): SqlPreCommandSimple
     return new SqlPreCommandSimple(`INSERT INTO ${sb.objectName(table.name)} (${cols}) VALUES (${values});`, namedParameters(assignments));
 }
 
+// INSERT for a table whose PK is DB-assigned (identity) — the TypeEntity system table, seeded
+// by TypeLogic.Schema_Generating / synchronized by TypeLogic.Schema_Synchronizing. Unlike
+// insertSqlSync it OMITS the primary key (the DB assigns it) and emits no RETURNING/OUTPUT:
+// these run as a fire-and-forget batch (the ids are read back afterwards by TypeLogic.load,
+// mirroring Signum, which retrieves the TypeEntity rows into its caches). Covers every non-PK
+// column (incl mixins) via collectAssignments.
+export function insertSqlSyncGenerated(table: Table, entity: Entity): SqlPreCommandSimple {
+    const sb = Connector.current().sqlBuilder;
+    const assignments = collectAssignments(table, entity);
+    const cols = assignments.map(a => sb.sqlEscape(a.column.name)).join(', ');
+    const values = assignments.map((_, i) => placeholder(sb.isPostgres, i)).join(', ');
+    return new SqlPreCommandSimple(`INSERT INTO ${sb.objectName(table.name)} (${cols}) VALUES (${values});`, namedParameters(assignments));
+}
+
 // UPDATE all non-PK columns (incl mixins) of the row WHERE id = entity.id. No optimistic
 // concurrency (enum tables have no ticks).
 export function updateSqlSync(table: Table, entity: Entity): SqlPreCommandSimple {
     return buildUpdate(table, collectAssignments(table, entity), entity.id);
 }
 
-// DELETE the row WHERE id = entity.id.
-export function deleteSqlSync(table: Table, entity: Entity): SqlPreCommandSimple {
+// DELETE the row WHERE id = entity.id, preceded by whatever the type's PreDeleteSqlSync handlers
+// contribute (Signum's Table.DeleteSqlSync, which prepends EntityEvents<T>().OnPreDeleteSqlSync).
+// So a module can cascade-delete rows that reference this one before it goes (e.g. OperationLogic
+// clearing OperationLogEntity rows for a removed TypeEntity). Returns just the DELETE when no
+// handler is registered (combine collapses the undefined pre-command).
+export function deleteSqlSync(table: Table, entity: Entity): SqlPreCommand | undefined {
     const sb = Connector.current().sqlBuilder;
     const idCol = sb.sqlEscape(table.primaryKey.column.name);
-    return new SqlPreCommandSimple(
+    const pre = Connector.current().schema.entityEvents(entity.constructor as Type<Entity>).onPreDeleteSqlSync(entity);
+    const main = new SqlPreCommandSimple(
         `DELETE FROM ${sb.objectName(table.name)} WHERE ${idCol} = ${placeholder(sb.isPostgres, 0)};`,
         [{ name: "p0", value: entity.id }]);
+    return SqlPreCommand.combine(Spacing.Simple, pre, main);
 }
 
 // The full column-value image of an entity's row (incl PK + mixins), for comparing a

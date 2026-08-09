@@ -46,6 +46,11 @@ export namespace Enum {
     return (typeof value === "number" ? (e as Record<number, string>)[value] : value) as EnumName<E>;
   }
 
+  /** The numeric ordinal for a member NAME (inverse of the reverse-map) — the runtime/stored value. */
+  export function toValue<E extends EnumObject>(e: E, name: EnumName<E>): number {
+    return e[name] as number;
+  }
+
   /** A member's localised display name (translation for the current UI culture, else humanised). */
   export function niceName<E extends EnumObject>(e: E, value: EnumValue<E>): string {
     const name = toName(e, value);

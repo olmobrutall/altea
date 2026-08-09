@@ -105,12 +105,16 @@ export interface EntityOptions {
     // Signum's isLowPopulation: few enough rows to load them all — drives the AutoLine default to
     // EntityCombo (single) / EntityCheckboxList (collection) instead of EntityLine / EntityStrip.
     lowPopulation?: boolean;
+    // Signum's `[PrimaryKey(IdentityBehaviour = false)]`: the PK is NOT a DB identity — ids are supplied
+    // externally (a Symbol seeded by SymbolLogic; an enum's underlying value). Default = identity PK.
+    identity?: boolean;
 }
 
 export interface EntityInfo {
     kind: EntityKind;
     data?: EntityData;
     lowPopulation?: boolean;
+    identity?: boolean;
 }
 
 const entityInfoKey = Symbol.for('altea:entityInfo');
@@ -143,11 +147,12 @@ export function entity(kind: "Part", data?: EntityData, options?: EntityOptions)
 export function entity(kind: Exclude<EntityKind, "Part">, data: EntityData, options?: EntityOptions): (target: Function) => void;
 export function entity(kind: EntityKind, data?: EntityData, options?: EntityOptions): (target: Function) => void {
     return function (target: Function): void {
-        (target as any)[entityInfoKey] = { kind, data, lowPopulation: options?.lowPopulation } satisfies EntityInfo;
+        (target as any)[entityInfoKey] = { kind, data, lowPopulation: options?.lowPopulation, identity: options?.identity } satisfies EntityInfo;
         const ti = getOrCreateTypeInfo(target);
         ti.entityKind = kind;
         ti.entityData = data;
         ti.lowPopulation = options?.lowPopulation;
+        ti.identity = options?.identity;
         registerType(target);
     };
 }
@@ -446,6 +451,15 @@ export function implementedBy(types: () => Type<Entity>[]) {
 
 export function implementedByAll(target: object, propertyKey: string | symbol): void {
     getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).implementations = { kind: 'implementedByAll' };
+}
+
+// Runtime override of a reference field's @implementedBy (Signum's OverrideAttributes / [ImplementedBy]
+// override). Re-points a field's implementations from another module — e.g. a core entity declares
+// `@implementedBy(() => [])` (no concrete types, so it needn't reference the app), and the app overrides
+// it here. MUST run in an EntityOverrides.start() (on BOTH tiers) before any (de)serialization or schema
+// build. `field` is the property name.
+export function overrideImplementedBy<T extends Entity>(type: Type<T>, field: Extract<keyof T, string>, types: () => Type<Entity>[]): void {
+    getOrCreateFieldInfo(getOrCreateTypeInfo(type), field).implementations = { kind: 'implementedBy', types };
 }
 
 // Overrides the custom lite used for a `Lite<T>` field (Signum's [LiteModel(type, ForEntityType)]):

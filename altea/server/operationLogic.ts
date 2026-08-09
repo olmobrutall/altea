@@ -11,6 +11,7 @@ import type { SchemaBuilder } from "./schema/schemaBuilder";
 import { SymbolLogic } from "./symbolLogic";
 import { Saver } from "./saver";
 import { ExceptionLogic } from "./exceptionLogic";
+import { UserHolder } from "./userHolder";
 import "./dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import {
     OperationType,
@@ -82,6 +83,7 @@ async function logOperation<T>(
     const log = new OperationLogEntity();
     log.operation = symbol;
     log.origin = origin == null || origin.isNew ? null : origin.toLite();
+    log.user = UserHolder.currentUserLite();
     log.start = Temporal.Now.plainDateTimeISO();
     try {
         const result = await run();

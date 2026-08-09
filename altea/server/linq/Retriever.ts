@@ -2,6 +2,7 @@ import { cleanModified } from "../../data/changes";
 import { Entity, type PrimaryKey, BaseEntity, type Type, View, type ViewType } from "../../data/entity";
 import { Lite, LiteImp } from "../../data/lite";
 import { TypeLogic } from "../typeLogic";
+import { Connector } from "../connection/connector";
 
 // Port of Signum's TranslatorBuilder + TranslateResult + ProjectionReader.
 // Formats the SQL and compiles the projector into a `(row, retriever) => T`
@@ -92,6 +93,16 @@ export class Retriever {
     reclean(): void {
         for (const e of this.populated)
             cleanModified(e);
+    }
+
+    // Signum's post-retrieving pass for EntityEvents<T>.Retrieved: after CompleteAll, every
+    // populated instance is fully materialised, so fire Retrieved once per entity (in the
+    // active schema). Idempotent-friendly — called once by TranslateResult.execute() at the top
+    // level; the recursive batch loads in completeAll share this retriever and don't re-fire.
+    postRetrieved(): void {
+        const schema = Connector.current().schema;
+        for (const e of this.populated)
+            schema.entityEvents(e.constructor as Type<Entity>).onRetrieved(e);
     }
 
     // Signum's RealRetriever.CompleteAll: drain the pending requests, batch-loading each

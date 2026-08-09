@@ -70,6 +70,9 @@ export namespace MusicStarter {
             MusicLogic.start(sb);
             sb.complete();
             await sb.schema.generationScript()?.executeNonQuery();
+            // Read back the DB-assigned TypeEntity ids before loading, so @implementedByAll
+            // saves in the loader resolve real discriminators (Signum's Schema.Initialize).
+            await sb.schema.initialize();
             console.log(`[${label}] schema generation complete`);
 
             console.log(`[${label}] loading sample data`);

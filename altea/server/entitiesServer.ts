@@ -18,19 +18,15 @@ import * as Database from "./Database";
 import { assertGraphIntegrity } from "./graphExplorer";
 import { Saver } from "./saver";
 import { table } from "./table";
-import { Connector } from "./connection/connector";
 import { getEntityPack } from "./operationServer";
 import { WebBuilder, ArrayOf, Primitive, CustomType } from "./webApi";
 
-// Coerce a route-param id (always a string off the URL) to the entity's primary-key runtime type
-// (Signum's PrimaryKey.Parse(id, type)): numeric for int/long PKs, left as a string for uuid/string.
+// Coerce a route-param id (always a string off the URL) to the entity's primary-key JS form — now the
+// shared, tier-agnostic Entity.parseId (reads the PK kind from reflection): numeric for int/long PKs,
+// left as a string for uuid/string. `type` is a resolved Type<Entity> (statics untyped on the alias),
+// so the call is cast to the ctor that carries the static.
 function parseId(type: Type<Entity>, rawId: PrimaryKey): PrimaryKey {
-    const raw = String(rawId);
-    const col = Connector.current().schema.table(type).primaryKey.column;
-    // uuid/string PK → keep the string. Otherwise (int/long, incl. identity columns whose dbType
-    // family may be inconclusive) coerce an integer-looking id to a number so it matches e.id.
-    if (col.dbType.isGuid() || col.dbType.isString()) return raw;
-    return /^-?\d+$/.test(raw) ? Number(raw) : raw;
+    return (type as unknown as typeof Entity).parseId(String(rawId));
 }
 
 export namespace EntitiesServer {

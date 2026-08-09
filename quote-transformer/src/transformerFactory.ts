@@ -897,6 +897,7 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     "Number", "String", "Boolean", "BigInt", "Date", "Decimal",
     "PlainDate", "PlainDateTime", "PlainTime", "Instant", "ZonedDateTime",
     "Duration", "PlainYearMonth", "PlainMonthDay",
+    "Blob", // Uint8Array / Buffer → the binary "Blob" value type (byte[] column); no runtime thunk.
   ]);
 
   // True when a type-reference identifier resolves to a runtime value — a class or a
@@ -1016,7 +1017,14 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     if (node.kind == ts.SyntaxKind.BooleanKeyword) return "Boolean";
     if (node.kind == ts.SyntaxKind.NumberKeyword) return "Number";
     if (node.kind == ts.SyntaxKind.StringKeyword) return "String";
-    if (ts.isTypeReferenceNode(node)) return cleanTypeName(node.typeName) ?? null;
+    if (ts.isTypeReferenceNode(node)) {
+      const n = cleanTypeName(node.typeName) ?? null;
+      // A binary field (Signum's byte[]) is a `Uint8Array` (isomorphic; a Node `Buffer` is one) → the
+      // "Blob" value type (mapped to a bytea/varbinary column in dbType). No `() => X` thunk (it's a value
+      // type, in VALUE_TYPE_NAMES), so the Uint8Array/Buffer global is never referenced at runtime.
+      if (n === "Uint8Array" || n === "Buffer") return "Blob";
+      return n;
+    }
     return null;
   }
 

@@ -40,7 +40,7 @@ import { accessedFields } from '../../data/accessedFields';
 import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../data/enumEntity';
 import { TypeEntity } from '../../data/typeEntity';
-import { isSymbolType } from '../../data/symbol';
+import { ResetLazy } from '../../data/resetLazy';
 import { TypeLogic } from '../typeLogic';
 import type { WebBuilder } from '../webApi';
 
@@ -144,6 +144,19 @@ export class SchemaSettings {
 export class SchemaBuilder {
     readonly schema = new Schema();
 
+    // Signum's `sb.GlobalLazy(factory, new InvalidateWith(typeof(X), …))`: a process-wide cache reset
+    // whenever any `invalidateWith` type is SAVED. altea's factory is ASYNC (no sync DB), so this is just
+    // a `ResetLazy<Promise<T>>` — the box caches the in-flight promise, so concurrent readers share one
+    // load and `reset()` drops it (the next read re-invokes the factory). Read it via `.value`. (Deletes
+    // don't fire the `saved` event, so a caller that removes rows via a set-based / delete path should
+    // `reset()` the returned lazy itself.)
+    globalLazy<T>(factory: () => Promise<T>, options: { invalidateWith: Type<Entity>[] }): ResetLazy<Promise<T>> {
+        const lazy = new ResetLazy(factory);
+        for (const t of options.invalidateWith)
+            this.schema.entityEvents(t).saved.push(() => lazy.reset());
+        return lazy;
+    }
+
     // The typed Express wrapper that *Server modules register their HTTP API on (Signum's
     // SchemaBuilder.WebServerBuilder). NULLABLE + initialized FROM THE OUTSIDE: a web host
     // (Southwind.Server-style) assigns it (`sb.webBuilder = new WebBuilder(express())`); a terminal /
@@ -206,10 +219,11 @@ export class SchemaBuilder {
 
             // Every schema entity must be classified via @entity(kind, data): @reflect is only for
             // ModelEntity / View / mixins / embeddeds, never a real table. Framework-seeded tables (the
-            // enum tables, TypeEntity, and symbol tables) are managed internally and exempt.
-            const isSeeded = isEnumEntityType(table.type) || table.type === TypeEntity || isSymbolType(table.type);
+            // enum tables + every @entity("SystemString") — TypeEntity and the symbol tables) are managed
+            // internally and exempt.
+            const ti = getTypeInfo(table.type);
+            const isSeeded = isEnumEntityType(table.type) || ti?.entityKind === "SystemString";
             if (!isSeeded) {
-                const ti = getTypeInfo(table.type);
                 if (ti?.entityKind == null)
                     missingKind.push(cleanTypeName(table.type));
                 // EntityData: explicit for most kinds; a "Part" may instead inherit it from the first
@@ -235,14 +249,18 @@ export class SchemaBuilder {
 
         // EnumEntity<T> tables mirror Signum: a non-identity int PK (the row id is
         // the enum's underlying value, supplied at seed time) and no ticks column.
-        // The TypeEntity system table is seeded the same way (deterministic ids
-        // assigned by TypeLogic, [TicksColumn(false)] in Signum), so it shares the
-        // non-identity-PK / no-ticks treatment.
+        // The TypeEntity system table shares the seeded treatment for ticks/ToStr
+        // (Signum's [TicksColumn(false)]) but NOT for the PK — see isIdentity below.
         const isEnumEntity = isEnumEntityType(type);
-        // Symbol tables (OperationSymbol, …) join TypeEntity/enum tables in the seeded
-        // set: SymbolLogic assigns and seeds their ids, so they need a non-identity PK
-        // and no ticks column.
-        const isSeeded = isEnumEntity || type === TypeEntity || isSymbolType(type);
+        // Seeded tables (framework-managed, not user CRUD): every @entity("SystemString") — the symbol
+        // tables (OperationSymbol, …) + TypeEntity — plus the enum tables (an intrinsic base with no
+        // per-type decorator). They get no ticks / ToStr column.
+        const isSeeded = isEnumEntity || typeInfo.entityKind === "SystemString";
+        // Externally-supplied (non-identity) ids: the enum tables (id = the enum value) and any @entity
+        // declared `{ identity: false }` (Signum's [PrimaryKey(IdentityBehaviour=false)] — the Symbols,
+        // whose ids SymbolLogic assigns/seeds). TypeEntity keeps a real identity PK (generation inserts
+        // without ids; TypeLogic.load reads them back), so it does NOT set identity:false.
+        const isExternalId = isEnumEntity || typeInfo.identity === false;
 
         // Primary key + ticks first, so FK columns can read the PK db type.
         const idInfo = typeInfo.fields['id'] ?? new FieldInfo('id');
@@ -256,7 +274,7 @@ export class SchemaBuilder {
         // gen_random_uuid() on Postgres, NEWID()/NEWSEQUENTIALID() (uuid7) on SQL
         // Server. The default key type is int.
         const isGuid = pkType === 'uuid' || pkType === 'uuid7';
-        const pkColumn = new PrimaryKeyColumn(this.colName('ID'), pkDbType, /* identity */ !isGuid && !isSeeded);
+        const pkColumn = new PrimaryKeyColumn(this.colName('ID'), pkDbType, /* identity */ !isGuid && !isExternalId);
         if (isGuid)
             pkColumn.default = this.settings.isPostgres
                 ? 'gen_random_uuid()'

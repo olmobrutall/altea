@@ -42,9 +42,22 @@ import { Transaction } from './connection/transaction';
 // `entity.save()` is declared and installed in ./logic (with the other entity/lite
 // extension methods); it delegates to `Saver.save` below.
 
+// Pre-write authorization seam (Signum's `EntityEventsGlobal.Saving` write gate). Each gate gets the full
+// save set AFTER validation and BEFORE the transaction opens, and may `throw` (e.g. UnauthorizedAccessException)
+// to abort the save. The authorization module pushes one that checks `isAllowedFor(entity, Write)` per row.
+// Async (unlike the sync `entityEvents.saving`) so it can consult the role/rule cache. Empty by default.
+export const preSaveGates: ((entities: Entity[]) => Promise<void>)[] = [];
+
 export namespace Saver {
     export async function save(roots: Entity[]): Promise<void> {
         const all = exploreModifiables(roots);
+        const schema = Connector.current().schema;
+
+        // Signum's EntityEvents<T>.PreSaving: fire on every reachable entity before validation, so
+        // a module can normalise/populate the graph right before it is checked and written.
+        for (const m of all)
+            if (m instanceof Entity)
+                schema.entityEvents(m.constructor as Type<Entity>).onPreSaving(m);
 
         // Phase 3: the last-word validation, right before writing rows. Server-only validators that
         // were skipped earlier (disabled on "Client" / "ServerDeserialization") are enforced here.
@@ -63,6 +76,19 @@ export namespace Saver {
         // counts as a dependency on its (possibly new) owner.
         for (const owner of saveSet)
             wireOwnedChildren(owner);
+
+        // Signum's EntityEvents<T>.Saving: after validation, before the DB write. Also snapshot
+        // each entity's new-ness now (the INSERT clears isNew) so the Saved event can report it.
+        const wasNew = new Map<Entity, boolean>();
+        for (const e of saveSet) {
+            wasNew.set(e, e.isNew);
+            schema.entityEvents(e.constructor as Type<Entity>).onSaving(e);
+        }
+
+        // Pre-write authorization gate (before the transaction opens, so an unauthorized write never
+        // participates in it). Runs the full save set through each registered gate.
+        for (const gate of preSaveGates)
+            await gate([...saveSet]);
 
         await Transaction.create(async () => {
             // Orphan removal: a child dropped from an existing owner's collection is no longer
@@ -133,6 +159,12 @@ export namespace Saver {
                 for (const e of deferredSources)
                     await updateEntityRow(e);
             }
+
+            // Signum's EntityEvents<T>.Saved: after the DB write, still inside the transaction
+            // (so a handler's own writes are part of the same atomic save). `wasNew` reflects the
+            // state before the INSERT cleared isNew.
+            for (const e of saveSet)
+                schema.entityEvents(e.constructor as Type<Entity>).onSaved(e, { wasNew: wasNew.get(e) ?? false });
 
             // Commit-time re-baseline: every saved row now matches the database.
             for (const e of saveSet)

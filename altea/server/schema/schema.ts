@@ -1,10 +1,13 @@
-import type { Entity, Type, PrimaryKey, View, ViewType } from '../../data/entity';
-import type { TypeEntity } from '../../data/typeEntity';
+import type { Entity, Type, View, ViewType } from '../../data/entity';
+import type { ResetLazy } from '../../data/resetLazy';
+import type { TypeCaches, TypeRow } from '../typeLogic';
 import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
+import { commentedError } from '../sync/syncTableRead';
 import { installDefaultGenerating } from '../sync/schemaGenerator';
 import { synchronizeSchemasScript, synchronizeTablesScript, synchronizeEnumsScript } from '../sync/schemaSynchronizer';
 import type { Replacements } from '../sync/synchronizer';
 import { SchemaAssets } from '../sync/schemaAssets';
+import { EntityEvents } from './entityEvents';
 import type { Table } from './table';
 import { ViewBuilder } from './viewBuilder';
 
@@ -45,15 +48,27 @@ export class Schema {
     // the same before/after split in synchronizing.
     readonly assets = new SchemaAssets();
 
-    // Type-discriminator caches (Signum's TypeLogic caches, held per-schema instead of
-    // in process-global statics so multiple schemas can coexist in one process — e.g.
-    // the offline binder tests, or a `--test-isolation=none` run). Populated by
-    // TypeLogic.start() from SchemaBuilder.complete(); read via the active connector's
-    // schema (Connector.current().schema) during query translation / materialisation.
-    readonly typeToIdMap = new Map<Function, PrimaryKey>();
-    readonly idToTypeMap = new Map<PrimaryKey, Function>();
-    readonly idToEntityMap = new Map<PrimaryKey, TypeEntity>();
-    readonly typeRows: { id: PrimaryKey; tableName: string; cleanName: string; namespace: string; className: string }[] = [];
+    // Type-discriminator caches (Signum's TypeLogic typeCachesLazy, held per-schema instead of
+    // in process-global statics so multiple schemas can coexist in one process — e.g. the
+    // offline binder tests, or a `--test-isolation=none` run). Installed by TypeLogic.start()
+    // from SchemaBuilder.complete(); read via the active connector's schema
+    // (Connector.current().schema) during query translation / materialisation. The lazy
+    // projects `typeRowsSnapshot` — the TypeEntity rows read back from the DB by
+    // TypeLogic.load() — or, before any load, a deterministic bootstrap. See typeLogic.ts.
+    typeCaches!: ResetLazy<TypeCaches>;
+    typeRowsSnapshot?: TypeRow[];
+
+    // Per-entity-type engine hooks (Signum's Schema.EntityEvents<T>()), lazily created per ctor.
+    // A module registers handlers in its start(); the engine fires them from the relevant path
+    // (currently only PreDeleteSqlSync, from the sync delete — see save.ts deleteSqlSync).
+    private readonly entityEventsMap = new Map<Function, EntityEvents<Entity>>();
+
+    entityEvents<T extends Entity>(ctor: Type<T>): EntityEvents<T> {
+        let ee = this.entityEventsMap.get(ctor);
+        if (ee == null)
+            this.entityEventsMap.set(ctor, ee = new EntityEvents<Entity>());
+        return ee as unknown as EntityEvents<T>;
+    }
 
     constructor() {
         installDefaultGenerating(this);
@@ -85,9 +100,28 @@ export class Schema {
     // Returns undefined when the database already matches the model.
     async synchronizationScript(replacements: Replacements): Promise<SqlPreCommand | undefined> {
         const parts: (SqlPreCommand | undefined)[] = [];
-        for (const handler of this.synchronizing)
-            parts.push(await handler(replacements));
+        // Signum's SynchronizationScript wraps each synchronizing step: a thrown error becomes a
+        // COMMENTED-OUT command (so the rest of the script still generates and the error is visible)
+        // instead of aborting the whole synchronization. The user re-runs sync after applying the script.
+        for (let i = 0; i < this.synchronizing.length; i++) {
+            try {
+                parts.push(await this.synchronizing[i](replacements));
+            } catch (e) {
+                parts.push(commentedError(`synchronizing step #${i}`, e));
+            }
+        }
         return SqlPreCommand.combine(Spacing.Triple, ...parts);
+    }
+
+    // Signum's `Schema.Initialize()` (+ the `Initializing` event). Run AFTER the database has been
+    // generated / synchronized to load whatever the engine reads back from it. Modules subscribe by
+    // pushing onto `initializing` (Signum's `Schema.Initializing +=`); the core step — loading the
+    // TypeEntity id caches — is registered by `TypeLogic.start` (so Schema stays decoupled from
+    // TypeLogic). Hosts call `schema.initialize()` instead of `TypeLogic.load(schema)` directly.
+    readonly initializing: ((schema: Schema) => void | Promise<void>)[] = [];
+    async initialize(): Promise<void> {
+        for (const h of this.initializing)
+            await h(this);
     }
 
     table<T extends Entity>(type: Type<T>): Table {

@@ -63,6 +63,8 @@ export class TranslateResult {
         // Batch-complete any referenced rows left as id-only stubs (IBA/cycle/AvoidExpand),
         // then the projected instances are fully loaded — Signum's Retriever.CompleteAll.
         await retriever.completeAll();
+        // Now every instance is fully materialised — fire EntityEvents<T>.Retrieved once.
+        retriever.postRetrieved();
         return result;
     }
 

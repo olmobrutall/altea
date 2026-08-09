@@ -28,9 +28,15 @@ export interface ServerMetadata {
     operations: Record<string, WireOperationInfo>;
 }
 
+// Extra request headers for the metadata fetch (Signum ships the blob role-filtered; altea attaches the
+// bearer token here so the server sees the current user). An auth module sets this; undefined → none.
+// Kept as a seam so this core module needn't depend on the auth client.
+export let extraHeaders: (() => Record<string, string>) | undefined;
+export function setExtraHeaders(fn: (() => Record<string, string>) | undefined): void { extraHeaders = fn; }
+
 export async function loadReflectionMetadata(options?: { culture?: string }): Promise<ServerMetadata> {
     const url = "/api/reflection/metadata" + (options?.culture ? `?culture=${encodeURIComponent(options.culture)}` : "");
-    const resp = await fetch(url, { headers: { Accept: "application/json" } });
+    const resp = await fetch(url, { headers: { Accept: "application/json", ...(extraHeaders?.() ?? {}) }, cache: "no-cache" });
     if (!resp.ok)
         throw new Error(`GET ${url} → ${resp.status} ${resp.statusText}`);
     const meta = await resp.json() as ServerMetadata;

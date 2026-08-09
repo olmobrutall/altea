@@ -107,6 +107,10 @@ export function start(): Promise<Connector> {
         sb.settings.isPostgres = connector.isPostgres;
         MusicLogic.start(sb);
         sb.complete();
+        // Read the persisted TypeEntity ids into the caches (the DB is generated out of band by
+        // the gen:* scripts, so by the time a suite runs the rows exist). Harmless on a fresh DB:
+        // TypeLogic.load falls back to the deterministic bootstrap when the table is absent.
+        await connector.schema.initialize();
         return connector;
     })());
 }
@@ -118,6 +122,9 @@ export async function generateMusicEnvironment(): Promise<Connector> {
     const connector = await start();
     await connector.cleanDatabase();
     await connector.schema.generationScript()?.executeNonQuery();
+    // Read back the TypeEntity ids the DB just assigned (start()'s earlier init saw the
+    // pre-clean state), so the loader's @implementedByAll saves resolve real discriminators.
+    await connector.schema.initialize();
     const { MusicLoader } = await import("./MusicLoader");
     await MusicLoader.load();
     return connector;

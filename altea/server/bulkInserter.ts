@@ -184,7 +184,11 @@ async function assignIdsByKey<T extends Entity>(
 async function bulkCopyOneTable(entities: Entity[]): Promise<void> {
     if (entities.length === 0) return;
     const connector = Connector.current();
-    const table = connector.schema.table(entities[0].constructor as Type<Entity>);
+    const ctor = entities[0].constructor as Type<Entity>;
+    // Signum's EntityEvents<T>.PreBulkInsert — fire before the copy so a module can react to a
+    // bulk load of this type. (Signum passes an `inMListTable` flag; altea has no MList table.)
+    connector.schema.entityEvents(ctor).onPreBulkInsert();
+    const table = connector.schema.table(ctor);
     // Include the PK column only when the entity carries it (a client/UUID key); a DB-generated
     // identity PK is left out so the database assigns it.
     const includePk = entities[0].id != null;

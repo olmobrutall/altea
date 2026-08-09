@@ -20,6 +20,7 @@ import type { QueryName } from "../data/dynamicQuery/queryUtils";
 import type { QueryToken } from "../data/dynamicQuery/tokens";
 import type {
     QueryRequest as WireQueryRequest, ResultTable as WireResultTable,
+    QueryValueRequest as WireQueryValueRequest,
     FilterRequest, Pagination as WirePagination,
 } from "../data/dynamicQuery/queryRequest";
 import { QueryLogic } from "./dynamicQuery/queryLogic";
@@ -62,6 +63,26 @@ export namespace QueryServer {
                 const request = parseQueryRequest(wire);
                 const rt = await QueryLogic.queries.executeQueryAsync(request);
                 res.jsonTyped(toWireResultTable(rt, wire));
+            });
+
+        // POST /api/query/queryValue/:queryKey — a scalar value for a query (Signum's
+        // QueryController.QueryValue): with no `valueToken` it is the row COUNT (what SearchValue /
+        // SearchValueLine request), the count used for "N users in this role" badges. A `valueToken`
+        // aggregate (Sum/Min/Max of a column) is not wired yet — it needs the aggregate-token executor.
+        ws.post("/api/query/queryValue/:queryKey",
+            { params: CustomType<{ queryKey: string }>(), req: CustomType<WireQueryValueRequest>(), res: CustomType<unknown>() },
+            async (req, res) => {
+                const wire = await req.jsonTyped() as WireQueryValueRequest;
+                if (wire.valueToken != undefined && wire.valueToken !== "Count")
+                    throw new Error(`queryValue with valueToken '${wire.valueToken}' is not supported yet (only Count).`);
+                const queryName = resolveQueryName(wire.queryKey);
+                const token = (s: string): QueryToken => QueryLogic.getToken(queryName, s, SubTokensOptionsAll);
+                const filters = (wire.filters ?? []).map(f => parseFilter(token, f));
+                // Count = execute with the filters and no display columns, then size the result. (A true
+                // SQL COUNT(*) would avoid materialising rows; fine for the small reference-count queries.)
+                const request = new QueryRequest(queryName, filters, [], [], new Pagination.All(), false);
+                const rt = await QueryLogic.queries.executeQueryAsync(request);
+                res.jsonTyped(rt.rows.length);
             });
     }
 }

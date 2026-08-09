@@ -97,6 +97,9 @@ export function defaultDbType(typeName: string, kind: string | undefined): Abstr
         case 'Instant':
         case 'ZonedDateTime': return new AbstractDbType('datetimeoffset', 'timestamptz');
         case 'Duration': return new AbstractDbType('time', 'interval');
+        // Binary (Signum's byte[]) — a `Uint8Array`/`Buffer` field, typeName "Blob". SQL Server
+        // varbinary (size from @column, else MAX) / PostgreSQL bytea.
+        case 'Blob': return new AbstractDbType('varbinary', 'bytea');
     }
 
     return undefined;

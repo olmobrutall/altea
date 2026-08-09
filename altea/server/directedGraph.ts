@@ -38,6 +38,41 @@ export class DirectedGraph<T> {
         }
     }
 
+    /**
+     * Builds a graph from `nodes`, adding an edge `n → e` for every `e` in `expand(n)` (Signum's
+     * DirectedGraph.Generate). Callers pass the full node set (e.g. all roles) and an expand that
+     * returns already-included nodes (e.g. a role's direct `inheritsFrom`).
+     */
+    static generate<T>(nodes: Iterable<T>, expand: (node: T) => Iterable<T>): DirectedGraph<T> {
+        const g = new DirectedGraph<T>();
+        for (const n of nodes) {
+            g.add(n);
+            g.addEdges(n, expand(n));
+        }
+        return g;
+    }
+
+    /**
+     * Topological order with dependencies FIRST: every node appears AFTER all nodes it points to
+     * (its out-neighbours). For the role graph — where an edge is child → inherited-parent — this
+     * yields parents before children (Signum's CompilationOrder), so a per-role fold can read its
+     * parents' results. DFS post-order; assumes the graph is acyclic (callers check feedbackEdgeSet).
+     */
+    compilationOrder(): T[] {
+        const result: T[] = [];
+        const visited = new Set<T>();
+        const visit = (node: T): void => {
+            if (visited.has(node)) return;
+            visited.add(node);
+            for (const next of this.tryRelatedTo(node))
+                visit(next);
+            result.push(node);
+        };
+        for (const node of this.nodes)
+            visit(node);
+        return result;
+    }
+
     private getOrAdd(node: T): Set<T> {
         let result = this.adjacency.get(node);
         if (result == null) {

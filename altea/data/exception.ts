@@ -1,8 +1,10 @@
 import { Entity } from "./entity";
-import { entity, column } from "./decorators";
+import { Lite } from "./lite";
+import { entity, column, implementedBy } from "./decorators";
 import { reflect } from "./reflection";
 import { Temporal, type int } from "./basics";
 import { BigStringEmbedded } from "./bigString";
+import type { IUserEntity } from "./security";
 
 // Port of Signum's ExceptionEntity (old/Framework/Signum/Basics/Exception.cs). A "System" /
 // "Transactional" entity (Not editable, Not RequiresSaveOperation — it is written by the engine, never
@@ -13,7 +15,10 @@ import { BigStringEmbedded } from "./bigString";
 //    BigStringEmbedded (data/bigString.ts), like Signum's `[BindParent] BigStringEmbedded`.
 //    exceptionMessage / requestUrl / urlReferer stay plain unbounded `string | null` columns, as in
 //    Signum (they were plain `[DbType(Size=int.MaxValue)] string?`, not BigStringEmbedded).
-//  - `User: Lite<IUserEntity>?` is omitted — eastwind has no auth/user context wired yet.
+//  - `User: Lite<IUserEntity>?` — the user in scope when the error was logged. Signum sets ImplementedBy
+//    to the single UserEntity; altea uses @implementedByAll (like target/origin on OperationLogEntity)
+//    so altea (core) needn't name altea-auth's concrete UserEntity. Populated in exceptionFilter from
+//    UserHolder (null until an auth module scopes a request).
 //  - ExceptionOrigin.Backend_DotNet → Backend_Node (the backend is Node/TS, not .NET).
 //  - TicksColumn(false) has no altea equivalent decorator yet; left as the schema default.
 export enum ExceptionOrigin {
@@ -83,6 +88,13 @@ export class ExceptionEntity extends Entity {
 
     @column({ size: 100 })
     traceId: string | null = null;
+
+    // Signum's `[ImplementedBy(typeof(UserEntity))] Lite<IUserEntity>? User`. Core declares NO
+    // implementations (`@implementedBy(() => [])`) so it needn't reference altea-auth; the app overrides it
+    // to the concrete user type via `overrideImplementedBy(ExceptionEntity, "user", () => [UserEntity])` in
+    // its EntityOverrides (Signum's OverrideAttributes). Set in exceptionFilter.fillContext from UserHolder.
+    @implementedBy(() => [])
+    user: Lite<IUserEntity> | null = null;
 
     // Signum's ToString(): "{Type}: {message}".Etc(200).
     toString(): string {

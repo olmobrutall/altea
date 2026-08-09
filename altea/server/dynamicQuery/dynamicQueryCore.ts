@@ -52,6 +52,8 @@ export class AutoDynamicQueryCore implements DynamicQueryCore {
     // Operations → ToResultTable.
     async executeQueryAsync(request: QueryRequest): Promise<ResultTable> {
         this.addEntityColumn(request);
+        // Row-level security (EntityEvents.queryFilter) is applied by the LINQ binder for EVERY query — a
+        // dynamic query's `table(T)` source is filtered there too — so nothing extra is needed here.
         const result = await this.getQuery().toDQueryable().allQueryOperationsAsync(request);
         return result.toResultTable(request.columns, request.pagination);
     }

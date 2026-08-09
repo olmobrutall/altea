@@ -176,6 +176,20 @@ export abstract class Entity extends BaseEntity {
         return new LiteImp<T>(id, this, toStr);
     }
 
+    /**
+     * Coerce a raw id string (a route/query param, or the id half of a "Type;id" lite key) to this
+     * type's primary-key JS form — Signum's `PrimaryKey.Parse(id, type)`. A uuid/string PK keeps the
+     * string; an int/long PK parses a numeric-looking id to a number (else keeps the string). The PK
+     * kind is read from reflection (the `id` field's `@primaryKey`, default int), so this runs on BOTH
+     * tiers — no schema / Connector needed. Call on a concrete type: `RoleEntity.parseId("5")`.
+     */
+    static parseId<T extends Entity>(this: abstract new (...args: any[]) => T, id: string): PrimaryKey {
+        const pk = getTypeInfo(this)?.fields['id']?.columnOptions?.primaryKey ?? 'int';
+        if (pk === 'uuid' || pk === 'uuid7')
+            return id;
+        return /^-?\d+$/.test(id) ? Number(id) : id;
+    }
+
     toLite(fat?: boolean): Lite<this>;
     toLite(model: string): Lite<this>;
     toLite(fat: boolean | string = false): Lite<this> {

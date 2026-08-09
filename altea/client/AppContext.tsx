@@ -27,6 +27,39 @@ export function newClientState(): void {
   clientState = {} as IClientState;
 }
 
+// ---- Current user (Signum's AppContext.currentUser / setCurrentUser / resetUI) -------------------
+//
+// The single biggest client-side auth hook: the whole SPA reads "who is logged in" from here.
+// `currentUser` is typed as the isomorphic IUserEntity marker so the core client never depends on
+// altea-auth's concrete UserEntity — AuthClient (in altea-auth) sets/reads the real UserEntity through
+// it. `setCurrentUser` fires `currentUserChanged` listeners (e.g. the header LoginDropdown re-renders);
+// `resetUI` wipes per-module client state and asks the app shell to remount (login / logout / switch
+// user), the altea analogue of Signum's `AppContext.resetUI()`.
+import type { IUserEntity } from "../data/security";
+
+export let currentUser: IUserEntity | undefined = undefined;
+
+export const currentUserChanged: (() => void)[] = [];
+
+export function setCurrentUser(user: IUserEntity | undefined): void {
+  currentUser = user;
+  currentUserChanged.forEach(a => a());
+}
+
+// App-shell re-render hook (Signum's `AppContext.resetUI` / `setResetUI`). A single settable function:
+// the app shell (MainPublic) registers one that re-renders the tree so components re-read currentUser
+// (the login/logout/switch-user transition); callers (AuthClient, ChangePasswordPage) invoke it.
+//
+// NOTE: resetUI does NOT wipe clientState. Finder REGISTRATIONS (query settings) live in clientState
+// (unlike Navigator's module-global entitySettings), so wiping it on every login/reload would drop the
+// per-entity defaultColumns/filters registered once at boot. Cache invalidation on a ROLE change (where
+// role-filtered settings genuinely must be recomputed) is an authorization-phase concern; when it lands
+// it must RE-REGISTER, not just clear. For now resetUI only re-renders.
+export let resetUI: () => void = () => { };
+export function setResetUI(reset: () => void): void {
+  resetUI = reset;
+}
+
 // `.after` is an altea String extension (entities/globals/stringExtensions); `__baseName`
 // is declared in ./domGlobals.
 export function toAbsoluteUrl(appRelativeUrl: string, baseName?: string): string {

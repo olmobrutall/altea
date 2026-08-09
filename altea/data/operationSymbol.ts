@@ -11,6 +11,6 @@ import { Symbol } from './symbol';
 // transformer injects `import { OperationSymbol } from ".../operations"`, which re-exports
 // it), so no self-registration is needed.
 @reflect
-@entity("SystemString", "Master")
+@entity("SystemString", "Master", { identity: false })
 export class OperationSymbol extends Symbol {
 }

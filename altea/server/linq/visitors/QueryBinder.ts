@@ -463,6 +463,22 @@ function isNullLiteral(e: Expression): boolean {
     return e instanceof ConstantExpression && e.value == null;
 }
 
+// Rebinds one lambda parameter to another (for combining independently-built queryFilter predicates onto
+// a shared parameter). A separate copy of altea-auth's ParamReplacer — core can't import the auth module.
+class ParamRebind extends ExpressionVisitor {
+    constructor(private readonly from: ParameterExpression, private readonly to: ParameterExpression) { super(); }
+    override visitParameter(node: ParameterExpression): Expression { return node === this.from ? this.to : node; }
+}
+
+// AND several queryFilter predicate lambdas into one (re-basing each body onto a shared parameter).
+function combineFilterLambdas(lambdas: LambdaExpression[], elementType: RuntimeType): LambdaExpression {
+    if (lambdas.length === 1)
+        return lambdas[0];
+    const param = new ParameterExpression("e", elementType);
+    const bodies = lambdas.map(l => new ParamRebind(l.parameters[0], param).visit(l.body));
+    return new LambdaExpression([param], bodies.reduce((a, b) => new BinaryExpression("&&", a, b)));
+}
+
 export class QueryBinder extends ExpressionVisitor {
     private readonly aliasGenerator: AliasGenerator;
     private readonly map = new Map<ParameterExpression, Expression>();
@@ -501,6 +517,10 @@ export class QueryBinder extends ExpressionVisitor {
     // structurally-identical selects that differ only in their fresh aliases collide.
     // Value is the navigable projector returned to every binding site.
     private readonly uniqueFunctionReplacements = new Map<string, Expression>();
+
+    // Table-source calls whose EntityEvents.queryFilter WHERE has already been spliced (row-level
+    // security), so the synthesized `.filter(...)` re-visiting the same source doesn't re-wrap forever.
+    private readonly queryFilterApplied = new Set<CallExpression>();
 
     constructor(
         private readonly schema: Schema,
@@ -891,6 +911,16 @@ export class QueryBinder extends ExpressionVisitor {
             const ctor = (call.args[0] as ConstantExpression).value as new () => object;
             if ((func.value as { __isViewSource?: boolean }).__isViewSource)
                 return this.getTableProjectionForTable(this.schema.view(ctor as unknown as ViewType), new ClassType(ctor));
+            // Row-level query security (Signum's FilterQuery): splice the entity's queryFilter WHERE(s)
+            // around this table source and bind THAT. The guard stops the synthesized `.filter(...)` from
+            // re-wrapping the same source when it re-visits it.
+            if (!this.queryFilterApplied.has(call)) {
+                const wrapped = this.applyQueryFilters(call, ctor);
+                if (wrapped != null) {
+                    this.queryFilterApplied.add(call);
+                    return this.visit(wrapped);
+                }
+            }
             return this.getTableProjection(ctor);
         }
 
@@ -2853,6 +2883,20 @@ export class QueryBinder extends ExpressionVisitor {
 
     private getTableProjection(ctor: new () => object): ProjectionExpression {
         return this.getTableProjectionForTable(this.schema.table(ctor as any), new ClassType(ctor));
+    }
+
+    // Signum's FilterQuery application: build a `source.filter(pred)` wrapper from the entity's registered
+    // queryFilter handlers (undefined when none contribute). Multiple handlers AND together. The predicate
+    // is bound by the normal filter path (re-visiting `source`, now guarded).
+    private applyQueryFilters(source: CallExpression, ctor: new () => object): CallExpression | undefined {
+        const hooks = this.schema.entityEvents(ctor as unknown as Type<Entity>).queryFilter;
+        if (hooks.length === 0)
+            return undefined;
+        const elementType = new ClassType(ctor);
+        const lambdas = hooks.map(h => h({ ctor, elementType })).filter((l): l is LambdaExpression => l != null);
+        if (lambdas.length === 0)
+            return undefined;
+        return new CallExpression(new PropertyExpression(source, "filter"), [combineFilterLambdas(lambdas, elementType)], source.type);
     }
 
     // A query-only SQL function (Signum's [SqlMethod]). The result type tells scalar from

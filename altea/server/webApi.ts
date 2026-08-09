@@ -76,6 +76,10 @@ export interface RouteDef {
     params?: Ref<any>; // types req.params (a pure typing/OpenAPI hint — params are already on req)
     req?: Ref<any>;
     res?: Ref<any>;
+    // Signum's [SignumAllowAnonymous]: this route is reachable without authentication. When an auth
+    // module installs an authorization gate (setAuthorizeRequest), every OTHER route is denied unless a
+    // user is authenticated — this flag opts a route out (login, boot metadata, error reporting).
+    allowAnonymous?: boolean;
 }
 
 type ReqBody<D extends RouteDef> = D["req"] extends Ref<any> ? RefType<D["req"]> : never;
@@ -96,12 +100,22 @@ type Handler<D extends RouteDef> = (
 export interface HttpMeta {
     verb: string;
     path: string;
+    allowAnonymous?: boolean;
     // altea RuntimeTypes (undefined when unspecified or CustomType); an OpenAPI generator maps
     // these to schemas.
     paramsType?: RuntimeType;
     reqType?: RuntimeType;
     resType?: RuntimeType;
 }
+
+// Pluggable per-request authorization gate (Signum's SignumAuthenticationFilter). An auth module
+// installs it via setAuthorizeRequest; the route wrapper calls it AFTER routing (so meta.allowAnonymous
+// is known) and INSIDE the request's async/user-context scope (so it can read the current user). It
+// throws to reject — the terminal exception filter maps AuthenticationException/UnauthorizedAccessException
+// to HTTP 403. Undefined (no auth module installed) → no enforcement: the framework runs open, as before.
+export type AuthorizeRequest = (meta: HttpMeta) => void;
+let _authorizeRequest: AuthorizeRequest | undefined;
+export function setAuthorizeRequest(fn: AuthorizeRequest | undefined): void { _authorizeRequest = fn; }
 
 const rawBody = express.text({ type: "*/*", limit: "16mb" });
 
@@ -131,9 +145,14 @@ export class WebBuilder {
             // ThrowErrorFilter turns into a ValidationError. Same shape the exceptionFilter emits for a
             // Saver IntegrityCheckException, so every validation failure reaches the client identically.
             (res as any).modelState = (ic: IntegrityCheck) => res.status(400).json(ic.errors);
-            Promise.resolve((handler as (r: Request, s: Response) => unknown)(req, res)).catch(next);
+            // Authorization gate first (secure-by-default when an auth module is installed), then the
+            // handler. Both funnel rejections to `next` → the exception filter.
+            Promise.resolve()
+                .then(() => { if (_authorizeRequest != null) _authorizeRequest(wrapped.httpMeta!); })
+                .then(() => (handler as (r: Request, s: Response) => unknown)(req, res))
+                .catch(next);
         };
-        wrapped.httpMeta = { verb, path, paramsType: paramsRef?.runtimeType, reqType: reqRef?.runtimeType, resType: resRef?.runtimeType };
+        wrapped.httpMeta = { verb, path, allowAnonymous: (def as RouteDef).allowAnonymous, paramsType: paramsRef?.runtimeType, reqType: reqRef?.runtimeType, resType: resRef?.runtimeType };
 
         const mws: RequestHandler[] = reqRef != null ? [rawBody] : [];
         (this.app as any)[verb](path, ...mws, wrapped);

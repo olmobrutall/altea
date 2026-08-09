@@ -143,6 +143,11 @@ export function setDefinedQueries(keys: Iterable<string>): void {
   for (const k of keys) definedQueries.add(k);
 }
 
+/** The keys of the currently-defined queries (the role-filtered set after login). */
+export function getDefinedQueries(): string[] {
+  return [...definedQueries];
+}
+
 export function isQueryDefined(queryName: PseudoType | QueryKey): boolean {
   if (queryName instanceof QueryKey)
     return true;
@@ -247,10 +252,12 @@ export function entityInfo(entity: BaseEntity): string {
   return getTypeName(entity) + ";" + (e.id ?? "") + ";" + (e.isNew ? "N" : "O");
 }
 
-// Signum's `parseId(ti, id)` — coerce a route id string to the type's PK JS form (numeric ids parse to
-// number; string/uuid ids stay strings). altea simplification: numeric-looking → number, else string.
+// Signum's `parseId(ti, id)` — coerce a route id string to the type's PK JS form. Delegates to the
+// shared, tier-agnostic Entity.parseId on the type's ctor (reads the PK kind from reflection: a
+// uuid/string PK stays a string; an int/long PK parses a numeric-looking id to a number), so client and
+// server agree — including for an all-digit uuid id, which the old numeric-only heuristic mis-coerced.
 export function parseId(ti: TypeInfo, id: string): number | string {
-  return /^-?\d+$/.test(id) ? parseInt(id, 10) : id;
+  return (ti.ctor as unknown as typeof Entity).parseId(id);
 }
 
 // QueryTokenString<T> lives in ./QueryTokenString (extracted from this file).

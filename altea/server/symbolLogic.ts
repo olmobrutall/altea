@@ -8,6 +8,8 @@ import { Connector } from "./connection/connector";
 import { SqlPreCommand, Spacing } from "./sync/sqlPreCommand";
 import { Synchronizer, Replacements } from "./sync/synchronizer";
 import { insertSqlSync, updateSqlSync, deleteSqlSync, rowImage } from "./save";
+import { existsTable, readObjectName } from "./sync/syncTableRead";
+import type { ObjectName } from "./schema/objectName";
 
 // Port of Signum's SymbolLogic<T> (Signum/Basics/SymbolLogic.cs).
 //
@@ -159,8 +161,17 @@ async function synchronizeSymbols(replacements: Replacements, ctor: Type<Symbol>
 
     type Current = { id: PrimaryKey; image: Map<string, unknown> };
     const current = new Map<string, Current>();
-    for (const row of await retrieveRows(table))
-        current.set(String(row.get(keyCol)), { id: row.get(pkCol) as PrimaryKey, image: row });
+    // Read current rows from the table's OLD name if it was renamed this run (readObjectName). If the
+    // table does not exist yet — the FIRST sync that introduces it (e.g. adding OperationSymbol to a
+    // database created before it existed) — there are no current rows, so every symbol becomes an INSERT
+    // that runs after the CREATE (emitted earlier in this same script by synchronizeTablesScript). Any
+    // OTHER read failure is NOT swallowed: it propagates to Schema.synchronizationScript, which turns it
+    // into a commented-out command so the error surfaces instead of silently re-inserting every symbol.
+    const readName = readObjectName(table, replacements);
+    if (await existsTable(readName)) {
+        for (const row of await retrieveRows(table, readName))
+            current.set(String(row.get(keyCol)), { id: row.get(pkCol) as PrimaryKey, image: row });
+    }
 
     const should = stl.byKey; // key -> symbol (id assigned)
 
@@ -198,12 +209,12 @@ function bareSymbol(ctor: Type<Symbol>, id: PrimaryKey): Entity {
 // Reads every row of a symbol table as Map<physicalColumn, value> (no
 // Administrator.retrieveAll in altea). A symbol table has a fixed shape (id + key), so
 // unlike retrieveEnumRows this needs no column-rename tolerance.
-async function retrieveRows(table: Table): Promise<Map<string, unknown>[]> {
+async function retrieveRows(table: Table, readName: ObjectName): Promise<Map<string, unknown>[]> {
     const connector = Connector.current();
     const sqlBuilder = connector.sqlBuilder;
     const columns = Object.values(table.columns);
     const select = columns.map(c => sqlBuilder.sqlEscape(c.name)).join(", ");
-    const rows = await connector.executeQuery(`SELECT ${select} FROM ${sqlBuilder.objectName(table.name)}`) as Record<string, unknown>[];
+    const rows = await connector.executeQuery(`SELECT ${select} FROM ${sqlBuilder.objectName(readName)}`) as Record<string, unknown>[];
     return rows.map(r => new Map(columns.map(c => [c.name, r[c.name]])));
 }
 

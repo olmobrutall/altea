@@ -4,6 +4,7 @@ import { ExceptionLogic } from "./exceptionLogic";
 import type { ExceptionEntity } from "../data/exception";
 import { IntegrityCheckException } from "../data/validation";
 import { EntityNotFoundException, UnauthorizedAccessException, AuthenticationException } from "./exceptions";
+import { UserHolder } from "./userHolder";
 
 // Port of Signum's SignumExceptionFilterAttribute + HttpError (old/Framework/Signum/API/Filters/
 // SignumExceptionFilterAttribute.cs), as Express error-handling middleware. Signum's attribute runs
@@ -107,6 +108,7 @@ async function handle(error: unknown, req: Request, res: Response): Promise<void
 // Signum's SignumExceptionFilterAttribute.LogException `completeContext`: fill the request-derived
 // fields, each guarded + length-capped (Signum's `Try(size, …)`).
 function fillContext(e: ExceptionEntity, req: Request): void {
+    e.user = UserHolder.currentUserLite();
     e.actionName = tryStr(100, () => req.method);
     e.controllerName = tryStr(100, () => controllerName(req));
     e.userAgent = tryStr(300, () => header(req, "user-agent"));

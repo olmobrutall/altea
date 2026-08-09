@@ -1,7 +1,8 @@
 
 import type { Quoted } from "quote-transformer/quoted";
-import { EmbeddedEntity, Entity } from "../data/entity";
+import { EmbeddedEntity, Entity, type Type } from "../data/entity";
 import type { IQuery, IOrderedQuery } from "../data/iquery";
+import { Connector } from "./connection/connector";
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, type MethodExpander, PropertyExpression } from "./linq/expressions";
 import { ArrayType, LiteralType as SimpleType, ClassType, RuntimeType, FunctionType, ObjectType, type QuotedFunction, quotedFunction, type LambdaTypeResolver, type ResultTypeResolver } from "./runtimeTypes";
 import { toInt, toLong, inSql } from "../data/basics";
@@ -634,15 +635,17 @@ export class Query<T> implements IQuery<T> {
     // widen to `number`).
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])
     @resultType(() => SimpleType.number)
-    executeUpdate(setter: Quoted<(element: T) => PartialRec<T>>): Promise<number> {
+    async executeUpdate(setter: Quoted<(element: T) => PartialRec<T>>): Promise<number> {
         var lambda = Expression.fromQuotedLambda(setter, [this.elementType]);
+        await this.firePreUnsafe("update");
         var call = new CallExpression(new PropertyExpression(this.expression, "executeUpdate"), [lambda], SimpleType.number);
         return this.translator.executeCommand(call);
     }
 
     // table(T)[.filter(…)].executeDelete() → affected rows.
     @resultType(() => SimpleType.number)
-    executeDelete(): Promise<number> {
+    async executeDelete(): Promise<number> {
+        await this.firePreUnsafe("delete");
         var call = new CallExpression(new PropertyExpression(this.expression, "executeDelete"), [], SimpleType.number);
         return this.translator.executeCommand(call);
     }
@@ -650,13 +653,38 @@ export class Query<T> implements IQuery<T> {
     // table(S)[.filter(…)].executeInsert(TargetEntity, s => ({ …fields })) → inserted rows.
     @lambdaTypeForParam(1, ot => [(ot as ArrayType).elementType])
     @resultType(() => SimpleType.number)
-    executeInsert<E>(target: new () => E, selector: Quoted<(element: T) => PartialRec<E>>): Promise<number> {
+    async executeInsert<E>(target: new () => E, selector: Quoted<(element: T) => PartialRec<E>>): Promise<number> {
         var lambda = Expression.fromQuotedLambda(selector, [this.elementType]);
+        // Fire on the TARGET type's events (the entity being inserted), passing the source query.
+        await this.firePreUnsafe("insert", target as unknown as Function);
         var call = new CallExpression(
             new PropertyExpression(this.expression, "executeInsert"),
             [new ConstantExpression(target, new ClassType(target)), lambda],
             SimpleType.number);
         return this.translator.executeCommand(call);
+    }
+
+    // Fire the matching EntityEvents<T> unsafe-DML pre-hook before a set-based command executes
+    // (Signum's IEntityEvents.OnPreUnsafe*). The affected entity type is the query's element type
+    // (delete/update) or the explicit target (insert); resolved to a ctor and skipped when it is
+    // not a registered entity table (a projected/scalar query). Handlers run in the ambient
+    // transaction, so a cascade delete they issue is part of the same atomic operation.
+    private async firePreUnsafe(kind: "delete" | "update" | "insert", targetCtor?: Function): Promise<void> {
+        const elem = this.elementType;
+        const ctor = targetCtor ?? (elem instanceof ClassType ? elem.constructorFunction : undefined);
+        if (ctor == null)
+            return;
+        const schema = Connector.current().schema;
+        if (schema.tryTable(ctor as Type<Entity>) == null)
+            return;
+        const ee = schema.entityEvents(ctor as Type<Entity>);
+        const q = this as unknown as Query<Entity>;
+        if (kind === "delete")
+            await ee.onPreUnsafeDelete(q);
+        else if (kind === "update")
+            await ee.onPreUnsafeUpdate(q);
+        else
+            await ee.onPreUnsafeInsert(q);
     }
 
     // minBy/maxBy — the element with the min/max projected value (Signum's MinBy/MaxBy;

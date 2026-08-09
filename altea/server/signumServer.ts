@@ -20,7 +20,7 @@ export namespace SignumServer {
 
         // Signum's ExceptionController.RegisterClientError: the client's unhandled-error logger POSTs a
         // ClientErrorModel here; log it as a Frontend_React ExceptionEntity. 204 (fire-and-forget).
-        ws.post("/api/registerClientError", { req: ClientErrorModel },
+        ws.post("/api/registerClientError", { req: ClientErrorModel, allowAnonymous: true },
             async (req, res) => {
                 const model = await req.jsonTyped() as ClientErrorModel;
                 await ExceptionLogic.logClientError(model);

@@ -355,6 +355,13 @@ export class DiffColumn extends View {
         if (other.size == null)
             return true;
 
+        // Postgres `bytea` carries no length (unlike SQL Server `varbinary(n)`): the model may still
+        // declare a size for the SS dialect, but the PG catalog reports none, so a declared size would
+        // never match and the column would re-ALTER on every sync. Mirrors SqlBuilder.sizePrecisionScale,
+        // which likewise omits the size from bytea DDL.
+        if (Connector.current().isPostgres && other.dbType.isBinary())
+            return true;
+
         if (other.dbType.isString() || other.dbType.isBinary()) {
             if (other.size === MAX_SIZE)
                 return this.length === -1;

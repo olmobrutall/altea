@@ -15,6 +15,7 @@ import { getDatabaseDescription as getPostgresDescription } from "./postgres/pos
 import { EnumEntity, getBoundEnum, enumEntityMembers } from "../../data/enumEntity";
 import { insertSqlSync, updateSqlSync, deleteSqlSync, rowImage } from "../save";
 import type { PrimaryKey } from "../../data/entity";
+import { existsTable, readObjectName, commentedError } from "./syncTableRead";
 
 // The default synchronizing steps (synchronizeSchemasScript / synchronizeTablesScript /
 // synchronizeEnumsScript, exported below) are seeded onto Schema.synchronizing by the Schema
@@ -66,6 +67,16 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
     }
 
     replacements.askForReplacements(new Set(databaseTables.keys()), new Set(modelTables.keys()), Replacements.keyTables);
+    // Record the INVERSE table-rename map (model-new-name → old-DB-name) — Signum's KeyTablesInverse,
+    // read by readObjectName so a later step (enum/symbol seeding) reads current rows from the table's
+    // pre-rename name (the RENAME DDL is only in the script being generated, not yet applied).
+    const tablesRep = replacements.tryGetC(Replacements.keyTables);
+    if (tablesRep != null && tablesRep.size > 0) {
+        const inverse = new Map<string, string>();
+        for (const [oldName, newName] of tablesRep)
+            inverse.set(newName, oldName);
+        replacements.set(Replacements.keyTablesInverse, inverse);
+    }
     databaseTables = replacements.applyReplacementsToOld(databaseTables, Replacements.keyTables);
 
     // Per-table column renames (Signum's modelTables.JoinDictionaryForeach). Mutates each
@@ -588,54 +599,62 @@ export async function synchronizeEnumsScript(replacements: Replacements): Promis
         if (enumObject == null)
             continue;
 
-        const nameCol = table.fields["name"].field.columns()[0].name;
-        const pkCol = table.primaryKey.column.name;
+        // Each enum table is isolated: a failure reading/diffing one becomes a COMMENTED-OUT command for
+        // that table only (Signum's per-step error handling), so the other enum tables still synchronize.
+        try {
+            const nameCol = table.fields["name"].field.columns()[0].name;
+            const pkCol = table.primaryKey.column.name;
 
-        // should: the expected rows, as full entities (id + name; a mixin's columns come from
-        // the entity's own defaults). insertSqlSync/updateSqlSync/rowImage cover mixins.
-        const shouldByName = new Map<string, EnumEntity>();
-        for (const m of enumEntityMembers(enumObject)) {
-            const e = new EnumEntity(enumObject);
-            e.id = m.id;
-            e.name = m.name;
-            shouldByName.set(m.name, e);
-        }
+            // should: the expected rows, as full entities (id + name; a mixin's columns come from
+            // the entity's own defaults). insertSqlSync/updateSqlSync/rowImage cover mixins.
+            const shouldByName = new Map<string, EnumEntity>();
+            for (const m of enumEntityMembers(enumObject)) {
+                const e = new EnumEntity(enumObject);
+                e.id = m.id;
+                e.name = m.name;
+                shouldByName.set(m.name, e);
+            }
 
-        // current: the DB rows (every column, incl mixins; renamed columns read via the
-        // tables step's column replacements), keyed by member name.
-        const currentByName = new Map<string, { id: PrimaryKey; image: Map<string, unknown> }>();
-        for (const row of await retrieveEnumRows(table, replacements))
-            currentByName.set(String(row.get(nameCol)), { id: row.get(pkCol) as PrimaryKey, image: row });
+            // current: the DB rows (every column, incl mixins; renamed columns read via the tables
+            // step's column replacements, renamed TABLE read by its old name), keyed by member name. A
+            // table not yet in the DB (newly added enum) yields no current rows — its CREATE is earlier
+            // in this same script, so every member becomes an INSERT that runs after it.
+            const currentByName = new Map<string, { id: PrimaryKey; image: Map<string, unknown> }>();
+            for (const row of await retrieveEnumRows(table, replacements))
+                currentByName.set(String(row.get(nameCol)), { id: row.get(pkCol) as PrimaryKey, image: row });
 
-        // Ask which removed member each new member renames (by name), then apply.
-        const key = Replacements.keyEnumsForTable(table.name.name);
-        replacements.askForReplacements(new Set(currentByName.keys()), new Set(shouldByName.keys()), key);
-        const rep = replacements.tryGetC(key);
-        const current = new Map<string, { id: PrimaryKey; image: Map<string, unknown> }>();
-        for (const [name, v] of currentByName)
-            current.set(rep?.get(name) ?? name, v);
+            // Ask which removed member each new member renames (by name), then apply.
+            const key = Replacements.keyEnumsForTable(table.name.name);
+            replacements.askForReplacements(new Set(currentByName.keys()), new Set(shouldByName.keys()), key);
+            const rep = replacements.tryGetC(key);
+            const current = new Map<string, { id: PrimaryKey; image: Map<string, unknown> }>();
+            for (const [name, v] of currentByName)
+                current.set(rep?.get(name) ?? name, v);
 
-        for (const name of new Set([...shouldByName.keys(), ...current.keys()])) {
-            const should = shouldByName.get(name);
-            const cur = current.get(name);
+            for (const name of new Set([...shouldByName.keys(), ...current.keys()])) {
+                const should = shouldByName.get(name);
+                const cur = current.get(name);
 
-            if (should != null && cur == null) {
-                commands.push(insertSqlSync(table, should));
-            } else if (should == null && cur != null) {
-                commands.push(deleteSqlSync(table, enumRowWithId(enumObject, cur.id)));
-            } else if (should != null && cur != null) {
-                if (should.id === cur.id) {
-                    if (!imageEquals(rowImage(table, should), cur.image))
-                        commands.push(updateSqlSync(table, should));
-                } else {
-                    // Re-id: insert the member at its new id, move every incoming reference,
-                    // delete the old row. (The temporary-middle-id dance Signum uses to avoid
-                    // a collision when the new id is still in use is not ported yet.)
+                if (should != null && cur == null) {
                     commands.push(insertSqlSync(table, should));
-                    commands.push(moveReferences(schema, sqlBuilder, table, cur.id, should.id));
+                } else if (should == null && cur != null) {
                     commands.push(deleteSqlSync(table, enumRowWithId(enumObject, cur.id)));
+                } else if (should != null && cur != null) {
+                    if (should.id === cur.id) {
+                        if (!imageEquals(rowImage(table, should), cur.image))
+                            commands.push(updateSqlSync(table, should));
+                    } else {
+                        // Re-id: insert the member at its new id, move every incoming reference,
+                        // delete the old row. (The temporary-middle-id dance Signum uses to avoid
+                        // a collision when the new id is still in use is not ported yet.)
+                        commands.push(insertSqlSync(table, should));
+                        commands.push(moveReferences(schema, sqlBuilder, table, cur.id, should.id));
+                        commands.push(deleteSqlSync(table, enumRowWithId(enumObject, cur.id)));
+                    }
                 }
             }
+        } catch (e) {
+            commands.push(commentedError(`enum table ${table.name.toString()}`, e));
         }
     }
 
@@ -669,16 +688,16 @@ async function retrieveEnumRows(table: Table, replacements: Replacements): Promi
     };
 
     const select = columns.map(c => `${sqlBuilder.sqlEscape(dbNameOf(c.name))} AS ${sqlBuilder.sqlEscape(c.name)}`).join(", ");
-    // Signum reads current enum rows via Administrator.TryRetrieveAll — the "Try" tolerates a table that
-    // doesn't exist in the DB yet (a NEWLY added enum type): its CREATE TABLE is only in the migration
-    // script being generated, not applied yet, so the SELECT would fail. Treat that as "no current rows"
-    // so every member becomes an INSERT (which runs after the CREATE, earlier in the same script).
-    let rows: Record<string, unknown>[];
-    try {
-        rows = await connector.executeQuery(`SELECT ${select} FROM ${sqlBuilder.objectName(table.name)}`) as Record<string, unknown>[];
-    } catch {
+    // Read from the table's OLD name if it was renamed this run (readObjectName); the RENAME DDL is only
+    // in the script being generated, so the physical table still has its old name. Signum's
+    // Administrator.TryRetrieveAll: if the table does not exist yet (a NEWLY added enum type, whose
+    // CREATE is earlier in this same script) return no current rows so every member becomes an INSERT.
+    // Any OTHER read failure is NOT swallowed — it propagates to synchronizeEnumsScript, which turns it
+    // into a commented-out command (so the error surfaces instead of silently re-inserting every row).
+    const readName = readObjectName(table, replacements);
+    if (!(await existsTable(readName)))
         return [];
-    }
+    const rows = await connector.executeQuery(`SELECT ${select} FROM ${sqlBuilder.objectName(readName)}`) as Record<string, unknown>[];
     return rows.map(r => new Map(columns.map(c => [c.name, r[c.name]])));
 }
 
