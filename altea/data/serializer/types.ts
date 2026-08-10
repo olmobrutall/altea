@@ -4,6 +4,7 @@
 // public API by the barrel.
 
 import type { PrimaryKey, BaseEntity, Entity } from '../entity';
+import type { PropertyRoute } from '../propertyRoute';
 
 // ---- Options ---------------------------------------------------------------
 
@@ -31,12 +32,23 @@ export interface DeserializeOptions {
 export interface SerializationContext {
     writeTypes: WriteTypes;
     path: Set<BaseEntity>;   // cycle guard for full-entity references
+    // Property-authorization (set only when a SerializationAuth is installed): `route` is the current
+    // container's PropertyRoute (managed per-field in serializeFields so an embedded child knows its
+    // route); `authMeta` is the current root entity's opaque auth metadata. Undefined = no auth ⇒ the
+    // codec behaves exactly as before.
+    route?: PropertyRoute;
+    authMeta?: unknown;
 }
 
 export interface DeserializationContext {
     idMap: Map<string, Entity>;   // intra-payload identity, keyed "TypeName|id"
     resolve?: DeserializeOptions['resolve'];
     onWarn?: DeserializeOptions['onWarn'];
+    // Property-authorization write-gate (set only under an installed SerializationAuth, and only on the
+    // entity-overlay path): `route` = current container route (per-field, like serialize); `authMeta` =
+    // the resolved original's auth metadata. Undefined ⇒ no write gate.
+    route?: PropertyRoute;
+    authMeta?: unknown;
 }
 
 // The containing entity for a value being deserialized. `index != null` marks a part-entity

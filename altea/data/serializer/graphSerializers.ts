@@ -21,6 +21,34 @@ import type {
     SerializationContext, DeserializationContext, SerializeOptions, DeserializeOptions,
 } from './types';
 import { TEMPORAL_TYPE_NAMES, isTemporal } from './temporalHelpers';
+import { PropertyRoute } from '../propertyRoute';
+
+// ---- Property-authorization hook (Signum's AuthServer serialization filters) -------------------
+//
+// OPEN BY DEFAULT: with no auth installed (`_serAuth == null`) the codec behaves exactly as before — the
+// whole property-auth path is skipped. An auth module (altea-auth's AuthServer, when PropertyAuthLogic is
+// started) installs a SerializationAuth via setSerializationAuth. `access(route, meta)`:
+//   'hidden'   → the property is OMITTED from the wire (server→client) and its line is hidden client-side;
+//   'readonly' → the property is written but flagged read-only (propsMeta) so the client greys it, and a
+//                changed value is REJECTED on save (onWriteViolation);
+//   'writable' → normal.
+// `getMetadata(root)` returns opaque per-root metadata (the role's property allowances for that instance),
+// threaded to `access` so it is computed once per root entity, not per property.
+export type PropertyAccess = 'hidden' | 'readonly' | 'writable';
+export interface SerializationAuth {
+    getMetadata(root: Entity): unknown;
+    access(route: PropertyRoute, meta: unknown): PropertyAccess;
+}
+let _serAuth: SerializationAuth | undefined;
+export function setSerializationAuth(auth: SerializationAuth | undefined): void { _serAuth = auth; }
+/** True once a SerializationAuth is installed — lets the save path decide whether to run the write-gate overlay. */
+export function hasSerializationAuth(): boolean { return _serAuth != null; }
+
+// The field route for `name` off `ownerRoute`, or undefined if it can't be built (never gate then).
+function fieldRouteOf(ownerRoute: PropertyRoute | undefined, name: string): PropertyRoute | undefined {
+    if (ownerRoute == null) return undefined;
+    try { return ownerRoute.add(name); } catch { return undefined; }
+}
 
 // ---- ctor-kind checks + field iterator (serializer-local; the temporal + enum helpers live in
 // ./temporalHelpers and ../enum respectively) ----------------------------------------------------
@@ -138,23 +166,53 @@ abstract class ModifiableSerializer implements JsonSerializer {
     abstract toJson(value: unknown, sc: SerializationContext, writeType: boolean, parented?: boolean): unknown;
     abstract fromJson(json: unknown, dc: DeserializationContext, existing: unknown, slot?: Slot): unknown;
 
-    protected serializeFields(m: BaseEntity, sc: SerializationContext, o: Record<string, unknown>, parented: boolean): void {
+    protected serializeFields(m: BaseEntity, sc: SerializationContext, o: Record<string, unknown>, parented: boolean, ownerRoute?: PropertyRoute): void {
         const fieldWriteType = sc.writeTypes === 'Always';
+        const gate = _serAuth != null && ownerRoute != null;
+        const propsMeta: string[] = [];
         for (const entry of this.plan) {
             if (parented && (entry.isBackReference || entry.isRowOrder)) continue;   // recoverable
+            let fieldRoute: PropertyRoute | undefined;
+            if (gate) {
+                fieldRoute = fieldRouteOf(ownerRoute, entry.name);
+                if (fieldRoute != null) {
+                    const acc = _serAuth!.access(fieldRoute, sc.authMeta);
+                    // Signum's propsMeta: "!name" ⇒ hidden (also omit the value), "name" ⇒ read-only.
+                    if (acc === 'hidden') { propsMeta.push("!" + entry.name); continue; }
+                    if (acc === 'readonly') propsMeta.push(entry.name);
+                }
+            }
             const v = (m as unknown as Record<string, unknown>)[entry.name];
+            const prevRoute = sc.route;
+            sc.route = fieldRoute;   // so an embedded child knows its own route
             o[entry.name] = v == null ? null : entry.serializer.toJson(v, sc, fieldWriteType);
+            sc.route = prevRoute;
         }
+        if (propsMeta.length > 0) o.propsMeta = propsMeta;
     }
 
-    protected applyFields(m: BaseEntity, json: Record<string, unknown>, dc: DeserializationContext): void {
+    protected applyFields(m: BaseEntity, json: Record<string, unknown>, dc: DeserializationContext, ownerRoute?: PropertyRoute): void {
         const target = m as unknown as Record<string, unknown>;
+        // Write gate active only when auth is installed AND we know this container's route (the entity
+        // OVERLAY path onto a resolved original — see EntitySerializer.fromJson). New entities / the
+        // client-receive path pass no ownerRoute, so nothing is gated there.
+        const gate = _serAuth != null && ownerRoute != null;
         for (const entry of this.plan) {
             if (!Object.prototype.hasOwnProperty.call(json, entry.name)) continue;
+            const fieldRoute = gate ? fieldRouteOf(ownerRoute, entry.name) : undefined;
+            // Write gate: a property the role can't WRITE keeps the ORIGINAL value — the incoming value is
+            // ignored (write-protected). Silent-keep (not throw) is deliberate: a HIDDEN property's value
+            // was omitted from the wire, so the client echoes null; silently keeping the original avoids a
+            // false rejection of a legitimate save AND needs no client-side omission logic.
+            if (fieldRoute != null && _serAuth!.access(fieldRoute, dc.authMeta) !== 'writable')
+                continue;
             const jv = json[entry.name];
+            const prevRoute = dc.route;
+            dc.route = fieldRoute;   // so an embedded child gates its own sub-fields
             target[entry.name] = jv == null
                 ? null
                 : entry.serializer.fromJson(jv, dc, target[entry.name], { owner: m as Entity });
+            dc.route = prevRoute;
         }
     }
 }
@@ -167,7 +225,9 @@ class EmbeddedSerializer extends ModifiableSerializer {
         const o: Record<string, unknown> = {};
         if (writeType) o.$type = cleanTypeName(em.constructor);
         if (isModifiedSelf(em)) o.modified = true;
-        this.serializeFields(em, sc, o, false);
+        // An embedded continues the owner's route (set by the parent's serializeFields in sc.route); the
+        // root entity's authMeta stays in effect (routes are keyed from the root).
+        this.serializeFields(em, sc, o, false, sc.route);
         return o;
     }
     fromJson(json: unknown, dc: DeserializationContext, existing: unknown): unknown {
@@ -175,7 +235,9 @@ class EmbeddedSerializer extends ModifiableSerializer {
         const inst = (existing instanceof EmbeddedEntity && existing.constructor === this.ctor)
             ? existing
             : new (this.ctor as Type<EmbeddedEntity>)();
-        this.applyFields(inst, j, dc);
+        // Continue the owner's route (set by the parent applyFields in dc.route) so the write gate applies
+        // to embedded sub-properties too — but only when overlaying an existing embedded (dc.route set).
+        this.applyFields(inst, j, dc, dc.route);
         inst._snapshot = j.modified === true ? true : undefined;
         return inst;
     }
@@ -196,7 +258,12 @@ class EntitySerializer extends ModifiableSerializer {
             if (entity.ticks != null) o.ticks = entity.ticks;
             o.toStr = entity.toString();
             if (isModifiedSelf(entity)) o.modified = true;
-            this.serializeFields(entity, sc, o, parented);
+            // A (re-rooted) entity computes its OWN property-auth metadata (per Signum's IRootEntity step).
+            const prevMeta = sc.authMeta;
+            const ownerRoute = _serAuth != null ? PropertyRoute.root(entity.constructor) : undefined;
+            if (_serAuth != null) sc.authMeta = _serAuth.getMetadata(entity);
+            this.serializeFields(entity, sc, o, parented, ownerRoute);
+            sc.authMeta = prevMeta;
             return o;
         } finally {
             sc.path.delete(entity);
@@ -238,7 +305,13 @@ class EntitySerializer extends ModifiableSerializer {
         if (original != null) {
             dc.idMap.set(key, original);
             if (modified) {
-                this.applyFields(original, j, dc);   // overlay; snapshot untouched ⇒ isModifiedSelf reflects it
+                // Overlay onto the DB original → the write gate applies (a changed non-writable property is
+                // rejected). Metadata is the ORIGINAL's (its type conditions), computed once per root.
+                const prevMeta = dc.authMeta;
+                const ownerRoute = _serAuth != null ? PropertyRoute.root(this.ctor) : undefined;
+                if (_serAuth != null) dc.authMeta = _serAuth.getMetadata(original);
+                this.applyFields(original, j, dc, ownerRoute);   // overlay; snapshot untouched ⇒ isModifiedSelf reflects it
+                dc.authMeta = prevMeta;
                 this.recover(original, slot);
             } else {
                 this.checkClean(j, original, dc);    // don't apply; trip the wire on mismatch

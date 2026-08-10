@@ -5,7 +5,7 @@ import { QuickLinkClient, QuickLinkAction } from "@altea/altea/client/QuickLinkC
 import type { Lite } from "@altea/altea/data/lite";
 import { UserEntity } from "../../data/User";
 import { RoleEntity } from "../../data/Role";
-import { TypeRulePack, PermissionRulePack } from "../../data/Rules";
+import { TypeRulePack, PermissionRulePack, OperationRulePack, QueryRulePack, PropertyRulePack } from "../../data/Rules";
 import { AuthAdminMessage } from "../../data/AuthMessages";
 
 // Port of Signum's AuthAdminClient (AuthAdminClient.tsx) — the ADMIN side of authorization: the User /
@@ -66,7 +66,20 @@ export namespace AuthAdminClient {
                 { icon: "shield-halved", iconColor: "orange", color: "warning", group: null }));
         }
 
-        // DEFERRED (Phase 5): the OTHER rule-pack views (Property/Operation/Query RulePackControl) per the
+        // Operation / Query / Property rules are PER-TYPE: like Signum, they are NOT reached from a Role
+        // QuickLink but drilled into from the TypeRules grid — each TypeAllowedRule row in TypeRulePackControl
+        // links straight to the (role, type) operation/query/property pack. Here we only register the model
+        // views so `Navigator.view(pack)` can open them; the grid supplies the (typeName, roleId).
+        if (Options.operations)
+            cb.configure(OperationRulePack).withView(() => import("./OperationRulePackControl"));
+
+        if (Options.queries)
+            cb.configure(QueryRulePack).withView(() => import("./QueryRulePackControl"));
+
+        if (Options.properties)
+            cb.configure(PropertyRulePack).withView(() => import("./PropertyRulePackControl"));
+
+        // DEFERRED: richer navigator gates (isViewable/isReadonly from per-type typeAllowed in the blob) per the
         // Options flags; the navigatorIsViewable/isCreable/isReadonly events + TypeContext member gates
         // (need per-type `typeAllowed` in the blob); the download-auth-rules button and the richer
         // User/Role Finder filters (profile photo, "only active", trivial-merge). See Signum's
@@ -88,23 +101,23 @@ export namespace AuthAdminClient {
         export function saveTypeRulePack(pack: TypeRulePack): Promise<void> {
             return ajaxPost({ url: "/api/authAdmin/typeRules" }, pack);
         }
-        export function fetchPropertyRulePack(typeName: string, roleId: number | string): Promise<unknown> {
+        export function fetchPropertyRulePack(typeName: string, roleId: number | string): Promise<PropertyRulePack> {
             return ajaxGet({ url: "/api/authAdmin/propertyRules/" + typeName + "/" + roleId, cache: "no-cache" });
         }
-        export function savePropertyRulePack(rules: unknown): Promise<void> {
-            return ajaxPost({ url: "/api/authAdmin/propertyRules" }, rules);
+        export function savePropertyRulePack(pack: PropertyRulePack): Promise<void> {
+            return ajaxPost({ url: "/api/authAdmin/propertyRules" }, pack);
         }
-        export function fetchOperationRulePack(typeName: string, roleId: number | string): Promise<unknown> {
+        export function fetchOperationRulePack(typeName: string, roleId: number | string): Promise<OperationRulePack> {
             return ajaxGet({ url: "/api/authAdmin/operationRules/" + typeName + "/" + roleId, cache: "no-cache" });
         }
-        export function saveOperationRulePack(rules: unknown): Promise<void> {
-            return ajaxPost({ url: "/api/authAdmin/operationRules" }, rules);
+        export function saveOperationRulePack(pack: OperationRulePack): Promise<void> {
+            return ajaxPost({ url: "/api/authAdmin/operationRules" }, pack);
         }
-        export function fetchQueryRulePack(typeName: string, roleId: number | string): Promise<unknown> {
+        export function fetchQueryRulePack(typeName: string, roleId: number | string): Promise<QueryRulePack> {
             return ajaxGet({ url: "/api/authAdmin/queryRules/" + typeName + "/" + roleId, cache: "no-cache" });
         }
-        export function saveQueryRulePack(rules: unknown): Promise<void> {
-            return ajaxPost({ url: "/api/authAdmin/queryRules" }, rules);
+        export function saveQueryRulePack(pack: QueryRulePack): Promise<void> {
+            return ajaxPost({ url: "/api/authAdmin/queryRules" }, pack);
         }
         export function downloadAuthRules(): void {
             void ajaxGetRaw({ url: "/api/authAdmin/downloadAuthRules" }).then(response => saveFile(response));

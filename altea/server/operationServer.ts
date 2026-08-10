@@ -37,7 +37,7 @@ export namespace OperationServer {
                 // Saver's final "Saving" pass. Failures throw → 400 ModelState via the exceptionFilter.
                 assertGraphIntegrity([entity], "ServerDeserialization");
                 const result = await Operations.execute(entity, resolve<ExecuteSymbol<Entity>>(req.params.operationKey), ...(args ?? []));
-                res.jsonTyped(getEntityPack(result));
+                res.jsonTyped(await getEntityPack(result));
             });
 
         // Execute on a lite → retrieve the entity, then execute (Signum's ExecuteLite).
@@ -47,7 +47,7 @@ export namespace OperationServer {
                 const { lite, args } = await req.jsonTyped() as LiteOperationRequest;
                 const entity = await Database.retrieve(lite.entityType, lite.id);
                 const result = await Operations.execute(entity, resolve<ExecuteSymbol<Entity>>(req.params.operationKey), ...(args ?? []));
-                res.jsonTyped(getEntityPack(result));
+                res.jsonTyped(await getEntityPack(result));
             });
 
         // Construct a new entity → EntityPack (or null when the constructor returns nothing).
@@ -56,7 +56,7 @@ export namespace OperationServer {
             async (req, res) => {
                 const { args } = await req.jsonTyped() as ConstructOperationRequest;
                 const result = await Operations.construct(resolve<ConstructSymbol<Entity>>(req.params.operationKey), ...(args ?? []));
-                res.jsonTyped(result != undefined ? getEntityPack(result) : undefined);
+                res.jsonTyped(result != undefined ? await getEntityPack(result) : undefined);
             });
 
         // Construct from a posted entity / a lite / many lites.
@@ -65,7 +65,7 @@ export namespace OperationServer {
             async (req, res) => {
                 const { entity, args } = await req.jsonTyped() as EntityOperationRequest;
                 const result = await Operations.constructFrom(entity, resolve<ConstructSymbol<Entity, From<Entity>>>(req.params.operationKey), ...(args ?? []));
-                res.jsonTyped(getEntityPack(result));
+                res.jsonTyped(await getEntityPack(result));
             });
 
         ws.post("/api/operation/constructFromLite/:operationKey",
@@ -74,7 +74,7 @@ export namespace OperationServer {
                 const { lite, args } = await req.jsonTyped() as LiteOperationRequest;
                 const entity = await Database.retrieve(lite.entityType, lite.id);
                 const result = await Operations.constructFrom(entity, resolve<ConstructSymbol<Entity, From<Entity>>>(req.params.operationKey), ...(args ?? []));
-                res.jsonTyped(getEntityPack(result));
+                res.jsonTyped(await getEntityPack(result));
             });
 
         ws.post("/api/operation/constructFromMany/:operationKey",
@@ -82,7 +82,7 @@ export namespace OperationServer {
             async (req, res) => {
                 const { lites, args } = await req.jsonTyped() as MultiOperationRequest;
                 const result = await Operations.constructFromMany(lites, resolve<ConstructSymbol<Entity, FromMany<Entity>>>(req.params.operationKey), ...(args ?? []));
-                res.jsonTyped(getEntityPack(result));
+                res.jsonTyped(await getEntityPack(result));
             });
 
         // Delete a posted entity / a lite → 204.
@@ -116,7 +116,7 @@ function resolve<S extends OperationSymbol>(key: string): S {
 // Signum's SignumServer.GetEntityPack: the entity plus the canExecute of each entity operation
 // (Execute / Delete / ConstructorFrom — the ones with onCanExecute) applicable to it. Operations of
 // another type report a can't-execute reason (or throw, caught here), so they are simply omitted.
-export function getEntityPack(entity: Entity): EntityPack<Entity> {
+export async function getEntityPack(entity: Entity): Promise<EntityPack<Entity>> {
     // EntityPack.canExecute records an entry for EVERY entity operation applicable to this entity —
     // the reason string when disabled, "" when enabled (Signum's dict maps enabled → null). The KEY's
     // PRESENCE is what the client uses to decide the operation applies (EntityOperations filters an
@@ -128,6 +128,10 @@ export function getEntityPack(entity: Entity): EntityPack<Entity> {
     for (const symbol of OperationLogic.registeredOperations()) {
         const op = OperationLogic.tryFindOperation(symbol);
         if (op != undefined && "onCanExecute" in op) {
+            // Row-level UI authorization (Signum's ServiceCanExecute): omit operations the current role
+            // can't execute in the UI (inUserInterface:true), so DBOnly/None ops never render a button.
+            if (!(await OperationLogic.isOperationAllowed(symbol, entity.constructor, true, entity)))
+                continue;
             try {
                 canExecute[symbol.key] = (op as IEntityOperation).onCanExecute(entity) ?? "";
             } catch { /* operation not applicable to this entity type */ }

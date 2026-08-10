@@ -1,5 +1,5 @@
 import { createHash, createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { LiteImp, Lite } from "@altea/altea/data/lite";
+import { Lite } from "@altea/altea/data/lite";
 import type { PrimaryKey } from "@altea/altea/data/entity";
 import { Temporal } from "@altea/altea/data/basics";
 import { UserWithClaims, type IUserEntity } from "@altea/altea/data/security";
@@ -137,10 +137,10 @@ export namespace AuthTokenServer {
     }
 
     function toUserWithClaims(token: TokenPayload): UserWithClaims {
-        const userLite = new LiteImp<UserEntity>(token.u, UserEntity, token.ut) as unknown as Lite<IUserEntity>;
+        const userLite = UserEntity.newLite(token.u, token.ut) as unknown as Lite<IUserEntity>;
         const claims: Record<string, unknown> = {};
         if (token.r != null)
-            claims["Role"] = new LiteImp<RoleEntity>(token.r, RoleEntity, token.rt ?? "");
+            claims["Role"] = RoleEntity.newLite(token.r, token.rt ?? "");
         return new UserWithClaims(userLite, claims);
     }
 

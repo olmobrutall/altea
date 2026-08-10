@@ -11,6 +11,7 @@ import type { SchemaBuilder } from "./schema/schemaBuilder";
 import { SymbolLogic } from "./symbolLogic";
 import { Saver } from "./saver";
 import { ExceptionLogic } from "./exceptionLogic";
+import { UnauthorizedAccessException } from "./exceptions";
 import { UserHolder } from "./userHolder";
 import "./dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import {
@@ -57,6 +58,41 @@ export namespace OperationLogic {
         if (op == null)
             throw new Error(`Operation '${symbol.key}' is not registered.`);
         return op;
+    }
+
+    // Signum's `OperationLogic.AllowOperation` event (Operations/OperationLogic.cs) — a pluggable
+    // authorization gate. altea core can't import altea-auth, so an auth module installs a hook via
+    // `onAllowOperation`; `assertOperationAllowed` (execute-time, inUserInterface:false) throws when
+    // denied, and `isOperationAllowed` (button-state, inUserInterface:true) is the boolean form used by
+    // getEntityPack to hide operations. `inUserInterface` distinguishes "the client may click it" (Allow)
+    // from "server code may run it" (DBOnly or Allow). No hook installed → open (returns true / no throw).
+    export type AllowOperationHook =
+        (symbol: OperationSymbol, entityType: Function, inUserInterface: boolean, entity: Entity | null) => Promise<boolean>;
+    const allowOperationHooks: AllowOperationHook[] = [];
+    export function onAllowOperation(fn: AllowOperationHook): void { allowOperationHooks.push(fn); }
+
+    export async function isOperationAllowed(symbol: OperationSymbol, entityType: Function, inUserInterface: boolean, entity: Entity | null): Promise<boolean> {
+        for (const h of allowOperationHooks)
+            if (!(await h(symbol, entityType, inUserInterface, entity)))
+                return false;
+        return true;
+    }
+    export async function assertOperationAllowed(symbol: OperationSymbol, entityType: Function, inUserInterface: boolean, entity: Entity | null): Promise<void> {
+        if (!(await isOperationAllowed(symbol, entityType, inUserInterface, entity)))
+            throw new UnauthorizedAccessException(`Operation '${symbol.key}' is not authorized`);
+    }
+
+    // The operation symbols applicable to an entity type, derived from the key convention
+    // `<Type>Operation.<Member>` (the same convention the client's ReflectionClient fans operations out
+    // by). Used by the auth admin pack to enumerate a type's operations. DIVERGENCE: an operation declared
+    // on an ABSTRACT base (its container maps to the base, not the concrete type) isn't matched here — the
+    // registry is keyed by symbol alone with no type back-link, so abstract-base operations are a known gap.
+    export function operationsForType(cleanTypeName: string): OperationSymbol[] {
+        return registeredOperations().filter(s => {
+            const container = s.key.split(".")[0];
+            const derived = container.endsWith("Operation") ? container.slice(0, -"Operation".length) : container;
+            return derived === cleanTypeName;
+        });
     }
 
     // Signum's OperationLogic.Start: wires the OperationSymbol table through SymbolLogic,
@@ -125,11 +161,14 @@ function find(symbol: OperationSymbol, type: OperationType): IOperation {
 // the symbol containers, so the compiler rejects the wrong operation kind / entity type.
 export const Operations = {
     async execute<T extends Entity>(entity: T, symbol: ExecuteSymbol<T>, ...args: unknown[]): Promise<T> {
+        // Signum's execute-time authorization (Graph.Execute → AssertOperationAllowed, inUserInterface:false).
+        await OperationLogic.assertOperationAllowed(symbol, entity.constructor, false, entity);
         return await logOperation(symbol, null,
             () => (find(symbol, OperationType.Execute) as IExecuteOperation).doExecute(entity, args) as Promise<T>,
             result => result);
     },
     async delete<T extends Entity>(entity: T, symbol: DeleteSymbol<T>, ...args: unknown[]): Promise<void> {
+        await OperationLogic.assertOperationAllowed(symbol, entity.constructor, false, entity);
         await logOperation(symbol, null,
             () => (find(symbol, OperationType.Delete) as IDeleteOperation).doDelete(entity, args),
             () => entity);
@@ -140,6 +179,7 @@ export const Operations = {
             result => result);
     },
     async constructFrom<T extends Entity, F extends Entity>(entity: F, symbol: ConstructSymbol<T, From<F>>, ...args: unknown[]): Promise<T> {
+        await OperationLogic.assertOperationAllowed(symbol, entity.constructor, false, entity);
         return await logOperation(symbol, entity,
             () => (find(symbol, OperationType.ConstructorFrom) as IConstructorFromOperation).doConstructFrom(entity, args) as Promise<T>,
             result => result);

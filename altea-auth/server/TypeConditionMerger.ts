@@ -1,33 +1,42 @@
-import { TypeConditionSymbol, TypeAllowed, TypeAllowedBasic } from "../data/Rules";
+import { TypeConditionSymbol, TypeAllowed } from "../data/Rules";
 import { MergeStrategy } from "../data/Role";
 import { WithConditions, ConditionRule } from "./WithConditions";
 
-// Port of Signum's TypeConditionMerger (Rules/TypeCache.cs) — the cross-role merge of
-// WithConditions<TypeAllowed>. When a role inherits from several roles, their per-type condition rules
-// (over possibly DIFFERENT symbol sets) cannot be merged rule-by-rule, so the algorithm expands each
-// role's WithConditions into a 2^n truth-table (one cell per combination of the union symbols' truth
-// values), merges cell-by-cell (Union → max, Intersection → min), then reconstructs a MINIMAL set of
-// rules from the merged matrix. This is exactly Signum's GetMatrix / GetRules / MergeBaseImplementations.
+// Port of Signum's TypeConditionMerger (Rules/TypeCache.cs) — the cross-role merge of WithConditions<A>.
+// When a role inherits from several roles, their per-resource condition rules (over possibly DIFFERENT
+// symbol sets) cannot be merged rule-by-rule, so the algorithm expands each role's WithConditions into a
+// 2^n truth-table (one cell per combination of the union symbols' truth values), merges cell-by-cell
+// (Union → max, Intersection → min), then reconstructs a MINIMAL set of rules from the merged matrix. This
+// is exactly Signum's GetMatrix / GetRules / MergeBaseImplementations.
 //
-// altea divergence: Signum's `TypeAllowedPrima` / `WithPrima` / `IsSimplest` tagging (which preserves
-// conditions that PROPERTY or OPERATION auth might override) is DROPPED — altea has not ported
-// property/operation authorization, so there are never such overrides, which is exactly Signum's
-// behaviour with `hasPrima == false`: full minimization. It returns with the property/operation engines.
+// GENERIC over the allowed enum A: Type / Operation / Property authorization all merge the same way — the
+// only per-dimension inputs are the numeric enum ordering (higher = more access, so Union = numeric max /
+// Intersection = numeric min) and the `top` value (the Intersection identity + max short-circuit). None is
+// always 0 (the Union identity + min short-circuit). Signum's own maxTypeAllowed used `item > result`, i.e.
+// numeric comparison — so the same core serves TypeAllowed's packed DB/UI value AND the single-level
+// Operation/Property enums.
+//
+// altea divergence: Signum's `TypeAllowedPrima` / `WithPrima` / `IsSimplest` tagging (which preserved
+// conditions that PROPERTY or OPERATION auth might override) was for the case where those dimensions coerce
+// the type's conditions; altea evaluates property/operation coercion per-instance at the SCALAR level
+// instead, so full minimization here is correct for every dimension.
 
-// Signum's MaxTypeAllowed / MinTypeAllowed — the per-cell merge, with the short-circuit at the extreme.
-function maxTypeAllowed(collection: TypeAllowed[]): TypeAllowed {
-    let result = TypeAllowed.None;
+const NONE = 0; // the Union identity + min short-circuit — None is 0 in every allowed enum.
+
+// Per-cell merge with the short-circuit at the extreme (Signum's Max*/Min*Allowed).
+function maxAllowed<A extends number>(collection: A[], top: A): A {
+    let result = NONE as A;
     for (const item of collection) {
         if (item > result) result = item;
-        if (result === TypeAllowed.Write) return result;
+        if (result === top) return result;
     }
     return result;
 }
-function minTypeAllowed(collection: TypeAllowed[]): TypeAllowed {
-    let result = TypeAllowed.Write;
+function minAllowed<A extends number>(collection: A[], top: A): A {
+    let result = top;
     for (const item of collection) {
         if (item < result) result = item;
-        if (result === TypeAllowed.None) return result;
+        if (result === (NONE as A)) return result;
     }
     return result;
 }
@@ -35,13 +44,17 @@ function minTypeAllowed(collection: TypeAllowed[]): TypeAllowed {
 // The per-symbol bit assignment: the distinct union of every base rule's symbols, ordered by key.
 interface Condition { tc: TypeConditionSymbol; bit: number; }
 
-export function mergeTypeConditions(strategy: MergeStrategy, baseRules: WithConditions<TypeAllowed>[]): WithConditions<TypeAllowed> {
+// Generic cross-role merge of WithConditions<A>. `top` is the enum's maximum (Write / Allow) — the
+// Intersection identity. Used by the Type, Operation and Property dimensions.
+export function mergeWithConditions<A extends number>(strategy: MergeStrategy, baseRules: WithConditions<A>[], top: A): WithConditions<A> {
     if (baseRules.length === 1)
         return baseRules[0];
 
-    // Union's identity is None (a base of "nothing" doesn't raise the max); Intersection's is Write.
-    const minIdentity = strategy === MergeStrategy.Union ? TypeAllowed.None : TypeAllowed.Write;
-    const merge = strategy === MergeStrategy.Union ? maxTypeAllowed : minTypeAllowed;
+    // Union's identity is None (a base of "nothing" doesn't raise the max); Intersection's is `top`.
+    const minIdentity = (strategy === MergeStrategy.Union ? NONE : top) as A;
+    const merge = strategy === MergeStrategy.Union
+        ? (c: A[]): A => maxAllowed(c, top)
+        : (c: A[]): A => minAllowed(c, top);
 
     // If all but one base is the trivial identity, that one wins outright (Signum's onlyNotMin).
     const notMin = baseRules.filter(ta => !(ta.conditionRules.length === 0 && ta.fallback === minIdentity));
@@ -61,18 +74,23 @@ export function mergeTypeConditions(strategy: MergeStrategy, baseRules: WithCond
     const numCells = 1 << conditions.length;
 
     const matrixes = baseRules.map(tac => getMatrix(tac, numCells, bitOf));
-    const merged: TypeAllowed[] = [];
+    const merged: A[] = [];
     for (let i = 0; i < numCells; i++)
         merged.push(merge(matrixes.map(m => m[i])));
 
     return getRules(merged, numCells, conditions);
 }
 
+// Signum's TypeConditionMerger for WithConditions<TypeAllowed> — the type dimension's wrapper.
+export function mergeTypeConditions(strategy: MergeStrategy, baseRules: WithConditions<TypeAllowed>[]): WithConditions<TypeAllowed> {
+    return mergeWithConditions(strategy, baseRules, TypeAllowed.Write);
+}
+
 // Signum's GetMatrix: every cell starts at the fallback; each rule (in FORWARD order) overwrites every
 // cell whose index has ALL of the rule's condition bits set. Later rules overwrite earlier ones — the
 // bitmask mirror of the reverse-scan (last-match-wins) instance evaluator.
-function getMatrix(tac: WithConditions<TypeAllowed>, numCells: number, bitOf: Map<string, number>): TypeAllowed[] {
-    const matrix: TypeAllowed[] = new Array(numCells).fill(tac.fallback);
+function getMatrix<A>(tac: WithConditions<A>, numCells: number, bitOf: Map<string, number>): A[] {
+    const matrix: A[] = new Array(numCells).fill(tac.fallback);
     for (const rule of tac.conditionRules) {
         let mask = 0;
         for (const tc of rule.typeConditions) mask |= bitOf.get(tc.key)!;
@@ -85,14 +103,14 @@ function getMatrix(tac: WithConditions<TypeAllowed>, numCells: number, bitOf: Ma
 // Signum's GetRules: reconstruct a minimal WithConditions from the merged matrix. Emit rules in ascending
 // specificity (0 conditions = fallback exit; then 1; then >=2), clearing covered cells as we go, and
 // return the rules REVERSED so the most specific are last (matching the reverse-scan evaluator).
-function getRules(matrix: TypeAllowed[], numCells: number, conditions: Condition[]): WithConditions<TypeAllowed> {
-    const array: (TypeAllowed | null)[] = matrix.slice();
-    const conditionRules: ConditionRule<TypeAllowed>[] = [];
+function getRules<A>(matrix: A[], numCells: number, conditions: Condition[]): WithConditions<A> {
+    const array: (A | null)[] = matrix.slice();
+    const conditionRules: ConditionRule<A>[] = [];
     let available = conditions.slice();
 
     // A non-null cell under `mask` must all agree; null cells (already covered) are "don't care".
-    const onlyOneValue = (mask: number): TypeAllowed | null => {
-        let current: TypeAllowed | null = null;
+    const onlyOneValue = (mask: number): A | null => {
+        let current: A | null = null;
         for (let i = 0; i < numCells; i++) {
             if ((i & mask) === mask) {
                 const v = array[i];
@@ -127,7 +145,7 @@ function getRules(matrix: TypeAllowed[], numCells: number, conditions: Condition
         { // 0 conditions — the only exit: everything left agrees on one value.
             const ta = onlyOneValue(0);
             if (ta != null)
-                return new WithConditions<TypeAllowed>(ta, conditionRules.slice().reverse());
+                return new WithConditions<A>(ta, conditionRules.slice().reverse());
         }
 
         let emitted = false;
@@ -136,7 +154,7 @@ function getRules(matrix: TypeAllowed[], numCells: number, conditions: Condition
         for (const c of available) {
             const ta = onlyOneValue(c.bit);
             if (ta != null) {
-                conditionRules.push(new ConditionRule<TypeAllowed>([c.tc], ta));
+                conditionRules.push(new ConditionRule<A>([c.tc], ta));
                 available = available.filter(x => x !== c);
                 clearArray(c.bit);
                 emitted = true;
@@ -151,7 +169,7 @@ function getRules(matrix: TypeAllowed[], numCells: number, conditions: Condition
                 const ta = onlyOneValue(mask);
                 if (ta != null) {
                     const tcs = available.filter(c => (c.bit & mask) === c.bit).map(c => c.tc);
-                    conditionRules.push(new ConditionRule<TypeAllowed>(tcs, ta));
+                    conditionRules.push(new ConditionRule<A>(tcs, ta));
                     clearArray(mask);
                     emitted = true;
                     break;

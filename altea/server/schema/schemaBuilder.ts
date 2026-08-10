@@ -145,6 +145,18 @@ export class SchemaSettings {
 export class SchemaBuilder {
     readonly schema = new Schema();
 
+    // Signum's SchemaBuilder.NotDefined guard (Include.cs), inverted to read naturally as an early-return:
+    // a logic's `start(sb)` opens with `if (sb.alreadyDefined(start)) return;` so re-including the module is
+    // idempotent (its generate/sync/initialize hooks are pushed exactly once). The key is any stable token —
+    // the start function itself is the obvious choice. Returns false + registers the key on first call.
+    private readonly definedKeys = new Set<unknown>();
+    alreadyDefined(key: unknown): boolean {
+        if (this.definedKeys.has(key))
+            return true;
+        this.definedKeys.add(key);
+        return false;
+    }
+
     // Signum's `sb.GlobalLazy(factory, new InvalidateWith(typeof(X), …))`: a process-wide cache reset
     // whenever any `invalidateWith` type is SAVED. altea's factory is ASYNC (no sync DB), so this is just
     // a `ResetLazy<Promise<T>>` — the box caches the in-flight promise, so concurrent readers share one

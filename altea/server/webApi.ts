@@ -117,6 +117,16 @@ export type AuthorizeRequest = (meta: HttpMeta) => void;
 let _authorizeRequest: AuthorizeRequest | undefined;
 export function setAuthorizeRequest(fn: AuthorizeRequest | undefined): void { _authorizeRequest = fn; }
 
+// Pluggable request-body deserializer (Signum's model binder / JsonConverter). The default is the pure,
+// isomorphic Serializer.parse. A server module can REPLACE it — e.g. property authorization installs a
+// deserializer that resolves an existing entity's DB original and overlays the incoming changes onto it,
+// so read-only / hidden properties keep their stored value (the write-gate). This is where "the retrieve
+// is implicit inside the deserializer" lives: handlers just call req.jsonTyped(); the DB fetch happens
+// here, not in each route. May be async (it can await the DB).
+export type RequestDeserializer = (body: string) => unknown | Promise<unknown>;
+let _requestDeserializer: RequestDeserializer = body => Serializer.parse(body);
+export function setRequestDeserializer(fn: RequestDeserializer): void { _requestDeserializer = fn; }
+
 const rawBody = express.text({ type: "*/*", limit: "16mb" });
 
 export class WebBuilder {
@@ -138,7 +148,7 @@ export class WebBuilder {
             // only for the OpenAPI schema below.
             (req as any).jsonTyped = () => {
                 const body = (req as { body?: string }).body;
-                return Promise.resolve(body ? Serializer.parse(body) : undefined);
+                return body ? Promise.resolve(_requestDeserializer(body)) : Promise.resolve(undefined);
             };
             (res as any).jsonTyped = (obj: unknown) => res.type("application/json").send(Serializer.stringify(obj));
             // Flat ModelState body (field → message), NO `exceptionType` — the exact shape the client's

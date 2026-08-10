@@ -4,7 +4,6 @@ import { SchemaBuilder } from "@altea/altea/server/schema";
 import { ResetLazy } from "@altea/altea/data/resetLazy";
 import { table } from "@altea/altea/server/table";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
-import { LiteImp } from "@altea/altea/data/lite";
 import type { PrimaryKey } from "@altea/altea/data/entity";
 import { AuthLogic } from "./AuthLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
@@ -108,7 +107,7 @@ export namespace PermissionAuthLogic {
         const rules: PermissionAllowedRule[] = [];
         for (const p of SymbolLogic.symbols(PermissionSymbol)) {
             rules.push(PermissionAllowedRule.create({
-                resource: new LiteImp(p.id, PermissionSymbol, p.key),
+                resource: PermissionSymbol.newLite(p.id, p.key),
                 allowed: await getAllowed(p.id, roleKey),
                 allowedBase: await getAllowedBase(p.id, roleKey),
             }));
@@ -140,7 +139,7 @@ export namespace PermissionAuthLogic {
             } else {
                 await RulePermissionEntity.create({
                     role: roleLite,
-                    resource: new LiteImp(r.resource.id, PermissionSymbol, r.resource.toString()),
+                    resource: PermissionSymbol.newLite(r.resource.id, r.resource.toString()),
                     allowed: r.allowed,
                 }).save();
             }

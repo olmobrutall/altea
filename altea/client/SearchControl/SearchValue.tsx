@@ -428,8 +428,7 @@ function SearchValue(p: SearchValueProps): React.ReactNode | null {
       if (e.ctrlKey || e.button == 1)
         window.open(toAbsoluteUrl(Finder.findOptionsPath(fo)));
       else
-        // TODO(port): Finder.explore opens the full-screen SearchPage (not ported yet — Stage 4).
-        Promise.resolve().then(() => {
+        Finder.explore(fo, { searchControlProps: p.searchControlProps, modalSize: p.modalSize }).then(() => {
           if (!p.avoidAutoRefresh)
             updateVersion();
 

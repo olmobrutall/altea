@@ -11,7 +11,6 @@ import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { preSaveGates } from "@altea/altea/server/saver";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
-import { LiteImp } from "@altea/altea/data/lite";
 import type { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
 import type { PrimaryKey, Type } from "@altea/altea/data/entity";
@@ -238,7 +237,7 @@ export namespace TypeAuthLogic {
         return mergeType(await AuthLogic.getMergeStrategy(roleKey), await Promise.all([...parents].map(p => getAllowed(typeId, p))));
     }
 
-    const symbolLite = (s: TypeConditionSymbol): Lite<TypeConditionSymbol> => new LiteImp(s.id, TypeConditionSymbol, s.key);
+    const symbolLite = (s: TypeConditionSymbol): Lite<TypeConditionSymbol> => TypeConditionSymbol.newLite(s.id, s.key);
 
     // Runtime WithConditions → the mutable transport model (Signum's ToModel).
     function toModel(wc: WithConditions<TypeAllowed>): WithConditionsModel {
@@ -279,7 +278,7 @@ export namespace TypeAuthLogic {
         const rules: TypeAllowedRule[] = [];
         for (const t of await table(TypeEntity).toArray() as TypeEntity[]) {
             rules.push(TypeAllowedRule.create({
-                resource: new LiteImp(t.id, TypeEntity, t.cleanName),
+                resource: TypeEntity.newLite(t.id, t.cleanName),
                 allowed: toModel(await getAllowed(t.id, roleKey)),
                 allowedBase: toModel(await getAllowedBase(t.id, roleKey)),
                 availableConditions: (availableByType.get(t.id) ?? []).map(symbolLite),
@@ -312,7 +311,7 @@ export namespace TypeAuthLogic {
             }
             const rt = existing ?? RuleTypeEntity.create({
                 role: roleLite,
-                resource: new LiteImp(r.resource.id, TypeEntity, r.resource.toString()),
+                resource: TypeEntity.newLite(r.resource.id, r.resource.toString()),
             });
             rt.fallback = r.allowed.fallback;
             rt.conditionRules = r.allowed.conditionRules.map((cr, i) => RuleTypeConditionEntity.create({

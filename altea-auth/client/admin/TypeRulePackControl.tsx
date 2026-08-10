@@ -8,9 +8,9 @@ import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { Operations } from "@altea/altea/client/Operations";
+import { Navigator } from "@altea/altea/client/Navigator";
 import { Finder } from "@altea/altea/client/Finder";
 import SelectorModal from "@altea/altea/client/SelectorModal";
-import { isGraphModified } from "@altea/altea/data/changes";
 import type { Lite } from "@altea/altea/data/lite";
 import {
     TypeAllowed, TypeAllowedBasic, TypeAllowedRule, ConditionRuleModel, WithConditionsModel,
@@ -30,8 +30,19 @@ import { ColorRadio, GrayCheckbox } from "./ColoredRadios";
 // (a multi-select of its symbols); each condition sub-row has a "×" to remove it. Save posts the pack,
 // refetches, and reloads the frame (Signum's IRenderButtons in-place Save).
 //
+// Each row also carries the per-type drill-in links (Signum's property/operation/query thumbnails): small
+// icons that open the (role, type) property / query / operation rule pack for that row — the ONLY entry
+// point to those per-type dimensions (there is no Role-level QuickLink for them, matching Signum).
+//
 // Deferred vs Signum: drag-reorder of condition rules (order still comes from add order; last matches
-// win), the namespace grouping + filter box, and the property/operation/query thumbnail drill-down links.
+// win) and the namespace grouping.
+
+// The per-type dimension drill-ins, gated by which auth dimensions were started (AuthAdminClient.Options).
+const SUBLINKS: { kind: "properties" | "queries" | "operations"; enabled: () => boolean; icon: IconProp; title: string; color: string }[] = [
+    { kind: "properties", enabled: () => AuthAdminClient.Options.properties, icon: "pen-to-square", title: "Property rules", color: "#6f42c1" },
+    { kind: "queries", enabled: () => AuthAdminClient.Options.queries, icon: "magnifying-glass", title: "Query rules", color: "green" },
+    { kind: "operations", enabled: () => AuthAdminClient.Options.operations, icon: "bolt", title: "Operation rules", color: "#0d6efd" },
+];
 
 const BASICS: { basic: TypeAllowedBasic; color: string; label: string }[] = [
     { basic: TypeAllowedBasic.Write, color: "green", label: "Write" },
@@ -87,8 +98,18 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
     React.useEffect(() => { dirty.current = false; }, [ctx.value]);
     const markDirty = (): void => { dirty.current = true; ctx.frame!.frameComponent.forceUpdate(); };
 
+    // Type filter box (Signum's namespace/className search). altea keeps it simple: a case-insensitive
+    // substring match on the type's nice name; empty = show all.
+    const [filter, setFilter] = React.useState("");
+    const isMatch = (rule: TypeAllowedRule): boolean =>
+        filter.trim() === "" || rule.resource.toString().toLowerCase().includes(filter.trim().toLowerCase());
+
     function renderButtons(bc: ButtonsContext): ButtonBarElement[] {
-        const hasChanges = dirty.current || isGraphModified(bc.pack.entity);
+        // Track edits via the explicit `dirty` ref (set by markDirty on every change, cleared on reload),
+        // NOT isGraphModified: a freshly-loaded pack ModelEntity graph reports modified, which wrongly
+        // enabled Save/Reset and DISABLED "Switch to…". Signum likewise keys these buttons off its own
+        // `modified` flag, not a graph diff.
+        const hasChanges = dirty.current;
         return [
             { button: <Button type="button" variant="primary" disabled={!hasChanges || ctx.readOnly} onClick={() => handleSaveClick(bc)}>{AuthAdminMessage.Save.niceToString()}</Button> },
             { button: <Button type="button" variant="warning" disabled={!hasChanges || ctx.readOnly} onClick={() => handleResetClick(bc)}>{AuthAdminMessage.ResetChanges.niceToString()}</Button> },
@@ -113,6 +134,18 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
             void AuthAdminClient.API.fetchTypeRulePack(r.id!)
                 .then(newPack => bc.frame.onReload({ entity: newPack, canExecute: {} }));
         });
+    }
+
+    // Open the (role, type) pack of a per-type dimension. typeName = the row's TypeEntity cleanName
+    // (rule.resource.toString()), exactly what the pack API's `:typeName` resolves via Entity.resolveType.
+    async function openSubPack(kind: "properties" | "queries" | "operations", typeName: string): Promise<void> {
+        const roleId = ctx.value.role.id!;
+        const roleStr = ctx.value.role.toString();
+        const pack = kind === "properties" ? await AuthAdminClient.API.fetchPropertyRulePack(typeName, roleId)
+            : kind === "queries" ? await AuthAdminClient.API.fetchQueryRulePack(typeName, roleId)
+            : await AuthAdminClient.API.fetchOperationRulePack(typeName, roleId);
+        const label = kind === "properties" ? "Property rules" : kind === "queries" ? "Query rules" : "Operation rules";
+        await Navigator.view(pack, { buttons: "close", title: label + " — " + typeName + " / " + roleStr });
     }
 
     async function addCondition(rule: TypeAllowedRule): Promise<void> {
@@ -153,17 +186,22 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                 <EntityLine ctx={ctx.subCtx(f => f.role)} readOnly={true} />
                 <AutoLine ctx={ctx.subCtx(f => f.strategy)} readOnly={true} />
             </div>
+            <div className="mb-2" style={{ maxWidth: "44rem" }}>
+                <input type="text" className="form-control form-control-sm" placeholder={AuthAdminMessage.Search.niceToString()}
+                    value={filter} onChange={e => setFilter(e.currentTarget.value)} />
+            </div>
             <table className="table table-sm table-hover sf-auth-rules" style={{ maxWidth: "44rem" }}
                 aria-label={AuthAdminMessage.TypePermissionOverview.niceToString()}>
                 <thead>
                     <tr>
                         <th>Type</th>
+                        {SUBLINKS.some(s => s.enabled()) && <th className="text-center" />}
                         {BASICS.map(b => <th key={b.label} className="text-center">{b.label}</th>)}
                         <th className="text-center">{AuthAdminMessage.Overriden.niceToString()}</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {ctx.value.rules.map(rule => [
+                    {ctx.value.rules.filter(isMatch).map(rule => [
                         <tr key={String(rule.resource.id)}>
                             <td>
                                 {!ctx.readOnly && rule.availableConditions.length > 0 &&
@@ -172,6 +210,14 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                                     </LinkButton>}
                                 {rule.resource.toString()}
                             </td>
+                            {SUBLINKS.some(s => s.enabled()) &&
+                                <td className="text-center text-nowrap">
+                                    {SUBLINKS.filter(s => s.enabled()).map(s =>
+                                        <LinkButton key={s.kind} className="mx-1" title={s.title}
+                                            onClick={() => void openSubPack(s.kind, rule.resource.toString())}>
+                                            <FontAwesomeIcon aria-hidden={true} icon={s.icon} color={s.color} />
+                                        </LinkButton>)}
+                                </td>}
                             {BASICS.map(b => <td key={b.label} className="text-center">
                                 {renderRadio(() => rule.allowed.fallback, v => rule.allowed.fallback = v, b.basic, b.color)}
                             </td>)}
@@ -189,6 +235,7 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                                         </LinkButton>}
                                     <small>{cr.typeConditions.map(shortKey).join(" & ")}</small>
                                 </td>
+                                {SUBLINKS.some(s => s.enabled()) && <td />}
                                 {BASICS.map(b => <td key={b.label} className="text-center">
                                     {renderRadio(() => cr.allowed, v => cr.allowed = v, b.basic, b.color)}
                                 </td>)}

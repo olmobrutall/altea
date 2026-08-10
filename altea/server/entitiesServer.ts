@@ -8,15 +8,16 @@
 // resolved + inheritance-checked via Entity.resolveType. altea has no "controller" — this is a
 // *Server module started with the web builder.
 //
-// TODO: canExecute (OperationLogic), efficient exists, primary-key coercion, Serializer.parse
-// `resolve` overlay onto the DB original.
+// TODO: efficient exists, primary-key coercion.
+//
+// There is intentionally NO `/api/save` route: a save is an OPERATION (executing the Save ExecuteSymbol
+// via /api/operation/executeEntity), exactly like Signum — see operationServer.ts. The property write-gate
+// therefore lives on the deserialize path (the server resolves the DB original implicitly), not here.
 
 import { Entity } from "../data/entity";
 import { entityIntegrityCheck } from "../data/validation";
 import type { EntityPack } from "../data/entityPack";
 import * as Database from "./Database";
-import { assertGraphIntegrity } from "./graphExplorer";
-import { Saver } from "./saver";
 import { table } from "./table";
 import { getEntityPack } from "./operationServer";
 import { WebBuilder, ArrayOf, Primitive, CustomType } from "./webApi";
@@ -55,14 +56,14 @@ export namespace EntitiesServer {
             async (req, res) => {
                 const type = Entity.resolveType(req.params.type);
                 const e = await Database.retrieve(type, type.parseId(req.params.id));
-                return res.jsonTyped(getEntityPack(e));
+                return res.jsonTyped(await getEntityPack(e));
             });
 
         ws.post("/api/entityPackEntity",
             { req: Entity, res: CustomType<EntityPack<Entity>>() },
             async (req, res) => {
                 const entity = await req.jsonTyped();
-                return res.jsonTyped(getEntityPack(entity));
+                return res.jsonTyped(await getEntityPack(entity));
             });
 
         // The client's pre-flight "would this save?" check (FrameModal). Validate as the save would
@@ -76,13 +77,5 @@ export namespace EntitiesServer {
                 res.status(200).end();
             });
 
-        ws.post("/api/save",
-            { req: Entity, res: Entity },
-            async (req, res) => {
-                const entity = await req.jsonTyped();
-                assertGraphIntegrity([entity], "ServerDeserialization"); // phase 2
-                await Saver.save([entity]);                              // phase 3 ("Saving") runs inside
-                return res.jsonTyped(entity); // Saver mutates the root with its new id / ticks
-            });
     }
 }

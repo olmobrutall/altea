@@ -6,28 +6,34 @@ import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { Operations } from "@altea/altea/client/Operations";
 import { Finder } from "@altea/altea/client/Finder";
-import type { PermissionRulePack, PermissionAllowedRule } from "../../data/Rules";
+import type { QueryRulePack, QueryAllowedRule } from "../../data/Rules";
+import { QueryAllowed } from "../../data/Rules";
 import { AuthAdminMessage } from "../../data/AuthMessages";
 import { AuthAdminClient } from "./AuthAdminClient";
 import { RoleEntity } from "../../data/Role";
 import { ColorRadio, GrayCheckbox } from "./ColoredRadios";
 
-// Port of Signum's PermissionRulePackControl (Rules/PermissionRulePackControl.tsx). The VIEW component for
-// the PermissionRulePack ModelEntity, opened as a FrameModal via Navigator.view from the Role QuickLink —
-// the same in-place-Save flow as TypeRulePackControl (renderButtons Save/Reset/Switch-to via IRenderButtons;
-// Save posts the pack, refetches, reloads the frame). The permission dimension has no DB/UI split and no
-// conditions, so each row is a single Allowed checkbox + the "overridden" indicator.
+// Port of Signum's QueryRulePackControl (Rules/QueryRulePackControl.tsx). The VIEW for the QueryRulePack
+// ModelEntity (per role × type): each row = one query of the type, with Allow (green) / EmbeddedOnly
+// (amber) / None (red) coloured radios + the "overridden" checkbox. Same in-place Save/Reset/Switch-to
+// flow as the other rule packs.
 
-export default function PermissionRulePackControl({ ctx, ref }: { ctx: TypeContext<PermissionRulePack>; ref?: React.Ref<IRenderButtons> }): React.JSX.Element {
+const LEVELS: { value: QueryAllowed; color: string; label: string }[] = [
+    { value: QueryAllowed.Allow, color: "green", label: "Allow" },
+    { value: QueryAllowed.EmbeddedOnly, color: "#FFAD00", label: "Embedded only" },
+    { value: QueryAllowed.None, color: "red", label: "None" },
+];
+
+export default function QueryRulePackControl({ ctx, ref }: { ctx: TypeContext<QueryRulePack>; ref?: React.Ref<IRenderButtons> }): React.JSX.Element {
 
     const dirty = React.useRef(false);
     React.useEffect(() => { dirty.current = false; }, [ctx.value]);
-    const updateFrame = (): void => { ctx.frame!.frameComponent.forceUpdate(); };
-    const setAllowed = (rule: PermissionAllowedRule, v: boolean): void => { rule.allowed = v; dirty.current = true; updateFrame(); };
+    const setAllowed = (rule: QueryAllowedRule, v: QueryAllowed): void => {
+        if (v > rule.coerced) return;
+        rule.allowed = v; dirty.current = true; ctx.frame!.frameComponent.forceUpdate();
+    };
 
     function renderButtons(bc: ButtonsContext): ButtonBarElement[] {
-        // Track edits via the explicit `dirty` ref, NOT isGraphModified: a freshly-loaded pack graph
-        // reports modified, which wrongly disabled "Switch to…" (and enabled Save/Reset). See TypeRulePackControl.
         const hasChanges = dirty.current;
         return [
             { button: <Button type="button" variant="primary" disabled={!hasChanges || ctx.readOnly} onClick={() => handleSaveClick(bc)}>{AuthAdminMessage.Save.niceToString()}</Button> },
@@ -39,18 +45,18 @@ export default function PermissionRulePackControl({ ctx, ref }: { ctx: TypeConte
 
     function handleSaveClick(bc: ButtonsContext): void {
         const pack = ctx.value;
-        void AuthAdminClient.API.savePermissionRulePack(pack)
-            .then(() => AuthAdminClient.API.fetchPermissionRulePack(pack.role.id!))
+        void AuthAdminClient.API.saveQueryRulePack(pack)
+            .then(() => AuthAdminClient.API.fetchQueryRulePack(pack.type.toString(), pack.role.id!))
             .then(newPack => { Operations.notifySuccess(); bc.frame.onReload({ entity: newPack, canExecute: {} }); });
     }
     function handleResetClick(bc: ButtonsContext): void {
-        void AuthAdminClient.API.fetchPermissionRulePack(ctx.value.role.id!)
+        void AuthAdminClient.API.fetchQueryRulePack(ctx.value.type.toString(), ctx.value.role.id!)
             .then(newPack => bc.frame.onReload({ entity: newPack, canExecute: {} }));
     }
     function handleSwitchToClick(bc: ButtonsContext): void {
         void Finder.find(RoleEntity).then(r => {
             if (!r) return;
-            void AuthAdminClient.API.fetchPermissionRulePack(r.id!)
+            void AuthAdminClient.API.fetchQueryRulePack(ctx.value.type.toString(), r.id!)
                 .then(newPack => bc.frame.onReload({ entity: newPack, canExecute: {} }));
         });
     }
@@ -59,14 +65,14 @@ export default function PermissionRulePackControl({ ctx, ref }: { ctx: TypeConte
         <div>
             <div className="form-compact mb-2">
                 <EntityLine ctx={ctx.subCtx(f => f.role)} readOnly={true} />
+                <EntityLine ctx={ctx.subCtx(f => f.type)} readOnly={true} />
                 <AutoLine ctx={ctx.subCtx(f => f.strategy)} readOnly={true} />
             </div>
             <table className="table table-sm table-hover sf-auth-rules" style={{ maxWidth: "40rem" }}>
                 <thead>
                     <tr>
-                        <th>Permission</th>
-                        <th className="text-center">{AuthAdminMessage.Allow.niceToString()}</th>
-                        <th className="text-center">{AuthAdminMessage.Deny.niceToString()}</th>
+                        <th>Query</th>
+                        {LEVELS.map(l => <th key={l.value} className="text-center">{l.label}</th>)}
                         <th className="text-center">{AuthAdminMessage.Overriden.niceToString()}</th>
                     </tr>
                 </thead>
@@ -74,15 +80,11 @@ export default function PermissionRulePackControl({ ctx, ref }: { ctx: TypeConte
                     {ctx.value.rules.map(rule => (
                         <tr key={String(rule.resource.id)}>
                             <td>{rule.resource.toString()}</td>
-                            {/* Allow (green) / Deny (red) coloured radios — the boolean `allowed`, like Signum. */}
-                            <td className="text-center">
-                                <ColorRadio readOnly={ctx.readOnly} checked={rule.allowed} color="green"
-                                    onClicked={() => setAllowed(rule, true)} />
-                            </td>
-                            <td className="text-center">
-                                <ColorRadio readOnly={ctx.readOnly} checked={!rule.allowed} color="red"
-                                    onClicked={() => setAllowed(rule, false)} />
-                            </td>
+                            {LEVELS.map(l => <td key={l.value} className="text-center">
+                                {rule.coerced >= l.value &&
+                                    <ColorRadio readOnly={ctx.readOnly} checked={rule.allowed === l.value} color={l.color}
+                                        onClicked={() => setAllowed(rule, l.value)} />}
+                            </td>)}
                             <td className="text-center">
                                 <GrayCheckbox readOnly={ctx.readOnly} checked={rule.allowed !== rule.allowedBase}
                                     onUnchecked={() => setAllowed(rule, rule.allowedBase)} />

@@ -5,6 +5,15 @@ import { setBuildExtensionExpr } from "./tokenExpressions";
 import { getKey, type QueryName } from "../../data/dynamicQuery/queryUtils";
 import { DynamicQueryContainer } from "./dynamicQueryContainer";
 import { ExpressionContainer } from "./expressionContainer";
+import { QueryEntity } from "../../data/queryEntity";
+import { insertSqlSyncGenerated, deleteSqlSync } from "../save";
+import { table as table_ } from "../table";
+import { existsTable, readObjectName } from "../sync/syncTableRead";
+import { Synchronizer, type Replacements } from "../sync/synchronizer";
+import { SqlPreCommand, Spacing } from "../sync/sqlPreCommand";
+import type { Entity, PrimaryKey, Type } from "../../data/entity";
+import type { Schema } from "../schema/schema";
+import type { SchemaBuilder } from "../schema/schemaBuilder";
 
 // Partial port of Signum's `QueryLogic` (Signum/Basics/QueryLogic.cs). Delivered here: the query
 // name registry, the `@implementedByAll` sub-token type source (wired into the token layer), and
@@ -101,10 +110,137 @@ export namespace QueryLogic {
         return false;
     }
 
-    // TODO(phase4): Start(sb) — Include<QueryEntity>().WithQuery(...), the QueryNameToEntity /
-    // liteToEntity lazies, Schema_Generating (seed rows) and SynchronizeQueries (diff rows via the
-    // Synchronizer). Depends on DynamicQueryContainer (WithQuery registration) + ExpressionContainer
-    // (extension tokens), both unported. See TODO.md.
+    // Signum's QueryLogic.Start: include the QueryEntity system table, then seed one row per
+    // registered query (generating), diff them on sync (synchronizing), and read them back into the
+    // key↔entity cache (initializing). QueryEntity ids are used ONLY as the FK target of RuleQueryEntity
+    // (query authorization) — they carry no cross-DB discriminator meaning (unlike TypeEntity), so no
+    // deterministic bootstrap is needed; the DB assigns identity ids and load reads them back.
+    export function start(sb: SchemaBuilder): void {
+        if (sb.alreadyDefined(start))
+            return;
+        sb.include(QueryEntity as unknown as Type<Entity>).withQuery();
+        sb.schema.generating.push(seedQueryEntities);
+        sb.schema.synchronizing.push(synchronizeQueries);
+        sb.schema.initializing.push(loadQueries);
+    }
+
+    // The persisted QueryEntity for a query (Signum's QueryLogic.GetQueryEntity). Throws if the caches
+    // aren't loaded (QueryLogic.start + schema.initialize must have run) or the query isn't seeded.
+    export function getQueryEntity(queryName: QueryName): QueryEntity {
+        const key = getKey(queryName);
+        const qe = queryEntitiesByKey.get(key);
+        if (qe == null)
+            throw new Error(`QueryEntity for '${key}' is not loaded. Was QueryLogic.start included and schema.initialize() run after generation?`);
+        return qe;
+    }
+
+    export function tryGetQueryEntityByKey(key: string): QueryEntity | undefined {
+        return queryEntitiesByKey.get(key);
+    }
+
+    // The registered QueryName for a key (searches the query container — withQuery registers there, not
+    // in queryNamesByKey). Used by query auth to resolve a blob key back to its query (→ root type).
+    export function tryGetQueryNameByKey(key: string): QueryName | undefined {
+        return queries.getQueryNames().find(qn => getKey(qn) === key);
+    }
+
+    // The queries whose shape roots on `ctor` (Signum's QueryLogic.GetTypeQueries). altea matches by the
+    // core's root type rather than Signum's EntityImplementations.Types.Contains (no Implementations DTO) —
+    // fine for the 1-auto-query-per-entity norm; abstract-base / multi-impl queries aren't matched (gap).
+    export function getTypeQueries(ctor: Function): QueryName[] {
+        return queries.getQueryNames().filter(qn => {
+            const core = queries.tryGetCore(qn);
+            return core != null && core.getRootType() === ctor;
+        });
+    }
+
+    // Signum's DynamicQueryContainer.AllowQuery hook, here a settable async gate (core can't import
+    // altea-auth). Installed by QueryAuthLogic.start; the query execute path (queryServer) awaits it with
+    // fullScreen:false — so the server blocks only `None` (EmbeddedOnly stays executable), the full-screen
+    // distinction being a client concern. Undefined → open.
+    export let assertQueryAllowedHook: ((queryName: QueryName, fullScreen: boolean) => Promise<void>) | undefined;
+}
+
+// The loaded key → QueryEntity cache (Signum's QueryNameToEntity GlobalLazy). Module-level: query auth
+// is a single-active-schema (eastwind) concern, unlike the per-schema TypeLogic caches. Re-read by
+// loadQueries on schema.initialize() and after a sync.
+let queryEntitiesByKey = new Map<string, QueryEntity>();
+
+function queryEntityFromKey(key: string, id?: PrimaryKey): QueryEntity {
+    const qe = new QueryEntity();
+    if (id != null)
+        (qe as { id: PrimaryKey }).id = id;
+    else
+        qe.isNew = true;
+    qe.key = key;
+    return qe;
+}
+
+// Generation (Signum's QueryLogic.Schema_Generating): INSERT one row per registered query key (id
+// DB-assigned). Sorted for a stable order. Runs after the table exists.
+function seedQueryEntities(schema: Schema): SqlPreCommand | undefined {
+    const table = schema.tryTable(QueryEntity as never);
+    if (table == null)
+        return undefined;
+    const keys = QueryLogic.queries.getQueryNames().map(getKey).sort();
+    return SqlPreCommand.combine(Spacing.Simple, ...keys.map(k => insertSqlSyncGenerated(table, queryEntityFromKey(k) as unknown as Entity)));
+}
+
+// Synchronization (Signum's QueryLogic.SynchronizeQueries): a new query key is INSERTed (DB assigns
+// the id), a removed one DELETEd; a matched key keeps its persisted id (nothing else to update — key
+// is the only meaningful column). A freshly generated schema diffs to nothing.
+async function synchronizeQueries(replacements: Replacements): Promise<SqlPreCommand | undefined> {
+    const connector = Connector.current();
+    const schema = connector.schema;
+    const table = schema.tryTable(QueryEntity as never);
+    if (table == null)
+        return undefined;
+
+    const sqlBuilder = connector.sqlBuilder;
+    const pkCol = table.primaryKey.column.name;
+    const keyCol = table.fields["key"].field.columns()[0].name;
+
+    type Meta = { key: string };
+    const should = new Map<string, Meta>();
+    for (const qn of QueryLogic.queries.getQueryNames())
+        should.set(getKey(qn), { key: getKey(qn) });
+
+    type Cur = { id: PrimaryKey; key: string };
+    const currentByKey = new Map<string, Cur>();
+    const readName = readObjectName(table, replacements);
+    if (await existsTable(readName)) {
+        const rows = await connector.executeQuery(
+            `SELECT ${sqlBuilder.sqlEscape(pkCol)}, ${sqlBuilder.sqlEscape(keyCol)} FROM ${sqlBuilder.objectName(readName)}`,
+        ) as Record<string, unknown>[];
+        for (const r of rows) {
+            const key = String(r[keyCol]);
+            currentByKey.set(key, { id: r[pkCol] as PrimaryKey, key });
+        }
+    }
+
+    return Synchronizer.synchronizeScriptReplacing<Meta, Cur>(
+        replacements,
+        "QueryKey",
+        Spacing.Double,
+        should,
+        currentByKey,
+        (_k, s) => insertSqlSyncGenerated(table, queryEntityFromKey(s.key) as unknown as Entity),
+        (_k, c) => deleteSqlSync(table, queryEntityFromKey(c.key, c.id) as unknown as Entity),
+        () => undefined, // matched: key is the only column — nothing to update
+    );
+}
+
+// Initialization (Signum's QueryNameToEntity load): read the persisted QueryEntity rows back into the
+// key↔entity cache. Tolerant of a not-yet-generated table (clears the cache until generation seeds it).
+async function loadQueries(schema: Schema): Promise<void> {
+    const next = new Map<string, QueryEntity>();
+    const table = schema.tryTable(QueryEntity as never);
+    if (table != null && (await existsTable(table.name))) {
+        const rows = await table_(QueryEntity as never).toArray() as QueryEntity[];
+        for (const r of rows)
+            next.set(r.key, r);
+    }
+    queryEntitiesByKey = next;
 }
 
 // Wire the token layer's hooks (Signum sets these via the QueryLogic hooks in its static ctor /

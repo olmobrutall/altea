@@ -103,6 +103,13 @@
     opacity: 1;
 }
 
+/* Stretch the modal title to the full header width (Signum's Frames.css) so the sub-title flex row
+   fills it and `.sf-widgets { margin-left:auto }` right-aligns the QuickLinks. */
+.modal-title {
+    overflow: hidden;
+    width: 100%;
+}
+
 .sf-frame-modal .modal-title {
     margin-right: -25px;
     overflow: inherit;

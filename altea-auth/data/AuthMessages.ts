@@ -103,4 +103,7 @@ export const AuthAdminMessage = {
     TypeRules: msg("Type rules"),
     PermissionRules: msg("Permission rules"),
     Allowed: msg("Allowed"),
+    Allow: msg("Allow"),
+    Deny: msg("Deny"),
+    Search: msg("Search…"),
 };

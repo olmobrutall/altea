@@ -1,47 +1,25 @@
-import { table } from "@altea/altea/server/table";
 import { ReflectionServer, type ServerMetadata } from "@altea/altea/server/reflectionServer";
-import { TypeEntity } from "@altea/altea/data/typeEntity";
-import type { PrimaryKey } from "@altea/altea/data/entity";
 import { AuthLogic } from "./AuthLogic";
-import { TypeAuthLogic } from "./TypeAuthLogic";
-import { TypeAllowedBasic } from "../data/Rules";
+import { QueryAuthLogic } from "./QueryAuthLogic";
+import { QueryAllowed } from "../data/Rules";
 
-// Role-filtering overlay on the reflection blob (Signum's AuthServer reflection extensions) — COARSE
-// type slice: for the current role, drop the queries whose underlying entity type is not UI-readable.
-// (Query/property/operation-auth overlays + per-type annotations land with their slices.) Installed
-// once at web-host startup; runs inside each request's user scope, so it sees the current role.
+// Role-filtering overlay on the reflection blob (Signum's AuthServer reflection extensions): for the
+// current role, drop the queries it isn't allowed to see. Installed once at web-host startup; runs inside
+// each request's user scope, so it sees the current role.
+//
+// Depends ONLY on QueryAuthLogic — the query dimension already COERCES a no-rule query to its root type's
+// UI-read allowance (the type-read auto-upgrade, Signum's AutomaticUpgradeOfQueries), so honouring type
+// authorization falls out transitively; there is no separate TypeAuthLogic pass here.
 export namespace AuthReflectionServer {
-    let _typeByClean: Map<string, PrimaryKey> | undefined;
-
-    async function typeByCleanName(): Promise<Map<string, PrimaryKey>> {
-        if (_typeByClean != null)
-            return _typeByClean;
-        const rows = await table(TypeEntity).toArray() as TypeEntity[];
-        _typeByClean = new Map(rows.map(t => [t.cleanName, t.id]));
-        return _typeByClean;
-    }
-
-    export function invalidate(): void {
-        _typeByClean = undefined;
-    }
-
     export function install(): void {
         ReflectionServer.setMetadataFilter(async (meta: ServerMetadata): Promise<ServerMetadata> => {
             const roleKey = AuthLogic.currentRoleKey();
-            if (roleKey == null)
-                return meta; // no role (pre-login / auth off) → unfiltered; the client guard gates the UI
+            if (roleKey == null || !QueryAuthLogic.isStarted())
+                return meta; // no role (pre-login / auth off) or query auth not started → unfiltered
 
-            const byClean = await typeByCleanName();
-            const queries: string[] = [];
-            for (const q of meta.queries) {
-                const typeId = byClean.get(q);
-                if (typeId == null) {
-                    queries.push(q); // not an entity-ctor query → leave it (coarse)
-                    continue;
-                }
-                if (await TypeAuthLogic.isAllowedForType(typeId, TypeAllowedBasic.Read, true, roleKey))
-                    queries.push(q);
-            }
+            // Resolve every query's allowance up-front (no await inside the filter), then drop the `None` ones.
+            const allowed = await Promise.all(meta.queries.map(q => QueryAuthLogic.getQueryAllowedByKey(q, roleKey)));
+            const queries = meta.queries.filter((_, i) => allowed[i] !== QueryAllowed.None);
             return { ...meta, queries };
         });
     }

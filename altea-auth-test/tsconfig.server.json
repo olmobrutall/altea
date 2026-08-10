@@ -1,0 +1,20 @@
+{
+  // SERVER tier — the authorization tests + the AuthTest harness. References the local DATA project +
+  // altea's data/server layers + altea-auth's data/server layers (the engines under test).
+  "extends": "../altea/tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo.server",
+    "types": ["node"]
+  },
+  "include": ["server/**/*", "**/*.server.ts"],
+  "exclude": ["data/**"],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.server.json" }
+  ]
+}

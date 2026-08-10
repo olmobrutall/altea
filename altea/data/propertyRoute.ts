@@ -1,4 +1,4 @@
-import { Entity } from './entity';
+import { Entity, EmbeddedEntity } from './entity';
 import type { BaseEntity, Type } from './entity';
 import type { FieldInfo } from './reflection';
 import { tryGetTypeInfo, TypeReference } from './reflection';
@@ -181,6 +181,42 @@ export class PropertyRoute {
         if (mixinCtor == undefined)
             throw new Error(`Mixin '${mixinName}' does not exist on ${owner?.name} (route ${this})`);
         return new PropertyRoute(PropertyRouteType.Mixin, this, undefined, undefined, mixinCtor);
+    }
+
+    // Port of Signum's PropertyRoute.GenerateRoutes: every value/embedded property route reachable from
+    // the root, descending embeddeds + mixins but STOPPING at entity/Lite references (they re-root, so
+    // their sub-properties belong to that entity's own routes). Collection element (/Item) routes are
+    // emitted only when `includeArrayElements` (Signum needs them just for sync; the property-auth admin
+    // pack passes false). Used to enumerate a type's properties for property authorization.
+    static generateRoutes(rootType: Function, includeArrayElements = false): PropertyRoute[] {
+        const result: PropertyRoute[] = [];
+        PropertyRoute.root(rootType).generateRoutesInto(result, includeArrayElements);
+        return result;
+    }
+
+    private generateRoutesInto(result: PropertyRoute[], includeArrayElements: boolean): void {
+        for (const [name, fi] of Object.entries(this.subMembers())) {
+            if (fi.noSerialize) // @serialize(false) bookkeeping (isNew / _snapshot) — not a real property
+                continue;
+            const pr = this.add(name);
+            result.push(pr);
+            const t = pr.type;
+            if (t.array) {
+                if (includeArrayElements) {
+                    const item = pr.add("Item");
+                    result.push(item);
+                    if (item.type.is(EmbeddedEntity))
+                        item.generateRoutesInto(result, includeArrayElements);
+                }
+            } else if (t.is(EmbeddedEntity)) {
+                pr.generateRoutesInto(result, includeArrayElements); // descend embedded
+            }
+            // entity / Lite reference: the reference route is pushed above, but we do NOT descend (re-roots).
+        }
+        const owner = this.ownerCtor();
+        if (owner != undefined)
+            for (const mixin of MixinDeclarations.getMixins(owner as Type<BaseEntity>))
+                this.addMixin(mixin.name).generateRoutesInto(result, includeArrayElements);
     }
 
     // ---- Implementations -------------------------------------------------------------------

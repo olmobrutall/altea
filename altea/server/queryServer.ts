@@ -61,6 +61,8 @@ export namespace QueryServer {
             async (req, res) => {
                 const wire = await req.jsonTyped() as WireQueryRequest;
                 const request = parseQueryRequest(wire);
+                // Query authorization (Signum's AssertQueryAllowed, fullScreen:false → blocks only None).
+                await QueryLogic.assertQueryAllowedHook?.(request.queryName, false);
                 const rt = await QueryLogic.queries.executeQueryAsync(request);
                 res.jsonTyped(toWireResultTable(rt, wire));
             });
@@ -76,6 +78,7 @@ export namespace QueryServer {
                 if (wire.valueToken != undefined && wire.valueToken !== "Count")
                     throw new Error(`queryValue with valueToken '${wire.valueToken}' is not supported yet (only Count).`);
                 const queryName = resolveQueryName(wire.queryKey);
+                await QueryLogic.assertQueryAllowedHook?.(queryName, false);
                 const token = (s: string): QueryToken => QueryLogic.getToken(queryName, s, SubTokensOptionsAll);
                 const filters = (wire.filters ?? []).map(f => parseFilter(token, f));
                 // Count = execute with the filters and no display columns, then size the result. (A true

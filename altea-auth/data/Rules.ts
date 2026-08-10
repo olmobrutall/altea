@@ -4,6 +4,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { entity, uniqueIndex, backReference, valueField, rowOrder } from "@altea/altea/data/decorators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { Symbol } from "@altea/altea/data/symbol";
+import { OperationSymbol } from "@altea/altea/data/operations";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { RoleEntity } from "./Role";
@@ -220,4 +221,167 @@ export class PermissionRulePack extends ModelEntity {
     role: Lite<RoleEntity>;
     strategy: string = "";
     rules: PermissionAllowedRule[];
+}
+
+// ---- Operation rules (Signum's RuleOperationEntity / OperationRulePack / OperationAllowedRule) --------
+//
+// Signum keys an operation rule by (OperationSymbol + Type): the same operation symbol can apply to
+// several concrete types (a `.WithSave` on an abstract base), and a role may allow it for one type and
+// deny it for another. altea flattens Signum's `OperationTypeEmbedded` resource to two direct FK fields
+// (operation + type) so the unique index is a plain `[role, operation, type]` (a documented divergence —
+// avoids relying on a nested-embedded index path). The allowance is a 3-valued `OperationAllowed`
+// (None → blocked; DBOnly → server-code only, button hidden; Allow → everywhere), now WITH row-level type
+// conditions: `fallback` + ordered `conditionRules` (each an AND-ed set of TypeConditionSymbols → an
+// OperationAllowed), evaluated last-match-wins against the operated entity — exactly like RuleTypeEntity.
+@uniqueIndex((e: RuleOperationEntity) => [e.role, e.operation, e.type])
+@entity("System", "Master")
+export class RuleOperationEntity extends RuleEntity {
+    operation: Lite<OperationSymbol>;
+    type: Lite<TypeEntity>;
+    fallback: OperationAllowed = OperationAllowed.None;
+    conditionRules: RuleOperationConditionEntity[];
+}
+
+// One condition-row of a RuleOperation (mirrors RuleTypeConditionEntity): the SET of TypeConditionSymbols
+// that must ALL hold, the granted OperationAllowed, and the evaluation `order` (last-match-wins).
+@entity("Part")
+export class RuleOperationConditionEntity extends Entity {
+    @backReference ruleOperation: Lite<RuleOperationEntity>;
+    @rowOrder order: int = toInt(0);
+    conditions: RuleOperationConditionEntity_Conditions[];
+    allowed: OperationAllowed = OperationAllowed.None;
+}
+
+@entity("Part")
+export class RuleOperationConditionEntity_Conditions extends Entity {
+    @backReference ruleOperationCondition: Lite<RuleOperationConditionEntity>;
+    @valueField symbol: Lite<TypeConditionSymbol>;
+}
+
+// Signum's ConditionRuleModel<OperationAllowed> / WithConditionsModel<OperationAllowed> — the mutable
+// transport twin of the runtime WithConditions<OperationAllowed> (altea has no generic entities, so one
+// concrete pair per dimension).
+@reflect
+export class OperationConditionRuleModel extends EmbeddedEntity {
+    typeConditions: Lite<TypeConditionSymbol>[];
+    allowed: OperationAllowed = OperationAllowed.None;
+}
+
+@reflect
+export class OperationWithConditionsModel extends EmbeddedEntity {
+    fallback: OperationAllowed = OperationAllowed.None;
+    conditionRules: OperationConditionRuleModel[];
+}
+
+// The admin transport (Signum's OperationRulePack / OperationAllowedRule). PER-TYPE, like the query /
+// property packs: it carries the `type` and one row per operation applicable to that type. `coerced` is
+// the upper bound the UI must not exceed (Signum's AllowedRuleCoerced). `availableConditions` are the
+// TypeConditionSymbols registered for the pack's type (the symbols the UI offers when adding a rule).
+@reflect
+export class OperationAllowedRule extends EmbeddedEntity {
+    operation: Lite<OperationSymbol>;   // resource: the operation symbol (toStr = its key, for display)
+    allowed: OperationWithConditionsModel;
+    allowedBase: OperationWithConditionsModel;
+    coerced: OperationAllowed = OperationAllowed.Allow;
+}
+
+@reflect
+export class OperationRulePack extends ModelEntity {
+    role: Lite<RoleEntity>;
+    type: Lite<TypeEntity>;
+    strategy: string = "";
+    // The TypeConditionSymbols registered for this pack's type — offered when adding a condition rule.
+    availableConditions: Lite<TypeConditionSymbol>[];
+    rules: OperationAllowedRule[];
+}
+
+// ---- Query rules (Signum's QueryRulePack / QueryAllowedRule) ------------------------------------------
+//
+// RuleQueryEntity (the persisted rule, resource = Lite<QueryEntity>, allowed: QueryAllowed) already exists
+// above. These are the admin transport: PER-TYPE (like the operation pack) — one pack per (role, type)
+// listing that type's queries. `coerced` is the upper bound the UI must not exceed (Signum's
+// AllowedRuleCoerced); the first slice sets it to Allow. QueryAllowed: None (hidden) < EmbeddedOnly
+// (embedded search only, not full-screen) < Allow (everywhere).
+@reflect
+export class QueryAllowedRule extends EmbeddedEntity {
+    resource: Lite<QueryEntity>;   // the query (toStr = its key)
+    allowed: QueryAllowed = QueryAllowed.None;
+    allowedBase: QueryAllowed = QueryAllowed.None;
+    coerced: QueryAllowed = QueryAllowed.Allow;
+}
+
+@reflect
+export class QueryRulePack extends ModelEntity {
+    role: Lite<RoleEntity>;
+    type: Lite<TypeEntity>;
+    strategy: string = "";
+    rules: QueryAllowedRule[];
+}
+
+// ---- Property rules (Signum's RulePropertyEntity / PropertyRulePack / PropertyAllowedRule) -----------
+//
+// DIVERGENCE (recommended): altea does NOT persist PropertyRouteEntity. A property rule is keyed directly
+// by (role, rootType, path) — the `path` is the route's PropertyString ("name", "address.city",
+// "[MixinName].field") — dropping the whole PropertyRoute-table subsystem. PropertyAllowed: None (hidden)
+// < Read (read-only) < Write. Now WITH row-level type conditions (`fallback` + ordered `conditionRules`),
+// evaluated last-match-wins against the ROOT entity being serialized — the conditions are the root type's.
+@uniqueIndex((e: RulePropertyEntity) => [e.role, e.rootType, e.path])
+@entity("System", "Master")
+export class RulePropertyEntity extends RuleEntity {
+    rootType: Lite<TypeEntity>;
+    path: string = "";
+    fallback: PropertyAllowed = PropertyAllowed.None;
+    conditionRules: RulePropertyConditionEntity[];
+}
+
+// One condition-row of a RuleProperty (mirrors RuleTypeConditionEntity): the SET of TypeConditionSymbols
+// (of the ROOT type) that must ALL hold, the granted PropertyAllowed, and the evaluation `order`.
+@entity("Part")
+export class RulePropertyConditionEntity extends Entity {
+    @backReference ruleProperty: Lite<RulePropertyEntity>;
+    @rowOrder order: int = toInt(0);
+    conditions: RulePropertyConditionEntity_Conditions[];
+    allowed: PropertyAllowed = PropertyAllowed.None;
+}
+
+@entity("Part")
+export class RulePropertyConditionEntity_Conditions extends Entity {
+    @backReference rulePropertyCondition: Lite<RulePropertyConditionEntity>;
+    @valueField symbol: Lite<TypeConditionSymbol>;
+}
+
+// Signum's ConditionRuleModel<PropertyAllowed> / WithConditionsModel<PropertyAllowed> — the mutable
+// transport twin of the runtime WithConditions<PropertyAllowed>.
+@reflect
+export class PropertyConditionRuleModel extends EmbeddedEntity {
+    typeConditions: Lite<TypeConditionSymbol>[];
+    allowed: PropertyAllowed = PropertyAllowed.None;
+}
+
+@reflect
+export class PropertyWithConditionsModel extends EmbeddedEntity {
+    fallback: PropertyAllowed = PropertyAllowed.None;
+    conditionRules: PropertyConditionRuleModel[];
+}
+
+// The admin transport (Signum's PropertyRulePack / PropertyAllowedRule). PER-TYPE: one pack per (role,
+// type) listing that type's property routes. `coerced` is the type's UI-read ceiling a property can't
+// exceed (Signum's AllowedRuleCoerced — a property can be at most as accessible as its type is readable).
+// `availableConditions` (on the pack) are the ROOT type's registered TypeConditionSymbols.
+@reflect
+export class PropertyAllowedRule extends EmbeddedEntity {
+    path: string = "";               // the route PropertyString (the row's identity + display)
+    allowed: PropertyWithConditionsModel;
+    allowedBase: PropertyWithConditionsModel;
+    coerced: PropertyAllowed = PropertyAllowed.Write;
+}
+
+@reflect
+export class PropertyRulePack extends ModelEntity {
+    role: Lite<RoleEntity>;
+    type: Lite<TypeEntity>;
+    strategy: string = "";
+    // The ROOT type's registered TypeConditionSymbols — offered when adding a condition rule.
+    availableConditions: Lite<TypeConditionSymbol>[];
+    rules: PropertyAllowedRule[];
 }

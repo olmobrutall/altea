@@ -1,7 +1,10 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
 import { TypeAuthLogic } from "./TypeAuthLogic";
 import { PermissionAuthLogic } from "./PermissionAuthLogic";
-import { TypeRulePack, PermissionRulePack } from "../data/Rules";
+import { OperationAuthLogic } from "./OperationAuthLogic";
+import { QueryAuthLogic } from "./QueryAuthLogic";
+import { PropertyAuthLogic } from "./PropertyAuthLogic";
+import { TypeRulePack, PermissionRulePack, OperationRulePack, QueryRulePack, PropertyRulePack } from "../data/Rules";
 import { RoleEntity } from "../data/Role";
 
 // Port of Signum's AuthAdminController (Rules/*Controller) — the rule-pack admin endpoints the
@@ -43,6 +46,52 @@ export namespace AuthAdminServer {
             { req: PermissionRulePack },
             async (req, res) => {
                 await PermissionAuthLogic.setPermissionRulePack(await req.jsonTyped());
+                res.status(204).end();
+            });
+
+        // GET the operation rule pack for a (type, role) — PER-TYPE, like Signum. Every operation of the
+        // type + the role's allowed/allowedBase.
+        ws.get("/api/authAdmin/operationRules/:typeName/:roleId",
+            { params: CustomType<{ typeName: string; roleId: string }>(), res: OperationRulePack },
+            async (req, res) => {
+                res.jsonTyped(await OperationAuthLogic.getOperationRulePack(req.params.typeName, RoleEntity.parseId(req.params.roleId)));
+            });
+
+        // POST the edited operation rule pack → persist (upsert/delete RuleOperation rows) + invalidate.
+        ws.post("/api/authAdmin/operationRules",
+            { req: OperationRulePack },
+            async (req, res) => {
+                await OperationAuthLogic.setOperationRulePack(await req.jsonTyped());
+                res.status(204).end();
+            });
+
+        // GET the query rule pack for a (type, role) — PER-TYPE. Every query of the type + allowed/base.
+        ws.get("/api/authAdmin/queryRules/:typeName/:roleId",
+            { params: CustomType<{ typeName: string; roleId: string }>(), res: QueryRulePack },
+            async (req, res) => {
+                res.jsonTyped(await QueryAuthLogic.getQueryRulePack(req.params.typeName, RoleEntity.parseId(req.params.roleId)));
+            });
+
+        // POST the edited query rule pack → persist (upsert/delete RuleQuery rows) + invalidate.
+        ws.post("/api/authAdmin/queryRules",
+            { req: QueryRulePack },
+            async (req, res) => {
+                await QueryAuthLogic.setQueryRulePack(await req.jsonTyped());
+                res.status(204).end();
+            });
+
+        // GET the property rule pack for a (type, role) — PER-TYPE. Every property route + allowed/base.
+        ws.get("/api/authAdmin/propertyRules/:typeName/:roleId",
+            { params: CustomType<{ typeName: string; roleId: string }>(), res: PropertyRulePack },
+            async (req, res) => {
+                res.jsonTyped(await PropertyAuthLogic.getPropertyRulePack(req.params.typeName, RoleEntity.parseId(req.params.roleId)));
+            });
+
+        // POST the edited property rule pack → persist (upsert/delete RuleProperty rows) + invalidate.
+        ws.post("/api/authAdmin/propertyRules",
+            { req: PropertyRulePack },
+            async (req, res) => {
+                await PropertyAuthLogic.setPropertyRulePack(await req.jsonTyped());
                 res.status(204).end();
             });
     }
