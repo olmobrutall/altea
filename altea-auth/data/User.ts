@@ -8,9 +8,9 @@ import {
 import { Temporal } from "@altea/altea/data/basics";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol } from "@altea/altea/data/operations";
 import type { IUserEntity, IEmailOwnerEntity } from "@altea/altea/data/security";
-import { RoleEntity } from "./Role.data";
-import { TypeConditionSymbol } from "./Rules.data";
-import { AuthAdminMessage } from "./AuthMessages.data";
+import { RoleEntity } from "./Role";
+import { TypeConditionSymbol } from "./Rules";
+import { AuthAdminMessage } from "./AuthMessages";
 
 // Port of Signum's UserEntity (Signum.Authorization/UserEntity.cs). The application user: a login name,
 // a password hash, a role, and an activation state machine (New → Active ⇄ Deactivated/AutoDeactivate).

@@ -2,7 +2,7 @@ import type { SchemaBuilder } from "@altea/altea/server/schema/schemaBuilder";
 import type { Type, Entity, BaseEntity } from "@altea/altea/data/entity";
 import type { Quoted } from "quote-transformer/quoted";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
-import { TypeConditionSymbol } from "./Rules.data";
+import { TypeConditionSymbol } from "../data/Rules";
 
 // Port of Signum's TypeConditionLogic (Rules/TypeConditionLogic.cs). The registry mapping each entity
 // type + TypeConditionSymbol to the predicate that decides whether a row satisfies that condition. A

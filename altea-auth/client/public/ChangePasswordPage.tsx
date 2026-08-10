@@ -5,8 +5,8 @@ import type { ModelState } from "@altea/altea/data/validation";
 import { ValidationError } from "@altea/altea/client/Services";
 import { useStateWithPromise } from "@altea/altea/client/Hooks";
 import { QueryString } from "@altea/altea/client/QueryString";
-import { LoginAuthMessage } from "./AuthMessages.data";
-import { AuthClient } from "./AuthClient";
+import { LoginAuthMessage } from "../../data/AuthMessages";
+import { AuthClient } from "../AuthClient";
 
 // Port of Signum's ChangePasswordPage.tsx (Login/ChangePasswordPage.tsx). altea divergence: altea's
 // ModelState is ONE string per field (Signum's was string[]), so the field helpers use "" for "no

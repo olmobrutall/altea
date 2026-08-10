@@ -149,6 +149,14 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
     return result;
 }
 
+// LINQ-provider translate with row-level security resolved: await the schema's QueryFilterContext (Signum's
+// FilterQuery args) and bind+optimize with it. THE single place row-security is requested — so consumers
+// (the ORM translator, dynamic queries) call this and never touch the QueryFilterContext themselves.
+export async function bindOptimizeSecured(expression: Expression, schema: Schema, isPostgres: boolean, alreadySimplified = false): Promise<ProjectionExpression> {
+    const filterContext = await schema.buildQueryFilterContext();
+    return bindAndOptimize(expression, schema, isPostgres, alreadySimplified, filterContext);
+}
+
 // Binds `table(ctor).filter(e => ids.includes(e.id))` — the shared shape behind both the
 // Retriever's batch stub-completion and Database.retrieveList. The predicate is hand-built
 // (no quoted lambda needed at runtime); the captured id array is a ConstantExpression the
@@ -198,17 +206,15 @@ class MyQueryTranslator implements IQueryTranslator {
     // ConditionsRewriter (boolean condition/value normalisation; SQL Server only —
     // Postgres has a native boolean type so its variant is a near no-op). Mirrors
     // the relevant slice of Signum's DbQueryProvider.Optimize.
-    bind(expression: Expression, filterContext?: QueryFilterContext): ProjectionExpression {
+    bind(expression: Expression): ProjectionExpression {
         const connector = Connector.current();
-        return bindAndOptimize(expression, connector.schema, connector.isPostgres, false, filterContext);
+        return bindAndOptimize(expression, connector.schema, connector.isPostgres);
     }
 
     async execute(expression: Expression): Promise<unknown> {
         const connector = Connector.current();
-        // Resolve row-level security ONCE, async, before the sync bind (Signum's FilterQuery, but
-        // on-demand instead of a permanently-warm cache) — then translate + execute.
-        const filterContext = await connector.schema.buildQueryFilterContext();
-        const projection = this.bind(expression, filterContext);
+        // Row-level security resolved (async) then bound — the LINQ provider owns this (bindOptimizeSecured).
+        const projection = await bindOptimizeSecured(expression, connector.schema, connector.isPostgres);
         const tr = buildTranslateResult(projection, connector.isPostgres);
         return tr.execute();
     }

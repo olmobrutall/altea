@@ -5,8 +5,7 @@ import {
 } from "../linq/expressions";
 import { ProjectionExpression } from "../linq/expressions.sql";
 import { Connector } from "../connection/connector";
-import { bindAndOptimize } from "../table";
-import type { QueryFilterContext } from "../schema/entityEvents";
+import { bindAndOptimize, bindOptimizeSecured } from "../table";
 import { buildTranslateResult } from "../linq/translatorBuilder";
 import { Query } from "../query";
 import { BuildExpressionContext, ExpressionBox, buildLite } from "./tokenExpressions";
@@ -225,34 +224,33 @@ export class DQueryable {
 
     // ---- Terminals ----------------------------------------------------------------------------
 
-    // Bind the built query to a fully-optimised ProjectionExpression (for inspection / SQL dump).
-    // `filterContext` carries row-level security (Signum's FilterQuery), resolved async by the async
-    // terminal before this sync bind; omitted for inspection-only callers (no row filter applied).
-    bindProjection(filterContext?: QueryFilterContext): ProjectionExpression {
+    // Bind the built query to a fully-optimised ProjectionExpression (for inspection / SQL dump). No row
+    // filter here — execution goes through bindOptimizeSecured (the LINQ provider) which applies it.
+    bindProjection(): ProjectionExpression {
         const connector = Connector.current();
-        return bindAndOptimize(this.query, connector.schema, connector.isPostgres, /* alreadySimplified */ true, filterContext);
+        return bindAndOptimize(this.query, connector.schema, connector.isPostgres, /* alreadySimplified */ true);
     }
 
     // The `<query>.count()` aggregate over the built query (Signum's Untyped.Count).
     private countCall(): Expression {
         return new CallExpression(new PropertyExpression(this.query, "count"), [], LiteralType.number);
     }
-    bindCountProjection(filterContext?: QueryFilterContext): ProjectionExpression {
+    bindCountProjection(): ProjectionExpression {
         const connector = Connector.current();
-        return bindAndOptimize(this.countCall(), connector.schema, connector.isPostgres, true, filterContext);
+        return bindAndOptimize(this.countCall(), connector.schema, connector.isPostgres, true);
     }
     async countAsync(): Promise<number> {
         const connector = Connector.current();
-        const filterContext = await connector.schema.buildQueryFilterContext();
-        return await buildTranslateResult(this.bindCountProjection(filterContext), connector.isPostgres).execute() as number;
+        const projection = await bindOptimizeSecured(this.countCall(), connector.schema, connector.isPostgres, /* alreadySimplified */ true);
+        return await buildTranslateResult(projection, connector.isPostgres).execute() as number;
     }
 
-    // Execute the built query and return the raw projected rows.
+    // Execute the built query and return the raw projected rows. Binds via the LINQ provider's
+    // bindOptimizeSecured so row-level security is applied — the dynamic-query layer stays unaware of it.
     async executeAsync(): Promise<unknown[]> {
         const connector = Connector.current();
-        // Resolve row-level security ONCE, async, before the sync bind (Signum's FilterQuery on-demand).
-        const filterContext = await connector.schema.buildQueryFilterContext();
-        return await buildTranslateResult(this.bindProjection(filterContext), connector.isPostgres).execute() as unknown[];
+        const projection = await bindOptimizeSecured(this.query, connector.schema, connector.isPostgres, /* alreadySimplified */ true);
+        return await buildTranslateResult(projection, connector.isPostgres).execute() as unknown[];
     }
 
     // Materialise into the in-memory arm (Signum's DQueryable.ToDEnumerable): execute the query and

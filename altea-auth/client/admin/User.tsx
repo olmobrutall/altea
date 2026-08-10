@@ -2,7 +2,7 @@ import * as React from "react";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { TypeContext } from "@altea/altea/client/TypeContext";
-import { UserEntity } from "./User.data";
+import { UserEntity } from "../../data/User";
 
 // Port of Signum's Templates/User.tsx (Templates/User.tsx), trimmed for altea. Divergences: the
 // DoublePassword control + ProfilePhoto + CultureInfo picker are deferred (DoublePassword mutates

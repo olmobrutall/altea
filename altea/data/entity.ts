@@ -115,17 +115,19 @@ export abstract class BaseEntity {
     // from the class this is called on: `Entity.resolveType("Order")` -> Type<OrderEntity> typed as
     // Type<Entity>; `ModelEntity.resolveType(...)` restricts to models; `BaseEntity.resolveType(...)`
     // accepts anything reflected. Throws if unregistered or of the wrong branch.
-    static resolveType<T extends BaseEntity>(this: abstract new (...args: any[]) => T, cleanName: string): Type<T> & typeof Entity {
+    static resolveType<C extends abstract new (...args: any[]) => BaseEntity>(this: C, cleanName: string): C & Type<InstanceType<C>> {
         const ctor = resolveCleanType(cleanName);
         if (ctor == null)
             throw new Error(`Type '${cleanName}' is not registered`);
         const base = this as unknown as Function;
         if (ctor !== base && !(ctor.prototype instanceof base))
             throw new Error(`Type '${cleanName}' does not inherit from '${base.name}'`);
-        // Return the constructor WITH its static "Type object" surface (typeName/niceName/parseId/newLite/…):
-        // a real entity class doubles as Signum's Type<T> descriptor, so callers can invoke the statics
-        // (e.g. `Entity.resolveType(name).parseId(id)`) without re-casting the bare `new () => T` alias.
-        return ctor as unknown as Type<T> & typeof Entity;
+        // Return the resolved constructor typed as `this & Type<T>`: the RECEIVER's own static surface
+        // (so `Entity.resolveType` carries parseId/newLite, `ModelEntity.resolveType` the model statics —
+        // it works for models too) intersected with a constructible `Type<InstanceType<C>>`. `C` captures
+        // the receiver constructor because `this` can't also bind the instance type for `Type<T>`. The
+        // runtime check above already enforces that the result actually inherits from `this`.
+        return ctor as unknown as C & Type<InstanceType<C>>;
     }
 }
 

@@ -3,9 +3,9 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Nav, NavDropdown } from "react-bootstrap";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { Navigator } from "@altea/altea/client/Navigator";
-import { LoginAuthMessage } from "./AuthMessages.data";
-import { UserEntity } from "./User.data";
-import { AuthClient } from "./AuthClient";
+import { LoginAuthMessage } from "../../data/AuthMessages";
+import { UserEntity } from "../../data/User";
+import { AuthClient } from "../AuthClient";
 
 // Port of Signum's LoginDropdown.tsx (Login/LoginDropdown.tsx) — the header user menu. altea
 // divergences: `LinkContainer` (react-router-bootstrap, not a dep) → `AppContext.navigate` onClick;

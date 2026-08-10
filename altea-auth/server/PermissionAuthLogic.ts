@@ -6,13 +6,13 @@ import { table } from "@altea/altea/server/table";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { LiteImp } from "@altea/altea/data/lite";
 import type { PrimaryKey } from "@altea/altea/data/entity";
-import { AuthLogic } from "./AuthLogic.server";
-import { MergeStrategy, RoleEntity } from "./Role.data";
+import { AuthLogic } from "./AuthLogic";
+import { MergeStrategy, RoleEntity } from "../data/Role";
 import {
     RulePermissionEntity, PermissionSymbol,
     PermissionRulePack, PermissionAllowedRule,
-} from "./Rules.data";
-import { computeAllowed, type ComputedCache } from "./AuthCache.server";
+} from "../data/Rules";
+import { computeAllowed, type ComputedCache } from "./AuthCache";
 
 // Port of Signum's PermissionAuthLogic (Rules/PermissionAuthLogic.cs) — the simplest authorization
 // dimension and the first full vertical slice of the engine (rules → per-role merge → IsAuthorized).
@@ -44,10 +44,9 @@ export namespace PermissionAuthLogic {
         // any app permissions) and the per-role permission rules.
         SymbolLogic.start(sb, PermissionSymbol);
         sb.include(RulePermissionEntity).withQuery();
-        // Signum's `sb.GlobalLazy(rules, InvalidateWith(RulePermission, Role))`. Loaded with authorization
-        // DISABLED (Signum's AuthLogic.Disable around framework reads) so the RulePermission query isn't
-        // itself row-filtered / doesn't re-enter the queryFilter provider.
-        rulesLazy = sb.globalLazy(() => AuthLogic.withDisabled(async () => ({ rules: await loadRules(), computed: new Map() })),
+        // Signum's `sb.GlobalLazy(rules, InvalidateWith(RulePermission, Role))`. globalLazy runs the factory
+        // in ExecutionMode.global, so the RulePermission read is ungated (no explicit Disable needed).
+        rulesLazy = sb.globalLazy(async () => ({ rules: await loadRules(), computed: new Map() }),
             { invalidateWith: [RulePermissionEntity, RoleEntity] });
     }
 

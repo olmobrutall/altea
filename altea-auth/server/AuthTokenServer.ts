@@ -5,10 +5,10 @@ import { Temporal } from "@altea/altea/data/basics";
 import { UserWithClaims, type IUserEntity } from "@altea/altea/data/security";
 import { AuthenticationException } from "@altea/altea/server/exceptions";
 import { table } from "@altea/altea/server/table";
-import { UserEntity, UserState } from "./User.data";
-import { RoleEntity } from "./Role.data";
-import { LoginAuthMessage } from "./AuthMessages.data";
-import { encodeHash } from "./AuthLogic.server";
+import { UserEntity, UserState } from "../data/User";
+import { RoleEntity } from "../data/Role";
+import { LoginAuthMessage } from "../data/AuthMessages";
+import { encodeHash } from "./AuthLogic";
 
 // Port of Signum's AuthTokenServer (AuthToken/AuthTokensServer.cs). An OPAQUE bearer token: a JSON
 // payload → AES-CBC (key = MD5(encryptionKey), random IV prepended) → base64. The client stores it and

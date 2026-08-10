@@ -4,8 +4,8 @@ import { EntityStrip } from "@altea/altea/client/Lines/EntityStrip";
 import { TextAreaLine } from "@altea/altea/client/Lines/TextAreaLine";
 import { TypeContext } from "@altea/altea/client/TypeContext";
 import SearchValueLine from "@altea/altea/client/SearchControl/SearchValueLine";
-import { RoleEntity } from "./Role.data";
-import { UserEntity } from "./User.data";
+import { RoleEntity } from "../../data/Role";
+import { UserEntity } from "../../data/User";
 
 // Port of Signum's Templates/Role.tsx, trimmed for altea. The rule-pack entry points (Type / Permission
 // rules) are QuickLinks on the frame (registered in AuthAdminClient), like Signum — NOT a button here.

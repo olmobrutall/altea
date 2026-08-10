@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { classes } from "@altea/altea/data/globals";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
-import { AuthAdminMessage } from "./AuthMessages.data";
+import { AuthAdminMessage } from "../../data/AuthMessages";
 
 // Port of Signum's ColoredRadios (Rules/ColoredRadios.tsx): the coloured circle "radio" used by the
 // rule-pack controls (green Write / orange Read / red None), plus the gray override checkbox. The

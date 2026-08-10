@@ -16,20 +16,20 @@ import type { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
 import type { PrimaryKey, Type } from "@altea/altea/data/entity";
 import { toInt } from "@altea/altea/data/basics";
-import { AuthLogic } from "./AuthLogic.server";
-import { MergeStrategy, RoleEntity } from "./Role.data";
+import { AuthLogic } from "./AuthLogic";
+import { MergeStrategy, RoleEntity } from "../data/Role";
 import {
     RuleTypeEntity, RuleTypeConditionEntity, RuleTypeConditionEntity_Conditions,
     TypeAllowed, TypeAllowedBasic, typeAllowedGet,
     TypeRulePack, TypeAllowedRule, TypeConditionSymbol,
     WithConditionsModel, ConditionRuleModel,
-} from "./Rules.data";
-import { UserEntity, UserState, UserTypeCondition } from "./User.data";
-import { TypeConditionLogic } from "./TypeConditionLogic.server";
-import { WithConditions, ConditionRule, maxBound, minBound } from "./WithConditions.server";
-import { mergeTypeConditions } from "./TypeConditionMerger.server";
-import { buildAuthFilter, authFilterLambda } from "./TypeConditionAlgebra.server";
-import { computeAllowed, type ComputedCache } from "./AuthCache.server";
+} from "../data/Rules";
+import { UserEntity, UserState, UserTypeCondition } from "../data/User";
+import { TypeConditionLogic } from "./TypeConditionLogic";
+import { WithConditions, ConditionRule, maxBound, minBound } from "./WithConditions";
+import { mergeTypeConditions } from "./TypeConditionMerger";
+import { buildAuthFilter, authFilterLambda } from "./TypeConditionAlgebra";
+import { computeAllowed, type ComputedCache } from "./AuthCache";
 
 // Port of Signum's TypeAuthLogic (Rules/TypeAuthLogic.cs + .Conditions.cs) — a role's access to an entity
 // TYPE, now with ROW-LEVEL type conditions. A role's allowed for a type is a `WithConditions<TypeAllowed>`
@@ -73,10 +73,9 @@ export namespace TypeAuthLogic {
         TypeConditionLogic.registerCompile(UserEntity, UserTypeCondition.DeactivatedUsers, u => u.state === UserState.Deactivated);
         // Signum's `sb.GlobalLazy(rules, InvalidateWith(RuleType, Role))`: cache the rules + merged values,
         // resetting when a RuleType or Role is saved. (setTypeRulePack also resets explicitly for its deletes.)
-        // The factory loads with authorization DISABLED (Signum's AuthLogic.Disable around framework reads):
-        // its RuleType query must not be row-filtered, and — the row filter now being resolved on demand per
-        // query — an enabled read here would recurse straight back into the queryFilter provider.
-        rulesLazy = sb.globalLazy(() => AuthLogic.withDisabled(async () => ({ rules: await loadRules(), computed: new Map() })),
+        // globalLazy runs the factory in ExecutionMode.global, so its RuleType read is ungated — no explicit
+        // Disable, and no re-entry into the row-filter provider during the load.
+        rulesLazy = sb.globalLazy(async () => ({ rules: await loadRules(), computed: new Map() }),
             { invalidateWith: [RuleTypeEntity, RoleEntity] });
         // Enforcement. The save gate (Signum's Schema_Saving) is installed now. The row-read FILTER
         // (Signum's FilterQuery) goes on each CONDITIONED type's EntityEvents.queryFilter so the LINQ binder

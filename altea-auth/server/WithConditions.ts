@@ -1,4 +1,4 @@
-import { TypeConditionSymbol, TypeAllowed, TypeAllowedBasic, typeAllowedDB, typeAllowedUI } from "./Rules.data";
+import { TypeConditionSymbol, TypeAllowed, TypeAllowedBasic, typeAllowedDB, typeAllowedUI } from "../data/Rules";
 
 // Port of Signum's immutable runtime types WithConditions<A> / ConditionRule<A> (Rules/RulePackModels.cs).
 // A role's access to a type is not a single value but a `WithConditions<TypeAllowed>`: a `fallback` plus

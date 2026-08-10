@@ -15,11 +15,11 @@ import type { Lite } from "@altea/altea/data/lite";
 import {
     TypeAllowed, TypeAllowedBasic, TypeAllowedRule, ConditionRuleModel, WithConditionsModel,
     TypeConditionSymbol, typeAllowedDB, typeAllowedUI, typeAllowedCreate,
-} from "./Rules.data";
-import type { TypeRulePack } from "./Rules.data";
-import { AuthAdminMessage } from "./AuthMessages.data";
+} from "../../data/Rules";
+import type { TypeRulePack } from "../../data/Rules";
+import { AuthAdminMessage } from "../../data/AuthMessages";
 import { AuthAdminClient } from "./AuthAdminClient";
-import { RoleEntity } from "./Role.data";
+import { RoleEntity } from "../../data/Role";
 import { ColorRadio, GrayCheckbox } from "./ColoredRadios";
 
 // Port of Signum's TypeRulePackControl (Rules/TypeRulePackControl.tsx). The VIEW component for the

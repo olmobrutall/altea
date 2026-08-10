@@ -1,6 +1,6 @@
-import { TypeConditionSymbol, TypeAllowed, TypeAllowedBasic } from "./Rules.data";
-import { MergeStrategy } from "./Role.data";
-import { WithConditions, ConditionRule } from "./WithConditions.server";
+import { TypeConditionSymbol, TypeAllowed, TypeAllowedBasic } from "../data/Rules";
+import { MergeStrategy } from "../data/Role";
+import { WithConditions, ConditionRule } from "./WithConditions";
 
 // Port of Signum's TypeConditionMerger (Rules/TypeCache.cs) — the cross-role merge of
 // WithConditions<TypeAllowed>. When a role inherits from several roles, their per-type condition rules

@@ -7,8 +7,8 @@ import { ValidationError } from "@altea/altea/client/Services";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { QueryString } from "@altea/altea/client/QueryString";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
-import { LoginAuthMessage } from "./AuthMessages.data";
-import { AuthClient } from "./AuthClient";
+import { LoginAuthMessage } from "../../data/AuthMessages";
+import { AuthClient } from "../AuthClient";
 
 // Port of Signum's LoginPage.tsx (Login/LoginPage.tsx). altea divergences: helper imports come from
 // altea paths (classes ← data/globals, JavascriptMessage ← data/uiMessages, ValidationError/QueryString/

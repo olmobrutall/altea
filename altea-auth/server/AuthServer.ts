@@ -4,15 +4,15 @@ import { UserWithClaims } from "@altea/altea/data/security";
 import { AuthenticationException } from "@altea/altea/server/exceptions";
 import * as Database from "@altea/altea/server/Database";
 import { PasswordEncoding } from "@altea/altea/server/passwordEncoding";
-import { UserEntity } from "./User.data";
-import { LoginAuthMessage } from "./AuthMessages.data";
+import { UserEntity } from "../data/User";
+import { LoginAuthMessage } from "../data/AuthMessages";
 import {
     AuthLogic, decodeHash,
     IncorrectUsernameException, IncorrectPasswordException, UserLockedException,
-} from "./AuthLogic.server";
-import { AuthTokenServer, type AuthTokenConfiguration } from "./AuthTokenServer.server";
-import { AuthReflectionServer } from "./AuthReflection.server";
-import { AuthAdminServer } from "./AuthAdminServer.server";
+} from "./AuthLogic";
+import { AuthTokenServer, type AuthTokenConfiguration } from "./AuthTokenServer";
+import { AuthReflectionServer } from "./AuthReflection";
+import { AuthAdminServer } from "./AuthAdminServer";
 
 // Port of Signum's AuthServer + AuthController (AuthServer.cs + AuthController.cs) — the HTTP surface of
 // authentication: a per-request user-context middleware plus the /api/auth/* endpoints. The large

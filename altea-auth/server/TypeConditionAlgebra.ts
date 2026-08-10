@@ -4,9 +4,9 @@ import {
 } from "@altea/altea/server/linq/expressions";
 import { ExpressionVisitor } from "@altea/altea/server/linq/visitors/ExpressionVisitor";
 import { LiteralType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
-import { TypeConditionSymbol, TypeAllowed, TypeAllowedBasic, typeAllowedGet } from "./Rules.data";
-import { WithConditions } from "./WithConditions.server";
-import { TypeConditionLogic } from "./TypeConditionLogic.server";
+import { TypeConditionSymbol, TypeAllowed, TypeAllowedBasic, typeAllowedGet } from "../data/Rules";
+import { WithConditions } from "./WithConditions";
+import { TypeConditionLogic } from "./TypeConditionLogic";
 
 // Port of Signum's TypeConditionAlgebra (Rules/TypeConditionAlgebra.cs) — compile a role's
 // WithConditions<TypeAllowed> for a type into a boolean SQL predicate over the entity: build a node tree

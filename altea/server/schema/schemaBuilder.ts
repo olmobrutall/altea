@@ -41,6 +41,7 @@ import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../data/enumEntity';
 import { TypeEntity } from '../../data/typeEntity';
 import { ResetLazy } from '../../data/resetLazy';
+import { ExecutionMode } from '../executionMode';
 import { TypeLogic } from '../typeLogic';
 import type { WebBuilder } from '../webApi';
 
@@ -151,7 +152,10 @@ export class SchemaBuilder {
     // don't fire the `saved` event, so a caller that removes rows via a set-based / delete path should
     // `reset()` the returned lazy itself.)
     globalLazy<T>(factory: () => Promise<T>, options: { invalidateWith: Type<Entity>[] }): ResetLazy<Promise<T>> {
-        const lazy = new ResetLazy(factory);
+        // Signum's GlobalLazy.WithoutInvalidations runs the factory inside `ExecutionMode.Global()` so the
+        // cache load reads the whole database ungated (authorization suppressed). Mirror that here — the
+        // factory need not wrap itself in AuthLogic.Disable.
+        const lazy = new ResetLazy(() => ExecutionMode.global(factory));
         for (const t of options.invalidateWith)
             this.schema.entityEvents(t).saved.push(() => lazy.reset());
         return lazy;

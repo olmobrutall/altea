@@ -6,7 +6,7 @@ import { type int, toInt } from "@altea/altea/data/basics";
 import { Symbol } from "@altea/altea/data/symbol";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
-import { RoleEntity } from "./Role.data";
+import { RoleEntity } from "./Role";
 
 // Port of Signum's authorization entity model (Rules/RulesEntities.cs + Rules/Signum.Authorization.Rules.ts).
 // The PERSISTED rules (one row per role×resource) that the authorization caches load. The rule-PACK

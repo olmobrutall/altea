@@ -7,10 +7,10 @@ import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { Operations } from "@altea/altea/client/Operations";
 import { Finder } from "@altea/altea/client/Finder";
 import { isGraphModified } from "@altea/altea/data/changes";
-import type { PermissionRulePack, PermissionAllowedRule } from "./Rules.data";
-import { AuthAdminMessage } from "./AuthMessages.data";
+import type { PermissionRulePack, PermissionAllowedRule } from "../../data/Rules";
+import { AuthAdminMessage } from "../../data/AuthMessages";
 import { AuthAdminClient } from "./AuthAdminClient";
-import { RoleEntity } from "./Role.data";
+import { RoleEntity } from "../../data/Role";
 import { GrayCheckbox } from "./ColoredRadios";
 
 // Port of Signum's PermissionRulePackControl (Rules/PermissionRulePackControl.tsx). The VIEW component for

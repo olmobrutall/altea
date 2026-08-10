@@ -1,5 +1,5 @@
-import { AuthLogic } from "./AuthLogic.server";
-import { MergeStrategy } from "./Role.data";
+import { AuthLogic } from "./AuthLogic";
+import { MergeStrategy } from "../data/Role";
 
 // A role's computed allowed value for a resource, cached PER (role, resource) — Signum's
 // AuthCache.RoleAllowedCache (a GlobalLazy DefaultDictionary computed once per role, reset on

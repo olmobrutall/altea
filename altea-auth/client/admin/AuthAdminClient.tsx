@@ -3,10 +3,10 @@ import { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { QuickLinkClient, QuickLinkAction } from "@altea/altea/client/QuickLinkClient";
 import type { Lite } from "@altea/altea/data/lite";
-import { UserEntity } from "./User.data";
-import { RoleEntity } from "./Role.data";
-import { TypeRulePack, PermissionRulePack } from "./Rules.data";
-import { AuthAdminMessage } from "./AuthMessages.data";
+import { UserEntity } from "../../data/User";
+import { RoleEntity } from "../../data/Role";
+import { TypeRulePack, PermissionRulePack } from "../../data/Rules";
+import { AuthAdminMessage } from "../../data/AuthMessages";
 
 // Port of Signum's AuthAdminClient (AuthAdminClient.tsx) — the ADMIN side of authorization: the User /
 // Role management views + query settings, and the rule-pack API. Signum's `start` also registers the

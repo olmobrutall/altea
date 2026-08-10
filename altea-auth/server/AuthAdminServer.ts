@@ -1,8 +1,8 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
-import { TypeAuthLogic } from "./TypeAuthLogic.server";
-import { PermissionAuthLogic } from "./PermissionAuthLogic.server";
-import { TypeRulePack, PermissionRulePack } from "./Rules.data";
-import { RoleEntity } from "./Role.data";
+import { TypeAuthLogic } from "./TypeAuthLogic";
+import { PermissionAuthLogic } from "./PermissionAuthLogic";
+import { TypeRulePack, PermissionRulePack } from "../data/Rules";
+import { RoleEntity } from "../data/Role";
 
 // Port of Signum's AuthAdminController (Rules/*Controller) — the rule-pack admin endpoints the
 // AuthAdminClient calls. The packs are reflected entity graphs (ModelEntity subclasses), so the route

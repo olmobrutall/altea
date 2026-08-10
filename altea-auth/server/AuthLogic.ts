@@ -12,13 +12,15 @@ import { Lite } from "@altea/altea/data/lite";
 import { UserWithClaims } from "@altea/altea/data/security";
 import { PasswordEncoding } from "@altea/altea/server/passwordEncoding";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { UserEntity, UserState, UserOperation } from "./User.data";
-import { RoleEntity, RoleOperation, MergeStrategy } from "./Role.data";
-import { UserMessage, LoginAuthMessage } from "./AuthMessages.data";
+import { ExecutionMode } from "@altea/altea/server/executionMode";
+import { ResetLazy } from "@altea/altea/data/resetLazy";
+import { UserEntity, UserState, UserOperation } from "../data/User";
+import { RoleEntity, RoleOperation, MergeStrategy } from "../data/Role";
+import { UserMessage, LoginAuthMessage } from "../data/AuthMessages";
 // NOTE: AuthServer imports back from AuthLogic — a runtime-only cycle (both sides use the other only
 // inside functions, never at module-eval), so ESM resolves it fine. AuthServer is invoked lazily from
 // start() below, guarded by sb.webBuilder.
-import { AuthServer } from "./AuthServer.server";
+import { AuthServer } from "./AuthServer";
 
 // Port of Signum's AuthLogic (Signum.Authorization/AuthLogic.cs) — the AUTHENTICATION half. The
 // authorization half (role graph / merge strategies / rule caches) lands in Phase 4; the extension
@@ -75,7 +77,11 @@ export namespace AuthLogic {
         return disabledStorage.run(true, fn);
     }
     export function isEnabled(): boolean {
-        return disabledStorage.getStore() !== true;
+        // Signum gates every auth check on `IsEnabled && !ExecutionMode.InGlobal`. altea folds the global
+        // check in here: a GlobalLazy factory runs in ExecutionMode.global (SchemaBuilder.globalLazy), so
+        // its cache-loading queries see auth suppressed — which also breaks the recursion where the row
+        // filter's own rule load would re-enter the queryFilter provider.
+        return disabledStorage.getStore() !== true && !ExecutionMode.isInGlobal();
     }
 
     export function start(sb: SchemaBuilder): void {
@@ -95,9 +101,10 @@ export namespace AuthLogic {
         sb.include(UserEntity).withQuery();
         UserGraph.register();
 
-        // Drop the cached role graph when a role changes (Signum's InvalidateWith(RoleEntity)). Fired
-        // after the save commits; the authorization caches register their own invalidations too.
-        sb.schema.entityEvents(RoleEntity).saved.push(() => AuthLogic.invalidateRoles());
+        // The role graph is a GlobalLazy invalidated by RoleEntity (Signum's rolesGraph/mergeStrategies
+        // GlobalLazys). Its factory runs in ExecutionMode.global (via globalLazy), so the RoleEntity read
+        // is ungated — no explicit AuthLogic.Disable, and no re-entry into the row-filter provider.
+        roleGraphLazy = sb.globalLazy(() => loadRoleGraph(), { invalidateWith: [RoleEntity] });
 
         // Signum's `if (sb.WebServerBuilder != null) AuthServer.Start(...)`: when the host set a web
         // builder on the SchemaBuilder, wire the whole auth HTTP surface (authentication middleware +
@@ -269,7 +276,9 @@ interface RoleGraphData {
     order: string[]; // compilation order (parents before children)
 }
 
-let _roleGraph: RoleGraphData | undefined;
+// Signum's rolesGraph/mergeStrategies GlobalLazys: an async, reset-able snapshot created in
+// AuthLogic.start (invalidateWith RoleEntity). Its factory runs in ExecutionMode.global.
+let roleGraphLazy: ResetLazy<Promise<RoleGraphData>>;
 
 async function loadRoleGraph(): Promise<RoleGraphData> {
     const roles = await table(RoleEntity).toArray() as RoleEntity[];
@@ -298,19 +307,16 @@ async function loadRoleGraph(): Promise<RoleGraphData> {
 }
 
 export namespace AuthLogic {
-    /** The loaded role-graph snapshot (Signum's RolesByLite/rolesGraph/mergeStrategies GlobalLazys). Loaded
-     *  with authorization DISABLED (Signum wraps such framework reads in AuthLogic.Disable): the RoleEntity
-     *  query must not be row-filtered, and — since the row filter is now resolved on demand per query — an
-     *  enabled read here would recurse back into the queryFilter provider. */
+    /** The loaded role-graph snapshot (Signum's RolesByLite/rolesGraph/mergeStrategies GlobalLazys). The
+     *  GlobalLazy factory loads it in ExecutionMode.global, so the RoleEntity read is ungated. */
     export async function roleGraph(): Promise<RoleGraphData> {
-        if (_roleGraph == null)
-            _roleGraph = await withDisabled(() => loadRoleGraph());
-        return _roleGraph;
+        return roleGraphLazy.value;
     }
 
-    /** Drop the cached role graph (Signum's InvalidateWith(RoleEntity)); call after roles change. */
+    /** Drop the cached role graph (Signum's InvalidateWith(RoleEntity)); RoleEntity saves auto-invalidate
+     *  via the GlobalLazy, so this is for explicit/out-of-band callers (e.g. a set-based role delete). */
     export function invalidateRoles(): void {
-        _roleGraph = undefined;
+        roleGraphLazy?.reset();
     }
 
     /** Direct inherited roles of `roleKey` (Signum's AuthLogic.RelatedTo). Keys, not entities. */

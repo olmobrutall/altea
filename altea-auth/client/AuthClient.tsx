@@ -4,7 +4,7 @@ import { ajaxGet, ajaxPost, ServiceError, AuthTokenFilter, SessionSharing, type 
 import * as AppContext from "@altea/altea/client/AppContext";
 import { loadReflectionMetadata, setExtraHeaders } from "@altea/altea/client/ReflectionClient";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
-import type { UserEntity } from "./User.data";
+import type { UserEntity } from "../data/User";
 
 // Port of Signum's AuthClient (AuthClient.tsx) — the CLIENT authentication hub: route registration
 // (startPublic), token storage, the request-interception seam (bearer header + token refresh +
@@ -46,9 +46,9 @@ export namespace AuthClient {
     export function startPublic(routes: RouteObject[], options?: { userTicket?: boolean; notifyLogout?: boolean }): void {
         Options.userTicket = options?.userTicket ?? false;
 
-        routes.push({ path: "/auth/login", element: <ImportComponent onImport={() => import("./LoginPage")} /> });
-        routes.push({ path: "/auth/changePassword", element: <ImportComponent onImport={() => import("./ChangePasswordPage")} /> });
-        routes.push({ path: "/auth/changePasswordSuccess", element: <ImportComponent onImport={() => import("./ChangePasswordSuccessPage")} /> });
+        routes.push({ path: "/auth/login", element: <ImportComponent onImport={() => import("./public/LoginPage")} /> });
+        routes.push({ path: "/auth/changePassword", element: <ImportComponent onImport={() => import("./public/ChangePasswordPage")} /> });
+        routes.push({ path: "/auth/changePasswordSuccess", element: <ImportComponent onImport={() => import("./public/ChangePasswordSuccessPage")} /> });
 
         if (options?.notifyLogout ?? true) {
             notifyLogout = true;

@@ -2,9 +2,9 @@ import { table } from "@altea/altea/server/table";
 import { ReflectionServer, type ServerMetadata } from "@altea/altea/server/reflectionServer";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import type { PrimaryKey } from "@altea/altea/data/entity";
-import { AuthLogic } from "./AuthLogic.server";
-import { TypeAuthLogic } from "./TypeAuthLogic.server";
-import { TypeAllowedBasic } from "./Rules.data";
+import { AuthLogic } from "./AuthLogic";
+import { TypeAuthLogic } from "./TypeAuthLogic";
+import { TypeAllowedBasic } from "../data/Rules";
 
 // Role-filtering overlay on the reflection blob (Signum's AuthServer reflection extensions) — COARSE
 // type slice: for the current role, drop the queries whose underlying entity type is not UI-readable.
