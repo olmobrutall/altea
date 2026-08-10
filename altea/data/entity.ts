@@ -115,14 +115,17 @@ export abstract class BaseEntity {
     // from the class this is called on: `Entity.resolveType("Order")` -> Type<OrderEntity> typed as
     // Type<Entity>; `ModelEntity.resolveType(...)` restricts to models; `BaseEntity.resolveType(...)`
     // accepts anything reflected. Throws if unregistered or of the wrong branch.
-    static resolveType<T extends BaseEntity>(this: abstract new (...args: any[]) => T, cleanName: string): Type<T> {
+    static resolveType<T extends BaseEntity>(this: abstract new (...args: any[]) => T, cleanName: string): Type<T> & typeof Entity {
         const ctor = resolveCleanType(cleanName);
         if (ctor == null)
             throw new Error(`Type '${cleanName}' is not registered`);
         const base = this as unknown as Function;
         if (ctor !== base && !(ctor.prototype instanceof base))
             throw new Error(`Type '${cleanName}' does not inherit from '${base.name}'`);
-        return ctor as unknown as Type<T>;
+        // Return the constructor WITH its static "Type object" surface (typeName/niceName/parseId/newLite/…):
+        // a real entity class doubles as Signum's Type<T> descriptor, so callers can invoke the statics
+        // (e.g. `Entity.resolveType(name).parseId(id)`) without re-casting the bare `new () => T` alias.
+        return ctor as unknown as Type<T> & typeof Entity;
     }
 }
 

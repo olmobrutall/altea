@@ -5,6 +5,7 @@ import { ResetLazy } from "@altea/altea/data/resetLazy";
 import { table } from "@altea/altea/server/table";
 import type { LambdaExpression } from "@altea/altea/server/linq/expressions";
 import type { RuntimeType } from "@altea/altea/server/runtimeTypes";
+import type { QueryFilterContext } from "@altea/altea/server/schema/entityEvents";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { preSaveGates } from "@altea/altea/server/saver";
@@ -50,9 +51,12 @@ export namespace TypeAuthLogic {
         computed: ComputedCache<WithConditions<TypeAllowed>>;
     }
     let rulesLazy: ResetLazy<Promise<RulesCache>>;
-    // Signum's RoleAllowedCache materialised for the SYNC LINQ binder (roleKey -> typeId -> WithConditions),
-    // for CONDITIONED types only. Warmed at initialize() + re-warmed on rule/role change (warmSyncCache).
-    let _syncMerged: Map<string, Map<PrimaryKey, WithConditions<TypeAllowed>>> = new Map();
+    // The current role's per-conditioned-type WithConditions, resolved ON DEMAND per query (not kept warm):
+    // an async provider builds it into the opaque QueryFilterContext under this key, and the SYNC binder
+    // hook reads it back. Signum keeps its RoleAllowedCache permanently warm; altea (no sync DB) instead
+    // pays one async resolve per query.
+    const QUERY_FILTER_KEY = "altea-auth:typeConditions";
+    type ConditionsByType = Map<PrimaryKey, WithConditions<TypeAllowed>>;
 
     export function isStarted(): boolean {
         return started;
@@ -69,52 +73,53 @@ export namespace TypeAuthLogic {
         TypeConditionLogic.registerCompile(UserEntity, UserTypeCondition.DeactivatedUsers, u => u.state === UserState.Deactivated);
         // Signum's `sb.GlobalLazy(rules, InvalidateWith(RuleType, Role))`: cache the rules + merged values,
         // resetting when a RuleType or Role is saved. (setTypeRulePack also resets explicitly for its deletes.)
-        rulesLazy = sb.globalLazy(async () => ({ rules: await loadRules(), computed: new Map() }),
+        // The factory loads with authorization DISABLED (Signum's AuthLogic.Disable around framework reads):
+        // its RuleType query must not be row-filtered, and — the row filter now being resolved on demand per
+        // query — an enabled read here would recurse straight back into the queryFilter provider.
+        rulesLazy = sb.globalLazy(() => AuthLogic.withDisabled(async () => ({ rules: await loadRules(), computed: new Map() })),
             { invalidateWith: [RuleTypeEntity, RoleEntity] });
         // Enforcement. The save gate (Signum's Schema_Saving) is installed now. The row-read FILTER
         // (Signum's FilterQuery) goes on each CONDITIONED type's EntityEvents.queryFilter so the LINQ binder
-        // applies it to EVERY query (retrieve, dynamic query, navigation) — but only once ALL conditions are
-        // registered (app conditions register after this start), so it + the binder's sync cache are set up
-        // in a schema.initializing hook. The sync cache is re-warmed when a RuleType or Role changes (the
-        // async caches reset via the GlobalLazy; this refreshes the snapshot the binder reads).
+        // applies it to EVERY query (retrieve, dynamic query, navigation). The binder is sync, so the data it
+        // needs is resolved ASYNC before each translation: register an async provider that builds the current
+        // role's conditions into the opaque QueryFilterContext (no permanently-warm cache). The per-type sync
+        // hooks are installed in a schema.initializing hook — only once ALL conditions are registered (app
+        // conditions register after this start).
         preSaveGates.push(authSaveGate);
-        sb.schema.initializing.push(async () => {
+        sb.schema.queryFilterProviders.set(QUERY_FILTER_KEY, buildCurrentRoleConditions);
+        sb.schema.initializing.push(() => {
             for (const ctor of TypeConditionLogic.types())
                 sb.schema.entityEvents(ctor as Type<Entity>).queryFilter.push(authQueryFilterHook);
-            await warmSyncCache();
         });
-        sb.schema.entityEvents(RuleTypeEntity).saved.push(() => void warmSyncCache());
-        sb.schema.entityEvents(RoleEntity).saved.push(() => void warmSyncCache());
     }
 
     // Row-read filter (Signum's TypeAuthLogic_FilterQuery), installed on each conditioned type's
-    // EntityEvents.queryFilter. SYNCHRONOUS (the binder is sync): reads the pre-warmed `_syncMerged`
-    // snapshot of the CURRENT role's WithConditions for the type — never the DB. No current role / auth
-    // disabled / unwarmed pair → no filter (undefined).
-    function authQueryFilterHook(ctx: { ctor: Function; elementType: RuntimeType }): LambdaExpression | undefined {
-        const rk = AuthLogic.currentRoleKey();
-        if (rk == null || !AuthLogic.isEnabled())
-            return undefined;
-        const wc = _syncMerged.get(rk)?.get(TypeLogic.typeToId(ctx.ctor));
+    // EntityEvents.queryFilter. SYNCHRONOUS (the binder is sync): reads THIS module's entry from the opaque
+    // QueryFilterContext the engine resolved (async, via buildCurrentRoleConditions) BEFORE translation —
+    // the current role's typeId → WithConditions map — never the DB. No entry (no role / auth disabled) or
+    // no condition for this type → no filter (undefined).
+    function authQueryFilterHook(ctx: { ctor: Function; elementType: RuntimeType; filterContext: QueryFilterContext }): LambdaExpression | undefined {
+        const map = ctx.filterContext.get(QUERY_FILTER_KEY) as ConditionsByType | undefined;
+        const wc = map?.get(TypeLogic.typeToId(ctx.ctor));
         if (wc == null)
             return undefined;
         return authFilterLambda(buildAuthFilter(ctx.ctor, ctx.elementType, wc, TypeAllowedBasic.Read, true), ctx.elementType);
     }
 
-    // Signum's RoleAllowedCache materialised synchronously for the binder: (roleKey -> typeId ->
-    // WithConditions) for every role × conditioned type. getAllowed (async GlobalLazy + role-graph merge)
-    // can't run in the sync binder, so it is precomputed here at initialize() and re-run on rule/role change.
-    async function warmSyncCache(): Promise<void> {
-        const conditionedTypeIds = TypeConditionLogic.types().map(ctor => TypeLogic.typeToId(ctor));
-        const roleKeys = [...(await AuthLogic.roleGraph()).rolesByKey.keys()];
-        const next = new Map<string, Map<PrimaryKey, WithConditions<TypeAllowed>>>();
-        for (const rk of roleKeys) {
-            const inner = new Map<PrimaryKey, WithConditions<TypeAllowed>>();
-            for (const typeId of conditionedTypeIds)
-                inner.set(typeId, await getAllowed(typeId, rk));
-            next.set(rk, inner);
+    // The async row-security provider (Schema.queryFilterProviders): build the CURRENT role's conditions
+    // map — typeId → WithConditions for every conditioned type — that the sync hook reads during binding.
+    // Returns undefined (→ no filtering) when there is no current role or auth is disabled. Runs the async
+    // getAllowed (rulesLazy + role-graph merge) once per query, so no cache is kept permanently warm.
+    async function buildCurrentRoleConditions(): Promise<ConditionsByType | undefined> {
+        const rk = AuthLogic.currentRoleKey();
+        if (rk == null || !AuthLogic.isEnabled())
+            return undefined;
+        const map: ConditionsByType = new Map();
+        for (const ctor of TypeConditionLogic.types()) {
+            const typeId = TypeLogic.typeToId(ctor);
+            map.set(typeId, await getAllowed(typeId, rk));
         }
-        _syncMerged = next;
+        return map;
     }
 
     // Write gate (Signum's Schema_Saving per-instance check): block saving a row that a type CONDITION

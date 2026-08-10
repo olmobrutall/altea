@@ -298,10 +298,13 @@ async function loadRoleGraph(): Promise<RoleGraphData> {
 }
 
 export namespace AuthLogic {
-    /** The loaded role-graph snapshot (Signum's RolesByLite/rolesGraph/mergeStrategies GlobalLazys). */
+    /** The loaded role-graph snapshot (Signum's RolesByLite/rolesGraph/mergeStrategies GlobalLazys). Loaded
+     *  with authorization DISABLED (Signum wraps such framework reads in AuthLogic.Disable): the RoleEntity
+     *  query must not be row-filtered, and — since the row filter is now resolved on demand per query — an
+     *  enabled read here would recurse back into the queryFilter provider. */
     export async function roleGraph(): Promise<RoleGraphData> {
         if (_roleGraph == null)
-            _roleGraph = await loadRoleGraph();
+            _roleGraph = await withDisabled(() => loadRoleGraph());
         return _roleGraph;
     }
 

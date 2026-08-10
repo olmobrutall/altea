@@ -164,7 +164,14 @@ export class SchemaBuilder {
     //   if (sb.webBuilder) OrderServer.start(sb.webBuilder);
     webBuilder?: WebBuilder;
 
-    constructor(public readonly settings: SchemaSettings = new SchemaSettings()) { }
+    constructor(public readonly settings: SchemaSettings = new SchemaSettings()) {
+        // Signum calls TypeLogic.Start first thing in the Starter — the type↔id caches are foundational and
+        // every other module's Schema.Initializing handler depends on them. altea does it here, at schema
+        // construction, so TypeLogic.load is registered on `schema.initializing` BEFORE any module's start()
+        // pushes its own hook (TypeLogic.start asserts the list is empty). The caches are lazy, so this needs
+        // no included tables yet.
+        TypeLogic.start(this.schema);
+    }
 
     // `inheritedData` is set only on the recursive includes SchemaBuilder issues while completing a
     // table (see generateField): a "Part" whose @entity omitted EntityData inherits it from the FIRST
@@ -237,9 +244,9 @@ export class SchemaBuilder {
         if (missingData.length > 0)
             throw new Error(`Schema entities without an EntityData: ${missingData.join(', ')}. Pass it to @entity(kind, data); a "Part" may inherit it from the first entity that includes it, but none did here.`);
 
-        // Assign each entity type its TypeEntity id, build the type↔id caches, and
-        // register the row-seeding generation step (Signum's TypeLogic.Start).
-        TypeLogic.start(this.schema);
+        // TypeLogic.start (type↔id caches + row-seeding generate/sync steps + the Schema.Initializing load
+        // hook) already ran in the constructor — foundational, so it precedes every module's initializing
+        // hook (Signum calls TypeLogic.Start first). Nothing type-id-related is deferred to complete().
     }
 
     private completeTable(table: Table, type: Type<Entity>): void {

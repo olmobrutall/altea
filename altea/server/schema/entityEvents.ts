@@ -38,11 +38,19 @@ export type PreUnsafeDeleteHandler<T extends Entity> = (query: Query<T>) => void
 export type PreUnsafeUpdateHandler<T extends Entity> = (query: Query<T>) => void | Promise<void>;
 export type PreUnsafeInsertHandler<T extends Entity> = (query: Query<T>) => void | Promise<void>;
 export type PreBulkInsertHandler = () => void;
+// An opaque, per-translation bag of row-level-security data (Signum keeps its FilterQuery caches always
+// warm; altea can't — no sync DB — so it resolves them ON DEMAND). Each async provider registered on the
+// Schema (`queryFilterProviders`) contributes ONE entry, under its own key, BEFORE a query is translated;
+// the SYNC `queryFilter` handlers then read their own entry back during binding, casting the opaque value
+// to the shape they stored. Empty when no provider is registered.
+export type QueryFilterContext = ReadonlyMap<string, unknown>;
+
 // Signum's FilterQuery: contribute a boolean predicate (a LambdaExpression over the entity `elementType`)
 // that the LINQ binder splices as a WHERE onto EVERY query of T — Database.retrieve, dynamic queries,
-// navigations — so row-level security applies uniformly. SYNCHRONOUS (the binder is sync): a handler must
-// read a pre-warmed cache, never the DB. Returns undefined for "no restriction".
-export type QueryFilterHandler = (ctx: { ctor: Function; elementType: RuntimeType }) => LambdaExpression | undefined;
+// navigations — so row-level security applies uniformly. SYNCHRONOUS (the binder is sync): a handler reads
+// what it needs synchronously from `filterContext` (populated async before translation — see
+// Schema.buildQueryFilterContext), never the DB. Returns undefined for "no restriction".
+export type QueryFilterHandler = (ctx: { ctor: Function; elementType: RuntimeType; filterContext: QueryFilterContext }) => LambdaExpression | undefined;
 
 export class EntityEvents<T extends Entity> {
     // Signum's `event Func<T, SqlPreCommand?> PreDeleteSqlSync` — contribute SQL that must run

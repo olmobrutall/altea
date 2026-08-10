@@ -23,6 +23,7 @@ import { ProjectionExpression, CommandExpression, CommandAggregateExpression } f
 import { buildTranslateResult } from "./linq/translatorBuilder";
 import { QueryFormatter } from "./linq/queryFormatter";
 import type { Schema } from "./schema/schema";
+import type { QueryFilterContext } from "./schema/entityEvents";
 
 
 
@@ -97,12 +98,14 @@ quotedFunction(view).__resultType = (_, viewTypeType) => new ArrayType(new Class
 // the runtime uses, factored out so tests (binder.test.ts) can observe the same
 // post-optimiser shape the executor sees (not the raw pre-optimiser tree). Mirrors the
 // relevant slice of Signum's DbQueryProvider.Optimize.
-export function bindAndOptimize(expression: Expression, schema: Schema, isPostgres: boolean, alreadySimplified = false): ProjectionExpression {
+export function bindAndOptimize(expression: Expression, schema: Schema, isPostgres: boolean, alreadySimplified = false, filterContext?: QueryFilterContext): ProjectionExpression {
     // `alreadySimplified` skips the OverloadingSimplifier for a hand-built expression (the
     // batch-retrieve query): it already uses only core operators (filter/contains), so there's
     // no sugar/methodExpander to lower.
+    // `filterContext` carries row-level security (Signum's FilterQuery), resolved async by the caller
+    // BEFORE translation and read synchronously by the binder's queryFilter handlers.
     const simplified = alreadySimplified ? expression : OverloadingSimplifier.simplify(expression);
-    const binder = new QueryBinder(schema, isPostgres);
+    const binder = new QueryBinder(schema, isPostgres, filterContext);
     let projection: Expression = binder.bindQuery(simplified);
     // Hoist deferred group aggregates (g.elements.sum()…) into their GROUP BY select as
     // columns — Signum runs AggregateRewriter first in Optimize.
@@ -150,7 +153,7 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
 // Retriever's batch stub-completion and Database.retrieveList. The predicate is hand-built
 // (no quoted lambda needed at runtime); the captured id array is a ConstantExpression the
 // binder lowers to an `IN (…)`.
-function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[]): ProjectionExpression {
+function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[], filterContext?: QueryFilterContext): ProjectionExpression {
     const connector = Connector.current();
     const q = table(ctor);
     const param = new ParameterExpression("e", q.elementType);
@@ -160,7 +163,7 @@ function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[]): Project
     const filterExpr = new CallExpression(new PropertyExpression(q.expression, "filter"), [predicate], q.type);
     // Run the full simplifier (as the normal query path does): the OverloadingSimplifier is what
     // establishes the default entity projection — skipping it yielded an empty SELECT column list.
-    return bindAndOptimize(filterExpr, connector.schema, connector.isPostgres);
+    return bindAndOptimize(filterExpr, connector.schema, connector.isPostgres, false, filterContext);
 }
 
 // Signum's Database.RetrieveList, injected into the Retriever (which can't import the
@@ -168,7 +171,8 @@ function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[]): Project
 // so the id-only stubs it left behind get populated in place.
 Retriever.retrieveListImpl = async (ctor: Type<Entity>, ids: PrimaryKey[], retriever: Retriever): Promise<void> => {
     const connector = Connector.current();
-    await buildTranslateResult(retrieveByIdsProjection(ctor, ids), connector.isPostgres).executeInto(retriever);
+    const filterContext = await connector.schema.buildQueryFilterContext();
+    await buildTranslateResult(retrieveByIdsProjection(ctor, ids, filterContext), connector.isPostgres).executeInto(retriever);
 };
 
 // Materialise the `ctor` rows whose id is in `ids` (a single `WHERE id IN (…)` query) as a
@@ -178,7 +182,8 @@ export async function retrieveEntitiesByIds<T extends Entity>(ctor: Type<T>, ids
     if (ids.length === 0)
         return [];
     const connector = Connector.current();
-    return await buildTranslateResult(retrieveByIdsProjection(ctor, ids), connector.isPostgres).execute() as T[];
+    const filterContext = await connector.schema.buildQueryFilterContext();
+    return await buildTranslateResult(retrieveByIdsProjection(ctor, ids, filterContext), connector.isPostgres).execute() as T[];
 }
 
 class MyQueryTranslator implements IQueryTranslator {
@@ -193,14 +198,18 @@ class MyQueryTranslator implements IQueryTranslator {
     // ConditionsRewriter (boolean condition/value normalisation; SQL Server only —
     // Postgres has a native boolean type so its variant is a near no-op). Mirrors
     // the relevant slice of Signum's DbQueryProvider.Optimize.
-    bind(expression: Expression): ProjectionExpression {
+    bind(expression: Expression, filterContext?: QueryFilterContext): ProjectionExpression {
         const connector = Connector.current();
-        return bindAndOptimize(expression, connector.schema, connector.isPostgres);
+        return bindAndOptimize(expression, connector.schema, connector.isPostgres, false, filterContext);
     }
 
-    execute(expression: Expression): Promise<unknown> {
-        const projection = this.bind(expression);
-        const tr = buildTranslateResult(projection, Connector.current().isPostgres);
+    async execute(expression: Expression): Promise<unknown> {
+        const connector = Connector.current();
+        // Resolve row-level security ONCE, async, before the sync bind (Signum's FilterQuery, but
+        // on-demand instead of a permanently-warm cache) — then translate + execute.
+        const filterContext = await connector.schema.buildQueryFilterContext();
+        const projection = this.bind(expression, filterContext);
+        const tr = buildTranslateResult(projection, connector.isPostgres);
         return tr.execute();
     }
 
@@ -209,8 +218,11 @@ class MyQueryTranslator implements IQueryTranslator {
     // for SQL Server, format, and execute returning the affected row count scalar.
     async executeCommand(expression: Expression): Promise<number> {
         const connector = Connector.current();
+        // Row-level security applies to the SELECT that feeds an unsafe UPDATE/DELETE too (you may only
+        // touch rows you can see): resolve the context async, then bind the command with it.
+        const filterContext = await connector.schema.buildQueryFilterContext();
         const simplified = OverloadingSimplifier.simplify(expression);
-        const binder = new QueryBinder(connector.schema, connector.isPostgres);
+        const binder = new QueryBinder(connector.schema, connector.isPostgres, filterContext);
         const command = binder.bindCommand(simplified);
 
         // Each sub-command (owned-child deletes precede the parent) is optimised,

@@ -81,11 +81,16 @@ export class TypeLogic {
         if (!schema.synchronizing.includes(synchronizeTypes))
             schema.synchronizing.push(synchronizeTypes);
         // Signum's TypeLogic subscription to Schema.Initializing: read the persisted TypeEntity ids back
-        // into the caches when the host calls schema.initialize() (after gen/sync). UNSHIFT (run FIRST):
-        // the type↔id caches are foundational — other initializing hooks (e.g. authorization warming the
-        // role/type rule cache) call TypeLogic.typeToId, so the ids must be loaded before they run.
-        if (!schema.initializing.includes(TypeLogic.load))
-            schema.initializing.unshift(TypeLogic.load);
+        // into the caches when the host calls schema.initialize() (after gen/sync). TypeLogic.load must run
+        // FIRST — the type↔id caches are foundational, and other initializing hooks (e.g. authorization
+        // building its role/type rule context) call TypeLogic.typeToId — so TypeLogic.start MUST run before
+        // any other module registers an initializing hook. Assert that instead of quietly reordering
+        // (unshift): a non-empty list here means a module registered too early, which we want to catch loud.
+        if (!schema.initializing.includes(TypeLogic.load)) {
+            if (schema.initializing.length > 0)
+                throw new Error("TypeLogic.start must run before any other Schema.initializing hook is registered — TypeLogic.load loads the foundational type↔id caches those hooks depend on.");
+            schema.initializing.push(TypeLogic.load);
+        }
     }
 
     // Reads the persisted TypeEntity rows back into the schema's snapshot and resets the caches

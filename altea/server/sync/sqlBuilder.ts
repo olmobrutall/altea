@@ -565,7 +565,7 @@ export class SqlBuilder {
         }
 
         const typeChanged = !diffColumn.dbType.equals(column.dbType) || diffColumn.collation !== column.collation
-            || !diffColumn.scaleEquals(column) || !diffColumn.sizeEquals(column) || !diffColumn.precisionEquals(column);
+            || !diffColumn.scaleEquals(column) || !diffColumn.sizeEquals(column, this.isPostgres) || !diffColumn.precisionEquals(column);
 
         const parts: (SqlPreCommand | undefined)[] = [
             typeChanged ? new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} ALTER COLUMN ${escName} TYPE ${this.getColumnType(column)}${collate};`) : undefined,

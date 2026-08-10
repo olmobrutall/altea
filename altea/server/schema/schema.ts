@@ -7,7 +7,7 @@ import { installDefaultGenerating } from '../sync/schemaGenerator';
 import { synchronizeSchemasScript, synchronizeTablesScript, synchronizeEnumsScript } from '../sync/schemaSynchronizer';
 import type { Replacements } from '../sync/synchronizer';
 import { SchemaAssets } from '../sync/schemaAssets';
-import { EntityEvents } from './entityEvents';
+import { EntityEvents, type QueryFilterContext } from './entityEvents';
 import type { Table } from './table';
 import { ViewBuilder } from './viewBuilder';
 
@@ -22,6 +22,10 @@ export type GeneratingHandler = (schema: Schema) => SqlPreCommand | undefined;
 // steps (schemas → tables/columns/FKs → enum rows) are seeded in the Schema constructor; apps
 // may push more.
 export type SynchronizingHandler = (replacements: Replacements) => Promise<SqlPreCommand | undefined>;
+
+// Shared empty context — the common case (no row-security provider registered), so translation allocates
+// nothing and every `filterContext.get(...)` simply misses.
+const EMPTY_QUERY_FILTER_CONTEXT: QueryFilterContext = new Map();
 
 // Registry of all included tables, keyed by entity constructor, with name maps
 // for query/serialization lookups. Built by SchemaBuilder. (EntityEvents and
@@ -68,6 +72,22 @@ export class Schema {
         if (ee == null)
             this.entityEventsMap.set(ctor, ee = new EntityEvents<Entity>());
         return ee as unknown as EntityEvents<T>;
+    }
+
+    // Async row-security context providers (a module's on-demand equivalent of Signum's always-warm
+    // FilterQuery caches). A module (e.g. altea-auth) registers one under its own key; the engine awaits
+    // ALL of them just before translating each query (buildQueryFilterContext) and hands the resulting
+    // opaque QueryFilterContext to the sync `queryFilter` handlers, which read their own key back. Keeping
+    // the load HERE (once per query, async) means no cache has to be kept permanently warm.
+    readonly queryFilterProviders = new Map<string, () => Promise<unknown>>();
+
+    async buildQueryFilterContext(): Promise<QueryFilterContext> {
+        if (this.queryFilterProviders.size === 0)
+            return EMPTY_QUERY_FILTER_CONTEXT;
+        const ctx = new Map<string, unknown>();
+        for (const [key, provider] of this.queryFilterProviders)
+            ctx.set(key, await provider());
+        return ctx;
     }
 
     constructor() {

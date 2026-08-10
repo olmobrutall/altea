@@ -51,6 +51,7 @@ function expandLiteHintOf(v: ExpandLite): ExpandLiteHint {
     }
 }
 import type { Schema } from "../../schema/schema";
+import type { QueryFilterContext } from "../../schema/entityEvents";
 import type { Table } from "../../schema/table";
 import type { EntityField } from "../../schema/field";
 import {
@@ -463,6 +464,9 @@ function isNullLiteral(e: Expression): boolean {
     return e instanceof ConstantExpression && e.value == null;
 }
 
+// Empty row-security context for binders constructed without one (tests / hand-built retrieve queries).
+const EMPTY_FILTER_CONTEXT: QueryFilterContext = new Map();
+
 // Rebinds one lambda parameter to another (for combining independently-built queryFilter predicates onto
 // a shared parameter). A separate copy of altea-auth's ParamReplacer — core can't import the auth module.
 class ParamRebind extends ExpressionVisitor {
@@ -525,6 +529,10 @@ export class QueryBinder extends ExpressionVisitor {
     constructor(
         private readonly schema: Schema,
         private readonly isPostgres: boolean,
+        // The per-translation row-security context (Signum's FilterQuery args), resolved async by the
+        // caller BEFORE binding and read synchronously by the queryFilter handlers. Defaults to empty for
+        // callers that don't run row filters (tests, hand-built retrieve queries with no provider).
+        private readonly filterContext: QueryFilterContext = EMPTY_FILTER_CONTEXT,
     ) {
         super();
         this.aliasGenerator = new AliasGenerator(isPostgres);
@@ -2893,7 +2901,7 @@ export class QueryBinder extends ExpressionVisitor {
         if (hooks.length === 0)
             return undefined;
         const elementType = new ClassType(ctor);
-        const lambdas = hooks.map(h => h({ ctor, elementType })).filter((l): l is LambdaExpression => l != null);
+        const lambdas = hooks.map(h => h({ ctor, elementType, filterContext: this.filterContext })).filter((l): l is LambdaExpression => l != null);
         if (lambdas.length === 0)
             return undefined;
         return new CallExpression(new PropertyExpression(source, "filter"), [combineFilterLambdas(lambdas, elementType)], source.type);

@@ -11,7 +11,7 @@
 // TODO: canExecute (OperationLogic), efficient exists, primary-key coercion, Serializer.parse
 // `resolve` overlay onto the DB original.
 
-import { Entity, type PrimaryKey, type Type } from "../data/entity";
+import { Entity } from "../data/entity";
 import { entityIntegrityCheck } from "../data/validation";
 import type { EntityPack } from "../data/entityPack";
 import * as Database from "./Database";
@@ -21,23 +21,15 @@ import { table } from "./table";
 import { getEntityPack } from "./operationServer";
 import { WebBuilder, ArrayOf, Primitive, CustomType } from "./webApi";
 
-// Coerce a route-param id (always a string off the URL) to the entity's primary-key JS form — now the
-// shared, tier-agnostic Entity.parseId (reads the PK kind from reflection): numeric for int/long PKs,
-// left as a string for uuid/string. `type` is a resolved Type<Entity> (statics untyped on the alias),
-// so the call is cast to the ctor that carries the static.
-function parseId(type: Type<Entity>, rawId: PrimaryKey): PrimaryKey {
-    return (type as unknown as typeof Entity).parseId(String(rawId));
-}
-
 export namespace EntitiesServer {
 
     export function start(ws: WebBuilder): void {
 
         ws.get("/api/entity/:type/:id",
-            { params: CustomType<{ type: string; id: PrimaryKey }>(), res: Entity },
+            { params: CustomType<{ type: string; id: string }>(), res: Entity },
             async (req, res) => {
                 const type = Entity.resolveType(req.params.type);
-                const e = await Database.retrieve(type, parseId(type, req.params.id));
+                const e = await Database.retrieve(type, type.parseId(req.params.id));
                 return res.jsonTyped(e);
             });
 
@@ -49,20 +41,20 @@ export namespace EntitiesServer {
             });
 
         ws.get("/api/exists/:type/:id",
-            { params: CustomType<{ type: string; id: PrimaryKey }>(), res: Primitive("bool") },
+            { params: CustomType<{ type: string; id: string }>(), res: Primitive("bool") },
             async (req, res) => {
                 let exists = true;
                 const type = Entity.resolveType(req.params.type);
-                try { await Database.retrieve(type, parseId(type, req.params.id)); }
+                try { await Database.retrieve(type, type.parseId(req.params.id)); }
                 catch { exists = false; }
                 return res.jsonTyped(exists);
             });
 
         ws.get("/api/entityPack/:type/:id",
-            { params: CustomType<{ type: string; id: PrimaryKey }>(), res: CustomType<EntityPack<Entity>>() },
+            { params: CustomType<{ type: string; id: string }>(), res: CustomType<EntityPack<Entity>>() },
             async (req, res) => {
                 const type = Entity.resolveType(req.params.type);
-                const e = await Database.retrieve(type, parseId(type, req.params.id));
+                const e = await Database.retrieve(type, type.parseId(req.params.id));
                 return res.jsonTyped(getEntityPack(e));
             });
 

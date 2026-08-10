@@ -234,8 +234,8 @@ export class DiffIndex extends View {
         }
         const keyCols = this.columns.filter(a => a.type === DiffIndexColumnType.Key);
         const incCols = this.columns.filter(a => a.type === DiffIndexColumnType.Included);
-        const sameCols = identicalColumns(dif, mix.columns, keyCols);
-        const sameInc = identicalColumns(dif, mix.includeColumns, incCols);
+        const sameCols = identicalColumns(dif, mix.columns, keyCols, isPostgres);
+        const sameInc = identicalColumns(dif, mix.includeColumns, incCols, isPostgres);
         return !(sameCols && sameInc);
     }
 
@@ -258,7 +258,7 @@ export class DiffIndex extends View {
 // Signum's DiffIndex.IdenticalColumns: the model columns (in declaration order) match the DB
 // index columns (in index order) one-for-one, comparing each by ColumnEquals (ignoring PK /
 // identity, as an index never depends on those). undefined model columns count as empty.
-function identicalColumns(dif: DiffTable, modColumns: IColumn[] | undefined, diffColumns: DiffIndexColumn[]): boolean {
+function identicalColumns(dif: DiffTable, modColumns: IColumn[] | undefined, diffColumns: DiffIndexColumn[], isPostgres: boolean): boolean {
     if ((modColumns?.length ?? 0) !== diffColumns.length)
         return false;
 
@@ -268,7 +268,7 @@ function identicalColumns(dif: DiffTable, modColumns: IColumn[] | undefined, dif
     return diffColumns.every((dc, i) => {
         const difCol = Object.values(dif.columns).find(c => c.name === dc.columnName);
         const modCol = modColumns![i];
-        return difCol != null && modCol != null && difCol.columnEquals(modCol, /* ignorePrimaryKey */ true, /* ignoreIdentity */ true);
+        return difCol != null && modCol != null && difCol.columnEquals(modCol, /* ignorePrimaryKey */ true, /* ignoreIdentity */ true, isPostgres);
     });
 }
 
@@ -322,18 +322,19 @@ export class DiffColumn extends View {
     // user-defined-type and generated-always comparisons (altea's IColumn models none of
     // these). Compares dialect type, collation, nullability, size/precision/scale, and —
     // unless ignored — identity and primary-key flags.
-    columnEquals(other: IColumn, ignorePrimaryKey: boolean, ignoreIdentity: boolean): boolean {
+    columnEquals(other: IColumn, ignorePrimaryKey: boolean, ignoreIdentity: boolean, isPostgres: boolean): boolean {
         // Compare only the ACTIVE dialect's type name. Signum's AbstractDbType holds a
         // single dialect type; altea's holds both, but a DB-read DiffColumn only populates
-        // the dialect it read, so comparing both slots would spuriously differ.
-        const isPostgres = Connector.current().isPostgres;
+        // the dialect it read, so comparing both slots would spuriously differ. The dialect is
+        // passed in by the caller (the synchronizer already knows it) rather than read off the
+        // global Connector, so these comparisons stay pure.
         const dbTypeEquals = isPostgres
             ? this.dbType.postgres === other.dbType.postgres
             : this.dbType.sqlServer === other.dbType.sqlServer;
         return dbTypeEquals
             && this.collation === other.collation
             && this.nullable === isNullableToBool(other)
-            && this.sizeEquals(other)
+            && this.sizeEquals(other, isPostgres)
             && this.precisionEquals(other)
             && this.scaleEquals(other)
             && (ignoreIdentity || this.identity === other.identity)
@@ -351,7 +352,7 @@ export class DiffColumn extends View {
         return other.scale == null || other.scale === Math.round(this.scale ?? 0);
     }
 
-    sizeEquals(other: IColumn): boolean {
+    sizeEquals(other: IColumn, isPostgres: boolean): boolean {
         if (other.size == null)
             return true;
 
@@ -359,7 +360,7 @@ export class DiffColumn extends View {
         // declare a size for the SS dialect, but the PG catalog reports none, so a declared size would
         // never match and the column would re-ALTER on every sync. Mirrors SqlBuilder.sizePrecisionScale,
         // which likewise omits the size from bytea DDL.
-        if (Connector.current().isPostgres && other.dbType.isBinary())
+        if (isPostgres && other.dbType.isBinary())
             return true;
 
         if (other.dbType.isString() || other.dbType.isBinary()) {

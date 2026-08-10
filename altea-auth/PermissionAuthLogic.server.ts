@@ -44,8 +44,10 @@ export namespace PermissionAuthLogic {
         // any app permissions) and the per-role permission rules.
         SymbolLogic.start(sb, PermissionSymbol);
         sb.include(RulePermissionEntity).withQuery();
-        // Signum's `sb.GlobalLazy(rules, InvalidateWith(RulePermission, Role))`.
-        rulesLazy = sb.globalLazy(async () => ({ rules: await loadRules(), computed: new Map() }),
+        // Signum's `sb.GlobalLazy(rules, InvalidateWith(RulePermission, Role))`. Loaded with authorization
+        // DISABLED (Signum's AuthLogic.Disable around framework reads) so the RulePermission query isn't
+        // itself row-filtered / doesn't re-enter the queryFilter provider.
+        rulesLazy = sb.globalLazy(() => AuthLogic.withDisabled(async () => ({ rules: await loadRules(), computed: new Map() })),
             { invalidateWith: [RulePermissionEntity, RoleEntity] });
     }
 

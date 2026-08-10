@@ -138,7 +138,7 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
             undefined,
             // A full-text index (fixed name FULL_TEXT_INDEX) is always altea-owned, so treat it as
             // controlled even though its name lacks the IX_/UIX_/CIX_ prefix.
-            (i, dix) => dix.isFullText || dix.isControlledIndex(isPostgres) || dix.columns.some(c => isColumnRemovedOrModified(tab, dif, c))
+            (i, dix) => dix.isFullText || dix.isControlledIndex(isPostgres) || dix.columns.some(c => isColumnRemovedOrModified(tab, dif, c, isPostgres))
                 ? dropIndexCmd(sqlBuilder, dif, dix)
                 : undefined,
             (i, mix, dix) => !dix.indexEquals(dif, mix, isPostgres) ? dropIndexCmd(sqlBuilder, dif, dix) : undefined,
@@ -243,7 +243,7 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
                             addColumn);
                     }
 
-                    const columnEquals = difCol.columnEquals(tabCol, /* ignorePrimaryKey */ true, /* ignoreIdentity */ false);
+                    const columnEquals = difCol.columnEquals(tabCol, /* ignorePrimaryKey */ true, /* ignoreIdentity */ false, isPostgres);
                     const defaultEquals = difCol.defaultEquals(tabCol);
 
                     // NOTE: the default-constraint drop/add stay main-only (plain) — Signum forks
@@ -428,14 +428,14 @@ function diffIndexMap(dif: DiffTable): Map<string, DiffIndex> {
 // changed (so the index must be dropped rather than kept). The DiffIndexColumn carries the DB
 // (old) column name; map it through the applied column replacements to the model key, then
 // compare (Signum's IsColumnRemovedOrModified).
-function isColumnRemovedOrModified(tab: Table, dif: DiffTable, c: DiffIndexColumn): boolean {
+function isColumnRemovedOrModified(tab: Table, dif: DiffTable, c: DiffIndexColumn, isPostgres: boolean): boolean {
     const newName = dif.columns[c.columnName] != null
         ? c.columnName
         : Object.entries(dif.columns).find(([, v]) => v.name === c.columnName)?.[0];
     if (newName == null)
         return true;
     const tc = tab.columns[newName];
-    return tc == null || !dif.columns[newName].columnEquals(tc, /* ignorePrimaryKey */ true, /* ignoreIdentity */ true);
+    return tc == null || !dif.columns[newName].columnEquals(tc, /* ignorePrimaryKey */ true, /* ignoreIdentity */ true, isPostgres);
 }
 
 // Port of Signum's AlterTableAddColumnDefault (scoped: no Forced/HasValue/PartitionId/Embedded
