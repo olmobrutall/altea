@@ -422,16 +422,36 @@ export namespace SessionSharing {
   //sessionStorage: Browser tab, copied when Ctrl+Click from another tab, but not windows.open or just paste link
 
   var _appName: string = "";
+  // Awaiters resolved when another tab's response FILLS this (empty) tab's sessionStorage.
+  let _fillWaiters: (() => void)[] = [];
 
   export function getAppName(): string {
     return _appName;
   }
 
-  export function setAppNameAndRequestSessionStorage(appName: string): void {
+  // Set the app name (namespaces the cross-tab keys + the logout signal) and, on a FRESH tab (empty
+  // sessionStorage), ask any other open tab for its sessionStorage so the credentials carry over.
+  //
+  // altea divergence from Signum (which returns void): this returns a Promise that resolves once a logged-in
+  // tab has answered (sessionStorage filled) OR a short grace period elapses (no other tab / none logged
+  // in). `await` it BEFORE autoLogin so the token is present when autoLogin reads it — the cross-tab
+  // storage round-trip is asynchronous, so a bare fire-and-forget would race the token read.
+  export function setAppNameAndRequestSessionStorage(appName: string, graceMs = 300): Promise<void> {
     _appName = appName;
-    if (!sessionStorage.length) { //Copied from anote
+    if (sessionStorage.length) //this tab already has a session — nothing to fetch
+      return Promise.resolve();
+    return new Promise<void>(resolve => {
+      let settled = false;
+      const finish = (): void => {
+        if (settled) return;
+        settled = true;
+        _fillWaiters = _fillWaiters.filter(w => w !== finish);
+        resolve();
+      };
+      _fillWaiters.push(finish);
       requestSessionStorageFromAnyTab();
-    }
+      setTimeout(finish, graceMs); //no logged-in tab answered → proceed as a fresh (logged-out) tab
+    });
   }
 
   function requestSessionStorageFromAnyTab() {
@@ -463,6 +483,10 @@ export namespace SessionSharing {
 
         console.log("SessionStorage taken from any tab");
       }
+      // A logged-in tab answered → release anyone awaiting setAppNameAndRequestSessionStorage (only when a
+      // session was actually copied; an empty answer keeps waiting until the grace timeout).
+      if (sessionStorage.length)
+        for (const w of [..._fillWaiters]) w();
     }
   });
 
