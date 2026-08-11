@@ -112,7 +112,7 @@ describe("PropertyRoute — collections", () => {
         assert.equal(name.propertyRouteType, PropertyRouteType.FieldOrProperty);
         assert.equal(name.rootType, AlbumEntity_Songs);
         assert.equal(name.type.typeName, "String");
-        assert.equal(name.toString(), "(AlbumEntity_Songs).name");
+        assert.equal(name.toString(), "(Album_Songs).name");
         assert.equal(name.propertyString(), "name");
     });
 });

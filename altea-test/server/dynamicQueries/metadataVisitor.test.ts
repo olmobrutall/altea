@@ -61,7 +61,7 @@ describe("DirtyMeta — computed values", () => {
         const s = new ParameterExpression("s", new ClassType(AlbumEntity_Songs));
         const m = meta(call(prop(album, "songs"), "sum", [new LambdaExpression([s], prop(s, "seconds"))]));
         assert.ok(m instanceof CleanMeta);
-        assert.match(m.propertyRoutes[0].toString(), /\(AlbumEntity_Songs\)\.seconds/);
+        assert.match(m.propertyRoutes[0].toString(), /\(Album_Songs\)\.seconds/);
     });
 
     test("arithmetic over two columns → DirtyMeta keeping both contributors", () => {

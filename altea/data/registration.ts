@@ -59,12 +59,11 @@ export function registerType(ctor: Function, name?: string, fileInfo?: FileInfo)
         }
     }
     typeRegistry.set(key, ctor);
-    // Also register under the clean name (trailing "Entity" stripped), so
-    // resolveType("Order") works — the clean name is the canonical id used in the JSON
-    // wire format and in user-facing URLs (/view/order/1). The full name stays the
-    // primary key; the clean alias is only added when free, so a type literally named
-    // "Order" is never shadowed by OrderEntity's alias.
-    const clean = key.replace(/Entity$/, '');
+    // Also register under the clean name (see stripEntitySuffix), so resolveType("Order") works — the
+    // clean name is the canonical id used in the JSON wire format and in user-facing URLs (/view/order/1).
+    // The full name stays the primary key; the clean alias is only added when free, so a type literally
+    // named "Order" is never shadowed by OrderEntity's alias.
+    const clean = stripEntitySuffix(key);
     if (clean !== key && !typeRegistry.has(clean)) typeRegistry.set(clean, ctor);
     if (fileInfo != null) locationRegistry.set(key, fileInfo);
 }
@@ -90,7 +89,17 @@ export function resolveType(name: string): Function | undefined {
 // path (which writes it) and the LINQ SmartEqualizer / Retriever (which compare
 // and resolve it).
 export function cleanTypeName(ctor: Function): string {
-    return ctor.name.replace(/Entity$/, '');
+    return stripEntitySuffix(ctor.name);
+}
+
+// Strip the "Entity" suffix from each underscore-separated segment (mirrors the schema builder's table
+// naming). A plain entity: "BandEntity" -> "Band". A PART entity (altea's MList replacement, named
+// `<Owner>Entity_<Field>`): "RuleTypeConditionEntity_Conditions" -> "RuleTypeCondition_Conditions",
+// "EmployeeEntity_Territories" -> "Employee_Territories". Per-segment so the OWNER's suffix is stripped
+// too, not just a trailing one (the previous trailing-only strip left the part's owner segment mangled,
+// disagreeing with the schema builder's own cleanTypeName).
+function stripEntitySuffix(name: string): string {
+    return name.split('_').map(s => s.replace(/Entity$/, '')).join('_');
 }
 
 // Reverse of cleanTypeName: resolves a discriminator string back to its

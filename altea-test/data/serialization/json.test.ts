@@ -213,7 +213,7 @@ describe("EntityJson", () => {
 
         const always = parse(serialize(album, { writeTypes: "Always" }));
         assert.equal(always.$type, "Album");
-        assert.equal(always.songs[0].$type, "AlbumEntity_Songs");  // explicit
+        assert.equal(always.songs[0].$type, "Album_Songs");  // explicit
         assert.equal(always.bonusTrack.$type, "SongEmbedded");
         assert.equal(always.songs[0].album, undefined);            // back-ref still skipped (both modes)
 
