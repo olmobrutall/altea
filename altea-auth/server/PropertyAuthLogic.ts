@@ -20,7 +20,6 @@ import {
     PropertyWithConditionsModel, PropertyConditionRuleModel, TypeConditionSymbol,
     typeAllowedUI, typeBasicToProperty,
 } from "../data/Rules";
-import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { WithConditions, ConditionRule, evaluateConditions } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
 import { setSerializationAuth, type PropertyAccess } from "@altea/altea/data/serializer/graphSerializers";
@@ -48,7 +47,6 @@ export namespace PropertyAuthLogic {
     let _schema: Schema | undefined;
     interface RulesCache {
         rules: Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>;
-        computed: ComputedCache<WithConditions<PropertyAllowed>>;
     }
     let rulesLazy: ResetLazy<Promise<RulesCache>>;
     // Signum's warm property cache, materialised for the SYNC serializer. Per (role, type): the type's own
@@ -72,7 +70,7 @@ export namespace PropertyAuthLogic {
         sb.include(RulePropertyEntity).withQuery();
         // invalidateWith RuleType too: the no-rule default / coerced ceiling derive from the type's UI-read
         // allowance, so a type-rule change must reset the property cache.
-        rulesLazy = sb.globalLazy(async () => ({ rules: await loadRules(), computed: new Map() }),
+        rulesLazy = sb.globalLazy(async () => ({ rules: await loadRules() }),
             { invalidateWith: [RulePropertyEntity, RuleTypeEntity, RoleEntity] });
         // Warm the sync snapshot after gen/sync (initialize), and re-warm when any dimension it derives
         // from changes. Install the serializer hook once (it reads the snapshot synchronously).
@@ -229,12 +227,46 @@ export namespace PropertyAuthLogic {
         return PropertyAllowed.None;
     }
 
+    // Signum's PropertyAuthLogic AutomaticUpgradeOfProperties: a property's allowance can NOT be resolved by
+    // the generic AuthCache bubbling (computeAllowed), because a property with NO explicit rule follows ITS
+    // OWN role's type allowance — which varies per role — rather than inheriting the parents' value. So the
+    // recursion is bespoke: if no role in the chain has an explicit rule for this route, the property AUTO-
+    // UPGRADES to this role's type default; otherwise it is the explicit rule (here) or the per-parent merge
+    // (each parent resolved the SAME way, so a no-rule branch contributes its own type default). The final
+    // clamp to the type ceiling is per-instance, in accessSync.
     async function getAllowed(typeId: PrimaryKey, path: string, roleKey: string): Promise<WithConditions<PropertyAllowed>> {
-        const { rules, computed } = await rulesLazy.value;
-        // Explicit rule (or bubbled parent value) — else the type-derived default. The per-instance clamp to
-        // the type ceiling is applied at evaluation (accessSync), not here (both are conditioned).
-        return computeAllowed<WithConditions<PropertyAllowed>>(roleKey, compositeKey(typeId, path), rules, mergeProp,
-            rk => typeDefaultWC(typeId, rk), computed);
+        const { rules } = await rulesLazy.value;
+        return propAllowed(typeId, compositeKey(typeId, path), roleKey, rules);
+    }
+
+    async function propAllowed(
+        typeId: PrimaryKey,
+        key: string,
+        roleKey: string,
+        rules: Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>,
+    ): Promise<WithConditions<PropertyAllowed>> {
+        if (!await hasExplicitInChain(roleKey, key, rules))
+            return typeDefaultWC(typeId, roleKey); // no rule anywhere up the chain → follow this role's type
+        const explicit = rules.get(roleKey)?.get(key);
+        if (explicit !== undefined)
+            return explicit;
+        const parents = await AuthLogic.relatedTo(roleKey);
+        return mergeProp(await AuthLogic.getMergeStrategy(roleKey), await Promise.all([...parents].map(p => propAllowed(typeId, key, p, rules))));
+    }
+
+    // True if roleKey OR any ancestor has an explicit property rule for `key` (Signum's "is overridden").
+    async function hasExplicitInChain(roleKey: string, key: string, rules: Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>): Promise<boolean> {
+        const seen = new Set<string>();
+        const stack = [roleKey];
+        while (stack.length > 0) {
+            const rk = stack.pop()!;
+            if (seen.has(rk)) continue;
+            seen.add(rk);
+            if (rules.get(rk)?.has(key))
+                return true;
+            for (const p of await AuthLogic.relatedTo(rk)) stack.push(p);
+        }
+        return false;
     }
 
     async function getAllowedBase(typeId: PrimaryKey, path: string, roleKey: string): Promise<WithConditions<PropertyAllowed>> {

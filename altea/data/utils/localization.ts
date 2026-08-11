@@ -172,7 +172,10 @@ export namespace Localization {
             }
             tokens.push(word);
         }
-        return tokens.join(' ');
+        // Sentence-case: capitalize the first letter of the whole description (Signum's NiceName), so a
+        // PascalCase member reads "Enter your user name and password" / "Username", not all-lowercase.
+        const text = tokens.join(' ');
+        return text.charAt(0).toUpperCase() + text.slice(1);
     }
 }
 

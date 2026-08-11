@@ -1,4 +1,5 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { AuthImportExport } from "./AuthImportExport";
 import { TypeAuthLogic } from "./TypeAuthLogic";
 import { PermissionAuthLogic } from "./PermissionAuthLogic";
 import { OperationAuthLogic } from "./OperationAuthLogic";
@@ -93,6 +94,17 @@ export namespace AuthAdminServer {
             async (req, res) => {
                 await PropertyAuthLogic.setPropertyRulePack(await req.jsonTyped());
                 res.status(204).end();
+            });
+
+        // Export ALL auth rules as a Southwind-style AuthRules.xml download (Signum's AuthAdminController
+        // ExportRules). Import is a terminal operation (renames need a console / an AutoReplacement), so no
+        // upload endpoint — see the eastwind terminal `import-auth`.
+        ws.get("/api/authAdmin/downloadAuthRules",
+            {},
+            async (_req, res) => {
+                const xml = await AuthImportExport.exportAuthRules();
+                res.setHeader("Content-Disposition", 'attachment; filename="AuthRules.xml"');
+                res.type("application/xml").send(xml);
             });
     }
 }

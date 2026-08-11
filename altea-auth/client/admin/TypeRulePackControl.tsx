@@ -195,9 +195,9 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                 <thead>
                     <tr>
                         <th>Type</th>
-                        {SUBLINKS.some(s => s.enabled()) && <th className="text-center" />}
                         {BASICS.map(b => <th key={b.label} className="text-center">{b.label}</th>)}
                         <th className="text-center">{AuthAdminMessage.Overriden.niceToString()}</th>
+                        {SUBLINKS.some(s => s.enabled()) && <th className="text-center" />}
                     </tr>
                 </thead>
                 <tbody>
@@ -210,6 +210,13 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                                     </LinkButton>}
                                 {rule.resource.toString()}
                             </td>
+                            {BASICS.map(b => <td key={b.label} className="text-center">
+                                {renderRadio(() => rule.allowed.fallback, v => rule.allowed.fallback = v, b.basic, b.color)}
+                            </td>)}
+                            <td className="text-center">
+                                <GrayCheckbox readOnly={ctx.readOnly} checked={!withConditionsEquals(rule.allowed, rule.allowedBase)}
+                                    onUnchecked={() => { rule.allowed = cloneModel(rule.allowedBase); markDirty(); }} />
+                            </td>
                             {SUBLINKS.some(s => s.enabled()) &&
                                 <td className="text-center text-nowrap">
                                     {SUBLINKS.filter(s => s.enabled()).map(s =>
@@ -218,13 +225,6 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                                             <FontAwesomeIcon aria-hidden={true} icon={s.icon} color={s.color} />
                                         </LinkButton>)}
                                 </td>}
-                            {BASICS.map(b => <td key={b.label} className="text-center">
-                                {renderRadio(() => rule.allowed.fallback, v => rule.allowed.fallback = v, b.basic, b.color)}
-                            </td>)}
-                            <td className="text-center">
-                                <GrayCheckbox readOnly={ctx.readOnly} checked={!withConditionsEquals(rule.allowed, rule.allowedBase)}
-                                    onUnchecked={() => { rule.allowed = cloneModel(rule.allowedBase); markDirty(); }} />
-                            </td>
                         </tr>,
                         ...rule.allowed.conditionRules.map((cr, i) => (
                             <tr key={String(rule.resource.id) + "_c" + i} className="table-active">
@@ -235,11 +235,11 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                                         </LinkButton>}
                                     <small>{cr.typeConditions.map(shortKey).join(" & ")}</small>
                                 </td>
-                                {SUBLINKS.some(s => s.enabled()) && <td />}
                                 {BASICS.map(b => <td key={b.label} className="text-center">
                                     {renderRadio(() => cr.allowed, v => cr.allowed = v, b.basic, b.color)}
                                 </td>)}
                                 <td />
+                                {SUBLINKS.some(s => s.enabled()) && <td />}
                             </tr>
                         )),
                     ])}
