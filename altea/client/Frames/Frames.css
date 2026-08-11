@@ -119,3 +119,20 @@
 .validaton-summary li {
     list-style: none;
 }
+
+/* QuickLink badges in the frame header (Signum's Frames.css .sf-quicklinks): flex so the icon + text
+   center within the pill, small horizontal spacing, and NO anchor underline (they are LinkButtons). */
+.sf-quicklinks {
+    display: flex;
+    margin-left: 2px;
+    margin-right: 2px;
+    padding: 4px;
+    text-decoration: none;
+}
+
+@media (max-width: 768px) {
+    .sf-quicklinks {
+        max-width: 300px;
+        overflow: hidden;
+    }
+}
