@@ -9,7 +9,7 @@ import { ClassType } from "../runtimeTypes";
 import { Entity } from "../../data/entity";
 import { Lite } from "../../data/lite";
 import { getTypeInfo } from "../../data/reflection";
-import { TypeLogic } from "../typeLogic";
+import { requireTypeId, type TypeCaches } from "../typeLogic";
 
 // The @implementedByAll id column matching a known target ctor's PK type (NULL if absent):
 // comparisons against a typed value resolve to the one column that can hold its id.
@@ -29,16 +29,30 @@ function ibaIdOf(iba: ImplementedByAllExpression, ctor: Function): Expression {
 // no MList element / external (temporal) period, no nullable-bool three-valued
 // logic. The @implementedByAll discriminator is the target's TypeEntity int id
 // (TypeLogic.typeToId), so type equality compares the type column against that id.
+//
+// altea divergence: an INSTANCE class holding the `typeCaches` its `typeConstant` needs — the
+// QueryBinder threads the caches it resolved at the LINQ boundary into `new SmartEqualizer(tc)`,
+// rather than SmartEqualizer reaching for the ambient static (see typeLogic.ts). `tc` is undefined
+// only while the caches themselves are loading; a discriminator can't be resolved there (requireTypeId
+// throws), but that re-entrant `table(TypeEntity)` query never produces one.
 export class SmartEqualizer {
-    static readonly True = new ConstantExpression(true);
-    static readonly False = new ConstantExpression(false);
+    readonly True = new ConstantExpression(true);
+    readonly False = new ConstantExpression(false);
+
+    constructor(private readonly tc: TypeCaches | undefined) { }
+
+    // The @implementedByAll type discriminator value for a constructor — the target's TypeEntity int id
+    // (Signum's TypeToId), compared as a SQL int literal. Resolved from the threaded caches.
+    private typeConstant(ctor: Function): Expression {
+        return new ConstantExpression(requireTypeId(this.tc, ctor));
+    }
 
     // ---- entry points -----------------------------------------------------
 
     // `a == b` / `a.is(b)` between (possibly polymorphic) references. Either side
     // may be a bound EntityExpression/IB/IBA/Lite, a captured constant Entity/Lite,
     // or a null literal.
-    static polymorphicEqual(e1: Expression, e2: Expression): Expression {
+    polymorphicEqual(e1: Expression, e2: Expression): Expression {
         const c1 = constRef(e1);
         const c2 = constRef(e2);
 
@@ -70,7 +84,7 @@ export class SmartEqualizer {
     // `capturedList.includes(reference)` — Signum's EntityIn. A reference can't be
     // compared column-wise, so membership in a captured collection of entities/lites
     // is an OR of id (+ type) comparisons against each captured element. Empty → False.
-    static entityIn(item: Expression, values: readonly unknown[]): Expression {
+    entityIn(item: Expression, values: readonly unknown[]): Expression {
         return this.orAll(values.map(v => this.polymorphicEqual(item, new ConstantExpression(v))));
     }
 
@@ -78,7 +92,7 @@ export class SmartEqualizer {
     // expression in a captured collection of types (ctors) is an OR of typeEqual against each
     // captured ctor — which for an @implementedBy reduces per type to its implementation FK
     // `IS NOT NULL`. Empty → False.
-    static typeIn(item: Expression, values: readonly unknown[]): Expression {
+    typeIn(item: Expression, values: readonly unknown[]): Expression {
         return this.orAll(values.map(v => this.typeEqual(item, new ConstantExpression(v))));
     }
 
@@ -86,7 +100,7 @@ export class SmartEqualizer {
     // row of that concrete type: for a typed reference, the static type must match;
     // for IB, the matching implementation column must be non-null; for IBA, the type
     // discriminator must equal the target's TypeEntity id.
-    static entityIsInstance(expr: Expression, ctor: Function): Expression {
+    entityIsInstance(expr: Expression, ctor: Function): Expression {
         const node = this.unwrapLite(expr);
 
         if (node instanceof EntityExpression)
@@ -98,7 +112,7 @@ export class SmartEqualizer {
         }
 
         if (node instanceof ImplementedByAllExpression)
-            return this.equalNullable(node.typeId.typeColumn, typeConstant(ctor));
+            return this.equalNullable(node.typeId.typeColumn, this.typeConstant(ctor));
 
         throw new Error("instanceof is not defined for " + node.toString());
     }
@@ -108,7 +122,7 @@ export class SmartEqualizer {
     // captured ctor constant (`typeof X`), a null, or another Type expression.
     // Lowers to id-not-null guards (typed/IB) or a discriminator-string comparison
     // (IBA), following Signum's TypeEquals dispatch.
-    static typeEqual(e1: Expression, e2: Expression): Expression {
+    typeEqual(e1: Expression, e2: Expression): Expression {
         const c1 = typeConstOf(e1);
         const c2 = typeConstOf(e2);
 
@@ -137,40 +151,40 @@ export class SmartEqualizer {
 
     // ---- type vs ctor constant --------------------------------------------
 
-    private static typeConstEntity(c: TypeConst, te: TypeEntityExpression): Expression {
+    private typeConstEntity(c: TypeConst, te: TypeEntityExpression): Expression {
         if (c.isNull) return this.equalsToNull(te.externalId);
         return sameCtor(te.typeValue, c.ctor!) ? this.notEqualToNull(te.externalId) : this.False;
     }
 
-    private static typeConstIb(c: TypeConst, tib: TypeImplementedByExpression): Expression {
+    private typeConstIb(c: TypeConst, tib: TypeImplementedByExpression): Expression {
         if (c.isNull)
             return this.andAll([...tib.typeImplementations.values()].map(id => this.equalsToNull(id)));
         const id = tib.typeImplementations.get(c.ctor!);
         return id != null ? this.notEqualToNull(id) : this.False;
     }
 
-    private static typeConstIba(c: TypeConst, tiba: TypeImplementedByAllExpression): Expression {
+    private typeConstIba(c: TypeConst, tiba: TypeImplementedByAllExpression): Expression {
         if (c.isNull) return this.eqNull(tiba.typeColumn);
-        return this.equalNullable(typeConstant(c.ctor!), tiba.typeColumn);
+        return this.equalNullable(this.typeConstant(c.ctor!), tiba.typeColumn);
     }
 
     // ---- type vs type -----------------------------------------------------
 
-    private static typeEntityEntity(te1: TypeEntityExpression, te2: TypeEntityExpression): Expression {
+    private typeEntityEntity(te1: TypeEntityExpression, te2: TypeEntityExpression): Expression {
         if (!sameCtor(te1.typeValue, ctorOf(te2.typeValue))) return this.False;
         return this.and(this.notEqualToNull(te1.externalId), this.notEqualToNull(te2.externalId));
     }
 
-    private static typeEntityIb(te: TypeEntityExpression, tib: TypeImplementedByExpression): Expression {
+    private typeEntityIb(te: TypeEntityExpression, tib: TypeImplementedByExpression): Expression {
         const id = tib.typeImplementations.get(ctorOf(te.typeValue));
         return id != null ? this.and(this.notEqualToNull(te.externalId), this.notEqualToNull(id)) : this.False;
     }
 
-    private static typeEntityIba(te: TypeEntityExpression, tiba: TypeImplementedByAllExpression): Expression {
-        return this.and(this.notEqualToNull(te.externalId), this.equalNullable(tiba.typeColumn, typeConstant(ctorOf(te.typeValue))));
+    private typeEntityIba(te: TypeEntityExpression, tiba: TypeImplementedByAllExpression): Expression {
+        return this.and(this.notEqualToNull(te.externalId), this.equalNullable(tiba.typeColumn, this.typeConstant(ctorOf(te.typeValue))));
     }
 
-    private static typeIbIb(tib1: TypeImplementedByExpression, tib2: TypeImplementedByExpression): Expression {
+    private typeIbIb(tib1: TypeImplementedByExpression, tib2: TypeImplementedByExpression): Expression {
         const terms: Expression[] = [];
         for (const [ctor, id1] of tib1.typeImplementations) {
             const id2 = tib2.typeImplementations.get(ctor);
@@ -179,18 +193,18 @@ export class SmartEqualizer {
         return this.orAll(terms);
     }
 
-    private static typeIbIba(tib: TypeImplementedByExpression, tiba: TypeImplementedByAllExpression): Expression {
+    private typeIbIba(tib: TypeImplementedByExpression, tiba: TypeImplementedByAllExpression): Expression {
         return this.orAll([...tib.typeImplementations].map(([ctor, id]) =>
-            this.and(this.notEqualToNull(id), this.equalNullable(tiba.typeColumn, typeConstant(ctor)))));
+            this.and(this.notEqualToNull(id), this.equalNullable(tiba.typeColumn, this.typeConstant(ctor)))));
     }
 
-    private static typeIbaIba(tiba1: TypeImplementedByAllExpression, tiba2: TypeImplementedByAllExpression): Expression {
+    private typeIbaIba(tiba1: TypeImplementedByAllExpression, tiba2: TypeImplementedByAllExpression): Expression {
         return this.equalNullable(tiba1.typeColumn, tiba2.typeColumn);
     }
 
     // ---- node vs constant -------------------------------------------------
 
-    private static nodeVsConst(node: LiteReferenceTarget, c: ConstRef): Expression {
+    private nodeVsConst(node: LiteReferenceTarget, c: ConstRef): Expression {
         if (c.isNull)
             return this.equalsNull(node);
 
@@ -205,12 +219,12 @@ export class SmartEqualizer {
         // ImplementedByAll: compare the id column matching the constant's PK type.
         return this.and(
             this.equalNullable(ibaIdOf(node, c.ctor!), idConstant(c)),
-            this.equalNullable(node.typeId.typeColumn, typeConstant(c.ctor!)));
+            this.equalNullable(node.typeId.typeColumn, this.typeConstant(c.ctor!)));
     }
 
     // ---- node vs node (Signum's EntityEquals dispatch) --------------------
 
-    private static entityEquals(e1: LiteReferenceTarget, e2: LiteReferenceTarget): Expression {
+    private entityEquals(e1: LiteReferenceTarget, e2: LiteReferenceTarget): Expression {
         if (e1 instanceof EntityExpression) {
             if (e2 instanceof EntityExpression) return this.entityEntityEquals(e1, e2);
             if (e2 instanceof ImplementedByExpression) return this.entityIbEquals(e1, e2);
@@ -227,24 +241,24 @@ export class SmartEqualizer {
         return this.ibaIbaEquals(e1, e2);
     }
 
-    private static entityEntityEquals(e1: EntityExpression, e2: EntityExpression): Expression {
+    private entityEntityEquals(e1: EntityExpression, e2: EntityExpression): Expression {
         if (!sameCtor(e1.type, ctorOf(e2.type)))
             return this.False;
         return this.equalNullable(e1.externalId.value, e2.externalId.value);
     }
 
-    private static entityIbEquals(ee: EntityExpression, ib: ImplementedByExpression): Expression {
+    private entityIbEquals(ee: EntityExpression, ib: ImplementedByExpression): Expression {
         const impl = ib.implementations.get(ctorOf(ee.type));
         return impl != null ? this.entityEntityEquals(impl, ee) : this.False;
     }
 
-    private static entityIbaEquals(ee: EntityExpression, iba: ImplementedByAllExpression): Expression {
+    private entityIbaEquals(ee: EntityExpression, iba: ImplementedByAllExpression): Expression {
         return this.and(
             this.equalNullable(ee.externalId.value, ibaIdOf(iba, ctorOf(ee.type))),
-            this.equalNullable(typeConstant(ctorOf(ee.type)), iba.typeId.typeColumn));
+            this.equalNullable(this.typeConstant(ctorOf(ee.type)), iba.typeId.typeColumn));
     }
 
-    private static ibIbEquals(ib1: ImplementedByExpression, ib2: ImplementedByExpression): Expression {
+    private ibIbEquals(ib1: ImplementedByExpression, ib2: ImplementedByExpression): Expression {
         const terms: Expression[] = [];
         for (const [ctor, impl1] of ib1.implementations) {
             const impl2 = ib2.implementations.get(ctor);
@@ -254,16 +268,16 @@ export class SmartEqualizer {
         return this.orAll(terms);
     }
 
-    private static ibIbaEquals(ib: ImplementedByExpression, iba: ImplementedByAllExpression): Expression {
+    private ibIbaEquals(ib: ImplementedByExpression, iba: ImplementedByAllExpression): Expression {
         const terms: Expression[] = [];
         for (const [ctor, impl] of ib.implementations)
             terms.push(this.and(
-                this.equalNullable(iba.typeId.typeColumn, typeConstant(ctor)),
+                this.equalNullable(iba.typeId.typeColumn, this.typeConstant(ctor)),
                 this.equalNullable(ibaIdOf(iba, ctor), impl.externalId.value)));
         return this.orAll(terms);
     }
 
-    private static ibaIbaEquals(iba1: ImplementedByAllExpression, iba2: ImplementedByAllExpression): Expression {
+    private ibaIbaEquals(iba1: ImplementedByAllExpression, iba2: ImplementedByAllExpression): Expression {
         // Same type discriminator, and every per-PK-type id column matches.
         const idTerms = [...iba1.ids.keys()].map(pk =>
             this.equalNullable(iba1.ids.get(pk)!, iba2.ids.get(pk) ?? new ConstantExpression(null)));
@@ -274,7 +288,7 @@ export class SmartEqualizer {
 
     // ---- null comparison --------------------------------------------------
 
-    private static equalsNull(node: LiteReferenceTarget): Expression {
+    private equalsNull(node: LiteReferenceTarget): Expression {
         if (node instanceof EntityExpression)
             return this.equalsToNull(node.externalId);
         if (node instanceof ImplementedByExpression)
@@ -285,51 +299,51 @@ export class SmartEqualizer {
 
     // ---- primitive builders (Signum's EqualNullable & friends) ------------
 
-    private static equalNullable(e1: Expression, e2: Expression): Expression {
+    private equalNullable(e1: Expression, e2: Expression): Expression {
         return new BinaryExpression("==", e1, e2);
     }
 
-    private static equalsToNull(pk: PrimaryKeyExpression): Expression {
+    private equalsToNull(pk: PrimaryKeyExpression): Expression {
         return this.eqNull(pk.value);
     }
 
-    private static notEqualToNull(pk: PrimaryKeyExpression): Expression {
+    private notEqualToNull(pk: PrimaryKeyExpression): Expression {
         return new BinaryExpression("!=", pk.value, new ConstantExpression(null));
     }
 
-    private static eqNull(e: Expression): Expression {
+    private eqNull(e: Expression): Expression {
         return new BinaryExpression("==", e, new ConstantExpression(null));
     }
 
-    private static unwrapLite(e: Expression): Expression {
+    private unwrapLite(e: Expression): Expression {
         return e instanceof LiteReferenceExpression ? e.reference : e;
     }
 
     // SmartAnd/SmartOr: fold away the True/False constants (so a single-impl IB or a
     // trivially-true clause doesn't bloat the SQL).
-    private static and(e1: Expression, e2: Expression): Expression {
+    private and(e1: Expression, e2: Expression): Expression {
         if (e1 === this.True) return e2;
         if (e2 === this.True) return e1;
         if (e1 === this.False || e2 === this.False) return this.False;
         return new BinaryExpression("&&", e1, e2);
     }
 
-    private static or(e1: Expression, e2: Expression): Expression {
+    private or(e1: Expression, e2: Expression): Expression {
         if (e1 === this.False) return e2;
         if (e2 === this.False) return e1;
         if (e1 === this.True || e2 === this.True) return this.True;
         return new BinaryExpression("||", e1, e2);
     }
 
-    private static andAll(terms: Expression[]): Expression {
+    private andAll(terms: Expression[]): Expression {
         return terms.length === 0 ? this.True : terms.reduce((a, b) => this.and(a, b));
     }
 
-    private static orAll(terms: Expression[]): Expression {
+    private orAll(terms: Expression[]): Expression {
         return terms.length === 0 ? this.False : terms.reduce((a, b) => this.or(a, b));
     }
 
-    static not(e: Expression): Expression {
+    not(e: Expression): Expression {
         if (e === this.True) return this.False;
         if (e === this.False) return this.True;
         return new UnaryExpression("!", e);
@@ -338,7 +352,7 @@ export class SmartEqualizer {
     // Null-safe equality used to correlate a group's element subquery to its key
     // (Signum's EqualNullableGroupBy): two key columns match when they are equal
     // OR both null — so NULL keys group together (SQL `=` treats NULL ≠ NULL).
-    static equalNullableGroupBy(e1: Expression, e2: Expression): Expression {
+    equalNullableGroupBy(e1: Expression, e2: Expression): Expression {
         return this.or(
             this.equalNullable(e1, e2),
             this.and(new IsNullExpression(e1), new IsNullExpression(e2)));
@@ -364,14 +378,6 @@ function ctorOf(type: unknown): Function {
 
 function sameCtor(type: unknown, ctor: Function): boolean {
     return type instanceof ClassType && type.constructorFunction === ctor;
-}
-
-// The @implementedByAll type discriminator value for a constructor — the clean
-// type name string `save.ts` writes. Compared as a SQL string literal.
-// The @implementedByAll type discriminator value for a constructor — the target's
-// TypeEntity int id (Signum's TypeToId), compared as a SQL int literal.
-function typeConstant(ctor: Function): Expression {
-    return new ConstantExpression(TypeLogic.typeToId(ctor));
 }
 
 // A captured Entity/Lite (or null) on one side of the comparison.

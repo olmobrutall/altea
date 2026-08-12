@@ -14,6 +14,7 @@ import {
     FilterGroup, FilterGroupOperation, FilterCondition, FilterOperation,
 } from "@altea/altea/server/dynamicQuery/requests";
 import "@altea/altea/server/dynamicQuery/tokenExpressions";
+import { seedTypeCachesForTest } from "../seedTypeCaches";
 import { MusicLogic } from "../MusicLogic";
 import { AlbumEntity } from "../../data/music";
 
@@ -26,6 +27,7 @@ const sb = new SchemaBuilder();
 sb.settings.isPostgres = false;
 MusicLogic.start(sb);
 sb.complete();
+seedTypeCachesForTest(sb.schema); // offline: deterministic type↔id cache for @implementedByAll binding
 class FakeConnector extends Connector {
     constructor() { super(sb.schema, false, 128); }
     override executeQuery(): Promise<unknown[]> { return Promise.resolve([]); }

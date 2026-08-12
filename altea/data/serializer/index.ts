@@ -20,7 +20,7 @@
 // Field selection: every reflected field is serialized (including @column(false) ones) EXCEPT
 // those marked @serialize(false); `id`/`ticks` are handled specially by EntitySerializer.
 
-export { Serializer, setSerializationAuth, hasSerializationAuth } from './graphSerializers';
+export { Serializer, setSerializationAuth, hasSerializationAuth, resolveSerializationAuthContext } from './graphSerializers';
 export type { SerializationAuth, PropertyAccess } from './graphSerializers';
 // Custom-lite registration lives with Lite itself now (../lite); re-exported here for the
 // codec's public surface, since custom lites are what shape the lite wire format.

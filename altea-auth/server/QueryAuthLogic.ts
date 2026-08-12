@@ -32,7 +32,7 @@ export namespace QueryAuthLogic {
         rules: Map<string, Map<PrimaryKey, QueryAllowed>>;
         computed: ComputedCache<QueryAllowed>;
     }
-    let rulesLazy: ResetLazy<Promise<RulesCache>>;
+    let rulesLazy: ResetLazy<RulesCache>;
 
     export function isStarted(): boolean {
         return started;
@@ -42,6 +42,7 @@ export namespace QueryAuthLogic {
         if (started)
             return;
         started = true;
+        TypeAuthLogic.registerDimensionSummary("queries", fallbackSummary); // grid icon colour summary
         QueryLogic.start(sb);                       // the QueryEntity seeding prerequisite
         sb.include(RuleQueryEntity).withQuery();     // unique index [role, resource] already on the entity
         // invalidateWith RuleType too: the no-rule default auto-upgrades to the query's TYPE read allowance,
@@ -127,7 +128,7 @@ export namespace QueryAuthLogic {
     }
 
     async function getAllowed(queryId: PrimaryKey, rootTid: PrimaryKey | undefined, roleKey: string): Promise<QueryAllowed> {
-        const { rules, computed } = await rulesLazy.value;
+        const { rules, computed } = await rulesLazy.value();
         return computeAllowed<QueryAllowed>(roleKey, queryId, rules, mergeQuery, rk => queryDefault(rootTid, rk), computed);
     }
 
@@ -136,6 +137,22 @@ export namespace QueryAuthLogic {
         if (parents.size === 0)
             return queryDefault(rootTid, roleKey);
         return mergeQuery(await AuthLogic.getMergeStrategy(roleKey), await Promise.all([...parents].map(p => getAllowed(queryId, rootTid, p))));
+    }
+
+    /** Min/max access RANK (0 None, 1 EmbeddedOnly, 2 Allow) over ALL of the type's queries — the grid's
+     *  colour summary for the Queries drill-in. undefined when the type has no queries. */
+    export async function fallbackSummary(typeName: string, roleKey: string): Promise<{ min: number; max: number } | undefined> {
+        const ctor = Entity.resolveType(typeName);
+        const typeId = TypeLogic.typeToId(ctor);
+        const rank = (v: QueryAllowed): number => v === QueryAllowed.None ? 0 : v === QueryAllowed.EmbeddedOnly ? 1 : 2;
+        let min = 2, max = 0, any = false;
+        for (const qn of QueryLogic.getTypeQueries(ctor)) {
+            const r = rank(await getAllowed(QueryLogic.getQueryEntity(qn).id, typeId, roleKey));
+            if (r < min) min = r;
+            if (r > max) max = r;
+            any = true;
+        }
+        return any ? { min, max } : undefined;
     }
 
     // The admin pack for one (role, type): every query of the type with the role's allowed/allowedBase.

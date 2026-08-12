@@ -4,31 +4,34 @@ import { SchemaBuilder } from "@altea/altea/server/schema";
 import { ResetLazy } from "@altea/altea/data/resetLazy";
 import { table } from "@altea/altea/server/table";
 import type { LambdaExpression } from "@altea/altea/server/linq/expressions";
-import type { RuntimeType } from "@altea/altea/server/runtimeTypes";
+import { ClassType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
 import type { QueryFilterContext } from "@altea/altea/server/schema/entityEvents";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { preSaveGates } from "@altea/altea/server/saver";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
+import { cleanTypeName, getLocation } from "@altea/altea/data/registration";
 import type { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
 import type { PrimaryKey, Type } from "@altea/altea/data/entity";
 import { toInt } from "@altea/altea/data/basics";
-import { AuthLogic } from "./AuthLogic";
+import { AuthLogic, type RoleGraphData } from "./AuthLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
 import {
     RuleTypeEntity, RuleTypeConditionEntity, RuleTypeConditionEntity_Conditions,
-    TypeAllowed, TypeAllowedBasic, typeAllowedGet,
-    TypeRulePack, TypeAllowedRule, TypeConditionSymbol,
+    TypeAllowed, TypeAllowedBasic, typeAllowedGet, typeAllowedCreate,
+    TypeRulePack, TypeAllowedRule, TypeConditionSymbol, DimensionSummaryModel,
     WithConditionsModel, ConditionRuleModel,
 } from "../data/Rules";
+import { isEnumEntityType } from "@altea/altea/data/enumEntity";
+import { computePartRoots, partParentChains } from "./PartOwnership";
 import { UserEntity, UserState, UserTypeCondition } from "../data/User";
 import { TypeConditionLogic } from "./TypeConditionLogic";
-import { WithConditions, ConditionRule, maxBound, minBound } from "./WithConditions";
+import { WithConditions, ConditionRule, maxBound, minBound, maxDB, maxUI } from "./WithConditions";
 import { mergeTypeConditions } from "./TypeConditionMerger";
-import { buildAuthFilter, authFilterLambda } from "./TypeConditionAlgebra";
-import { computeAllowed, type ComputedCache } from "./AuthCache";
+import { buildAuthFilter, authFilterLambda, rebasePartFilter } from "./TypeConditionAlgebra";
+import { computeAllowed, computeAllowedSync, type ComputedCache } from "./AuthCache";
 
 // Port of Signum's TypeAuthLogic (Rules/TypeAuthLogic.cs + .Conditions.cs) — a role's access to an entity
 // TYPE, now with ROW-LEVEL type conditions. A role's allowed for a type is a `WithConditions<TypeAllowed>`
@@ -49,13 +52,32 @@ export namespace TypeAuthLogic {
         rules: Map<string, Map<PrimaryKey, WithConditions<TypeAllowed>>>;
         computed: ComputedCache<WithConditions<TypeAllowed>>;
     }
-    let rulesLazy: ResetLazy<Promise<RulesCache>>;
+    let rulesLazy: ResetLazy<RulesCache>;
     // The current role's per-conditioned-type WithConditions, resolved ON DEMAND per query (not kept warm):
     // an async provider builds it into the opaque QueryFilterContext under this key, and the SYNC binder
     // hook reads it back. Signum keeps its RoleAllowedCache permanently warm; altea (no sync DB) instead
     // pays one async resolve per query.
     const QUERY_FILTER_KEY = "altea-auth:typeConditions";
     type ConditionsByType = Map<PrimaryKey, WithConditions<TypeAllowed>>;
+    // Part ctor → its ROOT owner's ctor (see PartOwnership). A Part inherits the root's allowance, so it
+    // never gets its own rule and never shows in the grid. Keyed by CTOR (not typeId) because it is built at
+    // schema.initialize — which also runs BEFORE generation, when a brand-new Part type has no TypeEntity id
+    // yet; the id lookups are deferred to runtime (getAllowed), by when the caches are fully loaded.
+    let partRootCtor = new Map<Function, Function>();
+    // Back-reference Part ctor → the field-name chain to navigate UP to its non-Part root (e.g. Widget →
+    // ["panel", "sample"]). Installed as a queryFilter on the Part so a STANDALONE `table(Part)` query is
+    // gated by the root's TypeCondition (via-owner access never reaches this — the owner's collection
+    // projection bypasses the queryFilter marker). Only conditioned roots produce an entry.
+    let partChains = new Map<Function, string[]>();
+
+    // Per-dimension access-summary providers (property/operation/query), registered by each dimension
+    // logic at start (they already import TypeAuthLogic, so this avoids a back-import cycle). Each returns
+    // the role's min/max allowance RANK over that dimension's rules for a type, or undefined if none.
+    type SummaryFn = (typeName: string, roleKey: string) => Promise<{ min: number; max: number } | undefined>;
+    const summaryProviders: { properties?: SummaryFn; operations?: SummaryFn; queries?: SummaryFn } = {};
+    export function registerDimensionSummary(kind: "properties" | "operations" | "queries", fn: SummaryFn): void {
+        summaryProviders[kind] = fn;
+    }
 
     export function isStarted(): boolean {
         return started;
@@ -88,7 +110,50 @@ export namespace TypeAuthLogic {
         sb.schema.initializing.push(() => {
             for (const ctor of TypeConditionLogic.types())
                 sb.schema.entityEvents(ctor as Type<Entity>).queryFilter.push(authQueryFilterHook);
+            // Derive part → root ownership (structural — throws on a forbidden multi-owner Part).
+            partRootCtor = computePartRoots(sb.schema);
+            // Standalone-part row security: for each back-reference Part whose ROOT is conditioned, install a
+            // queryFilter that rebases the root's TypeCondition onto the Part via its back-reference chain, so
+            // a direct `table(Part)` query is restricted exactly as the root is. Only conditioned roots matter
+            // (an unconditioned root's Read is a plain scalar — no per-row predicate to rebase).
+            partChains = partParentChains(sb.schema);
+            const conditioned = new Set(TypeConditionLogic.types());
+            for (const [partCtor, chain] of partChains) {
+                const rootCtor = partRootCtor.get(partCtor);
+                if (rootCtor != null && conditioned.has(rootCtor) && chain.length > 0)
+                    sb.schema.entityEvents(partCtor as Type<Entity>).queryFilter.push(partAuthQueryFilterHook(rootCtor, chain));
+            }
         });
+    }
+
+    /** True for a Part that inherits its owner's rules (hidden from the Type-Auth grid). */
+    export function isInheritedPart(typeId: PrimaryKey): boolean {
+        const ctor = TypeLogic.tryGetType(typeId);
+        return ctor != null && partRootCtor.has(ctor);
+    }
+
+    /** The transitive owned-part closure for an OWNER type (no Signum analog — altea Parts are real
+     *  entities that never appear in the Type-Auth grid). Returns [ownerCleanName, ...partCleanNames],
+     *  parts ordered by ownership DEPTH then name, so a per-type dimension drill-in (property/operation/
+     *  query) can render one rule table per type in the SAME modal (storage stays per-type). A type that
+     *  owns no parts returns just [ownerCleanName]. */
+    export function ownedPartClosure(ownerTypeName: string): string[] {
+        const parts: { name: string; depth: number }[] = [];
+        for (const [partCtor, rootCtor] of partRootCtor) {
+            if (cleanTypeName(rootCtor) !== ownerTypeName)
+                continue;
+            parts.push({ name: cleanTypeName(partCtor), depth: partChains.get(partCtor)?.length ?? 1 });
+        }
+        parts.sort((a, b) => a.depth - b.depth || a.name.localeCompare(b.name));
+        return [ownerTypeName, ...parts.map(p => p.name)];
+    }
+
+    // A Part's inherited allowance = its root owner's, COLLAPSED to a condition-free scalar (the role's best
+    // case on the root). Safe because row-level gating already happened at the owner: a Part is reached only
+    // through its (already-filtered) owner, so it needs no conditions of its own — and collapsing avoids
+    // evaluating the root's owner-predicate against a Part instance (which it isn't).
+    function collapseToScalar(rootWC: WithConditions<TypeAllowed>): WithConditions<TypeAllowed> {
+        return WithConditions.simple(typeAllowedCreate(maxDB(rootWC), maxUI(rootWC)));
     }
 
     // Row-read filter (Signum's TypeAuthLogic_FilterQuery), installed on each conditioned type's
@@ -102,6 +167,22 @@ export namespace TypeAuthLogic {
         if (wc == null)
             return undefined;
         return authFilterLambda(buildAuthFilter(ctx.ctor, ctx.elementType, wc, TypeAllowedBasic.Read, true), ctx.elementType);
+    }
+
+    // Standalone-part row filter (installed per back-reference Part in `start`): rebase the ROOT owner's
+    // Read filter onto the Part by navigating the back-reference `chain` up to the root, so a direct
+    // `table(Part)` query is restricted exactly as the root is. SYNCHRONOUS, like authQueryFilterHook —
+    // reads the same async-resolved ConditionsByType for the ROOT's id. No root entry (auth off / no role)
+    // or the root reduces to "all" → no filter.
+    function partAuthQueryFilterHook(rootCtor: Function, chain: readonly string[]) {
+        return (ctx: { ctor: Function; elementType: RuntimeType; filterContext: QueryFilterContext }): LambdaExpression | undefined => {
+            const map = ctx.filterContext.get(QUERY_FILTER_KEY) as ConditionsByType | undefined;
+            const wc = map?.get(TypeLogic.typeToId(rootCtor));
+            if (wc == null)
+                return undefined;
+            const rootFilter = buildAuthFilter(rootCtor, new ClassType(rootCtor), wc, TypeAllowedBasic.Read, true);
+            return rebasePartFilter(rootFilter, ctx.elementType, chain);
+        };
     }
 
     // The async row-security provider (Schema.queryFilterProviders): build the CURRENT role's conditions
@@ -183,14 +264,55 @@ export namespace TypeAuthLogic {
     const getDefaultType = async (roleKey: string): Promise<WithConditions<TypeAllowed>> =>
         WithConditions.simple((await AuthLogic.getDefaultAllowed(roleKey)) ? TypeAllowed.Write : TypeAllowed.None);
 
+    /** The immutable type-rule snapshot for a SerializationAuthContext (Signum's warm RoleAllowedCache,
+     *  captured up-front). Resolving the lazy's Promise<T> here — never exposing the box naked — so the sync
+     *  compute below reads a frozen value that a concurrent invalidation can't null out. */
+    export type RulesSnapshot = RulesCache;
+    export function rulesSnapshot(): Promise<RulesCache> {
+        return rulesLazy.value();
+    }
+
+    /** SYNC twin of getAllowed for the serialization-auth path — computes from the CAPTURED snapshot
+     *  (`typeCtx`) + role graph (`graph`), both frozen in the SerializationAuthContext. No current role →
+     *  simple Write. */
+    export function getAllowedFromCtx(typeId: PrimaryKey, roleKey: string | undefined, typeCtx: RulesCache, graph: RoleGraphData): WithConditions<TypeAllowed> {
+        const rk = roleKey ?? AuthLogic.currentRoleKey();
+        if (rk == null)
+            return WithConditions.simple(TypeAllowed.Write);
+        const ctor = TypeLogic.tryGetType(typeId);
+        const rootCtor = ctor != null ? partRootCtor.get(ctor) : undefined;
+        if (rootCtor != null)
+            return collapseToScalar(getAllowedFromCtx(TypeLogic.typeToId(rootCtor), rk, typeCtx, graph));
+        const relatedTo = (r: string): Set<string> => graph.graph.tryRelatedTo(r);
+        const mergeStrategy = (r: string): MergeStrategy => graph.mergeStrategies.get(r)?.strategy ?? MergeStrategy.Union;
+        const getDefaultSync = (r: string): WithConditions<TypeAllowed> =>
+            WithConditions.simple((graph.mergeStrategies.get(r)?.defaultAllowed ?? false) ? TypeAllowed.Write : TypeAllowed.None);
+        return computeAllowedSync<WithConditions<TypeAllowed>>(rk, typeId, typeCtx.rules, mergeType, getDefaultSync, typeCtx.computed, relatedTo, mergeStrategy);
+    }
+
     /** The full WithConditions<TypeAllowed> for a type id and role. No current role (anonymous / auth off)
      *  → simple Write. */
     export async function getAllowed(typeId: PrimaryKey, roleKey?: string): Promise<WithConditions<TypeAllowed>> {
         const rk = roleKey ?? AuthLogic.currentRoleKey();
         if (rk == null)
             return WithConditions.simple(TypeAllowed.Write);
-        const { rules, computed } = await rulesLazy.value;
+        // A Part inherits its ROOT owner's allowance (collapsed to a condition-free scalar). No own rule.
+        const ctor = TypeLogic.tryGetType(typeId);
+        const rootCtor = ctor != null ? partRootCtor.get(ctor) : undefined;
+        if (rootCtor != null)
+            return collapseToScalar(await getAllowed(TypeLogic.typeToId(rootCtor), rk));
+        const { rules, computed } = await rulesLazy.value();
         return computeAllowed<WithConditions<TypeAllowed>>(rk, typeId, rules, mergeType, getDefaultType, computed);
+    }
+
+    /** The type's configured type-condition SETS for a role (each an AND-ed TypeConditionSymbol set), from
+     *  the role's merged type rule condition rows. These are the selectable "slices" in the property /
+     *  operation rule editors (Signum's PropertyRulePack.AvailableTypeConditions). Empty when the type/role
+     *  has no condition rules. (A Part collapses to a scalar with no conditions → empty; a part's property
+     *  rules are edited on the Fallback slice only.) */
+    export async function conditionSetsForType(typeId: PrimaryKey, roleKey?: string): Promise<TypeConditionSymbol[][]> {
+        const wc = await getAllowed(typeId, roleKey);
+        return wc.conditionRules.map(cr => [...cr.typeConditions]);
     }
 
     /** Coarse "can this role reach `requested` for this type AT ALL" (Signum's Max* bound) — used by the
@@ -277,11 +399,25 @@ export namespace TypeAuthLogic {
             TypeConditionLogic.types().map(ctor => [TypeLogic.typeToId(ctor), TypeConditionLogic.conditionsFor(ctor)]));
         const rules: TypeAllowedRule[] = [];
         for (const t of await table(TypeEntity).toArray() as TypeEntity[]) {
+            // Hide Parts (they inherit their owner — see PartOwnership) and enum side-tables (Signum does
+            // too); a SharedPart is NOT a partRootCtor key, so it stays visible with its own manual rules.
+            const ctor = TypeLogic.tryGetType(t.id);
+            if ((ctor != null && partRootCtor.has(ctor)) || isEnumEntityType(ctor))
+                continue;
+            const summary = async (fn: SummaryFn | undefined): Promise<DimensionSummaryModel> => {
+                const s = fn == null ? undefined : await fn(t.cleanName, roleKey);
+                return DimensionSummaryModel.create({ min: toInt(s?.min ?? -1), max: toInt(s?.max ?? -1) });
+            };
             rules.push(TypeAllowedRule.create({
                 resource: TypeEntity.newLite(t.id, t.cleanName),
                 allowed: toModel(await getAllowed(t.id, roleKey)),
                 allowedBase: toModel(await getAllowedBase(t.id, roleKey)),
                 availableConditions: (availableByType.get(t.id) ?? []).map(symbolLite),
+                ownedParts: ownedPartClosure(t.cleanName).slice(1), // [owner, ...parts] → just the parts
+                propertiesSummary: await summary(summaryProviders.properties),
+                operationsSummary: await summary(summaryProviders.operations),
+                queriesSummary: await summary(summaryProviders.queries),
+                packageName: (ctor != null ? getLocation(ctor.name)?.packageName : undefined) ?? "",
             }));
         }
         rules.sort((a, b) => a.resource.toString().localeCompare(b.resource.toString()));

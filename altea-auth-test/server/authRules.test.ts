@@ -1,6 +1,6 @@
 import { describe, test, before } from "node:test";
 import assert from "node:assert/strict";
-import { Serializer } from "@altea/altea/data/serializer";
+import { Serializer, resolveSerializationAuthContext } from "@altea/altea/data/serializer";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { OperationLogic } from "@altea/altea/server/operationLogic";
 import { toInt } from "@altea/altea/data/basics";
@@ -83,7 +83,13 @@ describe("AuthRules", { skip: hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run g
     });
 
     describe("property dimension (hide / read-only / coerce), through the serializer", () => {
-        const ser = (e: SampleEntity): Record<string, unknown> => JSON.parse(Serializer.stringify(e));
+        // The serializer is sync; resolve the immutable auth snapshot first (what the webApi wrapper does in
+        // production via resolveSerializationAuthContext) and pass it as authContext, so access reads the
+        // captured rules synchronously.
+        const ser = async (e: SampleEntity): Promise<Record<string, unknown>> => {
+            const authContext = await resolveSerializationAuthContext();
+            return JSON.parse(Serializer.stringify(e, { authContext })) as Record<string, unknown>;
+        };
 
         test("Sales: `secret` (None) is hidden; `name` (no rule) follows the type's Read ⇒ read-only", async () => {
             const o = await asRole(sales, async () => ser(sample(false)));

@@ -34,7 +34,7 @@ import { AliasReplacer, DeclaredAliasGatherer, UniqueRequestKey } from "./AliasR
 import { EntityCompleter } from "./EntityCompleter";
 import { GroupEntityCleaner } from "./GroupEntityCleaner";
 import { SmartEqualizer } from "../smartEqualizer";
-import { TypeLogic } from "../../typeLogic";
+import { requireTypeId, type TypeCaches } from "../../typeLogic";
 import { ExpandLite, ExpandEntity, Query } from "../../query";
 import type { ExpandLiteHint } from "../expressions.sql";
 import type { Quoted } from "quote-transformer/quoted";
@@ -104,7 +104,7 @@ function isNoArgMethodCall(e: Expression, name: string): boolean {
 }
 
 // A bound expression that denotes the runtime type of a reference (Signum's three
-// Type* nodes) — the cases SmartEqualizer.typeEqual knows how to compare.
+// Type* nodes) — the cases this.smart.typeEqual knows how to compare.
 function isTypeExpression(e: Expression): boolean {
     return e instanceof TypeEntityExpression || e instanceof TypeImplementedByExpression
         || e instanceof TypeImplementedByAllExpression;
@@ -390,16 +390,6 @@ class ColumnUnionProjector extends DbExpressionVisitor {
     }
 }
 
-// The @implementedByAll type-discriminator constant for a ctor — the target's
-// TypeEntity int id (Signum's TypeToId). Emitted as an inline SQL literal (not a
-// bound parameter): these constants only appear as CASE branch values when
-// combining a type discriminator, and an all-parameter CASE gives the DB no type
-// to infer (Postgres would default the params to text and clash with the integer
-// discriminator column). An inline integer literal types the branch unambiguously.
-function typeConstant(ctor: Function): Expression {
-    return new SqlConstantExpression(TypeLogic.typeToId(ctor), LiteralType.number);
-}
-
 // Relational-join operator → SQL join type. leftJoin preserves the outer (left)
 // source, rightJoin the inner (right), fullJoin both. A Map (not a plain object) so a
 // method named like an Object.prototype member — notably `toString` — doesn't
@@ -526,6 +516,11 @@ export class QueryBinder extends ExpressionVisitor {
     // security), so the synthesized `.filter(...)` re-visiting the same source doesn't re-wrap forever.
     private readonly queryFilterApplied = new Set<CallExpression>();
 
+    // The type↔id caches resolved at the LINQ-provider boundary (`isLoading ? undefined : await ready()`),
+    // threaded here so @implementedByAll discriminators bind against an explicit snapshot rather than the
+    // ambient static. `undefined` only while the caches are themselves loading (no discriminator arises there).
+    private readonly smart: SmartEqualizer;
+
     constructor(
         private readonly schema: Schema,
         private readonly isPostgres: boolean,
@@ -533,9 +528,18 @@ export class QueryBinder extends ExpressionVisitor {
         // caller BEFORE binding and read synchronously by the queryFilter handlers. Defaults to empty for
         // callers that don't run row filters (tests, hand-built retrieve queries with no provider).
         private readonly filterContext: QueryFilterContext = EMPTY_FILTER_CONTEXT,
+        private readonly typeCaches: TypeCaches | undefined = undefined,
     ) {
         super();
         this.aliasGenerator = new AliasGenerator(isPostgres);
+        this.smart = new SmartEqualizer(typeCaches);
+    }
+
+    // The @implementedByAll type-discriminator constant for a ctor — the target's TypeEntity int id
+    // (Signum's TypeToId), from the threaded caches. Inline SQL literal (not a bound parameter) so a CASE
+    // branch that combines it has an unambiguous integer type (see the deleted module note below).
+    private typeConstant(ctor: Function): Expression {
+        return new SqlConstantExpression(requireTypeId(this.typeCaches, ctor), LiteralType.number);
     }
 
     // The alias sequence used during binding — handed to ChildProjectionFlattener
@@ -1010,7 +1014,7 @@ export class QueryBinder extends ExpressionVisitor {
                     // entityIsInstance lowers both (it unwraps a lite reference first), so a
                     // lite never goes through an `instanceof` that would fail at runtime.
                     if (member === Entity.isInstance || member === Entity.isLite)
-                        return SmartEqualizer.entityIsInstance(this.visit(call.args[0]), property.object.value as Function);
+                        return this.smart.entityIsInstance(this.visit(call.args[0]), property.object.value as Function);
                 }
             }
             if (op === "thenBy")
@@ -1046,7 +1050,7 @@ export class QueryBinder extends ExpressionVisitor {
             // Ctor`. The receiver is the lite; the argument is the type. entityIsInstance unwraps
             // the lite reference (same lowering as `isInstance`/`isLite` and the instanceof operator).
             if (op === "isInstanceOf")
-                return SmartEqualizer.entityIsInstance(this.visit(property.object), this.constantCtor(call.args[0]));
+                return this.smart.entityIsInstance(this.visit(property.object), this.constantCtor(call.args[0]));
 
             let source = this.visit(property.object);
 
@@ -1262,7 +1266,7 @@ export class QueryBinder extends ExpressionVisitor {
         // check, lowered by SmartEqualizer (handles typed refs, IB, IBA, captured
         // constants and null — comparing id and, for polymorphic refs, type).
         if (methodName === "is" && args.length === 1)
-            return SmartEqualizer.polymorphicEqual(source, this.visit(args[0]));
+            return this.smart.polymorphicEqual(source, this.visit(args[0]));
 
         // f.constructor.toTypeEntity() / lite.entityType.toTypeEntity() (Signum's
         // Type.ToTypeEntity()): the TypeEntity row for a runtime-type expression, referenced by
@@ -1309,9 +1313,9 @@ export class QueryBinder extends ExpressionVisitor {
             // the ctor is bound as a value. A captured collection of entities/lites →
             // id-comparison membership (Signum's EntityIn); a collection of values → `item IN (…)`.
             return isTypeExpression(visitedArgs[0])
-                ? SmartEqualizer.typeIn(visitedArgs[0], source.value)
+                ? this.smart.typeIn(visitedArgs[0], source.value)
                 : isReferenceish(visitedArgs[0])
-                    ? SmartEqualizer.entityIn(visitedArgs[0], source.value)
+                    ? this.smart.entityIn(visitedArgs[0], source.value)
                     : InExpression.fromValues(visitedArgs[0], source.value);
         }
 
@@ -1354,8 +1358,8 @@ export class QueryBinder extends ExpressionVisitor {
             // `lite.isInstanceOf(Ctor)` — both real tests in memory AND in SQL. Only the operator
             // on an actual entity reference does the type-test (that matches JS `entity instanceof`).
             if (expr instanceof LiteReferenceExpression)
-                return SmartEqualizer.False;
-            return SmartEqualizer.entityIsInstance(expr, this.constantCtor(b.right));
+                return this.smart.False;
+            return this.smart.entityIsInstance(expr, this.constantCtor(b.right));
         }
 
         if (b.kind === "==" || b.kind === "===" || b.kind === "!=" || b.kind === "!==") {
@@ -1363,15 +1367,15 @@ export class QueryBinder extends ExpressionVisitor {
             const right = this.asScalarValue(this.visit(b.right));
             const negate = b.kind === "!=" || b.kind === "!==";
             // `f.GetType() == typeof(X)` — a Type expression vs a captured ctor (or
-            // another Type expression) lowers through SmartEqualizer.typeEqual.
+            // another Type expression) lowers through this.smart.typeEqual.
             if (isTypeExpression(left) || isTypeExpression(right)) {
-                const eq = SmartEqualizer.typeEqual(left, right);
-                return negate ? SmartEqualizer.not(eq) : eq;
+                const eq = this.smart.typeEqual(left, right);
+                return negate ? this.smart.not(eq) : eq;
             }
             if (isReferenceish(left) || isReferenceish(right)
                 || left instanceof EmbeddedEntityExpression || right instanceof EmbeddedEntityExpression) {
-                const eq = SmartEqualizer.polymorphicEqual(left, right);
-                return negate ? SmartEqualizer.not(eq) : eq;
+                const eq = this.smart.polymorphicEqual(left, right);
+                return negate ? this.smart.not(eq) : eq;
             }
             return b.updateBinary(left, right);
         }
@@ -1442,7 +1446,7 @@ export class QueryBinder extends ExpressionVisitor {
         const refTable = this.schema.table(targetCtor as any);
         const rawId = ref.ids.get(this.pkTypeOf(targetCtor)) ?? [...ref.ids.values()][0];
         // CASE WHEN <type column> = typeof(targetCtor) THEN <id> ELSE NULL END
-        const typeMatch = SmartEqualizer.entityIsInstance(ref, targetCtor);
+        const typeMatch = this.smart.entityIsInstance(ref, targetCtor);
         const id = new CaseExpression([new When(typeMatch, rawId)], undefined);
         return new EntityExpression(new ClassType(targetCtor), refTable, new PrimaryKeyExpression(id), undefined, undefined, undefined, false);
     }
@@ -2039,7 +2043,7 @@ export class QueryBinder extends ExpressionVisitor {
 
         let result: Expression = new ExistsExpression(filtered.select);
         if (isAll)
-            result = SmartEqualizer.not(result);
+            result = this.smart.not(result);
 
         return isRoot ? this.getUniqueProjection(result, "SingleOrDefault") : result;
     }
@@ -2055,7 +2059,7 @@ export class QueryBinder extends ExpressionVisitor {
 
         let result: Expression;
         if (isReferenceish(projection.projector)) {
-            const where = SmartEqualizer.polymorphicEqual(projection.projector, newItem);
+            const where = this.smart.polymorphicEqual(projection.projector, newItem);
             result = new ExistsExpression(new SelectExpression(alias, false, undefined, pc.columns, projection.select, where, [], []));
         } else {
             result = new InExpression(newItem, new SelectExpression(alias, false, undefined, pc.columns, projection.select, undefined, [], []), undefined);
@@ -2321,7 +2325,7 @@ export class QueryBinder extends ExpressionVisitor {
     private notNull(expr: Expression): Expression {
         const nul = new ConstantExpression(null);
         return isReferenceish(expr)
-            ? SmartEqualizer.not(SmartEqualizer.polymorphicEqual(expr, nul))
+            ? this.smart.not(this.smart.polymorphicEqual(expr, nul))
             : new BinaryExpression("!=", expr, nul);
     }
 
@@ -2637,11 +2641,11 @@ export class QueryBinder extends ExpressionVisitor {
             return typeExpr.typeColumn;
         if (typeExpr instanceof TypeEntityExpression)
             return new CaseExpression(
-                [new When(new IsNotNullExpression(typeExpr.externalId.value), typeConstant(ctorOfType(typeExpr.typeValue)))],
+                [new When(new IsNotNullExpression(typeExpr.externalId.value), this.typeConstant(ctorOfType(typeExpr.typeValue)))],
                 undefined);
         if (typeExpr instanceof TypeImplementedByExpression) {
             const whens = [...typeExpr.typeImplementations].map(([ctor, id]) =>
-                new When(new IsNotNullExpression(id.value), typeConstant(ctor)));
+                new When(new IsNotNullExpression(id.value), this.typeConstant(ctor)));
             return new CaseExpression(whens, undefined);
         }
         throw new Error(`Cannot extract a type id from ${typeExpr.toString()}`);
@@ -3279,7 +3283,7 @@ export class QueryBinder extends ExpressionVisitor {
 
         const outerKeyExpr = this.mapVisitExpand(outerKey, outerProj);
         const innerKeyExpr = this.mapVisitExpand(innerKey, innerProj);
-        const condition = SmartEqualizer.polymorphicEqual(outerKeyExpr, innerKeyExpr);
+        const condition = this.smart.polymorphicEqual(outerKeyExpr, innerKeyExpr);
 
         const alias = this.aliasGenerator.nextSelectAlias();
         const join = new JoinExpression(joinType, outerProj.select, innerProj.select, condition);
@@ -3365,7 +3369,7 @@ export class QueryBinder extends ExpressionVisitor {
         let subqueryCorrelation: Expression | undefined = undefined;
         if (keyPC.columns.length > 0) {
             const terms = keyPC.columns.map((c1, i) =>
-                SmartEqualizer.equalNullableGroupBy(
+                this.smart.equalNullableGroupBy(
                     new ColumnExpression(c1.expression.type, alias, c1.name),
                     subqueryKeyPC.columns[i].expression));
             subqueryCorrelation = terms.reduce((a, b) => new BinaryExpression("&&", a, b));

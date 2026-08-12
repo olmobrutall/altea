@@ -23,7 +23,7 @@ import {
     RulePropertyEntity, RuleOperationEntity,
     TypeAllowed, PropertyAllowed, OperationAllowed, TypeConditionSymbol,
 } from "@altea/altea-auth/data/Rules";
-import { SampleEntity, SampleOperation, SampleTypeCondition } from "../data/sample";
+import { SampleEntity, SamplePanelEntity, SampleWidgetEntity, SampleOperation, SampleTypeCondition } from "../data/sample";
 import { AuthTestStarter } from "./AuthTestStarter";
 
 // Shared bootstrap for the authorization suite (the altea-auth analog of altea-test/server/setup.ts). A
@@ -60,6 +60,10 @@ export function start(): Promise<Connector> {
         const connector = await AuthTestStarter.connectorFromEnv(sb.schema, process.env.ALTEA_AUTH_TEST_DB!);
         Connector.default = connector;
         sb.settings.isPostgres = connector.isPostgres;
+        // Tests mutate rule rows inside a rolled-back `Transaction.noCommit` scope and read them back
+        // through the globalLazy caches — so make those reloads NEST in the ambient txn (read-your-writes)
+        // instead of the production `Transaction.forceNew` (which reads committed state only).
+        sb.schema.globalLazyReadUncommitted = true;
         AuthTestStarter.registerLogic(sb);
         sb.complete();
         await connector.schema.initialize();
@@ -148,5 +152,19 @@ async function seed(): Promise<void> {
             allowed: TypeAllowed.Read,
             conditions: [RuleTypeConditionEntity_Conditions.create({ symbol: publicSym })],
         })],
+    }).save();
+
+    // Data rows for the STANDALONE-part filter test: two Samples partitioned by `confidential`, each with a
+    // panel (which carries a widget). Saving the owner auto-wires each part's @backReference up the chain, so
+    // `panel.sample` / `widget.panel.sample` resolve — the navigation the part filter rebases the root's
+    // [Public] condition onto. Restricted (fallback None + [Public]→Read) must see ONLY the public sample's
+    // part(s) when the part is queried directly.
+    await SampleEntity.create({
+        name: "PublicSample", secret: "s", confidential: false,
+        panels: [SamplePanelEntity.create({ title: "P-pub", secret: "s", widgets: [SampleWidgetEntity.create({ caption: "W-pub" })] })],
+    }).save();
+    await SampleEntity.create({
+        name: "ConfidentialSample", secret: "s", confidential: true,
+        panels: [SamplePanelEntity.create({ title: "P-conf", secret: "s", widgets: [SampleWidgetEntity.create({ caption: "W-conf" })] })],
     }).save();
 }

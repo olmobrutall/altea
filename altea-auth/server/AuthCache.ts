@@ -43,3 +43,40 @@ export async function computeAllowed<A>(
     };
     return rec(roleKey);
 }
+
+// SYNCHRONOUS twin of computeAllowed for the serialization-auth path — identical folding, but the role
+// graph comes from an IMMUTABLE captured snapshot (SerializationAuthContext): `relatedTo` / `mergeStrategy`
+// read that snapshot's graph, so a concurrent invalidation can't affect the in-flight walk. Shares the same
+// persistent `cache`, so results match the async path exactly.
+export function computeAllowedSync<A>(
+    roleKey: string,
+    resourceKey: string | number,
+    rules: Map<string, Map<string | number, A>>,
+    merge: (strategy: MergeStrategy, baseValues: A[]) => A,
+    getDefaultSync: (roleKey: string) => A,
+    cache: ComputedCache<A>,
+    relatedTo: (roleKey: string) => Set<string>,
+    mergeStrategy: (roleKey: string) => MergeStrategy,
+): A {
+    const rec = (rk: string): A => {
+        let inner = cache.get(rk);
+        if (inner == null) cache.set(rk, inner = new Map());
+        const cached = inner.get(resourceKey);
+        if (cached !== undefined) return cached;
+
+        const explicit = rules.get(rk)?.get(resourceKey);
+        let result: A;
+        if (explicit !== undefined) {
+            result = explicit;
+        } else {
+            const parents = relatedTo(rk);
+            if (parents.size === 0)
+                result = getDefaultSync(rk);
+            else
+                result = merge(mergeStrategy(rk), [...parents].map(rec));
+        }
+        inner.set(resourceKey, result);
+        return result;
+    };
+    return rec(roleKey);
+}

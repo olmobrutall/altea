@@ -267,7 +267,7 @@ export const UserGraph = graph(UserEntity, UserState, g => {
 // (invalidateRoles() drops it — call when roles change). Roles are keyed by their Lite key string
 // ("Role;<id>") so the DirectedGraph uses value identity (a Lite instance is not reference-stable).
 
-interface RoleGraphData {
+export interface RoleGraphData {
     rolesByKey: Map<string, RoleEntity>;
     graph: DirectedGraph<string>;
     // Per role: its merge strategy + the DEFAULT-allowed flag (Union → any base allowed; Intersection →
@@ -278,7 +278,7 @@ interface RoleGraphData {
 
 // Signum's rolesGraph/mergeStrategies GlobalLazys: an async, reset-able snapshot created in
 // AuthLogic.start (invalidateWith RoleEntity). Its factory runs in ExecutionMode.global.
-let roleGraphLazy: ResetLazy<Promise<RoleGraphData>>;
+let roleGraphLazy: ResetLazy<RoleGraphData>;
 
 async function loadRoleGraph(): Promise<RoleGraphData> {
     const roles = await table(RoleEntity).toArray() as RoleEntity[];
@@ -310,7 +310,7 @@ export namespace AuthLogic {
     /** The loaded role-graph snapshot (Signum's RolesByLite/rolesGraph/mergeStrategies GlobalLazys). The
      *  GlobalLazy factory loads it in ExecutionMode.global, so the RoleEntity read is ungated. */
     export async function roleGraph(): Promise<RoleGraphData> {
-        return roleGraphLazy.value;
+        return roleGraphLazy.value();
     }
 
     /** Drop the cached role graph (Signum's InvalidateWith(RoleEntity)); RoleEntity saves auto-invalidate
@@ -332,6 +332,10 @@ export namespace AuthLogic {
     export async function getDefaultAllowed(roleKey: string): Promise<boolean> {
         return (await roleGraph()).mergeStrategies.get(roleKey)?.defaultAllowed ?? false;
     }
+
+    // Synchronous graph accessors used by the serialization-auth path read the IMMUTABLE snapshot
+    // captured in the SerializationAuthContext (the RoleGraphData returned by `roleGraph()`), NOT a
+    // live cache — so there is nothing to fail open on. See PropertyAuthLogic.resolveContext / accessFromCtx.
 
     /** Roles in dependency order (parents first) — Signum's RolesInOrder. */
     export async function rolesInOrder(includeTrivialMerge = true): Promise<string[]> {

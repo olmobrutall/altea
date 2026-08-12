@@ -16,7 +16,7 @@ import express, { type Express, type Request, type Response, type RequestHandler
 import { BaseEntity, type Entity } from "../data/entity";
 import type { Lite } from "../data/lite";
 import { RuntimeType, ClassType, ArrayType, LiteType, LiteralType } from "./runtimeTypes";
-import { Serializer } from "../data/serializer";
+import { Serializer, resolveSerializationAuthContext } from "../data/serializer";
 import type { IntegrityCheck } from "../data/validation";
 
 // A class reference (abstract-tolerant, so `Entity`/`BaseEntity` bases are accepted).
@@ -123,7 +123,7 @@ export function setAuthorizeRequest(fn: AuthorizeRequest | undefined): void { _a
 // so read-only / hidden properties keep their stored value (the write-gate). This is where "the retrieve
 // is implicit inside the deserializer" lives: handlers just call req.jsonTyped(); the DB fetch happens
 // here, not in each route. May be async (it can await the DB).
-export type RequestDeserializer = (body: string) => unknown | Promise<unknown>;
+export type RequestDeserializer = (body: string, authContext?: unknown) => unknown | Promise<unknown>;
 let _requestDeserializer: RequestDeserializer = body => Serializer.parse(body);
 export function setRequestDeserializer(fn: RequestDeserializer): void { _requestDeserializer = fn; }
 
@@ -144,21 +144,28 @@ export class WebBuilder {
         const resRef = def.res != null ? resolveRef(def.res) : undefined;
 
         const wrapped: RequestHandler & { httpMeta?: HttpMeta } = (req, res, next) => {
+            // The IMMUTABLE serialization-auth snapshot for THIS request, resolved once (below) before the
+            // handler and read synchronously by both the request write-gate and the response codec — a
+            // captured snapshot, so a concurrent rule invalidation can't affect this request's serialization.
+            let authCtx: unknown;
             // (de)serialization is delegated to altea's Serializer ("altea/json") — reqRef/resRef are
             // only for the OpenAPI schema below.
             (req as any).jsonTyped = () => {
                 const body = (req as { body?: string }).body;
-                return body ? Promise.resolve(_requestDeserializer(body)) : Promise.resolve(undefined);
+                return body ? Promise.resolve(_requestDeserializer(body, authCtx)) : Promise.resolve(undefined);
             };
-            (res as any).jsonTyped = (obj: unknown) => res.type("application/json").send(Serializer.stringify(obj));
+            (res as any).jsonTyped = (obj: unknown) => res.type("application/json").send(Serializer.stringify(obj, { authContext: authCtx }));
             // Flat ModelState body (field → message), NO `exceptionType` — the exact shape the client's
             // ThrowErrorFilter turns into a ValidationError. Same shape the exceptionFilter emits for a
             // Saver IntegrityCheckException, so every validation failure reaches the client identically.
             (res as any).modelState = (ic: IntegrityCheck) => res.status(400).json(ic.errors);
-            // Authorization gate first (secure-by-default when an auth module is installed), then the
-            // handler. Both funnel rejections to `next` → the exception filter.
+            // Authorization gate first (secure-by-default when an auth module is installed), then resolve the
+            // per-request auth snapshot (role known now; a no-op unless a property-auth module installed a
+            // resolveContext), then the handler. All funnel rejections to `next` → the exception filter.
             Promise.resolve()
                 .then(() => { if (_authorizeRequest != null) _authorizeRequest(wrapped.httpMeta!); })
+                .then(() => resolveSerializationAuthContext())
+                .then(ctx => { authCtx = ctx; })
                 .then(() => (handler as (r: Request, s: Response) => unknown)(req, res))
                 .catch(next);
         };

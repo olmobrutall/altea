@@ -37,12 +37,23 @@ import { PropertyRoute } from '../propertyRoute';
 export type PropertyAccess = 'hidden' | 'readonly' | 'writable';
 export interface SerializationAuth {
     getMetadata(root: Entity): unknown;
-    access(route: PropertyRoute, meta: unknown): PropertyAccess;
+    // `access` is SYNCHRONOUS. `context` is the IMMUTABLE snapshot resolved up-front by `resolveContext`
+    // (SerializeOptions.authContext) — access reads the role's rules from it, never from a live cache, so a
+    // concurrent rule invalidation cannot affect an in-flight serialization.
+    access(route: PropertyRoute, meta: unknown, context: unknown): PropertyAccess;
+    // The role's rules load asynchronously; the (de)serialization boundary (async — the web response
+    // wrapper + request deserializer) resolves this ONCE, up-front, into an immutable snapshot that is then
+    // passed into the sync `stringify`/`parse`. Absent ⇒ no auth (open).
+    resolveContext?(): Promise<unknown>;
 }
 let _serAuth: SerializationAuth | undefined;
 export function setSerializationAuth(auth: SerializationAuth | undefined): void { _serAuth = auth; }
 /** True once a SerializationAuth is installed — lets the save path decide whether to run the write-gate overlay. */
 export function hasSerializationAuth(): boolean { return _serAuth != null; }
+/** Resolve the installed auth's immutable rule snapshot (undefined if none). Called at the async
+ *  (de)serialization boundary and then threaded into the sync `stringify`/`parse` as `authContext`, so the
+ *  synchronous `access` reads a consistent snapshot immune to concurrent invalidation. */
+export function resolveSerializationAuthContext(): Promise<unknown> { return _serAuth?.resolveContext?.() ?? Promise.resolve(undefined); }
 
 // The field route for `name` off `ownerRoute`, or undefined if it can't be built (never gate then).
 function fieldRouteOf(ownerRoute: PropertyRoute | undefined, name: string): PropertyRoute | undefined {
@@ -176,7 +187,7 @@ abstract class ModifiableSerializer implements JsonSerializer {
             if (gate) {
                 fieldRoute = fieldRouteOf(ownerRoute, entry.name);
                 if (fieldRoute != null) {
-                    const acc = _serAuth!.access(fieldRoute, sc.authMeta);
+                    const acc = _serAuth!.access(fieldRoute, sc.authMeta, sc.authContext);
                     // Signum's propsMeta: "!name" ⇒ hidden (also omit the value), "name" ⇒ read-only.
                     if (acc === 'hidden') { propsMeta.push("!" + entry.name); continue; }
                     if (acc === 'readonly') propsMeta.push(entry.name);
@@ -204,7 +215,7 @@ abstract class ModifiableSerializer implements JsonSerializer {
             // ignored (write-protected). Silent-keep (not throw) is deliberate: a HIDDEN property's value
             // was omitted from the wire, so the client echoes null; silently keeping the original avoids a
             // false rejection of a legitimate save AND needs no client-side omission logic.
-            if (fieldRoute != null && _serAuth!.access(fieldRoute, dc.authMeta) !== 'writable')
+            if (fieldRoute != null && _serAuth!.access(fieldRoute, dc.authMeta, dc.authContext) !== 'writable')
                 continue;
             const jv = json[entry.name];
             const prevRoute = dc.route;
@@ -523,7 +534,7 @@ export const Serializer = {
      * JSON string. Discriminators follow `options.writeTypes` (default "Auto").
      */
     stringify(obj: unknown, options?: SerializeOptions): string {
-        const sc: SerializationContext = { writeTypes: options?.writeTypes ?? 'Auto', path: new Set() };
+        const sc: SerializationContext = { writeTypes: options?.writeTypes ?? 'Auto', path: new Set(), authContext: options?.authContext };
         return JSON.stringify(factory.dynamic.toJson(obj, sc, true));
     },
 
@@ -532,7 +543,7 @@ export const Serializer = {
      * instances. Pass `options.resolve` for the retrieve-and-apply (server) path.
      */
     parse(json: string, options?: DeserializeOptions): unknown {
-        const dc: DeserializationContext = { idMap: new Map(), resolve: options?.resolve, onWarn: options?.onWarn };
+        const dc: DeserializationContext = { idMap: new Map(), resolve: options?.resolve, onWarn: options?.onWarn, authContext: options?.authContext };
         return factory.dynamic.fromJson(JSON.parse(json), dc, undefined);
     },
 };

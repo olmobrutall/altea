@@ -1,6 +1,6 @@
 import type { Entity, Type, View, ViewType } from '../../data/entity';
 import type { ResetLazy } from '../../data/resetLazy';
-import type { TypeCaches, TypeRow } from '../typeLogic';
+import type { TypeCaches } from '../typeLogic';
 import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
 import { commentedError } from '../sync/syncTableRead';
 import { installDefaultGenerating } from '../sync/schemaGenerator';
@@ -56,11 +56,18 @@ export class Schema {
     // in process-global statics so multiple schemas can coexist in one process — e.g. the
     // offline binder tests, or a `--test-isolation=none` run). Installed by TypeLogic.start()
     // from SchemaBuilder.complete(); read via the active connector's schema
-    // (Connector.current().schema) during query translation / materialisation. The lazy
-    // projects `typeRowsSnapshot` — the TypeEntity rows read back from the DB by
-    // TypeLogic.load() — or, before any load, a deterministic bootstrap. See typeLogic.ts.
+    // (Connector.current().schema) during query translation / materialisation. The lazy's ASYNC
+    // factory reads the TypeEntity rows from the DB (or, on a not-yet-generated / offline schema,
+    // a deterministic bootstrap); an async boundary awaits `TypeLogic.ready()` to warm it, then
+    // synchronous `typeToId` reads the resolved value. See typeLogic.ts.
     typeCaches!: ResetLazy<TypeCaches>;
-    typeRowsSnapshot?: TypeRow[];
+
+    // TEST-ONLY toggle. By default `globalLazy` loads its caches in an INDEPENDENT transaction
+    // (Transaction.forceNew — Signum's model: caches reflect COMMITTED state). A test that mutates rule
+    // rows inside a rolled-back `Transaction.noCommit` scope and then reads them back through the cache
+    // needs the reload to NEST in that ambient transaction (Transaction.create) so it sees the uncommitted
+    // writes (read-your-writes). Set this true in such a test harness; leave false in production.
+    globalLazyReadUncommitted = false;
 
     // Per-entity-type engine hooks (Signum's Schema.EntityEvents<T>()), lazily created per ctor.
     // A module registers handlers in its start(); the engine fires them from the relevant path

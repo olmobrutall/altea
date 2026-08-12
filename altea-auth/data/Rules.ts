@@ -189,6 +189,17 @@ export class WithConditionsModel extends EmbeddedEntity {
     conditionRules: ConditionRuleModel[];
 }
 
+// A coarse summary of the role's access across all rules of one dimension (property/operation/query) for
+// a type — the MIN and MAX allowance rank (0 = none/red, 1 = partial/yellow, 2 = full/green; -1 = the
+// dimension is empty / not started). Lets the grid colour a drill-in icon by what's inside without
+// opening the pack: the icon glyph takes the MAX colour and an underline shows the MIN (so a uniform
+// dimension reads as one solid colour, a mixed one shows its range).
+@reflect
+export class DimensionSummaryModel extends EmbeddedEntity {
+    min: int = toInt(-1);
+    max: int = toInt(-1);
+}
+
 @reflect
 export class TypeAllowedRule extends EmbeddedEntity {
     resource: Lite<TypeEntity>;
@@ -197,6 +208,15 @@ export class TypeAllowedRule extends EmbeddedEntity {
     // The TypeConditionSymbols registered for this type (Signum's AvailableConditions) — the symbols the
     // admin UI offers when adding a condition rule. Empty for a type with no registered conditions.
     availableConditions: Lite<TypeConditionSymbol>[];
+    // altea-only: the clean names of the Part entities this type OWNS (transitively). Non-empty → the
+    // type's property/operation/query drill-ins stack the owner + these parts; the grid annotates it.
+    ownedParts: string[];
+    // Per-dimension access summaries (min/max rank) so the drill-in icons can be colour-coded.
+    propertiesSummary: DimensionSummaryModel;
+    operationsSummary: DimensionSummaryModel;
+    queriesSummary: DimensionSummaryModel;
+    // The owning package (Signum's namespace) — the grid groups the rows under a header per package.
+    packageName: string = "";
 }
 
 @reflect
@@ -258,6 +278,15 @@ export class RuleOperationConditionEntity_Conditions extends Entity {
     @valueField symbol: Lite<TypeConditionSymbol>;
 }
 
+// One entry of a pack's `availableTypeConditions` — a SET of TypeConditionSymbols that together form one
+// selectable "slice" in the property/operation rule editor (Signum's `List<List<TypeConditionSymbol>>`,
+// modelled here as an array of this wrapper since altea reflection has no nested-array field). The sets
+// are the type's configured type-condition rule sets for the role.
+@reflect
+export class TypeConditionSetModel extends EmbeddedEntity {
+    typeConditions: Lite<TypeConditionSymbol>[];
+}
+
 // Signum's ConditionRuleModel<OperationAllowed> / WithConditionsModel<OperationAllowed> — the mutable
 // transport twin of the runtime WithConditions<OperationAllowed> (altea has no generic entities, so one
 // concrete pair per dimension).
@@ -292,6 +321,9 @@ export class OperationRulePack extends ModelEntity {
     strategy: string = "";
     // The TypeConditionSymbols registered for this pack's type — offered when adding a condition rule.
     availableConditions: Lite<TypeConditionSymbol>[];
+    // The type's configured type-condition SETS for this role — the selectable slices in the editor
+    // (Signum's AvailableTypeConditions). Empty when the type/role has no condition rules.
+    availableTypeConditions: TypeConditionSetModel[];
     rules: OperationAllowedRule[];
 }
 
@@ -373,7 +405,9 @@ export class PropertyAllowedRule extends EmbeddedEntity {
     path: string = "";               // the route PropertyString (the row's identity + display)
     allowed: PropertyWithConditionsModel;
     allowedBase: PropertyWithConditionsModel;
-    coerced: PropertyAllowed = PropertyAllowed.Write;
+    // The type's UI-read ceiling PER SLICE (Signum's WithConditionsModel coerced): a property can't exceed
+    // its type for a given condition — so a slice where the type is None caps that slice's properties at None.
+    coerced: PropertyWithConditionsModel;
 }
 
 @reflect
@@ -383,5 +417,8 @@ export class PropertyRulePack extends ModelEntity {
     strategy: string = "";
     // The ROOT type's registered TypeConditionSymbols — offered when adding a condition rule.
     availableConditions: Lite<TypeConditionSymbol>[];
+    // The type's configured type-condition SETS for this role — the selectable slices in the editor
+    // (Signum's AvailableTypeConditions). Empty when the type/role has no condition rules.
+    availableTypeConditions: TypeConditionSetModel[];
     rules: PropertyAllowedRule[];
 }

@@ -13,9 +13,15 @@ export type WriteTypes = 'Always' | 'Auto';
 export interface SerializeOptions {
     /** Discriminator verbosity; defaults to "Auto". */
     writeTypes?: WriteTypes;
+    /** An immutable snapshot of the role's property-auth rules, resolved async up-front (via
+     *  `resolveSerializationAuthContext`) and read SYNCHRONOUSLY by the auth `access` during the walk — so
+     *  a concurrent rule invalidation can't null it out mid-serialization. Opaque to the codec. */
+    authContext?: unknown;
 }
 
 export interface DeserializeOptions {
+    /** As {@link SerializeOptions.authContext} — the write-gate reads the same captured snapshot. */
+    authContext?: unknown;
     /**
      * Supplies the authoritative "original" for an existing entity (id present) so the codec
      * applies onto it — overlaying when `modified`, else keeping it and warning on a baseline
@@ -38,6 +44,7 @@ export interface SerializationContext {
     // codec behaves exactly as before.
     route?: PropertyRoute;
     authMeta?: unknown;
+    authContext?: unknown;   // the captured rule snapshot (SerializeOptions.authContext), read by access
 }
 
 export interface DeserializationContext {
@@ -49,6 +56,7 @@ export interface DeserializationContext {
     // the resolved original's auth metadata. Undefined ⇒ no write gate.
     route?: PropertyRoute;
     authMeta?: unknown;
+    authContext?: unknown;   // the captured rule snapshot (DeserializeOptions.authContext), read by access
 }
 
 // The containing entity for a value being deserialized. `index != null` marks a part-entity

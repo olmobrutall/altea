@@ -1,6 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, uniqueIndex, quoted, stringLengthValidator } from "@altea/altea/data/decorators";
+import { Lite } from "@altea/altea/data/lite";
+import { entity, uniqueIndex, quoted, stringLengthValidator, backReference } from "@altea/altea/data/decorators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
@@ -25,10 +26,31 @@ export class SampleEntity extends Entity {
 
     value: int = toInt(0);
 
+    // Owned parts (Sample ← Panel[] ← Widget[]) — exercise the part-ownership inheritance + chaining.
+    panels: SamplePanelEntity[];
+
     @quoted
     toString(): string {
         return this.name;
     }
+}
+
+// A Part of SampleEntity (array/back-reference). Hidden from the Type-Auth grid; inherits Sample's rules.
+@reflect
+@entity("Part")
+export class SamplePanelEntity extends Entity {
+    @backReference sample: Lite<SampleEntity>;
+    title: string = "";
+    secret: string = "";
+    // A part of a part → tests the ownership CHAIN Widget → Panel → Sample.
+    widgets: SampleWidgetEntity[];
+}
+
+@reflect
+@entity("Part")
+export class SampleWidgetEntity extends Entity {
+    @backReference panel: Lite<SamplePanelEntity>;
+    caption: string = "";
 }
 
 // Signum's `[AutoInit] static class SampleOperation`. The namespace name matters: OperationAuthLogic

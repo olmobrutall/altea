@@ -42,6 +42,7 @@ import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../data/enumEntit
 import { TypeEntity } from '../../data/typeEntity';
 import { ResetLazy } from '../../data/resetLazy';
 import { ExecutionMode } from '../executionMode';
+import { Transaction } from '../connection/transaction';
 import { TypeLogic } from '../typeLogic';
 import type { WebBuilder } from '../webApi';
 
@@ -158,16 +159,23 @@ export class SchemaBuilder {
     }
 
     // Signum's `sb.GlobalLazy(factory, new InvalidateWith(typeof(X), …))`: a process-wide cache reset
-    // whenever any `invalidateWith` type is SAVED. altea's factory is ASYNC (no sync DB), so this is just
-    // a `ResetLazy<Promise<T>>` — the box caches the in-flight promise, so concurrent readers share one
-    // load and `reset()` drops it (the next read re-invokes the factory). Read it via `.value`. (Deletes
+    // whenever any `invalidateWith` type is SAVED. altea's ResetLazy is ASYNC (no sync DB), so this returns
+    // a `ResetLazy<T>` holding the RESOLVED value — concurrent readers share one in-flight load and
+    // `reset()` drops it (the next read re-invokes the factory). Read it via `await lazy.value()`. (Deletes
     // don't fire the `saved` event, so a caller that removes rows via a set-based / delete path should
     // `reset()` the returned lazy itself.)
-    globalLazy<T>(factory: () => Promise<T>, options: { invalidateWith: Type<Entity>[] }): ResetLazy<Promise<T>> {
-        // Signum's GlobalLazy.WithoutInvalidations runs the factory inside `ExecutionMode.Global()` so the
-        // cache load reads the whole database ungated (authorization suppressed). Mirror that here — the
-        // factory need not wrap itself in AuthLogic.Disable.
-        const lazy = new ResetLazy(() => ExecutionMode.global(factory));
+    globalLazy<T>(factory: () => Promise<T>, options: { invalidateWith: Type<Entity>[] }): ResetLazy<T> {
+        // Signum's GlobalLazy runs the factory inside `ExecutionMode.Global()` (reads the whole database
+        // ungated — authorization suppressed) AND its own INDEPENDENT transaction (`Transaction.forceNew` —
+        // a fresh committed transaction regardless of the caller's context, never a no-op nesting). This
+        // closes the "Transaction not started" window where a load fires from a just-committed ambient txn,
+        // and means the cache always reflects COMMITTED state (Signum's model: caches reload post-commit,
+        // never mid-write). The `globalLazyReadUncommitted` test toggle swaps in `Transaction.create` so a
+        // reload NESTS in the ambient (rolled-back) txn and sees a test's uncommitted writes — read at
+        // factory-run time so a suite can flip it after the schema is built.
+        const schema = this.schema;
+        const lazy = new ResetLazy<T>(() => ExecutionMode.global(() =>
+            (schema.globalLazyReadUncommitted ? Transaction.create : Transaction.forceNew)(factory)));
         for (const t of options.invalidateWith)
             this.schema.entityEvents(t).saved.push(() => lazy.reset());
         return lazy;

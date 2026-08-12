@@ -1,0 +1,61 @@
+/* Ported from Signum.Authorization/Rules/AuthAdmin.css (copy-and-fix). altea divergence: LinkButton may
+   render a <button> rather than an <a>, so the icon/link rules are element-agnostic (no `a` prefix). */
+
+.sf-auth-rules th {
+    padding: 2px 4px;
+}
+
+.sf-auth-rules td {
+    vertical-align: middle;
+}
+
+/* The row-condition + / − icons (add / remove condition) — muted gray, like Signum. */
+.sf-condition-icon {
+    color: var(--bs-secondary);
+    text-decoration: none;
+}
+.sf-condition-icon:hover {
+    color: var(--bs-secondary-color, var(--bs-secondary));
+    text-decoration: none;
+}
+
+/* A placeholder where a row has no condition + icon (keeps the type name aligned). */
+.sf-placeholder-icon {
+    color: var(--bs-secondary);
+    opacity: .4;
+}
+
+/* Per-type dimension drill-in links (Properties / Operations / Queries columns): dim until hovered. */
+.sf-auth-link {
+    opacity: 0.5;
+    text-decoration: none;
+}
+.sf-auth-link:hover {
+    opacity: 1;
+    text-decoration: none;
+}
+
+/* Master-data types: highlight the Write cell yellow (Signum's .sf-master). */
+.sf-master {
+    background: var(--bs-warning-border-subtle) !important;
+}
+
+/* The single-letter entity-data badge (e.g. "M" for Master) next to the type name. */
+.sf-entity-data {
+    color: var(--bs-secondary);
+    font-weight: 600;
+}
+
+/* An annotation for a type that owns Part entities (its drill-ins stack owner + parts). */
+.sf-owned-parts {
+    color: var(--bs-info);
+    font-size: smaller;
+    white-space: nowrap;
+}
+
+/* Package group header row (Signum's namespace group). */
+.sf-auth-rules tr.sf-auth-namespace td {
+    padding-top: 14px;
+    border-bottom: 1px solid var(--bs-border-color);
+    color: var(--bs-secondary);
+}

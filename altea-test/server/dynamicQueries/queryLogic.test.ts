@@ -16,6 +16,7 @@ import { BuildExpressionContext, ExpressionBox } from "@altea/altea/server/dynam
 import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic"; // side-effect: wires the byAll provider
 import "@altea/altea/server/dynamicQuery/tokenExpressions";
+import { seedTypeCachesForTest } from "../seedTypeCaches";
 import { MusicLogic } from "../MusicLogic";
 import { ArtistEntity, AlbumEntity, LabelEntity } from "../../data/music";
 
@@ -28,6 +29,7 @@ const sb = new SchemaBuilder();
 sb.settings.isPostgres = false;
 MusicLogic.start(sb);
 sb.complete();
+seedTypeCachesForTest(sb.schema); // offline: deterministic type↔id cache for @implementedByAll binding
 class FakeConnector extends Connector {
     constructor() { super(sb.schema, false, 128); }
     override executeQuery(): Promise<unknown[]> { return Promise.resolve([]); }

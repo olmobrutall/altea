@@ -10,17 +10,23 @@ import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { Operations } from "@altea/altea/client/Operations";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { Finder } from "@altea/altea/client/Finder";
+import { tryGetTypeInfo } from "@altea/altea/client/Reflection";
+import { classes } from "@altea/altea/data/globals";
 import SelectorModal from "@altea/altea/client/SelectorModal";
 import type { Lite } from "@altea/altea/data/lite";
 import {
     TypeAllowed, TypeAllowedBasic, TypeAllowedRule, ConditionRuleModel, WithConditionsModel,
     TypeConditionSymbol, typeAllowedDB, typeAllowedUI, typeAllowedCreate,
+    PropertyAllowed, OperationAllowed, QueryAllowed,
 } from "../../data/Rules";
-import type { TypeRulePack } from "../../data/Rules";
+import { toInt } from "@altea/altea/data/basics";
+import type { TypeRulePack, PropertyRulePack, QueryRulePack, OperationRulePack, DimensionSummaryModel } from "../../data/Rules";
 import { AuthAdminMessage } from "../../data/AuthMessages";
 import { AuthAdminClient } from "./AuthAdminClient";
+import { openAuthClosureModal } from "./AuthClosureModal";
 import { RoleEntity } from "../../data/Role";
 import { ColorRadio, GrayCheckbox } from "./ColoredRadios";
+import "./AuthAdmin.css";
 
 // Port of Signum's TypeRulePackControl (Rules/TypeRulePackControl.tsx). The VIEW component for the
 // TypeRulePack ModelEntity, opened as a FrameModal via Navigator.view from the Role QuickLink. Each type
@@ -38,10 +44,11 @@ import { ColorRadio, GrayCheckbox } from "./ColoredRadios";
 // win) and the namespace grouping.
 
 // The per-type dimension drill-ins, gated by which auth dimensions were started (AuthAdminClient.Options).
-const SUBLINKS: { kind: "properties" | "queries" | "operations"; enabled: () => boolean; icon: IconProp; title: string; color: string }[] = [
-    { kind: "properties", enabled: () => AuthAdminClient.Options.properties, icon: "pen-to-square", title: "Property rules", color: "#6f42c1" },
-    { kind: "queries", enabled: () => AuthAdminClient.Options.queries, icon: "magnifying-glass", title: "Query rules", color: "green" },
-    { kind: "operations", enabled: () => AuthAdminClient.Options.operations, icon: "bolt", title: "Operation rules", color: "#0d6efd" },
+// Each is its OWN column with a header (like Signum's Property / Operation / Query columns), in that order.
+const SUBLINKS: { kind: "properties" | "operations" | "queries"; enabled: () => boolean; icon: IconProp; title: string; header: string; color: string }[] = [
+    { kind: "properties", enabled: () => AuthAdminClient.Options.properties, icon: "pen-to-square", title: "Property rules", header: "Properties", color: "#6f42c1" },
+    { kind: "operations", enabled: () => AuthAdminClient.Options.operations, icon: "bolt", title: "Operation rules", header: "Operations", color: "#0d6efd" },
+    { kind: "queries", enabled: () => AuthAdminClient.Options.queries, icon: "magnifying-glass", title: "Query rules", header: "Queries", color: "green" },
 ];
 
 const BASICS: { basic: TypeAllowedBasic; color: string; label: string }[] = [
@@ -49,6 +56,27 @@ const BASICS: { basic: TypeAllowedBasic; color: string; label: string }[] = [
     { basic: TypeAllowedBasic.Read, color: "#FFAD00", label: "Read" },
     { basic: TypeAllowedBasic.None, color: "red", label: "None" },
 ];
+
+// A dimension's access summary → colour: rank 2 = all-allowed (green), 1 = partial (amber), 0 = all-none
+// (red), -1 = n/a / empty (muted gray). The drill-in icon glyph takes the MAX colour and an underline
+// shows the MIN — so a uniform dimension reads as one solid colour and a mixed one shows its range.
+const RANK_COLOR = (rank: number): string => rank === 2 ? "green" : rank === 1 ? "#FFAD00" : rank === 0 ? "red" : "#adb5bd";
+const summaryFor = (rule: TypeAllowedRule, kind: "properties" | "operations" | "queries"): DimensionSummaryModel =>
+    kind === "properties" ? rule.propertiesSummary : kind === "operations" ? rule.operationsSummary : rule.queriesSummary;
+// A package name for display / grouping ("" → "Other").
+const packageLabel = (rule: TypeAllowedRule): string => rule.packageName || "Other";
+
+// Collapse a freshly-fetched sub-pack into a {min,max} access rank — so the grid icon colour can be
+// recomputed after the drill-in closes (mirrors the server's fallbackSummary). undefined = empty dimension.
+const propRank = (a: PropertyAllowed): number => a === PropertyAllowed.None ? 0 : a === PropertyAllowed.Read ? 1 : 2;
+const opRank = (a: OperationAllowed): number => a === OperationAllowed.None ? 0 : a === OperationAllowed.DBOnly ? 1 : 2;
+const queryRank = (a: QueryAllowed): number => a === QueryAllowed.None ? 0 : a === QueryAllowed.EmbeddedOnly ? 1 : 2;
+function summarizePack(kind: "properties" | "operations" | "queries", pack: PropertyRulePack | OperationRulePack | QueryRulePack): { min: number; max: number } | undefined {
+    const ranks = kind === "queries" ? (pack as QueryRulePack).rules.map(r => queryRank(r.allowed))
+        : kind === "properties" ? (pack as PropertyRulePack).rules.map(r => propRank(r.allowed.fallback))
+            : (pack as OperationRulePack).rules.map(r => opRank(r.allowed.fallback));
+    return ranks.length ? { min: Math.min(...ranks), max: Math.max(...ranks) } : undefined;
+}
 
 function isActive(allowed: TypeAllowed, basic: TypeAllowedBasic): boolean {
     return typeAllowedDB(allowed) === basic || typeAllowedUI(allowed) === basic;
@@ -96,7 +124,8 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
 
     const dirty = React.useRef(false);
     React.useEffect(() => { dirty.current = false; }, [ctx.value]);
-    const markDirty = (): void => { dirty.current = true; ctx.frame!.frameComponent.forceUpdate(); };
+    const forceUpdate = (): void => ctx.frame!.frameComponent.forceUpdate();
+    const markDirty = (): void => { dirty.current = true; forceUpdate(); };
 
     // Type filter box (Signum's namespace/className search). altea keeps it simple: a case-insensitive
     // substring match on the type's nice name; empty = show all.
@@ -138,14 +167,34 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
 
     // Open the (role, type) pack of a per-type dimension. typeName = the row's TypeEntity cleanName
     // (rule.resource.toString()), exactly what the pack API's `:typeName` resolves via Entity.resolveType.
-    async function openSubPack(kind: "properties" | "queries" | "operations", typeName: string): Promise<void> {
+    // If the type OWNS parts (altea's MList replacement, hidden from this grid), the drill-in shows one
+    // editable table per type — owner + parts — stacked in a single modal (AuthClosureModal); otherwise
+    // it opens the single pack the classic way (Navigator.view).
+    // `initialTypeConditions` (from a type-CONDITION row's drill-in) preselects that condition slice in the
+    // opened property/operation pack — Signum's "each condition row has its own already-filtered link".
+    async function openSubPack(kind: "properties" | "queries" | "operations", rule: TypeAllowedRule, initialTypeConditions?: Lite<TypeConditionSymbol>[]): Promise<void> {
         const roleId = ctx.value.role.id!;
         const roleStr = ctx.value.role.toString();
-        const pack = kind === "properties" ? await AuthAdminClient.API.fetchPropertyRulePack(typeName, roleId)
-            : kind === "queries" ? await AuthAdminClient.API.fetchQueryRulePack(typeName, roleId)
-            : await AuthAdminClient.API.fetchOperationRulePack(typeName, roleId);
-        const label = kind === "properties" ? "Property rules" : kind === "queries" ? "Query rules" : "Operation rules";
-        await Navigator.view(pack, { buttons: "close", title: label + " — " + typeName + " / " + roleStr });
+        const typeName = rule.resource.toString();
+        const fetchOne = (tn: string): Promise<PropertyRulePack | QueryRulePack | OperationRulePack> =>
+            kind === "properties" ? AuthAdminClient.API.fetchPropertyRulePack(tn, roleId)
+                : kind === "queries" ? AuthAdminClient.API.fetchQueryRulePack(tn, roleId)
+                    : AuthAdminClient.API.fetchOperationRulePack(tn, roleId);
+        const closure = await AuthAdminClient.API.fetchPartClosure(typeName);
+        if (closure.length <= 1) {
+            const label = kind === "properties" ? "Property rules" : kind === "queries" ? "Query rules" : "Operation rules";
+            await Navigator.view(await fetchOne(typeName), { buttons: "close", title: label + " — " + typeName + " / " + roleStr, extraProps: { initialTypeConditions } });
+        } else {
+            const packs = await Promise.all(closure.map(fetchOne));
+            await openAuthClosureModal({ kind, roleId, roleStr, packs, readOnly: ctx.readOnly, initialTypeConditions });
+        }
+        // The sub-pack may have been edited + saved; re-collapse the OWNER's pack into this row's summary
+        // so the drill-in icon colour reflects the new state (Signum recomputes its thumbnail on close).
+        const s = summarizePack(kind, await fetchOne(typeName));
+        const target = kind === "properties" ? rule.propertiesSummary : kind === "operations" ? rule.operationsSummary : rule.queriesSummary;
+        target.min = toInt(s?.min ?? -1);
+        target.max = toInt(s?.max ?? -1);
+        forceUpdate();
     }
 
     async function addCondition(rule: TypeAllowedRule): Promise<void> {
@@ -197,52 +246,96 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                         <th>Type</th>
                         {BASICS.map(b => <th key={b.label} className="text-center">{b.label}</th>)}
                         <th className="text-center">{AuthAdminMessage.Overriden.niceToString()}</th>
-                        {SUBLINKS.some(s => s.enabled()) && <th className="text-center" />}
+                        {SUBLINKS.filter(s => s.enabled()).map(s => <th key={s.kind} className="text-center">{s.header}</th>)}
                     </tr>
                 </thead>
                 <tbody>
-                    {ctx.value.rules.filter(isMatch).map(rule => [
-                        <tr key={String(rule.resource.id)}>
-                            <td>
-                                {!ctx.readOnly && rule.availableConditions.length > 0 &&
-                                    <LinkButton className="me-2" title="Add condition" onClick={() => void addCondition(rule)}>
-                                        <FontAwesomeIcon aria-hidden={true} icon="circle-plus" />
-                                    </LinkButton>}
-                                {rule.resource.toString()}
-                            </td>
-                            {BASICS.map(b => <td key={b.label} className="text-center">
-                                {renderRadio(() => rule.allowed.fallback, v => rule.allowed.fallback = v, b.basic, b.color)}
-                            </td>)}
-                            <td className="text-center">
-                                <GrayCheckbox readOnly={ctx.readOnly} checked={!withConditionsEquals(rule.allowed, rule.allowedBase)}
-                                    onUnchecked={() => { rule.allowed = cloneModel(rule.allowedBase); markDirty(); }} />
-                            </td>
-                            {SUBLINKS.some(s => s.enabled()) &&
-                                <td className="text-center text-nowrap">
-                                    {SUBLINKS.filter(s => s.enabled()).map(s =>
-                                        <LinkButton key={s.kind} className="mx-1" title={s.title}
-                                            onClick={() => void openSubPack(s.kind, rule.resource.toString())}>
-                                            <FontAwesomeIcon aria-hidden={true} icon={s.icon} color={s.color} />
-                                        </LinkButton>)}
-                                </td>}
-                        </tr>,
-                        ...rule.allowed.conditionRules.map((cr, i) => (
-                            <tr key={String(rule.resource.id) + "_c" + i} className="table-active">
-                                <td className="ps-4">
-                                    {!ctx.readOnly &&
-                                        <LinkButton className="me-2" title="Remove condition" onClick={() => removeCondition(rule, cr)}>
-                                            <FontAwesomeIcon aria-hidden={true} icon="circle-minus" />
-                                        </LinkButton>}
-                                    <small>{cr.typeConditions.map(shortKey).join(" & ")}</small>
-                                </td>
-                                {BASICS.map(b => <td key={b.label} className="text-center">
-                                    {renderRadio(() => cr.allowed, v => cr.allowed = v, b.basic, b.color)}
-                                </td>)}
-                                <td />
-                                {SUBLINKS.some(s => s.enabled()) && <td />}
-                            </tr>
-                        )),
-                    ])}
+                    {(() => {
+                        // Group the visible rows by owning package (Signum groups by namespace); a header row
+                        // precedes each package's rows.
+                        const groups = new Map<string, TypeAllowedRule[]>();
+                        for (const r of ctx.value.rules.filter(isMatch)) {
+                            const k = packageLabel(r);
+                            const arr = groups.get(k);
+                            if (arr) arr.push(r); else groups.set(k, [r]);
+                        }
+                        const colCount = 5 + SUBLINKS.filter(s => s.enabled()).length;
+                        return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).flatMap(([pkg, rules]) => [
+                            <tr key={"pkg:" + pkg} className="sf-auth-namespace">
+                                <td colSpan={colCount}><b>{pkg}</b></td>
+                            </tr>,
+                            ...rules.flatMap(rule => {
+                                const ti = tryGetTypeInfo(rule.resource.toString());
+                                const isMaster = ti?.entityData === "Master";
+                                return [
+                                    <tr key={String(rule.resource.id)}>
+                                        <td>
+                                            {!ctx.readOnly && rule.availableConditions.length > 0
+                                                ? <LinkButton className="sf-condition-icon me-2" title="Add condition" onClick={() => void addCondition(rule)}>
+                                                    <FontAwesomeIcon aria-hidden={true} icon="circle-plus" />
+                                                </LinkButton>
+                                                : <FontAwesomeIcon aria-hidden={true} icon="circle" className="sf-placeholder-icon me-2" />}
+                                            {rule.resource.toString()}
+                                            {isMaster && <small className="sf-entity-data ms-1" title="Master">M</small>}
+                                            {rule.ownedParts.length > 0 &&
+                                                <small className="sf-owned-parts ms-2" title={"Owns parts: " + rule.ownedParts.join(", ")}>
+                                                    <FontAwesomeIcon aria-hidden={true} icon="puzzle-piece" /> {rule.ownedParts.length}
+                                                </small>}
+                                        </td>
+                                        {BASICS.map((b, i) => <td key={b.label} className={classes("text-center", i === 0 && isMaster ? "sf-master" : undefined)}>
+                                            {renderRadio(() => rule.allowed.fallback, v => rule.allowed.fallback = v, b.basic, b.color)}
+                                        </td>)}
+                                        <td className="text-center">
+                                            <GrayCheckbox readOnly={ctx.readOnly} checked={!withConditionsEquals(rule.allowed, rule.allowedBase)}
+                                                onUnchecked={() => { rule.allowed = cloneModel(rule.allowedBase); markDirty(); }} />
+                                        </td>
+                                        {SUBLINKS.filter(s => s.enabled()).map(s => {
+                                            // Icon = summary of the permissions inside: glyph in the MAX colour. When the
+                                            // dimension is MIXED (min ≠ max) an underline in the MIN colour shows the range;
+                                            // a uniform dimension is just the solid glyph (no underline).
+                                            const sum = summaryFor(rule, s.kind);
+                                            const mixed = Number(sum.min) !== Number(sum.max);
+                                            return (
+                                                <td key={s.kind} className="text-center">
+                                                    <LinkButton className="sf-auth-link" title={s.title} onClick={() => void openSubPack(s.kind, rule)}>
+                                                        <span style={{ display: "inline-block", lineHeight: 1, paddingBottom: mixed ? 1 : 0, borderBottom: mixed ? `2px solid ${RANK_COLOR(Number(sum.min))}` : undefined }}>
+                                                            <FontAwesomeIcon aria-hidden={true} icon={s.icon} color={RANK_COLOR(Number(sum.max))} />
+                                                        </span>
+                                                    </LinkButton>
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>,
+                                    ...rule.allowed.conditionRules.map((cr, i) => (
+                                        <tr key={String(rule.resource.id) + "_c" + i} className="table-active">
+                                            <td className="ps-4">
+                                                {!ctx.readOnly &&
+                                                    <LinkButton className="sf-condition-icon me-2" title="Remove condition" onClick={() => removeCondition(rule, cr)}>
+                                                        <FontAwesomeIcon aria-hidden={true} icon="circle-minus" />
+                                                    </LinkButton>}
+                                                <small>{cr.typeConditions.map(shortKey).join(" & ")}</small>
+                                            </td>
+                                            {BASICS.map((b, j) => <td key={b.label} className={classes("text-center", j === 0 && isMaster ? "sf-master" : undefined)}>
+                                                {renderRadio(() => cr.allowed, v => cr.allowed = v, b.basic, b.color)}
+                                            </td>)}
+                                            <td />
+                                            {/* One cell per dimension column. Property/operation drill-ins are scoped to
+                                                THIS condition (Signum: each condition row has its own already-filtered
+                                                link); the Query column stays empty (queries have no type conditions).
+                                                Neutral colour — no per-condition summary computed. */}
+                                            {SUBLINKS.filter(s => s.enabled()).map(s =>
+                                                <td key={s.kind} className="text-center">
+                                                    {s.kind !== "queries" &&
+                                                        <LinkButton className="sf-auth-link" title={s.title} onClick={() => void openSubPack(s.kind, rule, cr.typeConditions)}>
+                                                            <FontAwesomeIcon aria-hidden={true} icon={s.icon} color="#6c757d" />
+                                                        </LinkButton>}
+                                                </td>)}
+                                        </tr>
+                                    )),
+                                ];
+                            }),
+                        ]);
+                    })()}
                 </tbody>
             </table>
         </div>

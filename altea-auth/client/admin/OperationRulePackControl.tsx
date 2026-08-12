@@ -1,28 +1,25 @@
 import * as React from "react";
 import { Button } from "react-bootstrap";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { TypeContext } from "@altea/altea/client/TypeContext";
 import type { IRenderButtons, ButtonsContext, ButtonBarElement } from "@altea/altea/client/TypeContext";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
-import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { Operations } from "@altea/altea/client/Operations";
 import { Finder } from "@altea/altea/client/Finder";
-import SelectorModal from "@altea/altea/client/SelectorModal";
+import type { OperationRulePack, OperationAllowedRule, TypeConditionSymbol } from "../../data/Rules";
+import { OperationAllowed, OperationConditionRuleModel } from "../../data/Rules";
 import type { Lite } from "@altea/altea/data/lite";
-import type { OperationRulePack, OperationAllowedRule, OperationWithConditionsModel } from "../../data/Rules";
-import { OperationAllowed, OperationConditionRuleModel, OperationWithConditionsModel as WithConditionsModelClass, TypeConditionSymbol } from "../../data/Rules";
 import { AuthAdminMessage } from "../../data/AuthMessages";
 import { AuthAdminClient } from "./AuthAdminClient";
 import { RoleEntity } from "../../data/Role";
 import { ColorRadio, GrayCheckbox } from "./ColoredRadios";
+import { type Slice, sliceBinding } from "./AuthSlice";
+import { SliceSelector } from "./SliceSelector";
 
-// Port of Signum's OperationRulePackControl (Rules/OperationRulePackControl.tsx). The VIEW for the
-// OperationRulePack ModelEntity (per role × type), opened via Navigator.view from the TypeRules grid
-// drill-in. Each row = one operation of the type: Allow (green) / DBOnly (orange) / None (red) radios bound
-// to the `fallback`, an "overridden" checkbox, and — for a type with registered type conditions — a "+" to
-// add a CONDITION sub-row (an AND-ed set of TypeConditionSymbols → its own Allow/DBOnly/None), evaluated
-// last-match-wins against the operated entity. Same in-place Save/Reset/Switch-to flow as the other packs.
+// Port of Signum's OperationRulePackControl. Each row = one operation of the type: Allow (green) / DBOnly
+// (amber) / None (red) radios + an "overridden" checkbox. Type conditions are edited via the top-of-pack
+// SLICE selector (Signum's TypeConditions <select>): pick "Fallback" or a configured condition SET, and
+// every row binds to that slice. `initialTypeConditions` preselects a slice (from a type-condition drill-in).
 
 const LEVELS: { value: OperationAllowed; color: string; label: () => string }[] = [
     { value: OperationAllowed.Allow, color: "green", label: () => AuthAdminMessage.Allow.niceToString() },
@@ -30,33 +27,15 @@ const LEVELS: { value: OperationAllowed; color: string; label: () => string }[] 
     { value: OperationAllowed.None, color: "red", label: () => AuthAdminMessage.Deny.niceToString() },
 ];
 
-const shortKey = (l: Lite<TypeConditionSymbol>): string => {
-    const s = l.toString();
-    const dot = s.indexOf(".");
-    return dot >= 0 ? s.substring(dot + 1) : s;
-};
-const condSetKey = (tcs: Lite<TypeConditionSymbol>[]): string => tcs.map(l => String(l.id)).sort().join("&");
+const makeCR = (typeConditions: Lite<TypeConditionSymbol>[], allowed: OperationAllowed): OperationConditionRuleModel =>
+    OperationConditionRuleModel.create({ typeConditions, allowed });
 
-function withConditionsEquals(a: OperationWithConditionsModel, b: OperationWithConditionsModel): boolean {
-    if (a.fallback !== b.fallback || a.conditionRules.length !== b.conditionRules.length)
-        return false;
-    return a.conditionRules.every((cr, i) => {
-        const bcr = b.conditionRules[i];
-        return cr.allowed === bcr.allowed && condSetKey(cr.typeConditions) === condSetKey(bcr.typeConditions);
-    });
-}
-function cloneModel(m: OperationWithConditionsModel): OperationWithConditionsModel {
-    return WithConditionsModelClass.create({
-        fallback: m.fallback,
-        conditionRules: m.conditionRules.map(cr => OperationConditionRuleModel.create({ typeConditions: [...cr.typeConditions], allowed: cr.allowed })),
-    });
-}
-
-export default function OperationRulePackControl({ ctx, ref }: { ctx: TypeContext<OperationRulePack>; ref?: React.Ref<IRenderButtons> }): React.JSX.Element {
+export default function OperationRulePackControl({ ctx, initialTypeConditions, ref }: { ctx: TypeContext<OperationRulePack>; initialTypeConditions?: Lite<TypeConditionSymbol>[]; ref?: React.Ref<IRenderButtons> }): React.JSX.Element {
 
     const dirty = React.useRef(false);
     React.useEffect(() => { dirty.current = false; }, [ctx.value]);
     const markDirty = (): void => { dirty.current = true; ctx.frame!.frameComponent.forceUpdate(); };
+    const [slice, setSlice] = React.useState<Slice>(initialTypeConditions);
 
     function renderButtons(bc: ButtonsContext): ButtonBarElement[] {
         const hasChanges = dirty.current;
@@ -86,33 +65,6 @@ export default function OperationRulePackControl({ ctx, ref }: { ctx: TypeContex
         });
     }
 
-    async function addCondition(rule: OperationAllowedRule): Promise<void> {
-        const chosen = await SelectorModal.chooseManyElement(ctx.value.availableConditions, {
-            buttonDisplay: shortKey,
-            title: "Operation rules",
-            message: "Select the type condition(s) that must ALL hold for this rule to apply.",
-        });
-        if (chosen == null || chosen.length === 0)
-            return;
-        const key = condSetKey(chosen);
-        if (rule.allowed.conditionRules.some(cr => condSetKey(cr.typeConditions) === key))
-            return;
-        rule.allowed.conditionRules.push(OperationConditionRuleModel.create({ typeConditions: chosen, allowed: OperationAllowed.None }));
-        markDirty();
-    }
-    function removeCondition(rule: OperationAllowedRule, cr: OperationConditionRuleModel): void {
-        rule.allowed.conditionRules = rule.allowed.conditionRules.filter(x => x !== cr);
-        markDirty();
-    }
-
-    // A radio bound to an OperationAllowed getter/setter, hidden above the row's coerced ceiling.
-    const renderRadio = (get: () => OperationAllowed, set: (v: OperationAllowed) => void, coerced: OperationAllowed, level: typeof LEVELS[number]): React.JSX.Element | null =>
-        coerced < level.value ? null
-            : <ColorRadio readOnly={ctx.readOnly} checked={get() === level.value} color={level.color}
-                onClicked={() => { set(level.value); markDirty(); }} />;
-
-    const hasConditions = ctx.value.availableConditions.length > 0;
-
     return (
         <div>
             <div className="form-compact mb-2">
@@ -120,50 +72,52 @@ export default function OperationRulePackControl({ ctx, ref }: { ctx: TypeContex
                 <EntityLine ctx={ctx.subCtx(f => f.type)} readOnly={true} />
                 <AutoLine ctx={ctx.subCtx(f => f.strategy)} readOnly={true} />
             </div>
-            <table className="table table-sm table-hover sf-auth-rules" style={{ maxWidth: "40rem" }}>
-                <thead>
-                    <tr>
-                        <th>Operation</th>
-                        {LEVELS.map(l => <th key={l.value} className="text-center">{l.label()}</th>)}
-                        <th className="text-center">{AuthAdminMessage.Overriden.niceToString()}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {ctx.value.rules.map(rule => [
+            {ctx.value.availableTypeConditions.length > 0 &&
+                <div className="mb-2 d-flex align-items-center gap-2">
+                    <span className="text-muted small">Type conditions</span>
+                    <SliceSelector available={ctx.value.availableTypeConditions} slice={slice} onChange={setSlice} />
+                </div>}
+            <OperationRulesTable pack={ctx.value} readOnly={ctx.readOnly} markDirty={markDirty} slice={slice} />
+        </div>
+    );
+}
+
+// Just the per-type operation-rules TABLE for one SLICE (no header) — extracted so the stacked part-closure
+// modal can render one table per type sharing a single slice.
+export function OperationRulesTable({ pack, readOnly, markDirty, slice }: { pack: OperationRulePack; readOnly: boolean; markDirty: () => void; slice: Slice }): React.JSX.Element {
+
+    const renderRadio = (get: () => OperationAllowed, set: (v: OperationAllowed) => void, coerced: OperationAllowed, level: typeof LEVELS[number]): React.JSX.Element | null =>
+        coerced < level.value ? null
+            : <ColorRadio readOnly={readOnly} checked={get() === level.value} color={level.color}
+                onClicked={() => { set(level.value); markDirty(); }} />;
+
+    return (
+        <table className="table table-sm table-hover sf-auth-rules" style={{ maxWidth: "40rem" }}>
+            <thead>
+                <tr>
+                    <th>Operation</th>
+                    {LEVELS.map(l => <th key={l.value} className="text-center">{l.label()}</th>)}
+                    <th className="text-center">{AuthAdminMessage.Overriden.niceToString()}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {pack.rules.map((rule: OperationAllowedRule) => {
+                    const b = sliceBinding(rule.allowed, slice, makeCR);
+                    const base = sliceBinding(rule.allowedBase, slice, makeCR);
+                    return (
                         <tr key={String(rule.operation.id)}>
-                            <td>
-                                {!ctx.readOnly && hasConditions &&
-                                    <LinkButton className="me-2" title="Add condition" onClick={() => void addCondition(rule)}>
-                                        <FontAwesomeIcon aria-hidden={true} icon="circle-plus" />
-                                    </LinkButton>}
-                                {rule.operation.toString()}
-                            </td>
+                            <td>{rule.operation.toString()}</td>
                             {LEVELS.map(l => <td key={l.value} className="text-center">
-                                {renderRadio(() => rule.allowed.fallback, v => rule.allowed.fallback = v, rule.coerced, l)}
+                                {renderRadio(b.get, b.set, rule.coerced, l)}
                             </td>)}
                             <td className="text-center">
-                                <GrayCheckbox readOnly={ctx.readOnly} checked={!withConditionsEquals(rule.allowed, rule.allowedBase)}
-                                    onUnchecked={() => { rule.allowed = cloneModel(rule.allowedBase); markDirty(); }} />
+                                <GrayCheckbox readOnly={readOnly} checked={b.get() !== base.get()}
+                                    onUnchecked={() => { b.set(base.get()); markDirty(); }} />
                             </td>
-                        </tr>,
-                        ...rule.allowed.conditionRules.map((cr, i) => (
-                            <tr key={String(rule.operation.id) + "_c" + i} className="table-active">
-                                <td className="ps-4">
-                                    {!ctx.readOnly &&
-                                        <LinkButton className="me-2" title="Remove condition" onClick={() => removeCondition(rule, cr)}>
-                                            <FontAwesomeIcon aria-hidden={true} icon="circle-minus" />
-                                        </LinkButton>}
-                                    <small>{cr.typeConditions.map(shortKey).join(" & ")}</small>
-                                </td>
-                                {LEVELS.map(l => <td key={l.value} className="text-center">
-                                    {renderRadio(() => cr.allowed, v => cr.allowed = v, rule.coerced, l)}
-                                </td>)}
-                                <td />
-                            </tr>
-                        )),
-                    ])}
-                </tbody>
-            </table>
-        </div>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
     );
 }

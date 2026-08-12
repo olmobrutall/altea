@@ -13,6 +13,7 @@ import { SchemaBuilder } from "@altea/altea/server/schema";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { MusicLogic } from "../MusicLogic";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
+import { seedTypeCachesForTest } from "../seedTypeCaches";
 import { AlbumEntity, LabelEntity, SongEmbedded, ArtistEntity, NoteWithDateEntity, BandEntity } from "../../data/music";
 import { View } from "@altea/altea/data/entity";
 
@@ -34,6 +35,9 @@ const sb = new SchemaBuilder();
 sb.settings.isPostgres = false;
 MusicLogic.start(sb);
 sb.complete();
+// Offline (no DB): seed a deterministic type↔id cache so @implementedByAll discriminators bind to a
+// stable value for SQL comparison (production loads the real ids from the DB).
+seedTypeCachesForTest(sb.schema);
 
 // Binding resolves type discriminators via the active connection's schema
 // (TypeLogic → Connector.current().schema), so offline binds run inside a fake
@@ -50,6 +54,7 @@ const sbPg = new SchemaBuilder();
 sbPg.settings.isPostgres = true;
 MusicLogic.start(sbPg);
 sbPg.complete();
+seedTypeCachesForTest(sbPg.schema);
 
 const fakeSbPg = new FakeConnector(sbPg.schema, [], true);
 function bindPg(query: { expression: any }): ProjectionExpression {

@@ -29,7 +29,7 @@ export namespace PermissionAuthLogic {
         rules: Map<string, Map<PrimaryKey, boolean>>;
         computed: ComputedCache<boolean>;
     }
-    let rulesLazy: ResetLazy<Promise<RulesCache>>;
+    let rulesLazy: ResetLazy<RulesCache>;
 
     export function isStarted(): boolean {
         return started;
@@ -78,13 +78,13 @@ export namespace PermissionAuthLogic {
     }
 
     export async function isAuthorizedForRole(permission: PermissionSymbol, roleKey: string): Promise<boolean> {
-        const { rules, computed } = await rulesLazy.value;
+        const { rules, computed } = await rulesLazy.value();
         return computeAllowed<boolean>(roleKey, permission.id, rules, mergeBool, AuthLogic.getDefaultAllowed, computed);
     }
 
     /** The role's effective allowed for a permission id (Signum's GetAllowed). No current role → allowed. */
     async function getAllowed(permissionId: PrimaryKey, roleKey: string): Promise<boolean> {
-        const { rules, computed } = await rulesLazy.value;
+        const { rules, computed } = await rulesLazy.value();
         return computeAllowed<boolean>(roleKey, permissionId, rules, mergeBool, AuthLogic.getDefaultAllowed, computed);
     }
 

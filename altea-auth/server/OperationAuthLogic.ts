@@ -15,9 +15,10 @@ import { AuthLogic } from "./AuthLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
 import {
     RuleOperationEntity, RuleOperationConditionEntity, RuleOperationConditionEntity_Conditions,
-    OperationRulePack, OperationAllowedRule, OperationAllowed, TypeConditionSymbol,
+    OperationRulePack, OperationAllowedRule, OperationAllowed, TypeConditionSymbol, TypeConditionSetModel,
     OperationWithConditionsModel, OperationConditionRuleModel,
 } from "../data/Rules";
+import { TypeAuthLogic } from "./TypeAuthLogic";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { WithConditions, ConditionRule, evaluateConditions } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
@@ -41,7 +42,7 @@ export namespace OperationAuthLogic {
         rules: Map<string, Map<PrimaryKey | string, WithConditions<OperationAllowed>>>;
         computed: ComputedCache<WithConditions<OperationAllowed>>;
     }
-    let rulesLazy: ResetLazy<Promise<RulesCache>>;
+    let rulesLazy: ResetLazy<RulesCache>;
 
     export function isStarted(): boolean {
         return started;
@@ -51,6 +52,7 @@ export namespace OperationAuthLogic {
         if (started)
             return;
         started = true;
+        TypeAuthLogic.registerDimensionSummary("operations", fallbackSummary); // grid icon colour summary
         sb.include(RuleOperationEntity).withQuery();
         // Signum's `sb.GlobalLazy(rules, InvalidateWith(RuleOperation, Role))`. globalLazy runs the factory
         // in ExecutionMode.global, so the RuleOperation read is ungated.
@@ -118,7 +120,7 @@ export namespace OperationAuthLogic {
         const rk = roleKey ?? AuthLogic.currentRoleKey();
         if (rk == null)
             return WithConditions.simple(OperationAllowed.Allow);
-        const { rules, computed } = await rulesLazy.value;
+        const { rules, computed } = await rulesLazy.value();
         return computeAllowed<WithConditions<OperationAllowed>>(rk, compositeKey(operationId, typeId), rules, mergeOp, getDefaultOp, computed);
     }
 
@@ -129,6 +131,22 @@ export namespace OperationAuthLogic {
         if (parents.size === 0)
             return getDefaultOp(roleKey);
         return mergeOp(await AuthLogic.getMergeStrategy(roleKey), await Promise.all([...parents].map(p => getAllowed(operationId, typeId, p))));
+    }
+
+    /** Min/max access RANK (0 None, 1 DBOnly, 2 Allow) over ALL of the type's operations' fallback
+     *  allowance — the grid's colour summary for the Operations drill-in. undefined when the type has none. */
+    export async function fallbackSummary(typeName: string, roleKey: string): Promise<{ min: number; max: number } | undefined> {
+        const ctor = Entity.resolveType(typeName);
+        const typeId = TypeLogic.typeToId(ctor);
+        const rank = (v: OperationAllowed): number => v === OperationAllowed.None ? 0 : v === OperationAllowed.DBOnly ? 1 : 2;
+        let min = 2, max = 0, any = false;
+        for (const op of OperationLogic.operationsForType(typeName)) {
+            const r = rank((await getAllowed(op.id, typeId, roleKey)).fallback);
+            if (r < min) min = r;
+            if (r > max) max = r;
+            any = true;
+        }
+        return any ? { min, max } : undefined;
     }
 
     const symbolLite = (s: TypeConditionSymbol): Lite<TypeConditionSymbol> => TypeConditionSymbol.newLite(s.id, s.key);
@@ -174,11 +192,13 @@ export namespace OperationAuthLogic {
             }));
         }
         rules.sort((a, b) => a.operation.toString().localeCompare(b.operation.toString()));
+        const conditionSets = await TypeAuthLogic.conditionSetsForType(typeId, roleKey);
         return OperationRulePack.create({
             role: role.toLite(),
             type: TypeEntity.newLite(typeId, typeName),
             strategy: MergeStrategy[role.mergeStrategy],
             availableConditions: TypeConditionLogic.conditionsFor(ctor).map(symbolLite),
+            availableTypeConditions: conditionSets.map(set => TypeConditionSetModel.create({ typeConditions: set.map(symbolLite) })),
             rules,
         });
     }
@@ -197,7 +217,12 @@ export namespace OperationAuthLogic {
 
         for (const r of pack.rules) {
             const existing = currentByOp.get(String(r.operation.id));
-            const isRedundant = fromModel(r.allowed, symbolById).equals(fromModel(r.allowedBase, symbolById));
+            // Prune no-op condition rows (allowed == fallback) the slice editor may have created.
+            const prunedAllowed = OperationWithConditionsModel.create({
+                fallback: r.allowed.fallback,
+                conditionRules: r.allowed.conditionRules.filter(cr => cr.allowed !== r.allowed.fallback),
+            });
+            const isRedundant = fromModel(prunedAllowed, symbolById).equals(fromModel(r.allowedBase, symbolById));
             if (isRedundant) {
                 if (existing != null)
                     await existing.delete();
@@ -208,8 +233,8 @@ export namespace OperationAuthLogic {
                 operation: OperationSymbol.newLite(r.operation.id, r.operation.toString()),
                 type: TypeEntity.newLite(pack.type.id, pack.type.toString()),
             });
-            ro.fallback = r.allowed.fallback;
-            ro.conditionRules = r.allowed.conditionRules.map((cr, i) => RuleOperationConditionEntity.create({
+            ro.fallback = prunedAllowed.fallback;
+            ro.conditionRules = prunedAllowed.conditionRules.map((cr, i) => RuleOperationConditionEntity.create({
                 order: toInt(i),
                 allowed: cr.allowed,
                 conditions: cr.typeConditions.map(lite => RuleOperationConditionEntity_Conditions.create({ symbol: lite })),

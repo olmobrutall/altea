@@ -119,6 +119,11 @@ export namespace AuthAdminClient {
         export function saveQueryRulePack(pack: QueryRulePack): Promise<void> {
             return ajaxPost({ url: "/api/authAdmin/queryRules" }, pack);
         }
+        // The owned-part closure for a type: [ownerCleanName, ...partCleanNames]. Drives the per-type
+        // drill-in that shows one rule table per type (owner + parts) in the same modal.
+        export function fetchPartClosure(typeName: string): Promise<string[]> {
+            return ajaxGet({ url: "/api/authAdmin/partClosure/" + typeName, cache: "no-cache" });
+        }
         export function downloadAuthRules(): void {
             void ajaxGetRaw({ url: "/api/authAdmin/downloadAuthRules" }).then(response => saveFile(response));
         }

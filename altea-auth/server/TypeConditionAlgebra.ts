@@ -1,6 +1,6 @@
 import {
     Expression, BinaryExpression, UnaryExpression, ConstantExpression,
-    LambdaExpression, ParameterExpression,
+    LambdaExpression, ParameterExpression, PropertyExpression,
 } from "@altea/altea/server/linq/expressions";
 import { ExpressionVisitor } from "@altea/altea/server/linq/visitors/ExpressionVisitor";
 import { LiteralType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
@@ -152,4 +152,29 @@ export function authFilterLambda(filter: AuthFilter, elementType: RuntimeType): 
     if (filter === "none")
         return new LambdaExpression([new ParameterExpression("e", elementType)], new ConstantExpression(false, LiteralType.boolean));
     return filter;
+}
+
+// Replace a lambda parameter with an arbitrary EXPRESSION (not just another parameter) — for rebasing a
+// root's filter body onto a navigation off a different parameter.
+class ExprReplacer extends ExpressionVisitor {
+    constructor(private readonly from: ParameterExpression, private readonly to: Expression) { super(); }
+    override visitParameter(node: ParameterExpression): Expression {
+        return node === this.from ? this.to : node;
+    }
+}
+
+// Rebase a ROOT's AuthFilter onto a PART for a STANDALONE `table(Part)` query: navigate the Part's
+// back-reference chain up to the root (`part.<f1>.<f2>…`) and apply the root's condition there. So a Part
+// queried alone is restricted exactly as its root is (Signum's "apply the parent's TypeCondition when the
+// part is queried in isolation"); via-owner access never reaches here (the collection projection bypasses
+// the queryFilter marker). "all" → no filter; "none" → no row passes.
+export function rebasePartFilter(rootFilter: AuthFilter, partElementType: RuntimeType, chain: readonly string[]): LambdaExpression | undefined {
+    if (rootFilter === "all")
+        return undefined;
+    const part = new ParameterExpression("e", partElementType);
+    if (rootFilter === "none")
+        return new LambdaExpression([part], new ConstantExpression(false, LiteralType.boolean));
+    const nav = chain.reduce<Expression>((obj, field) => new PropertyExpression(obj, field, false), part);
+    const body = new ExprReplacer(rootFilter.parameters[0], nav).visit(rootFilter.body);
+    return new LambdaExpression([part], body);
 }

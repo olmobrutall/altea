@@ -28,10 +28,7 @@ export default function QueryRulePackControl({ ctx, ref }: { ctx: TypeContext<Qu
 
     const dirty = React.useRef(false);
     React.useEffect(() => { dirty.current = false; }, [ctx.value]);
-    const setAllowed = (rule: QueryAllowedRule, v: QueryAllowed): void => {
-        if (v > rule.coerced) return;
-        rule.allowed = v; dirty.current = true; ctx.frame!.frameComponent.forceUpdate();
-    };
+    const markDirty = (): void => { dirty.current = true; ctx.frame!.frameComponent.forceUpdate(); };
 
     function renderButtons(bc: ButtonsContext): ButtonBarElement[] {
         const hasChanges = dirty.current;
@@ -68,31 +65,43 @@ export default function QueryRulePackControl({ ctx, ref }: { ctx: TypeContext<Qu
                 <EntityLine ctx={ctx.subCtx(f => f.type)} readOnly={true} />
                 <AutoLine ctx={ctx.subCtx(f => f.strategy)} readOnly={true} />
             </div>
-            <table className="table table-sm table-hover sf-auth-rules" style={{ maxWidth: "40rem" }}>
-                <thead>
-                    <tr>
-                        <th>Query</th>
-                        {LEVELS.map(l => <th key={l.value} className="text-center">{l.label}</th>)}
-                        <th className="text-center">{AuthAdminMessage.Overriden.niceToString()}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {ctx.value.rules.map(rule => (
-                        <tr key={String(rule.resource.id)}>
-                            <td>{rule.resource.toString()}</td>
-                            {LEVELS.map(l => <td key={l.value} className="text-center">
-                                {rule.coerced >= l.value &&
-                                    <ColorRadio readOnly={ctx.readOnly} checked={rule.allowed === l.value} color={l.color}
-                                        onClicked={() => setAllowed(rule, l.value)} />}
-                            </td>)}
-                            <td className="text-center">
-                                <GrayCheckbox readOnly={ctx.readOnly} checked={rule.allowed !== rule.allowedBase}
-                                    onUnchecked={() => setAllowed(rule, rule.allowedBase)} />
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+            <QueryRulesTable pack={ctx.value} readOnly={ctx.readOnly} markDirty={markDirty} />
         </div>
+    );
+}
+
+// Just the per-type query-rules TABLE (no header) — extracted so the stacked part-closure modal
+// (AuthClosureModal) can render one table per type. Queries have no conditions, so this is the simplest.
+export function QueryRulesTable({ pack, readOnly, markDirty }: { pack: QueryRulePack; readOnly: boolean; markDirty: () => void }): React.JSX.Element {
+    const setAllowed = (rule: QueryAllowedRule, v: QueryAllowed): void => {
+        if (v > rule.coerced) return;
+        rule.allowed = v; markDirty();
+    };
+    return (
+        <table className="table table-sm table-hover sf-auth-rules" style={{ maxWidth: "40rem" }}>
+            <thead>
+                <tr>
+                    <th>Query</th>
+                    {LEVELS.map(l => <th key={l.value} className="text-center">{l.label}</th>)}
+                    <th className="text-center">{AuthAdminMessage.Overriden.niceToString()}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {pack.rules.map(rule => (
+                    <tr key={String(rule.resource.id)}>
+                        <td>{rule.resource.toString()}</td>
+                        {LEVELS.map(l => <td key={l.value} className="text-center">
+                            {rule.coerced >= l.value &&
+                                <ColorRadio readOnly={readOnly} checked={rule.allowed === l.value} color={l.color}
+                                    onClicked={() => setAllowed(rule, l.value)} />}
+                        </td>)}
+                        <td className="text-center">
+                            <GrayCheckbox readOnly={readOnly} checked={rule.allowed !== rule.allowedBase}
+                                onUnchecked={() => setAllowed(rule, rule.allowedBase)} />
+                        </td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
     );
 }

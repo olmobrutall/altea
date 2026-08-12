@@ -96,6 +96,16 @@ export namespace AuthAdminServer {
                 res.status(204).end();
             });
 
+        // GET the owned-part CLOSURE for a type — [ownerCleanName, ...partCleanNames] (parts ordered by
+        // ownership depth). altea-only: a per-type dimension drill-in renders one rule table per type in
+        // the same modal so a Part's property/operation/query rules stay editable even though the Part is
+        // hidden from the Type-Auth grid. A type owning no parts returns just [itself].
+        ws.get("/api/authAdmin/partClosure/:typeName",
+            { params: CustomType<{ typeName: string }>(), res: CustomType<string[]>() },
+            (req, res) => {
+                res.json(TypeAuthLogic.ownedPartClosure(req.params.typeName));
+            });
+
         // Export ALL auth rules as a Southwind-style AuthRules.xml download (Signum's AuthAdminController
         // ExportRules). Import is a terminal operation (renames need a console / an AutoReplacement), so no
         // upload endpoint — see the eastwind terminal `import-auth`.

@@ -10,14 +10,14 @@ import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { toInt } from "@altea/altea/data/basics";
-import { AuthLogic } from "./AuthLogic";
+import { AuthLogic, type RoleGraphData } from "./AuthLogic";
 import { TypeAuthLogic } from "./TypeAuthLogic";
 import { TypeConditionLogic } from "./TypeConditionLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
 import {
     RulePropertyEntity, RulePropertyConditionEntity, RulePropertyConditionEntity_Conditions,
-    RuleTypeEntity, PropertyRulePack, PropertyAllowedRule, PropertyAllowed, TypeAllowed, TypeAllowedBasic,
-    PropertyWithConditionsModel, PropertyConditionRuleModel, TypeConditionSymbol,
+    RuleTypeEntity, PropertyRulePack, PropertyAllowedRule, PropertyAllowed, TypeAllowed,
+    PropertyWithConditionsModel, PropertyConditionRuleModel, TypeConditionSymbol, TypeConditionSetModel,
     typeAllowedUI, typeBasicToProperty,
 } from "../data/Rules";
 import { WithConditions, ConditionRule, evaluateConditions } from "./WithConditions";
@@ -26,7 +26,6 @@ import { setSerializationAuth, type PropertyAccess } from "@altea/altea/data/ser
 import { Serializer } from "@altea/altea/data/serializer";
 import { setRequestDeserializer } from "@altea/altea/server/webApi";
 import * as Database from "@altea/altea/server/Database";
-import type { Schema } from "@altea/altea/server/schema";
 
 // Port of Signum's PropertyAuthLogic (Rules/PropertyAuthLogic.cs) — the property dimension. A role's
 // allowance per property route is PropertyAllowed (None → hidden; Read → read-only; Write). A property is
@@ -38,25 +37,18 @@ import type { Schema } from "@altea/altea/server/schema";
 // routes enumerated via PropertyRoute.generateRoutes; async cache (sb.globalLazy + computeAllowed).
 //
 // ENFORCEMENT: installed via `setSerializationAuth` (the codec's open-default hook). The serializer is
-// SYNCHRONOUS, so — like Signum's warm GlobalLazy — property access is served from an always-WARM sync
-// snapshot (`_syncSnapshot`: roleKey → typeId → path → PropertyAllowed) materialised at schema.initialize()
-// and re-warmed when a property / type / role rule changes. None → the value is omitted server→client +
-// its line hidden (propsMeta); Read → read-only (kept on save); Write → normal.
+// SYNCHRONOUS; per request the codec calls `resolveContext` ONCE (async, before the walk) to capture an
+// IMMUTABLE SerializationAuthContext — the role graph + type rules + property rules, each obtained by
+// awaiting a ResetLazy's Promise<T> — then `access` folds over THAT snapshot synchronously. Signum keeps a
+// permanently-warm GlobalLazy; altea captures a per-request snapshot, immune to a concurrent invalidate().
+// None → the value is omitted server→client + its line hidden (propsMeta); Read → read-only (kept on
+// save); Write → normal.
 export namespace PropertyAuthLogic {
     let started = false;
-    let _schema: Schema | undefined;
     interface RulesCache {
         rules: Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>;
     }
-    let rulesLazy: ResetLazy<Promise<RulesCache>>;
-    // Signum's warm property cache, materialised for the SYNC serializer. Per (role, type): the type's own
-    // allowance (to clamp a property to its type's UI-read PER INSTANCE) + each route's WithConditions. The
-    // scalar access is resolved at serialize time by evaluating both against the concrete root entity.
-    interface TypeSnap {
-        ceiling: WithConditions<TypeAllowed>;
-        byPath: Map<string, WithConditions<PropertyAllowed>>;
-    }
-    let _syncSnapshot = new Map<string, Map<PrimaryKey, TypeSnap>>();
+    let rulesLazy: ResetLazy<RulesCache>;
 
     export function isStarted(): boolean {
         return started;
@@ -66,20 +58,21 @@ export namespace PropertyAuthLogic {
         if (started)
             return;
         started = true;
-        _schema = sb.schema;
+        TypeAuthLogic.registerDimensionSummary("properties", fallbackSummary); // grid icon colour summary
         sb.include(RulePropertyEntity).withQuery();
         // invalidateWith RuleType too: the no-rule default / coerced ceiling derive from the type's UI-read
         // allowance, so a type-rule change must reset the property cache.
         rulesLazy = sb.globalLazy(async () => ({ rules: await loadRules() }),
             { invalidateWith: [RulePropertyEntity, RuleTypeEntity, RoleEntity] });
-        // Warm the sync snapshot after gen/sync (initialize), and re-warm when any dimension it derives
-        // from changes. Install the serializer hook once (it reads the snapshot synchronously).
-        sb.schema.initializing.push(() => warmSyncSnapshot());
-        for (const t of [RulePropertyEntity, RuleTypeEntity, RoleEntity] as Type<Entity>[])
-            sb.schema.entityEvents(t).saved.push(() => void warmSyncSnapshot());
+        // The serializer is SYNCHRONOUS. Per request the codec calls `resolveContext` ONCE (async, before the
+        // walk) to capture an IMMUTABLE snapshot of the auth caches (role graph + type rules + property rules)
+        // in a SerializationAuthContext, then reads THAT snapshot synchronously in `access` — so a concurrent
+        // rule invalidation can't null a cache out mid-serialization (no fail-open window). Signum keeps its
+        // RoleAllowedCache permanently warm; altea captures a per-request snapshot instead.
         setSerializationAuth({
             getMetadata: root => root,   // the root ENTITY — access evaluates its type-conditions per instance
-            access: (route, meta) => toAccess(accessSync(meta as Entity, route.propertyString())),
+            access: (route, meta, context) => toAccess(accessFromCtx(meta as Entity, route.propertyString(), context)),
+            resolveContext: () => resolveContext(),
         });
         // The WRITE gate: make the retrieve implicit in the request deserializer. When the body carries an
         // existing (id) + modified root entity, load its DB original and overlay the incoming changes onto
@@ -122,61 +115,85 @@ export namespace PropertyAuthLogic {
         return pa === PropertyAllowed.None ? "hidden" : pa === PropertyAllowed.Read ? "readonly" : "writable";
     }
 
-    // SYNC property access for the current role (serializer path), evaluated against the concrete root
-    // ENTITY (so type conditions resolve). No role / not warmed / unknown route → Write (fail-open — a
-    // not-yet-warmed snapshot must not hide data). The property's per-instance value is clamped by the
-    // type's per-instance UI-read allowance (a property can't exceed its type — Signum's CoerceValue).
-    function accessSync(root: Entity, path: string): PropertyAllowed {
+    // The IMMUTABLE serialization-auth snapshot (Signum's warm RoleAllowedCache, captured per request). Holds
+    // the property rules + the type-rule snapshot + the role graph — everything the sync `access` folds over.
+    interface PropAuthCtx {
+        propRules: Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>;
+        typeCtx: TypeAuthLogic.RulesSnapshot;
+        graph: RoleGraphData;
+    }
+
+    // Resolve the per-request snapshot: await the Promise<T> of each ResetLazy (never touching the box naked)
+    // and combine into one PropAuthCtx. The serializer then reads it synchronously via accessFromCtx — immune
+    // to a concurrent invalidate() between here and the walk (the captured values are frozen).
+    export async function resolveContext(): Promise<PropAuthCtx> {
+        const [graph, typeCtx, rc] = await Promise.all([
+            AuthLogic.roleGraph(),
+            TypeAuthLogic.rulesSnapshot(),
+            rulesLazy.value(),
+        ]);
+        return { propRules: rc.rules, typeCtx, graph };
+    }
+
+    // SYNC property access for the current role (serializer path), evaluated against the concrete root ENTITY
+    // (so type conditions resolve) from the CAPTURED context. No role / auth off / no context / unknown route
+    // → Write (fail open). The per-instance value is clamped to the type's per-instance UI-read allowance
+    // (a property can't exceed its type — Signum's CoerceValue).
+    function accessFromCtx(root: Entity, path: string, ctxU: unknown): PropertyAllowed {
         const roleKey = AuthLogic.currentRoleKey();
         if (roleKey == null || !AuthLogic.isEnabled())
             return PropertyAllowed.Write;
+        const ctx = ctxU as PropAuthCtx | undefined;
+        if (ctx == null)
+            return PropertyAllowed.Write; // no snapshot captured (auth off) → fail open
         let typeId: PrimaryKey;
         try { typeId = TypeLogic.typeToId(root.constructor); } catch { return PropertyAllowed.Write; }
-        const snap = _syncSnapshot.get(roleKey)?.get(typeId);
-        const wc = snap?.byPath.get(path);
-        if (snap == null || wc == null)
-            return PropertyAllowed.Write;
+        const wc = propAllowedFromCtx(typeId, compositeKey(typeId, path), roleKey, ctx);
+        const ceilingWC = TypeAuthLogic.getAllowedFromCtx(typeId, roleKey, ctx.typeCtx, ctx.graph);
         const matches = (tc: TypeConditionSymbol): boolean => TypeConditionLogic.inTypeCondition(root, tc);
         const prop = evaluateConditions(wc, matches);
-        const ceil = typeBasicToProperty(typeAllowedUI(evaluateConditions(snap.ceiling, matches)));
+        const ceil = typeBasicToProperty(typeAllowedUI(evaluateConditions(ceilingWC, matches)));
         return Math.min(prop, ceil) as PropertyAllowed;
     }
 
-    // Materialise the warm snapshot: every role × every entity type → { type ceiling + each route's
-    // WithConditions }. Bounded (roles × types × routes); mirrors Signum's warm property GlobalLazy. The
-    // per-instance scalar is resolved later, in accessSync, against the concrete entity.
-    async function warmSyncSnapshot(): Promise<void> {
-        if (_schema == null) return;
-        try {
-            const roleKeys = [...(await AuthLogic.roleGraph()).rolesByKey.keys()];
-            const ctors = [...(_schema.tables.keys() as Iterable<unknown>)].filter((c): c is Function => typeof c === "function");
-            const next = new Map<string, Map<PrimaryKey, TypeSnap>>();
-            for (const rk of roleKeys) {
-                const byType = new Map<PrimaryKey, TypeSnap>();
-                for (const ctor of ctors) {
-                    let typeId: PrimaryKey;
-                    try { typeId = TypeLogic.typeToId(ctor); } catch { continue; }
-                    const ceiling = await TypeAuthLogic.getAllowed(typeId, rk);
-                    const byPath = new Map<string, WithConditions<PropertyAllowed>>();
-                    for (const route of PropertyRoute.generateRoutes(ctor, false))
-                        byPath.set(route.propertyString(), await getAllowed(typeId, route.propertyString(), rk));
-                    byType.set(typeId, { ceiling, byPath });
-                }
-                next.set(rk, byType);
-            }
-            _syncSnapshot = next;
-        } catch (e) {
-            // Tolerate a not-yet-migrated / unavailable rule table (e.g. during `terminal sync`, which runs
-            // schema.initialize BEFORE applying the DDL). Leave the snapshot as-is → accessSync fails OPEN
-            // (Write). A normal API start (migrated DB) succeeds; saved-events + invalidate re-warm later.
-            console.warn("[property-auth] warm snapshot skipped:", (e as Error).message);
+    // ---- SYNC getAllowed over the captured context (twins of getAllowed / propAllowed / hasExplicitInChain
+    // / typeDefaultWC): identical folding, but read the frozen snapshot (propRules + typeCtx + graph). No
+    // undefined path — the context is always fully resolved by the time access runs.
+    function relatedToG(graph: RoleGraphData, rk: string): Set<string> {
+        return graph.graph.tryRelatedTo(rk);
+    }
+    function mergeStrategyG(graph: RoleGraphData, rk: string): MergeStrategy {
+        return graph.mergeStrategies.get(rk)?.strategy ?? MergeStrategy.Union;
+    }
+    function propAllowedFromCtx(typeId: PrimaryKey, key: string, roleKey: string, ctx: PropAuthCtx): WithConditions<PropertyAllowed> {
+        if (!hasExplicitInChainCtx(roleKey, key, ctx.propRules, ctx.graph))
+            return typeDefaultFromCtx(typeId, roleKey, ctx);
+        const explicit = ctx.propRules.get(roleKey)?.get(key);
+        if (explicit !== undefined) return explicit;
+        const parents = relatedToG(ctx.graph, roleKey);
+        return mergeProp(mergeStrategyG(ctx.graph, roleKey), [...parents].map(p => propAllowedFromCtx(typeId, key, p, ctx)));
+    }
+    function hasExplicitInChainCtx(roleKey: string, key: string, rules: Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>, graph: RoleGraphData): boolean {
+        const seen = new Set<string>();
+        const stack = [roleKey];
+        while (stack.length > 0) {
+            const rk = stack.pop()!;
+            if (seen.has(rk)) continue;
+            seen.add(rk);
+            if (rules.get(rk)?.has(key)) return true;
+            for (const p of relatedToG(graph, rk)) stack.push(p);
         }
+        return false;
+    }
+    function typeDefaultFromCtx(typeId: PrimaryKey, roleKey: string, ctx: PropAuthCtx): WithConditions<PropertyAllowed> {
+        const ta = TypeAuthLogic.getAllowedFromCtx(typeId, roleKey, ctx.typeCtx, ctx.graph);
+        return ta.mapWithConditions(t => typeBasicToProperty(typeAllowedUI(t)));
     }
 
-    /** Explicit reset for setPropertyRulePack (whose deletes don't fire `saved`). Saves auto-invalidate. */
+    /** Explicit reset for setPropertyRulePack (whose deletes don't fire `saved`). Saves auto-invalidate.
+     *  The next request's resolveContext re-reads the fresh rules into a new snapshot. */
     export function invalidate(): void {
         rulesLazy?.reset();
-        void warmSyncSnapshot(); // keep the sync serializer snapshot in step after a pack edit
     }
 
     const compositeKey = (typeId: PrimaryKey, path: string): string => `${String(typeId)}|${path}`;
@@ -218,13 +235,17 @@ export namespace PropertyAuthLogic {
         return ta.mapWithConditions(t => typeBasicToProperty(typeAllowedUI(t)));
     }
 
-    // The coarse scalar ceiling for the admin pack's `coerced` (the type's max UI-read as PropertyAllowed).
-    async function typeCeilingScalar(typeId: PrimaryKey, roleKey: string): Promise<PropertyAllowed> {
-        if (await TypeAuthLogic.isAllowedForType(typeId, TypeAllowedBasic.Write, true, roleKey))
-            return PropertyAllowed.Write;
-        if (await TypeAuthLogic.isAllowedForType(typeId, TypeAllowedBasic.Read, true, roleKey))
-            return PropertyAllowed.Read;
-        return PropertyAllowed.None;
+    // Clamp each slice of a property's WithConditions to the type's per-slice ceiling (a property can't
+    // exceed its type — Signum's Coerce). Applied when BUILDING the admin pack AND before PERSISTING, so a
+    // value left stranded above a later-downgraded type never renders an empty radio nor gets stored.
+    const condSetKey = (tcs: readonly TypeConditionSymbol[]): string => tcs.map(s => String(s.id)).sort().join("&");
+    function coerceToCeiling(wc: WithConditions<PropertyAllowed>, ceiling: WithConditions<PropertyAllowed>): WithConditions<PropertyAllowed> {
+        const ceilByKey = new Map(ceiling.conditionRules.map(cr => [condSetKey(cr.typeConditions), cr.allowed] as const));
+        const clamp = (v: PropertyAllowed, ceil: PropertyAllowed): PropertyAllowed => Math.min(v, ceil) as PropertyAllowed;
+        return new WithConditions<PropertyAllowed>(
+            clamp(wc.fallback, ceiling.fallback),
+            wc.conditionRules.map(cr => new ConditionRule<PropertyAllowed>([...cr.typeConditions], clamp(cr.allowed, ceilByKey.get(condSetKey(cr.typeConditions)) ?? ceiling.fallback))),
+        );
     }
 
     // Signum's PropertyAuthLogic AutomaticUpgradeOfProperties: a property's allowance can NOT be resolved by
@@ -233,9 +254,9 @@ export namespace PropertyAuthLogic {
     // recursion is bespoke: if no role in the chain has an explicit rule for this route, the property AUTO-
     // UPGRADES to this role's type default; otherwise it is the explicit rule (here) or the per-parent merge
     // (each parent resolved the SAME way, so a no-rule branch contributes its own type default). The final
-    // clamp to the type ceiling is per-instance, in accessSync.
+    // clamp to the type ceiling is per-instance, in accessFromCtx.
     async function getAllowed(typeId: PrimaryKey, path: string, roleKey: string): Promise<WithConditions<PropertyAllowed>> {
-        const { rules } = await rulesLazy.value;
+        const { rules } = await rulesLazy.value();
         return propAllowed(typeId, compositeKey(typeId, path), roleKey, rules);
     }
 
@@ -278,6 +299,22 @@ export namespace PropertyAuthLogic {
 
     const symbolLite = (s: TypeConditionSymbol): Lite<TypeConditionSymbol> => TypeConditionSymbol.newLite(s.id, s.key);
 
+    /** Min/max access RANK (0 None, 1 Read, 2 Write) over ALL property routes' fallback allowance — the
+     *  grid's colour summary for the Properties drill-in. undefined when the type has no routes. */
+    export async function fallbackSummary(typeName: string, roleKey: string): Promise<{ min: number; max: number } | undefined> {
+        const ctor = Entity.resolveType(typeName);
+        const typeId = TypeLogic.typeToId(ctor);
+        const rank = (v: PropertyAllowed): number => v === PropertyAllowed.None ? 0 : v === PropertyAllowed.Read ? 1 : 2;
+        let min = 2, max = 0, any = false;
+        for (const route of PropertyRoute.generateRoutes(ctor, false)) {
+            const r = rank((await getAllowed(typeId, route.propertyString(), roleKey)).fallback);
+            if (r < min) min = r;
+            if (r > max) max = r;
+            any = true;
+        }
+        return any ? { min, max } : undefined;
+    }
+
     function toModel(wc: WithConditions<PropertyAllowed>): PropertyWithConditionsModel {
         return PropertyWithConditionsModel.create({
             fallback: wc.fallback,
@@ -309,23 +346,28 @@ export namespace PropertyAuthLogic {
         const roleKey = role.toLite().key();
         const ctor = Entity.resolveType(typeName);
         const typeId = TypeLogic.typeToId(ctor);
-        const ceiling = await typeCeilingScalar(typeId, roleKey);
+        // The per-slice ceiling = the type's own allowance mapped to PropertyAllowed (a property can't
+        // exceed its type for any condition, so a None slice caps that slice's properties at None). Same
+        // shape for every route, but emit a fresh model per row (each is an independent transport instance).
+        const ceiling = await typeDefaultWC(typeId, roleKey); // the per-slice ceiling (same for every route)
         const rules: PropertyAllowedRule[] = [];
         for (const route of PropertyRoute.generateRoutes(ctor, false)) {
             const path = route.propertyString();
             rules.push(PropertyAllowedRule.create({
                 path,
-                allowed: toModel(await getAllowed(typeId, path, roleKey)),
-                allowedBase: toModel(await getAllowedBase(typeId, path, roleKey)),
-                coerced: ceiling,
+                allowed: toModel(coerceToCeiling(await getAllowed(typeId, path, roleKey), ceiling)),
+                allowedBase: toModel(coerceToCeiling(await getAllowedBase(typeId, path, roleKey), ceiling)),
+                coerced: toModel(ceiling),
             }));
         }
         rules.sort((a, b) => a.path.localeCompare(b.path));
+        const conditionSets = await TypeAuthLogic.conditionSetsForType(typeId, roleKey);
         return PropertyRulePack.create({
             role: role.toLite(),
             type: TypeEntity.newLite(typeId, typeName),
             strategy: MergeStrategy[role.mergeStrategy],
             availableConditions: TypeConditionLogic.conditionsFor(ctor).map(symbolLite),
+            availableTypeConditions: conditionSets.map(set => TypeConditionSetModel.create({ typeConditions: set.map(symbolLite) })),
             rules,
         });
     }
@@ -337,13 +379,21 @@ export namespace PropertyAuthLogic {
         if (role == null)
             throw new Error(`Role '${pack.role.id}' not found`);
         const roleLite = role.toLite();
+        const roleKey = roleLite.key();
         const symbolById = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s] as const));
+        const ceiling = await typeDefaultWC(pack.type.id, roleKey); // the per-slice type ceiling / auto-follow default
         const current = await table(RulePropertyEntity).filter(rp => rp.role == roleLite && rp.rootType == pack.type).toArray() as RulePropertyEntity[];
         const currentByPath = new Map(current.map(rp => [rp.path, rp]));
 
         for (const r of pack.rules) {
             const existing = currentByPath.get(r.path);
-            const isRedundant = fromModel(r.allowed, symbolById).equals(fromModel(r.allowedBase, symbolById));
+            // Coerce to the type ceiling (never store a value above the type), then drop no-op condition
+            // rows (a slice whose allowed equals the fallback is a last-match-wins no-op).
+            const coerced0 = coerceToCeiling(fromModel(r.allowed, symbolById), ceiling);
+            const coerced = new WithConditions<PropertyAllowed>(coerced0.fallback, coerced0.conditionRules.filter(cr => cr.allowed !== coerced0.fallback));
+            // A property with no explicit rule AUTO-FOLLOWS its type, so a rule equal to the type default
+            // (trivial, e.g. Type Read + Property Read) OR to the inherited base is redundant → don't store.
+            const isRedundant = coerced.equals(ceiling) || coerced.equals(fromModel(r.allowedBase, symbolById));
             if (isRedundant) {
                 if (existing != null)
                     await existing.delete();
@@ -354,11 +404,11 @@ export namespace PropertyAuthLogic {
                 rootType: TypeEntity.newLite(pack.type.id, pack.type.toString()),
                 path: r.path,
             });
-            rp.fallback = r.allowed.fallback;
-            rp.conditionRules = r.allowed.conditionRules.map((cr, i) => RulePropertyConditionEntity.create({
+            rp.fallback = coerced.fallback;
+            rp.conditionRules = coerced.conditionRules.map((cr, i) => RulePropertyConditionEntity.create({
                 order: toInt(i),
                 allowed: cr.allowed,
-                conditions: cr.typeConditions.map(lite => RulePropertyConditionEntity_Conditions.create({ symbol: lite })),
+                conditions: cr.typeConditions.map(s => RulePropertyConditionEntity_Conditions.create({ symbol: symbolLite(s) })),
             }));
             await rp.save();
         }
