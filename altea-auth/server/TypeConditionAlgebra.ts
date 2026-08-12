@@ -154,6 +154,15 @@ export function authFilterLambda(filter: AuthFilter, elementType: RuntimeType): 
     return filter;
 }
 
+// The raw per-condition boolean predicate as a LambdaExpression `(e) => <condition body>`, for the
+// retrieve-time additional binding (Signum's _typeConditions RegisterBinding). Unlike buildAuthFilter this
+// is ONE condition, un-combined and un-negated — the binder folds it straight into the retrieval SELECT
+// (QueryBinder.withAdditionalBindings binds it against the entity). fromQuotedLambda already yields a
+// single-parameter lambda over `elementType`, so it needs no re-basing.
+export function conditionValueLambda(ctor: Function, elementType: RuntimeType, symbol: TypeConditionSymbol): LambdaExpression {
+    return Expression.fromQuotedLambda(TypeConditionLogic.getCondition(ctor, symbol), [elementType]);
+}
+
 // Replace a lambda parameter with an arbitrary EXPRESSION (not just another parameter) — for rebasing a
 // root's filter body onto a navigation off a different parameter.
 class ExprReplacer extends ExpressionVisitor {

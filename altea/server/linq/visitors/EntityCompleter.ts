@@ -58,7 +58,8 @@ export class EntityCompleter extends DbExpressionVisitor {
             const externalId = this.visit(completed.externalId) as PrimaryKeyExpression;
             const bindings = completed.bindings?.map(b => new FieldBinding(b.fieldInfo, this.visit(b.binding)));
             const mixins = completed.mixins?.map(m => this.visitMixinEntity(m) as MixinEntityExpression);
-            return new EntityExpression(completed.type, completed.table, externalId, completed.tableAlias, bindings, mixins, completed.avoidExpandOnRetrieving);
+            const additional = completed.additionalBindings?.map(a => this.visitAdditionalBinding(a));
+            return new EntityExpression(completed.type, completed.table, externalId, completed.tableAlias, bindings, mixins, completed.avoidExpandOnRetrieving, additional);
         } finally {
             this.previousTables.pop();
         }

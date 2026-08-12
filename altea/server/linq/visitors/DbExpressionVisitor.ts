@@ -9,7 +9,7 @@ import {
     IsNullExpression, IsNotNullExpression,
     ProjectionExpression, ChildProjectionExpression, FieldEntityArrayExpression,
     LiteReferenceExpression, LiteValueExpression, type LiteReferenceTarget, PrimaryKeyExpression, FieldBinding,
-    EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
+    EntityExpression, EmbeddedEntityExpression, MixinEntityExpression, AdditionalBinding,
     ImplementedByExpression, ImplementedByAllExpression, TypeImplementedByAllExpression,
     TypeEntityExpression, TypeImplementedByExpression,
     SourceWithAliasExpression, CommandExpression, ColumnAssignment,
@@ -333,9 +333,17 @@ export class DbExpressionVisitor extends ExpressionVisitor {
         const externalId = this.visit(ee.externalId) as PrimaryKeyExpression;
         const bindings = ee.bindings == null ? undefined : this.visitArray(ee.bindings, b => this.visitFieldBinding(b));
         const mixins = ee.mixins == null ? undefined : this.visitArray(ee.mixins, m => this.visitMixinEntity(m));
-        if (externalId !== ee.externalId || bindings !== ee.bindings || mixins !== ee.mixins)
-            return new EntityExpression(ee.type, ee.table, externalId, ee.tableAlias, bindings, mixins, ee.avoidExpandOnRetrieving);
+        const additional = ee.additionalBindings == null ? undefined : this.visitArray(ee.additionalBindings, a => this.visitAdditionalBinding(a));
+        if (externalId !== ee.externalId || bindings !== ee.bindings || mixins !== ee.mixins || additional !== ee.additionalBindings)
+            return new EntityExpression(ee.type, ee.table, externalId, ee.tableAlias, bindings, mixins, ee.avoidExpandOnRetrieving, additional);
         return ee;
+    }
+
+    visitAdditionalBinding(ab: AdditionalBinding): AdditionalBinding {
+        const binding = this.visit(ab.binding);
+        if (binding !== ab.binding)
+            return new AdditionalBinding(binding, ab.set);
+        return ab;
     }
 
     visitEmbeddedEntity(eee: EmbeddedEntityExpression): Expression {

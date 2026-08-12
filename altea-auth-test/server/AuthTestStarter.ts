@@ -44,6 +44,8 @@ export namespace AuthTestStarter {
             .withDelete(SampleOperation.Delete);
         TypeConditionLogic.registerCompile(SampleEntity, SampleTypeCondition.Confidential, s => s.confidential === true);
         TypeConditionLogic.registerCompile(SampleEntity, SampleTypeCondition.Public, s => s.confidential === false);
+        // DB-ONLY (no in-memory predicate) → forces the fillTypeConditions SQL path for inTypeCondition.
+        TypeConditionLogic.register(SampleEntity, SampleTypeCondition.HighValue, s => s.value > 0);
 
         OperationLogic.start(sb);
     }

@@ -1,7 +1,9 @@
 import type { SchemaBuilder } from "@altea/altea/server/schema/schemaBuilder";
-import type { Type, Entity, BaseEntity } from "@altea/altea/data/entity";
+import type { Type, Entity, BaseEntity, PrimaryKey } from "@altea/altea/data/entity";
 import type { Quoted } from "quote-transformer/quoted";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
+import { table } from "@altea/altea/server/table";
+import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { TypeConditionSymbol } from "../data/Rules";
 
 // Port of Signum's TypeConditionLogic (Rules/TypeConditionLogic.cs). The registry mapping each entity
@@ -104,15 +106,85 @@ export namespace TypeConditionLogic {
         return infoOrThrow(ctor, typeCondition).inMemoryCondition as ((e: T) => boolean) | undefined;
     }
 
-    // Signum's `entity.InTypeCondition(symbol)` — evaluate ONE symbol against ONE instance in-memory.
-    // Until _TypeConditions precompute lands (enforcement phase), this requires an in-memory condition.
+    // Signum's `entity.InTypeCondition(symbol)` — evaluate ONE symbol against ONE instance. A condition
+    // registered with `registerCompile` runs its compiled predicate live; a DB-ONLY condition (plain
+    // `register`) can't run in memory, so its boolean must have been pre-computed and cached on the entity
+    // (Signum reads `entity._TypeConditions`). An entity read through the ORM is filled automatically by the
+    // retrieve-time additional binding (Signum's RegisterBinding — TypeAuthLogic registers one per DB-only
+    // condition; the value is folded into the retrieval SELECT, 0 extra queries). For an entity NOT read via
+    // a query (e.g. a fresh instance on the save path), `fillTypeConditions` fills on demand. If neither ran,
+    // we throw rather than silently returning a wrong (unfilled) answer.
     export function inTypeCondition<T extends Entity>(entity: T, typeCondition: TypeConditionSymbol): boolean {
         const func = getInMemoryCondition(entity.constructor as Type<T>, typeCondition);
         if (func != null)
             return func(entity);
-        throw new Error(
-            `TypeCondition ${typeCondition.key} can not be evaluated in-memory for ${entity.constructor.name} ` +
-            `and _TypeConditions precompute is not available yet.`);
+        const cached = conditionCache.get(entity);
+        if (cached == null || !cached.has(typeCondition))
+            throw new Error(
+                `TypeCondition ${typeCondition.key} has no in-memory predicate for ${entity.constructor.name} and its DB ` +
+                `value isn't cached — call TypeConditionLogic.fillTypeConditions([...]) on the batch first.`);
+        return cached.get(typeCondition)!;
+    }
+
+    // Signum's Entity._typeConditions cache — DB-eval results per entity, kept in a WeakMap so it doesn't
+    // pollute the reflected entity shape. Undefined until `fillTypeConditions` runs.
+    const conditionCache = new WeakMap<Entity, Map<TypeConditionSymbol, boolean>>();
+
+    /** The cached DB-eval results for an entity (Signum's `entity._TypeConditions` getter), or undefined. */
+    export function typeConditionsOf(entity: Entity): ReadonlyMap<TypeConditionSymbol, boolean> | undefined {
+        return conditionCache.get(entity);
+    }
+
+    /** Cache one DB-eval boolean for an entity (Signum's `entity._TypeConditions[symbol] = value`). The
+     *  primary writer is the retrieve-time additional binding (QueryBinder folds each DB-only condition into
+     *  the SELECT and the projector calls this per row); `fillTypeConditions` writes the same cache for the
+     *  save path / entities not read through the ORM. Read back synchronously by `inTypeCondition`. */
+    export function setCached(entity: Entity, typeCondition: TypeConditionSymbol, value: boolean): void {
+        let m = conditionCache.get(entity);
+        if (m == null) { m = new Map(); conditionCache.set(entity, m); }
+        m.set(typeCondition, value);
+    }
+
+    // Signum's TypeAuthLogic.FillTypeConditions: evaluate the DB-ONLY conditions (those without an in-memory
+    // predicate) of a batch of SAME-TYPE entities in SQL and cache the booleans per entity. One query per
+    // DB-only condition — the ids satisfying its `@quoted` predicate (the very predicate the row filter
+    // lowers to SQL) — so `inTypeCondition` can then read the result synchronously. In-memory conditions are
+    // skipped (evaluated live). No DB-only conditions for the type ⇒ a no-op (no query), so the common
+    // all-`registerCompile` case never touches the database.
+    export async function fillTypeConditions<T extends Entity>(entities: readonly T[], typeConditions?: readonly TypeConditionSymbol[]): Promise<void> {
+        if (entities.length === 0)
+            return;
+        const ctor = entities[0].constructor as Type<T>;
+        const dbOnly = (typeConditions ?? conditionsFor(ctor)).filter(tc => !hasInMemoryCondition(ctor, tc));
+        if (dbOnly.length === 0)
+            return;
+        // Idempotent (Signum's `!force`): an entity is filled for ALL its DB-only conditions at once, so a
+        // cached entity is skipped — lets the retrieve/save integration fill once and later callers reuse.
+        const need = entities.filter(e => conditionCache.get(e) == null);
+        if (need.length === 0)
+            return;
+        const ids = need.map(e => e.id!);
+        // Evaluate the raw predicate on these ids in GLOBAL mode (Signum's DisableQueryFilter): no row-level
+        // security on the fill query itself, and — since it runs ungated + projects ids only (no entity
+        // materialisation) — the retrieve batch-hook can't recurse into it.
+        await ExecutionMode.global(async () => {
+            for (const tc of dbOnly) {
+                const predicate = getCondition(ctor, tc) as Quoted<(e: T) => boolean>;
+                const yesIds = await table(ctor).filter(predicate).filter(e => ids.includes(e.id)).map(e => e.id).toArray() as PrimaryKey[];
+                const yes = new Set(yesIds.map(String));
+                for (const e of need) {
+                    let m = conditionCache.get(e);
+                    if (m == null) { m = new Map(); conditionCache.set(e, m); }
+                    m.set(tc, yes.has(String(e.id)));
+                }
+            }
+        });
+    }
+
+    /** True if `ctor` has at least one DB-only condition (needs SQL fill) — lets the retrieve/save
+     *  integration skip types whose conditions are all in-memory. */
+    export function hasDbOnlyConditions(ctor: Function): boolean {
+        return conditionsFor(ctor).some(tc => !hasInMemoryCondition(ctor, tc));
     }
 }
 

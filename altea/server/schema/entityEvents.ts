@@ -22,10 +22,12 @@ import type { RuntimeType } from '../runtimeTypes';
 //    receiving the source Query, NOT Signum's IDisposable-returning scopes: a handler runs its
 //    own work (e.g. cascade-delete children) before the operation. The dispose-after phase and
 //    PreUnsafeInsert's constructor-rewriting are not ported (no consumer needs them yet).
-//  - `queryFilter` IS ported (Signum's FilterQuery, row-level query security) — see below. NOT ported
+//  - `queryFilter` IS ported (Signum's FilterQuery, row-level query security) — see below.
+//  - `additionalBindings` IS ported (Signum's RegisterBinding / AdditionalBindings) — see below — as a
+//    general per-row computed value folded into the retrieval SELECT (its original Signum use is MList /
+//    VirtualMList binding; altea has no MList, so its first consumer is DB-only TypeConditions). NOT ported
 //    (no altea infrastructure yet): CacheController (no caching module), AlternativeRetrieve (custom
-//    retrieval), and RegisterBinding / AdditionalBindings (Signum's MList / VirtualMList binding — altea
-//    has no MList). Add them here + at their engine path when that infrastructure lands.
+//    retrieval). Add them here + at their engine path when that infrastructure lands.
 
 // Handler signatures (Signum's event delegate types).
 export type PreDeleteSqlSyncHandler<T extends Entity> = (entity: T) => SqlPreCommand | undefined;
@@ -52,6 +54,17 @@ export type QueryFilterContext = ReadonlyMap<string, unknown>;
 // Schema.buildQueryFilterContext), never the DB. Returns undefined for "no restriction".
 export type QueryFilterHandler = (ctx: { ctor: Function; elementType: RuntimeType; filterContext: QueryFilterContext }) => LambdaExpression | undefined;
 
+// Signum's RegisterBinding / AdditionalBindings: a value the binder folds into the retrieval SELECT of T
+// (bound against the retrieved entity's own columns — no source navigation) and the projector stamps onto
+// each materialised instance, without it being a mapped field. `valueLambda` is `(e) => <value>` over the
+// element type; `set` writes the projected value onto the instance. See QueryBinder.withAdditionalBindings
+// (attaches on the root + reference-completion retrieval paths, NEVER on DML) and TranslatorBuilder's
+// projector (calls `set`). Returns nothing — registration is by pushing onto `additionalBindings`.
+export interface AdditionalBindingSpec<T extends Entity> {
+    readonly valueLambda: LambdaExpression;
+    readonly set: (entity: T, value: unknown) => void;
+}
+
 export class EntityEvents<T extends Entity> {
     // Signum's `event Func<T, SqlPreCommand?> PreDeleteSqlSync` — contribute SQL that must run
     // BEFORE a row of T is deleted by a synchronization script (see save.ts deleteSqlSync).
@@ -72,6 +85,8 @@ export class EntityEvents<T extends Entity> {
     readonly preBulkInsert: PreBulkInsertHandler[] = [];
     // Row-level query filter (Signum's FilterQuery) — a WHERE the binder adds to every query of T.
     readonly queryFilter: QueryFilterHandler[] = [];
+    // Per-row values folded into the retrieval SELECT (Signum's RegisterBinding / AdditionalBindings).
+    readonly additionalBindings: AdditionalBindingSpec<T>[] = [];
 
     // Combine every PreDeleteSqlSync handler's SQL (Signum's OnPreDeleteSqlSync) — reverse
     // registration order, Spacing.Simple; undefined when nothing is registered.

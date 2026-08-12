@@ -5,7 +5,7 @@ import {
 } from "../expressions";
 import {
     SelectExpression, ProjectionExpression, ColumnExpression, PrimaryKeyExpression,
-    FieldBinding, EntityExpression, EmbeddedEntityExpression, MixinEntityExpression,
+    FieldBinding, EntityExpression, EmbeddedEntityExpression, MixinEntityExpression, AdditionalBinding,
     SqlConstantExpression, TableExpression, OrderExpression, type OrderType, type UniqueFunction,
     AggregateExpression, AggregateRequestsExpression, type AggregateSqlFunction, RowNumberExpression, ColumnDeclaration, InExpression,
     SourceExpression, SqlFunctionExpression, SqlCastExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression, type JoinType,
@@ -515,6 +515,11 @@ export class QueryBinder extends ExpressionVisitor {
     // Table-source calls whose EntityEvents.queryFilter WHERE has already been spliced (row-level
     // security), so the synthesized `.filter(...)` re-visiting the same source doesn't re-wrap forever.
     private readonly queryFilterApplied = new Set<CallExpression>();
+
+    // Re-entrancy guard for withAdditionalBindings: while binding an additional-binding value lambda
+    // we must not attach further additional bindings to entities materialised in the process
+    // (a predicate that navigates a reference would otherwise recurse).
+    private buildingAdditional = false;
 
     // The type↔id caches resolved at the LINQ-provider boundary (`isLoading ? undefined : await ready()`),
     // threaded here so @implementedByAll discriminators bind against an explicit snapshot rather than the
@@ -2791,7 +2796,7 @@ export class QueryBinder extends ExpressionVisitor {
 
         const table = ee.table;
         const newAlias = this.aliasGenerator.nextTableAlias(table.name.name);
-        const completed = this.createEntityExpression(table, newAlias, ee.externalId);
+        const completed = this.withAdditionalBindings(this.createEntityExpression(table, newAlias, ee.externalId));
         this.entityReplacements.set(ee, completed);
 
         const newId = new ColumnExpression(LiteralType.number, newAlias, table.primaryKey.column.name);
@@ -3144,7 +3149,7 @@ export class QueryBinder extends ExpressionVisitor {
 
     private getTableProjectionForTable(table: Table, elementType: RuntimeType): ProjectionExpression {
         const tableAlias = this.aliasGenerator.nextTableAlias(table.name.name);
-        const entity = this.createEntityExpression(table, tableAlias);
+        const entity = this.withAdditionalBindings(this.createEntityExpression(table, tableAlias));
 
         // Consume the pending WithHint (if any) into this table, then clear it so it
         // applies to exactly one table (Signum: currentTableHint = null after use). A
@@ -3430,6 +3435,28 @@ export class QueryBinder extends ExpressionVisitor {
         return new EntityExpression(
             new ClassType(table.type as any), table, externalId, alias, bindings,
             mixins.length ? mixins : undefined, false);
+    }
+
+    // Signum's RegisterBinding pass: fold each additional binding registered for this entity's type
+    // (EntityEvents.additionalBindings) into the RETRIEVAL of `ee` — a per-row value computed in the
+    // SELECT (bound against `ee`'s own columns) and stamped onto the entity by the projector's setter.
+    // Called only on the retrieval paths (root table source + reference completion), NEVER on the DML
+    // build sites, so an UPDATE/INSERT entity expression never grows condition columns. Types with no
+    // registered binding pay nothing.
+    private withAdditionalBindings(ee: EntityExpression): EntityExpression {
+        if (this.buildingAdditional || ee.bindings == null || ee.tableAlias == null)
+            return ee;
+        const specs = this.schema.entityEvents(ee.table.type as unknown as Type<Entity>).additionalBindings;
+        if (specs.length === 0)
+            return ee;
+        this.buildingAdditional = true;
+        try {
+            const additional = specs.map(s => new AdditionalBinding(this.bindWithParam(s.valueLambda, ee), s.set));
+            return new EntityExpression(ee.type, ee.table, ee.externalId, ee.tableAlias, ee.bindings,
+                ee.mixins, ee.avoidExpandOnRetrieving, additional);
+        } finally {
+            this.buildingAdditional = false;
+        }
     }
 
     private bindField(ef: EntityField, alias: Alias, ownerId?: Expression): Expression | undefined {

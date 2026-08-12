@@ -30,7 +30,7 @@ import { UserEntity, UserState, UserTypeCondition } from "../data/User";
 import { TypeConditionLogic } from "./TypeConditionLogic";
 import { WithConditions, ConditionRule, maxBound, minBound, maxDB, maxUI } from "./WithConditions";
 import { mergeTypeConditions } from "./TypeConditionMerger";
-import { buildAuthFilter, authFilterLambda, rebasePartFilter } from "./TypeConditionAlgebra";
+import { buildAuthFilter, authFilterLambda, rebasePartFilter, conditionValueLambda } from "./TypeConditionAlgebra";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { section, groupByRole, attrs, conditionsXml, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
@@ -154,6 +154,26 @@ export namespace TypeAuthLogic {
                 if (rootCtor != null && conditioned.has(rootCtor) && chain.length > 0)
                     sb.schema.entityEvents(partCtor as Type<Entity>).queryFilter.push(partAuthQueryFilterHook(rootCtor, chain));
             }
+            // Retrieve-time DB-only TypeCondition fill (Signum's _typeConditions RegisterBinding): register
+            // ONE additional binding per DB-only condition on each conditioned type, so the LINQ binder folds
+            // the condition's boolean straight into the retrieval SELECT (0 extra queries) and the projector
+            // caches it per row — letting a later SYNCHRONOUS inTypeCondition (the property serializer, an
+            // in-memory row check) read it. In-memory (registerCompile) conditions evaluate live and need no
+            // binding, so the common all-registerCompile case registers nothing. The value is computed
+            // unconditionally (like Signum) — it's the raw predicate result, independent of role / auth
+            // state — so there's no gating here (and, being inline in the SELECT, no fill query to recurse).
+            for (const ctor of TypeConditionLogic.types()) {
+                const elementType = new ClassType(ctor);
+                const specs = sb.schema.entityEvents(ctor as Type<Entity>).additionalBindings;
+                for (const tc of TypeConditionLogic.conditionsFor(ctor)) {
+                    if (TypeConditionLogic.hasInMemoryCondition(ctor, tc))
+                        continue;
+                    specs.push({
+                        valueLambda: conditionValueLambda(ctor, elementType, tc),
+                        set: (e, v) => TypeConditionLogic.setCached(e as Entity, tc, v === true || v === 1),
+                    });
+                }
+            }
         });
     }
 
@@ -240,6 +260,20 @@ export namespace TypeAuthLogic {
         const rk = AuthLogic.currentRoleKey();
         if (rk == null || !AuthLogic.isEnabled())
             return;
+        // Batch-fill the DB-only conditions of the conditioned entities being saved up front (Signum fills
+        // _typeConditions during the save) — one query per type — so the per-instance isAllowedFor below
+        // reads cached values. (A brand-new row isn't in the DB yet, so its DB-only conditions resolve
+        // false — the same limitation as any pre-write gate; in-memory conditions evaluate live regardless.)
+        const byCtor = new Map<Function, Entity[]>();
+        for (const e of entities) {
+            if (!TypeConditionLogic.hasDbOnlyConditions(e.constructor)) continue;
+            let g = byCtor.get(e.constructor);
+            if (g == null) { g = []; byCtor.set(e.constructor, g); }
+            g.push(e);
+        }
+        for (const group of byCtor.values())
+            await TypeConditionLogic.fillTypeConditions(group);
+
         for (const e of entities) {
             const ctor = e.constructor as Function;
             if (TypeConditionLogic.conditionsFor(ctor).length === 0)
@@ -341,6 +375,10 @@ export namespace TypeAuthLogic {
         const max = maxBound(tac, userInterface);
         if (max < requested)
             return false;
+        // Some of this role's condition rules may reference DB-only conditions (no in-memory predicate);
+        // pre-evaluate them against this entity in SQL so the sync inTypeCondition below can read the result
+        // (a no-op when every condition is registerCompile'd — the common case). Signum fills at retrieve.
+        await TypeConditionLogic.fillTypeConditions([entity]);
         for (let i = tac.conditionRules.length - 1; i >= 0; i--) {
             const cond = tac.conditionRules[i];
             if (cond.typeConditions.every(tc => TypeConditionLogic.inTypeCondition(entity, tc)))

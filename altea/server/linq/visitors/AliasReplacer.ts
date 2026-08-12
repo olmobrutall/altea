@@ -122,10 +122,11 @@ export class AliasReplacer extends DbExpressionVisitor {
         const externalId = this.visit(ee.externalId) as PrimaryKeyExpression;
         const bindings = ee.bindings == null ? undefined : this.visitArray(ee.bindings, b => this.visitFieldBinding(b));
         const mixins = ee.mixins == null ? undefined : this.visitArray(ee.mixins, m => this.visitMixinEntity(m));
+        const additional = ee.additionalBindings == null ? undefined : this.visitArray(ee.additionalBindings, a => this.visitAdditionalBinding(a));
         const newAlias = ee.tableAlias == null ? undefined : this.map(ee.tableAlias);
-        if (externalId !== ee.externalId || bindings !== ee.bindings || mixins !== ee.mixins ||
+        if (externalId !== ee.externalId || bindings !== ee.bindings || mixins !== ee.mixins || additional !== ee.additionalBindings ||
             (newAlias != null && ee.tableAlias != null && !newAlias.equals(ee.tableAlias)))
-            return new EntityExpression(ee.type, ee.table, externalId, newAlias, bindings, mixins, ee.avoidExpandOnRetrieving);
+            return new EntityExpression(ee.type, ee.table, externalId, newAlias, bindings, mixins, ee.avoidExpandOnRetrieving, additional);
         return ee;
     }
 }
@@ -193,8 +194,9 @@ class CanonicalAliasVisitor extends DbExpressionVisitor {
         const externalId = this.visit(ee.externalId) as PrimaryKeyExpression;
         const bindings = ee.bindings == null ? undefined : this.visitArray(ee.bindings, b => this.visitFieldBinding(b));
         const mixins = ee.mixins == null ? undefined : this.visitArray(ee.mixins, m => this.visitMixinEntity(m));
+        const additional = ee.additionalBindings == null ? undefined : this.visitArray(ee.additionalBindings, a => this.visitAdditionalBinding(a));
         const newAlias = ee.tableAlias == null ? undefined : this.map(ee.tableAlias);
-        return new EntityExpression(ee.type, ee.table, externalId, newAlias, bindings, mixins, ee.avoidExpandOnRetrieving);
+        return new EntityExpression(ee.type, ee.table, externalId, newAlias, bindings, mixins, ee.avoidExpandOnRetrieving, additional);
     }
 }
 

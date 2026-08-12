@@ -853,6 +853,22 @@ export class PrimaryKeyExpression extends DbExpression {
     }
 }
 
+// Signum's additional binding (RegisterBinding): a value computed per-row IN the retrieval
+// SELECT and materialised onto the entity by the projector, WITHOUT being a mapped field/column
+// of the type. `binding` is the value Expression (nominated + projected like any other), `set`
+// stamps the projected value onto the retrieved instance. Used e.g. to fold DB-only
+// TypeCondition booleans into the query (0 extra queries) — see EntityEvents.additionalBindings.
+export class AdditionalBinding {
+    constructor(
+        public readonly binding: Expression,
+        public readonly set: (entity: any, value: unknown) => void,
+    ) { }
+
+    toString(): string {
+        return `[+] = ${this.binding}`;
+    }
+}
+
 export class EntityExpression extends DbExpression {
     constructor(
         type: RuntimeType,
@@ -862,6 +878,9 @@ export class EntityExpression extends DbExpression {
         public readonly bindings: readonly FieldBinding[] | undefined,
         public readonly mixins: readonly MixinEntityExpression[] | undefined,
         public readonly avoidExpandOnRetrieving: boolean = false,
+        // Extra per-row values folded into the retrieval SELECT (Signum's additionalBindings).
+        // Preserved by every visitEntity rewrite; materialised by the projector's visitEntity.
+        public readonly additionalBindings: readonly AdditionalBinding[] | undefined = undefined,
     ) {
         super("Entity", type);
     }

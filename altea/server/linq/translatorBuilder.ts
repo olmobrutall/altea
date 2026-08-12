@@ -63,7 +63,9 @@ export class TranslateResult {
         // Batch-complete any referenced rows left as id-only stubs (IBA/cycle/AvoidExpand),
         // then the projected instances are fully loaded — Signum's Retriever.CompleteAll.
         await retriever.completeAll();
-        // Now every instance is fully materialised — fire EntityEvents<T>.Retrieved once.
+        // Now every instance is fully materialised — fire EntityEvents<T>.Retrieved once. (Per-row derived
+        // values — Signum's additional bindings, e.g. DB-only TypeConditions — are folded into the retrieval
+        // SELECT and stamped by the projector, so there is no separate post-retrieval batch pass.)
         retriever.postRetrieved();
         return result;
     }
@@ -299,6 +301,15 @@ class ProjectionBuilder extends DbExpressionVisitor {
                 this.visit(b.binding);
                 assigns.push(`e[${JSON.stringify(b.fieldInfo.name)}] = ${this.pop()};`);
             }
+
+        // Additional bindings (Signum's RegisterBinding): a value computed in the SELECT and
+        // stamped onto the entity by its own setter — NOT a mapped field (e.g. DB-only
+        // TypeCondition booleans). Materialised after the mapped fields so a setter may read them.
+        for (const a of e.additionalBindings ?? []) {
+            const setIndex = this.pushConst(a.set);
+            this.visit(a.binding);
+            assigns.push(`consts[${setIndex}](e, ${this.pop()});`);
+        }
 
         // A view row bypasses the identity map (its representative PK may be non-unique — see
         // Retriever.viewRow); an entity row is deduped/completed through it.

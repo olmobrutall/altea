@@ -66,4 +66,7 @@ export namespace SampleOperation {
 export namespace SampleTypeCondition {
     export const Public: TypeConditionSymbol = init();
     export const Confidential: TypeConditionSymbol = init();
+    // A DB-ONLY condition (registered without an in-memory predicate) — exercises the fillTypeConditions
+    // SQL evaluation path (Signum's _typeConditions), unlike Public/Confidential which are registerCompile'd.
+    export const HighValue: TypeConditionSymbol = init();
 }
