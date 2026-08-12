@@ -896,7 +896,7 @@ export class EntityExpression extends DbExpression {
 
     toString(): string {
         const ctor = `new ${this.type}(${this.externalId})`;
-        return this.bindings == null ? ctor : `${ctor}\n{ ${this.bindings.join(",\n ")} }`;
+        return this.bindings == null ? ctor : `${ctor}\n{ ${this.bindings.join(",\n ")}${this.additionalBindings && ",\n"}${this.additionalBindings?.join(",\n")} }`;
     }
 
     accept(visitor: ExpressionVisitor) {
