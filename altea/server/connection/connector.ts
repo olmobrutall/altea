@@ -5,6 +5,7 @@ import type { IColumn } from '../schema/column';
 import { SqlBuilder } from '../sync/sqlBuilder';
 import type { SqlPreCommand, SqlPreCommandSimple } from '../sync/sqlPreCommand';
 import { currentCoreTransaction } from './transaction';
+import { HeavyProfiler } from '../profiler/heavyProfiler';
 
 // Ambient holder for the active connector. Connectors are server-only, so this
 // uses node's AsyncLocalStorage directly rather than the browser/server-agnostic
@@ -205,10 +206,18 @@ export abstract class Connector {
 
     // Times `run` and reports the statement to Connector.currentLogger when one is
     // set; a no-op fast path otherwise. The statement is logged even if it throws.
+    // Also opens a HeavyProfiler "SQL" span (the analog of Signum's `HeavyProfiler.Log("SQL", …)`
+    // in each connector's ExecuteScalar/NonQuery/DataReader/BulkCopy) — centralised here so BOTH
+    // dialects and all three primitives (query/nonQuery/bulkInsert) get one clean span whose
+    // additionalData is the statement text (load-bearing: sqlStatistics() groups by it). No-op
+    // (undefined) when the profiler is disabled.
     private async withLogging<T>(sql: string, parameters: unknown[], run: () => Promise<T>): Promise<T> {
+        using _prof = HeavyProfiler.log("SQL", () => sql);
         const logger = Connector.currentLogger;
+        // `await` (not a bare `return run()`) so the profiler span — disposed at function exit —
+        // stays open across the real query, not just its synchronous setup.
         if (logger == null)
-            return run();
+            return await run();
         const start = performance.now();
         try {
             return await run();

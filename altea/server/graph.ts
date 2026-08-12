@@ -12,6 +12,7 @@ import {
     type IConstructorFromOperation, type IConstructorFromManyOperation,
 } from "./operation";
 import { OperationLogic } from "./operationLogic";
+import { HeavyProfiler } from "./profiler/heavyProfiler";
 
 // Port of Signum's Graph<T> / Graph<T, S> (Graph.cs / GraphState.cs). TS can't nest a
 // class under a generic (`Graph<T>.Execute`), so the operations are real generic classes
@@ -98,7 +99,9 @@ export namespace Graph {
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         async doConstruct(args: unknown[]): Promise<Entity> {
-            return Transaction.create(async () => {
+            // Profiler span (Signum's Graph.cs HeavyProfiler.Log). `await` so it covers the transaction.
+            using _prof = HeavyProfiler.log("Construct", () => this.symbol.key);
+            return await Transaction.create(async () => {
                 const result = await this.construct(args);
                 assertToStates(result, this.toStates, this.getState);
                 return result as Entity;
@@ -129,7 +132,8 @@ export namespace Graph {
             return this.canConstruct != null ? this.canConstruct(from) : null;
         }
         async doConstructFrom(from: F, args: unknown[]): Promise<Entity> {
-            return Transaction.create(async () => {
+            using _prof = HeavyProfiler.log("ConstructFrom", () => `${this.symbol.key} on ${from}`);
+            return await Transaction.create(async () => {
                 const error = this.onCanExecute(from);
                 if (error != null) throw new Error(error);
                 const result = await this.construct(from, args);
@@ -154,7 +158,8 @@ export namespace Graph {
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         async doConstructFromMany(lites: Lite<Entity>[], args: unknown[]): Promise<Entity> {
-            return Transaction.create(async () => {
+            using _prof = HeavyProfiler.log("ConstructFromMany", () => this.symbol.key);
+            return await Transaction.create(async () => {
                 const result = await this.construct(lites as Lite<F>[], args);
                 assertToStates(result, this.toStates, this.getState);
                 return result as Entity;
@@ -188,7 +193,8 @@ export namespace Graph {
             return this.canExecute != null ? this.canExecute(entity) : null;
         }
         async doExecute(entity: T, args: unknown[]): Promise<Entity> {
-            return Transaction.create(async () => {
+            using _prof = HeavyProfiler.log("Execute", () => `${this.symbol.key} on ${entity}`);
+            return await Transaction.create(async () => {
                 const error = this.onCanExecute(entity);
                 if (error != null) throw new Error(error);
                 await this.execute(entity, args);
@@ -224,6 +230,7 @@ export namespace Graph {
             return this.canDelete != null ? this.canDelete(entity) : null;
         }
         async doDelete(entity: T, args: unknown[]): Promise<void> {
+            using _prof = HeavyProfiler.log("Delete", () => `${this.symbol.key} on ${entity}`);
             await Transaction.create(async () => {
                 const error = this.onCanExecute(entity);
                 if (error != null) throw new Error(error);

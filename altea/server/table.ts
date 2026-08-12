@@ -25,6 +25,7 @@ import { QueryFormatter } from "./linq/queryFormatter";
 import { TypeLogic, type TypeCaches } from "./typeLogic";
 import type { Schema } from "./schema/schema";
 import type { QueryFilterContext } from "./schema/entityEvents";
+import { HeavyProfiler } from "./profiler/heavyProfiler";
 
 
 
@@ -107,12 +108,20 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
     // BEFORE translation and read synchronously by the binder's queryFilter handlers.
     // `typeCaches` is the type↔id snapshot resolved at the LINQ boundary (undefined only while loading);
     // threaded into the binder so @implementedByAll discriminators bind against an explicit cache.
+    // Profiler: the whole translate under a "LINQ" span, with each optimiser pass timed as a switched
+    // sibling under a "Clean" span — mirrors Signum's DbQueryProvider.Translate/Optimize instrumentation
+    // (Log("LINQ") + LogNoStackTrace("Clean").Switch(...) chain). No-op (undefined) when disabled.
+    using _linq = HeavyProfiler.log("LINQ", () => expression.toString());
+    using log = HeavyProfiler.logNoStackTrace("OvrLdSmp");
     const simplified = alreadySimplified ? expression : OverloadingSimplifier.simplify(expression);
     const binder = new QueryBinder(schema, isPostgres, filterContext, typeCaches);
+    log?.switch("Bind");
     let projection: Expression = binder.bindQuery(simplified);
     // Hoist deferred group aggregates (g.elements.sum()…) into their GROUP BY select as
     // columns — Signum runs AggregateRewriter first in Optimize.
+    log?.switch("Aggregate");
     projection = AggregateRewriter.rewrite(projection);
+    log?.switch("OrderBy");
     projection = OrderByRewriter.rewrite(projection);
     // A versioned table under a per-row AsOfExpression (a dynamic AS OF whose instant is a column —
     // a time-series query) is rewritten to `FOR SYSTEM_TIME ALL WHERE period.contains(expr)` on
@@ -120,24 +129,33 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
     // order: before the rebinder), so the AS OF's outer-column reference is exposed before the join
     // correlation is finalised — else a correlated flatMap renders as a plain (non-LATERAL) join.
     // DuplicateHistory (Postgres, below) later turns the ALL into the history UNION.
+    log?.switch("AsOfExpression");
     projection = AsOfExpressionVisitor.rewrite(projection, binder.aliases);
+    log?.switch("Rebinder");
     projection = QueryRebinder.rebind(projection);
     // Drop columns (and dead single-row joins) no enclosing scope references — Signum
     // runs UnusedColumnRemover here, right before collapsing redundant subqueries.
+    log?.switch("UnusedColumn");
     projection = UnusedColumnRemover.remove(projection);
+    log?.switch("Redundant");
     projection = RedundantSubqueryRemover.remove(projection, isPostgres);
     // Merge identical entity-completion joins (e.g. `label.toLite()` + `label.name` → one Label join)
     // now that subquery collapse has settled both onto the same owner FK.
+    log?.switch("RedundantJoin");
     projection = RedundantJoinRemover.remove(projection) as ProjectionExpression;
-    if (!isPostgres)
+    if (!isPostgres) {
+        log?.switch("Condition");
         projection = ConditionsRewriter.rewrite(projection);
+    }
     // SQL Server can't aggregate over a scalar subquery — lift those to OUTER APPLYs
     // (no-op on Postgres, which allows scalar subqueries in aggregates).
+    log?.switch("Scalar");
     projection = ScalarSubqueryRewriter.rewrite(projection, isPostgres);
     if (!(projection instanceof ProjectionExpression))
         throw new Error("Optimiser pipeline did not preserve the ProjectionExpression");
     // Eager-load nested projections (e.g. map(l => …toArray())) as separate child
     // queries, then re-clean the selects the flattener introduced.
+    log?.switch("ChPrjFlatt");
     const flattened = ChildProjectionFlattener.flatten(projection, binder.aliases);
     let result = RedundantSubqueryRemover.remove(flattened, isPostgres) as ProjectionExpression;
     // Postgres has no native FOR SYSTEM_TIME: rewrite each versioned table under a SystemTime
@@ -147,8 +165,10 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
     // undefined columns), so we rewrite once the column set is settled. The union over-projects
     // all physical columns, which is valid (just slightly wider SQL) since the enclosing SELECT
     // was already pruned. Present-only queries (no override) are untouched.
-    if (isPostgres)
+    if (isPostgres) {
+        log?.switch("DupHistory");
         result = DuplicateHistory.rewrite(result, binder.aliases) as ProjectionExpression;
+    }
     return result;
 }
 
@@ -223,6 +243,9 @@ class MyQueryTranslator implements IQueryTranslator {
     }
 
     async execute(expression: Expression): Promise<unknown> {
+        // "DBQuery" wraps translate + execute (Signum's DbQueryProvider.Execute). The nested "LINQ" and
+        // "SQL" spans (bindAndOptimize / connector.withLogging) hang under it.
+        using _prof = HeavyProfiler.log("DBQuery", () => expression.toString());
         const connector = Connector.current();
         // Row-level security + the type↔id snapshot are both resolved (async) inside bindOptimizeSecured,
         // which also warms the caches box for the downstream sync readers (optimiser visitors, Retriever).
@@ -235,6 +258,7 @@ class MyQueryTranslator implements IQueryTranslator {
     // queries (so the source SELECT is cleaned/condition-normalised), DELETE-simplify
     // for SQL Server, format, and execute returning the affected row count scalar.
     async executeCommand(expression: Expression): Promise<number> {
+        using _prof = HeavyProfiler.log("DBQuery", () => expression.toString());
         const connector = Connector.current();
         const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.ready(connector.schema);
         // Row-level security applies to the SELECT that feeds an unsafe UPDATE/DELETE too (you may only

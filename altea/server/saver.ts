@@ -14,6 +14,7 @@ import { deleteRowsByIds } from './Database';
 import { FieldEntityArray } from './schema/field';
 import { Connector } from './connection/connector';
 import { Transaction } from './connection/transaction';
+import { HeavyProfiler } from './profiler/heavyProfiler';
 
 // Port of Signum's Saver (Engine/Saver.cs), adapted to altea's snapshot model.
 //
@@ -50,6 +51,11 @@ export const preSaveGates: ((entities: Entity[]) => Promise<void>)[] = [];
 
 export namespace Saver {
     export async function save(roots: Entity[]): Promise<void> {
+        // Profiler: "DBSave" (Signum's Database.cs SaveList span) wraps the whole save; inside it a
+        // "PreSaving" span is switched through the phases (Signum's Saver.cs
+        // LogNoStackTrace("PreSaving").Switch("Integrity"/"Graph"/"SaveGroups")). No-op when disabled.
+        using _dbSave = HeavyProfiler.log("DBSave", () => "SaveList<" + [...new Set(roots.map(r => r.constructor.name))].join(",") + ">");
+        using log = HeavyProfiler.logNoStackTrace("PreSaving");
         const all = exploreModifiables(roots);
         const schema = Connector.current().schema;
 
@@ -61,6 +67,7 @@ export namespace Saver {
 
         // Phase 3: the last-word validation, right before writing rows. Server-only validators that
         // were skipped earlier (disabled on "Client" / "ServerDeserialization") are enforced here.
+        log?.switch("Integrity");
         const errors = fullIntegrityCheck(all, "Saving");
         if (errors.length > 0)
             throw new IntegrityCheckException(errors);
@@ -68,6 +75,7 @@ export namespace Saver {
         // Save set = every graph-modified entity: self-modified ones plus the
         // owners/referrers a change rolls up to (so a parent's ticks bumps when an
         // owned child changed).
+        log?.switch("Graph");
         const saveSet = propagateModifications(all);
         if (saveSet.size === 0)
             return;
@@ -90,6 +98,7 @@ export namespace Saver {
         for (const gate of preSaveGates)
             await gate([...saveSet]);
 
+        log?.switch("SaveGroups");
         await Transaction.create(async () => {
             // Orphan removal: a child dropped from an existing owner's collection is no longer
             // reachable, so it never enters the save set. Detect it by diffing the owner's
