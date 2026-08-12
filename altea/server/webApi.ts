@@ -18,6 +18,9 @@ import type { Lite } from "../data/lite";
 import { RuntimeType, ClassType, ArrayType, LiteType, LiteralType } from "./runtimeTypes";
 import { Serializer, resolveSerializationAuthContext } from "../data/serializer";
 import type { IntegrityCheck } from "../data/validation";
+import { HeavyProfiler } from "./profiler/heavyProfiler";
+import { TimeTracker } from "./profiler/timeTracker";
+import { UserHolder } from "./userHolder";
 
 // A class reference (abstract-tolerant, so `Entity`/`BaseEntity` bases are accepted).
 type Ctor<T> = abstract new (...args: any[]) => T;
@@ -162,12 +165,22 @@ export class WebBuilder {
             // Authorization gate first (secure-by-default when an auth module is installed), then resolve the
             // per-request auth snapshot (role known now; a no-op unless a property-auth module installed a
             // resolveContext), then the handler. All funnel rejections to `next` → the exception filter.
-            Promise.resolve()
-                .then(() => { if (_authorizeRequest != null) _authorizeRequest(wrapped.httpMeta!); })
-                .then(() => resolveSerializationAuthContext())
-                .then(ctx => { authCtx = ctx; })
-                .then(() => (handler as (r: Request, s: Response) => unknown)(req, res))
-                .catch(next);
+            // The whole request runs under a HeavyProfiler "Web.API <VERB>" span (Signum's SignumFilters
+            // resource filter) so every nested SQL/LINQ/save span hangs under it, plus an always-on
+            // TimeTracker keyed by the route PATTERN (Signum's SignumTimesTrackerFilter — the one and only
+            // TimeTracker call site). Opening the spans at the top of this async scope makes the ambient
+            // `current` span propagate (AsyncLocalStorage) into the awaited handler.
+            void HeavyProfiler.runScope(async () => {
+                using _prof = HeavyProfiler.log("Web.API " + verb.toUpperCase(), () => req.originalUrl);
+                using _time = TimeTracker.start(verb.toUpperCase() + " " + path, req.originalUrl, () => UserHolder.currentUserLite()?.toString());
+                try {
+                    if (_authorizeRequest != null) _authorizeRequest(wrapped.httpMeta!);
+                    authCtx = await resolveSerializationAuthContext();
+                    await (handler as (r: Request, s: Response) => unknown)(req, res);
+                } catch (e) {
+                    next(e);
+                }
+            });
         };
         wrapped.httpMeta = { verb, path, allowAnonymous: (def as RouteDef).allowAnonymous, paramsType: paramsRef?.runtimeType, reqType: reqRef?.runtimeType, resType: resRef?.runtimeType };
 

@@ -1,0 +1,16 @@
+{
+  // DATA layer — isomorphic model (permission symbols, messages). `types: []` keeps it node/DOM-free.
+  "extends": "../altea/tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo.data",
+    "types": []
+  },
+  "include": ["data/**/*", "**/*.data.ts"],
+  "exclude": ["client/**", "server/**"],
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" }
+  ]
+}

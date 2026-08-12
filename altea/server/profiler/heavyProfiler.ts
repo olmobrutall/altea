@@ -11,12 +11,16 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 // Divergences from Signum (all deliberate — see CLAUDE.md "copy-and-fix"):
 //  - PerfCounter uses `performance.now()` (monotonic, fractional ms) instead of Stopwatch ticks,
 //    with FrequencyMilliseconds = 1, so BeforeStart/Start/End are ms and the Elapsed math is unchanged.
-//  - The `current` span pointer is a node AsyncLocalStorage used imperatively via `enterWith` (the
-//    analog of Signum's `Statics.ThreadVariable`). altea's Statics abstraction only supports scoped
-//    `withValue`, but the profiler's model is imperative enter-on-log / restore-on-dispose, so — like
-//    connector.ts and executionMode.ts — this server-only file uses AsyncLocalStorage directly. The
-//    strict `current == entry` assertion on dispose is relaxed (it can legitimately fail across
-//    concurrent async flows); the async layout is reconstructed at display time instead.
+//  - The `current` span pointer (Signum's `Statics.ThreadVariable`) is a MUTABLE BOX held in a node
+//    AsyncLocalStorage, with a process-global fallback and a per-request scope (`runScope`, opened by
+//    webApi). altea's Statics abstraction only supports scoped `withValue`, and the profiler's model is
+//    imperative (enter-on-log / restore-on-dispose) — so, like connector.ts and executionMode.ts, this
+//    server-only file uses AsyncLocalStorage directly. A mutable box (not `enterWith`) is used so that a
+//    span's `dispose` restores the pointer SYNCHRONOUSLY before the next sibling runs: `enterWith` leaks
+//    the pointer back to the caller after an `await`, which mis-parents sequential siblings. The box makes
+//    sequential nesting correct and isolates concurrent requests; overlapping concurrent spans WITHIN one
+//    request can still mis-parent (JS has no copy-on-write async context) — that async layout is
+//    reconstructed from timestamps at display time, exactly as Signum does.
 //  - No OpenTelemetry Activity / ILoggerFactory branch (altea has no OTel wiring yet) — re-addable.
 //  - Stack traces are captured as V8 `Error().stack` strings and parsed lazily in the API layer.
 //  - Plain arrays / no locks (single-threaded JS).
@@ -35,7 +39,15 @@ export class PerfCounter {
     }
 }
 
-const current = new AsyncLocalStorage<HeavyProfilerEntry | undefined>();
+// A mutable holder for the innermost open span on the current logical call path. Held in an
+// AsyncLocalStorage so each request (see runScope) gets its own; a process-global box is the fallback
+// for non-request flows (tests, startup seeding, the terminal). Read/written through currentBox().
+interface CurrentBox { entry: HeavyProfilerEntry | undefined; }
+const currentStore = new AsyncLocalStorage<CurrentBox>();
+const globalBox: CurrentBox = { entry: undefined };
+function currentBox(): CurrentBox {
+    return currentStore.getStore() ?? globalBox;
+}
 
 // Lazy additional-data thunk: only invoked when the profiler is enabled, so producing an expensive
 // string (the full SQL, an expression dump) costs nothing on the disabled hot path.
@@ -98,9 +110,16 @@ export namespace HeavyProfiler {
         return new Tracer(entry);
     }
 
+    // Run `fn` under a fresh per-flow `current` box (Signum's implicit per-thread ThreadVariable). Opened
+    // per request by webApi so concurrent requests build isolated span trees. Cheap; always applied.
+    export function runScope<R>(fn: () => R): R {
+        return currentStore.run({ entry: undefined }, fn);
+    }
+
     // Internal: called by createNewTracer and Tracer.switch.
     export function createEntry(kind: string, additionalData: string | undefined, stackTrace: boolean, beforeStart: number): HeavyProfilerEntry {
-        const parent = current.getStore();
+        const box = currentBox();
+        const parent = box.entry;
 
         const newCurrent = new HeavyProfilerEntry();
         newCurrent.beforeStart = beforeStart;
@@ -120,7 +139,7 @@ export namespace HeavyProfiler {
             parent.entries.push(newCurrent);
         }
 
-        current.enterWith(newCurrent);
+        box.entry = newCurrent;
         return newCurrent;
     }
 
@@ -129,7 +148,7 @@ export namespace HeavyProfiler {
         entry.end = PerfCounter.ticks;
         // Relaxed vs Signum's strict `current == entry` assertion: across concurrent async flows the
         // ambient current may differ; always restore to this span's parent.
-        current.enterWith(entry.parent);
+        currentBox().entry = entry.parent;
     }
 
     // All entries flattened depth-first (Signum's AllEntries) — roots then their recursive children.

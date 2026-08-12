@@ -9,6 +9,7 @@ import { Lite } from "../data/lite";
 import { getCacheController } from "./cache";
 import { EntityNotFoundException } from "./exceptions";
 import { retrieveEntitiesByIds, table } from "./table";
+import { HeavyProfiler } from "./profiler/heavyProfiler";
 import "../data/globals"; // Array.prototype.contains (SQL-mappable in the delete filter)
 
 // Chunk id lists to stay well under the database's max-parameters-per-statement (Signum's
@@ -22,6 +23,9 @@ const MAX_IN_PARAMETERS = 1000;
 export async function retrieveList<T extends Entity>(type: Type<T>, ids: PrimaryKey[]): Promise<T[]> {
     if (ids.length === 0)
         return [];
+
+    // Profiler span (Signum's Database.cs "DBRetrieve"); the "DBQuery"/"SQL" spans hang under it.
+    using _prof = HeavyProfiler.log("DBRetrieve", () => type.name);
 
     const distinct = [...new Set(ids)];
     const byId = new Map<PrimaryKey, T>();
@@ -91,6 +95,8 @@ export async function retrieveFromListOfLite<T extends Entity>(lites: Lite<T>[])
 export async function deleteList<T extends Entity>(list: (Lite<T> | T)[]): Promise<void> {
     if (list.length === 0)
         return;
+
+    using _prof = HeavyProfiler.log("DBDelete", () => (list[0] instanceof Entity ? list[0].constructor.name : (list[0] as Lite<T>).entityType.name));
 
     // Group by entity type, then delete each type's rows set-based (`id IN (…)`, chunked).
     // executeDelete emits any owned-child deletes before the parent. Mirrors Signum's
