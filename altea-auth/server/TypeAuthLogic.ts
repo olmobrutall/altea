@@ -32,6 +32,8 @@ import { WithConditions, ConditionRule, maxBound, minBound, maxDB, maxUI } from 
 import { mergeTypeConditions } from "./TypeConditionMerger";
 import { buildAuthFilter, authFilterLambda, rebasePartFilter } from "./TypeConditionAlgebra";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
+import { section, groupByRole, attrs, conditionsXml, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import type { AuthExportCtx } from "./AuthLogic";
 
 // Port of Signum's TypeAuthLogic (Rules/TypeAuthLogic.cs + .Conditions.cs) — a role's access to an entity
 // TYPE, now with ROW-LEVEL type conditions. A role's allowed for a type is a `WithConditions<TypeAllowed>`
@@ -125,6 +127,8 @@ export namespace TypeAuthLogic {
         // Disable, and no re-entry into the row-filter provider during the load.
         rulesLazy = sb.globalLazy(async () => new TypeRulesCache(await loadRules(), await AuthLogic.roleGraph()),
             { invalidateWith: [RuleTypeEntity, RoleEntity] });
+        AuthLogic.registerXmlExporter(exportXml);
+        AuthLogic.registerXmlImporter(importXml);
         // Enforcement. The save gate (Signum's Schema_Saving) is installed now. The row-read FILTER
         // (Signum's FilterQuery) goes on each CONDITIONED type's EntityEvents.queryFilter so the LINQ binder
         // applies it to EVERY query (retrieve, dynamic query, navigation). The binder is sync, so the data it
@@ -449,5 +453,50 @@ export namespace TypeAuthLogic {
             await rt.save();
         }
         invalidate();
+    }
+
+    // ---- AuthRules XML (Signum's TypeCache.ExportXml / ImportXml) ------------------------------
+    async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
+        const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
+        const condKey = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s.key]));
+        const byRole = groupByRole(await table(RuleTypeEntity).toArray() as RuleTypeEntity[]);
+        return {
+            name: "Types",
+            content: section("Type", ctx.orderedRoleKeys, ctx.roleName, byRole, r => {
+                const conds = conditionsXml(r.conditionRules, v => TypeAllowed[v], id => condKey.get(String(id)) ?? String(id));
+                return {
+                    ...attrs({ Resource: typeName.get(String(r.resource.id)) ?? String(r.resource.id), Allowed: TypeAllowed[r.fallback] }),
+                    ...(conds.length ? { Condition: conds } : {}),
+                };
+            }),
+        };
+    }
+
+    // Deep-clone a WithConditionsModel (resetting a rule to its base must not alias the base graph).
+    const cloneModel = (m: WithConditionsModel): WithConditionsModel => WithConditionsModel.create({
+        fallback: m.fallback,
+        conditionRules: m.conditionRules.map(cr => ConditionRuleModel.create({ allowed: cr.allowed, typeConditions: [...cr.typeConditions] })),
+    });
+
+    async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<void> {
+        for (const rb of (auth.Types as { Role?: XmlRoleBlock[] } | undefined)?.Role ?? []) {
+            const role = ctx.noteRole(rb.Name);
+            if (role == null) continue;
+            const byResource = new Map((rb.Type ?? []).map(r => [ctx.applyType(r.Resource), r]));
+            const pack = await getTypeRulePack(role.id);
+            for (const rule of pack.rules) {
+                const x = byResource.get(rule.resource.toString());
+                rule.allowed = x != null
+                    ? WithConditionsModel.create({
+                        fallback: parseEnum(TypeAllowed, x.Allowed),
+                        conditionRules: (x.Condition ?? []).map(c => ConditionRuleModel.create({
+                            allowed: parseEnum(TypeAllowed, c.Allowed),
+                            typeConditions: condLites(c, ctx).map(l => TypeConditionSymbol.newLite(l.id, l.key)),
+                        })),
+                    })
+                    : cloneModel(rule.allowedBase);
+            }
+            await setTypeRulePack(pack);
+        }
     }
 }

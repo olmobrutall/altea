@@ -22,6 +22,8 @@ import {
 } from "../data/Rules";
 import { WithConditions, ConditionRule, evaluateConditions } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
+import { section, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import type { AuthExportCtx } from "./AuthLogic";
 import { setSerializationAuth, type PropertyAccess } from "@altea/altea/data/serializer/graphSerializers";
 import { Serializer } from "@altea/altea/data/serializer";
 import { setRequestDeserializer } from "@altea/altea/server/webApi";
@@ -157,6 +159,8 @@ export namespace PropertyAuthLogic {
         // it — so the codec keeps read-only / hidden properties at their stored value. Everything else
         // deserializes exactly as before (new entities, references, non-entity bodies).
         setRequestDeserializer(deserializeRequest);
+        AuthLogic.registerXmlExporter(exportXml);
+        AuthLogic.registerXmlImporter(importXml);
     }
 
     // Signum's model binder onto a retrieved original (server-side). Async — this is the ONE place the DB
@@ -369,5 +373,46 @@ export namespace PropertyAuthLogic {
             await rp.save();
         }
         invalidate();
+    }
+
+    // ---- AuthRules XML (Signum's PropertyCache.ExportXml / ImportXml) --------------------------
+    async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
+        const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
+        const condKey = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s.key]));
+        const byRole = groupByRole(await table(RulePropertyEntity).toArray() as RulePropertyEntity[]);
+        return {
+            name: "Properties",
+            content: section("Property", ctx.orderedRoleKeys, ctx.roleName, byRole, r => {
+                const conds = conditionsXml(r.conditionRules, v => PropertyAllowed[v], id => condKey.get(String(id)) ?? String(id));
+                return {
+                    ...attrs({ OnType: typeName.get(String(r.rootType.id)) ?? String(r.rootType.id), Resource: r.path, Allowed: PropertyAllowed[r.fallback] }),
+                    ...(conds.length ? { Condition: conds } : {}),
+                };
+            }),
+        };
+    }
+
+    const cloneModel = (m: PropertyWithConditionsModel): PropertyWithConditionsModel => PropertyWithConditionsModel.create({
+        fallback: m.fallback,
+        conditionRules: m.conditionRules.map(cr => PropertyConditionRuleModel.create({ allowed: cr.allowed, typeConditions: [...cr.typeConditions] })),
+    });
+
+    async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<void> {
+        await applyPerType((auth.Properties as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Property", ctx, async (role, typeName, byKey) => {
+            const pack = await getPropertyRulePack(typeName, role.id);
+            for (const rule of pack.rules) {
+                const x = byKey.get(rule.path);
+                rule.allowed = x != null
+                    ? PropertyWithConditionsModel.create({
+                        fallback: parseEnum(PropertyAllowed, x.Allowed),
+                        conditionRules: (x.Condition ?? []).map(c => PropertyConditionRuleModel.create({
+                            allowed: parseEnum(PropertyAllowed, c.Allowed),
+                            typeConditions: condLites(c, ctx).map(l => TypeConditionSymbol.newLite(l.id, l.key)),
+                        })),
+                    })
+                    : cloneModel(rule.allowedBase);
+            }
+            await setPropertyRulePack(pack);
+        }, r => r.Resource);
     }
 }

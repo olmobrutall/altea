@@ -17,6 +17,7 @@ import { ResetLazy } from "@altea/altea/data/resetLazy";
 import { UserEntity, UserState, UserOperation } from "../data/User";
 import { RoleEntity, RoleOperation, MergeStrategy } from "../data/Role";
 import { UserMessage, LoginAuthMessage } from "../data/AuthMessages";
+import type { AuthImportCtx } from "./AuthRulesXml";
 // NOTE: AuthServer imports back from AuthLogic — a runtime-only cycle (both sides use the other only
 // inside functions, never at module-eval), so ESM resolves it fine. AuthServer is invoked lazily from
 // start() below, guarded by sb.webBuilder.
@@ -297,6 +298,20 @@ export class RoleGraph {
     }
 }
 
+// AuthRules XML import/export delegation — Signum's `AuthLogic.ExportToXml` / `ImportFromXml` multicast
+// events. Each authorization dimension registers a handler in its start(); AuthImportExport orchestrates
+// (writes the <Roles> block + assembles/parses the document, reconciles role + resource renames centrally).
+export interface AuthExportCtx {
+    orderedRoleKeys: string[];             // roles in dependency order (parents first)
+    roleName(key: string): string;
+}
+// An exporter returns its section's name (the XML element, e.g. "Types") + the section content object for
+// the XMLBuilder. An importer reads its section off the parsed `auth` object and applies it.
+export type AuthXmlExporter = (ctx: AuthExportCtx) => Promise<{ name: string; content: unknown }>;
+export type AuthXmlImporter = (auth: Record<string, unknown>, ctx: AuthImportCtx) => Promise<void>;
+const exporterList: AuthXmlExporter[] = [];
+const importerList: AuthXmlImporter[] = [];
+
 // Signum's rolesGraph/mergeStrategies GlobalLazys: an async, reset-able snapshot created in
 // AuthLogic.start (invalidateWith RoleEntity). Its factory runs in ExecutionMode.global.
 let roleGraphLazy: ResetLazy<RoleGraph>;
@@ -361,4 +376,11 @@ export namespace AuthLogic {
         const role = UserHolder.current()?.getClaim("Role") as Lite<RoleEntity> | undefined;
         return role?.key();
     }
+
+    /** Register a dimension's AuthRules XML export / import handler (Signum's ExportToXml / ImportFromXml
+     *  events). Called from each *AuthLogic.start(); AuthImportExport invokes them. */
+    export function registerXmlExporter(exporter: AuthXmlExporter): void { exporterList.push(exporter); }
+    export function registerXmlImporter(importer: AuthXmlImporter): void { importerList.push(importer); }
+    export function xmlExportersInOrder(): AuthXmlExporter[] { return exporterList; }
+    export function xmlImporters(): AuthXmlImporter[] { return importerList; }
 }

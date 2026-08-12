@@ -20,6 +20,8 @@ import {
 } from "../data/Rules";
 import { TypeAuthLogic } from "./TypeAuthLogic";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
+import { section, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import type { AuthExportCtx } from "./AuthLogic";
 import { WithConditions, ConditionRule, evaluateConditions } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
 import { TypeConditionLogic } from "./TypeConditionLogic";
@@ -85,6 +87,8 @@ export namespace OperationAuthLogic {
         // in ExecutionMode.global, so the RuleOperation read is ungated.
         rulesLazy = sb.globalLazy(async () => new OperationRulesCache(await loadRules(), await AuthLogic.roleGraph()),
             { invalidateWith: [RuleOperationEntity, RoleEntity] });
+        AuthLogic.registerXmlExporter(exportXml);
+        AuthLogic.registerXmlImporter(importXml);
         // Signum's OperationLogic.AllowOperation += … : the execute/button-state authorization gate, now
         // condition-aware — the allowance is evaluated against the operated entity (fallback when absent).
         OperationLogic.onAllowOperation(async (symbol, entityType, inUserInterface, entity) => {
@@ -253,5 +257,51 @@ export namespace OperationAuthLogic {
             await ro.save();
         }
         invalidate();
+    }
+
+    // ---- AuthRules XML (Signum's OperationCache.ExportXml / ImportXml) -------------------------
+    async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
+        const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
+        const opKey = new Map(SymbolLogic.symbols(OperationSymbol).map(s => [String(s.id), s.key]));
+        const condKey = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s.key]));
+        const byRole = groupByRole(await table(RuleOperationEntity).toArray() as RuleOperationEntity[]);
+        return {
+            name: "Operations",
+            content: section("Operation", ctx.orderedRoleKeys, ctx.roleName, byRole, r => {
+                const conds = conditionsXml(r.conditionRules, v => OperationAllowed[v], id => condKey.get(String(id)) ?? String(id));
+                return {
+                    ...attrs({
+                        OnType: typeName.get(String(r.type.id)) ?? String(r.type.id),
+                        Resource: opKey.get(String(r.operation.id)) ?? String(r.operation.id),
+                        Allowed: OperationAllowed[r.fallback],
+                    }),
+                    ...(conds.length ? { Condition: conds } : {}),
+                };
+            }),
+        };
+    }
+
+    const cloneModel = (m: OperationWithConditionsModel): OperationWithConditionsModel => OperationWithConditionsModel.create({
+        fallback: m.fallback,
+        conditionRules: m.conditionRules.map(cr => OperationConditionRuleModel.create({ allowed: cr.allowed, typeConditions: [...cr.typeConditions] })),
+    });
+
+    async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<void> {
+        await applyPerType((auth.Operations as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Operation", ctx, async (role, typeName, byKey) => {
+            const pack = await getOperationRulePack(typeName, role.id);
+            for (const rule of pack.rules) {
+                const x = byKey.get(rule.operation.toString());
+                rule.allowed = x != null
+                    ? OperationWithConditionsModel.create({
+                        fallback: parseEnum(OperationAllowed, x.Allowed),
+                        conditionRules: (x.Condition ?? []).map(c => OperationConditionRuleModel.create({
+                            allowed: parseEnum(OperationAllowed, c.Allowed),
+                            typeConditions: condLites(c, ctx).map(l => TypeConditionSymbol.newLite(l.id, l.key)),
+                        })),
+                    })
+                    : cloneModel(rule.allowedBase);
+            }
+            await setOperationRulePack(pack);
+        }, r => r.Resource);
     }
 }

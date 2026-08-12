@@ -12,6 +12,8 @@ import {
     PermissionRulePack, PermissionAllowedRule,
 } from "../data/Rules";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
+import { section, groupByRole, attrs, parseBool, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import type { AuthExportCtx } from "./AuthLogic";
 
 // Port of Signum's PermissionAuthLogic (Rules/PermissionAuthLogic.cs) — the simplest authorization
 // dimension and the first full vertical slice of the engine (rules → per-role merge → IsAuthorized).
@@ -68,6 +70,33 @@ export namespace PermissionAuthLogic {
         // in ExecutionMode.global, so the RulePermission read is ungated (no explicit Disable needed).
         rulesLazy = sb.globalLazy(async () => new PermissionRulesCache(await loadRules(), await AuthLogic.roleGraph()),
             { invalidateWith: [RulePermissionEntity, RoleEntity] });
+        AuthLogic.registerXmlExporter(exportXml);
+        AuthLogic.registerXmlImporter(importXml);
+    }
+
+    // ---- AuthRules XML (Signum's PermissionCache.ExportXml / ImportXml) ------------------------
+    async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
+        const permKey = new Map(SymbolLogic.symbols(PermissionSymbol).map(s => [String(s.id), s.key]));
+        const byRole = groupByRole(await table(RulePermissionEntity).toArray() as RulePermissionEntity[]);
+        return {
+            name: "Permissions",
+            content: section("Permission", ctx.orderedRoleKeys, ctx.roleName, byRole, r =>
+                attrs({ Resource: permKey.get(String(r.resource.id)) ?? String(r.resource.id), Allowed: r.allowed ? "True" : "False" })),
+        };
+    }
+
+    async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<void> {
+        for (const rb of (auth.Permissions as { Role?: XmlRoleBlock[] } | undefined)?.Role ?? []) {
+            const role = ctx.noteRole(rb.Name);
+            if (role == null) continue;
+            const byResource = new Map((rb.Permission ?? []).map(r => [r.Resource, r])); // permissions aren't renamed
+            const pack = await getPermissionRulePack(role.id);
+            for (const rule of pack.rules) {
+                const x = byResource.get(rule.resource.toString());
+                rule.allowed = x != null ? parseBool(x.Allowed) : rule.allowedBase;
+            }
+            await setPermissionRulePack(pack);
+        }
     }
 
     /** Explicit reset for setPermissionRulePack (whose deletes don't fire `saved`). Saves auto-invalidate. */

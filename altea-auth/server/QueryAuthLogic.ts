@@ -16,6 +16,9 @@ import { MergeStrategy, RoleEntity } from "../data/Role";
 import { RuleQueryEntity, RuleTypeEntity, QueryRulePack, QueryAllowedRule, QueryAllowed, TypeAllowedBasic } from "../data/Rules";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { maxBound } from "./WithConditions";
+import { section, groupByRole, attrs, applyPerType, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import type { AuthExportCtx } from "./AuthLogic";
+import { cleanTypeName } from "@altea/altea/data/registration";
 
 // Port of Signum's QueryAuthLogic (Rules/QueryAuthLogic.cs). The query dimension: a role's allowance per
 // query is a 3-valued QueryAllowed (None → hidden/non-executable; EmbeddedOnly → embedded search only,
@@ -84,6 +87,8 @@ export namespace QueryAuthLogic {
         // so a type-rule change must reset the query cache.
         rulesLazy = sb.globalLazy(async () => new QueryRulesCache(await loadRules(), await AuthLogic.roleGraph(), await TypeAuthLogic.rulesCache()),
             { invalidateWith: [RuleQueryEntity, RuleTypeEntity, RoleEntity] });
+        AuthLogic.registerXmlExporter(exportXml);
+        AuthLogic.registerXmlImporter(importXml);
         // The query-access gate (Signum's DynamicQueryContainer.AllowQuery). Called by queryServer with
         // fullScreen:false → blocks only None.
         QueryLogic.assertQueryAllowedHook = async (queryName, fullScreen) => {
@@ -225,5 +230,34 @@ export namespace QueryAuthLogic {
             }
         }
         invalidate();
+    }
+
+    // ---- AuthRules XML (Signum's QueryCache.ExportXml / ImportXml) -----------------------------
+    async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
+        const queryKey = new Map((await table(QueryEntity).toArray() as QueryEntity[]).map(q => [String(q.id), q.key]));
+        const onType = (qk: string): string => {
+            const qn = QueryLogic.tryGetQueryNameByKey(qk);
+            const ctor = qn != null ? QueryLogic.queries.tryGetCore(qn)?.getRootType() : undefined;
+            return ctor != null ? cleanTypeName(ctor) : "";
+        };
+        const byRole = groupByRole(await table(RuleQueryEntity).toArray() as RuleQueryEntity[]);
+        return {
+            name: "Queries",
+            content: section("Query", ctx.orderedRoleKeys, ctx.roleName, byRole, r => {
+                const qk = queryKey.get(String(r.resource.id)) ?? String(r.resource.id);
+                return attrs({ OnType: onType(qk), Resource: qk, Allowed: QueryAllowed[r.allowed] });
+            }),
+        };
+    }
+
+    async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<void> {
+        await applyPerType((auth.Queries as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Query", ctx, async (role, typeName, byKey) => {
+            const pack = await getQueryRulePack(typeName, role.id);
+            for (const rule of pack.rules) {
+                const x = byKey.get(rule.resource.toString());
+                rule.allowed = x != null ? parseEnum(QueryAllowed, x.Allowed) : rule.allowedBase;
+            }
+            await setQueryRulePack(pack);
+        }, r => r.Resource);
     }
 }
