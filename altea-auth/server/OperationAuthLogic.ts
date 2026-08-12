@@ -11,7 +11,7 @@ import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { toInt } from "@altea/altea/data/basics";
-import { AuthLogic } from "./AuthLogic";
+import { AuthLogic, RoleGraph } from "./AuthLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
 import {
     RuleOperationEntity, RuleOperationConditionEntity, RuleOperationConditionEntity_Conditions,
@@ -36,13 +36,40 @@ import { TypeConditionLogic } from "./TypeConditionLogic";
 // Type) resource, flattened); async cache via `sb.globalLazy` + `computeAllowed`; the cross-role merge is
 // the generic 2^n condition merger. Construct / no-entity operations evaluate the `fallback` (no instance
 // to test conditions against).
+const compositeKey = (operationId: PrimaryKey, typeId: PrimaryKey): string => `${String(operationId)}/${String(typeId)}`;
+
+const mergeOp = (strategy: MergeStrategy, baseValues: WithConditions<OperationAllowed>[]): WithConditions<OperationAllowed> =>
+    mergeWithConditions(strategy, baseValues, OperationAllowed.Allow);
+
+// Signum's AuthCache as a CLASS: raw per-(operation,type) rules + role graph + merged memo, folded
+// synchronously. Construct / no-entity operations evaluate the fallback (no instance to test conditions).
+class OperationRulesCache {
+    private readonly computed: ComputedCache<WithConditions<OperationAllowed>> = new Map();
+    constructor(
+        private readonly rules: Map<string, Map<PrimaryKey | string, WithConditions<OperationAllowed>>>,
+        private readonly graph: RoleGraph,
+    ) { }
+
+    getAllowed(operationId: PrimaryKey, typeId: PrimaryKey, roleKey?: string): WithConditions<OperationAllowed> {
+        const rk = roleKey ?? AuthLogic.currentRoleKey();
+        if (rk == null)
+            return WithConditions.simple(OperationAllowed.Allow);
+        const getDefaultSync = (r: string): WithConditions<OperationAllowed> =>
+            WithConditions.simple(this.graph.getDefaultAllowed(r) ? OperationAllowed.Allow : OperationAllowed.None);
+        return computeAllowed<WithConditions<OperationAllowed>>(rk, compositeKey(operationId, typeId), this.rules, mergeOp, getDefaultSync, this.computed, this.graph);
+    }
+
+    getAllowedBase(operationId: PrimaryKey, typeId: PrimaryKey, roleKey: string): WithConditions<OperationAllowed> {
+        const parents = this.graph.relatedTo(roleKey);
+        if (parents.size === 0)
+            return WithConditions.simple(this.graph.getDefaultAllowed(roleKey) ? OperationAllowed.Allow : OperationAllowed.None);
+        return mergeOp(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.getAllowed(operationId, typeId, p)));
+    }
+}
+
 export namespace OperationAuthLogic {
     let started = false;
-    interface RulesCache {
-        rules: Map<string, Map<PrimaryKey | string, WithConditions<OperationAllowed>>>;
-        computed: ComputedCache<WithConditions<OperationAllowed>>;
-    }
-    let rulesLazy: ResetLazy<RulesCache>;
+    let rulesLazy: ResetLazy<OperationRulesCache>;
 
     export function isStarted(): boolean {
         return started;
@@ -56,7 +83,7 @@ export namespace OperationAuthLogic {
         sb.include(RuleOperationEntity).withQuery();
         // Signum's `sb.GlobalLazy(rules, InvalidateWith(RuleOperation, Role))`. globalLazy runs the factory
         // in ExecutionMode.global, so the RuleOperation read is ungated.
-        rulesLazy = sb.globalLazy(async () => ({ rules: await loadRules(), computed: new Map() }),
+        rulesLazy = sb.globalLazy(async () => new OperationRulesCache(await loadRules(), await AuthLogic.roleGraph()),
             { invalidateWith: [RuleOperationEntity, RoleEntity] });
         // Signum's OperationLogic.AllowOperation += … : the execute/button-state authorization gate, now
         // condition-aware — the allowance is evaluated against the operated entity (fallback when absent).
@@ -78,8 +105,6 @@ export namespace OperationAuthLogic {
     function toBoolean(oa: OperationAllowed, inUserInterface: boolean): boolean {
         return inUserInterface ? oa === OperationAllowed.Allow : oa >= OperationAllowed.DBOnly;
     }
-
-    const compositeKey = (operationId: PrimaryKey, typeId: PrimaryKey): string => `${String(operationId)}/${String(typeId)}`;
 
     async function loadRules(): Promise<Map<string, Map<PrimaryKey | string, WithConditions<OperationAllowed>>>> {
         const rows = await table(RuleOperationEntity).toArray() as RuleOperationEntity[];
@@ -108,29 +133,15 @@ export namespace OperationAuthLogic {
         return new WithConditions<OperationAllowed>(row.fallback, conditionRules);
     }
 
-    const mergeOp = (strategy: MergeStrategy, baseValues: WithConditions<OperationAllowed>[]): WithConditions<OperationAllowed> =>
-        mergeWithConditions(strategy, baseValues, OperationAllowed.Allow);
-
-    const getDefaultOp = async (roleKey: string): Promise<WithConditions<OperationAllowed>> =>
-        WithConditions.simple((await AuthLogic.getDefaultAllowed(roleKey)) ? OperationAllowed.Allow : OperationAllowed.None);
-
     /** The full WithConditions<OperationAllowed> for (operation, type) and the current role (or given role).
      *  No current role (anonymous / auth off) → simple Allow. */
     async function getAllowed(operationId: PrimaryKey, typeId: PrimaryKey, roleKey?: string): Promise<WithConditions<OperationAllowed>> {
-        const rk = roleKey ?? AuthLogic.currentRoleKey();
-        if (rk == null)
-            return WithConditions.simple(OperationAllowed.Allow);
-        const { rules, computed } = await rulesLazy.value();
-        return computeAllowed<WithConditions<OperationAllowed>>(rk, compositeKey(operationId, typeId), rules, mergeOp, getDefaultOp, computed);
+        return (await rulesLazy.value()).getAllowed(operationId, typeId, roleKey);
     }
 
-    // The value with NO explicit rule (Signum's AuthCache.GetAllowedBase): merge of direct parents, or the
-    // role default at a root role.
+    // The value with NO explicit rule (Signum's AuthCache.GetAllowedBase).
     async function getAllowedBase(operationId: PrimaryKey, typeId: PrimaryKey, roleKey: string): Promise<WithConditions<OperationAllowed>> {
-        const parents = await AuthLogic.relatedTo(roleKey);
-        if (parents.size === 0)
-            return getDefaultOp(roleKey);
-        return mergeOp(await AuthLogic.getMergeStrategy(roleKey), await Promise.all([...parents].map(p => getAllowed(operationId, typeId, p))));
+        return (await rulesLazy.value()).getAllowedBase(operationId, typeId, roleKey);
     }
 
     /** Min/max access RANK (0 None, 1 DBOnly, 2 Allow) over ALL of the type's operations' fallback

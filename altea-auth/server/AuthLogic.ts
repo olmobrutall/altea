@@ -267,20 +267,41 @@ export const UserGraph = graph(UserEntity, UserState, g => {
 // (invalidateRoles() drops it — call when roles change). Roles are keyed by their Lite key string
 // ("Role;<id>") so the DirectedGraph uses value identity (a Lite instance is not reference-stable).
 
-export interface RoleGraphData {
-    rolesByKey: Map<string, RoleEntity>;
-    graph: DirectedGraph<string>;
-    // Per role: its merge strategy + the DEFAULT-allowed flag (Union → any base allowed; Intersection →
-    // all base allowed; a root role → false for Union, true for Intersection). Signum's RoleData.
-    mergeStrategies: Map<string, { strategy: MergeStrategy; defaultAllowed: boolean }>;
-    order: string[]; // compilation order (parents before children)
+// The loaded role graph — Signum's RolesByLite/rolesGraph/mergeStrategies GlobalLazys as ONE immutable
+// snapshot with SYNCHRONOUS folding accessors (relatedTo/getMergeStrategy/getDefaultAllowed). Every
+// authorization cache holds one of these and folds its rules over it synchronously (no per-lookup await).
+export class RoleGraph {
+    constructor(
+        readonly rolesByKey: Map<string, RoleEntity>,
+        readonly graph: DirectedGraph<string>,
+        // Per role: its merge strategy + the DEFAULT-allowed flag (Union → any base allowed; Intersection →
+        // all base allowed; a root role → false for Union, true for Intersection). Signum's RoleData.
+        readonly mergeStrategies: Map<string, { strategy: MergeStrategy; defaultAllowed: boolean }>,
+        readonly order: string[], // compilation order (parents before children)
+    ) { }
+
+    /** Direct inherited roles of `roleKey` (Signum's AuthLogic.RelatedTo). Keys, not entities. */
+    relatedTo(roleKey: string): Set<string> {
+        return this.graph.tryRelatedTo(roleKey);
+    }
+    getMergeStrategy(roleKey: string): MergeStrategy {
+        return this.mergeStrategies.get(roleKey)?.strategy ?? MergeStrategy.Union;
+    }
+    /** Signum's AuthLogic.GetDefaultAllowed — the allowed value a role gets for a resource with no rule. */
+    getDefaultAllowed(roleKey: string): boolean {
+        return this.mergeStrategies.get(roleKey)?.defaultAllowed ?? false;
+    }
+    /** Roles in dependency order (parents first) — Signum's RolesInOrder. */
+    rolesInOrder(includeTrivialMerge = true): string[] {
+        return includeTrivialMerge ? this.order : this.order.filter(k => !this.rolesByKey.get(k)!.isTrivialMerge);
+    }
 }
 
 // Signum's rolesGraph/mergeStrategies GlobalLazys: an async, reset-able snapshot created in
 // AuthLogic.start (invalidateWith RoleEntity). Its factory runs in ExecutionMode.global.
-let roleGraphLazy: ResetLazy<RoleGraphData>;
+let roleGraphLazy: ResetLazy<RoleGraph>;
 
-async function loadRoleGraph(): Promise<RoleGraphData> {
+async function loadRoleGraph(): Promise<RoleGraph> {
     const roles = await table(RoleEntity).toArray() as RoleEntity[];
     const rolesByKey = new Map<string, RoleEntity>(roles.map(r => [r.toLite().key(), r]));
 
@@ -303,13 +324,13 @@ async function loadRoleGraph(): Promise<RoleGraphData> {
         mergeStrategies.set(key, { strategy, defaultAllowed });
     }
 
-    return { rolesByKey, graph, mergeStrategies, order };
+    return new RoleGraph(rolesByKey, graph, mergeStrategies, order);
 }
 
 export namespace AuthLogic {
     /** The loaded role-graph snapshot (Signum's RolesByLite/rolesGraph/mergeStrategies GlobalLazys). The
      *  GlobalLazy factory loads it in ExecutionMode.global, so the RoleEntity read is ungated. */
-    export async function roleGraph(): Promise<RoleGraphData> {
+    export async function roleGraph(): Promise<RoleGraph> {
         return roleGraphLazy.value();
     }
 
@@ -319,28 +340,20 @@ export namespace AuthLogic {
         roleGraphLazy?.reset();
     }
 
-    /** Direct inherited roles of `roleKey` (Signum's AuthLogic.RelatedTo). Keys, not entities. */
+    // Async convenience wrappers over the loaded RoleGraph (Signum's AuthLogic.RelatedTo / GetMergeStrategy
+    // / GetDefaultAllowed / RolesInOrder) — for callers outside a cache (import/export). The authorization
+    // caches instead hold the RoleGraph and fold synchronously via its methods.
     export async function relatedTo(roleKey: string): Promise<Set<string>> {
-        return (await roleGraph()).graph.tryRelatedTo(roleKey);
+        return (await roleGraph()).relatedTo(roleKey);
     }
-
     export async function getMergeStrategy(roleKey: string): Promise<MergeStrategy> {
-        return (await roleGraph()).mergeStrategies.get(roleKey)?.strategy ?? MergeStrategy.Union;
+        return (await roleGraph()).getMergeStrategy(roleKey);
     }
-
-    /** Signum's AuthLogic.GetDefaultAllowed — the allowed value a role gets for a resource with no rule. */
     export async function getDefaultAllowed(roleKey: string): Promise<boolean> {
-        return (await roleGraph()).mergeStrategies.get(roleKey)?.defaultAllowed ?? false;
+        return (await roleGraph()).getDefaultAllowed(roleKey);
     }
-
-    // Synchronous graph accessors used by the serialization-auth path read the IMMUTABLE snapshot
-    // captured in the SerializationAuthContext (the RoleGraphData returned by `roleGraph()`), NOT a
-    // live cache — so there is nothing to fail open on. See PropertyAuthLogic.resolveContext / accessFromCtx.
-
-    /** Roles in dependency order (parents first) — Signum's RolesInOrder. */
     export async function rolesInOrder(includeTrivialMerge = true): Promise<string[]> {
-        const g = await roleGraph();
-        return includeTrivialMerge ? g.order : g.order.filter(k => !g.rolesByKey.get(k)!.isTrivialMerge);
+        return (await roleGraph()).rolesInOrder(includeTrivialMerge);
     }
 
     /** The current user's role key from the claims bag (Signum's RoleEntity.Current), or undefined. */

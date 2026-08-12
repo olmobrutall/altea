@@ -10,11 +10,12 @@ import { getKey, type QueryName } from "@altea/altea/data/dynamicQuery/queryUtil
 import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { AuthLogic } from "./AuthLogic";
+import { AuthLogic, RoleGraph } from "./AuthLogic";
 import { TypeAuthLogic } from "./TypeAuthLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
 import { RuleQueryEntity, RuleTypeEntity, QueryRulePack, QueryAllowedRule, QueryAllowed, TypeAllowedBasic } from "../data/Rules";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
+import { maxBound } from "./WithConditions";
 
 // Port of Signum's QueryAuthLogic (Rules/QueryAuthLogic.cs). The query dimension: a role's allowance per
 // query is a 3-valued QueryAllowed (None → hidden/non-executable; EmbeddedOnly → embedded search only,
@@ -26,13 +27,47 @@ import { computeAllowed, type ComputedCache } from "./AuthCache";
 // altea divergences (mirroring the other dimensions): async cache via sb.globalLazy + computeAllowed,
 // keyed by the QueryEntity id; merge Union-max/Intersection-min. AutomaticUpgradeOfQueries coercion cap
 // is deferred (coerced = Allow).
+const mergeQuery = (strategy: MergeStrategy, baseValues: QueryAllowed[]): QueryAllowed =>
+    strategy === MergeStrategy.Union
+        ? baseValues.reduce((a, b) => Math.max(a, b), QueryAllowed.None)
+        : baseValues.reduce((a, b) => Math.min(a, b), QueryAllowed.Allow);
+
+// Signum's AuthCache as a CLASS: raw per-role query rules + role graph + the captured type-rule cache
+// (queries auto-upgrade to their entity type's read allowance) + the merged memo, folded synchronously.
+class QueryRulesCache {
+    private readonly computed: ComputedCache<QueryAllowed> = new Map();
+    constructor(
+        private readonly rules: Map<string, Map<PrimaryKey, QueryAllowed>>,
+        private readonly graph: RoleGraph,
+        private readonly typeCache: TypeAuthLogic.TypeRulesCache,
+    ) { }
+
+    // The value a role gets for a query with NO explicit rule anywhere in its graph. Signum's
+    // AutomaticUpgradeOfQueries (simplified): default-allowed role → Allow; else AUTO-UPGRADE to Allow when
+    // the underlying entity TYPE is UI-readable for the role (queries follow type visibility); else None.
+    private queryDefault(rootTypeId: PrimaryKey | undefined, roleKey: string): QueryAllowed {
+        if (this.graph.getDefaultAllowed(roleKey))
+            return QueryAllowed.Allow;
+        if (rootTypeId != null && maxBound(this.typeCache.getAllowed(rootTypeId, roleKey), true) >= TypeAllowedBasic.Read)
+            return QueryAllowed.Allow;
+        return QueryAllowed.None;
+    }
+
+    getAllowed(queryId: PrimaryKey, rootTid: PrimaryKey | undefined, roleKey: string): QueryAllowed {
+        return computeAllowed<QueryAllowed>(roleKey, queryId, this.rules, mergeQuery, rk => this.queryDefault(rootTid, rk), this.computed, this.graph);
+    }
+
+    getAllowedBase(queryId: PrimaryKey, rootTid: PrimaryKey | undefined, roleKey: string): QueryAllowed {
+        const parents = this.graph.relatedTo(roleKey);
+        if (parents.size === 0)
+            return this.queryDefault(rootTid, roleKey);
+        return mergeQuery(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.getAllowed(queryId, rootTid, p)));
+    }
+}
+
 export namespace QueryAuthLogic {
     let started = false;
-    interface RulesCache {
-        rules: Map<string, Map<PrimaryKey, QueryAllowed>>;
-        computed: ComputedCache<QueryAllowed>;
-    }
-    let rulesLazy: ResetLazy<RulesCache>;
+    let rulesLazy: ResetLazy<QueryRulesCache>;
 
     export function isStarted(): boolean {
         return started;
@@ -47,7 +82,7 @@ export namespace QueryAuthLogic {
         sb.include(RuleQueryEntity).withQuery();     // unique index [role, resource] already on the entity
         // invalidateWith RuleType too: the no-rule default auto-upgrades to the query's TYPE read allowance,
         // so a type-rule change must reset the query cache.
-        rulesLazy = sb.globalLazy(async () => ({ rules: await loadRules(), computed: new Map() }),
+        rulesLazy = sb.globalLazy(async () => new QueryRulesCache(await loadRules(), await AuthLogic.roleGraph(), await TypeAuthLogic.rulesCache()),
             { invalidateWith: [RuleQueryEntity, RuleTypeEntity, RoleEntity] });
         // The query-access gate (Signum's DynamicQueryContainer.AllowQuery). Called by queryServer with
         // fullScreen:false → blocks only None.
@@ -72,24 +107,6 @@ export namespace QueryAuthLogic {
             inner.set(row.resource.id, row.allowed);
         }
         return map;
-    }
-
-    const mergeQuery = (strategy: MergeStrategy, baseValues: QueryAllowed[]): QueryAllowed =>
-        strategy === MergeStrategy.Union
-            ? baseValues.reduce((a, b) => Math.max(a, b), QueryAllowed.None)
-            : baseValues.reduce((a, b) => Math.min(a, b), QueryAllowed.Allow);
-
-    // The value a role gets for a query with NO explicit rule anywhere in its graph. Signum's
-    // AutomaticUpgradeOfQueries (simplified): if the role is default-allowed → Allow; else a query
-    // AUTO-UPGRADES to Allow when its underlying entity TYPE is UI-readable for the role (so queries
-    // follow type visibility and non-super roles aren't left with zero queries); else None. The
-    // AutomaticUpgradeOfQueries permission gate + MaxAutomaticUpgrade cap are deferred.
-    async function queryDefault(rootTypeId: PrimaryKey | undefined, roleKey: string): Promise<QueryAllowed> {
-        if (await AuthLogic.getDefaultAllowed(roleKey))
-            return QueryAllowed.Allow;
-        if (rootTypeId != null && await TypeAuthLogic.isAllowedForType(rootTypeId, TypeAllowedBasic.Read, true, roleKey))
-            return QueryAllowed.Allow;
-        return QueryAllowed.None;
     }
 
     // The entity-type discriminator id of a query's root type, or undefined for a non-entity query.
@@ -128,15 +145,11 @@ export namespace QueryAuthLogic {
     }
 
     async function getAllowed(queryId: PrimaryKey, rootTid: PrimaryKey | undefined, roleKey: string): Promise<QueryAllowed> {
-        const { rules, computed } = await rulesLazy.value();
-        return computeAllowed<QueryAllowed>(roleKey, queryId, rules, mergeQuery, rk => queryDefault(rootTid, rk), computed);
+        return (await rulesLazy.value()).getAllowed(queryId, rootTid, roleKey);
     }
 
     async function getAllowedBase(queryId: PrimaryKey, rootTid: PrimaryKey | undefined, roleKey: string): Promise<QueryAllowed> {
-        const parents = await AuthLogic.relatedTo(roleKey);
-        if (parents.size === 0)
-            return queryDefault(rootTid, roleKey);
-        return mergeQuery(await AuthLogic.getMergeStrategy(roleKey), await Promise.all([...parents].map(p => getAllowed(queryId, rootTid, p))));
+        return (await rulesLazy.value()).getAllowedBase(queryId, rootTid, roleKey);
     }
 
     /** Min/max access RANK (0 None, 1 EmbeddedOnly, 2 Allow) over ALL of the type's queries — the grid's

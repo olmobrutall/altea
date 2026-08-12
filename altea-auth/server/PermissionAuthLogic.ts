@@ -5,7 +5,7 @@ import { ResetLazy } from "@altea/altea/data/resetLazy";
 import { table } from "@altea/altea/server/table";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import type { PrimaryKey } from "@altea/altea/data/entity";
-import { AuthLogic } from "./AuthLogic";
+import { AuthLogic, RoleGraph } from "./AuthLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
 import {
     RulePermissionEntity, PermissionSymbol,
@@ -21,15 +21,36 @@ import { computeAllowed, type ComputedCache } from "./AuthCache";
 // by SymbolLogic); the cache load + IsAuthorized are ASYNC (altea has no preloaded GlobalLazy); rules
 // are keyed by the permission's id. Merge = Union → any base allowed / Intersection → all base allowed.
 
+const mergeBool = (strategy: MergeStrategy, baseValues: boolean[]): boolean =>
+    strategy === MergeStrategy.Union ? baseValues.some(x => x) : baseValues.every(x => x);
+
+// Signum's AuthCache as a CLASS: the raw per-role rules + the role graph + the merged (role, permissionId)
+// memo (RoleAllowedCache), all resolved once in the factory and folded SYNCHRONOUSLY thereafter. One
+// instance lives behind the GlobalLazy, reset together when a RulePermission or Role is saved.
+class PermissionRulesCache {
+    private readonly computed: ComputedCache<boolean> = new Map();
+    constructor(
+        private readonly rules: Map<string, Map<PrimaryKey, boolean>>,
+        private readonly graph: RoleGraph,
+    ) { }
+
+    getAllowed(permissionId: PrimaryKey, roleKey: string): boolean {
+        return computeAllowed<boolean>(roleKey, permissionId, this.rules, mergeBool, rk => this.graph.getDefaultAllowed(rk), this.computed, this.graph);
+    }
+
+    // The value a role gets for a permission with NO explicit rule (Signum's AuthCache.GetAllowedBase):
+    // the merge of its direct parents' values, or the role default if it is a root role.
+    getAllowedBase(permissionId: PrimaryKey, roleKey: string): boolean {
+        const parents = this.graph.relatedTo(roleKey);
+        if (parents.size === 0)
+            return this.graph.getDefaultAllowed(roleKey);
+        return mergeBool(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.getAllowed(permissionId, p)));
+    }
+}
+
 export namespace PermissionAuthLogic {
     let started = false;
-    // Signum's AuthCache in one GlobalLazy: raw per-role rules + the merged (role, permissionId) cache
-    // (RoleAllowedCache), reset together when a RulePermission or Role is saved.
-    interface RulesCache {
-        rules: Map<string, Map<PrimaryKey, boolean>>;
-        computed: ComputedCache<boolean>;
-    }
-    let rulesLazy: ResetLazy<RulesCache>;
+    let rulesLazy: ResetLazy<PermissionRulesCache>;
 
     export function isStarted(): boolean {
         return started;
@@ -45,7 +66,7 @@ export namespace PermissionAuthLogic {
         sb.include(RulePermissionEntity).withQuery();
         // Signum's `sb.GlobalLazy(rules, InvalidateWith(RulePermission, Role))`. globalLazy runs the factory
         // in ExecutionMode.global, so the RulePermission read is ungated (no explicit Disable needed).
-        rulesLazy = sb.globalLazy(async () => ({ rules: await loadRules(), computed: new Map() }),
+        rulesLazy = sb.globalLazy(async () => new PermissionRulesCache(await loadRules(), await AuthLogic.roleGraph()),
             { invalidateWith: [RulePermissionEntity, RoleEntity] });
     }
 
@@ -66,9 +87,6 @@ export namespace PermissionAuthLogic {
         return map;
     }
 
-    const mergeBool = (strategy: MergeStrategy, baseValues: boolean[]): boolean =>
-        strategy === MergeStrategy.Union ? baseValues.some(x => x) : baseValues.every(x => x);
-
     /** Signum's PermissionAuthLogic.IsAuthorized. No current role (anonymous / auth off) → allowed. */
     export async function isAuthorized(permission: PermissionSymbol): Promise<boolean> {
         const roleKey = AuthLogic.currentRoleKey();
@@ -78,23 +96,17 @@ export namespace PermissionAuthLogic {
     }
 
     export async function isAuthorizedForRole(permission: PermissionSymbol, roleKey: string): Promise<boolean> {
-        const { rules, computed } = await rulesLazy.value();
-        return computeAllowed<boolean>(roleKey, permission.id, rules, mergeBool, AuthLogic.getDefaultAllowed, computed);
+        return (await rulesLazy.value()).getAllowed(permission.id, roleKey);
     }
 
     /** The role's effective allowed for a permission id (Signum's GetAllowed). No current role → allowed. */
     async function getAllowed(permissionId: PrimaryKey, roleKey: string): Promise<boolean> {
-        const { rules, computed } = await rulesLazy.value();
-        return computeAllowed<boolean>(roleKey, permissionId, rules, mergeBool, AuthLogic.getDefaultAllowed, computed);
+        return (await rulesLazy.value()).getAllowed(permissionId, roleKey);
     }
 
-    // The value a role gets for a permission with NO explicit rule (Signum's AuthCache.GetAllowedBase):
-    // the merge of its direct parents' values, or the role default if it is a root role.
+    // The value a role gets for a permission with NO explicit rule (Signum's AuthCache.GetAllowedBase).
     async function getAllowedBase(permissionId: PrimaryKey, roleKey: string): Promise<boolean> {
-        const parents = await AuthLogic.relatedTo(roleKey);
-        if (parents.size === 0)
-            return AuthLogic.getDefaultAllowed(roleKey);
-        return mergeBool(await AuthLogic.getMergeStrategy(roleKey), await Promise.all([...parents].map(p => getAllowed(permissionId, p))));
+        return (await rulesLazy.value()).getAllowedBase(permissionId, roleKey);
     }
 
     // Signum's AuthCache.GetRules — the admin pack: every permission with the role's effective `allowed`

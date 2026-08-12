@@ -16,7 +16,7 @@ import type { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
 import type { PrimaryKey, Type } from "@altea/altea/data/entity";
 import { toInt } from "@altea/altea/data/basics";
-import { AuthLogic, type RoleGraphData } from "./AuthLogic";
+import { AuthLogic, RoleGraph } from "./AuthLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
 import {
     RuleTypeEntity, RuleTypeConditionEntity, RuleTypeConditionEntity_Conditions,
@@ -31,7 +31,7 @@ import { TypeConditionLogic } from "./TypeConditionLogic";
 import { WithConditions, ConditionRule, maxBound, minBound, maxDB, maxUI } from "./WithConditions";
 import { mergeTypeConditions } from "./TypeConditionMerger";
 import { buildAuthFilter, authFilterLambda, rebasePartFilter } from "./TypeConditionAlgebra";
-import { computeAllowed, computeAllowedSync, type ComputedCache } from "./AuthCache";
+import { computeAllowed, type ComputedCache } from "./AuthCache";
 
 // Port of Signum's TypeAuthLogic (Rules/TypeAuthLogic.cs + .Conditions.cs) — a role's access to an entity
 // TYPE, now with ROW-LEVEL type conditions. A role's allowed for a type is a `WithConditions<TypeAllowed>`
@@ -45,14 +45,41 @@ import { computeAllowed, computeAllowedSync, type ComputedCache } from "./AuthCa
 
 export namespace TypeAuthLogic {
     let started = false;
-    // Signum's AuthCache: `rules` = the raw per-role rules read from the DB; `computed` = the merged
-    // (role, typeId) → WithConditions cache (RoleAllowedCache). Both live inside ONE GlobalLazy so they
-    // reset together when a RuleType or Role is saved (InvalidateWith).
-    interface RulesCache {
-        rules: Map<string, Map<PrimaryKey, WithConditions<TypeAllowed>>>;
-        computed: ComputedCache<WithConditions<TypeAllowed>>;
+    // Signum's AuthCache as a CLASS: the raw per-role `rules`, the role `graph`, and the merged
+    // (role, typeId) → WithConditions memo, all resolved once in the factory and folded SYNCHRONOUSLY
+    // thereafter. One instance lives behind the GlobalLazy, reset when a RuleType or Role is saved.
+    export class TypeRulesCache {
+        private readonly computed: ComputedCache<WithConditions<TypeAllowed>> = new Map();
+        constructor(
+            private readonly rules: Map<string, Map<PrimaryKey, WithConditions<TypeAllowed>>>,
+            readonly graph: RoleGraph,
+        ) { }
+
+        /** The full WithConditions<TypeAllowed> for a type id and role. No current role → simple Write. A
+         *  Part inherits its ROOT owner's allowance, collapsed to a condition-free scalar (no own rule). */
+        getAllowed(typeId: PrimaryKey, roleKey?: string): WithConditions<TypeAllowed> {
+            const rk = roleKey ?? AuthLogic.currentRoleKey();
+            if (rk == null)
+                return WithConditions.simple(TypeAllowed.Write);
+            const ctor = TypeLogic.tryGetType(typeId);
+            const rootCtor = ctor != null ? partRootCtor.get(ctor) : undefined;
+            if (rootCtor != null)
+                return collapseToScalar(this.getAllowed(TypeLogic.typeToId(rootCtor), rk));
+            const getDefaultSync = (r: string): WithConditions<TypeAllowed> =>
+                WithConditions.simple(this.graph.getDefaultAllowed(r) ? TypeAllowed.Write : TypeAllowed.None);
+            return computeAllowed<WithConditions<TypeAllowed>>(rk, typeId, this.rules, mergeType, getDefaultSync, this.computed, this.graph);
+        }
+
+        /** The value a role gets for a type with NO explicit rule (Signum's AuthCache.GetAllowedBase): the
+         *  merge of its direct parents' values, or the role default at a root role. */
+        getAllowedBase(typeId: PrimaryKey, roleKey: string): WithConditions<TypeAllowed> {
+            const parents = this.graph.relatedTo(roleKey);
+            if (parents.size === 0)
+                return WithConditions.simple(this.graph.getDefaultAllowed(roleKey) ? TypeAllowed.Write : TypeAllowed.None);
+            return mergeType(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.getAllowed(typeId, p)));
+        }
     }
-    let rulesLazy: ResetLazy<RulesCache>;
+    let rulesLazy: ResetLazy<TypeRulesCache>;
     // The current role's per-conditioned-type WithConditions, resolved ON DEMAND per query (not kept warm):
     // an async provider builds it into the opaque QueryFilterContext under this key, and the SYNC binder
     // hook reads it back. Signum keeps its RoleAllowedCache permanently warm; altea (no sync DB) instead
@@ -96,7 +123,7 @@ export namespace TypeAuthLogic {
         // resetting when a RuleType or Role is saved. (setTypeRulePack also resets explicitly for its deletes.)
         // globalLazy runs the factory in ExecutionMode.global, so its RuleType read is ungated — no explicit
         // Disable, and no re-entry into the row-filter provider during the load.
-        rulesLazy = sb.globalLazy(async () => ({ rules: await loadRules(), computed: new Map() }),
+        rulesLazy = sb.globalLazy(async () => new TypeRulesCache(await loadRules(), await AuthLogic.roleGraph()),
             { invalidateWith: [RuleTypeEntity, RoleEntity] });
         // Enforcement. The save gate (Signum's Schema_Saving) is installed now. The row-read FILTER
         // (Signum's FilterQuery) goes on each CONDITIONED type's EntityEvents.queryFilter so the LINQ binder
@@ -261,48 +288,16 @@ export namespace TypeAuthLogic {
     const mergeType = (strategy: MergeStrategy, baseValues: WithConditions<TypeAllowed>[]): WithConditions<TypeAllowed> =>
         mergeTypeConditions(strategy, baseValues);
 
-    const getDefaultType = async (roleKey: string): Promise<WithConditions<TypeAllowed>> =>
-        WithConditions.simple((await AuthLogic.getDefaultAllowed(roleKey)) ? TypeAllowed.Write : TypeAllowed.None);
-
-    /** The immutable type-rule snapshot for a SerializationAuthContext (Signum's warm RoleAllowedCache,
-     *  captured up-front). Resolving the lazy's Promise<T> here — never exposing the box naked — so the sync
-     *  compute below reads a frozen value that a concurrent invalidation can't null out. */
-    export type RulesSnapshot = RulesCache;
-    export function rulesSnapshot(): Promise<RulesCache> {
+    /** The loaded type-rule cache (Signum's warm RoleAllowedCache) — awaited by dimensions that fold over
+     *  the type allowance synchronously (property ceilings, query/operation type-based defaults) and by the
+     *  serialization-auth context. */
+    export function rulesCache(): Promise<TypeRulesCache> {
         return rulesLazy.value();
     }
 
-    /** SYNC twin of getAllowed for the serialization-auth path — computes from the CAPTURED snapshot
-     *  (`typeCtx`) + role graph (`graph`), both frozen in the SerializationAuthContext. No current role →
-     *  simple Write. */
-    export function getAllowedFromCtx(typeId: PrimaryKey, roleKey: string | undefined, typeCtx: RulesCache, graph: RoleGraphData): WithConditions<TypeAllowed> {
-        const rk = roleKey ?? AuthLogic.currentRoleKey();
-        if (rk == null)
-            return WithConditions.simple(TypeAllowed.Write);
-        const ctor = TypeLogic.tryGetType(typeId);
-        const rootCtor = ctor != null ? partRootCtor.get(ctor) : undefined;
-        if (rootCtor != null)
-            return collapseToScalar(getAllowedFromCtx(TypeLogic.typeToId(rootCtor), rk, typeCtx, graph));
-        const relatedTo = (r: string): Set<string> => graph.graph.tryRelatedTo(r);
-        const mergeStrategy = (r: string): MergeStrategy => graph.mergeStrategies.get(r)?.strategy ?? MergeStrategy.Union;
-        const getDefaultSync = (r: string): WithConditions<TypeAllowed> =>
-            WithConditions.simple((graph.mergeStrategies.get(r)?.defaultAllowed ?? false) ? TypeAllowed.Write : TypeAllowed.None);
-        return computeAllowedSync<WithConditions<TypeAllowed>>(rk, typeId, typeCtx.rules, mergeType, getDefaultSync, typeCtx.computed, relatedTo, mergeStrategy);
-    }
-
-    /** The full WithConditions<TypeAllowed> for a type id and role. No current role (anonymous / auth off)
-     *  → simple Write. */
+    /** The full WithConditions<TypeAllowed> for a type id and role. No current role → simple Write. */
     export async function getAllowed(typeId: PrimaryKey, roleKey?: string): Promise<WithConditions<TypeAllowed>> {
-        const rk = roleKey ?? AuthLogic.currentRoleKey();
-        if (rk == null)
-            return WithConditions.simple(TypeAllowed.Write);
-        // A Part inherits its ROOT owner's allowance (collapsed to a condition-free scalar). No own rule.
-        const ctor = TypeLogic.tryGetType(typeId);
-        const rootCtor = ctor != null ? partRootCtor.get(ctor) : undefined;
-        if (rootCtor != null)
-            return collapseToScalar(await getAllowed(TypeLogic.typeToId(rootCtor), rk));
-        const { rules, computed } = await rulesLazy.value();
-        return computeAllowed<WithConditions<TypeAllowed>>(rk, typeId, rules, mergeType, getDefaultType, computed);
+        return (await rulesLazy.value()).getAllowed(typeId, roleKey);
     }
 
     /** The type's configured type-condition SETS for a role (each an AND-ed TypeConditionSymbol set), from
@@ -350,13 +345,9 @@ export namespace TypeAuthLogic {
         return typeAllowedGet(tac.fallback, userInterface) >= requested;
     }
 
-    // The value a role would get for a type with NO explicit rule (Signum's AuthCache.GetAllowedBase):
-    // the merge of its direct parents' allowed values, or the role default if it is a root role.
+    // The value a role would get for a type with NO explicit rule (Signum's AuthCache.GetAllowedBase).
     export async function getAllowedBase(typeId: PrimaryKey, roleKey: string): Promise<WithConditions<TypeAllowed>> {
-        const parents = await AuthLogic.relatedTo(roleKey);
-        if (parents.size === 0)
-            return getDefaultType(roleKey);
-        return mergeType(await AuthLogic.getMergeStrategy(roleKey), await Promise.all([...parents].map(p => getAllowed(typeId, p))));
+        return (await rulesLazy.value()).getAllowedBase(typeId, roleKey);
     }
 
     const symbolLite = (s: TypeConditionSymbol): Lite<TypeConditionSymbol> => TypeConditionSymbol.newLite(s.id, s.key);

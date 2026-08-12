@@ -10,7 +10,7 @@ import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { toInt } from "@altea/altea/data/basics";
-import { AuthLogic, type RoleGraphData } from "./AuthLogic";
+import { AuthLogic, RoleGraph } from "./AuthLogic";
 import { TypeAuthLogic } from "./TypeAuthLogic";
 import { TypeConditionLogic } from "./TypeConditionLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
@@ -43,12 +43,88 @@ import * as Database from "@altea/altea/server/Database";
 // permanently-warm GlobalLazy; altea captures a per-request snapshot, immune to a concurrent invalidate().
 // None → the value is omitted server→client + its line hidden (propsMeta); Read → read-only (kept on
 // save); Write → normal.
+const compositeKey = (typeId: PrimaryKey, path: string): string => `${String(typeId)}|${path}`;
+
+const mergeProp = (strategy: MergeStrategy, baseValues: WithConditions<PropertyAllowed>[]): WithConditions<PropertyAllowed> =>
+    mergeWithConditions(strategy, baseValues, PropertyAllowed.Write);
+
+// Signum's AuthCache as a CLASS — and, since it is fully synchronous once loaded, it IS the serialization
+// auth context (Phase 2): the codec's async boundary resolves ONE of these (`resolveContext`) and the sync
+// `access` reads it. Holds the property rules + role graph + the captured TYPE-rule cache (a property is
+// capped by, and defaults to, its type's UI-read allowance). A concurrent invalidate() can't affect an
+// in-flight serialization — the instance the request captured is frozen.
+class PropertyRulesCache {
+    constructor(
+        private readonly propRules: Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>,
+        private readonly graph: RoleGraph,
+        private readonly typeCache: TypeAuthLogic.TypeRulesCache,
+    ) { }
+
+    // Per-instance property access for the current role (serializer path), evaluated against the concrete
+    // root ENTITY (so type conditions resolve). No role / auth off / unknown route → Write (fail open). The
+    // per-instance value is clamped to the type's per-instance UI-read allowance (Signum's CoerceValue).
+    access(root: Entity, path: string): PropertyAllowed {
+        const roleKey = AuthLogic.currentRoleKey();
+        if (roleKey == null || !AuthLogic.isEnabled())
+            return PropertyAllowed.Write;
+        let typeId: PrimaryKey;
+        try { typeId = TypeLogic.typeToId(root.constructor); } catch { return PropertyAllowed.Write; }
+        const wc = this.propAllowed(typeId, compositeKey(typeId, path), roleKey);
+        const ceilingWC = this.typeCache.getAllowed(typeId, roleKey);
+        const matches = (tc: TypeConditionSymbol): boolean => TypeConditionLogic.inTypeCondition(root, tc);
+        const prop = evaluateConditions(wc, matches);
+        const ceil = typeBasicToProperty(typeAllowedUI(evaluateConditions(ceilingWC, matches)));
+        return Math.min(prop, ceil) as PropertyAllowed;
+    }
+
+    getAllowed(typeId: PrimaryKey, path: string, roleKey: string): WithConditions<PropertyAllowed> {
+        return this.propAllowed(typeId, compositeKey(typeId, path), roleKey);
+    }
+
+    // The type's allowance mapped to a property WithConditions — the no-rule DEFAULT (a property FOLLOWS its
+    // type, incl. conditions: Signum's ToPropertyAllowed(type.GetUI())).
+    typeDefaultWC(typeId: PrimaryKey, roleKey: string): WithConditions<PropertyAllowed> {
+        return this.typeCache.getAllowed(typeId, roleKey).mapWithConditions(t => typeBasicToProperty(typeAllowedUI(t)));
+    }
+
+    // Signum's AutomaticUpgradeOfProperties: a property with NO explicit rule follows ITS OWN role's type
+    // allowance (varies per role), not the parents' value — so this recursion is bespoke (not computeAllowed):
+    // no explicit rule up the chain → this role's type default; else the explicit rule or the per-parent merge.
+    private propAllowed(typeId: PrimaryKey, key: string, roleKey: string): WithConditions<PropertyAllowed> {
+        if (!this.hasExplicitInChain(roleKey, key))
+            return this.typeDefaultWC(typeId, roleKey);
+        const explicit = this.propRules.get(roleKey)?.get(key);
+        if (explicit !== undefined)
+            return explicit;
+        const parents = this.graph.relatedTo(roleKey);
+        return mergeProp(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.propAllowed(typeId, key, p)));
+    }
+
+    // True if roleKey OR any ancestor has an explicit property rule for `key` (Signum's "is overridden").
+    private hasExplicitInChain(roleKey: string, key: string): boolean {
+        const seen = new Set<string>();
+        const stack = [roleKey];
+        while (stack.length > 0) {
+            const rk = stack.pop()!;
+            if (seen.has(rk)) continue;
+            seen.add(rk);
+            if (this.propRules.get(rk)?.has(key)) return true;
+            for (const p of this.graph.relatedTo(rk)) stack.push(p);
+        }
+        return false;
+    }
+
+    getAllowedBase(typeId: PrimaryKey, path: string, roleKey: string): WithConditions<PropertyAllowed> {
+        const parents = this.graph.relatedTo(roleKey);
+        if (parents.size === 0)
+            return this.typeDefaultWC(typeId, roleKey);
+        return mergeProp(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.getAllowed(typeId, path, p)));
+    }
+}
+
 export namespace PropertyAuthLogic {
     let started = false;
-    interface RulesCache {
-        rules: Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>;
-    }
-    let rulesLazy: ResetLazy<RulesCache>;
+    let rulesLazy: ResetLazy<PropertyRulesCache>;
 
     export function isStarted(): boolean {
         return started;
@@ -62,17 +138,19 @@ export namespace PropertyAuthLogic {
         sb.include(RulePropertyEntity).withQuery();
         // invalidateWith RuleType too: the no-rule default / coerced ceiling derive from the type's UI-read
         // allowance, so a type-rule change must reset the property cache.
-        rulesLazy = sb.globalLazy(async () => ({ rules: await loadRules() }),
+        rulesLazy = sb.globalLazy(async () => new PropertyRulesCache(await loadRules(), await AuthLogic.roleGraph(), await TypeAuthLogic.rulesCache()),
             { invalidateWith: [RulePropertyEntity, RuleTypeEntity, RoleEntity] });
         // The serializer is SYNCHRONOUS. Per request the codec calls `resolveContext` ONCE (async, before the
-        // walk) to capture an IMMUTABLE snapshot of the auth caches (role graph + type rules + property rules)
-        // in a SerializationAuthContext, then reads THAT snapshot synchronously in `access` — so a concurrent
-        // rule invalidation can't null a cache out mid-serialization (no fail-open window). Signum keeps its
-        // RoleAllowedCache permanently warm; altea captures a per-request snapshot instead.
+        // walk) to capture the loaded PropertyRulesCache — which IS the serialization-auth context — and then
+        // reads it synchronously in `access`. A concurrent invalidate() can't affect an in-flight walk: the
+        // instance the request captured is frozen (Signum keeps its RoleAllowedCache warm; altea snapshots it).
         setSerializationAuth({
             getMetadata: root => root,   // the root ENTITY — access evaluates its type-conditions per instance
-            access: (route, meta, context) => toAccess(accessFromCtx(meta as Entity, route.propertyString(), context)),
-            resolveContext: () => resolveContext(),
+            access: (route, meta, context) => {
+                const cache = context as PropertyRulesCache | undefined;
+                return cache == null ? "writable" : toAccess(cache.access(meta as Entity, route.propertyString()));
+            },
+            resolveContext: () => rulesLazy.value(),
         });
         // The WRITE gate: make the retrieve implicit in the request deserializer. When the body carries an
         // existing (id) + modified root entity, load its DB original and overlay the incoming changes onto
@@ -110,93 +188,16 @@ export namespace PropertyAuthLogic {
         return n != null && n.id != null && n.modified === true ? (n as { $type: string; id: PrimaryKey; modified?: boolean }) : undefined;
     }
 
-    // ---- Sync snapshot for the serializer -----------------------------------------------------
+    // Serializer PropertyAllowed → the codec's access verb.
     function toAccess(pa: PropertyAllowed): PropertyAccess {
         return pa === PropertyAllowed.None ? "hidden" : pa === PropertyAllowed.Read ? "readonly" : "writable";
     }
 
-    // The IMMUTABLE serialization-auth snapshot (Signum's warm RoleAllowedCache, captured per request). Holds
-    // the property rules + the type-rule snapshot + the role graph — everything the sync `access` folds over.
-    interface PropAuthCtx {
-        propRules: Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>;
-        typeCtx: TypeAuthLogic.RulesSnapshot;
-        graph: RoleGraphData;
-    }
-
-    // Resolve the per-request snapshot: await the Promise<T> of each ResetLazy (never touching the box naked)
-    // and combine into one PropAuthCtx. The serializer then reads it synchronously via accessFromCtx — immune
-    // to a concurrent invalidate() between here and the walk (the captured values are frozen).
-    export async function resolveContext(): Promise<PropAuthCtx> {
-        const [graph, typeCtx, rc] = await Promise.all([
-            AuthLogic.roleGraph(),
-            TypeAuthLogic.rulesSnapshot(),
-            rulesLazy.value(),
-        ]);
-        return { propRules: rc.rules, typeCtx, graph };
-    }
-
-    // SYNC property access for the current role (serializer path), evaluated against the concrete root ENTITY
-    // (so type conditions resolve) from the CAPTURED context. No role / auth off / no context / unknown route
-    // → Write (fail open). The per-instance value is clamped to the type's per-instance UI-read allowance
-    // (a property can't exceed its type — Signum's CoerceValue).
-    function accessFromCtx(root: Entity, path: string, ctxU: unknown): PropertyAllowed {
-        const roleKey = AuthLogic.currentRoleKey();
-        if (roleKey == null || !AuthLogic.isEnabled())
-            return PropertyAllowed.Write;
-        const ctx = ctxU as PropAuthCtx | undefined;
-        if (ctx == null)
-            return PropertyAllowed.Write; // no snapshot captured (auth off) → fail open
-        let typeId: PrimaryKey;
-        try { typeId = TypeLogic.typeToId(root.constructor); } catch { return PropertyAllowed.Write; }
-        const wc = propAllowedFromCtx(typeId, compositeKey(typeId, path), roleKey, ctx);
-        const ceilingWC = TypeAuthLogic.getAllowedFromCtx(typeId, roleKey, ctx.typeCtx, ctx.graph);
-        const matches = (tc: TypeConditionSymbol): boolean => TypeConditionLogic.inTypeCondition(root, tc);
-        const prop = evaluateConditions(wc, matches);
-        const ceil = typeBasicToProperty(typeAllowedUI(evaluateConditions(ceilingWC, matches)));
-        return Math.min(prop, ceil) as PropertyAllowed;
-    }
-
-    // ---- SYNC getAllowed over the captured context (twins of getAllowed / propAllowed / hasExplicitInChain
-    // / typeDefaultWC): identical folding, but read the frozen snapshot (propRules + typeCtx + graph). No
-    // undefined path — the context is always fully resolved by the time access runs.
-    function relatedToG(graph: RoleGraphData, rk: string): Set<string> {
-        return graph.graph.tryRelatedTo(rk);
-    }
-    function mergeStrategyG(graph: RoleGraphData, rk: string): MergeStrategy {
-        return graph.mergeStrategies.get(rk)?.strategy ?? MergeStrategy.Union;
-    }
-    function propAllowedFromCtx(typeId: PrimaryKey, key: string, roleKey: string, ctx: PropAuthCtx): WithConditions<PropertyAllowed> {
-        if (!hasExplicitInChainCtx(roleKey, key, ctx.propRules, ctx.graph))
-            return typeDefaultFromCtx(typeId, roleKey, ctx);
-        const explicit = ctx.propRules.get(roleKey)?.get(key);
-        if (explicit !== undefined) return explicit;
-        const parents = relatedToG(ctx.graph, roleKey);
-        return mergeProp(mergeStrategyG(ctx.graph, roleKey), [...parents].map(p => propAllowedFromCtx(typeId, key, p, ctx)));
-    }
-    function hasExplicitInChainCtx(roleKey: string, key: string, rules: Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>, graph: RoleGraphData): boolean {
-        const seen = new Set<string>();
-        const stack = [roleKey];
-        while (stack.length > 0) {
-            const rk = stack.pop()!;
-            if (seen.has(rk)) continue;
-            seen.add(rk);
-            if (rules.get(rk)?.has(key)) return true;
-            for (const p of relatedToG(graph, rk)) stack.push(p);
-        }
-        return false;
-    }
-    function typeDefaultFromCtx(typeId: PrimaryKey, roleKey: string, ctx: PropAuthCtx): WithConditions<PropertyAllowed> {
-        const ta = TypeAuthLogic.getAllowedFromCtx(typeId, roleKey, ctx.typeCtx, ctx.graph);
-        return ta.mapWithConditions(t => typeBasicToProperty(typeAllowedUI(t)));
-    }
-
     /** Explicit reset for setPropertyRulePack (whose deletes don't fire `saved`). Saves auto-invalidate.
-     *  The next request's resolveContext re-reads the fresh rules into a new snapshot. */
+     *  The next request's resolveContext re-reads the fresh rules into a new PropertyRulesCache. */
     export function invalidate(): void {
         rulesLazy?.reset();
     }
-
-    const compositeKey = (typeId: PrimaryKey, path: string): string => `${String(typeId)}|${path}`;
 
     async function loadRules(): Promise<Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>> {
         const rows = await table(RulePropertyEntity).toArray() as RulePropertyEntity[];
@@ -224,15 +225,9 @@ export namespace PropertyAuthLogic {
         return new WithConditions<PropertyAllowed>(row.fallback, conditionRules);
     }
 
-    const mergeProp = (strategy: MergeStrategy, baseValues: WithConditions<PropertyAllowed>[]): WithConditions<PropertyAllowed> =>
-        mergeWithConditions(strategy, baseValues, PropertyAllowed.Write);
-
-    // The type's allowance mapped to a property WithConditions — the no-rule DEFAULT (a property FOLLOWS its
-    // type, incl. conditions: Signum's ToPropertyAllowed(type.GetUI())). Maps each TypeAllowed to its UI-read
-    // as a PropertyAllowed.
+    // The type's allowance mapped to a property WithConditions — the no-rule DEFAULT / per-slice ceiling.
     async function typeDefaultWC(typeId: PrimaryKey, roleKey: string): Promise<WithConditions<PropertyAllowed>> {
-        const ta = await TypeAuthLogic.getAllowed(typeId, roleKey);
-        return ta.mapWithConditions(t => typeBasicToProperty(typeAllowedUI(t)));
+        return (await rulesLazy.value()).typeDefaultWC(typeId, roleKey);
     }
 
     // Clamp each slice of a property's WithConditions to the type's per-slice ceiling (a property can't
@@ -248,53 +243,14 @@ export namespace PropertyAuthLogic {
         );
     }
 
-    // Signum's PropertyAuthLogic AutomaticUpgradeOfProperties: a property's allowance can NOT be resolved by
-    // the generic AuthCache bubbling (computeAllowed), because a property with NO explicit rule follows ITS
-    // OWN role's type allowance — which varies per role — rather than inheriting the parents' value. So the
-    // recursion is bespoke: if no role in the chain has an explicit rule for this route, the property AUTO-
-    // UPGRADES to this role's type default; otherwise it is the explicit rule (here) or the per-parent merge
-    // (each parent resolved the SAME way, so a no-rule branch contributes its own type default). The final
-    // clamp to the type ceiling is per-instance, in accessFromCtx.
+    // The role's effective / inherited-base property allowance (Signum's GetAllowed / GetAllowedBase) —
+    // the AutomaticUpgradeOfProperties recursion lives on the cache; these just await + delegate.
     async function getAllowed(typeId: PrimaryKey, path: string, roleKey: string): Promise<WithConditions<PropertyAllowed>> {
-        const { rules } = await rulesLazy.value();
-        return propAllowed(typeId, compositeKey(typeId, path), roleKey, rules);
-    }
-
-    async function propAllowed(
-        typeId: PrimaryKey,
-        key: string,
-        roleKey: string,
-        rules: Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>,
-    ): Promise<WithConditions<PropertyAllowed>> {
-        if (!await hasExplicitInChain(roleKey, key, rules))
-            return typeDefaultWC(typeId, roleKey); // no rule anywhere up the chain → follow this role's type
-        const explicit = rules.get(roleKey)?.get(key);
-        if (explicit !== undefined)
-            return explicit;
-        const parents = await AuthLogic.relatedTo(roleKey);
-        return mergeProp(await AuthLogic.getMergeStrategy(roleKey), await Promise.all([...parents].map(p => propAllowed(typeId, key, p, rules))));
-    }
-
-    // True if roleKey OR any ancestor has an explicit property rule for `key` (Signum's "is overridden").
-    async function hasExplicitInChain(roleKey: string, key: string, rules: Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>): Promise<boolean> {
-        const seen = new Set<string>();
-        const stack = [roleKey];
-        while (stack.length > 0) {
-            const rk = stack.pop()!;
-            if (seen.has(rk)) continue;
-            seen.add(rk);
-            if (rules.get(rk)?.has(key))
-                return true;
-            for (const p of await AuthLogic.relatedTo(rk)) stack.push(p);
-        }
-        return false;
+        return (await rulesLazy.value()).getAllowed(typeId, path, roleKey);
     }
 
     async function getAllowedBase(typeId: PrimaryKey, path: string, roleKey: string): Promise<WithConditions<PropertyAllowed>> {
-        const parents = await AuthLogic.relatedTo(roleKey);
-        if (parents.size === 0)
-            return typeDefaultWC(typeId, roleKey);
-        return mergeProp(await AuthLogic.getMergeStrategy(roleKey), await Promise.all([...parents].map(p => getAllowed(typeId, path, p))));
+        return (await rulesLazy.value()).getAllowedBase(typeId, path, roleKey);
     }
 
     const symbolLite = (s: TypeConditionSymbol): Lite<TypeConditionSymbol> => TypeConditionSymbol.newLite(s.id, s.key);
