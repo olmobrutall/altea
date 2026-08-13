@@ -1,5 +1,5 @@
 import { Connector } from "./connection/connector";
-import { cleanTypeName } from "../data/registration";
+import { cleanTypeName, getLocation } from "../data/registration";
 import { TypeEntity } from "../data/typeEntity";
 import { quotedFunction } from "./query";
 import { ClassType } from "./runtimeTypes";
@@ -227,25 +227,31 @@ async function loadTypeEntities(schema: Schema): Promise<TypeEntity[]> {
 // The deterministic bootstrap metadata: every real entity ctor (enum side-tables, keyed by a generic
 // descriptor, are never @implementedByAll targets and get no row), sorted by ctor name. Generation seeds
 // the rows in this same order so the DB-assigned identity ids match the bootstrap 1..N numbering.
-type TypeMeta = { tableName: string; cleanName: string; namespace: string; className: string };
+type TypeMeta = { tableName: string; cleanName: string; package: string; className: string };
 function bootstrapMetas(schema: Schema): TypeMeta[] {
     const entries: [Function, Table][] = [];
     for (const [type, table] of schema.tables)
         if (typeof type === "function")
             entries.push([type, table]);
     entries.sort((a, b) => (a[0].name < b[0].name ? -1 : a[0].name > b[0].name ? 1 : 0));
-    return entries.map(([ctor, table]) => ({ tableName: table.name.name, cleanName: cleanTypeName(ctor), namespace: "", className: ctor.name }));
+    return entries.map(([ctor, table]) => ({ tableName: table.name.name, cleanName: cleanTypeName(ctor), package: packageOf(ctor), className: ctor.name }));
+}
+
+// The owning npm package of an entity ctor (Signum's Namespace analog), from the registration FileInfo
+// the quote-transformer stamps. "" when unknown (kept identical to the old empty namespace for those).
+function packageOf(ctor: Function): string {
+    return getLocation(ctor.name)?.packageName ?? "";
 }
 
 // A TypeEntity carrying the given metadata (and optional id) — for generation inserts (no id,
 // DB assigns) and sync updates/deletes (id = the persisted row's).
-function typeEntityFromMeta(m: { tableName: string; cleanName: string; namespace: string; className: string }, id?: PrimaryKey): TypeEntity {
+function typeEntityFromMeta(m: { tableName: string; cleanName: string; package: string; className: string }, id?: PrimaryKey): TypeEntity {
     const te = new TypeEntity();
     if (id != null)
         (te as { id: PrimaryKey }).id = id;
     te.tableName = m.tableName;
     te.cleanName = m.cleanName;
-    te.namespace = m.namespace;
+    te.package = m.package;
     te.className = m.className;
     return te;
 }
@@ -281,11 +287,11 @@ async function synchronizeTypes(replacements: Replacements): Promise<SqlPreComma
     const pkCol = table.primaryKey.column.name;
     const col = (f: string): string => table.fields[f].field.columns()[0].name;
 
-    type Meta = { tableName: string; cleanName: string; namespace: string; className: string };
+    type Meta = { tableName: string; cleanName: string; package: string; className: string };
     const should = new Map<string, Meta>();
     for (const [type, t] of schema.tables)
         if (typeof type === "function")
-            should.set(t.name.name, { tableName: t.name.name, cleanName: cleanTypeName(type), namespace: "", className: type.name });
+            should.set(t.name.name, { tableName: t.name.name, cleanName: cleanTypeName(type), package: packageOf(type), className: type.name });
 
     type Cur = { id: PrimaryKey } & Meta;
     const currentByTable = new Map<string, Cur>();
@@ -295,7 +301,7 @@ async function synchronizeTypes(replacements: Replacements): Promise<SqlPreComma
     // propagates to Schema.synchronizationScript, which comments it out (so it surfaces).
     const readName = readObjectName(table, replacements);
     if (await existsTable(readName)) {
-        const cols = [pkCol, col("tableName"), col("cleanName"), col("namespace"), col("className")];
+        const cols = [pkCol, col("tableName"), col("cleanName"), col("package"), col("className")];
         const rows = await connector.executeQuery(
             `SELECT ${cols.map(c => sqlBuilder.sqlEscape(c)).join(", ")} FROM ${sqlBuilder.objectName(readName)}`,
         ) as Record<string, unknown>[];
@@ -305,7 +311,7 @@ async function synchronizeTypes(replacements: Replacements): Promise<SqlPreComma
                 id: r[pkCol] as PrimaryKey,
                 tableName,
                 cleanName: String(r[col("cleanName")]),
-                namespace: r[col("namespace")] == null ? "" : String(r[col("namespace")]),
+                package: r[col("package")] == null ? "" : String(r[col("package")]),
                 className: String(r[col("className")]),
             });
         }
@@ -324,7 +330,7 @@ async function synchronizeTypes(replacements: Replacements): Promise<SqlPreComma
         (_k, s) => insertSqlSyncGenerated(table, typeEntityFromMeta(s) as unknown as Entity),
         (_k, c) => deleteSqlSync(table, typeEntityFromMeta(c, c.id) as unknown as Entity),
         (_k, s, c) =>
-            (s.tableName === c.tableName && s.cleanName === c.cleanName && s.namespace === c.namespace && s.className === c.className)
+            (s.tableName === c.tableName && s.cleanName === c.cleanName && s.package === c.package && s.className === c.className)
                 ? undefined
                 : updateSqlSync(table, typeEntityFromMeta(s, c.id) as unknown as Entity), // keep the persisted id
     );

@@ -131,11 +131,18 @@ export class SchemaSettings {
     }
 
     // The schema a type's table lands in. Defaults to `schemaName` (the connection's current schema),
-    // but a type covered by a `defaultDatabaseSchema(...)` declaration uses that — folder-scoped, so a
+    // but a type covered by a `setDefaultDatabaseSchema(...)` declaration uses that — folder-scoped, so a
     // whole package (or a sub-folder within it) groups into one schema without annotating each entity.
     // `@tableName` still overrides the full object name for individual types (views, temp tables).
+    //
+    // Enum tables: `EnumEntity.typeFor(x)` is an ANONYMOUS class (`type.name === ""`), so resolving by
+    // `type.name` would never match a scope — and must NOT fall back to EnumEntity's own file (which lives
+    // in @altea/altea/data). Instead resolve by the ENUM's registered name (e.g. "OrderState"), so the enum
+    // lands in the schema of the package it is DEFINED in, exactly like the table name is derived.
     schemaForType(type: Type<Entity>): SchemaName {
-        const schema = schemaForName(type.name);
+        const enumObject = getBoundEnum(type);
+        const name = enumObject != null ? (enumNameOf(enumObject) ?? type.name) : type.name;
+        const schema = schemaForName(name);
         return schema ? new SchemaName(schema, this.schemaName.database) : this.schemaName;
     }
 }

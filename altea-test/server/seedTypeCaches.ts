@@ -30,7 +30,7 @@ export function seedTypeCachesForTest(schema: Schema): void {
         te.className = ctor.name;
         te.cleanName = cleanTypeName(ctor);
         te.tableName = schema.tryTable(ctor as never)!.name.name;
-        te.namespace = "";
+        te.package = "";
         typeToId.set(ctor, id);
         idToType.set(id, ctor);
         idToEntity.set(id, te);

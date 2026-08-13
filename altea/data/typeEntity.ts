@@ -1,5 +1,5 @@
 import { Entity } from './entity';
-import { reflect } from './reflection';
+import { reflect, setDefaultDatabaseSchema } from './reflection';
 import { entity } from './decorators';
 
 // Port of Signum's TypeEntity (Signum/Basics/Type.cs): the system table that maps
@@ -27,8 +27,17 @@ export class TypeEntity extends Entity {
     // human-facing discriminator; UNIQUE in Signum (no unique-index support yet).
     cleanName: string;
 
-    // The type's namespace (always "" in altea — TS has no namespaces) and the
-    // unqualified class name. Kept for parity with Signum's TypeEntity columns.
-    namespace: string;
+    // The owning npm PACKAGE of the type (Signum's TypeEntity.Namespace analog — TS has no
+    // namespaces, so altea records the package, e.g. "@altea/altea" / "@altea/altea-auth" /
+    // "eastwind"; resolved from the registration FileInfo). And the unqualified class name.
+    package: string;
     className: string;
 }
+
+// The framework's own entities in this data/ folder (TypeEntity, OperationSymbol, QueryEntity,
+// ExceptionEntity, OperationLogEntity — Signum's Signum.Basics) live in a "basics" DB schema, keeping the
+// framework's tables out of the app's default schema. FOLDER-scoped to @altea/altea/data (the transformer
+// stamps the __fileInfo), and declared HERE because SchemaBuilder imports typeEntity.ts, so the scope is
+// registered before any table is included in any app/test. Enum tables are exempt — they resolve to the
+// schema of the package the ENUM is defined in (SchemaSettings.schemaForType), not to this folder.
+setDefaultDatabaseSchema("basics");

@@ -257,7 +257,9 @@ export function setDefaultDatabaseSchema(schema: string, fileInfo?: FileInfo): v
 
 // The schema that applies to a registered type NAME — the longest declared scope whose package matches
 // and whose directory is a prefix of the type's file. undefined when no scope covers it (→ the connection
-// default schema).
+// default schema). NOTE: for an enum table, callers must pass the ENUM's own registered name (not the
+// anonymous EnumEntity.typeFor class name), so the enum resolves to the schema of the package it is
+// DEFINED in — not to EnumEntity's own file (@altea/altea/data). See SchemaSettings.schemaForType.
 export function schemaForName(name: string): string | undefined {
     const loc = locationRegistry.get(name);
     if (loc == null) return undefined;

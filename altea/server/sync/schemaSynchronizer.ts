@@ -66,6 +66,45 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
         databaseTables.delete(historyKey);
     }
 
+    // ---- Schema MOVES as renames (altea groups tables into per-package schemas; Signum folds a schema
+    // change into the table rename). A DB table whose UNQUALIFIED name matches a model table but whose
+    // SCHEMA differs (e.g. a table that moved into a per-package schema like "auth"/"basics") is PAIRED with
+    // that model table by seeding the table-rename replacement map. The standard rename path (mergeBoth
+    // below) then emits ALTER … SET SCHEMA and preserves the data, instead of a drop + create. New schemas
+    // were already created (synchronizeSchemasScript, before this step); emptied old schemas are dropped
+    // after the table sync (below).
+    const dbSchemasWithTables = new Set<string>(); // captured BEFORE the re-key, for the drop pass
+    for (const dif of databaseTables.values())
+        if (dif.name.schema.name !== "")
+            dbSchemasWithTables.add(dif.name.schema.name);
+
+    const modelByBareName = new Map<string, Table[]>();
+    for (const t of modelTables.values()) {
+        const arr = modelByBareName.get(t.name.name);
+        if (arr != null) arr.push(t); else modelByBareName.set(t.name.name, [t]);
+    }
+    const moveMap = new Map<string, string>(); // old DB key → new model key (a schema-move "rename")
+    for (const [dbKey, dif] of databaseTables) {
+        if (modelTables.has(dbKey))
+            continue; // already matched by the full (schema-qualified) name — not a move
+        const candidates = modelByBareName.get(dif.name.name);
+        // Only an UNAMBIGUOUS same-name match (exactly one model table with that bare name), whose schema
+        // actually differs, is a move — avoids guessing when two schemas share a bare name.
+        if (candidates == null || candidates.length !== 1)
+            continue;
+        const model = candidates[0];
+        if (modelTables.has(dif.name.toString()) || model.name.schema.name === dif.name.schema.name)
+            continue;
+        moveMap.set(dbKey, model.name.toString());
+    }
+    // Seed keyTables so askForReplacements treats these as (already-answered) renames — no prompt — and
+    // applyReplacementsToOld re-keys them to the model, landing them in mergeBoth (move) not create+drop.
+    if (moveMap.size > 0) {
+        const existing = replacements.tryGetC(Replacements.keyTables);
+        if (existing != null) for (const [k, v] of moveMap) existing.set(k, v);
+        else replacements.set(Replacements.keyTables, moveMap);
+    }
+
     replacements.askForReplacements(new Set(databaseTables.keys()), new Set(modelTables.keys()), Replacements.keyTables);
     // Record the INVERSE table-rename map (model-new-name → old-DB-name) — Signum's KeyTablesInverse,
     // read by readObjectName so a later step (enum/symbol seeding) reads current rows from the table's
@@ -187,7 +226,16 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
         (tn, tab) => sqlBuilder.createTableSql(tab),
         (tn, dif) => sqlBuilder.dropTable(dif), // DiffTable overload: SQL Server disables versioning first
         (tn, tab, dif) => {
-            const rename = dif.name.toString() !== tab.name.toString() ? sqlBuilder.renameTable(dif.name, tab.name.name) : undefined;
+            // A matched table whose SCHEMA and/or bare NAME differs from the model is moved/renamed in
+            // place (Signum folds a schema change into the rename): move to the new schema first, then
+            // rename the bare name if it also changed. Preserves data (vs a create + drop pair).
+            const moveSchema = dif.name.schema.name !== tab.name.schema.name
+                ? sqlBuilder.alterSchema(dif.name, tab.name.schema) : undefined;
+            const nameAfterMove = new ObjectName(dif.name.name, tab.name.schema);
+            const bareRename = nameAfterMove.name !== tab.name.name
+                ? sqlBuilder.renameTable(nameAfterMove, tab.name.name) : undefined;
+            const rename = moveSchema != null || bareRename != null
+                ? SqlPreCommand.combine(Spacing.Simple, moveSchema, bareRename) : undefined;
 
             // ---- SQL Server versioning transitions (Signum's disable/enable/period machinery) ----
             // A "strong" change (making a column NOT NULL, or an incompatible type) can't be applied
@@ -378,10 +426,24 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
         ),
     );
 
-    // Order: main tables, then the history tables' own lifecycle, then the delayed history-column
-    // replay (targets history tables that now exist), then the trigger re-emit last (after the
-    // history columns match). historyTables/delayedHistory/versioningTriggers are no-ops on SS.
-    return SqlPreCommand.combine(Spacing.Triple, dropForeignKeys, dropIndices, dropFullTextCatalogs, tables, historyTables, delayedHistory, versioningTriggers, createFullTextCatalogs, addForeignKeys, addIndices);
+    // Drop schemas emptied by this sync (Signum drops them after the table sync). A named schema that HELD
+    // DB tables but is NOT a model schema has had all its tables moved out (or dropped) above, so it is now
+    // empty — drop it. The default and DB-internal schemas never appear here (they hold no user tables /
+    // aren't named). DROP SCHEMA is RESTRICT (no CASCADE): a schema still holding unrelated objects errors
+    // loudly rather than silently cascading.
+    const modelSchemaNames = new Set<string>();
+    for (const t of modelTables.values())
+        if (t.name.schema.name !== "")
+            modelSchemaNames.add(t.name.schema.name);
+    const dropSchemas = SqlPreCommand.combine(Spacing.Double,
+        ...[...dbSchemasWithTables]
+            .filter(s => !modelSchemaNames.has(s))
+            .map(s => sqlBuilder.dropSchema(new SchemaName(s, new DatabaseName("")))));
+
+    // Order: main tables, then the history tables' own lifecycle, then the delayed history-column replay
+    // (targets history tables that now exist), then the trigger re-emit. Finally dropSchemas — after every
+    // table has moved/dropped out of the old schemas.
+    return SqlPreCommand.combine(Spacing.Triple, dropForeignKeys, dropIndices, dropFullTextCatalogs, tables, historyTables, delayedHistory, versioningTriggers, createFullTextCatalogs, addForeignKeys, addIndices, dropSchemas);
 }
 
 // Drop a DB index, routing a SQL Server full-text index to DROP FULLTEXT INDEX (which targets the

@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, uniqueIndex, backReference, valueField, quoted, stringLengthValidator } from "@altea/altea/data/decorators";
@@ -62,3 +62,10 @@ export namespace RoleOperation {
     export const Save: ExecuteSymbol<RoleEntity> = init();
     export const Delete: DeleteSymbol<RoleEntity> = init();
 }
+
+// All altea-auth entities (this data/ folder: User, Role + link rows, the Rule* tables, PermissionSymbol,
+// TypeConditionSymbol) live in an "auth" DB schema. FOLDER-scoped to @altea/altea-auth/data (the
+// transformer stamps the __fileInfo); declared here in Role.ts because AuthLogic imports it before any
+// auth table is included. Auth enums (e.g. UserState) resolve to this schema too, since they are defined
+// in this package.
+setDefaultDatabaseSchema("auth");
