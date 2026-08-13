@@ -8,6 +8,7 @@ import { synchronizeSchemasScript, synchronizeTablesScript, synchronizeEnumsScri
 import type { Replacements } from '../sync/synchronizer';
 import { SchemaAssets } from '../sync/schemaAssets';
 import { EntityEvents, type QueryFilterContext } from './entityEvents';
+import { Connector } from '../connection/connector';
 import type { Table } from './table';
 import { ViewBuilder } from './viewBuilder';
 
@@ -31,6 +32,12 @@ const EMPTY_QUERY_FILTER_CONTEXT: QueryFilterContext = new Map();
 // for query/serialization lookups. Built by SchemaBuilder. (EntityEvents and
 // other runtime hooks are deferred to the save/query milestone.)
 export class Schema {
+    // Signum's Schema.Current — the active connector's schema. Lets callers reach the schema without
+    // threading a SchemaBuilder around (the connector is the single ambient source of truth after Starter).
+    static get current(): Schema {
+        return Connector.current().schema;
+    }
+
     readonly tables = new Map<Type<Entity>, Table>();
     readonly nameToType = new Map<string, Type<Entity>>();
     readonly typeToName = new Map<Type<Entity>, string>();
