@@ -1,5 +1,5 @@
 import { Connector } from "../connection/connector";
-import { ObjectName } from "../schema/objectName";
+import { ObjectName, SchemaName } from "../schema/objectName";
 import type { Table } from "../schema/table";
 import { Replacements } from "./synchronizer";
 import { SqlPreCommandSimple } from "./sqlPreCommand";
@@ -37,10 +37,15 @@ export function readObjectName(table: Table, replacements: Replacements): Object
     const oldFull = inverse?.get(table.name.toString());
     if (oldFull == null)
         return table.name;
-    // A rename changes the bare name, not the schema — reuse the model table's schema and swap the name.
-    const schemaStr = table.name.schema.toString();
-    const bare = schemaStr && oldFull.startsWith(schemaStr + ".") ? oldFull.slice(schemaStr.length + 1) : oldFull;
-    return new ObjectName(bare, table.name.schema);
+    // `oldFull` is the table's OLD key = ObjectName.toString() ("schema.name", or just "name" for the
+    // default schema). Reconstruct THAT ObjectName so a renamed AND/OR schema-moved table is read from its
+    // real pre-migration location (the RENAME / SET SCHEMA DDL is only in the script being generated, not
+    // yet applied). Must NOT reuse the model's (new) schema — a schema move changes exactly that, so the
+    // rows still live under the old schema until the script runs.
+    const dot = oldFull.lastIndexOf('.');
+    const oldSchema = dot >= 0 ? oldFull.slice(0, dot) : "";
+    const oldBare = dot >= 0 ? oldFull.slice(dot + 1) : oldFull;
+    return new ObjectName(oldBare, new SchemaName(oldSchema, table.name.schema.database));
 }
 
 // Signum's SynchronizationScript catch: turn a thrown sync error into a COMMENTED-OUT command so script
