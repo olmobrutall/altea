@@ -512,18 +512,24 @@ export namespace Finder {
     return cur;
   }
 
-  export function mergeColumns(queryToken: QueryToken, mode: ColumnOptionsMode, columnOptions: ColumnOption[]): ColumnOption[] {
-
-    // The default columns as raw token-key strings. An explicit `qs.defaultColumns` may reference a
-    // SERVER-only token — a registered expression such as Order.totalPrice — which the client can't
-    // resolve synchronously (extension tokens are fetched async). getDefaultColumns' sync resolution
-    // would silently DROP it, so for the explicit case keep the keys as-is: they survive here and are
-    // resolved by the async TokenCompleter in parseFindOptions. Only the auto-derived fallback needs
-    // resolved tokens (to pick the entity's first N declared fields).
+  // The default columns as raw token-key STRINGS — the list both mergeColumns (forward: add them on parse)
+  // and smartColumns (reverse: recognise them so they aren't re-serialised) work against. An explicit
+  // `qs.defaultColumns` may reference a SERVER-only token — a registered expression such as Order.totalPrice
+  // — which the client can't resolve synchronously (extension tokens are fetched async). getDefaultColumns'
+  // sync resolution would silently DROP it, so for the explicit case keep the keys as-is: they survive here
+  // and are resolved by the async TokenCompleter. Only the auto-derived fallback needs resolved tokens (to
+  // pick the entity's first N declared fields). Keys are compared case-insensitively downstream (altea's
+  // field tokens are camelCase while Type.token produces PascalCase — see resolveColumnToken).
+  export function getDefaultColumnKeys(queryToken: QueryToken): string[] {
     const qs = getSettings(getKey(queryToken.queryName));
-    const columns: string[] = qs?.defaultColumns != null && qs.defaultColumns.length > 0
+    return qs?.defaultColumns != null && qs.defaultColumns.length > 0
       ? qs.defaultColumns.map(c => c.toString())
       : getDefaultColumns(queryToken).map(cd => cd.fullKey());
+  }
+
+  export function mergeColumns(queryToken: QueryToken, mode: ColumnOptionsMode, columnOptions: ColumnOption[]): ColumnOption[] {
+
+    const columns: string[] = getDefaultColumnKeys(queryToken);
 
     switch (mode) {
       case "Add":
@@ -563,8 +569,17 @@ export namespace Finder {
 
   export function smartColumns(current: ColumnOptionParsed[], queryToken: QueryToken): { mode: ColumnOptionsMode; columns: ColumnOption[] } {
 
-    const similar = (c: ColumnOptionParsed, d: QueryToken) =>
-      c.token!.fullKey() == d.fullKey() && (c.displayName == d.niceName()) && c.summaryToken == null && c.combineRows == null && !c.hiddenColumn;
+    // Compare against the default column KEYS (strings), NOT sync-resolved tokens — so a SERVER-only default
+    // column (e.g. Order.totalPrice, which getDefaultColumns would drop during sync resolution) is matched
+    // by key and NOT re-serialised as a user addition. Keys compared case-insensitively (camelCase field
+    // tokens vs PascalCase Type.token keys — see resolveColumnToken).
+    const sameKey = (c: ColumnOptionParsed, key: string) =>
+      c.token!.fullKey().toLowerCase() == key.toLowerCase();
+    // "plain" = the column carries no customisation vs its default (no renamed label / summary / combine /
+    // hidden) — so only its key/position distinguishes it from the default (Signum's `similar`, minus the
+    // key check, which is done separately so it can be string-based).
+    const isPlain = (c: ColumnOptionParsed) =>
+      c.displayName == c.token!.niceName() && c.summaryToken == null && c.combineRows == null && !c.hiddenColumn;
 
     const toColumnOption = (c: ColumnOptionParsed) => ({
       token: c.token!.fullKey(),
@@ -574,20 +589,20 @@ export namespace Finder {
       hiddenColumn: c.hiddenColumn,
     }) as ColumnOption;
 
-    var ideal = Finder.getDefaultColumns(queryToken);
+    var ideal = getDefaultColumnKeys(queryToken);
 
     current = current.filter(a => a.token != null);
 
-    if (ideal.every((idl, i) => i < current.length && similar(current[i], idl))) {
+    if (ideal.every((key, i) => i < current.length && sameKey(current[i], key) && isPlain(current[i]))) {
       return {
         mode: "Add",
         columns: current.slice(ideal.length).map(c => toColumnOption(c))
       };
     }
 
-    if (ideal.every((idl, i) => i < current.length && current[i].token!.fullKey() == idl.fullKey())) {
+    if (ideal.every((key, i) => i < current.length && sameKey(current[i], key))) {
 
-      var replacements = current.filter((curr, i) => i < ideal.length && !similar(curr, ideal[i])).map(c => toColumnOption(c));
+      var replacements = current.filter((curr, i) => i < ideal.length && !isPlain(curr)).map(c => toColumnOption(c));
       var additions = current.slice(ideal.length).map(c => toColumnOption(c));
 
       return {
@@ -601,10 +616,10 @@ export namespace Finder {
 
       let j = 0;
       for (let i = 0; i < ideal.length; i++) {
-        if (j < current.length && similar(current[j], ideal[i]))
+        if (j < current.length && sameKey(current[j], ideal[i]) && isPlain(current[j]))
           j++;
         else
-          toRemove.push({ token: ideal[i].fullKey(), });
+          toRemove.push({ token: ideal[i] });
       }
 
       if (toRemove.length + current.length == ideal.length && toRemove.length < current.length) {
