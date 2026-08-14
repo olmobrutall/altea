@@ -277,7 +277,8 @@ tasks.push(taskSetMandatory);
 export function taskSetMandatory(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps): void {
   if (state.ctx.propertyRoute && state.mandatory == undefined &&
     state.ctx.propertyRoute.propertyRouteType == PropertyRouteType.FieldOrProperty &&
-    !state.ctx.propertyRoute.fieldInfo!.isNullable) { // ALTEA: Signum member.required ≡ !isNullable
-    state.mandatory = true;
-  }
+    !state.ctx.propertyRoute.fieldInfo!.isNullable && // ALTEA: Signum member.required ≡ !isNullable
+    !state.ctx.propertyRoute.fieldInfo!.array) {      // …but a non-null COLLECTION means "not null", not
+    state.mandatory = true;                           // "non-empty" — mirror the server's implicit-NotNull,
+  }                                                    // which exempts arrays (computeNeedsImplicitNotNull).
 }

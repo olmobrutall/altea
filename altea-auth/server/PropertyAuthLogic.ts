@@ -12,13 +12,14 @@ import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { toInt } from "@altea/altea/data/basics";
 import { AuthLogic, RoleGraph } from "./AuthLogic";
 import { TypeAuthLogic } from "./TypeAuthLogic";
+import { PermissionAuthLogic } from "./PermissionAuthLogic";
 import { TypeConditionLogic } from "./TypeConditionLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
 import {
     RulePropertyEntity, RulePropertyConditionEntity, RulePropertyConditionEntity_Conditions,
-    RuleTypeEntity, PropertyRulePack, PropertyAllowedRule, PropertyAllowed, TypeAllowed,
+    RulePermissionEntity, RuleTypeEntity, PropertyRulePack, PropertyAllowedRule, PropertyAllowed, TypeAllowed,
     PropertyWithConditionsModel, PropertyConditionRuleModel, TypeConditionSymbol, TypeConditionSetModel,
-    typeAllowedUI, typeBasicToProperty,
+    BasicPermission, typeAllowedUI, typeBasicToProperty,
 } from "../data/Rules";
 import { WithConditions, ConditionRule, evaluateConditions } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
@@ -31,9 +32,12 @@ import * as Database from "@altea/altea/server/Database";
 
 // Port of Signum's PropertyAuthLogic (Rules/PropertyAuthLogic.cs) — the property dimension. A role's
 // allowance per property route is PropertyAllowed (None → hidden; Read → read-only; Write). A property is
-// CAPPED by its type's UI-read allowance (a property can't be more accessible than its type), and — with
-// no explicit rule — DEFAULTS to that type allowance (Signum's AutomaticUpgradeOfProperties, simplified:
-// no permission gate / no MaxAutomaticUpgrade cap).
+// CAPPED by its type's UI-read allowance (a property can't be more accessible than its type — the
+// `typeCeilingWC`), and — with no explicit rule — takes the `noRuleDefaultWC` DEFAULT (Signum's
+// PropertyCache.GetDefaultValue): a default-allowed role follows its type; a role WITHOUT the
+// `BasicPermission.AutomaticUpgradeOfProperties` permission defaults to NONE (so properties are hidden
+// unless explicitly granted — secure by default); otherwise it follows its type. (altea DIVERGENCE: no
+// per-property MaxAutomaticUpgrade cap — Signum's MaxAutomaticUpgrade dictionary is not ported.)
 //
 // altea DIVERGENCES: rules keyed by (rootType, path) — NO PropertyRouteEntity table (see data/Rules.ts);
 // routes enumerated via PropertyRoute.generateRoutes; async cache (sb.globalLazy + computeAllowed).
@@ -60,6 +64,9 @@ class PropertyRulesCache {
         private readonly propRules: Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>,
         private readonly graph: RoleGraph,
         private readonly typeCache: TypeAuthLogic.TypeRulesCache,
+        // Signum's BasicPermission.AutomaticUpgradeOfProperties gate, resolved SYNCHRONOUSLY per role: a
+        // role that lacks it defaults an un-ruled property to None instead of following its type.
+        private readonly autoUpgradeAllowed: (roleKey: string) => boolean,
     ) { }
 
     // Per-instance property access for the current role (serializer path), evaluated against the concrete
@@ -83,18 +90,32 @@ class PropertyRulesCache {
         return this.propAllowed(typeId, compositeKey(typeId, path), roleKey);
     }
 
-    // The type's allowance mapped to a property WithConditions — the no-rule DEFAULT (a property FOLLOWS its
-    // type, incl. conditions: Signum's ToPropertyAllowed(type.GetUI())).
-    typeDefaultWC(typeId: PrimaryKey, roleKey: string): WithConditions<PropertyAllowed> {
+    // The type's UI-read allowance mapped to a property WithConditions — the per-slice CEILING (a property
+    // can't exceed its type, incl. conditions: Signum's ToPropertyAllowed(type.GetUI())). NOT the no-rule
+    // default — that is `noRuleDefaultWC`, which additionally applies the auto-upgrade permission gate.
+    typeCeilingWC(typeId: PrimaryKey, roleKey: string): WithConditions<PropertyAllowed> {
         return this.typeCache.getAllowed(typeId, roleKey).mapWithConditions(t => typeBasicToProperty(typeAllowedUI(t)));
     }
 
-    // Signum's AutomaticUpgradeOfProperties: a property with NO explicit rule follows ITS OWN role's type
-    // allowance (varies per role), not the parents' value — so this recursion is bespoke (not computeAllowed):
-    // no explicit rule up the chain → this role's type default; else the explicit rule or the per-parent merge.
+    // Signum's PropertyCache.GetDefaultValue — the allowance a property route gets for this role when NO
+    // explicit rule applies. A default-allowed role follows its type (the ceiling); a role WITHOUT the
+    // AutomaticUpgradeOfProperties permission is coerced to None (shape-preserving, so condition slices are
+    // still padded — Signum's CoerceSimple(typeAllowed, None)); otherwise it follows its type.
+    noRuleDefaultWC(typeId: PrimaryKey, roleKey: string): WithConditions<PropertyAllowed> {
+        const ceiling = this.typeCeilingWC(typeId, roleKey);
+        if (this.graph.getDefaultAllowed(roleKey))
+            return ceiling;
+        if (!this.autoUpgradeAllowed(roleKey))
+            return ceiling.mapWithConditions(() => PropertyAllowed.None);
+        return ceiling;
+    }
+
+    // Signum's AutomaticUpgradeOfProperties: a property with NO explicit rule follows ITS OWN role's no-rule
+    // default (varies per role), not the parents' value — so this recursion is bespoke (not computeAllowed):
+    // no explicit rule up the chain → this role's no-rule default; else the explicit rule or the per-parent merge.
     private propAllowed(typeId: PrimaryKey, key: string, roleKey: string): WithConditions<PropertyAllowed> {
         if (!this.hasExplicitInChain(roleKey, key))
-            return this.typeDefaultWC(typeId, roleKey);
+            return this.noRuleDefaultWC(typeId, roleKey);
         const explicit = this.propRules.get(roleKey)?.get(key);
         if (explicit !== undefined)
             return explicit;
@@ -119,7 +140,7 @@ class PropertyRulesCache {
     getAllowedBase(typeId: PrimaryKey, path: string, roleKey: string): WithConditions<PropertyAllowed> {
         const parents = this.graph.relatedTo(roleKey);
         if (parents.size === 0)
-            return this.typeDefaultWC(typeId, roleKey);
+            return this.noRuleDefaultWC(typeId, roleKey);
         return mergeProp(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.getAllowed(typeId, path, p)));
     }
 }
@@ -140,8 +161,11 @@ export namespace PropertyAuthLogic {
         sb.include(RulePropertyEntity).withQuery();
         // invalidateWith RuleType too: the no-rule default / coerced ceiling derive from the type's UI-read
         // allowance, so a type-rule change must reset the property cache.
-        rulesLazy = sb.globalLazy(async () => new PropertyRulesCache(await loadRules(), await AuthLogic.roleGraph(), await TypeAuthLogic.rulesCache()),
-            { invalidateWith: [RulePropertyEntity, RuleTypeEntity, RoleEntity] });
+        rulesLazy = sb.globalLazy(async () => new PropertyRulesCache(
+            await loadRules(), await AuthLogic.roleGraph(), await TypeAuthLogic.rulesCache(), await autoUpgradePredicate()),
+            // Also invalidate on RulePermission: the no-rule default derives from the
+            // AutomaticUpgradeOfProperties permission, so a permission-rule change must reset this cache.
+            { invalidateWith: [RulePropertyEntity, RuleTypeEntity, RulePermissionEntity, RoleEntity] });
         // The serializer is SYNCHRONOUS. Per request the codec calls `resolveContext` ONCE (async, before the
         // walk) to capture the loaded PropertyRulesCache — which IS the serialization-auth context — and then
         // reads it synchronously in `access`. A concurrent invalidate() can't affect an in-flight walk: the
@@ -229,9 +253,21 @@ export namespace PropertyAuthLogic {
         return new WithConditions<PropertyAllowed>(row.fallback, conditionRules);
     }
 
-    // The type's allowance mapped to a property WithConditions — the no-rule DEFAULT / per-slice ceiling.
-    async function typeDefaultWC(typeId: PrimaryKey, roleKey: string): Promise<WithConditions<PropertyAllowed>> {
-        return (await rulesLazy.value()).typeDefaultWC(typeId, roleKey);
+    // The type's allowance mapped to a property WithConditions — the per-slice CEILING (radios can't exceed
+    // it, and stored values are coerced to it). NOT the no-rule default (which applies the auto-upgrade gate).
+    async function typeCeilingWC(typeId: PrimaryKey, roleKey: string): Promise<WithConditions<PropertyAllowed>> {
+        return (await rulesLazy.value()).typeCeilingWC(typeId, roleKey);
+    }
+
+    // A synchronous AutomaticUpgradeOfProperties predicate for the cache — the loaded permission cache read
+    // for the BasicPermission.AutomaticUpgradeOfProperties symbol per role. When permission auth isn't
+    // started (minimal setups), fall back to auto-upgrade ON (the pre-gate behaviour).
+    async function autoUpgradePredicate(): Promise<(roleKey: string) => boolean> {
+        if (!PermissionAuthLogic.isStarted())
+            return () => true;
+        const permCache = await PermissionAuthLogic.rulesCache();
+        const permId = BasicPermission.AutomaticUpgradeOfProperties.id;
+        return roleKey => permCache.getAllowed(permId, roleKey);
     }
 
     // Clamp each slice of a property's WithConditions to the type's per-slice ceiling (a property can't
@@ -309,7 +345,7 @@ export namespace PropertyAuthLogic {
         // The per-slice ceiling = the type's own allowance mapped to PropertyAllowed (a property can't
         // exceed its type for any condition, so a None slice caps that slice's properties at None). Same
         // shape for every route, but emit a fresh model per row (each is an independent transport instance).
-        const ceiling = await typeDefaultWC(typeId, roleKey); // the per-slice ceiling (same for every route)
+        const ceiling = await typeCeilingWC(typeId, roleKey); // the per-slice ceiling (same for every route)
         const rules: PropertyAllowedRule[] = [];
         for (const route of PropertyRoute.generateRoutes(ctor, false)) {
             const path = route.propertyString();
@@ -341,7 +377,7 @@ export namespace PropertyAuthLogic {
         const roleLite = role.toLite();
         const roleKey = roleLite.key();
         const symbolById = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s] as const));
-        const ceiling = await typeDefaultWC(pack.type.id, roleKey); // the per-slice type ceiling / auto-follow default
+        const ceiling = await typeCeilingWC(pack.type.id, roleKey); // the per-slice type ceiling (coerce cap)
         const current = await table(RulePropertyEntity).filter(rp => rp.role == roleLite && rp.rootType == pack.type).toArray() as RulePropertyEntity[];
         const currentByPath = new Map(current.map(rp => [rp.path, rp]));
 
@@ -351,9 +387,11 @@ export namespace PropertyAuthLogic {
             // rows (a slice whose allowed equals the fallback is a last-match-wins no-op).
             const coerced0 = coerceToCeiling(fromModel(r.allowed, symbolById), ceiling);
             const coerced = new WithConditions<PropertyAllowed>(coerced0.fallback, coerced0.conditionRules.filter(cr => cr.allowed !== coerced0.fallback));
-            // A property with no explicit rule AUTO-FOLLOWS its type, so a rule equal to the type default
-            // (trivial, e.g. Type Read + Property Read) OR to the inherited base is redundant → don't store.
-            const isRedundant = coerced.equals(ceiling) || coerced.equals(fromModel(r.allowedBase, symbolById));
+            // A rule equal to what the property would resolve to WITHOUT it (the inherited base, which for a
+            // root role IS the no-rule default) is redundant → don't store. NB: equality with the type
+            // ceiling is NOT redundant anymore — a role without AutomaticUpgradeOfProperties defaults to None,
+            // so an explicit "follow the type" rule is meaningful and must be kept.
+            const isRedundant = coerced.equals(fromModel(r.allowedBase, symbolById));
             if (isRedundant) {
                 if (existing != null)
                     await existing.delete();

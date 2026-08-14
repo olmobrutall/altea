@@ -29,7 +29,7 @@ const mergeBool = (strategy: MergeStrategy, baseValues: boolean[]): boolean =>
 // Signum's AuthCache as a CLASS: the raw per-role rules + the role graph + the merged (role, permissionId)
 // memo (RoleAllowedCache), all resolved once in the factory and folded SYNCHRONOUSLY thereafter. One
 // instance lives behind the GlobalLazy, reset together when a RulePermission or Role is saved.
-class PermissionRulesCache {
+export class PermissionRulesCache {
     private readonly computed: ComputedCache<boolean> = new Map();
     constructor(
         private readonly rules: Map<string, Map<PrimaryKey, boolean>>,
@@ -56,6 +56,13 @@ export namespace PermissionAuthLogic {
 
     export function isStarted(): boolean {
         return started;
+    }
+
+    /** The loaded (synchronous) permission cache — folded into other dimensions that need a permission
+     *  authorization decision on their SYNC path (e.g. PropertyAuthLogic's AutomaticUpgradeOfProperties
+     *  default gate). Mirrors TypeAuthLogic.rulesCache(). */
+    export function rulesCache(): Promise<PermissionRulesCache> {
+        return rulesLazy.value();
     }
 
     export function start(sb: SchemaBuilder): void {

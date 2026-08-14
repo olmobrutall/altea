@@ -1,3 +1,5 @@
+import * as React from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ajaxGet, ajaxPost, ajaxGetRaw, saveFile } from "@altea/altea/client/Services";
 import { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
@@ -44,6 +46,16 @@ export namespace AuthAdminClient {
             .withView(() => import("./Role"))
             .withQuerySettings(token => ({
                 defaultColumns: [token(a => a.id), token(a => a.name), token(a => a.description)],
+                // Signum's AuthAdminClient RoleEntity extraButtons: a "Download AuthRules" button on the Role
+                // search control (exports every dimension's rules to AuthRules.xml). Signum gates it on the
+                // AdminRules client permission; altea has no client permission primitive yet (deferred), so it
+                // shows for any admin — the endpoint is login-gated server-side.
+                extraButtons: () => [{
+                    order: -1,
+                    button: <button type="button" className="btn btn-info" onClick={() => API.downloadAuthRules()}>
+                        <FontAwesomeIcon aria-hidden={true} icon="download" /> {AuthAdminMessage.DownloadAuthRules.niceToString()}
+                    </button>,
+                }],
             }));
 
         // Rule packs (Signum's TypeRulePack / PermissionRulePack ModelEntities) open as a FrameModal via

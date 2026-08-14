@@ -95,7 +95,15 @@ export function PropertyRulesTable({ pack, readOnly, markDirty, slice }: { pack:
                 onClicked={() => { set(level.value); markDirty(); }} />;
 
     return (
-        <table className="table table-sm table-hover sf-auth-rules" style={{ maxWidth: "40rem" }}>
+        // Fixed layout + colgroup so every table has identical column geometry — when AuthClosureModal
+        // stacks one table per type (owner + parts), the Property / Write / Read / None / Overridden columns
+        // line up vertically instead of each table auto-sizing to its own property-name lengths.
+        <table className="table table-sm table-hover sf-auth-rules" style={{ width: "40rem", tableLayout: "fixed" }}>
+            <colgroup>
+                <col style={{ width: "40%" }} />
+                {LEVELS.map(l => <col key={l.value} style={{ width: "12%" }} />)}
+                <col style={{ width: "16%" }} />
+            </colgroup>
             <thead>
                 <tr>
                     <th>Property</th>
@@ -111,7 +119,7 @@ export function PropertyRulesTable({ pack, readOnly, markDirty, slice }: { pack:
                     const coerced = sliceBinding(rule.coerced, slice, makeCR).get();
                     return (
                         <tr key={rule.path}>
-                            <td>{rule.path}</td>
+                            <td style={{ overflowWrap: "anywhere" }}>{rule.path}</td>
                             {LEVELS.map(l => <td key={l.value} className="text-center">
                                 {renderRadio(b.get, b.set, coerced, l)}
                             </td>)}
