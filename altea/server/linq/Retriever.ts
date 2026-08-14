@@ -4,6 +4,12 @@ import { Lite, LiteImp } from "../../data/lite";
 import { TypeLogic } from "../typeLogic";
 import { Connector } from "../connection/connector";
 
+// Post-retrieve authorization seam (Signum's `EntityEventsGlobal.Retrieved`). Each gate gets the full set
+// of freshly-materialised entities AFTER a query completes and may `throw` (e.g. UnauthorizedAccessException)
+// to deny the read. The authorization module pushes one that throws when the current role can't Read a
+// retrieved type. Async (it consults the role/rule cache). Empty by default. Analogue of `preSaveGates`.
+export const postRetrieveGates: ((entities: Entity[]) => void | Promise<void>)[] = [];
+
 // Port of Signum's TranslatorBuilder + TranslateResult + ProjectionReader.
 // Formats the SQL and compiles the projector into a `(row, retriever) => T`
 // function via codegen (`new Function`). Rows are objects keyed by SELECT column
@@ -99,10 +105,17 @@ export class Retriever {
     // populated instance is fully materialised, so fire Retrieved once per entity (in the
     // active schema). Idempotent-friendly — called once by TranslateResult.execute() at the top
     // level; the recursive batch loads in completeAll share this retriever and don't re-fire.
-    postRetrieved(): void {
+    async postRetrieved(): Promise<void> {
         const schema = Connector.current().schema;
         for (const e of this.populated)
             schema.entityEvents(e.constructor as Type<Entity>).onRetrieved(e);
+        // Global retrieve gates (Signum's EntityEventsGlobal.Retrieved) — e.g. the type-read auth gate.
+        // Run once over the fully-materialised set; a gate may throw to deny the read.
+        if (postRetrieveGates.length > 0) {
+            const all = [...this.populated];
+            for (const gate of postRetrieveGates)
+                await gate(all);
+        }
     }
 
     // Signum's RealRetriever.CompleteAll: drain the pending requests, batch-loading each

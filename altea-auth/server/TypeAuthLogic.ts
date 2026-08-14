@@ -9,6 +9,7 @@ import type { QueryFilterContext } from "@altea/altea/server/schema/entityEvents
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { preSaveGates } from "@altea/altea/server/saver";
+import { postRetrieveGates } from "@altea/altea/server/linq/Retriever";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { cleanTypeName, getLocation } from "@altea/altea/data/registration";
@@ -137,6 +138,7 @@ export namespace TypeAuthLogic {
         // hooks are installed in a schema.initializing hook — only once ALL conditions are registered (app
         // conditions register after this start).
         preSaveGates.push(authSaveGate);
+        postRetrieveGates.push(authRetrieveGate);
         sb.schema.queryFilterProviders.set(QUERY_FILTER_KEY, buildCurrentRoleConditions);
         sb.schema.initializing.push(() => {
             for (const ctor of TypeConditionLogic.types())
@@ -283,6 +285,30 @@ export namespace TypeAuthLogic {
                 continue;
             if (!(await isAllowedFor(e, TypeAllowedBasic.Write, false, rk)))
                 throw new UnauthorizedAccessException(`Not authorized to save ${ctor.name} '${String(e.id)}' — denied by a type condition`);
+        }
+    }
+
+    // Read gate (Signum's EntityEventsGlobal.Retrieved): deny retrieving a type the current role cannot Read
+    // at all (max DB access < Read). No current role / auth off / global mode → no gate (AuthLogic.isEnabled
+    // folds in ExecutionMode.global, so the cache-load's internal reads are ungated). Checked ONCE per
+    // distinct type — every row of a type shares the type-read bound; per-row TypeConditions are enforced by
+    // the queryFilter, not here. A type not registered in TypeLogic (enum side-table / view) is not
+    // type-auth-gated, so it is skipped.
+    async function authRetrieveGate(entities: Entity[]): Promise<void> {
+        const rk = AuthLogic.currentRoleKey();
+        if (rk == null || !AuthLogic.isEnabled())
+            return;
+        const checked = new Set<Function>();
+        for (const e of entities) {
+            const ctor = e.constructor as Function;
+            if (checked.has(ctor))
+                continue;
+            checked.add(ctor);
+            let typeId: PrimaryKey;
+            try { typeId = TypeLogic.typeToId(ctor); } catch { continue; }
+            const wc = await getAllowed(typeId, rk);
+            if (maxBound(wc, false) < TypeAllowedBasic.Read)
+                throw new UnauthorizedAccessException(`Not authorized to retrieve ${ctor.name}`);
         }
     }
 

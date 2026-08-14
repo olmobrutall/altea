@@ -66,7 +66,7 @@ export class TranslateResult {
         // Now every instance is fully materialised — fire EntityEvents<T>.Retrieved once. (Per-row derived
         // values — Signum's additional bindings, e.g. DB-only TypeConditions — are folded into the retrieval
         // SELECT and stamped by the projector, so there is no separate post-retrieval batch pass.)
-        retriever.postRetrieved();
+        await retriever.postRetrieved();
         return result;
     }
 
