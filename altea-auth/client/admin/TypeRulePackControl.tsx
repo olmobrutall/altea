@@ -188,12 +188,15 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
             const packs = await Promise.all(closure.map(fetchOne));
             await openAuthClosureModal({ kind, roleId, roleStr, packs, readOnly: ctx.readOnly, initialTypeConditions });
         }
-        // The sub-pack may have been edited + saved; re-collapse the OWNER's pack into this row's summary
-        // so the drill-in icon colour reflects the new state (Signum recomputes its thumbnail on close).
-        const s = summarizePack(kind, await fetchOne(typeName));
+        // The sub-pack(s) may have been edited + saved; re-collapse the OWNER + its associated parts into
+        // this row's summary so the drill-in icon colour reflects the whole editable closure (min of mins /
+        // max of maxes), matching the server-side summary — not just the main entity.
+        const summaries = (await Promise.all(closure.map(fetchOne)))
+            .map(p => summarizePack(kind, p))
+            .filter((x): x is { min: number; max: number } => x != null);
         const target = kind === "properties" ? rule.propertiesSummary : kind === "operations" ? rule.operationsSummary : rule.queriesSummary;
-        target.min = toInt(s?.min ?? -1);
-        target.max = toInt(s?.max ?? -1);
+        target.min = toInt(summaries.length ? Math.min(...summaries.map(s => s.min)) : -1);
+        target.max = toInt(summaries.length ? Math.max(...summaries.map(s => s.max)) : -1);
         forceUpdate();
     }
 

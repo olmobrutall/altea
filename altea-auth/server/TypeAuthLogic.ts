@@ -437,16 +437,28 @@ export namespace TypeAuthLogic {
             const ctor = TypeLogic.tryGetType(t.id);
             if ((ctor != null && partRootCtor.has(ctor)) || isEnumEntityType(ctor))
                 continue;
+            // The owner + its associated parts (altea-only; [owner, ...parts]). The min/max coloring folds
+            // over the WHOLE closure, not just the main entity, so a row's summary reflects the parts a
+            // drill-in would edit too (matching the modal that opens on click).
+            const closure = ownedPartClosure(t.cleanName);
             const summary = async (fn: SummaryFn | undefined): Promise<DimensionSummaryModel> => {
-                const s = fn == null ? undefined : await fn(t.cleanName, roleKey);
-                return DimensionSummaryModel.create({ min: toInt(s?.min ?? -1), max: toInt(s?.max ?? -1) });
+                if (fn == null)
+                    return DimensionSummaryModel.create({ min: toInt(-1), max: toInt(-1) });
+                let min: number | undefined, max: number | undefined;
+                for (const name of closure) {
+                    const s = await fn(name, roleKey);
+                    if (s == null) continue;
+                    min = min == null ? Number(s.min) : Math.min(min, Number(s.min));
+                    max = max == null ? Number(s.max) : Math.max(max, Number(s.max));
+                }
+                return DimensionSummaryModel.create({ min: toInt(min ?? -1), max: toInt(max ?? -1) });
             };
             rules.push(TypeAllowedRule.create({
                 resource: TypeEntity.newLite(t.id, t.cleanName),
                 allowed: toModel(await getAllowed(t.id, roleKey)),
                 allowedBase: toModel(await getAllowedBase(t.id, roleKey)),
                 availableConditions: (availableByType.get(t.id) ?? []).map(symbolLite),
-                ownedParts: ownedPartClosure(t.cleanName).slice(1), // [owner, ...parts] → just the parts
+                ownedParts: closure.slice(1), // [owner, ...parts] → just the parts
                 propertiesSummary: await summary(summaryProviders.properties),
                 operationsSummary: await summary(summaryProviders.operations),
                 queriesSummary: await summary(summaryProviders.queries),
