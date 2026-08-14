@@ -2,10 +2,13 @@ import { ajaxGet, ajaxPost, ajaxGetRaw, saveFile } from "@altea/altea/client/Ser
 import { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { QuickLinkClient, QuickLinkAction } from "@altea/altea/client/QuickLinkClient";
+import { applyMetadataHooks, type ServerMetadata } from "@altea/altea/client/ReflectionClient";
+import { tryGetTypeInfo } from "@altea/altea/client/Reflection";
+import { getRegisteredTypes, getTypeInfo } from "@altea/altea/data/reflection";
 import type { Lite } from "@altea/altea/data/lite";
 import { UserEntity } from "../../data/User";
 import { RoleEntity } from "../../data/Role";
-import { TypeRulePack, PermissionRulePack, OperationRulePack, QueryRulePack, PropertyRulePack } from "../../data/Rules";
+import { TypeRulePack, PermissionRulePack, OperationRulePack, QueryRulePack, PropertyRulePack, TypeAllowedBasic } from "../../data/Rules";
 import { AuthAdminMessage } from "../../data/AuthMessages";
 
 // Port of Signum's AuthAdminClient (AuthAdminClient.tsx) — the ADMIN side of authorization: the User /
@@ -49,6 +52,25 @@ export namespace AuthAdminClient {
         // Role frame (Signum's QuickLinkClient.registerQuickLink(RoleEntity, …)) as the entry point. The
         // pack is fetched first, then opened read-only-if-trivial-merge; the control saves in place.
         if (Options.types) {
+            // Client type-auth enforcement (Signum's navigatorIsViewable/isCreable/isReadOnly + fixTypes):
+            // project the role's per-type allowance (shipped as meta.typeAllowed) onto the interface-expanded
+            // TypeInfo.min/maxTypeAllowed, and gate viewability/creability/readonly on it. A `None` type is
+            // NOT viewable → EntityLink renders it as plain text; a non-`Write` type isn't creable / is
+            // read-only. Unrestricted types (not shipped → undefined) stay fully allowed.
+            applyMetadataHooks.push(applyTypeAllowed); // runs on every metadata (re)load, incl. re-login
+            Navigator.isViewableEvent.push(typeName => {
+                const ti = tryGetTypeInfo(typeName);
+                return ti == null || ti.maxTypeAllowed !== TypeAllowedBasic.None;
+            });
+            Navigator.isCreableEvent.push(typeName => {
+                const ti = tryGetTypeInfo(typeName);
+                return ti == null || ti.maxTypeAllowed == null || ti.maxTypeAllowed === TypeAllowedBasic.Write;
+            });
+            Navigator.isReadonlyEvent.push(typeName => {
+                const ti = tryGetTypeInfo(typeName);
+                return ti != null && ti.maxTypeAllowed != null && ti.maxTypeAllowed < TypeAllowedBasic.Write;
+            });
+
             cb.configure(TypeRulePack).withView(() => import("./TypeRulePackControl"));
             QuickLinkClient.registerQuickLink(RoleEntity, new QuickLinkAction("types",
                 () => AuthAdminMessage.TypeRules.niceToString(),
@@ -130,5 +152,30 @@ export namespace AuthAdminClient {
         export function trivialMergeRole(roles: Lite<RoleEntity>[]): Promise<Lite<RoleEntity>> {
             return ajaxPost({ url: "/api/authAdmin/trivialMergeRole" }, roles);
         }
+    }
+}
+
+// Signum's fixTypes: project the reflection blob's per-type allowance (meta.typeAllowed: cleanName →
+// TypeAllowedBasic, shipped only for RESTRICTED types by AuthReflection) onto min/maxTypeAllowed. Reset
+// every type first so a re-login as a different role can't leak the previous set. Coarse: min == max ==
+// the shipped value (like Signum, whose blob typeAllowed is a single value).
+function applyTypeAllowed(meta: ServerMetadata): void {
+    for (const ctor of getRegisteredTypes()) {
+        const ti = getTypeInfo(ctor);
+        if (ti != null) { ti.minTypeAllowed = undefined; ti.maxTypeAllowed = undefined; }
+    }
+    for (const [cleanName, allowed] of Object.entries(meta.typeAllowed ?? {})) {
+        const ti = tryGetTypeInfo(cleanName);
+        if (ti != null) { ti.minTypeAllowed = allowed; ti.maxTypeAllowed = allowed; }
+    }
+}
+
+// Interface expansion (Signum defines maxTypeAllowed/minTypeAllowed on TypeInfo here, in the auth
+// extension — the core reflection TypeInfo stays auth-agnostic). TypeAllowedBasic is a numeric enum
+// (None=0, Read=1, Write=2); undefined = unrestricted (not shipped).
+declare module "@altea/altea/data/reflection" {
+    interface TypeInfo {
+        minTypeAllowed?: TypeAllowedBasic;
+        maxTypeAllowed?: TypeAllowedBasic;
     }
 }

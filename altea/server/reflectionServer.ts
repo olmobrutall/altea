@@ -41,6 +41,10 @@ export interface ServerMetadata {
     translations: LocalizedTypes;
     queries: string[];
     operations: Record<string, OperationInfo>;
+    // OPAQUE per-type payload an authorization MetadataFilter may attach (cleanName → a numeric allowance);
+    // buildMetadata leaves it undefined and the core never interprets it. The auth client projects it onto
+    // its own interface-expanded TypeInfo fields. Only restricted types need appear.
+    typeAllowed?: Record<string, number>;
 }
 
 export namespace ReflectionServer {

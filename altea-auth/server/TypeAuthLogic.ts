@@ -374,6 +374,13 @@ export namespace TypeAuthLogic {
         return wc.conditionRules.map(cr => [...cr.typeConditions]);
     }
 
+    /** The role's coarse MAX UI-read allowance for a type (Signum's TypeInfo.maxTypeAllowed source) —
+     *  None/Read/Write. Shipped per type in the reflection blob so the client can render a `None` type's
+     *  EntityLink as text (not a link). */
+    export async function maxTypeAllowedUI(typeId: PrimaryKey, roleKey?: string): Promise<TypeAllowedBasic> {
+        return maxBound(await getAllowed(typeId, roleKey), true);
+    }
+
     /** Coarse "can this role reach `requested` for this type AT ALL" (Signum's Max* bound) — used by the
      *  reflection-blob filter to decide type/query visibility. A conditionally-readable type is visible. */
     export async function isAllowedForType(

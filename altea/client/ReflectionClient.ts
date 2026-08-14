@@ -26,7 +26,16 @@ export interface ServerMetadata {
     translations: LocalizedTypes;
     queries: string[];
     operations: Record<string, WireOperationInfo>;
+    // OPAQUE per-type payload an authorization module may attach (cleanName → a numeric allowance); the core
+    // just carries it. The auth client's applyMetadataHook reads it into its own (interface-expanded)
+    // TypeInfo.min/maxTypeAllowed. Signum ships the analog per-TypeInfo; altea carries a flat map here.
+    typeAllowed?: Record<string, number>;
 }
+
+// Post-apply hooks (Signum re-runs its `fixTypes` on reflection reload): invoked at the END of every
+// applyMetadata with the freshly-applied blob. An authorization module pushes one to project
+// `meta.typeAllowed` onto its interface-expanded TypeInfo fields. Core registers none.
+export const applyMetadataHooks: ((meta: ServerMetadata) => void)[] = [];
 
 // Extra request headers for the metadata fetch (Signum ships the blob role-filtered; altea attaches the
 // bearer token here so the server sees the current user). An auth module sets this; undefined → none.
@@ -90,6 +99,10 @@ export function applyMetadata(meta: ServerMetadata): void {
                 target.hasConstructorOperation = true;
         }
     }
+
+    // Extension hooks (e.g. auth projecting meta.typeAllowed onto its interface-expanded TypeInfo fields).
+    for (const hook of applyMetadataHooks)
+        hook(meta);
 }
 
 // `ti` plus the TypeInfos of every registered class that extends `ti.ctor` (its concrete subclasses).
