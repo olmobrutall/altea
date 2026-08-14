@@ -1,9 +1,10 @@
-import { test, describe } from "node:test";
+import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { OperationSymbol } from "@altea/altea/data/operations";
+import { declaredSymbolsForType } from "@altea/altea/data/registration";
 import { Replacements } from "@altea/altea/server/sync/synchronizer";
 import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
 import "../../data/music"; // declares the ArtistOperation.* symbols via init()
@@ -11,9 +12,21 @@ import "../../data/music"; // declares the ArtistOperation.* symbols via init()
 // Phase 2 — SymbolLogic. Offline (no DB): build a schema that includes OperationSymbol
 // via SymbolLogic.start, then drive generation + the symbol sync step through a fake
 // connector that returns canned rows (the binder.test.ts pattern).
+//
+// The ids are DB-assigned (identity PK) and read back by SymbolLogic.load — so the
+// synchronous readers (symbols/toSymbol/…) need the cache WARMED first. Offline, we warm
+// it from canned rows keyed by (pk, key): the fake answers the existsTable probe with a
+// non-null row so load() proceeds, then returns the canned symbol rows for the read-back
+// SELECT. Every other query (retrieveRows during sync) also gets the canned rows.
 class FakeConnector extends Connector {
     constructor(schema: any, public rows: unknown[] = [], isPostgres = false) { super(schema, isPostgres, 128); }
-    override executeQuery(): Promise<unknown[]> { return Promise.resolve(this.rows); }
+    override executeQuery(sql?: string): Promise<unknown[]> {
+        // existsTable's probe (`SELECT OBJECT_ID(...) AS r` / `to_regclass(...) AS r`) — answer
+        // "the table exists" so load()/sync read the canned rows instead of bailing on a missing table.
+        if (sql && /OBJECT_ID|to_regclass/i.test(sql))
+            return Promise.resolve([{ r: 1 }]);
+        return Promise.resolve(this.rows);
+    }
     openConnection(): Promise<any> { throw new Error("not used"); }
     closeConnection(): Promise<void> { return Promise.resolve(); }
     cleanDatabase(): Promise<void> { return Promise.resolve(); }
@@ -42,8 +55,23 @@ function noPromptReplacements(): Replacements {
     return r;
 }
 
+// Canned persisted rows: one per declared symbol, ids assigned in sorted-by-key order (the
+// order generation seeds them, so a fresh DB's identity ids come out this way). Warming
+// SymbolLogic.load from these mirrors reading the ids back after generation. Computed inside
+// `before` (not at module top-level): with --test-isolation=none other test files load into the
+// same process and declare more OperationSymbols, so the full declared set is only settled once
+// every file's top-level has run — i.e. by the time this hook fires, not at this module's eval.
 describe("SymbolLogic", () => {
-    test("assigns deterministic sorted-by-key ids and caches the symbols", () => {
+    // Warm the read-back cache once (identity ids read back from the "DB"). The synchronous
+    // readers below then hit the warm box, exactly as they do in production after schema.initialize().
+    before(() => {
+        const seededRows = [...declaredSymbolsForType(OperationSymbol)]
+            .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+            .map((s, i) => ({ [pkCol]: i + 1, [keyCol]: s.key }));
+        return withFake(seededRows, () => SymbolLogic.load(OperationSymbol));
+    });
+
+    test("reads back sorted-by-key ids from the DB and caches the symbols", () => {
         const create = SymbolLogic.toSymbol(OperationSymbol, "ArtistOperation.Create");
         const del = SymbolLogic.toSymbol(OperationSymbol, "ArtistOperation.Delete");
         const save = SymbolLogic.toSymbol(OperationSymbol, "ArtistOperation.Save");

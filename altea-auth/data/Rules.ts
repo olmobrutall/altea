@@ -89,12 +89,12 @@ export function typeBasicToProperty(ta: TypeAllowedBasic): PropertyAllowed {
 // ---- Symbols (Signum's PermissionSymbol / TypeConditionSymbol) ----------------------------------
 
 @reflect
-@entity("SystemString", "Master", { identity: false })
+@entity("SystemString", "Master")
 export class PermissionSymbol extends Symbol {
 }
 
 @reflect
-@entity("SystemString", "Master", { identity: false })
+@entity("SystemString", "Master")
 export class TypeConditionSymbol extends Symbol {
 }
 

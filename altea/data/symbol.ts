@@ -15,9 +15,10 @@ import { uniqueIndex, quoted } from './decorators';
 //  - No AutoInit/MSBuild: the `key` is filled by the quote-transformer, which
 //    rewrites `init()` into `init("<Kind>", "<Container>.<field>", __fileInfo)`
 //    (see registration.init).
-//  - The id is not read back from an identity column; SymbolLogic assigns
-//    deterministic ids and seeds the rows (as TypeLogic does for TypeEntity), so
-//    `init()` leaves the id unset.
+//  - Faithful to Signum: the id is an IDENTITY PK, DB-assigned and READ BACK by
+//    SymbolLogic (via a ResetLazy, exactly like TypeLogic/TypeEntity) — `init()`
+//    leaves the id unset, generation seeds the rows without ids, and the load stamps
+//    the read-back ids onto the shared symbol instances.
 @reflect
 export abstract class Symbol extends Entity {
     // Signum's Symbol.Key ([UniqueIndex], [StringLengthValidator(3, 200)]). The
@@ -34,9 +35,9 @@ export abstract class Symbol extends Entity {
 }
 
 // True for a concrete Symbol subclass (OperationSymbol, …), false for the abstract
-// base and non-symbols. The SchemaBuilder uses it to give symbol tables the seeded
-// treatment (non-identity PK + no ticks), like TypeEntity/enum tables — their ids are
-// assigned and seeded by SymbolLogic, not by an identity column.
+// base and non-symbols. The SchemaBuilder uses it to give symbol tables the seeded,
+// no-ticks treatment (like TypeEntity) — an IDENTITY PK whose rows SymbolLogic seeds
+// (without ids) and reads back.
 export function isSymbolType(ctor: Function): boolean {
     return ctor !== Symbol && ctor.prototype instanceof Symbol;
 }
