@@ -166,11 +166,10 @@ export class SchemaBuilder {
     }
 
     // Signum's `sb.GlobalLazy(factory, new InvalidateWith(typeof(X), …))`: a process-wide cache reset
-    // whenever any `invalidateWith` type is SAVED. altea's ResetLazy is ASYNC (no sync DB), so this returns
-    // a `ResetLazy<T>` holding the RESOLVED value — concurrent readers share one in-flight load and
-    // `reset()` drops it (the next read re-invokes the factory). Read it via `await lazy.value()`. (Deletes
-    // don't fire the `saved` event, so a caller that removes rows via a set-based / delete path should
-    // `reset()` the returned lazy itself.)
+    // whenever any `invalidateWith` type CHANGES (saved, deleted, or mutated by set-based DML). altea's
+    // ResetLazy is ASYNC (no sync DB), so this returns a `ResetLazy<T>` holding the RESOLVED value —
+    // concurrent readers share one in-flight load and `reset()` drops it (the next read re-invokes the
+    // factory). Read it via `await lazy.value()`.
     globalLazy<T>(factory: () => Promise<T>, options: { invalidateWith: Type<Entity>[] }): ResetLazy<T> {
         // Signum's GlobalLazy runs the factory inside `ExecutionMode.Global()` (reads the whole database
         // ungated — authorization suppressed) AND its own INDEPENDENT transaction (`Transaction.forceNew` —
@@ -183,8 +182,25 @@ export class SchemaBuilder {
         const schema = this.schema;
         const lazy = new ResetLazy<T>(() => ExecutionMode.global(() =>
             (schema.globalLazyReadUncommitted ? Transaction.create : Transaction.forceNew)(factory)));
-        for (const t of options.invalidateWith)
-            this.schema.entityEvents(t).saved.push(() => lazy.reset());
+        // Mirror Signum's SchemaBuilder.AttachInvalidations<T>: reset on save AND on every set-based DML
+        // path — DELETE (Query.executeDelete → onPreUnsafeDelete), UPDATE, INSERT, and bulk-insert. Without
+        // the delete hook, deleting a row via the operation/`Database.deleteList` path (which routes through
+        // `executeDelete`, firing `preUnsafeDelete` only — never `saved`) would leave the cache stale until
+        // the process restarts. altea divergences from Signum: (1) we hook `saved` (post-write, in-txn)
+        // rather than Signum's graph-modified `Saving`; (2) the reset is EAGER (Signum defers it to
+        // `Transaction.PostRealCommit`) — safe here because the factory reloads from committed state via
+        // `Transaction.forceNew`, so a rolled-back change just triggers a harmless extra reload; (3) the
+        // dependent-table fan-out (Signum's AttachInvalidationsDependant over `DependentTables()`) is not
+        // ported — a cache that navigates to related types must list those types in `invalidateWith`.
+        const reset = (): void => lazy.reset();
+        for (const t of options.invalidateWith) {
+            const ee = this.schema.entityEvents(t);
+            ee.saved.push(reset);
+            ee.preUnsafeDelete.push(reset);
+            ee.preUnsafeUpdate.push(reset);
+            ee.preUnsafeInsert.push(reset);
+            ee.preBulkInsert.push(reset);
+        }
         return lazy;
     }
 
