@@ -9,12 +9,13 @@ import { ChartRequestModel } from '../../data/ChartRequest'
 import { ChartColumnEmbedded } from '../../data/ChartColumn'
 import { D3ChartScript } from '../../data/ChartScript'
 import { ChartClient } from '../ChartClient'
-import ChartRenderer from './ChartRenderer'
+import ChartRequestView from './ChartRequestView'
 
-// Minimal ChartRequestPage (MVP). Signum's full interactive editor (ChartRequestView + ChartBuilder + the
-// per-token/-parameter line editors) is a further slice; for now this auto-builds a Columns chart for the
-// route's query — grouping by `?token=` (default "Entity") with a Count aggregate — and renders it, so the
-// whole pipeline (scripts endpoint → request → executeQuery → toChartResult → D3 render) is exercised.
+// ChartRequestPage — the /chart/:queryName route. Builds an initial ChartRequestModel for the query (a
+// Columns chart grouped by `?token=` — default: the first meaningful categorical column — with a Count
+// aggregate) and hands it to the interactive editor (ChartRequestView), which draws on load and lets the
+// user change the chart type, bind tokens, edit parameters, and add filters. (Signum reaches this page via
+// the Decoder from the URL query string; that round-trip is deferred — the initial model is built here.)
 export default function ChartRequestPage(): React.JSX.Element {
   const params = useParams();
   const queryName = params.queryName!;
@@ -56,22 +57,15 @@ export default function ChartRequestPage(): React.JSX.Element {
 
     const cs = await ChartClient.getChartScript(D3ChartScript.Columns);
     ChartClient.synchronizeColumns(cr, cs);
-    return { cr, cs };
+    return cr;
   }, [queryName, keyTokenParam]);
-
-  const data = useAPI(async () => {
-    if (built == null) return undefined;
-    const result = await ChartClient.API.executeChart(built.cr, built.cs);
-    return result.chartTable;
-  }, [built]);
 
   if (built == null)
     return <div className="m-3">Loading chart…</div>;
 
   return (
     <div className="m-3">
-      <h4>{queryName}</h4>
-      <ChartRenderer chartRequest={built.cr} data={data} loading={data == null} minHeight={400} />
+      <ChartRequestView chartRequest={built} searchOnLoad />
     </div>
   );
 }
