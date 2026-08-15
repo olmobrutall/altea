@@ -19,6 +19,7 @@ export interface IChartBase {
     getChartScript(): ChartScript;
     columns: ChartColumnEmbedded[];
     parameters: ChartParameterEmbedded[];
+    maxRows: int | null;
     chartTimeSeries: ChartTimeSeriesEmbedded | null;
     fixParameters(chartColumnEntity: ChartColumnEmbedded): void;
 }

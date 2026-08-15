@@ -168,6 +168,12 @@ export namespace ChartClient {
     return Localization.niceNameFromName(symbol.key.tryAfterLast(".") ?? symbol.key);
   }
 
+  // Signum's client ChartColumnType is a string enum with `.niceToString()`; altea's is a numeric [Flags]
+  // enum, so this maps a value to its humanised member name ("AnyGroupKey" → "Any Group Key").
+  export function chartColumnTypeNiceName(ct: ChartColumnType): string {
+    return Localization.niceNameFromName(ChartColumnType[ct] ?? String(ct));
+  }
+
   // Signum's ChartClient.getActiveDetector — the dashboard cross-filter row detector. altea: Dashboard isn't
   // ported, so without a DashboardFilter there is nothing to detect (the full detector lands with Dashboard).
   export function getActiveDetector(filter: DashboardFilter | undefined, _request: ChartRequestModel): ((row: ChartRow) => boolean) | undefined {

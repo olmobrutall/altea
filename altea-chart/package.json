@@ -19,6 +19,7 @@
     "@altea/altea": "workspace:*",
     "@altea/altea-auth": "workspace:*",
     "@altea/altea-user-assets": "workspace:*",
+    "@altea/altea-user-queries": "workspace:*",
     "quote-transformer": "workspace:*",
     "d3": "^7.9.0",
     "d3-scale-chromatic": "^3.1.0",
