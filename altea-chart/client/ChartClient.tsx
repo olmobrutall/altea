@@ -67,6 +67,12 @@ export namespace ChartClient {
     registerChartScriptComponent(D3ChartScript.Bars, () => import("./D3Scripts/Bars"));
     registerChartScriptComponent(D3ChartScript.Columns, () => import("./D3Scripts/Columns"));
     registerChartScriptComponent(D3ChartScript.Line, () => import("./D3Scripts/Line"));
+    registerChartScriptComponent(D3ChartScript.MultiBars, () => import("./D3Scripts/MultiBars"));
+    registerChartScriptComponent(D3ChartScript.MultiColumns, () => import("./D3Scripts/MultiColumns"));
+    registerChartScriptComponent(D3ChartScript.MultiLines, () => import("./D3Scripts/MultiLines"));
+    registerChartScriptComponent(D3ChartScript.StackedBars, () => import("./D3Scripts/StackedBars"));
+    registerChartScriptComponent(D3ChartScript.StackedColumns, () => import("./D3Scripts/StackedColumns"));
+    registerChartScriptComponent(D3ChartScript.StackedLines, () => import("./D3Scripts/StackedLines"));
   }
 
   // ---- Client ChartScript DTO (the shape shipped from /api/chart/scripts; see ChartServer.server) --------

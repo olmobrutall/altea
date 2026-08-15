@@ -6,6 +6,12 @@ import { setGetChartScriptFunc } from "../data/ChartRequest";
 import { BarsChartScript } from "./Scripts/Bars";
 import { ColumnsChartScript } from "./Scripts/Columns";
 import { LineChartScript } from "./Scripts/Line";
+import { MultiBarsChartScript } from "./Scripts/MultiBars";
+import { MultiColumnsChartScript } from "./Scripts/MultiColumns";
+import { MultiLinesChartScript } from "./Scripts/MultiLines";
+import { StackedBarsChartScript } from "./Scripts/StackedBars";
+import { StackedColumnsChartScript } from "./Scripts/StackedColumns";
+import { StackedLinesChartScript } from "./Scripts/StackedLines";
 
 // Port of Signum.Chart/ChartScriptLogic.cs. The in-process registry of chart-type definitions + the
 // ChartScriptSymbol table seeding.
@@ -43,6 +49,12 @@ export namespace ChartScriptLogic {
         registerScript(new BarsChartScript());
         registerScript(new ColumnsChartScript());
         registerScript(new LineChartScript());
+        registerScript(new MultiBarsChartScript());
+        registerScript(new MultiColumnsChartScript());
+        registerScript(new MultiLinesChartScript());
+        registerScript(new StackedBarsChartScript());
+        registerScript(new StackedColumnsChartScript());
+        registerScript(new StackedLinesChartScript());
     }
 
     function registerScript(chartScript: ChartScript): void {
