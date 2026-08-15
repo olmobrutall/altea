@@ -16,11 +16,13 @@ import "../data/ChartPermissions"; // evaluate the module so ChartPermission.Vie
 //    builds the QueryRequest and calls the generic query API).
 
 export namespace ChartLogic {
-    export function start(sb: SchemaBuilder): void {
+    // Signum's ChartLogic.Start(sb, googleMapsChartScripts, svgMapUrls?). altea skips googleMaps; svgMapUrls
+    // (when provided and non-empty) registers the opt-in SvgMap chart with that list of served SVG map URLs.
+    export function start(sb: SchemaBuilder, svgMapUrls?: string[]): void {
         if (sb.alreadyDefined(start))
             return;
 
-        ChartScriptLogic.start(sb);
+        ChartScriptLogic.start(sb, svgMapUrls);
 
         if (sb.webBuilder)
             ChartServer.start(sb.webBuilder);

@@ -23,6 +23,7 @@ import { PunchcardChartScript } from "./Scripts/Punchcard";
 import { ParallelCoordinatesChartScript } from "./Scripts/ParallelCoordinates";
 import { CalendarStreamChartScript } from "./Scripts/CalendarStream";
 import { PivotTableScript } from "./Scripts/PivotTable";
+import { SvgMapScript } from "./Scripts/SvgMap";
 
 // Port of Signum.Chart/ChartScriptLogic.cs. The in-process registry of chart-type definitions + the
 // ChartScriptSymbol table seeding.
@@ -41,7 +42,7 @@ export namespace ChartScriptLogic {
     // Signum's `Dictionary<ChartScriptSymbol, ChartScript> Scripts`, keyed by symbol.key.
     export const scripts = new Map<string, ChartScript>();
 
-    export function start(sb: SchemaBuilder): void {
+    export function start(sb: SchemaBuilder, svgMapUrls?: string[]): void {
         if (sb.alreadyDefined(start))
             return;
 
@@ -75,6 +76,12 @@ export namespace ChartScriptLogic {
         registerScript(new ParallelCoordinatesChartScript());
         registerScript(new CalendarStreamChartScript());
         registerScript(new PivotTableScript());
+
+        // Signum's `if (svgMapUrls != null) RegisterScript(new SvgMapScript(svgMapUrls))`. altea: register the
+        // opt-in SvgMap chart only when the app supplies a non-empty URL list (EnumValueList.parse throws on
+        // an empty "" join, and an SVG picker with no maps is useless).
+        if (svgMapUrls != null && svgMapUrls.length > 0)
+            registerScript(new SvgMapScript(svgMapUrls));
     }
 
     function registerScript(chartScript: ChartScript): void {
