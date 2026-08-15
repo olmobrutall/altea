@@ -78,6 +78,9 @@ export namespace ChartClient {
     registerChartScriptComponent(D3ChartScript.Bubbleplot, () => import("./D3Scripts/Bubbleplot"));
     registerChartScriptComponent(D3ChartScript.BubblePack, () => import("./D3Scripts/BubblePack"));
     registerChartScriptComponent(D3ChartScript.Treemap, () => import("./D3Scripts/TreeMap"));
+    registerChartScriptComponent(D3ChartScript.Punchcard, () => import("./D3Scripts/Punchcard"));
+    registerChartScriptComponent(D3ChartScript.ParallelCoordinates, () => import("./D3Scripts/ParallelCoordinates"));
+    registerChartScriptComponent(D3ChartScript.CalendarStream, () => import("./D3Scripts/CalendarStream"));
   }
 
   // ---- Client ChartScript DTO (the shape shipped from /api/chart/scripts; see ChartServer.server) --------

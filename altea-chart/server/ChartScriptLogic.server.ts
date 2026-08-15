@@ -19,6 +19,9 @@ import { ScatterplotChartScript } from "./Scripts/Scatterplot";
 import { BubbleplotChartScript } from "./Scripts/Bubbleplot";
 import { BubblePackChartScript } from "./Scripts/BubblePack";
 import { TreeMapChartScript } from "./Scripts/TreeMap";
+import { PunchcardChartScript } from "./Scripts/Punchcard";
+import { ParallelCoordinatesChartScript } from "./Scripts/ParallelCoordinates";
+import { CalendarStreamChartScript } from "./Scripts/CalendarStream";
 
 // Port of Signum.Chart/ChartScriptLogic.cs. The in-process registry of chart-type definitions + the
 // ChartScriptSymbol table seeding.
@@ -67,6 +70,9 @@ export namespace ChartScriptLogic {
         registerScript(new BubbleplotChartScript());
         registerScript(new BubblePackChartScript());
         registerScript(new TreeMapChartScript());
+        registerScript(new PunchcardChartScript());
+        registerScript(new ParallelCoordinatesChartScript());
+        registerScript(new CalendarStreamChartScript());
     }
 
     function registerScript(chartScript: ChartScript): void {
