@@ -1,0 +1,28 @@
+{
+  "name": "@altea/altea-chart",
+  "version": "0.0.1",
+  "description": "Charting (ported from Signum.Chart)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-user-assets": "workspace:*",
+    "quote-transformer": "workspace:*",
+    "d3": "^7.9.0",
+    "d3-scale-chromatic": "^3.1.0",
+    "@types/d3": "^7.4.3",
+    "@types/d3-scale-chromatic": "^3.1.0"
+  }
+}

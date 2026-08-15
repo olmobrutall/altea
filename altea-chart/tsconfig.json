@@ -1,0 +1,9 @@
+{
+  // Solution file — builds the three suffix/directory-driven layers (`tspc -b`). Mirrors altea-user-queries.
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "./tsconfig.server.json" },
+    { "path": "./tsconfig.client.json" }
+  ]
+}

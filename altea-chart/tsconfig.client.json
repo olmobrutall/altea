@@ -1,0 +1,10 @@
+{
+  // CLIENT layer — React UI (chart builder + D3 renderers); references DATA only, never server.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" },
+    { "path": "../altea-user-assets/tsconfig.client.json" }
+  ]
+}
