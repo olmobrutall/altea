@@ -10,6 +10,7 @@ import { DiffColumn, DiffTable, DiffIndex, DiffIndexColumn, SysTableTemporalType
 import { SqlBuilder, DefaultConstraint } from "./sqlBuilder";
 import { SqlPreCommand, SqlPreCommandSimple, SqlPreCommandWithHistory, Spacing } from "./sqlPreCommand";
 import { Synchronizer, Replacements } from "./synchronizer";
+import { PrimaryKeyUpdater, type PreRenameMap } from "./primaryKeyUpdater";
 import { getDatabaseDescription as getSqlServerDescription } from "./sqlServer/sysTablesSchema";
 import { getDatabaseDescription as getPostgresDescription } from "./postgres/postgresCatalogSchema";
 import { EnumEntity, getBoundEnum, enumEntityMembers } from "../../data/enumEntity";
@@ -134,6 +135,45 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
         const name = replacements.apply(Replacements.keyTables, objectName.toString());
         return modelTables.get(name)?.name ?? objectName;
     };
+
+    // ---- PK-type migration pre-rename (Signum's ID_Old) -------------------------------------------
+    // A primary-key or foreign-key column whose DB TYPE changed (the common case: int-identity → guid)
+    // can't be altered in place with its data intact — the key values must be renumbered and every
+    // referencing FK re-pointed. Following Signum, rename each such DB column to `<name>_old` so the column
+    // diff below treats the model column as a fresh ADD and the `_old` column as a (delayed) DROP; the
+    // PrimaryKeyUpdater then migrates the data by joining on `_old`. (An identity-only change on the SAME
+    // type is NOT pre-renamed — it's handled in place by alterColumnChangeIdentity in the column merge.
+    // Postgres reports every type "compatible", so the trigger is a real dbType change, not !compatibleTypes.)
+    const preRenameMap: PreRenameMap = new Map();
+    const preRenameCmds: (SqlPreCommand | undefined)[] = [];
+    for (const [tn, tab] of modelTables) {
+        const dif = databaseTables.get(tn);
+        if (dif == null)
+            continue;
+        for (const [cn, tabCol] of Object.entries(tab.columns)) {
+            const difCol = dif.columns[cn];
+            if (difCol == null)
+                continue;
+            const isPkOrFk = tabCol.primaryKey || tabCol.referenceTable != null;
+            if (!isPkOrFk || dbTypeEqualsActive(difCol.dbType, tabCol.dbType, isPostgres))
+                continue;
+            const oldName = cn + "_old";
+            preRenameCmds.push(sqlBuilder.renameColumn(dif.name, cn, oldName));
+            difCol.name = oldName;
+            delete dif.columns[cn];
+            dif.columns[oldName] = difCol;
+            let m = preRenameMap.get(tn);
+            if (m == null) { m = new Map(); preRenameMap.set(tn, m); }
+            m.set(cn, oldName);
+        }
+    }
+    const preRename = SqlPreCommand.combine(Spacing.Double, ...preRenameCmds);
+
+    // The data-migration UPDATEs (populated during the tables pass) run AFTER the new columns exist; the
+    // `_old` column drops run after those (Signum's delayedUpdatesFks / delayedDrops).
+    const delayedUpdatesFks: (SqlPreCommand | undefined)[] = [];
+    const delayedDrops: (SqlPreCommand | undefined)[] = [];
+    const pkUpdater = new PrimaryKeyUpdater(isPostgres, sqlBuilder, modelTables, schema);
 
     // ---- drop foreign keys that changed or whose owner column was removed ----
     const dropForeignKeys = Synchronizer.synchronizeScript(
@@ -272,13 +312,43 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
                 Spacing.Simple,
                 colMap(modelColumns),
                 colMap(dif.columns),
-                (cn, tabCol) => alterTableAddColumnDefault(sqlBuilder, tab, tabCol, withHistory),
-                (cn, difCol) => SqlPreCommand.combine(Spacing.Simple,
-                    difCol.defaultConstraint?.name != null ? sqlBuilder.alterTableDropConstraint(tab.name, difCol.defaultConstraint.name) : undefined,
-                    sqlBuilder.alterTableDropColumn(tab, cn, withHistory)),
+                (cn, tabCol) => {
+                    const add = alterTableAddColumnDefault(sqlBuilder, tab, tabCol, withHistory);
+                    // A pre-renamed PK/FK column: the fresh column was just added (with its guid/identity
+                    // default → new key values); register the data cascade + the delayed drop of `_old`.
+                    const oldName = preRenameMap.get(tab.name.toString())?.get(cn);
+                    if (oldName != null) {
+                        const oldDiffCol = dif.columns[oldName];
+                        if (tabCol.primaryKey && oldDiffCol != null) {
+                            delayedUpdatesFks.push(pkUpdater.updateImplementedByAll(tab, tab.name, tabCol, oldDiffCol.dbType, oldName));
+                            delayedUpdatesFks.push(pkUpdater.updateHistoryTable(tab, tabCol, oldName));
+                        } else if (tabCol.referenceTable != null && oldDiffCol != null) {
+                            delayedUpdatesFks.push(pkUpdater.updateForeignKeyTypeChanged(tab, tabCol, oldDiffCol, preRenameMap));
+                        }
+                        delayedDrops.push(sqlBuilder.alterTableDropColumn(tab, oldName, withHistory));
+                    }
+                    return add;
+                },
+                (cn, difCol) => {
+                    // A pre-renamed `_old` column is dropped by the delayed drop registered in createNew.
+                    if ([...(preRenameMap.get(tab.name.toString())?.values() ?? [])].includes(cn))
+                        return undefined;
+                    return SqlPreCommand.combine(Spacing.Simple,
+                        difCol.defaultConstraint?.name != null ? sqlBuilder.alterTableDropConstraint(tab.name, difCol.defaultConstraint.name) : undefined,
+                        sqlBuilder.alterTableDropColumn(tab, cn, withHistory));
+                },
                 (cn, tabCol, difCol) => {
-                    if (!difCol.compatibleTypes(tabCol) || difCol.identity !== tabCol.identity) {
-                        // Incompatible: drop and recreate the column (with a zero/empty backfill),
+                    // Identity-only change on a type-compatible column — e.g. the Symbol tables (Operation/
+                    // Permission/TypeCondition) migrating an EXISTING database to an IDENTITY primary key. A
+                    // plain DROP+ADD (below) would discard the existing ids and fail on the FK dependents
+                    // ("cannot drop column id … other objects depend on it"). Migrate the identity attribute
+                    // in place instead, preserving the values + FKs (Signum solves the same case via its
+                    // ID_Old rename + PrimaryKeyUpdater; altea does it natively where the dialect allows).
+                    if (difCol.compatibleTypes(tabCol) && difCol.identity !== tabCol.identity && sqlBuilder.isPostgres)
+                        return sqlBuilder.alterColumnChangeIdentity(tab, tabCol, difCol, withHistory);
+
+                    if (!difCol.compatibleTypes(tabCol)) {
+                        // Incompatible type: drop and recreate the column (with a zero/empty backfill),
                         // forking both to the history table when versioned.
                         const addColumn = withHistory
                             ? new SqlPreCommandWithHistory(
@@ -324,8 +394,14 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
                 && (dif.period == null || dif.temporalTableName == null || historyMismatch || strongChange)
                 ? sqlBuilder.alterTableEnableSystemVersioning(tab) : undefined;
 
+            // When the primary key itself migrated type (int→guid), drop the old PK constraint before the
+            // column swap and recreate it on the new column after (Signum's dropPrimaryKey / createPrimaryKey).
+            const pkMigrated = preRenameMap.get(tab.name.toString())?.has(tab.primaryKey.column.name) ?? false;
+            const dropPK = pkMigrated ? sqlBuilder.dropPrimaryKeyConstraint(dif.name, dif.primaryKeyName?.name) : undefined;
+            const createPK = pkMigrated ? sqlBuilder.alterTableAddPrimaryKey(tab) : undefined;
+
             return SqlPreCommand.combine(Spacing.Simple,
-                rename, disableSystemVersioning, dropPeriod, combinedAddPeriod, columns, addSystemVersioning);
+                rename, disableSystemVersioning, dropPeriod, dropPK, combinedAddPeriod, columns, createPK, addSystemVersioning);
         },
     );
 
@@ -443,7 +519,13 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
     // Order: main tables, then the history tables' own lifecycle, then the delayed history-column replay
     // (targets history tables that now exist), then the trigger re-emit. Finally dropSchemas — after every
     // table has moved/dropped out of the old schemas.
-    return SqlPreCommand.combine(Spacing.Triple, dropForeignKeys, dropIndices, dropFullTextCatalogs, tables, historyTables, delayedHistory, versioningTriggers, createFullTextCatalogs, addForeignKeys, addIndices, dropSchemas);
+    // PK-type migration order (Signum): rename the changed columns to `_old` FIRST, drop the affected FKs
+    // and indexes, do the table/column work (add the new columns, drop+recreate the PK), THEN migrate the
+    // data (re-point every FK/IBA/history reference from `_old`), drop the `_old` columns, and finally
+    // re-add the foreign keys (on the new column type) and indexes.
+    const delayedFkUpdates = SqlPreCommand.combine(Spacing.Double, ...delayedUpdatesFks);
+    const delayedColumnDrops = SqlPreCommand.combine(Spacing.Simple, ...delayedDrops);
+    return SqlPreCommand.combine(Spacing.Triple, preRename, dropForeignKeys, dropIndices, dropFullTextCatalogs, tables, historyTables, delayedHistory, delayedFkUpdates, delayedColumnDrops, versioningTriggers, createFullTextCatalogs, addForeignKeys, addIndices, dropSchemas);
 }
 
 // Drop a DB index, routing a SQL Server full-text index to DROP FULLTEXT INDEX (which targets the

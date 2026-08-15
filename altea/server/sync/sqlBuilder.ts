@@ -577,6 +577,43 @@ export class SqlBuilder {
             ?? new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(tableName)} ALTER COLUMN ${escName} -- UNEXPECTED COLUMN CHANGE!!`);
     }
 
+    // Migrate ONLY a column's identity attribute (add or remove) on a type-compatible column, preserving
+    // the existing values and FK dependents — Signum's ID_Old rename + PrimaryKeyUpdater solves the same
+    // case (as part of its int→guid migration). The naive DROP+ADD would discard the ids and fail on FKs.
+    //
+    //  - Postgres CAN attach/detach IDENTITY to an existing populated column in place (ALTER COLUMN ADD/DROP
+    //    GENERATED …), so nothing is dropped and no FK is touched. When ADDING, the identity sequence is
+    //    reseeded to MAX(col)+1 so the next DB-assigned id doesn't collide with the existing rows.
+    //  - SQL Server can't ALTER a column to IDENTITY, so it needs a table rebuild (Signum's MoveRows with
+    //    IDENTITY_INSERT). That requires dropping/recreating the inbound FKs, which altea's synchronizer
+    //    doesn't yet orchestrate — so it is emitted as a commented, explicit manual-migration block rather
+    //    than silently-wrong DDL (documented follow-on; a fresh generate makes the table correct directly).
+    alterColumnChangeIdentity(table: Table, column: IColumn, _diffColumn: DiffColumn, _withHistory: boolean): SqlPreCommand {
+        const tableName = this.objectName(table.name);
+        const col = this.sqlEscape(column.name);
+
+        if (this.isPostgres) {
+            if (!column.identity)
+                return new SqlPreCommandSimple(`ALTER TABLE ${tableName} ALTER COLUMN ${col} DROP IDENTITY IF EXISTS;`);
+
+            const add = new SqlPreCommandSimple(`ALTER TABLE ${tableName} ALTER COLUMN ${col} ADD GENERATED ALWAYS AS IDENTITY;`);
+            // Reseed the just-created identity sequence past the existing rows (empty table → next id = 1).
+            const schema = table.name.schema.name !== '' ? table.name.schema.name : 'public';
+            const regclass = `${schema}.${table.name.name}`.replace(/'/g, "''");
+            const colLit = column.name.replace(/'/g, "''");
+            const reseed = new SqlPreCommandSimple(
+                `SELECT setval(pg_get_serial_sequence('${regclass}', '${colLit}'), COALESCE((SELECT MAX(${col}) FROM ${tableName}), 0) + 1, false);`);
+            return SqlPreCommand.combine(Spacing.Simple, add, reseed)!;
+        }
+
+        // SQL Server: a rebuild (see method doc). Emitted commented so the sync doesn't ship half-applied DDL.
+        return new SqlPreCommandSimple(
+            `-- MANUAL MIGRATION REQUIRED: change ${tableName}.${col} to IDENTITY (SQL Server cannot ALTER a\n` +
+            `-- column to IDENTITY in place). Rebuild the table with IDENTITY_INSERT preserving the ids, or\n` +
+            `-- regenerate the database from scratch. altea's FK-orchestrated rebuild (Signum's ID_Old +\n` +
+            `-- PrimaryKeyUpdater) is a follow-on; this migration currently applies on PostgreSQL only.`);
+    }
+
     // The DF_ default-constraint descriptor for a column that declares a default, or undefined.
     getDefaultConstaint(tableName: ObjectName, c: IColumn): DefaultConstraint | undefined {
         if (c.default == null)
@@ -644,11 +681,15 @@ export class SqlBuilder {
         return new SqlPreCommandSimple(`DROP SCHEMA ${this.sqlEscape(schemaName.name)};`);
     }
 
-    // Drops whatever primary-key constraint the table currently has (its name is discovered
-    // at run time), so a PK-type change can recreate it. SQL Server only — Postgres renames
-    // the constraint directly. Faithful to Signum's DropPrimaryKeyConstraint.
-    dropPrimaryKeyConstraint(tableName: ObjectName): SqlPreCommandSimple {
+    // Drops the table's primary-key constraint so a PK-type change (int→guid) can recreate it. On Postgres,
+    // the constraint name is known (the DB diff carries it — `constraintName`); on SQL Server it's
+    // discovered at run time. Faithful to Signum's DropPrimaryKeyConstraint.
+    dropPrimaryKeyConstraint(tableName: ObjectName, constraintName?: string): SqlPreCommandSimple {
         const full = this.objectName(tableName);
+        if (this.isPostgres) {
+            const pk = constraintName ?? this.primaryKeyName(tableName.name);
+            return new SqlPreCommandSimple(`ALTER TABLE ${full} DROP CONSTRAINT ${this.sqlEscape(pk)};`);
+        }
         const varName = 'PrimaryKey_Constraint_' + tableName.name;
         const command =
 `DECLARE @${varName} nvarchar(max)
@@ -657,6 +698,16 @@ FROM sys.key_constraints kc
 WHERE kc.parent_object_id = OBJECT_ID('${full}')
 EXEC dbo.sp_executesql @${varName}`;
         return new SqlPreCommandSimple(command);
+    }
+
+    // Adds a primary-key constraint on an existing table (the recreate half of a PK-type migration). altea
+    // otherwise only emits the PK inline in CREATE TABLE — this is the ALTER-TABLE form Signum's ID_Old path
+    // needs. Uses the same constraint name (pk_<table>) as createTableSql, so a later sync sees no drift.
+    alterTableAddPrimaryKey(table: Table): SqlPreCommandSimple {
+        const pkName = this.sqlEscape(this.primaryKeyName(table.name.name));
+        const pkCol = this.sqlEscape(table.primaryKey.column.name);
+        return new SqlPreCommandSimple(
+            `ALTER TABLE ${this.objectName(table.name)} ADD CONSTRAINT ${pkName} PRIMARY KEY (${pkCol});`);
     }
 
     // SQL Server's sp_rename. Divergence from Signum: no cross-database prefix (altea is
