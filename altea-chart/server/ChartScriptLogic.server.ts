@@ -5,6 +5,7 @@ import type { ChartScript } from "../data/ChartScript";
 import { setGetChartScriptFunc } from "../data/ChartRequest";
 import { BarsChartScript } from "./Scripts/Bars";
 import { ColumnsChartScript } from "./Scripts/Columns";
+import { LineChartScript } from "./Scripts/Line";
 
 // Port of Signum.Chart/ChartScriptLogic.cs. The in-process registry of chart-type definitions + the
 // ChartScriptSymbol table seeding.
@@ -41,6 +42,7 @@ export namespace ChartScriptLogic {
         // the 20 built-ins follow as their D3Scripts/*.tsx are ported).
         registerScript(new BarsChartScript());
         registerScript(new ColumnsChartScript());
+        registerScript(new LineChartScript());
     }
 
     function registerScript(chartScript: ChartScript): void {

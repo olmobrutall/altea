@@ -64,7 +64,9 @@ export namespace ChartClient {
       element: <ImportComponent onImport={() => import("./Templates/ChartRequestPage")} />,
     });
 
+    registerChartScriptComponent(D3ChartScript.Bars, () => import("./D3Scripts/Bars"));
     registerChartScriptComponent(D3ChartScript.Columns, () => import("./D3Scripts/Columns"));
+    registerChartScriptComponent(D3ChartScript.Line, () => import("./D3Scripts/Line"));
   }
 
   // ---- Client ChartScript DTO (the shape shipped from /api/chart/scripts; see ChartServer.server) --------
