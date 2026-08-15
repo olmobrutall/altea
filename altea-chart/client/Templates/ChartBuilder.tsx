@@ -9,6 +9,11 @@ import { ColorInterpolate, ColorScheme } from '../ColorPalette/ColorPaletteClien
 import { useForceUpdate, useAPI } from '@altea/altea/client/Hooks'
 import { colorInterpolators, colorSchemes } from '../ColorPalette/ColorUtils'
 import { Dic } from '@altea/altea/data/globals/index'
+import { Finder } from '@altea/altea/client/Finder'
+import { Temporal, toInt } from '@altea/altea/data/basics'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import ChartTimeSeries from './ChartTimeSeries'
+import { ChartTimeSeriesEmbedded } from '../../data/ChartRequest'
 import type { IChartBase } from '../../data/ChartRequest'
 import { EnumLine } from '@altea/altea/client/Lines/EnumLine'
 import type { EnumLineProps, OptionItem } from '@altea/altea/client/Lines/EnumLine'
@@ -22,10 +27,11 @@ import '@altea/altea/data/globals/stringExtensions'
 
 // Copy-and-fix of Signum.Chart/Templates/ChartBuilder.tsx. altea divergences: @framework/* → altea; MList
 // `.element` → plain arrays; `is(symbol)` → key compare; icons are deferred (string|null, always null) so
-// the chart-type buttons show the symbol's nice name text instead of a base64 <img>; the Time-machine /
-// ChartTimeSeries block + QueryDescription prop are dropped (deferred); `.modified` drops (dirty is
-// snapshot-tracked); ChartColumnType is numeric (nice name via ChartClient.chartColumnTypeNiceName);
-// EnumValueList is `{ values }`.
+// the chart-type buttons show the symbol's nice name text instead of a base64 <img>; the QueryDescription
+// prop is dropped (altea has no QueryDescription — the system-time gate resolves the query root token via
+// Finder.getQueryRoot instead); `.modified` drops (dirty is snapshot-tracked, so forceUpdate() stands in);
+// luxon → Temporal for the ChartTimeSeries defaults; ChartColumnType is numeric (nice name via
+// ChartClient.chartColumnTypeNiceName); EnumValueList is `{ values }`.
 
 export interface ChartBuilderProps {
   ctx: TypeContext<IChartBase>; /*IChart*/
@@ -41,6 +47,8 @@ export default function ChartBuilder(p: ChartBuilderProps): React.JSX.Element {
   const forceUpdate = useForceUpdate();
 
   const chartScripts = useAPI(() => ChartClient.getChartScripts(), []);
+
+  const queryRoot = useAPI(() => Finder.getQueryRoot(p.queryKey), [p.queryKey]);
 
   function chartTypeImgClass(script: ChartClient.ChartScript): string {
     const cb = p.ctx.value;
@@ -84,7 +92,39 @@ export default function ChartBuilder(p: ChartBuilderProps): React.JSX.Element {
 
   var parameterDic = mlistItemContext(p.ctx.subCtx(c => c.parameters, { formSize: "xs", formGroupStyle: "Basic" })).toObject(a => a.value.name!);
 
+  // Signum's `(qs?.allowSystemTime ?? tis.some(a => a.isSystemVersioned))`. altea has no QueryDescription;
+  // the query root token (Finder.getQueryRoot) carries the entity type, whose TypeInfos expose
+  // `systemVersioned` (mirrors SearchControl's gate). `tis` is empty until the root token resolves.
+  const qs = Finder.getSettings(p.queryKey);
+  const tis = queryRoot?.type.typeInfos() ?? [];
+
   return (<>
+    {(qs?.allowSystemTime ?? tis.some(a => a.systemVersioned != null)) && <div className='d-flex align-items-center mb-3' style={{ minHeight: 34 }}>
+      <label>
+        <input className='me-1' type={'checkbox'} defaultChecked={chart.chartTimeSeries != null}
+          onChange={e => {
+
+            if (e.target.checked) {
+              if (!chart.chartTimeSeries) {
+                const ts = new ChartTimeSeriesEmbedded();
+                ts.timeSeriesStep = toInt(1);
+                ts.timeSeriesUnit = 'Month';
+                ts.startDate = Temporal.Now.plainDateISO().with({ month: 1, day: 1 }).toString();
+                ts.endDate = Temporal.Now.plainDateISO().toString();
+                ts.splitQueries = true;
+                chart.chartTimeSeries = ts;
+              }
+            } else {
+              chart.chartTimeSeries = null;
+            }
+            forceUpdate();
+          }}
+        />
+        Time machine
+        <FontAwesomeIcon aria-hidden={true} className='mx-1' icon='clock-rotate-left' />
+      </label>
+      {chart.chartTimeSeries && <ChartTimeSeries chartTimeSeries={chart.chartTimeSeries} chartBase={p.ctx.value} onChange={handleOnRedraw} />}
+    </div>}
     <div className="row sf-chart-builder gx-2">
       <div className="col-lg-2">
         <div className="sf-chart-type card bg-body rounded shadow-sm border-0 p-2">

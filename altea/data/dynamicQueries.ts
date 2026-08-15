@@ -39,6 +39,9 @@ export const QueryTokenMessage = {
 export const QueryTokenDateMessage = {
     Date: msg(),
     TimeOfDay: msg(),
+    Every01: msg("Every {0} {1}"),
+    SplitQueries: msg("Split queries"),
+    _0Steps1Rows2TotalRowsAprox: msg("{0} steps × {1} rows = {2} total rows (aprox)"),
 };
 
 export const CollectionMessage = {
