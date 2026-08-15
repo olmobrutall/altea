@@ -100,8 +100,8 @@ export default function ChartBuilder(p: ChartBuilderProps): React.JSX.Element {
                 style={{ background: "inherit", border: "inherit" }}
                 title={ChartClient.symbolNiceName(cs.symbol)}
                 onClick={() => handleChartScriptOnClick(cs)}>
-                {/* icons deferred (cs.icon is null): show the chart-type name */}
-                {ChartClient.symbolNiceName(cs.symbol)}
+                {/* the server ships the icon as a data-URI (loadIcon); fall back to the name if absent */}
+                {cs.icon ? <img src={cs.icon} alt={ChartClient.symbolNiceName(cs.symbol)} /> : ChartClient.symbolNiceName(cs.symbol)}
               </button>)}
           </div>
           <div className="card-body">

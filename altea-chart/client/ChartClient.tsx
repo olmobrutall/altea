@@ -73,6 +73,9 @@ export namespace ChartClient {
     registerChartScriptComponent(D3ChartScript.StackedBars, () => import("./D3Scripts/StackedBars"));
     registerChartScriptComponent(D3ChartScript.StackedColumns, () => import("./D3Scripts/StackedColumns"));
     registerChartScriptComponent(D3ChartScript.StackedLines, () => import("./D3Scripts/StackedLines"));
+    registerChartScriptComponent(D3ChartScript.Pie, () => import("./D3Scripts/Pie"));
+    registerChartScriptComponent(D3ChartScript.Scatterplot, () => import("./D3Scripts/Scatterplot"));
+    registerChartScriptComponent(D3ChartScript.Bubbleplot, () => import("./D3Scripts/Bubbleplot"));
   }
 
   // ---- Client ChartScript DTO (the shape shipped from /api/chart/scripts; see ChartServer.server) --------

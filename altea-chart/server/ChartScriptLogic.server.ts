@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import type { SchemaBuilder } from "@altea/altea/server/schema/schemaBuilder";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { ChartScriptSymbol } from "../data/ChartScript";
@@ -12,6 +14,9 @@ import { MultiLinesChartScript } from "./Scripts/MultiLines";
 import { StackedBarsChartScript } from "./Scripts/StackedBars";
 import { StackedColumnsChartScript } from "./Scripts/StackedColumns";
 import { StackedLinesChartScript } from "./Scripts/StackedLines";
+import { PieChartScript } from "./Scripts/Pie";
+import { ScatterplotChartScript } from "./Scripts/Scatterplot";
+import { BubbleplotChartScript } from "./Scripts/Bubbleplot";
 
 // Port of Signum.Chart/ChartScriptLogic.cs. The in-process registry of chart-type definitions + the
 // ChartScriptSymbol table seeding.
@@ -55,15 +60,24 @@ export namespace ChartScriptLogic {
         registerScript(new StackedBarsChartScript());
         registerScript(new StackedColumnsChartScript());
         registerScript(new StackedLinesChartScript());
+        registerScript(new PieChartScript());
+        registerScript(new ScatterplotChartScript());
+        registerScript(new BubbleplotChartScript());
     }
 
     function registerScript(chartScript: ChartScript): void {
         scripts.set(chartScript.symbol.key, chartScript);
     }
 
-    // Signum's LoadIcon (embedded PNG resource). altea divergence: resource embedding is deferred — the
-    // scripts keep their `loadIcon("bars.png")` call site (near-verbatim) but no icon is loaded yet.
-    export function loadIcon(_fileName: string): string | null {
-        return null;
+    // Signum's LoadIcon (embedded PNG resource → FileContent). altea divergence: reads the PNG from
+    // server/Icons/<fileName> (resolved relative to this module) and returns a data-URI string (the client
+    // ChartScript.icon), so the chart-type buttons show the real icon. Returns null if the file is missing.
+    export function loadIcon(fileName: string): string | null {
+        try {
+            const path = fileURLToPath(new URL("../../server/Icons/" + fileName, import.meta.url));
+            return "data:image/png;base64," + readFileSync(path).toString("base64");
+        } catch {
+            return null;
+        }
     }
 }
