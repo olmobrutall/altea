@@ -1,17 +1,7 @@
 {
-  // SERVER tier — the DB-backed bulk: engine/persistence/schema tests at the root plus linq/ and
-  // dynamicQueries/ subfolders, the logic/ Music schema+loader, and the setup harness. Accepts the
-  // server/ directory OR co-located *.server.ts suffix files. References the local DATA project + altea's
-  // data + server + client layers (queryClient.test.ts uses the client).
-  "extends": "../altea/tsconfig.base.json",
-  "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "dist",
-    "tsBuildInfoFile": "dist/.tsbuildinfo.server",
-    "types": ["node"]
-  },
-  "include": ["server/**/*", "**/*.server.ts"],
-  "exclude": ["data/**", "client/**"],
+  // SERVER tier — the DB-backed bulk (engine/persistence/schema + linq/ + dynamicQueries/) and the Music
+  // schema+loader. References local DATA + altea's data/server/client (queryClient.test.ts uses the client).
+  "extends": "../altea/presets/server.json",
   "references": [
     { "path": "./tsconfig.data.json" },
     { "path": "../altea/tsconfig.data.json" },

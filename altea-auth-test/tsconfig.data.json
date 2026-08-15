@@ -1,14 +1,8 @@
 {
-  // DATA tier — the sample model (pure @altea/altea/data + the auth data enums/symbols). DB-free.
-  "extends": "../altea/tsconfig.base.json",
-  "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "dist",
-    "tsBuildInfoFile": "dist/.tsbuildinfo.data",
-    "types": ["node"]
-  },
-  "include": ["data/**/*", "**/*.data.ts"],
-  "exclude": ["server/**"],
+  // DATA tier — the sample model (pure @altea/altea/data + auth data enums/symbols). DB-free.
+  // `types: [node]` for the node:test runner (override of the preset's `[]`).
+  "extends": "../altea/presets/data.json",
+  "compilerOptions": { "types": ["node"] },
   "references": [
     { "path": "../altea/tsconfig.data.json" },
     { "path": "../altea-auth/tsconfig.data.json" }

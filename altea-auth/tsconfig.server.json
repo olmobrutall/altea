@@ -1,17 +1,6 @@
 {
-  // SERVER layer — *.server.ts. References DATA; node-only. (No *.server.tsx here: SSR is an app-level
-  // concern, so the .server.tsx escape hatch lives only in eastwind; in framework modules a .tsx is
-  // always a client component.)
-  "extends": "../altea/tsconfig.base.json",
-  "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "dist",
-    "tsBuildInfoFile": "dist/.tsbuildinfo.server",
-    "types": ["node"]
-  },
-  // Both forms accepted: a server/ directory OR co-located *.server.ts suffix files.
-  "include": ["server/**/*", "**/*.server.ts"],
-  "exclude": ["data/**", "client/**"],
+  // SERVER layer — node-only; references local DATA + altea's server.
+  "extends": "../altea/presets/server.json",
   "references": [
     { "path": "./tsconfig.data.json" },
     { "path": "../altea/tsconfig.server.json" }

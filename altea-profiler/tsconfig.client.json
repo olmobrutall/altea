@@ -1,14 +1,6 @@
 {
-  // CLIENT layer — *.client.ts + any *.tsx (React components). References DATA only, never server.
-  "extends": "../altea/tsconfig.base.json",
-  "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "dist",
-    "tsBuildInfoFile": "dist/.tsbuildinfo.client",
-    "lib": ["ESNext", "DOM", "DOM.Iterable"]
-  },
-  "include": ["client/**/*", "**/*.client.ts", "**/*.tsx"],
-  "exclude": ["data/**", "server/**"],
+  // CLIENT layer — React UI; references DATA only (local + altea + altea-auth), never server.
+  "extends": "../altea/presets/client.json",
   "references": [
     { "path": "./tsconfig.data.json" },
     { "path": "../altea/tsconfig.client.json" },

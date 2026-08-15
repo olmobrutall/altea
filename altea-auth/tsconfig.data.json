@@ -1,18 +1,5 @@
 {
-  // DATA layer — every *.data.ts file (isomorphic model, shared client + server). `types: []` keeps data
-  // free of node/DOM globals. All layers share one `dist/` so co-located siblings resolve by relative path.
-  // Data is pure model: no JSX, so no *.data.tsx (a .tsx is a client component — see tsconfig.client.json).
-  "extends": "../altea/tsconfig.base.json",
-  "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "dist",
-    "tsBuildInfoFile": "dist/.tsbuildinfo.data",
-    "types": []
-  },
-  // Both forms accepted: a data/ directory OR co-located *.data.ts suffix files.
-  "include": ["data/**/*", "**/*.data.ts"],
-  "exclude": ["client/**", "server/**"],
-  "references": [
-    { "path": "../altea/tsconfig.data.json" }
-  ]
+  // DATA layer — isomorphic model (shared client + server). Boilerplate in ../altea/presets/data.json.
+  "extends": "../altea/presets/data.json",
+  "references": [{ "path": "../altea/tsconfig.data.json" }]
 }

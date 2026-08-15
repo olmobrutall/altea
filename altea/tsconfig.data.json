@@ -1,14 +1,6 @@
 {
-  // DATA layer (isomorphic model: reflection, entity, lite, dynamicQuery tokens, …). Shared-root build:
-  // rootDir "." + outDir "dist" preserves the dist/data/** layout the package `exports` map points at.
-  // Both organisations accepted — the data/ directory OR co-located *.data.ts suffix files (e.g. a future
-  // high-cohesion module like exceptions/Exception.data.ts). `types: []` keeps data free of node/DOM.
-  "extends": "./tsconfig.base.json",
-  "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "dist",
-    "tsBuildInfoFile": "dist/.tsbuildinfo.data"
-  },
-  "include": ["data/**/*", "**/*.data.ts"],
-  "exclude": ["client/**", "server/**"]
+  // DATA layer (isomorphic model: reflection, entity, lite, dynamicQuery tokens, …). All boilerplate
+  // (rootDir/outDir/globs/types) lives in ./presets/data.json; the framework core is the root of the DAG,
+  // so it references nothing.
+  "extends": "./presets/data.json"
 }

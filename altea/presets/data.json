@@ -1,0 +1,20 @@
+{
+  // Shared DATA-layer preset. `${configDir}` (TS 5.5+) expands to the *consuming* module's directory,
+  // NOT this file's — so rootDir / outDir / tsBuildInfoFile / the include+exclude globs all land in each
+  // module that extends this. A module's own tsconfig.data.json therefore carries only its `references`
+  // (and, rarely, a small `compilerOptions` override such as `types: ["node"]` for a test module).
+  //
+  // DATA = isomorphic model (reflection, entity, lite, dynamicQuery tokens, …). `types: []` keeps it free
+  // of node/DOM globals — the isomorphic contract, enforced by the compiler. Both organisations accepted:
+  // a data/ directory OR co-located *.data.ts suffix files. All layers share one dist/ so co-located
+  // siblings resolve by relative path.
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "${configDir}",
+    "outDir": "${configDir}/dist",
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.data",
+    "types": []
+  },
+  "include": ["${configDir}/data/**/*", "${configDir}/**/*.data.ts"],
+  "exclude": ["${configDir}/client/**", "${configDir}/server/**", "${configDir}/terminal/**"]
+}

@@ -1,13 +1,6 @@
 {
-  "extends": "../altea/tsconfig.base.json",
-  "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "dist",
-    "tsBuildInfoFile": "dist/.tsbuildinfo.server",
-    "types": ["node"]
-  },
-  "include": ["server/**/*", "**/*.server.ts"],
-  "exclude": ["data/**", "client/**"],
+  // SERVER layer — node-only; references local DATA + altea/altea-auth server layers.
+  "extends": "../altea/presets/server.json",
   "references": [
     { "path": "./tsconfig.data.json" },
     { "path": "../altea/tsconfig.server.json" },

@@ -1,0 +1,19 @@
+{
+  // Shared SERVER-layer preset. `${configDir}` (TS 5.5+) expands to the consuming module's directory, so
+  // a module's own tsconfig.server.json carries only its `references`. See presets/data.json for the full
+  // `${configDir}` rationale.
+  //
+  // SERVER = node-only engine (connection, linq, schema, sync, dynamicQuery, logic). Both organisations
+  // accepted: a server/ directory OR co-located *.server.ts suffix files. A module's server project
+  // references its own DATA layer (+ upstream server layers) but NEVER client, so server code can't pull
+  // browser code into scope.
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "${configDir}",
+    "outDir": "${configDir}/dist",
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.server",
+    "types": ["node"]
+  },
+  "include": ["${configDir}/server/**/*", "${configDir}/**/*.server.ts"],
+  "exclude": ["${configDir}/data/**", "${configDir}/client/**", "${configDir}/terminal/**"]
+}

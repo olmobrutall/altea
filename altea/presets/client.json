@@ -1,0 +1,24 @@
+{
+  // Shared CLIENT-layer preset. `${configDir}` (TS 5.5+) expands to the consuming module's directory, so
+  // a module's own tsconfig.client.json carries only its `references` (+ rarely a `types` override, e.g.
+  // eastwind adds react/react-dom). See presets/data.json for the full `${configDir}` rationale.
+  //
+  // CLIENT = React UI kit (Navigator, Finder, SearchControl, Lines, …). Both organisations accepted: a
+  // client/ directory OR co-located *.client.ts suffix files, plus ANY *.tsx (a .tsx is always a client
+  // component). The `*.d.ts` entry picks up an app's root-level ambient decls (e.g. eastwind/styles.d.ts's
+  // `declare module "*.css"`) — a no-op in modules that have none. References DATA only, never server.
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "${configDir}",
+    "outDir": "${configDir}/dist",
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.client",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
+  },
+  "include": [
+    "${configDir}/client/**/*",
+    "${configDir}/**/*.client.ts",
+    "${configDir}/**/*.tsx",
+    "${configDir}/*.d.ts"
+  ],
+  "exclude": ["${configDir}/data/**", "${configDir}/server/**", "${configDir}/terminal/**"]
+}

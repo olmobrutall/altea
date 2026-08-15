@@ -1,15 +1,7 @@
 {
-  // DATA tier — the Music model (pure @altea/altea/data) + entity-API tests (DB-free). Shared-root:
-  // rootDir "." + outDir "dist" keeps the dist/data/** layout. Accepts the data/ directory OR co-located
-  // *.data.ts suffix files. `types: [node]` is for the node:test runner, not the model.
-  "extends": "../altea/tsconfig.base.json",
-  "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "dist",
-    "tsBuildInfoFile": "dist/.tsbuildinfo.data",
-    "types": ["node"]
-  },
-  "include": ["data/**/*", "**/*.data.ts"],
-  "exclude": ["client/**", "server/**"],
+  // DATA tier — Music model + entity-API tests (DB-free). `types: [node]` is for the node:test runner
+  // (an override of the preset's `[]`), not the model itself.
+  "extends": "../altea/presets/data.json",
+  "compilerOptions": { "types": ["node"] },
   "references": [{ "path": "../altea/tsconfig.data.json" }]
 }
