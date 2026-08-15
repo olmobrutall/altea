@@ -8,18 +8,23 @@ import type { Lite } from '@altea/altea/data/lite';
 import type { Entity } from '@altea/altea/data/entity';
 import type { OrderType } from '@altea/altea/data/dynamicQueries';
 import { type int, toInt } from '@altea/altea/data/basics';
+import { SubTokensOptions } from '@altea/altea/data/dynamicQuery/tokens/queryToken';
 import type { QueryToken } from '@altea/altea/data/dynamicQuery/tokens/queryToken';
 import { AggregateToken } from '@altea/altea/data/dynamicQuery/tokens/aggregateToken';
 import type { QueryRequest, ColumnRequest, OrderRequest, ResultTable, SystemTime } from '@altea/altea/data/dynamicQuery/queryRequest';
-import type { FilterOptionParsed } from '@altea/altea/client/FindOptions';
+import type { FilterOptionParsed, FilterOption, OrderOption } from '@altea/altea/client/FindOptions';
 import { Finder } from '@altea/altea/client/Finder';
+import { QueryString } from '@altea/altea/client/QueryString';
 import { toNumberFormat } from '@altea/altea/client/numberFormat';
 import * as DataChartUtils from '../data/ChartUtils';
 import { ChartColumnType } from '../data/ChartScriptColumn';
 import type { ChartParameterType, SpecialParameterType } from '../data/ChartScriptParameter';
 import { ChartColumnEmbedded } from '../data/ChartColumn';
 import { ChartParameterEmbedded } from '../data/ChartParameter';
-import type { IChartBase, ChartRequestModel } from '../data/ChartRequest';
+import type { IChartBase } from '../data/ChartRequest';
+import { ChartRequestModel, ChartTimeSeriesEmbedded } from '../data/ChartRequest';
+import { QueryTokenEmbedded } from '@altea/altea-user-assets/data/Queries';
+import type { UserChartEntity } from '../data/UserChart';
 import { ChartScriptSymbol, D3ChartScript, HtmlChartScript, SvgMapsChartScript, GoogleMapsChartScript } from '../data/ChartScript';
 import { ChartMessage } from '../data/ChartMessage';
 import { colorSchemes, colorInterpolators, getColorInterpolation } from './ColorPalette/ColorUtils';
@@ -368,6 +373,244 @@ export namespace ChartClient {
         return Object.entries(scala.standardScalas).filter(([key, value]) => value == undefined || relatedColumn == undefined || isChartColumnType(relatedColumn, value)).first()[0];
       }
       default: throw new Error("Unexpected parameter type");
+    }
+  }
+
+  // ---- URL round-trip (Signum's ChartClient Encoder / Decoder) ------------------------------------------
+  //
+  // Serialize a ChartRequestModel to/from a `/chart/<queryKey>?…` URL query string, so charts are
+  // bookmarkable/shareable and drilldown navigation can carry a full chart. altea divergences vs Signum:
+  //  - MList row wrappers are gone — `cr.columns` / `cr.parameters` are plain arrays of ChartColumnEmbedded /
+  //    ChartParameterEmbedded (no `.element`); decode* return plain arrays too.
+  //  - Signum's `Finder.getQueryDescription(qn).then(qd => new TokenCompleter(qd))` → altea resolves the
+  //    query ROOT token (`Finder.getQueryRoot`) and constructs the TokenCompleter from it (no QueryDescription
+  //    DTO). The completer's public API (requestFilter/request/finished/get/toFilterOptionParsed) is identical.
+  //  - `ChartRequestModel.New({…})` / `X.New({…})` → `new X()` + field assignment; `getQueryKey(qn)` → the
+  //    query key IS the string name; `liteKey(uc)` → `uc.key()`.
+
+  export interface ChartOptions {
+    queryName: string;
+    chartScript?: string;
+    maxRows?: number | null;
+    timeSeries?: ChartTimeSeriesEmbedded | null | undefined;
+    filterOptions?: (FilterOption | null | undefined)[];
+    orderOptions?: (OrderOption | null | undefined)[];
+    columnOptions?: (ChartColumnOption | null | undefined)[];
+    parameters?: (ChartParameterOption | null | undefined)[];
+  }
+
+  export interface ChartColumnOption {
+    token?: string;
+    displayName?: string | null;
+    format?: string | null;
+    orderByIndex?: number | null;
+    orderByType?: OrderType | null;
+  }
+
+  export interface ChartParameterOption {
+    name: string;
+    value: string | null;
+  }
+
+  export function cloneChartTimeSeries(ts: ChartTimeSeriesEmbedded | null | undefined): ChartTimeSeriesEmbedded | null {
+    if (!ts)
+      return null;
+    const clone = new ChartTimeSeriesEmbedded();
+    clone.timeSeriesStep = ts.timeSeriesStep;
+    clone.timeSeriesUnit = ts.timeSeriesUnit;
+    clone.startDate = ts.startDate;
+    clone.endDate = ts.endDate;
+    clone.timeSeriesMaxRowsPerStep = ts.timeSeriesMaxRowsPerStep;
+    clone.splitQueries = ts.splitQueries;
+    return clone;
+  }
+
+  export namespace Encoder {
+
+    export function toChartOptions(cr: ChartRequestModel, cs: ChartScript | null): ChartOptions {
+
+      var params = cs?.parameterGroups.flatMap(a => a.parameters).toObject(a => a.name);
+
+      return {
+        queryName: cr.queryKey,
+        chartScript: cr.chartScript?.key.tryAfter(".") ?? undefined,
+        maxRows: cr.maxRows,
+        timeSeries: cloneChartTimeSeries(cr.chartTimeSeries),
+        filterOptions: Finder.toFilterOptions(cr.filterOptions ?? []),
+        columnOptions: cr.columns.map(co => ({
+          token: co.token && co.token.tokenString,
+          displayName: co.displayName,
+          format: co.format,
+          orderByIndex: co.orderByIndex == null ? null : Number(co.orderByIndex),
+          orderByType: co.orderByType,
+        }) as ChartColumnOption),
+        parameters: cr.parameters
+          .filter(p => {
+            if (params == null)
+              return true;
+
+            var scriptParam = params![p.name!];
+            if (scriptParam == null)
+              return true;
+
+            var c = scriptParam.columnIndex != null ? cr.columns[scriptParam.columnIndex] : null;
+
+            return p.value != defaultParameterValue(scriptParam, c?.token?.token);
+          })
+          .map(p => ({ name: p.name, value: p.value }) as ChartParameterOption),
+      };
+    }
+
+    export function chartPathPromise(cr: ChartRequestModel, userChart?: Lite<UserChartEntity>): Promise<string> {
+      var csPromise: Promise<null | ChartScript> = cr.chartScript == null ? Promise.resolve(null) : getChartScript(cr.chartScript);
+
+      return csPromise.then(cs => chartPath(toChartOptions(cr, cs), userChart));
+    }
+
+    export function chartPath(co: ChartOptions, userChart?: Lite<UserChartEntity>): string {
+      const query: any = {
+        script: co.chartScript,
+        maxRows:
+          co.maxRows === null ? "null" :
+            co.maxRows === undefined || co.maxRows == Decoder.DefaultMaxRows ? undefined : co.maxRows,
+        userChart: userChart && userChart.key(),
+      };
+
+      encodeTimeSeries(query, co.timeSeries);
+      Finder.Encoder.encodeFilters(query, co.filterOptions?.notNull());
+      Finder.Encoder.encodeOrders(query, co.orderOptions?.notNull());
+      encodeParameters(query, co.parameters?.notNull());
+      encodeColumn(query, co.columnOptions?.notNull());
+
+      return `/chart/${co.queryName}?` + QueryString.stringify(query);
+    }
+
+    const scapeTilde = Finder.Encoder.scapeTilde;
+
+    export function encodeColumn(query: any, columns: ChartColumnOption[] | undefined): void {
+      if (columns)
+        columns.forEach((co, i) => query["column" + i] =
+          (co.orderByIndex != null ? (co.orderByIndex! + (co.orderByType == "Ascending" ? "A" : "D") + "~") : "") +
+          (co.token ?? "") +
+          (co.displayName || co.format ? ("~" + (co.displayName == null ? "" : scapeTilde(co.displayName))) : "") +
+          (co.format ? "~" + scapeTilde(co.format) : ""));
+    }
+
+    export function encodeParameters(query: any, parameters: ChartParameterOption[] | undefined): void {
+      if (parameters)
+        parameters.map((p, i) => query["param" + i] = scapeTilde(p.name!) + "~" + scapeTilde(p.value ?? ""));
+    }
+
+    export function encodeTimeSeries(query: any, ts: ChartTimeSeriesEmbedded | null | undefined): void {
+      if (ts) {
+        query['systemTimeStartDate'] = ts.startDate;
+        query['systemTimeEndDate'] = ts.endDate;
+        query['timeSeriesStep'] = ts.timeSeriesStep;
+        query['timeSeriesUnit'] = ts.timeSeriesUnit;
+        query['timeSeriesMaxRowsPerStep'] = ts.timeSeriesMaxRowsPerStep;
+        if (ts.splitQueries)
+          query['splitQueries'] = ts.splitQueries;
+      }
+    }
+  }
+
+  export namespace Decoder {
+
+    export const DefaultMaxRows = 1000;
+
+    export function parseChartRequest(queryName: string, query: any): Promise<ChartRequestModel> {
+
+      return getChartScripts().then(scripts => {
+        return Finder.getQueryRoot(queryName).then(root => {
+
+          const completer = new Finder.TokenCompleter(root);
+
+          const ts = decodeTimeSeries(query);
+          const tsOpt = ts ? SubTokensOptions.CanTimeSeries : 0;
+
+          const fos = Finder.Decoder.decodeFilters(query);
+          fos.forEach(fo => completer.requestFilter(fo));
+
+          const cols = decodeColumns(query);
+          cols.map(a => a.token).filter(te => te != undefined).forEach(te => completer.request(te!.tokenString!));
+
+          return completer.finished().then(() => {
+
+            cols.filter(a => a.token != null).forEach(a => a.token!.token = completer.get(a.token!.tokenString!, SubTokensOptions.CanAggregate | SubTokensOptions.CanElement | tsOpt));
+
+            var cs = query.script == undefined ? scripts.first() :
+              scripts.filter(cs => cs.symbol.key.tryAfter(".") == query.script).single();
+
+            const chartRequest = new ChartRequestModel();
+            chartRequest.chartScript = cs.symbol;
+            chartRequest.maxRows = query.maxRows == "null" ? null : toInt(query.maxRows ? Number(query.maxRows) : DefaultMaxRows);
+            chartRequest.queryKey = queryName;
+            chartRequest.filterOptions = fos.map(fo => completer.toFilterOptionParsed(fo, SubTokensOptions.CanElement | SubTokensOptions.CanAnyAll | SubTokensOptions.CanAggregate | tsOpt));
+            chartRequest.columns = cols;
+            chartRequest.parameters = decodeParameters(query);
+            chartRequest.chartTimeSeries = ts;
+
+            synchronizeColumns(chartRequest, cs);
+
+            return Finder.parseFilterValues(chartRequest.filterOptions)
+              .then(() => chartRequest);
+          });
+        });
+      });
+    }
+
+    const unscapeTildes = Finder.Decoder.unscapeTildes;
+    const valuesInOrder = Finder.Decoder.valuesInOrder;
+
+    export function decodeColumns(query: any): ChartColumnEmbedded[] {
+      return valuesInOrder(query, "column").map(p => {
+
+        var parts = p.value.split("~");
+
+        let order: string | undefined;
+        let token: string;
+        let displayName: string | undefined;
+        let format: string | undefined;
+
+        if (parts.length >= 2 && /\d+[AD]/.test(parts[0]))
+          [order, token, displayName, format] = parts;
+        else
+          [token, displayName, format] = parts;
+
+        const col = new ChartColumnEmbedded();
+        if (token) {
+          const qte = new QueryTokenEmbedded();
+          qte.tokenString = token;
+          col.token = qte;
+        }
+        col.orderByType = order == null ? null : (order.charAt(order.length - 1) == "A" ? "Ascending" : "Descending");
+        col.orderByIndex = order == null ? null : toInt(parseInt(order.slice(0, -1)));
+        col.format = unscapeTildes(format) ?? null;
+        col.displayName = unscapeTildes(displayName) ?? null;
+        return col;
+      });
+    }
+
+    export function decodeParameters(query: any): ChartParameterEmbedded[] {
+      return valuesInOrder(query, "param").map(p => {
+        const cp = new ChartParameterEmbedded();
+        cp.name = unscapeTildes(p.value.before("~")) ?? "";
+        cp.value = unscapeTildes(p.value.after("~")) ?? null;
+        return cp;
+      });
+    }
+
+    export function decodeTimeSeries(query: any): ChartTimeSeriesEmbedded | null {
+      if (!query.timeSeriesUnit)
+        return null;
+      const ts = new ChartTimeSeriesEmbedded();
+      ts.startDate = query.systemTimeStartDate;
+      ts.endDate = query.systemTimeEndDate;
+      ts.timeSeriesUnit = query.timeSeriesUnit;
+      ts.timeSeriesStep = query.timeSeriesStep ? toInt(parseInt(query.timeSeriesStep)) : null;
+      ts.timeSeriesMaxRowsPerStep = query.timeSeriesMaxRowsPerStep ? toInt(parseInt(query.timeSeriesMaxRowsPerStep)) : null;
+      ts.splitQueries = query.splitQueries != null && query.splitQueries != false;
+      return ts;
     }
   }
 

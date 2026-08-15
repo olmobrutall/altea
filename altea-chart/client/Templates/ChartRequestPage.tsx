@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useParams } from 'react-router'
 import { Finder } from '@altea/altea/client/Finder'
 import { useAPI } from '@altea/altea/client/Hooks'
+import { QueryString } from '@altea/altea/client/QueryString'
 import { SubTokensOptions, getSubTokens } from '@altea/altea/data/dynamicQuery/tokens/queryToken'
 import type { QueryToken } from '@altea/altea/data/dynamicQuery/tokens/queryToken'
 import { QueryTokenEmbedded } from '@altea/altea-user-assets/data/Queries'
@@ -11,17 +12,23 @@ import { D3ChartScript } from '../../data/ChartScript'
 import { ChartClient } from '../ChartClient'
 import ChartRequestView from './ChartRequestView'
 
-// ChartRequestPage — the /chart/:queryName route. Builds an initial ChartRequestModel for the query (a
-// Columns chart grouped by `?token=` — default: the first meaningful categorical column — with a Count
-// aggregate) and hands it to the interactive editor (ChartRequestView), which draws on load and lets the
-// user change the chart type, bind tokens, edit parameters, and add filters. (Signum reaches this page via
-// the Decoder from the URL query string; that round-trip is deferred — the initial model is built here.)
+// ChartRequestPage — the /chart/:queryName route. If the URL carries an encoded chart (Signum's Decoder:
+// `?script=…&column0=…&…`), it rebuilds that exact ChartRequestModel (bookmark / drilldown round-trip).
+// Otherwise it builds a sensible initial model for the query (a Columns chart grouped by `?token=` — default:
+// the first meaningful categorical column — with a Count aggregate). Either way it hands the model to the
+// interactive editor (ChartRequestView), which draws on load and lets the user change type/tokens/params/filters.
 export default function ChartRequestPage(): React.JSX.Element {
   const params = useParams();
   const queryName = params.queryName!;
-  const keyTokenParam = new URLSearchParams(window.location.search).get("token");
+  const search = window.location.search;
 
   const built = useAPI(async () => {
+    // Encoded chart in the URL (script or any column) → reconstruct it via the Decoder.
+    const query = QueryString.parse(search);
+    if (query.column0 != null || query.script != null)
+      return await ChartClient.Decoder.parseChartRequest(queryName, query);
+
+    const keyTokenParam = query.token as string | undefined;
     const opts = SubTokensOptions.CanElement | SubTokensOptions.CanAggregate;
     // Key = the `?token=` column if given, else a sensible default from the query's columns: prefer a
     // categorical column (entity / enum / string) for a meaningful grouping, else the first non-Id
@@ -58,7 +65,7 @@ export default function ChartRequestPage(): React.JSX.Element {
     const cs = await ChartClient.getChartScript(D3ChartScript.Columns);
     ChartClient.synchronizeColumns(cr, cs);
     return cr;
-  }, [queryName, keyTokenParam]);
+  }, [queryName, search]);
 
   if (built == null)
     return <div className="m-3">Loading chart…</div>;
