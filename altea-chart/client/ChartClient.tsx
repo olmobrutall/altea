@@ -76,6 +76,8 @@ export namespace ChartClient {
     registerChartScriptComponent(D3ChartScript.Pie, () => import("./D3Scripts/Pie"));
     registerChartScriptComponent(D3ChartScript.Scatterplot, () => import("./D3Scripts/Scatterplot"));
     registerChartScriptComponent(D3ChartScript.Bubbleplot, () => import("./D3Scripts/Bubbleplot"));
+    registerChartScriptComponent(D3ChartScript.BubblePack, () => import("./D3Scripts/BubblePack"));
+    registerChartScriptComponent(D3ChartScript.Treemap, () => import("./D3Scripts/TreeMap"));
   }
 
   // ---- Client ChartScript DTO (the shape shipped from /api/chart/scripts; see ChartServer.server) --------

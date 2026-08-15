@@ -17,6 +17,8 @@ import { StackedLinesChartScript } from "./Scripts/StackedLines";
 import { PieChartScript } from "./Scripts/Pie";
 import { ScatterplotChartScript } from "./Scripts/Scatterplot";
 import { BubbleplotChartScript } from "./Scripts/Bubbleplot";
+import { BubblePackChartScript } from "./Scripts/BubblePack";
+import { TreeMapChartScript } from "./Scripts/TreeMap";
 
 // Port of Signum.Chart/ChartScriptLogic.cs. The in-process registry of chart-type definitions + the
 // ChartScriptSymbol table seeding.
@@ -63,6 +65,8 @@ export namespace ChartScriptLogic {
         registerScript(new PieChartScript());
         registerScript(new ScatterplotChartScript());
         registerScript(new BubbleplotChartScript());
+        registerScript(new BubblePackChartScript());
+        registerScript(new TreeMapChartScript());
     }
 
     function registerScript(chartScript: ChartScript): void {
