@@ -22,6 +22,7 @@ import { TreeMapChartScript } from "./Scripts/TreeMap";
 import { PunchcardChartScript } from "./Scripts/Punchcard";
 import { ParallelCoordinatesChartScript } from "./Scripts/ParallelCoordinates";
 import { CalendarStreamChartScript } from "./Scripts/CalendarStream";
+import { PivotTableScript } from "./Scripts/PivotTable";
 
 // Port of Signum.Chart/ChartScriptLogic.cs. The in-process registry of chart-type definitions + the
 // ChartScriptSymbol table seeding.
@@ -73,6 +74,7 @@ export namespace ChartScriptLogic {
         registerScript(new PunchcardChartScript());
         registerScript(new ParallelCoordinatesChartScript());
         registerScript(new CalendarStreamChartScript());
+        registerScript(new PivotTableScript());
     }
 
     function registerScript(chartScript: ChartScript): void {

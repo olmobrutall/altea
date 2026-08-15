@@ -30,6 +30,18 @@ export class Color {
     return (this.r + this.g + this.b) / 3 > (256 / 2) ? Color.Black : Color.White;
   }
 
+  // Ported from Signum's Color.lerp — linear blend towards `target` by `ratio` (0..1). Used by the
+  // PivotTable renderer to pick a readable text color against a gradient cell background.
+  lerp(ratio: number, target: Color): Color {
+    return new Color(
+      this.r * (1 - ratio) + target.r * ratio,
+      this.g * (1 - ratio) + target.g * ratio,
+      this.b * (1 - ratio) + target.b * ratio,
+      this.a == null ? target.a :
+        target.a == null ? this.a :
+          this.a * (1 - ratio) + target.a * ratio);
+  }
+
   static parse(color: string): Color {
     var result = Color.tryParse(color);
     if (!result)
