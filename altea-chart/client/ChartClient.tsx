@@ -7,6 +7,7 @@ import { Localization } from '@altea/altea/data/utils/localization';
 import type { Lite } from '@altea/altea/data/lite';
 import type { Entity } from '@altea/altea/data/entity';
 import type { OrderType } from '@altea/altea/data/dynamicQueries';
+import { type int, toInt } from '@altea/altea/data/basics';
 import type { QueryToken } from '@altea/altea/data/dynamicQuery/tokens/queryToken';
 import { AggregateToken } from '@altea/altea/data/dynamicQuery/tokens/aggregateToken';
 import type { QueryRequest, ColumnRequest, OrderRequest, ResultTable, SystemTime } from '@altea/altea/data/dynamicQuery/queryRequest';
@@ -224,6 +225,28 @@ export namespace ChartClient {
       return true;
 
     return (chartBase as ChartRequestModel).filterOptions?.some(fo => Finder.isAggregate(fo)) ?? false;
+  }
+
+  // Signum's ChartClient.handleOrderColumn — cycle a column's sort (Asc↔Desc); shift-click keeps the other
+  // columns' orders (multi-sort), a plain click clears them. altea: plain arrays; no `.modified` (dirty is
+  // snapshot-tracked); `int` order index via toInt.
+  export function handleOrderColumn(cr: IChartBase, col: ChartColumnEmbedded, isShift: boolean): void {
+    const newOrder: OrderType = col.orderByType == "Ascending" ? "Descending" : "Ascending";
+
+    if (!isShift) {
+      cr.columns.forEach(a => {
+        a.orderByType = null;
+        a.orderByIndex = null;
+      });
+      col.orderByType = newOrder;
+      col.orderByIndex = toInt(1);
+    } else {
+      col.orderByType = newOrder;
+      if (col.orderByIndex == null) {
+        const maxIndex: int = Math.max(0, ...cr.columns.map(a => Number(a.orderByIndex ?? 0))) as int;
+        col.orderByIndex = toInt(Number(maxIndex) + 1);
+      }
+    }
   }
 
   // ---- Column/parameter synchronization ------------------------------------------------------------------
