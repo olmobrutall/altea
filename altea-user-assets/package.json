@@ -1,0 +1,23 @@
+{
+  "name": "@altea/altea-user-assets",
+  "version": "0.0.1",
+  "description": "Shared user-asset infrastructure: embedded query model (tokens/filters), filter converter, XML import/export (ported from Signum.UserAssets)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}

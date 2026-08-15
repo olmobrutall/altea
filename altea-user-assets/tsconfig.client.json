@@ -1,0 +1,16 @@
+{
+  "extends": "../altea/tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo.client",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
+  },
+  "include": ["client/**/*", "**/*.client.ts", "**/*.tsx"],
+  "exclude": ["data/**", "server/**"],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" }
+  ]
+}
