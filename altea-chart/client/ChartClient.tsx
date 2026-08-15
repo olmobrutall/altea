@@ -1,5 +1,7 @@
 import * as React from 'react'
 import { ajaxGet } from '@altea/altea/client/Services';
+import type { ClientBuilder } from '@altea/altea/client/ClientBuilder';
+import { ImportComponent } from '@altea/altea/client/ImportComponent';
 import { Dic } from '@altea/altea/data/globals/index';
 import { Localization } from '@altea/altea/data/utils/localization';
 import type { Lite } from '@altea/altea/data/lite';
@@ -51,6 +53,18 @@ declare module '../data/ChartRequest' {
 //    resolves it back to the declared ChartScriptSymbol instance.
 
 export namespace ChartClient {
+
+  // Partial port of Signum's ChartClient.start. Registers the chart request page route + the (currently one)
+  // renderer component. Deferred: the SearchControl chart button, Omnibox, UserChart/ColorPalette starts,
+  // and the remaining renderer registrations (added as each D3Scripts/*.tsx is ported).
+  export function start(cb: ClientBuilder): void {
+    cb.routes.push({
+      path: "/chart/:queryName",
+      element: <ImportComponent onImport={() => import("./Templates/ChartRequestPage")} />,
+    });
+
+    registerChartScriptComponent(D3ChartScript.Columns, () => import("./D3Scripts/Columns"));
+  }
 
   // ---- Client ChartScript DTO (the shape shipped from /api/chart/scripts; see ChartServer.server) --------
 
@@ -477,6 +491,18 @@ export namespace ChartClient {
     export function executeChart(request: ChartRequestModel, chartScript: ChartScript, abortSignal?: AbortSignal): Promise<ExecuteChartResult> {
       const queryRequest = getRequest(request);
       return Finder.API.executeQuery(queryRequest, abortSignal).then(rt => toChartResult(request, rt, chartScript));
+    }
+
+    // Signum's ChartClient.API.getParameterWithDefault — the effective parameter map (each parameter's set
+    // value, else its default). altea: MList `.element` → plain arrays; keyed by parameter name.
+    export function getParameterWithDefault(request: ChartRequestModel, chartScript: ChartScript): Record<string, string> {
+
+      var defaultValues = chartScript.parameterGroups.flatMap(g => g.parameters).toObject(a => a.name, a => {
+        var col = a.columnIndex == null ? null : request.columns[a.columnIndex];
+        return defaultParameterValue(a, col?.token?.token);
+      });
+
+      return request.parameters.toObject(a => a.name, a => a.value ?? defaultValues[a.name]);
     }
 
     export function fetchScripts(): Promise<ChartScript[]> {
