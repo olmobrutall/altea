@@ -28,6 +28,8 @@ import type { UserChartEntity } from '../data/UserChart';
 import { ChartScriptSymbol, D3ChartScript, HtmlChartScript, SvgMapsChartScript, GoogleMapsChartScript } from '../data/ChartScript';
 import { ChartMessage } from '../data/ChartMessage';
 import { colorSchemes, colorInterpolators, getColorInterpolation } from './ColorPalette/ColorUtils';
+import { ColorPaletteClient } from './ColorPalette/ColorPaletteClient';
+import { cleanTypeName } from '@altea/altea/data/registration';
 import type { MemoRepository } from './D3Scripts/Components/ReactChart';
 import type { DashboardFilter } from './DashboardFilterStub';
 // altea Array/String prototype extensions (.toObject/.first/.contains/.before/.after) — see ColorUtils.
@@ -651,10 +653,62 @@ export namespace ChartClient {
       return v => String(v);
     }
 
-    // altea divergence: the ColorPalette subsystem is not ported yet, so getColor is palette-free — grey for
-    // null, otherwise null (the renderer's colorCategory supplies the series colors).
-    export function getColor(_token: QueryToken): ((val: unknown) => string | null) {
+    // Signum's ChartClient.API.getColor(token, palettes): pick a per-value color from the palette registered
+    // for the column's type. An ENUM column keys the palette by the enum member NAME (the value IS the member
+    // string); an ENTITY column keys by the lite's clean type name → the lite id string. A null value is grey
+    // ("#555"); an unmapped value (no palette, or palette returns null) falls through to null so the renderer's
+    // own colorCategory scale supplies the color (uncolored charts stay unchanged).
+    //
+    // altea divergences vs Signum: enum detection uses `token.filterType == "Enum"` + `token.type.getTypeName()`
+    // (altea's TypeInfo.kind is always "Entity", so Signum's `tis[0].kind == "Enum"` can't be used); the entity
+    // key is `cleanTypeName(lite.entityType)` (Signum's `lite.EntityType` clean-name string).
+    export function getColor(token: QueryToken, palettes: { [type: string]: ColorPaletteClient.ColorPalette | null }): ((val: unknown) => string | null) {
+
+      if (token.filterType == "Enum") {
+        const typeName = token.type.getTypeName();
+        return v => {
+          if (v == null)
+            return "#555";
+
+          const cp = typeName ? palettes[typeName] : null;
+          return (cp && cp.getColor(v as string)) || null;
+        };
+      }
+
+      if (token.type.typeInfos().some(a => a && a.kind == "Entity")) {
+        return v => {
+          if (v == null)
+            return "#555";
+
+          const lite = v as Lite<Entity>;
+          const cp = palettes[cleanTypeName(lite.entityType)];
+          return (cp && cp.getColor(String(lite.id))) || null;
+        };
+      }
+
       return v => v == null ? "#555" : null;
+    }
+
+    // Signum's ChartClient.API.getPalletes(request): preload the palette for every column type up front (the
+    // palettes are consumed SYNCHRONOUSLY inside toChartResult's getColor, so they must be resolved first).
+    // altea: columns are plain arrays (no `.element`); collect each column token's entity TypeInfos, distinct
+    // by clean name, and fetch each palette (keyed by clean name to match getColor's entity lookup). Enum
+    // palettes aren't preloaded here — altea's TypeReference.typeInfos() returns [] for enums (a framework
+    // limitation), so enum coloring is a documented gap until enum TypeInfos are exposed.
+    export function getPalletes(request: ChartRequestModel): Promise<{ [type: string]: ColorPaletteClient.ColorPalette | null }> {
+      const allTypes = request.columns
+        .map(c => c.token?.token)
+        .notNull()
+        .flatMap(t => t!.type.typeInfos())
+        .notNull()
+        .distinctBy(ti => cleanTypeName(ti.ctor!));
+
+      // Per-type tolerance: a single palette lookup that rejects must NOT reject the whole chart (Promise.all
+      // is all-or-nothing) — a chart with no/failed palettes still renders via the renderer's category scale.
+      return Promise.all(allTypes.map(ti => ColorPaletteClient.getColorPalette(ti)
+        .catch(() => null)
+        .then(cp => ({ type: cleanTypeName(ti.ctor!), palette: cp }))))
+        .then(list => list.toObject(a => a.type, a => a.palette));
     }
 
     export const nullString = (): string => ChartMessage.Blank.niceToString();
@@ -687,7 +741,7 @@ export namespace ChartClient {
       chartTable: ChartTable;
     }
 
-    export function toChartResult(request: ChartRequestModel, rt: ResultTable, chartScript: ChartScript): ExecuteChartResult {
+    export function toChartResult(request: ChartRequestModel, rt: ResultTable, chartScript: ChartScript, palettes: { [type: string]: ColorPaletteClient.ColorPalette | null }): ExecuteChartResult {
 
       var cols = request.columns.map((cce, i) => {
         const token = cce.token && cce.token.token;
@@ -700,7 +754,7 @@ export namespace ChartClient {
         const value = function (r: ChartRow) { return (r as any)["c" + i]; };
         const key = getKey(token);
         const niceName = getNiceName(token, cce);
-        const color = getColor(token);
+        const color = getColor(token, palettes);
 
         return ({
           name: "c" + i,
@@ -779,8 +833,12 @@ export namespace ChartClient {
     }
 
     export function executeChart(request: ChartRequestModel, chartScript: ChartScript, abortSignal?: AbortSignal): Promise<ExecuteChartResult> {
+      // Preload palettes alongside the query — getColor (inside toChartResult) reads them synchronously, so
+      // both must be resolved before toChartResult runs (Signum's executeChart threads them the same way).
+      const palettesPromise = getPalletes(request);
       const queryRequest = getRequest(request);
-      return Finder.API.executeQuery(queryRequest, abortSignal).then(rt => toChartResult(request, rt, chartScript));
+      return Finder.API.executeQuery(queryRequest, abortSignal)
+        .then(rt => palettesPromise.then(palettes => toChartResult(request, rt, chartScript, palettes)));
     }
 
     // Signum's ChartClient.API.getParameterWithDefault — the effective parameter map (each parameter's set
