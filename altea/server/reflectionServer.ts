@@ -21,6 +21,7 @@ import { OperationLogic } from "./operationLogic";
 import type { OperationType } from "./operation";
 import { WebBuilder, CustomType } from "./webApi";
 import { resolveType, resolveEnum } from "../data/registration";
+import { EnumEntity } from "../data/enumEntity";
 import { TypeLogic } from "./typeLogic";
 import type { TypeEntity } from "../data/typeEntity";
 
@@ -97,13 +98,19 @@ export namespace ReflectionServer {
         ws.get("/api/reflection/typeEntity/:typeName",
             { params: CustomType<{ typeName: string }>(), res: CustomType<TypeEntity | null>() },
             async (req, res) => {
-                // An entity type (typeRegistry) or, for chart palettes on enum columns, an enum type
-                // (enumRegistry) — both have a TypeEntity row when registered in the DB type table.
-                const ctor = resolveType(req.params.typeName) ?? resolveEnum(req.params.typeName);
+                // An entity type (typeRegistry → its ctor) or, for chart palettes on enum columns, an enum
+                // type (enumRegistry → its closed EnumEntity<E> ctor via typeFor). Both have a TypeEntity row
+                // when registered in the DB type table; typeToId is keyed by that ctor.
+                let ctor = resolveType(req.params.typeName);
+                if (ctor == null) {
+                    const enumObj = resolveEnum(req.params.typeName);
+                    if (enumObj != null)
+                        ctor = EnumEntity.typeFor(enumObj as object) as unknown as Function;
+                }
                 let te: TypeEntity | undefined;
                 if (ctor != null) {
                     try {
-                        te = TypeLogic.idToEntity(TypeLogic.typeToId(ctor as Function));
+                        te = TypeLogic.idToEntity(TypeLogic.typeToId(ctor));
                     } catch {
                         te = undefined; // type not registered in the DB type table
                     }

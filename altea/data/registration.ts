@@ -89,6 +89,15 @@ export function resolveType(name: string): Function | undefined {
 // path (which writes it) and the LINQ SmartEqualizer / Retriever (which compare
 // and resolve it).
 export function cleanTypeName(ctor: Function): string {
+    // A closed EnumEntity<E> type (EnumEntity.typeFor) carries the enum as a static `boundEnum`; its clean
+    // name is the ENUM name ("OrderState"), NOT the "EnumEntity<OrderState>" ctor name — mirrors Signum's
+    // Reflector.CleanTypeName, and is what the TypeEntity.cleanName column + enum ColorPalettes key on.
+    const boundEnum = (ctor as { boundEnum?: object }).boundEnum;
+    if (boundEnum != null) {
+        const enumName = enumNameOf(boundEnum);
+        if (enumName != null)
+            return enumName;
+    }
     return stripEntitySuffix(ctor.name);
 }
 
