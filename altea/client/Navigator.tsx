@@ -44,7 +44,7 @@ import type { AutocompleteConfig } from './Lines/AutoCompleteConfig';
 import CopyLiteButton from './Components/CopyLiteButton';
 import CopyLinkButton from './Components/CopyLinkButton';
 import type { TypeEntity } from "../data/typeEntity";
-/* ===== Original Signum imports â€” rewire to altea modules as they are ported =====
+/* ===== Original Signum imports — rewire to altea modules as they are ported =====
 import * as React from "react"
 import { RouteObject } from 'react-router'
 import { Dic, classes, softCast, } from './Globals';                          // -> ../entities/globals
@@ -76,35 +76,12 @@ import { object } from "prop-types";
 import { clearSpecialActions } from "./OmniboxSpecialAction";
 import { ContextualItemsContext, MenuItemBlock } from "./SearchControl/ContextualItems";
 
-// ALTEA: currentUser lives in AppContext (not yet ported) â€” the anonymous-user guard is deferred.
+// ALTEA: currentUser lives in AppContext (not yet ported) — the anonymous-user guard is deferred.
 if (!window.__allowNavigatorWithoutUser && (currentUser == null || getToString(currentUser) == "Anonymous"))
   throw new Error("To improve intial performance, no dependency to any module that depends on Navigator should be taken for anonymous user. Review your dependencies or write var __allowNavigatorWithoutUser = true in Index.cshtml to disable this check.");
 ===== */
 
 export namespace Navigator {
-
-  /* ============================ TODO PORT â€” commented out for altea ============================
-     Everything from here to the API namespace depends on the reflection types blob and/or unported
-     modules (Finder, Operations, Constructor, Frames, Lines, Components, Modals, Hooks,
-     SearchControl, EntitySettings/ViewPromise). Uncomment + sweep conventions as those land.
-
-  export function start(options: { routes: RouteObject[] }): void {
-    options.routes.push({ path: "/view/:type/:id", element: <ImportComponent onImport={() => getFramePage()} /> });
-    options.routes.push({ path: "/create/:type", element: <ImportComponent onImport={() => getFramePage()} /> });
-
-    AppContext.clearSettingsActions.push(clearEntitySettings);
-    AppContext.clearSettingsActions.push(clearWidgets)
-    AppContext.clearSettingsActions.push(ButtonBarManager.clearButtonBarRenderer);
-    AppContext.clearSettingsActions.push(Constructor.clearCustomConstructors);
-    AppContext.clearSettingsActions.push(clearEntityChanged);
-    AppContext.clearSettingsActions.push(clearSpecialActions);
-    AppContext.clearSettingsActions.push(clearEvents);
-
-    ErrorModalOptions.getExceptionUrl = exceptionId => navigateRoute(newLite(ExceptionEntity, exceptionId));
-    ErrorModalOptions.isExceptionViewable = () => isViewable(ExceptionEntity);
-  }
-
-  ============================ end TODO PORT (start) ============================ */
 
   // ===== ACTIVE: entity-changed event registry (blob-independent). =====
   export const entityChanged: { [typeName: string]: Array<(cleanName: string, entity: Entity | undefined, isRedirect: boolean) => void> } = {};
@@ -151,32 +128,9 @@ export namespace Navigator {
     entityChanged[cleanName]?.forEach(func => func(cleanName, entity, isRedirect));
   }
 
-  /* ============================ TODO PORT â€” commented (blob: TypeInfo.niceName/kind/entityKind,
-     entitySettings, messages, Finder, Frames, Modals, Components) ============================
-  export function getTypeSubTitle(entity: ModifiableEntity, pr: PropertyRoute | undefined): React.ReactNode | undefined {
-
-    var settings = entitySettings[entity.Type];
-
-    if (settings?.renderSubTitle)
-      return settings.renderSubTitle(entity);
-
-    if (isTypeEntity(entity.Type)) {
-
-      const typeInfo = getTypeInfo(entity.Type);
-
-      if (entity.isNew)
-        return null;
-
-      return defaultRenderSubTitle(typeInfo, entity);
-    }
-    else if (isTypeModel(entity.Type)) {
-      return undefined;
-
-    } else {
-      return pr!.typeReference().typeNiceName;
-    }
-  }
-
+  /* ============================ TODO PORT — swappable default sub-title renderer (Signum's
+     defaultRenderSubTitle / setDefaultRenderTitleFunction). The active getTypeSubTitle inlines the
+     rendering; port this hook if an app needs to override sub-titles globally. ============================
   let defaultRenderSubTitle = (typeInfo: TypeInfo, entity: ModifiableEntity): React.ReactElement | null => {
     return <span>{typeInfo.niceName} {renderId(entity as Entity)}</span>;
   }
@@ -184,57 +138,6 @@ export namespace Navigator {
   export function setDefaultRenderTitleFunction(newFunction: (typeInfo: TypeInfo, entity: ModifiableEntity) => React.ReactElement | null): void {
     defaultRenderSubTitle = newFunction;
   }
-
-
-  let renderId = (entity: Entity): React.ReactElement | string | number => {
-    var idType = getTypeInfo(entity.Type).members["Id"].type;
-
-    const hideId = getSettings(entity.Type)?.hideId ?? idType!.name == "Guid";
-    return (
-      <>
-        <span className={hideId ? "sf-hide-id" : ""}>
-          {entity.id}
-        </span>
-        <CopyLiteButton className={"sf-hide-id"} entity={entity} />
-        <CopyLinkButton className={"sf-hide-id"} entity={entity} />
-      </>
-    );
-  }
-
-  export function setRenderIdFunction(newFunction: (entity: Entity) => React.ReactElement | string | number): void {
-    renderId = newFunction;
-  }
-
-
-  export function navigateRoute(entity: Entity, viewName?: string): string;
-  export function navigateRoute(lite: Lite<Entity>, viewName?: string): string;
-  export function navigateRoute(entityOrLite: Entity | Lite<Entity>, viewName?: string): string {
-    let typeName: string;
-    let id: number | string | undefined;
-    if (isEntity(entityOrLite)) {
-
-      typeName = entityOrLite.Type;
-      id = entityOrLite.id;
-    }
-    else if (isLite(entityOrLite)) {
-      typeName = entityOrLite.EntityType;
-      id = entityOrLite.id;
-    }
-    else
-      throw new Error("Entity or Lite expected");
-
-    if (id == null)
-      throw new Error("No Id");
-
-    const es = getSettings(typeName);
-    if (es?.onNavigateRoute)
-      return es.onNavigateRoute(typeName, id!, viewName);
-    else
-      return navigateRouteDefault(typeName, id!, viewName);
-
-  }
-
-
   ============================ end TODO PORT ============================ */
 
   // ===== ACTIVE: default URL builders (blob-independent). =====
@@ -246,587 +149,6 @@ export namespace Navigator {
   export function createRoute(type: PseudoType, viewName?: string): string {
     return "/create/" + getTypeName(type) + (viewName ? "?viewName=" + viewName : "");
   }
-
-
-
-  /* ============================ TODO PORT â€” commented (blob + entitySettings + messages + Finder +
-     Frames + Modals + Components + Hooks) ============================
-  export function renderLiteOrEntity(entity: Lite<Entity> | Entity | ModifiableEntity, modelType?: string): string | React.ReactElement<any, string | React.JSXElementConstructor<any>> | undefined {
-    if (isLite(entity))
-      return renderLite(entity);
-
-    if (isEntity(entity)) {
-      var es = entitySettings[entity.Type];
-
-      if (es.renderEntity)
-        return es.renderEntity(entity, new TextHighlighter(undefined));
-
-      if (es.renderLite) {
-        var lite = toLite(entity, entity.isNew);
-        return es.renderLite(lite, new TextHighlighter(undefined));
-      }
-
-      return getToString(entity);
-    }
-  }
-
-  export function renderLite(lite: Lite<Entity>, hl?: TextHighlighter): React.ReactElement | string {
-    var es = entitySettings[lite.EntityType];
-    if (es != null && es.renderLite != null) {
-      return es.renderLite(lite, hl ?? new TextHighlighter(undefined));
-    }
-
-    var toStr = getToString(lite);
-    return hl == null ? toStr : hl.highlight(toStr);
-  }
-
-  export function renderEntity(entity: ModifiableEntity): React.ReactElement | string {
-    var es = entitySettings[entity.Type];
-    if (es != null && es.renderEntity != null) {
-      return es.renderEntity(entity, new TextHighlighter(undefined));
-    }
-
-    if (entity.isNew) {
-      var ti = tryGetTypeInfo(entity.Type);
-
-      if (ti) {
-        if (isTypeModel(entity.Type))
-          return ti.niceName!;
-
-        return FrameMessage.New0_G.niceToString().forGenderAndNumber(ti.gender).formatWith(ti.niceName);
-      }
-    }
-
-    return getToString(entity);
-  }
-
-  export function clearEntitySettings(): void {
-    Dic.clear(entitySettings);
-  }
-
-  export function clearEvents(): void {
-
-    isCreableEvent.clear();
-    isReadonlyEvent.clear();
-    isViewableEvent.clear();
-    Finder.isFindableEvent.clear();
-  }
-
-  export function setViewDispatcher(newDispatcher: ViewDispatcher): void {
-    viewDispatcher = newDispatcher;
-  }
-
-  export function getFramePage(): Promise<typeof import("./Frames/FramePage")> {
-    return import("./Frames/FramePage");
-  }
-
-  export function getFrameModal(): Promise<typeof import("./Frames/FrameModal")> {
-    return import("./Frames/FrameModal");
-  }
-
-  export function onFramePageCreationCancelled(): void {
-    AppContext.navigate("/", { replace: true });
-  }
-
-  export interface ViewDispatcher {
-    hasDefaultView(typeName: string): boolean;
-    getViewNames(typeName: string): Promise<string[]>;
-    getViewPromise(entity: ModifiableEntity, viewName?: string): ViewPromise<ModifiableEntity>;
-    getViewOverrides(typeName: string, viewName?: string): Promise<ViewOverride<ModifiableEntity>[]>;
-  }
-
-  export class BasicViewDispatcher implements ViewDispatcher {
-    hasDefaultView(typeName: string): boolean {
-      const es = getSettings(typeName);
-      return (es?.getViewPromise) != null;
-    }
-
-    getViewNames(typeName: string): Promise<string[]> {
-      const es = getSettings(typeName);
-      return Promise.resolve((es?.namedViews && Dic.getKeys(es.namedViews)) ?? []);
-    }
-
-    getViewOverrides(typeName: string, viewName?: string): Promise<ViewOverride<ModifiableEntity>[]> {
-      const es = getSettings(typeName);
-      return Promise.resolve(es?.viewOverrides?.filter(a => a.viewName == viewName) ?? []);
-    }
-
-
-    getViewPromise(entity: ModifiableEntity, viewName?: string): ViewPromise<ModifiableEntity> {
-      const es = getSettings(entity.Type);
-
-      if (!es)
-        throw new Error(`No EntitySettings registered for '${entity.Type}'`);
-
-      if (viewName == undefined) {
-
-        if (!es.getViewPromise)
-          throw new Error(`The EntitySettings registered for '${entity.Type}' has not getViewPromise`);
-
-        return es.getViewPromise(entity).applyViewOverrides(entity.Type);
-      } else {
-        var nv = es.namedViews && es.namedViews[viewName];
-
-        if (!nv || !nv.getViewPromise)
-          throw new Error(`The EntitySettings registered for '${entity.Type}' has not namedView '${viewName}'`);
-
-        return nv.getViewPromise(entity).applyViewOverrides(entity.Type, viewName);
-      }
-    }
-  }
-
-
-  export class AutoViewDispatcher implements ViewDispatcher {
-
-    hasDefaultView(typeName: string) {
-      return true;
-    }
-
-    getViewNames(typeName: string): Promise<string[]> {
-      const es = getSettings(typeName);
-      return Promise.resolve((es?.namedViews && Dic.getKeys(es.namedViews)) ?? []);
-    }
-
-    getViewOverrides(typeName: string, viewName?: string): Promise<ViewOverride<ModifiableEntity>[]> {
-      const es = getSettings(typeName);
-      return Promise.resolve(es?.viewOverrides?.filter(a => a.viewName == viewName) ?? []);
-    }
-
-    getViewPromise(entity: ModifiableEntity, viewName?: string): ViewPromise<ModifiableEntity> {
-      const es = getSettings(entity.Type);
-
-      if (viewName == undefined) {
-
-        if (es?.getViewPromise == null)
-          return new ViewPromise<ModifiableEntity>(import('./AutoComponent'));
-
-        return es.getViewPromise(entity).applyViewOverrides(entity.Type);
-      } else {
-        if (!es)
-          throw new Error(`No EntitySettings registered for '${entity.Type}'`);
-
-        var nv = es.namedViews && es.namedViews[viewName];
-
-        if (!nv || !nv.getViewPromise)
-          throw new Error(`The EntitySettings registered for '${entity.Type}' has not namedView '${viewName}'`);
-
-        return nv.getViewPromise(entity).applyViewOverrides(entity.Type, viewName);
-      }
-    }
-  }
-
-  let viewDispatcher: ViewDispatcher = new AutoViewDispatcher();
-
-  export function getViewDispatcher(): ViewDispatcher { return viewDispatcher; }
-
-  export function getViewPromise<T extends ModifiableEntity>(entity: T, viewName?: string): ViewPromise<T> {
-    return viewDispatcher.getViewPromise(entity, viewName);
-  }
-
-  export const isCreableEvent: Array<(typeName: string, options: IsCreableOptions | undefined) => boolean> = [];
-
-  export interface IsCreableOptions {
-    customComponent?: boolean;
-    isSearch?: boolean;
-    isEmbedded?: boolean;
-    fo?: FindOptionsParsed;
-  }
-
-  export function isCreable(type: PseudoType, options?: IsCreableOptions): boolean {
-
-    const typeName = getTypeName(type);
-
-    if (!checkFlag(typeIsCreable(typeName, options?.isEmbedded), options?.isSearch))
-      return false;
-
-    if (options?.fo != null) {
-      const es = entitySettings[typeName];
-      if (es && es.isCreableByFilterProps && !es.isCreableByFilterProps(Finder.getPropsFromFiltersSync(type, options.fo.filterOptions)))
-        return false;
-    }
-
-    if (!(options?.customComponent || viewDispatcher.hasDefaultView(typeName)))
-      return false;
-
-    if (!hasAllowedConstructor(typeName))
-      return false;
-
-    return isCreableEvent.every(c => c(typeName, options));
-  }
-
-  function hasAllowedConstructor(typeName: string) {
-    const ti = tryGetTypeInfo(typeName);
-
-    if (ti == undefined || ti.operations == undefined)
-      return true;
-
-    if (!ti.hasConstructorOperation)
-      return true;
-
-    const allowed = Dic.getValues(ti.operations).some(oi => oi.operationType == "Constructor");
-
-    return allowed;
-  }
-
-  function typeIsCreable(typeName: string, isEmbedded?: boolean): EntityWhen {
-
-    const es = entitySettings[typeName];
-    if (es != undefined && es.isCreable != undefined)
-      return es.isCreable;
-
-    if (isEmbedded)
-      return "IsLine";
-
-    const typeInfo = tryGetTypeInfo(typeName);
-    if (typeInfo == null)
-      return "Never";
-
-    if (typeInfo.kind == "Enum")
-      return "Never";
-
-    switch (typeInfo.entityKind) {
-      case "SystemString": return "Never";
-      case "System": return "Never";
-      case "Relational": return "Never";
-      case "String": return "IsSearch";
-      case "Shared": return "Always";
-      case "Main": return "IsSearch";
-      case "Part": return "IsLine";
-      case "SharedPart": return "IsLine";
-      default: return "Never";
-    }
-  }
-
-
-  export const isReadonlyEvent: Array<(typeName: string, entity?: EntityPack<ModifiableEntity>, options?: IsReadonlyOptions) => boolean> = [];
-
-  export interface IsReadonlyOptions {
-    ignoreTypeIsReadonly?: boolean;
-    isEmbedded?: boolean;
-  }
-
-  export function isReadOnly(typeOrEntity: PseudoType | EntityPack<ModifiableEntity>, options?: IsReadonlyOptions): boolean {
-
-    const entityPack = isEntityPack(typeOrEntity) ? typeOrEntity : undefined;
-
-    const typeName = isEntityPack(typeOrEntity) ? typeOrEntity.entity.Type : getTypeName(typeOrEntity as PseudoType);
-
-    if (!options?.ignoreTypeIsReadonly && typeIsReadOnly(typeName, options?.isEmbedded))
-      return true;
-
-    return isReadonlyEvent.some(f => f(typeName, entityPack, options));
-  }
-
-  function typeIsReadOnly(typeName: string, isEmbedded: boolean | undefined): boolean {
-
-    const es = entitySettings[typeName];
-    if (es != undefined && es.isReadOnly != undefined)
-      return es.isReadOnly;
-
-    if (isEmbedded)
-      return false;
-
-    const typeInfo = tryGetTypeInfo(typeName);
-    if (typeInfo == undefined)
-      return true;
-
-    if (typeInfo.kind == "Enum")
-      return true;
-
-    switch (typeInfo.entityKind) {
-      case "SystemString": return true;
-      case "System": return true;
-      case "Relational": return true;
-      case "String": return false;
-      case "Shared": return false;
-      case "Main": return false;
-      case "Part": return false;
-      case "SharedPart": return false;
-      default: return false;
-    }
-  }
-  export function checkFlag(entityWhen: EntityWhen, isSearchMainEntity: boolean | undefined): boolean {
-    return entityWhen == "Always" ||
-      entityWhen == (isSearchMainEntity ? "IsSearch" : "IsLine");
-  }
-
-  export function typeRequiresSaveOperation(typeName: string): boolean {
-
-    const typeInfo = tryGetTypeInfo(typeName);
-    if (typeInfo == undefined)
-      return false;
-
-    switch (typeInfo.entityKind) {
-      case "SystemString": return true;
-      case "System": return true;
-      case "Relational": return true;
-      case "String": return true;
-      case "Shared": return true;
-      case "Main": return true;
-      case "Part": return false;
-      case "SharedPart": return false;
-      default: return false;
-    }
-  }
-
-  export interface IsFindableOptions {
-    fullScreenSearch?: boolean;
-    isEmbeddedEntity?: boolean;
-  }
-
-  export function isFindable(type: PseudoType, options?: IsFindableOptions): boolean {
-
-    const typeName = getTypeName(type);
-
-    const baseIsReadOnly = typeIsFindable(typeName, options?.isEmbeddedEntity);
-
-    return baseIsReadOnly && Finder.isFindable(typeName, options?.fullScreenSearch ?? true);
-  }
-
-  function typeIsFindable(typeName: string, isEmbeddedEntity: boolean | undefined) {
-
-    const es = entitySettings[typeName];
-
-    if (es != undefined && es.isFindable != undefined)
-      return es.isFindable;
-
-    if (isEmbeddedEntity)
-      return false;
-
-    const typeInfo = tryGetTypeInfo(typeName);
-    if (typeInfo == null)
-      return false;
-
-    if (typeInfo.kind == "Enum")
-      return true;
-
-    switch (typeInfo.entityKind) {
-      case "SystemString": return true;
-      case "System": return true;
-      case "Relational": return false;
-      case "String": return true;
-      case "Shared": return true;
-      case "Main": return true;
-      case "Part": return false;
-      case "SharedPart": return true;
-      default: return false;
-    }
-  }
-
-  export const isViewableEvent: Array<(typeName: string, entityPack: EntityPack<ModifiableEntity> | Lite<Entity> | undefined, options: IsViewableOptions | undefined) => boolean> = [];
-
-  export interface IsViewableOptions {
-    customComponent?: boolean;
-    isSearch?: "main" | "related";
-    isEmbedded?: boolean;
-    buttons?: ViewButtons;
-  }
-
-  export type ViewButtons = "ok_cancel" | "close" | undefined;
-
-  export function typeDefaultButtons(typeName: string, isEmbedded: boolean | undefined): ViewButtons {
-    if (isEmbedded)
-      return "ok_cancel";
-
-    const ti = tryGetTypeInfo(typeName);
-    if (ti != null) {
-      if (
-        ti.entityKind == undefined ||
-        ti.entityKind == "Part" ||
-        ti.entityKind == "SharedPart")
-        return "ok_cancel";
-    }
-
-    return "close";
-  }
-
-  export function isViewable(typeOrEntity: PseudoType | EntityPack<ModifiableEntity> | Lite<Entity>, options?: IsViewableOptions): boolean {
-
-    const entity =
-      isEntityPack(typeOrEntity) ? typeOrEntity :
-        isLite(typeOrEntity) ? typeOrEntity :
-          undefined;
-
-    const typeName =
-      isEntityPack(typeOrEntity) ? typeOrEntity.entity.Type :
-        isLite(typeOrEntity) ? typeOrEntity.EntityType :
-          getTypeName(typeOrEntity as PseudoType);
-
-    const typeViewable = checkFlag(typeIsViewable(typeName, options?.isEmbedded), options?.isSearch == "main");
-    if (!typeViewable)
-      return false;
-
-    const hasView = options?.customComponent || viewDispatcher.hasDefaultView(typeName);
-    if (!hasView)
-      return false;
-
-    if (entity) {
-      const es = entitySettings[typeName];
-
-      if (es != null && isLite(entity) && es.isViewableLite && !es.isViewableLite(entity, options))
-        return false;
-
-      if (es != null && isEntityPack(entity) && es.isViewableEntityPack && !es.isViewableEntityPack(entity, options))
-        return false;
-    }
-
-    if (!isViewableEvent.every(f => f(typeName, entity, options)))
-      return false;
-
-    return true;
-  }
-
-  function typeIsViewable(typeName: string, isEmbedded: boolean | undefined): EntityWhen {
-
-    const es = entitySettings[typeName];
-
-    if (es != undefined && es.isViewable != undefined)
-      return es.isViewable;
-
-    if (isEmbedded)
-      return "IsLine";
-
-    const typeInfo = tryGetTypeInfo(typeName);
-    if (typeInfo == null)
-      return "Never";
-
-    if (typeInfo.kind == "Enum")
-      return "Never";
-
-    switch (typeInfo.entityKind) {
-      case "SystemString": return "Never";
-      case "System": return "Always";
-      case "Relational": return "Never";
-      case "String": return "IsSearch";
-      case "Shared": return "Always";
-      case "Main": return "Always";
-      case "Part": return "Always";
-      case "SharedPart": return "Always";
-      default: return "Never";
-    }
-  }
-
-  export function defaultFindOptions(type: TypeReference): FindOptions | undefined {
-    if (type.is(EmbeddedEntity) || type.isByAll())
-      return undefined;
-
-    const types = tryGetTypeInfos(type.getTypeName() ?? "");
-
-    if (types.length == 1 && types[0] != null) {
-      var s = getSettings(types[0]);
-
-      if (s?.defaultFindOptions) {
-        return s.defaultFindOptions;
-      }
-    }
-
-    return undefined;
-  }
-
-  export function getAutoComplete(type: TypeReference, findOptions: FindOptions | undefined, findOptionsDictionary: { [typeName: string]: FindOptions } | undefined, ctx: TypeContext<any>, create: boolean, showType?: boolean): AutocompleteConfig<any> | null {
-    if (type.is(EmbeddedEntity) || type.isByAll())
-      return null;
-
-    let types = tryGetTypeInfos(type.getTypeName() ?? "").notNull();
-    showType ??= types.length > 1;
-
-    types = types.filter(t => isFindable(t, { fullScreenSearch: false }));
-
-    if (types.length == 0)
-      return null;
-
-    if (types.length == 1 || findOptions != null)
-      return getAutoCompleteBasic(types[0]!, findOptions, ctx, create, showType);
-
-    return new MultiAutoCompleteConfig(types.toObject(t => t!.name,
-      t => getAutoCompleteBasic(t!, (findOptionsDictionary && findOptionsDictionary[t!.name]), ctx, create, showType!)
-    ));
-  }
-
-
-  export function getAutoCompleteBasic(type: TypeInfo, findOptions: FindOptions | undefined, ctx: TypeContext<any>, create: boolean, showType: boolean): AutocompleteConfig<any> {
-
-    var s = getSettings(type);
-
-    if (s?.autocomplete != null) {
-      var acc = s.autocomplete(findOptions, showType);
-
-      if (acc != null)
-        return acc;
-    }
-
-    var fo = findOptions ?? s?.defaultFindOptions ?? { queryName: type.name };
-
-    return new FindOptionsAutocompleteConfig(fo, {
-      showType: showType,
-      itemsDelay: s?.autocompleteDelay,
-      getAutocompleteConstructor: (subStr, rows) => getAutocompleteConstructors(type, subStr, { ctx, foundLites: rows.map(a => a.entity!), findOptions, create: create }) as AutocompleteConstructor<Entity>[]
-    });
-  }
-
-
-  export interface ViewOptions<T extends ModifiableEntity> {
-    title?: React.ReactNode | null;
-    subTitle?: React.ReactNode | null;
-    propertyRoute?: PropertyRoute;
-    readOnly?: boolean;
-    modalSize?: BsSize;
-    isOperationVisible?: (eoc: Operations.EntityOperationContext<T & Entity>) => boolean;
-    validate?: boolean;
-    requiresSaveOperation?: boolean;
-    avoidPromptLoseChange?: boolean;
-    buttons?: ViewButtons;
-    getViewPromise?: (entity: T) => undefined | string | ViewPromise<T>;
-    createNew?: () => Promise<EntityPack<T> | undefined>;
-    allowExchangeEntity?: boolean;
-    extraProps?: {};
-  }
-
-
-  export function view<T extends ModifiableEntity>(entityOrPack: Lite<T & Entity> | T | EntityPack<T>, viewOptions?: ViewOptions<T>): Promise<T | undefined> {
-
-    const typeName = isEntityPack(entityOrPack) ? entityOrPack.entity.Type : getTypeName(entityOrPack);
-
-    const es = getSettings(typeName) as EntitySettings<T> | undefined;
-
-    if (es?.onView)
-      return es.onView(entityOrPack, viewOptions);
-    else
-      return viewDefault(entityOrPack, viewOptions);
-  }
-
-  export function viewDefault<T extends ModifiableEntity>(entityOrPack: Lite<T & Entity> | T | EntityPack<T>, viewOptions?: ViewOptions<T>): Promise<T | undefined> {
-    return getFrameModal()
-      .then(NP => NP.FrameModalManager.openView(entityOrPack, viewOptions ?? {}));
-  }
-
-  export function createInNewTab(pack: EntityPack<ModifiableEntity>, viewName?: string): void {
-    var url = createRoute(pack.entity.Type, viewName) + "?waitOpenerData=true";
-    window.dataForChildWindow = pack;
-    var win = window.open(toAbsoluteUrl(url));
-  }
-
-  export function createInCurrentTab(pack: EntityPack<ModifiableEntity>, viewName?: string): void {
-    var url = createRoute(pack.entity.Type, viewName) + "?waitCurrentData=true";
-    window.dataForCurrentWindow = pack;
-    AppContext.navigate(url);
-  }
-
-  export function createNavigateOrTab(pack: EntityPack<Entity> | undefined, event: React.MouseEvent<any>): Promise<void> {
-    if (!pack || !pack.entity)
-      return Promise.resolve();
-
-    const es = getSettings(pack.entity.Type);
-    if (es?.avoidPopup || event.ctrlKey || event.button == 1) {
-      createInNewTab(pack);
-      return Promise.resolve();
-    }
-    else {
-      return view(pack, { buttons: "close" }).then(() => undefined);
-    }
-  }
-
-  ============================ end TODO PORT ============================ */
 
   // ===== ACTIVE: entity <-> EntityPack helpers (use the ported API namespace). =====
   export function toEntityPack<T extends BaseEntity>(entityOrEntityPack: Lite<T & Entity> | T | EntityPack<T>): Promise<EntityPack<T>> {
@@ -933,8 +255,9 @@ export namespace Navigator {
     return useAPI(signal => API.fetchAll(type), [type, ...(deps ?? [])]);
   }
 
-  /* ============================ TODO PORT â€” commented (need newLite / fillLiteModels / custom-lite
-     models + getAutocompleteConstructors/someNonViewable which need Constructor/entitySettings) ============================
+  /* ============================ TODO PORT — custom Lite models + enum-entity map. Needs server routes
+     /api/liteModels and /api/reflection/enumEntities (plus newLite); useLiteToString / useFillToString
+     hang off fillLiteModels. ============================
   export function useLiteToString<T extends Entity>(type: Type<T>, id: number | string, deps?: React.DependencyList, options?: APIHookOptions): Lite<T> {
 
     var lite = React.useMemo(() => newLite(type, id), [type, id, ...(deps ?? [])]);
@@ -948,31 +271,6 @@ export namespace Navigator {
     useAPI(() => {
       return lite == null || ((lite.model != null || lite.entity != null) && !force) ? Promise.resolve() : API.fillLiteModels(lite);
     }, [lite, ...(deps ?? [])]);
-  }
-
-
-  export function getAutocompleteConstructors(tr: TypeReference, str: string, aac: AutocompleteConstructorContext): AutocompleteConstructor<ModifiableEntity>[] {
-    return getTypeInfos(tr.getTypeName() ?? "").map(ti => {
-      var es = getSettings(ti);
-
-      if (es == null || es.autocompleteConstructor == null)
-        return null;
-
-      if (typeof es.autocompleteConstructor == "string")
-        return softCast<AutocompleteConstructor<ModifiableEntity>>({
-          type: ti.name,
-          onClick: () => Constructor.construct(ti.name, { [es!.autocompleteConstructor as string]: str }).then(a => a && view(a))
-        });
-
-      return es.autocompleteConstructor(str, aac);
-    }).notNull();
-  }
-
-  export function someNonViewable(lites: Lite<Entity>[]) : boolean {
-    return lites.groupBy(a => a.EntityType).some(gr => {
-      var isViewable = Navigator.entitySettings[gr.key]?.isViewableLite;
-      return isViewable && gr.elements.some(lite => !isViewable!(lite, { isSearch: "main" }))
-    });
   }
 
   export namespace API {
@@ -997,86 +295,6 @@ export namespace Navigator {
       });
     }
 
-    export function fetchAll<T extends Entity>(type: Type<T>): Promise<Array<T>> {
-      return ajaxGet({ url: "/api/fetchAll/" + type.typeName });
-    }
-
-
-    export function fetchAndRemember<T extends Entity>(lite: Lite<T>): Promise<T> {
-      if (lite.entity)
-        return Promise.resolve(lite.entity);
-
-      if (lite.id == null)
-        throw new Error("Lite has no Id");
-
-      return fetchEntity(lite.EntityType, lite.id).then(e => lite.entity = e as T);
-    }
-
-    export function fetch<T extends Entity>(lite: Lite<T>): Promise<T> {
-
-      if (lite.id == null)
-        throw new Error("Lite has no Id");
-
-      return fetchEntity(lite.EntityType, lite.id, lite.partitionId) as Promise<T>;
-    }
-
-    export function fetchEntity<T extends Entity>(type: Type<T>, id: any, partitionId?: number): Promise<T>;
-    export function fetchEntity(type: PseudoType, id: number | string, partitionId?: number): Promise<Entity>;
-    export function fetchEntity(type: PseudoType, id?: number | string, partitionId?: number): Promise<Entity> {
-
-      const typeName = getTypeName(type);
-      let idVal = id;
-
-      return ajaxGet({ url: "/api/entity/" + typeName + "/" + id + (partitionId ? "?partitionId=" + partitionId : "") });
-    }
-
-    export function exists<T extends Entity>(lite: Lite<T>): Promise<boolean>;
-    export function exists<T extends Entity>(entity: T): Promise<boolean>;
-    export function exists<T extends Entity>(type: Type<T>, id: any): Promise<boolean>;
-    export function exists(type: PseudoType, id: number | string): Promise<boolean>;
-    export function exists(typeOrEntity: PseudoType | Lite<Entity> | Entity, idOrNull?: number | string): Promise<boolean> {
-
-      const typeName =
-        isEntity(typeOrEntity) ? typeOrEntity.Type :
-          isLite(typeOrEntity) ? typeOrEntity.EntityType :
-            getTypeName(typeOrEntity);
-
-      let id = isEntity(typeOrEntity) ? typeOrEntity.id :
-        isLite(typeOrEntity) ? typeOrEntity.id :
-          idOrNull;
-
-      if (id == null)
-        throw new Error("No id found");
-
-      return ajaxGet({ url: "/api/exists/" + typeName + "/" + id });
-    }
-
-
-    export function fetchEntityPack<T extends Entity>(lite: Lite<T>): Promise<EntityPack<T>>;
-    export function fetchEntityPack<T extends Entity>(type: Type<T>, id: number | string, partitionId?: number): Promise<EntityPack<T>>;
-    export function fetchEntityPack(type: PseudoType, id: number | string, partitionId?: number): Promise<EntityPack<Entity>>;
-    export function fetchEntityPack(typeOrLite: PseudoType | Lite<any>, id?: any, partitionId?: number): Promise<EntityPack<Entity>> {
-
-      const typeName = (typeOrLite as Lite<any>).EntityType ?? getTypeName(typeOrLite as PseudoType);
-      let idVal = (typeOrLite as Lite<any>).id != null ? (typeOrLite as Lite<any>).id : id;
-      let pId = (typeOrLite as Lite<any>)?.partitionId ?? partitionId;
-      return ajaxGet({ url: "/api/entityPack/" + typeName + "/" + idVal + (pId ? "?partitionId=" + pId : "") });
-    }
-
-    export function fetchEntityPackEntity<T extends Entity>(entity: T): Promise<EntityPack<T>> {
-      return ajaxPost<EntityPack<T>>({ url: "/api/entityPackEntity" }, entity)
-        .then(ep => ({ ...ep, entity }));
-    }
-
-    export function validateEntity(entity: ModifiableEntity): Promise<void> {
-      return ajaxPost({ url: "/api/validateEntity" }, entity);
-    }
-
-    export function getType(typeName: string): Promise<TypeEntity | null> {
-
-      return ajaxGet({ url: `/api/reflection/typeEntity/${typeName}` });
-    }
-
     export function getEnumEntities<T extends string>(type: EnumType<T>): Promise<EnumConverter<T>>;
     export function getEnumEntities(typeName: string): Promise<EnumConverter<string>>;
     export function getEnumEntities(type: string | EnumType<string>): Promise<EnumConverter<string>> {
@@ -1094,25 +312,25 @@ export namespace Navigator {
 
   // ===== Ported + ACTIVE: the entity HTTP client (client half of EntitiesController). =====
   // ALTEA seam: entity responses decode via Serializer.parse (real class graph), entity POST bodies
-  // via Serializer.stringify â€” not the generic JSON ajax. Swept: lite.EntityType -> lite.entityType,
+  // via Serializer.stringify — not the generic JSON ajax. Swept: lite.EntityType -> lite.entityType,
   // entity.Type -> getTypeName(entity), type.typeName static -> getTypeName(type). Inside `namespace
   // API`, `fetch` shadows the DOM fetch -> window.fetch. Deferred (TODO): partitionId,
   // fillLiteModels/custom-lite models, getEnumEntities (need reflection endpoints). getType is now ACTIVE
   // below (served by reflectionServer's /api/reflection/typeEntity/:typeName).
   export namespace API {
 
-    // GET an entity graph â€” ajaxGet already rebuilds the real class instances via Serializer.parse.
+    // GET an entity graph — ajaxGet already rebuilds the real class instances via Serializer.parse.
     function getEntity<T>(url: string): Promise<T> {
       return ajaxGet<T>({ url });
     }
 
-    // POST an entity â€” ajaxPost already Serializer-encodes the body (real graph â†’ wire) and decodes the
+    // POST an entity — ajaxPost already Serializer-encodes the body (real graph → wire) and decodes the
     // response (rebuilds any returned entity graph).
     function postEntity<T>(url: string, entity: unknown): Promise<T> {
       return ajaxPost<T>({ url }, entity);
     }
 
-    // GET an EntityPack: the envelope is JSON and its `entity` field is an entity graph â€” ajaxGet's
+    // GET an EntityPack: the envelope is JSON and its `entity` field is an entity graph — ajaxGet's
     // Serializer.parse revives the nested { $type } entity and leaves `canExecute` plain.
     function getEntityPack<T extends Entity>(url: string): Promise<EntityPack<T>> {
       return ajaxGet<EntityPack<T>>({ url });
@@ -1183,13 +401,13 @@ export namespace Navigator {
   }
 
   // ================= ACTIVE: EntitySettings registry + type classification =================
-  // Uses the enriched TypeInfo (entityKind / kind). This is a MINIMAL EntitySettings â€” the
+  // Uses the enriched TypeInfo (entityKind / kind). This is a MINIMAL EntitySettings — the
   // view/autocomplete/render fields of Signum's full EntitySettings (commented in region C below)
   // land with their deps (ViewReplacer / AutocompleteConfig / Modals / Frames). Local `isEntityPack`
   // replaces the removed free helper. `isFindable` stays commented (needs Finder).
 
   // EntityWhen + the FULL EntitySettings (and ViewPromise) now live in ./EntitySettings (staged; the
-  // view-override machinery is stubbed there). Imported at module scope above â€” this replaces the
+  // view-override machinery is stubbed there). Imported at module scope above — this replaces the
   // earlier MINIMAL inline EntitySettings so the autocomplete/getViewPromise/render fields exist for
   // EntityLine/getAutoComplete.
 
@@ -1375,7 +593,7 @@ export namespace Navigator {
     }
   }
 
-  // ---- render lite / entity (display). ModifiableEntityâ†’BaseEntity; idioms swept. ----
+  // ---- render lite / entity (display). ModifiableEntity→BaseEntity; idioms swept. ----
   export function renderLiteOrEntity(entity: Lite<Entity> | Entity | BaseEntity, modelType?: string): string | React.ReactElement | undefined {
     if (entity instanceof Lite)
       return renderLite(entity);
@@ -1415,7 +633,7 @@ export namespace Navigator {
   }
 
   // ---- defaultFindOptions (from a query column's RuntimeType, or a bare type name) ----
-  // ALTEA: overloaded to also accept a type NAME string â€” the Lines layer (EntityBase) carries a
+  // ALTEA: overloaded to also accept a type NAME string — the Lines layer (EntityBase) carries a
   // FieldInfo (whose `.typeName` is a plain name), not a query-column RuntimeType. Signum's single
   // TypeReference covered both; here the string form is the field-line path.
   export function defaultFindOptions(type: TypeReference): FindOptions | undefined;
@@ -1471,7 +689,7 @@ export namespace Navigator {
   }
 
   // ALTEA: takes a single TypeInfo (Signum took a RuntimeType then re-resolved via getTypeInfos).
-  // `view(a)` is currently a STUB, so the "create new" onClick throws until Frames land â€” acceptable
+  // `view(a)` is currently a STUB, so the "create new" onClick throws until Frames land — acceptable
   // (autocomplete search itself works).
   export function getAutocompleteConstructors(ti: TypeInfo, str: string, aac: AutocompleteConstructorContext): AutocompleteConstructor<Entity>[] {
     const typeName = cleanTypeName(ti.ctor!);
@@ -1499,7 +717,7 @@ export namespace Navigator {
     const es = getSettings(typeName) as EntitySettings<T> | undefined;
 
     if (viewName == undefined) {
-      // No registered view â†’ auto-generate one from the entity's property routes (Signum's
+      // No registered view → auto-generate one from the entity's property routes (Signum's
       // AutoComponent). The Frame renders whatever component this ViewPromise resolves to.
       if (!es?.getViewPromise)
         return new ViewPromise<T>(import('./AutoComponent')).applyViewOverrides(typeName);
@@ -1512,7 +730,7 @@ export namespace Navigator {
     }
   }
 
-  // ---- view â€” opens a FrameModal (Frames view-render layer). ----
+  // ---- view — opens a FrameModal (Frames view-render layer). ----
   export function getFrameModal(): Promise<typeof import("./Frames/FrameModal")> {
     return import("./Frames/FrameModal");
   }
@@ -1522,8 +740,10 @@ export namespace Navigator {
   }
 
   // Registers the entity view/create page routes. A client app calls this at bootstrap with its
-  // react-router route array. (Signum's full `start` also cleared events / installed defaults â€” those
-  // stay in the commented staging block above until their deps land.)
+  // react-router route array. (Signum's full `start` also pushed per-module cache-clear callbacks onto
+  // AppContext.clearSettingsActions and wired ErrorModalOptions; altea diverges — module state resets
+  // via AppContext.clientState/newClientState and ErrorModal self-wires its exception link — so only
+  // the routes remain here.)
   export function start(options: { routes: RouteObject[] }): void {
     options.routes.push({ path: "/view/:type/:id", element: <ImportComponent onImport={() => getFramePage()} /> });
     options.routes.push({ path: "/create/:type", element: <ImportComponent onImport={() => getFramePage()} /> });
@@ -1534,7 +754,7 @@ export namespace Navigator {
   }
 
   // Activated for the Operations client layer (Signum's versions live in the commented staging block;
-  // altea fixes: lite.EntityTypeâ†’lite.entityType, getSettings by clean name, window data-transfer cast).
+  // altea fixes: lite.EntityType→lite.entityType, getSettings by clean name, window data-transfer cast).
   export function someNonViewable(lites: Lite<Entity>[]): boolean {
     return lites.groupBy(a => a.entityType).some(gr => {
       var isViewable = getSettings(gr.key)?.isViewableLite;
@@ -1546,6 +766,14 @@ export namespace Navigator {
     var url = "/create/" + getTypeName(pack.entity) + (viewName ? "?viewName=" + viewName : "") + (viewName ? "&" : "?") + "waitOpenerData=true";
     (window as { dataForChildWindow?: unknown }).dataForChildWindow = pack;
     window.open(toAbsoluteUrl(url));
+  }
+
+  // Same as createInNewTab but navigates the CURRENT tab (Signum's Navigator.createInCurrentTab). The
+  // target FramePage reads `dataForCurrentWindow` when the "/create" route carries `waitCurrentData`.
+  export function createInCurrentTab(pack: EntityPack<Entity>, viewName?: string): void {
+    var url = "/create/" + getTypeName(pack.entity) + (viewName ? "?viewName=" + viewName : "") + (viewName ? "&" : "?") + "waitCurrentData=true";
+    (window as { dataForCurrentWindow?: unknown }).dataForCurrentWindow = pack;
+    navigate(url);
   }
 
   export function createNavigateOrTab(pack: EntityPack<Entity> | undefined, event: React.MouseEvent<any>): Promise<void> {
@@ -1575,7 +803,7 @@ export namespace Navigator {
 
   // ALTEA: Signum's getTypeSubTitle used entity.Type + isTypeEntity/isTypeModel + defaultRenderSubTitle;
   // altea uses instanceof + getNiceName(). Now also renders the id + copy-lite / copy-link buttons
-  // (Signum's defaultRenderSubTitle â†’ renderId), which fade in on hover via the `.sf-hide-id` CSS.
+  // (Signum's defaultRenderSubTitle → renderId), which fade in on hover via the `.sf-hide-id` CSS.
   export function getTypeSubTitle(entity: BaseEntity, pr: PropertyRoute | undefined): React.ReactNode | undefined {
     const es = getSettings(getTypeName(entity));
     if (es?.renderSubTitle)
@@ -1633,7 +861,17 @@ export namespace Navigator {
     extraProps?: {};
   }
 
+  // An EntitySettings can override how an entity opens (Signum's Navigator.view → es.onView); otherwise
+  // fall back to the default FrameModal (viewDefault).
   export function view<T extends BaseEntity>(entityOrPack: Lite<T & Entity> | T | EntityPack<T>, viewOptions?: ViewOptions<T>): Promise<T | undefined> {
+    const typeName = isEntityPack(entityOrPack) ? getTypeName(entityOrPack.entity) : getTypeName(entityOrPack as Lite<Entity> | BaseEntity);
+    const es = getSettings(typeName) as EntitySettings<T> | undefined;
+    if (es?.onView)
+      return es.onView(entityOrPack, viewOptions);
+    return viewDefault(entityOrPack, viewOptions);
+  }
+
+  export function viewDefault<T extends BaseEntity>(entityOrPack: Lite<T & Entity> | T | EntityPack<T>, viewOptions?: ViewOptions<T>): Promise<T | undefined> {
     return getFrameModal()
       .then(NP => NP.FrameModalManager.openView(entityOrPack, viewOptions ?? {}));
   }
