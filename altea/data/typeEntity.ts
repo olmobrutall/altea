@@ -1,6 +1,6 @@
 import { Entity } from './entity';
 import { reflect, setDefaultDatabaseSchema } from './reflection';
-import { entity } from './decorators';
+import { entity, quoted } from './decorators';
 
 // Port of Signum's TypeEntity (Signum/Basics/Type.cs): the system table that maps
 // every persistent entity type to a stable int id. That id is the discriminator
@@ -32,6 +32,14 @@ export class TypeEntity extends Entity {
     // "eastwind"; resolved from the registration FileInfo). And the unqualified class name.
     package: string;
     className: string;
+
+    // Signum's TypeEntity.ToString => CleanName. altea originally left the inherited default (which renders
+    // "Type <id>", e.g. "Type 8"); give it the clean name so references/lites display meaningfully (e.g. the
+    // ColorPalette.type field). @quoted so it also lowers to SQL for the ToStr column / order-by.
+    @quoted
+    toString(): string {
+        return this.cleanName;
+    }
 }
 
 // The framework's own entities in this data/ folder (TypeEntity, OperationSymbol, QueryEntity,

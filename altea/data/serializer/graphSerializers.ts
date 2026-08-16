@@ -14,7 +14,8 @@ import { isModifiedSelf, getSnapshot, snapshotEqual } from '../changes';
 import { getTypeInfo } from '../reflection';
 import type { FieldInfo } from '../reflection';
 import { MixinDeclarations } from '../mixinDeclarations';
-import { resolveCleanType, cleanTypeName } from '../registration';
+import { resolveCleanType, resolveEnum, cleanTypeName } from '../registration';
+import { EnumEntity } from '../enumEntity';
 import { toInt, Decimal } from '../basics';
 import type {
     JsonSerializer, FieldPlan, Slot,
@@ -92,6 +93,20 @@ import {
     ValueSerializer, TemporalSerializer, DecimalSerializer, DateSerializer, EnumSerializer, ArraySerializer,
 } from './leafSerializers';
 
+// Resolve a wire discriminator (`$lite` / `$type`) back to its constructor. Reverse of `cleanTypeName`,
+// which also names a closed EnumEntity<E> after its ENUM ("OrderState"): an enum entity has no entry in the
+// type registry (enums live in the enum registry, not registerType), so a clean-name miss falls back to the
+// enum registry and re-mints the SAME memoized bound ctor via EnumEntity.typeFor. Without this an enum lite
+// in an @implementedByAll field (e.g. ColorPalette.specificColors) deserializes to base Entity and the save
+// discriminator write (TypeLogic.typeToId) throws "Type 'Entity' is not registered".
+function resolveWireType(name: string): Function | undefined {
+    const ctor = resolveCleanType(name);
+    if (ctor != null)
+        return ctor;
+    const enumObj = resolveEnum(name);
+    return enumObj != null ? (EnumEntity.typeFor(enumObj) as unknown as Function) : undefined;
+}
+
 // ---- Lite ------------------------------------------------------------------
 
 const LITE_RESERVED_KEYS = new Set(['id', 'entityType', 'toStr', '_entity']);
@@ -127,7 +142,7 @@ class LiteSerializer implements JsonSerializer {
     fromJson(json: unknown, dc: DeserializationContext, _existing?: unknown, _slot?: Slot): unknown {
         const j = json as Record<string, unknown>;
         const wire = j.$lite as string | undefined;
-        const ctor = wire != null ? resolveCleanType(wire) : this.expectedCtor;
+        const ctor = wire != null ? resolveWireType(wire) : this.expectedCtor;
         if (ctor == null)
             throw new Error(wire != null
                 ? `Cannot deserialize lite: unknown type "${wire}"`
@@ -162,7 +177,7 @@ class PolyReferenceSerializer implements JsonSerializer {
     }
     fromJson(json: unknown, dc: DeserializationContext, existing: unknown, slot?: Slot): unknown {
         const j = json as Record<string, unknown>;
-        const ctor = resolveCleanType(j.$type as string);
+        const ctor = resolveWireType(j.$type as string);
         if (ctor == null) throw new Error(`Cannot deserialize polymorphic reference: unknown type "${String(j.$type)}"`);
         return factory.forEntity(ctor as Type<BaseEntity>).fromJson(j, dc, existing, slot);
     }
@@ -286,7 +301,7 @@ class EntitySerializer extends ModifiableSerializer {
         // Concrete-type delegation: an Always-mode or subtype `$type` routes to that serializer.
         const wire = j.$type as string | undefined;
         if (wire != null) {
-            const concrete = resolveCleanType(wire);
+            const concrete = resolveWireType(wire);
             if (concrete != null && concrete !== this.ctor)
                 return factory.forEntity(concrete as Type<BaseEntity>).fromJson(j, dc, existing, slot);
         }
@@ -394,7 +409,7 @@ class PartCollectionSerializer implements JsonSerializer {
 
         return (json as unknown[]).map((elJson, i) => {
             const ej = elJson as Record<string, unknown>;
-            const elCtor = ej.$type != null ? resolveCleanType(ej.$type as string) : this.element.ctor;
+            const elCtor = ej.$type != null ? resolveWireType(ej.$type as string) : this.element.ctor;
             const elId = ej.id;
             const existingEl = (elId != null && elCtor != null) ? byId.get(elCtor.name + '|' + String(elId)) : undefined;
             return this.element.fromJson(ej, dc, existingEl, { owner, index: i });
@@ -430,7 +445,7 @@ class DynamicSerializer implements JsonSerializer {
             const j = json as Record<string, unknown>;
             if ('$lite' in j) return LITE_DYNAMIC.fromJson(j, dc, existing);
             if ('$type' in j) {
-                const ctor = resolveCleanType(j.$type as string);
+                const ctor = resolveWireType(j.$type as string);
                 if (ctor == null) throw new Error(`Cannot deserialize: unknown type "${String(j.$type)}"`);
                 return factory.forCtor(ctor as Type<BaseEntity>).fromJson(j, dc, existing);
             }
@@ -505,7 +520,14 @@ class SerializerFactory {
             if (e == null) throw new Error(`Cannot build serializer: enum field '${fi.name}' is not registered`);
             return new EnumSerializer(e);
         }
-        if (fi.lite) return new LiteSerializer(fi.getFunction(), fi.customLite);   // undefined ctor ⇒ polymorphic lite
+        if (fi.lite) {
+            // A polymorphic lite (@implementedByAll / @implementedBy) has no single concrete type, so its
+            // serializer must be polymorphic (expectedCtor undefined) — otherwise it takes the DECLARED base
+            // (`Lite<Entity>` ⇒ Entity) as the expected type and never emits the `$lite` discriminator, so the
+            // reader can't recover the target type (Entity isn't a persistable type: TypeLogic.typeToId throws).
+            const ctor = fi.implementations != null ? undefined : fi.getFunction();
+            return new LiteSerializer(ctor, fi.customLite);   // undefined ctor ⇒ polymorphic lite
+        }
         if (fi.implementations != null) return new PolyReferenceSerializer();
 
         const ctor = fi.getFunction();

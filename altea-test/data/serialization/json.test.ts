@@ -95,6 +95,36 @@ describe("EntityJson", () => {
         assert.equal(serialize(n2), json);
     });
 
+    test("@implementedByAll Lite field carries the $lite discriminator (polymorphic)", () => {
+        // A polymorphic lite field (@implementedByAll / @implementedBy) has no single declared type, so the
+        // codec must always emit the $lite discriminator — otherwise the reader can't recover the target type
+        // (the declared base `Lite<Entity>` isn't a persistable type). Regression for the field serializer
+        // taking the declared base as the "expected" ctor and omitting $lite.
+        const usa = CountryEntity.create({ name: "USA" });
+        usa.id = 10; usa.isNew = false; usa.ticks = 0; cleanModified(usa);
+
+        const note = NoteWithDateEntity.create({
+            title: "hello", text: "body",
+            target: usa,
+            otherTarget: usa.toLite(),            // @implementedByAll Lite<Entity> (polymorphic, non-null)
+            creationTime: Temporal.PlainDateTime.from("2020-01-02T03:04:05"),
+            creationDate: Temporal.PlainDate.from("2020-01-02"),
+            releaseDate: null,
+        });
+        (note as any).colaborators = [];
+        note.id = "22222222-2222-2222-2222-222222222222"; note.isNew = false; note.ticks = 0;
+        cleanModified(note);
+
+        const o = parse(serialize(note));
+        assert.equal(o.otherTarget.$lite, "Country");   // discriminator present ⇒ target type recoverable
+        assert.equal(o.otherTarget.id, 10);
+
+        const n2 = deserialize(serialize(note)) as NoteWithDateEntity;
+        assert.ok(n2.otherTarget instanceof Lite);
+        assert.equal(n2.otherTarget!.entityType, CountryEntity);
+        assert.equal(n2.otherTarget!.id, 10);
+    });
+
     test("thin lite and fat lite", () => {
         const a = makeArtist(2, "Alanis");
 
