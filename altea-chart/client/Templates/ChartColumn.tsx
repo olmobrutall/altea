@@ -1,14 +1,21 @@
 import * as React from 'react'
 import { classes } from '@altea/altea/data/globals/index'
-import { TypeContext } from '@altea/altea/client/TypeContext'
+import { TypeContext, StyleContext } from '@altea/altea/client/TypeContext'
 import { TextBoxLine } from '@altea/altea/client/Lines/TextBoxLine'
+import { FormGroup } from '@altea/altea/client/Lines/FormGroup'
 import { ChartColumnEmbedded } from '../../data/ChartColumn'
 import { ChartColumnType } from '../../data/ChartScriptColumn'
 import { ChartMessage } from '../../data/ChartMessage'
 import { ChartParameterEmbedded } from '../../data/ChartParameter'
 import type { IChartBase } from '../../data/ChartRequest'
 import { ChartClient } from '../ChartClient'
-import { useForceUpdate } from '@altea/altea/client/Hooks'
+import { ColorPaletteClient } from '../ColorPalette/ColorPaletteClient'
+import { ColorPaletteEntity } from '../../data/ColorPalette'
+import { Navigator } from '@altea/altea/client/Navigator'
+import { JavascriptMessage } from '@altea/altea/data/uiMessages'
+import type { TypeInfo } from '@altea/altea/data/reflection'
+import { cleanTypeName } from '@altea/altea/data/registration'
+import { useForceUpdate, useAPIWithReload } from '@altea/altea/client/Hooks'
 import { ColumnParameters } from './ChartBuilder'
 import QueryTokenEmbeddedBuilder from '@altea/altea-user-queries/client/Templates/QueryTokenEmbeddedBuilder'
 import { QueryToken, SubTokensOptions } from '@altea/altea/data/dynamicQuery/tokens/queryToken'
@@ -19,8 +26,9 @@ import '@altea/altea/data/globals/stringExtensions'
 // Copy-and-fix of Signum.Chart/Templates/ChartColumn.tsx (the token-editor row). altea divergences:
 // @framework/* → altea; MList `.element` → plain arrays; no `.modified`; ChartColumnType is numeric (nice
 // name via ChartClient.chartColumnTypeNiceName; expandGroup uses the numeric members); token.niceName() /
-// .fullKey() are methods; the ColorPalette per-type links (getColorPalettes / ChartPaletteLink) are
-// deferred (getColorPalettes returns []).
+// .fullKey() are methods. The ColorPalette per-type links (getColorPalettes / ChartPaletteLink) show a
+// "Colors for <Type>" View/Create-palette link for entity (Lite) columns — Signum's `!t.isLite &&
+// !isTypeEnum` gate becomes `!t.lite` (altea's TypeReference.typeInfos() is [] for enums, a known gap).
 
 export interface ChartColumnProps {
   ctx: TypeContext<ChartColumnEmbedded>;
@@ -87,9 +95,19 @@ export function ChartColumn(p: ChartColumnProps): React.JSX.Element {
     de.dataTransfer.effectAllowed = "move";
   }
 
-  // ColorPalette per-type links are deferred (the persisted palette subsystem is not ported).
-  function getColorPalettes(): unknown[] {
-    return [];
+  // Signum's getColorPalettes: the token's type resolved to TypeInfo(s), so the expanded editor can offer a
+  // "Colors for <Type>" View/Create-palette link — but only for entity (Lite) columns and only when the
+  // ColorPalette entity is editable. (altea: enums resolve to no TypeInfos, so this is entity-only for now.)
+  function getColorPalettes(): TypeInfo[] {
+    const t = p.ctx.value.token?.token?.type;
+
+    if (t == undefined || Navigator.isReadOnly(ColorPaletteEntity))
+      return [];
+
+    if (!t.lite)
+      return [];
+
+    return t.typeInfos();
   }
 
   function orderClassName(c: ChartColumnEmbedded) {
@@ -163,6 +181,11 @@ export function ChartColumn(p: ChartColumnProps): React.JSX.Element {
               <div className="col-sm-3">
                 <TextBoxLine ctx={ctxBasic.subCtx(a => a.format)} valueHtmlAttributes={{ onBlur: p.onRedraw, placeholder: ctx.value.token?.token?.format ?? undefined }} />
               </div>
+              {getColorPalettes().map((t, i) =>
+                <div className="col-sm-3" key={i}>
+                  <ChartPaletteLink ctx={ctxBasic} type={t} refresh={forceUpdate} />
+                </div>)
+              }
             </div>
             <ColumnParameters chart={p.chartBase} chartScript={p.chartScript} columnIndex={p.columnIndex} parameterDic={p.parameterDic} onRedraw={p.onRedraw} />
           </div>
@@ -196,4 +219,43 @@ function expandGroup(ct: ChartColumnType): ChartColumnType[] | undefined {
     case ChartColumnType.AnyNumberDateTime: return [ChartColumnType.Number, ChartColumnType.DecimalNumber, ChartColumnType.RoundedNumber, ChartColumnType.Date, ChartColumnType.DateTime];
     default: return undefined;
   }
+}
+
+export interface ChartPaletteLinkProps {
+  type: TypeInfo;
+  refresh: () => void;
+  ctx: StyleContext;
+}
+
+// Copy-and-fix of Signum's ChartPaletteLink — a "Colors for <Type>" link in the column editor that opens the
+// type's ColorPalette (View if one exists, else Create a new palette pre-scoped to that type). altea: the
+// palette cache takes a TypeInfo; TypeInfo.niceName is the METHOD getNiceName(); a new entity is
+// `new ColorPaletteEntity()` (no `.New`); the TypeEntity for the create branch comes from Navigator.API.getType.
+export function ChartPaletteLink(p: ChartPaletteLinkProps): React.JSX.Element {
+
+  const cleanName = cleanTypeName(p.type.ctor!);
+  const [palette, reload] = useAPIWithReload(() => ColorPaletteClient.getColorPalette(p.type), [cleanName]);
+
+  return (
+    <FormGroup ctx={p.ctx} label={ChartMessage.ColorsFor0.niceToString(p.type.getNiceName())}>
+      {() => palette === undefined ?
+        <span className={p.ctx.formControlPlainTextClass}>
+          {JavascriptMessage.loading.niceToString()}
+        </span> :
+        <LinkButton title={undefined} className={p.ctx.formControlPlainTextClass} onClick={async () => {
+          if (palette)
+            await Navigator.view(palette.lite);
+          else
+            // altea divergence: Signum pre-scopes the new palette to this type via `Navigator.API.getType`
+            // (fetch the TypeEntity), but that helper is deferred in altea (no reflection typeEntity
+            // endpoint ported). The new palette opens with its type unset — the user picks it in the editor.
+            await Navigator.view(new ColorPaletteEntity());
+
+          reload();
+        }}>
+          {palette ? ChartMessage.ViewPalette.niceToString() : ChartMessage.CreatePalette.niceToString()}
+        </LinkButton>
+      }
+    </FormGroup>
+  );
 }
