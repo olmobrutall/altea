@@ -92,7 +92,7 @@ export default function ChartRequestView(p: ChartRequestViewProps): React.JSX.El
             onOrderChanged={() => { if (validResult) handleDraw(); else forceUpdate(); }}
           />}
       </div>
-      <div className="sf-query-button-bar btn-toolbar my-2 bg-body rounded shadow-sm p-2">
+      <div className="sf-query-button-bar btn-toolbar gap-2 my-2 bg-body rounded shadow-sm p-2">
         <button
           className={classes("sf-query-button btn", showChartSettings && "active", "btn-tertiary")}
           onClick={() => setShowChartSettings(!showChartSettings)}
