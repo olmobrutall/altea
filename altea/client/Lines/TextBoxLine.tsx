@@ -92,7 +92,10 @@ export interface ColorLineProps extends TextBaseProps<string | null> {
 export class ColorLineController extends TextBaseController<ColorLineProps, string | null> {
   override init(p: TextBoxLineProps): void {
     super.init(p);
-    this.assertType("TextBoxLine", ["Guid"]);
+    // A color is a CSS color STRING (e.g. "#FFB900"); the "Color" here is the field FORMAT, not the type.
+    // (Was ["Guid"] — a copy-paste from GuidLine that made ColorLine throw on every String field, so
+    // AutoLine's `format == "Color"` dispatch and any direct ColorLine use were both unusable.)
+    this.assertType("ColorLine", ["String"]);
   }
 }
 

@@ -1,11 +1,12 @@
 import * as React from 'react'
 import { TypeContext } from '@altea/altea/client/TypeContext'
 import type { IBinding } from '@altea/altea/client/binding'
+import { PropertyRoute } from '@altea/altea/data/propertyRoute'
 import { AutoLine } from '@altea/altea/client/Lines/AutoLine'
 import { EntityLine } from '@altea/altea/client/Lines/EntityLine'
 import { EntityTable } from '@altea/altea/client/Lines/EntityTable'
 import { EnumLine } from '@altea/altea/client/Lines/EnumLine'
-import { TextBoxLine } from '@altea/altea/client/Lines/TextBoxLine'
+import { ColorLine } from '@altea/altea/client/Lines/TextBoxLine'
 import { LinkButton } from '@altea/altea/client/Basics/LinkButton'
 import { Finder } from '@altea/altea/client/Finder'
 import { useForceUpdate } from '@altea/altea/client/Hooks'
@@ -34,8 +35,8 @@ import '@altea/altea/data/globals/arrayExtensions'
 //    (enum tables seed id = the member's numeric value), so Signum's async Navigator.API.getEnumEntities
 //    (deferred in altea — no reflection endpoint) isn't needed. An enum row's `entity` (a Lite of the
 //    EnumEntity<E> row) is edited as an EnumLine over the member names via `ConvertBinding` (lite ⇄ name).
-//  - Signum's ColorSelector toggles a [Format(Color)] ColorLine ↔ EnumLine; altea has no ColorLine, so the
-//    free-color case uses a plain TextBoxLine (a hex/CSS color string).
+//  - Signum's ColorSelector toggles a [Format(Color)] ColorLine ↔ EnumLine; altea's ColorLine (a text box +
+//    native color picker) backs the "show color" case, the scheme dropdown (EnumLine) the "show palette" case.
 //  - MList element wrappers are gone: push `Object.assign(new SpecificColorEmbedded(), …)` onto the plain array.
 export default function ColorPalette(p: { ctx: TypeContext<ColorPaletteEntity> }): React.JSX.Element {
     const ctx = p.ctx;
@@ -145,7 +146,9 @@ export default function ColorPalette(p: { ctx: TypeContext<ColorPaletteEntity> }
                                 : <EntityLine ctx={ectx.subCtx(a => a.entity, { formGroupStyle: "SrOnly" })} />,
                         },
                         {
-                            header: ColorPaletteMessage.ShowPalette.niceToString(),
+                            // The field's own niceName ("Color"), like a normal column header — not the
+                            // ShowPalette message (which is only the mode-toggle button's tooltip).
+                            header: PropertyRoute.root(SpecificColorEmbedded).addLambda(a => a.color).fieldInfo!.niceToString(),
                             template: ectx => <ColorSelector ctx={ectx.subCtx(a => a.color, { formGroupStyle: "SrOnly" })} colors={colors as string[] | null} />,
                         },
                     ]} />
@@ -203,8 +206,9 @@ function ColorSelector(p: { ctx: TypeContext<string>, colors: string[] | null })
         setCustom(p.colors == null || (p.ctx.value != null && !p.colors.includes(p.ctx.value)));
     }, [p.colors]);
 
+    // "Show color" mode: a ColorLine (text + native color picker), Signum's [Format(Color)] ColorLine.
     if (custom || p.colors == null)
-        return <TextBoxLine ctx={p.ctx} extraButtons={() => switchButton()} />;
+        return <ColorLine ctx={p.ctx} extraButtons={() => switchButton()} />;
 
     return <EnumLine ctx={p.ctx}
         optionItems={p.colors}
