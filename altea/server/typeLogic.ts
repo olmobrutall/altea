@@ -1,5 +1,5 @@
 import { Connector } from "./connection/connector";
-import { cleanTypeName, getLocation } from "../data/registration";
+import { cleanTypeName, getLocation, enumNameOf } from "../data/registration";
 import { TypeEntity } from "../data/typeEntity";
 import { quotedFunction } from "./query";
 import { ClassType } from "./runtimeTypes";
@@ -190,7 +190,7 @@ function projectCaches(schema: Schema, rows: TypeEntity[]): TypeCaches {
     const ctorByClassName = new Map<string, Function>();
     for (const [type] of schema.tables)
         if (typeof type === "function")
-            ctorByClassName.set(type.name, type);
+            ctorByClassName.set(classNameOf(type), type);
 
     const typeToId = new Map<Function, PrimaryKey>();
     const idToType = new Map<PrimaryKey, Function>();
@@ -234,13 +234,27 @@ function bootstrapMetas(schema: Schema): TypeMeta[] {
         if (typeof type === "function")
             entries.push([type, table]);
     entries.sort((a, b) => (a[0].name < b[0].name ? -1 : a[0].name > b[0].name ? 1 : 0));
-    return entries.map(([ctor, table]) => ({ tableName: table.name.name, cleanName: cleanTypeName(ctor), package: packageOf(ctor), className: ctor.name }));
+    return entries.map(([ctor, table]) => ({ tableName: table.name.name, cleanName: cleanTypeName(ctor), package: packageOf(ctor), className: classNameOf(ctor) }));
 }
 
-// The owning npm package of an entity ctor (Signum's Namespace analog), from the registration FileInfo
-// the quote-transformer stamps. "" when unknown (kept identical to the old empty namespace for those).
+// The registry NAME of an entity/enum ctor for the TypeEntity.className column + its ctor↔row lookup.
+// A closed EnumEntity<E> type's ctor.name is "EnumEntity<OrderState>" — use the bare ENUM name
+// ("OrderState") instead (matching cleanName + the name its FileInfo/enum registration is keyed by).
+function classNameOf(ctor: Function): string {
+    const boundEnum = (ctor as { boundEnum?: object }).boundEnum;
+    if (boundEnum != null) {
+        const enumName = enumNameOf(boundEnum);
+        if (enumName != null)
+            return enumName;
+    }
+    return ctor.name;
+}
+
+// The owning npm package of an entity/enum ctor (Signum's Namespace analog), from the registration
+// FileInfo the quote-transformer stamps — keyed by classNameOf (so an enum resolves via its enum name,
+// not the "EnumEntity<E>" ctor name, which has no registered location). "" when unknown.
 function packageOf(ctor: Function): string {
-    return getLocation(ctor.name)?.packageName ?? "";
+    return getLocation(classNameOf(ctor))?.packageName ?? "";
 }
 
 // A TypeEntity carrying the given metadata (and optional id) — for generation inserts (no id,
@@ -291,7 +305,7 @@ async function synchronizeTypes(replacements: Replacements): Promise<SqlPreComma
     const should = new Map<string, Meta>();
     for (const [type, t] of schema.tables)
         if (typeof type === "function")
-            should.set(t.name.name, { tableName: t.name.name, cleanName: cleanTypeName(type), package: packageOf(type), className: type.name });
+            should.set(t.name.name, { tableName: t.name.name, cleanName: cleanTypeName(type), package: packageOf(type), className: classNameOf(type) });
 
     type Cur = { id: PrimaryKey } & Meta;
     const currentByTable = new Map<string, Cur>();
