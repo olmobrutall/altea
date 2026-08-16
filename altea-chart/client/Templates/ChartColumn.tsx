@@ -245,11 +245,16 @@ export function ChartPaletteLink(p: ChartPaletteLinkProps): React.JSX.Element {
         <LinkButton title={undefined} className={p.ctx.formControlPlainTextClass} onClick={async () => {
           if (palette)
             await Navigator.view(palette.lite);
-          else
-            // altea divergence: Signum pre-scopes the new palette to this type via `Navigator.API.getType`
-            // (fetch the TypeEntity), but that helper is deferred in altea (no reflection typeEntity
-            // endpoint ported). The new palette opens with its type unset — the user picks it in the editor.
-            await Navigator.view(new ColorPaletteEntity());
+          else {
+            // Pre-scope the new palette to this column's type (Signum's Create branch): fetch the TypeEntity
+            // for the clean name via Navigator.API.getType (backed by /api/reflection/typeEntity/:typeName).
+            // getType is typed Promise<Entity | null> (see Navigator); it always resolves to the TypeEntity
+            // for a real type here, so cast to the field's type.
+            const t = await Navigator.API.getType(cleanName);
+            const cp = new ColorPaletteEntity();
+            cp.type = t! as ColorPaletteEntity["type"];
+            await Navigator.view(cp);
+          }
 
           reload();
         }}>

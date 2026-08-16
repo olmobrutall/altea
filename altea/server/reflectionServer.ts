@@ -20,6 +20,9 @@ import { QueryLogic } from "./dynamicQuery/queryLogic";
 import { OperationLogic } from "./operationLogic";
 import type { OperationType } from "./operation";
 import { WebBuilder, CustomType } from "./webApi";
+import { resolveType } from "../data/registration";
+import { TypeLogic } from "./typeLogic";
+import type { TypeEntity } from "../data/typeEntity";
 
 // A registered operation as the client needs it (Signum's OperationInfo, trimmed to altea's model).
 // canBeNew/canBeModified/resultIsSaved are present only for the operation kinds that carry them.
@@ -84,6 +87,26 @@ export namespace ReflectionServer {
                 if (_metadataFilter != null)
                     meta = await _metadataFilter(meta);
                 res.json(meta);
+            });
+
+        // GET /api/reflection/typeEntity/:typeName — the persisted TypeEntity row for a (clean) type name
+        // (Signum's ReflectionController.GetTypeEntity → `TypeLogic.TryGetType(name)?.ToTypeEntity()`).
+        // altea: resolveType maps the clean name → ctor, then TypeLogic's warm type↔id↔entity caches yield
+        // the TypeEntity. Returns JSON null when the name is unknown/unregistered. Entity-serialized via
+        // jsonTyped so the client's ajaxGet revives a real TypeEntity. NOT anonymous (a logged-in lookup).
+        ws.get("/api/reflection/typeEntity/:typeName",
+            { params: CustomType<{ typeName: string }>(), res: CustomType<TypeEntity | null>() },
+            async (req, res) => {
+                const ctor = resolveType(req.params.typeName);
+                let te: TypeEntity | undefined;
+                if (ctor != null) {
+                    try {
+                        te = TypeLogic.idToEntity(TypeLogic.typeToId(ctor));
+                    } catch {
+                        te = undefined; // type not registered in the DB type table
+                    }
+                }
+                res.jsonTyped(te ?? null);
             });
     }
 }

@@ -50,7 +50,7 @@ import { RouteObject } from 'react-router'
 import { Dic, classes, softCast, } from './Globals';                          // -> ../entities/globals
 import { ajaxGet, ajaxPost, clearContextHeaders } from './Services';
 import { Lite, Entity, ModifiableEntity, EntityPack, isEntity, isLite, isEntityPack, toLite, liteKey, FrameMessage, ModelEntity, getToString, isModifiableEntity, EnumEntity, SearchMessage } from './Signum.Entities'; // -> ../entities/*, .is()/.toString()/.key()
-import { TypeEntity, ExceptionEntity } from './Signum.Basics';
+import { ExceptionEntity } from './Signum.Basics';
 import { PropertyRoute, PseudoType, Type, getTypeInfo, tryGetTypeInfos, getTypeName, isTypeModel, OperationType, runtimeTypeName, isRuntimeEmbedded, IsByAll, isTypeEntity, tryGetTypeInfo, getTypeInfos, newLite, TypeInfo, EnumType } from './Reflection';
 import type { RuntimeType } from './runtimeTypes';
 import { ButtonBarElement, ButtonsContext, EntityFrame, TypeContext } from './TypeContext';
@@ -1097,7 +1097,8 @@ export namespace Navigator {
   // via Serializer.stringify — not the generic JSON ajax. Swept: lite.EntityType -> lite.entityType,
   // entity.Type -> getTypeName(entity), type.typeName static -> getTypeName(type). Inside `namespace
   // API`, `fetch` shadows the DOM fetch -> window.fetch. Deferred (TODO): partitionId,
-  // fillLiteModels/custom-lite models, getEnumEntities, getType (need reflection endpoints).
+  // fillLiteModels/custom-lite models, getEnumEntities (need reflection endpoints). getType is now ACTIVE
+  // below (served by reflectionServer's /api/reflection/typeEntity/:typeName).
   export namespace API {
 
     // GET an entity graph — ajaxGet already rebuilds the real class instances via Serializer.parse.
@@ -1115,6 +1116,15 @@ export namespace Navigator {
     // Serializer.parse revives the nested { $type } entity and leaves `canExecute` plain.
     function getEntityPack<T extends Entity>(url: string): Promise<EntityPack<T>> {
       return ajaxGet<EntityPack<T>>({ url });
+    }
+
+    // The persisted TypeEntity row for a (clean) type name (Signum's Navigator.API.getType). Served by
+    // reflectionServer's /api/reflection/typeEntity/:typeName; ajaxGet revives the real entity (or null when
+    // the type is unknown). Used e.g. by the chart ColorPalette link to pre-scope a new palette. Typed as
+    // Entity (not TypeEntity) so this heavily-@quoted module needn't import the TypeEntity class — callers
+    // cast to TypeEntity (it always resolves to a TypeEntity here).
+    export function getType(typeName: string): Promise<Entity | null> {
+      return ajaxGet({ url: `/api/reflection/typeEntity/${typeName}` });
     }
 
     export function fetchAll<T extends Entity>(type: Type<T>): Promise<Array<T>> {
