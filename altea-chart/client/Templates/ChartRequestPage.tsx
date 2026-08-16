@@ -1,7 +1,7 @@
 import * as React from 'react'
-import { useParams } from 'react-router'
+import { useParams, useLocation } from 'react-router'
 import { Finder } from '@altea/altea/client/Finder'
-import { useAPI } from '@altea/altea/client/Hooks'
+import * as AppContext from '@altea/altea/client/AppContext'
 import { QueryString } from '@altea/altea/client/QueryString'
 import { SubTokensOptions, getSubTokens } from '@altea/altea/data/dynamicQuery/tokens/queryToken'
 import type { QueryToken } from '@altea/altea/data/dynamicQuery/tokens/queryToken'
@@ -12,67 +12,90 @@ import { D3ChartScript } from '../../data/ChartScript'
 import { ChartClient } from '../ChartClient'
 import ChartRequestView from './ChartRequestView'
 
-// ChartRequestPage — the /chart/:queryName route. If the URL carries an encoded chart (Signum's Decoder:
-// `?script=…&column0=…&…`), it rebuilds that exact ChartRequestModel (bookmark / drilldown round-trip).
-// Otherwise it builds a sensible initial model for the query (a Columns chart grouped by `?token=` — default:
-// the first meaningful categorical column — with a Count aggregate). Either way it hands the model to the
-// interactive editor (ChartRequestView), which draws on load and lets the user change type/tokens/params/filters.
+// ChartRequestPage — the /chart/:queryName route. Keeps the chart <-> URL in sync (Signum's
+// ChartRequestPage): the request is decoded FROM the URL (Encoder/Decoder), and every change in the editor
+// re-encodes the request and REPLACEs the address bar — so the chart is bookmarkable/shareable and
+// back/forward work. The location effect only re-decodes when the URL genuinely differs from the current
+// request's encoded path (an external URL change), so onChange's own replace doesn't rebuild the editor.
 export default function ChartRequestPage(): React.JSX.Element {
   const params = useParams();
+  const location = useLocation();
   const queryName = params.queryName!;
-  const search = window.location.search;
 
-  const built = useAPI(async () => {
-    // Encoded chart in the URL (script or any column) → reconstruct it via the Decoder.
-    const query = QueryString.parse(search);
-    if (query.column0 != null || query.script != null)
-      return await ChartClient.Decoder.parseChartRequest(queryName, query);
+  const [cr, setCr] = React.useState<ChartRequestModel | undefined>(undefined);
 
-    const keyTokenParam = query.token as string | undefined;
-    const opts = SubTokensOptions.CanElement | SubTokensOptions.CanAggregate;
-    // Key = the `?token=` column if given, else a sensible default from the query's columns: prefer a
-    // categorical column (entity / enum / string) for a meaningful grouping, else the first non-Id
-    // groupable column, else any groupable one.
-    let keyToken: QueryToken;
-    if (keyTokenParam != null) {
-      keyToken = await Finder.parseSingleToken(queryName, keyTokenParam, opts);
-    } else {
-      const cols = await getSubTokens(await Finder.getQueryRoot(queryName), SubTokensOptions.CanElement);
-      const groupable = cols.filter(t => t.isGroupable);
-      // Prefer an entity-reference or enum column (low-cardinality, meaningful group key); avoid the unique
-      // Id / ToStr columns; else any groupable column.
-      keyToken = groupable.find(t => t.filterType == "Lite" || t.filterType == "Enum")
-        ?? groupable.find(t => t.key != "Id" && t.key != "ToStr")
-        ?? groupable[0];
-    }
-    const valueToken = await Finder.parseSingleToken(queryName, "Count", opts);
+  React.useEffect(() => {
+    const newPath = location.pathname + location.search;
+    // The current request's own encoded path — if the URL already matches it (e.g. we just replaced it from
+    // onChange, or the editor mutated `cr` in place), there is nothing to reload.
+    const oldPathPromise: Promise<string | undefined> = cr ? ChartClient.Encoder.chartPathPromise(cr) : Promise.resolve(undefined);
+    oldPathPromise.then(oldPath => {
+      if (oldPath != newPath)
+        buildRequest(queryName, location.search).then(setCr);
+    });
+    // `cr` is intentionally NOT a dep: onChange mutates the SAME instance + replaces the URL, so the effect
+    // (re-run by the search change) sees oldPath == newPath and skips — no rebuild/reset of the editor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, location.search, queryName]);
 
-    const mkCol = (t: QueryToken): ChartColumnEmbedded => {
-      const qte = new QueryTokenEmbedded();
-      qte.tokenString = t.fullKey();
-      qte.token = t;
-      const col = new ChartColumnEmbedded();
-      col.token = qte;
-      return col;
-    };
+  // Editor changed the chart (draw / token / order / parameter) → reflect it in the URL (replace, so the
+  // editing session is one history entry). The editor mutates `cr` in place, so encode the same instance.
+  function handleChange(changed: ChartRequestModel): void {
+    ChartClient.Encoder.chartPathPromise(changed)
+      .then(path => AppContext.navigate(path, { replace: true }));
+  }
 
-    const cr = new ChartRequestModel();
-    cr.queryKey = queryName;
-    cr.chartScript = D3ChartScript.Columns;
-    cr.filterOptions = [];
-    cr.columns = [mkCol(keyToken), mkCol(valueToken)];
-
-    const cs = await ChartClient.getChartScript(D3ChartScript.Columns);
-    ChartClient.synchronizeColumns(cr, cs);
-    return cr;
-  }, [queryName, search]);
-
-  if (built == null)
+  if (cr == null)
     return <div className="m-3">Loading chart…</div>;
 
   return (
     <div className="m-3">
-      <ChartRequestView chartRequest={built} searchOnLoad />
+      <ChartRequestView chartRequest={cr} searchOnLoad onChange={handleChange} />
     </div>
   );
+}
+
+// Build the ChartRequestModel for the current URL: an encoded chart (script / column0 present) is
+// reconstructed via the Decoder; otherwise a sensible default (a Columns chart grouped by `?token=` — or
+// the first meaningful categorical column — with a Count aggregate).
+async function buildRequest(queryName: string, search: string): Promise<ChartRequestModel> {
+  const query = QueryString.parse(search);
+  if (query.column0 != null || query.script != null)
+    return await ChartClient.Decoder.parseChartRequest(queryName, query);
+
+  const keyTokenParam = query.token as string | undefined;
+  const opts = SubTokensOptions.CanElement | SubTokensOptions.CanAggregate;
+  // Key = the `?token=` column if given, else a sensible default from the query's columns: prefer a
+  // categorical column (entity / enum / string) for a meaningful grouping, else the first non-Id
+  // groupable column, else any groupable one.
+  let keyToken: QueryToken;
+  if (keyTokenParam != null) {
+    keyToken = await Finder.parseSingleToken(queryName, keyTokenParam, opts);
+  } else {
+    const cols = await getSubTokens(await Finder.getQueryRoot(queryName), SubTokensOptions.CanElement);
+    const groupable = cols.filter(t => t.isGroupable);
+    keyToken = groupable.find(t => t.filterType == "Lite" || t.filterType == "Enum")
+      ?? groupable.find(t => t.key != "Id" && t.key != "ToStr")
+      ?? groupable[0];
+  }
+  const valueToken = await Finder.parseSingleToken(queryName, "Count", opts);
+
+  const mkCol = (t: QueryToken): ChartColumnEmbedded => {
+    const qte = new QueryTokenEmbedded();
+    qte.tokenString = t.fullKey();
+    qte.token = t;
+    const col = new ChartColumnEmbedded();
+    col.token = qte;
+    return col;
+  };
+
+  const cr = new ChartRequestModel();
+  cr.queryKey = queryName;
+  cr.chartScript = D3ChartScript.Columns;
+  cr.filterOptions = [];
+  cr.columns = [mkCol(keyToken), mkCol(valueToken)];
+
+  const cs = await ChartClient.getChartScript(D3ChartScript.Columns);
+  ChartClient.synchronizeColumns(cr, cs);
+  return cr;
 }
