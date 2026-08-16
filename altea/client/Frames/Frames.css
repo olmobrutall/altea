@@ -73,6 +73,17 @@
     margin-bottom: 0.75rem;
 }
 
+/* Space out buttons in a btn-toolbar (Signum's Frames.css). Used by bare `.btn-toolbar`s such as the
+   SaveChangesModal / MessageModal footers. altea divergence: the frame's own ButtonBar (`.sf-button-bar`)
+   uses `gap` for its spacing, so exclude it here to avoid doubling the margins. */
+.btn-toolbar:not(.sf-button-bar) > .btn,
+.btn-toolbar:not(.sf-button-bar) > .btn-group,
+.btn-toolbar:not(.sf-button-bar) > .input-group,
+.btn-toolbar:not(.sf-button-bar) > .dropdown {
+    margin-bottom: 3px;
+    margin-right: 5px;
+}
+
 /* Entity-frame title chrome (Signum's Frames.css). The subtitle's id + copy-lite / copy-link buttons
    carry `.sf-hide-id` and fade in only on hover / keyboard focus of the subtitle row. */
 .sf-entity-title {

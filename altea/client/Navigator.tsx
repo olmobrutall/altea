@@ -44,7 +44,7 @@ import type { AutocompleteConfig } from './Lines/AutoCompleteConfig';
 import CopyLiteButton from './Components/CopyLiteButton';
 import CopyLinkButton from './Components/CopyLinkButton';
 import type { TypeEntity } from "../data/typeEntity";
-/* ===== Original Signum imports — rewire to altea modules as they are ported =====
+/* ===== Original Signum imports â€” rewire to altea modules as they are ported =====
 import * as React from "react"
 import { RouteObject } from 'react-router'
 import { Dic, classes, softCast, } from './Globals';                          // -> ../entities/globals
@@ -76,14 +76,14 @@ import { object } from "prop-types";
 import { clearSpecialActions } from "./OmniboxSpecialAction";
 import { ContextualItemsContext, MenuItemBlock } from "./SearchControl/ContextualItems";
 
-// ALTEA: currentUser lives in AppContext (not yet ported) — the anonymous-user guard is deferred.
+// ALTEA: currentUser lives in AppContext (not yet ported) â€” the anonymous-user guard is deferred.
 if (!window.__allowNavigatorWithoutUser && (currentUser == null || getToString(currentUser) == "Anonymous"))
   throw new Error("To improve intial performance, no dependency to any module that depends on Navigator should be taken for anonymous user. Review your dependencies or write var __allowNavigatorWithoutUser = true in Index.cshtml to disable this check.");
 ===== */
 
 export namespace Navigator {
 
-  /* ============================ TODO PORT — commented out for altea ============================
+  /* ============================ TODO PORT â€” commented out for altea ============================
      Everything from here to the API namespace depends on the reflection types blob and/or unported
      modules (Finder, Operations, Constructor, Frames, Lines, Components, Modals, Hooks,
      SearchControl, EntitySettings/ViewPromise). Uncomment + sweep conventions as those land.
@@ -151,7 +151,7 @@ export namespace Navigator {
     entityChanged[cleanName]?.forEach(func => func(cleanName, entity, isRedirect));
   }
 
-  /* ============================ TODO PORT — commented (blob: TypeInfo.niceName/kind/entityKind,
+  /* ============================ TODO PORT â€” commented (blob: TypeInfo.niceName/kind/entityKind,
      entitySettings, messages, Finder, Frames, Modals, Components) ============================
   export function getTypeSubTitle(entity: ModifiableEntity, pr: PropertyRoute | undefined): React.ReactNode | undefined {
 
@@ -249,7 +249,7 @@ export namespace Navigator {
 
 
 
-  /* ============================ TODO PORT — commented (blob + entitySettings + messages + Finder +
+  /* ============================ TODO PORT â€” commented (blob + entitySettings + messages + Finder +
      Frames + Modals + Components + Hooks) ============================
   export function renderLiteOrEntity(entity: Lite<Entity> | Entity | ModifiableEntity, modelType?: string): string | React.ReactElement<any, string | React.JSXElementConstructor<any>> | undefined {
     if (isLite(entity))
@@ -933,7 +933,7 @@ export namespace Navigator {
     return useAPI(signal => API.fetchAll(type), [type, ...(deps ?? [])]);
   }
 
-  /* ============================ TODO PORT — commented (need newLite / fillLiteModels / custom-lite
+  /* ============================ TODO PORT â€” commented (need newLite / fillLiteModels / custom-lite
      models + getAutocompleteConstructors/someNonViewable which need Constructor/entitySettings) ============================
   export function useLiteToString<T extends Entity>(type: Type<T>, id: number | string, deps?: React.DependencyList, options?: APIHookOptions): Lite<T> {
 
@@ -1094,25 +1094,25 @@ export namespace Navigator {
 
   // ===== Ported + ACTIVE: the entity HTTP client (client half of EntitiesController). =====
   // ALTEA seam: entity responses decode via Serializer.parse (real class graph), entity POST bodies
-  // via Serializer.stringify — not the generic JSON ajax. Swept: lite.EntityType -> lite.entityType,
+  // via Serializer.stringify â€” not the generic JSON ajax. Swept: lite.EntityType -> lite.entityType,
   // entity.Type -> getTypeName(entity), type.typeName static -> getTypeName(type). Inside `namespace
   // API`, `fetch` shadows the DOM fetch -> window.fetch. Deferred (TODO): partitionId,
   // fillLiteModels/custom-lite models, getEnumEntities (need reflection endpoints). getType is now ACTIVE
   // below (served by reflectionServer's /api/reflection/typeEntity/:typeName).
   export namespace API {
 
-    // GET an entity graph — ajaxGet already rebuilds the real class instances via Serializer.parse.
+    // GET an entity graph â€” ajaxGet already rebuilds the real class instances via Serializer.parse.
     function getEntity<T>(url: string): Promise<T> {
       return ajaxGet<T>({ url });
     }
 
-    // POST an entity — ajaxPost already Serializer-encodes the body (real graph → wire) and decodes the
+    // POST an entity â€” ajaxPost already Serializer-encodes the body (real graph â†’ wire) and decodes the
     // response (rebuilds any returned entity graph).
     function postEntity<T>(url: string, entity: unknown): Promise<T> {
       return ajaxPost<T>({ url }, entity);
     }
 
-    // GET an EntityPack: the envelope is JSON and its `entity` field is an entity graph — ajaxGet's
+    // GET an EntityPack: the envelope is JSON and its `entity` field is an entity graph â€” ajaxGet's
     // Serializer.parse revives the nested { $type } entity and leaves `canExecute` plain.
     function getEntityPack<T extends Entity>(url: string): Promise<EntityPack<T>> {
       return ajaxGet<EntityPack<T>>({ url });
@@ -1183,13 +1183,13 @@ export namespace Navigator {
   }
 
   // ================= ACTIVE: EntitySettings registry + type classification =================
-  // Uses the enriched TypeInfo (entityKind / kind). This is a MINIMAL EntitySettings — the
+  // Uses the enriched TypeInfo (entityKind / kind). This is a MINIMAL EntitySettings â€” the
   // view/autocomplete/render fields of Signum's full EntitySettings (commented in region C below)
   // land with their deps (ViewReplacer / AutocompleteConfig / Modals / Frames). Local `isEntityPack`
   // replaces the removed free helper. `isFindable` stays commented (needs Finder).
 
   // EntityWhen + the FULL EntitySettings (and ViewPromise) now live in ./EntitySettings (staged; the
-  // view-override machinery is stubbed there). Imported at module scope above — this replaces the
+  // view-override machinery is stubbed there). Imported at module scope above â€” this replaces the
   // earlier MINIMAL inline EntitySettings so the autocomplete/getViewPromise/render fields exist for
   // EntityLine/getAutoComplete.
 
@@ -1375,7 +1375,7 @@ export namespace Navigator {
     }
   }
 
-  // ---- render lite / entity (display). ModifiableEntity→BaseEntity; idioms swept. ----
+  // ---- render lite / entity (display). ModifiableEntityâ†’BaseEntity; idioms swept. ----
   export function renderLiteOrEntity(entity: Lite<Entity> | Entity | BaseEntity, modelType?: string): string | React.ReactElement | undefined {
     if (entity instanceof Lite)
       return renderLite(entity);
@@ -1415,7 +1415,7 @@ export namespace Navigator {
   }
 
   // ---- defaultFindOptions (from a query column's RuntimeType, or a bare type name) ----
-  // ALTEA: overloaded to also accept a type NAME string — the Lines layer (EntityBase) carries a
+  // ALTEA: overloaded to also accept a type NAME string â€” the Lines layer (EntityBase) carries a
   // FieldInfo (whose `.typeName` is a plain name), not a query-column RuntimeType. Signum's single
   // TypeReference covered both; here the string form is the field-line path.
   export function defaultFindOptions(type: TypeReference): FindOptions | undefined;
@@ -1471,7 +1471,7 @@ export namespace Navigator {
   }
 
   // ALTEA: takes a single TypeInfo (Signum took a RuntimeType then re-resolved via getTypeInfos).
-  // `view(a)` is currently a STUB, so the "create new" onClick throws until Frames land — acceptable
+  // `view(a)` is currently a STUB, so the "create new" onClick throws until Frames land â€” acceptable
   // (autocomplete search itself works).
   export function getAutocompleteConstructors(ti: TypeInfo, str: string, aac: AutocompleteConstructorContext): AutocompleteConstructor<Entity>[] {
     const typeName = cleanTypeName(ti.ctor!);
@@ -1499,7 +1499,7 @@ export namespace Navigator {
     const es = getSettings(typeName) as EntitySettings<T> | undefined;
 
     if (viewName == undefined) {
-      // No registered view → auto-generate one from the entity's property routes (Signum's
+      // No registered view â†’ auto-generate one from the entity's property routes (Signum's
       // AutoComponent). The Frame renders whatever component this ViewPromise resolves to.
       if (!es?.getViewPromise)
         return new ViewPromise<T>(import('./AutoComponent')).applyViewOverrides(typeName);
@@ -1512,7 +1512,7 @@ export namespace Navigator {
     }
   }
 
-  // ---- view — opens a FrameModal (Frames view-render layer). ----
+  // ---- view â€” opens a FrameModal (Frames view-render layer). ----
   export function getFrameModal(): Promise<typeof import("./Frames/FrameModal")> {
     return import("./Frames/FrameModal");
   }
@@ -1522,7 +1522,7 @@ export namespace Navigator {
   }
 
   // Registers the entity view/create page routes. A client app calls this at bootstrap with its
-  // react-router route array. (Signum's full `start` also cleared events / installed defaults — those
+  // react-router route array. (Signum's full `start` also cleared events / installed defaults â€” those
   // stay in the commented staging block above until their deps land.)
   export function start(options: { routes: RouteObject[] }): void {
     options.routes.push({ path: "/view/:type/:id", element: <ImportComponent onImport={() => getFramePage()} /> });
@@ -1534,7 +1534,7 @@ export namespace Navigator {
   }
 
   // Activated for the Operations client layer (Signum's versions live in the commented staging block;
-  // altea fixes: lite.EntityType→lite.entityType, getSettings by clean name, window data-transfer cast).
+  // altea fixes: lite.EntityTypeâ†’lite.entityType, getSettings by clean name, window data-transfer cast).
   export function someNonViewable(lites: Lite<Entity>[]): boolean {
     return lites.groupBy(a => a.entityType).some(gr => {
       var isViewable = getSettings(gr.key)?.isViewableLite;
@@ -1575,7 +1575,7 @@ export namespace Navigator {
 
   // ALTEA: Signum's getTypeSubTitle used entity.Type + isTypeEntity/isTypeModel + defaultRenderSubTitle;
   // altea uses instanceof + getNiceName(). Now also renders the id + copy-lite / copy-link buttons
-  // (Signum's defaultRenderSubTitle → renderId), which fade in on hover via the `.sf-hide-id` CSS.
+  // (Signum's defaultRenderSubTitle â†’ renderId), which fade in on hover via the `.sf-hide-id` CSS.
   export function getTypeSubTitle(entity: BaseEntity, pr: PropertyRoute | undefined): React.ReactNode | undefined {
     const es = getSettings(getTypeName(entity));
     if (es?.renderSubTitle)
@@ -1638,304 +1638,3 @@ export namespace Navigator {
       .then(NP => NP.FrameModalManager.openView(entityOrPack, viewOptions ?? {}));
   }
 }
-
-
-/* ===== TODO PORT — EntitySettings / ViewPromise / view-registration (needs ViewReplacer,
-   Modals, Lines, Components, and the types blob). Uncomment as those land. =====
-export interface EnumConverter<T> {
-  enumToEntity: { [enumValue: string]: EnumEntity<T> };
-  idToEnum: { [id: string]: T };
-}
-
-
-export interface EntitySettingsOptions<T extends ModifiableEntity> {
-  isCreable?: EntityWhen;
-  isCreableByFilterProps?: (props: Partial<T>) => boolean; 
-  isFindable?: boolean;
-  isViewable?: EntityWhen;
-  isViewableLite?: (lite: Lite<T & Entity>, options: Navigator.IsViewableOptions | undefined) => boolean;
-  isViewableEntityPack?: (entityPack: EntityPack<T>, options: Navigator.IsViewableOptions | undefined) => boolean;
-  isReadOnly?: boolean;
-  avoidPopup?: boolean;
-  supportsAdditionalTabs?: boolean;
-
-  hideId?: boolean;
-
-  allowWrapEntityLink?: boolean;
-  avoidFillSearchColumnWidth?: boolean;
-
-  modalSize?: BsSize;
-  modalMaxWidth?: boolean;
-  modalDialogClass?: string;
-  modalFullScreen?: boolean;
-
-  stickyHeader?: boolean;
-
-
-  renderSubTitle?: (entity: T) => React.ReactNode;
-
-  autocomplete?: (fo: FindOptions | undefined, showType: boolean) => AutocompleteConfig<any> | undefined | null;
-  autocompleteDelay?: number;
-  autocompleteConstructor?: (keyof T) | ((str: string, aac: AutocompleteConstructorContext) => AutocompleteConstructor<T> | null);
-  defaultFindOptions?: FindOptions;
-
-  getViewPromise?: (entity: T) => ViewPromise<T>;
-  onNavigateRoute?: (typeName: string, id: string | number) => string;
-  onView?: (entityOrPack: Lite<Entity & T> | T | EntityPack<T>, viewOptions?: Navigator.ViewOptions<T>) => Promise<T | undefined>;
-  onCreateNew?: (oldEntity: EntityPack<T>) => (Promise<EntityPack<T> | undefined>) | undefined; // Save An New
-
-  renderLite?: (lite: Lite<T & Entity>, hl: TextHighlighter) => React.ReactElement | string;
-  renderEntity?: (entity: T, hl: TextHighlighter) => React.ReactElement | string; 
-  extraToolbarButtons?: (ctx: ButtonsContext) => (ButtonBarElement | undefined)[];
-  enforceFocusInModal?: boolean;
-
-  namedViews?: NamedViewSettings<T>[];
-
-  showContextualSearchBox?: (ctx: ContextualItemsContext<Entity>, blocks?: MenuItemBlock[]) => boolean
-}
-
-export interface AutocompleteConstructorContext {
-  ctx: TypeContext<any>;
-  foundLites: Lite<Entity>[];
-  findOptions?: FindOptions;
-  create: boolean;
-}
-
-export interface ViewOverride<T extends ModifiableEntity> {
-  viewName?: string;
-  override: (replacer: ViewReplacer<T>) => void;
-}
-
-export interface AutocompleteConstructor<T extends ModifiableEntity> {
-  type: PseudoType;
-  onClick: () => Promise<T | Lite<T & Entity> | undefined>;
-  customElement?: React.ReactNode;
-}
-
-export class EntitySettings<T extends ModifiableEntity> {
-  typeName: string;
-
-  getViewPromise?: (entity: T) => ViewPromise<T>;
-
-  viewOverrides?: Array<ViewOverride<T>>;
-
-  isCreable?: EntityWhen;
-  isCreableByFilterProps?: (props: Partial<T>) => boolean; 
-  isFindable?: boolean;
-  isViewable?: EntityWhen;
-  isViewableLite?: (lite: Lite<T & Entity>, options: Navigator.IsViewableOptions | undefined) => boolean;
-  isViewableEntityPack?: (entityPack: EntityPack<T>, options: Navigator.IsViewableOptions | undefined) => boolean;
-  isReadOnly?: boolean;
-  avoidPopup!: boolean;
-  supportsAdditionalTabs?: boolean;
-
-  hideId?: boolean;
-
-  allowWrapEntityLink?: boolean;
-  avoidFillSearchColumnWidth?: boolean;
-
-  modalSize?: BsSize;
-  modalMaxWidth?: boolean;
-  modalDialogClass?: string;
-  modalFullScreen?: boolean;
-
-  stickyHeader?: boolean;
-
-  renderSubTitle?: (entity: T) => React.ReactNode;
-
-  autocomplete?: (fo: FindOptions | undefined, showType: boolean) => AutocompleteConfig<any> | undefined | null;
-  autocompleteDelay?: number;
-  autocompleteConstructor?: (keyof T) | ((str: string, aac: AutocompleteConstructorContext) => AutocompleteConstructor<T> | null);
-  defaultFindOptions?: FindOptions;
-
-  onView?: (entityOrPack: Lite<Entity & T> | T | EntityPack<T>, viewOptions?: Navigator.ViewOptions<T>) => Promise<T | undefined>;
-  onNavigateRoute?: (typeName: string, id: string | number, viewName?: string) => string;
-
-  namedViews?: { [viewName: string]: NamedViewSettings<T> };
-  overrideView(override: (replacer: ViewReplacer<T>) => void, viewName?: string): void {
-    if (this.viewOverrides == undefined)
-      this.viewOverrides = [];
-
-    this.viewOverrides.push({ override, viewName });
-  }
-
-  renderLite?: (lite: Lite<T & Entity>, hl: TextHighlighter) => React.ReactElement | string; 
-  renderEntity?: (entity: T, hl: TextHighlighter) => React.ReactElement | string; 
-  extraToolbarButtons?: (ctx: ButtonsContext) => (ButtonBarElement | undefined)[];
-  enforceFocusInModal?: boolean;
-
-  showContextualSearchBox = (ctx: any, blocks?: MenuItemBlock[]) : boolean => Boolean(blocks && blocks.notNull().sum(b => b.menuItems?.length) > 20);
-
-  constructor(type: Type<T> | string, getViewModule?: (entity: T) => Promise<ViewModule<T>>, options?: EntitySettingsOptions<T>) {
-
-    this.typeName = (type as Type<T>).typeName ?? type as string;
-    this.getViewPromise = getViewModule && (entity => new ViewPromise(getViewModule(entity)));
-
-    if (options) {
-      var { namedViews, ...rest } = options;
-      Dic.assign(this, rest);
-
-      if (namedViews != null)
-        this.namedViews = namedViews.toObject(a => a.viewName);
-    }
-  }
-
-  registerNamedView(settings: NamedViewSettings<T>): void {
-    if (!this.namedViews)
-      this.namedViews = {};
-
-    this.namedViews[settings.viewName] = settings;
-  }
-}
-
-interface NamedViewSettingsOptions<T extends ModifiableEntity> {
-  getViewPromise?: (entity: T) => ViewPromise<T>;
-}
-
-export class NamedViewSettings<T extends ModifiableEntity> {
-  type: Type<T>
-
-  viewName: string;
-
-  getViewPromise: (entity: T) => ViewPromise<T>;
-
-  constructor(type: Type<T>, viewName: string, getViewModule?: (entity: T) => Promise<ViewModule<T>>, options?: NamedViewSettingsOptions<T>) {
-    this.type = type;
-    this.viewName = viewName;
-    var getViewPromise = (getViewModule && ((entity: T) => new ViewPromise(getViewModule(entity)))) || (options?.getViewPromise);
-    if (!getViewPromise)
-      throw new Error("setting getViewModule or options.getViewPromise arguments is mandatory");
-    this.getViewPromise = getViewPromise;
-    Dic.assign(this, options)
-  }
-}
-
-export type ViewModule<T extends ModifiableEntity> = { default: React.ComponentClass<any> | React.FunctionComponent<any> };
-
-export class ViewPromise<T extends ModifiableEntity> {
-  promise!: Promise<(ctx: TypeContext<T>) => React.ReactElement>;
-
-  constructor(promise?: Promise<ViewModule<T>>) {
-    if (promise)
-      this.promise = promise
-        .then(mod => {
-          return (ctx: TypeContext<T>): React.ReactElement => React.createElement(mod.default, { ctx });
-        });
-  }
-
-  static resolve<T extends ModifiableEntity>(getComponent: (ctx: TypeContext<T>) => React.ReactElement): ViewPromise<T> {
-    var result = new ViewPromise<T>();
-    result.promise = Promise.resolve(getComponent);
-    return result;
-  }
-
-  withProps<P>(props: Partial<P>): ViewPromise<T> {
-
-    var result = new ViewPromise<T>();
-
-    result.promise = this.promise.then(func => {
-      return (ctx: TypeContext<T>): React.ReactElement => {
-        var result = func(ctx);
-        return React.cloneElement(result, { ...props });
-      };
-    });
-
-    return result;
-  }
-
-  applyViewOverrides(typeName: string, viewName?: string): ViewPromise<T> {
-    this.promise = this.promise.then(func =>
-      Navigator.getViewDispatcher().getViewOverrides(typeName, viewName).then(vos => {
-
-        if (vos.length == 0)
-          return func;
-
-        return (ctx: TypeContext<T>) => {
-          var result = func(ctx);
-          var component = result.type as React.ComponentClass<{ ctx: TypeContext<T> }> | React.FunctionComponent<{ ctx: TypeContext<T> }>;
-          if (component.prototype.render) {
-            monkeyPatchClassComponent<T>(component as React.ComponentClass<{ ctx: TypeContext<T> }>, vos!);
-            return result;
-          } else {
-            var newFunc = ViewPromise.surroundFunctionComponent(component as React.FunctionComponent<{ ctx: TypeContext<T> }>, vos)
-            return React.createElement(newFunc, result.props as any);
-          }
-        };
-      }));
-
-    return this;
-  }
-
-  static flat<T extends ModifiableEntity>(promise: Promise<ViewPromise<T>>): ViewPromise<T> {
-    var result = new ViewPromise<T>();
-    result.promise = promise.then(vp => vp.promise);
-    return result;
-  }
-
-  static surroundFunctionComponent<T extends ModifiableEntity>(functionComponent: React.FunctionComponent<{ ctx: TypeContext<T> }>, viewOverrides: ViewOverride<T>[]): React.FunctionComponent<{ ctx: TypeContext<T> }> {
-
-    var cache = (functionComponent as any).cache as FunctionCache<T>;
-
-    if (cache) {
-      if (cache.viewOverrides.every((vo, i) => viewOverrides[i] == vo))
-        return cache.overridenView;
-      else {
-        (functionComponent as any).cache = null;
-      }
-    }
-
-    var result = function NewComponent(props: { ctx: TypeContext<T> }) {
-      var view = functionComponent(props);
-
-      const replacer = new ViewReplacer<T>(view! as React.ReactElement, props.ctx, functionComponent);
-      viewOverrides.forEach(vo => vo.override(replacer));
-      return replacer.result;
-    };
-
-    Object.defineProperty(result, "name", { value: functionComponent.name + "VO" });
-
-    (functionComponent as any).cache = softCast<FunctionCache<T>>({
-      overridenView: result,
-      viewOverrides: viewOverrides,
-    });
-
-    return result;
-  }
-
-}
-
-function monkeyPatchClassComponent<T extends ModifiableEntity>(component: React.ComponentClass<{ ctx: TypeContext<T> }>, viewOverrides: ViewOverride<T>[]) {
-
-  if (!component.prototype.render)
-    throw new Error("render function not defined in " + component);
-
-  if (component.prototype.render.withViewOverrides)
-    return;
-
-  const baseRender = component.prototype.render as (this: React.Component<any>) => React.ReactElement;
-
-  component.prototype.render = function (this: React.Component<any, any>) {
-
-    const ctx = this.props.ctx;
-
-    const view = baseRender.call(this);
-
-    const replacer = new ViewReplacer<T>(view!, ctx, component);
-    viewOverrides.forEach(vo => vo.override(replacer));
-    return replacer.result;
-  };
-
-  component.prototype.render.withViewOverrides = true;
-}
-
-interface FunctionCache<T extends ModifiableEntity>  {
-  overridenView: React.FunctionComponent<{ ctx: TypeContext<T> }>,
-  viewOverrides: ViewOverride<T>[]
-}
-
-
-export type EntityWhen = "Always" | "IsSearch" | "IsLine" | "Never";
-===== end TODO PORT ===== */
-
-
-
