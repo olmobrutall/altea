@@ -43,7 +43,7 @@ import { FindOptionsAutocompleteConfig, MultiAutoCompleteConfig } from './Lines/
 import type { AutocompleteConfig } from './Lines/AutoCompleteConfig';
 import CopyLiteButton from './Components/CopyLiteButton';
 import CopyLinkButton from './Components/CopyLinkButton';
-
+import type { TypeEntity } from "../data/typeEntity";
 /* ===== Original Signum imports — rewire to altea modules as they are ported =====
 import * as React from "react"
 import { RouteObject } from 'react-router'
@@ -1119,11 +1119,9 @@ export namespace Navigator {
     }
 
     // The persisted TypeEntity row for a (clean) type name (Signum's Navigator.API.getType). Served by
-    // reflectionServer's /api/reflection/typeEntity/:typeName; ajaxGet revives the real entity (or null when
-    // the type is unknown). Used e.g. by the chart ColorPalette link to pre-scope a new palette. Typed as
-    // Entity (not TypeEntity) so this heavily-@quoted module needn't import the TypeEntity class — callers
-    // cast to TypeEntity (it always resolves to a TypeEntity here).
-    export function getType(typeName: string): Promise<Entity | null> {
+    // reflectionServer's /api/reflection/typeEntity/:typeName; ajaxGet revives the real TypeEntity (or null
+    // when the type is unknown). Used e.g. by the chart ColorPalette link to pre-scope a new palette.
+    export function getType(typeName: string): Promise<TypeEntity | null> {
       return ajaxGet({ url: `/api/reflection/typeEntity/${typeName}` });
     }
 

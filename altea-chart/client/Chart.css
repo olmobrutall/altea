@@ -52,8 +52,10 @@
 .sf-chart-img {
     height: 40px;
     width: 40px;
+    margin: 3px;
     float: left;
     cursor: pointer;
+    border-radius: 4px;
 }
 
 .sf-chart-img-equiv {

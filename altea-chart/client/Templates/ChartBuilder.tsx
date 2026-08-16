@@ -128,8 +128,8 @@ export default function ChartBuilder(p: ChartBuilderProps): React.JSX.Element {
     <div className="row sf-chart-builder gx-2">
       <div className="col-lg-2">
         <div className="sf-chart-type card bg-body rounded shadow-sm border-0 p-2">
-          <div className="card-header">
-            <h2 className="mb-3 card-title h6" style={{ backgroundColor: "inherit" }}>{ChartMessage.ChartType.niceToString()}</h2>
+          <div className="card-header" style={{ backgroundColor: "inherit" }}>
+            <h2 className="mb-3 card-title h6">{ChartMessage.ChartType.niceToString()}</h2>
           </div>
           <div className="card-body">
             {chartScripts?.map((cs, i) =>

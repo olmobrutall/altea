@@ -12,7 +12,8 @@ import { SubTokensOptions } from '@altea/altea/data/dynamicQuery/tokens/queryTok
 import type { QueryToken } from '@altea/altea/data/dynamicQuery/tokens/queryToken';
 import { AggregateToken } from '@altea/altea/data/dynamicQuery/tokens/aggregateToken';
 import type { QueryRequest, ColumnRequest, OrderRequest, ResultTable, SystemTime } from '@altea/altea/data/dynamicQuery/queryRequest';
-import type { FilterOptionParsed, FilterOption, OrderOption } from '@altea/altea/client/FindOptions';
+import type { FilterOptionParsed, FilterOption, OrderOption, FindOptions } from '@altea/altea/client/FindOptions';
+import { isFilterCondition } from '@altea/altea/client/FindOptions';
 import { Finder } from '@altea/altea/client/Finder';
 import { QueryString } from '@altea/altea/client/QueryString';
 import { toNumberFormat } from '@altea/altea/client/numberFormat';
@@ -376,6 +377,33 @@ export namespace ChartClient {
       }
       default: throw new Error("Unexpected parameter type");
     }
+  }
+
+  // Signum's ChartClient.extractFindOptions — turn a clicked chart row into a FindOptions that explores the
+  // underlying query filtered by the row's key columns (the drilldown target). altea divergences: plain
+  // column arrays (`a.token`, no `.element`); `token instanceof AggregateToken` for the aggregate check;
+  // `.fullKey()` is a method; the time-series AsOf branch is dropped (altea has no time-series token kind).
+  export function extractFindOptions(cr: ChartRequestModel, r: ChartRow): FindOptions {
+
+    // The chart's own condition filters (drop aggregate HAVING filters — invalid in a non-grouped search).
+    const filters: FilterOptionParsed[] = (cr.filterOptions ?? [])
+      .filter(f => isFilterCondition(f) && !(f.token instanceof AggregateToken)) as FilterOptionParsed[];
+
+    cr.columns.forEach((a, i) => {
+      const token = a.token?.token;
+      if (token == null)
+        return;
+
+      // A non-aggregate key column that the clicked row carries a value for → an EqualTo filter.
+      if (!(token instanceof AggregateToken) && Object.prototype.hasOwnProperty.call(r, "c" + i))
+        filters.push({ token, operation: "EqualTo", value: (r as any)["c" + i], frozen: false } as unknown as FilterOptionParsed);
+    });
+
+    return {
+      queryName: cr.queryKey,
+      filterOptions: Finder.toFilterOptions(filters),
+      includeDefaultFilters: false,
+    };
   }
 
   // ---- URL round-trip (Signum's ChartClient Encoder / Decoder) ------------------------------------------

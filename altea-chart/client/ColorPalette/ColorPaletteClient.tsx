@@ -71,8 +71,10 @@ export namespace ColorPaletteClient {
     // stay unchanged).
     export const colorPalette: { [typeName: string]: Promise<ColorPalette | null> } = {};
 
-    export function getColorPalette(type: TypeInfo): Promise<ColorPalette | null> {
-        const name = cleanTypeName(type.ctor!);
+    // Accepts a TypeInfo (getPalletes' entity types) OR a clean type-name string (the chart column editor's
+    // palette link, which also covers enum columns that have no client TypeInfo.ctor).
+    export function getColorPalette(type: TypeInfo | string): Promise<ColorPalette | null> {
+        const name = typeof type === "string" ? type : cleanTypeName(type.ctor!);
 
         if (colorPalette[name] !== undefined)
             return colorPalette[name];

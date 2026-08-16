@@ -13,7 +13,6 @@ import { ColorPaletteClient } from '../ColorPalette/ColorPaletteClient'
 import { ColorPaletteEntity } from '../../data/ColorPalette'
 import { Navigator } from '@altea/altea/client/Navigator'
 import { JavascriptMessage } from '@altea/altea/data/uiMessages'
-import type { TypeInfo } from '@altea/altea/data/reflection'
 import { cleanTypeName } from '@altea/altea/data/registration'
 import { useForceUpdate, useAPIWithReload } from '@altea/altea/client/Hooks'
 import { ColumnParameters } from './ChartBuilder'
@@ -95,19 +94,25 @@ export function ChartColumn(p: ChartColumnProps): React.JSX.Element {
     de.dataTransfer.effectAllowed = "move";
   }
 
-  // Signum's getColorPalettes: the token's type resolved to TypeInfo(s), so the expanded editor can offer a
-  // "Colors for <Type>" View/Create-palette link — but only for entity (Lite) columns and only when the
-  // ColorPalette entity is editable. (altea: enums resolve to no TypeInfos, so this is entity-only for now.)
-  function getColorPalettes(): TypeInfo[] {
+  // Signum's getColorPalettes: the token's type → the palette target(s) so the expanded editor can offer a
+  // "Colors for <Type>" View/Create-palette link (only when the ColorPalette entity is editable). Entity
+  // (Lite) columns yield their TypeInfo(s); ENUM columns yield the enum type name directly (altea has no
+  // client TypeInfo for enums — the server keys an enum palette's SpecificColors by member name).
+  function getColorPalettes(): { cleanName: string; niceName: string }[] {
     const t = p.ctx.value.token?.token?.type;
 
     if (t == undefined || Navigator.isReadOnly(ColorPaletteEntity))
       return [];
 
-    if (!t.lite)
-      return [];
+    if (t.lite)
+      return t.typeInfos().map(ti => ({ cleanName: cleanTypeName(ti.ctor!), niceName: ti.getNiceName() }));
 
-    return t.typeInfos();
+    if (t.getEnum() != null) {
+      const name = t.getTypeName();
+      return name ? [{ cleanName: name, niceName: name }] : [];
+    }
+
+    return [];
   }
 
   function orderClassName(c: ChartColumnEmbedded) {
@@ -183,7 +188,7 @@ export function ChartColumn(p: ChartColumnProps): React.JSX.Element {
               </div>
               {getColorPalettes().map((t, i) =>
                 <div className="col-sm-3" key={i}>
-                  <ChartPaletteLink ctx={ctxBasic} type={t} refresh={forceUpdate} />
+                  <ChartPaletteLink ctx={ctxBasic} cleanName={t.cleanName} niceName={t.niceName} refresh={forceUpdate} />
                 </div>)
               }
             </div>
@@ -222,22 +227,22 @@ function expandGroup(ct: ChartColumnType): ChartColumnType[] | undefined {
 }
 
 export interface ChartPaletteLinkProps {
-  type: TypeInfo;
+  cleanName: string;
+  niceName: string;
   refresh: () => void;
   ctx: StyleContext;
 }
 
 // Copy-and-fix of Signum's ChartPaletteLink — a "Colors for <Type>" link in the column editor that opens the
-// type's ColorPalette (View if one exists, else Create a new palette pre-scoped to that type). altea: the
-// palette cache takes a TypeInfo; TypeInfo.niceName is the METHOD getNiceName(); a new entity is
-// `new ColorPaletteEntity()` (no `.New`); the TypeEntity for the create branch comes from Navigator.API.getType.
+// type's ColorPalette (View if one exists, else Create a new palette pre-scoped to that type). altea: driven
+// by a clean type-NAME (not a TypeInfo) so it covers enum columns too (which have no client TypeInfo.ctor —
+// see getColorPalettes); the palette cache + Navigator.API.getType both key by that clean name.
 export function ChartPaletteLink(p: ChartPaletteLinkProps): React.JSX.Element {
 
-  const cleanName = cleanTypeName(p.type.ctor!);
-  const [palette, reload] = useAPIWithReload(() => ColorPaletteClient.getColorPalette(p.type), [cleanName]);
+  const [palette, reload] = useAPIWithReload(() => ColorPaletteClient.getColorPalette(p.cleanName), [p.cleanName]);
 
   return (
-    <FormGroup ctx={p.ctx} label={ChartMessage.ColorsFor0.niceToString(p.type.getNiceName())}>
+    <FormGroup ctx={p.ctx} label={ChartMessage.ColorsFor0.niceToString(p.niceName)}>
       {() => palette === undefined ?
         <span className={p.ctx.formControlPlainTextClass}>
           {JavascriptMessage.loading.niceToString()}
@@ -248,11 +253,8 @@ export function ChartPaletteLink(p: ChartPaletteLinkProps): React.JSX.Element {
           else {
             // Pre-scope the new palette to this column's type (Signum's Create branch): fetch the TypeEntity
             // for the clean name via Navigator.API.getType (backed by /api/reflection/typeEntity/:typeName).
-            // getType is typed Promise<Entity | null> (see Navigator); it always resolves to the TypeEntity
-            // for a real type here, so cast to the field's type.
-            const t = await Navigator.API.getType(cleanName);
-            const cp = new ColorPaletteEntity();
-            cp.type = t! as ColorPaletteEntity["type"];
+            const t = await Navigator.API.getType(p.cleanName);
+            const cp = ColorPaletteEntity.create({ type: t! });
             await Navigator.view(cp);
           }
 

@@ -20,7 +20,7 @@ import { QueryLogic } from "./dynamicQuery/queryLogic";
 import { OperationLogic } from "./operationLogic";
 import type { OperationType } from "./operation";
 import { WebBuilder, CustomType } from "./webApi";
-import { resolveType } from "../data/registration";
+import { resolveType, resolveEnum } from "../data/registration";
 import { TypeLogic } from "./typeLogic";
 import type { TypeEntity } from "../data/typeEntity";
 
@@ -97,11 +97,13 @@ export namespace ReflectionServer {
         ws.get("/api/reflection/typeEntity/:typeName",
             { params: CustomType<{ typeName: string }>(), res: CustomType<TypeEntity | null>() },
             async (req, res) => {
-                const ctor = resolveType(req.params.typeName);
+                // An entity type (typeRegistry) or, for chart palettes on enum columns, an enum type
+                // (enumRegistry) — both have a TypeEntity row when registered in the DB type table.
+                const ctor = resolveType(req.params.typeName) ?? resolveEnum(req.params.typeName);
                 let te: TypeEntity | undefined;
                 if (ctor != null) {
                     try {
-                        te = TypeLogic.idToEntity(TypeLogic.typeToId(ctor));
+                        te = TypeLogic.idToEntity(TypeLogic.typeToId(ctor as Function));
                     } catch {
                         te = undefined; // type not registered in the DB type table
                     }
