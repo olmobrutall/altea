@@ -1789,7 +1789,12 @@ export class QueryBinder extends ExpressionVisitor {
                         selector != null ? this.mapVisitExpandCore(selector, info.projector, info.source) : // Sum(x), Avg(x), CountDistinct(x)
                             info.projector;                                                        // Sum() over an element-selected group
 
-            const arg = exp == null ? undefined : this.aggregateArgument(exp);
+            // Nominate the argument (lower Decimal.* / other method calls to SQL) BEFORE building the
+            // aggregate — mirroring the root/subquery branch's fullNominate below. Without this, a GROUPED
+            // aggregate over a computed expression (e.g. Details.Element.subTotalPrice.Sum, whose body is
+            // Decimal.mul/sub) emits the raw method-call nodes as garbage SQL ("$1s2…"). A plain column is
+            // already a ColumnExpression, so nominate is a no-op there.
+            const arg = exp == null ? undefined : this.aggregateArgument(this.fullNominate(exp));
             const aggregate = new AggregateExpression(
                 aggregateFunction === "Count" ? LiteralType.number : (arg?.type ?? LiteralType.number),
                 distinct ? "CountDistinct" : aggregateFunction,
@@ -2603,39 +2608,46 @@ export class QueryBinder extends ExpressionVisitor {
     private orderExpressions(selector: LambdaExpression, projection: ProjectionExpression): Expression[] {
         const expr = this.mapVisitExpand(selector, projection);
 
-        // Signum's local GetExpressionOrder: order a single entity by its ToString
-        // (its CustomOrder isn't modelled yet); fall back to its id when it has none.
-        const expressionOrder = (ee: EntityExpression): Expression =>
-            this.entityToStringOf(ee) ?? this.unwrapPk(ee.externalId);
+        // Ordering an entity/lite by its ToString COMPLETES the reference (a LEFT JOIN for the ToString
+        // column). That join must attach to the source the projector reads from, so build the keys under
+        // `runWithSource` (Signum's SetCurrentSource) — otherwise `order by <entity/lite column>` throws
+        // "Expansion requested with no current source on the stack" (mapVisitExpand has already popped its
+        // own source by here). A scalar/id key needs no completion, so the wrap is a harmless no-op there.
+        return this.runWithSource(projection.select, () => {
+            // Signum's local GetExpressionOrder: order a single entity by its ToString
+            // (its CustomOrder isn't modelled yet); fall back to its id when it has none.
+            const expressionOrder = (ee: EntityExpression): Expression =>
+                this.entityToStringOf(ee) ?? this.unwrapPk(ee.externalId);
 
-        const perImplementation = (ib: ImplementedByExpression): Expression[] =>
-            [...ib.implementations.values()].flatMap(ee => [expressionOrder(ee), ee.externalId]);
+            const perImplementation = (ib: ImplementedByExpression): Expression[] =>
+                [...ib.implementations.values()].flatMap(ee => [expressionOrder(ee), ee.externalId]);
 
-        let keys: Expression[];
-        if (expr instanceof LiteReferenceExpression) {
-            const ref = expr.reference;
-            if (ref instanceof ImplementedByAllExpression)
-                keys = [ref.typeId, ...ref.ids.values()];
-            else if (ref instanceof EntityExpression)
-                keys = [expressionOrder(ref), ref.externalId];
-            else if (ref instanceof ImplementedByExpression)
-                keys = perImplementation(ref);
-            else
-                throw new Error(`Cannot order by a lite of ${(ref as Expression).toString()}`);
-        } else if (expr instanceof EntityExpression) {
-            keys = [expressionOrder(expr), expr.externalId];
-        } else if (expr instanceof ImplementedByExpression) {
-            keys = perImplementation(expr);
-        } else if (expr instanceof ImplementedByAllExpression) {
-            keys = [expr.typeId, ...expr.ids.values()];
-        } else {
-            keys = [expr];
-        }
+            let keys: Expression[];
+            if (expr instanceof LiteReferenceExpression) {
+                const ref = expr.reference;
+                if (ref instanceof ImplementedByAllExpression)
+                    keys = [ref.typeId, ...ref.ids.values()];
+                else if (ref instanceof EntityExpression)
+                    keys = [expressionOrder(ref), ref.externalId];
+                else if (ref instanceof ImplementedByExpression)
+                    keys = perImplementation(ref);
+                else
+                    throw new Error(`Cannot order by a lite of ${(ref as Expression).toString()}`);
+            } else if (expr instanceof EntityExpression) {
+                keys = [expressionOrder(expr), expr.externalId];
+            } else if (expr instanceof ImplementedByExpression) {
+                keys = perImplementation(expr);
+            } else if (expr instanceof ImplementedByAllExpression) {
+                keys = [expr.typeId, ...expr.ids.values()];
+            } else {
+                keys = [expr];
+            }
 
-        // A runtime-type key (the standalone GetType() case, or an @implementedByAll's
-        // typeId which altea models as a Type* node) lowers to its type-id discriminator;
-        // a PrimaryKey unwraps to its scalar. Then nominate each to a server expression.
-        return keys.map(k => this.fullNominate(this.unwrapPk(isTypeExpression(k) ? this.extractTypeId(k) : k)));
+            // A runtime-type key (the standalone GetType() case, or an @implementedByAll's
+            // typeId which altea models as a Type* node) lowers to its type-id discriminator;
+            // a PrimaryKey unwraps to its scalar. Then nominate each to a server expression.
+            return keys.map(k => this.fullNominate(this.unwrapPk(isTypeExpression(k) ? this.extractTypeId(k) : k)));
+        });
     }
 
     // Signum's ExtractTypeId: the @implementedByAll type-discriminator *value* (the

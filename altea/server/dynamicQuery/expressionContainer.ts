@@ -81,12 +81,13 @@ export class ExpressionContainer {
     // and the auth reason from the expression's Meta — while stashing the registration as the token's
     // opaque `serverInfo` so buildExtension can inline the lambda.
     getExtensionsTokens(parent: QueryToken): QueryToken[] {
-        // A registered expression belongs on tokens of its source TYPE, not on a COLLECTION token of that
-        // type: "Details" (OrderLine[]) must NOT expose OrderLine's subTotalPrice — it surfaces under the
-        // collection's non-array .Element / .Any sub-tokens instead. entityCtorOf ignores `.array` (Type.is
-        // unwraps it), so guard on the array facet explicitly. Mirrors Signum (extensions hang off the
-        // element token, e.g. Details.Element.SubTotalPrice / Details.Any.SubTotalPrice).
-        if (parent.type.array)
+        // A registered expression belongs on tokens of its source TYPE, not on the RAW COLLECTION nav of
+        // that type: "Details" (OrderLine[]) must NOT expose OrderLine's subTotalPrice — it surfaces under
+        // the collection's .Element / .Any sub-tokens (Details.Element.SubTotalPrice, Details.Any.SubTotalPrice).
+        // entityCtorOf ignores `.array` (Type.is unwraps it) and the .Element/.Any tokens also carry an array
+        // type, so the discriminator is: skip a collection token that is NOT itself an element/quantifier.
+        // Mirrors Signum (extensions hang off the element token, never the collection).
+        if (parent.type.array && !parent.isElement() && !parent.isAnyOrAll())
             return [];
         const ctor = entityCtorOf(parent.type);
         if (ctor == undefined)
