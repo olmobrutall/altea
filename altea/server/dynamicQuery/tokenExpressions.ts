@@ -256,7 +256,7 @@ AggregateToken.prototype.buildAggregate = function (elements: Expression, groupC
     const method =
         this.aggregateFunction === AggregateFunction.Sum ? "sum" :
             this.aggregateFunction === AggregateFunction.Min ? "min" :
-                this.aggregateFunction === AggregateFunction.Max ? "max" : "average";
+                this.aggregateFunction === AggregateFunction.Max ? "max" : "avg"; // the Array/queryable method is `avg`, not `average`
     // Result RuntimeType from the aggregate semantics + the built body expression (not token .type,
     // now a TypeReference): Average → number; Sum/Min/Max keep the aggregated value's type.
     const resultType = this.aggregateFunction === AggregateFunction.Average ? LiteralType.number : body.type;
