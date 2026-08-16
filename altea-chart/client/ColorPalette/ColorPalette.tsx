@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { TypeContext } from '@altea/altea/client/TypeContext'
+import type { IBinding } from '@altea/altea/client/binding'
 import { AutoLine } from '@altea/altea/client/Lines/AutoLine'
 import { EntityLine } from '@altea/altea/client/Lines/EntityLine'
 import { EntityTable } from '@altea/altea/client/Lines/EntityTable'
@@ -10,9 +11,12 @@ import { Finder } from '@altea/altea/client/Finder'
 import { useForceUpdate } from '@altea/altea/client/Hooks'
 import { tryGetTypeInfo } from '@altea/altea/client/Reflection'
 import { classes, Dic } from '@altea/altea/data/globals'
-import type { Lite } from '@altea/altea/data/lite'
-import type { Entity } from '@altea/altea/data/entity'
+import { Lite, LiteImp } from '@altea/altea/data/lite'
+import type { Entity, Type, PrimaryKey } from '@altea/altea/data/entity'
 import type { TypeEntity } from '@altea/altea/data/typeEntity'
+import { resolveEnum } from '@altea/altea/data/registration'
+import { EnumEntity, enumEntityMembers } from '@altea/altea/data/enumEntity'
+import { Enum } from '@altea/altea/data/enum'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { colorSchemes } from './ColorUtils'
 import { ColorPaletteClient, ColorScheme } from './ColorPaletteClient'
@@ -20,19 +24,19 @@ import { ColorPaletteEntity, ColorPaletteMessage, SpecificColorEmbedded } from '
 import '@altea/altea/data/globals/arrayExtensions'
 
 // Port of Signum.Chart/ColorPalette/ColorPalette.tsx (the ColorPalette editor). Covers type / categoryName
-// (color-scheme picker) / seed, the specificColors table, and the "fill automatically" magic wand.
+// (color-scheme picker) / seed, the specificColors table, and the "fill automatically" magic wand — for
+// BOTH entity and ENUM palette types.
 //
 // altea divergences, documented inline:
-//  - Signum's `type` picker uses ConvertBinding + Navigator.API.getEnumEntities to edit an ENUM palette's
-//    rows as an EnumLine over the enum members. altea's client TypeInfo.kind is currently always "Entity"
-//    (enum-kind detection is a framework TODO), so the enum-specific editing path (ConvertBinding / the
-//    enum fill in the magic wand) is DEFERRED; the editor treats the palette's type as an entity type.
-//  - Signum's ColorSelector toggles between a [Format(Color)] ColorLine and an EnumLine. altea has no
-//    ColorLine, so the free-color case uses a plain TextBoxLine (a hex/CSS color string).
-//  - MList element wrappers are gone: `newMListElement(SpecificColorEmbedded.New(...))` →
-//    `Object.assign(new SpecificColorEmbedded(), ...)` pushed onto the plain `specificColors` array.
-//  - The findMany custom entity-formatter swatch (Signum's EntityLink + getViewIcon) is dropped — a plain
-//    findMany with the override-hint message.
+//  - ENUM detection: Signum uses `ti.kind == "Enum"`, but altea's client TypeInfo.kind is always "Entity"
+//    (a framework TODO). altea detects the enum from the palette type's clean name via `resolveEnum` (the
+//    isomorphic enum registry), and builds the id↔member↔lite converter CLIENT-SIDE from `enumEntityMembers`
+//    (enum tables seed id = the member's numeric value), so Signum's async Navigator.API.getEnumEntities
+//    (deferred in altea — no reflection endpoint) isn't needed. An enum row's `entity` (a Lite of the
+//    EnumEntity<E> row) is edited as an EnumLine over the member names via `ConvertBinding` (lite ⇄ name).
+//  - Signum's ColorSelector toggles a [Format(Color)] ColorLine ↔ EnumLine; altea has no ColorLine, so the
+//    free-color case uses a plain TextBoxLine (a hex/CSS color string).
+//  - MList element wrappers are gone: push `Object.assign(new SpecificColorEmbedded(), …)` onto the plain array.
 export default function ColorPalette(p: { ctx: TypeContext<ColorPaletteEntity> }): React.JSX.Element {
     const ctx = p.ctx;
     const forceUpdate = useForceUpdate();
@@ -40,11 +44,39 @@ export default function ColorPalette(p: { ctx: TypeContext<ColorPaletteEntity> }
 
     const type = ctx4.value.type as TypeEntity | undefined;
     const typeCleanName = type?.cleanName;
-    const ti = typeCleanName ? tryGetTypeInfo(typeCleanName) : undefined;
+
+    // An enum-typed palette (resolveEnum resolves the clean name to the enum object) vs a regular entity type.
+    const enumObj = typeCleanName ? resolveEnum(typeCleanName) : undefined;
+    const isEnum = enumObj != null;
+    const ti = (typeCleanName && !isEnum) ? tryGetTypeInfo(typeCleanName) : undefined;
+
+    // The id↔member↔lite converter for an enum palette, built once per type (client-side; no server fetch).
+    const enumConverter = React.useMemo(
+        () => isEnum ? buildEnumConverter(enumObj!) : null,
+        [typeCleanName, isEnum]);
 
     const colors = ctx4.value.categoryName ? colorSchemes[ctx4.value.categoryName] : null;
 
+    // The `entity` column of the specificColors table for an enum: an EnumLine over the member names, backed
+    // by a ConvertBinding that maps the stored Lite<EnumEntity<E>> ⇄ its member name.
+    function withConverter(ectx: TypeContext<Lite<Entity> | null>): TypeContext<string | null> {
+        return new TypeContext<string | null>(ectx, undefined, ectx.propertyRoute, new ConvertBinding(ectx.binding, enumConverter!));
+    }
+
     async function handleMagicWand(): Promise<void> {
+        // ENUM: fill one row per member, cycling through the scheme colors.
+        if (isEnum && enumConverter != null) {
+            const lites = enumConverter.names.map(n => enumConverter.nameToLite[n]);
+            let step = lites.length == 0 ? 1 : Math.floor((colors?.length ?? 1) / lites.length);
+            if (step == 0) step = 1;
+            ctx.value.specificColors = lites.map((e, i) => Object.assign(new SpecificColorEmbedded(), {
+                entity: e,
+                color: colors ? colors[(i * step) % colors.length] : undefined,
+            }));
+            forceUpdate();
+            return;
+        }
+
         if (ti == null || typeCleanName == null)
             return;
 
@@ -98,7 +130,7 @@ export default function ColorPalette(p: { ctx: TypeContext<ColorPaletteEntity> }
                 </div>
             </div>
 
-            {ti != null &&
+            {(ti != null || (isEnum && enumConverter != null)) &&
                 <EntityTable ctx={ctx.subCtx(e => e.specificColors)}
                     extraButtons={() => <LinkButton className={classes("sf-line-button", "sf-create")}
                         title={ColorPaletteMessage.FillAutomatically.niceToString()}
@@ -107,8 +139,10 @@ export default function ColorPalette(p: { ctx: TypeContext<ColorPaletteEntity> }
                     </LinkButton>}
                     columns={[
                         {
-                            header: ti.getNiceName(),
-                            template: ectx => <EntityLine ctx={ectx.subCtx(a => a.entity, { formGroupStyle: "SrOnly" })} />,
+                            header: isEnum ? (Enum.niceTypeName(enumObj as Record<string, string | number>) ?? typeCleanName!) : ti!.getNiceName(),
+                            template: ectx => isEnum
+                                ? <EnumLine ctx={withConverter(ectx.subCtx(a => a.entity, { formGroupStyle: "SrOnly" }))} optionItems={enumConverter!.names} />
+                                : <EntityLine ctx={ectx.subCtx(a => a.entity, { formGroupStyle: "SrOnly" })} />,
                         },
                         {
                             header: ColorPaletteMessage.ShowPalette.niceToString(),
@@ -118,6 +152,47 @@ export default function ColorPalette(p: { ctx: TypeContext<ColorPaletteEntity> }
             }
         </div>
     );
+}
+
+// Client-side enum converter (Signum's EnumConverter, built from getEnumEntities): the enum's members map
+// to Lites of its EnumEntity<E> rows (id = the member's numeric value — how altea seeds enum tables), and
+// back. No server round-trip.
+interface ClientEnumConverter {
+    names: string[];
+    nameToLite: Record<string, Lite<Entity>>;
+    idToName: Record<string, string>;
+}
+
+function buildEnumConverter(enumObj: object): ClientEnumConverter {
+    const ctor = EnumEntity.typeFor(enumObj) as unknown as Type<Entity>;
+    const members = enumEntityMembers(enumObj); // [{ id, name }]
+    const nameToLite: Record<string, Lite<Entity>> = {};
+    const idToName: Record<string, string> = {};
+    for (const m of members) {
+        nameToLite[m.name] = new LiteImp(m.id as PrimaryKey, ctor, m.name);
+        idToName[String(m.id)] = m.name;
+    }
+    return { names: members.map(m => m.name), nameToLite, idToName };
+}
+
+// Port of Signum's ConvertBinding: exposes a Lite<EnumEntity<E>> field as its enum member NAME (for an
+// EnumLine), converting via the client enum converter.
+class ConvertBinding implements IBinding<string | null> {
+    suffix: string;
+    constructor(private readonly parent: IBinding<Lite<Entity> | null>, private readonly converter: ClientEnumConverter) {
+        this.suffix = parent.suffix;
+    }
+    getValue(): string | null {
+        const val = this.parent.getValue();
+        return val ? (this.converter.idToName[String(val.id)] ?? null) : null;
+    }
+    setValue(val: string | null): void {
+        this.parent.setValue(val == null ? null : this.converter.nameToLite[val]);
+    }
+    getIsReadonly(): boolean { return this.parent.getIsReadonly(); }
+    getIsHidden(): boolean { return this.parent.getIsHidden(); }
+    getError(): string | undefined { return this.parent.getError(); }
+    setError(value: string | undefined): void { this.parent.setError(value); }
 }
 
 function ColorSelector(p: { ctx: TypeContext<string>, colors: string[] | null }): React.JSX.Element {

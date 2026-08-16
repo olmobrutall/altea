@@ -6,6 +6,8 @@ import { Dic } from '@altea/altea/data/globals/index';
 import { Localization } from '@altea/altea/data/utils/localization';
 import type { Lite } from '@altea/altea/data/lite';
 import type { Entity } from '@altea/altea/data/entity';
+import { Enum } from '@altea/altea/data/enum';
+import { enumEntityMembers } from '@altea/altea/data/enumEntity';
 import type { OrderType } from '@altea/altea/data/dynamicQueries';
 import { type int, toInt } from '@altea/altea/data/basics';
 import { SubTokensOptions } from '@altea/altea/data/dynamicQuery/tokens/queryToken';
@@ -694,12 +696,20 @@ export namespace ChartClient {
 
       if (token.filterType == "Enum") {
         const typeName = token.type.getTypeName();
+        const en = token.type.getEnum();
+        // altea serializes an enum result column as its ORDINAL id (not the member name string Signum used);
+        // the palette (ColorPaletteServer's enum branch) is keyed by the enum MEMBER NAME, so translate the
+        // ordinal → member name before the lookup (same enumEntityMembers mapping the server keyed with).
+        const nameByOrdinal = en ? new Map(enumEntityMembers(en).map(m => [Number(m.id), m.name])) : null;
         return v => {
           if (v == null)
             return "#555";
 
           const cp = typeName ? palettes[typeName] : null;
-          return (cp && cp.getColor(v as string)) || null;
+          if (cp == null)
+            return null;
+          const memberName = nameByOrdinal?.get(Number(v)) ?? String(v);
+          return cp.getColor(memberName) || null;
         };
       }
 
@@ -719,23 +729,30 @@ export namespace ChartClient {
 
     // Signum's ChartClient.API.getPalletes(request): preload the palette for every column type up front (the
     // palettes are consumed SYNCHRONOUSLY inside toChartResult's getColor, so they must be resolved first).
-    // altea: columns are plain arrays (no `.element`); collect each column token's entity TypeInfos, distinct
-    // by clean name, and fetch each palette (keyed by clean name to match getColor's entity lookup). Enum
-    // palettes aren't preloaded here — altea's TypeReference.typeInfos() returns [] for enums (a framework
-    // limitation), so enum coloring is a documented gap until enum TypeInfos are exposed.
+    // altea: columns are plain arrays (no `.element`); collect each column token's palette type name — the
+    // entity TypeInfos' clean names AND (Signum's single tis[0].kind switch is split in altea) each ENUM
+    // column's own type name, since altea's TypeReference.typeInfos() returns [] for enums. Both key the same
+    // way getColor looks them up: entity → cleanTypeName(lite.entityType); enum → token.type.getTypeName().
     export function getPalletes(request: ChartRequestModel): Promise<{ [type: string]: ColorPaletteClient.ColorPalette | null }> {
-      const allTypes = request.columns
-        .map(c => c.token?.token)
-        .notNull()
+      const tokens = request.columns.map(c => c.token?.token).notNull();
+
+      const entityTypeNames = tokens
         .flatMap(t => t!.type.typeInfos())
         .notNull()
-        .distinctBy(ti => cleanTypeName(ti.ctor!));
+        .map(ti => cleanTypeName(ti.ctor!));
+
+      const enumTypeNames = tokens
+        .filter(t => t!.filterType == "Enum")
+        .map(t => t!.type.getTypeName())
+        .notNull();
+
+      const allNames = [...entityTypeNames, ...enumTypeNames].distinctBy(n => n);
 
       // Per-type tolerance: a single palette lookup that rejects must NOT reject the whole chart (Promise.all
       // is all-or-nothing) — a chart with no/failed palettes still renders via the renderer's category scale.
-      return Promise.all(allTypes.map(ti => ColorPaletteClient.getColorPalette(ti)
+      return Promise.all(allNames.map(name => ColorPaletteClient.getColorPalette(name)
         .catch(() => null)
-        .then(cp => ({ type: cleanTypeName(ti.ctor!), palette: cp }))))
+        .then(cp => ({ type: name, palette: cp }))))
         .then(list => list.toObject(a => a.type, a => a.palette));
     }
 
@@ -752,8 +769,19 @@ export namespace ChartClient {
           return lite == null ? nullString() : lite.toString();
         };
 
-      if (token.filterType == "Enum")
-        return v => (v as string | null) ?? nullString();
+      if (token.filterType == "Enum") {
+        const en = token.type.getEnum();
+        return v => {
+          if (v == null)
+            return nullString();
+          if (en == null)
+            return String(v);
+          // altea's enum result value is the ORDINAL id — Enum.niceName maps ordinal → localized member name
+          // (mirrors the SearchControl's Enum cell formatter); a value out of range falls back to its string.
+          try { return Enum.niceName(en as Record<string, string | number>, v as never); }
+          catch { return String(v); }
+        };
+      }
 
       if (token.filterType == "Decimal" || token.filterType == "Integer")
         return v => {
