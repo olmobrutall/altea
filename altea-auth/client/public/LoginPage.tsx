@@ -66,6 +66,10 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
     const rememberMe = React.useRef<HTMLInputElement>(null);
     const [modelState, setModelState] = React.useState<ModelState | undefined>(undefined);
 
+    // DEV-ONLY (altea addition, see AuthClient.Options.passwordIsUsername): no password input, the user
+    // name is sent as the password — so a seeded dev user is one field away.
+    const passwordIsUsername = AuthClient.Options.passwordIsUsername;
+
     React.useEffect(() => { userName.current!.focus(); }, []);
 
     function handleSubmit(e: React.FormEvent<HTMLFormElement>): void {
@@ -73,7 +77,7 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
 
         const request: AuthClient.API.LoginRequest = {
             userName: userName.current!.value,
-            password: password.current!.value,
+            password: passwordIsUsername ? userName.current!.value : password.current!.value,
             rememberMe: rememberMe.current ? rememberMe.current.checked : undefined,
         };
 
@@ -109,7 +113,9 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
         <form onSubmit={handleSubmit} className="mb-4">
             <div className="row">
                 <div className="col-md-6 offset-md-3">
-                    <p>{LoginAuthMessage.EnterYourUserNameAndPassword.niceToString()}</p>
+                    <p>{passwordIsUsername
+                        ? <span className="text-warning-emphasis">Development mode: enter a user name — it is sent as the password too.</span>
+                        : LoginAuthMessage.EnterYourUserNameAndPassword.niceToString()}</p>
                     <hr />
                 </div>
             </div>
@@ -125,7 +131,7 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
                     </div>
                 </div>
             </div>
-            <div className="row">
+            {!passwordIsUsername && <div className="row">
                 <div className="col-md-6 offset-md-3">
                     <div className={classes("form-group mb-3", error("password") && "has-error")}>
                         <label className="sr-only" htmlFor="password">{LoginAuthMessage.Password.niceToString()}</label>
@@ -136,7 +142,7 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
                         {error("password") && <span className="help-block text-danger">{error("password")}</span>}
                     </div>
                 </div>
-            </div>
+            </div>}
 
             <div className="row" style={{ paddingTop: "1rem" }}>
                 <div className="col-md-6 offset-md-3">
