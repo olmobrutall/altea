@@ -46,6 +46,7 @@ export interface ChartScriptParameterGroupTS {
 
 export interface ChartScriptTS {
     symbol: string; // ChartScriptSymbol.key
+    symbolId: number; // ChartScriptSymbol.id — see chartScriptTS below (a saved UserChart references it)
     icon: string | null;
     columns: ChartScriptColumnTS[];
     parameterGroups: ChartScriptParameterGroupTS[];
@@ -79,6 +80,11 @@ function parameterTS(p: ChartScriptParameter): ChartScriptParameterTS {
 function chartScriptTS(cs: ChartScript): ChartScriptTS {
     return {
         symbol: cs.symbol.key,
+        // The symbol's DB id travels with it: the client resolves the wire key back to its declared
+        // ChartScriptSymbol instance, and that instance is what a saved UserChart REFERENCES. Without the id
+        // the reference looks new and the save tries to INSERT the symbol row again (duplicate key on
+        // `key`). Mirrors what SymbolLogic does server-side — stamp the id onto the shared init() instance.
+        symbolId: cs.symbol.id as number,
         icon: cs.icon,
         columns: cs.columns.map(columnTS),
         parameterGroups: cs.parameterGroups.map(g => ({

@@ -1,0 +1,23 @@
+{
+  "name": "@altea/altea-files",
+  "version": "0.0.1",
+  "description": "File storage (ported from Signum.Files)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}

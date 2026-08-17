@@ -1,0 +1,8 @@
+{
+  // DATA layer — isomorphic model.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" }
+  ]
+}

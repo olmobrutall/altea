@@ -377,6 +377,49 @@ export namespace AuthLogic {
         return role?.key();
     }
 
+    /** The current user's role lite from the claims bag (Signum's RoleEntity.Current), or null. */
+    export function currentRoleLite(): Lite<RoleEntity> | null {
+        return (UserHolder.current()?.getClaim("Role") as Lite<RoleEntity> | undefined) ?? null;
+    }
+
+    /**
+     * Signum's `AuthLogic.CurrentRoles()` — the current role AND every role it (transitively) inherits
+     * from, as lites. The set an owner-scoped TypeCondition compares a "shared" asset's owner against
+     * (`d.owner == null || currentRoles().includes(d.owner)`).
+     *
+     * SYNCHRONOUS on purpose: it is called from inside a TypeCondition's `@quoted` lambda, which the LINQ
+     * binder folds to a constant while BUILDING the query (no await possible) and which also runs in memory
+     * per entity. It therefore reads the ALREADY-LOADED role graph (Signum's sync GlobalLazy). Before the
+     * graph is warm only the current role itself is returned — fail-CLOSED (fewer assets visible), and the
+     * graph is warm from the first authorization check of a request.
+     */
+    export function currentRoles(): Lite<RoleEntity>[] {
+        const current = currentRoleLite();
+        if (current == null)
+            return [];
+
+        const graph = roleGraphLazy?.valueOrUndefined;
+        if (graph == null)
+            return [current];
+
+        // Transitive closure of `relatedTo` (the inherited-from edges), including the starting role —
+        // Signum's `rolesGraph.IndirectlyRelatedTo(RoleEntity.Current, includeInitialNode: true)`.
+        const keys = new Set<string>();
+        const pending = [current.key()];
+        while (pending.length > 0) {
+            const key = pending.pop()!;
+            if (keys.has(key))
+                continue;
+            keys.add(key);
+            for (const related of graph.relatedTo(key))
+                if (!keys.has(related))
+                    pending.push(related);
+        }
+
+        return [...keys].map(k => graph.rolesByKey.get(k)?.toLite() as Lite<RoleEntity> | undefined)
+            .filter((l): l is Lite<RoleEntity> => l != null);
+    }
+
     /** Register a dimension's AuthRules XML export / import handler (Signum's ExportToXml / ImportFromXml
      *  events). Called from each *AuthLogic.start(); AuthImportExport invokes them. */
     export function registerXmlExporter(exporter: AuthXmlExporter): void { exporterList.push(exporter); }

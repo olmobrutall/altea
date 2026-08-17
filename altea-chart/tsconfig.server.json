@@ -1,11 +1,13 @@
 {
-  // SERVER layer — node-only; references local DATA + altea/altea-auth/altea-user-assets server layers.
+  // SERVER layer — node-only; references local DATA + altea/altea-auth/altea-user-assets/altea-user-queries/
+  // altea-dashboard server layers (the last for the dashboard part registry the UserChart part registers with).
   "extends": "../altea/presets/server.json",
   "references": [
     { "path": "./tsconfig.data.json" },
     { "path": "../altea/tsconfig.server.json" },
     { "path": "../altea-auth/tsconfig.server.json" },
     { "path": "../altea-user-assets/tsconfig.server.json" },
-    { "path": "../altea-user-queries/tsconfig.server.json" }
+    { "path": "../altea-user-queries/tsconfig.server.json" },
+    { "path": "../altea-dashboard/tsconfig.server.json" }
   ]
 }

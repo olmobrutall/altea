@@ -1,0 +1,25 @@
+{
+  "name": "@altea/altea-dashboard",
+  "version": "0.0.1",
+  "description": "Dashboards of composable parts (ported from Signum.Dashboard)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-user-assets": "workspace:*",
+    "quote-transformer": "workspace:*",
+    "react-markdown": "^10.1.0"
+  }
+}

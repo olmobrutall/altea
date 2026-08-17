@@ -1,10 +1,12 @@
 {
-  // SERVER layer — node-only; references local DATA + altea/altea-auth/altea-user-assets server layers.
+  // SERVER layer — node-only; references local DATA + altea/altea-auth/altea-user-assets/altea-dashboard
+  // server layers (the dashboard part registry the UserQuery parts register their XML with).
   "extends": "../altea/presets/server.json",
   "references": [
     { "path": "./tsconfig.data.json" },
     { "path": "../altea/tsconfig.server.json" },
     { "path": "../altea-auth/tsconfig.server.json" },
-    { "path": "../altea-user-assets/tsconfig.server.json" }
+    { "path": "../altea-user-assets/tsconfig.server.json" },
+    { "path": "../altea-dashboard/tsconfig.server.json" }
   ]
 }

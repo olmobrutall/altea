@@ -1,0 +1,9 @@
+{
+  // SERVER layer — node-only (the file-type algorithms read/write the filesystem).
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" }
+  ]
+}

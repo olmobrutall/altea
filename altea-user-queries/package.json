@@ -19,6 +19,7 @@
     "@altea/altea": "workspace:*",
     "@altea/altea-auth": "workspace:*",
     "@altea/altea-user-assets": "workspace:*",
-    "quote-transformer": "workspace:*"
+    "quote-transformer": "workspace:*",
+    "@altea/altea-dashboard": "workspace:*"
   }
 }

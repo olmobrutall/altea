@@ -27,7 +27,7 @@ import {
     UserQueryEntity, UserQueryMessage, SystemTimeEmbedded, HealthCheckConditionEmbedded,
 } from "../../data/UserQuery";
 import { UserQueriesClient } from "../UserQueriesClient";
-import QueryTokenEmbeddedBuilder from "./QueryTokenEmbeddedBuilder";
+import QueryTokenEmbeddedBuilder from "@altea/altea-user-assets/client/Templates/QueryTokenEmbeddedBuilder";
 import { FilterBuilderEmbedded } from "./FilterBuilderEmbedded";
 
 // Port of Signum's Signum.UserQueries/Templates/UserQuery.tsx (the UserQuery editor). Follows Signum's

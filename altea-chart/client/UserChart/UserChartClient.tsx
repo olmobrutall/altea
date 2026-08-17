@@ -32,6 +32,7 @@ import {
     UserChartEntity, UserChartLite, UserChartFilterEmbedded, UserChartColumnEmbedded, UserChartParameterEmbedded,
 } from "../../data/UserChart";
 import UserChartMenu from "./UserChartMenu";
+import { ChartDashboardClient } from "../Dashboard/ChartDashboardClient";
 
 // Port of Signum's Signum.Chart/UserChart/UserChartClient.tsx. Registers the UserChart entity view, the
 // /userChart page, and the quick-links to run a saved chart. The direct analogue of UserQueriesClient.
@@ -92,6 +93,10 @@ export namespace UserChartClient {
             },
             { icon: "eye", iconColor: "blue", color: "info" },
         ));
+
+        // The UserChart DASHBOARD part (Signum registered its view + renderer inline here; altea keeps it in
+        // one module so the @altea/altea-dashboard dependency is visible in a single place).
+        ChartDashboardClient.start(cb);
 
         // The UserChart menu on the chart page toolbar (Signum's ChartClient.ButtonBarChart) — list / apply /
         // create / edit a saved chart from the current ChartRequestView.

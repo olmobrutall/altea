@@ -1,10 +1,12 @@
 {
-  // CLIENT layer — React UI; references DATA only (local + altea + altea-auth + altea-user-assets).
+  // CLIENT layer — React UI; references DATA only (local + altea + altea-auth + altea-user-assets +
+  // altea-dashboard, whose part-renderer registry the Dashboard/* components register into).
   "extends": "../altea/presets/client.json",
   "references": [
     { "path": "./tsconfig.data.json" },
     { "path": "../altea/tsconfig.client.json" },
     { "path": "../altea-auth/tsconfig.client.json" },
-    { "path": "../altea-user-assets/tsconfig.client.json" }
+    { "path": "../altea-user-assets/tsconfig.client.json" },
+    { "path": "../altea-dashboard/tsconfig.client.json" }
   ]
 }

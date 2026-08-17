@@ -25,6 +25,7 @@ import { UserQueryEntity, UserQueryLite, QueryFilterEmbedded } from "../data/Use
 import type { PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
 import UserQueryMenu from "./UserQueryMenu";
+import { UserQueriesDashboardClient } from "./Dashboard/UserQueriesDashboardClient";
 
 // Port of Signum's Signum.UserQueries/UserQueryClient.tsx. Registers the UserQuery entity view, the
 // /userQuery page, and the quick-links to run a saved query. altea divergences:
@@ -81,6 +82,10 @@ export namespace UserQueriesClient {
             },
             { icon: "eye", iconColor: "blue", color: "info" },
         ));
+
+        // The three UserQuery DASHBOARD parts (Signum registered their views + renderers inline here; altea
+        // keeps them in one module so the @altea/altea-dashboard dependency is visible in a single place).
+        UserQueriesDashboardClient.start(cb);
 
         // The UserQuery menu in the SearchControl toolbar (Signum's ButtonBarQuery.onButtonBarElements).
         Finder.ButtonBarQuery.onButtonBarElements.push(ctx => {

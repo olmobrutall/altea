@@ -4,7 +4,7 @@ import type { ClientBuilder } from '@altea/altea/client/ClientBuilder';
 import { ImportComponent } from '@altea/altea/client/ImportComponent';
 import { Dic } from '@altea/altea/data/globals/index';
 import { Localization } from '@altea/altea/data/utils/localization';
-import type { Lite } from '@altea/altea/data/lite';
+import { Lite } from '@altea/altea/data/lite';
 import type { Entity } from '@altea/altea/data/entity';
 import { Enum } from '@altea/altea/data/enum';
 import { enumEntityMembers } from '@altea/altea/data/enumEntity';
@@ -239,13 +239,27 @@ export namespace ChartClient {
     return Localization.niceNameFromName(ChartColumnType[ct] ?? String(ct));
   }
 
-  // Signum's ChartClient.getActiveDetector — the dashboard cross-filter row detector. altea: Dashboard isn't
-  // ported, so without a DashboardFilter there is nothing to detect (the full detector lands with Dashboard).
-  export function getActiveDetector(filter: DashboardFilter | undefined, _request: ChartRequestModel): ((row: ChartRow) => boolean) | undefined {
+  // Signum's ChartClient.getActiveDetector — the dashboard cross-filter row detector: which rows of THIS
+  // chart are part of the current dashboard selection (they render at full opacity, the rest dimmed).
+  // altea divergences: `token.fullKey()` is a METHOD, and lite comparison uses Lite's instance `is`.
+  export function getActiveDetector(filter: DashboardFilter | undefined, request: ChartRequestModel): ((row: ChartRow) => boolean) | undefined {
     if (filter == null || filter.rows.length == 0)
       return undefined;
 
-    return undefined; // TODO(altea): match dashboard filter rows against chart columns (Dashboard port).
+    const tokenToColumn = request.columns
+      .map((cce, i) => ({ colName: "c" + i, tokenString: cce.token?.tokenString }))
+      .filter(a => a.tokenString != null)
+      .groupBy(a => a.tokenString!)
+      .toObject(gr => gr.key, gr => gr.elements.first().colName);
+
+    return row => filter.rows.some(r =>
+      r.filters.every(f => {
+        const colName = tokenToColumn[f.token.fullKey()];
+        if (colName == null)
+          return false;
+        const rowVal = (row as unknown as Record<string, unknown>)[colName];
+        return f.value == rowVal || (f.value instanceof Lite && f.value.is(rowVal as Lite<Entity>));
+      }));
   }
 
   // ---- Column-type logic (reuses the isomorphic data/ChartUtils) -----------------------------------------
@@ -947,9 +961,17 @@ export namespace ChartClient {
     }
 
     export function fetchScripts(): Promise<ChartScript[]> {
-      return ajaxGet<(Omit<ChartScript, "symbol"> & { symbol: string })[]>({
+      return ajaxGet<(Omit<ChartScript, "symbol"> & { symbol: string, symbolId: number })[]>({
         url: "/api/chart/scripts"
-      }).then(scripts => scripts.map(s => ({ ...s, symbol: symbolsByKey()[s.symbol] })));
+      }).then(scripts => scripts.map(s => {
+        const symbol = symbolsByKey()[s.symbol];
+        // Stamp the DB id onto the declared instance (what SymbolLogic does server-side): a UserChart
+        // REFERENCES this symbol, and without an id the save path treats it as a new row and tries to
+        // INSERT it again — "duplicate key value violates unique constraint uix_chart_script_symbol_key".
+        if (symbol != null && symbol.id == null)
+          (symbol as { id?: number }).id = s.symbolId;
+        return ({ ...s, symbol });
+      }));
     }
   }
 }

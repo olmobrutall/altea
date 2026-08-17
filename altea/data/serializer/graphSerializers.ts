@@ -90,7 +90,7 @@ function eachFieldInfo(ctor: Function, cb: (fi: FieldInfo) => void): void {
         visit(mixin as unknown as Function);
 }
 import {
-    ValueSerializer, TemporalSerializer, DecimalSerializer, DateSerializer, EnumSerializer, ArraySerializer,
+    ValueSerializer, TemporalSerializer, DecimalSerializer, DateSerializer, BlobSerializer, EnumSerializer, ArraySerializer,
 } from './leafSerializers';
 
 // Resolve a wire discriminator (`$lite` / `$type`) back to its constructor. Reverse of `cleanTypeName`,
@@ -537,6 +537,7 @@ class SerializerFactory {
         if (fi.typeName != null && TEMPORAL_TYPE_NAMES.has(fi.typeName)) return new TemporalSerializer(fi.typeName);
         if (fi.typeName === 'Decimal') return DecimalSerializer;
         if (fi.typeName === 'Date') return DateSerializer;
+        if (fi.typeName === 'Blob') return BlobSerializer;   // Uint8Array ⇄ base64
         if (fi.typeName != null) return ValueSerializer;   // Number / String / Boolean
         return this.dynamic;                               // untyped @column(false) field
     }

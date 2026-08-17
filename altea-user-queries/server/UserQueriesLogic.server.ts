@@ -8,8 +8,11 @@ import { TypeEntity } from "@altea/altea/data/typeEntity";
 import type { Lite } from "@altea/altea/data/lite";
 import { UserQueryEntity, UserQueryOperation } from "../data/UserQuery";
 import { UserAssetLogic } from "@altea/altea-user-assets/server/UserAssetLogic.server";
+import { UserAssetOwnerAuth } from "@altea/altea-user-assets/server/UserAssetOwnerAuth.server";
+import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserQueriesServer } from "./UserQueriesServer.server";
 import { registerUserQueryXml } from "./UserQueriesXml.server";
+import { registerUserQueryDashboardParts } from "./UserQueriesDashboardXml.server";
 
 // Port of Signum's UserQueryLogic.Start (Signum.UserQueries/UserQueryLogic.cs). Registers the UserQuery
 // entity + its Save/Delete operations + query, the in-memory caches (Signum's ResetLazy GlobalLazys), the
@@ -18,11 +21,11 @@ import { registerUserQueryXml } from "./UserQueriesXml.server";
 // altea divergences, documented inline:
 //  - Signum's server `ParseData` on Retrieved is dropped: altea resolves query tokens CLIENT-SIDE, so the
 //    server never materialises a QueryToken from the stored tokenString.
-//  - The auth in-memory visibility filter (Signum's `Schema.GetInMemoryFilter<UserQueryEntity>`) and the
-//    owner-scoped personal/role visibility are TODO (routes still assert ViewUserQuery); the type-auth
-//    retrieve gate already applies on the entity itself.
-//  - Toolbar / Dashboard / CachedQuery / Omnibox WhenIncluded blocks are omitted (those extensions are not
-//    ported); the QueryEntity PreDeleteSqlSync cascade is deferred with them.
+//  - Owner scoping IS ported: registerUserTypeCondition / registerRoleTypeCondition below, plus the in-memory
+//    visibility filter every lookup applies (see @altea/altea-user-assets' UserAssetOwnerAuth).
+//  - Toolbar / CachedQuery / Omnibox WhenIncluded blocks are omitted (those extensions are not ported); the
+//    QueryEntity PreDeleteSqlSync cascade is deferred with them. The DASHBOARD parts ARE registered (see
+//    registerUserQueryDashboardParts).
 
 export namespace UserQueriesLogic {
 
@@ -45,6 +48,12 @@ export namespace UserQueriesLogic {
         // entity; altea uses a per-type registry — see UserAssetsImportExport.server).
         registerUserQueryXml();
 
+        // The three UserQuery DASHBOARD parts: their XML (de)serializer + clone, registered with
+        // @altea/altea-dashboard's part registry (Signum did this inside `sb.Schema.WhenIncluded<
+        // DashboardEntity>` — in altea the registration is inert until a dashboard actually uses a part, and
+        // the part TABLES only exist if the app lists them in PanelPartEmbedded.content's implementedBy).
+        registerUserQueryDashboardParts();
+
         // Signum's GlobalLazy over all user queries, invalidated on any UserQueryEntity change.
         userQueriesLazy = sb.globalLazy(() => table(UserQueryEntity).toArray() as Promise<UserQueryEntity[]>,
             { invalidateWith: [UserQueryEntity] });
@@ -53,22 +62,37 @@ export namespace UserQueriesLogic {
             UserQueriesServer.start(sb.webBuilder);
     }
 
+    /** Signum's `UserQueryLogic.RegisterUserTypeCondition` — this query belongs to the current USER. */
+    export function registerUserTypeCondition(typeCondition: TypeConditionSymbol): void {
+        UserAssetOwnerAuth.registerUserTypeCondition(UserQueryEntity, typeCondition);
+    }
+
+    /** Signum's `UserQueryLogic.RegisterRoleTypeCondition` — global (no owner), or owned by one of the current
+     *  user's roles. */
+    export function registerRoleTypeCondition(typeCondition: TypeConditionSymbol): void {
+        UserAssetOwnerAuth.registerRoleTypeCondition(UserQueryEntity, typeCondition);
+    }
+
+    // Every lookup below serves from `userQueriesLazy`, whose factory runs in ExecutionMode.global — so the
+    // row-level query filter never saw those reads, and each lookup applies the in-memory visibility filter
+    // itself (Signum's `Schema.Current.GetInMemoryFilter<UserQueryEntity>(userInterface: false)`).
+
     // Signum's GetUserQueries(queryName, appendFilters=false): the global (entityType == null) user queries
     // registered against a query, that are not the "append filters" contextual-menu variant.
     export async function getUserQueriesForQuery(queryKey: string): Promise<Lite<UserQueryEntity>[]> {
         const all = await userQueriesLazy.value();
-        return all
-            .filter(uq => uq.entityType == null && !uq.appendFilters && uq.query.key === queryKey)
-            .map(uq => uq.toLite() as Lite<UserQueryEntity>);
+        const visible = await UserAssetOwnerAuth.filterVisible(
+            all.filter(uq => uq.entityType == null && !uq.appendFilters && uq.query.key === queryKey));
+        return visible.map(uq => uq.toLite() as Lite<UserQueryEntity>);
     }
 
     // Signum's GetUserQueries(queryName, appendFilters=true): the contextual-menu "use to filter current
     // grouping" variant (Signum's getGroupUserQueriesContextMenu).
     export async function getUserQueriesForQueryAppendFilters(queryKey: string): Promise<Lite<UserQueryEntity>[]> {
         const all = await userQueriesLazy.value();
-        return all
-            .filter(uq => uq.entityType == null && uq.appendFilters && uq.query.key === queryKey)
-            .map(uq => uq.toLite() as Lite<UserQueryEntity>);
+        const visible = await UserAssetOwnerAuth.filterVisible(
+            all.filter(uq => uq.entityType == null && uq.appendFilters && uq.query.key === queryKey));
+        return visible.map(uq => uq.toLite() as Lite<UserQueryEntity>);
     }
 
     // Signum's GetUserQueries(Type entityType): the user queries scoped to (and offered as quick-links of)
@@ -80,15 +104,18 @@ export namespace UserQueriesLogic {
             return [];
 
         const all = await userQueriesLazy.value();
-        return all
-            .filter(uq => uq.entityType != null && String(uq.entityType.id) === String(typeId))
-            .map(uq => uq.toLite() as Lite<UserQueryEntity>);
+        const visible = await UserAssetOwnerAuth.filterVisible(
+            all.filter(uq => uq.entityType != null && String(uq.entityType.id) === String(typeId)));
+        return visible.map(uq => uq.toLite() as Lite<UserQueryEntity>);
     }
 
     // Signum's RetrieveUserQuery — the full entity for a lite (the client fetches this to run/edit it). In
     // altea the generic Navigator.API.fetch already retrieves it; this stays as the cache-hit fast path.
     export async function retrieveUserQuery(id: string): Promise<UserQueryEntity | undefined> {
         const all = await userQueriesLazy.value();
-        return all.find(uq => String(uq.id) === String(id));
+        const cached = all.find(uq => String(uq.id) === String(id));
+        if (cached == null)
+            return undefined;
+        return (await UserAssetOwnerAuth.isVisible(cached)) ? cached : undefined;
     }
 }

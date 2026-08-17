@@ -1,0 +1,9 @@
+{
+  // CLIENT layer — the file line / uploader / downloader; references DATA only.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" }
+  ]
+}

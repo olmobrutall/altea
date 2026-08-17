@@ -10,6 +10,9 @@ import { UserChartEntity, UserChartOperation } from "../data/UserChart";
 import { UserAssetLogic } from "@altea/altea-user-assets/server/UserAssetLogic.server";
 import { UserChartServer } from "./UserChartServer.server";
 import { registerUserChartXml } from "./UserChartXml.server";
+import { UserAssetOwnerAuth } from "@altea/altea-user-assets/server/UserAssetOwnerAuth.server";
+import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
+import { registerUserChartDashboardParts } from "./ChartDashboardXml.server";
 
 // Port of Signum's UserChartLogic.Start (Signum.Chart/UserChart/UserChartLogic.cs). Registers the UserChart
 // entity + its Save/Delete operations + query, the in-memory caches (Signum's ResetLazy GlobalLazys), the
@@ -19,12 +22,11 @@ import { registerUserChartXml } from "./UserChartXml.server";
 //  - Signum's server `ParseData` / `SynchronizeColumns` on Retrieved is dropped: altea resolves query tokens
 //    and synchronizes chart columns CLIENT-SIDE (UserChartClient.Converter), so the server never
 //    materialises a QueryToken or a ChartScript definition from stored strings.
-//  - The auth in-memory visibility filter (Signum's `Schema.GetInMemoryFilter<UserChartEntity>`) and the
-//    owner-scoped personal/role visibility are TODO (routes gate on ViewCharting); the type-auth retrieve
-//    gate already applies on the entity itself.
-//  - Toolbar / Dashboard / CachedQuery / Omnibox WhenIncluded blocks + TokenMigration are omitted (those
-//    extensions / the interactive terminal sync are not ported); the QueryEntity PreDeleteSqlSync cascade is
-//    deferred with them.
+//  - Owner scoping IS ported: registerUserTypeCondition / registerRoleTypeCondition below, plus the in-memory
+//    visibility filter every lookup applies (see @altea/altea-user-assets' UserAssetOwnerAuth).
+//  - Toolbar / CachedQuery / Omnibox WhenIncluded blocks + TokenMigration are omitted (those extensions / the
+//    interactive terminal sync are not ported); the QueryEntity PreDeleteSqlSync cascade is deferred with
+//    them. The DASHBOARD part IS registered (see registerUserChartDashboardParts).
 
 export namespace UserChartLogic {
 
@@ -47,6 +49,10 @@ export namespace UserChartLogic {
         // entity; altea uses a per-type registry — see UserAssetsImportExport.server).
         registerUserChartXml();
 
+        // The UserChart DASHBOARD part: its XML (de)serializer + clone, registered with @altea/altea-dashboard's
+        // part registry (Signum did this inside `sb.Schema.WhenIncluded<DashboardEntity>`).
+        registerUserChartDashboardParts();
+
         // Signum's GlobalLazy over all user charts, invalidated on any UserChartEntity change.
         userChartsLazy = sb.globalLazy(() => table(UserChartEntity).toArray() as Promise<UserChartEntity[]>,
             { invalidateWith: [UserChartEntity] });
@@ -55,13 +61,28 @@ export namespace UserChartLogic {
             UserChartServer.start(sb.webBuilder);
     }
 
+    /** Signum's `UserChartLogic.RegisterUserTypeCondition` — this chart belongs to the current USER. */
+    export function registerUserTypeCondition(typeCondition: TypeConditionSymbol): void {
+        UserAssetOwnerAuth.registerUserTypeCondition(UserChartEntity, typeCondition);
+    }
+
+    /** Signum's `UserChartLogic.RegisterRoleTypeCondition` — global (no owner), or owned by one of the current
+     *  user's roles. */
+    export function registerRoleTypeCondition(typeCondition: TypeConditionSymbol): void {
+        UserAssetOwnerAuth.registerRoleTypeCondition(UserChartEntity, typeCondition);
+    }
+
+    // Every lookup below serves from `userChartsLazy`, whose factory runs in ExecutionMode.global — so the
+    // row-level query filter never saw those reads, and each lookup applies the in-memory visibility filter
+    // itself (Signum's `Schema.Current.GetInMemoryFilter<UserChartEntity>(userInterface: false)`).
+
     // Signum's GetUserCharts(queryName): the global (entityType == null) user charts registered against a
     // query.
     export async function getUserChartsForQuery(queryKey: string): Promise<Lite<UserChartEntity>[]> {
         const all = await userChartsLazy.value();
-        return all
-            .filter(uc => uc.entityType == null && uc.query.key === queryKey)
-            .map(uc => uc.toLite() as Lite<UserChartEntity>);
+        const visible = await UserAssetOwnerAuth.filterVisible(
+            all.filter(uc => uc.entityType == null && uc.query.key === queryKey));
+        return visible.map(uc => uc.toLite() as Lite<UserChartEntity>);
     }
 
     // Signum's GetUserCharts(Type entityType) / GetUserChartsModel: the user charts scoped to (and offered as
@@ -73,15 +94,18 @@ export namespace UserChartLogic {
             return [];
 
         const all = await userChartsLazy.value();
-        return all
-            .filter(uc => uc.entityType != null && String(uc.entityType.id) === String(typeId))
-            .map(uc => uc.toLite() as Lite<UserChartEntity>);
+        const visible = await UserAssetOwnerAuth.filterVisible(
+            all.filter(uc => uc.entityType != null && String(uc.entityType.id) === String(typeId)));
+        return visible.map(uc => uc.toLite() as Lite<UserChartEntity>);
     }
 
     // Signum's RetrieveUserChart — the full entity for a lite (the client fetches this to run/edit it). In
     // altea the generic Navigator.API.fetch already retrieves it; this stays as the cache-hit fast path.
     export async function retrieveUserChart(id: string): Promise<UserChartEntity | undefined> {
         const all = await userChartsLazy.value();
-        return all.find(uc => String(uc.id) === String(id));
+        const cached = all.find(uc => String(uc.id) === String(id));
+        if (cached == null)
+            return undefined;
+        return (await UserAssetOwnerAuth.isVisible(cached)) ? cached : undefined;
     }
 }
