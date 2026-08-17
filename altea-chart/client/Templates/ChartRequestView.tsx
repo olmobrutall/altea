@@ -7,8 +7,10 @@ import { TypeContext } from '@altea/altea/client/TypeContext'
 import { getQueryNiceName } from '@altea/altea/client/Reflection'
 import FilterBuilder from '@altea/altea/client/SearchControl/FilterBuilder'
 import PinnedFilterBuilder from '@altea/altea/client/SearchControl/PinnedFilterBuilder'
+import type { Lite } from '@altea/altea/data/lite'
 import { ChartRequestModel } from '../../data/ChartRequest'
 import type { IChartBase } from '../../data/ChartRequest'
+import type { UserChartEntity } from '../../data/UserChart'
 import { ChartMessage } from '../../data/ChartMessage'
 import ChartBuilder from './ChartBuilder'
 import ChartRenderer from './ChartRenderer'
@@ -27,8 +29,19 @@ import type { QueryToken } from '@altea/altea/data/dynamicQuery/tokens/queryToke
 
 interface ChartRequestViewProps {
   chartRequest: ChartRequestModel;
-  onChange?: (cr: ChartRequestModel) => void;
+  userChart?: Lite<UserChartEntity>;
+  onChange?: (cr: ChartRequestModel, userChart: Lite<UserChartEntity> | undefined) => void;
   searchOnLoad?: boolean;
+}
+
+// Signum's ChartRequestViewHandle — the seam the toolbar button-bar extensions (UserChartMenu) act through:
+// the live request, the currently-applied saved UserChart (if any), a way to swap the request/userChart, and
+// a way to collapse the settings after applying one.
+export interface ChartRequestViewHandle {
+  chartRequest: ChartRequestModel;
+  userChart: Lite<UserChartEntity> | undefined;
+  onChange(cr: ChartRequestModel, userChart: Lite<UserChartEntity> | undefined): void;
+  hideFiltersAndSettings(): void;
 }
 
 export default function ChartRequestView(p: ChartRequestViewProps): React.JSX.Element | null {
@@ -37,6 +50,8 @@ export default function ChartRequestView(p: ChartRequestViewProps): React.JSX.El
   const [showChartSettings, setShowChartSettings] = React.useState(true);
   const [result, setResult] = React.useState<{ chartResult: ChartClient.API.ExecuteChartResult; chartRequest: ChartRequestModel } | undefined>(undefined);
   const [loading, setLoading] = React.useState(false);
+  const [userChart, setUserChart] = React.useState<Lite<UserChartEntity> | undefined>(p.userChart);
+  React.useEffect(() => { setUserChart(p.userChart); }, [p.userChart]);
 
   const cr = p.chartRequest;
   const queryRoot = useAPI(() => Finder.getQueryRoot(cr.queryKey), [cr.queryKey]);
@@ -55,7 +70,7 @@ export default function ChartRequestView(p: ChartRequestViewProps): React.JSX.El
     setLoading(true);
     ChartClient.getChartScript(cr.chartScript)
       .then(cs => ChartClient.API.executeChart(cr, cs))
-      .then(rt => { setResult({ chartResult: rt, chartRequest: cr }); setLoading(false); p.onChange?.(cr); })
+      .then(rt => { setResult({ chartResult: rt, chartRequest: cr }); setLoading(false); p.onChange?.(cr, userChart); })
       .catch(e => { setLoading(false); throw e; });
   }
 
@@ -63,6 +78,16 @@ export default function ChartRequestView(p: ChartRequestViewProps): React.JSX.El
     return null;
 
   const tc = TypeContext.root(cr) as TypeContext<IChartBase>;
+
+  // The seam for toolbar button-bar extensions (UserChartMenu). A menu that swaps the request/userChart calls
+  // handle.onChange → the parent (ChartRequestPage) sets the new request + re-encodes the URL.
+  const handle: ChartRequestViewHandle = {
+    chartRequest: cr,
+    userChart,
+    onChange: (newCr, uc) => { setUserChart(uc); p.onChange?.(newCr, uc); },
+    hideFiltersAndSettings: () => setShowChartSettings(false),
+  };
+  const buttonBarElements = ChartClient.ButtonBarChart.getButtonBarElements(handle);
   const validResult = result && result.chartRequest == cr ? result : undefined;
 
   return (
@@ -87,7 +112,7 @@ export default function ChartRequestView(p: ChartRequestViewProps): React.JSX.El
         {showChartSettings &&
           <ChartBuilder queryKey={cr.queryKey} ctx={tc}
             onInvalidate={() => { setResult(undefined); forceUpdate(); }}
-            onRedraw={() => { forceUpdate(); p.onChange?.(cr); }}
+            onRedraw={() => { forceUpdate(); p.onChange?.(cr, userChart); }}
             onTokenChange={() => { removeObsoleteOrders(); forceUpdate(); }}
             onOrderChanged={() => { if (validResult) handleDraw(); else forceUpdate(); }}
           />}
@@ -100,6 +125,7 @@ export default function ChartRequestView(p: ChartRequestViewProps): React.JSX.El
           <FontAwesomeIcon aria-hidden={true} icon="sliders" />
         </button>
         <button type="submit" className="sf-query-button sf-chart-draw btn btn-primary" onClick={handleDraw}>{ChartMessage.DrawChart.niceToString()}</button>
+        {buttonBarElements.map((e, i) => <React.Fragment key={i}>{e}</React.Fragment>)}
       </div>
       <div className="sf-chart-tab-container">
         <Tabs id="chartResultTabs" key={showChartSettings + ""}>

@@ -6,14 +6,14 @@ import {
     stringLengthValidator, quoted,
 } from "@altea/altea/data/decorators";
 import { type int, toInt } from "@altea/altea/data/basics";
-import type { FilterOperation, FilterGroupOperation, DashboardBehaviour } from "@altea/altea/data/dynamicQueries";
+import { FilterOperationEnum, FilterGroupOperationEnum, DashboardBehaviourEnum } from "@altea/altea/data/dynamicQueries";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
-import { type IUserAssetEntity, type IHasEntityType, enumColumn } from "@altea/altea-user-assets/data/UserAssets";
+import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import { ChartScriptSymbol } from "./ChartScript";
 import { ChartColumnEmbedded } from "./ChartColumn";
@@ -57,11 +57,13 @@ export class UserChartFilterEmbedded extends Entity {
 
     token: QueryTokenEmbedded | null = null;
     isGroup: boolean = false;
-    @enumColumn() groupOperation: FilterGroupOperation | null = null;
-    @enumColumn() operation: FilterOperation | null = null;
+    // Real altea enums (int-FK, translatable) — the in-memory value is the ordinal, the wire/XML/query form
+    // is the member name (Enum.toName). Mirrors altea-user-queries' QueryFilterEmbedded.
+    groupOperation: FilterGroupOperationEnum | null = null;
+    operation: FilterOperationEnum | null = null;
     valueString: string | null = null;
     pinned: PinnedQueryFilterEmbedded | null = null;
-    @enumColumn() dashboardBehaviour: DashboardBehaviour | null = null;
+    dashboardBehaviour: DashboardBehaviourEnum | null = null;
     indentation: int = toInt(0);
 }
 

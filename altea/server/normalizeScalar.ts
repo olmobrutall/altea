@@ -15,6 +15,11 @@ export function normalizeScalar(value: unknown): unknown {
     if (value == null) return null;
     if (value instanceof Date) return value;
 
+    // Binary (a Blob/bytea field value, e.g. UserEntity.passwordHash) — a Buffer IS a Uint8Array. Pass it
+    // through untouched so the driver binds it as bytea/varbinary; the `typeof object` catch-all below would
+    // otherwise String()-ify it, and Postgres rejects that as "invalid input syntax for type bytea".
+    if (value instanceof Uint8Array) return value;
+
     if (value instanceof Temporal.PlainDate) return value.toString();
     if (value instanceof Temporal.PlainDateTime) return value.toString({ fractionalSecondDigits: 3 });
     if (value instanceof Temporal.PlainTime) return value.toString({ fractionalSecondDigits: 3 });

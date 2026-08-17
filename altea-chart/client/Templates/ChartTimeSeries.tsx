@@ -85,13 +85,13 @@ export default function ChartTimeSeries(p: { chartTimeSeries: ChartTimeSeriesEmb
   function renderTimeSeriesUnit() {
 
     function handleTimeSeriesUnit(e: React.ChangeEvent<HTMLSelectElement>) {
-      ts.timeSeriesUnit = e.currentTarget.value as TimeSeriesUnit;
+      ts.timeSeriesUnit = Enum.toValue(TimeSeriesUnitEnum, e.currentTarget.value as TimeSeriesUnit);
       ts.timeSeriesStep = toInt(1);
       p.onChange();
     }
 
     return (
-      <select value={ts.timeSeriesUnit!} className="form-select form-select-xs ms-1" style={{ width: "auto" }} onChange={handleTimeSeriesUnit}>
+      <select value={Enum.toName(TimeSeriesUnitEnum, ts.timeSeriesUnit!)} className="form-select form-select-xs ms-1" style={{ width: "auto" }} onChange={handleTimeSeriesUnit}>
         {Enum.values(TimeSeriesUnitEnum).map((stm, i) => <option key={i} value={stm}>{Enum.niceName(TimeSeriesUnitEnum, stm)}</option>)}
       </select>
     );
@@ -182,7 +182,7 @@ function TotalNumStepsAndRows(p: { chartTimeSeries: ChartTimeSeriesEmbedded, cha
 
   // luxon `Math.ceil(max.diff(min, unit).as(unit))` → Temporal until + Duration.total (relativeTo required
   // for calendar units); Quarter has no Temporal unit so it counts months / 3.
-  const { unit, divisor } = toTemporalUnit(st.timeSeriesUnit);
+  const { unit, divisor } = toTemporalUnit(Enum.toName(TimeSeriesUnitEnum, st.timeSeriesUnit));
   const total = min.until(max, { largestUnit: unit }).total({ unit, relativeTo: min.toPlainDate() });
   const steps = Math.ceil(total / divisor);
 

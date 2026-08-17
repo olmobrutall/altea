@@ -9,6 +9,7 @@ import type { Entity } from '@altea/altea/data/entity';
 import { Enum } from '@altea/altea/data/enum';
 import { enumEntityMembers } from '@altea/altea/data/enumEntity';
 import type { OrderType } from '@altea/altea/data/dynamicQueries';
+import { TimeSeriesUnitEnum } from '@altea/altea/data/dynamicQueries';
 import { type int, toInt } from '@altea/altea/data/basics';
 import { SubTokensOptions } from '@altea/altea/data/dynamicQuery/tokens/queryToken';
 import type { QueryToken } from '@altea/altea/data/dynamicQuery/tokens/queryToken';
@@ -35,9 +36,18 @@ import { ColorPaletteClient } from './ColorPalette/ColorPaletteClient';
 import { cleanTypeName } from '@altea/altea/data/registration';
 import type { MemoRepository } from './D3Scripts/Components/ReactChart';
 import type { DashboardFilter } from './DashboardFilterStub';
+import ChartButton from './ChartButton';
+import type { ChartRequestViewHandle } from './Templates/ChartRequestView';
 // altea Array/String prototype extensions (.toObject/.first/.contains/.before/.after) — see ColorUtils.
 import '@altea/altea/data/globals/arrayExtensions';
 import '@altea/altea/data/globals/stringExtensions';
+
+// Signum's SearchControlLoaded augmentation: the toolbar's "show chart button" opt-in flag.
+declare module '@altea/altea/client/SearchControl/SearchControlLoaded' {
+  interface ShowBarExtensionOption {
+    showChartButton?: boolean;
+  }
+}
 
 // The chart editor carries its filters as client-side FilterOptionParsed on the request instance (Signum's
 // ChartRequestModel client field). altea keeps the data-layer ChartRequestModel free of the client-only
@@ -74,6 +84,18 @@ export namespace ChartClient {
       element: <ImportComponent onImport={() => import("./Templates/ChartRequestPage")} />,
     });
 
+    // Signum's ChartClient.start ButtonBarQuery hook: a "Chart" button on the SearchControl toolbar that
+    // opens the current query (+ filters) as a chart. Gated by showBarExtension + the showChartButton opt-in
+    // (falls back to largeToolbarButtons). altea has no client ViewCharting permission — charting is
+    // server-gated — so the permission check Signum does is dropped.
+    Finder.ButtonBarQuery.onButtonBarElements.push(ctx => {
+      const sc = ctx.searchControl;
+      if (!sc.props.showBarExtension ||
+        !(sc.props.showBarExtensionOption?.showChartButton ?? sc.props.largeToolbarButtons))
+        return undefined;
+      return { button: <ChartButton searchControl={sc} /> };
+    });
+
     registerChartScriptComponent(D3ChartScript.Bars, () => import("./D3Scripts/Bars"));
     registerChartScriptComponent(D3ChartScript.Columns, () => import("./D3Scripts/Columns"));
     registerChartScriptComponent(D3ChartScript.Line, () => import("./D3Scripts/Line"));
@@ -93,6 +115,21 @@ export namespace ChartClient {
     registerChartScriptComponent(D3ChartScript.CalendarStream, () => import("./D3Scripts/CalendarStream"));
     registerChartScriptComponent(HtmlChartScript.PivotTable, () => import("./HtmlScripts/PivotTable"));
     registerChartScriptComponent(SvgMapsChartScript.SvgMap, () => import("./SvgMap/SvgMap"));
+  }
+
+  // Signum's ChartClient.ButtonBarChart — the registry the chart page's toolbar renders. UserChartClient.start
+  // pushes the UserChartMenu onto it (mirrors Finder.ButtonBarQuery for the SearchControl). The handle type is
+  // a type-only import so this stays free of a runtime cycle with ChartRequestView.
+  export interface ButtonBarChartContext {
+    chartRequestView: ChartRequestViewHandle;
+  }
+
+  export namespace ButtonBarChart {
+    export const onButtonBarElements: ((ctx: ButtonBarChartContext) => React.ReactElement | undefined)[] = [];
+
+    export function getButtonBarElements(chartRequestView: ChartRequestViewHandle): React.ReactElement[] {
+      return onButtonBarElements.map(f => f({ chartRequestView })).filter((a): a is React.ReactElement => a != undefined);
+    }
   }
 
   // ---- Client ChartScript DTO (the shape shipped from /api/chart/scripts; see ChartServer.server) --------
@@ -658,7 +695,7 @@ export namespace ChartClient {
           joinMode: 'AllCompatible',
           mode: 'TimeSeries',
           timeSeriesStep: ts.timeSeriesStep!,
-          timeSeriesUnit: ts.timeSeriesUnit!,
+          timeSeriesUnit: Enum.toName(TimeSeriesUnitEnum, ts.timeSeriesUnit!),
           startDate: ts.startDate!,
           endDate: ts.endDate!,
           timeSeriesMaxRowsPerStep: ts.timeSeriesMaxRowsPerStep!,

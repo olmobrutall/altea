@@ -213,6 +213,12 @@ export const QuickLinkMessage = {
     No0Found: msg("No {0} found"),
 };
 
+// CollapsableCard (Signum's CollapsableCardMessage, Signum.Basics) — the expand/collapse toggle title.
+export const CollapsableCardMessage = {
+    Collapse: msg("Collapse"),
+    Expand: msg("Expand"),
+};
+
 // CascadeDelete (Signum's CascadeDeleteMessage) — used by DeleteErrorModal.
 export const CascadeDeleteMessage = {
     ThisEntityIsStillReferenced: msg("This entity is still referenced"),

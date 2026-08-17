@@ -906,12 +906,15 @@ export namespace Finder {
 
     // Case-insensitive: the id token's fullKey is "id" (the field name) while defaultOrderColumn is "Id",
     // so an exact `==` never matches and default ordering silently no-ops. The order token itself resolves
-    // fine downstream (the completer is case-insensitive).
-    if (!queryToken.subTokens(SubTokensOptionsAll).find(t => t.fullKey().toLowerCase() == defaultOrderColumn.toLowerCase()))
+    // fine downstream (the completer is case-insensitive), but we must return its ACTUAL fullKey here so the
+    // trivial-order round-trip in toFindOptions (equalOrders, case-sensitive) recognises it and drops it from
+    // the URL — otherwise the default order leaks out as `order0=-id`.
+    const idToken = queryToken.subTokens(SubTokensOptionsAll).find(t => t.fullKey().toLowerCase() == defaultOrderColumn.toLowerCase());
+    if (!idToken)
       return undefined;
 
     return [{
-      token: defaultOrderColumn,
+      token: idToken.fullKey(),
       orderType: (ti == null || ti.entityData == "Transactional") ? "Descending" : "Ascending"
     }];
   }

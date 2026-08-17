@@ -6,23 +6,32 @@ import { ajaxGet } from "@altea/altea/client/Services";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import { Finder } from "@altea/altea/client/Finder";
 import { SubTokensOptions } from "@altea/altea/client/QueryToken";
+import type { QueryToken } from "@altea/altea/client/QueryToken";
 import { QuickLinkClient, QuickLinkAction } from "@altea/altea/client/QuickLinkClient";
 import type {
     FilterOptionParsed, FilterConditionOptionParsed, FilterGroupOptionParsed, PinnedFilterParsed,
 } from "@altea/altea/client/FindOptions";
+import { isFilterGroup } from "@altea/altea/client/FindOptions";
 import { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
 import type { QueryEntity } from "@altea/altea/data/queryEntity";
+import { type int, toInt } from "@altea/altea/data/basics";
 import type { FilterType } from "@altea/altea/data/dynamicQueries";
-import { parseFilterValue } from "@altea/altea-user-assets/client/FilterValueString";
-import type { PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
-import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
+import {
+    PinnedFilterActiveEnum, FilterGroupOperationEnum, FilterOperationEnum, DashboardBehaviourEnum,
+} from "@altea/altea/data/dynamicQueries";
+import { Enum } from "@altea/altea/data/enum";
+import { parseFilterValue, stringifyFilterValue } from "@altea/altea-user-assets/client/FilterValueString";
+import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
 import { ChartRequestModel, ChartTimeSeriesEmbedded } from "../../data/ChartRequest";
 import { ChartColumnEmbedded } from "../../data/ChartColumn";
 import { ChartParameterEmbedded } from "../../data/ChartParameter";
 import { ChartClient } from "../ChartClient";
-import { UserChartEntity, UserChartLite, UserChartFilterEmbedded } from "../../data/UserChart";
+import {
+    UserChartEntity, UserChartLite, UserChartFilterEmbedded, UserChartColumnEmbedded, UserChartParameterEmbedded,
+} from "../../data/UserChart";
+import UserChartMenu from "./UserChartMenu";
 
 // Port of Signum's Signum.Chart/UserChart/UserChartClient.tsx. Registers the UserChart entity view, the
 // /userChart page, and the quick-links to run a saved chart. The direct analogue of UserQueriesClient.
@@ -83,6 +92,11 @@ export namespace UserChartClient {
             },
             { icon: "eye", iconColor: "blue", color: "info" },
         ));
+
+        // The UserChart menu on the chart page toolbar (Signum's ChartClient.ButtonBarChart) — list / apply /
+        // create / edit a saved chart from the current ChartRequestView.
+        ChartClient.ButtonBarChart.onButtonBarElements.push(ctx =>
+            <UserChartMenu chartRequestView={ctx.chartRequestView} />);
     }
 
     export function userChartUrl(uc: Lite<UserChartEntity>, entity?: Lite<Entity>): string {
@@ -138,9 +152,103 @@ export namespace UserChartClient {
             return ajaxGet({ url: "/api/userChart/queryEntity/" + queryKey });
         }
     }
+
+    // Signum's UserChartMenu.createUserChart: build a new UserChart from the live ChartRequestModel — its query
+    // FK, chart script, maxRows, time-series, the columns/parameters (wrapped as @part rows over COPIES of the
+    // value objects), and the filters flattened to UserChartFilterEmbedded rows (values stringified). altea does
+    // the filter stringify client-side (no server round-trip), mirroring UserQueryMenu.createUserQuery.
+    export async function createUserChart(cr: ChartRequestModel): Promise<UserChartEntity> {
+        const uc = new UserChartEntity();
+        uc.query = await API.queryEntity(cr.queryKey);
+        uc.owner = AppContext.currentUser?.toLite() ?? null;
+        uc.chartScript = cr.chartScript;
+        uc.maxRows = cr.maxRows;
+        uc.chartTimeSeries = cr.chartTimeSeries == null ? null : cloneTimeSeries(cr.chartTimeSeries);
+        uc.filters = filterOptionsParsedToChartEmbedded(cr.filterOptions ?? []);
+        uc.columns = (cr.columns ?? []).map((c, i) => {
+            const row = new UserChartColumnEmbedded();
+            row.element = copyChartColumn(c);
+            row.order = toInt(i);
+            return row;
+        });
+        uc.parameters = (cr.parameters ?? []).map((p, i) => {
+            const row = new UserChartParameterEmbedded();
+            row.element = toChartParameter(p);
+            row.order = toInt(i);
+            return row;
+        });
+        uc.customDrilldowns = [];
+        return uc;
+    }
 }
 
 // ---- helpers ---------------------------------------------------------------------------------------
+
+// A standalone copy of a ChartColumnEmbedded for a new UserChart (like toChartColumn but the token is already
+// resolved, so no completer). The resolved `.token` (client-only, @serialize(false)) rides along harmlessly.
+function copyChartColumn(c: ChartColumnEmbedded): ChartColumnEmbedded {
+    const col = new ChartColumnEmbedded();
+    col.displayName = c.displayName;
+    col.format = c.format;
+    col.orderByIndex = c.orderByIndex;
+    col.orderByType = c.orderByType;
+    if (c.token?.tokenString) {
+        const t = new QueryTokenEmbedded();
+        t.tokenString = c.token.tokenString;
+        t.token = c.token.token;
+        col.token = t;
+    }
+    return col;
+}
+
+// Flatten a parsed filter tree into the stored, indentation-tagged UserChartFilterEmbedded rows (mirrors
+// altea-user-queries' filterOptionsParsedToEmbedded, but for the chart-owned filter row + the chart enums).
+function filterOptionsParsedToChartEmbedded(filters: FilterOptionParsed[]): UserChartFilterEmbedded[] {
+    const rows: UserChartFilterEmbedded[] = [];
+    function push(fo: FilterOptionParsed, indent: number): void {
+        const row = new UserChartFilterEmbedded();
+        row.indentation = toInt(indent);
+        row.pinned = fo.pinned ? toPinnedEmbedded(fo.pinned) : null;
+        row.dashboardBehaviour = fo.dashboardBehaviour == null ? null : Enum.toValue(DashboardBehaviourEnum, fo.dashboardBehaviour);
+        if (isFilterGroup(fo)) {
+            row.isGroup = true;
+            row.groupOperation = fo.groupOperation == null ? null : Enum.toValue(FilterGroupOperationEnum, fo.groupOperation);
+            row.token = fo.token ? toTokenEmbedded(fo.token) : null;
+            row.valueString = Array.isArray(fo.value) && fo.token
+                ? fo.value.map(v => stringifyFilterValue(v, fo.token!.filterType)).join("|")
+                : (fo.value != null ? String(fo.value) : null);
+            rows.push(row);
+            fo.filters.forEach(f => push(f, indent + 1));
+        } else {
+            row.token = fo.token ? toTokenEmbedded(fo.token) : null;
+            row.operation = fo.operation == null ? null : Enum.toValue(FilterOperationEnum, fo.operation);
+            row.valueString = Array.isArray(fo.value) && fo.token
+                ? fo.value.map(v => stringifyFilterValue(v, fo.token!.filterType)).join("|")
+                : stringifyFilterValue(fo.value, fo.token?.filterType);
+            rows.push(row);
+        }
+    }
+    filters.forEach(fo => push(fo, 0));
+    return rows;
+}
+
+function toTokenEmbedded(token: QueryToken): QueryTokenEmbedded {
+    const t = new QueryTokenEmbedded();
+    t.tokenString = token.fullKey();
+    t.token = token;
+    return t;
+}
+
+function toPinnedEmbedded(p: PinnedFilterParsed): PinnedQueryFilterEmbedded {
+    const e = new PinnedQueryFilterEmbedded();
+    e.label = p.label ?? null;
+    e.column = (p.column ?? null) as PinnedQueryFilterEmbedded["column"];
+    e.colSpan = (p.colSpan ?? null) as PinnedQueryFilterEmbedded["colSpan"];
+    e.row = (p.row ?? null) as PinnedQueryFilterEmbedded["row"];
+    e.active = Enum.toValue(PinnedFilterActiveEnum, p.active ?? "Always");
+    e.splitValue = p.splitValue ?? false;
+    return e;
+}
 
 function cloneTimeSeries(ts: ChartTimeSeriesEmbedded): ChartTimeSeriesEmbedded {
     const e = new ChartTimeSeriesEmbedded();
@@ -188,21 +296,21 @@ function buildFilterTree(
         if (head.isGroup) {
             return {
                 token,
-                groupOperation: head.groupOperation!,
+                groupOperation: Enum.toName(FilterGroupOperationEnum, head.groupOperation!),
                 filters: buildFilterTree(children, indent + 1, completer, subTokenOptions, entity),
                 value: parseValue(head.valueString, token?.filterType, entity),
                 frozen: false,
                 pinned: head.pinned ? toPinnedParsed(head.pinned) : undefined,
-                dashboardBehaviour: head.dashboardBehaviour ?? undefined,
+                dashboardBehaviour: head.dashboardBehaviour == null ? undefined : Enum.toName(DashboardBehaviourEnum, head.dashboardBehaviour),
             } as FilterGroupOptionParsed;
         }
         return {
             token,
-            operation: head.operation ?? "EqualTo",
+            operation: head.operation == null ? "EqualTo" : Enum.toName(FilterOperationEnum, head.operation),
             value: parseValue(head.valueString, token?.filterType, entity),
             frozen: false,
             pinned: head.pinned ? toPinnedParsed(head.pinned) : undefined,
-            dashboardBehaviour: head.dashboardBehaviour ?? undefined,
+            dashboardBehaviour: head.dashboardBehaviour == null ? undefined : Enum.toName(DashboardBehaviourEnum, head.dashboardBehaviour),
         } as FilterConditionOptionParsed;
     });
 }
@@ -223,7 +331,7 @@ function toPinnedParsed(p: PinnedQueryFilterEmbedded): PinnedFilterParsed {
         column: p.column ?? undefined,
         colSpan: p.colSpan ?? undefined,
         row: p.row ?? undefined,
-        active: p.active || undefined,
+        active: Enum.toName(PinnedFilterActiveEnum, p.active),
         splitValue: p.splitValue || undefined,
     };
 }

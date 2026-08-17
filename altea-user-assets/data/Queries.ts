@@ -2,9 +2,8 @@ import { reflect } from "@altea/altea/data/reflection";
 import { EmbeddedEntity } from "@altea/altea/data/entity";
 import { column, serialize, stringLengthValidator } from "@altea/altea/data/decorators";
 import { type int } from "@altea/altea/data/basics";
-import type { PinnedFilterActive } from "@altea/altea/data/dynamicQueries";
+import { PinnedFilterActiveEnum } from "@altea/altea/data/dynamicQueries";
 import { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
-import { enumColumn } from "./UserAssets";
 
 // Port of Signum's Signum.UserAssets/Queries/QueryTokenEmbedded.cs + PinnedQueryFilterEmbedded.cs (and
 // their client twin Signum.UserAssets.Queries.ts). The OWNER-AGNOSTIC value embeddeds shared by every
@@ -51,9 +50,9 @@ export class PinnedQueryFilterEmbedded extends EmbeddedEntity {
 
     row: int | null = null;
 
-    // Signum's PinnedFilterActive (default Always). Stored as the member-name string (see enumColumn).
-    @enumColumn()
-    active: PinnedFilterActive = "Always";
+    // Signum's PinnedFilterActive (default Always). A real altea enum (int FK to the enum table,
+    // translatable); the in-memory value is the numeric ordinal, the wire/XML form is the member name.
+    active: PinnedFilterActiveEnum = PinnedFilterActiveEnum.Always;
 
     splitValue: boolean = false;
 

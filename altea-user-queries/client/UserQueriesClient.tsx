@@ -15,6 +15,12 @@ import type { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import type { QueryEntity } from "@altea/altea/data/queryEntity";
 import { tryGetTypeInfo } from "@altea/altea/client/Reflection";
+import { Enum } from "@altea/altea/data/enum";
+import {
+    RefreshModeEnum, ColumnOptionsModeEnum, PaginationModeEnum, OrderTypeEnum, CombineRowsEnum,
+    FilterGroupOperationEnum, FilterOperationEnum, SystemTimeModeEnum, SystemTimeJoinModeEnum, TimeSeriesUnitEnum,
+    PinnedFilterActiveEnum,
+} from "@altea/altea/data/dynamicQueries";
 import { UserQueryEntity, UserQueryLite, QueryFilterEmbedded } from "../data/UserQuery";
 import type { PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
@@ -86,7 +92,7 @@ export namespace UserQueriesClient {
 
     // Signum's getUserQueryUrl: the SearchControl URL that runs this UserQuery (optionally over an entity).
     export async function getUserQueryUrl(uq: UserQueryEntity, entity?: Lite<Entity>): Promise<string> {
-        if (uq.refreshMode === "Manual")
+        if (Enum.toName(RefreshModeEnum, uq.refreshMode) === "Manual")
             return userQueryUrl(uq.toLite(), entity);
 
         const fo = await Converter.toFindOptions(uq, entity);
@@ -106,34 +112,38 @@ export namespace UserQueriesClient {
         export async function toFindOptions(uq: UserQueryEntity, entity: Lite<Entity> | undefined): Promise<FindOptions> {
             const fo: FindOptions = { queryName: uq.query.key, groupResults: uq.groupResults };
 
+            // Enum fields are stored as int-FK ordinals (see UserQuery.ts / dynamicQueries); FindOptions
+            // wants the member-name string, so normalise every enum read with Enum.toName. Temporal dates
+            // cross the wire as their ISO string.
             fo.filterOptions = buildFilterTree(uq.filters ?? [], 0, entity);
             fo.includeDefaultFilters = uq.includeDefaultFilters ?? undefined;
-            fo.columnOptionsMode = uq.columnsMode;
+            fo.columnOptionsMode = Enum.toName(ColumnOptionsModeEnum, uq.columnsMode);
             fo.columnOptions = (uq.columns ?? []).map(c => ({
                 token: c.token.tokenString,
                 displayName: c.displayName ?? undefined,
                 summaryToken: c.summaryToken?.tokenString,
                 hiddenColumn: c.hiddenColumn,
-                combineRows: c.combineRows ?? undefined,
+                combineRows: c.combineRows == null ? undefined : Enum.toName(CombineRowsEnum, c.combineRows),
             }) as ColumnOption);
             fo.orderOptions = (uq.orders ?? []).map(o => ({
                 token: o.token.tokenString,
-                orderType: o.orderType,
+                orderType: Enum.toName(OrderTypeEnum, o.orderType),
             }) as OrderOption);
 
-            fo.pagination = uq.paginationMode == null ? undefined : {
-                mode: uq.paginationMode,
-                currentPage: uq.paginationMode === "Paginate" ? 1 : undefined,
-                elementsPerPage: uq.paginationMode === "All" ? undefined : (uq.elementsPerPage ?? undefined),
+            const paginationMode = uq.paginationMode == null ? undefined : Enum.toName(PaginationModeEnum, uq.paginationMode);
+            fo.pagination = paginationMode == null ? undefined : {
+                mode: paginationMode,
+                currentPage: paginationMode === "Paginate" ? 1 : undefined,
+                elementsPerPage: paginationMode === "All" ? undefined : (uq.elementsPerPage ?? undefined),
             } as Pagination;
 
             fo.systemTime = uq.systemTime == null ? undefined : {
-                mode: uq.systemTime.mode,
-                startDate: uq.systemTime.startDate ?? undefined,
-                endDate: uq.systemTime.endDate ?? undefined,
-                joinMode: uq.systemTime.joinMode ?? undefined,
+                mode: Enum.toName(SystemTimeModeEnum, uq.systemTime.mode),
+                startDate: uq.systemTime.startDate?.toString() ?? undefined,
+                endDate: uq.systemTime.endDate?.toString() ?? undefined,
+                joinMode: uq.systemTime.joinMode == null ? undefined : Enum.toName(SystemTimeJoinModeEnum, uq.systemTime.joinMode),
                 timeSeriesStep: uq.systemTime.timeSeriesStep ?? undefined,
-                timeSeriesUnit: uq.systemTime.timeSeriesUnit ?? undefined,
+                timeSeriesUnit: uq.systemTime.timeSeriesUnit == null ? undefined : Enum.toName(TimeSeriesUnitEnum, uq.systemTime.timeSeriesUnit),
                 timeSeriesMaxRowsPerStep: uq.systemTime.timeSeriesMaxRowsPerStep ?? undefined,
                 splitQueries: uq.systemTime.splitQueries ?? undefined,
             } as SystemTime;
@@ -195,7 +205,7 @@ function buildFilterTree(filters: QueryFilterEmbedded[], indent: number, entity:
         if (head.isGroup) {
             return {
                 token: head.token?.tokenString,
-                groupOperation: head.groupOperation!,
+                groupOperation: Enum.toName(FilterGroupOperationEnum, head.groupOperation!),
                 filters: buildFilterTree(children, indent + 1, entity),
                 pinned: toPinned(head.pinned),
                 value: parseValue(head.valueString, entity),
@@ -203,7 +213,7 @@ function buildFilterTree(filters: QueryFilterEmbedded[], indent: number, entity:
         }
         return {
             token: head.token!.tokenString,
-            operation: head.operation ?? "EqualTo",
+            operation: head.operation == null ? "EqualTo" : Enum.toName(FilterOperationEnum, head.operation),
             value: parseValue(head.valueString, entity),
             pinned: toPinned(head.pinned),
         } as FilterConditionOption;
@@ -217,7 +227,7 @@ function toPinned(p: PinnedQueryFilterEmbedded | null): FilterConditionOption["p
         column: p.column ?? undefined,
         colSpan: p.colSpan ?? undefined,
         row: p.row ?? undefined,
-        active: p.active,
+        active: Enum.toName(PinnedFilterActiveEnum, p.active),
         splitValue: p.splitValue,
     };
 }

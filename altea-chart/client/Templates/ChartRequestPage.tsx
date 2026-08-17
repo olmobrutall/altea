@@ -5,8 +5,10 @@ import * as AppContext from '@altea/altea/client/AppContext'
 import { QueryString } from '@altea/altea/client/QueryString'
 import { SubTokensOptions, getSubTokens } from '@altea/altea/data/dynamicQuery/tokens/queryToken'
 import type { QueryToken } from '@altea/altea/data/dynamicQuery/tokens/queryToken'
+import { Lite } from '@altea/altea/data/lite'
 import { QueryTokenEmbedded } from '@altea/altea-user-assets/data/Queries'
 import { ChartRequestModel } from '../../data/ChartRequest'
+import type { UserChartEntity } from '../../data/UserChart'
 import { ChartColumnEmbedded } from '../../data/ChartColumn'
 import { D3ChartScript } from '../../data/ChartScript'
 import { ChartClient } from '../ChartClient'
@@ -23,25 +25,33 @@ export default function ChartRequestPage(): React.JSX.Element {
   const queryName = params.queryName!;
 
   const [cr, setCr] = React.useState<ChartRequestModel | undefined>(undefined);
+  // The saved UserChart the current request is associated with (from the `userChart=` URL param, or set by
+  // the UserChartMenu on create/select). Threaded into the encoded path so it round-trips.
+  const [userChart, setUserChart] = React.useState<Lite<UserChartEntity> | undefined>(undefined);
 
   React.useEffect(() => {
     const newPath = location.pathname + location.search;
     // The current request's own encoded path — if the URL already matches it (e.g. we just replaced it from
     // onChange, or the editor mutated `cr` in place), there is nothing to reload.
-    const oldPathPromise: Promise<string | undefined> = cr ? ChartClient.Encoder.chartPathPromise(cr) : Promise.resolve(undefined);
+    const oldPathPromise: Promise<string | undefined> = cr ? ChartClient.Encoder.chartPathPromise(cr, userChart) : Promise.resolve(undefined);
     oldPathPromise.then(oldPath => {
-      if (oldPath != newPath)
+      if (oldPath != newPath) {
         buildRequest(queryName, location.search).then(setCr);
+        const ucKey = QueryString.parse(location.search).userChart as string | undefined;
+        setUserChart(ucKey ? (Lite.parse(ucKey) as Lite<UserChartEntity>) : undefined);
+      }
     });
     // `cr` is intentionally NOT a dep: onChange mutates the SAME instance + replaces the URL, so the effect
     // (re-run by the search change) sees oldPath == newPath and skips — no rebuild/reset of the editor.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, location.search, queryName]);
 
-  // Editor changed the chart (draw / token / order / parameter) → reflect it in the URL (replace, so the
-  // editing session is one history entry). The editor mutates `cr` in place, so encode the same instance.
-  function handleChange(changed: ChartRequestModel): void {
-    ChartClient.Encoder.chartPathPromise(changed)
+  // Editor changed the chart (draw / token / order / parameter, or the UserChartMenu applied/created one) →
+  // reflect it in the URL (replace, so the editing session is one history entry).
+  function handleChange(changed: ChartRequestModel, uc: Lite<UserChartEntity> | undefined): void {
+    setCr(changed);
+    setUserChart(uc);
+    ChartClient.Encoder.chartPathPromise(changed, uc)
       .then(path => AppContext.navigate(path, { replace: true }));
   }
 
@@ -50,7 +60,7 @@ export default function ChartRequestPage(): React.JSX.Element {
 
   return (
     <div className="m-3">
-      <ChartRequestView chartRequest={cr} searchOnLoad onChange={handleChange} />
+      <ChartRequestView chartRequest={cr} userChart={userChart} searchOnLoad onChange={handleChange} />
     </div>
   );
 }

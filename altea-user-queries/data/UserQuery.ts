@@ -5,11 +5,11 @@ import {
     entity, primaryKey, backReference, rowOrder, valueField, implementedBy,
     stringLengthValidator, fieldValidation, quoted,
 } from "@altea/altea/data/decorators";
-import { type int, toInt } from "@altea/altea/data/basics";
+import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
-import type {
-    RefreshMode, ColumnOptionsMode, PaginationMode, FilterOperation, FilterGroupOperation,
-    OrderType, CombineRows, DashboardBehaviour, SystemTimeMode, SystemTimeJoinMode, TimeSeriesUnit,
+import {
+    RefreshModeEnum, ColumnOptionsModeEnum, PaginationModeEnum, FilterOperationEnum, FilterGroupOperationEnum,
+    OrderTypeEnum, CombineRowsEnum, DashboardBehaviourEnum, SystemTimeModeEnum, SystemTimeJoinModeEnum, TimeSeriesUnitEnum,
 } from "@altea/altea/data/dynamicQueries";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
@@ -18,7 +18,7 @@ import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
-import { type IUserAssetEntity, type IHasEntityType, enumColumn } from "@altea/altea-user-assets/data/UserAssets";
+import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
 
 // Port of Signum's Signum.UserQueries/UserQueryEntity.cs. A UserQuery is a user-authored, saved query
 // definition (filters + columns + orders + pagination + optional system-time) over a registered query,
@@ -51,11 +51,13 @@ export class QueryFilterEmbedded extends Entity {
 
     token: QueryTokenEmbedded | null = null;
     isGroup: boolean = false;
-    @enumColumn() groupOperation: FilterGroupOperation | null = null;
-    @enumColumn() operation: FilterOperation | null = null;
+    // Real altea enums (int FK to the enum table, translatable) — Signum's enum columns. The in-memory
+    // value is the numeric ordinal; the wire/XML/query form is the member name (Enum.toName). See dynamicQueries.
+    groupOperation: FilterGroupOperationEnum | null = null;
+    operation: FilterOperationEnum | null = null;
     valueString: string | null = null;
     pinned: PinnedQueryFilterEmbedded | null = null;
-    @enumColumn() dashboardBehaviour: DashboardBehaviour | null = null;
+    dashboardBehaviour: DashboardBehaviourEnum | null = null;
     indentation: int = toInt(0);
 }
 
@@ -70,7 +72,7 @@ export class QueryColumnEmbedded extends Entity {
     displayName: string | null = null;
     summaryToken: QueryTokenEmbedded | null = null;
     hiddenColumn: boolean = false;
-    @enumColumn() combineRows: CombineRows | null = null;
+    combineRows: CombineRowsEnum | null = null;
 }
 
 // Signum's QueryOrderEmbedded (Queries/QueryOrderEmbedded.cs). One sort: a token + Ascending/Descending.
@@ -80,7 +82,7 @@ export class QueryOrderEmbedded extends Entity {
     @rowOrder order: int = toInt(0);
 
     token: QueryTokenEmbedded;
-    @enumColumn() orderType: OrderType = "Ascending";
+    orderType: OrderTypeEnum = OrderTypeEnum.Ascending;
 }
 
 // Signum's `MList<Lite<Entity>> CustomDrilldowns` ([ImplementedBy(UserQueryEntity)], PreserveOrder,
@@ -97,13 +99,14 @@ export class UserQueryEntity_CustomDrilldowns extends Entity {
 // Signum's SystemTimeEmbedded (UserQueryEntity.cs). The optional system-versioned / time-series window.
 @reflect
 export class SystemTimeEmbedded extends EmbeddedEntity {
-    @enumColumn() mode: SystemTimeMode = "AsOf";
-    @stringLengthValidator({ max: 100 })
-    startDate: string | null = null;
-    @stringLengthValidator({ max: 100 })
-    endDate: string | null = null;
-    @enumColumn() joinMode: SystemTimeJoinMode | null = null;
-    @enumColumn() timeSeriesUnit: TimeSeriesUnit | null = null;
+    mode: SystemTimeModeEnum = SystemTimeModeEnum.AsOf;
+    // altea divergence: Signum stores StartDate/EndDate as `string?` (to allow smart/relative-date
+    // expressions parsed at query time). altea has not ported that grammar, so these are the most
+    // appropriate Temporal type — a system-versioned window is a point in time WITH a time component.
+    startDate: Temporal.PlainDateTime | null = null;
+    endDate: Temporal.PlainDateTime | null = null;
+    joinMode: SystemTimeJoinModeEnum | null = null;
+    timeSeriesUnit: TimeSeriesUnitEnum | null = null;
     timeSeriesStep: int | null = null;
     timeSeriesMaxRowsPerStep: int | null = null;
     splitQueries: boolean = false;
@@ -112,7 +115,7 @@ export class SystemTimeEmbedded extends EmbeddedEntity {
 // Signum's HealthCheckConditionEmbedded (UserQueryEntity.cs). A "{count} {op} {value}" threshold.
 @reflect
 export class HealthCheckConditionEmbedded extends EmbeddedEntity {
-    @enumColumn() operation: FilterOperation = "GreaterThan";
+    operation: FilterOperationEnum = FilterOperationEnum.GreaterThan;
     value: int = toInt(0);
 }
 
@@ -157,7 +160,7 @@ export class UserQueryEntity extends Entity implements IUserAssetEntity, IHasEnt
 
     appendFilters: boolean = false;
 
-    @enumColumn() refreshMode: RefreshMode = "Auto";
+    refreshMode: RefreshModeEnum = RefreshModeEnum.Auto;
 
     // Signum's [PreserveOrder, BindParent] MList<QueryFilterEmbedded>.
     filters: QueryFilterEmbedded[];
@@ -165,12 +168,12 @@ export class UserQueryEntity extends Entity implements IUserAssetEntity, IHasEnt
     // Signum's [PreserveOrder] MList<QueryOrderEmbedded>.
     orders: QueryOrderEmbedded[];
 
-    @enumColumn() columnsMode: ColumnOptionsMode = "Add";
+    columnsMode: ColumnOptionsModeEnum = ColumnOptionsModeEnum.Add;
 
     // Signum's [PreserveOrder] MList<QueryColumnEmbedded>.
     columns: QueryColumnEmbedded[];
 
-    @enumColumn() paginationMode: PaginationMode | null = null;
+    paginationMode: PaginationModeEnum | null = null;
 
     // Signum's [NumberIsValidator(GreaterThanOrEqualTo, 1)] — only set for Firsts/Paginate.
     @fieldValidation<UserQueryEntity>(uq =>

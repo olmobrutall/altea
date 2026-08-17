@@ -1,6 +1,10 @@
 import { table } from "@altea/altea/server/table";
 import type { int } from "@altea/altea/data/basics";
 import type { OrderType } from "@altea/altea/data/dynamicQueries";
+import { Enum } from "@altea/altea/data/enum";
+import {
+    FilterGroupOperationEnum, FilterOperationEnum, DashboardBehaviourEnum, PinnedFilterActiveEnum,
+} from "@altea/altea/data/dynamicQueries";
 import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
@@ -62,14 +66,14 @@ function filterXml(f: UserChartFilterEmbedded): Record<string, unknown> {
     const x: Record<string, unknown> = {};
     x[A + "Indentation"] = f.indentation;
     if (f.isGroup) {
-        x[A + "GroupOperation"] = f.groupOperation;
+        if (f.groupOperation != null) x[A + "GroupOperation"] = Enum.toName(FilterGroupOperationEnum, f.groupOperation);
         if (f.token != null) x[A + "Token"] = f.token.tokenString;
     } else {
         if (f.token != null) x[A + "Token"] = f.token.tokenString;
-        x[A + "Operation"] = f.operation;
+        if (f.operation != null) x[A + "Operation"] = Enum.toName(FilterOperationEnum, f.operation);
         if (f.valueString != null) x[A + "Value"] = f.valueString;
     }
-    if (f.dashboardBehaviour != null) x[A + "DashboardBehaviour"] = f.dashboardBehaviour;
+    if (f.dashboardBehaviour != null) x[A + "DashboardBehaviour"] = Enum.toName(DashboardBehaviourEnum, f.dashboardBehaviour);
     if (f.pinned != null) x["Pinned"] = pinnedXml(f.pinned);
     return x;
 }
@@ -80,7 +84,8 @@ function pinnedXml(p: PinnedQueryFilterEmbedded): Record<string, unknown> {
     if (p.column != null) x[A + "Column"] = p.column;
     if (p.colSpan != null) x[A + "ColSpan"] = p.colSpan;
     if (p.row != null) x[A + "Row"] = p.row;
-    if (p.active !== "Always") x[A + "Active"] = p.active;
+    const active = Enum.toName(PinnedFilterActiveEnum, p.active);
+    if (active !== "Always") x[A + "Active"] = active;
     if (p.splitValue) x[A + "SplitValue"] = true;
     return x;
 }
@@ -137,14 +142,17 @@ function filterFromXml(x: Record<string, unknown>): UserChartFilterEmbedded {
     f.indentation = (Number(x[A + "Indentation"] ?? 0) as int);
     f.isGroup = x[A + "GroupOperation"] != null;
     if (f.isGroup) {
-        f.groupOperation = str(x[A + "GroupOperation"]) as UserChartFilterEmbedded["groupOperation"];
+        const groupOperation = str(x[A + "GroupOperation"]);
+        f.groupOperation = groupOperation == null ? null : toEnum(FilterGroupOperationEnum, groupOperation);
         f.token = x[A + "Token"] != null ? token(str(x[A + "Token"])!) : null;
     } else {
         f.token = x[A + "Token"] != null ? token(str(x[A + "Token"])!) : null;
-        f.operation = str(x[A + "Operation"]) as UserChartFilterEmbedded["operation"];
+        const operation = str(x[A + "Operation"]);
+        f.operation = operation == null ? null : toEnum(FilterOperationEnum, operation);
         f.valueString = str(x[A + "Value"]) ?? null;
     }
-    f.dashboardBehaviour = str(x[A + "DashboardBehaviour"]) as UserChartFilterEmbedded["dashboardBehaviour"] ?? null;
+    const dashboardBehaviour = str(x[A + "DashboardBehaviour"]);
+    f.dashboardBehaviour = dashboardBehaviour == null ? null : toEnum(DashboardBehaviourEnum, dashboardBehaviour);
     const p = x["Pinned"];
     f.pinned = p != null ? pinnedFromXml(firstElem(p)) : null;
     return f;
@@ -156,7 +164,7 @@ function pinnedFromXml(x: Record<string, unknown>): PinnedQueryFilterEmbedded {
     p.column = x[A + "Column"] != null ? (Number(x[A + "Column"]) as int) : null;
     p.colSpan = x[A + "ColSpan"] != null ? (Number(x[A + "ColSpan"]) as int) : null;
     p.row = x[A + "Row"] != null ? (Number(x[A + "Row"]) as int) : null;
-    p.active = (str(x[A + "Active"]) as PinnedQueryFilterEmbedded["active"]) ?? "Always";
+    p.active = toEnum(PinnedFilterActiveEnum, str(x[A + "Active"]) ?? "Always");
     p.splitValue = bool(x[A + "SplitValue"]);
     return p;
 }
@@ -197,6 +205,11 @@ function resolveChartScript(key: string): ChartScriptSymbol {
     if (s == null)
         throw new Error(`UserChart import: chart script '${key}' is not registered`);
     return s;
+}
+
+// Enum.toValue wants the narrow member-name union; XML gives us a plain string, so widen the arg here.
+function toEnum<E extends Record<string, string | number>>(e: E, name: string): number {
+    return Enum.toValue(e, name as Extract<keyof E, string>);
 }
 
 function str(v: unknown): string | undefined {

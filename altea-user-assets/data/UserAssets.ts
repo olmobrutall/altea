@@ -7,13 +7,15 @@ import { msg } from "@altea/altea/data/utils/localization";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import type { TypeEntity } from "@altea/altea/data/typeEntity";
 
-// altea divergence: the DynamicQuery vocabulary (RefreshMode / ColumnOptionsMode / FilterOperation / …) is
-// a string-union TYPE alias whose runtime enum OBJECT is named `XEnum` (a different identifier). A field
-// typed with the alias is therefore NOT recognised as an altea enum (there is no ordinal enum-table FK),
-// so we store the member-NAME STRING directly in a varchar column. The runtime value stays the string
-// literal that the query layer (FindOptions/Finder) and the ported client code already use, so no
-// ordinal↔name conversion is needed anywhere. Apply `@enumColumn()` to every such field; the editor uses
-// EnumLine with explicit optionItems (Enum.values(XEnum)) to render a dropdown.
+// LEGACY (kept only for altea-chart's filter-row enums, pending their conversion). The user-assets /
+// user-queries DynamicQuery fields now use REAL altea enum tables — see dynamicQueries.ts (central
+// registerEnum) and the field declarations (`orderType: OrderTypeEnum`, etc.), which give an int-FK,
+// translatable column instead of this varchar-member-name workaround.
+//
+// Why this ever existed: a field is only recognised as an altea enum when its TS TYPE is the runtime enum
+// OBJECT. The DynamicQuery vocabulary is `enum XEnum {}` + `type X = keyof typeof XEnum`; typing a field
+// with the string-union alias `X` (no runtime object of that name) made the transformer fall back to a
+// plain column — so `@enumColumn()` pinned it to a varchar member-name string. Prefer the enum OBJECT type.
 export function enumColumn(): (target: object, propertyKey: string | symbol) => void {
     return column({ pgDbType: "varchar", sqlDbType: "nvarchar", size: 100 });
 }
