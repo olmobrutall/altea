@@ -4,22 +4,22 @@ import {
     CountryEntity,
     LabelEntity,
     ArtistEntity,
-    ArtistEntity_Friends,
+    ArtistEntity_Friend,
     BandEntity,
-    BandEntity_Members,
+    BandEntity_Member,
     GrammyAwardEntity,
     AmericanMusicAwardEntity,
     PersonalAwardEntity,
     AlbumEntity,
-    AlbumEntity_Songs,
+    AlbumEntity_Song,
     SongEmbedded,
     AwardNominationEntity,
     ConfigEntity,
-    ConfigEntity_Awards,
+    ConfigEntity_Award,
     EmbeddedConfigEmbedded,
     NoteWithDateEntity,
     ColaboratorsMixin,
-    NoteWithDateEntity_Colaborators,
+    NoteWithDateEntity_Colaborator,
     FolderEntity,
     Sex,
     Status,
@@ -55,7 +55,7 @@ export namespace MusicLoader {
         const members = "Billy Corgan, James Iha, D'arcy Wretzky, Jimmy Chamberlin".split(",").map(s => artist(s.trim()));
         const smashingPumpkins = await BandEntity.create({
             name: "Smashing Pumpkins",
-            members: members.map(a => BandEntity_Members.create({ member: a })),
+            members: members.map(a => BandEntity_Member.create({ member: a })),
             lastAward: ama,
         }).save();
 
@@ -65,7 +65,7 @@ export namespace MusicLoader {
         // Each member befriends every member of a different sex (a self
         // many-to-many; fat lites because the artists are new).
         members.forEach(m => {
-            m.friends = members.filter(a => a.sex !== m.sex).map(a => ArtistEntity_Friends.create({ friend: a.toLite(true) }));
+            m.friends = members.filter(a => a.sex !== m.sex).map(a => ArtistEntity_Friend.create({ friend: a.toLite(true) }));
         });
         await smashingPumpkins.save();
 
@@ -85,7 +85,7 @@ export namespace MusicLoader {
             name: "Siamese Dream",
             year: toInt(1993),
             author: smashingPumpkins,
-            songs: AlbumEntity_Songs.createMany([{ name: "Disarm" }]),
+            songs: AlbumEntity_Song.createMany([{ name: "Disarm" }]),
             bonusTrack: null,
             label: virgin,
         }).save();
@@ -94,7 +94,7 @@ export namespace MusicLoader {
             name: "Mellon Collie and the Infinite Sadness",
             year: toInt(1995),
             author: smashingPumpkins,
-            songs: AlbumEntity_Songs.createMany([
+            songs: AlbumEntity_Song.createMany([
                 // Signum's SongEmbedded.Duration setter derives Seconds; altea's plain create
                 // doesn't run a setter, so set seconds explicitly (= the duration's whole seconds).
                 { name: "Zero", duration: Temporal.Duration.from({ seconds: 123 }), seconds: toInt(123) },
@@ -121,7 +121,7 @@ export namespace MusicLoader {
             name: "Zeitgeist",
             year: toInt(2007),
             author: smashingPumpkins,
-            songs: AlbumEntity_Songs.createMany([{ name: "Tarantula" }]),
+            songs: AlbumEntity_Song.createMany([{ name: "Tarantula" }]),
             bonusTrack: SongEmbedded.create({ name: "1976", duration: null, seconds: null, index: toInt(0) }),
             label: wea,
         }).save();
@@ -130,7 +130,7 @@ export namespace MusicLoader {
             name: "American Gothic",
             year: toInt(2008),
             author: smashingPumpkins,
-            songs: AlbumEntity_Songs.createMany([{ name: "The Rose March", duration: Temporal.Duration.from({ seconds: 276 }), seconds: toInt(276) }]),
+            songs: AlbumEntity_Song.createMany([{ name: "The Rose March", duration: Temporal.Duration.from({ seconds: 276 }), seconds: toInt(276) }]),
             bonusTrack: null,
             label: wea,
         }).save();
@@ -144,7 +144,7 @@ export namespace MusicLoader {
             sex: Sex.Male,
             status: Status.Single,
             lastAward: pa,
-            friends: [ArtistEntity_Friends.create({ friend: billy.toLite(true) })],
+            friends: [ArtistEntity_Friend.create({ friend: billy.toLite(true) })],
         }).save();
 
         await NoteWithDateEntity.create({
@@ -177,7 +177,7 @@ export namespace MusicLoader {
             otherTarget: null,
         });
         corruptNote.mixin(ColaboratorsMixin).colaborators = [
-            NoteWithDateEntity_Colaborators.create({ colaborator: michael }),
+            NoteWithDateEntity_Colaborator.create({ colaborator: michael }),
         ];
         await corruptNote.save();
 
@@ -187,7 +187,7 @@ export namespace MusicLoader {
             name: "Ben",
             year: toInt(1972),
             author: michael,
-            songs: AlbumEntity_Songs.createMany([{ name: "Ben" }]),
+            songs: AlbumEntity_Song.createMany([{ name: "Ben" }]),
             bonusTrack: SongEmbedded.create({ name: "Michael", duration: null, seconds: null, index: toInt(0) }),
             label: universal,
         }).save();
@@ -198,7 +198,7 @@ export namespace MusicLoader {
             name: "Thriller",
             year: toInt(1982),
             author: michael,
-            songs: AlbumEntity_Songs.createMany([{ name: "Wanna Be Startin' Somethin'" }, { name: "Thriller" }, { name: "Beat It" }]),
+            songs: AlbumEntity_Song.createMany([{ name: "Wanna Be Startin' Somethin'" }, { name: "Thriller" }, { name: "Beat It" }]),
             bonusTrack: SongEmbedded.create({ name: "Billie Jean", duration: null, seconds: null, index: toInt(0) }),
             label: sony,
         }).save();
@@ -209,7 +209,7 @@ export namespace MusicLoader {
             name: "Bad",
             year: toInt(1989),
             author: michael,
-            songs: AlbumEntity_Songs.createMany([{ name: "Bad" }, { name: "Man in the Mirror" }, { name: "Dirty Diana" }, { name: "Smooth Criminal" }]),
+            songs: AlbumEntity_Song.createMany([{ name: "Bad" }, { name: "Man in the Mirror" }, { name: "Dirty Diana" }, { name: "Smooth Criminal" }]),
             bonusTrack: null,
             label: mjj,
         }).save();
@@ -218,7 +218,7 @@ export namespace MusicLoader {
             name: "Dangerous",
             year: toInt(1991),
             author: michael,
-            songs: AlbumEntity_Songs.createMany([{ name: "Black or White" }, { name: "Who Is It" }, { name: "Give it to Me" }]),
+            songs: AlbumEntity_Song.createMany([{ name: "Black or White" }, { name: "Who Is It" }, { name: "Give it to Me" }]),
             bonusTrack: null,
             label: mjj,
         }).save();
@@ -227,7 +227,7 @@ export namespace MusicLoader {
             name: "HIStory",
             year: toInt(1995),
             author: michael,
-            songs: AlbumEntity_Songs.createMany([{ name: "Billie Jean" }, { name: "Stranger In Moscow" }]),
+            songs: AlbumEntity_Song.createMany([{ name: "Billie Jean" }, { name: "Stranger In Moscow" }]),
             bonusTrack: SongEmbedded.create({ name: "Heal The World", duration: null, seconds: null, index: toInt(0) }),
             label: mjj,
         }).save();
@@ -236,7 +236,7 @@ export namespace MusicLoader {
             name: "Blood on the Dance Floor",
             year: toInt(1995),
             author: michael,
-            songs: AlbumEntity_Songs.createMany([{ name: "Blood on the Dance Floor" }, { name: "Morphine" }]),
+            songs: AlbumEntity_Song.createMany([{ name: "Blood on the Dance Floor" }, { name: "Morphine" }]),
             bonusTrack: null,
             label: mjj,
         }).save();
@@ -251,7 +251,7 @@ export namespace MusicLoader {
 
         const sigurRos = await BandEntity.create({
             name: "Sigur Ros",
-            members: sigurMembers.map(a => BandEntity_Members.create({ member: a })),
+            members: sigurMembers.map(a => BandEntity_Member.create({ member: a })),
             lastAward: ga,
         }).save();
 
@@ -261,7 +261,7 @@ export namespace MusicLoader {
             name: "Ágaetis byrjun",
             year: toInt(1999),
             author: sigurRos,
-            songs: AlbumEntity_Songs.createMany([{ name: "Scefn-g-englar" }]),
+            songs: AlbumEntity_Song.createMany([{ name: "Scefn-g-englar" }]),
             bonusTrack: SongEmbedded.create({ name: "Intro", duration: null, seconds: null, index: toInt(0) }),
             label: fatCat,
         }).save();
@@ -272,7 +272,7 @@ export namespace MusicLoader {
             name: "Takk...",
             year: toInt(2005),
             author: sigurRos,
-            songs: AlbumEntity_Songs.createMany([{ name: "Hoppípolla" }, { name: "Glósóli" }, { name: "Saeglópur" }]),
+            songs: AlbumEntity_Song.createMany([{ name: "Hoppípolla" }, { name: "Glósóli" }, { name: "Saeglópur" }]),
             bonusTrack: SongEmbedded.create({ name: "Svo hljótt", duration: null, seconds: null, index: toInt(0) }),
             label: emi,
         }).save();
@@ -291,7 +291,7 @@ export namespace MusicLoader {
 
         await ConfigEntity.create({
             embeddedConfig: EmbeddedConfigEmbedded.create({ defaultLabel: null }),
-            awards: [ConfigEntity_Awards.create({ award: ga.toLite() })],
+            awards: [ConfigEntity_Award.create({ award: ga.toLite() })],
         }).save();
 
         await createFolders();

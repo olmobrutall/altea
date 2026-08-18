@@ -70,7 +70,7 @@ function rawTypeName(type: Type<Entity> | ViewType<View>): string {
 // Logical, dialect-independent type name: strips the "Entity" suffix from each
 // underscore-separated segment, so part entities named `<Owner>Entity_<Field>`
 // (altea's MList replacement) become `<Owner>_<Field>` (e.g.
-// AwardNominationEntity_Points -> "AwardNomination_Points"). Used for the type
+// AwardNominationEntity_Point -> "AwardNomination_Point"). Used for the type
 // registry / serialization names and @implementedBy column names.
 function cleanTypeName(type: Type<Entity> | ViewType<View>): string {
     return rawTypeName(type).split('_').map(s => s.replace(/Entity$/, '')).join('_');
@@ -91,7 +91,7 @@ function cap(value: string): string {
 }
 
 // Physical table name (mirrors Signum's GenerateTableName, adapted). SQL Server
-// keeps the PascalCase clean name (segments joined by "_"): AwardNomination_Points.
+// keeps the PascalCase clean name (segments joined by "_"): AwardNomination_Point.
 // Postgres snake-cases each segment and joins them with a DOUBLE underscore, so
 // the owner/part boundary stays legible against the single underscores inside a
 // snaked segment: award_nomination__points.

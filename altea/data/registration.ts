@@ -103,8 +103,8 @@ export function cleanTypeName(ctor: Function): string {
 
 // Strip the "Entity" suffix from each underscore-separated segment (mirrors the schema builder's table
 // naming). A plain entity: "BandEntity" -> "Band". A PART entity (altea's MList replacement, named
-// `<Owner>Entity_<Field>`): "RuleTypeConditionEntity_Conditions" -> "RuleTypeCondition_Conditions",
-// "EmployeeEntity_Territories" -> "Employee_Territories". Per-segment so the OWNER's suffix is stripped
+// `<Owner>Entity_<Field>`): "RuleTypeConditionEntity_Condition" -> "RuleTypeCondition_Condition",
+// "EmployeeEntity_Territory" -> "Employee_Territory". Per-segment so the OWNER's suffix is stripped
 // too, not just a trailing one (the previous trailing-only strip left the part's owner segment mangled,
 // disagreeing with the schema builder's own cleanTypeName).
 function stripEntitySuffix(name: string): string {

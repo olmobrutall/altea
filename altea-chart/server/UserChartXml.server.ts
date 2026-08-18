@@ -11,7 +11,7 @@ import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import {
     UserChartEntity, UserChartEntity_Filter, UserChartEntity_Column, UserChartEntity_Parameter,
-    UserChartEntity_CustomDrilldowns,
+    UserChartEntity_CustomDrilldown,
 } from "../data/UserChart";
 import { ChartColumnEmbedded } from "../data/ChartColumn";
 import { ChartParameterEmbedded } from "../data/ChartParameter";
@@ -130,7 +130,7 @@ function fromXml(uc: UserChartEntity, xml: Record<string, unknown>, ctx: IFromXm
         return row;
     });
     uc.customDrilldowns = arr(xml["CustomDrilldowns"], "CustomDrilldown").map(d => {
-        const row = new UserChartEntity_CustomDrilldowns();
+        const row = new UserChartEntity_CustomDrilldown();
         const guid = str((d as Record<string, unknown>)["#text"] ?? d);
         row.drilldown = (ctx.getEntity(guid!) as UserQueryEntity).toLite();
         return row;

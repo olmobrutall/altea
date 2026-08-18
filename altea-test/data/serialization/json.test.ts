@@ -7,7 +7,7 @@ import type { PrimaryKey } from "@altea/altea/data/entity";
 import { cleanModified, isModifiedSelf } from "@altea/altea/data/changes";
 import { Temporal, toInt } from "@altea/altea/data/basics";
 import {
-    CountryEntity, ArtistEntity, AlbumEntity, AlbumEntity_Songs, SongEmbedded,
+    CountryEntity, ArtistEntity, AlbumEntity, AlbumEntity_Song, SongEmbedded,
     NoteWithDateEntity, Sex, Status, AlbumState,
 } from "../music";
 import { GadgetEntity } from "../gadget";   // @column(false) / @serialize(false) fixture
@@ -202,8 +202,8 @@ describe("EntityJson", () => {
             state: AlbumState.Saved,
         });
         album.id = 3; album.isNew = false; album.ticks = 0;
-        const s1 = AlbumEntity_Songs.create({ name: "s1", duration: null, seconds: toInt(100), index: toInt(0) });
-        const s2 = AlbumEntity_Songs.create({ name: "s2", duration: Temporal.Duration.from("PT3M"), seconds: toInt(180), index: toInt(0) });
+        const s1 = AlbumEntity_Song.create({ name: "s1", duration: null, seconds: toInt(100), index: toInt(0) });
+        const s2 = AlbumEntity_Song.create({ name: "s2", duration: Temporal.Duration.from("PT3M"), seconds: toInt(180), index: toInt(0) });
         album.songs = [s1, s2];
 
         const json = serialize(album);
@@ -235,7 +235,7 @@ describe("EntityJson", () => {
             state: AlbumState.New,
         });
         album.id = 3; album.isNew = false;
-        album.songs = [AlbumEntity_Songs.create({ name: "s1", duration: null, seconds: toInt(1), index: toInt(0) })];
+        album.songs = [AlbumEntity_Song.create({ name: "s1", duration: null, seconds: toInt(1), index: toInt(0) })];
 
         const auto = parse(serialize(album, { writeTypes: "Auto" }));
         assert.equal(auto.songs[0].$type, undefined);              // inferred
@@ -243,7 +243,7 @@ describe("EntityJson", () => {
 
         const always = parse(serialize(album, { writeTypes: "Always" }));
         assert.equal(always.$type, "Album");
-        assert.equal(always.songs[0].$type, "Album_Songs");  // explicit
+        assert.equal(always.songs[0].$type, "Album_Song");  // explicit
         assert.equal(always.bonusTrack.$type, "SongEmbedded");
         assert.equal(always.songs[0].album, undefined);            // back-ref still skipped (both modes)
 

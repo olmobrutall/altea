@@ -19,7 +19,7 @@ import { PropertyAuthLogic } from "@altea/altea-auth/server/PropertyAuthLogic";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity, RoleEntity_InheritsFrom, MergeStrategy } from "@altea/altea-auth/data/Role";
 import {
-    RuleTypeEntity, RuleTypeConditionEntity, RuleTypeConditionEntity_Conditions,
+    RuleTypeEntity, RuleTypeConditionEntity, RuleTypeConditionEntity_Condition,
     RulePropertyEntity, RuleOperationEntity,
     TypeAllowed, PropertyAllowed, OperationAllowed, TypeConditionSymbol,
 } from "@altea/altea-auth/data/Rules";
@@ -150,7 +150,7 @@ async function seed(): Promise<void> {
         conditionRules: [RuleTypeConditionEntity.create({
             order: toInt(0),
             allowed: TypeAllowed.Read,
-            conditions: [RuleTypeConditionEntity_Conditions.create({ symbol: publicSym })],
+            conditions: [RuleTypeConditionEntity_Condition.create({ symbol: publicSym })],
         })],
     }).save();
 

@@ -74,9 +74,9 @@ export class UserChartEntity_Parameter extends Entity {
 }
 
 // Signum's `[NoRepeatValidator, PreserveOrder, ImplementedBy(UserQueryEntity)] MList<Lite<Entity>>
-// CustomDrilldowns`. altea MList-of-lite → a @part value row (mirrors UserQueryEntity_CustomDrilldowns).
+// CustomDrilldowns`. altea MList-of-lite → a @part value row (mirrors UserQueryEntity_CustomDrilldown).
 @entity("Part")
-export class UserChartEntity_CustomDrilldowns extends Entity {
+export class UserChartEntity_CustomDrilldown extends Entity {
     @backReference userChart: Lite<UserChartEntity>;
     @rowOrder order: int;
     @valueField @implementedBy(() => [UserQueryEntity]) drilldown: Lite<UserQueryEntity>;
@@ -125,7 +125,7 @@ export class UserChartEntity extends Entity implements IUserAssetEntity, IHasEnt
     filters: UserChartEntity_Filter[];
 
     // Signum's [NoRepeatValidator, PreserveOrder, ImplementedBy(UserQueryEntity)] MList<Lite<Entity>>.
-    customDrilldowns: UserChartEntity_CustomDrilldowns[];
+    customDrilldowns: UserChartEntity_CustomDrilldown[];
 
     @quoted
     toString(): string {

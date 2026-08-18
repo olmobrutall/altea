@@ -4,7 +4,7 @@ import "@altea/altea/data/globals";
 import { PropertyRoute, PropertyRouteType } from "@altea/altea/data/propertyRoute";
 import { Implementations } from "@altea/altea/data/implementations";
 import {
-    AlbumEntity, AlbumEntity_Songs, LabelEntity, CountryEntity, ArtistEntity, BandEntity,
+    AlbumEntity, AlbumEntity_Song, LabelEntity, CountryEntity, ArtistEntity, BandEntity,
 } from "../music";
 
 // Phase-0 DynamicQuery port: PropertyRoute + Implementations. DB-free — routes are pure
@@ -98,21 +98,21 @@ describe("PropertyRoute — collections", () => {
     });
 
     // altea models Signum's MList<SongEmbedded> as a part-ENTITY collection
-    // (AlbumEntity_Songs[]). So the element is an entity reference, and navigating a
-    // member off `(Album).songs/` RE-ROOTS at AlbumEntity_Songs (Signum's AddImp — same
+    // (AlbumEntity_Song[]). So the element is an entity reference, and navigating a
+    // member off `(Album).songs/` RE-ROOTS at AlbumEntity_Song (Signum's AddImp — same
     // as navigating any MList<Entity> element, e.g. Band.Members). The owner-collection
     // context ("(Album).songs/") is intentionally dropped: format/validators/implementations
-    // for the member live on AlbumEntity_Songs, and the token's own FullKey (built from
+    // for the member live on AlbumEntity_Song, and the token's own FullKey (built from
     // token Keys, not the route) carries the navigation identity.
     test("member off an MListItems entity element re-roots at the element entity", () => {
         const item = PropertyRoute.root(AlbumEntity).add("songs").add("Item");
-        assert.equal(item.type.getFunction(), AlbumEntity_Songs);
+        assert.equal(item.type.getFunction(), AlbumEntity_Song);
 
         const name = item.add("name");
         assert.equal(name.propertyRouteType, PropertyRouteType.FieldOrProperty);
-        assert.equal(name.rootType, AlbumEntity_Songs);
+        assert.equal(name.rootType, AlbumEntity_Song);
         assert.equal(name.type.typeName, "String");
-        assert.equal(name.toString(), "(Album_Songs).name");
+        assert.equal(name.toString(), "(Album_Song).name");
         assert.equal(name.propertyString(), "name");
     });
 });

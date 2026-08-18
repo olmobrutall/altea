@@ -2,7 +2,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "../setup";
-import { ArtistEntity, AlbumEntity, BandEntity, BandEntity_Members, Sex } from "../../data/music";
+import { ArtistEntity, AlbumEntity, BandEntity, BandEntity_Member, Sex } from "../../data/music";
 
 // Port of Signum.Test/LinqProvider/SelectManyTest.cs. C# → altea idiom:
 //   Database.Query<T>()  → table(T)
@@ -15,11 +15,11 @@ import { ArtistEntity, AlbumEntity, BandEntity, BandEntity_Members, Sex } from "
 //
 // Music-model note: Signum's MList<T> collections are part-entity arrays here.
 //   BandEntity.Members (MList<ArtistEntity>) → band.members, each row a
-//     BandEntity_Members with a full `.member: ArtistEntity` value field.
+//     BandEntity_Member with a full `.member: ArtistEntity` value field.
 //   ArtistEntity.Friends (MList<Lite<ArtistEntity>>) → artist.friends, each row
-//     an ArtistEntity_Friends with a `.friend: Lite<ArtistEntity>` value field.
+//     an ArtistEntity_Friend with a `.friend: Lite<ArtistEntity>` value field.
 //   AlbumEntity.Songs (MList<SongEmbedded>) → album.songs, each an
-//     AlbumEntity_Songs with the embedded fields flattened in (e.g. `.name`).
+//     AlbumEntity_Song with the embedded fields flattened in (e.g. `.name`).
 
 describe("SelectManyTest", { skip: !hasDb }, () => {
     before(async () => { await start(); });
@@ -171,11 +171,11 @@ describe("SelectManyTest", { skip: !hasDb }, () => {
 
     // from b in Database.Query<BandEntity>() join mle in Database.MListQuery((BandEntity b) => b.Members) on b equals mle.Parent
     //   select new { MaxAlbum = Database.Query<ArtistEntity>().Where(n => n.Friends.Contains(mle.Element.ToLite())).Max(n => (int?)n.Id) }
-    // Database.MListQuery is just `table(BandEntity_Members)`, and the join key is aligned by
+    // Database.MListQuery is just `table(BandEntity_Member)`, and the join key is aligned by
     // taking `b.toLite()` so both sides are Lite<BandEntity> (matching `m.band` — SmartEqualizer
     // compares lite==lite). The correlated-subquery contains + nullable-int MAX resolve too.
     test("JoinSingleJoinExpander", async () => {
-        const mle = table(BandEntity_Members);
+        const mle = table(BandEntity_Member);
         const list = await table(BandEntity)
             .innerJoin(mle, b => b.toLite(), m => m.band, (b, m) => ({
                 maxAlbum: table(ArtistEntity)

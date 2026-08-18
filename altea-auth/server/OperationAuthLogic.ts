@@ -14,7 +14,7 @@ import { toInt } from "@altea/altea/data/basics";
 import { AuthLogic, RoleGraph } from "./AuthLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
 import {
-    RuleOperationEntity, RuleOperationConditionEntity, RuleOperationConditionEntity_Conditions,
+    RuleOperationEntity, RuleOperationConditionEntity, RuleOperationConditionEntity_Condition,
     OperationRulePack, OperationAllowedRule, OperationAllowed, TypeConditionSymbol, TypeConditionSetModel,
     OperationWithConditionsModel, OperationConditionRuleModel,
 } from "../data/Rules";
@@ -252,7 +252,7 @@ export namespace OperationAuthLogic {
             ro.conditionRules = prunedAllowed.conditionRules.map((cr, i) => RuleOperationConditionEntity.create({
                 order: toInt(i),
                 allowed: cr.allowed,
-                conditions: cr.typeConditions.map(lite => RuleOperationConditionEntity_Conditions.create({ symbol: lite })),
+                conditions: cr.typeConditions.map(lite => RuleOperationConditionEntity_Condition.create({ symbol: lite })),
             }));
             await ro.save();
         }

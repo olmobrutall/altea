@@ -5,7 +5,7 @@ import "@altea/altea/data/globals"; // String methods (startsWith etc.), SQL-map
 import { hasDb, start, txTest } from "../setup";
 import {
     ArtistEntity, AlbumEntity, LabelEntity, CountryEntity,
-    AlbumEntity_Songs, MyTempView,
+    AlbumEntity_Song, MyTempView,
 } from "../../data/music";
 import { Administrator } from "@altea/altea/server/Administrator";
 
@@ -19,7 +19,7 @@ import { Administrator } from "@altea/altea/server/Administrator";
 //       set explicitly (Signum's SetReadonly / DisableIdentity).  → returns inserted row count.
 //   Identity form: pre-project with `.map(...)` then `executeInsert(Target, a => a)`.
 // altea models MLists as part-entity tables, so Signum's `UnsafeInsertMList(...)` is just
-// executeInsert over the part-entity table (e.g. AlbumEntity_Songs). executeInsert whose target
+// executeInsert over the part-entity table (e.g. AlbumEntity_Song). executeInsert whose target
 // is a temp-table view is UnsafeInsertView.
 //
 // Runs inside txTest (Transaction.noCommit): the INSERT happens and the body sees it, then it is
@@ -63,32 +63,32 @@ describe("UnsafeInsertTest", { skip: !hasDb }, () => {
     });
 
     // Database.MListQuery((AlbumEntity a) => a.Songs).UnsafeInsertMList((AlbumEntity a) => a.Songs, mle => new MListElement<AlbumEntity, SongEmbedded> { Parent=mle.Parent, Element=mle.Element, RowOrder=mle.RowOrder });
-    // Divergence: the MList is the AlbumEntity_Songs part entity, so this is a plain executeInsert.
+    // Divergence: the MList is the AlbumEntity_Song part entity, so this is a plain executeInsert.
     txTest("InsertMListSimple", async () => {
-        const before = await table(AlbumEntity_Songs).count();
-        const value = await table(AlbumEntity_Songs)
-            .executeInsert(AlbumEntity_Songs, mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, index: mle.index, order: mle.order }));
+        const before = await table(AlbumEntity_Song).count();
+        const value = await table(AlbumEntity_Song)
+            .executeInsert(AlbumEntity_Song, mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, index: mle.index, order: mle.order }));
         assert.ok(value > 0);
-        assert.equal(await table(AlbumEntity_Songs).count(), before + value);
+        assert.equal(await table(AlbumEntity_Song).count(), before + value);
     });
 
     // Database.MListQuery((AlbumEntity a) => a.Songs).Select(mle => new MListElement<...> { Parent, Element, RowOrder }).UnsafeInsertMList((AlbumEntity a) => a.Songs, mle => mle);
     txTest("InsertMListParameter", async () => {
-        const before = await table(AlbumEntity_Songs).count();
-        const value = await table(AlbumEntity_Songs)
+        const before = await table(AlbumEntity_Song).count();
+        const value = await table(AlbumEntity_Song)
             .map(mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, index: mle.index, order: mle.order }))
-            .executeInsert(AlbumEntity_Songs, mle => mle);
+            .executeInsert(AlbumEntity_Song, mle => mle);
         assert.ok(value > 0);
-        assert.equal(await table(AlbumEntity_Songs).count(), before + value);
+        assert.equal(await table(AlbumEntity_Song).count(), before + value);
     });
 
     // using (Administrator.DisableIdentity((AlbumEntity a) => a.Songs)) Database.MListQuery((AlbumEntity a) => a.Songs).UnsafeInsertMList((AlbumEntity a) => a.Songs, mle => new MListElement<...> { Parent, Element, RowId=(int)mle.RowId+1000, RowOrder });
     txTest("InsertMListId", async () => {
-        const before = await table(AlbumEntity_Songs).count();
-        const value = await table(AlbumEntity_Songs)
-            .executeInsert(AlbumEntity_Songs, mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, index: mle.index, id: (mle.id as number) + 1000, order: mle.order }));
+        const before = await table(AlbumEntity_Song).count();
+        const value = await table(AlbumEntity_Song)
+            .executeInsert(AlbumEntity_Song, mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, index: mle.index, id: (mle.id as number) + 1000, order: mle.order }));
         assert.ok(value > 0);
-        assert.equal(await table(AlbumEntity_Songs).count(), before + value);
+        assert.equal(await table(AlbumEntity_Song).count(), before + value);
     });
 
     // Database.Query<AlbumEntity>().UnsafeInsert(a => new AlbumEntity { ..., Label = Database.Query<LabelEntity>().Single(l => l.Is(a.Label)), ... }.SetReadonly(_ => _.Ticks, a.Ticks));

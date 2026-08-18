@@ -10,19 +10,19 @@ export class ConfigEntity extends Entity {
     embeddedConfig: EmbeddedConfigEmbedded | null;
     // Signum's EmbeddedConfig.Awards (MList<Lite<GrammyAwardEntity>>) → part entity.
     // An MList can't live inside an embedded here, so it hangs off ConfigEntity.
-    awards: ConfigEntity_Awards[];
+    awards: ConfigEntity_Award[];
 }
 
 @reflect
 export class EmbeddedConfigEmbedded extends EmbeddedEntity {
     defaultLabel: Lite<LabelEntity> | null;
     // Signum's MList<Lite<GrammyAwardEntity>> Awards is modelled as the
-    // ConfigEntity_Awards part entity on ConfigEntity (see above).
+    // ConfigEntity_Award part entity on ConfigEntity (see above).
 }
 
 // Link rows for ConfigEntity.awards (EmbeddedConfig.Awards MList).
 @entity("Part")
-export class ConfigEntity_Awards extends Entity {
+export class ConfigEntity_Award extends Entity {
     @backReference
     config: Lite<ConfigEntity>;
 

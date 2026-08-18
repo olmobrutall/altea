@@ -41,12 +41,12 @@ export class NoteWithDateEntity extends Entity {
 
 @reflect
 export class ColaboratorsMixin extends MixinEntity {
-    colaborators: NoteWithDateEntity_Colaborators[];
+    colaborators: NoteWithDateEntity_Colaborator[];
 }
 
 // Link rows for NoteWithDateEntity.colaborators (MList<ArtistEntity>).
 @entity("Part")
-export class NoteWithDateEntity_Colaborators extends Entity {
+export class NoteWithDateEntity_Colaborator extends Entity {
     @backReference
     noteWithDate: Lite<NoteWithDateEntity>;
 

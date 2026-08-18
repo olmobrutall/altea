@@ -7,7 +7,7 @@ import { Temporal } from "@altea/altea/data/basics";
 import { DayOfWeek } from "@altea/altea/data/globals/dateTimeExtensions"; // + Temporal date-helper augmentations
 import { hasDb, start } from "../setup";
 import {
-    ArtistEntity, AlbumEntity, AlbumEntity_Songs, BandEntity, LabelEntity,
+    ArtistEntity, AlbumEntity, AlbumEntity_Song, BandEntity, LabelEntity,
     NoteWithDateEntity, Sex, Status,
 } from "../../data/music";
 import { MinimumExtensions } from "../musicExtensions";
@@ -403,7 +403,7 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
     // MinimumScalar UDF — Signum times the two; here we just assert both agree with the JS mins.
     // Bounded with top(3) so the cross join stays 3⁴ rows (Signum runs it unbounded as a perf test).
     test("TableValuedPerformanceTest", async (t) => {
-        const songs = table(AlbumEntity_Songs).filter(s => s.seconds != null).orderBy(s => s.id).top(3);
+        const songs = table(AlbumEntity_Song).filter(s => s.seconds != null).orderBy(s => s.id).top(3);
         const secs = (await songs.map(s => s.seconds).toArray()) as number[];
 
         const t1 = performance.now();

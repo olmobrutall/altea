@@ -6,7 +6,7 @@ import { ClassType, LiteralType } from "@altea/altea/server/runtimeTypes";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { CleanMeta, DirtyMeta } from "@altea/altea/server/dynamicQuery/meta";
 import { MetadataVisitor } from "@altea/altea/server/dynamicQuery/metadataVisitor";
-import { AlbumEntity, AlbumEntity_Songs, LabelEntity, ArtistEntity, BandEntity } from "../../data/music";
+import { AlbumEntity, AlbumEntity_Song, LabelEntity, ArtistEntity, BandEntity } from "../../data/music";
 
 // MetadataVisitor: track which entity PropertyRoutes an expression reads, producing a Meta
 // (CleanMeta / DirtyMeta). Expressions are hand-built (the pre-bind altea AST the visitor walks).
@@ -49,7 +49,7 @@ describe("CleanMeta — direct navigation", () => {
 
 describe("DirtyMeta — computed values", () => {
     test("groupBy(...).count() → void DirtyMeta (Count carries no provenance)", () => {
-        const s = new ParameterExpression("s", new ClassType(AlbumEntity_Songs));
+        const s = new ParameterExpression("s", new ClassType(AlbumEntity_Song));
         const grouped = call(prop(album, "songs"), "groupBy", [new LambdaExpression([s], prop(s, "name"))]);
         const m = meta(call(grouped, "count"));
         assert.ok(m instanceof DirtyMeta);
@@ -58,14 +58,14 @@ describe("DirtyMeta — computed values", () => {
     });
 
     test("sum(selector) propagates the selector's clean route", () => {
-        const s = new ParameterExpression("s", new ClassType(AlbumEntity_Songs));
+        const s = new ParameterExpression("s", new ClassType(AlbumEntity_Song));
         const m = meta(call(prop(album, "songs"), "sum", [new LambdaExpression([s], prop(s, "seconds"))]));
         assert.ok(m instanceof CleanMeta);
-        assert.match(m.propertyRoutes[0].toString(), /\(Album_Songs\)\.seconds/);
+        assert.match(m.propertyRoutes[0].toString(), /\(Album_Song\)\.seconds/);
     });
 
     test("arithmetic over two columns → DirtyMeta keeping both contributors", () => {
-        const s = new ParameterExpression("s", new ClassType(AlbumEntity_Songs));
+        const s = new ParameterExpression("s", new ClassType(AlbumEntity_Song));
         const sum = call(prop(album, "songs"), "sum", [new LambdaExpression([s], prop(s, "seconds"))]);
         const m = meta(new BinaryExpression("+", sum, prop(album, "year")));
         assert.ok(m instanceof DirtyMeta);
@@ -79,14 +79,14 @@ describe("IsAllowed provenance (via PropertyRoute.isAllowedCallback)", () => {
     test("a clean column inherits its route's denial; a void aggregate stays allowed", () => {
         PropertyRoute.isAllowedCallback = r => /seconds/.test(r.toString()) ? "Not allowed" : null;
 
-        const s = new ParameterExpression("s", new ClassType(AlbumEntity_Songs));
+        const s = new ParameterExpression("s", new ClassType(AlbumEntity_Song));
         const sumSeconds = meta(call(prop(album, "songs"), "sum", [new LambdaExpression([s], prop(s, "seconds"))]));
         assert.equal(sumSeconds.isAllowed(), "Not allowed"); // CleanMeta over the denied route
 
         const label = meta(prop(album, "label"));
         assert.equal(label.isAllowed(), null); // a different, allowed route
 
-        const s2 = new ParameterExpression("s", new ClassType(AlbumEntity_Songs));
+        const s2 = new ParameterExpression("s", new ClassType(AlbumEntity_Song));
         const count = meta(call(call(prop(album, "songs"), "groupBy", [new LambdaExpression([s2], prop(s2, "name"))]), "count"));
         assert.equal(count.isAllowed(), null); // Count has no provenance → allowed even though it enumerates songs
     });

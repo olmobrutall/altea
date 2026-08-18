@@ -27,9 +27,9 @@ import { includeGetDatesInRange } from "@altea/altea/server/queryTimeSeries";
 // is not included directly — only its concrete subclasses get tables; it is
 // reached polymorphically through @implementedBy.
 //
-// The part entities that replace Signum's MList fields (ArtistEntity_Friends,
-// BandEntity_Members, BandEntity_OtherAwards, AlbumEntity_Songs,
-// AwardNominationEntity_Points, ConfigEntity_Awards, NoteWithDateEntity_Colaborators)
+// The part entities that replace Signum's MList fields (ArtistEntity_Friend,
+// BandEntity_Member, BandEntity_OtherAward, AlbumEntity_Song,
+// AwardNominationEntity_Point, ConfigEntity_Award, NoteWithDateEntity_Colaborator)
 // are pulled in transitively via the owners' @include(() => Child) collections
 // (and, for Colaborators, via NoteWithDateEntity's ColaboratorsMixin) — so they
 // are intentionally NOT listed here.

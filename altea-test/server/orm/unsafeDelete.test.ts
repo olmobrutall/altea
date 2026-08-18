@@ -4,7 +4,7 @@ import { table, view } from "@altea/altea/server/table";
 import { hasDb, start, txTest } from "../setup";
 import {
     ArtistEntity, AlbumEntity, BandEntity,
-    ArtistEntity_Friends, BandEntity_Members, AlbumEntity_Songs,
+    ArtistEntity_Friend, BandEntity_Member, AlbumEntity_Song,
     MyTempView2,
 } from "../../data/music";
 import { deleteList } from "@altea/altea/server/Database";
@@ -17,7 +17,7 @@ import { toInt } from "@altea/altea/data/basics";
 //   table(T)[.filter(pred)].executeDelete()            → affected row count (terminal).
 //   table(T).executeDeleteChunks(n)                    → delete in batches of n rows.
 // altea models MLists as part-entity tables, so Signum's `MListQuery(...).UnsafeDeleteMList()`
-// is just `executeDelete` over the part-entity table (e.g. ArtistEntity_Friends) — no separate
+// is just `executeDelete` over the part-entity table (e.g. ArtistEntity_Friend) — no separate
 // API. executeDelete over a `view(...)` is UnsafeDeleteView (the target is the temp table).
 //
 // Runs inside txTest (Transaction.noCommit): the DELETE happens and the body sees it, then it is
@@ -54,26 +54,26 @@ describe("UnsafeDeleteTest", { skip: !hasDb }, () => {
     });
 
     // int count = Database.MListQuery((ArtistEntity a) => a.Friends).UnsafeDeleteMList();
-    // Divergence: altea models the MList as the ArtistEntity_Friends part entity, so this is a
+    // Divergence: altea models the MList as the ArtistEntity_Friend part entity, so this is a
     // plain executeDelete over that table — no MListQuery / UnsafeDeleteMList API needed.
     txTest("DeleteMListLite", async () => {
-        const count = await table(ArtistEntity_Friends).executeDelete();
+        const count = await table(ArtistEntity_Friend).executeDelete();
         assert.ok(count >= 0);
-        assert.equal(await table(ArtistEntity_Friends).count(), 0);
+        assert.equal(await table(ArtistEntity_Friend).count(), 0);
     });
 
     // int count = Database.MListQuery((BandEntity a) => a.Members).UnsafeDeleteMList();
     txTest("DeleteMListEntity", async () => {
-        const count = await table(BandEntity_Members).executeDelete();
+        const count = await table(BandEntity_Member).executeDelete();
         assert.ok(count >= 0);
-        assert.equal(await table(BandEntity_Members).count(), 0);
+        assert.equal(await table(BandEntity_Member).count(), 0);
     });
 
     // int count = Database.MListQuery((AlbumEntity a) => a.Songs).UnsafeDeleteMList();
     txTest("DeleteMListEmbedded", async () => {
-        const count = await table(AlbumEntity_Songs).executeDelete();
+        const count = await table(AlbumEntity_Song).executeDelete();
         assert.ok(count >= 0);
-        assert.equal(await table(AlbumEntity_Songs).count(), 0);
+        assert.equal(await table(AlbumEntity_Song).count(), 0);
     });
 
     // var list = Database.Query<AlbumEntity>().Where(a => ((ArtistEntity)a.Author).Dead).Select(a => a.ToLite()).ToList(); Database.DeleteList(list);

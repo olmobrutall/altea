@@ -50,13 +50,13 @@ export class AwardNominationEntity extends Entity {
     year: int = toInt(0);   // C# value-type default; the loader leaves these unset
     order: int = toInt(0);
     // Signum's [PreserveOrder] MList<NominationPointEmbedded> Points → owned part rows.
-    points: AwardNominationEntity_Points[];
+    points: AwardNominationEntity_Point[];
 }
 
 // Owned child rows for AwardNominationEntity.points. NominationPointEmbedded held
 // a single `Point` field, flattened in here.
 @entity("Part")
-export class AwardNominationEntity_Points extends Entity {
+export class AwardNominationEntity_Point extends Entity {
     @backReference
     awardNomination: Lite<AwardNominationEntity>;
 

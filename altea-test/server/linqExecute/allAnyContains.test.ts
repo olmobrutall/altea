@@ -20,9 +20,9 @@ import { ArtistEntity, AlbumEntity, BandEntity, NoteWithDateEntity, Sex, Status 
 //
 // Music-model note: Signum's MList<T> collections are part-entity arrays here.
 //   BandEntity.Members (MList<ArtistEntity>) → band.members, each row a
-//     BandEntity_Members with a full `.member: ArtistEntity` value field.
+//     BandEntity_Member with a full `.member: ArtistEntity` value field.
 //   ArtistEntity.Friends (MList<Lite<ArtistEntity>>) → artist.friends, each row
-//     an ArtistEntity_Friends with a `.friend: Lite<ArtistEntity>` value field.
+//     an ArtistEntity_Friend with a `.friend: Lite<ArtistEntity>` value field.
 
 describe("AllAnyContainsTest", { skip: !hasDb }, () => {
     before(async () => { await start(); });

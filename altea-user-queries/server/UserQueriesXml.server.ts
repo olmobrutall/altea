@@ -11,7 +11,7 @@ import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/se
 import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import {
     UserQueryEntity, UserQueryEntity_Filter, UserQueryEntity_Column, UserQueryEntity_Order,
-    UserQueryEntity_CustomDrilldowns, SystemTimeEmbedded,
+    UserQueryEntity_CustomDrilldown, SystemTimeEmbedded,
 } from "../data/UserQuery";
 
 // Port of Signum's UserQueryEntity.ToXml / FromXml (UserQueryEntity.cs). altea keeps this OFF the isomorphic
@@ -142,7 +142,7 @@ function fromXml(uq: UserQueryEntity, xml: Record<string, unknown>, ctx: IFromXm
     uq.columns = arr(xml["Columns"], "Column").map(columnFromXml);
     uq.orders = arr(xml["Orders"], "Orden").map(orderFromXml);
     uq.customDrilldowns = arr(xml["CustomDrilldowns"], "CustomDrilldown").map(d => {
-        const row = new UserQueryEntity_CustomDrilldowns();
+        const row = new UserQueryEntity_CustomDrilldown();
         const guid = str((d as Record<string, unknown>)["#text"] ?? d);
         row.drilldown = (ctx.getEntity(guid!) as UserQueryEntity).toLite();
         return row;

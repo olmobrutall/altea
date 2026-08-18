@@ -17,7 +17,7 @@ import type { Quoted } from "quote-transformer/quoted";
 // back (filter_definition / indpred) and the synchronizer round-trips it.
 const albumRecent: Quoted<(a: AlbumEntity) => boolean> = a => a.year == 2000;
 import { AbstractDbType, IsNullable } from "@altea/altea/server/schema/dbType";
-import { AlbumEntity, ArtistEntity_Friends, FolderEntity } from "../../data/music";
+import { AlbumEntity, ArtistEntity_Friend, FolderEntity } from "../../data/music";
 import { getBoundEnum } from "@altea/altea/data/enumEntity";
 
 // The synchronizer pipeline end to end against a REAL database (no fakes): generate the
@@ -104,12 +104,12 @@ describe("SchemaSynchronizer (live DB)", { skip: !hasDb }, () => {
     });
 
     txTest("CreateMissingTable", async () => {
-        const friends = connector.schema.table(ArtistEntity_Friends);
+        const friends = connector.schema.table(ArtistEntity_Friend);
         await assertRoundTrip(() => run(connector.sqlBuilder.dropTable(friends.name)));
     });
 
     txTest("RenameTable", async () => {
-        const friends = connector.schema.table(ArtistEntity_Friends);
+        const friends = connector.schema.table(ArtistEntity_Friend);
         await assertRoundTrip(() => run(connector.sqlBuilder.renameTable(friends.name, friends.name.name + "_ren")), renameBack);
     });
 

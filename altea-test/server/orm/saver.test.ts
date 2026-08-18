@@ -4,7 +4,7 @@ import { table } from "@altea/altea/server/table";
 import { retrieve } from "@altea/altea/server/Database";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { hasDb, start, txTest } from "../setup";
-import { CountryEntity, LabelEntity, BandEntity, BandEntity_Members, ArtistEntity } from "../../data/music";
+import { CountryEntity, LabelEntity, BandEntity, BandEntity_Member, ArtistEntity } from "../../data/music";
 
 // Exercises the graph Saver's cycle handling (Signum's DirectedGraph.FeedbackEdgeSet +
 // Forbidden deferred-FK). LabelEntity.owner is a NULLABLE self-reference, so two new
@@ -65,7 +65,7 @@ describe("SaverTest", { skip: !hasDb }, () => {
         const artists = (await table(ArtistEntity).orderBy(a => a.name).toArray()).slice(0, 3);
         const band = BandEntity.create({
             name: "Orphan Band",
-            members: artists.map(a => BandEntity_Members.create({ member: a })),
+            members: artists.map(a => BandEntity_Member.create({ member: a })),
             lastAward: null,
             otherAwards: [],
         });
@@ -79,7 +79,7 @@ describe("SaverTest", { skip: !hasDb }, () => {
         await band.save();
 
         // The dropped row is gone; the other two survive, still under the band.
-        const survivorCount = await table(BandEntity_Members).filter(m => m.id == removed.id).count();
+        const survivorCount = await table(BandEntity_Member).filter(m => m.id == removed.id).count();
         assert.equal(survivorCount, 0, "orphaned member row was deleted");
         const dbBand = await retrieve(BandEntity, band.id);
         assert.equal(dbBand.members.length, 2);
@@ -95,7 +95,7 @@ describe("SaverTest", { skip: !hasDb }, () => {
 
         const band = BandEntity.create({
             name: "Batch Band",
-            members: artists.map(a => BandEntity_Members.create({ member: a })),
+            members: artists.map(a => BandEntity_Member.create({ member: a })),
             lastAward: null,
             otherAwards: [],
         });

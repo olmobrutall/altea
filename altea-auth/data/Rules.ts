@@ -132,7 +132,7 @@ export class RuleQueryEntity extends RuleEntity {
 // Signum's RuleTypeEntity. `fallback` is the type-level allowance; `conditionRules` are the per-row
 // overrides (Signum's virtual `MList<RuleTypeConditionEntity>`) — each a SET of TypeConditionSymbols
 // (AND-ed) mapped to a TypeAllowed, evaluated last-match-wins. altea models the virtual MList as an owned
-// `@entity("Part")` collection back-referencing the RuleType (like EmployeeEntity_Territories).
+// `@entity("Part")` collection back-referencing the RuleType (like EmployeeEntity_Territory).
 @uniqueIndex((e: RuleTypeEntity) => [e.role, e.resource])
 @entity("System", "Master")
 export class RuleTypeEntity extends RuleEntity {
@@ -149,13 +149,13 @@ export class RuleTypeEntity extends RuleEntity {
 export class RuleTypeConditionEntity extends Entity {
     @backReference ruleType: Lite<RuleTypeEntity>;
     @rowOrder order: int = toInt(0);
-    conditions: RuleTypeConditionEntity_Conditions[];
+    conditions: RuleTypeConditionEntity_Condition[];
     allowed: TypeAllowed = TypeAllowed.None;
 }
 
 // Junction rows for RuleTypeConditionEntity.conditions (Signum's MList<TypeConditionSymbol>).
 @entity("Part")
-export class RuleTypeConditionEntity_Conditions extends Entity {
+export class RuleTypeConditionEntity_Condition extends Entity {
     @backReference ruleTypeCondition: Lite<RuleTypeConditionEntity>;
     @valueField symbol: Lite<TypeConditionSymbol>;
 }
@@ -268,12 +268,12 @@ export class RuleOperationEntity extends RuleEntity {
 export class RuleOperationConditionEntity extends Entity {
     @backReference ruleOperation: Lite<RuleOperationEntity>;
     @rowOrder order: int = toInt(0);
-    conditions: RuleOperationConditionEntity_Conditions[];
+    conditions: RuleOperationConditionEntity_Condition[];
     allowed: OperationAllowed = OperationAllowed.None;
 }
 
 @entity("Part")
-export class RuleOperationConditionEntity_Conditions extends Entity {
+export class RuleOperationConditionEntity_Condition extends Entity {
     @backReference ruleOperationCondition: Lite<RuleOperationConditionEntity>;
     @valueField symbol: Lite<TypeConditionSymbol>;
 }
@@ -372,12 +372,12 @@ export class RulePropertyEntity extends RuleEntity {
 export class RulePropertyConditionEntity extends Entity {
     @backReference ruleProperty: Lite<RulePropertyEntity>;
     @rowOrder order: int = toInt(0);
-    conditions: RulePropertyConditionEntity_Conditions[];
+    conditions: RulePropertyConditionEntity_Condition[];
     allowed: PropertyAllowed = PropertyAllowed.None;
 }
 
 @entity("Part")
-export class RulePropertyConditionEntity_Conditions extends Entity {
+export class RulePropertyConditionEntity_Condition extends Entity {
     @backReference rulePropertyCondition: Lite<RulePropertyConditionEntity>;
     @valueField symbol: Lite<TypeConditionSymbol>;
 }

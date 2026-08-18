@@ -9,7 +9,7 @@ import { Administrator } from "@altea/altea/server/Administrator";
 import {
     ArtistEntity, AlbumEntity, LabelEntity,
     NoteWithDateEntity, SongEmbedded, Sex, MyTempView2,
-    ArtistEntity_Friends, BandEntity_Members, AlbumEntity_Songs,
+    ArtistEntity_Friend, BandEntity_Member, AlbumEntity_Song,
 } from "../../data/music";
 import { toInt } from "@altea/altea/data/basics";
 
@@ -24,7 +24,7 @@ import { toInt } from "@altea/altea/data/basics";
 //       updates a *navigated* entity: the setter's KEYS name the part's columns, its VALUES read
 //       the ROOT projection (Signum binds the value selector to the root).
 // altea models MLists as part entities, so Signum's `MListQuery(...).UnsafeUpdateMList()` is just
-// `executeUpdate` over the part-entity table (e.g. ArtistEntity_Friends) — no separate API.
+// `executeUpdate` over the part-entity table (e.g. ArtistEntity_Friend) — no separate API.
 //
 // A setter key may be a top-level column, a mixin field (flattened into the owner table), or an
 // embedded field whose value is a nested `{ subField: expr }` object literal — a PARTIAL embedded
@@ -286,11 +286,11 @@ describe("UnsafeUpdateTest", { skip: !hasDb }, () => {
 
     // ArtistEntity artist = Database.Query<ArtistEntity>().FirstEx();
     // Database.MListQuery((ArtistEntity a) => a.Friends).UnsafeUpdateMList().Set(mle => mle.Element, mle => artist.ToLite()).Set(mle => mle.Parent, mle => artist).Execute();
-    // altea models the MList as the ArtistEntity_Friends part entity, so this is a plain
+    // altea models the MList as the ArtistEntity_Friend part entity, so this is a plain
     // executeUpdate over that table (no MListQuery / UnsafeUpdateMList API needed).
     txTest("UpdateMListLite", async () => {
         const artist = await table(ArtistEntity).first();
-        const count = await table(ArtistEntity_Friends)
+        const count = await table(ArtistEntity_Friend)
             .executeUpdate(mle => ({ friend: artist.toLite(), artist: artist.toLite() }));
         assert.ok(count >= 0);
     });
@@ -299,24 +299,24 @@ describe("UnsafeUpdateTest", { skip: !hasDb }, () => {
     // Database.MListQuery((BandEntity a) => a.Members).UnsafeUpdateMList().Set(mle => mle.Element, mle => artist).Execute();
     txTest("UpdateMListEntity", async () => {
         const artist = await table(ArtistEntity).first();
-        const count = await table(BandEntity_Members)
+        const count = await table(BandEntity_Member)
             .executeUpdate(mle => ({ member: artist }));
         assert.ok(count >= 0);
     });
 
     // Database.MListQuery((AlbumEntity a) => a.Songs).UnsafeUpdateMList().Set(mle => mle.Element.Seconds, mle => 3).Execute();
     txTest("UpdateMListEmbedded", async () => {
-        const count = await table(AlbumEntity_Songs)
+        const count = await table(AlbumEntity_Song)
             .executeUpdate(mle => ({ seconds: toInt(3) }));
         assert.ok(count > 0);
-        assert.ok(await table(AlbumEntity_Songs).every(s => s.seconds == 3));
+        assert.ok(await table(AlbumEntity_Song).every(s => s.seconds == 3));
     });
 
     // (from a from mle in a.MListElements(_ => _.Songs) select new { LabelId = a.Label.Id, mle }).UnsafeUpdateMListPart(p => p.mle).Set(mle => mle.Element.Seconds, p => (int)p.LabelId).Execute();
     // altea: the part table carries a back-reference to its owner, so the owner's field is reached
     // by navigation in the value (s.album.entity.label.id) — a plain executeUpdate, no MListPart API.
     txTest("UpdateMListEmbeddedPart", async () => {
-        const count = await table(AlbumEntity_Songs)
+        const count = await table(AlbumEntity_Song)
             .executeUpdate(s => ({ seconds: toInt(s.album.entity.label.id as number) }));
         assert.ok(count >= 0);
     });

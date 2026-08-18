@@ -20,7 +20,7 @@ import { toInt } from "@altea/altea/data/basics";
 import { AuthLogic, RoleGraph } from "./AuthLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
 import {
-    RuleTypeEntity, RuleTypeConditionEntity, RuleTypeConditionEntity_Conditions,
+    RuleTypeEntity, RuleTypeConditionEntity, RuleTypeConditionEntity_Condition,
     TypeAllowed, TypeAllowedBasic, typeAllowedGet, typeAllowedCreate,
     TypeRulePack, TypeAllowedRule, TypeConditionSymbol, DimensionSummaryModel,
     WithConditionsModel, ConditionRuleModel,
@@ -531,7 +531,7 @@ export namespace TypeAuthLogic {
             rt.conditionRules = r.allowed.conditionRules.map((cr, i) => RuleTypeConditionEntity.create({
                 order: toInt(i),
                 allowed: cr.allowed,
-                conditions: cr.typeConditions.map(lite => RuleTypeConditionEntity_Conditions.create({ symbol: lite })),
+                conditions: cr.typeConditions.map(lite => RuleTypeConditionEntity_Condition.create({ symbol: lite })),
             }));
             await rt.save();
         }

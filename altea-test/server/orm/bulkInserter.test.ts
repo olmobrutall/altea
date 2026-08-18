@@ -4,7 +4,7 @@ import { table } from "@altea/altea/server/table";
 import { retrieve } from "@altea/altea/server/Database";
 import { BulkInserter } from "@altea/altea/server/bulkInserter";
 import { hasDb, start, txTest } from "../setup";
-import { CountryEntity, BandEntity, BandEntity_Members, ArtistEntity } from "../../data/music";
+import { CountryEntity, BandEntity, BandEntity_Member, ArtistEntity } from "../../data/music";
 
 // Exercises the bulk inserter (port of Signum's BulkInserter): the bulk transport is a
 // connector primitive (SqlBulkCopy on SQL Server, COPY FROM STDIN on Postgres), not the saver.
@@ -35,7 +35,7 @@ describe("BulkInserterTest", { skip: !hasDb }, () => {
 
         const bands = [1, 2, 3].map(i => BandEntity.create({
             name: `BulkBand_${i}`,
-            members: artists.map(a => BandEntity_Members.create({ member: a })),
+            members: artists.map(a => BandEntity_Member.create({ member: a })),
             lastAward: null,
             otherAwards: [],
         }));

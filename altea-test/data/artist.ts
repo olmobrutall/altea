@@ -27,7 +27,7 @@ export class ArtistEntity extends Entity implements IAuthorEntity {
     @implementedByAll
     lastAward: Entity | null;
     // Signum's MList<Lite<ArtistEntity>> Friends → self many-to-many part entity.
-    friends: ArtistEntity_Friends[];
+    friends: ArtistEntity_Friend[];
     // Signum's MList<AwardNominationEntity> Nominations is a *virtual* MList keyed
     // by AwardNominationEntity.author (an @implementedBy reference, so it can't be
     // a plain part entity here). Navigate it through AwardNominationEntity.
@@ -62,7 +62,7 @@ export class ArtistEntity extends Entity implements IAuthorEntity {
 
 // Self many-to-many link rows for ArtistEntity.friends (MList<Lite<ArtistEntity>>).
 @entity("Part")
-export class ArtistEntity_Friends extends Entity {
+export class ArtistEntity_Friend extends Entity {
     @backReference
     artist: Lite<ArtistEntity>;
 

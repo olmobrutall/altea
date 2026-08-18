@@ -56,6 +56,16 @@ export class SqlBuilder {
             .join('.');
     }
 
+    /** An INDEX's own qualified name: indexes are not children of the table in Postgres' namespace — they are
+     *  independent objects living in the TABLE's schema, so a bare name only resolves through the search_path.
+     *  Used by `dropIndex` for a table outside the default schema. */
+    indexObjectName(tableName: ObjectName, indexName: string): string {
+        return [tableName.schema.database.name, tableName.schema.name, indexName]
+            .filter(p => p !== '')
+            .map(p => this.sqlEscape(p))
+            .join('.');
+    }
+
     // Like objectName but always schema-qualified — an empty (default) schema becomes the
     // dialect default (dbo / public). SQL Server's SYSTEM_VERSIONING HISTORY_TABLE clause
     // rejects a one-part name, so the history table must be spelled out in two parts.
@@ -364,7 +374,11 @@ export class SqlBuilder {
 
     dropIndex(tableName: ObjectName, indexName: string): SqlPreCommand {
         if (this.isPostgres)
-            return new SqlPreCommandSimple(`DROP INDEX ${this.sqlEscape(indexName)};`);
+            // An index lives in its TABLE's schema, and Postgres resolves a bare index name against the
+            // search_path only — so a table outside the default schema (altea-auth's tables live in `auth`)
+            // needs the qualifier, or the drop fails with "index … does not exist". SQL Server takes the
+            // table name separately below, so it was never affected.
+            return new SqlPreCommandSimple(`DROP INDEX ${this.indexObjectName(tableName, indexName)};`);
         return new SqlPreCommandSimple(`DROP INDEX ${this.sqlEscape(indexName)} ON ${this.objectName(tableName)};`);
     }
 

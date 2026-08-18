@@ -477,8 +477,8 @@ export function customLite(liteClass: () => CustomLiteClass, forEntityType: () =
 
 // Child-side marker (Altea's MList replacement): tags the single FK field on a
 // part entity that points back to its owner, e.g. `@backReference album: Lite<AlbumEntity>`
-// inside `AlbumEntity_Songs`. The owner declares the collection as a plain
-// `AlbumEntity_Songs[]` field (the transformer's `type` thunk supplies the child ctor);
+// inside `AlbumEntity_Song`. The owner declares the collection as a plain
+// `AlbumEntity_Song[]` field (the transformer's `type` thunk supplies the child ctor);
 // the SchemaBuilder finds this marked field as the back-pointing FK, so the relationship
 // is described from both sides without repeating the property name.
 export function backReference(target: object, propertyKey: string | symbol): void {

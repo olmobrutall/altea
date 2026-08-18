@@ -4,7 +4,7 @@
 // *Operation init() declarations).
 //
 // Where Signum used MList<T>, altea has no MList: each collection becomes a "part" entity placed with its
-// owner and named `<OwnerEntity>_<Property>` (e.g. AlbumEntity_Songs). Cross-aggregate references are all
+// owner and named `<OwnerEntity>_<Property>` (e.g. AlbumEntity_Song). Cross-aggregate references are all
 // lazy — `@implementedBy(() => […])` thunks, `@field` type thunks, `@customLite` — so the modules import
 // one another freely without eval-time cycles. Query-only SQL functions live in the SERVER tier
 // (server/musicExtensions.ts's MinimumExtensions), not here.

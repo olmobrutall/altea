@@ -10,11 +10,11 @@ import { GrammyAwardEntity, AmericanMusicAwardEntity } from "./award";
 export class BandEntity extends Entity implements IAuthorEntity {
     name: string;
     // Signum's MList<ArtistEntity> Members → band/member part entity.
-    members: BandEntity_Members[];
+    members: BandEntity_Member[];
     @implementedBy(() => [GrammyAwardEntity, AmericanMusicAwardEntity])
     lastAward: Entity | null;
     // Signum's MList<AwardEntity> OtherAwards → band/award part entity.
-    otherAwards: BandEntity_OtherAwards[];
+    otherAwards: BandEntity_OtherAward[];
 
     // Computed query members (Signum's [AutoExpressionField]) — see ArtistEntity.
     @quoted
@@ -32,7 +32,7 @@ export class BandEntity extends Entity implements IAuthorEntity {
 
 // Many-to-many link rows for BandEntity.members (MList<ArtistEntity>).
 @entity("Part")
-export class BandEntity_Members extends Entity {
+export class BandEntity_Member extends Entity {
     @backReference
     band: Lite<BandEntity>;
 
@@ -42,7 +42,7 @@ export class BandEntity_Members extends Entity {
 
 // Link rows for BandEntity.otherAwards (MList<AwardEntity>, polymorphic award).
 @entity("Part")
-export class BandEntity_OtherAwards extends Entity {
+export class BandEntity_OtherAward extends Entity {
     @backReference
     band: Lite<BandEntity>;
 

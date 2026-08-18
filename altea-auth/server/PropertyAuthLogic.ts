@@ -16,7 +16,7 @@ import { PermissionAuthLogic } from "./PermissionAuthLogic";
 import { TypeConditionLogic } from "./TypeConditionLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
 import {
-    RulePropertyEntity, RulePropertyConditionEntity, RulePropertyConditionEntity_Conditions,
+    RulePropertyEntity, RulePropertyConditionEntity, RulePropertyConditionEntity_Condition,
     RulePermissionEntity, RuleTypeEntity, PropertyRulePack, PropertyAllowedRule, PropertyAllowed, TypeAllowed,
     PropertyWithConditionsModel, PropertyConditionRuleModel, TypeConditionSymbol, TypeConditionSetModel,
     BasicPermission, typeAllowedUI, typeBasicToProperty,
@@ -406,7 +406,7 @@ export namespace PropertyAuthLogic {
             rp.conditionRules = coerced.conditionRules.map((cr, i) => RulePropertyConditionEntity.create({
                 order: toInt(i),
                 allowed: cr.allowed,
-                conditions: cr.typeConditions.map(s => RulePropertyConditionEntity_Conditions.create({ symbol: symbolLite(s) })),
+                conditions: cr.typeConditions.map(s => RulePropertyConditionEntity_Condition.create({ symbol: symbolLite(s) })),
             }));
             await rp.save();
         }

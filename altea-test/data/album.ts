@@ -15,7 +15,7 @@ export class AlbumEntity extends Entity {
     @implementedBy(() => [ArtistEntity, BandEntity])
     author: IAuthorEntity;
     // Signum's [PreserveOrder] MList<SongEmbedded> Songs → owned part rows.
-    songs: AlbumEntity_Songs[];
+    songs: AlbumEntity_Song[];
     bonusTrack: SongEmbedded | null; // single (nullable) embedded
     @forceNullable // Signum's [ForceNullable]: non-null field, nullable column
     label: LabelEntity;
@@ -35,7 +35,7 @@ export class AlbumEntity extends Entity {
 // Owned child rows for AlbumEntity.songs (the per-row equivalent of SongEmbedded,
 // whose embedded fields are flattened in here).
 @entity("Part")
-export class AlbumEntity_Songs extends Entity {
+export class AlbumEntity_Song extends Entity {
     @backReference
     album: Lite<AlbumEntity>;
 

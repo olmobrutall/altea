@@ -143,7 +143,7 @@ describe("collection tokens bind to SQL", () => {
                 .select([nameToken]);
             return fmt(dq.bindProjection());
         });
-        assert.match(sql, /song/);  // AlbumEntity_Songs table
+        assert.match(sql, /song/);  // AlbumEntity_Song table
         assert.match(sql, /name/);
     });
 

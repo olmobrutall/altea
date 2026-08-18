@@ -654,7 +654,7 @@ describe("SelectTest", { skip: !hasDb }, () => {
 
     // Database.Query<ArtistEntity>().SelectMany(a => a.Friends).Select(a => a.Id).ToList();
     // Signum models Friends as MList<Lite<ArtistEntity>>, so `.Id` is the friend's id; altea models
-    // it as a link part-entity (ArtistEntity_Friends), so `a.id` here is the LINK ROW's id — a plain
+    // it as a link part-entity (ArtistEntity_Friend), so `a.id` here is the LINK ROW's id — a plain
     // number per link row. (For the friend's id, project `f.friend.id`, as SelectMListIdCovariance does.)
     test("SelectMListId", async () => {
         const list = await table(ArtistEntity).flatMap(a => a.friends).map(a => a.id).toArray();

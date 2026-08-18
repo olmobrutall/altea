@@ -5,7 +5,7 @@ import { NotNullValidator, notNullValidator } from "@altea/altea/data/validators
 import { reflect, Validator } from "@altea/altea/data/reflection";
 import type { IntegrityCheckEnvironment } from "@altea/altea/data/reflection";
 import { EmbeddedEntity } from "@altea/altea/data/entity";
-import { ArtistEntity, ArtistEntity_Friends } from "../music";
+import { ArtistEntity, ArtistEntity_Friend } from "../music";
 
 const FI = { niceToString: () => "X" } as any;
 
@@ -59,7 +59,7 @@ describe("implicit NotNullValidator", () => {
     });
 
     test("a non-null @backReference is exempt; a non-null @valueField reference is required", () => {
-        const ic = entityIntegrityCheck(new ArtistEntity_Friends(), "Saving");
+        const ic = entityIntegrityCheck(new ArtistEntity_Friend(), "Saving");
         assert.equal(ic?.errors["artist"], undefined, "backReference must NOT be required");
         assert.ok(ic?.errors["friend"] != null, "valueField Lite reference must be required");
     });

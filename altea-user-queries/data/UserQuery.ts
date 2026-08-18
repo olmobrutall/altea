@@ -78,7 +78,7 @@ export class UserQueryEntity_Order extends Entity {
 // Signum's `MList<Lite<Entity>> CustomDrilldowns` ([ImplementedBy(UserQueryEntity)], PreserveOrder,
 // NoRepeat). altea MList-of-lite → a @part value row.
 @entity("Part")
-export class UserQueryEntity_CustomDrilldowns extends Entity {
+export class UserQueryEntity_CustomDrilldown extends Entity {
     @backReference userQuery: Lite<UserQueryEntity>;
     @rowOrder order: int;
     @valueField @implementedBy(() => [UserQueryEntity]) drilldown: Lite<UserQueryEntity>;
@@ -177,7 +177,7 @@ export class UserQueryEntity extends Entity implements IUserAssetEntity, IHasEnt
     healthCheck: HealthCheckEmbedded | null;
 
     // Signum's [PreserveOrder, NoRepeatValidator, ImplementedBy(UserQueryEntity)] MList<Lite<Entity>>.
-    customDrilldowns: UserQueryEntity_CustomDrilldowns[];
+    customDrilldowns: UserQueryEntity_CustomDrilldown[];
 
     @quoted
     toString(): string {
