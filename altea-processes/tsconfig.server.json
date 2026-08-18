@@ -1,0 +1,10 @@
+{
+  // SERVER layer — node-only (the in-process runner + the panel's API).
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" },
+    { "path": "../altea-scheduler/tsconfig.server.json" }
+  ]
+}

@@ -290,12 +290,15 @@ export namespace ScheduleTaskRunner {
         return remarks;
     }
 
+    // Persisting an ExceptionEntity is a WRITE, so it needs a transaction of its own — these callbacks run
+    // from timers and un-awaited tasks, where there is none ("Transaction not started" otherwise).
     function logRunnerError(actionName: string): (error: unknown) => void {
         return error => {
-            void ExecutionMode.global(() => ExceptionLogic.logException(error, e => {
+            console.error(`[ScheduleTaskRunner] ${actionName}:`, error);
+            void ExecutionMode.global(() => Transaction.forceNew(() => ExceptionLogic.logException(error, e => {
                 e.controllerName = "SchedulerLogic";
                 e.actionName = actionName;
-            })).catch(() => { /* logging the failure failed — nothing left to do but not crash */ });
+            }))).catch(() => { /* logging the failure failed — nothing left to do but not crash */ });
         };
     }
 
