@@ -20,6 +20,7 @@
     "@altea/altea-auth": "workspace:*",
     "@altea/altea-user-assets": "workspace:*",
     "quote-transformer": "workspace:*",
-    "react-markdown": "^10.1.0"
+    "react-markdown": "^10.1.0",
+    "@altea/altea-toolbar": "workspace:*"
   }
 }

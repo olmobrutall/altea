@@ -33,6 +33,8 @@ import {
 } from "../../data/UserChart";
 import UserChartMenu from "./UserChartMenu";
 import { ChartDashboardClient } from "../Dashboard/ChartDashboardClient";
+import { ToolbarClient } from "@altea/altea-toolbar/client/ToolbarClient";
+import UserChartToolbarConfig from "./UserChartToolbarConfig";
 
 // Port of Signum's Signum.Chart/UserChart/UserChartClient.tsx. Registers the UserChart entity view, the
 // /userChart page, and the quick-links to run a saved chart. The direct analogue of UserQueriesClient.
@@ -63,6 +65,10 @@ export namespace UserChartClient {
             path: "/userChart/:userChartId/:entity?",
             element: <ImportComponent onImport={() => import("./UserChartPage")} />,
         });
+
+        // The toolbar config for an element pointing at a UserChart (Signum registered it from here too).
+        // Registering into the toolbar's config registry is INERT when the toolbar module is not started.
+        ToolbarClient.registerConfig(new UserChartToolbarConfig());
 
         // The UserChart editor (never creable directly — created from the chart window in Signum).
         cb.configure(UserChartEntity)

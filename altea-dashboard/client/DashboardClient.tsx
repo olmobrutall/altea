@@ -27,7 +27,9 @@ import {
     TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity, CustomPartEntity,
 } from "../data/Parts";
 import { DashboardController } from "./View/DashboardFilterController";
-import { parseIcon } from "./IconHelpers";
+import { parseIcon } from "@altea/altea/client/Components/IconHelpers";
+import { ToolbarClient } from "@altea/altea-toolbar/client/ToolbarClient";
+import DashboardToolbarConfig from "./DashboardToolbarConfig";
 
 // Port of Signum's Signum.Dashboard/DashboardClient.tsx. Owns the PART RENDERER REGISTRY (which React
 // component renders which part entity), registers the dashboard editor + the /dashboard/:id page, the
@@ -89,6 +91,10 @@ export namespace DashboardClient {
             .withQuerySettings(token => ({
                 defaultOrders: [{ token: token(d => d.dashboardPriority), orderType: "Descending" }],
             }));
+
+        // The toolbar config for an element pointing at a Dashboard (Signum registered it from here too).
+        // Registering into the toolbar's config registry is INERT when the toolbar module is not started.
+        ToolbarClient.registerConfig(new DashboardToolbarConfig());
 
         // The part editors (each part entity's own view — rendered inside the grid cell and in the modal).
         cb.configure(TextPartEntity).withView(() => import("./Admin/TextPart"));

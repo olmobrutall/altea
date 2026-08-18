@@ -28,7 +28,7 @@ import {
 } from "../../data/Dashboard";
 import { DashboardClient } from "../DashboardClient";
 import { EntityGridItem, type EntityGridItemProps, EntityGridRepeater } from "./EntityGridRepeater";
-import { parseIcon, fallbackIcon } from "../IconHelpers";
+import { parseIcon, fallbackIcon } from "@altea/altea/client/Components/IconHelpers";
 import "../Dashboard.css";
 
 // Port of Signum's Signum.Dashboard/Admin/Dashboard.tsx — the dashboard EDITOR: the header fields, the

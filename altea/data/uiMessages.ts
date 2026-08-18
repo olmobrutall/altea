@@ -22,6 +22,9 @@ export const EntityControlMessage = {
     Reload: msg("Reload"),
     Changed: msg("Changed"),
     NoChanges: msg("No changes"),
+    // Signum's EntityControlMessage.ToggleSideBar — used by the sidebar toggle in the navbar
+    // (@altea/altea-toolbar's SidebarToggleItem), which is why it lives with the framework messages.
+    ToggleSideBar: msg("Toggle side bar"),
 };
 
 export const JavascriptMessage = {
@@ -189,6 +192,9 @@ export const OperationMessage = {
 // Engine (Signum's EngineMessage) — the members the Operations layer reads.
 export const EngineMessage = {
     TheEntity0IsNew: msg("The entity {0} is new"),
+    // Signum's EngineMessage.EntityWithType0AndId1NotFound — shown when a stored/urled id no longer resolves
+    // (e.g. @altea/altea-toolbar's entity-scoped menu restoring its last selection).
+    _01NotFound: msg("{0} with Id {1} not found"),
 };
 
 // NormalControl (Signum's NormalControlMessage) — the members the Operations layer reads.

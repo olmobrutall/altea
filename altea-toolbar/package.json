@@ -1,0 +1,24 @@
+{
+  "name": "@altea/altea-toolbar",
+  "version": "0.0.1",
+  "description": "Toolbar — the side / top / main navigation bars (ported from Signum.Toolbar)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-user-assets": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}

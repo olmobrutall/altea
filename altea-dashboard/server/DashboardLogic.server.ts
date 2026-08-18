@@ -19,6 +19,7 @@ import {
 } from "../data/Dashboard";
 import { registerDashboardXml, registerBasePartsXml } from "./DashboardXml.server";
 import { DashboardServer } from "./DashboardServer.server";
+import { ToolbarLogic } from "@altea/altea-toolbar/server/ToolbarLogic.server";
 
 // Port of Signum's DashboardLogic.Start (Signum.Dashboard/DashboardLogic.cs). Registers the Dashboard
 // entity + its Save/Delete/Clone operations + query, the in-memory cache (Signum's ResetLazy GlobalLazy),
@@ -38,7 +39,8 @@ import { DashboardServer } from "./DashboardServer.server";
 //  - Owner scoping IS ported (registerUserTypeCondition / registerRoleTypeCondition below + the in-memory
 //    visibility filter every lookup applies), but altea needs no per-part mirroring of the conditions: a Part
 //    inherits its owner's rules structurally — see @altea/altea-user-assets' UserAssetOwnerAuth.
-//  - Toolbar / Omnibox / ViewLog wiring is omitted (those extensions are not ported).
+//  - Omnibox / ViewLog wiring is omitted (those extensions are not ported); the TOOLBAR content config IS
+//    registered (a Dashboard can be a toolbar element).
 
 // ---- The part registry (Signum's DashboardLogic.PartNames + the per-entity Clone/ToXml/FromXml) ---------
 
@@ -107,6 +109,13 @@ export namespace DashboardLogic {
         // entity; altea uses a per-type registry — see UserAssetsImportExport.server).
         registerDashboardXml();
 
+        // The TOOLBAR content config for a Dashboard element (Signum's ToolbarContentConfig inside
+        // `WhenIncluded<ToolbarEntity>`). Inert when the toolbar module is not started.
+        ToolbarLogic.registerContentConfig(DashboardEntity, {
+            defaultLabel: async lite => (await cachedDashboard(lite)).displayName,
+            isAuthorized: async lite => await ToolbarLogic.inMemoryFilter(await cachedDashboard(lite)),
+        });
+
         // Signum's GlobalLazy over all dashboards, invalidated on any DashboardEntity change. Retrieved
         // through `retrieve` (not a bare table read) so each dashboard arrives with its parts, part contents
         // and token-equivalence groups — the cache backs the /home + /forEntityType lookups.
@@ -117,6 +126,15 @@ export namespace DashboardLogic {
 
         if (sb.webBuilder)
             DashboardServer.start(sb.webBuilder);
+    }
+
+    /** The cached dashboard behind a lite (Signum's `Dashboards.Value.GetOrCreate(lite)`). */
+    async function cachedDashboard(lite: Lite<DashboardEntity>): Promise<DashboardEntity> {
+        const all = await dashboardsLazy.value();
+        const found = all.find(d => String(d.id) === String(lite.id));
+        if (found == null)
+            throw new Error(`Dashboard '${String(lite.id)}' not found`);
+        return found;
     }
 
     // ---- Owner scoping (Signum's DashboardLogic.RegisterUserTypeCondition / RegisterRoleTypeCondition) --

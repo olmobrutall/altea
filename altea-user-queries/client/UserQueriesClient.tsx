@@ -26,6 +26,8 @@ import type { PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Qu
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
 import UserQueryMenu from "./UserQueryMenu";
 import { UserQueriesDashboardClient } from "./Dashboard/UserQueriesDashboardClient";
+import { ToolbarClient } from "@altea/altea-toolbar/client/ToolbarClient";
+import UserQueryToolbarConfig from "./UserQueryToolbarConfig";
 
 // Port of Signum's Signum.UserQueries/UserQueryClient.tsx. Registers the UserQuery entity view, the
 // /userQuery page, and the quick-links to run a saved query. altea divergences:
@@ -34,7 +36,8 @@ import { UserQueriesDashboardClient } from "./Dashboard/UserQueriesDashboardClie
 //    client (SearchControl.parseFindOptions). Filter values are recovered from their string form here.
 //  - The custom-lite carries the display fields directly (UserQueryLite), so the menu/quick-links read
 //    `(uq as UserQueryLite).hideQuickLink`, not Signum's `uq.model`.
-//  - Toolbar / Omnibox / Dashboard / ContextualItems / CustomDrilldown wiring is deferred (missing modules).
+//  - Omnibox / ContextualItems / CustomDrilldown wiring is deferred (missing modules); the Dashboard parts
+//    and the Toolbar config ARE registered (see UserQueriesDashboardClient / UserQueryToolbarConfig).
 
 export namespace UserQueriesClient {
 
@@ -86,6 +89,10 @@ export namespace UserQueriesClient {
         // The three UserQuery DASHBOARD parts (Signum registered their views + renderers inline here; altea
         // keeps them in one module so the @altea/altea-dashboard dependency is visible in a single place).
         UserQueriesDashboardClient.start(cb);
+
+        // The toolbar config for an element pointing at a UserQuery (Signum registered it from here too).
+        // Registering into the toolbar's config registry is INERT when the toolbar module is not started.
+        ToolbarClient.registerConfig(new UserQueryToolbarConfig());
 
         // The UserQuery menu in the SearchControl toolbar (Signum's ButtonBarQuery.onButtonBarElements).
         Finder.ButtonBarQuery.onButtonBarElements.push(ctx => {

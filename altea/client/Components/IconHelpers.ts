@@ -5,6 +5,9 @@ import type { IconProp, IconName, IconPrefix } from "@fortawesome/fontawesome-sv
 // as Signum's: either a bare icon name ("gauge") or a "<prefix> <name>" pair ("regular circle-check",
 // "fas gauge"). The app registers the full free solid + regular sets (eastwind's MainPublic does
 // `library.add(fas, far)`), so a resolved name renders.
+//
+// Lives in the FRAMEWORK client (as Signum's IconTypeahead does) because every module that stores an icon
+// name needs it: altea-dashboard (panel/part icons), altea-toolbar (element icons), altea-user-queries.
 
 const prefixes: Record<string, IconPrefix> = {
     solid: "fas",

@@ -14,7 +14,7 @@ import { DashboardEntity, PanelPartEmbedded, DashboardMessage, type IPartEntity 
 import { DashboardClient, type PanelPartContentProps } from "../DashboardClient";
 import { DashboardController } from "./DashboardFilterController";
 import { DashboardTooltipIcon } from "./DashboardTooltipIcon";
-import { parseIcon, fallbackIcon, getContrastingTextColor } from "../IconHelpers";
+import { parseIcon, fallbackIcon, getContrastingTextColor } from "@altea/altea/client/Components/IconHelpers";
 import "../Dashboard.css";
 
 // Port of Signum's Signum.Dashboard/View/DashboardView.tsx — lays the parts out on the 12-column grid

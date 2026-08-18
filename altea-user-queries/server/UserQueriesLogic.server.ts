@@ -7,12 +7,15 @@ import type { ResetLazy } from "@altea/altea/data/resetLazy";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import type { Lite } from "@altea/altea/data/lite";
 import { UserQueryEntity, UserQueryOperation } from "../data/UserQuery";
+import { QueryAuthLogic } from "@altea/altea-auth/server/QueryAuthLogic";
+import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { UserAssetLogic } from "@altea/altea-user-assets/server/UserAssetLogic.server";
 import { UserAssetOwnerAuth } from "@altea/altea-user-assets/server/UserAssetOwnerAuth.server";
 import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserQueriesServer } from "./UserQueriesServer.server";
 import { registerUserQueryXml } from "./UserQueriesXml.server";
 import { registerUserQueryDashboardParts } from "./UserQueriesDashboardXml.server";
+import { ToolbarLogic } from "@altea/altea-toolbar/server/ToolbarLogic.server";
 
 // Port of Signum's UserQueryLogic.Start (Signum.UserQueries/UserQueryLogic.cs). Registers the UserQuery
 // entity + its Save/Delete operations + query, the in-memory caches (Signum's ResetLazy GlobalLazys), the
@@ -23,9 +26,16 @@ import { registerUserQueryDashboardParts } from "./UserQueriesDashboardXml.serve
 //    server never materialises a QueryToken from the stored tokenString.
 //  - Owner scoping IS ported: registerUserTypeCondition / registerRoleTypeCondition below, plus the in-memory
 //    visibility filter every lookup applies (see @altea/altea-user-assets' UserAssetOwnerAuth).
-//  - Toolbar / CachedQuery / Omnibox WhenIncluded blocks are omitted (those extensions are not ported); the
-//    QueryEntity PreDeleteSqlSync cascade is deferred with them. The DASHBOARD parts ARE registered (see
-//    registerUserQueryDashboardParts).
+//  - CachedQuery / Omnibox WhenIncluded blocks are omitted (those extensions are not ported); the
+//    QueryEntity PreDeleteSqlSync cascade is deferred with them. The DASHBOARD parts (see
+//    registerUserQueryDashboardParts) and the TOOLBAR content config ARE registered.
+
+// The registered QueryName lives in the query CONTAINER (`withQuery` registers there); QueryLogic's
+// `toQueryName` reads a legacy name-only registry nothing populates, so an unknown key means "not allowed".
+async function isQueryKeyAllowed(queryKey: string): Promise<boolean> {
+    const queryName = QueryLogic.tryGetQueryNameByKey(queryKey);
+    return queryName != null && await QueryAuthLogic.isQueryAllowed(queryName, true);
+}
 
 export namespace UserQueriesLogic {
 
@@ -54,12 +64,37 @@ export namespace UserQueriesLogic {
         // the part TABLES only exist if the app lists them in PanelPartEmbedded.content's implementedBy).
         registerUserQueryDashboardParts();
 
+        // The TOOLBAR content config for a UserQuery element (Signum's `new ToolbarContentConfig<
+        // UserQueryEntity> { … }.Register()` inside `WhenIncluded<ToolbarEntity>`): its label, whether this
+        // role may use it, and the query it runs. Registering into the toolbar's registry is INERT when the
+        // toolbar module is not started; Signum's `ToolbarLogic.RegisterDelete<UserQueryEntity>` has no
+        // counterpart here because ToolbarLogic derives its delete cascades from the content field's
+        // @implementedBy list (see ToolbarLogic.start).
+        ToolbarLogic.registerContentConfig(UserQueryEntity, {
+            defaultLabel: async lite => (await getUserQuery(lite)).displayName,
+            isAuthorized: async lite => {
+                const uq = await getUserQuery(lite);
+                return await ToolbarLogic.inMemoryFilter(uq)
+                    && await isQueryKeyAllowed(uq.query.key);
+            },
+            getRelatedQuery: async lite => (await getUserQuery(lite)).query,
+        });
+
         // Signum's GlobalLazy over all user queries, invalidated on any UserQueryEntity change.
         userQueriesLazy = sb.globalLazy(() => table(UserQueryEntity).toArray() as Promise<UserQueryEntity[]>,
             { invalidateWith: [UserQueryEntity] });
 
         if (sb.webBuilder)
             UserQueriesServer.start(sb.webBuilder);
+    }
+
+    /** The cached UserQuery behind a lite (Signum's `UserQueries.Value.GetOrCreate(lite)`). */
+    async function getUserQuery(lite: Lite<UserQueryEntity>): Promise<UserQueryEntity> {
+        const all = await userQueriesLazy.value();
+        const found = all.find(uq => String(uq.id) === String(lite.id));
+        if (found == null)
+            throw new Error(`UserQuery '${String(lite.id)}' not found`);
+        return found;
     }
 
     /** Signum's `UserQueryLogic.RegisterUserTypeCondition` — this query belongs to the current USER. */

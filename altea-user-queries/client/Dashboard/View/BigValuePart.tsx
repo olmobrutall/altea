@@ -11,7 +11,7 @@ import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import type { PanelPartContentProps } from "@altea/altea-dashboard/client/DashboardClient";
 import { DashboardTooltipIcon } from "@altea/altea-dashboard/client/View/DashboardTooltipIcon";
 import { DashboardPinnedFilters } from "@altea/altea-dashboard/client/View/DashboardFilterController";
-import { parseIcon, getContrastingTextColor } from "@altea/altea-dashboard/client/IconHelpers";
+import { parseIcon, getContrastingTextColor } from "@altea/altea/client/Components/IconHelpers";
 import { UserQueriesClient } from "../../UserQueriesClient";
 import { BigValueClient } from "../../BigValueClient";
 import { BigValuePartEntity } from "../../../data/DashboardParts";

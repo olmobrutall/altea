@@ -1,0 +1,11 @@
+{
+  // SERVER layer — node-only (the response builder + the /api/toolbar routes); references local DATA +
+  // altea/altea-auth/altea-user-assets server layers.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" },
+    { "path": "../altea-user-assets/tsconfig.server.json" }
+  ]
+}

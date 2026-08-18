@@ -6,7 +6,7 @@ import { EnumLine } from "@altea/altea/client/Lines/EnumLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { PanelPartEmbedded } from "../../data/Dashboard";
-import { parseIcon, fallbackIcon } from "../IconHelpers";
+import { parseIcon, fallbackIcon } from "@altea/altea/client/Components/IconHelpers";
 
 // Port of Signum's Signum.Dashboard/Admin/PanelPart.tsx — the part CHROME modal (icon / colors / interaction
 // group / tooltip) opened from the grid cell's icon button.

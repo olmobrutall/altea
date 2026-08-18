@@ -7,7 +7,7 @@ import { cleanTypeName } from "@altea/altea/data/registration";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import { HealthCheckElementEmbedded, HealthCheckPartEntity } from "../../data/Parts";
 import { DashboardClient, type PanelPartContentProps } from "../DashboardClient";
-import { parseIcon, fallbackIcon, getContrastingTextColor } from "../IconHelpers";
+import { parseIcon, fallbackIcon, getContrastingTextColor } from "@altea/altea/client/Components/IconHelpers";
 
 // Port of Signum's Signum.Dashboard/View/HealthCheckPart.tsx — a board of tiles, each polling its own
 // ASP.NET-health-style endpoint (`{ status: "Healthy"|"Degraded"|"Unhealthy", description }`) and colouring

@@ -13,6 +13,9 @@ import { registerUserChartXml } from "./UserChartXml.server";
 import { UserAssetOwnerAuth } from "@altea/altea-user-assets/server/UserAssetOwnerAuth.server";
 import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
 import { registerUserChartDashboardParts } from "./ChartDashboardXml.server";
+import { ToolbarLogic } from "@altea/altea-toolbar/server/ToolbarLogic.server";
+import { QueryAuthLogic } from "@altea/altea-auth/server/QueryAuthLogic";
+import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 
 // Port of Signum's UserChartLogic.Start (Signum.Chart/UserChart/UserChartLogic.cs). Registers the UserChart
 // entity + its Save/Delete operations + query, the in-memory caches (Signum's ResetLazy GlobalLazys), the
@@ -27,6 +30,13 @@ import { registerUserChartDashboardParts } from "./ChartDashboardXml.server";
 //  - Toolbar / CachedQuery / Omnibox WhenIncluded blocks + TokenMigration are omitted (those extensions / the
 //    interactive terminal sync are not ported); the QueryEntity PreDeleteSqlSync cascade is deferred with
 //    them. The DASHBOARD part IS registered (see registerUserChartDashboardParts).
+
+// The registered QueryName lives in the query CONTAINER (`withQuery` registers there); QueryLogic's
+// `toQueryName` reads a legacy name-only registry nothing populates, so an unknown key means "not allowed".
+async function isQueryKeyAllowed(queryKey: string): Promise<boolean> {
+    const queryName = QueryLogic.tryGetQueryNameByKey(queryKey);
+    return queryName != null && await QueryAuthLogic.isQueryAllowed(queryName, true);
+}
 
 export namespace UserChartLogic {
 
@@ -53,6 +63,18 @@ export namespace UserChartLogic {
         // part registry (Signum did this inside `sb.Schema.WhenIncluded<DashboardEntity>`).
         registerUserChartDashboardParts();
 
+        // The TOOLBAR content config for a UserChart element (Signum's ToolbarContentConfig inside
+        // `WhenIncluded<ToolbarEntity>`). Inert when the toolbar module is not started.
+        ToolbarLogic.registerContentConfig(UserChartEntity, {
+            defaultLabel: async lite => (await getUserChart(lite)).displayName,
+            isAuthorized: async lite => {
+                const uc = await getUserChart(lite);
+                return await ToolbarLogic.inMemoryFilter(uc)
+                    && await isQueryKeyAllowed(uc.query.key);
+            },
+            getRelatedQuery: async lite => (await getUserChart(lite)).query,
+        });
+
         // Signum's GlobalLazy over all user charts, invalidated on any UserChartEntity change.
         userChartsLazy = sb.globalLazy(() => table(UserChartEntity).toArray() as Promise<UserChartEntity[]>,
             { invalidateWith: [UserChartEntity] });
@@ -70,6 +92,16 @@ export namespace UserChartLogic {
      *  user's roles. */
     export function registerRoleTypeCondition(typeCondition: TypeConditionSymbol): void {
         UserAssetOwnerAuth.registerRoleTypeCondition(UserChartEntity, typeCondition);
+    }
+
+    /** The cached UserChart behind a lite (Signum's `UserCharts.Value.GetOrCreate(lite)`) — used by the
+     *  toolbar content config registered in `start`. */
+    async function getUserChart(lite: Lite<UserChartEntity>): Promise<UserChartEntity> {
+        const all = await userChartsLazy.value();
+        const found = all.find(uc => String(uc.id) === String(lite.id));
+        if (found == null)
+            throw new Error(`UserChart '${String(lite.id)}' not found`);
+        return found;
     }
 
     // Every lookup below serves from `userChartsLazy`, whose factory runs in ExecutionMode.global — so the

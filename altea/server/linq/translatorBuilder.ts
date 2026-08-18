@@ -384,22 +384,14 @@ class ProjectionBuilder extends DbExpressionVisitor {
             toStrCode = this.pop();
         }
 
-        this.visit(e.id);
-        const idCode = this.pop();
-
         const typeId = e.typeId;
 
-        // Lite over @implementedByAll: resolve the type discriminator → ctor by id.
-        if (typeId instanceof TypeImplementedByAllExpression) {
-            this.visit(typeId.typeColumn);
-            const typeCode = this.pop();
-            this.stack.push(`retriever.liteImplementedByAll(${idCode}, ${typeCode}, ${toStrCode})`);
-            return e;
-        }
-
-        // Lite over @implementedBy: whichever implementation id column is non-null picks
-        // the ctor; the lite is built with the coalesced id (equal to that column) and that
-        // implementation's own model — dispatched here client-side rather than as a SQL CASE.
+        // Lite over @implementedBy: whichever implementation id column is non-null picks the ctor; the lite
+        // is built with THAT implementation's own id column and its own model — dispatched here client-side
+        // rather than as a SQL CASE (Signum's TranslatorBuilder.VisitLiteValue does the same, reading
+        // `ti.Value` per implementation). Using the per-implementation column — not the combined `e.id` — is
+        // what keeps a lite's id in its NATIVE type when the implementations' PK types differ (a mixed-PK IB
+        // combines its ids as text; see QueryBinder.idOfReference).
         // A custom-lite model (a NewExpression) IS the whole lite, so it is emitted directly;
         // a display-string model goes through retriever.lite.
         if (typeId instanceof TypeImplementedByExpression) {
@@ -418,11 +410,22 @@ class ProjectionBuilder extends DbExpressionVisitor {
                 } else {
                     let modelCode = toStrCode;
                     if (model != null) { this.visit(model); modelCode = this.pop(); }
-                    built = `retriever.lite(consts[${ctorIndex}], ${idCode}, ${modelCode})`;
+                    built = `retriever.lite(consts[${ctorIndex}], ${implIdCode}, ${modelCode})`;
                 }
                 code = `(${implIdCode} != null ? ${built} : ${code})`;
             }
             this.stack.push(code);
+            return e;
+        }
+
+        this.visit(e.id);
+        const idCode = this.pop();
+
+        // Lite over @implementedByAll: resolve the type discriminator → ctor by id.
+        if (typeId instanceof TypeImplementedByAllExpression) {
+            this.visit(typeId.typeColumn);
+            const typeCode = this.pop();
+            this.stack.push(`retriever.liteImplementedByAll(${idCode}, ${typeCode}, ${toStrCode})`);
             return e;
         }
 

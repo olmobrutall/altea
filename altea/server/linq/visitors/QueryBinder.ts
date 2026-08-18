@@ -2397,7 +2397,25 @@ export class QueryBinder extends ExpressionVisitor {
             return new PrimaryKeyExpression(this.ibaId(ref));
         // IB has one id column per implementation; `.id` of an IB lite is the first
         // non-null implementation id (Signum coalesces them).
+        //
+        // When the implementations do NOT share one primary-key type — e.g. a toolbar element pointing at
+        // both an int-PK QueryEntity and a uuid-PK UserQueryEntity — no SQL CASE/COALESCE can mix them
+        // ("CASE types integer and uuid cannot be matched"), which is why Signum's GetId converts each id to
+        // IComparable in that case (a conversion its nominator then refuses to translate, so the combine
+        // happens client-side). altea already solves the identical problem for @implementedByAll by casting
+        // each id to text before the COALESCE (see `ibaId`) — a polymorphic id IS Signum's IComparable — so
+        // the same shape is used here. Note the LITE projector never reads this combined id for an IB: it
+        // dispatches on the per-implementation id columns (see TranslatorBuilder.visitLiteValue), exactly as
+        // Signum's does, so a lite still carries its implementation's NATIVE id.
+        if (this.pkTypesOfIb(ref).size > 1)
+            return new PrimaryKeyExpression(this.coalesceAsText([...ref.implementations.values()].map(ee => ee.externalId.value)));
+
         return this.dispatchIb(ref, ee => ee.externalId.value);
+    }
+
+    /** The distinct altea PrimaryKeyTypes an @implementedBy reference's implementations use. */
+    private pkTypesOfIb(ib: ImplementedByExpression): Set<string> {
+        return new Set([...ib.implementations.keys()].map(c => this.pkTypeOf(c)));
     }
 
     // Signum's DispatchIb: navigate a member on each implementation and combine the
@@ -2681,9 +2699,15 @@ export class QueryBinder extends ExpressionVisitor {
     // id columns (only one is non-null). Their SQL types differ, so each is cast to text —
     // Signum treats a polymorphic id as an IComparable.
     private ibaId(iba: ImplementedByAllExpression): Expression {
-        const cast = (e: Expression) => new SqlCastExpression(LiteralType.string, e, this.isPostgres ? "varchar" : "nvarchar(max)");
-        const parts: Expression[] = [...iba.ids.values()].map(cast);
-        return parts.reduce((a, b) => new BinaryExpression("??", a, b));
+        return this.coalesceAsText([...iba.ids.values()]);
+    }
+
+    /** COALESCE over id columns of DIFFERING SQL types: each is cast to text first, so the result is one
+     *  comparable value (Signum's `Convert(id, typeof(IComparable))`). Shared by the @implementedByAll id and
+     *  the mixed-PK @implementedBy id (see `idOfReference`). */
+    private coalesceAsText(ids: Expression[]): Expression {
+        const cast = (e: Expression): Expression => new SqlCastExpression(LiteralType.string, e, this.isPostgres ? "varchar" : "nvarchar(max)");
+        return ids.map(cast).reduce((a, b) => new BinaryExpression("??", a, b));
     }
 
     // The PK types a reference can contribute when combined into an @implementedByAll

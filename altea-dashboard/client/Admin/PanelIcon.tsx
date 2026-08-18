@@ -4,7 +4,7 @@ import { ColorLine, TextBoxLine } from "@altea/altea/client/Lines/TextBoxLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { DashboardEntity, PanelPartEmbedded } from "../../data/Dashboard";
-import { parseIcon, fallbackIcon } from "../IconHelpers";
+import { parseIcon, fallbackIcon } from "@altea/altea/client/Components/IconHelpers";
 
 // Port of Signum's Signum.Dashboard/Admin/PanelIcon.tsx — the small icon/colour modal opened from the
 // dashboard title (and reused for a part). altea divergence: the icon name is a plain text box (no
