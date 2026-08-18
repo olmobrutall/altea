@@ -21,7 +21,7 @@ import { Enum } from '@altea/altea/data/enum'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { colorSchemes } from './ColorUtils'
 import { ColorPaletteClient, ColorScheme } from './ColorPaletteClient'
-import { ColorPaletteEntity, ColorPaletteMessage, SpecificColorEmbedded } from '../../data/ColorPalette'
+import { ColorPaletteEntity, ColorPaletteMessage, ColorPaletteEntity_SpecificColors } from '../../data/ColorPalette'
 import '@altea/altea/data/globals/arrayExtensions'
 
 // Port of Signum.Chart/ColorPalette/ColorPalette.tsx (the ColorPalette editor). Covers type / categoryName
@@ -37,7 +37,7 @@ import '@altea/altea/data/globals/arrayExtensions'
 //    EnumEntity<E> row) is edited as an EnumLine over the member names via `ConvertBinding` (lite ⇄ name).
 //  - Signum's ColorSelector toggles a [Format(Color)] ColorLine ↔ EnumLine; altea's ColorLine (a text box +
 //    native color picker) backs the "show color" case, the scheme dropdown (EnumLine) the "show palette" case.
-//  - MList element wrappers are gone: push `Object.assign(new SpecificColorEmbedded(), …)` onto the plain array.
+//  - MList element wrappers are gone: push `Object.assign(new ColorPaletteEntity_SpecificColors(), …)` onto the plain array.
 export default function ColorPalette(p: { ctx: TypeContext<ColorPaletteEntity> }): React.JSX.Element {
     const ctx = p.ctx;
     const forceUpdate = useForceUpdate();
@@ -70,7 +70,7 @@ export default function ColorPalette(p: { ctx: TypeContext<ColorPaletteEntity> }
             const lites = enumConverter.names.map(n => enumConverter.nameToLite[n]);
             let step = lites.length == 0 ? 1 : Math.floor((colors?.length ?? 1) / lites.length);
             if (step == 0) step = 1;
-            ctx.value.specificColors = lites.map((e, i) => Object.assign(new SpecificColorEmbedded(), {
+            ctx.value.specificColors = lites.map((e, i) => Object.assign(new ColorPaletteEntity_SpecificColors(), {
                 entity: e,
                 color: colors ? colors[(i * step) % colors.length] : undefined,
             }));
@@ -91,7 +91,7 @@ export default function ColorPalette(p: { ctx: TypeContext<ColorPaletteEntity> }
             if (step == 0)
                 step = 1;
 
-            ctx.value.specificColors = fewEntities.map((e, i) => Object.assign(new SpecificColorEmbedded(), {
+            ctx.value.specificColors = fewEntities.map((e, i) => Object.assign(new ColorPaletteEntity_SpecificColors(), {
                 entity: e,
                 color: colors ? colors[(i * step) % colors.length] : undefined,
             }));
@@ -103,7 +103,7 @@ export default function ColorPalette(p: { ctx: TypeContext<ColorPaletteEntity> }
             });
 
             if (chosen != null) {
-                ctx.value.specificColors = chosen.map(e => Object.assign(new SpecificColorEmbedded(), {
+                ctx.value.specificColors = chosen.map(e => Object.assign(new ColorPaletteEntity_SpecificColors(), {
                     entity: e,
                     color: colors ? ColorPaletteClient.calculateColor(String(e.id), colors, Number(ctx.value.seed ?? 0)) : undefined,
                 }));
@@ -148,7 +148,7 @@ export default function ColorPalette(p: { ctx: TypeContext<ColorPaletteEntity> }
                         {
                             // The field's own niceName ("Color"), like a normal column header — not the
                             // ShowPalette message (which is only the mode-toggle button's tooltip).
-                            header: PropertyRoute.root(SpecificColorEmbedded).addLambda(a => a.color).fieldInfo!.niceToString(),
+                            header: PropertyRoute.root(ColorPaletteEntity_SpecificColors).addLambda(a => a.color).fieldInfo!.niceToString(),
                             template: ectx => <ColorSelector ctx={ectx.subCtx(a => a.color, { formGroupStyle: "SrOnly" })} colors={colors as string[] | null} />,
                         },
                     ]} />

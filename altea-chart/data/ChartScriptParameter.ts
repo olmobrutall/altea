@@ -38,9 +38,9 @@ export interface IChartParameterValueDefinition {
 
 // Signum's NumberInterval (a decimal default within an optional [min, max]).
 export class NumberInterval implements IChartParameterValueDefinition {
-    defaultValue: number | null = null;
-    minValue: number | null = null;
-    maxValue: number | null = null;
+    defaultValue: number | null;
+    minValue: number | null;
+    maxValue: number | null;
 
     constructor(init?: Partial<Pick<NumberInterval, "defaultValue" | "minValue" | "maxValue">>) {
         Object.assign(this, init);
@@ -179,7 +179,7 @@ export class StringValue implements IChartParameterValueDefinition {
 export class ChartScriptParameter {
     name: string;
     getDisplayName: () => string;
-    columnIndex: number | null = null;
+    columnIndex: number | null;
     type: ChartParameterType;
     valueDefinition: IChartParameterValueDefinition;
 

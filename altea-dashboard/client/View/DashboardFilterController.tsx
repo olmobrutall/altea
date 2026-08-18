@@ -8,7 +8,7 @@ import { QueryToken, SubTokensOptions, tokenStartsWith } from "@altea/altea/clie
 import type { FilterGroupOperation } from "@altea/altea/data/dynamicQueries";
 import { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
-import { DashboardEntity, InteractionGroupEnum, PanelPartEmbedded } from "../../data/Dashboard";
+import { DashboardEntity, InteractionGroupEnum, DashboardEntity_Parts } from "../../data/Dashboard";
 import { DashboardClient } from "../DashboardClient";
 
 // Port of Signum's Signum.Dashboard/View/DashboardFilterController.tsx. The DashboardController is the
@@ -30,13 +30,13 @@ export class DashboardController {
 
     forceUpdate: () => void;
 
-    filters: Map<PanelPartEmbedded, DashboardFilter> = new Map();
-    pinnedFilters: Map<PanelPartEmbedded, DashboardPinnedFilters> = new Map();
+    filters: Map<DashboardEntity_Parts, DashboardFilter> = new Map();
+    pinnedFilters: Map<DashboardEntity_Parts, DashboardPinnedFilters> = new Map();
     lastChange: Map<string /*queryKey*/, number> = new Map();
     dashboard: DashboardEntity;
     queriesWithEquivalences: string /*queryKey*/[];
 
-    invalidationMap: Map<PanelPartEmbedded, () => void> = new Map();
+    invalidationMap: Map<DashboardEntity_Parts, () => void> = new Map();
 
     isLoading: boolean;
 
@@ -57,11 +57,11 @@ export class DashboardController {
             .every(p => this.invalidationMap.has(p));
     }
 
-    registerInvalidations(part: PanelPartEmbedded, invalidation: () => void): void {
+    registerInvalidations(part: DashboardEntity_Parts, invalidation: () => void): void {
         this.invalidationMap.set(part, invalidation);
     }
 
-    invalidate(source: PanelPartEmbedded, interactionGroup: InteractionGroupEnum | null | undefined): void {
+    invalidate(source: DashboardEntity_Parts, interactionGroup: InteractionGroupEnum | null | undefined): void {
         Array.from(this.invalidationMap.keys())
             .filter(p => p != source && (interactionGroup == null || p.interactionGroup === interactionGroup))
             .forEach(p => this.invalidationMap.get(p)!());
@@ -73,7 +73,7 @@ export class DashboardController {
         this.forceUpdate();
     }
 
-    clearFilters(partEmbedded: PanelPartEmbedded): void {
+    clearFilters(partEmbedded: DashboardEntity_Parts): void {
         const current = this.filters.get(partEmbedded);
         if (current)
             this.lastChange.set(current.queryKey, new Date().getTime());
@@ -87,7 +87,7 @@ export class DashboardController {
         this.forceUpdate();
     }
 
-    clearPinnedFilter(partEmbedded: PanelPartEmbedded): void {
+    clearPinnedFilter(partEmbedded: DashboardEntity_Parts): void {
         const current = this.pinnedFilters.get(partEmbedded);
         if (current)
             this.lastChange.set(current.queryKey, new Date().getTime());
@@ -105,7 +105,7 @@ export class DashboardController {
 
     // Signum's getFilterOptions: the filters OTHER parts of the same interaction group have published (plus
     // the dashboard-level pinned filters), translated into `queryKey`'s own tokens.
-    getFilterOptions(partEmbedded: PanelPartEmbedded, queryKey: string): FilterOptionParsed[] {
+    getFilterOptions(partEmbedded: DashboardEntity_Parts, queryKey: string): FilterOptionParsed[] {
 
         const otherFilters = partEmbedded.interactionGroup == null ? [] :
             Array.from(this.filters.values()).filter(f => f.partEmbedded != partEmbedded
@@ -162,7 +162,7 @@ export class DashboardController {
 
     // Signum's applyToFindOptions: overlay this part's dashboard filters on the FindOptions it would run,
     // honouring the `dashboardBehaviour` of the part's own (stored) filters.
-    applyToFindOptions(partEmbedded: PanelPartEmbedded, fo: FindOptions): FindOptions {
+    applyToFindOptions(partEmbedded: DashboardEntity_Parts, fo: FindOptions): FindOptions {
 
         const dashboardFilters = this.getFilterOptions(partEmbedded, getQueryKey(fo.queryName));
         if (dashboardFilters.length == 0)
@@ -276,13 +276,13 @@ interface TokenEquivalenceTuple {
 }
 
 export class DashboardPinnedFilters {
-    partEmbedded: PanelPartEmbedded;
+    partEmbedded: DashboardEntity_Parts;
     queryKey: string;
     /** altea divergence: Signum passed a QueryDescription; PinnedFilterBuilder here takes the query ROOT token. */
     queryToken: QueryToken;
     pinnedFilters: FilterOptionParsed[];
 
-    constructor(partEmbedded: PanelPartEmbedded, queryKey: string, queryToken: QueryToken, pinnedFilters: FilterOptionParsed[]) {
+    constructor(partEmbedded: DashboardEntity_Parts, queryKey: string, queryToken: QueryToken, pinnedFilters: FilterOptionParsed[]) {
         this.partEmbedded = partEmbedded;
         this.queryKey = queryKey;
         this.queryToken = queryToken;
@@ -291,11 +291,11 @@ export class DashboardPinnedFilters {
 }
 
 export class DashboardFilter {
-    partEmbedded: PanelPartEmbedded;
+    partEmbedded: DashboardEntity_Parts;
     queryKey: string;
     rows: DashboardFilterRow[] = [];
 
-    constructor(partEmbedded: PanelPartEmbedded, queryKey: string) {
+    constructor(partEmbedded: DashboardEntity_Parts, queryKey: string) {
         this.partEmbedded = partEmbedded;
         this.queryKey = queryKey;
     }

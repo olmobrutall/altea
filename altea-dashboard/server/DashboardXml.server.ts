@@ -6,12 +6,12 @@ import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/se
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { newGuid } from "@altea/altea-user-assets/data/UserAssets";
 import {
-    DashboardEntity, PanelPartEmbedded, TokenEquivalenceGroupEntity, TokenEquivalenceEmbedded,
+    DashboardEntity, DashboardEntity_Parts, TokenEquivalenceGroupEntity, TokenEquivalenceGroupEntity_TokenEquivalences,
     InteractionGroupEnum, DashboardEmbedededInEntityEnum, type IPartEntity,
 } from "../data/Dashboard";
 import {
     TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity,
-    HealthCheckElementEmbedded, CustomPartEntity, TextPartTypeEnum,
+    HealthCheckPartEntity_Items, CustomPartEntity, TextPartTypeEnum,
 } from "../data/Parts";
 import { DashboardLogic } from "./DashboardLogic.server";
 
@@ -69,7 +69,7 @@ async function toXml(db: DashboardEntity, ctx: IToXmlContext): Promise<Record<st
 
 // Signum's PanelPartEmbedded.ToXml: the geometry + chrome as attributes, the content as the single child
 // element (its name identifies the part type — Signum's PartNames).
-async function partToXml(p: PanelPartEmbedded, ctx: IToXmlContext): Promise<Record<string, unknown>> {
+async function partToXml(p: DashboardEntity_Parts, ctx: IToXmlContext): Promise<Record<string, unknown>> {
     const x: Record<string, unknown> = {};
     x[A + "Guid"] = p.guid;
     x[A + "Row"] = p.row;
@@ -124,8 +124,8 @@ function fromXml(db: DashboardEntity, xml: Record<string, unknown>, ctx: IFromXm
 }
 
 // Signum's PanelPartEmbedded.FromXml (+ DashboardLogic.GetPart for the content element).
-function partFromXml(x: Record<string, unknown>, index: number, ctx: IFromXmlContext): PanelPartEmbedded {
-    const p = new PanelPartEmbedded();
+function partFromXml(x: Record<string, unknown>, index: number, ctx: IFromXmlContext): DashboardEntity_Parts {
+    const p = new DashboardEntity_Parts();
     p.guid = (str(x[A + "Guid"]) ?? newGuid()) as uuid;
     p.order = index as unknown as int;
     p.row = (num(x[A + "Row"]) ?? 0) as int;
@@ -162,7 +162,7 @@ function tokenEquivalenceGroupFromXml(x: Record<string, unknown>, index: number,
     const interactionGroup = str(x[A + "InteractionGroup"]);
     gr.interactionGroup = interactionGroup == null ? null : toEnum(InteractionGroupEnum, interactionGroup);
     gr.tokenEquivalences = list(x["TokenEquivalence"]).map((te, i) => {
-        const row = new TokenEquivalenceEmbedded();
+        const row = new TokenEquivalenceGroupEntity_TokenEquivalences();
         row.order = i as unknown as int;
         row.query = ctx.getQuery(str(te[A + "Query"])!);
         row.token = token(str(te[A + "Token"])!);
@@ -235,7 +235,7 @@ export function registerBasePartsXml(): void {
         clone: p => {
             const c = new HealthCheckPartEntity();
             c.items = (p.items ?? []).map(i => {
-                const item = new HealthCheckElementEmbedded();
+                const item = new HealthCheckPartEntity_Items();
                 item.title = i.title;
                 item.checkURL = i.checkURL;
                 item.navigateURL = i.navigateURL;
@@ -253,7 +253,7 @@ export function registerBasePartsXml(): void {
         }),
         fromXml: (p, x) => {
             p.items = list(x["HealthCheckElement"]).map((i, index) => {
-                const item = new HealthCheckElementEmbedded();
+                const item = new HealthCheckPartEntity_Items();
                 item.order = index as unknown as int;
                 item.title = str(i[A + "Title"]) ?? "";
                 item.checkURL = str(i[A + "CheckURL"]) ?? "";

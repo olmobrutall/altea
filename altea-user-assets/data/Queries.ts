@@ -22,16 +22,16 @@ export class QueryTokenEmbedded extends EmbeddedEntity {
     // Signum's `[StringLengthValidator(Min = 1, Max = 200), NotNullValidator] TokenString`. The token's
     // rootless fullKey (altea tokens are rootless: "Customer.Name", "Id", "ToString").
     @stringLengthValidator({ min: 1, max: 200 })
-    tokenString: string = "";
+    tokenString: string;
 
     // The resolved token — filled client-side from `tokenString` (Finder.TokenCompleter). Never a column,
     // never serialized (altea resolves tokens on the client; the server only ever sees `tokenString`).
     @column(false) @serialize(false)
-    token: QueryToken | null = null;
+    token: QueryToken | null;
 
     // The parse error message when `tokenString` no longer resolves against the query (client-filled).
     @column(false) @serialize(false)
-    parseException: string | null = null;
+    parseException: string | null;
 
     toString(): string {
         return this.tokenString;
@@ -42,13 +42,13 @@ export class QueryTokenEmbedded extends EmbeddedEntity {
 export class PinnedQueryFilterEmbedded extends EmbeddedEntity {
     // Signum's `[StringLengthValidator(Max = 100), Translatable] Label`.
     @stringLengthValidator({ max: 100 })
-    label: string | null = null;
+    label: string | null;
 
-    column: int | null = null;
+    column: int | null;
 
-    colSpan: int | null = null;
+    colSpan: int | null;
 
-    row: int | null = null;
+    row: int | null;
 
     // Signum's PinnedFilterActive (default Always). A real altea enum (int FK to the enum table,
     // translatable); the in-memory value is the numeric ordinal, the wire/XML form is the member name.

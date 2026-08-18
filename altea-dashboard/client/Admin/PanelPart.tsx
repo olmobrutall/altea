@@ -5,7 +5,7 @@ import { TextAreaLine } from "@altea/altea/client/Lines/TextAreaLine";
 import { EnumLine } from "@altea/altea/client/Lines/EnumLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
-import { PanelPartEmbedded } from "../../data/Dashboard";
+import { DashboardEntity_Parts } from "../../data/Dashboard";
 import { parseIcon, fallbackIcon } from "@altea/altea/client/Components/IconHelpers";
 
 // Port of Signum's Signum.Dashboard/Admin/PanelPart.tsx — the part CHROME modal (icon / colors / interaction
@@ -17,7 +17,7 @@ import { parseIcon, fallbackIcon } from "@altea/altea/client/Components/IconHelp
 
 const interactionColors = ["#DFFF00", "#FFBF00", "#FF7F50", "#DE3163", "#9FE2BF", "#40E0D0", "#6495ED", "#CCCCFF"];
 
-export default function PanelPart(p: { ctx: TypeContext<PanelPartEmbedded> }): React.JSX.Element {
+export default function PanelPart(p: { ctx: TypeContext<DashboardEntity_Parts> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
     const ctx = p.ctx;
     const settingsCtx = ctx.subCtx({ formGroupStyle: "Basic" });

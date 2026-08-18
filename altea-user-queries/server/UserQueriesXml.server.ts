@@ -10,7 +10,7 @@ import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsIm
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import {
-    UserQueryEntity, QueryFilterEmbedded, QueryColumnEmbedded, QueryOrderEmbedded,
+    UserQueryEntity, UserQueryEntity_Filters, UserQueryEntity_Columns, UserQueryEntity_Orders,
     UserQueryEntity_CustomDrilldowns, SystemTimeEmbedded,
 } from "../data/UserQuery";
 
@@ -65,7 +65,7 @@ async function toXml(uq: UserQueryEntity, ctx: IToXmlContext): Promise<Record<st
     return o;
 }
 
-function filterXml(f: QueryFilterEmbedded): Record<string, unknown> {
+function filterXml(f: UserQueryEntity_Filters): Record<string, unknown> {
     const x: Record<string, unknown> = {};
     x[A + "Indentation"] = f.indentation;
     if (f.isGroup) {
@@ -93,7 +93,7 @@ function pinnedXml(p: PinnedQueryFilterEmbedded): Record<string, unknown> {
     return x;
 }
 
-function columnXml(c: QueryColumnEmbedded): Record<string, unknown> {
+function columnXml(c: UserQueryEntity_Columns): Record<string, unknown> {
     const x: Record<string, unknown> = {};
     x[A + "Token"] = c.token.tokenString;
     if (c.summaryToken != null) x[A + "SummaryToken"] = c.summaryToken.tokenString;
@@ -103,7 +103,7 @@ function columnXml(c: QueryColumnEmbedded): Record<string, unknown> {
     return x;
 }
 
-function orderXml(o: QueryOrderEmbedded): Record<string, unknown> {
+function orderXml(o: UserQueryEntity_Orders): Record<string, unknown> {
     return { [A + "Token"]: o.token.tokenString, [A + "OrderType"]: Enum.toName(OrderTypeEnum, o.orderType) };
 }
 
@@ -152,8 +152,8 @@ function fromXml(uq: UserQueryEntity, xml: Record<string, unknown>, ctx: IFromXm
     uq.systemTime = st != null ? systemTimeFromXml(firstElem(st)) : null;
 }
 
-function filterFromXml(x: Record<string, unknown>): QueryFilterEmbedded {
-    const f = new QueryFilterEmbedded();
+function filterFromXml(x: Record<string, unknown>): UserQueryEntity_Filters {
+    const f = new UserQueryEntity_Filters();
     f.indentation = (Number(x[A + "Indentation"] ?? 0) as int);
     f.isGroup = x[A + "GroupOperation"] != null;
     if (f.isGroup) {
@@ -184,8 +184,8 @@ function pinnedFromXml(x: Record<string, unknown>): PinnedQueryFilterEmbedded {
     return p;
 }
 
-function columnFromXml(x: Record<string, unknown>): QueryColumnEmbedded {
-    const c = new QueryColumnEmbedded();
+function columnFromXml(x: Record<string, unknown>): UserQueryEntity_Columns {
+    const c = new UserQueryEntity_Columns();
     c.token = token(str(x[A + "Token"])!);
     c.summaryToken = x[A + "SummaryToken"] != null ? token(str(x[A + "SummaryToken"])!) : null;
     c.displayName = str(x[A + "DisplayName"]) ?? null;
@@ -195,8 +195,8 @@ function columnFromXml(x: Record<string, unknown>): QueryColumnEmbedded {
     return c;
 }
 
-function orderFromXml(x: Record<string, unknown>): QueryOrderEmbedded {
-    const o = new QueryOrderEmbedded();
+function orderFromXml(x: Record<string, unknown>): UserQueryEntity_Orders {
+    const o = new UserQueryEntity_Orders();
     o.token = token(str(x[A + "Token"])!);
     o.orderType = toEnum(OrderTypeEnum, str(x[A + "OrderType"]) ?? "Ascending");
     return o;

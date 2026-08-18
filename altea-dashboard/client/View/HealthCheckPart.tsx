@@ -5,7 +5,7 @@ import { ajaxGet, ServiceError } from "@altea/altea/client/Services";
 import { useAPI } from "@altea/altea/client/Hooks";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
-import { HealthCheckElementEmbedded, HealthCheckPartEntity } from "../../data/Parts";
+import { HealthCheckPartEntity_Items, HealthCheckPartEntity } from "../../data/Parts";
 import { DashboardClient, type PanelPartContentProps } from "../DashboardClient";
 import { parseIcon, fallbackIcon, getContrastingTextColor } from "@altea/altea/client/Components/IconHelpers";
 
@@ -48,7 +48,7 @@ interface HealthCheckResult {
 
 type StatusInfo = { result: HealthCheckResult } | { error: unknown };
 
-function HealthCheckElement(p: { element: HealthCheckElementEmbedded }): React.JSX.Element {
+function HealthCheckElement(p: { element: HealthCheckPartEntity_Items }): React.JSX.Element {
 
     const data = useAPI(() => ajaxGet<HealthCheckResult>({
         url: p.element.checkURL,

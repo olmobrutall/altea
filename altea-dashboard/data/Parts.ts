@@ -33,7 +33,7 @@ export enum TextPartTypeEnum {
 export class TextPartEntity extends Entity implements IPartEntity {
     // Signum's [StringLengthValidator(Min = 1, MultiLine = true), Translatable] — unbounded text column.
     @stringLengthValidator({ min: 1 })
-    textContent: string | null = null;
+    textContent: string | null;
 
     textPartType: TextPartTypeEnum = TextPartTypeEnum.Text;
 
@@ -50,11 +50,11 @@ export class TextPartEntity extends Entity implements IPartEntity {
 // clickable.
 @entity("Part", "Master")
 export class ImagePartEntity extends Entity implements IPartEntity {
-    imageSrcContent: string = "";
+    imageSrcContent: string;
 
-    clickActionURL: string | null = null;
+    clickActionURL: string | null;
 
-    altText: string | null = null;
+    altText: string | null;
 
     requiresTitle(): boolean {
         return false;
@@ -68,7 +68,7 @@ export class ImagePartEntity extends Entity implements IPartEntity {
 // Signum's SeparatorPartEntity (PanelPart.cs). A full-width heading between rows of parts.
 @entity("Part", "Master")
 export class SeparatorPartEntity extends Entity implements IPartEntity {
-    title: string | null = null;
+    title: string | null;
 
     // Signum's `RequiresTitle => Title != null` (kept verbatim).
     requiresTitle(): boolean {
@@ -83,18 +83,18 @@ export class SeparatorPartEntity extends Entity implements IPartEntity {
 // Signum's HealthCheckElementEmbedded (PanelPart.cs) — ONE tile: a label, the health endpoint to poll and
 // where to navigate on click. altea: a `@part` row of the HealthCheck part (Signum's MList element).
 @entity("Part")
-export class HealthCheckElementEmbedded extends Entity {
+export class HealthCheckPartEntity_Items extends Entity {
     @backReference healthCheckPart: Lite<HealthCheckPartEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
     @stringLengthValidator({ max: 100 })
-    title: string = "";
+    title: string;
 
     @stringLengthValidator({ max: 400 })
-    checkURL: string = "";
+    checkURL: string;
 
     @stringLengthValidator({ max: 400 })
-    navigateURL: string = "";
+    navigateURL: string;
 
     toString(): string {
         return this.title;
@@ -106,7 +106,7 @@ export class HealthCheckElementEmbedded extends Entity {
 @entity("Part", "Master")
 export class HealthCheckPartEntity extends Entity implements IPartEntity {
     // Signum's [PreserveOrder] MList<HealthCheckElementEmbedded>.
-    items: HealthCheckElementEmbedded[];
+    items: HealthCheckPartEntity_Items[];
 
     requiresTitle(): boolean {
         return true;
@@ -122,7 +122,7 @@ export class HealthCheckPartEntity extends Entity implements IPartEntity {
 @entity("Part", "Master")
 export class CustomPartEntity extends Entity implements IPartEntity {
     @stringLengthValidator({ max: 100 })
-    customPartName: string = "";
+    customPartName: string;
 
     requiresTitle(): boolean {
         return false;

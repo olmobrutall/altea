@@ -45,41 +45,41 @@ import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-as
 // a condition (token + operation + valueString) or a group header (isGroup + groupOperation), positioned
 // in the filter tree by `indentation`. Owned by UserQueryEntity (Signum's [PreserveOrder, BindParent]).
 @entity("Part")
-export class QueryFilterEmbedded extends Entity {
+export class UserQueryEntity_Filters extends Entity {
     @backReference userQuery: Lite<UserQueryEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
-    token: QueryTokenEmbedded | null = null;
+    token: QueryTokenEmbedded | null;
     isGroup: boolean = false;
     // Real altea enums (int FK to the enum table, translatable) — Signum's enum columns. The in-memory
     // value is the numeric ordinal; the wire/XML/query form is the member name (Enum.toName). See dynamicQueries.
-    groupOperation: FilterGroupOperationEnum | null = null;
-    operation: FilterOperationEnum | null = null;
-    valueString: string | null = null;
-    pinned: PinnedQueryFilterEmbedded | null = null;
-    dashboardBehaviour: DashboardBehaviourEnum | null = null;
+    groupOperation: FilterGroupOperationEnum | null;
+    operation: FilterOperationEnum | null;
+    valueString: string | null;
+    pinned: PinnedQueryFilterEmbedded | null;
+    dashboardBehaviour: DashboardBehaviourEnum | null;
     indentation: int = toInt(0);
 }
 
 // Signum's QueryColumnEmbedded (Queries/QueryColumnEmbedded.cs). One result column: a token, an optional
 // display name / summary (aggregate) token, hidden flag, and combine-rows behaviour.
 @entity("Part")
-export class QueryColumnEmbedded extends Entity {
+export class UserQueryEntity_Columns extends Entity {
     @backReference userQuery: Lite<UserQueryEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
     token: QueryTokenEmbedded;
-    displayName: string | null = null;
-    summaryToken: QueryTokenEmbedded | null = null;
+    displayName: string | null;
+    summaryToken: QueryTokenEmbedded | null;
     hiddenColumn: boolean = false;
-    combineRows: CombineRowsEnum | null = null;
+    combineRows: CombineRowsEnum | null;
 }
 
 // Signum's QueryOrderEmbedded (Queries/QueryOrderEmbedded.cs). One sort: a token + Ascending/Descending.
 @entity("Part")
-export class QueryOrderEmbedded extends Entity {
+export class UserQueryEntity_Orders extends Entity {
     @backReference userQuery: Lite<UserQueryEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
     token: QueryTokenEmbedded;
     orderType: OrderTypeEnum = OrderTypeEnum.Ascending;
@@ -90,7 +90,7 @@ export class QueryOrderEmbedded extends Entity {
 @entity("Part")
 export class UserQueryEntity_CustomDrilldowns extends Entity {
     @backReference userQuery: Lite<UserQueryEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
     @valueField @implementedBy(() => [UserQueryEntity]) drilldown: Lite<UserQueryEntity>;
 }
 
@@ -103,12 +103,12 @@ export class SystemTimeEmbedded extends EmbeddedEntity {
     // altea divergence: Signum stores StartDate/EndDate as `string?` (to allow smart/relative-date
     // expressions parsed at query time). altea has not ported that grammar, so these are the most
     // appropriate Temporal type — a system-versioned window is a point in time WITH a time component.
-    startDate: Temporal.PlainDateTime | null = null;
-    endDate: Temporal.PlainDateTime | null = null;
-    joinMode: SystemTimeJoinModeEnum | null = null;
-    timeSeriesUnit: TimeSeriesUnitEnum | null = null;
-    timeSeriesStep: int | null = null;
-    timeSeriesMaxRowsPerStep: int | null = null;
+    startDate: Temporal.PlainDateTime | null;
+    endDate: Temporal.PlainDateTime | null;
+    joinMode: SystemTimeJoinModeEnum | null;
+    timeSeriesUnit: TimeSeriesUnitEnum | null;
+    timeSeriesStep: int | null;
+    timeSeriesMaxRowsPerStep: int | null;
     splitQueries: boolean = false;
 }
 
@@ -122,8 +122,8 @@ export class HealthCheckConditionEmbedded extends EmbeddedEntity {
 // Signum's HealthCheckEmbedded (UserQueryEntity.cs). Optional fail / degraded thresholds on the row count.
 @reflect
 export class HealthCheckEmbedded extends EmbeddedEntity {
-    failWhen: HealthCheckConditionEmbedded | null = null;
-    degradedWhen: HealthCheckConditionEmbedded | null = null;
+    failWhen: HealthCheckConditionEmbedded | null;
+    degradedWhen: HealthCheckConditionEmbedded | null;
 }
 
 // ---- The UserQuery entity ------------------------------------------------------------------------------
@@ -142,49 +142,49 @@ export class UserQueryEntity extends Entity implements IUserAssetEntity, IHasEnt
 
     // Signum's `Lite<TypeEntity>? EntityType` — a plain reference to the type registry row (the entity
     // type this UserQuery is a quick-link of), not a polymorphic reference.
-    entityType: Lite<TypeEntity> | null = null;
+    entityType: Lite<TypeEntity> | null;
 
     hideQuickLink: boolean = false;
 
     showTitleAsBreadcrumb: boolean = false;
 
-    includeDefaultFilters: boolean | null = null;
+    includeDefaultFilters: boolean | null;
 
     // Signum's `Lite<Entity>? Owner` — AssertImplementedBy(User, Role) in logic. Whose UserQuery this is
     // (a personal one → a User; a shared one → a Role; null → global).
     @implementedBy(() => [UserEntity, RoleEntity])
-    owner: Lite<Entity> | null = null;
+    owner: Lite<Entity> | null;
 
     @stringLengthValidator({ min: 1, max: 200 })
-    displayName: string = "";
+    displayName: string;
 
     appendFilters: boolean = false;
 
     refreshMode: RefreshModeEnum = RefreshModeEnum.Auto;
 
     // Signum's [PreserveOrder, BindParent] MList<QueryFilterEmbedded>.
-    filters: QueryFilterEmbedded[];
+    filters: UserQueryEntity_Filters[];
 
     // Signum's [PreserveOrder] MList<QueryOrderEmbedded>.
-    orders: QueryOrderEmbedded[];
+    orders: UserQueryEntity_Orders[];
 
     columnsMode: ColumnOptionsModeEnum = ColumnOptionsModeEnum.Add;
 
     // Signum's [PreserveOrder] MList<QueryColumnEmbedded>.
-    columns: QueryColumnEmbedded[];
+    columns: UserQueryEntity_Columns[];
 
-    paginationMode: PaginationModeEnum | null = null;
+    paginationMode: PaginationModeEnum | null;
 
     // Signum's [NumberIsValidator(GreaterThanOrEqualTo, 1)] — only set for Firsts/Paginate.
     @fieldValidation<UserQueryEntity>(uq =>
         uq.elementsPerPage != null && uq.elementsPerPage < 1
             ? UserQueryMessage.ElementsPerPageMustBeGreaterThanZero.niceToString()
             : null)
-    elementsPerPage: int | null = null;
+    elementsPerPage: int | null;
 
-    systemTime: SystemTimeEmbedded | null = null;
+    systemTime: SystemTimeEmbedded | null;
 
-    healthCheck: HealthCheckEmbedded | null = null;
+    healthCheck: HealthCheckEmbedded | null;
 
     // Signum's [PreserveOrder, NoRepeatValidator, ImplementedBy(UserQueryEntity)] MList<Lite<Entity>>.
     customDrilldowns: UserQueryEntity_CustomDrilldowns[];

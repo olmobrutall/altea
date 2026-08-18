@@ -7,11 +7,11 @@ import { getQueryNiceName } from "@altea/altea/client/Reflection";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
-import type { PanelPartEmbedded } from "@altea/altea-dashboard/data/Dashboard";
+import type { DashboardEntity_Parts } from "@altea/altea-dashboard/data/Dashboard";
 import type { PanelPartContentProps } from "@altea/altea-dashboard/client/DashboardClient";
 import type { DashboardController } from "@altea/altea-dashboard/client/View/DashboardFilterController";
 import { UserQueriesClient } from "../../UserQueriesClient";
-import { ValueUserQueryElementEmbedded, ValueUserQueryListPartEntity } from "../../../data/DashboardParts";
+import { ValueUserQueryListPartEntity_UserQueries, ValueUserQueryListPartEntity } from "../../../data/DashboardParts";
 
 // Port of Signum's Signum.UserQueries/Dashboard/View/ValueUserQueryListPart.tsx — one "label → value" row per
 // saved query. altea divergence: no cached-query custom request (CachedQuery is deferred), and a part row is
@@ -34,10 +34,10 @@ export default function ValueUserQueryListPart(p: PanelPartContentProps<ValueUse
 }
 
 export interface ValueUserQueryElementProps {
-    ctx: TypeContext<ValueUserQueryElementEmbedded>;
+    ctx: TypeContext<ValueUserQueryListPartEntity_UserQueries>;
     entity?: Lite<Entity>;
     dashboardController: DashboardController;
-    partEmbedded: PanelPartEmbedded;
+    partEmbedded: DashboardEntity_Parts;
 }
 
 export function ValueUserQueryElement(p: ValueUserQueryElementProps): React.JSX.Element {

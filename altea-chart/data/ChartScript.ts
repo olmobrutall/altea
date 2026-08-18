@@ -64,7 +64,7 @@ export namespace GoogleMapsChartScript {
 // (a data-URI / asset path) — the browser only needs a renderable src.
 export abstract class ChartScript {
     symbol: ChartScriptSymbol;
-    icon: string | null = null;
+    icon: string | null;
     columns: ChartScriptColumn[] = [];
     parameterGroups: ChartScriptParameterGroup[] = [];
 

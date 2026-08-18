@@ -61,7 +61,7 @@ export namespace UserQueriesLogic {
         // The three UserQuery DASHBOARD parts: their XML (de)serializer + clone, registered with
         // @altea/altea-dashboard's part registry (Signum did this inside `sb.Schema.WhenIncluded<
         // DashboardEntity>` — in altea the registration is inert until a dashboard actually uses a part, and
-        // the part TABLES only exist if the app lists them in PanelPartEmbedded.content's implementedBy).
+        // the part TABLES only exist if the app lists them in DashboardEntity_Parts.content's implementedBy).
         registerUserQueryDashboardParts();
 
         // The TOOLBAR content config for a UserQuery element (Signum's `new ToolbarContentConfig<

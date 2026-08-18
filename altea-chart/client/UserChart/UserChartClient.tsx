@@ -29,7 +29,7 @@ import { ChartColumnEmbedded } from "../../data/ChartColumn";
 import { ChartParameterEmbedded } from "../../data/ChartParameter";
 import { ChartClient } from "../ChartClient";
 import {
-    UserChartEntity, UserChartLite, UserChartFilterEmbedded, UserChartColumnEmbedded, UserChartParameterEmbedded,
+    UserChartEntity, UserChartLite, UserChartEntity_Filters, UserChartEntity_Columns, UserChartEntity_Parameters,
 } from "../../data/UserChart";
 import UserChartMenu from "./UserChartMenu";
 import { ChartDashboardClient } from "../Dashboard/ChartDashboardClient";
@@ -166,7 +166,7 @@ export namespace UserChartClient {
 
     // Signum's UserChartMenu.createUserChart: build a new UserChart from the live ChartRequestModel — its query
     // FK, chart script, maxRows, time-series, the columns/parameters (wrapped as @part rows over COPIES of the
-    // value objects), and the filters flattened to UserChartFilterEmbedded rows (values stringified). altea does
+    // value objects), and the filters flattened to UserChartEntity_Filters rows (values stringified). altea does
     // the filter stringify client-side (no server round-trip), mirroring UserQueryMenu.createUserQuery.
     export async function createUserChart(cr: ChartRequestModel): Promise<UserChartEntity> {
         const uc = new UserChartEntity();
@@ -177,13 +177,13 @@ export namespace UserChartClient {
         uc.chartTimeSeries = cr.chartTimeSeries == null ? null : cloneTimeSeries(cr.chartTimeSeries);
         uc.filters = filterOptionsParsedToChartEmbedded(cr.filterOptions ?? []);
         uc.columns = (cr.columns ?? []).map((c, i) => {
-            const row = new UserChartColumnEmbedded();
+            const row = new UserChartEntity_Columns();
             row.element = copyChartColumn(c);
             row.order = toInt(i);
             return row;
         });
         uc.parameters = (cr.parameters ?? []).map((p, i) => {
-            const row = new UserChartParameterEmbedded();
+            const row = new UserChartEntity_Parameters();
             row.element = toChartParameter(p);
             row.order = toInt(i);
             return row;
@@ -212,12 +212,12 @@ function copyChartColumn(c: ChartColumnEmbedded): ChartColumnEmbedded {
     return col;
 }
 
-// Flatten a parsed filter tree into the stored, indentation-tagged UserChartFilterEmbedded rows (mirrors
+// Flatten a parsed filter tree into the stored, indentation-tagged UserChartEntity_Filters rows (mirrors
 // altea-user-queries' filterOptionsParsedToEmbedded, but for the chart-owned filter row + the chart enums).
-function filterOptionsParsedToChartEmbedded(filters: FilterOptionParsed[]): UserChartFilterEmbedded[] {
-    const rows: UserChartFilterEmbedded[] = [];
+function filterOptionsParsedToChartEmbedded(filters: FilterOptionParsed[]): UserChartEntity_Filters[] {
+    const rows: UserChartEntity_Filters[] = [];
     function push(fo: FilterOptionParsed, indent: number): void {
-        const row = new UserChartFilterEmbedded();
+        const row = new UserChartEntity_Filters();
         row.indentation = toInt(indent);
         row.pinned = fo.pinned ? toPinnedEmbedded(fo.pinned) : null;
         row.dashboardBehaviour = fo.dashboardBehaviour == null ? null : Enum.toValue(DashboardBehaviourEnum, fo.dashboardBehaviour);
@@ -297,7 +297,7 @@ function toChartParameter(p: ChartParameterEmbedded): ChartParameterEmbedded {
 // Reconstruct the parsed filter tree from the flat, indentation-tagged stored rows (Signum's groupWhen on
 // `indentation`), resolving each token client-side. Mirrors FilterBuilderEmbedded.toFilterOptionParsed.
 function buildFilterTree(
-    filters: UserChartFilterEmbedded[], indent: number, completer: Finder.TokenCompleter,
+    filters: UserChartEntity_Filters[], indent: number, completer: Finder.TokenCompleter,
     subTokenOptions: SubTokensOptions, entity: Lite<Entity> | undefined,
 ): FilterOptionParsed[] {
     return groupWhen(filters, f => (f.indentation as unknown as number) === indent).map(run => {

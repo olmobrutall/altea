@@ -11,7 +11,7 @@ import { UserChartEntity } from "./UserChart";
 
 // Port of the DASHBOARD PART entities Signum declares in Signum.Chart/UserChart/UserChart.cs. They live in
 // this module (not in altea-dashboard) exactly as in Signum: the Dashboard package knows nothing about charts;
-// the app widens `PanelPartEmbedded.content`'s implementedBy list to include them (see eastwind's
+// the app widens `DashboardEntity_Parts.content`'s implementedBy list to include them (see eastwind's
 // entityOverrides.data.ts).
 //
 // altea divergences, documented inline:
@@ -36,7 +36,7 @@ export class UserChartPartEntity extends Entity implements IPartEntity {
     autoRefresh: boolean = false;
 
     @unit("px")
-    minHeight: int | null = null;
+    minHeight: int | null;
 
     requiresTitle(): boolean {
         return false;
@@ -49,9 +49,9 @@ export class UserChartPartEntity extends Entity implements IPartEntity {
 
 // Signum's CombinedUserChartElementEmbedded: ONE of the saved charts a combined part paints together.
 @entity("Part")
-export class CombinedUserChartElementEmbedded extends Entity {
+export class CombinedUserChartPartEntity_UserCharts extends Entity {
     @backReference combinedUserChartPart: Lite<CombinedUserChartPartEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
     userChart: UserChartEntity;
 
@@ -68,7 +68,7 @@ export class CombinedUserChartPartEntity extends Entity implements IPartEntity {
     @noRepeatValidator()
     @fieldValidation<CombinedUserChartPartEntity>(p => (p.userCharts?.length ?? 0) === 0
         ? ChartPartMessage.ACombinedChartNeedsAtLeastOneUserChart.niceToString() : null)
-    userCharts: CombinedUserChartElementEmbedded[];
+    userCharts: CombinedUserChartPartEntity_UserCharts[];
 
     showData: boolean = false;
 
@@ -79,7 +79,7 @@ export class CombinedUserChartPartEntity extends Entity implements IPartEntity {
     useSameScale: boolean = false;
 
     @unit("px")
-    minHeight: int | null = null;
+    minHeight: int | null;
 
     requiresTitle(): boolean {
         return true;

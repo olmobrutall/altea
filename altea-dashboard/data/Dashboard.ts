@@ -26,7 +26,7 @@ import { TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEn
 //  - Signum's `Guid Guid` [UniqueIndex] portable-identity field → a uuid PRIMARY KEY (`@primaryKey("uuid")`),
 //    exactly like UserQueryEntity / UserChartEntity: the `id` IS the identity XML import/export keys on.
 //  - Signum's `MList<PanelPartEmbedded> Parts` (an EmbeddedEntity MList) → per-owner `@part` ROWS
-//    (PanelPartEmbedded is an `@entity("Part")` here): altea cannot persist an EmbeddedEntity array, and a
+//    (DashboardEntity_Parts is an `@entity("Part")` here): altea cannot persist an EmbeddedEntity array, and a
 //    part row has exactly ONE owner. Same for the virtual MList `TokenEquivalencesGroups` and its nested
 //    `TokenEquivalences` (a @part collection of the group).
 //  - `ToXml`/`FromXml`/`ParseData` are server-only in altea (System.Xml + server QueryDescription) — see
@@ -83,9 +83,9 @@ export interface IPartEntity extends Entity {
 // Signum's PanelPartEmbedded (PanelPart.cs). ONE cell of the dashboard grid: its geometry, its chrome
 // (title / icon / colors / tooltip), its interaction group, and the part `content` that renders in it.
 @entity("Part")
-export class PanelPartEmbedded extends Entity implements IGridEntity {
+export class DashboardEntity_Parts extends Entity implements IGridEntity {
     @backReference dashboard: Lite<DashboardEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
     // Signum's `Guid Guid = Guid.NewGuid()`: the part's stable identity, used as the React key / the
     // `data-part-content` attribute and preserved by the XML round-trip. Kept as a real field (the row's
@@ -93,53 +93,53 @@ export class PanelPartEmbedded extends Entity implements IGridEntity {
     guid: uuid = newGuid();
 
     // Signum's PanelPartEmbedded.PropertyValidation(Title): a part whose content RequiresTitle must have one.
-    @fieldValidation<PanelPartEmbedded>(p => !p.title && p.content?.requiresTitle()
+    @fieldValidation<DashboardEntity_Parts>(p => !p.title && p.content?.requiresTitle()
         ? DashboardMessage.DashboardDN_TitleMustBeSpecifiedFor0.niceToString(p.content.toString()) : null)
     @stringLengthValidator({ min: 3, max: 100 })
-    title: string | null = null;
+    title: string | null;
 
     hideTitle: boolean = false;
 
     // Signum's [StringLengthValidator(MultiLine), Translatable] Tooltip — HTML in Signum (authored with
     // HtmlEditorLine). altea has no HtmlEditor port, so the editor uses a plain multi-line text box; the
     // stored value is still rendered as HTML by DashboardTooltipIcon.
-    tooltip: string | null = null;
+    tooltip: string | null;
 
     @stringLengthValidator({ min: 3, max: 100 })
-    iconName: string | null = null;
+    iconName: string | null;
 
     @format("Color")
     @stringLengthValidator({ min: 3, max: 20 })
-    iconColor: string | null = null;
+    iconColor: string | null;
 
     @format("Color")
     @stringLengthValidator({ min: 1, max: 20 })
-    titleColor: string | null = null;
+    titleColor: string | null;
 
     // Signum's [NumberIsValidator(GreaterThanOrEqualTo, 0)].
-    @fieldValidation<PanelPartEmbedded>(p => (p.row as number) < 0
+    @fieldValidation<DashboardEntity_Parts>(p => (p.row as number) < 0
         ? DashboardMessage.RowMustBeGreaterThanOrEqualToZero.niceToString() : null)
     row: int = toInt(0);
 
     // Signum's [NumberBetweenValidator(0, 11)].
-    @fieldValidation<PanelPartEmbedded>(p => (p.startColumn as number) < 0 || (p.startColumn as number) > 11
+    @fieldValidation<DashboardEntity_Parts>(p => (p.startColumn as number) < 0 || (p.startColumn as number) > 11
         ? DashboardMessage.StartColumnMustBeBetween0And11.niceToString() : null)
     startColumn: int = toInt(0);
 
     // Signum's [NumberBetweenValidator(1, 12)]. The overlap / too-large checks Signum does in
     // DashboardEntity.ChildPropertyValidation need the sibling rows, so they live on the owner below.
-    @fieldValidation<PanelPartEmbedded>(p => (p.columns as number) < 1 || (p.columns as number) > 12
+    @fieldValidation<DashboardEntity_Parts>(p => (p.columns as number) < 1 || (p.columns as number) > 12
         ? DashboardMessage.ColumnsMustBeBetween1And12.niceToString() : null)
     columns: int = toInt(12);
 
-    interactionGroup: InteractionGroupEnum | null = null;
+    interactionGroup: InteractionGroupEnum | null;
 
     @format("Color")
-    customColor: string | null = null;
+    customColor: string | null;
 
     // Signum's [BindParent, ImplementedBy(…the base parts…)] IPartEntity Content. The app WIDENS this list
     // to the parts of every registered module (Signum did the same from Southwind's Starter) — see
-    // eastwind/entityOverrides.data.ts's `overrideImplementedBy(PanelPartEmbedded, "content", …)`.
+    // eastwind/entityOverrides.data.ts's `overrideImplementedBy(DashboardEntity_Parts, "content", …)`.
     @implementedBy(() => [TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity, CustomPartEntity])
     content: IPartEntity;
 
@@ -156,9 +156,9 @@ export class PanelPartEmbedded extends Entity implements IGridEntity {
 // Signum's TokenEquivalenceEmbedded (DashboardEntity.cs): "this token of THAT query means the same thing as
 // that token of THIS query", so a cross-filter can travel between parts over different queries.
 @entity("Part")
-export class TokenEquivalenceEmbedded extends Entity {
+export class TokenEquivalenceGroupEntity_TokenEquivalences extends Entity {
     @backReference tokenEquivalenceGroup: Lite<TokenEquivalenceGroupEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
     query: QueryEntity;
     token: QueryTokenEmbedded;
@@ -170,15 +170,15 @@ export class TokenEquivalenceEmbedded extends Entity {
 @entity("Part")
 export class TokenEquivalenceGroupEntity extends Entity {
     @backReference dashboard: Lite<DashboardEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
-    interactionGroup: InteractionGroupEnum | null = null;
+    interactionGroup: InteractionGroupEnum | null;
 
     // Signum's [PreserveOrder, NoRepeatValidator, CountIsValidator(GreaterThan, 1)] — an equivalence of one
     // token equates nothing.
     @fieldValidation<TokenEquivalenceGroupEntity>(g => (g.tokenEquivalences?.length ?? 0) <= 1
         ? DashboardMessage.ATokenEquivalenceGroupNeedsAtLeastTwoTokens.niceToString() : null)
-    tokenEquivalences: TokenEquivalenceEmbedded[];
+    tokenEquivalences: TokenEquivalenceGroupEntity_TokenEquivalences[];
 
     toString(): string {
         return this.tokenEquivalences?.map(te => te.token?.tokenString).join(" = ") ?? "";
@@ -195,25 +195,25 @@ export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEnt
     // Signum's `Lite<TypeEntity>? EntityType` — the entity type this dashboard is a quick-link / embedded
     // widget of (null → a standalone dashboard). Its C# setter also cleared EmbeddedInEntity /
     // ShowTitleAsBreadcrumb; the editor does that in onChange (see client/Admin/Dashboard.tsx).
-    entityType: Lite<TypeEntity> | null = null;
+    entityType: Lite<TypeEntity> | null;
 
-    embeddedInEntity: DashboardEmbedededInEntityEnum | null = null;
+    embeddedInEntity: DashboardEmbedededInEntityEnum | null;
 
     // Signum's `Lite<Entity>? Owner` — AssertImplementedBy(User, Role) in logic. Whose dashboard this is
     // (personal → a User; shared → a Role; null → global).
     @implementedBy(() => [UserEntity, RoleEntity])
-    owner: Lite<Entity> | null = null;
+    owner: Lite<Entity> | null;
 
-    dashboardPriority: int | null = null;
+    dashboardPriority: int | null;
 
     // Signum's [Unit("s"), NumberIsValidator(GreaterThanOrEqualTo, 10)].
     @unit("s")
     @fieldValidation<DashboardEntity>(d => d.autoRefreshPeriod != null && (d.autoRefreshPeriod as number) < 10
         ? DashboardMessage.AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds.niceToString() : null)
-    autoRefreshPeriod: int | null = null;
+    autoRefreshPeriod: int | null;
 
     @stringLengthValidator({ min: 2, max: 200 })
-    displayName: string = "";
+    displayName: string;
 
     hideDisplayName: boolean = false;
 
@@ -225,7 +225,7 @@ export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEnt
     // runs in ChildPropertyValidation (a part sticking out past column 12, two parts overlapping in a row)
     // need the sibling rows, so they are an owner-level field validation here.
     @fieldValidation<DashboardEntity>(d => validateParts(d.parts))
-    parts: PanelPartEmbedded[];
+    parts: DashboardEntity_Parts[];
 
     // Signum's [Ignore, QueryableProperty, BindParent] MList<TokenEquivalenceGroupEntity> (a virtual MList).
     @fieldValidation<DashboardEntity>(d => validateTokenEquivalences(d.tokenEquivalencesGroups))
@@ -233,20 +233,20 @@ export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEnt
 
     @index
     @stringLengthValidator({ max: 200 })
-    key: string | null = null;
+    key: string | null;
 
     hideQuickLink: boolean = false;
 
     @stringLengthValidator({ min: 3, max: 100 })
-    iconName: string | null = null;
+    iconName: string | null;
 
     @format("Color")
     @stringLengthValidator({ min: 3, max: 20 })
-    iconColor: string | null = null;
+    iconColor: string | null;
 
     @format("Color")
     @stringLengthValidator({ min: 3, max: 20 })
-    titleColor: string | null = null;
+    titleColor: string | null;
 
     @quoted
     toString(): string {
@@ -266,7 +266,7 @@ export function validateEmbeddedInEntity(d: DashboardEntity): string | null {
 
 // Signum's DashboardEntity.ChildPropertyValidation on PanelPartEmbedded.StartColumn: a part may not exceed
 // the 12-column grid, and two parts in the same row may not overlap.
-function validateParts(parts: PanelPartEmbedded[] | undefined): string | null {
+function validateParts(parts: DashboardEntity_Parts[] | undefined): string | null {
     if (parts == null)
         return null;
 

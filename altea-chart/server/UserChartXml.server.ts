@@ -10,7 +10,7 @@ import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/se
 import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import {
-    UserChartEntity, UserChartFilterEmbedded, UserChartColumnEmbedded, UserChartParameterEmbedded,
+    UserChartEntity, UserChartEntity_Filters, UserChartEntity_Columns, UserChartEntity_Parameters,
     UserChartEntity_CustomDrilldowns,
 } from "../data/UserChart";
 import { ChartColumnEmbedded } from "../data/ChartColumn";
@@ -62,7 +62,7 @@ async function toXml(uc: UserChartEntity, ctx: IToXmlContext): Promise<Record<st
     return o;
 }
 
-function filterXml(f: UserChartFilterEmbedded): Record<string, unknown> {
+function filterXml(f: UserChartEntity_Filters): Record<string, unknown> {
     const x: Record<string, unknown> = {};
     x[A + "Indentation"] = f.indentation;
     if (f.isGroup) {
@@ -120,12 +120,12 @@ function fromXml(uc: UserChartEntity, xml: Record<string, unknown>, ctx: IFromXm
 
     uc.filters = arr(xml["Filters"], "Filter").map(filterFromXml);
     uc.columns = arr(xml["Columns"], "Column").map(x => {
-        const row = new UserChartColumnEmbedded();
+        const row = new UserChartEntity_Columns();
         row.element = columnFromXml(x);
         return row;
     });
     uc.parameters = arr(xml["Parameters"], "Parameter").map(x => {
-        const row = new UserChartParameterEmbedded();
+        const row = new UserChartEntity_Parameters();
         row.element = parameterFromXml(x);
         return row;
     });
@@ -137,8 +137,8 @@ function fromXml(uc: UserChartEntity, xml: Record<string, unknown>, ctx: IFromXm
     });
 }
 
-function filterFromXml(x: Record<string, unknown>): UserChartFilterEmbedded {
-    const f = new UserChartFilterEmbedded();
+function filterFromXml(x: Record<string, unknown>): UserChartEntity_Filters {
+    const f = new UserChartEntity_Filters();
     f.indentation = (Number(x[A + "Indentation"] ?? 0) as int);
     f.isGroup = x[A + "GroupOperation"] != null;
     if (f.isGroup) {

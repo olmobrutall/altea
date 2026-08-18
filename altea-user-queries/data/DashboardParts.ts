@@ -13,7 +13,7 @@ import { UserQueryEntity } from "./UserQuery";
 // Port of the DASHBOARD PART entities Signum declares in Signum.UserQueries/UserQueryEntity.cs —
 // UserQueryPartEntity, ValueUserQueryListPartEntity (+ its element) and BigValuePartEntity. They live in this
 // module (not in altea-dashboard) exactly as in Signum: the Dashboard package knows nothing about user
-// queries; the app widens `PanelPartEmbedded.content`'s implementedBy list to include them (see eastwind's
+// queries; the app widens `DashboardEntity_Parts.content`'s implementedBy list to include them (see eastwind's
 // entityOverrides.data.ts).
 //
 // altea divergences, documented inline:
@@ -60,17 +60,17 @@ export class UserQueryPartEntity extends Entity implements IPartEntity {
 // Signum's ValueUserQueryElementEmbedded: ONE row of the value list — a label + the saved query whose count
 // (or aggregate) is shown, optionally linking somewhere else than the query itself.
 @entity("Part")
-export class ValueUserQueryElementEmbedded extends Entity {
+export class ValueUserQueryListPartEntity_UserQueries extends Entity {
     @backReference valueUserQueryListPart: Lite<ValueUserQueryListPartEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
     @stringLengthValidator({ max: 200 })
-    label: string | null = null;
+    label: string | null;
 
     userQuery: UserQueryEntity;
 
     @stringLengthValidator({ max: 200 })
-    href: string | null = null;
+    href: string | null;
 
     toString(): string {
         return this.label ?? this.userQuery?.toString() ?? "";
@@ -80,7 +80,7 @@ export class ValueUserQueryElementEmbedded extends Entity {
 // Signum's ValueUserQueryListPartEntity: a compact list of "label → value" rows, one per saved query.
 @entity("Part", "Master")
 export class ValueUserQueryListPartEntity extends Entity implements IPartEntity {
-    userQueries: ValueUserQueryElementEmbedded[];
+    userQueries: ValueUserQueryListPartEntity_UserQueries[];
 
     requiresTitle(): boolean {
         return true;
@@ -95,17 +95,17 @@ export class ValueUserQueryListPartEntity extends Entity implements IPartEntity 
 // clickable / navigating somewhere.
 @entity("Part", "Master")
 export class BigValuePartEntity extends Entity implements IPartEntity {
-    valueToken: QueryTokenEmbedded | null = null;
+    valueToken: QueryTokenEmbedded | null;
 
-    userQuery: UserQueryEntity | null = null;
+    userQuery: UserQueryEntity | null;
 
-    customBigValue: string | null = null;
+    customBigValue: string | null;
 
     navigate: boolean = false;
 
-    customUrl: string | null = null;
+    customUrl: string | null;
 
-    isClickable: boolean | null = null;
+    isClickable: boolean | null;
 
     requiresTitle(): boolean {
         return false;

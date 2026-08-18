@@ -6,7 +6,7 @@ import ErrorModal from "@altea/altea/client/Modals/ErrorModal";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { EntityControlMessage } from "@altea/altea/data/uiMessages";
 import { toInt } from "@altea/altea/data/basics";
-import { HealthCheckElementEmbedded, HealthCheckPartEntity, DashboardPartsMessage } from "../../data/Parts";
+import { HealthCheckPartEntity_Items, HealthCheckPartEntity, DashboardPartsMessage } from "../../data/Parts";
 import type { PartEditorProps } from "./PartEditor";
 
 // Port of Signum's Signum.Dashboard/Admin/HealthCheckPart.tsx — the tile table, plus the "paste health check
@@ -34,7 +34,7 @@ export default function HealthCheckPart(p: PartEditorProps<HealthCheckPartEntity
                                 ErrorModal.showErrorModal(new Error(DashboardPartsMessage.ClipboardDataIsNotCompatibleWithHealthCheckData.niceToString()));
                                 return;
                             }
-                            const item = new HealthCheckElementEmbedded();
+                            const item = new HealthCheckPartEntity_Items();
                             item.title = data[0];
                             item.checkURL = data[1];
                             item.navigateURL = data[2];

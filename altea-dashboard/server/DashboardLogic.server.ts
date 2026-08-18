@@ -15,7 +15,7 @@ import { UserAssetOwnerAuth } from "@altea/altea-user-assets/server/UserAssetOwn
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
 import {
-    DashboardEntity, DashboardOperation, PanelPartEmbedded, DashboardEmbedededInEntityEnum, type IPartEntity,
+    DashboardEntity, DashboardOperation, DashboardEntity_Parts, DashboardEmbedededInEntityEnum, type IPartEntity,
 } from "../data/Dashboard";
 import { registerDashboardXml, registerBasePartsXml } from "./DashboardXml.server";
 import { DashboardServer } from "./DashboardServer.server";
@@ -255,8 +255,8 @@ export namespace DashboardLogic {
         return clone;
     }
 
-    function clonePart(part: PanelPartEmbedded): PanelPartEmbedded {
-        const p = new PanelPartEmbedded();
+    function clonePart(part: DashboardEntity_Parts): DashboardEntity_Parts {
+        const p = new DashboardEntity_Parts();
         p.title = part.title;
         p.hideTitle = part.hideTitle;
         p.tooltip = part.tooltip;

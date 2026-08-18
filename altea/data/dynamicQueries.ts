@@ -196,7 +196,7 @@ export enum UniqueTypeEnum {
 export type UniqueType = keyof typeof UniqueTypeEnum;
 
 // Register the DynamicQuery-vocabulary enums that are PERSISTED as entity fields (Signum ships these as
-// real int-backed enums with their own table, e.g. UserQueryEntity.ColumnsMode / QueryOrderEmbedded.OrderType).
+// real int-backed enums with their own table, e.g. UserQueryEntity.columnsMode / UserQueryEntity_Orders.orderType).
 // Registering an enum here only makes it resolvable as an enum type; a table is created lazily by the
 // schema builder only when a FieldEnum actually references it (so registering the unused ones is harmless).
 //

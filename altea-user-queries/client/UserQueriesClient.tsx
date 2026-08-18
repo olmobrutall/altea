@@ -21,7 +21,7 @@ import {
     FilterGroupOperationEnum, FilterOperationEnum, SystemTimeModeEnum, SystemTimeJoinModeEnum, TimeSeriesUnitEnum,
     PinnedFilterActiveEnum,
 } from "@altea/altea/data/dynamicQueries";
-import { UserQueryEntity, UserQueryLite, QueryFilterEmbedded } from "../data/UserQuery";
+import { UserQueryEntity, UserQueryLite, UserQueryEntity_Filters } from "../data/UserQuery";
 import type { PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
 import UserQueryMenu from "./UserQueryMenu";
@@ -209,7 +209,7 @@ export namespace UserQueriesClient {
 
 // Reconstruct the nested filter tree from the flat, indentation-tagged stored rows (Signum's groupWhen on
 // `indentation`): each run starts at an element whose indentation === `indent`; deeper rows are its children.
-function buildFilterTree(filters: QueryFilterEmbedded[], indent: number, entity: Lite<Entity> | undefined): FilterOption[] {
+function buildFilterTree(filters: UserQueryEntity_Filters[], indent: number, entity: Lite<Entity> | undefined): FilterOption[] {
     const runs = groupWhen(filters, f => (f.indentation as unknown as number) === indent);
     return runs.map(run => {
         const head = run[0];

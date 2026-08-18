@@ -20,11 +20,11 @@ export class ChartColumnEmbedded extends EmbeddedEntity {
     // synchronizeColumns). `@field(false)`: pure runtime scratch, not part of the reflected model (no DB
     // column, no serialization, no type metadata — so its plain-class type stays an `import type`).
     @field(false)
-    scriptColumn: ChartScriptColumn | null = null;
+    scriptColumn: ChartScriptColumn | null;
 
     // Signum's `[Ignore] IChartBase parentChart` back-reference. `@field(false)` — runtime scratch only.
     @field(false)
-    parentChart: IChartBase | null = null;
+    parentChart: IChartBase | null;
 
     // Signum's `QueryTokenEmbedded? Token`. altea has no property setters, so Signum's setter side effect
     // (TokenChanged) is invoked explicitly by the editor (see tokenChanged()). Signum's PropertyValidation
@@ -41,23 +41,23 @@ export class ChartColumnEmbedded extends EmbeddedEntity {
 
         return null;
     })
-    token: QueryTokenEmbedded | null = null;
+    token: QueryTokenEmbedded | null;
 
     // Signum's `[Translatable] string? DisplayName`.
-    displayName: string | null = null;
+    displayName: string | null;
 
-    format: string | null = null;
+    format: string | null;
 
     // Signum's `[NumberIsValidator(GreaterThan, 0)] int? OrderByIndex`.
     @fieldValidation<ChartColumnEmbedded>(c =>
         c.orderByIndex != null && c.orderByIndex <= 0
             ? ValidationMessage.NumberIsTooSmall.niceToString()
             : null)
-    orderByIndex: int | null = null;
+    orderByIndex: int | null;
 
     // Signum's `OrderType? OrderByType`. Stored as the member-name string (see enumColumn).
     @enumColumn()
-    orderByType: OrderType | null = null;
+    orderByType: OrderType | null;
 
     // Signum's TokenChanged(): re-fix column-bound parameters and clear the (now stale) display name/format.
     // Invoked by the editor when the token changes (altea has no property setters).

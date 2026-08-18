@@ -43,7 +43,7 @@ export function setGetChartScriptFunc(fn: (symbol: ChartScriptSymbol) => ChartSc
 @reflect
 export class ChartRequestModel extends ModelEntity implements IChartBase {
     // Signum's `object QueryName` — here the query's key string.
-    queryKey: string = "";
+    queryKey: string;
 
     chartScript: ChartScriptSymbol;
 
@@ -58,9 +58,9 @@ export class ChartRequestModel extends ModelEntity implements IChartBase {
     parameters: ChartParameterEmbedded[];
 
     // Signum's `[NumberIsValidator(GreaterThan, 0)]`-free `int? MaxRows`.
-    maxRows: int | null = null;
+    maxRows: int | null;
 
-    chartTimeSeries: ChartTimeSeriesEmbedded | null = null;
+    chartTimeSeries: ChartTimeSeriesEmbedded | null;
 
     fixParameters(chartColumn: ChartColumnEmbedded): void {
         ChartUtils.fixParameters(this, chartColumn);
@@ -78,21 +78,21 @@ export class ChartRequestModel extends ModelEntity implements IChartBase {
 @reflect
 export class ChartTimeSeriesEmbedded extends EmbeddedEntity {
     @stringLengthValidator({ max: 100 })
-    startDate: string | null = null;
+    startDate: string | null;
 
     @stringLengthValidator({ max: 100 })
-    endDate: string | null = null;
+    endDate: string | null;
 
     // Real altea enum (int-FK, translatable); in-memory ordinal, wire/query = member name (Enum.toName).
-    timeSeriesUnit: TimeSeriesUnitEnum | null = null;
+    timeSeriesUnit: TimeSeriesUnitEnum | null;
 
     @fieldValidation<ChartTimeSeriesEmbedded>(t =>
         t.timeSeriesStep != null && t.timeSeriesStep <= 0 ? ValidationMessage.NumberIsTooSmall.niceToString() : null)
-    timeSeriesStep: int | null = null;
+    timeSeriesStep: int | null;
 
     @fieldValidation<ChartTimeSeriesEmbedded>(t =>
         t.timeSeriesMaxRowsPerStep != null && t.timeSeriesMaxRowsPerStep <= 0 ? ValidationMessage.NumberIsTooSmall.niceToString() : null)
-    timeSeriesMaxRowsPerStep: int | null = null;
+    timeSeriesMaxRowsPerStep: int | null;
 
     splitQueries: boolean = false;
 }

@@ -48,39 +48,39 @@ import { ChartTimeSeriesEmbedded } from "./ChartRequest";
 // Signum's QueryFilterEmbedded (Signum.UserAssets/Queries/QueryFilterEmbedded.cs). One filter row: either a
 // condition (token + operation + valueString) or a group header (isGroup + groupOperation), positioned in
 // the filter tree by `indentation`. Owned by UserChartEntity (Signum's [PreserveOrder, BindParent]). A twin
-// of altea-user-queries's QueryFilterEmbedded, but a DISTINCT class (a @part has exactly ONE owner in altea,
+// of altea-user-queries's UserQueryEntity_Filters, but a DISTINCT class (a @part has exactly ONE owner in altea,
 // and each part class name must be unique in the type registry).
 @entity("Part")
-export class UserChartFilterEmbedded extends Entity {
+export class UserChartEntity_Filters extends Entity {
     @backReference userChart: Lite<UserChartEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
-    token: QueryTokenEmbedded | null = null;
+    token: QueryTokenEmbedded | null;
     isGroup: boolean = false;
     // Real altea enums (int-FK, translatable) — the in-memory value is the ordinal, the wire/XML/query form
-    // is the member name (Enum.toName). Mirrors altea-user-queries' QueryFilterEmbedded.
-    groupOperation: FilterGroupOperationEnum | null = null;
-    operation: FilterOperationEnum | null = null;
-    valueString: string | null = null;
-    pinned: PinnedQueryFilterEmbedded | null = null;
-    dashboardBehaviour: DashboardBehaviourEnum | null = null;
+    // is the member name (Enum.toName). Mirrors altea-user-queries' UserQueryEntity_Filters.
+    groupOperation: FilterGroupOperationEnum | null;
+    operation: FilterOperationEnum | null;
+    valueString: string | null;
+    pinned: PinnedQueryFilterEmbedded | null;
+    dashboardBehaviour: DashboardBehaviourEnum | null;
     indentation: int = toInt(0);
 }
 
 // Signum's `[BindParent, PreserveOrder] MList<ChartColumnEmbedded> Columns` element. altea wraps the shared
 // ChartColumnEmbedded value object as `element` on a @part row (the persisted-collection idiom above).
 @entity("Part")
-export class UserChartColumnEmbedded extends Entity {
+export class UserChartEntity_Columns extends Entity {
     @backReference userChart: Lite<UserChartEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
     element: ChartColumnEmbedded;
 }
 
 // Signum's `[NoRepeatValidator] MList<ChartParameterEmbedded> Parameters` element (wrapped as above).
 @entity("Part")
-export class UserChartParameterEmbedded extends Entity {
+export class UserChartEntity_Parameters extends Entity {
     @backReference userChart: Lite<UserChartEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
     element: ChartParameterEmbedded;
 }
 
@@ -89,7 +89,7 @@ export class UserChartParameterEmbedded extends Entity {
 @entity("Part")
 export class UserChartEntity_CustomDrilldowns extends Entity {
     @backReference userChart: Lite<UserChartEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
     @valueField @implementedBy(() => [UserQueryEntity]) drilldown: Lite<UserQueryEntity>;
 }
 
@@ -104,36 +104,36 @@ export class UserChartEntity extends Entity implements IUserAssetEntity, IHasEnt
     query: QueryEntity;
 
     // Signum's `Lite<TypeEntity>? EntityType` — the entity type this UserChart is a quick-link of.
-    entityType: Lite<TypeEntity> | null = null;
+    entityType: Lite<TypeEntity> | null;
 
     hideQuickLink: boolean = false;
 
     // Signum's `Lite<Entity>? Owner` — AssertImplementedBy(User, Role) in logic. Whose UserChart this is
     // (a personal one → a User; a shared one → a Role; null → global).
     @implementedBy(() => [UserEntity, RoleEntity])
-    owner: Lite<Entity> | null = null;
+    owner: Lite<Entity> | null;
 
     @stringLengthValidator({ min: 3, max: 200 })
-    displayName: string = "";
+    displayName: string;
 
-    includeDefaultFilters: boolean | null = null;
+    includeDefaultFilters: boolean | null;
 
-    maxRows: int | null = null;
+    maxRows: int | null;
 
-    chartTimeSeries: ChartTimeSeriesEmbedded | null = null;
+    chartTimeSeries: ChartTimeSeriesEmbedded | null;
 
     // Signum's ChartScript SETTER (which runs SynchronizeColumns) has no altea equivalent (no property
     // setters); the editor / Converter call ChartClient.synchronizeColumns on change.
     chartScript: ChartScriptSymbol;
 
     // Signum's [NoRepeatValidator] MList<ChartParameterEmbedded>.
-    parameters: UserChartParameterEmbedded[];
+    parameters: UserChartEntity_Parameters[];
 
     // Signum's [BindParent, PreserveOrder] MList<ChartColumnEmbedded>.
-    columns: UserChartColumnEmbedded[];
+    columns: UserChartEntity_Columns[];
 
     // Signum's [PreserveOrder, BindParent] MList<QueryFilterEmbedded>.
-    filters: UserChartFilterEmbedded[];
+    filters: UserChartEntity_Filters[];
 
     // Signum's [NoRepeatValidator, PreserveOrder, ImplementedBy(UserQueryEntity)] MList<Lite<Entity>>.
     customDrilldowns: UserChartEntity_CustomDrilldowns[];

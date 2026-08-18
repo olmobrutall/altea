@@ -20,7 +20,7 @@ import {
 import type { SystemTime } from "@altea/altea/data/dynamicQuery/queryRequest";
 import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import {
-    UserQueryEntity, UserQueryMessage, QueryColumnEmbedded, QueryOrderEmbedded, QueryFilterEmbedded, SystemTimeEmbedded,
+    UserQueryEntity, UserQueryMessage, UserQueryEntity_Columns, UserQueryEntity_Orders, UserQueryEntity_Filters, SystemTimeEmbedded,
 } from "../data/UserQuery";
 import { UserQueriesClient } from "./UserQueriesClient";
 import { filterOptionsParsedToEmbedded } from "./Templates/FilterBuilderEmbedded";
@@ -243,7 +243,7 @@ function groupWhen<T>(list: T[], isGroupStart: (t: T) => boolean): T[][] {
 // element), and no `translated()` — display names compare directly.
 export namespace UserQueryMerger {
 
-    export function mergeColumns(oldCols: QueryColumnEmbedded[], newCols: QueryColumnEmbedded[], sd: StringDistance): QueryColumnEmbedded[] {
+    export function mergeColumns(oldCols: UserQueryEntity_Columns[], newCols: UserQueryEntity_Columns[], sd: StringDistance): UserQueryEntity_Columns[] {
         const choices = sd.levenshteinChoices(oldCols, newCols,
             c => c.added == null ? 5 : c.removed == null ? 5 : distanceColumns(c.added, c.removed));
 
@@ -262,10 +262,10 @@ export namespace UserQueryMerger {
     }
 
     export function mergeFilters(
-        oldFilters: QueryFilterEmbedded[], newFilters: QueryFilterEmbedded[],
+        oldFilters: UserQueryEntity_Filters[], newFilters: UserQueryEntity_Filters[],
         oldFilterOptions: FilterOption[], newFilterOptions: FilterOption[],
         indent: number, sd: StringDistance,
-    ): QueryFilterEmbedded[] {
+    ): UserQueryEntity_Filters[] {
         const oldGroups = groupWhen(oldFilters, a => (a.indentation as unknown as number) == indent);
         const newGroups = groupWhen(newFilters, a => (a.indentation as unknown as number) == indent);
 
@@ -318,7 +318,7 @@ export namespace UserQueryMerger {
         return !isNaN(d1) && !isNaN(d2) && Math.abs(d1 - d2) < 2 * 60 * 60 * 1000; // within 2 hours
     }
 
-    function distanceColumns(qc1: QueryColumnEmbedded, qc2: QueryColumnEmbedded): number {
+    function distanceColumns(qc1: UserQueryEntity_Columns, qc2: UserQueryEntity_Columns): number {
         return (qc1.token?.tokenString == qc2.token?.tokenString ? 0 : 3)
             + (qc1.summaryToken?.tokenString == qc2.summaryToken?.tokenString ? 0 : 1)
             + (qc1.combineRows == qc2.combineRows ? 0 : 1)
@@ -366,8 +366,8 @@ function tokenEmbedded(token: { fullKey(): string }): QueryTokenEmbedded {
     return t;
 }
 
-function toColumnEmbedded(c: ColumnOptionParsed): QueryColumnEmbedded {
-    const col = new QueryColumnEmbedded();
+function toColumnEmbedded(c: ColumnOptionParsed): UserQueryEntity_Columns {
+    const col = new UserQueryEntity_Columns();
     col.token = tokenEmbedded(c.token!);
     col.displayName = (c.displayName as string | undefined) ?? null;
     col.summaryToken = c.summaryToken ? tokenEmbedded(c.summaryToken) : null;
@@ -377,8 +377,8 @@ function toColumnEmbedded(c: ColumnOptionParsed): QueryColumnEmbedded {
     return col;
 }
 
-function toOrderEmbedded(o: OrderOptionParsed): QueryOrderEmbedded {
-    const ord = new QueryOrderEmbedded();
+function toOrderEmbedded(o: OrderOptionParsed): UserQueryEntity_Orders {
+    const ord = new UserQueryEntity_Orders();
     ord.token = tokenEmbedded(o.token);
     ord.orderType = Enum.toValue(OrderTypeEnum, o.orderType);
     return ord;

@@ -101,8 +101,8 @@ export enum EntityAction {
 @reflect
 export class UserAssetPreviewLineEmbedded extends EmbeddedEntity {
     // The asset's clean type name (Signum's Lite<TypeEntity> Type — here the raw clean name string).
-    type: string = "";
-    text: string = "";
+    type: string;
+    text: string;
     action: EntityAction = EntityAction.New;
     overrideEntity: boolean = false;
     guid: uuid = newGuid();
