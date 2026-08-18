@@ -350,8 +350,9 @@ export class DbExpressionVisitor extends ExpressionVisitor {
         const hasValue = this.visit(eee.hasValue);
         const bindings = this.visitArray(eee.bindings, b => this.visitFieldBinding(b));
         const mixins = eee.mixins == null ? undefined : this.visitArray(eee.mixins, m => this.visitMixinEntity(m));
-        if (hasValue !== eee.hasValue || bindings !== eee.bindings || mixins !== eee.mixins)
-            return new EmbeddedEntityExpression(eee.type, hasValue, bindings, mixins);
+        const additional = eee.additionalBindings == null ? undefined : this.visitArray(eee.additionalBindings, a => this.visitAdditionalBinding(a));
+        if (hasValue !== eee.hasValue || bindings !== eee.bindings || mixins !== eee.mixins || additional !== eee.additionalBindings)
+            return new EmbeddedEntityExpression(eee.type, hasValue, bindings, mixins, additional);
         return eee;
     }
 

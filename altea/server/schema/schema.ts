@@ -1,4 +1,4 @@
-import type { Entity, Type, View, ViewType } from '../../data/entity';
+import type { Entity, PrimaryKey, Type, View, ViewType } from '../../data/entity';
 import type { ResetLazy } from '../../data/resetLazy';
 import type { TypeCaches } from '../typeLogic';
 import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
@@ -31,6 +31,16 @@ const EMPTY_QUERY_FILTER_CONTEXT: QueryFilterContext = new Map();
 // Registry of all included tables, keyed by entity constructor, with name maps
 // for query/serialization lookups. Built by SchemaBuilder. (EntityEvents and
 // other runtime hooks are deferred to the save/query milestone.)
+/** Where an embedded instance sits, handed to an `embeddedRoutePositions` callback. */
+export interface RoutePosition {
+    /** Clean type name of the route ROOT — the entity whose table the embedded's columns live in. */
+    readonly rootType: string;
+    /** The owning row's primary key. Null only for a projection with no id in scope. */
+    readonly entityId: PrimaryKey | null;
+    /** Dotted member path from the root entity down to the embedded ("picture", "requestContext.form"). */
+    readonly propertyRoute: string;
+}
+
 export class Schema {
     // Signum's Schema.Current — the active connector's schema. Lets callers reach the schema without
     // threading a SchemaBuilder around (the connector is the single ambient source of truth after Starter).
@@ -41,6 +51,19 @@ export class Schema {
     readonly tables = new Map<Type<Entity>, Table>();
     readonly nameToType = new Map<string, Type<Entity>>();
     readonly typeToName = new Map<Type<Entity>, string>();
+
+    // Signum's per-route `EntityEvents.RegisterBinding` for an EMBEDDED (its only user is
+    // FilePathEmbeddedLogic.AddBinding, which tells every FilePathEmbedded which entity + member it hangs
+    // off, so the client can address the file's download through its owner and the server can gate it).
+    //
+    // Keyed by the EMBEDDED CONSTRUCTOR, and the binder — which is building the route anyway — supplies the
+    // position: one registration covers EVERY route of that embedded, where Signum needs four RegisterBinding
+    // calls per route. The callback is invoked once per materialised instance, with the owning row's id.
+    //
+    // It has to happen in the PROJECTION and not in an `entityEvents.retrieved` handler: an embedded can be
+    // projected without its owner ever being materialised — a SearchControl column over `Category.Picture`
+    // selects that embedded and nothing else — and the position must survive that.
+    readonly embeddedRoutePositions = new Map<Function, (embedded: any, position: RoutePosition) => void>();
 
     // Generation event chain (mirrors Signum's Schema.Generating). Seeded with
     // the default schema/table/FK steps; apps may push more (e.g. seed data).

@@ -11,6 +11,7 @@ import { FileEmbedded, FilePathEmbedded, FileMessage } from "../../data/Files";
 import type { FileTypeSymbol } from "../../data/Files";
 import { FileDownloader, type DownloadBehaviour } from "./FileDownloader";
 import { FileUploader } from "./FileUploader";
+import "./Files.css";
 
 // Port of Signum.Files' Components/FileLine.tsx — the line for ONE file field: the uploader while the field is
 // empty, the downloader (+ a remove button) once it holds a file.
@@ -22,7 +23,9 @@ import { FileUploader } from "./FileUploader";
 //    builds the value directly (`kind` is read off the bound member type).
 //  - Signum uploads to the server as a separate step; here the picked bytes ride the entity's own save (see
 //    FileUploader), so there is no progress bar / temporary file state.
-//  - MultiFileLine / FileImageLine / MultiFileImageLine are NOT ported (no consumer yet).
+//  - Signum's sibling lines live next door: MultiFileLine (a collection of files) and FileImageLine (the same
+//    single file rendered as a thumbnail). MultiFileImageLine is NOT ported — it is the mechanical
+//    combination of those two, and nothing needs it yet.
 
 export interface FileLineProps<V extends FilePathEmbedded | FileEmbedded | null> extends LineBaseProps<V> {
     /** The store a NEW FilePathEmbedded goes to (required for FilePathEmbedded, ignored for FileEmbedded). */
@@ -49,18 +52,22 @@ export class FileLineController<V extends FilePathEmbedded | FileEmbedded | null
 
     /** The root entity the file hangs off — explicit prop, else the context's root entity. */
     container(): Entity | undefined {
-        if (this.props.containerEntity != null)
-            return this.props.containerEntity;
-
-        let ctx: TypeContext<unknown> | undefined = this.props.ctx;
-        let last: Entity | undefined = undefined;
-        while (ctx != null) {
-            if (ctx.value instanceof Entity)
-                last = ctx.value;
-            ctx = ctx.parent as TypeContext<unknown> | undefined;
-        }
-        return last;
+        return this.props.containerEntity ?? rootEntity(this.props.ctx);
     }
+}
+
+/** The OUTERMOST entity of a context chain — the one a download URL is addressed by (see FilesServer: the
+ *  route names the root type + id and walks a member path from there). Shared with MultiFileLine /
+ *  FileImageLine. */
+export function rootEntity(ctx: TypeContext<unknown>): Entity | undefined {
+    let current: TypeContext<unknown> | undefined = ctx;
+    let last: Entity | undefined = undefined;
+    while (current != null) {
+        if (current.value instanceof Entity)
+            last = current.value;
+        current = current.parent as TypeContext<unknown> | undefined;
+    }
+    return last;
 }
 
 // The member path of a property route — its toString() is "(CleanType).a.b"; the download route (see
@@ -93,6 +100,8 @@ export function FileLine<V extends FilePathEmbedded | FileEmbedded | null>(props
                         accept={p.accept}
                         maxSizeInBytes={p.maxSizeInBytes}
                         dragAndDrop={p.dragAndDrop}
+                        fileDropCssClass={c.mandatoryClass ?? undefined}
+                        divHtmlAttributes={{ className: "sf-file-line-new" }}
                         onFileLoaded={f => {
                             c.setValue(f as V);
                             p.onFileLoaded?.(f);

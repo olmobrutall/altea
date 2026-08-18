@@ -910,6 +910,11 @@ export class EmbeddedEntityExpression extends DbExpression {
         public readonly hasValue: Expression,
         public readonly bindings: readonly FieldBinding[],
         public readonly mixins: readonly MixinEntityExpression[] | undefined,
+        // Extra per-row values folded into the EMBEDDED's projection and stamped by their own setter —
+        // Signum's RegisterBinding at a property route INSIDE an entity (FilePathEmbeddedLogic tells every
+        // FilePathEmbedded where it sits). Attached ONLY on the retrieval paths, like the entity-level ones;
+        // last + optional so the DML build sites (AssignAdapterExpander) are untouched.
+        public readonly additionalBindings: readonly AdditionalBinding[] | undefined = undefined,
     ) {
         super("EmbeddedInit", type);
     }

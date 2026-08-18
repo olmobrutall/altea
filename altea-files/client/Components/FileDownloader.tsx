@@ -11,14 +11,16 @@ import { FilesClient } from "../FilesClient";
 //   • a saved file → the owner-addressed download URL (FilesClient.fileUrl → /api/files/download…).
 //
 // altea divergences: Signum's `FileDownloaderConfiguration` registry per file type collapses to the two
-// embedded types (see FilesClient); `entityOrLite` is just the file value (altea has no standalone file
-// entities to fetch), and the owner + property route are explicit props — they are what the URL is built from.
+// embedded types (see FilesClient), and `entityOrLite` is just the file value (altea has no standalone file
+// entities to fetch). The owner + property route props are a FALLBACK: a saved FilePathEmbedded carries its
+// own address (the server stamps rootType/entityId/propertyRoute on it), which `FilesClient.fileUrl` prefers.
 
 export type DownloadBehaviour = "SaveAs" | "View" | "ViewOrSave" | "None";
 
 export interface FileDownloaderProps {
     file: FilePathEmbedded | FileEmbedded;
-    /** The entity that HOLDS the file + the route to it — needed to build the download URL of a saved file. */
+    /** The entity that HOLDS the file + the route to it. Only needed when the file carries no routing of its
+     *  own — a FileEmbedded, or a FilePathEmbedded the server has not stamped yet. */
     containerEntity?: Entity;
     propertyRoute?: string;
     rowId?: string | number;
@@ -40,10 +42,7 @@ export function FileDownloader(p: FileDownloaderProps): React.JSX.Element {
         if (file.binaryFile != null)
             return blobUrl(file.binaryFile, fileName);
 
-        if (p.containerEntity != null && p.propertyRoute != null && p.containerEntity.id != null)
-            return FilesClient.fileUrl(file, p.containerEntity, p.propertyRoute, p.rowId);
-
-        return undefined;
+        return FilesClient.fileUrl(file, p.containerEntity, p.propertyRoute, p.rowId);
     }, [file, file.binaryFile, fileName, p.containerEntity?.id, p.propertyRoute, p.rowId]);
 
     // Revoke the blob URL when it is replaced (a picked file that is saved / removed).
@@ -80,8 +79,10 @@ export function FileDownloader(p: FileDownloaderProps): React.JSX.Element {
 /** Signum's `downloadBase64` / `viewBase64` — a URL for bytes the client already holds. */
 export function blobUrl(bytes: Uint8Array, fileName: string): string {
     const info = FilesClient.infoFor(fileName);
+    // The extension's content type decides whether the browser renders the blob or offers to save it; an
+    // unknown extension gets none, which the browser treats as a download.
     // `new Blob([...])` wants a real ArrayBuffer view; a Uint8Array is one.
-    return URL.createObjectURL(new Blob([bytes as unknown as BlobPart], { type: info?.browserView ? undefined : "application/octet-stream" }));
+    return URL.createObjectURL(new Blob([bytes as unknown as BlobPart], { type: info?.mimeType }));
 }
 
 /** The file's size for a label / tooltip (Signum's toComputerSize, re-exported from the data layer). */

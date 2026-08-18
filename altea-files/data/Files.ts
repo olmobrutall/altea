@@ -14,14 +14,16 @@ import { msg } from "@altea/altea/data/utils/localization";
 // altea divergences, documented inline:
 //  - Signum's `byte[] BinaryFile` → a `Uint8Array` field (altea's "Blob" → bytea / varbinary(MAX)).
 //  - Signum keeps `BinaryFile` / `EntityId` / `MListRowId` / `PropertyRoute` / `RootType` as `[Ignore]`
-//    (in-memory only) fields. altea marks `binaryFile` `@column(false)` (not mapped, still serialized so an
-//    upload can travel client → server); the routing fields are NOT ported — altea's file algorithms compute
-//    the suffix from the file itself (no per-property routing yet).
+//    (in-memory only) fields; altea marks them `@column(false)` — not mapped, but still SERIALIZED, which is
+//    the point: `binaryFile` carries an upload client → server, and the routing trio carries the file's
+//    ADDRESS server → client. `MListRowId` is the one that does not survive the port: altea has no MList, so
+//    a file inside a collection sits on a `@part` ROW ENTITY with an id of its own — that row IS the route
+//    root, and `entityId` is its id.
 //  - The C# property SETTERS (FileName forcing an extension; BinaryFile computing Hash + FileLength) run in
 //    `prepareForSave` here (altea entities are plain field bags) — called by the server's save hook.
 //  - `FilePathEntity` (the standalone, referencable file row) and the Azure/S3 backends are NOT ported:
-//    nothing in altea references them yet. `BigStringMixin` is likewise out (altea's BigStringEmbedded keeps
-//    its text in the row).
+//    nothing in altea references them yet. (`BigStringMixin` — the other FilePathEmbedded consumer — IS
+//    ported: see data/BigString.ts + server/BigStringLogic.server.ts.)
 
 // Signum's FileTypeSymbol (FileTypeSymbol.cs) — names a STORE + policy (where files go, size/type limits).
 // The algorithm behind each symbol is registered server-side (FileTypeLogic.register).
@@ -55,6 +57,28 @@ export class FilePathEmbedded extends EmbeddedEntity {
 
     hash: string | null = null;
 
+    // Signum's `[Ignore]` routing trio (EntityId / RootType / PropertyRoute — see the header note on
+    // MListRowId). NOT columns: they are re-derived server-side every time the file is read (the `retrieved`
+    // hook) and after its owner is saved (the `saved` hook), by FilePathEmbeddedLogic, which knows the schema
+    // position of every FilePathEmbedded field.
+    //
+    // They exist for the DOWNLOAD, and they are a security feature, not a convenience: a file is fetched by
+    // naming its OWNER (`/api/files/downloadEmbeddedFilePath/<rootType>/<entityId>?route=<propertyRoute>`), so
+    // the server re-reads it through the ordinary GATED retrieve — type auth and row-level conditions decide,
+    // and the stored `suffix` never appears in a URL. That only works if the client knows the owner and the
+    // route, and the trustworthy source for both is the SERVER: a client that has to infer them (walk up its
+    // form context, guess a member path) gets it wrong for a file on a collection row or one shown outside
+    // the form that loaded it — and a wrong address is either a broken download or a request for somebody
+    // else's row.
+    @column(false)
+    entityId: string | null = null;
+
+    @column(false)
+    rootType: string | null = null;
+
+    @column(false)
+    propertyRoute: string | null = null;
+
     @format("N0")
     fileLength: long = toLong(0);
 
@@ -87,6 +111,18 @@ export class FilePathEmbedded extends EmbeddedEntity {
     /** Signum's CleanBinaryFile — drop the transient bytes once the store has them. */
     cleanBinaryFile(): void {
         this.binaryFile = null;
+    }
+
+    /** Stamp where this file hangs (FilePathEmbeddedLogic, on retrieve and after save). */
+    setRouting(rootType: string, entityId: string | null, propertyRoute: string): void {
+        this.rootType = rootType;
+        this.entityId = entityId;
+        this.propertyRoute = propertyRoute;
+    }
+
+    /** True once the server has said where this file lives, so it can be downloaded by address. */
+    hasRouting(): boolean {
+        return this.rootType != null && this.entityId != null && this.propertyRoute != null;
     }
 
     toString(): string {
@@ -139,7 +175,9 @@ export const FileMessage = {
     File0IsTooBigTheMaximumSizeIs1: msg("File {0} is too big, the maximum size is {1}"),
     TheNameOfTheFileMustNotContainPercent1: msg("The name of the file must not contain the characters {0}"),
     FileImageMustHaveExtension: msg("File image must have an extension"),
-    DropFileHere: msg("Drop file here"),
+    OrDragAFileHere: msg("or drag a file here"),
+    AddMoreFiles: msg("Add more files"),
+    FileImage: msg("File image"),
 };
 
 // Signum's `[AutoInit] static class FilePermission` (FilesController's download gate is anonymous in Signum;

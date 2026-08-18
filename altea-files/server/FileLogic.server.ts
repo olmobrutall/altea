@@ -13,7 +13,11 @@ import { FilesServer } from "./FilesServer.server";
 //   FileTypeLogic.register(MyFileType.Attachments, new FileTypeAlgorithm({ physicalPrefix: () => "./files/attachments" }));
 //
 // altea divergence: Signum's `FileLogic.Start` also includes the standalone FileEntity / FilePathEntity tables
-// (not ported — see server/FilesServer.server.ts) and BigStringLogic (altea's BigStringEmbedded needs none).
+// (not ported — see server/FilesServer.server.ts).
+//
+// BigStringLogic (redirecting a BigStringEmbedded's text into a file) is deliberately NOT started here, as in
+// Signum: it needs the app to declare the mixin and configure every BigStringEmbedded route first, so an app
+// that only wants file FIELDS must not pay for it. See server/BigStringLogic.server.ts.
 
 export namespace FileLogic {
     export function start(sb: SchemaBuilder): void {

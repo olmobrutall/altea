@@ -60,7 +60,7 @@ import {
 } from "../../schema/field";
 import type { FieldInfo } from "../../../data/reflection";
 import { Entity, View, ModelEntity } from "../../../data/entity";
-import type { Type, ViewType } from "../../../data/entity";
+import type { PrimaryKey, Type, ViewType } from "../../../data/entity";
 import { TypeEntity } from "../../../data/typeEntity";
 import { toInt, toLong, inSql, Temporal } from "../../../data/basics";
 import { Lite, getCustomLiteConstructor, getCustomLiteConstructorFor } from "../../../data/lite";
@@ -3514,6 +3514,10 @@ export class QueryBinder extends ExpressionVisitor {
     // build sites, so an UPDATE/INSERT entity expression never grows condition columns. Types with no
     // registered binding pay nothing.
     private withAdditionalBindings(ee: EntityExpression): EntityExpression {
+        // Route positions first: it rewrites the embedded bindings, and the entity-level pass below copies
+        // `bindings` into the rebuilt expression.
+        ee = this.withEmbeddedRoutePositions(ee);
+
         if (this.buildingAdditional || ee.bindings == null || ee.tableAlias == null)
             return ee;
         const specs = this.schema.entityEvents(ee.table.type as unknown as Type<Entity>).additionalBindings;
@@ -3527,6 +3531,72 @@ export class QueryBinder extends ExpressionVisitor {
         } finally {
             this.buildingAdditional = false;
         }
+    }
+
+    // Signum's RegisterBinding at a property route INSIDE the entity (FilePathEmbeddedLogic.AddBinding): for
+    // every EMBEDDED whose type registered on `schema.embeddedRoutePositions`, fold the owning row's id into
+    // THAT EMBEDDED's projection and hand it, plus the route it was found at, to the registered callback.
+    //
+    // Attaching it to the embedded rather than to the entity is the whole point: an embedded can be projected
+    // on its own — a SearchControl column over `Category.Picture` selects the embedded's columns and never
+    // materialises the Category — and the position has to survive that. Called from the same two retrieval
+    // sites as the entity-level pass, so a DML entity expression never grows the id column.
+    private withEmbeddedRoutePositions(ee: EntityExpression): EntityExpression {
+        if (this.schema.embeddedRoutePositions.size === 0 || ee.bindings == null || ee.tableAlias == null)
+            return ee;
+
+        const rootType = cleanTypeName(ee.table.type as unknown as Type<Entity>);
+        const ownerId = ee.externalId.value;
+
+        const bindings = this.routePositionsIn(ee.bindings, rootType, ownerId, "");
+        const mixins = ee.mixins?.map(m => {
+            // A mixin's fields are addressed by their bare name (altea inlines mixin fields onto the owner —
+            // the same convention SchemaSettings.ignoreFieldRoute uses).
+            const mb = this.routePositionsIn(m.bindings, rootType, ownerId, "");
+            return mb === m.bindings ? m : new MixinEntityExpression(m.type, mb, m.mainEntityAlias);
+        });
+
+        if (bindings === ee.bindings && (mixins == null || mixins.every((m, i) => m === ee.mixins![i])))
+            return ee;
+
+        return new EntityExpression(ee.type, ee.table, ee.externalId, ee.tableAlias, bindings,
+            mixins, ee.avoidExpandOnRetrieving, ee.additionalBindings);
+    }
+
+    // Rewrite one binding list, recursing through nested embeddeds. Returns the SAME array when nothing in it
+    // wants a route position (the overwhelmingly common case), so a schema with no registration is free.
+    private routePositionsIn(
+        bindings: readonly FieldBinding[],
+        rootType: string,
+        ownerId: Expression,
+        prefix: string,
+    ): readonly FieldBinding[] {
+        let changed = false;
+        const result = bindings.map(fb => {
+            if (!(fb.binding instanceof EmbeddedEntityExpression))
+                return fb;
+
+            const propertyRoute = prefix === "" ? fb.fieldInfo.name : `${prefix}.${fb.fieldInfo.name}`;
+            const inner = this.routePositionsIn(fb.binding.bindings, rootType, ownerId, propertyRoute);
+
+            const ctor = fb.binding.type instanceof ClassType ? fb.binding.type.constructorFunction : undefined;
+            const callback = ctor == null ? undefined : this.schema.embeddedRoutePositions.get(ctor);
+
+            if (inner === fb.binding.bindings && callback == null)
+                return fb;
+
+            const additional = callback == null ? fb.binding.additionalBindings : [
+                ...(fb.binding.additionalBindings ?? []),
+                new AdditionalBinding(ownerId, (embedded, entityId) =>
+                    callback(embedded, { rootType, entityId: entityId as PrimaryKey | null, propertyRoute })),
+            ];
+
+            changed = true;
+            return new FieldBinding(fb.fieldInfo,
+                new EmbeddedEntityExpression(fb.binding.type, fb.binding.hasValue, inner, fb.binding.mixins, additional));
+        });
+
+        return changed ? result : bindings;
     }
 
     private bindField(ef: EntityField, alias: Alias, ownerId?: Expression): Expression | undefined {

@@ -15,8 +15,20 @@ import { FileMessage, toComputerSize, type FilePathEmbedded } from "../data/File
 //  - Signum's chunked-upload API (StartUpload / UploadChunk / FinishUpload / AbortUpload) is NOT ported: a
 //    file reaches the server inside the entity graph (the `binaryFile` field), so there is no chunk protocol.
 //  - Signum computes the hash in the BinaryFile setter (CryptorEngine.CalculateMD5Hash); altea has no crypto
-//    in the isomorphic layer, so `saveFile` computes it here and stamps it via `prepareForSave`.
+//    in the isomorphic layer, so `saveFile` computes it here (`calculateMD5Hash`) and stamps it via
+//    `prepareForSave`.
 //  - `WeakFileReference` (a file the app does not own) and `RenameAlgorithm` are kept — they are pure policy.
+
+// ---- Hash (Signum's CryptorEngine.CalculateMD5Hash) ------------------------------------------------------
+
+/** The base64 MD5 of a file's bytes — Signum computes it in the `BinaryFile` setter, altea on the server (the
+ *  isomorphic layer has no crypto). It is the file's CACHE IDENTITY, not just metadata: it rides the download
+ *  URL (`FilesClient.fileUrl`) and becomes the response ETag (`FilesServer`), so replacing a file's bytes
+ *  changes its URL *and* fails revalidation — which is what lets a download response be cached for a month
+ *  (Signum's FilePathLogic.MaxAge) instead of an hour. */
+export function calculateMD5Hash(bytes: Uint8Array): string {
+    return createHash("md5").update(bytes).digest("base64");
+}
 
 /** Signum's IFilePath — what an algorithm needs from the row it is storing (FilePathEmbedded implements it). */
 export type IFilePath = FilePathEmbedded;
@@ -37,6 +49,11 @@ export interface IFileTypeAlgorithm {
     deleteFiles(files: readonly IFilePath[]): Promise<void>;
     deleteFilesIfExist(files: readonly IFilePath[]): Promise<void>;
     readAllBytes(fp: IFilePath): Promise<Uint8Array>;
+    /** Signum's `ReadAllBytes` is sync throughout; altea made the storage interface async (a remote backend
+     *  needs it), but a SYNC hook sometimes has no choice — `EntityEvents.retrieved` is synchronous, and
+     *  BigStringLogic has to substitute the file's text there. The local-folder backend can oblige; a future
+     *  Azure / S3 backend must throw here and the caller has to move to an async seam. */
+    readAllBytesSync(fp: IFilePath): Uint8Array;
     moveFile(from: IFilePath, to: IFilePath, createTargetFolder: boolean): Promise<void>;
     /** The absolute path of the file in the store (undefined for a backend without one). */
     fullPhysicalPath(fp: IFilePath): string | undefined;
@@ -133,7 +150,7 @@ export class FileTypeAlgorithm implements IFileTypeAlgorithm {
             throw new Error(`FilePathEmbedded '${fp.fileName}' has no binaryFile to save`);
 
         // Signum's BinaryFile setter computed length + MD5 hash; do it here (crypto is server-only).
-        fp.prepareForSave(createHash("md5").update(bytes).digest("base64"));
+        fp.prepareForSave(calculateMD5Hash(bytes));
         this.calculateSuffixWithRenames(fp);
     }
 
@@ -187,10 +204,18 @@ export class FileTypeAlgorithm implements IFileTypeAlgorithm {
     }
 
     async readAllBytes(fp: IFilePath): Promise<Uint8Array> {
+        return new Uint8Array(await fsp.readFile(this.assertPhysicalPath(fp)));
+    }
+
+    readAllBytesSync(fp: IFilePath): Uint8Array {
+        return new Uint8Array(fs.readFileSync(this.assertPhysicalPath(fp)));
+    }
+
+    private assertPhysicalPath(fp: IFilePath): string {
         const full = this.fullPhysicalPath(fp);
         if (full == null)
             throw new Error(`File '${fp.fileName}' has no physical path`);
-        return new Uint8Array(await fsp.readFile(full));
+        return full;
     }
 
     async moveFile(from: IFilePath, to: IFilePath, createTargetFolder: boolean): Promise<void> {

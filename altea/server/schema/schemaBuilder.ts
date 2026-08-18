@@ -145,6 +145,30 @@ export class SchemaSettings {
         const schema = schemaForName(name);
         return schema ? new SchemaName(schema, this.schemaName.database) : this.schemaName;
     }
+
+    // Signum's `Schema.Settings.FieldAttributes(route).Add(new IgnoreAttribute())`: a field that IS mapped in
+    // general but must emit NO column at ONE property route. `@column(false)` cannot express this — it is
+    // per-CLASS, and a SHARED embedded (or a mixin declared on one) is exactly where the two differ:
+    // BigStringEmbedded keeps its text in the row at one route and in a file at another, so whichever column
+    // is unused has to disappear per route, not per class.
+    //
+    // The route is the MEMBER PATH from the root entity, dot-separated ("stackTrace.file"). A mixin field
+    // contributes its bare name, because altea inlines mixin fields onto their owner (`mixin()` returns
+    // `this`) — there is no mixin STEP in the path, unlike Signum's `route.Add(typeof(TheMixin))`.
+    private readonly ignoredFieldRoutes = new Set<string>();
+
+    /** Emit no column for ONE property route: `ignoreFieldRoute(ExceptionEntity, "stackTrace.file")`. Must be
+     *  called BEFORE the root type is included (Signum has the same ordering rule). */
+    ignoreFieldRoute(type: Type<Entity>, memberPath: string): void {
+        this.ignoredFieldRoutes.add(`${cleanTypeName(type)}.${memberPath}`);
+    }
+
+    // Takes the raw ctor (a Table's `type` is `Type<Entity> | ViewType<View>`; a view has no routes to ignore,
+    // it just never matches).
+    isIgnoredFieldRoute(type: Function, memberPath: string): boolean {
+        return this.ignoredFieldRoutes.size > 0
+            && this.ignoredFieldRoutes.has(`${cleanTypeName(type as Type<Entity>)}.${memberPath}`);
+    }
 }
 
 // Walks reflected entity metadata to build an in-memory Schema (Tables →
@@ -346,9 +370,9 @@ export class SchemaBuilder {
 
         const preName = NameSequence.void();
         for (const [name, fi] of Object.entries(typeInfo.fields)) {
-            if (fi.notMapped || RESERVED_FIELDS.has(name))
+            if (fi.notMapped || RESERVED_FIELDS.has(name) || this.settings.isIgnoredFieldRoute(table.type, name))
                 continue;
-            const field = this.generateField(table, fi, preName);
+            const field = this.generateField(table, fi, preName, name);
             field.avoidExpandOnRetrieving = fi.avoidExpandOnRetrieving === true;
             table.fields[name] = new EntityField(fi, field, makeGetter(name));
         }
@@ -359,9 +383,9 @@ export class SchemaBuilder {
                 continue;
             const mixinFields: { [name: string]: EntityField } = {};
             for (const [name, mfi] of Object.entries(mixinInfo.fields)) {
-                if (mfi.notMapped || RESERVED_FIELDS.has(name))
+                if (mfi.notMapped || RESERVED_FIELDS.has(name) || this.settings.isIgnoredFieldRoute(table.type, name))
                     continue;
-                const field = this.generateField(table, mfi, preName);
+                const field = this.generateField(table, mfi, preName, name);
                 field.avoidExpandOnRetrieving = mfi.avoidExpandOnRetrieving === true;
                 mixinFields[name] = new EntityField(mfi, field, makeGetter(name));
             }
@@ -479,7 +503,10 @@ export class SchemaBuilder {
         }
     }
 
-    private generateField(table: Table, fi: FieldInfo, preName: NameSequence): Field {
+    // `memberPath` is the dotted member path from the ROOT entity down to (and including) this field — the
+    // key SchemaSettings.ignoreFieldRoute is expressed in. It tracks the OBJECT model, not the column names
+    // `preName` accumulates (a @column({columnName}) renames the column, never the route).
+    private generateField(table: Table, fi: FieldInfo, preName: NameSequence, memberPath: string): Field {
         const isArray = fi.array === true;
         const isLite = fi.lite === true;
         // The field's referenced entity/embedded constructor, resolved by reference via
@@ -540,7 +567,7 @@ export class SchemaBuilder {
 
         // Single embedded value object.
         if (isEmbeddedCtor(elementType))
-            return this.generateEmbedded(table, fi, preName);
+            return this.generateEmbedded(table, fi, preName, memberPath);
 
         // Enum: FK to the enum's EnumEntity<T> table (Signum's FieldEnum). The
         // enum becomes a real included entity (so it supports mixins / polymorphic
@@ -571,7 +598,7 @@ export class SchemaBuilder {
         return new FieldValue(column);
     }
 
-    private generateEmbedded(table: Table, fi: FieldInfo, preName: NameSequence): FieldEmbedded {
+    private generateEmbedded(table: Table, fi: FieldInfo, preName: NameSequence, memberPath: string): FieldEmbedded {
         const embeddedType = this.resolveFieldType(fi);
         const typeInfo = embeddedType != null ? getTypeInfo(embeddedType) : undefined;
         if (typeInfo == null)
@@ -583,10 +610,13 @@ export class SchemaBuilder {
             : undefined;
 
         const embeddedFields: { [name: string]: EntityField } = {};
-        for (const [name, efi] of Object.entries(typeInfo.fields)) {
+
+        const addField = (name: string, efi: FieldInfo): void => {
             if (efi.notMapped || RESERVED_FIELDS.has(name))
-                continue;
-            const field = this.generateField(table, efi, embeddedPre);
+                return;
+            if (this.settings.isIgnoredFieldRoute(table.type, `${memberPath}.${name}`))
+                return;
+            const field = this.generateField(table, efi, embeddedPre, `${memberPath}.${name}`);
             field.avoidExpandOnRetrieving = efi.avoidExpandOnRetrieving === true;
             // A nullable embedded can be entirely absent, so every flattened
             // sub-column must be nullable regardless of the sub-field's own
@@ -595,7 +625,30 @@ export class SchemaBuilder {
                 for (const col of field.columns())
                     (col as { nullable: IsNullable }).nullable = IsNullable.Yes;
             embeddedFields[name] = new EntityField(efi, field, makeGetter(name));
+        };
+
+        for (const [name, efi] of Object.entries(typeInfo.fields))
+            addField(name, efi);
+
+        // An embedded's MIXIN fields (Signum's FieldEmbedded.Mixins — e.g. Signum.Files' BigStringMixin, which
+        // hangs a FilePathEmbedded off every BigStringEmbedded so the text can live in a file instead of the
+        // row). altea divergence: they are FLATTENED into `embeddedFields` rather than grouped in a per-mixin
+        // dictionary, because altea inlines mixin fields onto the instance (`embedded.mixin(X)` returns
+        // `this`) — so the flat map IS the truth, and every downstream consumer (retriever, saver, the
+        // serializer's own mixin-aware field plan, FilePathEmbeddedLogic's schema scan) works unchanged.
+        // Consequence: `embedded.mixin(X)` is not navigable in a LINQ query (only an ENTITY carries a
+        // FieldMixin the binder can match); read such a field in memory instead.
+        for (const mixinCtor of MixinDeclarations.getMixins(embeddedType as unknown as Type<EmbeddedEntity>)) {
+            const mixinInfo = getTypeInfo(mixinCtor);
+            if (mixinInfo == null)
+                continue;
+            for (const [name, mfi] of Object.entries(mixinInfo.fields)) {
+                if (embeddedFields[name] != null)
+                    throw new Error(`Mixin '${(mixinCtor as { name: string }).name}' field '${name}' collides with a field of embedded '${fi.getTypeName() ?? fi.name}'.`);
+                addField(name, mfi);
+            }
         }
+
         return new FieldEmbedded(hasValue, embeddedFields);
     }
 

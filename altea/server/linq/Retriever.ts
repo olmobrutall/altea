@@ -109,6 +109,12 @@ export class Retriever {
         const schema = Connector.current().schema;
         for (const e of this.populated)
             schema.entityEvents(e.constructor as Type<Entity>).onRetrieved(e);
+        // A Retrieved handler may DERIVE an in-memory value from what was just read — Signum.Files stamps a
+        // FilePathEmbedded's routing fields there, and BigStringLogic substitutes a file's content for the
+        // embedded's `text`. Those writes land AFTER each instance's clean baseline was taken (materialisation
+        // time), so re-take it; otherwise every retrieved entity of such a type reads back as dirty. Same
+        // reason executeInto recleans after filling collections.
+        this.reclean();
         // Global retrieve gates (Signum's EntityEventsGlobal.Retrieved) — e.g. the type-read auth gate.
         // Run once over the fully-materialised set; a gate may throw to deny the read.
         if (postRetrieveGates.length > 0) {

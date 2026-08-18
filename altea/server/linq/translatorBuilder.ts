@@ -526,6 +526,16 @@ class ProjectionBuilder extends DbExpressionVisitor {
             assigns.push(`e[${JSON.stringify(b.fieldInfo.name)}] = ${this.pop()};`);
         }
 
+        // Additional bindings (Signum's RegisterBinding at a route inside the entity): a value computed in
+        // the SELECT and stamped by its own setter — not a mapped field. After the mapped fields, so a
+        // setter may read them. This is what makes the value survive a projection that never materialises
+        // the OWNER — e.g. a SearchControl column over an embedded.
+        for (const a of e.additionalBindings ?? []) {
+            const setIndex = this.pushConst(a.set);
+            this.visit(a.binding);
+            assigns.push(`consts[${setIndex}](e, ${this.pop()});`);
+        }
+
         this.stack.push(`(${hasValue} ? retriever.embedded(consts[${ctorIndex}], function(e){ ${assigns.join(" ")} }) : null)`);
         return e;
     }

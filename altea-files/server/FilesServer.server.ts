@@ -4,7 +4,7 @@ import { Entity } from "@altea/altea/data/entity";
 import type { Type } from "@altea/altea/data/entity";
 import { FileEmbedded, FilePathEmbedded } from "../data/Files";
 import { FilePathEmbeddedLogic } from "./FilePathEmbeddedLogic.server";
-import { mimeType } from "./FileTypeAlgorithm.server";
+import { calculateMD5Hash, mimeType } from "./FileTypeAlgorithm.server";
 
 // Port of Signum.Files' FilesController (the download half) + FilesServer.cs. A file is downloaded by naming
 // its OWNER — the root entity type + id + the property route to the embedded — never by naming the stored path:
@@ -17,11 +17,17 @@ import { mimeType } from "./FileTypeAlgorithm.server";
 //  - Signum parses a full PropertyRoute (with MList rowId support). altea walks the dotted path on the
 //    retrieved entity, and a `@part` COLLECTION step is addressed by the row's id via `?rowId=` — one
 //    collection level, which is what a file field needs in practice.
-//  - Cache-Control: Signum computes a per-file max-age (FilePathLogic.MaxAge). altea marks the response
-//    `private, max-age=3600` — a stored file's bytes never change (the suffix carries a GUID).
+//  - Signum's per-file max-age knob lives in FilePathLogic (not ported, it is the FilePathEntity module);
+//    altea keeps it here, as `FilesServer.maxAge`, next to the only code that reads it.
 
 export namespace FilesServer {
     let started = false;
+
+    /** Signum's `FilePathLogic.MaxAge` — how long (seconds) a downloaded file may sit in the browser cache;
+     *  one month, like Signum. A month is safe because the file's HASH is both in the URL
+     *  (`FilesClient.fileUrl`) and in the response ETag: replacing a file's bytes changes its URL, and a
+     *  client revalidating a stale copy of the OLD url gets 200 + the new bytes rather than a 304. */
+    export let maxAge: (file: FilePathEmbedded | FileEmbedded) => number = () => 30 * 24 * 60 * 60;
 
     export function start(ws: WebBuilder): void {
         if (started)
@@ -38,6 +44,11 @@ export namespace FilesServer {
                 if (!(value instanceof FilePathEmbedded))
                     throw new Error(`Route '${route}' does not point to a FilePathEmbedded`);
 
+                // The hash STORED on the row is the ETag, so revalidating a cached copy never touches the
+                // store — the 304 is answered before the bytes are read.
+                if (cache(req, res, value, value.hash))
+                    return;
+
                 const bytes = await FilePathEmbeddedLogic.readAllBytes(value);
                 sendFile(res, value.fileName, bytes);
             });
@@ -51,6 +62,11 @@ export namespace FilesServer {
 
                 if (!(value instanceof FileEmbedded))
                     throw new Error(`Route '${route}' does not point to a FileEmbedded`);
+
+                // A FileEmbedded keeps no hash column (neither does Signum's) — its bytes are already in
+                // hand, so hash them now for the ETag.
+                if (cache(req, res, value, calculateMD5Hash(value.binaryFile)))
+                    return;
 
                 sendFile(res, value.fileName, value.binaryFile);
             });
@@ -99,8 +115,45 @@ async function readEmbedded(rootType: string, id: string, route: string, rowId: 
     return current;
 }
 
-function sendFile(res: { setHeader(name: string, value: string): void; type(t: string): { send(body: unknown): void } }, fileName: string, bytes: Uint8Array): void {
+// Only the bits of express's Request / Response the file routes use (the same duck-typing `fileQuery` uses).
+interface FileRequest { headers: Record<string, string | string[] | undefined>; }
+interface FileResponse {
+    setHeader(name: string, value: string): void;
+    status(code: number): { end(): void };
+    type(t: string): { send(body: unknown): void };
+}
+
+/** Signum's `FilesCacheControl` + the hash half of its download URLs: stamp `Cache-Control` and the file's
+ *  `ETag`, and answer `304 Not Modified` when the client already holds those exact bytes. Returns true when
+ *  it answered (the caller must not send a body). */
+function cache(req: FileRequest, res: FileResponse, file: FilePathEmbedded | FileEmbedded, hash: string | null): boolean {
+    res.setHeader("Cache-Control", `private, max-age=${FilesServer.maxAge(file)}`);
+
+    if (hash == null)
+        return false;
+
+    // An ETag is a quoted string (RFC 9110 §8.8.3); base64 needs no further escaping inside the quotes.
+    const etag = `"${hash}"`;
+    res.setHeader("ETag", etag);
+
+    const ifNoneMatch = req.headers["if-none-match"];
+    if (ifNoneMatch == null || !matchesETag(ifNoneMatch, etag))
+        return false;
+
+    res.status(304).end();
+    return true;
+}
+
+// If-None-Match is a comma-separated LIST, and each entry may be a weak validator ("W/…") or the wildcard.
+function matchesETag(ifNoneMatch: string | string[], etag: string): boolean {
+    const header = Array.isArray(ifNoneMatch) ? ifNoneMatch.join(",") : ifNoneMatch;
+    return header.split(",")
+        .map(t => t.trim())
+        .map(t => t.startsWith("W/") ? t.slice(2) : t)
+        .some(t => t === "*" || t === etag);
+}
+
+function sendFile(res: FileResponse, fileName: string, bytes: Uint8Array): void {
     res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(fileName)}"`);
-    res.setHeader("Cache-Control", "private, max-age=3600");
     res.type(mimeType(fileName) ?? "application/octet-stream").send(Buffer.from(bytes));
 }
