@@ -3,7 +3,7 @@ import { type int } from "@altea/altea/data/basics";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { DashboardLogic } from "@altea/altea-dashboard/server/DashboardLogic.server";
 import {
-    AutoUpdateEnum, BigValuePartEntity, UserQueryPartEntity, ValueUserQueryListPartEntity_UserQueries,
+    AutoUpdateEnum, BigValuePartEntity, UserQueryPartEntity, ValueUserQueryListPartEntity_UserQuery,
     ValueUserQueryListPartEntity,
 } from "../data/DashboardParts";
 import { UserQueryEntity } from "../data/UserQuery";
@@ -59,7 +59,7 @@ export function registerUserQueryDashboardParts(): void {
         clone: p => {
             const c = new ValueUserQueryListPartEntity();
             c.userQueries = (p.userQueries ?? []).map(e => {
-                const row = new ValueUserQueryListPartEntity_UserQueries();
+                const row = new ValueUserQueryListPartEntity_UserQuery();
                 row.label = e.label;
                 row.userQuery = e.userQuery;
                 row.href = e.href;
@@ -78,7 +78,7 @@ export function registerUserQueryDashboardParts(): void {
         }),
         fromXml: (p, x, ctx) => {
             p.userQueries = list(x["ValueUserQueryElement"]).map((e, i) => {
-                const row = new ValueUserQueryListPartEntity_UserQueries();
+                const row = new ValueUserQueryListPartEntity_UserQuery();
                 row.order = i as unknown as int;
                 row.label = str(e[A + "Label"]) ?? null;
                 row.href = str(e[A + "Href"]) ?? null;

@@ -16,7 +16,7 @@ import { ChartClient } from "../ChartClient";
 import { ChartRequestModel } from "../../data/ChartRequest";
 import type { IChartBase } from "../../data/ChartRequest";
 import {
-    UserChartEntity, UserChartEntity_Columns, UserChartEntity_Parameters,
+    UserChartEntity, UserChartEntity_Column, UserChartEntity_Parameter,
 } from "../../data/UserChart";
 import ChartBuilder from "../Templates/ChartBuilder";
 
@@ -30,7 +30,8 @@ import ChartBuilder from "../Templates/ChartBuilder";
 // entity's @part rows on every ChartBuilder callback.
 //
 // Deferred (matching the rest of the altea-chart port): the chart FILTERS editor (Signum's
-// FilterBuilderEmbedded is bound to the user-queries UserQueryEntity_Filters row class, not UserChartEntity_Filters)
+// FilterBuilderEmbedded's PROPS are still typed to the user-queries row; both rows now share
+// QueryFilterBaseEntity, so making the component generic over the row type is all that is left)
 // and the customDrilldowns / "Used by" sections (no EntityStrip / Toolbar / Dashboard yet) — the Advanced
 // card keeps the extension seam.
 export default function UserChart(p: { ctx: TypeContext<UserChartEntity> }): React.JSX.Element | null {
@@ -136,13 +137,13 @@ function writeBack(cr: ChartRequestModel, uc: UserChartEntity): void {
     uc.chartTimeSeries = cr.chartTimeSeries;
 
     uc.columns = cr.columns.map((el, i) => {
-        const row = uc.columns.find(c => c.element === el) ?? new UserChartEntity_Columns();
+        const row = uc.columns.find(c => c.element === el) ?? new UserChartEntity_Column();
         row.element = el;
         row.order = toInt(i);
         return row;
     });
     uc.parameters = cr.parameters.map((el, i) => {
-        const row = uc.parameters.find(pr => pr.element === el) ?? new UserChartEntity_Parameters();
+        const row = uc.parameters.find(pr => pr.element === el) ?? new UserChartEntity_Parameter();
         row.element = el;
         row.order = toInt(i);
         return row;

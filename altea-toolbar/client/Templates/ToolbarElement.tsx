@@ -11,7 +11,7 @@ import { parseIcon } from "@altea/altea/client/Components/IconHelpers";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import {
-    ToolbarElementTypeEnum, ShowCountEnum, type ToolbarElementBase, type ShowCount,
+    ToolbarElementTypeEnum, ShowCountEnum, type ToolbarElementBaseEntity, type ShowCount,
 } from "../../data/Toolbar";
 import { ToolbarCount } from "../QueryToolbarConfig";
 
@@ -25,7 +25,7 @@ import { ToolbarCount } from "../QueryToolbarConfig";
 //  - `content.EntityType == "UserQuery"` (a clean-name string) → `cleanTypeName(content.entityType)`.
 //  - `a.modified = true` (Signum's manual dirty flag) is dropped: altea tracks dirtiness by snapshot.
 
-export default function ToolbarElement(p: { ctx: TypeContext<ToolbarElementBase> }): React.JSX.Element {
+export default function ToolbarElement(p: { ctx: TypeContext<ToolbarElementBaseEntity> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
     function handleTypeChanges(): void {
         const a = p.ctx.value;
@@ -100,7 +100,7 @@ export default function ToolbarElement(p: { ctx: TypeContext<ToolbarElementBase>
 
 /** Signum's `fixToolbarElementType`: a Divider carries nothing, so clear the four members when the type
  *  changes to it (the data-layer validation enforces the same rule). */
-function fixToolbarElementType(a: ToolbarElementBase): void {
+function fixToolbarElementType(a: ToolbarElementBaseEntity): void {
     if (Enum.toName(ToolbarElementTypeEnum, a.type) == "Divider") {
         a.iconName = null;
         a.content = null;
@@ -109,6 +109,6 @@ function fixToolbarElementType(a: ToolbarElementBase): void {
     }
 }
 
-function showCountName(e: ToolbarElementBase): ShowCount {
+function showCountName(e: ToolbarElementBaseEntity): ShowCount {
     return Enum.toName(ShowCountEnum, e.showCount!);
 }

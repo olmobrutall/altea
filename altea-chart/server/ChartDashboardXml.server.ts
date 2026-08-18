@@ -1,6 +1,6 @@
 import { DashboardLogic } from "@altea/altea-dashboard/server/DashboardLogic.server";
 import { type int } from "@altea/altea/data/basics";
-import { CombinedUserChartPartEntity_UserCharts, CombinedUserChartPartEntity, UserChartPartEntity } from "../data/DashboardParts";
+import { CombinedUserChartPartEntity_UserChart, CombinedUserChartPartEntity, UserChartPartEntity } from "../data/DashboardParts";
 import { UserChartEntity } from "../data/UserChart";
 
 // Port of the ToXml / FromXml / Clone members Signum declares ON UserChartPartEntity (Signum.Chart/UserChart/
@@ -56,7 +56,7 @@ export function registerUserChartDashboardParts(): void {
         clone: p => {
             const c = new CombinedUserChartPartEntity();
             c.userCharts = (p.userCharts ?? []).map(e => {
-                const row = new CombinedUserChartPartEntity_UserCharts();
+                const row = new CombinedUserChartPartEntity_UserChart();
                 row.userChart = e.userChart;
                 row.order = e.order;
                 return row;
@@ -85,7 +85,7 @@ export function registerUserChartDashboardParts(): void {
             p.useSameScale = bool(x[A + "UseSameScale"]);
             p.minHeight = x[A + "MinHeight"] == null ? null : (Number(x[A + "MinHeight"]) as int);
             p.userCharts = list(x["UserChart"]).map((e, i) => {
-                const row = new CombinedUserChartPartEntity_UserCharts();
+                const row = new CombinedUserChartPartEntity_UserChart();
                 row.order = i as unknown as int;
                 row.userChart = ctx.getEntity(String(e[A + "Guid"])) as UserChartEntity;
                 return row;

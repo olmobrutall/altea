@@ -17,7 +17,7 @@ import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
-import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
+import { QueryTokenEmbedded, PinnedQueryFilterEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
 import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
 
 // Port of Signum's Signum.UserQueries/UserQueryEntity.cs. A UserQuery is a user-authored, saved query
@@ -28,8 +28,9 @@ import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-as
 //  - Signum's shared `MList<QueryFilterEmbedded>` / `MList<QueryColumnEmbedded>` / `MList<QueryOrderEmbedded>`
 //    (EmbeddedEntity types reused across UserQuery/UserChart/Dashboard) become altea per-owner `@part`
 //    collection rows (a Part has exactly ONE concrete owner in altea — see schemaBuilder/PartOwnership),
-//    so the row entities live HERE with their owner. The truly owner-agnostic value embeddeds
-//    (QueryTokenEmbedded, PinnedQueryFilterEmbedded) stay shared in @altea/altea-user-assets.
+//    so the row entities live HERE with their owner. What IS owner-agnostic stays shared in
+//    @altea/altea-user-assets: the value embeddeds (QueryTokenEmbedded, PinnedQueryFilterEmbedded) and the
+//    filter row's members (QueryFilterBaseEntity — the owner subclasses it and adds only its backReference).
 //  - Signum's `ToXml`/`FromXml`/`ParseData`/`GetPagination` (System.Xml + server QueryDescription) are
 //    server-only in altea — they live in UserQueriesXml.server.ts / UserQueriesLogic.server.ts, not on the
 //    isomorphic entity.
@@ -41,30 +42,19 @@ import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-as
 
 // ---- Collection element rows (Signum's shared MList<QueryXEmbedded>, here UserQuery-owned @part rows) ----
 
-// Signum's QueryFilterEmbedded (Signum.UserAssets/Queries/QueryFilterEmbedded.cs). One filter row: either
-// a condition (token + operation + valueString) or a group header (isGroup + groupOperation), positioned
-// in the filter tree by `indentation`. Owned by UserQueryEntity (Signum's [PreserveOrder, BindParent]).
+// Signum's QueryFilterEmbedded (Signum.UserAssets/Queries/QueryFilterEmbedded.cs), owned by UserQueryEntity
+// (Signum's [PreserveOrder, BindParent]). Every member lives on the shared QueryFilterBaseEntity in
+// @altea/altea-user-assets — a @part row has exactly ONE owner, so an owner adds nothing but its
+// `@backReference` (UserChartEntity_Filter is the same class with a different owner).
 @entity("Part")
-export class UserQueryEntity_Filters extends Entity {
+export class UserQueryEntity_Filter extends QueryFilterBaseEntity {
     @backReference userQuery: Lite<UserQueryEntity>;
-    @rowOrder order: int;
-
-    token: QueryTokenEmbedded | null;
-    isGroup: boolean = false;
-    // Real altea enums (int FK to the enum table, translatable) — Signum's enum columns. The in-memory
-    // value is the numeric ordinal; the wire/XML/query form is the member name (Enum.toName). See dynamicQueries.
-    groupOperation: FilterGroupOperationEnum | null;
-    operation: FilterOperationEnum | null;
-    valueString: string | null;
-    pinned: PinnedQueryFilterEmbedded | null;
-    dashboardBehaviour: DashboardBehaviourEnum | null;
-    indentation: int = toInt(0);
 }
 
 // Signum's QueryColumnEmbedded (Queries/QueryColumnEmbedded.cs). One result column: a token, an optional
 // display name / summary (aggregate) token, hidden flag, and combine-rows behaviour.
 @entity("Part")
-export class UserQueryEntity_Columns extends Entity {
+export class UserQueryEntity_Column extends Entity {
     @backReference userQuery: Lite<UserQueryEntity>;
     @rowOrder order: int;
 
@@ -77,7 +67,7 @@ export class UserQueryEntity_Columns extends Entity {
 
 // Signum's QueryOrderEmbedded (Queries/QueryOrderEmbedded.cs). One sort: a token + Ascending/Descending.
 @entity("Part")
-export class UserQueryEntity_Orders extends Entity {
+export class UserQueryEntity_Order extends Entity {
     @backReference userQuery: Lite<UserQueryEntity>;
     @rowOrder order: int;
 
@@ -163,15 +153,15 @@ export class UserQueryEntity extends Entity implements IUserAssetEntity, IHasEnt
     refreshMode: RefreshModeEnum = RefreshModeEnum.Auto;
 
     // Signum's [PreserveOrder, BindParent] MList<QueryFilterEmbedded>.
-    filters: UserQueryEntity_Filters[];
+    filters: UserQueryEntity_Filter[];
 
     // Signum's [PreserveOrder] MList<QueryOrderEmbedded>.
-    orders: UserQueryEntity_Orders[];
+    orders: UserQueryEntity_Order[];
 
     columnsMode: ColumnOptionsModeEnum = ColumnOptionsModeEnum.Add;
 
     // Signum's [PreserveOrder] MList<QueryColumnEmbedded>.
-    columns: UserQueryEntity_Columns[];
+    columns: UserQueryEntity_Column[];
 
     paginationMode: PaginationModeEnum | null;
 

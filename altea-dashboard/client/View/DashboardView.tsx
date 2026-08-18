@@ -10,7 +10,7 @@ import { ErrorBoundary } from "@altea/altea/client/Components/ErrorBoundary";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { useAPI, useForceUpdate } from "@altea/altea/client/Hooks";
 import PinnedFilterBuilder from "@altea/altea/client/SearchControl/PinnedFilterBuilder";
-import { DashboardEntity, DashboardEntity_Parts, DashboardMessage, type IPartEntity } from "../../data/Dashboard";
+import { DashboardEntity, DashboardEntity_Part, DashboardMessage, type IPartEntity } from "../../data/Dashboard";
 import { DashboardClient, type PanelPartContentProps } from "../DashboardClient";
 import { DashboardController } from "./DashboardFilterController";
 import { DashboardTooltipIcon } from "./DashboardTooltipIcon";
@@ -196,11 +196,11 @@ interface CombinedRow {
 interface CombinedColumn {
     startColumn: number;
     columnWidth: number;
-    parts: TypeContext<DashboardEntity_Parts>[];
+    parts: TypeContext<DashboardEntity_Part>[];
 }
 
 export interface PanelPartProps {
-    ctx: TypeContext<DashboardEntity_Parts>;
+    ctx: TypeContext<DashboardEntity_Part>;
     entity?: Entity;
     deps?: React.DependencyList;
     dashboardController: DashboardController;

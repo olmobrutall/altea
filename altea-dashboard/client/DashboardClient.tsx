@@ -21,7 +21,7 @@ import { Enum } from "@altea/altea/data/enum";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
 import {
     DashboardEntity, DashboardLite, DashboardMessage, DashboardOperation, DashboardPermission,
-    DashboardVariableMessage, DashboardEmbedededInEntityEnum, DashboardEntity_Parts, type IPartEntity,
+    DashboardVariableMessage, DashboardEmbedededInEntityEnum, DashboardEntity_Part, type IPartEntity,
 } from "../data/Dashboard";
 import {
     TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity, CustomPartEntity,
@@ -303,7 +303,7 @@ interface CustomPartRenderer {
 }
 
 export interface CustomPartProps<T extends Entity> {
-    partEmbedded: DashboardEntity_Parts;
+    partEmbedded: DashboardEntity_Part;
     content: CustomPartEntity;
     entity?: Lite<T>;
     dashboardController: DashboardController;
@@ -312,7 +312,7 @@ export interface CustomPartProps<T extends Entity> {
 /** Signum's PanelPartContentProps — what every part VIEW component receives (minus `cachedQueries`,
  *  deferred with CachedQuery). */
 export interface PanelPartContentProps<T extends IPartEntity> {
-    partEmbedded: DashboardEntity_Parts;
+    partEmbedded: DashboardEntity_Part;
     content: T;
     entity?: Lite<Entity>;
     deps?: React.DependencyList;

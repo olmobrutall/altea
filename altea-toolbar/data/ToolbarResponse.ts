@@ -22,7 +22,7 @@ import type { ToolbarElementType, ShowCount } from "./Toolbar";
 
 /** Signum's ToolbarResponseBase — the members every element (and every extra icon) carries. */
 export interface ToolbarResponseBase<T extends Entity = Entity> {
-    /** The source element row's stable `guid` (see ToolbarElementBase.guid). Absent for the
+    /** The source element row's stable `guid` (see ToolbarElementBaseEntity.guid). Absent for the
      *  synthetic responses the builder creates (a Toolbar/ToolbarMenu header, a switcher option). */
     guid?: string;
     type: ToolbarElementType;

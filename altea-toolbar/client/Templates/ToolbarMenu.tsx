@@ -9,7 +9,7 @@ import CollapsableCard from "@altea/altea/client/Components/CollapsableCard";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { UserAssetMessage } from "@altea/altea-user-assets/data/UserAssets";
 import {
-    ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarMessage, type ToolbarMenuEntity_Elements,
+    ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarMessage, type ToolbarMenuEntity_Element,
 } from "../../data/Toolbar";
 import { ToolbarElementTable } from "./Toolbar";
 
@@ -65,7 +65,7 @@ export default function ToolbarMenu(p: { ctx: TypeContext<ToolbarMenuEntity> }):
                             withEntity={false}
                             extraColumns={[
                                 {
-                                    property: (a: ToolbarMenuEntity_Elements) => a.autoSelect,
+                                    property: (a: ToolbarMenuEntity_Element) => a.autoSelect,
                                 },
                             ]}
                         />
@@ -75,7 +75,7 @@ export default function ToolbarMenu(p: { ctx: TypeContext<ToolbarMenuEntity> }):
                             withEntity={true}
                             extraColumns={[
                                 {
-                                    property: (a: ToolbarMenuEntity_Elements) => a.autoSelect,
+                                    property: (a: ToolbarMenuEntity_Element) => a.autoSelect,
                                 },
                             ]}
                         />
@@ -85,10 +85,10 @@ export default function ToolbarMenu(p: { ctx: TypeContext<ToolbarMenuEntity> }):
                         <ToolbarElementTable ctx={ctx.subCtx(m => m.elements)}
                             extraColumns={[
                                 {
-                                    property: (a: ToolbarMenuEntity_Elements) => a.autoSelect,
+                                    property: (a: ToolbarMenuEntity_Element) => a.autoSelect,
                                 },
                                 {
-                                    property: (a: ToolbarMenuEntity_Elements) => a.withEntity,
+                                    property: (a: ToolbarMenuEntity_Element) => a.withEntity,
                                 },
                             ]}
                         />
@@ -98,7 +98,7 @@ export default function ToolbarMenu(p: { ctx: TypeContext<ToolbarMenuEntity> }):
                 <ToolbarElementTable ctx={ctx.subCtx(m => m.elements)}
                     extraColumns={[
                         {
-                            property: (a: ToolbarMenuEntity_Elements) => a.autoSelect,
+                            property: (a: ToolbarMenuEntity_Element) => a.autoSelect,
                         },
                     ]}
                 />

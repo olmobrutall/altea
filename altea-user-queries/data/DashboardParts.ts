@@ -13,7 +13,7 @@ import { UserQueryEntity } from "./UserQuery";
 // Port of the DASHBOARD PART entities Signum declares in Signum.UserQueries/UserQueryEntity.cs —
 // UserQueryPartEntity, ValueUserQueryListPartEntity (+ its element) and BigValuePartEntity. They live in this
 // module (not in altea-dashboard) exactly as in Signum: the Dashboard package knows nothing about user
-// queries; the app widens `DashboardEntity_Parts.content`'s implementedBy list to include them (see eastwind's
+// queries; the app widens `DashboardEntity_Part.content`'s implementedBy list to include them (see eastwind's
 // entityOverrides.data.ts).
 //
 // altea divergences, documented inline:
@@ -60,7 +60,7 @@ export class UserQueryPartEntity extends Entity implements IPartEntity {
 // Signum's ValueUserQueryElementEmbedded: ONE row of the value list — a label + the saved query whose count
 // (or aggregate) is shown, optionally linking somewhere else than the query itself.
 @entity("Part")
-export class ValueUserQueryListPartEntity_UserQueries extends Entity {
+export class ValueUserQueryListPartEntity_UserQuery extends Entity {
     @backReference valueUserQueryListPart: Lite<ValueUserQueryListPartEntity>;
     @rowOrder order: int;
 
@@ -80,7 +80,7 @@ export class ValueUserQueryListPartEntity_UserQueries extends Entity {
 // Signum's ValueUserQueryListPartEntity: a compact list of "label → value" rows, one per saved query.
 @entity("Part", "Master")
 export class ValueUserQueryListPartEntity extends Entity implements IPartEntity {
-    userQueries: ValueUserQueryListPartEntity_UserQueries[];
+    userQueries: ValueUserQueryListPartEntity_UserQuery[];
 
     requiresTitle(): boolean {
         return true;

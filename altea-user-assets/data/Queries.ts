@@ -1,8 +1,10 @@
 import { reflect } from "@altea/altea/data/reflection";
-import { EmbeddedEntity } from "@altea/altea/data/entity";
-import { column, serialize, stringLengthValidator } from "@altea/altea/data/decorators";
-import { type int } from "@altea/altea/data/basics";
-import { PinnedFilterActiveEnum } from "@altea/altea/data/dynamicQueries";
+import { EmbeddedEntity, Entity } from "@altea/altea/data/entity";
+import { column, serialize, stringLengthValidator, rowOrder } from "@altea/altea/data/decorators";
+import { type int, toInt } from "@altea/altea/data/basics";
+import {
+    PinnedFilterActiveEnum, FilterGroupOperationEnum, FilterOperationEnum, DashboardBehaviourEnum,
+} from "@altea/altea/data/dynamicQueries";
 import { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 
 // Port of Signum's Signum.UserAssets/Queries/QueryTokenEmbedded.cs + PinnedQueryFilterEmbedded.cs (and
@@ -59,4 +61,33 @@ export class PinnedQueryFilterEmbedded extends EmbeddedEntity {
     toString(): string {
         return this.label ?? "";
     }
+}
+
+// The shared filter ROW (Signum's QueryFilterEmbedded, Queries/QueryFilterEmbedded.cs): one row of a stored
+// filter tree — either a condition (token + operation + valueString) or a group header (isGroup +
+// groupOperation), positioned in the tree by `indentation`.
+//
+// ABSTRACT (`@reflect`, not `@entity`) so it has no table of its own: every stored query definition owns its
+// own filter rows, and an altea `@part` row belongs to exactly ONE owner, so each owner subclasses this and
+// adds nothing but its `@backReference` — @altea/altea-user-queries' UserQueryEntity_Filter and
+// @altea/altea-chart's UserChartEntity_Filter. That is what lets one filter editor
+// (altea-user-queries' FilterBuilderEmbedded) drive both. Signum needed no such base: there the ONE
+// QueryFilterEmbedded is an EmbeddedEntity reused by every owner's MList.
+//
+// It lives in altea-user-assets alongside the other owner-agnostic pieces of a stored query
+// (QueryTokenEmbedded, PinnedQueryFilterEmbedded), which is what both packages already depend on.
+@reflect
+export abstract class QueryFilterBaseEntity extends Entity {
+    @rowOrder order: int;
+
+    token: QueryTokenEmbedded | null;
+    isGroup: boolean = false;
+    // Real altea enums (int FK to the enum table, translatable) — Signum's enum columns. The in-memory
+    // value is the numeric ordinal; the wire/XML/query form is the member name (Enum.toName). See dynamicQueries.
+    groupOperation: FilterGroupOperationEnum | null;
+    operation: FilterOperationEnum | null;
+    valueString: string | null;
+    pinned: PinnedQueryFilterEmbedded | null;
+    dashboardBehaviour: DashboardBehaviourEnum | null;
+    indentation: int = toInt(0);
 }

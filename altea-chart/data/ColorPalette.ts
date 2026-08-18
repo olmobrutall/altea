@@ -18,7 +18,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 // altea divergences, documented inline:
 //  - Signum's `[PreserveOrder, NoRepeatValidator, BindParent] MList<SpecificColorEmbedded> SpecificColors`
 //    becomes a per-owner `@part` row collection (altea has no MList — a collection is a plain array of
-//    @part row entities). ColorPaletteEntity_SpecificColors is therefore a `@entity("Part")` OWNED by ColorPaletteEntity
+//    @part row entities). ColorPaletteEntity_SpecificColor is therefore a `@entity("Part")` OWNED by ColorPaletteEntity
 //    (Signum's BindParent), carrying the back-pointing FK (`@backReference colorPalette`) + a row-order int
 //    (Signum's PreserveOrder). It is NOT an EmbeddedEntity (altea can't persist an embedded array on a table).
 //  - Signum's SpecificColorEmbedded `[ImplementedByAll, UniqueIndex] Lite<Entity> Entity` keeps the
@@ -34,7 +34,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 
 // Signum's SpecificColorEmbedded (one color override: an entity/enum value → a color).
 @entity("Part")
-export class ColorPaletteEntity_SpecificColors extends Entity {
+export class ColorPaletteEntity_SpecificColor extends Entity {
     @backReference colorPalette: Lite<ColorPaletteEntity>;
     @rowOrder order: int;
 
@@ -60,7 +60,7 @@ export class ColorPaletteEntity extends Entity {
     seed: int = toInt(0);
 
     // Signum's `[PreserveOrder, NoRepeatValidator, BindParent] MList<SpecificColorEmbedded>`.
-    specificColors: ColorPaletteEntity_SpecificColors[];
+    specificColors: ColorPaletteEntity_SpecificColor[];
 
     @quoted
     toString(): string {

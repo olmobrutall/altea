@@ -7,8 +7,8 @@ import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
 import {
-    ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarEntity_Elements, ToolbarMenuEntity_Elements,
-    ToolbarSwitcherEntity_Options, type ToolbarLocation,
+    ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarEntity_Element, ToolbarMenuEntity_Element,
+    ToolbarSwitcherEntity_Option, type ToolbarLocation,
 } from "../data/Toolbar";
 import type { ToolbarResponse } from "../data/ToolbarResponse";
 import QueryToolbarConfig from "./QueryToolbarConfig";
@@ -42,10 +42,10 @@ export namespace ToolbarClient {
 
         cb.configure(ToolbarEntity).withView(() => import("./Templates/Toolbar"));
         cb.configure(ToolbarMenuEntity).withView(() => import("./Templates/ToolbarMenu"));
-        cb.configure(ToolbarEntity_Elements).withView(() => import("./Templates/ToolbarElement"));
-        cb.configure(ToolbarMenuEntity_Elements).withView(() => import("./Templates/ToolbarElement"));
+        cb.configure(ToolbarEntity_Element).withView(() => import("./Templates/ToolbarElement"));
+        cb.configure(ToolbarMenuEntity_Element).withView(() => import("./Templates/ToolbarElement"));
         cb.configure(ToolbarSwitcherEntity).withView(() => import("./Templates/ToolbarSwitcher"));
-        cb.configure(ToolbarSwitcherEntity_Options).withView(() => import("./Templates/ToolbarSwitcherOption"));
+        cb.configure(ToolbarSwitcherEntity_Option).withView(() => import("./Templates/ToolbarSwitcherOption"));
 
         registerConfig(new QueryToolbarConfig());
 

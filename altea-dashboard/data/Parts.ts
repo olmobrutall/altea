@@ -83,7 +83,7 @@ export class SeparatorPartEntity extends Entity implements IPartEntity {
 // Signum's HealthCheckElementEmbedded (PanelPart.cs) — ONE tile: a label, the health endpoint to poll and
 // where to navigate on click. altea: a `@part` row of the HealthCheck part (Signum's MList element).
 @entity("Part")
-export class HealthCheckPartEntity_Items extends Entity {
+export class HealthCheckPartEntity_Item extends Entity {
     @backReference healthCheckPart: Lite<HealthCheckPartEntity>;
     @rowOrder order: int;
 
@@ -106,7 +106,7 @@ export class HealthCheckPartEntity_Items extends Entity {
 @entity("Part", "Master")
 export class HealthCheckPartEntity extends Entity implements IPartEntity {
     // Signum's [PreserveOrder] MList<HealthCheckElementEmbedded>.
-    items: HealthCheckPartEntity_Items[];
+    items: HealthCheckPartEntity_Item[];
 
     requiresTitle(): boolean {
         return true;

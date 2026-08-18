@@ -12,7 +12,7 @@ import { TypeEntity } from "@altea/altea/data/typeEntity";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
-import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
+import { QueryTokenEmbedded, PinnedQueryFilterEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
 import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import { ChartScriptSymbol } from "./ChartScript";
@@ -35,7 +35,8 @@ import { ChartTimeSeriesEmbedded } from "./ChartRequest";
 //    ChartRequestModel — which IS the altea IChartBase — at view time.
 //  - Signum's `MList<QueryFilterEmbedded>` (a UserAssets shared embedded) likewise becomes a per-owner
 //    `@part` filter row (single-owner in altea — see data/UserQuery.ts's identical note). The owner-agnostic
-//    value embeddeds (QueryTokenEmbedded, PinnedQueryFilterEmbedded) stay shared in @altea/altea-user-assets.
+//    value embeddeds (QueryTokenEmbedded, PinnedQueryFilterEmbedded) stay shared in @altea/altea-user-assets,
+//    as does the filter row's member set (QueryFilterBaseEntity, subclassed here with just a backReference).
 //  - Signum's `Guid Guid` [UniqueIndex] portable-identity field → a uuid PRIMARY KEY (`@primaryKey("uuid")`),
 //    exactly as UserQueryEntity does; the `id` IS the stable, portable identity used by XML import/export.
 //  - Signum's `ToXml`/`FromXml`/`ParseData`/`SynchronizeColumns`/`PostRetrieving`/`PropertyValidation` are
@@ -45,32 +46,20 @@ import { ChartTimeSeriesEmbedded } from "./ChartRequest";
 
 // ---- Collection element rows (Signum's shared MLists, here UserChart-owned @part rows) -----------------
 
-// Signum's QueryFilterEmbedded (Signum.UserAssets/Queries/QueryFilterEmbedded.cs). One filter row: either a
-// condition (token + operation + valueString) or a group header (isGroup + groupOperation), positioned in
-// the filter tree by `indentation`. Owned by UserChartEntity (Signum's [PreserveOrder, BindParent]). A twin
-// of altea-user-queries's UserQueryEntity_Filters, but a DISTINCT class (a @part has exactly ONE owner in altea,
-// and each part class name must be unique in the type registry).
+// Signum's QueryFilterEmbedded (Signum.UserAssets/Queries/QueryFilterEmbedded.cs), owned by UserChartEntity
+// (Signum's [PreserveOrder, BindParent]). Every member lives on the shared QueryFilterBaseEntity in
+// @altea/altea-user-assets: a @part row has exactly ONE owner (and each part class name must be unique in the
+// type registry), so a UserChart filter is that base plus its own `@backReference` — nothing else. Sharing the
+// base is what lets altea-user-queries' FilterBuilderEmbedded edit a chart's filters too.
 @entity("Part")
-export class UserChartEntity_Filters extends Entity {
+export class UserChartEntity_Filter extends QueryFilterBaseEntity {
     @backReference userChart: Lite<UserChartEntity>;
-    @rowOrder order: int;
-
-    token: QueryTokenEmbedded | null;
-    isGroup: boolean = false;
-    // Real altea enums (int-FK, translatable) — the in-memory value is the ordinal, the wire/XML/query form
-    // is the member name (Enum.toName). Mirrors altea-user-queries' UserQueryEntity_Filters.
-    groupOperation: FilterGroupOperationEnum | null;
-    operation: FilterOperationEnum | null;
-    valueString: string | null;
-    pinned: PinnedQueryFilterEmbedded | null;
-    dashboardBehaviour: DashboardBehaviourEnum | null;
-    indentation: int = toInt(0);
 }
 
 // Signum's `[BindParent, PreserveOrder] MList<ChartColumnEmbedded> Columns` element. altea wraps the shared
 // ChartColumnEmbedded value object as `element` on a @part row (the persisted-collection idiom above).
 @entity("Part")
-export class UserChartEntity_Columns extends Entity {
+export class UserChartEntity_Column extends Entity {
     @backReference userChart: Lite<UserChartEntity>;
     @rowOrder order: int;
     element: ChartColumnEmbedded;
@@ -78,7 +67,7 @@ export class UserChartEntity_Columns extends Entity {
 
 // Signum's `[NoRepeatValidator] MList<ChartParameterEmbedded> Parameters` element (wrapped as above).
 @entity("Part")
-export class UserChartEntity_Parameters extends Entity {
+export class UserChartEntity_Parameter extends Entity {
     @backReference userChart: Lite<UserChartEntity>;
     @rowOrder order: int;
     element: ChartParameterEmbedded;
@@ -127,13 +116,13 @@ export class UserChartEntity extends Entity implements IUserAssetEntity, IHasEnt
     chartScript: ChartScriptSymbol;
 
     // Signum's [NoRepeatValidator] MList<ChartParameterEmbedded>.
-    parameters: UserChartEntity_Parameters[];
+    parameters: UserChartEntity_Parameter[];
 
     // Signum's [BindParent, PreserveOrder] MList<ChartColumnEmbedded>.
-    columns: UserChartEntity_Columns[];
+    columns: UserChartEntity_Column[];
 
     // Signum's [PreserveOrder, BindParent] MList<QueryFilterEmbedded>.
-    filters: UserChartEntity_Filters[];
+    filters: UserChartEntity_Filter[];
 
     // Signum's [NoRepeatValidator, PreserveOrder, ImplementedBy(UserQueryEntity)] MList<Lite<Entity>>.
     customDrilldowns: UserChartEntity_CustomDrilldowns[];

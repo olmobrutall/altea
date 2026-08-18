@@ -18,18 +18,18 @@ import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { useAPI, useForceUpdate } from "@altea/altea/client/Hooks";
 import { parseFilterValue, stringifyFilterValue } from "@altea/altea-user-assets/client/FilterValueString";
 import { UserAssetQueryMessage } from "@altea/altea-user-assets/data/UserAssets";
-import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
-import { UserQueryEntity_Filters } from "../../data/UserQuery";
+import { QueryTokenEmbedded, PinnedQueryFilterEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
+import { UserQueryEntity_Filter } from "../../data/UserQuery";
 
 // Port of Signum's Signum.UserAssets/Templates/FilterBuilderEmbedded.tsx — the editor that binds a
 // UserQuery's stored filter rows to altea's FilterBuilder. altea divergences:
-//  - MList → plain `UserQueryEntity_Filters[]`; `X.New({...})` → `new X()` + field assignment.
+//  - MList → plain `UserQueryEntity_Filter[]`; `X.New({...})` → `new X()` + field assignment.
 //  - altea's FilterBuilder takes the ROOT queryToken (no QueryDescription DTO) and renders filter VALUES
 //    natively — so Signum's `renderValue` expression-toggle (SwitchToValue/Expression, [CurrentEntity],
 //    SmartDateTime) is DEFERRED; the raw string still round-trips.
 //  - values are converted to/from their stored string form by filterType (FilterValueString), lists on "|".
 interface FilterBuilderEmbeddedProps {
-    ctx: TypeContext<UserQueryEntity_Filters[]>;
+    ctx: TypeContext<UserQueryEntity_Filter[]>;
     avoidFieldSet?: boolean | HeaderType;
     queryKey: string;
     subTokenOptions: SubTokensOptions;
@@ -138,7 +138,7 @@ function ValueOrExpression(props: { rvc: RenderValueContext; ffc: Finder.FilterF
 
 // Parse the stored flat rows into altea's FilterOptionParsed tree (Signum's toFilterOptionParsed).
 async function toFilterOptionParsed(
-    rootToken: QueryToken, allFilters: UserQueryEntity_Filters[], subTokenOptions: SubTokensOptions,
+    rootToken: QueryToken, allFilters: QueryFilterBaseEntity[], subTokenOptions: SubTokensOptions,
 ): Promise<FilterOptionParsed[]> {
     const completer = new Finder.TokenCompleter(rootToken);
     for (const f of allFilters)
@@ -146,7 +146,7 @@ async function toFilterOptionParsed(
             completer.request(f.token.tokenString);
     await completer.finished();
 
-    function build(filters: UserQueryEntity_Filters[], indent: number): FilterOptionParsed[] {
+    function build(filters: QueryFilterBaseEntity[], indent: number): FilterOptionParsed[] {
         return groupWhen(filters, f => (f.indentation as unknown as number) === indent).map(run => {
             const head = run[0];
             const children = run.slice(1);
@@ -178,11 +178,11 @@ async function toFilterOptionParsed(
 
 // Flatten a parsed filter tree into the stored, indentation-tagged rows (Signum's pushFilter loop). Shared
 // by the FilterBuilderEmbedded editor and UserQueryMenu's create/apply-changes.
-export function filterOptionsParsedToEmbedded(filters: FilterOptionParsed[]): UserQueryEntity_Filters[] {
-    const rows: UserQueryEntity_Filters[] = [];
+export function filterOptionsParsedToEmbedded(filters: FilterOptionParsed[]): UserQueryEntity_Filter[] {
+    const rows: UserQueryEntity_Filter[] = [];
     function push(fo: FilterOptionParsed, indent: number): void {
-        const row = new UserQueryEntity_Filters();
-        row.indentation = indent as UserQueryEntity_Filters["indentation"];
+        const row = new UserQueryEntity_Filter();
+        row.indentation = indent as UserQueryEntity_Filter["indentation"];
         row.pinned = fo.pinned ? toPinnedEmbedded(fo.pinned) : null;
         // FindOptions carries member-name strings; the embedded enum fields are int-FK ordinals (Enum.toValue).
         row.dashboardBehaviour = fo.dashboardBehaviour == null ? null : Enum.toValue(DashboardBehaviourEnum, fo.dashboardBehaviour);

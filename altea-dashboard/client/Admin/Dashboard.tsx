@@ -24,7 +24,7 @@ import { cleanTypeName } from "@altea/altea/data/registration";
 import { UserAssetMessage } from "@altea/altea-user-assets/data/UserAssets";
 import QueryTokenEmbeddedBuilder from "@altea/altea-user-assets/client/Templates/QueryTokenEmbeddedBuilder";
 import {
-    DashboardEntity, DashboardMessage, InteractionGroupEnum, DashboardEntity_Parts, type IPartEntity,
+    DashboardEntity, DashboardMessage, InteractionGroupEnum, DashboardEntity_Part, type IPartEntity,
 } from "../../data/Dashboard";
 import { DashboardClient } from "../DashboardClient";
 import { EntityGridItem, type EntityGridItemProps, EntityGridRepeater } from "./EntityGridRepeater";
@@ -71,7 +71,7 @@ export default function Dashboard(p: { ctx: TypeContext<DashboardEntity> }): Rea
     // `pr` is the part ROW's property route (the grid line passes `propertyRoute.add("Item")`), so the
     // content field's implementedBy list — the pickable part types — reads off it (Signum used
     // `DashboardEntity.memberInfo(a => a.parts![0].element.content)`).
-    function handleOnCreate(pr: PropertyRoute): Promise<DashboardEntity_Parts | undefined> {
+    function handleOnCreate(pr: PropertyRoute): Promise<DashboardEntity_Part | undefined> {
         const contentType = pr.add("content").fieldInfo!;
         return SelectorModal.chooseType(contentType.typeInfos(), {
             buttonDisplay: ti => {
@@ -82,13 +82,13 @@ export default function Dashboard(p: { ctx: TypeContext<DashboardEntity> }): Rea
             if (ti == undefined)
                 return undefined;
 
-            const part = new DashboardEntity_Parts();
+            const part = new DashboardEntity_Part();
             part.content = new (ti.ctor as unknown as new () => IPartEntity)();
             return part;
         });
     }
 
-    function renderPart(tc: TypeContext<DashboardEntity_Parts>): React.JSX.Element {
+    function renderPart(tc: TypeContext<DashboardEntity_Part>): React.JSX.Element {
         return <DashboardPart tc={tc} dashboard={ctx.value} />;
     }
 
@@ -179,7 +179,7 @@ export default function Dashboard(p: { ctx: TypeContext<DashboardEntity> }): Rea
         </div>
     );
 
-    function selectIcon(iconCtx: TypeContext<DashboardEntity | DashboardEntity_Parts>): Promise<DashboardEntity | DashboardEntity_Parts | undefined> {
+    function selectIcon(iconCtx: TypeContext<DashboardEntity | DashboardEntity_Part>): Promise<DashboardEntity | DashboardEntity_Part | undefined> {
         return Navigator.view(iconCtx.value, {
             propertyRoute: iconCtx.propertyRoute,
             getViewPromise: () => new ViewPromise(import("./PanelIcon")),
@@ -195,7 +195,7 @@ export default function Dashboard(p: { ctx: TypeContext<DashboardEntity> }): Rea
 // `isQueryCached` flag.)
 
 export function DashboardPart(p: {
-    tc: TypeContext<DashboardEntity_Parts>;
+    tc: TypeContext<DashboardEntity_Part>;
     dashboard: DashboardEntity;
 } & Pick<EntityGridItemProps, "onResizerDragStart" | "onTitleDragStart" | "onTitleDragEnd" | "onRemove">): React.JSX.Element {
 
