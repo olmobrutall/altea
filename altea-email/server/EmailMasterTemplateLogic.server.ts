@@ -5,8 +5,7 @@ import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { Graph } from "@altea/altea/server/graph";
 import { table } from "@altea/altea/server/table";
 import {
-    EmailMasterTemplateEntity, EmailMasterTemplateEntity_Message, EmailMasterTemplateOperation,
-    languageOf,
+    EmailMasterTemplateEntity, EmailMasterTemplateEntity_Message, EmailMasterTemplateOperation, languageOf,
 } from "../data/EmailTemplate";
 import { registerEmailMasterTemplateXml } from "./EmailTemplateXml.server";
 
@@ -37,7 +36,7 @@ export namespace EmailMasterTemplateLogic {
         if (options?.requiredCulture != null)
             requiredCulture = options.requiredCulture;
 
-        sb.include(EmailMasterTemplateEntity_Message);
+        // Its message / attachment @part rows are included automatically (see EmailTemplateLogic).
         sb.include(EmailMasterTemplateEntity).withQuery();
 
         registerEmailMasterTemplateXml();
@@ -63,7 +62,7 @@ export namespace EmailMasterTemplateLogic {
         // Signum's Delete: the attachment rows the template owns go with it.
         new Graph.Delete(EmailMasterTemplateOperation.Delete, {
             delete: async (e: EmailMasterTemplateEntity) => {
-                const attachments = [...e.attachments];
+                const attachments = e.attachments.map(a => a.attachment);
                 await e.delete();
                 for (const a of attachments)
                     await a.delete();

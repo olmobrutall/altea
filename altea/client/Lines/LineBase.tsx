@@ -275,10 +275,23 @@ export function taskSetReadOnly(lineBase: LineBaseController<LineBaseProps, unkn
 
 tasks.push(taskSetMandatory);
 export function taskSetMandatory(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps): void {
-  if (state.ctx.propertyRoute && state.mandatory == undefined &&
-    state.ctx.propertyRoute.propertyRouteType == PropertyRouteType.FieldOrProperty &&
-    !state.ctx.propertyRoute.fieldInfo!.isNullable && // ALTEA: Signum member.required ≡ !isNullable
-    !state.ctx.propertyRoute.fieldInfo!.array) {      // …but a non-null COLLECTION means "not null", not
-    state.mandatory = true;                           // "non-empty" — mirror the server's implicit-NotNull,
-  }                                                    // which exempts arrays (computeNeedsImplicitNotNull).
+  if (state.mandatory != undefined ||
+    !state.ctx.propertyRoute ||
+    state.ctx.propertyRoute.propertyRouteType != PropertyRouteType.FieldOrProperty)
+    return;
+
+  const fieldInfo = state.ctx.propertyRoute.fieldInfo!;
+
+  if (fieldInfo.array) {
+    // A non-null COLLECTION means "not null", not "non-empty" — mirroring the server's implicit-NotNull,
+    // which exempts arrays (computeNeedsImplicitNotNull). What DOES make a collection mandatory is an
+    // explicit "at least one" count rule: Signum computes MemberInfo.Required for an MList from exactly
+    // `CountIsValidator.IsGreaterThanZero` (@countIsValidator(ComparisonType.GreaterThan, 0)).
+    if (fieldInfo.validators.some(v => v.isGreaterThanZero))
+      state.mandatory = true;
+    return;
+  }
+
+  if (!fieldInfo.isNullable) // ALTEA: Signum member.required ≡ !isNullable
+    state.mandatory = true;
 }

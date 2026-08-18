@@ -8,7 +8,8 @@ import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
-import { QueryContext, TextTemplateParameters } from "@altea/altea-templating/server/ValueProviders.server";
+import { QueryContext } from "@altea/altea-templating/server/ValueProviders.server";
+import { TextTemplateParameters } from "@altea/altea-templating/server/TextTemplateParser.Nodes.server";
 import { FilePathEmbedded } from "@altea/altea-files/data/Files";
 import { QueryFilterUtils } from "./QueryFilterUtils.server";
 import {
@@ -136,7 +137,8 @@ export class EmailMessageBuilder {
         const master = this.template.masterTemplate == null ? null
             : await EmailLogic.retrieveLite(this.template.masterTemplate);
 
-        const rules = [...this.template.attachments, ...(master?.attachments ?? [])];
+        // A row holds the attachment RULE in its @valueField (see data/EmailTemplate.ts).
+        const rules = [...this.template.attachments, ...(master?.attachments ?? [])].map(r => r.attachment);
         if (rules.length === 0)
             return [];
 
@@ -333,7 +335,7 @@ export class EmailMessageBuilder {
 
             const modelType = this.template.model == null ? undefined : EmailModelLogic.toType(this.template.model);
             for (const a of this.template.attachments)
-                EmailTemplateLogic.fillAttachmentTokens(a, { queryName, queryTokens: tokens, modelType });
+                EmailTemplateLogic.fillAttachmentTokens(a.attachment, { queryName, queryTokens: tokens, modelType });
 
             const columns = distinctTokens(tokens).map(qt => new Column(qt));
 

@@ -1,3 +1,4 @@
+import { joinRelaxed } from "../data/globals/joinRelaxed";
 import { Connector } from "./connection/connector";
 import { cleanTypeName, getLocation, enumNameOf } from "../data/registration";
 import { TypeEntity } from "../data/typeEntity";
@@ -87,8 +88,8 @@ export class TypeLogic {
     static start(schema: Schema): void {
         schema.typeCaches = new ResetLazy<TypeCaches>(() => buildCaches(schema));
 
-        if (!schema.generating.includes(seedTypeEntities))
-            schema.generating.push(seedTypeEntities);
+        if (!schema.generating.includes(generateTypeEntities))
+            schema.generating.push(generateTypeEntities);
         if (!schema.synchronizing.includes(synchronizeTypes))
             schema.synchronizing.push(synchronizeTypes);
         // Signum's TypeLogic subscription to Schema.Initializing: read the persisted TypeEntity ids back
@@ -183,27 +184,39 @@ async function buildCaches(schema: Schema): Promise<TypeCaches> {
     }
 }
 
-// Projects the TypeEntity rows into the bidirectional caches (Signum's TypeCaches JoinRelaxed): a row
-// whose type is no longer in the model is skipped, a model type with no row has no id yet. Synchronous —
-// shared by the async DB factory and the test seeder.
+// Projects the TypeEntity rows into the bidirectional caches — Signum's TypeCaches ctor, which JOINS the
+// retrieved rows to the schema types by class name with `JoinRelaxed`: only the matched pairs make it into the
+// caches, and any row without a model type (or model type without a row) is REPORTED through StartParameters
+// ("Consider Synchronize"), not silently dropped. Synchronous — shared by the async DB factory and the test
+// seeder. EMPTY rows (a fresh database before generation) report nothing: `joinRelaxed` is only reached when
+// there is something to compare (see loadTypeEntities).
 function projectCaches(schema: Schema, rows: TypeEntity[]): TypeCaches {
-    const ctorByClassName = new Map<string, Function>();
+    const modelTypes: Function[] = [];
     for (const [type] of schema.tables)
         if (typeof type === "function")
-            ctorByClassName.set(classNameOf(type), type);
+            modelTypes.push(type);
 
     const typeToId = new Map<Function, PrimaryKey>();
     const idToType = new Map<PrimaryKey, Function>();
     const idToEntity = new Map<PrimaryKey, TypeEntity>();
-    for (const te of rows) {
-        const ctor = ctorByClassName.get(te.className);
-        if (ctor == null)
-            continue;
+
+    if (rows.length === 0)
+        return { typeToId, idToType, idToEntity };
+
+    for (const [ctor, te] of joinRelaxed(
+        rows,
+        modelTypes,
+        te => te.className,
+        classNameOf,
+        (te, ctor) => [ctor, te] as [Function, TypeEntity],
+        "caching " + TypeEntity.name,
+    )) {
         const id = te.id!;
         typeToId.set(ctor, id);
         idToType.set(id, ctor);
         idToEntity.set(id, te);
     }
+
     return { typeToId, idToType, idToEntity };
 }
 
@@ -275,7 +288,7 @@ function typeEntityFromMeta(m: { tableName: string; cleanName: string; package: 
 // DB-assigned — insertSqlSyncGenerated omits it). Per-row statements (not one multi-row VALUES)
 // so the identity ids increment in a defined order, matching the bootstrap. Runs after the
 // tables exist (pushed onto schema.generating). Reads the rows off the schema it is invoked with.
-function seedTypeEntities(schema: Schema): SqlPreCommand | undefined {
+function generateTypeEntities(schema: Schema): SqlPreCommand | undefined {
     const table = schema.tryTable(TypeEntity as never);
     if (table == null)
         return undefined;

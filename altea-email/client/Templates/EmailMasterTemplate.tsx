@@ -3,6 +3,8 @@ import { Tabs, Tab } from "react-bootstrap";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { TextAreaLine } from "@altea/altea/client/Lines/TextAreaLine";
 import { EntityRepeater } from "@altea/altea/client/Lines/EntityRepeater";
+import { EntityTabRepeater } from "@altea/altea/client/Lines/EntityTabRepeater";
+import { EntityDetail } from "@altea/altea/client/Lines/EntityDetail";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import {
@@ -22,12 +24,16 @@ export default function EmailMasterTemplate(p: { ctx: TypeContext<EmailMasterTem
             <AutoLine ctx={ctx.subCtx(f => f.isDefault)} />
             <Tabs id={ctx.prefix + "tabs"}>
                 <Tab eventKey="messages" title={ctx.niceName(a => a.messages)}>
-                    <EntityRepeater ctx={ctx.subCtx(a => a.messages)} avoidFieldSet onChange={forceUpdate}
+                    {/* One TAB per culture (Signum's EntityTabRepeater): the messages are alternatives the
+                        user reads one at a time, and each carries a whole HTML editor + preview. */}
+                    <EntityTabRepeater ctx={ctx.subCtx(a => a.messages)} avoidFieldSet onChange={forceUpdate}
                         onCreate={() => Promise.resolve(EmailMasterTemplateEntity_Message.create({}))}
                         getComponent={ctxMsg => <EmailMasterTemplateMessageComponent ctx={ctxMsg} invalidate={forceUpdate} />} />
                 </Tab>
                 <Tab eventKey="attachments" title={ctx.niceName(a => a.attachments)}>
-                    <EntityRepeater ctx={ctx.subCtx(e => e.attachments)} avoidFieldSet onChange={forceUpdate} />
+                    {/* The row holds the attachment RULE in its @valueField (see data/EmailTemplate.ts). */}
+                    <EntityRepeater ctx={ctx.subCtx(e => e.attachments)} avoidFieldSet onChange={forceUpdate}
+                        getComponent={actx => <EntityDetail ctx={actx.subCtx(a => a.attachment)} />} />
                 </Tab>
             </Tabs>
         </div>

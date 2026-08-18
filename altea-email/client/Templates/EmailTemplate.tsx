@@ -7,18 +7,20 @@ import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { EntityCombo } from "@altea/altea/client/Lines/EntityCombo";
 import { EntityDetail } from "@altea/altea/client/Lines/EntityDetail";
 import { EntityRepeater } from "@altea/altea/client/Lines/EntityRepeater";
+import { EntityTabRepeater } from "@altea/altea/client/Lines/EntityTabRepeater";
 import { EntityTable } from "@altea/altea/client/Lines/EntityTable";
 import { FormGroup } from "@altea/altea/client/Lines/FormGroup";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { SubTokensOptions } from "@altea/altea/client/QueryToken";
 import { ValidationMessage } from "@altea/altea/data/validators";
+import { Localization } from "@altea/altea/data/utils/localization";
 import type { QueryEntity } from "@altea/altea/data/queryEntity";
 import TemplateControls from "@altea/altea-templating/client/TemplateControls";
 import QueryTokenEmbeddedBuilder from "@altea/altea-user-assets/client/Templates/QueryTokenEmbeddedBuilder";
 import FilterBuilderEmbedded from "@altea/altea-user-queries/client/Templates/FilterBuilderEmbedded";
 import {
-    EmailMessageFormatEnum, EmailTemplateEntity, EmailTemplateEntity_From, EmailTemplateEntity_Message,
+    EmailAddressSourceEnum, EmailMessageFormatEnum, EmailTemplateEntity, EmailTemplateEntity_From, EmailTemplateEntity_Message,
     EmailTemplateEntity_Recipient, EmailTemplateMessage, EmailTemplateViewMessage,
 } from "../../data/EmailTemplate";
 import IFrameRenderer from "./IframeRenderer";
@@ -31,8 +33,8 @@ import IFrameRenderer from "./IframeRenderer";
 //    formats author into a plain <TextAreaLine/>, with the same live <IFrameRenderer/> preview beside it.
 //  - The APPLICABLE tab edited a C# script through CSharpCodeMirror; altea's applicable is a
 //    TemplateApplicableSymbol, so it is an EntityLine on the main form instead of a tab.
-//  - `EntityAccordion` / `EntityTabRepeater` are not ported: recipients and messages use `EntityRepeater`
-//    (the message repeater keeps the culture in each row's header, which is what the tabs conveyed).
+//  - `EntityAccordion` is not ported, so the recipients use `EntityRepeater`. The per-culture MESSAGES keep
+//    Signum's `EntityTabRepeater` — it is ported into altea core as part of this module's work.
 //  - `ctx.value.query!.key` guards are unchanged — a token editor needs a query.
 
 export default function EmailTemplate(p: { ctx: TypeContext<EmailTemplateEntity> }): React.JSX.Element {
@@ -70,7 +72,10 @@ export default function EmailTemplate(p: { ctx: TypeContext<EmailTemplateEntity>
                         <span style={{ fontWeight: ctx.value.attachments.length > 0 ? "bold" : undefined }}>
                             {ctx.niceName(a => a.attachments)}
                         </span>}>
-                        <EntityRepeater ctx={ecXs.subCtx(e => e.attachments)} avoidFieldSet onChange={forceUpdate} />
+                        {/* Each row holds the attachment RULE in its @valueField (altea has no MList of a
+                            polymorphic reference — see data/EmailTemplate.ts), so the row renders its value. */}
+                        <EntityRepeater ctx={ecXs.subCtx(e => e.attachments)} avoidFieldSet onChange={forceUpdate}
+                            getComponent={actx => <EntityDetail ctx={actx.subCtx(a => a.attachment)} />} />
                     </Tab>
 
                     {ctx.value.query != null &&
@@ -117,7 +122,7 @@ export default function EmailTemplate(p: { ctx: TypeContext<EmailTemplateEntity>
             <EntityLine ctx={ctx.subCtx(e => e.masterTemplate, { labelColumns: 2 })} />
 
             <div className="sf-email-replacements-container">
-                <EntityRepeater ctx={ctx.subCtx(a => a.messages, { labelColumns: { sm: 2 } })} onChange={forceUpdate}
+                <EntityTabRepeater ctx={ctx.subCtx(a => a.messages, { labelColumns: { sm: 2 } })} onChange={forceUpdate}
                     onCreate={() => Promise.resolve(EmailTemplateEntity_Message.create({}))}
                     getComponent={ctxMsg =>
                         <EmailTemplateMessageComponent ctx={ctxMsg} queryKey={ctx.value.query?.key}
@@ -136,8 +141,8 @@ function EmailTemplateFrom(p: { ctx: TypeContext<EmailTemplateEntity_From>; quer
     return (
         <div className="row">
             <div className="col-sm-2">
-                <FormGroup label={EmailTemplateEntity.nicePropertyName(a => a.from)} ctx={sc}>
-                    {() => <span className={sc.formControlClass}>{EmailTemplateEntity.nicePropertyName(a => a.from)}</span>}
+                <FormGroup label={nicePropertyNameOf("from")} ctx={sc}>
+                    {() => <span className={sc.formControlClass}>{nicePropertyNameOf("from")}</span>}
                 </FormGroup>
             </div>
             <div className="col-sm-2">
@@ -186,8 +191,8 @@ function AddressBody(p: {
 
     return (
         <>
-            {sc.value.addressSource === "QueryToken" && (p.query == null
-                ? <p className="text-danger">{ValidationMessage._0IsNotSet.niceToString(EmailTemplateEntity.nicePropertyName(a => a.query))}</p>
+            {sc.value.addressSource === EmailAddressSourceEnum.QueryToken && (p.query == null
+                ? <p className="text-danger">{ValidationMessage._0IsNotSet.niceToString(nicePropertyNameOf("query"))}</p>
                 : <div>
                     <QueryTokenEmbeddedBuilder
                         ctx={sc.subCtx(a => a.token)}
@@ -204,7 +209,7 @@ function AddressBody(p: {
                     </div>
                 </div>)}
 
-            {sc.value.addressSource === "HardcodedAddress" && <div className="row">
+            {sc.value.addressSource === EmailAddressSourceEnum.HardcodedAddress && <div className="row">
                 <div className="col-sm-6">
                     <AutoLine ctx={sc.subCtx(c => c.emailAddress)} onChange={p.onChange} />
                     {p.extraHardcoded}
@@ -253,4 +258,10 @@ export function EmailTemplateMessageComponent(p: EmailTemplateMessageComponentPr
             </div>
         </div>
     );
+}
+
+/** The localized label of an EmailTemplate property (altea has no `nicePropertyName` static: the label comes
+ *  from the reflection registry's member descriptions, with the de-camelCased name as the fallback). */
+function nicePropertyNameOf(member: "query" | "from"): string {
+    return Localization.memberNiceName(EmailTemplateEntity.name, member) ?? Localization.niceMemberName(member);
 }

@@ -2,10 +2,10 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, primaryKey, implementedBy, uniqueIndex, backReference, rowOrder,
+    entity, primaryKey, implementedBy, uniqueIndex, backReference, rowOrder, valueField,
     stringLengthValidator, fieldValidation, quoted,
 } from "@altea/altea/data/decorators";
-import { noRepeatValidator, ValidationMessage } from "@altea/altea/data/validators";
+import { noRepeatValidator, countIsValidator, ComparisonType, ValidationMessage } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
@@ -90,17 +90,22 @@ export enum EmailTemplateVisibleOn {
 export interface IAttachmentGeneratorEntity extends Entity { }
 
 // Signum's ImageAttachmentEntity — a fixed file stored on the template itself.
+//
+// altea divergence: a "SharedPart", not a plain "Part": BOTH an EmailTemplate and an EmailMasterTemplate can
+// hold image attachments, and an altea Part may have exactly ONE owner (its auth rules are inherited from that
+// owner — see altea-auth's PartOwnership). A SharedPart appears in the Type-Auth grid in its own right and
+// gets its rules defined explicitly, which is the correct reading for a type two owners share.
 @reflect
-@entity("Part", "Master")
+@entity("SharedPart", "Master")
 export class ImageAttachmentEntity extends Entity implements IAttachmentGeneratorEntity {
     /** The name the attachment carries. It is itself a TEMPLATE (`Invoice @[Id].pdf`), parsed at send time. */
     @stringLengthValidator({ min: 3, max: 100 })
-    fileName: string | null = null;
+    fileName: string | null;
 
     @stringLengthValidator({ min: 1, max: 300 })
     contentId: string;
 
-    type: EmailAttachmentTypeEnum = EmailAttachmentTypeEnum.Attachment;
+    type: EmailAttachmentTypeEnum;
 
     file: FileEmbedded;
 
@@ -115,12 +120,12 @@ export class ImageAttachmentEntity extends Entity implements IAttachmentGenerato
 @entity("Part", "Master")
 export class FileTokenAttachmentEntity extends Entity implements IAttachmentGeneratorEntity {
     @stringLengthValidator({ min: 3, max: 100 })
-    fileName: string | null = null;
+    fileName: string | null;
 
     @stringLengthValidator({ min: 1, max: 300 })
-    contentId: string | null = null;
+    contentId: string | null;
 
-    type: EmailAttachmentTypeEnum = EmailAttachmentTypeEnum.Attachment;
+    type: EmailAttachmentTypeEnum;
 
     fileToken: QueryTokenEmbedded;
 
@@ -151,7 +156,7 @@ export const masterTemplateContentRegexGlobal = /@\[content\]/g;
 @entity("Part", "Master")
 export class EmailMasterTemplateEntity_Message extends Entity {
     @backReference masterTemplate: Lite<EmailMasterTemplateEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
     /** A locale name ("en-US"); altea has no CultureInfoEntity (see Email.ts's header). */
     @stringLengthValidator({ min: 2, max: 20 })
@@ -170,6 +175,24 @@ export class EmailMasterTemplateEntity_Message extends Entity {
     }
 }
 
+// Signum's `MList<IAttachmentGeneratorEntity> Attachments`, as this owner's @part row. altea has no MList,
+// and a collection of a POLYMORPHIC (interface-typed) reference cannot be a bare array: it becomes a @part
+// ROW whose `@valueField` holds the reference — the shape @altea/altea-user-queries'
+// UserQueryEntity_CustomDrilldown established. `@noRepeatValidator` on the owner's field compares through
+// that valueField, so two rows pointing at the same attachment ARE caught.
+@entity("Part", "Master")
+export class EmailMasterTemplateEntity_Attachment extends Entity {
+    @backReference masterTemplate: Lite<EmailMasterTemplateEntity>;
+    @rowOrder order: int;
+
+    @valueField @implementedBy(() => [ImageAttachmentEntity])
+    attachment: IAttachmentGeneratorEntity;
+
+    toString(): string {
+        return this.attachment?.toString() ?? "";
+    }
+}
+
 // Signum's EmailMasterTemplateEntity — the shared chrome (header / footer / styles) a template's body is
 // spliced into at `@[content]`.
 @reflect
@@ -180,17 +203,15 @@ export class EmailMasterTemplateEntity extends Entity implements IUserAssetEntit
     @stringLengthValidator({ min: 3, max: 100 })
     name: string;
 
-    isDefault: boolean = false;
+    isDefault: boolean;
 
-    @fieldValidation<EmailMasterTemplateEntity>(t =>
-        t.messages == null || t.messages.length === 0 ? EmailTemplateMessage.ThereAreNoMessagesForTheTemplate.niceToString()
-            : hasDuplicateCulture(t.messages) ? EmailTemplateMessage.TheresMoreThanOneMessageForTheSameLanguage.niceToString()
-                : null)
-    messages: EmailMasterTemplateEntity_Message[] = [];
+    @countIsValidator(ComparisonType.GreaterThan, 0)
+    @fieldValidation<EmailMasterTemplateEntity>(t => hasDuplicateCulture(t.messages)
+        ? EmailTemplateMessage.TheresMoreThanOneMessageForTheSameLanguage.niceToString() : null)
+    messages: EmailMasterTemplateEntity_Message[];
 
     @noRepeatValidator()
-    @implementedBy(() => [ImageAttachmentEntity])
-    attachments: IAttachmentGeneratorEntity[] = [];
+    attachments: EmailMasterTemplateEntity_Attachment[];
 
     @quoted
     toString(): string {
@@ -211,21 +232,21 @@ export namespace EmailMasterTemplateOperation {
  *  address comes from (a query token, a hardcoded address, or the current user). */
 @reflect
 export abstract class EmailTemplateAddressBaseEntity extends Entity {
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
-    addressSource: EmailAddressSourceEnum = EmailAddressSourceEnum.QueryToken;
+    addressSource: EmailAddressSourceEnum;
 
     @fieldValidation<EmailTemplateAddressBaseEntity>(a =>
         (a.addressSource === EmailAddressSourceEnum.HardcodedAddress) === (a.emailAddress != null) ? null
             : ValidationMessage._0IsNotSet.niceToString("{0}"))
-    emailAddress: string | null = null;
+    emailAddress: string | null;
 
-    displayName: string | null = null;
+    displayName: string | null;
 
     @fieldValidation<EmailTemplateAddressBaseEntity>(a =>
         (a.addressSource === EmailAddressSourceEnum.QueryToken) === (a.token != null) ? null
             : ValidationMessage._0IsNotSet.niceToString("{0}"))
-    token: QueryTokenEmbedded | null = null;
+    token: QueryTokenEmbedded | null;
 
     toString(): string {
         return `${this.displayName ?? ""} <${this.emailAddress ?? this.token?.tokenString ?? ""}>`;
@@ -237,10 +258,10 @@ export abstract class EmailTemplateAddressBaseEntity extends Entity {
 export class EmailTemplateEntity_From extends EmailTemplateAddressBaseEntity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
 
-    whenNone: WhenNoneFromBehaviourEnum = WhenNoneFromBehaviourEnum.ThrowException;
-    whenMany: WhenManyFromBehaviourEnum = WhenManyFromBehaviourEnum.SplitMessages;
+    whenNone: WhenNoneFromBehaviourEnum;
+    whenMany: WhenManyFromBehaviourEnum;
 
-    azureUserId: string | null = null;
+    azureUserId: string | null;
 
     clone(): EmailTemplateEntity_From {
         return EmailTemplateEntity_From.create({
@@ -260,10 +281,10 @@ export class EmailTemplateEntity_From extends EmailTemplateAddressBaseEntity {
 export class EmailTemplateEntity_Recipient extends EmailTemplateAddressBaseEntity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
 
-    kind: EmailRecipientKindEnum = EmailRecipientKindEnum.To;
+    kind: EmailRecipientKindEnum;
 
-    whenNone: WhenNoneRecipientsBehaviourEnum = WhenNoneRecipientsBehaviourEnum.ThrowException;
-    whenMany: WhenManyRecipientsBehaviourEnum = WhenManyRecipientsBehaviourEnum.SplitMessages;
+    whenNone: WhenNoneRecipientsBehaviourEnum;
+    whenMany: WhenManyRecipientsBehaviourEnum;
 
     override toString(): string {
         return `${EmailRecipientKindEnum[this.kind]} ${this.displayName ?? ""} <${this.emailAddress ?? this.token?.tokenString ?? ""}>`;
@@ -282,6 +303,21 @@ export class EmailTemplateEntity_Recipient extends EmailTemplateAddressBaseEntit
     }
 }
 
+// Signum's `MList<IAttachmentGeneratorEntity> Attachments`, as this owner's @part row (see
+// EmailMasterTemplateEntity_Attachment for why a polymorphic collection needs a row).
+@entity("Part", "Master")
+export class EmailTemplateEntity_Attachment extends Entity {
+    @backReference emailTemplate: Lite<EmailTemplateEntity>;
+    @rowOrder order: int;
+
+    @valueField @implementedBy(() => [ImageAttachmentEntity, FileTokenAttachmentEntity])
+    attachment: IAttachmentGeneratorEntity;
+
+    toString(): string {
+        return this.attachment?.toString() ?? "";
+    }
+}
+
 // Signum's `MList<QueryFilterEmbedded> Filters` — the shared filter row with this owner's back reference.
 @entity("Part", "Master")
 export class EmailTemplateEntity_Filter extends QueryFilterBaseEntity {
@@ -292,17 +328,17 @@ export class EmailTemplateEntity_Filter extends QueryFilterBaseEntity {
 @entity("Part", "Master")
 export class EmailTemplateEntity_Order extends Entity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
     token: QueryTokenEmbedded;
-    orderType: OrderTypeEnum = OrderTypeEnum.Ascending;
+    orderType: OrderTypeEnum;
 }
 
 // Signum's EmailTemplateMessageEmbedded — the subject + body for ONE culture.
 @entity("Part", "Master")
 export class EmailTemplateEntity_Message extends Entity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
     /** A locale name ("en-US"); altea has no CultureInfoEntity (see Email.ts's header). */
     @stringLengthValidator({ min: 2, max: 20 })
@@ -310,10 +346,10 @@ export class EmailTemplateEntity_Message extends Entity {
 
     /** The body, as template text. Unbounded (Signum's `[DbType(Size = int.MaxValue)]`). */
     @stringLengthValidator({ multiLine: true })
-    text: string = "";
+    text: string;
 
     @stringLengthValidator({ multiLine: true })
-    subject: string = "";
+    subject: string;
 
     toString(): string {
         return this.culture ?? EmailTemplateMessage.NewCulture.niceToString();
@@ -340,42 +376,42 @@ export class EmailTemplateEntity extends Entity implements IUserAssetEntity, ICo
 
     /** Signum's DisableAuthorization — render this template with row-level/type auth OFF (a system mail
      *  must be able to read rows the triggering user cannot). */
-    disableAuthorization: boolean = false;
+    disableAuthorization: boolean;
 
-    query: QueryEntity | null = null;
+    query: QueryEntity | null;
 
-    model: EmailModelEntity | null = null;
+    model: EmailModelEntity | null;
 
-    from: EmailTemplateEntity_From | null = null;
+    from: EmailTemplateEntity_From | null;
 
     @noRepeatValidator()
-    recipients: EmailTemplateEntity_Recipient[] = [];
+    recipients: EmailTemplateEntity_Recipient[];
 
-    groupResults: boolean = false;
+    groupResults: boolean;
 
-    filters: EmailTemplateEntity_Filter[] = [];
+    filters: EmailTemplateEntity_Filter[];
 
     @fieldValidation<EmailTemplateEntity>(t => t.orders.length > 0 && t.query == null
         ? ValidationMessage._0IsNotSet.niceToString("{0}") : null)
-    orders: EmailTemplateEntity_Order[] = [];
+    orders: EmailTemplateEntity_Order[];
 
     @noRepeatValidator()
-    @implementedBy(() => [ImageAttachmentEntity, FileTokenAttachmentEntity])
-    attachments: IAttachmentGeneratorEntity[] = [];
+    attachments: EmailTemplateEntity_Attachment[];
 
-    masterTemplate: Lite<EmailMasterTemplateEntity> | null = null;
+    masterTemplate: Lite<EmailMasterTemplateEntity> | null;
 
-    messageFormat: EmailMessageFormatEnum = EmailMessageFormatEnum.HtmlSimple;
+    messageFormat: EmailMessageFormatEnum;
 
-    @fieldValidation<EmailTemplateEntity>(t =>
-        t.messages == null || t.messages.length === 0 ? EmailTemplateMessage.ThereAreNoMessagesForTheTemplate.niceToString()
-            : hasDuplicateCulture(t.messages) ? EmailTemplateMessage.TheresMoreThanOneMessageForTheSameLanguage.niceToString()
-                : null)
-    messages: EmailTemplateEntity_Message[] = [];
+    // Signum's PropertyValidation(Messages): at least one, and no two for the same culture. The "at least
+    // one" half is a count rule, so the messages line also renders as MANDATORY.
+    @countIsValidator(ComparisonType.GreaterThan, 0)
+    @fieldValidation<EmailTemplateEntity>(t => hasDuplicateCulture(t.messages)
+        ? EmailTemplateMessage.TheresMoreThanOneMessageForTheSameLanguage.niceToString() : null)
+    messages: EmailTemplateEntity_Message[];
 
     /** altea's stand-in for Signum's compiled `TemplateApplicableEval` (see the header): a code-registered
      *  predicate, resolved through @altea/altea-templating's TemplatingLogic. */
-    applicable: TemplateApplicableSymbol | null = null;
+    applicable: TemplateApplicableSymbol | null;
 
     @quoted
     toString(): string {
@@ -400,7 +436,6 @@ export namespace EmailTemplateOperation {
 
 export const EmailTemplateMessage = {
     EndDateMustBeHigherThanStartDate: msg("End date must be higher than start date"),
-    ThereAreNoMessagesForTheTemplate: msg("There are no messages for the template"),
     ThereMustBeAMessageFor0: msg("There must be a message for {0}"),
     TheresMoreThanOneMessageForTheSameLanguage: msg("There's more than one message for the same language"),
     TheTextMustContain0IndicatingReplacementPoint: msg("The text must contain {0} indicating replacement point"),

@@ -2,7 +2,7 @@ import * as React from "react";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityDetail } from "@altea/altea/client/Lines/EntityDetail";
 import { EntityRepeater } from "@altea/altea/client/Lines/EntityRepeater";
-import { SearchValueLine } from "@altea/altea/client/SearchControl/SearchValueLine";
+import SearchValueLine from "@altea/altea/client/SearchControl/SearchValueLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { EmailMessageEntity } from "../../data/EmailMessage";
 import type { EmailSenderConfigurationEntity } from "../../data/EmailSenderConfiguration";

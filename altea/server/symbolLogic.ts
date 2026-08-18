@@ -1,3 +1,4 @@
+import { joinRelaxed } from "../data/globals/joinRelaxed";
 import type { Entity, PrimaryKey, Type } from "../data/entity";
 import { Symbol } from "../data/symbol";
 import { declaredSymbolsForType } from "../data/registration";
@@ -84,7 +85,7 @@ export namespace SymbolLogic {
             byCtor.set(ctor, stl);
         }
 
-        sb.schema.generating.push(schema => seedSymbols(schema, ctor));
+        sb.schema.generating.push(schema => generateSymbols(schema, ctor));
         sb.schema.synchronizing.push(replacements => synchronizeSymbols(replacements, ctor));
         // Signum's Schema.Initializing → lazy.Load: read the persisted ids back after the connector is
         // bound and the table exists (server startup, and after gen/sync). Tolerant of a not-yet-created
@@ -152,15 +153,27 @@ async function buildCache(ctor: Type<Symbol>): Promise<Map<string, Symbol>> {
     loading = true;
     try {
         const byKey = new Map<string, Symbol>();
-        const declared = new Map(byCtor.get(ctor)!.getSymbols().map(s => [s.key, s]));
-        for (const { key, id } of await readSymbolRows(ctor)) {
-            const sym = declared.get(key);
-            if (sym == null)
-                continue; // a persisted symbol no longer declared — skip (Signum's relaxed join)
-            (sym as { id: PrimaryKey }).id = id;
+        const rows = await readSymbolRows(ctor);
+
+        // EMPTY rows (a fresh database before generation) report nothing — there is nothing to compare yet.
+        if (rows.length === 0)
+            return byKey;
+
+        // Signum's relaxed join: a persisted key that is no longer declared, or a declared key with no row,
+        // is REPORTED through StartParameters ("Consider Synchronize") rather than silently skipped.
+        for (const [row, sym] of joinRelaxed(
+            rows,
+            byCtor.get(ctor)!.getSymbols(),
+            row => row.key,
+            s => s.key,
+            (row, s) => [row, s] as [{ key: string; id: PrimaryKey }, Symbol],
+            "caching " + ctor.name,
+        )) {
+            (sym as { id: PrimaryKey }).id = row.id;
             sym.isNew = false;
-            byKey.set(key, sym);
+            byKey.set(row.key, sym);
         }
+
         return byKey;
     } finally {
         loading = false;
@@ -193,7 +206,7 @@ async function readSymbolRows(ctor: Type<Symbol>): Promise<{ key: string; id: Pr
 // (the IDENTITY PK is DB-assigned — insertSqlSyncGenerated omits it), in a deterministic sorted-by-key
 // order so the DB-assigned ids are reproducible across a fresh generate. Per-row statements (not one
 // multi-row VALUES) so the identity ids increment in that order (as TypeLogic seeds TypeEntity).
-function seedSymbols(schema: Schema, ctor: Type<Symbol>): SqlPreCommand | undefined {
+function generateSymbols(schema: Schema, ctor: Type<Symbol>): SqlPreCommand | undefined {
     const stl = byCtor.get(ctor);
     const table = schema.tryTable(ctor);
     if (stl == null || table == null)

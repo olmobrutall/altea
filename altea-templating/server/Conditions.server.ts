@@ -135,12 +135,21 @@ export class ConditionCompare extends ConditionBase {
         if (this.operation == undefined)
             return ConditionCompare.toBool(obj);
 
+        const isList = this.operation === FilterOperation.IsIn || this.operation === FilterOperation.IsNotIn;
+        return compareInMemory(this.operation, obj, this.parsedValue(isList));
+    }
+
+    /** The comparison's right-hand text as a value of the provider's type.
+     *
+     *  altea divergence: Signum ALWAYS had a static type (C# reflection over the model). altea's type is
+     *  unknown for a member of a NON-reflected model (a plain-shape EmailModel) — so the text is compared as
+     *  written, which is what `@if[m:state=Shipped]` means. */
+    private parsedValue(isList: boolean): unknown {
         const type = this.valueProvider!.type;
         if (type == undefined)
-            throw new Error(`Unable to compare '${this.valueProvider}': its type is unknown`);
+            return isList ? this.value!.split("|").map(v => v.trim()) : this.value!;
 
-        const isList = this.operation === FilterOperation.IsIn || this.operation === FilterOperation.IsNotIn;
-        return compareInMemory(this.operation, obj, parseConstant(this.value!, type, isList));
+        return parseConstant(this.value!, type, isList);
     }
 
     /** Signum's ToBool — `null`, `0`, `""` and `false` are false; everything else is true. */
@@ -177,8 +186,18 @@ export class ConditionCompare extends ConditionBase {
         if (this.valueProvider instanceof TokenValueProvider)
             return super.getFilteredRows(p);
 
-        const collection = this.valueProvider!.getValue(p) as Iterable<unknown> | null | undefined;
-        return collection == null ? [] : [...collection];
+        const value = this.valueProvider!.getValue(p);
+        if (value == null)
+            return [];
+
+        // `@any[…]` asks "is there at least ONE?", so its provider must yield a collection. Signum let the
+        // cast to IEnumerable fail; name the provider instead, since this is an authoring mistake with an
+        // obvious fix (`@if[…]` is the scalar form).
+        if (typeof value !== "object" || !(Symbol.iterator in (value as object)))
+            throw new Error(`@any[${this.valueProvider!.toStringWithoutBrackets(new ScopedDictionary<ValueProviderBase>(undefined))}]`
+                + ` is not a collection — use @if[…] for a single value`);
+
+        return [...(value as Iterable<unknown>)];
     }
 
     override getResultFilter(p: TemplateParameters): (rr: ResultRow) => boolean {
@@ -188,9 +207,8 @@ export class ConditionCompare extends ConditionBase {
         if (this.operation == undefined)
             return rr => ConditionCompare.toBool(column.values[rr.index]);
 
-        const type = this.valueProvider!.type!;
         const isList = this.operation === FilterOperation.IsIn || this.operation === FilterOperation.IsNotIn;
-        const parsed = parseConstant(this.value!, type, isList);
+        const parsed = this.parsedValue(isList);
         const operation = this.operation;
 
         return rr => compareInMemory(operation, column.values[rr.index], parsed);

@@ -13,4 +13,5 @@ export * from "./dateTimeExtensions";
 
 // Shared data structures and free helper functions.
 export * from "./collections";
+export * from "./joinRelaxed";
 export * from "./helpers";

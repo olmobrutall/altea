@@ -347,7 +347,6 @@ export type IntegrityCheckEnvironment = "Client" | "ServerDeserialization" | "Sa
 // between reflection ↔ validators.  The full implementations live in validators.ts.
 export abstract class Validator {
     isApplicable?: (entity: any) => boolean;
-    customError?: () => string;
     // Per-environment opt-out (Signum's ValidatorAttribute.DisabledInModelBinder, generalised): return
     // true to SKIP this validator in the given environment. Set via `@<validator>({ disabled: env => … })`.
     // Examples: `env => true` (always off — the plain opt-out), `env => env === "Client"` (server-only,
@@ -358,6 +357,13 @@ export abstract class Validator {
     // layer detect an already-declared NotNull without importing validators.ts (cycle). Overridden there.
     get isNotNull(): boolean { return false; }
 
+    // True for a CountIsValidator that means "non-empty" (Signum's CountIsValidatorAttribute
+    // .IsGreaterThanZero: GreaterThan 0 / GreaterThanOrEqualTo 1). It is what makes a COLLECTION line
+    // mandatory in the UI — Signum computes MemberInfo.Required from exactly this test. Declared here (not
+    // in validators.ts) for the same cycle reason as isNotNull, so the client's taskSetMandatory and the
+    // reflection layer can read it off any Validator. Overridden by CountIsValidator.
+    get isGreaterThanZero(): boolean { return false; }
+
     abstract get helpMessage(): string;
     isCompatibleWith?(type: Function): boolean;
 
@@ -366,9 +372,7 @@ export abstract class Validator {
     error(value: unknown, entity: any, fieldName: FieldInfo, env: IntegrityCheckEnvironment): string | null {
         if (this.disabled != null && this.disabled(env)) return null;
         if (this.isApplicable != null && !this.isApplicable(entity)) return null;
-        const result = this.overrideError(value, entity, fieldName);
-        if (result == null) return null;
-        return this.customError != null ? this.customError() : result;
+        return this.overrideError(value, entity, fieldName);
     }
 }
 

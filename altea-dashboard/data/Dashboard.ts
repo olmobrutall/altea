@@ -10,6 +10,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
+import { noRepeatValidator, countIsValidator, ComparisonType } from "@altea/altea/data/validators";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
@@ -174,10 +175,10 @@ export class DashboardEntity_TokenEquivalenceGroup extends Entity {
 
     interactionGroup: InteractionGroupEnum | null;
 
-    // Signum's [PreserveOrder, NoRepeatValidator, CountIsValidator(GreaterThan, 1)] — an equivalence of one
-    // token equates nothing.
-    @fieldValidation<DashboardEntity_TokenEquivalenceGroup>(g => (g.tokenEquivalences?.length ?? 0) <= 1
-        ? DashboardMessage.ATokenEquivalenceGroupNeedsAtLeastTwoTokens.niceToString() : null)
+    // Signum's [PreserveOrder, NoRepeatValidator, CountIsValidator(ComparisonType.GreaterThan, 1)] — an
+    // equivalence of one token equates nothing.
+    @noRepeatValidator()
+    @countIsValidator(ComparisonType.GreaterThan, 1)
     tokenEquivalences: DashboardEntity_TokenEquivalenceGroup_Query[];
 
     toString(): string {
@@ -374,7 +375,6 @@ export const DashboardMessage = {
     StartColumnMustBeBetween0And11: msg("Start column must be between 0 and 11"),
     ColumnsMustBeBetween1And12: msg("Columns must be between 1 and 12"),
     AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds: msg("Auto refresh period must be greater than or equal to 10 seconds"),
-    ATokenEquivalenceGroupNeedsAtLeastTwoTokens: msg("A token equivalence group needs at least two tokens"),
     DuplicatedTokens0: msg("Duplicated tokens: {0}"),
     EmbeddedInEntityIsNecessaryWhenEntityTypeIsSet: msg("Embedded in entity is necessary when Entity Type is set"),
     EmbeddedInEntityIsNotAllowedWithoutEntityType: msg("Embedded in entity is not allowed without an Entity Type"),

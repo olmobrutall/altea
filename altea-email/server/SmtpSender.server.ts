@@ -34,14 +34,14 @@ export class SmtpSender extends EmailSenderBase {
     protected override async sendInternal(email: EmailMessageEntity): Promise<void> {
         const message = this.createMailMessage(email);
 
-        await HeavyProfiler.log("SMTP-Send", async () => {
-            const transporter = await createTransporter(this.smtp);
-            try {
-                await transporter.sendMail(message);
-            } finally {
-                transporter.close();
-            }
-        });
+        using _ = HeavyProfiler.log("SMTP-Send");
+
+        const transporter = await createTransporter(this.smtp);
+        try {
+            await transporter.sendMail(message);
+        } finally {
+            transporter.close();
+        }
     }
 
     private createMailMessage(email: EmailMessageEntity): SendMailOptions {

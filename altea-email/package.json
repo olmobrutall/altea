@@ -21,6 +21,7 @@
     "@altea/altea-files": "workspace:*",
     "@altea/altea-templating": "workspace:*",
     "@altea/altea-user-assets": "workspace:*",
+    "@altea/altea-user-queries": "workspace:*",
     "nodemailer": "^7.0.0",
     "quote-transformer": "workspace:*"
   },

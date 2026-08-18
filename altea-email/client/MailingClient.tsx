@@ -10,9 +10,11 @@ import { Constructor } from "@altea/altea/client/Constructor";
 import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
 import { QuickLinkClient, QuickLinkExplore } from "@altea/altea/client/QuickLinkClient";
 import { onContextualItems, type ContextualItemsContext, type MenuItemBlock } from "@altea/altea/client/SearchControl/ContextualItems";
-import { Entity, type ModifiableEntity, type Type } from "@altea/altea/data/entity";
+import { Entity, type BaseEntity, type Type } from "@altea/altea/data/entity";
+import { tryGetTypeInfo } from "@altea/altea/data/reflection";
 import { Lite } from "@altea/altea/data/lite";
-import { getQueryKey } from "@altea/altea/data/dynamicQuery/queryUtils";
+import { getQueryKey } from "@altea/altea/client/Reflection";
+import { getKey as queryKeyOf } from "@altea/altea/data/dynamicQuery/queryUtils";
 import type { QueryRequest } from "@altea/altea/data/dynamicQuery/queryRequest";
 import { TemplatingClient } from "@altea/altea-templating/client/TemplatingClient";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
@@ -178,16 +180,16 @@ export namespace MailingClient {
     }
 
     /** Signum's EmailModelSettings — how the client BUILDS a model before constructing a message from it. */
-    export interface EmailModelSettings<T extends ModifiableEntity> {
-        createFromTemplate?: (et: EmailTemplateEntity) => Promise<ModifiableEntity | undefined>;
-        createFromEntities?: (et: Lite<EmailTemplateEntity>, lites: Lite<Entity>[]) => Promise<ModifiableEntity | undefined>;
-        createFromQuery?: (et: Lite<EmailTemplateEntity>, req: QueryRequest) => Promise<ModifiableEntity | undefined>;
+    export interface EmailModelSettings<T extends BaseEntity> {
+        createFromTemplate?: (et: EmailTemplateEntity) => Promise<BaseEntity | undefined>;
+        createFromEntities?: (et: Lite<EmailTemplateEntity>, lites: Lite<Entity>[]) => Promise<BaseEntity | undefined>;
+        createFromQuery?: (et: Lite<EmailTemplateEntity>, req: QueryRequest) => Promise<BaseEntity | undefined>;
     }
 
-    export const settings: { [typeName: string]: EmailModelSettings<ModifiableEntity> } = {};
+    export const settings: { [typeName: string]: EmailModelSettings<BaseEntity> } = {};
 
-    export function register<T extends ModifiableEntity>(type: Type<T>, setting: EmailModelSettings<T>): void {
-        settings[type.typeName] = setting as EmailModelSettings<ModifiableEntity>;
+    export function register<T extends BaseEntity>(type: Type<T>, setting: EmailModelSettings<T>): void {
+        settings[(type as unknown as { typeName: string }).typeName] = setting as EmailModelSettings<BaseEntity>;
     }
 
     /** Signum's getEmailTemplates contextual item — "send one of these templates for the selected rows". */
@@ -195,11 +197,11 @@ export namespace MailingClient {
         if (ctx.lites.length === 0)
             return undefined;
 
-        if (EmailTemplateEntity.tryTypeInfo() == null)
+        if (tryGetTypeInfo(EmailTemplateEntity) == null)
             return undefined;
 
         return API.getEmailTemplates(
-            getQueryKey(ctx.queryToken.queryName),
+            queryKeyOf(ctx.queryToken.queryName),
             ctx.lites.length > 1 ? "Multiple" : "Single",
             { lite: ctx.lites.length === 1 ? ctx.lites[0] : null },
         ).then(templates => {

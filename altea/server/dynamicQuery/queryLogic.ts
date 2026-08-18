@@ -119,7 +119,7 @@ export namespace QueryLogic {
         if (sb.alreadyDefined(start))
             return;
         sb.include(QueryEntity as unknown as Type<Entity>).withQuery();
-        sb.schema.generating.push(seedQueryEntities);
+        sb.schema.generating.push(generateQueryEntities);
         sb.schema.synchronizing.push(synchronizeQueries);
         sb.schema.initializing.push(loadQueries);
     }
@@ -178,7 +178,7 @@ function queryEntityFromKey(key: string, id?: PrimaryKey): QueryEntity {
 
 // Generation (Signum's QueryLogic.Schema_Generating): INSERT one row per registered query key (id
 // DB-assigned). Sorted for a stable order. Runs after the table exists.
-function seedQueryEntities(schema: Schema): SqlPreCommand | undefined {
+function generateQueryEntities(schema: Schema): SqlPreCommand | undefined {
     const table = schema.tryTable(QueryEntity as never);
     if (table == null)
         return undefined;

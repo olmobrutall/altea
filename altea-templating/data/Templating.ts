@@ -57,7 +57,7 @@ export class TemplateApplicableSymbol extends Symbol {
 export class MultiEntityModel extends ModelEntity {
     @implementedByAll
     @noRepeatValidator()
-    entities: Lite<Entity>[] = [];
+    entities: Lite<Entity>[];
 
     toString(): string {
         return this.entities.map(e => e.toString()).join(", ");
@@ -71,9 +71,9 @@ export class MultiEntityModel extends ModelEntity {
 export class QueryModel extends ModelEntity {
     queryKey: string;
 
-    filters: FilterRequest[] = [];
+    filters: FilterRequest[];
 
-    orders: OrderRequest[] = [];
+    orders: OrderRequest[];
 
     pagination: Pagination;
 

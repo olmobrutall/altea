@@ -4,18 +4,24 @@ import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
 import { Graph } from "@altea/altea/server/graph";
-import { table } from "@altea/altea/server/table";
-import { Transaction } from "@altea/altea/server/connection/transaction";
+import { table as tableQuery } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
+import { Connector } from "@altea/altea/server/connection/connector";
+import type { Schema } from "@altea/altea/server/schema/schema";
+import { insertSqlSyncGenerated, updateSqlSync, deleteSqlSync } from "@altea/altea/server/save";
+import { existsTable, readObjectName } from "@altea/altea/server/sync/syncTableRead";
+import { Synchronizer, Replacements } from "@altea/altea/server/sync/synchronizer";
+import { SqlPreCommand, Spacing } from "@altea/altea/server/sync/sqlPreCommand";
 import {
     FilterCondition, FilterGroup, FilterOperation, FilterGroupOperation, Order, OrderType, Pagination,
     type Filter,
 } from "@altea/altea/server/dynamicQuery/requests";
 import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
-import { Entity, type Type } from "@altea/altea/data/entity";
+import { Entity, type PrimaryKey, type Type } from "@altea/altea/data/entity";
 import { cleanTypeName } from "@altea/altea/data/registration";
+import { joinRelaxed } from "@altea/altea/data/globals/joinRelaxed";
 import type { FilterRequest, OrderRequest } from "@altea/altea/data/dynamicQuery/queryRequest";
 import { MultiEntityModel, QueryModel } from "@altea/altea-templating/data/Templating";
 import { EmailModelEntity, type EmailOwnerRecipientData, type EmailOwnerData } from "../data/Email";
@@ -33,9 +39,9 @@ import { EmailMasterTemplateLogic } from "./EmailMasterTemplateLogic.server";
 //    factories below, byte-for-byte the same behaviour.
 //  - `Type.FullName` (the registry key) → altea's CLEAN TYPE NAME (`cleanTypeName(ctor)`), the stable
 //    identity altea already uses for a type on the wire. `fullClassName` keeps Signum's column name.
-//  - Signum's `Schema_Generating` / `Schema_Synchronizing` (the interactive rename-aware seeding of
-//    EmailModelEntity rows) is replaced by the plain SEED on start: the registry is code-declared, so the
-//    rows are re-derived rather than reconciled through a Replacements prompt.
+//  - `Schema_Generating` / `Schema_Synchronizing` ARE ported (see the bottom of this file): the registry rows
+//    go through the schema pipeline, so a RENAMED model class keeps its row — and its id, which every
+//    EmailTemplate.model FK targets — via the "EmailModel" Replacements bucket.
 //  - `RequiresExtraParameters` / `GetEntityConstructor` (C# reflection over the model's constructors) become
 //    the registration's own `construct` callback — present ⇒ the model can be built from an entity.
 
@@ -99,8 +105,11 @@ export namespace EmailModelLogic {
 
     const registeredModels = new Map<string, EmailModelInfo>();
 
-    /** Signum's `TypeToEntity` / `EntityToType`, folded into one cache keyed by the clean type name. */
-    export let emailModelsLazy: ResetLazy<EmailModelEntity[]> = null!;
+    /** Signum's `TypeToEntity` / `EntityToType`, folded into ONE cache keyed by the registry key (the model's
+     *  clean type name). Built with `joinRelaxed`, exactly as Signum builds TypeToEntity — so a registered
+     *  model with no row, or a row whose model is gone, is REPORTED (see StartParameters) rather than
+     *  silently dropped. */
+    export let emailModelsLazy: ResetLazy<Map<string, EmailModelEntity>> = null!;
 
     export function start(sb: SchemaBuilder): void {
         if (sb.alreadyDefined(start))
@@ -108,30 +117,46 @@ export namespace EmailModelLogic {
 
         sb.include(EmailModelEntity).withQuery();
 
-        emailModelsLazy = sb.globalLazy(
-            () => table(EmailModelEntity).toArray() as Promise<EmailModelEntity[]>,
-            { invalidateWith: [EmailModelEntity] });
+        emailModelsLazy = sb.globalLazy(async () => new Map(joinRelaxed(
+            await readEmailModelRows(),
+            registeredModels.keys(),
+            row => row.fullClassName,
+            key => key,
+            (row, key) => [key, row] as [string, EmailModelEntity],
+            "caching " + EmailModelEntity.name,
+        )), { invalidateWith: [EmailModelEntity] });
 
         new Graph.ConstructFrom(EmailTemplateOperation.CreateEmailTemplateFromModel, {
             construct: (se: EmailModelEntity) => createDefaultTemplateInternal(se),
         }).register();
 
-        // The registry rows are code-declared, so seed them once the schema exists (Signum reconciles them
-        // through an interactive Replacements prompt in `sync`; see the header).
-        sb.schema.initializing.push(async () => {
-            await Transaction.forceNew(async () => {
-                await ExecutionMode.global(async () => {
-                    const existing = await table(EmailModelEntity).toArray() as EmailModelEntity[];
-                    for (const info of registeredModels.values()) {
-                        const name = cleanTypeName(info.modelType);
-                        if (existing.some(e => e.fullClassName === name))
-                            continue;
-                        await EmailModelEntity.create({ fullClassName: name }).save();
-                    }
-                });
-            });
-            emailModelsLazy.reset();
-        });
+        // The registry rows are code-declared, so they are maintained by the SCHEMA pipeline, exactly as
+        // Signum does it (`sb.Schema.Generating += Schema_Generating; sb.Schema.Synchronizing +=
+        // Schema_Synchronizing`) — NOT by an `initializing` hook that inserts what is missing.
+        //
+        // The difference matters: a RENAMED model class must keep its existing row (and therefore its id),
+        // because every EmailTemplate.model FK points at it. A blind "insert what's missing" would add a row
+        // under the new name and leave every template pointing at the old one. Going through
+        // `synchronizing` means the rename is asked through Replacements (the "EmailModel" bucket) and the
+        // matched row is UPDATEd in place.
+        sb.schema.generating.push(schema => generateEmailModels(schema));
+        sb.schema.synchronizing.push(replacements => synchronizeEmailModels(replacements));
+
+        // Signum's `sb.Schema.Initializing += () => TypeToEntity.Load()` — warm the cache from the DB once the
+        // schema is ready, so the synchronous lookups below never race. No try/catch: a not-yet-created TABLE
+        // reads as no rows (readEmailModelRows), and a key MISMATCH is reported by joinRelaxed through
+        // StartParameters — which throws "Consider Synchronize" in development and can be collected instead
+        // for a deployment whose schema legitimately trails the code.
+        sb.schema.initializing.push(async () => { await emailModelsLazy.value(); });
+    }
+
+    /** The DECLARED registry rows, by their registry key (Signum's GenerateEmailModelEntities). Exported for
+     *  the schema-pipeline functions below. */
+    export function shouldRowsForSync(): Map<string, EmailModelEntity> {
+        return new Map([...registeredModels.values()]
+            .map(info => cleanTypeName(info.modelType))
+            .sort()
+            .map(name => [name, EmailModelEntity.create({ fullClassName: name })]));
     }
 
     /** Signum's RegisterEmailModel. Call BEFORE start (the registry table is seeded from these keys). */
@@ -163,11 +188,15 @@ export namespace EmailModelLogic {
 
     /** Signum's `GetEmailModelEntity(fullClassName)`. */
     export async function getEmailModelEntity(fullClassName: string): Promise<EmailModelEntity> {
-        const all = await emailModelsLazy.value();
-        const found = all.find(e => e.fullClassName === fullClassName);
+        const found = (await emailModelsLazy.value()).get(fullClassName);
         if (found == null)
-            throw new Error(`The EmailModel '${fullClassName}' has no registry row — was it registered before EmailLogic.start?`);
+            throw new Error(`The EmailModel '${fullClassName}' has no registry row — was it registered before EmailLogic.start, and has the database been synchronized?`);
         return found;
+    }
+
+    /** Every registry row that matched a registered model (Signum's `TypeToEntity.Value.Values`). */
+    export async function allEmailModelEntities(): Promise<EmailModelEntity[]> {
+        return [...(await emailModelsLazy.value()).values()];
     }
 
     /** Signum's `modelEntity.ToType()`. */
@@ -220,6 +249,101 @@ export namespace EmailModelLogic {
     export function registeredModelTypes(): Function[] {
         return [...registeredModels.values()].map(i => i.modelType);
     }
+}
+
+// ---- the registry table's schema pipeline (Signum's Schema_Generating / Schema_Synchronizing) ----------
+//
+// Signum's `EmailModelReplacementKey = "EmailModel"` — the rename bucket a removed FullClassName is matched
+// through, so a renamed model class keeps its row (and its id, which every EmailTemplate.model FK targets).
+
+const emailModelReplacementKey = "EmailModel";
+
+/** Signum's EmailModelLogic.Schema_Generating — INSERT one row per declared model on a FRESH database, in
+ *  sorted-key order so the DB-assigned ids are reproducible (the shape SymbolLogic.generateSymbols uses). */
+function generateEmailModels(schema: Schema): SqlPreCommand | undefined {
+    const table = schema.tryTable(EmailModelEntity);
+    if (table == null)
+        return undefined;
+
+    const should = [...EmailModelLogic.shouldRowsForSync().values()];
+    if (should.length === 0)
+        return undefined;
+
+    return SqlPreCommand.combine(Spacing.Simple,
+        ...should.map(e => insertSqlSyncGenerated(table, e as unknown as Entity)));
+}
+
+/** Signum's EmailModelLogic.Schema_Synchronizing — diff the DECLARED models against the live rows BY
+ *  FullClassName. A new one is INSERTed, a removed one DELETEd, and a RENAME (asked through Replacements)
+ *  lands in mergeBoth, which keeps the persisted id and only UPDATEs the name. */
+async function synchronizeEmailModels(replacements: Replacements): Promise<SqlPreCommand | undefined> {
+    const connector = Connector.current();
+    const table = connector.schema.tryTable(EmailModelEntity);
+    if (table == null)
+        return undefined;
+
+    const nameCol = table.fields["fullClassName"].field.columns()[0].name;
+    const pkCol = table.primaryKey.column.name;
+
+    type Current = { id: PrimaryKey; name: string };
+    const current = new Map<string, Current>();
+
+    // Read from the table's OLD name when the table itself was renamed this run; a not-yet-created table
+    // yields no rows, so every model becomes an INSERT after the CREATE emitted earlier in the same script.
+    const readName = readObjectName(table, replacements);
+    if (await existsTable(readName)) {
+        const sqlBuilder = connector.sqlBuilder;
+        const rows = await connector.executeQuery(
+            `SELECT ${sqlBuilder.sqlEscape(pkCol)}, ${sqlBuilder.sqlEscape(nameCol)} FROM ${sqlBuilder.objectName(readName)}`,
+        ) as Record<string, unknown>[];
+
+        for (const row of rows) {
+            const name = String(row[nameCol]);
+            current.set(name, { id: row[pkCol] as PrimaryKey, name });
+        }
+    }
+
+    return Synchronizer.synchronizeScriptReplacing<EmailModelEntity, Current>(
+        replacements,
+        emailModelReplacementKey,
+        Spacing.Double,
+        EmailModelLogic.shouldRowsForSync(),
+        current,
+        (_k, e) => insertSqlSyncGenerated(table, e as unknown as Entity), // new model: DB assigns the id
+        (_k, c) => deleteSqlSync(table, bareEmailModel(c.id)),
+        (_k, e, c) => {
+            // Matched (possibly through a RENAME): keep the persisted id — every EmailTemplate.model FK
+            // points at it — and only write the row when the name actually changed.
+            e.id = c.id;
+            e.isNew = false;
+            return e.fullClassName === c.name ? undefined : updateSqlSync(table, e as unknown as Entity);
+        },
+    );
+}
+
+/** Every persisted registry row, or EMPTY when the table does not exist yet (a fresh database before
+ *  `terminal create` / `sync`) — the same existsTable guard SymbolLogic's row read uses. A MISSING TABLE is
+ *  not a mismatch to report: there is nothing to compare against yet. */
+async function readEmailModelRows(): Promise<EmailModelEntity[]> {
+    const table = Connector.current().schema.tryTable(EmailModelEntity);
+    if (table == null)
+        return [];
+
+    try {
+        if (!await existsTable(table.name))
+            return [];
+    } catch {
+        return []; // no connector / offline — generation seeds from the declared set, not from the cache
+    }
+
+    return await ExecutionMode.global(() => tableQuery(EmailModelEntity).toArray()) as EmailModelEntity[];
+}
+
+/** A bare row carrying just an id, for building a DELETE (deleteSqlSync reads only the id). */
+function bareEmailModel(id: PrimaryKey): Entity {
+    const e = new EmailModelEntity();
+    e.id = id;
+    return e as unknown as Entity;
 }
 
 // ---- request-DTO → engine conversions (the QueryModel path) --------------------------------------------

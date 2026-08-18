@@ -28,8 +28,13 @@ import { UserQueryEntity_Filter } from "../../data/UserQuery";
 //    natively — so Signum's `renderValue` expression-toggle (SwitchToValue/Expression, [CurrentEntity],
 //    SmartDateTime) is DEFERRED; the raw string still round-trips.
 //  - values are converted to/from their stored string form by filterType (FilterValueString), lists on "|".
+//  - the ctx takes the SHARED `QueryFilterBaseEntity[]` rather than one owner's row type: every stored query
+//    definition owns its OWN @part filter rows (a part row has exactly one owner in altea), and they all
+//    subclass QueryFilterBaseEntity — so this one editor drives a UserQuery's, a UserChart's and an
+//    EmailTemplate's filters. When it REBUILDS the rows it must construct the OWNER's concrete row type,
+//    which it reads off the bound field's own reflection metadata (`rowConstructorOf`).
 interface FilterBuilderEmbeddedProps {
-    ctx: TypeContext<UserQueryEntity_Filter[]>;
+    ctx: TypeContext<QueryFilterBaseEntity[]>;
     avoidFieldSet?: boolean | HeaderType;
     queryKey: string;
     subTokenOptions: SubTokensOptions;
@@ -45,7 +50,7 @@ export function FilterBuilderEmbedded(p: FilterBuilderEmbeddedProps): React.JSX.
         [rootToken, p.ctx.value, p.subTokenOptions]);
 
     function handleFiltersChanged(newFilters: FilterOptionParsed[]): void {
-        const rows = filterOptionsParsedToEmbedded(newFilters);
+        const rows = filterOptionsParsedToEmbedded(newFilters, rowConstructorOf(p.ctx));
         p.ctx.value.length = 0;
         p.ctx.value.push(...rows);
         p.ctx.binding.setValue(p.ctx.value); // force change tracking
@@ -178,11 +183,14 @@ async function toFilterOptionParsed(
 
 // Flatten a parsed filter tree into the stored, indentation-tagged rows (Signum's pushFilter loop). Shared
 // by the FilterBuilderEmbedded editor and UserQueryMenu's create/apply-changes.
-export function filterOptionsParsedToEmbedded(filters: FilterOptionParsed[]): UserQueryEntity_Filter[] {
-    const rows: UserQueryEntity_Filter[] = [];
+export function filterOptionsParsedToEmbedded(
+    filters: FilterOptionParsed[],
+    rowConstructor: new () => QueryFilterBaseEntity = UserQueryEntity_Filter,
+): QueryFilterBaseEntity[] {
+    const rows: QueryFilterBaseEntity[] = [];
     function push(fo: FilterOptionParsed, indent: number): void {
-        const row = new UserQueryEntity_Filter();
-        row.indentation = indent as UserQueryEntity_Filter["indentation"];
+        const row = new rowConstructor();
+        row.indentation = indent as QueryFilterBaseEntity["indentation"];
         row.pinned = fo.pinned ? toPinnedEmbedded(fo.pinned) : null;
         // FindOptions carries member-name strings; the embedded enum fields are int-FK ordinals (Enum.toValue).
         row.dashboardBehaviour = fo.dashboardBehaviour == null ? null : Enum.toValue(DashboardBehaviourEnum, fo.dashboardBehaviour);
@@ -249,6 +257,13 @@ function groupWhen<T>(list: T[], isGroupStart: (t: T) => boolean): T[][] {
         }
     }
     return result;
+}
+
+/** The concrete `@part` row type the bound collection holds (see the header). Read off the field's own
+ *  TypeReference; falls back to UserQueryEntity_Filter when the ctx has no property route (a detached ctx). */
+function rowConstructorOf(ctx: TypeContext<QueryFilterBaseEntity[]>): new () => QueryFilterBaseEntity {
+    const ctor = ctx.propertyRoute?.fieldInfo?.getFunction();
+    return (ctor as (new () => QueryFilterBaseEntity) | undefined) ?? UserQueryEntity_Filter;
 }
 
 export default FilterBuilderEmbedded;

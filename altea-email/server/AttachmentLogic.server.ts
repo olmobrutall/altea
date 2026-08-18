@@ -10,7 +10,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { retrieve } from "@altea/altea/server/Database";
 import type { Type } from "@altea/altea/data/entity";
 import { TextTemplateParser } from "@altea/altea-templating/server/TextTemplateParser.server";
-import { TextTemplateParameters } from "@altea/altea-templating/server/ValueProviders.server";
+import { TextTemplateParameters } from "@altea/altea-templating/server/TextTemplateParser.Nodes.server";
 import type { BlockNode } from "@altea/altea-templating/server/TextTemplateParser.Nodes.server";
 import { FileEmbedded, FilePathEmbedded } from "@altea/altea-files/data/Files";
 import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbeddedLogic.server";
@@ -49,9 +49,9 @@ export namespace AttachmentLogic {
     }
 
     /** Signum's ImageAttachmentLogic.Start. */
-    export function startImageAttachment(sb: SchemaBuilder): void {
-        sb.include(ImageAttachmentEntity);
-
+    // The attachment TABLES need no include here: each is an @implementedBy target of an attachment row's
+    // @valueField, so the SchemaBuilder includes it with the template. What this registers is the BEHAVIOUR.
+    export function startImageAttachment(_sb: SchemaBuilder): void {
         EmailTemplateLogic.registerFillAttachmentTokens<ImageAttachmentEntity>(ImageAttachmentEntity, (a, ctx) => {
             if (a.fileName != null)
                 TextTemplateParser.parse(a.fileName, ctx.queryName, ctx.modelType).fillQueryTokens(ctx.queryTokens);
@@ -71,9 +71,7 @@ export namespace AttachmentLogic {
     }
 
     /** Signum's FileTokenAttachmentLogic.Start. */
-    export function startFileTokenAttachment(sb: SchemaBuilder): void {
-        sb.include(FileTokenAttachmentEntity);
-
+    export function startFileTokenAttachment(_sb: SchemaBuilder): void {
         EmailTemplateLogic.registerFillAttachmentTokens<FileTokenAttachmentEntity>(FileTokenAttachmentEntity, (a, ctx) => {
             if (a.fileName != null)
                 TextTemplateParser.parse(a.fileName, ctx.queryName, ctx.modelType).fillQueryTokens(ctx.queryTokens);

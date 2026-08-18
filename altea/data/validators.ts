@@ -1,5 +1,5 @@
 
-import { getOrCreateTypeInfo, getOrCreateFieldInfo, Validator, registerImplicitNotNullValidator } from './reflection';
+import { getOrCreateTypeInfo, getOrCreateFieldInfo, tryGetTypeInfo, Validator, registerImplicitNotNullValidator } from './reflection';
 import type { FieldInfo, IntegrityCheckEnvironment } from './reflection';
 import type { BaseEntity } from './entity';
 import { msg } from './utils/localization';
@@ -16,7 +16,20 @@ export const ValidationMessage = {
     NumberIsTooBig: msg("Number is too big"),
     EachRowRepresentsAGroupOf0WithSame1: msg("Each row represents a group of {0} with same {1}"),
     TheNumberOf0IsBeingMultipliedBy1: msg("The number of {0} is being multiplied by {1}"),
+    TheNumberOfElementsOf0HasToBe12: msg("The number of elements of {0} has to be {1} {2}"),
+    HaveANumberOfElements01: msg("have a number of elements {0} {1}"),
 };
+
+// Signum's ComparisonType (Entities/Validation/ValidationAttributes.cs) — how a count / number validator
+// compares. A real altea enum object so `Enum.niceName` gives it a translatable display name.
+export enum ComparisonType {
+    EqualTo,
+    DistinctTo,
+    GreaterThan,
+    GreaterThanOrEqualTo,
+    LessThan,
+    LessThanOrEqualTo,
+}
 
 // Options common to EVERY validator (they map to fields on the base Validator, so any validator can
 // carry them). Each specific options interface extends this, and `addValidator` applies them uniformly.
@@ -173,6 +186,12 @@ export class EmailValidator extends Validator {
 }
 
 // --- NoRepeatValidator ---
+//
+// Signum's [NoRepeatValidator] compares the MList's ELEMENTS, which for an `MList<Lite<T>>` / `MList<Symbol>`
+// are the values themselves. altea has no MList: such a collection is an array of `@part` ROWS whose
+// `@valueField` holds the value (see the MList divergence in CLAUDE.md). Comparing the ROWS would compare
+// object identity — every row is a distinct object, so nothing would EVER be reported as repeated. So a row
+// with a `@valueField` is compared through THAT field, which is the element Signum saw.
 
 export function noRepeatValidator(options: ValidatorOptions = {}) {
     return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new NoRepeatValidator(), options);
@@ -185,14 +204,125 @@ export class NoRepeatValidator extends Validator {
     protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
         const list = value as unknown[] | null | undefined;
         if (list == null || list.length <= 1) return null;
-        const seen = new Set<unknown>();
+
+        const seen = new Map<string, unknown>();
         const repeated: unknown[] = [];
         for (const item of list) {
-            if (seen.has(item)) repeated.push(item);
-            else seen.add(item);
+            const element = valueOfElement(item);
+            const key = comparisonKey(element);
+            if (seen.has(key)) repeated.push(element);
+            else seen.set(key, element);
         }
+
         return repeated.length > 0
-            ? ValidationMessage._0HasSomeRepeatedElements1.niceToString(fi.niceToString(), repeated.join(', '))
+            ? ValidationMessage._0HasSomeRepeatedElements1.niceToString(fi.niceToString(),
+                repeated.map(r => String(r)).join(', '))
             : null;
     }
+}
+
+/** The ELEMENT a collection item stands for: a `@part` row's `@valueField` when it has one, else the item. */
+function valueOfElement(item: unknown): unknown {
+    if (item == null || typeof item !== 'object')
+        return item;
+
+    const valueField = tryGetTypeInfo(item.constructor)?.valueField;
+    return valueField == null ? item : (item as Record<string, unknown>)[valueField.name];
+}
+
+/** A stable string identity for the comparison. Lites / entities compare by their KEY (a Lite is a fresh
+ *  object on every read, so reference equality is wrong); everything else by value, with a type tag so
+ *  `1` and `"1"` stay distinct. Two rows with no valueField still compare by reference, as before. */
+function comparisonKey(element: unknown): string {
+    if (element == null)
+        return 'null';
+
+    const asLite = element as { entityType?: { name?: string }; id?: unknown; key?: () => string };
+    if (typeof asLite.key === 'function' && asLite.entityType != null)
+        return 'lite:' + asLite.key();
+
+    const asEntity = element as { toLite?: () => { key(): string }; idOrNull?: unknown; id?: unknown };
+    if (typeof asEntity.toLite === 'function' && asEntity.id != null)
+        return 'entity:' + asEntity.toLite!().key();
+
+    if (typeof element === 'object')
+        return 'ref:' + (referenceIds.get(element as object) ?? setReferenceId(element as object));
+
+    return typeof element + ':' + String(element);
+}
+
+// Reference identity for the objects that have no value identity (an embedded, a row with no valueField):
+// they must still compare as themselves, and a WeakMap gives each one a stable tag without leaking.
+const referenceIds = new WeakMap<object, number>();
+let nextReferenceId = 0;
+function setReferenceId(o: object): number {
+    const id = nextReferenceId++;
+    referenceIds.set(o, id);
+    return id;
+}
+
+// --- CountIsValidator ---
+//
+// Signum's [CountIsValidator(ComparisonType, number)] — how MANY elements a collection must hold:
+//   @countIsValidator(ComparisonType.GreaterThan, 0)        // at least one — and MANDATORY in the UI
+//   @countIsValidator(ComparisonType.GreaterThan, 1)        // at least two
+//   @countIsValidator(ComparisonType.LessThanOrEqualTo, 5)  // at most five
+//
+// `GreaterThan 0` / `GreaterThanOrEqualTo 1` are Signum's `IsGreaterThanZero`: they mean "non-empty", which
+// is what makes the LINE mandatory (the red/asterisked label). altea surfaces that through
+// `Validator.isGreaterThanZero`, which the client's taskSetMandatory reads — a collection is otherwise never
+// mandatory (a non-null array means "not null", not "non-empty"; see FieldInfo.computeNeedsImplicitNotNull).
+
+export interface CountIsOptions extends ValidatorOptions { }
+
+export function countIsValidator(comparison: ComparisonType, number: number, options: CountIsOptions = {}) {
+    return (target: object, propertyKey: string | symbol) =>
+        addValidator(target, propertyKey, new CountIsValidator(comparison, number), options);
+}
+
+export class CountIsValidator extends Validator {
+    constructor(public readonly comparison: ComparisonType, public readonly number: number) { super(); }
+
+    isCompatibleWith(type: Function) { return type === Array; }
+
+    /** Signum's IsGreaterThanZero — the two spellings of "non-empty" (see the header). */
+    override get isGreaterThanZero(): boolean {
+        return (this.comparison === ComparisonType.GreaterThan && this.number === 0)
+            || (this.comparison === ComparisonType.GreaterThanOrEqualTo && this.number === 1);
+    }
+
+    get helpMessage(): string {
+        return ValidationMessage.HaveANumberOfElements01.niceToString(comparisonName(this.comparison), this.number);
+    }
+
+    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
+        const list = value as unknown[] | null | undefined;
+        const count = list == null ? 0 : list.length;
+
+        if (holds(this.comparison, count, this.number))
+            return null;
+
+        return ValidationMessage.TheNumberOfElementsOf0HasToBe12.niceToString(
+            fi.niceToString(), comparisonName(this.comparison), this.number);
+    }
+}
+
+function holds(comparison: ComparisonType, value: number, target: number): boolean {
+    switch (comparison) {
+        case ComparisonType.EqualTo: return value === target;
+        case ComparisonType.DistinctTo: return value !== target;
+        case ComparisonType.GreaterThan: return value > target;
+        case ComparisonType.GreaterThanOrEqualTo: return value >= target;
+        case ComparisonType.LessThan: return value < target;
+        case ComparisonType.LessThanOrEqualTo: return value <= target;
+    }
+}
+
+// Signum's `ComparisonType.NiceToString().FirstLower()` — "greater than", "less than or equal to", …
+// Built from the member name rather than through `Enum.niceName`, so validators.ts stays free of the
+// enum-registry import (this module is loaded very early, next to reflection).
+function comparisonName(comparison: ComparisonType): string {
+    const name = ComparisonType[comparison];
+    const spaced = name.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+    return spaced.charAt(0).toLowerCase() + spaced.slice(1);
 }

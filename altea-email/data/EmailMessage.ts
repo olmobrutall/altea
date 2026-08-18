@@ -56,9 +56,9 @@ export class EmailMessageEntity_Recipient extends EmailRecipientBaseEntity {
 @entity("Part", "Transactional")
 export class EmailMessageEntity_Attachment extends Entity {
     @backReference emailMessage: Lite<EmailMessageEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
-    type: EmailAttachmentTypeEnum = EmailAttachmentTypeEnum.Attachment;
+    type: EmailAttachmentTypeEnum;
 
     /** The file itself, in the EmailFileType.Attachment store. */
     file: FilePathEmbedded;
@@ -84,61 +84,61 @@ export class EmailMessageEntity extends Entity {
     /** Signum's [CountIsValidator(ComparisonType.GreaterThan, 0)] — a message with no recipients cannot be
      *  sent. GreaterThan 0 also makes the recipients line MANDATORY in the editor. */
     @countIsValidator(ComparisonType.GreaterThan, 0)
-    recipients: EmailMessageEntity_Recipient[] = [];
+    recipients: EmailMessageEntity_Recipient[];
 
     /** The entity this message is ABOUT (the quick-link "emails of this order" reads it). */
     @implementedByAll
-    target: Lite<Entity> | null = null;
+    target: Lite<Entity> | null;
 
     from: EmailFromEmbedded;
 
-    template: Lite<EmailTemplateEntity> | null = null;
+    template: Lite<EmailTemplateEntity> | null;
 
     @format("G")
     creationDate: Temporal.PlainDateTime = Clock.now;
 
     @format("G")
-    sent: Temporal.PlainDateTime | null = null;
+    sent: Temporal.PlainDateTime | null;
 
-    sentBy: Lite<EmailSenderConfigurationEntity> | null = null;
+    sentBy: Lite<EmailSenderConfigurationEntity> | null;
 
     @format("G")
-    receptionNotified: Temporal.PlainDateTime | null = null;
+    receptionNotified: Temporal.PlainDateTime | null;
 
     /** Unbounded (Signum's `[DbType(Size = int.MaxValue)]`), and allowed to keep leading/trailing spaces. */
     @stringLengthValidator({ multiLine: true })
-    subject: string | null = null;
+    subject: string | null;
 
     /** The rendered body. A BigStringEmbedded: one unbounded nullable text column behind an embedded. */
-    body: BigStringEmbedded = new BigStringEmbedded();
+    body: BigStringEmbedded;
 
     /** A de-duplication key over subject + body, filled server-side on save (see the header). */
     @stringLengthValidator({ min: 1, max: 150 })
-    bodyHash: string | null = null;
+    bodyHash: string | null;
 
-    isBodyHtml: boolean = false;
+    isBodyHtml: boolean;
 
     /** Set when a send attempt threw; goes with state SentException. */
     @fieldValidation<EmailMessageEntity>(m =>
         m.exception != null && m.state !== EmailMessageStateEnum.SentException && m.state !== EmailMessageStateEnum.ReceptionNotified
             ? "{0} should be empty" : null)
-    exception: Lite<ExceptionEntity> | null = null;
+    exception: Lite<ExceptionEntity> | null;
 
     @fieldValidation<EmailMessageEntity>(m => stateAllowsSent(m.state) || m.sent == null ? null : "{0} should be empty")
-    state: EmailMessageStateEnum = EmailMessageStateEnum.Created;
+    state: EmailMessageStateEnum;
 
     /** Signum's UniqueIdentifier — a stable id the reception side matches a reply against. */
-    uniqueIdentifier: uuid | null = null;
+    uniqueIdentifier: uuid | null;
 
     editableMessage: boolean = true;
 
     /** Which async-sender pass claimed this message (see AsyncEmailSender.recruitQueuedItems). */
-    processIdentifier: uuid | null = null;
+    processIdentifier: uuid | null;
 
-    sendRetries: int = toInt(0);
+    sendRetries: int;
 
     @noRepeatValidator()
-    attachments: EmailMessageEntity_Attachment[] = [];
+    attachments: EmailMessageEntity_Attachment[];
 
     /** What `bodyHash` is computed over (Signum's CalculateHash input). */
     hashSource(): string {

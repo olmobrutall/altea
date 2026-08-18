@@ -110,8 +110,7 @@ export namespace EmailLogic {
             decryptPassword: options.decryptPassword,
         });
 
-        sb.include(EmailMessageEntity_Recipient);
-        sb.include(EmailMessageEntity_Attachment);
+        // Its recipient / attachment @part rows are included automatically (see EmailTemplateLogic).
         sb.include(EmailMessageEntity).withQuery();
 
         // altea has no PermissionLogic registry: a PermissionSymbol declared with init() is seeded into the
@@ -355,7 +354,7 @@ export namespace EmailLogic {
                 })),
                 target: m.target,
                 subject: m.subject,
-                body: new BigStringEmbedded(m.body.text),
+                body: BigStringEmbedded.create({ text: m.body.text }),
                 isBodyHtml: m.isBodyHtml,
                 template: m.template,
                 editableMessage: m.editableMessage,
@@ -367,7 +366,7 @@ export namespace EmailLogic {
         }).register();
 
         new Graph.Delete(EmailMessageOperation.Delete, {
-            delete: (m: EmailMessageEntity) => m.delete(),
+            delete: async (m: EmailMessageEntity) => { await m.delete(); },
         }).register();
     }
 
@@ -379,7 +378,7 @@ export namespace EmailLogic {
     /** Signum's `Transaction.PostRealCommit += WakeupReadyToSendInThisMachine` — nudge the sender once the
      *  message is really committed (waking it before that would find nothing). */
     function wakeUpAfterCommit(): void {
-        Transaction.onPostRealCommit(() => AsyncEmailSender.wakeUp("ReadyToSend in this machine"));
+        Transaction.postRealCommit(() => AsyncEmailSender.wakeUp("ReadyToSend in this machine"));
     }
 }
 

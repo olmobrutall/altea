@@ -55,20 +55,20 @@ export interface EmailOwnerData {
 @reflect
 export abstract class EmailAddressEmbedded extends EmbeddedEntity {
     @implementedBy(() => [UserEntity])
-    emailOwner: Lite<IEmailOwnerEntity> | null = null;
+    emailOwner: Lite<IEmailOwnerEntity> | null;
 
     // Signum's [StringLengthValidator(3, 100)] + an EMailValidator applied in PropertyValidation only when
     // `invalidEmail` is false (a received message may legitimately carry a malformed address).
     @fieldValidation<EmailAddressEmbedded>(a => a.invalidEmail || a.emailAddress == null || emailRegex.test(a.emailAddress) ? null
         : ValidationMessage._0DoesNotHaveAValid1Format.niceToString("{0}", "e-Mail"))
     @stringLengthValidator({ min: 3, max: 100 })
-    emailAddress: string = "";
+    emailAddress: string;
 
     /** Signum's InvalidEmail — set on a received message whose address does not parse, so validation
      *  does not block storing it. */
-    invalidEmail: boolean = false;
+    invalidEmail: boolean;
 
-    displayName: string | null = null;
+    displayName: string | null;
 
     toString(): string {
         return `${this.displayName ?? ""} <${this.emailAddress}>`;
@@ -80,7 +80,7 @@ export abstract class EmailAddressEmbedded extends EmbeddedEntity {
 export class EmailFromEmbedded extends EmailAddressEmbedded {
     /** Signum's AzureUserId — the Graph/Exchange sender identity. Kept (it is part of the stored shape)
      *  even though only the SMTP sender is ported. */
-    azureUserId: string | null = null;
+    azureUserId: string | null;
 
     clone(): EmailFromEmbedded {
         return EmailFromEmbedded.create({
@@ -115,21 +115,21 @@ export type EmailRecipientKind = keyof typeof EmailRecipientKindEnum;
 @reflect
 export abstract class EmailRecipientBaseEntity extends Entity {
     @rowOrder
-    order: int = toInt(0);
+    order: int;
 
     @implementedBy(() => [UserEntity])
-    emailOwner: Lite<IEmailOwnerEntity> | null = null;
+    emailOwner: Lite<IEmailOwnerEntity> | null;
 
     @fieldValidation<EmailRecipientBaseEntity>(a => a.invalidEmail || a.emailAddress == null || emailRegex.test(a.emailAddress) ? null
         : ValidationMessage._0DoesNotHaveAValid1Format.niceToString("{0}", "e-Mail"))
     @stringLengthValidator({ min: 3, max: 100 })
-    emailAddress: string = "";
+    emailAddress: string;
 
-    invalidEmail: boolean = false;
+    invalidEmail: boolean;
 
-    displayName: string | null = null;
+    displayName: string | null;
 
-    kind: EmailRecipientKindEnum = EmailRecipientKindEnum.To;
+    kind: EmailRecipientKindEnum;
 
     /** Signum's `EmailRecipientEmbedded.BaseToString()` — the address without the Kind prefix. */
     baseToString(): string {
@@ -167,25 +167,25 @@ export class EmailConfigurationEmbedded extends EmbeddedEntity {
     /** The locale a message falls back to when neither the recipient nor the template names one. Signum's
      *  `CultureInfoEntity DefaultCulture`; a plain locale string in altea (see the header). */
     @stringLengthValidator({ min: 2, max: 20 })
-    defaultCulture: string = "en-US";
+    defaultCulture: string;
 
     /** Signum's UrlLeft — the absolute app root a template's links are built on (`@[g:UrlLeft]`). */
     @fieldValidation<EmailConfigurationEmbedded>(c => c.urlLeft?.endsWith("/") ? "{0} should not have a final /" : null)
     @urlValidator()
-    urlLeft: string = "";
+    urlLeft: string;
 
     /** The master switch: false ⇒ a "sent" message is recorded but nothing leaves the process. */
-    sendEmails: boolean = false;
+    sendEmails: boolean;
 
-    reciveEmails: boolean = false;
+    reciveEmails: boolean;
 
     /** Signum's OverrideEmailAddress — a test-environment catch-all that replaces every recipient. */
     @emailValidator()
     @stringLengthValidator({ min: 3, max: 100 })
-    overrideEmailAddress: string | null = null;
+    overrideEmailAddress: string | null;
 
     @unit("hrs")
-    avoidSendingEmailsOlderThan: number | null = null;
+    avoidSendingEmailsOlderThan: number | null;
 
     chunkSizeSendingEmails: int = toInt(100);
 

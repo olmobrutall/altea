@@ -119,7 +119,8 @@ export default function UserQueryMenu(p: UserQueryMenuProps): React.JSX.Element 
         uq.query = await UserQueriesClient.API.queryEntity(fop.queryKey);
         uq.displayName = "";
         uq.groupResults = fop.groupResults;
-        uq.filters = filterOptionsParsedToEmbedded(fop.filterOptions);
+        // The rows this owner holds are its OWN @part type (the shared editor is generic — see FilterBuilderEmbedded).
+        uq.filters = filterOptionsParsedToEmbedded(fop.filterOptions, UserQueryEntity_Filter) as UserQueryEntity_Filter[];
         uq.includeDefaultFilters = fo.includeDefaultFilters ?? null;
         uq.columnsMode = Enum.toValue(ColumnOptionsModeEnum, fo.columnOptionsMode ?? "Add");
         uq.columns = fop.columnOptions.map(toColumnEmbedded);

@@ -20,9 +20,8 @@ import { TemplatingLogic } from "@altea/altea-templating/server/TemplatingLogic.
 import { MultiEntityModel, QueryModel } from "@altea/altea-templating/data/Templating";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import {
-    EmailTemplateEntity, EmailTemplateEntity_Filter, EmailTemplateEntity_From, EmailTemplateEntity_Message,
-    EmailTemplateEntity_Order, EmailTemplateEntity_Recipient, EmailTemplateOperation, EmailTemplateVisibleOn,
-    type IAttachmentGeneratorEntity,
+    EmailTemplateEntity, EmailTemplateEntity_Message, EmailTemplateEntity_Order, EmailTemplateOperation,
+    EmailTemplateVisibleOn, type IAttachmentGeneratorEntity,
 } from "../data/EmailTemplate";
 import type { EmailMessageEntity } from "../data/EmailMessage";
 import type { EmailModelEntity } from "../data/Email";
@@ -107,12 +106,9 @@ export namespace EmailTemplateLogic {
 
         TemplatingLogic.start(sb);
 
-        sb.include(EmailTemplateEntity_From);
-        sb.include(EmailTemplateEntity_Recipient);
-        sb.include(EmailTemplateEntity_Filter);
-        sb.include(EmailTemplateEntity_Order);
-        sb.include(EmailTemplateEntity_Message);
-
+        // The @part rows (from / recipients / filters / orders / messages / attachments) need no include of
+        // their own: SchemaBuilder.generateField includes every entity a field reaches, propagating this
+        // owner's EntityData as it goes.
         sb.include(EmailTemplateEntity).withQuery();
 
         emailTemplatesLazy = sb.globalLazy(
@@ -193,7 +189,9 @@ export namespace EmailTemplateLogic {
         // Signum's Delete: the attachment rows the template owns go with it.
         new Graph.Delete(EmailTemplateOperation.Delete, {
             delete: async (t: EmailTemplateEntity) => {
-                const attachments = [...t.attachments];
+                // The attachment ENTITIES a row points at are Parts of their own (Signum deleted them too);
+                // the rows go with the template's own cascade.
+                const attachments = t.attachments.map(a => a.attachment);
                 await t.delete();
                 for (const a of attachments)
                     await a.delete();
@@ -384,7 +382,7 @@ export namespace EmailTemplateLogic {
     /** The template rows created for a MODEL that has none yet (the terminal's helper). */
     export async function generateDefaultTemplates(): Promise<string[]> {
         const errors: string[] = [];
-        const models = await EmailModelLogic.emailModelsLazy.value();
+        const models = await EmailModelLogic.allEmailModelEntities();
 
         for (const model of models) {
             const existing = await table(EmailTemplateEntity).filter(t => t.model!.is(model)).toArray();

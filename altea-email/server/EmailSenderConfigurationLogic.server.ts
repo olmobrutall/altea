@@ -8,7 +8,6 @@ import { table } from "@altea/altea/server/table";
 import type { Lite } from "@altea/altea/data/lite";
 import {
     EmailSenderConfigurationEntity, EmailSenderConfigurationOperation, SmtpEmailServiceEntity,
-    SmtpNetworkDeliveryEmbedded, SmtpNetworkDeliveryEmbedded_ClientCertificationFile,
     EmailServiceEntity,
 } from "../data/EmailSenderConfiguration";
 
@@ -47,10 +46,8 @@ export namespace EmailSenderConfigurationLogic {
         if (options?.decryptPassword != null)
             decrypt = options.decryptPassword;
 
-        sb.include(SmtpNetworkDeliveryEmbedded_ClientCertificationFile);
-        sb.include(SmtpNetworkDeliveryEmbedded);
-        sb.include(SmtpEmailServiceEntity);
-
+        // The SERVICE (a polymorphic @implementedBy target), its network row and that row's certificate rows
+        // are all reached from this entity's fields, so the SchemaBuilder includes them itself.
         sb.include(EmailSenderConfigurationEntity)
             .withQuery();
 

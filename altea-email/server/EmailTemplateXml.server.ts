@@ -8,11 +8,12 @@ import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsIm
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import {
-    EmailAddressSourceEnum, EmailAttachmentTypeEnum, EmailMasterTemplateEntity, EmailMasterTemplateEntity_Message,
-    EmailMessageFormatEnum, EmailTemplateEntity, EmailTemplateEntity_Filter, EmailTemplateEntity_From,
-    EmailTemplateEntity_Message, EmailTemplateEntity_Order, EmailTemplateEntity_Recipient, FileTokenAttachmentEntity,
-    ImageAttachmentEntity, WhenManyFromBehaviourEnum, WhenManyRecipientsBehaviourEnum, WhenNoneFromBehaviourEnum,
-    WhenNoneRecipientsBehaviourEnum, type IAttachmentGeneratorEntity,
+    EmailAddressSourceEnum, EmailAttachmentTypeEnum, EmailMasterTemplateEntity, EmailMasterTemplateEntity_Attachment,
+    EmailMasterTemplateEntity_Message, EmailMessageFormatEnum, EmailTemplateEntity, EmailTemplateEntity_Attachment,
+    EmailTemplateEntity_Filter, EmailTemplateEntity_From, EmailTemplateEntity_Message, EmailTemplateEntity_Order,
+    EmailTemplateEntity_Recipient, FileTokenAttachmentEntity, ImageAttachmentEntity, WhenManyFromBehaviourEnum,
+    WhenManyRecipientsBehaviourEnum, WhenNoneFromBehaviourEnum, WhenNoneRecipientsBehaviourEnum,
+    type IAttachmentGeneratorEntity,
 } from "../data/EmailTemplate";
 import { EmailRecipientKindEnum } from "../data/Email";
 import { EmailModelLogic } from "./EmailModelLogic.server";
@@ -84,7 +85,7 @@ async function templateToXml(et: EmailTemplateEntity, ctx: IToXmlContext): Promi
         })),
     };
 
-    if (et.attachments.length) o["Attachments"] = attachmentsXml(et.attachments);
+    if (et.attachments.length) o["Attachments"] = attachmentsXml(et.attachments.map(r => r.attachment));
 
     o["Messages"] = {
         Message: et.messages.map(m => ({
@@ -168,7 +169,8 @@ function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unknown>, 
         return m;
     });
 
-    et.attachments = readAttachments(xml["Attachments"]);
+    et.attachments = readAttachments(xml["Attachments"]).map((a, i) =>
+        EmailTemplateEntity_Attachment.create({ order: toInt(i), attachment: a }));
 
     // Signum stored a C# script here; altea stores a symbol KEY (see the header). A file with a script has
     // no `Symbol` attribute, so the predicate is simply left unset.
@@ -192,7 +194,7 @@ function masterToXml(emt: EmailMasterTemplateEntity, _ctx: IToXmlContext): Recor
     o["Messages"] = {
         Message: emt.messages.map(m => ({ [A + "CultureInfo"]: m.culture, "#text": m.text })),
     };
-    if (emt.attachments.length) o["Attachments"] = attachmentsXml(emt.attachments);
+    if (emt.attachments.length) o["Attachments"] = attachmentsXml(emt.attachments.map(r => r.attachment));
     return o;
 }
 
@@ -205,7 +207,8 @@ function masterFromXml(emt: EmailMasterTemplateEntity, xml: Record<string, unkno
         m.text = str(x["#text"]) ?? "";
         return m;
     });
-    emt.attachments = readAttachments(xml["Attachments"]);
+    emt.attachments = readAttachments(xml["Attachments"]).map((a, i) =>
+        EmailMasterTemplateEntity_Attachment.create({ order: toInt(i), attachment: a }));
 }
 
 // ---- shared pieces -------------------------------------------------------------------------------------

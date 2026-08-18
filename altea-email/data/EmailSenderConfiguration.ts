@@ -49,7 +49,7 @@ export abstract class EmailServiceEntity extends Entity {
 @entity("Part", "Master")
 export class SmtpNetworkDeliveryEmbedded_ClientCertificationFile extends Entity {
     @backReference network: Lite<SmtpNetworkDeliveryEmbedded>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
     @stringLengthValidator({ min: 2, max: 300 })
     fullFilePath: string;
@@ -73,23 +73,23 @@ export class SmtpNetworkDeliveryEmbedded extends Entity {
     port: int = toInt(25);
 
     @stringLengthValidator({ max: 100 })
-    username: string | null = null;
+    username: string | null;
 
     /** The ENCRYPTED password at rest (EmailSenderConfigurationLogic.encryptPassword). Never shown in the
      *  editor as itself — the user types into `newPassword`, which the Save operation encrypts into here. */
     @format("Password")
     @stringLengthValidator({ max: 200 })
-    password: string | null = null;
+    password: string | null;
 
     /** Signum's `[Ignore, InTypeScript(true)] NewPassword` — carried on the wire, never a column. */
     @column(false)
-    newPassword: string | null = null;
+    newPassword: string | null;
 
     useDefaultCredentials: boolean = true;
 
-    enableSSL: boolean = false;
+    enableSSL: boolean;
 
-    clientCertificationFiles: SmtpNetworkDeliveryEmbedded_ClientCertificationFile[] = [];
+    clientCertificationFiles: SmtpNetworkDeliveryEmbedded_ClientCertificationFile[];
 
     clone(): SmtpNetworkDeliveryEmbedded {
         return SmtpNetworkDeliveryEmbedded.create({
@@ -106,20 +106,20 @@ export class SmtpNetworkDeliveryEmbedded extends Entity {
 // Signum's SmtpEmailServiceEntity — sending over SMTP (a network host, or a pickup directory).
 @entity("Part", "Master")
 export class SmtpEmailServiceEntity extends EmailServiceEntity {
-    deliveryFormat: SmtpDeliveryFormatEnum = SmtpDeliveryFormatEnum.SevenBit;
+    deliveryFormat: SmtpDeliveryFormatEnum;
 
-    deliveryMethod: SmtpDeliveryMethodEnum = SmtpDeliveryMethodEnum.Network;
+    deliveryMethod: SmtpDeliveryMethodEnum;
 
     /** Signum's StateValidator over DeliveryMethod: Network needs `network`, SpecifiedPickupDirectory needs
      *  `pickupDirectoryLocation`, PickupDirectoryFromIis needs neither. */
     @fieldValidation<SmtpEmailServiceEntity>(s =>
         s.deliveryMethod === SmtpDeliveryMethodEnum.Network && s.network == null ? "{0} is not set" : null)
-    network: SmtpNetworkDeliveryEmbedded | null = null;
+    network: SmtpNetworkDeliveryEmbedded | null;
 
     @fieldValidation<SmtpEmailServiceEntity>(s =>
         s.deliveryMethod === SmtpDeliveryMethodEnum.SpecifiedPickupDirectory && s.pickupDirectoryLocation == null ? "{0} is not set" : null)
     @stringLengthValidator({ min: 3, max: 300 })
-    pickupDirectoryLocation: string | null = null;
+    pickupDirectoryLocation: string | null;
 
     override clone(): EmailServiceEntity {
         return SmtpEmailServiceEntity.create({
@@ -145,9 +145,9 @@ export class EmailSenderConfigurationEntity extends Entity {
     @stringLengthValidator({ min: 1, max: 100 })
     name: string;
 
-    defaultFrom: EmailFromEmbedded | null = null;
+    defaultFrom: EmailFromEmbedded | null;
 
-    additionalRecipients: EmailSenderConfigurationEntity_AdditionalRecipient[] = [];
+    additionalRecipients: EmailSenderConfigurationEntity_AdditionalRecipient[];
 
     @implementedBy(() => [SmtpEmailServiceEntity])
     service: EmailServiceEntity;

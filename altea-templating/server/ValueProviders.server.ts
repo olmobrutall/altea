@@ -451,8 +451,13 @@ export function getter(mwa: MemberWithArguments, target: object, p: TemplatePara
     return value;
 }
 
-/** Walk a member chain over a starting value, stopping at the first null (Signum's loop). */
-function walk(members: readonly MemberWithArguments[], start: unknown, p: TemplateParameters): unknown {
+/** Walk a member chain over a starting value, stopping at the first null (Signum's loop). A chain that
+ *  never RESOLVED (the parse reported an error for it) is not walkable — say so, instead of failing deep
+ *  inside the loop the way Signum's `Members!` would. */
+function walk(members: readonly MemberWithArguments[] | undefined, start: unknown, p: TemplateParameters, what?: string): unknown {
+    if (members == undefined)
+        throw new Error(`Cannot read '${what ?? "the member chain"}': it did not resolve when the template was parsed`);
+
     let value = start;
     for (const m of members) {
         if (value == null)
@@ -498,7 +503,7 @@ export class ModelValueProvider extends ValueProviderBase {
     }
 
     override getValue(p: TemplateParameters): unknown {
-        return walk(this.members!, p.getModel(), p);
+        return walk(this.members, p.getModel(), p, "m:" + this.fieldOrPropertyChain);
     }
 
     override get format(): string | undefined { return formatOf(this.type); }
@@ -653,7 +658,7 @@ export class GlobalValueProvider extends ValueProviderBase {
             return null;
 
         const value = gv.getValue(p);
-        return this.members == undefined ? value : walk(this.members, value, p);
+        return this.members == undefined ? value : walk(this.members, value, p, "g:" + this.globalKey);
     }
 
     override get format(): string | undefined {
@@ -804,7 +809,7 @@ export class ContinueValueProvider extends ValueProviderBase {
         if (!p.runtimeVariables.has(variable))
             throw new Error(`Variable ${variable} not found`);
 
-        return walk(this.members!, p.runtimeVariables.tryGet(variable), p);
+        return walk(this.members, p.runtimeVariables.tryGet(variable), p, variable + "." + (this.fieldOrPropertyChain ?? ""));
     }
 
     override get format(): string | undefined { return formatOf(this.type); }
