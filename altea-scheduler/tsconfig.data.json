@@ -1,0 +1,9 @@
+{
+  // DATA layer — isomorphic model (the schedule rules compute their own next occurrence, so the
+  // arithmetic is shared by the runner and by the editors' preview).
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" }
+  ]
+}

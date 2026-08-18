@@ -1,0 +1,23 @@
+{
+  "name": "@altea/altea-scheduler",
+  "version": "0.0.1",
+  "description": "Scheduled tasks (ported from Signum.Scheduler)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}
