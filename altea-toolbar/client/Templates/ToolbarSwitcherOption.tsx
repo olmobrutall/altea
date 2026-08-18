@@ -4,14 +4,14 @@ import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { TextBoxLine } from "@altea/altea/client/Lines/TextBoxLine";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
-import type { ToolbarSwitcherOptionEmbedded } from "../../data/Toolbar";
+import type { ToolbarSwitcherEntity_Options } from "../../data/Toolbar";
 
 // Faithful port of Signum's Templates/ToolbarSwitcherOption.tsx: one switcher option's detail editor.
 //
 // altea divergences: `IconTypeaheadLine` → `TextBoxLine` (no IconTypeahead port; identical stored format),
 // and the menu reference is an `EntityLine` (a Lite field) rather than Signum's AutoLine.
 
-export default function ToolbarSwitcherOption(p: { ctx: TypeContext<ToolbarSwitcherOptionEmbedded> }): React.JSX.Element {
+export default function ToolbarSwitcherOption(p: { ctx: TypeContext<ToolbarSwitcherEntity_Options> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
     const ctx = p.ctx;
 

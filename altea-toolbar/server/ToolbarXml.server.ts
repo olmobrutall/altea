@@ -10,9 +10,9 @@ import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/se
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { type int } from "@altea/altea/data/basics";
 import {
-    ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarElementEmbedded, ToolbarMenuElementEmbedded,
-    ToolbarSwitcherOptionEmbedded, ToolbarElementTypeEnum, ToolbarLocationEnum, ShowCountEnum,
-    type ToolbarElementBaseEmbedded,
+    ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarEntity_Elements, ToolbarMenuEntity_Elements,
+    ToolbarSwitcherEntity_Options, ToolbarElementTypeEnum, ToolbarLocationEnum, ShowCountEnum,
+    type ToolbarElementBase,
 } from "../data/Toolbar";
 
 // Port of Signum's ToolbarEntity.ToXml/FromXml + ToolbarElementEmbedded.ToXml/FromXml +
@@ -56,7 +56,7 @@ export function registerToolbarXml(): void {
             tb.owner = parseOwner(xml, ctx);
             tb.priority = xml[A + "Priority"] != null ? (Number(xml[A + "Priority"]) as int) : null;
             tb.elements = arr(xml["Elements"], "ToolbarElement").map(x =>
-                elementFromXml(new ToolbarElementEmbedded(), x, ctx));
+                elementFromXml(new ToolbarEntity_Elements(), x, ctx));
         },
     });
 
@@ -106,7 +106,7 @@ export function registerToolbarXml(): void {
 
 // ---- Elements (Signum's ToolbarElementEmbedded.ToXml / FromXml) ----------------------------------------
 
-async function elementXml(e: ToolbarElementBaseEmbedded, ctx: IToXmlContext): Promise<Record<string, unknown>> {
+async function elementXml(e: ToolbarElementBase, ctx: IToXmlContext): Promise<Record<string, unknown>> {
     const x: Record<string, unknown> = {};
     x[A + "Guid"] = e.guid;
     x[A + "Type"] = Enum.toName(ToolbarElementTypeEnum, e.type);
@@ -122,7 +122,7 @@ async function elementXml(e: ToolbarElementBaseEmbedded, ctx: IToXmlContext): Pr
 }
 
 // Signum's ToolbarMenuElementEmbedded.ToXml (base + the two extra attributes).
-async function menuElementXml(e: ToolbarMenuElementEmbedded, ctx: IToXmlContext): Promise<Record<string, unknown>> {
+async function menuElementXml(e: ToolbarMenuEntity_Elements, ctx: IToXmlContext): Promise<Record<string, unknown>> {
     const x = await elementXml(e, ctx);
     if (e.withEntity) x[A + "WithEntity"] = true;
     if (e.autoSelect) x[A + "AutoSelect"] = true;
@@ -141,7 +141,7 @@ async function contentXml(content: Lite<Entity>, ctx: IToXmlContext): Promise<st
     return ctx.include(await ctx.retrieveLite(content) as IUserAssetEntity);
 }
 
-function elementFromXml<T extends ToolbarElementBaseEmbedded>(e: T, x: Record<string, unknown>, ctx: IFromXmlContext): T {
+function elementFromXml<T extends ToolbarElementBase>(e: T, x: Record<string, unknown>, ctx: IFromXmlContext): T {
     e.guid = (str(x[A + "Guid"]) ?? e.guid) as typeof e.guid;
     e.type = toEnum(ToolbarElementTypeEnum, str(x[A + "Type"]) ?? "Item");
     e.label = str(x[A + "Label"]) ?? null;
@@ -156,8 +156,8 @@ function elementFromXml<T extends ToolbarElementBaseEmbedded>(e: T, x: Record<st
     return e;
 }
 
-function menuElementFromXml(x: Record<string, unknown>, ctx: IFromXmlContext): ToolbarMenuElementEmbedded {
-    const e = elementFromXml(new ToolbarMenuElementEmbedded(), x, ctx);
+function menuElementFromXml(x: Record<string, unknown>, ctx: IFromXmlContext): ToolbarMenuEntity_Elements {
+    const e = elementFromXml(new ToolbarMenuEntity_Elements(), x, ctx);
     e.withEntity = bool(x[A + "WithEntity"]);
     e.autoSelect = bool(x[A + "AutoSelect"]);
     return e;
@@ -189,7 +189,7 @@ function contentFromXml(content: string | undefined, ctx: IFromXmlContext): Lite
 
 // ---- Switcher options (Signum's ToolbarSwitcherOptionEmbedded.ToXml / FromXml) --------------------------
 
-async function optionXml(op: ToolbarSwitcherOptionEmbedded, ctx: IToXmlContext): Promise<Record<string, unknown>> {
+async function optionXml(op: ToolbarSwitcherEntity_Options, ctx: IToXmlContext): Promise<Record<string, unknown>> {
     const x: Record<string, unknown> = {};
     // Signum's `ctx.Include(ToolbarMenu)` — the referenced menu rides along in the same file, keyed by guid
     // (== the menu's uuid id in altea). The FULL entity is needed: the exporter recurses into it.
@@ -199,8 +199,8 @@ async function optionXml(op: ToolbarSwitcherOptionEmbedded, ctx: IToXmlContext):
     return x;
 }
 
-function optionFromXml(x: Record<string, unknown>, ctx: IFromXmlContext): ToolbarSwitcherOptionEmbedded {
-    const op = new ToolbarSwitcherOptionEmbedded();
+function optionFromXml(x: Record<string, unknown>, ctx: IFromXmlContext): ToolbarSwitcherEntity_Options {
+    const op = new ToolbarSwitcherEntity_Options();
     op.iconName = str(x[A + "IconName"]) ?? null;
     op.iconColor = str(x[A + "IconColor"]) ?? null;
     const guid = str(x[A + "ToolbarMenu"])!;

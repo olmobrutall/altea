@@ -29,11 +29,13 @@ import { newGuid, type IUserAssetEntity, type IHasEntityType } from "@altea/alte
 //    DashboardEntity / UserQueryEntity: the `id` IS the identity XML import/export keys on. The element
 //    ROWS keep a real `guid` field (their own PK is an int, and the client uses that guid to address an
 //    element — see ToolbarClient.entityElementFilters).
-//  - Signum's `MList<ToolbarElementEmbedded> Elements` (an EmbeddedEntity MList) → per-owner `@part` ROWS.
-//    That forces ONE further divergence: Signum has `ToolbarMenuElementEmbedded : ToolbarElementEmbedded`
+//  - Signum's `MList<ToolbarElementEmbedded> Elements` (an EmbeddedEntity MList) → per-owner `@part` ROWS,
+//    which are NOT EmbeddedEntities — hence the altea `<Owner>_<field>` row names below, not Signum's
+//    `…Embedded` ones. That forces ONE further divergence: Signum has `ToolbarMenuElementEmbedded :
+//    ToolbarElementEmbedded`
 //    (one embedded type reused by two owners, the subclass adding WithEntity/AutoSelect), but an altea
 //    @part row carries its OWN `@backReference` to its single owner — so the shared members move up into an
-//    ABSTRACT base (`ToolbarElementBaseEmbedded`, no table) and each owner gets a concrete row type. Client
+//    ABSTRACT base (`ToolbarElementBase`, no table) and each owner gets a concrete row type. Client
 //    code that treats both uniformly types against the base (Signum's `ToolbarElementEmbedded`).
 //  - `ToXml`/`FromXml` are server-only in altea (System.Xml + the user-asset context) — see
 //    server/ToolbarXml.server.ts; the entities stay isomorphic.
@@ -92,7 +94,7 @@ export interface IToolbarEntity extends Entity {
 // and a ToolbarMenu element. ABSTRACT (`@reflect`, not `@entity`) — only the two concrete row types below
 // get tables (the same idiom as altea-auth's RuleEntity base).
 @reflect
-export abstract class ToolbarElementBaseEmbedded extends Entity {
+export abstract class ToolbarElementBase extends Entity {
 
     // Signum's `Guid Guid = Guid.NewGuid()`: the element's stable identity. Kept as a real field (the row's
     // own PK is an int, and a NEW element must already have an identity before it is saved) — it survives
@@ -103,25 +105,25 @@ export abstract class ToolbarElementBaseEmbedded extends Entity {
 
     // Signum's PropertyValidation: for an Item / a Header, a label is mandatory when there is no content
     // to take the label FROM. A Divider carries none of the four (Signum's StateValidator row).
-    @fieldValidation<ToolbarElementBaseEmbedded>(e => isDivider(e)
+    @fieldValidation<ToolbarElementBase>(e => isDivider(e)
         ? mustBeNull(e.label, ToolbarMessage.ADividerHasNoLabelIconContentOrUrl)
         : !e.label && e.content == null && isLabelledType(e)
             ? ToolbarMessage._0IsMandatoryWhen1IsNotSet.niceToString(
                 ToolbarMessage.Label.niceToString(), ToolbarMessage.Content.niceToString())
             : null)
     @stringLengthValidator({ min: 1, max: 100 })
-    label: string | null = null;
+    label: string | null;
 
-    @fieldValidation<ToolbarElementBaseEmbedded>(e => isDivider(e)
+    @fieldValidation<ToolbarElementBase>(e => isDivider(e)
         ? mustBeNull(e.iconName, ToolbarMessage.ADividerHasNoLabelIconContentOrUrl) : null)
     @stringLengthValidator({ min: 3, max: 100 })
-    iconName: string | null = null;
+    iconName: string | null;
 
-    showCount: ShowCountEnum | null = null;
+    showCount: ShowCountEnum | null;
 
     @format("Color")
     @stringLengthValidator({ min: 3, max: 20 })
-    iconColor: string | null = null;
+    iconColor: string | null;
 
     // Signum's `[ImplementedBy()] Lite<Entity>? Content` — an EMPTY list that each module widened from its
     // own Logic.Start (`AssertImplementedBy(…)`). altea declares the toolbar module's OWN five here and the
@@ -132,10 +134,10 @@ export abstract class ToolbarElementBaseEmbedded extends Entity {
     // NOTE: the two concrete row types below INHERIT this one FieldInfo (altea's reflection seeds a
     // subclass's fields with the base's field objects), so ONE `overrideImplementedBy` on this base covers
     // both tables.
-    @fieldValidation<ToolbarElementBaseEmbedded>(e => isDivider(e)
+    @fieldValidation<ToolbarElementBase>(e => isDivider(e)
         ? mustBeNull(e.content, ToolbarMessage.ADividerHasNoLabelIconContentOrUrl) : null)
     @implementedBy(() => [QueryEntity, PermissionSymbol, ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity])
-    content: Lite<Entity> | null = null;
+    content: Lite<Entity> | null;
 
     // Signum's `[StringLengthValidator(Min = 1, Max = int.MaxValue), URLValidator(absolute: true,
     // aspNetSiteRelative: true)] string? Url` — an unbounded column (an altea string field with no declared
@@ -145,7 +147,7 @@ export abstract class ToolbarElementBaseEmbedded extends Entity {
     //
     // Signum's second PropertyValidation: an Item / ExtraIcon needs a url when it has no content to
     // navigate to.
-    @fieldValidation<ToolbarElementBaseEmbedded>(e => isDivider(e)
+    @fieldValidation<ToolbarElementBase>(e => isDivider(e)
         ? mustBeNull(e.url, ToolbarMessage.ADividerHasNoLabelIconContentOrUrl)
         : e.url ? validateUrl(e.url)
             : e.content == null && isNavigableType(e)
@@ -153,15 +155,15 @@ export abstract class ToolbarElementBaseEmbedded extends Entity {
                     ToolbarMessage.Url.niceToString(), ToolbarMessage.Content.niceToString())
                 : null)
     @stringLengthValidator({ min: 1 })
-    url: string | null = null;
+    url: string | null;
 
     openInPopup: boolean = false;
 
     // Signum's `[Unit("s"), NumberIsValidator(GreaterThanOrEqualTo, 10)]`.
     @unit("s")
-    @fieldValidation<ToolbarElementBaseEmbedded>(e => e.autoRefreshPeriod != null && (e.autoRefreshPeriod as number) < 10
+    @fieldValidation<ToolbarElementBase>(e => e.autoRefreshPeriod != null && (e.autoRefreshPeriod as number) < 10
         ? ToolbarMessage.AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds.niceToString() : null)
-    autoRefreshPeriod: int | null = null;
+    autoRefreshPeriod: int | null;
 
     toString(): string {
         const type = Enum.toName(ToolbarElementTypeEnum, this.type);
@@ -171,17 +173,17 @@ export abstract class ToolbarElementBaseEmbedded extends Entity {
 
 // Signum's ToolbarElementEmbedded as used by `ToolbarEntity.Elements` (here: the Toolbar-owned row).
 @entity("Part")
-export class ToolbarElementEmbedded extends ToolbarElementBaseEmbedded {
+export class ToolbarEntity_Elements extends ToolbarElementBase {
     @backReference toolbar: Lite<ToolbarEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 }
 
 // Signum's ToolbarMenuElementEmbedded (Toolbar.cs) — a ToolbarMenu element, which additionally says whether
 // it applies WITH or WITHOUT the menu's selected entity, and whether picking the menu auto-navigates to it.
 @entity("Part")
-export class ToolbarMenuElementEmbedded extends ToolbarElementBaseEmbedded {
+export class ToolbarMenuEntity_Elements extends ToolbarElementBase {
     @backReference toolbarMenu: Lite<ToolbarMenuEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
     withEntity: boolean = false;
     autoSelect: boolean = false;
@@ -198,19 +200,19 @@ export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarE
     // Signum's `Lite<IEntity>? Owner` — AssertImplementedBy(User, Role) in logic. Whose toolbar this is
     // (personal → a User; shared → a Role; null → global).
     @implementedBy(() => [UserEntity, RoleEntity])
-    owner: Lite<Entity> | null = null;
+    owner: Lite<Entity> | null;
 
     @stringLengthValidator({ max: 100 })
-    name: string = "";
+    name: string;
 
     location: ToolbarLocationEnum = ToolbarLocationEnum.Side;
 
     // Highest priority wins when several toolbars of one location are visible to the current role.
-    priority: int | null = null;
+    priority: int | null;
 
     // Signum's `[PreserveOrder, NoRepeatValidator, BindParent] MList<ToolbarElementEmbedded>`.
     @fieldValidation<ToolbarEntity>(t => validateElements(t.elements))
-    elements: ToolbarElementEmbedded[];
+    elements: ToolbarEntity_Elements[];
 
     /** Signum's `GetSubToolbars() => Elements.Select(a => a.Content).OfType<Lite<IToolbarEntity>>()`. */
     getSubToolbars(): Lite<Entity>[] {
@@ -230,15 +232,15 @@ export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarE
 export class ToolbarMenuEntity extends Entity implements IUserAssetEntity, IHasEntityType, IToolbarEntity {
 
     @implementedBy(() => [UserEntity, RoleEntity])
-    owner: Lite<Entity> | null = null;
+    owner: Lite<Entity> | null;
 
     @stringLengthValidator({ max: 100 })
-    name: string = "";
+    name: string;
 
     @fieldValidation<ToolbarMenuEntity>(t => validateElements(t.elements))
-    elements: ToolbarMenuElementEmbedded[];
+    elements: ToolbarMenuEntity_Elements[];
 
-    entityType: Lite<TypeEntity> | null = null;
+    entityType: Lite<TypeEntity> | null;
 
     getSubToolbars(): Lite<Entity>[] {
         return subToolbarsOf(this.elements);
@@ -259,13 +261,13 @@ export class ToolbarSwitcherEntity extends Entity implements IUserAssetEntity, I
     // Signum has [UniqueIndex] on Name here (it does not on Toolbar / ToolbarMenu).
     @uniqueIndex
     @stringLengthValidator({ max: 100 })
-    name: string = "";
+    name: string;
 
     @implementedBy(() => [UserEntity, RoleEntity])
-    owner: Lite<Entity> | null = null;
+    owner: Lite<Entity> | null;
 
     // Signum's `[PreserveOrder, NoRepeatValidator] MList<ToolbarSwitcherOptionEmbedded>`.
-    options: ToolbarSwitcherOptionEmbedded[];
+    options: ToolbarSwitcherEntity_Options[];
 
     /** Signum's `GetSubToolbars() => Options.Select(a => a.ToolbarMenu)`. */
     getSubToolbars(): Lite<Entity>[] {
@@ -279,18 +281,18 @@ export class ToolbarSwitcherEntity extends Entity implements IUserAssetEntity, I
 
 // Signum's ToolbarSwitcherOptionEmbedded (ToolbarSwitcher.cs) — one switchable menu plus its icon.
 @entity("Part")
-export class ToolbarSwitcherOptionEmbedded extends Entity {
+export class ToolbarSwitcherEntity_Options extends Entity {
     @backReference toolbarSwitcher: Lite<ToolbarSwitcherEntity>;
-    @rowOrder order: int = toInt(0);
+    @rowOrder order: int;
 
     toolbarMenu: Lite<ToolbarMenuEntity>;
 
     @stringLengthValidator({ min: 3, max: 100 })
-    iconName: string | null = null;
+    iconName: string | null;
 
     @format("Color")
     @stringLengthValidator({ min: 3, max: 20 })
-    iconColor: string | null = null;
+    iconColor: string | null;
 
     toString(): string {
         return this.toolbarMenu?.toString() ?? "";
@@ -316,7 +318,7 @@ export namespace ToolbarSwitcherOperation {
 
 // ---- Validation helpers (Signum's StateValidator rows + PropertyValidation) -----------------------------
 
-function isDivider(e: ToolbarElementBaseEmbedded): boolean {
+function isDivider(e: ToolbarElementBase): boolean {
     return Enum.toName(ToolbarElementTypeEnum, e.type) === "Divider";
 }
 
@@ -326,13 +328,13 @@ function mustBeNull(value: unknown, message: { niceToString(): string }): string
 }
 
 /** Label is mandatory-when-no-content for an Item / a Header (Signum's PropertyValidation guard). */
-function isLabelledType(e: ToolbarElementBaseEmbedded): boolean {
+function isLabelledType(e: ToolbarElementBase): boolean {
     const type = Enum.toName(ToolbarElementTypeEnum, e.type);
     return type === "Item" || type === "Header";
 }
 
 /** Url is mandatory-when-no-content for an Item / an ExtraIcon (Signum's PropertyValidation guard). */
-function isNavigableType(e: ToolbarElementBaseEmbedded): boolean {
+function isNavigableType(e: ToolbarElementBase): boolean {
     const type = Enum.toName(ToolbarElementTypeEnum, e.type);
     return type === "Item" || type === "ExtraIcon";
 }
@@ -347,11 +349,11 @@ function validateUrl(url: string): string | null {
 
 /** Signum's `IToolbar_Saving` element checks, run as an owner-level validation (they span sibling rows):
  *  an ExtraIcon attaches to the element BEFORE it, so it may be neither first nor right after a Divider. */
-function validateElements(elements: ToolbarElementBaseEmbedded[] | undefined): string | null {
+function validateElements(elements: ToolbarElementBase[] | undefined): string | null {
     if (elements == null || elements.length === 0)
         return null;
 
-    const typeOf = (e: ToolbarElementBaseEmbedded): string => Enum.toName(ToolbarElementTypeEnum, e.type);
+    const typeOf = (e: ToolbarElementBase): string => Enum.toName(ToolbarElementTypeEnum, e.type);
 
     if (typeOf(elements[0]) === "ExtraIcon")
         return ToolbarMessage.FirstElementCanNotBeExtraIcon.niceToString();
@@ -366,7 +368,7 @@ function validateElements(elements: ToolbarElementBaseEmbedded[] | undefined): s
 /** The sub-toolbar lites among a set of elements: a content pointing at another IToolbarEntity root.
  *  altea has no `OfType<Lite<IToolbarEntity>>` (a Lite carries a ctor, not an interface), so the three
  *  concrete root types are matched explicitly. */
-function subToolbarsOf(elements: ToolbarElementBaseEmbedded[] | undefined): Lite<Entity>[] {
+function subToolbarsOf(elements: ToolbarElementBase[] | undefined): Lite<Entity>[] {
     return (elements ?? [])
         .map(e => e.content)
         .filter((c): c is Lite<Entity> => c != null && isToolbarEntityType(c));

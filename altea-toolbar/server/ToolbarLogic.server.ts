@@ -24,10 +24,10 @@ import { TypeAuthLogic } from "@altea/altea-auth/server/TypeAuthLogic";
 import { UserAssetLogic } from "@altea/altea-user-assets/server/UserAssetLogic.server";
 import { UserAssetOwnerAuth } from "@altea/altea-user-assets/server/UserAssetOwnerAuth.server";
 import {
-    ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarElementEmbedded, ToolbarOperation, ToolbarMenuOperation,
+    ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarEntity_Elements, ToolbarOperation, ToolbarMenuOperation,
     ToolbarSwitcherOperation, ToolbarElementTypeEnum, ToolbarLocationEnum, ShowCountEnum, ToolbarMessage,
     type ToolbarLocation, type ToolbarElementType, type ShowCount, type IToolbarEntity,
-    type ToolbarElementBaseEmbedded,
+    type ToolbarElementBase,
 } from "../data/Toolbar";
 import type { ToolbarResponse } from "../data/ToolbarResponse";
 import { registerToolbarXml } from "./ToolbarXml.server";
@@ -308,7 +308,7 @@ export namespace ToolbarLogic {
     /** Signum's `ToResponseList`: group each element with the ExtraIcons that trail it, map each group to
      *  its response(s), then repeatedly drop the dividers and headers left dangling by whatever was filtered
      *  out for authorization. */
-    export async function toResponseList(elements: ToolbarElementBaseEmbedded[]): Promise<ToolbarResponse[]> {
+    export async function toResponseList(elements: ToolbarElementBase[]): Promise<ToolbarResponse[]> {
 
         // `groupWhen(isKey, includeKeyInGroup: false, beforeFirstKey: "skip")` == Signum's
         // `GroupWhen(a => a.Type != ExtraIcon, BeforeFirstKey.Skip)`: an ExtraIcon before any real element is
@@ -359,8 +359,8 @@ export namespace ToolbarLogic {
     /** Signum's `ToResponse(gr)`: one element (+ its trailing ExtraIcons) → zero, one or many responses.
      *  Null = the element is not authorized (or is an empty container), and is dropped. */
     async function toResponse(
-        element: ToolbarElementBaseEmbedded,
-        extras: ToolbarElementBaseEmbedded[],
+        element: ToolbarElementBase,
+        extras: ToolbarElementBase[],
     ): Promise<ToolbarResponse[] | null> {
 
         let config: ToolbarContentConfig | undefined;
@@ -445,7 +445,7 @@ export namespace ToolbarLogic {
 
     /** The ExtraIcons trailing one element (Signum's inline `gr.Select(extra => …)` block). An extra icon
      *  never nests, and one pointing at a nested Toolbar is dropped (Signum returns null for that case). */
-    async function toExtraIcons(extras: ToolbarElementBaseEmbedded[]): Promise<ToolbarResponse[]> {
+    async function toExtraIcons(extras: ToolbarElementBase[]): Promise<ToolbarResponse[]> {
         const list = await Promise.all(extras.map(async extra => {
             let config: ToolbarContentConfig | undefined;
             if (extra.content != null) {
@@ -573,9 +573,9 @@ export namespace ToolbarLogic {
      *  — and deletes the orphaned `@part` element / option ROWS. Registered for the four content types
      *  Signum registers; a module that adds a content type calls it too (see altea-user-queries). */
     /** The concrete types a toolbar element's `content` may point at — the `@implementedBy` list on
-     *  ToolbarElementBaseEmbedded.content, which both element tables inherit and the app widens. */
+     *  ToolbarElementBase.content, which both element tables inherit and the app widens. */
     export function contentTypeInfos(): TypeInfo[] {
-        const contentFi = getTypeInfo(ToolbarElementEmbedded)?.fields["content"];
+        const contentFi = getTypeInfo(ToolbarEntity_Elements)?.fields["content"];
         return contentFi?.typeInfos() ?? [];
     }
 
@@ -661,10 +661,10 @@ function symbolKeyOf(lite: Lite<Entity>): string {
 }
 
 /** An element's type as its wire NAME (the stored value is the ordinal). */
-function typeOf(e: ToolbarElementBaseEmbedded): ToolbarElementType {
+function typeOf(e: ToolbarElementBase): ToolbarElementType {
     return Enum.toName(ToolbarElementTypeEnum, e.type);
 }
 
-function showCountOf(e: ToolbarElementBaseEmbedded): ShowCount | undefined {
+function showCountOf(e: ToolbarElementBase): ShowCount | undefined {
     return e.showCount == null ? undefined : Enum.toName(ShowCountEnum, e.showCount);
 }

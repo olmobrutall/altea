@@ -17,7 +17,7 @@ import { parseIcon, fallbackIcon } from "@altea/altea/client/Components/IconHelp
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import {
     ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarElementTypeEnum, ShowCountEnum,
-    type ToolbarElementBaseEmbedded, type ToolbarMenuElementEmbedded, type ShowCount,
+    type ToolbarElementBase, type ToolbarMenuEntity_Elements, type ShowCount,
 } from "../../data/Toolbar";
 import { ToolbarClient } from "../ToolbarClient";
 import { ToolbarCount } from "../QueryToolbarConfig";
@@ -26,8 +26,8 @@ import { ToolbarCount } from "../QueryToolbarConfig";
 // plus the shared ELEMENT TABLE both it and the ToolbarMenu editor use.
 //
 // altea divergences:
-//  - The element table is generic over the row type (`ToolbarElementEmbedded` for a Toolbar,
-//    `ToolbarMenuElementEmbedded` for a ToolbarMenu) because altea splits Signum's one embedded type into two
+//  - The element table is generic over the row type (`ToolbarEntity_Elements` for a Toolbar,
+//    `ToolbarMenuEntity_Elements` for a ToolbarMenu) because altea splits Signum's one ToolbarElementEmbedded into two
 //    per-owner @part rows (see data/Toolbar.ts). Signum could type it as the base since the subclass shared
 //    its table.
 //  - `New(type, {…})` (Signum's untyped factory over a clean name) → `Constructor.construct(ctor, props)`;
@@ -79,7 +79,7 @@ function getDefaultIcon(ti: TypeInfo): IconProp | null {
     return conf.first().getDefaultIcon();
 }
 
-export function ToolbarElementTable<R extends ToolbarElementBaseEmbedded>({ ctx, extraColumns, withEntity }: {
+export function ToolbarElementTable<R extends ToolbarElementBase>({ ctx, extraColumns, withEntity }: {
     ctx: TypeContext<R[]>,
     extraColumns?: (EntityTableColumn<R, unknown> | null | undefined)[],
     withEntity?: boolean,
@@ -102,9 +102,9 @@ export function ToolbarElementTable<R extends ToolbarElementBaseEmbedded>({ ctx,
 
     return (
         <EntityTable ctx={ctx} view
-            filterRows={withEntity == undefined ? undefined : ctxs => ctxs.filter(a => (a.value as unknown as ToolbarMenuElementEmbedded).withEntity === withEntity)}
+            filterRows={withEntity == undefined ? undefined : ctxs => ctxs.filter(a => (a.value as unknown as ToolbarMenuEntity_Elements).withEntity === withEntity)}
             // Signum: `New(type, { type: "Item", withEntity })`. The row ctor comes from the collection's own
-            // PropertyRoute, so a Toolbar gets a ToolbarElementEmbedded and a ToolbarMenu a ToolbarMenuElement.
+            // PropertyRoute, so a Toolbar gets a ToolbarEntity_Elements and a ToolbarMenu a ToolbarMenuElement.
             onCreate={pr => Constructor.construct(pr.fieldInfo!.getFunction()!.name, {
                 type: ToolbarElementTypeEnum.Item,
                 withEntity,
@@ -138,6 +138,6 @@ export function ToolbarElementTable<R extends ToolbarElementBaseEmbedded>({ ctx,
 
 /** An element's `showCount` as its member NAME: the stored value is the enum ordinal, but the ToolbarCount
  *  badge speaks the wire form (like the rest of the client), so the conversion happens here. */
-function showCountName(e: ToolbarElementBaseEmbedded): ShowCount {
+function showCountName(e: ToolbarElementBase): ShowCount {
     return Enum.toName(ShowCountEnum, e.showCount!);
 }
