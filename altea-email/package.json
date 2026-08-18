@@ -1,0 +1,30 @@
+{
+  "name": "@altea/altea-email",
+  "version": "0.0.1",
+  "description": "Email messages, templates and the async sender (ported from Signum.Mailing)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-files": "workspace:*",
+    "@altea/altea-templating": "workspace:*",
+    "@altea/altea-user-assets": "workspace:*",
+    "nodemailer": "^7.0.0",
+    "quote-transformer": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^7.0.0"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  // SERVER layer — node-only (the template parser / value providers / renderer).
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" }
+  ]
+}

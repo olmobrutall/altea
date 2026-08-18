@@ -1,0 +1,23 @@
+{
+  "name": "@altea/altea-templating",
+  "version": "0.0.1",
+  "description": "Text templating over a query + a model (ported from Signum.Templating)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}

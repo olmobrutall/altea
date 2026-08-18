@@ -7,6 +7,7 @@ import { Symbol } from "@altea/altea/data/symbol";
 import { OperationSymbol } from "@altea/altea/data/operations";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
+import { noRepeatValidator, countIsValidator, ComparisonType } from "@altea/altea/data/validators";
 import { RoleEntity } from "./Role";
 
 // Port of Signum's authorization entity model (Rules/RulesEntities.cs + Rules/Signum.Authorization.Rules.ts).
@@ -149,6 +150,10 @@ export class RuleTypeEntity extends RuleEntity {
 export class RuleTypeConditionEntity extends Entity {
     @backReference ruleType: Lite<RuleTypeEntity>;
     @rowOrder order: int = toInt(0);
+    // Signum's [PreserveOrder, NoRepeatValidator, CountIsValidator(ComparisonType.GreaterThan, 0)] —
+    // a condition row that ANDs nothing would match every row, so it must name at least one condition.
+    @noRepeatValidator()
+    @countIsValidator(ComparisonType.GreaterThan, 0)
     conditions: RuleTypeConditionEntity_Condition[];
     allowed: TypeAllowed = TypeAllowed.None;
 }
@@ -179,6 +184,9 @@ export class RuleTypeConditionEntity_Condition extends Entity {
 // this is a MODEL, not persisted, so no @part/@valueField needed).
 @reflect
 export class ConditionRuleModel extends EmbeddedEntity {
+    // Signum's [PreserveOrder, NoRepeatValidator, CountIsValidator(ComparisonType.GreaterThan, 0)].
+    @noRepeatValidator()
+    @countIsValidator(ComparisonType.GreaterThan, 0)
     typeConditions: Lite<TypeConditionSymbol>[];
     allowed: TypeAllowed = TypeAllowed.None;
 }
@@ -268,6 +276,10 @@ export class RuleOperationEntity extends RuleEntity {
 export class RuleOperationConditionEntity extends Entity {
     @backReference ruleOperation: Lite<RuleOperationEntity>;
     @rowOrder order: int = toInt(0);
+    // Signum's [PreserveOrder, NoRepeatValidator, CountIsValidator(ComparisonType.GreaterThan, 0)] —
+    // a condition row that ANDs nothing would match every row, so it must name at least one condition.
+    @noRepeatValidator()
+    @countIsValidator(ComparisonType.GreaterThan, 0)
     conditions: RuleOperationConditionEntity_Condition[];
     allowed: OperationAllowed = OperationAllowed.None;
 }
@@ -292,6 +304,9 @@ export class TypeConditionSetModel extends EmbeddedEntity {
 // concrete pair per dimension).
 @reflect
 export class OperationConditionRuleModel extends EmbeddedEntity {
+    // Signum's [PreserveOrder, NoRepeatValidator, CountIsValidator(ComparisonType.GreaterThan, 0)].
+    @noRepeatValidator()
+    @countIsValidator(ComparisonType.GreaterThan, 0)
     typeConditions: Lite<TypeConditionSymbol>[];
     allowed: OperationAllowed = OperationAllowed.None;
 }
@@ -372,6 +387,10 @@ export class RulePropertyEntity extends RuleEntity {
 export class RulePropertyConditionEntity extends Entity {
     @backReference ruleProperty: Lite<RulePropertyEntity>;
     @rowOrder order: int = toInt(0);
+    // Signum's [PreserveOrder, NoRepeatValidator, CountIsValidator(ComparisonType.GreaterThan, 0)] —
+    // a condition row that ANDs nothing would match every row, so it must name at least one condition.
+    @noRepeatValidator()
+    @countIsValidator(ComparisonType.GreaterThan, 0)
     conditions: RulePropertyConditionEntity_Condition[];
     allowed: PropertyAllowed = PropertyAllowed.None;
 }
@@ -386,6 +405,9 @@ export class RulePropertyConditionEntity_Condition extends Entity {
 // transport twin of the runtime WithConditions<PropertyAllowed>.
 @reflect
 export class PropertyConditionRuleModel extends EmbeddedEntity {
+    // Signum's [PreserveOrder, NoRepeatValidator, CountIsValidator(ComparisonType.GreaterThan, 0)].
+    @noRepeatValidator()
+    @countIsValidator(ComparisonType.GreaterThan, 0)
     typeConditions: Lite<TypeConditionSymbol>[];
     allowed: PropertyAllowed = PropertyAllowed.None;
 }
