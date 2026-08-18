@@ -2400,17 +2400,35 @@ export class QueryBinder extends ExpressionVisitor {
         //
         // When the implementations do NOT share one primary-key type — e.g. a toolbar element pointing at
         // both an int-PK QueryEntity and a uuid-PK UserQueryEntity — no SQL CASE/COALESCE can mix them
-        // ("CASE types integer and uuid cannot be matched"), which is why Signum's GetId converts each id to
-        // IComparable in that case (a conversion its nominator then refuses to translate, so the combine
-        // happens client-side). altea already solves the identical problem for @implementedByAll by casting
-        // each id to text before the COALESCE (see `ibaId`) — a polymorphic id IS Signum's IComparable — so
-        // the same shape is used here. Note the LITE projector never reads this combined id for an IB: it
-        // dispatches on the per-implementation id columns (see TranslatorBuilder.visitLiteValue), exactly as
-        // Signum's does, so a lite still carries its implementation's NATIVE id.
+        // ("CASE types integer and uuid cannot be matched"). Signum's GetId handles that case by wrapping
+        // each id in `Convert(id, typeof(IComparable))` before the Coalesce: its DbExpressionNominator
+        // refuses to translate that Convert (VisitUnary nominates only numeric widening / Sql* pairs), so
+        // neither operand is a candidate and the Coalesce cannot become SQL either — the leaf id columns are
+        // selected and the READER evaluates `a ?? b`, each id keeping its NATIVE type.
+        //
+        // altea reproduces that outcome with a client-side ConditionalExpression chain: `visitConditional`
+        // leaves a projected conditional un-nominated (a JS ternary in the reader), whereas `??` is
+        // deliberately kept in SQL here — so a conditional, not a coalesce, is the faithful vehicle. Ids
+        // therefore stay int / uuid, NOT text. (Contrast `ibaId`, where @implementedByAll genuinely does cast
+        // to text — that reference's id is one column per PK type and altea exposes it as a single string.)
+        //
+        // In a FULL-TRANSLATE context (a WHERE) the conditional IS nominated, so a mixed-PK id used in a
+        // filter still fails — as it does in Signum, where the un-translatable Convert raises its own error.
+        // The LITE projector never reads this combined id for an IB anyway: it dispatches on the
+        // per-implementation id columns (see TranslatorBuilder.visitLiteValue), exactly as Signum's does.
         if (this.pkTypesOfIb(ref).size > 1)
-            return new PrimaryKeyExpression(this.coalesceAsText([...ref.implementations.values()].map(ee => ee.externalId.value)));
+            return new PrimaryKeyExpression(this.firstNonNullClientSide([...ref.implementations.values()].map(ee => ee.externalId.value)));
 
         return this.dispatchIb(ref, ee => ee.externalId.value);
+    }
+
+    /** The first non-null of `ids`, combined CLIENT-SIDE (a ternary chain the nominator leaves alone) so the
+     *  operands keep their own SQL types. Used for a mixed-PK @implementedBy id — see `idOfReference`. */
+    private firstNonNullClientSide(ids: Expression[]): Expression {
+        let result: Expression = new SqlConstantExpression(null, LiteralType.null);
+        for (let i = ids.length - 1; i >= 0; i--)
+            result = new ConditionalExpression(new IsNotNullExpression(ids[i]), ids[i], result);
+        return result;
     }
 
     /** The distinct altea PrimaryKeyTypes an @implementedBy reference's implementations use. */
@@ -2697,17 +2715,12 @@ export class QueryBinder extends ExpressionVisitor {
 
     // The single logical id of an @implementedByAll reference: COALESCE over the per-PK-type
     // id columns (only one is non-null). Their SQL types differ, so each is cast to text —
-    // Signum treats a polymorphic id as an IComparable.
+    // altea exposes an IBA id as one string. (Signum instead keeps the per-PK-type ids apart and combines
+    // them client-side via Convert-to-IComparable; the mixed-PK @implementedBy path above follows Signum,
+    // this one is a pre-existing altea divergence left as is.)
     private ibaId(iba: ImplementedByAllExpression): Expression {
-        return this.coalesceAsText([...iba.ids.values()]);
-    }
-
-    /** COALESCE over id columns of DIFFERING SQL types: each is cast to text first, so the result is one
-     *  comparable value (Signum's `Convert(id, typeof(IComparable))`). Shared by the @implementedByAll id and
-     *  the mixed-PK @implementedBy id (see `idOfReference`). */
-    private coalesceAsText(ids: Expression[]): Expression {
         const cast = (e: Expression): Expression => new SqlCastExpression(LiteralType.string, e, this.isPostgres ? "varchar" : "nvarchar(max)");
-        return ids.map(cast).reduce((a, b) => new BinaryExpression("??", a, b));
+        return [...iba.ids.values()].map(cast).reduce((a, b) => new BinaryExpression("??", a, b));
     }
 
     // The PK types a reference can contribute when combined into an @implementedByAll
@@ -3218,7 +3231,7 @@ export class QueryBinder extends ExpressionVisitor {
     // this select is spliced in as the right side of a CROSS APPLY (bindSelectMany)
     // or wrapped as a scalar/EXISTS subquery.
     // Public for EntityCompleter (Signum calls binder.MListProjection from VisitMList).
-    fieldEntityArrayProjection(fea: FieldEntityArrayExpression): ProjectionExpression {
+    fieldEntityArrayProjection(fea: FieldEntityArrayExpression, preserveOrder = false): ProjectionExpression {
         const childProj = this.getTableProjectionForTable(fea.childTable, fea.type);
         const childEntity = childProj.projector as EntityExpression;
         let fkBinding = childEntity.bindings?.find(b => b.fieldInfo.name === fea.fkProperty)?.binding;
@@ -3231,9 +3244,30 @@ export class QueryBinder extends ExpressionVisitor {
         const where = new BinaryExpression("==", fkBinding.externalId.value, fea.ownerId);
         const alias = this.aliasGenerator.nextSelectAlias();
         const pc = this.projectColumns(childProj.projector, alias);
+
+        // On the RETRIEVAL path (`preserveOrder`, passed only by EntityCompleter.visitFieldEntityArray) add an
+        // ORDER BY on the child's `@rowOrder` column, falling back to its primary key. A `@part` collection is
+        // altea's MList replacement and `@rowOrder` IS its declared row order — without an explicit ORDER BY
+        // the elements arrive in whatever order the engine yields, which on Postgres is HEAP order: an UPDATE
+        // to one row moves it to the END of the collection. That matters for every order-sensitive collection —
+        // a toolbar's elements (a header groups what follows it, an ExtraIcon attaches to the element before
+        // it), a UserQuery's indentation-based filter tree, a dashboard's parts.
+        //
+        // NOT on the QUERY path (`flatMap(a => a.songs…)`, `.some(…)`), where row order is irrelevant and an
+        // ORDER BY would make the correlated sub-select non-removable, defeating RedundantSubqueryRemover.
+        // Signum splits the same two uses through `MListProjection(mle, withRowId)`.
+        const orderBy = preserveOrder ? (this.rowOrderOf(childEntity) ?? childEntity.externalId.value) : undefined;
         return new ProjectionExpression(
-            new SelectExpression(alias, false, undefined, pc.columns, childProj.select, where, [], []),
+            new SelectExpression(alias, false, undefined, pc.columns, childProj.select, where,
+                orderBy == null ? [] : [new OrderExpression("Ascending", orderBy)], []),
             pc.projector, undefined, new ArrayType(fea.type));
+    }
+
+    /** The bound `@rowOrder` column of a part row (Signum's MListElement.Order), or undefined when the row
+     *  type declares none. Read off the already-bound field bindings, so it is the real column expression. */
+    private rowOrderOf(childEntity: EntityExpression): Expression | undefined {
+        const binding = childEntity.bindings?.find(b => b.fieldInfo.isRowOrder);
+        return binding?.binding;
     }
 
     private asProjection(e: Expression): ProjectionExpression {

@@ -106,7 +106,9 @@ export class EntityCompleter extends DbExpressionVisitor {
     // binding, which ChildProjectionFlattener later turns into one child query per level.
     // Cycles are broken by visitEntity's `previousTables` guard when the element expands.
     override visitFieldEntityArray(fea: FieldEntityArrayExpression): Expression {
-        const projection = this.binder.fieldEntityArrayProjection(fea);
+        // preserveOrder: this is the RETRIEVAL path, so the child rows must come back in their @rowOrder
+        // (see QueryBinder.fieldEntityArrayProjection).
+        const projection = this.binder.fieldEntityArrayProjection(fea, true);
         return this.visit(projection);
     }
 
