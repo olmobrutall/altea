@@ -1,0 +1,9 @@
+{
+  // DATA layer — isomorphic model (permission symbol, messages, and the omnibox RESULT DTOs the
+  // server produces and the client renders).
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" }
+  ]
+}

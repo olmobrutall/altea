@@ -1,0 +1,17 @@
+/* Signum imported `@framework/Frames/MenuIcons.css` for the leading provider icons; altea has no such
+   file, so the few rules the omnibox actually needs live here. */
+
+.sf-omnibox {
+    min-width: 18rem;
+}
+
+.sf-omnibox .icon {
+    margin-right: .4em;
+    width: 1em;
+}
+
+/* A guid id is shown head…tail (see EntityOmniboxProvider) — monospace keeps the two halves aligned. */
+.sf-omnibox .guid,
+.dropdown-menu .guid {
+    font-family: monospace;
+}
