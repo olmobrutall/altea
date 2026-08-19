@@ -21,7 +21,7 @@ import {
     PinnedFilterActiveEnum, FilterGroupOperationEnum, FilterOperationEnum, DashboardBehaviourEnum,
 } from "@altea/altea/data/dynamicQueries";
 import { Enum } from "@altea/altea/data/enum";
-import { parseFilterValue, stringifyFilterValue } from "@altea/altea-user-assets/client/FilterValueString";
+import { parseFilterValue, stringifyFilterValue } from "@altea/altea-user-assets/data/FilterValueString";
 import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
 import { ChartRequestModel, ChartTimeSeriesEmbedded } from "../../data/ChartRequest";

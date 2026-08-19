@@ -7,8 +7,8 @@ import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { Enum } from "@altea/altea/data/enum";
 import { FilterOperationEnum, FilterGroupOperationEnum } from "@altea/altea/data/dynamicQueries";
 import { Entity } from "@altea/altea/data/entity";
-import type { QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
-import { parseFilterValue } from "@altea/altea-user-assets/client/FilterValueString";
+import type { QueryFilterBaseEntity } from "../data/Queries";
+import { parseFilterValue } from "../data/FilterValueString";
 
 // Port of Signum's UserAssets `QueryFilterUtils.ToFilterList` (Signum.UserAssets/Queries/QueryFilterUtils.cs)
 // — turn the FLAT, indentation-encoded rows of a stored filter tree into the engine's nested Filter list.
@@ -20,9 +20,9 @@ import { parseFilterValue } from "@altea/altea-user-assets/client/FilterValueStr
 //    / FilterGroupOperation are string enums, so each is converted through `Enum.toName`.
 //  - `valueString` → a typed value with the client-side `parseFilterValue` (the same converter the
 //    SearchControl uses), keyed off the token's FilterType.
-//  - Signum lives in the UserAssets package; altea keeps it HERE because altea-user-assets is a
-//    data+client package with no server layer of its own to put it in. Move it there if a second server
-//    consumer appears.
+//  - Lives in altea-user-assets, matching Signum (Signum.UserAssets/Queries/QueryFilterUtils.cs). It was
+//    parked in altea-email while that was the only server consumer; @altea/altea-office-template is the
+//    second, so it moved here — every owner of QueryFilterBaseEntity rows shares one converter.
 
 export namespace QueryFilterUtils {
 

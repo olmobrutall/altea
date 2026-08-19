@@ -100,7 +100,7 @@ async function templateToXml(et: EmailTemplateEntity, ctx: IToXmlContext): Promi
     return o;
 }
 
-function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unknown>, ctx: IFromXmlContext): void {
+async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unknown>, ctx: IFromXmlContext): Promise<void> {
     et.name = str(xml[A + "Name"])!;
     et.disableAuthorization = bool(xml[A + "DisableAuthorization"]) ?? false;
     et.query = xml[A + "Query"] != undefined ? ctx.getQuery(str(xml[A + "Query"])!) : null;
@@ -180,9 +180,13 @@ function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unknown>, 
     // whole import (the template still opens, with an error on the Model field).
     const modelName = str(xml[A + "Model"]);
     if (modelName != undefined) {
-        void EmailModelLogic.getEmailModelEntity(modelName)
-            .then(m => { et.model = m; })
-            .catch(() => { /* not registered here — left unset */ });
+        // AWAITED: this used to be a fire-and-forget `void …then()`, which raced the save that follows —
+        // the model was usually still null when the row was written.
+        try {
+            et.model = await EmailModelLogic.getEmailModelEntity(modelName);
+        } catch {
+            /* not registered in this database — left unset */
+        }
     }
 }
 

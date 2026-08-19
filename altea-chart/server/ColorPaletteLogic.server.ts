@@ -1,4 +1,7 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
+import type { Lite } from "@altea/altea/data/lite";
+import type { Entity } from "@altea/altea/data/entity";
+import { cleanTypeName } from "@altea/altea/data/registration";
 import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "@altea/altea/server/schema";
@@ -52,4 +55,25 @@ export namespace ColorPaletteLogic {
         const all = await colorPaletteLazy.value();
         return all.find(cp => cp.type != null && String(cp.type.id) === String(typeId));
     }
+
+    /**
+     * Signum's `ChartColorLogic.ColorFor(lite)` — the colour the palette assigns to one specific entity,
+     * or undefined when its type has no palette or the palette names no colour for it.
+     *
+     * Used by anything that has to COLOUR a chart outside the browser (the chart script does this
+     * client-side normally): @altea/altea-office-template binds these onto the series and data points of a
+     * chart drawn in a Word/PowerPoint template.
+     */
+    export async function colorFor(lite: Lite<Entity>): Promise<string | undefined> {
+        const palette = await getColorPaletteByTypeName(cleanTypeName(lite.entityType));
+        if (palette == null)
+            return undefined;
+
+        return palette.specificColors.find(sc => sc.entity != null && liteEquals(sc.entity, lite))?.color;
+    }
+}
+
+/** Two lites are the same row when their type and id match (altea has no Lite.Is). */
+function liteEquals(a: Lite<Entity>, b: Lite<Entity>): boolean {
+    return a.entityType === b.entityType && String(a.id) === String(b.id);
 }

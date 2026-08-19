@@ -11,7 +11,7 @@ import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { QueryContext } from "@altea/altea-templating/server/ValueProviders.server";
 import { TextTemplateParameters } from "@altea/altea-templating/server/TextTemplateParser.Nodes.server";
 import { FilePathEmbedded } from "@altea/altea-files/data/Files";
-import { QueryFilterUtils } from "./QueryFilterUtils.server";
+import { QueryFilterUtils } from "@altea/altea-user-assets/server/QueryFilterUtils.server";
 import {
     EmailAddressSourceEnum, EmailMessageFormatEnum, EmailTemplateEntity, EmailTemplateEntity_Message,
     EmailTemplateEntity_Recipient, WhenManyFromBehaviourEnum, WhenManyRecipientsBehaviourEnum,

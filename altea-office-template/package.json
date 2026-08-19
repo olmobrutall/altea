@@ -1,0 +1,30 @@
+{
+  "name": "@altea/altea-office-template",
+  "version": "0.0.1",
+  "description": "Office document templating (docx / pptx / xlsx) over a query + a model (ported from Signum.Word)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-chart": "workspace:*",
+    "@altea/altea-email": "workspace:*",
+    "@altea/altea-files": "workspace:*",
+    "@altea/altea-templating": "workspace:*",
+    "@altea/altea-user-assets": "workspace:*",
+    "@altea/altea-user-queries": "workspace:*",
+    "fflate": "^0.8.2",
+    "quote-transformer": "workspace:*"
+  }
+}

@@ -1,8 +1,8 @@
 import { Entity } from '../data/entity';
-import type { Type, PrimaryKey } from '../data/entity';
+import type { Type, PrimaryKey, BaseEntity } from '../data/entity';
 import { TypeLogic } from './typeLogic';
 import { getTypeInfo } from '../data/reflection';
-import { referenceKey } from '../data/changes';
+import { referenceKey, forEachField } from '../data/changes';
 import { Lite } from '../data/lite';
 import { Connector } from './connection/connector';
 import { normalizeScalar } from './normalizeScalar';
@@ -178,7 +178,18 @@ export function insertSqlSyncGenerated(table: Table, entity: Entity): SqlPreComm
 
 // UPDATE all non-PK columns (incl mixins) of the row WHERE id = entity.id. No optimistic
 // concurrency (enum tables have no ticks).
-export function updateSqlSync(table: Table, entity: Entity): SqlPreCommandSimple {
+//
+// Returns UNDEFINED for a CLEAN entity — Signum's Table.UpdateSqlSync bails out on
+// `entity.Modified == ModifiedState.Clean`, so a synchronizer's mergeBoth can just copy the expected
+// values onto the row it RETRIEVED from the database (see copyRowFields) and let the entity's own
+// change tracking decide whether that row needs writing. That is the entire diff: no parallel
+// row-image comparison, no record shape mirroring the columns.
+//
+// `isModifiedSelf()` rather than `isDirty()`: the question is whether THIS row drifted, exactly as
+// Signum's `Modified` is the entity's own state and not its graph's.
+export function updateSqlSync(table: Table, entity: Entity): SqlPreCommandSimple | undefined {
+    if (!entity.isModifiedSelf())
+        return undefined;
     return buildUpdate(table, collectAssignments(table, entity), entity.id);
 }
 
@@ -197,14 +208,21 @@ export function deleteSqlSync(table: Table, entity: Entity): SqlPreCommand | und
     return SqlPreCommand.combine(Spacing.Simple, pre, main);
 }
 
-// The full column-value image of an entity's row (incl PK + mixins), for comparing a
-// "should" enum row against the current DB row (→ decide whether an UPDATE is needed).
-export function rowImage(table: Table, entity: Entity): Map<string, unknown> {
-    const image = new Map<string, unknown>();
-    image.set(table.primaryKey.column.name, entity.id);
-    for (const a of collectAssignments(table, entity))
-        image.set(a.column.name, a.value);
-    return image;
+// Copy every persistent field of the EXPECTED row onto the row RETRIEVED from the database, so the
+// retrieved entity's own change tracking (isModifiedSelf, against the snapshot the Retriever took)
+// answers "did this row drift?" — the entity IS the comparison. Signum's synchronizers assign the
+// drifted members by hand in mergeBoth (`c.Key = s.Key`, `c.CleanName = s.CleanName`, …) before
+// calling UpdateSqlSync; altea does it reflection-driven instead, which covers every column a seeded
+// row can have — mixin columns included, since altea inlines a mixin's fields onto its owner — and
+// cannot fall out of date when a field is added to one of these system entities.
+//
+// The id is NOT copied (forEachField skips it): a matched row KEEPS its persisted id — it is an FK
+// target across the whole database — which is exactly why the RETRIEVED entity, not the expected one,
+// is what gets written.
+export function copyRowFields<T extends BaseEntity>(current: T, should: T): void {
+    forEachField(should, (fi, value) => {
+        (current as unknown as Record<string, unknown>)[fi.name] = value;
+    });
 }
 
 // ---- Value extraction ------------------------------------------------------

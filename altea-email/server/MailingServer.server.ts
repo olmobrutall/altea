@@ -76,7 +76,7 @@ export namespace MailingServer {
         ws.post("/api/email/constructorType",
             { req: CustomType<EmailModelEntity>(), res: CustomType<string>() },
             async (req, res) => {
-                const queryName = EmailModelLogic.getQueryName(req.body);
+                const queryName = EmailModelLogic.getQueryName(await req.jsonTyped());
                 res.jsonTyped(typeof queryName === "function" ? cleanTypeName(queryName) : String(queryName));
             });
 
@@ -86,7 +86,9 @@ export namespace MailingServer {
             async (req, res) => {
                 const queryKey = String(req.query["queryKey"] ?? "");
                 const visibleOn = visibleOnOf(String(req.query["visibleOn"] ?? "Single"));
-                const lite = req.body?.lite ?? null;
+                // `req.body` is the RAW string, not the parsed object — reading `.lite` off it always
+                // yielded undefined, so a single-row contextual menu silently lost its entity filter.
+                const lite = (await req.jsonTyped())?.lite ?? null;
                 const entity = lite == null ? null : await retrieve(lite.entityType as Type<Entity>, lite.id);
 
                 res.jsonTyped(await EmailTemplateLogic.getApplicableEmailTemplates(queryKey, entity, visibleOn));

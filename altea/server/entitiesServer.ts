@@ -15,7 +15,7 @@
 // therefore lives on the deserialize path (the server resolves the DB original implicitly), not here.
 
 import { Entity } from "../data/entity";
-import { entityIntegrityCheck } from "../data/validation";
+import { entityIntegrityCheckAsync } from "../data/validation";
 import type { EntityPack } from "../data/entityPack";
 import * as Database from "./Database";
 import { table } from "./table";
@@ -72,7 +72,7 @@ export namespace EntitiesServer {
             { req: Entity },
             async (req, res) => {
                 const entity = await req.jsonTyped();
-                const ic = entityIntegrityCheck(entity, "Saving");
+                const ic = await entityIntegrityCheckAsync(entity, "Saving");
                 if (ic) { res.modelState(ic); return; }
                 res.status(200).end();
             });

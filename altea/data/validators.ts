@@ -83,7 +83,9 @@ registerImplicitNotNullValidator(() => new NotNullValidator());
 
 // --- fieldValidation ---
 
-export function customValidators<T>(fn: (entity: T, fi: FieldInfo, env: IntegrityCheckEnvironment) => string | null) {
+export function customValidators<T>(
+    fn: (entity: T, fi: FieldInfo, env: IntegrityCheckEnvironment) => string | null | undefined | Promise<string | null | undefined>,
+) {
     return (target: object, propertyKey: string | symbol) => {
         const typeInfo = getOrCreateTypeInfo(target);
         getOrCreateFieldInfo(typeInfo, String(propertyKey)).customValidation = fn;

@@ -16,7 +16,7 @@ import {
 import type { HeaderType } from "@altea/altea/client/Lines/GroupHeader";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { useAPI, useForceUpdate } from "@altea/altea/client/Hooks";
-import { parseFilterValue, stringifyFilterValue } from "@altea/altea-user-assets/client/FilterValueString";
+import { parseFilterValue, stringifyFilterValue } from "@altea/altea-user-assets/data/FilterValueString";
 import { UserAssetQueryMessage } from "@altea/altea-user-assets/data/UserAssets";
 import { QueryTokenEmbedded, PinnedQueryFilterEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
 import { UserQueryEntity_Filter } from "../../data/UserQuery";

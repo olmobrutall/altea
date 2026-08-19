@@ -52,7 +52,10 @@ export interface UserAssetTypeConfig<T extends IUserAssetEntity = IUserAssetEnti
     /** Serialize the entity to an XML-object (attrs prefixed "@_", nested elements as objects/arrays). */
     toXml(entity: T, ctx: IToXmlContext): Record<string, unknown> | Promise<Record<string, unknown>>;
     /** Fill the entity from a parsed XML-object. */
-    fromXml(entity: T, xml: Record<string, unknown>, ctx: IFromXmlContext): void;
+    /** Fill the entity from a parsed XML-object. MAY be async: resolving a reference (a model registry
+     *  row, a symbol) can need the database, and the import loop awaits — doing it fire-and-forget would
+     *  race the save that follows. */
+    fromXml(entity: T, xml: Record<string, unknown>, ctx: IFromXmlContext): void | Promise<void>;
     /** Find the existing DB row for a guid (Signum's Database.Query.SingleOrDefault(a => a.Guid == guid)). */
     load(guid: string): Promise<T | undefined>;
     /** Persist the asset (Signum's saveEntity — the registered Save operation). */
@@ -211,7 +214,7 @@ export namespace UserAssetsImporter {
             if (overrideByGuid.get(guid) === false && (await cfg.load(guid)) != null)
                 continue;
             const entity = materialized.get(guid)!;
-            cfg.fromXml(entity, p.obj, ctx);
+            await cfg.fromXml(entity, p.obj, ctx);
             await cfg.save(entity);
         }
     }

@@ -190,7 +190,12 @@ export abstract class ValueProviderBase {
         const token = match.groups!["token"];
 
         const assertNoCollectionToken = (pt: ParsedToken): void => {
-            if (pt.queryToken != undefined && pt.queryToken.isCollectionToken())
+            // Signum's `QueryToken.IsCollection(token.Type)` — does this token's VALUE hold many rows?
+            // NOT `isCollectionToken()`, which asks the opposite-ish question ("is this a collection
+            // BOUNDARY token", i.e. Element / AnyAll / Nested). Using that inverted the rule: it accepted
+            // `@[details]` (a raw collection, unprintable) and rejected `@[details.Element]` (the correct
+            // form). Found by rendering a real `@foreach[details.Element]` template end to end.
+            if (pt.queryToken != undefined && pt.queryToken.type?.array === true)
                 tp.addError(false, `@[${typeToken}] is a collection, missing 'Element' token at the end`);
         };
 

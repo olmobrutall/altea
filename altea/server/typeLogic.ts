@@ -1,3 +1,4 @@
+import "../data/globals"; // Array.prototype.toMap
 import { joinRelaxed } from "../data/globals/joinRelaxed";
 import { Connector } from "./connection/connector";
 import { cleanTypeName, getLocation, enumNameOf } from "../data/registration";
@@ -5,9 +6,10 @@ import { TypeEntity } from "../data/typeEntity";
 import { quotedFunction } from "./query";
 import { ClassType } from "./runtimeTypes";
 import { ResetLazy } from "../data/resetLazy";
-import { insertSqlSyncGenerated, updateSqlSync, deleteSqlSync } from "./save";
+import { insertSqlSyncGenerated, updateSqlSync, deleteSqlSync, copyRowFields } from "./save";
 import { table as table_ } from "./table";
-import { existsTable, readObjectName } from "./sync/syncTableRead";
+import { existsTable } from "./sync/syncTableRead";
+import { Administrator } from "./Administrator";
 import { Synchronizer, Replacements } from "./sync/synchronizer";
 import type { Entity, PrimaryKey } from "../data/entity";
 import type { Schema } from "./schema/schema";
@@ -270,12 +272,11 @@ function packageOf(ctor: Function): string {
     return getLocation(classNameOf(ctor))?.packageName ?? "";
 }
 
-// A TypeEntity carrying the given metadata (and optional id) — for generation inserts (no id,
-// DB assigns) and sync updates/deletes (id = the persisted row's).
-function typeEntityFromMeta(m: { tableName: string; cleanName: string; package: string; className: string }, id?: PrimaryKey): TypeEntity {
+// A TypeEntity carrying the given metadata — the "should" row, id-less: generation and the sync's
+// createNew both INSERT it without an id (the identity PK is DB-assigned), and the sync's mergeBoth
+// copies its fields onto the RETRIEVED row rather than re-building one around the persisted id.
+function typeEntityFromMeta(m: TypeMeta): TypeEntity {
     const te = new TypeEntity();
-    if (id != null)
-        (te as { id: PrimaryKey }).id = id;
     te.tableName = m.tableName;
     te.cleanName = m.cleanName;
     te.package = m.package;
@@ -310,56 +311,38 @@ async function synchronizeTypes(replacements: Replacements): Promise<SqlPreComma
     if (table == null)
         return undefined;
 
-    const sqlBuilder = connector.sqlBuilder;
-    const pkCol = table.primaryKey.column.name;
-    const col = (f: string): string => table.fields[f].field.columns()[0].name;
+    // `should` and `current` are both dictionaries of TypeEntity ENTITIES keyed by physical table name
+    // (Signum's `Dictionary<string, TypeEntity>`) — the entity is the unit of comparison, so there is no
+    // record shape restating its columns.
+    const should = bootstrapMetas(schema).map(m => typeEntityFromMeta(m)).toMap(te => te.tableName);
 
-    type Meta = { tableName: string; cleanName: string; package: string; className: string };
-    const should = new Map<string, Meta>();
-    for (const [type, t] of schema.tables)
-        if (typeof type === "function")
-            should.set(t.name.name, { tableName: t.name.name, cleanName: cleanTypeName(type), package: packageOf(type), className: classNameOf(type) });
-
-    type Cur = { id: PrimaryKey } & Meta;
-    const currentByTable = new Map<string, Cur>();
-    // Read from the table's OLD name if it was renamed this run (readObjectName). A not-yet-created
-    // table (the first sync introducing TypeEntity) yields no current rows, so every type becomes an
-    // INSERT that runs after the CREATE emitted earlier in this same script. Any OTHER read failure
-    // propagates to Schema.synchronizationScript, which comments it out (so it surfaces).
-    const readName = readObjectName(table, replacements);
-    if (await existsTable(readName)) {
-        const cols = [pkCol, col("tableName"), col("cleanName"), col("package"), col("className")];
-        const rows = await connector.executeQuery(
-            `SELECT ${cols.map(c => sqlBuilder.sqlEscape(c)).join(", ")} FROM ${sqlBuilder.objectName(readName)}`,
-        ) as Record<string, unknown>[];
-        for (const r of rows) {
-            const tableName = String(r[col("tableName")]);
-            currentByTable.set(tableName, {
-                id: r[pkCol] as PrimaryKey,
-                tableName,
-                cleanName: String(r[col("cleanName")]),
-                package: r[col("package")] == null ? "" : String(r[col("package")]),
-                className: String(r[col("className")]),
-            });
-        }
-    }
+    // Read the current rows as ENTITIES through an ordinary LINQ query — Administrator.tryRetrieveAll
+    // temporarily points the in-memory Table at the name the database still uses (a rename learned this
+    // run) for the duration of the read. A not-yet-created table (the first sync introducing TypeEntity)
+    // yields no current rows, so every type becomes an INSERT that runs after the CREATE emitted earlier in
+    // this same script. Any OTHER read failure propagates to Schema.synchronizationScript, which comments
+    // it out (so it surfaces).
+    const currentByTable = (await Administrator.tryRetrieveAll(TypeEntity, replacements)).toMap(te => te.tableName);
 
     // synchronizeScriptReplacing asks which removed table name each new one renames (the
     // "TypeTableName" bucket) and re-keys current by the new name, so a renamed type lands in
     // mergeBoth (metadata UPDATE) rather than a delete+insert — which would re-id it and break
     // its discriminator.
-    return Synchronizer.synchronizeScriptReplacing<Meta, Cur>(
+    return Synchronizer.synchronizeScriptReplacing<TypeEntity, TypeEntity>(
         replacements,
         "TypeTableName",
         Spacing.Double,
         should,
         currentByTable,
-        (_k, s) => insertSqlSyncGenerated(table, typeEntityFromMeta(s) as unknown as Entity),
-        (_k, c) => deleteSqlSync(table, typeEntityFromMeta(c, c.id) as unknown as Entity),
-        (_k, s, c) =>
-            (s.tableName === c.tableName && s.cleanName === c.cleanName && s.package === c.package && s.className === c.className)
-                ? undefined
-                : updateSqlSync(table, typeEntityFromMeta(s, c.id) as unknown as Entity), // keep the persisted id
+        (_k, s) => insertSqlSyncGenerated(table, s as unknown as Entity),
+        (_k, c) => deleteSqlSync(table, c as unknown as Entity),
+        (_k, s, c) => {
+            // Matched (possibly through a RENAME): write the model metadata onto the RETRIEVED row, which
+            // KEEPS its persisted id — that id is the @implementedByAll discriminator stored across the
+            // whole database, so it is never re-assigned. updateSqlSync returns undefined when nothing drifted.
+            copyRowFields(c as unknown as Entity, s as unknown as Entity);
+            return updateSqlSync(table, c as unknown as Entity);
+        },
     );
 }
 

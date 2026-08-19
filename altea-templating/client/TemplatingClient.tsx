@@ -8,7 +8,18 @@ import { ModelConverterSymbol, QueryModel, TemplateApplicableSymbol, type Global
 
 export namespace TemplatingClient {
 
+    // This module is a SHARED dependency — @altea/altea-email and @altea/altea-office-template both call
+    // start(), as the header above intends. Registration is not idempotent on its own (configuring the same
+    // type twice throws "Key … already added"), so the second caller must be a no-op. Signum guards the
+    // same collision at each CALL SITE (`if (!Navigator.getSettings(QueryModel))`); guarding once here fixes
+    // it for every consumer, and matches the `let started` idiom the module's server halves already use.
+    let started = false;
+
     export function start(cb: ClientBuilder): void {
+        if (started)
+            return;
+        started = true;
+
         cb.configure(QueryModel).withView(() => import("./Templates/QueryModel"));
 
         cb.configure(ModelConverterSymbol)

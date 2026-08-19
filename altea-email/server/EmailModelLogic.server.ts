@@ -9,8 +9,9 @@ import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { Connector } from "@altea/altea/server/connection/connector";
 import type { Schema } from "@altea/altea/server/schema/schema";
-import { insertSqlSyncGenerated, updateSqlSync, deleteSqlSync } from "@altea/altea/server/save";
-import { existsTable, readObjectName } from "@altea/altea/server/sync/syncTableRead";
+import { insertSqlSyncGenerated, updateSqlSync, deleteSqlSync, copyRowFields } from "@altea/altea/server/save";
+import { existsTable } from "@altea/altea/server/sync/syncTableRead";
+import { Administrator } from "@altea/altea/server/Administrator";
 import { Synchronizer, Replacements } from "@altea/altea/server/sync/synchronizer";
 import { SqlPreCommand, Spacing } from "@altea/altea/server/sync/sqlPreCommand";
 import {
@@ -19,8 +20,9 @@ import {
 } from "@altea/altea/server/dynamicQuery/requests";
 import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
-import { Entity, type PrimaryKey, type Type } from "@altea/altea/data/entity";
+import { Entity, type Type } from "@altea/altea/data/entity";
 import { cleanTypeName } from "@altea/altea/data/registration";
+import "@altea/altea/data/globals"; // Array.prototype.toMap
 import { joinRelaxed } from "@altea/altea/data/globals/joinRelaxed";
 import type { FilterRequest, OrderRequest } from "@altea/altea/data/dynamicQuery/queryRequest";
 import { MultiEntityModel, QueryModel } from "@altea/altea-templating/data/Templating";
@@ -282,41 +284,29 @@ async function synchronizeEmailModels(replacements: Replacements): Promise<SqlPr
     if (table == null)
         return undefined;
 
-    const nameCol = table.fields["fullClassName"].field.columns()[0].name;
-    const pkCol = table.primaryKey.column.name;
 
-    type Current = { id: PrimaryKey; name: string };
-    const current = new Map<string, Current>();
+    // Ordinary LINQ read (Signum's Administrator.TryRetrieveAll): the in-memory Table is temporarily
+    // pointed at the name the database still uses when the table itself was renamed this run, and a
+    // not-yet-created table yields no rows — so every model becomes an INSERT after the CREATE emitted
+    // earlier in the same script.
+    // The retrieved ENTITIES are the `current` dictionary: each carries its persisted id and the clean
+    // snapshot the Retriever took, so mergeBoth below compares the ENTITY, not a record restating its columns.
+    const current = (await Administrator.tryRetrieveAll(EmailModelEntity, replacements)).toMap(row => row.fullClassName);
 
-    // Read from the table's OLD name when the table itself was renamed this run; a not-yet-created table
-    // yields no rows, so every model becomes an INSERT after the CREATE emitted earlier in the same script.
-    const readName = readObjectName(table, replacements);
-    if (await existsTable(readName)) {
-        const sqlBuilder = connector.sqlBuilder;
-        const rows = await connector.executeQuery(
-            `SELECT ${sqlBuilder.sqlEscape(pkCol)}, ${sqlBuilder.sqlEscape(nameCol)} FROM ${sqlBuilder.objectName(readName)}`,
-        ) as Record<string, unknown>[];
-
-        for (const row of rows) {
-            const name = String(row[nameCol]);
-            current.set(name, { id: row[pkCol] as PrimaryKey, name });
-        }
-    }
-
-    return Synchronizer.synchronizeScriptReplacing<EmailModelEntity, Current>(
+    return Synchronizer.synchronizeScriptReplacing<EmailModelEntity, EmailModelEntity>(
         replacements,
         emailModelReplacementKey,
         Spacing.Double,
         EmailModelLogic.shouldRowsForSync(),
         current,
         (_k, e) => insertSqlSyncGenerated(table, e as unknown as Entity), // new model: DB assigns the id
-        (_k, c) => deleteSqlSync(table, bareEmailModel(c.id)),
+        (_k, c) => deleteSqlSync(table, c as unknown as Entity),
         (_k, e, c) => {
-            // Matched (possibly through a RENAME): keep the persisted id — every EmailTemplate.model FK
-            // points at it — and only write the row when the name actually changed.
-            e.id = c.id;
-            e.isNew = false;
-            return e.fullClassName === c.name ? undefined : updateSqlSync(table, e as unknown as Entity);
+            // Matched (possibly through a RENAME): write the declared name onto the RETRIEVED row, which
+            // keeps its persisted id — every EmailTemplate.model FK points at it. updateSqlSync returns
+            // undefined unless the row actually drifted.
+            copyRowFields(c as unknown as Entity, e as unknown as Entity);
+            return updateSqlSync(table, c as unknown as Entity);
         },
     );
 }
@@ -337,13 +327,6 @@ async function readEmailModelRows(): Promise<EmailModelEntity[]> {
     }
 
     return await ExecutionMode.global(() => tableQuery(EmailModelEntity).toArray()) as EmailModelEntity[];
-}
-
-/** A bare row carrying just an id, for building a DELETE (deleteSqlSync reads only the id). */
-function bareEmailModel(id: PrimaryKey): Entity {
-    const e = new EmailModelEntity();
-    e.id = id;
-    return e as unknown as Entity;
 }
 
 // ---- request-DTO → engine conversions (the QueryModel path) --------------------------------------------

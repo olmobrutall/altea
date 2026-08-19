@@ -1,3 +1,4 @@
+import "../data/globals"; // Array.prototype.toMap
 import { joinRelaxed } from "../data/globals/joinRelaxed";
 import type { Entity, PrimaryKey, Type } from "../data/entity";
 import { Symbol } from "../data/symbol";
@@ -5,13 +6,12 @@ import { declaredSymbolsForType } from "../data/registration";
 import { ResetLazy } from "../data/resetLazy";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
 import type { Schema } from "./schema/schema";
-import type { Table } from "./schema/table";
 import { Connector } from "./connection/connector";
 import { SqlPreCommand, Spacing } from "./sync/sqlPreCommand";
 import { Synchronizer, Replacements } from "./sync/synchronizer";
-import { insertSqlSyncGenerated, updateSqlSync, deleteSqlSync, rowImage } from "./save";
-import { existsTable, readObjectName } from "./sync/syncTableRead";
-import type { ObjectName } from "./schema/objectName";
+import { insertSqlSyncGenerated, updateSqlSync, deleteSqlSync, copyRowFields } from "./save";
+import { existsTable } from "./sync/syncTableRead";
+import { Administrator } from "./Administrator";
 
 // Port of Signum's SymbolLogic<T> (Signum/Basics/SymbolLogic.cs).
 //
@@ -231,69 +231,34 @@ async function synchronizeSymbols(replacements: Replacements, ctor: Type<Symbol>
     if (stl == null || table == null)
         return undefined;
 
-    const keyCol = table.fields["key"].field.columns()[0].name;
-    const pkCol = table.primaryKey.column.name;
+    // Read the current rows as ENTITIES through an ordinary LINQ query (Signum's
+    // `AvoidCache().Using(_ => Administrator.TryRetrieveAll<T>(replacements))`): tryRetrieveAll temporarily
+    // points the in-memory Table at the name the database still uses when the table was renamed this run.
+    // A not-yet-created table (the first sync introducing this symbol type) yields no current rows, so
+    // every symbol becomes an INSERT that runs after the CREATE emitted earlier in this same script. Any
+    // OTHER read failure propagates to Schema.synchronizationScript, which comments it out (so the error
+    // surfaces). The retrieved ENTITIES are the `current` dictionary itself (Signum's `List<T> current`):
+    // each carries its persisted id and the clean snapshot the Retriever took, which is what mergeBoth
+    // diffs against — no record shape restating the columns, no parallel row image.
+    const current = (await Administrator.tryRetrieveAll(ctor, replacements)).toMap(c => c.key);
 
-    type Current = { id: PrimaryKey; image: Map<string, unknown> };
-    const current = new Map<string, Current>();
-    // Read current rows from the table's OLD name if it was renamed this run (readObjectName). A not-yet-
-    // created table (the first sync introducing this symbol type) yields no current rows, so every symbol
-    // becomes an INSERT that runs after the CREATE emitted earlier in this same script. Any OTHER read
-    // failure propagates to Schema.synchronizationScript, which comments it out (so the error surfaces).
-    const readName = readObjectName(table, replacements);
-    if (await existsTable(readName)) {
-        for (const row of await retrieveRows(table, readName))
-            current.set(String(row.get(keyCol)), { id: row.get(pkCol) as PrimaryKey, image: row });
-    }
+    // `should` is keyed by key: the DECLARED symbol instances (Signum's `IEnumerable<T> should`).
+    const should = stl.getSymbols().toMap(s => s.key);
 
-    // `should` is keyed by key; the symbol INSTANCE carries its (persisted, after load) id for a matched
-    // key — for a NEW key it is id-less, so insertSqlSyncGenerated omits the id (DB assigns).
-    const should = new Map<string, Symbol>(stl.getSymbols().map(s => [s.key, s]));
-
-    return Synchronizer.synchronizeScriptReplacing<Symbol, Current>(
+    return Synchronizer.synchronizeScriptReplacing<Symbol, Symbol>(
         replacements,
         Replacements.keyEnumsForTable(table.name.name), // reuse the seeded-table rename bucket
         Spacing.Double,
         should,
         current,
         (_k, s) => insertSqlSyncGenerated(table, s as Entity), // new symbol: no id, DB assigns
-        (_k, c) => deleteSqlSync(table, bareSymbol(ctor, c.id)),
+        (_k, c) => deleteSqlSync(table, c as Entity),
         (_k, s, c) => {
-            // Matched by key: KEEP the persisted id (stamp it on the instance so the row image + any UPDATE
-            // target the real row), never re-id. Update only if a non-id column drifted.
-            (s as { id: PrimaryKey }).id = c.id;
-            s.isNew = false;
-            return imageEquals(rowImage(table, s as Entity), c.image) ? undefined : updateSqlSync(table, s as Entity);
+            // Matched by key (possibly through a RENAME): copy the DECLARED values onto the RETRIEVED row —
+            // which KEEPS its persisted id, an FK target across the database, never re-assigned — and let
+            // updateSqlSync decide: it returns undefined unless the row actually drifted.
+            copyRowFields(c as Entity, s as Entity);
+            return updateSqlSync(table, c as Entity);
         },
     );
-}
-
-// A bare symbol carrying just an id, for building a DELETE (deleteSqlSync reads only id).
-function bareSymbol(ctor: Type<Symbol>, id: PrimaryKey): Entity {
-    const s = new ctor();
-    (s as { id: PrimaryKey }).id = id;
-    return s as Entity;
-}
-
-// Reads every row of a symbol table as Map<physicalColumn, value>. A symbol table has a fixed shape
-// (id + key), so unlike retrieveEnumRows this needs no column-rename tolerance.
-async function retrieveRows(table: Table, readName: ObjectName): Promise<Map<string, unknown>[]> {
-    const connector = Connector.current();
-    const sqlBuilder = connector.sqlBuilder;
-    const columns = Object.values(table.columns);
-    const select = columns.map(c => sqlBuilder.sqlEscape(c.name)).join(", ");
-    const rows = await connector.executeQuery(`SELECT ${select} FROM ${sqlBuilder.objectName(readName)}`) as Record<string, unknown>[];
-    return rows.map(r => new Map(columns.map(c => [c.name, r[c.name]])));
-}
-
-function imageEquals(a: Map<string, unknown>, b: Map<string, unknown>): boolean {
-    if (a.size !== b.size)
-        return false;
-    for (const [k, v] of a)
-        if (norm(v) !== norm(b.get(k)))
-            return false;
-    return true;
-}
-function norm(v: unknown): string {
-    return v == null ? "" : String(v);
 }

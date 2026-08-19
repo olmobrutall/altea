@@ -261,7 +261,14 @@ export class FieldInfo extends TypeReference {
     maxLength?: number;
 
     validators: Validator[] = [];
-    customValidation?: (entity: any, fieldInfo: FieldInfo, env: IntegrityCheckEnvironment) => string | null;
+    /**
+     * Signum's StaticPropertyValidation. May be ASYNC: a validation that has to open a file, resolve
+     * query tokens or hit the database cannot be expressed synchronously (see the template parse in
+     * @altea/altea-office-template). An async one runs ONLY on the awaiting paths — the server's save
+     * and deserialization passes, and the explicit /api/validateEntity pre-flight — never in the
+     * client's live per-keystroke path, which must stay synchronous and must not do I/O per render.
+     */
+    customValidation?: (entity: any, fieldInfo: FieldInfo, env: IntegrityCheckEnvironment) => string | null | undefined | Promise<string | null | undefined>;
 
     constructor(name: string) {
         super();
@@ -280,6 +287,36 @@ export class FieldInfo extends TypeReference {
     // entityIntegrityCheck (whole entity) and the client Binding.getError (per-field, live),
     // so the two never diverge.
     validate(entity: any, env: IntegrityCheckEnvironment): string | null {
+        const error = this.validateDeclared(entity, env);
+        if (error != null)
+            return error;
+
+        const custom = this.customValidation?.(entity, this, env);
+        // A PENDING custom validation cannot be resolved here. Reporting "valid" would be fail-open,
+        // so the sync path reports NOTHING and `validateAsync` (every server path) is what enforces it.
+        // The client therefore learns about such a rule when it tries to save, exactly as it already
+        // does for any validator disabled outside the "Saving" phase.
+        if (custom instanceof Promise)
+            return null;
+
+        return custom ?? null;
+    }
+
+    /**
+     * The same check, awaiting an async customValidation. Used by every path that CAN await: the
+     * Saver's "Saving" pass, the operation endpoint's "ServerDeserialization" pass, and
+     * /api/validateEntity.
+     */
+    async validateAsync(entity: any, env: IntegrityCheckEnvironment): Promise<string | null> {
+        const error = this.validateDeclared(entity, env);
+        if (error != null)
+            return error;
+
+        return (await this.customValidation?.(entity, this, env)) ?? null;
+    }
+
+    /** The declared validators (implicit NotNull first), shared by both entry points. */
+    private validateDeclared(entity: any, env: IntegrityCheckEnvironment): string | null {
         const value = entity[this.name];
         // Signum auto-adds a NotNullValidator to every non-nullable reference/string property; altea
         // synthesises it here (see getImplicitNotNull) so it runs BEFORE the declared validators — a
@@ -293,7 +330,7 @@ export class FieldInfo extends TypeReference {
             const error = validator.error(value, entity, this, env);
             if (error != null) return error;
         }
-        return this.customValidation != null ? this.customValidation(entity, this, env) : null;
+        return null;
     }
 
     // Signum's implicit NotNullValidator (PropertyValidator ctor: a non-nullable, non-value-type

@@ -1,0 +1,15 @@
+{
+  // CLIENT layer — the template editor + the entity / search "create report" menus.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" },
+    { "path": "../altea-chart/tsconfig.client.json" },
+    { "path": "../altea-email/tsconfig.client.json" },
+    { "path": "../altea-files/tsconfig.client.json" },
+    { "path": "../altea-templating/tsconfig.client.json" },
+    { "path": "../altea-user-assets/tsconfig.client.json" },
+    { "path": "../altea-user-queries/tsconfig.client.json" }
+  ]
+}

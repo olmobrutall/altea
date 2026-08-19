@@ -2,7 +2,7 @@ import type { BaseEntity } from '../data/entity';
 import { Entity, EmbeddedEntity } from '../data/entity';
 import { Lite } from '../data/lite';
 import { forEachField, collectChildren, isModifiedSelf } from '../data/changes';
-import { entityIntegrityCheck, IntegrityCheckException } from '../data/validation';
+import { entityIntegrityCheck, entityIntegrityCheckAsync, IntegrityCheckException } from '../data/validation';
 import type { IntegrityCheck, IntegrityCheckEnvironment } from '../data/validation';
 import { DirectedGraph } from './directedGraph';
 
@@ -213,6 +213,23 @@ export function fullIntegrityCheck(modifiables: Iterable<BaseEntity>, env: Integ
  */
 export function assertGraphIntegrity(roots: Iterable<BaseEntity>, env: IntegrityCheckEnvironment): void {
     const errors = fullIntegrityCheck(exploreModifiables(roots), env);
+    if (errors.length > 0)
+        throw new IntegrityCheckException(errors);
+}
+
+/** fullIntegrityCheck, awaiting any async customValidation. Every server path uses this one. */
+export async function fullIntegrityCheckAsync(modifiables: Iterable<BaseEntity>, env: IntegrityCheckEnvironment): Promise<IntegrityCheck[]> {
+    const result: IntegrityCheck[] = [];
+    for (const m of modifiables) {
+        const check = await entityIntegrityCheckAsync(m, env);
+        if (check != null) result.push(check);
+    }
+    return result;
+}
+
+/** assertGraphIntegrity, awaiting any async customValidation. */
+export async function assertGraphIntegrityAsync(roots: Iterable<BaseEntity>, env: IntegrityCheckEnvironment): Promise<void> {
+    const errors = await fullIntegrityCheckAsync(exploreModifiables(roots), env);
     if (errors.length > 0)
         throw new IntegrityCheckException(errors);
 }

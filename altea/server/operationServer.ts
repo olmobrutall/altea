@@ -14,7 +14,7 @@ import type { EntityPack } from "../data/entityPack";
 import { OperationLogic, Operations } from "./operationLogic";
 import type { IEntityOperation } from "./operation";
 import * as Database from "./Database";
-import { assertGraphIntegrity } from "./graphExplorer";
+import { assertGraphIntegrityAsync } from "./graphExplorer";
 import { WebBuilder, CustomType } from "./webApi";
 
 interface EntityOperationRequest { entity: Entity; args?: unknown[]; }
@@ -35,7 +35,7 @@ export namespace OperationServer {
                 // Phase 2: validate the just-deserialized entity graph (Signum's model-binder validation).
                 // Server-only validators run here; the operation's own logic may fill fields before the
                 // Saver's final "Saving" pass. Failures throw → 400 ModelState via the exceptionFilter.
-                assertGraphIntegrity([entity], "ServerDeserialization");
+                await assertGraphIntegrityAsync([entity], "ServerDeserialization");
                 const result = await Operations.execute(entity, resolve<ExecuteSymbol<Entity>>(req.params.operationKey), ...(args ?? []));
                 res.jsonTyped(await getEntityPack(result));
             });

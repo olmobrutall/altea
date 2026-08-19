@@ -1,7 +1,9 @@
 import { Lite } from "@altea/altea/data/lite";
 import type { FilterType } from "@altea/altea/data/dynamicQueries";
 
-// Client-side port of the value↔string half of Signum's FilterValueConverter (the C# server converter).
+// The value↔string half of Signum's FilterValueConverter (the C# server converter), as ISOMORPHIC code:
+// the SearchControl editors need it on the client and QueryFilterUtils needs it on the server, so it lives
+// in the DATA layer rather than under client/ (where it originally sat, back when only editors used it).
 // A stored filter/column keeps its value as a STRING (UserQueryEntity_Filter.valueString); the live
 // SearchControl works with the typed value. altea resolves this on the client (no server round-trip), so
 // these translate a single scalar value between the two, given the token's FilterType.

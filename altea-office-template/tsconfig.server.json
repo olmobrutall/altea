@@ -1,0 +1,15 @@
+{
+  // SERVER layer — node-only (the OOXML substrate, the parser, the renderer, the routes).
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" },
+    { "path": "../altea-chart/tsconfig.server.json" },
+    { "path": "../altea-email/tsconfig.server.json" },
+    { "path": "../altea-files/tsconfig.server.json" },
+    { "path": "../altea-templating/tsconfig.server.json" },
+    { "path": "../altea-user-assets/tsconfig.server.json" },
+    { "path": "../altea-user-queries/tsconfig.server.json" }
+  ]
+}

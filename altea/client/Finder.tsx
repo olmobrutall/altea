@@ -32,6 +32,7 @@ import {
 import { completeToken, QueryToken, SubTokensOptions, type Writable } from './QueryToken';
 import { getSubTokens as generateSubTokens, SubTokensOptionsAll } from '../data/dynamicQuery/tokens/queryToken';
 import { getKey } from '../data/dynamicQuery/queryUtils';
+import { reflectionDefaultColumns } from '../data/dynamicQuery/defaultColumns';
 import { RootToken } from '../data/dynamicQuery/tokens/rootToken';
 import { SearchMessage } from '../data/uiMessages';
 import { QueryTokenString, type Anonymous } from './QueryTokenString';
@@ -472,31 +473,10 @@ export namespace Finder {
         .map(c => resolveColumnToken(queryToken, typeof c === "string" ? c : c.toString()))
         .filter((t): t is QueryToken => t != null);
 
-    // Default: the entity's Id at the beginning, then the first 5 non-collection FIELDS of the entity —
-    // its own declared properties, in declaration order — and NOT the system/meta tokens (ToString,
-    // HasValue, Count, …) that also appear as subtokens. Signum showed the query's declared columns; altea
-    // keeps the grid tidy and lets Type.querySettings override via defaultColumns.
-    const subTokens = queryToken.subTokens(SubTokensOptionsAll)
-      .filter(a => !a.hasAggregate() && !a.hasTimeSeries() && a.type?.array !== true);
-
-    const idToken = subTokens.find(t => t.key.toLowerCase() === "id");
-
-    // The entity's declared field names, in declaration order (insertion order of the reflection dict).
-    // A subtoken is one of the entity's own fields iff its key is in this set — this filters out the
-    // system tokens (ToString/HasValue/…) which are not entity fields.
-    const ti = tryGetTypeInfo(getKey(queryToken.queryName));
-    const fieldOrder = ti ? Object.keys(ti.fields).map(k => k.toLowerCase()) : [];
-    const declIndex = (t: QueryToken): number => {
-      const i = fieldOrder.indexOf(t.key.toLowerCase());
-      return i < 0 ? Number.MAX_VALUE : i;
-    };
-
-    const fieldTokens = subTokens
-      .filter(t => t !== idToken && declIndex(t) !== Number.MAX_VALUE)
-      .sort((a, b) => declIndex(a) - declIndex(b))
-      .slice(0, 5);
-
-    return [idToken, ...fieldTokens].filter((t): t is QueryToken => t != null);
+    // The reflection-derived fallback lives in the DATA layer (data/dynamicQuery/defaultColumns), because
+    // the SERVER needs the same list to resolve a stored UserQuery's ColumnsMode. Only the
+    // `querySettings.defaultColumns` override above is client-side configuration.
+    return reflectionDefaultColumns(queryToken);
   }
 
   // Resolve a (possibly dotted) column key to a sub-token, matching keys CASE-INSENSITIVELY: altea's

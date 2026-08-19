@@ -1,3 +1,4 @@
+import "../../data/globals"; // Array.prototype.toMap
 import { Connector } from "../connection/connector";
 import { tryGetTypeInfo } from "../../data/reflection";
 import { setImplementedByAllTypesProvider, setExtensionTokensProvider, RootToken, SubTokensOptions, type QueryToken } from "../../data/dynamicQuery/tokens";
@@ -6,12 +7,13 @@ import { getKey, type QueryName } from "../../data/dynamicQuery/queryUtils";
 import { DynamicQueryContainer } from "./dynamicQueryContainer";
 import { ExpressionContainer } from "./expressionContainer";
 import { QueryEntity } from "../../data/queryEntity";
-import { insertSqlSyncGenerated, deleteSqlSync } from "../save";
+import { insertSqlSyncGenerated, updateSqlSync, deleteSqlSync, copyRowFields } from "../save";
 import { table as table_ } from "../table";
-import { existsTable, readObjectName } from "../sync/syncTableRead";
+import { existsTable } from "../sync/syncTableRead";
+import { Administrator } from "../Administrator";
 import { Synchronizer, type Replacements } from "../sync/synchronizer";
 import { SqlPreCommand, Spacing } from "../sync/sqlPreCommand";
-import type { Entity, PrimaryKey, Type } from "../../data/entity";
+import type { Entity, Type } from "../../data/entity";
 import type { Schema } from "../schema/schema";
 import type { SchemaBuilder } from "../schema/schemaBuilder";
 
@@ -166,12 +168,12 @@ export namespace QueryLogic {
 // loadQueries on schema.initialize() and after a sync.
 let queryEntitiesByKey = new Map<string, QueryEntity>();
 
-function queryEntityFromKey(key: string, id?: PrimaryKey): QueryEntity {
+// The "should" row for a registered query key — id-less: generation and the sync's createNew both INSERT
+// it without an id (the identity PK is DB-assigned), and the sync's mergeBoth copies its key onto the
+// RETRIEVED row instead of re-building one around the persisted id.
+function queryEntityFromKey(key: string): QueryEntity {
     const qe = new QueryEntity();
-    if (id != null)
-        (qe as { id: PrimaryKey }).id = id;
-    else
-        qe.isNew = true;
+    qe.isNew = true;
     qe.key = key;
     return qe;
 }
@@ -186,9 +188,10 @@ function generateQueryEntities(schema: Schema): SqlPreCommand | undefined {
     return SqlPreCommand.combine(Spacing.Simple, ...keys.map(k => insertSqlSyncGenerated(table, queryEntityFromKey(k) as unknown as Entity)));
 }
 
-// Synchronization (Signum's QueryLogic.SynchronizeQueries): a new query key is INSERTed (DB assigns
-// the id), a removed one DELETEd; a matched key keeps its persisted id (nothing else to update — key
-// is the only meaningful column). A freshly generated schema diffs to nothing.
+// Synchronization (Signum's QueryLogic.SynchronizeQueries): a new query key is INSERTed (DB assigns the
+// id), a removed one DELETEd; a matched key keeps its persisted id and is only UPDATEd when the row
+// drifted — which for this table means a RENAME (key is its only column). A freshly generated schema
+// diffs to nothing.
 async function synchronizeQueries(replacements: Replacements): Promise<SqlPreCommand | undefined> {
     const connector = Connector.current();
     const schema = connector.schema;
@@ -196,37 +199,31 @@ async function synchronizeQueries(replacements: Replacements): Promise<SqlPreCom
     if (table == null)
         return undefined;
 
-    const sqlBuilder = connector.sqlBuilder;
-    const pkCol = table.primaryKey.column.name;
-    const keyCol = table.fields["key"].field.columns()[0].name;
+    // Both sides are dictionaries of QueryEntity ENTITIES — the entity is the unit of comparison.
+    const should = QueryLogic.queries.getQueryNames().map(qn => queryEntityFromKey(getKey(qn))).toMap(qe => qe.key);
 
-    type Meta = { key: string };
-    const should = new Map<string, Meta>();
-    for (const qn of QueryLogic.queries.getQueryNames())
-        should.set(getKey(qn), { key: getKey(qn) });
+    // Ordinary LINQ read of the current rows; Administrator.tryRetrieveAll scopes the in-memory Table to
+    // the name the database still uses when this table was renamed this run, and yields no rows when the
+    // table does not exist yet (its CREATE is earlier in this same script). The retrieved entities ARE the
+    // `current` dictionary: each carries its persisted id and the clean snapshot the Retriever took.
+    const currentByKey = (await Administrator.tryRetrieveAll(QueryEntity, replacements)).toMap(qe => qe.key);
 
-    type Cur = { id: PrimaryKey; key: string };
-    const currentByKey = new Map<string, Cur>();
-    const readName = readObjectName(table, replacements);
-    if (await existsTable(readName)) {
-        const rows = await connector.executeQuery(
-            `SELECT ${sqlBuilder.sqlEscape(pkCol)}, ${sqlBuilder.sqlEscape(keyCol)} FROM ${sqlBuilder.objectName(readName)}`,
-        ) as Record<string, unknown>[];
-        for (const r of rows) {
-            const key = String(r[keyCol]);
-            currentByKey.set(key, { id: r[pkCol] as PrimaryKey, key });
-        }
-    }
-
-    return Synchronizer.synchronizeScriptReplacing<Meta, Cur>(
+    return Synchronizer.synchronizeScriptReplacing<QueryEntity, QueryEntity>(
         replacements,
         "QueryKey",
         Spacing.Double,
         should,
         currentByKey,
-        (_k, s) => insertSqlSyncGenerated(table, queryEntityFromKey(s.key) as unknown as Entity),
-        (_k, c) => deleteSqlSync(table, queryEntityFromKey(c.key, c.id) as unknown as Entity),
-        () => undefined, // matched: key is the only column — nothing to update
+        (_k, s) => insertSqlSyncGenerated(table, s as unknown as Entity),
+        (_k, c) => deleteSqlSync(table, c as unknown as Entity),
+        (_k, s, c) => {
+            // Matched (possibly through a RENAME): write the registered key onto the RETRIEVED row, which
+            // keeps its persisted id — every stored Lite<QueryEntity> (a UserQuery's `query`, a toolbar
+            // element's content) points at it. updateSqlSync returns undefined unless the key drifted, so an
+            // unchanged query contributes nothing and a RENAMED one gets its key column written.
+            copyRowFields(c as unknown as Entity, s as unknown as Entity);
+            return updateSqlSync(table, c as unknown as Entity);
+        },
     );
 }
 

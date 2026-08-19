@@ -1,6 +1,6 @@
 
 import type { BaseEntity } from './entity';
-import type { IntegrityCheckEnvironment } from './reflection';
+import type { FieldInfo, IntegrityCheckEnvironment } from './reflection';
 import { forEachField } from './changes';
 // Side-effect import: validators.ts registers the implicit-NotNull factory the reflection layer needs
 // (registerImplicitNotNullValidator). Loading it here guarantees the factory is present on every
@@ -35,6 +35,29 @@ export function entityIntegrityCheck(m: BaseEntity, env: IntegrityCheckEnvironme
         if (error != null)
             (errors ??= {})[fi.name] = error;
     });
+
+    return errors == null ? null : { entity: m, errors };
+}
+
+/**
+ * The same check, awaiting any ASYNC customValidation (see FieldInfo.customValidation). Every SERVER path
+ * uses this one; the sync twin above stays for the client's live per-field validation, which cannot await.
+ *
+ * Fields are validated SEQUENTIALLY rather than with Promise.all: an async validator may open a package or
+ * query the database, and a wide entity would otherwise fan out a burst of concurrent work for a result
+ * that is reported field-by-field anyway.
+ */
+export async function entityIntegrityCheckAsync(m: BaseEntity, env: IntegrityCheckEnvironment): Promise<IntegrityCheck | null> {
+    let errors: { [field: string]: string } | undefined;
+
+    const fields: FieldInfo[] = [];
+    forEachField(m, fi => { fields.push(fi); });
+
+    for (const fi of fields) {
+        const error = await fi.validateAsync(m, env);
+        if (error != null)
+            (errors ??= {})[fi.name] = error;
+    }
 
     return errors == null ? null : { entity: m, errors };
 }

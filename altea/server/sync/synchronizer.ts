@@ -1,7 +1,8 @@
 import * as fs from 'node:fs';
 import { SqlPreCommand, Spacing, combineCommands } from './sqlPreCommand';
 import { StringDistance, ChoiceType } from './stringDistance';
-import type { ObjectName } from '../schema/objectName';
+import { ObjectName, SchemaName } from '../schema/objectName';
+import type { Table } from '../schema/table';
 
 // Port of Signum's Engine/Sync/Synchronizer.cs — the generic dictionary 3-way merge that
 // drives every diff in SchemaSynchronizer (createNew / removeOld / mergeBoth per key), plus
@@ -84,6 +85,75 @@ export class Synchronizer {
         const repOldDictionary = replacements.applyReplacementsToOld(oldDictionary, replacementsKey);
 
         return Synchronizer.synchronizeScript(spacing, newDictionary, repOldDictionary, createNew, removeOld, mergeBoth);
+    }
+
+    // Port of Signum's Synchronizer.UseOldTableName. While a synchronization script is being GENERATED the
+    // database still holds the table at its OLD name (and old schema) — the RENAME / SET SCHEMA DDL is only
+    // in the script being written, not yet applied. So to read the table's current rows, point the in-memory
+    // `Table` at that old name for the duration of the read and restore it on dispose:
+    //
+    //     using _ = Synchronizer.useOldTableName(table, replacements);   // … then an ordinary LINQ query
+    //
+    // That is the whole point of the temporary rename: every sync read stays a NORMAL query through the
+    // binder / formatter / retriever (see Administrator.tryRetrieveAll) instead of hand-rolled raw SQL that
+    // re-derives the physical name and re-maps every column by hand.
+    //
+    // Reads the keyTablesInverse map (model-new-name -> old-DB-name) the tables synchronizer populates.
+    // Returns undefined when the table was NOT renamed this run — nothing to scope, and `using` accepts it.
+    static useOldTableName(table: Table, replacements: Replacements): Disposable | undefined {
+        const inverse = replacements.tryGetC(Replacements.keyTablesInverse);
+        const oldFull = inverse?.get(table.name.toString());
+        if (oldFull == null)
+            return undefined;
+
+        const originalName = table.name;
+        // `oldFull` is the table's OLD key = ObjectName.toString() ("schema.name", or just "name" for the
+        // default schema) — Signum's ObjectName.Parse. Must NOT reuse the model's (new) schema: a schema
+        // move changes exactly that, so the rows still live under the old schema until the script runs.
+        const dot = oldFull.lastIndexOf('.');
+        const oldSchema = dot >= 0 ? oldFull.slice(0, dot) : '';
+        const oldBare = dot >= 0 ? oldFull.slice(dot + 1) : oldFull;
+        table.name = new ObjectName(oldBare, new SchemaName(oldSchema, originalName.schema.database));
+
+        return { [Symbol.dispose]: () => { table.name = originalName; } };
+    }
+
+    // DIVERGENCE from Signum (which scopes only the table NAME): the same trick for the table's COLUMNS. A
+    // column renamed in the model is still under its old name in the database while the script is being
+    // generated, so point each renamed IColumn at its old name for the read and restore on dispose. Without
+    // it a rename would make the generated SELECT reference a column that does not exist yet — which
+    // altea's previous raw-SQL enum reader worked around by hand-aliasing `oldName AS modelName`. Uses the
+    // per-table column replacements (old-DB-name -> model-new-name) the tables synchronizer populates,
+    // inverted. Returns undefined when nothing was renamed.
+    // MUST be called while `table.name` is still the MODEL name — the tables synchronizer keys the column
+    // bucket by the model table's full ObjectName.toString() (its `modelTables` key), so acquire this
+    // BEFORE useOldTableName.
+    static useOldColumnNames(table: Table, replacements: Replacements): Disposable | undefined {
+        const colRep = replacements.tryGetC(Replacements.keyColumnsForTable(table.name.toString()));
+        if (colRep == null || colRep.size === 0)
+            return undefined;
+
+        const modelToOld = new Map<string, string>();
+        for (const [oldName, newName] of colRep)
+            if (oldName !== newName)
+                modelToOld.set(newName, oldName);
+
+        const restore: (() => void)[] = [];
+        for (const column of Object.values(table.columns)) {
+            const oldName = modelToOld.get(column.name);
+            if (oldName == null)
+                continue;
+            // IColumn exposes `name` as readonly; it is a plain mutable field on ColumnBase.
+            const mutable = column as { name: string };
+            const originalName = mutable.name;
+            mutable.name = oldName;
+            restore.push(() => { mutable.name = originalName; });
+        }
+
+        if (restore.length === 0)
+            return undefined;
+
+        return { [Symbol.dispose]: () => { for (const r of restore) r(); } };
     }
 }
 

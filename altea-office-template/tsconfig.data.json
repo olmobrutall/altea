@@ -1,0 +1,14 @@
+{
+  // DATA layer — isomorphic model (the template entity, its symbols, messages and enums).
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" },
+    { "path": "../altea-chart/tsconfig.data.json" },
+    { "path": "../altea-email/tsconfig.data.json" },
+    { "path": "../altea-files/tsconfig.data.json" },
+    { "path": "../altea-templating/tsconfig.data.json" },
+    { "path": "../altea-user-assets/tsconfig.data.json" },
+    { "path": "../altea-user-queries/tsconfig.data.json" }
+  ]
+}

@@ -1,17 +1,11 @@
 import { Connector } from "../connection/connector";
-import { ObjectName, SchemaName } from "../schema/objectName";
-import type { Table } from "../schema/table";
-import { Replacements } from "./synchronizer";
+import type { ObjectName } from "../schema/objectName";
 import { SqlPreCommandSimple } from "./sqlPreCommand";
 
-// Helpers shared by the symbol & enum synchronizers (and any table-data sync) to read the CURRENT rows
-// of a seeded table safely — ports of Signum's Administrator.ExistsTable / Synchronizer.UseOldTableName
-// and the SynchronizationScript error-commenting. The point is: never blindly assume "empty → insert
-// everything". Distinguish three cases:
-//   • the table was RENAMED this run          → read it by its OLD name (readObjectName)
-//   • the table does not exist yet             → no current rows (its CREATE is later in THIS script)
-//   • the read fails for any other reason      → let it throw; the caller turns it into a commented
-//                                                 SqlPreCommand so the script surfaces it, not a crash.
+// Low-level helpers behind the synchronizers' table reads: Signum's Administrator.ExistsTable and the
+// SynchronizationScript error-commenting. The actual row reading lives in Administrator.tryRetrieveAll,
+// which scopes the in-memory Table to its pre-rename name (Synchronizer.useOldTableName) and then runs an
+// ordinary LINQ query — no raw SQL.
 
 // Signum's Administrator.ExistsTable: a lightweight catalog existence check. Postgres to_regclass
 // returns NULL for a missing relation; SQL Server OBJECT_ID returns NULL. The name is model-derived (not
@@ -25,27 +19,6 @@ export async function existsTable(name: ObjectName): Promise<boolean> {
         : `SELECT OBJECT_ID('${literal}') AS r`;
     const rows = await connector.executeQuery(sql) as Array<{ r: unknown }>;
     return rows[0]?.r != null;
-}
-
-// Signum's Synchronizer.UseOldTableName: the name to READ current rows from during synchronization is
-// the table's OLD (pre-rename) DB name when a rename was learned this run, else its current model name —
-// the RENAME DDL is only in the script being generated, not yet applied, so the physical table still has
-// its old name at read time. Uses the keyTablesInverse map (model-new-name → old-DB-name) populated by
-// the tables synchronizer.
-export function readObjectName(table: Table, replacements: Replacements): ObjectName {
-    const inverse = replacements.tryGetC(Replacements.keyTablesInverse);
-    const oldFull = inverse?.get(table.name.toString());
-    if (oldFull == null)
-        return table.name;
-    // `oldFull` is the table's OLD key = ObjectName.toString() ("schema.name", or just "name" for the
-    // default schema). Reconstruct THAT ObjectName so a renamed AND/OR schema-moved table is read from its
-    // real pre-migration location (the RENAME / SET SCHEMA DDL is only in the script being generated, not
-    // yet applied). Must NOT reuse the model's (new) schema — a schema move changes exactly that, so the
-    // rows still live under the old schema until the script runs.
-    const dot = oldFull.lastIndexOf('.');
-    const oldSchema = dot >= 0 ? oldFull.slice(0, dot) : "";
-    const oldBare = dot >= 0 ? oldFull.slice(dot + 1) : oldFull;
-    return new ObjectName(oldBare, new SchemaName(oldSchema, table.name.schema.database));
 }
 
 // Signum's SynchronizationScript catch: turn a thrown sync error into a COMMENTED-OUT command so script

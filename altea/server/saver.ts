@@ -7,7 +7,7 @@ import {
     exploreModifiables,
     propagateModifications,
     saveDependencyGraph,
-    fullIntegrityCheck,
+    fullIntegrityCheckAsync,
 } from './graphExplorer';
 import { insertEntityRows, updateEntityRow } from './save';
 import { deleteRowsByIds } from './Database';
@@ -68,7 +68,7 @@ export namespace Saver {
         // Phase 3: the last-word validation, right before writing rows. Server-only validators that
         // were skipped earlier (disabled on "Client" / "ServerDeserialization") are enforced here.
         log?.switch("Integrity");
-        const errors = fullIntegrityCheck(all, "Saving");
+        const errors = await fullIntegrityCheckAsync(all, "Saving");
         if (errors.length > 0)
             throw new IntegrityCheckException(errors);
 
