@@ -161,6 +161,17 @@ export class DQueryable {
     // (altea has no result-selector groupBy overload — it's `groupBy(key).map(g => …)`). The new
     // context resolves each key token to `gr.kI` and each aggregate token to `gr.aI`.
     groupBy(keyTokens: QueryToken[], aggregateTokens: AggregateToken[]): DQueryable {
+        // A COLLECTION can't be a group key — grouping on an array compares whole arrays, so every row is
+        // its own group and the "grouped" result is just the unfiltered table with Count = 1 (what a chart
+        // dimension bound to `Product.additionalInformation` produced: 77 groups of 1, no error). Signum
+        // rejects it earlier and more broadly (QueryUtils.CanColumn: "You can not add collections as
+        // columns"); altea DOES allow a collection as a plain column (it renders as the joined toStr — see
+        // FinderRules' "Collection" rule), so the check lands here, on the group path only. Continue the
+        // sequence (`.Any` / `.Element`) to group by the elements instead.
+        const collections = keyTokens.filter(t => t.type.array);
+        if (collections.length > 0)
+            throw new Error(`You can not group by collections, continue the sequence: ${collections.map(t => t.fullKey()).join(", ")}`);
+
         // Signum's GetRootKeyTokens: a key dominated by another key is functionally determined by it
         // (`Customer.Name` given `Customer`), so it's dropped from the GROUP BY and recovered as a
         // constant read off the group's key. Only the root keys become real GROUP BY columns.

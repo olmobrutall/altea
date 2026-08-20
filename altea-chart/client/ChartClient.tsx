@@ -350,6 +350,18 @@ export namespace ChartClient {
       chart.columns.splice(chartScript.columns.length, chart.columns.length - chartScript.columns.length);
     }
 
+    // Bind each column to its slot (Signum's SynchronizeColumns does this; the isomorphic
+    // ChartUtils.synchronizeColumns too). Without it ChartColumnEmbedded's DECLARED validation is dead
+    // code — both branches short-circuit on `scriptColumn != null` — so a token incompatible with the slot
+    // (a collection picked as the group key) silently drew nothing. The client's ChartScript is the /api
+    // DTO, which carries `displayName` as a string where the data-layer class exposes `getDisplayName()`;
+    // adapt it so the shape the validator reads is complete.
+    chart.columns.forEach((c, i) => {
+      const sc = chartScript.columns[i];
+      c.parentChart = chart;
+      c.scriptColumn = { ...sc, getDisplayName: () => sc.displayName };
+    });
+
     var allChartScriptParameters = chartScript.parameterGroups.flatMap(a => a.parameters);
 
     const byName = chart.parameters.toObject(a => a.name);

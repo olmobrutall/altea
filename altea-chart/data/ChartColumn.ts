@@ -37,7 +37,10 @@ export class ChartColumnEmbedded extends EmbeddedEntity {
                 : null;
 
         if (c.scriptColumn != null && c.token.token != null && !isChartColumnType(c.token.token, c.scriptColumn.columnType))
-            return ChartMessage._0IsNot1.niceToString(c.displayName, ChartColumnType[c.scriptColumn.columnType]);
+            // altea: Signum formats this with `DisplayName` alone, which is null until the user renames the
+            // column — so the message reads " is not AnyGroupKey". Fall back to the token's nice name, which
+            // is what actually doesn't fit (the offending slot is already reddened by ChartColumn.tsx).
+            return ChartMessage._0IsNot1.niceToString(c.displayName ?? c.token.token.niceName(), ChartColumnType[c.scriptColumn.columnType]);
 
         return null;
     })

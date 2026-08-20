@@ -37,6 +37,14 @@ describe("QueryUtils.tryGetFilterType", () => {
         assert.equal(ft(AlbumEntity, "bonusTrack"), "Embedded");
     });
 
+    // A COLLECTION has no filter type (Signum: MList<T> matches none of TryGetFilterType's cases), so it is
+    // not filterable / orderable / GROUPABLE — you navigate it (.Any / .Element) instead. altea has to test
+    // the array facet FIRST, since an array TypeReference also carries its element type (a `Lite<T>[]` would
+    // otherwise read as "Lite").
+    test("collections have no filter type", () => {
+        assert.equal(ft(AlbumEntity, "songs"), undefined);
+    });
+
     test("Integer/Decimal split via typeName + subTypeName", () => {
         assert.equal(tryGetFilterType(new TypeReference({ typeName: "Decimal" })), "Decimal");
         assert.equal(tryGetFilterType(new TypeReference({ typeName: "Number", subTypeName: "decimal" })), "Decimal");

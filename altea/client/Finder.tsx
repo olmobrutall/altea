@@ -820,8 +820,9 @@ export namespace Finder {
         findOptions.orderOptions = undefined;
     }
 
+    var defaultFilters = getDefaultFilter(queryToken, qs);
+
     if (findOptions.filterOptions) {
-      var defaultFilters = getDefaultFilter(queryToken, qs);
       var filterOptions = findOptions.filterOptions.notNull();
       if (defaultFilters && defaultFilters.length <= filterOptions.length) {
         if (equalFilters(defaultFilters, filterOptions.slice(0, defaultFilters.length))) {
@@ -833,10 +834,26 @@ export namespace Finder {
     if (!findOptions.includeDefaultFilters)
       findOptions.includeDefaultFilters = false;
 
-    if (findOptions.includeDefaultFilters == defaultIncludeDefaultFilters)
+    // ALTEA divergence: `idf` only says something when the query HAS default filters. A query with a
+    // simpleFilterBuilder (or one whose root isn't a full entity) has none — getDefaultFilter returns
+    // undefined and parseFindOptions then prepends nothing for EITHER value — so round-tripping the flag
+    // just noises up the URL (`/find/Order?idf=false`). Signum always emits it when it differs from the
+    // page default.
+    if (defaultFilters == null || defaultFilters.length == 0 || findOptions.includeDefaultFilters == defaultIncludeDefaultFilters)
       delete findOptions.includeDefaultFilters;
 
     return findOptions;
+  }
+
+  // Token equality for the default-order / default-filter round-trip, compared CASE-INSENSITIVELY: one
+  // side is a DECLARED token (a `Type.token(a => a.productName)` string — PascalCase, see tokenSequence)
+  // while the other is the PARSED token's fullKey (altea's field tokens are camelCase — "productName").
+  // Signum can compare these exactly because everything is PascalCase there; a case-sensitive `==` here
+  // never matches, so every default filter / order leaks back out into the URL instead of being
+  // recognised and dropped (`/find/Product` → `?idf=false&filter0=~Or~&filter1_1=productName~Contains~…`).
+  // Same divergence resolveColumnToken / smartColumns already handle for columns.
+  function equalTokens(a: string | QueryTokenString<any> | undefined, b: string | QueryTokenString<any> | undefined): boolean {
+    return (a == undefined ? undefined : a.toString().toLowerCase()) == (b == undefined ? undefined : b.toString().toLowerCase());
   }
 
   function equalOrders(as: OrderOption[] | undefined, bs: OrderOption[] | undefined): boolean {
@@ -849,7 +866,7 @@ export namespace Finder {
     return as.length == bs.length && as.every((a, i) => {
       var b = bs![i];
 
-      return (a.token && a.token.toString()) == (b.token && b.token.toString()) &&
+      return equalTokens(a.token, b.token) &&
         a.orderType == b.orderType;
     });
   }
@@ -865,7 +882,7 @@ export namespace Finder {
     return as.length == bs.length && as.every((a, i) => {
       var b = bs![i];
 
-      return (a.token && a.token.toString()) == (b.token && b.token.toString()) &&
+      return equalTokens(a.token, b.token) &&
         (a as FilterGroupOption).groupOperation == (b as FilterGroupOption).groupOperation &&
         ((a as FilterConditionOption).operation ?? "EqualTo") == ((b as FilterConditionOption).operation ?? "EqualTo") &&
         (a.value == b.value || ((a.value instanceof Lite || a.value instanceof Entity) && a.value.is(b.value))) && // altea: .is() is an instance method (Signum's free is())

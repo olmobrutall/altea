@@ -17,6 +17,16 @@ import type { FilterType } from "../dynamicQueries";
 // RuntimeType form this needs no `fromTypeName` refinement: the TypeReference carries `typeName` +
 // `subTypeName`, so the Integer-vs-Decimal split is recovered directly.
 export function tryGetFilterType(type: TypeReference): FilterType | undefined {
+    // A COLLECTION has no filter type (Signum: `MList<T>` / `T[]` reaches `TypeCode.Object` and matches
+    // none of the Lite / entity / embedded / model tests, so TryGetFilterType returns null). altea models
+    // a collection as a plain array whose TypeReference ALSO carries the element type, so the array facet
+    // must be tested FIRST or a `Lite<T>[]` field would classify as "Lite" — which made a collection token
+    // filterable, orderable, aggregatable and (worst) GROUPABLE: the chart editor happily picked
+    // `Product.additionalInformation` as its dimension and "grouped" by a whole array, one group per row.
+    // A collection is navigated (`.Any` / `.Element` / `.SeparatedByComma`), never filtered directly.
+    if (type.array)
+        return undefined;
+
     if (type.getEnum() != undefined)
         return "Enum";
 

@@ -1,10 +1,10 @@
 import * as React from 'react'
 import { Tab, Tabs } from 'react-bootstrap'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { classes } from '@altea/altea/data/globals/index'
+import { classes, Dic } from '@altea/altea/data/globals/index'
 import { Finder } from '@altea/altea/client/Finder'
 import { TypeContext } from '@altea/altea/client/TypeContext'
-import { getQueryNiceName } from '@altea/altea/client/Reflection'
+import { getQueryNiceName, GraphExplorer } from '@altea/altea/client/Reflection'
 import FilterBuilder from '@altea/altea/client/SearchControl/FilterBuilder'
 import PinnedFilterBuilder from '@altea/altea/client/SearchControl/PinnedFilterBuilder'
 import type { Lite } from '@altea/altea/data/lite'
@@ -18,14 +18,16 @@ import "../Chart.css"
 import { ChartClient } from '../ChartClient'
 import { useForceUpdate, useAPI } from '@altea/altea/client/Hooks'
 import { AutoFocus } from '@altea/altea/client/Components/AutoFocus'
+import { ValidationErrors } from '@altea/altea/client/Frames/ValidationErrors'
 import { SubTokensOptions } from '@altea/altea/data/dynamicQuery/tokens/queryToken'
 import type { QueryToken } from '@altea/altea/data/dynamicQuery/tokens/queryToken'
 
 // Partial port of Signum.Chart/Templates/ChartRequestView.tsx — the editor shell: filters + ChartBuilder +
 // the Chart tab + the Draw/settings toolbar. altea divergences: no QueryDescription (FilterBuilder takes
 // the query ROOT token from Finder.getQueryRoot); TypeContext.root(cr) replaces Signum's PropertyRoute.root
-// + ReadonlyBinding. Deferred: UserChart, the Data tab (ChartTable), ChartTimeSeries, the fullscreen
-// (Encoder) button, and Navigator.validateEntity (Draw executes directly; server errors surface normally).
+// + ReadonlyBinding; Signum's server-side Navigator.API.validateEntity becomes the same validation run in
+// the browser (the rules are declared on the isomorphic ChartColumnEmbedded — see handleDraw). Deferred:
+// UserChart, the Data tab (ChartTable), ChartTimeSeries, and the fullscreen (Encoder) button.
 
 interface ChartRequestViewProps {
   chartRequest: ChartRequestModel;
@@ -67,6 +69,22 @@ export default function ChartRequestView(p: ChartRequestViewProps): React.JSX.El
 
   function handleDraw() {
     removeObsoleteOrders();
+
+    // Validate BEFORE executing. Signum posts the request to Navigator.API.validateEntity first and lets
+    // the 400 ModelState redden the offending column; altea's chart-column rules are declared on the
+    // ISOMORPHIC ChartColumnEmbedded, so the very same validators run in the browser (no round-trip).
+    // Without this a column whose token doesn't fit its slot still executed — e.g. a COLLECTION token as
+    // the dimension came back as one group per row (a whole array as the group key), drawing nothing and
+    // reporting nothing.
+    const modelState = GraphExplorer.clientModelState(cr);
+    const invalid = Dic.getKeys(modelState).length > 0;
+    GraphExplorer.setModelState(cr, invalid ? modelState : undefined, "");
+    if (invalid) {
+      setResult(undefined);
+      forceUpdate();
+      return;
+    }
+
     setLoading(true);
     ChartClient.getChartScript(cr.chartScript)
       .then(cs => ChartClient.API.executeChart(cr, cs))
@@ -117,6 +135,7 @@ export default function ChartRequestView(p: ChartRequestViewProps): React.JSX.El
             onOrderChanged={() => { if (validResult) handleDraw(); else forceUpdate(); }}
           />}
       </div>
+      <ValidationErrors entity={cr} prefix="" />
       <div className="sf-query-button-bar btn-toolbar gap-2 my-2 bg-body rounded shadow-sm p-2">
         <button
           className={classes("sf-query-button btn", showChartSettings && "active", "btn-tertiary")}
