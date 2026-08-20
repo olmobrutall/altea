@@ -1,0 +1,8 @@
+{
+  // SERVER layer — node-only: the migration runners read the filesystem and the console.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" }
+  ]
+}

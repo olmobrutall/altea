@@ -1,0 +1,22 @@
+{
+  "name": "@altea/altea-migrations",
+  "version": "0.0.1",
+  "description": "Versioned SQL + C#-style migrations and load-method logging (ported from Signum.Migrations)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}

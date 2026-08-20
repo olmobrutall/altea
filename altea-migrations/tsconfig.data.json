@@ -1,0 +1,7 @@
+{
+  // DATA layer — the three log/history entities. Isomorphic so a search page can show them.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" }
+  ]
+}
