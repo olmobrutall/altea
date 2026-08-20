@@ -3,7 +3,6 @@ import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { SubTokensOptions } from "@altea/altea/client/QueryToken";
 import { ValidationMessage } from "@altea/altea/data/validators";
-import { Localization } from "@altea/altea/data/utils/localization";
 import QueryTokenEmbeddedBuilder from "@altea/altea-user-assets/client/Templates/QueryTokenEmbeddedBuilder";
 import { EmailTemplateEntity, type FileTokenAttachmentEntity } from "../../data/EmailTemplate";
 
@@ -39,5 +38,5 @@ export default function FileTokenAttachment(p: { ctx: TypeContext<FileTokenAttac
 /** The localized label of an EmailTemplate property (altea has no `nicePropertyName` static: the label comes
  *  from the reflection registry's member descriptions, with the de-camelCased name as the fallback). */
 function nicePropertyNameOf(member: "query" | "from"): string {
-    return Localization.memberNiceName(EmailTemplateEntity.name, member) ?? Localization.niceMemberName(member);
+    return EmailTemplateEntity.nicePropertyName(member);
 }

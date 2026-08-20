@@ -2,7 +2,6 @@ import { Entity, type BaseEntity } from "@altea/altea/data/entity";
 import { Decimal, Temporal } from "@altea/altea/data/basics";
 import { defaultFormat, tryGetTypeInfo, TypeReference, type FieldInfo, type TypeInfo } from "@altea/altea/data/reflection";
 import { resolveCleanType, resolveEnum, resolveType } from "@altea/altea/data/registration";
-import { Localization } from "@altea/altea/data/utils/localization";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { Enum } from "@altea/altea/data/enum";
@@ -563,7 +562,7 @@ export class NiceNameValueProvider extends ValueProviderBase {
 
         if (parts.length === 1) {
             const ctor = currentType;
-            this.resolved = () => Localization.niceName(ctor);
+            this.resolved = () => ctor.niceName();
             return;
         }
 
@@ -577,7 +576,7 @@ export class NiceNameValueProvider extends ValueProviderBase {
                 if (i === parts.length - 1) {
                     const owner = ctor!;
                     const name = parts[i];
-                    this.resolved = () => Localization.memberNiceName(owner.name, name) ?? Localization.niceMemberName(name);
+                    this.resolved = () => (owner as typeof Entity).nicePropertyName(name);
                     return;
                 }
                 ctor = fi.getFunction();

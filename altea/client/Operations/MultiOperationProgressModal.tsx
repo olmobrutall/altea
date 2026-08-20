@@ -12,7 +12,7 @@ import type { Lite } from '../../data/lite';
 import { EntityControlMessage, JavascriptMessage, OperationMessage } from '../../data/uiMessages';
 import { useForceUpdate, useThrottle } from '../Hooks';
 import { getOperationInfo, getTypeInfo } from '../Reflection';
-import type { OperationInfo } from '../Reflection';
+import type { OperationMetadata } from '../Reflection';
 import { softCast } from '../../data/globals';
 import { jsonObjectStream } from './jsonObjectStream';
 import { CollectionMessage } from '../../data/dynamicQueries';
@@ -21,7 +21,7 @@ import ErrorModal from '../Modals/ErrorModal';
 
 
 interface MultiOperationProgressModalProps extends IModalProps<Operations.API.ErrorReport> {
-  operation: OperationInfo;
+  operation: OperationMetadata;
   lites: Lite<Entity>[];
   makeRequest: () => Promise<Response>;
   abortController: AbortController;

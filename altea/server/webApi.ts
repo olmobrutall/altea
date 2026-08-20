@@ -21,6 +21,8 @@ import type { IntegrityCheck } from "../data/validation";
 import { HeavyProfiler } from "./profiler/heavyProfiler";
 import { TimeTracker } from "./profiler/timeTracker";
 import { UserHolder } from "./userHolder";
+import { CultureInfo } from "../data/utils/cultureInfo";
+import { Metadata } from "../data/metadata";
 
 // A class reference (abstract-tolerant, so `Entity`/`BaseEntity` bases are accepted).
 type Ctor<T> = abstract new (...args: any[]) => T;
@@ -132,6 +134,18 @@ export function setRequestDeserializer(fn: RequestDeserializer): void { _request
 
 const rawBody = express.text({ type: "*/*", limit: "16mb" });
 
+// The UI culture for a request: the client's `Accept-Language` (a bare locale tag — the client sends
+// exactly the culture it rendered with), honoured only when metadata is actually loaded for it. Anything
+// else — no header, an unknown tag, a full browser Accept-Language list — falls back to the process
+// default, which is the untranslated source language.
+function requestCulture(req: Request): string {
+    // `headers` is optional-chained: a hand-built request object (the route unit tests invoke handlers
+    // directly, without Express) has none, and a missing header is exactly the default-culture case.
+    const header = req.headers?.["accept-language"];
+    const tag = (Array.isArray(header) ? header[0] : header)?.trim();
+    return tag != null && Metadata.cultures().includes(tag) ? tag : CultureInfo.currentUICulture();
+}
+
 export class WebBuilder {
     constructor(public readonly app: Express) { }
 
@@ -170,7 +184,17 @@ export class WebBuilder {
             // TimeTracker keyed by the route PATTERN (Signum's SignumTimesTrackerFilter — the one and only
             // TimeTracker call site). Opening the spans at the top of this async scope makes the ambient
             // `current` span propagate (AsyncLocalStorage) into the awaited handler.
-            void HeavyProfiler.runScope(async () => {
+            // Per-request CULTURE (Signum's ASP.NET request-localization middleware, driven there by a
+            // culture cookie). Without it every server-produced label — a registered expression's niceName,
+            // a validation message, an exception message — would resolve in the PROCESS default culture no
+            // matter who asked. The client sends its culture on every call (client/Services), and only a
+            // culture with translations loaded is honoured, so a bogus header falls back to the default.
+            //
+            // BOTH cultures are scoped (withCultures), not just the UI one: server-side formatting should
+            // follow the caller as well, and a per-culture cache that keys on `currentCulture()` would
+            // otherwise key on a constant and serve whichever language warmed it first to everyone.
+            const culture = requestCulture(req);
+            void HeavyProfiler.runScope(async () => CultureInfo.withCultures(culture, async () => {
                 using _prof = HeavyProfiler.log("Web.API " + verb.toUpperCase(), () => req.originalUrl);
                 using _time = TimeTracker.start(verb.toUpperCase() + " " + path, req.originalUrl, () => UserHolder.currentUserLite()?.toString());
                 try {
@@ -180,7 +204,7 @@ export class WebBuilder {
                 } catch (e) {
                     next(e);
                 }
-            });
+            }));
         };
         wrapped.httpMeta = { verb, path, allowAnonymous: (def as RouteDef).allowAnonymous, paramsType: paramsRef?.runtimeType, reqType: reqRef?.runtimeType, resType: resRef?.runtimeType };
 

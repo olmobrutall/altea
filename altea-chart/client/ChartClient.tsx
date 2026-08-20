@@ -3,7 +3,6 @@ import { ajaxGet } from '@altea/altea/client/Services';
 import type { ClientBuilder } from '@altea/altea/client/ClientBuilder';
 import { ImportComponent } from '@altea/altea/client/ImportComponent';
 import { Dic } from '@altea/altea/data/globals/index';
-import { Localization } from '@altea/altea/data/utils/localization';
 import { Lite } from '@altea/altea/data/lite';
 import type { Entity } from '@altea/altea/data/entity';
 import { Enum } from '@altea/altea/data/enum';
@@ -227,16 +226,16 @@ export namespace ChartClient {
     return result;
   }
 
-  // Signum's Reflection.symbolNiceName. altea has no such helper; derive the label from the symbol key's
-  // member segment ("D3ChartScript.Columns" → "Columns" → "Columns"; "…MultiBars" → "Multi Bars").
+  // Signum's Reflection.symbolNiceName — in altea a Symbol resolves its own label (Symbol.niceToString:
+  // the container-member translation, else the humanised member name of its key).
   export function symbolNiceName(symbol: ChartScriptSymbol): string {
-    return Localization.niceNameFromName(symbol.key.tryAfterLast(".") ?? symbol.key);
+    return symbol.niceToString();
   }
 
   // Signum's client ChartColumnType is a string enum with `.niceToString()`; altea's is a numeric [Flags]
-  // enum, so this maps a value to its humanised member name ("AnyGroupKey" → "Any Group Key").
+  // enum, so this goes through the Enum helper (translation for the current culture, else humanised).
   export function chartColumnTypeNiceName(ct: ChartColumnType): string {
-    return Localization.niceNameFromName(ChartColumnType[ct] ?? String(ct));
+    return Enum.niceName(ChartColumnType, ct);
   }
 
   // Signum's ChartClient.getActiveDetector — the dashboard cross-filter row detector: which rows of THIS

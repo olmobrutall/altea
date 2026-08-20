@@ -14,7 +14,6 @@ import type { Entity, Type } from "@altea/altea/data/entity";
 import { getTypeInfo, type TypeInfo } from "@altea/altea/data/reflection";
 import { Lite } from "@altea/altea/data/lite";
 import { Enum } from "@altea/altea/data/enum";
-import { Localization } from "@altea/altea/data/utils/localization";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { PermissionSymbol, TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
 import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
@@ -209,7 +208,7 @@ export namespace ToolbarLogic {
         });
 
         registerContentConfig(PermissionSymbol, {
-            defaultLabel: lite => symbolNiceName(SymbolLogic.toSymbol(PermissionSymbol, symbolKeyOf(lite)).key),
+            defaultLabel: lite => SymbolLogic.toSymbol(PermissionSymbol, symbolKeyOf(lite)).niceToString(),
             isAuthorized: async lite =>
                 await PermissionAuthLogic.isAuthorized(SymbolLogic.toSymbol(PermissionSymbol, symbolKeyOf(lite))),
             // Signum sets this as a separate `GetContentConfig<PermissionSymbol>().CustomResponses = …`
@@ -645,15 +644,6 @@ function queryNameOf(lite: Lite<QueryEntity>): QueryName | undefined {
 
 function queryKeyOf(lite: Lite<QueryEntity>): string {
     return lite.toString();
-}
-
-/** Signum's `Symbol.NiceToString()` (DescriptionManager over the declaring container's member): a symbol key
- *  is "<Container>.<member>", so the label is the member's translation, else its humanised identifier. */
-function symbolNiceName(key: string): string {
-    const dot = key.indexOf(".");
-    const container = dot < 0 ? "" : key.slice(0, dot);
-    const member = dot < 0 ? key : key.slice(dot + 1);
-    return Localization.translate(container, member) ?? Localization.inferDescription(member);
 }
 
 function symbolKeyOf(lite: Lite<Entity>): string {

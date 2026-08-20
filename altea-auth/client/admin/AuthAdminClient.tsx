@@ -4,13 +4,15 @@ import { ajaxGet, ajaxPost, ajaxGetRaw, saveFile } from "@altea/altea/client/Ser
 import { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { QuickLinkClient, QuickLinkAction } from "@altea/altea/client/QuickLinkClient";
-import { applyMetadataHooks, type ServerMetadata } from "@altea/altea/client/ReflectionClient";
-import { tryGetTypeInfo } from "@altea/altea/client/Reflection";
-import { getRegisteredTypes, getTypeInfo } from "@altea/altea/data/reflection";
+import { tryGetTypeMetadata } from "@altea/altea/client/Reflection";
+import { PropertyRoute, PropertyRouteType } from "@altea/altea/data/propertyRoute";
+import { Entity } from "@altea/altea/data/entity";
+import type { TypeContext, StyleContext } from "@altea/altea/client/TypeContext";
+import { tasks, type LineBaseController, type LineBaseProps } from "@altea/altea/client/Lines/LineBase";
 import type { Lite } from "@altea/altea/data/lite";
 import { UserEntity } from "../../data/User";
 import { RoleEntity } from "../../data/Role";
-import { TypeRulePack, PermissionRulePack, OperationRulePack, QueryRulePack, PropertyRulePack, TypeAllowedBasic } from "../../data/Rules";
+import { TypeRulePack, PermissionRulePack, OperationRulePack, QueryRulePack, PropertyRulePack, TypeAllowedBasic, PropertyAllowed } from "../../data/Rules";
 import { AuthAdminMessage } from "../../data/AuthMessages";
 
 // Port of Signum's AuthAdminClient (AuthAdminClient.tsx) — the ADMIN side of authorization: the User /
@@ -74,23 +76,25 @@ export namespace AuthAdminClient {
         // Role frame (Signum's QuickLinkClient.registerQuickLink(RoleEntity, …)) as the entry point. The
         // pack is fetched first, then opened read-only-if-trivial-merge; the control saves in place.
         if (Options.types) {
-            // Client type-auth enforcement (Signum's navigatorIsViewable/isCreable/isReadOnly + fixTypes):
-            // project the role's per-type allowance (shipped as meta.typeAllowed) onto the interface-expanded
-            // TypeInfo.min/maxTypeAllowed, and gate viewability/creability/readonly on it. A `None` type is
-            // NOT viewable → EntityLink renders it as plain text; a non-`Write` type isn't creable / is
+            // Client type-auth enforcement (Signum's navigatorIsViewable/isCreable/isReadOnly): gate
+            // viewability/creability/readonly on the role's per-type allowance. A `None` type is NOT
+            // viewable → EntityLink renders it as plain text; a non-`Write` type isn't creable / is
             // read-only. Unrestricted types (not shipped → undefined) stay fully allowed.
-            applyMetadataHooks.push(applyTypeAllowed); // runs on every metadata (re)load, incl. re-login
+            //
+            // Read straight off the TypeMetadata the server stamped. Signum's `fixTypes` projection step is
+            // gone with it: there is nothing to copy anywhere, so there is also nothing to RESET — a
+            // re-login replaces the whole per-culture entry, and a role's allowances cannot outlive it.
             Navigator.isViewableEvent.push(typeName => {
-                const ti = tryGetTypeInfo(typeName);
-                return ti == null || ti.maxTypeAllowed !== TypeAllowedBasic.None;
+                const tm = tryGetTypeMetadata(typeName);
+                return tm == null || tm.maxTypeAllowed !== TypeAllowedBasic.None;
             });
             Navigator.isCreableEvent.push(typeName => {
-                const ti = tryGetTypeInfo(typeName);
-                return ti == null || ti.maxTypeAllowed == null || ti.maxTypeAllowed === TypeAllowedBasic.Write;
+                const tm = tryGetTypeMetadata(typeName);
+                return tm == null || tm.maxTypeAllowed == null || tm.maxTypeAllowed === TypeAllowedBasic.Write;
             });
             Navigator.isReadonlyEvent.push(typeName => {
-                const ti = tryGetTypeInfo(typeName);
-                return ti != null && ti.maxTypeAllowed != null && ti.maxTypeAllowed < TypeAllowedBasic.Write;
+                const tm = tryGetTypeMetadata(typeName);
+                return tm != null && tm.maxTypeAllowed != null && tm.maxTypeAllowed < TypeAllowedBasic.Write;
             });
 
             cb.configure(TypeRulePack).withView(() => import("./TypeRulePackControl"));
@@ -120,8 +124,26 @@ export namespace AuthAdminClient {
         if (Options.queries)
             cb.configure(QueryRulePack).withView(() => import("./QueryRulePackControl"));
 
-        if (Options.properties)
+        if (Options.properties) {
+            // Client property-auth enforcement (Signum's taskAuthorizeProperties + PropertyRoute's
+            // IsAllowed callback). Until now the property dimension existed ONLY on the server, in the
+            // serializer: a `None` property still rendered (blank) and a `Read` one still looked editable
+            // until the save silently discarded the edit.
+            //
+            // Two seams, one policy (propertyAllowance below):
+            //   - a LineBase task: every Line runs it, so it covers plain fields, EntityTable cells and
+            //     anything else built on a Line;
+            //   - PropertyRoute.isAllowedCallback: for the places that decide BEFORE rendering a line —
+            //     EntityTable drops a whole unreadable column rather than leaving a titled, empty one.
+            tasks.push(taskAuthorizeProperties);
+            PropertyRoute.isAllowedCallback = route =>
+                route.propertyRouteType == PropertyRouteType.FieldOrProperty
+                    && propertyAllowance(route.rootType, route.propertyString()) === PropertyAllowed.None
+                    ? AuthAdminMessage.Property0IsNotAllowed.niceToString(route.toString())
+                    : null;
+
             cb.configure(PropertyRulePack).withView(() => import("./PropertyRulePackControl"));
+        }
 
         // DEFERRED: richer navigator gates (isViewable/isReadonly from per-type typeAllowed in the blob) per the
         // Options flags; the navigatorIsViewable/isCreable/isReadonly events + TypeContext member gates
@@ -177,27 +199,63 @@ export namespace AuthAdminClient {
     }
 }
 
-// Signum's fixTypes: project the reflection blob's per-type allowance (meta.typeAllowed: cleanName →
-// TypeAllowedBasic, shipped only for RESTRICTED types by AuthReflection) onto min/maxTypeAllowed. Reset
-// every type first so a re-login as a different role can't leak the previous set. Coarse: min == max ==
-// the shipped value (like Signum, whose blob typeAllowed is a single value).
-function applyTypeAllowed(meta: ServerMetadata): void {
-    for (const ctor of getRegisteredTypes()) {
-        const ti = getTypeInfo(ctor);
-        if (ti != null) { ti.minTypeAllowed = undefined; ti.maxTypeAllowed = undefined; }
+// The role's allowance for one property route. Gates on `max` — the best case across every type-condition
+// slice — because the client has no row to evaluate conditions against, and hiding a property the user may
+// well be allowed to edit for THIS row would be the worse error: the server still enforces the exact
+// per-instance answer on the way in (the request deserializer) and out (the serializer).
+//
+// An unrestricted route is not shipped at all, so an absent entry means Write.
+function propertyAllowance(rootType: Function, path: string): PropertyAllowed {
+    return tryGetTypeMetadata(rootType)?.fields[path]?.maxPropertyAllowed ?? PropertyAllowed.Write;
+}
+
+/**
+ * The OWNER-ROOTED route a line edits, as (root entity type, propertyString) — the exact pair a property
+ * rule is keyed by (RulePropertyEntity.rootType + path).
+ *
+ * The reconciliation this does is the whole point: the UI re-roots its PropertyRoute at every embedded /
+ * model it renders (RenderEntity → `PropertyRoute.root(ti.ctor)`, faithfully ported from Signum), so a
+ * line inside `Order.shipAddress` arrives as `(AddressEmbedded).city` — while the rules, the serializer
+ * and `PropertyRoute.generateRoutes` all speak `(Order).shipAddress.city`. So climb the TypeContext chain,
+ * prepending each ancestor's own path, until the root is a persisted Entity.
+ *
+ * Climbing STOPS at a persisted Entity on purpose: an EntityLine to another entity re-roots too, and there
+ * the sub-entity's properties are governed by ITS OWN rules — prepending would invent
+ * "Order.customer.firstName", which is not a rule anyone can write. A `@part` row is likewise its own root.
+ */
+function ownerRootedRoute(ctx: TypeContext<unknown>): { rootType: Function; path: string } | undefined {
+    const route = ctx.propertyRoute;
+    if (route == null || route.propertyRouteType != PropertyRouteType.FieldOrProperty)
+        return undefined;
+
+    let rootType = route.rootType;
+    let path = route.propertyString();
+    // `parent` is typed StyleContext — only a TypeContext carries a propertyRoute — so narrow as we climb.
+    for (let p: StyleContext | undefined = ctx.parent; p != null && !isPersistedEntity(rootType); p = p.parent) {
+        const pr = (p as TypeContext<unknown>).propertyRoute as PropertyRoute | undefined;
+        if (pr == null || pr.rootType === rootType || pr.propertyRouteType != PropertyRouteType.FieldOrProperty)
+            continue;
+        path = pr.propertyString() + "." + path;
+        rootType = pr.rootType;
     }
-    for (const [cleanName, allowed] of Object.entries(meta.typeAllowed ?? {})) {
-        const ti = tryGetTypeInfo(cleanName);
-        if (ti != null) { ti.minTypeAllowed = allowed; ti.maxTypeAllowed = allowed; }
+    return { rootType, path };
+}
+
+function isPersistedEntity(ctor: Function): boolean {
+    return ctor === Entity || ctor.prototype instanceof Entity;
+}
+
+// Signum's taskAuthorizeProperties: None → the line is not rendered at all; Read → it renders read-only.
+function taskAuthorizeProperties(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps): void {
+    const owner = ownerRootedRoute(state.ctx);
+    if (owner == null)
+        return;
+    switch (propertyAllowance(owner.rootType, owner.path)) {
+        case PropertyAllowed.None: state.visible = false; break;
+        case PropertyAllowed.Read: state.ctx.readOnly = true; break;
     }
 }
 
-// Interface expansion (Signum defines maxTypeAllowed/minTypeAllowed on TypeInfo here, in the auth
-// extension — the core reflection TypeInfo stays auth-agnostic). TypeAllowedBasic is a numeric enum
-// (None=0, Read=1, Write=2); undefined = unrestricted (not shipped).
-declare module "@altea/altea/data/reflection" {
-    interface TypeInfo {
-        minTypeAllowed?: TypeAllowedBasic;
-        maxTypeAllowed?: TypeAllowedBasic;
-    }
-}
+// NOTE: the min/maxTypeAllowed + *PropertyAllowed fields these gates read are declared once, by interface
+// expansion of TypeMetadata / FieldMetadata, in ../../data/Rules — the DATA layer, so client and server
+// share one declaration and the two halves cannot drift.

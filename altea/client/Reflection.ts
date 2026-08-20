@@ -10,9 +10,12 @@ import type { Type, PrimaryKey } from '../data/entity';
 import { forEachField } from '../data/changes';
 import { Lite, LiteImp } from '../data/lite';
 import { TypeInfo, tryGetTypeInfo as alteaTryGetTypeInfo } from '../data/reflection';
-import type { FieldInfo, OperationInfo, OperationType } from '../data/reflection';
+import type { FieldInfo, OperationType } from '../data/reflection';
+import { Metadata } from '../data/metadata';
+import { Localization } from '../data/utils/localization';
+import type { TypeMetadata, OperationMetadata, KindOfType } from '../data/metadata';
 import type { ModelState } from '../data/validation';
-export type { OperationInfo, OperationType };
+export type { OperationMetadata, OperationType, TypeMetadata, KindOfType };
 export { TypeInfo };
 import { cleanTypeName, resolveType, resolveCleanType } from '../data/registration';
 
@@ -42,8 +45,12 @@ export function getTypeName(pseudoType: PseudoType | Lite<Entity> | BaseEntity):
   throw new Error("Unexpected pseudoType " + pseudoType);
 }
 
+// Anything that can name a type: a PseudoType, an instance, a lite — or a bare `Function`, which is what
+// `TypeInfo.ctor` and the LINQ layer hand around (a ctor is a Type<T> at runtime but not to the checker).
+export type AnyTypeRef = PseudoType | Lite<Entity> | BaseEntity | Function | undefined | null;
+
 // Resolve any PseudoType / instance to its constructor (for the TypeInfo lookups below).
-function pseudoCtor(type: PseudoType | Lite<Entity> | BaseEntity | undefined | null): Function | undefined {
+function pseudoCtor(type: AnyTypeRef): Function | undefined {
   if (type == null) return undefined;
   if (type instanceof Lite) return type.entityType;
   if (type instanceof BaseEntity) return type.constructor as Function;
@@ -53,7 +60,7 @@ function pseudoCtor(type: PseudoType | Lite<Entity> | BaseEntity | undefined | n
 }
 
 // Signum's getTypeInfo/tryGetTypeInfo take a PseudoType; altea's take a ctor/instance — bridge.
-export function tryGetTypeInfo(type: PseudoType | Lite<Entity> | BaseEntity | undefined | null): TypeInfo | undefined {
+export function tryGetTypeInfo(type: AnyTypeRef): TypeInfo | undefined {
   const ctor = pseudoCtor(type);
   return ctor ? alteaTryGetTypeInfo(ctor) : undefined;
 }
@@ -156,21 +163,80 @@ export function isQueryDefined(queryName: PseudoType | QueryKey): boolean {
   return tryGetTypeInfo(queryName) != null; // pre-metadata fallback
 }
 
-// Signum's getQueryNiceName: the human label for a query. A query named by an entity Type resolves to
-// that type's PLURAL nice name; a QueryKey uses its member nice name; an unresolved string falls back
-// to itself. (Signum also consulted a client query-name registry — altea has none yet.)
+// Signum's getQueryNiceName: the human label for a query. A query named by an entity Type resolves to that
+// type's PLURAL nice name; a QueryKey uses its member nice name.
+//
+// A key with no CLIENT class still gets a proper label: an entity registered only on the server (a
+// migration log, say) has no ctor here, but the metadata blob carries an entry for it — so fall through to
+// resolving the bare NAME, which is one of the two documented cases for reaching into Localization.Internal
+// (there is no fluent surface for a type with no constructor). Only a name nothing knows falls back to
+// itself.
 export function getQueryNiceName(queryName: PseudoType | QueryKey): string {
   if (queryName instanceof QueryKey)
     return queryName.niceName();
   const ti = tryGetTypeInfo(queryName);
-  return ti != null ? ti.getNicePluralName() : getQueryKey(queryName);
+  if (ti != null)
+    return ti.getNicePluralName();
+  const key = getQueryKey(queryName);
+  return Metadata.tryType(key) != null ? Localization.Internal.typeNicePluralName(key) : key;
 }
 
-// Signum's getOperationInfo: the OperationInfo for a key on a type (throws if the type has no
-// operations metadata / the key is absent — matching Signum's `operations![key]`).
-export function getOperationInfo(operation: string | { key: string }, type: PseudoType | Lite<Entity> | BaseEntity): OperationInfo {
+// ---- Per-culture / per-role metadata (data/metadata) -------------------------------------------
+// Deliberately NOT on TypeInfo: nice names, operations and authorization allowances vary by culture and
+// by role, while a TypeInfo is the one compile-time descriptor shared by every user. `MetadataBlob.types`
+// is keyed by the REGISTERED name ("OrderEntity"), so a PseudoType is resolved through its ctor first.
+
+export function tryGetTypeMetadata(type: AnyTypeRef): TypeMetadata | undefined {
+  const ctor = pseudoCtor(type);
+  if (ctor != null)
+    return Metadata.tryType(ctor.name);
+  // A name that resolves to no CLASS can still be a metadata type: an enum or a container has no
+  // constructor to hang a TypeInfo on, but it does have a TypeMetadata entry (keyed by its registered
+  // name). This is what makes the "Enum" kind reachable on the client at all.
+  if (typeof type === "string")
+    return Metadata.tryType(type) ?? Metadata.tryType(type + "Entity");
+  return undefined;
+}
+
+/**
+ * The kind of a type NAME (Signum's TypeInfo.kind). Unlike `TypeInfo.kind`, which can only see reflected
+ * classes ("Entity" / "Model"), this reads the metadata blob and so also answers "Enum" and "Container".
+ */
+export function getKindOfType(type: AnyTypeRef): KindOfType | undefined {
+  return tryGetTypeMetadata(type)?.kind ?? tryGetTypeInfo(type)?.kind;
+}
+
+/** Every operation registered on a type and visible to the current role (Signum's TypeInfo.operations). */
+export function getOperationInfos(type: AnyTypeRef): OperationMetadata[] {
+  const operations = tryGetTypeMetadata(type)?.operations;
+  return operations == null ? [] : Object.values(operations);
+}
+
+/** Whether the type has ANY operation visible to the current role (Signum's `ti.operations != null`). */
+export function hasOperations(type: AnyTypeRef): boolean {
+  return getOperationInfos(type).length > 0;
+}
+
+/** Whether any visible operation CONSTRUCTS the type (Signum's TypeInfo.hasConstructorOperation). */
+export function hasConstructorOperation(type: AnyTypeRef): boolean {
+  return getOperationInfos(type).some(oi => oi.operationType == "Constructor");
+}
+
+// Signum's getOperationInfo: the OperationMetadata for a key on a type. Throws when it is absent — which
+// now means "not registered on this type, or not allowed for this role"; before this refactor it also
+// meant "the symbol-key-splitting heuristic failed to attach it", which was the common cause.
+export function getOperationInfo(operation: string | { key: string }, type: PseudoType | Lite<Entity> | BaseEntity): OperationMetadata {
   const operationKey = typeof operation == "string" ? operation : operation.key;
-  return getTypeInfo(type).operations![operationKey];
+  const oi = tryGetOperationInfo(operationKey, type);
+  if (oi == null)
+    throw new Error(`Operation '${operationKey}' is not available on '${getTypeName(type)}'`);
+  return oi;
+}
+
+/** As {@link getOperationInfo}, undefined instead of throwing. */
+export function tryGetOperationInfo(operation: string | { key: string }, type: AnyTypeRef): OperationMetadata | undefined {
+  const operationKey = typeof operation == "string" ? operation : operation.key;
+  return tryGetTypeMetadata(type)?.operations?.[operationKey];
 }
 
 // Signum's GraphExplorer walked the entity graph to (a) set `modified` flags before a save and (b)

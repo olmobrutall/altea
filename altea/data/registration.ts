@@ -134,6 +134,12 @@ export function resolveEnum(name: string): object | undefined {
     return enumRegistry.get(name);
 }
 
+// Every registered enum as [registeredName, enumObject]. Used by the metadata builder to emit one
+// TypeMetadata per enum (its member nice names + database ids).
+export function getRegisteredEnums(): [string, object][] {
+    return [...enumRegistry.entries()];
+}
+
 // The registered name of an enum object (reverse of resolveEnum).
 export function enumNameOf(enumObject: object): string | undefined {
     return enumNameRegistry.get(enumObject);
@@ -148,6 +154,12 @@ export function registerObject(obj: object, name?: string, fileInfo?: FileInfo):
 
 export function resolveObject(name: string): object | undefined {
     return objectRegistry.get(name);
+}
+
+// Every registered named object as [registeredName, object] — the msg() message containers. Used by the
+// metadata builder to emit one "Container" TypeMetadata per message container.
+export function getRegisteredObjects(): [string, object][] {
+    return [...objectRegistry.entries()];
 }
 
 // The package + file a registered type / enum / object was defined in, by name.
@@ -297,7 +309,7 @@ export function schemaForName(name: string): string | undefined {
 // The minimal shape init() stamps. Declared locally (not `import { Symbol }`) so the
 // leaf stays runtime-import-free — the concrete constructor is passed in by init()'s
 // caller, and its Entity machinery is irrelevant to the stamping here.
-interface SymbolLike { key: string; isNew: boolean }
+interface SymbolLike { key: string; isNew: boolean; id?: string | number }
 type SymbolCtor = new () => SymbolLike;
 
 // ctor → (key → declared symbol instance). Every init() records its symbol here so
@@ -351,4 +363,16 @@ export function init(ctor?: SymbolCtor | InitOptions, key?: string, fileInfo?: F
 export function declaredSymbolsForType(ctor: SymbolCtor): SymbolLike[] {
     const byKey = declaredSymbols.get(ctor);
     return byKey == null ? [] : [...byKey.values()];
+}
+
+// Every declared symbol, of every concrete Symbol type. The metadata builder groups these by the
+// container half of the key ("OrderOperation.Ship" → "OrderOperation") to emit one "Container"
+// TypeMetadata per symbol namespace, carrying each member's label and database id. The ids are read
+// back from the DB by SymbolLogic, which stamps them onto these very instances, so reading `.id` here
+// is correct once the schema has loaded (and undefined before, which the builder simply omits).
+export function allDeclaredSymbols(): SymbolLike[] {
+    const result: SymbolLike[] = [];
+    for (const byKey of declaredSymbols.values())
+        result.push(...byKey.values());
+    return result;
 }

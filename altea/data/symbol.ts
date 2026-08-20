@@ -1,6 +1,7 @@
 import { Entity } from './entity';
 import { reflect } from './reflection';
 import { uniqueIndex, quoted } from './decorators';
+import { Localization } from './utils/localization';
 
 // Port of Signum's Symbol (Signum/Basics/Symbol.cs): the abstract base of every
 // "symbol" — a SystemString entity identified by a unique textual `key` of the
@@ -31,6 +32,20 @@ export abstract class Symbol extends Entity {
     @quoted
     toString(): string {
         return this.key;
+    }
+
+    /**
+     * The symbol's LOCALISED label (Signum's `Symbol.NiceToString()`), e.g. "OrderOperation.Ship" →
+     * "Ship". A symbol's key is "<Container>.<Member>" and the container is a localizable Container in
+     * the metadata blob, so this is the container-member translation for the current UI culture, else
+     * the humanised member name. Distinct from `toString()`, which must stay the raw key — that one is
+     * `@quoted` and lowers into SQL.
+     */
+    niceToString(): string {
+        const dot = this.key.indexOf(".");
+        const container = dot >= 0 ? this.key.slice(0, dot) : this.key;
+        const member = dot >= 0 ? this.key.slice(dot + 1) : this.key;
+        return Localization.Internal.translate(container, member) ?? Localization.Internal.niceMemberName(member);
     }
 }
 

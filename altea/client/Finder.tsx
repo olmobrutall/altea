@@ -49,7 +49,7 @@ import { TypeEntity } from '../data/typeEntity';
 // TODO(port): QueryEntity (Signum.Basics) not ported.
 
 import {
-  QueryKey, getQueryKey, isQueryDefined, getTypeName, getTypeInfo, tryGetTypeInfo,
+  QueryKey, getQueryKey, isQueryDefined, getTypeName, getTypeInfo, tryGetTypeInfo, getKindOfType,
   type PseudoType,
 } from './Reflection';
 import { isNumberType, toNumberFormat } from './numberFormat';
@@ -760,7 +760,7 @@ export namespace Finder {
       return undefined;
     }
 
-    if (type.typeName == "String" || type.typeName == "Guid" || type.typeName == "PlainDate" || ti?.kind == "Enum") {
+    if (type.typeName == "String" || type.typeName == "Guid" || type.typeName == "PlainDate" || getKindOfType(ti?.ctor) == "Enum") {
       if (typeof value === "string")
         return value;
 

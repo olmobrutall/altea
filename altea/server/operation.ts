@@ -19,6 +19,13 @@ export enum OperationType {
 export interface IOperation {
     readonly operationSymbol: OperationSymbol;
     readonly operationType: OperationType;
+    /**
+     * The entity type this operation is REGISTERED ON (Signum's `IOperation.OverridenType`): the type
+     * whose frame shows its button, and the key it is shipped under in the reflection metadata blob.
+     * For a ConstructFrom / ConstructFromMany this is the SOURCE type, not the constructed one.
+     * Explicit rather than derived, because a generic parameter is erased at runtime — see graph.ts.
+     */
+    readonly entityType: Function;
     assertIsValid(): void;
 }
 

@@ -59,9 +59,9 @@ export namespace Enum {
     // humanise the (PascalCase) member name (Signum's member.NiceName() = SpacePascalOrUnderscores):
     // "Canceled" → "Canceled", "InProcess" → "In process". NOT inferDescription — that lowercases for
     // message sentences ("BeNotNull" → "be not null").
-    return (typeName != null ? Localization.translate(typeName, name) : undefined)
+    return (typeName != null ? Localization.Internal.translate(typeName, name) : undefined)
       ?? niceNameOverrides.get(e)?.get(name)
-      ?? Localization.niceMemberName(name);
+      ?? Localization.Internal.niceMemberName(name);
   }
 
   /**
@@ -76,10 +76,10 @@ export namespace Enum {
     map.set(toName(e, value), niceName);
   }
 
-  /** The enum type's localised display name (its registered clean name, humanised). */
+  /** The enum type's localised display name: the loaded translation, else its humanised name. */
   export function niceTypeName<E extends EnumObject>(e: E): string | undefined {
     const typeName = enumNameOf(e);
-    return typeName == null ? undefined : Localization.niceNameFromName(typeName);
+    return typeName == null ? undefined : Localization.Internal.typeNiceName(typeName);
   }
 
   /** Whether `value` is a valid member NAME of the enum. */

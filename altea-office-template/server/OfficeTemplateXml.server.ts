@@ -7,6 +7,9 @@ import {
 import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
+import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
+import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
+import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { TemplateApplicableSymbol } from "@altea/altea-templating/data/Templating";
 import { FileEmbedded } from "@altea/altea-files/data/Files";
 import {
@@ -52,7 +55,7 @@ function templateToXml(ot: OfficeTemplateEntity, _ctx: IToXmlContext): Record<st
     o[A + "DisableAuthorization"] = ot.disableAuthorization;
     if (ot.query != null) o[A + "Query"] = ot.query.key;
     if (ot.model != null) o[A + "Model"] = ot.model.fullClassName;
-    o[A + "Culture"] = ot.culture;
+    o[A + "Culture"] = cultureNameOf(ot.culture);
     o[A + "FileName"] = ot.fileName;
     if (ot.officeTransformer != null) o[A + "OfficeTransformer"] = ot.officeTransformer.key;
     if (ot.officeConverter != null) o[A + "OfficeConverter"] = ot.officeConverter.key;
@@ -76,7 +79,7 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
     ot.name = str(xml[A + "Name"])!;
     ot.disableAuthorization = bool(xml[A + "DisableAuthorization"]) ?? false;
     ot.query = xml[A + "Query"] != undefined ? ctx.getQuery(str(xml[A + "Query"])!) : null;
-    ot.culture = str(xml[A + "Culture"]) ?? "en-US";
+    ot.culture = CultureInfoLogic.getCulture(str(xml[A + "Culture"]) ?? CultureInfo.defaultUICulture()).toLite();
     ot.fileName = str(xml[A + "FileName"])!;
     ot.groupResults = bool(xml[A + "GroupResults"]) ?? false;
 

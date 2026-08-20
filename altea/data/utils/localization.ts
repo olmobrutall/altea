@@ -1,6 +1,6 @@
-
 import { pluralize, detectGender, spacePascalOrUnderscores } from './naturalLanguage';
 import { CultureInfo } from './cultureInfo';
+import { Metadata } from '../metadata';
 // Code-declared default-language nice names (the @niceName/@nicePluralName decorators, operation
 // init({ niceName })). Stored in the import-free leaf; consulted BELOW any loaded translation, so a
 // translation file for the current UI culture always wins.
@@ -12,171 +12,170 @@ import { getDefaultDescription } from '../registration';
 // this does not create a cycle with reflection.
 export { registerObject } from '../registration';
 
-// Everything the localization layer offers lives under `Localization` — the nice-name helpers, the
-// LocalizedType model, and the translation store (formerly the `DescriptionManager` sub-namespace, now
-// flattened in) — so the bare identifiers `niceName` / `nicePluralName` / `gender` stay free for the
-// same-named entity DECORATORS (entities/decorators). The culture context (current/default/with-culture)
-// lives in its own `CultureInfo` (utils/cultureInfo). The one exception kept as a bare top-level export
-// below is `msg` (and its LocalizableMessage): the quote-transformer detects hand-written `msg(...)`
-// calls by that exact identifier, and authors write it bare.
+// The name-resolution ENGINE behind the display-name API. It is deliberately NOT the API: application
+// and extension code never calls into here, it calls the fluent surface —
+//
+//   OrderEntity.niceName() / .nicePluralName() / .gender() / .newNiceName()
+//   OrderEntity.nicePropertyName(a => a.orderNumber)   ·   AddressEmbedded.nicePropertyName(a => a.city)
+//   Enum.niceName(ColorEnum, "Red")                    ·   Container.niceName(OrderOperation, "Ship")
+//   fieldInfo.niceToString()                           ·   SomeMessage.SomeMember.niceToString()
+//
+// — which keeps the FileInfo-backed registration and the type parameters intact. Everything the engine
+// exposes therefore sits under `Localization.Internal`, whose only legitimate callers are the four
+// front-ends that implement that surface (data/entity, data/enum, data/container, data/reflection) plus
+// the framework internals that hold a bare name (the LINQ provider lowering `Type.niceName()` to SQL).
+// A `Localization.Internal.` in application code is a bug; the nesting makes it greppable.
+//
+// The translation STORE itself is not here at all — it lives in data/metadata (`Metadata.merge` /
+// `Metadata.forCulture`), because nice names are one section of the per-culture, per-role metadata blob
+// rather than a thing of their own. The culture context lives in `CultureInfo` (utils/cultureInfo).
+//
+// The one bare top-level export below is `msg` (and its LocalizableMessage): the quote-transformer
+// detects hand-written `msg(...)` calls by that exact identifier, and authors write it bare.
 export namespace Localization {
 
-    // One localised container (Signum's LocalizedType): its own description (+ plural/gender for a type)
-    // and a member→description map (entity members / enum values / messages / operations / symbols). This
-    // is the parsed shape the server ships to the client; XML parsing itself lives server-side
-    // (server/translations.ts), so this model stays isomorphic and dependency-free.
-    export interface LocalizedType {
-        description?: string;
-        pluralDescription?: string;
-        gender?: string;
-        members: Record<string, string>;
-    }
-    export type LocalizedTypes = Record<string, LocalizedType>;
+    export namespace Internal {
 
-    // Human-readable name of an entity *type* (Signum's `Type.NiceName()`): the class
-    // name with a trailing "Entity" dropped and PascalCase split into words —
-    // `GrammyAwardEntity` → "Grammy Award". Takes the constructor only (never an instance):
-    // the display string must be computable from the type + id alone, so building a lite's
-    // model never forces the (potentially unloaded) entity to be retrieved.
-    export function niceName(ctor: Function): string {
-        return typeDescription(ctor.name) ?? niceNameFromName(ctor.name);
-    }
+        // --- Type-level names --------------------------------------------------------------------
 
-    // De-camelCase a raw identifier into a display label: "GrammyAwardEntity" → "Grammy Award",
-    // "FilterOperation" → "Filter Operation". The string-only core of `niceName(ctor)`, shared with
-    // the `Enum` helper's `niceTypeName` (entities/enum) so enum type names humanise identically.
-    export function niceNameFromName(name: string): string {
-        const raw = name.replace(/Entity$/, "");
-        return raw.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2").trim();
-    }
+        // Human-readable name of a type, by its REGISTERED name (Signum's `Type.NiceName()`): the loaded
+        // translation for the current UI culture, else the code-declared default (@niceName), else the
+        // class name with a trailing "Entity" dropped and PascalCase split into words —
+        // `GrammyAwardEntity` → "Grammy Award".
+        export function typeNiceName(typeName: string): string {
+            return typeDescription(typeName) ?? niceNameFromName(typeName);
+        }
 
-    // Default display name of an entity member when no translation is loaded (Signum's
-    // DescriptionManager.DefaultMemberDescription → name.SpacePascalOrUnderscores()). altea member
-    // identifiers are camelCase where Signum's C# names are PascalCase, so we capitalise the first
-    // letter before de-camelCasing: "name" → "Name", "firstName" → "First Name", "isNew" → "Is New".
-    export function niceMemberName(member: string): string {
-        const pascal = member.charAt(0).toUpperCase() + member.slice(1);
-        return spacePascalOrUnderscores(pascal);
-    }
+        // Plural of the type's nice name (Signum's `Type.NicePluralName()`). Signum runs a real
+        // pluralizer keyed on the UI culture; altea uses a naive English "+s" stand-in for now (good
+        // enough for the default query/expression display names — swap for a culture-aware one later).
+        export function typeNicePluralName(typeName: string): string {
+            return typePluralDescription(typeName)
+                ?? pluralize(typeNiceName(typeName), CultureInfo.currentUICulture());
+        }
 
-    // Display name of a new (unsaved) entity of this type (Signum's `Type.NewNiceName()`).
-    export function newNiceName(ctor: Function): string {
-        return "New " + niceName(ctor);
-    }
+        // Grammatical gender of a type (Signum's Type gender): the translation's Gender attribute, else
+        // detected from the (localised) nice name for the current UI culture (English has none).
+        export function typeNiceGender(typeName: string): string | undefined {
+            return typeGender(typeName)
+                ?? detectGender(typeNiceName(typeName), CultureInfo.currentUICulture());
+        }
 
-    // Plural of the entity type's nice name (Signum's `Type.NicePluralName()`). Signum runs a real
-    // pluralizer keyed on the UI culture; altea uses a naive English "+s" stand-in for now (good enough
-    // for the default query/expression display names — swap for a culture-aware pluralizer later).
-    export function nicePluralName(ctor: Function): string {
-        return typePluralDescription(ctor.name)
-            ?? pluralize(niceName(ctor), CultureInfo.currentUICulture());
-    }
+        // Display name of a new (unsaved) instance of this type (Signum's `Type.NewNiceName()`).
+        export function typeNewNiceName(typeName: string): string {
+            return "New " + typeNiceName(typeName);
+        }
 
-    // Grammatical gender of an entity type (Signum's Type gender): the translation's Gender attribute,
-    // else detected from the (localised) nice name for the current UI culture (English has none).
-    export function gender(ctor: Function): string | undefined {
-        return typeGender(ctor.name)
-            ?? detectGender(niceName(ctor), CultureInfo.currentUICulture());
-    }
+        // De-camelCase a raw type identifier into a display label: "GrammyAwardEntity" → "Grammy Award",
+        // "FilterOperation" → "Filter Operation". The string-only core of `typeNiceName`, shared with the
+        // `Enum` / `Container` helpers so their type names humanise identically.
+        export function niceNameFromName(name: string): string {
+            const raw = name.replace(/Entity$/, "");
+            return raw.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2").trim();
+        }
 
-    // Translations keyed by locale → type name → LocalizedType (Signum's LocalizedAssembly model). A
-    // "type" is any named container the XML localises: entity/embedded (description + members), enum
-    // (members), message (members), operation/symbol container (members).
-    const _localized = new Map<string, Map<string, LocalizedType>>();
+        // --- Member-level names ------------------------------------------------------------------
 
-    // Merge parsed LocalizedTypes into a locale (later files override earlier keys).
-    export function addLocalizedTypes(locale: string, types: LocalizedTypes): void {
-        let byType = _localized.get(locale);
-        if (byType == null) { byType = new Map(); _localized.set(locale, byType); }
-        for (const [name, lt] of Object.entries(types)) {
-            const existing = byType.get(name);
-            if (existing == null) {
-                byType.set(name, { ...lt, members: { ...lt.members } });
-            } else {
-                if (lt.description != null) existing.description = lt.description;
-                if (lt.pluralDescription != null) existing.pluralDescription = lt.pluralDescription;
-                if (lt.gender != null) existing.gender = lt.gender;
-                Object.assign(existing.members, lt.members);
+        // A property route's display name for the current UI culture, resolved: loaded translation →
+        // code-declared default (a @niceName field decorator) → humanised identifier. `path` is a
+        // `PropertyRoute.propertyString()`, so an embedded's member resolves under its OWNER
+        // ("shipAddress.city"); when the owner carries no entry the LAST segment is humanised, which is
+        // what a reader wants next to the field ("City", not "Ship Address City").
+        export function routeNiceName(typeName: string, path: string): string {
+            return tryRouteNiceName(typeName, path) ?? niceMemberName(lastSegment(path));
+        }
+
+        // As `routeNiceName`, but undefined when nothing is declared for the route (so a caller with its
+        // own fallback — FieldInfo.niceToString, which humanises the field's own name — can use it).
+        export function tryRouteNiceName(typeName: string, path: string): string | undefined {
+            const fromBlob = Metadata.tryField(typeName, path)?.niceName;
+            if (fromBlob != null)
+                return fromBlob;
+            // Signum's XML uses the PascalCase C# name; altea's members are camelCase. Probe both.
+            const def = getDefaultDescription(typeName);
+            return def?.members[path] ?? def?.members[capitalizePath(path)];
+        }
+
+        // Default display name of a member when nothing is declared (Signum's
+        // DescriptionManager.DefaultMemberDescription → name.SpacePascalOrUnderscores()). altea member
+        // identifiers are camelCase where Signum's C# names are PascalCase, so capitalise first:
+        // "name" → "Name", "firstName" → "First Name", "isNew" → "Is New".
+        export function niceMemberName(member: string): string {
+            const pascal = member.charAt(0).toUpperCase() + member.slice(1);
+            return spacePascalOrUnderscores(pascal);
+        }
+
+        // A CONTAINER member's translation (current UI culture): the XML <Member> under <Type
+        // Name=container>. Used by the Enum helper (enum member names), messages (msg containers) and
+        // symbol containers (operation labels) — their member names are already the PascalCase
+        // identifiers the XML / key use. undefined when nothing is declared, so the caller picks its own
+        // humanisation (Enum wants "In process", a message wants "be not null").
+        export function translate(container: string, member: string): string | undefined {
+            return Metadata.tryField(container, member)?.niceName
+                ?? getDefaultDescription(container)?.members[member];
+        }
+
+        // --- Raw declared values (no humanisation fallback) ---------------------------------------
+        // Loaded translation for the current UI culture, else the code-declared default. Used by the
+        // metadata builder, which must OMIT a name that equals the humanised default rather than ship it.
+
+        export function typeDescription(typeName: string): string | undefined {
+            return Metadata.tryType(typeName)?.niceName ?? getDefaultDescription(typeName)?.description;
+        }
+        export function typePluralDescription(typeName: string): string | undefined {
+            return Metadata.tryType(typeName)?.nicePluralName ?? getDefaultDescription(typeName)?.pluralDescription;
+        }
+        export function typeGender(typeName: string): string | undefined {
+            return Metadata.tryType(typeName)?.gender ?? getDefaultDescription(typeName)?.gender;
+        }
+
+        // --- Messages ------------------------------------------------------------------------------
+
+        export function lookup(msg: LocalizableMessage): string | undefined {
+            if (msg.module == null || msg.member == null) return undefined;
+            return translate(msg.module, msg.member);
+        }
+
+        // Infers a human-readable description from a member name.
+        // Strips a leading '_', splits on PascalCase boundaries, lowercases,
+        // and replaces each digit N with the placeholder {N}.
+        // e.g. "_0IsNotSet" → "{0} is not set", "BeNotNull" → "be not null"
+        export function inferDescription(member: string): string {
+            const s = member.startsWith('_') ? member.slice(1) : member;
+            const tokens: string[] = [];
+            let i = 0;
+            while (i < s.length) {
+                const ch = s[i];
+                if (ch >= '0' && ch <= '9') {
+                    tokens.push(`{${ch}}`);
+                    i++;
+                    continue;
+                }
+                let word = ch.toLowerCase();
+                i++;
+                while (i < s.length && !(s[i] >= '0' && s[i] <= '9') && s[i] === s[i].toLowerCase()) {
+                    word += s[i];
+                    i++;
+                }
+                tokens.push(word);
             }
+            // Sentence-case: capitalize the first letter of the whole description (Signum's NiceName), so a
+            // PascalCase member reads "Enter your user name and password" / "Username", not all-lowercase.
+            const text = tokens.join(' ');
+            return text.charAt(0).toUpperCase() + text.slice(1);
         }
     }
+}
 
-    function localizedType(typeName: string): LocalizedType | undefined {
-        return _localized.get(CultureInfo.currentUICulture())?.get(typeName);
-    }
+// The last segment of a property path: "shipAddress.city" → "city", "[CorruptMixin].corrupt" → "corrupt".
+function lastSegment(path: string): string {
+    const i = Math.max(path.lastIndexOf("."), path.lastIndexOf("]"));
+    return i < 0 ? path : path.slice(i + 1);
+}
 
-    // Dump every loaded LocalizedType for a locale as a plain (deep-copied) LocalizedTypes — the
-    // Translations section of the /api/reflection/metadata blob. The client feeds it straight back
-    // into addLocalizedTypes, so the XML parser never ships to the browser. Empty object if the
-    // locale has no translations loaded (the client then falls back to niceNameFromName).
-    export function getLocalizedTypes(locale: string): LocalizedTypes {
-        const result: LocalizedTypes = {};
-        const byType = _localized.get(locale);
-        if (byType != null)
-            for (const [name, lt] of byType)
-                result[name] = { ...lt, members: { ...lt.members } };
-        return result;
-    }
-
-    // Type-level translations (current UI culture) — the XML's <Type Description/PluralDescription/
-    // Gender>. Consumed by niceName / nicePluralName. Falls back to the code-declared default
-    // (@niceName/@nicePluralName) when no translation is loaded, then the caller humanizes the name.
-    export function typeDescription(typeName: string): string | undefined { return localizedType(typeName)?.description ?? getDefaultDescription(typeName)?.description; }
-    export function typePluralDescription(typeName: string): string | undefined { return localizedType(typeName)?.pluralDescription ?? getDefaultDescription(typeName)?.pluralDescription; }
-    export function typeGender(typeName: string): string | undefined { return localizedType(typeName)?.gender ?? getDefaultDescription(typeName)?.gender; }
-
-    export function lookup(msg: LocalizableMessage): string | undefined {
-        if (msg.module == null || msg.member == null) return undefined;
-        return translate(msg.module, msg.member);
-    }
-
-    // A container member's translation (current UI culture): the XML <Member> under <Type Name=module>.
-    // Used by the Enum helper (enum member names), messages (msg containers), and the client Operations
-    // layer (operation labels) — their member names are already the PascalCase identifiers the XML /
-    // key use. Falls back to the code-declared default (operation init({ niceName })) when untranslated.
-    export function translate(module: string, member: string): string | undefined {
-        return localizedType(module)?.members[member] ?? getDefaultDescription(module)?.members[member];
-    }
-
-    // An entity member's display name (current UI culture): altea's member identifiers are camelCase
-    // but the XML uses the PascalCase C# name, so try the name as-is then capitalised. Falls back to the
-    // code-declared default (a @niceName field decorator) — same as-is/capitalised probing — when no
-    // translation is loaded, so a translation file still wins.
-    export function memberNiceName(typeName: string, member: string): string | undefined {
-        const cap = member.charAt(0).toUpperCase() + member.slice(1);
-        const lt = localizedType(typeName);
-        const def = getDefaultDescription(typeName);
-        return lt?.members[member] ?? lt?.members[cap] ?? def?.members[member] ?? def?.members[cap];
-    }
-
-    // Infers a human-readable description from a member name.
-    // Strips a leading '_', splits on PascalCase boundaries, lowercases,
-    // and replaces each digit N with the placeholder {N}.
-    // e.g. "_0IsNotSet" → "{0} is not set", "BeNotNull" → "be not null"
-    export function inferDescription(member: string): string {
-        const s = member.startsWith('_') ? member.slice(1) : member;
-        const tokens: string[] = [];
-        let i = 0;
-        while (i < s.length) {
-            const ch = s[i];
-            if (ch >= '0' && ch <= '9') {
-                tokens.push(`{${ch}}`);
-                i++;
-                continue;
-            }
-            let word = ch.toLowerCase();
-            i++;
-            while (i < s.length && !(s[i] >= '0' && s[i] <= '9') && s[i] === s[i].toLowerCase()) {
-                word += s[i];
-                i++;
-            }
-            tokens.push(word);
-        }
-        // Sentence-case: capitalize the first letter of the whole description (Signum's NiceName), so a
-        // PascalCase member reads "Enter your user name and password" / "Username", not all-lowercase.
-        const text = tokens.join(' ');
-        return text.charAt(0).toUpperCase() + text.slice(1);
-    }
+// Capitalize each dot/bracket-separated segment: "shipAddress.city" → "ShipAddress.City".
+function capitalizePath(path: string): string {
+    return path.replace(/(^|[.\]])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase());
 }
 
 // `msg` / LocalizableMessage stay bare top-level exports (NOT under Localization): the quote-transformer
@@ -193,14 +192,14 @@ export class LocalizableMessage {
     ) { }
 
     niceToString(...args: unknown[]): string {
-        const template = Localization.lookup(this) ?? this._getDefault();
+        const template = Localization.Internal.lookup(this) ?? this._getDefault();
         return args.length > 0 ? format(template, ...args) : template;
     }
 
     private _getDefault(): string {
         if (this.defaultDescription != null) return this.defaultDescription;
         if (this.member == null) return '?';
-        return this._inferred ??= Localization.inferDescription(this.member);
+        return this._inferred ??= Localization.Internal.inferDescription(this.member);
     }
 }
 

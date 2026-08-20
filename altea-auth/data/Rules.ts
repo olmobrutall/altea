@@ -9,6 +9,9 @@ import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { noRepeatValidator, countIsValidator, ComparisonType } from "@altea/altea/data/validators";
 import { RoleEntity } from "./Role";
+// Loads the module into the program so the `declare module` augmentation at the bottom of this file can
+// resolve it. Under project references an augmentation-only reference is not enough on its own.
+import type { } from "@altea/altea/data/metadata";
 
 // Port of Signum's authorization entity model (Rules/RulesEntities.cs + Rules/Signum.Authorization.Rules.ts).
 // The PERSISTED rules (one row per role×resource) that the authorization caches load. The rule-PACK
@@ -443,4 +446,31 @@ export class PropertyRulePack extends ModelEntity {
     // (Signum's AvailableTypeConditions). Empty when the type/role has no condition rules.
     availableTypeConditions: TypeConditionSetModel[];
     rules: PropertyAllowedRule[];
+}
+
+// ---- Reflection-metadata expansion (Signum's TypeInfo.maxTypeAllowed / MemberInfo.propertyAllowed) ---
+//
+// The authorization dimensions the CLIENT needs, widened onto the core metadata model rather than
+// shipped as a parallel side-channel map. altea's core neither reads nor understands these; the server
+// stamps them per request (server/AuthReflection) and the client's Navigator gates + Lines layer read
+// them. Declared HERE, in the data layer, because a `declare module` only applies to programs that
+// compile the declaring file — and the client tsconfig does not compile server/.
+//
+// Both enums are numeric and ASCENDING (None < Read < Write); undefined = unrestricted (not shipped).
+declare module "@altea/altea/data/metadata" {
+    interface TypeMetadata {
+        minTypeAllowed?: TypeAllowedBasic;
+        maxTypeAllowed?: TypeAllowedBasic;
+    }
+    interface FieldMetadata {
+        /** The allowance when no type condition matches — what a row with no conditions on it sees. */
+        propertyAllowed?: PropertyAllowed;
+        /**
+         * The range across every type-condition slice. The UI gates on `max`: hiding a property the user
+         * might be allowed to edit for THIS row would be wrong, and the serializer still enforces the
+         * exact per-instance answer on the way in and out.
+         */
+        minPropertyAllowed?: PropertyAllowed;
+        maxPropertyAllowed?: PropertyAllowed;
+    }
 }

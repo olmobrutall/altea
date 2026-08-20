@@ -1,6 +1,5 @@
 import { getTypeInfo } from "@altea/altea/data/reflection";
 import { Implementations } from "@altea/altea/data/implementations";
-import { Localization } from "@altea/altea/data/utils/localization";
 import type { PrimaryKey } from "@altea/altea/data/entity";
 import type {
     EntityOmniboxResult, HelpOmniboxResult, OmniboxResult,
@@ -127,5 +126,5 @@ export function tryParsePrimaryKey(type: Function, value: string): PrimaryKey | 
 // Signum's `Type.NicePluralName().ToOmniboxPascal()` — the display form the client echoes back into the
 // input on [Tab] (see EntityOmniboxProvider.toString). Exported for the dynamic-query generator too.
 export function niceOmniboxPluralName(type: Function): string {
-    return toOmniboxPascal(Localization.nicePluralName(type));
+    return toOmniboxPascal(type.nicePluralName());
 }

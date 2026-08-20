@@ -155,7 +155,7 @@ export namespace OperationAuthLogic {
         const typeId = TypeLogic.typeToId(ctor);
         const rank = (v: OperationAllowed): number => v === OperationAllowed.None ? 0 : v === OperationAllowed.DBOnly ? 1 : 2;
         let min = 2, max = 0, any = false;
-        for (const op of OperationLogic.operationsForType(typeName)) {
+        for (const op of OperationLogic.operationsForTypeName(typeName)) {
             const r = rank((await getAllowed(op.id, typeId, roleKey)).fallback);
             if (r < min) min = r;
             if (r > max) max = r;
@@ -198,7 +198,7 @@ export namespace OperationAuthLogic {
         const ctor = Entity.resolveType(typeName);
         const typeId = TypeLogic.typeToId(ctor);
         const rules: OperationAllowedRule[] = [];
-        for (const op of OperationLogic.operationsForType(typeName)) {
+        for (const op of OperationLogic.operationsForTypeName(typeName)) {
             rules.push(OperationAllowedRule.create({
                 operation: OperationSymbol.newLite(op.id, op.key),
                 allowed: toModel(await getAllowed(op.id, typeId, roleKey)),

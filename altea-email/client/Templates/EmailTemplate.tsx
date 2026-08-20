@@ -14,7 +14,6 @@ import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { SubTokensOptions } from "@altea/altea/client/QueryToken";
 import { ValidationMessage } from "@altea/altea/data/validators";
-import { Localization } from "@altea/altea/data/utils/localization";
 import type { QueryEntity } from "@altea/altea/data/queryEntity";
 import TemplateControls from "@altea/altea-templating/client/TemplateControls";
 import QueryTokenEmbeddedBuilder from "@altea/altea-user-assets/client/Templates/QueryTokenEmbeddedBuilder";
@@ -263,5 +262,5 @@ export function EmailTemplateMessageComponent(p: EmailTemplateMessageComponentPr
 /** The localized label of an EmailTemplate property (altea has no `nicePropertyName` static: the label comes
  *  from the reflection registry's member descriptions, with the de-camelCased name as the fallback). */
 function nicePropertyNameOf(member: "query" | "from"): string {
-    return Localization.memberNiceName(EmailTemplateEntity.name, member) ?? Localization.niceMemberName(member);
+    return EmailTemplateEntity.nicePropertyName(member);
 }

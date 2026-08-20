@@ -2,7 +2,8 @@ import "@altea/altea/server"; // installs Entity.save()/delete()
 import "@altea/altea/server/operationFluentInclude";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import { Graph } from "@altea/altea/server/graph";
+import { graph } from "@altea/altea/server/graphBuilder";
+import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
 import { table } from "@altea/altea/server/table";
 import {
     EmailMasterTemplateEntity, EmailMasterTemplateEntity_Message, EmailMasterTemplateOperation, languageOf,
@@ -41,39 +42,42 @@ export namespace EmailMasterTemplateLogic {
 
         registerEmailMasterTemplateXml();
 
-        new Graph.ConstructFrom(EmailMasterTemplateOperation.Clone, {
+        graph(EmailMasterTemplateEntity, g => {
+        g.ConstructFrom(EmailMasterTemplateOperation.Clone, {
+            entityType: EmailMasterTemplateEntity,
             construct: (e: EmailMasterTemplateEntity) => EmailMasterTemplateEntity.create({
                 name: `${e.name} (Cloned)`,
                 isDefault: e.isDefault,
                 messages: e.messages.map(m => m.clone()),
             }),
-        }).register();
+        });
 
-        new Graph.Construct(EmailMasterTemplateOperation.Create, {
+        g.Construct(EmailMasterTemplateOperation.Create, {
             construct: () => createDefaultMasterTemplate?.() ?? new EmailMasterTemplateEntity(),
-        }).register();
+        });
 
-        new Graph.Execute(EmailMasterTemplateOperation.Save, {
+        g.Execute(EmailMasterTemplateOperation.Save, {
             canBeNew: true,
             canBeModified: true,
             execute: (t: EmailMasterTemplateEntity) => assertHasRequiredCulture(t),
-        }).register();
+        });
 
         // Signum's Delete: the attachment rows the template owns go with it.
-        new Graph.Delete(EmailMasterTemplateOperation.Delete, {
+        g.Delete(EmailMasterTemplateOperation.Delete, {
             delete: async (e: EmailMasterTemplateEntity) => {
                 const attachments = e.attachments.map(a => a.attachment);
                 await e.delete();
                 for (const a of attachments)
                     await a.delete();
             },
+        });
         }).register();
     }
 
     /** Signum's `GetCultureMessage(template, ci)` — exact locale, then its language. */
     export function getCultureMessage(template: EmailMasterTemplateEntity, culture: string): EmailMasterTemplateEntity_Message | undefined {
-        return template.messages.find(m => m.culture === culture)
-            ?? template.messages.find(m => m.culture === languageOf(culture));
+        return template.messages.find(m => cultureNameOf(m.culture) === culture)
+            ?? template.messages.find(m => cultureNameOf(m.culture) === languageOf(culture));
     }
 
     /** Signum's GetDefaultMasterTemplate — the flagged default, else create (and save) one. */
@@ -96,7 +100,7 @@ export namespace EmailMasterTemplateLogic {
         if (culture == undefined)
             return;
 
-        if (!t.messages.some(m => m.culture != null && culture.startsWith(m.culture)))
+        if (!t.messages.some(m => { const n = cultureNameOf(m.culture); return n != null && culture.startsWith(n); }))
             throw new Error(`EmailMasterTemplate '${t.name}' has no message for the default culture '${culture}'`);
     }
 }

@@ -11,6 +11,8 @@ import { EmailTemplateVisibleOn, type EmailTemplateEntity } from "../data/EmailT
 import { EmailModelEntity } from "../data/Email";
 import { AsyncEmailSender } from "./AsyncEmailSender.server";
 import { EmailLogic } from "./EmailLogic.server";
+import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
+import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 import { EmailModelLogic } from "./EmailModelLogic.server";
 import { EmailTemplateLogic } from "./EmailTemplateLogic.server";
 
@@ -26,7 +28,8 @@ import { EmailTemplateLogic } from "./EmailTemplateLogic.server";
 //  - `ReflectionServer.OverrideIsNamespaceAllowed` / `TemplatingServer.TemplateTokenMessageAllowed` gate a
 //    namespace's translations behind type auth; altea ships ONE reflection blob at boot, so there is no gate.
 //  - `AfterDeserilization(EmailTemplateEntity) → ParseData` is gone with ParseData (see EmailTemplateLogic).
-//  - `getDefaultCulture` returns the plain locale STRING (altea has no CultureInfoEntity).
+//  - `getDefaultCulture` returns the CultureInfoEntity row for the configured default locale (Signum's
+//    MailingController.GetDefaultCulture), so a new template's first message references it directly.
 
 export namespace MailingServer {
     let started = false;
@@ -102,9 +105,9 @@ export namespace MailingServer {
             });
 
         ws.get("/api/email/getDefaultCulture",
-            { res: CustomType<string>() },
+            { res: CustomType<CultureInfoEntity>() },
             async (_req, res) => {
-                res.jsonTyped(EmailLogic.configuration().defaultCulture);
+                res.jsonTyped(CultureInfoLogic.getCulture(EmailLogic.configuration().defaultCulture));
             });
 
         AsyncEmailSender.installShutdownHook();

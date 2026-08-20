@@ -2,6 +2,7 @@ import * as React from "react";
 import { Dropdown } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ajaxGet, ajaxPost } from "@altea/altea/client/Services";
+import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
@@ -128,14 +129,14 @@ export namespace MailingClient {
 
         // A NEW template starts with one message in the server's default culture (Signum's constructor).
         Constructor.registerConstructor(EmailTemplateEntity, async () => {
-            const culture = await API.getDefaultCulture();
+            const culture = (await API.getDefaultCulture()).toLite();
             return EmailTemplateEntity.create({
                 messages: [EmailTemplateEntity_Message.create({ culture })],
             });
         });
 
         Constructor.registerConstructor(EmailMasterTemplateEntity, async () => {
-            const culture = await API.getDefaultCulture();
+            const culture = (await API.getDefaultCulture()).toLite();
             return EmailMasterTemplateEntity.create({
                 messages: [EmailMasterTemplateEntity_Message.create({ culture, text: defaultMasterTemplateText })],
             });
@@ -304,7 +305,7 @@ export namespace MailingClient {
             return ajaxGet({ url: "/api/email/getAllTypes", signal });
         }
 
-        export function getDefaultCulture(signal?: AbortSignal): Promise<string> {
+        export function getDefaultCulture(signal?: AbortSignal): Promise<CultureInfoEntity> {
             return ajaxGet({ url: "/api/email/getDefaultCulture", signal });
         }
     }

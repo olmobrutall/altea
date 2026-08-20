@@ -129,7 +129,7 @@ function SearchModal(p: SearchModalProps): React.ReactElement {
         style: "success",
         customIcon: "check-square",
         title: SearchMessage.ReturnNewEntity.niceToString(),
-        message: SearchMessage.DoYouWantToSelectTheNew01_G.niceToString().forGenderAndNumber(ti.gender).formatHtml(ti.getNiceName(), <strong>{e.toString()}</strong>)
+        message: SearchMessage.DoYouWantToSelectTheNew01_G.niceToString().forGenderAndNumber(ti.getGender()).formatHtml(ti.getNiceName(), <strong>{e.toString()}</strong>)
       }).then(b => {
         if (b == "yes") {
           selectedRows.current = [{ entity: e instanceof Lite ? e : (e as Entity).toLite(), columns: [] }];
@@ -278,11 +278,11 @@ export function defaultSelectMessage(queryName: PseudoType | QueryKey, plural: b
 
   if (plural) {
     return type ?
-      SearchMessage.PleaseSelectOneOrMore0_G.niceToString().forGenderAndNumber(type.gender, 2).formatWith(forProperty ?? type.getNicePluralName()) :
+      SearchMessage.PleaseSelectOneOrMore0_G.niceToString().forGenderAndNumber(type.getGender(), 2).formatWith(forProperty ?? type.getNicePluralName()) :
       SearchMessage.PleaseSelectOneOrSeveralEntities.niceToString();
   } else {
     return type ?
-      SearchMessage.PleaseSelectA0_G.niceToString().forGenderAndNumber(type.gender, 2).formatWith(forProperty ?? type.getNiceName()) :
+      SearchMessage.PleaseSelectA0_G.niceToString().forGenderAndNumber(type.getGender(), 2).formatWith(forProperty ?? type.getNiceName()) :
       SearchMessage.PleaseSelectAnEntity.niceToString();
   }
 }

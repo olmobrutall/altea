@@ -3,7 +3,7 @@ import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave /
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
-import { Graph } from "@altea/altea/server/graph";
+import { graph } from "@altea/altea/server/graphBuilder";
 import { table } from "@altea/altea/server/table";
 import type { Lite } from "@altea/altea/data/lite";
 import {
@@ -56,7 +56,8 @@ export namespace EmailSenderConfigurationLogic {
             { invalidateWith: [EmailSenderConfigurationEntity] });
 
         // Signum's Save: turn the typed-in `newPassword` into the stored (encrypted) `password`.
-        new Graph.Execute(EmailSenderConfigurationOperation.Save, {
+        graph(EmailSenderConfigurationEntity, g => {
+        g.Execute(EmailSenderConfigurationOperation.Save, {
             canBeNew: true,
             canBeModified: true,
             execute: (sc: EmailSenderConfigurationEntity) => {
@@ -66,10 +67,12 @@ export namespace EmailSenderConfigurationLogic {
                     network.newPassword = null;
                 }
             },
-        }).register();
+        });
 
-        new Graph.ConstructFrom(EmailSenderConfigurationOperation.Clone, {
+        g.ConstructFrom(EmailSenderConfigurationOperation.Clone, {
+            entityType: EmailSenderConfigurationEntity,
             construct: (sc: EmailSenderConfigurationEntity) => sc.clone(),
+        });
         }).register();
     }
 

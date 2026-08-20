@@ -10,6 +10,7 @@ import { type int } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { Symbol } from "@altea/altea/data/symbol";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
+import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 import { OrderTypeEnum } from "@altea/altea/data/dynamicQueries";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
@@ -137,9 +138,8 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
 
     model: OfficeModelEntity | null;
 
-    /** A locale name ("en-US"); altea has no CultureInfoEntity (see the header). */
-    @stringLengthValidator({ min: 2, max: 20 })
-    culture: string;
+    /** Signum's `CultureInfoEntity Culture` — the culture this template renders in. */
+    culture: Lite<CultureInfoEntity>;
 
     groupResults: boolean;
 

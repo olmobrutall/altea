@@ -3,7 +3,9 @@ import "@altea/altea/server/operationFluentInclude";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
-import { Graph } from "@altea/altea/server/graph";
+import { graph } from "@altea/altea/server/graphBuilder";
+import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
+import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { table as tableQuery } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
@@ -89,12 +91,6 @@ export namespace OfficeTemplateLogic {
 
         sb.include(OfficeTemplateEntity).withQuery();
 
-        new Graph.Execute(OfficeTemplateOperation.Save, {
-            canBeNew: true,
-            canBeModified: true,
-            execute: (_t: OfficeTemplateEntity) => { /* the saver persists it */ },
-        }).register();
-
         // Signum's two StaticPropertyValidations. They are DECLARED on the entity's fields (see
         // officeTemplateValidations) and implemented here, because both need server-only machinery. The
         // template one is async — the core validator contract permits that, and every server validation
@@ -102,13 +98,20 @@ export namespace OfficeTemplateLogic {
         officeTemplateValidations.template = async t => (await validateTemplate(t)) ?? null;
         officeTemplateValidations.fileName = t => validateFileName(t) ?? null;
 
-        new Graph.Delete(OfficeTemplateOperation.Delete, {
+        graph(OfficeTemplateEntity, g => {
+        g.Execute(OfficeTemplateOperation.Save, {
+            canBeNew: true,
+            canBeModified: true,
+            execute: (_t: OfficeTemplateEntity) => { /* the saver persists it */ },
+        });
+
+        g.Delete(OfficeTemplateOperation.Delete, {
             delete: async (t: OfficeTemplateEntity) => { await t.delete(); },
-        }).register();
+        });
 
         // Signum registers this as an operation so the UI can gate on CanExecute; the actual work is done
         // by the route (it must stream a file back), hence the "UI-only operation" throw.
-        new Graph.Execute(OfficeTemplateOperation.CreateOfficeReport, {
+        g.Execute(OfficeTemplateOperation.CreateOfficeReport, {
             // Signum's ForReadonlyEntity; altea's equivalent guard is avoidImplicitSave — the operation
             // must never write the template it is executed on.
             avoidImplicitSave: true,
@@ -116,6 +119,7 @@ export namespace OfficeTemplateLogic {
                 ? OfficeTemplateMessage._01RequiresExtraParameters.niceToString("OfficeModel", t.model.fullClassName)
                 : null,
             execute: () => { throw new Error("UI-only operation"); },
+        });
         }).register();
 
 
@@ -351,7 +355,8 @@ export namespace OfficeTemplateLogic {
                 : undefined;
 
             const renderer = new OfficeTemplateRenderer(
-                package_, queryName, template.culture, template, model, targetEntity, fileNameBlock);
+                package_, queryName, cultureNameOf(template.culture) ?? CultureInfo.currentUICulture(),
+                template, model, targetEntity, fileNameBlock);
 
             await renderer.executeQuery();
             await renderer.renderNodes();

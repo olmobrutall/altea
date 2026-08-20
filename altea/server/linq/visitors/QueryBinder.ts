@@ -65,7 +65,6 @@ import { TypeEntity } from "../../../data/typeEntity";
 import { toInt, toLong, inSql, Temporal } from "../../../data/basics";
 import { Lite, getCustomLiteConstructor, getCustomLiteConstructorFor } from "../../../data/lite";
 import type { CustomLiteClass } from "../../../data/lite";
-import { Localization } from "../../../data/utils/localization";
 import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, TsVectorType, VectorType, RuntimeType } from "../../runtimeTypes";
 import { PostgresTsVectorColumn } from "../../schema/column";
 import { ExpressionVisitor } from "./ExpressionVisitor";
@@ -1993,7 +1992,7 @@ export class QueryBinder extends ExpressionVisitor {
         // `this.id.toString()` whose expression-layer typing is brittle here).
         if (ts === Entity.prototype.toString)
             return new BinaryExpression("+",
-                new SqlConstantExpression(Localization.niceName(ctor!) + " ", LiteralType.string),
+                new SqlConstantExpression(ctor!.niceName() + " ", LiteralType.string),
                 new SqlCastExpression(LiteralType.string, this.unwrapPk(ee.externalId), this.isPostgres ? "varchar" : "nvarchar(max)"));
 
         // A subclass's own `@quoted` toString (Signum's [AutoExpressionField] ToString):
@@ -2846,11 +2845,11 @@ export class QueryBinder extends ExpressionVisitor {
             // NULL when the reference is null (guard on its id), else the localized name constant.
             return new CaseExpression(
                 [new When(new IsNotNullExpression(typeExpr.externalId.value),
-                    new SqlConstantExpression(Localization.niceName(ctorOfType(typeExpr.typeValue)), LiteralType.string))],
+                    new SqlConstantExpression(ctorOfType(typeExpr.typeValue).niceName(), LiteralType.string))],
                 undefined);
         if (typeExpr instanceof TypeImplementedByExpression) {
             const whens = [...typeExpr.typeImplementations].map(([ctor, id]) =>
-                new When(new IsNotNullExpression(id.value), new SqlConstantExpression(Localization.niceName(ctor), LiteralType.string)));
+                new When(new IsNotNullExpression(id.value), new SqlConstantExpression(ctor.niceName(), LiteralType.string)));
             return new CaseExpression(whens, undefined);
         }
         throw new Error(`Type.niceName() is not supported for an @implementedByAll reference (no static type to localize)`);

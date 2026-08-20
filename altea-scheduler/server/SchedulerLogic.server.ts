@@ -4,6 +4,7 @@ import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.w
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
 import { Graph } from "@altea/altea/server/graph";
+import { OperationLogic } from "@altea/altea/server/operationLogic";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { UserHolder } from "@altea/altea/server/userHolder";
 
@@ -17,7 +18,7 @@ import { HolidayCalendarEntity } from "../data/HolidayCalendar";
 import {
     ScheduledTaskEntity, ScheduledTaskLogEntity, SchedulerTaskExceptionLineEntity,
     ScheduledTaskOperation, ScheduledTaskLogOperation, ITaskOperation, SchedulerPermission,
-    SchedulerMessage, type ITaskEntity,
+    SchedulerMessage, SimpleTaskSymbol, type ITaskEntity,
 } from "../data/Scheduler";
 import { HolidayCalendarLogic } from "./HolidayCalendarLogic.server";
 import { SimpleTaskLogic } from "./SimpleTaskLogic.server";
@@ -77,6 +78,7 @@ export namespace SchedulerLogic {
         // Signum's Delete: the log rows OUTLIVE the task (they are the history), so they are detached
         // rather than cascaded, and the rule — a Part owned by this task — goes with it.
         new Graph.Delete(ScheduledTaskOperation.Delete, {
+            entityType: ScheduledTaskEntity,
             delete: async (scheduledTask: ScheduledTaskEntity) => {
                 await table(ScheduledTaskLogEntity)
                     .filter(l => l.scheduledTask!.is(scheduledTask))
@@ -90,13 +92,20 @@ export namespace SchedulerLogic {
 
         // Signum's CancelRunningTask: only meaningful while the run is in flight.
         new Graph.Execute(ScheduledTaskLogOperation.CancelRunningTask, {
+            entityType: ScheduledTaskLogEntity,
             canExecute: (log: ScheduledTaskLogEntity) =>
                 findRunning(log) != null ? null : SchedulerMessage.TaskIsNotRunning.niceToString(),
             execute: (log: ScheduledTaskLogEntity) => { findRunning(log)?.cancel(); },
         }).register();
 
         // Signum's ITaskOperation.ExecuteSync — "run it now", from the task's own view.
+        // Signum registers this on the ITaskEntity INTERFACE and lets its polymorphic registry fan it out.
+        // A TS interface has no runtime constructor, so it cannot be an `entityType`: the operation is
+        // owned by the framework's own built-in implementor here, and every OTHER task type adds itself
+        // through `registerExecuteTask` below (OperationLogic.registerForType) — which is the same set
+        // Signum's polymorphic dispatch would cover, made explicit.
         new Graph.ConstructFrom(ITaskOperation.ExecuteSync, {
+            entityType: SimpleTaskSymbol,
             construct: async (task: ITaskEntity) => {
                 const user = UserHolder.currentUserLite();
                 if (user == null)
@@ -130,6 +139,8 @@ export namespace SchedulerLogic {
         handler: (task: T, ctx: ScheduledTaskContext) => Promise<Lite<Entity> | null>,
     ): void {
         executeTaskHandlers.set(taskType as unknown as Function, handler as ExecuteTaskHandler);
+        // A type that can be run IS a type ITaskOperation.ExecuteSync applies to (see the note there).
+        OperationLogic.registerForType(ITaskOperation.ExecuteSync, taskType as unknown as Function);
     }
 
     /** Signum's `ExecuteTask.Invoke(task, ctx)` — dispatch, walking up the prototype chain so a handler

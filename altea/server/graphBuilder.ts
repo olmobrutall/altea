@@ -26,9 +26,12 @@ export interface GraphBuilder<T extends Entity, S> {
     GetState?: (entity: T) => S;
     // The methods mirror Signum's Graph<T>.Execute / .Delete / .Construct / … class names
     // (PascalCase): each news up the matching Graph.* operation class with T (and S) bound.
-    Execute(symbol: ExecuteSymbol<T>, options: ExecuteOptions<T, S>): Graph.Execute<T, S>;
-    Delete(symbol: DeleteSymbol<T>, options: DeleteOptions<T, S>): Graph.Delete<T, S>;
-    Construct<R extends Entity>(symbol: ConstructSymbol<R>, options: ConstructOptions<R, S>): Graph.Construct<R, S>;
+    // `entityType` never appears in these option objects: graph() already named the type and stamps it
+    // onto each op. The two ConstructFrom* builders are the exception — their owner is the SOURCE type,
+    // which is erased and therefore not something the graph can know (see graph.ts).
+    Execute(symbol: ExecuteSymbol<T>, options: Omit<ExecuteOptions<T, S>, "entityType">): Graph.Execute<T, S>;
+    Delete(symbol: DeleteSymbol<T>, options: Omit<DeleteOptions<T, S>, "entityType">): Graph.Delete<T, S>;
+    Construct<R extends Entity>(symbol: ConstructSymbol<R>, options: Omit<ConstructOptions<R, S>, "entityType">): Graph.Construct<R, S>;
     ConstructFrom<R extends Entity, F extends Entity>(symbol: ConstructSymbol<R, From<F>>, options: ConstructFromOptions<R, F, S>): Graph.ConstructFrom<R, F, S>;
     ConstructFromMany<R extends Entity, F extends Entity>(symbol: ConstructSymbol<R, FromMany<F>>, options: ConstructFromManyOptions<R, F, S>): Graph.ConstructFromMany<R, F, S>;
 }
@@ -43,7 +46,7 @@ export interface GraphRegistration {
 export function graph<T extends Entity>(type: Type<T>, define: (g: GraphBuilder<T, never>) => void): GraphRegistration;
 export function graph<T extends Entity, E extends object>(type: Type<T>, stateEnum: E, define: (g: GraphBuilder<T, E[keyof E]>) => void): GraphRegistration;
 export function graph<T extends Entity>(
-    _type: Type<T>,
+    type: Type<T>,
     defineOrEnum: unknown,
     maybeDefine?: (g: GraphBuilder<T, any>) => void,
 ): GraphRegistration {
@@ -57,9 +60,16 @@ export function graph<T extends Entity>(
 
     const g: GraphBuilder<T, any> = {
         GetState: undefined,
-        Execute: (symbol, options) => collect(new Graph.Execute<T, any>(symbol, options)),
-        Delete: (symbol, options) => collect(new Graph.Delete<T, any>(symbol, options)),
-        Construct: (symbol, options) => collect(new Graph.Construct(symbol, options)),
+        // Execute / Delete / Construct are registered on the graph's OWN type, so entityType comes from it
+        // and is never written per operation. (A `Construct<R>` that builds a DIFFERENT type is still
+        // *invoked* from this type's frame, which is where Signum's `Graph<T>.Construct<R>` puts it too.)
+        // ConstructFrom(Many) is the exception: its owner is the SOURCE type, erased and unknowable here.
+        Execute: (symbol, options) => collect(new Graph.Execute<T, any>(symbol, { entityType: type, ...options })),
+        Delete: (symbol, options) => collect(new Graph.Delete<T, any>(symbol, { entityType: type, ...options })),
+        // The cast bridges the R-vs-T gap: a `Construct<R>` may build a DIFFERENT type than the graph's,
+        // but it is still INVOKED from this type's frame — which is exactly where Signum's
+        // `Graph<T>.Construct` owns it (`OverridenType => typeof(T)`). So the owner is `type`, not R.
+        Construct: (symbol, options) => collect(new Graph.Construct(symbol, { entityType: type as never, ...options })),
         ConstructFrom: (symbol, options) => collect(new Graph.ConstructFrom(symbol, options)),
         ConstructFromMany: (symbol, options) => collect(new Graph.ConstructFromMany(symbol, options)),
     };

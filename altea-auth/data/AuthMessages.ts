@@ -97,6 +97,8 @@ export const AuthAdminMessage = {
     _0InUI: msg("{0} in UI"),
     Save: msg("Save"),
     ResetChanges: msg("Reset changes"),
+    /** Why a property route is not readable — the reason PropertyRoute.isAllowed() returns. */
+    Property0IsNotAllowed: msg("Property {0} is not allowed"),
     SwitchTo: msg("Switch to…"),
     TypePermissionOverview: msg("Type permission overview"),
     Overriden: msg("Overridden"),

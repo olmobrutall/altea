@@ -1,46 +1,85 @@
-import { ReflectionServer, type ServerMetadata } from "@altea/altea/server/reflectionServer";
+import { ReflectionServer } from "@altea/altea/server/reflectionServer";
+import type { MetadataBlob } from "@altea/altea/data/metadata";
 import { Connector } from "@altea/altea/server/connection/connector";
+import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
+import { getKey } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
-import { cleanTypeName } from "@altea/altea/data/registration";
 import type { PrimaryKey } from "@altea/altea/data/entity";
 import { AuthLogic } from "./AuthLogic";
 import { QueryAuthLogic } from "./QueryAuthLogic";
 import { TypeAuthLogic } from "./TypeAuthLogic";
+import { PropertyAuthLogic } from "./PropertyAuthLogic";
 import { QueryAllowed, TypeAllowedBasic } from "../data/Rules";
 
-// Role-filtering overlay on the reflection blob (Signum's AuthServer reflection extensions): for the
-// current role, drop the queries it isn't allowed to see. Installed once at web-host startup; runs inside
-// each request's user scope, so it sees the current role.
+// Role-filtering overlay on the reflection metadata blob (Signum's AuthServer reflection extensions).
+// Installed once at web-host startup; runs inside each request's user scope, so it sees the current role.
 //
-// Depends ONLY on QueryAuthLogic — the query dimension already COERCES a no-rule query to its root type's
-// UI-read allowance (the type-read auto-upgrade, Signum's AutomaticUpgradeOfQueries), so honouring type
-// authorization falls out transitively; there is no separate TypeAuthLogic pass here.
+// Because the blob is now ONE TypeMetadata per type, this writes the role's answers onto the very objects
+// that already carry the type's nice names, instead of shipping a parallel side-channel map. The extra
+// fields come from an interface expansion in ../data/Rules, so altea's core never sees them.
+//
+// The blob buildMetadata hands over is a fresh deep copy per request — mutating it here can never leak a
+// role's allowances into the shared per-culture store.
 export namespace AuthReflectionServer {
     export function install(): void {
-        ReflectionServer.setMetadataFilter(async (meta: ServerMetadata): Promise<ServerMetadata> => {
+        ReflectionServer.setMetadataFilter(async (meta: MetadataBlob): Promise<MetadataBlob> => {
             const roleKey = AuthLogic.currentRoleKey();
-            if (roleKey == null || !QueryAuthLogic.isStarted())
-                return meta; // no role (pre-login / auth off) or query auth not started → unfiltered
+            if (roleKey == null)
+                return meta; // no role (pre-login / auth off) → unfiltered
 
-            // Resolve every query's allowance up-front (no await inside the filter), then drop the `None` ones.
-            const allowed = await Promise.all(meta.queries.map(q => QueryAuthLogic.getQueryAllowedByKey(q, roleKey)));
-            const queries = meta.queries.filter((_, i) => allowed[i] !== QueryAllowed.None);
+            // ---- Queries ---------------------------------------------------------------------------
+            // Drop the queries the role may not see. The query dimension already COERCES a no-rule query
+            // to its root type's UI-read allowance (Signum's AutomaticUpgradeOfQueries), so honouring type
+            // authorization falls out transitively — there is no separate TypeAuthLogic pass here.
+            if (QueryAuthLogic.isStarted()) {
+                const queryNames = QueryLogic.queries.getQueryNames();
+                const allowed = await Promise.all(queryNames.map(qn => QueryAuthLogic.getQueryAllowedByKey(getKey(qn), roleKey)));
+                queryNames.forEach((qn, i) => {
+                    if (allowed[i] === QueryAllowed.None) {
+                        const tm = meta.types[ReflectionServer.metadataNameForQuery(qn)];
+                        if (tm != null) tm.hasQuery = false;
+                    }
+                });
+            }
 
-            // Per-type max UI-read allowance for the role (the source of Signum's TypeInfo.maxTypeAllowed):
-            // ship only the RESTRICTED types (< Write) as the raw numeric TypeAllowedBasic — the auth client
-            // projects it onto min/maxTypeAllowed and the client defaults everything else to unrestricted.
-            const typeAllowed: Record<string, number> = { ...meta.typeAllowed };
+            // ---- Types -----------------------------------------------------------------------------
+            // The role's coarse MAX UI-read allowance per type (Signum's TypeInfo.maxTypeAllowed). Only
+            // RESTRICTED types (< Write) are stamped; the client treats an absent value as unrestricted.
             if (TypeAuthLogic.isStarted()) {
                 for (const [ctor] of Connector.current().schema.tables) {
                     if (typeof ctor !== "function") continue;
                     let typeId: PrimaryKey;
                     try { typeId = TypeLogic.typeToId(ctor); } catch { continue; } // enum/view — not type-auth'd
                     const maxUI = await TypeAuthLogic.maxTypeAllowedUI(typeId, roleKey);
-                    if (maxUI < TypeAllowedBasic.Write)
-                        typeAllowed[cleanTypeName(ctor)] = maxUI;
+                    if (maxUI < TypeAllowedBasic.Write) {
+                        const tm = meta.types[ctor.name];
+                        // Coarse, like Signum's single-valued blob entry: min == max == the shipped value.
+                        if (tm != null) { tm.minTypeAllowed = maxUI; tm.maxTypeAllowed = maxUI; }
+                    }
                 }
             }
-            return { ...meta, queries, typeAllowed };
+
+            // ---- Properties ------------------------------------------------------------------------
+            // NEW vs the pre-Metadata blob, which had no property channel at all: the property dimension
+            // was enforced only in the server serializer, so a hidden field still rendered (empty) and a
+            // read-only one still looked editable until save. The Lines layer reads these.
+            if (PropertyAuthLogic.isStarted()) {
+                for (const [typeName, byPath] of await PropertyAuthLogic.restrictedRoutesForRole(roleKey)) {
+                    const tm = meta.types[typeName];
+                    if (tm == null) continue;
+                    for (const [path, allowed] of byPath) {
+                        const fm = tm.fields[path] ??= {};
+                        fm.propertyAllowed = allowed.fallback;
+                        fm.minPropertyAllowed = allowed.min;
+                        fm.maxPropertyAllowed = allowed.max;
+                    }
+                }
+            }
+
+            return meta;
         });
     }
 }
+
+// (The min/maxTypeAllowed + *PropertyAllowed fields stamped above are declared by interface expansion in
+// ../data/Rules — the DATA layer, so client and server share one declaration.)

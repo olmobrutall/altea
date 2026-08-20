@@ -6,6 +6,7 @@ import { table } from "@altea/altea/server/table";
 import { Entity, type PrimaryKey, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { getRegisteredTypes } from "@altea/altea/data/registration";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
@@ -315,6 +316,48 @@ export namespace PropertyAuthLogic {
             return null;
 
         return `Property ${typeName}.${path} is set to ${PropertyAllowed[max]} for ${roleKey}`;
+    }
+
+    /**
+     * Every RESTRICTED property route of every type, for one role — the property half of the reflection
+     * metadata blob (Signum ships MemberInfo.propertyAllowed the same way). Keyed by the type's REGISTERED
+     * name (matching MetadataBlob.types) → PropertyRoute.propertyString().
+     *
+     * Three values per route, because altea's allowance is condition-dependent while the client has no row
+     * to evaluate conditions against:
+     *   fallback — the answer when no type condition matches (what a plain type sees),
+     *   min/max  — the range across every condition slice.
+     * The UI gates on `max` (see the Lines layer): hiding a property the user MIGHT be allowed to edit for
+     * this particular row would be wrong, and the serializer still enforces the exact per-instance answer.
+     *
+     * Unrestricted routes (max == Write) are omitted — the client defaults to writable, so shipping them
+     * would be pure payload on a blob that already carries every type.
+     */
+    export async function restrictedRoutesForRole(roleKey: string): Promise<Map<string, Map<string, { fallback: PropertyAllowed; min: PropertyAllowed; max: PropertyAllowed }>>> {
+        const result = new Map<string, Map<string, { fallback: PropertyAllowed; min: PropertyAllowed; max: PropertyAllowed }>>();
+        if (!started)
+            return result;
+        // ONE await for the whole sweep: the cache's own getAllowed is synchronous, so awaiting per route
+        // would turn a metadata fetch into thousands of microtasks.
+        const cache = await rulesLazy.value();
+        for (const ctor of getRegisteredTypes()) {
+            if (!(ctor.prototype instanceof Entity))
+                continue; // embedded / model / view — reached as a dotted route under its owner instead
+            let typeId: PrimaryKey;
+            try { typeId = TypeLogic.typeToId(ctor); } catch { continue; } // not in the DB type table
+            let byPath: Map<string, { fallback: PropertyAllowed; min: PropertyAllowed; max: PropertyAllowed }> | undefined;
+            for (const route of PropertyRoute.generateRoutes(ctor, false)) {
+                const path = route.propertyString();
+                const wc = cache.getAllowed(typeId, path, roleKey);
+                const all = [wc.fallback, ...wc.conditionRules.map(cr => cr.allowed)];
+                const max = Math.max(...all) as PropertyAllowed;
+                if (max >= PropertyAllowed.Write)
+                    continue;
+                if (byPath == null) result.set(ctor.name, byPath = new Map());
+                byPath.set(path, { fallback: wc.fallback, min: Math.min(...all) as PropertyAllowed, max });
+            }
+        }
+        return result;
     }
 
     const symbolLite = (s: TypeConditionSymbol): Lite<TypeConditionSymbol> => TypeConditionSymbol.newLite(s.id, s.key);

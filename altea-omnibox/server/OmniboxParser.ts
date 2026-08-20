@@ -10,7 +10,6 @@ import { isEnumEntityType } from "@altea/altea/data/enumEntity";
 import { Symbol as SymbolBase } from "@altea/altea/data/symbol";
 import { Implementations } from "@altea/altea/data/implementations";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
-import { Localization } from "@altea/altea/data/utils/localization";
 import type { Entity, PrimaryKey, Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import type { HelpOmniboxResult, OmniboxResult } from "../data/OmniboxResults";
@@ -180,7 +179,10 @@ export class OmniboxManager {
     private readonly queriesByCulture = new Map<string, Map<string, QueryName>>();
 
     getQueries(): Map<string, QueryName> {
-        const culture = CultureInfo.currentCulture();
+        // Keyed on the UI culture — the one the nice names below actually resolve through (Signum reads
+        // CurrentCulture here; that keys the cache on something the values do not depend on, so two
+        // requests sharing a formatting culture but not a UI culture would share the wrong map).
+        const culture = CultureInfo.currentUICulture();
         let d = this.queriesByCulture.get(culture);
         if (d == undefined) {
             d = toOmniboxPascalDictionary(QueryLogic.queries.getQueryNames(), qn => getNiceName(qn), qn => qn);
@@ -205,7 +207,7 @@ export class OmniboxManager {
             }
             d = toOmniboxPascalDictionary(
                 ctors.filter(t => !isEnumEntityOrSymbol(t)),
-                t => Localization.niceName(t),
+                t => t.niceName(),
                 t => t);
             this.typesByCulture.set(culture, d);
         }

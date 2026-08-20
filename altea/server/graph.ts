@@ -1,4 +1,4 @@
-import type { Entity } from "../data/entity";
+import type { Entity, EntityType } from "../data/entity";
 import type { Lite } from "../data/lite";
 import type { OperationSymbol } from "../data/operations";
 import type {
@@ -34,14 +34,33 @@ import { HeavyProfiler } from "./profiler/heavyProfiler";
 
 // ---- Option objects (the second constructor arg of each Graph.* op) ---------------------------
 // Every field is the matching class field; all but the primary callback (`construct`/`execute`/
-// `delete`) are optional. `getState` may be set here per-op, or once for a whole graph via
-// GraphBuilder.GetState (graphBuilder.ts stamps it onto ops that didn't set their own).
+// `delete`) and `entityType` are optional. `getState` may be set here per-op, or once for a whole
+// graph via GraphBuilder.GetState (graphBuilder.ts stamps it onto ops that didn't set their own).
+//
+// `entityType` is the entity this operation is REGISTERED ON — the type whose frame shows its button, and
+// the key it is shipped under in the reflection metadata blob (Signum's `OverridenType`). A generic
+// parameter is erased at runtime, so `Graph.Execute<T>` cannot recover T on its own; it has to be told,
+// or the runtime is back to guessing the owner by splitting the symbol key ("OrderOperation.Ship" →
+// "OrderEntity") — which silently loses every operation whose container is not named after its type.
+//
+// But it is almost never written by hand, because the surrounding registration already names the type:
+//   - inside `graph(OrderEntity, …)` every builder fills it in from the graph's own type;
+//   - `withSave` / `withDelete` fill it from the type the include was opened for.
+// So write it only where the owner genuinely differs from that context:
+//   - **ConstructFrom / ConstructFromMany**, whose owner is the SOURCE type F (that is where the button
+//     appears) — the one thing an enclosing `graph(T, …)` cannot know, since F is erased too;
+//   - an operation shared by an ABSTRACT base's implementations (its subclasses inherit it, so ONE
+//     registration owned by the base covers them all — see eastwind's CustomerOperation.Save);
+//   - an owner that is a TS interface, hence has no constructor at all (see OperationLogic.registerForType).
 export interface ConstructOptions<T extends Entity, S = never> {
+    entityType?: EntityType<T>;
     construct: (args: unknown[]) => T | Promise<T>;
     toStates?: S[];
     getState?: (entity: T) => S;
 }
 export interface ConstructFromOptions<T extends Entity, F extends Entity, S = never> {
+    /** The SOURCE type F (where the button appears), not the constructed T. */
+    entityType: EntityType<F>;
     construct: (from: F, args: unknown[]) => T | Promise<T>;
     canConstruct?: (from: F) => string | null;
     canBeNew?: boolean;
@@ -51,11 +70,14 @@ export interface ConstructFromOptions<T extends Entity, F extends Entity, S = ne
     getState?: (entity: T) => S;
 }
 export interface ConstructFromManyOptions<T extends Entity, F extends Entity, S = never> {
+    /** The SOURCE type F (where the button appears), not the constructed T. */
+    entityType: EntityType<F>;
     construct: (lites: Lite<F>[], args: unknown[]) => T | Promise<T>;
     toStates?: S[];
     getState?: (entity: T) => S;
 }
 export interface ExecuteOptions<T extends Entity, S = never> {
+    entityType?: EntityType<T>;
     execute: (entity: T, args: unknown[]) => void | Promise<void>;
     canExecute?: (entity: T) => string | null;
     canBeNew?: boolean;
@@ -66,6 +88,7 @@ export interface ExecuteOptions<T extends Entity, S = never> {
     getState?: (entity: T) => S;
 }
 export interface DeleteOptions<T extends Entity, S = never> {
+    entityType?: EntityType<T>;
     delete: (entity: T, args: unknown[]) => void | Promise<void>;
     canDelete?: (entity: T) => string | null;
     fromStates?: S[];
@@ -92,6 +115,7 @@ export namespace Graph {
     // Signum's Graph<T>.Construct / Graph<T,S>.Construct (result T, optional toStates).
     export class Construct<T extends Entity, S = never> implements IConstructOperation {
         readonly operationType = OperationType.Constructor;
+        entityType!: EntityType<T>;
         construct!: (args: unknown[]) => T | Promise<T>;
         toStates?: S[];
         getState?: (entity: T) => S;
@@ -108,6 +132,7 @@ export namespace Graph {
             });
         }
         assertIsValid(): void {
+            if (this.entityType == null) throw new Error(`Operation '${this.symbol.key}' has no entityType.`);
             if (this.construct == null) throw new Error(`Operation '${this.symbol.key}' has no construct.`);
             if (this.toStates != null && this.getState == null) throw new Error(`Operation '${this.symbol.key}' has toStates but no getState.`);
         }
@@ -117,6 +142,7 @@ export namespace Graph {
     // Signum's Graph<T>.ConstructFrom<F> — build T from one source F.
     export class ConstructFrom<T extends Entity, F extends Entity, S = never> implements IConstructorFromOperation {
         readonly operationType = OperationType.ConstructorFrom;
+        entityType!: EntityType<F>;
         construct!: (from: F, args: unknown[]) => T | Promise<T>;
         canConstruct?: (from: F) => string | null;
         canBeNew = false;
@@ -142,6 +168,7 @@ export namespace Graph {
             });
         }
         assertIsValid(): void {
+            if (this.entityType == null) throw new Error(`Operation '${this.symbol.key}' has no entityType.`);
             if (this.construct == null) throw new Error(`Operation '${this.symbol.key}' has no construct.`);
             if (this.toStates != null && this.getState == null) throw new Error(`Operation '${this.symbol.key}' has toStates but no getState.`);
         }
@@ -151,6 +178,7 @@ export namespace Graph {
     // Signum's Graph<T>.ConstructFromMany<F> — build T from many source lites.
     export class ConstructFromMany<T extends Entity, F extends Entity, S = never> implements IConstructorFromManyOperation {
         readonly operationType = OperationType.ConstructorFromMany;
+        entityType!: EntityType<F>;
         construct!: (lites: Lite<F>[], args: unknown[]) => T | Promise<T>;
         toStates?: S[];
         getState?: (entity: T) => S;
@@ -166,6 +194,7 @@ export namespace Graph {
             });
         }
         assertIsValid(): void {
+            if (this.entityType == null) throw new Error(`Operation '${this.symbol.key}' has no entityType.`);
             if (this.construct == null) throw new Error(`Operation '${this.symbol.key}' has no construct.`);
             if (this.toStates != null && this.getState == null) throw new Error(`Operation '${this.symbol.key}' has toStates but no getState.`);
         }
@@ -175,6 +204,7 @@ export namespace Graph {
     // Signum's Graph<T>.Execute / Graph<T,S>.Execute.
     export class Execute<T extends Entity, S = never> implements IExecuteOperation {
         readonly operationType = OperationType.Execute;
+        entityType!: EntityType<T>;
         execute!: (entity: T, args: unknown[]) => void | Promise<void>;
         canExecute?: (entity: T) => string | null;
         canBeNew = false;
@@ -204,6 +234,7 @@ export namespace Graph {
             });
         }
         assertIsValid(): void {
+            if (this.entityType == null) throw new Error(`Operation '${this.symbol.key}' has no entityType.`);
             if (this.execute == null) throw new Error(`Operation '${this.symbol.key}' has no execute.`);
             if ((this.fromStates != null || this.toStates != null) && this.getState == null)
                 throw new Error(`Operation '${this.symbol.key}' has states but no getState.`);
@@ -214,6 +245,7 @@ export namespace Graph {
     // Signum's Graph<T>.Delete / Graph<T,S>.Delete.
     export class Delete<T extends Entity, S = never> implements IDeleteOperation {
         readonly operationType = OperationType.Delete;
+        entityType!: EntityType<T>;
         delete!: (entity: T, args: unknown[]) => void | Promise<void>;
         canDelete?: (entity: T) => string | null;
         readonly canBeNew = false;
@@ -238,6 +270,7 @@ export namespace Graph {
             });
         }
         assertIsValid(): void {
+            if (this.entityType == null) throw new Error(`Operation '${this.symbol.key}' has no entityType.`);
             if (this.delete == null) throw new Error(`Operation '${this.symbol.key}' has no delete.`);
             if (this.fromStates != null && this.getState == null) throw new Error(`Operation '${this.symbol.key}' has fromStates but no getState.`);
         }

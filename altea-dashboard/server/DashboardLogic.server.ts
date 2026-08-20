@@ -308,6 +308,7 @@ const DashboardGraph = graph(DashboardEntity, g => {
     });
 
     g.ConstructFrom(DashboardOperation.Clone, {
+        entityType: DashboardEntity,
         construct: db => DashboardLogic.cloneDashboard(db),
     });
 });

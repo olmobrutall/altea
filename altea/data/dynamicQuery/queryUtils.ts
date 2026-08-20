@@ -57,5 +57,5 @@ export function getKey(queryName: QueryName): string {
 
 // Port of Signum's `QueryUtils.GetNiceName`: a display name (localized entity name, else the key).
 export function getNiceName(queryName: QueryName): string {
-    return typeof queryName === "function" ? Localization.niceName(queryName) : String(queryName);
+    return typeof queryName === "function" ? queryName.niceName() : String(queryName);
 }

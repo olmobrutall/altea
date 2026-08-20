@@ -6,6 +6,7 @@ import type {
     ConstructSymbol, From, FromMany,
 } from "../data/operations";
 import { OperationLogEntity } from "../data/operationLog";
+import { resolveCleanType, resolveType } from "../data/registration";
 import { Temporal } from "../data/basics";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
 import { SymbolLogic } from "./symbolLogic";
@@ -25,11 +26,16 @@ import {
 // ./operation; the Graph.* operation classes in ./graph.) Deferred vs Signum:
 // OperationLogEntity + logging, authorization, the RequiresSaveOperation save-guard.
 // Divergence: the registry is keyed by OperationSymbol alone (not Signum's polymorphic
-// (type,symbol)) — one impl per symbol, no operation inheritance — which is all Southwind
-// needs and avoids needing entity ctors at registration (the typed containers carry the
-// entity type only as an erased phantom).
+// (type,symbol)) — one impl per symbol, no operation inheritance — which is all Southwind needs.
+// Each operation does declare its owning entity type explicitly (`entityType` in the Graph options,
+// Signum's OverridenType), because a generic parameter is erased at runtime and the owner must be
+// EXACT: it is the key the reflection metadata blob ships the operation under.
 
 const operations = new Map<OperationSymbol, IOperation>();
+
+// entity ctor → the operations registered on it, maintained alongside `operations`. Rebuilt on every
+// register/unregister rather than derived on demand, because the metadata blob reads it per request.
+const operationsByType = new Map<Function, Set<OperationSymbol>>();
 
 export namespace OperationLogic {
     // Signum's OperationLogic.Register(replace). Validates the operation, then stores it
@@ -38,11 +44,20 @@ export namespace OperationLogic {
         if (!replace && operations.has(operation.operationSymbol))
             throw new Error(`Operation '${operation.operationSymbol.key}' has already been registered (pass replace=true to override).`);
         operation.assertIsValid();
+        const previous = operations.get(operation.operationSymbol);
+        if (previous != null && previous.entityType !== operation.entityType)
+            operationsByType.get(previous.entityType)?.delete(operation.operationSymbol);
         operations.set(operation.operationSymbol, operation);
+        let byType = operationsByType.get(operation.entityType);
+        if (byType == null) operationsByType.set(operation.entityType, byType = new Set());
+        byType.add(operation.operationSymbol);
     }
 
     // Remove an operation entirely (so it can be re-registered differently, or dropped).
     export function unregister(symbol: OperationSymbol): boolean {
+        const op = operations.get(symbol);
+        if (op != null)
+            operationsByType.get(op.entityType)?.delete(symbol);
         return operations.delete(symbol);
     }
 
@@ -82,17 +97,51 @@ export namespace OperationLogic {
             throw new UnauthorizedAccessException(`Operation '${symbol.key}' is not authorized`);
     }
 
-    // The operation symbols applicable to an entity type, derived from the key convention
-    // `<Type>Operation.<Member>` (the same convention the client's ReflectionClient fans operations out
-    // by). Used by the auth admin pack to enumerate a type's operations. DIVERGENCE: an operation declared
-    // on an ABSTRACT base (its container maps to the base, not the concrete type) isn't matched here — the
-    // registry is keyed by symbol alone with no type back-link, so abstract-base operations are a known gap.
-    export function operationsForType(cleanTypeName: string): OperationSymbol[] {
-        return registeredOperations().filter(s => {
-            const container = s.key.split(".")[0];
-            const derived = container.endsWith("Operation") ? container.slice(0, -"Operation".length) : container;
-            return derived === cleanTypeName;
-        });
+    /**
+     * The operations registered on an entity type — INCLUDING those declared on an abstract base it
+     * inherits from, which is how Signum's polymorphic (type, symbol) registry behaves and what a
+     * concrete subtype's frame must show. Used by the metadata builder and the auth admin pack.
+     *
+     * Was previously derived from the `<Type>Operation.<Member>` key convention, which silently missed
+     * every operation whose container is not named after its type (and every abstract-base one).
+     */
+    export function operationsForType(ctor: Function): OperationSymbol[] {
+        const result: OperationSymbol[] = [];
+        for (const [owner, symbols] of operationsByType)
+            if (owner === ctor || ctor.prototype instanceof owner)
+                // A symbol can be indexed before its implementation is registered (see registerForType);
+                // one that never gets an implementation is not an operation of this type.
+                for (const s of symbols)
+                    if (operations.has(s)) result.push(s);
+        return result;
+    }
+
+    /** As {@link operationsForType}, by clean type name (the auth admin pack works in names). */
+    export function operationsForTypeName(cleanTypeName: string): OperationSymbol[] {
+        const ctor = resolveCleanType(cleanTypeName) ?? resolveType(cleanTypeName);
+        return ctor == null ? [] : operationsForType(ctor);
+    }
+
+    /**
+     * ALSO register an existing operation on another type (Signum's polymorphic (type, symbol) registry).
+     * For an operation whose owner is a TS INTERFACE — which has no runtime constructor, so it cannot be
+     * an `entityType` — each implementor adds itself as it is wired up: SchedulerLogic does this for
+     * `ITaskOperation.ExecuteSync` from `registerExecuteTask`. The implementation stays the one registered
+     * under the symbol; only the ownership set widens.
+     *
+     * Order-independent by design: the symbol need NOT be registered yet. An implementor can wire itself
+     * up before the module that owns the operation gets to its graph (SimpleTaskLogic.start runs before
+     * SchedulerLogic registers ITaskOperation), and readers skip a symbol with no implementation anyway.
+     */
+    export function registerForType(symbol: OperationSymbol, ctor: Function): void {
+        let byType = operationsByType.get(ctor);
+        if (byType == null) operationsByType.set(ctor, byType = new Set());
+        byType.add(symbol);
+    }
+
+    /** Every entity ctor that has at least one operation registered on it (the metadata builder). */
+    export function typesWithOperations(): Function[] {
+        return [...operationsByType.keys()];
     }
 
     // Signum's OperationLogic.Start: wires the OperationSymbol table through SymbolLogic,

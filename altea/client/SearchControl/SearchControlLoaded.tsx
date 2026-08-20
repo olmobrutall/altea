@@ -870,7 +870,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     const tis = this.entityColumnTypeInfos();
 
     const types = tis.map(ti => ti.getNiceName()).join(", ");
-    const gender = tis.first().gender;
+    const gender = tis.first().getGender();
 
     return SearchMessage.CreateNew0_G.niceToString().forGenderAndNumber(gender).formatWith(types);
   }

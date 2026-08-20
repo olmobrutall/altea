@@ -88,6 +88,14 @@ export namespace AuthClient {
         return undefined;
     }
 
+    // The in-flight refresh, if any — so N concurrent stale responses cause ONE re-fetch.
+    let refreshing: Promise<void> | undefined;
+    function refreshCurrentUser(): Promise<void> {
+        return refreshing ??= API.fetchCurrentUser(false, /* avoidTokenRefresh */ true)
+            .then(cu => { setCurrentUser(cu); }, () => { /* the error filter already handled it */ })
+            .finally(() => { refreshing = undefined; });
+    }
+
     export function currentUser(): UserEntity | undefined {
         return AppContext.currentUser as UserEntity | undefined;
     }
@@ -138,7 +146,19 @@ export namespace AuthClient {
                 const newToken = r.headers.get("New_Token");
                 if (newToken) {
                     setAuthToken(newToken, getAuthenticationType());
-                    void API.fetchCurrentUser().then(cu => setCurrentUser(cu));
+                    // `avoidTokenRefresh`: this call runs through THIS SAME wrapper, so without it its own
+                    // response re-enters here and the two recurse. Signum has the identical shape and only
+                    // escapes because the token just stored is fresh, so the next response carries no
+                    // header — a termination condition that depends on the server's clock and refresh
+                    // interval, not on the code. Shorten the interval (or run two hosts whose clocks
+                    // disagree) and it never terminates.
+                    //
+                    // Coalesced as well: a page issues several requests at once, they all carry the SAME
+                    // stale token, so every one of their responses carries New_Token. Without this, one
+                    // expiry means N identical re-fetches — and in altea each resolves to setCurrentUser,
+                    // whose listener reloads the whole metadata blob and remounts the app.
+                    if (!options.avoidTokenRefresh)
+                        void refreshCurrentUser();
                 }
                 return r;
             },
@@ -229,8 +249,14 @@ export namespace AuthClient {
         export function changePassword(request: ChangePasswordRequest): Promise<LoginResponse> {
             return ajaxPost({ url: "/api/auth/changePassword" }, request);
         }
-        export function fetchCurrentUser(refreshToken = false): Promise<UserEntity> {
-            return ajaxGet({ url: "/api/auth/currentUser" + (refreshToken ? "?refreshToken=true" : ""), cache: "no-cache" });
+        export function fetchCurrentUser(refreshToken = false, avoidTokenRefresh = false): Promise<UserEntity> {
+            return ajaxGet({
+                url: "/api/auth/currentUser" + (refreshToken ? "?refreshToken=true" : ""),
+                cache: "no-cache",
+                // Set only by the refresh path itself (see addAuthToken) — everyone else wants the normal
+                // behaviour, including `fetchCurrentUser(true)`, whose whole point is to force a refresh.
+                avoidTokenRefresh,
+            });
         }
         export function logout(): Promise<void> {
             return ajaxPost({ url: "/api/auth/logout" }, undefined);

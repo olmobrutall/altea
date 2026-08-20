@@ -24,6 +24,7 @@ declare module "./schema/fluentInclude" {
 
 FluentInclude.prototype.withSave = function <T extends Entity>(this: FluentInclude<T>, saveOperation: ExecuteSymbol<T>, execute?: (entity: T, args: unknown[]) => void | Promise<void>): FluentInclude<T> {
     new Graph.Execute<T>(saveOperation, {
+        entityType: this.type,
         canBeNew: true,
         canBeModified: true,
         execute: execute ?? (() => { }),
@@ -33,6 +34,7 @@ FluentInclude.prototype.withSave = function <T extends Entity>(this: FluentInclu
 
 FluentInclude.prototype.withDelete = function <T extends Entity>(this: FluentInclude<T>, deleteOperation: DeleteSymbol<T>, del?: (entity: T, args: unknown[]) => void | Promise<void>): FluentInclude<T> {
     new Graph.Delete<T>(deleteOperation, {
+        entityType: this.type,
         delete: del ?? (e => e.delete()),
     }).register();
     return this;

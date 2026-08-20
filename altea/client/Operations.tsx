@@ -21,8 +21,8 @@ import { DeleteErrorModal } from './Operations/DeleteErrorModal';
 import { MultiOperationProgressModal } from "./Operations/MultiOperationProgressModal";
 import { ProgressModal } from "./Operations/ProgressModal";
 import type { ProgressModalOptions } from "./Operations/ProgressModal";
-import { getOperationInfo, getTypeInfo, tryGetTypeInfo, getQueryKey, getTypeName, GraphExplorer } from './Reflection';
-import type { OperationInfo, OperationType } from './Reflection';
+import { getOperationInfo, tryGetOperationInfo, getOperationInfos, hasOperations, getTypeInfo, getQueryKey, getTypeName, GraphExplorer } from './Reflection';
+import type { OperationMetadata, OperationType } from './Reflection';
 import { QuickLinkClient, QuickLinkExplore } from './QuickLinkClient';
 import { OperationLogEntity } from '../data/operationLog';
 import type { TypeInfo } from '../data/reflection';
@@ -68,7 +68,7 @@ export namespace Operations {
       })), {
         key: getQueryKey(OperationLogEntity),
         text: () => getTypeInfo(OperationLogEntity).getNicePluralName(),
-        isVisible: tryGetTypeInfo(entityType)?.operations != null && Finder.isFindable(OperationLogEntity, false),
+        isVisible: hasOperations(entityType) && Finder.isFindable(OperationLogEntity, false),
         icon: "clock-rotate-left",
         iconColor: "green",
         color: "success",
@@ -135,8 +135,10 @@ export namespace Operations {
     return operationSettings[operationKey];
   }
 
-  export function operationInfos(ti: TypeInfo): OperationInfo[] {
-    return Dic.getValues(ti.operations!);
+  // Operations are per-ROLE, so they live on the metadata blob rather than on the (compile-time) TypeInfo;
+  // the TypeInfo parameter is kept because that is what every caller has in hand.
+  export function operationInfos(ti: TypeInfo): OperationMetadata[] {
+    return getOperationInfos(ti.ctor);
   }
 
   export function notifySuccess(message?: string, timeout?: number): void {
@@ -185,7 +187,7 @@ export namespace Operations {
 
   export namespace Defaults {
 
-    export function isSave(oi: OperationInfo): boolean {
+    export function isSave(oi: OperationMetadata): boolean {
       return oi.operationType == "Execute" && oi.canBeModified == true && oi.key.endsWith(".Save");
     }
 
@@ -199,26 +201,26 @@ export namespace Operations {
       return "Dialog"
     }
 
-    export function getColor(oi: OperationInfo): BsColor {
+    export function getColor(oi: OperationMetadata): BsColor {
       return oi.operationType == "Delete" ? "danger" :
         oi.operationType == "Execute" && Defaults.isSave(oi) ? "primary" : "secondary";
     }
 
-    export function getOutline(oi: OperationInfo): boolean {
+    export function getOutline(oi: OperationMetadata): boolean {
       return oi.operationType == "Delete" ? true :
         oi.operationType == "Execute" && Defaults.isSave(oi) ? false : true;
     }
 
-    export function getIcon(oi: OperationInfo): IconProp | undefined {
+    export function getIcon(oi: OperationMetadata): IconProp | undefined {
       return oi.operationType == "Delete" ? "trash-alt" :
         oi.operationType == "Execute" && Defaults.isSave(oi) ? "save" : undefined;
     }
 
-    export function getGroup(oi: OperationInfo): EntityOperationGroup | undefined {
+    export function getGroup(oi: OperationMetadata): EntityOperationGroup | undefined {
       return oi.operationType == "ConstructorFrom" ? CreateGroup : undefined;
     }
 
-    export function getKeyboardShortcut(oi: OperationInfo): KeyboardShortcut | undefined {
+    export function getKeyboardShortcut(oi: OperationMetadata): KeyboardShortcut | undefined {
       return oi.operationType == "Delete" ? ({ ctrlKey: true, shiftKey: true, key: KeyNames.delete }) :
         oi.operationType == "Execute" && Defaults.isSave(oi) ? ({ ctrlKey: true, key: "s" }) : undefined;
     }
@@ -444,11 +446,11 @@ export interface ConstructorOperationOptions<T extends Entity> {
 }
 
 export class ConstructorOperationContext<T extends Entity> {
-  operationInfo: OperationInfo;
+  operationInfo: OperationMetadata;
   settings: ConstructorOperationSettings<T>;
   typeInfo: TypeInfo;
 
-  constructor(operationInfo: OperationInfo, settings: ConstructorOperationSettings<T>, typeInfo: TypeInfo) {
+  constructor(operationInfo: OperationMetadata, settings: ConstructorOperationSettings<T>, typeInfo: TypeInfo) {
     this.operationInfo = operationInfo;
     this.settings = settings;
     this.typeInfo = typeInfo;
@@ -512,7 +514,7 @@ export interface ContextualOperationOptions<T extends Entity> {
 
 export class ContextualOperationContext<T extends Entity> {
   context: ContextualItemsContext<T>
-  operationInfo: OperationInfo;
+  operationInfo: OperationMetadata;
   settings?: ContextualOperationSettings<T>;
   entityOperationSettings?: EntityOperationSettings<T>;
   pack?: EntityPack<T>; /*only for single contextual*/
@@ -530,7 +532,7 @@ export class ContextualOperationContext<T extends Entity> {
     return ContextualOperations.defaultContextualOperationClick(this, ...args);
   }
 
-  constructor(operationInfo: OperationInfo, context: ContextualItemsContext<T>) {
+  constructor(operationInfo: OperationMetadata, context: ContextualItemsContext<T>) {
 
     let cos: ContextualOperationSettings<T> | undefined = undefined;
     let eos: EntityOperationSettings<T> | undefined = undefined;
@@ -693,7 +695,7 @@ export class CellOperationContext<T extends Entity> {
   readonly canExecute?: string;
   readonly operationKey: string;
 
-  readonly operationInfo: OperationInfo;
+  readonly operationInfo: OperationMetadata;
   readonly cellContext: Finder.CellFormatterContext;
   readonly settings?: CellOperationSettings<T>;
   readonly entityOperationSettings?: EntityOperationSettings<any>;
@@ -771,7 +773,7 @@ export class EntityOperationContext<T extends Entity> {
   static fromChildTypeContext<T extends Entity>(ctx: TypeContext<T>, operation: ExecuteSymbol<T> | DeleteSymbol<T> | ConstructSymbol<any, From<T>> | string, canExecute: string | undefined): EntityOperationContext<T> | undefined {
 
     const operationKey = (operation as OperationSymbol).key || operation as string;
-    const oi = getTypeInfo(ctx.value).operations![operationKey];
+    const oi = tryGetOperationInfo(operationKey, ctx.value);
 
     if (oi == null)
       return undefined;
@@ -799,7 +801,7 @@ export class EntityOperationContext<T extends Entity> {
   static fromEntityPack<T extends Entity>(frame: EntityFrame<any>, pack: EntityPack<T>, operation: ExecuteSymbol<T> | DeleteSymbol<T> | ConstructSymbol<any, From<T>> | string): EntityOperationContext<T> | undefined {
     const operationKey = (operation as OperationSymbol).key || operation as string;
 
-    const oi = getTypeInfo(pack.entity).operations![operationKey];
+    const oi = tryGetOperationInfo(operationKey, pack.entity);
 
     if (oi == null)
       return undefined;
@@ -814,7 +816,7 @@ export class EntityOperationContext<T extends Entity> {
   frame: EntityFrame;
   tag?: string;
   entity: T;
-  operationInfo: OperationInfo;
+  operationInfo: OperationMetadata;
   settings?: EntityOperationSettings<T>;
   canExecute?: string;
   event?: React.MouseEvent<any>;
@@ -851,7 +853,7 @@ export class EntityOperationContext<T extends Entity> {
   keyboardShortcut?: KeyboardShortcut;
   alternatives?: AlternativeOperationSetting<T>[];
 
-  constructor(frame: EntityFrame, entity: T, operationInfo: OperationInfo) {
+  constructor(frame: EntityFrame, entity: T, operationInfo: OperationMetadata) {
     this.frame = frame;
     this.entity = entity;
     this.operationInfo = operationInfo;

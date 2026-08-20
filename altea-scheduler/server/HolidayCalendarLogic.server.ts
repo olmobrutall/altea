@@ -5,7 +5,7 @@ import { table } from "@altea/altea/server/table";
 import { Lite } from "@altea/altea/data/lite";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { Temporal } from "@altea/altea/data/basics";
-import { Graph } from "@altea/altea/server/graph";
+import { graph } from "@altea/altea/server/graphBuilder";
 import {
     HolidayCalendarEntity, HolidayCalendarEntity_Holiday, HolidayCalendarOperation, HolidayCalendarMessage,
 } from "../data/HolidayCalendar";
@@ -55,11 +55,13 @@ export namespace HolidayCalendarLogic {
         // A rule advancing to its next occurrence is SYNC, so it reads the warmed snapshot.
         setHolidayCalendarResolver(lite => warmCalendars.get(lite.key()));
 
-        new Graph.Execute(HolidayCalendarOperation.ImportPublicHolidays, {
+        graph(HolidayCalendarEntity, g => {
+        g.Execute(HolidayCalendarOperation.ImportPublicHolidays, {
             canBeModified: true,
             canExecute: (c: HolidayCalendarEntity) => c.fromYear != null && c.toYear != null && (c.countryCode ?? "") !== "" ? null
                 : HolidayCalendarMessage.ForImport01and2ShouldBeSet.niceToString("From year", "To year", "Country code"),
             execute: async (c: HolidayCalendarEntity) => { await importPublicHolidays(c); },
+        });
         }).register();
     }
 

@@ -13,13 +13,14 @@ import * as React from 'react'
 import { classes } from '../../data/globals'
 import type { TypeContext } from '../TypeContext'
 import { BaseEntity, Entity } from '../../data/entity'
+import { getLambdaMembers } from '../../data/lambdaMembers'
 import { Lite } from '../../data/lite'
 import { EntityControlMessage } from '../../data/uiMessages'
 import { EntityBaseController } from './EntityBase'
 import { EntityListBaseController, type EntityListBaseProps, type DragConfig, type MoveConfig } from './EntityListBase'
 import { Breakpoints, getBreakpoint, useForceUpdate } from '../Hooks'
 import { DomUtils } from '../domGlobals'
-import type { PropertyRoute } from '../../data/propertyRoute'
+import { PropertyRoute } from '../../data/propertyRoute'
 import type { FieldInfo } from '../../data/reflection'
 import type { Quoted } from 'quote-transformer/quoted'
 import { useController } from './LineBase'
@@ -65,14 +66,40 @@ export interface EntityTableColumn<R extends BaseEntity, RS> {
   footerHtmlAttributes?: React.ThHTMLAttributes<any>;
 }
 
+// A column's header label: the declared name for its route, else the humanised member name. Goes through
+// the route rather than only its FieldInfo because a column can name a `@quoted` EXPRESSION member
+// (OrderLine.subTotalPrice) — a method, so it has no FieldInfo, but it does have a translatable member
+// name under its type. undefined when the property doesn't resolve at all.
+function columnNiceName(elementPr: PropertyRoute, property: ((a: any) => unknown) | string): string | undefined {
+  const fi = columnFieldInfo(elementPr, property);
+  if (fi != null)
+    return fi.niceToString();
+  const member = typeof property == "string" ? property
+    : tryOrUndefined(() => getLambdaMembers(property).map(m => m.name).join("."));
+  const rootType = elementPr.type.getFunction();
+  return member == null ? undefined
+    : rootType != null ? (rootType as typeof BaseEntity).nicePropertyName(member)
+      : undefined;
+}
+
+function tryOrUndefined<T>(fn: () => T): T | undefined {
+  try { return fn(); } catch { return undefined; }
+}
+
 // Resolve a column's field (for header niceName) by navigating the element route via the new
 // PropertyRoute.add/addLambda; best-effort (returns undefined if the property doesn't resolve).
-function columnFieldInfo(elementPr: PropertyRoute, property: ((a: any) => unknown) | string): FieldInfo | undefined {
+// The route a column's `property` (a member NAME or a Quoted lambda) names, relative to the row type.
+// undefined when it doesn't resolve — the caller then leaves the column alone and lets the cell report it.
+function columnRoute(elementPr: PropertyRoute, property: ((a: any) => unknown) | string): PropertyRoute | undefined {
   try {
-    return (typeof property == "string" ? elementPr.add(property) : elementPr.addLambda(property)).fieldInfo ?? undefined;
+    return typeof property == "string" ? elementPr.add(property) : elementPr.addLambda(property);
   } catch {
     return undefined;
   }
+}
+
+function columnFieldInfo(elementPr: PropertyRoute, property: ((a: any) => unknown) | string): FieldInfo | undefined {
+  return columnRoute(elementPr, property)?.fieldInfo ?? undefined;
 }
 
 // Signum's `is(a, b, false, false)` for the mergeCells key — null-safe, entity/lite by id, else ===.
@@ -135,6 +162,19 @@ export class EntityTableController<R extends BaseEntity, RS> extends EntityListB
       else {
         state.columns = state.columns.filter(c => c) as EntityTableColumn<R, RS>[];
       }
+
+      // Drop a column the current user may not READ (PropertyRoute.isAllowedCallback — installed by the
+      // authorization module; unset = everything allowed). The per-cell <AutoLine> would hide itself
+      // anyway, but the HEADER is rendered from this list, so without this the table keeps a titled column
+      // of permanently empty cells. A column with a custom `template` is left alone: its content is the
+      // caller's, and `property` there is only a merge key.
+      // Resolve against the ROW TYPE's own root, not the owner's `details/…` route: a row is a `@part`
+      // ENTITY, so its rules (and its cells' own routes) are keyed under the row type itself.
+      const rowCtor = elementPr.type.getFunction();
+      const rowRoot = rowCtor != null ? PropertyRoute.root(rowCtor) : elementPr;
+      state.columns = (state.columns as EntityTableColumn<R, RS>[]).filter(c =>
+        c.template !== undefined || c.property == null
+        || (columnRoute(rowRoot, c.property)?.isAllowed() ?? null) == null);
 
       (state.columns as EntityTableColumn<R, RS>[]).forEach(c => {
         if (c.mergeCells == true) {
@@ -272,10 +312,13 @@ export function EntityTable<R extends BaseEntity, RS>(props: EntityTableProps<R,
             !isEmpty &&
             <thead ref={c.thead}>
               <tr className={p.theadClasses}>
-                {firstColumnVisible && <th {...p.firstColumnHtmlAttributes}></th>}
+                {/* The row-button column (remove / move / view): `width: 0%` collapses it to just what its
+                    buttons need, so the DATA columns get the rest of the table instead of the browser
+                    handing this one an equal share. Spread after, so firstColumnHtmlAttributes can override. */}
+                {firstColumnVisible && <th style={{ width: "0%" }} {...p.firstColumnHtmlAttributes}></th>}
                 {
                   cleanColumns.map((col, i) => <th key={i} {...col.headerHtmlAttributes}>
-                    {col.header === undefined && col.property ? columnFieldInfo(elementPr, col.property)?.niceToString() : col.header}
+                    {col.header === undefined && col.property ? columnNiceName(elementPr, col.property) : col.header}
                   </th>)
                 }
               </tr>

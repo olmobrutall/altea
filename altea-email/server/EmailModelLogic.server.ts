@@ -129,6 +129,7 @@ export namespace EmailModelLogic {
         )), { invalidateWith: [EmailModelEntity] });
 
         new Graph.ConstructFrom(EmailTemplateOperation.CreateEmailTemplateFromModel, {
+            entityType: EmailModelEntity,
             construct: (se: EmailModelEntity) => createDefaultTemplateInternal(se),
         }).register();
 

@@ -11,7 +11,7 @@ import type { RouteObject } from 'react-router';
 import { ImportComponent } from './ImportComponent';
 import { ajaxGet, ajaxPost } from './Services';
 import { toAbsoluteUrl, navigate } from './AppContext';
-import { getTypeName, tryGetTypeInfo } from './Reflection';
+import { getTypeName, tryGetTypeInfo, getOperationInfos, getKindOfType } from './Reflection';
 import type { PseudoType } from './Reflection';
 import type { Type } from '../data/entity';
 import { Dic } from '../data/globals';
@@ -462,7 +462,7 @@ export namespace Navigator {
     if (isEmbedded) return false;
     const ti = tryGetTypeInfo(typeName);
     if (ti == undefined) return true;
-    if (ti.kind == "Enum") return true;
+    if (getKindOfType(typeName) == "Enum") return true;
     switch (ti.entityKind) {
       case "SystemString": case "System": case "Relational": return true;
       default: return false;
@@ -495,10 +495,13 @@ export namespace Navigator {
   }
 
   function hasAllowedConstructor(typeName: string): boolean {
-    const ti = tryGetTypeInfo(typeName);
-    if (ti == undefined || ti.operations == undefined) return true;
-    if (!ti.hasConstructorOperation) return true;
-    return Dic.getValues(ti.operations).some(oi => (oi as { operationType: string }).operationType == "Constructor");
+    // Operations now come from the metadata blob (per role) instead of TypeInfo. Same three-step rule as
+    // before: no operations reach the client → nothing gates construction; none of them CONSTRUCTS →
+    // likewise; otherwise a plain "New" needs a plain Constructor operation the role may actually run.
+    const ops = getOperationInfos(typeName);
+    if (ops.length == 0) return true;
+    if (!ops.some(oi => oi.operationType != "Execute" && oi.operationType != "Delete")) return true;
+    return ops.some(oi => oi.operationType == "Constructor");
   }
 
   function typeIsCreable(typeName: string, isEmbedded?: boolean): EntityWhen {
@@ -507,7 +510,7 @@ export namespace Navigator {
     if (isEmbedded) return "IsLine";
     const ti = tryGetTypeInfo(typeName);
     if (ti == null) return "Never";
-    if (ti.kind == "Enum") return "Never";
+    if (getKindOfType(typeName) == "Enum") return "Never";
     switch (ti.entityKind) {
       case "SystemString": case "System": case "Relational": return "Never";
       case "String": return "IsSearch";
@@ -544,7 +547,7 @@ export namespace Navigator {
     if (isEmbedded) return "IsLine";
     const ti = tryGetTypeInfo(typeName);
     if (ti == null) return "Never";
-    if (ti.kind == "Enum") return "Never";
+    if (getKindOfType(typeName) == "Enum") return "Never";
     switch (ti.entityKind) {
       case "SystemString": return "Never";
       case "System": return "Always";
@@ -583,7 +586,7 @@ export namespace Navigator {
     if (isEmbeddedEntity) return false;
     const ti = tryGetTypeInfo(typeName);
     if (ti == null) return false;
-    if (ti.kind == "Enum") return true;
+    if (getKindOfType(typeName) == "Enum") return true;
     switch (ti.entityKind) {
       case "SystemString": case "System": return true;
       case "Relational": return false;

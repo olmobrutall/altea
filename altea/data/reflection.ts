@@ -276,10 +276,10 @@ export class FieldInfo extends TypeReference {
     }
 
     niceToString(): string {
-        const translated = this.declaringType?.ctor != null
-            ? Localization.memberNiceName(this.declaringType.ctor.name, this.name)
+        const declared = this.declaringType?.ctor != null
+            ? Localization.Internal.tryRouteNiceName(this.declaringType.ctor.name, this.name)
             : undefined;
-        return translated ?? Localization.niceMemberName(this.name);
+        return declared ?? Localization.Internal.niceMemberName(this.name);
     }
 
     // Runs this field's validators (then any customValidation) against `entity`, returning the
@@ -480,18 +480,19 @@ export class TypeInfo {
     // false })`; default (undefined) = a normal DB identity PK. Read by the SchemaBuilder.
     identity?: boolean;
 
-    // TODO: wire to OperationLogic (operations-symbol-port) / the reflection types blob.
-    operations?: { [operationKey: string]: OperationInfo };
-    hasConstructorOperation?: boolean;
-    gender?: string;
+    // (Signum's TypeInfo.operations / hasConstructorOperation / gender are GONE from here — they are
+    // per-role or per-culture, so they belong to the metadata blob, not to this compile-time descriptor.
+    // Read them via Metadata.tryType(name) / the client's getOperationInfos (client/Reflection).)
 
     // niceName / nicePluralName are METHODS (not cached fields): the display name is
     // culture-dependent, so a cached string would be stale after a culture switch (esp. on the
-    // server). `niceName`/`nicePluralName` here are the module-scope functions (localization).
-    // Named get* (not `niceName`) so Signum's field-style `ti.niceName` is a COMPILE error to
-    // sweep, instead of compiling to a function ref that fails at runtime.
-    getNiceName(): string { return Localization.niceName(this.ctor!); }
-    getNicePluralName(): string { return Localization.nicePluralName(this.ctor!); }
+    // server). Named get* (not `niceName`) so Signum's field-style `ti.niceName` is a COMPILE error to
+    // sweep, instead of compiling to a function ref that fails at runtime. Prefer the fluent form
+    // `SomeEntity.niceName()` (data/entity) — these two exist for callers holding only a TypeInfo.
+    getNiceName(): string { return this.ctor!.niceName(); }
+    getNicePluralName(): string { return this.ctor!.nicePluralName(); }
+    /** Grammatical gender for the current UI culture (Signum's TypeInfo.gender, a field there). */
+    getGender(): string | undefined { return this.ctor!.gender(); }
 
     // Signum's TypeInfo.members — altea's fields (keyed by the real property name, not capitalized).
     get members(): { [fieldName: string]: FieldInfo } { return this.fields; }
@@ -522,25 +523,23 @@ export class TypeInfo {
             (this.#backReferenceField = Object.values(this.fields).find(f => f.isBackReference) ?? null);
     }
 
-    // Signum's TypeInfo.kind. altea attaches TypeInfo only to reflected classes -> "Entity".
-    get kind(): "Entity" | "Enum" | "SymbolContainer" { return "Entity"; } // TODO: enum / symbol containers
+    // Signum's TypeInfo.kind, narrowed to what a TypeInfo can describe: altea attaches TypeInfo only to
+    // reflected CLASSES, so it is "Entity" (persisted) or "Model" (embedded / model / mixin — anything
+    // not backed by its own table). Enums and containers have no class to carry a TypeInfo; their kinds
+    // exist only in the metadata blob (data/metadata KindOfType).
+    get kind(): "Entity" | "Model" {
+        return this.ctor != null && isPersistedEntity(this.ctor) ? "Entity" : "Model";
+    }
 }
 
-// Client OperationInfo (Signum's OperationInfo).
+// Set once by data/entity (which imports THIS module, so the dependency can only run that way): whether a
+// ctor descends from the persisted `Entity` base. A direct `import { Entity }` here would be a cycle.
+let isPersistedEntity: (ctor: Function) => boolean = () => true;
+export function registerIsPersistedEntity(fn: (ctor: Function) => boolean): void { isPersistedEntity = fn; }
+
+// The five operation kinds (Signum's OperationType). STABLE per operation, so it stays on the Info side;
+// the per-culture label and the per-role allowance live on `OperationMetadata` (data/metadata).
 export type OperationType = "Execute" | "Delete" | "Constructor" | "ConstructorFrom" | "ConstructorFromMany";
-
-export interface OperationInfo {
-    key: string;
-    niceName: string;
-    operationType: OperationType;
-    canBeNew?: boolean;
-    canBeModified?: boolean;
-    hasCanExecute?: boolean;
-    hasCanExecuteExpression?: boolean;
-    hasStates?: boolean;
-    resultIsSaved?: boolean;
-    forReadonlyEntity?: boolean;
-}
 
 // Legacy (experimentalDecorators) decorators have no `context.metadata`, so
 // TypeInfo lives under this key directly on the class *constructor*. Class

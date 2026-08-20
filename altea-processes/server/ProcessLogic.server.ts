@@ -2,7 +2,7 @@ import "@altea/altea/server"; // installs Entity.save()/delete()
 import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import { Graph } from "@altea/altea/server/graph";
+import { graph } from "@altea/altea/server/graphBuilder";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { UserHolder } from "@altea/altea/server/userHolder";
@@ -134,8 +134,6 @@ export namespace ProcessLogic {
     // Signum's ProcessGraph — the state machine. Every transition that queues work wakes the runner up
     // AFTER the commit, so the runner never reads a row that is not there yet.
     function registerProcessGraph(): void {
-        const getState = (p: ProcessEntity): ProcessStateEnum => p.state;
-
         const pinToThisMachine = (p: ProcessEntity): void => {
             p.machineName = justMyProcesses ? ProcessRunner.machineName() : ProcessEntity.None;
             p.applicationName = justMyProcesses ? ProcessRunner.applicationName() : ProcessEntity.None;
@@ -145,17 +143,18 @@ export namespace ProcessLogic {
             Transaction.postRealCommit(async () => { ProcessRunner.wakeUp(reason); });
         };
 
-        new Graph.Execute(ProcessOperation.Save, {
-            getState,
+        graph(ProcessEntity, ProcessStateEnum, g => {
+        g.GetState = p => p.state;
+
+        g.Execute(ProcessOperation.Save, {
             fromStates: [ProcessStateEnum.Created],
             toStates: [ProcessStateEnum.Created],
             canBeNew: true,
             canBeModified: true,
             execute: () => { },
-        }).register();
+        });
 
-        new Graph.Execute(ProcessOperation.Execute, {
-            getState,
+        g.Execute(ProcessOperation.Execute, {
             fromStates: [ProcessStateEnum.Created, ProcessStateEnum.Planned, ProcessStateEnum.Canceled, ProcessStateEnum.Suspended],
             toStates: [ProcessStateEnum.Queued],
             execute: (p: ProcessEntity) => {
@@ -170,10 +169,9 @@ export namespace ProcessLogic {
                 p.exceptionDate = null;
                 wakeUpOnCommit("ProcessOperation.Execute");
             },
-        }).register();
+        });
 
-        new Graph.Execute(ProcessOperation.Suspend, {
-            getState,
+        g.Execute(ProcessOperation.Suspend, {
             fromStates: [ProcessStateEnum.Executing],
             toStates: [ProcessStateEnum.Suspending],
             execute: (p: ProcessEntity) => {
@@ -181,10 +179,9 @@ export namespace ProcessLogic {
                 p.suspendDate = Clock.now;
                 wakeUpOnCommit("ProcessOperation.Suspend");
             },
-        }).register();
+        });
 
-        new Graph.Execute(ProcessOperation.Cancel, {
-            getState,
+        g.Execute(ProcessOperation.Cancel, {
             // Signum: cancelling an in-flight run would leave it running with a Canceled row, so suspend first.
             canExecute: (p: ProcessEntity) => ProcessRunner.isExecutingInThisMachine(p.toLite())
                 ? ProcessMessage.ProcessExecutingSuspendFirst.niceToString() : null,
@@ -195,10 +192,9 @@ export namespace ProcessLogic {
                 p.state = ProcessStateEnum.Canceled;
                 p.cancelationDate = Clock.now;
             },
-        }).register();
+        });
 
-        new Graph.Execute(ProcessOperation.Plan, {
-            getState,
+        g.Execute(ProcessOperation.Plan, {
             fromStates: [ProcessStateEnum.Created, ProcessStateEnum.Canceled, ProcessStateEnum.Planned, ProcessStateEnum.Suspended],
             toStates: [ProcessStateEnum.Planned],
             execute: (p: ProcessEntity, args: unknown[]) => {
@@ -207,15 +203,16 @@ export namespace ProcessLogic {
                 p.plannedDate = args[0] as Temporal.PlainDateTime;
                 wakeUpOnCommit("ProcessOperation.Plan");
             },
-        }).register();
+        });
 
-        new Graph.ConstructFrom(ProcessOperation.Retry, {
+        g.ConstructFrom(ProcessOperation.Retry, {
+            entityType: ProcessEntity,
             canConstruct: (p: ProcessEntity) => [ProcessStateEnum.Error, ProcessStateEnum.Canceled,
                 ProcessStateEnum.Finished, ProcessStateEnum.Suspended].includes(p.state)
                 ? null : `A process can only be retried from Error / Canceled / Finished / Suspended`,
             toStates: [ProcessStateEnum.Created],
-            getState,
             construct: async (p: ProcessEntity) => await create(p.algorithm, p.data),
+        });
         }).register();
     }
 }

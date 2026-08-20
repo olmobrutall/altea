@@ -9,6 +9,7 @@ import { noRepeatValidator, countIsValidator, ComparisonType, ValidationMessage 
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
+import { CultureInfoEntity, cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
 import { OrderTypeEnum } from "@altea/altea/data/dynamicQueries";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { FileEmbedded } from "@altea/altea-files/data/Files";
@@ -158,16 +159,15 @@ export class EmailMasterTemplateEntity_Message extends Entity {
     @backReference masterTemplate: Lite<EmailMasterTemplateEntity>;
     @rowOrder order: int;
 
-    /** A locale name ("en-US"); altea has no CultureInfoEntity (see Email.ts's header). */
-    @stringLengthValidator({ min: 2, max: 20 })
-    culture: string;
+    /** Signum's `CultureInfoEntity CultureInfo` — the culture this message is written in. */
+    culture: Lite<CultureInfoEntity>;
 
     @fieldValidation<EmailMasterTemplateEntity_Message>(m => masterTemplateContentRegex.test(m.text ?? "") ? null
         : EmailTemplateMessage.TheTextMustContain0IndicatingReplacementPoint.niceToString("@[content]"))
     text: string;
 
     toString(): string {
-        return this.culture ?? "";
+        return this.culture?.toString() ?? "";
     }
 
     clone(): EmailMasterTemplateEntity_Message {
@@ -340,9 +340,8 @@ export class EmailTemplateEntity_Message extends Entity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
     @rowOrder order: int;
 
-    /** A locale name ("en-US"); altea has no CultureInfoEntity (see Email.ts's header). */
-    @stringLengthValidator({ min: 2, max: 20 })
-    culture: string;
+    /** Signum's `CultureInfoEntity CultureInfo` — the culture this message is written in. */
+    culture: Lite<CultureInfoEntity>;
 
     /** The body, as template text. Unbounded (Signum's `[DbType(Size = int.MaxValue)]`). */
     @stringLengthValidator({ multiLine: true })
@@ -352,7 +351,7 @@ export class EmailTemplateEntity_Message extends Entity {
     subject: string;
 
     toString(): string {
-        return this.culture ?? EmailTemplateMessage.NewCulture.niceToString();
+        return this.culture?.toString() ?? EmailTemplateMessage.NewCulture.niceToString();
     }
 
     clone(): EmailTemplateEntity_Message {
@@ -421,8 +420,8 @@ export class EmailTemplateEntity extends Entity implements IUserAssetEntity, ICo
     /** The message for a culture, falling back to the language part ("de-CH" → "de") — Signum's
      *  GetCultureMessage + its `ci.Parent` chain. */
     getCultureMessage(culture: string): EmailTemplateEntity_Message | undefined {
-        return this.messages.find(m => m.culture === culture)
-            ?? this.messages.find(m => m.culture === languageOf(culture));
+        return this.messages.find(m => cultureNameOf(m.culture) === culture)
+            ?? this.messages.find(m => cultureNameOf(m.culture) === languageOf(culture));
     }
 }
 
@@ -455,13 +454,13 @@ export const EmailTemplateViewMessage = {
 
 // ---- helpers -------------------------------------------------------------------------------------------
 
-function hasDuplicateCulture(messages: { culture: string }[]): boolean {
+function hasDuplicateCulture(messages: { culture: Lite<CultureInfoEntity> }[]): boolean {
     const seen = new Set<string>();
     for (const m of messages) {
-        if (m.culture != null && seen.has(m.culture))
+        if (m.culture != null && seen.has(m.culture.key()))
             return true;
         if (m.culture != null)
-            seen.add(m.culture);
+            seen.add(m.culture.key());
     }
     return false;
 }

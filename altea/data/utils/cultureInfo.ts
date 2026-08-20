@@ -26,6 +26,12 @@ export namespace CultureInfo {
     export function setDefaultCulture(locale: string): void { _defaultCulture = locale; }
     export function setDefaultUICulture(locale: string): void { _defaultUICulture = locale; }
 
+    // The PROCESS defaults, ignoring any per-async-context override. `current*Culture()` answers "what
+    // language is this request in"; these answer "what language is the application in" — which is what the
+    // untranslated source strings are written in, and what a culture picker must offer as the way back.
+    export function defaultCulture(): string { return _defaultCulture; }
+    export function defaultUICulture(): string { return _defaultUICulture; }
+
     export function withCulture<T>(locale: string, fn: () => T): T {
         if (_cultureVar == null)
             throw new Error('Call CultureInfo.initLocalizationContext(Statics) before using withCulture');

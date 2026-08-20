@@ -7,6 +7,9 @@ import {
 import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
+import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
+import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
+import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import {
     EmailAddressSourceEnum, EmailAttachmentTypeEnum, EmailMasterTemplateEntity, EmailMasterTemplateEntity_Attachment,
     EmailMasterTemplateEntity_Message, EmailMessageFormatEnum, EmailTemplateEntity, EmailTemplateEntity_Attachment,
@@ -25,7 +28,8 @@ import { EmailModelLogic } from "./EmailModelLogic.server";
 //
 // altea divergences, documented inline:
 //  - `Guid` → the asset's uuid PRIMARY KEY (the importer keys on it).
-//  - `CultureInfo` attributes carry the plain locale string (altea has no CultureInfoEntity).
+//  - `CultureInfo` attributes carry the locale TAG (Signum writes the CultureInfoEntity's Name too), so an
+//    exported template stays readable and portable between databases whose culture ids differ.
 //  - `Applicable` was a C# SCRIPT element in Signum; altea exports the TemplateApplicableSymbol's KEY
 //    instead (see @altea/altea-templating's data/Templating.ts). A file carrying a script imports with the
 //    predicate left unset — the template then applies to everything, which is the safe reading.
@@ -89,7 +93,7 @@ async function templateToXml(et: EmailTemplateEntity, ctx: IToXmlContext): Promi
 
     o["Messages"] = {
         Message: et.messages.map(m => ({
-            [A + "CultureInfo"]: m.culture,
+            [A + "CultureInfo"]: cultureNameOf(m.culture),
             [A + "Subject"]: m.subject,
             "#text": m.text,
         })),
@@ -163,7 +167,7 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
     et.messages = list(asRecord(xml["Messages"])?.["Message"]).map((x, i) => {
         const m = new EmailTemplateEntity_Message();
         m.order = toInt(i);
-        m.culture = str(x[A + "CultureInfo"])!;
+        m.culture = CultureInfoLogic.getCulture(str(x[A + "CultureInfo"])!).toLite();
         m.subject = str(x[A + "Subject"]) ?? "";
         m.text = str(x["#text"]) ?? "";
         return m;
@@ -196,7 +200,7 @@ function masterToXml(emt: EmailMasterTemplateEntity, _ctx: IToXmlContext): Recor
     const o: Record<string, unknown> = {};
     o[A + "Name"] = emt.name ?? "";
     o["Messages"] = {
-        Message: emt.messages.map(m => ({ [A + "CultureInfo"]: m.culture, "#text": m.text })),
+        Message: emt.messages.map(m => ({ [A + "CultureInfo"]: cultureNameOf(m.culture), "#text": m.text })),
     };
     if (emt.attachments.length) o["Attachments"] = attachmentsXml(emt.attachments.map(r => r.attachment));
     return o;
@@ -207,7 +211,7 @@ function masterFromXml(emt: EmailMasterTemplateEntity, xml: Record<string, unkno
     emt.messages = list(asRecord(xml["Messages"])?.["Message"]).map((x, i) => {
         const m = new EmailMasterTemplateEntity_Message();
         m.order = toInt(i);
-        m.culture = str(x[A + "CultureInfo"])!;
+        m.culture = CultureInfoLogic.getCulture(str(x[A + "CultureInfo"])!).toLite();
         m.text = str(x["#text"]) ?? "";
         return m;
     });

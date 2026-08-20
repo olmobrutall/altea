@@ -1,14 +1,17 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { XMLParser } from "fast-xml-parser";
-import { Localization } from "../data/utils/localization";
-type LocalizedType = Localization.LocalizedType;
-type LocalizedTypes = Localization.LocalizedTypes;
+import { Metadata } from "../data/metadata";
+import type { TypeMetadata } from "../data/metadata";
 
-// Server-side reader for Signum's translation XML files (LocalizedAssembly format) — the Translations
-// half of the metadata format. Parsed here (Node) with fast-xml-parser and fed to DescriptionManager;
-// the client receives the already-parsed LocalizedTypes as JSON (never the XML), so no XML parser ships
+// Server-side reader for Signum's translation XML files (LocalizedAssembly format) — the per-culture
+// half of the metadata blob. Parsed here (Node) with fast-xml-parser into TypeMetadata and merged into
+// the Metadata store; the client only ever receives the assembled blob as JSON, so no XML parser ships
 // to the browser. File names follow Signum's `<name>.<culture>.xml` convention (e.g. `Southwind.es.xml`).
+//
+// A translation file names ONLY the pieces it translates, so the TypeMetadata it yields is partial: the
+// `kind` is a placeholder ("Entity") that the metadata builder overwrites from the real registry, and
+// absent members simply fall back to the humanised identifier.
 //
 // Shape parsed:
 //   <Translations>
@@ -26,19 +29,19 @@ const parser = new XMLParser({
     isArray: name => name === "Type" || name === "Member",
 });
 
-export function parseSignumTranslations(xml: string): LocalizedTypes {
+export function parseSignumTranslations(xml: string): Record<string, TypeMetadata> {
     const doc = parser.parse(xml) as { Translations?: { Type?: RawType[] } };
-    const result: LocalizedTypes = {};
+    const result: Record<string, TypeMetadata> = {};
     for (const t of doc.Translations?.Type ?? []) {
         if (t.Name == null) continue;
-        const lt: LocalizedType = { members: {} };
-        if (t.Description != null) lt.description = String(t.Description);
-        if (t.PluralDescription != null) lt.pluralDescription = String(t.PluralDescription);
-        if (t.Gender != null) lt.gender = String(t.Gender);
+        const tm: TypeMetadata = { kind: "Entity", fields: {} };
+        if (t.Description != null) tm.niceName = String(t.Description);
+        if (t.PluralDescription != null) tm.nicePluralName = String(t.PluralDescription);
+        if (t.Gender != null) tm.gender = String(t.Gender);
         for (const m of t.Member ?? [])
             if (m.Name != null && m.Description != null)
-                lt.members[String(m.Name)] = String(m.Description);
-        result[String(t.Name)] = lt;
+                tm.fields[String(m.Name)] = { niceName: String(m.Description) };
+        result[String(t.Name)] = tm;
     }
     return result;
 }
@@ -50,7 +53,7 @@ interface RawType {
 
 // Parse an XML string and merge it into a locale.
 export function loadSignumTranslations(locale: string, xml: string): void {
-    Localization.addLocalizedTypes(locale, parseSignumTranslations(xml));
+    Metadata.merge(locale, parseSignumTranslations(xml));
 }
 
 // Load one XML file for an explicit locale.
@@ -86,7 +89,7 @@ export function resolveTranslationsDir(dir?: string): string {
 }
 
 // Load every module's translations from the app's single translations directory (all files merge via
-// addLocalizedTypes; filename/alpha order sets precedence — name the app's file so it sorts last if a
+// Metadata.merge; filename/alpha order sets precedence — name the app's file so it sorts last if a
 // key must win). No-op if the directory does not exist. Call once at server startup.
 export function loadAppTranslations(dir?: string): string | undefined {
     const resolved = resolveTranslationsDir(dir);

@@ -9,7 +9,6 @@ import { Temporal, Decimal } from "@altea/altea/data/basics";
 import { Enum } from "@altea/altea/data/enum";
 import { Lite } from "@altea/altea/data/lite";
 import { Entity, type PrimaryKey, type Type } from "@altea/altea/data/entity";
-import { Localization } from "@altea/altea/data/utils/localization";
 import type {
     DynamicQueryOmniboxResult, FilterSyntax, FilterSyntaxCompletion, HelpOmniboxResult,
     OmniboxFilterResult, OmniboxMatch, OmniboxResult,
@@ -531,7 +530,7 @@ function createLite(type: Function, value: string): Lite<Entity> | undefined {
     const id = tryParsePrimaryKey(type, value);
     if (id == undefined)
         return undefined;
-    return (type as unknown as Type<Entity> & typeof Entity).newLite(id as PrimaryKey, `${Localization.niceName(type)} ${String(id)}`) as Lite<Entity>;
+    return (type as unknown as Type<Entity> & typeof Entity).newLite(id as PrimaryKey, `${type.niceName()} ${String(id)}`) as Lite<Entity>;
 }
 
 // Signum's ParseBool: accepts en/es/… spellings plus the localized OmniboxMessage.Yes/No.

@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "../setup";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
-import { Localization } from "@altea/altea/data/utils/localization";
 import {
     ArtistEntity, AlbumEntity, BandEntity, NoteWithDateEntity,
     GrammyAwardEntity,
@@ -63,7 +62,7 @@ describe("GetTypeAndNewTest", { skip: !hasDb }, () => {
     // from f in Database.Query<ArtistEntity>() where f.GetType().NiceName() == typeof(ArtistEntity).NiceName() select new { f.Name }
     test("TestGetTypeNiceName", async () => {
         const list = await table(ArtistEntity)
-            .filter(f => f.constructor.niceName() === Localization.niceName(ArtistEntity))
+            .filter(f => f.constructor.niceName() === ArtistEntity.niceName())
             .map(f => ({ name: f.name }))
             .toArray();
         assert.ok(list.length > 0);
@@ -72,7 +71,7 @@ describe("GetTypeAndNewTest", { skip: !hasDb }, () => {
     // from f in Database.Query<AlbumEntity>() where f.Author.GetType().NiceName() == typeof(ArtistEntity).NiceName() select new { f.Name }
     test("TestGetTypeIBNiceName", async () => {
         const list = await table(AlbumEntity)
-            .filter(f => f.author.constructor.niceName() === Localization.niceName(ArtistEntity))
+            .filter(f => f.author.constructor.niceName() === ArtistEntity.niceName())
             .map(f => ({ name: f.name }))
             .toArray();
         assert.ok(list.length > 0);

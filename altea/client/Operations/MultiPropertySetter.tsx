@@ -6,7 +6,7 @@
 // method deltas. That is a re-engineering against altea's model, not a transform — so the full port is
 // DEFERRED (TODO(port)). `show()` resolves to no setters, i.e. a bulk operation runs without the
 // property-setter dialog (a safe degradation). See operations-client-port memory.
-import type { TypeInfo, OperationInfo } from '../Reflection';
+import type { TypeInfo, OperationMetadata } from '../Reflection';
 import type { Lite } from '../../data/lite';
 import type { Entity } from '../../data/entity';
 import type { PropertyRoute } from '../../data/propertyRoute';
@@ -21,7 +21,7 @@ export interface PropertySetterComponentProps {
 }
 
 export namespace MultiPropertySetterModal {
-  export function show(typeInfo: TypeInfo, lites: Lite<Entity>[], operationInfo: OperationInfo, setters?: Operations.API.PropertySetter[]): Promise<Operations.API.PropertySetter[] | undefined> {
+  export function show(typeInfo: TypeInfo, lites: Lite<Entity>[], operationInfo: OperationMetadata, setters?: Operations.API.PropertySetter[]): Promise<Operations.API.PropertySetter[] | undefined> {
     return Promise.resolve([]);
   }
 }

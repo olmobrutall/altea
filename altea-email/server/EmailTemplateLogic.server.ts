@@ -3,7 +3,8 @@ import "@altea/altea/server/operationFluentInclude";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
-import { Graph } from "@altea/altea/server/graph";
+import { graph } from "@altea/altea/server/graphBuilder";
+import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
@@ -156,13 +157,15 @@ export namespace EmailTemplateLogic {
     // ---- operations ------------------------------------------------------------------------------------
 
     function registerGraph(): void {
-        new Graph.Construct(EmailTemplateOperation.Create, {
+        graph(EmailTemplateEntity, g => {
+        g.Construct(EmailTemplateOperation.Create, {
             construct: async () => EmailTemplateEntity.create({
                 masterTemplate: (await EmailMasterTemplateLogic.getDefaultMasterTemplate())?.toLite() ?? null,
             }),
-        }).register();
+        });
 
-        new Graph.ConstructFrom(EmailTemplateOperation.Clone, {
+        g.ConstructFrom(EmailTemplateOperation.Clone, {
+            entityType: EmailTemplateEntity,
             construct: (e: EmailTemplateEntity) => EmailTemplateEntity.create({
                 name: `${e.name} (Cloned)`,
                 masterTemplate: e.masterTemplate,
@@ -178,16 +181,16 @@ export namespace EmailTemplateLogic {
                 orders: e.orders.map(o => EmailTemplateEntity_Order.create({ token: o.token, orderType: o.orderType })),
                 messages: e.messages.map(m => m.clone()),
             }),
-        }).register();
+        });
 
-        new Graph.Execute(EmailTemplateOperation.Save, {
+        g.Execute(EmailTemplateOperation.Save, {
             canBeNew: true,
             canBeModified: true,
             execute: () => { },
-        }).register();
+        });
 
         // Signum's Delete: the attachment rows the template owns go with it.
-        new Graph.Delete(EmailTemplateOperation.Delete, {
+        g.Delete(EmailTemplateOperation.Delete, {
             delete: async (t: EmailTemplateEntity) => {
                 // The attachment ENTITIES a row points at are Parts of their own (Signum deleted them too);
                 // the rows go with the template's own cascade.
@@ -196,6 +199,7 @@ export namespace EmailTemplateLogic {
                 for (const a of attachments)
                     await a.delete();
             },
+        });
         }).register();
     }
 
@@ -223,7 +227,7 @@ export namespace EmailTemplateLogic {
 
         if (template.masterTemplate != null) {
             const master = await EmailLogic.retrieveLite(template.masterTemplate);
-            const masterMessage = EmailMasterTemplateLogic.getCultureMessage(master, message.culture)
+            const masterMessage = EmailMasterTemplateLogic.getCultureMessage(master, cultureNameOf(message.culture) ?? EmailLogic.configuration().defaultCulture)
                 ?? EmailMasterTemplateLogic.getCultureMessage(master, EmailLogic.configuration().defaultCulture);
 
             if (masterMessage != null) {

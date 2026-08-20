@@ -4,19 +4,29 @@ import type { CustomLiteClass } from './lite';
 import type { TsVector } from './tsVector';
 import { column, serialize, quoted } from './decorators';
 import { Localization } from './utils/localization';
+import { getLambdaMembers } from './lambdaMembers';
+import type { Quoted } from 'quote-transformer/quoted';
 
-// Type-only surface for `Type.NiceName()` inside a query lambda: `f.constructor.niceName()` and
-// `getType().niceName()` receive a runtime-type value typed as `Function` (Type<T>), so this makes the
-// call type-check. The RUNTIME method is `BaseEntity.niceName` (the static above) — inherited by every
-// entity constructor, so no `Function.prototype.niceName` is assigned; the LINQ provider lowers the
-// call by name (server/linq). (The sibling `.toTypeEntity()` surface is declared the same way in
-// server/typeLogic.) Kept in the entities layer because BaseEntity.toString's `@quoted` body calls it.
+// Type-only surface for the TYPE-level display names inside a query lambda: `f.constructor.niceName()`
+// and `getType().niceName()` receive a runtime-type value typed as `Function` (Type<T>), so this makes
+// the call type-check — as it does for framework code that holds a type as a bare `Function`. The RUNTIME
+// methods are the `BaseEntity` statics below — inherited by every entity constructor, so nothing is
+// assigned to `Function.prototype`; the LINQ provider lowers `niceName()` by name (server/linq).
+// (The sibling `.toTypeEntity()` surface is declared the same way in server/typeLogic.) Kept in the
+// entities layer because BaseEntity.toString's `@quoted` body calls it.
+//
+// Only the no-argument, type-level names live here. `nicePropertyName` does NOT: it needs the entity type
+// to check its lambda, so widening every Function with it would erase exactly the check that makes it
+// worth having.
 declare global {
     interface Function {
         niceName(): string;
+        nicePluralName(): string;
+        gender(): string | undefined;
+        newNiceName(): string;
     }
 }
-import { reflect, getTypeInfo } from './reflection';
+import { reflect, getTypeInfo, registerIsPersistedEntity } from './reflection';
 import { MixinDeclarations } from './mixinDeclarations';
 import { cleanTypeName, resolveCleanType } from './registration';
 import { isGraphModified, isModifiedSelf } from './changes';
@@ -33,6 +43,12 @@ export type PrimaryKey = string | number;
 // AwardEntity, …) is not a valid `Type<T>` value: it has no table of its own and can't be instantiated;
 // its concrete implementations are the `Type<T>`s (reached via Implementations / @implementedBy).
 export type Type<T extends BaseEntity> = new () => T;
+
+// A handle on an entity type for REGISTRATION purposes, where `Type<T>` is too strict: an operation or a
+// rule may be attached to an ABSTRACT base (CustomerEntity, AwardEntity) and inherited by its concrete
+// implementations, so the handle must accept an abstract constructor as well. Never used to `new` —
+// callers that instantiate take `Type<T>`.
+export type EntityType<T extends BaseEntity> = abstract new (...args: any[]) => T;
 
 export type InitValues<T> = Partial<{
     [K in keyof T as T[K] extends Function ? never : K]: T[K]
@@ -108,8 +124,36 @@ export abstract class BaseEntity {
     // augmentation below only makes those call sites type-check (see its comment).
     // `token()` is deferred until the client QueryToken (QueryTokenString) is ported.
     static get typeName(): string { return cleanTypeName(this); }
-    static niceName(this: Function): string { return Localization.niceName(this); }
-    static nicePluralName(this: Function): string { return Localization.nicePluralName(this); }
+    static niceName(this: Function): string { return Localization.Internal.typeNiceName(this.name); }
+    static nicePluralName(this: Function): string { return Localization.Internal.typeNicePluralName(this.name); }
+    /** Grammatical gender of the type (Signum's Type gender) — undefined for genderless cultures. */
+    static gender(this: Function): string | undefined { return Localization.Internal.typeNiceGender(this.name); }
+    /** Display name of a new (unsaved) instance (Signum's `Type.NewNiceName()`). */
+    static newNiceName(this: Function): string { return Localization.Internal.typeNewNiceName(this.name); }
+
+    /**
+     * Display name of one of this type's properties (Signum's `Type.NicePropertyName(a => a.X)`):
+     * `OrderEntity.nicePropertyName(a => a.orderNumber)`, `AddressEmbedded.nicePropertyName(a => a.city)`.
+     * Navigates embeddeds and mixins, so `OrderEntity.nicePropertyName(a => a.shipAddress.city)` resolves
+     * the route "shipAddress.city" against the OWNER's metadata — which is where a property translation
+     * (and a property-authorization rule) is keyed.
+     *
+     * Two constraints, both inherent to the quote-transformer:
+     *  - the LAMBDA overload requires an INLINE lambda; the transformer only emits the `__quoted`
+     *    expression tree for a lambda written at a `Quoted<...>`-typed parameter, and there is no
+     *    toString() fallback (see data/lambdaMembers), so a stored function reference throws.
+     *  - the transformer does NOT rewrite lambdas in JSX ATTRIBUTE positions. Inside JSX, pass the route
+     *    as a STRING (the second overload) — `OrderEntity.nicePropertyName("orderNumber")`.
+     * The lambda overload is declared FIRST so it wins contextual typing for the inline form (a
+     * string-first ordering makes `a` implicitly `any` and silently defeats the member check).
+     */
+    static nicePropertyName<T extends BaseEntity>(this: Type<T>, property: Quoted<(val: T) => any>): string;
+    static nicePropertyName(this: Function, property: string): string;
+    static nicePropertyName(this: Function, property: Quoted<(val: any) => any> | string): string {
+        const path = typeof property === "string" ? property
+            : getLambdaMembers(property).map(m => m.type === "Mixin" ? `[${m.name}]` : m.name).join(".").replace(/\.\[/g, "[");
+        return Localization.Internal.routeNiceName(this.name, path);
+    }
 
     // Resolve a clean type name (the $type / URL discriminator) to its Type, checking it inherits
     // from the class this is called on: `Entity.resolveType("Order")` -> Type<OrderEntity> typed as
@@ -314,6 +358,10 @@ export abstract class Entity extends BaseEntity {
 // NOTE: the query-expression result-type metadata for `.is()` / `.toLite()` / `Ctor.isInstance` /
 // `Ctor.isLite` (Signum's method attributes) is RuntimeType — a LINQ-provider concern — so it lives in
 // logic/index.ts (server), not here: entities/ stays RuntimeType-free.
+
+// Close the seam TypeInfo.kind needs: reflection.ts cannot `import { Entity }` (entity.ts already
+// imports reflection.ts), so it asks for the test to be installed from here instead.
+registerIsPersistedEntity(ctor => ctor === Entity || ctor.prototype instanceof Entity);
 
 export abstract class EmbeddedEntity extends BaseEntity { }
 

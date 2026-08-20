@@ -3,7 +3,6 @@ import { PropertyRoute } from "../../propertyRoute";
 import { tryGetTypeInfo, TypeReference, type FieldInfo } from "../../reflection";
 import { Implementations } from "../../implementations";
 import { tryGetFilterType, type QueryName, type FilterType } from "../queryUtils";
-import { Localization } from "../../utils/localization";
 import { QueryTokenMessage, QueryTokenDateMessage, CollectionMessage } from "../../dynamicQueries";
 import type { CollectionToArrayToken } from "./collectionToArrayToken";
 
@@ -586,7 +585,7 @@ function niceTypeNameOf(type: TypeReference, filterType: FilterType | undefined,
         case "Embedded":
         case "Model": {
             const ctor = type.getFunction();
-            return ctor != undefined ? Localization.niceName(ctor) : "";
+            return ctor != undefined ? ctor.niceName() : "";
         }
         default:
             return "";

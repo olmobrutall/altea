@@ -5,6 +5,7 @@ import { reflect, getOrCreateTypeInfo, setDefaultTypeDescription, registerType }
 import { setDefaultCulture, getPackageCulture, cultureForName, setDefaultDatabaseSchema, schemaForName } from "@altea/altea/data/reflection";
 import { niceName, nicePluralName, gender } from "@altea/altea/data/decorators";
 import { Localization } from "@altea/altea/data/utils/localization";
+import { Metadata } from "@altea/altea/data/metadata";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { Enum } from "@altea/altea/data/enum";
 import { SchemaSettings } from "@altea/altea/server/schema/schemaBuilder";
@@ -18,8 +19,10 @@ setDefaultDatabaseSchema("testDbo");
 
 // Code-declared DEFAULT-language nice names — no translation file needed (the @niceName /
 // @nicePluralName / @gender decorators, Enum.setNiceName, and operation init({ niceName })). The
-// decorators use the bare names; the localization resolvers live under `Localization`. Pure in-memory,
-// no DB. Verifies each override beats the humanized fallback, and that a loaded translation still wins.
+// decorators use the bare names; the display names are read through the FLUENT surface the rest of the
+// codebase uses (`PersonThing.niceName()`, `Enum.niceName(…)`), not through the resolver engine. Pure
+// in-memory, no DB. Verifies each override beats the humanized fallback, and that a loaded translation
+// still wins.
 
 @niceName("Person") @nicePluralName("People")
 @reflect
@@ -37,14 +40,17 @@ class PerroEntity extends Entity { }
 
 describe("nice-name overrides (no translation file)", () => {
     test("@niceName / @nicePluralName override a type's nice name", () => {
-        assert.equal(Localization.niceName(PersonThing), "Person");
-        assert.equal(Localization.nicePluralName(PersonThing), "People");
+        assert.equal(PersonThing.niceName(), "Person");
+        assert.equal(PersonThing.nicePluralName(), "People");
     });
 
     test("@niceName on a field overrides the member's nice name; others humanize", () => {
         const ti = getOrCreateTypeInfo(PersonThing);
         assert.equal(ti.fields["email"].niceToString(), "e-Mail");
         assert.equal(ti.fields["firstName"].niceToString(), "First name");
+        // Same answers through the fluent property surface (both overloads).
+        assert.equal(PersonThing.nicePropertyName(a => a.email), "e-Mail");
+        assert.equal(PersonThing.nicePropertyName("firstName"), "First name");
     });
 
     test("Enum.setNiceName overrides an enum member; others humanize", () => {
@@ -56,11 +62,11 @@ describe("nice-name overrides (no translation file)", () => {
     test("operation init({ niceName }) registers a default operation label", () => {
         assert.equal(ArtistOperation.CreateFromScratch.key, "ArtistOperation.CreateFromScratch");
         // The client Operations layer resolves an operation's label via DescriptionManager.translate.
-        assert.equal(Localization.translate("ArtistOperation", "CreateFromScratch"), "Create Artist from scratch");
+        assert.equal(ArtistOperation.CreateFromScratch.niceToString(), "Create Artist from scratch");
     });
 
     test("@gender pins a type's grammatical gender", () => {
-        assert.equal(Localization.gender(PerroEntity), "m");
+        assert.equal(PerroEntity.gender(), "m");
     });
 
     test("setDefaultCulture is package-scoped", () => {
@@ -92,12 +98,12 @@ describe("nice-name overrides (no translation file)", () => {
         // Register a default for a fresh type, then a translation for the current UI culture: the
         // translation must take precedence (the default is only the no-translation fallback).
         setDefaultTypeDescription("WidgetThing", { description: "Widget (default)", pluralDescription: "Widgets (default)" });
-        assert.equal(Localization.typeDescription("WidgetThing"), "Widget (default)");
+        assert.equal(Localization.Internal.typeNiceName("WidgetThing"), "Widget (default)");
 
-        Localization.addLocalizedTypes(CultureInfo.currentUICulture(), {
-            WidgetThing: { description: "Gadget", pluralDescription: "Gadgets", members: {} },
+        Metadata.merge(CultureInfo.currentUICulture(), {
+            WidgetThing: { kind: "Entity", niceName: "Gadget", nicePluralName: "Gadgets", fields: {} },
         });
-        assert.equal(Localization.typeDescription("WidgetThing"), "Gadget");
-        assert.equal(Localization.typePluralDescription("WidgetThing"), "Gadgets");
+        assert.equal(Localization.Internal.typeNiceName("WidgetThing"), "Gadget");
+        assert.equal(Localization.Internal.typeNicePluralName("WidgetThing"), "Gadgets");
     });
 });

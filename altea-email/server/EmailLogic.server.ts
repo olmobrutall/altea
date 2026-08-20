@@ -3,7 +3,7 @@ import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave /
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { createHash, randomUUID } from "node:crypto";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import { Graph } from "@altea/altea/server/graph";
+import { graph } from "@altea/altea/server/graphBuilder";
 import { table } from "@altea/altea/server/table";
 import { retrieve } from "@altea/altea/server/Database";
 import { Transaction } from "@altea/altea/server/connection/transaction";
@@ -291,11 +291,13 @@ export namespace EmailLogic {
     // ---- the state machine -----------------------------------------------------------------------------
 
     function registerGraph(): void {
-        new Graph.Construct(EmailMessageOperation.CreateMail, {
+        graph(EmailMessageEntity, EmailMessageStateEnum, g => {
+        g.Construct(EmailMessageOperation.CreateMail, {
             construct: () => EmailMessageEntity.create({ state: EmailMessageStateEnum.Created }),
-        }).register();
+        });
 
-        new Graph.ConstructFrom(EmailMessageOperation.CreateEmailFromTemplate, {
+        g.ConstructFrom(EmailMessageOperation.CreateEmailFromTemplate, {
+            entityType: EmailTemplateEntity,
             canConstruct: (et: EmailTemplateEntity) => et.model != null && EmailModelLogic.requiresExtraParameters(et.model)
                 ? EmailMessageMessage._01requiresExtraParameters.niceToString("EmailModel", et.model.fullClassName)
                 : null,
@@ -310,18 +312,18 @@ export namespace EmailLogic {
                     throw new Error(EmailMessageMessage.NoSuitableRecipientsWereFound.niceToString());
                 return messages[0];
             },
-        }).register();
+        });
 
-        new Graph.Execute(EmailMessageOperation.Save, {
+        g.Execute(EmailMessageOperation.Save, {
             canBeNew: true,
             canBeModified: true,
             fromStates: [EmailMessageStateEnum.Created, EmailMessageStateEnum.Outdated],
             toStates: [EmailMessageStateEnum.Draft],
             getState: (m: EmailMessageEntity) => m.state,
             execute: (m: EmailMessageEntity) => { m.state = EmailMessageStateEnum.Draft; },
-        }).register();
+        });
 
-        new Graph.Execute(EmailMessageOperation.ReadyToSend, {
+        g.Execute(EmailMessageOperation.ReadyToSend, {
             canBeNew: true,
             canBeModified: true,
             fromStates: [
@@ -336,17 +338,18 @@ export namespace EmailLogic {
                 m.state = EmailMessageStateEnum.ReadyToSend;
                 wakeUpAfterCommit();
             },
-        }).register();
+        });
 
-        new Graph.Execute(EmailMessageOperation.Send, {
+        g.Execute(EmailMessageOperation.Send, {
             canBeNew: true,
             canBeModified: true,
             canExecute: (m: EmailMessageEntity) => sendableStates.includes(m.state) ? null
                 : EmailMessageMessage.TheEmailMessageCannotBeSentFromState0.niceToString(EmailMessageStateEnum[m.state]),
             execute: async (m: EmailMessageEntity) => await sendMail(m),
-        }).register();
+        });
 
-        new Graph.ConstructFrom(EmailMessageOperation.ReSend, {
+        g.ConstructFrom(EmailMessageOperation.ReSend, {
+            entityType: EmailMessageEntity,
             construct: (m: EmailMessageEntity) => EmailMessageEntity.create({
                 from: m.from.clone(),
                 recipients: m.recipients.map(r => EmailMessageEntity_Recipient.create({
@@ -363,10 +366,11 @@ export namespace EmailLogic {
                     file: a.file, type: a.type, contentId: a.contentId,
                 })),
             }),
-        }).register();
+        });
 
-        new Graph.Delete(EmailMessageOperation.Delete, {
+        g.Delete(EmailMessageOperation.Delete, {
             delete: async (m: EmailMessageEntity) => { await m.delete(); },
+        });
         }).register();
     }
 
