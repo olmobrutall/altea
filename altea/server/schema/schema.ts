@@ -181,6 +181,17 @@ export class Schema {
             await h(this);
     }
 
+    // Signum's `Schema.SchemaCompleted` — fired at the END of `SchemaBuilder.complete()`, when every
+    // module has run its `start()` and so every table is included, but BEFORE any database access. The
+    // hook for work that must see the WHOLE schema: altea-cache walks each cached table's dependent
+    // tables to decide what else has to be cached, then builds the row readers. Distinct from
+    // `initializing`, which runs later and DOES touch the database.
+    readonly schemaCompleted: ((schema: Schema) => void)[] = [];
+    onSchemaCompleted(): void {
+        for (const h of this.schemaCompleted)
+            h(this);
+    }
+
     table<T extends Entity>(type: Type<T>): Table {
         const table = this.tables.get(type as unknown as Type<Entity>);
         if (table == null)

@@ -26,6 +26,7 @@ import { TypeLogic, type TypeCaches } from "./typeLogic";
 import type { Schema } from "./schema/schema";
 import type { QueryFilterContext } from "./schema/entityEvents";
 import { HeavyProfiler } from "./profiler/heavyProfiler";
+import type { CacheController } from "./cache";
 
 
 
@@ -211,6 +212,36 @@ Retriever.retrieveListImpl = async (ctor: Type<Entity>, ids: PrimaryKey[], retri
     await buildTranslateResult(retrieveByIdsProjection(ctor, ids, filterContext, typeCaches), connector.isPostgres).executeInto(retriever);
 };
 
+// Materialise the `ctor` rows whose id is in `ids` from a CACHE CONTROLLER instead of the database —
+// Signum's `Database.Retrieve` under a cache controller (`EntityCache.NewRetriever()` → Request →
+// CompleteAll). A FRESH instance per call (the cache hands out rows, never its own entities, so a caller
+// may mutate and save what it gets); nested references are stubbed and drained — from their own cache when
+// they are cached too, from the database when they are not — and `postRetrieved` fires at the end, so the
+// `Retrieved` handlers AND the global retrieve gates (the type-READ authorization gate) apply to a cached
+// read exactly as to a queried one.
+//
+// It lives HERE, not in Database.ts, purely to keep the module graph acyclic: `Retriever.retrieveListImpl`
+// above is assigned at THIS module's top level, so a module that imports Retriever before table.ts would
+// hit it mid-initialisation (a TDZ error). table.ts already owns that edge.
+export async function retrieveEntitiesFromCache<T extends Entity>(
+    ctor: Type<T>,
+    ids: PrimaryKey[],
+    controller: CacheController,
+): Promise<T[]> {
+    const retriever = new Retriever();
+    const result: T[] = [];
+    for (const id of ids) {
+        if (!controller.exists(id))
+            continue;
+        const e = retriever.entity(ctor as unknown as Type<Entity>, id, e2 => controller.complete(e2, retriever));
+        if (e != null)
+            result.push(e as T);
+    }
+    await retriever.completeAll();
+    await retriever.postRetrieved();
+    return result;
+}
+
 // Materialise the `ctor` rows whose id is in `ids` (a single `WHERE id IN (…)` query) as a
 // fresh list. The DB half of Database.retrieveList — order/missing handling and chunking
 // live there. Returns [] for an empty id list without touching the database.
@@ -238,7 +269,7 @@ class MyQueryTranslator implements IQueryTranslator {
     bind(expression: Expression): ProjectionExpression {
         const connector = Connector.current();
         // SYNCHRONOUS bind (debug SQL / offline comparison): can't await; bindAndOptimize's default reads
-        // the already-loaded caches box (warm in production; offline binders seed it — altea-test's seedTypeCachesForTest).
+        // the already-loaded caches box (warm in production; offline binders seed it — the test layer's seedTypeCachesForTest).
         return bindAndOptimize(expression, connector.schema, connector.isPostgres);
     }
 

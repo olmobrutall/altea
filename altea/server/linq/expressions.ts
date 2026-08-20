@@ -214,7 +214,9 @@ function resolveMemberType(ownerType: RuntimeType, propertyName: string): Runtim
     return t;
 }
 
-function baseTypeOfFieldInfo(fi: FieldInfo): RuntimeType {
+// Exported so altea-cache can derive the SAME per-column value conversion the projector applies
+// (see translatorBuilder.visitColumn) when it reads raw rows into its in-memory row store.
+export function baseTypeOfFieldInfo(fi: FieldInfo): RuntimeType {
     if (fi.isEnum)
         return LiteralType.null; // enums are not modelled as a Type yet
     switch (fi.typeName) {

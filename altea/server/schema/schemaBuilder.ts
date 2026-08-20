@@ -40,11 +40,10 @@ import { accessedFields } from '../../data/accessedFields';
 import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../data/enumEntity';
 import { TypeEntity } from '../../data/typeEntity';
-import { ResetLazy } from '../../data/resetLazy';
-import { ExecutionMode } from '../executionMode';
-import { Transaction } from '../connection/transaction';
+import type { ResetLazy } from '../../data/resetLazy';
 import { TypeLogic } from '../typeLogic';
 import type { WebBuilder } from '../webApi';
+import { GlobalLazy, GlobalLazyManager } from '../globalLazy';
 
 // Entity base fields handled specially (id, ticks) or excluded from the schema.
 const RESERVED_FIELDS = new Set(['id', 'ticks', 'isNew', '_snapshot']);
@@ -189,42 +188,35 @@ export class SchemaBuilder {
         return false;
     }
 
+    // Signum's swappable `SchemaBuilder.GlobalLazyManager`. altea-cache replaces it so a global lazy over
+    // CACHED types is invalidated by the cache's own invalidation events (which include one broadcast from
+    // another process) instead of this process's save/DML events. Must be swapped before the first
+    // `globalLazy` registration (Signum's AsserNotUsed).
+    globalLazyManager: GlobalLazyManager = new GlobalLazyManager();
+
+    switchGlobalLazyManager(manager: GlobalLazyManager): void {
+        this.globalLazyManager.assertNotUsed();
+        this.globalLazyManager = manager;
+    }
+
     // Signum's `sb.GlobalLazy(factory, new InvalidateWith(typeof(X), …))`: a process-wide cache reset
     // whenever any `invalidateWith` type CHANGES (saved, deleted, or mutated by set-based DML). altea's
     // ResetLazy is ASYNC (no sync DB), so this returns a `ResetLazy<T>` holding the RESOLVED value —
     // concurrent readers share one in-flight load and `reset()` drops it (the next read re-invokes the
     // factory). Read it via `await lazy.value()`.
-    globalLazy<T>(factory: () => Promise<T>, options: { invalidateWith: Type<Entity>[] }): ResetLazy<T> {
-        // Signum's GlobalLazy runs the factory inside `ExecutionMode.Global()` (reads the whole database
-        // ungated — authorization suppressed) AND its own INDEPENDENT transaction (`Transaction.forceNew` —
-        // a fresh committed transaction regardless of the caller's context, never a no-op nesting). This
-        // closes the "Transaction not started" window where a load fires from a just-committed ambient txn,
-        // and means the cache always reflects COMMITTED state (Signum's model: caches reload post-commit,
-        // never mid-write). The `globalLazyReadUncommitted` test toggle swaps in `Transaction.create` so a
-        // reload NESTS in the ambient (rolled-back) txn and sees a test's uncommitted writes — read at
-        // factory-run time so a suite can flip it after the schema is built.
-        const schema = this.schema;
-        const lazy = new ResetLazy<T>(() => ExecutionMode.global(() =>
-            (schema.globalLazyReadUncommitted ? Transaction.create : Transaction.forceNew)(factory)));
-        // Mirror Signum's SchemaBuilder.AttachInvalidations<T>: reset on save AND on every set-based DML
-        // path — DELETE (Query.executeDelete → onPreUnsafeDelete), UPDATE, INSERT, and bulk-insert. Without
-        // the delete hook, deleting a row via the operation/`Database.deleteList` path (which routes through
-        // `executeDelete`, firing `preUnsafeDelete` only — never `saved`) would leave the cache stale until
-        // the process restarts. altea divergences from Signum: (1) we hook `saved` (post-write, in-txn)
-        // rather than Signum's graph-modified `Saving`; (2) the reset is EAGER (Signum defers it to
-        // `Transaction.PostRealCommit`) — safe here because the factory reloads from committed state via
-        // `Transaction.forceNew`, so a rolled-back change just triggers a harmless extra reload; (3) the
-        // dependent-table fan-out (Signum's AttachInvalidationsDependant over `DependentTables()`) is not
-        // ported — a cache that navigates to related types must list those types in `invalidateWith`.
-        const reset = (): void => lazy.reset();
-        for (const t of options.invalidateWith) {
-            const ee = this.schema.entityEvents(t);
-            ee.saved.push(reset);
-            ee.preUnsafeDelete.push(reset);
-            ee.preUnsafeUpdate.push(reset);
-            ee.preUnsafeInsert.push(reset);
-            ee.preBulkInsert.push(reset);
-        }
+    //
+    // Both halves belong to the MANAGER (Signum's GlobalLazy<T>): `onLoad` runs inside the factory before
+    // it reads (the cache manager loads every dependency there), `attachInvalidations` wires the reset.
+    // The factory itself runs in global execution mode + an independent transaction — see
+    // GlobalLazy.withoutInvalidations, which also registers the lazy for statistics / resetAll.
+    globalLazy<T>(factory: () => Promise<T>, options: { invalidateWith: Type<Entity>[], useBaseImplementation?: boolean, name?: string }): ResetLazy<T> {
+        const lazy = GlobalLazy.withoutInvalidations<T>(async () => {
+            await this.globalLazyManager.onLoad(this, options);
+            return await factory();
+        }, { name: options.name ?? options.invalidateWith.map(t => t.name).join(", "), schema: this.schema });
+
+        this.globalLazyManager.attachInvalidations(this, options, () => lazy.reset());
+
         return lazy;
     }
 
@@ -318,6 +310,11 @@ export class SchemaBuilder {
         // TypeLogic.start (type↔id caches + row-seeding generate/sync steps + the Schema.Initializing load
         // hook) already ran in the constructor — foundational, so it precedes every module's initializing
         // hook (Signum calls TypeLogic.Start first). Nothing type-id-related is deferred to complete().
+
+        // Signum's `Schema.SchemaCompleted` — every table is now included, so a module that needs the WHOLE
+        // schema (altea-cache: which tables a cached one depends on) can finish wiring. Still NO database
+        // access here; that belongs in `initializing`.
+        this.schema.onSchemaCompleted();
     }
 
     private completeTable(table: Table, type: Type<Entity>): void {

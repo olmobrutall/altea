@@ -1,0 +1,9 @@
+{
+  // CLIENT layer — React UI; references DATA only (local + altea + altea-auth), never server.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" }
+  ]
+}

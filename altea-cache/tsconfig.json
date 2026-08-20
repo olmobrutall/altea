@@ -1,0 +1,10 @@
+{
+  // Solution file — builds the three suffix/directory-driven layers (`tspc -b`). Mirrors altea-profiler.
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "./tsconfig.server.json" },
+    { "path": "./tsconfig.client.json" },
+    { "path": "./tsconfig.test.json" }
+  ]
+}

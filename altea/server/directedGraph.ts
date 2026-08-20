@@ -118,6 +118,30 @@ export class DirectedGraph<T> {
         return this.adjacency.get(node) ?? new Set<T>();
     }
 
+    /**
+     * Every node reachable from `node` by following edges (Signum's `IndirectlyRelatedTo`), optionally
+     * including `node` itself. A breadth-first walk with a visited set, so a cycle terminates. Used by
+     * altea-cache: "load everything this type depends on" / "invalidate everything that depends on it".
+     */
+    indirectlyRelatedTo(node: T, includeInitialNode = false): Set<T> {
+        const result = new Set<T>();
+        const pending: T[] = [...this.tryRelatedTo(node)];
+        while (pending.length > 0) {
+            const current = pending.pop()!;
+            if (result.has(current))
+                continue;
+            result.add(current);
+            for (const next of this.tryRelatedTo(current))
+                if (!result.has(next))
+                    pending.push(next);
+        }
+        if (includeInitialNode)
+            result.add(node);
+        else
+            result.delete(node);
+        return result;
+    }
+
     removeEdge(from: T, to: T): boolean {
         const set = this.adjacency.get(from);
         if (set == null) return false;

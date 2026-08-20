@@ -121,7 +121,9 @@ function encodeCopyText(value: unknown): string {
 export class PostgresConnector extends Connector {
     private pool: Pool | undefined;
 
-    constructor(schema: Schema, private readonly config: PoolConfig | string) {
+    // `config` is PUBLIC (Signum: `Connector.CreateConnection()`): altea-cache's PostgresBroadcast needs its
+    // OWN long-lived connection for LISTEN/NOTIFY, which must not come from the pool (it is never returned).
+    constructor(schema: Schema, readonly config: PoolConfig | string) {
         super(schema, /* isPostgres */ true, /* maxNameLength */ 63);
     }
 

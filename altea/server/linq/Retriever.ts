@@ -3,6 +3,7 @@ import { Entity, type PrimaryKey, BaseEntity, type Type, View, type ViewType } f
 import { Lite, LiteImp } from "../../data/lite";
 import { TypeLogic } from "../typeLogic";
 import { Connector } from "../connection/connector";
+import { getCacheController } from "../cache";
 
 // Post-retrieve authorization seam (Signum's `EntityEventsGlobal.Retrieved`). Each gate gets the full set
 // of freshly-materialised entities AFTER a query completes and may `throw` (e.g. UnauthorizedAccessException)
@@ -139,8 +140,23 @@ export class Retriever {
                 continue;
             }
             const ctor = best.ctor;
-            const ids = [...best.ids.values()].map(e => (e as any).id as PrimaryKey);
+            const stubs = [...best.ids.values()];
+            const ids = stubs.map(e => (e as any).id as PrimaryKey);
             this.requests.delete(ctor.name);
+
+            // Signum's RealRetriever.Complete: a CACHED type is filled from memory instead of a
+            // `WHERE id IN (…)` round-trip. `EntityCompleter` already left these references as id-only
+            // stubs precisely because the cache can complete them (see server/cache.ts). Completing marks
+            // each stub populated, so the loop drains exactly as the SQL path does — and a reference the
+            // cached row itself carries is stubbed in turn (possibly of a NON-cached type), which the next
+            // iteration loads from the database.
+            const cc = await getCacheController(ctor);
+            if (cc != null) {
+                for (const stub of stubs)
+                    this.entity(ctor, (stub as any).id as PrimaryKey, e => cc.complete(e, this));
+                continue;
+            }
+
             await Retriever.retrieveListImpl(ctor, ids, this);
         }
     }

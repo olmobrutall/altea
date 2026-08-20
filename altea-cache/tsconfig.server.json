@@ -1,0 +1,9 @@
+{
+  // SERVER layer — node-only; references local DATA + altea/altea-auth server layers.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" }
+  ]
+}

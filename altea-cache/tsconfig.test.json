@@ -1,0 +1,23 @@
+{
+  // TEST layer — node-only test files + their fixture model, INSIDE the package they test (so a module's
+  // tests live and move with it). Compiled by the same `tspc -b`, into the same dist/ (as dist/test/**),
+  // and it references every layer it exercises: the fixtures are DATA, the suites drive SERVER.
+  //
+  // Its files are excluded from the three shipping presets (see presets/*.json), so a fixture named
+  // `*.data.ts` or a `.tsx` test can never leak into the package's published layers.
+  "extends": "../altea/presets/server.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
+    "types": ["node"]
+  },
+  "include": ["${configDir}/test/**/*"],
+  "exclude": [],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "./tsconfig.server.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.server.json" }
+  ]
+}

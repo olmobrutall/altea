@@ -8,7 +8,7 @@ import { Entity, type PrimaryKey, type Type } from "../data/entity";
 import { Lite } from "../data/lite";
 import { getCacheController } from "./cache";
 import { EntityNotFoundException } from "./exceptions";
-import { retrieveEntitiesByIds, table } from "./table";
+import { retrieveEntitiesByIds, retrieveEntitiesFromCache, table } from "./table";
 import { HeavyProfiler } from "./profiler/heavyProfiler";
 import "../data/globals"; // Array.prototype.contains (SQL-mappable in the delete filter)
 
@@ -32,11 +32,10 @@ export async function retrieveList<T extends Entity>(type: Type<T>, ids: Primary
 
     const cc = await getCacheController(type);
     if (cc != null) {
-        for (const id of distinct) {
-            const e = cc.getEntity(id) as T | null;
-            if (e != null)
-                byId.set(id, e);
-        }
+        // Served from memory (Signum's Database.Retrieve under a cache controller). The materialisation
+        // itself lives in table.ts — see retrieveEntitiesFromCache for what it guarantees and why it is there.
+        for (const e of await retrieveEntitiesFromCache(type, distinct, cc))
+            byId.set(e.id, e);
     } else {
         for (let i = 0; i < distinct.length; i += MAX_IN_PARAMETERS) {
             const chunk = distinct.slice(i, i + MAX_IN_PARAMETERS);

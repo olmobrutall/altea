@@ -436,6 +436,18 @@ export class Transaction {
         return getCurrentCore().userData;
     }
 
+    // Signum's `Transaction.TopParentUserData()` — the bag of the OUTERMOST transaction in the stack.
+    // `userData()` already reaches the real transaction through a nested Faked/Named node, but a
+    // `forceNew` opens an independent real transaction with its OWN bag, so state that must span the
+    // whole logical unit of work (altea-cache's set of types disabled for the rest of the request) has
+    // to climb to the top parent.
+    static topParentUserData(): TransactionUserData {
+        let core = getCurrentCore();
+        while (core.parent != null)
+            core = core.parent;
+        return core.userData;
+    }
+
     // Runs just before the real COMMIT (may execute statements on the transaction).
     static preRealCommit(handler: CommitHandler): void {
         getCurrentCore().addPreRealCommit(handler);

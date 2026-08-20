@@ -29,10 +29,16 @@ export class ResetLazy<T> implements IResetLazy {
     // when the load settles (or on `reset()`), guarded so a stale load can't populate a reset box.
     private loading: Promise<T> | undefined;
 
-    // Lightweight stats (Signum's Loads/Hits/Invalidations), handy when profiling caches.
+    // Lightweight stats (Signum's Loads/Hits/Invalidations/SumLoadTime), handy when profiling caches —
+    // and what altea-cache's statistics panel shows per global lazy. `sumLoadTime` is milliseconds.
     loads = 0;
     hits = 0;
     invalidations = 0;
+    sumLoadTime = 0;
+
+    // Signum's `ResetLazyStats.Type` — a label for the statistics panel (the cached type's name, or
+    // whatever the registrar passes). Purely descriptive.
+    name?: string;
 
     constructor(private readonly valueFactory: () => Promise<T>) { }
 
@@ -49,8 +55,9 @@ export class ResetLazy<T> implements IResetLazy {
         if (this.loading != null)
             return this.loading;
         this.loads++;
+        const start = performance.now();
         const p: Promise<T> = this.valueFactory().then(
-            v => { if (this.loading === p) { this.box = { value: v }; this.loading = undefined; } return v; },
+            v => { if (this.loading === p) { this.box = { value: v }; this.loading = undefined; this.sumLoadTime += performance.now() - start; } return v; },
             err => { if (this.loading === p) this.loading = undefined; throw err; },
         );
         this.loading = p;
@@ -68,6 +75,15 @@ export class ResetLazy<T> implements IResetLazy {
     // Force the value to be computed now (Signum's Load()).
     load(): Promise<void> {
         return this.value().then(() => undefined);
+    }
+
+    // Zero the statistics without touching the cached value (Signum's ResetAll(forceReset: true), which
+    // clears all four counters — the cache panel's "Clear" button).
+    resetStats(): void {
+        this.loads = 0;
+        this.hits = 0;
+        this.invalidations = 0;
+        this.sumLoadTime = 0;
     }
 
     // Install an already-known value synchronously, bypassing the (async) factory — so `valueOrUndefined`
