@@ -99,7 +99,9 @@ function resolveQueryName(queryKey: string): QueryName {
     return qn;
 }
 
-function parseQueryRequest(wire: WireQueryRequest): QueryRequest {
+/** The wire → engine translation, Signum's `QueryRequestTS.ToQueryRequest`: exported because every module
+ *  that takes a query request over HTTP needs it (Signum.Excel's controller is the first). */
+export function parseQueryRequest(wire: WireQueryRequest): QueryRequest {
     const queryName = resolveQueryName(wire.queryKey);
     const opt = SubTokensOptionsAll;
     const token = (s: string): QueryToken => QueryLogic.getToken(queryName, s, opt);

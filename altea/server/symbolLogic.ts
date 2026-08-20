@@ -10,8 +10,9 @@ import { Connector } from "./connection/connector";
 import { SqlPreCommand, Spacing } from "./sync/sqlPreCommand";
 import { Synchronizer, Replacements } from "./sync/synchronizer";
 import { insertSqlSyncGenerated, updateSqlSync, deleteSqlSync, copyRowFields } from "./save";
-import { existsTable } from "./sync/syncTableRead";
 import { Administrator } from "./Administrator";
+import { ExecutionMode } from "./executionMode";
+import { table as tableQuery } from "./table";
 
 // Port of Signum's SymbolLogic<T> (Signum/Basics/SymbolLogic.cs).
 //
@@ -32,12 +33,12 @@ import { Administrator } from "./Administrator";
 // Signum bits intentionally deferred: the `Saved` guard (forbid saving a symbol) and `Retrieved`/FieldInfo
 // attachment need entity events altea does not have yet.
 
-interface SymbolTypeLogic {
-    ctor: Type<Symbol>;
-    getSymbols: () => Symbol[];
+interface SymbolTypeLogic<T extends Symbol> {
+    ctor: Type<T>;
+    getSymbols: () => T[];
     // Signum's `lazy` cache: key -> symbol (its id read back from the DB). Behind a ResetLazy, loaded from
     // the persisted rows (or empty before generation), reset + reloaded by `load()` after gen/sync.
-    lazy: ResetLazy<Map<string, Symbol>>;
+    lazy: ResetLazy<Map<string, T>>;
 }
 
 // One entry per concrete Symbol type — the analogue of Signum's per-closed-T static fields. Module-global
@@ -45,7 +46,7 @@ interface SymbolTypeLogic {
 // the shared symbol instances are process-global, so a single entry per ctor serves the process (as the
 // deterministic scheme did — and a single DB per process is the norm; the offline dialect tests seed
 // consistently).
-const byCtor = new Map<Function, SymbolTypeLogic>();
+const byCtor = new Map<Type<Symbol>, SymbolTypeLogic<Symbol>>();
 
 // Per-schema idempotency (Signum's per-schema AlreadyDefined): altea builds several schemas per process
 // (e.g. one per dialect in the offline tests), each of which must still include the table and push its own
@@ -77,10 +78,10 @@ export namespace SymbolLogic {
         sb.include(ctor);
 
         if (!byCtor.has(ctor)) {
-            const stl: SymbolTypeLogic = {
+            const stl: SymbolTypeLogic<T> = {
                 ctor,
-                getSymbols: getSymbols as () => Symbol[],
-                lazy: new ResetLazy<Map<string, Symbol>>(() => buildCache(ctor)),
+                getSymbols: getSymbols,
+                lazy: new ResetLazy<Map<string, T>>(() => buildCache(ctor)),
             };
             byCtor.set(ctor, stl);
         }
@@ -127,16 +128,16 @@ export namespace SymbolLogic {
     }
 }
 
-function assertStarted(ctor: Function): SymbolTypeLogic {
+function assertStarted<T extends Symbol>(ctor: Type<T>): SymbolTypeLogic<T> {
     const stl = byCtor.get(ctor);
     if (stl == null)
         throw new Error(`SymbolLogic has not been started for ${ctor.name}. Call SymbolLogic.start(sb, ${ctor.name}) first.`);
-    return stl;
+    return stl as SymbolTypeLogic<T>;
 }
 
 // The warmed key→symbol cache, or THROW (Signum's lazy.Value; TypeLogic.caches does the same). Never
 // fabricates ids — the async load (schema.initialize()'s SymbolLogic.load) must have completed.
-function cache(ctor: Function): Map<string, Symbol> {
+function cache<T extends Symbol>(ctor: Type<T>): Map<string, T> {
     const stl = assertStarted(ctor);
     const c = stl.lazy.valueOrUndefined;
     if (c == null)
@@ -149,10 +150,10 @@ function cache(ctor: Function): Map<string, Symbol> {
 // join); a declared symbol with no row yet has no id until the next sync inserts it and load() re-reads.
 // EMPTY before generation. Runs in ExecutionMode.global so altea-auth's type-read gate never fires on the
 // symbol-table read.
-async function buildCache(ctor: Type<Symbol>): Promise<Map<string, Symbol>> {
+async function buildCache<T extends Symbol>(ctor: Type<T>): Promise<Map<string, T>> {
     loading = true;
     try {
-        const byKey = new Map<string, Symbol>();
+        const byKey = new Map<string, T>();
         const rows = await readSymbolRows(ctor);
 
         // EMPTY rows (a fresh database before generation) report nothing — there is nothing to compare yet.
@@ -171,7 +172,7 @@ async function buildCache(ctor: Type<Symbol>): Promise<Map<string, Symbol>> {
         )) {
             (sym as { id: PrimaryKey }).id = row.id;
             sym.isNew = false;
-            byKey.set(row.key, sym);
+            byKey.set(row.key, sym as T);
         }
 
         return byKey;
@@ -180,26 +181,32 @@ async function buildCache(ctor: Type<Symbol>): Promise<Map<string, Symbol>> {
     }
 }
 
-// Read (id, key) for every persisted row via a RAW SELECT (not the ORM) — no projector/type-cache
-// dependency, and it bypasses the Retriever, so altea-auth's type-read gate never fires on this internal
-// read. EMPTY when the table doesn't exist yet (fresh DB before generation, or an offline / fake connector):
-// generation seeds from the declared set (not the cache), and a later load() fills the ids once populated.
-async function readSymbolRows(ctor: Type<Symbol>): Promise<{ key: string; id: PrimaryKey }[]> {
-    const connector = Connector.current();
-    const table = connector.schema.tryTable(ctor);
+// Read every persisted row through an ORDINARY LINQ query — the way every other seeded-table read in altea
+// works (Administrator.tryRetrieveAll, used by the synchronizer below): no hand-written SELECT, no manual
+// column mapping, so a renamed column or a changed PK type needs no second implementation here. The rows
+// come back as real (fresh) entities; only their `key` / `id` are used — the CACHED symbols are always the
+// declared `init()` singletons, which buildCache stamps.
+//
+// This is a LOAD, not a sync, so there is no rename scope in flight and no Replacements to thread: the read
+// goes straight to `table(T).toArray()`. It runs in ExecutionMode.global, which is what keeps altea-auth's
+// type-read gate from firing on this internal read (the gate skips global mode).
+//
+// EMPTY when the table doesn't exist yet (fresh DB before generation, or an offline / fake connector that
+// cannot answer): generation seeds from the DECLARED set rather than the cache, and a later load() fills the
+// ids in once the rows are there.
+async function readSymbolRows(type: Type<Symbol>): Promise<Symbol[]> {
+    const table = Connector.current().schema.tryTable(type as unknown as Type<Entity>);
     if (table == null)
         return [];
-    let exists = false;
-    try { exists = await existsTable(table.name); } catch { return []; }
-    if (!exists)
+
+    try {
+        if (!await Administrator.existsTable(table))
+            return [];
+    } catch {
         return [];
-    const sqlBuilder = connector.sqlBuilder;
-    const keyCol = table.fields["key"].field.columns()[0].name;
-    const pkCol = table.primaryKey.column.name;
-    const rows = await connector.executeQuery(
-        `SELECT ${sqlBuilder.sqlEscape(pkCol)}, ${sqlBuilder.sqlEscape(keyCol)} FROM ${sqlBuilder.objectName(table.name)}`,
-    ) as Record<string, unknown>[];
-    return rows.map(r => ({ key: String(r[keyCol]), id: r[pkCol] as PrimaryKey }));
+    }
+
+    return await ExecutionMode.global(() => tableQuery(type as unknown as Type<Entity>).toArray()) as Symbol[];
 }
 
 // Generation (Signum's SymbolLogic<T>.Schema_Generating): INSERT one row per DECLARED symbol WITHOUT an id
@@ -251,13 +258,13 @@ async function synchronizeSymbols(replacements: Replacements, ctor: Type<Symbol>
         Spacing.Double,
         should,
         current,
-        (_k, s) => insertSqlSyncGenerated(table, s as Entity), // new symbol: no id, DB assigns
-        (_k, c) => deleteSqlSync(table, c as Entity),
+        (_k, s) => insertSqlSyncGenerated(table, s), // new symbol: no id, DB assigns
+        (_k, c) => deleteSqlSync(table, c),
         (_k, s, c) => {
             // Matched by key (possibly through a RENAME): copy the DECLARED values onto the RETRIEVED row —
             // which KEEPS its persisted id, an FK target across the database, never re-assigned — and let
             // updateSqlSync decide: it returns undefined unless the row actually drifted.
-            copyRowFields(c as Entity, s as Entity);
+            copyRowFields(c, s);
             return updateSqlSync(table, c as Entity);
         },
     );

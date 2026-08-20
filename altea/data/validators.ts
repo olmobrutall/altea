@@ -12,6 +12,7 @@ export const ValidationMessage = {
     _0DoesNotHaveAValid1Format: msg(),
     _0HasSomeRepeatedElements1: msg("{0} has some repeated elements: {1}"),
     _0IsNotSet: msg("{0} is not set"),
+    _0ShouldBeNull: msg("{0} should be null"),
     NumberIsTooSmall: msg("Number is too small"),
     NumberIsTooBig: msg("Number is too big"),
     EachRowRepresentsAGroupOf0WithSame1: msg("Each row represents a group of {0} with same {1}"),

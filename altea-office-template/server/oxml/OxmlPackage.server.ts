@@ -33,6 +33,7 @@ export const RelationshipTypes = {
     oleObject: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject",
     worksheet: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet",
     sharedStrings: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings",
+    styles: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles",
     comments: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments",
     vmlDrawing: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing",
     header: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/header",

@@ -293,6 +293,30 @@ export namespace PropertyAuthLogic {
         return (await rulesLazy.value()).getAllowedBase(typeId, path, roleKey);
     }
 
+    /**
+     * Signum's `PropertyRoute.CanBeAllowedFor(requested)` — could the CURRENT role reach `requested` on this
+     * route under AT LEAST ONE type-condition slice? null when it could, else the reason.
+     *
+     * "Could" (the max over slices), not "does": the caller is validating a PLAN — the Excel importer asks
+     * this of every column before reading a single row — and the per-instance decision is made later, by the
+     * serializer / save gate, once there is a row to evaluate the conditions against.
+     */
+    export async function canBeAllowedFor(typeName: string, path: string, requested: PropertyAllowed): Promise<string | null> {
+        const roleKey = AuthLogic.currentRoleKey();
+        if (roleKey == null || !AuthLogic.isEnabled())
+            return null;
+
+        let typeId: PrimaryKey;
+        try { typeId = TypeLogic.typeToId(Entity.resolveType(typeName)); } catch { return null; }
+
+        const wc = await getAllowed(typeId, path, roleKey);
+        const max = Math.max(wc.fallback, ...wc.conditionRules.map(cr => cr.allowed)) as PropertyAllowed;
+        if (max >= requested)
+            return null;
+
+        return `Property ${typeName}.${path} is set to ${PropertyAllowed[max]} for ${roleKey}`;
+    }
+
     const symbolLite = (s: TypeConditionSymbol): Lite<TypeConditionSymbol> => TypeConditionSymbol.newLite(s.id, s.key);
 
     /** Min/max access RANK (0 None, 1 Read, 2 Write) over ALL property routes' fallback allowance — the

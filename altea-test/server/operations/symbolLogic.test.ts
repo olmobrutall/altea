@@ -7,6 +7,7 @@ import { OperationSymbol } from "@altea/altea/data/operations";
 import { declaredSymbolsForType } from "@altea/altea/data/registration";
 import { Replacements } from "@altea/altea/server/sync/synchronizer";
 import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
+import { seedTypeCachesForTest } from "../seedTypeCaches";
 import "../../data/music"; // declares the ArtistOperation.* symbols via init()
 
 // Phase 2 — SymbolLogic. Offline (no DB): build a schema that includes OperationSymbol
@@ -17,7 +18,11 @@ import "../../data/music"; // declares the ArtistOperation.* symbols via init()
 // synchronous readers (symbols/toSymbol/…) need the cache WARMED first. Offline, we warm
 // it from canned rows keyed by (pk, key): the fake answers the existsTable probe with a
 // non-null row so load() proceeds, then returns the canned symbol rows for the read-back
-// SELECT. Every other query (retrieveRows during sync) also gets the canned rows.
+// query. Every other query (retrieveRows during sync) also gets the canned rows.
+//
+// The read-back is an ORDINARY LINQ query (SymbolLogic.readSymbolRows), so the binder wants the
+// TypeLogic caches warm — hence seedTypeCachesForTest below. Without it the binder would try to
+// load them from the fake and read the canned SYMBOL rows as TypeEntity rows.
 class FakeConnector extends Connector {
     constructor(schema: any, public rows: unknown[] = [], isPostgres = false) { super(schema, isPostgres, 128); }
     override executeQuery(sql?: string): Promise<unknown[]> {
@@ -41,6 +46,7 @@ const syncBefore = sb.schema.synchronizing.length;
 SymbolLogic.start(sb, OperationSymbol);
 const symbolSync = sb.schema.synchronizing[syncBefore];
 sb.complete();
+seedTypeCachesForTest(sb.schema); // offline: the read-back LINQ query needs a type↔id cache
 
 const table = sb.schema.table(OperationSymbol);
 const pkCol = table.primaryKey.column.name;

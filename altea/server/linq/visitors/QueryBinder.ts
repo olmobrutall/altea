@@ -714,22 +714,58 @@ export class QueryBinder extends ExpressionVisitor {
         // Owned child rows (FieldEntityArray, altea's analogue of Signum's MList
         // tables) must be deleted first to satisfy their back-reference FK — Signum's
         // BindDelete prepends a DeleteExpression per MList table.
-        for (const ef of Object.values(proj.table.fields)) {
-            if (ef.field instanceof FieldEntityArray && ef.field.cascade) {
-                const childTable = this.schema.table(ef.field.childType as any);
-                const backField = childTable.fields[ef.field.childFkProperty]?.field;
-                if (!(backField instanceof FieldReference))
-                    continue;
-                const backId = new ColumnExpression(LiteralType.number, this.aliasGenerator.table(childTable.name), backField.column.name);
-                const childWhere = new BinaryExpression("==", backId, this.unwrapPk(proj.externalId));
-                commands.push(new DeleteExpression(childTable, pr.select, childWhere, false, undefined));
-            }
-        }
+        //
+        // ALTEA DIVERGENCE: the cascade is RECURSIVE. Signum's MList row is an embedded, so an
+        // MList table can never own another one and one level always sufficed. An altea @part row
+        // is a full entity that MAY own its own @part collection (RuleTypeConditionEntity owns its
+        // `conditions` rows), so every level below the deleted row goes, deepest first.
+        this.cascadeOwnedDeletes(proj.table, pr.select, childBackId =>
+            new BinaryExpression("==", childBackId, this.unwrapPk(proj.externalId)), commands);
 
         const idCol = new ColumnExpression(LiteralType.number, this.aliasGenerator.table(proj.table.name), proj.table.primaryKey.column.name);
         const where = new BinaryExpression("==", idCol, this.unwrapPk(proj.externalId));
         commands.push(new DeleteExpression(proj.table, pr.select, where, true, undefined));
         return new CommandAggregateExpression(commands);
+    }
+
+    /** Append one DELETE per owned-child table of `table`, deepest level first (see bindDelete).
+     *  `rowsOf` builds the predicate that selects the child rows to delete from the child's
+     *  back-reference column; a grandchild narrows it to "back-reference IN (the child rows going
+     *  away)", a correlated sub-query over the same `source`. */
+    private cascadeOwnedDeletes(
+        table: Table,
+        source: SourceWithAliasExpression,
+        rowsOf: (childBackId: ColumnExpression) => Expression,
+        commands: CommandExpression[],
+    ): void {
+        for (const ef of Object.values(table.fields)) {
+            if (!(ef.field instanceof FieldEntityArray) || !ef.field.cascade)
+                continue;
+            const childTable = this.schema.table(ef.field.childType as any);
+            const backField = childTable.fields[ef.field.childFkProperty]?.field;
+            if (!(backField instanceof FieldReference))
+                continue;
+
+            const childAlias = this.aliasGenerator.table(childTable.name);
+            const backId = new ColumnExpression(LiteralType.number, childAlias, backField.column.name);
+            const childWhere = rowsOf(backId);
+
+            // Deeper rows first: `<grandchild>.backId IN (SELECT c.id FROM child AS c WHERE <c matches
+            // the rows going away>)`. The sub-query needs a REAL alias for the child table (the DELETE's
+            // own `childAlias` is the schema-qualified object name — legal as a column prefix on the
+            // delete target, not as an `AS`), so the predicate is rebuilt against it.
+            this.cascadeOwnedDeletes(childTable, source, grandChildBackId => {
+                const subAlias = this.aliasGenerator.nextTableAlias(childTable.name.name);
+                const subBackId = new ColumnExpression(LiteralType.number, subAlias, backField.column.name);
+                const subId = new ColumnExpression(LiteralType.number, subAlias, childTable.primaryKey.column.name);
+                const select = new SelectExpression(this.aliasGenerator.nextSelectAlias(),
+                    false, undefined, [new ColumnDeclaration("id", subId)],
+                    new TableExpression(subAlias, childTable, undefined, undefined), rowsOf(subBackId), [], []);
+                return new InExpression(grandChildBackId, select, undefined);
+            }, commands);
+
+            commands.push(new DeleteExpression(childTable, source, childWhere, false, undefined));
+        }
     }
 
     private bindUpdate(sourceExpr: Expression, partSelector: LambdaExpression | undefined, setter: LambdaExpression): CommandExpression {

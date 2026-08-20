@@ -23,11 +23,14 @@ export namespace ChartDashboardClient {
             waitForInvalidation: true,
         });
 
+        // No `waitForInvalidation` here — matching Signum (UserChartClient.start sets it on the single-chart
+        // part only). The flag makes DashboardFilterController.isLoading wait until the part has called
+        // registerInvalidations, and the combined view never does (it has no per-part refresh key), so
+        // claiming it would leave EVERY part of a dashboard containing one stuck on "Loading…".
         DashboardClient.registerRenderer(CombinedUserChartPartEntity, {
             component: () => import("./View/CombinedUserChartPart").then(a => a.default),
             icon: () => ({ icon: "layer-group", iconColor: "darkviolet" }),
             getQueryNames: e => (e.userCharts ?? []).map(uc => uc.userChart.query.key),
-            waitForInvalidation: true,
         });
     }
 }
