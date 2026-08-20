@@ -23,9 +23,19 @@ export namespace TemplatingClient {
         cb.configure(QueryModel).withView(() => import("./Templates/QueryModel"));
 
         cb.configure(ModelConverterSymbol)
-            .withQuerySettings(token => ({ defaultColumns: [token(s => s.id), token(s => s.key)] }));
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(s => s.id),
+                    token(s => s.key),
+                ],
+            }));
         cb.configure(TemplateApplicableSymbol)
-            .withQuerySettings(token => ({ defaultColumns: [token(s => s.id), token(s => s.key)] }));
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(s => s.id),
+                    token(s => s.key),
+                ],
+            }));
     }
 
     export namespace API {

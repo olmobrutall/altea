@@ -53,18 +53,39 @@ export namespace OfficeClient {
         cb.configure(OfficeTemplateEntity)
             .withView(() => import("./Templates/OfficeTemplate"))
             .withQuerySettings(token => ({
-                defaultColumns: [token(t => t.id), token(t => t.name), token(t => t.query), token(t => t.model),
-                token(t => t.culture), token(t => t.fileName)],
+                defaultColumns: [
+                    token(t => t.id),
+                    token(t => t.name),
+                    token(t => t.query),
+                    token(t => t.model),
+                    token(t => t.culture),
+                    token(t => t.fileName),
+                ],
             }));
 
         cb.configure(OfficeModelEntity)
-            .withQuerySettings(token => ({ defaultColumns: [token(m => m.id), token(m => m.fullClassName)] }));
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(m => m.id),
+                    token(m => m.fullClassName),
+                ],
+            }));
 
         cb.configure(OfficeTransformerSymbol)
-            .withQuerySettings(token => ({ defaultColumns: [token(s => s.id), token(s => s.key)] }));
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(s => s.id),
+                    token(s => s.key),
+                ],
+            }));
 
         cb.configure(OfficeConverterSymbol)
-            .withQuerySettings(token => ({ defaultColumns: [token(s => s.id), token(s => s.key)] }));
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(s => s.id),
+                    token(s => s.key),
+                ],
+            }));
 
         // The two built-in models Signum registers: "one report for a SET of entities" and "one report for
         // the RESULT of a query".

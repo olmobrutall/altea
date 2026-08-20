@@ -33,8 +33,14 @@ export namespace SchedulerClient {
         cb.configure(ScheduledTaskEntity)
             .withView(() => import("./Templates/ScheduledTask"))
             .withQuerySettings(token => ({
-                defaultColumns: [token(t => t.id), token(t => t.task), token(t => t.rule),
-                token(t => t.suspended), token(t => t.machineName), token(t => t.applicationName)],
+                defaultColumns: [
+                    token(t => t.id),
+                    token(t => t.task),
+                    token(t => t.rule),
+                    token(t => t.suspended),
+                    token(t => t.machineName),
+                    token(t => t.applicationName),
+                ],
             }));
 
         cb.configure(ScheduleRuleMinutelyEntity).withView(() => import("./Templates/ScheduleRuleMinutely"));
@@ -43,23 +49,43 @@ export namespace SchedulerClient {
         cb.configure(HolidayCalendarEntity)
             .withView(() => import("./Templates/HolidayCalendar"))
             .withQuerySettings(token => ({
-                defaultColumns: [token(c => c.id), token(c => c.name), token(c => c.isDefault)],
+                defaultColumns: [
+                    token(c => c.id),
+                    token(c => c.name),
+                    token(c => c.isDefault),
+                ],
             }));
 
         cb.configure(ScheduledTaskLogEntity)
             .withQuerySettings(token => ({
-                defaultColumns: [token(l => l.id), token(l => l.task), token(l => l.scheduledTask),
-                token(l => l.startTime), token(l => l.endTime), token(l => l.machineName),
-                token(l => l.user), token(l => l.exception)],
+                defaultColumns: [
+                    token(l => l.id),
+                    token(l => l.task),
+                    token(l => l.scheduledTask),
+                    token(l => l.startTime),
+                    token(l => l.endTime),
+                    token(l => l.machineName),
+                    token(l => l.user),
+                    token(l => l.exception),
+                ],
             }));
 
         cb.configure(SchedulerTaskExceptionLineEntity)
             .withQuerySettings(token => ({
-                defaultColumns: [token(l => l.id), token(l => l.exception), token(l => l.schedulerTaskLog)],
+                defaultColumns: [
+                    token(l => l.id),
+                    token(l => l.exception),
+                    token(l => l.schedulerTaskLog),
+                ],
             }));
 
         cb.configure(SimpleTaskSymbol)
-            .withQuerySettings(token => ({ defaultColumns: [token(t => t.id), token(t => t.key)] }));
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(t => t.id),
+                    token(t => t.key),
+                ],
+            }));
     }
 
     export namespace API {

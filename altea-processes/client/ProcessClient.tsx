@@ -26,27 +26,61 @@ export namespace ProcessClient {
         cb.configure(ProcessEntity)
             .withView(() => import("./Templates/Process"))
             .withQuerySettings(token => ({
-                defaultColumns: [token(p => p.id), token(p => p.algorithm), token(p => p.data),
-                token(p => p.state), token(p => p.machineName), token(p => p.creationDate),
-                token(p => p.executionStart), token(p => p.executionEnd), token(p => p.progress)],
+                defaultColumns: [
+                    token(p => p.id),
+                    token(p => p.algorithm),
+                    token(p => p.data),
+                    token(p => p.state),
+                    token(p => p.machineName),
+                    token(p => p.creationDate),
+                    token(p => p.executionStart),
+                    token(p => p.executionEnd),
+                    token(p => p.progress),
+                ],
             }));
 
         cb.configure(ProcessAlgorithmSymbol)
-            .withQuerySettings(token => ({ defaultColumns: [token(a => a.id), token(a => a.key)] }));
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(a => a.id),
+                    token(a => a.key),
+                ],
+            }));
 
         cb.configure(ProcessExceptionLineEntity)
             .withQuerySettings(token => ({
-                defaultColumns: [token(l => l.id), token(l => l.process), token(l => l.line), token(l => l.exception)],
+                defaultColumns: [
+                    token(l => l.id),
+                    token(l => l.process),
+                    token(l => l.line),
+                    token(l => l.exception),
+                ],
             }));
 
         cb.configure(PackageEntity)
-            .withQuerySettings(token => ({ defaultColumns: [token(p => p.id), token(p => p.name)] }));
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(p => p.id),
+                    token(p => p.name),
+                ],
+            }));
         cb.configure(PackageOperationEntity)
-            .withQuerySettings(token => ({ defaultColumns: [token(p => p.id), token(p => p.operation), token(p => p.name)] }));
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(p => p.id),
+                    token(p => p.operation),
+                    token(p => p.name),
+                ],
+            }));
         cb.configure(PackageLineEntity)
             .withQuerySettings(token => ({
-                defaultColumns: [token(l => l.id), token(l => l.package), token(l => l.target),
-                token(l => l.result), token(l => l.finishTime)],
+                defaultColumns: [
+                    token(l => l.id),
+                    token(l => l.package),
+                    token(l => l.target),
+                    token(l => l.result),
+                    token(l => l.finishTime),
+                ],
             }));
     }
 

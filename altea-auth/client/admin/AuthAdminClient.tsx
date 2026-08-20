@@ -39,13 +39,23 @@ export namespace AuthAdminClient {
         cb.configure(UserEntity)
             .withView(() => import("./User"))
             .withQuerySettings(token => ({
-                defaultColumns: [token(a => a.id), token(a => a.userName), token(a => a.email), token(a => a.role), token(a => a.state)],
+                defaultColumns: [
+                    token(a => a.id),
+                    token(a => a.userName),
+                    token(a => a.email),
+                    token(a => a.role),
+                    token(a => a.state),
+                ],
             }));
 
         cb.configure(RoleEntity)
             .withView(() => import("./Role"))
             .withQuerySettings(token => ({
-                defaultColumns: [token(a => a.id), token(a => a.name), token(a => a.description)],
+                defaultColumns: [
+                    token(a => a.id),
+                    token(a => a.name),
+                    token(a => a.description),
+                ],
                 // Signum's AuthAdminClient RoleEntity extraButtons: a "Download AuthRules" button on the Role
                 // search control (exports every dimension's rules to AuthRules.xml). Signum gates it on the
                 // AdminRules client permission; altea has no client permission primitive yet (deferred), so it

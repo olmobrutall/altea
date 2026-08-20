@@ -67,30 +67,56 @@ export namespace MailingClient {
         cb.configure(EmailMessageEntity)
             .withView(() => import("./Templates/EmailMessage"))
             .withQuerySettings(token => ({
-                defaultColumns: [token(e => e.id), token(e => e.state), token(e => e.subject), token(e => e.template),
-                token(e => e.sent), token(e => e.target), token(e => e.sentBy), token(e => e.exception)],
+                defaultColumns: [
+                    token(e => e.id),
+                    token(e => e.state),
+                    token(e => e.subject),
+                    token(e => e.template),
+                    token(e => e.sent),
+                    token(e => e.target),
+                    token(e => e.sentBy),
+                    token(e => e.exception),
+                ],
             }));
 
         cb.configure(EmailTemplateEntity)
             .withView(() => import("./Templates/EmailTemplate"))
             .withQuerySettings(token => ({
-                defaultColumns: [token(t => t.id), token(t => t.name), token(t => t.query), token(t => t.model)],
+                defaultColumns: [
+                    token(t => t.id),
+                    token(t => t.name),
+                    token(t => t.query),
+                    token(t => t.model),
+                ],
             }));
 
         cb.configure(EmailMasterTemplateEntity)
             .withView(() => import("./Templates/EmailMasterTemplate"))
             .withQuerySettings(token => ({
-                defaultColumns: [token(t => t.id), token(t => t.name), token(t => t.isDefault)],
+                defaultColumns: [
+                    token(t => t.id),
+                    token(t => t.name),
+                    token(t => t.isDefault),
+                ],
             }));
 
         cb.configure(EmailSenderConfigurationEntity)
             .withView(() => import("./Templates/EmailSenderConfiguration"))
             .withQuerySettings(token => ({
-                defaultColumns: [token(s => s.id), token(s => s.name), token(s => s.service)],
+                defaultColumns: [
+                    token(s => s.id),
+                    token(s => s.name),
+                    token(s => s.service),
+                ],
             }));
 
         cb.configure(EmailModelEntity)
-            .withQuerySettings(token => ({ defaultColumns: [token(m => m.id), token(m => m.fullClassName)] }));
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(m => m.id),
+                    token(m => m.fullClassName),
+                ],
+            }));
 
         cb.configure(ImageAttachmentEntity).withView(() => import("./Templates/ImageAttachment"));
         cb.configure(FileTokenAttachmentEntity).withView(() => import("./Templates/FileTokenAttachment"));
