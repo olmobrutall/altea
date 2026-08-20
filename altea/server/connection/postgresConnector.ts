@@ -99,12 +99,19 @@ class PostgresConnectionHandle implements ConnectionHandle {
 }
 
 // Encodes one value for a COPY text stream: \N for null, 't'/'f' for booleans, ISO for
-// Dates, and backslash/tab/newline/CR escaped for text. Everything else is stringified
-// (numbers, and the strings normalizeScalar already produced for Temporal/Decimal).
+// Dates, bytea's hex input syntax for binary, and backslash/tab/newline/CR escaped for
+// text. Everything else is stringified (numbers, and the strings normalizeScalar already
+// produced for Temporal/Decimal).
 function encodeCopyText(value: unknown): string {
     if (value == null) return '\\N';
     if (value === true) return 't';
     if (value === false) return 'f';
+    // A Blob column (bytea). `String(bytes)` would decode the buffer as text — sending the raw
+    // bytes, NULs included, so Postgres aborts the whole COPY with "invalid byte sequence for
+    // encoding UTF8: 0x00". bytea's own input syntax is hex (`\x48656c6c6f`), and COPY's text
+    // format needs that leading backslash escaped, hence `\\x…`.
+    if (value instanceof Uint8Array)
+        return '\\\\x' + Buffer.from(value.buffer, value.byteOffset, value.byteLength).toString('hex');
     const s = value instanceof Date ? value.toISOString() : String(value);
     return s.replace(/\\/g, '\\\\').replace(/\t/g, '\\t').replace(/\n/g, '\\n').replace(/\r/g, '\\r');
 }

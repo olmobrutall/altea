@@ -11,8 +11,7 @@ import { SqlPreCommand, Spacing } from "./sync/sqlPreCommand";
 import { Synchronizer, Replacements } from "./sync/synchronizer";
 import { insertSqlSyncGenerated, updateSqlSync, deleteSqlSync, copyRowFields } from "./save";
 import { Administrator } from "./Administrator";
-import { ExecutionMode } from "./executionMode";
-import { table as tableQuery } from "./table";
+import { table } from "./table";
 
 // Port of Signum's SymbolLogic<T> (Signum/Basics/SymbolLogic.cs).
 //
@@ -154,7 +153,7 @@ async function buildCache<T extends Symbol>(ctor: Type<T>): Promise<Map<string, 
     loading = true;
     try {
         const byKey = new Map<string, T>();
-        const rows = await readSymbolRows(ctor);
+        const rows = await table(ctor).toArray();
 
         // EMPTY rows (a fresh database before generation) report nothing — there is nothing to compare yet.
         if (rows.length === 0)
@@ -181,33 +180,7 @@ async function buildCache<T extends Symbol>(ctor: Type<T>): Promise<Map<string, 
     }
 }
 
-// Read every persisted row through an ORDINARY LINQ query — the way every other seeded-table read in altea
-// works (Administrator.tryRetrieveAll, used by the synchronizer below): no hand-written SELECT, no manual
-// column mapping, so a renamed column or a changed PK type needs no second implementation here. The rows
-// come back as real (fresh) entities; only their `key` / `id` are used — the CACHED symbols are always the
-// declared `init()` singletons, which buildCache stamps.
-//
-// This is a LOAD, not a sync, so there is no rename scope in flight and no Replacements to thread: the read
-// goes straight to `table(T).toArray()`. It runs in ExecutionMode.global, which is what keeps altea-auth's
-// type-read gate from firing on this internal read (the gate skips global mode).
-//
-// EMPTY when the table doesn't exist yet (fresh DB before generation, or an offline / fake connector that
-// cannot answer): generation seeds from the DECLARED set rather than the cache, and a later load() fills the
-// ids in once the rows are there.
-async function readSymbolRows(type: Type<Symbol>): Promise<Symbol[]> {
-    const table = Connector.current().schema.tryTable(type as unknown as Type<Entity>);
-    if (table == null)
-        return [];
 
-    try {
-        if (!await Administrator.existsTable(table))
-            return [];
-    } catch {
-        return [];
-    }
-
-    return await ExecutionMode.global(() => tableQuery(type as unknown as Type<Entity>).toArray()) as Symbol[];
-}
 
 // Generation (Signum's SymbolLogic<T>.Schema_Generating): INSERT one row per DECLARED symbol WITHOUT an id
 // (the IDENTITY PK is DB-assigned — insertSqlSyncGenerated omits it), in a deterministic sorted-by-key
