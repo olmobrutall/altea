@@ -1,10 +1,12 @@
 {
-  // Solution file — builds the three layers (`tspc -b`). Source stays organised in data/ client/ server/
-  // directories; layer membership is by directory OR filename suffix (both accepted). One shared dist/.
+  // Solution file — builds the three shipping layers + the TEST layer (`tspc -b`). Source stays organised
+  // in data/ client/ server/ directories; layer membership is by directory OR filename suffix (both
+  // accepted). The suites live in test/ (see tsconfig.test.json). One shared dist/.
   "files": [],
   "references": [
     { "path": "./tsconfig.data.json" },
     { "path": "./tsconfig.server.json" },
-    { "path": "./tsconfig.client.json" }
+    { "path": "./tsconfig.client.json" },
+    { "path": "./tsconfig.test.json" }
   ]
 }

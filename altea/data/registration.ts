@@ -10,7 +10,7 @@
 // passes it as the last argument to the register* calls; nothing imports this
 // type at runtime, it only describes the literal's shape.
 export interface FileInfo {
-    packageName: string; // owning npm package name, e.g. "@altea/altea-test"
+    packageName: string; // owning npm package name, e.g. "@altea/altea-cache"
     fileName: string;    // path relative to that package, e.g. "entities/music.ts"
 }
 

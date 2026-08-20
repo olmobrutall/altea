@@ -15,5 +15,5 @@
     "types": ["node"]
   },
   "include": ["${configDir}/server/**/*", "${configDir}/**/*.server.ts"],
-  "exclude": ["${configDir}/data/**", "${configDir}/client/**", "${configDir}/terminal/**"]
+  "exclude": ["${configDir}/data/**", "${configDir}/client/**", "${configDir}/terminal/**", "${configDir}/test/**"]
 }

@@ -22,7 +22,7 @@ export interface SqlLogger {
 
 // Writes each statement to the integrated terminal as a SQL comment block — the
 // altea analog of Signum's DebugTextWriter. Used by the tests when debugging a
-// single file (see altea-test/test/setup.ts).
+// single file (see altea/test/server/setup.ts).
 export class ConsoleSqlLogger implements SqlLogger {
     log(sql: string, parameters: unknown[], elapsedMs: number): void {
         const params = parameters.length ? `\n-- params: ${JSON.stringify(parameters)}` : "";

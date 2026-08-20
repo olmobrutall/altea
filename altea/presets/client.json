@@ -20,5 +20,5 @@
     "${configDir}/**/*.tsx",
     "${configDir}/*.d.ts"
   ],
-  "exclude": ["${configDir}/data/**", "${configDir}/server/**", "${configDir}/terminal/**"]
+  "exclude": ["${configDir}/data/**", "${configDir}/server/**", "${configDir}/terminal/**", "${configDir}/test/**"]
 }

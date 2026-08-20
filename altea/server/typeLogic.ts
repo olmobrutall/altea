@@ -129,11 +129,11 @@ export class TypeLogic {
     // save discriminator write, the auth logics, etc.) — the async-loaded box, or THROW if it hasn't been
     // loaded yet. Production always has it warm: `initialize()` → `load()` runs before any query or save.
     // No deterministic bootstrap is invented here — an id that isn't the real DB-assigned one is never
-    // fabricated (offline SQL-comparison tests seed a cache explicitly — see altea-test's seedTypeCachesForTest).
+    // fabricated (offline SQL-comparison tests seed a cache explicitly — see the test layer's seedTypeCachesForTest).
     private static get caches(): TypeCaches {
         const c = this.schema.typeCaches.valueOrUndefined;
         if (c == null)
-            throw new Error("TypeLogic caches are not loaded — type↔id resolution needs the async load (TypeLogic.load(), run by schema.initialize()) to have completed. Offline binders must seed the caches first (altea-test's seedTypeCachesForTest).");
+            throw new Error("TypeLogic caches are not loaded — type↔id resolution needs the async load (TypeLogic.load(), run by schema.initialize()) to have completed. Offline binders must seed the caches first (the test layer's seedTypeCachesForTest).");
         return c;
     }
 

@@ -1,9 +1,0 @@
-{
-  // Solution file — two tiers: data (the tiny sample model, DB-free) and server (the DB-backed
-  // authorization tests + the harness). Mirrors altea-test's shared-root layout. `tspc -b`.
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.data.json" },
-    { "path": "./tsconfig.server.json" }
-  ]
-}

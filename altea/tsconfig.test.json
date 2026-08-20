@@ -1,0 +1,24 @@
+{
+  // TEST layer — the suites and their fixture model, INSIDE the package they test, so a module's tests
+  // live and move with it (was the separate `@altea/altea-test` package). Built by the same `tspc -b`,
+  // into the same dist/ (as dist/test/**).
+  //
+  // ONE project for every kind of test, unlike the three shipping layers: a test HOST is not shipped code,
+  // so it gets node types AND the DOM lib — the DB-backed engine suites need the former, the handful of
+  // client-API suites the latter. The layer discipline is still enforced where it matters, on the code
+  // being tested: `test/**` is excluded from all three shipping presets, so nothing here can leak into
+  // data/, client/ or server/.
+  "extends": "./presets/server.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
+    "types": ["node"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
+  },
+  "include": ["${configDir}/test/**/*"],
+  "exclude": [],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "./tsconfig.server.json" },
+    { "path": "./tsconfig.client.json" }
+  ]
+}

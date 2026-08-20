@@ -1,7 +1,0 @@
-{
-  // DATA tier — Music model + entity-API tests (DB-free). `types: [node]` is for the node:test runner
-  // (an override of the preset's `[]`), not the model itself.
-  "extends": "../altea/presets/data.json",
-  "compilerOptions": { "types": ["node"] },
-  "references": [{ "path": "../altea/tsconfig.data.json" }]
-}

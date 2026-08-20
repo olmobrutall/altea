@@ -1,0 +1,23 @@
+{
+  // TEST layer — the authorization suites and their sample domain, INSIDE the package they test (was the
+  // separate `@altea/altea-auth-test` package). Built by the same `tspc -b`, into dist/test/**.
+  //
+  // ONE project for every kind of test: a test HOST is not shipped code, so it gets node types AND the DOM
+  // lib (the engine suites need the former, a client-API suite would need the latter). The layer discipline
+  // is enforced where it matters — `test/**` is excluded from the three shipping presets, so nothing here
+  // can leak into data/, client/ or server/.
+  "extends": "../altea/presets/server.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
+    "types": ["node"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
+  },
+  "include": ["${configDir}/test/**/*"],
+  "exclude": [],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "./tsconfig.server.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" }
+  ]
+}

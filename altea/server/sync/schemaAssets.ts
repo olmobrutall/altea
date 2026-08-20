@@ -12,7 +12,7 @@ import { PostgresFunctions } from "./postgres/postgresFunctions";
 // SYNCHRONIZATION (diff the model against the live catalog via Synchronizer.SynchronizeScript).
 //
 // An app registers assets through IncludeView / IncludeUserDefinedFunction / IncludeStoreProcedure
-// (see MinimumExtensions.includeFunction in altea-test), and the Schema wires the four
+// (see MinimumExtensions.includeFunction in altea/test), and the Schema wires the four
 // schema_* methods into its generating / synchronizing pipelines (see schema.ts). UDFs are forced
 // to beforeTables=true (Signum), so they exist before the tables that may reference them.
 //
