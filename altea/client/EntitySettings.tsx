@@ -1,9 +1,10 @@
 // Ported from Signum.React/Navigator.tsx's EntitySettings / ViewPromise region — extracted into its
 // own module (altea, STAGED). altea fixes:
 //   - ModifiableEntity → BaseEntity.
-//   - ViewPromise core (constructor / resolve / withProps / flat) is ported; applyViewOverrides is a
-//     no-op STUB (view overrides need ViewReplacer + the view dispatcher from the unported Frames
-//     layer). surroundFunctionComponent / monkeyPatch dropped for now.
+//   - ViewPromise core (constructor / resolve / withProps / flat) is ported, and applyViewOverrides is
+//     real: it runs the overrides the Navigator's ViewDispatcher reports through ViewReplacer.
+//     surroundFunctionComponent / monkeyPatch are dropped — altea's ViewReplacer rewrites the returned
+//     element tree, so a view needs no patching of the component itself.
 //   - Type deps not yet ported are stubbed to `any` with TODOs: ViewReplacer (Frames),
 //     AutocompleteConfig (AutoCompleteConfig — wired for real when that ports), ContextualItemsContext
 //     / MenuItemBlock (SearchControl), Navigator view-option types.
@@ -218,7 +219,10 @@ export class ViewPromise<T extends BaseEntity> {
     const result = new ViewPromise<T>();
     result.promise = this.promise.then(async func => {
       const { Navigator } = await import('./Navigator');
-      const overrides = (Navigator.getSettings(typeName)?.viewOverrides ?? []).filter(vo => vo.viewName == viewName);
+      // Through the DISPATCHER, not the EntitySettings directly (Signum does the same): that is what
+      // lets a module contribute overrides for a type it does not own — @altea/altea-dynamic serves
+      // DynamicViewOverride rows this way.
+      const overrides = await Navigator.getViewOverrides(typeName, viewName);
       if (overrides.length == 0)
         return func;
 

@@ -1,0 +1,11 @@
+{
+  // CLIENT layer — the view INTERPRETER (the node library + the designer) and the entity views.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" },
+    { "path": "../altea-codemirror/tsconfig.client.json" },
+    { "path": "../altea-files/tsconfig.client.json" }
+  ]
+}

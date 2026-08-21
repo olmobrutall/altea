@@ -1,0 +1,9 @@
+{
+  // DATA layer — the three view entities, the CSS override and the SQL migration.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" },
+    { "path": "../altea-files/tsconfig.data.json" }
+  ]
+}

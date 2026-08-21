@@ -25,7 +25,7 @@ import { Serializer } from '../data/serializer';
 // Staged Navigator activation (entity-nav): the FULL EntitySettings/ViewPromise live in ./EntitySettings
 // (view-override machinery stubbed). Navigator's earlier MINIMAL inline EntitySettings is replaced by this.
 import { EntitySettings } from './EntitySettings';
-import type { EntityWhen, AutocompleteConstructor, AutocompleteConstructorContext } from './EntitySettings';
+import type { EntityWhen, AutocompleteConstructor, AutocompleteConstructorContext, ViewOverride } from './EntitySettings';
 import { ViewPromise } from './EntitySettings';
 import { Finder } from './Finder';
 import { Constructor } from './Constructor';
@@ -436,9 +436,73 @@ export namespace Navigator {
     return x != null && (x as { canExecute?: unknown }).canExecute !== undefined && (x as EntityPack<BaseEntity>).entity != null;
   }
 
-  // Minimal view-dispatch: only hasDefaultView is needed by isCreable/isViewable; the real
-  // ViewDispatcher (view promises / overrides) lands with Frames/ViewReplacer.
-  export function hasDefaultView(typeName: string): boolean { return true; } // TODO: real ViewDispatcher
+  // ---- ViewDispatcher (Signum's Navigator.ViewDispatcher) --------------------------------------
+  // The seam that decides, for a type, WHICH view component renders it — and therefore the one thing a
+  // module can replace to serve views that are not compiled into the app. @altea/altea-dynamic installs
+  // one that reads a view tree out of the database; everything else uses the Basic one below, whose
+  // behaviour is exactly what these four calls did inline before the seam existed.
+  export interface ViewDispatcher {
+    hasDefaultView(typeName: string): boolean;
+    getViewNames(typeName: string): Promise<string[]>;
+    getViewPromise<T extends BaseEntity>(entity: T, viewName?: string): ViewPromise<T>;
+    getViewOverrides(typeName: string, viewName?: string): Promise<ViewOverride<BaseEntity>[]>;
+  }
+
+  export class BasicViewDispatcher implements ViewDispatcher {
+
+    // altea always has a view for a type: with no registered one it AUTO-GENERATES from the property
+    // routes (AutoComponent). Signum returns `es?.getViewPromise != null` here, because it has no
+    // auto-component and a type with no view really cannot be shown.
+    hasDefaultView(_typeName: string): boolean {
+      return true;
+    }
+
+    getViewNames(typeName: string): Promise<string[]> {
+      const es = getSettings(typeName);
+      return Promise.resolve(es?.namedViews ? Dic.getKeys(es.namedViews) : []);
+    }
+
+    getViewOverrides(typeName: string, viewName?: string): Promise<ViewOverride<BaseEntity>[]> {
+      const es = getSettings(typeName);
+      return Promise.resolve((es?.viewOverrides ?? []).filter(vo => vo.viewName == viewName) as ViewOverride<BaseEntity>[]);
+    }
+
+    getViewPromise<T extends BaseEntity>(entity: T, viewName?: string): ViewPromise<T> {
+      const typeName = getTypeName(entity);
+      const es = getSettings(typeName) as EntitySettings<T> | undefined;
+
+      if (viewName == undefined) {
+        // No registered view → auto-generate one from the entity's property routes (Signum's
+        // AutoComponent). The Frame renders whatever component this ViewPromise resolves to.
+        if (!es?.getViewPromise)
+          return new ViewPromise<T>(import('./AutoComponent')).applyViewOverrides(typeName);
+        return es.getViewPromise(entity).applyViewOverrides(typeName);
+      } else {
+        const nv = es?.namedViews && es.namedViews[viewName];
+        if (!nv?.getViewPromise)
+          throw new Error(`The EntitySettings registered for '${typeName}' has no namedView '${viewName}'`);
+        return nv.getViewPromise(entity).applyViewOverrides(typeName, viewName);
+      }
+    }
+  }
+
+  let viewDispatcher: ViewDispatcher = new BasicViewDispatcher();
+
+  export function getViewDispatcher(): ViewDispatcher { return viewDispatcher; }
+
+  export function setViewDispatcher(vd: ViewDispatcher): void { viewDispatcher = vd; }
+
+  export function hasDefaultView(typeName: string): boolean {
+    return viewDispatcher.hasDefaultView(typeName);
+  }
+
+  export function getViewNames(typeName: string): Promise<string[]> {
+    return viewDispatcher.getViewNames(typeName);
+  }
+
+  export function getViewOverrides(typeName: string, viewName?: string): Promise<ViewOverride<BaseEntity>[]> {
+    return viewDispatcher.getViewOverrides(typeName, viewName);
+  }
 
   export function checkFlag(entityWhen: EntityWhen, isSearchMainEntity: boolean | undefined): boolean {
     return entityWhen == "Always" || entityWhen == (isSearchMainEntity ? "IsSearch" : "IsLine");
@@ -714,23 +778,9 @@ export namespace Navigator {
     return [];
   }
 
-  // ---- view promise (ViewPromise from ./EntitySettings; overrides are a no-op until Frames land) ----
+  // ---- view promise — delegated to the installed ViewDispatcher (see BasicViewDispatcher above) ----
   export function getViewPromise<T extends BaseEntity>(entity: T, viewName?: string): ViewPromise<T> {
-    const typeName = getTypeName(entity);
-    const es = getSettings(typeName) as EntitySettings<T> | undefined;
-
-    if (viewName == undefined) {
-      // No registered view → auto-generate one from the entity's property routes (Signum's
-      // AutoComponent). The Frame renders whatever component this ViewPromise resolves to.
-      if (!es?.getViewPromise)
-        return new ViewPromise<T>(import('./AutoComponent')).applyViewOverrides(typeName);
-      return es.getViewPromise(entity).applyViewOverrides(typeName);
-    } else {
-      var nv = es?.namedViews && es.namedViews[viewName];
-      if (!nv?.getViewPromise)
-        throw new Error(`The EntitySettings registered for '${typeName}' has no namedView '${viewName}'`);
-      return nv.getViewPromise(entity).applyViewOverrides(typeName, viewName);
-    }
+    return viewDispatcher.getViewPromise(entity, viewName);
   }
 
   // ---- view — opens a FrameModal (Frames view-render layer). ----
