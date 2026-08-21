@@ -23,6 +23,7 @@ import { TimeTracker } from "./profiler/timeTracker";
 import { UserHolder } from "./userHolder";
 import { CultureInfo } from "../data/utils/cultureInfo";
 import { Metadata } from "../data/metadata";
+import { attachHubs, type WebSocketHub } from "./webSocketHub";
 
 // A class reference (abstract-tolerant, so `Entity`/`BaseEntity` bases are accepted).
 type Ctor<T> = abstract new (...args: any[]) => T;
@@ -148,6 +149,23 @@ function requestCulture(req: Request): string {
 
 export class WebBuilder {
     constructor(public readonly app: Express) { }
+
+    // WebSocket hubs, keyed by path (Signum's `WebApplication.MapHub<T>("/api/xxxHub")`). Registered by a
+    // module's `Logic.start`, then bound to the http.Server by `attachWebSockets` — the host calls that
+    // after `app.listen`, because an upgrade handler needs the server, not the Express app.
+    private readonly hubs = new Map<string, WebSocketHub>();
+
+    webSocket(hub: WebSocketHub): void {
+        const already = this.hubs.get(hub.path);
+        if (already != undefined && already !== hub)
+            throw new Error(`A different WebSocketHub is already registered at '${hub.path}'`);
+        this.hubs.set(hub.path, hub);
+    }
+
+    /** Binds every registered hub to the listening server. Call once, after `app.listen(...)`. */
+    attachWebSockets(server: Parameters<typeof attachHubs>[0]): void {
+        attachHubs(server, this.hubs);
+    }
 
     get<D extends RouteDef>(path: string, def: D, handler: Handler<D>): void { this.route("get", path, def, handler); }
     post<D extends RouteDef>(path: string, def: D, handler: Handler<D>): void { this.route("post", path, def, handler); }

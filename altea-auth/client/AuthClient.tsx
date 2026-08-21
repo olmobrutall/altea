@@ -3,6 +3,7 @@ import type { RouteObject } from "react-router";
 import { ajaxGet, ajaxPost, ServiceError, AuthTokenFilter, SessionSharing, type AjaxOptions } from "@altea/altea/client/Services";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { loadReflectionMetadata, setExtraHeaders } from "@altea/altea/client/ReflectionClient";
+import { setAccessTokenFactory } from "@altea/altea/client/useWebSocket";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import type { UserEntity } from "../data/User";
 
@@ -277,6 +278,11 @@ function sameUser(a: UserEntity | undefined, b: UserEntity | undefined): boolean
 
 // Install the interception seam at module load (Signum's top-level `AuthTokenFilter.Options.addAuthToken = …`).
 AuthTokenFilter.addAuthToken = AuthClient.addAuthToken;
+
+// A WebSocket cannot carry the `Authorization` header, so a hub connection authenticates with its first
+// frame instead (see altea/client/useWebSocket.tsx). Same token, same lifetime — installed here so core's
+// socket layer stays auth-agnostic, exactly like `setExtraHeaders` below.
+setAccessTokenFactory(() => AuthClient.getAuthToken() ?? undefined);
 
 // Attach the bearer token to the reflection-metadata fetch so the server ships the ROLE-FILTERED blob
 // (Signum ships it role-filtered inherently; altea refetches it per credential change).

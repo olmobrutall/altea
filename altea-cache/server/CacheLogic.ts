@@ -507,6 +507,18 @@ export namespace CacheLogic {
         ee.preBulkInsert.push(send);
     }
 
+    /**
+     * Signum's `CacheLogic.BroadcastReceivers` is a public dictionary any module adds to — the broadcast
+     * transport is shared infrastructure, not the cache's private business (Signum.ConcurrentUser pushes
+     * its own "ConcurrentUsersChanged" / "EntitySaved" methods through it). Registration is a function
+     * rather than the raw record so a duplicate method name is an error instead of a silent overwrite.
+     */
+    export function registerBroadcastReceiver(method: string, receiver: (argument: string) => void): void {
+        if (broadcastReceivers[method] != null)
+            throw new Error(`CacheLogic.registerBroadcastReceiver: '${method}' is already registered`);
+        broadcastReceivers[method] = receiver;
+    }
+
     const broadcastReceivers: Record<string, (argument: string) => void> = {
         [Method_InvalidateTable]: cleanName => {
             const type = builderSchema?.nameToType.get(cleanName);

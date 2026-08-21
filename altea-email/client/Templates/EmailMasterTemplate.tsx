@@ -1,7 +1,6 @@
 import * as React from "react";
 import { Tabs, Tab } from "react-bootstrap";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
-import { TextAreaLine } from "@altea/altea/client/Lines/TextAreaLine";
 import { EntityRepeater } from "@altea/altea/client/Lines/EntityRepeater";
 import { EntityTabRepeater } from "@altea/altea/client/Lines/EntityTabRepeater";
 import { EntityDetail } from "@altea/altea/client/Lines/EntityDetail";
@@ -10,10 +9,11 @@ import { useForceUpdate } from "@altea/altea/client/Hooks";
 import {
     EmailMasterTemplateEntity, EmailMasterTemplateEntity_Message, EmailTemplateMessage, EmailTemplateViewMessage,
 } from "../../data/EmailTemplate";
+import HtmlCodeMirror from "@altea/altea-codemirror/client/HtmlCodeMirror";
 import IFrameRenderer from "./IframeRenderer";
 
 // Port of Signum.Mailing's Templates/EmailMasterTemplate.tsx — the shared chrome a template's body is
-// spliced into at `@[content]`. altea divergence: HtmlCodeMirror → a plain <TextAreaLine/> + the preview.
+// spliced into at `@[content]`.
 export default function EmailMasterTemplate(p: { ctx: TypeContext<EmailMasterTemplateEntity> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
     const ctx = p.ctx;
@@ -52,8 +52,7 @@ export function EmailMasterTemplateMessageComponent(p: {
         <div className="sf-email-template-message">
             <AutoLine ctx={ec.subCtx(e => e.culture)} label={EmailTemplateViewMessage.Language.niceToString()}
                 onChange={p.invalidate} />
-            <TextAreaLine ctx={ec.subCtx(e => e.text)} formGroupStyle="SrOnly"
-                valueHtmlAttributes={{ className: "sf-email-htmlbody" }}
+            <HtmlCodeMirror ctx={ec.subCtx(e => e.text)}
                 onChange={() => { if (showPreview) forceUpdate(); }} />
             <br />
             <button type="button" className="btn btn-link p-0" onClick={() => setShowPreview(!showPreview)}>

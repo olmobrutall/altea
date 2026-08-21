@@ -1,0 +1,8 @@
+{
+  // DATA layer — the presence entity, its Delete operation and the module's messages.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" }
+  ]
+}

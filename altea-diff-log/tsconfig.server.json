@@ -1,0 +1,9 @@
+{
+  // SERVER layer — the surround-operation handler that records the dumps, plus the prev/next routes.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" }
+  ]
+}

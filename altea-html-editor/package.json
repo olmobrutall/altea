@@ -1,0 +1,31 @@
+{
+  "name": "@altea/altea-html-editor",
+  "version": "0.0.1",
+  "description": "WYSIWYG rich-text editor over Lexical, plus a viewer and an html→text flattener (ported from Signum.HtmlEditor)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@lexical/code": "0.45.0",
+    "@lexical/html": "0.45.0",
+    "@lexical/link": "0.45.0",
+    "@lexical/list": "0.45.0",
+    "@lexical/react": "0.45.0",
+    "@lexical/rich-text": "0.45.0",
+    "@lexical/selection": "0.45.0",
+    "@lexical/utils": "0.45.0",
+    "lexical": "0.45.0",
+    "quote-transformer": "workspace:*"
+  }
+}

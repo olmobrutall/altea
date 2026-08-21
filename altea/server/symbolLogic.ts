@@ -153,6 +153,16 @@ async function buildCache<T extends Symbol>(ctor: Type<T>): Promise<Map<string, 
     loading = true;
     try {
         const byKey = new Map<string, T>();
+
+        // The table may not exist YET: a fresh database before generation, or — the case that actually bites
+        // — an EXISTING database that a newly installed module just added a symbol type to. Reading it would
+        // throw before `sync` ever gets the chance to create it, so the read is gated on existence and
+        // answers empty (which is also what a created-but-unseeded table answers). Signum reaches the same
+        // place through `Administrator.TryRetrieveAll`.
+        const symbolTable = Connector.current().schema.tryTable(ctor);
+        if (symbolTable == null || !await Administrator.existsTable(symbolTable))
+            return byKey;
+
         const rows = await table(ctor).toArray();
 
         // EMPTY rows (a fresh database before generation) report nothing — there is nothing to compare yet.

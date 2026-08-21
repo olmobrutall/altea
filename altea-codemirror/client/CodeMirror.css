@@ -1,0 +1,41 @@
+/* Port of the styles Signum.CodeMirror carried inline / in codemirror's own CSS. CM6 ships its own base
+   styles from the JS side, so only what Signum added on top lives here. */
+
+/* CM5's `addLineClass(…, "exceptionLine")` painted the whole line pink; the decoration in
+   CodeMirrorComponent.tsx applies this class instead. */
+.sf-codemirror .sf-cm-exception-line {
+    background: pink;
+}
+
+.sf-codemirror .cm-editor {
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+}
+
+.sf-codemirror.sf-codemirror-focused .cm-editor {
+    border-color: #86b7fe;
+}
+
+.sf-codemirror .cm-editor.cm-focused {
+    /* CM6 draws a black outline by default; Bootstrap's focus ring reads better next to the Lines. */
+    outline: none;
+    box-shadow: 0 0 0 .25rem rgba(13, 110, 253, .25);
+}
+
+/* Replacement for CM5's `display/fullscreen` addon (F11 in every wrapper's key map). */
+.sf-codemirror.sf-codemirror-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 1055; /* above a Bootstrap modal backdrop (1050) */
+    background: var(--bs-body-bg);
+    padding: .5rem;
+}
+
+.sf-codemirror.sf-codemirror-fullscreen .cm-editor {
+    height: 100%;
+}
+
+/* Signum's JavascriptCodeMirror wrapped itself in `.small-codemirror`; keep the hook. */
+.small-codemirror .cm-editor {
+    font-size: .875em;
+}

@@ -1,0 +1,8 @@
+{
+  // Solution file (`tspc -b`). CLIENT-ONLY package: the editors are React components over CodeMirror,
+  // there is no isomorphic model and no server half, so there is no data/ or server/ project.
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.client.json" }
+  ]
+}

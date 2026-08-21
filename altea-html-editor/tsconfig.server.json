@@ -1,0 +1,8 @@
+{
+  // SERVER layer — only the html→plain-text flattener (Signum's HtmlToPlainText.cs).
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@altea/altea-concurrent-user",
+  "version": "0.0.1",
+  "description": "Live presence + stale-entity detection on an open entity (ported from Signum.ConcurrentUser)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-cache": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}

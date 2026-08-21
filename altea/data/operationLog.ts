@@ -1,6 +1,6 @@
 import { Entity } from "./entity";
 import { Lite } from "./lite";
-import { entity, implementedByAll, implementedBy, format } from "./decorators";
+import { column, entity, format, implementedBy, implementedByAll, serialize } from "./decorators";
 import { reflect } from "./reflection";
 import { Temporal } from "./basics";
 import { OperationSymbol } from "./operations";
@@ -53,9 +53,24 @@ export class OperationLogEntity extends Entity {
     // Set on failure to the ExceptionEntity logged for the throwing execute (Signum's Exception FK).
     exception: Lite<ExceptionEntity> | null = null;
 
+    /**
+     * Signum's `temporalTarget` (an `[Ignore]` field): the ACTUAL entity `setTarget` was given, kept for the
+     * rest of the request. `target` is a thin lite, so a consumer that needs the object itself — an audit
+     * hook wanting to dump the post-operation state (@altea/altea-diff-log) — cannot get it from there.
+     * `@column(false) @serialize(false)`: never a column, never on the wire.
+     */
+    @column(false) @serialize(false)
+    temporalTarget: Entity | null = null;
+
     // Signum sets Target from an entity in SetTarget (null when the entity is new / unsaved).
     setTarget(target: Entity | null): void {
+        this.temporalTarget = target;
         this.target = target == null || target.isNew ? null : target.toLite();
+    }
+
+    /** Signum's `GetTemporalTarget()`. */
+    getTemporalTarget(): Entity | null {
+        return this.temporalTarget;
     }
 
     // Signum's ToString(): "{Operation} {User} {Start:d}".

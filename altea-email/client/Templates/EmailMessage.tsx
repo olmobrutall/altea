@@ -9,6 +9,7 @@ import { EntityRepeater } from "@altea/altea/client/Lines/EntityRepeater";
 import { EntityTable } from "@altea/altea/client/Lines/EntityTable";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
+import HtmlCodeMirror from "@altea/altea-codemirror/client/HtmlCodeMirror";
 import { EmailMessageEntity, EmailMessageStateEnum } from "../../data/EmailMessage";
 import { EmailTemplateMessage } from "../../data/EmailTemplate";
 import IFrameRenderer from "./IframeRenderer";
@@ -16,8 +17,8 @@ import IFrameRenderer from "./IframeRenderer";
 // Port of Signum.Mailing's Templates/EmailMessage.tsx — the produced message: read-only unless it is still
 // Created / Draft.
 //
-// altea divergence: `HtmlCodeMirror` is not ported, so an HTML body is edited in a plain <TextAreaLine/>
-// with the same live <IFrameRenderer/> preview below it.
+// An HTML body is edited in <HtmlCodeMirror/> (altea-codemirror), a plain body in <TextAreaLine/>, with the
+// live <IFrameRenderer/> preview below — as in Signum.
 export default function EmailMessage(p: { ctx: TypeContext<EmailMessageEntity> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
     const editable = p.ctx.value.state === EmailMessageStateEnum.Created || p.ctx.value.state === EmailMessageStateEnum.Draft;
@@ -63,8 +64,12 @@ export default function EmailMessage(p: { ctx: TypeContext<EmailMessageEntity> }
 
                 <AutoLine ctx={ctx.subCtx(f => f.subject, { labelColumns: 1 })} />
                 <CheckboxLine ctx={ctx.subCtx(f => f.isBodyHtml)} inlineCheckbox onChange={forceUpdate} />
-                <TextAreaLine ctx={ctx.subCtx(f => f.body.text)} formGroupStyle="SrOnly"
-                    valueHtmlAttributes={{ style: { height: "180px" } }} onChange={forceUpdate} />
+                {ctx.value.isBodyHtml
+                    ? <div className="code-container">
+                        <HtmlCodeMirror ctx={ctx.subCtx(f => f.body.text)} onChange={forceUpdate} />
+                    </div>
+                    : <TextAreaLine ctx={ctx.subCtx(f => f.body.text)} formGroupStyle="SrOnly"
+                        valueHtmlAttributes={{ style: { height: "180px" } }} onChange={forceUpdate} />}
 
                 <EmailMessageBodyPreview ctx={ctx} />
             </Tab>

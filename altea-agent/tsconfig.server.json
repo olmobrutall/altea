@@ -1,0 +1,10 @@
+{
+  // SERVER layer — the skills, the provider clients, the agent loop and the HTTP/MCP surface.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" },
+    { "path": "../altea-chart/tsconfig.server.json" }
+  ]
+}

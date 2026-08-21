@@ -1,0 +1,27 @@
+{
+  "name": "@altea/altea-diff-log",
+  "version": "0.0.1",
+  "description": "Before/after entity dumps on every operation, with a diff view (ported from Signum.DiffLog)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "diff": "5.1.0",
+    "quote-transformer": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/diff": "5.0.2"
+  }
+}

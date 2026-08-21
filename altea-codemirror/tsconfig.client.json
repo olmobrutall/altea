@@ -1,0 +1,7 @@
+{
+  // CLIENT layer — the only layer this package has.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "../altea/tsconfig.client.json" }
+  ]
+}

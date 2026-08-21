@@ -1,0 +1,17 @@
+/* Port of Signum.ConcurrentUser's ConcurrentUser.css — the blinking marker on the widget while THIS tab
+   has unsaved changes. */
+@media (prefers-reduced-motion: reduce) {
+    .blinking {
+        animation: none !important;
+    }
+}
+
+.blinking {
+    animation: blinker 1s linear infinite;
+}
+
+@keyframes blinker {
+    50% {
+        opacity: 0;
+    }
+}

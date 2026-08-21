@@ -1,0 +1,29 @@
+{
+  "name": "@altea/altea-agent",
+  "version": "0.0.1",
+  "description": "LLM agent: chatbot, skills-as-tools, language-model providers and an MCP endpoint (ported from Signum.Agent)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-chart": "workspace:*",
+    "@altea/altea-codemirror": "workspace:*",
+    "@altea/altea-diff-log": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "quote-transformer": "workspace:*",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  }
+}

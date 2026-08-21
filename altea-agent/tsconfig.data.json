@@ -1,0 +1,9 @@
+{
+  // DATA layer — the chat/session/skill entities, the provider symbol, and the streaming-protocol DTOs
+  // the server writes and the client parses.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" }
+  ]
+}

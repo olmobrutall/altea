@@ -1,0 +1,10 @@
+{
+  // SERVER layer — the hub, the schema events that detect a save, and the /api/concurrentUser route.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" },
+    { "path": "../altea-cache/tsconfig.server.json" }
+  ]
+}

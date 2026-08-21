@@ -5,6 +5,8 @@
     { "path": "./tsconfig.data.json" },
     { "path": "../altea/tsconfig.client.json" },
     { "path": "../altea-auth/tsconfig.client.json" },
+    { "path": "../altea-codemirror/tsconfig.client.json" },
+    { "path": "../altea-html-editor/tsconfig.client.json" },
     { "path": "../altea-scheduler/tsconfig.client.json" },
     { "path": "../altea-files/tsconfig.client.json" },
     { "path": "../altea-templating/tsconfig.client.json" },

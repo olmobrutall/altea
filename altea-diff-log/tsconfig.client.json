@@ -1,0 +1,9 @@
+{
+  // CLIENT layer — the OperationLog view and the reusable DiffDocument.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" }
+  ]
+}

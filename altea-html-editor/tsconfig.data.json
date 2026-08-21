@@ -1,0 +1,7 @@
+{
+  // DATA layer — only the editor's UI messages (Signum keeps them in core; see data/HtmlEditor.ts).
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" }
+  ]
+}

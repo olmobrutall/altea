@@ -18,7 +18,9 @@
   "dependencies": {
     "@altea/altea": "workspace:*",
     "@altea/altea-auth": "workspace:*",
+    "@altea/altea-codemirror": "workspace:*",
     "@altea/altea-files": "workspace:*",
+    "@altea/altea-html-editor": "workspace:*",
     "@altea/altea-scheduler": "workspace:*",
     "@altea/altea-templating": "workspace:*",
     "@altea/altea-user-assets": "workspace:*",

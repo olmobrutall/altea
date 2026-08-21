@@ -37,6 +37,21 @@ const operations = new Map<OperationSymbol, IOperation>();
 // register/unregister rather than derived on demand, because the metadata blob reads it per request.
 const operationsByType = new Map<Function, Set<OperationSymbol>>();
 
+/** The second half of a surround handler — Signum's `IDisposable.Dispose`. */
+export type SurroundOperationAfter = () => void | Promise<void>;
+
+export interface SurroundOperationContext {
+    readonly operation: IOperation;
+    /** The log row being built. A handler may write onto it (that is how DiffLog stores its dumps). */
+    readonly log: OperationLogEntity;
+    /** The entity the operation runs on — null for a Construct (there is nothing yet). */
+    readonly entity: Entity | null;
+    readonly args: unknown[];
+}
+
+export type SurroundOperationHandler =
+    (ctx: SurroundOperationContext) => SurroundOperationAfter | void | Promise<SurroundOperationAfter | void>;
+
 export namespace OperationLogic {
     // Signum's OperationLogic.Register(replace). Validates the operation, then stores it
     // by symbol. `replace` allows an external module to swap an operation's impl.
@@ -144,6 +159,17 @@ export namespace OperationLogic {
         return [...operationsByType.keys()];
     }
 
+    /**
+     * Signum's `OperationLogic.SurroundOperation` — wrap every operation execution. A handler sees the
+     * OperationLogEntity being built, the entity the operation runs on, and its args; it may return an
+     * "after" callback that runs once the target is known (Signum returns an IDisposable, and the `using`
+     * scope is what runs the second half). The first and only consumer is @altea/altea-diff-log, which
+     * records the entity's dump before and after.
+     *
+     * A throwing handler is logged and skipped: an auditing concern must not break what it observes.
+     */
+    export const surroundOperation: SurroundOperationHandler[] = [];
+
     // Signum's OperationLogic.Start: wires the OperationSymbol table through SymbolLogic,
     // seeding only the RegisteredOperations, and includes the OperationLogEntity table + its query
     // (Signum's sb.Include<OperationLogEntity>().WithQuery(...)). Call AFTER the graphs have registered.
@@ -162,22 +188,42 @@ export namespace OperationLogic {
 async function logOperation<T>(
     symbol: OperationSymbol,
     origin: Entity | null,
+    entity: Entity | null,
+    args: unknown[],
     run: () => Promise<T>,
     getTarget: (result: T) => Entity | null,
 ): Promise<T> {
-    const log = new OperationLogEntity();
-    log.operation = symbol;
-    log.origin = origin == null || origin.isNew ? null : origin.toLite();
-    log.user = UserHolder.currentUserLite();
-    log.start = Temporal.Now.plainDateTimeISO();
+    // Signum's object initializer (`new OperationLogEntity { Operation = …, Start = …, User = … }`), which
+    // is altea's `create` — NOT a bare `new`. A MIXIN's field initializers are applied by the factory
+    // (applyMixinDefaults): altea inlines mixin fields onto the owner without declaring them there, so
+    // `new` leaves them undefined and the implicit NotNull validator then rejects the row. That is not
+    // hypothetical for this type — @altea/altea-diff-log's mixin adds a non-nullable `cleaned` flag.
+    const log = OperationLogEntity.create({
+        operation: symbol,
+        origin: origin == null || origin.isNew ? null : origin.toLite(),
+        user: UserHolder.currentUserLite(),
+        start: Temporal.Now.plainDateTimeISO(),
+    });
+
+    // Signum's `OperationLogic.SurroundOperation` (an event returning an IDisposable). Each handler may
+    // observe the log + entity BEFORE the operation and return an "after" callback that runs once the
+    // target is known — which is exactly the before/after pair @altea/altea-diff-log records.
+    const afters = await runSurroundBefore(symbol, log, entity, args);
+
     try {
         const result = await run();
         log.setTarget(getTarget(result));
         log.end = Temporal.Now.plainDateTimeISO();
+        // AFTER setTarget, so a handler reading `log.target` sees the operation's result (Signum's
+        // `log.GetTemporalTarget()`), and BEFORE the save, so what a handler writes onto the log persists.
+        await runSurroundAfter(afters, symbol);
         await persistLog(log);
         return result;
     } catch (error) {
         log.end = Temporal.Now.plainDateTimeISO();
+        // The "after" half still runs on failure — Signum's `using` disposes either way — so a handler that
+        // allocated state releases it, and a partial record is still written.
+        await runSurroundAfter(afters, symbol);
         // Link the exception row (Signum's OperationLogEntity.Exception) — best-effort.
         try {
             const ex = await ExceptionLogic.logException(error);
@@ -187,6 +233,34 @@ async function logOperation<T>(
         }
         await persistLog(log);
         throw error;
+    }
+}
+
+async function runSurroundBefore(symbol: OperationSymbol, log: OperationLogEntity, entity: Entity | null,
+    args: unknown[]): Promise<SurroundOperationAfter[]> {
+
+    const afters: SurroundOperationAfter[] = [];
+    for (const handler of OperationLogic.surroundOperation) {
+        try {
+            const after = await handler({ operation: OperationLogic.findOperation(symbol), log, entity, args });
+            if (after != undefined)
+                afters.push(after);
+        } catch (e) {
+            // A surrounding CONCERN (auditing) must never break the operation it observes.
+            console.error(`OperationLogic.surroundOperation: a handler failed before '${symbol.key}':`, e);
+        }
+    }
+    return afters;
+}
+
+async function runSurroundAfter(afters: SurroundOperationAfter[], symbol: OperationSymbol): Promise<void> {
+    // Reverse order, like nested `using` scopes unwinding.
+    for (const after of [...afters].reverse()) {
+        try {
+            await after();
+        } catch (e) {
+            console.error(`OperationLogic.surroundOperation: a handler failed after '${symbol.key}':`, e);
+        }
     }
 }
 
@@ -212,29 +286,29 @@ export const Operations = {
     async execute<T extends Entity>(entity: T, symbol: ExecuteSymbol<T>, ...args: unknown[]): Promise<T> {
         // Signum's execute-time authorization (Graph.Execute → AssertOperationAllowed, inUserInterface:false).
         await OperationLogic.assertOperationAllowed(symbol, entity.constructor, false, entity);
-        return await logOperation(symbol, null,
+        return await logOperation(symbol, null, entity, args,
             () => (find(symbol, OperationType.Execute) as IExecuteOperation).doExecute(entity, args) as Promise<T>,
             result => result);
     },
     async delete<T extends Entity>(entity: T, symbol: DeleteSymbol<T>, ...args: unknown[]): Promise<void> {
         await OperationLogic.assertOperationAllowed(symbol, entity.constructor, false, entity);
-        await logOperation(symbol, null,
+        await logOperation(symbol, null, entity, args,
             () => (find(symbol, OperationType.Delete) as IDeleteOperation).doDelete(entity, args),
             () => entity);
     },
     async construct<T extends Entity>(symbol: ConstructSymbol<T>, ...args: unknown[]): Promise<T> {
-        return await logOperation(symbol, null,
+        return await logOperation(symbol, null, null, args,
             () => (find(symbol, OperationType.Constructor) as IConstructOperation).doConstruct(args) as Promise<T>,
             result => result);
     },
     async constructFrom<T extends Entity, F extends Entity>(entity: F, symbol: ConstructSymbol<T, From<F>>, ...args: unknown[]): Promise<T> {
         await OperationLogic.assertOperationAllowed(symbol, entity.constructor, false, entity);
-        return await logOperation(symbol, entity,
+        return await logOperation(symbol, entity, entity, args,
             () => (find(symbol, OperationType.ConstructorFrom) as IConstructorFromOperation).doConstructFrom(entity, args) as Promise<T>,
             result => result);
     },
     async constructFromMany<T extends Entity, F extends Entity>(lites: Lite<F>[], symbol: ConstructSymbol<T, FromMany<F>>, ...args: unknown[]): Promise<T> {
-        return await logOperation(symbol, null,
+        return await logOperation(symbol, null, null, args,
             () => (find(symbol, OperationType.ConstructorFromMany) as IConstructorFromManyOperation).doConstructFromMany(lites as Lite<Entity>[], args) as Promise<T>,
             result => result);
     },

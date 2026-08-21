@@ -1,0 +1,12 @@
+/* Ported verbatim from Signum.Agent (ChatButton.css). */
+.chat-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}

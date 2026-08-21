@@ -16,6 +16,8 @@ import { SubTokensOptions } from "@altea/altea/client/QueryToken";
 import { ValidationMessage } from "@altea/altea/data/validators";
 import type { QueryEntity } from "@altea/altea/data/queryEntity";
 import TemplateControls from "@altea/altea-templating/client/TemplateControls";
+import HtmlCodeMirror from "@altea/altea-codemirror/client/HtmlCodeMirror";
+import HtmlEditorLine from "@altea/altea-html-editor/client/HtmlEditorLine";
 import QueryTokenEmbeddedBuilder from "@altea/altea-user-assets/client/Templates/QueryTokenEmbeddedBuilder";
 import FilterBuilderEmbedded from "@altea/altea-user-queries/client/Templates/FilterBuilderEmbedded";
 import {
@@ -28,8 +30,16 @@ import IFrameRenderer from "./IframeRenderer";
 // query (filters / orders), applicability, and one message per culture.
 //
 // altea divergences, documented inline:
-//  - `HtmlCodeMirror` / `HtmlEditor` (Signum.CodeMirror / Signum.HtmlEditor) are not ported: BOTH html
-//    formats author into a plain <TextAreaLine/>, with the same live <IFrameRenderer/> preview beside it.
+//  - The three body editors are Signum's three: PlainText a plain <TextAreaLine/>, HtmlComplex a
+//    <HtmlCodeMirror/> (altea-codemirror), HtmlSimple the WYSIWYG <HtmlEditorLine/> (altea-html-editor —
+//    the Lexical surface, same as Signum's). Signum passes the raw `Binding`; altea's LINE wrapper takes
+//    the TypeContext instead, which is what gives the field its label slot and validation styling.
+//    Like Signum it passes NO extensions, so the default set applies — and that set has no link support,
+//    which means Lexical parses an existing <a href> back as bare text: opening a template in HtmlSimple
+//    DROPS its anchors. Adding LinkExtension does not fix it, it makes it worse: @lexical/link normalizes
+//    every href it does not recognise as a url, so a template's `@[m:url]` TOKEN comes back as
+//    `mailto:@[m:url]` — a silently wrong scheme instead of a visibly missing link. HtmlSimple is for
+//    prose; a template that carries links belongs in HtmlComplex (which is what the seeded ones use).
 //  - The APPLICABLE tab edited a C# script through CSharpCodeMirror; altea's applicable is a
 //    TemplateApplicableSymbol, so it is an EntityLine on the main form instead of a tab.
 //  - `EntityAccordion` is not ported, so the recipients use `EntityRepeater`. The per-culture MESSAGES keep
@@ -243,11 +253,15 @@ export function EmailTemplateMessageComponent(p: EmailTemplateMessageComponentPr
             <div>
                 <TemplateControls queryKey={p.queryKey} forHtml={isHtml} />
                 <AutoLine ctx={ec.subCtx(e => e.subject)} formGroupStyle="SrOnly" placeholderLabels />
-                <TextAreaLine ctx={ec.subCtx(e => e.text)} formGroupStyle="SrOnly"
-                    valueHtmlAttributes={{ className: "sf-email-htmlbody" }}
-                    onChange={() => { if (showPreview) forceUpdate(); }} />
+                {p.messageFormat === EmailMessageFormatEnum.PlainText
+                    ? <TextAreaLine ctx={ec.subCtx(e => e.text)} formGroupStyle="SrOnly"
+                        valueHtmlAttributes={{ className: "sf-email-htmlbody" }} />
+                    : p.messageFormat === EmailMessageFormatEnum.HtmlSimple
+                        ? <HtmlEditorLine ctx={ec.subCtx(e => e.text, { formGroupStyle: "SrOnly" })} />
+                        : <HtmlCodeMirror ctx={ec.subCtx(e => e.text)}
+                            onChange={() => { if (showPreview) forceUpdate(); }} />}
                 <br />
-                {isHtml &&
+                {p.messageFormat === EmailMessageFormatEnum.HtmlComplex &&
                     <button type="button" className="btn btn-link p-0" onClick={e => { e.preventDefault(); setShowPreview(!showPreview); }}>
                         {showPreview
                             ? EmailTemplateMessage.HidePreview.niceToString()

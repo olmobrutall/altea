@@ -13,6 +13,7 @@ export const ValidationMessage = {
     _0HasSomeRepeatedElements1: msg("{0} has some repeated elements: {1}"),
     _0IsNotSet: msg("{0} is not set"),
     _0ShouldBeNull: msg("{0} should be null"),
+    _0IsSet: msg("{0} is set"),
     _0ShouldBe1: msg("{0} should be {1}"),
     NumberIsTooSmall: msg("Number is too small"),
     NumberIsTooBig: msg("Number is too big"),
