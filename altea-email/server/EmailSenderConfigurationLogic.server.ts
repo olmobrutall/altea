@@ -6,6 +6,7 @@ import type { ResetLazy } from "@altea/altea/data/resetLazy";
 import { graph } from "@altea/altea/server/graphBuilder";
 import { table } from "@altea/altea/server/table";
 import type { Lite } from "@altea/altea/data/lite";
+import type { Type } from "@altea/altea/data/entity";
 import {
     EmailSenderConfigurationEntity, EmailSenderConfigurationOperation, SmtpEmailServiceEntity,
     EmailServiceEntity,
@@ -22,6 +23,11 @@ import {
 //  - `EncryptPassword` / `DecryptPassword` default to identity in Signum too — an app that stores real
 //    credentials MUST supply them (see start's options). The stored `password` is never shown in the editor:
 //    the user types into `newPassword`, which Save encrypts into `password` and clears.
+//  - Signum implements that last step with a JSON PROPERTY CONVERTER per service type (each sender package
+//    registers a `CustomReadJsonProperty` that encrypts on the way in and writes nothing on the way out).
+//    altea does it in the SAVE OPERATION instead, through `registerEmailServiceSave` — so a sender package
+//    in another workspace package (Exchange WS, POP3's reception twin) supplies the one line that knows which
+//    of ITS fields holds the password, without this module knowing the type.
 
 export namespace EmailSenderConfigurationLogic {
 
@@ -30,6 +36,9 @@ export namespace EmailSenderConfigurationLogic {
 
     let encrypt: (s: string) => string = s => s;
     let decrypt: (s: string) => string = s => s;
+
+    // altea-only (see the header): per service type, what Save must do before the row is written.
+    const serviceSaves = new Map<Function, (service: EmailServiceEntity) => void>();
 
     export function encryptPassword(value: string): string { return encrypt(value); }
     export function decryptPassword(value: string): string { return decrypt(value); }
@@ -55,17 +64,23 @@ export namespace EmailSenderConfigurationLogic {
             () => table(EmailSenderConfigurationEntity).toArray() as Promise<EmailSenderConfigurationEntity[]>,
             { invalidateWith: [EmailSenderConfigurationEntity] });
 
+        // The SMTP service's own "fold the typed-in password into the stored one" step. Registered here
+        // rather than written inline in Save, so every sender type goes through the same seam.
+        registerEmailServiceSave(SmtpEmailServiceEntity, smtp => {
+            const network = smtp.network;
+            if (network?.newPassword != null) {
+                network.password = encryptPassword(network.newPassword);
+                network.newPassword = null;
+            }
+        });
+
         // Signum's Save: turn the typed-in `newPassword` into the stored (encrypted) `password`.
         graph(EmailSenderConfigurationEntity, g => {
         g.Execute(EmailSenderConfigurationOperation.Save, {
             canBeNew: true,
             canBeModified: true,
             execute: (sc: EmailSenderConfigurationEntity) => {
-                const network = (sc.service as SmtpEmailServiceEntity).network;
-                if (network?.newPassword != null) {
-                    network.password = encryptPassword(network.newPassword);
-                    network.newPassword = null;
-                }
+                prepareServiceForSave(sc.service);
             },
         });
 
@@ -74,6 +89,29 @@ export namespace EmailSenderConfigurationLogic {
             construct: (sc: EmailSenderConfigurationEntity) => sc.clone(),
         });
         }).register();
+    }
+
+    /** altea-only (see the header): what the Save operation should do to this service type before it is
+     *  written — in practice, encrypt the typed-in password into the stored field. Call it from the sender
+     *  package's own `start`. */
+    export function registerEmailServiceSave<T extends EmailServiceEntity>(
+        serviceType: Type<T>,
+        prepareForSave: (service: T) => void,
+    ): void {
+        serviceSaves.set(serviceType as unknown as Function,
+            prepareForSave as unknown as (service: EmailServiceEntity) => void);
+    }
+
+    /** Run the registered pre-save step for this service instance's type, or for a base of it (the
+     *  prototype-chain walk Signum's Polymorphic does). */
+    export function prepareServiceForSave(service: EmailServiceEntity): void {
+        for (let ctor: Function | null = service.constructor; ctor != null; ctor = Object.getPrototypeOf(ctor) as Function | null) {
+            const prepare = serviceSaves.get(ctor);
+            if (prepare != null) {
+                prepare(service);
+                return;
+            }
+        }
     }
 
     /** Signum's `config.RetrieveFromCache()`. */

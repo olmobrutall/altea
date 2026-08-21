@@ -178,6 +178,8 @@ export const FileMessage = {
     OrDragAFileHere: msg("or drag a file here"),
     AddMoreFiles: msg("Add more files"),
     FileImage: msg("File image"),
+    /** A remote store's malware scan flagged the file (see @altea/altea-files-azure's Defender polling). */
+    File0ContainsAThreatBy1: msg("File {0} contains a threat detected by {1}"),
 };
 
 // Signum's `[AutoInit] static class FilePermission` (FilesController's download gate is anonymous in Signum;

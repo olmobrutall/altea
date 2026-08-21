@@ -121,7 +121,7 @@ export namespace EmailLogic {
 
         // Signum's PreSaving + SetCalculateHash: the de-duplication hash is derived, so fill it on save.
         sb.schema.entityEvents(EmailMessageEntity).preSaving.push(email => {
-            email.bodyHash = createHash("sha1").update(email.hashSource(), "utf8").digest("base64");
+            email.bodyHash = calculateBodyHash(email);
             email.uniqueIdentifier ??= randomUUID() as uuid;
         });
 
@@ -129,6 +129,15 @@ export namespace EmailLogic {
 
         if (sb.webBuilder)
             MailingServer.start(sb.webBuilder);
+    }
+
+    /**
+     * Signum's `SetCalculateHash` — the de-duplication hash over subject + body. Exported because the
+     * RECEPTION side needs it BEFORE the save (it looks for an already-stored message with the same hash, so
+     * it must compute what the save hook is about to write). One formula, one caller each side.
+     */
+    export function calculateBodyHash(email: EmailMessageEntity): string {
+        return createHash("sha1").update(email.hashSource(), "utf8").digest("base64");
     }
 
     /** Signum's `EmailSenders.Register(...)`. */

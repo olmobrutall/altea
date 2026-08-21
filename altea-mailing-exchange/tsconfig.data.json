@@ -1,0 +1,8 @@
+{
+  // DATA layer — the Exchange service entity and its version enum.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-email/tsconfig.data.json" }
+  ]
+}

@@ -121,6 +121,31 @@ export namespace OpenIdConnect {
         });
     }
 
+    /**
+     * Send a JSON body (or none) and read the JSON response — what a Microsoft Graph write needs
+     * (see @altea/altea-auth-azuread's MicrosoftGraph.post / patch / del). A 202/204 with an EMPTY body is
+     * normal for Graph writes, so it resolves `undefined` instead of failing to parse.
+     */
+    export function requestJson<T>(
+        method: string,
+        url: string,
+        body: unknown,
+        options?: OpenIdHttpOptions & { headers?: Record<string, string> },
+    ): Promise<T> {
+        const text = body == undefined ? undefined : JSON.stringify(body);
+        return request<T>(method, url, text, {
+            ...options,
+            headers: {
+                ...(text == undefined ? {} : {
+                    "Content-Type": "application/json",
+                    "Content-Length": String(Buffer.byteLength(text)),
+                }),
+                ...options?.headers,
+            },
+            allowEmpty: true,
+        });
+    }
+
     /** GET raw bytes (a directory profile photo). Returns null on any non-2xx. */
     export function getBytes(url: string, options?: OpenIdHttpOptions & { headers?: Record<string, string> }): Promise<Buffer | null> {
         return new Promise((resolve, reject) => {
@@ -144,7 +169,7 @@ export namespace OpenIdConnect {
     }
 
     function request<T>(method: string, url: string, body: string | undefined,
-        options: OpenIdHttpOptions & { headers?: Record<string, string> }): Promise<T> {
+        options: OpenIdHttpOptions & { headers?: Record<string, string>; allowEmpty?: boolean }): Promise<T> {
         return new Promise<T>((resolve, reject) => {
             const target = new URL(url);
             const transport = target.protocol === "http:" ? http : https;
@@ -163,6 +188,11 @@ export namespace OpenIdConnect {
                     const status = res.statusCode ?? 0;
                     if (status < 200 || status >= 300) {
                         reject(new Error(`${method} ${url} failed with ${status}: ${text.substring(0, 500)}`));
+                        return;
+                    }
+                    // A 202 / 204 with no body is a normal successful WRITE (see requestJson).
+                    if (text === "" && options.allowEmpty === true) {
+                        resolve(undefined as T);
                         return;
                     }
                     try {

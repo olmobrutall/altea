@@ -1,0 +1,11 @@
+{
+  // CLIENT layer — the service editor and the remote-mailbox search page / message view.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" },
+    { "path": "../altea-auth-azuread/tsconfig.client.json" },
+    { "path": "../altea-email/tsconfig.client.json" }
+  ]
+}

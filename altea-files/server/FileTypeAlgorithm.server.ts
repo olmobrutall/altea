@@ -10,8 +10,10 @@ import { FileMessage, toComputerSize, type FilePathEmbedded } from "../data/File
 // (the store-relative path) is generated, and it is the only thing that touches the storage backend.
 //
 // altea divergences, documented inline:
-//  - Only the LOCAL FOLDER backend is ported (Signum's FileTypeAlgorithm). The Azure Blob / S3 backends are
-//    separate Signum packages; the interface below is the seam they would plug into.
+//  - This file is the LOCAL FOLDER backend (Signum's FileTypeAlgorithm) plus the halves every backend shares:
+//    the `IFileTypeAlgorithm` seam, `FileTypeAlgorithmBase` (Signum's own base — onlyImages / maxSizeInBytes /
+//    onValidateFile) and the suffix generators. The REMOTE backends live in their own packages, exactly as in
+//    Signum: @altea/altea-files-azure (Signum.Files.AzureBlobs) and @altea/altea-files-s3 (Signum.Files.S3).
 //  - Signum's chunked-upload API (StartUpload / UploadChunk / FinishUpload / AbortUpload) is NOT ported: a
 //    file reaches the server inside the entity graph (the `binaryFile` field), so there is no chunk protocol.
 //  - Signum computes the hash in the BinaryFile setter (CryptorEngine.CalculateMD5Hash); altea has no crypto
@@ -51,14 +53,55 @@ export interface IFileTypeAlgorithm {
     readAllBytes(fp: IFilePath): Promise<Uint8Array>;
     /** Signum's `ReadAllBytes` is sync throughout; altea made the storage interface async (a remote backend
      *  needs it), but a SYNC hook sometimes has no choice — `EntityEvents.retrieved` is synchronous, and
-     *  BigStringLogic has to substitute the file's text there. The local-folder backend can oblige; a future
-     *  Azure / S3 backend must throw here and the caller has to move to an async seam. */
+     *  BigStringLogic has to substitute the file's text there. The local-folder backend can oblige; the remote
+     *  backends (@altea/altea-files-azure, -s3) THROW here, so a BigString column must not live in one — the
+     *  caller would have to move to an async seam first. */
     readAllBytesSync(fp: IFilePath): Uint8Array;
     moveFile(from: IFilePath, to: IFilePath, createTargetFolder: boolean): Promise<void>;
     /** The absolute path of the file in the store (undefined for a backend without one). */
     fullPhysicalPath(fp: IFilePath): string | undefined;
     /** The public URL of the file, when the store is web-served (Signum's GetFullWebPath). */
     fullWebPath(fp: IFilePath): string | undefined;
+}
+
+// ---- The validation half every backend shares (Signum's FileTypeAlgorithmBase) ---------------------------
+
+export interface FileTypeAlgorithmBaseOptions {
+    /** Refuse anything whose extension is not an image (Signum's OnlyImages). */
+    onlyImages?: boolean;
+    /** Refuse a file bigger than this (Signum's MaxSizeInBytes). */
+    maxSizeInBytes?: number | null;
+    /** An extra app check, run last (Signum's OnValidateFile). */
+    onValidateFile?: (fp: IFilePath) => void;
+}
+
+/** Port of Signum's `FileTypeAlgorithmBase` — the three policy knobs plus the `ValidateFile` that applies
+ *  them. Shared by the local-folder algorithm below and by the Azure / S3 backends in their own packages, so
+ *  "only images", "at most N bytes" and the app's own hook mean the same thing wherever the bytes land. */
+export abstract class FileTypeAlgorithmBase {
+
+    onlyImages: boolean;
+    maxSizeInBytes: number | null;
+    readonly onValidateFile?: (fp: IFilePath) => void;
+
+    protected constructor(options: FileTypeAlgorithmBaseOptions) {
+        this.onlyImages = options.onlyImages ?? false;
+        this.maxSizeInBytes = options.maxSizeInBytes ?? null;
+        this.onValidateFile = options.onValidateFile;
+    }
+
+    validateFile(fp: IFilePath): void {
+        if (this.onlyImages) {
+            const mime = mimeType(fp.fileName);
+            if (mime == null || !mime.startsWith("image/"))
+                throw new Error(FileMessage.TheFile0IsNotA1.niceToString(fp.fileName, "image/*"));
+        }
+
+        if (this.maxSizeInBytes != null && (fp.binaryFile?.length ?? 0) > this.maxSizeInBytes)
+            throw new Error(FileMessage.File0IsTooBigTheMaximumSizeIs1.niceToString(fp.fileName, toComputerSize(this.maxSizeInBytes)));
+
+        this.onValidateFile?.(fp);
+    }
 }
 
 // ---- Suffix generators (Signum's SuffixGenerators) -------------------------------------------------------
@@ -85,7 +128,7 @@ export namespace SuffixGenerators {
 
 // ---- The local-folder algorithm (Signum's FileTypeAlgorithm) ---------------------------------------------
 
-export interface FileTypeAlgorithmOptions {
+export interface FileTypeAlgorithmOptions extends FileTypeAlgorithmBaseOptions {
     /** Absolute (or cwd-relative) folder the files live in — Signum's GetPhisicalPrefix. */
     physicalPrefix: (fp: IFilePath) => string;
     /** The public URL prefix when the folder is web-served — Signum's GetWebPrefix. */
@@ -98,12 +141,9 @@ export interface FileTypeAlgorithmOptions {
     deleteEmptyFolderOnDelete?: boolean;
     /** Rename instead of overwriting when the target exists (Signum's RenameAlgorithm; null = overwrite). */
     renameAlgorithm?: ((suffix: string, num: number) => string) | null;
-    onlyImages?: boolean;
-    maxSizeInBytes?: number | null;
-    onValidateFile?: (fp: IFilePath) => void;
 }
 
-export class FileTypeAlgorithm implements IFileTypeAlgorithm {
+export class FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileTypeAlgorithm {
 
     readonly physicalPrefix: (fp: IFilePath) => string;
     readonly webPrefix?: (fp: IFilePath) => string;
@@ -111,20 +151,15 @@ export class FileTypeAlgorithm implements IFileTypeAlgorithm {
     readonly weakFileReference: boolean;
     readonly deleteEmptyFolderOnDelete: boolean;
     readonly renameAlgorithm: ((suffix: string, num: number) => string) | null;
-    onlyImages: boolean;
-    maxSizeInBytes: number | null;
-    readonly onValidateFile?: (fp: IFilePath) => void;
 
     constructor(options: FileTypeAlgorithmOptions) {
+        super(options);
         this.physicalPrefix = options.physicalPrefix;
         this.webPrefix = options.webPrefix;
         this.calculateSuffix = options.calculateSuffix ?? SuffixGenerators.Safe.yearMonth_Guid_Filename;
         this.weakFileReference = options.weakFileReference ?? false;
         this.deleteEmptyFolderOnDelete = options.deleteEmptyFolderOnDelete ?? true;
         this.renameAlgorithm = options.renameAlgorithm ?? null;
-        this.onlyImages = options.onlyImages ?? false;
-        this.maxSizeInBytes = options.maxSizeInBytes ?? null;
-        this.onValidateFile = options.onValidateFile;
     }
 
     /** Signum's `DefaultRenameAlgorithm` — "name(2).ext" next to the original. */
@@ -162,19 +197,6 @@ export class FileTypeAlgorithm implements IFileTypeAlgorithm {
         await fsp.mkdir(path.dirname(full), { recursive: true });
         await fsp.writeFile(full, fp.binaryFile);
         fp.cleanBinaryFile();
-    }
-
-    validateFile(fp: IFilePath): void {
-        if (this.onlyImages) {
-            const mime = mimeType(fp.fileName);
-            if (mime == null || !mime.startsWith("image/"))
-                throw new Error(FileMessage.TheFile0IsNotA1.niceToString(fp.fileName, "image/*"));
-        }
-
-        if (this.maxSizeInBytes != null && (fp.binaryFile?.length ?? 0) > this.maxSizeInBytes)
-            throw new Error(FileMessage.File0IsTooBigTheMaximumSizeIs1.niceToString(fp.fileName, toComputerSize(this.maxSizeInBytes)));
-
-        this.onValidateFile?.(fp);
     }
 
     async deleteFiles(files: readonly IFilePath[]): Promise<void> {

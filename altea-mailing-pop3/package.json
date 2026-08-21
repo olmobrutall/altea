@@ -1,7 +1,7 @@
 {
-  "name": "@altea/altea-email",
+  "name": "@altea/altea-mailing-pop3",
   "version": "0.0.1",
-  "description": "Email messages, templates and the async sender (ported from Signum.Mailing)",
+  "description": "Receiving e-mail over POP3 (ported from Signum.Mailing.Pop3)",
   "type": "module",
   "exports": {
     "./*": {
@@ -17,16 +17,13 @@
   "license": "MIT",
   "dependencies": {
     "@altea/altea": "workspace:*",
-    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-email": "workspace:*",
     "@altea/altea-files": "workspace:*",
     "@altea/altea-scheduler": "workspace:*",
-    "@altea/altea-templating": "workspace:*",
-    "@altea/altea-user-assets": "workspace:*",
-    "@altea/altea-user-queries": "workspace:*",
-    "nodemailer": "^7.0.0",
+    "mailparser": "^3.9.0",
     "quote-transformer": "workspace:*"
   },
   "devDependencies": {
-    "@types/nodemailer": "^7.0.0"
+    "@types/mailparser": "^3.4.0"
   }
 }

@@ -1,0 +1,10 @@
+{
+  // DATA layer — the Graph sender service entity + the remote-mailbox row models.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" },
+    { "path": "../altea-auth-azuread/tsconfig.data.json" },
+    { "path": "../altea-email/tsconfig.data.json" }
+  ]
+}

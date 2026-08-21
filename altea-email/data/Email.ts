@@ -78,8 +78,9 @@ export abstract class EmailAddressEmbedded extends EmbeddedEntity {
 // Signum's EmailFromEmbedded — the sender of one message.
 @reflect
 export class EmailFromEmbedded extends EmailAddressEmbedded {
-    /** Signum's AzureUserId — the Graph/Exchange sender identity. Kept (it is part of the stored shape)
-     *  even though only the SMTP sender is ported. */
+    /** Signum's AzureUserId — the DIRECTORY OBJECT ID of the sending mailbox, which is what
+     *  @altea/altea-mailing-microsoft-graph addresses `POST /users/{id}/sendMail` with. Filled from the
+     *  email owner's `externalId` (see fromOwnerData / EmailLogic.registerEmailOwner). */
     azureUserId: string | null;
 
     clone(): EmailFromEmbedded {

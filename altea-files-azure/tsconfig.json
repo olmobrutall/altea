@@ -1,0 +1,8 @@
+{
+  // Solution file. Server-only module: the Azure backend has no entities and no UI, it IS an
+  // IFileTypeAlgorithm implementation (as Signum.Files.AzureBlobs is a single C# class).
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.server.json" }
+  ]
+}

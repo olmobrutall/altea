@@ -1,0 +1,8 @@
+{
+  // DATA layer — the POP3 reception-service entity and its client-certificate rows.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-email/tsconfig.data.json" }
+  ]
+}

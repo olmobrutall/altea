@@ -1,0 +1,8 @@
+{
+  // Solution file. Server-only module: the S3 backend has no entities and no UI, it IS an
+  // IFileTypeAlgorithm implementation (as Signum.Files.S3 is two C# classes).
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.server.json" }
+  ]
+}

@@ -1,7 +1,7 @@
 {
-  "name": "@altea/altea-email",
+  "name": "@altea/altea-mailing-microsoft-graph",
   "version": "0.0.1",
-  "description": "Email messages, templates and the async sender (ported from Signum.Mailing)",
+  "description": "Sending e-mail through Microsoft Graph, plus browsing a remote Outlook mailbox (ported from Signum.Mailing.MicrosoftGraph)",
   "type": "module",
   "exports": {
     "./*": {
@@ -18,15 +18,9 @@
   "dependencies": {
     "@altea/altea": "workspace:*",
     "@altea/altea-auth": "workspace:*",
+    "@altea/altea-auth-azuread": "workspace:*",
+    "@altea/altea-email": "workspace:*",
     "@altea/altea-files": "workspace:*",
-    "@altea/altea-scheduler": "workspace:*",
-    "@altea/altea-templating": "workspace:*",
-    "@altea/altea-user-assets": "workspace:*",
-    "@altea/altea-user-queries": "workspace:*",
-    "nodemailer": "^7.0.0",
     "quote-transformer": "workspace:*"
-  },
-  "devDependencies": {
-    "@types/nodemailer": "^7.0.0"
   }
 }

@@ -77,7 +77,12 @@ export namespace MicrosoftGraph {
     }
 
     /** One Graph GET. `path` is relative to `/v1.0` (e.g. `users`, `groups/{id}/transitiveMembers`). */
-    export async function get<T>(config: AzureADConfigurationEmbedded, path: string, params?: GraphQueryParameters): Promise<T> {
+    export async function get<T>(
+        config: AzureADConfigurationEmbedded,
+        path: string,
+        params?: GraphQueryParameters,
+        headers?: Record<string, string>,
+    ): Promise<T> {
         using _prof = HeavyProfiler.log("Microsoft Graph", () => path);
 
         const token = await accessToken(config);
@@ -87,6 +92,31 @@ export namespace MicrosoftGraph {
             Authorization: `Bearer ${token}`,
             // Required by Graph for the advanced queries ($count / $search / OR over directory objects).
             ConsistencyLevel: "eventual",
+            // e.g. `Prefer: IdType='ImmutableId'` — a mail message's id is otherwise invalidated by a move.
+            ...headers,
+        });
+    }
+
+    /**
+     * One Graph WRITE. `path` is relative to `/v1.0`. A Graph write answers either the created resource
+     * (`POST /users/{id}/messages`) or 202/204 with no body at all (`POST …/sendMail`, `DELETE`), which is
+     * why the result type may be `void` — see OpenIdConnect.requestJson.
+     *
+     * Added for @altea/altea-mailing-microsoft-graph (sending mail, and the remote-mailbox operations); the
+     * read-only directory queries in this package only ever GET.
+     */
+    export async function send<T>(
+        config: AzureADConfigurationEmbedded,
+        method: "POST" | "PATCH" | "DELETE",
+        path: string,
+        body?: unknown,
+    ): Promise<T> {
+        using _prof = HeavyProfiler.log("Microsoft Graph", () => `${method} ${path}`);
+
+        const token = await accessToken(config);
+
+        return await OpenIdConnect.requestJson<T>(method, `https://graph.microsoft.com/v1.0/${path}`, body, {
+            headers: { Authorization: `Bearer ${token}` },
         });
     }
 
@@ -106,8 +136,12 @@ export namespace MicrosoftGraph {
         search?: string | null;
         select?: string[] | null;
         orderby?: string[] | null;
+        /** `$expand` — used by the remote-mailbox query to pull attachments / extended properties. */
+        expand?: string[] | null;
         top?: number | null;
         count?: boolean;
+        /** Any extra OData parameter, e.g. `includeHiddenFolders: "true"` on a mail-folder listing. */
+        extra?: Record<string, string>;
     }
 
     function queryString(params: GraphQueryParameters | undefined): string {
@@ -121,8 +155,11 @@ export namespace MicrosoftGraph {
         if (params.search) parts.push("$search=" + encodeURIComponent(params.search));
         if (params.select?.length) parts.push("$select=" + encodeURIComponent(params.select.join(",")));
         if (params.orderby?.length) parts.push("$orderby=" + encodeURIComponent(params.orderby.join(",")));
+        if (params.expand?.length) parts.push("$expand=" + encodeURIComponent(params.expand.join(",")));
         if (params.top != null) parts.push("$top=" + params.top);
         if (params.count) parts.push("$count=true");
+        for (const [key, value] of Object.entries(params.extra ?? {}))
+            parts.push(`${key}=${encodeURIComponent(value)}`);
 
         return parts.length === 0 ? "" : "?" + parts.join("&");
     }

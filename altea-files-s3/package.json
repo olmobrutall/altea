@@ -1,0 +1,25 @@
+{
+  "name": "@altea/altea-files-s3",
+  "version": "0.0.1",
+  "description": "S3 (and S3-compatible, e.g. MinIO) file store (ported from Signum.Files.S3)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-files": "workspace:*",
+    "@aws-sdk/client-s3": "^3.900.0",
+    "@aws-sdk/s3-request-presigner": "^3.900.0",
+    "quote-transformer": "workspace:*"
+  }
+}

@@ -1,0 +1,18 @@
+# Ported from Signum.Files.S3's docker-compose.yml.example — a local MinIO to develop against.
+# Copy to docker-compose.yml, adjust the volume path, then:
+#
+#   docker compose up -d
+#
+# Console: http://localhost:9001 (minioadmin / minioadmin), API endpoint: http://localhost:9000
+services:
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - "./.minio-data:/data"

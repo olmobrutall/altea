@@ -1,0 +1,8 @@
+{
+  // SERVER layer — the S3 IFileTypeAlgorithm.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-files/tsconfig.server.json" }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  // SERVER layer — the POP3 protocol client, the MIME → EmailMessage mapping and the reception loop.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-email/tsconfig.server.json" },
+    { "path": "../altea-files/tsconfig.server.json" },
+    { "path": "../altea-scheduler/tsconfig.server.json" }
+  ]
+}
