@@ -1,0 +1,11 @@
+{
+  // CLIENT layer — the MSAL sign-in buttons, the configuration editor and the AD-group view.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" },
+    { "path": "../altea-files/tsconfig.client.json" },
+    { "path": "../altea-scheduler/tsconfig.client.json" }
+  ]
+}

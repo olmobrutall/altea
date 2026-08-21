@@ -1,0 +1,9 @@
+{
+  // SERVER layer — the authorizer, the authorization-code exchange / token validation and the routes.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" }
+  ]
+}

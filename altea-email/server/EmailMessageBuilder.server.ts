@@ -8,6 +8,7 @@ import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
+import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import { QueryContext } from "@altea/altea-templating/server/ValueProviders.server";
 import { TextTemplateParameters } from "@altea/altea-templating/server/TextTemplateParser.Nodes.server";
 import { FilePathEmbedded } from "@altea/altea-files/data/Files";
@@ -102,6 +103,9 @@ export class EmailMessageBuilder {
                 editableMessage: this.template.editableMessage,
                 template: this.template.toLite(),
                 state: EmailMessageStateEnum.Created,
+                // Signum's `Body = new BigStringEmbedded()`: the embedded has to EXIST before the rendered
+                // text is assigned into it below (`email.body.text = …`).
+                body: BigStringEmbedded.create({}),
             });
 
             email.attachments = await this.generateAttachments(email, ci);

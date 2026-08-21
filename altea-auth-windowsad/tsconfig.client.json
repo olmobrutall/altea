@@ -1,0 +1,10 @@
+{
+  // CLIENT layer — the "Login with Windows user" button, the configuration editor and the photo provider.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" },
+    { "path": "../altea-scheduler/tsconfig.client.json" }
+  ]
+}

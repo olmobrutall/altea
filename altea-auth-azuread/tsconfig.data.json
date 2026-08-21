@@ -1,0 +1,11 @@
+{
+  // DATA layer — the Azure AD configuration, the AD group entity, the directory-query row models and the
+  // cached-profile-photo entity.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" },
+    { "path": "../altea-files/tsconfig.data.json" },
+    { "path": "../altea-scheduler/tsconfig.data.json" }
+  ]
+}

@@ -51,6 +51,13 @@ import { EmailMasterTemplateLogic } from "./EmailMasterTemplateLogic.server";
 export interface IEmailModel {
     /** The entity this model is ABOUT (Signum's UntypedEntity) — becomes the message's `target`. */
     untypedEntity: Entity | null;
+    /**
+     * The REGISTERED model type this object stands for (altea only — Signum's model IS a class instance, so
+     * its type is its own). `EmailLogic.modelTypeOf` needs it whenever the model's declared shape differs
+     * from the entity it is about; it falls back to `untypedEntity.constructor`, which is correct only for a
+     * model registered under the entity type itself.
+     */
+    modelType?: Function;
     /** Extra recipients the model itself supplies. */
     getRecipients(): EmailOwnerRecipientData[];
     /** A From the model itself supplies (else the template's / the configuration's default). */
@@ -65,6 +72,7 @@ export interface IEmailModel {
 export function emailModel(init: Partial<IEmailModel> & { untypedEntity: Entity | null }): IEmailModel {
     return {
         untypedEntity: init.untypedEntity,
+        modelType: init.modelType,
         getRecipients: init.getRecipients ?? (() => []),
         getFrom: init.getFrom ?? (() => null),
         // Signum's default: filter the query's Entity column to THIS entity.

@@ -152,6 +152,13 @@ export namespace EmailLogic {
             ? await retrieve(value.entityType as Type<Entity>, value.id)
             : value as Entity;
 
+        return ownerDataOfEntity(entity);
+    }
+
+    /** The SYNCHRONOUS half of `ownerDataOf`: read an already-LOADED owner entity through its registered
+     *  reader. Split out because an IEmailModel's `getRecipients()` is synchronous (Signum's is an
+     *  in-memory expression over an entity already in hand — `SendTo(Entity.User.EmailOwnerData)`). */
+    export function ownerDataOfEntity(entity: Entity): EmailOwnerData {
         for (let ctor: Function | null = entity.constructor; ctor != null; ctor = Object.getPrototypeOf(ctor) as Function | null) {
             const read = emailOwners.get(ctor);
             if (read != null)

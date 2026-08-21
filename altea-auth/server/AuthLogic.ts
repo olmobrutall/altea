@@ -14,8 +14,9 @@ import { PasswordEncoding } from "@altea/altea/server/passwordEncoding";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { ResetLazy } from "@altea/altea/data/resetLazy";
+import { codify } from "@altea/altea/server/sync/stringHash";
 import { UserEntity, UserState, UserOperation } from "../data/User";
-import { RoleEntity, RoleOperation, MergeStrategy } from "../data/Role";
+import { RoleEntity, RoleEntity_InheritsFrom, RoleOperation, MergeStrategy } from "../data/Role";
 import { UserMessage, LoginAuthMessage } from "../data/AuthMessages";
 import type { AuthImportCtx } from "./AuthRulesXml";
 // NOTE: AuthServer imports back from AuthLogic — a runtime-only cycle (both sides use the other only
@@ -56,6 +57,11 @@ export namespace AuthLogic {
 
     // Signum's `int? MaxFailedLoginAttempts` — lock the user after this many consecutive failures.
     export let maxFailedLoginAttempts: number | null = null;
+
+    // Signum's `Action<UserEntity>? OnDeactivateUser` — invoked JUST BEFORE the failed-attempt lockout
+    // deactivates the user, so a module can react (@altea/altea-auth-reset-password mails the user a
+    // reset link). Async here (altea's mail send is), and awaited by the lockout path below.
+    export let onDeactivateUser: ((user: UserEntity) => Promise<void> | void) | null = null;
 
     // Signum's SystemUserName / AnonymousUserName. Not persisted config yet — set by the host if wanted.
     export let systemUserName: string | null = null;
@@ -164,6 +170,10 @@ export namespace AuthLogic {
             await user.save();
 
             if (maxFailedLoginAttempts != null && user.loginFailedCounter >= maxFailedLoginAttempts && user.state === UserState.Active) {
+                // Signum's `OnDeactivateUser?.Invoke(user)` — BEFORE the state flips, so a handler still
+                // sees an Active user (altea-auth-reset-password mails a reset link from here).
+                if (onDeactivateUser != null)
+                    await onDeactivateUser(user);
                 user.disabledOn = Temporal.Now.plainDateTimeISO();
                 user.state = UserState.Deactivated;
                 await user.save();
@@ -371,6 +381,92 @@ export namespace AuthLogic {
         return (await roleGraph()).rolesInOrder(includeTrivialMerge);
     }
 
+    /**
+     * Signum's `AuthLogic.TryRetrieveUser(username, password)` — resolve a user AND check the password,
+     * returning null instead of throwing and WITHOUT touching the failed-login counter. Used by a
+     * directory authorizer to try the local database first (a DB round-trip beats an LDAP bind), so a
+     * failed probe must not count as a failed login attempt.
+     */
+    export async function tryRetrieveUser(username: string, password: string): Promise<UserEntity | null> {
+        return await withDisabled(async () => {
+            const user = await retrieveUserByUsername(username);
+            if (user == null)
+                return null;
+
+            const stored = decodeHash(user.passwordHash);
+            if (stored == null)
+                return null;
+
+            const candidates = [
+                PasswordEncoding.hashPassword(username, password),
+                ...PasswordEncoding.hashPasswordAlternatives(username, password),
+            ];
+            return candidates.some(c => PasswordEncoding.sequenceEqual(c, stored)) ? user : null;
+        });
+    }
+
+    /**
+     * Signum's `AuthLogic.GetOrCreateTrivialMergeRole` — a directory user may match SEVERAL
+     * `roleMapping` entries, and a user points at exactly ONE role, so the N roles are represented by a
+     * synthetic "trivial merge" role that just inherits from all of them (Union). Idempotent: the name is
+     * derived from the flattened set, so the same set always resolves to the same role.
+     *
+     * altea divergences:
+     *  - Signum has `rolesByName` as its own GlobalLazy; altea scans the ONE loaded RoleGraph by name (the
+     *    role count is small and the graph is already in memory).
+     *  - `CalculateTrivialMergeName` lives here rather than on the isomorphic RoleEntity: it needs
+     *    `codify` (server/sync/stringHash), and altea has not ported Signum's `PreSaving` hook.
+     *  - `OperationLogic.AllowSave<RoleEntity>()` has no altea counterpart (no RequiresSaveOperation
+     *    guard); `withDisabled` + `ExecutionMode.global` is the whole trusted scope.
+     */
+    export async function getOrCreateTrivialMergeRole(roles: Lite<RoleEntity>[]): Promise<Lite<RoleEntity>> {
+        const distinct = dedupLites(roles);
+        if (distinct.length === 0)
+            throw new Error("getOrCreateTrivialMergeRole: no roles given");
+        if (distinct.length === 1)
+            return distinct[0]!;
+
+        const graph = await roleGraph();
+
+        // Flatten: a trivial-merge role contributes the roles it inherits from, not itself — so merging
+        // {A, merge(B,C)} yields merge(A,B,C) rather than a merge of a merge.
+        const flat = dedupLites(distinct.flatMap(lite => {
+            const role = graph.rolesByKey.get(lite.key());
+            return role != null && role.isTrivialMerge
+                ? role.inheritsFrom.map(row => row.inheritsFrom)
+                : [lite];
+        }));
+
+        if (flat.length === 1)
+            return flat[0]!;
+
+        const name = calculateTrivialMergeName(flat);
+
+        const existing = [...graph.rolesByKey.values()].find(r => r.name === name);
+        if (existing != null)
+            return existing.toLite() as Lite<RoleEntity>;
+
+        return await withDisabled(() => ExecutionMode.global(async () => {
+            const created = RoleEntity.create({
+                name,
+                mergeStrategy: MergeStrategy.Union,
+                description: null,
+                isTrivialMerge: true,
+                inheritsFrom: flat.map(l => RoleEntity_InheritsFrom.create({ inheritsFrom: l })),
+            });
+            await created.save();
+            invalidateRoles();
+            return created.toLite() as Lite<RoleEntity>;
+        }));
+    }
+
+    /** Signum's `RoleEntity.CalculateTrivialMergeName` — a deterministic, ≤200-char name for a role set. */
+    export function calculateTrivialMergeName(roles: Lite<RoleEntity>[]): string {
+        const name = roles.map(a => a.toString()).sort().join(" + ");
+        const full = codify(name, /* lowercase */ false) + ": " + name;
+        return full.length <= 200 ? full : full.substring(0, 197) + "...";
+    }
+
     /** The current user's role key from the claims bag (Signum's RoleEntity.Current), or undefined. */
     export function currentRoleKey(): string | undefined {
         const role = UserHolder.current()?.getClaim("Role") as Lite<RoleEntity> | undefined;
@@ -426,4 +522,14 @@ export namespace AuthLogic {
     export function registerXmlImporter(importer: AuthXmlImporter): void { importerList.push(importer); }
     export function xmlExportersInOrder(): AuthXmlExporter[] { return exporterList; }
     export function xmlImporters(): AuthXmlImporter[] { return importerList; }
+}
+
+// Lite de-duplication by key (a Lite instance is not reference-stable, so `[...new Set(lites)]` would
+// keep duplicates). Used by getOrCreateTrivialMergeRole, where Signum relies on Lite's value equality.
+function dedupLites<T extends { key(): string }>(lites: T[]): T[] {
+    const seen = new Map<string, T>();
+    for (const l of lites)
+        if (!seen.has(l.key()))
+            seen.set(l.key(), l);
+    return [...seen.values()];
 }

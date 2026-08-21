@@ -1,0 +1,9 @@
+{
+  // DATA layer — the Windows AD configuration, the deactivate-users task symbol and the messages.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" },
+    { "path": "../altea-scheduler/tsconfig.data.json" }
+  ]
+}

@@ -13,6 +13,7 @@ import {
 import { AuthTokenServer, type AuthTokenConfiguration } from "./AuthTokenServer";
 import { AuthReflectionServer } from "./AuthReflection";
 import { AuthAdminServer } from "./AuthAdminServer";
+import { ActiveDirectoryServer } from "./ActiveDirectoryServer";
 
 // Port of Signum's AuthServer + AuthController (AuthServer.cs + AuthController.cs) — the HTTP surface of
 // authentication: a per-request user-context middleware plus the /api/auth/* endpoints. The large
@@ -72,6 +73,12 @@ export namespace AuthServer {
         // call; their handlers/filters run at request time, after the authorization logics have started.
         AuthReflectionServer.install();
         AuthAdminServer.start(ws);
+        // The shared BaseAD routes (find / import a directory user). Signum's ActiveDirectoryController
+        // lives in Signum.Authorization and is always discovered by ASP.NET, so it is always reachable;
+        // altea registers it here for the same reason — and because a host may install BOTH a directory
+        // module and none of them may own the route. With no `IDirectoryInviter` authorizer set the routes
+        // answer a clear error, and the permission gate answers false.
+        ActiveDirectoryServer.start(ws);
     }
 
     // Signum's SignumAuthenticationFilter authorization check (the AllowAnonymous / anonymous-user

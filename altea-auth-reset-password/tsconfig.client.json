@@ -1,0 +1,9 @@
+{
+  // CLIENT layer — the "I forgot my password" and "reset password" pages + the login-form link.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" }
+  ]
+}

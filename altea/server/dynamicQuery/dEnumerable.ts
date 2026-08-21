@@ -1,4 +1,4 @@
-import { ObjectType } from "../runtimeTypes";
+import { ObjectType, type RuntimeType } from "../runtimeTypes";
 import {
     Expression, ParameterExpression, PropertyExpression, ConstantExpression, BinaryExpression,
     CallExpression, ObjectExpression, ConditionalExpression, UnaryExpression, CastExpression,
@@ -23,6 +23,21 @@ export class DEnumerable {
         public readonly collection: unknown[],
         public readonly context: BuildExpressionContext,
     ) { }
+
+    /**
+     * Port of Signum's `ToDEnumerable(queryDescription)` — wrap rows that came from OUTSIDE the database
+     * (a REST call, a directory, a file) so the whole query pipeline still applies to them. The seeding
+     * is `DQueryable.fromEntity`'s: the row IS the shape, so the entity-root token (keyed "") maps to it
+     * and every navigation builds off that.
+     *
+     * A manual query whose source is not SQL (e.g. Microsoft Graph in @altea/altea-auth-azuread) starts
+     * here and then runs `.where(...).orderBy(...).select(...)` in memory, exactly as Signum does.
+     */
+    static fromEntity(elementType: RuntimeType, rows: unknown[]): DEnumerable {
+        const pe = new ParameterExpression("e", elementType);
+        const replacements = new Map<string, ExpressionBox>([["", new ExpressionBox(pe)]]);
+        return new DEnumerable(rows, new BuildExpressionContext(elementType, pe, replacements));
+    }
 
     where(filters: Filter[]): DEnumerable {
         if (filters.length === 0)

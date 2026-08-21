@@ -223,6 +223,21 @@ export namespace Finder {
     // TODO(port): the qs.onFindMany override.
     return Options.getSearchModal().then(m => m.default.openMany(fo, modalOptions)).then(a => a?.rows.map(r => r.entity!));
   }
+
+  /**
+   * Signum's `findRow` — like `find`, but returns the picked RESULT ROW (and the search control that
+   * produced it) instead of its Lite. Needed whenever the row has no entity to return: a GROUPED result,
+   * or a query whose rows do not come from the database at all (the Microsoft Graph directory queries in
+   * @altea/altea-auth-azuread read their columns straight off the row).
+   */
+  export function findRow(fo: FindOptions, modalOptions?: ModalFindOptions): Promise<{ row: ResultRow, searchControl: SearchControlLoaded } | undefined> {
+    return Options.getSearchModal().then(m => m.default.open(fo, modalOptions));
+  }
+
+  /** Signum's `findManyRows` — the multi-select twin of `findRow`. */
+  export function findManyRows(fo: FindOptions, modalOptions?: ModalFindOptionsMany): Promise<{ rows: ResultRow[], searchControl: SearchControlLoaded } | undefined> {
+    return Options.getSearchModal().then(m => m.default.openMany(fo, modalOptions));
+  }
   //
   //   export function find<T extends Entity = Entity>(findOptions: FindOptions<T>, modalOptions?: ModalFindOptions): Promise<Lite<T> | undefined>;
   //   export function find<T extends Entity>(type: Type<T>, modalOptions?: ModalFindOptions): Promise<Lite<T> | undefined>;

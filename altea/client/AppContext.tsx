@@ -42,24 +42,21 @@ export let currentUser: IUserEntity | undefined = undefined;
 export const currentUserChanged: (() => void)[] = [];
 
 export function setCurrentUser(user: IUserEntity | undefined): void {
-  const changed = identityOf(currentUser) !== identityOf(user);
+  const same = currentUser != null && user != null
+    // Entity identity (same type + same id) — the real comparison, not a hand-rolled key…
+    && currentUser.is(user)
+    // …plus the row VERSION, so an edit to that user still counts as a change. `ticks` is exactly the
+    // "has this row changed" stamp, and it catches everything a field-by-field check would have to
+    // enumerate — a role reassignment above all, which must reach the listeners because the metadata blob
+    // is role-filtered.
+    && currentUser.ticks === user.ticks;
   currentUser = user;
-  // Only notify on a REAL change of who is logged in. A periodic token refresh re-fetches the same user,
-  // and listeners here are expensive — altea's reloads the entire reflection blob and remounts the app
-  // (AuthClient) — so firing then would turn a background refresh into a visible storm: remount → new
-  // requests → another refresh → … The fresh instance is still adopted above; only the signal is skipped.
-  if (changed)
+  // Only notify on a REAL change. A periodic token refresh re-fetches the SAME user at the SAME version,
+  // and the listeners here are expensive — altea's reloads the whole reflection blob and remounts the app
+  // (AuthClient) — so firing then turns a background refresh into a visible storm: remount → new requests
+  // → another refresh → … The fresh instance is still adopted above; only the signal is skipped.
+  if (!same)
     currentUserChanged.forEach(a => a());
-}
-
-// Who this is, for change detection: the user AND the role, since a role change must reach the listeners
-// (the metadata blob is role-filtered) even though the user id is the same. Ticks/other fields are
-// deliberately ignored — a user editing their own profile should not remount the app.
-function identityOf(user: IUserEntity | undefined): string | undefined {
-  if (user == null)
-    return undefined;
-  const role = (user as { role?: { id?: unknown } | null }).role;
-  return `${user.constructor.name};${String((user as { id?: unknown }).id)};${String(role?.id ?? "")}`;
 }
 
 // App-shell re-render hook (Signum's `AppContext.resetUI` / `setResetUI`). A single settable function:

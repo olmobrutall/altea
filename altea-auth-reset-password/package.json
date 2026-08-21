@@ -1,0 +1,25 @@
+{
+  "name": "@altea/altea-auth-reset-password",
+  "version": "0.0.1",
+  "description": "Self-service password reset by e-mail (ported from Signum.Authorization.ResetPassword)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-email": "workspace:*",
+    "@altea/altea-templating": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}

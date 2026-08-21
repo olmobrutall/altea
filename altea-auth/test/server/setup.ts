@@ -1,3 +1,4 @@
+import { StartParameters } from "@altea/altea/data/utils/startParameters";
 import { after } from "node:test";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { SchemaBuilder } from "@altea/altea/server/schema";
@@ -73,9 +74,15 @@ export function start(): Promise<Connector> {
 
 // One-shot: drop/recreate the tables and seed the role/rule fixture. Run via `gen:*` before a test run.
 export async function generateAuthEnvironment(): Promise<Connector> {
-    const connector = await start();
+    // `start()` ends in `schema.initialize()`, which reads the type / symbol caches and THROWS on a
+    // mismatch — and a stale database (a newly declared symbol with no row yet) is exactly the situation
+    // `gen` exists to fix, so that pre-clean read has to be tolerant. Same seam the terminal's create/sync
+    // uses (StartParameters.withIgnoredDatabaseMismatches); the mismatches are discarded because the very
+    // next statements drop and regenerate everything.
+    const { result: connector } = await StartParameters.withIgnoredDatabaseMismatches(() => start());
     await connector.cleanDatabase();
     await connector.schema.generationScript()?.executeNonQuery();
+    // NOT tolerant: after the regeneration the caches must load cleanly, or the fixture is wrong.
     await connector.schema.initialize();
     await seed();
     return connector;

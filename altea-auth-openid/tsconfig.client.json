@@ -1,0 +1,9 @@
+{
+  // CLIENT layer — the sign-in button, the /openid-callback page and the configuration editor.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" }
+  ]
+}

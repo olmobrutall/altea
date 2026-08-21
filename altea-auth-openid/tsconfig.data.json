@@ -1,0 +1,8 @@
+{
+  // DATA layer — the OIDC configuration embedded, the client-config DTO and the module's messages.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" }
+  ]
+}

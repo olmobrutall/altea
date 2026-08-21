@@ -10,7 +10,7 @@ import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol } from "@altea/altea/
 import type { IUserEntity, IEmailOwnerEntity } from "@altea/altea/data/security";
 import { RoleEntity } from "./Role";
 import { TypeConditionSymbol } from "./Rules";
-import { AuthAdminMessage } from "./AuthMessages";
+import { AuthAdminMessage, UserExternalIdMessage } from "./AuthMessages";
 
 // Port of Signum's UserEntity (Signum.Authorization/UserEntity.cs). The application user: a login name,
 // a password hash, a role, and an activation state machine (New → Active ⇄ Deactivated/AutoDeactivate).
@@ -79,8 +79,20 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
 
     loginFailedCounter: number = 0;
 
+    // Signum's `UserEntity.AllowPasswordForUserWithExternalId` static flag — when false (the default) a
+    // user linked to an external identity provider (Azure AD / OpenID / a Windows domain) may NOT also
+    // carry a local password, so the directory is the single source of truth. A host that wants both sets
+    // it to true at startup.
+    static allowPasswordForUserWithExternalId: boolean = false;
+
     @uniqueIndex
     @stringLengthValidator({ max: 500 })
+    // Signum's PropertyValidation on ExternalId: refuse the combination of an external identity and a
+    // local password hash unless the host opted in.
+    @fieldValidation<UserEntity>((u) =>
+        u.externalId != null && u.passwordHash != null && !UserEntity.allowPasswordForUserWithExternalId
+            ? UserExternalIdMessage.TheUser0IsConnectedToAnExternalProviderAndCanNotHaveALocalPasswordSet.niceToString(u.userName)
+            : null)
     externalId: string | null = null;
 
     @quoted

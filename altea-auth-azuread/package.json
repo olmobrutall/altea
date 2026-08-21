@@ -1,0 +1,27 @@
+{
+  "name": "@altea/altea-auth-azuread",
+  "version": "0.0.1",
+  "description": "Microsoft Entra ID / Azure AD login, directory queries and profile photos (ported from Signum.Authorization.AzureAD)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-files": "workspace:*",
+    "@altea/altea-scheduler": "workspace:*",
+    "@azure/msal-browser": "^4.0.0",
+    "jose": "^6.1.0",
+    "quote-transformer": "workspace:*"
+  }
+}

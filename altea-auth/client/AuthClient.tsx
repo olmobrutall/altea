@@ -232,7 +232,11 @@ export namespace AuthClient {
         });
     }
 
-    export type AuthenticationType = "database" | "resetPassword" | "changePassword" | "api-key" | "azureAD" | "cookie" | "windows";
+    // Every `authenticationType` a login route can answer with. Beyond Signum's set: "relogin" (altea's
+    // /api/auth/relogin), "openID" (@altea/altea-auth-openid) and "adRegistry" (a Windows AD LDAP bind —
+    // Signum's WindowsADAuthorizer returns it too, it just never reached the TS union).
+    export type AuthenticationType = "database" | "resetPassword" | "changePassword" | "api-key"
+        | "azureAD" | "cookie" | "windows" | "relogin" | "openID" | "adRegistry";
 
     export namespace API {
         export interface LoginRequest { userName: string; password: string; rememberMe?: boolean; }

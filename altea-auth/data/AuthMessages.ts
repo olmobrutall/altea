@@ -55,7 +55,19 @@ export const LoginAuthMessage = {
     LoginWith0: msg("Login with {0}"),
     SignInWithMicrosoft: msg("Sign in with Microsoft"),
     InvalidTokenDate0: msg("Invalid token date {0}"),
+    SignUpWithAzureB2C: msg("Sign up with Azure B2C"),
+    SignInWithAzureB2C: msg("Sign in with Azure B2C"),
+    LoginWithAzureB2C: msg("Login with Azure B2C"),
     NoLocalUserFound: msg(),
+};
+
+// Signum's `[AllowUnauthenticated] enum ResetPasswordB2CMessage` — the Azure B2C "forgot my password"
+// user flow surfaces as an AADB2C90118 error on the sign-in popup, and the client offers to run the
+// reset-password flow instead (see @altea/altea-auth-azuread's AzureADAuthenticator).
+export const ResetPasswordB2CMessage = {
+    ResetPasswordRequested: msg("Reset Password requested"),
+    DoYouWantToContinue: msg("Do you want to continue?"),
+    ResetPassword: msg("Reset Password"),
 };
 
 // Signum's AuthMessage (authorization error / rule-pack overview text).

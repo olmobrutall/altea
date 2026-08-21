@@ -1,0 +1,11 @@
+{
+  // SERVER layer — the request logic, the two e-mail models and the anonymous /api/auth/* routes.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" },
+    { "path": "../altea-email/tsconfig.server.json" },
+    { "path": "../altea-templating/tsconfig.server.json" }
+  ]
+}
