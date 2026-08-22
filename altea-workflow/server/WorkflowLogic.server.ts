@@ -23,6 +23,9 @@ import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { UserAssetLogic } from "@altea/altea-user-assets/server/UserAssetLogic.server";
 import { EvalLogic } from "@altea/altea-eval/server/EvalLogic.server"; // + FluentInclude.withEvals
+import * as workflowEvalModule from "../data/WorkflowEval";
+import * as caseModule from "../data/Case";
+import * as caseActivityModule from "../data/CaseActivity";
 import {
     WorkflowEntity, WorkflowIssueType, WorkflowMessage, WorkflowOperation, WorkflowPermission,
     WorkflowXmlEmbedded, WorkflowMainEntityStrategy, WorkflowModel, WorkflowReplacementModel,
@@ -686,6 +689,19 @@ export namespace WorkflowLogic {
             .withQuery();
 
         registerEvalSources();
+        registerEvalModules();
+    }
+
+    /**
+     * What a stored workflow script may IMPORT of THIS module — registered here, by the module that owns the
+     * types, rather than by every application (Signum's EvalLogic seeds its own assemblies the same way; see
+     * altea-eval's EvalFrameworkModules). The three are what a condition / action / timer body is handed:
+     * the evaluator function types, the case, and the case activity.
+     */
+    function registerEvalModules(): void {
+        EvalLogic.registerModule("@altea/altea-workflow/data/WorkflowEval", workflowEvalModule);
+        EvalLogic.registerModule("@altea/altea-workflow/data/Case", caseModule, { typeNames: ["ICaseMainEntity"] });
+        EvalLogic.registerModule("@altea/altea-workflow/data/CaseActivity", caseActivityModule);
     }
 
     /**

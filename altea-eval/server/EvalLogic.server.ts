@@ -6,6 +6,7 @@ import { EvalEmbedded } from "../data/Eval";
 import { EvalPanelPermission } from "../data/EvalPanelPermission";
 import { EvalCompiler, type EvalCompilerOptions } from "./EvalCompiler.server";
 import { EvalServer } from "./EvalServer.server";
+import { frameworkModules, frameworkPreamble } from "./EvalFrameworkModules.server";
 
 // Port of Signum.Eval's EvalLogic.cs — the module's registration plus the two registries a stored script
 // depends on: what it may IMPORT (`registerModule`, Signum's AssemblyTypes/Namespaces) and what every
@@ -14,7 +15,9 @@ import { EvalServer } from "./EvalServer.server";
 // altea divergences:
 //  - Signum's assembly/namespace lists become MODULE registrations, because a TypeScript import names a
 //    module rather than a namespace, and because the same registration has to serve both the type check and
-//    the runtime `require` (see EvalCompiler's header).
+//    the runtime `require` (see EvalCompiler's header). Like Signum, the module SEEDS ITS OWN framework
+//    surface (see EvalFrameworkModules) — an application registers only its entity domains, and a module
+//    outside the framework registers its own from its own `Logic.start` (altea-workflow does).
 //  - Signum's `[BindParent]` has no counterpart, so an eval's OWNER is bound by
 //    `sb.include(Owner).withEvals()`, which hangs the binding off the two schema events altea already has:
 //    `preSaving` (so validation and save can compile) and `retrieved` (so a read-back eval can). Signum gets
@@ -38,6 +41,10 @@ export namespace EvalLogic {
 
         EvalCompiler.configure(compilerOptions);
         EvalCompiler.install();
+
+        // Signum's pre-seeded AssemblyTypes / Namespaces (see EvalFrameworkModules).
+        registerModules(frameworkModules);
+        addPreamble(...frameworkPreamble);
 
         // Reaching a PermissionSymbol declared with init() is enough — PermissionAuthLogic seeds the table
         // (Signum's explicit `PermissionLogic.RegisterPermissions`).

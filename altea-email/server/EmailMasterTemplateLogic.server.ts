@@ -9,6 +9,8 @@ import {
     EmailMasterTemplateEntity, EmailMasterTemplateEntity_Message, EmailMasterTemplateOperation, languageOf,
 } from "../data/EmailTemplate";
 import { registerEmailMasterTemplateXml } from "./EmailTemplateXml.server";
+import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
+import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
 
 // Port of Signum.Mailing's Templates/EmailMasterTemplateLogic.cs — the shared chrome a template's body is
 // spliced into.
@@ -21,10 +23,45 @@ import { registerEmailMasterTemplateXml } from "./EmailTemplateXml.server";
 //  - `GetCultureMessage(ci)` walks `ci.Parent`; altea's cultures are strings, so `languageOf` ("de-CH" → "de")
 //    plays that role.
 
+const defaultMasterTemplateHtml = `<html>
+<head>
+  <meta charset="utf-8" />
+</head>
+<body style="font-family: sans-serif; font-size: 14px; color: #333;">
+@[content]
+</body>
+</html>`;
+
+/** One message per application culture, each rendered in ITS culture (Signum's CultureInfoLogic.ForEachCulture). */
+function forEachCulture(build: (culture: ReturnType<typeof cultureLite>) => EmailMasterTemplateEntity_Message): EmailMasterTemplateEntity_Message[] {
+    return CultureInfoLogic.applicationCultures()
+        .map(name => CultureInfo.withCultures(name, () => build(cultureLite(name))));
+}
+
+function cultureLite(name: string) {
+    return CultureInfoLogic.getCulture(name).toLite();
+}
+
 export namespace EmailMasterTemplateLogic {
 
     /** Signum's `CreateDefaultMasterTemplate` — the master template a fresh database gets. */
-    export let createDefaultMasterTemplate: (() => EmailMasterTemplateEntity) | undefined;
+    /**
+     * The master template a fresh database gets (Signum's `EmailMasterTemplateLogic.CreateDefaultMasterTemplate`).
+     *
+     * altea divergence: Signum leaves this null and constructs an EMPTY template, so every application has to
+     * write the chrome itself. Here the MODULE ships a neutral default — plain HTML with `@[content]` where a
+     * template's body lands — because nothing about it is app-specific. An app that wants its own branding
+     * still just assigns this.
+     */
+    export let createDefaultMasterTemplate: (() => EmailMasterTemplateEntity) | undefined = () =>
+        EmailMasterTemplateEntity.create({
+            name: "Default",
+            isDefault: true,
+            messages: forEachCulture(culture => EmailMasterTemplateEntity_Message.create({
+                culture,
+                text: defaultMasterTemplateHtml,
+            })),
+        });
 
     /** The locale a master template MUST carry a message for — set by EmailLogic.start from the app's
      *  EmailConfiguration (see the header). */

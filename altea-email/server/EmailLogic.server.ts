@@ -15,6 +15,7 @@ import { Clock } from "@altea/altea/data/utils/clock";
 import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import { type uuid } from "@altea/altea/data/basics";
 import { FileTypeLogic } from "@altea/altea-files/server/FileTypeLogic.server";
+import { UserEntity } from "@altea/altea-auth/data/User";
 import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbeddedLogic.server";
 import type { IFileTypeAlgorithm } from "@altea/altea-files/server/FileTypeAlgorithm.server";
 import { FileTypeSymbol } from "@altea/altea-files/data/Files";
@@ -116,6 +117,19 @@ export namespace EmailLogic {
         // altea has no PermissionLogic registry: a PermissionSymbol declared with init() is seeded into the
         // symbol table by PermissionAuthLogic — the symbol just has to be REACHED.
         void AsyncEmailSenderPermission.ViewAsyncEmailSenderPanel;
+
+        // The USER is an email owner out of the box. Signum gets this for free: `UserEntity.EmailOwnerData`
+        // is an [AutoExpressionField] declared in Signum.Authorization, so any app can address a user in a
+        // template. altea resolves owners through a registry instead (see the header), so the equivalent is
+        // registering it HERE — this module already depends on altea-auth — rather than making every app
+        // repeat it. An app with its OWN owner types adds them with `registerEmailOwner`.
+        registerEmailOwner(UserEntity, u => ({
+            owner: u.toLite(),
+            email: u.email,
+            displayName: u.userName,
+            culture: null, // altea has no CultureInfoEntity on the user (see altea-auth's User.ts)
+            externalId: u.externalId,
+        }));
 
         registerEmailSender(SmtpEmailServiceEntity, (service, config) => new SmtpSender(config, service as SmtpEmailServiceEntity));
 

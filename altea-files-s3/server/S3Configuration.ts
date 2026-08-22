@@ -89,3 +89,36 @@ export function resolveEndpoint(config: S3Configuration): string | undefined {
     const scheme = config.port === 443 || config.port === 433 ? "https://" : "http://";
     return scheme + endpoint;
 }
+
+
+// The connection half, kept in the MODULE so an application supplies only credentials and names.
+// `toS3Client` above builds a client per call; these two cache it and hold the bucket-name convention, which
+// is what every app would otherwise re-write (Signum leaves both to the app because a C# app already has the
+// SDK and its own configuration plumbing).
+export namespace S3Storage {
+
+    const clients = new Map<string, S3Client>();
+
+    /** The (cached) client for a configuration. Throws with a precise message when credentials are missing. */
+    export function client(config: S3Configuration): S3Client {
+        const key = `${config.endpoint ?? ""}|${config.accessKey ?? ""}|${config.region ?? ""}`;
+
+        let result = clients.get(key);
+        if (result != undefined)
+            return result;
+
+        result = toS3Client(config) ?? undefined as unknown as S3Client;
+        if (result == undefined)
+            throw new Error("S3Storage: the configuration needs accessKey + secretKey"
+                + " (and an endpoint for a non-AWS server such as MinIO).");
+
+        clients.set(key, result);
+        return result;
+    }
+
+    /** S3 bucket names accept only lower-case letters, digits and hyphens. */
+    export function bucketNameOf(storeName: string, prefix?: string): string {
+        const clean = storeName.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/[^A-Za-z0-9]/g, "-").toLowerCase();
+        return prefix == null || prefix === "" ? clean : `${prefix}-${clean}`;
+    }
+}

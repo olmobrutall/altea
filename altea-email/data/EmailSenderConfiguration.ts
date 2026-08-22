@@ -87,7 +87,10 @@ export class SmtpNetworkDeliveryEmbedded extends Entity {
 
     useDefaultCredentials: boolean = true;
 
-    enableSSL: boolean;
+    // `= false` is not restating a zero value: Signum's `public bool EnableSSL { get; set; }` IS initialized —
+    // by C#, to false — and altea's implicit NotNull validator rejects an unset non-nullable field, so an SMTP
+    // row built in code (an app seeding a sender) could not be saved without it.
+    enableSSL: boolean = false;
 
     clientCertificationFiles: SmtpNetworkDeliveryEmbedded_ClientCertificationFile[];
 

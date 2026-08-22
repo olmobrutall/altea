@@ -17,6 +17,16 @@ import {
 } from "../data/SkillCustomization";
 import { SkillCode } from "./SkillCode";
 import { SkillCodeLogic } from "./SkillCodeLogic";
+import { IntroductionSkill } from "./Skills/IntroductionSkill";
+import { AutocompleteSkill } from "./Skills/AutocompleteSkill";
+import { SearchSkill } from "./Skills/SearchSkill";
+import { RetrieveSkill } from "./Skills/RetrieveSkill";
+import { OperationSkill } from "./Skills/OperationSkill";
+import { CurrentServerContextSkill } from "./Skills/CurrentServerContextSkill";
+import { EntityUrlSkill } from "./Skills/EntityUrlSkill";
+import { GetUIContextSkill } from "./Skills/GetUIContextSkill";
+import { ConfirmUISkill } from "./Skills/ConfirmUISkill";
+import { ChartSkill } from "./Skills/ChartSkill";
 import { ConversationSumarizerSkill } from "./Skills/ConversationSumarizerSkill";
 import { QuestionSumarizerSkill } from "./Skills/QuestionSumarizerSkill";
 
@@ -85,6 +95,21 @@ export namespace AgentLogic {
 
         SkillCodeLogic.start(sb);
 
+        // Every skill the MODULE ships. Signum has no such list: its `SkillCode` base constructor
+        // auto-registers the concrete type (SkillCode.cs), so merely newing one up in the app's tree is
+        // enough. altea cannot do that — a class that is never instantiated is never seen, and the SkillCode
+        // TABLE is seeded from this registry BEFORE any tree is built — so the module registers what it
+        // owns, and an application only registers a skill of its OWN.
+        SkillCodeLogic.register(IntroductionSkill);
+        SkillCodeLogic.register(AutocompleteSkill);
+        SkillCodeLogic.register(SearchSkill);
+        SkillCodeLogic.register(RetrieveSkill);
+        SkillCodeLogic.register(OperationSkill);
+        SkillCodeLogic.register(CurrentServerContextSkill);
+        SkillCodeLogic.register(EntityUrlSkill);
+        SkillCodeLogic.register(GetUIContextSkill);
+        SkillCodeLogic.register(ConfirmUISkill);
+        SkillCodeLogic.register(ChartSkill);
         SkillCodeLogic.register(ConversationSumarizerSkill);
         SkillCodeLogic.register(QuestionSumarizerSkill);
 
