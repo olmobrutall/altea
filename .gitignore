@@ -9,3 +9,7 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Playwright run artifacts
+test-results/
+playwright-report/

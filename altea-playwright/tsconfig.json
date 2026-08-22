@@ -1,0 +1,18 @@
+{
+    // ONE layer: node-side test-support code that drives a browser through Playwright. It is neither
+    // data / client / server (an app's TEST project consumes it), so it does not use those presets —
+    // but it does reference altea's DATA layer, for PropertyRoute / Lite / the quoted property lambdas
+    // the line proxies take.
+    "extends": "../altea/presets/base.json",
+    "compilerOptions": {
+        "rootDir": ".",
+        "outDir": "./dist",
+        "tsBuildInfoFile": "./dist/.tsbuildinfo",
+        "types": ["node"]
+    },
+    "include": ["**/*.ts"],
+    "exclude": ["dist/**", "node_modules/**"],
+    "references": [
+        { "path": "../altea/tsconfig.data.json" }
+    ]
+}
