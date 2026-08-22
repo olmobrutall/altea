@@ -1,0 +1,12 @@
+{
+  // CLIENT layer — the four code pages, the three instance pages and the translate button on a line.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" },
+    { "path": "../altea-diff-log/tsconfig.client.json" },
+    { "path": "../altea-html-editor/tsconfig.client.json" },
+    { "path": "../altea-omnibox/tsconfig.client.json" }
+  ]
+}

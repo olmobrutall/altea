@@ -1,0 +1,11 @@
+{
+  // SERVER layer — the translation-file (code) engine, the instance cache + excel round-trip, the
+  // translators, and both controllers.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" },
+    { "path": "../altea-office-template/tsconfig.server.json" }
+  ]
+}

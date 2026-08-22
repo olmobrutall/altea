@@ -1,0 +1,27 @@
+{
+  "name": "@altea/altea-translations",
+  "version": "0.0.1",
+  "description": "Translate the application: the per-package translation XML files (code) and the per-instance translated fields (data) — ported from Signum.Translation",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-diff-log": "workspace:*",
+    "@altea/altea-html-editor": "workspace:*",
+    "@altea/altea-office-template": "workspace:*",
+    "@altea/altea-omnibox": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}
