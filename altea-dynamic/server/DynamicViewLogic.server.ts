@@ -42,28 +42,7 @@ export namespace DynamicViewLogic {
             .withDelete(DynamicViewOperation.Delete)
             .withQuery();
 
-        graph(DynamicViewEntity, g => {
-
-            // Signum's Construct seeds `Locals` with a forceUpdate hook so a brand-new view already has the
-            // one local every non-trivial view needs. `viewContent` is left empty: only the CLIENT can build
-            // a default node tree, since the node library lives there (see createDefaultDynamicView).
-            g.Construct(DynamicViewOperation.Create, {
-                construct: (): DynamicViewEntity => DynamicViewEntity.create({
-                    locals: defaultLocals,
-                }),
-            });
-
-            g.ConstructFrom(DynamicViewEntity, DynamicViewOperation.Clone, {
-                construct: (view: DynamicViewEntity): DynamicViewEntity => DynamicViewEntity.create({
-                    viewName: "",
-                    entityType: view.entityType,
-                    viewContent: view.viewContent,
-                    locals: view.locals,
-                    props: view.props.map((p: DynamicViewEntity_Prop) =>
-                        DynamicViewEntity_Prop.create({ name: p.name, type: p.type })),
-                }),
-            });
-        });
+        DynamicViewGraph.register();
 
         dynamicViewsLazy = sb.globalLazy(
             () => table(DynamicViewEntity).toArray() as Promise<DynamicViewEntity[]>,
@@ -190,4 +169,27 @@ export namespace DynamicViewLogic {
 
         return result;
     }
+
+    const DynamicViewGraph = graph(DynamicViewEntity, g => {
+
+        // Signum's Construct seeds `Locals` with a forceUpdate hook so a brand-new view already has the
+        // one local every non-trivial view needs. `viewContent` is left empty: only the CLIENT can build
+        // a default node tree, since the node library lives there (see createDefaultDynamicView).
+        g.Construct(DynamicViewOperation.Create, {
+            construct: (): DynamicViewEntity => DynamicViewEntity.create({
+                locals: defaultLocals,
+            }),
+        });
+
+        g.ConstructFrom(DynamicViewEntity, DynamicViewOperation.Clone, {
+            construct: (view: DynamicViewEntity): DynamicViewEntity => DynamicViewEntity.create({
+                viewName: "",
+                entityType: view.entityType,
+                viewContent: view.viewContent,
+                locals: view.locals,
+                props: view.props.map((p: DynamicViewEntity_Prop) =>
+                    DynamicViewEntity_Prop.create({ name: p.name, type: p.type })),
+            }),
+        });
+    });
 }

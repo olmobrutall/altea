@@ -123,11 +123,7 @@ export namespace AgentLogic {
 
         sb.include(AgentSymbol).withQuery();
 
-        // No `canBeNew`: altea's AgentSymbol is a plain Symbol, so every row is code-seeded and Save only
-        // ever persists a changed `skillCustomization` (Signum's Execute body is empty too).
-        graph(AgentSymbol, g => {
-            g.Execute(AgentOperation.Save, { canBeModified: true, execute: () => { } });
-        }).register();
+        AgentGraph.register();
 
         sb.include(SkillCustomizationEntity)
             .withSave(SkillCustomizationOperation.Save)
@@ -137,16 +133,7 @@ export namespace AgentLogic {
         sb.include(SkillCustomizationEntity_Property).withQuery();
         sb.include(SkillCustomizationEntity_SubSkill).withQuery();
 
-        graph(SkillCustomizationEntity, g => {
-            g.ConstructFrom(AgentSymbol, SkillCustomizationOperation.CreateFromAgent, {
-                construct: async (agentSymbol: AgentSymbol) => {
-                    const factory = registeredAgents.get(agentSymbol.key);
-                    if (factory == undefined)
-                        return SkillCustomizationEntity.create({});
-                    return await toCustomizationEntity(factory());
-                },
-            });
-        }).register();
+        SkillCustomizationGraph.register();
 
         sb.schema.entityEvents(SkillCustomizationEntity).saving.push(entity => {
             // Signum guards on `SubSkills.IsGraphModified`; altea's snapshot diffing exposes the same
@@ -255,4 +242,22 @@ export namespace AgentLogic {
             throw new Error(`${problems.length} cycle(s) found in the skill graph:\n`
                 + problems.map(e => `  ${e.from} → ${e.to}`).join("\n"));
     }
+
+    // No `canBeNew`: altea's AgentSymbol is a plain Symbol, so every row is code-seeded and Save only
+    // ever persists a changed `skillCustomization` (Signum's Execute body is empty too).
+    const AgentGraph = graph(AgentSymbol, g => {
+        g.Execute(AgentOperation.Save, { canBeModified: true, execute: () => { } });
+    });
+
+
+    const SkillCustomizationGraph = graph(SkillCustomizationEntity, g => {
+        g.ConstructFrom(AgentSymbol, SkillCustomizationOperation.CreateFromAgent, {
+            construct: async (agentSymbol: AgentSymbol) => {
+                const factory = registeredAgents.get(agentSymbol.key);
+                if (factory == undefined)
+                    return SkillCustomizationEntity.create({});
+                return await toCustomizationEntity(factory());
+            },
+        });
+    });
 }

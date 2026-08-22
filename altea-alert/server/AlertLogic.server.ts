@@ -92,7 +92,7 @@ export namespace AlertLogic {
 
         SymbolLogic.start(sb, AlertTypeSymbol, () => [...systemAlertTypes.keys()]);
 
-        registerAlertGraph();
+        AlertGraph.register();
 
         // Signum's `Retrieved` event: the row carries the text its TYPE stands for, so a client that has no
         // access to the server registry can still render an alert with no `textField` of its own.
@@ -254,75 +254,73 @@ export namespace AlertLogic {
 
     // ---- The operation graph ----------------------------------------------------------------------------
 
-    function registerAlertGraph(): void {
-        graph(AlertEntity, AlertState, g => {
-            g.GetState = a => a.state;
+    const AlertGraph = graph(AlertEntity, AlertState, g => {
+        g.GetState = a => a.state;
 
-            // Signum's ConstructFrom<Entity> — owned by the SOURCE type, which is every entity: registered
-            // for each type the app opts in with `AlertsClient`'s `showAlerts`, and here for `Entity` so the
-            // operation exists. See CLAUDE.md on ConstructFrom ownership.
-            g.ConstructFrom(Entity as unknown as Type<Entity>, AlertOperation.CreateAlertFromEntity, {
-                toStates: [AlertState.New],
-                construct: (source: Entity) => AlertEntity.create({
-                    alertDate: Clock.now,
-                    createdBy: UserHolder.currentUserLite() as Lite<UserEntity> | null,
-                    recipient: defaultRecipient(),
-                    titleField: null,
-                    textField: null,
-                    target: source.toLite(),
-                    alertType: null,
-                }),
-            });
+        // Signum's ConstructFrom<Entity> — owned by the SOURCE type, which is every entity: registered
+        // for each type the app opts in with `AlertsClient`'s `showAlerts`, and here for `Entity` so the
+        // operation exists. See CLAUDE.md on ConstructFrom ownership.
+        g.ConstructFrom(Entity as unknown as Type<Entity>, AlertOperation.CreateAlertFromEntity, {
+            toStates: [AlertState.New],
+            construct: (source: Entity) => AlertEntity.create({
+                alertDate: Clock.now,
+                createdBy: UserHolder.currentUserLite() as Lite<UserEntity> | null,
+                recipient: defaultRecipient(),
+                titleField: null,
+                textField: null,
+                target: source.toLite(),
+                alertType: null,
+            }),
+        });
 
-            g.Construct(AlertOperation.Create, {
-                toStates: [AlertState.New],
-                construct: () => AlertEntity.create({
-                    alertDate: Clock.now,
-                    createdBy: UserHolder.currentUserLite() as Lite<UserEntity> | null,
-                    recipient: defaultRecipient(),
-                    titleField: null,
-                    textField: null,
-                    target: null,
-                    alertType: null,
-                }),
-            });
+        g.Construct(AlertOperation.Create, {
+            toStates: [AlertState.New],
+            construct: () => AlertEntity.create({
+                alertDate: Clock.now,
+                createdBy: UserHolder.currentUserLite() as Lite<UserEntity> | null,
+                recipient: defaultRecipient(),
+                titleField: null,
+                textField: null,
+                target: null,
+                alertType: null,
+            }),
+        });
 
-            g.Execute(AlertOperation.Save, {
-                canBeNew: true,
-                canBeModified: true,
-                fromStates: [AlertState.New, AlertState.Saved],
-                toStates: [AlertState.Saved],
-                execute: a => { a.state = AlertState.Saved; },
-            });
+        g.Execute(AlertOperation.Save, {
+            canBeNew: true,
+            canBeModified: true,
+            fromStates: [AlertState.New, AlertState.Saved],
+            toStates: [AlertState.Saved],
+            execute: a => { a.state = AlertState.Saved; },
+        });
 
-            g.Execute(AlertOperation.Attend, {
-                fromStates: [AlertState.Saved],
-                toStates: [AlertState.Attended],
-                execute: a => {
-                    a.state = AlertState.Attended;
-                    a.attendedDate = Clock.now;
-                    a.attendedBy = UserHolder.currentUserLite() as Lite<UserEntity> | null;
-                },
-            });
+        g.Execute(AlertOperation.Attend, {
+            fromStates: [AlertState.Saved],
+            toStates: [AlertState.Attended],
+            execute: a => {
+                a.state = AlertState.Attended;
+                a.attendedDate = Clock.now;
+                a.attendedBy = UserHolder.currentUserLite() as Lite<UserEntity> | null;
+            },
+        });
 
-            g.Execute(AlertOperation.Unattend, {
-                fromStates: [AlertState.Attended],
-                toStates: [AlertState.Saved],
-                execute: a => {
-                    a.state = AlertState.Saved;
-                    a.attendedDate = null;
-                    a.attendedBy = null;
-                },
-            });
+        g.Execute(AlertOperation.Unattend, {
+            fromStates: [AlertState.Attended],
+            toStates: [AlertState.Saved],
+            execute: a => {
+                a.state = AlertState.Saved;
+                a.attendedDate = null;
+                a.attendedBy = null;
+            },
+        });
 
-            g.Execute(AlertOperation.Delay, {
-                fromStates: [AlertState.Saved],
-                toStates: [AlertState.Saved],
-                // The new alert date arrives as the operation's argument (the client asks for it first).
-                execute: (a, args) => { a.alertDate = args[0] as Temporal.PlainDateTime; },
-            });
-        }).register();
-    }
+        g.Execute(AlertOperation.Delay, {
+            fromStates: [AlertState.Saved],
+            toStates: [AlertState.Saved],
+            // The new alert date arrives as the operation's argument (the client asks for it first).
+            execute: (a, args) => { a.alertDate = args[0] as Temporal.PlainDateTime; },
+        });
+    });
 }
 
 export type { FluentInclude };

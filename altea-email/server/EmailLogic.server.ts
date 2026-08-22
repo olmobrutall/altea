@@ -139,7 +139,7 @@ export namespace EmailLogic {
             email.uniqueIdentifier ??= randomUUID() as uuid;
         });
 
-        registerGraph();
+        EmailMessageGraph.register();
 
         if (sb.webBuilder)
             MailingServer.start(sb.webBuilder);
@@ -320,88 +320,6 @@ export namespace EmailLogic {
 
     // ---- the state machine -----------------------------------------------------------------------------
 
-    function registerGraph(): void {
-        graph(EmailMessageEntity, EmailMessageStateEnum, g => {
-        g.Construct(EmailMessageOperation.CreateMail, {
-            construct: () => EmailMessageEntity.create({ state: EmailMessageStateEnum.Created }),
-        });
-
-        g.ConstructFrom(EmailTemplateEntity, EmailMessageOperation.CreateEmailFromTemplate, {
-            canConstruct: (et: EmailTemplateEntity) => et.model != null && EmailModelLogic.requiresExtraParameters(et.model)
-                ? EmailMessageMessage._01requiresExtraParameters.niceToString("EmailModel", et.model.fullClassName)
-                : null,
-            construct: async (et: EmailTemplateEntity, args?: unknown[]) => {
-                const arg = args?.[0];
-                const entity = arg instanceof Lite ? await retrieveLite(arg)
-                    : arg instanceof Entity ? arg
-                        : null;
-
-                const messages = await EmailTemplateLogic.createEmailMessage(et, entity);
-                if (messages.length === 0)
-                    throw new Error(EmailMessageMessage.NoSuitableRecipientsWereFound.niceToString());
-                return messages[0];
-            },
-        });
-
-        g.Execute(EmailMessageOperation.Save, {
-            canBeNew: true,
-            canBeModified: true,
-            fromStates: [EmailMessageStateEnum.Created, EmailMessageStateEnum.Outdated],
-            toStates: [EmailMessageStateEnum.Draft],
-            getState: (m: EmailMessageEntity) => m.state,
-            execute: (m: EmailMessageEntity) => { m.state = EmailMessageStateEnum.Draft; },
-        });
-
-        g.Execute(EmailMessageOperation.ReadyToSend, {
-            canBeNew: true,
-            canBeModified: true,
-            fromStates: [
-                EmailMessageStateEnum.Created, EmailMessageStateEnum.Draft, EmailMessageStateEnum.SentException,
-                EmailMessageStateEnum.RecruitedForSending, EmailMessageStateEnum.Outdated,
-            ],
-            toStates: [EmailMessageStateEnum.ReadyToSend],
-            getState: (m: EmailMessageEntity) => m.state,
-            execute: (m: EmailMessageEntity) => {
-                m.sendRetries = 0 as EmailMessageEntity["sendRetries"];
-                m.exception = null;
-                m.state = EmailMessageStateEnum.ReadyToSend;
-                wakeUpAfterCommit();
-            },
-        });
-
-        g.Execute(EmailMessageOperation.Send, {
-            canBeNew: true,
-            canBeModified: true,
-            canExecute: (m: EmailMessageEntity) => sendableStates.includes(m.state) ? null
-                : EmailMessageMessage.TheEmailMessageCannotBeSentFromState0.niceToString(EmailMessageStateEnum[m.state]),
-            execute: async (m: EmailMessageEntity) => await sendMail(m),
-        });
-
-        g.ConstructFrom(EmailMessageEntity, EmailMessageOperation.ReSend, {
-            construct: (m: EmailMessageEntity) => EmailMessageEntity.create({
-                from: m.from.clone(),
-                recipients: m.recipients.map(r => EmailMessageEntity_Recipient.create({
-                    emailOwner: r.emailOwner, emailAddress: r.emailAddress, displayName: r.displayName, kind: r.kind,
-                })),
-                target: m.target,
-                subject: m.subject,
-                body: BigStringEmbedded.create({ text: m.body.text }),
-                isBodyHtml: m.isBodyHtml,
-                template: m.template,
-                editableMessage: m.editableMessage,
-                state: EmailMessageStateEnum.Created,
-                attachments: m.attachments.map(a => EmailMessageEntity_Attachment.create({
-                    file: a.file, type: a.type, contentId: a.contentId,
-                })),
-            }),
-        });
-
-        g.Delete(EmailMessageOperation.Delete, {
-            delete: async (m: EmailMessageEntity) => { await m.delete(); },
-        });
-        }).register();
-    }
-
     const sendableStates = [
         EmailMessageStateEnum.Created, EmailMessageStateEnum.Draft, EmailMessageStateEnum.ReadyToSend,
         EmailMessageStateEnum.RecruitedForSending, EmailMessageStateEnum.Outdated,
@@ -412,6 +330,86 @@ export namespace EmailLogic {
     function wakeUpAfterCommit(): void {
         Transaction.postRealCommit(() => AsyncEmailSender.wakeUp("ReadyToSend in this machine"));
     }
+
+    const EmailMessageGraph = graph(EmailMessageEntity, EmailMessageStateEnum, g => {
+        g.Construct(EmailMessageOperation.CreateMail, {
+        construct: () => EmailMessageEntity.create({ state: EmailMessageStateEnum.Created }),
+        });
+
+        g.ConstructFrom(EmailTemplateEntity, EmailMessageOperation.CreateEmailFromTemplate, {
+        canConstruct: (et: EmailTemplateEntity) => et.model != null && EmailModelLogic.requiresExtraParameters(et.model)
+            ? EmailMessageMessage._01requiresExtraParameters.niceToString("EmailModel", et.model.fullClassName)
+            : null,
+        construct: async (et: EmailTemplateEntity, args?: unknown[]) => {
+            const arg = args?.[0];
+            const entity = arg instanceof Lite ? await retrieveLite(arg)
+                : arg instanceof Entity ? arg
+                    : null;
+
+            const messages = await EmailTemplateLogic.createEmailMessage(et, entity);
+            if (messages.length === 0)
+                throw new Error(EmailMessageMessage.NoSuitableRecipientsWereFound.niceToString());
+            return messages[0];
+        },
+        });
+
+        g.Execute(EmailMessageOperation.Save, {
+        canBeNew: true,
+        canBeModified: true,
+        fromStates: [EmailMessageStateEnum.Created, EmailMessageStateEnum.Outdated],
+        toStates: [EmailMessageStateEnum.Draft],
+        getState: (m: EmailMessageEntity) => m.state,
+        execute: (m: EmailMessageEntity) => { m.state = EmailMessageStateEnum.Draft; },
+        });
+
+        g.Execute(EmailMessageOperation.ReadyToSend, {
+        canBeNew: true,
+        canBeModified: true,
+        fromStates: [
+            EmailMessageStateEnum.Created, EmailMessageStateEnum.Draft, EmailMessageStateEnum.SentException,
+            EmailMessageStateEnum.RecruitedForSending, EmailMessageStateEnum.Outdated,
+        ],
+        toStates: [EmailMessageStateEnum.ReadyToSend],
+        getState: (m: EmailMessageEntity) => m.state,
+        execute: (m: EmailMessageEntity) => {
+            m.sendRetries = 0 as EmailMessageEntity["sendRetries"];
+            m.exception = null;
+            m.state = EmailMessageStateEnum.ReadyToSend;
+            wakeUpAfterCommit();
+        },
+        });
+
+        g.Execute(EmailMessageOperation.Send, {
+        canBeNew: true,
+        canBeModified: true,
+        canExecute: (m: EmailMessageEntity) => sendableStates.includes(m.state) ? null
+            : EmailMessageMessage.TheEmailMessageCannotBeSentFromState0.niceToString(EmailMessageStateEnum[m.state]),
+        execute: async (m: EmailMessageEntity) => await sendMail(m),
+        });
+
+        g.ConstructFrom(EmailMessageEntity, EmailMessageOperation.ReSend, {
+        construct: (m: EmailMessageEntity) => EmailMessageEntity.create({
+            from: m.from.clone(),
+            recipients: m.recipients.map(r => EmailMessageEntity_Recipient.create({
+                emailOwner: r.emailOwner, emailAddress: r.emailAddress, displayName: r.displayName, kind: r.kind,
+            })),
+            target: m.target,
+            subject: m.subject,
+            body: BigStringEmbedded.create({ text: m.body.text }),
+            isBodyHtml: m.isBodyHtml,
+            template: m.template,
+            editableMessage: m.editableMessage,
+            state: EmailMessageStateEnum.Created,
+            attachments: m.attachments.map(a => EmailMessageEntity_Attachment.create({
+                file: a.file, type: a.type, contentId: a.contentId,
+            })),
+        }),
+        });
+
+        g.Delete(EmailMessageOperation.Delete, {
+        delete: async (m: EmailMessageEntity) => { await m.delete(); },
+        });
+    });
 }
 
 /** The model's registered TYPE. An altea model is a plain shape, so the type is the entity it is about

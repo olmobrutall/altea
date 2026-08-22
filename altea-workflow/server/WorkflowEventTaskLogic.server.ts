@@ -95,16 +95,7 @@ export namespace WorkflowEventTaskLogic {
         EvalLogic.registerEvalSource(WorkflowEventTaskEntity.niceName(), async () =>
             (await table(WorkflowEventTaskEntity).toArray()).filter(t => t.condition != null || t.action != null));
 
-        graph(WorkflowEventTaskEntity, g => {
-            g.Execute(WorkflowEventTaskOperation.Save, {
-                canBeNew: true,
-                canBeModified: true,
-                execute: e => {
-                    if (e.triggeredOn === TriggeredOn.Always)
-                        e.condition = null;
-                },
-            });
-        }).register();
+        WorkflowEventTaskGraph.register();
 
         // Signum hangs this off PreUnsafeDelete; altea's event has the same shape.
         sb.schema.entityEvents(WorkflowEventTaskEntity).preUnsafeDelete.push(async query => {
@@ -122,34 +113,7 @@ export namespace WorkflowEventTaskLogic {
         QueryLogic.expressions.register(WorkflowEventTaskEntity,
             (e: WorkflowEventTaskEntity) => e.conditionResults());
 
-        // Signum registers this ConstructFrom in CaseActivityLogic's graph; altea registers it HERE, because
-        // its SOURCE type is WorkflowEventTaskEntity (a ConstructFrom is owned by its source — see CLAUDE.md)
-        // and this is the module that knows both sides.
-        graph(CaseEntity, g => {
-            g.ConstructFrom(WorkflowEventTaskEntity, CaseActivityOperation.CreateCaseFromWorkflowEventTask, {
-                construct: async (wet, args) => {
-                    const workflow = await getWorkflow(wet);
-
-                    if (hasExpired(workflow))
-                        throw new Error(WorkflowMessage.Workflow0HasExpiredOn1
-                            .niceToString(workflow, workflow.expirationDate!.toString()));
-
-                    const mainEntity = args[0] as ICaseMainEntity;
-                    const caseEntity = CaseEntity.create({
-                        workflow,
-                        description: workflow.name,
-                        mainEntity,
-                    });
-
-                    const start = await retrieve(WorkflowEventEntity, wet.event.id!);
-                    const conn = (await WorkflowLogic.nextConnectionsFromCache(start, ConnectionType.Normal)).single();
-                    await CaseActivityLogic.executeInitialStep(caseEntity, start, conn);
-
-                    return caseEntity;
-                },
-                resultIsSaved: true,
-            });
-        }).register();
+        CaseGraph.register();
 
         SchedulerLogic.registerExecuteTask(WorkflowEventTaskEntity,
             async (wet: WorkflowEventTaskEntity, _ctx: ScheduledTaskContext) => await executeTask(wet));
@@ -367,4 +331,45 @@ export namespace WorkflowEventTaskLogic {
 
         return result && (last == null || !last.result);
     }
+
+    const WorkflowEventTaskGraph = graph(WorkflowEventTaskEntity, g => {
+        g.Execute(WorkflowEventTaskOperation.Save, {
+            canBeNew: true,
+            canBeModified: true,
+            execute: e => {
+                if (e.triggeredOn === TriggeredOn.Always)
+                    e.condition = null;
+            },
+        });
+    });
+
+
+    // Signum registers this ConstructFrom in CaseActivityLogic's graph; altea registers it HERE, because
+    // its SOURCE type is WorkflowEventTaskEntity (a ConstructFrom is owned by its source — see CLAUDE.md)
+    // and this is the module that knows both sides.
+    const CaseGraph = graph(CaseEntity, g => {
+        g.ConstructFrom(WorkflowEventTaskEntity, CaseActivityOperation.CreateCaseFromWorkflowEventTask, {
+            construct: async (wet, args) => {
+                const workflow = await getWorkflow(wet);
+
+                if (hasExpired(workflow))
+                    throw new Error(WorkflowMessage.Workflow0HasExpiredOn1
+                        .niceToString(workflow, workflow.expirationDate!.toString()));
+
+                const mainEntity = args[0] as ICaseMainEntity;
+                const caseEntity = CaseEntity.create({
+                    workflow,
+                    description: workflow.name,
+                    mainEntity,
+                });
+
+                const start = await retrieve(WorkflowEventEntity, wet.event.id!);
+                const conn = (await WorkflowLogic.nextConnectionsFromCache(start, ConnectionType.Normal)).single();
+                await CaseActivityLogic.executeInitialStep(caseEntity, start, conn);
+
+                return caseEntity;
+            },
+            resultIsSaved: true,
+        });
+    });
 }

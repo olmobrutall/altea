@@ -79,35 +79,7 @@ export namespace EmailMasterTemplateLogic {
 
         registerEmailMasterTemplateXml();
 
-        graph(EmailMasterTemplateEntity, g => {
-        g.ConstructFrom(EmailMasterTemplateEntity, EmailMasterTemplateOperation.Clone, {
-            construct: (e: EmailMasterTemplateEntity) => EmailMasterTemplateEntity.create({
-                name: `${e.name} (Cloned)`,
-                isDefault: e.isDefault,
-                messages: e.messages.map(m => m.clone()),
-            }),
-        });
-
-        g.Construct(EmailMasterTemplateOperation.Create, {
-            construct: () => createDefaultMasterTemplate?.() ?? new EmailMasterTemplateEntity(),
-        });
-
-        g.Execute(EmailMasterTemplateOperation.Save, {
-            canBeNew: true,
-            canBeModified: true,
-            execute: (t: EmailMasterTemplateEntity) => assertHasRequiredCulture(t),
-        });
-
-        // Signum's Delete: the attachment rows the template owns go with it.
-        g.Delete(EmailMasterTemplateOperation.Delete, {
-            delete: async (e: EmailMasterTemplateEntity) => {
-                const attachments = e.attachments.map(a => a.attachment);
-                await e.delete();
-                for (const a of attachments)
-                    await a.delete();
-            },
-        });
-        }).register();
+        EmailMasterTemplateGraph.register();
     }
 
     /** Signum's `GetCultureMessage(template, ci)` — exact locale, then its language. */
@@ -139,4 +111,34 @@ export namespace EmailMasterTemplateLogic {
         if (!t.messages.some(m => { const n = cultureNameOf(m.culture); return n != null && culture.startsWith(n); }))
             throw new Error(`EmailMasterTemplate '${t.name}' has no message for the default culture '${culture}'`);
     }
+
+    const EmailMasterTemplateGraph = graph(EmailMasterTemplateEntity, g => {
+        g.ConstructFrom(EmailMasterTemplateEntity, EmailMasterTemplateOperation.Clone, {
+        construct: (e: EmailMasterTemplateEntity) => EmailMasterTemplateEntity.create({
+            name: `${e.name} (Cloned)`,
+            isDefault: e.isDefault,
+            messages: e.messages.map(m => m.clone()),
+        }),
+        });
+
+        g.Construct(EmailMasterTemplateOperation.Create, {
+        construct: () => createDefaultMasterTemplate?.() ?? new EmailMasterTemplateEntity(),
+        });
+
+        g.Execute(EmailMasterTemplateOperation.Save, {
+        canBeNew: true,
+        canBeModified: true,
+        execute: (t: EmailMasterTemplateEntity) => assertHasRequiredCulture(t),
+        });
+
+        // Signum's Delete: the attachment rows the template owns go with it.
+        g.Delete(EmailMasterTemplateOperation.Delete, {
+        delete: async (e: EmailMasterTemplateEntity) => {
+            const attachments = e.attachments.map(a => a.attachment);
+            await e.delete();
+            for (const a of attachments)
+                await a.delete();
+        },
+        });
+    });
 }

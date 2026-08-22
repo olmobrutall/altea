@@ -62,7 +62,7 @@ export namespace ProcessLogic {
         sb.include(PackageOperationEntity).withQuery();
         sb.include(PackageLineEntity).withQuery();
 
-        registerProcessGraph();
+        ProcessGraph.register();
 
         if (sb.webBuilder)
             ProcessesServer.start(sb.webBuilder);
@@ -131,87 +131,85 @@ export namespace ProcessLogic {
         return ep.currentProcess;
     }
 
+    function pinToThisMachine(p: ProcessEntity): void {
+        p.machineName = justMyProcesses ? ProcessRunner.machineName() : ProcessEntity.None;
+        p.applicationName = justMyProcesses ? ProcessRunner.applicationName() : ProcessEntity.None;
+    }
+
+    function wakeUpOnCommit(reason: string): void {
+        Transaction.postRealCommit(async () => { ProcessRunner.wakeUp(reason); });
+    }
+
     // Signum's ProcessGraph — the state machine. Every transition that queues work wakes the runner up
     // AFTER the commit, so the runner never reads a row that is not there yet.
-    function registerProcessGraph(): void {
-        const pinToThisMachine = (p: ProcessEntity): void => {
-            p.machineName = justMyProcesses ? ProcessRunner.machineName() : ProcessEntity.None;
-            p.applicationName = justMyProcesses ? ProcessRunner.applicationName() : ProcessEntity.None;
-        };
-
-        const wakeUpOnCommit = (reason: string): void => {
-            Transaction.postRealCommit(async () => { ProcessRunner.wakeUp(reason); });
-        };
-
-        graph(ProcessEntity, ProcessStateEnum, g => {
+    const ProcessGraph = graph(ProcessEntity, ProcessStateEnum, g => {
         g.GetState = p => p.state;
 
         g.Execute(ProcessOperation.Save, {
-            fromStates: [ProcessStateEnum.Created],
-            toStates: [ProcessStateEnum.Created],
-            canBeNew: true,
-            canBeModified: true,
-            execute: () => { },
+        fromStates: [ProcessStateEnum.Created],
+        toStates: [ProcessStateEnum.Created],
+        canBeNew: true,
+        canBeModified: true,
+        execute: () => { },
         });
 
         g.Execute(ProcessOperation.Execute, {
-            fromStates: [ProcessStateEnum.Created, ProcessStateEnum.Planned, ProcessStateEnum.Canceled, ProcessStateEnum.Suspended],
-            toStates: [ProcessStateEnum.Queued],
-            execute: (p: ProcessEntity) => {
-                pinToThisMachine(p);
-                p.state = ProcessStateEnum.Queued;
-                p.queuedDate = Clock.now;
-                p.executionStart = null;
-                p.executionEnd = null;
-                p.suspendDate = null;
-                p.progress = null;
-                p.exception = null;
-                p.exceptionDate = null;
-                wakeUpOnCommit("ProcessOperation.Execute");
-            },
+        fromStates: [ProcessStateEnum.Created, ProcessStateEnum.Planned, ProcessStateEnum.Canceled, ProcessStateEnum.Suspended],
+        toStates: [ProcessStateEnum.Queued],
+        execute: (p: ProcessEntity) => {
+            pinToThisMachine(p);
+            p.state = ProcessStateEnum.Queued;
+            p.queuedDate = Clock.now;
+            p.executionStart = null;
+            p.executionEnd = null;
+            p.suspendDate = null;
+            p.progress = null;
+            p.exception = null;
+            p.exceptionDate = null;
+            wakeUpOnCommit("ProcessOperation.Execute");
+        },
         });
 
         g.Execute(ProcessOperation.Suspend, {
-            fromStates: [ProcessStateEnum.Executing],
-            toStates: [ProcessStateEnum.Suspending],
-            execute: (p: ProcessEntity) => {
-                p.state = ProcessStateEnum.Suspending;
-                p.suspendDate = Clock.now;
-                wakeUpOnCommit("ProcessOperation.Suspend");
-            },
+        fromStates: [ProcessStateEnum.Executing],
+        toStates: [ProcessStateEnum.Suspending],
+        execute: (p: ProcessEntity) => {
+            p.state = ProcessStateEnum.Suspending;
+            p.suspendDate = Clock.now;
+            wakeUpOnCommit("ProcessOperation.Suspend");
+        },
         });
 
         g.Execute(ProcessOperation.Cancel, {
-            // Signum: cancelling an in-flight run would leave it running with a Canceled row, so suspend first.
-            canExecute: (p: ProcessEntity) => ProcessRunner.isExecutingInThisMachine(p.toLite())
-                ? ProcessMessage.ProcessExecutingSuspendFirst.niceToString() : null,
-            fromStates: [ProcessStateEnum.Planned, ProcessStateEnum.Created, ProcessStateEnum.Suspended,
-                ProcessStateEnum.Queued, ProcessStateEnum.Executing, ProcessStateEnum.Suspending],
-            toStates: [ProcessStateEnum.Canceled],
-            execute: (p: ProcessEntity) => {
-                p.state = ProcessStateEnum.Canceled;
-                p.cancelationDate = Clock.now;
-            },
+        // Signum: cancelling an in-flight run would leave it running with a Canceled row, so suspend first.
+        canExecute: (p: ProcessEntity) => ProcessRunner.isExecutingInThisMachine(p.toLite())
+            ? ProcessMessage.ProcessExecutingSuspendFirst.niceToString() : null,
+        fromStates: [ProcessStateEnum.Planned, ProcessStateEnum.Created, ProcessStateEnum.Suspended,
+            ProcessStateEnum.Queued, ProcessStateEnum.Executing, ProcessStateEnum.Suspending],
+        toStates: [ProcessStateEnum.Canceled],
+        execute: (p: ProcessEntity) => {
+            p.state = ProcessStateEnum.Canceled;
+            p.cancelationDate = Clock.now;
+        },
         });
 
         g.Execute(ProcessOperation.Plan, {
-            fromStates: [ProcessStateEnum.Created, ProcessStateEnum.Canceled, ProcessStateEnum.Planned, ProcessStateEnum.Suspended],
-            toStates: [ProcessStateEnum.Planned],
-            execute: (p: ProcessEntity, args: unknown[]) => {
-                pinToThisMachine(p);
-                p.state = ProcessStateEnum.Planned;
-                p.plannedDate = args[0] as Temporal.PlainDateTime;
-                wakeUpOnCommit("ProcessOperation.Plan");
-            },
+        fromStates: [ProcessStateEnum.Created, ProcessStateEnum.Canceled, ProcessStateEnum.Planned, ProcessStateEnum.Suspended],
+        toStates: [ProcessStateEnum.Planned],
+        execute: (p: ProcessEntity, args: unknown[]) => {
+            pinToThisMachine(p);
+            p.state = ProcessStateEnum.Planned;
+            p.plannedDate = args[0] as Temporal.PlainDateTime;
+            wakeUpOnCommit("ProcessOperation.Plan");
+        },
         });
 
         g.ConstructFrom(ProcessEntity, ProcessOperation.Retry, {
-            canConstruct: (p: ProcessEntity) => [ProcessStateEnum.Error, ProcessStateEnum.Canceled,
-                ProcessStateEnum.Finished, ProcessStateEnum.Suspended].includes(p.state)
-                ? null : `A process can only be retried from Error / Canceled / Finished / Suspended`,
-            toStates: [ProcessStateEnum.Created],
-            construct: async (p: ProcessEntity) => await create(p.algorithm, p.data),
+        canConstruct: (p: ProcessEntity) => [ProcessStateEnum.Error, ProcessStateEnum.Canceled,
+            ProcessStateEnum.Finished, ProcessStateEnum.Suspended].includes(p.state)
+            ? null : `A process can only be retried from Error / Canceled / Finished / Suspended`,
+        toStates: [ProcessStateEnum.Created],
+        construct: async (p: ProcessEntity) => await create(p.algorithm, p.data),
         });
-        }).register();
-    }
+    });
 }

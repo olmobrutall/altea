@@ -134,7 +134,7 @@ export namespace EmailTemplateLogic {
             }
         });
 
-        registerGraph();
+        EmailTemplateGraph.register();
         registerGlobalVariables();
     }
 
@@ -155,52 +155,6 @@ export namespace EmailTemplateLogic {
     }
 
     // ---- operations ------------------------------------------------------------------------------------
-
-    function registerGraph(): void {
-        graph(EmailTemplateEntity, g => {
-        g.Construct(EmailTemplateOperation.Create, {
-            construct: async () => EmailTemplateEntity.create({
-                masterTemplate: (await EmailMasterTemplateLogic.getDefaultMasterTemplate())?.toLite() ?? null,
-            }),
-        });
-
-        g.ConstructFrom(EmailTemplateEntity, EmailTemplateOperation.Clone, {
-            construct: (e: EmailTemplateEntity) => EmailTemplateEntity.create({
-                name: `${e.name} (Cloned)`,
-                masterTemplate: e.masterTemplate,
-                applicable: e.applicable,
-                disableAuthorization: e.disableAuthorization,
-                editableMessage: e.editableMessage,
-                groupResults: e.groupResults,
-                messageFormat: e.messageFormat,
-                from: e.from?.clone() ?? null,
-                recipients: e.recipients.map(r => r.clone()),
-                query: e.query,
-                model: e.model,
-                orders: e.orders.map(o => EmailTemplateEntity_Order.create({ token: o.token, orderType: o.orderType })),
-                messages: e.messages.map(m => m.clone()),
-            }),
-        });
-
-        g.Execute(EmailTemplateOperation.Save, {
-            canBeNew: true,
-            canBeModified: true,
-            execute: () => { },
-        });
-
-        // Signum's Delete: the attachment rows the template owns go with it.
-        g.Delete(EmailTemplateOperation.Delete, {
-            delete: async (t: EmailTemplateEntity) => {
-                // The attachment ENTITIES a row points at are Parts of their own (Signum deleted them too);
-                // the rows go with the template's own cascade.
-                const attachments = t.attachments.map(a => a.attachment);
-                await t.delete();
-                for (const a of attachments)
-                    await a.delete();
-            },
-        });
-        }).register();
-    }
 
     // ---- parsing ---------------------------------------------------------------------------------------
 
@@ -406,3 +360,49 @@ export namespace EmailTemplateLogic {
 
 /** Re-exported for the model / attachment registrations. */
 export type { EmailModelEntity };
+
+// ---- EmailTemplateGraph -------------------------------------------------------------------------
+
+const EmailTemplateGraph = graph(EmailTemplateEntity, g => {
+    g.Construct(EmailTemplateOperation.Create, {
+    construct: async () => EmailTemplateEntity.create({
+        masterTemplate: (await EmailMasterTemplateLogic.getDefaultMasterTemplate())?.toLite() ?? null,
+    }),
+    });
+
+    g.ConstructFrom(EmailTemplateEntity, EmailTemplateOperation.Clone, {
+    construct: (e: EmailTemplateEntity) => EmailTemplateEntity.create({
+        name: `${e.name} (Cloned)`,
+        masterTemplate: e.masterTemplate,
+        applicable: e.applicable,
+        disableAuthorization: e.disableAuthorization,
+        editableMessage: e.editableMessage,
+        groupResults: e.groupResults,
+        messageFormat: e.messageFormat,
+        from: e.from?.clone() ?? null,
+        recipients: e.recipients.map(r => r.clone()),
+        query: e.query,
+        model: e.model,
+        orders: e.orders.map(o => EmailTemplateEntity_Order.create({ token: o.token, orderType: o.orderType })),
+        messages: e.messages.map(m => m.clone()),
+    }),
+    });
+
+    g.Execute(EmailTemplateOperation.Save, {
+    canBeNew: true,
+    canBeModified: true,
+    execute: () => { },
+    });
+
+    // Signum's Delete: the attachment rows the template owns go with it.
+    g.Delete(EmailTemplateOperation.Delete, {
+    delete: async (t: EmailTemplateEntity) => {
+        // The attachment ENTITIES a row points at are Parts of their own (Signum deleted them too);
+        // the rows go with the template's own cascade.
+        const attachments = t.attachments.map(a => a.attachment);
+        await t.delete();
+        for (const a of attachments)
+            await a.delete();
+    },
+    });
+});

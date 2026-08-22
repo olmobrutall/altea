@@ -98,29 +98,7 @@ export namespace OfficeTemplateLogic {
         officeTemplateValidations.template = async t => (await validateTemplate(t)) ?? null;
         officeTemplateValidations.fileName = t => validateFileName(t) ?? null;
 
-        graph(OfficeTemplateEntity, g => {
-        g.Execute(OfficeTemplateOperation.Save, {
-            canBeNew: true,
-            canBeModified: true,
-            execute: (_t: OfficeTemplateEntity) => { /* the saver persists it */ },
-        });
-
-        g.Delete(OfficeTemplateOperation.Delete, {
-            delete: async (t: OfficeTemplateEntity) => { await t.delete(); },
-        });
-
-        // Signum registers this as an operation so the UI can gate on CanExecute; the actual work is done
-        // by the route (it must stream a file back), hence the "UI-only operation" throw.
-        g.Execute(OfficeTemplateOperation.CreateOfficeReport, {
-            // Signum's ForReadonlyEntity; altea's equivalent guard is avoidImplicitSave — the operation
-            // must never write the template it is executed on.
-            avoidImplicitSave: true,
-            canExecute: (t: OfficeTemplateEntity) => t.model != null && OfficeModelLogic.requiresExtraParameters(t.model)
-                ? OfficeTemplateMessage._01RequiresExtraParameters.niceToString("OfficeModel", t.model.fullClassName)
-                : null,
-            execute: () => { throw new Error("UI-only operation"); },
-        });
-        }).register();
+        OfficeTemplateGraph.register();
 
 
         OfficeModelLogic.start(sb);
@@ -416,3 +394,29 @@ function fixDocument(package_: OxmlPackage): void {
 }
 
 export { multiEntityOfficeModel, queryOfficeModel };
+
+// ---- OfficeTemplateGraph ------------------------------------------------------------------------
+
+const OfficeTemplateGraph = graph(OfficeTemplateEntity, g => {
+    g.Execute(OfficeTemplateOperation.Save, {
+    canBeNew: true,
+    canBeModified: true,
+    execute: (_t: OfficeTemplateEntity) => { /* the saver persists it */ },
+    });
+
+    g.Delete(OfficeTemplateOperation.Delete, {
+    delete: async (t: OfficeTemplateEntity) => { await t.delete(); },
+    });
+
+    // Signum registers this as an operation so the UI can gate on CanExecute; the actual work is done
+    // by the route (it must stream a file back), hence the "UI-only operation" throw.
+    g.Execute(OfficeTemplateOperation.CreateOfficeReport, {
+    // Signum's ForReadonlyEntity; altea's equivalent guard is avoidImplicitSave — the operation
+    // must never write the template it is executed on.
+    avoidImplicitSave: true,
+    canExecute: (t: OfficeTemplateEntity) => t.model != null && OfficeModelLogic.requiresExtraParameters(t.model)
+        ? OfficeTemplateMessage._01RequiresExtraParameters.niceToString("OfficeModel", t.model.fullClassName)
+        : null,
+    execute: () => { throw new Error("UI-only operation"); },
+    });
+});

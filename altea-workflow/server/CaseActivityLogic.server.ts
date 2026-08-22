@@ -264,9 +264,9 @@ export namespace CaseActivityLogic {
                 WorkflowScriptRunner.wakeUpOnCommit();
         });
 
-        registerCaseGraph();
-        registerCaseNotificationGraph();
-        registerCaseActivityGraph();
+        CaseGraph.register();
+        CaseNotificationGraph.register();
+        CaseActivityGraph.register();
         // Signum's `CaseActivityEntity.PreSaving` override — altea's hook is a schema event, not an entity
         // method (see data/CaseActivity.ts). Keeps `duration` (minutes) in step with startDate/doneDate.
         sb.schema.entityEvents(CaseActivityEntity).preSaving.push(ca => {
@@ -583,105 +583,6 @@ export namespace CaseActivityLogic {
 
     // ---- The Case graph ----------------------------------------------------------------------------
 
-    function registerCaseGraph(): void {
-        graph(CaseEntity, g => {
-            g.Execute(CaseOperation.SetTags, {
-                execute: async (e, args) => {
-                    const current = await CaseQueries.tags(e).toArray();
-                    const model = args[0] as CaseTagsModel;
-
-                    const toDelete = current.filter(ct =>
-                        model.oldCaseTags.some(t => t.is(ct.tagType)) && !model.caseTags.some(t => t.is(ct.tagType)));
-
-                    for (const ct of toDelete)
-                        await ct.delete();
-
-                    const createdBy = UserHolder.currentUserLite();
-                    for (const ctt of model.caseTags.filter(ctt => !current.some(ct => ct.tagType.is(ctt))))
-                        await CaseTagEntity.create({ case: e.toLite(), tagType: ctt, createdBy: createdBy! }).save();
-                },
-            });
-
-            g.Execute(CaseOperation.Cancel, {
-                canExecute: c => c.finishDate == null ? null : CaseActivityMessage.AlreadyFinished.niceToString(),
-                execute: async (c, args) => {
-                    const avoidRecompose = (args[0] as boolean | undefined) ?? false;
-
-                    for (const sc of await CaseQueries.subCases(c).filter(a => a.finishDate == null).toArray())
-                        await Operations.execute(sc, CaseOperation.Cancel, true);
-
-                    const currentActivities = await CaseQueries.caseActivities(c).filter(a => a.doneBy == null).toArray();
-                    const me = UserHolder.currentUserLite() as Lite<UserEntity> | null;
-
-                    for (const ca of currentActivities) {
-                        ca.doneBy = me;
-                        ca.doneDate = Clock.now;
-                        ca.doneType = DoneType.Jump;
-                        ca.doneDecision = canceledCaseMarker();
-                        await ca.save();
-
-                        for (const notification of await table(CaseNotificationEntity).filter(n => n.caseActivity.is(ca)).toArray()) {
-                            notification.state = CaseNotificationState.DoneByOther;
-                            await notification.save();
-                        }
-                    }
-
-                    c.finishDate = Clock.now;
-                    await cancelEntity(c.mainEntity, c);
-                    await c.save();
-
-                    if (c.parentCase != null && !avoidRecompose)
-                        await tryToRecompose(c);
-                },
-            });
-
-            g.Delete(CaseOperation.Delete, {
-                canDelete: e => e.parentCase == null ? null
-                    : CaseActivityMessage.CaseIsADecompositionOf0.niceToString(e.parentCase),
-                delete: async (c, args) => {
-                    await deleteCase(c);
-                    if (args[0] === true)
-                        await (c.mainEntity as Entity).delete();
-                },
-            });
-
-            g.Execute(CaseOperation.Reactivate, {
-                canExecute: c => c.finishDate != null ? null : CaseActivityMessage.NotCanceled.niceToString(),
-                execute: async c => {
-                    const cancelled = await cancelledActivities(c).toArray();
-                    if (cancelled.length === 0)
-                        throw new Error(CaseActivityMessage.NotCanceled.niceToString());
-
-                    await reactivateEntity(c.mainEntity, c);
-
-                    const rejected = await table(CaseActivityEntity)
-                        .filter(a => a.case.is(c) && a.doneBy != null
-                            && (a.doneType === DoneType.Next || a.doneType === DoneType.Recompose))
-                        .orderByDescending(a => a.doneDate).top(1).toArray();
-
-                    for (const ca of [...cancelled, ...rejected]) {
-                        ca.doneBy = null;
-                        ca.doneDate = null;
-                        ca.doneType = null;
-                        ca.doneDecision = null;
-                        await ca.save();
-
-                        for (const notification of await table(CaseNotificationEntity).filter(n => n.caseActivity.is(ca)).toArray()) {
-                            notification.state = CaseNotificationState.New;
-                            await notification.save();
-                        }
-                    }
-
-                    c.finishDate = null;
-                    await c.save();
-
-                    for (const sc of await CaseQueries.subCases(c).filter(a => a.finishDate != null).toArray())
-                        await Operations.execute(sc, CaseOperation.Reactivate, true);
-                },
-            });
-        }).register();
-    }
-
     /** Signum's `CanceledCase.ToString()` marker written into `doneDecision`. */
     function canceledCaseMarker(): string {
         return "CanceledCase";
@@ -710,33 +611,6 @@ export namespace CaseActivityLogic {
     }
 
     // ---- The CaseNotification graph -----------------------------------------------------------------
-
-    function registerCaseNotificationGraph(): void {
-        graph(CaseNotificationEntity, g => {
-            g.Execute(CaseNotificationOperation.SetRemarks, {
-                execute: (e, args) => { e.remarks = args[0] as string; },
-            });
-
-            g.Delete(CaseNotificationOperation.Delete, {
-                delete: async e => { await e.delete(); },
-            });
-
-            g.ConstructFrom(CaseActivityEntity, CaseNotificationOperation.CreateCaseNotificationFromCaseActivity, {
-                construct: async (e, args) => {
-                    const user = args[0] as Lite<UserEntity>;
-                    const n = CaseNotificationEntity.create({
-                        caseActivity: e.toLite(),
-                        actor: user,
-                        user,
-                        state: CaseNotificationState.New,
-                    });
-                    await n.save();
-                    return n;
-                },
-                resultIsSaved: true,
-            });
-        }).register();
-    }
 
     // ---- The Inbox ---------------------------------------------------------------------------------
 
@@ -921,412 +795,6 @@ export namespace CaseActivityLogic {
             await a.save();
             await insertCaseActivityNotifications(a);
         }
-    }
-
-    // ---- The CaseActivity graph — the state machine -------------------------------------------------
-
-    function registerCaseActivityGraph(): void {
-        graph(CaseActivityEntity, CaseActivityState, g => {
-            g.GetState = ca => ca.getState();
-
-            g.ConstructFrom(WorkflowEntity, CaseActivityOperation.CreateCaseActivityFromWorkflow, {
-                toStates: [CaseActivityState.New],
-                construct: async (w, args) => {
-                    if (hasExpired(w))
-                        throw new Error(WorkflowMessage.Workflow0HasExpiredOn1
-                            .niceToString(w, w.expirationDate!.toString()));
-
-                    const parentCase = args.firstOrNull(a => a instanceof Lite
-                        && (a as Lite<Entity>).entityType === CaseEntity) as Lite<CaseEntity> | null;
-
-                    const wfGraph = await WorkflowLogic.getWorkflowNodeGraph(w.toLite());
-                    if (parentCase == null && !await wfGraph.isStartCurrentUser(
-                        WorkflowLogic.isCurrentUserActor as never, ((lane: WorkflowLaneEntity) => getActors(lane, null)) as never))
-                        throw new Error(WorkflowMessage
-                            .YouAreNotMemberOfAnyLaneContainingAnStartEventInWorkflow0.niceToString(wfGraph.workflow));
-
-                    const mainEntity = (args.firstOrNull(a => a instanceof Entity) as ICaseMainEntity | null)
-                        ?? await createMainEntity(w.mainEntityType.cleanName);
-
-                    const caseEntity = CaseEntity.create({
-                        parentCase,
-                        workflow: w,
-                        description: w.name,
-                        mainEntity,
-                    });
-
-                    const start = [...wfGraph.events.values()].single(a => a.type === WorkflowEventType.Start);
-                    const connection = (await WorkflowLogic.nextConnectionsFromCache(start, ConnectionType.Normal)).single();
-                    const next = connection.to as WorkflowActivityEntity;
-
-                    return CaseActivityEntity.create({
-                        workflowActivity: next,
-                        originalWorkflowActivityName: next.name,
-                        case: caseEntity,
-                        scriptExecution: getScriptExecution(next),
-                    });
-                },
-            });
-
-            g.Execute(CaseActivityOperation.Register, {
-                canExecute: ca => !(ca.workflowActivity instanceof WorkflowActivityEntity)
-                    ? CaseActivityMessage.NoWorkflowActivity.niceToString() : null,
-                fromStates: [CaseActivityState.New],
-                toStates: [CaseActivityState.Pending],
-                canBeNew: true,
-                canBeModified: true,
-                execute: async ca => {
-                    const wfGraph = await WorkflowLogic.getWorkflowNodeGraph(ca.workflowActivity.lane.pool.workflow.toLite());
-                    if (ca.case.parentCase == null && !await wfGraph.isStartCurrentUser(
-                        WorkflowLogic.isCurrentUserActor as never, ((lane: WorkflowLaneEntity) => getActors(lane, null)) as never))
-                        throw new Error(WorkflowMessage
-                            .YouAreNotMemberOfAnyLaneContainingAnStartEventInWorkflow0.niceToString(wfGraph.workflow));
-
-                    await saveEntity(ca.case.mainEntity);
-                    const now = Clock.now;
-                    const c = ca.case;
-                    c.startDate = now;
-                    c.description = etc((c.mainEntity as Entity).toString().trim(), 100);
-                    await c.save();
-
-                    const prevConns = await WorkflowLogic.previousConnectionsFromCache(ca.workflowActivity);
-                    const prevConn = prevConns.single(a => a.from instanceof WorkflowEventEntity
-                        && (a.from as WorkflowEventEntity).type === WorkflowEventType.Start);
-
-                    const wec = new WorkflowExecuteStepContext(ca.case,
-                        ca.previous == null ? null : await retrieve(CaseActivityEntity, ca.previous.id!));
-
-                    await wec.executeConnection(prevConn);
-
-                    ca.startDate = now;
-                    await ca.save();
-
-                    await insertCaseActivityNotifications(ca);
-
-                    await wec.notifyTransitionContext(ca);
-                },
-            });
-
-            g.Execute(CaseActivityOperation.Next, {
-                canExecute: ca => !(ca.workflowActivity instanceof WorkflowActivityEntity)
-                    ? CaseActivityMessage.NoWorkflowActivity.niceToString() : null,
-                fromStates: [CaseActivityState.Pending],
-                toStates: [CaseActivityState.Done],
-                canBeModified: true,
-                execute: async (ca, args) => {
-                    await assertCurrentUserHasNotification(ca);
-                    await checkRequiresOpen(ca);
-                    await executeStep(ca, DoneType.Next, (args[0] as string | undefined) ?? null, null);
-                },
-            });
-
-            g.Execute(CaseActivityOperation.Jump, {
-                canExecute: ca => !(ca.workflowActivity instanceof WorkflowActivityEntity)
-                    ? CaseActivityMessage.NoWorkflowActivity.niceToString() : null,
-                fromStates: [CaseActivityState.Pending],
-                toStates: [CaseActivityState.Done],
-                canBeModified: true,
-                execute: async (ca, args) => {
-                    await assertCurrentUserHasNotification(ca);
-                    await checkRequiresOpen(ca);
-                    const to = args[0] as Lite<IWorkflowNodeEntity>;
-                    const jumps = await WorkflowLogic.nextConnectionsFromCache(ca.workflowActivity, ConnectionType.Jump);
-                    if (jumps.length === 0)
-                        throw new Error(CaseActivityMessage.Activity0HasNoJumps.niceToString(ca.workflowActivity));
-                    const jump = jumps.single(c => to.is(c.to));
-                    await executeStep(ca, DoneType.Jump, null, jump);
-                },
-            });
-
-            g.Execute(CaseActivityOperation.FreeJump, {
-                fromStates: [CaseActivityState.Pending],
-                toStates: [CaseActivityState.Done],
-                canBeModified: true,
-                execute: async (ca, args) => {
-                    const toLite = args[0] as Lite<WorkflowActivityEntity>;
-                    const to = await retrieve(WorkflowActivityEntity, toLite.id!);
-                    if (!to.lane.pool.workflow.is(ca.case.workflow))
-                        throw new Error(`Activity ${to} does not belong to workflow ${ca.case.workflow}`);
-
-                    await WorkflowActivityInfo.withScope({ caseActivity: ca, connection: null },
-                        () => saveEntity(ca.case.mainEntity));
-
-                    await makeDone(ca, DoneType.Jump, null);
-
-                    const ctx = new WorkflowExecuteStepContext(ca.case, ca);
-                    ctx.toActivities.push(to);
-                    await createNextActivities(ca.case, ctx, ca);
-                },
-            });
-
-            g.Execute(CaseActivityOperation.Timer, {
-                fromStates: [CaseActivityState.Pending],
-                toStates: [CaseActivityState.Done, CaseActivityState.Pending],
-                canExecute: ca => (ca.workflowActivity instanceof WorkflowEventEntity && isTimer(ca.workflowActivity.type))
-                    || (ca.workflowActivity instanceof WorkflowActivityEntity && ca.workflowActivity.boundaryTimers.length > 0)
-                    ? null : CaseActivityMessage.Activity0HasNoTimers.niceToString(ca.workflowActivity),
-                execute: async (ca, args) => {
-                    const now = Clock.now;
-
-                    // The graph's copy of the activity carries the boundary timers (they are not persisted).
-                    const g2 = await WorkflowLogic.getWorkflowNodeGraph(ca.case.workflow.toLite());
-                    const node = g2.getNode(ca.workflowActivity.toLite());
-
-                    let candidateEvents = node instanceof WorkflowEventEntity ? [node]
-                        : (node as WorkflowActivityEntity).boundaryTimers;
-
-                    const specific = args.firstOrNull(a => Array.isArray(a)) as Lite<WorkflowEventEntity>[] | null;
-                    if (specific != null)
-                        candidateEvents = candidateEvents.filter(ce => specific.some(e => e.is(ce)));
-
-                    const executed = await CaseQueries.executedTimers(ca).toArray();
-                    const lastByEvent = new Map<string, CaseActivityExecutedTimerEntity>(executed
-                        .groupBy(t => t.boundaryEvent.key())
-                        .map(gr => [gr.key, gr.elements.orderByDescending(a => a.creationDate)[0]]));
-
-                    let timer: WorkflowEventEntity | null = null;
-                    for (const t of candidateEvents) {
-                        const fireable = t.type === WorkflowEventType.BoundaryInterruptingTimer
-                            || t.runRepeatedly || !lastByEvent.has(t.toLite().key());
-                        if (!fireable)
-                            continue;
-
-                        if (t.timer!.duration != null) {
-                            const startDate = lastByEvent.get(t.toLite().key())?.creationDate ?? ca.startDate;
-                            if (Temporal.PlainDateTime.compare(t.timer!.duration.add(startDate), now) < 0) {
-                                timer = t;
-                                break;
-                            }
-                        }
-                        else if (await WorkflowLogic.evaluateTimerCondition(t.timer!.condition!, ca, now)) {
-                            timer = t;
-                            break;
-                        }
-                    }
-
-                    if (timer == null) {
-                        // Evaluating a SPECIFIC timer by hand and finding none due is not an error.
-                        if (specific == null)
-                            throw new Error(WorkflowActivityMessage.NoActiveTimerFound.niceToString());
-                        return;
-                    }
-
-                    switch (timer.type) {
-                        case WorkflowEventType.BoundaryForkTimer:
-                        case WorkflowEventType.BoundaryInterruptingTimer:
-                            await executeBoundaryTimer(ca, timer);
-                            break;
-                        case WorkflowEventType.IntermediateTimer:
-                            await executeStep(ca, DoneType.Timeout, null,
-                                (await WorkflowLogic.nextConnectionsFromCache(timer, ConnectionType.Normal)).single());
-                            break;
-                        default:
-                            throw new Error("Unexpected Timer Type " + Enum.niceName(WorkflowEventType, timer.type));
-                    }
-                },
-            });
-
-            g.Execute(CaseActivityOperation.MarkAsUnread, {
-                fromStates: [CaseActivityState.Pending],
-                toStates: [CaseActivityState.Pending],
-                execute: async ca => {
-                    const changed = await table(CaseNotificationEntity)
-                        .filter(cn => cn.caseActivity.is(ca) && cn.isForMe()
-                            && (cn.state === CaseNotificationState.InProgress
-                                || cn.state === CaseNotificationState.Opened))
-                        .executeUpdate(() => ({ state: CaseNotificationState.New }));
-
-                    if (changed === 0)
-                        throw new Error(CaseActivityMessage.NoOpenedOrInProgressNotificationsFound.niceToString());
-                },
-            });
-
-            g.Execute(CaseActivityOperation.Undo, {
-                fromStates: [CaseActivityState.Done],
-                toStates: [CaseActivityState.Pending],
-                canExecute: ca => (ca.doneBy?.is(UserHolder.currentUserLite()) ?? false) ? null
-                    : CaseActivityMessage.Only0CanUndoThisOperation.niceToString(ca.doneBy),
-                execute: async ca => {
-                    const nextActivities = await CaseQueries.nextActivities(ca).toArray();
-                    for (const na of nextActivities)
-                        if (!await isFreshNew(na))
-                            throw new Error(CaseActivityMessage.NextActivityAlreadyInProgress.niceToString());
-
-                    if (ca.case.parentCase != null) {
-                        const surrogate = await CaseQueries.decompositionSurrogateActivity(ca.case);
-                        for (const na of await CaseQueries.nextActivities(surrogate).toArray())
-                            if (!await isFreshNew(na))
-                                throw new Error(CaseActivityMessage
-                                    .NextActivityOfDecompositionSurrogateAlreadyInProgress.niceToString());
-                    }
-
-                    await table(CaseNotificationEntity)
-                        .filter(n => n.caseActivity.entity.previous!.is(ca)).executeDelete();
-
-                    const cases = nextActivities.map(a => a.case).filter(c => !c.is(ca.case)).distinctBy(c => String(c.id));
-                    await table(CaseActivityEntity).filter(a => a.previous!.is(ca)).executeDelete();
-
-                    // A decomposition's subcases, now childless, go too.
-                    for (const c of cases)
-                        if (!await CaseQueries.caseActivities(c).some())
-                            await c.delete();
-
-                    // A recomposition must be undone on the PARENT side as well.
-                    if (ca.case.parentCase != null && ca.case.finishDate != null) {
-                        const surrogate = await CaseQueries.decompositionSurrogateActivity(ca.case);
-                        await table(CaseNotificationEntity)
-                            .filter(n => n.caseActivity.entity.previous!.is(surrogate)).executeDelete();
-                        await table(CaseActivityEntity).filter(a => a.previous!.is(surrogate)).executeDelete();
-
-                        surrogate.doneBy = null;
-                        surrogate.doneDate = null;
-                        surrogate.doneType = null;
-                        surrogate.case.finishDate = null;
-                        await surrogate.save();
-                    }
-
-                    ca.doneBy = null;
-                    ca.doneDate = null;
-                    ca.doneType = null;
-                    ca.case.finishDate = null;
-                    await table(CaseNotificationEntity).filter(n => n.caseActivity.is(ca))
-                        .executeUpdate(() => ({ state: CaseNotificationState.New }));
-                },
-            });
-
-            g.Execute(CaseActivityOperation.ResetToCaseActivity, {
-                fromStates: [CaseActivityState.Done],
-                toStates: [CaseActivityState.Done, CaseActivityState.Pending],
-                execute: async ca => {
-                    const caseEntity = ca.case;
-
-                    // Everything that FOLLOWS the target inside THIS case must be undone. The walk stays in
-                    // the same case: a subcase's first activity points back (through `previous`) at a
-                    // decomposition surrogate here, so staying inside `case` never touches a subcase.
-                    // Keyed by ID, not by object: each `nextActivities` call is its own retrieval, so the
-                    // same row can come back as two instances and an identity Set would loop.
-                    const following = new Map<string, CaseActivityEntity>();
-                    const queue = await CaseQueries.nextActivities(ca).filter(a => a.case.is(caseEntity)).toArray();
-                    while (queue.length > 0) {
-                        const cur = queue.shift()!;
-                        if (!following.has(String(cur.id))) {
-                            following.set(String(cur.id), cur);
-                            queue.push(...await CaseQueries.nextActivities(cur).filter(a => a.case.is(caseEntity)).toArray());
-                        }
-                    }
-
-                    const followingIds = new Set(following.keys());
-
-                    // Resetting to BEFORE a decomposition that already spawned subcases is not supported.
-                    const subCases = await CaseQueries.subCases(caseEntity).toArray();
-                    for (const sc of subCases) {
-                        const surrogate = await CaseQueries.decompositionSurrogateActivity(sc);
-                        if (followingIds.has(String(surrogate.id)))
-                            throw new Error(CaseActivityMessage
-                                .ResetToCaseActivityIsNotSupportedForDecomposedCases.niceToString());
-                    }
-
-                    const isDecomposition = ca.workflowActivity instanceof WorkflowActivityEntity
-                        && (ca.workflowActivity.type === WorkflowActivityType.DecompositionWorkflow
-                            || ca.workflowActivity.type === WorkflowActivityType.CallWorkflow);
-
-                    if (isDecomposition) {
-                        // Only makes sense while a subcase is still open — finishing it is what recomposes.
-                        const subcasesOpen = await table(CaseActivityEntity)
-                            .filter(a => a.previous!.is(ca) && !a.case.is(caseEntity))
-                            .map(a => a.case)
-                            .some(c => c.finishDate == null);
-
-                        if (!subcasesOpen)
-                            throw new Error(CaseActivityMessage.ResetToCaseActivityRequiresAnOpenSubCase.niceToString());
-                    }
-
-                    if (following.size > 0) {
-                        const ids = [...following.values()].map(a => a.id!);
-                        await table(CaseNotificationEntity)
-                            .filter(n => ids.includes(n.caseActivity.id!)).executeDelete();
-                        await table(CaseActivityEntity).filter(a => ids.includes(a.id!)).executeDelete();
-                    }
-
-                    caseEntity.finishDate = null;
-                    await caseEntity.save();
-
-                    ca.doneBy = null;
-                    ca.doneDate = null;
-                    ca.doneType = null;
-                    ca.doneDecision = null;
-                    await ca.save();
-
-                    if (!isDecomposition)
-                        await insertCaseActivityNotifications(ca);
-                },
-            });
-
-            g.Delete(CaseActivityOperation.Delete, {
-                fromStates: [CaseActivityState.Pending],
-                canDelete: ca => ca.case.parentCase != null
-                    ? CaseActivityMessage.CaseIsADecompositionOf0.niceToString(ca.case.parentCase) : null,
-                delete: async (ca, args) => {
-                    const c = ca.case;
-                    if (await CaseQueries.caseActivities(c).some(a => !a.is(ca)))
-                        throw new Error(CaseActivityMessage.CaseContainsOtherActivities.niceToString());
-
-                    await table(CaseNotificationEntity).filter(n => n.caseActivity.is(ca)).executeDelete();
-                    await ca.delete();
-                    await c.delete();
-                    if (args[0] === true)
-                        await (c.mainEntity as Entity).delete();
-                },
-            });
-
-            g.Execute(CaseActivityOperation.ScriptExecute, {
-                canExecute: s => s.workflowActivity instanceof WorkflowActivityEntity
-                    && s.workflowActivity.type === WorkflowActivityType.Script ? null
-                    : CaseActivityMessage.OnlyForScriptWorkflowActivities.niceToString(),
-                fromStates: [CaseActivityState.Pending],
-                toStates: [CaseActivityState.Done],
-                execute: async ca => {
-                    await WorkflowActivityInfo.withScope({ caseActivity: ca }, async () => {
-                        const part = (ca.workflowActivity as WorkflowActivityEntity).script!;
-
-                        if (ca.scriptExecution == null)
-                            ca.scriptExecution = getScriptExecution(ca.workflowActivity);
-
-                        await WorkflowLogic.executeScript(part.script, ca.case.mainEntity,
-                            new WorkflowScriptContext(ca, ca.scriptExecution!.retryCount));
-                    });
-
-                    await executeStep(ca, DoneType.ScriptSuccess, null, null);
-                },
-            });
-
-            g.Execute(CaseActivityOperation.ScriptScheduleRetry, {
-                canExecute: s => s.workflowActivity instanceof WorkflowActivityEntity
-                    && s.workflowActivity.type === WorkflowActivityType.Script ? null
-                    : CaseActivityMessage.OnlyForScriptWorkflowActivities.niceToString(),
-                fromStates: [CaseActivityState.Pending],
-                toStates: [CaseActivityState.Pending],
-                execute: async (ca, args) => {
-                    const se = ca.scriptExecution!;
-                    se.retryCount = (se.retryCount + 1) as typeof se.retryCount;
-                    se.nextExecution = args[0] as Temporal.PlainDateTime;
-                    se.processIdentifier = null;
-                },
-            });
-
-            g.Execute(CaseActivityOperation.ScriptFailureJump, {
-                canExecute: s => s.workflowActivity instanceof WorkflowActivityEntity
-                    && s.workflowActivity.type === WorkflowActivityType.Script ? null
-                    : CaseActivityMessage.OnlyForScriptWorkflowActivities.niceToString(),
-                fromStates: [CaseActivityState.Pending],
-                toStates: [CaseActivityState.Done],
-                execute: async ca => {
-                    await executeStep(ca, DoneType.ScriptFailure, null,
-                        (await WorkflowLogic.nextConnectionsFromCache(ca.workflowActivity, ConnectionType.ScriptException)).single());
-                },
-            });
-        }).register();
-
     }
 
 
@@ -1879,6 +1347,531 @@ export namespace CaseActivityLogic {
 
         throw new Error("Unexpected node " + node);
     }
+
+    const CaseGraph = graph(CaseEntity, g => {
+        g.Execute(CaseOperation.SetTags, {
+            execute: async (e, args) => {
+                const current = await CaseQueries.tags(e).toArray();
+                const model = args[0] as CaseTagsModel;
+
+                const toDelete = current.filter(ct =>
+                    model.oldCaseTags.some(t => t.is(ct.tagType)) && !model.caseTags.some(t => t.is(ct.tagType)));
+
+                for (const ct of toDelete)
+                    await ct.delete();
+
+                const createdBy = UserHolder.currentUserLite();
+                for (const ctt of model.caseTags.filter(ctt => !current.some(ct => ct.tagType.is(ctt))))
+                    await CaseTagEntity.create({ case: e.toLite(), tagType: ctt, createdBy: createdBy! }).save();
+            },
+        });
+
+        g.Execute(CaseOperation.Cancel, {
+            canExecute: c => c.finishDate == null ? null : CaseActivityMessage.AlreadyFinished.niceToString(),
+            execute: async (c, args) => {
+                const avoidRecompose = (args[0] as boolean | undefined) ?? false;
+
+                for (const sc of await CaseQueries.subCases(c).filter(a => a.finishDate == null).toArray())
+                    await Operations.execute(sc, CaseOperation.Cancel, true);
+
+                const currentActivities = await CaseQueries.caseActivities(c).filter(a => a.doneBy == null).toArray();
+                const me = UserHolder.currentUserLite() as Lite<UserEntity> | null;
+
+                for (const ca of currentActivities) {
+                    ca.doneBy = me;
+                    ca.doneDate = Clock.now;
+                    ca.doneType = DoneType.Jump;
+                    ca.doneDecision = canceledCaseMarker();
+                    await ca.save();
+
+                    for (const notification of await table(CaseNotificationEntity).filter(n => n.caseActivity.is(ca)).toArray()) {
+                        notification.state = CaseNotificationState.DoneByOther;
+                        await notification.save();
+                    }
+                }
+
+                c.finishDate = Clock.now;
+                await cancelEntity(c.mainEntity, c);
+                await c.save();
+
+                if (c.parentCase != null && !avoidRecompose)
+                    await tryToRecompose(c);
+            },
+        });
+
+        g.Delete(CaseOperation.Delete, {
+            canDelete: e => e.parentCase == null ? null
+                : CaseActivityMessage.CaseIsADecompositionOf0.niceToString(e.parentCase),
+            delete: async (c, args) => {
+                await deleteCase(c);
+                if (args[0] === true)
+                    await (c.mainEntity as Entity).delete();
+            },
+        });
+
+        g.Execute(CaseOperation.Reactivate, {
+            canExecute: c => c.finishDate != null ? null : CaseActivityMessage.NotCanceled.niceToString(),
+            execute: async c => {
+                const cancelled = await cancelledActivities(c).toArray();
+                if (cancelled.length === 0)
+                    throw new Error(CaseActivityMessage.NotCanceled.niceToString());
+
+                await reactivateEntity(c.mainEntity, c);
+
+                const rejected = await table(CaseActivityEntity)
+                    .filter(a => a.case.is(c) && a.doneBy != null
+                        && (a.doneType === DoneType.Next || a.doneType === DoneType.Recompose))
+                    .orderByDescending(a => a.doneDate).top(1).toArray();
+
+                for (const ca of [...cancelled, ...rejected]) {
+                    ca.doneBy = null;
+                    ca.doneDate = null;
+                    ca.doneType = null;
+                    ca.doneDecision = null;
+                    await ca.save();
+
+                    for (const notification of await table(CaseNotificationEntity).filter(n => n.caseActivity.is(ca)).toArray()) {
+                        notification.state = CaseNotificationState.New;
+                        await notification.save();
+                    }
+                }
+
+                c.finishDate = null;
+                await c.save();
+
+                for (const sc of await CaseQueries.subCases(c).filter(a => a.finishDate != null).toArray())
+                    await Operations.execute(sc, CaseOperation.Reactivate, true);
+            },
+        });
+    });
+
+
+    const CaseNotificationGraph = graph(CaseNotificationEntity, g => {
+        g.Execute(CaseNotificationOperation.SetRemarks, {
+            execute: (e, args) => { e.remarks = args[0] as string; },
+        });
+
+        g.Delete(CaseNotificationOperation.Delete, {
+            delete: async e => { await e.delete(); },
+        });
+
+        g.ConstructFrom(CaseActivityEntity, CaseNotificationOperation.CreateCaseNotificationFromCaseActivity, {
+            construct: async (e, args) => {
+                const user = args[0] as Lite<UserEntity>;
+                const n = CaseNotificationEntity.create({
+                    caseActivity: e.toLite(),
+                    actor: user,
+                    user,
+                    state: CaseNotificationState.New,
+                });
+                await n.save();
+                return n;
+            },
+            resultIsSaved: true,
+        });
+    });
+
+
+    const CaseActivityGraph = graph(CaseActivityEntity, CaseActivityState, g => {
+        g.GetState = ca => ca.getState();
+
+        g.ConstructFrom(WorkflowEntity, CaseActivityOperation.CreateCaseActivityFromWorkflow, {
+            toStates: [CaseActivityState.New],
+            construct: async (w, args) => {
+                if (hasExpired(w))
+                    throw new Error(WorkflowMessage.Workflow0HasExpiredOn1
+                        .niceToString(w, w.expirationDate!.toString()));
+
+                const parentCase = args.firstOrNull(a => a instanceof Lite
+                    && (a as Lite<Entity>).entityType === CaseEntity) as Lite<CaseEntity> | null;
+
+                const wfGraph = await WorkflowLogic.getWorkflowNodeGraph(w.toLite());
+                if (parentCase == null && !await wfGraph.isStartCurrentUser(
+                    WorkflowLogic.isCurrentUserActor as never, ((lane: WorkflowLaneEntity) => getActors(lane, null)) as never))
+                    throw new Error(WorkflowMessage
+                        .YouAreNotMemberOfAnyLaneContainingAnStartEventInWorkflow0.niceToString(wfGraph.workflow));
+
+                const mainEntity = (args.firstOrNull(a => a instanceof Entity) as ICaseMainEntity | null)
+                    ?? await createMainEntity(w.mainEntityType.cleanName);
+
+                const caseEntity = CaseEntity.create({
+                    parentCase,
+                    workflow: w,
+                    description: w.name,
+                    mainEntity,
+                });
+
+                const start = [...wfGraph.events.values()].single(a => a.type === WorkflowEventType.Start);
+                const connection = (await WorkflowLogic.nextConnectionsFromCache(start, ConnectionType.Normal)).single();
+                const next = connection.to as WorkflowActivityEntity;
+
+                return CaseActivityEntity.create({
+                    workflowActivity: next,
+                    originalWorkflowActivityName: next.name,
+                    case: caseEntity,
+                    scriptExecution: getScriptExecution(next),
+                });
+            },
+        });
+
+        g.Execute(CaseActivityOperation.Register, {
+            canExecute: ca => !(ca.workflowActivity instanceof WorkflowActivityEntity)
+                ? CaseActivityMessage.NoWorkflowActivity.niceToString() : null,
+            fromStates: [CaseActivityState.New],
+            toStates: [CaseActivityState.Pending],
+            canBeNew: true,
+            canBeModified: true,
+            execute: async ca => {
+                const wfGraph = await WorkflowLogic.getWorkflowNodeGraph(ca.workflowActivity.lane.pool.workflow.toLite());
+                if (ca.case.parentCase == null && !await wfGraph.isStartCurrentUser(
+                    WorkflowLogic.isCurrentUserActor as never, ((lane: WorkflowLaneEntity) => getActors(lane, null)) as never))
+                    throw new Error(WorkflowMessage
+                        .YouAreNotMemberOfAnyLaneContainingAnStartEventInWorkflow0.niceToString(wfGraph.workflow));
+
+                await saveEntity(ca.case.mainEntity);
+                const now = Clock.now;
+                const c = ca.case;
+                c.startDate = now;
+                c.description = etc((c.mainEntity as Entity).toString().trim(), 100);
+                await c.save();
+
+                const prevConns = await WorkflowLogic.previousConnectionsFromCache(ca.workflowActivity);
+                const prevConn = prevConns.single(a => a.from instanceof WorkflowEventEntity
+                    && (a.from as WorkflowEventEntity).type === WorkflowEventType.Start);
+
+                const wec = new WorkflowExecuteStepContext(ca.case,
+                    ca.previous == null ? null : await retrieve(CaseActivityEntity, ca.previous.id!));
+
+                await wec.executeConnection(prevConn);
+
+                ca.startDate = now;
+                await ca.save();
+
+                await insertCaseActivityNotifications(ca);
+
+                await wec.notifyTransitionContext(ca);
+            },
+        });
+
+        g.Execute(CaseActivityOperation.Next, {
+            canExecute: ca => !(ca.workflowActivity instanceof WorkflowActivityEntity)
+                ? CaseActivityMessage.NoWorkflowActivity.niceToString() : null,
+            fromStates: [CaseActivityState.Pending],
+            toStates: [CaseActivityState.Done],
+            canBeModified: true,
+            execute: async (ca, args) => {
+                await assertCurrentUserHasNotification(ca);
+                await checkRequiresOpen(ca);
+                await executeStep(ca, DoneType.Next, (args[0] as string | undefined) ?? null, null);
+            },
+        });
+
+        g.Execute(CaseActivityOperation.Jump, {
+            canExecute: ca => !(ca.workflowActivity instanceof WorkflowActivityEntity)
+                ? CaseActivityMessage.NoWorkflowActivity.niceToString() : null,
+            fromStates: [CaseActivityState.Pending],
+            toStates: [CaseActivityState.Done],
+            canBeModified: true,
+            execute: async (ca, args) => {
+                await assertCurrentUserHasNotification(ca);
+                await checkRequiresOpen(ca);
+                const to = args[0] as Lite<IWorkflowNodeEntity>;
+                const jumps = await WorkflowLogic.nextConnectionsFromCache(ca.workflowActivity, ConnectionType.Jump);
+                if (jumps.length === 0)
+                    throw new Error(CaseActivityMessage.Activity0HasNoJumps.niceToString(ca.workflowActivity));
+                const jump = jumps.single(c => to.is(c.to));
+                await executeStep(ca, DoneType.Jump, null, jump);
+            },
+        });
+
+        g.Execute(CaseActivityOperation.FreeJump, {
+            fromStates: [CaseActivityState.Pending],
+            toStates: [CaseActivityState.Done],
+            canBeModified: true,
+            execute: async (ca, args) => {
+                const toLite = args[0] as Lite<WorkflowActivityEntity>;
+                const to = await retrieve(WorkflowActivityEntity, toLite.id!);
+                if (!to.lane.pool.workflow.is(ca.case.workflow))
+                    throw new Error(`Activity ${to} does not belong to workflow ${ca.case.workflow}`);
+
+                await WorkflowActivityInfo.withScope({ caseActivity: ca, connection: null },
+                    () => saveEntity(ca.case.mainEntity));
+
+                await makeDone(ca, DoneType.Jump, null);
+
+                const ctx = new WorkflowExecuteStepContext(ca.case, ca);
+                ctx.toActivities.push(to);
+                await createNextActivities(ca.case, ctx, ca);
+            },
+        });
+
+        g.Execute(CaseActivityOperation.Timer, {
+            fromStates: [CaseActivityState.Pending],
+            toStates: [CaseActivityState.Done, CaseActivityState.Pending],
+            canExecute: ca => (ca.workflowActivity instanceof WorkflowEventEntity && isTimer(ca.workflowActivity.type))
+                || (ca.workflowActivity instanceof WorkflowActivityEntity && ca.workflowActivity.boundaryTimers.length > 0)
+                ? null : CaseActivityMessage.Activity0HasNoTimers.niceToString(ca.workflowActivity),
+            execute: async (ca, args) => {
+                const now = Clock.now;
+
+                // The graph's copy of the activity carries the boundary timers (they are not persisted).
+                const g2 = await WorkflowLogic.getWorkflowNodeGraph(ca.case.workflow.toLite());
+                const node = g2.getNode(ca.workflowActivity.toLite());
+
+                let candidateEvents = node instanceof WorkflowEventEntity ? [node]
+                    : (node as WorkflowActivityEntity).boundaryTimers;
+
+                const specific = args.firstOrNull(a => Array.isArray(a)) as Lite<WorkflowEventEntity>[] | null;
+                if (specific != null)
+                    candidateEvents = candidateEvents.filter(ce => specific.some(e => e.is(ce)));
+
+                const executed = await CaseQueries.executedTimers(ca).toArray();
+                const lastByEvent = new Map<string, CaseActivityExecutedTimerEntity>(executed
+                    .groupBy(t => t.boundaryEvent.key())
+                    .map(gr => [gr.key, gr.elements.orderByDescending(a => a.creationDate)[0]]));
+
+                let timer: WorkflowEventEntity | null = null;
+                for (const t of candidateEvents) {
+                    const fireable = t.type === WorkflowEventType.BoundaryInterruptingTimer
+                        || t.runRepeatedly || !lastByEvent.has(t.toLite().key());
+                    if (!fireable)
+                        continue;
+
+                    if (t.timer!.duration != null) {
+                        const startDate = lastByEvent.get(t.toLite().key())?.creationDate ?? ca.startDate;
+                        if (Temporal.PlainDateTime.compare(t.timer!.duration.add(startDate), now) < 0) {
+                            timer = t;
+                            break;
+                        }
+                    }
+                    else if (await WorkflowLogic.evaluateTimerCondition(t.timer!.condition!, ca, now)) {
+                        timer = t;
+                        break;
+                    }
+                }
+
+                if (timer == null) {
+                    // Evaluating a SPECIFIC timer by hand and finding none due is not an error.
+                    if (specific == null)
+                        throw new Error(WorkflowActivityMessage.NoActiveTimerFound.niceToString());
+                    return;
+                }
+
+                switch (timer.type) {
+                    case WorkflowEventType.BoundaryForkTimer:
+                    case WorkflowEventType.BoundaryInterruptingTimer:
+                        await executeBoundaryTimer(ca, timer);
+                        break;
+                    case WorkflowEventType.IntermediateTimer:
+                        await executeStep(ca, DoneType.Timeout, null,
+                            (await WorkflowLogic.nextConnectionsFromCache(timer, ConnectionType.Normal)).single());
+                        break;
+                    default:
+                        throw new Error("Unexpected Timer Type " + Enum.niceName(WorkflowEventType, timer.type));
+                }
+            },
+        });
+
+        g.Execute(CaseActivityOperation.MarkAsUnread, {
+            fromStates: [CaseActivityState.Pending],
+            toStates: [CaseActivityState.Pending],
+            execute: async ca => {
+                const changed = await table(CaseNotificationEntity)
+                    .filter(cn => cn.caseActivity.is(ca) && cn.isForMe()
+                        && (cn.state === CaseNotificationState.InProgress
+                            || cn.state === CaseNotificationState.Opened))
+                    .executeUpdate(() => ({ state: CaseNotificationState.New }));
+
+                if (changed === 0)
+                    throw new Error(CaseActivityMessage.NoOpenedOrInProgressNotificationsFound.niceToString());
+            },
+        });
+
+        g.Execute(CaseActivityOperation.Undo, {
+            fromStates: [CaseActivityState.Done],
+            toStates: [CaseActivityState.Pending],
+            canExecute: ca => (ca.doneBy?.is(UserHolder.currentUserLite()) ?? false) ? null
+                : CaseActivityMessage.Only0CanUndoThisOperation.niceToString(ca.doneBy),
+            execute: async ca => {
+                const nextActivities = await CaseQueries.nextActivities(ca).toArray();
+                for (const na of nextActivities)
+                    if (!await isFreshNew(na))
+                        throw new Error(CaseActivityMessage.NextActivityAlreadyInProgress.niceToString());
+
+                if (ca.case.parentCase != null) {
+                    const surrogate = await CaseQueries.decompositionSurrogateActivity(ca.case);
+                    for (const na of await CaseQueries.nextActivities(surrogate).toArray())
+                        if (!await isFreshNew(na))
+                            throw new Error(CaseActivityMessage
+                                .NextActivityOfDecompositionSurrogateAlreadyInProgress.niceToString());
+                }
+
+                await table(CaseNotificationEntity)
+                    .filter(n => n.caseActivity.entity.previous!.is(ca)).executeDelete();
+
+                const cases = nextActivities.map(a => a.case).filter(c => !c.is(ca.case)).distinctBy(c => String(c.id));
+                await table(CaseActivityEntity).filter(a => a.previous!.is(ca)).executeDelete();
+
+                // A decomposition's subcases, now childless, go too.
+                for (const c of cases)
+                    if (!await CaseQueries.caseActivities(c).some())
+                        await c.delete();
+
+                // A recomposition must be undone on the PARENT side as well.
+                if (ca.case.parentCase != null && ca.case.finishDate != null) {
+                    const surrogate = await CaseQueries.decompositionSurrogateActivity(ca.case);
+                    await table(CaseNotificationEntity)
+                        .filter(n => n.caseActivity.entity.previous!.is(surrogate)).executeDelete();
+                    await table(CaseActivityEntity).filter(a => a.previous!.is(surrogate)).executeDelete();
+
+                    surrogate.doneBy = null;
+                    surrogate.doneDate = null;
+                    surrogate.doneType = null;
+                    surrogate.case.finishDate = null;
+                    await surrogate.save();
+                }
+
+                ca.doneBy = null;
+                ca.doneDate = null;
+                ca.doneType = null;
+                ca.case.finishDate = null;
+                await table(CaseNotificationEntity).filter(n => n.caseActivity.is(ca))
+                    .executeUpdate(() => ({ state: CaseNotificationState.New }));
+            },
+        });
+
+        g.Execute(CaseActivityOperation.ResetToCaseActivity, {
+            fromStates: [CaseActivityState.Done],
+            toStates: [CaseActivityState.Done, CaseActivityState.Pending],
+            execute: async ca => {
+                const caseEntity = ca.case;
+
+                // Everything that FOLLOWS the target inside THIS case must be undone. The walk stays in
+                // the same case: a subcase's first activity points back (through `previous`) at a
+                // decomposition surrogate here, so staying inside `case` never touches a subcase.
+                // Keyed by ID, not by object: each `nextActivities` call is its own retrieval, so the
+                // same row can come back as two instances and an identity Set would loop.
+                const following = new Map<string, CaseActivityEntity>();
+                const queue = await CaseQueries.nextActivities(ca).filter(a => a.case.is(caseEntity)).toArray();
+                while (queue.length > 0) {
+                    const cur = queue.shift()!;
+                    if (!following.has(String(cur.id))) {
+                        following.set(String(cur.id), cur);
+                        queue.push(...await CaseQueries.nextActivities(cur).filter(a => a.case.is(caseEntity)).toArray());
+                    }
+                }
+
+                const followingIds = new Set(following.keys());
+
+                // Resetting to BEFORE a decomposition that already spawned subcases is not supported.
+                const subCases = await CaseQueries.subCases(caseEntity).toArray();
+                for (const sc of subCases) {
+                    const surrogate = await CaseQueries.decompositionSurrogateActivity(sc);
+                    if (followingIds.has(String(surrogate.id)))
+                        throw new Error(CaseActivityMessage
+                            .ResetToCaseActivityIsNotSupportedForDecomposedCases.niceToString());
+                }
+
+                const isDecomposition = ca.workflowActivity instanceof WorkflowActivityEntity
+                    && (ca.workflowActivity.type === WorkflowActivityType.DecompositionWorkflow
+                        || ca.workflowActivity.type === WorkflowActivityType.CallWorkflow);
+
+                if (isDecomposition) {
+                    // Only makes sense while a subcase is still open — finishing it is what recomposes.
+                    const subcasesOpen = await table(CaseActivityEntity)
+                        .filter(a => a.previous!.is(ca) && !a.case.is(caseEntity))
+                        .map(a => a.case)
+                        .some(c => c.finishDate == null);
+
+                    if (!subcasesOpen)
+                        throw new Error(CaseActivityMessage.ResetToCaseActivityRequiresAnOpenSubCase.niceToString());
+                }
+
+                if (following.size > 0) {
+                    const ids = [...following.values()].map(a => a.id!);
+                    await table(CaseNotificationEntity)
+                        .filter(n => ids.includes(n.caseActivity.id!)).executeDelete();
+                    await table(CaseActivityEntity).filter(a => ids.includes(a.id!)).executeDelete();
+                }
+
+                caseEntity.finishDate = null;
+                await caseEntity.save();
+
+                ca.doneBy = null;
+                ca.doneDate = null;
+                ca.doneType = null;
+                ca.doneDecision = null;
+                await ca.save();
+
+                if (!isDecomposition)
+                    await insertCaseActivityNotifications(ca);
+            },
+        });
+
+        g.Delete(CaseActivityOperation.Delete, {
+            fromStates: [CaseActivityState.Pending],
+            canDelete: ca => ca.case.parentCase != null
+                ? CaseActivityMessage.CaseIsADecompositionOf0.niceToString(ca.case.parentCase) : null,
+            delete: async (ca, args) => {
+                const c = ca.case;
+                if (await CaseQueries.caseActivities(c).some(a => !a.is(ca)))
+                    throw new Error(CaseActivityMessage.CaseContainsOtherActivities.niceToString());
+
+                await table(CaseNotificationEntity).filter(n => n.caseActivity.is(ca)).executeDelete();
+                await ca.delete();
+                await c.delete();
+                if (args[0] === true)
+                    await (c.mainEntity as Entity).delete();
+            },
+        });
+
+        g.Execute(CaseActivityOperation.ScriptExecute, {
+            canExecute: s => s.workflowActivity instanceof WorkflowActivityEntity
+                && s.workflowActivity.type === WorkflowActivityType.Script ? null
+                : CaseActivityMessage.OnlyForScriptWorkflowActivities.niceToString(),
+            fromStates: [CaseActivityState.Pending],
+            toStates: [CaseActivityState.Done],
+            execute: async ca => {
+                await WorkflowActivityInfo.withScope({ caseActivity: ca }, async () => {
+                    const part = (ca.workflowActivity as WorkflowActivityEntity).script!;
+
+                    if (ca.scriptExecution == null)
+                        ca.scriptExecution = getScriptExecution(ca.workflowActivity);
+
+                    await WorkflowLogic.executeScript(part.script, ca.case.mainEntity,
+                        new WorkflowScriptContext(ca, ca.scriptExecution!.retryCount));
+                });
+
+                await executeStep(ca, DoneType.ScriptSuccess, null, null);
+            },
+        });
+
+        g.Execute(CaseActivityOperation.ScriptScheduleRetry, {
+            canExecute: s => s.workflowActivity instanceof WorkflowActivityEntity
+                && s.workflowActivity.type === WorkflowActivityType.Script ? null
+                : CaseActivityMessage.OnlyForScriptWorkflowActivities.niceToString(),
+            fromStates: [CaseActivityState.Pending],
+            toStates: [CaseActivityState.Pending],
+            execute: async (ca, args) => {
+                const se = ca.scriptExecution!;
+                se.retryCount = (se.retryCount + 1) as typeof se.retryCount;
+                se.nextExecution = args[0] as Temporal.PlainDateTime;
+                se.processIdentifier = null;
+            },
+        });
+
+        g.Execute(CaseActivityOperation.ScriptFailureJump, {
+            canExecute: s => s.workflowActivity instanceof WorkflowActivityEntity
+                && s.workflowActivity.type === WorkflowActivityType.Script ? null
+                : CaseActivityMessage.OnlyForScriptWorkflowActivities.niceToString(),
+            fromStates: [CaseActivityState.Pending],
+            toStates: [CaseActivityState.Done],
+            execute: async ca => {
+                await executeStep(ca, DoneType.ScriptFailure, null,
+                    (await WorkflowLogic.nextConnectionsFromCache(ca.workflowActivity, ConnectionType.ScriptException)).single());
+            },
+        });
+    });
 }
 
 // ---- FluentInclude wiring -------------------------------------------------------------------------------

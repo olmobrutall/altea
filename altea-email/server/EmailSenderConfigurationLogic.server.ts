@@ -74,20 +74,7 @@ export namespace EmailSenderConfigurationLogic {
             }
         });
 
-        // Signum's Save: turn the typed-in `newPassword` into the stored (encrypted) `password`.
-        graph(EmailSenderConfigurationEntity, g => {
-        g.Execute(EmailSenderConfigurationOperation.Save, {
-            canBeNew: true,
-            canBeModified: true,
-            execute: (sc: EmailSenderConfigurationEntity) => {
-                prepareServiceForSave(sc.service);
-            },
-        });
-
-        g.ConstructFrom(EmailSenderConfigurationEntity, EmailSenderConfigurationOperation.Clone, {
-            construct: (sc: EmailSenderConfigurationEntity) => sc.clone(),
-        });
-        }).register();
+        EmailSenderConfigurationGraph.register();
     }
 
     /** altea-only (see the header): what the Save operation should do to this service type before it is
@@ -128,4 +115,19 @@ export namespace EmailSenderConfigurationLogic {
         await sc.delete();
         await service.delete();
     }
+
+    // Signum's Save: turn the typed-in `newPassword` into the stored (encrypted) `password`.
+    const EmailSenderConfigurationGraph = graph(EmailSenderConfigurationEntity, g => {
+        g.Execute(EmailSenderConfigurationOperation.Save, {
+        canBeNew: true,
+        canBeModified: true,
+        execute: (sc: EmailSenderConfigurationEntity) => {
+            prepareServiceForSave(sc.service);
+        },
+        });
+
+        g.ConstructFrom(EmailSenderConfigurationEntity, EmailSenderConfigurationOperation.Clone, {
+        construct: (sc: EmailSenderConfigurationEntity) => sc.clone(),
+        });
+    });
 }

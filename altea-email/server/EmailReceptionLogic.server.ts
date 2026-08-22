@@ -97,7 +97,7 @@ export namespace EmailReceptionLogic {
 
         sb.include(EmailReceptionExceptionEntity).withQuery();
 
-        registerGraph();
+        EmailReceptionConfigurationGraph.register();
 
         // A ScheduledTask may point straight at ONE configuration (Signum's
         // `SchedulerLogic.ExecuteTask.Register((EmailReceptionConfigurationEntity conf, ctx) => …)`), which is
@@ -174,44 +174,6 @@ export namespace EmailReceptionLogic {
         return await handler(config.service, config, ctx);
     }
 
-    function registerGraph(): void {
-        graph(EmailReceptionConfigurationEntity, g => {
-        g.Execute(EmailReceptionConfigurationOperation.Save, {
-            canBeNew: true,
-            canBeModified: true,
-            execute: (config: EmailReceptionConfigurationEntity) => {
-                // See the header: the protocol package owns the "which field is the password" knowledge.
-                prepareServiceForSave(config.service);
-            },
-        });
-
-        g.ConstructFrom(EmailReceptionConfigurationEntity, EmailReceptionConfigurationOperation.ReceiveEmails, {
-            construct: async (config: EmailReceptionConfigurationEntity) => {
-                // Signum runs this inside `Transaction.None()`: a poll writes its own reception row (and every
-                // stored message) in transactions of its OWN, so it must not be nested inside — and must not
-                // be rolled back by — the operation's transaction.
-                return await Transaction.none(async () => {
-                    const user = UserHolder.currentUserLite();
-                    if (user == null)
-                        throw new Error("EmailReceptionConfigurationOperation.ReceiveEmails: there is no current user");
-
-                    // An UNSAVED log, exactly as Signum builds it: the poll wants a ScheduledTaskContext (for
-                    // cancellation + progress lines), not a scheduler run.
-                    const log = ScheduledTaskLogEntity.create({
-                        task: EmailReceptionAction.ReceiveAllActiveEmailConfigurations,
-                        startTime: Clock.now,
-                        machineName: ScheduleTaskRunner.machineName(),
-                        applicationName: ScheduleTaskRunner.applicationName(),
-                        user,
-                    });
-
-                    return await receiveEmails(config, new ScheduledTaskContext(log));
-                });
-            },
-        });
-        }).register();
-    }
-
     /** The concrete types `EmailReceptionConfiguration.service` may hold (Signum's
      *  `sb.Schema.FindImplementations(PropertyRoute.Construct(s => s.Service))`). Read off the FieldInfo, so
      *  an app's `overrideImplementedBy` is what this sees. */
@@ -229,6 +191,42 @@ export namespace EmailReceptionLogic {
         }
         return undefined;
     }
+
+    const EmailReceptionConfigurationGraph = graph(EmailReceptionConfigurationEntity, g => {
+        g.Execute(EmailReceptionConfigurationOperation.Save, {
+        canBeNew: true,
+        canBeModified: true,
+        execute: (config: EmailReceptionConfigurationEntity) => {
+            // See the header: the protocol package owns the "which field is the password" knowledge.
+            prepareServiceForSave(config.service);
+        },
+        });
+
+        g.ConstructFrom(EmailReceptionConfigurationEntity, EmailReceptionConfigurationOperation.ReceiveEmails, {
+        construct: async (config: EmailReceptionConfigurationEntity) => {
+            // Signum runs this inside `Transaction.None()`: a poll writes its own reception row (and every
+            // stored message) in transactions of its OWN, so it must not be nested inside — and must not
+            // be rolled back by — the operation's transaction.
+            return await Transaction.none(async () => {
+                const user = UserHolder.currentUserLite();
+                if (user == null)
+                    throw new Error("EmailReceptionConfigurationOperation.ReceiveEmails: there is no current user");
+
+                // An UNSAVED log, exactly as Signum builds it: the poll wants a ScheduledTaskContext (for
+                // cancellation + progress lines), not a scheduler run.
+                const log = ScheduledTaskLogEntity.create({
+                    task: EmailReceptionAction.ReceiveAllActiveEmailConfigurations,
+                    startTime: Clock.now,
+                    machineName: ScheduleTaskRunner.machineName(),
+                    applicationName: ScheduleTaskRunner.applicationName(),
+                    user,
+                });
+
+                return await receiveEmails(config, new ScheduledTaskContext(log));
+            });
+        },
+        });
+    });
 }
 
 // ---- Query navigations (Signum's QueryLogic.Expressions.Register) ---------------------------------------

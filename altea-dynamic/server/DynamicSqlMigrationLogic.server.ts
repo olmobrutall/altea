@@ -34,45 +34,12 @@ export namespace DynamicSqlMigrationLogic {
         if (sb.alreadyDefined(start))
             return;
 
+        // Signum registers all four operations as graph ops rather than through withSave / withDelete,
+        // because its Delete carries a guard (a migration that has already run cannot be removed).
         sb.include(DynamicSqlMigrationEntity)
-            .withSave(DynamicSqlMigrationOperation.Save)
-            .withDelete(DynamicSqlMigrationOperation.Delete)
             .withQuery();
 
-        graph(DynamicSqlMigrationEntity, g => {
-
-            g.Construct(DynamicSqlMigrationOperation.Create, {
-                construct: async (): Promise<DynamicSqlMigrationEntity> => {
-                    const script = await generateScript();
-
-                    return DynamicSqlMigrationEntity.create({
-                        creationDate: Clock.now,
-                        createdBy: currentUserLite(),
-                        comment: "",
-                        script: script ?? "",
-                    });
-                },
-            });
-
-            g.Execute(DynamicSqlMigrationOperation.Save, {
-                canBeNew: true,
-                canBeModified: true,
-                execute: () => { /* nothing beyond the save itself (Signum's plain Save) */ },
-            });
-
-            g.Execute(DynamicSqlMigrationOperation.Execute, {
-                canBeModified: true,
-                // Signum's `CanExecute = a => a.ExecutionDate == null ? null : …AlreadyExecuted`.
-                canExecute: m => m.executionDate == null
-                    ? null
-                    : DynamicSqlMigrationMessage.TheMigrationIsAlreadyExecuted.niceToString(),
-                execute: async m => {
-                    await executeScript(m.script);
-                    m.executionDate = Clock.now;
-                    m.executedBy = currentUserLite();
-                },
-            });
-        });
+        DynamicSqlMigrationGraph.register();
     }
 
     /**
@@ -117,4 +84,46 @@ export namespace DynamicSqlMigrationLogic {
             throw new Error("DynamicSqlMigration requires a logged-in user");
         return user as Lite<UserEntity>;
     }
+
+    const DynamicSqlMigrationGraph = graph(DynamicSqlMigrationEntity, g => {
+
+        g.Construct(DynamicSqlMigrationOperation.Create, {
+            construct: async (): Promise<DynamicSqlMigrationEntity> => {
+                const script = await generateScript();
+
+                return DynamicSqlMigrationEntity.create({
+                    creationDate: Clock.now,
+                    createdBy: currentUserLite(),
+                    comment: "",
+                    script: script ?? "",
+                });
+            },
+        });
+
+        g.Execute(DynamicSqlMigrationOperation.Save, {
+            canBeNew: true,
+            canBeModified: true,
+            execute: () => { /* nothing beyond the save itself (Signum's plain Save) */ },
+        });
+
+        g.Delete(DynamicSqlMigrationOperation.Delete, {
+            canDelete: m => m.executionDate == null
+                ? null
+                : DynamicSqlMigrationMessage.TheMigrationIsAlreadyExecuted.niceToString(),
+            delete: async m => { await m.delete(); },
+        });
+
+        g.Execute(DynamicSqlMigrationOperation.Execute, {
+            canBeModified: true,
+            // Signum's `CanExecute = a => a.ExecutionDate == null ? null : …AlreadyExecuted`.
+            canExecute: m => m.executionDate == null
+                ? null
+                : DynamicSqlMigrationMessage.TheMigrationIsAlreadyExecuted.niceToString(),
+            execute: async m => {
+                await executeScript(m.script);
+                m.executionDate = Clock.now;
+                m.executedBy = currentUserLite();
+            },
+        });
+    });
 }

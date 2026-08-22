@@ -176,21 +176,7 @@ export namespace LanguageModelLogic {
             .withUniqueIndex(a => a.isDefault, a => a.isDefault == true)
             .withQuery();
 
-        graph(ChatbotLanguageModelEntity, g => {
-            g.Execute(ChatbotLanguageModelOperation.MakeDefault, {
-                canExecute: a => !a.isDefault ? null
-                    : ValidationMessage._0IsSet.niceToString(ChatbotLanguageModelEntity.nicePropertyName(x => x.isDefault)),
-                execute: async e => {
-                    const other = await tableQuery(ChatbotLanguageModelEntity).singleOrNull(a => a.isDefault);
-                    if (other != null) {
-                        other.isDefault = false;
-                        await other.save();
-                    }
-                    e.isDefault = true;
-                },
-            });
-            g.Delete(ChatbotLanguageModelOperation.Delete, { delete: async e => { await e.delete(); } });
-        }).register();
+        ChatbotLanguageModelGraph.register();
 
         languageModels = sb.globalLazy(async () => {
             const rows = await ExecutionMode.global(() => tableQuery(ChatbotLanguageModelEntity).toArray());
@@ -207,21 +193,7 @@ export namespace LanguageModelLogic {
             .withUniqueIndex(a => a.isDefault, a => a.isDefault == true)
             .withQuery();
 
-        graph(EmbeddingsLanguageModelEntity, g => {
-            g.Execute(EmbeddingsLanguageModelOperation.MakeDefault, {
-                canExecute: a => !a.isDefault ? null
-                    : ValidationMessage._0IsSet.niceToString(EmbeddingsLanguageModelEntity.nicePropertyName(x => x.isDefault)),
-                execute: async e => {
-                    const other = await tableQuery(EmbeddingsLanguageModelEntity).singleOrNull(a => a.isDefault);
-                    if (other != null) {
-                        other.isDefault = false;
-                        await other.save();
-                    }
-                    e.isDefault = true;
-                },
-            });
-            g.Delete(EmbeddingsLanguageModelOperation.Delete, { delete: async e => { await e.delete(); } });
-        }).register();
+        EmbeddingsLanguageModelGraph.register();
 
         embeddingsModels = sb.globalLazy(async () => {
             const rows = await ExecutionMode.global(() => tableQuery(EmbeddingsLanguageModelEntity).toArray());
@@ -315,3 +287,39 @@ export namespace LanguageModelLogic {
         };
     }
 }
+
+// ---- ChatbotLanguageModelGraph ------------------------------------------------------------------
+
+const ChatbotLanguageModelGraph = graph(ChatbotLanguageModelEntity, g => {
+    g.Execute(ChatbotLanguageModelOperation.MakeDefault, {
+        canExecute: a => !a.isDefault ? null
+            : ValidationMessage._0IsSet.niceToString(ChatbotLanguageModelEntity.nicePropertyName(x => x.isDefault)),
+        execute: async e => {
+            const other = await tableQuery(ChatbotLanguageModelEntity).singleOrNull(a => a.isDefault);
+            if (other != null) {
+                other.isDefault = false;
+                await other.save();
+            }
+            e.isDefault = true;
+        },
+    });
+    g.Delete(ChatbotLanguageModelOperation.Delete, { delete: async e => { await e.delete(); } });
+});
+
+// ---- EmbeddingsLanguageModelGraph ---------------------------------------------------------------
+
+const EmbeddingsLanguageModelGraph = graph(EmbeddingsLanguageModelEntity, g => {
+    g.Execute(EmbeddingsLanguageModelOperation.MakeDefault, {
+        canExecute: a => !a.isDefault ? null
+            : ValidationMessage._0IsSet.niceToString(EmbeddingsLanguageModelEntity.nicePropertyName(x => x.isDefault)),
+        execute: async e => {
+            const other = await tableQuery(EmbeddingsLanguageModelEntity).singleOrNull(a => a.isDefault);
+            if (other != null) {
+                other.isDefault = false;
+                await other.save();
+            }
+            e.isDefault = true;
+        },
+    });
+    g.Delete(EmbeddingsLanguageModelOperation.Delete, { delete: async e => { await e.delete(); } });
+});

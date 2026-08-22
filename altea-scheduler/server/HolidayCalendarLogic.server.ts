@@ -55,14 +55,7 @@ export namespace HolidayCalendarLogic {
         // A rule advancing to its next occurrence is SYNC, so it reads the warmed snapshot.
         setHolidayCalendarResolver(lite => warmCalendars.get(lite.key()));
 
-        graph(HolidayCalendarEntity, g => {
-        g.Execute(HolidayCalendarOperation.ImportPublicHolidays, {
-            canBeModified: true,
-            canExecute: (c: HolidayCalendarEntity) => c.fromYear != null && c.toYear != null && (c.countryCode ?? "") !== "" ? null
-                : HolidayCalendarMessage.ForImport01and2ShouldBeSet.niceToString("From year", "To year", "Country code"),
-            execute: async (c: HolidayCalendarEntity) => { await importPublicHolidays(c); },
-        });
-        }).register();
+        HolidayCalendarGraph.register();
     }
 
     /** Refresh the SYNC snapshot the schedule rules read. Called by the runner before it (re)plans. */
@@ -129,4 +122,13 @@ export namespace HolidayCalendarLogic {
             throw new Error(`date.nager.at/${path} returned ${response.status} ${response.statusText}`);
         return await response.json() as T;
     }
+
+    const HolidayCalendarGraph = graph(HolidayCalendarEntity, g => {
+        g.Execute(HolidayCalendarOperation.ImportPublicHolidays, {
+        canBeModified: true,
+        canExecute: (c: HolidayCalendarEntity) => c.fromYear != null && c.toYear != null && (c.countryCode ?? "") !== "" ? null
+            : HolidayCalendarMessage.ForImport01and2ShouldBeSet.niceToString("From year", "To year", "Country code"),
+        execute: async (c: HolidayCalendarEntity) => { await importPublicHolidays(c); },
+        });
+    });
 }

@@ -41,17 +41,7 @@ export namespace CultureInfoLogic {
 
         sb.include(CultureInfoEntity).withQuery();
 
-        graph(CultureInfoEntity, g => {
-            g.Execute(CultureInfoOperation.Save, {
-                canBeNew: true,
-                canBeModified: true,
-                // Signum's PreSaving: keep the two derived names in step with the tag, whoever edited it.
-                execute: c => { Object.assign(c, cultureDisplayNames(c.name)); },
-            });
-            g.Delete(CultureInfoOperation.Delete, {
-                delete: async c => { await c.delete(); },
-            });
-        }).register();
+        CultureInfoGraph.register();
 
         cultures = sb.globalLazy(
             async () => new Map((await table(CultureInfoEntity).toArray() as CultureInfoEntity[]).map(c => [c.name, c])),
@@ -133,3 +123,17 @@ export namespace CultureInfoLogic {
         await warmUp();
     }
 }
+
+// ---- CultureInfoGraph ---------------------------------------------------------------------------
+
+const CultureInfoGraph = graph(CultureInfoEntity, g => {
+    g.Execute(CultureInfoOperation.Save, {
+        canBeNew: true,
+        canBeModified: true,
+        // Signum's PreSaving: keep the two derived names in step with the tag, whoever edited it.
+        execute: c => { Object.assign(c, cultureDisplayNames(c.name)); },
+    });
+    g.Delete(CultureInfoOperation.Delete, {
+        delete: async c => { await c.delete(); },
+    });
+});
