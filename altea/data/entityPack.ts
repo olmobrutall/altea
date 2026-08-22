@@ -6,6 +6,11 @@ import type { BaseEntity } from './entity';
 export interface EntityPack<T extends BaseEntity = BaseEntity> {
     entity: T;
     canExecute: { [operationKey: string]: string };
+    // Signum's `EntityPackTS.extension` — an open bag a module fills server-side (Signum's
+    // `EntityPackTS.AddExtension` event, altea's `registerEntityPackExtension`) so its widgets can decide
+    // what to render WITHOUT a second round-trip. @altea/altea-tour's `hasTour` is the first entry.
+    // Absent when no module contributed anything.
+    extension?: { [key: string]: unknown };
 }
 
 // Signum's `isEntityPack` type guard: an object carrying both `entity` and `canExecute`. Check

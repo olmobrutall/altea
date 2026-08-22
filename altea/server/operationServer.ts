@@ -187,5 +187,30 @@ export async function getEntityPack(entity: Entity): Promise<EntityPack<Entity>>
             } catch { /* operation not applicable to this entity type */ }
         }
     }
-    return { entity, canExecute };
+    const pack: EntityPack<Entity> = { entity, canExecute };
+
+    // Signum's `EntityPackTS.AddExtension` event: each module gets to stamp what its widgets need to
+    // decide whether to render, so a frame costs one round-trip instead of one per widget.
+    for (const fill of entityPackExtensions)
+        await fill(pack);
+
+    return pack;
+}
+
+export type EntityPackExtension = (pack: EntityPack<Entity>) => void | Promise<void>;
+
+const entityPackExtensions: EntityPackExtension[] = [];
+
+/**
+ * Signum's `EntityPackTS.AddExtension += pack => pack.extension.Add("key", value)`. A module registers
+ * a filler at start; it runs on every {@link getEntityPack}, so keep it cheap (a lazy lookup, not a query).
+ * Write through {@link setEntityPackExtension} so the bag is created on demand.
+ */
+export function registerEntityPackExtension(fill: EntityPackExtension): void {
+    entityPackExtensions.push(fill);
+}
+
+/** Set one key on a pack's extension bag, creating it if this is the first contributor. */
+export function setEntityPackExtension(pack: EntityPack<Entity>, key: string, value: unknown): void {
+    (pack.extension ??= {})[key] = value;
 }
