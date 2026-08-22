@@ -434,7 +434,7 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
     // the model would emit. The args come from the reader's decode of pg_trigger.tgargs; comparing
     // them (Signum compares the parsed history-table name via ParseVersionFunctionParam — altea
     // also compares the column list, which its generic function carries).
-    const versioningTriggers = !isPostgres ? undefined : Synchronizer.synchronizeScript(
+    const versioningTriggerChanges = !isPostgres ? undefined : Synchronizer.synchronizeScript(
         Spacing.Double,
         modelTables,
         databaseTables,
@@ -450,6 +450,14 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
                 : sqlBuilder.createVersioningTrigger(tab, /* replace */ true);
         },
     );
+
+    // The generic `versioning()` function every trigger above calls. The GENERATOR emits it once
+    // (schemaGenerator), but a table that becomes @systemVersioned in an EXISTING database is reached
+    // only through this path — where it was missing, so the trigger referenced a function that did not
+    // exist ("function versioning() does not exist"). It is CREATE OR REPLACE, hence unconditionally safe
+    // to re-emit whenever any trigger is being written.
+    const versioningTriggers = versioningTriggerChanges == undefined ? undefined
+        : SqlPreCommand.combine(Spacing.Double, sqlBuilder.createVersioningFunction(), versioningTriggerChanges);
 
     const delayedHistory = SqlPreCommand.combine(Spacing.Double, ...delayedHistoryColumns);
 
@@ -669,6 +677,13 @@ function strongColumnChanges(tab: Table, dif: DiffTable): boolean {
 
 // A type-appropriate zero/empty default for backfilling a new NOT NULL column.
 function defaultValueFor(dbType: AbstractDbType, isPostgres: boolean): string {
+    // Postgres' system-versioning PERIOD column is a RANGE, not a timestamp: its zero value is "this
+    // version starts now and is still open". Checked FIRST, because the period column's abstract type is
+    // `datetime2 / tstzrange` and `isDate()` matches on EITHER dialect name — so a table that becomes
+    // @systemVersioned while it already has rows would otherwise get `DEFAULT now()` on a tstzrange
+    // column, which Postgres rejects outright ("default expression is of type timestamp with time zone").
+    if (isPostgres && dbType.postgres.toLowerCase() === "tstzrange")
+        return "tstzrange(now(), null)";
     if (dbType.isBoolean()) return isPostgres ? "false" : "0";
     if (dbType.isNumber()) return "0";
     if (dbType.isString()) return "''";
