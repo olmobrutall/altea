@@ -1,4 +1,4 @@
-import { Entity } from "../data/entity";
+import { Entity, type Type } from "../data/entity";
 import type { Lite } from "../data/lite";
 import { OperationSymbol } from "../data/operations";
 import type {
@@ -8,6 +8,10 @@ import type {
 import { OperationLogEntity } from "../data/operationLog";
 import { resolveCleanType, resolveType } from "../data/registration";
 import { Temporal } from "../data/basics";
+import { withQuoted } from "../data/decorators";
+import { OperationMessage } from "../data/uiMessages";
+import { table } from "./table";
+import { QueryLogic } from "./dynamicQuery/queryLogic";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
 import { SymbolLogic } from "./symbolLogic";
 import { Saver } from "./saver";
@@ -51,6 +55,12 @@ export interface SurroundOperationContext {
 
 export type SurroundOperationHandler =
     (ctx: SurroundOperationContext) => SurroundOperationAfter | void | Promise<SurroundOperationAfter | void>;
+
+/** The two period expressions {@link OperationLogic.registerSystemValidTokens} stamps on a versioned type. */
+export interface ISystemVersioned extends Entity {
+    systemValidFrom?(): Temporal.PlainDateTime | null;
+    systemValidTo?(): Temporal.PlainDateTime | null;
+}
 
 export namespace OperationLogic {
     // Signum's OperationLogic.Register(replace). Validates the operation, then stores it
@@ -176,7 +186,91 @@ export namespace OperationLogic {
     export function start(sb: SchemaBuilder): void {
         SymbolLogic.start(sb, OperationSymbol, () => registeredOperations());
         sb.include(OperationLogEntity).withQuery();
+
+        // Signum's `sb.Schema.SchemaCompleted += () => RegisterCurrentLogs(sb.Schema)`: every
+        // @systemVersioned type gains the `PreviousOperationLog` sub-token, so a query over that type's
+        // HISTORY can show who produced each version. Deferred to schemaCompleted because the set of
+        // versioned tables is only final once every module has run its includes.
+        sb.schema.schemaCompleted.push(schema => {
+            for (const [type, table] of schema.tables)
+                if (table.systemVersioned != null) {
+                    registerPreviousLog(type);
+                    registerSystemValidTokens(type);
+                }
+        });
     }
+
+    /**
+     * Signum's `OperationLogic.RegisterPreviousLog<T>` — the `PreviousOperationLog` expression: for a
+     * given ROW VERSION, the operation log entry that produced it, i.e. the earliest successful log on
+     * this entity whose `end` falls inside the version's system period.
+     *
+     * Only meaningful on a @systemVersioned type (`systemPeriod()` throws otherwise), which is why
+     * {@link start} registers it exactly for those. @altea/altea-time-machine's version grid is the
+     * consumer: it columns `Entity.PreviousOperationLog.Start / .User / .Operation`.
+     *
+     * altea divergence: Signum writes `e.SystemPeriod().Contains(ol.End.Value)`, but altea's
+     * `NullableInterval.contains` is an IN-MEMORY method on the materialised interval (see
+     * server/systemTime.ts) — only `.min` / `.max` lower to the period columns. So the containment is
+     * spelled out against those two bounds, with `Temporal.PlainDateTime.compare(a, b) <op> 0` (the form
+     * the provider translates, Temporal having no relational operators). Signum's `TimeZoneMode.Local`
+     * branch has no counterpart: altea stores naive local timestamps throughout.
+     */
+    /**
+     * The `systemValidFrom` / `systemValidTo` query tokens of a @systemVersioned type — WHEN this row
+     * version was current. They are what a history query orders and identifies a version by, so the Time
+     * Machine (@altea/altea-time-machine) cannot address a version without them.
+     *
+     * altea divergence: Signum ships them as built-in `Entity.SystemValidFrom` / `.SystemValidTo` tokens
+     * off its `Entity` root token. altea has NO `Entity` root token (its tokens are rootless), and no
+     * system-time tokens existed at all — so they are registered EXPRESSIONS over `systemPeriod()`, whose
+     * `.min` / `.max` the binder already lowers to the period columns. That makes them rootless and
+     * camelCase like every other altea token, which is why `QueryTokenString.systemValidFrom()` emits the
+     * bare key.
+     */
+    export function registerSystemValidTokens<T extends Entity>(type: Type<T>): void {
+        const proto = (type as unknown as { prototype: Record<string, unknown> }).prototype;
+
+        proto.systemValidFrom = withQuoted(function (this: Entity): Temporal.PlainDateTime | null {
+            return this.systemPeriod().min;
+        });
+        proto.systemValidTo = withQuoted(function (this: Entity): Temporal.PlainDateTime | null {
+            return this.systemPeriod().max;
+        });
+
+        QueryLogic.expressions.register(type, (e: ISystemVersioned) => e.systemValidFrom!(),
+            { niceName: () => OperationMessage.SystemValidFrom.niceToString() });
+        QueryLogic.expressions.register(type, (e: ISystemVersioned) => e.systemValidTo!(),
+            { niceName: () => OperationMessage.SystemValidTo.niceToString() });
+    }
+
+    export function registerPreviousLog<T extends Entity>(type: Type<T>): void {
+        const proto = (type as unknown as { prototype: Record<string, unknown> }).prototype;
+
+        proto.previousOperationLog = withQuoted(function (this: Entity): Promise<OperationLogEntity | null> {
+            return table(OperationLogEntity)
+                .filter(ol => ol.target!.is(this)
+                    && ol.exception == null
+                    && ol.end != null
+                    && Temporal.PlainDateTime.compare(this.systemPeriod().min!, ol.end!) <= 0
+                    && (this.systemPeriod().max == null
+                        || Temporal.PlainDateTime.compare(ol.end!, this.systemPeriod().max!) < 0))
+                .orderBy(a => a.end)
+                .firstOrNull();
+        });
+
+        QueryLogic.expressions.register(type, (e: IOperationLogged) => e.previousOperationLog!(),
+            { niceName: () => OperationMessage.PreviousOperationLog.niceToString() });
+    }
+}
+
+/**
+ * The expression {@link OperationLogic.registerPreviousLog} stamps onto every @systemVersioned type.
+ * Declared as an interface (rather than widening `Entity`) for the same reason altea-alert declares
+ * `IAlertTarget`: the member exists only on the types that were registered.
+ */
+export interface IOperationLogged extends Entity {
+    previousOperationLog?(): Promise<OperationLogEntity | null>;
 }
 
 // Signum wraps every operation execution in a transaction that also writes an OperationLogEntity

@@ -39,8 +39,13 @@ export class QueryTokenString<T> {
   static readonly count: QueryTokenString<number> = new QueryTokenString<number>("Count");
   static readonly timeSeries: QueryTokenString<string> = new QueryTokenString<string>("TimeSeries");
 
-  systemValidFrom(): QueryTokenString<unknown> { return new QueryTokenString<unknown>(this.token + ".SystemValidFrom"); }
-  systemValidTo(): QueryTokenString<unknown> { return new QueryTokenString<unknown>(this.token + ".SystemValidTo"); }
+  // The two system-time tokens of a @systemVersioned type. Signum's are built-in sub-tokens of its
+  // `Entity` root token ("Entity.SystemValidFrom"); altea has no `Entity` root token at all, and these are
+  // registered EXPRESSIONS over `systemPeriod()` (see OperationLogic.registerSystemValidTokens) — so the
+  // key is the bare, camelCase one, whatever this builder was chained off. Kept as instance methods so
+  // Signum's `QueryTokenString.entity().systemValidFrom()` reads across unchanged.
+  systemValidFrom(): QueryTokenString<unknown> { return new QueryTokenString<unknown>("systemValidFrom"); }
+  systemValidTo(): QueryTokenString<unknown> { return new QueryTokenString<unknown>("systemValidTo"); }
   getToString(): QueryTokenString<string> { return new QueryTokenString<string>(this.token + ".ToString"); }
 
   // ALTEA: a `Type<R>`-typed value doesn't expose the static `typeName` through its construct

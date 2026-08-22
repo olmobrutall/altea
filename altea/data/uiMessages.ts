@@ -190,6 +190,13 @@ export const OperationMessage = {
     _0AndClose: msg("{0} and close"),
     _0AndNew: msg("{0} and new"),
     MultiSetter: msg("(Multi setter)"),
+    // The `PreviousOperationLog` extension token OperationLogic registers on every @systemVersioned
+    // type — "which operation produced this row version" (see OperationLogic.registerPreviousLog).
+    PreviousOperationLog: msg("Previous operation log"),
+    // The two system-time tokens registered beside it (see OperationLogic.registerSystemValidTokens):
+    // when a row version was current. Signum names them Entity.SystemValidFrom / .SystemValidTo.
+    SystemValidFrom: msg("System valid from"),
+    SystemValidTo: msg("System valid to"),
     Executing0: msg("Executing {0}"),
     Deleting: msg("Deleting…"),
     _0Errors: msg("{0} errors"),

@@ -183,7 +183,18 @@ export abstract class QueryToken {
             if (ec != undefined)
                 return PropertyRoute.root(ec);
         }
-        return this.getPropertyRoute();
+
+        const own = this.getPropertyRoute();
+        if (own != undefined)
+            return own;
+
+        // A token with NO route of its own that nonetheless yields an ENTITY — a registered EXPRESSION
+        // returning one (`previousOperationLog`, altea-workflow's `lastCaseActivity`, …). Its route is
+        // derived from the expression's Meta, which is empty when the body is a whole sub-query rather
+        // than a source column, so without this the token would expose only `id` / `ToString` and every
+        // member below it would fail to resolve. The referenced entity IS the root from here on.
+        const entityCtor = entityCtorOf(this.type);
+        return entityCtor != undefined ? PropertyRoute.root(entityCtor) : undefined;
     }
 
     // ---- SubTokensBase — the type-driven sub-token generator (Signum's SubTokensBase) --------

@@ -112,7 +112,13 @@ quotedFunction(SystemTimeAsOf).__resultType = () => new ClassType(SystemTimeAsOf
 // are also translatable to the period's start/end columns inside a query; `.overlaps`/`.contains`
 // run in memory on the materialised value.
 export class NullableInterval {
-    constructor(readonly min: SystemTimeBound | null, readonly max: SystemTimeBound | null) { }
+    // The bounds are PlainDateTime, not the wider SystemTimeBound the INPUT modes accept: the period
+    // columns always materialise tz-naive (see the note on SystemTimeBound above), and a caller reading
+    // `systemPeriod().min` INSIDE a query needs one concrete type to compare against — e.g.
+    // OperationLogic's `previousOperationLog` expression, which lowers
+    // `Temporal.PlainDateTime.compare(period.min, log.end)` to a plain SQL comparison. Widening it back
+    // would force a cast there, and a cast to a QUALIFIED type name is not quotable.
+    constructor(readonly min: Temporal.PlainDateTime | null, readonly max: Temporal.PlainDateTime | null) { }
 
     // True if this period and `other` share any instant (half-open [min, max) semantics).
     overlaps(other: NullableInterval): boolean {
