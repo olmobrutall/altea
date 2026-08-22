@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import type { BaseEntity, Entity, EntityType } from "@altea/altea/data/entity";
+import type { BaseEntity, Entity, Type } from "@altea/altea/data/entity";
 import type { FrameModalProxy } from "../Frames/FrameModalProxy"; // lazily imported below (cycle)
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { captureOnClick, waitFor, waitVisible, defaultTimeout } from "../PlaywrightExtensions";
@@ -85,7 +85,7 @@ export class SearchControlProxy {
     }
 
     /** Signum's `CreateAsync<T>` — the Create button, which opens a modal SCOPE (see FrameModalProxy). */
-    async createModal<T extends Entity>(rootType: EntityType<T>): Promise<FrameModalProxy<T>> {
+    async createModal<T extends Entity>(rootType: Type<T>): Promise<FrameModalProxy<T>> {
         const modal = await captureOnClick(this.createButton);
         const { FrameModalProxy } = await import("../Frames/FrameModalProxy");
         return await FrameModalProxy.create<T>(modal, rootType as unknown as Function);

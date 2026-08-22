@@ -126,8 +126,7 @@ export namespace WorkflowEventTaskLogic {
         // its SOURCE type is WorkflowEventTaskEntity (a ConstructFrom is owned by its source — see CLAUDE.md)
         // and this is the module that knows both sides.
         graph(CaseEntity, g => {
-            g.ConstructFrom(CaseActivityOperation.CreateCaseFromWorkflowEventTask, {
-                entityType: WorkflowEventTaskEntity,
+            g.ConstructFrom(WorkflowEventTaskEntity, CaseActivityOperation.CreateCaseFromWorkflowEventTask, {
                 construct: async (wet, args) => {
                     const workflow = await getWorkflow(wet);
 

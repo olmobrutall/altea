@@ -7,6 +7,7 @@
 // stringify/parse never re-walk metadata per call.
 
 import { Entity, EmbeddedEntity, ModelEntity } from '../entity';
+import { newInstance } from '../entity';
 import type { Type, PrimaryKey, BaseEntity } from '../entity';
 import { Lite, LiteImp, getCustomLites } from '../lite';
 import type { CustomLiteClass } from '../lite';
@@ -260,7 +261,7 @@ class EmbeddedSerializer extends ModifiableSerializer {
         const j = json as Record<string, unknown>;
         const inst = (existing instanceof EmbeddedEntity && existing.constructor === this.ctor)
             ? existing
-            : new (this.ctor as Type<EmbeddedEntity>)();
+            : newInstance(this.ctor as Type<EmbeddedEntity>);
         // Continue the owner's route (set by the parent applyFields in dc.route) so the write gate applies
         // to embedded sub-properties too — but only when overlaying an existing embedded (dc.route set).
         this.applyFields(inst, j, dc, dc.route);
@@ -311,7 +312,7 @@ class EntitySerializer extends ModifiableSerializer {
 
         // New entity: build; _snapshot stays `true` (modified), like create()/new.
         if (id == null) {
-            const inst = new (this.ctor as Type<Entity>)();
+            const inst = newInstance(this.ctor as Type<Entity>);
             this.applyFields(inst, j, dc);
             this.recover(inst, slot);
             return inst;
@@ -346,7 +347,7 @@ class EntitySerializer extends ModifiableSerializer {
         }
 
         // No baseline (client-receive path): build fresh with the id, then seed the snapshot.
-        const inst = new (this.ctor as Type<Entity>)();
+        const inst = newInstance(this.ctor as Type<Entity>);
         inst.id = id;
         inst.isNew = false;
         if (j.ticks != null) inst.ticks = j.ticks as number;

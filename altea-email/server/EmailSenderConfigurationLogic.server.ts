@@ -84,8 +84,7 @@ export namespace EmailSenderConfigurationLogic {
             },
         });
 
-        g.ConstructFrom(EmailSenderConfigurationOperation.Clone, {
-            entityType: EmailSenderConfigurationEntity,
+        g.ConstructFrom(EmailSenderConfigurationEntity, EmailSenderConfigurationOperation.Clone, {
             construct: (sc: EmailSenderConfigurationEntity) => sc.clone(),
         });
         }).register();

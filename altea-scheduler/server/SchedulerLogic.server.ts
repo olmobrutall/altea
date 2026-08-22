@@ -77,8 +77,7 @@ export namespace SchedulerLogic {
 
         // Signum's Delete: the log rows OUTLIVE the task (they are the history), so they are detached
         // rather than cascaded, and the rule — a Part owned by this task — goes with it.
-        new Graph.Delete(ScheduledTaskOperation.Delete, {
-            entityType: ScheduledTaskEntity,
+        new Graph.Delete(ScheduledTaskEntity, ScheduledTaskOperation.Delete, {
             delete: async (scheduledTask: ScheduledTaskEntity) => {
                 await table(ScheduledTaskLogEntity)
                     .filter(l => l.scheduledTask!.is(scheduledTask))
@@ -91,8 +90,7 @@ export namespace SchedulerLogic {
         }).register();
 
         // Signum's CancelRunningTask: only meaningful while the run is in flight.
-        new Graph.Execute(ScheduledTaskLogOperation.CancelRunningTask, {
-            entityType: ScheduledTaskLogEntity,
+        new Graph.Execute(ScheduledTaskLogEntity, ScheduledTaskLogOperation.CancelRunningTask, {
             canExecute: (log: ScheduledTaskLogEntity) =>
                 findRunning(log) != null ? null : SchedulerMessage.TaskIsNotRunning.niceToString(),
             execute: (log: ScheduledTaskLogEntity) => { findRunning(log)?.cancel(); },
@@ -104,8 +102,7 @@ export namespace SchedulerLogic {
         // owned by the framework's own built-in implementor here, and every OTHER task type adds itself
         // through `registerExecuteTask` below (OperationLogic.registerForType) — which is the same set
         // Signum's polymorphic dispatch would cover, made explicit.
-        new Graph.ConstructFrom(ITaskOperation.ExecuteSync, {
-            entityType: SimpleTaskSymbol,
+        new Graph.ConstructFrom(SimpleTaskSymbol, ITaskOperation.ExecuteSync, {
             construct: async (task: ITaskEntity) => {
                 const user = UserHolder.currentUserLite();
                 if (user == null)

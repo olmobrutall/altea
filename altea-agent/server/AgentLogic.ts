@@ -138,8 +138,7 @@ export namespace AgentLogic {
         sb.include(SkillCustomizationEntity_SubSkill).withQuery();
 
         graph(SkillCustomizationEntity, g => {
-            g.ConstructFrom(SkillCustomizationOperation.CreateFromAgent, {
-                entityType: AgentSymbol,
+            g.ConstructFrom(AgentSymbol, SkillCustomizationOperation.CreateFromAgent, {
                 construct: async (agentSymbol: AgentSymbol) => {
                     const factory = registeredAgents.get(agentSymbol.key);
                     if (factory == undefined)

@@ -1,4 +1,4 @@
-import type { Entity, EntityType } from "../data/entity";
+import type { Entity, Type } from "../data/entity";
 import type { Lite } from "../data/lite";
 import type { OperationSymbol } from "../data/operations";
 import type {
@@ -32,35 +32,36 @@ import { HeavyProfiler } from "./profiler/heavyProfiler";
 // stands in for it): `new Graph.Execute(sym, { execute, canBeNew: true })`. The constructor
 // Object.assigns them onto the instance, so callers never Object.assign themselves.
 
-// ---- Option objects (the second constructor arg of each Graph.* op) ---------------------------
+// ---- Option objects (the third constructor arg of each Graph.* op) ----------------------------
 // Every field is the matching class field; all but the primary callback (`construct`/`execute`/
-// `delete`) and `entityType` are optional. `getState` may be set here per-op, or once for a whole
-// graph via GraphBuilder.GetState (graphBuilder.ts stamps it onto ops that didn't set their own).
+// `delete`) are optional. `getState` may be set here per-op, or once for a whole graph via
+// GraphBuilder.GetState (graphBuilder.ts stamps it onto ops that didn't set their own).
 //
-// `entityType` is the entity this operation is REGISTERED ON — the type whose frame shows its button, and
-// the key it is shipped under in the reflection metadata blob (Signum's `OverridenType`). A generic
-// parameter is erased at runtime, so `Graph.Execute<T>` cannot recover T on its own; it has to be told,
-// or the runtime is back to guessing the owner by splitting the symbol key ("OrderOperation.Ship" →
-// "OrderEntity") — which silently loses every operation whose container is not named after its type.
+// The OWNING TYPE is not one of them: it is the FIRST constructor argument — `new Graph.Execute(
+// OrderEntity, OrderOperation.Ship, { … })`. It stands in for the erased generic: Signum writes
+// `new Graph<OrderEntity>.Execute(sym)` and reads T back through reflection, which TypeScript cannot do,
+// and the alternative is guessing the owner by splitting the symbol key ("OrderOperation.Ship" →
+// "OrderEntity"), which silently loses every operation whose container is not named after its type. It is
+// the type whose frame shows the button, and the key the operation is shipped under in the reflection
+// metadata blob (Signum's `OverridenType`). As an ARGUMENT rather than an option it cannot be forgotten,
+// and it reads in the same position as `graph(OrderEntity, …)` and `sb.include(OrderEntity)`.
 //
-// But it is almost never written by hand, because the surrounding registration already names the type:
-//   - inside `graph(OrderEntity, …)` every builder fills it in from the graph's own type;
-//   - `withSave` / `withDelete` fill it from the type the include was opened for.
-// So write it only where the owner genuinely differs from that context:
+// It is still rarely written by hand, because the surrounding registration already names the type and
+// passes it for you: inside `graph(OrderEntity, …)` every builder does, and `withSave` / `withDelete`
+// use the type the include was opened for. What stays explicit is what those cannot know:
 //   - **ConstructFrom / ConstructFromMany**, whose owner is the SOURCE type F (that is where the button
-//     appears) — the one thing an enclosing `graph(T, …)` cannot know, since F is erased too;
+//     appears) — erased too, so an enclosing `graph(T, …)` cannot supply it:
+//     `g.ConstructFrom(CustomerEntity, OrderOperation.CreateOrderFromCustomer, { … })`;
 //   - an operation shared by an ABSTRACT base's implementations (its subclasses inherit it, so ONE
-//     registration owned by the base covers them all — see eastwind's CustomerOperation.Save);
+//     registration owned by the base covers them all — see eastwind's CustomerOperation.Save). That is
+//     why `Type<T>` accepts an abstract constructor;
 //   - an owner that is a TS interface, hence has no constructor at all (see OperationLogic.registerForType).
 export interface ConstructOptions<T extends Entity, S = never> {
-    entityType?: EntityType<T>;
     construct: (args: unknown[]) => T | Promise<T>;
     toStates?: S[];
     getState?: (entity: T) => S;
 }
 export interface ConstructFromOptions<T extends Entity, F extends Entity, S = never> {
-    /** The SOURCE type F (where the button appears), not the constructed T. */
-    entityType: EntityType<F>;
     construct: (from: F, args: unknown[]) => T | Promise<T>;
     canConstruct?: (from: F) => string | null;
     canBeNew?: boolean;
@@ -70,14 +71,11 @@ export interface ConstructFromOptions<T extends Entity, F extends Entity, S = ne
     getState?: (entity: T) => S;
 }
 export interface ConstructFromManyOptions<T extends Entity, F extends Entity, S = never> {
-    /** The SOURCE type F (where the button appears), not the constructed T. */
-    entityType: EntityType<F>;
     construct: (lites: Lite<F>[], args: unknown[]) => T | Promise<T>;
     toStates?: S[];
     getState?: (entity: T) => S;
 }
 export interface ExecuteOptions<T extends Entity, S = never> {
-    entityType?: EntityType<T>;
     execute: (entity: T, args: unknown[]) => void | Promise<void>;
     canExecute?: (entity: T) => string | null;
     canBeNew?: boolean;
@@ -88,7 +86,6 @@ export interface ExecuteOptions<T extends Entity, S = never> {
     getState?: (entity: T) => S;
 }
 export interface DeleteOptions<T extends Entity, S = never> {
-    entityType?: EntityType<T>;
     delete: (entity: T, args: unknown[]) => void | Promise<void>;
     canDelete?: (entity: T) => string | null;
     fromStates?: S[];
@@ -115,11 +112,10 @@ export namespace Graph {
     // Signum's Graph<T>.Construct / Graph<T,S>.Construct (result T, optional toStates).
     export class Construct<T extends Entity, S = never> implements IConstructOperation {
         readonly operationType = OperationType.Constructor;
-        entityType!: EntityType<T>;
         construct!: (args: unknown[]) => T | Promise<T>;
         toStates?: S[];
         getState?: (entity: T) => S;
-        constructor(readonly symbol: ConstructSymbol<T>, options: ConstructOptions<T, S>) { Object.assign(this, options); }
+        constructor(readonly entityType: Type<T>, readonly symbol: ConstructSymbol<T>, options: ConstructOptions<T, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         async doConstruct(args: unknown[]): Promise<Entity> {
@@ -142,7 +138,6 @@ export namespace Graph {
     // Signum's Graph<T>.ConstructFrom<F> — build T from one source F.
     export class ConstructFrom<T extends Entity, F extends Entity, S = never> implements IConstructorFromOperation {
         readonly operationType = OperationType.ConstructorFrom;
-        entityType!: EntityType<F>;
         construct!: (from: F, args: unknown[]) => T | Promise<T>;
         canConstruct?: (from: F) => string | null;
         canBeNew = false;
@@ -150,7 +145,8 @@ export namespace Graph {
         resultIsSaved = false;
         toStates?: S[];
         getState?: (entity: T) => S;
-        constructor(readonly symbol: ConstructSymbol<T, From<F>>, options: ConstructFromOptions<T, F, S>) { Object.assign(this, options); }
+        /** `entityType` is the SOURCE type F — where the button appears — not the constructed T. */
+        constructor(readonly entityType: Type<F>, readonly symbol: ConstructSymbol<T, From<F>>, options: ConstructFromOptions<T, F, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         onCanExecute(from: F): string | null {
@@ -178,11 +174,11 @@ export namespace Graph {
     // Signum's Graph<T>.ConstructFromMany<F> — build T from many source lites.
     export class ConstructFromMany<T extends Entity, F extends Entity, S = never> implements IConstructorFromManyOperation {
         readonly operationType = OperationType.ConstructorFromMany;
-        entityType!: EntityType<F>;
         construct!: (lites: Lite<F>[], args: unknown[]) => T | Promise<T>;
         toStates?: S[];
         getState?: (entity: T) => S;
-        constructor(readonly symbol: ConstructSymbol<T, FromMany<F>>, options: ConstructFromManyOptions<T, F, S>) { Object.assign(this, options); }
+        /** `entityType` is the SOURCE type F — where the button appears — not the constructed T. */
+        constructor(readonly entityType: Type<F>, readonly symbol: ConstructSymbol<T, FromMany<F>>, options: ConstructFromManyOptions<T, F, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         async doConstructFromMany(lites: Lite<Entity>[], args: unknown[]): Promise<Entity> {
@@ -204,7 +200,6 @@ export namespace Graph {
     // Signum's Graph<T>.Execute / Graph<T,S>.Execute.
     export class Execute<T extends Entity, S = never> implements IExecuteOperation {
         readonly operationType = OperationType.Execute;
-        entityType!: EntityType<T>;
         execute!: (entity: T, args: unknown[]) => void | Promise<void>;
         canExecute?: (entity: T) => string | null;
         canBeNew = false;
@@ -213,7 +208,7 @@ export namespace Graph {
         fromStates?: S[];
         toStates?: S[];
         getState?: (entity: T) => S;
-        constructor(readonly symbol: ExecuteSymbol<T>, options: ExecuteOptions<T, S>) { Object.assign(this, options); }
+        constructor(readonly entityType: Type<T>, readonly symbol: ExecuteSymbol<T>, options: ExecuteOptions<T, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         onCanExecute(entity: T): string | null {
@@ -245,14 +240,13 @@ export namespace Graph {
     // Signum's Graph<T>.Delete / Graph<T,S>.Delete.
     export class Delete<T extends Entity, S = never> implements IDeleteOperation {
         readonly operationType = OperationType.Delete;
-        entityType!: EntityType<T>;
         delete!: (entity: T, args: unknown[]) => void | Promise<void>;
         canDelete?: (entity: T) => string | null;
         readonly canBeNew = false;
         readonly canBeModified = false;
         fromStates?: S[];
         getState?: (entity: T) => S;
-        constructor(readonly symbol: DeleteSymbol<T>, options: DeleteOptions<T, S>) { Object.assign(this, options); }
+        constructor(readonly entityType: Type<T>, readonly symbol: DeleteSymbol<T>, options: DeleteOptions<T, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         onCanExecute(entity: T): string | null {

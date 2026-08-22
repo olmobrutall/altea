@@ -34,13 +34,11 @@ const AlbumGraph = graph(AlbumEntity, AlbumState, g => {
         toStates: [AlbumState.New],
         construct: () => AlbumEntity.create({ state: AlbumState.Saved }), // violates toStates
     });
-    g.ConstructFrom(AlbumOperation.Clone, {
-        entityType: AlbumEntity,
+    g.ConstructFrom(AlbumEntity, AlbumOperation.Clone, {
         toStates: [AlbumState.New],
         construct: from => AlbumEntity.create({ state: AlbumState.New, name: from.name }),
     });
-    g.ConstructFromMany(AlbumOperation.CreateFromArtists, {
-        entityType: ArtistEntity,
+    g.ConstructFromMany(ArtistEntity, AlbumOperation.CreateFromArtists, {
         toStates: [AlbumState.New],
         construct: lites => AlbumEntity.create({ state: AlbumState.New, name: `Compilation of ${lites.length}` }),
     });
@@ -166,8 +164,7 @@ describe("OperationLogic / graph", () => {
         assert.ok(original instanceof Graph.Execute);
 
         // A fresh standalone Graph.Execute with stricter fromStates, swapped in via replace.
-        const replacement = new Graph.Execute<AlbumEntity, AlbumState>(AlbumOperation.Save, {
-            entityType: AlbumEntity,
+        const replacement = new Graph.Execute<AlbumEntity, AlbumState>(AlbumEntity, AlbumOperation.Save, {
             getState: a => a.state,
             fromStates: [AlbumState.Saved],
             toStates: [AlbumState.Saved],

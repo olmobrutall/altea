@@ -326,8 +326,7 @@ export namespace EmailLogic {
             construct: () => EmailMessageEntity.create({ state: EmailMessageStateEnum.Created }),
         });
 
-        g.ConstructFrom(EmailMessageOperation.CreateEmailFromTemplate, {
-            entityType: EmailTemplateEntity,
+        g.ConstructFrom(EmailTemplateEntity, EmailMessageOperation.CreateEmailFromTemplate, {
             canConstruct: (et: EmailTemplateEntity) => et.model != null && EmailModelLogic.requiresExtraParameters(et.model)
                 ? EmailMessageMessage._01requiresExtraParameters.niceToString("EmailModel", et.model.fullClassName)
                 : null,
@@ -378,8 +377,7 @@ export namespace EmailLogic {
             execute: async (m: EmailMessageEntity) => await sendMail(m),
         });
 
-        g.ConstructFrom(EmailMessageOperation.ReSend, {
-            entityType: EmailMessageEntity,
+        g.ConstructFrom(EmailMessageEntity, EmailMessageOperation.ReSend, {
             construct: (m: EmailMessageEntity) => EmailMessageEntity.create({
                 from: m.from.clone(),
                 recipients: m.recipients.map(r => EmailMessageEntity_Recipient.create({

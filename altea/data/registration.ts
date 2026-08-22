@@ -360,8 +360,10 @@ export function init(ctor?: SymbolCtor | InitOptions, key?: string, fileInfo?: F
 
 // All declared symbols of a concrete Symbol type (Signum's getSymbols()); consumed by
 // SymbolLogic<T>.
-export function declaredSymbolsForType(ctor: SymbolCtor): SymbolLike[] {
-    const byKey = declaredSymbols.get(ctor);
+export function declaredSymbolsForType(ctor: abstract new (...args: any[]) => SymbolLike): SymbolLike[] {
+    // A lookup, not a construction: the map is keyed by the constructor object itself, so an
+    // abstract-tolerant `Type<T>` is a perfectly good key. Only `init` needs a real `SymbolCtor`.
+    const byKey = declaredSymbols.get(ctor as SymbolCtor);
     return byKey == null ? [] : [...byKey.values()];
 }
 

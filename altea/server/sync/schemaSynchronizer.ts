@@ -17,6 +17,7 @@ import "../../data/globals"; // Array.prototype.toMap
 import type { EnumEntity } from "../../data/enumEntity";
 import { getBoundEnum, enumEntityMembers } from "../../data/enumEntity";
 import { insertSqlSync, updateSqlSync, deleteSqlSync, copyRowFields } from "../save";
+import { newInstance } from "../../data/entity";
 import type { PrimaryKey, Type } from "../../data/entity";
 import { existsTable, commentedError } from "./syncTableRead";
 import { Administrator } from "../Administrator";
@@ -754,7 +755,7 @@ export async function synchronizeEnumsScript(replacements: Replacements): Promis
             // all cover mixins.
             const enumCtor = table.type as Type<EnumEntity>;
             const shouldByName = enumEntityMembers(enumObject).map(m => {
-                const e = new enumCtor();
+                const e = newInstance(enumCtor);
                 e.id = m.id;
                 e.name = m.name;
                 return e;

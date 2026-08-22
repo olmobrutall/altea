@@ -53,8 +53,7 @@ export namespace DynamicViewLogic {
                 }),
             });
 
-            g.ConstructFrom(DynamicViewOperation.Clone, {
-                entityType: DynamicViewEntity,
+            g.ConstructFrom(DynamicViewEntity, DynamicViewOperation.Clone, {
                 construct: (view: DynamicViewEntity): DynamicViewEntity => DynamicViewEntity.create({
                     viewName: "",
                     entityType: view.entityType,

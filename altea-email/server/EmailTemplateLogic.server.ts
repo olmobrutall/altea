@@ -164,8 +164,7 @@ export namespace EmailTemplateLogic {
             }),
         });
 
-        g.ConstructFrom(EmailTemplateOperation.Clone, {
-            entityType: EmailTemplateEntity,
+        g.ConstructFrom(EmailTemplateEntity, EmailTemplateOperation.Clone, {
             construct: (e: EmailTemplateEntity) => EmailTemplateEntity.create({
                 name: `${e.name} (Cloned)`,
                 masterTemplate: e.masterTemplate,

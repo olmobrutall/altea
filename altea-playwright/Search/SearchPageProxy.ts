@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import type { Entity, EntityType } from "@altea/altea/data/entity";
+import type { Entity, Type } from "@altea/altea/data/entity";
 import type { FrameModalProxy } from "../Frames/FrameModalProxy";
 import { waitVisible, type AsyncScoped } from "../PlaywrightExtensions";
 import { SearchControlProxy } from "./SearchControlProxy";
@@ -35,7 +35,7 @@ export class SearchPageProxy implements AsyncScoped {
     search(): Promise<void> { return this.searchControl.search(); }
 
     /** Signum's `CreateAsync<T>` — the page's Create button, which opens a modal SCOPE. */
-    createModal<T extends Entity>(rootType: EntityType<T>): Promise<FrameModalProxy<T>> {
+    createModal<T extends Entity>(rootType: Type<T>): Promise<FrameModalProxy<T>> {
         return this.searchControl.createModal<T>(rootType);
     }
 }

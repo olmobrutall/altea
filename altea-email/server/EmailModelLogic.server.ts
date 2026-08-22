@@ -136,8 +136,7 @@ export namespace EmailModelLogic {
             "caching " + EmailModelEntity.name,
         )), { invalidateWith: [EmailModelEntity] });
 
-        new Graph.ConstructFrom(EmailTemplateOperation.CreateEmailTemplateFromModel, {
-            entityType: EmailModelEntity,
+        new Graph.ConstructFrom(EmailModelEntity, EmailTemplateOperation.CreateEmailTemplateFromModel, {
             construct: (se: EmailModelEntity) => createDefaultTemplateInternal(se),
         }).register();
 

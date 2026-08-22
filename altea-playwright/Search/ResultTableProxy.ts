@@ -1,6 +1,6 @@
 import type { Locator } from "@playwright/test";
 import type { Lite } from "@altea/altea/data/lite";
-import type { Entity, EntityType } from "@altea/altea/data/entity";
+import type { Entity, Type } from "@altea/altea/data/entity";
 import type { FrameModalProxy } from "../Frames/FrameModalProxy"; // lazily imported below (cycle)
 import { captureOnClick, waitVisible } from "../PlaywrightExtensions";
 
@@ -114,7 +114,7 @@ export class ResultTableProxy {
     }
 
     /** Signum's `EntityClickAsync<T>` — open the row's entity in a modal SCOPE (see FrameModalProxy). */
-    async entityClickModal<T extends Entity>(rowIndex: number, rootType: EntityType<T>): Promise<FrameModalProxy<T>> {
+    async entityClickModal<T extends Entity>(rowIndex: number, rootType: Type<T>): Promise<FrameModalProxy<T>> {
         const modal = await captureOnClick(this.entityLink(rowIndex));
         const { FrameModalProxy } = await import("../Frames/FrameModalProxy");
         return await FrameModalProxy.create<T>(modal, rootType as unknown as Function);

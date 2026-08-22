@@ -26,8 +26,7 @@ const MetaGraph = graph(AlbumEntity, AlbumState, g => {
         toStates: [AlbumState.New],
         construct: () => AlbumEntity.create({ state: AlbumState.New }),
     });
-    g.ConstructFrom(MetaOperation.Clone, {
-        entityType: AlbumEntity,
+    g.ConstructFrom(AlbumEntity, MetaOperation.Clone, {
         toStates: [AlbumState.New],
         resultIsSaved: false,
         construct: from => AlbumEntity.create({ state: AlbumState.New, name: from.name }),

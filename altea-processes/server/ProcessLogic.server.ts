@@ -205,8 +205,7 @@ export namespace ProcessLogic {
             },
         });
 
-        g.ConstructFrom(ProcessOperation.Retry, {
-            entityType: ProcessEntity,
+        g.ConstructFrom(ProcessEntity, ProcessOperation.Retry, {
             canConstruct: (p: ProcessEntity) => [ProcessStateEnum.Error, ProcessStateEnum.Canceled,
                 ProcessStateEnum.Finished, ProcessStateEnum.Suspended].includes(p.state)
                 ? null : `A process can only be retried from Error / Canceled / Finished / Suspended`,

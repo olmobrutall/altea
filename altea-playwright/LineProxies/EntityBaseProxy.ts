@@ -2,7 +2,7 @@ import type { Locator } from "@playwright/test";
 import type { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import type { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
-import type { EntityType } from "@altea/altea/data/entity";
+import type { Type } from "@altea/altea/data/entity";
 import { BaseLineProxy } from "./BaseLineProxy";
 import { captureOnClick, getChanges, isPresent, waitChanges, waitFor, waitVisible } from "../PlaywrightExtensions";
 // TYPE-only, and the classes are imported LAZILY where they are used: a modal proxy holds a LineContainer,
@@ -47,12 +47,12 @@ export abstract class EntityBaseProxy extends BaseLineProxy {
      *
      *     await scoped(line.createModal(OrderEntity), async order => { … });
      */
-    async createModal<T extends Entity>(rootType: EntityType<T>): Promise<FrameModalProxy<T>> {
+    async createModal<T extends Entity>(rootType: Type<T>): Promise<FrameModalProxy<T>> {
         return await this.openModal<T>(this.createButton, rootType);
     }
 
     /** Signum's `ViewInternalAsync<T>` — open the current value in a modal (same scope semantics). */
-    async viewModal<T extends Entity>(rootType: EntityType<T>): Promise<FrameModalProxy<T>> {
+    async viewModal<T extends Entity>(rootType: Type<T>): Promise<FrameModalProxy<T>> {
         return await this.openModal<T>(this.viewButton, rootType);
     }
 
@@ -66,7 +66,7 @@ export abstract class EntityBaseProxy extends BaseLineProxy {
         return proxy;
     }
 
-    private async openModal<T extends Entity>(button: Locator, rootType: EntityType<T>): Promise<FrameModalProxy<T>> {
+    private async openModal<T extends Entity>(button: Locator, rootType: Type<T>): Promise<FrameModalProxy<T>> {
         const changes = await getChanges(this.element);
         const modal = await captureOnClick(button);
         const { FrameModalProxy } = await import("../Frames/FrameModalProxy");

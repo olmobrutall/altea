@@ -80,8 +80,7 @@ export namespace EmailMasterTemplateLogic {
         registerEmailMasterTemplateXml();
 
         graph(EmailMasterTemplateEntity, g => {
-        g.ConstructFrom(EmailMasterTemplateOperation.Clone, {
-            entityType: EmailMasterTemplateEntity,
+        g.ConstructFrom(EmailMasterTemplateEntity, EmailMasterTemplateOperation.Clone, {
             construct: (e: EmailMasterTemplateEntity) => EmailMasterTemplateEntity.create({
                 name: `${e.name} (Cloned)`,
                 isDefault: e.isDefault,

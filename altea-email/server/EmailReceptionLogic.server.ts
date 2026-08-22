@@ -185,8 +185,7 @@ export namespace EmailReceptionLogic {
             },
         });
 
-        g.ConstructFrom(EmailReceptionConfigurationOperation.ReceiveEmails, {
-            entityType: EmailReceptionConfigurationEntity,
+        g.ConstructFrom(EmailReceptionConfigurationEntity, EmailReceptionConfigurationOperation.ReceiveEmails, {
             construct: async (config: EmailReceptionConfigurationEntity) => {
                 // Signum runs this inside `Transaction.None()`: a poll writes its own reception row (and every
                 // stored message) in transactions of its OWN, so it must not be nested inside — and must not

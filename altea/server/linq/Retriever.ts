@@ -1,5 +1,5 @@
 import { cleanModified } from "../../data/changes";
-import { Entity, type PrimaryKey, BaseEntity, type Type, View, type ViewType } from "../../data/entity";
+import { Entity, type PrimaryKey, BaseEntity, newInstance, type Type, View, type ViewType } from "../../data/entity";
 import { Lite, LiteImp } from "../../data/lite";
 import { TypeLogic } from "../typeLogic";
 import { Connector } from "../connection/connector";
@@ -36,7 +36,7 @@ export class Retriever {
         const key = ctor.name + ":" + id;
         let e = this.cache.get(key);
         if (e == null) {
-            e = new ctor();
+            e = newInstance(ctor);
             (e as any).id = id;
             e.isNew = false;
             this.cache.set(key, e);
@@ -198,7 +198,7 @@ export class Retriever {
 
     // An embedded value (no identity / no cache). The parent's snapshot inlines it.
     embedded(ctor: Type<BaseEntity>, populate: (e: any) => void): BaseEntity {
-        const e = new ctor();
+        const e = newInstance(ctor);
         populate(e);
         cleanModified(e);
         return e;

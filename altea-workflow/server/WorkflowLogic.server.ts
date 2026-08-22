@@ -549,8 +549,7 @@ export namespace WorkflowLogic {
                 },
             });
 
-            g.ConstructFrom(WorkflowConditionOperation.Clone, {
-                entityType: WorkflowConditionEntity,
+            g.ConstructFrom(WorkflowConditionEntity, WorkflowConditionOperation.Clone, {
                 construct: e => WorkflowConditionEntity.create({
                     mainEntityType: e.mainEntityType,
                     // A part has ONE owner, so the clone gets its own copy of the script.
@@ -589,8 +588,7 @@ export namespace WorkflowLogic {
                 },
             });
 
-            g.ConstructFrom(WorkflowActionOperation.Clone, {
-                entityType: WorkflowActionEntity,
+            g.ConstructFrom(WorkflowActionEntity, WorkflowActionOperation.Clone, {
                 construct: e => WorkflowActionEntity.create({
                     mainEntityType: e.mainEntityType,
                     eval: WorkflowActionEval.create({ script: e.eval.script }),
@@ -630,8 +628,7 @@ export namespace WorkflowLogic {
                 },
             });
 
-            g.ConstructFrom(WorkflowTimerConditionOperation.Clone, {
-                entityType: WorkflowTimerConditionEntity,
+            g.ConstructFrom(WorkflowTimerConditionEntity, WorkflowTimerConditionOperation.Clone, {
                 construct: e => WorkflowTimerConditionEntity.create({
                     mainEntityType: e.mainEntityType,
                     eval: WorkflowTimerConditionEval.create({ script: e.eval.script }),
@@ -671,8 +668,7 @@ export namespace WorkflowLogic {
                 },
             });
 
-            g.ConstructFrom(WorkflowScriptOperation.Clone, {
-                entityType: WorkflowScriptEntity,
+            g.ConstructFrom(WorkflowScriptEntity, WorkflowScriptOperation.Clone, {
                 construct: e => WorkflowScriptEntity.create({
                     mainEntityType: e.mainEntityType,
                     eval: WorkflowScriptEval.create({ script: e.eval.script }),
@@ -836,8 +832,7 @@ export namespace WorkflowLogic {
                 },
             });
 
-            g.ConstructFrom(WorkflowOperation.Clone, {
-                entityType: WorkflowEntity,
+            g.ConstructFrom(WorkflowEntity, WorkflowOperation.Clone, {
                 construct: async w => await (await WorkflowBuilder.create(w)).clone(),
             });
 

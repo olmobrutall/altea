@@ -721,8 +721,7 @@ export namespace CaseActivityLogic {
                 delete: async e => { await e.delete(); },
             });
 
-            g.ConstructFrom(CaseNotificationOperation.CreateCaseNotificationFromCaseActivity, {
-                entityType: CaseActivityEntity,
+            g.ConstructFrom(CaseActivityEntity, CaseNotificationOperation.CreateCaseNotificationFromCaseActivity, {
                 construct: async (e, args) => {
                     const user = args[0] as Lite<UserEntity>;
                     const n = CaseNotificationEntity.create({
@@ -930,8 +929,7 @@ export namespace CaseActivityLogic {
         graph(CaseActivityEntity, CaseActivityState, g => {
             g.GetState = ca => ca.getState();
 
-            g.ConstructFrom(CaseActivityOperation.CreateCaseActivityFromWorkflow, {
-                entityType: WorkflowEntity,
+            g.ConstructFrom(WorkflowEntity, CaseActivityOperation.CreateCaseActivityFromWorkflow, {
                 toStates: [CaseActivityState.New],
                 construct: async (w, args) => {
                     if (hasExpired(w))
