@@ -1,5 +1,6 @@
 import type { ResultTable } from "./resultTable";
 import type { QueryRequest } from "./requests";
+import { SystemTime } from "../systemTime";
 import { RootToken, type QueryToken } from "../../data/dynamicQuery/tokens";
 import type { DynamicQueryCore } from "./dynamicQueryCore";
 import { getKey, type QueryName } from "../../data/dynamicQuery/queryUtils";
@@ -39,7 +40,16 @@ export class DynamicQueryContainer {
         return new RootToken(this.getCore(queryName).getRootType(), queryName);
     }
 
+    /**
+     * Run a query request. When it carries a {@link QueryRequest.systemTime}, the WHOLE run happens inside
+     * that scope (Signum's `using (SystemTime.Override(request.SystemTime))` in DynamicQueryCore) — which
+     * is what makes a history query return past row versions instead of the current ones. Applied here, in
+     * the container, so EVERY core (auto, manual, custom) honours it.
+     */
     executeQueryAsync(request: QueryRequest): Promise<ResultTable> {
-        return this.getCore(request.queryName).executeQueryAsync(request);
+        const core = this.getCore(request.queryName);
+        return request.systemTime == undefined
+            ? core.executeQueryAsync(request)
+            : SystemTime.override(request.systemTime, () => core.executeQueryAsync(request));
     }
 }

@@ -21,7 +21,7 @@ import type { QueryToken } from "../data/dynamicQuery/tokens";
 import type {
     QueryRequest as WireQueryRequest, ResultTable as WireResultTable,
     QueryValueRequest as WireQueryValueRequest,
-    FilterRequest, Pagination as WirePagination,
+    FilterRequest, Pagination as WirePagination, SystemTime as WireSystemTime,
 } from "../data/dynamicQuery/queryRequest";
 import { QueryLogic } from "./dynamicQuery/queryLogic";
 import {
@@ -29,6 +29,7 @@ import {
     FilterOperation, type FilterGroupOperation, type OrderType,
 } from "./dynamicQuery/requests";
 import type { ResultTable } from "./dynamicQuery/resultTable";
+import { SystemTime, SystemTimeJoinMode } from "./systemTime";
 import { WebBuilder, CustomType } from "./webApi";
 
 export namespace QueryServer {
@@ -111,7 +112,42 @@ export function parseQueryRequest(wire: WireQueryRequest): QueryRequest {
     const filters = (wire.filters ?? []).map(f => parseFilter(token, f));
     const pagination = parsePagination(wire.pagination);
 
-    return new QueryRequest(queryName, filters, orders, columns, pagination, wire.groupResults ?? false);
+    return new QueryRequest(queryName, filters, orders, columns, pagination, wire.groupResults ?? false,
+        parseSystemTime(wire.systemTime));
+}
+
+/**
+ * The wire SystemTime DTO → the engine's scope object (Signum's `SystemTimeRequestTS.ToSystemTime`).
+ *
+ * The two interval bounds arrive as ISO strings; altea materialises period bounds as tz-naive
+ * PlainDateTime (see server/systemTime on SystemTimeBound), so an offset-bearing stamp is read as an
+ * Instant and anything else as a PlainDateTime. The TIME SERIES modes are not ported (altea has no
+ * time-series query path), so they are rejected rather than silently answering with the present.
+ */
+export function parseSystemTime(wire: WireSystemTime | undefined): SystemTime | undefined {
+    if (wire == undefined)
+        return undefined;
+
+    const join = (wire.joinMode ?? "FirstCompatible") as SystemTimeJoinMode;
+
+    switch (wire.mode) {
+        case "AsOf":
+            return new SystemTime.AsOf(parseBound(wire.startDate, "startDate"));
+        case "Between":
+            return new SystemTime.Between(parseBound(wire.startDate, "startDate"), parseBound(wire.endDate, "endDate"), join);
+        case "ContainedIn":
+            return new SystemTime.ContainedIn(parseBound(wire.startDate, "startDate"), parseBound(wire.endDate, "endDate"), join);
+        case "All":
+            return new SystemTime.All(join);
+        default:
+            throw new Error(`SystemTime mode '${String(wire.mode)}' is not supported`);
+    }
+}
+
+function parseBound(value: string | undefined, name: string): Temporal.PlainDateTime | Temporal.Instant {
+    if (value == undefined || value === "")
+        throw new Error(`SystemTime.${name} is required for this mode`);
+    return /[Zz]$|[+-]dd:?dd$/.test(value) ? Temporal.Instant.from(value) : Temporal.PlainDateTime.from(value);
 }
 
 function parseFilter(token: (s: string) => QueryToken, f: FilterRequest): Filter {

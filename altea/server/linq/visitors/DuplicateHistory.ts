@@ -8,6 +8,7 @@ import { LiteralType } from "../../runtimeTypes";
 import { AliasGenerator } from "../aliasGenerator";
 import {
     SystemTime, SystemTimeHistoryTable, SystemTimeAsOf, SystemTimeBetween, SystemTimeContainedIn, SystemTimeAll,
+    type SystemTimeBound,
 } from "../../systemTime";
 
 // Postgres port of Signum's DuplicateHistory. Postgres has no native FOR SYSTEM_TIME, so a
@@ -57,8 +58,16 @@ function periodPredicate(st: SystemTime, period: ColumnExpression): Expression |
     const rangeType = LiteralType.null;
     // A bound instant: a parametrised ConstantExpression cast to timestamptz (node-pg sends
     // params untyped, so the cast disambiguates the `@>` / range-function overloads).
-    const instant = (v: unknown) => new SqlCastExpression(rangeType, new ConstantExpression(v), "timestamptz");
-    const tstzrange = (a: unknown, b: unknown) =>
+    //
+    // The bound is FORMATTED here, to microseconds, rather than left to normalizeScalar — which renders
+    // every Temporal with 3 fractional digits, the precision altea's own datetime columns use. A period
+    // bound is compared against a `timestamptz`, whose precision is 6, so a millisecond-truncated bound
+    // lands just BEFORE the version that starts at it: `AsOf(<a version's own start>)` then silently
+    // returns the PREVIOUS version (or nothing, for the first one). Asking for a version by its own start
+    // is exactly what @altea/altea-time-machine's page does with the value it read out of the grid.
+    const instant = (v: SystemTimeBound) =>
+        new SqlCastExpression(rangeType, new ConstantExpression(v.toString({ fractionalSecondDigits: 6 })), "timestamptz");
+    const tstzrange = (a: SystemTimeBound, b: SystemTimeBound) =>
         new SqlFunctionExpression(rangeType, undefined, "tstzrange", [instant(a), instant(b)]);
     // The PG range operators render infix (see QueryFormatter.visitSqlFunction).
     const op = (name: string, l: Expression, r: Expression) => new SqlFunctionExpression(bool, undefined, name, [l, r]);

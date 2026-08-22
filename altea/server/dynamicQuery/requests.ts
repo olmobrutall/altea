@@ -7,6 +7,7 @@ import { BuildExpressionContext, ExpressionBox, buildLite } from "./tokenExpress
 import { QueryToken, CollectionElementToken, CollectionAnyAllToken, AggregateToken } from "../../data/dynamicQuery/tokens";
 import type { QueryName } from "../../data/dynamicQuery/queryUtils";
 import { Connector } from "../connection/connector";
+import type { SystemTime } from "../systemTime";
 
 // Port of Signum's `FilterCondition.ToLowerString` (wired in QueryLogic.Start, QueryLogic.cs). On a
 // case-SENSITIVE backend (Postgres) a dynamic-query string comparison must lower BOTH sides — the column
@@ -308,6 +309,11 @@ export class QueryRequest {
         // Signum's QueryRequest.GroupResults: when true the query GROUPs BY the non-aggregate columns
         // and computes the aggregate columns per group.
         public groupResults: boolean = false,
+        // Signum's QueryRequest.SystemTime: the row VERSIONS this query should see. The executor wraps
+        // the whole run in `SystemTime.override(...)` (DynamicQueryCore.ExecuteQuery does the same), which
+        // is what makes a history query — @altea/altea-time-machine's version grid, and the
+        // SearchControl's own "Time Machine" toggle — return anything but the current rows.
+        public systemTime?: SystemTime,
     ) { }
 
     // Every token referenced by the request (columns + orders + filters).
