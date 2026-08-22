@@ -205,3 +205,20 @@ export function getDeterminer(gender: Gender | undefined, plural: boolean, local
     const d = _genderDetectors[twoLetter(locale)]?.determiners.find(p => p.gender === gender);
     return d == undefined ? (twoLetter(locale) === "en" ? "the" : undefined) : (plural ? d.plural : d.singular);
 }
+
+// The inverse (Signum's NaturalLanguageTools.TryGetGenderFromDeterminer): read a gender back OFF an
+// article. @altea/altea-translations uses it to recover the gender a machine translator implied — it asks
+// for "el pedido", and the article that comes back is the only evidence of the target language's gender.
+export function tryGetGenderFromDeterminer(determiner: string | undefined, plural: boolean, locale: string): Gender | undefined {
+    if (determiner == undefined || determiner === "")
+        return undefined;
+    const lower = determiner.toLowerCase();
+    return _genderDetectors[twoLetter(locale)]?.determiners
+        .find(p => (plural ? p.plural : p.singular).toLowerCase() === lower)?.gender;
+}
+
+// Every (gender, article) triple a culture has — Signum's `GenderDetectors[lang].Determiner`, which its
+// translation editor renders as the gender picker beside a type's singular name.
+export function determinersFor(locale: string): readonly { gender: Gender; singular: string; plural: string }[] {
+    return _genderDetectors[twoLetter(locale)]?.determiners ?? [];
+}

@@ -50,6 +50,20 @@ export interface SerializationAuth {
 }
 let _serAuth: SerializationAuth | undefined;
 export function setSerializationAuth(auth: SerializationAuth | undefined): void { _serAuth = auth; }
+
+/**
+ * The per-instance TRANSLATION of a `@translatable` field, for the current UI culture — installed by
+ * @altea/altea-translations through `PropertyRouteTranslationLogic.installSerializerHook`.
+ *
+ * When one is installed, every translatable field an entity writes is followed by a `<field>_translated`
+ * property carrying that text (undefined ⇒ nothing written). Signum ships the same property through a
+ * per-type JSON PropertyConverter; here it is one hook on the field loop, because altea already knows
+ * each field's PropertyRoute at that point. Read-only: the reader ignores `_translated` keys, since they
+ * are not in any serializer PLAN — the translation is edited on its own pages, never through the entity.
+ */
+export type TranslatedFieldProvider = (entity: Entity, route: PropertyRoute) => string | null | undefined;
+let _translatedField: TranslatedFieldProvider | undefined;
+export function setTranslatedFieldProvider(fn: TranslatedFieldProvider | undefined): void { _translatedField = fn; }
 /** True once a SerializationAuth is installed — lets the save path decide whether to run the write-gate overlay. */
 export function hasSerializationAuth(): boolean { return _serAuth != null; }
 /** Resolve the installed auth's immutable rule snapshot (undefined if none). Called at the async
@@ -196,13 +210,15 @@ abstract class ModifiableSerializer implements JsonSerializer {
     protected serializeFields(m: BaseEntity, sc: SerializationContext, o: Record<string, unknown>, parented: boolean, ownerRoute?: PropertyRoute): void {
         const fieldWriteType = sc.writeTypes === 'Always';
         const gate = _serAuth != null && ownerRoute != null;
+        // The translated-field hook needs each field's route too, even with no auth installed.
+        const needRoute = gate || (_translatedField != null && ownerRoute != null);
         const propsMeta: string[] = [];
         for (const entry of this.plan) {
             if (parented && (entry.isBackReference || entry.isRowOrder)) continue;   // recoverable
             let fieldRoute: PropertyRoute | undefined;
-            if (gate) {
+            if (needRoute) {
                 fieldRoute = fieldRouteOf(ownerRoute, entry.name);
-                if (fieldRoute != null) {
+                if (gate && fieldRoute != null) {
                     const acc = _serAuth!.access(fieldRoute, sc.authMeta, sc.authContext);
                     // Signum's propsMeta: "!name" ⇒ hidden (also omit the value), "name" ⇒ read-only.
                     if (acc === 'hidden') { propsMeta.push("!" + entry.name); continue; }
@@ -214,6 +230,14 @@ abstract class ModifiableSerializer implements JsonSerializer {
             sc.route = fieldRoute;   // so an embedded child knows its own route
             o[entry.name] = v == null ? null : entry.serializer.toJson(v, sc, fieldWriteType);
             sc.route = prevRoute;
+            // The field's translation for the current UI culture (see setTranslatedFieldProvider). The
+            // route is needed, so this can only fire where one was computed — which is the case whenever
+            // the field belongs to an entity or one of its embeddeds.
+            if (_translatedField != null && sc.translationOwner != null && fieldRoute != null) {
+                const translated = _translatedField(sc.translationOwner, fieldRoute);
+                if (translated != null)
+                    o[entry.name + "_translated"] = translated;
+            }
         }
         if (propsMeta.length > 0) o.propsMeta = propsMeta;
     }
@@ -240,6 +264,15 @@ abstract class ModifiableSerializer implements JsonSerializer {
                 ? null
                 : entry.serializer.fromJson(jv, dc, target[entry.name], { owner: m as Entity });
             dc.route = prevRoute;
+
+            // Carry the field's TRANSLATION through (see setTranslatedFieldProvider): it is not a
+            // reflected field, so the plan loop above would drop it and the write side would be pointless
+            // — the whole reason it rides along is that a Line can then show it with no extra call.
+            // Assigning it here cannot make the entity dirty: change tracking diffs REFLECTED fields
+            // against the snapshot, and this is not one.
+            const translated = json[entry.name + "_translated"];
+            if (translated != null)
+                target[entry.name + "_translated"] = translated;
         }
     }
 }
@@ -287,9 +320,14 @@ class EntitySerializer extends ModifiableSerializer {
             if (isModifiedSelf(entity)) o.modified = true;
             // A (re-rooted) entity computes its OWN property-auth metadata (per Signum's IRootEntity step).
             const prevMeta = sc.authMeta;
-            const ownerRoute = _serAuth != null ? PropertyRoute.root(entity.constructor) : undefined;
+            // The route is needed by the property-auth gate AND by the translated-field hook, so compute
+            // it whenever either is installed.
+            const ownerRoute = _serAuth != null || _translatedField != null ? PropertyRoute.root(entity.constructor) : undefined;
             if (_serAuth != null) sc.authMeta = _serAuth.getMetadata(entity);
+            const prevOwner = sc.translationOwner;
+            sc.translationOwner = entity;
             this.serializeFields(entity, sc, o, parented, ownerRoute);
+            sc.translationOwner = prevOwner;
             sc.authMeta = prevMeta;
             return o;
         } finally {

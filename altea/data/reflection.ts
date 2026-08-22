@@ -70,6 +70,10 @@ export type TypeName =
     | "PlainDate" | "PlainDateTime" | "PlainTime" | "Duration" | "Instant" | "ZonedDateTime"
     | (string & {});
 
+// How a @translatable field is edited and rendered (Signum's TranslatableRouteType, Signum.Basics):
+// plain text, or rich HTML through the html editor.
+export type TranslatableRouteType = "Text" | "Html";
+
 // The precise .NET-style value alias (Signum drove int-vs-double `<NumberLine/>` formatting off this).
 // Emitted by the transformer from the source primitive alias (see entities/basics); undefined ⇒ the
 // typeName's default (e.g. Number ⇒ float/double).
@@ -259,6 +263,15 @@ export class FieldInfo extends TypeReference {
     unit?: string;
     isMultiline?: boolean;
     maxLength?: number;
+    // Set by @translatable (Signum's [Translatable]): this string field may carry a PER-INSTANCE
+    // translation, managed by @altea/altea-translations. "Text" is plain, "Html" is rich (the editor
+    // shows a WYSIWYG). `false` on an EMBEDDED field switches translation OFF for that route and
+    // everything below it, even where a descendant is marked translatable — Signum's
+    // `[Translatable(false)]`. It lives on the compile-time descriptor rather than the per-request
+    // metadata blob because it is the same for every user and every culture, and because the CLIENT
+    // needs it to put the translate button on a line — exactly what Signum ships as
+    // `MemberInfo.translatable`.
+    translatable?: TranslatableRouteType | false;
 
     validators: Validator[] = [];
     /**

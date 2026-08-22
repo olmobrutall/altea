@@ -1,13 +1,13 @@
 
 import { getOrCreateTypeInfo, getOrCreateFieldInfo, registerType, FieldInfo, ctorOf, setDefaultTypeDescription, setDefaultMemberDescription } from './reflection';
 import type { Gender } from './utils/naturalLanguage';
-import type { PrimaryKeyType, ColumnOptions } from './reflection';
+import type { PrimaryKeyType, ColumnOptions, TranslatableRouteType } from './reflection';
 import type { Type, Entity } from './entity';
 import type { CustomLiteClass } from './lite';
 import type { ExLambda, Quoted } from 'quote-transformer/quoted';
 import { accessedFields } from './accessedFields';
 
-export type { ColumnOptions } from './reflection';
+export type { ColumnOptions, TranslatableRouteType } from './reflection';
 
 // `@quoted` / `withQuoted` mark a method (or function) whose body the quote-transformer
 // captures as a translatable expression, stored on `__quoted`. They live here (entities)
@@ -382,6 +382,27 @@ export function format(formatString: string) {
 export function unit(unitName: string) {
     return function (target: object, propertyKey: string | symbol): void {
         getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).unit = unitName;
+    };
+}
+
+// @translatable / @translatable("Html") / @translatable(false) — Signum's [Translatable]: this string
+// field carries a PER-INSTANCE translation, edited through @altea/altea-translations' instance pages and
+// resolved at read time for the current UI culture. The bare form is plain text; "Html" gets the rich
+// editor. Passing FALSE on an embedded field switches translation off for that route and every route
+// below it, which is how Signum lets an owner opt a whole sub-tree out.
+//
+// The marker lives on the compile-time FieldInfo (both tiers), so the client Lines layer can render the
+// translate button without any per-request metadata — see FieldInfo.translatable.
+export function translatable(target: object, propertyKey: string | symbol): void;
+export function translatable(routeType: TranslatableRouteType | false): (target: object, propertyKey: string | symbol) => void;
+export function translatable(arg1: unknown, arg2?: string | symbol): unknown {
+    if (arg2 !== undefined) {
+        getOrCreateFieldInfo(getOrCreateTypeInfo(arg1 as object), String(arg2)).translatable = "Text";
+        return;
+    }
+    const routeType = arg1 as TranslatableRouteType | false;
+    return function (target: object, propertyKey: string | symbol): void {
+        getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).translatable = routeType;
     };
 }
 

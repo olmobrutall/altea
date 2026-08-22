@@ -45,6 +45,10 @@ export interface SerializationContext {
     route?: PropertyRoute;
     authMeta?: unknown;
     authContext?: unknown;   // the captured rule snapshot (SerializeOptions.authContext), read by access
+    // The ENTITY whose routes are currently being written — the owner a `<field>_translated` value is
+    // looked up against (see setTranslatedFieldProvider). Re-rooted at each entity, so a `@part` child
+    // row resolves its own translations; an embedded keeps its owner's, matching its route.
+    translationOwner?: Entity;
 }
 
 export interface DeserializationContext {
