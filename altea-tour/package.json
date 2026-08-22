@@ -1,0 +1,29 @@
+{
+  "name": "@altea/altea-tour",
+  "version": "0.0.1",
+  "description": "Guided in-app tours anchored to a type, a dashboard, a user query or a declared trigger (ported from Signum.Tour)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-codemirror": "workspace:*",
+    "@altea/altea-dashboard": "workspace:*",
+    "@altea/altea-user-assets": "workspace:*",
+    "@altea/altea-user-queries": "workspace:*",
+    "driver.js": "1.3.6",
+    "micromark": "4.0.2",
+    "quote-transformer": "workspace:*"
+  }
+}

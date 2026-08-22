@@ -1,0 +1,11 @@
+{
+  // DATA layer — the Tour / TourStep / CssStep entities, their enums and operations.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" },
+    { "path": "../altea-user-assets/tsconfig.data.json" },
+    { "path": "../altea-dashboard/tsconfig.data.json" },
+    { "path": "../altea-user-queries/tsconfig.data.json" }
+  ]
+}
