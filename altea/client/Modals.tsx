@@ -1,5 +1,5 @@
 // ALTEA: dropped unused imports (`* as AppContext`, `useStateWithPromise`). react-router + the
-// `*.css` ambient module declaration (styles.d.ts) make the remaining imports resolve.
+// `*.css` ambient module declaration (presets/styles.d.ts) make the remaining imports resolve.
 import * as React from 'react'
 import { useForceUpdatePromise, useUpdatedRef } from './Hooks';
 import { useLocation } from 'react-router';

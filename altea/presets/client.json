@@ -5,8 +5,13 @@
   //
   // CLIENT = React UI kit (Navigator, Finder, SearchControl, Lines, …). Both organisations accepted: a
   // client/ directory OR co-located *.client.ts suffix files, plus ANY *.tsx (a .tsx is always a client
-  // component). The `*.d.ts` entry picks up an app's root-level ambient decls (e.g. eastwind/styles.d.ts's
-  // `declare module "*.css"`) — a no-op in modules that have none. References DATA only, never server.
+  // component). References DATA only, never server.
+  //
+  // The include list opens with `./styles.d.ts` — a path relative to THIS file, so every client project in
+  // the workspace shares the ONE ambient `declare module "*.css"` / `"*.xml?raw"` file (see presets/styles.d.ts;
+  // there used to be 18 identical copies, one per package, because an ambient decl only reaches the program
+  // that includes it). `${configDir}/*.d.ts` still picks up a module's OWN root-level ambient decls
+  // (e.g. eastwind/env.d.ts) — a no-op in modules that have none.
   "extends": "./base.json",
   "compilerOptions": {
     "rootDir": "${configDir}",
@@ -15,6 +20,7 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
   "include": [
+    "./styles.d.ts",
     "${configDir}/client/**/*",
     "${configDir}/**/*.client.ts",
     "${configDir}/**/*.tsx",
