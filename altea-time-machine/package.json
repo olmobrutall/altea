@@ -1,0 +1,24 @@
+{
+  "name": "@altea/altea-time-machine",
+  "version": "0.0.1",
+  "description": "Browse, compare and restore the versions of a system-versioned entity (ported from Signum.TimeMachine)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-diff-log": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}

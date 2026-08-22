@@ -1,0 +1,9 @@
+{
+  // SERVER layer — the retrieve-a-version route and the restore helpers.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" }
+  ]
+}

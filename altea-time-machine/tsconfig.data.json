@@ -1,0 +1,8 @@
+{
+  // DATA layer — the messages and the ShowTimeMachine permission.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" }
+  ]
+}
