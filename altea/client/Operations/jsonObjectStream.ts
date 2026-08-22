@@ -1,6 +1,11 @@
-// Ported from Signum.React/Operations/jsonObjectStream.ts — verbatim. Parses a newline-delimited JSON
-// stream (one object per line) from a fetch Response body reader — the wire format the progress
-// operation endpoints (executeMultiple / deleteMultiple / *WithProgress) stream back.
+// Ported from Signum.React/Operations/jsonObjectStream.ts. Parses a newline-delimited JSON stream (one
+// object per line) from a fetch Response body reader — the wire format the progress operation endpoints
+// (executeMultiple / deleteMultiple / *WithProgress) stream back.
+//
+// altea divergence: each line goes through `Serializer.parse`, not `JSON.parse`. Signum's lites are plain
+// objects, so JSON.parse is enough there; an altea Lite is a CLASS (its `entityType` is a constructor and
+// `key()` is a method), and the caller does call `result.entity.key()` — a raw object would blow up.
+import { Serializer } from "../../data/serializer";
 
 export async function* jsonObjectStream<T>(
   reader: ReadableStreamDefaultReader<Uint8Array>
@@ -21,7 +26,7 @@ export async function* jsonObjectStream<T>(
 
       if (line) {
         try {
-          yield JSON.parse(line) as T;
+          yield Serializer.parse(line) as T;
         } catch (err) {
           console.error('Failed to parse JSON line:', line, err);
           // Optionally: throw err or continue
@@ -34,7 +39,7 @@ export async function* jsonObjectStream<T>(
   const last = buffer.trim();
   if (last) {
     try {
-      yield JSON.parse(last) as T;
+      yield Serializer.parse(last) as T;
     } catch (err) {
       console.error('Failed to parse final JSON object:', last, err);
     }

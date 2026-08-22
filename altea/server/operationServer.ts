@@ -15,6 +15,8 @@ import { OperationLogic, Operations } from "./operationLogic";
 import type { IEntityOperation } from "./operation";
 import * as Database from "./Database";
 import { assertGraphIntegrityAsync } from "./graphExplorer";
+import { Transaction } from "./connection/transaction";
+import { ExceptionLogic } from "./exceptionLogic";
 import { WebBuilder, CustomType } from "./webApi";
 
 interface EntityOperationRequest { entity: Entity; args?: unknown[]; }
@@ -83,6 +85,54 @@ export namespace OperationServer {
                 const { lites, args } = await req.jsonTyped() as MultiOperationRequest;
                 const result = await Operations.constructFromMany(lites, resolve<ConstructSymbol<Entity, FromMany<Entity>>>(req.params.operationKey), ...(args ?? []));
                 res.jsonTyped(await getEntityPack(result));
+            });
+
+        // Execute / delete on MANY lites, one at a time, reporting per-lite (Signum's ExecuteMultiple /
+        // DeleteMultiple). The response is NDJSON — one `{ entity, error? }` per line, flushed as each lite
+        // finishes — because that is what the client reads: MultiOperationProgressModal streams the lines to
+        // show progress, and with `progressModal: false` it just parses the single object.
+        //
+        // Each lite runs in its OWN transaction (Signum's ForeachNDJson): one failure must not roll back the
+        // ones that already succeeded, and its message is reported against that lite instead of failing the
+        // whole request. Signum's `Setters` (MultiSetter, "set these properties on all of them") are not
+        // ported — altea's client sends none.
+        const foreachNDJson = async (
+            lites: Lite<Entity>[],
+            res: { setHeader(name: string, value: string): void; write(chunk: string): void; end(): void },
+            action: (entity: Entity) => Promise<void>,
+        ): Promise<void> => {
+            res.setHeader("Content-Type", "application/x-ndjson");
+            for (const lite of lites) {
+                let error: string | null = null;
+                try {
+                    await Transaction.forceNew(async () => {
+                        const entity = await Database.retrieve(lite.entityType, lite.id);
+                        await action(entity);
+                    });
+                } catch (e) {
+                    error = (e as Error)?.message ?? String(e);
+                    // Signum logs it too: a per-element failure is still a failure worth keeping.
+                    try { await Transaction.forceNew(() => ExceptionLogic.logException(e)); } catch { /* never mask */ }
+                }
+                res.write(JSON.stringify({ entity: lite, error }) + "\n");
+            }
+            res.end();
+        };
+
+        ws.post("/api/operation/executeMultiple/:operationKey",
+            { params: CustomType<{ operationKey: string }>(), req: CustomType<MultiOperationRequest>() },
+            async (req, res) => {
+                const { lites, args } = await req.jsonTyped() as MultiOperationRequest;
+                const symbol = resolve<ExecuteSymbol<Entity>>(req.params.operationKey);
+                await foreachNDJson(lites, res as never, entity => Operations.execute(entity, symbol, ...(args ?? [])).then(() => undefined));
+            });
+
+        ws.post("/api/operation/deleteMultiple/:operationKey",
+            { params: CustomType<{ operationKey: string }>(), req: CustomType<MultiOperationRequest>() },
+            async (req, res) => {
+                const { lites, args } = await req.jsonTyped() as MultiOperationRequest;
+                const symbol = resolve<DeleteSymbol<Entity>>(req.params.operationKey);
+                await foreachNDJson(lites, res as never, entity => Operations.delete(entity, symbol, ...(args ?? [])));
             });
 
         // Delete a posted entity / a lite → 204.

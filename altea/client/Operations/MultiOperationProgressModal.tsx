@@ -15,6 +15,7 @@ import { getOperationInfo, getTypeInfo } from '../Reflection';
 import type { OperationMetadata } from '../Reflection';
 import { softCast } from '../../data/globals';
 import { jsonObjectStream } from './jsonObjectStream';
+import { Serializer } from '../../data/serializer';
 import { CollectionMessage } from '../../data/dynamicQueries';
 import { OperationSymbol } from '../../data/operations';
 import ErrorModal from '../Modals/ErrorModal';
@@ -103,7 +104,10 @@ export namespace MultiOperationProgressModal {
       var oi = getOperationInfo(operationKey, lites[0].entityType);
       return openModal<Operations.API.ErrorReport>(<MultiOperationProgressModal operation={oi} lites={lites} makeRequest={makeRequest} abortController={abortController} />);
     } else {
-      return makeRequest().then(r => r.json()).then(obj => {
+      // `r.text()` + Serializer.parse, not `r.json()`: the line carries a Lite, which has to come back as a
+      // real Lite (see jsonObjectStream) for `entity.key()` below.
+      return makeRequest().then(r => r.text()).then(text => {
+        var obj = Serializer.parse(text);
         var a = obj as Operations.API.OperationResult;
         return softCast<Operations.API.ErrorReport>({ errors: { [a.entity.key()]: a.error ?? null } });
       });
