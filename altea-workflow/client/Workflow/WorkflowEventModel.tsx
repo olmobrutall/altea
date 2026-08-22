@@ -11,15 +11,16 @@ import {
     WorkflowEventType, isTimer, type WorkflowEventModel, type WorkflowTimerEmbedded,
 } from "../../data/WorkflowNodes";
 import { TriggeredOn, WorkflowEventTaskModel } from "../../data/WorkflowEventTask";
+import { EventTaskActionLine, EventTaskConditionLine } from "./WorkflowEventTaskEvals";
 import { WorkflowTimerConditionEntity } from "../../data/WorkflowTimerCondition";
 
 // Port of Signum.Workflow's Workflow/WorkflowEventModel.tsx — the START / FINISH / TIMER event editor. A
 // SCHEDULED start grows the scheduler side (suspended + rule + when to trigger + the two functions); a timer
 // event grows a duration or a timer condition.
 //
-// altea divergences: the event type is an ORDINAL, and the event task's condition / action are symbol PICKERS
-// rather than C# editors (see data/WorkflowEval.ts) — which is what collapses Signum's two extra components
-// (WorkflowEventTaskConditionComponent / WorkflowEventTaskActionComponent) into two EntityLines.
+// altea divergences: the event type is an ORDINAL, and Signum's two extra components
+// (WorkflowEventTaskConditionComponent / WorkflowEventTaskActionComponent) are one file here, shared with the
+// standalone task editor — see WorkflowEventTaskEvals.
 
 export default function WorkflowEventModelComponent(p: { ctx: TypeContext<WorkflowEventModel> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
@@ -77,8 +78,8 @@ function WorkflowEventTaskPart(p: { ctx: TypeContext<WorkflowEventTaskModel> }):
             <AutoLine ctx={ctx.subCtx(te => te.suspended)} />
             <EntityDetail ctx={ctx.subCtx(te => te.rule)} />
             <AutoLine ctx={ctx.subCtx(te => te.triggeredOn)} onChange={() => forceUpdate()} />
-            {isConditional && <EntityLine ctx={ctx.subCtx(t => t.condition)} />}
-            <EntityLine ctx={ctx.subCtx(t => t.action)} />
+            {isConditional && <EventTaskConditionLine ctx={ctx.subCtx(t => t.condition)} />}
+            <EventTaskActionLine ctx={ctx.subCtx(t => t.action)} />
         </div>
     );
 }

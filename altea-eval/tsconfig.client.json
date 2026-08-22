@@ -1,10 +1,10 @@
 {
-  // CLIENT layer — the token-insertion toolbar + the QueryModel picker.
+  // CLIENT layer — the script editor line (TypeScript CodeMirror + the compilation errors).
   "extends": "../altea/presets/client.json",
   "references": [
     { "path": "./tsconfig.data.json" },
     { "path": "../altea/tsconfig.client.json" },
     { "path": "../altea-auth/tsconfig.client.json" },
-    { "path": "../altea-eval/tsconfig.client.json" }
+    { "path": "../altea-codemirror/tsconfig.client.json" }
   ]
 }

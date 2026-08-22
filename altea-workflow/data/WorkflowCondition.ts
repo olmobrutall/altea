@@ -4,14 +4,14 @@ import { entity, primaryKey, uniqueIndex, stringLengthValidator } from "@altea/a
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { type IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
-import { WorkflowConditionSymbol } from "./WorkflowEval";
+import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eval";
+import type { IWorkflowConditionEvaluator } from "./WorkflowEval";
 
 // Port of Signum.Workflow's WorkflowCondition.cs — a NAMED predicate a connection can be guarded by.
 //
 // altea divergences:
-//  - `Eval` (a compiled C# script) → `evaluator`, a pointer at a code-registered WorkflowConditionSymbol.
-//    See WorkflowEval.ts for the whole story; the row keeps its name and `mainEntityType`, which is what the
-//    designer's picker filters by and what WorkflowLogic validates a connection against.
+//  - `Eval` keeps Signum's shape — a stored SCRIPT compiled on first use — but the script is TypeScript and
+//    the compiler is @altea/altea-eval's rather than Roslyn's. See WorkflowEval.ts for the shared story.
 //  - `Guid` → a uuid PRIMARY KEY (the IUserAssetEntity convention).
 //  - `ToXml` / `FromXml` are server-only (WorkflowXml.server.ts), not members of the isomorphic entity.
 
@@ -26,10 +26,25 @@ export class WorkflowConditionEntity extends Entity implements IUserAssetEntity 
 
     mainEntityType: TypeEntity;
 
-    evaluator: WorkflowConditionSymbol;
+    eval: WorkflowConditionEval;
 
     toString(): string {
         return this.name;
+    }
+}
+
+/** Signum's WorkflowConditionEval — the script behind "may this connection be taken?". */
+@reflect
+export class WorkflowConditionEval extends EvalEmbedded<IWorkflowConditionEvaluator> {
+    protected override compile(): CompilationResult<IWorkflowConditionEvaluator> {
+        const mainEntityType = this.owner<WorkflowConditionEntity>().mainEntityType.className;
+
+        return this.wrap({
+            importTypes: [mainEntityType, "WorkflowTransitionContext"],
+            parameters: `e: ${mainEntityType}, ctx: WorkflowTransitionContext`,
+            returnType: "boolean",
+            isAsync: true,
+        });
     }
 }
 

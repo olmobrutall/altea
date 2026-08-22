@@ -98,7 +98,7 @@ export default class BpmnModelerComponent extends React.Component<BpmnModelerCom
             if (model == null)
                 return;
 
-            if (e.type === "bpmn:Lane" && (model as WorkflowLaneModel).actorsEvaluator != null)
+            if (e.type === "bpmn:Lane" && (model as WorkflowLaneModel).actorsEval != null)
                 result = true;
 
             if (e.type === "bpmn:StartEvent") {

@@ -1,7 +1,7 @@
 {
-  "name": "@altea/altea-templating",
+  "name": "@altea/altea-eval",
   "version": "0.0.1",
-  "description": "Text templating over a query + a model (ported from Signum.Templating)",
+  "description": "Scripts stored in the database, type-checked and compiled at runtime (ported from Signum.Eval)",
   "type": "module",
   "exports": {
     "./*": {
@@ -18,7 +18,8 @@
   "dependencies": {
     "@altea/altea": "workspace:*",
     "@altea/altea-auth": "workspace:*",
-    "@altea/altea-eval": "workspace:*",
-    "quote-transformer": "workspace:*"
+    "@altea/altea-codemirror": "workspace:*",
+    "quote-transformer": "workspace:*",
+    "typescript": "*"
   }
 }

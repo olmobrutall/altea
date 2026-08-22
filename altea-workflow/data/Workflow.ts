@@ -32,16 +32,14 @@ import {
 // altea divergences that apply to the WHOLE module, documented once here:
 //
 //  - **Evals become SYMBOLS.** Signum lets an administrator TYPE C# into a workflow condition / action /
-//    script / lane-actors / sub-entities / event-task box and compiles it with Roslyn (Signum.Eval). altea
-//    has no Signum.Eval counterpart, and compiling user-supplied source at runtime is not something the port
-//    wants to introduce, so every `EvalEmbedded<T>` becomes a code-declared SYMBOL whose function the app
-//    registers — the shape @altea/altea-templating's TemplateApplicableSymbol established. All eight of them
-//    live together in WorkflowEval.ts.
-//    The four NAMED eval entities (WorkflowCondition / WorkflowAction / WorkflowTimerCondition /
-//    WorkflowScript) are KEPT rather than collapsed into their symbol: they still carry the display name, the
-//    `mainEntityType` the designer filters its picker by, and the portable identity the workflow XML
-//    references. Only their script becomes a pointer at a registered symbol — so an administrator still
-//    creates the same row, and picks instead of typing.
+//    script / lane-actors / sub-entities / event-task box and compiles it with Roslyn (Signum.Eval). altea's
+//    counterpart is @altea/altea-eval, which stores TYPESCRIPT and compiles it with the TypeScript compiler,
+//    so all eight `EvalEmbedded<T>` subclasses port as such — each one lives beside the entity that owns it,
+//    and the eight FUNCTION types they are parameterized by live together in WorkflowEval.ts (Signum's eight
+//    `IXEvaluator` interfaces).
+//    Two consequences of altea-eval's design show up here: an eval's OWNER is bound by
+//    `sb.include(Owner).withEvals()` rather than by Signum's `[BindParent]`, and a generated wrapper's
+//    signature is written by the eval's own `compile()` (which is where each one reads the main entity type).
 //
 //  - **`Guid Guid` → a uuid PRIMARY KEY.** Every IUserAssetEntity here follows the convention
 //    @altea/altea-user-queries set: `@primaryKey("uuid")`, no separate `guid` field, and the `id` IS the

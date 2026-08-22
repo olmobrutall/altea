@@ -15,7 +15,7 @@ import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/
 import { FileEmbedded } from "@altea/altea-files/data/Files";
 import { QueryTokenEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
-import { ModelConverterSymbol, TemplateApplicableSymbol, type IContainsQuery } from "@altea/altea-templating/data/Templating";
+import { ModelConverterSymbol, TemplateApplicableEval, type IContainsQuery } from "@altea/altea-templating/data/Templating";
 import { EmailModelEntity, EmailRecipientKindEnum } from "./Email";
 
 // Port of Signum.Mailing's Templates/EmailTemplate.cs + EmailMasterTemplate.cs + ImageAttachmentEntity.cs +
@@ -28,7 +28,7 @@ import { EmailModelEntity, EmailRecipientKindEnum } from "./Email";
 //    the same FilterBuilderEmbedded editor drives it.
 //  - `Guid Guid [UniqueIndex]` (the portable identity) → a uuid PRIMARY KEY, exactly as
 //    @altea/altea-user-queries did: the `id` IS the portable identity, so IUserAssetEntity is a bare marker.
-//  - `TemplateApplicableEval` (a compiled C# script) → `applicable: TemplateApplicableSymbol | null`, a
+//  - `TemplateApplicableEval` keeps Signum's shape — a stored script — but the script is TYPESCRIPT and the
 //    code-registered predicate (see @altea/altea-templating's data/Templating.ts for the rationale).
 //  - `CultureInfoEntity CultureInfo` on a message row → a plain locale STRING (see Email.ts's header).
 //  - `ToXml` / `FromXml` / `ParseData` / `IsApplicable` are SERVER-side in altea (System.Xml + the query
@@ -408,9 +408,9 @@ export class EmailTemplateEntity extends Entity implements IUserAssetEntity, ICo
         ? EmailTemplateMessage.TheresMoreThanOneMessageForTheSameLanguage.niceToString() : null)
     messages: EmailTemplateEntity_Message[];
 
-    /** altea's stand-in for Signum's compiled `TemplateApplicableEval` (see the header): a code-registered
-     *  predicate, resolved through @altea/altea-templating's TemplatingLogic. */
-    applicable: TemplateApplicableSymbol | null;
+    /** Signum's `TemplateApplicableEval` — a stored script, compiled by @altea/altea-eval. Its parameter is
+     *  typed from this template's `query` (see TemplateApplicableEval.compile). */
+    applicable: TemplateApplicableEval | null;
 
     @quoted
     toString(): string {
@@ -472,4 +472,4 @@ export function languageOf(culture: string | null | undefined): string | undefin
 }
 
 // Re-exported so the message / editor modules need only this file for the template-side model.
-export { ModelConverterSymbol, TemplateApplicableSymbol, QueryTokenEmbedded };
+export { ModelConverterSymbol, TemplateApplicableEval, QueryTokenEmbedded };

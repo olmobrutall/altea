@@ -228,12 +228,12 @@ export namespace OfficeTemplateLogic {
         return out;
     }
 
-    /** Signum's `WordTemplateEntity.IsApplicable` — the registered predicate, or "always". */
+    /** Signum's `WordTemplateEntity.IsApplicable` — the stored script, or "always" when unset. */
     export function isApplicable(t: OfficeTemplateEntity, entity: Entity | null): boolean {
         if (t.applicable == null)
             return true;
         try {
-            return TemplatingLogic.isApplicable(t.applicable, entity);
+            return t.applicable.algorithm(entity);
         } catch (e) {
             throw new Error(
                 `Error evaluating Applicable for OfficeTemplate '${t.name}' with entity '${entity}': ${(e as Error).message}`);

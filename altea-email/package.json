@@ -23,6 +23,7 @@
     "@altea/altea-html-editor": "workspace:*",
     "@altea/altea-scheduler": "workspace:*",
     "@altea/altea-templating": "workspace:*",
+    "@altea/altea-eval": "workspace:*",
     "@altea/altea-user-assets": "workspace:*",
     "@altea/altea-user-queries": "workspace:*",
     "nodemailer": "^7.0.0",

@@ -1,5 +1,9 @@
 import * as React from "react";
 import { Tabs, Tab } from "react-bootstrap";
+import { EntityDetail } from "@altea/altea/client/Lines/EntityDetail";
+import { resolveType } from "@altea/altea/data/registration";
+import { TemplateApplicableEval } from "@altea/altea-templating/data/Templating";
+import { EvalLine } from "@altea/altea-eval/client/EvalLine";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { CheckboxLine } from "@altea/altea/client/Lines/CheckboxLine";
@@ -25,8 +29,8 @@ import { OfficeTemplateEntity, OfficeTemplateMessage } from "../../data/OfficeTe
 // (filters / orders), applicability, and the two "embedded widget" helpers.
 //
 // altea divergences, documented inline:
-//  - The APPLICABLE tab edited a C# script through CSharpCodeMirror; altea's applicable is a
-//    TemplateApplicableSymbol, so it is an EntityCombo on the main form instead of a tab — the same call
+//  - The APPLICABLE tab keeps Signum's shape — a stored SCRIPT in its own tab — through @altea/altea-eval's
+//    EvalLine; the editor is TypeScript rather than C#, and the TypeHelp tree beside it is not ported. Same call
 //    @altea/altea-email's EmailTemplate editor made.
 //  - `EntityCombo(f => f.culture)` becomes a plain AutoLine: altea has no CultureInfoEntity, the culture is
 //    a locale string (see the entity's header).
@@ -51,7 +55,6 @@ export default function OfficeTemplate(p: { ctx: TypeContext<OfficeTemplateEntit
                     <AutoLine ctx={ctx4.subCtx(f => f.name)} />
                     <EntityLine ctx={ctx4.subCtx(f => f.query)} onChange={forceUpdate} />
                     <EntityCombo ctx={ctx4.subCtx(f => f.model)} />
-                    <EntityCombo ctx={ctx4.subCtx(f => f.applicable)} />
                 </div>
                 <div className="col-sm-6">
                     <EntityCombo ctx={ctx4.subCtx(f => f.officeTransformer)} />
@@ -107,6 +110,11 @@ export default function OfficeTemplate(p: { ctx: TypeContext<OfficeTemplateEntit
                             { property: "orderType" },
                         ]} />
                     </Tab>}
+                <Tab eventKey="applicable" title={ctx.niceName(a => a.applicable)}>
+                    <EntityDetail ctx={ctx4.subCtx(f => f.applicable)} onChange={forceUpdate}
+                        onCreate={() => Promise.resolve(TemplateApplicableEval.create({ script: "" }))}
+                        getComponent={actx => <EvalLine ctx={actx} signature={applicableSignature(ctx.value)} />} />
+                </Tab>
             </Tabs>
         </div>
     );
@@ -180,4 +188,10 @@ function renderWidgetButton(text: React.ReactElement, getCode: () => Promise<str
             {text}
         </button>
     );
+}
+
+/** The signature the server generates for this template's applicable eval (see TemplateApplicableEval). */
+function applicableSignature(template: OfficeTemplateEntity): string {
+    const ctor = template.query == null ? undefined : resolveType(template.query.key);
+    return `function evaluate(e: ${ctor?.name ?? "Entity"} | null): boolean`;
 }

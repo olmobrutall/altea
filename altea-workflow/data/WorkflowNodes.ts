@@ -18,7 +18,8 @@ import { RoleEntity } from "@altea/altea-auth/data/Role";
 import {
     WorkflowEntity, WorkflowXmlEmbedded, type IWorkflowNodeEntity, type IWorkflowObjectEntity, type IWithModel,
 } from "./Workflow";
-import { WorkflowLaneActorsSymbol, WorkflowSubEntitiesSymbol } from "./WorkflowEval";
+import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eval";
+import type { ISubEntitiesEvaluator, IWorkflowLaneActorsEvaluator } from "./WorkflowEval";
 import { WorkflowConditionEntity } from "./WorkflowCondition";
 import { WorkflowActionEntity } from "./WorkflowAction";
 import { WorkflowTimerConditionEntity } from "./WorkflowTimerCondition";
@@ -40,7 +41,8 @@ import { WorkflowEventTaskModel } from "./WorkflowEventTask";
 // Signum has no such constraint — its model is one assembly and its generated client twin is one file.
 //
 // Two more divergences, both explained where they appear:
-//  - `WorkflowLaneActorsEval` / `SubEntitiesEval` (compiled C#) → symbol fields (see WorkflowEval.ts).
+//  - `WorkflowLaneActorsEval` / `SubEntitiesEval` keep Signum's shape (a stored script), but the script is
+//    TypeScript and its OWNER is bound explicitly — see each class and @altea/altea-eval's data/Eval.ts.
 //  - `WorkflowActivityEntity.BoundaryTimers` was a Signum VIRTUAL MList; altea has none, so it becomes a
 //    non-persisted list the module maintains itself.
 
@@ -129,17 +131,17 @@ export class WorkflowLaneEntity extends Entity implements IWorkflowObjectEntity,
     @noRepeatValidator()
     actors: WorkflowLaneEntity_Actor[];
 
-    /** altea: Signum's `WorkflowLaneActorsEval` (a compiled C# script) — the actors computed per case. */
-    actorsEvaluator: WorkflowLaneActorsSymbol | null;
+    /** Signum's `WorkflowLaneActorsEval` — the actors computed per case, as a stored script. */
+    actorsEval: WorkflowLaneActorsEval | null;
 
-    @fieldValidation<WorkflowLaneEntity>(l => !l.useActorEvalForStart || l.actorsEvaluator != null ? null
+    @fieldValidation<WorkflowLaneEntity>(l => !l.useActorEvalForStart || l.actorsEval != null ? null
         : ValidationMessage._0ShouldBe12.niceToString(
             WorkflowLaneEntity.nicePropertyName(a => a.useActorEvalForStart),
             Enum.niceName(ComparisonType, "EqualTo"), false))
     useActorEvalForStart: boolean = false;
 
     @fieldValidation<WorkflowLaneEntity>(l =>
-        !l.combineActorAndActorEvalWhenContinuing || (l.actorsEvaluator != null && l.actors.length > 0) ? null
+        !l.combineActorAndActorEvalWhenContinuing || (l.actorsEval != null && l.actors.length > 0) ? null
             : ValidationMessage._0ShouldBe12.niceToString(
                 WorkflowLaneEntity.nicePropertyName(a => a.combineActorAndActorEvalWhenContinuing),
                 Enum.niceName(ComparisonType, "EqualTo"), false))
@@ -154,7 +156,10 @@ export class WorkflowLaneEntity extends Entity implements IWorkflowObjectEntity,
             mainEntityType: this.pool.workflow.mainEntityType,
             name: this.name,
             actors: this.actors.map(a => a.actor),
-            actorsEvaluator: this.actorsEvaluator,
+            // Signum's `WorkflowLaneActorsEval.Clone()` — a part has ONE owner, and this MODEL is a
+            // separate graph the designer edits, so it gets its own copy of the script.
+            actorsEval: this.actorsEval == null ? null
+                : WorkflowLaneActorsEval.create({ script: this.actorsEval.script }),
             useActorEvalForStart: this.useActorEvalForStart,
             combineActorAndActorEvalWhenContinuing: this.combineActorAndActorEvalWhenContinuing,
         });
@@ -163,7 +168,8 @@ export class WorkflowLaneEntity extends Entity implements IWorkflowObjectEntity,
     setModel(model: ModelEntity): void {
         const m = model as WorkflowLaneModel;
         this.name = m.name;
-        this.actorsEvaluator = m.actorsEvaluator;
+        this.actorsEval = m.actorsEval == null ? null
+            : WorkflowLaneActorsEval.create({ script: m.actorsEval.script });
         this.useActorEvalForStart = m.useActorEvalForStart;
         this.combineActorAndActorEvalWhenContinuing = m.combineActorAndActorEvalWhenContinuing;
         // Rebuild the rows, reusing the ones that already point at the same actor so their row id (and with
@@ -175,6 +181,30 @@ export class WorkflowLaneEntity extends Entity implements IWorkflowObjectEntity,
 
     toString(): string {
         return this.name ?? this.bpmnElementId;
+    }
+}
+
+/**
+ * Signum's WorkflowLaneActorsEval — who is notified for an activity in this lane, computed per case.
+ *
+ * The parameter's type comes from the lane's POOL's workflow (`Pool.Workflow.MainEntityType` in Signum), so
+ * the owner it needs bound is the lane. Where the lane is being edited through its MODEL — which carries the
+ * main entity type directly — the model's own copy is what the designer type-checks against.
+ */
+@reflect
+export class WorkflowLaneActorsEval extends EvalEmbedded<IWorkflowLaneActorsEvaluator> {
+    protected override compile(): CompilationResult<IWorkflowLaneActorsEvaluator> {
+        const owner = this.owner<Entity>();
+        const mainEntityType = owner instanceof WorkflowLaneEntity
+            ? owner.pool.workflow.mainEntityType.className
+            : (owner as unknown as WorkflowLaneModel).mainEntityType.className;
+
+        return this.wrap({
+            importTypes: [mainEntityType, "WorkflowTransitionContext", "Lite", "Entity"],
+            parameters: `e: ${mainEntityType} | null, ctx: WorkflowTransitionContext`,
+            returnType: "Lite<Entity>[]",
+            isAsync: true,
+        });
     }
 }
 
@@ -196,16 +226,16 @@ export class WorkflowLaneModel extends ModelEntity {
     @noRepeatValidator()
     actors: Lite<Entity>[];
 
-    actorsEvaluator: WorkflowLaneActorsSymbol | null;
+    actorsEval: WorkflowLaneActorsEval | null;
 
-    @fieldValidation<WorkflowLaneModel>(l => !l.useActorEvalForStart || l.actorsEvaluator != null ? null
+    @fieldValidation<WorkflowLaneModel>(l => !l.useActorEvalForStart || l.actorsEval != null ? null
         : ValidationMessage._0ShouldBe12.niceToString(
             WorkflowLaneModel.nicePropertyName(a => a.useActorEvalForStart),
             Enum.niceName(ComparisonType, "EqualTo"), false))
     useActorEvalForStart: boolean = false;
 
     @fieldValidation<WorkflowLaneModel>(l =>
-        !l.combineActorAndActorEvalWhenContinuing || (l.actorsEvaluator != null && l.actors.length > 0) ? null
+        !l.combineActorAndActorEvalWhenContinuing || (l.actorsEval != null && l.actors.length > 0) ? null
             : ValidationMessage._0ShouldBe12.niceToString(
                 WorkflowLaneModel.nicePropertyName(a => a.combineActorAndActorEvalWhenContinuing),
                 Enum.niceName(ComparisonType, "EqualTo"), false))
@@ -284,19 +314,44 @@ export class WorkflowScriptPartEmbedded extends EmbeddedEntity {
     }
 }
 
+/**
+ * Signum's SubEntitiesEval — which entities a Decomposition / CallWorkflow activity spawns a subcase for.
+ *
+ * Signum's generated signature is the only two-type one: the parameter is the OWNING workflow's main entity
+ * and the return is the SUB-workflow's, which it reaches through two `[BindParent]` hops
+ * (`SubWorkflowEmbedded` → `WorkflowActivityEntity`). altea binds an eval to the owning ENTITY directly, so
+ * the activity is the owner and both types come off it.
+ */
+@reflect
+export class SubEntitiesEval extends EvalEmbedded<ISubEntitiesEvaluator> {
+    protected override compile(): CompilationResult<ISubEntitiesEvaluator> {
+        const activity = this.owner<WorkflowActivityEntity>();
+        const mainEntityType = activity.lane.pool.workflow.mainEntityType.className;
+        const subEntityType = activity.subWorkflow!.workflow.mainEntityType.className;
+
+        return this.wrap({
+            importTypes: [mainEntityType, subEntityType, "WorkflowTransitionContext"],
+            parameters: `e: ${mainEntityType}, ctx: WorkflowTransitionContext`,
+            returnType: `${subEntityType}[]`,
+            isAsync: true,
+        });
+    }
+}
+
 /** Signum's SubWorkflowEmbedded — the workflow a Decomposition / CallWorkflow activity spawns, and the
  *  registered function that says which entities to spawn it for. */
 @reflect
 export class SubWorkflowEmbedded extends EmbeddedEntity {
     workflow: WorkflowEntity;
 
-    /** altea: Signum's `SubEntitiesEval` (a compiled C# script). */
-    subEntitiesEvaluator: WorkflowSubEntitiesSymbol;
+    /** Signum's `SubEntitiesEval` — which entities to spawn the sub-workflow for, as a stored script. */
+    subEntitiesEval: SubEntitiesEval;
 
     clone(): SubWorkflowEmbedded {
         return SubWorkflowEmbedded.create({
             workflow: this.workflow,
-            subEntitiesEvaluator: this.subEntitiesEvaluator,
+            // Signum's `SubEntitiesEval.Clone()` — a part belongs to ONE owner, so the copy needs its own.
+            subEntitiesEval: SubEntitiesEval.create({ script: this.subEntitiesEval.script }),
         });
     }
 }

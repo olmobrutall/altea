@@ -16,7 +16,7 @@ import {
     EmailTemplateEntity_Filter, EmailTemplateEntity_From, EmailTemplateEntity_Message, EmailTemplateEntity_Order,
     EmailTemplateEntity_Recipient, FileTokenAttachmentEntity, ImageAttachmentEntity, WhenManyFromBehaviourEnum,
     WhenManyRecipientsBehaviourEnum, WhenNoneFromBehaviourEnum, WhenNoneRecipientsBehaviourEnum,
-    type IAttachmentGeneratorEntity,
+    TemplateApplicableEval, type IAttachmentGeneratorEntity,
 } from "../data/EmailTemplate";
 import { EmailRecipientKindEnum } from "../data/Email";
 import { EmailModelLogic } from "./EmailModelLogic.server";
@@ -99,7 +99,7 @@ async function templateToXml(et: EmailTemplateEntity, ctx: IToXmlContext): Promi
         })),
     };
 
-    if (et.applicable != null) o["Applicable"] = { [A + "Symbol"]: et.applicable.key };
+    if (et.applicable != null) o["Applicable"] = { "#cdata": et.applicable.script };
 
     return o;
 }
@@ -176,9 +176,11 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
     et.attachments = readAttachments(xml["Attachments"]).map((a, i) =>
         EmailTemplateEntity_Attachment.create({ order: toInt(i), attachment: a }));
 
-    // Signum stored a C# script here; altea stores a symbol KEY (see the header). A file with a script has
-    // no `Symbol` attribute, so the predicate is simply left unset.
-    et.applicable = null;
+    // Signum's `Applicable = element.Element("Applicable")?.Let(app => new TemplateApplicableEval { Script =
+    // app.Value })`. Round-trips verbatim now that the script IS the stored value.
+    const applicableScript = str(xml["Applicable"]);
+    et.applicable = applicableScript == undefined ? null
+        : TemplateApplicableEval.create({ script: applicableScript });
 
     // The model is resolved by its registry key; an unregistered one is left unset rather than failing the
     // whole import (the template still opens, with an error on the Model field).

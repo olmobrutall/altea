@@ -8,6 +8,7 @@
     { "path": "../altea-scheduler/tsconfig.server.json" },
     { "path": "../altea-files/tsconfig.server.json" },
     { "path": "../altea-templating/tsconfig.server.json" },
+    { "path": "../altea-eval/tsconfig.server.json" },
     { "path": "../altea-user-assets/tsconfig.server.json" },
     { "path": "../altea-user-queries/tsconfig.server.json" }
   ]

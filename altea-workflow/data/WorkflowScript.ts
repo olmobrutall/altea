@@ -7,15 +7,17 @@ import { ValidationMessage } from "@altea/altea/data/validators";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { type IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
-import { WorkflowScriptSymbol } from "./WorkflowEval";
+import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eval";
+import type { IWorkflowScriptExecutor } from "./WorkflowEval";
 
 // Port of Signum.Workflow's WorkflowScript.cs + WorkflowScriptRetryStrategy.cs — the body of a SCRIPT
 // activity (an unattended step the script runner executes) and the back-off rule used when it throws.
 //
 // altea divergences:
-//  - `Eval` (a compiled C# script) → `executor`, a pointer at a code-registered WorkflowScriptSymbol.
-//    `WorkflowScriptEval.CustomTypes` — extra C# helper classes compiled alongside the script — goes with
-//    it: a registered function is ordinary TypeScript and can import whatever it likes.
+//  - `Eval` keeps Signum's shape (a stored TypeScript script — see WorkflowEval.ts), but
+//    `WorkflowScriptEval.CustomTypes` — extra C# helper classes emitted into the same generated namespace —
+//    is NOT ported: the generated unit here is a MODULE, so a script declares whatever local types it needs
+//    inline, and a second free-form source field would only be a second place for them to live.
 //  - `Guid` → a uuid PRIMARY KEY (the IUserAssetEntity convention).
 
 @reflect
@@ -29,10 +31,25 @@ export class WorkflowScriptEntity extends Entity implements IUserAssetEntity {
 
     mainEntityType: TypeEntity;
 
-    executor: WorkflowScriptSymbol;
+    eval: WorkflowScriptEval;
 
     toString(): string {
         return this.name;
+    }
+}
+
+/** Signum's WorkflowScriptEval — the body of a SCRIPT activity, run unattended by the script runner. */
+@reflect
+export class WorkflowScriptEval extends EvalEmbedded<IWorkflowScriptExecutor> {
+    protected override compile(): CompilationResult<IWorkflowScriptExecutor> {
+        const mainEntityType = this.owner<WorkflowScriptEntity>().mainEntityType.className;
+
+        return this.wrap({
+            importTypes: [mainEntityType, "WorkflowScriptContext"],
+            parameters: `e: ${mainEntityType}, ctx: WorkflowScriptContext`,
+            returnType: "void",
+            isAsync: true,
+        });
     }
 }
 

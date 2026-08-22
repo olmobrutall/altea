@@ -1,4 +1,6 @@
 import { reflect } from "@altea/altea/data/reflection";
+import { resolveType } from "@altea/altea/data/registration";
+import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eval";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Symbol } from "@altea/altea/data/symbol";
@@ -18,19 +20,18 @@ import type { FilterRequest, OrderRequest, Pagination } from "@altea/altea/data/
 // (server/), so this file holds only what both tiers need.
 //
 // altea divergences, documented inline:
-//  - `TemplateApplicableEval` (Signum's EvalEmbedded<ITemplateApplicable> — a C# script compiled with
-//    Roslyn) is NOT ported: altea has no Signum.Eval counterpart, and compiling user-supplied source at
-//    runtime is not something the port wants to introduce. Its FEATURE — "is this template applicable to
-//    this entity?" — is preserved by `TemplateApplicableSymbol`: the app declares a symbol and registers
-//    the predicate in code (TemplatingLogic.registerApplicable), exactly the shape SimpleTaskSymbol uses
-//    for scheduler tasks. A template then points at the symbol instead of carrying a script.
+//  - `TemplateApplicableEval` is Signum's, and works the same way — a script stored on the template,
+//    compiled on first use — except the script is TYPESCRIPT rather than C# and the compiler is
+//    @altea/altea-eval's rather than Roslyn's. The parameter is typed from the owning template's QUERY (its
+//    single entity implementation), which is why the eval reads its owner: see `compile()` below and
+//    @altea/altea-eval's data/Eval.ts for how the owner is bound.
 //  - `QueryModel` keeps Signum's shape but its `queryKey` is a plain string (altea has no `object
 //    QueryName` boxing) and its filters/orders/pagination are the isomorphic request DTOs, so the
 //    client's SearchControl can fill them and the server can run them unchanged.
 //  - `TemplateMessage.CopyToClipboard` / the `TemplateTokenMessage` set are message containers (altea's
 //    `msg()`), not C# enums.
 
-/** Signum's ITemplateApplicable — the predicate behind a TemplateApplicableSymbol. */
+/** Signum's ITemplateApplicable — what a TemplateApplicableEval compiles to. */
 export type ITemplateApplicable = (entity: Entity | null) => boolean;
 
 /** Signum's IContainsQuery — a template that is defined over a registered query. */
@@ -45,11 +46,29 @@ export interface IContainsQuery extends Entity {
 export class ModelConverterSymbol extends Symbol {
 }
 
-// altea-only (see the header): the named, code-registered "is this template applicable" predicate that
-// replaces Signum's compiled TemplateApplicableEval script.
+/**
+ * Signum's TemplateApplicableEval — "is this template applicable to this entity?", as a stored script.
+ *
+ * The parameter's TYPE comes from the owning template's query: a template declared over a query whose root
+ * has one entity implementation types `e` as that entity, and anything else falls back to `Entity` (Signum
+ * does exactly this, through `QueryEntity.GetEntityImplementations(query).Types.Only()`).
+ */
 @reflect
-@entity("SystemString", "Master", { lowPopulation: true })
-export class TemplateApplicableSymbol extends Symbol {
+export class TemplateApplicableEval extends EvalEmbedded<ITemplateApplicable> {
+    protected override compile(): CompilationResult<ITemplateApplicable> {
+        // Signum: `QueryEntity.GetEntityImplementations(query).Types.Only()`. altea's query KEY for an
+        // entity query IS the clean type name, and `resolveType` is isomorphic — so the ctor (and with it the
+        // class name the generated import needs) comes straight off the registry, with no server call.
+        const owner = this.owner<IContainsQuery>();
+        const entityCtor = owner.query == null ? undefined : resolveType(owner.query.key);
+        const entityTypeName = entityCtor?.name ?? "Entity";
+
+        return this.wrap({
+            importTypes: [entityTypeName],
+            parameters: `e: ${entityTypeName} | null`,
+            returnType: "boolean",
+        });
+    }
 }
 
 // Signum's MultiEntityModel — the model behind "send one report for this SET of entities".

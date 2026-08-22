@@ -85,13 +85,14 @@ import "./Case/Inbox.css";
 //  - `Navigator.addSettings(new EntitySettings(T, view))` → `cb.configure(T).withView(…)`, reaching for
 //    `Navigator.getOrAddSettings` only for the options `configure` does not cover (modalSize, avoidPopup,
 //    isViewable, onView, onNavigateRoute).
-//  - Signum.Eval does not port, so `EvalClient.Options.checkEvalFindOptions` (the dynamic panel's "these
-//    evals still compile" checks) is GONE — there is nothing to compile: altea's conditions/actions/scripts
-//    are code-declared Symbols (see ../data/WorkflowEval.ts). `registerDynamicPanelSearch` survives, re-homed
-//    on @altea/altea-dynamic's DynamicClient, and its `Code` columns become `Text` ones over the SYMBOL's key.
+//  - `EvalClient.Options.checkEvalFindOptions` (the dynamic panel's "do these evals still compile?" pass) is
+//    a SERVER-side registry in altea — @altea/altea-eval's `EvalLogic.registerEvalSource`, filled by
+//    WorkflowLogic — because only the server can compile and it needs the rows anyway.
+//    `registerDynamicPanelSearch` survives, re-homed on @altea/altea-dynamic's DynamicClient.
 //  - `TypeHelpButtonBarComponent` / `WorkflowHelpComponent` (a C#-snippet cheat sheet for writing Evals) and
-//    `showWorkflowTransitionContextCodeHelp` are likewise dropped. The activity designer's user-help slot is
-//    an injected seam instead (`WorkflowActivityModelOptions.userHelpComponent`).
+//    `showWorkflowTransitionContextCodeHelp` are dropped: they teach C# against a TypeHelp tree altea does not
+//    have (see @altea/altea-eval's EvalLine). The activity designer's user-help slot is an injected seam
+//    instead (`WorkflowActivityModelOptions.userHelpComponent`).
 //  - altea has no `AutoLineModal`, so "pick an expiration date" is a small local modal (ExpirationDateModal).
 //  - the Inbox is named by its ROW MODEL (`InboxRowModel`), not by Signum's `CaseActivityQuery.Inbox` enum
 //    member, so its column tokens are rooted at that model rather than at CaseNotificationEntity — see the
@@ -171,27 +172,27 @@ export namespace WorkflowClient {
         DynamicClient.registerDynamicPanelSearch(WorkflowActionEntity.typeName, [
             { token: "name", type: "Text" },
             { token: "mainEntityType.cleanName", type: "Text" },
-            { token: "executor", type: "Text" },
+            { token: "eval.script", type: "Code" },
         ]);
         DynamicClient.registerDynamicPanelSearch(WorkflowScriptEntity.typeName, [
             { token: "name", type: "Text" },
             { token: "mainEntityType.cleanName", type: "Text" },
-            { token: "executor", type: "Text" },
+            { token: "eval.script", type: "Code" },
         ]);
         DynamicClient.registerDynamicPanelSearch(WorkflowConditionEntity.typeName, [
             { token: "name", type: "Text" },
             { token: "mainEntityType.cleanName", type: "Text" },
-            { token: "evaluator", type: "Text" },
+            { token: "eval.script", type: "Code" },
         ]);
         DynamicClient.registerDynamicPanelSearch(WorkflowTimerConditionEntity.typeName, [
             { token: "name", type: "Text" },
             { token: "mainEntityType.cleanName", type: "Text" },
-            { token: "evaluator", type: "Text" },
+            { token: "eval.script", type: "Code" },
         ]);
         DynamicClient.registerDynamicPanelSearch(WorkflowEventTaskEntity.typeName, [
             { token: "event.name", type: "Text" },
-            { token: "condition", type: "Text" },
-            { token: "action", type: "Text" },
+            { token: "condition.script", type: "Code" },
+            { token: "action.script", type: "Code" },
         ]);
 
         registerSpecialAction({

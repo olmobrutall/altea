@@ -1,0 +1,8 @@
+{
+  // DATA layer — isomorphic: the EvalEmbedded base, its compilation-result shape and the messages.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" }
+  ]
+}

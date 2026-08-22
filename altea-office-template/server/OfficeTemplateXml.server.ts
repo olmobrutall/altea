@@ -10,7 +10,7 @@ import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
 import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
-import { TemplateApplicableSymbol } from "@altea/altea-templating/data/Templating";
+import { TemplateApplicableEval } from "@altea/altea-templating/data/Templating";
 import { FileEmbedded } from "@altea/altea-files/data/Files";
 import {
     OfficeConverterSymbol, OfficeTemplateEntity, OfficeTemplateEntity_Filter, OfficeTemplateEntity_Order,
@@ -64,7 +64,7 @@ function templateToXml(ot: OfficeTemplateEntity, _ctx: IToXmlContext): Record<st
     if (ot.filters.length) o["Filters"] = { Filter: ot.filters.map(filterXml) };
     if (ot.orders.length) o["Orders"] = { Orden: ot.orders.map(orderXml) };
 
-    if (ot.applicable != null) o["Applicable"] = { [A + "Symbol"]: ot.applicable.key };
+    if (ot.applicable != null) o["Applicable"] = { "#cdata": ot.applicable.script };
 
     // The template document itself — Signum's `ctx.RetrieveLite(Template).ToXML("Template")`.
     if (ot.template != null) o["Template"] = {
@@ -122,12 +122,12 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
         return o;
     });
 
-    // Signum's `<Applicable><![CDATA[script]]></Applicable>`: altea carries a SYMBOL key instead, so a file
-    // written by Signum (a script, no @Symbol) imports with the predicate unset — the template applies to
-    // everything, which is the safe reading rather than silently inventing a predicate.
-    const applicable = asRecord(xml["Applicable"]);
-    const applicableKey = applicable == undefined ? undefined : str(applicable[A + "Symbol"]);
-    ot.applicable = applicableKey == undefined ? null : symbolOr(TemplateApplicableSymbol, applicableKey);
+    // Signum's `<Applicable><![CDATA[script]]></Applicable>`, round-tripped verbatim. A file written by
+    // SIGNUM carries C#, which will not compile here — but it imports, and the error lands on the script
+    // field where the author can see and fix it, which beats silently dropping the rule.
+    const applicableScript = str(xml["Applicable"]);
+    ot.applicable = applicableScript == undefined ? null
+        : TemplateApplicableEval.create({ script: applicableScript });
 
     const template = asRecord(xml["Template"]);
     if (template != undefined) {

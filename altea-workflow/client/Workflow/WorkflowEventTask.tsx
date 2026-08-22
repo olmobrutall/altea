@@ -6,12 +6,14 @@ import { useForceUpdate } from "@altea/altea/client/Hooks";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { WorkflowEventEntity, WorkflowEventType } from "../../data/WorkflowNodes";
 import { TriggeredOn, type WorkflowEventTaskEntity } from "../../data/WorkflowEventTask";
+import { EventTaskActionLine, EventTaskConditionLine } from "./WorkflowEventTaskEvals";
 
 // Port of Signum.Workflow's Workflow/WorkflowEventTask.tsx — the standalone editor for the scheduled-start
 // task (the same thing the event dialog edits inline, reachable from the ScheduledTask search).
 //
-// altea divergences: the two evals are symbol PICKERS (see data/WorkflowEval.ts), so Signum's
-// `fetchAndRemember` + "create an empty eval" dance is gone; the event-type filter is an ORDINAL.
+// altea divergences: the two script editors are @altea/altea-eval EvalLines (see WorkflowEventTaskEvals),
+// so Signum's `fetchAndRemember` hop is gone — an EntityDetail creates the eval on demand; and the
+// event-type filter is an ORDINAL.
 
 export default function WorkflowEventTaskComponent(
     p: { ctx: TypeContext<WorkflowEventTaskEntity> }): React.JSX.Element {
@@ -35,8 +37,8 @@ export default function WorkflowEventTaskComponent(
                     <AutoLine ctx={ctx.subCtx(wet => wet.triggeredOn)} onChange={() => forceUpdate()} />
 
                     {ctx.value.triggeredOn !== TriggeredOn.Always &&
-                        <EntityLine ctx={ctx.subCtx(wet => wet.condition)} />}
-                    <EntityLine ctx={ctx.subCtx(wet => wet.action)} />
+                        <EventTaskConditionLine ctx={ctx.subCtx(wet => wet.condition)} />}
+                    <EventTaskActionLine ctx={ctx.subCtx(wet => wet.action)} />
                 </div>}
         </div>
     );

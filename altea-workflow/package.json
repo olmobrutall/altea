@@ -19,6 +19,7 @@
     "@altea/altea": "workspace:*",
     "@altea/altea-auth": "workspace:*",
     "@altea/altea-dynamic": "workspace:*",
+    "@altea/altea-eval": "workspace:*",
     "@altea/altea-omnibox": "workspace:*",
     "@altea/altea-processes": "workspace:*",
     "@altea/altea-scheduler": "workspace:*",

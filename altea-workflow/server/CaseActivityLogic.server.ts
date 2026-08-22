@@ -389,11 +389,11 @@ export namespace CaseActivityLogic {
     /** Signum's `lane.GetActors(caseActivity)`. */
     export async function getActors(lane: WorkflowLaneEntity, caseActivity: CaseActivityEntity | null): Promise<Lite<Entity>[]> {
         if (caseActivity != null) {
-            if (lane.actorsEvaluator == null)
+            if (lane.actorsEval == null)
                 return lane.actors.map(a => a.actor);
 
             const ctx = new WorkflowTransitionContext(caseActivity.case, caseActivity, null);
-            const newActors = await WorkflowLogic.evaluateLaneActors(lane.actorsEvaluator, caseActivity.case.mainEntity, ctx);
+            const newActors = await WorkflowLogic.evaluateLaneActors(lane.actorsEval, caseActivity.case.mainEntity, ctx);
 
             const all = lane.combineActorAndActorEvalWhenContinuing
                 ? [...newActors, ...lane.actors.map(a => a.actor)]
@@ -404,7 +404,7 @@ export namespace CaseActivityLogic {
 
         if (lane.useActorEvalForStart) {
             const ctx = new WorkflowTransitionContext(null, null, null);
-            return distinctLites(await WorkflowLogic.evaluateLaneActors(lane.actorsEvaluator!, null, ctx));
+            return distinctLites(await WorkflowLogic.evaluateLaneActors(lane.actorsEval!, null, ctx));
         }
 
         return lane.actors.map(a => a.actor);
@@ -1560,7 +1560,7 @@ export namespace CaseActivityLogic {
             await ctx.notifyTransitionContext(surrogate);
 
             const subEntities = await WorkflowLogic.evaluateSubEntities(
-                decActivity.subWorkflow!.subEntitiesEvaluator, caseEntity.mainEntity,
+                decActivity.subWorkflow!.subEntitiesEval, caseEntity.mainEntity,
                 new WorkflowTransitionContext(caseEntity, previous, conn));
 
             if (decActivity.type === WorkflowActivityType.CallWorkflow && subEntities.length > 1)

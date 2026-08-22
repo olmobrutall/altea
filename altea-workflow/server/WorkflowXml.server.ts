@@ -7,7 +7,6 @@ import { isGraphModified } from "@altea/altea/data/changes";
 import { Enum } from "@altea/altea/data/enum";
 import { Temporal, toInt, type int } from "@altea/altea/data/basics";
 import { Lite } from "@altea/altea/data/lite";
-import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import type { IFromXmlContext, IToXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
@@ -23,20 +22,19 @@ import {
     WorkflowEventType, WorkflowGatewayDirection, WorkflowGatewayEntity, WorkflowGatewayOperation,
     WorkflowGatewayType, WorkflowLaneEntity, WorkflowLaneEntity_Actor, WorkflowLaneOperation,
     WorkflowPoolEntity, WorkflowPoolOperation, WorkflowScriptPartEmbedded, WorkflowTimerEmbedded,
+    SubEntitiesEval, WorkflowLaneActorsEval,
 } from "../data/WorkflowNodes";
-import { WorkflowConditionEntity, WorkflowConditionOperation } from "../data/WorkflowCondition";
-import { WorkflowActionEntity, WorkflowActionOperation } from "../data/WorkflowAction";
-import { WorkflowTimerConditionEntity, WorkflowTimerConditionOperation } from "../data/WorkflowTimerCondition";
+import { WorkflowConditionEntity, WorkflowConditionEval, WorkflowConditionOperation } from "../data/WorkflowCondition";
+import { WorkflowActionEntity, WorkflowActionEval, WorkflowActionOperation } from "../data/WorkflowAction";
+import { WorkflowTimerConditionEntity, WorkflowTimerConditionEval, WorkflowTimerConditionOperation } from "../data/WorkflowTimerCondition";
 import {
     WorkflowScriptEntity, WorkflowScriptOperation, WorkflowScriptRetryStrategyEntity,
     WorkflowScriptRetryStrategyOperation,
+    WorkflowScriptEval,
 } from "../data/WorkflowScript";
 import {
-    WorkflowActionSymbol, WorkflowConditionSymbol, WorkflowEventTaskActionSymbol,
-    WorkflowEventTaskConditionSymbol, WorkflowLaneActorsSymbol, WorkflowScriptSymbol, WorkflowSubEntitiesSymbol,
-    WorkflowTimerConditionSymbol,
-} from "../data/WorkflowEval";
-import { TriggeredOn, WorkflowEventTaskModel } from "../data/WorkflowEventTask";
+    TriggeredOn, WorkflowEventTaskActionEval, WorkflowEventTaskConditionEval, WorkflowEventTaskModel,
+} from "../data/WorkflowEventTask";
 import { CaseQueries } from "./CaseQueries.server";
 import { applyWorkflowEventTaskModel, getWorkflowEventTaskModel } from "./WorkflowBuilder.server";
 import { CaseActivityLogic } from "./CaseActivityLogic.server";
@@ -76,10 +74,10 @@ export function registerWorkflowXml(): void {
         create: () => new WorkflowConditionEntity(),
         load: async guid => (await table(WorkflowConditionEntity).filter(a => a.id == guid).toArray())[0],
         save: async e => { await Operations.execute(e, WorkflowConditionOperation.Save); },
-        toXml: e => evaluatorToXml(e.name, e.mainEntityType, e.evaluator),
+        toXml: e => evaluatorToXml(e.name, e.mainEntityType, e.eval),
         fromXml: (e, xml, ctx) => {
             evaluatorFromXml(e, xml, ctx, "WorkflowCondition");
-            e.evaluator = resolveSymbol(WorkflowConditionSymbol, str(xml["Evaluator"]), "WorkflowCondition");
+            e.eval = WorkflowConditionEval.create({ script: scriptFromXml(xml) });
         },
     });
 
@@ -88,10 +86,10 @@ export function registerWorkflowXml(): void {
         create: () => new WorkflowActionEntity(),
         load: async guid => (await table(WorkflowActionEntity).filter(a => a.id == guid).toArray())[0],
         save: async e => { await Operations.execute(e, WorkflowActionOperation.Save); },
-        toXml: e => evaluatorToXml(e.name, e.mainEntityType, e.executor),
+        toXml: e => evaluatorToXml(e.name, e.mainEntityType, e.eval),
         fromXml: (e, xml, ctx) => {
             evaluatorFromXml(e, xml, ctx, "WorkflowAction");
-            e.executor = resolveSymbol(WorkflowActionSymbol, str(xml["Evaluator"]), "WorkflowAction");
+            e.eval = WorkflowActionEval.create({ script: scriptFromXml(xml) });
         },
     });
 
@@ -100,10 +98,10 @@ export function registerWorkflowXml(): void {
         create: () => new WorkflowTimerConditionEntity(),
         load: async guid => (await table(WorkflowTimerConditionEntity).filter(a => a.id == guid).toArray())[0],
         save: async e => { await Operations.execute(e, WorkflowTimerConditionOperation.Save); },
-        toXml: e => evaluatorToXml(e.name, e.mainEntityType, e.evaluator),
+        toXml: e => evaluatorToXml(e.name, e.mainEntityType, e.eval),
         fromXml: (e, xml, ctx) => {
             evaluatorFromXml(e, xml, ctx, "WorkflowTimerCondition");
-            e.evaluator = resolveSymbol(WorkflowTimerConditionSymbol, str(xml["Evaluator"]), "WorkflowTimerCondition");
+            e.eval = WorkflowTimerConditionEval.create({ script: scriptFromXml(xml) });
         },
     });
 
@@ -112,10 +110,10 @@ export function registerWorkflowXml(): void {
         create: () => new WorkflowScriptEntity(),
         load: async guid => (await table(WorkflowScriptEntity).filter(a => a.id == guid).toArray())[0],
         save: async e => { await Operations.execute(e, WorkflowScriptOperation.Save); },
-        toXml: e => evaluatorToXml(e.name, e.mainEntityType, e.executor),
+        toXml: e => evaluatorToXml(e.name, e.mainEntityType, e.eval),
         fromXml: (e, xml, ctx) => {
             evaluatorFromXml(e, xml, ctx, "WorkflowScript");
-            e.executor = resolveSymbol(WorkflowScriptSymbol, str(xml["Evaluator"]), "WorkflowScript");
+            e.eval = WorkflowScriptEval.create({ script: scriptFromXml(xml) });
         },
     });
 
@@ -131,12 +129,19 @@ export function registerWorkflowXml(): void {
     registerWorkflowAsset();
 }
 
-function evaluatorToXml(name: string, mainEntityType: TypeEntity, symbol: { key: string }): Record<string, unknown> {
+function evaluatorToXml(name: string, mainEntityType: TypeEntity, ev: { script: string }): Record<string, unknown> {
     return {
         [A + "Name"]: name,
         [A + "MainEntityType"]: mainEntityType.cleanName,
-        [A + "Evaluator"]: symbol.key,
+        // Signum's `<Eval><Script><![CDATA[…]]></Script></Eval>`.
+        Eval: { Script: { "#cdata": ev.script } },
     };
+}
+
+/** The script out of an `<Eval><Script>` element, or "" when the file has none. */
+function scriptFromXml(xml: Record<string, unknown>): string {
+    const ev = xml["Eval"] as Record<string, unknown> | undefined;
+    return (ev == undefined ? undefined : str(ev["Script"])) ?? "";
 }
 
 function evaluatorFromXml(entity: { name: string; mainEntityType: TypeEntity },
@@ -157,11 +162,6 @@ function assertNoScript(xml: Record<string, unknown>, elementName: string): void
             + "the script cannot be imported — register a symbol for it and set Evaluator=\"<its key>\".");
 }
 
-function resolveSymbol<S>(symbolType: new () => S, key: string | undefined, what: string): S {
-    if (key == null)
-        throw new Error(what + ": no Evaluator attribute (the key of a registered symbol)");
-    return SymbolLogic.toSymbol(symbolType as never, key) as unknown as S;
-}
 
 // ---- The workflow asset -------------------------------------------------------------------------------
 
@@ -209,8 +209,8 @@ async function workflowToXml(workflow: WorkflowEntity, ctx: IToXmlContext): Prom
         };
         if (la.actors.length > 0)
             x["Actors"] = { Actor: la.actors.map(a => ({ "#text": a.actor.key() })) };
-        if (la.actorsEvaluator != null)
-            x[A + "ActorsEvaluator"] = la.actorsEvaluator.key;
+        if (la.actorsEval != null)
+            x["ActorsEval"] = { "#cdata": la.actorsEval.script };
         if (la.useActorEvalForStart)
             x["UseActorEvalForStart"] = true;
         if (la.combineActorAndActorEvalWhenContinuing)
@@ -248,7 +248,7 @@ async function workflowToXml(workflow: WorkflowEntity, ctx: IToXmlContext): Prom
                 [A + "Workflow"]: a.subWorkflow.workflow.is(workflow)
                     ? String(workflow.id)
                     : ctx.include(a.subWorkflow.workflow),
-                [A + "SubEntitiesEvaluator"]: a.subWorkflow.subEntitiesEvaluator.key,
+                SubEntitiesEval: { "#cdata": a.subWorkflow.subEntitiesEval.script },
             };
         if (a.script != null) {
             const script = await ctx.retrieveLite(a.script.script);
@@ -298,9 +298,9 @@ async function workflowToXml(workflow: WorkflowEntity, ctx: IToXmlContext): Prom
             if (task.rule != null)
                 m[A + "Rule"] = ctx.include(task.rule as never);
             if (task.condition != null)
-                m[A + "Condition"] = task.condition.key;
+                m["Condition"] = { "#cdata": task.condition.script };
             if (task.action != null)
-                m[A + "Action"] = task.action.key;
+                m["Action"] = { "#cdata": task.action.script };
             x["WorkflowEventTaskModel"] = m;
         }
         return x;
@@ -529,7 +529,8 @@ function setLane(l: WorkflowLaneEntity, x: Record<string, unknown>, pools: Map<s
     l.actors = actorKeys.map(k => ctx.parseLite(k)).notNull()
         .map(lite => WorkflowLaneEntity_Actor.create({ actor: lite }));
 
-    l.actorsEvaluator = optionalSymbol(WorkflowLaneActorsSymbol, str(x["ActorsEvaluator"]), "Lane.ActorsEvaluator", x, "ActorsEval");
+    const actorsScript = str(x["ActorsEval"]);
+    l.actorsEval = actorsScript == undefined ? null : WorkflowLaneActorsEval.create({ script: actorsScript });
     l.useActorEvalForStart = bool(x["UseActorEvalForStart"]) ?? false;
     l.combineActorAndActorEvalWhenContinuing = bool(x["CombineActorAndActorEvalWhenContinuing"]) ?? false;
     setDiagramXml(l, x);
@@ -563,8 +564,7 @@ async function setActivity(a: WorkflowActivityEntity, x: Record<string, unknown>
         workflow: String(workflow.id) === str(sub["Workflow"])
             ? workflow
             : ctx.getEntity(str(sub["Workflow"])!) as unknown as WorkflowEntity,
-        subEntitiesEvaluator: resolveSymbol(WorkflowSubEntitiesSymbol, str(sub["SubEntitiesEvaluator"]),
-            "Activity.SubWorkflow"),
+        subEntitiesEval: SubEntitiesEval.create({ script: str(sub["SubEntitiesEval"]) ?? "" }),
     });
 
     const script = x["Script"] as Record<string, unknown> | undefined;
@@ -632,10 +632,10 @@ async function applyEventTaskModel(e: WorkflowEventEntity, x: Record<string, unk
         suspended: bool(m["Suspended"]) ?? false,
         triggeredOn: Enum.toValue(TriggeredOn, str(m["TriggeredOn"])! as never) as TriggeredOn,
         rule: m["Rule"] == null ? null : ctx.getEntity(str(m["Rule"])!) as never,
-        condition: optionalSymbol(WorkflowEventTaskConditionSymbol, str(m["Condition"]),
-            "WorkflowEventTaskModel.Condition", m, "Condition"),
-        action: optionalSymbol(WorkflowEventTaskActionSymbol, str(m["Action"]),
-            "WorkflowEventTaskModel.Action", m, "Action"),
+        condition: str(m["Condition"]) == undefined ? null
+            : WorkflowEventTaskConditionEval.create({ script: str(m["Condition"])! }),
+        action: str(m["Action"]) == undefined ? null
+            : WorkflowEventTaskActionEval.create({ script: str(m["Action"])! }),
     });
 
     await applyWorkflowEventTaskModel(e, model);
@@ -671,17 +671,6 @@ function setDiagramXml(entity: { xml: WorkflowXmlEmbedded }, x: Record<string, u
  * A symbol reference that may be ABSENT — but a Signum-exported script in its place is an error, not a
  * silent null (the divergence the header explains).
  */
-function optionalSymbol<S>(symbolType: new () => S, key: string | undefined,
-    what: string, container: Record<string, unknown>, scriptElementName: string): S | null {
-    if (key != null)
-        return SymbolLogic.toSymbol(symbolType as never, key) as unknown as S;
-
-    if (container[scriptElementName] != null)
-        throw new Error(`${what}: this file carries a compiled C# script where altea expects the KEY of a `
-            + `registered symbol (see data/WorkflowEval.ts).`);
-
-    return null;
-}
 
 // ---- fast-xml-parser helpers ---------------------------------------------------------------------------
 

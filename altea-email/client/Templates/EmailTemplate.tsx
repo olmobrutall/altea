@@ -24,6 +24,9 @@ import {
     EmailAddressSourceEnum, EmailMessageFormatEnum, EmailTemplateEntity, EmailTemplateEntity_From, EmailTemplateEntity_Message,
     EmailTemplateEntity_Recipient, EmailTemplateMessage, EmailTemplateViewMessage,
 } from "../../data/EmailTemplate";
+import { TemplateApplicableEval } from "@altea/altea-templating/data/Templating";
+import { EvalLine } from "@altea/altea-eval/client/EvalLine";
+import { resolveType } from "@altea/altea/data/registration";
 import IFrameRenderer from "./IframeRenderer";
 
 // Port of Signum.Mailing's Templates/EmailTemplate.tsx — the template editor: recipients, attachments, the
@@ -40,8 +43,8 @@ import IFrameRenderer from "./IframeRenderer";
 //    every href it does not recognise as a url, so a template's `@[m:url]` TOKEN comes back as
 //    `mailto:@[m:url]` — a silently wrong scheme instead of a visibly missing link. HtmlSimple is for
 //    prose; a template that carries links belongs in HtmlComplex (which is what the seeded ones use).
-//  - The APPLICABLE tab edited a C# script through CSharpCodeMirror; altea's applicable is a
-//    TemplateApplicableSymbol, so it is an EntityLine on the main form instead of a tab.
+//  - The APPLICABLE tab keeps Signum's shape — a stored SCRIPT in its own tab — through @altea/altea-eval's
+//    EvalLine; the editor is TypeScript rather than C#, and the TypeHelp tree beside it is not ported.
 //  - `EntityAccordion` is not ported, so the recipients use `EntityRepeater`. The per-culture MESSAGES keep
 //    Signum's `EntityTabRepeater` — it is ported into altea core as part of this module's work.
 //  - `ctx.value.query!.key` guards are unchanged — a token editor needs a query.
@@ -61,11 +64,15 @@ export default function EmailTemplate(p: { ctx: TypeContext<EmailTemplateEntity>
                 remove={ctx.value.from == undefined
                     && ctx.value.recipients.length === 0
                     && ctx.value.messages.length === 0} />
-            <EntityLine ctx={ctx3.subCtx(e => e.applicable)} onChange={forceUpdate}
-                helpText={EmailTemplateApplicableHelp} />
 
             <div className="mb-4">
                 <Tabs id={ctx.prefix + "tabs"}>
+                    <Tab eventKey="applicable" title={ctx.niceName(a => a.applicable)}>
+                        <EntityDetail ctx={ctx3.subCtx(e => e.applicable)} onChange={forceUpdate}
+                            onCreate={() => Promise.resolve(TemplateApplicableEval.create({ script: "" }))}
+                            helpText={EmailTemplateApplicableHelp}
+                            getComponent={actx => <EvalLine ctx={actx} signature={applicableSignature(ctx.value)} />} />
+                    </Tab>
                     <Tab eventKey="recipients" title={ctx.niceName(a => a.recipients)}>
                         <EntityDetail ctx={ecXs.subCtx(e => e.from)} onChange={forceUpdate}
                             onCreate={() => Promise.resolve(EmailTemplateEntity_From.create({}))}
@@ -141,7 +148,13 @@ export default function EmailTemplate(p: { ctx: TypeContext<EmailTemplateEntity>
     );
 }
 
-const EmailTemplateApplicableHelp = "A code-registered predicate (TemplatingLogic.registerApplicable) that decides whether this template applies to a given entity. Leave empty to apply always.";
+const EmailTemplateApplicableHelp = "A script that decides whether this template applies to a given entity. Leave it unset to apply always.";
+
+/** The signature the server generates for this template's applicable eval (see TemplateApplicableEval). */
+function applicableSignature(template: EmailTemplateEntity): string {
+    const ctor = template.query == null ? undefined : resolveType(template.query.key);
+    return `function evaluate(e: ${ctor?.name ?? "Entity"} | null): boolean`;
+}
 
 function EmailTemplateFrom(p: { ctx: TypeContext<EmailTemplateEntity_From>; query: QueryEntity | null }): React.JSX.Element {
     const sc = p.ctx.subCtx({ formGroupStyle: "Basic" });

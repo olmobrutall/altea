@@ -4,7 +4,8 @@ import { entity, primaryKey, uniqueIndex, stringLengthValidator } from "@altea/a
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { type IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
-import { WorkflowTimerConditionSymbol } from "./WorkflowEval";
+import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eval";
+import type { IWorkflowTimerConditionEvaluator } from "./WorkflowEval";
 
 // Port of Signum.Workflow's WorkflowTimerCondition.cs — a NAMED "has this timer fired?" predicate, an
 // alternative to a fixed duration on a timer event. Same two divergences as WorkflowCondition.ts.
@@ -20,10 +21,29 @@ export class WorkflowTimerConditionEntity extends Entity implements IUserAssetEn
 
     mainEntityType: TypeEntity;
 
-    evaluator: WorkflowTimerConditionSymbol;
+    eval: WorkflowTimerConditionEval;
 
     toString(): string {
         return this.name;
+    }
+}
+
+/**
+ * Signum's WorkflowTimerConditionEval. Its generated signature is the one place Signum passes THREE
+ * parameters: the pending case activity, its main entity (cast from `ca.Case.MainEntity`) and the clock.
+ * altea keeps all three, so a script reads the same.
+ */
+@reflect
+export class WorkflowTimerConditionEval extends EvalEmbedded<IWorkflowTimerConditionEvaluator> {
+    protected override compile(): CompilationResult<IWorkflowTimerConditionEvaluator> {
+        const mainEntityType = this.owner<WorkflowTimerConditionEntity>().mainEntityType.className;
+
+        return this.wrap({
+            importTypes: [mainEntityType, "CaseActivityEntity", "Temporal"],
+            parameters: `ca: CaseActivityEntity, e: ${mainEntityType}, now: Temporal.PlainDateTime`,
+            returnType: "boolean",
+            isAsync: true,
+        });
     }
 }
 

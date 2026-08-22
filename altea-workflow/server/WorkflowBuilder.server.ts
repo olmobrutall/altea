@@ -508,7 +508,7 @@ export class LaneBuilder {
             pool,
             name: oldLane.name,
             bpmnElementId: oldLane.bpmnElementId,
-            actorsEvaluator: oldLane.actorsEvaluator,
+            actorsEval: oldLane.actorsEval,
             useActorEvalForStart: oldLane.useActorEvalForStart,
             combineActorAndActorEvalWhenContinuing: oldLane.combineActorAndActorEvalWhenContinuing,
             xml: oldLane.xml,

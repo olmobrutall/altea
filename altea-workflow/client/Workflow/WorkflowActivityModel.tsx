@@ -14,18 +14,19 @@ import type { TypeContext } from "@altea/altea/client/TypeContext";
 import type { TypeEntity } from "@altea/altea/data/typeEntity";
 import { WorkflowEntity, WorkflowMessage } from "../../data/Workflow";
 import {
-    BootstrapStyle, ButtonOptionEmbedded, SubWorkflowEmbedded, ViewNamePropEmbedded, WorkflowActivityMessage,
-    WorkflowActivityModel, WorkflowActivityType, WorkflowScriptPartEmbedded,
+    BootstrapStyle, ButtonOptionEmbedded, SubEntitiesEval, SubWorkflowEmbedded, ViewNamePropEmbedded,
+    WorkflowActivityMessage, WorkflowActivityModel, WorkflowActivityType, WorkflowScriptPartEmbedded,
 } from "../../data/WorkflowNodes";
 import { WorkflowScriptEntity } from "../../data/WorkflowScript";
+import { EvalLine } from "@altea/altea-eval/client/EvalLine";
 
 // Port of Signum.Workflow's Workflow/WorkflowActivityModel.tsx — the big one: what an ACTIVITY is. Its type
 // drives everything else (a Script activity gets a script part, a Decomposition gets a sub-workflow, a
 // Decision gets its buttons, a Task may get a custom Next button), and a custom VIEW may take extra props.
 //
 // altea divergences:
-//  - the sub-entities eval is a symbol PICKER (see data/WorkflowEval.ts), so Signum's C# editor +
-//    TypeHelp browser for it are gone.
+//  - the sub-entities eval is edited in TypeScript rather than C# (@altea/altea-eval's EvalLine), and the
+//    TypeHelp browser beside Signum's editor is gone.
 //  - `userHelp` is edited with a plain TextAreaLine. Signum uses its HtmlEditor; @altea/altea-html-editor
 //    exists, but depending on it from here for one field would pull a whole package into every app that uses
 //    workflows — the seam is `WorkflowActivityModelOptions.userHelpComponent`, which an app can fill with
@@ -111,7 +112,7 @@ export default function WorkflowActivityModelComponent(
         }
 
         if (wa.type === WorkflowActivityType.DecompositionWorkflow || wa.type === WorkflowActivityType.CallWorkflow) {
-            wa.subWorkflow ??= SubWorkflowEmbedded.create({});
+            wa.subWorkflow ??= SubWorkflowEmbedded.create({ subEntitiesEval: SubEntitiesEval.create({ script: "" }) });
             wa.script = null;
         }
 
@@ -268,7 +269,8 @@ export default function WorkflowActivityModelComponent(
 
             {ctx.value.subWorkflow != null
                 ? ctx.value.mainEntityType
-                    ? <DecompositionComponent ctx={ctx.subCtx(a => a.subWorkflow!)} />
+                    ? <DecompositionComponent ctx={ctx.subCtx(a => a.subWorkflow!)}
+                        mainEntityType={ctx.value.mainEntityType} />
                     : <div className="alert alert-warning">
                         {WorkflowMessage.ToUse0YouSouldSetTheWorkflow1.niceToString(
                             ctx.niceName(e => e.subWorkflow), ctx.niceName(e => e.mainEntityType))}
@@ -292,14 +294,17 @@ function ScriptComponent(p: { ctx: TypeContext<WorkflowScriptPartEmbedded>; main
     );
 }
 
-function DecompositionComponent(p: { ctx: TypeContext<SubWorkflowEmbedded> }): React.JSX.Element {
+function DecompositionComponent(p: { ctx: TypeContext<SubWorkflowEmbedded>; mainEntityType: TypeEntity }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
     const ctx = p.ctx;
     return (
         <fieldset>
             <legend>{ctx.niceName()}</legend>
             <EntityLine ctx={ctx.subCtx(a => a.workflow)} onChange={() => forceUpdate()} />
-            {ctx.value.workflow && <EntityLine ctx={ctx.subCtx(a => a.subEntitiesEvaluator)} />}
+            {ctx.value.workflow &&
+                <EvalLine ctx={ctx.subCtx(a => a.subEntitiesEval)}
+                    signature={`function evaluate(e: ${p.mainEntityType.className}, ctx: WorkflowTransitionContext)`
+                        + `: Promise<${ctx.value.workflow.mainEntityType.className}[]>`} />}
         </fieldset>
     );
 }

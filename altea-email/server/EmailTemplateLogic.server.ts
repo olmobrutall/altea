@@ -339,13 +339,13 @@ export namespace EmailTemplateLogic {
 
     // ---- applicability / visibility ---------------------------------------------------------------------
 
-    /** Signum's `template.IsApplicable(entity)` — a code-registered predicate (see the header). */
+    /** Signum's `template.IsApplicable(entity)` — the stored script, compiled on first use. */
     export function isApplicable(template: EmailTemplateEntity, entity: Entity | null): boolean {
         if (template.applicable == null)
             return true;
 
         try {
-            return TemplatingLogic.isApplicable(template.applicable, entity);
+            return template.applicable.algorithm(entity);
         } catch (e) {
             throw new Error(`Error evaluating Applicable for EmailTemplate '${template.name}' with entity '${String(entity)}': ${(e as Error).message}`);
         }

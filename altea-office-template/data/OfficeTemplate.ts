@@ -17,7 +17,7 @@ import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { FileEmbedded } from "@altea/altea-files/data/Files";
 import { QueryTokenEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
-import { ModelConverterSymbol, TemplateApplicableSymbol, type IContainsQuery } from "@altea/altea-templating/data/Templating";
+import { ModelConverterSymbol, TemplateApplicableEval, type IContainsQuery } from "@altea/altea-templating/data/Templating";
 import type { IAttachmentGeneratorEntity } from "@altea/altea-email/data/EmailTemplate";
 
 // Port of Signum.Word's WordTemplate.cs + SystemWordTemplate.cs + WordAttachmentEntity.cs: the AUTHORED
@@ -39,7 +39,7 @@ import type { IAttachmentGeneratorEntity } from "@altea/altea-email/data/EmailTe
 //    FilterBuilderEmbedded editor drives it.
 //  - `Guid Guid [UniqueIndex]` (the portable identity) → a uuid PRIMARY KEY: the `id` IS the portable
 //    identity, so IUserAssetEntity is a bare marker.
-//  - `TemplateApplicableEval` (a compiled C# script) → `applicable: TemplateApplicableSymbol | null`, a
+//  - `TemplateApplicableEval` keeps Signum's shape — a stored script — but the script is TYPESCRIPT and the
 //    code-registered predicate (see @altea/altea-templating's data/Templating.ts for the rationale).
 //  - `CultureInfoEntity Culture` → a plain locale STRING (altea has no CultureInfoEntity).
 //  - `Lite<FileEntity> Template` → `template: FileEmbedded`. altea-files has no standalone FileEntity row,
@@ -149,9 +149,8 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
         ? ValidationMessage._0IsNotSet.niceToString("{0}") : null)
     orders: OfficeTemplateEntity_Order[];
 
-    /** altea's stand-in for Signum's compiled `TemplateApplicableEval` (see the header): a code-registered
-     *  predicate, resolved through @altea/altea-templating's TemplatingLogic. */
-    applicable: TemplateApplicableSymbol | null;
+    /** Signum's `TemplateApplicableEval` — a stored script, compiled by @altea/altea-eval. */
+    applicable: TemplateApplicableEval | null;
 
     /** Signum's DisableAuthorization — render this template with row-level/type auth OFF (a system report
      *  must be able to read rows the triggering user cannot). */

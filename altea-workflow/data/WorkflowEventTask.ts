@@ -13,14 +13,16 @@ import {
 } from "@altea/altea-scheduler/data/Scheduler";
 import { WorkflowEntity } from "./Workflow";
 import { WorkflowEventEntity } from "./WorkflowNodes";
-import { WorkflowEventTaskActionSymbol, WorkflowEventTaskConditionSymbol } from "./WorkflowEval";
+import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eval";
+import type { IWorkflowEventTaskActionEvaluator, IWorkflowEventTaskConditionEvaluator } from "./WorkflowEval";
 
 // Port of Signum.Workflow's WorkflowEventTask.cs — what a SCHEDULED START event actually is: an
 // altea-scheduler task (`ITaskEntity`) that, when its rule fires, asks a registered function which entities
 // to open cases for.
 //
 // altea divergences:
-//  - the two `EvalEmbedded` scripts become symbols (see WorkflowEval.ts).
+//  - the ACTION eval returns the entities to create cases for, where Signum's script calls a generated
+//    `CreateCase(entity)` helper — see WorkflowEventTaskActionEval.
 //  - Signum reaches the full workflow through a static `Func<Lite<WorkflowEntity>, WorkflowEntity>` the logic
 //    layer assigns (`WorkflowEventTaskEntity.GetWorkflowEntity`), because the entity assembly cannot see the
 //    engine. altea keeps the `@column(false) fullWorkflow` cache Signum has, but the RESOLUTION lives in
@@ -58,9 +60,9 @@ export class WorkflowEventTaskEntity extends Entity implements ITaskEntity {
             : t.triggeredOn !== TriggeredOn.Always && t.condition == null
                 ? ValidationMessage._0IsNotSet.niceToString(WorkflowEventTaskEntity.nicePropertyName(a => a.condition))
                 : null)
-    condition: WorkflowEventTaskConditionSymbol | null;
+    condition: WorkflowEventTaskConditionEval | null;
 
-    action: WorkflowEventTaskActionSymbol | null;
+    action: WorkflowEventTaskActionEval | null;
 
     toString(): string {
         return this.workflow + " : " + this.event;
@@ -87,9 +89,41 @@ export class WorkflowEventTaskModel extends ModelEntity {
 
     triggeredOn: TriggeredOn = TriggeredOn.Always;
 
-    condition: WorkflowEventTaskConditionSymbol | null;
+    condition: WorkflowEventTaskConditionEval | null;
 
-    action: WorkflowEventTaskActionSymbol | null;
+    action: WorkflowEventTaskActionEval | null;
+}
+
+/**
+ * Signum's WorkflowEventTaskConditionEval — "should this scheduled start fire now?". It takes NOTHING: there
+ * is no case yet, so the script queries for itself.
+ */
+@reflect
+export class WorkflowEventTaskConditionEval extends EvalEmbedded<IWorkflowEventTaskConditionEvaluator> {
+    protected override compile(): CompilationResult<IWorkflowEventTaskConditionEvaluator> {
+        return this.wrap({ parameters: "", returnType: "boolean", isAsync: true });
+    }
+}
+
+/**
+ * Signum's WorkflowEventTaskActionEval — what a scheduled start creates cases FOR.
+ *
+ * altea divergence: Signum's generated wrapper gives the script a `CreateCase(entity)` method that pushes
+ * onto a list it then returns, because a C# method body cannot be an expression. A TypeScript function just
+ * RETURNS the list, so the indirection (and its inner `CreateCaseEvaluator` class) is gone.
+ */
+@reflect
+export class WorkflowEventTaskActionEval extends EvalEmbedded<IWorkflowEventTaskActionEvaluator> {
+    protected override compile(): CompilationResult<IWorkflowEventTaskActionEvaluator> {
+        // UNTYPED, exactly as Signum's generated `CreateCase(ICaseMainEntity)` is: the task only holds a
+        // `Lite<WorkflowEntity>`, so neither tier can name the sub-workflow's main entity type here.
+        return this.wrap({
+            importTypes: ["ICaseMainEntity"],
+            parameters: "",
+            returnType: "ICaseMainEntity[]",
+            isAsync: true,
+        });
+    }
 }
 
 /** Signum's WorkflowEventTaskConditionResultEntity — the log of what a `ConditionChangesToTrue` task saw

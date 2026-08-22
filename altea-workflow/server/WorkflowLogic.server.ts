@@ -7,7 +7,6 @@ import { table } from "@altea/altea/server/table";
 import type { IQuery } from "@altea/altea/data/iquery";
 import { graph } from "@altea/altea/server/graphBuilder";
 import { Operations } from "@altea/altea/server/operationLogic";
-import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { ObjectDumper } from "@altea/altea/data/objectDumper";
 import { withQuoted } from "@altea/altea/data/decorators";
@@ -23,6 +22,7 @@ import { ValidationMessage } from "@altea/altea/data/validators";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { UserAssetLogic } from "@altea/altea-user-assets/server/UserAssetLogic.server";
+import { EvalLogic } from "@altea/altea-eval/server/EvalLogic.server"; // + FluentInclude.withEvals
 import {
     WorkflowEntity, WorkflowIssueType, WorkflowMessage, WorkflowOperation, WorkflowPermission,
     WorkflowXmlEmbedded, WorkflowMainEntityStrategy, WorkflowModel, WorkflowReplacementModel,
@@ -34,21 +34,16 @@ import {
     WorkflowGatewayEntity, WorkflowGatewayOperation, WorkflowLaneEntity, WorkflowLaneOperation,
     WorkflowGatewayDirection, WorkflowPoolEntity, WorkflowPoolOperation, isScheduledStart, isTimer,
 } from "../data/WorkflowNodes";
-import { WorkflowConditionEntity, WorkflowConditionOperation } from "../data/WorkflowCondition";
-import { WorkflowActionEntity, WorkflowActionOperation } from "../data/WorkflowAction";
-import { WorkflowTimerConditionEntity, WorkflowTimerConditionOperation } from "../data/WorkflowTimerCondition";
+import { WorkflowConditionEntity, WorkflowConditionEval, WorkflowConditionOperation } from "../data/WorkflowCondition";
+import { WorkflowActionEntity, WorkflowActionEval, WorkflowActionOperation } from "../data/WorkflowAction";
+import { WorkflowTimerConditionEntity, WorkflowTimerConditionEval, WorkflowTimerConditionOperation } from "../data/WorkflowTimerCondition";
 import {
-    WorkflowScriptEntity, WorkflowScriptOperation, WorkflowScriptRetryStrategyEntity,
+    WorkflowScriptEntity, WorkflowScriptEval, WorkflowScriptOperation, WorkflowScriptRetryStrategyEntity,
     WorkflowScriptRetryStrategyOperation,
 } from "../data/WorkflowScript";
-import {
-    WorkflowActionSymbol, WorkflowConditionSymbol, WorkflowEventTaskActionSymbol,
-    WorkflowEventTaskConditionSymbol, WorkflowLaneActorsSymbol, WorkflowScriptSymbol,
-    WorkflowSubEntitiesSymbol, WorkflowTimerConditionSymbol, WorkflowTransitionContext, WorkflowScriptContext,
-    type ISubEntitiesEvaluator, type IWorkflowActionExecutor, type IWorkflowConditionEvaluator,
-    type IWorkflowEventTaskActionEvaluator, type IWorkflowEventTaskConditionEvaluator,
-    type IWorkflowLaneActorsEvaluator, type IWorkflowScriptExecutor, type IWorkflowTimerConditionEvaluator,
-} from "../data/WorkflowEval";
+import { WorkflowTransitionContext, WorkflowScriptContext } from "../data/WorkflowEval";
+import type { SubEntitiesEval, WorkflowLaneActorsEval } from "../data/WorkflowNodes";
+import type { WorkflowEventTaskActionEval, WorkflowEventTaskConditionEval } from "../data/WorkflowEventTask";
 import type { ICaseMainEntity } from "../data/Case";
 import { CaseActivityEntity, CaseActivityMessage } from "../data/CaseActivity";
 import type { WorkflowIssue } from "../data/WorkflowDtos";
@@ -213,94 +208,20 @@ export namespace WorkflowLogic {
         return getConfiguration();
     }
 
-    // ---- The eight evaluator registries -------------------------------------------------------------
+    // ---- Evaluating the eight evals (Signum's `wc.Evaluate(...)` / `wa.Execute(...)` extensions) -----
     //
-    // Each is `key → function`, plus the list of declared symbols SymbolLogic seeds the table from. Keyed by
-    // the symbol's KEY, never the OBJECT: a symbol read back from the database is a fresh instance, not the
-    // declared singleton (the gotcha the scheduler port documented).
-
-    const conditionEvaluators = new Map<string, IWorkflowConditionEvaluator>();
-    const declaredConditions: WorkflowConditionSymbol[] = [];
-
-    const actionExecutors = new Map<string, IWorkflowActionExecutor>();
-    const declaredActions: WorkflowActionSymbol[] = [];
-
-    const timerConditionEvaluators = new Map<string, IWorkflowTimerConditionEvaluator>();
-    const declaredTimerConditions: WorkflowTimerConditionSymbol[] = [];
-
-    const scriptExecutors = new Map<string, IWorkflowScriptExecutor>();
-    const declaredScripts: WorkflowScriptSymbol[] = [];
-
-    const laneActorsEvaluators = new Map<string, IWorkflowLaneActorsEvaluator>();
-    const declaredLaneActors: WorkflowLaneActorsSymbol[] = [];
-
-    const subEntitiesEvaluators = new Map<string, ISubEntitiesEvaluator>();
-    const declaredSubEntities: WorkflowSubEntitiesSymbol[] = [];
-
-    const eventTaskConditionEvaluators = new Map<string, IWorkflowEventTaskConditionEvaluator>();
-    const declaredEventTaskConditions: WorkflowEventTaskConditionSymbol[] = [];
-
-    const eventTaskActionEvaluators = new Map<string, IWorkflowEventTaskActionEvaluator>();
-    const declaredEventTaskActions: WorkflowEventTaskActionSymbol[] = [];
-
-    function registerInto<S extends { key?: string }, F>(
-        map: Map<string, F>, declared: S[], kind: string, symbol: S, fn: F): void {
-        if (symbol?.key == null)
-            throw new Error(`WorkflowLogic.register${kind}: the symbol is null — is it declared with init() inside a namespace?`);
-        if (map.has(symbol.key))
-            throw new Error(`WorkflowLogic.register${kind}: '${symbol.key}' is already registered`);
-        map.set(symbol.key, fn);
-        declared.push(symbol);
-    }
-
-    function resolve<F>(map: Map<string, F>, symbol: { key: string } | null | undefined, kind: string): F {
-        const fn = symbol == null ? undefined : map.get(symbol.key);
-        if (fn == null)
-            throw new Error(`Workflow ${kind} '${symbol?.key ?? "(null)"}' has no registered function`);
-        return fn;
-    }
-
-    /** Bind the predicate behind a declared WorkflowConditionSymbol. Call BEFORE start. */
-    export function registerCondition(symbol: WorkflowConditionSymbol, evaluator: IWorkflowConditionEvaluator): void {
-        registerInto(conditionEvaluators, declaredConditions, "Condition", symbol, evaluator);
-    }
-
-    export function registerAction(symbol: WorkflowActionSymbol, executor: IWorkflowActionExecutor): void {
-        registerInto(actionExecutors, declaredActions, "Action", symbol, executor);
-    }
-
-    export function registerTimerCondition(symbol: WorkflowTimerConditionSymbol, evaluator: IWorkflowTimerConditionEvaluator): void {
-        registerInto(timerConditionEvaluators, declaredTimerConditions, "TimerCondition", symbol, evaluator);
-    }
-
-    export function registerScript(symbol: WorkflowScriptSymbol, executor: IWorkflowScriptExecutor): void {
-        registerInto(scriptExecutors, declaredScripts, "Script", symbol, executor);
-    }
-
-    export function registerLaneActors(symbol: WorkflowLaneActorsSymbol, evaluator: IWorkflowLaneActorsEvaluator): void {
-        registerInto(laneActorsEvaluators, declaredLaneActors, "LaneActors", symbol, evaluator);
-    }
-
-    export function registerSubEntities(symbol: WorkflowSubEntitiesSymbol, evaluator: ISubEntitiesEvaluator): void {
-        registerInto(subEntitiesEvaluators, declaredSubEntities, "SubEntities", symbol, evaluator);
-    }
-
-    export function registerEventTaskCondition(symbol: WorkflowEventTaskConditionSymbol, evaluator: IWorkflowEventTaskConditionEvaluator): void {
-        registerInto(eventTaskConditionEvaluators, declaredEventTaskConditions, "EventTaskCondition", symbol, evaluator);
-    }
-
-    export function registerEventTaskAction(symbol: WorkflowEventTaskActionSymbol, evaluator: IWorkflowEventTaskActionEvaluator): void {
-        registerInto(eventTaskActionEvaluators, declaredEventTaskActions, "EventTaskAction", symbol, evaluator);
-    }
-
-    // ---- Evaluating them (Signum's `wc.Evaluate(...)` / `wa.Execute(...)` extensions) ---------------
+    // A NAMED eval (condition / action / timer condition / script) is reached through its cached entity, so
+    // the compiled algorithm is shared by every case that uses it; an INLINE one (lane actors, sub-entities,
+    // the event task's two) is called straight off the eval the caller already holds. Either way the
+    // `algorithm` getter compiles on first use and throws with the diagnostics if the script does not build
+    // (see @altea/altea-eval's data/Eval.ts).
 
     /** Signum's `Lite<WorkflowConditionEntity>.Evaluate(mainEntity, ctx)`. */
     export async function evaluateCondition(wc: Lite<WorkflowConditionEntity>, mainEntity: ICaseMainEntity,
         ctx: WorkflowTransitionContext): Promise<boolean> {
         const entity = mapGet(await conditions.value(), wc.key(), "WorkflowCondition");
         using _prof = HeavyProfiler.log("WorkflowCondition", () => entity.name);
-        return await resolve(conditionEvaluators, entity.evaluator, "condition")(mainEntity, ctx);
+        return await entity.eval.algorithm(mainEntity, ctx);
     }
 
     /** Signum's `Lite<WorkflowActionEntity>.Execute(mainEntity, ctx)`. */
@@ -308,7 +229,7 @@ export namespace WorkflowLogic {
         ctx: WorkflowTransitionContext): Promise<void> {
         const entity = mapGet(await actions.value(), wa.key(), "WorkflowAction");
         using _prof = HeavyProfiler.log("WorkflowAction", () => entity.name);
-        await resolve(actionExecutors, entity.executor, "action")(mainEntity, ctx);
+        await entity.eval.algorithm(mainEntity, ctx);
     }
 
     /** Signum's `Lite<WorkflowTimerConditionEntity>.Evaluate(ca, now)`. */
@@ -316,7 +237,8 @@ export namespace WorkflowLogic {
         now: Temporal.PlainDateTime): Promise<boolean> {
         const entity = mapGet(await timerConditions.value(), wc.key(), "WorkflowTimerCondition");
         using _prof = HeavyProfiler.log("WorkflowTimerCondition", () => entity.name);
-        return await resolve(timerConditionEvaluators, entity.evaluator, "timer condition")(ca, now);
+        // Signum's generated wrapper takes (ca, e, now) — the main entity is handed over already cast.
+        return await entity.eval.algorithm(ca, ca.case.mainEntity, now);
     }
 
     /** Signum's `script.Eval.Algorithm.ExecuteUntyped(mainEntity, ctx)`. */
@@ -324,25 +246,25 @@ export namespace WorkflowLogic {
         ctx: WorkflowScriptContext): Promise<void> {
         const entity = mapGet(await scripts.value(), ws.key(), "WorkflowScript");
         using _prof = HeavyProfiler.log("WorkflowScript", () => entity.name);
-        await resolve(scriptExecutors, entity.executor, "script")(mainEntity, ctx);
+        await entity.eval.algorithm(mainEntity, ctx);
     }
 
-    export async function evaluateLaneActors(symbol: WorkflowLaneActorsSymbol, mainEntity: ICaseMainEntity | null,
-        ctx: WorkflowTransitionContext): Promise<Lite<Entity>[]> {
-        return await resolve(laneActorsEvaluators, symbol, "lane actors")(mainEntity, ctx);
+    export async function evaluateLaneActors(actorsEval: WorkflowLaneActorsEval,
+        mainEntity: ICaseMainEntity | null, ctx: WorkflowTransitionContext): Promise<Lite<Entity>[]> {
+        return await actorsEval.algorithm(mainEntity, ctx);
     }
 
-    export async function evaluateSubEntities(symbol: WorkflowSubEntitiesSymbol, mainEntity: ICaseMainEntity,
+    export async function evaluateSubEntities(subEntitiesEval: SubEntitiesEval, mainEntity: ICaseMainEntity,
         ctx: WorkflowTransitionContext): Promise<ICaseMainEntity[]> {
-        return await resolve(subEntitiesEvaluators, symbol, "sub entities")(mainEntity, ctx);
+        return await subEntitiesEval.algorithm(mainEntity, ctx);
     }
 
-    export async function evaluateEventTaskCondition(symbol: WorkflowEventTaskConditionSymbol): Promise<boolean> {
-        return await resolve(eventTaskConditionEvaluators, symbol, "event task condition")();
+    export async function evaluateEventTaskCondition(condition: WorkflowEventTaskConditionEval): Promise<boolean> {
+        return await condition.algorithm();
     }
 
-    export async function evaluateEventTaskAction(symbol: WorkflowEventTaskActionSymbol): Promise<ICaseMainEntity[]> {
-        return await resolve(eventTaskActionEvaluators, symbol, "event task action")();
+    export async function evaluateEventTaskAction(action: WorkflowEventTaskActionEval): Promise<ICaseMainEntity[]> {
+        return await action.algorithm();
     }
 
     // ---- The graph cache ---------------------------------------------------------------------------
@@ -457,25 +379,6 @@ export namespace WorkflowLogic {
         // The shared user-asset infrastructure (the permission + the import/export HTTP surface).
         UserAssetLogic.start(sb);
 
-        // The eight symbol tables (Signum has none of these — they replace its compiled evals).
-        SymbolLogic.start(sb, WorkflowConditionSymbol, () => declaredConditions);
-        SymbolLogic.start(sb, WorkflowActionSymbol, () => declaredActions);
-        SymbolLogic.start(sb, WorkflowTimerConditionSymbol, () => declaredTimerConditions);
-        SymbolLogic.start(sb, WorkflowScriptSymbol, () => declaredScripts);
-        SymbolLogic.start(sb, WorkflowLaneActorsSymbol, () => declaredLaneActors);
-        SymbolLogic.start(sb, WorkflowSubEntitiesSymbol, () => declaredSubEntities);
-        SymbolLogic.start(sb, WorkflowEventTaskConditionSymbol, () => declaredEventTaskConditions);
-        SymbolLogic.start(sb, WorkflowEventTaskActionSymbol, () => declaredEventTaskActions);
-
-        sb.include(WorkflowConditionSymbol).withQuery();
-        sb.include(WorkflowActionSymbol).withQuery();
-        sb.include(WorkflowTimerConditionSymbol).withQuery();
-        sb.include(WorkflowScriptSymbol).withQuery();
-        sb.include(WorkflowLaneActorsSymbol).withQuery();
-        sb.include(WorkflowSubEntitiesSymbol).withQuery();
-        sb.include(WorkflowEventTaskConditionSymbol).withQuery();
-        sb.include(WorkflowEventTaskActionSymbol).withQuery();
-
         // The redundant full-diagram copy is only for the diff log to compare — never worth dumping.
         ObjectDumper.avoidDump.add("WorkflowEntity.fullDiagramXml");
         for (const t of ["WorkflowPoolEntity", "WorkflowLaneEntity", "WorkflowActivityEntity",
@@ -515,12 +418,14 @@ export namespace WorkflowLogic {
             .withQuery();
 
         sb.include(WorkflowLaneEntity)
+            .withEvals()
             .withSave(WorkflowLaneOperation.Save)
             .withDelete(WorkflowLaneOperation.Delete)
             .withExpressionFrom(WorkflowPoolEntity, p => p.workflowLanes())
             .withQuery();
 
         sb.include(WorkflowActivityEntity)
+            .withEvals()
             .withSave(WorkflowActivityOperation.Save)
             .withDelete(WorkflowActivityOperation.Delete)
             .withExpressionFrom(WorkflowEntity, p => p.workflowActivities())
@@ -616,7 +521,7 @@ export namespace WorkflowLogic {
     // ---- The four named-evaluator entities --------------------------------------------------------
 
     function startWorkflowConditions(sb: SchemaBuilder): void {
-        sb.include(WorkflowConditionEntity).withQuery();
+        sb.include(WorkflowConditionEntity).withQuery().withEvals();
 
         graph(WorkflowConditionEntity, g => {
             g.Execute(WorkflowConditionOperation.Save, {
@@ -645,7 +550,8 @@ export namespace WorkflowLogic {
                 entityType: WorkflowConditionEntity,
                 construct: e => WorkflowConditionEntity.create({
                     mainEntityType: e.mainEntityType,
-                    evaluator: e.evaluator,
+                    // A part has ONE owner, so the clone gets its own copy of the script.
+                    eval: WorkflowConditionEval.create({ script: e.eval.script }),
                 }),
             });
         }).register();
@@ -655,7 +561,7 @@ export namespace WorkflowLogic {
     }
 
     function startWorkflowActions(sb: SchemaBuilder): void {
-        sb.include(WorkflowActionEntity).withQuery();
+        sb.include(WorkflowActionEntity).withQuery().withEvals();
 
         graph(WorkflowActionEntity, g => {
             g.Execute(WorkflowActionOperation.Save, {
@@ -684,7 +590,7 @@ export namespace WorkflowLogic {
                 entityType: WorkflowActionEntity,
                 construct: e => WorkflowActionEntity.create({
                     mainEntityType: e.mainEntityType,
-                    executor: e.executor,
+                    eval: WorkflowActionEval.create({ script: e.eval.script }),
                 }),
             });
         }).register();
@@ -694,7 +600,7 @@ export namespace WorkflowLogic {
     }
 
     function startWorkflowTimerConditions(sb: SchemaBuilder): void {
-        sb.include(WorkflowTimerConditionEntity).withQuery();
+        sb.include(WorkflowTimerConditionEntity).withQuery().withEvals();
 
         graph(WorkflowTimerConditionEntity, g => {
             g.Execute(WorkflowTimerConditionOperation.Save, {
@@ -725,7 +631,7 @@ export namespace WorkflowLogic {
                 entityType: WorkflowTimerConditionEntity,
                 construct: e => WorkflowTimerConditionEntity.create({
                     mainEntityType: e.mainEntityType,
-                    evaluator: e.evaluator,
+                    eval: WorkflowTimerConditionEval.create({ script: e.eval.script }),
                 }),
             });
         }).register();
@@ -735,7 +641,7 @@ export namespace WorkflowLogic {
     }
 
     function startWorkflowScript(sb: SchemaBuilder): void {
-        sb.include(WorkflowScriptEntity).withQuery();
+        sb.include(WorkflowScriptEntity).withQuery().withEvals();
 
         graph(WorkflowScriptEntity, g => {
             g.Execute(WorkflowScriptOperation.Save, {
@@ -766,7 +672,7 @@ export namespace WorkflowLogic {
                 entityType: WorkflowScriptEntity,
                 construct: e => WorkflowScriptEntity.create({
                     mainEntityType: e.mainEntityType,
-                    executor: e.executor,
+                    eval: WorkflowScriptEval.create({ script: e.eval.script }),
                 }),
             });
         }).register();
@@ -778,6 +684,25 @@ export namespace WorkflowLogic {
             .withSave(WorkflowScriptRetryStrategyOperation.Save)
             .withDelete(WorkflowScriptRetryStrategyOperation.Delete)
             .withQuery();
+
+        registerEvalSources();
+    }
+
+    /**
+     * Signum's `EvalClient.Options.checkEvalFindOptions.Add(...)` calls in WorkflowClient.tsx — what the
+     * "check every stored script" pass walks. altea keeps the registry on the server (see
+     * EvalLogic.evalSources), so the two entries Signum has to express as a client FindOption with a filter
+     * (`Lane.ActorsEval != null`, `Activity.SubWorkflow != null`) are a plain `.filter(...)` here.
+     */
+    function registerEvalSources(): void {
+        EvalLogic.registerEvalSource(WorkflowConditionEntity.niceName(), () => table(WorkflowConditionEntity).toArray());
+        EvalLogic.registerEvalSource(WorkflowActionEntity.niceName(), () => table(WorkflowActionEntity).toArray());
+        EvalLogic.registerEvalSource(WorkflowTimerConditionEntity.niceName(), () => table(WorkflowTimerConditionEntity).toArray());
+        EvalLogic.registerEvalSource(WorkflowScriptEntity.niceName(), () => table(WorkflowScriptEntity).toArray());
+        EvalLogic.registerEvalSource(WorkflowLaneEntity.niceName(), async () =>
+            (await table(WorkflowLaneEntity).toArray()).filter(l => l.actorsEval != null));
+        EvalLogic.registerEvalSource(WorkflowActivityEntity.niceName(), async () =>
+            (await table(WorkflowActivityEntity).toArray()).filter(a => a.subWorkflow != null));
     }
 
     async function keyedByLite<T extends Entity>(query: IQuery<T>): Promise<Map<string, T>> {
