@@ -22,6 +22,16 @@ export const EntityControlMessage = {
     Reload: msg("Reload"),
     Changed: msg("Changed"),
     NoChanges: msg("No changes"),
+    // The version-diff vocabulary the Time Machine's "UI differences" tab renders through
+    // `getTimeMachineIcon` (Lines/TimeMachineIcon). They live here, beside the rest of the Lines
+    // messages, because the ICON is a core Line concern — @altea/altea-time-machine only supplies the
+    // `previousVersion` on the TypeContext that switches it on.
+    PreviousValueWas0: msg("Previous value was: {0}"),
+    Moved: msg("Moved"),
+    Removed0: msg("Removed {0}"),
+    Added: msg("Added"),
+    RemovedAndSelectedAgain: msg("Removed and selected again"),
+    Selected: msg("Selected"),
     // Signum's EntityControlMessage.ToggleSideBar — used by the sidebar toggle in the navbar
     // (@altea/altea-toolbar's SidebarToggleItem), which is why it lives with the framework messages.
     ToggleSideBar: msg("Toggle side bar"),
