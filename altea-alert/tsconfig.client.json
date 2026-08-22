@@ -1,0 +1,9 @@
+{
+    // CLIENT layer — the alert views + the navbar dropdown; references DATA only, never server.
+    "extends": "../altea/presets/client.json",
+    "references": [
+        { "path": "./tsconfig.data.json" },
+        { "path": "../altea/tsconfig.client.json" },
+        { "path": "../altea-auth/tsconfig.client.json" }
+    ]
+}

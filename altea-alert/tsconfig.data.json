@@ -1,0 +1,10 @@
+{
+    // DATA layer — the isomorphic entity model; references DATA only.
+    "extends": "../altea/presets/data.json",
+    "references": [
+        { "path": "../altea/tsconfig.data.json" },
+        { "path": "../altea-auth/tsconfig.data.json" },
+        { "path": "../altea-email/tsconfig.data.json" },
+        { "path": "../altea-scheduler/tsconfig.data.json" }
+    ]
+}

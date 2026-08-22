@@ -1,0 +1,26 @@
+{
+  "name": "@altea/altea-alert",
+  "version": "0.0.1",
+  "description": "User notifications: alerts, the navbar dropdown and the notification e-mail task (ported from Signum.Alerts)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-cache": "workspace:*",
+    "@altea/altea-email": "workspace:*",
+    "@altea/altea-scheduler": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}
