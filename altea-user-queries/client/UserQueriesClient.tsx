@@ -24,6 +24,7 @@ import {
 import { UserQueryEntity, UserQueryLite, UserQueryEntity_Filter } from "../data/UserQuery";
 import type { PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
+import { SearchControlLoaded } from "@altea/altea/client/SearchControl/SearchControlLoaded";
 import UserQueryMenu from "./UserQueryMenu";
 import { UserQueriesDashboardClient } from "./Dashboard/UserQueriesDashboardClient";
 import { ToolbarClient } from "@altea/altea-toolbar/client/ToolbarClient";
@@ -268,12 +269,32 @@ function parseScalar(s: string): unknown {
     return s;
 }
 
-// Signum's SearchControlLoaded module augmentation: the toolbar's "show user query" opt-in flag.
+// Signum's SearchControlLoaded module augmentation: the toolbar's "show user query" opt-in flag, plus
+// `getCurrentUserQuery` — "which saved query is this search control currently showing?", which other
+// modules read to decorate it (@altea/altea-tour hangs the tour button off a user query with it).
+//
+// altea divergence: Signum keeps the answer in a dedicated field the menu writes. Here it is DERIVED from
+// `extraUrlParams.userQuery`, which UserQueryMenu already maintains (it is what puts the user query in the
+// page URL), so there is one source of truth and it survives a page reload.
 declare module "@altea/altea/client/SearchControl/SearchControlLoaded" {
     interface ShowBarExtensionOption {
         showUserQuery?: boolean;
     }
+    interface SearchControlLoaded {
+        getCurrentUserQuery(): Lite<UserQueryEntity> | undefined;
+    }
 }
+
+SearchControlLoaded.prototype.getCurrentUserQuery = function (this: SearchControlLoaded): Lite<UserQueryEntity> | undefined {
+    const key = this.extraUrlParams["userQuery"];
+    if (key == null || key === "")
+        return undefined;
+    try {
+        return Lite.parse(key) as Lite<UserQueryEntity>;
+    } catch {
+        return undefined; // a stale / hand-edited url param
+    }
+};
 
 function groupWhen<T>(list: T[], isGroupStart: (t: T) => boolean): T[][] {
     const result: T[][] = [];
