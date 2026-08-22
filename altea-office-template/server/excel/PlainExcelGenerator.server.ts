@@ -8,6 +8,7 @@ import { OxmlElement, OxmlText } from "../oxml/OxmlElement.server";
 import { columnName } from "../spreadsheet/FormulaRewriter.server";
 import { ExcelMessage } from "../../data/Excel";
 import { CellBuilder, DefaultStyle, enumText, getColumnWidth, getCustomFormatExpression } from "./CellBuilder.server";
+import { readSheet } from "./ExcelReader.server";
 
 // Port of Signum.Excel's PlainExcelGenerator.cs — a query's ResultTable straight to .xlsx, with no
 // template authoring: the title row, the header row, one row per result row.
@@ -24,10 +25,14 @@ import { CellBuilder, DefaultStyle, enumText, getColumnWidth, getCustomFormatExp
 //  - Signum's WRAP-TEXT handling appended a NEW cell format per multi-line cell (`ApplyWrapTextStyle`,
 //    once per cell — thousands of formats for a large export). One wrap-text format is minted per FILE
 //    here and shared by every such cell.
-//  - Signum's `WritePlainExcel<T>(IEnumerable<T>)` overload (an arbitrary object list, columns from
-//    reflection) is not ported: nothing in altea exports a plain object list, and the members/format
-//    reflection it needs has no counterpart.
-//  - `ReadPlainExcel` is not here either — reading is the importer's job (see ExcelImportLogic).
+//  - Signum's `WritePlainExcel<T>(IEnumerable<T>)` overload takes an arbitrary object list and derives
+//    the columns by REFLECTION over T's members. TypeScript erases that, so the counterpart is
+//    {@link PlainExcelGenerator.writeStringTable} — the caller names the columns. Its reader is
+//    {@link PlainExcelGenerator.readStringTable} (Signum's `ReadPlainExcel`), which is what makes the
+//    two halves a round trip: @altea/altea-translations exports its per-type translation sheets with one
+//    and re-imports the edited file with the other.
+//  - the QUERY importer is elsewhere (ExcelImportLogic) — it maps cells back onto query columns, a
+//    different job from reading a fixed table of strings.
 
 const SPREADSHEET_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 
@@ -156,6 +161,59 @@ export namespace PlainExcelGenerator {
         appendCustomFormats(pkg, cellBuilder, wrapTextStyle);
 
         return pkg.save();
+    }
+
+    /**
+     * A plain table of TEXT — Signum's `WritePlainExcel<T>(IEnumerable<T>)` with the columns named
+     * explicitly instead of reflected off T (see the header). Same title + header + body shape, same
+     * styles, so the file is indistinguishable from a query export.
+     */
+    export function writeStringTable(title: string, headers: string[], body: (string | null | undefined)[][]): Uint8Array {
+        const cellBuilder = readCellBuilder();
+        const pkg = OxmlPackage.load(templateBytes());
+        const worksheet = worksheetOf(pkg);
+
+        const textStyle = cellBuilder.styleIndex(DefaultStyle.Text);
+
+        const rows: OxmlElement[] = [];
+        rows.push(rowOf([cellBuilder.cell(title, DefaultStyle.Title, cellBuilder.styleIndex(DefaultStyle.Title))]));
+        rows.push(rowOf(headers.map(h => cellBuilder.cell(h, DefaultStyle.Header, cellBuilder.styleIndex(DefaultStyle.Header)))));
+        for (const line of body)
+            rows.push(rowOf(headers.map((_, i) => cellBuilder.cell(line[i] ?? "", DefaultStyle.Text, textStyle))));
+
+        stampReferences(rows);
+
+        const newSheet = new OxmlElement("worksheet");
+        newSheet.setAttribute("xmlns", SPREADSHEET_NS);
+
+        const cols = newSheet.appendChild(new OxmlElement("cols"));
+        headers.forEach((_, i) => {
+            const col = cols.appendChild(new OxmlElement("col"));
+            col.setAttribute("min", String(i + 1));
+            col.setAttribute("max", String(i + 1));
+            col.setAttribute("width", "50");
+            col.setAttribute("bestFit", "1");
+            col.setAttribute("customWidth", "1");
+        });
+
+        const sheetData = newSheet.appendChild(new OxmlElement("sheetData"));
+        for (const r of rows)
+            sheetData.appendChild(r);
+
+        worksheet.document.root = newSheet;
+
+        return pkg.save();
+    }
+
+    /**
+     * Read back a file {@link writeStringTable} produced — Signum's `ReadPlainExcel(stream, selector)`:
+     * the title and header rows are skipped and each remaining row comes back as an array of `columnCount`
+     * cell texts (missing cells as undefined), so the caller can index them positionally.
+     */
+    export function readStringTable(bytes: Uint8Array, columnCount: number): (string | undefined)[][] {
+        return readSheet(bytes)
+            .slice(2) // the title row + the header row
+            .map(row => Array.from({ length: columnCount }, (_, i) => row.cells.get(i)));
     }
 }
 
