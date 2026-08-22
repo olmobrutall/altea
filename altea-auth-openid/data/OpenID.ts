@@ -1,9 +1,12 @@
 import { reflect } from "@altea/altea/data/reflection";
+import { entity, backReference } from "@altea/altea/data/decorators";
+import { noRepeatValidator } from "@altea/altea/data/validators";
+import type { Lite } from "@altea/altea/data/lite";
 import { stringLengthValidator } from "@altea/altea/data/decorators";
 import { urlValidator, ValidationMessage } from "@altea/altea/data/validators";
 import { fieldValidation } from "@altea/altea/data/decorators";
 import { msg } from "@altea/altea/data/utils/localization";
-import { BaseADConfigurationEmbedded } from "@altea/altea-auth/data/BaseAD";
+import { BaseADConfigurationEmbedded, RoleMappingEmbedded } from "@altea/altea-auth/data/BaseAD";
 
 // Port of Signum.Authorization.OpenID's OpenIDConfigurationEmbedded.cs — how to talk to a standards-only
 // OpenID Connect provider (Keycloak, Dex, Auth0, …) with the authorization-code flow.
@@ -18,6 +21,7 @@ import { BaseADConfigurationEmbedded } from "@altea/altea-auth/data/BaseAD";
 //    fields and both the server and the config DTO need them.
 
 @reflect
+@entity("Part", "Master")
 export class OpenIDConfigurationEmbedded extends BaseADConfigurationEmbedded {
     enabled: boolean = false;
 
@@ -66,6 +70,19 @@ export class OpenIDConfigurationEmbedded extends BaseADConfigurationEmbedded {
             scopes: this.getScopes(),
         };
     }
+    /** Signum's `MList<RoleMappingEmbedded> RoleMapping` — this configuration's own @part rows (the row type
+     *  is per module, see BaseAD's header). */
+    @noRepeatValidator()
+    roleMapping: OpenIDConfigurationEmbedded_RoleMapping[];
+
+    override roleMappings(): RoleMappingEmbedded[] { return this.roleMapping; }
+
+}
+
+// Signum's RoleMappingEmbedded rows for this configuration (see BaseAD's RoleMappingEmbedded).
+@entity("Part", "Master")
+export class OpenIDConfigurationEmbedded_RoleMapping extends RoleMappingEmbedded {
+    @backReference configuration: Lite<OpenIDConfigurationEmbedded>;
 }
 
 function hasText(s: string | null | undefined): boolean {

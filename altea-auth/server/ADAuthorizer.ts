@@ -99,10 +99,11 @@ export abstract class ADAuthorizer<TConfig extends BaseADConfigurationEmbedded> 
     async getRole(ctx: IAutoCreateUserContext, throwIfNull: boolean): Promise<Lite<RoleEntity> | null> {
         const config = ctx.config;
 
-        if (config.roleMapping.length > 0) {
+        const roleMapping = config.roleMappings();
+        if (roleMapping.length > 0) {
             const groups = await this.getDirectoryGroups(ctx);
             if (groups != null) {
-                const roles = config.roleMapping
+                const roles = roleMapping
                     .filter(m => groups.some(g => g.displayName === m.adNameOrGuid || g.id === m.adNameOrGuid))
                     .map(m => m.role)
                     .filter((r): r is Lite<RoleEntity> => r != null);

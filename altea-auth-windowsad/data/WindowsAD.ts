@@ -1,9 +1,12 @@
 import { reflect, init } from "@altea/altea/data/reflection";
+import { entity, backReference } from "@altea/altea/data/decorators";
+import { noRepeatValidator } from "@altea/altea/data/validators";
+import type { Lite } from "@altea/altea/data/lite";
 import { stringLengthValidator, format } from "@altea/altea/data/decorators";
 import { fieldValidation } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
-import { BaseADConfigurationEmbedded } from "@altea/altea-auth/data/BaseAD";
+import { BaseADConfigurationEmbedded, RoleMappingEmbedded } from "@altea/altea-auth/data/BaseAD";
 import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 
 // Port of Signum.Authorization.WindowsAD's WindowsADConfigurationEmbedded.cs — how to reach an on-premises
@@ -17,6 +20,7 @@ import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 //    Nothing about the entity changes; the capability does.
 
 @reflect
+@entity("Part", "Master")
 export class WindowsADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     /**
      * Sign in with the browser's own Windows credentials (SPNEGO / Kerberos), no password typed.
@@ -78,6 +82,19 @@ export class WindowsADConfigurationEmbedded extends BaseADConfigurationEmbedded 
             ? `${this.directoryRegistry_Username}@${this.domainName}`
             : null;
     }
+    /** Signum's `MList<RoleMappingEmbedded> RoleMapping` — this configuration's own @part rows (the row type
+     *  is per module, see BaseAD's header). */
+    @noRepeatValidator()
+    roleMapping: WindowsADConfigurationEmbedded_RoleMapping[];
+
+    override roleMappings(): RoleMappingEmbedded[] { return this.roleMapping; }
+
+}
+
+// Signum's RoleMappingEmbedded rows for this configuration (see BaseAD's RoleMappingEmbedded).
+@entity("Part", "Master")
+export class WindowsADConfigurationEmbedded_RoleMapping extends RoleMappingEmbedded {
+    @backReference configuration: Lite<WindowsADConfigurationEmbedded>;
 }
 
 function hasText(s: string | null | undefined): boolean {

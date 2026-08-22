@@ -1,8 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
-import { EmbeddedEntity } from "@altea/altea/data/entity";
+import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { stringLengthValidator } from "@altea/altea/data/decorators";
-import { noRepeatValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { RoleEntity } from "./Role";
 import { PermissionSymbol } from "./Rules";
@@ -18,21 +17,29 @@ import { PermissionSymbol } from "./Rules";
 // needs the mapping semantics therefore depends on altea-auth alone.
 //
 // altea divergences, documented inline:
-//  - `MList<RoleMappingEmbedded> RoleMapping` is a PLAIN ARRAY of embeddeds, not a `@part` row collection.
-//    altea's `@part` rows are child TABLES keyed by a back reference to a persisted owner; this
-//    configuration is NOT a persisted entity in altea (Signum keeps it inside the application's
-//    `ApplicationConfigurationEntity`; the altea host builds it from the environment — see eastwind's
-//    `eastwindAuthAD.server.ts`), so it behaves like a MODEL and a plain array is the right shape (same as
-//    `WithConditionsModel.conditionRules` in Rules.ts). A host that DOES want to persist the configuration
-//    inside one of its entities must turn this into a `@part` row entity with a `@backReference`.
-//  - `[PreserveOrder]` has no counterpart on a non-persisted array (there is no @rowOrder column to keep);
-//    the array order IS the order.
+//  - the configuration is a `@part` ENTITY, not an embedded: `MList<RoleMappingEmbedded> RoleMapping` is a
+//    COLLECTION, and altea has no MList — a collection is `@part` child rows, whose back reference needs a
+//    real owner TABLE, which a flattened embedded is not. (This is the same reshaping altea-email applied to
+//    `SmtpNetworkDeliveryEmbedded`, which owns `clientCertificationFiles`.) The Signum NAMES are kept, suffix
+//    included, so the two stay comparable. An application persists it by REFERENCING it from its own
+//    configuration entity — eastwind's `ApplicationConfigurationEntity.azureAD`, mirroring Southwind.
+//  - the ROW TYPE is declared per module, not here: a `@part` collection is keyed by ONE back reference to
+//    its owner's table, so a shared row type would make the three directories read each other's rows. Hence
+//    the abstract `RoleMappingEmbedded` below plus one concrete row per module, and `roleMappings()` — the
+//    accessor the shared ADAuthorizer reads, since the base cannot name the subclass's row type.
+//  - `[PreserveOrder]` is not modelled (`@rowOrder` would be an extra column for an order nothing reads);
+//    the rows' natural order IS the order.
 //  - Signum's `PropertyValidation` override becomes per-field `@fieldValidation` in each SUBCLASS (altea
 //    has no entity-level validation hook), so nothing to override here.
 
-/** Signum's RoleMappingEmbedded — "directory group X grants application role Y". */
+/**
+ * Signum's RoleMappingEmbedded — "directory group X grants application role Y".
+ *
+ * ABSTRACT: each directory module declares the concrete row that back-references ITS configuration table
+ * (see the header). Never included on its own — only its subclasses get tables.
+ */
 @reflect
-export class RoleMappingEmbedded extends EmbeddedEntity {
+export abstract class RoleMappingEmbedded extends Entity {
     /** The directory group's display name OR its GUID/objectGUID — whichever the directory reports. */
     @stringLengthValidator({ max: 100 })
     adNameOrGuid: string;
@@ -53,7 +60,7 @@ export class RoleMappingEmbedded extends EmbeddedEntity {
  * connection settings on top.
  */
 @reflect
-export abstract class BaseADConfigurationEmbedded extends EmbeddedEntity {
+export abstract class BaseADConfigurationEmbedded extends Entity {
     /** Match a directory "user@domain" against a local `userName` of just "user" (and against `email`). */
     allowMatchUsersBySimpleUserName: boolean = true;
 
@@ -63,11 +70,15 @@ export abstract class BaseADConfigurationEmbedded extends EmbeddedEntity {
     /** Refresh userName / email / externalId from the directory on every sign-in. */
     autoUpdateUsers: boolean = false;
 
-    @noRepeatValidator()
-    roleMapping: RoleMappingEmbedded[];
-
     /** The role a user gets when no `roleMapping` entry matches. */
     defaultRole: Lite<RoleEntity> | null = null;
+
+    /**
+     * This configuration's group→role mappings. Each module declares the FIELD (`roleMapping`) with its own
+     * row type and implements this accessor, because the row type cannot be shared — see the header. It is
+     * what the shared ADAuthorizer reads.
+     */
+    abstract roleMappings(): RoleMappingEmbedded[];
 }
 
 // ---- Messages -------------------------------------------------------------------------------------------

@@ -1,9 +1,12 @@
 import { reflect, init } from "@altea/altea/data/reflection";
+import { entity, backReference } from "@altea/altea/data/decorators";
+import { noRepeatValidator } from "@altea/altea/data/validators";
+import type { Lite } from "@altea/altea/data/lite";
 import { niceName, stringLengthValidator } from "@altea/altea/data/decorators";
 import { fieldValidation } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
-import { BaseADConfigurationEmbedded } from "@altea/altea-auth/data/BaseAD";
+import { BaseADConfigurationEmbedded, RoleMappingEmbedded } from "@altea/altea-auth/data/BaseAD";
 import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 
 // Port of Signum.Authorization.AzureAD's AzureADConfigurationEmbedded.cs + AzureADQuery.cs — how to talk to
@@ -32,6 +35,7 @@ export enum AzureADType {
 }
 
 @reflect
+@entity("Part", "Master")
 export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     enabled: boolean = false;
 
@@ -155,6 +159,19 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
             scopes: scopes ?? this.defaultScopes(),
         };
     }
+    /** Signum's `MList<RoleMappingEmbedded> RoleMapping` — this configuration's own @part rows (the row type
+     *  is per module, see BaseAD's header). */
+    @noRepeatValidator()
+    roleMapping: AzureADConfigurationEmbedded_RoleMapping[];
+
+    override roleMappings(): RoleMappingEmbedded[] { return this.roleMapping; }
+
+}
+
+// Signum's RoleMappingEmbedded rows for this configuration (see BaseAD's RoleMappingEmbedded).
+@entity("Part", "Master")
+export class AzureADConfigurationEmbedded_RoleMapping extends RoleMappingEmbedded {
+    @backReference configuration: Lite<AzureADConfigurationEmbedded>;
 }
 
 /**
