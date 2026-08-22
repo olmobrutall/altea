@@ -273,3 +273,132 @@ export class DirectedGraph<T> {
         return { min, max };
     }
 }
+
+// ---- DirectedEdgedGraph ---------------------------------------------------------------------------------
+
+/**
+ * Port of Signum's `DirectedEdgedGraph<N, E>` (Signum.Utilities/DataStructures/DirectedEdgedGraph.cs) — a
+ * directed graph whose EDGES carry a value. Added for @altea/altea-workflow's WorkflowNodeGraph, where the
+ * value is the set of WorkflowConnections between two nodes (two nodes CAN be joined by more than one
+ * connection, so the value is a collection and the pair (from,to) stays unique).
+ *
+ * Divergences from the C#:
+ *   - C#'s IEqualityComparer becomes an optional `keyOf` projection. It is NOT decoration: Signum can key on
+ *     the entity OBJECT because it wraps its graph build in `using (new EntityCache())`, an ambient identity
+ *     map that makes every RetrieveAll hand back the same instance per row. altea has no such scope — each
+ *     query gets its own Retriever — so the same row read by two queries is two objects, and an
+ *     identity-keyed graph would silently never join them. Pass `e => e.toLite().key()` and the graph
+ *     compares by row identity instead. Without `keyOf` the behaviour is C#'s (reference equality).
+ *   - only the members the workflow graph reaches are ported (getOrCreate / relatedTo / edgesWithValue /
+ *     inverse / depthExploreConnections). Graphviz/DGML and the shortest-path family are omitted.
+ */
+export interface EdgeWithValue<N, E> {
+    readonly from: N;
+    readonly to: N;
+    readonly value: E;
+}
+
+export class DirectedEdgedGraph<N, E> {
+    // key → (node, out-edges). The node is kept beside its edges so `nodes` / `edgesWithValue` still answer
+    // the objects, not the keys.
+    private readonly adjacency = new Map<unknown, { node: N; edges: Map<unknown, E> }>();
+
+    constructor(private readonly createValue: () => E, private readonly keyOf: (node: N) => unknown = n => n) { }
+
+    /** Ensures `node` is in the graph (no edges added). */
+    add(node: N): void {
+        this.getOrAddNode(node);
+    }
+
+    /** The edge value for `from → to`, creating the edge (and either endpoint) if missing. */
+    getOrCreate(from: N, to: N): E {
+        const entry = this.getOrAddNode(from);
+        this.getOrAddNode(to);
+        const toKey = this.keyOf(to);
+        let value = entry.edges.get(toKey);
+        if (value == null) {
+            value = this.createValue();
+            entry.edges.set(toKey, value);
+        }
+        return value;
+    }
+
+    get nodes(): N[] {
+        return [...this.adjacency.values()].map(e => e.node);
+    }
+
+    get count(): number {
+        return this.adjacency.size;
+    }
+
+    contains(node: N): boolean {
+        return this.adjacency.has(this.keyOf(node));
+    }
+
+    /** Out-edges of `node` as a `to → value` map. Throws if `node` is not in the graph (matches Signum). */
+    relatedTo(node: N): Map<N, E> {
+        const entry = this.adjacency.get(this.keyOf(node));
+        if (entry == null)
+            throw new Error(`The node ${String(node)} is not in the graph`);
+        return this.toNodeMap(entry.edges);
+    }
+
+    tryRelatedTo(node: N): Map<N, E> {
+        const entry = this.adjacency.get(this.keyOf(node));
+        return entry == null ? new Map<N, E>() : this.toNodeMap(entry.edges);
+    }
+
+    /** Every edge, with its value (Signum's `EdgesWithValue`). */
+    get edgesWithValue(): EdgeWithValue<N, E>[] {
+        const result: EdgeWithValue<N, E>[] = [];
+        for (const entry of this.adjacency.values())
+            for (const [toKey, value] of entry.edges)
+                result.push({ from: entry.node, to: this.adjacency.get(toKey)!.node, value });
+        return result;
+    }
+
+    inverse(): DirectedEdgedGraph<N, E> {
+        const result = new DirectedEdgedGraph<N, E>(this.createValue, this.keyOf);
+        for (const node of this.nodes)
+            result.add(node);
+        for (const entry of this.adjacency.values())
+            for (const [toKey, value] of entry.edges)
+                result.adjacency.get(toKey)!.edges.set(this.keyOf(entry.node), value);
+        return result;
+    }
+
+    private toNodeMap(edges: Map<unknown, E>): Map<N, E> {
+        const result = new Map<N, E>();
+        for (const [toKey, value] of edges)
+            result.set(this.adjacency.get(toKey)!.node, value);
+        return result;
+    }
+
+    /**
+     * Depth-first walk from `node`, calling `condition(prev, value, next)` on each edge; a falsy result
+     * stops the walk from descending into `next`. Signum's `DepthExploreConnections` — used by the workflow
+     * validator to collect the activities that precede a gateway.
+     */
+    depthExploreConnections(node: N, condition: (prev: N, value: E, next: N) => boolean): void {
+        const visited = new Set<N>();
+        const explore = (current: N): void => {
+            if (visited.has(current))
+                return;
+            visited.add(current);
+            for (const [next, value] of this.tryRelatedTo(current))
+                if (condition(current, value, next))
+                    explore(next);
+        };
+        explore(node);
+    }
+
+    private getOrAddNode(node: N): { node: N; edges: Map<unknown, E> } {
+        const key = this.keyOf(node);
+        let result = this.adjacency.get(key);
+        if (result == null) {
+            result = { node, edges: new Map<unknown, E>() };
+            this.adjacency.set(key, result);
+        }
+        return result;
+    }
+}

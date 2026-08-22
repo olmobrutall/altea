@@ -2,8 +2,11 @@ import type { Quoted, QuotedEx, ExProperty, ExArray, ExAs } from "quote-transfor
 
 // Extracts the entity field names an index selector reads, from its QUOTED AST — the altea
 // analogue of Signum's Engine/Schema/TableIndexes.cs IndexKeyColumns.Split over a KeySelector
-// expression tree. Supports the flat index model: a single field (`e => e.code`) or an array of
-// fields (`e => [e.a, e.b]`); nested paths (`e => e.address.city`) are not modelled.
+// expression tree. A single field (`e => e.code`), an array of fields (`e => [e.a, e.b]`), or a
+// path through EMBEDDED values (`e => e.address.city`, which flattens to the one column
+// `address_city`) — returned dotted, for Table.columnsFromFields to walk. A path through a
+// REFERENCE is not indexable here (it is a column on the other table), and `accessedFields` cannot
+// tell the two apart from the AST alone, so the resolution — and the error — belong to the table.
 //
 // Replaces the earlier approach of running the selector against a recording Proxy: it reads the
 // captured lambda instead of executing it, so it is isomorphic (no live entity needed) and shares
@@ -21,14 +24,23 @@ export function accessedFields(selector: Quoted<(element: any) => unknown>): str
     return fields;
 }
 
-// One flat member read off the selector parameter → its name.
+// One member PATH read off the selector parameter → its dotted name ("code", "address.city").
 function memberName(e: QuotedEx): string {
-    // A cast (`e.code as string`) is a runtime no-op — unwrap it, like the index-where visitor.
+    // A cast (`e.code as string`) and a non-null assertion (`e.address!.city`) are runtime no-ops —
+    // unwrap them, like the index-where visitor.
     if (e[0] === "as")
         return memberName((e as ExAs)[1]);
-    // A direct property access off the parameter (`["p", …]`). Anything else — a nested path, a
-    // method call, an expression — is outside the flat-index model.
-    if ((e[0] === "." || e[0] === "?.") && (e as ExProperty)[1][0] === "p")
-        return (e as ExProperty)[2];
-    throw new Error(`An index selector must read flat fields off its parameter (e => e.code or e => [e.a, e.b]); got ${JSON.stringify(e)}`);
+    if (e[0] === "!")
+        return memberName((e as unknown as [string, QuotedEx])[1]);
+
+    if (e[0] === "." || e[0] === "?.") {
+        const prop = e as ExProperty;
+        // Rooted at the parameter → the leaf name. Rooted at another access → keep walking, and join
+        // with a dot (an EMBEDDED step; Table.columnsFromFields resolves it, and rejects a reference).
+        if (prop[1][0] === "p")
+            return prop[2];
+        return memberName(prop[1]) + "." + prop[2];
+    }
+
+    throw new Error(`An index selector must read fields off its parameter (e => e.code, e => [e.a, e.b] or e => e.embedded.field); got ${JSON.stringify(e)}`);
 }

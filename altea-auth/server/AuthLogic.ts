@@ -516,6 +516,34 @@ export namespace AuthLogic {
             .filter((l): l is Lite<RoleEntity> => l != null);
     }
 
+    /**
+     * Signum's `AuthLogic.InverseIndirectlyRelated(role)` — every role that (transitively) INHERITS `role`,
+     * including `role` itself. The inverse direction of `currentRoles`: "who counts as this role" rather
+     * than "what does this role count as".
+     *
+     * Added for @altea/altea-workflow, whose lane actors may be ROLES: the users notified for an activity are
+     * the users whose role is, or inherits, one of the lane's actor roles. ASYNC (it awaits the role graph),
+     * unlike `currentRoles` — a notification insert is not inside a query lambda.
+     */
+    export async function rolesInheritingFrom(role: Lite<RoleEntity>): Promise<Lite<RoleEntity>[]> {
+        const graph = await roleGraphLazy.value();
+        const inverse = graph.graph.inverse();
+
+        const keys = new Set<string>();
+        const pending = [role.key()];
+        while (pending.length > 0) {
+            const key = pending.pop()!;
+            if (keys.has(key))
+                continue;
+            keys.add(key);
+            for (const related of inverse.tryRelatedTo(key))
+                pending.push(related);
+        }
+
+        return [...keys].map(k => graph.rolesByKey.get(k)?.toLite() as Lite<RoleEntity> | undefined)
+            .filter((l): l is Lite<RoleEntity> => l != null);
+    }
+
     /** Register a dimension's AuthRules XML export / import handler (Signum's ExportToXml / ImportFromXml
      *  events). Called from each *AuthLogic.start(); AuthImportExport invokes them. */
     export function registerXmlExporter(exporter: AuthXmlExporter): void { exporterList.push(exporter); }

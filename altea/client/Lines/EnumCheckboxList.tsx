@@ -1,12 +1,17 @@
-// Ported from Signum.React/Lines/EnumCheckboxList.tsx — copy-and-fix. altea divergence: Signum's
-// MList<V> is a plain `V[]` in altea (MListElement is gone — a collection is the sustaining array of
-// elements), so each element IS the value: `mle.element` → the value, `newMListElement(val)` → `val`,
-// and the Signum.Entities MList imports are dropped. Import paths retargeted; only the used
-// getTimeMachineCheckboxIcon is imported (Signum also imported an unused getTimeMachineIcon).
+// Ported from Signum.React/Lines/EnumCheckboxList.tsx — copy-and-fix. altea divergences:
+//  - Signum's MList<V> is a plain `V[]` (MListElement is gone — a collection is the sustaining array of
+//    elements), so each element IS the value: `mle.element` → the value, `newMListElement(val)` → `val`,
+//    and the Signum.Entities MList imports are dropped.
+//  - the element VALUE is the enum's ordinal, not its member name (EnumSerializer: name on the wire,
+//    ordinal in memory), so the options are resolved off `ctx.memberType.getEnum()` exactly as EnumLine
+//    does, and the label goes through `Enum.niceName`. Signum read `TypeInfo.members`, whose keys are
+//    NAMES — comparing those against the stored ordinals matched nothing.
+//  - only the used getTimeMachineCheckboxIcon is imported (Signum also imported an unused
+//    getTimeMachineIcon).
 import * as React from 'react'
-import { classes, Dic } from '../../data/globals'
+import { classes } from '../../data/globals'
+import { Enum } from '../../data/enum'
 import { mlistItemContext, TypeContext } from '../TypeContext'
-import { getTypeInfo } from '../Reflection'
 import { genericMemo, LineBaseController, useController } from '../Lines/LineBase'
 import type { LineBaseProps } from '../Lines/LineBase'
 import { getTimeMachineCheckboxIcon } from './TimeMachineIcon'
@@ -14,7 +19,7 @@ import { GroupHeader } from './GroupHeader'
 import type { HeaderType } from './GroupHeader'
 import type { JSX } from 'react'
 
-export interface EnumCheckboxListProps<V extends string> extends LineBaseProps<V[]> {
+export interface EnumCheckboxListProps<V extends string | number> extends LineBaseProps<V[]> {
   data?: V[];
   columnCount?: number;
   columnWidth?: number;
@@ -22,17 +27,16 @@ export interface EnumCheckboxListProps<V extends string> extends LineBaseProps<V
   ref?: React.Ref<EnumCheckboxListController<V>>
 }
 
-export class EnumCheckboxListController<V extends string> extends LineBaseController<EnumCheckboxListProps<V>, V[]> {
+export class EnumCheckboxListController<V extends string | number> extends LineBaseController<EnumCheckboxListProps<V>, V[]> {
 
   override getDefaultProps(p: EnumCheckboxListProps<V>): void {
     super.getDefaultProps(p);
     p.columnWidth = 200;
     // ALTEA: the type facet comes from ctx.memberType (Signum's line `p.type`); for a collection line
     // that's the element (enum) type.
-    if (p.ctx.memberType) {
-      const ti = getTypeInfo(p.ctx.memberType.getTypeName()!);
-      p.data = Dic.getKeys(ti.members) as V[];
-    }
+    const enumObj = p.ctx.memberType?.getEnum();
+    if (enumObj != null)
+      p.data = Enum.values(enumObj as Record<string, string | number>).map(n => (enumObj as any)[n] as V);
   }
 
   handleOnChange = (event: React.ChangeEvent<HTMLInputElement>, val: V): void => {
@@ -52,8 +56,8 @@ export class EnumCheckboxListController<V extends string> extends LineBaseContro
 
 }
 
-export const EnumCheckboxList: <V extends string>(props: EnumCheckboxListProps<V>) => React.ReactNode | null =
-  genericMemo(function EnumCheckboxList<V extends string>(props: EnumCheckboxListProps<V>) {
+export const EnumCheckboxList: <V extends string | number>(props: EnumCheckboxListProps<V>) => React.ReactNode | null =
+  genericMemo(function EnumCheckboxList<V extends string | number>(props: EnumCheckboxListProps<V>) {
     const c = useController<EnumCheckboxListController<V>, EnumCheckboxListProps<V>, V[]>(EnumCheckboxListController, props);
     const p = c.props;
 
@@ -86,7 +90,7 @@ export const EnumCheckboxList: <V extends string>(props: EnumCheckboxListProps<V
       const fi = p.ctx.propertyRoute?.fieldInfo;
       const requiredIndicator = fi != null && !fi.isNullable && !ariaAtts['aria-readonly'];
 
-      const ti = getTypeInfo(p.ctx.memberType!.getTypeName()!);
+      const enumObj = p.ctx.memberType!.getEnum() as Record<string, string | number>;
 
       var listCtx = mlistItemContext(p.ctx);
 
@@ -99,17 +103,17 @@ export const EnumCheckboxList: <V extends string>(props: EnumCheckboxListProps<V
               listCtx.firstOrNull(el => el.previousVersion?.value == val);
 
             return (
-              <label className="sf-checkbox-element" key={val} htmlFor={controlId}>
-                {getTimeMachineCheckboxIcon({ newCtx: ectx, oldCtx: oldCtx, type: ti })}
+              <label className="sf-checkbox-element" key={String(val)} htmlFor={controlId}>
+                {getTimeMachineCheckboxIcon({ newCtx: ectx, oldCtx: oldCtx, type: enumObj })}
                 <input type="checkbox"
                   id={controlId}
                   className="form-check-input"
                   checked={p.ctx.value.some(val2 => val2 == val)}
                   disabled={p.ctx.readOnly}
-                  name={val}
+                  name={String(val)}
                   onChange={e => c.handleOnChange(e, val)} />
                 &nbsp;
-                <span>{ti.members[val].niceToString()}{requiredIndicator && <span aria-hidden="true" className="required-indicator">*</span>}</span>
+                <span>{Enum.niceName(enumObj, val)}{requiredIndicator && <span aria-hidden="true" className="required-indicator">*</span>}</span>
             </label>);
           })}
         </div>

@@ -60,6 +60,10 @@ declare global {
     // Decimal.js overloads LAST (so an `any`-returning selector still resolves to `number`): a Decimal
     // element / selector sums with EXACT decimal arithmetic and returns a Decimal — a computed money
     // column, e.g. Order.totalPrice = details.sum(d => d.subTotalPrice()).
+    //
+    // SHARP EDGE: on an EMPTY array the result is the plain number `0`, whichever overload the caller
+    // typed — the Decimal path is chosen by inspecting the first value, and there is none. A caller that
+    // must have a number either way should say `Number(x.sum(...))`, not `.toNumber()`.
     sum(this: Array<Decimal>): Decimal;
     sum(this: Array<T>, selector: (element: T, index: number, array: T[]) => Decimal): Decimal;
 

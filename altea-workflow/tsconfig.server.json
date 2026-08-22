@@ -1,0 +1,13 @@
+{
+  // SERVER layer — node-only; references local DATA + the server layers it drives.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" },
+    { "path": "../altea-user-assets/tsconfig.server.json" },
+    { "path": "../altea-scheduler/tsconfig.server.json" },
+    { "path": "../altea-processes/tsconfig.server.json" },
+    { "path": "../altea-toolbar/tsconfig.server.json" }
+  ]
+}

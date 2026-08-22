@@ -1,7 +1,7 @@
 import { setDefinedQueries } from "./Reflection";
 import { Metadata } from "../data/metadata";
 import type { MetadataBlob } from "../data/metadata";
-import { cleanTypeName, resolveType } from "../data/registration";
+import { allDeclaredSymbols, cleanTypeName, resolveType } from "../data/registration";
 
 // Client consumer of the server reflection metadata (Signum's ReflectionServer/reloadTypes). altea ships
 // the entity SHAPE at compile time (@reflect stamps TypeInfo/FieldInfo onto constructors), so this only
@@ -51,8 +51,29 @@ export function applyMetadata(meta: MetadataBlob): void {
     // Query-defined registry (Finder.isFindable / isQueryDefined), derived from the per-type `hasQuery`.
     setDefinedQueries(queryKeys(meta));
 
+    // Stamp each DECLARED symbol's database id from the blob. A symbol container is a "Container" type
+    // whose fields are its members, and `FieldMetadata.id` is that member's row id (ReflectionServer fills
+    // it from SymbolLogic's read-back). Without this a client-declared symbol stays `isNew`, so `toLite()`
+    // throws — which is what a filter VALUE, a toolbar content, or any other lite-of-a-symbol needs.
+    // Signum ships the ids in its reflection response and stamps them the same way.
+    stampSymbolIds(meta);
+
     for (const hook of applyMetadataHooks)
         hook(meta);
+}
+
+// Fills `symbol.id` (and clears `isNew`) for every declared symbol the blob names.
+function stampSymbolIds(meta: MetadataBlob): void {
+    for (const symbol of allDeclaredSymbols()) {
+        const dot = symbol.key.indexOf(".");
+        if (dot < 0)
+            continue;
+        const id = meta.types[symbol.key.slice(0, dot)]?.fields[symbol.key.slice(dot + 1)]?.id;
+        if (id != null) {
+            symbol.id = id;
+            symbol.isNew = false;
+        }
+    }
 }
 
 // The keys of the queries the blob declares. `types` is keyed by the REGISTERED type name ("OrderEntity")

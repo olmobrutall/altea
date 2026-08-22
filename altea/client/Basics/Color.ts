@@ -1,8 +1,12 @@
-import "@altea/altea/data/globals/stringExtensions";
+import "../../data/globals/stringExtensions";
+import "../../data/globals/arrayExtensions";
 
-// Minimal port of Signum/React/Basics/Color.ts — only what the Pie renderer needs (parse a palette color →
-// its opposite-pole black/white for readable slice-label text). altea divergence: the named-color table
-// (nameToHex) and Gradient/lerp are dropped — chart palette colors are always hex or rgb(a).
+// Port of Signum/React/Basics/Color.ts. altea divergence: the named-color table (`nameToHex`) is dropped —
+// every caller so far parses hex or rgb(a) (chart palette colors, the case-flow gradient stops).
+//
+// It started in @altea/altea-chart (parse a palette color → its opposite-pole black/white for readable
+// slice labels) and moved HERE, beside Signum's own location, once @altea/altea-workflow's case-flow
+// renderer needed the same class plus `Gradient` to shade an activity by how long it took.
 
 function clamp(v: number): number {
   return Math.max(0, Math.min(255, Math.round(v)));
@@ -97,4 +101,31 @@ export class Color {
     else
       return undefined;
   }
+}
+
+/**
+ * Port of Signum's `Gradient` — a piecewise-linear color scale over stops. `getColor(value)` interpolates
+ * between the surrounding stops and clamps outside the range.
+ */
+export class Gradient {
+    constructor(public list: { value: number; color: Color }[]) {
+    }
+
+    getColor(value: number): Color {
+        const prev = this.list.filter(a => a.value <= value).maxBy(a => a.value);
+        const next = this.list.filter(a => a.value > value).minBy(a => a.value);
+
+        if (prev == undefined)
+            return next!.color;
+
+        if (next == undefined)
+            return prev.color;
+
+        return prev.color.lerp((value - prev.value) / (next.value - prev.value), next.color);
+    }
+
+    cache: { [num: number]: Color } = {};
+    getCachedColor(value: number): Color {
+        return this.cache[value] || (this.cache[value] = this.getColor(value));
+    }
 }

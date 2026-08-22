@@ -532,6 +532,12 @@ class SerializerFactory {
 
         const ctor = fi.getFunction();
         if (ctor != null && ctorIsEntity(ctor)) return this.forEntity(ctor as Type<BaseEntity>);
+        // A POLYMORPHIC id-less modifiable — a field declared as the abstract `ModelEntity` /
+        // `EmbeddedEntity` itself (Signum writes `[ImplementedBy()]`, an empty list, on exactly these).
+        // The declared ctor carries no fields, so a fixed EmbeddedSerializer would write an empty object;
+        // the dynamic one dispatches on the value's own type and on the `$type` discriminator, which is what
+        // makes @altea/altea-workflow's `BpmnEntityPairEmbedded.model` round-trip as the concrete model.
+        if (ctor === ModelEntity || ctor === EmbeddedEntity) return this.dynamic;
         if (ctor != null && ctorIsEmbedded(ctor)) return this.forEmbedded(ctor as Type<BaseEntity>);
 
         if (fi.typeName != null && TEMPORAL_TYPE_NAMES.has(fi.typeName)) return new TemporalSerializer(fi.typeName);

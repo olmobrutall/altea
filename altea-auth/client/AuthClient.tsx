@@ -5,7 +5,10 @@ import * as AppContext from "@altea/altea/client/AppContext";
 import { loadReflectionMetadata, setExtraHeaders } from "@altea/altea/client/ReflectionClient";
 import { setAccessTokenFactory } from "@altea/altea/client/useWebSocket";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
+import { Metadata } from "@altea/altea/data/metadata";
 import type { UserEntity } from "../data/User";
+import type { PermissionSymbol } from "../data/Rules";
+import { AuthMessage } from "../data/AuthMessages";
 
 // Port of Signum's AuthClient (AuthClient.tsx) — the CLIENT authentication hub: route registration
 // (startPublic), token storage, the request-interception seam (bearer header + token refresh +
@@ -238,6 +241,25 @@ export namespace AuthClient {
     // Signum's WindowsADAuthorizer returns it too, it just never reached the TS union).
     export type AuthenticationType = "database" | "resetPassword" | "changePassword" | "api-key"
         | "azureAD" | "cookie" | "windows" | "relogin" | "openID" | "adRegistry";
+
+    // Signum's AppContext.isPermissionAuthorized. It lives HERE rather than in altea's core client,
+    // because permissions are an authorization concept and the value it reads is stamped by this module
+    // (server/AuthReflection) onto the permission container's own metadata entry — see the FieldMetadata
+    // expansion in ../data/Rules. Absent means allowed, so with auth off (or before the blob lands)
+    // everything is authorized, exactly as Signum's empty permission map behaves.
+    export function isPermissionAuthorized(permission: PermissionSymbol): boolean {
+        const dot = permission.key.indexOf(".");
+        if (dot < 0)
+            return true;
+        const tm = Metadata.tryType(permission.key.slice(0, dot));
+        return tm?.fields[permission.key.slice(dot + 1)]?.allowed !== false;
+    }
+
+    /** Throws Signum's UnauthorizedAccessException-equivalent when the current role lacks it. */
+    export function assertPermissionAuthorized(permission: PermissionSymbol): void {
+        if (!isPermissionAuthorized(permission))
+            throw new Error(AuthMessage.NotAuthorizedTo01.niceToString("execute", permission.niceToString()));
+    }
 
     export namespace API {
         export interface LoginRequest { userName: string; password: string; rememberMe?: boolean; }

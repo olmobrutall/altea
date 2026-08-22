@@ -472,5 +472,13 @@ declare module "@altea/altea/data/metadata" {
          */
         minPropertyAllowed?: PropertyAllowed;
         maxPropertyAllowed?: PropertyAllowed;
+        /**
+         * PERMISSION containers only (Signum's `isPermissionAuthorized`, which reads its own
+         * `AuthClient.Options.isPermissionAuthorized` map). A symbol container's members already ride in
+         * the blob (`meta.types["WorkflowPermission"].fields["ViewCaseFlow"]`), so the role's answer goes
+         * on the very entry that carries the member's label and id rather than in a parallel map.
+         * Shipped only when DENIED — absent means allowed, as everywhere else here.
+         */
+        allowed?: boolean;
     }
 }

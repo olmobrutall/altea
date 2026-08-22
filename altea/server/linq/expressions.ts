@@ -1,4 +1,4 @@
-import type { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam } from 'quote-transformer/quoted';
+import type { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam, ExBinary, ExCall, ExConstant, ExProperty } from 'quote-transformer/quoted';
 import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, TsVectorType, TsQueryType, IntervalType, RuntimeType } from "../runtimeTypes";
 import { Temporal, Decimal } from "../../data/basics";
 import { resolveType } from "../../data/registration";
@@ -40,6 +40,53 @@ function isQueryMarker(v: unknown): boolean {
     // Unlike __sqlMethod it does not name a SQL function; the nominator lowers the residual call.
     return f.__isQuerySource === true || f.__sqlMethod != null || f.__avoidEager === true;
 }
+
+// The three Temporal classes whose static `compare` is a stand-in for a relational operator.
+const temporalCompareOwners = new Set<unknown>([
+    Temporal.PlainDateTime.compare, Temporal.PlainDate.compare, Temporal.PlainTime.compare,
+    Temporal.Duration.compare,
+]);
+
+// Matches `Temporal.X.compare(a, b) <op> 0` (either way round) and answers the AST of the equivalent
+// `a <op> b`, or null when the shape does not match. Only ORDER comparisons and equality are meaningful
+// against 0, which is every operator the switch above routes here.
+function temporalCompareArgs(e: QuotedEx): [QuotedEx, QuotedEx] | null {
+    if (e[0] !== "()" && e[0] !== "?.()")
+        return null;
+
+    const call = e as ExCall;
+    if (call[2].length !== 2)
+        return null;
+
+    // The callee is a property CHAIN off the imported `Temporal` namespace constant — the transformer
+    // folds the namespace object to `["c", …]` but keeps each member access
+    // (`Temporal.PlainDateTime.compare` → `[".", [".", ["c", ns], "PlainDateTime"], "compare"]`).
+    const fn = tryConstantValue(call[1]);
+
+    return fn != null && temporalCompareOwners.has(fn) ? [call[2][0], call[2][1]] : null;
+}
+
+/** A constant, or a chain of member accesses rooted at one → its value. Anything else → undefined. */
+function tryConstantValue(e: QuotedEx): unknown {
+    if (e[0] === "c")
+        return (e as ExConstant)[1];
+
+    if (e[0] === "." || e[0] === "?.") {
+        const owner = tryConstantValue((e as ExProperty)[1]);
+        return owner == null ? undefined : (owner as Record<string, unknown>)[(e as ExProperty)[2]];
+    }
+
+    return undefined;
+}
+
+function isZero(e: QuotedEx): boolean {
+    return e[0] === "c" && (e as ExConstant)[1] === 0;
+}
+
+const mirroredOp: Record<string, OpBinary> = {
+    "<": ">", "<=": ">=", ">": "<", ">=": "<=",
+    "==": "==", "!=": "!=", "===": "===", "!==": "!==",
+};
 
 export function evalUnaryOp(op: OpUnary, a: any): unknown {
     switch (op) {
@@ -519,7 +566,24 @@ export abstract class Expression {
 
         return fromQuoted(quoted(), types) as LambdaExpression;
 
-        function fromQuoted(q: QuotedEx, lambdaArgTypes?: RuntimeType[]): Expression {
+            // `Temporal.X.compare(a, b) <op> 0` → `a <op> b`, in the AST. Local to the closure because it
+        // recurses through `fromQuoted`.
+        function tryRewriteTemporalCompare(q: ExBinary): Expression | null {
+            if (mirroredOp[q[0]] == null)
+                return null;
+
+            const left = temporalCompareArgs(q[1]);
+            if (left != null && isZero(q[2]))
+                return fromQuoted([q[0], left[0], left[1]] as ExBinary);
+
+            const right = temporalCompareArgs(q[2]);
+            if (right != null && isZero(q[1]))
+                return fromQuoted([mirroredOp[q[0]], right[0], right[1]] as ExBinary);
+
+            return null;
+        }
+
+    function fromQuoted(q: QuotedEx, lambdaArgTypes?: RuntimeType[]): Expression {
 
             switch (q[0]) {
                 case "c":
@@ -583,6 +647,16 @@ export abstract class Expression {
                 case "&":
                 case "|":
                 case "^": {
+                    // `Temporal.X.compare(a, b) <op> 0` → `a <op> b`. Temporal deliberately has no
+                    // relational operators (its valueOf throws), so `compare` against 0 is the ONLY way to
+                    // write a date/time comparison in TypeScript — where C# writes `a < b` and Signum's
+                    // provider sees a plain BinaryExpression. Recognised here, at the comparison, rather
+                    // than translating `compare` on its own: -1/0/1 has no SQL counterpart, but the
+                    // comparison it feeds does.
+                    const rewritten = tryRewriteTemporalCompare(q as ExBinary);
+                    if (rewritten != null)
+                        return rewritten;
+
                     const l = fromQuoted(q[1]);
                     const r = fromQuoted(q[2]);
                     // Fold when both operands are constants (PartialEval).

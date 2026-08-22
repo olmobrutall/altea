@@ -7,7 +7,7 @@ import * as ChartUtils from '../D3Scripts/Components/ChartUtils';
 import { Dic } from '@altea/altea/data/globals/index';
 import { softCast } from '@altea/altea/data/globals/helpers';
 import InitialMessage from '../D3Scripts/Components/InitialMessage';
-import { Color } from '../Color';
+import { Color } from '@altea/altea/client/Basics/Color';
 import './PivotTable.css'
 import { Lite } from '@altea/altea/data/lite';
 import type { Entity } from '@altea/altea/data/entity';

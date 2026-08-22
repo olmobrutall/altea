@@ -8,7 +8,7 @@ import InitialMessage from './Components/InitialMessage';
 import { TextRectangle } from './StackedLines';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
 import { toNumberFormat } from '@altea/altea/client/numberFormat';
-import { Color } from '../Color';
+import { Color } from '@altea/altea/client/Basics/Color';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import '@altea/altea/data/globals/arrayExtensions';

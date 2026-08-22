@@ -9,7 +9,9 @@ import { AuthLogic } from "./AuthLogic";
 import { QueryAuthLogic } from "./QueryAuthLogic";
 import { TypeAuthLogic } from "./TypeAuthLogic";
 import { PropertyAuthLogic } from "./PropertyAuthLogic";
-import { QueryAllowed, TypeAllowedBasic } from "../data/Rules";
+import { PermissionAuthLogic } from "./PermissionAuthLogic";
+import { declaredSymbolsForType } from "@altea/altea/data/registration";
+import { PermissionSymbol, QueryAllowed, TypeAllowedBasic } from "../data/Rules";
 
 // Role-filtering overlay on the reflection metadata blob (Signum's AuthServer reflection extensions).
 // Installed once at web-host startup; runs inside each request's user scope, so it sees the current role.
@@ -73,6 +75,23 @@ export namespace AuthReflectionServer {
                         fm.minPropertyAllowed = allowed.min;
                         fm.maxPropertyAllowed = allowed.max;
                     }
+                }
+            }
+
+            // ---- Permissions -----------------------------------------------------------------------
+            // Signum ships a `permissions: { [key]: boolean }` side map in its reflection response and the
+            // client reads it through AuthClient.Options.isPermissionAuthorized. altea has no side map: a
+            // symbol container is already ONE Container TypeMetadata whose fields are its members, so the
+            // role's answer goes on the member's own entry. Only DENIED permissions are stamped.
+            if (PermissionAuthLogic.isStarted()) {
+                for (const symbol of declaredSymbolsForType(PermissionSymbol)) {
+                    const dot = symbol.key.indexOf(".");
+                    if (dot < 0) continue;
+                    if (await PermissionAuthLogic.isAuthorizedForRole(symbol as PermissionSymbol, roleKey))
+                        continue;
+                    const tm = meta.types[symbol.key.slice(0, dot)];
+                    if (tm == null) continue;
+                    (tm.fields[symbol.key.slice(dot + 1)] ??= {}).allowed = false;
                 }
             }
 

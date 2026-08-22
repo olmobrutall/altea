@@ -36,6 +36,34 @@ export class Synchronizer {
         }
     }
 
+    /**
+     * `synchronize`, but AWAITING each callback in key order. Added for @altea/altea-workflow's BPMN
+     * designer, whose three passes create / delete / update real entities (every callback saves), where
+     * Signum's callbacks are synchronous because its engine is. Sequential on purpose: the passes depend on
+     * each other's writes (a node must exist before a connection can point at it).
+     */
+    static async synchronizeAsync<K, N, O>(
+        newDictionary: Map<K, N>,
+        oldDictionary: Map<K, O>,
+        createNew: ((key: K, n: N) => void | Promise<void>) | undefined,
+        removeOld: ((key: K, o: O) => void | Promise<void>) | undefined,
+        merge: ((key: K, n: N, o: O) => void | Promise<void>) | undefined,
+    ): Promise<void> {
+        const keys = new Set<K>([...oldDictionary.keys(), ...newDictionary.keys()]);
+
+        for (const key of keys) {
+            const oldExists = oldDictionary.has(key);
+            const newExists = newDictionary.has(key);
+
+            if (!oldExists)
+                await createNew?.(key, newDictionary.get(key)!);
+            else if (!newExists)
+                await removeOld?.(key, oldDictionary.get(key)!);
+            else
+                await merge?.(key, newDictionary.get(key)!, oldDictionary.get(key)!);
+        }
+    }
+
     // The workhorse: build one SqlPreCommand per key (createNew / removeOld / mergeBoth),
     // then combine them with `spacing`. A null callback (or a callback returning undefined)
     // contributes nothing. Mirrors Signum's SynchronizeScript.

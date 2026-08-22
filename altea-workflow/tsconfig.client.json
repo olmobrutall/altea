@@ -1,0 +1,15 @@
+{
+  // CLIENT layer — React UI + the bpmn-js designer; references DATA only.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" },
+    { "path": "../altea-user-assets/tsconfig.client.json" },
+    { "path": "../altea-scheduler/tsconfig.client.json" },
+    { "path": "../altea-processes/tsconfig.client.json" },
+    { "path": "../altea-toolbar/tsconfig.client.json" },
+    { "path": "../altea-omnibox/tsconfig.client.json" },
+    { "path": "../altea-dynamic/tsconfig.client.json" }
+  ]
+}

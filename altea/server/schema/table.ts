@@ -1,7 +1,7 @@
 import type { Quoted } from 'quote-transformer/quoted';
 import type { Type, Entity, View, ViewType } from '../../data/entity';
 import { ObjectName } from './objectName';
-import { EntityField, FieldPrimaryKey, FieldTicks, FieldMixin } from './field';
+import { EntityField, FieldPrimaryKey, FieldTicks, FieldMixin, FieldEmbedded } from './field';
 import type { IColumn } from './column';
 import { TableIndex } from './tableIndex';
 import { accessedFields } from '../../data/accessedFields';
@@ -70,12 +70,25 @@ export class Table {
         this.indexes.push(new TableIndex(this, columns, { unique, includeColumns, where: whereSql }));
     }
 
-    // Resolves entity field names (own or mixin) to their physical columns.
+    // Resolves entity field names (own or mixin) to their physical columns. A DOTTED name walks
+    // EMBEDDED steps ("scriptExecution.nextExecution"), which live in this same row and so are
+    // indexable exactly like a flat field — Signum indexes them by the same expression.
     columnsFromFields(fieldNames: string[]): IColumn[] {
         return fieldNames.map(name => {
-            const ef = this.fields[name] ?? this.findMixinField(name);
+            const [first, ...rest] = name.split(".");
+            let ef = this.fields[first] ?? this.findMixinField(first);
             if (ef == null)
-                throw new Error(`Index on '${this.name.name}': no field '${name}' to index.`);
+                throw new Error(`Index on '${this.name.name}': no field '${first}' to index.`);
+
+            for (const step of rest) {
+                if (!(ef.field instanceof FieldEmbedded))
+                    throw new Error(`Index on '${this.name.name}': '${name}' walks '${step}' through a field that is not embedded — only embedded steps stay in this row.`);
+                const next = ef.field.embeddedFields[step];
+                if (next == null)
+                    throw new Error(`Index on '${this.name.name}': no field '${step}' inside '${name}' to index.`);
+                ef = next;
+            }
+
             return ef.field.columns();
         }).flat();
     }

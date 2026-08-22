@@ -1,0 +1,31 @@
+{
+  "name": "@altea/altea-workflow",
+  "version": "0.0.1",
+  "description": "BPMN workflow engine and designer (ported from Signum.Workflow)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-dynamic": "workspace:*",
+    "@altea/altea-omnibox": "workspace:*",
+    "@altea/altea-processes": "workspace:*",
+    "@altea/altea-scheduler": "workspace:*",
+    "@altea/altea-toolbar": "workspace:*",
+    "@altea/altea-user-assets": "workspace:*",
+    "bpmn-js": "7.5.0",
+    "diagram-js-minimap": "2.0.4",
+    "quote-transformer": "workspace:*"
+  }
+}
