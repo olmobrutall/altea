@@ -8,7 +8,7 @@
   // of node/DOM globals — the isomorphic contract, enforced by the compiler. Both organisations accepted:
   // a data/ directory OR co-located *.data.ts suffix files. All layers share one dist/ so co-located
   // siblings resolve by relative path.
-  "extends": "../tsconfig.base.json",
+  "extends": "./base.json",
   "compilerOptions": {
     "rootDir": "${configDir}",
     "outDir": "${configDir}/dist",

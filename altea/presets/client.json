@@ -7,7 +7,7 @@
   // client/ directory OR co-located *.client.ts suffix files, plus ANY *.tsx (a .tsx is always a client
   // component). The `*.d.ts` entry picks up an app's root-level ambient decls (e.g. eastwind/styles.d.ts's
   // `declare module "*.css"`) — a no-op in modules that have none. References DATA only, never server.
-  "extends": "../tsconfig.base.json",
+  "extends": "./base.json",
   "compilerOptions": {
     "rootDir": "${configDir}",
     "outDir": "${configDir}/dist",

@@ -7,7 +7,7 @@
   // accepted: a server/ directory OR co-located *.server.ts suffix files. A module's server project
   // references its own DATA layer (+ upstream server layers) but NEVER client, so server code can't pull
   // browser code into scope.
-  "extends": "../tsconfig.base.json",
+  "extends": "./base.json",
   "compilerOptions": {
     "rootDir": "${configDir}",
     "outDir": "${configDir}/dist",
