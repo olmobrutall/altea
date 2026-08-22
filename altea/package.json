@@ -27,7 +27,9 @@
     "./client/*": {
       "types": "./dist/client/*.d.ts",
       "default": "./dist/client/*.js"
-    }
+    },
+    "./loader.mjs": "./loader.mjs",
+    "./register.mjs": "./register.mjs"
   },
   "scripts": {
     "build": "tspc -b",

@@ -1,11 +1,15 @@
-// Node ESM resolver hook for running the tspc-emitted test JS directly.
+// Node ESM resolver hook for running the tspc-emitted JS directly — the ONE copy for the whole workspace
+// (every other package and the app reach it as `node --import @altea/altea/register.mjs`).
 //
-// altea is compiled with moduleResolution "bundler", so its emitted dist/*.js
-// use extensionless relative imports (e.g. `./sync/sqlBuilder`) — but Node's ESM loader requires explicit extensions.
-// This hook retries a failed extensionless specifier as `.js` then `/index.js`, so
-// `node --test` can run the compiled output without a bundling step. The `/index.js`
-// retry also covers folder barrels (e.g. `../entities/globals` → `globals/index.js`),
-// which Node rejects with ERR_UNSUPPORTED_DIR_IMPORT rather than ERR_MODULE_NOT_FOUND.
+// Why it is needed: the shared preset compiles with moduleResolution "bundler" (presets/base.json), so
+// sources use extensionless relative imports (`./sync/sqlBuilder`) and tsc emits them VERBATIM — while
+// Node's ESM loader demands an explicit extension and rejects a directory import outright. Anything that
+// runs the emitted dist/*.js under plain node — the test suites, the terminal host, the API server — needs
+// this hook; vite does not, because it resolves like a bundler.
+//
+// It retries a failed extensionless specifier as `.js` then `/index.js`; the second covers folder barrels
+// (`../data/globals` → `globals/index.js`), which Node rejects with ERR_UNSUPPORTED_DIR_IMPORT rather than
+// ERR_MODULE_NOT_FOUND.
 export async function resolve(specifier, context, nextResolve) {
     try {
         return await nextResolve(specifier, context);
