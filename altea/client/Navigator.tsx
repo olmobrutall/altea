@@ -122,7 +122,11 @@ export namespace Navigator {
   }
 
   export function raiseEntityChanged(typeOrEntity: Type<any> | string | Entity, isRedirect = false): void {
-    var cleanName = typeOrEntity instanceof Entity ? getTypeName(typeOrEntity) : typeOrEntity.toString();
+    // A `Type<T>` is a CONSTRUCTOR in altea, so `.toString()` is its SOURCE TEXT — which never matches the
+    // clean name `useEntityChanged` registered under, so a raise passing a type silently notified nobody.
+    // (Signum's argument is a string type name, so its `.toString()` is correct there.) The first consumer
+    // to hit it was @altea/altea-whats-new's news page raising WhatsNewLogEntity to refresh the navbar badge.
+    var cleanName = typeof typeOrEntity === "string" ? typeOrEntity : getTypeName(typeOrEntity);
     var entity = typeOrEntity instanceof Entity ? typeOrEntity : undefined;
 
     entityChanged[cleanName]?.forEach(func => func(cleanName, entity, isRedirect));
