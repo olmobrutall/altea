@@ -263,6 +263,13 @@ export class FieldInfo extends TypeReference {
     unit?: string;
     isMultiline?: boolean;
     maxLength?: number;
+    // Signum's `MemberInfo.notVisible` — this field is an implementation detail, not a user-facing
+    // property, so the AUTO-GENERATED view (and EntityTable's default columns) must not render it. Set
+    // imperatively from a client start, never by a decorator: whether a field is worth showing is a
+    // decision of whoever assembles the UI, and the same field may be internal in one app and
+    // meaningful in another. altea-tree's `TreeClient.hideTreeInternals` is the first caller (the two
+    // positioning fields are inputs to the Save operation, and the route columns are engine state).
+    notVisible?: boolean;
     // Set by @translatable (Signum's [Translatable]): this string field may carry a PER-INSTANCE
     // translation, managed by @altea/altea-translations. "Text" is plain, "Html" is rich (the editor
     // shows a WYSIWYG). `false` on an EMBEDDED field switches translation OFF for that route and

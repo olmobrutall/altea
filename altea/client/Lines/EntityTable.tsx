@@ -158,7 +158,7 @@ export class EntityTableController<R extends BaseEntity, RS> extends EntityListB
         // appears when the row is a @part ENTITY rather than an embedded (an embedded has none), and it is
         // the concurrency token — never a data column.
         state.columns = Object.entries(elementPr.subMembers())
-          .filter(([name, fi]) => name != "id" && name != "ticks" && !name.startsWith("[") && !fi.isBackReference && !fi.isRowOrder && !fi.noSerialize)
+          .filter(([name, fi]) => name != "id" && name != "ticks" && !name.startsWith("[") && !fi.isBackReference && !fi.isRowOrder && !fi.noSerialize && !fi.notVisible)
           .map(([name]) => ({ property: name }) as EntityTableColumn<R, RS>);
       }
       else {

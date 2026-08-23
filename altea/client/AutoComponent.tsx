@@ -18,7 +18,10 @@ export default function AutoComponent({ ctx }: { ctx: TypeContext<any>; viewName
     const lines = Dic.map(members, name => ctx.subCtx(name))
         .filter(c => {
             const m = c.propertyRoute?.member;
-            return m != null && m != "" && !m.startsWith("_") && !SKIP_MEMBERS.has(m);
+            if (m == null || m == "" || m.startsWith("_") || SKIP_MEMBERS.has(m))
+                return false;
+            // Signum's MemberInfo.notVisible — an implementation-detail field a client start hid.
+            return c.propertyRoute?.fieldInfo?.notVisible !== true;
         })
         .map(c => <AutoLine key={c.propertyPath} ctx={c} />);
 
