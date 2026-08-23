@@ -1,0 +1,7 @@
+{
+  // DATA layer — the log entity, its messages, and the interface the two registered expressions add.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" }
+  ]
+}

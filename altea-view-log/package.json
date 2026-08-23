@@ -1,0 +1,23 @@
+{
+  "name": "@altea/altea-view-log",
+  "version": "0.0.1",
+  "description": "Who viewed which entity, and which searches they ran (ported from Signum.ViewLog)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}

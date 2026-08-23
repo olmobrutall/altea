@@ -1,0 +1,11 @@
+{
+  // SERVER layer — the include + query, the two core scopes it hangs off, and the per-type expressions.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.server.json" }
+  ]
+}
