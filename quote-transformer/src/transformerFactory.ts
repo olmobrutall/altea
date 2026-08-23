@@ -97,6 +97,11 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     return quotedProperty != null;
   }
 
+  // The target of `x = a => a.b`. Uses isQuotedLikeType (not the bare isQuoteOfT) so that an OPTIONAL
+  // quoted member counts: `GetState?: Quoted<(e: T) => S>` has the declared type
+  // `Quoted<…> | undefined`, a UNION that isQuoteOfT rejects — which silently left every
+  // `g.GetState = o => o.state` unstamped. The other branches of assignedToQuoteOfT already used the
+  // union-aware predicate; this one did not.
   function isQuoteTypedLValue(node: ts.Expression, typeChecker: ts.TypeChecker): boolean {
     const symbol = typeChecker.getSymbolAtLocation(node);
     if (symbol?.declarations != null) {
@@ -109,13 +114,13 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
           declaration.type != null
         ) {
           const declaredType = typeChecker.getTypeFromTypeNode(declaration.type);
-          if (isQuoteOfT(declaredType))
+          if (isQuotedLikeType(declaredType))
             return true;
         }
       }
     }
 
-    return isQuoteOfT(typeChecker.getTypeAtLocation(node));
+    return isQuotedLikeType(typeChecker.getTypeAtLocation(node));
   }
 
   function assignedToQuoteOfT(node: ts.ArrowFunction, typeChecker: ts.TypeChecker): boolean {
