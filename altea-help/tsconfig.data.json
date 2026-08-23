@@ -1,0 +1,11 @@
+{
+  // DATA layer — the five help entities + their `@part` rows, the import preview/report models, the
+  // messages, the two permissions and the wire DTOs the pages read.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" },
+    { "path": "../altea-files/tsconfig.data.json" },
+    { "path": "../altea-omnibox/tsconfig.data.json" }
+  ]
+}

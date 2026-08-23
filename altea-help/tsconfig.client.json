@@ -1,0 +1,13 @@
+{
+  // CLIENT layer — the five pages, the in-place editors over altea-html-editor, the frame widget + line
+  // help icon, and the omnibox provider.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" },
+    { "path": "../altea-files/tsconfig.client.json" },
+    { "path": "../altea-html-editor/tsconfig.client.json" },
+    { "path": "../altea-omnibox/tsconfig.client.json" }
+  ]
+}

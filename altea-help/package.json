@@ -1,0 +1,27 @@
+{
+  "name": "@altea/altea-help",
+  "version": "0.0.1",
+  "description": "In-app documentation: per type / package / query / appendix help, auto-generated from reflection and editable in place (ported from Signum.Help)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-files": "workspace:*",
+    "@altea/altea-html-editor": "workspace:*",
+    "@altea/altea-omnibox": "workspace:*",
+    "fflate": "^0.8.2",
+    "quote-transformer": "workspace:*"
+  }
+}

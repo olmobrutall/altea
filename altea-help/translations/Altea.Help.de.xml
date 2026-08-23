@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<Translations>
+  <Type Name="HelpMessage">
+    <Member Name="ActionStatus" Description="Aktionsstatus"/>
+    <Member Name="Appendices" Description="Anhänge"/>
+    <Member Name="ChooseZIPFile" Description="ZIP-Datei auswählen"/>
+    <Member Name="Close" Description="Schließen"/>
+    <Member Name="CopyLinkToken" Description="Diesen Verweis in die Zwischenablage kopieren"/>
+    <Member Name="Edit" Description="Bearbeiten"/>
+    <Member Name="Entities" Description="Entitäten"/>
+    <Member Name="ExportAsZip" Description="Als ZIP exportieren"/>
+    <Member Name="Help" Description="Hilfe"/>
+    <Member Name="HelpNotLoaded" Description="Die Hilfe ist nicht geladen"/>
+    <Member Name="HelpZipContents" Description="Inhalt des Hilfe-ZIPs"/>
+    <Member Name="Import" Description="Importieren"/>
+    <Member Name="ImportCompletedSuccessfully" Description="erfolgreich importiert"/>
+    <Member Name="ImportCompletedWithErrors" Description="mit Fehlern importiert"/>
+    <Member Name="ImportError" Description="Importfehler"/>
+    <Member Name="ImportHelpContentsFromZipFile" Description="Hilfeinhalte aus einer ZIP-Datei importieren"/>
+    <Member Name="ImportReport" Description="Importbericht"/>
+    <Member Name="JumpToViewMore" Description="Zu „Mehr anzeigen“ springen"/>
+    <Member Name="NewKey" Description="Neuer Schlüssel"/>
+    <Member Name="Next" Description="Weiter"/>
+    <Member Name="Previous" Description="Zurück"/>
+    <Member Name="SearchText" Description="Suchtext"/>
+    <Member Name="SelectTheZIPFileWithTheHelpContentsThatYouWantToImport" Description="Wähle die ZIP-Datei mit den zu importierenden Hilfeinhalten"/>
+    <Member Name="SelectedFile" Description="Ausgewählte Datei"/>
+    <Member Name="Types" Description="Typen"/>
+    <Member Name="ViewMore" Description="Mehr anzeigen"/>
+  </Type>
+  <Type Name="HelpSearchMessage">
+    <Member Name="NoResults" Description="Keine Ergebnisse"/>
+    <Member Name="Results" Description="Ergebnisse"/>
+    <Member Name="Search" Description="Suchen"/>
+    <Member Name="_0ResultsFor1In2" Description="{0} Ergebnis[se] für {1} (in {2} ms)"/>
+  </Type>
+  <Type Name="HelpPermissions">
+    <Member Name="ExportHelp" Description="Hilfe exportieren"/>
+    <Member Name="ViewHelp" Description="Hilfe anzeigen"/>
+  </Type>
+  <Type Name="ImportActionEnum">
+    <Member Name="Create" Description="Anlegen"/>
+    <Member Name="NoChange" Description="Keine Änderung"/>
+    <Member Name="Override" Description="Überschreiben"/>
+  </Type>
+  <Type Name="ImportStatusEnum">
+    <Member Name="Applied" Description="Angewendet"/>
+    <Member Name="Failed" Description="Fehlgeschlagen"/>
+    <Member Name="NoChange" Description="Keine Änderung"/>
+    <Member Name="Skipped" Description="Übersprungen"/>
+  </Type>
+  <Type Name="TypeSearchResultEnum">
+    <Member Name="Appendix" Description="Anhang"/>
+    <Member Name="Namespace" Description="Paket"/>
+    <Member Name="Operation" Description="Operation"/>
+    <Member Name="Property" Description="Eigenschaft"/>
+    <Member Name="Query" Description="Abfrage"/>
+    <Member Name="Type" Description="Typ"/>
+  </Type>
+  <Type Name="TypeHelp">
+    <Member Name="Description" Description="Beschreibung"/>
+    <Member Name="Operations" Description="Operationen"/>
+    <Member Name="Properties" Description="Eigenschaften"/>
+    <Member Name="Queries" Description="Abfragen"/>
+  </Type>
+  <Type Name="AppendixHelp">
+    <Member Name="Description" Description="Beschreibung"/>
+    <Member Name="Title" Description="Titel"/>
+    <Member Name="UniqueName" Description="Eindeutiger Name"/>
+  </Type>
+  <Type Name="NamespaceHelp">
+    <Member Name="Description" Description="Beschreibung"/>
+    <Member Name="Title" Description="Titel"/>
+  </Type>
+</Translations>
