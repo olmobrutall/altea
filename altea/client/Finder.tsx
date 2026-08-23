@@ -30,7 +30,9 @@ import {
 } from './FindOptions';
 // TODO(port): QueryDescriptionDTO / QueryTokenWithoutParent dropped in altea (client builds the token tree locally).
 import { completeToken, QueryToken, SubTokensOptions, type Writable } from './QueryToken';
-import { getSubTokens as generateSubTokens, SubTokensOptionsAll } from '../data/dynamicQuery/tokens/queryToken';
+import { getSubTokens as generateSubTokens, SubTokensOptionsAll, setImplementedByAllTypesProvider } from '../data/dynamicQuery/tokens/queryToken';
+import { getRegisteredTypes } from '../data/registration';
+import { Metadata } from '../data/metadata';
 import { getKey } from '../data/dynamicQuery/queryUtils';
 import { reflectionDefaultColumns } from '../data/dynamicQuery/defaultColumns';
 import { RootToken } from '../data/dynamicQuery/tokens/rootToken';
@@ -114,6 +116,23 @@ type ModifiableEntity = BaseEntity;
 type ViewPromise<T = any> = any;
 type SearchControlMobileOptions = any;
 type ColumnParsed = any;
+
+// The CLIENT's source of "which concrete types could an @implementedByAll reference hold" — the
+// counterpart of `QueryLogic.getImplementedByAllTypes`, which reads `Schema.Tables.Keys` and so exists only
+// on the server. Signum needs no client half: its token tree is a server-built QueryDescription, while
+// altea generates sub-tokens in the browser (`getSubTokens`) — so without this the implementedByAll branch
+// found no provider and returned NOTHING, leaving every such reference with an empty sub-token list. That is
+// `ProcessEntity.data`, `OperationLogEntity.target`, `ViewLogEntity.target`, `AlertEntity.target`, …: their
+// column chooser offered nothing under the field, and a `.cast(X)` filter could not resolve at all
+// (surfaced by @altea/altea-printing's panel, whose Signum original filters `Data.(PrintPackage)`).
+//
+// The registry is the reflected type list narrowed by the metadata blob's `kind`, which is "Entity" exactly
+// for a persisted type — so a model, an embedded, an enum and a symbol container are all excluded, as they
+// are from the server's table list.
+setImplementedByAllTypesProvider(cleanTypeCtor =>
+  getRegisteredTypes().filter(ctor =>
+    (ctor === cleanTypeCtor || ctor.prototype instanceof cleanTypeCtor)
+    && Metadata.tryType(ctor.name)?.kind === "Entity"));
 
 export namespace Finder {
 
