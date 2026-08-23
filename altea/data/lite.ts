@@ -116,6 +116,14 @@ export class LiteImp<T extends Entity> extends Lite<T> {
     }
 
     toString(): string {
+        // A lite with no display string still has to render as SOMETHING: an `@implementedByAll` column
+        // stores only (id, typeId) — there is no table to join a toStr from, so the query hands back a
+        // typed lite with an empty `toStr` (Signum resolves it with a second per-type query through
+        // `IRetriever.RequestLite`, which altea does not do). Without this fallback the Target cell of
+        // every operation-log / view-log row renders BLANK. `NiceName id` is what Signum's client shows
+        // for a lite it cannot name, and it is unambiguous.
+        if (this.toStr === "" || this.toStr == null)
+            return `${(this.entityType as unknown as { niceName?(): string }).niceName?.() ?? this.entityType.name} ${String(this.id)}`;
         return this.toStr;
     }
 }
