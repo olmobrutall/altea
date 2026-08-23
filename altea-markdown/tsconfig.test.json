@@ -1,0 +1,16 @@
+{
+  // TEST layer — the markdown→text walk, which is the one piece of this port that replaces a .NET
+  // library (Markdig) with a different one (mdast), so the cases pin what each node kind flattens to.
+  "extends": "../altea/presets/server.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
+    "types": ["node"]
+  },
+  "include": ["${configDir}/test/**/*"],
+  "exclude": [],
+  "references": [
+    { "path": "./tsconfig.server.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" }
+  ]
+}

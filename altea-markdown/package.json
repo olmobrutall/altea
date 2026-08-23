@@ -1,0 +1,26 @@
+{
+  "name": "@altea/altea-markdown",
+  "version": "0.0.1",
+  "description": "A markdown editor line, a markdown query-column format rule, and a markdown→text flattener (ported from Signum.Markdown)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b",
+    "test": "tspc -b && node --enable-source-maps --import @altea/altea/register.mjs --test \"dist/test/**/*.test.js\""
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@types/mdast": "^4.0.4",
+    "mdast-util-from-markdown": "^2.0.3",
+    "quote-transformer": "workspace:*",
+    "react-markdown": "^10.1.0"
+  }
+}

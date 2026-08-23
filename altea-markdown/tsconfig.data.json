@@ -1,0 +1,7 @@
+{
+  // DATA layer — only `MarkdownMessage`, the two labels the line's edit/preview toggle shows.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" }
+  ]
+}

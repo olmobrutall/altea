@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<Translations>
+  <Type Name="MarkdownMessage">
+    <Member Name="Edit0" Description="{0} bearbeiten" />
+    <Member Name="Preview0" Description="Vorschau {0}" />
+  </Type>
+</Translations>

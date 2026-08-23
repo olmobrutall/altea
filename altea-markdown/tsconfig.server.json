@@ -1,0 +1,8 @@
+{
+  // SERVER layer — `markdownToText`, which the excel generator calls for a `Markdown` column.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" }
+  ]
+}

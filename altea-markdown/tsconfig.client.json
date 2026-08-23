@@ -1,0 +1,8 @@
+{
+  // CLIENT layer — the `Markdown` query-column format rule and the MarkdownLine.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" }
+  ]
+}
