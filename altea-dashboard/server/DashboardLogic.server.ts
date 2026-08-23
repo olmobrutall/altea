@@ -4,6 +4,7 @@ import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.w
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { graph } from "@altea/altea/server/graphBuilder";
 import { table } from "@altea/altea/server/table";
+import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { retrieve, deleteList } from "@altea/altea/server/Database";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
 import type { Entity, Type } from "@altea/altea/data/entity";
@@ -39,7 +40,9 @@ import { ToolbarLogic } from "@altea/altea-toolbar/server/ToolbarLogic.server";
 //  - Owner scoping IS ported (registerUserTypeCondition / registerRoleTypeCondition below + the in-memory
 //    visibility filter every lookup applies), but altea needs no per-part mirroring of the conditions: a Part
 //    inherits its owner's rules structurally — see @altea/altea-user-assets' UserAssetOwnerAuth.
-//  - Omnibox / ViewLog wiring is omitted (those extensions are not ported); the TOOLBAR content config IS
+//  - Omnibox wiring is omitted; the "a client just looked at this dashboard" scopes Signum reports through
+//    ViewLogLogic.LogView go through the CORE seam (ExecutionMode.apiRetrievedScope), so this module needs
+//    no dependency on @altea/altea-view-log. The TOOLBAR content config IS
 //    registered (a Dashboard can be a toolbar element).
 
 // ---- The part registry (Signum's DashboardLogic.PartNames + the per-entity Clone/ToXml/FromXml) ---------
@@ -166,7 +169,14 @@ export namespace DashboardLogic {
             .filter(d => (!key || d.key === key) && d.entityType == null && d.dashboardPriority != null)
             .sort((a, b) => (b.dashboardPriority as number) - (a.dashboardPriority as number));
 
-        return (await UserAssetOwnerAuth.filterVisible(candidates))[0];
+        const result = (await UserAssetOwnerAuth.filterVisible(candidates))[0];
+        if (result == null)
+            return undefined;
+
+        // Signum's `using (ViewLogLogic.LogView(result.ToLite(), "GetHomePageDashboard"))`.
+        const after = await ExecutionMode.apiRetrievedScope(result.toLite(), "GetHomePageDashboard");
+        await after?.();
+        return result;
     }
 
     /** Signum's GetDashboards(): every standalone dashboard the current role may read, as lites (the
@@ -230,7 +240,14 @@ export namespace DashboardLogic {
         if (cached == null)
             return undefined;
 
-        return (await UserAssetOwnerAuth.isVisible(cached)) ? cached : undefined;
+        if (!await UserAssetOwnerAuth.isVisible(cached))
+            return undefined;
+
+        // Signum's `using (ViewLogLogic.LogView(dashboard, "Dashboard"))` — reported through the CORE seam
+        // here, so this module needs no dependency on the (optional) view-log one.
+        const after = await ExecutionMode.apiRetrievedScope(cached.toLite(), "Dashboard");
+        await after?.();
+        return cached;
     }
 
     // ---- Clone (Signum's DashboardEntity.Clone + PanelPartEmbedded.Clone + IPartEntity.Clone) --------

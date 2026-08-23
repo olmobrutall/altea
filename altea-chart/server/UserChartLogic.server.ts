@@ -3,6 +3,7 @@ import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave /
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
+import { ExecutionMode } from "@altea/altea/server/executionMode";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import type { Lite } from "@altea/altea/data/lite";
@@ -138,6 +139,13 @@ export namespace UserChartLogic {
         const cached = all.find(uc => String(uc.id) === String(id));
         if (cached == null)
             return undefined;
-        return (await UserAssetOwnerAuth.isVisible(cached)) ? cached : undefined;
+        if (!await UserAssetOwnerAuth.isVisible(cached))
+            return undefined;
+
+        // Signum's `using (ViewLogLogic.LogView(userChart, "UserChart"))` — reported through the CORE seam
+        // here, so this module needs no dependency on the (optional) view-log one.
+        const after = await ExecutionMode.apiRetrievedScope(cached.toLite(), "UserChart");
+        await after?.();
+        return cached;
     }
 }

@@ -3,6 +3,7 @@ import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave /
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
+import { ExecutionMode } from "@altea/altea/server/executionMode";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import type { Lite } from "@altea/altea/data/lite";
@@ -151,6 +152,15 @@ export namespace UserQueriesLogic {
         const cached = all.find(uq => String(uq.id) === String(id));
         if (cached == null)
             return undefined;
-        return (await UserAssetOwnerAuth.isVisible(cached)) ? cached : undefined;
+        if (!await UserAssetOwnerAuth.isVisible(cached))
+            return undefined;
+
+        // Signum wraps this in `using (ViewLogLogic.LogView(userQuery, "UserQuery"))`, which makes
+        // Signum.UserQueries depend on Signum.ViewLog. altea reports through the CORE seam instead
+        // (`ExecutionMode.onApiRetrieved`, added for @altea/altea-view-log), so this module stays
+        // independent of an optional one and nothing happens when no observer is installed.
+        const after = await ExecutionMode.apiRetrievedScope(cached.toLite(), "UserQuery");
+        await after?.();
+        return cached;
     }
 }
