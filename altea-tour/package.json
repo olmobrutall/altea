@@ -18,8 +18,8 @@
   "dependencies": {
     "@altea/altea": "workspace:*",
     "@altea/altea-auth": "workspace:*",
-    "@altea/altea-codemirror": "workspace:*",
     "@altea/altea-dashboard": "workspace:*",
+    "@altea/altea-markdown": "workspace:*",
     "@altea/altea-user-assets": "workspace:*",
     "@altea/altea-user-queries": "workspace:*",
     "driver.js": "1.3.6",

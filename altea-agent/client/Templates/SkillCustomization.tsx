@@ -7,7 +7,7 @@ import { EnumLine } from "@altea/altea/client/Lines/EnumLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useAPI, useForceUpdate } from "@altea/altea/client/Hooks";
 import { Navigator } from "@altea/altea/client/Navigator";
-import MarkdownCodeMirror from "@altea/altea-codemirror/client/MarkdownCodeMirror";
+import { MarkdownLine } from "@altea/altea-markdown/client/MarkdownLine";
 import { DiffDocument } from "@altea/altea-diff-log/client/Templates/DiffDocument";
 import type { SkillPropertyMeta } from "../../data/ChatbotProtocol";
 import {
@@ -19,8 +19,6 @@ import { ToolsView } from "./SkillCode";
 // Port of Signum.Agent's Templates/SkillCustomization.tsx — the editor for a DB overlay over a code skill.
 //
 // altea divergences:
-//  - `MarkdownLine` (Signum.Markdown, not ported) → `MarkdownCodeMirror` from @altea/altea-codemirror, which
-//    is the editor half of it.
 //  - the "Show Diff" toggle is Signum's, over the same `DiffDocument` (@altea/altea-diff-log). The extra
 //    "Reset to default" button is an altea addition: seeing what changed is only half of what you want from
 //    a diff against a default, and putting it back was two clicks of manual copying in Signum.
@@ -147,7 +145,7 @@ function InstructionsField(p: {
             </div>
             {showDiff && p.info
                 ? <DiffDocument first={p.info.defaultInstructions} second={ctx.value.instructions ?? ""} />
-                : <MarkdownCodeMirror ctx={ctx.subCtx(e => e.instructions)} onChange={forceUpdate} />}
+                : <MarkdownLine ctx={ctx.subCtx(e => e.instructions)} onChange={forceUpdate} />}
         </div>
     );
 }

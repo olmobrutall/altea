@@ -5,7 +5,7 @@
     { "path": "./tsconfig.data.json" },
     { "path": "../altea/tsconfig.client.json" },
     { "path": "../altea-auth/tsconfig.client.json" },
-    { "path": "../altea-codemirror/tsconfig.client.json" },
+    { "path": "../altea-markdown/tsconfig.client.json" },
     { "path": "../altea-user-assets/tsconfig.client.json" },
     { "path": "../altea-dashboard/tsconfig.client.json" },
     { "path": "../altea-user-queries/tsconfig.client.json" }

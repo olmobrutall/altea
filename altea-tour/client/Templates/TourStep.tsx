@@ -7,7 +7,7 @@ import { EntityTable } from "@altea/altea/client/Lines/EntityTable";
 import { FormGroup } from "@altea/altea/client/Lines/FormGroup";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
-import MarkdownCodeMirror from "@altea/altea-codemirror/client/MarkdownCodeMirror";
+import { MarkdownLine } from "@altea/altea-markdown/client/MarkdownLine";
 import { DashboardEntity } from "@altea/altea-dashboard/data/Dashboard";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import {
@@ -19,8 +19,6 @@ import PropertyRouteCombo from "../PropertyRouteCombo";
 // anchor selector, where the popover sits, and its markdown body.
 //
 // altea divergences:
-//  - `MarkdownLine` (Signum.Markdown, unported) → @altea/altea-codemirror's `MarkdownCodeMirror`, which is
-//    what that package ships in its place.
 //  - the "Property" step binds a route STRING through a local `PropertyRouteCombo` (altea has no
 //    PropertyRouteEntity and no framework combo — see ../PropertyRouteCombo).
 //  - the live selector preview calls the SAME `cssStepSelector` the server uses to build the DTO (it lives
@@ -128,7 +126,7 @@ export default function TourStep(p: {
             </div>
 
             <FormGroup ctx={sc.subCtx(a => a.description)}>
-                {() => <MarkdownCodeMirror ctx={sc.subCtx(a => a.description)} onChange={forceUpdate} />}
+                {() => <MarkdownLine ctx={sc.subCtx(a => a.description)} onChange={forceUpdate} />}
             </FormGroup>
         </div>
     );
