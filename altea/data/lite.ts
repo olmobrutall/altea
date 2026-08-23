@@ -110,18 +110,28 @@ export class LiteImp<T extends Entity> extends Lite<T> {
     constructor(
         readonly id: PrimaryKey,
         readonly entityType: Type<T>,
-        readonly toStr: string,
+        // NOT `readonly`: the retriever fills it after the fact — see `setToStr`. It stays a PLAIN OWN
+        // PROPERTY (not a getter over a private field), because the serializer enumerates own properties
+        // and a `_toStr` backing field would ride along on every lite on the wire.
+        public toStr: string,
     ) {
         super();
     }
 
+    /**
+     * Signum's `Lite.SetToString`. The ONE legitimate caller is the retriever's display-string completion
+     * pass (`Retriever.completeLiteToStrings`): an `@implementedByAll` column stores only (id, typeId), so
+     * there is no table to join a `to_str` from and the query hands the lite back nameless. Anyone else
+     * wanting a different display string should build a new lite.
+     */
+    setToStr(toStr: string): void {
+        this.toStr = toStr;
+    }
+
     toString(): string {
-        // A lite with no display string still has to render as SOMETHING: an `@implementedByAll` column
-        // stores only (id, typeId) — there is no table to join a toStr from, so the query hands back a
-        // typed lite with an empty `toStr` (Signum resolves it with a second per-type query through
-        // `IRetriever.RequestLite`, which altea does not do). Without this fallback the Target cell of
-        // every operation-log / view-log row renders BLANK. `NiceName id` is what Signum's client shows
-        // for a lite it cannot name, and it is unambiguous.
+        // Last resort: the completion pass could not name this row — it was deleted, or the current user
+        // may not read its type. `NiceName id` is what Signum's client shows for a lite it cannot name, and
+        // it beats rendering an empty cell.
         if (this.toStr === "" || this.toStr == null)
             return `${(this.entityType as unknown as { niceName?(): string }).niceName?.() ?? this.entityType.name} ${String(this.id)}`;
         return this.toStr;

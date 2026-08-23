@@ -28,9 +28,16 @@ export class Retriever {
     // query pipeline). Runs `table(ctor).filter(e => ids.includes(e.id))` into `this`.
     static retrieveListImpl: ((ctor: Type<Entity>, ids: PrimaryKey[], retriever: Retriever) => Promise<void>) | undefined;
 
+    // Also injected by table.ts: `table(ctor).filter(e => ids.includes(e.id)).map(e => e.toLite())` — the
+    // display-string projection behind `completeLiteToStrings`.
+    static liteListImpl: ((ctor: Type<Entity>, ids: PrimaryKey[]) => Promise<Lite<Entity>[]>) | undefined;
+
     private readonly cache = new Map<string, Entity>();
     private readonly populated = new Set<Entity>();
     private readonly requests = new Map<string, { ctor: Type<Entity>, ids: Map<string, Entity> }>();
+    // Nameless `@implementedByAll` lites awaiting their display string, grouped by type — see
+    // `liteImplementedByAll` / `completeLiteToStrings`.
+    private readonly liteRequests = new Map<string, { ctor: Type<Entity>, byId: Map<string, LiteImp<Entity>[]> }>();
 
     private getOrCreate(ctor: Type<Entity>, id: PrimaryKey): Entity {
         const key = ctor.name + ":" + id;
@@ -128,8 +135,12 @@ export class Retriever {
     // Signum's RealRetriever.CompleteAll: drain the pending requests, batch-loading each
     // type by id into this same retriever, until none remain (a load can add more).
     async completeAll(): Promise<void> {
-        if (Retriever.retrieveListImpl == null)
+        if (Retriever.retrieveListImpl == null) {
+            // The stub drain needs the query pipeline; the lite-name pass has its own injection point and
+            // may still be able to run.
+            await this.completeLiteToStrings();
             return;
+        }
         while (this.requests.size > 0) {
             // Largest group first (Signum's MaxBy) — fewer round-trips overall.
             let best: { ctor: Type<Entity>, ids: Map<string, Entity> } | undefined;
@@ -159,6 +170,10 @@ export class Retriever {
 
             await Retriever.retrieveListImpl(ctor, ids, this);
         }
+
+        // LAST: the stub drain can itself surface nameless `@implementedByAll` lites (a completed row may
+        // carry one), so the display-string pass runs once the id-only work has settled.
+        await this.completeLiteToStrings();
     }
 
     // A Lite<T> loaded by id (+ optional display string). Builds a thin LiteImp —
@@ -181,11 +196,68 @@ export class Retriever {
 
     // A Lite<T> over a @implementedByAll reference: a thin LiteImp of the concrete
     // type named by the discriminator id.
+    //
+    // Such a column stores only (id, typeId) — there is no single table to join a `to_str` from — so the
+    // query leaves the display string EMPTY and the lite is registered for the batch completion pass at the
+    // end of `completeAll` (Signum's `IRetriever.RequestLite`).
     liteImplementedByAll(id: PrimaryKey | null, typeId: PrimaryKey | null, toStr: string | null): Lite<Entity> | null {
         if (id == null || typeId == null) return null;
         const ctor = TypeLogic.tryGetType(typeId);
         if (ctor == null) return null;
-        return new LiteImp(id, ctor as unknown as Type<Entity>, toStr ?? "");
+        const lite = new LiteImp(id, ctor as unknown as Type<Entity>, toStr ?? "");
+        if (toStr == null || toStr === "")
+            this.requestLiteToStr(lite);
+        return lite;
+    }
+
+    // Register a nameless lite for the completion pass. Several lites may point at the SAME row (one log
+    // per view of the same order), so the map holds a list per id and one query names them all.
+    private requestLiteToStr(lite: LiteImp<Entity>): void {
+        const key = lite.entityType.name;
+        let group = this.liteRequests.get(key);
+        if (group == null)
+            this.liteRequests.set(key, group = { ctor: lite.entityType, byId: new Map() });
+
+        const idKey = String(lite.id);
+        const list = group.byId.get(idKey);
+        if (list == null)
+            group.byId.set(idKey, [lite]);
+        else
+            list.push(lite);
+    }
+
+    /**
+     * Signum's `RealRetriever.CompleteAll` lite half: ONE query per TYPE that projects `(id, toStr)` for the
+     * ids that type's nameless lites point at, then stamps each lite's display string.
+     *
+     * Deliberately NOT a full retrieve of those entities: a display string is all that is missing, the rows
+     * may belong to types the caller never asked for, and retrieving them would drag in their own references
+     * (and fire their Retrieved handlers and the type-READ gate). A lite PROJECTION reads only the row's own
+     * `to_str` / lowered `toString()`.
+     *
+     * It runs with the CALLER's rights, so the row-level filter applies and a type the current user may not
+     * read simply yields nothing — the lite keeps its "NiceName id" fallback rather than leaking a name or
+     * failing the whole query. A type group that throws for any other reason is skipped for the same reason.
+     */
+    private async completeLiteToStrings(): Promise<void> {
+        if (this.liteRequests.size === 0 || Retriever.liteListImpl == null)
+            return;
+
+        const groups = [...this.liteRequests.values()];
+        this.liteRequests.clear();
+
+        for (const group of groups) {
+            const ids = [...group.byId.values()].map(lites => lites[0]!.id);
+            try {
+                for (const named of await Retriever.liteListImpl(group.ctor, ids)) {
+                    for (const lite of group.byId.get(String(named.id)) ?? [])
+                        lite.setToStr(named.toString());
+                }
+            } catch {
+                // Unreadable / unqueryable type: leave the fallback. An auditing column must never break the
+                // query it decorates.
+            }
+        }
     }
 
     // The runtime type of an @implementedByAll reference (Signum's Schema.GetType):

@@ -4,6 +4,7 @@ import { CallExpression, ConstantExpression, Expression, PropertyExpression, Par
 import { Retriever } from "./linq/Retriever";
 import { quotedFunction, type IQueryTranslator, Query } from "./query";
 import { ArrayType, FunctionType, ClassType, RuntimeType, LiteralType } from "./runtimeTypes";
+import type { Lite } from "../data/lite";
 import { OverloadingSimplifier } from "./linq/visitors/OverloadingSimplifier";
 import { Connector } from "./connection/connector";
 import { QueryBinder } from "./linq/visitors/QueryBinder";
@@ -210,6 +211,16 @@ Retriever.retrieveListImpl = async (ctor: Type<Entity>, ids: PrimaryKey[], retri
     const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.ready(connector.schema);
     const filterContext = await connector.schema.buildQueryFilterContext();
     await buildTranslateResult(retrieveByIdsProjection(ctor, ids, filterContext, typeCaches), connector.isPostgres).executeInto(retriever);
+};
+
+// The DISPLAY-STRING projection behind `Retriever.completeLiteToStrings` (Signum's RequestLite completion):
+// one query per type that reads only each row's own name. `map(e => e.toLite())` is a lite projection, so the
+// SELECT is the id plus the `to_str` column (or the lowered `@quoted toString()`) — never the whole row.
+//
+// It runs on its OWN retriever (the caller's is mid-completion, and these rows are not what the caller
+// asked for) and with the caller's rights, so the row-level filter applies as usual.
+Retriever.liteListImpl = async (ctor: Type<Entity>, ids: PrimaryKey[]): Promise<Lite<Entity>[]> => {
+    return await table(ctor).filter(e => ids.includes(e.id)).map(e => e.toLite()).toArray();
 };
 
 // Materialise the `ctor` rows whose id is in `ids` from a CACHE CONTROLLER instead of the database —
