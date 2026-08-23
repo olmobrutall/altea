@@ -122,7 +122,22 @@ function fillContext(e: ExceptionEntity, req: Request): void {
     });
     e.form.text = tryStr(undefined, () => typeof req.body === "string" ? req.body
         : req.body != null ? JSON.stringify(req.body) : "");
+
+    for (const apply of applyMixins) {
+        try { apply(e, req); } catch { /* an exception log must not fail while logging an exception */ }
+    }
 }
+
+/**
+ * Signum's `SignumExceptionFilterAttribute.ApplyMixins` — stamp a module's own mixin fields onto the
+ * exception row being logged, with the request still in hand. Its only implementor is
+ * @altea/altea-isolation, which records which isolation the failing request was running in (the ambient
+ * scope may already have been torn down, so it falls back to what the middleware stashed on the request).
+ *
+ * Runs last, after the request-derived fields, and a throwing handler is swallowed: this code path is
+ * already handling a failure.
+ */
+export const applyMixins: ((e: ExceptionEntity, req: Request) => void)[] = [];
 
 function controllerName(req: Request): string {
     // No MVC controller concept — approximate with the matched route (or the path's first segment).

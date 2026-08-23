@@ -20,8 +20,9 @@ import type { RuntimeType } from '../runtimeTypes';
 //    has no altea analogue.
 //  - the unsafe-DML hooks (PreUnsafeDelete/Update/Insert) are pre-execution async callbacks
 //    receiving the source Query, NOT Signum's IDisposable-returning scopes: a handler runs its
-//    own work (e.g. cascade-delete children) before the operation. The dispose-after phase and
-//    PreUnsafeInsert's constructor-rewriting are not ported (no consumer needs them yet).
+//    own work (e.g. cascade-delete children) before the operation. The dispose-after phase is
+//    not ported (no consumer needs it); PreUnsafeInsert's constructor-REWRITING is, since
+//    @altea/altea-isolation needs it to stamp a set-based insert.
 //  - `queryFilter` IS ported (Signum's FilterQuery, row-level query security) — see below.
 //  - `additionalBindings` IS ported (Signum's RegisterBinding / AdditionalBindings) — see below — as a
 //    general per-row computed value folded into the retrieval SELECT (its original Signum use is MList /
@@ -38,7 +39,12 @@ export type SavedHandler<T extends Entity> = (entity: T, args: SavedArgs) => voi
 export type RetrievedHandler<T extends Entity> = (entity: T) => void;
 export type PreUnsafeDeleteHandler<T extends Entity> = (query: Query<T>) => void | Promise<void>;
 export type PreUnsafeUpdateHandler<T extends Entity> = (query: Query<T>) => void | Promise<void>;
-export type PreUnsafeInsertHandler<T extends Entity> = (query: Query<T>) => void | Promise<void>;
+// Signum's PreUnsafeInsert: `(query, constructor, entityQuery) => constructor`. A handler may return a
+// REPLACEMENT constructor lambda — that is how a module folds a value into every set-based INSERT of T
+// (@altea/altea-isolation stamps the current isolation onto it) — or nothing to leave it as declared. An
+// async handler may return one too; the rewrites chain, each seeing the previous one's result.
+export type PreUnsafeInsertHandler<T extends Entity> =
+    (query: Query<T>, constructor: LambdaExpression) => LambdaExpression | void | Promise<LambdaExpression | void>;
 export type PreBulkInsertHandler = () => void;
 // An opaque, per-translation bag of row-level-security data (Signum keeps its FilterQuery caches always
 // warm; altea can't — no sync DB — so it resolves them ON DEMAND). Each async provider registered on the
@@ -128,9 +134,13 @@ export class EntityEvents<T extends Entity> {
             await h(query);
     }
 
-    async onPreUnsafeInsert(query: Query<T>): Promise<void> {
+    // Returns the constructor lambda to actually insert with: each handler sees the previous one's result,
+    // so the rewrites compose (Signum threads the same `constructor` through its invocation list).
+    async onPreUnsafeInsert(query: Query<T>, constructor: LambdaExpression): Promise<LambdaExpression> {
+        let current = constructor;
         for (const h of [...this.preUnsafeInsert].reverse())
-            await h(query);
+            current = (await h(query, current)) ?? current;
+        return current;
     }
 
     onPreBulkInsert(): void {

@@ -56,6 +56,13 @@ export interface SurroundOperationContext {
 export type SurroundOperationHandler =
     (ctx: SurroundOperationContext) => SurroundOperationAfter | void | Promise<SurroundOperationAfter | void>;
 
+/**
+ * The SCOPING half of Signum's one `SurroundOperation` event — a handler that WRAPS the whole operation
+ * rather than observing its two ends. See {@link OperationLogic.aroundOperation}.
+ */
+export type AroundOperationHandler =
+    (ctx: SurroundOperationContext, fn: () => Promise<unknown>) => Promise<unknown>;
+
 /** The two period expressions {@link OperationLogic.registerSystemValidTokens} stamps on a versioned type. */
 export interface ISystemVersioned extends Entity {
     systemValidFrom?(): Temporal.PlainDateTime | null;
@@ -180,6 +187,24 @@ export namespace OperationLogic {
      */
     export const surroundOperation: SurroundOperationHandler[] = [];
 
+    /**
+     * The other half of Signum's `SurroundOperation`: a handler that establishes an ambient SCOPE around
+     * the whole operation — the log build, the execution and the log save. Its consumer is
+     * @altea/altea-isolation, which runs an operation inside the isolation of the row it targets.
+     *
+     * ALTEA: Signum has ONE event, because a C# `IDisposable` expresses both "observe the two ends" and
+     * "hold a scope". A JavaScript ambient is an AsyncLocalStorage, which cannot be entered without a
+     * callback, so the two uses need two shapes — and their CONTRACTS differ, which is why merging them
+     * would be wrong in either direction:
+     *  - {@link OperationLogic.surroundOperation} observes. A throwing handler is logged and skipped
+     *    (auditing must not break what it observes), and its "after" half runs at a precise point — after
+     *    the target is known, before the log is saved — so what it writes onto the log persists.
+     *  - `aroundOperation` scopes. A throwing handler FAILS the operation, because it decides what the
+     *    operation is allowed to see.
+     * Handlers compose, first-registered outermost.
+     */
+    export const aroundOperation: AroundOperationHandler[] = [];
+
     // Signum's OperationLogic.Start: wires the OperationSymbol table through SymbolLogic,
     // seeding only the RegisteredOperations, and includes the OperationLogEntity table + its query
     // (Signum's sb.Include<OperationLogEntity>().WithQuery(...)). Call AFTER the graphs have registered.
@@ -299,34 +324,51 @@ async function logOperation<T>(
         start: Temporal.Now.plainDateTimeISO(),
     });
 
-    // Signum's `OperationLogic.SurroundOperation` (an event returning an IDisposable). Each handler may
-    // observe the log + entity BEFORE the operation and return an "after" callback that runs once the
-    // target is known — which is exactly the before/after pair @altea/altea-diff-log records.
-    const afters = await runSurroundBefore(symbol, log, entity, args);
-
-    try {
-        const result = await run();
-        log.setTarget(getTarget(result));
-        log.end = Temporal.Now.plainDateTimeISO();
-        // AFTER setTarget, so a handler reading `log.target` sees the operation's result (Signum's
-        // `log.GetTemporalTarget()`), and BEFORE the save, so what a handler writes onto the log persists.
-        await runSurroundAfter(afters, symbol);
-        await persistLog(log);
-        return result;
-    } catch (error) {
-        log.end = Temporal.Now.plainDateTimeISO();
-        // The "after" half still runs on failure — Signum's `using` disposes either way — so a handler that
-        // allocated state releases it, and a partial record is still written.
-        await runSurroundAfter(afters, symbol);
-        // Link the exception row (Signum's OperationLogEntity.Exception) — best-effort.
-        try {
-            const ex = await ExceptionLogic.logException(error);
-            log.exception = ex.isNew ? null : ex.toLite();
-        } catch (exError) {
-            console.error("OperationLogic.logOperation: failed to log exception:", exError);
+    // The SCOPING half (OperationLogic.aroundOperation): establish every registered ambient around the
+    // whole thing — the surround handlers, the execution and the log save — before anything reads the
+    // database. @altea/altea-isolation runs the operation inside the isolation of the row it targets, and
+    // the log row it writes has to land in that same isolation.
+    if (OperationLogic.aroundOperation.length > 0) {
+        const ctx: SurroundOperationContext = { operation: OperationLogic.findOperation(symbol), log, entity, args };
+        let composed = () => body();
+        for (const handler of [...OperationLogic.aroundOperation].reverse()) {
+            const inner = composed;
+            composed = () => handler(ctx, inner) as Promise<T>;
         }
-        await persistLog(log);
-        throw error;
+        return await composed();
+    }
+    return await body();
+
+    async function body(): Promise<T> {
+        // Signum's `OperationLogic.SurroundOperation` (an event returning an IDisposable). Each handler may
+        // observe the log + entity BEFORE the operation and return an "after" callback that runs once the
+        // target is known — which is exactly the before/after pair @altea/altea-diff-log records.
+        const afters = await runSurroundBefore(symbol, log, entity, args);
+
+        try {
+            const result = await run();
+            log.setTarget(getTarget(result));
+            log.end = Temporal.Now.plainDateTimeISO();
+            // AFTER setTarget, so a handler reading `log.target` sees the operation's result (Signum's
+            // `log.GetTemporalTarget()`), and BEFORE the save, so what a handler writes onto the log persists.
+            await runSurroundAfter(afters, symbol);
+            await persistLog(log);
+            return result;
+        } catch (error) {
+            log.end = Temporal.Now.plainDateTimeISO();
+            // The "after" half still runs on failure — Signum's `using` disposes either way — so a handler that
+            // allocated state releases it, and a partial record is still written.
+            await runSurroundAfter(afters, symbol);
+            // Link the exception row (Signum's OperationLogEntity.Exception) — best-effort.
+            try {
+                const ex = await ExceptionLogic.logException(error);
+                log.exception = ex.isNew ? null : ex.toLite();
+            } catch (exError) {
+                console.error("OperationLogic.logOperation: failed to log exception:", exError);
+            }
+            await persistLog(log);
+            throw error;
+        }
     }
 }
 

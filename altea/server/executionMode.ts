@@ -18,6 +18,11 @@ export type ApiRetrievedHandler =
 
 const apiRetrieved: ApiRetrievedHandler[] = [];
 
+/** One handler of {@link ExecutionMode.onSetIsolation}; see there. */
+export type SetIsolationHandler = (candidates: readonly Entity[], fn: () => unknown) => unknown;
+
+const setIsolation: SetIsolationHandler[] = [];
+
 export const ExecutionMode = {
     // Run `fn` (sync or async) with global mode ON for its whole async-propagated scope. Returns fn's
     // result (a Promise when fn is async — the scope holds across its awaits).
@@ -73,5 +78,48 @@ export const ExecutionMode = {
                 }
             }
         };
+    },
+
+    /**
+     * Signum's `ExecutionMode.OnSetIsolation` — "adopt this entity's own scoping for the work I am about to
+     * do on it". A BACKGROUND runner has no request to inherit an ambient scope from, so it takes one from
+     * the row it is processing: the four callers are the process runner, the scheduled-task runner and the
+     * two model-template renderers, exactly as in Signum. Its only implementor is @altea/altea-isolation.
+     *
+     * It lives here, in core, for the reason Signum puts it here: those four callers must not depend on an
+     * optional module, and with none installed {@link ExecutionMode.withIsolationOf} just calls `fn`.
+     *
+     * ALTEA, two shape changes and no semantic ones:
+     *  - a handler WRAPS the work (`(candidates, fn) => …fn()…`) where Signum's returns an `IDisposable` a
+     *    `using` block scopes. Same intent — Signum's call site IS a scope — and it is the shape every
+     *    altea ambient already has (`ExecutionMode.global`, `UserHolder.withUser`,
+     *    `CultureInfo.withCultures`), because an AsyncLocalStorage scope cannot be entered without a
+     *    callback.
+     *  - it takes CANDIDATES, and a handler adopts the first that yields a scope. Signum writes that as
+     *    `SetIsolation(a) ?? SetIsolation(b)`, which reads "a's scope, else b's" only because a null
+     *    IDisposable means "this entity had nothing"; a wrapping handler has no null to test.
+     */
+    onSetIsolation: setIsolation as SetIsolationHandler[],
+
+    /**
+     * Signum's `using (ExecutionMode.SetIsolation(a) ?? ExecutionMode.SetIsolation(b)) { … }`: run `fn` with
+     * each handler's scope established around it, outermost first, each handler taking the FIRST candidate
+     * that gives it something. Returns fn's result (a Promise when fn is async — the scopes hold across its
+     * awaits). With nothing registered it calls `fn` directly.
+     *
+     * A throwing handler is NOT swallowed, unlike {@link ExecutionMode.apiRetrievedScope}: this seam decides
+     * which rows the work may see, so failing to establish the scope must fail the work.
+     */
+    withIsolationOf<R>(candidates: Entity | readonly Entity[], fn: () => R): R {
+        if (setIsolation.length === 0)
+            return fn();
+
+        const list = Array.isArray(candidates) ? candidates : [candidates as Entity];
+        let composed = fn as () => unknown;
+        for (const handler of [...setIsolation].reverse()) {
+            const inner = composed;
+            composed = () => handler(list, inner);
+        }
+        return composed() as R;
     },
 };

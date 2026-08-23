@@ -4,6 +4,7 @@ import { EmbeddedEntity, Entity, type Type } from "../data/entity";
 import type { IQuery, IOrderedQuery } from "../data/iquery";
 import { Connector } from "./connection/connector";
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, type MethodExpander, PropertyExpression } from "./linq/expressions";
+import type { EntityEvents } from "./schema/entityEvents";
 import { ArrayType, LiteralType as SimpleType, ClassType, RuntimeType, FunctionType, ObjectType, type QuotedFunction, quotedFunction, type LambdaTypeResolver, type ResultTypeResolver } from "./runtimeTypes";
 import { toInt, toLong, inSql } from "../data/basics";
 import { SystemTime } from "./systemTime";
@@ -655,11 +656,13 @@ export class Query<T> implements IQuery<T> {
     @resultType(() => SimpleType.number)
     async executeInsert<E>(target: new () => E, selector: Quoted<(element: T) => PartialRec<E>>): Promise<number> {
         var lambda = Expression.fromQuotedLambda(selector, [this.elementType]);
-        // Fire on the TARGET type's events (the entity being inserted), passing the source query.
-        await this.firePreUnsafe("insert", target as unknown as Function);
+        // Fire on the TARGET type's events (the entity being inserted), passing the source query AND the
+        // constructor — a handler may hand back a rewritten one (Signum's PreUnsafeInsert returns the
+        // constructor), which is how a module folds a value into every set-based insert of the target.
+        const rewritten = await this.firePreUnsafeInsert(target as unknown as Function, lambda);
         var call = new CallExpression(
             new PropertyExpression(this.expression, "executeInsert"),
-            [new ConstantExpression(target, new ClassType(target)), lambda],
+            [new ConstantExpression(target, new ClassType(target)), rewritten],
             SimpleType.number);
         return this.translator.executeCommand(call);
     }
@@ -669,22 +672,35 @@ export class Query<T> implements IQuery<T> {
     // (delete/update) or the explicit target (insert); resolved to a ctor and skipped when it is
     // not a registered entity table (a projected/scalar query). Handlers run in the ambient
     // transaction, so a cascade delete they issue is part of the same atomic operation.
-    private async firePreUnsafe(kind: "delete" | "update" | "insert", targetCtor?: Function): Promise<void> {
-        const elem = this.elementType;
-        const ctor = targetCtor ?? (elem instanceof ClassType ? elem.constructorFunction : undefined);
-        if (ctor == null)
+    private async firePreUnsafe(kind: "delete" | "update", targetCtor?: Function): Promise<void> {
+        const ee = this.unsafeEvents(targetCtor);
+        if (ee == null)
             return;
-        const schema = Connector.current().schema;
-        if (schema.tryTable(ctor as Type<Entity>) == null)
-            return;
-        const ee = schema.entityEvents(ctor as Type<Entity>);
         const q = this as unknown as Query<Entity>;
         if (kind === "delete")
             await ee.onPreUnsafeDelete(q);
-        else if (kind === "update")
-            await ee.onPreUnsafeUpdate(q);
         else
-            await ee.onPreUnsafeInsert(q);
+            await ee.onPreUnsafeUpdate(q);
+    }
+
+    // The insert variant, separate because it THREADS the constructor lambda through the handlers and
+    // returns whatever they leave (Signum's PreUnsafeInsert signature).
+    private async firePreUnsafeInsert(targetCtor: Function, constructor: LambdaExpression): Promise<LambdaExpression> {
+        const ee = this.unsafeEvents(targetCtor);
+        return ee == null ? constructor : await ee.onPreUnsafeInsert(this as unknown as Query<Entity>, constructor);
+    }
+
+    // The EntityEvents of the affected type: the query's element type (delete/update) or the explicit
+    // target (insert); undefined when it is not a registered entity table (a projected/scalar query).
+    private unsafeEvents(targetCtor?: Function): EntityEvents<Entity> | undefined {
+        const elem = this.elementType;
+        const ctor = targetCtor ?? (elem instanceof ClassType ? elem.constructorFunction : undefined);
+        if (ctor == null)
+            return undefined;
+        const schema = Connector.current().schema;
+        if (schema.tryTable(ctor as Type<Entity>) == null)
+            return undefined;
+        return schema.entityEvents(ctor as Type<Entity>);
     }
 
     // minBy/maxBy — the element with the min/max projected value (Signum's MinBy/MaxBy;
