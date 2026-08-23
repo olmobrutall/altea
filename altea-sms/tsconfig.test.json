@@ -1,0 +1,16 @@
+{
+  // TEST layer — the GSM-alphabet length rules (`SMSCharacters`), which is the one piece of this port that
+  // is pure arithmetic over a character table and the one place a wrong answer silently truncates a message.
+  "extends": "../altea/presets/server.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
+    "types": ["node"]
+  },
+  "include": ["${configDir}/test/**/*"],
+  "exclude": [],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  // SERVER layer — the template renderer, the provider seam, the two graphs and the two process algorithms.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-processes/tsconfig.data.json" },
+    { "path": "../altea-processes/tsconfig.server.json" },
+    { "path": "../altea-scheduler/tsconfig.data.json" },
+    { "path": "../altea-scheduler/tsconfig.server.json" },
+    { "path": "../altea-templating/tsconfig.data.json" },
+    { "path": "../altea-templating/tsconfig.server.json" },
+    { "path": "../altea-user-assets/tsconfig.data.json" }
+  ]
+}

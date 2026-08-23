@@ -1,0 +1,12 @@
+{
+  // DATA layer — the message, the template and its per-culture messages, the two packages, the model
+  // registry row, the operation / process / task symbols, and the GSM-alphabet character rules.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-processes/tsconfig.data.json" },
+    { "path": "../altea-scheduler/tsconfig.data.json" },
+    { "path": "../altea-templating/tsconfig.data.json" },
+    { "path": "../altea-user-assets/tsconfig.data.json" }
+  ]
+}
