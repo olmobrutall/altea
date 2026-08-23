@@ -1,0 +1,25 @@
+{
+  "name": "@altea/altea-whats-new",
+  "version": "0.0.1",
+  "description": "In-app release notes: a news item per release, a navbar bullhorn, and a per-user read log (ported from Signum.WhatsNew)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-files": "workspace:*",
+    "@altea/altea-html-editor": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}

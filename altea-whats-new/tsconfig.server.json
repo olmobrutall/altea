@@ -1,0 +1,10 @@
+{
+  // SERVER layer — the state machine, the "which news may I see" resolution and the six routes.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" },
+    { "path": "../altea-files/tsconfig.server.json" }
+  ]
+}

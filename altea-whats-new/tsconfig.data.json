@@ -1,0 +1,9 @@
+{
+  // DATA layer — the news item, its per-culture messages, the read log, and the wire DTOs.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" },
+    { "path": "../altea-files/tsconfig.data.json" }
+  ]
+}
