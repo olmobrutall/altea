@@ -9,6 +9,7 @@
 
 import { Entity } from "../data/entity";
 import type { Lite } from "../data/lite";
+import { Serializer } from "../data/serializer";
 import type { OperationSymbol, ExecuteSymbol, DeleteSymbol, ConstructSymbol, From, FromMany } from "../data/operations";
 import type { EntityPack } from "../data/entityPack";
 import { OperationLogic, Operations } from "./operationLogic";
@@ -114,7 +115,12 @@ export namespace OperationServer {
                     // Signum logs it too: a per-element failure is still a failure worth keeping.
                     try { await Transaction.forceNew(() => ExceptionLogic.logException(e)); } catch { /* never mask */ }
                 }
-                res.write(JSON.stringify({ entity: lite, error }) + "\n");
+                // `Serializer.stringify`, NOT `JSON.stringify`: a Lite is a CLASS here and its
+                // `entityType` is a CONSTRUCTOR, which a plain stringify silently drops (functions are
+                // skipped) — so the client's `Serializer.parse` gets a shapeless object back and the
+                // `entity.key()` both readers call is undefined. Surfaced by altea-tree's Move, the first
+                // contextual operation run on a SINGLE lite (the >1 path never touches `entity`).
+                res.write(Serializer.stringify({ entity: lite, error }) + "\n");
             }
             res.end();
         };

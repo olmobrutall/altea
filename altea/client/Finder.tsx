@@ -1534,7 +1534,11 @@ export namespace Finder {
     }
 
     get(fullKey: string, options: SubTokensOptions): QueryToken {
-      const token = this.cache.get(fullKey.toLowerCase());
+      // The ROOT entity token is addressed by the empty key and is never in the sub-token cache — the same
+      // shortcut `resolveToken` takes. Without it a filter or column on the entity itself
+      // (`{ token: "", operation: "DistinctTo", value: someLite }` — altea-tree's MoveTreeModel picker)
+      // resolves fine and then throws here.
+      const token = fullKey == "" ? this.root : this.cache.get(fullKey.toLowerCase());
       if (!token)
         throw new Error(`Token with key '${fullKey}' not found on query '${getKey(this.queryToken.queryName)}'`);
 
@@ -1545,7 +1549,15 @@ export namespace Finder {
     }
 
     async getSubTokens(parentToken: QueryToken | undefined, options: SubTokensOptions, autoExpand: boolean): Promise<QueryToken[]> {
-      const candidates = parentToken == null ? this.queryToken.subTokens(SubTokensOptionsAll) : await generateSubTokens(parentToken, options);
+      // Both branches must go through `generateSubTokens` (entities `getSubTokens`): it is what merges the
+      // SERVER-ONLY tokens — every registered expression — into the locally generated metadata ones. The
+      // root branch used to call the purely local `subTokens`, so an expression registered on the query's
+      // OWN type was invisible in every token picker while the same expression on a nested token showed
+      // fine: `Details.Element.SubTotalPrice` was offered, `TotalPrice` was not, and neither were the
+      // TimeMachine (`SystemValidFrom`), alert, case or altea-tree (`Children` / `Descendants`) tokens.
+      const candidates = parentToken == null
+        ? await generateSubTokens(this.queryToken, SubTokensOptionsAll)
+        : await generateSubTokens(parentToken, options);
       candidates.forEach(t => this.cache.set(t.fullKey().toLowerCase(), t));
 
       let flat = candidates;

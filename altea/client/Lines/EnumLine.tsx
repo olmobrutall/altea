@@ -1,14 +1,15 @@
 // Ported from Signum.React/Lines/EnumLine.tsx — copy-paste + fix. altea fixes:
 //   - enum reflection: Signum read TypeInfo.kind=="Enum" + ti.members; altea enums are plain
 //     registered TS enums (numeric, serialized as numbers) — getOptionsItems enumerates the enum
-//     object via resolveEnum(typeName). Member LABELS are the raw names for now (TODO: localized nice
-//     names via the reflection translation blob).
+//     object via resolveEnum(typeName). Member LABELS come from `Enum.niceName`, the resolver behind
+//     Signum's `member.niceName` (loaded translation → setNiceName → humanised PascalCase).
 //   - type is a FieldInfo: .name→.typeName, .isNotNullable→!.isNullable; boolean typeName is "Boolean".
 //   - BooleanEnum labels inlined (message container not ported); DropdownList/Combobox (react-widgets)
 //     wrapped in <Localization> (Intl localizer from ReactWidgetsLocalizer). Plain <select> needs none.
 import * as React from 'react'
 import { DropdownList, Combobox, Localization } from 'react-widgets-up'
 import { Dic, classes } from '../../data/globals'
+import { Enum } from '../../data/enum'
 import { type MemberInfo } from '../Reflection'
 import { genericMemo, LineBaseController, useController } from './LineBase'
 import { FormGroup } from './FormGroup'
@@ -312,7 +313,9 @@ function internalRadioGroup<V extends string | number | boolean | null>(c: EnumL
 
 // ALTEA: enumerate the registered enum object (Signum used TypeInfo.members). Numeric TS enums carry
 // reverse-mapping numeric keys, so keep only the string member names; value is the enum's stored
-// value (number for a numeric enum). Labels are the raw names for now (TODO: localized nice names).
+// value (number for a numeric enum). The LABEL is the member's localized nice name — `Enum.niceName`
+// (data/enum) is the resolver Signum's `member.niceName` is, falling back to the humanised PascalCase
+// name, so a dropdown reads "First node" rather than "FirstNode".
 function enumMemberNames(enumObj: object): string[] {
   return Object.keys(enumObj).filter(k => isNaN(Number(k)));
 }
@@ -326,7 +329,7 @@ function getOptionsItems(el: EnumLineController<any>): OptionItem[] {
 
   if (el.props.optionItems) {
     return el.props.optionItems
-      .map(a => typeof a == "string" && enumObj != null ? { value: (enumObj as any)[a], label: a } : toOptionItem(a))
+      .map(a => typeof a == "string" && enumObj != null ? { value: (enumObj as any)[a], label: Enum.niceName(enumObj as never, a as never) } : toOptionItem(a))
       .filter(a => !!a);
   }
 
@@ -337,7 +340,7 @@ function getOptionsItems(el: EnumLineController<any>): OptionItem[] {
     ]);
 
   if (enumObj != null)
-    return enumMemberNames(enumObj).map(name => ({ value: (enumObj as any)[name], label: name }));
+    return enumMemberNames(enumObj).map(name => ({ value: (enumObj as any)[name], label: Enum.niceName(enumObj as never, name as never) }));
 
   throw new Error("Unable to get Options from " + typeName);
 }

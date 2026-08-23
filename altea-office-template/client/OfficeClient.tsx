@@ -177,6 +177,14 @@ export namespace OfficeClient {
         if (tryGetTypeInfo(OfficeTemplateEntity) == null)
             return undefined;
 
+        // A report is addressed by a LITE, so only a real Entity can be one's target. Signum got this check
+        // for free: it read the templates off `pack.wordTemplates`, which the server only ever put on an
+        // entity pack, so the button silently never rendered for a ModelEntity. altea FETCHES them instead
+        // (see OfficeEntityMenu), so the guard has to be explicit — without it, opening ANY model in a modal
+        // (altea-tree's MoveTreeModel is the one that surfaced it) dies on `entity.toLite is not a function`.
+        if (!(ctx.pack.entity instanceof Entity))
+            return undefined;
+
         return [{ button: <OfficeEntityMenu entityPack={ctx.pack as EntityPack<Entity>} />, order: 1000 }];
     }
 
