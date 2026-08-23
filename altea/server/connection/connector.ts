@@ -12,6 +12,14 @@ import { HeavyProfiler } from '../profiler/heavyProfiler';
 // Statics context abstraction.
 const connectorStorage = new AsyncLocalStorage<Connector>();
 
+// The SQL-capture sink of the current async scope — see `Connector.captureSql`.
+// ALTEA DIVERGENCE from Signum, which captures SQL by swapping the process-wide
+// `Connector.CurrentLogger` for a StringWriter for the duration of one query
+// (Signum.ViewLog's Current_QueryExecuted). That is racy: on a server running
+// concurrent work, the swapped logger sees every OTHER query's SQL too. An
+// async-local sink sees exactly the statements of its own scope.
+const sqlCaptureStorage = new AsyncLocalStorage<string[]>();
+
 // A sink that executeQuery/executeNonQuery pass their SQL through when
 // Connector.currentLogger is set — the analog of Signum's Connector.CurrentLogger
 // (a TextWriter). Implementations decide where the text goes. NOTE: parameter
@@ -138,6 +146,19 @@ export abstract class Connector {
         return c;
     }
 
+    /**
+     * Run `fn` appending the SQL of every statement it executes to `sink`. Nestable (an inner scope
+     * collects into its own sink); async-safe (an unrelated concurrent query is NOT collected).
+     * Independent of `currentLogger`, which keeps working alongside it.
+     *
+     * The CALLER owns the array, deliberately: it can then read what was collected in a `finally` even when
+     * `fn` threw — which is what lets an observer log a query that FAILED. @altea/altea-view-log is the
+     * first consumer: a ViewLog row records the SQL a search actually ran.
+     */
+    static withSqlCapture<R>(sink: string[], fn: () => Promise<R>): Promise<R> {
+        return sqlCaptureStorage.run(sink, fn);
+    }
+
     static withConnector<R>(connector: Connector, fn: () => R): R {
         return connectorStorage.run(connector, fn);
     }
@@ -213,6 +234,8 @@ export abstract class Connector {
     // (undefined) when the profiler is disabled.
     private async withLogging<T>(sql: string, parameters: unknown[], run: () => Promise<T>): Promise<T> {
         using _prof = HeavyProfiler.log("SQL", () => sql);
+        // The async-local capture sink (Connector.captureSql), independent of `currentLogger`.
+        sqlCaptureStorage.getStore()?.push(sql);
         const logger = Connector.currentLogger;
         // `await` (not a bare `return run()`) so the profiler span — disposed at function exit —
         // stays open across the real query, not just its synchronous setup.

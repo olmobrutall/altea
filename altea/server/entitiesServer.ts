@@ -20,6 +20,7 @@ import type { EntityPack } from "../data/entityPack";
 import * as Database from "./Database";
 import { table } from "./table";
 import { getEntityPack } from "./operationServer";
+import { ExecutionMode } from "./executionMode";
 import { WebBuilder, ArrayOf, Primitive, CustomType } from "./webApi";
 
 export namespace EntitiesServer {
@@ -31,7 +32,12 @@ export namespace EntitiesServer {
             async (req, res) => {
                 const type = Entity.resolveType(req.params.type);
                 const e = await Database.retrieve(type, type.parseId(req.params.id));
-                return res.jsonTyped(e);
+                // Signum's `using (ExecutionMode.ApiRetrievedScope(lite, "EntitiesController.GetEntity"))`:
+                // the seam a view log hangs off. Opened AFTER the retrieve because the scope wants the
+                // entity's lite, and closed after the response is serialised — which is what times it.
+                const after = await ExecutionMode.apiRetrievedScope(e.toLite(), "EntitiesController.GetEntity");
+                res.jsonTyped(e);
+                await after?.();
             });
 
         ws.get("/api/fetchAll/:type",
@@ -56,7 +62,9 @@ export namespace EntitiesServer {
             async (req, res) => {
                 const type = Entity.resolveType(req.params.type);
                 const e = await Database.retrieve(type, type.parseId(req.params.id));
-                return res.jsonTyped(await getEntityPack(e));
+                const after = await ExecutionMode.apiRetrievedScope(e.toLite(), "EntitiesController.GetEntityPack");
+                res.jsonTyped(await getEntityPack(e));
+                await after?.();
             });
 
         ws.post("/api/entityPackEntity",
