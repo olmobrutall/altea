@@ -1,0 +1,11 @@
+{
+  // DATA layer — the print line + package entities, their state enum, operations and symbols.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" },
+    { "path": "../altea-files/tsconfig.data.json" },
+    { "path": "../altea-processes/tsconfig.data.json" },
+    { "path": "../altea-scheduler/tsconfig.data.json" }
+  ]
+}

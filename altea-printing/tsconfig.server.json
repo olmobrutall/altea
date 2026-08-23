@@ -1,0 +1,12 @@
+{
+  // SERVER layer — the state machine, the batch process, the cleanup task and the two panel routes.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" },
+    { "path": "../altea-files/tsconfig.server.json" },
+    { "path": "../altea-processes/tsconfig.server.json" },
+    { "path": "../altea-scheduler/tsconfig.server.json" }
+  ]
+}

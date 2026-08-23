@@ -1,0 +1,13 @@
+{
+  // CLIENT layer — the two views, the print panel page and the omnibox entry.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" },
+    { "path": "../altea-files/tsconfig.client.json" },
+    { "path": "../altea-omnibox/tsconfig.client.json" },
+    { "path": "../altea-processes/tsconfig.client.json" },
+    { "path": "../altea-scheduler/tsconfig.client.json" }
+  ]
+}

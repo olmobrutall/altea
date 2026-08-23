@@ -1,0 +1,27 @@
+{
+  "name": "@altea/altea-printing",
+  "version": "0.0.1",
+  "description": "A print queue: a line per document, batched into packages a process prints through an app-supplied hook (ported from Signum.Printing)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-files": "workspace:*",
+    "@altea/altea-omnibox": "workspace:*",
+    "@altea/altea-processes": "workspace:*",
+    "@altea/altea-scheduler": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}
