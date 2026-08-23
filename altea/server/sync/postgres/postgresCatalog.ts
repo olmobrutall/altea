@@ -39,6 +39,10 @@ export class PgClass extends View {
     relnamespace!: int;
     relkind!: string;
     relowner!: int;
+    // The planner's row-count estimate (Signum's PgClass.reltuples, read by Signum.Map's schema map for
+    // the "Rows" colour scale). A `real`, and -1 on a never-analysed table — the caller treats a negative
+    // value as "unknown", exactly as Signum's map renders a missing stat.
+    reltuples!: number;
 
     @quoted
     attributes(): Query<PgAttribute> { return view(PgAttribute).filter(t => t.attrelid == this.oid); }

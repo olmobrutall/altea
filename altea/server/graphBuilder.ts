@@ -1,3 +1,4 @@
+import type { Quoted } from "quote-transformer/quoted";
 import type { Entity, Type } from "../data/entity";
 import type {
     ExecuteSymbol, DeleteSymbol,
@@ -23,7 +24,14 @@ export type {
 
 export interface GraphBuilder<T extends Entity, S> {
     // Set once (Signum's `GetState = o => o.State`). graph() stamps it onto every op.
-    GetState?: (entity: T) => S;
+    //
+    // `Quoted` because Signum's is an `Expression<Func<T, S>>`, not a delegate: besides being CALLED (the
+    // fromStates / toStates checks), it is READ AS A TREE — Signum.Map's operation map groups the type's
+    // rows by it to count how many sit in each state, and turns the same member list into the query token
+    // the state node's Ctrl+Click filters by. A `Quoted<F>` is `F & { __quoted?: … }`, so every existing
+    // in-memory call is unaffected and every existing `g.GetState = o => o.state` keeps compiling — the
+    // transformer just stamps the tree beside it. See @altea/altea-map's OperationMap.
+    GetState?: Quoted<(entity: T) => S>;
     // The methods mirror Signum's Graph<T>.Execute / .Delete / .Construct / … class names
     // (PascalCase): each news up the matching Graph.* operation class with T (and S) bound, passing the
     // graph's own type as the operation's owner — so the type argument the classes take is never repeated

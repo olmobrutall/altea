@@ -187,6 +187,42 @@ export class SysIndexes extends View {
 
     @quoted
     indexColumns(): Query<SysIndexColumn> { return view(SysIndexColumn).filter(ixc => ixc.index_id == this.index_id && ixc.object_id == this.object_id); }
+
+    // The index's storage partitions (Signum's SysIndexes.Partitions()) — the row counts and, through
+    // their allocation units, the page counts the schema map's "Rows" / "Table size" scales read.
+    @quoted
+    partitions(): Query<SysPartitions> { return view(SysPartitions).filter(p => p.object_id == this.object_id && p.index_id == this.index_id); }
+}
+
+// sys.partitions / sys.allocation_units — the two catalog views that carry a table's SIZE, added for
+// @altea/altea-map's schema map (Signum's SchemaMap.GetRuntimeStats walks exactly this pair). Row count
+// comes from the CLUSTERED index's partitions (type 1 — see DiffIndexType.Clustered); the byte size from
+// every partition's allocation units, whose `total_pages` are 8 kB each.
+//
+// `container_id` joins an allocation unit to its partition: for IN_ROW / ROW_OVERFLOW data (type 1 / 3) it
+// is the partition's `partition_id`, and for LOB data (type 2) it is `hobt_id`. Signum sums across all
+// three by joining on partition_id, so LOB units are silently excluded there too — kept identical rather
+// than "improved", so the two frameworks report the same number for the same table.
+@reflect
+@tableName("sys.partitions")
+export class SysPartitions extends View {
+    @viewPrimaryKey partition_id!: int;
+    object_id!: int;
+    index_id!: int;
+    partition_number!: int;
+    rows!: int;
+
+    @quoted
+    allocationUnits(): Query<SysAllocationUnits> { return view(SysAllocationUnits).filter(a => a.container_id == this.partition_id); }
+}
+
+@reflect
+@tableName("sys.allocation_units")
+export class SysAllocationUnits extends View {
+    @viewPrimaryKey allocation_unit_id!: int;
+    container_id!: int;
+    type!: int;
+    total_pages!: int;
 }
 
 // sys.objects / sys.sql_modules — read by SchemaAssets.SyncProcedures/SyncViews to recover the

@@ -1,3 +1,4 @@
+import type { Quoted } from "quote-transformer/quoted";
 import type { Entity, Type } from "../data/entity";
 import type { Lite } from "../data/lite";
 import type { OperationSymbol } from "../data/operations";
@@ -21,9 +22,15 @@ import { HeavyProfiler } from "./profiler/heavyProfiler";
 // the invoke method. They are first-class: create, configure, `.register()`, and later
 // mutate or `OperationLogic.unregister()`/re-`register(replace)` them from anywhere.
 //
-// State (S) is optional (Graph<T> vs Graph<T,S>) via a per-op `getState: (t) => S` +
+// State (S) is optional (Graph<T> vs Graph<T,S>) via a per-op `getState: Quoted<(t) => S>` +
 // from/to states, unified into one class instead of Signum's two hierarchies. Each op
 // runs in Transaction.create. Deferred: authorization, OperationLogEntity logging.
+//
+// `getState` is QUOTED because Signum's is an `Expression<Func<T, S>>`: besides being CALLED (the
+// from/to state checks below), it is read as a TREE by Signum.Map, which groups the type's rows by it
+// to count each state's population and derives the state's query token from the same member list.
+// `Quoted<F>` is `F & { __quoted?: … }`, so nothing about the in-memory calls changes — the transformer
+// just stamps the tree beside the lambda. The reader is `IGraphStateOperation` (./operation).
 //
 // The `graph(...)` sugar that news these up with T/S bound lives in ./graphBuilder.
 //
@@ -59,7 +66,7 @@ import { HeavyProfiler } from "./profiler/heavyProfiler";
 export interface ConstructOptions<T extends Entity, S = never> {
     construct: (args: unknown[]) => T | Promise<T>;
     toStates?: S[];
-    getState?: (entity: T) => S;
+    getState?: Quoted<(entity: T) => S>;
 }
 export interface ConstructFromOptions<T extends Entity, F extends Entity, S = never> {
     construct: (from: F, args: unknown[]) => T | Promise<T>;
@@ -68,12 +75,12 @@ export interface ConstructFromOptions<T extends Entity, F extends Entity, S = ne
     canBeModified?: boolean;
     resultIsSaved?: boolean;
     toStates?: S[];
-    getState?: (entity: T) => S;
+    getState?: Quoted<(entity: T) => S>;
 }
 export interface ConstructFromManyOptions<T extends Entity, F extends Entity, S = never> {
     construct: (lites: Lite<F>[], args: unknown[]) => T | Promise<T>;
     toStates?: S[];
-    getState?: (entity: T) => S;
+    getState?: Quoted<(entity: T) => S>;
 }
 export interface ExecuteOptions<T extends Entity, S = never> {
     execute: (entity: T, args: unknown[]) => void | Promise<void>;
@@ -83,13 +90,13 @@ export interface ExecuteOptions<T extends Entity, S = never> {
     avoidImplicitSave?: boolean;
     fromStates?: S[];
     toStates?: S[];
-    getState?: (entity: T) => S;
+    getState?: Quoted<(entity: T) => S>;
 }
 export interface DeleteOptions<T extends Entity, S = never> {
     delete: (entity: T, args: unknown[]) => void | Promise<void>;
     canDelete?: (entity: T) => string | null;
     fromStates?: S[];
-    getState?: (entity: T) => S;
+    getState?: Quoted<(entity: T) => S>;
 }
 
 const isNewError = "The entity is new.";
@@ -114,7 +121,7 @@ export namespace Graph {
         readonly operationType = OperationType.Constructor;
         construct!: (args: unknown[]) => T | Promise<T>;
         toStates?: S[];
-        getState?: (entity: T) => S;
+        getState?: Quoted<(entity: T) => S>;
         constructor(readonly entityType: Type<T>, readonly symbol: ConstructSymbol<T>, options: ConstructOptions<T, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
@@ -144,7 +151,7 @@ export namespace Graph {
         canBeModified = false;
         resultIsSaved = false;
         toStates?: S[];
-        getState?: (entity: T) => S;
+        getState?: Quoted<(entity: T) => S>;
         /** `entityType` is the SOURCE type F — where the button appears — not the constructed T. */
         constructor(readonly entityType: Type<F>, readonly symbol: ConstructSymbol<T, From<F>>, options: ConstructFromOptions<T, F, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
@@ -176,7 +183,7 @@ export namespace Graph {
         readonly operationType = OperationType.ConstructorFromMany;
         construct!: (lites: Lite<F>[], args: unknown[]) => T | Promise<T>;
         toStates?: S[];
-        getState?: (entity: T) => S;
+        getState?: Quoted<(entity: T) => S>;
         /** `entityType` is the SOURCE type F — where the button appears — not the constructed T. */
         constructor(readonly entityType: Type<F>, readonly symbol: ConstructSymbol<T, FromMany<F>>, options: ConstructFromManyOptions<T, F, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
@@ -207,7 +214,7 @@ export namespace Graph {
         avoidImplicitSave = false;
         fromStates?: S[];
         toStates?: S[];
-        getState?: (entity: T) => S;
+        getState?: Quoted<(entity: T) => S>;
         constructor(readonly entityType: Type<T>, readonly symbol: ExecuteSymbol<T>, options: ExecuteOptions<T, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
@@ -245,7 +252,7 @@ export namespace Graph {
         readonly canBeNew = false;
         readonly canBeModified = false;
         fromStates?: S[];
-        getState?: (entity: T) => S;
+        getState?: Quoted<(entity: T) => S>;
         constructor(readonly entityType: Type<T>, readonly symbol: DeleteSymbol<T>, options: DeleteOptions<T, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 

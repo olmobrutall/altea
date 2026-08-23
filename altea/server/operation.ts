@@ -29,6 +29,29 @@ export interface IOperation {
     assertIsValid(): void;
 }
 
+/**
+ * Signum's `IGraphHasStatesOperation` / `IGraphHasFromStatesOperation` (Internal.cs), collapsed into one
+ * READER over the state machine an operation participates in: every `Graph.*` class already carries these
+ * three fields, this only declares them so a consumer need not duck-type its way in.
+ *
+ * The one consumer is @altea/altea-map's operation map, which needs all three: the from/to state lists ARE
+ * the edges it draws, and `getState` (a `Quoted`, see graph.ts) is both the groupBy key it counts states
+ * with and the source of each state's query token.
+ *
+ * `unknown[]` rather than `S[]`: S is per-operation, and a reader holds a heterogeneous list of them. The
+ * runtime values are enum MEMBER NAMES (altea enums are string-valued on the wire).
+ *
+ * NOT ported: Signum's `IGraphFromToStatesOperations.GetUntypedFromTo()`, the explicit from→to PAIR list
+ * that lets one operation declare a sparse transition table. altea's Graph.* classes have no such option,
+ * so a consumer draws the cartesian product of `fromStates` × `toStates` — which is exactly what Signum's
+ * own client does whenever `fromToStates` is null.
+ */
+export interface IGraphStateOperation extends IOperation {
+    readonly fromStates?: readonly unknown[];
+    readonly toStates?: readonly unknown[];
+    readonly getState?: (entity: any) => unknown;
+}
+
 export interface IEntityOperation extends IOperation {
     canBeNew: boolean;
     canBeModified: boolean;

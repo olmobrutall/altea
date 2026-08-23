@@ -51,6 +51,15 @@ export class PostgresFunctions {
     static pg_get_functiondef(_oid: number): string {
         throw new Error("PostgresFunctions.pg_get_functiondef is a query-only Postgres function marker.");
     }
+
+    // `pg_total_relation_size(oid)` — total disk BYTES of a table including its indexes and TOAST
+    // (Signum uses the same function for the schema map's "Table size" colour scale). Returns bigint;
+    // typed as a plain number here because the callers divide it down to kB immediately.
+    @sqlMethod("pg_catalog.pg_total_relation_size")
+    @resultType(() => LiteralType.number)
+    static pg_total_relation_size(_oid: number): number {
+        throw new Error("PostgresFunctions.pg_total_relation_size is a query-only Postgres function marker.");
+    }
 }
 
 // ---- brands the QueryBinder keys off (see visitCall) ----
