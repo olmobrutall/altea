@@ -1,0 +1,9 @@
+{
+  // CLIENT layer — the navbar picker, the entity widget and the schema-map colour provider.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-map/tsconfig.client.json" }
+  ]
+}

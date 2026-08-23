@@ -1,0 +1,17 @@
+{
+  // TEST layer — a three-strategy fixture domain against a real database. Southwind does not START
+  // Signum.Isolation (it only references it), so this suite is where the module is exercised: multi-tenancy
+  // is an all-or-nothing app-wide commitment, and eastwind is not multi-tenant.
+  "extends": "../altea/presets/server.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
+    "types": ["node"]
+  },
+  "include": ["${configDir}/test/**/*"],
+  "exclude": [],
+  "references": [
+    { "path": "./tsconfig.server.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  // DATA layer — IsolationEntity, the mixin, and the strategy table BOTH tiers read.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" }
+  ]
+}

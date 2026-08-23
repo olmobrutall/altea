@@ -1,0 +1,12 @@
+{
+  // SERVER layer — the ambient isolation, the per-table query filter, the strategy assertion, the
+  // middleware and the isolations route.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" },
+    { "path": "../altea-files/tsconfig.server.json" },
+    { "path": "../altea-map/tsconfig.server.json" }
+  ]
+}
