@@ -1,0 +1,27 @@
+{
+  "name": "@altea/altea-tree",
+  "version": "0.0.1",
+  "description": "Hierarchical entities: a forest materialised as a depth-first route per row, with a tree viewer, move/copy and a dashboard part (ported from Signum.Tree)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b",
+    "test": "tspc -b && node --enable-source-maps --import @altea/altea/register.mjs --test \"dist/test/**/*.test.js\""
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-dashboard": "workspace:*",
+    "@altea/altea-omnibox": "workspace:*",
+    "@altea/altea-user-queries": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}

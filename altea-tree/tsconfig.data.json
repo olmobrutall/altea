@@ -1,0 +1,11 @@
+{
+  // DATA layer — the abstract TreeEntity, the seven operation symbols, MoveTreeModel, the messages and
+  // the wire DTOs the tree viewer reads.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-omnibox/tsconfig.data.json" },
+    { "path": "../altea-dashboard/tsconfig.data.json" },
+    { "path": "../altea-user-queries/tsconfig.data.json" }
+  ]
+}

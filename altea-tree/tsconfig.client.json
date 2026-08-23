@@ -1,0 +1,13 @@
+{
+  // CLIENT layer — the tree viewer, its page and modal, the search-control button, the move/copy model
+  // view, the omnibox provider and the dashboard part.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" },
+    { "path": "../altea-omnibox/tsconfig.client.json" },
+    { "path": "../altea-dashboard/tsconfig.client.json" },
+    { "path": "../altea-user-queries/tsconfig.client.json" }
+  ]
+}

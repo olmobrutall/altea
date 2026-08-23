@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<!-- Ported from Signum.Tree/Translations/Signum.Tree.de.xml — see the .es.xml header for what changed. -->
+<Translations>
+  <Type Name="MoveTreeModel" Description="Bewege Baum">
+    <Member Name="InsertPlace" Description="Platz einfügen" />
+    <Member Name="NewParent" Description="Neuer Elternknoten" />
+    <Member Name="Sibling" Description="Geschwister" />
+  </Type>
+  <Type Name="InsertPlace" Description="Einfügeposition">
+    <Member Name="FirstNode" Description="Erster Knoten" />
+    <Member Name="After" Description="Danach" />
+    <Member Name="Before" Description="Davor" />
+    <Member Name="LastNode" Description="Letzter Knoten" />
+  </Type>
+  <Type Name="TreeEntity" Description="Baum" PluralDescription="Bäume" Gender="m">
+    <Member Name="FullName" Description="Vollständiger Name" />
+    <Member Name="IsSibling" Description="Ist Geschwister" />
+    <Member Name="Level" Description="Level" />
+    <Member Name="Name" Description="Name" />
+    <Member Name="ParentOrSibling" Description="Elternteil oder Geschwister" />
+    <Member Name="ParentRoute" Description="Eltern-Route" />
+    <Member Name="Route" Description="Route" />
+  </Type>
+  <Type Name="TreeMessage">
+    <Member Name="Ascendants" Description="Verwandte in aufsteigender Linie" />
+    <Member Name="Children" Description="Kinder" />
+    <Member Name="Copy0" Description="Kopiere {0}" />
+    <Member Name="Descendants" Description="Nachkommen" />
+    <Member Name="ImpossibleToMove01Of2" Description="Unmöglich, {0} {1} von {2} zu bewegen" />
+    <Member Name="ImpossibleToMove0InsideOf1" Description="Unmöglich, {0} innerhalb {1} zu bewegen" />
+    <Member Name="Level" Description="Level" />
+    <Member Name="LevelShouldNotBeGreaterThan0" Description="Niveau sollte nicht größer als {0} sein." />
+    <Member Name="ListView" Description="Listenansicht" />
+    <Member Name="Move0" Description="Verschiebe {0}" />
+    <Member Name="Parent" Description="Übergeordnete" />
+    <Member Name="Tree" Description="Baum" />
+    <Member Name="TreeInfo" Description="Baum-Information" />
+    <Member Name="TreeType" Description="Baum-Typ" />
+  </Type>
+  <Type Name="TreeOperation">
+    <Member Name="Copy" Description="Kopie" />
+    <Member Name="CreateChild" Description="Untergeordnetes Element erstellen" />
+    <Member Name="CreateNextSibling" Description="Nächstes gleichgeordnetes Element erstellen" />
+    <Member Name="CreateRoot" Description="Stamm erstellen" />
+    <Member Name="Delete" Description="Löschen" />
+    <Member Name="Move" Description="Bewegen" />
+    <Member Name="Save" Description="Speichern" />
+  </Type>
+  <Type Name="TreeViewerMessage">
+    <Member Name="AddChild" Description="Kind hinzufügen" />
+    <Member Name="AddRoot" Description="Stammverzeichnis hinzufügen" />
+    <Member Name="AddSibling" Description="Geschwister hinzufügen" />
+    <Member Name="Collapse" Description="Einklappen" />
+    <Member Name="CollapseAll" Description="Alle einklappen" />
+    <Member Name="Expand" Description="Ausklappen" />
+    <Member Name="ExpandAll" Description="Alle ausklappen" />
+    <Member Name="None" Description="Keine" />
+    <Member Name="Remove" Description="Entfernen" />
+    <Member Name="Search" Description="Suche" />
+  </Type>
+  <Type Name="UserTreePartEntity" Description="Benutzerbaumteil" PluralDescription="Benutzerbaumteile" Gender="m">
+    <Member Name="RequiresTitle" Description="Titel erforderlich" />
+    <Member Name="UserQuery" Description="Benutzer-Abfrage" />
+  </Type>
+</Translations>

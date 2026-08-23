@@ -1,0 +1,13 @@
+{
+  // SERVER layer — the route arithmetic, the expressions + operations, the three routes and the omnibox
+  // generator.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" },
+    { "path": "../altea-omnibox/tsconfig.server.json" },
+    { "path": "../altea-dashboard/tsconfig.server.json" },
+    { "path": "../altea-user-queries/tsconfig.server.json" }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  // TEST layer — the route-arithmetic suite. `TreeRoute` is pure (no database, no dialect), and it is the
+  // one place this port replaces a database TYPE with code, so it is the one place that needs a suite of
+  // its own: every hierarchyid operation the engine relies on, including the density invariant that lets a
+  // node always be inserted between two adjacent siblings.
+  "extends": "../altea/presets/server.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
+    "types": ["node"]
+  },
+  "include": ["${configDir}/test/**/*"],
+  "exclude": [],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "./tsconfig.server.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" }
+  ]
+}
