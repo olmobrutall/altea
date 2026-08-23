@@ -4,6 +4,7 @@ import { ExceptionEntity, ExceptionOrigin } from "../data/exception";
 import type { ClientErrorModel } from "../data/clientError";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
 import { Saver } from "./saver";
+import { Transaction } from "./connection/transaction";
 import "./dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 
 // Port of Signum's ExceptionLogic (old/Framework/Signum/Basics/ExceptionLogic.cs), trimmed to the
@@ -32,7 +33,16 @@ export namespace ExceptionLogic {
         const entity = getEntity(error);
         completeContext?.(entity);
         try {
-            await Saver.save([entity]);
+            // In its OWN transaction, which is what Signum's `ex.LogException()` does. It matters because
+            // this is nearly always called from a CATCH block whose transaction is about to roll back: the
+            // row would go with it, while the entity — stashed on the Error by `getEntity` — would keep the
+            // id that insert handed out. The next caller then reuses it as an EXISTING row, and anything
+            // referencing `exception.toLite()` points at a phantom id.
+            //
+            // That is not hypothetical: it is how the process runner's per-item error path used to fail
+            // ("insert or update on process_exception_line violates foreign key constraint"), the item's
+            // exception having been logged inside the item transaction that then rolled back.
+            await Transaction.forceNew(() => Saver.save([entity]));
         } catch (saveError) {
             // Never let logging mask the original error: a failed save is reported, not thrown.
             console.error("ExceptionLogic.logException: failed to persist ExceptionEntity:", saveError);
