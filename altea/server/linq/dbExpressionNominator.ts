@@ -48,6 +48,37 @@ function isClientScalar(t: RuntimeType | undefined): boolean {
         || t instanceof EnumType;
 }
 
+// The unit argument of `Duration.total(…)`, in EITHER of the two forms Temporal accepts: a bare string
+// (`total("milliseconds")`) or the options object (`total({ unit: "milliseconds" })`). Only the first was
+// recognised before, so a body written in the second — the form every in-memory duration helper in the
+// workspace uses (altea-processes / -scheduler / -migrations) — failed at query time with "the method
+// 'total' cannot be translated to SQL". Returns the DIFF_UNITS entry, or undefined if it isn't a constant
+// unit we know.
+function durationUnit(arg: Expression): { ss: string; seconds: number } | undefined {
+    const nameOf = (e: Expression | undefined): string | undefined => {
+        if (e instanceof ConstantExpression || e instanceof SqlConstantExpression)
+            return typeof e.value === "string" ? e.value : undefined;
+        return undefined;
+    };
+
+    // `total("milliseconds")`
+    const bare = nameOf(arg);
+    if (bare != null)
+        return DIFF_UNITS[bare];
+
+    // `total({ unit: "milliseconds" })` — either an un-folded object literal…
+    if (arg instanceof ObjectExpression) {
+        const unit = nameOf(arg.properties["unit"]);
+        return unit != null ? DIFF_UNITS[unit] : undefined;
+    }
+    // …or one the binder folded into a constant object.
+    if (arg instanceof ConstantExpression && arg.value != null && typeof arg.value === "object") {
+        const unit = (arg.value as { unit?: unknown }).unit;
+        return typeof unit === "string" ? DIFF_UNITS[unit] : undefined;
+    }
+    return undefined;
+}
+
 // Temporal unit → SQL DATEADD/DATEDIFF part + seconds-per-unit (for the Postgres EPOCH divisor
 // in duration.total). Keyed by Temporal.Duration's plural field names.
 const DIFF_UNITS: Record<string, { ss: string; seconds: number }> = {
@@ -658,8 +689,7 @@ class DbExpressionNominator extends DbExpressionVisitor {
         if (!(source instanceof SqlFunctionExpression) || source.sqlFunction !== TIMESPAN_MARKER)
             return undefined; // only a since() difference is supported (not a stored duration)
         const [start, end] = source.arguments;
-        const unit = args[0] instanceof ConstantExpression ? String((args[0] as ConstantExpression).value) : undefined;
-        const part = unit != null ? DIFF_UNITS[unit] : undefined;
+        const part = durationUnit(args[0]!);
         if (part == null)
             return undefined;
         if (!this.isPostgres)
