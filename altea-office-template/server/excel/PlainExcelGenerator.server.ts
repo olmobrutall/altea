@@ -5,6 +5,8 @@ import type { ResultTable } from "@altea/altea/server/dynamicQuery/resultTable";
 import { CollectionToArrayToken } from "@altea/altea/data/dynamicQuery/tokens/collectionToArrayToken";
 import { OxmlPackage, RelationshipTypes } from "../oxml/OxmlPackage.server";
 import { OxmlElement, OxmlText } from "../oxml/OxmlElement.server";
+import { htmlToText } from "@altea/altea-html-editor/server/HtmlToPlainText";
+import { markdownToText } from "@altea/altea-markdown/server/MarkdownToPlainText";
 import { columnName } from "../spreadsheet/FormulaRewriter.server";
 import { ExcelMessage } from "../../data/Excel";
 import { CellBuilder, DefaultStyle, enumText, getColumnWidth, getCustomFormatExpression } from "./CellBuilder.server";
@@ -33,6 +35,12 @@ import { readSheet } from "./ExcelReader.server";
 //    and re-imports the edited file with the other.
 //  - the QUERY importer is elsewhere (ExcelImportLogic) — it maps cells back onto query columns, a
 //    different job from reading a fixed table of strings.
+//  - the MARKUP flatteners are reached by a plain import, the dependency edge Signum.Excel also has (its
+//    csproj references Signum.HtmlEditor and Signum.Markdown for exactly these two calls). A registry seam
+//    would have to live in altea CORE — neither module may depend on this one — and would need each of them
+//    to grow a server `start` purely to register, which Signum.Markdown does not have at all. So the edge
+//    is kept: it costs one dependency in a workspace where both packages exist anyway, and the alternative
+//    costs a core concept plus two module lifecycles.
 
 const SPREADSHEET_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 
@@ -103,6 +111,14 @@ export namespace PlainExcelGenerator {
         const columns = request.columns.filter(c => !c.token.isEntity());
         const styles = columns.map(c => cellBuilder.getDefaultStyleAndIndex(c));
 
+        // Signum's `columnFormats`: the format declared BY THE PROPERTY (`@format(…)`, its [Format]), not the
+        // column's own display format, which a user may have overridden in the column editor. A markup column
+        // is flattened to text and laid out multiline — a cell wants text, not `<p>` or `**`.
+        const markupFormats = columns.map(c => {
+            const format = c.token.getPropertyRoute()?.fieldInfo?.format;
+            return format === "Html" || format === "Markdown" ? format : undefined;
+        });
+
         // ---- the rows ------------------------------------------------------------------------------
         const rows: OxmlElement[] = [];
         rows.push(rowOf([cellBuilder.cell(title, DefaultStyle.Title, cellBuilder.styleIndex(DefaultStyle.Title), forImport)]));
@@ -128,6 +144,15 @@ export namespace PlainExcelGenerator {
                 if (toArray != undefined && !commaSeparated) {
                     wrapTextStyle ??= cellBuilder.cellFormatCount++;
                     return cellBuilder.cell(value, DefaultStyle.Multiline, wrapTextStyle, forImport);
+                }
+
+                // A markup column: flatten, and take the TEMPLATE's multiline style — Signum reads
+                // `DefaultStyles[Multiline]` here rather than minting a wrap-text format, which it only does
+                // for the collection-to-array case above.
+                const markup = markupFormats[i];
+                if (markup != undefined && typeof value === "string") {
+                    const flat = markup === "Html" ? htmlToText(value) : markdownToText(value);
+                    return cellBuilder.cell(flat, DefaultStyle.Multiline, cellBuilder.styleIndex(DefaultStyle.Multiline), forImport);
                 }
 
                 return cellBuilder.cell(value, defaultStyle, styleIndex, forImport);

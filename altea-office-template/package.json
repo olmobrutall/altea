@@ -21,6 +21,8 @@
     "@altea/altea-chart": "workspace:*",
     "@altea/altea-email": "workspace:*",
     "@altea/altea-files": "workspace:*",
+    "@altea/altea-html-editor": "workspace:*",
+    "@altea/altea-markdown": "workspace:*",
     "@altea/altea-templating": "workspace:*",
     "@altea/altea-eval": "workspace:*",
     "@altea/altea-user-assets": "workspace:*",

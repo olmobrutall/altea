@@ -8,6 +8,8 @@
     { "path": "../altea-chart/tsconfig.server.json" },
     { "path": "../altea-email/tsconfig.server.json" },
     { "path": "../altea-files/tsconfig.server.json" },
+    { "path": "../altea-html-editor/tsconfig.server.json" },
+    { "path": "../altea-markdown/tsconfig.server.json" },
     { "path": "../altea-templating/tsconfig.server.json" },
     { "path": "../altea-eval/tsconfig.server.json" },
     { "path": "../altea-user-assets/tsconfig.server.json" },
