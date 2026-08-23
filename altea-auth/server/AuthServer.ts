@@ -104,7 +104,16 @@ export namespace AuthServer {
     }
 
     async function authenticate(req: ReqLike, res: ResLike): Promise<UserWithClaims | undefined> {
-        const reqLike = { header: (n: string) => req.header(n) ?? undefined, hasQuery: (n: string) => req.query[n] != null };
+        const reqLike = {
+            header: (n: string) => req.header(n) ?? undefined,
+            hasQuery: (n: string) => req.query[n] != null,
+            // Express gives a repeated parameter as an array and a single one as a string; normalise to
+            // an array so an authenticator can see "more than one" (see AuthRequestLike.query).
+            query: (n: string) => {
+                const v = req.query[n];
+                return v == null ? [] : Array.isArray(v) ? v.map(String) : [String(v)];
+            },
+        };
         const resLike = { setHeader: (n: string, v: string) => { res.setHeader(n, v); } };
         for (const authenticator of AuthTokenServer.authenticators) {
             const result = await authenticator(reqLike, resLike);

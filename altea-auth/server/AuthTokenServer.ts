@@ -45,6 +45,13 @@ export type Authenticator = (req: AuthRequestLike, res: AuthResponseLike) => Pro
 export interface AuthRequestLike {
     header(name: string): string | undefined;
     hasQuery(name: string): boolean;
+    /**
+     * A query parameter's VALUE(s) — an array because a caller may repeat a parameter, and an
+     * authenticator that authenticates ON a query parameter has to notice that (@altea/altea-rest
+     * rejects a request carrying more than one API key rather than picking one). `hasQuery` above
+     * stays: the token authenticator only asks whether `?refreshToken` is present.
+     */
+    query(name: string): string[];
 }
 export interface AuthResponseLike {
     setHeader(name: string, value: string): void;

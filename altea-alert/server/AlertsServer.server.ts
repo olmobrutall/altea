@@ -209,6 +209,9 @@ export namespace AlertsServer {
             const fakeReq = {
                 header: (name: string) => name.toLowerCase() === "authorization" ? `Bearer ${token}` : undefined,
                 hasQuery: () => false,
+                // A WebSocket upgrade carries no query string here — the token is the first FRAME, so no
+                // authenticator in the chain can authenticate on a query parameter over this transport.
+                query: () => [],
             };
             const fakeRes = { setHeader: () => { /* a socket cannot carry New_Token */ } };
 
