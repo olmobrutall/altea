@@ -460,7 +460,14 @@ export class ExecutingProcess {
         const user = await ExecutionMode.global(() =>
             retrieve(this.currentProcess.user.entityType as Type<Entity>, this.currentProcess.user.id!));
 
-        await UserHolder.withUser(new UserWithClaims(user as IUserEntity), async () => {
+        // Signum's `using (ExecutionMode.SetIsolation(CurrentProcess) ?? (CurrentProcess.Data != null ?
+        // ExecutionMode.SetIsolation(CurrentProcess.Data) : null))`: a background runner has no request to
+        // inherit an ambient scope from, so it takes one from the process row — or, when the process itself
+        // is not scoped, from the entity it was created for. No-op unless @altea/altea-isolation is
+        // installed. The `data` lite is resolved to its row first: the scope is read off the entity.
+        const scopeCandidates = await this.isolationCandidates(this.currentProcess);
+
+        await UserHolder.withUser(new UserWithClaims(user as IUserEntity), () => ExecutionMode.withIsolationOf(scopeCandidates, async () => {
             try {
                 await this.algorithm.execute(this);
 
@@ -492,7 +499,24 @@ export class ExecutingProcess {
                     });
                 });
             }
-        });
+        }));
+    }
+
+    /**
+     * The entities whose ambient scope this run may adopt, in Signum's order: the process row, then — when
+     * the process itself carries none — the entity it was created for (`CurrentProcess.Data`, whose lite has
+     * to be retrieved, since the scope is a field of the row).
+     */
+    private async isolationCandidates(process: ProcessEntity): Promise<Entity[]> {
+        if (ExecutionMode.onSetIsolation.length === 0 || process.data == null)
+            return [process];
+        try {
+            const data = await ExecutionMode.global(() =>
+                retrieve(process.data!.entityType as Type<Entity>, process.data!.id!)) as Entity;
+            return [process, data];
+        } catch {
+            return [process]; // the row is gone, or its type is not queryable — nothing to adopt
+        }
     }
 
     /** Signum's `ForEach` — each element in its own transaction, reporting progress, and a failing element

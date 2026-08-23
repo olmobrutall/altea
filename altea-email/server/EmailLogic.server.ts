@@ -255,9 +255,20 @@ export namespace EmailLogic {
 
     /** Signum's `model.CreateEmailMessage()` — render the model's current template. */
     export async function createEmailMessagesFromModel(model: IEmailModel, culture?: string): Promise<EmailMessageEntity[]> {
-        const modelEntity = await EmailModelLogic.toEmailModelEntity(modelTypeOf(model));
-        const template = await getCurrentTemplate(modelEntity, model.untypedEntity);
-        return await EmailTemplateLogic.createEmailMessage(template, model.untypedEntity, model, culture);
+        // Signum's `using (emailModel.UntypedEntity is IEntity mod ? ExecutionMode.SetIsolation(mod) : null)`:
+        // rendering reads the template and whatever the model navigates to, and must do that in the scope of
+        // the entity the mail is ABOUT — a mail may well be produced by work that has no ambient scope of its
+        // own. No-op unless @altea/altea-isolation is installed.
+        const about = model.untypedEntity;
+        return await (about == null
+            ? render()
+            : ExecutionMode.withIsolationOf(about, render));
+
+        async function render(): Promise<EmailMessageEntity[]> {
+            const modelEntity = await EmailModelLogic.toEmailModelEntity(modelTypeOf(model));
+            const template = await getCurrentTemplate(modelEntity, model.untypedEntity);
+            return await EmailTemplateLogic.createEmailMessage(template, model.untypedEntity, model, culture);
+        }
     }
 
     /** Signum's GetCurrentTemplate — the (single) applicable template of a model, creating the default one

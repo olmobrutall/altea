@@ -334,10 +334,14 @@ export namespace SMSLogic {
         if (model.untypedEntity == null)
             throw new Error("Entity property not set on the SMSModel");
 
-        const modelType = model.modelType ?? model.untypedEntity.constructor;
-        const modelEntity = await SMSModelLogic.toSMSModelEntity(modelType);
-        const template = await SMSModelLogic.getDefaultTemplate(modelEntity);
-        return await createSMSMessage(template.toLite(), model.untypedEntity, model, forceCulture);
+        // Signum's `using (ExecutionMode.SetIsolation(smsModel.UntypedEntity))`: render in the scope of the
+        // entity the message is ABOUT. No-op unless @altea/altea-isolation is installed.
+        return await ExecutionMode.withIsolationOf(model.untypedEntity, async () => {
+            const modelType = model.modelType ?? model.untypedEntity!.constructor;
+            const modelEntity = await SMSModelLogic.toSMSModelEntity(modelType);
+            const template = await SMSModelLogic.getDefaultTemplate(modelEntity);
+            return await createSMSMessage(template.toLite(), model.untypedEntity, model, forceCulture);
+        });
     }
 
     // ---- sending --------------------------------------------------------------------------------------

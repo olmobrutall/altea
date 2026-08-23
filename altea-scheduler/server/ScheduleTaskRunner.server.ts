@@ -245,11 +245,16 @@ export namespace ScheduleTaskRunner {
             const userEntity = await ExecutionMode.global(() => retrieve(user.entityType as Type<Entity>, user.id!));
 
             try {
-                await UserHolder.withUser(new UserWithClaims(userEntity as IUserEntity), async () => {
-                    await Transaction.forceNew(async () => {
-                        log.productEntity = await SchedulerLogic.executeTask(task, ctx);
-                    });
-                });
+                // Signum's `using (ExecutionMode.SetIsolation((Entity)user) ?? ExecutionMode.SetIsolation((Entity)task))`:
+                // a scheduled run has no request to inherit an ambient scope from, so it takes one from the
+                // USER it runs as, falling back to the task row. No-op unless @altea/altea-isolation is
+                // installed.
+                await UserHolder.withUser(new UserWithClaims(userEntity as IUserEntity), () =>
+                    ExecutionMode.withIsolationOf([userEntity as Entity, task as unknown as Entity], async () => {
+                        await Transaction.forceNew(async () => {
+                            log.productEntity = await SchedulerLogic.executeTask(task, ctx);
+                        });
+                    }));
 
                 await ExecutionMode.global(() => Transaction.forceNew(async () => {
                     log.endTime = Clock.now;
