@@ -1,0 +1,11 @@
+{
+  // SERVER layer — node-only: the schema/operation map builders, the colour-provider registry, the two
+  // routes and the omnibox generator.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.server.json" },
+    { "path": "../altea-omnibox/tsconfig.server.json" }
+  ]
+}

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<Translations>
+  <Type Name="MapMessage">
+    <Member Name="All" Description="Todos"/>
+    <Member Name="Color" Description="Color"/>
+    <Member Name="Columns" Description="Columnas"/>
+    <Member Name="Filter" Description="Filtro"/>
+    <Member Name="Help" Description="Ayuda"/>
+    <Member Name="HelpClick" Description="Pulsa una tabla para seleccionarla. Pulsa de nuevo para quitar la selección."/>
+    <Member Name="HelpCtrlClick" Description="Ctrl+Click para abrir la tabla en una pestaña nueva."/>
+    <Member Name="HelpShiftClick" Description="Shift+Click para añadir o quitar una tabla de la selección."/>
+    <Member Name="Map" Description="Mapa"/>
+    <Member Name="Namespace" Description="Paquete"/>
+    <Member Name="NoHistoryTable" Description="Sin tabla de histórico"/>
+    <Member Name="Press0ToExploreEachTable" Description="Pulsa {0} para explorar cada tabla"/>
+    <Member Name="Press0ToExploreStatesAndOperations" Description="Pulsa {0} para explorar estados y operaciones"/>
+    <Member Name="Rows" Description="Filas"/>
+    <Member Name="RowsHistory" Description="Filas de histórico"/>
+    <Member Name="Selected" Description="Seleccionados"/>
+    <Member Name="SelectedAndNeighbors" Description="Seleccionados y vecinos"/>
+    <Member Name="Show" Description="Mostrar"/>
+    <Member Name="State" Description="Estado"/>
+    <Member Name="StateColor" Description="Color de estado"/>
+    <Member Name="TableSize" Description="Tamaño de tabla"/>
+    <Member Name="TableSizeHistory" Description="Tamaño de tabla de histórico"/>
+  </Type>
+  <Type Name="MapPermission">
+    <Member Name="ViewMap" Description="Ver mapa"/>
+  </Type>
+  <Type Name="DefaultStateEnum">
+    <Member Name="All" Description="Todos"/>
+    <Member Name="End" Description="Fin"/>
+    <Member Name="Start" Description="Inicio"/>
+  </Type>
+</Translations>

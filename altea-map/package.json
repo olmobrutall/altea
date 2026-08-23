@@ -1,0 +1,25 @@
+{
+  "name": "@altea/altea-map",
+  "version": "0.0.1",
+  "description": "Schema map + operation map — a d3 force graph of the tables/FKs and of an entity's state machine (ported from Signum.Map)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-omnibox": "workspace:*",
+    "d3": "^7.9.0",
+    "quote-transformer": "workspace:*"
+  }
+}

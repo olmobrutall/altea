@@ -1,0 +1,54 @@
+/* Port of Signum.Map's Schema/schemaMap.css. The `.MList` rules are gone with MList (see data/Map.ts);
+   everything else is verbatim. */
+
+rect.node {
+    stroke-width: 2px;
+    shape-rendering: geometricPrecision;
+}
+
+rect.node.Entity {
+    stroke-opacity: 1;
+    fill-opacity: .6;
+}
+
+rect.node.Part {
+    stroke-width: 1px;
+    stroke-opacity: .7;
+    fill-opacity: .3;
+}
+
+rect.node.Symbol {
+    stroke-opacity: 0.8;
+    fill-opacity: .4;
+}
+
+rect.node.EnumEntity {
+    stroke-opacity: 0.7;
+    fill-opacity: .3;
+}
+
+path.link {
+    fill: transparent;
+}
+
+text.node {
+    text-anchor: middle;
+    cursor: default;
+    fill: var(--bs-body-color);
+}
+
+text.node.Entity {
+    font-size: 12px;
+}
+
+text.node.Part {
+    font-size: 10px;
+}
+
+text.node.Symbol {
+    font-size: 12px;
+}
+
+text.node.EnumEntity {
+    font-size: 10px;
+}

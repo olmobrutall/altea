@@ -1,0 +1,9 @@
+{
+  // DATA layer — isomorphic model: the messages, the ViewMap permission, the DefaultState enum, and the
+  // two WIRE DTO families (SchemaMapInfo / OperationMapInfo) the server builds and the client draws.
+  "extends": "../altea/presets/data.json",
+  "references": [
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.data.json" }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  // CLIENT layer — the two d3 pages, the client colour providers and the omnibox provider.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" },
+    { "path": "../altea-omnibox/tsconfig.client.json" }
+  ]
+}
