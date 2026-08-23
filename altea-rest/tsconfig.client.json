@@ -1,0 +1,13 @@
+{
+  // CLIENT layer — the two entity views (the key, with its generate button; the log, with its replay
+  // tabs) and the boot-time `?apiKey=` authenticator.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.client.json" },
+    { "path": "../altea-diff-log/tsconfig.client.json" }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  // SERVER layer — the API-key cache + authenticator, the logging middleware and the replay endpoint.
+  "extends": "../altea/presets/server.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.server.json" }
+  ]
+}
