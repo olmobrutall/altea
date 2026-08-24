@@ -1,7 +1,6 @@
 import type { Request } from "express";
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
-import { table } from "@altea/altea/server/table";
-import type { Entity } from "@altea/altea/data/entity";
+import { retrieveFromListOfLite } from "@altea/altea/server/Database";
 import type { Lite } from "@altea/altea/data/lite";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
@@ -27,7 +26,7 @@ export namespace UserAssetServer {
             async (req, res) => {
                 await assertAuthorized();
                 const lites = await req.jsonTyped() as Lite<IUserAssetEntity>[];
-                const entities = await retrieveAll(lites);
+                const entities = await retrieveFromListOfLite(lites);
                 const xml = await UserAssetsImporter.toXml(entities);
 
                 const typeName = lites[0]?.entityType?.name ?? "UserAssets";
@@ -62,15 +61,4 @@ export namespace UserAssetServer {
 async function assertAuthorized(): Promise<void> {
     if (!(await PermissionAuthLogic.isAuthorized(UserAssetPermission.UserAssetsToXML)))
         throw new UnauthorizedAccessException(`Not authorized for '${UserAssetPermission.UserAssetsToXML.key}'`);
-}
-
-async function retrieveAll(lites: Lite<IUserAssetEntity>[]): Promise<IUserAssetEntity[]> {
-    const result: IUserAssetEntity[] = [];
-    for (const lite of lites) {
-        const ctor = lite.entityType as unknown as { new(): Entity };
-        const rows = await table(ctor as any).filter((e: Entity) => e.id == lite.id).toArray() as IUserAssetEntity[];
-        if (rows[0] != null)
-            result.push(rows[0]);
-    }
-    return result;
 }

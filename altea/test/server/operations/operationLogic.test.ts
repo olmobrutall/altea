@@ -1,7 +1,8 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { Connector } from "@altea/altea/server/connection/connector";
-import { operations } from "@altea/altea/server/fluentOperations";
+import { SchemaBuilder } from "@altea/altea/server/schema";
+import "@altea/altea/server/fluentOperations"; // FluentInclude.withStateMachine / withExecute / …
 import { Graph } from "@altea/altea/server/graph";
 import { Operations, OperationLogic } from "@altea/altea/server/operationLogic";
 import { AlbumEntity, AlbumState, ArtistEntity } from "../../data/music";
@@ -22,10 +23,11 @@ class FakeConnector extends Connector {
 const fake = new FakeConnector();
 const offline = <T>(fn: () => Promise<T>): Promise<T> => Connector.withConnector(fake, fn);
 
-// The album state machine. `operations(T)` is the standalone half of the fluent API — no SchemaBuilder
-// here, so there is no include to hang it off; `withStateMachine(a => a.state, …)` is Signum's
-// `Graph<AlbumEntity, AlbumState>.GetState`, stamped onto every operation the block declares.
-operations(AlbumEntity).withStateMachine(a => a.state, sm => {
+// The album state machine. Operations are declared on the include, so this suite opens a bare
+// SchemaBuilder for one — it builds the table from reflection and touches no database.
+// `withStateMachine(a => a.state, …)` is Signum's `Graph<AlbumEntity, AlbumState>.GetState`, stamped
+// onto every operation the block declares.
+new SchemaBuilder().include(AlbumEntity).withStateMachine(a => a.state, sm => {
     sm.withConstruct(AlbumOperation.Create, {
         toStates: [AlbumState.New],
         construct: () => AlbumEntity.create({ state: AlbumState.New }),

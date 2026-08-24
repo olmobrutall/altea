@@ -2,7 +2,7 @@ import "@altea/altea/server";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
-import { retrieve } from "@altea/altea/server/Database";
+import { retrieve, retrieveFromListOfLite } from "@altea/altea/server/Database";
 import { Graph } from "@altea/altea/server/graph";
 import { Operations } from "@altea/altea/server/operationLogic";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -86,9 +86,9 @@ export namespace SMSProcessLogic {
         // Signum's `Graph<ProcessEntity>.ConstructFromMany<SMSMessageEntity>(CreateUpdateStatusPackage)`.
         new Graph.ConstructFromMany(SMSMessageEntity, SMSMessageOperation.CreateUpdateStatusPackage, {
             construct: async (lites: Lite<SMSMessageEntity>[]) => {
-                const messages: SMSMessageEntity[] = [];
-                for (const lite of lites)
-                    messages.push(await table(SMSMessageEntity).filter(m => m.id == lite.id).single() as SMSMessageEntity);
+                // Signum's `messages.RetrieveList()`: ONE chunked `WHERE id IN (…)` per type, not a query
+                // per lite. Same "missing row throws" semantics the per-lite `.single()` had.
+                const messages = await retrieveFromListOfLite(lites);
 
                 // ALTEA: Signum returns `null` when there is nothing to package, and the client silently
                 // gets nothing back; altea's ConstructFromMany must return an entity, so the empty case

@@ -1,6 +1,6 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
 import { EvalLogic } from "@altea/altea-eval/server/EvalLogic.server"; // + FluentInclude.withEvals
-import { operations, type FluentOperations } from "@altea/altea/server/fluentOperations";
+import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import "@altea/altea/data/globals/arrayExtensions";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
@@ -118,7 +118,7 @@ export namespace WorkflowEventTaskLogic {
         QueryLogic.expressions.register(WorkflowEventTaskEntity,
             (e: WorkflowEventTaskEntity) => e.conditionResults());
 
-        operations(CaseEntity).withOperations(registerCaseOperations);
+        sb.include(CaseEntity).withOperations(registerCaseOperations);
 
         SchedulerLogic.registerExecuteTask(WorkflowEventTaskEntity,
             async (wet: WorkflowEventTaskEntity, _ctx: ScheduledTaskContext) => await executeTask(wet));

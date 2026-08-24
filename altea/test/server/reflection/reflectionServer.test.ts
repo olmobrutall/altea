@@ -4,7 +4,8 @@ import { init } from "@altea/altea/data/reflection";
 import type { ConstructSymbol, From, ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { ReflectionServer } from "@altea/altea/server/reflectionServer";
-import { operations } from "@altea/altea/server/fluentOperations";
+import { SchemaBuilder } from "@altea/altea/server/schema";
+import "@altea/altea/server/fluentOperations"; // FluentInclude.withStateMachine / withExecute / …
 import { loadSignumTranslations } from "@altea/altea/server/translations";
 import { AlbumEntity, AlbumState } from "../../data/music";
 
@@ -20,9 +21,9 @@ namespace MetaOperation {
     export const Delete: DeleteSymbol<AlbumEntity> = init();
 }
 
-// `operations(T)` is the standalone half of the fluent API: no SchemaBuilder in this suite, so there
-// is no include to hang the operations off.
-operations(AlbumEntity).withStateMachine(a => a.state, sm => {
+// Operations are declared on the include, so this suite opens a bare SchemaBuilder for one — it builds
+// the table from reflection and touches no database.
+new SchemaBuilder().include(AlbumEntity).withStateMachine(a => a.state, sm => {
     sm.withConstruct(MetaOperation.Create, {
         toStates: [AlbumState.New],
         construct: () => AlbumEntity.create({ state: AlbumState.New }),

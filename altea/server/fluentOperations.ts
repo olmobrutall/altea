@@ -54,10 +54,10 @@ import "./index"; // installs Entity.save() / Entity.delete() (the default withS
 // `replace` — skip this and use the `new Graph.Execute(Order, sym, { … })` classes directly (./graph).
 
 /**
- * The operation-registration surface of a type, with NO state machine open: `FluentInclude<T>` is one
- * (every `sb.include(X)` has these methods), and {@link operations} hands out a standalone one for a type
- * whose include is not at hand. Every method registers its operation immediately and returns `this`, so
- * the calls chain.
+ * The operation-registration surface of a type, with NO state machine open: it IS `FluentInclude<T>`, so
+ * every `sb.include(X)` has these methods — and `sb.include` is idempotent, so a type another module
+ * included (or one known only at runtime) is reached the same way. Every method registers its operation
+ * immediately and returns `this`, so the calls chain.
  */
 export interface FluentOperations<T extends Entity> {
     /** The type the operations are registered for — Signum's erased `Graph<T>` generic, as a value. */
@@ -120,7 +120,7 @@ export interface FluentStateMachine<T extends Entity, S> {
     /** The state selector stamped onto every operation declared here. */
     readonly getState: Quoted<(entity: T) => S>;
     /**
-     * The stateless surface this state machine was opened from — normally the `FluentInclude<T>` itself.
+     * The stateless surface this state machine was opened from — the `FluentInclude<T>` itself.
      * It is what makes an EXTRACTED graph function complete: a type's Create / Clone / plain Save have no
      * state to check, and `sm.parent.withConstruct(…)` declares them without going back to `start`.
      */
@@ -160,9 +160,8 @@ function createBlank<T extends Entity>(type: Type<T>): T {
     return (type as unknown as { create(values: object): T }).create({});
 }
 
-// The method bodies, written once and installed on all three hosts (FluentInclude, the standalone
-// OperationsBuilder and the StateMachineBuilder) so none of them carries a copy. `this` is the host;
-// every method registers its operation and returns it.
+// The method bodies, written once and installed on both hosts (FluentInclude and the StateMachineBuilder)
+// so neither carries a copy. `this` is the host; every method registers its operation and returns it.
 //
 // Each spreads `...options` LAST, so a caller's own `getState` / `execute` / `construct` wins over the
 // state machine's selector and over the defaulted body.
@@ -234,14 +233,6 @@ const fluentOperations = {
     },
 };
 
-// The standalone stateless host. Its methods come from the prototype augmentation below, so the class
-// body holds only the state; the merged interface is what types them.
-class OperationsBuilder<T extends Entity> {
-    constructor(readonly type: Type<T>) { }
-}
-interface OperationsBuilder<T extends Entity> extends FluentOperations<T> { }
-Object.assign(OperationsBuilder.prototype, fluentOperations);
-
 // The host `withStateMachine` hands its callback.
 class StateMachineBuilder<T extends Entity, S> {
     constructor(
@@ -252,19 +243,6 @@ class StateMachineBuilder<T extends Entity, S> {
 }
 interface StateMachineBuilder<T extends Entity, S> extends FluentStateMachine<T, S> { }
 Object.assign(StateMachineBuilder.prototype, fluentOperations);
-
-/**
- * Register operations for a type with no include at hand — the standalone half of the same API, for the
- * two cases the fluent include cannot serve: a `Type<T>` known only at runtime (@altea/altea-tree's
- * `registerOperations(type)`, which builds the same seven operations for whatever tree type an app
- * declares), and a module that owns a type's operations but not its include.
- *
- * Where an include IS at hand, prefer `sb.include(X)`: it is idempotent, so even a type another module
- * included is reachable that way, and the operations then read beside the table they act on.
- */
-export function operations<T extends Entity>(type: Type<T>): FluentOperations<T> {
-    return new OperationsBuilder<T>(type);
-}
 
 declare module "./schema/fluentInclude" {
     // The whole operation surface, with no state machine open — so `fromStates` / `toStates` are not part

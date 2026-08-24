@@ -118,13 +118,14 @@ export namespace DashboardLogic {
             isAuthorized: async lite => await ToolbarLogic.inMemoryFilter(await cachedDashboard(lite)),
         });
 
-        // Signum's GlobalLazy over all dashboards, invalidated on any DashboardEntity change. Retrieved
-        // through `retrieve` (not a bare table read) so each dashboard arrives with its parts, part contents
-        // and token-equivalence groups — the cache backs the /home + /forEntityType lookups.
-        dashboardsLazy = sb.globalLazy(async () => {
-            const rows = await table(DashboardEntity).toArray() as DashboardEntity[];
-            return await Promise.all(rows.map(d => retrieve(DashboardEntity, d.id)));
-        }, { invalidateWith: [DashboardEntity] });
+        // Signum's GlobalLazy over all dashboards, invalidated on any DashboardEntity change; the cache
+        // backs the /home + /forEntityType lookups. A plain table read is enough: EVERY query is completed
+        // by EntityCompleter (QueryBinder.bindQuery), whose visitFieldEntityArray realises each @part
+        // collection as a correlated child projection — so the parts, their polymorphic contents and the
+        // token-equivalence groups arrive with the row, exactly as `retrieve` would deliver them.
+        dashboardsLazy = sb.globalLazy(async () =>
+            await table(DashboardEntity).toArray() as DashboardEntity[],
+            { invalidateWith: [DashboardEntity] });
 
         if (sb.webBuilder)
             DashboardServer.start(sb.webBuilder);

@@ -4,7 +4,7 @@ import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.w
 import "@altea/altea/data/globals/arrayExtensions"; // groupWhen / notNull / firstOrNull / …
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
-import { retrieve, deleteList } from "@altea/altea/server/Database";
+import { deleteList } from "@altea/altea/server/Database";
 import { DirectedGraph } from "@altea/altea/server/directedGraph";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
@@ -149,22 +149,21 @@ export namespace ToolbarLogic {
         // (Signum's `UserAssetsImporter.Register("Toolbar", ToolbarOperation.Save)` &c.).
         registerToolbarXml();
 
-        // Signum's three GlobalLazys. Retrieved through `retrieve` (not a bare table read) so each root
-        // arrives with its element / option rows — the caches back every response lookup.
-        toolbarsLazy = sb.globalLazy(async () => {
-            const rows = await table(ToolbarEntity).toArray() as ToolbarEntity[];
-            return await Promise.all(rows.map(t => retrieve(ToolbarEntity, t.id)));
-        }, { invalidateWith: [ToolbarEntity] });
+        // Signum's three GlobalLazys; the caches back every response lookup. A plain table read is enough:
+        // EVERY query is completed by EntityCompleter (QueryBinder.bindQuery), whose visitFieldEntityArray
+        // realises each @part collection as a correlated child projection — so each root arrives with its
+        // element / option rows, exactly as `retrieve` would deliver them.
+        toolbarsLazy = sb.globalLazy(async () =>
+            await table(ToolbarEntity).toArray() as ToolbarEntity[],
+            { invalidateWith: [ToolbarEntity] });
 
-        toolbarMenusLazy = sb.globalLazy(async () => {
-            const rows = await table(ToolbarMenuEntity).toArray() as ToolbarMenuEntity[];
-            return await Promise.all(rows.map(t => retrieve(ToolbarMenuEntity, t.id)));
-        }, { invalidateWith: [ToolbarMenuEntity] });
+        toolbarMenusLazy = sb.globalLazy(async () =>
+            await table(ToolbarMenuEntity).toArray() as ToolbarMenuEntity[],
+            { invalidateWith: [ToolbarMenuEntity] });
 
-        toolbarSwitchersLazy = sb.globalLazy(async () => {
-            const rows = await table(ToolbarSwitcherEntity).toArray() as ToolbarSwitcherEntity[];
-            return await Promise.all(rows.map(t => retrieve(ToolbarSwitcherEntity, t.id)));
-        }, { invalidateWith: [ToolbarSwitcherEntity] });
+        toolbarSwitchersLazy = sb.globalLazy(async () =>
+            await table(ToolbarSwitcherEntity).toArray() as ToolbarSwitcherEntity[],
+            { invalidateWith: [ToolbarSwitcherEntity] });
 
         // Signum calls `RegisterDelete<T>` once per content type — four times here, plus once from every
         // module that adds a content type (`UserQueryLogic`, `UserChartLogic`, …, each inside its own

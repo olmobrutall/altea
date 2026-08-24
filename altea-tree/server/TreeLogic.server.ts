@@ -1,6 +1,6 @@
 import "@altea/altea/server";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
-import { operations } from "@altea/altea/server/fluentOperations";
+import { type FluentOperations } from "@altea/altea/server/fluentOperations"; // + FluentInclude.withConstruct / withExecute / withDelete / …
 import type { FluentInclude } from "@altea/altea/server/schema/fluentInclude";
 import { table } from "@altea/altea/server/table";
 import { Saver } from "@altea/altea/server/saver";
@@ -39,8 +39,9 @@ import { TreeRoute } from "./TreeRoute.server";
 //    `MixinDeclarations.IsDeclared(typeof(T), typeof(DisabledMixin))` is gone: no cascade of
 //    Disable/Enable down the subtree, and `TreeInfo.disabled` is always false. The FIELD stays on the wire
 //    (the viewer styles a disabled node) so a host that adds such a mixin later has somewhere to put it.
-//  - **`Graph<T>.Construct.Untyped(...)` becomes `operations(T)`**, and the copy hook stays an optional
-//    argument of `withTree`, as in Signum.
+//  - **`Graph<T>.Construct.Untyped(...)` becomes the fluent include itself** — `registerOperations` takes
+//    the `sb.include(MyTreeEntity)` `withTree` was called on, since the type is only known at runtime —
+//    and the copy hook stays an optional argument of `withTree`, as in Signum.
 export namespace TreeLogic {
 
     /**
@@ -58,7 +59,7 @@ export namespace TreeLogic {
         const type = include.type as Type<T>;
 
         registerExpressions(type);
-        registerOperations(type, options?.copy);
+        registerOperations(include, options?.copy);
 
         // Signum's `WithUniqueIndex(n => new { n.ParentRoute, n.Name })` — two siblings may not share a name.
         include.withUniqueIndex(n => [n.parentRoute, n.name]);
@@ -322,14 +323,16 @@ export namespace TreeLogic {
 
     // ---- the seven operations --------------------------------------------------------------------
 
-    /** Signum's `RegisterOperations<T>`. */
+    /**
+     * Signum's `RegisterOperations<T>`. Takes the INCLUDE rather than the type: an app declares its own
+     * tree type, so the type is only known at runtime — but the include that `withTree` hangs off is the
+     * operation surface, and `sb.include` is idempotent, so this is reachable for any tree type.
+     */
     export function registerOperations<T extends TreeEntity>(
-        type: Type<T>,
+        op: FluentOperations<T>,
         copy?: (node: T, model: MoveTreeModel) => T,
     ): void {
-        // The standalone root: `type` is only known at RUNTIME (an app declares its own tree type),
-        // so there is no `sb.include(…)` here to hang the operations off.
-        const op = operations(type);
+        const type = op.type;
 
         op.withConstruct(TreeOperation.CreateRoot, {
             construct: () => {
