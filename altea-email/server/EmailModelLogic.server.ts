@@ -1,5 +1,5 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude";
+import "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
@@ -291,7 +291,6 @@ async function synchronizeEmailModels(replacements: Replacements): Promise<SqlPr
     const table = connector.schema.tryTable(EmailModelEntity);
     if (table == null)
         return undefined;
-
 
     // Ordinary LINQ read (Signum's Administrator.TryRetrieveAll): the in-memory Table is temporarily
     // pointed at the name the database still uses when the table itself was renamed this run, and a

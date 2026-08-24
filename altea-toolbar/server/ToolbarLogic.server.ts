@@ -1,5 +1,5 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import "@altea/altea/server/fluentOperations"; // FluentInclude.withSave / withDelete
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import "@altea/altea/data/globals/arrayExtensions"; // groupWhen / notNull / firstOrNull / …
 import type { SchemaBuilder } from "@altea/altea/server/schema";
@@ -124,17 +124,17 @@ export namespace ToolbarLogic {
         // false), so the recursion check Signum ran from the `Saving` event rides along here — see the
         // header note. Signum's `WithSave`/`WithDelete`/`WithQuery` shapes are otherwise untouched.
         sb.include(ToolbarEntity)
-            .withSave(ToolbarOperation.Save, tb => ToolbarLogic.assertNoRecursion(tb))
+            .withSave(ToolbarOperation.Save, { execute: tb => ToolbarLogic.assertNoRecursion(tb) })
             .withDelete(ToolbarOperation.Delete)
             .withQuery();
 
         sb.include(ToolbarMenuEntity)
-            .withSave(ToolbarMenuOperation.Save, tm => ToolbarLogic.assertNoRecursion(tm))
+            .withSave(ToolbarMenuOperation.Save, { execute: tm => ToolbarLogic.assertNoRecursion(tm) })
             .withDelete(ToolbarMenuOperation.Delete)
             .withQuery();
 
         sb.include(ToolbarSwitcherEntity)
-            .withSave(ToolbarSwitcherOperation.Save, ts => ToolbarLogic.assertNoRecursion(ts))
+            .withSave(ToolbarSwitcherOperation.Save, { execute: ts => ToolbarLogic.assertNoRecursion(ts) })
             .withDelete(ToolbarSwitcherOperation.Delete)
             .withQuery();
 

@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import "@altea/altea/server";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
-import "@altea/altea/server/operationFluentInclude";
+import "@altea/altea/server/fluentOperations";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { Schema } from "@altea/altea/server/schema/schema";
 import type { Query } from "@altea/altea/server/query";

@@ -1,9 +1,8 @@
 import "@altea/altea/server";
-import "@altea/altea/server/operationFluentInclude";
+import "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { table as tableQuery } from "@altea/altea/server/table";
@@ -121,19 +120,27 @@ export namespace AgentLogic {
 
         SymbolLogic.start(sb, AgentSymbol, () => declaredAgents);
 
-        sb.include(AgentSymbol).withQuery();
-
-        AgentGraph.register();
+        sb.include(AgentSymbol)
+            // No `canBeNew`: altea's AgentSymbol is a plain Symbol, so every row is code-seeded and Save
+            // only ever persists a changed `skillCustomization` (Signum's Execute body is empty too).
+            .withExecute(AgentOperation.Save, { canBeModified: true, execute: () => { } })
+            .withQuery();
 
         sb.include(SkillCustomizationEntity)
+            .withConstructFrom(AgentSymbol, SkillCustomizationOperation.CreateFromAgent, {
+                construct: async (agentSymbol: AgentSymbol) => {
+                    const factory = registeredAgents.get(agentSymbol.key);
+                    if (factory == undefined)
+                        return SkillCustomizationEntity.create({});
+                    return await toCustomizationEntity(factory());
+                },
+            })
             .withSave(SkillCustomizationOperation.Save)
             .withDelete(SkillCustomizationOperation.Delete)
             .withQuery();
 
         sb.include(SkillCustomizationEntity_Property).withQuery();
         sb.include(SkillCustomizationEntity_SubSkill).withQuery();
-
-        SkillCustomizationGraph.register();
 
         sb.schema.entityEvents(SkillCustomizationEntity).saving.push(entity => {
             // Signum guards on `SubSkills.IsGraphModified`; altea's snapshot diffing exposes the same
@@ -243,21 +250,4 @@ export namespace AgentLogic {
                 + problems.map(e => `  ${e.from} → ${e.to}`).join("\n"));
     }
 
-    // No `canBeNew`: altea's AgentSymbol is a plain Symbol, so every row is code-seeded and Save only
-    // ever persists a changed `skillCustomization` (Signum's Execute body is empty too).
-    const AgentGraph = graph(AgentSymbol, g => {
-        g.Execute(AgentOperation.Save, { canBeModified: true, execute: () => { } });
-    });
-
-
-    const SkillCustomizationGraph = graph(SkillCustomizationEntity, g => {
-        g.ConstructFrom(AgentSymbol, SkillCustomizationOperation.CreateFromAgent, {
-            construct: async (agentSymbol: AgentSymbol) => {
-                const factory = registeredAgents.get(agentSymbol.key);
-                if (factory == undefined)
-                    return SkillCustomizationEntity.create({});
-                return await toCustomizationEntity(factory());
-            },
-        });
-    });
 }

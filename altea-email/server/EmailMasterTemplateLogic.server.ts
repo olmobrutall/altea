@@ -1,8 +1,7 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude";
+import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
 import { table } from "@altea/altea/server/table";
 import {
@@ -75,11 +74,12 @@ export namespace EmailMasterTemplateLogic {
             requiredCulture = options.requiredCulture;
 
         // Its message / attachment @part rows are included automatically (see EmailTemplateLogic).
-        sb.include(EmailMasterTemplateEntity).withQuery();
+        sb.include(EmailMasterTemplateEntity)
+            .withOperations(registerEmailMasterTemplateOperations)
+            .withQuery();
 
         registerEmailMasterTemplateXml();
 
-        EmailMasterTemplateGraph.register();
     }
 
     /** Signum's `GetCultureMessage(template, ci)` — exact locale, then its language. */
@@ -112,8 +112,8 @@ export namespace EmailMasterTemplateLogic {
             throw new Error(`EmailMasterTemplate '${t.name}' has no message for the default culture '${culture}'`);
     }
 
-    const EmailMasterTemplateGraph = graph(EmailMasterTemplateEntity, g => {
-        g.ConstructFrom(EmailMasterTemplateEntity, EmailMasterTemplateOperation.Clone, {
+    function registerEmailMasterTemplateOperations(op: FluentOperations<EmailMasterTemplateEntity>): void {
+        op.withConstructFrom(EmailMasterTemplateEntity, EmailMasterTemplateOperation.Clone, {
         construct: (e: EmailMasterTemplateEntity) => EmailMasterTemplateEntity.create({
             name: `${e.name} (Cloned)`,
             isDefault: e.isDefault,
@@ -121,18 +121,18 @@ export namespace EmailMasterTemplateLogic {
         }),
         });
 
-        g.Construct(EmailMasterTemplateOperation.Create, {
+        op.withConstruct(EmailMasterTemplateOperation.Create, {
         construct: () => createDefaultMasterTemplate?.() ?? new EmailMasterTemplateEntity(),
         });
 
-        g.Execute(EmailMasterTemplateOperation.Save, {
+        op.withExecute(EmailMasterTemplateOperation.Save, {
         canBeNew: true,
         canBeModified: true,
         execute: (t: EmailMasterTemplateEntity) => assertHasRequiredCulture(t),
         });
 
         // Signum's Delete: the attachment rows the template owns go with it.
-        g.Delete(EmailMasterTemplateOperation.Delete, {
+        op.withDelete(EmailMasterTemplateOperation.Delete, {
         delete: async (e: EmailMasterTemplateEntity) => {
             const attachments = e.attachments.map(a => a.attachment);
             await e.delete();
@@ -140,5 +140,5 @@ export namespace EmailMasterTemplateLogic {
                 await a.delete();
         },
         });
-    });
+    }
 }

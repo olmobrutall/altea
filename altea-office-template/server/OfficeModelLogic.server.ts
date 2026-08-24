@@ -1,5 +1,5 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude";
+import "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
@@ -223,7 +223,6 @@ async function synchronizeOfficeModels(replacements: Replacements): Promise<SqlP
     const table = connector.schema.tryTable(OfficeModelEntity);
     if (table == null)
         return undefined;
-
 
     // Ordinary LINQ read through Administrator.tryRetrieveAll: it scopes the in-memory Table to the name
     // the database still uses when the table was renamed this run, and yields nothing when it does not

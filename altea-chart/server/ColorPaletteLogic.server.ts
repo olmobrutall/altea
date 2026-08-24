@@ -2,7 +2,7 @@ import "@altea/altea/server"; // installs Entity.save()/delete()
 import type { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
 import { cleanTypeName } from "@altea/altea/data/registration";
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import "@altea/altea/server/fluentOperations"; // FluentInclude.withSave / withDelete
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";

@@ -1,5 +1,5 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import "@altea/altea/server/fluentOperations"; // FluentInclude.withSave / withDelete
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";

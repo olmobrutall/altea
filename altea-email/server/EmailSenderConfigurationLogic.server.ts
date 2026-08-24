@@ -1,9 +1,8 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { table } from "@altea/altea/server/table";
 import type { Lite } from "@altea/altea/data/lite";
 import type { Type } from "@altea/altea/data/entity";
@@ -58,6 +57,17 @@ export namespace EmailSenderConfigurationLogic {
         // The SERVICE (a polymorphic @implementedBy target), its network row and that row's certificate rows
         // are all reached from this entity's fields, so the SchemaBuilder includes them itself.
         sb.include(EmailSenderConfigurationEntity)
+            .withConstructFrom(EmailSenderConfigurationEntity, EmailSenderConfigurationOperation.Clone, {
+                construct: (sc: EmailSenderConfigurationEntity) => sc.clone(),
+            })
+            // Signum's Save: turn the typed-in `newPassword` into the stored (encrypted) `password`.
+            .withExecute(EmailSenderConfigurationOperation.Save, {
+                canBeNew: true,
+                canBeModified: true,
+                execute: (sc: EmailSenderConfigurationEntity) => {
+                    prepareServiceForSave(sc.service);
+                },
+            })
             .withQuery();
 
         emailSenderCache = sb.globalLazy(
@@ -74,7 +84,6 @@ export namespace EmailSenderConfigurationLogic {
             }
         });
 
-        EmailSenderConfigurationGraph.register();
     }
 
     /** altea-only (see the header): what the Save operation should do to this service type before it is
@@ -116,18 +125,4 @@ export namespace EmailSenderConfigurationLogic {
         await service.delete();
     }
 
-    // Signum's Save: turn the typed-in `newPassword` into the stored (encrypted) `password`.
-    const EmailSenderConfigurationGraph = graph(EmailSenderConfigurationEntity, g => {
-        g.Execute(EmailSenderConfigurationOperation.Save, {
-        canBeNew: true,
-        canBeModified: true,
-        execute: (sc: EmailSenderConfigurationEntity) => {
-            prepareServiceForSave(sc.service);
-        },
-        });
-
-        g.ConstructFrom(EmailSenderConfigurationEntity, EmailSenderConfigurationOperation.Clone, {
-        construct: (sc: EmailSenderConfigurationEntity) => sc.clone(),
-        });
-    });
 }

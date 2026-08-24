@@ -1,6 +1,6 @@
 import { after } from "node:test";
 import "@altea/altea/server/context.node"; // register server context storage first
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import "@altea/altea/server/fluentOperations"; // FluentInclude.withSave / withDelete
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import "@altea/altea/server"; // installs Entity.prototype.save / delete
 import { Connector } from "@altea/altea/server/connection/connector";

@@ -1,9 +1,8 @@
 import "@altea/altea/server";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
-import "@altea/altea/server/operationFluentInclude";
+import { operations } from "@altea/altea/server/fluentOperations";
 import type { FluentInclude } from "@altea/altea/server/schema/fluentInclude";
 import { table } from "@altea/altea/server/table";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { Saver } from "@altea/altea/server/saver";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
@@ -40,7 +39,7 @@ import { TreeRoute } from "./TreeRoute.server";
 //    `MixinDeclarations.IsDeclared(typeof(T), typeof(DisabledMixin))` is gone: no cascade of
 //    Disable/Enable down the subtree, and `TreeInfo.disabled` is always false. The FIELD stays on the wire
 //    (the viewer styles a disabled node) so a host that adds such a mixin later has somewhere to put it.
-//  - **`Graph<T>.Construct.Untyped(...)` becomes `graph(T, …)`**, and the copy hook stays an optional
+//  - **`Graph<T>.Construct.Untyped(...)` becomes `operations(T)`**, and the copy hook stays an optional
 //    argument of `withTree`, as in Signum.
 export namespace TreeLogic {
 
@@ -328,86 +327,84 @@ export namespace TreeLogic {
         type: Type<T>,
         copy?: (node: T, model: MoveTreeModel) => T,
     ): void {
-        const g = graph(type, g => {
+        // The standalone root: `type` is only known at RUNTIME (an app declares its own tree type),
+        // so there is no `sb.include(…)` here to hang the operations off.
+        const op = operations(type);
 
-            g.Construct(TreeOperation.CreateRoot, {
-                construct: () => {
-                    const node = newNode(type);
-                    node.parentOrSibling = null;
-                    node.level = toInt(1);
-                    node.isSibling = false;
-                    return node;
-                },
-            });
-
-            g.ConstructFrom(type, TreeOperation.CreateChild, {
-                construct: parent => {
-                    const node = newNode(type);
-                    node.parentOrSibling = parent.toLite();
-                    node.level = toInt(Number(parent.level ?? 0) + 1);
-                    node.isSibling = false;
-                    return node;
-                },
-            });
-
-            g.ConstructFrom(type, TreeOperation.CreateNextSibling, {
-                construct: sibling => {
-                    const node = newNode(type);
-                    node.parentOrSibling = sibling.toLite();
-                    node.level = sibling.level;
-                    node.isSibling = true;
-                    return node;
-                },
-            });
-
-            g.Execute(TreeOperation.Save, {
-                canBeNew: true,
-                canBeModified: true,
-                execute: async node => { await treeEntitySave(type, node); },
-            });
-
-            g.Execute(TreeOperation.Move, {
-                execute: async (node, args) => {
-                    await treeEntityMove(type, node, args[0] as MoveTreeModel);
-                },
-            });
-
-            g.Delete(TreeOperation.Delete, {
-                delete: async node => { await removeDescendants(type, node); },
-            });
-
-            if (copy != null) {
-                g.ConstructFrom(type, TreeOperation.Copy, {
-                    construct: async (source, args) => {
-                        const model = args[0] as MoveTreeModel;
-                        const newRoute = await getNewPosition(type, model, source);
-
-                        const subtree = (await descendantsQuery(type, source).toArray() as T[])
-                            .sort((a, b) => TreeRoute.compare(a.route, b.route));
-
-                        const copies = subtree.map(old => {
-                            const clone = copy(old, model);
-                            clone.parentOrSibling = model.newParent;
-                            setRoute(clone, TreeRoute.getReparentedValue(old.route, source.route, newRoute));
-                            clone.fullName = clone.name;
-                            return clone;
-                        });
-
-                        await Saver.save(copies as unknown as Entity[]);
-
-                        for (const c of copies) {
-                            await calculateFullName(type, c);
-                            await Saver.save([c]);
-                        }
-
-                        return copies[0];
-                    },
-                });
-            }
+        op.withConstruct(TreeOperation.CreateRoot, {
+            construct: () => {
+                const node = newNode(type);
+                node.parentOrSibling = null;
+                node.level = toInt(1);
+                node.isSibling = false;
+                return node;
+            },
         });
 
-        g.register();
-    }
+        op.withConstructFrom(type, TreeOperation.CreateChild, {
+            construct: parent => {
+                const node = newNode(type);
+                node.parentOrSibling = parent.toLite();
+                node.level = toInt(Number(parent.level ?? 0) + 1);
+                node.isSibling = false;
+                return node;
+            },
+        });
+
+        op.withConstructFrom(type, TreeOperation.CreateNextSibling, {
+            construct: sibling => {
+                const node = newNode(type);
+                node.parentOrSibling = sibling.toLite();
+                node.level = sibling.level;
+                node.isSibling = true;
+                return node;
+            },
+        });
+
+        op.withExecute(TreeOperation.Save, {
+            canBeNew: true,
+            canBeModified: true,
+            execute: async node => { await treeEntitySave(type, node); },
+        });
+
+        op.withExecute(TreeOperation.Move, {
+            execute: async (node, args) => {
+                await treeEntityMove(type, node, args[0] as MoveTreeModel);
+            },
+        });
+
+        op.withDelete(TreeOperation.Delete, {
+            delete: async node => { await removeDescendants(type, node); },
+        });
+
+        if (copy != null) {
+            op.withConstructFrom(type, TreeOperation.Copy, {
+                construct: async (source, args) => {
+                    const model = args[0] as MoveTreeModel;
+                    const newRoute = await getNewPosition(type, model, source);
+
+                    const subtree = (await descendantsQuery(type, source).toArray() as T[])
+                        .sort((a, b) => TreeRoute.compare(a.route, b.route));
+
+                    const copies = subtree.map(old => {
+                        const clone = copy(old, model);
+                        clone.parentOrSibling = model.newParent;
+                        setRoute(clone, TreeRoute.getReparentedValue(old.route, source.route, newRoute));
+                        clone.fullName = clone.name;
+                        return clone;
+                    });
+
+                    await Saver.save(copies as unknown as Entity[]);
+
+                    for (const c of copies) {
+                        await calculateFullName(type, c);
+                        await Saver.save([c]);
+                    }
+
+                    return copies[0];
+                },
+            });
+        }    }
 
     function newNode<T extends TreeEntity>(type: Type<T>): T {
         // `create` (not `new`): a mixin's field initializers only run in the factory — see

@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "@altea/altea/server/context.node";
-import "@altea/altea/server/operationFluentInclude";
+import "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import "@altea/altea/server";
 import { SchemaBuilder } from "@altea/altea/server/schema";

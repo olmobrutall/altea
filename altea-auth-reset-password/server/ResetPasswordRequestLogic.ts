@@ -1,9 +1,8 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave/.withDelete
+import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { randomBytes } from "node:crypto";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { table } from "@altea/altea/server/table";
 import { Operations } from "@altea/altea/server/operationLogic";
 import { Transaction } from "@altea/altea/server/connection/transaction";
@@ -83,7 +82,9 @@ export namespace ResetPasswordRequestLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        sb.include(ResetPasswordRequestEntity).withQuery();
+        sb.include(ResetPasswordRequestEntity)
+            .withOperations(registerResetPasswordRequestOperations)
+            .withQuery();
 
         // Signum's `AuthLogic.OnDeactivateUser`: when the failed-login lockout trips, mail the user a reset
         // link so they can recover without an administrator.
@@ -136,8 +137,6 @@ export namespace ResetPasswordRequestLogic {
                 })),
             }),
         });
-
-        ResetPasswordRequestGraph.register();
 
         // Signum's controller is discovered by ASP.NET; altea mounts the routes here, guarded by the
         // SchemaBuilder's web builder, so a terminal / test host wires no HTTP (the pattern AuthLogic uses).
@@ -302,8 +301,8 @@ export class ResetPasswordException extends Error {
 
 // Signum's `new Graph<ResetPasswordRequestEntity>.Execute(ResetPasswordRequestOperation.Execute)`: consume
 // the code and set the new password (reactivating the user if the lockout had disabled them).
-const ResetPasswordRequestGraph = graph(ResetPasswordRequestEntity, g => {
-    g.Execute(ResetPasswordRequestOperation.Execute, {
+function registerResetPasswordRequestOperations(op: FluentOperations<ResetPasswordRequestEntity>): void {
+    op.withExecute(ResetPasswordRequestOperation.Execute, {
         canBeNew: false,
         canBeModified: false,
         canExecute: e => e.validate(),
@@ -324,7 +323,7 @@ const ResetPasswordRequestGraph = graph(ResetPasswordRequestEntity, g => {
             await AuthLogic.withDisabled(() => Operations.execute(user, UserOperation.Save));
         },
     });
-});
+}
 
 /** One EmailTemplate message per application culture, each rendered in ITS culture. */
 function forEachCulture(build: (culture: ReturnType<typeof cultureLite>) => EmailTemplateEntity_Message): EmailTemplateEntity_Message[] {

@@ -2,9 +2,9 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { init } from "@altea/altea/data/reflection";
 import type { ConstructSymbol, From, ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { ReflectionServer } from "@altea/altea/server/reflectionServer";
+import { operations } from "@altea/altea/server/fluentOperations";
 import { loadSignumTranslations } from "@altea/altea/server/translations";
 import { AlbumEntity, AlbumState } from "../../data/music";
 
@@ -20,30 +20,33 @@ namespace MetaOperation {
     export const Delete: DeleteSymbol<AlbumEntity> = init();
 }
 
-const MetaGraph = graph(AlbumEntity, AlbumState, g => {
-    g.GetState = a => a.state;
-    g.Construct(MetaOperation.Create, {
+// `operations(T)` is the standalone half of the fluent API: no SchemaBuilder in this suite, so there
+// is no include to hang the operations off.
+operations(AlbumEntity).withStateMachine(a => a.state, sm => {
+    sm.withConstruct(MetaOperation.Create, {
         toStates: [AlbumState.New],
         construct: () => AlbumEntity.create({ state: AlbumState.New }),
-    });
-    g.ConstructFrom(AlbumEntity, MetaOperation.Clone, {
-        toStates: [AlbumState.New],
-        resultIsSaved: false,
-        construct: from => AlbumEntity.create({ state: AlbumState.New, name: from.name }),
-    });
-    g.Execute(MetaOperation.Save, {
-        fromStates: [AlbumState.New, AlbumState.Saved],
-        toStates: [AlbumState.Saved],
-        canBeNew: true,
-        avoidImplicitSave: true,
-        execute: a => { a.state = AlbumState.Saved; },
-    });
-    g.Delete(MetaOperation.Delete, {
-        fromStates: [AlbumState.Saved],
-        delete: a => a.delete(),
-    });
+    })
+
+        .withConstructFrom(AlbumEntity, MetaOperation.Clone, {
+            toStates: [AlbumState.New],
+            resultIsSaved: false,
+            construct: from => AlbumEntity.create({ state: AlbumState.New, name: from.name }),
+        })
+
+        .withExecute(MetaOperation.Save, {
+            fromStates: [AlbumState.New, AlbumState.Saved],
+            toStates: [AlbumState.Saved],
+            canBeNew: true,
+            avoidImplicitSave: true,
+            execute: a => { a.state = AlbumState.Saved; },
+        })
+
+        .withDelete(MetaOperation.Delete, {
+            fromStates: [AlbumState.Saved],
+            delete: a => a.delete(),
+        });
 });
-MetaGraph.register();
 
 describe("ReflectionServer.buildMetadata", () => {
 

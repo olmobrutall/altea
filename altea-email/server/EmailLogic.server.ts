@@ -1,9 +1,8 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { createHash, randomUUID } from "node:crypto";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { table } from "@altea/altea/server/table";
 import { retrieve } from "@altea/altea/server/Database";
 import { Transaction } from "@altea/altea/server/connection/transaction";
@@ -112,7 +111,9 @@ export namespace EmailLogic {
         });
 
         // Its recipient / attachment @part rows are included automatically (see EmailTemplateLogic).
-        sb.include(EmailMessageEntity).withQuery();
+        sb.include(EmailMessageEntity)
+            .withStateMachine(m => m.state, registerEmailMessageOperations)
+            .withQuery();
 
         // altea has no PermissionLogic registry: a PermissionSymbol declared with init() is seeded into the
         // symbol table by PermissionAuthLogic — the symbol just has to be REACHED.
@@ -138,8 +139,6 @@ export namespace EmailLogic {
             email.bodyHash = calculateBodyHash(email);
             email.uniqueIdentifier ??= randomUUID() as uuid;
         });
-
-        EmailMessageGraph.register();
 
         if (sb.webBuilder)
             MailingServer.start(sb.webBuilder);
@@ -342,12 +341,28 @@ export namespace EmailLogic {
         Transaction.postRealCommit(() => AsyncEmailSender.wakeUp("ReadyToSend in this machine"));
     }
 
-    const EmailMessageGraph = graph(EmailMessageEntity, EmailMessageStateEnum, g => {
-        g.Construct(EmailMessageOperation.CreateMail, {
+    /**
+     * Signum's `EmailGraph : Graph<EmailMessageEntity, EmailMessageState>`.
+     *
+     * NOTE — this graph's state guards used to be DEAD. It was declared `graph(EmailMessageEntity,
+     * EmailMessageStateEnum, …)` but never assigned `g.GetState`, and the builder only used the enum
+     * argument to TYPE S; with no selector, `Graph.Execute`'s from-state check and the to-state assert
+     * both bailed out, so Save's and ReadyToSend's `fromStates` / `toStates` were never enforced.
+     * `withStateMachine` cannot express that — the selector is required — so `m => m.state` is now wired
+     * and those two are checked, which is what Signum does.
+     *
+     * The other five sit on {@link FluentStateMachine.parent} because they declare no states HERE. Signum
+     * state-guards four of them (CreateMail / CreateEmailFromTemplate / ReSend → `ToStates = { Created }`,
+     * Send → `FromStates = { Created, Draft, ReadyToSend, Outdated }`, `ToStates = { Sent }`); only Delete
+     * is stateless there too. Restoring those four would change what an operation ACCEPTS at runtime, so it
+     * is left as a deliberate follow-up rather than folded into an API migration.
+     */
+    function registerEmailMessageOperations(sm: FluentStateMachine<EmailMessageEntity, EmailMessageStateEnum>): void {
+        sm.parent.withConstruct(EmailMessageOperation.CreateMail, {
         construct: () => EmailMessageEntity.create({ state: EmailMessageStateEnum.Created }),
         });
 
-        g.ConstructFrom(EmailTemplateEntity, EmailMessageOperation.CreateEmailFromTemplate, {
+        sm.parent.withConstructFrom(EmailTemplateEntity, EmailMessageOperation.CreateEmailFromTemplate, {
         canConstruct: (et: EmailTemplateEntity) => et.model != null && EmailModelLogic.requiresExtraParameters(et.model)
             ? EmailMessageMessage._01requiresExtraParameters.niceToString("EmailModel", et.model.fullClassName)
             : null,
@@ -364,7 +379,7 @@ export namespace EmailLogic {
         },
         });
 
-        g.Execute(EmailMessageOperation.Save, {
+        sm.withExecute(EmailMessageOperation.Save, {
         canBeNew: true,
         canBeModified: true,
         fromStates: [EmailMessageStateEnum.Created, EmailMessageStateEnum.Outdated],
@@ -373,7 +388,7 @@ export namespace EmailLogic {
         execute: (m: EmailMessageEntity) => { m.state = EmailMessageStateEnum.Draft; },
         });
 
-        g.Execute(EmailMessageOperation.ReadyToSend, {
+        sm.withExecute(EmailMessageOperation.ReadyToSend, {
         canBeNew: true,
         canBeModified: true,
         fromStates: [
@@ -390,7 +405,7 @@ export namespace EmailLogic {
         },
         });
 
-        g.Execute(EmailMessageOperation.Send, {
+        sm.parent.withExecute(EmailMessageOperation.Send, {
         canBeNew: true,
         canBeModified: true,
         canExecute: (m: EmailMessageEntity) => sendableStates.includes(m.state) ? null
@@ -398,7 +413,7 @@ export namespace EmailLogic {
         execute: async (m: EmailMessageEntity) => await sendMail(m),
         });
 
-        g.ConstructFrom(EmailMessageEntity, EmailMessageOperation.ReSend, {
+        sm.parent.withConstructFrom(EmailMessageEntity, EmailMessageOperation.ReSend, {
         construct: (m: EmailMessageEntity) => EmailMessageEntity.create({
             from: m.from.clone(),
             recipients: m.recipients.map(r => EmailMessageEntity_Recipient.create({
@@ -417,10 +432,10 @@ export namespace EmailLogic {
         }),
         });
 
-        g.Delete(EmailMessageOperation.Delete, {
+        sm.parent.withDelete(EmailMessageOperation.Delete, {
         delete: async (m: EmailMessageEntity) => { await m.delete(); },
         });
-    });
+    }
 }
 
 /** The model's registered TYPE. An altea model is a plain shape, so the type is the entity it is about

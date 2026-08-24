@@ -1,8 +1,7 @@
 import "@altea/altea/server";
-import "@altea/altea/server/operationFluentInclude";
+import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { table as tableQuery } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { Transaction } from "@altea/altea/server/connection/transaction";
@@ -77,11 +76,10 @@ export namespace ChatbotLogic {
 
         sb.include(ChatMessageEntity)
             .withIndex(a => [a.chatSession, a.creationDate])
+            .withOperations(registerChatMessageOperations)
             .withQuery();
 
         sb.include(ChatMessageEntity_ToolCall).withQuery();
-
-        ChatMessageGraph.register();
 
         // A PermissionSymbol declared with init() is seeded by PermissionAuthLogic; reaching it is enough.
         void ChatbotPermission.UseChatbot;
@@ -554,10 +552,10 @@ function parseArgumentsSafe(json: string): Record<string, unknown> {
     }
 }
 
-// ---- ChatMessageGraph ---------------------------------------------------------------------------
+// ---- ChatMessageEntity's operations (Signum's ChatMessageGraph) ---------------------------------
 
-const ChatMessageGraph = graph(ChatMessageEntity, g => {
-    g.Delete(ChatMessageOperation.Delete, {
+function registerChatMessageOperations(op: FluentOperations<ChatMessageEntity>): void {
+    op.withDelete(ChatMessageOperation.Delete, {
         canDelete: () => null, // the "must be the last message" check is async; see below
         delete: async e => {
             const session = e.chatSession;
@@ -570,4 +568,4 @@ const ChatMessageGraph = graph(ChatMessageEntity, g => {
             await e.delete();
         },
     });
-});
+}

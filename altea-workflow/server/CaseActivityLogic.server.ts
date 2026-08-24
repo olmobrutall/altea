@@ -1,12 +1,11 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude";
+import { type FluentOperations, type FluentStateMachine } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import "@altea/altea/data/globals/arrayExtensions";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { FluentInclude } from "@altea/altea/server/schema/fluentInclude";
 import { table } from "@altea/altea/server/table";
 import type { IQuery } from "@altea/altea/data/iquery";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { Operations } from "@altea/altea/server/operationLogic";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { AutoDynamicQueryCore } from "@altea/altea/server/dynamicQuery/dynamicQueryCore";
@@ -226,6 +225,7 @@ export namespace CaseActivityLogic {
         Enum.markAsNotMapped(CaseActivityState, CaseActivityState.New);
 
         sb.include(CaseEntity)
+            .withOperations(registerCaseOperations)
             .withExpressionFrom(WorkflowEntity, w => w.cases())
             .withQuery();
 
@@ -238,6 +238,7 @@ export namespace CaseActivityLogic {
             .withQuery();
 
         sb.include(CaseActivityEntity)
+            .withStateMachine(ca => ca.getState(), registerCaseActivityOperations)
             .withExpressionFrom(WorkflowActivityEntity, c => c.caseActivities())
             .withExpressionFrom(WorkflowEventEntity, c => c.caseActivities())
             .withExpressionFrom(CaseEntity, c => c.caseActivities())
@@ -249,6 +250,7 @@ export namespace CaseActivityLogic {
             .withQuery();
 
         sb.include(CaseNotificationEntity)
+            .withOperations(registerCaseNotificationOperations)
             .withExpressionFrom(CaseActivityEntity, c => c.notifications())
             .withQuery();
 
@@ -264,9 +266,6 @@ export namespace CaseActivityLogic {
                 WorkflowScriptRunner.wakeUpOnCommit();
         });
 
-        CaseGraph.register();
-        CaseNotificationGraph.register();
-        CaseActivityGraph.register();
         // Signum's `CaseActivityEntity.PreSaving` override — altea's hook is a schema event, not an entity
         // method (see data/CaseActivity.ts). Keeps `duration` (minutes) in step with startDate/doneDate.
         sb.schema.entityEvents(CaseActivityEntity).preSaving.push(ca => {
@@ -796,7 +795,6 @@ export namespace CaseActivityLogic {
             await insertCaseActivityNotifications(a);
         }
     }
-
 
     async function assertCurrentUserHasNotification(ca: CaseActivityEntity): Promise<void> {
         const any = await CaseQueries.notifications(ca).some(cn => cn.isForMe()
@@ -1348,8 +1346,8 @@ export namespace CaseActivityLogic {
         throw new Error("Unexpected node " + node);
     }
 
-    const CaseGraph = graph(CaseEntity, g => {
-        g.Execute(CaseOperation.SetTags, {
+    function registerCaseOperations(op: FluentOperations<CaseEntity>): void {
+        op.withExecute(CaseOperation.SetTags, {
             execute: async (e, args) => {
                 const current = await CaseQueries.tags(e).toArray();
                 const model = args[0] as CaseTagsModel;
@@ -1366,7 +1364,7 @@ export namespace CaseActivityLogic {
             },
         });
 
-        g.Execute(CaseOperation.Cancel, {
+        op.withExecute(CaseOperation.Cancel, {
             canExecute: c => c.finishDate == null ? null : CaseActivityMessage.AlreadyFinished.niceToString(),
             execute: async (c, args) => {
                 const avoidRecompose = (args[0] as boolean | undefined) ?? false;
@@ -1399,7 +1397,7 @@ export namespace CaseActivityLogic {
             },
         });
 
-        g.Delete(CaseOperation.Delete, {
+        op.withDelete(CaseOperation.Delete, {
             canDelete: e => e.parentCase == null ? null
                 : CaseActivityMessage.CaseIsADecompositionOf0.niceToString(e.parentCase),
             delete: async (c, args) => {
@@ -1409,7 +1407,7 @@ export namespace CaseActivityLogic {
             },
         });
 
-        g.Execute(CaseOperation.Reactivate, {
+        op.withExecute(CaseOperation.Reactivate, {
             canExecute: c => c.finishDate != null ? null : CaseActivityMessage.NotCanceled.niceToString(),
             execute: async c => {
                 const cancelled = await cancelledActivities(c).toArray();
@@ -1443,19 +1441,16 @@ export namespace CaseActivityLogic {
                     await Operations.execute(sc, CaseOperation.Reactivate, true);
             },
         });
-    });
+    }
 
-
-    const CaseNotificationGraph = graph(CaseNotificationEntity, g => {
-        g.Execute(CaseNotificationOperation.SetRemarks, {
+    function registerCaseNotificationOperations(op: FluentOperations<CaseNotificationEntity>): void {
+        op.withExecute(CaseNotificationOperation.SetRemarks, {
             execute: (e, args) => { e.remarks = args[0] as string; },
         });
 
-        g.Delete(CaseNotificationOperation.Delete, {
-            delete: async e => { await e.delete(); },
-        });
+        op.withDelete(CaseNotificationOperation.Delete);
 
-        g.ConstructFrom(CaseActivityEntity, CaseNotificationOperation.CreateCaseNotificationFromCaseActivity, {
+        op.withConstructFrom(CaseActivityEntity, CaseNotificationOperation.CreateCaseNotificationFromCaseActivity, {
             construct: async (e, args) => {
                 const user = args[0] as Lite<UserEntity>;
                 const n = CaseNotificationEntity.create({
@@ -1469,13 +1464,10 @@ export namespace CaseActivityLogic {
             },
             resultIsSaved: true,
         });
-    });
+    }
 
-
-    const CaseActivityGraph = graph(CaseActivityEntity, CaseActivityState, g => {
-        g.GetState = ca => ca.getState();
-
-        g.ConstructFrom(WorkflowEntity, CaseActivityOperation.CreateCaseActivityFromWorkflow, {
+    function registerCaseActivityOperations(sm: FluentStateMachine<CaseActivityEntity, CaseActivityState>): void {
+        sm.withConstructFrom(WorkflowEntity, CaseActivityOperation.CreateCaseActivityFromWorkflow, {
             toStates: [CaseActivityState.New],
             construct: async (w, args) => {
                 if (hasExpired(w))
@@ -1514,7 +1506,7 @@ export namespace CaseActivityLogic {
             },
         });
 
-        g.Execute(CaseActivityOperation.Register, {
+        sm.withExecute(CaseActivityOperation.Register, {
             canExecute: ca => !(ca.workflowActivity instanceof WorkflowActivityEntity)
                 ? CaseActivityMessage.NoWorkflowActivity.niceToString() : null,
             fromStates: [CaseActivityState.New],
@@ -1553,7 +1545,7 @@ export namespace CaseActivityLogic {
             },
         });
 
-        g.Execute(CaseActivityOperation.Next, {
+        sm.withExecute(CaseActivityOperation.Next, {
             canExecute: ca => !(ca.workflowActivity instanceof WorkflowActivityEntity)
                 ? CaseActivityMessage.NoWorkflowActivity.niceToString() : null,
             fromStates: [CaseActivityState.Pending],
@@ -1566,7 +1558,7 @@ export namespace CaseActivityLogic {
             },
         });
 
-        g.Execute(CaseActivityOperation.Jump, {
+        sm.withExecute(CaseActivityOperation.Jump, {
             canExecute: ca => !(ca.workflowActivity instanceof WorkflowActivityEntity)
                 ? CaseActivityMessage.NoWorkflowActivity.niceToString() : null,
             fromStates: [CaseActivityState.Pending],
@@ -1584,7 +1576,7 @@ export namespace CaseActivityLogic {
             },
         });
 
-        g.Execute(CaseActivityOperation.FreeJump, {
+        sm.withExecute(CaseActivityOperation.FreeJump, {
             fromStates: [CaseActivityState.Pending],
             toStates: [CaseActivityState.Done],
             canBeModified: true,
@@ -1605,7 +1597,7 @@ export namespace CaseActivityLogic {
             },
         });
 
-        g.Execute(CaseActivityOperation.Timer, {
+        sm.withExecute(CaseActivityOperation.Timer, {
             fromStates: [CaseActivityState.Pending],
             toStates: [CaseActivityState.Done, CaseActivityState.Pending],
             canExecute: ca => (ca.workflowActivity instanceof WorkflowEventEntity && isTimer(ca.workflowActivity.type))
@@ -1672,7 +1664,7 @@ export namespace CaseActivityLogic {
             },
         });
 
-        g.Execute(CaseActivityOperation.MarkAsUnread, {
+        sm.withExecute(CaseActivityOperation.MarkAsUnread, {
             fromStates: [CaseActivityState.Pending],
             toStates: [CaseActivityState.Pending],
             execute: async ca => {
@@ -1687,7 +1679,7 @@ export namespace CaseActivityLogic {
             },
         });
 
-        g.Execute(CaseActivityOperation.Undo, {
+        sm.withExecute(CaseActivityOperation.Undo, {
             fromStates: [CaseActivityState.Done],
             toStates: [CaseActivityState.Pending],
             canExecute: ca => (ca.doneBy?.is(UserHolder.currentUserLite()) ?? false) ? null
@@ -1740,7 +1732,7 @@ export namespace CaseActivityLogic {
             },
         });
 
-        g.Execute(CaseActivityOperation.ResetToCaseActivity, {
+        sm.withExecute(CaseActivityOperation.ResetToCaseActivity, {
             fromStates: [CaseActivityState.Done],
             toStates: [CaseActivityState.Done, CaseActivityState.Pending],
             execute: async ca => {
@@ -1808,7 +1800,7 @@ export namespace CaseActivityLogic {
             },
         });
 
-        g.Delete(CaseActivityOperation.Delete, {
+        sm.withDelete(CaseActivityOperation.Delete, {
             fromStates: [CaseActivityState.Pending],
             canDelete: ca => ca.case.parentCase != null
                 ? CaseActivityMessage.CaseIsADecompositionOf0.niceToString(ca.case.parentCase) : null,
@@ -1825,7 +1817,7 @@ export namespace CaseActivityLogic {
             },
         });
 
-        g.Execute(CaseActivityOperation.ScriptExecute, {
+        sm.withExecute(CaseActivityOperation.ScriptExecute, {
             canExecute: s => s.workflowActivity instanceof WorkflowActivityEntity
                 && s.workflowActivity.type === WorkflowActivityType.Script ? null
                 : CaseActivityMessage.OnlyForScriptWorkflowActivities.niceToString(),
@@ -1846,7 +1838,7 @@ export namespace CaseActivityLogic {
             },
         });
 
-        g.Execute(CaseActivityOperation.ScriptScheduleRetry, {
+        sm.withExecute(CaseActivityOperation.ScriptScheduleRetry, {
             canExecute: s => s.workflowActivity instanceof WorkflowActivityEntity
                 && s.workflowActivity.type === WorkflowActivityType.Script ? null
                 : CaseActivityMessage.OnlyForScriptWorkflowActivities.niceToString(),
@@ -1860,7 +1852,7 @@ export namespace CaseActivityLogic {
             },
         });
 
-        g.Execute(CaseActivityOperation.ScriptFailureJump, {
+        sm.withExecute(CaseActivityOperation.ScriptFailureJump, {
             canExecute: s => s.workflowActivity instanceof WorkflowActivityEntity
                 && s.workflowActivity.type === WorkflowActivityType.Script ? null
                 : CaseActivityMessage.OnlyForScriptWorkflowActivities.niceToString(),
@@ -1871,7 +1863,7 @@ export namespace CaseActivityLogic {
                     (await WorkflowLogic.nextConnectionsFromCache(ca.workflowActivity, ConnectionType.ScriptException)).single());
             },
         });
-    });
+    }
 }
 
 // ---- FluentInclude wiring -------------------------------------------------------------------------------

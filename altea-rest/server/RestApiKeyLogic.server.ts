@@ -1,6 +1,6 @@
 import "@altea/altea/server";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import "@altea/altea/server/fluentOperations"; // FluentInclude.withSave / withDelete
 import { randomBytes } from "node:crypto";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";

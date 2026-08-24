@@ -1,6 +1,6 @@
 import { after } from "node:test";
 import "@altea/altea/server/context.node"; // register server context storage first
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import "@altea/altea/server/fluentOperations"; // FluentInclude.withSave / withDelete
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import "@altea/altea/server"; // installs Entity.prototype.save / delete
 import { Connector } from "@altea/altea/server/connection/connector";
@@ -49,8 +49,12 @@ export function start(): Promise<Connector> {
         // The two Master tables the suite caches. `withCache()` pulls their dependency closure in with
         // them — which is the point of the registration test: Employee/Order become SEMI, and Department
         // (reachable only THROUGH a semi type) must stay out.
-        sb.include(CountryEntity).withCache().withQuery();
-        sb.include(CurrencyEntity).withCache().withQuery();
+        sb.include(CountryEntity)
+            .withCache()
+            .withQuery();
+        sb.include(CurrencyEntity)
+            .withCache()
+            .withQuery();
         // Registered, not cached: the suite reads them straight from the database to seed/assert.
         sb.include(EmployeeEntity).withQuery();
         sb.include(OrderEntity).withQuery();

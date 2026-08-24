@@ -1,9 +1,8 @@
 import "@altea/altea/server";
-import "@altea/altea/server/operationFluentInclude";
+import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { table as tableQuery } from "@altea/altea/server/table";
@@ -89,7 +88,9 @@ export namespace OfficeTemplateLogic {
     export function start(sb: SchemaBuilder): void {
         TemplatingLogic.start(sb);
 
-        sb.include(OfficeTemplateEntity).withQuery();
+        sb.include(OfficeTemplateEntity)
+            .withOperations(registerOfficeTemplateOperations)
+            .withQuery();
 
         // Signum's two StaticPropertyValidations. They are DECLARED on the entity's fields (see
         // officeTemplateValidations) and implemented here, because both need server-only machinery. The
@@ -97,9 +98,6 @@ export namespace OfficeTemplateLogic {
         // path awaits it, so an unparseable template is rejected on save exactly as in Signum.
         officeTemplateValidations.template = async t => (await validateTemplate(t)) ?? null;
         officeTemplateValidations.fileName = t => validateFileName(t) ?? null;
-
-        OfficeTemplateGraph.register();
-
 
         OfficeModelLogic.start(sb);
 
@@ -395,22 +393,22 @@ function fixDocument(package_: OxmlPackage): void {
 
 export { multiEntityOfficeModel, queryOfficeModel };
 
-// ---- OfficeTemplateGraph ------------------------------------------------------------------------
+// ---- OfficeTemplateEntity's operations (Signum's WordTemplateGraph) ----------------------------
 
-const OfficeTemplateGraph = graph(OfficeTemplateEntity, g => {
-    g.Execute(OfficeTemplateOperation.Save, {
+function registerOfficeTemplateOperations(op: FluentOperations<OfficeTemplateEntity>): void {
+    op.withExecute(OfficeTemplateOperation.Save, {
     canBeNew: true,
     canBeModified: true,
     execute: (_t: OfficeTemplateEntity) => { /* the saver persists it */ },
     });
 
-    g.Delete(OfficeTemplateOperation.Delete, {
+    op.withDelete(OfficeTemplateOperation.Delete, {
     delete: async (t: OfficeTemplateEntity) => { await t.delete(); },
     });
 
     // Signum registers this as an operation so the UI can gate on CanExecute; the actual work is done
     // by the route (it must stream a file back), hence the "UI-only operation" throw.
-    g.Execute(OfficeTemplateOperation.CreateOfficeReport, {
+    op.withExecute(OfficeTemplateOperation.CreateOfficeReport, {
     // Signum's ForReadonlyEntity; altea's equivalent guard is avoidImplicitSave — the operation
     // must never write the template it is executed on.
     avoidImplicitSave: true,
@@ -419,4 +417,4 @@ const OfficeTemplateGraph = graph(OfficeTemplateEntity, g => {
         : null,
     execute: () => { throw new Error("UI-only operation"); },
     });
-});
+}

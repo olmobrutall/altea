@@ -1,10 +1,9 @@
 import "@altea/altea/server"; // installs save()/toLite()
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { FluentInclude } from "@altea/altea/server/schema/fluentInclude";
 import { table } from "@altea/altea/server/table";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { UserHolder } from "@altea/altea/server/userHolder";
@@ -88,11 +87,11 @@ export namespace AlertLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        sb.include(AlertEntity).withQuery();
+        sb.include(AlertEntity)
+            .withStateMachine(a => a.state, registerAlertOperations)
+            .withQuery();
 
         SymbolLogic.start(sb, AlertTypeSymbol, () => [...systemAlertTypes.keys()]);
-
-        AlertGraph.register();
 
         // Signum's `Retrieved` event: the row carries the text its TYPE stands for, so a client that has no
         // access to the server registry can still render an alert with no `textField` of its own.
@@ -254,13 +253,11 @@ export namespace AlertLogic {
 
     // ---- The operation graph ----------------------------------------------------------------------------
 
-    const AlertGraph = graph(AlertEntity, AlertState, g => {
-        g.GetState = a => a.state;
-
+    function registerAlertOperations(sm: FluentStateMachine<AlertEntity, AlertState>): void {
         // Signum's ConstructFrom<Entity> — owned by the SOURCE type, which is every entity: registered
         // for each type the app opts in with `AlertsClient`'s `showAlerts`, and here for `Entity` so the
         // operation exists. See CLAUDE.md on ConstructFrom ownership.
-        g.ConstructFrom(Entity as unknown as Type<Entity>, AlertOperation.CreateAlertFromEntity, {
+        sm.withConstructFrom(Entity as unknown as Type<Entity>, AlertOperation.CreateAlertFromEntity, {
             toStates: [AlertState.New],
             construct: (source: Entity) => AlertEntity.create({
                 alertDate: Clock.now,
@@ -273,7 +270,7 @@ export namespace AlertLogic {
             }),
         });
 
-        g.Construct(AlertOperation.Create, {
+        sm.withConstruct(AlertOperation.Create, {
             toStates: [AlertState.New],
             construct: () => AlertEntity.create({
                 alertDate: Clock.now,
@@ -286,7 +283,7 @@ export namespace AlertLogic {
             }),
         });
 
-        g.Execute(AlertOperation.Save, {
+        sm.withExecute(AlertOperation.Save, {
             canBeNew: true,
             canBeModified: true,
             fromStates: [AlertState.New, AlertState.Saved],
@@ -294,7 +291,7 @@ export namespace AlertLogic {
             execute: a => { a.state = AlertState.Saved; },
         });
 
-        g.Execute(AlertOperation.Attend, {
+        sm.withExecute(AlertOperation.Attend, {
             fromStates: [AlertState.Saved],
             toStates: [AlertState.Attended],
             execute: a => {
@@ -304,7 +301,7 @@ export namespace AlertLogic {
             },
         });
 
-        g.Execute(AlertOperation.Unattend, {
+        sm.withExecute(AlertOperation.Unattend, {
             fromStates: [AlertState.Attended],
             toStates: [AlertState.Saved],
             execute: a => {
@@ -314,13 +311,13 @@ export namespace AlertLogic {
             },
         });
 
-        g.Execute(AlertOperation.Delay, {
+        sm.withExecute(AlertOperation.Delay, {
             fromStates: [AlertState.Saved],
             toStates: [AlertState.Saved],
             // The new alert date arrives as the operation's argument (the client asks for it first).
             execute: (a, args) => { a.alertDate = args[0] as Temporal.PlainDateTime; },
         });
-    });
+    }
 }
 
 export type { FluentInclude };

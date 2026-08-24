@@ -1,11 +1,10 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery / withExpressionFrom
 import "@altea/altea/data/globals/arrayExtensions";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import type { IQuery } from "@altea/altea/data/iquery";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { Operations } from "@altea/altea/server/operationLogic";
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { ObjectDumper } from "@altea/altea/data/objectDumper";
@@ -391,6 +390,7 @@ export namespace WorkflowLogic {
         // ---- The workflow itself ------------------------------------------------------------------
 
         sb.include(WorkflowEntity)
+            .withOperations(registerWorkflowOperations)
             .withExpressionFrom(CaseActivityEntity, ca => ca.workflow())
             .withQuery();
 
@@ -406,7 +406,6 @@ export namespace WorkflowLogic {
                 e.decisionOptionName = null;
         });
 
-        WorkflowGraph.register();
         QueryLogic.expressions.register(WorkflowEntity, (wf: WorkflowEntity) => wf.workflowStartEvent());
         QueryLogic.expressions.register(WorkflowEntity, (wf: WorkflowEntity) => wf.hasExpired(),
             { niceName: () => WorkflowMessage.HasExpired.niceToString() });
@@ -438,11 +437,10 @@ export namespace WorkflowLogic {
         // Signum's WorkflowEventOperation.Save/Delete are hand-written (they check the timer/boundary
         // invariants and clean up a scheduled task), so they are a graph rather than withSave/withDelete.
         sb.include(WorkflowEventEntity)
+            .withOperations(registerWorkflowEventOperations)
             .withExpressionFrom(WorkflowEntity, p => p.workflowEvents())
             .withExpressionFrom(WorkflowLaneEntity, p => p.workflowEvents())
             .withQuery();
-
-        WorkflowEventGraph.register();
 
         sb.include(WorkflowGatewayEntity)
             .withSave(WorkflowGatewayOperation.Save)
@@ -524,36 +522,40 @@ export namespace WorkflowLogic {
     // ---- The four named-evaluator entities --------------------------------------------------------
 
     function startWorkflowConditions(sb: SchemaBuilder): void {
-        sb.include(WorkflowConditionEntity).withQuery().withEvals();
-
-        WorkflowConditionGraph.register();
+        sb.include(WorkflowConditionEntity)
+            .withEvals()
+            .withOperations(registerWorkflowConditionOperations)
+            .withQuery();
 
         conditions = sb.globalLazy(async () => await keyedByLite(table(WorkflowConditionEntity)),
             { invalidateWith: [WorkflowConditionEntity] });
     }
 
     function startWorkflowActions(sb: SchemaBuilder): void {
-        sb.include(WorkflowActionEntity).withQuery().withEvals();
-
-        WorkflowActionGraph.register();
+        sb.include(WorkflowActionEntity)
+            .withEvals()
+            .withOperations(registerWorkflowActionOperations)
+            .withQuery();
 
         actions = sb.globalLazy(async () => await keyedByLite(table(WorkflowActionEntity)),
             { invalidateWith: [WorkflowActionEntity] });
     }
 
     function startWorkflowTimerConditions(sb: SchemaBuilder): void {
-        sb.include(WorkflowTimerConditionEntity).withQuery().withEvals();
-
-        WorkflowTimerConditionGraph.register();
+        sb.include(WorkflowTimerConditionEntity)
+            .withEvals()
+            .withOperations(registerWorkflowTimerConditionOperations)
+            .withQuery();
 
         timerConditions = sb.globalLazy(async () => await keyedByLite(table(WorkflowTimerConditionEntity)),
             { invalidateWith: [WorkflowTimerConditionEntity] });
     }
 
     function startWorkflowScript(sb: SchemaBuilder): void {
-        sb.include(WorkflowScriptEntity).withQuery().withEvals();
-
-        WorkflowScriptGraph.register();
+        sb.include(WorkflowScriptEntity)
+            .withEvals()
+            .withOperations(registerWorkflowScriptOperations)
+            .withQuery();
 
         scripts = sb.globalLazy(async () => await keyedByLite(table(WorkflowScriptEntity)),
             { invalidateWith: [WorkflowScriptEntity] });
@@ -696,8 +698,8 @@ export namespace WorkflowLogic {
         await workflow.save();
     }
 
-    const WorkflowConditionGraph = graph(WorkflowConditionEntity, g => {
-        g.Execute(WorkflowConditionOperation.Save, {
+    function registerWorkflowConditionOperations(op: FluentOperations<WorkflowConditionEntity>): void {
+        op.withExecute(WorkflowConditionOperation.Save, {
             canBeNew: true,
             canBeModified: true,
             execute: async e => {
@@ -711,7 +713,7 @@ export namespace WorkflowLogic {
             },
         });
 
-        g.Delete(WorkflowConditionOperation.Delete, {
+        op.withDelete(WorkflowConditionOperation.Delete, {
             delete: async e => {
                 await throwConnectionErrorForConnections(
                     table(WorkflowConnectionEntity).filter(a => a.condition!.is(e)), e, "Delete");
@@ -719,18 +721,17 @@ export namespace WorkflowLogic {
             },
         });
 
-        g.ConstructFrom(WorkflowConditionEntity, WorkflowConditionOperation.Clone, {
+        op.withConstructFrom(WorkflowConditionEntity, WorkflowConditionOperation.Clone, {
             construct: e => WorkflowConditionEntity.create({
                 mainEntityType: e.mainEntityType,
                 // A part has ONE owner, so the clone gets its own copy of the script.
                 eval: WorkflowConditionEval.create({ script: e.eval.script }),
             }),
         });
-    });
+    }
 
-
-    const WorkflowActionGraph = graph(WorkflowActionEntity, g => {
-        g.Execute(WorkflowActionOperation.Save, {
+    function registerWorkflowActionOperations(op: FluentOperations<WorkflowActionEntity>): void {
+        op.withExecute(WorkflowActionOperation.Save, {
             canBeNew: true,
             canBeModified: true,
             execute: async e => {
@@ -744,7 +745,7 @@ export namespace WorkflowLogic {
             },
         });
 
-        g.Delete(WorkflowActionOperation.Delete, {
+        op.withDelete(WorkflowActionOperation.Delete, {
             delete: async e => {
                 await throwConnectionErrorForConnections(
                     table(WorkflowConnectionEntity).filter(a => a.action!.is(e)), e, "Delete");
@@ -752,17 +753,16 @@ export namespace WorkflowLogic {
             },
         });
 
-        g.ConstructFrom(WorkflowActionEntity, WorkflowActionOperation.Clone, {
+        op.withConstructFrom(WorkflowActionEntity, WorkflowActionOperation.Clone, {
             construct: e => WorkflowActionEntity.create({
                 mainEntityType: e.mainEntityType,
                 eval: WorkflowActionEval.create({ script: e.eval.script }),
             }),
         });
-    });
+    }
 
-
-    const WorkflowTimerConditionGraph = graph(WorkflowTimerConditionEntity, g => {
-        g.Execute(WorkflowTimerConditionOperation.Save, {
+    function registerWorkflowTimerConditionOperations(op: FluentOperations<WorkflowTimerConditionEntity>): void {
+        op.withExecute(WorkflowTimerConditionOperation.Save, {
             canBeNew: true,
             canBeModified: true,
             execute: async e => {
@@ -777,7 +777,7 @@ export namespace WorkflowLogic {
             },
         });
 
-        g.Delete(WorkflowTimerConditionOperation.Delete, {
+        op.withDelete(WorkflowTimerConditionOperation.Delete, {
             delete: async e => {
                 await throwConnectionErrorForNodes(
                     table(WorkflowEventEntity).filter(a => a.timer!.condition!.is(e)), e, "Delete",
@@ -786,17 +786,16 @@ export namespace WorkflowLogic {
             },
         });
 
-        g.ConstructFrom(WorkflowTimerConditionEntity, WorkflowTimerConditionOperation.Clone, {
+        op.withConstructFrom(WorkflowTimerConditionEntity, WorkflowTimerConditionOperation.Clone, {
             construct: e => WorkflowTimerConditionEntity.create({
                 mainEntityType: e.mainEntityType,
                 eval: WorkflowTimerConditionEval.create({ script: e.eval.script }),
             }),
         });
-    });
+    }
 
-
-    const WorkflowScriptGraph = graph(WorkflowScriptEntity, g => {
-        g.Execute(WorkflowScriptOperation.Save, {
+    function registerWorkflowScriptOperations(op: FluentOperations<WorkflowScriptEntity>): void {
+        op.withExecute(WorkflowScriptOperation.Save, {
             canBeNew: true,
             canBeModified: true,
             execute: async e => {
@@ -811,7 +810,7 @@ export namespace WorkflowLogic {
             },
         });
 
-        g.Delete(WorkflowScriptOperation.Delete, {
+        op.withDelete(WorkflowScriptOperation.Delete, {
             delete: async e => {
                 await throwConnectionErrorForNodes(
                     table(WorkflowActivityEntity).filter(a => a.script!.script.is(e)), e, "Delete",
@@ -820,17 +819,16 @@ export namespace WorkflowLogic {
             },
         });
 
-        g.ConstructFrom(WorkflowScriptEntity, WorkflowScriptOperation.Clone, {
+        op.withConstructFrom(WorkflowScriptEntity, WorkflowScriptOperation.Clone, {
             construct: e => WorkflowScriptEntity.create({
                 mainEntityType: e.mainEntityType,
                 eval: WorkflowScriptEval.create({ script: e.eval.script }),
             }),
         });
-    });
+    }
 
-
-    const WorkflowEventGraph = graph(WorkflowEventEntity, g => {
-        g.Execute(WorkflowEventOperation.Save, {
+    function registerWorkflowEventOperations(op: FluentOperations<WorkflowEventEntity>): void {
+        op.withExecute(WorkflowEventOperation.Save, {
             canBeNew: true,
             canBeModified: true,
             execute: e => {
@@ -850,22 +848,21 @@ export namespace WorkflowLogic {
             },
         });
 
-        g.Delete(WorkflowEventOperation.Delete, {
+        op.withDelete(WorkflowEventOperation.Delete, {
             delete: async e => {
                 if (isScheduledStart(e.type))
                     await deleteScheduledTaskOf(e);
                 await e.delete();
             },
         });
-    });
+    }
 
-
-    const WorkflowGraph = graph(WorkflowEntity, g => {
-        g.Construct(WorkflowOperation.Create, {
+    function registerWorkflowOperations(op: FluentOperations<WorkflowEntity>): void {
+        op.withConstruct(WorkflowOperation.Create, {
             construct: () => WorkflowEntity.create({}),
         });
 
-        g.Execute(WorkflowOperation.Save, {
+        op.withExecute(WorkflowOperation.Save, {
             canBeNew: true,
             canBeModified: true,
             avoidImplicitSave: true,
@@ -886,11 +883,11 @@ export namespace WorkflowLogic {
             },
         });
 
-        g.ConstructFrom(WorkflowEntity, WorkflowOperation.Clone, {
+        op.withConstructFrom(WorkflowEntity, WorkflowOperation.Clone, {
             construct: async w => await (await WorkflowBuilder.create(w)).clone(),
         });
 
-        g.Delete(WorkflowOperation.Delete, {
+        op.withDelete(WorkflowOperation.Delete, {
             canDelete: () => null, // the real check is async — see `delete` below
             delete: async w => {
                 const usedWorkflows = await workflowUsedAsSubWorkflow(w);
@@ -903,7 +900,7 @@ export namespace WorkflowLogic {
             },
         });
 
-        g.Execute(WorkflowOperation.Activate, {
+        op.withExecute(WorkflowOperation.Activate, {
             canExecute: w => hasExpired(w) ? null : WorkflowMessage.Workflow0AlreadyActivated.niceToString(w),
             execute: async w => {
                 w.expirationDate = null;
@@ -912,7 +909,7 @@ export namespace WorkflowLogic {
             },
         });
 
-        g.Execute(WorkflowOperation.Deactivate, {
+        op.withExecute(WorkflowOperation.Deactivate, {
             canExecute: w => hasExpired(w)
                 ? WorkflowMessage.Workflow0HasExpiredOn1.niceToString(w, w.expirationDate!.toString())
                 : null,
@@ -925,7 +922,7 @@ export namespace WorkflowLogic {
                 await suspendWorkflowScheduledTasks(w, true);
             },
         });
-    });
+    }
 }
 
 /** Thrown by a save whose diagram has structural ERRORS. The route turns it into a 400 whose model state

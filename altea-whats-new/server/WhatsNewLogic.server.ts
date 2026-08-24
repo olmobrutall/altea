@@ -1,9 +1,8 @@
 import "@altea/altea/server";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
-import "@altea/altea/server/operationFluentInclude";
+import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { UserHolder } from "@altea/altea/server/userHolder";
@@ -60,7 +59,9 @@ export namespace WhatsNewLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        sb.include(WhatsNewEntity).withQuery();
+        sb.include(WhatsNewEntity)
+            .withStateMachine(wn => wn.status, registerWhatsNewOperations)
+            .withQuery();
 
         sb.include(WhatsNewLogEntity)
             .withDelete(WhatsNewLogOperation.Delete)
@@ -88,7 +89,6 @@ export namespace WhatsNewLogic {
         registerRelatedConfig(PermissionSymbol, async lite =>
             await PermissionAuthLogic.isAuthorized(SymbolLogic.toSymbol(PermissionSymbol, lite.toString())));
 
-        WhatsNewGraph.register();
     }
 
     /** Signum's `RegisterPublishedTypeCondition` — the condition an app grants ordinary users. */
@@ -175,36 +175,28 @@ export namespace WhatsNewLogic {
 }
 
 /**
- * Signum's `WhatsNewGraph`. A DECLARED const registered from `start`, the altea convention. Save is a plain
+ * Signum's `WhatsNewGraph`, as a named function the include's `withStateMachine` calls. Save is a plain
  * Execute with an EMPTY body (Signum's too): the operation exists so the entity has one, and the save itself
  * is what it does.
  */
-export const WhatsNewGraph = graph(WhatsNewEntity, WhatsNewState, g => {
-    g.GetState = wn => wn.status;
+function registerWhatsNewOperations(sm: FluentStateMachine<WhatsNewEntity, WhatsNewState>): void {
+    sm.parent.withSave(WhatsNewOperation.Save);
 
-    g.Execute(WhatsNewOperation.Save, {
-        canBeNew: true,
-        canBeModified: true,
-        execute: () => { /* Signum's empty body: saving IS the operation */ },
-    });
-
-    g.Execute(WhatsNewOperation.Publish, {
+    sm.withExecute(WhatsNewOperation.Publish, {
         fromStates: [WhatsNewState.Draft],
         toStates: [WhatsNewState.Publish],
         canBeNew: true,
         execute: wn => { wn.status = WhatsNewState.Publish; },
     });
 
-    g.Execute(WhatsNewOperation.Unpublish, {
+    sm.withExecute(WhatsNewOperation.Unpublish, {
         fromStates: [WhatsNewState.Publish],
         toStates: [WhatsNewState.Draft],
         execute: wn => { wn.status = WhatsNewState.Draft; },
     });
 
-    g.Delete(WhatsNewOperation.Delete, {
-        delete: async wn => { await wn.delete(); },
-    });
-});
+    sm.parent.withDelete(WhatsNewOperation.Delete);
+}
 
 // Signum's two `[AutoExpressionField]` extension methods, as `withQuoted` PROTOTYPE members (the idiom
 // @altea/altea-view-log uses): a registered expression needs a quoted member to point at, and both bodies

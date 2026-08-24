@@ -1,9 +1,8 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { Schema } from "@altea/altea/server/schema";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { Replacements } from "@altea/altea/server/sync/synchronizer";
@@ -37,9 +36,9 @@ export namespace DynamicSqlMigrationLogic {
         // Signum registers all four operations as graph ops rather than through withSave / withDelete,
         // because its Delete carries a guard (a migration that has already run cannot be removed).
         sb.include(DynamicSqlMigrationEntity)
+            .withOperations(registerDynamicSqlMigrationOperations)
             .withQuery();
 
-        DynamicSqlMigrationGraph.register();
     }
 
     /**
@@ -85,9 +84,8 @@ export namespace DynamicSqlMigrationLogic {
         return user as Lite<UserEntity>;
     }
 
-    const DynamicSqlMigrationGraph = graph(DynamicSqlMigrationEntity, g => {
-
-        g.Construct(DynamicSqlMigrationOperation.Create, {
+    function registerDynamicSqlMigrationOperations(op: FluentOperations<DynamicSqlMigrationEntity>): void {
+        op.withConstruct(DynamicSqlMigrationOperation.Create, {
             construct: async (): Promise<DynamicSqlMigrationEntity> => {
                 const script = await generateScript();
 
@@ -100,20 +98,16 @@ export namespace DynamicSqlMigrationLogic {
             },
         });
 
-        g.Execute(DynamicSqlMigrationOperation.Save, {
-            canBeNew: true,
-            canBeModified: true,
-            execute: () => { /* nothing beyond the save itself (Signum's plain Save) */ },
-        });
+        op.withSave(DynamicSqlMigrationOperation.Save);
 
-        g.Delete(DynamicSqlMigrationOperation.Delete, {
+        op.withDelete(DynamicSqlMigrationOperation.Delete, {
             canDelete: m => m.executionDate == null
                 ? null
                 : DynamicSqlMigrationMessage.TheMigrationIsAlreadyExecuted.niceToString(),
             delete: async m => { await m.delete(); },
         });
 
-        g.Execute(DynamicSqlMigrationOperation.Execute, {
+        op.withExecute(DynamicSqlMigrationOperation.Execute, {
             canBeModified: true,
             // Signum's `CanExecute = a => a.ExecutionDate == null ? null : …AlreadyExecuted`.
             canExecute: m => m.executionDate == null
@@ -125,5 +119,5 @@ export namespace DynamicSqlMigrationLogic {
                 m.executedBy = currentUserLite();
             },
         });
-    });
+    }
 }

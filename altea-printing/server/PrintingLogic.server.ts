@@ -1,9 +1,8 @@
 import "@altea/altea/server";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
-import "@altea/altea/server/operationFluentInclude";
+import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { Operations } from "@altea/altea/server/operationLogic";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { Transaction } from "@altea/altea/server/connection/transaction";
@@ -69,7 +68,9 @@ export namespace PrintingLogic {
 
         testFileType = options?.testFileType ?? null;
 
-        sb.include(PrintLineEntity).withQuery();
+        sb.include(PrintLineEntity)
+            .withStateMachine(l => l.state, registerPrintLineOperations)
+            .withQuery();
         sb.include(PrintPackageEntity).withQuery();
 
         // Signum's `PrintPackageEntity.Lines()` registered expression — the package's own line list, so a
@@ -78,7 +79,6 @@ export namespace PrintingLogic {
             { key: "Lines", niceName: () => PrintLineEntity.nicePluralName() });
 
         ProcessLogic.registerAction(PrintPackageProcess.PrintPackage, printPackage);
-        PrintLineGraph.register();
 
         SimpleTaskLogic.register(PrintTask.RemoveOldFiles, removeOldFiles);
     }
@@ -226,16 +226,15 @@ export namespace PrintingLogic {
 // ---- the state machine -------------------------------------------------------------------------------
 
 /**
- * Signum's `PrintLineGraph`. A DECLARED const registered from `start`, the altea convention.
+ * Signum's `PrintLineGraph`, as a named function the include's `withStateMachine` calls — which is how
+ * altea keeps a whole graph out of `start` (see @altea/altea/server/fluentOperations).
  *
  * `Print` is the one operation with a body worth reading: it delegates to the app's `print`, and on failure
  * records the Error state in its OWN transaction before rethrowing — so the line does not roll back to
  * ReadyToPrint and get retried forever by the same process.
  */
-export const PrintLineGraph = graph(PrintLineEntity, PrintLineState, g => {
-    g.GetState = l => l.state;
-
-    g.Construct(PrintLineOperation.CreateTest, {
+function registerPrintLineOperations(sm: FluentStateMachine<PrintLineEntity, PrintLineState>): void {
+    sm.withConstruct(PrintLineOperation.CreateTest, {
         toStates: [PrintLineState.NewTest],
         construct: async () => PrintLineEntity.create({
             state: PrintLineState.NewTest,
@@ -243,7 +242,7 @@ export const PrintLineGraph = graph(PrintLineEntity, PrintLineState, g => {
         }),
     });
 
-    g.Execute(PrintLineOperation.SaveTest, {
+    sm.withExecute(PrintLineOperation.SaveTest, {
         canBeNew: true,
         canBeModified: true,
         fromStates: [PrintLineState.NewTest],
@@ -251,13 +250,13 @@ export const PrintLineGraph = graph(PrintLineEntity, PrintLineState, g => {
         execute: e => { e.state = PrintLineState.ReadyToPrint; },
     });
 
-    g.Execute(PrintLineOperation.Print, {
+    sm.withExecute(PrintLineOperation.Print, {
         fromStates: [PrintLineState.ReadyToPrint],
         toStates: [PrintLineState.Printed, PrintLineState.Error],
         execute: async e => { await printLine(e); },
     });
 
-    g.Execute(PrintLineOperation.Retry, {
+    sm.withExecute(PrintLineOperation.Retry, {
         fromStates: [PrintLineState.Error, PrintLineState.Cancelled],
         toStates: [PrintLineState.ReadyToPrint],
         execute: e => {
@@ -266,7 +265,7 @@ export const PrintLineGraph = graph(PrintLineEntity, PrintLineState, g => {
         },
     });
 
-    g.Execute(PrintLineOperation.Cancel, {
+    sm.withExecute(PrintLineOperation.Cancel, {
         fromStates: [PrintLineState.ReadyToPrint, PrintLineState.Error],
         toStates: [PrintLineState.Cancelled],
         execute: e => {
@@ -276,7 +275,7 @@ export const PrintLineGraph = graph(PrintLineEntity, PrintLineState, g => {
             FilePathEmbeddedLogic.deleteFileOnCommit(e.file);
         },
     });
-});
+}
 
 /** Signum's `PrintLineGraph.Print(line)` — also called directly by the batch process. */
 async function printLine(line: PrintLineEntity): Promise<void> {
@@ -302,7 +301,6 @@ async function printLine(line: PrintLineEntity): Promise<void> {
         throw error;
     }
 }
-
 
 // Signum's `PrintPackageEntity.Lines()` — an `[AutoExpressionField]` extension method in its logic layer.
 // altea's counterpart is a `withQuoted` PROTOTYPE member (the idiom @altea/altea-view-log uses for the same

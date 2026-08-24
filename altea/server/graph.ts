@@ -32,7 +32,9 @@ import { HeavyProfiler } from "./profiler/heavyProfiler";
 // `Quoted<F>` is `F & { __quoted?: … }`, so nothing about the in-memory calls changes — the transformer
 // just stamps the tree beside the lambda. The reader is `IGraphStateOperation` (./operation).
 //
-// The `graph(...)` sugar that news these up with T/S bound lives in ./graphBuilder.
+// The fluent sugar that news these up with T (and S) bound — `sb.include(Order).withExecute(sym, { … })`,
+// `.withStateMachine(o => o.state, sm => …)` — lives in ./fluentOperations, and is how they are normally
+// written; reach for the classes directly when one operation has to be held, mutated or re-registered.
 //
 // Each op takes its config as a second constructor argument (Signum's C# object-initializer
 // `new Graph<T>.Execute(sym) { CanBeNew = true, … }` has no TS equivalent, so the options object
@@ -40,9 +42,7 @@ import { HeavyProfiler } from "./profiler/heavyProfiler";
 // Object.assigns them onto the instance, so callers never Object.assign themselves.
 
 // ---- Option objects (the third constructor arg of each Graph.* op) ----------------------------
-// Every field is the matching class field; all but the primary callback (`construct`/`execute`/
-// `delete`) are optional. `getState` may be set here per-op, or once for a whole graph via
-// GraphBuilder.GetState (graphBuilder.ts stamps it onto ops that didn't set their own).
+// Every field is the matching class field.
 //
 // The OWNING TYPE is not one of them: it is the FIRST constructor argument — `new Graph.Execute(
 // OrderEntity, OrderOperation.Ship, { … })`. It stands in for the erased generic: Signum writes
@@ -51,53 +51,91 @@ import { HeavyProfiler } from "./profiler/heavyProfiler";
 // "OrderEntity"), which silently loses every operation whose container is not named after its type. It is
 // the type whose frame shows the button, and the key the operation is shipped under in the reflection
 // metadata blob (Signum's `OverridenType`). As an ARGUMENT rather than an option it cannot be forgotten,
-// and it reads in the same position as `graph(OrderEntity, …)` and `sb.include(OrderEntity)`.
+// and it reads in the same position as the include it hangs off.
 //
 // It is still rarely written by hand, because the surrounding registration already names the type and
-// passes it for you: inside `graph(OrderEntity, …)` every builder does, and `withSave` / `withDelete`
-// use the type the include was opened for. What stays explicit is what those cannot know:
+// passes it for you: every `sb.include(OrderEntity).with*` method uses the type the include was opened
+// for. What stays explicit is what that cannot know:
 //   - **ConstructFrom / ConstructFromMany**, whose owner is the SOURCE type F (that is where the button
-//     appears) — erased too, so an enclosing `graph(T, …)` cannot supply it:
-//     `g.ConstructFrom(CustomerEntity, OrderOperation.CreateOrderFromCustomer, { … })`;
+//     appears) — erased too, so the enclosing include cannot supply it:
+//     `.withConstructFrom(CustomerEntity, OrderOperation.CreateOrderFromCustomer, { … })`;
 //   - an operation shared by an ABSTRACT base's implementations (its subclasses inherit it, so ONE
 //     registration owned by the base covers them all — see eastwind's CustomerOperation.Save). That is
 //     why `Type<T>` accepts an abstract constructor;
 //   - an owner that is a TS interface, hence has no constructor at all (see OperationLogic.registerForType).
-export interface ConstructOptions<T extends Entity, S = never> {
+// Each kind comes in TWO shapes: the plain one, for an operation with no state machine over it, and a
+// `…WithState` one that adds the state guards. Which one a caller sees is decided by where they are —
+// `sb.include(X).withExecute(…)` takes the plain one, `withStateMachine(…, sm => sm.withExecute(…))` the
+// stateful one (see ./fluentOperations) — so a `fromStates` written where nothing could check it does not
+// compile, and the guards an operation DOES need cannot be forgotten.
+//
+// That last part is why the state members are REQUIRED rather than optional: Signum asserts exactly these
+// at registration time (GraphState.cs `AssertIsValid` — "does not have ToStates initialized" /
+// "…FromStates initialized", per operation kind), so the same rule is a type here instead of a throw.
+// Which members each kind needs is Signum's table: Construct / ConstructFrom / ConstructFromMany need
+// `toStates`, Delete needs `fromStates`, Execute needs both. (Signum's FromToStates alternative for
+// Execute is not ported.)
+//
+// `getState` stays OPTIONAL on all of them, because `withStateMachine` supplies it; it is written by hand
+// only when one of the Graph.* classes below is constructed directly.
+
+export interface ConstructOptions<T extends Entity> {
     construct: (args: unknown[]) => T | Promise<T>;
-    toStates?: S[];
+}
+export interface ConstructOptionsWithState<T extends Entity, S> extends ConstructOptions<T> {
+    toStates: S[];
     getState?: Quoted<(entity: T) => S>;
 }
-export interface ConstructFromOptions<T extends Entity, F extends Entity, S = never> {
+
+export interface ConstructFromOptions<T extends Entity, F extends Entity> {
     construct: (from: F, args: unknown[]) => T | Promise<T>;
     canConstruct?: (from: F) => string | null;
     canBeNew?: boolean;
     canBeModified?: boolean;
     resultIsSaved?: boolean;
-    toStates?: S[];
+}
+export interface ConstructFromOptionsWithState<T extends Entity, F extends Entity, S> extends ConstructFromOptions<T, F> {
+    toStates: S[];
     getState?: Quoted<(entity: T) => S>;
 }
-export interface ConstructFromManyOptions<T extends Entity, F extends Entity, S = never> {
+
+export interface ConstructFromManyOptions<T extends Entity, F extends Entity> {
     construct: (lites: Lite<F>[], args: unknown[]) => T | Promise<T>;
-    toStates?: S[];
+}
+export interface ConstructFromManyOptionsWithState<T extends Entity, F extends Entity, S> extends ConstructFromManyOptions<T, F> {
+    toStates: S[];
     getState?: Quoted<(entity: T) => S>;
 }
-export interface ExecuteOptions<T extends Entity, S = never> {
+
+export interface ExecuteOptions<T extends Entity> {
     execute: (entity: T, args: unknown[]) => void | Promise<void>;
     canExecute?: (entity: T) => string | null;
     canBeNew?: boolean;
     canBeModified?: boolean;
     avoidImplicitSave?: boolean;
-    fromStates?: S[];
-    toStates?: S[];
+}
+export interface ExecuteOptionsWithState<T extends Entity, S> extends ExecuteOptions<T> {
+    fromStates: S[];
+    toStates: S[];
     getState?: Quoted<(entity: T) => S>;
 }
-export interface DeleteOptions<T extends Entity, S = never> {
+
+export interface DeleteOptions<T extends Entity> {
     delete: (entity: T, args: unknown[]) => void | Promise<void>;
     canDelete?: (entity: T) => string | null;
-    fromStates?: S[];
+}
+export interface DeleteOptionsWithState<T extends Entity, S> extends DeleteOptions<T> {
+    fromStates: S[];
     getState?: Quoted<(entity: T) => S>;
 }
+
+/**
+ * `O` with the members `K` made optional — the option object of a `with*` method whose primary callback
+ * has a DEFAULT: `withSave`'s `execute` (a no-op; the implicit save is the point), `withDelete`'s
+ * `delete` (`entity.delete()`) and `withConstruct`'s `construct` (`T.create({})`). Nothing else moves —
+ * in particular the state guards of a `…WithState` object stay required.
+ */
+export type OptionalBody<O, K extends keyof O> = Omit<O, K> & Partial<Pick<O, K>>;
 
 const isNewError = "The entity is new.";
 
@@ -122,7 +160,7 @@ export namespace Graph {
         construct!: (args: unknown[]) => T | Promise<T>;
         toStates?: S[];
         getState?: Quoted<(entity: T) => S>;
-        constructor(readonly entityType: Type<T>, readonly symbol: ConstructSymbol<T>, options: ConstructOptions<T, S>) { Object.assign(this, options); }
+        constructor(readonly entityType: Type<T>, readonly symbol: ConstructSymbol<T>, options: ConstructOptions<T> | ConstructOptionsWithState<T, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         async doConstruct(args: unknown[]): Promise<Entity> {
@@ -153,7 +191,7 @@ export namespace Graph {
         toStates?: S[];
         getState?: Quoted<(entity: T) => S>;
         /** `entityType` is the SOURCE type F — where the button appears — not the constructed T. */
-        constructor(readonly entityType: Type<F>, readonly symbol: ConstructSymbol<T, From<F>>, options: ConstructFromOptions<T, F, S>) { Object.assign(this, options); }
+        constructor(readonly entityType: Type<F>, readonly symbol: ConstructSymbol<T, From<F>>, options: ConstructFromOptions<T, F> | ConstructFromOptionsWithState<T, F, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         onCanExecute(from: F): string | null {
@@ -185,7 +223,7 @@ export namespace Graph {
         toStates?: S[];
         getState?: Quoted<(entity: T) => S>;
         /** `entityType` is the SOURCE type F — where the button appears — not the constructed T. */
-        constructor(readonly entityType: Type<F>, readonly symbol: ConstructSymbol<T, FromMany<F>>, options: ConstructFromManyOptions<T, F, S>) { Object.assign(this, options); }
+        constructor(readonly entityType: Type<F>, readonly symbol: ConstructSymbol<T, FromMany<F>>, options: ConstructFromManyOptions<T, F> | ConstructFromManyOptionsWithState<T, F, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         async doConstructFromMany(lites: Lite<Entity>[], args: unknown[]): Promise<Entity> {
@@ -215,7 +253,7 @@ export namespace Graph {
         fromStates?: S[];
         toStates?: S[];
         getState?: Quoted<(entity: T) => S>;
-        constructor(readonly entityType: Type<T>, readonly symbol: ExecuteSymbol<T>, options: ExecuteOptions<T, S>) { Object.assign(this, options); }
+        constructor(readonly entityType: Type<T>, readonly symbol: ExecuteSymbol<T>, options: ExecuteOptions<T> | ExecuteOptionsWithState<T, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         onCanExecute(entity: T): string | null {
@@ -253,7 +291,7 @@ export namespace Graph {
         readonly canBeModified = false;
         fromStates?: S[];
         getState?: Quoted<(entity: T) => S>;
-        constructor(readonly entityType: Type<T>, readonly symbol: DeleteSymbol<T>, options: DeleteOptions<T, S>) { Object.assign(this, options); }
+        constructor(readonly entityType: Type<T>, readonly symbol: DeleteSymbol<T>, options: DeleteOptions<T> | DeleteOptionsWithState<T, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         onCanExecute(entity: T): string | null {

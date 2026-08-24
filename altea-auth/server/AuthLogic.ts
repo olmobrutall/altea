@@ -1,9 +1,8 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave/.withDelete
+import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { AsyncLocalStorage } from "node:async_hooks";
 import { SchemaBuilder } from "@altea/altea/server/schema";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { table } from "@altea/altea/server/table";
 import { DirectedGraph } from "@altea/altea/server/directedGraph";
 import { UserHolder } from "@altea/altea/server/userHolder";
@@ -101,12 +100,14 @@ export namespace AuthLogic {
             uwc.claims["ExternalId"] = u.externalId;
         });
 
-        sb.include(RoleEntity).withQuery()
+        sb.include(RoleEntity)
             .withSave(RoleOperation.Save)
-            .withDelete(RoleOperation.Delete);
+            .withDelete(RoleOperation.Delete)
+            .withQuery();
 
-        sb.include(UserEntity).withQuery();
-        UserGraph.register();
+        sb.include(UserEntity)
+            .withStateMachine(u => u.state, registerUserOperations)
+            .withQuery();
 
         // The role graph is a GlobalLazy invalidated by RoleEntity (Signum's rolesGraph/mergeStrategies
         // GlobalLazys). Its factory runs in ExecutionMode.global (via globalLazy), so the RoleEntity read
@@ -211,15 +212,13 @@ export function decodeHash(stored: Uint8Array | null): Buffer | null {
 
 // Port of Signum's UserGraph (Signum.Authorization/UserGraph.cs): the user activation state machine.
 // (Deactivate/AutoDeactivate side effects that touch the authorization cache / UserTicket land later.)
-export const UserGraph = graph(UserEntity, UserState, g => {
-    g.GetState = u => u.state;
-
-    g.Construct(UserOperation.Create, {
+function registerUserOperations(sm: FluentStateMachine<UserEntity, UserState>): void {
+    sm.withConstruct(UserOperation.Create, {
         toStates: [UserState.New],
         construct: () => UserEntity.create({ state: UserState.New }),
     });
 
-    g.Execute(UserOperation.Save, {
+    sm.withExecute(UserOperation.Save, {
         fromStates: [UserState.Active, UserState.New],
         toStates: [UserState.Active],
         canBeNew: true,
@@ -238,7 +237,7 @@ export const UserGraph = graph(UserEntity, UserState, g => {
         },
     });
 
-    g.Execute(UserOperation.Deactivate, {
+    sm.withExecute(UserOperation.Deactivate, {
         fromStates: [UserState.Active],
         toStates: [UserState.Deactivated],
         execute: u => {
@@ -247,7 +246,7 @@ export const UserGraph = graph(UserEntity, UserState, g => {
         },
     });
 
-    g.Execute(UserOperation.AutoDeactivate, {
+    sm.withExecute(UserOperation.AutoDeactivate, {
         fromStates: [UserState.Active],
         toStates: [UserState.AutoDeactivate],
         execute: u => {
@@ -256,7 +255,7 @@ export const UserGraph = graph(UserEntity, UserState, g => {
         },
     });
 
-    g.Execute(UserOperation.Reactivate, {
+    sm.withExecute(UserOperation.Reactivate, {
         fromStates: [UserState.Deactivated, UserState.AutoDeactivate],
         toStates: [UserState.Active],
         execute: u => {
@@ -265,11 +264,11 @@ export const UserGraph = graph(UserEntity, UserState, g => {
         },
     });
 
-    g.Delete(UserOperation.Delete, {
+    sm.withDelete(UserOperation.Delete, {
         fromStates: [UserState.Deactivated, UserState.AutoDeactivate, UserState.Active],
         delete: u => u.delete(),
     });
-});
+}
 
 // ---- Role graph (Signum's AuthLogic role infrastructure) ----------------------------------------
 //

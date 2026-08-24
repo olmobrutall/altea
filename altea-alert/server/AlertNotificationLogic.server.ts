@@ -1,6 +1,6 @@
 import "@altea/altea/server";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
-import "@altea/altea/server/operationFluentInclude";
+import "@altea/altea/server/fluentOperations";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";

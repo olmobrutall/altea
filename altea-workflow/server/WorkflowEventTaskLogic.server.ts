@@ -1,12 +1,11 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
 import { EvalLogic } from "@altea/altea-eval/server/EvalLogic.server"; // + FluentInclude.withEvals
-import "@altea/altea/server/operationFluentInclude";
+import { operations, type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import "@altea/altea/data/globals/arrayExtensions";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import type { IQuery } from "@altea/altea/data/iquery";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { Operations } from "@altea/altea/server/operationLogic";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { retrieve } from "@altea/altea/server/Database";
@@ -90,12 +89,18 @@ export namespace WorkflowEventTaskLogic {
         sb.include(WorkflowEventTaskEntity)
             .withEvals()
             .withDelete(WorkflowEventTaskOperation.Delete)
+            .withExecute(WorkflowEventTaskOperation.Save, {
+                canBeNew: true,
+                canBeModified: true,
+                execute: e => {
+                    if (e.triggeredOn === TriggeredOn.Always)
+                        e.condition = null;
+                },
+            })
             .withQuery();
 
         EvalLogic.registerEvalSource(WorkflowEventTaskEntity.niceName(), async () =>
             (await table(WorkflowEventTaskEntity).toArray()).filter(t => t.condition != null || t.action != null));
-
-        WorkflowEventTaskGraph.register();
 
         // Signum hangs this off PreUnsafeDelete; altea's event has the same shape.
         sb.schema.entityEvents(WorkflowEventTaskEntity).preUnsafeDelete.push(async query => {
@@ -113,7 +118,7 @@ export namespace WorkflowEventTaskLogic {
         QueryLogic.expressions.register(WorkflowEventTaskEntity,
             (e: WorkflowEventTaskEntity) => e.conditionResults());
 
-        CaseGraph.register();
+        operations(CaseEntity).withOperations(registerCaseOperations);
 
         SchedulerLogic.registerExecuteTask(WorkflowEventTaskEntity,
             async (wet: WorkflowEventTaskEntity, _ctx: ScheduledTaskContext) => await executeTask(wet));
@@ -332,23 +337,11 @@ export namespace WorkflowEventTaskLogic {
         return result && (last == null || !last.result);
     }
 
-    const WorkflowEventTaskGraph = graph(WorkflowEventTaskEntity, g => {
-        g.Execute(WorkflowEventTaskOperation.Save, {
-            canBeNew: true,
-            canBeModified: true,
-            execute: e => {
-                if (e.triggeredOn === TriggeredOn.Always)
-                    e.condition = null;
-            },
-        });
-    });
-
-
     // Signum registers this ConstructFrom in CaseActivityLogic's graph; altea registers it HERE, because
     // its SOURCE type is WorkflowEventTaskEntity (a ConstructFrom is owned by its source — see CLAUDE.md)
     // and this is the module that knows both sides.
-    const CaseGraph = graph(CaseEntity, g => {
-        g.ConstructFrom(WorkflowEventTaskEntity, CaseActivityOperation.CreateCaseFromWorkflowEventTask, {
+    function registerCaseOperations(op: FluentOperations<CaseEntity>): void {
+        op.withConstructFrom(WorkflowEventTaskEntity, CaseActivityOperation.CreateCaseFromWorkflowEventTask, {
             construct: async (wet, args) => {
                 const workflow = await getWorkflow(wet);
 
@@ -371,5 +364,5 @@ export namespace WorkflowEventTaskLogic {
             },
             resultIsSaved: true,
         });
-    });
+    }
 }

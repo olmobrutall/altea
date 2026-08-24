@@ -1,8 +1,7 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { UserHolder } from "@altea/altea/server/userHolder";
@@ -56,13 +55,13 @@ export namespace ProcessLogic {
         SymbolLogic.start(sb, ProcessAlgorithmSymbol, () => declared);
 
         sb.include(ProcessAlgorithmSymbol).withQuery();
-        sb.include(ProcessEntity).withQuery();
+        sb.include(ProcessEntity)
+            .withStateMachine(p => p.state, registerProcessOperations)
+            .withQuery();
         sb.include(ProcessExceptionLineEntity).withQuery();
         sb.include(PackageEntity).withQuery();
         sb.include(PackageOperationEntity).withQuery();
         sb.include(PackageLineEntity).withQuery();
-
-        ProcessGraph.register();
 
         if (sb.webBuilder)
             ProcessesServer.start(sb.webBuilder);
@@ -142,10 +141,8 @@ export namespace ProcessLogic {
 
     // Signum's ProcessGraph — the state machine. Every transition that queues work wakes the runner up
     // AFTER the commit, so the runner never reads a row that is not there yet.
-    const ProcessGraph = graph(ProcessEntity, ProcessStateEnum, g => {
-        g.GetState = p => p.state;
-
-        g.Execute(ProcessOperation.Save, {
+    function registerProcessOperations(sm: FluentStateMachine<ProcessEntity, ProcessStateEnum>): void {
+        sm.withExecute(ProcessOperation.Save, {
         fromStates: [ProcessStateEnum.Created],
         toStates: [ProcessStateEnum.Created],
         canBeNew: true,
@@ -153,7 +150,7 @@ export namespace ProcessLogic {
         execute: () => { },
         });
 
-        g.Execute(ProcessOperation.Execute, {
+        sm.withExecute(ProcessOperation.Execute, {
         fromStates: [ProcessStateEnum.Created, ProcessStateEnum.Planned, ProcessStateEnum.Canceled, ProcessStateEnum.Suspended],
         toStates: [ProcessStateEnum.Queued],
         execute: (p: ProcessEntity) => {
@@ -170,7 +167,7 @@ export namespace ProcessLogic {
         },
         });
 
-        g.Execute(ProcessOperation.Suspend, {
+        sm.withExecute(ProcessOperation.Suspend, {
         fromStates: [ProcessStateEnum.Executing],
         toStates: [ProcessStateEnum.Suspending],
         execute: (p: ProcessEntity) => {
@@ -180,7 +177,7 @@ export namespace ProcessLogic {
         },
         });
 
-        g.Execute(ProcessOperation.Cancel, {
+        sm.withExecute(ProcessOperation.Cancel, {
         // Signum: cancelling an in-flight run would leave it running with a Canceled row, so suspend first.
         canExecute: (p: ProcessEntity) => ProcessRunner.isExecutingInThisMachine(p.toLite())
             ? ProcessMessage.ProcessExecutingSuspendFirst.niceToString() : null,
@@ -193,7 +190,7 @@ export namespace ProcessLogic {
         },
         });
 
-        g.Execute(ProcessOperation.Plan, {
+        sm.withExecute(ProcessOperation.Plan, {
         fromStates: [ProcessStateEnum.Created, ProcessStateEnum.Canceled, ProcessStateEnum.Planned, ProcessStateEnum.Suspended],
         toStates: [ProcessStateEnum.Planned],
         execute: (p: ProcessEntity, args: unknown[]) => {
@@ -204,12 +201,12 @@ export namespace ProcessLogic {
         },
         });
 
-        g.ConstructFrom(ProcessEntity, ProcessOperation.Retry, {
+        sm.withConstructFrom(ProcessEntity, ProcessOperation.Retry, {
         canConstruct: (p: ProcessEntity) => [ProcessStateEnum.Error, ProcessStateEnum.Canceled,
             ProcessStateEnum.Finished, ProcessStateEnum.Suspended].includes(p.state)
             ? null : `A process can only be retried from Error / Canceled / Finished / Suspended`,
         toStates: [ProcessStateEnum.Created],
         construct: async (p: ProcessEntity) => await create(p.algorithm, p.data),
         });
-    });
+    }
 }

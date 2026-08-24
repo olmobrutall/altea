@@ -2,7 +2,7 @@ import "@altea/altea/server/context.node"; // register server context storage fi
 import { Connector } from "@altea/altea/server/connection/connector";
 import type { Schema, SchemaBuilder } from "@altea/altea/server/schema";
 import { OperationLogic } from "@altea/altea/server/operationLogic";
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import "@altea/altea/server/fluentOperations"; // FluentInclude.withSave / withDelete
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { TypeAuthLogic } from "@altea/altea-auth/server/TypeAuthLogic";
@@ -39,9 +39,10 @@ export namespace AuthTestStarter {
         // The sample domain: a queryable entity + two operations + two row-level type conditions. Must run
         // BEFORE OperationLogic.start (so the operation symbols are registered before the symbol table is
         // seeded) and before sb.complete()/initialize (so the queryFilter hooks see the conditions).
-        sb.include(SampleEntity).withQuery()
+        sb.include(SampleEntity)
             .withSave(SampleOperation.Save)
-            .withDelete(SampleOperation.Delete);
+            .withDelete(SampleOperation.Delete)
+            .withQuery();
         TypeConditionLogic.registerCompile(SampleEntity, SampleTypeCondition.Confidential, s => s.confidential === true);
         TypeConditionLogic.registerCompile(SampleEntity, SampleTypeCondition.Public, s => s.confidential === false);
         // DB-ONLY (no in-memory predicate) → forces the fillTypeConditions SQL path for inTypeCondition.

@@ -1,10 +1,9 @@
 import "./index"; // installs Entity.save()/delete()
-import "./operationFluentInclude"; // FluentInclude.withSave / withDelete
+import "./fluentOperations"; // FluentInclude.withSave / withExecute / withStateMachine / … (the operation methods)
 import "./dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "./schema/schemaBuilder";
 import type { ResetLazy } from "../data/resetLazy";
 import { table } from "./table";
-import { graph } from "./graphBuilder";
 import { CultureInfoEntity, CultureInfoOperation, cultureDisplayNames } from "../data/cultureInfoEntity";
 import { Metadata } from "../data/metadata";
 import { setCultureNameResolver } from "../data/cultureInfoEntity";
@@ -39,9 +38,11 @@ export namespace CultureInfoLogic {
             return;
         started = true;
 
-        sb.include(CultureInfoEntity).withQuery();
-
-        CultureInfoGraph.register();
+        sb.include(CultureInfoEntity)
+            // Signum's PreSaving on Save: keep the two derived names in step with the tag, whoever edited it.
+            .withSave(CultureInfoOperation.Save, { execute: c => { Object.assign(c, cultureDisplayNames(c.name)); } })
+            .withDelete(CultureInfoOperation.Delete)
+            .withQuery();
 
         cultures = sb.globalLazy(
             async () => new Map((await table(CultureInfoEntity).toArray() as CultureInfoEntity[]).map(c => [c.name, c])),
@@ -123,17 +124,3 @@ export namespace CultureInfoLogic {
         await warmUp();
     }
 }
-
-// ---- CultureInfoGraph ---------------------------------------------------------------------------
-
-const CultureInfoGraph = graph(CultureInfoEntity, g => {
-    g.Execute(CultureInfoOperation.Save, {
-        canBeNew: true,
-        canBeModified: true,
-        // Signum's PreSaving: keep the two derived names in step with the tag, whoever edited it.
-        execute: c => { Object.assign(c, cultureDisplayNames(c.name)); },
-    });
-    g.Delete(CultureInfoOperation.Delete, {
-        delete: async c => { await c.delete(); },
-    });
-});

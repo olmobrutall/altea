@@ -1,9 +1,8 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
-import { graph } from "@altea/altea/server/graphBuilder";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
 import * as Database from "@altea/altea/server/Database";
 import { Entity } from "@altea/altea/data/entity";
@@ -38,11 +37,8 @@ export namespace DynamicViewLogic {
             return;
 
         sb.include(DynamicViewEntity)
-            .withSave(DynamicViewOperation.Save)
-            .withDelete(DynamicViewOperation.Delete)
+            .withOperations(registerDynamicViewOperations)
             .withQuery();
-
-        DynamicViewGraph.register();
 
         dynamicViewsLazy = sb.globalLazy(
             () => table(DynamicViewEntity).toArray() as Promise<DynamicViewEntity[]>,
@@ -170,18 +166,20 @@ export namespace DynamicViewLogic {
         return result;
     }
 
-    const DynamicViewGraph = graph(DynamicViewEntity, g => {
+    function registerDynamicViewOperations(op: FluentOperations<DynamicViewEntity>): void {
+        op.withSave(DynamicViewOperation.Save);
+        op.withDelete(DynamicViewOperation.Delete);
 
         // Signum's Construct seeds `Locals` with a forceUpdate hook so a brand-new view already has the
         // one local every non-trivial view needs. `viewContent` is left empty: only the CLIENT can build
         // a default node tree, since the node library lives there (see createDefaultDynamicView).
-        g.Construct(DynamicViewOperation.Create, {
+        op.withConstruct(DynamicViewOperation.Create, {
             construct: (): DynamicViewEntity => DynamicViewEntity.create({
                 locals: defaultLocals,
             }),
         });
 
-        g.ConstructFrom(DynamicViewEntity, DynamicViewOperation.Clone, {
+        op.withConstructFrom(DynamicViewEntity, DynamicViewOperation.Clone, {
             construct: (view: DynamicViewEntity): DynamicViewEntity => DynamicViewEntity.create({
                 viewName: "",
                 entityType: view.entityType,
@@ -191,5 +189,5 @@ export namespace DynamicViewLogic {
                     DynamicViewEntity_Prop.create({ name: p.name, type: p.type })),
             }),
         });
-    });
+    }
 }

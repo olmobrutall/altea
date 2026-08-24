@@ -1,12 +1,11 @@
 import "@altea/altea/server";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
-import "@altea/altea/server/operationFluentInclude";
+import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/data/globals";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
 import { table } from "@altea/altea/server/table";
 import { retrieve } from "@altea/altea/server/Database";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { Graph } from "@altea/altea/server/graph";
 import { Saver } from "@altea/altea/server/saver";
 import { Transaction } from "@altea/altea/server/connection/transaction";
@@ -119,12 +118,23 @@ export namespace SMSLogic {
 
         TemplatingLogic.start(sb);
 
-        sb.include(SMSMessageEntity).withQuery();
+        sb.include(SMSMessageEntity)
+            .withStateMachine(m => m.state, registerSMSMessageOperations)
+            .withQuery();
 
         // Signum's `WithUniqueIndex(t => t.Model, where: t => t.Model != null && t.IsActive)`: at most ONE
         // active template per model, which is what `getDefaultTemplate`'s SingleEx relies on.
         sb.include(SMSTemplateEntity)
             .withUniqueIndex(t => t.model, t => t.model != null && t.isActive == true)
+            .withConstruct(SMSTemplateOperation.Create, {
+                // Signum seeds ONE message, for the configured default culture.
+                construct: () => SMSTemplateEntity.create({
+                    messages: [SMSTemplateEntity_Message.create({
+                        culture: CultureInfoLogic.getCulture(SMSLogic.configuration().defaultCulture).toLite(),
+                    })],
+                }),
+            })
+            .withSave(SMSTemplateOperation.Save)
             .withQuery();
 
         smsTemplatesLazy = sb.globalLazy(
@@ -152,8 +162,6 @@ export namespace SMSLogic {
                 throw new Error(SMSTemplateMessage.ThereMustBeAMessageFor0.niceToString(dc));
         });
 
-        SMSMessageGraph.register();
-        SMSTemplateGraph.register();
     }
 
     // ---- the owner registry + its expression ---------------------------------------------------------
@@ -441,11 +449,9 @@ export namespace SMSLogic {
 // ---- the two graphs -------------------------------------------------------------------------------------
 
 /** Signum's `SMSMessageGraph` — the message's state machine. */
-const SMSMessageGraph = graph(SMSMessageEntity, SMSMessageState, g => {
+function registerSMSMessageOperations(sm: FluentStateMachine<SMSMessageEntity, SMSMessageState>): void {
 
-    g.GetState = m => m.state;
-
-    g.ConstructFrom(SMSTemplateEntity, SMSMessageOperation.CreateSMSFromTemplate, {
+    sm.withConstructFrom(SMSTemplateEntity, SMSMessageOperation.CreateSMSFromTemplate, {
         canConstruct: t => t.isActive ? null : SMSCharactersMessage.TheTemplateMustBeActiveToConstructSMSMessages.niceToString(),
         toStates: [SMSMessageState.Created],
         construct: async (t, args) => {
@@ -463,7 +469,7 @@ const SMSMessageGraph = graph(SMSMessageEntity, SMSMessageState, g => {
         },
     });
 
-    g.Execute(SMSMessageOperation.Send, {
+    sm.withExecute(SMSMessageOperation.Send, {
         canBeNew: true,
         canBeModified: true,
         fromStates: [SMSMessageState.Created],
@@ -471,7 +477,7 @@ const SMSMessageGraph = graph(SMSMessageEntity, SMSMessageState, g => {
         execute: async m => { await SMSLogic.sendSMS(m); },
     });
 
-    g.Execute(SMSMessageOperation.UpdateStatus, {
+    sm.parent.withExecute(SMSMessageOperation.UpdateStatus, {
         canExecute: m => m.state !== SMSMessageState.Created ? null
             : SMSCharactersMessage.StatusCanNotBeUpdatedForNonSentMessages.niceToString(),
         execute: async (m, args) => {
@@ -484,23 +490,4 @@ const SMSMessageGraph = graph(SMSMessageEntity, SMSMessageState, g => {
                 m.updatePackageProcessed = true;
         },
     });
-});
-
-/** Signum's `SMSTemplateGraph`. */
-const SMSTemplateGraph = graph(SMSTemplateEntity, g => {
-
-    g.Construct(SMSTemplateOperation.Create, {
-        // Signum seeds ONE message, for the configured default culture.
-        construct: () => SMSTemplateEntity.create({
-            messages: [SMSTemplateEntity_Message.create({
-                culture: CultureInfoLogic.getCulture(SMSLogic.configuration().defaultCulture).toLite(),
-            })],
-        }),
-    });
-
-    g.Execute(SMSTemplateOperation.Save, {
-        canBeNew: true,
-        canBeModified: true,
-        execute: () => { /* the PreSaving re-print is the whole behaviour */ },
-    });
-});
+}

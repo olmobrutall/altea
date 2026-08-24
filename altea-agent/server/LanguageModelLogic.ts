@@ -1,9 +1,8 @@
 import "@altea/altea/server";
-import "@altea/altea/server/operationFluentInclude";
+import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
@@ -157,26 +156,9 @@ export namespace LanguageModelLogic {
         sb.include(LanguageModelProviderSymbol).withQuery();
 
         sb.include(ChatbotLanguageModelEntity)
-            .withSave(ChatbotLanguageModelOperation.Save, async m => {
-                // Signum: once a message has been produced with this model row, the model / provider is
-                // frozen — the recorded token counts and prices would otherwise describe a different model.
-                if (!m.isNew) {
-                    const lite = m.toLite();
-                    const used = await tableQuery(ChatMessageEntity).some(a => a.languageModel!.is(lite));
-                    if (used) {
-                        const inDb = await tableQuery(ChatbotLanguageModelEntity)
-                            .filter(a => a.id == m.id)
-                            .map(a => ({ model: a.model, provider: a.provider }))
-                            .singleOrNull();
-                        if (inDb != null && (inDb.model !== m.model || inDb.provider.key !== m.provider.key))
-                            throw new Error(ChatbotMessage.UnableToChangeModelOrProviderOnceUsed.niceToString());
-                    }
-                }
-            })
             .withUniqueIndex(a => a.isDefault, a => a.isDefault == true)
+            .withOperations(registerChatbotLanguageModelOperations)
             .withQuery();
-
-        ChatbotLanguageModelGraph.register();
 
         languageModels = sb.globalLazy(async () => {
             const rows = await ExecutionMode.global(() => tableQuery(ChatbotLanguageModelEntity).toArray());
@@ -189,11 +171,9 @@ export namespace LanguageModelLogic {
         }, { invalidateWith: [ChatbotLanguageModelEntity] });
 
         sb.include(EmbeddingsLanguageModelEntity)
-            .withSave(EmbeddingsLanguageModelOperation.Save)
             .withUniqueIndex(a => a.isDefault, a => a.isDefault == true)
+            .withOperations(registerEmbeddingsLanguageModelOperations)
             .withQuery();
-
-        EmbeddingsLanguageModelGraph.register();
 
         embeddingsModels = sb.globalLazy(async () => {
             const rows = await ExecutionMode.global(() => tableQuery(EmbeddingsLanguageModelEntity).toArray());
@@ -288,10 +268,29 @@ export namespace LanguageModelLogic {
     }
 }
 
-// ---- ChatbotLanguageModelGraph ------------------------------------------------------------------
+// ---- ChatbotLanguageModelEntity's operations (Signum's ChatbotLanguageModelGraph) ---------------
 
-const ChatbotLanguageModelGraph = graph(ChatbotLanguageModelEntity, g => {
-    g.Execute(ChatbotLanguageModelOperation.MakeDefault, {
+function registerChatbotLanguageModelOperations(op: FluentOperations<ChatbotLanguageModelEntity>): void {
+    op.withSave(ChatbotLanguageModelOperation.Save, {
+        execute: async m => {
+            // Signum: once a message has been produced with this model row, the model / provider is
+            // frozen — the recorded token counts and prices would otherwise describe a different model.
+            if (!m.isNew) {
+                const lite = m.toLite();
+                const used = await tableQuery(ChatMessageEntity).some(a => a.languageModel!.is(lite));
+                if (used) {
+                    const inDb = await tableQuery(ChatbotLanguageModelEntity)
+                        .filter(a => a.id == m.id)
+                        .map(a => ({ model: a.model, provider: a.provider }))
+                        .singleOrNull();
+                    if (inDb != null && (inDb.model !== m.model || inDb.provider.key !== m.provider.key))
+                        throw new Error(ChatbotMessage.UnableToChangeModelOrProviderOnceUsed.niceToString());
+                }
+            }
+        },
+    });
+
+    op.withExecute(ChatbotLanguageModelOperation.MakeDefault, {
         canExecute: a => !a.isDefault ? null
             : ValidationMessage._0IsSet.niceToString(ChatbotLanguageModelEntity.nicePropertyName(x => x.isDefault)),
         execute: async e => {
@@ -303,13 +302,15 @@ const ChatbotLanguageModelGraph = graph(ChatbotLanguageModelEntity, g => {
             e.isDefault = true;
         },
     });
-    g.Delete(ChatbotLanguageModelOperation.Delete, { delete: async e => { await e.delete(); } });
-});
+    op.withDelete(ChatbotLanguageModelOperation.Delete);
+}
 
-// ---- EmbeddingsLanguageModelGraph ---------------------------------------------------------------
+// ---- EmbeddingsLanguageModelEntity's operations (Signum's EmbeddingsLanguageModelGraph) ---------
 
-const EmbeddingsLanguageModelGraph = graph(EmbeddingsLanguageModelEntity, g => {
-    g.Execute(EmbeddingsLanguageModelOperation.MakeDefault, {
+function registerEmbeddingsLanguageModelOperations(op: FluentOperations<EmbeddingsLanguageModelEntity>): void {
+    op.withSave(EmbeddingsLanguageModelOperation.Save);
+
+    op.withExecute(EmbeddingsLanguageModelOperation.MakeDefault, {
         canExecute: a => !a.isDefault ? null
             : ValidationMessage._0IsSet.niceToString(EmbeddingsLanguageModelEntity.nicePropertyName(x => x.isDefault)),
         execute: async e => {
@@ -321,5 +322,5 @@ const EmbeddingsLanguageModelGraph = graph(EmbeddingsLanguageModelEntity, g => {
             e.isDefault = true;
         },
     });
-    g.Delete(EmbeddingsLanguageModelOperation.Delete, { delete: async e => { await e.delete(); } });
-});
+    op.withDelete(EmbeddingsLanguageModelOperation.Delete);
+}

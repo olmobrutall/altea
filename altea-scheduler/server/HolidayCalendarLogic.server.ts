@@ -5,11 +5,11 @@ import { table } from "@altea/altea/server/table";
 import { Lite } from "@altea/altea/data/lite";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { Temporal } from "@altea/altea/data/basics";
-import { graph } from "@altea/altea/server/graphBuilder";
 import {
     HolidayCalendarEntity, HolidayCalendarEntity_Holiday, HolidayCalendarOperation, HolidayCalendarMessage,
 } from "../data/HolidayCalendar";
 import { setHolidayCalendarResolver } from "../data/Scheduler";
+import "@altea/altea/server/fluentOperations";
 
 // Port of Signum.Scheduler's HolidayCalendarLogic.cs — the calendar table, its cache, and the operations
 // (Save / Delete / ImportPublicHolidays).
@@ -42,6 +42,12 @@ export namespace HolidayCalendarLogic {
         sb.include(HolidayCalendarEntity)
             .withSave(HolidayCalendarOperation.Save)
             .withDelete(HolidayCalendarOperation.Delete)
+            .withExecute(HolidayCalendarOperation.ImportPublicHolidays, {
+                canBeModified: true,
+                canExecute: (c: HolidayCalendarEntity) => c.fromYear != null && c.toYear != null && (c.countryCode ?? "") !== "" ? null
+                    : HolidayCalendarMessage.ForImport01and2ShouldBeSet.niceToString("From year", "To year", "Country code"),
+                execute: async (c: HolidayCalendarEntity) => { await importPublicHolidays(c); },
+            })
             .withQuery();
 
         calendarsByLite = sb.globalLazy(
@@ -55,7 +61,6 @@ export namespace HolidayCalendarLogic {
         // A rule advancing to its next occurrence is SYNC, so it reads the warmed snapshot.
         setHolidayCalendarResolver(lite => warmCalendars.get(lite.key()));
 
-        HolidayCalendarGraph.register();
     }
 
     /** Refresh the SYNC snapshot the schedule rules read. Called by the runner before it (re)plans. */
@@ -122,13 +127,4 @@ export namespace HolidayCalendarLogic {
             throw new Error(`date.nager.at/${path} returned ${response.status} ${response.statusText}`);
         return await response.json() as T;
     }
-
-    const HolidayCalendarGraph = graph(HolidayCalendarEntity, g => {
-        g.Execute(HolidayCalendarOperation.ImportPublicHolidays, {
-        canBeModified: true,
-        canExecute: (c: HolidayCalendarEntity) => c.fromYear != null && c.toYear != null && (c.countryCode ?? "") !== "" ? null
-            : HolidayCalendarMessage.ForImport01and2ShouldBeSet.niceToString("From year", "To year", "Country code"),
-        execute: async (c: HolidayCalendarEntity) => { await importPublicHolidays(c); },
-        });
-    });
 }

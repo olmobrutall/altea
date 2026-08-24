@@ -1,8 +1,7 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery / withExpressionTo
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { table } from "@altea/altea/server/table";
 import { Query } from "@altea/altea/server/query";
 import { Transaction } from "@altea/altea/server/connection/transaction";
@@ -86,6 +85,7 @@ export namespace EmailReceptionLogic {
         // The SERVICE (a polymorphic @implementedBy target) is reached from this entity's field, so the
         // SchemaBuilder includes it — and its own @part rows — itself.
         sb.include(EmailReceptionConfigurationEntity)
+            .withOperations(registerEmailReceptionConfigurationOperations)
             .withExpressionTo(c => c.receptions())
             .withQuery();
 
@@ -96,8 +96,6 @@ export namespace EmailReceptionLogic {
             .withQuery();
 
         sb.include(EmailReceptionExceptionEntity).withQuery();
-
-        EmailReceptionConfigurationGraph.register();
 
         // A ScheduledTask may point straight at ONE configuration (Signum's
         // `SchedulerLogic.ExecuteTask.Register((EmailReceptionConfigurationEntity conf, ctx) => …)`), which is
@@ -192,8 +190,8 @@ export namespace EmailReceptionLogic {
         return undefined;
     }
 
-    const EmailReceptionConfigurationGraph = graph(EmailReceptionConfigurationEntity, g => {
-        g.Execute(EmailReceptionConfigurationOperation.Save, {
+    function registerEmailReceptionConfigurationOperations(op: FluentOperations<EmailReceptionConfigurationEntity>): void {
+        op.withExecute(EmailReceptionConfigurationOperation.Save, {
         canBeNew: true,
         canBeModified: true,
         execute: (config: EmailReceptionConfigurationEntity) => {
@@ -202,7 +200,7 @@ export namespace EmailReceptionLogic {
         },
         });
 
-        g.ConstructFrom(EmailReceptionConfigurationEntity, EmailReceptionConfigurationOperation.ReceiveEmails, {
+        op.withConstructFrom(EmailReceptionConfigurationEntity, EmailReceptionConfigurationOperation.ReceiveEmails, {
         construct: async (config: EmailReceptionConfigurationEntity) => {
             // Signum runs this inside `Transaction.None()`: a poll writes its own reception row (and every
             // stored message) in transactions of its OWN, so it must not be nested inside — and must not
@@ -226,7 +224,7 @@ export namespace EmailReceptionLogic {
             });
         },
         });
-    });
+    }
 }
 
 // ---- Query navigations (Signum's QueryLogic.Expressions.Register) ---------------------------------------

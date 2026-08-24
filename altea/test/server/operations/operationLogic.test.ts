@@ -1,13 +1,13 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { Connector } from "@altea/altea/server/connection/connector";
-import { graph } from "@altea/altea/server/graphBuilder";
+import { operations } from "@altea/altea/server/fluentOperations";
 import { Graph } from "@altea/altea/server/graph";
 import { Operations, OperationLogic } from "@altea/altea/server/operationLogic";
 import { AlbumEntity, AlbumState, ArtistEntity } from "../../data/music";
 import { AlbumOperation } from "../../data/music";
 
-// Phase 3 — OperationLogic + graph(). Runs OFFLINE: construct and avoidImplicitSave
+// Phase 3 — OperationLogic + the fluent operations. Runs OFFLINE: construct and avoidImplicitSave
 // execute do no DB work, and RealTransaction.start is lazy, so Transaction.create never
 // opens the fake connection. canExecute needs no transaction at all. (The implicit
 // save()/delete() paths are one line onto already-tested code and are exercised in the
@@ -22,44 +22,46 @@ class FakeConnector extends Connector {
 const fake = new FakeConnector();
 const offline = <T>(fn: () => Promise<T>): Promise<T> => Connector.withConnector(fake, fn);
 
-// The graph — mirrors OrderGraph.Register(): declarative const, register() called once.
-// graph(T, StateEnum, …) binds T + S; g.GetState mirrors Signum's `GetState = o => o.State`.
-const AlbumGraph = graph(AlbumEntity, AlbumState, g => {
-    g.GetState = a => a.state;
-    g.Construct(AlbumOperation.Create, {
+// The album state machine. `operations(T)` is the standalone half of the fluent API — no SchemaBuilder
+// here, so there is no include to hang it off; `withStateMachine(a => a.state, …)` is Signum's
+// `Graph<AlbumEntity, AlbumState>.GetState`, stamped onto every operation the block declares.
+operations(AlbumEntity).withStateMachine(a => a.state, sm => {
+    sm.withConstruct(AlbumOperation.Create, {
         toStates: [AlbumState.New],
         construct: () => AlbumEntity.create({ state: AlbumState.New }),
-    });
-    g.Construct(AlbumOperation.CreateInvalid, {
-        toStates: [AlbumState.New],
-        construct: () => AlbumEntity.create({ state: AlbumState.Saved }), // violates toStates
-    });
-    g.ConstructFrom(AlbumEntity, AlbumOperation.Clone, {
-        toStates: [AlbumState.New],
-        construct: from => AlbumEntity.create({ state: AlbumState.New, name: from.name }),
-    });
-    g.ConstructFromMany(ArtistEntity, AlbumOperation.CreateFromArtists, {
-        toStates: [AlbumState.New],
-        construct: lites => AlbumEntity.create({ state: AlbumState.New, name: `Compilation of ${lites.length}` }),
-    });
-    g.Execute(AlbumOperation.Save, {
-        fromStates: [AlbumState.New, AlbumState.Saved],
-        toStates: [AlbumState.Saved],
-        canBeNew: true,
-        avoidImplicitSave: true, // keep the transition offline; persistence proven elsewhere
-        execute: a => { a.state = AlbumState.Saved; },
-    });
-    g.Execute(AlbumOperation.OnlyWhenSaved, {
-        fromStates: [AlbumState.Saved],
-        avoidImplicitSave: true,
-        execute: () => { /* no-op */ },
-    });
-    g.Delete(AlbumOperation.Delete, {
-        fromStates: [AlbumState.Saved],
-        delete: a => a.delete(),
-    });
+    })
+        .withConstruct(AlbumOperation.CreateInvalid, {
+            toStates: [AlbumState.New],
+            construct: () => AlbumEntity.create({ state: AlbumState.Saved }), // violates toStates
+        })
+        .withConstructFrom(AlbumEntity, AlbumOperation.Clone, {
+            toStates: [AlbumState.New],
+            construct: from => AlbumEntity.create({ state: AlbumState.New, name: from.name }),
+        })
+        .withConstructFromMany(ArtistEntity, AlbumOperation.CreateFromArtists, {
+            toStates: [AlbumState.New],
+            construct: lites => AlbumEntity.create({ state: AlbumState.New, name: `Compilation of ${lites.length}` }),
+        })
+        .withExecute(AlbumOperation.Save, {
+            fromStates: [AlbumState.New, AlbumState.Saved],
+            toStates: [AlbumState.Saved],
+            canBeNew: true,
+            avoidImplicitSave: true, // keep the transition offline; persistence proven elsewhere
+            execute: a => { a.state = AlbumState.Saved; },
+        })
+        .withExecute(AlbumOperation.OnlyWhenSaved, {
+            // A state-guarded no-op: it may only run from Saved, and it leaves the album there. `toStates`
+            // used to be omitted here — Signum's GraphState.AssertIsValid rejects that at registration, and
+            // ExecuteOptionsWithState now rejects it at compile time.
+            fromStates: [AlbumState.Saved],
+            toStates: [AlbumState.Saved],
+            avoidImplicitSave: true,
+            execute: () => { /* no-op */ },
+        })
+        .withDelete(AlbumOperation.Delete, {
+            fromStates: [AlbumState.Saved],
+        });
 });
-AlbumGraph.register();
 
 // Compile-time discrimination checks — never executed, only type-checked. If the
 // From/FromMany/Simple markers ever stopped keeping the constructor kinds distinct, the
@@ -75,7 +77,7 @@ async function _kindDiscrimination(): Promise<void> {
 }
 void _kindDiscrimination;
 
-describe("OperationLogic / graph", () => {
+describe("OperationLogic / fluent operations", () => {
     test("register wires every operation into OperationLogic", () => {
         const keys = OperationLogic.registeredOperations().map(s => s.key);
         for (const k of ["AlbumOperation.Create", "AlbumOperation.Save", "AlbumOperation.Delete"])
@@ -158,8 +160,8 @@ describe("OperationLogic / graph", () => {
             /is new/);
     });
 
-    // Operations are real classes — createable/replaceable/removable from outside the graph.
-    test("operations can be replaced and removed from outside the graph", () => {
+    // Operations are real classes — createable/replaceable/removable from outside the state machine.
+    test("operations can be replaced and removed from outside the state machine", () => {
         const original = OperationLogic.findOperation(AlbumOperation.Save);
         assert.ok(original instanceof Graph.Execute);
 

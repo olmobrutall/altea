@@ -1,9 +1,8 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave/.withDelete
+import "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import "@altea/altea/server/dynamicQuery/dQueryable"; // augments Query with .toDQueryable()
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { table } from "@altea/altea/server/table";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { ManualDynamicQueryCore } from "@altea/altea/server/dynamicQuery/dynamicQueryCore";
@@ -96,8 +95,13 @@ export namespace AzureADLogic {
             registerDeactivateUsersTask();
 
         if (options.adGroupsAndQueries) {
-            sb.include(ADGroupEntity).withQuery();
-            ADGroupGraph.register();
+            // Signum's `new Graph<ADGroupEntity>.Execute(ADGroupOperation.Save)` / `.Delete`, which are
+            // both the plain defaults. No SaveDisableIdentity: the uuid PK is assigned by the caller
+            // (see data/ADGroup.ts).
+            sb.include(ADGroupEntity)
+                .withSave(ADGroupOperation.Save)
+                .withDelete(ADGroupOperation.Delete)
+                .withQuery();
             registerDirectoryQueries();
         }
 
@@ -413,20 +417,6 @@ export namespace AzureADLogic {
         return await MicrosoftGraph.getBytes(config, `users/${oid}/photos/${size}x${size}/$value`);
     }
 }
-
-// Signum's `new Graph<ADGroupEntity>.Execute(ADGroupOperation.Save)` / `.Delete`. No SaveDisableIdentity:
-// the uuid PK is assigned by the caller (see data/ADGroup.ts).
-const ADGroupGraph = graph(ADGroupEntity, g => {
-    g.Execute(ADGroupOperation.Save, {
-        canBeNew: true,
-        canBeModified: true,
-        execute: () => { }, // the operation's implicit save persists it
-    });
-
-    g.Delete(ADGroupOperation.Delete, {
-        delete: e => e.delete(),
-    });
-});
 
 function before(value: string, separator: string): string {
     return value.substring(0, value.indexOf(separator));

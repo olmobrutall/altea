@@ -1,8 +1,7 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import "@altea/altea/server/operationFluentInclude"; // FluentInclude.withSave / withDelete
+import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { retrieve, deleteList } from "@altea/altea/server/Database";
@@ -101,10 +100,10 @@ export namespace DashboardLogic {
         UserAssetLogic.start(sb);
 
         sb.include(DashboardEntity)
+            .withOperations(registerDashboardOperations)
             .withQuery();
 
         // Signum's DashboardGraph: Save / Delete / Clone (RegenerateCachedQueries is deferred).
-        DashboardGraph.register();
 
         // The base parts Signum registers in DashboardLogic.Start's PartNames block.
         registerBasePartsXml();
@@ -292,11 +291,10 @@ export namespace DashboardLogic {
     }
 }
 
-// ---- DashboardGraph (Signum's DashboardLogic.DashboardGraph) -------------------------------------------
+// ---- DashboardEntity's operations (Signum's DashboardLogic.DashboardGraph) ----------------------------
 
-const DashboardGraph = graph(DashboardEntity, g => {
-
-    g.Execute(DashboardOperation.Save, {
+function registerDashboardOperations(op: FluentOperations<DashboardEntity>): void {
+    op.withExecute(DashboardOperation.Save, {
         canBeNew: true,
         canBeModified: true,
         // Signum: save, then delete the part CONTENT entities that are no longer referenced. The part ROWS
@@ -316,7 +314,7 @@ const DashboardGraph = graph(DashboardEntity, g => {
         },
     });
 
-    g.Delete(DashboardOperation.Delete, {
+    op.withDelete(DashboardOperation.Delete, {
         delete: async db => {
             const contents = (db.parts ?? []).map(p => p.content).filter(c => c != null);
             await db.delete();
@@ -324,7 +322,7 @@ const DashboardGraph = graph(DashboardEntity, g => {
         },
     });
 
-    g.ConstructFrom(DashboardEntity, DashboardOperation.Clone, {
+    op.withConstructFrom(DashboardEntity, DashboardOperation.Clone, {
         construct: db => DashboardLogic.cloneDashboard(db),
     });
-});
+}

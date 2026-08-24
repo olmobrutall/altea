@@ -1,10 +1,9 @@
 import "@altea/altea/server";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
-import "@altea/altea/server/operationFluentInclude";
+import "@altea/altea/server/fluentOperations";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { Schema } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
-import { graph } from "@altea/altea/server/graphBuilder";
 import { OperationLogic } from "@altea/altea/server/operationLogic";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
@@ -86,7 +85,7 @@ export namespace HelpLogic {
 
         sb.include(TypeHelpEntity)
             .withUniqueIndex(e => [e.type, e.culture])
-            .withSave(TypeHelpOperation.Save, async t => { await InlineImagesLogic.synchronizeInlineImages(t); })
+            .withSave(TypeHelpOperation.Save, { execute: async t => { await InlineImagesLogic.synchronizeInlineImages(t); } })
             .withDelete(TypeHelpOperation.Delete)
             .withQuery();
 
@@ -97,19 +96,19 @@ export namespace HelpLogic {
 
         sb.include(NamespaceHelpEntity)
             .withUniqueIndex(e => [e.name, e.culture])
-            .withSave(NamespaceHelpOperation.Save, async n => { await InlineImagesLogic.synchronizeInlineImages(n); })
+            .withSave(NamespaceHelpOperation.Save, { execute: async n => { await InlineImagesLogic.synchronizeInlineImages(n); } })
             .withDelete(NamespaceHelpOperation.Delete)
             .withQuery();
 
         sb.include(AppendixHelpEntity)
             .withUniqueIndex(e => [e.uniqueName, e.culture])
-            .withSave(AppendixHelpOperation.Save, async a => { await InlineImagesLogic.synchronizeInlineImages(a); })
+            .withSave(AppendixHelpOperation.Save, { execute: async a => { await InlineImagesLogic.synchronizeInlineImages(a); } })
             .withDelete(AppendixHelpOperation.Delete)
             .withQuery();
 
         sb.include(QueryHelpEntity)
             .withUniqueIndex(e => [e.query, e.culture])
-            .withSave(QueryHelpOperation.Save, async q => { await InlineImagesLogic.synchronizeInlineImages(q); })
+            .withSave(QueryHelpOperation.Save, { execute: async q => { await InlineImagesLogic.synchronizeInlineImages(q); } })
             .withDelete(QueryHelpOperation.Delete)
             .withQuery();
 
@@ -140,8 +139,6 @@ export namespace HelpLogic {
         queriesLazy = sb.globalLazy(async () => new Map<string, Map<string, QueryHelp>>(),
             { invalidateWith: [QueryHelpEntity, QueryHelpEntity_Column], name: "HelpLogic.queries" });
 
-        AppendixHelpGraph.register();
-        NamespaceHelpGraph.register();
     }
 
     function registerImageCascade<T extends IHelpEntity>(type: Type<T>): void {
@@ -158,13 +155,11 @@ export namespace HelpLogic {
     }
 
     // ---- operations ------------------------------------------------------------------------------
-    // TypeHelp / QueryHelp use the fluent `withSave` / `withDelete` above (their Save has to run the
-    // inline-image extraction). Appendix and Namespace need the same thing, so they do too — these two
-    // graphs exist only for the parts `withSave` cannot express: nothing today, so they are empty and
-    // registered for symmetry with Signum, which declares all eight symbols the same way.
-
-    const AppendixHelpGraph = graph(AppendixHelpEntity, () => { });
-    const NamespaceHelpGraph = graph(NamespaceHelpEntity, () => { });
+    // All four help types register their Save / Delete through the fluent `withSave` / `withDelete` on
+    // their include above (TypeHelp's and QueryHelp's Save also runs the inline-image extraction). There
+    // used to be two extra `graph(AppendixHelpEntity, () => { })` / `graph(NamespaceHelpEntity, …)`
+    // declarations here, kept "for symmetry with Signum" — but an EMPTY graph registers nothing, so both
+    // were dead code with a `register()` call behind them. Removed with the graph builder.
 
     // ---- culture ---------------------------------------------------------------------------------
 
