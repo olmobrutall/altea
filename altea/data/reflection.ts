@@ -218,7 +218,6 @@ export class FieldInfo extends TypeReference {
     // from @column(false) (which excludes a field from the DB schema + change tracking but leaves
     // it serializable) — used for pure bookkeeping like `isNew` / `_snapshot`.
     noSerialize?: boolean;
-    fkPropertyName?: string;
     // Set by @avoidExpandOnRetrieving on a reference field (Signum's [AvoidExpandQuery]):
     // a query retrieving the owner does NOT eager-expand this reference (it stays a lazy
     // stub). A per-reference concern, so it lives on the field, not the entity.

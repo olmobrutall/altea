@@ -349,7 +349,7 @@ export class SchemaBuilder {
         // gen_random_uuid() on Postgres, NEWID()/NEWSEQUENTIALID() (uuid7) on SQL
         // Server. The default key type is int.
         const isGuid = pkType === 'uuid' || pkType === 'uuid7';
-        const pkColumn = new PrimaryKeyColumn(this.colName('ID'), pkDbType, /* identity */ !isGuid && !isExternalId);
+        const pkColumn = new PrimaryKeyColumn(this.idiomatic('ID'), pkDbType, /* identity */ !isGuid && !isExternalId);
         if (isGuid)
             pkColumn.default = this.settings.isPostgres
                 ? 'gen_random_uuid()'
@@ -360,7 +360,7 @@ export class SchemaBuilder {
 
         if (!isSeeded) {
             const ticksInfo = typeInfo.fields['ticks'] ?? new FieldInfo('ticks');
-            const ticks = new FieldTicks(new ValueColumn(this.colName('Ticks'), this.settings.ticksDbType, IsNullable.No));
+            const ticks = new FieldTicks(new ValueColumn(this.idiomatic('Ticks'), this.settings.ticksDbType, IsNullable.No));
             table.ticks = ticks;
             table.fields['ticks'] = new EntityField(ticksInfo, ticks, makeGetter('ticks'));
         }
@@ -411,7 +411,7 @@ export class SchemaBuilder {
             const proto = (type as { prototype?: any }).prototype;
             const toStr = proto?.toString;
             if (typeof toStr === "function" && toStr !== Object.prototype.toString && (toStr as Quoted<Function>).__quoted == null)
-                table.toStrColumn = new ValueColumn(this.colName("ToStr"), defaultDbType("String", undefined)!, IsNullable.Yes);
+                table.toStrColumn = new ValueColumn(this.idiomatic("ToStr"), defaultDbType("String", undefined)!, IsNullable.Yes);
         }
 
         table.generateColumns();
@@ -433,10 +433,10 @@ export class SchemaBuilder {
         const defaultHistory = table.name.name + (this.settings.isPostgres ? '_history' : 'History');
         const historyName = new ObjectName(cfg.historyTableName ?? defaultHistory, table.name.schema);
         const sv = this.settings.isPostgres
-            ? SystemVersionedInfo.postgres(historyName, cfg.sysPeriodColumnName ?? this.colName('SysPeriod'))
+            ? SystemVersionedInfo.postgres(historyName, cfg.sysPeriodColumnName ?? this.idiomatic('SysPeriod'))
             : SystemVersionedInfo.sqlServer(historyName,
-                cfg.startColumnName ?? this.colName('SysStartDate'),
-                cfg.endColumnName ?? this.colName('SysEndDate'));
+                cfg.startColumnName ?? this.idiomatic('SysStartDate'),
+                cfg.endColumnName ?? this.idiomatic('SysEndDate'));
         table.systemVersioned = sv;
         for (const col of sv.columns())
             table.columns[col.name] = col;
@@ -535,19 +535,23 @@ export class SchemaBuilder {
 
         // Polymorphic references.
         if (fi.implementations != null) {
+            // One field, several columns — so a single hand-picked name cannot address them. Signum composes
+            // (`Foo_Artist`); altea refuses rather than silently pick a shape (see explicitColumnName).
+            if (this.explicitColumnName(fi) != null)
+                throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: @column({ columnName }) cannot name a polymorphic reference — it owns one column per implementation. Subclass SchemaBuilder.columnName / .idiomatic to rename them.`);
             if (fi.implementations.kind === 'implementedByAll') {
                 // One id column per configured PK type: `<Field>ID_<Int32|Int64|Guid>`.
                 const idColumns = this.settings.implementedByAllPrimaryKeyTypes.map(t =>
-                    new ImplementedByAllIdColumn(this.colName(preName.add(`${cap(fi.name)}ID_${t.name}`).toString()), t.dbType, t.pkType));
+                    new ImplementedByAllIdColumn(this.idiomatic(preName.add(`${this.columnName(fi)}ID_${t.name}`).toString()), t.dbType, t.pkType));
                 // The type discriminator is the target's TypeEntity int id, so the
                 // column references the (auto-included) TypeEntity table.
                 const typeTable = this.include(TypeEntity as unknown as Type<Entity>).table;
-                const typeColumn = new ImplementedByAllTypeColumn(this.colName(preName.add(`${cap(fi.name)}ID_Type`).toString()), typeTable);
+                const typeColumn = new ImplementedByAllTypeColumn(this.idiomatic(preName.add(`${this.columnName(fi)}ID_Type`).toString()), typeTable);
                 return new FieldImplementedByAll(idColumns, typeColumn, isLite);
             }
             const columns = fi.implementations.types().map(implType => {
                 const refTable = this.include(implType, ownerData).table;
-                const colName = this.colName(preName.add(`${cap(fi.name)}ID_${cleanTypeName(implType)}`).toString());
+                const colName = this.idiomatic(preName.add(`${this.columnName(fi)}ID_${cleanTypeName(implType)}`).toString());
                 return new ImplementationColumn(colName, refTable, isLite);
             });
             return new FieldImplementedBy(columns, isLite);
@@ -558,7 +562,8 @@ export class SchemaBuilder {
             if (!isEntityCtor(elementType))
                 throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: Lite container without an entity element type.`);
             const refTable = this.include(elementType, ownerData).table;
-            const baseName = fi.fkPropertyName ?? this.colName(preName.add(`${cap(fi.name)}ID`).toString());
+            const baseName = this.explicitColumnName(fi)
+                ?? this.idiomatic(preName.add(`${this.columnName(fi)}ID`).toString());
             return new FieldReference(new ReferenceColumn(baseName, refTable, nullable, isLite));
         }
 
@@ -574,7 +579,8 @@ export class SchemaBuilder {
             if (enumObject == null)
                 throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: enum '${fi.getTypeName() ?? fi.name}' is not registered. Enums declared in the same file as the entity are auto-registered; call registerEnum(...) by hand for cross-file enums.`);
             const refTable = this.include(EnumEntity.typeFor(enumObject)).table;
-            const colName = fi.fkPropertyName ?? this.colName(preName.add(`${cap(fi.name)}ID`).toString());
+            const colName = this.explicitColumnName(fi)
+                ?? this.idiomatic(preName.add(`${this.columnName(fi)}ID`).toString());
             return new FieldEnum(new ReferenceColumn(colName, refTable, nullable, /* isLite */ false));
         }
 
@@ -591,7 +597,9 @@ export class SchemaBuilder {
         const isDecimal = dbType.isDecimal();
         const precision = fi.columnOptions?.precision ?? (isDecimal ? 18 : undefined);
         const scale = fi.columnOptions?.scale ?? (isDecimal ? 2 : undefined);
-        const column = new ValueColumn(this.colName(preName.add(this.columnName(fi)).toString()), dbType, nullable, fi.columnOptions?.size, precision, scale);
+        const name = this.explicitColumnName(fi)
+            ?? this.idiomatic(preName.add(this.columnName(fi)).toString());
+        const column = new ValueColumn(name, dbType, nullable, fi.columnOptions?.size, precision, scale);
         return new FieldValue(column);
     }
 
@@ -601,9 +609,11 @@ export class SchemaBuilder {
         if (typeInfo == null)
             throw new Error(`Embedded type '${fi.getTypeName() ?? fi.name}' (field '${fi.name}') has no reflection metadata.`);
 
-        const embeddedPre = preName.add(this.columnName(fi));
+        // An explicit name REPLACES the sequence its members hang off, as in Signum (`NameSequence.GetVoid`).
+        const explicit = this.explicitColumnName(fi);
+        const embeddedPre = explicit != null ? NameSequence.void().add(explicit) : preName.add(this.columnName(fi));
         const hasValue = fi.isNullable === true
-            ? new EmbeddedHasValueColumn(this.colName(embeddedPre.add('HasValue').toString()))
+            ? new EmbeddedHasValueColumn(this.idiomatic(embeddedPre.add('HasValue').toString()))
             : undefined;
 
         const embeddedFields: { [name: string]: EntityField } = {};
@@ -678,14 +688,53 @@ export class SchemaBuilder {
         return defaultDbType(fi.typeName, fi.subTypeName);
     }
 
-    private columnName(fi: FieldInfo): string {
-        return fi.columnOptions?.columnName ?? cap(fi.name);
+    /**
+     * The CONVENTIONAL logical (PascalCase) base name a field contributes to its column(s) — the capitalised
+     * field name. OVERRIDE POINT, the entity-side counterpart of `ViewBuilder.columnName`; the owning type is
+     * reachable as `fi.declaringType`.
+     *
+     * EVERY field a FieldInfo describes passes through here — a value, an embedded (whose members are then
+     * prefixed with it), a reference's `<Field>ID`, an enum's, and each `@implementedBy` /
+     * `@implementedByAll` implementation column. Only the fixed columns have no FieldInfo to route
+     * (`ID` / `Ticks` / `ToStr` / the @systemVersioned period ones); {@link idiomatic} is the hook that
+     * covers those.
+     *
+     * Signum's counterpart is `GenerateFieldName(PropertyRoute, KindOfField)`, which BUNDLES three things:
+     * this name, the `ID` suffix keyed by `KindOfField`, and `Idiomatic`. altea splits them — the suffix is
+     * applied at each reference call site, the dialect rule is {@link idiomatic}, and an explicit rename is
+     * {@link explicitColumnName} — so an override here changes the conventional base name for every kind,
+     * and cannot change the `ID` convention itself.
+     */
+    protected columnName(fi: FieldInfo): string {
+        return cap(fi.name);
     }
 
-    // Final physical column name for the given logical (PascalCase) name: Signum uses the
-    // PascalCase form verbatim on SQL Server and snake_cases it on Postgres, so both
-    // dialects match Signum (`SexID` / `sex_id`, `AuthorID_Artist` / `author_id_artist`).
-    private colName(logical: string): string {
+    /**
+     * `@column({columnName})` — Signum's `[ColumnName]`, read where Signum reads it (in the name block of
+     * `GenerateField`, i.e. before any convention applies) so it means the same thing for every kind of
+     * field: **this IS the column name**. Verbatim — no embedded prefix, no `ID` suffix, and no dialect
+     * mapping, since a hand-picked name is not altea's to re-spell.
+     *
+     * DIVERGENCE, in the corner Signum composes and altea refuses: for `@implementedBy` /
+     * `@implementedByAll` one field owns SEVERAL columns, so a single name cannot address them (Signum
+     * appends the implementation to it — `Foo_Artist`). altea throws instead of silently picking a shape;
+     * naming those is what subclassing {@link columnName} / {@link idiomatic} is for.
+     */
+    private explicitColumnName(fi: FieldInfo): string | undefined {
+        return fi.columnOptions?.columnName;
+    }
+
+    /**
+     * Final PHYSICAL column name for a logical (PascalCase) one — Signum's `Idiomatic(name)` verbatim
+     * (`IsPostgres ? name.PascalToSnake() : name`), so both dialects match Signum (`SexID` / `sex_id`,
+     * `AuthorID_Artist` / `author_id_artist`).
+     *
+     * OVERRIDE POINT for a whole-schema naming convention, and the only one that sees EVERY column: the
+     * value/embedded names {@link columnName} produced, the `<Field>ID…` of every reference kind, and the
+     * fixed `ID` / `Ticks` / `ToStr` / @systemVersioned period columns, which no FieldInfo covers. (Signum's
+     * `Idiomatic` is public but NOT virtual — making this overridable is an altea addition.)
+     */
+    protected idiomatic(logical: string): string {
         return this.settings.isPostgres ? pascalToSnake(logical) : logical;
     }
 }

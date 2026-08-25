@@ -209,12 +209,17 @@ export class Schema {
     // @quoted navigation references another view).
     readonly views = new Map<ViewType, Table>();
 
+    // The builder `view()` materialises with. Constructed with `this` so a temp-table view's FK column can
+    // resolve its target entity's already-built Table (catalog views ignore it — they map scalar columns
+    // only). PUBLIC and reassignable: a schema bound to a FOREIGN database — one altea reads but neither
+    // generates nor synchronizes — swaps in a subclass to remap the table/column names its view classes
+    // declare (ViewBuilder.tableName / .columnName). See eastwind's NorthwindPostgresViewBuilder.
+    viewBuilder: ViewBuilder = new ViewBuilder(this);
+
     view<T extends View>(type: ViewType<T>): Table {
         let table = this.views.get(type);
         if (table == null) {
-            // Pass `this` so a temp-table view's FK column can resolve its target entity's
-            // already-built Table (catalog views ignore it — they map scalar columns only).
-            table = new ViewBuilder(this).newView(type);
+            table = this.viewBuilder.newView(type);
             this.views.set(type, table);
         }
         return table;

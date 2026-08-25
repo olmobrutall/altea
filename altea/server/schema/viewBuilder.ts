@@ -1,5 +1,5 @@
 import type { Entity, Type, View, ViewType } from '../../data/entity';
-import { getTypeInfo, FieldInfo } from '../../data/reflection';
+import { getTypeInfo, FieldInfo, type TypeInfo } from '../../data/reflection';
 import { AbstractDbType, IsNullable, defaultDbType } from './dbType';
 import { PrimaryKeyColumn, ValueColumn, ReferenceColumn } from './column';
 import { FieldValue, FieldReference, FieldPrimaryKey, EntityField, Field } from './field';
@@ -24,7 +24,35 @@ export class ViewBuilder {
     // The schema is needed to resolve FK view columns (a temp-table view's Lite<T>
     // reference) to the target entity's already-built Table. Catalog views (scalar
     // columns only) never touch it, so it stays optional for those.
-    constructor(private readonly schema?: Schema) { }
+    constructor(protected readonly schema?: Schema) { }
+
+    /**
+     * The object name a view class maps to — its `@tableName`, parsed. Takes the whole TypeInfo (not just
+     * the declared string) so an override can key on the view CLASS and its fields, not only on the name it
+     * happens to declare. Signum's counterpart is SchemaBuilder.GenerateTableName.
+     *
+     * OVERRIDE POINT: a schema bound to a FOREIGN database (one altea neither generates nor synchronizes)
+     * may spell the same tables differently, and a subclass installed on that schema's `viewBuilder` remaps
+     * them without a second set of view classes. See eastwind's NorthwindPostgresViewBuilder, which reads a
+     * PascalCase `dbo.X` declaration off a snake_case `public.x` pg_dump. `newView` has already checked that
+     * `typeInfo.tableName` is set.
+     */
+    protected tableName(typeInfo: TypeInfo): ObjectName {
+        return parseViewName(typeInfo.tableName!);
+    }
+
+    /**
+     * The column a scalar view field reads — the FIELD NAME verbatim (no naming convention, unlike an
+     * entity's SchemaBuilder). OVERRIDE POINT, paired with {@link tableName}; Signum's counterpart is
+     * SchemaBuilder.GenerateFieldName. The owning view is reachable as `fi.declaringType`, so this needs no
+     * second parameter.
+     *
+     * NOT applied to a temp-table view's FK column, which follows altea's own `<Field>ID` convention: a temp
+     * table is CREATED by altea, so its names are altea's and there is nothing foreign to remap.
+     */
+    protected columnName(fi: FieldInfo): string {
+        return fi.name;
+    }
 
     newView<V extends View>(type: ViewType<V>): Table {
         const ctor = type;
@@ -39,7 +67,7 @@ export class ViewBuilder {
         // no @viewPrimaryKey (its rows are projected/inserted directly, never dedup'd).
         const isTempTable = typeInfo.tableName.startsWith('#');
 
-        const table = new Table(type, parseViewName(typeInfo.tableName));
+        const table = new Table(type, this.tableName(typeInfo));
         table.isView = true;
 
         let pkFieldInfo: FieldInfo | undefined;
@@ -94,8 +122,9 @@ export class ViewBuilder {
             if (refTable == null)
                 throw new Error(`Temp-table view field '${fi.name}' on ${ctor.name}: cannot resolve referenced entity '${fi.getTypeName() ?? fi.name}'. Ensure its module is imported and the schema is complete.`);
             const nullable = fi.isNullable === true ? IsNullable.Yes : IsNullable.No;
-            // Column name follows the entity FK convention: `<Field>ID` (PascalCase field + "ID").
-            const colName = fi.fkPropertyName ?? `${cap(fi.name)}ID`;
+            // Column name follows the entity FK convention: `<Field>ID` (PascalCase field + "ID"), or the
+            // verbatim `@column({columnName})` if the field declares one.
+            const colName = fi.columnOptions?.columnName ?? `${cap(fi.name)}ID`;
             return new FieldReference(new ReferenceColumn(colName, refTable, nullable, /* isLite */ fi.lite === true));
         }
 
@@ -114,8 +143,9 @@ export class ViewBuilder {
         if (fi.array)
             dbType = new AbstractDbType(dbType.sqlServer + "[]", dbType.postgres + "[]");
 
-        // Column name = field name verbatim (raw catalog column, no PascalCase/snake_case).
-        const column = new ValueColumn(fi.name, dbType, nullable, fi.columnOptions?.size, fi.columnOptions?.precision);
+        // Column name = field name verbatim (raw catalog column, no PascalCase/snake_case), unless a
+        // subclass remaps it — see `columnName`.
+        const column = new ValueColumn(this.columnName(fi), dbType, nullable, fi.columnOptions?.size, fi.columnOptions?.precision);
         if (fi.array)
             column.collection = true;
         return new FieldValue(column);

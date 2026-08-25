@@ -357,12 +357,6 @@ export function serialize(value: boolean = true) {
     };
 }
 
-export function fkProperty(propertyName: string) {
-    return function (target: object, propertyKey: string | symbol): void {
-        getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).fkPropertyName = propertyName;
-    };
-}
-
 // Field-level display metadata (Signum's [Format] / [Unit] from Entities/PropertyAttributes.cs).
 // Applied to a (usually numeric or date) field; recorded on FieldInfo and surfaced by AutoLine and
 // by the SearchControl result cells — and, crucially, by the query tokens: EntityPropertyToken reads
@@ -425,11 +419,12 @@ export function column(options: ColumnOptions | false = {}) {
             return;
         }
 
-        const normalizedOptions: ColumnOptions = {
-            ...options,
-            columnName: options.columnName ?? key,
-        };
-        existing.columnOptions = normalizedOptions;
+        // `columnName` is left UNSET when the caller gave none. Defaulting it to the raw property key here
+        // looked harmless but silently bypassed the naming convention: SchemaBuilder.columnName falls back to
+        // `cap(fi.name)`, so a field carrying any `@column({...})` option got a camelCase column while its
+        // undecorated siblings got PascalCase (`exceptionType` beside `ExceptionMessage` on ExceptionEntity).
+        // Only SQL Server showed it — Postgres snake_cases both spellings to the same name.
+        existing.columnOptions = { ...options };
         // Mirror an explicit nullable into the field's nullability so the column
         // is generated NULL even when the TS type isn't `| null` (Signum's
         // ForceNullable). Auto-@field never sets nullable for a non-null type, so
