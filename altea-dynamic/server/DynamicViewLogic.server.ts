@@ -8,6 +8,9 @@ import * as Database from "@altea/altea/server/Database";
 import { Entity } from "@altea/altea/data/entity";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
+import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { getKey } from "@altea/altea/data/dynamicQuery/queryUtils";
+import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import {
     DynamicViewEntity, DynamicViewEntity_Prop, DynamicViewOperation,
     DynamicViewOverrideEntity, DynamicViewOverrideOperation,
@@ -133,10 +136,6 @@ export namespace DynamicViewLogic {
      * FieldImplementedBy case).
      */
     export async function getSuggestedFindOptions(cleanName: string): Promise<SuggestedFindOptions[]> {
-        const { QueryLogic } = await import("@altea/altea/server/dynamicQuery/queryLogic");
-        const { getKey } = await import("@altea/altea/data/dynamicQuery/queryUtils");
-        const { PropertyRoute } = await import("@altea/altea/data/propertyRoute");
-
         const result: SuggestedFindOptions[] = [];
 
         for (const queryName of QueryLogic.queries.getQueryNames()) {

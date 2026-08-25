@@ -14,6 +14,7 @@ import { AsTypeToken } from "@altea/altea/data/dynamicQuery/tokens/asTypeToken";
 import { HasValueToken } from "@altea/altea/data/dynamicQuery/tokens/hasValueToken";
 import { EntityPropertyToken } from "@altea/altea/data/dynamicQuery/tokens/entityPropertyToken";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
+import { retrieve } from "@altea/altea/server/Database";
 import {
     QueryRequest, Column, FilterCondition, FilterOperation, Pagination, type Filter,
 } from "@altea/altea/server/dynamicQuery/requests";
@@ -681,7 +682,6 @@ async function resolveValue(assignment: Assignment, value: unknown): Promise<unk
 }
 
 async function retrieveOf(lite: Lite<Entity>): Promise<Entity> {
-    const { retrieve } = await import("@altea/altea/server/Database");
     return await retrieve(lite.entityType as Type<Entity>, lite.id);
 }
 

@@ -1,4 +1,6 @@
 import { createTransport, type Transporter, type SendMailOptions } from "nodemailer";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbeddedLogic.server";
 import { mimeType } from "@altea/altea-files/server/FileTypeAlgorithm.server";
@@ -96,7 +98,6 @@ export async function createTransporter(config: SmtpEmailServiceEntity): Promise
             if (network == null)
                 throw new Error("SmtpEmailServiceEntity.network is not set for a Network delivery method");
 
-            const fs = await import("node:fs/promises");
             const certs: Buffer[] = [];
             for (const cc of network.clientCertificationFiles)
                 certs.push(await fs.readFile(cc.fullFilePath));
@@ -130,8 +131,6 @@ function createPickupDirectoryTransport(directory: string): Transporter {
     const original = transporter.sendMail.bind(transporter);
     transporter.sendMail = (async (mail: SendMailOptions) => {
         const info = await original(mail) as { messageId: string; message: Buffer };
-        const fs = await import("node:fs/promises");
-        const path = await import("node:path");
         await fs.mkdir(directory, { recursive: true });
         const name = info.messageId.replace(/[<>:"/\\|?*]/g, "_") + ".eml";
         await fs.writeFile(path.join(directory, name), info.message);

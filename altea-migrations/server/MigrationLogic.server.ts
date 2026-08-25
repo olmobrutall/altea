@@ -6,6 +6,8 @@ import type { Table } from "@altea/altea/server/schema/table";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { Administrator } from "@altea/altea/server/Administrator";
+import { table } from "@altea/altea/server/table";
+import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { Entity, type Type } from "@altea/altea/data/entity";
@@ -127,10 +129,9 @@ export namespace MigrationLogic {
     }
 }
 
-// A tiny local helper so this module needs no `table` import cycle with the query layer.
+// A tiny local helper: read a whole migration table ungated. (There is no import cycle to dodge here —
+// `Administrator` above already pulls both of these in statically.)
 async function tableRows<T extends Entity>(type: Type<T>): Promise<T[]> {
-    const { table } = await import("@altea/altea/server/table");
-    const { ExecutionMode } = await import("@altea/altea/server/executionMode");
     return await ExecutionMode.global(() => table(type as Type<Entity>).toArray()) as T[];
 }
 

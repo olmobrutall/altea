@@ -2,12 +2,14 @@ import "@altea/altea/server";
 import "@altea/altea/data/globals/arrayExtensions";
 import { table } from "@altea/altea/server/table";
 import { Lite } from "@altea/altea/data/lite";
+import { OperationLogEntity } from "@altea/altea/data/operationLog";
 import type { IWorkflowNodeEntity } from "../data/Workflow";
 import {
     ConnectionType, WorkflowActivityEntity, WorkflowConnectionEntity, WorkflowEventEntity, WorkflowEventType,
     WorkflowGatewayDirection,
 } from "../data/WorkflowNodes";
-import { CaseActivityEntity, DoneType } from "../data/CaseActivity";
+import { CaseActivityEntity, CaseActivityOperation, DoneType } from "../data/CaseActivity";
+import { WorkflowEventTaskEntity } from "../data/WorkflowEventTask";
 import { CaseNotificationEntity } from "../data/CaseNotification";
 import type { CaseEntity } from "../data/Case";
 import type { CaseActivityStats, CaseConnectionStats, CaseFlow } from "../data/WorkflowDtos";
@@ -291,10 +293,6 @@ export namespace CaseFlowLogic {
      */
     async function getStartEvent(caseEntity: CaseEntity, firstActivity: Lite<CaseActivityEntity>,
         gr: WorkflowNodeGraph): Promise<WorkflowEventEntity | null> {
-
-        const { OperationLogEntity } = await import("@altea/altea/data/operationLog");
-        const { CaseActivityOperation } = await import("../data/CaseActivity");
-        const { WorkflowEventTaskEntity } = await import("../data/WorkflowEventTask");
 
         const fromTaskKey = CaseActivityOperation.CreateCaseFromWorkflowEventTask.key;
         const caseLite = caseEntity.toLite();

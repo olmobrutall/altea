@@ -7,7 +7,10 @@ import {
 } from "@altea/altea/server/schema/field";
 import { isNullableToBool } from "@altea/altea/server/schema/dbType";
 import { ObjectName, SchemaName, DatabaseName } from "@altea/altea/server/schema/objectName";
-import { Connector } from "@altea/altea/server/connection";
+// NOT the `server/connection` barrel: that re-exports BOTH dialect connectors, so importing it pulls the
+// `pg` and `mssql` drivers into the graph of every host that installs this module — which is exactly what
+// the barrel's own comment says it exists to avoid.
+import { Connector } from "@altea/altea/server/connection/connector";
 import { view } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
