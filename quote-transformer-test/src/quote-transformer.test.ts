@@ -316,9 +316,9 @@ describe('init() symbol-declaration transform', () => {
         `function init(...args: any[]): any { return null; }\n` +
         `class Symbol { key: string; }\n` +
         `class OperationSymbol extends Symbol { }\n` +
-        `interface ExecuteSymbol<T> extends OperationSymbol { _execute_: T }\n` +
-        `interface DeleteSymbol<T> extends OperationSymbol { _delete_: T }\n` +
-        `interface ConstructSymbol_Simple<T> extends OperationSymbol { _construct_: T }\n` +
+        `interface ExecuteSymbol<T> extends OperationSymbol { _execute_: T; }\n` +
+        `interface DeleteSymbol<T> extends OperationSymbol { _delete_: T; }\n` +
+        `interface ConstructSymbol_Simple<T> extends OperationSymbol { _construct_: T; }\n` +
         `class UserEntity { id: number; }\n`;
 
     test('init() injects the Symbol class + key + __fileInfo for each namespace member', () => {

@@ -85,7 +85,7 @@ class EmployeeEntity {
 class EmployeeEntity {
     @field({ typeName: "String" }) name!: string;
     @field({ type: () => EmployeeEntity, nullable: true, lite: true }) manager!: Lite<EmployeeEntity> | null;
-    @field({ type: () => EmployeeEntity, array: true }) reports!: EmployeeEntity[];
+    @field({ type: () => EmployeeEntity, array: true }) reports!: EmployeeEntity[] = [];
 }
 registerType(EmployeeEntity, "EmployeeEntity", __fileInfo);`
         );
