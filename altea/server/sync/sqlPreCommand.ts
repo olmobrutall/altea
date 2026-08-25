@@ -182,3 +182,17 @@ export class SqlPreCommandWithHistory extends SqlPreCommand {
         return command; // SqlPreCommandSimple
     }
 }
+
+/**
+ * Signum's `ExecuteSqlScriptException` (Signum/Engine/Sync/SqlPreCommand.cs): the marker a migration
+ * runner throws once it has ALREADY REPORTED a failure to the console. Its callers catch this type and
+ * only this type — interactively they swallow it and redraw their menu (the dev has seen the error and
+ * can fix the script / the step and retry), while an autoRun deploy rethrows so the process exits.
+ * Without it a reported error is printed a second time by the terminal's top-level handler.
+ */
+export class ExecuteSqlScriptException extends Error {
+    constructor(message: string, options?: { cause?: unknown }) {
+        super(message, options);
+        this.name = "ExecuteSqlScriptException";
+    }
+}

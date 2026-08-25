@@ -2,6 +2,7 @@ import "@altea/altea/server"; // installs save()/toLite()
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { Clock } from "@altea/altea/data/utils/clock";
+import { ExecuteSqlScriptException } from "@altea/altea/server/sync/sqlPreCommand";
 import { CSharpMigrationEntity, MigrationMessage } from "../data/Migrations";
 import { MigrationLogic } from "./MigrationLogic.server";
 import { SafeConsole, Color } from "./SafeConsole.server";
@@ -16,8 +17,11 @@ import { SafeConsole, Color } from "./SafeConsole.server";
 //    minification), so `add(uniqueName, action)` takes the name FIRST and explicitly. That name is the
 //    migration's identity in the database — renaming one re-runs it, exactly as in Signum.
 //  - Signum's `IEnumerable<MigrationInfo>` + collection initialiser becomes plain `add` calls.
-//  - `ExecuteSqlScriptException` (its retry/abort protocol) is not ported: a failing step throws, the loop
-//    stops, and interactive mode returns to the menu — see `run`.
+//  - Signum's retry/abort PROTOCOL (open the failing script in an editor, retry, abort) is not ported, but
+//    its `ExecuteSqlScriptException` marker IS (in core, where Signum declares it): `execute` reports the
+//    failure and rethrows it as such, and `prompt` catches that type — interactively it redraws the list
+//    and asks again, an autoRun deploy rethrows. Without the marker the terminal's top-level handler
+//    printed every failed step a SECOND time.
 
 export interface CSharpMigrationInfo {
     uniqueName: string;
@@ -74,14 +78,25 @@ export class CSharpMigrationRunner {
         if (!autoRun && !await SafeConsole.ask(MigrationMessage.RunMigrations0.niceToString(pending.length)))
             return false;
 
-        for (const m of pending) {
-            this.draw(m);
-            await this.execute(m);
+        try {
+            for (const m of pending) {
+                this.draw(m);
+                await this.execute(m);
+            }
+        } catch (e) {
+            // `execute` has already printed it. Interactively that is all the dev needs: fall through and
+            // loop back to the list, so the fixed step can be retried. A deploy has nobody to ask, so it
+            // fails the process — Signum's `if (autoRun) throw;`.
+            if (autoRun || !(e instanceof ExecuteSqlScriptException))
+                throw e;
         }
         return true;
     }
 
-    /** Signum's Execute: run the step, then record it. A throw aborts the whole run (Signum rethrows too). */
+    /**
+     * Signum's Execute: run the step, then record it. A failure is REPORTED here and rethrown as an
+     * ExecuteSqlScriptException — the marker that says "already printed" (see the header).
+     */
     private async execute(mi: CSharpMigrationInfo): Promise<void> {
         SafeConsole.writeLineColor(Color.darkGray, `${mi.uniqueName} executing ...`);
         try {
@@ -91,7 +106,8 @@ export class CSharpMigrationRunner {
             SafeConsole.writeLineColor(Color.darkRed, `${(e as Error)?.name ?? "Error"}: `);
             SafeConsole.writeLineColor(Color.red, (e as Error)?.message ?? String(e));
             SafeConsole.writeLineColor(Color.darkRed, (e as Error)?.stack ?? "");
-            throw e;
+            SafeConsole.writeLine();
+            throw new ExecuteSqlScriptException((e as Error)?.message ?? String(e), { cause: e });
         }
         SafeConsole.writeLineColor(Color.darkGray, `${mi.uniqueName} finished!`);
 

@@ -7,7 +7,8 @@ import { Schema } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { Replacements } from "@altea/altea/server/sync/synchronizer";
-import { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
+import { SqlPreCommand, ExecuteSqlScriptException } from "@altea/altea/server/sync/sqlPreCommand";
+import { existsTable } from "@altea/altea/server/sync/syncTableRead";
 import { SqlMigrationEntity, MigrationMessage } from "../data/Migrations";
 import { MigrationLogic } from "./MigrationLogic.server";
 import { SafeConsole, Color } from "./SafeConsole.server";
@@ -22,8 +23,11 @@ import { SafeConsole, Color } from "./SafeConsole.server";
 //    (cross-database references); altea's schema has no database-qualified names to rewrite, so the scripts
 //    are written and executed verbatim. The constant is kept (unused) so a Signum-authored script that
 //    contains the token still round-trips through `execute`.
-//  - Signum's `ExecuteSqlScriptException` retry protocol (open the file in an editor, retry, abort) is not
-//    ported: a failing script throws, and the loop stops.
+//  - Signum's retry PROTOCOL (open the failing file in an editor, retry, abort) is not ported, but its
+//    `ExecuteSqlScriptException` marker IS: `execute` reports the failure and rethrows it as such, and
+//    `prompt` catches that type — interactively it redraws the list and asks again (Signum's
+//    `PromptResult.Continue`), an autoRun deploy rethrows. The marker is what keeps a reported error from
+//    being printed a SECOND time by the terminal's top-level handler.
 //  - `SqlPreCommand.HasNoTransaction` / `ExtractNoTransaction` have no altea counterpart, so a script is
 //    written as ONE file. The `NT_` comment prefix is still honoured on the way IN: a file whose comment
 //    starts with `NT_` runs OUTSIDE a transaction (what the prefix means in Signum), which is how a
@@ -247,9 +251,18 @@ export namespace SqlMigrationRunner {
             return "Skip";
 
         const start = Date.now();
-        for (const mi of pending) {
-            draw(migrations, mi);
-            await execute(mi);
+        try {
+            for (const mi of pending) {
+                draw(migrations, mi);
+                await execute(mi);
+            }
+        } catch (e) {
+            // `execute` has already printed it. Interactively, loop back to the list so the fixed script can
+            // be retried; a deploy has nobody to ask, so it fails the process — Signum's `if (autoRun) throw;`.
+            if (autoRun || !(e instanceof ExecuteSqlScriptException))
+                throw e;
+
+            return "Continue";
         }
         await resetCache();
         SafeConsole.writeLine(`Elapsed time: ${Math.round((Date.now() - start) / 1000)}s`);
@@ -272,7 +285,18 @@ export namespace SqlMigrationRunner {
 
         const run = async (): Promise<void> => {
             SafeConsole.writeLineColor(Color.darkGray, `Executing ${title} ...`);
-            await Connector.current().executeNonQuery(script);
+            try {
+                await Connector.current().executeNonQuery(script);
+            } catch (e) {
+                // Signum reports the failing statement from SqlPreCommand.ExecuteLeaves and throws the
+                // marker from there; altea executes the file text directly, so the report is here.
+                SafeConsole.writeLine();
+                SafeConsole.writeLineColor(Color.darkRed, `${(e as Error)?.name ?? "Error"}: `);
+                SafeConsole.writeLineColor(Color.red, (e as Error)?.message ?? String(e));
+                SafeConsole.writeLineColor(Color.darkRed, (e as Error)?.stack ?? "");
+                SafeConsole.writeLine();
+                throw new ExecuteSqlScriptException((e as Error)?.message ?? String(e), { cause: e });
+            }
 
             await MigrationLogic.ensureMigrationTable(SqlMigrationEntity);
             await SqlMigrationEntity.create({ versionNumber: mi.version, comment: mi.comment }).save();
@@ -359,10 +383,7 @@ export namespace SqlMigrationRunner {
     async function hasTables(): Promise<boolean> {
         const schema = Connector.current().schema;
         for (const t of schema.tables.values()) {
-            if (await ExecutionMode.global(async () => {
-                const { existsTable } = await import("@altea/altea/server/sync/syncTableRead");
-                return existsTable(t.name);
-            }))
+            if (await ExecutionMode.global(() => existsTable(t.name)))
                 return true;
         }
         return false;
