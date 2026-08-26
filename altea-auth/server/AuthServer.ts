@@ -161,6 +161,12 @@ export namespace AuthServer {
             async (_req, res) => {
                 const current = UserHolder.current();
                 if (current == null) { res.jsonTyped(null); return; }
+                // Signum's `result.Is(AuthLogic.AnonymousUser) ? null : result.Retrieve()`. With an anonymous
+                // user configured, EVERY unauthenticated request has a current user — this one — and the
+                // client must not read that as "logged in": `AppContext.currentUser` is what decides whether
+                // the admin bundle loads, and `Home` sends a visitor with no user to the public catalog.
+                const anon = await AuthLogic.anonymousUser();
+                if (anon != null && current.user.is(anon)) { res.jsonTyped(null); return; }
                 const user = await Database.retrieve(UserEntity, current.user.id);
                 res.jsonTyped(user);
             });

@@ -1,4 +1,5 @@
 import { Dic } from "@altea/altea/data/globals";
+import * as AppContext from "@altea/altea/client/AppContext";
 
 // Port of Signum's `OmniboxSpecialAction` (Signum/React/OmniboxSpecialAction.ts): the registry of
 // "!Command" actions — client-side commands the omnibox can fire ("!SwitchUser", "!ClearCache", …).
@@ -11,22 +12,36 @@ import { Dic } from "@altea/altea/data/globals";
 //
 // `allowed` is evaluated CLIENT-side before the keys are posted (the server can only fuzzy-match what it
 // is told); the action itself is expected to be authorized again wherever its onClick lands.
-export const specialActions: { [actionKey: string]: SpecialOmniboxAction } = {};
+// In `AppContext.clientState` rather than a module-level dictionary — see the note on Navigator's
+// entitySettings. This registry is the one that REFUSES a duplicate rather than overwriting it, so it was
+// also the one that surfaced: with the registry module-global, the second run of a host's registration
+// bundle died with "Action 'PrintPanel' already registered".
+declare module "@altea/altea/client/AppContext" {
+    interface IClientState {
+        omniboxSpecialActions?: { [actionKey: string]: SpecialOmniboxAction };
+    }
+}
+
+export function specialActions(): { [actionKey: string]: SpecialOmniboxAction } {
+    return AppContext.clientState.omniboxSpecialActions ??= {};
+}
 
 export function clearSpecialActions(): void {
-    Dic.clear(specialActions);
+    AppContext.clientState.omniboxSpecialActions = undefined;
 }
 
 export function registerSpecialAction(action: SpecialOmniboxAction): void {
-    if (specialActions[action.key])
+    const actions = specialActions();
+    if (actions[action.key])
         throw new Error(`Action '${action.key}' already registered`);
 
-    specialActions[action.key] = action;
+    actions[action.key] = action;
 }
 
 /** The keys the omnibox should offer right now (Signum's client-side `allowed` filter). */
 export function allowedSpecialActionKeys(): string[] {
-    return Dic.getKeys(specialActions).filter(a => specialActions[a].allowed == null || specialActions[a].allowed());
+    const actions = specialActions();
+    return Dic.getKeys(actions).filter(a => actions[a].allowed == null || actions[a].allowed());
 }
 
 export interface SpecialOmniboxAction {

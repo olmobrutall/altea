@@ -20,7 +20,7 @@ export namespace WindowsADClient {
         cb.configure(WindowsADConfigurationEmbedded).withView(() => import("./WindowsADConfiguration"));
 
         if (options.profilePhotos) {
-            ProfilePhoto.urlProviders.push(u => {
+            ProfilePhoto.urlProviders().push(u => {
                 const userName = u.toString();
                 return userName ? AppContext.toAbsoluteUrl("/api/adThumbnailphoto/" + encodeURIComponent(userName)) : null;
             });

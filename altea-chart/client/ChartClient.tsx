@@ -3,6 +3,14 @@ import { ajaxGet } from '@altea/altea/client/Services';
 import type { ClientBuilder } from '@altea/altea/client/ClientBuilder';
 import { ImportComponent } from '@altea/altea/client/ImportComponent';
 import { Dic } from '@altea/altea/data/globals/index';
+import * as AppContext from '@altea/altea/client/AppContext';
+
+// altea-chart's slice of the per-user client state — see the note on Navigator's entitySettings.
+declare module '@altea/altea/client/AppContext' {
+  interface IClientState {
+    chartButtonBar?: ((ctx: any) => React.ReactElement | undefined)[];
+  }
+}
 import { Lite } from '@altea/altea/data/lite';
 import type { Entity } from '@altea/altea/data/entity';
 import { Enum } from '@altea/altea/data/enum';
@@ -87,7 +95,7 @@ export namespace ChartClient {
     // opens the current query (+ filters) as a chart. Gated by showBarExtension + the showChartButton opt-in
     // (falls back to largeToolbarButtons). altea has no client ViewCharting permission — charting is
     // server-gated — so the permission check Signum does is dropped.
-    Finder.ButtonBarQuery.onButtonBarElements.push(ctx => {
+    Finder.ButtonBarQuery.onButtonBarElements().push(ctx => {
       const sc = ctx.searchControl;
       if (!sc.props.showBarExtension ||
         !(sc.props.showBarExtensionOption?.showChartButton ?? sc.props.largeToolbarButtons))
@@ -124,10 +132,15 @@ export namespace ChartClient {
   }
 
   export namespace ButtonBarChart {
-    export const onButtonBarElements: ((ctx: ButtonBarChartContext) => React.ReactElement | undefined)[] = [];
+    // In `AppContext.clientState`, not a module-level array — see the note on Navigator's entitySettings.
+    // altea-chart's own UserChartClient pushes here from its `start()`, so a second registration run would
+    // put the user-chart menu on the chart toolbar twice.
+    export function onButtonBarElements(): ((ctx: ButtonBarChartContext) => React.ReactElement | undefined)[] {
+      return AppContext.clientState.chartButtonBar ??= [];
+    }
 
     export function getButtonBarElements(chartRequestView: ChartRequestViewHandle): React.ReactElement[] {
-      return onButtonBarElements.map(f => f({ chartRequestView })).filter((a): a is React.ReactElement => a != undefined);
+      return onButtonBarElements().map(f => f({ chartRequestView })).filter((a): a is React.ReactElement => a != undefined);
     }
   }
 

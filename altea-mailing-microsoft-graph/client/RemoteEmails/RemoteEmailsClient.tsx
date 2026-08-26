@@ -64,7 +64,7 @@ export namespace RemoteEmailsClient {
         // ---- filtering ----------------------------------------------------------------------------------
 
         // A quick filter on a From/To cell should filter by the ADDRESS, not by the whole embedded.
-        Finder.quickFilterRules.push({
+        Finder.quickFilterRules().push({
             name: "EmailAddress",
             applicable: (qt: QueryToken) => qt.filterType === "Embedded" && qt.type.getTypeName() === RecipientEmbedded.typeName,
             execute: async (qt: QueryToken, value: unknown, sc: SearchControlLoaded) => {
@@ -73,7 +73,7 @@ export namespace RemoteEmailsClient {
             },
         });
 
-        Finder.quickFilterRules.push({
+        Finder.quickFilterRules().push({
             name: "RemoteEmailFolder",
             applicable: (qt: QueryToken) => qt.filterType === "Model" && qt.type.getTypeName() === RemoteEmailFolderModel.typeName,
             execute: (qt: QueryToken, value: unknown, sc: SearchControlLoaded) =>
@@ -97,7 +97,7 @@ export namespace RemoteEmailsClient {
         };
 
         // The User filter is a real entity picker (no autocomplete over a directory), …
-        Finder.filterValueFormatRules.push({
+        Finder.filterValueFormatRules().push({
             name: "User",
             applicable: (f: FilterOptionParsed) => isFilterCondition(f) && f.token?.fullKey() === "user" && f.operation === "EqualTo",
             renderValue: (f: FilterOptionParsed, ffc: Finder.FilterFormatterContext) =>
@@ -106,7 +106,7 @@ export namespace RemoteEmailsClient {
         });
 
         // … and the Folder filter is a <select> over THAT user's folders.
-        Finder.filterValueFormatRules.push({
+        Finder.filterValueFormatRules().push({
             name: "EmailFolder",
             applicable: (f: FilterOptionParsed) => isFilterCondition(f)
                 && f.token?.type.getTypeName() === RemoteEmailFolderModel.typeName,
@@ -161,8 +161,8 @@ export namespace RemoteEmailsClient {
             },
         });
 
-        onContextualItems.push(getMessageContextualItems);
-        ButtonBarManager.onButtonBarRender.push(getMessageButtons);
+        onContextualItems().push(getMessageContextualItems);
+        ButtonBarManager.onButtonBarRender().push(getMessageButtons);
     }
 
     // ---- the four actions, as buttons on an opened message -----------------------------------------------

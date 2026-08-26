@@ -2,7 +2,7 @@
 // name string in altea → format/unit read off fieldInfo; propertyRouteType enum).
 import * as React from 'react';
 import { Dic } from '../../data/globals';
-import { LineBaseController, type LineBaseProps, setRefProp, tasks, useInitiallyFocused } from './LineBase';
+import { LineBaseController, type LineBaseProps, setRefProp, defaultTasks, useInitiallyFocused } from './LineBase';
 import { getTimeMachineIcon } from './TimeMachineIcon';
 import { PropertyRouteType } from '../../data/propertyRoute';
 import { defaultFormat } from '../../data/reflection';
@@ -101,7 +101,7 @@ export function asString(reactChild: React.ReactNode | undefined): string | unde
   return undefined;
 }
 
-tasks.push(taskSetFormat);
+defaultTasks.push(taskSetFormat);
 export function taskSetFormat(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps): void {
   if (lineBase instanceof ValueBaseController) {
     const vProps = state as ValueBaseProps<unknown>;
@@ -116,7 +116,7 @@ export function taskSetFormat(lineBase: LineBaseController<LineBaseProps, unknow
   }
 }
 
-tasks.push(taskSetUnit);
+defaultTasks.push(taskSetUnit);
 export function taskSetUnit(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps): void {
 
   if (lineBase instanceof ValueBaseController) {

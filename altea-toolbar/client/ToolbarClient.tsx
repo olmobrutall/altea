@@ -4,6 +4,14 @@ import { ajaxGet } from "@altea/altea/client/Services";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Finder } from "@altea/altea/client/Finder";
 import type { Entity } from "@altea/altea/data/entity";
+import * as AppContext from "@altea/altea/client/AppContext";
+
+// altea-toolbar's slice of the per-user client state — see the note on Navigator's entitySettings.
+declare module "@altea/altea/client/AppContext" {
+    interface IClientState {
+        toolbarConfigs?: { [type: string]: any[] };
+    }
+}
 import type { Lite } from "@altea/altea/data/lite";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
 import {
@@ -56,18 +64,27 @@ export namespace ToolbarClient {
     }
 
     export function cleanConfigs(): void {
-        Dic.clear(configs);
+        AppContext.clientState.toolbarConfigs = undefined;
     }
 
-    /** Signum's `configs` — clean type name → the configs registered for it. */
-    export const configs: { [type: string]: ToolbarConfig<any>[] } = {};
+    /**
+     * Signum's `configs` — clean type name → the configs registered for it. In `AppContext.clientState`
+     * rather than a module-level dictionary (see the note on Navigator's entitySettings): the values are
+     * ARRAYS that `registerConfig` pushes onto from each module's `start()`, so a host that re-runs its
+     * registration bundle would otherwise leave every toolbar content type registered twice — and
+     * `getConfig` uses `singleOrNull`, so the second registration makes it throw rather than misrender.
+     */
+    export function configs(): { [type: string]: ToolbarConfig<any>[] } {
+        return AppContext.clientState.toolbarConfigs ??= {};
+    }
 
     export function registerConfig<T extends Entity>(config: ToolbarConfig<T>): void {
-        (configs[cleanTypeName(config.type)] ??= []).push(config);
+        const cs = configs();
+        (cs[cleanTypeName(config.type)] ??= []).push(config);
     }
 
     export function getConfig(res: ToolbarResponse<any>): ToolbarConfig<any> | null {
-        return configs[cleanTypeName(res.content!.entityType)]?.filter(c => c.isApplicableTo(res)).singleOrNull();
+        return configs()[cleanTypeName(res.content!.entityType)]?.filter(c => c.isApplicableTo(res)).singleOrNull();
     }
 
     /**

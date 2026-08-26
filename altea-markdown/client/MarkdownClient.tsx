@@ -6,7 +6,7 @@ import Markdown from "react-markdown";
 // column in, the same shape @altea/altea-html-editor's "Html" rule uses.
 export namespace MarkdownClient {
     export function start(): void {
-        Finder.formatRules.push({
+        Finder.formatRules().push({
             name: "Markdown",
             isApplicable: qt => qt.format === "Markdown",
             formatter: () => new Finder.CellFormatter(

@@ -40,7 +40,17 @@ import type { Lite } from '../data/lite';
 import { EngineMessage, JavascriptMessage, OperationMessage } from '../data/uiMessages';
 import type { ConstructSymbol, From, FromMany, Simple, DeleteSymbol, ExecuteSymbol, OperationSymbol, PropertyOperation } from '../data/operations';
 import type { ButtonBarElement, ButtonsContext, EntityFrame, IOperationVisible, TypeContext } from './TypeContext';
+import * as AppContext from './AppContext';
 
+// altea: Operations' per-user client state slice — see the note on Navigator's.
+interface OperationsClientState {
+  operationSettings: { [operationKey: string]: OperationSettings };
+}
+declare module "./AppContext" {
+  interface IClientState {
+    operations?: OperationsClientState;
+  }
+}
 
 export namespace Operations {
 
@@ -52,8 +62,8 @@ export namespace Operations {
 
   export function start(): void {
     DeleteErrorModal.register();
-    ButtonBarManager.onButtonBarRender.push(EntityOperations.getEntityOperationButtons);
-    ContextualItems.onContextualItems.push(ContextualOperations.getOperationsContextualItems);
+    ButtonBarManager.onButtonBarRender().push(EntityOperations.getEntityOperationButtons);
+    ContextualItems.onContextualItems().push(ContextualOperations.getOperationsContextualItems);
 
     // ALTEA: Signum's AppContext.clearSettingsActions doesn't exist in altea (it diverged to per-user
     // client state); the operation-settings registry is cleared directly if/when needed.
@@ -75,7 +85,7 @@ export namespace Operations {
       }),
     ]));
 
-    Finder.formatRules.push({
+    Finder.formatRules().push({
       name: "CellOperation",
       isApplicable: c => {
         return c.type.getTypeName() == "CellOperationDTO";
@@ -88,14 +98,24 @@ export namespace Operations {
 
   }
 
-  export const operationSettings: { [operationKey: string]: OperationSettings } = {};
+  // Lazily initialise + return Operations' slice of the per-user client state — the same call Navigator
+  // and Finder make, so `AppContext.newClientState()` drops every module's registrations at once and a host
+  // can re-run its registration bundle (Signum's `clearAllSettings()` + `startFull(routes)`).
+  function state(): OperationsClientState {
+    return AppContext.clientState.operations ??= { operationSettings: {} };
+  }
+
+  /** The registered OperationSettings, keyed by operation key (stored in AppContext.clientState). */
+  export function operationSettings(): { [operationKey: string]: OperationSettings } {
+    return state().operationSettings;
+  }
 
   export function clearOperationSettings(): void {
-    Dic.clear(operationSettings);
+    state().operationSettings = {};
   }
 
   export function addSettings(...settings: OperationSettings[]): void {
-    settings.forEach(s => Dic.addOrThrow(operationSettings, s.operationSymbol, s));
+    settings.forEach(s => Dic.addOrThrow(state().operationSettings, s.operationSymbol, s));
   }
 
   export function overrideEntitySettings<T extends Entity>(operation: ExecuteSymbol<T> | ConstructSymbol<T, From<Entity>> | DeleteSymbol<T>, options: EntityOperationOptions<T>): void {
@@ -132,7 +152,7 @@ export namespace Operations {
   export function getSettings(operation: OperationSymbol | string): OperationSettings | undefined {
     const operationKey = (operation as OperationSymbol).key || operation as string;
 
-    return operationSettings[operationKey];
+    return state().operationSettings[operationKey];
   }
 
   // Operations are per-ROLE, so they live on the metadata blob rather than on the (compile-time) TypeInfo;

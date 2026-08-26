@@ -96,7 +96,7 @@ export namespace TreeClient {
         );
 
         // The "tree" button on a tree type's search control.
-        Finder.ButtonBarQuery.onButtonBarElements.push(ctx => {
+        Finder.ButtonBarQuery.onButtonBarElements().push(ctx => {
             const ti = tryGetTypeInfo(ctx.findOptions.queryKey);
 
             if (ti == null || !isTree(ti) || !ctx.searchControl.props.showBarExtension)

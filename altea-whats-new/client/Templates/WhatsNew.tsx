@@ -98,6 +98,6 @@ function getDefaultIcon(ti: TypeInfo): WhatsNewClient.IconColor | null {
         case PermissionSymbol: return { icon: "key", iconColor: "#F1C40F" };
     }
 
-    const conf = WhatsNewClient.configs[ti.ctor!.name];
+    const conf = WhatsNewClient.configs()[ti.ctor!.name];
     return conf == undefined || conf.length === 0 ? null : conf[0].getDefaultIcon();
 }

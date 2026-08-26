@@ -29,7 +29,7 @@ import type { FindOptions } from '../FindOptions'
 import { TypeContext, mlistItemContext } from '../TypeContext'
 import { EntityBaseController } from './EntityBase'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { LineBaseController, type LineBaseProps, tasks } from './LineBase'
+import { LineBaseController, type LineBaseProps, defaultTasks } from './LineBase'
 import { getTypeInfo, getTypeName } from '../Reflection'
 import { PropertyRoute, PropertyRouteType } from '../../data/propertyRoute'
 import { type FieldInfo } from '../../data/reflection'
@@ -689,7 +689,7 @@ export interface MoveConfig {
 }
 
 
-tasks.push(taskSetMove);
+defaultTasks.push(taskSetMove);
 export function taskSetMove(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps): void {
   if (lineBase instanceof EntityListBaseController &&
     (state as EntityListBaseProps<any>).move == undefined &&

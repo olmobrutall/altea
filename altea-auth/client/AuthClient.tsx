@@ -51,6 +51,7 @@ export namespace AuthClient {
     };
 
     let notifyLogout = false;
+    let logoutListenerRegistered = false;
 
     // Signum's AuthClient.startPublic: push the /auth/* routes and wire the cross-tab logout listener.
     // Called from MainPublic (NOT the admin bundle) with the app's routes array, so login / change
@@ -62,7 +63,12 @@ export namespace AuthClient {
         routes.push({ path: "/auth/changePassword", element: <ImportComponent onImport={() => import("./public/ChangePasswordPage")} /> });
         routes.push({ path: "/auth/changePasswordSuccess", element: <ImportComponent onImport={() => import("./public/ChangePasswordSuccessPage")} /> });
 
-        if (options?.notifyLogout ?? true) {
+        // The cross-tab logout listener is registered AT MOST ONCE. Signum registers it unconditionally,
+        // which is a latent leak there and a real one here: a host that follows Southwind's MainPublic calls
+        // startPublic from `reload()`, i.e. once per login AND once per logout, so after N credential
+        // changes one "log out" broadcast runs logoutInternal N times.
+        if ((options?.notifyLogout ?? true) && !logoutListenerRegistered) {
+            logoutListenerRegistered = true;
             notifyLogout = true;
             window.addEventListener("storage", se => {
                 if (se.key == "requestLogout" + SessionSharing.getAppName()) {

@@ -31,20 +31,34 @@ import { LinkButton } from './Basics/LinkButton'
 //     `l.key()`, `isEntity(x)`→`x instanceof Entity`. `ModifiableEntity`→`BaseEntity`.
 //   - StyleContext from ./TypeContext (Signum re-exports it from ./Lines).
 //   - Signum's `AppContext.clearSettingsActions.push(clearQuickLinks)` is dropped — altea has no global
-//     clearSettingsActions (it diverged to per-user client state); `clearQuickLinks` stays exported for
-//     callers that want it.
+//     clearSettingsActions: the four registries live in `AppContext.clientState` instead, so a single
+//     `newClientState()` clears them along with every other module's. `clearQuickLinks` stays exported for
+//     callers that want just this one.
 //   - the manual/cell quick-link path uses altea's real ManualToken token class (built by the
 //     QueryTokenBuilder from the descriptors `getQuickLinkTokens` returns).
+// altea: the quick-link slice of the per-user client state — see the note on Navigator's.
+interface QuickLinkClientState {
+  global: Array<(entityType: string) => Promise<{ [key: string]: QuickLink<Entity> }>>;
+  byType: { [entityType: string]: { [key: string]: QuickLink<Entity> } };
+  dynamicByType: { [entityType: string]: Array<(ctx: QuickLinkContext<Entity>) => Promise<QuickLink<Entity>[]>> };
+  cache: { [entityType: string]: Promise<{ [key: string]: QuickLink<Entity> }> };
+}
+declare module "./AppContext" {
+  interface IClientState {
+    quickLinks?: QuickLinkClientState;
+  }
+}
+
 export namespace QuickLinkClient {
 
   export function start(): void {
 
-    onWidgets.push(getQuickLinkWidget);
-    onContextualItems.push(getQuickLinkContextMenus);
+    onWidgets().push(getQuickLinkWidget);
+    onContextualItems().push(getQuickLinkContextMenus);
 
     registerManualSubTokens("[QuickLinks]", getQuickLinkTokens);
 
-    Finder.formatRules.push({
+    Finder.formatRules().push({
       name: "CellQuickLink",
       isApplicable: qt => qt.parent?.key == "[QuickLinks]",
 
@@ -74,46 +88,46 @@ export namespace QuickLinkClient {
   }
 
   export function clearQuickLinks(): void {
-    Dic.clear(globalQuickLinks);
-    Dic.clear(typeQuickLinks);
-    Dic.clear(dynamicQuickLink);
-    Dic.clear(quickLinksCache);
+    AppContext.clientState.quickLinks = undefined;
   }
 
-
-  const globalQuickLinks: Array<(entityType: string) => (Promise<{ [key: string]: QuickLink<Entity> }>)> = [];
-  const typeQuickLinks: { [entityType: string]: { [key: string]: QuickLink<Entity> } } = {};
-  const dynamicQuickLink: { [entityType: string]: QuickLinkFactory<Entity>[] } = {};
+  // Lazily initialise + return the quick-link slice of the per-user client state — see the note on
+  // Navigator's. All four registries move together: the CACHE is derived from the other three, so leaving
+  // it module-global would serve a previous registration's links after a re-registration.
+  function state(): QuickLinkClientState {
+    return AppContext.clientState.quickLinks ??= { global: [], byType: {}, dynamicByType: {}, cache: {} };
+  }
 
   type QuickLinkFactory<T extends Entity> = (ctx: QuickLinkContext<T>) => Promise<QuickLink<T>[]>;
 
   export function registerGlobalQuickLink(f: (entityType: string) => Promise<QuickLink<Entity>[]>): void {
 
-    globalQuickLinks.push(entityType => f(entityType).then(qls => qls.toObject(ql => ql.key)));
+    state().global.push(entityType => f(entityType).then(qls => qls.toObject(ql => ql.key)));
   }
 
   export function registerQuickLink<T extends Entity>(type: Type<T>, quickLink: QuickLink<T>): void {
     const typeName = getTypeName(type);
-    const qls = typeQuickLinks[typeName] ?? {};
+    const byType = state().byType;
+    const qls = byType[typeName] ?? {};
     Dic.addOrThrow(qls, quickLink.key, quickLink as unknown as QuickLink<Entity>);
-    typeQuickLinks[typeName] = qls;
+    byType[typeName] = qls;
   }
 
   export function registerDynamicQuickLink<T extends Entity>(type: Type<T>, quickLinkFactory: QuickLinkFactory<T>): void {
     const typeName = getTypeName(type);
-    const qls = dynamicQuickLink[typeName] ?? [];
+    const dyn = state().dynamicByType;
+    const qls = dyn[typeName] ?? [];
     qls.push(quickLinkFactory as any);
-    dynamicQuickLink[typeName] = qls;
+    dyn[typeName] = qls;
   }
-
-  const quickLinksCache: { [entityType: string]: Promise<{ [key: string]: QuickLink<Entity> }> } = {};
 
   function getCachedOrAdd(entityType: string): Promise<{ [type: string]: QuickLink<Entity> }> {
 
-    return quickLinksCache[entityType] ??=
-      Promise.all(globalQuickLinks.map(a => a(entityType)))
+    const st = state();
+    return st.cache[entityType] ??=
+      Promise.all(st.global.map(a => a(entityType)))
         .then(globalLinks =>
-          globalLinks.concat(typeQuickLinks[entityType] ?? {}))
+          globalLinks.concat(st.byType[entityType] ?? {}))
         .then(allLinks =>
           Object.assign({}, ...allLinks) as { [key: string]: QuickLink<Entity> });
   }
@@ -122,7 +136,7 @@ export namespace QuickLinkClient {
 
     var staticProm = getCachedOrAdd(getTypeName(ctx.lite.entityType));
 
-    var dynamicProm = Promise.all(dynamicQuickLink[getTypeName(ctx.lite.entityType)]?.map(a => a(ctx)) ?? []);
+    var dynamicProm = Promise.all(state().dynamicByType[getTypeName(ctx.lite.entityType)]?.map(a => a(ctx)) ?? []);
 
     var quickLinks = [...Dic.getValues(await staticProm), ...(await dynamicProm).flatMap(a => a)];
 

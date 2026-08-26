@@ -24,7 +24,7 @@ export namespace ConcurrentUserClient {
             return !(kind === "System" || kind === "SystemString");
         });
 
-        onWidgets.push(ctx => {
+        onWidgets().push(ctx => {
             const entity = ctx.ctx.value;
 
             if (entity instanceof Entity && !entity.isNew && activatedFor(entity))

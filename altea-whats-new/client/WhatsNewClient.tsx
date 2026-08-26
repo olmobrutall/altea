@@ -4,6 +4,14 @@ import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { QuickLinkClient, QuickLinkLink } from "@altea/altea/client/QuickLinkClient";
 import type { Lite } from "@altea/altea/data/lite";
+import * as AppContext from "@altea/altea/client/AppContext";
+
+// altea-whats-new's slice of the per-user client state — see the note on Navigator's entitySettings.
+declare module "@altea/altea/client/AppContext" {
+    interface IClientState {
+        whatsNewConfigs?: { [typeName: string]: any[] };
+    }
+}
 import {
     WhatsNewEntity, WhatsNewLogEntity, WhatsNewMessage,
     type NumWhatsNews, type WhatsNewFull, type WhatsNewShort,
@@ -95,9 +103,14 @@ export namespace WhatsNewClient {
         abstract getDefaultIcon(): IconColor;
     }
 
-    export const configs: { [typeName: string]: WhatsNewConfig<unknown>[] } = {};
+    // In `AppContext.clientState` rather than a module-level dictionary (see the note on Navigator's
+    // entitySettings): the values are ARRAYS that `registerConfig` pushes onto from a module's `start()`.
+    export function configs(): { [typeName: string]: WhatsNewConfig<unknown>[] } {
+        return AppContext.clientState.whatsNewConfigs ??= {};
+    }
 
     export function registerConfig(config: WhatsNewConfig<unknown>): void {
-        (configs[config.typeName] ??= []).push(config);
+        const cs = configs();
+        (cs[config.typeName] ??= []).push(config);
     }
 }

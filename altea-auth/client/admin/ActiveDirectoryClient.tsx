@@ -31,6 +31,9 @@ import { UserADMessage } from "../../data/BaseAD";
 
 export namespace ActiveDirectoryClient {
 
+    // A stable identity, so the once-only registration below can recognise it (an inline arrow could not).
+    const onUserChanged = (): void => { void refreshCanInviteUsers(); };
+
     /** Whether the current user may import from the directory; resolved by `start()`. */
     let canInviteUsers = false;
 
@@ -59,7 +62,13 @@ export namespace ActiveDirectoryClient {
         // anyone (the route would 403 as anonymous and the invite UI would never appear, even for an
         // authorized user), and a later user / role switch would keep the previous role's answer.
         // Anonymous is answered locally — asking would only 403.
-        AuthClient.onCurrentUserChanged.push(() => { void refreshCanInviteUsers(); });
+        // `onCurrentUserChanged` is a SUBSCRIPTION list, not a settings registry — it is module-global on
+        // purpose (AuthClient's own metadata reloader lives on it, registered at import time) and so it is
+        // NOT reset with the rest of the client state. This start() may run again on a credential change,
+        // so the subscription is added at most once; otherwise every switch-user would add another copy and
+        // fire N redundant canInviteUsers probes.
+        if (!AuthClient.onCurrentUserChanged.includes(onUserChanged))
+            AuthClient.onCurrentUserChanged.push(onUserChanged);
         void refreshCanInviteUsers();
 
         Navigator.getSettings(UserEntity)!.autocompleteConstructor = (str, _aac) =>
@@ -72,7 +81,7 @@ export namespace ActiveDirectoryClient {
                 onClick: () => importADUser(str),
             }) : null;
 
-        Finder.ButtonBarQuery.onButtonBarElements.push(ctx => {
+        Finder.ButtonBarQuery.onButtonBarElements().push(ctx => {
             if (ctx.findOptions.queryKey != UserEntity.typeName || !canInviteUsers)
                 return undefined;
 

@@ -12,11 +12,23 @@ import { isEntityPack, type EntityPack } from '../data/entityPack';
 import { resolveType } from '../data/registration';
 import { PropertyRoute } from '../data/propertyRoute';
 import { tryGetTypeInfo } from './Reflection';
+import * as AppContext from './AppContext';
+
+declare module "./AppContext" {
+  interface IClientState {
+    customConstructors?: { [typeName: string]: (props?: any, pr?: PropertyRoute) => BaseEntity | Promise<BaseEntity | EntityPack<BaseEntity> | undefined> };
+  }
+}
 import { Navigator } from './Navigator';
 
 export namespace Constructor {
 
-  export const customConstructors: { [typeName: string]: (props?: any, pr?: PropertyRoute) => BaseEntity | Promise<BaseEntity | EntityPack<BaseEntity> | undefined> } = {}
+  // In `AppContext.clientState` rather than a module-level dictionary — see the note on Navigator's
+  // entitySettings. `registerConstructor` REFUSES a duplicate unless `override` is passed, so a host that
+  // re-runs its registration bundle on a credential change would otherwise throw on the second run.
+  export function customConstructors(): { [typeName: string]: (props?: any, pr?: PropertyRoute) => BaseEntity | Promise<BaseEntity | EntityPack<BaseEntity> | undefined> } {
+    return AppContext.clientState.customConstructors ??= {};
+  }
 
   export function construct<T extends BaseEntity>(type: Type<T>, props?: Partial<T>, pr?: PropertyRoute): Promise<T | undefined>;
   export function construct(type: string, props?: any, pr?: PropertyRoute): Promise<BaseEntity | undefined>;
@@ -35,7 +47,7 @@ export namespace Constructor {
     if (ti)
       pr = PropertyRoute.root(ti.ctor!);
 
-    const c = customConstructors[typeName];
+    const c = customConstructors()[typeName];
     if (c)
       return asPromise(c(props, pr)).then<EntityPack<BaseEntity> | undefined>(e => {
         if (e == undefined)
@@ -81,14 +93,15 @@ export namespace Constructor {
 
   export function registerConstructor<T extends BaseEntity>(type: Type<T>, constructor: (props?: Partial<T>, pr?: PropertyRoute) => T | Promise<T | EntityPack<T> | undefined>, options?: { override?: boolean }): void {
     const typeName = (type as any).typeName as string;
-    if (customConstructors[typeName] && !(options?.override))
+    const cs = customConstructors();
+    if (cs[typeName] && !(options?.override))
       throw new Error(`Constructor for ${typeName} already registered`);
 
-    customConstructors[typeName] = constructor as any;
+    cs[typeName] = constructor as any;
   }
 
   export function clearCustomConstructors(): void {
-    Dic.clear(customConstructors);
+    AppContext.clientState.customConstructors = undefined;
   }
 
 }

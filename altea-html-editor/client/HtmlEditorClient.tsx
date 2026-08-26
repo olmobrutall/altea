@@ -6,7 +6,7 @@ import HtmlViewer from "./HtmlViewer";
 // through the viewer instead of showing raw markup. `@format("Html")` on the field is what opts a column in.
 export namespace HtmlEditorClient {
     export function start(): void {
-        Finder.formatRules.push({
+        Finder.formatRules().push({
             name: "Html",
             isApplicable: qt => qt.format === "Html",
             formatter: () => new Finder.CellFormatter(

@@ -3,7 +3,7 @@
 // charCounter text inlined (EntityControlMessage — localized/gender-number-aware — not ported yet).
 import * as React from 'react'
 import { classes } from '../../data/globals'
-import { genericMemo, LineBaseController, type LineBaseProps, tasks, useController } from './LineBase'
+import { genericMemo, LineBaseController, type LineBaseProps, defaultTasks, useController } from './LineBase'
 import { FormGroup } from './FormGroup'
 import TextArea from '../Components/TextArea';
 import { getTimeMachineIcon } from './TimeMachineIcon'
@@ -156,7 +156,7 @@ function ChartCounter(p: { children: (length: number) => React.ReactElement | st
 
 export let maxValueLineSize = 100;
 
-tasks.push(taskSetHtmlProperties);
+defaultTasks.push(taskSetHtmlProperties);
 export function taskSetHtmlProperties(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps): void {
   const vl = lineBase instanceof TextBoxLineController || lineBase instanceof TextAreaLineController ? lineBase : undefined;
   const pr = state.ctx.propertyRoute;

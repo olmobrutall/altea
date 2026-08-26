@@ -72,7 +72,7 @@ function getDefaultIcon(ti: TypeInfo): IconProp | null {
     if (cleanTypeName(ti.ctor!) == cleanTypeName(PermissionSymbol))
         return "key";
 
-    const conf = ToolbarClient.configs[cleanTypeName(ti.ctor!)];
+    const conf = ToolbarClient.configs()[cleanTypeName(ti.ctor!)];
     if (conf == null || conf.length == 0)
         return null;
 

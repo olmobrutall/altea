@@ -68,12 +68,12 @@ export namespace HelpClient {
         );
 
         // The "?" button on every entity frame.
-        onWidgets.push(wc => AuthClient.isPermissionAuthorized(HelpPermissions.ViewHelp) && wc.ctx.value instanceof Entity
+        onWidgets().push(wc => AuthClient.isPermissionAuthorized(HelpPermissions.ViewHelp) && wc.ctx.value instanceof Entity
             ? <HelpWidget wc={wc as WidgetContext<Entity>} />
             : undefined);
 
         // The "?" badge beside a LINE's label, when that property has a written description.
-        tasks.push(taskHelpIcon);
+        tasks().push(taskHelpIcon);
 
         for (const type of [TypeHelpEntity, NamespaceHelpEntity, AppendixHelpEntity, QueryHelpEntity])
             registerExportLink(type);

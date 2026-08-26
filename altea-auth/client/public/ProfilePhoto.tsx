@@ -4,6 +4,7 @@ import { classes } from "@altea/altea/data/globals";
 import { useAPI } from "@altea/altea/client/Hooks";
 import { Lite } from "@altea/altea/data/lite";
 import { UserEntity } from "../../data/User";
+import * as AppContext from "@altea/altea/client/AppContext";
 import UserCircle, * as UserCircles from "./UserCircle";
 import "./ProfilePhoto.css";
 
@@ -26,7 +27,17 @@ import "./ProfilePhoto.css";
 export type ProfilePhotoUrlProvider =
     (u: UserEntity | Lite<UserEntity>, size: number) => string | Promise<string | null> | null;
 
-export const urlProviders: ProfilePhotoUrlProvider[] = [];
+// In `AppContext.clientState`, not a module-level array — see the note on Navigator's entitySettings.
+// altea-auth-azuread and altea-auth-windowsad each push a provider from their `start()`.
+declare module "@altea/altea/client/AppContext" {
+    interface IClientState {
+        profilePhotoUrlProviders?: ProfilePhotoUrlProvider[];
+    }
+}
+
+export function urlProviders(): ProfilePhotoUrlProvider[] {
+    return AppContext.clientState.profilePhotoUrlProviders ??= [];
+}
 
 const urlCache = new Map<string, Promise<string | null> | string | null>();
 
@@ -92,7 +103,7 @@ function getCachedFirstUrl(user: UserEntity | Lite<UserEntity>, size: number): P
 }
 
 function getFirstUrl(user: UserEntity | Lite<UserEntity>, size: number): Promise<string | null> | string | null {
-    for (const f of urlProviders) {
+    for (const f of urlProviders()) {
         const result = f(user, size);
         if (result != null)
             return result;

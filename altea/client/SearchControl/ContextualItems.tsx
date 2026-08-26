@@ -13,6 +13,7 @@ import type { Lite } from '../../data/lite'
 import type { Entity } from '../../data/entity'
 import type { StyleContext } from '../TypeContext';
 import { Dropdown } from 'react-bootstrap';
+import * as AppContext from '../AppContext';
 
 export interface SearchableMenuItem {
   fullText: string; //used for filtering
@@ -48,15 +49,27 @@ export interface MarkedRow {
   message?: string;
 }
 
-export function clearContextualItems(): void {
-  onContextualItems.clear();
+// altea: the contextual-item providers live in `AppContext.clientState`, not a module-level array — see
+// the note on Navigator's entitySettings. They are filled by module `start()` calls, so a host that re-runs
+// its registration bundle would otherwise show every contextual menu block twice.
+type ContextualItemProvider = (ctx: ContextualItemsContext<Entity>) => Promise<MenuItemBlock | undefined> | undefined;
+declare module "../AppContext" {
+  interface IClientState {
+    contextualItems?: ContextualItemProvider[];
+  }
 }
 
-export const onContextualItems: ((ctx: ContextualItemsContext<Entity>) => Promise<MenuItemBlock | undefined> | undefined)[] = [];
+export function clearContextualItems(): void {
+  AppContext.clientState.contextualItems = undefined;
+}
+
+export function onContextualItems(): ContextualItemProvider[] {
+  return AppContext.clientState.contextualItems ??= [];
+}
 
 export function renderContextualItems(ctx: ContextualItemsContext<Entity>): Promise<ContextMenuPack> {
 
-  const blockPromises = onContextualItems.map(func => func(ctx)?.catch(a => ({ error: a, func })));
+  const blockPromises = onContextualItems().map(func => func(ctx)?.catch(a => ({ error: a, func })));
 
   return Promise.all(blockPromises).then(blocks => {
 

@@ -4,6 +4,14 @@ import { ajaxPost } from "@altea/altea/client/Services";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import type { HelpOmniboxResult, OmniboxResult } from "../data/OmniboxResults";
 import { OmniboxResultTypeName } from "../data/OmniboxResults";
+import * as AppContext from "@altea/altea/client/AppContext";
+
+// altea-omnibox's slices of the per-user client state — see the note on Navigator's entitySettings.
+declare module "@altea/altea/client/AppContext" {
+    interface IClientState {
+        omniboxProviders?: { [resultTypeName: string]: any };
+    }
+}
 import DynamicQueryOmniboxProvider from "./DynamicQueryOmniboxProvider";
 import EntityOmniboxProvider from "./EntityOmniboxProvider";
 import SpecialOmniboxProvider from "./SpecialOmniboxProvider";
@@ -28,17 +36,23 @@ export namespace OmniboxClient {
         registerProvider(new SpecialOmniboxProvider());
     }
 
-    export const providers: { [resultTypeName: string]: OmniboxProvider<OmniboxResult> } = {};
+    // In `AppContext.clientState` rather than a module-level dictionary — see the note on Navigator's
+    // entitySettings. `registerProvider` REFUSES a duplicate, so a host that re-runs its registration
+    // bundle would otherwise throw on the second run.
+    export function providers(): { [resultTypeName: string]: OmniboxProvider<OmniboxResult> } {
+        return AppContext.clientState.omniboxProviders ??= {};
+    }
 
     export function clearProviders(): void {
-        Dic.clear(providers);
+        AppContext.clientState.omniboxProviders = undefined;
     }
 
     export function registerProvider(prov: OmniboxProvider<any>): void {
-        if (providers[prov.getProviderName()])
+        const ps = providers();
+        if (ps[prov.getProviderName()])
             throw new Error(`Provider '${prov.getProviderName()}' already registered`);
 
-        providers[prov.getProviderName()] = prov;
+        ps[prov.getProviderName()] = prov;
     }
 
     export function renderItem(result: OmniboxResult): React.ReactNode {
@@ -80,7 +94,7 @@ export namespace OmniboxClient {
     }
 
     function getProvider(resultTypeName: string): OmniboxProvider<OmniboxResult> {
-        const prov = providers[resultTypeName];
+        const prov = providers()[resultTypeName];
 
         if (!prov)
             throw new Error(`No provider for '${resultTypeName}'`);

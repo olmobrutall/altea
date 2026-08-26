@@ -26,9 +26,9 @@ export namespace IsolationClient {
 
     export function start(): void {
 
-        onWidgets.push(getIsolationWidget);
+        onWidgets().push(getIsolationWidget);
 
-        addContextHeaders.push(options => {
+        addContextHeaders().push(options => {
             const overriden = getOverridenIsolation();
             if (overriden != undefined) {
                 options.headers = {

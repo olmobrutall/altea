@@ -44,6 +44,7 @@ import type { AutocompleteConfig } from './Lines/AutoCompleteConfig';
 import CopyLiteButton from './Components/CopyLiteButton';
 import CopyLinkButton from './Components/CopyLinkButton';
 import type { TypeEntity } from "../data/typeEntity";
+import * as AppContext from './AppContext';
 /* ===== Original Signum imports — rewire to altea modules as they are ported =====
 import * as React from "react"
 import { RouteObject } from 'react-router'
@@ -80,6 +81,21 @@ import { ContextualItemsContext, MenuItemBlock } from "./SearchControl/Contextua
 if (!window.__allowNavigatorWithoutUser && (currentUser == null || getToString(currentUser) == "Anonymous"))
   throw new Error("To improve intial performance, no dependency to any module that depends on Navigator should be taken for anonymous user. Review your dependencies or write var __allowNavigatorWithoutUser = true in Index.cshtml to disable this check.");
 ===== */
+
+// altea: Navigator's per-user client state slice. Signum keeps `entitySettings` as a module-level var
+// reset through `AppContext.clearSettingsActions`; altea stores it in `AppContext.clientState` (see
+// IClientState), the same call Finder makes, so a single `newClientState()` resets every module at once.
+interface NavigatorClientState {
+  entitySettings: { [type: string]: EntitySettings };
+}
+declare module "./AppContext" {
+  interface IClientState {
+    navigator?: NavigatorClientState;
+    navReadonlyEvent?: Array<(typeName: string, entity?: EntityPack<BaseEntity>, options?: Navigator.IsReadonlyOptions) => boolean>;
+    navCreableEvent?: Array<(typeName: string, options: Navigator.IsCreableOptions | undefined) => boolean>;
+    navViewableEvent?: Array<(typeName: string, entityPack: EntityPack<BaseEntity> | Lite<Entity> | undefined, options: Navigator.IsViewableOptions | undefined) => boolean>;
+  }
+}
 
 export namespace Navigator {
 
@@ -415,23 +431,40 @@ export namespace Navigator {
   // earlier MINIMAL inline EntitySettings so the autocomplete/getViewPromise/render fields exist for
   // EntityLine/getAutoComplete.
 
-  export const entitySettings: { [type: string]: EntitySettings } = {};
+  // Lazily initialise + return Navigator's slice of the per-user client state. Signum keeps its
+  // EntitySettings in a module-level dictionary reset through `AppContext.clearSettingsActions`; altea has
+  // no such registry, so the dictionary lives in `AppContext.clientState` (see IClientState) and ONE
+  // `newClientState()` drops it — which is what lets a host re-run its full registration bundle on a
+  // credential change, exactly as Signum's `clearAllSettings()` + `startFull(routes)` does.
+  function state(): NavigatorClientState {
+    return AppContext.clientState.navigator ??= { entitySettings: {} };
+  }
+
+  /** The registered EntitySettings, keyed by clean type name (stored in AppContext.clientState). */
+  export function entitySettings(): { [type: string]: EntitySettings } {
+    return state().entitySettings;
+  }
+
+  export function clearEntitySettings(): void {
+    state().entitySettings = {};
+  }
 
   export function addSettings(...settings: EntitySettings[]): void {
-    settings.forEach(s => Dic.addOrThrow(entitySettings, s.typeName, s));
+    settings.forEach(s => Dic.addOrThrow(state().entitySettings, s.typeName, s));
   }
 
   export function getOrAddSettings<T extends BaseEntity>(type: Type<T>): EntitySettings<T>;
   export function getOrAddSettings(type: PseudoType): EntitySettings;
   export function getOrAddSettings(type: PseudoType): EntitySettings {
     const typeName = getTypeName(type);
-    return entitySettings[typeName] || (entitySettings[typeName] = new EntitySettings(typeName));
+    const es = state().entitySettings;
+    return es[typeName] || (es[typeName] = new EntitySettings(typeName));
   }
 
   export function getSettings<T extends BaseEntity>(type: Type<T>): EntitySettings<T> | undefined;
   export function getSettings(type: PseudoType): EntitySettings | undefined;
   export function getSettings(type: PseudoType): EntitySettings | undefined {
-    return entitySettings[getTypeName(type)];
+    return state().entitySettings[getTypeName(type)];
   }
 
   function isEntityPack(x: unknown): x is EntityPack<BaseEntity> {
@@ -514,18 +547,24 @@ export namespace Navigator {
 
   // ---- isReadOnly ----
   export interface IsReadonlyOptions { ignoreTypeIsReadonly?: boolean; isEmbedded?: boolean; }
-  export const isReadonlyEvent: Array<(typeName: string, entity?: EntityPack<BaseEntity>, options?: IsReadonlyOptions) => boolean> = [];
+  // The three authorization EVENT lists, in clientState for the same reason as entitySettings above:
+  // altea-auth pushes its type-rule checks here from `AuthAdminClient.start`, so a second registration run
+  // would evaluate each one twice (and, since isCreable/isViewable use `every`, keep answering the same —
+  // but isReadonly uses `some`, and a duplicated list is a duplicated cost on every render).
+  export function isReadonlyEvent(): Array<(typeName: string, entity?: EntityPack<BaseEntity>, options?: IsReadonlyOptions) => boolean> {
+    return AppContext.clientState.navReadonlyEvent ??= [];
+  }
 
   export function isReadOnly(typeOrEntity: PseudoType | EntityPack<BaseEntity>, options?: IsReadonlyOptions): boolean {
     const entityPack = isEntityPack(typeOrEntity) ? typeOrEntity : undefined;
     const typeName = isEntityPack(typeOrEntity) ? getTypeName(typeOrEntity.entity) : getTypeName(typeOrEntity as PseudoType);
     if (!options?.ignoreTypeIsReadonly && typeIsReadOnly(typeName, options?.isEmbedded))
       return true;
-    return isReadonlyEvent.some(f => f(typeName, entityPack, options));
+    return isReadonlyEvent().some(f => f(typeName, entityPack, options));
   }
 
   function typeIsReadOnly(typeName: string, isEmbedded: boolean | undefined): boolean {
-    const es = entitySettings[typeName];
+    const es = state().entitySettings[typeName];
     if (es?.isReadOnly != undefined) return es.isReadOnly;
     if (isEmbedded) return false;
     const ti = tryGetTypeInfo(typeName);
@@ -549,7 +588,9 @@ export namespace Navigator {
 
   // ---- isCreable ----
   export interface IsCreableOptions { customComponent?: boolean; isSearch?: boolean; isEmbedded?: boolean; }
-  export const isCreableEvent: Array<(typeName: string, options: IsCreableOptions | undefined) => boolean> = [];
+  export function isCreableEvent(): Array<(typeName: string, options: IsCreableOptions | undefined) => boolean> {
+    return AppContext.clientState.navCreableEvent ??= [];
+  }
 
   export function isCreable(type: PseudoType, options?: IsCreableOptions): boolean {
     const typeName = getTypeName(type);
@@ -559,7 +600,7 @@ export namespace Navigator {
       return false;
     if (!hasAllowedConstructor(typeName))
       return false;
-    return isCreableEvent.every(c => c(typeName, options));
+    return isCreableEvent().every(c => c(typeName, options));
   }
 
   function hasAllowedConstructor(typeName: string): boolean {
@@ -573,7 +614,7 @@ export namespace Navigator {
   }
 
   function typeIsCreable(typeName: string, isEmbedded?: boolean): EntityWhen {
-    const es = entitySettings[typeName];
+    const es = state().entitySettings[typeName];
     if (es?.isCreable != undefined) return es.isCreable;
     if (isEmbedded) return "IsLine";
     const ti = tryGetTypeInfo(typeName);
@@ -591,7 +632,9 @@ export namespace Navigator {
 
   // ---- isViewable ----
   export interface IsViewableOptions { customComponent?: boolean; isSearch?: "main" | "related"; isEmbedded?: boolean; }
-  export const isViewableEvent: Array<(typeName: string, entityPack: EntityPack<BaseEntity> | Lite<Entity> | undefined, options: IsViewableOptions | undefined) => boolean> = [];
+  export function isViewableEvent(): Array<(typeName: string, entityPack: EntityPack<BaseEntity> | Lite<Entity> | undefined, options: IsViewableOptions | undefined) => boolean> {
+    return AppContext.clientState.navViewableEvent ??= [];
+  }
 
   export function isViewable(typeOrEntity: PseudoType | EntityPack<BaseEntity> | Lite<Entity>, options?: IsViewableOptions): boolean {
     const entity = isEntityPack(typeOrEntity) ? typeOrEntity : typeOrEntity instanceof Lite ? typeOrEntity : undefined;
@@ -601,16 +644,16 @@ export namespace Navigator {
       return false;
     if (!(options?.customComponent || hasDefaultView(typeName)))
       return false;
-    const es = entitySettings[typeName];
+    const es = state().entitySettings[typeName];
     if (es != null && entity instanceof Lite && es.isViewableLite && !es.isViewableLite(entity, options))
       return false;
     if (es != null && isEntityPack(entity) && es.isViewableEntityPack && !es.isViewableEntityPack(entity, options))
       return false;
-    return isViewableEvent.every(f => f(typeName, entity, options));
+    return isViewableEvent().every(f => f(typeName, entity, options));
   }
 
   function typeIsViewable(typeName: string, isEmbedded: boolean | undefined): EntityWhen {
-    const es = entitySettings[typeName];
+    const es = state().entitySettings[typeName];
     if (es?.isViewable != undefined) return es.isViewable;
     if (isEmbedded) return "IsLine";
     const ti = tryGetTypeInfo(typeName);
@@ -649,7 +692,7 @@ export namespace Navigator {
   }
 
   function typeIsFindable(typeName: string, isEmbeddedEntity: boolean | undefined): boolean {
-    const es = entitySettings[typeName];
+    const es = state().entitySettings[typeName];
     if (es?.isFindable != undefined) return es.isFindable;
     if (isEmbeddedEntity) return false;
     const ti = tryGetTypeInfo(typeName);
@@ -670,7 +713,7 @@ export namespace Navigator {
       return renderLite(entity);
 
     if (entity instanceof Entity) {
-      var es = entitySettings[getTypeName(entity)];
+      var es = state().entitySettings[getTypeName(entity)];
       if (es?.renderEntity)
         return es.renderEntity(entity, new TextHighlighter(undefined));
       if (es?.renderLite) {
@@ -682,7 +725,7 @@ export namespace Navigator {
   }
 
   export function renderLite(lite: Lite<Entity>, hl?: TextHighlighter): React.ReactElement | string {
-    var es = entitySettings[getTypeName(lite)];
+    var es = state().entitySettings[getTypeName(lite)];
     if (es?.renderLite != null)
       return es.renderLite(lite, hl ?? new TextHighlighter(undefined));
 
@@ -691,7 +734,7 @@ export namespace Navigator {
   }
 
   export function renderEntity(entity: BaseEntity): React.ReactElement | string {
-    var es = entitySettings[getTypeName(entity)];
+    var es = state().entitySettings[getTypeName(entity)];
     if (es?.renderEntity != null)
       return es.renderEntity(entity, new TextHighlighter(undefined));
 

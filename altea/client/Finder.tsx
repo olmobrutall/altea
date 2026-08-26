@@ -103,9 +103,22 @@ import type SearchControlLoaded from "./SearchControl/SearchControlLoaded";
 interface FinderClientState {
   querySettings: { [queryKey: string]: Finder.QuerySettings };
 }
+// The four cell/filter RULE lists + the per-property formatter map (see Finder.rulesState). Kept as its own
+// slice because it is SEEDED from FinderRules on first read, where querySettings starts empty.
+interface FinderRulesClientState {
+  formatRules: Finder.FormatRule[];
+  entityFormatRules: Finder.EntityFormatRule[];
+  quickFilterRules: Finder.QuickFilterRule[];
+  filterValueFormatRules: Finder.FilterValueFormatter[];
+  registeredPropertyFormatters: { [typeAndProperty: string]: Finder.CellFormatter };
+}
 declare module "./AppContext" {
   interface IClientState {
     finder?: FinderClientState;
+    finderRules?: FinderRulesClientState;
+    finderButtonBar?: ((ctx: any) => ButtonBarElement | undefined)[];
+    searchPageRenderTitle?: ((scl: any, defaultTitle: React.ReactNode) => React.ReactNode | undefined)[];
+    searchPageTitleElements?: ((scl: any) => React.ReactNode)[];
   }
 }
 
@@ -303,9 +316,14 @@ export namespace Finder {
 
     /** Extension point to override the leading content of the search page title. Used by SearchPage. */
     // TODO(port): typed against SearchControlLoaded once SearchControl lands.
-    onSearchPageRenderTitle: [] as ((scl: any, defaultTitle: React.ReactNode) => React.ReactNode | undefined)[],
+    // Both title extension points are clientState-backed for the same reason as the rule lists above
+    // (Signum clears them in `cleanSearchPageTitleOptions`); they are functions, not arrays, so a reset
+    // reaches them.
+    onSearchPageRenderTitle: (): ((scl: any, defaultTitle: React.ReactNode) => React.ReactNode | undefined)[] =>
+      AppContext.clientState.searchPageRenderTitle ??= [],
     /** Extension point to render extra elements on the right of the search page title. */
-    onSearchPageTitleElements: [] as ((scl: any) => React.ReactNode)[],
+    onSearchPageTitleElements: (): ((scl: any) => React.ReactNode)[] =>
+      AppContext.clientState.searchPageTitleElements ??= [],
 
     entityColumnHeader: (() => "") as () => React.ReactElement | string | null | undefined,
 
@@ -2262,14 +2280,19 @@ export namespace Finder {
       findOptions: FindOptionsParsed;
     }
 
-    export const onButtonBarElements: ((ctx: ButtonBarQueryContext) => ButtonBarElement | undefined)[] = [];
+    // In `AppContext.clientState` rather than a module-level array — see the note on Navigator's
+    // entitySettings. Seven modules push their SearchControl toolbar buttons here from `start()`, so a
+    // second registration run would show each of them twice.
+    export function onButtonBarElements(): ((ctx: ButtonBarQueryContext) => ButtonBarElement | undefined)[] {
+      return AppContext.clientState.finderButtonBar ??= [];
+    }
 
     export function getButtonBarElements(ctx: ButtonBarQueryContext): ButtonBarElement[] {
-      return onButtonBarElements.map(f => f(ctx)).filter(a => a != undefined).map(a => a as ButtonBarElement);
+      return onButtonBarElements().map(f => f(ctx)).filter(a => a != undefined).map(a => a as ButtonBarElement);
     }
 
     export function clearButtonBarElements(): void {
-      ButtonBarQuery.onButtonBarElements.clear();
+      AppContext.clientState.finderButtonBar = undefined;
     }
 
   }
@@ -2350,29 +2373,17 @@ export namespace Finder {
     if (result)
       return result;
 
-    const prRoute = registeredPropertyFormatters[qt.getPropertyRoute()?.toString() ?? ""];
+    const prRoute = registeredPropertyFormatters()[qt.getPropertyRoute()?.toString() ?? ""];
     if (prRoute)
       return prRoute;
 
-    const rule = formatRules.filter(a => a.isApplicable(qt, sc, options)).last("FormatRules");
+    const rule = formatRules().filter(a => a.isApplicable(qt, sc, options)).last("FormatRules");
 
     return rule.formatter(qt, sc, options);
   }
 
   export function resetFormatRules(): void {
-    Dic.clear(registeredPropertyFormatters);
-
-    formatRules.clear();
-    formatRules.push(...FinderRules.initFormatRules());
-
-    entityFormatRules.clear();
-    entityFormatRules.push(...FinderRules.initEntityFormatRules());
-
-    quickFilterRules.clear();
-    quickFilterRules.push(...FinderRules.initQuickFilterRules());
-
-    filterValueFormatRules.clear();
-    filterValueFormatRules.push(...FinderRules.initFilterValueFormatRules());
+    AppContext.clientState.finderRules = undefined;
   }
 
   export interface FormatRule {
@@ -2398,15 +2409,35 @@ export namespace Finder {
     searchControl?: SearchControlLoaded
   }
 
-  export const registeredPropertyFormatters: { [typeAndProperty: string]: CellFormatter } = {};
+  /**
+   * The four RULE lists + the per-property formatter map, in `AppContext.clientState` rather than in
+   * module-level arrays — see the note on Navigator's entitySettings. The slice is SEEDED from
+   * `FinderRules.init*Rules()` on first read, so dropping it restores exactly the core rules (what
+   * `resetFormatRules` used to do by hand) and the extras that module `start()` calls push are re-added
+   * when the host re-runs its registration bundle. Without this a second run would push, say, the Html and
+   * Markdown cell formatters twice.
+   */
+  function rulesState(): FinderRulesClientState {
+    return AppContext.clientState.finderRules ??= {
+      formatRules: FinderRules.initFormatRules(),
+      entityFormatRules: FinderRules.initEntityFormatRules(),
+      quickFilterRules: FinderRules.initQuickFilterRules(),
+      filterValueFormatRules: FinderRules.initFilterValueFormatRules(),
+      registeredPropertyFormatters: {},
+    };
+  }
+
+  export function registeredPropertyFormatters(): { [typeAndProperty: string]: CellFormatter } {
+    return rulesState().registeredPropertyFormatters;
+  }
 
   export function registerPropertyFormatter(pr: PropertyRoute | string/*For expressions*/ | undefined, formater: CellFormatter): void {
     if (pr == null)
       return;
-    registeredPropertyFormatters[pr.toString()] = formater;
+    registeredPropertyFormatters()[pr.toString()] = formater;
   }
 
-  export const formatRules: FormatRule[] = FinderRules.initFormatRules();
+  export function formatRules(): FormatRule[] { return rulesState().formatRules; }
 
   export interface EntityFormatRule {
     name: string;
@@ -2421,7 +2452,7 @@ export namespace Finder {
     }
   }
 
-  export const entityFormatRules: EntityFormatRule[] = FinderRules.initEntityFormatRules();
+  export function entityFormatRules(): EntityFormatRule[] { return rulesState().entityFormatRules; }
 
   export interface QuickFilterRule {
     name: string
@@ -2429,7 +2460,7 @@ export namespace Finder {
     execute: (qt: QueryToken, cellValue: unknown, sc: SearchControlLoaded) => Promise<boolean>;
   }
 
-  export const quickFilterRules: QuickFilterRule[] = FinderRules.initQuickFilterRules();
+  export function quickFilterRules(): QuickFilterRule[] { return rulesState().quickFilterRules; }
 
   export interface FilterFormatterContext {
     ctx: TypeContext<any>;
@@ -2457,10 +2488,10 @@ export namespace Finder {
   // functions, and FinderRules exposes a plain init function (no top-level Finder mutation).
   export let filterValueFormatRulesProvider: () => FilterValueFormatter[] = defaultFilterValueFormatRules;
 
-  export const filterValueFormatRules: FilterValueFormatter[] = FinderRules.initFilterValueFormatRules();
+  export function filterValueFormatRules(): FilterValueFormatter[] { return rulesState().filterValueFormatRules; }
 
   export function renderFilterValue(f: FilterOptionParsed, ffc: FilterFormatterContext): React.ReactElement<any, string | React.JSXElementConstructor<any>> {
-    var rule = filterValueFormatRules.last(r => r.applicable(f, ffc));
+    var rule = filterValueFormatRules().last(r => r.applicable(f, ffc));
     return rule.renderValue(f, ffc);
   }
 

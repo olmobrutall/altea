@@ -7,6 +7,7 @@ import { Navigator } from '../Navigator'
 import type { IRenderButtons, ButtonsContext, ButtonBarElement } from '../TypeContext'
 import { getTypeName } from '../Reflection'
 import { FunctionalAdapter } from '../Modals';
+import * as AppContext from '../AppContext';
 
 export interface ButtonBarProps extends ButtonsContext {
   ref?: React.Ref<ButtonBarHandle>;
@@ -25,7 +26,7 @@ export function ButtonBar(p: ButtonBarProps): React.JSX.Element {
 
   const es = Navigator.getSettings(getTypeName(p.pack.entity));
 
-  const buttons = ButtonBarManager.onButtonBarRender.flatMap(func => func(p) ?? [])
+  const buttons = ButtonBarManager.onButtonBarRender().flatMap(func => func(p) ?? [])
     .concat(rb?.renderButtons ? rb.renderButtons(ctx) : [])
     .concat(es?.extraToolbarButtons ? es.extraToolbarButtons(ctx) : [])
     .filter(a => a != null)
@@ -54,11 +55,22 @@ export function ButtonBar(p: ButtonBarProps): React.JSX.Element {
   );
 }
 
+// altea: the entity button-bar renderers live in `AppContext.clientState`, not a module-level array — see
+// the note on Navigator's entitySettings. They are filled by module `start()` calls, so a host that re-runs
+// its registration bundle would otherwise render every operation button twice.
+declare module "../AppContext" {
+  interface IClientState {
+    buttonBarRender?: ((c: ButtonsContext) => Array<ButtonBarElement | undefined> | undefined)[];
+  }
+}
+
 export namespace ButtonBarManager {
 
-  export const onButtonBarRender = [] as ((c: ButtonsContext) => Array<ButtonBarElement | undefined> | undefined)[];
+  export function onButtonBarRender(): ((c: ButtonsContext) => Array<ButtonBarElement | undefined> | undefined)[] {
+    return AppContext.clientState.buttonBarRender ??= [];
+  }
 
   export function clearButtonBarRenderer(): void{
-    onButtonBarRender.clear();
+    AppContext.clientState.buttonBarRender = undefined;
   }
 }

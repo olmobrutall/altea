@@ -63,11 +63,30 @@ export function setCurrentUser(user: IUserEntity | undefined): void {
 // the app shell (MainPublic) registers one that re-renders the tree so components re-read currentUser
 // (the login/logout/switch-user transition); callers (AuthClient, ChangePasswordPage) invoke it.
 //
-// NOTE: resetUI does NOT wipe clientState. Finder REGISTRATIONS (query settings) live in clientState
-// (unlike Navigator's module-global entitySettings), so wiping it on every login/reload would drop the
-// per-entity defaultColumns/filters registered once at boot. Cache invalidation on a ROLE change (where
-// role-filtered settings genuinely must be recomputed) is an authorization-phase concern; when it lands
-// it must RE-REGISTER, not just clear. For now resetUI only re-renders.
+// NOTE: resetUI does NOT wipe clientState — `newClientState()` is a separate, deliberate call, and it IS
+// altea's `clearAllSettings()`. Every client REGISTRATION lives in a clientState slice, so dropping the
+// object drops all of them at once, and the host immediately re-runs its registration bundle (Signum's
+// `clearAllSettings()` + `startFull(routes)` inside its `reload()` — see eastwind's MainPublic).
+// What lives here today:
+//   Navigator      entitySettings; the isViewable / isCreable / isReadonly event lists
+//   Finder         querySettings; the four cell/filter RULE lists (SEEDED from FinderRules, so a reset
+//                  restores exactly the framework rules); the registered property formatters; the
+//                  SearchControl button-bar providers; the two search-page title extension points
+//   Operations     operationSettings
+//   QuickLinkClient  the global / per-type / dynamic registries AND their derived cache
+//   Frames         onWidgets / onEmbeddedWidgets; ButtonBarManager's entity button-bar renderers
+//   SearchControl  the contextual-item providers; the manual-sub-token registry
+//   Lines          the tasks a MODULE registers (the FRAMEWORK's own are `defaultTasks`, pushed at import
+//                  time and never reset — see LineBase for why the two are separate)
+//   Services       addContextHeaders
+//   extensions     altea-chart's chart button bar, altea-dashboard's page actions, altea-toolbar's and
+//                  altea-whats-new's per-type configs, altea-auth's profile-photo url providers,
+//                  altea-map's colour-provider factories
+// A SUBSCRIPTION list is deliberately NOT here — `currentUserChanged`, `AuthClient.onCurrentUserChanged`,
+// `CultureClient.onCultureChanged`, `Navigator.entityChanged`: those are added and removed by whoever
+// subscribes (a component's effect, or a module registering once at import), not re-registered per
+// credential change. A module that subscribes from its `start()` must therefore make that idempotent — see
+// ActiveDirectoryClient.
 export let resetUI: () => void = () => { };
 export function setResetUI(reset: () => void): void {
   resetUI = reset;

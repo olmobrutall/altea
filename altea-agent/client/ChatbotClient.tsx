@@ -1,6 +1,14 @@
 import * as React from "react";
 import { ajaxGet, ajaxPost, wrapRequest, type AjaxOptions } from "@altea/altea/client/Services";
 import { toAbsoluteUrl } from "@altea/altea/client/AppContext";
+import * as AppContext from "@altea/altea/client/AppContext";
+
+// altea-agent's slice of the per-user client state — see the note on Navigator's entitySettings.
+declare module "@altea/altea/client/AppContext" {
+    interface IClientState {
+        chatbotUITools?: Map<string, unknown>;
+    }
+}
 import { Finder } from "@altea/altea/client/Finder";
 import { Dic } from "@altea/altea/data/globals";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
@@ -64,20 +72,26 @@ export namespace ChatbotClient {
             new Finder.CellFormatter((cell: string | undefined) => cell ? <MarkdownOrJson content={cell} /> : undefined, true));
     }
 
-    const uiToolRegistry = new Map<string, UITool>();
+    // In `AppContext.clientState` rather than a module-level Map — see the note on Navigator's
+    // entitySettings. `registerUITool` REFUSES a duplicate unless `override` is passed, so a host that
+    // re-runs its registration bundle would otherwise throw on the second run.
+    function uiToolRegistry(): Map<string, UITool> {
+        return (AppContext.clientState.chatbotUITools ??= new Map<string, UITool>()) as Map<string, UITool>;
+    }
 
     export function registerUITool(tool: UITool, override = false): void {
-        if (uiToolRegistry.has(tool.uiToolName) && !override)
+        const reg = uiToolRegistry();
+        if (reg.has(tool.uiToolName) && !override)
             throw new Error(`UITool '${tool.uiToolName}' is already registered.`);
-        uiToolRegistry.set(tool.uiToolName, tool);
+        reg.set(tool.uiToolName, tool);
     }
 
     export function getUITool(uiToolName: string): UITool | undefined {
-        return uiToolRegistry.get(uiToolName);
+        return uiToolRegistry().get(uiToolName);
     }
 
     export function clearUITools(): void {
-        uiToolRegistry.clear();
+        AppContext.clientState.chatbotUITools = undefined;
     }
 
     export namespace API {

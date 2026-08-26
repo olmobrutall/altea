@@ -61,7 +61,7 @@ export namespace AzureADClient {
             }));
 
         if (options.profilePhotos) {
-            ProfilePhoto.urlProviders.push((u, size) => {
+            ProfilePhoto.urlProviders().push((u, size) => {
                 // See the header: only a loaded UserEntity carries the external id.
                 if (u instanceof Lite)
                     return null;

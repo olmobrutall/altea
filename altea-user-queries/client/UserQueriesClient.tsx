@@ -96,7 +96,7 @@ export namespace UserQueriesClient {
         ToolbarClient.registerConfig(new UserQueryToolbarConfig());
 
         // The UserQuery menu in the SearchControl toolbar (Signum's ButtonBarQuery.onButtonBarElements).
-        Finder.ButtonBarQuery.onButtonBarElements.push(ctx => {
+        Finder.ButtonBarQuery.onButtonBarElements().push(ctx => {
             const isHidden = !ctx.searchControl.props.showBarExtension ||
                 !(ctx.searchControl.props.showBarExtensionOption?.showUserQuery ?? ctx.searchControl.props.largeToolbarButtons);
             return { button: <UserQueryMenu searchControl={ctx.searchControl} isHidden={isHidden} /> };

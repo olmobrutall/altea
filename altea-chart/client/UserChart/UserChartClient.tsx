@@ -106,7 +106,7 @@ export namespace UserChartClient {
 
         // The UserChart menu on the chart page toolbar (Signum's ChartClient.ButtonBarChart) — list / apply /
         // create / edit a saved chart from the current ChartRequestView.
-        ChartClient.ButtonBarChart.onButtonBarElements.push(ctx =>
+        ChartClient.ButtonBarChart.onButtonBarElements().push(ctx =>
             <UserChartMenu chartRequestView={ctx.chartRequestView} />);
     }
 

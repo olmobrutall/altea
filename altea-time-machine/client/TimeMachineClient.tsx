@@ -59,7 +59,7 @@ export namespace TimeMachineClient {
 
         // The row's "view" button, replaced while a system-time query is showing: it opens the TIME
         // MACHINE for that row instead of the entity, and carries the created / deleted markers.
-        Finder.entityFormatRules.push({
+        Finder.entityFormatRules().push({
             name: "ViewHistory",
             isApplicable: sc => sc != null && sc.props.findOptions.systemTime != null
                 && Finder.isSystemVersioned(sc.props.queryToken?.type),
@@ -93,7 +93,7 @@ export namespace TimeMachineClient {
 
         // A Lite CELL inside a system-time query also links to the Time Machine, not to the entity: the
         // row being shown is a past version, so "view" should keep the reader in history.
-        Finder.formatRules.push({
+        Finder.formatRules().push({
             name: "Lite_TM",
             isApplicable: (qt, sc) => qt.filterType == "Lite" && sc != null
                 && sc.props.findOptions.systemTime != null && Finder.isSystemVersioned(qt.type),

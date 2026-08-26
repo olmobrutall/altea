@@ -31,7 +31,7 @@ export default class SpecialOmniboxProvider extends OmniboxProvider<SpecialOmnib
     }
 
     navigateTo(result: SpecialOmniboxResult): Promise<string | undefined> {
-        return specialActions[result.key].onClick();
+        return specialActions()[result.key].onClick();
     }
 
     toString(result: SpecialOmniboxResult): string {

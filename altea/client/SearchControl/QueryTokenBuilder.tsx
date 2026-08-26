@@ -18,6 +18,7 @@ import { ManualToken as ManualTokenClass, ManualContainerToken } from '../../dat
 import "./QueryTokenBuilder.css"
 import { DropdownList } from 'react-widgets-up'
 import { StyleContext } from '../TypeContext';
+import * as AppContext from '../AppContext';
 import { useAPI } from '../Hooks';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
@@ -297,13 +298,24 @@ function parentsUntil(token: QueryToken, ancestor?: QueryToken) {
 
 
 export function clearManualSubTokens(): void {
-  Dic.clear(manualSubTokens);
+  AppContext.clientState.manualSubTokens = undefined;
 }
 
-export const manualSubTokens: { [key: string]: (entityType: string) => Promise<ManualTokenDescriptor[]> } = {};
+// altea: the manual-sub-token registry lives in the per-user client state — see the note on Navigator's
+// entitySettings. Signum resets it through `AppContext.clearSettingsActions`; here one `newClientState()`
+// drops it with every other module's registrations, so a host can re-run its registration bundle.
+declare module "../AppContext" {
+  interface IClientState {
+    manualSubTokens?: { [key: string]: (entityType: string) => Promise<ManualTokenDescriptor[]> };
+  }
+}
+
+export function manualSubTokens(): { [key: string]: (entityType: string) => Promise<ManualTokenDescriptor[]> } {
+  return AppContext.clientState.manualSubTokens ??= {};
+}
 
 export function registerManualSubTokens(key: string, func: (entityType: string) => Promise<ManualTokenDescriptor[]>): void {
-  Dic.addOrThrow(manualSubTokens, key, func);
+  Dic.addOrThrow(manualSubTokens(), key, func);
 }
 
 // Port of Signum's getManualSubTokens (QueryTokenBuilder.tsx). When the token-tree picker asks for the
@@ -319,7 +331,7 @@ function getManualSubTokens(token?: QueryToken): Promise<QueryToken[]> | undefin
     return Promise.resolve([]);
 
   // A manual container: its key is registered and it hangs off an entity token.
-  const container = token != undefined && token.parent != undefined && manualSubTokens[token.key] != undefined
+  const container = token != undefined && token.parent != undefined && manualSubTokens()[token.key] != undefined
     ? (token as ManualContainerToken) : undefined;
   if (container == undefined)
     return undefined;
@@ -327,7 +339,7 @@ function getManualSubTokens(token?: QueryToken): Promise<QueryToken[]> | undefin
   const entityType = container.parent!.type.getTypeName();
   if (entityType == undefined)
     return Promise.resolve([]);
-  return manualSubTokens[container.key](entityType)
+  return manualSubTokens()[container.key](entityType)
     .then(descriptors => descriptors.map(m => new ManualTokenClass(container, m.key, {
       toStr: m.toStr,
       niceName: m.niceName,

@@ -42,7 +42,7 @@ export namespace TourClient {
         cb.configure(TourEntity).withView(() => import("./Templates/Tour"));
         cb.configure(TourStepEntity).withView(() => import("./Templates/TourStep"));
 
-        onWidgets.push(wc => {
+        onWidgets().push(wc => {
             if (!Navigator.isViewable(TourEntity))
                 return undefined;
 
@@ -56,10 +56,10 @@ export namespace TourClient {
         UserAssetClient.start(cb.routes);
         UserAssetClient.registerExportAssertLink(TourEntity);
 
-        DashboardClient.onDashboardPageActions.push(dashboard =>
+        DashboardClient.onDashboardPageActions().push(dashboard =>
             dashboard.id != null ? <TourButton trigger={dashboard.toLite()} /> : undefined);
 
-        Finder.ButtonBarQuery.onButtonBarElements.push(ctx => {
+        Finder.ButtonBarQuery.onButtonBarElements().push(ctx => {
             const uq = ctx.searchControl.getCurrentUserQuery?.();
             if (uq == null)
                 return undefined;
@@ -77,7 +77,7 @@ export namespace TourClient {
             };
         });
 
-        Finder.Options.onSearchPageTitleElements.push(scl => {
+        Finder.Options.onSearchPageTitleElements().push(scl => {
             const uq = scl.getCurrentUserQuery?.();
             return uq != null ? <TourButton trigger={uq} /> : null;
         });

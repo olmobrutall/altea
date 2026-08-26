@@ -999,7 +999,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     const rt = this.state.resultTable;
     let value = cm.rowIndex == undefined || rt == null ? undefined : rt.rows[cm.rowIndex].columns[rt.columns.indexOf(token.fullKey())];
 
-    var rule = Finder.quickFilterRules.filter(a => a.applicable(token, value, this)).last("Finder.QuickFilterRule");
+    var rule = Finder.quickFilterRules().filter(a => a.applicable(token, value, this)).last("Finder.QuickFilterRule");
 
     var showFilter = await rule.execute(token, value, this);
 
@@ -1923,7 +1923,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
   getEntityFormatter(): Finder.EntityFormatter {
     const qs = this.props.querySettings;
     return (this.state.resultFindOptions?.groupResults ? null : this.props.entityFormatter ?? qs?.entityFormatter)
-      ?? Finder.entityFormatRules.filter(a => a.isApplicable(this)).last("EntityFormatRules").formatter;
+      ?? Finder.entityFormatRules().filter(a => a.isApplicable(this)).last("EntityFormatRules").formatter;
   }
 
   hasEntityColumn(): boolean | "InPlace" {
@@ -2018,7 +2018,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
             }
           }}
           {...ra}
-          className={classes(markClassName, ra?.className, selected && "sf-row-selected", (!row.entity || Navigator.entitySettings[cleanTypeName(row.entity.entityType)]?.isViewableLite?.(row.entity, { isSearch: "main" }) === false) ? "sf-row-no-view" : null)}
+          className={classes(markClassName, ra?.className, selected && "sf-row-selected", (!row.entity || Navigator.entitySettings()[cleanTypeName(row.entity.entityType)]?.isViewableLite?.(row.entity, { isSearch: "main" }) === false) ? "sf-row-no-view" : null)}
         >
           {this.props.allowSelection &&
             <td className="centered-cell">

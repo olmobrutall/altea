@@ -9,6 +9,7 @@ import type { FieldInfo } from '../../data/reflection'
 import { ValidationMessage } from '../../data/validators'
 import { PropertyRouteType } from '../../data/propertyRoute'
 import { useForceUpdate } from '../Hooks'
+import * as AppContext from '../AppContext'
 
 export interface ChangeEvent {
   newValue: any;
@@ -239,13 +240,41 @@ export function genericMemo<T, P = {}>(render: (props: P) => React.ReactNode | n
   return React.memo(render, propsAreEqual) as any;
 }
 
-export const tasks: ((lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps, originalProps: LineBaseProps) => void)[] = [];
+export type LineTask = (lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps, originalProps: LineBaseProps) => void;
 
-export function runTasks(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps, originalProps: LineBaseProps): void {
-  tasks.forEach(t => t(lineBase, state, originalProps));
+declare module "../AppContext" {
+  interface IClientState {
+    lineTasks?: LineTask[];
+  }
 }
 
-tasks.push(taskSetNiceName);
+/**
+ * The line tasks are the one registry in the workspace with TWO kinds of contributor, and that is why they
+ * are split in two:
+ *  - the FRAMEWORK's own tasks are pushed onto {@link defaultTasks} at module-EVALUATION time, right below
+ *    each task's definition and in the sibling Line files. Nothing re-imports a module, so those can never
+ *    duplicate — but they also cannot be re-registered, so they must not live in a resettable slice.
+ *  - a MODULE's tasks (altea-auth's property authorization, altea-help's help icon) are pushed from its
+ *    `start()`, which a host re-runs on a credential change.
+ * So the two lists are kept SEPARATE and run in sequence — framework first, then module, which is the
+ * order they were already registered in. `defaultTasks` is never reset; the module slice is dropped with
+ * every other registration and comes back with the next run. Concatenating at RUN time (rather than seeding
+ * the slice from `defaultTasks`) also means a framework module imported late — the admin bundle is a
+ * dynamic import — cannot miss the window in which the slice was first created.
+ */
+export const defaultTasks: LineTask[] = [];
+
+/** The tasks a MODULE registers from its `start()`. Framework tasks go on {@link defaultTasks}. */
+export function tasks(): LineTask[] {
+  return AppContext.clientState.lineTasks ??= [];
+}
+
+export function runTasks(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps, originalProps: LineBaseProps): void {
+  defaultTasks.forEach(t => t(lineBase, state, originalProps));
+  tasks().forEach(t => t(lineBase, state, originalProps));
+}
+
+defaultTasks.push(taskSetNiceName);
 export function taskSetNiceName(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps): void {
   if (state.label === undefined &&
     state.ctx.propertyRoute &&
@@ -255,7 +284,7 @@ export function taskSetNiceName(lineBase: LineBaseController<LineBaseProps, unkn
   }
 }
 
-tasks.push(taskSetReadOnlyProperty);
+defaultTasks.push(taskSetReadOnlyProperty);
 export function taskSetReadOnlyProperty(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps): void {
   if (state.ctx.styleOptions.readOnly === undefined && !state.ctx.readOnly &&
     state.ctx.propertyRoute &&
@@ -265,7 +294,7 @@ export function taskSetReadOnlyProperty(lineBase: LineBaseController<LineBasePro
   }
 }
 
-tasks.push(taskSetReadOnly);
+defaultTasks.push(taskSetReadOnly);
 export function taskSetReadOnly(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps): void {
   if (state.ctx.styleOptions.readOnly === undefined && !state.ctx.readOnly &&
     state.ctx.binding.getIsReadonly()) {
@@ -273,7 +302,7 @@ export function taskSetReadOnly(lineBase: LineBaseController<LineBaseProps, unkn
   }
 }
 
-tasks.push(taskSetMandatory);
+defaultTasks.push(taskSetMandatory);
 export function taskSetMandatory(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps): void {
   if (state.mandatory != undefined ||
     !state.ctx.propertyRoute ||

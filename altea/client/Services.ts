@@ -9,6 +9,7 @@
 import { Dic } from '../data/globals';
 import { CultureInfo } from '../data/utils/cultureInfo';
 import { toAbsoluteUrl } from './AppContext';
+import * as AppContext from './AppContext';
 import { Serializer } from '../data/serializer';
 import type { ModelEntity } from '../data/entity';
 import type { ModelState } from '../data/validation';
@@ -161,16 +162,28 @@ export function ajaxPostUpload<T>(options: AjaxOptions, blob: Blob): Promise<T> 
 }
 
 
-export const addContextHeaders: ((options: AjaxOptions) => void)[] = [];
+// In `AppContext.clientState` rather than a module-level array — see the note on Navigator's
+// entitySettings. @altea/altea-isolation pushes the current-isolation header from its `start()`, so a
+// second registration run would stamp the header twice.
+declare module "./AppContext" {
+  interface IClientState {
+    contextHeaders?: ((options: AjaxOptions) => void)[];
+  }
+}
+
+export function addContextHeaders(): ((options: AjaxOptions) => void)[] {
+  return AppContext.clientState.contextHeaders ??= [];
+}
 
 export function clearContextHeaders(): void {
-  addContextHeaders.clear();
+  AppContext.clientState.contextHeaders = undefined;
 }
 
 export function wrapRequest(options: AjaxOptions, makeCall: () => Promise<Response>): Promise<Response> {
 
-  if (!options.avoidContextHeaders && addContextHeaders.length > 0) {
-    addContextHeaders.forEach(f => f(options));
+  const contextHeaders = addContextHeaders();
+  if (!options.avoidContextHeaders && contextHeaders.length > 0) {
+    contextHeaders.forEach(f => f(options));
   }
 
   if (!options.avoidRetry) {

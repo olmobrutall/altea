@@ -110,7 +110,7 @@ export default function DashboardView(p: {
         <div className={p.embedded ? "sf-dashboard-view-embedded" : undefined}>
             {p.hideEditButton != true &&
                 <div className="d-flex flex-row-reverse align-items-center m-1">
-                    {DashboardClient.onDashboardPageActions.map((fn, i) => <React.Fragment key={i}>{fn(p.dashboard)}</React.Fragment>)}
+                    {DashboardClient.onDashboardPageActions().map((fn, i) => <React.Fragment key={i}>{fn(p.dashboard)}</React.Fragment>)}
                     {!Navigator.isReadOnly(DashboardEntity) &&
                         <Link className="sf-hide" style={{ textDecoration: "none" }} to={Navigator.navigateRoute(p.dashboard)} title={DashboardMessage.Edit.niceToString()}>
                             <FontAwesomeIcon aria-hidden={true} icon="pen-to-square" />

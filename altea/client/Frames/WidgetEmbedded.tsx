@@ -37,7 +37,7 @@ export function addAdditionalTabs(frame: EntityFrame | undefined): React.ReactEl
 
 function WidgetEmbedded(p: WidgetEmbeddedProps): React.ReactElement {
 
-  const widgets = onEmbeddedWidgets.map(a => a(p.widgetContext)).filter(a => a !== undefined).map(a => a!).flatMap(a => a);
+  const widgets = onEmbeddedWidgets().map(a => a(p.widgetContext)).filter(a => a !== undefined).map(a => a!).flatMap(a => a);
 
   const top = widgets.filter(ew => ew.position === "Top").map((ew, i) => React.cloneElement(WidgetEmbedded.customPanel(ew), { key: i }));
   const bottom = widgets.filter(ew => ew.position === "Bottom").map((ew, i) => React.cloneElement(WidgetEmbedded.customPanel(ew), { key: i }));

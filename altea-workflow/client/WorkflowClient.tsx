@@ -141,11 +141,12 @@ export namespace WorkflowClient {
             },
         });
 
-        const opsIndex = onContextualItems.indexOf(ContextualOperations.getOperationsContextualItems);
+        const providers = onContextualItems();
+        const opsIndex = providers.indexOf(ContextualOperations.getOperationsContextualItems);
         if (opsIndex >= 0)
-            onContextualItems.insertAt(opsIndex + 1, getMainEntityContextualItems);
+            providers.insertAt(opsIndex + 1, getMainEntityContextualItems);
         else
-            onContextualItems.push(getMainEntityContextualItems);
+            providers.push(getMainEntityContextualItems);
 
         UserAssetClient.start(cb.routes);
         UserAssetClient.registerExportAssertLink(WorkflowEntity);

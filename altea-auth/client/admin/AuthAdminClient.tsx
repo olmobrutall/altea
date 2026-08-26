@@ -84,15 +84,15 @@ export namespace AuthAdminClient {
             // Read straight off the TypeMetadata the server stamped. Signum's `fixTypes` projection step is
             // gone with it: there is nothing to copy anywhere, so there is also nothing to RESET — a
             // re-login replaces the whole per-culture entry, and a role's allowances cannot outlive it.
-            Navigator.isViewableEvent.push(typeName => {
+            Navigator.isViewableEvent().push(typeName => {
                 const tm = tryGetTypeMetadata(typeName);
                 return tm == null || tm.maxTypeAllowed !== TypeAllowedBasic.None;
             });
-            Navigator.isCreableEvent.push(typeName => {
+            Navigator.isCreableEvent().push(typeName => {
                 const tm = tryGetTypeMetadata(typeName);
                 return tm == null || tm.maxTypeAllowed == null || tm.maxTypeAllowed === TypeAllowedBasic.Write;
             });
-            Navigator.isReadonlyEvent.push(typeName => {
+            Navigator.isReadonlyEvent().push(typeName => {
                 const tm = tryGetTypeMetadata(typeName);
                 return tm != null && tm.maxTypeAllowed != null && tm.maxTypeAllowed < TypeAllowedBasic.Write;
             });
@@ -135,7 +135,7 @@ export namespace AuthAdminClient {
             //     anything else built on a Line;
             //   - PropertyRoute.isAllowedCallback: for the places that decide BEFORE rendering a line —
             //     EntityTable drops a whole unreadable column rather than leaving a titled, empty one.
-            tasks.push(taskAuthorizeProperties);
+            tasks().push(taskAuthorizeProperties);
             PropertyRoute.isAllowedCallback = route =>
                 route.propertyRouteType == PropertyRouteType.FieldOrProperty
                     && propertyAllowance(route.rootType, route.propertyString()) === PropertyAllowed.None

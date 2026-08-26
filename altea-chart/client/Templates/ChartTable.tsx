@@ -101,7 +101,7 @@ export default function ChartTableComponent(p: ChartTableProps): React.JSX.Eleme
         .map(co => {
 
             const formatter = (qs?.formatters && qs.formatters[co.token!.fullKey()])
-                ?? Finder.formatRules.filter(a => a.isApplicable(co.token!, undefined, undefined))
+                ?? Finder.formatRules().filter(a => a.isApplicable(co.token!, undefined, undefined))
                     .last("FormatRules").formatter(co.token!, undefined, undefined);
 
             let resultIndex: number | "Entity" = resultTable.columns.indexOf(co.token!.fullKey());
@@ -115,7 +115,7 @@ export default function ChartTableComponent(p: ChartTableProps): React.JSX.Eleme
     const hasEntity = !ChartClient.hasAggregates(chartRequest);
 
     const entityFormatter = qs?.entityFormatter
-        ?? Finder.entityFormatRules.filter(a => a.isApplicable(undefined)).last("EntityFormatRules").formatter;
+        ?? Finder.entityFormatRules().filter(a => a.isApplicable(undefined)).last("EntityFormatRules").formatter;
 
     return (
         <div className="sf-scroll-table-container">

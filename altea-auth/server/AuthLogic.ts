@@ -62,15 +62,33 @@ export namespace AuthLogic {
     // reset link). Async here (altea's mail send is), and awaited by the lockout path below.
     export let onDeactivateUser: ((user: UserEntity) => Promise<void> | void) | null = null;
 
-    // Signum's SystemUserName / AnonymousUserName. Not persisted config yet — set by the host if wanted.
+    // Signum's SystemUserName / AnonymousUserName — the two user names {@link start} takes, exactly as
+    // `AuthLogic.Start(sb, systemUserName, anonymousUserName)` does. Signum declares them
+    // `{ get; private set; }`; they stay writable here so a test starter can set one without a restart.
+    //
+    // `anonymousUserName` is the app's whole unauthenticated posture in one string. With it set, a request
+    // carrying no token is authenticated AS that user (see AuthServer.authenticate's fallback, Signum's
+    // `AnonymousUserAuthenticator`), so it passes the gate on EVERY route and is limited only by that
+    // user's role rules. With it null, such a request has no user at all and the gate rejects it unless the
+    // route is `allowAnonymous`.
     export let systemUserName: string | null = null;
     export let anonymousUserName: string | null = null;
 
     export async function systemUser(): Promise<UserEntity | null> {
         return systemUserName == null ? null : await retrieveUserByUsername(systemUserName);
     }
+
+    /**
+     * Signum's `AnonymousUser` — the user an unauthenticated request runs as. CACHED, because with an
+     * anonymous user configured this is on the path of EVERY request that carries no token (Signum's is a
+     * `GlobalLazy.WithoutInvalidations` for the same reason); an uncached read here is one extra SELECT per
+     * anonymous page view. The lazy is registered on the schema builder rather than created here so
+     * `AuthLogic.resetLazies()` and the cache panel see it like every other one.
+     */
     export async function anonymousUser(): Promise<UserEntity | null> {
-        return anonymousUserName == null ? null : await retrieveUserByUsername(anonymousUserName);
+        if (anonymousUserName == null)
+            return null;
+        return await anonymousUserLazy.value();
     }
 
     // Signum's `AuthLogic.Disable()` / `AuthLogic.IsEnabled`. `withDisabled` runs `fn` with authorization
@@ -90,7 +108,15 @@ export namespace AuthLogic {
         return disabledStorage.getStore() !== true && !ExecutionMode.isInGlobal();
     }
 
-    export function start(sb: SchemaBuilder): void {
+    /**
+     * Signum's `AuthLogic.Start(SchemaBuilder sb, string? systemUserName, string? anonymousUserName)`.
+     * Both names are OPTIONAL here where Signum makes them positional-required, so an app or a test
+     * starter that wants neither (the altea-auth suite) still reads as `AuthLogic.start(sb)`.
+     */
+    export function start(sb: SchemaBuilder, systemUser?: string | null, anonymousUser?: string | null): void {
+        systemUserName = systemUser ?? null;
+        anonymousUserName = anonymousUser ?? null;
+
         // Signum's FillClaims += … : stamp Role / ExternalId onto the claims bag when a UserWithClaims is
         // built from a full user (Culture omitted — no CultureInfoEntity). Read server-side by the token
         // and by RoleEntity.current().
@@ -113,6 +139,15 @@ export namespace AuthLogic {
         // GlobalLazys). Its factory runs in ExecutionMode.global (via globalLazy), so the RoleEntity read
         // is ungated — no explicit AuthLogic.Disable, and no re-entry into the row-filter provider.
         roleGraphLazy = sb.globalLazy(() => loadRoleGraph(), { invalidateWith: [RoleEntity] });
+
+        // Signum's `anonymousUserLazy`. Invalidated by a UserEntity save so renaming / re-roling the
+        // anonymous user takes effect without a restart (Signum's is WithoutInvalidations, i.e. never).
+        anonymousUserLazy = sb.globalLazy(async () => {
+            const user = await retrieveUserByUsername(anonymousUserName!);
+            if (user == null)
+                throw new Error(`AnonymousUser with name '${anonymousUserName}' not found`);
+            return user;
+        }, { invalidateWith: [UserEntity], name: "AnonymousUser" });
 
         // Signum's `if (sb.WebServerBuilder != null) AuthServer.Start(...)`: when the host set a web
         // builder on the SchemaBuilder, wire the whole auth HTTP surface (authentication middleware +
@@ -158,6 +193,16 @@ export namespace AuthLogic {
     // Signum's RetrieveUser(username, passwordHash, alternatives): the password-checking core, including
     // the failed-counter / lockout handling and the on-success hash upgrade.
     async function retrieveUserAndCheckPassword(username: string, passwordHash: Buffer, alternatives: Buffer[]): Promise<UserEntity> {
+        // Signum opens this method with `using (AuthLogic.Disable())`, and it is not optional: a login
+        // request is by definition not yet authenticated, so it runs as whatever the anonymous fallback
+        // gives it. With an ANONYMOUS USER configured that is a real role — one that cannot read UserEntity
+        // — so without this the lookup below finds nothing and EVERY login fails with "is not valid". (It
+        // was latent while no app configured one: with no user at all there is no role, and every gate
+        // short-circuits.) The scope covers the failed-counter writes too, exactly as Signum's does.
+        return await withDisabled(() => checkPasswordCore(username, passwordHash, alternatives));
+    }
+
+    async function checkPasswordCore(username: string, passwordHash: Buffer, alternatives: Buffer[]): Promise<UserEntity> {
         const user = await retrieveUser(username);
         if (user == null)
             throw new IncorrectUsernameException(LoginAuthMessage.Username0IsNotValid.niceToString(username));
@@ -167,8 +212,10 @@ export namespace AuthLogic {
         const matches = stored != null && candidates.some(c => PasswordEncoding.sequenceEqual(c, stored));
 
         if (!matches) {
+            // Signum wraps each counter write in `using (UserHolder.UserSession(SystemUser!))`, so the row
+            // is written as the system user rather than as the half-authenticated caller.
             user.loginFailedCounter++;
-            await user.save();
+            await asSystemUser(() => user.save());
 
             if (maxFailedLoginAttempts != null && user.loginFailedCounter >= maxFailedLoginAttempts && user.state === UserState.Active) {
                 // Signum's `OnDeactivateUser?.Invoke(user)` — BEFORE the state flips, so a handler still
@@ -177,7 +224,7 @@ export namespace AuthLogic {
                     await onDeactivateUser(user);
                 user.disabledOn = Temporal.Now.plainDateTimeISO();
                 user.state = UserState.Deactivated;
-                await user.save();
+                await asSystemUser(() => user.save());
                 throw new UserLockedException(LoginAuthMessage.User0IsDeactivated.niceToString(user.userName));
             }
             throw new IncorrectPasswordException(LoginAuthMessage.IncorrectPassword.niceToString());
@@ -185,17 +232,29 @@ export namespace AuthLogic {
 
         if (user.loginFailedCounter > 0) {
             user.loginFailedCounter = 0;
-            await user.save();
+            await asSystemUser(() => user.save());
         }
 
         // Upgrade a legacy (alternative) hash to the primary scheme on successful login (store the raw
         // primary-hash bytes if the stored bytes differ).
         if (user.passwordHash == null || !PasswordEncoding.sequenceEqual(Buffer.from(user.passwordHash), passwordHash)) {
             user.passwordHash = passwordHash;
-            await user.save();
+            await asSystemUser(() => user.save());
         }
 
         return user;
+    }
+
+    /**
+     * Signum's `using (UserHolder.UserSession(SystemUser!))` — run `fn` as the configured system user.
+     * With none configured the scope is a no-op, which is what Signum's `SystemUser!` would be too (it
+     * throws there; here the write simply stays attributed to whoever is current).
+     */
+    async function asSystemUser<R>(fn: () => Promise<R>): Promise<R> {
+        const system = await systemUser();
+        if (system == null)
+            return await fn();
+        return await UserHolder.withUser(new UserWithClaims(system), fn);
     }
 }
 
@@ -324,6 +383,7 @@ const importerList: AuthXmlImporter[] = [];
 // Signum's rolesGraph/mergeStrategies GlobalLazys: an async, reset-able snapshot created in
 // AuthLogic.start (invalidateWith RoleEntity). Its factory runs in ExecutionMode.global.
 let roleGraphLazy: ResetLazy<RoleGraph>;
+let anonymousUserLazy: ResetLazy<UserEntity>;
 
 async function loadRoleGraph(): Promise<RoleGraph> {
     const roles = await table(RoleEntity).toArray() as RoleEntity[];

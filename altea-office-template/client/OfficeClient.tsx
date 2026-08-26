@@ -160,14 +160,14 @@ export namespace OfficeClient {
         }));
 
         if (options.contextual)
-            onContextualItems.push(getOfficeTemplates);
+            onContextualItems().push(getOfficeTemplates);
 
         if (options.queryButton)
-            Finder.ButtonBarQuery.onButtonBarElements.push(ctx =>
+            Finder.ButtonBarQuery.onButtonBarElements().push(ctx =>
                 ({ button: <OfficeSearchMenu searchControl={ctx.searchControl} /> }));
 
         if (options.entityButton)
-            ButtonBarManager.onButtonBarRender.push(getEntityOfficeButtons);
+            ButtonBarManager.onButtonBarRender().push(getEntityOfficeButtons);
 
         UserAssetClient.registerExportAssertLink(OfficeTemplateEntity);
     }

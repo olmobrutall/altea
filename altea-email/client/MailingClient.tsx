@@ -177,10 +177,10 @@ export namespace MailingClient {
         }));
 
         if (options.contextual)
-            onContextualItems.push(getEmailTemplates);
+            onContextualItems().push(getEmailTemplates);
 
         if (options.queryButton)
-            Finder.ButtonBarQuery.onButtonBarElements.push(ctx =>
+            Finder.ButtonBarQuery.onButtonBarElements().push(ctx =>
                 ({ button: <MailingMenu searchControl={ctx.searchControl} /> }));
 
         // "Emails of this entity" — offered on every type any message actually targets.

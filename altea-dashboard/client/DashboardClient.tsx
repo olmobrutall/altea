@@ -6,6 +6,13 @@ import { Navigator } from "@altea/altea/client/Navigator";
 import { Finder } from "@altea/altea/client/Finder";
 import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
 import * as AppContext from "@altea/altea/client/AppContext";
+
+// altea-dashboard's slice of the per-user client state — see the note on Navigator's entitySettings.
+declare module "@altea/altea/client/AppContext" {
+    interface IClientState {
+        dashboardPageActions?: Array<(dashboard: any) => React.ReactElement | undefined>;
+    }
+}
 import { ajaxGet } from "@altea/altea/client/Services";
 import { getTypeName } from "@altea/altea/client/Reflection";
 import { cleanTypeName } from "@altea/altea/data/registration";
@@ -154,7 +161,7 @@ export namespace DashboardClient {
         // every entity view. The dashboards themselves are then fetched per type by the widget.
         API.embeddedTypes().then(types => { embeddedTypeNames = new Set(types); }, () => { embeddedTypeNames = new Set(); });
 
-        onEmbeddedWidgets.push(wc => {
+        onEmbeddedWidgets().push(wc => {
             const entity = wc.frame.pack.entity as Entity | undefined;
             if (entity == null || entity.isNew)
                 return undefined;
@@ -267,10 +274,14 @@ export namespace DashboardClient {
         }
     }
 
-    export const onDashboardPageActions: Array<(dashboard: DashboardEntity) => React.ReactElement | undefined> = [];
+    // In `AppContext.clientState`, not a module-level array — see the note on Navigator's entitySettings.
+    // altea-tour pushes its "start a tour" action here from `start()`.
+    export function onDashboardPageActions(): Array<(dashboard: DashboardEntity) => React.ReactElement | undefined> {
+        return AppContext.clientState.dashboardPageActions ??= [];
+    }
 
     export function clearDashboardPageActions(): void {
-        onDashboardPageActions.clear();
+        AppContext.clientState.dashboardPageActions = undefined;
     }
 
     export namespace Options {

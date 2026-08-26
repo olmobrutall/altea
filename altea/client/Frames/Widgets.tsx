@@ -7,23 +7,45 @@ import type { TypeContext, EntityFrame } from '../TypeContext'
 import "./Widgets.css"
 import { ErrorBoundary } from '../Components';
 import { classes } from "../../data/globals";
+import * as AppContext from '../AppContext';
 
 export interface WidgetContext<T extends BaseEntity> {
   ctx: TypeContext<T>;
   frame: EntityFrame;
 }
 
-export const onWidgets: Array<(ctx: WidgetContext<BaseEntity>) => React.ReactElement | undefined> = [];
-export const onEmbeddedWidgets: Array<(ctx: WidgetContext<BaseEntity>) => EmbeddedWidget[] | undefined> = [];
+// altea: the widget registries live in `AppContext.clientState`, not in module-level arrays — see the note
+// on Navigator's entitySettings. They are filled by module `start()` calls, so a host that re-runs its
+// registration bundle on a credential change (Signum's `clearAllSettings()` + `startFull(routes)`) would
+// otherwise register every widget a second time and render it twice.
+interface WidgetsClientState {
+  onWidgets: Array<(ctx: WidgetContext<BaseEntity>) => React.ReactElement | undefined>;
+  onEmbeddedWidgets: Array<(ctx: WidgetContext<BaseEntity>) => EmbeddedWidget[] | undefined>;
+}
+declare module "../AppContext" {
+  interface IClientState {
+    widgets?: WidgetsClientState;
+  }
+}
 
+function state(): WidgetsClientState {
+  return AppContext.clientState.widgets ??= { onWidgets: [], onEmbeddedWidgets: [] };
+}
+
+export function onWidgets(): Array<(ctx: WidgetContext<BaseEntity>) => React.ReactElement | undefined> {
+  return state().onWidgets;
+}
+
+export function onEmbeddedWidgets(): Array<(ctx: WidgetContext<BaseEntity>) => EmbeddedWidget[] | undefined> {
+  return state().onEmbeddedWidgets;
+}
 
 export function clearWidgets(): void {
-  onWidgets.clear();
-  onEmbeddedWidgets.clear();
+  AppContext.clientState.widgets = undefined;
 }
 
 export function renderWidgets(wc: WidgetContext<BaseEntity>, stickyHeader?: boolean): React.ReactNode | undefined {
-  const widgets = onWidgets.map(a => a(wc)).filter(a => a != undefined);
+  const widgets = onWidgets().map(a => a(wc)).filter(a => a != undefined);
 
   if (widgets.length == 0)
     return undefined;

@@ -5,7 +5,7 @@ import { ajaxGet, ajaxPost, ajaxGetRaw, saveFile } from "@altea/altea/client/Ser
 import * as AppContext from "@altea/altea/client/AppContext";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
-import { tasks, type LineBaseController, type LineBaseProps } from "@altea/altea/client/Lines/LineBase";
+import { defaultTasks, type LineBaseController, type LineBaseProps } from "@altea/altea/client/Lines/LineBase";
 import { TextBoxLineController } from "@altea/altea/client/Lines/TextBoxLine";
 import { TextAreaLineController } from "@altea/altea/client/Lines/TextAreaLine";
 import { PropertyRouteType } from "@altea/altea/data/propertyRoute";
@@ -89,7 +89,7 @@ export namespace TranslatedInstanceClient {
         }
     }
 
-    tasks.push(taskSetTranslatableIcon);
+    defaultTasks.push(taskSetTranslatableIcon);
 
     /** The button the task installs — opens the instance-translation page filtered to this very row. */
     export function TranslateButton(p: { ctx: LineBaseProps["ctx"] }): React.JSX.Element {
