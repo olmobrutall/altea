@@ -1,4 +1,4 @@
-import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { WebBuilder, CustomType, attachmentDisposition } from "@altea/altea/server/webApi";
 import { AuthImportExport } from "./AuthImportExport";
 import { TypeAuthLogic } from "./TypeAuthLogic";
 import { PermissionAuthLogic } from "./PermissionAuthLogic";
@@ -113,7 +113,7 @@ export namespace AuthAdminServer {
             {},
             async (_req, res) => {
                 const xml = await AuthImportExport.exportAuthRules();
-                res.setHeader("Content-Disposition", 'attachment; filename="AuthRules.xml"');
+                res.setHeader("Content-Disposition", attachmentDisposition("AuthRules.xml"));
                 res.type("application/xml").send(xml);
             });
     }

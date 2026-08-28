@@ -1,5 +1,5 @@
 import type { Request } from "express";
-import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { WebBuilder, CustomType, attachmentDisposition } from "@altea/altea/server/webApi";
 import { HeavyProfiler, HeavyProfilerEntry, parseStackTrace } from "@altea/altea/server/profiler/heavyProfiler";
 import { TimeTracker } from "@altea/altea/server/profiler/timeTracker";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
@@ -82,7 +82,7 @@ export namespace ProfilerServer {
                 const indices = (req as Request).query["indices"] as string | undefined;
                 const xml = indices == null ? HeavyProfiler.exportXml() : exportEntryXml(HeavyProfiler.find(indices));
                 const fileName = `Profile-${new Date().toISOString().replace(/:/g, ".")}.xml`;
-                res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+                res.setHeader("Content-Disposition", attachmentDisposition(fileName));
                 res.type("application/xml").send(xml);
             });
 

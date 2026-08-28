@@ -1,5 +1,5 @@
 import type { Request } from "express";
-import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { WebBuilder, CustomType, attachmentDisposition } from "@altea/altea/server/webApi";
 import { retrieveFromListOfLite } from "@altea/altea/server/Database";
 import type { Lite } from "@altea/altea/data/lite";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
@@ -31,7 +31,7 @@ export namespace UserAssetServer {
 
                 const typeName = lites[0]?.entityType?.name ?? "UserAssets";
                 const fileName = `${typeName}${lites.map(l => l.id).join("_")}.xml`;
-                res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+                res.setHeader("Content-Disposition", attachmentDisposition(fileName));
                 res.type("application/xml").send(xml);
             });
 

@@ -1,4 +1,4 @@
-import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { WebBuilder, CustomType, attachmentDisposition } from "@altea/altea/server/webApi";
 import { retrieve } from "@altea/altea/server/Database";
 import { Entity, type Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
@@ -55,8 +55,7 @@ export namespace OfficeServer {
 
                 const file = await OfficeTemplateLogic.createReportFileContent(template, entity);
 
-                res.setHeader("Content-Disposition",
-                    `attachment; filename="${encodeURIComponent(file.fileName)}"`);
+                res.setHeader("Content-Disposition", attachmentDisposition(file.fileName));
                 res.type(mimeTypeOf(file.fileName)).send(Buffer.from(file.bytes));
             });
 

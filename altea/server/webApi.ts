@@ -241,6 +241,22 @@ export class WebBuilder {
 
 // Convenience factory (Signum's SignumServer host setup): a fresh Express app wrapped in a WebBuilder.
 // The Express app is reachable as `ws.app` for static serving / listen.
+/**
+ * The `Content-Disposition` value for a download, in BOTH forms — ASP.NET's
+ * `File(bytes, contentType, fileName)` writes the same pair, and `Services.getFileName` reads the
+ * `filename*=` one first (as Signum's does):
+ *
+ *   attachment; filename="Pedido ano.xlsx"; filename*=UTF-8''Pedido%20a%C3%B1o.xlsx
+ *
+ * The quoted ASCII form is the LEGACY fallback, so it must stay readable text with `"` and `\` replaced
+ * (a quote inside it would close the value early — and a browser sanitises one in a download name to "_").
+ * Percent-encoding belongs ONLY in the `filename*=` form, which is what RFC 5987 defines; putting it in
+ * the plain `filename=` makes a non-ASCII name arrive as literal escapes.
+ */
+export function attachmentDisposition(fileName: string): string {
+    return `attachment; filename="${fileName.replace(/["\\]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+}
+
 export function createWebServer(): WebBuilder {
     return new WebBuilder(express());
 }

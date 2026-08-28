@@ -1,6 +1,6 @@
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { WebBuilder } from "@altea/altea/server/webApi";
-import { CustomType } from "@altea/altea/server/webApi";
+import { CustomType, attachmentDisposition } from "@altea/altea/server/webApi";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { parseQueryRequest } from "@altea/altea/server/queryServer";
 import { getNiceName } from "@altea/altea/data/dynamicQuery/queryUtils";
@@ -68,7 +68,7 @@ export namespace PlainExcelLogic {
 
                 // Signum names the file `<queryKey><yyyyMMdd-HHmmss>.xlsx`.
                 const fileName = `${wire.queryKey}${timestamp()}.xlsx`;
-                res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(fileName)}"`);
+                res.setHeader("Content-Disposition", attachmentDisposition(fileName));
                 res.type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").send(Buffer.from(bytes));
             });
     }

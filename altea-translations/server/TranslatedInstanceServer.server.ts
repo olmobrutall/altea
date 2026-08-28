@@ -1,5 +1,5 @@
 import "@altea/altea/server";
-import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { WebBuilder, CustomType, attachmentDisposition } from "@altea/altea/server/webApi";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { PropertyRouteTranslationLogic } from "@altea/altea/server/propertyRouteTranslation";
@@ -305,7 +305,7 @@ export namespace TranslatedInstanceServer {
 
     function sendExcel(res: { setHeader(n: string, v: string): void; type(t: string): { send(b: unknown): void } },
         file: TranslatedInstanceLogic.FileContent): void {
-        res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(file.fileName)}"`);
+        res.setHeader("Content-Disposition", attachmentDisposition(file.fileName));
         res.type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").send(Buffer.from(file.bytes));
     }
 }

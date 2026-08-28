@@ -1,4 +1,4 @@
-import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { WebBuilder, CustomType, attachmentDisposition } from "@altea/altea/server/webApi";
 import { table } from "@altea/altea/server/table";
 import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
 import { Transaction } from "@altea/altea/server/connection/transaction";
@@ -108,8 +108,7 @@ export namespace RemoteEmailsServer {
 
                 const name = attachment.name ?? "attachment";
                 res.setHeader("Content-Type", attachment.contentType ?? mimeType(name) ?? "application/octet-stream");
-                res.setHeader("Content-Disposition",
-                    `attachment; filename="${name.replace(/["\\]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(name)}`);
+                res.setHeader("Content-Disposition", attachmentDisposition(name));
                 res.end(Buffer.from(attachment.contentBytes, "base64"));
             });
 

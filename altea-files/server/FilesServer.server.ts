@@ -1,4 +1,4 @@
-import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { WebBuilder, CustomType, attachmentDisposition } from "@altea/altea/server/webApi";
 import { retrieve } from "@altea/altea/server/Database";
 import { Entity } from "@altea/altea/data/entity";
 import type { Type } from "@altea/altea/data/entity";
@@ -154,6 +154,6 @@ function matchesETag(ifNoneMatch: string | string[], etag: string): boolean {
 }
 
 function sendFile(res: FileResponse, fileName: string, bytes: Uint8Array): void {
-    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(fileName)}"`);
+    res.setHeader("Content-Disposition", attachmentDisposition(fileName));
     res.type(mimeType(fileName) ?? "application/octet-stream").send(Buffer.from(bytes));
 }

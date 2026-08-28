@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import "@altea/altea/server";
-import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { WebBuilder, CustomType, attachmentDisposition } from "@altea/altea/server/webApi";
 import { pluralize, detectGender, determinersFor } from "@altea/altea/data/utils/naturalLanguage";
 import type { Gender } from "@altea/altea/data/utils/naturalLanguage";
 import { TranslatedSummaryState } from "../data/Translation";
@@ -98,7 +98,7 @@ export namespace TranslationServer {
                     return;
                 }
 
-                res.setHeader("Content-Disposition", `attachment; filename="${fileBaseOf(packageName)}.${culture}.xml"`);
+                res.setHeader("Content-Disposition", attachmentDisposition(`${fileBaseOf(packageName)}.${culture}.xml`));
                 res.type("application/xml").send(readFileSync(path, "utf8"));
             });
 
