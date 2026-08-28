@@ -35,11 +35,19 @@ export function newClientState(): void {
 // it. `setCurrentUser` fires `currentUserChanged` listeners (e.g. the header LoginDropdown re-renders);
 // `resetUI` wipes per-module client state and asks the app shell to remount (login / logout / switch
 // user), the altea analogue of Signum's `AppContext.resetUI()`.
-import type { IUserEntity } from "../data/security";
+import { CurrentUser, UserWithClaims, type IUserEntity } from "../data/security";
 
 export let currentUser: IUserEntity | undefined = undefined;
 
 export const currentUserChanged: (() => void)[] = [];
+
+// The CLIENT's half of the isomorphic `CurrentUser` accessor (data/security), which is what makes
+// `UserEntity.current()` / `RoleEntity.current()` / an app's `EmployeeEntity.current()` answer on this tier
+// too — Signum has no client counterpart at all, and reads `AppContext.currentUser` by hand everywhere.
+// Rebuilt (not patched) on every assignment below, because building it is what runs `fillClaims`: a claim
+// derived from the user — the role, an app's employee — must never outlive the user it was derived from.
+let currentUserWithClaims: UserWithClaims | undefined = undefined;
+CurrentUser.setProvider(() => currentUserWithClaims);
 
 export function setCurrentUser(user: IUserEntity | undefined): void {
   const same = currentUser != null && user != null
@@ -51,6 +59,7 @@ export function setCurrentUser(user: IUserEntity | undefined): void {
     // is role-filtered.
     && currentUser.ticks === user.ticks;
   currentUser = user;
+  currentUserWithClaims = user == null ? undefined : new UserWithClaims(user);
   // Only notify on a REAL change. A periodic token refresh re-fetches the SAME user at the SAME version,
   // and the listeners here are expensive — altea's reloads the whole reflection blob and remounts the app
   // (AuthClient) — so firing then turns a background refresh into a visible storm: remount → new requests
@@ -110,20 +119,71 @@ export function toAbsoluteUrl(appRelativeUrl: string, baseName?: string): string
 // so navigate() can drive SPA (client-side) navigation. eastwind's MainPublic.client calls setRouter()
 // right after createBrowserRouter. altea divergence: typed as the minimal `{ navigate }` slice we use
 // (react-router doesn't export a stable DataRouter type name across versions).
-export let _internalRouter: { navigate(to: string, opts?: { replace?: boolean }): void | Promise<void> } | undefined;
-export function setRouter(r: { navigate(to: string, opts?: { replace?: boolean }): void | Promise<void> }): void {
+
+// Signum passes react-router's own `To` / `NavigateOptions` / `Location`. altea's navigate takes a plain
+// string url, so only the OPTIONS and the location shape are modelled — `state` is the piece that matters
+// here: it is how a redirect carries where it came from (see NotFound → /auth/login in an app shell), and
+// react-router keeps it in history state rather than in the url.
+export interface NavigateOptions {
+  replace?: boolean;
+  state?: any;
+}
+
+/** The slice of react-router's `Location` altea reads (the same members Signum's `location()` returns). */
+export interface RouterLocation {
+  pathname: string;
+  search: string;
+  hash: string;
+  state: any;
+  key?: string;
+}
+
+export interface AlteaRouter {
+  navigate(to: string, opts?: NavigateOptions): void | Promise<void>;
+  // The DataRouter's live state. Optional because only `location()` reads it and a host may hand in a
+  // hand-rolled router; `location()` says so rather than crashing.
+  state?: { location: RouterLocation };
+}
+export let _internalRouter: AlteaRouter | undefined;
+export function setRouter(r: AlteaRouter): void {
   _internalRouter = r;
+}
+
+// Signum's AppContext.location(): the CURRENT route, with the baseName stripped off its pathname so what
+// comes back is app-relative — which is what a caller stashing it (the NotFound → login redirect) needs, and
+// what `navigate` takes back. Throws if no router has been set: a caller asking where it is has no sensible
+// fallback answer, and every app calls setRouter at boot.
+export function location(): RouterLocation {
+  const router = _internalRouter;
+  if (router?.state == null)
+    throw new Error("AppContext.location() needs a router with live state — was setRouter() called with the DataRouter?");
+
+  const loc = router.state.location;
+  return { ...loc, pathname: toRelativeUrl(loc.pathname) };
+}
+
+/** The inverse of {@link toAbsoluteUrl} — Signum's private `toRelativeUrl`. */
+export function toRelativeUrl(url: string): string {
+  if (window.__baseName && url.startsWith(window.__baseName))
+    return url.after(window.__baseName);
+
+  if (url.startsWith("~"))
+    return url.after("~");
+
+  return url;
 }
 
 // Signum's AppContext.navigate: SPA navigation via the router. If setRouter() has run we route through
 // the react-router DataRouter (fast, no full page reload); otherwise fall back to a hard navigation.
 // `replace: true` swaps the current history entry instead of pushing a new one (used by SearchPage's
 // URL sync so each in-place search doesn't stack a back-button entry).
-export function navigate(url: string, options?: { replace?: boolean }): void {
+export function navigate(url: string, options?: NavigateOptions): void {
   const to = toAbsoluteUrl(url);
   if (_internalRouter)
     _internalRouter.navigate(to, options);
   else if (options?.replace)
+    // No router: a hard navigation cannot carry `state` (it is in-memory history state the SPA reads back),
+    // so it is simply dropped — the only caller that passes one is the login redirect, which runs inside the app.
     window.location.replace(to);
   else
     window.location.assign(to);
