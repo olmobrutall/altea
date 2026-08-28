@@ -190,6 +190,9 @@ export const OperationMessage = {
     _0AndClose: msg("{0} and close"),
     _0AndNew: msg("{0} and new"),
     MultiSetter: msg("(Multi setter)"),
+    // Signum's OperationMessage.StateShouldBe0InsteadOf1 — why a state-machine operation cannot run over
+    // the current selection (see OperationLogic.getContextualCanExecute).
+    StateShouldBe0InsteadOf1: msg("State should be {0} instead of {1}"),
     // The `PreviousOperationLog` extension token OperationLogic registers on every @systemVersioned
     // type — "which operation produced this row version" (see OperationLogic.registerPreviousLog).
     PreviousOperationLog: msg("Previous operation log"),
@@ -204,6 +207,13 @@ export const OperationMessage = {
     AreYouSureYouWantToCancelTheOperation: msg("Are you sure you want to cancel the operation?"),
     ClosingThisModalOrBrowserTabWillCancelTheOperation: msg("Closing this modal or browser tab will cancel the operation"),
     PleaseConfirmThatYouWouldLikeToApplyTheAboveChangesAndExecute0Over12: msg("Please confirm that you would like to apply the above changes and execute {0} over {1} {2}"),
+    // The multi-setter dialog (Operations/MultiPropertySetter): its title, its third column header, and
+    // the two headings of a nested setter block.
+    BulkModifications: msg("Bulk modifications"),
+    Operation: msg("Operation"),
+    Condition: msg("Condition"),
+    Setters: msg("Setters"),
+    AddSetter: msg("Add setter"),
 };
 
 // Engine (Signum's EngineMessage) — the members the Operations layer reads.

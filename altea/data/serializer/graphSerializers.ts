@@ -66,6 +66,21 @@ let _translatedField: TranslatedFieldProvider | undefined;
 export function setTranslatedFieldProvider(fn: TranslatedFieldProvider | undefined): void { _translatedField = fn; }
 /** True once a SerializationAuth is installed — lets the save path decide whether to run the write-gate overlay. */
 export function hasSerializationAuth(): boolean { return _serAuth != null; }
+/**
+ * The installed auth's opaque per-root metadata (undefined when no auth is installed) — for a caller
+ * that writes properties OUTSIDE the serializer and so has to open the gate itself. Compute it once per
+ * root entity, exactly as the codec does, and thread it to {@link propertyWriteAccess}.
+ */
+export function serializationAuthMetadata(root: Entity): unknown { return _serAuth?.getMetadata(root); }
+/**
+ * The role's access to ONE property route — Signum's `WebEntityJsonConverterFactory.AssertCanWrite`,
+ * minus the throw (the caller decides). 'writable' when no auth module is installed, so a consumer needs
+ * no null checks. `context` is the immutable snapshot from {@link resolveSerializationAuthContext}.
+ * Sole consumer: server/multiSetter, whose writes bypass the codec entirely.
+ */
+export function propertyWriteAccess(route: PropertyRoute, meta: unknown, context: unknown): PropertyAccess {
+    return _serAuth == null ? 'writable' : _serAuth.access(route, meta, context);
+}
 /** Resolve the installed auth's immutable rule snapshot (undefined if none). Called at the async
  *  (de)serialization boundary and then threaded into the sync `stringify`/`parse` as `authContext`, so the
  *  synchronous `access` reads a consistent snapshot immune to concurrent invalidation. */

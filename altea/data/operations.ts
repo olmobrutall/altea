@@ -1,5 +1,6 @@
 import type { Entity } from './entity';
 import { OperationSymbol } from './operationSymbol';
+import { registerEnum } from './registration';
 
 // The typed symbol containers — the CLIENT-SAFE declaration side used to write
 // `export namespace XOperation { export const … = init() }` (mirroring `OrderEntity.cs`'s
@@ -59,3 +60,6 @@ export enum PropertyOperationEnum {
     CreateNewEntity,
 }
 export type PropertyOperation = keyof typeof PropertyOperationEnum;
+// Rewritten by the quote-transformer to `registerEnum(PropertyOperationEnum, "PropertyOperation",
+// __fileInfo)`, so `Enum.niceName` resolves the translated member names the shipped XMLs already carry.
+registerEnum(PropertyOperationEnum);
