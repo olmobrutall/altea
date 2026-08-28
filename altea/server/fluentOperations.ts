@@ -6,6 +6,7 @@ import type {
 } from "../data/operations";
 import { FluentInclude } from "./schema/fluentInclude";
 import { Graph } from "./graph";
+import { tryStateEnum } from "./operation";
 import type {
     OptionalBody,
     ExecuteOptions, DeleteOptions,
@@ -120,6 +121,13 @@ export interface FluentStateMachine<T extends Entity, S> {
     /** The state selector stamped onto every operation declared here. */
     readonly getState: Quoted<(entity: T) => S>;
     /**
+     * The enum S's members belong to, stamped onto every operation declared here alongside the selector
+     * — altea's stand-in for Signum's `IOperation.StateType`, which `Graph<T, S>` reads straight off S.
+     * Resolved ONCE here, from the selector's property route, so no state error and no contextual
+     * can-execute has to walk it again.
+     */
+    readonly stateEnum: object | undefined;
+    /**
      * The stateless surface this state machine was opened from — the `FluentInclude<T>` itself.
      * It is what makes an EXTRACTED graph function complete: a type's Create / Clone / plain Save have no
      * state to check, and `sm.parent.withConstruct(…)` declares them without going back to `start`.
@@ -146,11 +154,12 @@ export interface FluentStateMachine<T extends Entity, S> {
 }
 
 // `this` inside the shared method bodies. Both public surfaces are typed views of the SAME object, and
-// these two members are all a body reads off it: the type it registers for, and — inside a state machine
-// — the selector to stamp. Derived from FluentOperations rather than restated, so there is no second
-// description of the same thing; `getState` is optional because the stateless view has none.
+// these members are all a body reads off it: the type it registers for and — inside a state machine — the
+// selector and the enum to stamp. Derived from FluentOperations rather than restated, so there is no
+// second description of the same thing; both are optional because the stateless view has neither.
 type OperationsThis<T extends Entity, S> = Pick<FluentOperations<T>, "type"> & {
     readonly getState?: Quoted<(entity: T) => S>;
+    readonly stateEnum?: object;
 };
 
 // `Entity.create` narrows `this` to `new () => T` (a factory cannot be abstract-tolerant) while a
@@ -172,6 +181,7 @@ const fluentOperations = {
             canBeModified: true,
             execute: () => { },
             getState: this.getState,
+            stateEnum: this.stateEnum,
             ...options,
         } as ExecuteOptions<T>).register();
         return this;
@@ -181,13 +191,14 @@ const fluentOperations = {
         new Graph.Delete<T, S>(this.type, symbol, {
             delete: e => e.delete(),
             getState: this.getState,
+            stateEnum: this.stateEnum,
             ...options,
         } as DeleteOptions<T>).register();
         return this;
     },
 
     withExecute<T extends Entity, S>(this: OperationsThis<T, S>, symbol: ExecuteSymbol<T>, options: Partial<ExecuteOptionsWithState<T, S>>) {
-        new Graph.Execute<T, S>(this.type, symbol, { getState: this.getState, ...options } as ExecuteOptions<T>).register();
+        new Graph.Execute<T, S>(this.type, symbol, { getState: this.getState, stateEnum: this.stateEnum, ...options } as ExecuteOptions<T>).register();
         return this;
     },
 
@@ -199,6 +210,7 @@ const fluentOperations = {
         new Graph.Construct<R, S>(this.type as never, symbol, {
             construct: () => createBlank(this.type) as unknown as R,
             getState: this.getState as unknown as Quoted<(entity: R) => S> | undefined,
+            stateEnum: this.stateEnum,
             ...options,
         } as ConstructOptions<R>).register();
         return this;
@@ -207,6 +219,7 @@ const fluentOperations = {
     withConstructFrom<T extends Entity, S, R extends Entity, F extends Entity>(this: OperationsThis<T, S>, fromType: Type<F>, symbol: ConstructSymbol<R, From<F>>, options: Partial<ConstructFromOptionsWithState<R, F, S>>) {
         new Graph.ConstructFrom<R, F, S>(fromType, symbol, {
             getState: this.getState as unknown as Quoted<(entity: R) => S> | undefined,
+            stateEnum: this.stateEnum,
             ...options,
         } as ConstructFromOptions<R, F>).register();
         return this;
@@ -215,6 +228,7 @@ const fluentOperations = {
     withConstructFromMany<T extends Entity, S, R extends Entity, F extends Entity>(this: OperationsThis<T, S>, fromType: Type<F>, symbol: ConstructSymbol<R, FromMany<F>>, options: Partial<ConstructFromManyOptionsWithState<R, F, S>>) {
         new Graph.ConstructFromMany<R, F, S>(fromType, symbol, {
             getState: this.getState as unknown as Quoted<(entity: R) => S> | undefined,
+            stateEnum: this.stateEnum,
             ...options,
         } as ConstructFromManyOptions<R, F>).register();
         return this;
@@ -235,11 +249,15 @@ const fluentOperations = {
 
 // The host `withStateMachine` hands its callback.
 class StateMachineBuilder<T extends Entity, S> {
+    /** Resolved once for the whole block — see {@link FluentStateMachine.stateEnum}. */
+    readonly stateEnum: object | undefined;
     constructor(
         readonly type: Type<T>,
         readonly getState: Quoted<(entity: T) => S>,
         readonly parent: FluentOperations<T>,
-    ) { }
+    ) {
+        this.stateEnum = tryStateEnum(type, getState);
+    }
 }
 interface StateMachineBuilder<T extends Entity, S> extends FluentStateMachine<T, S> { }
 Object.assign(StateMachineBuilder.prototype, fluentOperations);

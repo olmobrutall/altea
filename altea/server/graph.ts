@@ -2,15 +2,19 @@ import type { Quoted } from "quote-transformer/quoted";
 import type { Entity, Type } from "../data/entity";
 import type { Lite } from "../data/lite";
 import type { OperationSymbol } from "../data/operations";
+import { OperationMessage } from "../data/uiMessages";
+import { CollectionMessage } from "../data/dynamicQueries";
+import "../data/globals"; // Array.prototype.joinComma (Signum's CommaOr)
 import type {
     ExecuteSymbol, DeleteSymbol,
     ConstructSymbol, From, FromMany,
 } from "../data/operations";
 import { Transaction } from "./connection/transaction";
 import {
-    OperationType,
+    OperationType, stateEnumOf, stateNiceToString,
     type IExecuteOperation, type IDeleteOperation, type IConstructOperation,
     type IConstructorFromOperation, type IConstructorFromManyOperation,
+    type IGraphStateOperation,
 } from "./operation";
 import { OperationLogic } from "./operationLogic";
 import { HeavyProfiler } from "./profiler/heavyProfiler";
@@ -79,12 +83,27 @@ import { HeavyProfiler } from "./profiler/heavyProfiler";
 // `getState` stays OPTIONAL on all of them, because `withStateMachine` supplies it; it is written by hand
 // only when one of the Graph.* classes below is constructed directly.
 
+/**
+ * What a state machine stamps on every operation it declares — the two halves of Signum's `Graph<T, S>`
+ * that survive S being erased: the selector (its `GetState`) and the enum S's members belong to (its
+ * `IOperation.StateType`). `getState` is optional because `withStateMachine` supplies it; it is written
+ * by hand only when one of the Graph.* classes below is constructed directly.
+ */
+export interface StateSelectorOptions<T extends Entity, S> {
+    getState?: Quoted<(entity: T) => S>;
+    /**
+     * The enum object S's members belong to, used to show a state by its NICE NAME in a state error.
+     * Resolved ONCE per state machine by `withStateMachine` and stamped here; left unset on a
+     * hand-built operation, where `stateEnumOf` resolves and memoises it on first need.
+     */
+    stateEnum?: object;
+}
+
 export interface ConstructOptions<T extends Entity> {
     construct: (args: unknown[]) => T | Promise<T>;
 }
-export interface ConstructOptionsWithState<T extends Entity, S> extends ConstructOptions<T> {
+export interface ConstructOptionsWithState<T extends Entity, S> extends ConstructOptions<T>, StateSelectorOptions<T, S> {
     toStates: S[];
-    getState?: Quoted<(entity: T) => S>;
 }
 
 export interface ConstructFromOptions<T extends Entity, F extends Entity> {
@@ -94,17 +113,15 @@ export interface ConstructFromOptions<T extends Entity, F extends Entity> {
     canBeModified?: boolean;
     resultIsSaved?: boolean;
 }
-export interface ConstructFromOptionsWithState<T extends Entity, F extends Entity, S> extends ConstructFromOptions<T, F> {
+export interface ConstructFromOptionsWithState<T extends Entity, F extends Entity, S> extends ConstructFromOptions<T, F>, StateSelectorOptions<T, S> {
     toStates: S[];
-    getState?: Quoted<(entity: T) => S>;
 }
 
 export interface ConstructFromManyOptions<T extends Entity, F extends Entity> {
     construct: (lites: Lite<F>[], args: unknown[]) => T | Promise<T>;
 }
-export interface ConstructFromManyOptionsWithState<T extends Entity, F extends Entity, S> extends ConstructFromManyOptions<T, F> {
+export interface ConstructFromManyOptionsWithState<T extends Entity, F extends Entity, S> extends ConstructFromManyOptions<T, F>, StateSelectorOptions<T, S> {
     toStates: S[];
-    getState?: Quoted<(entity: T) => S>;
 }
 
 export interface ExecuteOptions<T extends Entity> {
@@ -114,19 +131,17 @@ export interface ExecuteOptions<T extends Entity> {
     canBeModified?: boolean;
     avoidImplicitSave?: boolean;
 }
-export interface ExecuteOptionsWithState<T extends Entity, S> extends ExecuteOptions<T> {
+export interface ExecuteOptionsWithState<T extends Entity, S> extends ExecuteOptions<T>, StateSelectorOptions<T, S> {
     fromStates: S[];
     toStates: S[];
-    getState?: Quoted<(entity: T) => S>;
 }
 
 export interface DeleteOptions<T extends Entity> {
     delete: (entity: T, args: unknown[]) => void | Promise<void>;
     canDelete?: (entity: T) => string | null;
 }
-export interface DeleteOptionsWithState<T extends Entity, S> extends DeleteOptions<T> {
+export interface DeleteOptionsWithState<T extends Entity, S> extends DeleteOptions<T>, StateSelectorOptions<T, S> {
     fromStates: S[];
-    getState?: Quoted<(entity: T) => S>;
 }
 
 /**
@@ -139,18 +154,27 @@ export type OptionalBody<O, K extends keyof O> = Omit<O, K> & Partial<Pick<O, K>
 
 const isNewError = "The entity is new.";
 
-function stateError<S>(state: S, allowed: S[]): string {
-    return `State should be one of [${allowed.map(String).join(", ")}] but was ${String(state)}.`;
+// Signum's `GraphState` state errors (OperationMessage.StateShouldBe0InsteadOf1, filled through its
+// `GetNiceToString`): both sides are the states' NICE NAMES, never the ordinal the enum field holds.
+// The enum comes off the OPERATION (`stateEnumOf` — stamped by withStateMachine, else memoised on first
+// need). Its resolution root is the ENTITY's own type, not the operation's `entityType`: for a
+// ConstructFrom that one is the SOURCE type, while `getState` selects on the constructed one.
+function stateError<S>(op: IGraphStateOperation, entity: unknown, state: S, allowed: readonly S[]): string {
+    const stateEnum = stateEnumOf(op, (entity as Entity).constructor);
+    return OperationMessage.StateShouldBe0InsteadOf1.niceToString(
+        allowed.map(s => stateNiceToString(s, stateEnum)).joinComma(CollectionMessage.Or.niceToString()),
+        stateNiceToString(state, stateEnum));
 }
 
 // After a construct/execute, assert the entity's resulting state is in toStates. Uses the
 // op's own state selector; cross-entity constructs (result ≠ T) just omit toStates.
-function assertToStates<S>(entity: unknown, toStates: S[] | undefined, getState: ((t: any) => S) | undefined): void {
+function assertToStates<S>(op: IGraphStateOperation, entity: unknown): void {
+    const { getState, toStates } = op as { getState?: (t: any) => S; toStates?: readonly S[] };
     if (getState == null || toStates == null)
         return;
     const st = getState(entity);
     if (!toStates.includes(st))
-        throw new Error(stateError(st, toStates));
+        throw new Error(stateError(op, entity, st, toStates));
 }
 
 export namespace Graph {
@@ -160,6 +184,7 @@ export namespace Graph {
         construct!: (args: unknown[]) => T | Promise<T>;
         toStates?: S[];
         getState?: Quoted<(entity: T) => S>;
+        stateEnum?: object | null; // memoised by stateEnumOf; stamped by withStateMachine
         constructor(readonly entityType: Type<T>, readonly symbol: ConstructSymbol<T>, options: ConstructOptions<T> | ConstructOptionsWithState<T, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
@@ -168,7 +193,7 @@ export namespace Graph {
             using _prof = HeavyProfiler.log("Construct", () => this.symbol.key);
             return await Transaction.create(async () => {
                 const result = await this.construct(args);
-                assertToStates(result, this.toStates, this.getState);
+                assertToStates(this, result);
                 return result as Entity;
             });
         }
@@ -190,6 +215,7 @@ export namespace Graph {
         resultIsSaved = false;
         toStates?: S[];
         getState?: Quoted<(entity: T) => S>;
+        stateEnum?: object | null; // memoised by stateEnumOf; stamped by withStateMachine
         /** `entityType` is the SOURCE type F — where the button appears — not the constructed T. */
         constructor(readonly entityType: Type<F>, readonly symbol: ConstructSymbol<T, From<F>>, options: ConstructFromOptions<T, F> | ConstructFromOptionsWithState<T, F, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
@@ -204,7 +230,7 @@ export namespace Graph {
                 const error = this.onCanExecute(from);
                 if (error != null) throw new Error(error);
                 const result = await this.construct(from, args);
-                assertToStates(result, this.toStates, this.getState);
+                assertToStates(this, result);
                 return result as Entity;
             });
         }
@@ -222,6 +248,7 @@ export namespace Graph {
         construct!: (lites: Lite<F>[], args: unknown[]) => T | Promise<T>;
         toStates?: S[];
         getState?: Quoted<(entity: T) => S>;
+        stateEnum?: object | null; // memoised by stateEnumOf; stamped by withStateMachine
         /** `entityType` is the SOURCE type F — where the button appears — not the constructed T. */
         constructor(readonly entityType: Type<F>, readonly symbol: ConstructSymbol<T, FromMany<F>>, options: ConstructFromManyOptions<T, F> | ConstructFromManyOptionsWithState<T, F, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
@@ -230,7 +257,7 @@ export namespace Graph {
             using _prof = HeavyProfiler.log("ConstructFromMany", () => this.symbol.key);
             return await Transaction.create(async () => {
                 const result = await this.construct(lites as Lite<F>[], args);
-                assertToStates(result, this.toStates, this.getState);
+                assertToStates(this, result);
                 return result as Entity;
             });
         }
@@ -253,13 +280,14 @@ export namespace Graph {
         fromStates?: S[];
         toStates?: S[];
         getState?: Quoted<(entity: T) => S>;
+        stateEnum?: object | null; // memoised by stateEnumOf; stamped by withStateMachine
         constructor(readonly entityType: Type<T>, readonly symbol: ExecuteSymbol<T>, options: ExecuteOptions<T> | ExecuteOptionsWithState<T, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         onCanExecute(entity: T): string | null {
             if (entity.isNew && !this.canBeNew) return isNewError;
             if (this.fromStates != null && this.getState != null && !this.fromStates.includes(this.getState(entity)))
-                return stateError(this.getState(entity), this.fromStates);
+                return stateError(this, entity, this.getState(entity), this.fromStates);
             return this.canExecute != null ? this.canExecute(entity) : null;
         }
         async doExecute(entity: T, args: unknown[]): Promise<Entity> {
@@ -268,7 +296,7 @@ export namespace Graph {
                 const error = this.onCanExecute(entity);
                 if (error != null) throw new Error(error);
                 await this.execute(entity, args);
-                assertToStates(entity, this.toStates, this.getState);
+                assertToStates(this, entity);
                 if (!this.avoidImplicitSave) await entity.save(); // nothing happens if already saved
                 return entity as Entity;
             });
@@ -291,13 +319,14 @@ export namespace Graph {
         readonly canBeModified = false;
         fromStates?: S[];
         getState?: Quoted<(entity: T) => S>;
+        stateEnum?: object | null; // memoised by stateEnumOf; stamped by withStateMachine
         constructor(readonly entityType: Type<T>, readonly symbol: DeleteSymbol<T>, options: DeleteOptions<T> | DeleteOptionsWithState<T, S>) { Object.assign(this, options); }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         onCanExecute(entity: T): string | null {
             if (entity.isNew) return isNewError;
             if (this.fromStates != null && this.getState != null && !this.fromStates.includes(this.getState(entity)))
-                return stateError(this.getState(entity), this.fromStates);
+                return stateError(this, entity, this.getState(entity), this.fromStates);
             return this.canDelete != null ? this.canDelete(entity) : null;
         }
         async doDelete(entity: T, args: unknown[]): Promise<void> {

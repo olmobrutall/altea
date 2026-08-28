@@ -28,6 +28,11 @@
 		<Member Name="Element2" Description="Elemento (2)" />
 		<Member Name="Element3" Description="Elemento (3)" />
 	</Type>
+	<Type Name="CollectionMessage">
+		<Member Name="And" Description=" y " />
+		<Member Name="Or" Description=" o " />
+	</Type>
+
 	<Type Name="ColumnOptionsMode" Description="Modo de las columnas">
 		<Member Name="Add" Description="Añadir" />
 		<Member Name="InsertStart" Description="Insertar Inicio" />

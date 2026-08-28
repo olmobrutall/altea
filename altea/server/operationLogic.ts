@@ -10,8 +10,8 @@ import { resolveCleanType, resolveType } from "../data/registration";
 import { Temporal } from "../data/basics";
 import { withQuoted } from "../data/decorators";
 import { OperationMessage } from "../data/uiMessages";
-import { Enum } from "../data/enum";
-import { PropertyRoute } from "../data/propertyRoute";
+import { CollectionMessage } from "../data/dynamicQueries";
+import "../data/globals"; // Array.prototype.joinComma (Signum's CommaOr)
 import type { Quoted } from "quote-transformer/quoted";
 import { table } from "./table";
 import { QueryLogic } from "./dynamicQuery/queryLogic";
@@ -27,6 +27,7 @@ import {
     type IOperation, type IEntityOperation, type IExecuteOperation, type IDeleteOperation,
     type IConstructOperation, type IConstructorFromOperation, type IConstructorFromManyOperation,
     type IGraphStateOperation,
+    stateEnumOf, normalizeState, stateNiceToString,
 } from "./operation";
 
 // Port of Signum's OperationLogic (Signum/Operations/OperationLogic.cs): the operation
@@ -212,30 +213,51 @@ export namespace OperationLogic {
         }
 
         for (const [ctor, group] of byType) {
+            // Signum groups the state-carrying operations by their StateType and runs ONE
+            // `Select(getState).Distinct()` per group (`GetContextualGraphCanExecute<T, E, S>`) — so the
+            // key here is the ENUM, resolved off each operation (stamped by `withStateMachine`, so no
+            // property route is walked). Keying on the SELECTOR instance instead would be finer, but it
+            // splits the common case: a second `withStateMachine(o => o.state, …)` block — the ordinary
+            // way another module adds operations to a type — is a different function object over the same
+            // states, and would cost a second identical query. Two properties of the same enum type on
+            // one entity, which the enum key would merge, do not happen in practice.
+            // A selector whose enum cannot be resolved keys on itself, so those never merge either.
+            const byStateEnum = new Map<object | ((entity: any) => unknown), { symbol: OperationSymbol, op: IGraphStateOperation }[]>();
             for (const symbol of symbols) {
                 const op = tryFindOperation(symbol) as IGraphStateOperation | undefined;
                 if (op?.getState == null || op.fromStates == null || op.fromStates.length === 0)
                     continue;
+                const key = stateEnumOf(op, ctor) ?? op.getState;
+                let ops = byStateEnum.get(key);
+                if (ops == null) byStateEnum.set(key, ops = []);
+                ops.push({ symbol, op });
+            }
 
-                const stateEnum = tryStateEnum(ctor, op.getState);
-                const states = await distinctStates(ctor, group, op.getState);
+            for (const ops of byStateEnum.values()) {
+                // Any member's selector reads the same column for the whole group (that is what sharing
+                // the enum means here), so one GROUP BY serves all of them.
+                const states = await distinctStates(ctor, group, ops[0].op.getState!);
 
-                // Both sides through the enum's NAME: `fromStates` holds the enum's numeric values (S is
-                // inferred from the selector), while a materialised enum column yields the member name —
-                // the same ordinal↔name boundary @altea/altea-map's operation map crosses.
-                const allowed = new Set(op.fromStates.map(s => normalizeState(s, stateEnum)));
-                const invalid = states.filter(s => !allowed.has(normalizeState(s, stateEnum)));
-                if (invalid.length === 0)
-                    continue;
+                for (const { symbol, op } of ops) {
+                    const stateEnum = stateEnumOf(op, ctor); // memoised on the operation by the grouping pass
 
-                const nice = (s: unknown): string =>
-                    stateEnum == null ? String(s) : Enum.niceName(stateEnum as never, s as never);
+                    // Both sides through the enum's NAME: `fromStates` holds the enum's numeric values (S
+                    // is inferred from the selector), while a materialised enum column yields the member
+                    // name — the same ordinal↔name boundary @altea/altea-map's operation map crosses.
+                    const allowed = new Set(op.fromStates!.map(s => normalizeState(s, stateEnum)));
+                    const invalid = states.filter(s => !allowed.has(normalizeState(s, stateEnum)));
+                    if (invalid.length === 0)
+                        continue;
 
-                const message = OperationMessage.StateShouldBe0InsteadOf1.niceToString(
-                    op.fromStates.map(nice).join(", "),
-                    invalid.map(nice).join(", "));
+                    const nice = (s: unknown): string => stateNiceToString(s, stateEnum);
 
-                result[symbol.key] = result[symbol.key] == null ? message : result[symbol.key] + "\n" + message;
+                    const or = CollectionMessage.Or.niceToString();
+                    const message = OperationMessage.StateShouldBe0InsteadOf1.niceToString(
+                        op.fromStates!.map(nice).joinComma(or),
+                        invalid.map(nice).joinComma(or));
+
+                    result[symbol.key] = result[symbol.key] == null ? message : result[symbol.key] + "\n" + message;
+                }
             }
         }
 
@@ -251,21 +273,6 @@ export namespace OperationLogic {
             .map(g => g.key)
             .toArray();
         return rows.filter(s => s != null);
-    }
-
-    /** The enum OBJECT behind the state selector, for nice names — @altea/altea-map's `tryRoute`. */
-    function tryStateEnum(ctor: Type<Entity>, getState: (entity: any) => unknown): object | undefined {
-        try {
-            return PropertyRoute.root(ctor).addLambda(getState as Quoted<(entity: Entity) => unknown>).type.getEnum();
-        } catch {
-            return undefined;
-        }
-    }
-
-    function normalizeState(state: unknown, stateEnum: object | undefined): string {
-        if (stateEnum != null && (typeof state === "number" || typeof state === "string"))
-            return Enum.toName(stateEnum as never, state as never) ?? String(state);
-        return String(state);
     }
 
     /**

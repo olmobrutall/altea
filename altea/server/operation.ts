@@ -1,4 +1,7 @@
-import type { Entity } from "../data/entity";
+import type { Quoted } from "quote-transformer/quoted";
+import type { Entity, Type } from "../data/entity";
+import { Enum } from "../data/enum";
+import { PropertyRoute } from "../data/propertyRoute";
 import type { Lite } from "../data/lite";
 import type { OperationSymbol } from "../data/operations";
 
@@ -50,6 +53,14 @@ export interface IGraphStateOperation extends IOperation {
     readonly fromStates?: readonly unknown[];
     readonly toStates?: readonly unknown[];
     readonly getState?: (entity: any) => unknown;
+    /**
+     * The enum OBJECT the states belong to — altea's counterpart of Signum's `IOperation.StateType`,
+     * which its `Graph<T, S>` knows outright from S. Here S is erased, so it is either STAMPED at
+     * registration (`withStateMachine` resolves it once for the whole block) or resolved on first
+     * need by {@link stateEnumOf}, which memoises it here. `null` means "resolved, and there is
+     * none" — a selector that is not a plain property route.
+     */
+    stateEnum?: object | null;
 }
 
 export interface IEntityOperation extends IOperation {
@@ -77,4 +88,47 @@ export interface IExecuteOperation extends IEntityOperation {
 
 export interface IDeleteOperation extends IEntityOperation {
     doDelete(entity: Entity, args: unknown[]): Promise<void>;
+}
+
+/**
+ * The enum OBJECT behind a state selector, for nice names — @altea/altea-map's `tryRoute`. `S` is
+ * erased (the selector is what infers it), so the enum is discovered through the selector's PROPERTY
+ * ROUTE. Rooted at the ENTITY's own type rather than the operation's `entityType`: for a
+ * ConstructFrom / ConstructFromMany that one is the SOURCE type, while `getState` selects on the
+ * CONSTRUCTED one. Returns undefined for a selector that is not a plain property route.
+ */
+export function tryStateEnum(ctor: Function, getState: (entity: any) => unknown): object | undefined {
+    try {
+        return PropertyRoute.root(ctor as Type<Entity>).addLambda(getState as Quoted<(entity: Entity) => unknown>).type.getEnum();
+    } catch {
+        return undefined;
+    }
+}
+
+/**
+ * A state-carrying operation's enum, resolved at most ONCE per operation and memoised on it. `root` is
+ * the type to walk the selector from, and is only consulted on a miss: `withStateMachine` stamps
+ * `stateEnum` for every operation it declares, so the walk is skipped entirely for those.
+ */
+export function stateEnumOf(op: IGraphStateOperation, root: Function): object | undefined {
+    if (op.stateEnum === undefined)
+        op.stateEnum = (op.getState == null ? undefined : tryStateEnum(root, op.getState)) ?? null;
+    return op.stateEnum ?? undefined;
+}
+
+/** A state value (a member NAME from a materialised column, or the numeric ordinal `fromStates` holds) as its NAME. */
+export function normalizeState(state: unknown, stateEnum: object | undefined): string {
+    if (stateEnum != null && (typeof state === "number" || typeof state === "string"))
+        return Enum.toName(stateEnum as never, state as never) ?? String(state);
+    return String(state);
+}
+
+/**
+ * Signum's `GraphState.GetNiceToString`: a state is shown to the user by its nice name, never by the
+ * ordinal the enum field holds. Falls back to `String(state)` when the enum cannot be resolved.
+ */
+export function stateNiceToString(state: unknown, stateEnum: object | undefined): string {
+    if (stateEnum == null || (typeof state !== "number" && typeof state !== "string"))
+        return String(state);
+    return Enum.niceName(stateEnum as never, state as never);
 }

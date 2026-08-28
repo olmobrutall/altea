@@ -5,6 +5,8 @@ import { SchemaBuilder } from "@altea/altea/server/schema";
 import "@altea/altea/server/fluentOperations"; // FluentInclude.withStateMachine / withExecute / …
 import { Graph } from "@altea/altea/server/graph";
 import { Operations, OperationLogic } from "@altea/altea/server/operationLogic";
+import { CollectionMessage } from "@altea/altea/data/dynamicQueries";
+import "@altea/altea/data/globals"; // Array.prototype.joinComma
 import { AlbumEntity, AlbumState, ArtistEntity } from "../../data/music";
 import { AlbumOperation } from "../../data/music";
 
@@ -96,7 +98,7 @@ describe("OperationLogic / fluent operations", () => {
     test("construct enforces toStates", async () => {
         await assert.rejects(
             () => offline(() => Operations.construct(AlbumOperation.CreateInvalid)),
-            /State should be one of/);
+            /State should be New instead of Saved/); // the NICE names, never the ordinals
     });
 
     test("execute applies the state transition and returns the same instance", async () => {
@@ -138,7 +140,7 @@ describe("OperationLogic / fluent operations", () => {
         album.isNew = false; // not new, but in New state — OnlyWhenSaved requires Saved
         await assert.rejects(
             () => offline(() => Operations.execute(album, AlbumOperation.OnlyWhenSaved)),
-            /State should be one of/);
+            /State should be Saved instead of New/); // the NICE names, never the ordinals
     });
 
     test("canExecute gates on isNew, fromStates and returns null when allowed", () => {
@@ -181,12 +183,42 @@ describe("OperationLogic / fluent operations", () => {
         // The replacement's behaviour is live: a New album is now rejected by canExecute.
         const album = AlbumEntity.create({ state: AlbumState.New });
         album.isNew = false;
-        assert.match(Operations.canExecute(album, AlbumOperation.Save)!, /State should be/);
+        // Nice-named through the LAZY `stateEnumOf`: a hand-built operation carries no stamped enum,
+        // so the property route behind its selector is walked here — once — and memoised on it.
+        assert.match(Operations.canExecute(album, AlbumOperation.Save)!, /State should be Saved instead of New/);
+        assert.equal((replacement as { stateEnum?: object | null }).stateEnum, AlbumState);
 
         // And it can be removed entirely.
         assert.equal(OperationLogic.unregister(AlbumOperation.Save), true);
         assert.equal(OperationLogic.tryFindOperation(AlbumOperation.Save), undefined);
 
         OperationLogic.register(original, /* replace */ true); // restore for any later runs
+    });
+
+    test("the allowed states read as a comma-OR list", () => {
+        // Signum's `FromStates.CommaOr(…)`. The separator carries its own spaces, as Signum's
+        // `[Description(" or ")]` does — joinComma appends it with none of its own.
+        assert.equal(CollectionMessage.Or.niceToString(), " or ");
+        assert.equal(["New"].joinComma(CollectionMessage.Or.niceToString()), "New");
+        assert.equal(["New", "Ordered"].joinComma(CollectionMessage.Or.niceToString()), "New or Ordered");
+        assert.equal(["New", "Ordered", "Shipped"].joinComma(CollectionMessage.Or.niceToString()), "New, Ordered or Shipped");
+    });
+
+    test("withStateMachine stamps ONE selector and ONE resolved enum on every operation it declares", () => {
+        // Signum reads a state-carrying operation's `StateType` straight off S; S is erased here, so the
+        // block resolves the enum once from the selector's property route and stamps it. That stamp is
+        // what a state error nice-names with, and what `getContextualCanExecute` GROUPS by to read the
+        // machine's states in one query — so a second `withStateMachine` block over the same states joins
+        // the same group. The shared selector instance is the other half of what the block stamps.
+        const ops = [
+            AlbumOperation.Create, AlbumOperation.CreateInvalid, AlbumOperation.Clone,
+            AlbumOperation.CreateFromArtists, AlbumOperation.Save, AlbumOperation.OnlyWhenSaved,
+            AlbumOperation.Delete,
+        ].map(sym => OperationLogic.findOperation(sym) as { getState?: Function, stateEnum?: object | null });
+
+        for (const op of ops) {
+            assert.equal(op.stateEnum, AlbumState);
+            assert.equal(op.getState, ops[0].getState); // the same function instance, not just an equal one
+        }
     });
 });

@@ -65,6 +65,11 @@
     <Member Name="Element2" Description="Element (2)" />
     <Member Name="Element3" Description="Element (3)" />
   </Type>
+  <Type Name="CollectionMessage">
+    <Member Name="And" Description=" und " />
+    <Member Name="Or" Description=" oder " />
+  </Type>
+
   <Type Name="CollectionToArrayType">
     <Member Name="SeparatedByComma" Description="Getrennt durch Komma" />
     <Member Name="SeparatedByCommaDistinct" Description="Getrennt durch Komma (Distinct)" />

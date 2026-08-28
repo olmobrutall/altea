@@ -45,9 +45,12 @@ export const QueryTokenDateMessage = {
     _0Steps1Rows2TotalRowsAprox: msg("{0} steps × {1} rows = {2} total rows (aprox)"),
 };
 
+// The last separator of a comma-separated list — Signum's `CommaOr` / `CommaAnd`, which here is
+// `array.joinComma(CollectionMessage.Or.niceToString())`. The SPACES are part of the value, exactly as in
+// Signum's `[Description(" or ")]`: joinComma appends the separator with none of its own.
 export const CollectionMessage = {
-    Or: msg(),
-    And: msg(),
+    Or: msg(" or "),
+    And: msg(" and "),
 };
 
 export enum ColumnOptionsModeEnum {
