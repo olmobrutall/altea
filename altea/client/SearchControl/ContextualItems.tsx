@@ -97,8 +97,9 @@ export function renderContextualItems(ctx: ContextualItemsContext<Entity>): Prom
       if (block.header)
         items.push(<Dropdown.Header>{block.header}</Dropdown.Header>);
 
-      if (block.header)
-        items.splice(items.length, 0, ...block.menuItems);
+      // NOT guarded by `block.header` (an earlier port typo): a block without a header still contributes
+      // its items, as it does in Signum.
+      items.splice(items.length, 0, ...block.menuItems);
     });
 
     const showSearchFunc = ctx.lites[0] && Navigator.getSettings(ctx.lites[0].entityType)?.showContextualSearchBox;

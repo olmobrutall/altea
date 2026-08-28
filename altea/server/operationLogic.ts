@@ -10,6 +10,9 @@ import { resolveCleanType, resolveType } from "../data/registration";
 import { Temporal } from "../data/basics";
 import { withQuoted } from "../data/decorators";
 import { OperationMessage } from "../data/uiMessages";
+import { Enum } from "../data/enum";
+import { PropertyRoute } from "../data/propertyRoute";
+import type { Quoted } from "quote-transformer/quoted";
 import { table } from "./table";
 import { QueryLogic } from "./dynamicQuery/queryLogic";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
@@ -23,6 +26,7 @@ import {
     OperationType,
     type IOperation, type IEntityOperation, type IExecuteOperation, type IDeleteOperation,
     type IConstructOperation, type IConstructorFromOperation, type IConstructorFromManyOperation,
+    type IGraphStateOperation,
 } from "./operation";
 
 // Port of Signum's OperationLogic (Signum/Operations/OperationLogic.cs): the operation
@@ -174,6 +178,110 @@ export namespace OperationLogic {
     /** Every entity ctor that has at least one operation registered on it (the metadata builder). */
     export function typesWithOperations(): Function[] {
         return [...operationsByType.keys()];
+    }
+
+    /**
+     * Signum's `OperationLogic.GetContextualCanExecute` — why each of these operations cannot run over the
+     * current SELECTION, without retrieving a single entity: the distinct STATES of the selected rows are
+     * read in SQL and checked against each operation's `fromStates`. This is what greys out an operation in
+     * the contextual menu of a SearchControl (see /api/operation/stateCanExecutes).
+     *
+     * altea divergences from Signum:
+     *  - the registry is keyed by symbol ALONE (one implementation per operation), so Signum's per-type
+     *    `FindOperation(type, key)` and its group-by-StateType collapse into a lookup.
+     *  - Signum ALSO folds in `CanExecuteExpression` (a SQL-evaluable can-execute). altea has no such
+     *    expression — see `OperationMetadata.hasCanExecuteExpression`, which the server never sets — so only
+     *    the state check runs, and an operation with a plain in-memory `canExecute` is left alone (the
+     *    single-lite path fetches an EntityPack for that, exactly as it does in Signum).
+     *  - the messages of several groups are joined with "
+", as Signum's `"
+".Combine` does.
+     */
+    export async function getContextualCanExecute(lites: Lite<Entity>[], symbols: OperationSymbol[]): Promise<Record<string, string>> {
+
+        const result: Record<string, string> = {};
+
+        // Grouped by hand rather than with the `groupBy` array extension: the key is a CONSTRUCTOR, and
+        // that extension stringifies its key with `toString()` — which for a class is its whole source.
+        const byType = new Map<Type<Entity>, Lite<Entity>[]>();
+        for (const lite of lites) {
+            const ctor = lite.entityType as Type<Entity>;
+            let group = byType.get(ctor);
+            if (group == null) byType.set(ctor, group = []);
+            group.push(lite);
+        }
+
+        for (const [ctor, group] of byType) {
+            for (const symbol of symbols) {
+                const op = tryFindOperation(symbol) as IGraphStateOperation | undefined;
+                if (op?.getState == null || op.fromStates == null || op.fromStates.length === 0)
+                    continue;
+
+                const stateEnum = tryStateEnum(ctor, op.getState);
+                const states = await distinctStates(ctor, group, op.getState);
+
+                // Both sides through the enum's NAME: `fromStates` holds the enum's numeric values (S is
+                // inferred from the selector), while a materialised enum column yields the member name —
+                // the same ordinal↔name boundary @altea/altea-map's operation map crosses.
+                const allowed = new Set(op.fromStates.map(s => normalizeState(s, stateEnum)));
+                const invalid = states.filter(s => !allowed.has(normalizeState(s, stateEnum)));
+                if (invalid.length === 0)
+                    continue;
+
+                const nice = (s: unknown): string =>
+                    stateEnum == null ? String(s) : Enum.niceName(stateEnum as never, s as never);
+
+                const message = OperationMessage.StateShouldBe0InsteadOf1.niceToString(
+                    op.fromStates.map(nice).join(", "),
+                    invalid.map(nice).join(", "));
+
+                result[symbol.key] = result[symbol.key] == null ? message : result[symbol.key] + "\n" + message;
+            }
+        }
+
+        return result;
+    }
+
+    /** The distinct values the operation's state selector takes over the selected rows — one GROUP BY. */
+    async function distinctStates(ctor: Type<Entity>, lites: Lite<Entity>[], getState: (entity: any) => unknown): Promise<unknown[]> {
+        const ids = lites.map(l => l.id);
+        const rows = await table(ctor)
+            .filter((e: Entity) => ids.includes(e.id))
+            .groupBy(getState as Quoted<(entity: Entity) => unknown>)
+            .map(g => g.key)
+            .toArray();
+        return rows.filter(s => s != null);
+    }
+
+    /** The enum OBJECT behind the state selector, for nice names — @altea/altea-map's `tryRoute`. */
+    function tryStateEnum(ctor: Type<Entity>, getState: (entity: any) => unknown): object | undefined {
+        try {
+            return PropertyRoute.root(ctor).addLambda(getState as Quoted<(entity: Entity) => unknown>).type.getEnum();
+        } catch {
+            return undefined;
+        }
+    }
+
+    function normalizeState(state: unknown, stateEnum: object | undefined): string {
+        if (stateEnum != null && (typeof state === "number" || typeof state === "string"))
+            return Enum.toName(stateEnum as never, state as never) ?? String(state);
+        return String(state);
+    }
+
+    /**
+     * Signum's `OperationController.AnyReadonly` — "is any of these rows read-only for the current role?",
+     * which the contextual menu uses to hide the operations that would fail anyway. A pluggable hook,
+     * because altea core has no authorization: @altea/altea-auth installs one, and with none installed
+     * every selection is writable (Signum's field is null by default).
+     */
+    export type AnyReadonlyHook = (lites: Lite<Entity>[]) => Promise<boolean>;
+    const anyReadonlyHooks: AnyReadonlyHook[] = [];
+    export function onAnyReadonly(fn: AnyReadonlyHook): void { anyReadonlyHooks.push(fn); }
+    export async function anyReadonly(lites: Lite<Entity>[]): Promise<boolean> {
+        for (const h of anyReadonlyHooks)
+            if (await h(lites))
+                return true;
+        return false;
     }
 
     /**

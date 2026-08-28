@@ -3,11 +3,12 @@ import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // withQuery
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { ResetLazy } from "@altea/altea/data/resetLazy";
 import { table } from "@altea/altea/server/table";
-import type { LambdaExpression } from "@altea/altea/server/linq/expressions";
-import { ClassType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
+import { CallExpression, LambdaExpression, PropertyExpression, UnaryExpression } from "@altea/altea/server/linq/expressions";
+import { ClassType, LiteralType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
 import type { QueryFilterContext } from "@altea/altea/server/schema/entityEvents";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
+import { OperationLogic } from "@altea/altea/server/operationLogic";
 import { preSaveGates } from "@altea/altea/server/saver";
 import { postRetrieveGates } from "@altea/altea/server/linq/Retriever";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
@@ -139,6 +140,10 @@ export namespace TypeAuthLogic {
         // conditions register after this start).
         preSaveGates.push(authSaveGate);
         postRetrieveGates.push(authRetrieveGate);
+        // Signum's `OperationController.AnyReadonly` (AuthServer.cs): the contextual menu of a SearchControl
+        // asks whether ANY of the selected rows is read-only for this role, and hides the operations that
+        // would fail anyway. altea core owns the seam (OperationLogic.onAnyReadonly); this is its one filler.
+        OperationLogic.onAnyReadonly(anySelectedReadonly);
         sb.schema.queryFilterProviders.set(QUERY_FILTER_KEY, buildCurrentRoleConditions);
         sb.schema.initializing.push(() => {
             for (const ctor of TypeConditionLogic.types())
@@ -177,6 +182,60 @@ export namespace TypeAuthLogic {
                 }
             }
         });
+    }
+
+    /**
+     * Signum's AuthServer `AnyReadonly` handler, per selected TYPE: fully writable → no; nothing above Read
+     * → yes; otherwise the CONDITIONS decide, counted in SQL — Signum's `CountReadonly`, and set-based for
+     * the same reason: a role WITH conditions on a type is the normal case, not the exception, so "one query
+     * per selected row" would be a per-right-click cost proportional to the selection.
+     *
+     * The one divergence left is what Signum's `TypeAuthLogic.DisableQueryFilter()` buys it: altea's row
+     * filter cannot be suppressed for a single query, so the READ filter applies to this count as well. It
+     * changes nothing for the caller — the lites come from a search that was already read-filtered, so every
+     * row of the selection is readable — but a hand-built lite of an unreadable row would be counted as
+     * writable rather than as read-only.
+     */
+    async function anySelectedReadonly(lites: Lite<Entity>[]): Promise<boolean> {
+        if (!AuthLogic.isEnabled() || AuthLogic.currentRoleKey() == null)
+            return false;
+
+        const byType = new Map<Type<Entity>, Lite<Entity>[]>();
+        for (const lite of lites) {
+            const ctor = lite.entityType as Type<Entity>;
+            let group = byType.get(ctor);
+            if (group == null) byType.set(ctor, group = []);
+            group.push(lite);
+        }
+
+        for (const [ctor, group] of byType) {
+            const wc = await getAllowed(TypeLogic.typeToId(ctor));
+            if (minBound(wc, true) >= TypeAllowedBasic.Write)
+                continue;
+            if (maxBound(wc, true) <= TypeAllowedBasic.Read)
+                return true;
+            // The conditions decide row by row, so ASK THE DATABASE: compile the role's rules into the same
+            // boolean predicate the row filter is made of, at the WRITE level, and count the selected rows
+            // that fail it — Signum's `CountReadonly`, one `SELECT COUNT(*) … WHERE id IN (…) AND NOT(<algebra>)`.
+            // Built at expression level because `Query.count` takes a `Quoted` (a lambda the transformer
+            // stamped at BUILD time) and this predicate only exists at runtime; the CallExpression below is
+            // what that method builds anyway.
+            const ids = group.map(l => l.id);
+            const q = table(ctor).filter((e: Entity) => ids.includes(e.id));
+            const writable = buildAuthFilter(ctor, q.elementType, wc, TypeAllowedBasic.Write, true);
+            if (writable === "all")
+                continue;
+            if (writable === "none")
+                return true;
+
+            const notWritable = new LambdaExpression(writable.parameters, new UnaryExpression("!", writable.body));
+            const count = new CallExpression(
+                new PropertyExpression(q.expression, "count"), [notWritable], LiteralType.number);
+
+            if ((await q.translator.execute(count) as number) > 0)
+                return true;
+        }
+        return false;
     }
 
     /** True for a Part that inherits its owner's rules (hidden from the Type-Auth grid). */

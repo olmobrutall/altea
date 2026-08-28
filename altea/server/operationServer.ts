@@ -19,11 +19,16 @@ import { assertGraphIntegrityAsync } from "./graphExplorer";
 import { Transaction } from "./connection/transaction";
 import { ExceptionLogic } from "./exceptionLogic";
 import { WebBuilder, CustomType } from "./webApi";
+import { MultiSetter, type PropertySetter } from "./multiSetter";
+import { PropertyRoute } from "../data/propertyRoute";
 
 interface EntityOperationRequest { entity: Entity; args?: unknown[]; }
 interface LiteOperationRequest { lite: Lite<Entity>; args?: unknown[]; }
 interface ConstructOperationRequest { type: string; args?: unknown[]; }
-interface MultiOperationRequest { lites: Lite<Entity>[]; args?: unknown[]; }
+interface MultiOperationRequest { lites: Lite<Entity>[]; args?: unknown[]; setters?: PropertySetter[]; }
+/** Signum's StateCanExecuteRequest / StateCanExecuteResponse (OperationController.cs). */
+interface StateCanExecuteRequest { lites: Lite<Entity>[]; operationKeys: string[]; }
+interface StateCanExecuteResponse { canExecutes: Record<string, string>; isReadOnly: boolean; }
 
 export namespace OperationServer {
 
@@ -95,19 +100,28 @@ export namespace OperationServer {
         //
         // Each lite runs in its OWN transaction (Signum's ForeachNDJson): one failure must not roll back the
         // ones that already succeeded, and its message is reported against that lite instead of failing the
-        // whole request. Signum's `Setters` (MultiSetter, "set these properties on all of them") are not
-        // ported — altea's client sends none.
+        // whole request.
+        //
+        // `setters` are Signum's MultiSetter ("apply these property changes to every one of them", from the
+        // client's bulk-modifications dialog): applied to the freshly retrieved entity, inside its own
+        // transaction, BEFORE the operation runs — so a rejected setter fails only that lite. The
+        // property-auth snapshot is resolved ONCE for the whole request (it is immutable per request), the
+        // way the (de)serialization boundary does it.
         const foreachNDJson = async (
             lites: Lite<Entity>[],
+            setters: PropertySetter[] | undefined,
             res: { setHeader(name: string, value: string): void; write(chunk: string): void; end(): void },
             action: (entity: Entity) => Promise<void>,
         ): Promise<void> => {
             res.setHeader("Content-Type", "application/x-ndjson");
+            const authContext = setters?.length ? await MultiSetter.resolveContext() : undefined;
             for (const lite of lites) {
                 let error: string | null = null;
                 try {
                     await Transaction.forceNew(async () => {
                         const entity = await Database.retrieve(lite.entityType, lite.id);
+                        if (setters?.length)
+                            MultiSetter.setSetters(entity, setters, PropertyRoute.root(entity.constructor as Function), authContext);
                         await action(entity);
                     });
                 } catch (e) {
@@ -128,17 +142,30 @@ export namespace OperationServer {
         ws.post("/api/operation/executeMultiple/:operationKey",
             { params: CustomType<{ operationKey: string }>(), req: CustomType<MultiOperationRequest>() },
             async (req, res) => {
-                const { lites, args } = await req.jsonTyped() as MultiOperationRequest;
+                const { lites, args, setters } = await req.jsonTyped() as MultiOperationRequest;
                 const symbol = resolve<ExecuteSymbol<Entity>>(req.params.operationKey);
-                await foreachNDJson(lites, res as never, entity => Operations.execute(entity, symbol, ...(args ?? [])).then(() => undefined));
+                await foreachNDJson(lites, setters, res as never, entity => Operations.execute(entity, symbol, ...(args ?? [])).then(() => undefined));
             });
 
         ws.post("/api/operation/deleteMultiple/:operationKey",
             { params: CustomType<{ operationKey: string }>(), req: CustomType<MultiOperationRequest>() },
             async (req, res) => {
-                const { lites, args } = await req.jsonTyped() as MultiOperationRequest;
+                const { lites, args, setters } = await req.jsonTyped() as MultiOperationRequest;
                 const symbol = resolve<DeleteSymbol<Entity>>(req.params.operationKey);
-                await foreachNDJson(lites, res as never, entity => Operations.delete(entity, symbol, ...(args ?? [])));
+                await foreachNDJson(lites, setters, res as never, entity => Operations.delete(entity, symbol, ...(args ?? [])));
+            });
+
+        // Signum's ConstructFromMultiple: run a ConstructFrom ONCE PER LITE (as opposed to
+        // constructFromMany, which builds ONE entity out of the whole selection), reporting per lite. The
+        // client has always called this route (Operations.API.constructFromMultiple — it is what a
+        // contextual ConstructFrom over a multi-row selection posts to); it was simply never registered
+        // here, so every such menu entry 404'd.
+        ws.post("/api/operation/constructFromMultiple/:operationKey",
+            { params: CustomType<{ operationKey: string }>(), req: CustomType<MultiOperationRequest>() },
+            async (req, res) => {
+                const { lites, args, setters } = await req.jsonTyped() as MultiOperationRequest;
+                const symbol = resolve<ConstructSymbol<Entity, From<Entity>>>(req.params.operationKey);
+                await foreachNDJson(lites, setters, res as never, entity => Operations.constructFrom(entity, symbol, ...(args ?? [])).then(() => undefined));
             });
 
         // Delete a posted entity / a lite → 204.
@@ -148,6 +175,36 @@ export namespace OperationServer {
                 const { entity, args } = await req.jsonTyped() as EntityOperationRequest;
                 await Operations.delete(entity, resolve<DeleteSymbol<Entity>>(req.params.operationKey), ...(args ?? []));
                 res.status(204).end();
+            });
+
+        // Signum's OperationController.StateCanExecutes: why each of these operations cannot run over the
+        // SELECTION of a SearchControl — answered from the rows' distinct STATES, with no entity retrieved.
+        // The contextual menu asks for it whenever it has more than one lite (or a ConstructFromMany, whose
+        // reason cannot come from a single entity pack).
+        //
+        // The response field is `isReadOnly`, which is what Signum's CLIENT reads; its server writes
+        // `AnyReadonly`, so the flag never actually reached the menu there.
+        ws.post("/api/operation/stateCanExecutes",
+            { req: CustomType<StateCanExecuteRequest>(), res: CustomType<StateCanExecuteResponse>() },
+            async (req, res) => {
+                const { lites, operationKeys } = await req.jsonTyped() as StateCanExecuteRequest;
+
+                // Signum's `ParseOperationAssert` per (operationKey, selected type): resolve the symbol and
+                // assert the current role may run it IN THE UI on that type. This is the route's only gate —
+                // without it an anonymous caller could read the state distribution of any table by asking
+                // (Signum's whole API is authorized globally by ASP.NET; altea gates per route).
+                const types = [...new Set(lites.map(l => l.entityType as Function))];
+                const symbols: OperationSymbol[] = [];
+                for (const key of operationKeys) {
+                    const symbol = resolve(key);
+                    for (const type of types)
+                        await OperationLogic.assertOperationAllowed(symbol, type, true, null);
+                    symbols.push(symbol);
+                }
+                res.jsonTyped({
+                    canExecutes: await OperationLogic.getContextualCanExecute(lites, symbols),
+                    isReadOnly: await OperationLogic.anyReadonly(lites),
+                });
             });
 
         ws.post("/api/operation/deleteLite/:operationKey",
@@ -170,27 +227,41 @@ function resolve<S extends OperationSymbol>(key: string): S {
 }
 
 // Signum's SignumServer.GetEntityPack: the entity plus the canExecute of each entity operation
-// (Execute / Delete / ConstructorFrom — the ones with onCanExecute) applicable to it. Operations of
-// another type report a can't-execute reason (or throw, caught here), so they are simply omitted.
+// (Execute / Delete / ConstructorFrom — the ones with onCanExecute) applicable to it.
 export async function getEntityPack(entity: Entity): Promise<EntityPack<Entity>> {
-    // EntityPack.canExecute records an entry for EVERY entity operation applicable to this entity —
-    // the reason string when disabled, "" when enabled (Signum's dict maps enabled → null). The KEY's
-    // PRESENCE is what the client uses to decide the operation applies (EntityOperations filters an
-    // existing entity's buttons on `oi.key in pack.canExecute`), so an enabled operation must still be
-    // listed or it would never render. altea has no server-side per-type registry, so we evaluate every
-    // registered operation; ones not applicable to this type throw (or report a state/reason) and are
-    // simply filtered out client-side by TypeInfo.operations.
+    // Signum's OperationLogic.ServiceCanExecute, filter for filter: the operations of THIS TYPE (its own
+    // plus every one registered on a base it inherits from — `operationsForType` walks the prototype chain,
+    // as Signum's polymorphic (type, symbol) registry does), keeping only the IEntityOperations that can run
+    // on an entity in this state and that the current role may execute IN THE UI (so a DBOnly / None
+    // operation never renders a button).
+    //
+    // The value is the reason when disabled and "" when enabled (Signum's dict maps enabled → null): it is
+    // the KEY's PRESENCE that tells the client the operation applies at all — EntityOperations filters an
+    // existing entity's buttons on `oi.key in pack.canExecute` — so an enabled operation must still be listed.
+    //
+    // NOT ported: Signum's `CreateMultiCanExecuteState` scope, a scratchpad a canExecute body may use to
+    // share an expensive computation across the operations of one pack. Nothing in altea writes to it.
     const canExecute: Record<string, string> = {};
-    for (const symbol of OperationLogic.registeredOperations()) {
+    for (const symbol of OperationLogic.operationsForType(entity.constructor)) {
         const op = OperationLogic.tryFindOperation(symbol);
-        if (op != undefined && "onCanExecute" in op) {
-            // Row-level UI authorization (Signum's ServiceCanExecute): omit operations the current role
-            // can't execute in the UI (inUserInterface:true), so DBOnly/None ops never render a button.
-            if (!(await OperationLogic.isOperationAllowed(symbol, entity.constructor, true, entity)))
-                continue;
-            try {
-                canExecute[symbol.key] = (op as IEntityOperation).onCanExecute(entity) ?? "";
-            } catch { /* operation not applicable to this entity type */ }
+        if (op == undefined || !("onCanExecute" in op))
+            continue;
+
+        const eo = op as IEntityOperation;
+        if (entity.isNew && !eo.canBeNew)
+            continue;
+
+        if (!(await OperationLogic.isOperationAllowed(symbol, entity.constructor, true, entity)))
+            continue;
+
+        try {
+            canExecute[symbol.key] = eo.onCanExecute(entity) ?? "";
+        } catch (e) {
+            // Signum rethrows with `e.Data["entity"] = entity`. This used to SWALLOW, because the loop ran
+            // every operation in the application against every entity and most of them threw; now that the
+            // list is the type's own, a throw here is a bug in that operation's canExecute and saying which
+            // one is the whole point.
+            throw new Error(`canExecute of '${symbol.key}' failed on ${entity}: ${(e as Error)?.message ?? e}`, { cause: e });
         }
     }
     const pack: EntityPack<Entity> = { entity, canExecute };
