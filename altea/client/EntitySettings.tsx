@@ -45,6 +45,44 @@ export interface ViewOverride<T extends BaseEntity> {
   override: (replacer: ViewReplacer<T>) => void;
 }
 
+// The per-component cache surroundFunctionComponent keeps (Signum's FunctionCache), stashed on the view
+// function itself.
+interface FunctionCache<T extends BaseEntity> {
+  overridenView: React.FunctionComponent<{ ctx: TypeContext<T> }>;
+  viewOverrides: ViewOverride<BaseEntity>[];
+}
+
+type FunctionComponentWithCache<T extends BaseEntity> =
+  React.FunctionComponent<{ ctx: TypeContext<T> }> & { cache?: FunctionCache<T> };
+
+// Signum's monkeyPatchClassComponent: a CLASS view is surrounded by replacing its `render`, since there
+// is no function to wrap. Idempotent through the `withViewOverrides` marker.
+function monkeyPatchClassComponent<T extends BaseEntity>(
+  component: React.ComponentClass<{ ctx: TypeContext<T> }>,
+  viewOverrides: ViewOverride<BaseEntity>[]): void {
+
+  const proto = component.prototype as { render?: (() => React.ReactNode) & { withViewOverrides?: boolean } };
+  if (proto.render == null)
+    throw new Error("render function not defined in " + component);
+
+  if (proto.render.withViewOverrides)
+    return;
+
+  const baseRender = proto.render;
+
+  const newRender = function (this: React.Component<{ ctx: TypeContext<T> }>): React.ReactNode {
+    const ctx = this.props.ctx;
+    const view = baseRender.call(this);
+
+    const replacer = new ViewReplacer<T>(view as React.ReactElement, ctx, component);
+    viewOverrides.forEach(vo => vo.override(replacer as ViewReplacer<BaseEntity>));
+    return replacer.result;
+  } as (() => React.ReactNode) & { withViewOverrides?: boolean };
+
+  newRender.withViewOverrides = true;
+  proto.render = newRender;
+}
+
 export interface AutocompleteConstructorContext {
   ctx: TypeContext<any>;
   foundLites: Lite<Entity>[];
@@ -212,9 +250,16 @@ export class ViewPromise<T extends BaseEntity> {
     return result;
   }
 
-  // Wraps the resolved view component so the EntitySettings' registered `overrideView` callbacks run
-  // over its element tree (via ViewReplacer) before it renders. Navigator is imported lazily inside
-  // the async callback to avoid the EntitySettings <-> Navigator module cycle.
+  // Wraps the resolved view COMPONENT so the EntitySettings' registered `overrideView` callbacks run
+  // over the tree it renders (via ViewReplacer). Navigator is imported lazily inside the async callback
+  // to avoid the EntitySettings <-> Navigator module cycle.
+  //
+  // The wrapping is what makes an override see anything at all, and altea used to skip it: it ran the
+  // replacer over `func(ctx)`, which is `React.createElement(mod.default, { ctx })` — ONE element of the
+  // view's component type, whose children do not exist until React calls it. ReactVisitor only walks
+  // `props.children`, so every override matched nothing and every `overrideView` in the workspace was
+  // silently inert. Signum surrounds the component instead (surroundFunctionComponent /
+  // monkeyPatchClassComponent), which is what this now does.
   applyViewOverrides(typeName: string, viewName?: string): ViewPromise<T> {
     const result = new ViewPromise<T>();
     result.promise = this.promise.then(async func => {
@@ -227,11 +272,55 @@ export class ViewPromise<T extends BaseEntity> {
         return func;
 
       return (ctx: TypeContext<T>): React.ReactElement => {
-        const replacer = new ViewReplacer<T>(func(ctx), ctx, func);
-        overrides.forEach(vo => vo.override(replacer as ViewReplacer<BaseEntity>));
-        return replacer.result as React.ReactElement;
+        const element = func(ctx);
+        const component = element.type as
+          React.ComponentClass<{ ctx: TypeContext<T> }> | React.FunctionComponent<{ ctx: TypeContext<T> }>;
+
+        if ((component as React.ComponentClass<{ ctx: TypeContext<T> }>).prototype?.render) {
+          monkeyPatchClassComponent(component as React.ComponentClass<{ ctx: TypeContext<T> }>, overrides);
+          return element;
+        }
+
+        const newFunc = ViewPromise.surroundFunctionComponent(
+          component as React.FunctionComponent<{ ctx: TypeContext<T> }>, overrides);
+        return React.createElement(newFunc, element.props as { ctx: TypeContext<T> });
       };
     });
+    return result;
+  }
+
+  // Signum's ViewPromise.surroundFunctionComponent: a new function component that renders the original
+  // one and then lets each override rewrite the resulting tree. Cached on the original component (and
+  // invalidated when the override list changes), so re-resolving a view does not build a new component
+  // type on every render — which would remount the whole view.
+  static surroundFunctionComponent<T extends BaseEntity>(
+    functionComponent: React.FunctionComponent<{ ctx: TypeContext<T> }>,
+    viewOverrides: ViewOverride<BaseEntity>[]): React.FunctionComponent<{ ctx: TypeContext<T> }> {
+
+    const cached = (functionComponent as FunctionComponentWithCache<T>).cache;
+    if (cached != null) {
+      if (cached.viewOverrides.length == viewOverrides.length &&
+        cached.viewOverrides.every((vo, i) => viewOverrides[i] == vo))
+        return cached.overridenView;
+
+      (functionComponent as FunctionComponentWithCache<T>).cache = undefined;
+    }
+
+    const result = function NewComponent(props: { ctx: TypeContext<T> }): React.ReactNode {
+      const view = functionComponent(props);
+
+      const replacer = new ViewReplacer<T>(view as React.ReactElement, props.ctx, functionComponent);
+      viewOverrides.forEach(vo => vo.override(replacer as ViewReplacer<BaseEntity>));
+      return replacer.result;
+    };
+
+    Object.defineProperty(result, "name", { value: functionComponent.name + "VO" });
+
+    (functionComponent as FunctionComponentWithCache<T>).cache = {
+      overridenView: result,
+      viewOverrides: viewOverrides,
+    };
+
     return result;
   }
 

@@ -1,4 +1,5 @@
 import * as React from "react";
+import type { Quoted } from "quote-transformer/quoted";
 import { Dic, ifError } from "@altea/altea/data/globals";
 import { ajaxGet, ajaxPost, ValidationError } from "@altea/altea/client/Services";
 import { QueryString } from "@altea/altea/client/QueryString";
@@ -624,7 +625,7 @@ export namespace WorkflowClient {
      * not ported, so EmailMessageEntity is the only in-repo caller.
      */
     export function overrideCaseActivityMixinView<T extends Entity>(type: Type<T>,
-        afterLine: (entity: T) => unknown): void {
+        afterLine: Quoted<(entity: T) => unknown>): void {
 
         if (!CaseActivityMixin.isDeclaredOn(type))
             throw new Error("CaseActivityMixin is not declared on " + cleanTypeName(type)

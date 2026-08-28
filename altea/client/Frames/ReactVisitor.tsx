@@ -2,6 +2,11 @@
 // (Signum.Entities→entities/*, Reflection PropertyRoute→entities/propertyRoute, Search Pagination→
 // entities/dynamicQuery/queryRequest); ModifiableEntity→BaseEntity; `this.ctx.value.Type`→
 // `getTypeName(this.ctx.value)` (no `.Type` in altea); dropped unused ColumnOption/OrderOption imports.
+// Also: every ViewReplacer method that takes a property LAMBDA declares it `Quoted<(entity: T) => any>`.
+// Signum resolves a lambda by reading its source text; altea resolves it through the `__quoted` tree the
+// transformer stamps, and the transformer only stamps at a `Quoted<…>` parameter — so a plain
+// `(entity: T) => any` parameter compiled fine and then threw "the lambda carries no `__quoted`
+// expression tree" the first time the overridden view was rendered.
 import * as React from 'react'
 import { isFilterGroup } from '../FindOptions'
 import type { FindOptions, FilterOption, FilterGroupOption, FilterConditionOption } from '../FindOptions'
@@ -12,6 +17,7 @@ import { getTypeName } from '../Reflection'
 import type { Pagination } from '../../data/dynamicQuery/queryRequest'
 import { Tab, Tabs } from 'react-bootstrap'
 import type { LineBaseProps } from '../Lines/LineBase'
+import type { Quoted } from 'quote-transformer/quoted'
 
 export class ReactVisitor {
   visitChild(child: React.ReactNode): React.ReactNode {
@@ -154,7 +160,7 @@ export class ViewReplacer<T extends BaseEntity> {
     return this;
   }
 
-  removeLine(propertyRoute: ((entity: T) => any) | PropertyRoute): this {
+  removeLine(propertyRoute: Quoted<(entity: T) => any> | PropertyRoute): this {
 
     var pr = propertyRoute instanceof PropertyRoute ? propertyRoute : this.ctx.propertyRoute!.addLambda(propertyRoute);
 
@@ -179,7 +185,7 @@ export class ViewReplacer<T extends BaseEntity> {
     return this;
   }
 
-  replaceAttributes<P>(propertyRoute: ((entity: T) => any) | PropertyRoute, newAttrs: Partial<P>): this {
+  replaceAttributes<P>(propertyRoute: Quoted<(entity: T) => any> | PropertyRoute, newAttrs: Partial<P>): this {
 
     var pr = propertyRoute instanceof PropertyRoute ? propertyRoute : this.ctx.propertyRoute!.addLambda(propertyRoute);
 
@@ -191,7 +197,7 @@ export class ViewReplacer<T extends BaseEntity> {
     return this;
   }
 
-  insertAfterLine(propertyRoute: ((entity: T) => any) | PropertyRoute, newElements: (ctx: TypeContext<T>) => (React.ReactElement | undefined | false | null)[]): this {
+  insertAfterLine(propertyRoute: Quoted<(entity: T) => any> | PropertyRoute, newElements: (ctx: TypeContext<T>) => (React.ReactElement | undefined | false | null)[]): this {
 
     var pr = propertyRoute instanceof PropertyRoute ? propertyRoute : this.ctx.propertyRoute!.addLambda(propertyRoute);
 
@@ -203,7 +209,7 @@ export class ViewReplacer<T extends BaseEntity> {
     return this;
   }
 
-  insertBeforeLine(propertyRoute: ((entity: T) => any) | PropertyRoute, newElements: (ctx: TypeContext<T>) => (React.ReactElement | undefined)[]): this {
+  insertBeforeLine(propertyRoute: Quoted<(entity: T) => any> | PropertyRoute, newElements: (ctx: TypeContext<T>) => (React.ReactElement | undefined)[]): this {
 
     var pr = propertyRoute instanceof PropertyRoute ? propertyRoute : this.ctx.propertyRoute!.addLambda(propertyRoute);
 
@@ -223,7 +229,7 @@ export class ViewReplacer<T extends BaseEntity> {
     return parentCtx as TypeContext<T>;
   }
 
-  replaceLine<P extends LineBaseProps<any> = LineBaseProps<any>>(propertyRoute: ((entity: T) => any) | PropertyRoute, newElements: (e: React.ReactElement<P>) => (React.ReactElement | undefined)[]): this {
+  replaceLine<P extends LineBaseProps<any> = LineBaseProps<any>>(propertyRoute: Quoted<(entity: T) => any> | PropertyRoute, newElements: (e: React.ReactElement<P>) => (React.ReactElement | undefined)[]): this {
     var pr = propertyRoute instanceof PropertyRoute ? propertyRoute : this.ctx.propertyRoute!.addLambda(propertyRoute);
 
     this.result = new ReplaceVisitor(
