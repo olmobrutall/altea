@@ -33,6 +33,8 @@ import {
     EmailSenderConfigurationEntity, SmtpEmailServiceEntity, SmtpNetworkDeliveryEmbedded,
 } from "../data/EmailSenderConfiguration";
 import type { AsyncEmailSenderState } from "../data/AsyncEmailSenderState";
+import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
+import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 import MailingMenu from "./MailingMenu";
 import "./Mailing.css";
 
@@ -47,7 +49,7 @@ import "./Mailing.css";
 //  - Signum read a query's applicable templates off `queryDescription.emailTemplates` (an extension the
 //    server pushed into the QueryDescription DTO). altea has no such DTO, so MailingMenu ASKS for them
 //    (API.getEmailTemplates with visibleOn: "Query") when the button renders.
-//  - `EvalClient` / `ChangeLogClient` / `OmniboxSpecialAction` have no altea counterpart on this path.
+//  - `EvalClient` / `ChangeLogClient` have no altea counterpart on this path.
 //  - `registerToString(EmailTemplateMessageEmbedded, …)` is unnecessary: the row's own `toString()` already
 //    returns its culture.
 
@@ -64,6 +66,12 @@ export namespace MailingClient {
         cb.routes.push(
             { path: "/asyncEmailSender/view", element: <ImportComponent onImport={() => import("./AsyncEmailSenderPage")} /> },
         );
+
+        registerSpecialAction({
+            key: "AsyncEmailSenderPanel",
+            allowed: () => AuthClient.isPermissionAuthorized(AsyncEmailSenderPermission.ViewAsyncEmailSenderPanel),
+            onClick: () => Promise.resolve("/asyncEmailSender/view"),
+        });
 
         cb.configure(EmailMessageEntity)
             .withView(() => import("./Templates/EmailMessage"))

@@ -21,7 +21,6 @@
     "@altea/altea-diff-log": "workspace:*",
     "@altea/altea-html-editor": "workspace:*",
     "@altea/altea-office-template": "workspace:*",
-    "@altea/altea-omnibox": "workspace:*",
     "quote-transformer": "workspace:*"
   }
 }

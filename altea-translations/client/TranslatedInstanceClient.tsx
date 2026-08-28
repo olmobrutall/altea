@@ -17,7 +17,7 @@ import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { getTypeName } from "@altea/altea/client/Reflection";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
-import { registerSpecialAction } from "@altea/altea-omnibox/client/OmniboxSpecialAction";
+import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
 import {
     TranslationPermission, TranslationMessage, TranslatedSummaryState, MatchTranslatedInstances,
 } from "../data/Translation";

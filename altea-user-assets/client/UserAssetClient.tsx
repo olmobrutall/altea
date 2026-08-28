@@ -5,12 +5,14 @@ import type { Type, Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import { QuickLinkClient, QuickLinkAction } from "@altea/altea/client/QuickLinkClient";
-import { UserAssetMessage, UserAssetPreviewModel, type IUserAssetEntity } from "../data/UserAssets";
+import { UserAssetMessage, UserAssetPermission, UserAssetPreviewModel, type IUserAssetEntity } from "../data/UserAssets";
+import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
+import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 
 // Port of Signum's Signum.UserAssets/UserAssetClient.tsx (the export/import trigger surface). altea
 // divergences: the filter Converter + parseFilters/stringifyFilters/date endpoints are gone (altea resolves
 // tokens + values client-side — see FilterValueString); this keeps the XML export quick-link, the import
-// route, and the export/import HTTP API. Permission is enforced server-side (altea has no client primitive).
+// route, the "!ImportUserAssets" omnibox entry and the export/import HTTP API.
 
 export namespace UserAssetClient {
     let started = false;
@@ -20,6 +22,12 @@ export namespace UserAssetClient {
             return;
         started = true;
         routes.push({ path: "/userAssets/import", element: <ImportComponent onImport={() => import("./ImportAssetsPage")} /> });
+
+        registerSpecialAction({
+            key: "ImportUserAssets",
+            allowed: () => AuthClient.isPermissionAuthorized(UserAssetPermission.UserAssetsToXML),
+            onClick: () => Promise.resolve("/userAssets/import"),
+        });
     }
 
     // Registers the "Export to XML" quick-link on a user-asset type (Signum's registerExportAssertLink).

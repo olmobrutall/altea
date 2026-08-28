@@ -15,3 +15,12 @@
 .dropdown-menu .guid {
     font-family: monospace;
 }
+
+/* The suggestions must paint OVER the app shell's sidebar. Bootstrap gives `.dropdown-menu` z-index 1000,
+   and altea-toolbar's sidebar is `position: relative; z-index: 1000` too — and it comes after the navbar in
+   the DOM, so it won the tie and the omnibox list was drawn UNDERNEATH it. 1035 clears the sidebar and
+   anything `.fixed-top` (1030) while staying below the offcanvas backdrop (1040) and modals (1055), so a
+   dropdown left open behind a modal still behaves. */
+.sf-omnibox .dropdown-menu {
+    z-index: 1035;
+}

@@ -3,18 +3,20 @@ import { ajaxGet, ajaxPost } from "@altea/altea/client/Services";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import {
-    ProcessEntity, ProcessAlgorithmSymbol, ProcessExceptionLineEntity,
+    ProcessEntity, ProcessAlgorithmSymbol, ProcessExceptionLineEntity, ProcessPermission,
 } from "../data/Processes";
 import { PackageEntity, PackageOperationEntity, PackageLineEntity } from "../data/Package";
 import type { ProcessLogicState } from "../data/ProcessLogicState";
+import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
+import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 
 // Port of Signum.Processes' ProcessClient.tsx — the panel route, the Process editor, and the typed HTTP
 // client the panel calls.
 //
 // altea divergences: Signum's PackageOperation CONTEXTUAL MENU (pick rows in a search, run an operation over
 // them as a process) is NOT ported — it needs its own contextual-item + operation-settings machinery; an app
-// builds its packages in code for now. The ChangeLog module, the omnibox special action and the ProcessDates
-// bar-chart column formatter go with it (the last needs Signum's D3Utils buildDateScale).
+// builds its packages in code for now. The ChangeLog module and the ProcessDates bar-chart column formatter
+// go with it (the last needs Signum's D3Utils buildDateScale).
 
 export namespace ProcessClient {
 
@@ -22,6 +24,12 @@ export namespace ProcessClient {
         cb.routes.push(
             { path: "/processes/view", element: <ImportComponent onImport={() => import("./ProcessPanelPage")} /> },
         );
+
+        registerSpecialAction({
+            key: "ProcessPanel",
+            allowed: () => AuthClient.isPermissionAuthorized(ProcessPermission.ViewProcessPanel),
+            onClick: () => Promise.resolve("/processes/view"),
+        });
 
         cb.configure(ProcessEntity)
             .withView(() => import("./Templates/Process"))

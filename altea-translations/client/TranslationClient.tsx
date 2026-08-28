@@ -3,7 +3,7 @@ import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { ajaxGet, ajaxPost, ajaxGetRaw } from "@altea/altea/client/Services";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
-import { registerSpecialAction } from "@altea/altea-omnibox/client/OmniboxSpecialAction";
+import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
 import { TranslationPermission, TranslationReplacementEntity, type TranslatedSummaryState } from "../data/Translation";
 
 // Port of Signum.Translation's TranslationClient.tsx — the CODE half's client registration: the four

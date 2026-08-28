@@ -1,14 +1,17 @@
-import { Dic } from "@altea/altea/data/globals";
-import * as AppContext from "@altea/altea/client/AppContext";
+import { Dic } from "../data/globals";
+import * as AppContext from "./AppContext";
 
 // Port of Signum's `OmniboxSpecialAction` (Signum/React/OmniboxSpecialAction.ts): the registry of
-// "!Command" actions — client-side commands the omnibox can fire ("!SwitchUser", "!ClearCache", …).
+// "!Command" actions — client-side commands the omnibox offers ("!ProcessPanel", "!SchedulerPanel", …).
 //
-// ALTEA DIVERGENCE: Signum kept this in the FRAMEWORK (`@framework/OmniboxSpecialAction`) so extension
-// clients could register actions without depending on Signum.Omnibox — the extension was assumed present.
-// altea keeps the registry inside this module: no altea package currently registers a special action, and
-// putting it in the core would give the framework a concept it otherwise has no use for. A module that
-// wants one takes a dependency on @altea/altea-omnibox (the same way it would on any other extension).
+// Lives in the FRAMEWORK, exactly as Signum's does, so a module can contribute an omnibox entry WITHOUT
+// depending on @altea/altea-omnibox — the same renderer-slot shape core already keeps for altea-tour's
+// TourButton. It had briefly lived inside altea-omnibox on the reasoning that core should not carry a
+// concept it has no use for; that cost each of the eleven contributing modules a dependency on an
+// OPTIONAL extension, and made one of them impossible: altea-omnibox itself depends on @altea/altea-auth
+// (PermissionSymbol, the auth logics), so AuthAdminClient's "!DownloadAuthRules" would have closed a
+// package cycle. A registry with no consumer is inert — nothing reads it unless altea-omnibox is
+// installed — so hosting it here costs nothing and is what Signum does.
 //
 // `allowed` is evaluated CLIENT-side before the keys are posted (the server can only fuzzy-match what it
 // is told); the action itself is expected to be authorized again wherever its onClick lands.
@@ -16,7 +19,7 @@ import * as AppContext from "@altea/altea/client/AppContext";
 // entitySettings. This registry is the one that REFUSES a duplicate rather than overwriting it, so it was
 // also the one that surfaced: with the registry module-global, the second run of a host's registration
 // bundle died with "Action 'PrintPanel' already registered".
-declare module "@altea/altea/client/AppContext" {
+declare module "./AppContext" {
     interface IClientState {
         omniboxSpecialActions?: { [actionKey: string]: SpecialOmniboxAction };
     }

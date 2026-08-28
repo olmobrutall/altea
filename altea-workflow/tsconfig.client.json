@@ -10,7 +10,6 @@
     { "path": "../altea-scheduler/tsconfig.client.json" },
     { "path": "../altea-processes/tsconfig.client.json" },
     { "path": "../altea-toolbar/tsconfig.client.json" },
-    { "path": "../altea-omnibox/tsconfig.client.json" },
     { "path": "../altea-dynamic/tsconfig.client.json" }
   ]
 }

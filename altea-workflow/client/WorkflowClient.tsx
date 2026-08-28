@@ -40,7 +40,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
 import { ToolbarClient } from "@altea/altea-toolbar/client/ToolbarClient";
-import { registerSpecialAction } from "@altea/altea-omnibox/client/OmniboxSpecialAction";
+import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
 import { DynamicClient } from "@altea/altea-dynamic/client/DynamicClient";
 import {
     WorkflowEntity, WorkflowMessage, WorkflowModel, WorkflowOperation, WorkflowPermission,

@@ -14,6 +14,9 @@ import { UserEntity } from "../../data/User";
 import { RoleEntity } from "../../data/Role";
 import { TypeRulePack, PermissionRulePack, OperationRulePack, QueryRulePack, PropertyRulePack, TypeAllowedBasic, PropertyAllowed } from "../../data/Rules";
 import { AuthAdminMessage } from "../../data/AuthMessages";
+import { BasicPermission } from "../../data/Rules";
+import { AuthClient } from "../AuthClient";
+import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
 
 // Port of Signum's AuthAdminClient (AuthAdminClient.tsx) — the ADMIN side of authorization: the User /
 // Role management views + query settings, and the rule-pack API. Signum's `start` also registers the
@@ -59,16 +62,29 @@ export namespace AuthAdminClient {
                     token(a => a.description),
                 ],
                 // Signum's AuthAdminClient RoleEntity extraButtons: a "Download AuthRules" button on the Role
-                // search control (exports every dimension's rules to AuthRules.xml). Signum gates it on the
-                // AdminRules client permission; altea has no client permission primitive yet (deferred), so it
-                // shows for any admin — the endpoint is login-gated server-side.
-                extraButtons: () => [{
+                // search control (exports every dimension's rules to AuthRules.xml), gated on the AdminRules
+                // permission exactly as Signum gates its "!DownloadAuthRules" omnibox twin below. The endpoint
+                // is authorized server-side either way.
+                extraButtons: () => !AuthClient.isPermissionAuthorized(BasicPermission.AdminRules) ? [] : [{
                     order: -1,
                     button: <button type="button" className="btn btn-info" onClick={() => API.downloadAuthRules()}>
                         <FontAwesomeIcon aria-hidden={true} icon="download" /> {AuthAdminMessage.DownloadAuthRules.niceToString()}
                     </button>,
                 }],
             }));
+
+        // Signum's AuthAdminClient omnibox entry: "!DownloadAuthRules", the same export the Role search's
+        // button above runs. It resolves to `undefined` because the action handles itself (it downloads a
+        // file) rather than navigating anywhere.
+        //
+        // This is the registration that moved `OmniboxSpecialAction` back into altea core, where Signum keeps
+        // it: the registry had lived in @altea/altea-omnibox, which depends on THIS package, so registering
+        // from here would have closed a package cycle.
+        registerSpecialAction({
+            key: "DownloadAuthRules",
+            allowed: () => AuthClient.isPermissionAuthorized(BasicPermission.AdminRules),
+            onClick: () => { API.downloadAuthRules(); return Promise.resolve(undefined); },
+        });
 
         // Rule packs (Signum's TypeRulePack / PermissionRulePack ModelEntities) open as a FrameModal via
         // Navigator.view — each needs an EntitySettings mapping the model to its view component, exactly

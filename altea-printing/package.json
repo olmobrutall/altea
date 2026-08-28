@@ -19,7 +19,6 @@
     "@altea/altea": "workspace:*",
     "@altea/altea-auth": "workspace:*",
     "@altea/altea-files": "workspace:*",
-    "@altea/altea-omnibox": "workspace:*",
     "@altea/altea-processes": "workspace:*",
     "@altea/altea-scheduler": "workspace:*",
     "quote-transformer": "workspace:*"

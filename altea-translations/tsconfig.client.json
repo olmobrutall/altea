@@ -6,7 +6,6 @@
     { "path": "../altea/tsconfig.client.json" },
     { "path": "../altea-auth/tsconfig.client.json" },
     { "path": "../altea-diff-log/tsconfig.client.json" },
-    { "path": "../altea-html-editor/tsconfig.client.json" },
-    { "path": "../altea-omnibox/tsconfig.client.json" }
+    { "path": "../altea-html-editor/tsconfig.client.json" }
   ]
 }

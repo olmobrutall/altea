@@ -16,7 +16,7 @@ import DynamicQueryOmniboxProvider from "./DynamicQueryOmniboxProvider";
 import EntityOmniboxProvider from "./EntityOmniboxProvider";
 import SpecialOmniboxProvider from "./SpecialOmniboxProvider";
 import { OmniboxProvider } from "./OmniboxProvider";
-import { allowedSpecialActionKeys } from "./OmniboxSpecialAction";
+import { allowedSpecialActionKeys } from "@altea/altea/client/OmniboxSpecialAction";
 
 // Port of Signum's `OmniboxClient` (Signum.Omnibox/OmniboxClient.tsx): the PROVIDER REGISTRY (result-type
 // name → renderer) plus the one API call. The omnibox itself is the <OmniboxAutocomplete/> component.

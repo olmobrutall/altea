@@ -5,10 +5,12 @@ import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import {
     ScheduledTaskEntity, ScheduledTaskLogEntity, SchedulerTaskExceptionLineEntity,
     ScheduleRuleMinutelyEntity, ScheduleRuleWeekDaysEntity, ScheduleRuleMonthsEntity,
-    SimpleTaskSymbol,
+    SimpleTaskSymbol, SchedulerPermission,
 } from "../data/Scheduler";
 import { HolidayCalendarEntity } from "../data/HolidayCalendar";
 import type { SchedulerState } from "../data/SchedulerState";
+import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
+import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 
 // Port of Signum.Scheduler's SchedulerClient.tsx — the panel route, the entity editors, and the typed HTTP
 // client the panel calls.
@@ -17,9 +19,8 @@ import type { SchedulerState } from "../data/SchedulerState";
 //  - Signum's `Navigator.addSettings(new EntitySettings(T, view))` → `cb.configure(T).withView(...)`, and
 //    its `.WithQuery(() => st => new { … })` server projection becomes `withQuerySettings({ defaultColumns })`
 //    here (altea resolves query columns client-side — there is no QueryDescription).
-//  - The Omnibox special action, the ChangeLog module and the `ScheduledTaskLogDatesDTO` bar-chart column
-//    formatter are NOT ported: the first two have no altea counterpart on this path, and the third needs
-//    `buildDateScale` from Signum's D3Utils.
+//  - The ChangeLog module and the `ScheduledTaskLogDatesDTO` bar-chart column formatter are NOT ported:
+//    the first has no altea counterpart, and the second needs `buildDateScale` from Signum's D3Utils.
 //  - `Constructor.registerConstructor(ScheduleRuleWeekDaysEntity, ...)` — which pre-fills the default holiday
 //    calendar on a NEW weekday rule — is deferred with it; pick the calendar in the editor instead.
 
@@ -29,6 +30,12 @@ export namespace SchedulerClient {
         cb.routes.push(
             { path: "/scheduler/view", element: <ImportComponent onImport={() => import("./SchedulerPanelPage")} /> },
         );
+
+        registerSpecialAction({
+            key: "SchedulerPanel",
+            allowed: () => AuthClient.isPermissionAuthorized(SchedulerPermission.ViewSchedulerPanel),
+            onClick: () => Promise.resolve("/scheduler/view"),
+        });
 
         cb.configure(ScheduledTaskEntity)
             .withView(() => import("./Templates/ScheduledTask"))

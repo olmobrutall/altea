@@ -18,7 +18,7 @@ import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import type { OperationSymbol } from "@altea/altea/data/operations";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 import { OmniboxClient } from "@altea/altea-omnibox/client/OmniboxClient";
-import { registerSpecialAction } from "@altea/altea-omnibox/client/OmniboxSpecialAction";
+import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
 import {
     AppendixHelpEntity, NamespaceHelpEntity, QueryHelpEntity, TypeHelpEntity,
     HelpMessage, HelpPermissions, HelpLinkPrefix,

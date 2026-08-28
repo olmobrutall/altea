@@ -2,7 +2,7 @@ import * as React from "react";
 import type { SpecialOmniboxResult } from "../data/OmniboxResults";
 import { OmniboxResultTypeName } from "../data/OmniboxResults";
 import { OmniboxProvider } from "./OmniboxProvider";
-import { specialActions } from "./OmniboxSpecialAction";
+import { specialActions } from "@altea/altea/client/OmniboxSpecialAction";
 
 // Port of Signum's `SpecialOmniboxProvider` (Signum.Omnibox/SpecialOmniboxProvider.tsx): the "!Command"
 // rows. Navigation runs the registered action's own onClick — the "url" it resolves to (if any) is then

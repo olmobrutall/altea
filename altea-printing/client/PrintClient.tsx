@@ -6,7 +6,7 @@ import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import type { FileTypeSymbol } from "@altea/altea-files/data/Files";
 import type { ProcessEntity } from "@altea/altea-processes/data/Processes";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
-import { registerSpecialAction } from "@altea/altea-omnibox/client/OmniboxSpecialAction";
+import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
 import {
     PrintLineEntity, PrintLineOperation, PrintPackageEntity, PrintPermission, type PrintStat,
 } from "../data/Printing";
