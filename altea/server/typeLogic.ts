@@ -1,7 +1,7 @@
 import "../data/globals"; // Array.prototype.toMap
 import { joinRelaxed } from "../data/globals/joinRelaxed";
 import { Connector } from "./connection/connector";
-import { cleanTypeName, getLocation, enumNameOf } from "../data/registration";
+import { cleanTypeName, getLocation, enumNameOf, resolveCleanType } from "../data/registration";
 import { TypeEntity } from "../data/typeEntity";
 import { quotedFunction } from "./query";
 import { ClassType } from "./runtimeTypes";
@@ -143,6 +143,29 @@ export class TypeLogic {
         if (id == null)
             throw new Error(`Type '${ctor.name}' is not registered in TypeLogic. Was its table included before SchemaBuilder.complete(), and TypeLogic.load() run after generation/sync?`);
         return id;
+    }
+
+    // The discriminator id for an entity type, or undefined when the type has no TypeEntity row
+    // (Signum's TypeToId.TryGetC) — the non-throwing twin of `typeToId`, for a caller that resolved a
+    // type NAME which may not name a persistent type at all.
+    static tryTypeToId(ctor: Function): PrimaryKey | undefined {
+        return this.caches.typeToId.get(ctor);
+    }
+
+    // The discriminator id for a type NAME — clean ("Order") or full ("OrderEntity") — or undefined when
+    // the name does not resolve to a persistent type. The reflection registry's name→ctor lookup composed
+    // with `tryTypeToId`: what a caller holding a name off the wire needs, and the cached answer to the
+    // `table(TypeEntity).filter(t => t.cleanName == name)` read several modules used to issue per request.
+    static tryTypeToIdByName(typeName: string): PrimaryKey | undefined {
+        const ctor = resolveCleanType(typeName);
+        return ctor == null ? undefined : this.tryTypeToId(ctor);
+    }
+
+    // Every cached TypeEntity row (Signum's `TypeToEntity.Values`) — the cached counterpart of
+    // `table(TypeEntity).toArray()`. Only rows that JOINED a model type are here (see projectCaches), so a
+    // row left over from a type no longer in the model is absent, which is what a runtime caller wants.
+    static allTypeEntities(): TypeEntity[] {
+        return [...this.caches.idToEntity.values()];
     }
 
     // The entity type for a discriminator id, or undefined if unknown (Signum's

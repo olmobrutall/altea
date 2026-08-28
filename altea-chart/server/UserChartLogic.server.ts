@@ -5,7 +5,7 @@ import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
-import { TypeEntity } from "@altea/altea/data/typeEntity";
+import { TypeLogic } from "@altea/altea/server/typeLogic";
 import type { Lite } from "@altea/altea/data/lite";
 import { UserChartEntity, UserChartOperation } from "../data/UserChart";
 import { UserAssetLogic } from "@altea/altea-user-assets/server/UserAssetLogic.server";
@@ -121,8 +121,10 @@ export namespace UserChartLogic {
     // Signum's GetUserCharts(Type entityType) / GetUserChartsModel: the user charts scoped to (and offered as
     // quick-links of) a concrete entity type. altea matches by the TypeEntity's clean name (resolved to id).
     export async function getUserChartsForEntityType(typeCleanName: string): Promise<Lite<UserChartEntity>[]> {
-        const typeRows = await table(TypeEntity).filter(t => t.cleanName == typeCleanName).toArray() as TypeEntity[];
-        const typeId = typeRows[0]?.id;
+        // The TypeEntity id comes from TypeLogic's warm type↔id caches, not from a
+        // `table(TypeEntity).filter(t => t.cleanName == …)` read: this runs per request, and the row that
+        // query returned is the very one the cache already holds.
+        const typeId = TypeLogic.tryTypeToIdByName(typeCleanName);
         if (typeId == null)
             return [];
 

@@ -15,7 +15,6 @@ import { Entity, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import type { IQuery } from "@altea/altea/data/iquery";
 import { getKey } from "@altea/altea/data/dynamicQuery/queryUtils";
-import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { ViewLogEntity, ViewLogMessage, type IViewLogTarget } from "../data/ViewLog";
 
 // Port of Signum.ViewLog's ViewLogLogic.cs — the module IS one table plus three subscriptions: "the API
@@ -158,17 +157,12 @@ export namespace ViewLogLogic {
         // observed query is about to execute, and issuing a read there would share its pinned connection
         // (node-postgres warns, and a second statement on a busy client is undefined behaviour).
         return async statements => {
-            const key = getKey(ctx.queryName);
-
-            // Signum logs the QUERY as the target: `QueryLogic.GetQueryEntity(queryName).ToLite()`. Read in
-            // global mode + its own transaction — a user may run a query without being allowed to read the
-            // Query table, and this must not join the observed request's transaction.
-            //
-            // NOTE `key` is a captured CONST, not `getKey(ctx.queryName)` inline: a call to a local function
-            // inside a query lambda has no SQL translation ("Missing __resultType property in function
-            // 'getKey'"), the same trap @altea/altea-processes documents.
-            const query = await Transaction.forceNew(() => ExecutionMode.global(async () =>
-                await table(QueryEntity).filter(q => q.key == key).singleOrNull() as QueryEntity | null));
+            // Signum logs the QUERY as the target: `QueryLogic.GetQueryEntity(queryName).ToLite()`, which
+            // reads its in-memory key→QueryEntity cache (`QueryNameToEntity`). altea loads that same cache
+            // at `schema.initialize()`, so this is a map lookup rather than the `table(QueryEntity)` read it
+            // used to be — that one fired on EVERY observed query, i.e. once per search, and showed up as an
+            // extra round-trip per request in the heavy profiler.
+            const query = QueryLogic.tryGetQueryEntityByKey(getKey(ctx.queryName));
             if (query == null)
                 return;
 

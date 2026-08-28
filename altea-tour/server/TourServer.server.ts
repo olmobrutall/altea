@@ -55,7 +55,7 @@ export namespace TourServer {
             { params: CustomType<{ typeName: string }>(), res: CustomType<TourDTO | null>() },
             async (req, res) => {
                 const { typeName } = (req as unknown as { params: { typeName: string } }).params;
-                const typeLite = await TourLogic.tryTypeLite(typeName);
+                const typeLite = TourLogic.tryTypeLite(typeName);
                 const tour = typeLite == null ? undefined : await TourLogic.tryGetTour(typeLite);
                 return res.jsonTyped(tour == null ? null : await toDTO(tour));
             });

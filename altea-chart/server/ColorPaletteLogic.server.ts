@@ -7,7 +7,7 @@ import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.w
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
-import { TypeEntity } from "@altea/altea/data/typeEntity";
+import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { ColorPaletteEntity, ColorPaletteOperation } from "../data/ColorPalette";
 import { ColorPaletteServer } from "./ColorPaletteServer.server";
 
@@ -47,8 +47,10 @@ export namespace ColorPaletteLogic {
     // Signum's `ColorPaletteCache.Value.TryGetC(type)`: the palette registered for a type (by its clean
     // name). altea resolves the TypeEntity id from the name, then finds the palette whose `type` FK matches.
     export async function getColorPaletteByTypeName(typeCleanName: string): Promise<ColorPaletteEntity | undefined> {
-        const typeRows = await table(TypeEntity).filter(t => t.cleanName == typeCleanName).toArray() as TypeEntity[];
-        const typeId = typeRows[0]?.id;
+        // The TypeEntity id comes from TypeLogic's warm type↔id caches, not from a
+        // `table(TypeEntity).filter(t => t.cleanName == …)` read: this runs per request, and the row that
+        // query returned is the very one the cache already holds.
+        const typeId = TypeLogic.tryTypeToIdByName(typeCleanName);
         if (typeId == null)
             return undefined;
 

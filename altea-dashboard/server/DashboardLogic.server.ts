@@ -8,7 +8,7 @@ import { retrieve, deleteList } from "@altea/altea/server/Database";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
 import type { Entity, Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
-import { TypeEntity } from "@altea/altea/data/typeEntity";
+import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { Enum } from "@altea/altea/data/enum";
 import { UserAssetLogic } from "@altea/altea-user-assets/server/UserAssetLogic.server";
 import { UserAssetOwnerAuth } from "@altea/altea-user-assets/server/UserAssetOwnerAuth.server";
@@ -216,14 +216,17 @@ export namespace DashboardLogic {
         if (typeIds.size === 0)
             return [];
 
-        const types = await table(TypeEntity).toArray() as TypeEntity[];
-        return types.filter(t => typeIds.has(String(t.id))).map(t => t.cleanName);
+        // TypeLogic's warm cache rather than a full `table(TypeEntity)` read: this answers the client's
+        // boot-time `/embeddedTypes` call, and the rows are the same ones.
+        return TypeLogic.allTypeEntities().filter(t => typeIds.has(String(t.id))).map(t => t.cleanName);
     }
 
     /** Signum's GetDashboardsEntity(Type) — entity-type-scoped dashboards the current role may read. */
     export async function getDashboardsEntity(typeCleanName: string): Promise<DashboardEntity[]> {
-        const typeRows = await table(TypeEntity).filter(t => t.cleanName == typeCleanName).toArray() as TypeEntity[];
-        const typeId = typeRows[0]?.id;
+        // The TypeEntity id comes from TypeLogic's warm type↔id caches, not from a
+        // `table(TypeEntity).filter(t => t.cleanName == …)` read: this runs per request, and the row that
+        // query returned is the very one the cache already holds.
+        const typeId = TypeLogic.tryTypeToIdByName(typeCleanName);
         if (typeId == null)
             return [];
 

@@ -10,6 +10,7 @@ import { registerEntityPackExtension, setEntityPackExtension } from "@altea/alte
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { TourTriggerSymbol } from "@altea/altea/data/tourTrigger";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
+import { TypeLogic } from "@altea/altea/server/typeLogic";
 import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { DashboardEntity } from "@altea/altea-dashboard/data/Dashboard";
@@ -56,7 +57,7 @@ export namespace TourLogic {
         // Signum's `EntityPackTS.AddExtension`: the frame's tour widget must decide whether to render
         // WITHOUT a round-trip of its own, so the pack says whether a tour exists for the entity's TYPE.
         registerEntityPackExtension(async pack => {
-            const typeLite = await tryTypeLite(pack.entity.constructor.name);
+            const typeLite = tryTypeLite(pack.entity.constructor.name);
             setEntityPackExtension(pack, "hasTour",
                 typeLite != null && (await toursByTrigger.value()).has(typeLite.key()));
         });
@@ -92,11 +93,18 @@ export namespace TourLogic {
         return (await toursByTrigger.value()).get(trigger.key());
     }
 
-    /** The TypeEntity lite for a clean type name, or undefined when the type is not in the registry. */
-    export async function tryTypeLite(cleanName: string): Promise<Lite<TypeEntity> | undefined> {
-        const name = cleanName.replace(/Entity$/, "");
-        const te = await table(TypeEntity).filter(t => t.cleanName == name).singleOrNull();
-        return te?.toLite();
+    /**
+     * The TypeEntity lite for a type name (clean or with the `Entity` suffix), or undefined when the
+     * name does not resolve to a persistent type.
+     *
+     * Reads TypeLogic's warm type↔id caches (Signum's `TypeToId` / `IdToEntity`) rather than querying
+     * the TypeEntity table: this runs from the entity-pack extension, i.e. on EVERY entity open, and a
+     * `table(TypeEntity)` round-trip there showed up as an extra query per open in the heavy profiler.
+     * The rows it resolves against are the very ones that query would read.
+     */
+    export function tryTypeLite(typeName: string): Lite<TypeEntity> | undefined {
+        const id = TypeLogic.tryTypeToIdByName(typeName);
+        return id == null ? undefined : TypeLogic.idToEntity(id)?.toLite();
     }
 
     async function deleteToursFor(triggers: Lite<Entity>[]): Promise<void> {

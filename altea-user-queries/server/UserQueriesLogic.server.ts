@@ -5,7 +5,7 @@ import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
-import { TypeEntity } from "@altea/altea/data/typeEntity";
+import { TypeLogic } from "@altea/altea/server/typeLogic";
 import type { Lite } from "@altea/altea/data/lite";
 import { UserQueryEntity, UserQueryOperation } from "../data/UserQuery";
 import { QueryAuthLogic } from "@altea/altea-auth/server/QueryAuthLogic";
@@ -134,8 +134,10 @@ export namespace UserQueriesLogic {
     // Signum's GetUserQueries(Type entityType): the user queries scoped to (and offered as quick-links of)
     // a concrete entity type. altea matches by the TypeEntity's clean name (resolved to its id).
     export async function getUserQueriesForEntityType(typeCleanName: string): Promise<Lite<UserQueryEntity>[]> {
-        const typeRows = await table(TypeEntity).filter(t => t.cleanName == typeCleanName).toArray() as TypeEntity[];
-        const typeId = typeRows[0]?.id;
+        // The TypeEntity id comes from TypeLogic's warm type↔id caches, not from a
+        // `table(TypeEntity).filter(t => t.cleanName == …)` read: this runs per request, and the row that
+        // query returned is the very one the cache already holds.
+        const typeId = TypeLogic.tryTypeToIdByName(typeCleanName);
         if (typeId == null)
             return [];
 
