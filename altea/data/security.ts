@@ -56,3 +56,37 @@ export class UserWithClaims {
         return this.claims[claimName];
     }
 }
+
+/**
+ * The AMBIENT current user, as the same `UserWithClaims` on both tiers — the isomorphic half of Signum's
+ * `UserHolder.Current`, which over there is server-only (its client has `AppContext.currentUser` and no
+ * claims at all).
+ *
+ * ONE injected provider, filled by whichever tier is running:
+ *  - SERVER — `server/userHolder`'s AsyncLocalStorage scope, opened per request;
+ *  - CLIENT — `client/AppContext`, which rebuilds it whenever the logged-in user changes.
+ *
+ * That is what lets `UserEntity.current()`, `RoleEntity.current()` and an app's own
+ * `EmployeeEntity.current()` be ONE accessor declared beside the entity, instead of a server function and
+ * a client function that have to be kept in step. The claims themselves are filled by
+ * {@link UserWithClaims.fillClaims}, which is data-layer too — so a filler written once serves both.
+ */
+export namespace CurrentUser {
+    let provider: () => UserWithClaims | undefined = () => undefined;
+
+    /** Install this tier's source. Called once, at module load, by the server's UserHolder / the client's
+     *  AppContext — never by application code. */
+    export function setProvider(p: () => UserWithClaims | undefined): void {
+        provider = p;
+    }
+
+    /** Signum's `UserHolder.Current`: the current user + claims, or undefined outside any login. */
+    export function current(): UserWithClaims | undefined {
+        return provider();
+    }
+
+    /** Signum's `UserHolder.Current?.GetClaim(name)` — null when there is no user, or no such claim. */
+    export function claim<T>(claimName: string): T | null {
+        return (provider()?.claims[claimName] ?? null) as T | null;
+    }
+}

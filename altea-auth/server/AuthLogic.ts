@@ -117,14 +117,8 @@ export namespace AuthLogic {
         systemUserName = systemUser ?? null;
         anonymousUserName = anonymousUser ?? null;
 
-        // Signum's FillClaims += … : stamp Role / ExternalId onto the claims bag when a UserWithClaims is
-        // built from a full user (Culture omitted — no CultureInfoEntity). Read server-side by the token
-        // and by RoleEntity.current().
-        UserWithClaims.fillClaims.push((uwc, user) => {
-            const u = user as UserEntity;
-            uwc.claims["Role"] = u.role;
-            uwc.claims["ExternalId"] = u.externalId;
-        });
+        // (Signum's `FillClaims += …` for Role / ExternalId lives in data/User.ts here: altea builds a
+        // UserWithClaims on the CLIENT too, and a filler declared in the data layer serves both tiers.)
 
         sb.include(RoleEntity)
             .withSave(RoleOperation.Save)
@@ -526,15 +520,15 @@ export namespace AuthLogic {
         return full.length <= 200 ? full : full.substring(0, 197) + "...";
     }
 
-    /** The current user's role key from the claims bag (Signum's RoleEntity.Current), or undefined. */
+    /** The current user's role key (Signum's RoleEntity.Current), or undefined. */
     export function currentRoleKey(): string | undefined {
-        const role = UserHolder.current()?.getClaim("Role") as Lite<RoleEntity> | undefined;
-        return role?.key();
+        return RoleEntity.current()?.key();
     }
 
-    /** The current user's role lite from the claims bag (Signum's RoleEntity.Current), or null. */
+    /** The current user's role lite (Signum's RoleEntity.Current), or null. Both read the claims bag
+     *  through `RoleEntity.current()`, which is the isomorphic accessor — one claim read, one place. */
     export function currentRoleLite(): Lite<RoleEntity> | null {
-        return (UserHolder.current()?.getClaim("Role") as Lite<RoleEntity> | undefined) ?? null;
+        return RoleEntity.current();
     }
 
     /**

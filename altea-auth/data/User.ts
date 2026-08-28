@@ -7,7 +7,7 @@ import {
 } from "@altea/altea/data/decorators";
 import { Temporal } from "@altea/altea/data/basics";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol } from "@altea/altea/data/operations";
-import type { IUserEntity, IEmailOwnerEntity } from "@altea/altea/data/security";
+import { CurrentUser, UserWithClaims, type IUserEntity, type IEmailOwnerEntity } from "@altea/altea/data/security";
 import { RoleEntity } from "./Role";
 import { TypeConditionSymbol } from "./Rules";
 import { AuthAdminMessage, UserExternalIdMessage } from "./AuthMessages";
@@ -23,7 +23,9 @@ import { AuthAdminMessage, UserExternalIdMessage } from "./AuthMessages";
 //  - `UserTypeCondition` (a TypeConditionSymbol) and `UserLiteModel` land with the authorization /
 //    client phases respectively (TypeConditionSymbol is an authorization type; UserLiteModel needs the
 //    client custom-lite wiring).
-//  - `UserEntity.Current` / `CurrentExternalId` are server-only (read UserHolder claims) — in AuthLogic.
+//  - `UserEntity.Current` / `CurrentExternalId` are server-only in Signum (they read UserHolder);
+//    altea declares them here as `current()` / `currentExternalId()` and they answer on BOTH tiers, through
+//    the injected `CurrentUser` provider (data/security). Same for `RoleEntity.current()`.
 //  - `PropertyValidation` → per-field `@fieldValidation` (altea has no entity-level validation hook).
 
 // Signum's UserState (UserEntity.cs). New = -1 (the pre-Create sentinel); the rest are the live states.
@@ -99,6 +101,24 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
     toString(): string {
         return this.userName;
     }
+
+    /**
+     * Signum's `UserEntity.Current` (`(Lite<UserEntity>)UserHolder.Current?.User!`), and — unlike Signum's,
+     * which is server-only — it answers on BOTH TIERS: the server resolves it from the request's user
+     * scope, the client from the logged-in user (see `CurrentUser` in altea's data/security).
+     *
+     * A LITE, as in Signum: the server has only the lite (plus the claims) once the token is decoded, so
+     * that is the shape both tiers can honour. Null when nobody is logged in — where Signum's `!` would
+     * NullReference, because a nullable type says it better than a crash does.
+     */
+    static current(): Lite<UserEntity> | null {
+        return (CurrentUser.current()?.user as Lite<UserEntity> | undefined) ?? null;
+    }
+
+    /** Signum's `UserEntity.CurrentExternalId` — the external identity claim of the current login. */
+    static currentExternalId(): string | null {
+        return CurrentUser.claim<string>("ExternalId");
+    }
 }
 
 // Signum's `[AutoInit] static class UserTypeCondition` (UserEntity.cs) — a framework-declared
@@ -117,3 +137,17 @@ export namespace UserOperation {
     export const AutoDeactivate: ExecuteSymbol<UserEntity> = init();
     export const Delete: DeleteSymbol<UserEntity> = init();
 }
+
+// ---- The current user, on BOTH tiers -----------------------------------------------------------------
+
+// Signum's `UserWithClaims.FillClaims += …` (in AuthLogic.Start, i.e. server-only): stamp Role / ExternalId
+// onto the claims bag whenever a UserWithClaims is built from a full user. It lives HERE, in the data
+// layer, because altea builds a UserWithClaims on both tiers — the server per request (UserHolder) and the
+// client on every login (AppContext) — and a filler declared once serves both. That is what makes
+// `RoleEntity.current()` answer in a React component as well as in a query.
+// (Culture is omitted: altea's CultureInfoEntity is not carried in the claims.)
+UserWithClaims.fillClaims.push((uwc, user) => {
+    const u = user as UserEntity;
+    uwc.claims["Role"] = u.role;
+    uwc.claims["ExternalId"] = u.externalId;
+});

@@ -1,4 +1,5 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { CurrentUser } from "@altea/altea/data/security";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, uniqueIndex, backReference, valueField, quoted, stringLengthValidator } from "@altea/altea/data/decorators";
@@ -44,6 +45,20 @@ export class RoleEntity extends Entity {
     @quoted
     toString(): string {
         return this.name;
+    }
+
+    /**
+     * Signum's `RoleEntity.Current` — the role of the current login, off the "Role" claim (filled in
+     * data/User.ts). Unlike Signum's, which is server-only, it answers on BOTH TIERS: the server resolves
+     * the user from the request scope, the client from the logged-in user (see `CurrentUser` in altea's
+     * data/security).
+     *
+     * altea divergence: Signum THROWS `AuthenticationException(NotUserLogged)` when nobody is logged in.
+     * altea's AuthenticationException is server-only (the data layer must stay isomorphic), and every
+     * caller in the workspace null-checks anyway, so this answers null instead.
+     */
+    static current(): Lite<RoleEntity> | null {
+        return CurrentUser.claim<Lite<RoleEntity>>("Role");
     }
 }
 

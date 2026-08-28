@@ -3,6 +3,7 @@ import { Lite } from "@altea/altea/data/lite";
 import type { PrimaryKey } from "@altea/altea/data/entity";
 import { Temporal } from "@altea/altea/data/basics";
 import { UserWithClaims, type IUserEntity } from "@altea/altea/data/security";
+import { Serializer } from "@altea/altea/data/serializer";
 import { AuthenticationException } from "@altea/altea/server/exceptions";
 import { table } from "@altea/altea/server/table";
 import { UserEntity, UserState } from "../data/User";
@@ -19,7 +20,9 @@ import { encodeHash } from "./AuthLogic";
 //    simplicity). Still AES-CBC + IV-prefix + base64, byte-format otherwise as Signum.
 //  - The payload is a COMPACT hand-rolled shape (user/role id + toStr + passwordHash + creationDate),
 //    not the full entity Serializer graph — enough to rebuild a UserWithClaims and detect a password
-//    change. `Lite<IUserEntity>` is rebuilt as a plain LiteImp.
+//    change. `Lite<IUserEntity>` is rebuilt as a plain LiteImp. It DOES carry the claims bag, as Signum's
+//    `AuthToken.Claims` does: a claim is filled from the full user, which only the login and the refresh
+//    ever hold, so a claim that did not ride along would exist for one request and vanish.
 //  - The authenticator CHAIN is exposed as a seam (`authenticators`) exactly like Signum, so the
 //    deferred UserTicket / AD authenticators can be appended later.
 
@@ -30,6 +33,7 @@ interface TokenPayload {
     rt: string | null;      // role toString
     ph: string | null;      // passwordHash (base64) — to detect a password change
     c: string;              // creationDate (ISO PlainDateTime)
+    cl?: string;            // the CLAIMS bag, Serializer-encoded (Signum's AuthToken.Claims)
 }
 
 export interface AuthTokenConfiguration {
@@ -95,6 +99,12 @@ export namespace AuthTokenServer {
             rt: role?.toString() ?? null,
             ph: phFingerprint(user),
             c: Temporal.Now.plainDateTimeISO().toString(),
+            // Signum's `AuthToken.Claims`. Every claim a module derived from the full user rides along, so
+            // a LATER request — which only ever decodes this token — sees the same bag the login did.
+            // Without it a claim existed for exactly one request and `EmployeeEntity.current()` answered
+            // null for the rest of the session. `Serializer.stringify`, not JSON: a claim is typically a
+            // Lite, whose `entityType` is a CONSTRUCTOR that a plain stringify drops.
+            cl: Serializer.stringify(new UserWithClaims(user).claims),
         };
         return serializeToken(payload);
     }
@@ -145,9 +155,14 @@ export namespace AuthTokenServer {
 
     function toUserWithClaims(token: TokenPayload): UserWithClaims {
         const userLite = UserEntity.newLite(token.u, token.ut) as unknown as Lite<IUserEntity>;
-        const claims: Record<string, unknown> = {};
-        if (token.r != null)
-            claims["Role"] = RoleEntity.newLite(token.r, token.rt ?? "");
+
+        // Signum's `AuthToken.ToUserWithClaims()`. The Role fallback covers a token minted before the bag
+        // was carried (an open session across a deploy): rebuilding it from the id/toString the payload has
+        // always had keeps that session working until its next refresh.
+        const claims = token.cl != null
+            ? Serializer.parse(token.cl) as Record<string, unknown>
+            : token.r != null ? { Role: RoleEntity.newLite(token.r, token.rt ?? "") } : {};
+
         return new UserWithClaims(userLite, claims);
     }
 
