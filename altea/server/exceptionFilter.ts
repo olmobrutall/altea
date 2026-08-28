@@ -92,17 +92,31 @@ async function handle(error: unknown, req: Request, res: Response): Promise<void
         return;
     }
 
+    const httpError = await logAndBuildHttpError(error, req);
+
+    // Plain JSON (not the entity Serializer): the client parses the body with JSON.parse.
+    res.status(getStatus(error)).type("application/json").send(JSON.stringify(httpError));
+}
+
+/**
+ * Log the exception and build the very `HttpError` this filter would have written — for a route that can
+ * no longer use the filter because it has already COMMITTED its response.
+ *
+ * Signum has no counterpart, and needs none: its streaming actions return an `IAsyncEnumerable` whose
+ * first exception is raised before ASP.NET has begun the response, so its own exception filter still owns
+ * the status code and the body and the client sees an ordinary failed call. An altea route writes as it
+ * goes, and once the first line is out both are spent — so the failure has to travel IN-BAND, as one more
+ * line the client turns back into an error (@altea/altea-office-template's excel import does exactly
+ * that). Same log row, same shape, same `exceptionId`: only the transport differs.
+ */
+export async function logAndBuildHttpError(error: unknown, req?: Request): Promise<HttpError> {
     let exceptionId: string | null = null;
     if (shouldLogException(error)) {
-        const exLog = await ExceptionLogic.logException(error, e => fillContext(e, req));
+        const exLog = await ExceptionLogic.logException(error, e => { if (req != null) fillContext(e, req); });
         exceptionId = exLog.id != null ? String(exLog.id) : null;
     }
 
-    const status = getStatus(error);
-    const httpError = toHttpError(error, exceptionId, includeErrorDetails(error));
-
-    // Plain JSON (not the entity Serializer): the client parses the body with JSON.parse.
-    res.status(status).type("application/json").send(JSON.stringify(httpError));
+    return toHttpError(error, exceptionId, includeErrorDetails(error));
 }
 
 // Signum's SignumExceptionFilterAttribute.LogException `completeContext`: fill the request-derived

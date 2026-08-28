@@ -1,5 +1,15 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
+  <Type Name="ExcelMessage">
+    <Member Name="CreateNew" Description="Crear nuevo" />
+    <Member Name="Data" Description="Datos" />
+    <Member Name="Download" Description="Descargar" />
+    <Member Name="Excel2007Spreadsheet" Description="Hoja de cálculo de Microsoft Office Excel 2007(*.xlsx)|*.xlsx" />
+    <Member Name="ThereAreNoResultsToWrite" Description="No hay resultados que exportar al informe" />
+  </Type>
+  <Type Name="ExcelPermission">
+    <Member Name="PlainExcel" Description="Excel plano" />
+  </Type>
   <Type Name="OfficeAttachmentEntity" Description="Archivo adjunto de Office" PluralDescription="Archivos adjuntos de Office" Gender="m">
     <Member Name="FileName" Description="Nombre de archivo" />
     <Member Name="ModelConverter" Description="Conversor de modelo" />
