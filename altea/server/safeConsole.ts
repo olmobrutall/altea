@@ -1,10 +1,12 @@
 import * as readline from "node:readline";
 import chalk from "chalk";
 
-// A minimal port of Signum.Utilities' SafeConsole — the console primitives the two migration runners need:
-// coloured writes and the yes/no / free-text prompts. Signum keeps SafeConsole in Utilities because half the
-// framework prints with it; altea has no console layer at all, so it lives here, in the only package that
-// needs one. If a second package ever wants it, move it to @altea/altea (server/utils) unchanged.
+// A minimal port of Signum.Utilities' SafeConsole — coloured writes and the yes/no / pick-one / free-text
+// prompts. Signum keeps it in Utilities because half the framework prints with it; it started in
+// @altea/altea-migrations, the only package that needed a console, and moved HERE the moment core's own
+// sync flow needed one too (server/sync/openSqlFile, Signum's SqlPreCommandExtensions.OpenSqlFileRetry —
+// which lives in Signum.Engine and prints with SafeConsole for exactly the same reason).
+// @altea/altea-migrations re-exports it, so its own callers are unchanged.
 //
 // altea divergences:
 //  - `ConsoleColor` → chalk styles (which no-op when the output is not a TTY, so redirected logs stay clean).

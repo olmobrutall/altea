@@ -88,6 +88,56 @@ export abstract class SqlPreCommand {
     }
 }
 
+// A positional parameter placeholder, in either dialect's spelling. Only applied to a command that HAS
+// parameters, so a parameterless one (a Postgres `$$ … $$` function body, say) is never touched.
+const PARAMETER_REGEX = /@p(\d+)\b|\$(\d+)\b/g;
+
+/**
+ * Port of Signum's SqlPreCommandSimple.LiteralValue — one value as the SQL literal a script can carry.
+ * Dialect-sensitive where the dialects genuinely differ (booleans, binary); everything else is written
+ * invariantly, which is what makes a saved script reproducible.
+ */
+function literalValue(value: unknown): string {
+    if (value == undefined)
+        return "NULL";
+
+    const isPostgres = tryIsPostgres();
+
+    if (typeof value === "boolean")
+        return isPostgres ? String(value) : (value ? "1" : "0");
+
+    if (typeof value === "number" || typeof value === "bigint")
+        return String(value);
+
+    if (value instanceof Uint8Array) {
+        const hex = Buffer.from(value).toString("hex").toUpperCase();
+        return isPostgres ? `'\\x${hex}'` : `0x${hex}`;
+    }
+
+    if (value instanceof Date)
+        return quote(value.toISOString());
+
+    // Temporal.PlainDate / PlainDateTime / PlainTime / Duration and Decimal all render themselves
+    // invariantly through toString() — the same shape the parameter binder sends.
+    return quote(String(value));
+}
+
+function quote(text: string): string {
+    return "'" + text.replace(/'/g, "''") + "'";
+}
+
+// plainSql() is a DEBUG/soft path (Signum reads Schema.Current inside LiteralValue for the same reason),
+// and it is reachable with no ambient connector — a unit test rendering a command tree. Postgres is the
+// fallback: its literals are the standard ones, so a value formatted without a connector is still valid
+// SQL rather than a throw from deep inside a toString().
+function tryIsPostgres(): boolean {
+    try {
+        return Connector.current().sqlBuilder.isPostgres;
+    } catch {
+        return true;
+    }
+}
+
 export class SqlPreCommandSimple extends SqlPreCommand {
     constructor(
         public readonly sql: string,
@@ -100,8 +150,20 @@ export class SqlPreCommandSimple extends SqlPreCommand {
         return [this];
     }
 
+    // Signum's SqlPreCommandSimple.PlainSql: the parameter VALUES are substituted into the SQL, so what
+    // is printed — and what a saved .sql file holds — is a script that actually runs. Returning the raw
+    // `sql` instead would render every sync UPDATE/INSERT as `SET "key" = $1`, which reads as a bug and
+    // cannot be executed outside the process that still holds the values.
     plainSql(): string {
-        return this.sql;
+        if (this.parameters == undefined || this.parameters.length === 0)
+            return this.sql;
+        return this.sql.replace(PARAMETER_REGEX, (match, sqlServerIndex: string | undefined, postgresIndex: string | undefined) => {
+            // altea names its parameters positionally (save.ts's `placeholder`): "@p0"-based on SQL
+            // Server, "$1"-based on Postgres. Either way the digits address this array.
+            const index = sqlServerIndex != undefined ? Number(sqlServerIndex) : Number(postgresIndex) - 1;
+            const parameter = this.parameters![index];
+            return parameter == undefined ? match : literalValue(parameter.value);
+        });
     }
 
     // Positional parameter values, in declaration order (or undefined when none),
