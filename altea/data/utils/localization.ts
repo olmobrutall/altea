@@ -69,8 +69,15 @@ export namespace Localization {
         // De-camelCase a raw type identifier into a display label: "GrammyAwardEntity" → "Grammy Award",
         // "FilterOperation" → "Filter Operation". The string-only core of `typeNiceName`, shared with the
         // `Enum` / `Container` helpers so their type names humanise identically.
+        //
+        // The suffix set is Signum's `Reflector.CleanTypeName` verbatim — Entity / Embedded / Model /
+        // Symbol — which is what its `DefaultTypeDescription` humanises. NOTE this is the DISPLAY name
+        // only: altea's own `cleanTypeName` (data/registration) strips "Entity" ALONE, because there it
+        // is the reflection IDENTITY (the `$type` / `$lite` wire discriminator, TypeEntity.cleanName,
+        // an @implementedBy column's suffix) and "CustomerModel" / "AddressEmbedded" must stay distinct
+        // from any "Customer" / "Address" beside them.
         export function niceNameFromName(name: string): string {
-            const raw = name.replace(/Entity$/, "");
+            const raw = name.replace(/(Entity|Embedded|Model|Symbol)$/, "");
             return raw.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2").trim();
         }
 

@@ -83,11 +83,20 @@ export function resolveType(name: string): Function | undefined {
         ?? (name.length > 0 ? typeRegistry.get(name[0].toUpperCase() + name.slice(1)) : undefined);
 }
 
-// The "clean" type name written as the @implementedByAll discriminator (and used
-// for @implementedBy column names): the constructor name with a trailing "Entity"
-// stripped (e.g. BandEntity -> "Band"). Single source of truth shared by the save
-// path (which writes it) and the LINQ SmartEqualizer / Retriever (which compare
-// and resolve it).
+// The "clean" type name: the constructor name with a trailing "Entity" stripped
+// (e.g. BandEntity -> "Band"). It is the reflection IDENTITY, and it is what
+//   - the JSON wire discriminator carries (`$type` / `$lite`, see data/serializer),
+//   - TypeEntity.cleanName stores (`resolveCleanType` reads it back),
+//   - an @implementedBy field's per-implementation COLUMN NAME is suffixed with
+//     ("ownerID_Band" — the schema builder keeps its own copy of this rule).
+// NOT the stored @implementedByAll discriminator: that column holds the target's
+// TypeEntity int id (server/schema/column.ts's ImplementedByAllTypeColumn), which
+// is then resolved through TypeLogic — the clean name only reaches it as the
+// TypeEntity ROW's cleanName.
+//
+// Signum's Reflector.CleanTypeName also strips Embedded / Model / Symbol; here those
+// suffixes STAY, because an identity must keep "SongEmbedded" distinct from a "Song"
+// beside it. Localization's niceNameFromName strips all four, but only for DISPLAY.
 export function cleanTypeName(ctor: Function): string {
     // A closed EnumEntity<E> type (EnumEntity.typeFor) carries the enum as a static `boundEnum`; its clean
     // name is the ENUM name ("OrderState"), NOT the "EnumEntity<OrderState>" ctor name — mirrors Signum's
