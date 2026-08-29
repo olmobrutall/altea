@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
-import { Entity } from "@altea/altea/data/entity";
+import { EmbeddedEntity, Entity, MixinEntity, ModelEntity } from "@altea/altea/data/entity";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { Localization, type LocalizableMessage } from "@altea/altea/data/utils/localization";
 import { pluralize, detectGender, determinersFor } from "@altea/altea/data/utils/naturalLanguage";
@@ -113,11 +113,10 @@ export function localizableTypes(): LocalizableType[] {
         result.push({ typeName, packageName: loc.packageName, folder: folderOf(loc.fileName), options, members, memberDefaults });
     };
 
-    // Entities + models: everything, including abstract bases (they carry their own nice name).
+    // Entities, models, embeddeds and mixins: everything, including abstract bases (they carry their own
+    // nice name). Which of the four labels each one has is `descriptionOptionsOf`.
     for (const ctor of getRegisteredTypes())
-        add(ctor.name,
-            { hasDescription: true, hasPluralDescription: true, hasGender: true, hasMembers: true },
-            routeMemberNames(ctor));
+        add(ctor.name, descriptionOptionsOf(ctor), routeMemberNames(ctor));
 
     // Enums: a name and its members (Signum: Description | Members).
     for (const [name, enumObject] of getRegisteredEnums())
@@ -162,6 +161,43 @@ export function localizablePackages(): string[] {
 /** Signum's `[DefaultAssemblyCulture]` — the language a package's code-declared strings are written in. */
 export function defaultCultureOf(packageName: string): string {
     return getPackageCulture(packageName) ?? "en";
+}
+
+// Which of the four labels a reflected class has. Signum keeps this on the base classes, as an
+// INHERITED `[DescriptionOptions]`, and the branches below are those bases one for one — except for
+// the MODEL, the single case altea widens.
+function descriptionOptionsOf(ctor: Function): DescriptionOptions {
+
+    // Signum's `[DescriptionOptions(All)]` on `Entity`.
+    if (isOrExtends(ctor, Entity))
+        return { hasDescription: true, hasPluralDescription: true, hasGender: true, hasMembers: true };
+
+    // A MODEL is Signum's `ModifiableEntity` (`Description | Members`), WIDENED here to the plural and
+    // the gender. A manual query is NAMED BY ITS ROW MODEL in altea — there is no QueryDescription to
+    // hang a caption on — and a search page's title is the query name's PLURAL (`getQueryNiceName` →
+    // `nicePluralName`). So `CustomerModel`'s plural is a user-visible page heading ("Customers" over
+    // /find/CustomerModel), and the gender is what a determiner-inflecting language needs for "los
+    // Clientes".
+    if (isOrExtends(ctor, ModelEntity))
+        return { hasDescription: true, hasPluralDescription: true, hasGender: true, hasMembers: true };
+
+    // Signum's `[DescriptionOptions(Members | Description)]` on `ModifiableEntity`: an embedded is
+    // named (a line's label, a tab caption) but never counted, so nothing would ever read its plural.
+    if (isOrExtends(ctor, EmbeddedEntity))
+        return { hasDescription: true, hasPluralDescription: false, hasGender: false, hasMembers: true };
+
+    // Signum's `[DescriptionOptions(Members)]` on `MixinEntity`: a mixin's fields are FLATTENED onto
+    // its owner, so only the member names are ever read — the mixin itself is never shown as a thing.
+    if (isOrExtends(ctor, MixinEntity))
+        return { hasDescription: false, hasPluralDescription: false, hasGender: false, hasMembers: true };
+
+    // Anything else registered under `@reflect` (a bare BaseEntity subclass) gets Signum's
+    // `ModifiableEntity` default — named and with members, nothing that has to be inflected.
+    return { hasDescription: true, hasPluralDescription: false, hasGender: false, hasMembers: true };
+}
+
+function isOrExtends(ctor: Function, base: Function): boolean {
+    return ctor === base || ctor.prototype instanceof base;
 }
 
 // A reflected class's member names, in the XML's PascalCase — every property ROUTE (so an embedded's
