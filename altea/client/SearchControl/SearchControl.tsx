@@ -6,7 +6,7 @@
 import * as React from 'react'
 import { Finder } from '../Finder'
 import type { FindOptions, FindOptionsParsed, FilterOptionParsed, FilterOption } from '../FindOptions'
-import { QueryToken } from '../QueryToken'
+import { QueryToken, rowEntityToken } from '../QueryToken'
 import { getKey } from '../../data/dynamicQuery/queryUtils'
 import type { ResultTable, ResultRow, QueryRequest } from '../../data/dynamicQuery/queryRequest'
 import type { Lite } from '../../data/lite'
@@ -204,7 +204,12 @@ function SearchControl(p: SearchControlProps): React.JSX.Element | null {
 
   const qs = Finder.getSettings(fop.queryKey);
 
-  const tis = qt.type.typeInfos();
+  // The types the ROWS are, which is not always the type the query is NAMED by: a query named by a row
+  // MODEL yields Person/Company rows through the model's `entity` member (see rowEntityToken). Every
+  // decision below is about the row — can it be viewed (which is what puts the navigate link and the
+  // double-click on the row at all), can one be created, is it system-versioned — so asking the model
+  // answered "no" to all three and left /find/CustomerModel with no row link.
+  const tis = (rowEntityToken(qt) ?? qt).type.typeInfos();
 
   return (
     <ErrorBoundary>

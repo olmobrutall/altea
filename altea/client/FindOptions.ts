@@ -7,7 +7,7 @@
 //   - unused Signum imports (getLambdaMembers / TypeInfo / message enums / Lines) dropped.
 
 import * as React from "react";
-import { QueryKey, type PseudoType } from './Reflection';
+import { type PseudoType } from './Reflection';
 import { TypeReference } from '../data/reflection';
 import { Entity, EmbeddedEntity, type Type } from '../data/entity';
 import { QueryTokenString } from './QueryTokenString';
@@ -32,7 +32,7 @@ import type SearchControlLoaded from "./SearchControl/SearchControlLoaded";
 export type { PaginationMode, OrderType, FilterOperation, FilterType, ColumnOptionsMode, UniqueType };
 
 export interface ValueFindOptions {
-  queryName: PseudoType | QueryKey;
+  queryName: PseudoType;
   filterOptions?: FilterOption[];
 }
 
@@ -62,7 +62,7 @@ export type OptionalQueryName<T extends { queryName: unknown }> =
   Omit<T, "queryName"> & Partial<Pick<T, "queryName">>;
 
 export interface FindOptions<T extends BaseEntity /*Entity*/ = any> {
-  queryName: Type<T> | QueryKey | PseudoType;
+  queryName: Type<T> | PseudoType;
   groupResults?: boolean;
 
   includeDefaultFilters?: boolean;
@@ -75,7 +75,7 @@ export interface FindOptions<T extends BaseEntity /*Entity*/ = any> {
 }
 
 export interface FetchOptions<T extends BaseEntity /*Entity*/> {
-  queryName: Type<T> | QueryKey | PseudoType;
+  queryName: Type<T> | PseudoType;
   filterOptions?: (FilterOption | null | undefined)[];
   orderOptions?: (OrderOption | null | undefined)[];
   count?: number | null;
@@ -88,7 +88,7 @@ export interface ResultObject {
 
 /** Like {@link FindOptions} but the columns come from `resultObject` (no columnOptions); built by `Type.typedResultsOptions`. */
 export interface TypedResultsOptions<RO extends ResultObject = ResultObject> {
-  queryName: PseudoType | QueryKey;
+  queryName: PseudoType;
   groupResults?: boolean;
   includeDefaultFilters?: boolean;
   filterOptions?: (FilterOption | null | undefined)[];

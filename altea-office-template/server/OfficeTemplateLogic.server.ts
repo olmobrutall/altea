@@ -190,12 +190,14 @@ export namespace OfficeTemplateLogic {
         return (should & visibleOn) !== 0;
     }
 
-    /** Signum's GetApplicableWordTemplates. */
+    /**
+     * Signum's GetApplicableWordTemplates. Takes the query KEY, not the QueryName: the only caller is the
+     * route, which has the key off the wire, and the key is all this ever used it for.
+     */
     export async function getApplicableOfficeTemplates(
-        queryName: QueryName, entity: Entity | null, visibleOn: OfficeTemplateVisibleOn,
+        queryKey: string, entity: Entity | null, visibleOn: OfficeTemplateVisibleOn,
     ): Promise<Lite<OfficeTemplateEntity>[]> {
-        const key = queryKeyOf(queryName);
-        const candidates = (await templatesByQueryKey.value()).get(key) ?? [];
+        const candidates = (await templatesByQueryKey.value()).get(queryKey) ?? [];
 
         const out: Lite<OfficeTemplateEntity>[] = [];
         for (const t of candidates)

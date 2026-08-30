@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import type { IconProp } from '@fortawesome/fontawesome-svg-core'
-import { getTypeInfo, getQueryNiceName, getQueryKey, getTypeName, QueryKey } from './Reflection'
+import { getTypeInfo, getQueryNiceName, getQueryKey, getTypeName } from './Reflection'
 import type { PseudoType } from './Reflection'
 import type { Type } from '../data/entity'
 import { classes, Dic, toPromise } from '../data/globals'
@@ -437,7 +437,7 @@ export class QuickLinkLink<T extends Entity> extends QuickLink<T> {
 export class QuickLinkExplore<T extends Entity> extends QuickLink<T> {
   findOptionsFunc: (ctx: QuickLinkContext<T>) => FindOptions | Promise<FindOptions>;
 
-  constructor(queryName: PseudoType | QueryKey, findOptionsFunc: (ctx: QuickLinkContext<T>) => FindOptions | Promise<FindOptions>, options?: QuickLinkOptions<T>) {
+  constructor(queryName: PseudoType, findOptionsFunc: (ctx: QuickLinkContext<T>) => FindOptions | Promise<FindOptions>, options?: QuickLinkOptions<T>) {
     super({
       key: getQueryKey(queryName),
       isVisible: Finder.isFindable(queryName, false),

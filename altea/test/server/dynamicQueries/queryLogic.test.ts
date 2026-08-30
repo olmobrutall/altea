@@ -1,6 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
+import type { BaseEntity, Type } from "@altea/altea/data/entity";
 import { table, bindAndOptimize } from "@altea/altea/server/table";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { SchemaBuilder } from "@altea/altea/server/schema";
@@ -39,16 +40,17 @@ class FakeConnector extends Connector {
 }
 const fake = new FakeConnector();
 
-function entityToken(ctor: Function): RootToken {
+function entityToken(ctor: Type<BaseEntity>): RootToken {
     return new RootToken(ctor);
 }
 
 describe("QueryLogic — query name registry", () => {
+    // There is ONE registry — the query container. A key resolves back to the TYPE it was registered
+    // under (QueryName is Type<BaseEntity>), and a key nothing registered resolves to nothing. There
+    // used to be a second, write-only `registerQuery` map beside it that nothing in the framework fed.
     test("register / getKey / toQueryName round-trip", () => {
-        QueryLogic.registerQuery(AlbumEntity);
-        QueryLogic.registerQuery("Custom.Report");
         assert.equal(QueryLogic.toQueryName("Album"), AlbumEntity);
-        assert.equal(QueryLogic.toQueryName("Custom.Report"), "Custom.Report");
+        assert.equal(QueryLogic.tryToQueryName("Album"), AlbumEntity);
         assert.equal(QueryLogic.tryToQueryName("Nope"), undefined);
         assert.throws(() => QueryLogic.toQueryName("Nope"), /not found/);
     });

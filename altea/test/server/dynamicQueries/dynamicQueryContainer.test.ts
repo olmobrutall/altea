@@ -1,5 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { ModelEntity } from "@altea/altea/data/entity";
 import "@altea/altea/data/globals";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { SchemaBuilder } from "@altea/altea/server/schema";
@@ -45,7 +46,7 @@ describe("DynamicQueryContainer", () => {
     });
 
     test("tryGetCore of an unregistered query is undefined; getCore throws", () => {
-        class Unregistered { }
+        class Unregistered extends ModelEntity { }
         assert.equal(Queries.tryGetCore(Unregistered), undefined);
         assert.throws(() => Queries.getCore(Unregistered));
     });

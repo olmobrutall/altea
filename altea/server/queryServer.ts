@@ -11,7 +11,6 @@
 
 import { Entity } from "../data/entity";
 import { Temporal, Decimal } from "../data/basics";
-import { resolveCleanType } from "../data/registration";
 import { SubTokensOptionsAll } from "../data/dynamicQuery/tokens";
 import {
     isServerOnlyToken, serializeServerToken, type ServerTokenJson,
@@ -41,7 +40,7 @@ export namespace QueryServer {
         ws.get("/api/query/:queryKey/serverTokens",
             { params: CustomType<{ queryKey: string }>(), res: CustomType<ServerTokenJson[]>() },
             async (req, res) => {
-                const queryName = QueryLogic.tryToQueryName(req.params.queryKey) ?? resolveCleanType(req.params.queryKey);
+                const queryName = QueryLogic.tryToQueryName(req.params.queryKey);
                 if (queryName == undefined) {
                     res.status(404).json({ error: `Query '${req.params.queryKey}' not found` });
                     return;
@@ -93,8 +92,12 @@ export namespace QueryServer {
 
 // ---- wire → engine ---------------------------------------------------------------------------
 
+// A query key off the wire → the registered QueryName. The registry is the query CONTAINER, so a key
+// nothing registered is refused here rather than a few frames later: `resolveCleanType` used to be the
+// fallback, and it answers ANY reflected type — so `/find/AddressEmbedded` resolved happily and then
+// died inside getCore with a message about withQuery.
 function resolveQueryName(queryKey: string): QueryName {
-    const qn = QueryLogic.tryToQueryName(queryKey) ?? resolveCleanType(queryKey);
+    const qn = QueryLogic.tryToQueryName(queryKey);
     if (qn == undefined)
         throw new Error(`Query '${queryKey}' not found`);
     return qn;

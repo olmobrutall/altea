@@ -10,6 +10,7 @@ import { SchemaBuilder } from "@altea/altea/server/schema";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { AutoDynamicQueryCore, ManualDynamicQueryCore } from "@altea/altea/server/dynamicQuery/dynamicQueryCore";
 import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
+import { rowEntityToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import { ResultTable, ResultColumn } from "@altea/altea/server/dynamicQuery/resultTable";
 import { Column, QueryRequest, Pagination } from "@altea/altea/server/dynamicQuery/requests";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
@@ -20,6 +21,12 @@ import { AlbumEntity } from "../../data/music";
 // Query flavors beyond the plain WithQuery (Type 1). Type 2 = a manually-registered Query<T> factory
 // that filters/joins/projects (still LINQ-translated, still auto metadata from reflection). Type 3 =
 // a manual imperative `request → ResultTable` core. Both register into QueryLogic.queries.
+//
+// A query is NAMED BY A TYPE (QueryName is Type<BaseEntity>), and MusicLogic already registered the
+// plain Album query — so each extra view of an album is named by its own model, which is the rule an
+// application follows too. Note the name and the SHAPE are separate: the name supplies the key (and
+// the page title), while the row type comes from the core, so a model may name a query that yields
+// full AlbumEntity rows.
 
 const O = SubTokensOptionsAll;
 const sb = new SchemaBuilder();
@@ -39,7 +46,10 @@ class FakeConnector extends Connector {
 const fake = new FakeConnector();
 
 // ---- Type 2: a filtered full-entity query (manually registered) ---------------------------------
-const RECENT = "RecentAlbums";
+@reflect
+class RecentAlbumModel extends ModelEntity { }
+
+const RECENT = RecentAlbumModel;
 QueryLogic.queries.register(RECENT, () => new AutoDynamicQueryCore(() => table(AlbumEntity).filter(a => a.year > 1990)));
 
 describe("Type 2 — manual auto query (filtered, full entity)", () => {
@@ -64,12 +74,13 @@ describe("Type 2 — manual auto query (filtered, full entity)", () => {
 // ---- Type 2: a projected ModelEntity query ------------------------------------------------------
 @reflect
 class AlbumRowModel extends ModelEntity {
-    entity: AlbumEntity = null!; // the row identity
+    entity: AlbumEntity = null!;  // the row identity
+    id: string = "";             // the MODEL's own id — not the Entity base's
     name: string = "";
     year: int = toInt(0);
 }
 
-const MODELQ = "AlbumRows";
+const MODELQ = AlbumRowModel;
 QueryLogic.queries.register(MODELQ, () => new AutoDynamicQueryCore(
     () => table(AlbumEntity).map(a => AlbumRowModel.create({ entity: a, name: a.name, year: a.year })),
 ));
@@ -78,8 +89,37 @@ describe("Type 2 — manual auto query (projected ModelEntity)", () => {
     test("the shape is the ModelEntity; its fields are the navigable tokens", () => {
         assert.equal(QueryLogic.queries.getCore(MODELQ).getRootType(), AlbumRowModel);
         const keys = QueryLogic.getRootToken(MODELQ).subTokens(O).map(t => t.key);
-        for (const f of ["entity", "name", "year"])
+        for (const f of ["entity", "id", "name", "year"])
             assert.ok(keys.includes(f), `missing model field token ${f}`);
+    });
+
+    test("a model's own `id` member is an ordinary field, not the Entity base's", () => {
+        // `id`/`ticks` are skipped only for an ENTITY, where subTokensBase adds the synthetic id token
+        // back. A row model inherits neither, so its declared `id` has to survive — it used to be
+        // dropped, leaving that column unreachable as a column, a filter and an order.
+        const idToken = QueryLogic.getRootToken(MODELQ).subToken("id", O);
+        assert.ok(idToken != undefined);
+        assert.equal(idToken.type.typeName, "String");   // the MODEL's string id, not an entity PK
+    });
+
+    test("the model's `entity` member is the row IDENTITY, and stays navigable", () => {
+        const root = QueryLogic.getRootToken(MODELQ);
+        const member = root.subToken("entity", O);
+        assert.ok(member != undefined);
+        assert.equal(member.isEntity(), true);
+        assert.equal(rowEntityToken(root), member);
+        // LISTED like any other member: it is the entry point for navigating INTO the row's entity
+        // ("entity.name"), which is the whole point of projecting a lite into the row.
+        assert.ok(root.subTokens(O).map(t => t.key).includes("entity"));
+        assert.ok(member.subToken("name", O) != undefined);
+    });
+
+    test("the query core adds the row-entity column, and the ResultTable hides it", async () => {
+        const root = QueryLogic.getRootToken(MODELQ);
+        const request = new QueryRequest(MODELQ, [], [], [new Column(root.subToken("name", O)!)]);
+        const rt = await Connector.withConnector(fake, () => QueryLogic.queries.executeQueryAsync(request));
+        assert.equal(rt.hasEntities, true, "the row carries its entity");
+        assert.deepEqual(rt.columns.map(c => c.token.fullKey()), ["name"], "…and it is not a visible column");
     });
 
     test("executeQueryAsync projects the model's columns", async () => {
@@ -93,7 +133,10 @@ describe("Type 2 — manual auto query (projected ModelEntity)", () => {
 });
 
 // ---- Type 3: a manual imperative query ----------------------------------------------------------
-const MANUALQ = "ManualAlbums";
+@reflect
+class ManualAlbumModel extends ModelEntity { }
+
+const MANUALQ = ManualAlbumModel;
 QueryLogic.queries.register(MANUALQ, () => new ManualDynamicQueryCore(AlbumEntity, async (request) => {
     // Hand-build a ResultTable: one value column for each requested column, three fixed rows.
     const cols = request.columns.map(c => new ResultColumn(c.token, ["x", "y", "z"]));

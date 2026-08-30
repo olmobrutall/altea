@@ -24,7 +24,13 @@ import { SubTokensOptionsAll, type QueryToken } from "./tokens/queryToken";
  */
 export function reflectionDefaultColumns(queryToken: QueryToken): QueryToken[] {
     const subTokens = queryToken.subTokens(SubTokensOptionsAll)
-        .filter(a => !a.hasAggregate() && !a.hasTimeSeries() && a.type?.array !== true);
+        .filter(a => !a.hasAggregate() && !a.hasTimeSeries() && a.type?.array !== true)
+        // A row model's `entity` member is the row's IDENTITY, not one of its columns: the query core
+        // adds it on every request and the ResultTable hands it to the row as `row.entity`, which is
+        // what the row link, the double-click and the selection read. Showing it again as a column
+        // would repeat the row's own link in a cell. It stays selectable (and navigable —
+        // "entity.(Person).firstName"), it is just never a DEFAULT.
+        .filter(a => !a.isEntity());
 
     const idToken = subTokens.find(t => t.key.toLowerCase() === "id");
 

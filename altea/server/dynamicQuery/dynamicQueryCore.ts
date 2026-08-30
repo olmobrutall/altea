@@ -1,11 +1,11 @@
-import { Entity, type Type } from "../../data/entity";
+import { Entity, type BaseEntity, type Type } from "../../data/entity";
 import { ClassType, type RuntimeType } from "../runtimeTypes";
 import { table } from "../table";
 import type { Query } from "../query";
 import "./dQueryable"; // augments Query with .toDQueryable()
 import type { ResultTable } from "./resultTable";
 import { Column, type QueryRequest } from "./requests";
-import { RootToken } from "../../data/dynamicQuery/tokens";
+import { RootToken, rowEntityToken } from "../../data/dynamicQuery/tokens";
 
 // Port of Signum's `IDynamicQueryCore` (DynamicQuery/DynamicQueryCore.cs): an executable query. Its
 // SHAPE is a reflected entity/model type (Signum's QueryDescription is gone — column metadata comes
@@ -13,14 +13,14 @@ import { RootToken } from "../../data/dynamicQuery/tokens";
 export interface DynamicQueryCore {
     // The reflected shape type (the query's row): a full entity for auto queries, a ModelEntity for
     // custom projections. The token tree roots on it (key "").
-    getRootType(): Function;
+    getRootType(): Type<BaseEntity>;
     executeQueryAsync(request: QueryRequest): Promise<ResultTable>;
 }
 
 // The concrete entity/model ctor behind a query's element type.
-function shapeCtorOf(elementType: RuntimeType): Function {
+function shapeCtorOf(elementType: RuntimeType): Type<BaseEntity> {
     if (elementType instanceof ClassType)
-        return elementType.constructorFunction;
+        return elementType.constructorFunction as Type<BaseEntity>;
     throw new Error(`A query's element type must be a reflected entity/model class, got ${elementType}`);
 }
 
@@ -31,18 +31,18 @@ function shapeCtorOf(elementType: RuntimeType): Function {
 // query's element type — a full entity or a projected ModelEntity — and the request's tokens navigate
 // that row directly. No selector/projection metadata: it all comes from reflection on the shape type.
 export class AutoDynamicQueryCore implements DynamicQueryCore {
-    private _rootType: Function | undefined;
+    private _rootType: Type<BaseEntity> | undefined;
 
-    constructor(private readonly getQuery: () => Query<any>, rootType?: Function) {
+    constructor(private readonly getQuery: () => Query<any>, rootType?: Type<BaseEntity>) {
         this._rootType = rootType;
     }
 
     // WithQuery convenience (Type 1): the query is just `table(T)`, root type known up front.
-    static fromEntity(rootType: Function): AutoDynamicQueryCore {
-        return new AutoDynamicQueryCore(() => table(rootType as Type<Entity>), rootType);
+    static fromEntity(rootType: Type<Entity>): AutoDynamicQueryCore {
+        return new AutoDynamicQueryCore(() => table(rootType), rootType);
     }
 
-    getRootType(): Function {
+    getRootType(): Type<BaseEntity> {
         // For a manual Type-2 query the shape is inferred from the factory's element type (building the
         // query AST is cheap — it does not execute). Cached after first use.
         return this._rootType ??= shapeCtorOf(this.getQuery().elementType);
@@ -58,19 +58,28 @@ export class AutoDynamicQueryCore implements DynamicQueryCore {
         return result.toResultTable(request.columns, request.pagination);
     }
 
-    // Signum's AutoDynamicQuery.ExecuteQuery: a search result carries an implicit "Entity" column — the
-    // ToLite of the root (built as a lite by DQueryable.select) — so the SearchControl can render the
-    // row's navigate link. Added ONLY when: the query is NOT grouping (a group row has no single entity),
-    // the request doesn't already ask for an entity column, and the shape is a full entity (a ModelEntity
-    // projection carries its identity in its own `entity` field, not in the row itself). The ResultTable
-    // splits this column out as `entityColumn`, so it never shows up as a visible result column.
     private addEntityColumn(request: QueryRequest): void {
-        if (request.groupResults || request.columns.some(c => c.token.isEntity()))
-            return;
-        const rootType = this.getRootType();
-        if (rootType === Entity || rootType.prototype instanceof Entity)
-            request.columns = [new Column(new RootToken(rootType)), ...request.columns];
+        addRowEntityColumn(request, this.getRootType());
     }
+}
+
+/**
+ * Signum's AutoDynamicQuery.ExecuteQuery: a search result carries an implicit "Entity" column, so the
+ * SearchControl can render the row's navigate link, run its double-click and know what is selected. For
+ * a full-entity shape that is the ToLite of the root (built as a lite by DQueryable.select); for a row
+ * MODEL it is the model's own `entity` member — see {@link rowEntityToken}. The ResultTable splits the
+ * column out as `entityColumn`, so it is fetched on every row and never displayed.
+ *
+ * Skipped when the query GROUPS (a group row has no single entity) or when the request already asks for
+ * an entity column. A model with no `entity` member (a pure aggregate row) simply gets none, and its
+ * rows are not navigable — which is correct, not a failure.
+ */
+export function addRowEntityColumn(request: QueryRequest, rootType: Type<BaseEntity>): void {
+    if (request.groupResults || request.columns.some(c => c.token.isEntity()))
+        return;
+    const token = rowEntityToken(new RootToken(rootType, request.queryName));
+    if (token != undefined)
+        request.columns = [new Column(token), ...request.columns];
 }
 
 // Port of Signum's `DynamicQueryCore.Manual` (Type 3): an arbitrary imperative `request → ResultTable`
@@ -78,15 +87,19 @@ export class AutoDynamicQueryCore implements DynamicQueryCore {
 // come from reflection, exactly like every other query) — only the EXECUTION is hand-written.
 export class ManualDynamicQueryCore implements DynamicQueryCore {
     constructor(
-        private readonly rootType: Function,
+        private readonly rootType: Type<BaseEntity>,
         private readonly executor: (request: QueryRequest) => Promise<ResultTable>,
     ) { }
 
-    getRootType(): Function {
+    getRootType(): Type<BaseEntity> {
         return this.rootType;
     }
 
     executeQueryAsync(request: QueryRequest): Promise<ResultTable> {
+        // The same implicit "Entity" column an auto query gets: a manual executor projects whatever
+        // `request.columns` names, so a hand-written union (eastwind's CustomerModel over Person +
+        // Company) becomes navigable without knowing anything about it.
+        addRowEntityColumn(request, this.rootType);
         return this.executor(request);
     }
 }

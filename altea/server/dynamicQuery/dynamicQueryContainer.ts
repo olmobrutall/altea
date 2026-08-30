@@ -20,6 +20,11 @@ export class DynamicQueryContainer {
         return [...this.buckets.values()].map(b => b.queryName);
     }
 
+    /** The registered query with this key, or undefined. The buckets are already keyed by it. */
+    tryGetQueryNameByKey(key: string): QueryName | undefined {
+        return this.buckets.get(key)?.queryName;
+    }
+
     tryGetCore(queryName: QueryName): DynamicQueryCore | undefined {
         const b = this.buckets.get(getKey(queryName));
         if (b == undefined)

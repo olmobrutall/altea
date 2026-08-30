@@ -9,7 +9,7 @@ import { openModal, type IModalProps, type IGetUIState, type UIState } from '../
 import { Finder } from '../Finder';
 import type { FindOptions, FindMode, ModalFindOptions, ModalFindOptionsMany, FindOptionsParsed } from '../FindOptions'
 import type { ResultRow, ResultTable } from '../../data/dynamicQuery/queryRequest'
-import { getQueryNiceName, getTypeInfo, tryGetTypeInfo, QueryKey, type PseudoType } from '../Reflection'
+import { getQueryNiceName, getTypeInfo, tryGetTypeInfo, type PseudoType } from '../Reflection'
 import SearchControl, { type SearchControlProps, type SearchControlHandler } from './SearchControl'
 import { AutoFocus } from '../Components/AutoFocus';
 import { Entity, BaseEntity as ModifiableEntity } from '../../data/entity';
@@ -272,9 +272,9 @@ namespace SearchModal {
 
 export default SearchModal;
 
-export function defaultSelectMessage(queryName: PseudoType | QueryKey, plural: boolean, forProperty?: string): string {
+export function defaultSelectMessage(queryName: PseudoType, plural: boolean, forProperty?: string): string {
 
-  var type = queryName instanceof QueryKey ? null : tryGetTypeInfo(queryName);
+  var type = tryGetTypeInfo(queryName);
 
   if (plural) {
     return type ?

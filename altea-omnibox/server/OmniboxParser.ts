@@ -228,7 +228,9 @@ export class OmniboxManager {
             return []; // Signum's FindLiteLike needs a concrete type set too
 
         const result: Lite<Entity>[] = [];
-        for (const type of implementations.types) {
+        // Implementations.types is declared `Function[]`; every member is a reflected entity ctor,
+        // which is what a QueryName is.
+        for (const type of implementations.types as QueryName[]) {
             result.push(...await this.autocompleteType(type, subString, count));
             if (result.length >= count)
                 break;
@@ -236,7 +238,7 @@ export class OmniboxManager {
         return result.slice(0, count);
     }
 
-    async autocompleteType(type: Function, subString: string, count: number): Promise<Lite<Entity>[]> {
+    async autocompleteType(type: QueryName, subString: string, count: number): Promise<Lite<Entity>[]> {
         if (QueryLogic.queries.tryGetCore(type) == undefined)
             return [];
 

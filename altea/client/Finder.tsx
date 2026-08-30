@@ -51,7 +51,7 @@ import { TypeEntity } from '../data/typeEntity';
 // TODO(port): QueryEntity (Signum.Basics) not ported.
 
 import {
-  QueryKey, getQueryKey, isQueryDefined, getTypeName, getTypeInfo, tryGetTypeInfo, getKindOfType,
+  getQueryKey, isQueryDefined, getTypeName, getTypeInfo, tryGetTypeInfo, getKindOfType,
   type PseudoType,
 } from './Reflection';
 import { isNumberType, toNumberFormat } from './numberFormat';
@@ -211,18 +211,18 @@ export namespace Finder {
     };
   }
 
-  export function getSettings(queryName: PseudoType | QueryKey): QuerySettings | undefined {
+  export function getSettings(queryName: PseudoType): QuerySettings | undefined {
     return state().querySettings[getQueryKey(queryName)];
   }
 
-  export function getOrAddSettings(queryName: PseudoType | QueryKey): QuerySettings {
+  export function getOrAddSettings(queryName: PseudoType): QuerySettings {
     const qs = state().querySettings;
     return qs[getQueryKey(queryName)] ?? (qs[getQueryKey(queryName)] = { queryName: queryName });
   }
 
   export const isFindableEvent: Array<(queryKey: string, fullScreen: boolean, context?: Lite<Entity>) => boolean> = [];
 
-  export function isFindable(queryName: PseudoType | QueryKey, fullScreen: boolean, context?: Lite<Entity>): boolean {
+  export function isFindable(queryName: PseudoType, fullScreen: boolean, context?: Lite<Entity>): boolean {
 
     if (!isQueryDefined(queryName))
       return false;
@@ -488,7 +488,7 @@ export namespace Finder {
   }
 
 
-  export function parseFindOptionsPath(queryName: PseudoType | QueryKey, query: any): FindOptions {
+  export function parseFindOptionsPath(queryName: PseudoType, query: any): FindOptions {
 
     const result: FindOptions = {
       queryName: queryName,
@@ -1220,7 +1220,7 @@ export namespace Finder {
     });
   }
 
-  export function useQueryValue<T = number>(queryName: PseudoType | QueryKey | null, filterOptions: (FilterOption | null | undefined)[], valueToken?: QueryTokenString<T> | string, multipleValues?: boolean, extraDeps?: React.DependencyList): T | null | undefined {
+  export function useQueryValue<T = number>(queryName: PseudoType | null, filterOptions: (FilterOption | null | undefined)[], valueToken?: QueryTokenString<T> | string, multipleValues?: boolean, extraDeps?: React.DependencyList): T | null | undefined {
 
     var query = {};
     Encoder.encodeFilters(filterOptions);
@@ -1235,7 +1235,7 @@ export namespace Finder {
       ]);
   }
 
-  export function getQueryValue<T = number>(queryName: PseudoType | QueryKey, filterOptions: (FilterOption | null | undefined)[], valueToken?: QueryTokenString<T> | string, multipleValues?: boolean): Promise<T> {
+  export function getQueryValue<T = number>(queryName: PseudoType, filterOptions: (FilterOption | null | undefined)[], valueToken?: QueryTokenString<T> | string, multipleValues?: boolean): Promise<T> {
     return getQueryRoot(queryName).then(qt => {
       return parseFilterOptions(filterOptions ?? [], false, qt).then(fops => {
 
@@ -1491,7 +1491,7 @@ export namespace Finder {
       .filter(fo => !isFilterGroup(fo) && (fo.operation == null || fo.operation == "EqualTo") && !fo.token.toString().includes(".") && fo.pinned == null && fo.value != null)
       .map(fo => ({ token: fo.token }) as ColumnOption);
   }
-  export async function parseSingleToken(queryName: PseudoType | QueryKey, token: string | QueryTokenString<any>, subTokenOptions: SubTokensOptions): Promise<QueryToken> {
+  export async function parseSingleToken(queryName: PseudoType, token: string | QueryTokenString<any>, subTokenOptions: SubTokensOptions): Promise<QueryToken> {
 
     var qt = await getQueryRoot(getQueryKey(queryName));
     const completer = new TokenCompleter(qt);
@@ -1500,7 +1500,7 @@ export namespace Finder {
     return completer.get(token.toString(), subTokenOptions);
   }
 
-  export async function parseTokens(queryName: PseudoType | QueryKey, tokens: (string | QueryTokenString<any>)[], subTokenOptions: SubTokensOptions): Promise<QueryToken[]> {
+  export async function parseTokens(queryName: PseudoType, tokens: (string | QueryTokenString<any>)[], subTokenOptions: SubTokensOptions): Promise<QueryToken[]> {
     var qt = await getQueryRoot(getQueryKey(queryName));
     const completer = new TokenCompleter(qt);
     tokens.forEach(token => completer.request(token.toString()));
@@ -1658,7 +1658,9 @@ export namespace Finder {
   // The entity-root token of a query (altea builds it locally from the query's entity type).
   function clientRootToken(queryKey: string): QueryToken {
     const ti = getTypeInfo(queryKey);
-    return new RootToken(ti.ctor!);
+    // TypeInfo.ctor is declared `Function` across reflection; a registered type's is always an
+    // entity/embedded/model constructor, which is what RootToken (and QueryName) now ask for.
+    return new RootToken(ti.ctor as Type<BaseEntity>);
   }
 
   // The parent fullKey of a token key (Signum's getParent): strip the trailing indexer or "."-segment.
@@ -1694,7 +1696,7 @@ export namespace Finder {
   // name/type and its direct sub-tokens ARE the query's columns (generated locally by the shared
   // token model; server-only tokens fetched via QueryClient). Kept async so awaiting callers are
   // unchanged even though clientRootToken is cheap and synchronous.
-  export function getQueryRoot(queryName: PseudoType | QueryKey): Promise<QueryToken> {
+  export function getQueryRoot(queryName: PseudoType): Promise<QueryToken> {
     return Promise.resolve(clientRootToken(getQueryKey(queryName)));
   }
 
@@ -2300,7 +2302,7 @@ export namespace Finder {
 
 
   export interface QuerySettings {
-    queryName: PseudoType | QueryKey;
+    queryName: PseudoType;
     // The columns shown by default (Signum's [query columns]); build with
     // cb.configure(Type).withQuerySettings(token => ({ defaultColumns: [token(a => a.name), ...] })).
     // When unset, the first 5 non-collection columns are used. Entries are token keys /

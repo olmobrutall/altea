@@ -21,16 +21,12 @@ import type { SchemaBuilder } from "../schema/schemaBuilder";
 // name registry, the `@implementedByAll` sub-token type source (wired into the token layer), and
 // the small schema predicates. Deferred pieces are listed under TODO below (and in TODO.md).
 export namespace QueryLogic {
-    // Signum's QueryNames (key → queryName). Populated by registerQuery (a stand-in for the
-    // DynamicQueryContainer, deferred). Signum derives these from Queries.GetQueryNames().
-    const queryNamesByKey = new Map<string, QueryName>();
-
-    export function registerQuery(queryName: QueryName): void {
-        queryNamesByKey.set(getKey(queryName), queryName);
-    }
-
     // Signum's QueryLogic.Queries: the registry of executable queries (FluentInclude.withQuery
-    // registers an AutoDynamicQueryCore here). registerQuery is kept for name-only registration.
+    // registers an AutoDynamicQueryCore here) — and, since a query is named by its own TYPE, the
+    // key→name registry too. There used to be a second `queryNamesByKey` map beside it, fed by a
+    // `registerQuery` nothing outside a test ever called: every key lookup against it missed, and the
+    // wire boundary silently fell back to resolveCleanType. One registry, and it is the one that
+    // actually knows which queries exist.
     export const queries = new DynamicQueryContainer();
 
     // Signum's QueryLogic.Expressions: the registry of cross-entity extension expressions
@@ -55,10 +51,9 @@ export namespace QueryLogic {
     // NOTE: splits on "." — good for the common navigations; the dotted special tokens
     // ("[Operations].X", indexers) need a smarter parser (TODO, Signum's tokenizer).
     export function getToken(queryName: QueryName, tokenString: string, options: SubTokensOptions): QueryToken {
-        let token = tryGetRootToken(queryName)
-            ?? (typeof queryName === "function" ? new RootToken(queryName) : undefined);
-        if (token == undefined)
-            throw new Error(`Query '${getKey(queryName)}' is not registered and is not an entity type`);
+        // An unregistered type still navigates: its own RootToken. (Before QueryName narrowed to a
+        // Type this needed a guard, because a string name had no type to root on.)
+        let token: QueryToken = tryGetRootToken(queryName) ?? new RootToken(queryName);
         for (const part of tokenString.split(".").filter(p => p.length > 0)) {
             const sub: QueryToken | undefined = token.subToken(part, options);
             if (sub == undefined)
@@ -68,16 +63,14 @@ export namespace QueryLogic {
         return token;
     }
 
-    export function queryNames(): ReadonlyMap<string, QueryName> {
-        return queryNamesByKey;
-    }
-
+    /** The registered query with this key, or undefined (Signum's QueryLogic.TryToQueryName). */
     export function tryToQueryName(key: string): QueryName | undefined {
-        return queryNamesByKey.get(key);
+        return queries.tryGetQueryNameByKey(key);
     }
 
+    /** As {@link tryToQueryName}, throwing when nothing is registered under `key`. */
     export function toQueryName(key: string): QueryName {
-        const n = queryNamesByKey.get(key);
+        const n = tryToQueryName(key);
         if (n == undefined)
             throw new Error(`QueryName with key '${key}' not found`);
         return n;
@@ -126,24 +119,35 @@ export namespace QueryLogic {
         sb.schema.initializing.push(loadQueries);
     }
 
-    // The persisted QueryEntity for a query (Signum's QueryLogic.GetQueryEntity). Throws if the caches
-    // aren't loaded (QueryLogic.start + schema.initialize must have run) or the query isn't seeded.
+    // The persisted QueryEntity for a query (Signum's QueryLogic.GetQueryEntity, whose message is
+    // "QueryName {0} not found on the database"). The three ways this fails are diagnosed separately,
+    // because they need different fixes — and whether the query is REGISTERED is something this can
+    // actually check, rather than assume: the container is the same registry the sync's `should` side
+    // is built from, so "registered but not seeded" really does mean the database is behind.
     export function getQueryEntity(queryName: QueryName): QueryEntity {
         const key = getKey(queryName);
         const qe = queryEntitiesByKey.get(key);
-        if (qe == null)
-            throw new Error(`QueryEntity for '${key}' is not loaded. Was QueryLogic.start included and schema.initialize() run after generation?`);
-        return qe;
+        if (qe != null)
+            return qe;
+
+        if (queryEntitiesByKey.size === 0)
+            throw new Error(`No QueryEntity row is loaded at all, so no query resolves — not just '${key}'. `
+                + `Was QueryLogic.start included, and schema.initialize() run after generation?`);
+
+        if (queries.tryGetCore(queryName) == undefined)
+            throw new Error(`Query '${key}' is not registered. Register it with QueryLogic.queries.register `
+                + `(or sb.include(...).withQuery()) before asking for its QueryEntity.`);
+
+        throw new Error(`Query '${key}' is registered but is not on the database. Run a terminal sync.`);
     }
 
     export function tryGetQueryEntityByKey(key: string): QueryEntity | undefined {
         return queryEntitiesByKey.get(key);
     }
 
-    // The registered QueryName for a key (searches the query container — withQuery registers there, not
-    // in queryNamesByKey). Used by query auth to resolve a blob key back to its query (→ root type).
+    /** Alias of {@link tryToQueryName}, kept for the query-auth callers that read it by this name. */
     export function tryGetQueryNameByKey(key: string): QueryName | undefined {
-        return queries.getQueryNames().find(qn => getKey(qn) === key);
+        return tryToQueryName(key);
     }
 
     // The queries whose shape roots on `ctor` (Signum's QueryLogic.GetTypeQueries). altea matches by the

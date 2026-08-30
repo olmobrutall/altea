@@ -1,11 +1,20 @@
-import { Entity, EmbeddedEntity, ModelEntity } from "../entity";
+import { Entity, EmbeddedEntity, ModelEntity, type BaseEntity, type Type } from "../entity";
 import { cleanTypeName } from "../registration";
 import { Localization } from "../utils/localization";
 import type { TypeReference } from "../reflection";
 
-// A query's name (Signum's `object queryName`): an entity constructor (the common case —
-// "the Album query") or a bare string key.
-export type QueryName = Function | string;
+/**
+ * A query's name: the TYPE it yields rows of — an entity for a plain `withQuery()`, or the model a
+ * manual query projects to (`CustomerModel`, `InboxRowModel`). Signum types this `object`, because its
+ * queries may also be enum MEMBERS (`AlbumQuery.Recent`), and altea used to allow a bare string for that.
+ *
+ * It never worked: nothing outside a test called `QueryLogic.registerQuery`, so the key→name map a string
+ * name would have to be recovered from was empty at runtime and the wire boundary fell through to
+ * `resolveCleanType` — which only ever answers a CONSTRUCTOR. A string-named query was therefore
+ * registrable but unreachable over HTTP. Narrowing the type deletes that trap and makes the rule explicit:
+ * one query per type, and a second view of the same data is its own row model.
+ */
+export type QueryName = Type<BaseEntity>;
 
 // Signum's `QueryUtils.FilterType` — single home in the DynamicQuery enums file (this used to
 // declare its own byte-identical copy; deduplicated here).
@@ -59,13 +68,13 @@ export function getFilterType(type: TypeReference): FilterType {
     return ft;
 }
 
-// Port of Signum's `QueryUtils.GetKey`: the query's stable string key (the clean type name for
-// an entity-ctor query, else the string itself).
+// Port of Signum's `QueryUtils.GetKey`: the query's stable string key — its type's clean name.
 export function getKey(queryName: QueryName): string {
-    return typeof queryName === "function" ? cleanTypeName(queryName) : String(queryName);
+    return cleanTypeName(queryName);
 }
 
-// Port of Signum's `QueryUtils.GetNiceName`: a display name (localized entity name, else the key).
+// Port of Signum's `QueryUtils.GetNiceName`: the localized type name. The SEARCH PAGE shows the PLURAL
+// (client Reflection's getQueryNiceName); this is the singular, used where one row is meant.
 export function getNiceName(queryName: QueryName): string {
-    return typeof queryName === "function" ? queryName.niceName() : String(queryName);
+    return queryName.niceName();
 }

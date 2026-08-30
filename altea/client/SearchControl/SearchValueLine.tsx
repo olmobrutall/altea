@@ -7,7 +7,7 @@ import { Finder } from '../Finder'
 import { Constructor } from '../Constructor'
 import type { FindOptions, FindOptionsParsed } from '../FindOptions'
 import type { QueryValueRequest } from '../../data/dynamicQuery/queryRequest'
-import { QueryToken } from '../QueryToken'
+import { QueryToken, rowEntityToken } from '../QueryToken'
 import { Lite } from '../../data/lite'
 import { Entity } from '../../data/entity'
 import { EntityControlMessage, SearchMessage } from '../../data/uiMessages'
@@ -285,7 +285,8 @@ export default function SearchValueLine(p: SearchValueLineProps): React.JSX.Elem
 
   function chooseType(qt: QueryToken): Promise<string | undefined> {
 
-    const tis = qt.type.typeInfos()
+    // The ROW's types, not the query root's — see SearchControl's own `tis`.
+    const tis = (rowEntityToken(qt) ?? qt).type.typeInfos()
       .filter(ti => Navigator.isCreable(cleanTypeName(ti.ctor!), { isSearch: true }));
 
     return SelectorModal.chooseType(tis)

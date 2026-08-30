@@ -11,7 +11,7 @@ import { ADGroupEntity } from "./ADGroup";
 //
 // altea divergence: Signum names a manual query with an enum member and describes its columns with an
 // anonymous `Select` projection plus `.ColumnDisplayName(…)` calls. altea has no QueryDescription: a query's
-// shape IS a reflected type, and the query NAME is that type (see eastwind's CustomerRowModel and
+// shape IS a reflected type, and the query NAME is that type (see eastwind's CustomerModel and
 // `QueryLogic.queries.register(Model, () => new ManualDynamicQueryCore(Model, …))`). So each projection
 // becomes a ModelEntity here, and every `ColumnDisplayName` becomes the field's own `@niceName` —
 // which also makes the captions translatable through the ordinary reflection path.

@@ -10,7 +10,7 @@
 import { QueryToken } from '../data/dynamicQuery/tokens';
 import { QueryTokenString } from './QueryTokenString';
 
-export { QueryToken, SubTokensOptions, SubTokensOptionsAll } from '../data/dynamicQuery/tokens';
+export { QueryToken, SubTokensOptions, SubTokensOptionsAll, rowEntityToken } from '../data/dynamicQuery/tokens';
 
 // Signum's react `ManualToken` / `ManualCellDto` (QueryToken.ts). `ManualToken` (here) is the lightweight
 // DESCRIPTOR a `registerManualSubTokens` provider returns — the QueryTokenBuilder turns each into a real

@@ -80,7 +80,7 @@ export namespace MailingServer {
             { req: CustomType<EmailModelEntity>(), res: CustomType<string>() },
             async (req, res) => {
                 const queryName = EmailModelLogic.getQueryName(await req.jsonTyped());
-                res.jsonTyped(typeof queryName === "function" ? cleanTypeName(queryName) : String(queryName));
+                res.jsonTyped(cleanTypeName(queryName));
             });
 
         // Signum's GetEmailTemplates: the templates a contextual menu / a query button should offer.

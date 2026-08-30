@@ -171,7 +171,7 @@ export function allowedQueryNames(): QueryName[] {
  * grouping the rest of the application shows.
  */
 export function moduleOf(queryName: QueryName): string {
-    const name = typeof queryName === "function" ? queryName.name : getKey(queryName);
+    const name = queryName.name;
     return getLocation(name)?.packageName ?? "Unknown";
 }
 
@@ -201,11 +201,8 @@ export function listRootQueries(inlineQueryName: Set<string>): string {
     return lines.join("\n");
 }
 
-/** Signum's "(ImplementedBy …)" note: such a query is a valid queryName but not a typeName. */
+/** Signum's "(ImplementedBy …)" note, for a query whose root is an @implementedByAll reference. */
 function implementationsSuffix(queryName: QueryName): string {
-    if (typeof queryName !== "function")
-        return "";
-
     const implementations = QueryLogic.getImplementedByAllTypes(queryName);
     if (implementations.length <= 1)
         return "";

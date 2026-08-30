@@ -22,7 +22,7 @@ import { cleanTypeName, resolveType, resolveCleanType } from '../data/registrati
 // The reflection DATA MODEL (PropertyRoute / TypeInfo / TypeReference / FieldInfo / Type) lives in
 // entities/* — import it from there directly. This react shim no longer re-exports it (Signum
 // centralised those in Reflection.ts; altea keeps them at their real home). What remains below is the
-// genuinely client-only surface: getTypeName / pseudoCtor / EnumType / QueryKey / newLite.
+// genuinely client-only surface: getTypeName / pseudoCtor / EnumType / newLite.
 
 // Signum's per-member metadata is altea's FieldInfo (route.fieldInfo). Downstream `member.niceName`
 // is swept to `fieldInfo.niceToString()`.
@@ -77,7 +77,7 @@ export function getTypeInfo(type: PseudoType | Lite<Entity> | BaseEntity): TypeI
 // callers read `tr.typeInfos()` (entities/reflection) directly. That also fixes name-only @implementedBy
 // references, whose `getTypeName()` is the unresolvable interface name.)
 
-// ---- Query-layer type metadata (Signum's is*Type / QueryKey / QueryTokenString) ----------------
+// ---- Query-layer type metadata (Signum's is*Type / QueryTokenString) ---------------------------
 
 // A query column's type is a `TypeReference` now (QueryToken.type / PropertyRoute.type), same as a
 // field's — so the client reads type facts directly off it: `.getTypeName()`, `.array`, `.lite`,
@@ -116,27 +116,15 @@ function getMemberInfo(ti: TypeInfo, memberName: string): MemberInfo {
 // (Signum's client `EnumType<T>` wrapper is gone — altea uses the entity-level `Enum` helper
 // (entities/enum) over the numeric enum objects: `Enum.values(SexEnum)` / `Enum.niceName(SexEnum, x)`.)
 
-// A query column's key: its owning type + member name (Signum's QueryKey).
-export class QueryKey {
-  constructor(
-    public type: string,
-    public name: string) { }
-
-  memberInfo(): MemberInfo {
-    return getMemberInfo(getTypeInfo(this.type), this.name);
-  }
-
-  niceName(): string {
-    return this.memberInfo().niceToString();
-  }
-}
-
-// Signum's getQueryKey / isQueryDefined. A query is named by an entity Type (ctor), a QueryKey, or a
-// clean-name string. altea has no separate client query-name registry yet, so a type resolving to a
-// TypeInfo is taken as "query defined".
-export function getQueryKey(queryName: PseudoType | QueryKey): string {
-  if (queryName instanceof QueryKey)
-    return queryName.name;
+// Signum's getQueryKey / isQueryDefined. A query is named by a TYPE — an entity or the model a manual
+// query projects to — so its key is that type's clean name. altea has no separate client query-name
+// registry yet, so a type resolving to a TypeInfo is taken as "query defined".
+//
+// Signum also allows a `QueryKey` (an owning type + member name, its queries being enum MEMBERS like
+// `AlbumQuery.Recent`) and altea used to carry that union member. Nothing ever CONSTRUCTED one — every
+// altea query is named by its type, because a manual query's name IS its row model — so the class was
+// only ever widening a dozen signatures with a branch that could not be reached.
+export function getQueryKey(queryName: PseudoType): string {
   return getTypeName(queryName);
 }
 
@@ -155,25 +143,22 @@ export function getDefinedQueries(): string[] {
   return [...definedQueries];
 }
 
-export function isQueryDefined(queryName: PseudoType | QueryKey): boolean {
-  if (queryName instanceof QueryKey)
-    return true;
+export function isQueryDefined(queryName: PseudoType): boolean {
   if (definedQueries.size > 0)
     return definedQueries.has(getQueryKey(queryName));
   return tryGetTypeInfo(queryName) != null; // pre-metadata fallback
 }
 
-// Signum's getQueryNiceName: the human label for a query. A query named by an entity Type resolves to that
-// type's PLURAL nice name; a QueryKey uses its member nice name.
+// Signum's getQueryNiceName: the human label for a query — its type's PLURAL nice name, which is why a
+// query row MODEL carries a plural where Signum gives an embedded none (see altea-translations'
+// descriptionOptionsOf).
 //
 // A key with no CLIENT class still gets a proper label: an entity registered only on the server (a
 // migration log, say) has no ctor here, but the metadata blob carries an entry for it — so fall through to
 // resolving the bare NAME, which is one of the two documented cases for reaching into Localization.Internal
 // (there is no fluent surface for a type with no constructor). Only a name nothing knows falls back to
 // itself.
-export function getQueryNiceName(queryName: PseudoType | QueryKey): string {
-  if (queryName instanceof QueryKey)
-    return queryName.niceName();
+export function getQueryNiceName(queryName: PseudoType): string {
   const ti = tryGetTypeInfo(queryName);
   if (ti != null)
     return ti.getNicePluralName();

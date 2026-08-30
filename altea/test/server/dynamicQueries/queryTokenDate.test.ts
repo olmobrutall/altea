@@ -1,6 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
+import type { BaseEntity, Type } from "@altea/altea/data/entity";
 import { table, bindAndOptimize } from "@altea/altea/server/table";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { SchemaBuilder } from "@altea/altea/server/schema";
@@ -23,10 +24,10 @@ import { AlbumEntity, NoteWithDateEntity } from "../../data/music";
 
 const O = SubTokensOptionsAll;
 
-function entityToken(ctor: Function, name = "Album"): RootToken {
+function entityToken(ctor: Type<BaseEntity>, name = "Album"): RootToken {
     return new RootToken(ctor);
 }
-function ctxFor(ctor: Function) {
+function ctxFor(ctor: Type<BaseEntity>) {
     const param = new ParameterExpression("e", new ClassType(ctor));
     return { param, ctx: new BuildExpressionContext(param.type, param, new Map([["Entity", new ExpressionBox(param)]])) };
 }
@@ -89,7 +90,7 @@ describe("date/modulo bind to SQL end-to-end", () => {
     }
     const fake = new FakeConnector();
 
-    function bind(ctor: Function, path: string): string {
+    function bind(ctor: Type<BaseEntity>, path: string): string {
         const q = table(ctor as any);
         const param = new ParameterExpression("e", new ClassType(ctor));
         const ctx = new BuildExpressionContext(param.type, param, new Map([["Entity", new ExpressionBox(param)]]));

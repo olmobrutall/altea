@@ -53,15 +53,16 @@ describe("QueryUtils.tryGetFilterType", () => {
     });
 });
 
+// A query is named by the TYPE it yields rows of, so its key is that type's clean name and its
+// display name is that type's nice name. (A bare string used to be accepted as a query name and is
+// not any more — see QueryName's header on why it never actually worked.)
 describe("QueryUtils keys", () => {
-    test("getKey", () => {
+    test("getKey is the type's clean name", () => {
         assert.equal(getKey(AlbumEntity), "Album");
-        assert.equal(getKey("Music.CustomQuery"), "Music.CustomQuery");
     });
 
     test("getNiceName returns a non-empty display string", () => {
         assert.ok(getNiceName(AlbumEntity).length > 0);
-        assert.equal(getNiceName("Custom"), "Custom");
     });
 });
 

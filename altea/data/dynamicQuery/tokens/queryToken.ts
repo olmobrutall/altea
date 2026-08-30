@@ -359,16 +359,24 @@ export abstract class QueryToken {
     }
 
     // Signum's EntityProperties: one EntityPropertyToken per queryable field of `type` (mixins
-    // TODO). `id`/`ticks` and pure bookkeeping fields (noSerialize) are excluded; `id` is added
-    // separately by subTokensBase (idPropertyToken).
+    // TODO). Pure bookkeeping fields (noSerialize) are excluded.
+    //
+    // `id` / `ticks` are excluded ONLY for an ENTITY, where they are the base class's: `id` is added
+    // back by subTokensBase as the synthetic idPropertyToken (typed from the real @primaryKey), and
+    // `ticks` is the concurrency stamp. An EMBEDDED or a MODEL inherits neither, so a member of
+    // either name there is an ordinary declared field and nothing adds it back — skipping it made it
+    // unreachable as a column, a filter and an order. Signum never hits this because a ModelEntity
+    // has no Id property to collide with; altea's row models do (eastwind's CustomerModel projects a
+    // synthetic "P 5" / "C 3" id over the Person + Company union, and it was silently invisible).
     protected entityProperties(type: Function): QueryToken[] {
         const base = this.normalizePropertyRoute();
         const ti = tryGetTypeInfo(type);
         if (ti == undefined || base == undefined)
             return [];
+        const isEntityType = (type as Function) === Entity || type.prototype instanceof Entity;
         const out: QueryToken[] = [];
         for (const fi of Object.values(ti.fields)) {
-            if (fi.noSerialize || fi.name === "id" || fi.name === "ticks")
+            if (fi.noSerialize || (isEntityType && (fi.name === "id" || fi.name === "ticks")))
                 continue;
             out.push(tokenFactories!.entityProperty(this, fi, base.add(fi.name)));
         }
@@ -563,7 +571,7 @@ export abstract class QueryToken {
 }
 
 function getQueryKey(queryName: QueryName): string {
-    return typeof queryName === "function" ? queryName.name : String(queryName);
+    return queryName.name;
 }
 
 function capitalize(s: string): string {

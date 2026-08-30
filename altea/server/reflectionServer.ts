@@ -52,12 +52,11 @@ export namespace ReflectionServer {
     export function getMetadataFilter(): MetadataFilter | undefined { return _metadataFilter; }
 
     /**
-     * The key a query occupies in `MetadataBlob.types`. A query named by an entity ctor rides on that
-     * type's own entry (so `hasQuery` sits next to its nice name); a string-named query gets a
-     * "Container" entry of its own. Exported so the auth filter can find the entry to clear.
+     * The key a query occupies in `MetadataBlob.types` — its own type's entry, so `hasQuery` sits next
+     * to that type's nice name. Exported so the auth filter can find the entry to clear.
      */
     export function metadataNameForQuery(queryName: QueryName): string {
-        return typeof queryName === "function" ? queryName.name : String(queryName);
+        return queryName.name;
     }
 
     /**
@@ -151,10 +150,10 @@ export namespace ReflectionServer {
         }
 
         // ---- Queries ---------------------------------------------------------------------------------
-        // Signum's TypeInfo.queryDefined. A string-named query has no class, so it lands on a Container
-        // entry of its own (that is also where its translated label would live).
+        // Signum's TypeInfo.queryDefined. A query is named by its own type, so the flag rides on that
+        // type's entry — beside the nice name whose PLURAL is the search page's title.
         for (const queryName of QueryLogic.queries.getQueryNames())
-            typeOf(metadataNameForQuery(queryName), typeof queryName === "function" ? "Entity" : "Container").hasQuery = true;
+            typeOf(metadataNameForQuery(queryName), "Entity").hasQuery = true;
 
         // ---- Operations ------------------------------------------------------------------------------
         // Attached to the type each operation DECLARES as its owner, plus every concrete subclass of it

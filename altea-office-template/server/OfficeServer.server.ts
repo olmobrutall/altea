@@ -65,7 +65,7 @@ export namespace OfficeServer {
             { req: CustomType<OfficeModelEntity>(), res: CustomType<string>() },
             async (req, res) => {
                 const queryName = OfficeModelLogic.getQueryName(await req.jsonTyped());
-                res.jsonTyped(typeof queryName === "function" ? cleanTypeName(queryName) : String(queryName));
+                res.jsonTyped(cleanTypeName(queryName));
             });
 
         // Signum's GetWordTemplates: the templates a contextual menu / a query button should offer.

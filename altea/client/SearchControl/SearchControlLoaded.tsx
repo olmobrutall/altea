@@ -18,7 +18,7 @@ import type {
 } from '../FindOptions'
 import { filterOperations, isActive, isFilterCondition, withoutPinned } from '../FindOptions'
 import type { ResultTable, ResultRow, Pagination, QueryRequest } from '../../data/dynamicQuery/queryRequest'
-import { QueryToken, SubTokensOptions } from '../QueryToken'
+import { QueryToken, SubTokensOptions, rowEntityToken } from '../QueryToken'
 import { getKey } from '../../data/dynamicQuery/queryUtils'
 import { Temporal } from 'temporal-polyfill'
 import { cleanTypeName } from '../../data/registration'
@@ -267,8 +267,13 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     this.abortableSearchSummary.abort();
   }
 
+  // Signum's QueryDescription.Columns["Entity"]: the token whose value IS each row's entity. For a
+  // full-entity query that is the query root; for one named by a row MODEL it is the model's `entity`
+  // member, so the types offered by "Create", the result-table caption and the MultipliedMessage name
+  // what the rows actually ARE (Person / Company) rather than the projection they arrive in
+  // (CustomerModel). Falls back to the root when the row has no entity, so a caller always has a token.
   entityColumn(): QueryToken {
-    return this.props.queryToken;
+    return rowEntityToken(this.props.queryToken) ?? this.props.queryToken;
   }
 
   entityColumnTypeInfos(): TypeInfo[] {
@@ -773,7 +778,9 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
   chooseType(): Promise<string | undefined> {
 
-    const tis = this.props.queryToken.type.typeInfos()
+    // entityColumn(), not the query root: what "Create" makes is a ROW, and a row model's rows are its
+    // `entity` member's types (Person / Company), never the model itself.
+    const tis = this.entityColumn().type.typeInfos()
       .filter(ti => Navigator.isCreable(cleanTypeName(ti.ctor!), { isSearch: true }));
 
     return SelectorModal.chooseType(tis)

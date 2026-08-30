@@ -1,6 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { init } from "@altea/altea/data/reflection";
+import { init, reflect } from "@altea/altea/data/reflection";
+import { ModelEntity } from "@altea/altea/data/entity";
 import type { ConstructSymbol, From, ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { ReflectionServer } from "@altea/altea/server/reflectionServer";
@@ -8,6 +9,13 @@ import { SchemaBuilder } from "@altea/altea/server/schema";
 import "@altea/altea/server/fluentOperations"; // FluentInclude.withStateMachine / withExecute / …
 import { loadSignumTranslations } from "@altea/altea/server/translations";
 import { AlbumEntity, AlbumState } from "../../data/music";
+
+// The type a throwaway query is named by: a query's name IS the type it yields rows of, so this is
+// what "Test.MetaQuery" used to be as a bare string.
+@reflect
+class MetaQueryModel extends ModelEntity {
+    name: string = "";
+}
 
 // Metadata endpoint builder (Signum's ReflectionServer): ONE TypeMetadata per type, carrying the
 // per-culture nice names, `hasQuery`, and the operations registered on that type. Fully offline —
@@ -80,12 +88,11 @@ describe("ReflectionServer.buildMetadata", () => {
     });
 
     test("a registered query sets hasQuery on its type entry", () => {
-        // Register a throwaway query (getQueryNames never invokes the lazy core). A STRING-named query has
-        // no class, so it gets a Container entry of its own; a ctor-named one rides on its type.
-        QueryLogic.queries.register("Test.MetaQuery", () => { throw new Error("core not built in this test"); });
+        // Register a throwaway query (getQueryNames never invokes the lazy core). A query is named by
+        // the TYPE it yields rows of, so the flag rides on that type's own entry.
+        QueryLogic.queries.register(MetaQueryModel, () => { throw new Error("core not built in this test"); });
         const types = ReflectionServer.buildMetadata("en").types;
-        assert.equal(types["Test.MetaQuery"].kind, "Container");
-        assert.equal(types["Test.MetaQuery"].hasQuery, true);
+        assert.equal(types["MetaQueryModel"].hasQuery, true);
     });
 
     test("every reflected class gets an entry, with the persisted/non-persisted kind", () => {
