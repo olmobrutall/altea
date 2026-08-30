@@ -4,7 +4,8 @@ import "@altea/altea/data/globals/arrayExtensions";
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Components/Stratify.ts. Builds a d3 hierarchy from the flat
 // ChartTable via a key column (+ optional parent-key column), for BubblePack / Treemap. Verbatim except
-// imports (@framework→altea; types via import type; `.toObjectDistinct` is an altea Array extension).
+// imports (@framework→altea; types via import type; `.toObjectDistinct` is an altea Array
+// extension) and the one Signum bug marked below.
 
 export function stratifyTokens(
   data: ChartTable,
@@ -78,7 +79,10 @@ export function stratifyTokens(
     const cr = (r as ChartRow);
 
     if (keyColumn.getValue(cr) != null)
-      return keyColumn.getKey(cr);
+      // DIVERGENCE (a Signum BUG, fixed rather than mirrored): Signum passes the ROW to `getKey`, which takes
+      // a VALUE — `getValueKey` is the row-taking one. In Signum a Lite key is `liteKey(row)`, so every data
+      // row silently got the same id "undefined;undefined"; here a Lite is a CLASS and `row.key()` throws.
+      return keyColumn.getValueKey(cr);
 
     return NullConst;
   }

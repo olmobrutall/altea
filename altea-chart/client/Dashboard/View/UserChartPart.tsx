@@ -85,6 +85,10 @@ export default function UserChartPart(p: PanelPartContentProps<UserChartPartEnti
 
     }, [chartRequest, queryToken]);
 
+    // The reload dep is Signum's: the chart request ENCODED as its url. `chartRequest` itself is a stable
+    // object that the block above MUTATES in place with the cross-filters other parts published, so depending
+    // on it re-runs nothing — the encoded path is what actually changes when a sibling part publishes a
+    // dashboard filter, and it is what makes the dashboard cross-filter at all.
     const [resultOrError, reloadQuery] = useAPIWithReload<undefined | { error?: unknown, result?: ChartClient.API.ExecuteChartResult }>(() => {
         if (chartRequest == null || p.dashboardController.isLoading)
             return Promise.resolve(undefined);
@@ -93,7 +97,12 @@ export default function UserChartPart(p: PanelPartContentProps<UserChartPartEnti
             .then(cs => ChartClient.API.executeChart(chartRequest, cs))
             .then(result => ({ result }), (error: unknown) => ({ error }));
 
-    }, [chartRequest, p.dashboardController.isLoading, refreshKey, ...p.deps ?? []], { avoidReset: true });
+    }, [
+        chartRequest && ChartClient.Encoder.chartPath(ChartClient.Encoder.toChartOptions(chartRequest, null)),
+        p.dashboardController.isLoading,
+        refreshKey,
+        ...p.deps ?? [],
+    ], { avoidReset: true });
 
     p.customDataRef.current = {
         chartRequest,
