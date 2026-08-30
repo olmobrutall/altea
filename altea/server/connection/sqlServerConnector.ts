@@ -134,10 +134,25 @@ export class SqlServerConnector extends Connector {
     }
 
     private async connect(): Promise<ConnectionPool> {
-        const pool = new ConnectionPool(this.config);
-        await pool.connect();
-        this.pool = pool;
-        return pool;
+        try {
+            const pool = new ConnectionPool(this.config);
+            await pool.connect();
+            this.pool = pool;
+            return pool;
+        } catch (err) {
+            // Clear the cached in-flight promise before rethrowing: `??=` would otherwise keep the
+            // REJECTED promise forever, so every later call replays this one failure — the database
+            // coming back up would still read as down until the process restarts.
+            this.connecting = undefined;
+            throw this.connectionError(err);
+        }
+    }
+
+    protected connectionTarget(): string {
+        if (typeof this.config === "string")
+            return this.config;
+        const c = this.config;
+        return `${c.server ?? "localhost"}${c.port != null ? ":" + c.port : ""}/${c.database ?? ""}`;
     }
 
     async openConnection(): Promise<ConnectionHandle> {

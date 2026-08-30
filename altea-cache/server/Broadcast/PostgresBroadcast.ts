@@ -39,7 +39,15 @@ export class PostgresBroadcast implements IServerBroadcast {
 
             const base = typeof connector.config === "string" ? { connectionString: connector.config } : connector.config;
             const client = new Client(base);
-            await client.connect();
+            try {
+                await client.connect();
+            } catch (err) {
+                // This is the FIRST connection the process opens (Schema.initialize starts the cache before
+                // anything queries), so it is the one a stopped database is met by — and pg's own rejection
+                // is an AggregateError with an empty message. Name the target, keep the driver error as
+                // `cause`; see Connector.connectionError.
+                throw connector.connectionError(err, "the cache invalidation listener");
+            }
 
             client.on("notification", msg => {
                 try {

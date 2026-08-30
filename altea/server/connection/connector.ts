@@ -174,6 +174,31 @@ export abstract class Connector {
             .replace(/(:\/\/[^:/@]+:)([^@]*)@/g, "$1***@");
     }
 
+    // Wraps a driver's connect failure into one that says WHERE it was trying to connect. A raw driver
+    // error rarely does: node's happy-eyeballs dial rejects with an AggregateError whose own message is
+    // EMPTY (the addresses live in `.errors`), so a host printing `err.message` shows nothing at all —
+    // which is how a stopped PostgreSQL reached the eastwind console as a bare `[FAILED]`. `cause` keeps
+    // the driver error, so formatError (server/formatError) still prints the whole chain underneath.
+    //
+    // PUBLIC, because a connector's pool is not the only thing that dials this database: a component
+    // holding its OWN connection (@altea/altea-cache's PostgresBroadcast, which cannot take a pooled one
+    // — a LISTENing connection is never returned) reports its failure through here too, naming itself
+    // in `purpose`.
+    connectionError(err: unknown, purpose?: string): Error {
+        const target = Connector.redactConnectionString(this.connectionTarget());
+        const dialect = this.isPostgres ? "PostgreSQL" : "SQL Server";
+        const where = target === "" ? "" : ` (${target})`;
+        const what = purpose == null ? "" : ` for ${purpose}`;
+        return new Error(`Cannot connect to the ${dialect} database${where}${what}. Is the server running, and the connection string right?`, { cause: err });
+    }
+
+    // What connectionError names: the connection string when the connector was given one, else the
+    // host / database of the driver config object. Redacted by connectionError. Not abstract — a
+    // connector with nothing to name (the test fakes) says only which dialect failed.
+    protected connectionTarget(): string {
+        return "";
+    }
+
     // ---- Live execution -----------------------------------------------------
     //
     // Both take raw SQL + positional parameters. The ergonomic entry points are

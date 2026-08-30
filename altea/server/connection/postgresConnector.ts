@@ -133,7 +133,18 @@ export class PostgresConnector extends Connector {
     }
 
     async openConnection(): Promise<ConnectionHandle> {
-        return new PostgresConnectionHandle(await this.getPool().connect());
+        try {
+            return new PostgresConnectionHandle(await this.getPool().connect());
+        } catch (err) {
+            throw this.connectionError(err);
+        }
+    }
+
+    protected connectionTarget(): string {
+        if (typeof this.config === 'string')
+            return this.config;
+        const c = this.config;
+        return c.connectionString ?? `${c.host ?? 'localhost'}:${c.port ?? 5432}/${c.database ?? ''}`;
     }
 
     async closeConnection(): Promise<void> {
