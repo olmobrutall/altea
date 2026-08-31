@@ -291,9 +291,14 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
                             {title}
                         </LinkButton>
                     }
+                    {/* DIVERGENCE (a Signum BUG, fixed rather than mirrored): Signum writes the pill
+                        `bg-tertiary text-dark`, and `text-dark` is the FIXED `--bs-dark-rgb` (33,37,41) —
+                        the dark theme's own card-header background, so the pill was invisible there.
+                        `text-bg-tertiary` is Bootstrap's combined helper: it pairs the tertiary surface
+                        with `--bs-body-color`, which follows the theme. */}
                     {
-                        dashboardFilter && <span className="badge bg-tertiary text-dark border ms-2 sf-filter-pill">
-                            {dashboardFilter.rows.length} {DashboardMessage.RowsSelected.niceToString()}
+                        dashboardFilter && <span className="badge text-bg-tertiary border ms-2 sf-filter-pill">
+                            {dashboardFilter.rows.length} {DashboardMessage.RowsSelected.niceToString().forGenderAndNumber(dashboardFilter.rows.length)}
                             <button type="button" aria-label={DashboardMessage.Close.niceToString()} className="btn-close" onClick={handleClearFilter} />
                         </span>
                     }

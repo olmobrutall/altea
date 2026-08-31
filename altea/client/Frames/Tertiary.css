@@ -3,6 +3,13 @@
    bg/border/text-bg-tertiary helpers. Bootstrap 5.3 has no tertiary button variant, so without this
    `variant="tertiary"` / `.btn-tertiary` renders unstyled (white, no fill). */
 
+/* DIVERGENCE (a Signum BUG, fixed rather than mirrored): Signum backs `.bg-tertiary` / `.text-bg-tertiary`
+   with `var(--bs-tertiary-rgb)`, which Bootstrap 5.3 does not define. Its four tertiary vars are
+   `--bs-tertiary-color` / `--bs-tertiary-color-rgb` / `--bs-tertiary-bg` / `--bs-tertiary-bg-rgb`; the
+   undefined var made the whole declaration invalid, so both classes contributed NO background at all, in
+   either theme. Written as Bootstrap generates its own `.bg-body-tertiary`, so `--bs-bg-opacity` works
+   here as it does on every other `.bg-*` utility. */
+
 .btn.btn-tertiary {
     --bs-btn-color: var(--bs-body-color);
     --bs-btn-bg: var(--bs-tertiary-bg);
@@ -20,7 +27,8 @@
 }
 
 .bg-tertiary {
-    background-color: var(--bs-tertiary-rgb) !important;
+    --bs-bg-opacity: 1;
+    background-color: rgba(var(--bs-tertiary-bg-rgb), var(--bs-bg-opacity)) !important;
 }
 
 .border-tertiary {
@@ -29,6 +37,7 @@
 }
 
 .text-bg-tertiary {
+    --bs-bg-opacity: 1;
     color: var(--bs-body-color) !important;
-    background-color: var(--bs-tertiary-rgb) !important;
+    background-color: rgba(var(--bs-tertiary-bg-rgb), var(--bs-bg-opacity)) !important;
 }
