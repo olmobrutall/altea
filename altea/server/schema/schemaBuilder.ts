@@ -75,6 +75,22 @@ function cleanTypeName(type: Type<Entity> | ViewType<View>): string {
     return rawTypeName(type).split('_').map(s => s.replace(/Entity$/, '')).join('_');
 }
 
+// The same, under LEGACY MODE: Signum's `Reflector.CleanTypeName` strips FOUR suffixes — Entity, Embedded,
+// Model and Symbol — so `TypeConditionSymbol` is the table `type_condition` and `AzureADConfigurationEmbedded`
+// is `azure_ad_configuration`, where altea (stripping only "Entity") writes `type_condition_symbol` and
+// `azure_ad_configuration_embedded`.
+//
+// This is PHYSICAL naming only — the table name and the `<Field>ID_<CleanName>` suffix of an @implementedBy
+// column, which is where Signum spends its own clean name. It deliberately does NOT reach the reflection
+// identity in data/registration, and it must not: applying Signum's rule there would make 15 pairs of types
+// ambiguous, because altea has a Model beside its Entity far more often than Signum does — CustomerEntity
+// and CustomerModel would both be "Customer", as would WorkflowEntity/WorkflowModel and eleven more workflow
+// node/model pairs. Among TABLE-bearing types the strip collides with nothing (a Model and an Embedded have
+// no table), which is why it is safe exactly here and nowhere else.
+function legacyCleanTypeName(type: Type<Entity> | ViewType<View>): string {
+    return rawTypeName(type).split('_').map(s => s.replace(/(Entity|Embedded|Model|Symbol)$/, '')).join('_');
+}
+
 // PascalCase -> snake_case (ported from Signum's NaturalLanguageTools.PascalToSnake).
 function pascalToSnake(value: string): string {
     return value
@@ -99,7 +115,7 @@ function cap(value: string): string {
 // names the same table — its MList table is one name, so there is no owner/part boundary to keep
 // legible. See SchemaSettings.legacyMode.
 function physicalTableName(type: Type<Entity>, isPostgres: boolean, legacyMode: boolean): string {
-    const clean = cleanTypeName(type);
+    const clean = legacyMode ? legacyCleanTypeName(type) : cleanTypeName(type);
     return isPostgres ? clean.split('_').map(pascalToSnake).join(legacyMode ? '_' : '__') : clean;
 }
 
@@ -623,7 +639,11 @@ export class SchemaBuilder {
             }
             const columns = fi.implementations.types().map(implType => {
                 const refTable = this.include(implType, ownerData).table;
-                const colName = this.idiomatic(preName.add(`${this.columnName(fi)}ID_${cleanTypeName(implType)}`).toString());
+                // The suffix is the TARGET's clean name — physical naming, so legacyMode's wider suffix
+                // strip applies here exactly as it does to the table name (Signum spends the same
+                // Reflector.CleanTypeName in both places).
+                const implName = this.settings.legacyMode ? legacyCleanTypeName(implType) : cleanTypeName(implType);
+                const colName = this.idiomatic(preName.add(`${this.columnName(fi)}ID_${implName}`).toString());
                 return new ImplementationColumn(colName, refTable, isLite);
             });
             return new FieldImplementedBy(columns, isLite);
