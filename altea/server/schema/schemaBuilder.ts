@@ -188,6 +188,12 @@ export class SchemaSettings {
 
     tableName(type: Type<Entity>): string {
         if (this.legacyMode) {
+            // A declared Signum name wins over BOTH derived rules — it is the escape hatch for the shape
+            // legacyCollectionTableName would otherwise guess wrong (a virtual MList; see @legacyTableName).
+            const declared = getTypeInfo(type as object)?.legacyTableName;
+            if (declared != null)
+                return this.isPostgres ? pascalToSnake(declared) : declared;
+
             const collection = legacyCollectionTableName(type, this);
             if (collection != null)
                 return collection;

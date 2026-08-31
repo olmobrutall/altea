@@ -451,6 +451,10 @@ export class TypeInfo {
     // name derived from the class. For a view class (@reflect + @tableName) this is
     // the raw view name ViewBuilder maps to, e.g. "pg_catalog.pg_namespace".
     tableName?: string;
+    // The name SIGNUM gave this type's table (@legacyTableName), used ONLY when SchemaSettings.legacyMode
+    // is on. Logical, so it is dialect-mapped like a derived name. See the decorator for why it cannot be
+    // computed from the model.
+    legacyTableName?: string;
     // Set by class-level @index / @uniqueIndex(e => [e.a, e.b]): composite indexes declared
     // by column-selector lambdas. Stored as the @quoted selectors; the SchemaBuilder resolves the
     // covered fields → columns by reading each captured AST (accessedFields), like `where`.

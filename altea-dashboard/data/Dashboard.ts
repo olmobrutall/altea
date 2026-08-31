@@ -3,7 +3,7 @@ import { Entity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
     entity, primaryKey, backReference, rowOrder, implementedBy, index,
-    stringLengthValidator, fieldValidation, format, unit, quoted,
+    stringLengthValidator, fieldValidation, format, unit, quoted, legacyTableName,
 } from "@altea/altea/data/decorators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -169,6 +169,9 @@ export class DashboardEntity_TokenEquivalenceGroup_Query extends Entity {
 // restricted to one InteractionGroup. In Signum this is a virtual MList (a real entity with a back-reference
 // to the dashboard); in altea that IS the @part row idiom.
 @entity("Part")
+// Signum models this as a standalone Entity wired as a VIRTUAL MList, so its table is named after the
+// ENTITY, not after the owner's collection. legacyMode cannot derive that — see @legacyTableName.
+@legacyTableName("TokenEquivalenceGroup")
 export class DashboardEntity_TokenEquivalenceGroup extends Entity {
     @backReference dashboard: Lite<DashboardEntity>;
     @rowOrder order: int;
