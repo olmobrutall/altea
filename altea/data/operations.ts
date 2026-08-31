@@ -49,7 +49,7 @@ export interface ConstructSymbol<T extends Entity, Src extends Simple | From<Ent
 
 // Signum's Signum.Operations PropertyOperation (the multi-setter operation kind). altea pair: numeric
 // XEnum for storage + string-union type for the wire/client (per the dynamicQuery enum convention).
-export enum PropertyOperationEnum {
+export enum PropertyOperation {
     Set,
     AddElement,
     AddNewElement,
@@ -59,7 +59,7 @@ export enum PropertyOperationEnum {
     ModifyEntity,
     CreateNewEntity,
 }
-export type PropertyOperation = keyof typeof PropertyOperationEnum;
+export type PropertyOperationKeys = keyof typeof PropertyOperation;
 // Rewritten by the quote-transformer to `registerEnum(PropertyOperationEnum, "PropertyOperation",
 // __fileInfo)`, so `Enum.niceName` resolves the translated member names the shipped XMLs already carry.
-registerEnum(PropertyOperationEnum);
+registerEnum(PropertyOperation);

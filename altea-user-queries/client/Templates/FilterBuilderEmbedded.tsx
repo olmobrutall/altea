@@ -11,7 +11,7 @@ import {
 import { QueryToken, SubTokensOptions } from "@altea/altea/client/QueryToken";
 import { Enum } from "@altea/altea/data/enum";
 import {
-    FilterOperationEnum, FilterGroupOperationEnum, DashboardBehaviourEnum, PinnedFilterActiveEnum,
+    FilterOperation, FilterGroupOperation, DashboardBehaviour, PinnedFilterActive,
 } from "@altea/altea/data/dynamicQueries";
 import type { HeaderType } from "@altea/altea/client/Lines/GroupHeader";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
@@ -159,21 +159,21 @@ async function toFilterOptionParsed(
                 const token = head.token ? completer.get(head.token.tokenString, subTokenOptions) : undefined;
                 return {
                     token,
-                    operation: head.operation == null ? "EqualTo" : Enum.toName(FilterOperationEnum, head.operation),
+                    operation: head.operation == null ? "EqualTo" : Enum.toName(FilterOperation, head.operation),
                     value: parseFilterValue(head.valueString, token?.filterType),
                     frozen: false,
                     pinned: head.pinned ? toPinnedParsed(head.pinned) : undefined,
-                    dashboardBehaviour: head.dashboardBehaviour == null ? undefined : Enum.toName(DashboardBehaviourEnum, head.dashboardBehaviour),
+                    dashboardBehaviour: head.dashboardBehaviour == null ? undefined : Enum.toName(DashboardBehaviour, head.dashboardBehaviour),
                 } as FilterConditionOptionParsed;
             }
             return {
                 token: head.token ? completer.get(head.token.tokenString, subTokenOptions) : undefined,
-                groupOperation: Enum.toName(FilterGroupOperationEnum, head.groupOperation!),
+                groupOperation: Enum.toName(FilterGroupOperation, head.groupOperation!),
                 filters: build(children, indent + 1),
                 value: head.valueString ?? undefined,
                 frozen: false,
                 pinned: head.pinned ? toPinnedParsed(head.pinned) : undefined,
-                dashboardBehaviour: head.dashboardBehaviour == null ? undefined : Enum.toName(DashboardBehaviourEnum, head.dashboardBehaviour),
+                dashboardBehaviour: head.dashboardBehaviour == null ? undefined : Enum.toName(DashboardBehaviour, head.dashboardBehaviour),
             } as FilterGroupOptionParsed;
         });
     }
@@ -193,10 +193,10 @@ export function filterOptionsParsedToEmbedded(
         row.indentation = indent as QueryFilterBaseEntity["indentation"];
         row.pinned = fo.pinned ? toPinnedEmbedded(fo.pinned) : null;
         // FindOptions carries member-name strings; the embedded enum fields are int-FK ordinals (Enum.toValue).
-        row.dashboardBehaviour = fo.dashboardBehaviour == null ? null : Enum.toValue(DashboardBehaviourEnum, fo.dashboardBehaviour);
+        row.dashboardBehaviour = fo.dashboardBehaviour == null ? null : Enum.toValue(DashboardBehaviour, fo.dashboardBehaviour);
         if (isFilterGroup(fo)) {
             row.isGroup = true;
-            row.groupOperation = fo.groupOperation == null ? null : Enum.toValue(FilterGroupOperationEnum, fo.groupOperation);
+            row.groupOperation = fo.groupOperation == null ? null : Enum.toValue(FilterGroupOperation, fo.groupOperation);
             row.token = fo.token ? toTokenEmbedded(fo.token) : null;
             row.valueString = Array.isArray(fo.value) && fo.token
                 ? fo.value.map(v => stringifyFilterValue(v, fo.token!.filterType)).join("|")
@@ -205,7 +205,7 @@ export function filterOptionsParsedToEmbedded(
             fo.filters.forEach(f => push(f, indent + 1));
         } else {
             row.token = fo.token ? toTokenEmbedded(fo.token) : null;
-            row.operation = fo.operation == null ? null : Enum.toValue(FilterOperationEnum, fo.operation);
+            row.operation = fo.operation == null ? null : Enum.toValue(FilterOperation, fo.operation);
             row.valueString = Array.isArray(fo.value) && fo.token
                 ? fo.value.map(v => stringifyFilterValue(v, fo.token!.filterType)).join("|")
                 : stringifyFilterValue(fo.value, fo.token?.filterType);
@@ -229,7 +229,7 @@ function toPinnedEmbedded(p: PinnedFilterParsed): PinnedQueryFilterEmbedded {
     e.column = (p.column ?? null) as PinnedQueryFilterEmbedded["column"];
     e.colSpan = (p.colSpan ?? null) as PinnedQueryFilterEmbedded["colSpan"];
     e.row = (p.row ?? null) as PinnedQueryFilterEmbedded["row"];
-    e.active = Enum.toValue(PinnedFilterActiveEnum, p.active ?? "Always");
+    e.active = Enum.toValue(PinnedFilterActive, p.active ?? "Always");
     e.splitValue = p.splitValue ?? false;
     return e;
 }
@@ -240,7 +240,7 @@ function toPinnedParsed(p: PinnedQueryFilterEmbedded): PinnedFilterParsed {
         column: p.column ?? undefined,
         colSpan: p.colSpan ?? undefined,
         row: p.row ?? undefined,
-        active: Enum.toName(PinnedFilterActiveEnum, p.active),
+        active: Enum.toName(PinnedFilterActive, p.active),
         splitValue: p.splitValue || undefined,
     };
 }

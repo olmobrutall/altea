@@ -103,12 +103,12 @@ export class EmailFromEmbedded extends EmailAddressEmbedded {
 }
 
 // Signum's EmailRecipientKind.
-export enum EmailRecipientKindEnum {
+export enum EmailRecipientKind {
     To,
     Cc,
     Bcc,
 }
-export type EmailRecipientKind = keyof typeof EmailRecipientKindEnum;
+export type EmailRecipientKindKeys = keyof typeof EmailRecipientKind;
 
 /** Signum's EmailRecipientEmbedded. ABSTRACT here (`@reflect`, no `@entity`) so it has no table of its
  *  own: each owner subclasses it and adds only its `@backReference` — a `@part` row belongs to exactly
@@ -130,7 +130,7 @@ export abstract class EmailRecipientBaseEntity extends Entity {
 
     displayName: string | null;
 
-    kind: EmailRecipientKindEnum;
+    kind: EmailRecipientKind;
 
     /** Signum's `EmailRecipientEmbedded.BaseToString()` — the address without the Kind prefix. */
     baseToString(): string {
@@ -138,7 +138,7 @@ export abstract class EmailRecipientBaseEntity extends Entity {
     }
 
     toString(): string {
-        return `${EmailRecipientKindEnum[this.kind]}: ${this.baseToString()}`;
+        return `${EmailRecipientKind[this.kind]}: ${this.baseToString()}`;
     }
 }
 
@@ -227,7 +227,7 @@ export const emailRegex = /^[\w-+]+(\.[\w-+]+)*@[A-Za-z0-9]([\w-]*[A-Za-z0-9])?(
 /** A recipient paired with the Kind it should be added as (Signum's EmailOwnerRecipientData). */
 export interface EmailOwnerRecipientData {
     ownerData: EmailOwnerData;
-    kind: EmailRecipientKindEnum;
+    kind: EmailRecipientKind;
 }
 
 // Re-exported so consumers of this module do not have to reach into altea-files.

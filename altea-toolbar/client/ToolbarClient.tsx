@@ -16,7 +16,7 @@ import type { Lite } from "@altea/altea/data/lite";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
 import {
     ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarEntity_Element, ToolbarMenuEntity_Element,
-    ToolbarSwitcherEntity_Option, type ToolbarLocation,
+    ToolbarSwitcherEntity_Option, type ToolbarLocationKeys,
 } from "../data/Toolbar";
 import type { ToolbarResponse } from "../data/ToolbarResponse";
 import QueryToolbarConfig from "./QueryToolbarConfig";
@@ -102,7 +102,7 @@ export namespace ToolbarClient {
     }
 
     export namespace API {
-        export function getCurrentToolbar(location: ToolbarLocation): Promise<ToolbarResponse<any> | null> {
+        export function getCurrentToolbar(location: ToolbarLocationKeys): Promise<ToolbarResponse<any> | null> {
             return ajaxGet({ url: `/api/toolbar/current/${location}` });
         }
 

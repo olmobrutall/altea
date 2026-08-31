@@ -5,10 +5,10 @@ import { isActive, isFilterGroup } from "@altea/altea/client/FindOptions";
 import { Finder } from "@altea/altea/client/Finder";
 import { getQueryKey } from "@altea/altea/client/Reflection";
 import { QueryToken, SubTokensOptions, tokenStartsWith } from "@altea/altea/client/QueryToken";
-import type { FilterGroupOperation } from "@altea/altea/data/dynamicQueries";
+import type { FilterGroupOperationKeys } from "@altea/altea/data/dynamicQueries";
 import { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
-import { DashboardEntity, InteractionGroupEnum, DashboardEntity_Part } from "../../data/Dashboard";
+import { DashboardEntity, InteractionGroup, DashboardEntity_Part } from "../../data/Dashboard";
 import { DashboardClient } from "../DashboardClient";
 
 // Port of Signum's Signum.Dashboard/View/DashboardFilterController.tsx. The DashboardController is the
@@ -61,7 +61,7 @@ export class DashboardController {
         this.invalidationMap.set(part, invalidation);
     }
 
-    invalidate(source: DashboardEntity_Part, interactionGroup: InteractionGroupEnum | null | undefined): void {
+    invalidate(source: DashboardEntity_Part, interactionGroup: InteractionGroup | null | undefined): void {
         Array.from(this.invalidationMap.keys())
             .filter(p => p != source && (interactionGroup == null || p.interactionGroup === interactionGroup))
             .forEach(p => this.invalidationMap.get(p)!());
@@ -254,7 +254,7 @@ function appendTokens(target: QueryToken, toAppend: QueryToken[]): QueryToken | 
     return result;
 }
 
-export function groupFilter(groupOperation: FilterGroupOperation, filters: FilterOptionParsed[]): FilterOptionParsed | undefined {
+export function groupFilter(groupOperation: FilterGroupOperationKeys, filters: FilterOptionParsed[]): FilterOptionParsed | undefined {
 
     if (filters.length == 0)
         return undefined;

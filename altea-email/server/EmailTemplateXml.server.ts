@@ -2,7 +2,7 @@ import { table } from "@altea/altea/server/table";
 import { Enum } from "@altea/altea/data/enum";
 import { toInt } from "@altea/altea/data/basics";
 import {
-    FilterOperationEnum, FilterGroupOperationEnum, OrderTypeEnum, DashboardBehaviourEnum,
+    FilterOperation, FilterGroupOperation, OrderType, DashboardBehaviour,
 } from "@altea/altea/data/dynamicQueries";
 import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
@@ -11,14 +11,14 @@ import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
 import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import {
-    EmailAddressSourceEnum, EmailAttachmentTypeEnum, EmailMasterTemplateEntity, EmailMasterTemplateEntity_Attachment,
-    EmailMasterTemplateEntity_Message, EmailMessageFormatEnum, EmailTemplateEntity, EmailTemplateEntity_Attachment,
+    EmailAddressSource, EmailAttachmentType, EmailMasterTemplateEntity, EmailMasterTemplateEntity_Attachment,
+    EmailMasterTemplateEntity_Message, EmailMessageFormat, EmailTemplateEntity, EmailTemplateEntity_Attachment,
     EmailTemplateEntity_Filter, EmailTemplateEntity_From, EmailTemplateEntity_Message, EmailTemplateEntity_Order,
-    EmailTemplateEntity_Recipient, FileTokenAttachmentEntity, ImageAttachmentEntity, WhenManyFromBehaviourEnum,
-    WhenManyRecipientsBehaviourEnum, WhenNoneFromBehaviourEnum, WhenNoneRecipientsBehaviourEnum,
+    EmailTemplateEntity_Recipient, FileTokenAttachmentEntity, ImageAttachmentEntity, WhenManyFromBehaviour,
+    WhenManyRecipientsBehaviour, WhenNoneFromBehaviour, WhenNoneRecipientsBehaviour,
     TemplateApplicableEval, type IAttachmentGeneratorEntity,
 } from "../data/EmailTemplate";
-import { EmailRecipientKindEnum } from "../data/Email";
+import { EmailRecipientKind } from "../data/Email";
 import { EmailModelLogic } from "./EmailModelLogic.server";
 
 // Port of Signum.Mailing's `EmailTemplateEntity.ToXml/FromXml` + `EmailMasterTemplateEntity.ToXml/FromXml`.
@@ -71,21 +71,21 @@ async function templateToXml(et: EmailTemplateEntity, ctx: IToXmlContext): Promi
     if (et.model != null) o[A + "Model"] = et.model.fullClassName;
     if (et.masterTemplate != null) o[A + "MasterTemplate"] = ctx.include(await ctx.retrieveLite(et.masterTemplate));
     o[A + "GroupResults"] = et.groupResults;
-    o[A + "MessageFormat"] = Enum.toName(EmailMessageFormatEnum, et.messageFormat);
+    o[A + "MessageFormat"] = Enum.toName(EmailMessageFormat, et.messageFormat);
 
     if (et.filters.length) o["Filters"] = { Filter: et.filters.map(filterXml) };
     if (et.orders.length) o["Orders"] = { Orden: et.orders.map(orderXml) };
 
     if (et.from != null) o["From"] = addressXml(et.from, {
-        [A + "WhenMany"]: Enum.toName(WhenManyFromBehaviourEnum, et.from.whenMany),
-        [A + "WhenNone"]: Enum.toName(WhenNoneFromBehaviourEnum, et.from.whenNone),
+        [A + "WhenMany"]: Enum.toName(WhenManyFromBehaviour, et.from.whenMany),
+        [A + "WhenNone"]: Enum.toName(WhenNoneFromBehaviour, et.from.whenNone),
     });
 
     o["Recipients"] = {
         Recipient: et.recipients.map(r => addressXml(r, {
-            [A + "Kind"]: Enum.toName(EmailRecipientKindEnum, r.kind),
-            [A + "WhenMany"]: Enum.toName(WhenManyRecipientsBehaviourEnum, r.whenMany),
-            [A + "WhenNone"]: Enum.toName(WhenNoneRecipientsBehaviourEnum, r.whenNone),
+            [A + "Kind"]: Enum.toName(EmailRecipientKind, r.kind),
+            [A + "WhenMany"]: Enum.toName(WhenManyRecipientsBehaviour, r.whenMany),
+            [A + "WhenNone"]: Enum.toName(WhenNoneRecipientsBehaviour, r.whenNone),
         })),
     };
 
@@ -113,8 +113,8 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
     et.groupResults = bool(xml[A + "GroupResults"]) ?? false;
 
     et.messageFormat = xml[A + "MessageFormat"] != undefined
-        ? Enum.toValue(EmailMessageFormatEnum, str(xml[A + "MessageFormat"]) as never)
-        : (bool(xml[A + "IsBodyHtml"]) ? EmailMessageFormatEnum.HtmlComplex : EmailMessageFormatEnum.PlainText);
+        ? Enum.toValue(EmailMessageFormat, str(xml[A + "MessageFormat"]) as never)
+        : (bool(xml[A + "IsBodyHtml"]) ? EmailMessageFormat.HtmlComplex : EmailMessageFormat.PlainText);
 
     if (xml[A + "MasterTemplate"] != undefined)
         et.masterTemplate = (ctx.getEntity(str(xml[A + "MasterTemplate"])!) as EmailMasterTemplateEntity).toLite();
@@ -125,13 +125,13 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
         f.indentation = toInt(num(x[A + "Indentation"]) ?? 0);
         if (x[A + "GroupOperation"] != undefined) {
             f.isGroup = true;
-            f.groupOperation = Enum.toValue(FilterGroupOperationEnum, str(x[A + "GroupOperation"]) as never);
+            f.groupOperation = Enum.toValue(FilterGroupOperation, str(x[A + "GroupOperation"]) as never);
         }
         if (x[A + "Token"] != undefined) f.token = token(str(x[A + "Token"])!);
-        if (x[A + "Operation"] != undefined) f.operation = Enum.toValue(FilterOperationEnum, str(x[A + "Operation"]) as never);
+        if (x[A + "Operation"] != undefined) f.operation = Enum.toValue(FilterOperation, str(x[A + "Operation"]) as never);
         if (x[A + "Value"] != undefined) f.valueString = str(x[A + "Value"])!;
         if (x[A + "DashboardBehaviour"] != undefined)
-            f.dashboardBehaviour = Enum.toValue(DashboardBehaviourEnum, str(x[A + "DashboardBehaviour"]) as never);
+            f.dashboardBehaviour = Enum.toValue(DashboardBehaviour, str(x[A + "DashboardBehaviour"]) as never);
         return f;
     });
 
@@ -139,7 +139,7 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
         const o = new EmailTemplateEntity_Order();
         o.order = toInt(i);
         o.token = token(str(x[A + "Token"])!);
-        o.orderType = Enum.toValue(OrderTypeEnum, str(x[A + "OrderType"]) as never);
+        o.orderType = Enum.toValue(OrderType, str(x[A + "OrderType"]) as never);
         return o;
     });
 
@@ -149,8 +149,8 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
     } else {
         const f = new EmailTemplateEntity_From();
         readAddress(f, fromXmlEl);
-        f.whenMany = enumOr(WhenManyFromBehaviourEnum, str(fromXmlEl[A + "WhenMany"]), WhenManyFromBehaviourEnum.FistResult);
-        f.whenNone = enumOr(WhenNoneFromBehaviourEnum, str(fromXmlEl[A + "WhenNone"]), WhenNoneFromBehaviourEnum.NoMessage);
+        f.whenMany = enumOr(WhenManyFromBehaviour, str(fromXmlEl[A + "WhenMany"]), WhenManyFromBehaviour.FistResult);
+        f.whenNone = enumOr(WhenNoneFromBehaviour, str(fromXmlEl[A + "WhenNone"]), WhenNoneFromBehaviour.NoMessage);
         et.from = f;
     }
 
@@ -158,9 +158,9 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
         const r = new EmailTemplateEntity_Recipient();
         r.order = toInt(i);
         readAddress(r, x);
-        r.kind = enumOr(EmailRecipientKindEnum, str(x[A + "Kind"]), EmailRecipientKindEnum.To);
-        r.whenMany = enumOr(WhenManyRecipientsBehaviourEnum, str(x[A + "WhenMany"]), WhenManyRecipientsBehaviourEnum.KeepOneMessageWithManyRecipients);
-        r.whenNone = enumOr(WhenNoneRecipientsBehaviourEnum, str(x[A + "WhenNone"]), WhenNoneRecipientsBehaviourEnum.ThrowException);
+        r.kind = enumOr(EmailRecipientKind, str(x[A + "Kind"]), EmailRecipientKind.To);
+        r.whenMany = enumOr(WhenManyRecipientsBehaviour, str(x[A + "WhenMany"]), WhenManyRecipientsBehaviour.KeepOneMessageWithManyRecipients);
+        r.whenNone = enumOr(WhenNoneRecipientsBehaviour, str(x[A + "WhenNone"]), WhenNoneRecipientsBehaviour.ThrowException);
         return r;
     });
 
@@ -228,7 +228,7 @@ function addressXml(a: EmailTemplateEntity_From | EmailTemplateEntity_Recipient,
     if (a.displayName) x[A + "DisplayName"] = a.displayName;
     if (a.emailAddress) x[A + "EmailAddress"] = a.emailAddress;
     if (a.token != null) x[A + "Token"] = a.token.tokenString;
-    x[A + "AddressSource"] = Enum.toName(EmailAddressSourceEnum, a.addressSource);
+    x[A + "AddressSource"] = Enum.toName(EmailAddressSource, a.addressSource);
     return x;
 }
 
@@ -237,27 +237,27 @@ function readAddress(a: EmailTemplateEntity_From | EmailTemplateEntity_Recipient
     a.emailAddress = str(x[A + "EmailAddress"]) ?? null;
     a.token = x[A + "Token"] != undefined ? token(str(x[A + "Token"])!) : null;
     a.addressSource = x[A + "AddressSource"] != undefined
-        ? Enum.toValue(EmailAddressSourceEnum, str(x[A + "AddressSource"]) as never)
-        : (a.emailAddress ? EmailAddressSourceEnum.HardcodedAddress : EmailAddressSourceEnum.QueryToken);
+        ? Enum.toValue(EmailAddressSource, str(x[A + "AddressSource"]) as never)
+        : (a.emailAddress ? EmailAddressSource.HardcodedAddress : EmailAddressSource.QueryToken);
 }
 
 function filterXml(f: EmailTemplateEntity_Filter): Record<string, unknown> {
     const x: Record<string, unknown> = {};
     x[A + "Indentation"] = f.indentation;
     if (f.isGroup) {
-        if (f.groupOperation != null) x[A + "GroupOperation"] = Enum.toName(FilterGroupOperationEnum, f.groupOperation);
+        if (f.groupOperation != null) x[A + "GroupOperation"] = Enum.toName(FilterGroupOperation, f.groupOperation);
         if (f.token != null) x[A + "Token"] = f.token.tokenString;
     } else {
         if (f.token != null) x[A + "Token"] = f.token.tokenString;
-        if (f.operation != null) x[A + "Operation"] = Enum.toName(FilterOperationEnum, f.operation);
+        if (f.operation != null) x[A + "Operation"] = Enum.toName(FilterOperation, f.operation);
         if (f.valueString != null) x[A + "Value"] = f.valueString;
     }
-    if (f.dashboardBehaviour != null) x[A + "DashboardBehaviour"] = Enum.toName(DashboardBehaviourEnum, f.dashboardBehaviour);
+    if (f.dashboardBehaviour != null) x[A + "DashboardBehaviour"] = Enum.toName(DashboardBehaviour, f.dashboardBehaviour);
     return x;
 }
 
 function orderXml(o: EmailTemplateEntity_Order): Record<string, unknown> {
-    return { [A + "Token"]: o.token.tokenString, [A + "OrderType"]: Enum.toName(OrderTypeEnum, o.orderType) };
+    return { [A + "Token"]: o.token.tokenString, [A + "OrderType"]: Enum.toName(OrderType, o.orderType) };
 }
 
 /** Signum's AttachmentFromXmlExtensions: an attachment element is named after its TYPE. */
@@ -268,14 +268,14 @@ function attachmentsXml(attachments: readonly IAttachmentGeneratorEntity[]): Rec
             (result["ImageAttachment"] ??= []).push({
                 ...(a.fileName != null ? { [A + "FileName"]: a.fileName } : {}),
                 [A + "ContentId"]: a.contentId,
-                [A + "Type"]: Enum.toName(EmailAttachmentTypeEnum, a.type),
+                [A + "Type"]: Enum.toName(EmailAttachmentType, a.type),
                 File: { [A + "FileName"]: a.file.fileName, "#text": Buffer.from(a.file.binaryFile).toString("base64") },
             });
         } else if (a instanceof FileTokenAttachmentEntity) {
             (result["FileTokenAttachment"] ??= []).push({
                 ...(a.fileName != null ? { [A + "FileName"]: a.fileName } : {}),
                 ...(a.contentId != null ? { [A + "ContentId"]: a.contentId } : {}),
-                [A + "Type"]: Enum.toName(EmailAttachmentTypeEnum, a.type),
+                [A + "Type"]: Enum.toName(EmailAttachmentType, a.type),
                 [A + "FileToken"]: a.fileToken.tokenString,
             });
         }
@@ -296,7 +296,7 @@ function readAttachments(xml: unknown): IAttachmentGeneratorEntity[] {
         const a = new ImageAttachmentEntity();
         a.fileName = str(x[A + "FileName"]) ?? null;
         a.contentId = str(x[A + "ContentId"])!;
-        a.type = enumOr(EmailAttachmentTypeEnum, str(x[A + "Type"]), EmailAttachmentTypeEnum.Attachment);
+        a.type = enumOr(EmailAttachmentType, str(x[A + "Type"]), EmailAttachmentType.Attachment);
         const file = asRecord(x["File"]);
         if (file != undefined) {
             a.file.fileName = str(file[A + "FileName"]) ?? "";
@@ -309,7 +309,7 @@ function readAttachments(xml: unknown): IAttachmentGeneratorEntity[] {
         const a = new FileTokenAttachmentEntity();
         a.fileName = str(x[A + "FileName"]) ?? null;
         a.contentId = str(x[A + "ContentId"]) ?? null;
-        a.type = enumOr(EmailAttachmentTypeEnum, str(x[A + "Type"]), EmailAttachmentTypeEnum.Attachment);
+        a.type = enumOr(EmailAttachmentType, str(x[A + "Type"]), EmailAttachmentType.Attachment);
         a.fileToken = token(str(x[A + "FileToken"])!);
         result.push(a);
     }

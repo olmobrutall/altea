@@ -1,5 +1,5 @@
-import type { SkillActivationEnum } from "./SkillCustomization";
-import type { UserFeedbackEnum } from "./ChatSession";
+import type { SkillActivation } from "./SkillCustomization";
+import type { UserFeedback } from "./ChatSession";
 
 // The wire contracts of Signum.Agent's two HTTP surfaces, declared ONCE in the DATA layer so the server
 // that writes them and the client that parses them cannot drift. In Signum these live in three places:
@@ -37,7 +37,7 @@ export type AssistantMode = "Text" | "Reasoning";
 
 /** The body of `POST /api/chatbot/feedback/:messageId` (Signum's SetFeedbackRequest). */
 export interface SetFeedbackRequest {
-    feedback: UserFeedbackEnum | null;
+    feedback: UserFeedback | null;
     message?: string;
 }
 
@@ -85,6 +85,6 @@ export interface ToolParameter {
 
 export interface SubSkillInfo {
     className: string;
-    activation: SkillActivationEnum;
+    activation: SkillActivation;
     info: SkillCodeInfo;
 }

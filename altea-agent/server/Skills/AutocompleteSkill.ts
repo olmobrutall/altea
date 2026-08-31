@@ -1,6 +1,6 @@
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import {
-    QueryRequest, Column, Order, OrderType, FilterCondition, FilterOperation, Pagination,
+    QueryRequest, Column, Order, OrderTypeKeys, FilterCondition, FilterOperationKeys, Pagination,
 } from "@altea/altea/server/dynamicQuery/requests";
 import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { resolveCleanType } from "@altea/altea/data/registration";
@@ -68,8 +68,8 @@ export async function findLiteLike(typeName: string, subString: string, count: n
 
     const request = new QueryRequest(
         queryName,
-        words.map(w => new FilterCondition(toString, FilterOperation.Contains, w)),
-        [new Order(token("ToString.length"), OrderType.Ascending), new Order(toString, OrderType.Ascending)],
+        words.map(w => new FilterCondition(toString, FilterOperationKeys.Contains, w)),
+        [new Order(token("ToString.length"), OrderTypeKeys.Ascending), new Order(toString, OrderTypeKeys.Ascending)],
         [new Column(token("id"), undefined)],
         new Pagination.Firsts(count),
         false,

@@ -16,8 +16,8 @@ import SelectorModal from "@altea/altea/client/SelectorModal";
 import { parseIcon, fallbackIcon } from "@altea/altea/client/Components/IconHelpers";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import {
-    ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarElementTypeEnum, ShowCountEnum,
-    type ToolbarElementBaseEntity, type ToolbarMenuEntity_Element, type ShowCount,
+    ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarElementType, ShowCount,
+    type ToolbarElementBaseEntity, type ToolbarMenuEntity_Element, type ShowCountKeys,
 } from "../../data/Toolbar";
 import { ToolbarClient } from "../ToolbarClient";
 import { ToolbarCount } from "../QueryToolbarConfig";
@@ -106,7 +106,7 @@ export function ToolbarElementTable<R extends ToolbarElementBaseEntity>({ ctx, e
             // Signum: `New(type, { type: "Item", withEntity })`. The row ctor comes from the collection's own
             // PropertyRoute, so a Toolbar gets a ToolbarEntity_Element and a ToolbarMenu a ToolbarMenuElement.
             onCreate={pr => Constructor.construct(pr.fieldInfo!.getFunction()!.name, {
-                type: ToolbarElementTypeEnum.Item,
+                type: ToolbarElementType.Item,
                 withEntity,
             }) as Promise<R | undefined>}
             columns={[
@@ -138,6 +138,6 @@ export function ToolbarElementTable<R extends ToolbarElementBaseEntity>({ ctx, e
 
 /** An element's `showCount` as its member NAME: the stored value is the enum ordinal, but the ToolbarCount
  *  badge speaks the wire form (like the rest of the client), so the conversion happens here. */
-function showCountName(e: ToolbarElementBaseEntity): ShowCount {
-    return Enum.toName(ShowCountEnum, e.showCount!);
+function showCountName(e: ToolbarElementBaseEntity): ShowCountKeys {
+    return Enum.toName(ShowCount, e.showCount!);
 }

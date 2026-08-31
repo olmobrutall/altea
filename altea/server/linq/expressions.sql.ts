@@ -38,7 +38,7 @@ export abstract class DbExpression extends Expression {
 
 // ---- Enums (string unions; Signum's enums) -------------------------------
 
-export type OrderType = "Ascending" | "Descending";
+export type OrderTypeKeys = "Ascending" | "Descending";
 
 export type JoinType =
     | "CrossJoin" | "InnerJoin" | "CrossApply" | "OuterApply"
@@ -150,7 +150,7 @@ export class ColumnDeclaration {
 
 export class OrderExpression {
     constructor(
-        public readonly orderType: OrderType,
+        public readonly orderType: OrderTypeKeys,
         public readonly expression: Expression,
     ) { }
 

@@ -4,7 +4,7 @@ import { reflectionDefaultColumns } from "@altea/altea/data/dynamicQuery/default
 import { SubTokensOptionsAll, type QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { Enum } from "@altea/altea/data/enum";
-import { ColumnOptionsModeEnum, OrderTypeEnum, PaginationModeEnum } from "@altea/altea/data/dynamicQueries";
+import { ColumnOptionsMode, OrderType, PaginationMode } from "@altea/altea/data/dynamicQueries";
 import { QueryFilterUtils } from "@altea/altea-user-assets/server/QueryFilterUtils.server";
 import type { UserQueryEntity, UserQueryEntity_Column } from "../data/UserQuery";
 
@@ -32,7 +32,7 @@ import type { UserQueryEntity, UserQueryEntity_Column } from "../data/UserQuery"
 
 /** Signum's `UserQueryEntity.GetPagination()`. */
 export function getPagination(userQuery: UserQueryEntity): Pagination | undefined {
-    const mode = userQuery.paginationMode == null ? undefined : Enum.toName(PaginationModeEnum, userQuery.paginationMode);
+    const mode = userQuery.paginationMode == null ? undefined : Enum.toName(PaginationMode, userQuery.paginationMode);
     switch (mode) {
         case "All": return new Pagination.All();
         case "Firsts": return new Pagination.Firsts(Number(userQuery.elementsPerPage!));
@@ -84,7 +84,7 @@ export function toQueryRequestValue(userQuery: UserQueryEntity, valueToken?: Que
 
 /** Signum's MergeColumns — how the stored columns combine with the query's defaults. */
 function mergeColumns(userQuery: UserQueryEntity, queryName: QueryName, ignoreHidden: boolean): Column[] {
-    const mode = Enum.toName(ColumnOptionsModeEnum, userQuery.columnsMode);
+    const mode = Enum.toName(ColumnOptionsMode, userQuery.columnsMode);
     const stored = userQuery.columns
         .filter(c => !c.hiddenColumn || !ignoreHidden)
         .map(c => toColumn(queryName, c));
@@ -139,8 +139,8 @@ function token(queryName: QueryName, tokenString: string): QueryToken {
     return QueryLogic.getToken(queryName, tokenString, SubTokensOptionsAll);
 }
 
-function orderTypeOf(orderType: OrderTypeEnum): Order["orderType"] {
-    return Enum.toName(OrderTypeEnum, orderType) as Order["orderType"];
+function orderTypeOf(orderType: OrderType): Order["orderType"] {
+    return Enum.toName(OrderType, orderType) as Order["orderType"];
 }
 
 /**

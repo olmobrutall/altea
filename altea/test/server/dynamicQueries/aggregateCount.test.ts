@@ -11,7 +11,7 @@ import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/query
 import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import { AggregateToken, AggregateFunction } from "@altea/altea/data/dynamicQuery/tokens/aggregateToken";
 import { DQueryable } from "@altea/altea/server/dynamicQuery/dQueryable";
-import { FilterOperation } from "@altea/altea/server/dynamicQuery/requests";
+import { FilterOperationKeys } from "@altea/altea/server/dynamicQuery/requests";
 import "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { MusicLogic } from "../MusicLogic";
 import { AlbumEntity } from "../../data/music";
@@ -49,7 +49,7 @@ describe("Count variants", () => {
     });
 
     test("Count where year > 1990 → filtered count (CASE)", () => {
-        const s = groupSql(new AggregateToken(AggregateFunction.Count, tok("year"), { filterOperation: FilterOperation.GreaterThan, value: 1990 }));
+        const s = groupSql(new AggregateToken(AggregateFunction.Count, tok("year"), { filterOperation: FilterOperationKeys.GreaterThan, value: 1990 }));
         assert.match(s, /count\(case when \(a\.year > @p/);
     });
 
@@ -64,7 +64,7 @@ describe("Count variants", () => {
     test("distinct vs filtered Counts have distinct keys", () => {
         const plain = new AggregateToken(AggregateFunction.Count, undefined, { queryName: AlbumEntity });
         const distinct = new AggregateToken(AggregateFunction.Count, tok("year"), { distinct: true });
-        const where = new AggregateToken(AggregateFunction.Count, tok("year"), { filterOperation: FilterOperation.GreaterThan, value: 1990 });
+        const where = new AggregateToken(AggregateFunction.Count, tok("year"), { filterOperation: FilterOperationKeys.GreaterThan, value: 1990 });
         assert.notEqual(plain.key, distinct.key);
         assert.notEqual(distinct.key, where.key);
         assert.equal(plain.key, "Count");

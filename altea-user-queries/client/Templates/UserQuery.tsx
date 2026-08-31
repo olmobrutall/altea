@@ -18,7 +18,7 @@ import { SearchMessage } from "@altea/altea/data/uiMessages";
 import { Enum } from "@altea/altea/data/enum";
 import { toInt } from "@altea/altea/data/basics";
 import {
-    FilterOperationEnum, SystemTimeModeEnum, SystemTimeJoinModeEnum, TimeSeriesUnitEnum,
+    FilterOperation, SystemTimeMode, SystemTimeJoinMode, TimeSeriesUnit,
 } from "@altea/altea/data/dynamicQueries";
 import CollapsableCard from "@altea/altea/client/Components/CollapsableCard";
 import { UserAssetMessage } from "@altea/altea-user-assets/data/UserAssets";
@@ -56,7 +56,7 @@ export default function UserQuery(p: { ctx: TypeContext<UserQueryEntity> }): Rea
     const [showPreview, setShowPreview] = React.useState(false);
 
     const canAggregate = ctx.value.groupResults ? SubTokensOptions.CanAggregate : 0;
-    const systemTimeMode = ctx.value.systemTime == null ? undefined : Enum.toName(SystemTimeModeEnum, ctx.value.systemTime.mode);
+    const systemTimeMode = ctx.value.systemTime == null ? undefined : Enum.toName(SystemTimeMode, ctx.value.systemTime.mode);
     const canTimeSeries = systemTimeMode === "TimeSeries" ? SubTokensOptions.CanTimeSeries : 0;
 
     // Whether to offer the system-time section. Signum shows it for ANY entity query (getTypeInfos truthy) and
@@ -247,18 +247,18 @@ function FilterPreview(p: { uq: UserQueryEntity }): React.JSX.Element | null {
 function SystemTime(p: { ctx: TypeContext<SystemTimeEmbedded> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
     const ctx = p.ctx.subCtx({ formSize: "xs", formGroupStyle: "Basic" });
-    const mode = Enum.toName(SystemTimeModeEnum, ctx.value.mode);
+    const mode = Enum.toName(SystemTimeMode, ctx.value.mode);
     return (
         <div>
             <div className="row">
                 <div className="col-sm-3">
                     <AutoLine ctx={ctx.subCtx(e => e.mode)} onChange={() => {
-                        const m = Enum.toName(SystemTimeModeEnum, ctx.value.mode);
+                        const m = Enum.toName(SystemTimeMode, ctx.value.mode);
                         ctx.value.startDate = m === "All" ? null : ctx.value.startDate;
                         ctx.value.endDate = (m === "All" || m === "AsOf") ? null : ctx.value.endDate;
-                        ctx.value.joinMode = m === "AsOf" ? null : (ctx.value.joinMode ?? Enum.toValue(SystemTimeJoinModeEnum, "FirstCompatible"));
+                        ctx.value.joinMode = m === "AsOf" ? null : (ctx.value.joinMode ?? Enum.toValue(SystemTimeJoinMode, "FirstCompatible"));
                         ctx.value.timeSeriesStep = m === "TimeSeries" ? toInt(1) : null;
-                        ctx.value.timeSeriesUnit = m === "TimeSeries" ? Enum.toValue(TimeSeriesUnitEnum, "Day") : null;
+                        ctx.value.timeSeriesUnit = m === "TimeSeries" ? Enum.toValue(TimeSeriesUnit, "Day") : null;
                         ctx.value.timeSeriesMaxRowsPerStep = m === "TimeSeries" ? toInt(10) : null;
                         ctx.value.splitQueries = false;
                         forceUpdate();

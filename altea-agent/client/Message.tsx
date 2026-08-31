@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ErrorBoundary } from "@altea/altea/client/Components";
 import { classes } from "@altea/altea/data/globals";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
-import { ChatbotMessage, ChatMessageEntity, ChatMessageEntity_ToolCall, ChatMessageRoleEnum, UserFeedbackEnum } from "../data/ChatSession";
+import { ChatbotMessage, ChatMessageEntity, ChatMessageEntity_ToolCall, ChatMessageRole, UserFeedback } from "../data/ChatSession";
 import { ChatbotClient } from "./ChatbotClient";
 import FeedbackModal from "./FeedbackModal";
 
@@ -26,10 +26,10 @@ export const Message: React.NamedExoticComponent<{
 }): React.ReactElement {
 
     const role =
-        p.msg.role === ChatMessageRoleEnum.System ? <SystemMessage msg={p.msg} /> :
-            p.msg.role === ChatMessageRoleEnum.User ? <UserMessage msg={p.msg} /> :
-                p.msg.role === ChatMessageRoleEnum.Assistant ? <AssistantMessage msg={p.msg} sendToolResponse={p.sendToolResponse} /> :
-                    p.msg.role === ChatMessageRoleEnum.Tool ? <ToolMessage msg={p.msg} /> :
+        p.msg.role === ChatMessageRole.System ? <SystemMessage msg={p.msg} /> :
+            p.msg.role === ChatMessageRole.User ? <UserMessage msg={p.msg} /> :
+                p.msg.role === ChatMessageRole.Assistant ? <AssistantMessage msg={p.msg} sendToolResponse={p.sendToolResponse} /> :
+                    p.msg.role === ChatMessageRole.Tool ? <ToolMessage msg={p.msg} /> :
                         null;
 
     return <ErrorBoundary>{role}</ErrorBoundary>;
@@ -69,7 +69,7 @@ export function AssistantMessage(p: { msg: ChatMessageEntity; sendToolResponse: 
         if (!isFinalized)
             return;
 
-        const next = p.msg.userFeedback === UserFeedbackEnum.Positive ? null : UserFeedbackEnum.Positive;
+        const next = p.msg.userFeedback === UserFeedback.Positive ? null : UserFeedback.Positive;
         await ChatbotClient.API.setFeedback(p.msg.id!, next);
         p.msg.userFeedback = next;
         p.msg.userFeedbackMessage = null;
@@ -80,7 +80,7 @@ export function AssistantMessage(p: { msg: ChatMessageEntity; sendToolResponse: 
         if (!isFinalized)
             return;
 
-        if (p.msg.userFeedback === UserFeedbackEnum.Negative) {
+        if (p.msg.userFeedback === UserFeedback.Negative) {
             await ChatbotClient.API.setFeedback(p.msg.id!, null);
             p.msg.userFeedback = null;
             p.msg.userFeedbackMessage = null;
@@ -95,8 +95,8 @@ export function AssistantMessage(p: { msg: ChatMessageEntity; sendToolResponse: 
         if (newMessage === undefined)
             return;
 
-        await ChatbotClient.API.setFeedback(p.msg.id!, UserFeedbackEnum.Negative, newMessage || undefined);
-        p.msg.userFeedback = UserFeedbackEnum.Negative;
+        await ChatbotClient.API.setFeedback(p.msg.id!, UserFeedback.Negative, newMessage || undefined);
+        p.msg.userFeedback = UserFeedback.Negative;
         p.msg.userFeedbackMessage = newMessage || null;
         forceUpdate();
     }
@@ -124,17 +124,17 @@ export function AssistantMessage(p: { msg: ChatMessageEntity; sendToolResponse: 
                 <div className="chat-feedback-buttons">
                     <button type="button"
                         className={classes("btn btn-link btn-sm chat-feedback-btn",
-                            p.msg.userFeedback === UserFeedbackEnum.Positive ? "chat-feedback-active-positive" : undefined)}
+                            p.msg.userFeedback === UserFeedback.Positive ? "chat-feedback-active-positive" : undefined)}
                         onClick={handleThumbsUp} title="Good response">
                         <FontAwesomeIcon icon="thumbs-up" />
                     </button>
                     <button type="button"
                         className={classes("btn btn-link btn-sm chat-feedback-btn",
-                            p.msg.userFeedback === UserFeedbackEnum.Negative ? "chat-feedback-active-negative" : undefined)}
+                            p.msg.userFeedback === UserFeedback.Negative ? "chat-feedback-active-negative" : undefined)}
                         onClick={handleThumbsDown} title="Bad response">
                         <FontAwesomeIcon icon="thumbs-down" />
                     </button>
-                    {p.msg.userFeedback === UserFeedbackEnum.Negative && (
+                    {p.msg.userFeedback === UserFeedback.Negative && (
                         <button type="button" className="btn btn-link btn-sm chat-feedback-btn chat-feedback-edit"
                             onClick={openFeedbackModal} title={ChatbotMessage.ProvideFeedback.niceToString()}>
                             <FontAwesomeIcon icon="pen" />

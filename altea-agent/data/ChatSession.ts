@@ -30,7 +30,7 @@ import { ChatbotLanguageModelEntity } from "./LanguageModel";
 //    than a server class plus a client interface to widen.
 
 /** Signum's ChatMessageRole. */
-export enum ChatMessageRoleEnum {
+export enum ChatMessageRole {
     /** Prompts. */
     System,
     /** The user's question. */
@@ -42,7 +42,7 @@ export enum ChatMessageRoleEnum {
 }
 
 /** Signum's UserFeedback — the thumbs up/down on an assistant answer. */
-export enum UserFeedbackEnum {
+export enum UserFeedback {
     Positive,
     Negative,
 }
@@ -83,18 +83,18 @@ export class ChatMessageEntity extends Entity {
 
     creationDate: Temporal.PlainDateTime = Clock.now;
 
-    role: ChatMessageRoleEnum;
+    role: ChatMessageRole;
 
     /** The message text — or, for a Tool row, the tool's serialized result. */
     @fieldValidation<ChatMessageEntity>(m =>
-        m.content == null && m.role !== ChatMessageRoleEnum.Assistant && m.exception == null
+        m.content == null && m.role !== ChatMessageRole.Assistant && m.exception == null
             ? ValidationMessage._0IsNotSet.niceToString(ChatMessageEntity.nicePropertyName(a => a.content))
             : null)
     @stringLengthValidator({ multiLine: true })
     content: string | null = null;
 
     @fieldValidation<ChatMessageEntity>(m =>
-        m.reasoningContent != null && m.role !== ChatMessageRoleEnum.Assistant
+        m.reasoningContent != null && m.role !== ChatMessageRole.Assistant
             ? ValidationMessage._0ShouldBeNull.niceToString(ChatMessageEntity.nicePropertyName(a => a.reasoningContent))
             : null)
     @stringLengthValidator({ multiLine: true })
@@ -105,14 +105,14 @@ export class ChatMessageEntity extends Entity {
 
     /** Set on a Tool row: which call this is the answer to. */
     @fieldValidation<ChatMessageEntity>(m =>
-        m.toolCallID != null && m.role !== ChatMessageRoleEnum.Tool
+        m.toolCallID != null && m.role !== ChatMessageRole.Tool
             ? ValidationMessage._0ShouldBeNull.niceToString(ChatMessageEntity.nicePropertyName(a => a.toolCallID))
             : null)
     @stringLengthValidator({ max: 100 })
     toolCallID: string | null = null;
 
     @fieldValidation<ChatMessageEntity>(m =>
-        m.toolID != null && m.role !== ChatMessageRoleEnum.Tool
+        m.toolID != null && m.role !== ChatMessageRole.Tool
             ? ValidationMessage._0ShouldBeNull.niceToString(ChatMessageEntity.nicePropertyName(a => a.toolID))
             : null)
     @stringLengthValidator({ max: 100 })
@@ -130,20 +130,20 @@ export class ChatMessageEntity extends Entity {
     duration: Temporal.Duration | null = null;
 
     @fieldValidation<ChatMessageEntity>(m =>
-        m.userFeedback != null && m.role !== ChatMessageRoleEnum.Assistant
+        m.userFeedback != null && m.role !== ChatMessageRole.Assistant
             ? ValidationMessage._0ShouldBeNull.niceToString(ChatMessageEntity.nicePropertyName(a => a.userFeedback))
             : null)
-    userFeedback: UserFeedbackEnum | null = null;
+    userFeedback: UserFeedback | null = null;
 
     @fieldValidation<ChatMessageEntity>(m =>
-        m.userFeedbackMessage != null && m.userFeedback !== UserFeedbackEnum.Negative
+        m.userFeedbackMessage != null && m.userFeedback !== UserFeedback.Negative
             ? ValidationMessage._0ShouldBeNull.niceToString(ChatMessageEntity.nicePropertyName(a => a.userFeedbackMessage))
             : null)
     @stringLengthValidator({ max: 1000, multiLine: true })
     userFeedbackMessage: string | null = null;
 
     toString(): string {
-        return `${ChatMessageRoleEnum[this.role]} ${this.id ?? "New"}`;
+        return `${ChatMessageRole[this.role]} ${this.id ?? "New"}`;
     }
 }
 

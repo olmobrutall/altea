@@ -1,5 +1,5 @@
 import { Lite } from "@altea/altea/data/lite";
-import type { FilterType } from "@altea/altea/data/dynamicQueries";
+import type { FilterTypeKeys } from "@altea/altea/data/dynamicQueries";
 
 // The value↔string half of Signum's FilterValueConverter (the C# server converter), as ISOMORPHIC code:
 // the SearchControl editors need it on the client and QueryFilterUtils needs it on the server, so it lives
@@ -12,7 +12,7 @@ import type { FilterType } from "@altea/altea/data/dynamicQueries";
 // [CurrentEntity] / [CurrentUser] special expressions — those pass through unchanged as raw strings.
 
 // Parse a stored string into the typed filter value for the given FilterType.
-export function parseFilterValue(str: string | null | undefined, filterType: FilterType | undefined): unknown {
+export function parseFilterValue(str: string | null | undefined, filterType: FilterTypeKeys | undefined): unknown {
     if (str == null || str === "")
         return undefined;
 
@@ -30,7 +30,7 @@ export function parseFilterValue(str: string | null | undefined, filterType: Fil
 }
 
 // Stringify a typed filter value back to its stored form for the given FilterType.
-export function stringifyFilterValue(value: unknown, filterType: FilterType | undefined): string | null {
+export function stringifyFilterValue(value: unknown, filterType: FilterTypeKeys | undefined): string | null {
     if (value == null || value === "")
         return null;
 

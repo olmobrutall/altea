@@ -1,6 +1,6 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
 import { UserAssetServer } from "@altea/altea-user-assets/server/UserAssetServer.server";
-import type { ToolbarLocation } from "../data/Toolbar";
+import type { ToolbarLocationKeys } from "../data/Toolbar";
 import type { ToolbarResponse } from "../data/ToolbarResponse";
 import { ToolbarLogic } from "./ToolbarLogic.server";
 
@@ -23,7 +23,7 @@ export namespace ToolbarServer {
 
         ws.get("/api/toolbar/current/:location",
             {
-                params: CustomType<{ location: ToolbarLocation }>(),
+                params: CustomType<{ location: ToolbarLocationKeys }>(),
                 res: CustomType<ToolbarResponse | null>(),
             },
             async (req, res) => {

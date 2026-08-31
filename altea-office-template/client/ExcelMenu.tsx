@@ -5,7 +5,7 @@ import SelectorModal from "@altea/altea/client/SelectorModal";
 import "@altea/altea/client/AppContext"; // String.prototype.formatHtml
 import type SearchControlLoaded from "@altea/altea/client/SearchControl/SearchControlLoaded";
 import { SearchMessage } from "@altea/altea/data/uiMessages";
-import type { PaginationMode } from "@altea/altea/client/FindOptions";
+import type { PaginationModeKeys } from "@altea/altea/client/FindOptions";
 import type { QueryRequest } from "@altea/altea/data/dynamicQuery/queryRequest";
 import { ExcelMessage, ImportFromExcelMessage } from "../data/Excel";
 import { ExcelClient } from "./ExcelClient";
@@ -88,7 +88,7 @@ export async function selectPagination(sc: SearchControlLoaded): Promise<QueryRe
         !(request.pagination.mode === "Paginate" && (rt == null || rt.totalElements! > rt.rows.length)))
         return request;
 
-    const pm = await SelectorModal.chooseElement<PaginationMode>([request.pagination.mode, "All"], {
+    const pm = await SelectorModal.chooseElement<PaginationModeKeys>([request.pagination.mode, "All"], {
         title: ExcelMessage.ExportToExcel.niceToString(),
         message: ExcelMessage.WhatDoYouWantToExport.niceToString(),
         buttonDisplay: a => <span>

@@ -8,7 +8,7 @@ import { ExceptionEntity } from "@altea/altea/data/exception";
 import type { Lite } from "@altea/altea/data/lite";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 import {
-    ChatbotMessage, ChatMessageEntity, ChatMessageEntity_ToolCall, ChatMessageRoleEnum, ChatSessionEntity,
+    ChatbotMessage, ChatMessageEntity, ChatMessageEntity_ToolCall, ChatMessageRole, ChatSessionEntity,
 } from "../data/ChatSession";
 import type { ChatbotUICommand } from "../data/ChatbotProtocol";
 import { ChatbotClient } from "./ChatbotClient";
@@ -45,7 +45,7 @@ function getRecoverState(messages: MessageCount[]): RecoverKind | null {
     if (last == undefined)
         return null;
 
-    if (last.role === ChatMessageRoleEnum.Assistant) {
+    if (last.role === ChatMessageRole.Assistant) {
         const pending = last.toolCalls.find(tc => tc._response == null);
         if (pending == undefined)
             return null; // every tool call has a response — the session is complete
@@ -60,7 +60,7 @@ function getRecoverState(messages: MessageCount[]): RecoverKind | null {
         return { kind: "tool", toolCall: pending };
     }
 
-    if (last.role === ChatMessageRoleEnum.User || last.role === ChatMessageRoleEnum.Tool)
+    if (last.role === ChatMessageRole.User || last.role === ChatMessageRole.Tool)
         return { kind: "continue" };
 
     return null;
@@ -235,7 +235,7 @@ export default function ChatbotModal(p: { onClose: () => void }): React.ReactEle
 
                         case "QuestionId": {
                             const question = ChatMessageEntity.create({
-                                role: ChatMessageRoleEnum.User,
+                                role: ChatMessageRole.User,
                                 chatSession: currentSessionRef.current!,
                                 content: questionRef.current,
                             });
@@ -248,25 +248,25 @@ export default function ChatbotModal(p: { onClose: () => void }): React.ReactEle
 
                         case "Tool": {
                             const [toolId, callId] = splitOnce(args!, "/");
-                            setAnswer(ChatMessageRoleEnum.Tool, toolId, callId);
+                            setAnswer(ChatMessageRole.Tool, toolId, callId);
                             break;
                         }
 
                         case "System":
-                            setAnswer(ChatMessageRoleEnum.System);
+                            setAnswer(ChatMessageRole.System);
                             break;
 
                         case "AssistantStarted":
-                            if (!answerRef.current) setAnswer(ChatMessageRoleEnum.Assistant);
+                            if (!answerRef.current) setAnswer(ChatMessageRole.Assistant);
                             break;
 
                         case "AssistantAnswer":
-                            if (!answerRef.current) setAnswer(ChatMessageRoleEnum.Assistant);
+                            if (!answerRef.current) setAnswer(ChatMessageRole.Assistant);
                             assistantChunkTargetRef.current = "content";
                             break;
 
                         case "AssistantReasoning":
-                            if (!answerRef.current) setAnswer(ChatMessageRoleEnum.Assistant);
+                            if (!answerRef.current) setAnswer(ChatMessageRole.Assistant);
                             assistantChunkTargetRef.current = "reasoning";
                             break;
 
@@ -372,7 +372,7 @@ export default function ChatbotModal(p: { onClose: () => void }): React.ReactEle
         }
     }
 
-    function setAnswer(role: ChatMessageRoleEnum, toolId?: string, callId?: string): void {
+    function setAnswer(role: ChatMessageRole, toolId?: string, callId?: string): void {
         answerRef.current = ChatMessageEntity.create({
             toolID: toolId ?? null,
             toolCallID: callId ?? null,
@@ -459,7 +459,7 @@ export default function ChatbotModal(p: { onClose: () => void }): React.ReactEle
 /** Signum's addMessage — a Tool row is FOLDED INTO the call it answers instead of listed on its own. */
 function addMessage(list: MessageCount[], msg: ChatMessageEntity): void {
     const pair = msg.toolCallID
-        ? [...list].reverse().find(a => a.msg.role === ChatMessageRoleEnum.Assistant
+        ? [...list].reverse().find(a => a.msg.role === ChatMessageRole.Assistant
             && a.msg.toolCalls.some(tc => tc.callId === msg.toolCallID))
         : undefined;
 

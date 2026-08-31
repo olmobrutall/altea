@@ -5,8 +5,8 @@
 
 import type { Entity, BaseEntity, MixinEntity, Type } from '../data/entity';
 import type { Lite } from '../data/lite';
-import type { FilterOperation } from '../data/dynamicQueries';
-import type { OrderType, FilterGroupOperation } from '../data/dynamicQueries';
+import type { FilterOperationKeys } from '../data/dynamicQueries';
+import type { OrderTypeKeys, FilterGroupOperationKeys } from '../data/dynamicQueries';
 import { getLambdaMembers } from './binding';
 import { getTypeName } from './Reflection';
 import type { Quoted } from 'quote-transformer/quoted';
@@ -99,13 +99,13 @@ export class QueryTokenString<T> {
   /** Builds a filter condition option on this token. The value type depends on the operation. */
   filter(operation: "IsIn" | "IsNotIn", value: FilterValue<T>[] | null | undefined, options?: ExtraFilterConditionOptions): FilterConditionOption;
   filter(operation: "Between" | "BetweenNoEnd", value: [FilterValue<T>, FilterValue<T>], options?: ExtraFilterConditionOptions): FilterConditionOption;
-  filter(operation: FilterOperation, value: FilterValue<T>, options?: ExtraFilterConditionOptions): FilterConditionOption;
-  filter(operation: FilterOperation, value: any, options?: ExtraFilterConditionOptions): FilterConditionOption {
+  filter(operation: FilterOperationKeys, value: FilterValue<T>, options?: ExtraFilterConditionOptions): FilterConditionOption;
+  filter(operation: FilterOperationKeys, value: any, options?: ExtraFilterConditionOptions): FilterConditionOption {
     return { token: this, operation, value, ...options };
   }
 
   /** Builds an order option on this token. */
-  order(orderType: OrderType): OrderOption {
+  order(orderType: OrderTypeKeys): OrderOption {
     return { token: this, orderType };
   }
 
@@ -122,7 +122,7 @@ export class QueryTokenString<T> {
    * Builds a filter group anchored on this token; the inner filters are scoped to this token's value
    * through the `t` factory (typically used after `.any()` / `.all()` / `.element()`).
    */
-  filterGroup(groupOperation: FilterGroupOperation, options: ExtraFilterGroupOptions, selector: (t: TokenFunction<T>) => (FilterOption | null | undefined)[]): FilterGroupOption {
+  filterGroup(groupOperation: FilterGroupOperationKeys, options: ExtraFilterGroupOptions, selector: (t: TokenFunction<T>) => (FilterOption | null | undefined)[]): FilterGroupOption {
     return {
       token: this,
       groupOperation,
@@ -164,6 +164,6 @@ export function createTokenFunction<T>(base: QueryTokenString<any>): TokenFuncti
 }
 
 /** Builds a root filter group (AND / OR of the given filters), for use in `filterOptions`. */
-export function filterGroup(groupOperation: FilterGroupOperation, options: ExtraFilterGroupOptions, filters: (FilterOption | null | undefined)[]): FilterGroupOption {
+export function filterGroup(groupOperation: FilterGroupOperationKeys, options: ExtraFilterGroupOptions, filters: (FilterOption | null | undefined)[]): FilterGroupOption {
   return { groupOperation, filters, ...options };
 }

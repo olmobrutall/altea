@@ -10,7 +10,7 @@ import { useAPI } from "@altea/altea/client/Hooks";
 import { ToolbarConfig } from "@altea/altea-toolbar/client/ToolbarConfig";
 import { SearchToolbarCount, ToolbarCount } from "@altea/altea-toolbar/client/QueryToolbarConfig";
 import type { ToolbarResponse } from "@altea/altea-toolbar/data/ToolbarResponse";
-import type { ShowCount } from "@altea/altea-toolbar/data/Toolbar";
+import type { ShowCountKeys } from "@altea/altea-toolbar/data/Toolbar";
 import { UserQueryEntity } from "../data/UserQuery";
 import { UserQueriesClient } from "./UserQueriesClient";
 
@@ -93,7 +93,7 @@ interface CountUserQueryIconProps {
     entity: Lite<Entity> | null;
     color?: string;
     autoRefreshPeriod?: number;
-    showCount: ShowCount;
+    showCount: ShowCountKeys;
 }
 
 export function SearchUserQueryCount(p: CountUserQueryIconProps): React.JSX.Element {

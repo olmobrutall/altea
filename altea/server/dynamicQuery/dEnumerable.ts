@@ -6,7 +6,7 @@ import {
 } from "../linq/expressions";
 import { BuildExpressionContext, ExpressionBox } from "./tokenExpressions";
 import type { QueryToken } from "../../data/dynamicQuery/tokens";
-import { Filter, Order, Column, OrderType, Pagination } from "./requests";
+import { Filter, Order, Column, OrderTypeKeys, Pagination } from "./requests";
 import { ResultColumn, ResultTable } from "./resultTable";
 
 // Port of Signum's `DEnumerable<T>` / `DEnumerableCount<T>` (DynamicQuery/DQueryable.cs): the
@@ -57,7 +57,7 @@ export class DEnumerable {
             for (let i = 0; i < orders.length; i++) {
                 const c = compare(a.keys[i], b.keys[i]);
                 if (c !== 0)
-                    return orders[i].orderType === OrderType.Descending ? -c : c;
+                    return orders[i].orderType === OrderTypeKeys.Descending ? -c : c;
             }
             return 0;
         });

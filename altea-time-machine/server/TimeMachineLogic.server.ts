@@ -3,7 +3,7 @@ import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import * as Database from "@altea/altea/server/Database";
 import { Transaction } from "@altea/altea/server/connection/transaction";
-import { SystemTime, SystemTimeJoinMode } from "@altea/altea/server/systemTime";
+import { SystemTime, SystemTimeJoinModeKeys } from "@altea/altea/server/systemTime";
 import { exploreModifiables, forwardReferences } from "@altea/altea/server/graphExplorer";
 import { DirectedGraph } from "@altea/altea/server/directedGraph";
 import { Entity, type Type, type PrimaryKey } from "@altea/altea/data/entity";
@@ -79,7 +79,7 @@ export namespace TimeMachineLogic {
 
         // Signum writes `.Max(a => a.SystemPeriod().Max)`; altea's `max` selector is typed for scalar
         // values only (a Temporal is not one), so the same thing is expressed as an ORDER BY + first.
-        const lastVersion = await SystemTime.override(new SystemTime.All(SystemTimeJoinMode.AllCompatible), () =>
+        const lastVersion = await SystemTime.override(new SystemTime.All(SystemTimeJoinModeKeys.AllCompatible), () =>
             table(type)
                 .filter(a => a.id == id)
                 .orderByDescending(a => a.systemPeriod().max)

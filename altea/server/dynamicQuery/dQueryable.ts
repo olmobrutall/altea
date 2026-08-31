@@ -10,7 +10,7 @@ import { buildTranslateResult } from "../linq/translatorBuilder";
 import { Query } from "../query";
 import { BuildExpressionContext, ExpressionBox, buildLite } from "./tokenExpressions";
 import { QueryToken, CollectionElementToken, CollectionToArrayToken, toArraySeparator, toArrayDistinct, AggregateToken } from "../../data/dynamicQuery/tokens";
-import { Filter, Order, Column, OrderType, Pagination, QueryRequest } from "./requests";
+import { Filter, Order, Column, OrderTypeKeys, Pagination, QueryRequest } from "./requests";
 import { DEnumerable, DEnumerableCount } from "./dEnumerable";
 
 // Port of Signum's `DQueryable<T>` (DynamicQuery/DQueryable.cs). A query paired with its
@@ -97,8 +97,8 @@ export class DQueryable {
         orders.forEach((o, i) => {
             const keyLambda = new LambdaExpression([this.context.parameter], o.token.buildExpression(this.context));
             const method = i === 0
-                ? (o.orderType === OrderType.Descending ? "orderByDescending" : "orderBy")
-                : (o.orderType === OrderType.Descending ? "thenByDescending" : "thenBy");
+                ? (o.orderType === OrderTypeKeys.Descending ? "orderByDescending" : "orderBy")
+                : (o.orderType === OrderTypeKeys.Descending ? "thenByDescending" : "thenBy");
             q = new CallExpression(new PropertyExpression(q, method), [keyLambda], this.query.type);
         });
         return new DQueryable(q, this.context);

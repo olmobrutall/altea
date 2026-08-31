@@ -9,7 +9,7 @@ import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import { DQueryable } from "@altea/altea/server/dynamicQuery/dQueryable";
 import { DEnumerable, DEnumerableCount } from "@altea/altea/server/dynamicQuery/dEnumerable";
 import {
-    FilterCondition, FilterOperation, Order, OrderType, Column, Pagination,
+    FilterCondition, FilterOperationKeys, Order, OrderTypeKeys, Column, Pagination,
 } from "@altea/altea/server/dynamicQuery/requests";
 import "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { AlbumEntity } from "../../data/music";
@@ -37,22 +37,22 @@ const rowsB = () => new DEnumerableCount([{ c0: "Chopin", c1: 1840 }, { c0: "Bjo
 
 describe("DEnumerable in-memory operations", () => {
     test("orderBy sorts by the token's column", () => {
-        const ordered = rowsA().orderBy([new Order(nameTok, OrderType.Ascending)]);
+        const ordered = rowsA().orderBy([new Order(nameTok, OrderTypeKeys.Ascending)]);
         assert.deepEqual(ordered.collection.map((r: any) => r.c0), ["Adele", "Brahms"]);
     });
 
     test("orderBy descending", () => {
-        const ordered = rowsA().orderBy([new Order(yearTok, OrderType.Descending)]);
+        const ordered = rowsA().orderBy([new Order(yearTok, OrderTypeKeys.Descending)]);
         assert.deepEqual(ordered.collection.map((r: any) => r.c1), [2015, 1870]);
     });
 
     test("where filters by a condition on the token", () => {
-        const filtered = rowsA().where([new FilterCondition(yearTok, FilterOperation.GreaterThan, 1990)]);
+        const filtered = rowsA().where([new FilterCondition(yearTok, FilterOperationKeys.GreaterThan, 1990)]);
         assert.deepEqual(filtered.collection.map((r: any) => r.c0), ["Adele"]);
     });
 
     test("where with a string Contains", () => {
-        const filtered = rowsA().where([new FilterCondition(nameTok, FilterOperation.StartsWith, "B")]);
+        const filtered = rowsA().where([new FilterCondition(nameTok, FilterOperationKeys.StartsWith, "B")]);
         assert.deepEqual(filtered.collection.map((r: any) => r.c0), ["Brahms"]);
     });
 
@@ -72,7 +72,7 @@ describe("Concat two sources then order + paginate (CustomersLogic pattern)", ()
 
     test("concat → orderBy → tryPaginate → ResultTable", () => {
         const combined: DEnumerable = rowsA().concat(rowsB());
-        const ordered = combined.orderBy([new Order(nameTok, OrderType.Ascending)]);
+        const ordered = combined.orderBy([new Order(nameTok, OrderTypeKeys.Ascending)]);
         const pagination = new Pagination.Paginate(2, 1);
         const page = ordered.tryPaginate(pagination);
         const rt = page.toResultTable([new Column(nameTok), new Column(yearTok)], pagination);

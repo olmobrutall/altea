@@ -13,7 +13,7 @@ import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import {
-    Column, QueryRequest, Order, FilterCondition, FilterOperation, type Filter,
+    Column, QueryRequest, Order, FilterCondition, FilterOperationKeys, type Filter,
 } from "@altea/altea/server/dynamicQuery/requests";
 import type { ResultTable } from "@altea/altea/server/dynamicQuery/resultTable";
 import { SubTokensOptionsAll, type QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
@@ -442,7 +442,7 @@ export namespace SMSLogic {
 
     function entityFilter(queryName: QueryName, entity: Entity): Filter {
         return new FilterCondition(QueryLogic.getToken(queryName, "", SubTokensOptionsAll),
-            FilterOperation.EqualTo, entity.toLite());
+            FilterOperationKeys.EqualTo, entity.toLite());
     }
 }
 

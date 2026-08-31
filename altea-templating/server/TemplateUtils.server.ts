@@ -1,7 +1,7 @@
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Decimal, Temporal } from "@altea/altea/data/basics";
-import { FilterOperation } from "@altea/altea/server/dynamicQuery/requests";
+import { FilterOperationKeys } from "@altea/altea/server/dynamicQuery/requests";
 import type { ResultColumn, ResultRow } from "@altea/altea/server/dynamicQuery/resultTable";
 import { ValueProviderBase } from "./ValueProviders.server";
 import { ConditionAnd, ConditionCompare, ConditionOr, type ConditionBase } from "./Conditions.server";
@@ -125,21 +125,21 @@ export function scapeColon(tokenOrFormat: string): string {
 }
 
 /** Signum's FilterValueConverter.ParseOperation — the `=`/`!=`/`^=`… of an @if condition. */
-export function parseOperation(operationString: string): FilterOperation {
+export function parseOperation(operationString: string): FilterOperationKeys {
     switch (operationString) {
         case "=":
-        case "==": return FilterOperation.EqualTo;
-        case "<=": return FilterOperation.LessThanOrEqual;
-        case ">=": return FilterOperation.GreaterThanOrEqual;
-        case "<": return FilterOperation.LessThan;
-        case ">": return FilterOperation.GreaterThan;
-        case "^=": return FilterOperation.StartsWith;
-        case "$=": return FilterOperation.EndsWith;
-        case "*=": return FilterOperation.Contains;
-        case "!=": return FilterOperation.DistinctTo;
-        case "!^=": return FilterOperation.NotStartsWith;
-        case "!$=": return FilterOperation.NotEndsWith;
-        case "!*=": return FilterOperation.NotContains;
+        case "==": return FilterOperationKeys.EqualTo;
+        case "<=": return FilterOperationKeys.LessThanOrEqual;
+        case ">=": return FilterOperationKeys.GreaterThanOrEqual;
+        case "<": return FilterOperationKeys.LessThan;
+        case ">": return FilterOperationKeys.GreaterThan;
+        case "^=": return FilterOperationKeys.StartsWith;
+        case "$=": return FilterOperationKeys.EndsWith;
+        case "*=": return FilterOperationKeys.Contains;
+        case "!=": return FilterOperationKeys.DistinctTo;
+        case "!^=": return FilterOperationKeys.NotStartsWith;
+        case "!$=": return FilterOperationKeys.NotEndsWith;
+        case "!*=": return FilterOperationKeys.NotContains;
         // altea divergence: `%=` / `!%=` (SQL LIKE) have no counterpart — altea's engine-side
         // FilterOperation has no Like/NotLike member. Use `*=` (Contains) instead.
         default: throw new Error(`Unexpected operation '${operationString}'`);
@@ -147,20 +147,20 @@ export function parseOperation(operationString: string): FilterOperation {
 }
 
 /** Signum's FilterValueConverter.ToStringOperation — the inverse, for round-tripping a template. */
-export function toStringOperation(operation: FilterOperation): string {
+export function toStringOperation(operation: FilterOperationKeys): string {
     switch (operation) {
-        case FilterOperation.EqualTo: return "=";
-        case FilterOperation.LessThanOrEqual: return "<=";
-        case FilterOperation.GreaterThanOrEqual: return ">=";
-        case FilterOperation.LessThan: return "<";
-        case FilterOperation.GreaterThan: return ">";
-        case FilterOperation.StartsWith: return "^=";
-        case FilterOperation.EndsWith: return "$=";
-        case FilterOperation.Contains: return "*=";
-        case FilterOperation.DistinctTo: return "!=";
-        case FilterOperation.NotStartsWith: return "!^=";
-        case FilterOperation.NotEndsWith: return "!$=";
-        case FilterOperation.NotContains: return "!*=";
+        case FilterOperationKeys.EqualTo: return "=";
+        case FilterOperationKeys.LessThanOrEqual: return "<=";
+        case FilterOperationKeys.GreaterThanOrEqual: return ">=";
+        case FilterOperationKeys.LessThan: return "<";
+        case FilterOperationKeys.GreaterThan: return ">";
+        case FilterOperationKeys.StartsWith: return "^=";
+        case FilterOperationKeys.EndsWith: return "$=";
+        case FilterOperationKeys.Contains: return "*=";
+        case FilterOperationKeys.DistinctTo: return "!=";
+        case FilterOperationKeys.NotStartsWith: return "!^=";
+        case FilterOperationKeys.NotEndsWith: return "!$=";
+        case FilterOperationKeys.NotContains: return "!*=";
         default: throw new Error(`Operation '${operation}' has no template representation`);
     }
 }
@@ -301,22 +301,22 @@ export class ScopedDictionary<V> {
 
 /** The in-memory half of Signum's `QueryUtils.GetCompareExpression(op, left, right, inMemory: true)`:
  *  evaluate one comparison without SQL. `right` is already the parsed constant. */
-export function compareInMemory(operation: FilterOperation, left: unknown, right: unknown): boolean {
+export function compareInMemory(operation: FilterOperationKeys, left: unknown, right: unknown): boolean {
     switch (operation) {
-        case FilterOperation.EqualTo: return semiStructuralEquals(left, right);
-        case FilterOperation.DistinctTo: return !semiStructuralEquals(left, right);
-        case FilterOperation.GreaterThan: return compareValues(left, right) > 0;
-        case FilterOperation.GreaterThanOrEqual: return compareValues(left, right) >= 0;
-        case FilterOperation.LessThan: return compareValues(left, right) < 0;
-        case FilterOperation.LessThanOrEqual: return compareValues(left, right) <= 0;
-        case FilterOperation.Contains: return asText(left).includes(asText(right));
-        case FilterOperation.NotContains: return !asText(left).includes(asText(right));
-        case FilterOperation.StartsWith: return asText(left).startsWith(asText(right));
-        case FilterOperation.NotStartsWith: return !asText(left).startsWith(asText(right));
-        case FilterOperation.EndsWith: return asText(left).endsWith(asText(right));
-        case FilterOperation.NotEndsWith: return !asText(left).endsWith(asText(right));
-        case FilterOperation.IsIn: return Array.isArray(right) && right.some(r => semiStructuralEquals(left, r));
-        case FilterOperation.IsNotIn: return !(Array.isArray(right) && right.some(r => semiStructuralEquals(left, r)));
+        case FilterOperationKeys.EqualTo: return semiStructuralEquals(left, right);
+        case FilterOperationKeys.DistinctTo: return !semiStructuralEquals(left, right);
+        case FilterOperationKeys.GreaterThan: return compareValues(left, right) > 0;
+        case FilterOperationKeys.GreaterThanOrEqual: return compareValues(left, right) >= 0;
+        case FilterOperationKeys.LessThan: return compareValues(left, right) < 0;
+        case FilterOperationKeys.LessThanOrEqual: return compareValues(left, right) <= 0;
+        case FilterOperationKeys.Contains: return asText(left).includes(asText(right));
+        case FilterOperationKeys.NotContains: return !asText(left).includes(asText(right));
+        case FilterOperationKeys.StartsWith: return asText(left).startsWith(asText(right));
+        case FilterOperationKeys.NotStartsWith: return !asText(left).startsWith(asText(right));
+        case FilterOperationKeys.EndsWith: return asText(left).endsWith(asText(right));
+        case FilterOperationKeys.NotEndsWith: return !asText(left).endsWith(asText(right));
+        case FilterOperationKeys.IsIn: return Array.isArray(right) && right.some(r => semiStructuralEquals(left, r));
+        case FilterOperationKeys.IsNotIn: return !(Array.isArray(right) && right.some(r => semiStructuralEquals(left, r)));
         default: throw new Error(`FilterOperation '${operation}' is not supported in a template condition`);
     }
 }

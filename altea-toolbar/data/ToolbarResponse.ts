@@ -1,6 +1,6 @@
 import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
-import type { ToolbarElementType, ShowCount } from "./Toolbar";
+import type { ToolbarElementTypeKeys, ShowCountKeys } from "./Toolbar";
 
 // The toolbar WIRE model: what `GET /api/toolbar/current/:location` and `GET /api/toolbarMenu/:menuId`
 // return — the FLATTENED, authorization-filtered, label-resolved tree the renderers draw.
@@ -25,13 +25,13 @@ export interface ToolbarResponseBase<T extends Entity = Entity> {
     /** The source element row's stable `guid` (see ToolbarElementBaseEntity.guid). Absent for the
      *  synthetic responses the builder creates (a Toolbar/ToolbarMenu header, a switcher option). */
     guid?: string;
-    type: ToolbarElementType;
+    type: ToolbarElementTypeKeys;
     label?: string;
     content?: Lite<T>;
     url?: string;
     iconName?: string;
     iconColor?: string;
-    showCount?: ShowCount;
+    showCount?: ShowCountKeys;
     autoRefreshPeriod?: number;
     openInPopup?: boolean;
     autoSelect?: boolean;

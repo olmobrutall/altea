@@ -16,9 +16,9 @@ import { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
 import type { QueryEntity } from "@altea/altea/data/queryEntity";
 import { type int, toInt } from "@altea/altea/data/basics";
-import type { FilterType } from "@altea/altea/data/dynamicQueries";
+import type { FilterTypeKeys } from "@altea/altea/data/dynamicQueries";
 import {
-    PinnedFilterActiveEnum, FilterGroupOperationEnum, FilterOperationEnum, DashboardBehaviourEnum,
+    PinnedFilterActive, FilterGroupOperation, FilterOperation, DashboardBehaviour,
 } from "@altea/altea/data/dynamicQueries";
 import { Enum } from "@altea/altea/data/enum";
 import { parseFilterValue, stringifyFilterValue } from "@altea/altea-user-assets/data/FilterValueString";
@@ -220,10 +220,10 @@ function filterOptionsParsedToChartEmbedded(filters: FilterOptionParsed[]): User
         const row = new UserChartEntity_Filter();
         row.indentation = toInt(indent);
         row.pinned = fo.pinned ? toPinnedEmbedded(fo.pinned) : null;
-        row.dashboardBehaviour = fo.dashboardBehaviour == null ? null : Enum.toValue(DashboardBehaviourEnum, fo.dashboardBehaviour);
+        row.dashboardBehaviour = fo.dashboardBehaviour == null ? null : Enum.toValue(DashboardBehaviour, fo.dashboardBehaviour);
         if (isFilterGroup(fo)) {
             row.isGroup = true;
-            row.groupOperation = fo.groupOperation == null ? null : Enum.toValue(FilterGroupOperationEnum, fo.groupOperation);
+            row.groupOperation = fo.groupOperation == null ? null : Enum.toValue(FilterGroupOperation, fo.groupOperation);
             row.token = fo.token ? toTokenEmbedded(fo.token) : null;
             row.valueString = Array.isArray(fo.value) && fo.token
                 ? fo.value.map(v => stringifyFilterValue(v, fo.token!.filterType)).join("|")
@@ -232,7 +232,7 @@ function filterOptionsParsedToChartEmbedded(filters: FilterOptionParsed[]): User
             fo.filters.forEach(f => push(f, indent + 1));
         } else {
             row.token = fo.token ? toTokenEmbedded(fo.token) : null;
-            row.operation = fo.operation == null ? null : Enum.toValue(FilterOperationEnum, fo.operation);
+            row.operation = fo.operation == null ? null : Enum.toValue(FilterOperation, fo.operation);
             row.valueString = Array.isArray(fo.value) && fo.token
                 ? fo.value.map(v => stringifyFilterValue(v, fo.token!.filterType)).join("|")
                 : stringifyFilterValue(fo.value, fo.token?.filterType);
@@ -256,7 +256,7 @@ function toPinnedEmbedded(p: PinnedFilterParsed): PinnedQueryFilterEmbedded {
     e.column = (p.column ?? null) as PinnedQueryFilterEmbedded["column"];
     e.colSpan = (p.colSpan ?? null) as PinnedQueryFilterEmbedded["colSpan"];
     e.row = (p.row ?? null) as PinnedQueryFilterEmbedded["row"];
-    e.active = Enum.toValue(PinnedFilterActiveEnum, p.active ?? "Always");
+    e.active = Enum.toValue(PinnedFilterActive, p.active ?? "Always");
     e.splitValue = p.splitValue ?? false;
     return e;
 }
@@ -307,21 +307,21 @@ function buildFilterTree(
         if (head.isGroup) {
             return {
                 token,
-                groupOperation: Enum.toName(FilterGroupOperationEnum, head.groupOperation!),
+                groupOperation: Enum.toName(FilterGroupOperation, head.groupOperation!),
                 filters: buildFilterTree(children, indent + 1, completer, subTokenOptions, entity),
                 value: parseValue(head.valueString, token?.filterType, entity),
                 frozen: false,
                 pinned: head.pinned ? toPinnedParsed(head.pinned) : undefined,
-                dashboardBehaviour: head.dashboardBehaviour == null ? undefined : Enum.toName(DashboardBehaviourEnum, head.dashboardBehaviour),
+                dashboardBehaviour: head.dashboardBehaviour == null ? undefined : Enum.toName(DashboardBehaviour, head.dashboardBehaviour),
             } as FilterGroupOptionParsed;
         }
         return {
             token,
-            operation: head.operation == null ? "EqualTo" : Enum.toName(FilterOperationEnum, head.operation),
+            operation: head.operation == null ? "EqualTo" : Enum.toName(FilterOperation, head.operation),
             value: parseValue(head.valueString, token?.filterType, entity),
             frozen: false,
             pinned: head.pinned ? toPinnedParsed(head.pinned) : undefined,
-            dashboardBehaviour: head.dashboardBehaviour == null ? undefined : Enum.toName(DashboardBehaviourEnum, head.dashboardBehaviour),
+            dashboardBehaviour: head.dashboardBehaviour == null ? undefined : Enum.toName(DashboardBehaviour, head.dashboardBehaviour),
         } as FilterConditionOptionParsed;
     });
 }
@@ -329,7 +329,7 @@ function buildFilterTree(
 // Recover a filter value from its stored string form (altea has no server value converter here). The special
 // expressions "[CurrentEntity]" / "[CurrentUser]" resolve to the entity the UserChart is scoped to and the
 // logged-in user; everything else goes through FilterValueString.parseFilterValue by filterType.
-function parseValue(valueString: string | null, filterType: FilterType | undefined, entity: Lite<Entity> | undefined): unknown {
+function parseValue(valueString: string | null, filterType: FilterTypeKeys | undefined, entity: Lite<Entity> | undefined): unknown {
     if (valueString == null) return undefined;
     if (valueString === "[CurrentEntity]") return entity;
     if (valueString === "[CurrentUser]") return AppContext.currentUser?.toLite();
@@ -342,7 +342,7 @@ function toPinnedParsed(p: PinnedQueryFilterEmbedded): PinnedFilterParsed {
         column: p.column ?? undefined,
         colSpan: p.colSpan ?? undefined,
         row: p.row ?? undefined,
-        active: Enum.toName(PinnedFilterActiveEnum, p.active),
+        active: Enum.toName(PinnedFilterActive, p.active),
         splitValue: p.splitValue || undefined,
     };
 }

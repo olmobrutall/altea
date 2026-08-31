@@ -1,6 +1,6 @@
 import {
-    Filter, FilterCondition, FilterGroup, FilterGroupOperation, FilterOperation,
-    Order, OrderType, Column, Pagination,
+    Filter, FilterCondition, FilterGroup, FilterGroupOperationKeys, FilterOperationKeys,
+    Order, OrderTypeKeys, Column, Pagination,
 } from "@altea/altea/server/dynamicQuery/requests";
 import type { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { Temporal } from "@altea/altea/data/basics";
@@ -39,7 +39,7 @@ export class MicrosoftGraphQueryConverter {
         if (orders.length === 0)
             return null;
         return orders.map(o => this.toGraphField(o.token, GraphFieldUsage.Order)
-            + " " + (o.orderType === OrderType.Ascending ? "asc" : "desc"));
+            + " " + (o.orderType === OrderTypeKeys.Ascending ? "asc" : "desc"));
     }
 
     /**
@@ -82,30 +82,30 @@ export class MicrosoftGraphQueryConverter {
 
     /** Signum's GetFilters — the `$filter` half (Contains conditions are dropped; see the header). */
     getFilters(filters: Filter[]): string | null {
-        return combined(filters.map(f => this.toFilter(f)), FilterGroupOperation.And);
+        return combined(filters.map(f => this.toFilter(f)), FilterGroupOperationKeys.And);
     }
 
     /** Signum's ToFilter. */
     toFilter(f: Filter): string | null {
         if (f instanceof FilterCondition) {
-            if (f.operation === FilterOperation.Contains)
+            if (f.operation === FilterOperationKeys.Contains)
                 return null; // handled by $search
 
             const field = this.toGraphField(f.token, GraphFieldUsage.Filter);
 
             switch (f.operation) {
-                case FilterOperation.IsIn:
+                case FilterOperationKeys.IsIn:
                     return "(" + (f.value as unknown[]).map(a => `${field} eq ${this.toStringValue(a)}`).join(" OR ") + ")";
-                case FilterOperation.IsNotIn:
+                case FilterOperationKeys.IsNotIn:
                     return "not (" + (f.value as unknown[]).map(a => `${field} eq ${this.toStringValue(a)}`).join(" OR ") + ")";
                 // Signum rejects Like / NotLike here; altea has no Like operation but does have the
                 // full-text ones, which Graph cannot express either — so they are what gets rejected.
-                case FilterOperation.FreeText:
-                case FilterOperation.ComplexCondition:
-                case FilterOperation.TsQuery:
-                case FilterOperation.TsQuery_Plain:
-                case FilterOperation.TsQuery_Phrase:
-                case FilterOperation.TsQuery_WebSearch:
+                case FilterOperationKeys.FreeText:
+                case FilterOperationKeys.ComplexCondition:
+                case FilterOperationKeys.TsQuery:
+                case FilterOperationKeys.TsQuery_Plain:
+                case FilterOperationKeys.TsQuery_Phrase:
+                case FilterOperationKeys.TsQuery_WebSearch:
                     throw new Error(AzureADMessage._0IsNotImplementedInMicrosoftGraph.niceToString(f.operation));
                 default:
                     break;
@@ -121,33 +121,33 @@ export class MicrosoftGraphQueryConverter {
     }
 
     /** Signum's BuildCondition. */
-    buildCondition(field: string, operation: FilterOperation, value: string): string | null {
+    buildCondition(field: string, operation: FilterOperationKeys, value: string): string | null {
         switch (operation) {
-            case FilterOperation.EqualTo: return `${field} eq ${value}`;
-            case FilterOperation.DistinctTo: return `${field} ne ${value}`;
-            case FilterOperation.GreaterThan: return `${field} gt ${value}`;
-            case FilterOperation.GreaterThanOrEqual: return `${field} ge ${value}`;
-            case FilterOperation.LessThan: return `${field} lt ${value}`;
-            case FilterOperation.LessThanOrEqual: return `${field} le ${value}`;
-            case FilterOperation.Contains: return null;
-            case FilterOperation.NotContains: return `NOT (${field}:${value})`;
-            case FilterOperation.StartsWith: return `startswith(${field},${value})`;
-            case FilterOperation.EndsWith: return `endswith(${field},${value})`;
-            case FilterOperation.NotStartsWith: return `not startswith(${field},${value})`;
-            case FilterOperation.NotEndsWith: return `not endswith(${field},${value})`;
+            case FilterOperationKeys.EqualTo: return `${field} eq ${value}`;
+            case FilterOperationKeys.DistinctTo: return `${field} ne ${value}`;
+            case FilterOperationKeys.GreaterThan: return `${field} gt ${value}`;
+            case FilterOperationKeys.GreaterThanOrEqual: return `${field} ge ${value}`;
+            case FilterOperationKeys.LessThan: return `${field} lt ${value}`;
+            case FilterOperationKeys.LessThanOrEqual: return `${field} le ${value}`;
+            case FilterOperationKeys.Contains: return null;
+            case FilterOperationKeys.NotContains: return `NOT (${field}:${value})`;
+            case FilterOperationKeys.StartsWith: return `startswith(${field},${value})`;
+            case FilterOperationKeys.EndsWith: return `endswith(${field},${value})`;
+            case FilterOperationKeys.NotStartsWith: return `not startswith(${field},${value})`;
+            case FilterOperationKeys.NotEndsWith: return `not endswith(${field},${value})`;
             default: throw new Error(`Unexpected operation ${String(operation)}`);
         }
     }
 
     /** Signum's GetSearch — the `$search` half (only Contains conditions). */
     getSearch(filters: Filter[]): string | null {
-        return combined(filters.map(f => this.toSearch(f)), FilterGroupOperation.And);
+        return combined(filters.map(f => this.toSearch(f)), FilterGroupOperationKeys.And);
     }
 
     /** Signum's ToSearch. */
     toSearch(f: Filter): string | null {
         if (f instanceof FilterCondition) {
-            return f.operation === FilterOperation.Contains
+            return f.operation === FilterOperationKeys.Contains
                 ? `"${this.toGraphField(f.token, GraphFieldUsage.Search)}:${String(f.value ?? "").replace(/"/g, '\\"')}"`
                 : null;
         }
@@ -186,13 +186,13 @@ export class MicrosoftGraphQueryConverter {
  * lives in `$search` instead); OR cannot, because half a group in `$filter` and half in `$search` is not
  * expressible — so a null inside an OR is an error.
  */
-function combined(values: (string | null)[], groupOperation: FilterGroupOperation): string | null {
+function combined(values: (string | null)[], groupOperation: FilterGroupOperationKeys): string | null {
     const clean = values.filter((v): v is string => v != null);
 
     if (clean.length === 0)
         return null;
 
-    if (groupOperation === FilterGroupOperation.And)
+    if (groupOperation === FilterGroupOperationKeys.And)
         return clean.join(" AND ");
 
     if (clean.length !== values.length)

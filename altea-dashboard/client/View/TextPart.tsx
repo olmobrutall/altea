@@ -2,7 +2,7 @@ import * as React from "react";
 import Markdown from "react-markdown";
 import { Enum } from "@altea/altea/data/enum";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
-import { TextPartEntity, TextPartTypeEnum } from "../../data/Parts";
+import { TextPartEntity, TextPartType } from "../../data/Parts";
 import { DashboardClient, type PanelPartContentProps } from "../DashboardClient";
 import HtmlViewer from "./HtmlViewer";
 
@@ -23,7 +23,7 @@ export default function TextPart(p: PanelPartContentProps<TextPartEntity>): Reac
         }
     }, []);
 
-    const type = Enum.toName(TextPartTypeEnum, p.content.textPartType);
+    const type = Enum.toName(TextPartType, p.content.textPartType);
 
     return (
         <div>

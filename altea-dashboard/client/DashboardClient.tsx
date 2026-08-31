@@ -28,7 +28,7 @@ import { Enum } from "@altea/altea/data/enum";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
 import {
     DashboardEntity, DashboardLite, DashboardMessage, DashboardOperation, DashboardPermission,
-    DashboardVariableMessage, DashboardEmbedededInEntityEnum, DashboardEntity_Part, type IPartEntity,
+    DashboardVariableMessage, DashboardEmbedededInEntity, DashboardEntity_Part, type IPartEntity,
 } from "../data/Dashboard";
 import {
     TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity, CustomPartEntity,
@@ -402,7 +402,7 @@ function embeddedDashboardsCached(typeName: string): Promise<DashboardEntity[]> 
  *  ordinals, so the widget position comes from the member NAME. */
 export function embeddedPosition(dashboard: DashboardEntity): EmbeddedWidgetPosition {
     const name = dashboard.embeddedInEntity == null ? "Bottom"
-        : Enum.toName(DashboardEmbedededInEntityEnum, dashboard.embeddedInEntity);
+        : Enum.toName(DashboardEmbedededInEntity, dashboard.embeddedInEntity);
     return name === "None" ? "Bottom" : name as EmbeddedWidgetPosition;
 }
 

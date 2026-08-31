@@ -14,16 +14,16 @@ import { TextTemplateParameters } from "@altea/altea-templating/server/TextTempl
 import { FilePathEmbedded } from "@altea/altea-files/data/Files";
 import { QueryFilterUtils } from "@altea/altea-user-assets/server/QueryFilterUtils.server";
 import {
-    EmailAddressSourceEnum, EmailMessageFormatEnum, EmailTemplateEntity, EmailTemplateEntity_Message,
-    EmailTemplateEntity_Recipient, WhenManyFromBehaviourEnum, WhenManyRecipientsBehaviourEnum,
-    WhenNoneFromBehaviourEnum, WhenNoneRecipientsBehaviourEnum,
+    EmailAddressSource, EmailMessageFormat, EmailTemplateEntity, EmailTemplateEntity_Message,
+    EmailTemplateEntity_Recipient, WhenManyFromBehaviour, WhenManyRecipientsBehaviour,
+    WhenNoneFromBehaviour, WhenNoneRecipientsBehaviour,
 } from "../data/EmailTemplate";
 import {
-    EmailFromEmbedded, EmailMessageMessage, EmailRecipientKindEnum,
+    EmailFromEmbedded, EmailMessageMessage, EmailRecipientKind,
     type EmailOwnerData, type EmailOwnerRecipientData,
 } from "../data/Email";
 import {
-    EmailMessageEntity, EmailMessageEntity_Attachment, EmailMessageEntity_Recipient, EmailMessageStateEnum,
+    EmailMessageEntity, EmailMessageEntity_Attachment, EmailMessageEntity_Recipient, EmailMessageState,
 } from "../data/EmailMessage";
 import type { EmailSenderConfigurationEntity } from "../data/EmailSenderConfiguration";
 import { EmailLogic } from "./EmailLogic.server";
@@ -80,11 +80,11 @@ export class EmailMessageBuilder {
             const config = EmailLogic.configuration();
             const ci = this.culture
                 ?? EmailTemplateLogic.getCultureInfo?.(this.entity ?? this.model?.untypedEntity ?? null)
-                ?? recipients.find(a => a.kind === EmailRecipientKindEnum.To)?.ownerData.culture
+                ?? recipients.find(a => a.kind === EmailRecipientKind.To)?.ownerData.culture
                 ?? config.defaultCulture;
 
-            const isHtml = this.template.messageFormat === EmailMessageFormatEnum.HtmlComplex
-                || this.template.messageFormat === EmailMessageFormatEnum.HtmlSimple;
+            const isHtml = this.template.messageFormat === EmailMessageFormat.HtmlComplex
+                || this.template.messageFormat === EmailMessageFormat.HtmlSimple;
 
             const message = this.template.getCultureMessage(ci) ?? this.template.getCultureMessage(config.defaultCulture);
             if (message == null)
@@ -102,7 +102,7 @@ export class EmailMessageBuilder {
                 isBodyHtml: isHtml,
                 editableMessage: this.template.editableMessage,
                 template: this.template.toLite(),
-                state: EmailMessageStateEnum.Created,
+                state: EmailMessageState.Created,
                 // Signum's `Body = new BigStringEmbedded()`: the embedded has to EXIST before the rendered
                 // text is assigned into it below (`email.body.text = …`).
                 body: BigStringEmbedded.create({}),
@@ -184,7 +184,7 @@ export class EmailMessageBuilder {
 
         if (from != null) {
             switch (from.addressSource) {
-                case EmailAddressSourceEnum.QueryToken: {
+                case EmailAddressSource.QueryToken: {
                     const qc = this.queryContext!;
                     const column = qc.column(this.token(from.token!.tokenString));
                     const groups = await this.groupOwners(qc.currentRows, column);
@@ -192,27 +192,27 @@ export class EmailMessageBuilder {
 
                     if (withEmail.length === 0) {
                         switch (from.whenNone) {
-                            case WhenNoneFromBehaviourEnum.ThrowException:
+                            case WhenNoneFromBehaviour.ThrowException:
                                 throw new Error(groups.length === 0
                                     ? `Impossible to send ${this.template.name} because the From token (${from.token!.tokenString}) returned no result`
                                     : `Impossible to send ${this.template.name} because the From token (${from.token!.tokenString}) returned results without Email addresses`);
-                            case WhenNoneFromBehaviourEnum.NoMessage:
+                            case WhenNoneFromBehaviour.NoMessage:
                                 return [];
-                            case WhenNoneFromBehaviourEnum.DefaultFrom:
+                            case WhenNoneFromBehaviour.DefaultFrom:
                                 return [this.defaultFrom()];
                         }
                     }
 
-                    const selected = from.whenMany === WhenManyFromBehaviourEnum.FistResult ? withEmail.slice(0, 1) : withEmail;
+                    const selected = from.whenMany === WhenManyFromBehaviour.FistResult ? withEmail.slice(0, 1) : withEmail;
                     return selected.map(g => EmailFromEmbedded.fromOwnerData(g.ownerData));
                 }
-                case EmailAddressSourceEnum.HardcodedAddress:
+                case EmailAddressSource.HardcodedAddress:
                     return [EmailFromEmbedded.create({
                         emailAddress: from.emailAddress!,
                         displayName: from.displayName,
                         azureUserId: from.azureUserId,
                     })];
-                case EmailAddressSourceEnum.CurrentUser: {
+                case EmailAddressSource.CurrentUser: {
                     const user = await EmailLogic.currentUserOwnerData();
                     return [EmailFromEmbedded.fromOwnerData(user)];
                 }
@@ -237,15 +237,15 @@ export class EmailMessageBuilder {
 
     /** Signum's GetRecipients — the cross product of every token recipient, plus the fixed ones. */
     private async getRecipients(): Promise<EmailOwnerRecipientData[][]> {
-        const tokenRecipients = this.template.recipients.filter(a => a.addressSource === EmailAddressSourceEnum.QueryToken);
+        const tokenRecipients = this.template.recipients.filter(a => a.addressSource === EmailAddressSource.QueryToken);
         const combinations = await this.tokenRecipientsCrossProduct(tokenRecipients, 0);
 
         const result: EmailOwnerRecipientData[][] = [];
         for (const combination of combinations) {
             const recipients = [...combination];
 
-            for (const tr of this.template.recipients.filter(a => a.addressSource !== EmailAddressSourceEnum.QueryToken)) {
-                const ownerData = tr.addressSource === EmailAddressSourceEnum.CurrentUser
+            for (const tr of this.template.recipients.filter(a => a.addressSource !== EmailAddressSource.QueryToken)) {
+                const ownerData = tr.addressSource === EmailAddressSource.CurrentUser
                     ? await EmailLogic.currentUserOwnerData()
                     : { owner: null, email: tr.emailAddress!, displayName: tr.displayName, culture: null, externalId: null };
 
@@ -289,18 +289,18 @@ export class EmailMessageBuilder {
 
         if (withEmail.length === 0) {
             switch (tr.whenNone) {
-                case WhenNoneRecipientsBehaviourEnum.ThrowException:
-                    throw new Error(`Impossible to send ${this.template.name} because the ${EmailRecipientKindEnum[tr.kind]} token (${tr.token!.tokenString}) returned no result with an Email address`);
-                case WhenNoneRecipientsBehaviourEnum.NoMessage:
+                case WhenNoneRecipientsBehaviour.ThrowException:
+                    throw new Error(`Impossible to send ${this.template.name} because the ${EmailRecipientKind[tr.kind]} token (${tr.token!.tokenString}) returned no result with an Email address`);
+                case WhenNoneRecipientsBehaviour.NoMessage:
                     return [];
-                case WhenNoneRecipientsBehaviourEnum.NoRecipients:
+                case WhenNoneRecipientsBehaviour.NoRecipients:
                     return await this.tokenRecipientsCrossProduct(tokenRecipients, pos + 1);
             }
         }
 
         const result: EmailOwnerRecipientData[][] = [];
 
-        if (tr.whenMany === WhenManyRecipientsBehaviourEnum.SplitMessages) {
+        if (tr.whenMany === WhenManyRecipientsBehaviour.SplitMessages) {
             // One message PER addressee: each group narrows the rows the rest of the template sees.
             for (const group of withEmail) {
                 using _ = qc.overrideRows(group.rows);

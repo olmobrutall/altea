@@ -14,8 +14,8 @@ import { isFilterGroup } from "@altea/altea/client/FindOptions";
 import { Enum } from "@altea/altea/data/enum";
 import { Temporal } from "@altea/altea/data/basics";
 import {
-    RefreshModeEnum, ColumnOptionsModeEnum, PaginationModeEnum, CombineRowsEnum, OrderTypeEnum,
-    SystemTimeModeEnum, SystemTimeJoinModeEnum, TimeSeriesUnitEnum,
+    RefreshMode, ColumnOptionsMode, PaginationMode, CombineRows, OrderType,
+    SystemTimeMode, SystemTimeJoinMode, TimeSeriesUnit,
 } from "@altea/altea/data/dynamicQueries";
 import type { SystemTime } from "@altea/altea/data/dynamicQuery/queryRequest";
 import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
@@ -71,7 +71,7 @@ export default function UserQueryMenu(p: UserQueryMenuProps): React.JSX.Element 
             const sc = p.searchControl;
             UserQueriesClient.Converter.applyUserQuery(sc.props.findOptions, userQuery, sc.props.extraOptions?.entity, sc.props.defaultIncudeDefaultFilters)
                 .then(nfo => {
-                    sc.setState({ refreshMode: Enum.toName(RefreshModeEnum, userQuery.refreshMode) });
+                    sc.setState({ refreshMode: Enum.toName(RefreshMode, userQuery.refreshMode) });
                     void sc.handleChangeFiltermode(nfo.filterOptions.length == 0 || anyPinned(nfo.filterOptions) ? "Simple" : "Advanced", false, true);
                     setCurrentUserQuery(uq);
                     if (sc.props.findOptions.pagination.mode != "All")
@@ -122,13 +122,13 @@ export default function UserQueryMenu(p: UserQueryMenuProps): React.JSX.Element 
         // The rows this owner holds are its OWN @part type (the shared editor is generic — see FilterBuilderEmbedded).
         uq.filters = filterOptionsParsedToEmbedded(fop.filterOptions, UserQueryEntity_Filter) as UserQueryEntity_Filter[];
         uq.includeDefaultFilters = fo.includeDefaultFilters ?? null;
-        uq.columnsMode = Enum.toValue(ColumnOptionsModeEnum, fo.columnOptionsMode ?? "Add");
+        uq.columnsMode = Enum.toValue(ColumnOptionsMode, fo.columnOptionsMode ?? "Add");
         uq.columns = fop.columnOptions.map(toColumnEmbedded);
         uq.orders = fop.orderOptions.map(toOrderEmbedded);
-        uq.paginationMode = fop.pagination?.mode == null ? null : Enum.toValue(PaginationModeEnum, fop.pagination.mode);
+        uq.paginationMode = fop.pagination?.mode == null ? null : Enum.toValue(PaginationMode, fop.pagination.mode);
         uq.elementsPerPage = (fop.pagination?.elementsPerPage ?? null) as UserQueryEntity["elementsPerPage"];
         uq.systemTime = fop.systemTime ? toSystemTimeEmbedded(fop.systemTime) : null;
-        uq.refreshMode = Enum.toValue(RefreshModeEnum, sc.state.refreshMode ?? "Auto");
+        uq.refreshMode = Enum.toValue(RefreshMode, sc.state.refreshMode ?? "Auto");
         uq.customDrilldowns = [];
         return uq;
     }
@@ -374,24 +374,24 @@ function toColumnEmbedded(c: ColumnOptionParsed): UserQueryEntity_Column {
     col.summaryToken = c.summaryToken ? tokenEmbedded(c.summaryToken) : null;
     col.hiddenColumn = c.hiddenColumn ?? false;
     // FindOptions carries member-name strings; the entity enum fields are int-FK ordinals (Enum.toValue).
-    col.combineRows = c.combineRows == null ? null : Enum.toValue(CombineRowsEnum, c.combineRows);
+    col.combineRows = c.combineRows == null ? null : Enum.toValue(CombineRows, c.combineRows);
     return col;
 }
 
 function toOrderEmbedded(o: OrderOptionParsed): UserQueryEntity_Order {
     const ord = new UserQueryEntity_Order();
     ord.token = tokenEmbedded(o.token);
-    ord.orderType = Enum.toValue(OrderTypeEnum, o.orderType);
+    ord.orderType = Enum.toValue(OrderType, o.orderType);
     return ord;
 }
 
 function toSystemTimeEmbedded(st: SystemTime): SystemTimeEmbedded {
     const e = new SystemTimeEmbedded();
-    e.mode = Enum.toValue(SystemTimeModeEnum, st.mode);
+    e.mode = Enum.toValue(SystemTimeMode, st.mode);
     e.startDate = st.startDate == null ? null : Temporal.PlainDateTime.from(st.startDate);
     e.endDate = st.endDate == null ? null : Temporal.PlainDateTime.from(st.endDate);
-    e.joinMode = st.joinMode == null ? null : Enum.toValue(SystemTimeJoinModeEnum, st.joinMode);
-    e.timeSeriesUnit = st.timeSeriesUnit == null ? null : Enum.toValue(TimeSeriesUnitEnum, st.timeSeriesUnit);
+    e.joinMode = st.joinMode == null ? null : Enum.toValue(SystemTimeJoinMode, st.joinMode);
+    e.timeSeriesUnit = st.timeSeriesUnit == null ? null : Enum.toValue(TimeSeriesUnit, st.timeSeriesUnit);
     e.timeSeriesStep = (st.timeSeriesStep ?? null) as SystemTimeEmbedded["timeSeriesStep"];
     e.timeSeriesMaxRowsPerStep = (st.timeSeriesMaxRowsPerStep ?? null) as SystemTimeEmbedded["timeSeriesMaxRowsPerStep"];
     e.splitQueries = st.splitQueries ?? false;

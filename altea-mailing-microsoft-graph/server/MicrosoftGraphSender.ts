@@ -2,9 +2,9 @@ import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbeddedLogic.server";
 import { mimeType } from "@altea/altea-files/server/FileTypeAlgorithm.server";
 import type { EmailMessageEntity } from "@altea/altea-email/data/EmailMessage";
-import { EmailAttachmentTypeEnum } from "@altea/altea-email/data/EmailTemplate";
+import { EmailAttachmentType } from "@altea/altea-email/data/EmailTemplate";
 import {
-    EmailRecipientKindEnum, type EmailAddressEmbedded, type EmailRecipientBaseEntity,
+    EmailRecipientKind, type EmailAddressEmbedded, type EmailRecipientBaseEntity,
 } from "@altea/altea-email/data/Email";
 import type { EmailSenderConfigurationEntity } from "@altea/altea-email/data/EmailSenderConfiguration";
 import { EmailLogic } from "@altea/altea-email/server/EmailLogic.server";
@@ -92,7 +92,7 @@ export class MicrosoftGraphSender extends EmailSenderBase {
                 "@odata.type": "#microsoft.graph.fileAttachment",
                 contentId: a.contentId,
                 name: a.file.fileName,
-                isInline: a.type === EmailAttachmentTypeEnum.LinkedResource,
+                isInline: a.type === EmailAttachmentType.LinkedResource,
                 contentType: mimeType(a.file.fileName) ?? "application/octet-stream",
                 contentBytes: Buffer.from(bytes).toString("base64"),
                 size: bytes.length,
@@ -110,9 +110,9 @@ export class MicrosoftGraphSender extends EmailSenderBase {
                     contentType: email.isBodyHtml ? "html" : "text",
                 },
                 from: recipientOf(email.from),
-                toRecipients: recipientsOfKind(email, EmailRecipientKindEnum.To),
-                ccRecipients: recipientsOfKind(email, EmailRecipientKindEnum.Cc),
-                bccRecipients: recipientsOfKind(email, EmailRecipientKindEnum.Bcc),
+                toRecipients: recipientsOfKind(email, EmailRecipientKind.To),
+                ccRecipients: recipientsOfKind(email, EmailRecipientKind.Cc),
+                bccRecipients: recipientsOfKind(email, EmailRecipientKind.Bcc),
                 attachments: small,
             },
             bigAttachments,
@@ -244,6 +244,6 @@ function recipientOfRecipient(recipient: EmailRecipientBaseEntity): GraphRecipie
     };
 }
 
-function recipientsOfKind(email: EmailMessageEntity, kind: EmailRecipientKindEnum): GraphRecipient[] {
+function recipientsOfKind(email: EmailMessageEntity, kind: EmailRecipientKind): GraphRecipient[] {
     return email.recipients.filter(r => r.kind === kind).map(recipientOfRecipient);
 }

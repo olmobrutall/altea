@@ -6,7 +6,7 @@ import { toAbsoluteUrl, useTitle } from "@altea/altea/client/AppContext";
 import { AccessibleTable } from "@altea/altea/client/Basics/AccessibleTable";
 import SearchControl from "@altea/altea/client/SearchControl/SearchControl";
 import EntityLink from "@altea/altea/client/SearchControl/EntityLink";
-import { ProcessEntity, ProcessMessage, ProcessStateEnum } from "../data/Processes";
+import { ProcessEntity, ProcessMessage, ProcessState } from "../data/Processes";
 import type { ExecutionState } from "../data/ProcessLogicState";
 import { ProcessClient } from "./ProcessClient";
 
@@ -126,7 +126,7 @@ function ExecutingProcesses(p: {
                         {p.executing.map((item, i) =>
                             <tr key={i}>
                                 <td><EntityLink lite={item.process} inSearch="main" onNavigated={p.onReload} /></td>
-                                <td>{ProcessStateEnum[item.state]}</td>
+                                <td>{ProcessState[item.state]}</td>
                                 <td style={{ minWidth: 140 }}><ProgressBar fraction={item.progress} /></td>
                                 <td>{String(item.isCancellationRequested)}</td>
                                 <td>{item.machineName}</td>

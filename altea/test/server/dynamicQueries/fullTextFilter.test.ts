@@ -8,7 +8,7 @@ import { QueryFormatter } from "@altea/altea/server/linq/queryFormatter";
 import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import { DQueryable } from "@altea/altea/server/dynamicQuery/dQueryable";
-import { FilterCondition, FilterOperation } from "@altea/altea/server/dynamicQuery/requests";
+import { FilterCondition, FilterOperationKeys } from "@altea/altea/server/dynamicQuery/requests";
 import "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { MusicLogic } from "../MusicLogic";
 import { NoteWithDateEntity } from "../../data/music";
@@ -35,7 +35,7 @@ function fakeConnectorFor(isPostgres: boolean): Connector {
 }
 
 const titleToken = () => new RootToken(NoteWithDateEntity).subToken("title", O)!;
-const sqlFor = (connector: Connector, op: FilterOperation, value: string): string =>
+const sqlFor = (connector: Connector, op: FilterOperationKeys, value: string): string =>
     Connector.withConnector(connector, () => {
         const dq = table(NoteWithDateEntity).toDQueryable()
             .where([new FilterCondition(titleToken(), op, value)])
@@ -45,27 +45,27 @@ const sqlFor = (connector: Connector, op: FilterOperation, value: string): strin
 
 describe("FullText dynamic-query filters", () => {
     test("SQL Server FreeText → FREETEXT predicate", () => {
-        const sql = sqlFor(fakeConnectorFor(false), FilterOperation.FreeText, "American band");
+        const sql = sqlFor(fakeConnectorFor(false), FilterOperationKeys.FreeText, "American band");
         assert.match(sql, /freetext\(/);
     });
 
     test("SQL Server ComplexCondition → CONTAINS predicate", () => {
-        const sql = sqlFor(fakeConnectorFor(false), FilterOperation.ComplexCondition, "american AND band");
+        const sql = sqlFor(fakeConnectorFor(false), FilterOperationKeys.ComplexCondition, "american AND band");
         assert.match(sql, /contains\(/);
     });
 
     test("Postgres TsQuery → tsvector @@ to_tsquery", () => {
-        const sql = sqlFor(fakeConnectorFor(true), FilterOperation.TsQuery, "american & band");
+        const sql = sqlFor(fakeConnectorFor(true), FilterOperationKeys.TsQuery, "american & band");
         assert.match(sql, /@@ to_tsquery\(/);
     });
 
     test("Postgres TsQuery_Plain → @@ plainto_tsquery", () => {
-        const sql = sqlFor(fakeConnectorFor(true), FilterOperation.TsQuery_Plain, "american band");
+        const sql = sqlFor(fakeConnectorFor(true), FilterOperationKeys.TsQuery_Plain, "american band");
         assert.match(sql, /@@ plainto_tsquery\(/);
     });
 
     test("Postgres TsQuery_WebSearch → @@ websearch_to_tsquery", () => {
-        const sql = sqlFor(fakeConnectorFor(true), FilterOperation.TsQuery_WebSearch, "american band");
+        const sql = sqlFor(fakeConnectorFor(true), FilterOperationKeys.TsQuery_WebSearch, "american band");
         assert.match(sql, /@@ websearch_to_tsquery\(/);
     });
 });

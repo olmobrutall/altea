@@ -6,7 +6,7 @@ import { TextAreaLine } from "@altea/altea/client/Lines/TextAreaLine";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { Enum } from "@altea/altea/data/enum";
-import { TextPartEntity, TextPartTypeEnum } from "../../data/Parts";
+import { TextPartEntity, TextPartType } from "../../data/Parts";
 import type { PartEditorProps } from "./PartEditor";
 import HtmlViewer from "../View/HtmlViewer";
 
@@ -20,7 +20,7 @@ export default function TextPart(p: PartEditorProps<TextPartEntity>): React.JSX.
     const ctx = p.ctx.subCtx(p.smallMode ? { formGroupStyle: "Basic" } : { formGroupStyle: "SrOnly", placeholderLabels: true });
     const forceUpdate = useForceUpdate();
 
-    const type = Enum.toName(TextPartTypeEnum, p.ctx.value.textPartType);
+    const type = Enum.toName(TextPartType, p.ctx.value.textPartType);
 
     const [isPreview, setIsPreview] = React.useState(false);
     React.useEffect(() => {

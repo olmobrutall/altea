@@ -11,7 +11,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 import { Symbol } from "@altea/altea/data/symbol";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
-import { OrderTypeEnum } from "@altea/altea/data/dynamicQueries";
+import { OrderType } from "@altea/altea/data/dynamicQueries";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { FileEmbedded } from "@altea/altea-files/data/Files";
@@ -120,7 +120,7 @@ export class OfficeTemplateEntity_Order extends Entity {
     @rowOrder order: int;
 
     token: QueryTokenEmbedded;
-    orderType: OrderTypeEnum;
+    orderType: OrderType;
 }
 
 // ---- OfficeTemplate ------------------------------------------------------------------------------------

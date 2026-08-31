@@ -12,9 +12,9 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 import { EmailLogic } from "@altea/altea-email/server/EmailLogic.server";
 import { EmailModelLogic, emailModel } from "@altea/altea-email/server/EmailModelLogic.server";
 import {
-    EmailTemplateEntity, EmailTemplateEntity_Message, EmailMessageFormatEnum,
+    EmailTemplateEntity, EmailTemplateEntity_Message, EmailMessageFormat,
 } from "@altea/altea-email/data/EmailTemplate";
-import { EmailRecipientKindEnum } from "@altea/altea-email/data/Email";
+import { EmailRecipientKind } from "@altea/altea-email/data/Email";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
 import { getTypeInfo } from "@altea/altea/data/reflection";
@@ -61,7 +61,7 @@ export namespace AlertNotificationLogic {
             defaultTemplateConstructor: () => EmailTemplateEntity.create({
                 disableAuthorization: false,
                 groupResults: false,
-                messageFormat: EmailMessageFormatEnum.HtmlComplex,
+                messageFormat: EmailMessageFormat.HtmlComplex,
                 messages: forEachCulture(culture => EmailTemplateEntity_Message.create({
                     culture,
                     subject: AlertMessage.NewUnreadNotifications.niceToString(),
@@ -149,7 +149,7 @@ export namespace AlertNotificationLogic {
                     modelType: AlertNotificationMail,
                     getRecipients: () => [{
                         ownerData: EmailLogic.ownerDataOfEntity(recipient),
-                        kind: EmailRecipientKindEnum.To,
+                        kind: EmailRecipientKind.To,
                     }],
                     // The model IS the alert list; the template's query is only about the user.
                     getFilters: undefined,

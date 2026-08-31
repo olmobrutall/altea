@@ -27,7 +27,7 @@
   <Type Name="MapPermission">
     <Member Name="ViewMap" Description="Ver mapa"/>
   </Type>
-  <Type Name="DefaultStateEnum">
+  <Type Name="DefaultState">
     <Member Name="All" Description="Todos"/>
     <Member Name="End" Description="Fin"/>
     <Member Name="Start" Description="Inicio"/>

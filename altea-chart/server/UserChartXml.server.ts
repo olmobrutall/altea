@@ -1,9 +1,9 @@
 import { table } from "@altea/altea/server/table";
 import type { int } from "@altea/altea/data/basics";
-import type { OrderType } from "@altea/altea/data/dynamicQueries";
+import type { OrderTypeKeys } from "@altea/altea/data/dynamicQueries";
 import { Enum } from "@altea/altea/data/enum";
 import {
-    FilterGroupOperationEnum, FilterOperationEnum, DashboardBehaviourEnum, PinnedFilterActiveEnum,
+    FilterGroupOperation, FilterOperation, DashboardBehaviour, PinnedFilterActive,
 } from "@altea/altea/data/dynamicQueries";
 import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
@@ -66,14 +66,14 @@ function filterXml(f: UserChartEntity_Filter): Record<string, unknown> {
     const x: Record<string, unknown> = {};
     x[A + "Indentation"] = f.indentation;
     if (f.isGroup) {
-        if (f.groupOperation != null) x[A + "GroupOperation"] = Enum.toName(FilterGroupOperationEnum, f.groupOperation);
+        if (f.groupOperation != null) x[A + "GroupOperation"] = Enum.toName(FilterGroupOperation, f.groupOperation);
         if (f.token != null) x[A + "Token"] = f.token.tokenString;
     } else {
         if (f.token != null) x[A + "Token"] = f.token.tokenString;
-        if (f.operation != null) x[A + "Operation"] = Enum.toName(FilterOperationEnum, f.operation);
+        if (f.operation != null) x[A + "Operation"] = Enum.toName(FilterOperation, f.operation);
         if (f.valueString != null) x[A + "Value"] = f.valueString;
     }
-    if (f.dashboardBehaviour != null) x[A + "DashboardBehaviour"] = Enum.toName(DashboardBehaviourEnum, f.dashboardBehaviour);
+    if (f.dashboardBehaviour != null) x[A + "DashboardBehaviour"] = Enum.toName(DashboardBehaviour, f.dashboardBehaviour);
     if (f.pinned != null) x["Pinned"] = pinnedXml(f.pinned);
     return x;
 }
@@ -84,7 +84,7 @@ function pinnedXml(p: PinnedQueryFilterEmbedded): Record<string, unknown> {
     if (p.column != null) x[A + "Column"] = p.column;
     if (p.colSpan != null) x[A + "ColSpan"] = p.colSpan;
     if (p.row != null) x[A + "Row"] = p.row;
-    const active = Enum.toName(PinnedFilterActiveEnum, p.active);
+    const active = Enum.toName(PinnedFilterActive, p.active);
     if (active !== "Always") x[A + "Active"] = active;
     if (p.splitValue) x[A + "SplitValue"] = true;
     return x;
@@ -143,16 +143,16 @@ function filterFromXml(x: Record<string, unknown>): UserChartEntity_Filter {
     f.isGroup = x[A + "GroupOperation"] != null;
     if (f.isGroup) {
         const groupOperation = str(x[A + "GroupOperation"]);
-        f.groupOperation = groupOperation == null ? null : toEnum(FilterGroupOperationEnum, groupOperation);
+        f.groupOperation = groupOperation == null ? null : toEnum(FilterGroupOperation, groupOperation);
         f.token = x[A + "Token"] != null ? token(str(x[A + "Token"])!) : null;
     } else {
         f.token = x[A + "Token"] != null ? token(str(x[A + "Token"])!) : null;
         const operation = str(x[A + "Operation"]);
-        f.operation = operation == null ? null : toEnum(FilterOperationEnum, operation);
+        f.operation = operation == null ? null : toEnum(FilterOperation, operation);
         f.valueString = str(x[A + "Value"]) ?? null;
     }
     const dashboardBehaviour = str(x[A + "DashboardBehaviour"]);
-    f.dashboardBehaviour = dashboardBehaviour == null ? null : toEnum(DashboardBehaviourEnum, dashboardBehaviour);
+    f.dashboardBehaviour = dashboardBehaviour == null ? null : toEnum(DashboardBehaviour, dashboardBehaviour);
     const p = x["Pinned"];
     f.pinned = p != null ? pinnedFromXml(firstElem(p)) : null;
     return f;
@@ -164,7 +164,7 @@ function pinnedFromXml(x: Record<string, unknown>): PinnedQueryFilterEmbedded {
     p.column = x[A + "Column"] != null ? (Number(x[A + "Column"]) as int) : null;
     p.colSpan = x[A + "ColSpan"] != null ? (Number(x[A + "ColSpan"]) as int) : null;
     p.row = x[A + "Row"] != null ? (Number(x[A + "Row"]) as int) : null;
-    p.active = toEnum(PinnedFilterActiveEnum, str(x[A + "Active"]) ?? "Always");
+    p.active = toEnum(PinnedFilterActive, str(x[A + "Active"]) ?? "Always");
     p.splitValue = bool(x[A + "SplitValue"]);
     return p;
 }
@@ -175,7 +175,7 @@ function columnFromXml(x: Record<string, unknown>): ChartColumnEmbedded {
     c.displayName = str(x[A + "DisplayName"]) ?? null;
     c.format = str(x[A + "Format"]) ?? null;
     c.orderByIndex = x[A + "OrderByIndex"] != null ? (Number(x[A + "OrderByIndex"]) as int) : null;
-    c.orderByType = str(x[A + "OrderByType"]) as OrderType ?? null;
+    c.orderByType = str(x[A + "OrderByType"]) as OrderTypeKeys ?? null;
     return c;
 }
 

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SkillActivationEnum, type SkillCustomizationEntity } from "../data/SkillCustomization";
+import { SkillActivation, type SkillCustomizationEntity } from "../data/SkillCustomization";
 import type { AIToolDefinition, JsonSchema } from "./ChatClient";
 
 // Port of Signum.Agent's SkillCode.cs — a SKILL is a named unit of "instructions + tools", composable into
@@ -80,7 +80,7 @@ export abstract class SkillCode {
     replacements?: Record<string, (context: unknown) => string>;
 
     /** Signum's `SubSkills` — filled from code (`withSubSkill`) or from a DB overlay. */
-    readonly subSkills: { code: SkillCode; activation: SkillActivationEnum }[] = [];
+    readonly subSkills: { code: SkillCode; activation: SkillActivation }[] = [];
 
     private readonly toolList: AIToolDefinition[] = [];
     private readonly propertyList: SkillPropertyDescriptor[] = [];
@@ -121,7 +121,7 @@ export abstract class SkillCode {
             parts.push(`# Skill ${code.name}`);
             parts.push(`**Summary**: ${code.shortDescription}`);
             parts.push("");
-            parts.push(activation === SkillActivationEnum.Eager
+            parts.push(activation === SkillActivation.Eager
                 ? code.getInstruction(null)
                 : "Use the tool 'describe' to get more information about this skill and discover additional tools.");
         }
@@ -131,7 +131,7 @@ export abstract class SkillCode {
     // ---- composition ---------------------------------------------------------------------------
 
     /** Signum's `WithSubSkill(activation, sub)`. */
-    withSubSkill(activation: SkillActivationEnum, sub: SkillCode): this {
+    withSubSkill(activation: SkillActivation, sub: SkillCode): this {
         this.subSkills.push({ code: sub, activation });
         return this;
     }
@@ -172,7 +172,7 @@ export abstract class SkillCode {
     *getEagerSkillsRecursive(): Generator<SkillCode> {
         yield this;
         for (const { code, activation } of this.subSkills)
-            if (activation === SkillActivationEnum.Eager)
+            if (activation === SkillActivation.Eager)
                 yield* code.getEagerSkillsRecursive();
     }
 
@@ -185,7 +185,7 @@ export abstract class SkillCode {
     getToolsRecursive(): AIToolDefinition[] {
         const list = [...this.toolList];
         for (const { code, activation } of this.subSkills)
-            if (activation === SkillActivationEnum.Eager)
+            if (activation === SkillActivation.Eager)
                 list.push(...code.getToolsRecursive());
         return list;
     }

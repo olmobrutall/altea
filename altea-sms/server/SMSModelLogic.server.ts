@@ -16,7 +16,7 @@ import { Administrator } from "@altea/altea/server/Administrator";
 import { Synchronizer, Replacements } from "@altea/altea/server/sync/synchronizer";
 import { SqlPreCommand, Spacing } from "@altea/altea/server/sync/sqlPreCommand";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
-import { FilterCondition, FilterOperation, type Filter, type Order, type Pagination } from "@altea/altea/server/dynamicQuery/requests";
+import { FilterCondition, FilterOperationKeys, type Filter, type Order, type Pagination } from "@altea/altea/server/dynamicQuery/requests";
 import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { Entity, type Type } from "@altea/altea/data/entity";
 import { cleanTypeName } from "@altea/altea/data/registration";
@@ -62,7 +62,7 @@ export function smsModel(entity: Entity, overrides?: Partial<ISMSModel>): ISMSMo
     return {
         untypedEntity: entity,
         getFilters: queryName => [new FilterCondition(
-            QueryLogic.getToken(queryName, "", SubTokensOptionsAll), FilterOperation.EqualTo, entity.toLite())],
+            QueryLogic.getToken(queryName, "", SubTokensOptionsAll), FilterOperationKeys.EqualTo, entity.toLite())],
         getOrders: () => [],
         getPagination: () => undefined,
         ...overrides,

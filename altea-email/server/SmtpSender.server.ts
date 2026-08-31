@@ -5,10 +5,10 @@ import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbeddedLogic.server";
 import { mimeType } from "@altea/altea-files/server/FileTypeAlgorithm.server";
 import { EmailMessageEntity } from "../data/EmailMessage";
-import { EmailAttachmentTypeEnum } from "../data/EmailTemplate";
-import { EmailRecipientKindEnum, type EmailAddressEmbedded, type EmailRecipientBaseEntity } from "../data/Email";
+import { EmailAttachmentType } from "../data/EmailTemplate";
+import { EmailRecipientKind, type EmailAddressEmbedded, type EmailRecipientBaseEntity } from "../data/Email";
 import {
-    SmtpDeliveryMethodEnum, type EmailSenderConfigurationEntity, type SmtpEmailServiceEntity,
+    SmtpDeliveryMethod, type EmailSenderConfigurationEntity, type SmtpEmailServiceEntity,
 } from "../data/EmailSenderConfiguration";
 import { EmailSenderBase } from "./EmailSenderBase.server";
 import { EmailLogic } from "./EmailLogic.server";
@@ -52,14 +52,14 @@ export class SmtpSender extends EmailSenderBase {
             content: Buffer.from(FilePathEmbeddedLogic.readAllBytesSync(a.file)),
             contentType: mimeType(a.file.fileName),
             // A LinkedResource is an INLINE resource the HTML body references as `cid:<contentId>`.
-            ...(a.type === EmailAttachmentTypeEnum.LinkedResource ? { cid: a.contentId } : {}),
+            ...(a.type === EmailAttachmentType.LinkedResource ? { cid: a.contentId } : {}),
         }));
 
         return {
             from: formatAddress(email.from),
-            to: recipientsOfKind(email, EmailRecipientKindEnum.To),
-            cc: recipientsOfKind(email, EmailRecipientKindEnum.Cc),
-            bcc: recipientsOfKind(email, EmailRecipientKindEnum.Bcc),
+            to: recipientsOfKind(email, EmailRecipientKind.To),
+            cc: recipientsOfKind(email, EmailRecipientKind.Cc),
+            bcc: recipientsOfKind(email, EmailRecipientKind.Bcc),
             subject: email.subject ?? "",
             ...(email.isBodyHtml ? { html: email.body.text ?? "" } : { text: email.body.text ?? "" }),
             attachments,
@@ -83,7 +83,7 @@ function formatRecipient(recipient: EmailRecipientBaseEntity): string {
     return recipient.displayName ? `"${recipient.displayName.replace(/"/g, "'")}" <${address}>` : address;
 }
 
-function recipientsOfKind(email: EmailMessageEntity, kind: EmailRecipientKindEnum): string[] {
+function recipientsOfKind(email: EmailMessageEntity, kind: EmailRecipientKind): string[] {
     return email.recipients.filter(r => r.kind === kind).map(formatRecipient);
 }
 
@@ -93,7 +93,7 @@ export async function createTransporter(config: SmtpEmailServiceEntity): Promise
         throw new Error("EmailLogic.configuration().sendEmails is set to false");
 
     switch (config.deliveryMethod) {
-        case SmtpDeliveryMethodEnum.Network: {
+        case SmtpDeliveryMethod.Network: {
             const network = config.network;
             if (network == null)
                 throw new Error("SmtpEmailServiceEntity.network is not set for a Network delivery method");
@@ -113,7 +113,7 @@ export async function createTransporter(config: SmtpEmailServiceEntity): Promise
                 tls: certs.length > 0 ? { cert: certs.map(c => c.toString()) } : undefined,
             });
         }
-        case SmtpDeliveryMethodEnum.SpecifiedPickupDirectory: {
+        case SmtpDeliveryMethod.SpecifiedPickupDirectory: {
             if (!config.pickupDirectoryLocation)
                 throw new Error("SmtpEmailServiceEntity.pickupDirectoryLocation is not set for a SpecifiedPickupDirectory delivery method");
 

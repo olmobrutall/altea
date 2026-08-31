@@ -10,7 +10,7 @@ import { EntityTable } from "@altea/altea/client/Lines/EntityTable";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import HtmlCodeMirror from "@altea/altea-codemirror/client/HtmlCodeMirror";
-import { EmailMessageEntity, EmailMessageStateEnum } from "../../data/EmailMessage";
+import { EmailMessageEntity, EmailMessageState } from "../../data/EmailMessage";
 import { EmailTemplateMessage } from "../../data/EmailTemplate";
 import IFrameRenderer from "./IframeRenderer";
 
@@ -21,7 +21,7 @@ import IFrameRenderer from "./IframeRenderer";
 // live <IFrameRenderer/> preview below — as in Signum.
 export default function EmailMessage(p: { ctx: TypeContext<EmailMessageEntity> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
-    const editable = p.ctx.value.state === EmailMessageStateEnum.Created || p.ctx.value.state === EmailMessageStateEnum.Draft;
+    const editable = p.ctx.value.state === EmailMessageState.Created || p.ctx.value.state === EmailMessageState.Draft;
     const ctx = p.ctx.subCtx({ formGroupStyle: "Basic", readOnly: editable ? undefined : true });
 
     return (

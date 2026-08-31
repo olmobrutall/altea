@@ -20,8 +20,8 @@ import { UserEntity, UserOperation, UserState } from "@altea/altea-auth/data/Use
 import { LoginAuthMessage } from "@altea/altea-auth/data/AuthMessages";
 import { EmailLogic } from "@altea/altea-email/server/EmailLogic.server";
 import { EmailModelLogic, emailModel, type IEmailModel } from "@altea/altea-email/server/EmailModelLogic.server";
-import { EmailRecipientKindEnum } from "@altea/altea-email/data/Email";
-import { EmailTemplateEntity, EmailTemplateEntity_Message, EmailMessageFormatEnum } from "@altea/altea-email/data/EmailTemplate";
+import { EmailRecipientKind } from "@altea/altea-email/data/Email";
+import { EmailTemplateEntity, EmailTemplateEntity_Message, EmailMessageFormat } from "@altea/altea-email/data/EmailTemplate";
 import {
     ResetPasswordRequestEntity, ResetPasswordRequestOperation, ResetPasswordRequestMail, UserLockedMail,
     ResetPasswordMessage,
@@ -54,7 +54,7 @@ export function resetPasswordRequestMail(request: ResetPasswordRequestEntity, ur
     return {
         ...emailModel({
             untypedEntity: request,
-            getRecipients: () => [{ ownerData: EmailLogic.ownerDataOfEntity(request.user), kind: EmailRecipientKindEnum.To }],
+            getRecipients: () => [{ ownerData: EmailLogic.ownerDataOfEntity(request.user), kind: EmailRecipientKind.To }],
         }),
         modelType: ResetPasswordRequestMail,
         url,
@@ -66,7 +66,7 @@ export function userLockedMail(user: UserEntity, url: string): IEmailModel & { u
     return {
         ...emailModel({
             untypedEntity: user,
-            getRecipients: () => [{ ownerData: EmailLogic.ownerDataOfEntity(user), kind: EmailRecipientKindEnum.To }],
+            getRecipients: () => [{ ownerData: EmailLogic.ownerDataOfEntity(user), kind: EmailRecipientKind.To }],
         }),
         modelType: UserLockedMail,
         url,
@@ -104,7 +104,7 @@ export namespace ResetPasswordRequestLogic {
                 // as literal markup.
                 disableAuthorization: false,
                 groupResults: false,
-                messageFormat: EmailMessageFormatEnum.HtmlComplex,
+                messageFormat: EmailMessageFormat.HtmlComplex,
                 messages: forEachCulture(culture => EmailTemplateEntity_Message.create({
                     culture,
                     subject: ResetPasswordMessage.ResetPasswordRequestSubject.niceToString(),
@@ -127,7 +127,7 @@ export namespace ResetPasswordRequestLogic {
                 // as literal markup.
                 disableAuthorization: false,
                 groupResults: false,
-                messageFormat: EmailMessageFormatEnum.HtmlComplex,
+                messageFormat: EmailMessageFormat.HtmlComplex,
                 messages: forEachCulture(culture => EmailTemplateEntity_Message.create({
                     culture,
                     subject: ResetPasswordMessage.YourAccountHasBeenLocked.niceToString(),

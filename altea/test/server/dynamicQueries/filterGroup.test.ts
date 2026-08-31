@@ -11,7 +11,7 @@ import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/query
 import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import { DQueryable } from "@altea/altea/server/dynamicQuery/dQueryable";
 import {
-    FilterGroup, FilterGroupOperation, FilterCondition, FilterOperation,
+    FilterGroup, FilterGroupOperationKeys, FilterCondition, FilterOperationKeys,
 } from "@altea/altea/server/dynamicQuery/requests";
 import "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { seedTypeCachesForTest } from "../seedTypeCaches";
@@ -62,18 +62,18 @@ describe("collections expose the quantifier tokens", () => {
 
 describe("FilterGroup without a token → AND / OR of conditions", () => {
     test("OR group", () => {
-        const g = new FilterGroup(FilterGroupOperation.Or, undefined, [
-            new FilterCondition(tok("year"), FilterOperation.EqualTo, 1990),
-            new FilterCondition(tok("year"), FilterOperation.EqualTo, 2000),
+        const g = new FilterGroup(FilterGroupOperationKeys.Or, undefined, [
+            new FilterCondition(tok("year"), FilterOperationKeys.EqualTo, 1990),
+            new FilterCondition(tok("year"), FilterOperationKeys.EqualTo, 2000),
         ]);
         assert.equal(body(g), "((e.year == 1990) || (e.year == 2000))");
         assert.match(whereSql(g), /where.*or/);
     });
 
     test("AND group", () => {
-        const g = new FilterGroup(FilterGroupOperation.And, undefined, [
-            new FilterCondition(tok("year"), FilterOperation.GreaterThan, 1990),
-            new FilterCondition(tok("name"), FilterOperation.StartsWith, "A"),
+        const g = new FilterGroup(FilterGroupOperationKeys.And, undefined, [
+            new FilterCondition(tok("year"), FilterOperationKeys.GreaterThan, 1990),
+            new FilterCondition(tok("name"), FilterOperationKeys.StartsWith, "A"),
         ]);
         assert.match(body(g), /&&/);
     });
@@ -82,9 +82,9 @@ describe("FilterGroup without a token → AND / OR of conditions", () => {
 describe("FilterGroup with an Any/All token → correlated subquery", () => {
     // The headline case: element condition AND outer condition inside one quantifier.
     test("Any: a.songs.some(s => s.name == 'X' && a.year == 20)", () => {
-        const g = new FilterGroup(FilterGroupOperation.And, tok("songs.Any"), [
-            new FilterCondition(tok("songs.Any.name"), FilterOperation.EqualTo, "X"),
-            new FilterCondition(tok("year"), FilterOperation.EqualTo, 20),
+        const g = new FilterGroup(FilterGroupOperationKeys.And, tok("songs.Any"), [
+            new FilterCondition(tok("songs.Any.name"), FilterOperationKeys.EqualTo, "X"),
+            new FilterCondition(tok("year"), FilterOperationKeys.EqualTo, 20),
         ]);
         assert.equal(body(g), "e.songs.some(_a => ((_a.name == X) && (e.year == 20)))");
         const sql = whereSql(g);
@@ -95,15 +95,15 @@ describe("FilterGroup with an Any/All token → correlated subquery", () => {
     });
 
     test("All → every, NotAny → !some, NotAll → some(!body)", () => {
-        const cond = () => new FilterCondition(tok("songs.Any.name"), FilterOperation.EqualTo, "X");
-        const g = (path: string) => new FilterGroup(FilterGroupOperation.And, tok(path), [cond()]);
+        const cond = () => new FilterCondition(tok("songs.Any.name"), FilterOperationKeys.EqualTo, "X");
+        const g = (path: string) => new FilterGroup(FilterGroupOperationKeys.And, tok(path), [cond()]);
         // The element token key is always "Any" in these navigations; only the quantifier differs.
-        assert.match(body(new FilterGroup(FilterGroupOperation.And, tok("songs.All"), [
-            new FilterCondition(tok("songs.All.name"), FilterOperation.EqualTo, "X")])), /\.every\(/);
-        assert.match(body(new FilterGroup(FilterGroupOperation.And, tok("songs.NotAny"), [
-            new FilterCondition(tok("songs.NotAny.name"), FilterOperation.EqualTo, "X")])), /^\(!e\.songs\.some\(/);
-        assert.match(body(new FilterGroup(FilterGroupOperation.And, tok("songs.NotAll"), [
-            new FilterCondition(tok("songs.NotAll.name"), FilterOperation.EqualTo, "X")])), /some\(_a => \(!/);
+        assert.match(body(new FilterGroup(FilterGroupOperationKeys.And, tok("songs.All"), [
+            new FilterCondition(tok("songs.All.name"), FilterOperationKeys.EqualTo, "X")])), /\.every\(/);
+        assert.match(body(new FilterGroup(FilterGroupOperationKeys.And, tok("songs.NotAny"), [
+            new FilterCondition(tok("songs.NotAny.name"), FilterOperationKeys.EqualTo, "X")])), /^\(!e\.songs\.some\(/);
+        assert.match(body(new FilterGroup(FilterGroupOperationKeys.And, tok("songs.NotAll"), [
+            new FilterCondition(tok("songs.NotAll.name"), FilterOperationKeys.EqualTo, "X")])), /some\(_a => \(!/);
         void g;
     });
 });

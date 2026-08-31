@@ -27,8 +27,8 @@ import { toNumberFormat } from '../numberFormat'
 import { TypeContext } from '../TypeContext'
 import QueryTokenBuilder from './QueryTokenBuilder'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { type DashboardBehaviour, type FilterGroupOperation, type PinnedFilterActive, type FilterOperation,
-  DashboardBehaviourEnum, FilterGroupOperationEnum, PinnedFilterActiveEnum, FilterOperationEnum } from '../../data/dynamicQueries';
+import { type DashboardBehaviourKeys, type FilterGroupOperationKeys, type PinnedFilterActiveKeys, type FilterOperationKeys,
+  DashboardBehaviour, FilterGroupOperation, PinnedFilterActive, FilterOperation } from '../../data/dynamicQueries';
 import { Enum } from '../../data/enum';
 import "./FilterBuilder.css"
 import { useForceUpdate, useForceUpdatePromise } from '../Hooks'
@@ -427,7 +427,7 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
   }
 
   function handleChangeOperation(e: React.FormEvent<HTMLSelectElement>) {
-    const operation = (e.currentTarget as HTMLSelectElement).value as FilterGroupOperation;
+    const operation = (e.currentTarget as HTMLSelectElement).value as FilterGroupOperationKeys;
 
     p.filterGroup.groupOperation = operation;
 
@@ -532,7 +532,7 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
 
             <div className="align-items-center d-flex">
               <select className="form-select form-select-xs sf-group-selector fw-bold me-2 w-auto" value={fg.groupOperation as any} disabled={readOnly} onChange={handleChangeOperation}>
-                {Enum.values(FilterGroupOperationEnum).map((ft, i) => <option key={i} value={ft as any}>{ft == "Or" ? SearchMessage.OrGroup.niceToString() : SearchMessage.AndGroup.niceToString()}</option>)}
+                {Enum.values(FilterGroupOperation).map((ft, i) => <option key={i} value={ft as any}>{ft == "Or" ? SearchMessage.OrGroup.niceToString() : SearchMessage.AndGroup.niceToString()}</option>)}
               </select>
               <small style={{ whiteSpace: "nowrap" }}>
                 Prefix:
@@ -769,7 +769,7 @@ export function FilterConditionComponent(p: FilterConditionComponentProps): Reac
   }
 
   function handleChangeOperation(event: React.FormEvent<HTMLSelectElement>) {
-    const operation = (event.currentTarget as HTMLSelectElement).value as FilterOperation;
+    const operation = (event.currentTarget as HTMLSelectElement).value as FilterOperationKeys;
     const waslist = isList(p.filter.operation!);
     const wasPair = isPair(p.filter.operation!);
     const toList = isList(operation);
@@ -848,7 +848,7 @@ export function FilterConditionComponent(p: FilterConditionComponentProps): Reac
           {f.token && f.token.filterType && f.operation &&
             <select className="form-select form-select-xs" value={f.operation} disabled={readOnly} onChange={handleChangeOperation}>
               {f.token.filterType && getFilterOperations(f.token)
-                .map((ft, i) => <option key={i} value={ft as any} title={Enum.niceName(FilterOperationEnum, ft)}>{niceNameOrSymbol(ft)}</option>)}
+                .map((ft, i) => <option key={i} value={ft as any} title={Enum.niceName(FilterOperation, ft)}>{niceNameOrSymbol(ft)}</option>)}
             </select>}
         </td>
 
@@ -980,19 +980,19 @@ export function PinnedFilterEditor(p: PinnedFilterEditorProps): React.ReactEleme
     );
   }
 
-  function renderActiveDropdown(binding: Binding<PinnedFilterActive | undefined>, title: string) {
+  function renderActiveDropdown(binding: Binding<PinnedFilterActiveKeys | undefined>, title: string) {
     var value = binding.getValue() ?? "Always";
     return (
       <Dropdown>
         <Dropdown.Toggle variant="tertiary" id="dropdown-basic" disabled={p.readonly} size={"xs" as any} className="px-1"
           title={StyleContext.default.titleLabels ? title : undefined}>
-          {Enum.niceName(PinnedFilterActiveEnum, value)}
+          {Enum.niceName(PinnedFilterActive, value)}
         </Dropdown.Toggle>
 
         <Dropdown.Menu>
-          {Enum.values(PinnedFilterActiveEnum).map(v =>
+          {Enum.values(PinnedFilterActive).map(v =>
             <Dropdown.Item key={v} active={v == value} onClick={() => { binding.setValue(v == "Always" ? undefined : v); p.onChange(); }}>
-              {Enum.niceName(PinnedFilterActiveEnum, v)}
+              {Enum.niceName(PinnedFilterActive, v)}
             </Dropdown.Item>)
           }
         </Dropdown.Menu>
@@ -1006,11 +1006,11 @@ function DashboardBehaviourComponent(p: { filter: FilterOptionParsed, readonly: 
     <Dropdown>
       <Dropdown.Toggle variant={p.filter.dashboardBehaviour ? "info" : "tertiary"} id="dropdown-basic" disabled={p.readonly} size={"xs" as any} className={classes("px-1", p.filter.dashboardBehaviour ? "text-light" : "text-info")}
         title={StyleContext.default.titleLabels ? "Behaviour of the filter when used inside of a Dashboard" : undefined}>
-        {<FontAwesomeIcon aria-hidden={true} icon="gauge" className={classes("icon", p.filter.dashboardBehaviour ? "text-light" : "text-info")} />}{p.filter.dashboardBehaviour ? " " + Enum.niceName(DashboardBehaviourEnum, p.filter.dashboardBehaviour) : ""}
+        {<FontAwesomeIcon aria-hidden={true} icon="gauge" className={classes("icon", p.filter.dashboardBehaviour ? "text-light" : "text-info")} />}{p.filter.dashboardBehaviour ? " " + Enum.niceName(DashboardBehaviour, p.filter.dashboardBehaviour) : ""}
       </Dropdown.Toggle>
 
       <Dropdown.Menu>
-        {[undefined, ...Enum.values(DashboardBehaviourEnum)].map(v =>
+        {[undefined, ...Enum.values(DashboardBehaviour)].map(v =>
           <Dropdown.Item key={v ?? "-"} active={v == p.filter.dashboardBehaviour} onClick={() => {
 
             p.filter.dashboardBehaviour = v;
@@ -1021,7 +1021,7 @@ function DashboardBehaviourComponent(p: { filter: FilterOptionParsed, readonly: 
 
             p.onChange();
           }}>
-            {v == null ? " - " : Enum.niceName(DashboardBehaviourEnum, v)}
+            {v == null ? " - " : Enum.niceName(DashboardBehaviour, v)}
           </Dropdown.Item>)
         }
       </Dropdown.Menu>
@@ -1037,7 +1037,7 @@ function fixDashboardBehaviour(fop: FilterOptionParsed) {
     fop.dashboardBehaviour = undefined;
 }
 
-function niceNameOrSymbol(fo: FilterOperation) {
+function niceNameOrSymbol(fo: FilterOperationKeys) {
   switch (fo) {
     case "EqualTo": return "=";
     case "DistinctTo": return "≠";
@@ -1045,6 +1045,6 @@ function niceNameOrSymbol(fo: FilterOperation) {
     case "GreaterThanOrEqual": return "≥";
     case "LessThan": return "<";
     case "LessThanOrEqual": return "≤";
-    default: return Enum.niceName(FilterOperationEnum, fo);
+    default: return Enum.niceName(FilterOperation, fo);
   }
 }

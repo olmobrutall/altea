@@ -12,7 +12,7 @@ import { Dic } from '@altea/altea/data/globals/index'
 import { Finder } from '@altea/altea/client/Finder'
 import { Temporal, toInt } from '@altea/altea/data/basics'
 import { Enum } from '@altea/altea/data/enum'
-import { TimeSeriesUnitEnum } from '@altea/altea/data/dynamicQueries'
+import { TimeSeriesUnit } from '@altea/altea/data/dynamicQueries'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import ChartTimeSeries from './ChartTimeSeries'
 import { ChartTimeSeriesEmbedded } from '../../data/ChartRequest'
@@ -110,7 +110,7 @@ export default function ChartBuilder(p: ChartBuilderProps): React.JSX.Element {
               if (!chart.chartTimeSeries) {
                 const ts = new ChartTimeSeriesEmbedded();
                 ts.timeSeriesStep = toInt(1);
-                ts.timeSeriesUnit = TimeSeriesUnitEnum.Month;
+                ts.timeSeriesUnit = TimeSeriesUnit.Month;
                 ts.startDate = Temporal.Now.plainDateISO().with({ month: 1, day: 1 }).toString();
                 ts.endDate = Temporal.Now.plainDateISO().toString();
                 ts.splitQueries = true;

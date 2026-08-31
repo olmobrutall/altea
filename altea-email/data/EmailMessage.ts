@@ -14,7 +14,7 @@ import { ExceptionEntity } from "@altea/altea/data/exception";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { FilePathEmbedded } from "@altea/altea-files/data/Files";
 import { EmailRecipientBaseEntity, EmailFromEmbedded, EmailMessageMessage } from "./Email";
-import { EmailAttachmentTypeEnum, EmailTemplateEntity } from "./EmailTemplate";
+import { EmailAttachmentType, EmailTemplateEntity } from "./EmailTemplate";
 import { EmailSenderConfigurationEntity } from "./EmailSenderConfiguration";
 
 // Port of Signum.Mailing's EmailMessage.cs — the PRODUCED message: what was rendered, to whom, in which
@@ -31,7 +31,7 @@ import { EmailSenderConfigurationEntity } from "./EmailSenderConfiguration";
 //  - `ProcessIdentifier` stays (the async sender claims a batch with it), `UniqueIdentifier` too.
 
 // Signum's EmailMessageState.
-export enum EmailMessageStateEnum {
+export enum EmailMessageState {
     /** Freshly constructed, never saved. */
     Created,
     Draft,
@@ -58,7 +58,7 @@ export class EmailMessageEntity_Attachment extends Entity {
     @backReference emailMessage: Lite<EmailMessageEntity>;
     @rowOrder order: int;
 
-    type: EmailAttachmentTypeEnum;
+    type: EmailAttachmentType;
 
     /** The file itself, in the EmailFileType.Attachment store. */
     file: FilePathEmbedded;
@@ -120,12 +120,12 @@ export class EmailMessageEntity extends Entity {
 
     /** Set when a send attempt threw; goes with state SentException. */
     @fieldValidation<EmailMessageEntity>(m =>
-        m.exception != null && m.state !== EmailMessageStateEnum.SentException && m.state !== EmailMessageStateEnum.ReceptionNotified
+        m.exception != null && m.state !== EmailMessageState.SentException && m.state !== EmailMessageState.ReceptionNotified
             ? "{0} should be empty" : null)
     exception: Lite<ExceptionEntity> | null;
 
     @fieldValidation<EmailMessageEntity>(m => stateAllowsSent(m.state) || m.sent == null ? null : "{0} should be empty")
-    state: EmailMessageStateEnum;
+    state: EmailMessageState;
 
     /** Signum's UniqueIdentifier — a stable id the reception side matches a reply against. */
     uniqueIdentifier: uuid | null;
@@ -151,10 +151,10 @@ export class EmailMessageEntity extends Entity {
     }
 }
 
-function stateAllowsSent(state: EmailMessageStateEnum): boolean {
-    return state === EmailMessageStateEnum.Sent
-        || state === EmailMessageStateEnum.SentException
-        || state === EmailMessageStateEnum.ReceptionNotified;
+function stateAllowsSent(state: EmailMessageState): boolean {
+    return state === EmailMessageState.Sent
+        || state === EmailMessageState.SentException
+        || state === EmailMessageState.ReceptionNotified;
 }
 
 export namespace EmailMessageOperation {

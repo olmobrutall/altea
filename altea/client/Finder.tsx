@@ -25,7 +25,7 @@ import type {
   FilterGroupRequest, FilterConditionRequest, SystemTime,
 } from '../data/dynamicQuery/queryRequest';
 import {
-  isList, isPair, type ColumnOptionsMode, toPinnedFilterParsed, isActive, canSplitValue,
+  isList, isPair, type ColumnOptionsModeKeys, toPinnedFilterParsed, isActive, canSplitValue,
   getFilterOperations, isFilterGroup, isFilterCondition, isGroupList, toColumnOption,
 } from './FindOptions';
 // TODO(port): QueryDescriptionDTO / QueryTokenWithoutParent dropped in altea (client builds the token tree locally).
@@ -39,8 +39,8 @@ import { RootToken } from '../data/dynamicQuery/tokens/rootToken';
 import { SearchMessage } from '../data/uiMessages';
 import { QueryTokenString, type Anonymous } from './QueryTokenString';
 
-import { FilterOperationEnum, PinnedFilterActiveEnum } from '../data/dynamicQueries'; // numeric companions, for wire-ordinal encode/decode
-import type { FilterOperation, FilterGroupOperation, PinnedFilterActive, FilterType, PaginationMode, OrderType } from '../data/dynamicQueries';
+import { FilterOperation, PinnedFilterActive } from '../data/dynamicQueries'; // numeric companions, for wire-ordinal encode/decode
+import type { FilterOperationKeys, FilterGroupOperationKeys, PinnedFilterActiveKeys, FilterTypeKeys, PaginationModeKeys, OrderTypeKeys } from '../data/dynamicQueries';
 
 import { Entity, BaseEntity, EmbeddedEntity, ModelEntity, type Type } from '../data/entity';
 import { Lite } from '../data/lite';
@@ -436,7 +436,7 @@ export namespace Finder {
     const query = {
       groupResults: fo.groupResults || undefined,
       idf: fo.includeDefaultFilters,
-      columnMode: (!fo.columnOptionsMode || fo.columnOptionsMode == "Add" as ColumnOptionsMode) ? undefined : fo.columnOptionsMode,
+      columnMode: (!fo.columnOptionsMode || fo.columnOptionsMode == "Add" as ColumnOptionsModeKeys) ? undefined : fo.columnOptionsMode,
       paginationMode: fo.pagination && fo.pagination.mode,
       elementsPerPage: fo.pagination && fo.pagination.elementsPerPage,
       currentPage: fo.pagination && fo.pagination.currentPage,
@@ -559,7 +559,7 @@ export namespace Finder {
       : getDefaultColumns(queryToken).map(cd => cd.fullKey());
   }
 
-  export function mergeColumns(queryToken: QueryToken, mode: ColumnOptionsMode, columnOptions: ColumnOption[]): ColumnOption[] {
+  export function mergeColumns(queryToken: QueryToken, mode: ColumnOptionsModeKeys, columnOptions: ColumnOption[]): ColumnOption[] {
 
     const columns: string[] = getDefaultColumnKeys(queryToken);
 
@@ -599,7 +599,7 @@ export namespace Finder {
     }
   }
 
-  export function smartColumns(current: ColumnOptionParsed[], queryToken: QueryToken): { mode: ColumnOptionsMode; columns: ColumnOption[] } {
+  export function smartColumns(current: ColumnOptionParsed[], queryToken: QueryToken): { mode: ColumnOptionsModeKeys; columns: ColumnOption[] } {
 
     // Compare against the default column KEYS (strings), NOT sync-resolved tokens — so a SERVER-only default
     // column (e.g. Order.totalPrice, which getDefaultColumns would drop during sync resolution) is matched
@@ -1289,7 +1289,7 @@ export namespace Finder {
 
           const parts = (fop.value as unknown[]);
 
-          var newOperation: FilterOperation = operation == "IsIn" ? "EqualTo" : "DistinctTo";
+          var newOperation: FilterOperationKeys = operation == "IsIn" ? "EqualTo" : "DistinctTo";
 
           return ({
             groupOperation: "And",
@@ -1334,7 +1334,7 @@ export namespace Finder {
       if (overridenValue == null && fop.pinned && fop.pinned.active == "WhenHasValue" && (fop.value == null || fop.value === ""))
         return undefined;
 
-      const effectiveOp: FilterOperation = overridenValue?.convertListToScalar && isList(fop.operation)
+      const effectiveOp: FilterOperationKeys = overridenValue?.convertListToScalar && isList(fop.operation)
         ? (fop.operation == "IsIn" ? "EqualTo" : "DistinctTo")
         : fop.operation;
 
@@ -2074,7 +2074,7 @@ export namespace Finder {
           query[(prefix ?? "") + "filterPinned" + index + identSuffix] = scapeTilde(typeof p.label == "function" ? p.label() : p.label ?? "") +
             "~" + (p.column == null ? "" : p.column) + (p.colSpan == null ? "" : ("." + p.colSpan)) +
             "~" + (p.row == null ? "" : p.row) +
-            "~" + PinnedFilterActiveEnum[p.active ?? "Always"] + // altea: numeric enum gives the ordinal (Signum's .values().indexOf)
+            "~" + PinnedFilterActive[p.active ?? "Always"] + // altea: numeric enum gives the ordinal (Signum's .values().indexOf)
             "~" + (p.splitValue ? 1 : 0);
         }
 
@@ -2182,7 +2182,7 @@ export namespace Finder {
           column: col.length ? (col.includes(".") ? parseInt(col.before(".")) : parseInt(col)) : undefined,
           colSpan: col.length && col.includes(".") ? parseInt(col.after(".")) : undefined,
           row: parts[2].length ? parseInt(parts[2]) : undefined,
-          active: parseInt(parts[3]) == 0 ? undefined : PinnedFilterActiveEnum[parseInt(parts[3])] as PinnedFilterActive,
+          active: parseInt(parts[3]) == 0 ? undefined : PinnedFilterActive[parseInt(parts[3])] as PinnedFilterActiveKeys,
           splitValue: parseInt(parts[4]) == 0 ? undefined : Boolean(parseInt(parts[4])),
         });
       }
@@ -2200,8 +2200,8 @@ export namespace Finder {
 
           const parts = gr.key.value.split("~");
 
-          if (parts[1] in FilterOperationEnum) {
-            var operation = parts[1] as FilterOperation;
+          if (parts[1] in FilterOperation) {
+            var operation = parts[1] as FilterOperationKeys;
             return ({
               token: parts[0],
               operation: operation,
@@ -2215,7 +2215,7 @@ export namespace Finder {
             const filters = toFilterList(gr.elements, identation + 1, ignoreValues || shouldIgnoreValues(pinned));
             return ({
               token: parts[0] == null || parts[0].length == 0 ? null : parts[0],
-              groupOperation: parts[1] as FilterGroupOperation,
+              groupOperation: parts[1] as FilterGroupOperationKeys,
               value: ignoreValues ? null :
                 isGroupList({ filters }) ? parts.slice(2).map(a => unscapeTildes(a)).notNull() :
                   unscapeTildes(parts[2]),

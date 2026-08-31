@@ -11,7 +11,7 @@ import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/query
 import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import { DQueryable } from "@altea/altea/server/dynamicQuery/dQueryable";
 import {
-    Filter, FilterCondition, FilterOperation, Order, OrderType, Column, Pagination, QueryRequest,
+    Filter, FilterCondition, FilterOperationKeys, Order, OrderTypeKeys, Column, Pagination, QueryRequest,
 } from "@altea/altea/server/dynamicQuery/requests";
 import "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { MusicLogic } from "../MusicLogic";
@@ -47,12 +47,12 @@ describe("DQueryable pipeline builds the query", () => {
     const base = () => { const q = table(AlbumEntity); return q.toDQueryable(); };
 
     test("where → filter (year > 1990)", () => {
-        const dq = base().where([new FilterCondition(tok("year"), FilterOperation.GreaterThan, 1990)]).select([tok("name")]);
+        const dq = base().where([new FilterCondition(tok("year"), FilterOperationKeys.GreaterThan, 1990)]).select([tok("name")]);
         assert.match(Connector.withConnector(fake, () => sql(dq)), /where/);
     });
 
     test("orderBy → ORDER BY name DESC", () => {
-        const dq = base().orderBy([new Order(tok("name"), OrderType.Descending)]).select([tok("name")]);
+        const dq = base().orderBy([new Order(tok("name"), OrderTypeKeys.Descending)]).select([tok("name")]);
         assert.match(Connector.withConnector(fake, () => sql(dq)), /order by[^)]*desc/is);
     });
 
@@ -73,8 +73,8 @@ describe("DQueryable.allQueryOperations (QueryRequest-driven, cf. CustomersLogic
         const q = table(AlbumEntity);
         const request = new QueryRequest(
             AlbumEntity,
-            [new FilterCondition(tok("year"), FilterOperation.GreaterThanOrEqual, 1990)],
-            [new Order(tok("name"), OrderType.Ascending)],
+            [new FilterCondition(tok("year"), FilterOperationKeys.GreaterThanOrEqual, 1990)],
+            [new Order(tok("name"), OrderTypeKeys.Ascending)],
             [new Column(tok("name")), new Column(tok("year"))],
             new Pagination.Firsts(10),
         );

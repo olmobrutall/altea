@@ -8,7 +8,7 @@ import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { table } from "@altea/altea/server/table";
 import { Temporal, type uuid } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
-import { EmailMessageEntity, EmailMessageStateEnum } from "../data/EmailMessage";
+import { EmailMessageEntity, EmailMessageState } from "../data/EmailMessage";
 import type { AsyncEmailSenderState, AsyncEmailSenderHealth } from "../data/AsyncEmailSenderState";
 import { EmailLogic } from "./EmailLogic.server";
 
@@ -148,7 +148,7 @@ export namespace AsyncEmailSender {
 
                 const chunkSize = config.chunkSizeSendingEmails as unknown as number;
                 const items = await table(EmailMessageEntity)
-                    .filter(m => m.processIdentifier == processIdentifier! && m.state == EmailMessageStateEnum.RecruitedForSending)
+                    .filter(m => m.processIdentifier == processIdentifier! && m.state == EmailMessageState.RecruitedForSending)
                     .top(chunkSize)
                     .toArray() as EmailMessageEntity[];
 
@@ -168,7 +168,7 @@ export namespace AsyncEmailSender {
                 }
 
                 queuedItems = (await table(EmailMessageEntity)
-                    .filter(m => m.processIdentifier == processIdentifier! && m.state == EmailMessageStateEnum.RecruitedForSending)
+                    .filter(m => m.processIdentifier == processIdentifier! && m.state == EmailMessageState.RecruitedForSending)
                     .toArray()).length;
 
                 // Nothing left in this claim: look for anything queued while we were sending.
@@ -191,11 +191,11 @@ export namespace AsyncEmailSender {
 
         queuedItems = firstDate == undefined
             ? await table(EmailMessageEntity)
-                .filter(m => m.state == EmailMessageStateEnum.ReadyToSend && m.creationDate < now)
-                .executeUpdate(() => ({ processIdentifier: pid, state: EmailMessageStateEnum.RecruitedForSending }))
+                .filter(m => m.state == EmailMessageState.ReadyToSend && m.creationDate < now)
+                .executeUpdate(() => ({ processIdentifier: pid, state: EmailMessageState.RecruitedForSending }))
             : await table(EmailMessageEntity)
-                .filter(m => m.state == EmailMessageStateEnum.ReadyToSend && m.creationDate < now && m.creationDate >= firstDate)
-                .executeUpdate(() => ({ processIdentifier: pid, state: EmailMessageStateEnum.RecruitedForSending }));
+                .filter(m => m.state == EmailMessageState.ReadyToSend && m.creationDate < now && m.creationDate >= firstDate)
+                .executeUpdate(() => ({ processIdentifier: pid, state: EmailMessageState.RecruitedForSending }));
 
         return queuedItems > 0;
     }
@@ -212,7 +212,7 @@ export namespace AsyncEmailSender {
             if (nm == undefined)
                 return;
             nm.sendRetries = ((nm.sendRetries as unknown as number) + 1) as EmailMessageEntity["sendRetries"];
-            nm.state = EmailMessageStateEnum.ReadyToSend;
+            nm.state = EmailMessageState.ReadyToSend;
             await nm.save();
         });
     }
@@ -225,8 +225,8 @@ export namespace AsyncEmailSender {
 
         const firstDate = Clock.now.subtract({ hours });
         await ExecutionMode.global(() => table(EmailMessageEntity)
-            .filter(m => m.state == EmailMessageStateEnum.ReadyToSend && m.creationDate < firstDate)
-            .executeUpdate(() => ({ state: EmailMessageStateEnum.Outdated })));
+            .filter(m => m.state == EmailMessageState.ReadyToSend && m.creationDate < firstDate)
+            .executeUpdate(() => ({ state: EmailMessageState.Outdated })));
     }
 
     /** Signum's SetTimer — re-arm for the configured period. */

@@ -2,9 +2,9 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import "@altea/altea/data/globals";
-import { SystemTime, SystemTimeJoinMode, NullableInterval } from "@altea/altea/server/systemTime";
+import { SystemTime, SystemTimeJoinModeKeys, NullableInterval } from "@altea/altea/server/systemTime";
 import { Temporal } from "@altea/altea/data/basics";
-import { getDatesInRange, TimeSeriesUnit } from "@altea/altea/server/queryTimeSeries";
+import { getDatesInRange, TimeSeriesUnitKeys } from "@altea/altea/server/queryTimeSeries";
 import { hasDb, start } from "../setup";
 import { FolderEntity } from "../../data/music";
 
@@ -26,7 +26,7 @@ describe("SystemTimeTest", { skip: !hasDb }, () => {
     // (Signum additionally asserts the bound's DateTimeKind is Utc; altea's Temporal model has no
     // Kind — period bounds materialise as tz-naive Temporal values — so that is not asserted.)
     test("SystemPeriodUTC", async () => {
-        await SystemTime.override(new SystemTime.All(SystemTimeJoinMode.FirstCompatible), async () => {
+        await SystemTime.override(new SystemTime.All(SystemTimeJoinModeKeys.FirstCompatible), async () => {
             const mins = await table(FolderEntity).map(f => f.systemPeriod().min).toArray();
             assert.ok(mins.length > 0);
             assert.ok(mins.every(m => m != null));
@@ -51,7 +51,7 @@ describe("SystemTimeTest", { skip: !hasDb }, () => {
     // parent's period (navigating f.parent.entity.systemPeriod() — a join to the versioned parent
     // under the same scope) and asserts the child period overlaps the parent's.
     test("TimeAll", async () => {
-        const list = await SystemTime.override(new SystemTime.All(SystemTimeJoinMode.AllCompatible), async () =>
+        const list = await SystemTime.override(new SystemTime.All(SystemTimeJoinModeKeys.AllCompatible), async () =>
             table(FolderEntity)
                 .filter(f => f.parent != null)
                 .map(f => ({
@@ -74,7 +74,7 @@ describe("SystemTimeTest", { skip: !hasDb }, () => {
     // modes (asserting only that they translate and run). Get X2's period under All, then query at
     // / around it. X2's bounds feed straight back into the modes.
     test("TimeBetween", async () => {
-        const period = await SystemTime.override(new SystemTime.All(SystemTimeJoinMode.AllCompatible), async () =>
+        const period = await SystemTime.override(new SystemTime.All(SystemTimeJoinModeKeys.AllCompatible), async () =>
             table(FolderEntity).filter(f => f.name == "X2").map(f => f.systemPeriod()).single());
         assert.ok(period.min != null && period.max != null);
 
@@ -83,11 +83,11 @@ describe("SystemTimeTest", { skip: !hasDb }, () => {
         assert.ok(Array.isArray(asOf));
 
         const end = period.max!.add({ seconds: 1 });
-        const between = await SystemTime.override(new SystemTime.Between(period.max!, end, SystemTimeJoinMode.AllCompatible), async () =>
+        const between = await SystemTime.override(new SystemTime.Between(period.max!, end, SystemTimeJoinModeKeys.AllCompatible), async () =>
             table(FolderEntity).filter(f => f.name == "X2").map(f => f.systemPeriod()).toArray());
         assert.ok(Array.isArray(between));
 
-        const contained = await SystemTime.override(new SystemTime.ContainedIn(period.max!, end, SystemTimeJoinMode.AllCompatible), async () =>
+        const contained = await SystemTime.override(new SystemTime.ContainedIn(period.max!, end, SystemTimeJoinModeKeys.AllCompatible), async () =>
             table(FolderEntity).filter(f => f.name == "X2").map(f => f.systemPeriod()).toArray());
         assert.ok(Array.isArray(contained));
     });
@@ -106,7 +106,7 @@ describe("SystemTimeTest", { skip: !hasDb }, () => {
     test("GetDatesInRange", async () => {
         const startDt = Temporal.PlainDateTime.from("2020-01-01T00:00:00");
         const endDt = startDt.add({ seconds: 2 });
-        const dates = await getDatesInRange(startDt, endDt, TimeSeriesUnit.Second, 1).map(d => d.date).toArray();
+        const dates = await getDatesInRange(startDt, endDt, TimeSeriesUnitKeys.Second, 1).map(d => d.date).toArray();
         assert.equal(dates.length, 3, "0s, 1s, 2s");
         assert.ok(dates.every(d => d != null));
     });
@@ -114,7 +114,7 @@ describe("SystemTimeTest", { skip: !hasDb }, () => {
     // The earliest version start across all history (Signum's `Min(a => a.SystemPeriod().Min!.Value)`).
     // altea's min() aggregate is typed for scalars, not Temporal, so reduce client-side.
     async function earliestVersionStart(): Promise<Temporal.PlainDateTime> {
-        const mins = await SystemTime.override(new SystemTime.All(SystemTimeJoinMode.AllCompatible), async () =>
+        const mins = await SystemTime.override(new SystemTime.All(SystemTimeJoinModeKeys.AllCompatible), async () =>
             table(FolderEntity).map(f => f.systemPeriod().min).toArray());
         const present = mins.filter((m): m is Temporal.PlainDateTime => m != null);
         assert.ok(present.length > 0, "history has version starts");
@@ -126,7 +126,7 @@ describe("SystemTimeTest", { skip: !hasDb }, () => {
     // the versioned table (a correlated COUNT subquery). Asserts it translates and runs.
     test("TimeSeriesOneValue", async () => {
         const min = await earliestVersionStart();
-        const series = await getDatesInRange(min, min.add({ seconds: 2 }), TimeSeriesUnit.Millisecond, 50)
+        const series = await getDatesInRange(min, min.add({ seconds: 2 }), TimeSeriesUnitKeys.Millisecond, 50)
             .map(dv => ({
                 date: dv.date,
                 count: table(FolderEntity).overrideSystemTime(new SystemTime.AsOf(dv.date)).count(),
@@ -140,7 +140,7 @@ describe("SystemTimeTest", { skip: !hasDb }, () => {
     // (a SelectMany / flatMap correlating the date with the versioned rows AS OF it).
     test("TimeSeriesManyValue", async () => {
         const min = await earliestVersionStart();
-        const series = await getDatesInRange(min, min.add({ seconds: 2 }), TimeSeriesUnit.Millisecond, 50)
+        const series = await getDatesInRange(min, min.add({ seconds: 2 }), TimeSeriesUnitKeys.Millisecond, 50)
             .flatMap(dv => table(FolderEntity)
                 .overrideSystemTime(new SystemTime.AsOf(dv.date))
                 .map(f => ({ date: dv.date, folder: f.name })))

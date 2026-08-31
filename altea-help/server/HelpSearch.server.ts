@@ -2,7 +2,7 @@ import "@altea/altea/server";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { removeDiacritics } from "@altea/altea-omnibox/server/OmniboxUtils";
 import { getKey as getQueryKey } from "@altea/altea/data/dynamicQuery/queryUtils";
-import type { AppendixHelpEntity, HelpSearchResult, MatchType, TypeSearchResult } from "../data/Help";
+import type { AppendixHelpEntity, HelpSearchResult, MatchTypeKeys, TypeSearchResultKeys } from "../data/Help";
 import { HelpLogic } from "./HelpLogic.server";
 
 // Port of Signum.Help's HelpSearch.cs — a plain-text scan over everything the help knows: appendix titles
@@ -56,7 +56,7 @@ export namespace HelpSearch {
 
         // Signum orders by nothing at all (its consumer never existed); a Total match before a StartsWith
         // before a Contains is what a search page wants, so the ordering is added here.
-        const rank: Record<MatchType, number> = { Total: 0, StartsWith: 1, Contains: 2 };
+        const rank: Record<MatchTypeKeys, number> = { Total: 0, StartsWith: 1, Contains: 2 };
         return results.sort((a, b) => rank[a.matchType] - rank[b.matchType] || a.title.localeCompare(b.title));
     }
 
@@ -156,7 +156,7 @@ export namespace HelpSearch {
     }
 
     function result(
-        typeSearchResult: TypeSearchResult,
+        typeSearchResult: TypeSearchResultKeys,
         title: string,
         description: string | null,
         hit: Hit,

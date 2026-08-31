@@ -53,35 +53,35 @@ export const CollectionMessage = {
     And: msg(" and "),
 };
 
-export enum ColumnOptionsModeEnum {
+export enum ColumnOptionsMode {
     Add,
     Remove,
     ReplaceAll,
     InsertStart,
     ReplaceOrAdd,
 }
-export type ColumnOptionsMode = keyof typeof ColumnOptionsModeEnum;
+export type ColumnOptionsModeKeys = keyof typeof ColumnOptionsMode;
 
-export enum CombineRowsEnum {
+export enum CombineRows {
     EqualValue,
     EqualEntity,
 }
-export type CombineRows = keyof typeof CombineRowsEnum;
+export type CombineRowsKeys = keyof typeof CombineRows;
 
-export enum DashboardBehaviourEnum {
+export enum DashboardBehaviour {
     PromoteToDasboardPinnedFilter,
     UseAsInitialSelection,
     UseWhenNoFilters,
 }
-export type DashboardBehaviour = keyof typeof DashboardBehaviourEnum;
+export type DashboardBehaviourKeys = keyof typeof DashboardBehaviour;
 
-export enum FilterGroupOperationEnum {
+export enum FilterGroupOperation {
     And,
     Or,
 }
-export type FilterGroupOperation = keyof typeof FilterGroupOperationEnum;
+export type FilterGroupOperationKeys = keyof typeof FilterGroupOperation;
 
-export enum FilterOperationEnum {
+export enum FilterOperation {
     EqualTo,
     DistinctTo,
     GreaterThan,
@@ -108,9 +108,9 @@ export enum FilterOperationEnum {
     Between,
     BetweenNoEnd,
 }
-export type FilterOperation = keyof typeof FilterOperationEnum;
+export type FilterOperationKeys = keyof typeof FilterOperation;
 
-export enum FilterTypeEnum {
+export enum FilterType {
     Integer,
     Decimal,
     String,
@@ -125,22 +125,22 @@ export enum FilterTypeEnum {
     TsVector,
     Vector,
 }
-export type FilterType = keyof typeof FilterTypeEnum;
+export type FilterTypeKeys = keyof typeof FilterType;
 
-export enum OrderTypeEnum {
+export enum OrderType {
     Ascending,
     Descending,
 }
-export type OrderType = keyof typeof OrderTypeEnum;
+export type OrderTypeKeys = keyof typeof OrderType;
 
-export enum PaginationModeEnum {
+export enum PaginationMode {
     All,
     Firsts,
     Paginate,
 }
-export type PaginationMode = keyof typeof PaginationModeEnum;
+export type PaginationModeKeys = keyof typeof PaginationMode;
 
-export enum PinnedFilterActiveEnum {
+export enum PinnedFilterActive {
     Always,
     WhenHasValue,
     Checkbox_Checked,
@@ -148,35 +148,35 @@ export enum PinnedFilterActiveEnum {
     NotCheckbox_Checked,
     NotCheckbox_Unchecked,
 }
-export type PinnedFilterActive = keyof typeof PinnedFilterActiveEnum;
+export type PinnedFilterActiveKeys = keyof typeof PinnedFilterActive;
 
 // The per-enum `values()`/`niceToString()` companions that used to live here are gone — the ported
 // query UI now uses the single entity-level `Enum` helper (entities/enum) over the numeric `XEnum`
 // objects: `Enum.values(FilterGroupOperationEnum)` / `Enum.niceName(FilterOperationEnum, x)`.
 
-export enum RefreshModeEnum {
+export enum RefreshMode {
     Auto,
     Manual,
 }
-export type RefreshMode = keyof typeof RefreshModeEnum;
+export type RefreshModeKeys = keyof typeof RefreshMode;
 
-export enum SystemTimeJoinModeEnum {
+export enum SystemTimeJoinMode {
     Current,
     FirstCompatible,
     AllCompatible,
 }
-export type SystemTimeJoinMode = keyof typeof SystemTimeJoinModeEnum;
+export type SystemTimeJoinModeKeys = keyof typeof SystemTimeJoinMode;
 
-export enum SystemTimeModeEnum {
+export enum SystemTimeMode {
     AsOf,
     Between,
     ContainedIn,
     All,
     TimeSeries,
 }
-export type SystemTimeMode = keyof typeof SystemTimeModeEnum;
+export type SystemTimeModeKeys = keyof typeof SystemTimeMode;
 
-export enum TimeSeriesUnitEnum {
+export enum TimeSeriesUnit {
     Year,
     Quarter,
     Month,
@@ -187,16 +187,16 @@ export enum TimeSeriesUnitEnum {
     Second,
     Millisecond,
 }
-export type TimeSeriesUnit = keyof typeof TimeSeriesUnitEnum;
+export type TimeSeriesUnitKeys = keyof typeof TimeSeriesUnit;
 
-export enum UniqueTypeEnum {
+export enum UniqueType {
     First,
     FirstOrDefault,
     Single,
     SingleOrDefault,
     Only,
 }
-export type UniqueType = keyof typeof UniqueTypeEnum;
+export type UniqueTypeKeys = keyof typeof UniqueType;
 
 // Register the DynamicQuery-vocabulary enums that are PERSISTED as entity fields (Signum ships these as
 // real int-backed enums with their own table, e.g. UserQueryEntity.columnsMode / UserQueryEntity_Order.orderType).
@@ -210,15 +210,15 @@ export type UniqueType = keyof typeof UniqueTypeEnum;
 // to the enum table (translatable), and the in-memory field value is the numeric ordinal (like OrderState) —
 // callers that need the string name normalise with `Enum.toName`. The registerEnum() calls below are rewritten
 // by the quote-transformer to `registerEnum(X, "X", __fileInfo)`.
-registerEnum(ColumnOptionsModeEnum);
-registerEnum(CombineRowsEnum);
-registerEnum(DashboardBehaviourEnum);
-registerEnum(FilterGroupOperationEnum);
-registerEnum(FilterOperationEnum);
-registerEnum(OrderTypeEnum);
-registerEnum(PaginationModeEnum);
-registerEnum(PinnedFilterActiveEnum);
-registerEnum(RefreshModeEnum);
-registerEnum(SystemTimeJoinModeEnum);
-registerEnum(SystemTimeModeEnum);
-registerEnum(TimeSeriesUnitEnum);
+registerEnum(ColumnOptionsMode);
+registerEnum(CombineRows);
+registerEnum(DashboardBehaviour);
+registerEnum(FilterGroupOperation);
+registerEnum(FilterOperation);
+registerEnum(OrderType);
+registerEnum(PaginationMode);
+registerEnum(PinnedFilterActive);
+registerEnum(RefreshMode);
+registerEnum(SystemTimeJoinMode);
+registerEnum(SystemTimeMode);
+registerEnum(TimeSeriesUnit);

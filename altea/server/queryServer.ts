@@ -25,10 +25,10 @@ import type {
 import { QueryLogic } from "./dynamicQuery/queryLogic";
 import {
     QueryRequest, Column, Order, type Filter, FilterCondition, FilterGroup, Pagination,
-    FilterOperation, type FilterGroupOperation, type OrderType,
+    FilterOperationKeys, type FilterGroupOperationKeys, type OrderTypeKeys,
 } from "./dynamicQuery/requests";
 import type { ResultTable } from "./dynamicQuery/resultTable";
-import { SystemTime, SystemTimeJoinMode } from "./systemTime";
+import { SystemTime, SystemTimeJoinModeKeys } from "./systemTime";
 import { WebBuilder, CustomType } from "./webApi";
 
 export namespace QueryServer {
@@ -111,7 +111,7 @@ export function parseQueryRequest(wire: WireQueryRequest): QueryRequest {
     const token = (s: string): QueryToken => QueryLogic.getToken(queryName, s, opt);
 
     const columns = (wire.columns ?? []).map(c => new Column(token(c.token), c.displayName));
-    const orders = (wire.orders ?? []).map(o => new Order(token(o.token), o.orderType as OrderType));
+    const orders = (wire.orders ?? []).map(o => new Order(token(o.token), o.orderType as OrderTypeKeys));
     const filters = (wire.filters ?? []).map(f => parseFilter(token, f));
     const pagination = parsePagination(wire.pagination);
 
@@ -131,7 +131,7 @@ export function parseSystemTime(wire: WireSystemTime | undefined): SystemTime | 
     if (wire == undefined)
         return undefined;
 
-    const join = (wire.joinMode ?? "FirstCompatible") as SystemTimeJoinMode;
+    const join = (wire.joinMode ?? "FirstCompatible") as SystemTimeJoinModeKeys;
 
     switch (wire.mode) {
         case "AsOf":
@@ -156,19 +156,19 @@ function parseBound(value: string | undefined, name: string): Temporal.PlainDate
 function parseFilter(token: (s: string) => QueryToken, f: FilterRequest): Filter {
     if ("filters" in f) // FilterGroupRequest
         return new FilterGroup(
-            f.groupOperation as FilterGroupOperation,
+            f.groupOperation as FilterGroupOperationKeys,
             f.token != undefined ? token(f.token) : undefined,
             f.filters.map(sub => parseFilter(token, sub)));
     const t = token(f.token);
-    const op = f.operation as FilterOperation;
+    const op = f.operation as FilterOperationKeys;
     return new FilterCondition(t, op, deserializeFilterValue(t, op, f.value));
 }
 
 // Signum's FilterValueConverter: deserialize a wire filter value against the token's type. IsIn /
 // IsNotIn carry an ARRAY of that type. Lites/entities/embeddeds already arrive decoded (the request
 // body went through the entity Serializer); enums (member-name string), dates and primitives don't.
-function deserializeFilterValue(token: QueryToken, operation: FilterOperation, raw: unknown): unknown {
-    if (operation === FilterOperation.IsIn || operation === FilterOperation.IsNotIn)
+function deserializeFilterValue(token: QueryToken, operation: FilterOperationKeys, raw: unknown): unknown {
+    if (operation === FilterOperationKeys.IsIn || operation === FilterOperationKeys.IsNotIn)
         return Array.isArray(raw) ? raw.map(v => deserializeSingle(token, v)) : raw;
     return deserializeSingle(token, raw);
 }

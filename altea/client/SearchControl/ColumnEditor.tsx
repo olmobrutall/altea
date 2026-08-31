@@ -13,7 +13,7 @@ import { QueryToken, SubTokensOptions } from '../QueryToken';
 import { EntityControlMessage, SearchMessage } from '../../data/uiMessages'
 import QueryTokenBuilder from './QueryTokenBuilder'
 import { StyleContext } from '../TypeContext';
-import { type CombineRows, CombineRowsEnum } from '../../data/dynamicQueries';
+import { type CombineRowsKeys, CombineRows } from '../../data/dynamicQueries';
 import { Enum } from '../../data/enum';
 import { VisualTipIcon, SearchVisualTip } from '../Basics/VisualTipIcon';
 import { ColumnHelp } from './SearchControlVisualTips';
@@ -53,7 +53,7 @@ export default function ColumnEditor(p: ColumnEditorProps): React.ReactElement {
   }
 
   function handleCombineEqualsVertically(e: React.ChangeEvent<HTMLSelectElement>) {
-    co.combineRows = (e.currentTarget.value as CombineRows) || undefined;
+    co.combineRows = (e.currentTarget.value as CombineRowsKeys) || undefined;
     p.onChange(undefined);
   }
 
@@ -128,7 +128,7 @@ export default function ColumnEditor(p: ColumnEditorProps): React.ReactElement {
               <select className="form-select form-select-xs" id="combineRows" value={co.combineRows ?? ""} onChange={handleCombineEqualsVertically}>
                 <option value={""}>{" - "}</option>
                 <option value={"EqualEntity"}>{SearchMessage.Equal0.niceToString(Finder.getTypeNiceName(p.queryToken.type))}</option>
-                <option value={"EqualValue"}>{Enum.niceName(CombineRowsEnum, "EqualValue")}</option>
+                <option value={"EqualValue"}>{Enum.niceName(CombineRows, "EqualValue")}</option>
               </select>
             </div>
           </div>

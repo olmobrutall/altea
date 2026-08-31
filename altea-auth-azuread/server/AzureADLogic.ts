@@ -12,7 +12,7 @@ import { ClassType } from "@altea/altea/server/runtimeTypes";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import {
-    FilterCondition, FilterOperation, Pagination, type Filter, type QueryRequest,
+    FilterCondition, FilterOperationKeys, Pagination, type Filter, type QueryRequest,
 } from "@altea/altea/server/dynamicQuery/requests";
 import { Lite } from "@altea/altea/data/lite";
 
@@ -270,7 +270,7 @@ export namespace AzureADLogic {
         let extracted: FilterCondition | undefined;
         const rest = request.filters.filter(f => {
             if (extracted == undefined && f instanceof FilterCondition
-                && f.token.fullKey() === key && f.operation === FilterOperation.EqualTo) {
+                && f.token.fullKey() === key && f.operation === FilterOperationKeys.EqualTo) {
                 extracted = f;
                 return false;
             }

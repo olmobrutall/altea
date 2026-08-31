@@ -3,7 +3,7 @@ import { ModelEntity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { stringLengthValidator, fieldValidation } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
-import { TimeSeriesUnitEnum } from "@altea/altea/data/dynamicQueries";
+import { TimeSeriesUnit } from "@altea/altea/data/dynamicQueries";
 import { AggregateToken } from "@altea/altea/data/dynamicQuery/tokens/aggregateToken";
 import { ChartScriptSymbol, type ChartScript } from "./ChartScript";
 import { ChartColumnEmbedded } from "./ChartColumn";
@@ -84,7 +84,7 @@ export class ChartTimeSeriesEmbedded extends EmbeddedEntity {
     endDate: string | null;
 
     // Real altea enum (int-FK, translatable); in-memory ordinal, wire/query = member name (Enum.toName).
-    timeSeriesUnit: TimeSeriesUnitEnum | null;
+    timeSeriesUnit: TimeSeriesUnit | null;
 
     @fieldValidation<ChartTimeSeriesEmbedded>(t =>
         t.timeSeriesStep != null && t.timeSeriesStep <= 0 ? ValidationMessage.NumberIsTooSmall.niceToString() : null)

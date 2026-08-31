@@ -14,7 +14,7 @@ import { Administrator } from "@altea/altea/server/Administrator";
 import { Synchronizer, Replacements } from "@altea/altea/server/sync/synchronizer";
 import { SqlPreCommand, SqlPreCommandSimple, Spacing } from "@altea/altea/server/sync/sqlPreCommand";
 import {
-    FilterCondition, FilterOperation, Order, Pagination, type Filter,
+    FilterCondition, FilterOperationKeys, Order, Pagination, type Filter,
 } from "@altea/altea/server/dynamicQuery/requests";
 import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
@@ -55,7 +55,7 @@ export function officeModel(init: Partial<IOfficeModel> & { untypedEntity: Entit
 export function multiEntityOfficeModel(entity: MultiEntityModel): IOfficeModel {
     return officeModel({
         untypedEntity: null,
-        getFilters: queryName => [new FilterCondition(rootToken(queryName), FilterOperation.IsIn, entity.entities)],
+        getFilters: queryName => [new FilterCondition(rootToken(queryName), FilterOperationKeys.IsIn, entity.entities)],
     });
 }
 
@@ -277,7 +277,7 @@ function rootToken(queryName: QueryName): ReturnType<typeof QueryLogic.getToken>
 }
 
 function entityFilter(queryName: QueryName, entity: Entity): Filter {
-    return new FilterCondition(rootToken(queryName), FilterOperation.EqualTo, entity.toLite());
+    return new FilterCondition(rootToken(queryName), FilterOperationKeys.EqualTo, entity.toLite());
 }
 
 export { Graph, Order };

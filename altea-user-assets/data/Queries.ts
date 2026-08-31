@@ -3,7 +3,7 @@ import { EmbeddedEntity, Entity } from "@altea/altea/data/entity";
 import { column, serialize, stringLengthValidator, rowOrder } from "@altea/altea/data/decorators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import {
-    PinnedFilterActiveEnum, FilterGroupOperationEnum, FilterOperationEnum, DashboardBehaviourEnum,
+    PinnedFilterActive, FilterGroupOperation, FilterOperation, DashboardBehaviour,
 } from "@altea/altea/data/dynamicQueries";
 import { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 
@@ -54,7 +54,7 @@ export class PinnedQueryFilterEmbedded extends EmbeddedEntity {
 
     // Signum's PinnedFilterActive (default Always). A real altea enum (int FK to the enum table,
     // translatable); the in-memory value is the numeric ordinal, the wire/XML form is the member name.
-    active: PinnedFilterActiveEnum = PinnedFilterActiveEnum.Always;
+    active: PinnedFilterActive = PinnedFilterActive.Always;
 
     splitValue: boolean = false;
 
@@ -84,10 +84,10 @@ export abstract class QueryFilterBaseEntity extends Entity {
     isGroup: boolean = false;
     // Real altea enums (int FK to the enum table, translatable) — Signum's enum columns. The in-memory
     // value is the numeric ordinal; the wire/XML/query form is the member name (Enum.toName). See dynamicQueries.
-    groupOperation: FilterGroupOperationEnum | null;
-    operation: FilterOperationEnum | null;
+    groupOperation: FilterGroupOperation | null;
+    operation: FilterOperation | null;
     valueString: string | null;
     pinned: PinnedQueryFilterEmbedded | null;
-    dashboardBehaviour: DashboardBehaviourEnum | null;
+    dashboardBehaviour: DashboardBehaviour | null;
     indentation: int = toInt(0);
 }

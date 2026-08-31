@@ -1,15 +1,15 @@
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbeddedLogic.server";
 import type { EmailMessageEntity } from "@altea/altea-email/data/EmailMessage";
-import { EmailAttachmentTypeEnum } from "@altea/altea-email/data/EmailTemplate";
+import { EmailAttachmentType } from "@altea/altea-email/data/EmailTemplate";
 import {
-    EmailRecipientKindEnum, type EmailAddressEmbedded, type EmailRecipientBaseEntity,
+    EmailRecipientKind, type EmailAddressEmbedded, type EmailRecipientBaseEntity,
 } from "@altea/altea-email/data/Email";
 import type { EmailSenderConfigurationEntity } from "@altea/altea-email/data/EmailSenderConfiguration";
 import { EmailLogic } from "@altea/altea-email/server/EmailLogic.server";
 import { EmailSenderBase } from "@altea/altea-email/server/EmailSenderBase.server";
 import { EmailSenderConfigurationLogic } from "@altea/altea-email/server/EmailSenderConfigurationLogic.server";
-import { ExchangeVersionEnum, type ExchangeWebServiceEmailServiceEntity } from "../data/MailingExchangeWS";
+import { ExchangeVersion, type ExchangeWebServiceEmailServiceEntity } from "../data/MailingExchangeWS";
 import { ExchangeWebServices, escapeXml, type ExchangeCredentials } from "./ExchangeWebServices";
 
 // Port of Signum.Mailing.ExchangeWS's ExchangeWebServiceSender.cs — send one EmailMessage through Exchange
@@ -55,10 +55,10 @@ export class ExchangeWebServiceSender extends EmailSenderBase {
             ? this.exchange.url
             : await ExchangeWebServices.autodiscoverUrl(email.from.emailAddress, credentials);
 
-        const version = ExchangeVersionEnum[this.exchange.exchangeVersion];
+        const version = ExchangeVersion[this.exchange.exchangeVersion];
 
         // Signum attaches only real attachments (see the header).
-        const attachments = email.attachments.filter(a => a.type === EmailAttachmentTypeEnum.Attachment);
+        const attachments = email.attachments.filter(a => a.type === EmailAttachmentType.Attachment);
 
         if (attachments.length === 0)
             await this.sendDirectly(url, version, credentials, email);
@@ -134,9 +134,9 @@ export class ExchangeWebServiceSender extends EmailSenderBase {
         return `<t:Message>`
             + `<t:Subject>${escapeXml(email.subject ?? "")}</t:Subject>`
             + `<t:Body BodyType="${email.isBodyHtml ? "HTML" : "Text"}">${escapeXml(email.body.text ?? "")}</t:Body>`
-            + mailboxes("ToRecipients", email, EmailRecipientKindEnum.To)
-            + mailboxes("CcRecipients", email, EmailRecipientKindEnum.Cc)
-            + mailboxes("BccRecipients", email, EmailRecipientKindEnum.Bcc)
+            + mailboxes("ToRecipients", email, EmailRecipientKind.To)
+            + mailboxes("CcRecipients", email, EmailRecipientKind.Cc)
+            + mailboxes("BccRecipients", email, EmailRecipientKind.Bcc)
             + `</t:Message>`;
     }
 }
@@ -188,7 +188,7 @@ function recipientMailbox(recipient: EmailRecipientBaseEntity): string {
         + `</t:Mailbox>`;
 }
 
-function mailboxes(element: string, email: EmailMessageEntity, kind: EmailRecipientKindEnum): string {
+function mailboxes(element: string, email: EmailMessageEntity, kind: EmailRecipientKind): string {
     const recipients = email.recipients.filter(r => r.kind === kind);
     if (recipients.length === 0)
         return "";

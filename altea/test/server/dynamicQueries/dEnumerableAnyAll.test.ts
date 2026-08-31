@@ -8,7 +8,7 @@ import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import { Implementations } from "@altea/altea/data/implementations";
 import { DQueryable } from "@altea/altea/server/dynamicQuery/dQueryable";
 import { DEnumerable } from "@altea/altea/server/dynamicQuery/dEnumerable";
-import { FilterGroup, FilterGroupOperation, FilterCondition, FilterOperation } from "@altea/altea/server/dynamicQuery/requests";
+import { FilterGroup, FilterGroupOperationKeys, FilterCondition, FilterOperationKeys } from "@altea/altea/server/dynamicQuery/requests";
 import "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { AlbumEntity } from "../../data/music";
 
@@ -33,9 +33,9 @@ const rows = () => [
 
 describe("in-memory FilterGroup any/all", () => {
     test("Any: a.songs.some(s => s.name=='X' && a.year==20) correlates element + outer in memory", () => {
-        const group = new FilterGroup(FilterGroupOperation.And, tok("songs.Any"), [
-            new FilterCondition(tok("songs.Any.name"), FilterOperation.EqualTo, "X"),
-            new FilterCondition(tok("year"), FilterOperation.EqualTo, 20),
+        const group = new FilterGroup(FilterGroupOperationKeys.And, tok("songs.Any"), [
+            new FilterCondition(tok("songs.Any.name"), FilterOperationKeys.EqualTo, "X"),
+            new FilterCondition(tok("year"), FilterOperationKeys.EqualTo, 20),
         ]);
         const filtered = new DEnumerable(rows(), context).where([group]);
         assert.equal(filtered.collection.length, 1);
@@ -43,8 +43,8 @@ describe("in-memory FilterGroup any/all", () => {
     });
 
     test("All: every song matches", () => {
-        const group = new FilterGroup(FilterGroupOperation.And, tok("songs.All"), [
-            new FilterCondition(tok("songs.All.name"), FilterOperation.EqualTo, "X"),
+        const group = new FilterGroup(FilterGroupOperationKeys.And, tok("songs.All"), [
+            new FilterCondition(tok("songs.All.name"), FilterOperationKeys.EqualTo, "X"),
         ]);
         // Only row 3 ({songs:[X]}) has ALL songs named X.
         const filtered = new DEnumerable(rows(), context).where([group]);
@@ -52,8 +52,8 @@ describe("in-memory FilterGroup any/all", () => {
     });
 
     test("NotAny: no song matches", () => {
-        const group = new FilterGroup(FilterGroupOperation.And, tok("songs.NotAny"), [
-            new FilterCondition(tok("songs.NotAny.name"), FilterOperation.EqualTo, "X"),
+        const group = new FilterGroup(FilterGroupOperationKeys.And, tok("songs.NotAny"), [
+            new FilterCondition(tok("songs.NotAny.name"), FilterOperationKeys.EqualTo, "X"),
         ]);
         // Only row 2 ({songs:[Z]}) has NO song named X.
         const filtered = new DEnumerable(rows(), context).where([group]);
@@ -61,8 +61,8 @@ describe("in-memory FilterGroup any/all", () => {
     });
 
     test("outer condition alone still filters (element param unused)", () => {
-        const group = new FilterGroup(FilterGroupOperation.And, tok("songs.Any"), [
-            new FilterCondition(tok("songs.Any.name"), FilterOperation.EqualTo, "X"),
+        const group = new FilterGroup(FilterGroupOperationKeys.And, tok("songs.Any"), [
+            new FilterCondition(tok("songs.Any.name"), FilterOperationKeys.EqualTo, "X"),
         ]);
         // Rows with any song named X: rows 1 and 3.
         const filtered = new DEnumerable(rows(), context).where([group]);

@@ -21,7 +21,7 @@ import type { IPartEntity } from "./Dashboard";
 // ToolbarMenuPartEntity is deferred with Signum.Toolbar.
 
 // Signum's TextPartType (PanelPart.cs) — how `textContent` is rendered.
-export enum TextPartTypeEnum {
+export enum TextPartType {
     Text,
     Markdown,
     HTML,
@@ -35,7 +35,7 @@ export class TextPartEntity extends Entity implements IPartEntity {
     @stringLengthValidator({ min: 1 })
     textContent: string | null;
 
-    textPartType: TextPartTypeEnum = TextPartTypeEnum.Text;
+    textPartType: TextPartType = TextPartType.Text;
 
     requiresTitle(): boolean {
         return false;

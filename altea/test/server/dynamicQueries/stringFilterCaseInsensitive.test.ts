@@ -8,7 +8,7 @@ import { QueryFormatter } from "@altea/altea/server/linq/queryFormatter";
 import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import { DQueryable } from "@altea/altea/server/dynamicQuery/dQueryable";
-import { FilterCondition, FilterOperation } from "@altea/altea/server/dynamicQuery/requests";
+import { FilterCondition, FilterOperationKeys } from "@altea/altea/server/dynamicQuery/requests";
 import "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { MusicLogic } from "../MusicLogic";
 import { AlbumEntity } from "../../data/music";
@@ -39,7 +39,7 @@ const ss = new FakeConnector(false);
 const tok = (path: string) => path.split(".").reduce<any>((t, s) => t.subToken(s, O), new RootToken(AlbumEntity));
 
 // Build the SQL for `<token> <op> <value>` under the given connector's dialect.
-function filterSql(conn: FakeConnector, op: FilterOperation, value: unknown): string {
+function filterSql(conn: FakeConnector, op: FilterOperationKeys, value: unknown): string {
     return Connector.withConnector(conn, () => {
         const dq: DQueryable = table(AlbumEntity).toDQueryable()
             .where([new FilterCondition(tok("name"), op, value)])
@@ -50,30 +50,30 @@ function filterSql(conn: FakeConnector, op: FilterOperation, value: unknown): st
 
 describe("Postgres lowers both sides of a string filter (case-insensitive)", () => {
     test("Contains → lower(name) like lower(pattern)", () => {
-        const s = filterSql(pg, FilterOperation.Contains, "Abc");
+        const s = filterSql(pg, FilterOperationKeys.Contains, "Abc");
         assert.match(s, /lower\(/, "the string column should be wrapped in LOWER on Postgres");
         assert.doesNotMatch(s, /'%Abc%'/, "the pattern value should be lowercased, not kept as 'Abc'");
     });
 
     test("EqualTo → lower(name) = lowered value", () => {
-        const s = filterSql(pg, FilterOperation.EqualTo, "Abc");
+        const s = filterSql(pg, FilterOperationKeys.EqualTo, "Abc");
         assert.match(s, /lower\(/);
     });
 
     test("IsIn → lower(name) in (lowered values)", () => {
-        const s = filterSql(pg, FilterOperation.IsIn, ["Abc", "DEF"]);
+        const s = filterSql(pg, FilterOperationKeys.IsIn, ["Abc", "DEF"]);
         assert.match(s, /lower\(/);
     });
 });
 
 describe("SQL Server does NOT lower (default case-insensitive collation)", () => {
     test("Contains keeps the raw column + value", () => {
-        const s = filterSql(ss, FilterOperation.Contains, "Abc");
+        const s = filterSql(ss, FilterOperationKeys.Contains, "Abc");
         assert.doesNotMatch(s, /lower\(/, "SQL Server must not lower — its default collation is case-insensitive");
     });
 
     test("EqualTo keeps the raw column + value", () => {
-        const s = filterSql(ss, FilterOperation.EqualTo, "Abc");
+        const s = filterSql(ss, FilterOperationKeys.EqualTo, "Abc");
         assert.doesNotMatch(s, /lower\(/);
     });
 });

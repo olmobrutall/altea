@@ -10,13 +10,13 @@ import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { CultureInfoEntity, cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
-import { OrderTypeEnum } from "@altea/altea/data/dynamicQueries";
+import { OrderType } from "@altea/altea/data/dynamicQueries";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { FileEmbedded } from "@altea/altea-files/data/Files";
 import { QueryTokenEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { ModelConverterSymbol, TemplateApplicableEval, type IContainsQuery } from "@altea/altea-templating/data/Templating";
-import { EmailModelEntity, EmailRecipientKindEnum } from "./Email";
+import { EmailModelEntity, EmailRecipientKind } from "./Email";
 
 // Port of Signum.Mailing's Templates/EmailTemplate.cs + EmailMasterTemplate.cs + ImageAttachmentEntity.cs +
 // FileTokenAttachmenEntity.cs: the AUTHORED side of the module — what a message will look like, whom it
@@ -39,7 +39,7 @@ import { EmailModelEntity, EmailRecipientKindEnum } from "./Email";
 
 // ---- enums ---------------------------------------------------------------------------------------------
 
-export enum EmailMessageFormatEnum {
+export enum EmailMessageFormat {
     /** Plain text — no escaping, no master template markup. */
     PlainText,
     /** HTML authored as source (a code editor). */
@@ -48,30 +48,30 @@ export enum EmailMessageFormatEnum {
     HtmlSimple,
 }
 
-export enum EmailAddressSourceEnum {
+export enum EmailAddressSource {
     QueryToken,
     HardcodedAddress,
     CurrentUser,
 }
 
-export enum WhenNoneRecipientsBehaviourEnum {
+export enum WhenNoneRecipientsBehaviour {
     ThrowException,
     NoMessage,
     NoRecipients,
 }
 
-export enum WhenManyRecipientsBehaviourEnum {
+export enum WhenManyRecipientsBehaviour {
     SplitMessages,
     KeepOneMessageWithManyRecipients,
 }
 
-export enum WhenNoneFromBehaviourEnum {
+export enum WhenNoneFromBehaviour {
     ThrowException,
     NoMessage,
     DefaultFrom,
 }
 
-export enum WhenManyFromBehaviourEnum {
+export enum WhenManyFromBehaviour {
     SplitMessages,
     FistResult,
 }
@@ -106,7 +106,7 @@ export class ImageAttachmentEntity extends Entity implements IAttachmentGenerato
     @stringLengthValidator({ min: 1, max: 300 })
     contentId: string;
 
-    type: EmailAttachmentTypeEnum;
+    type: EmailAttachmentType;
 
     file: FileEmbedded;
 
@@ -126,7 +126,7 @@ export class FileTokenAttachmentEntity extends Entity implements IAttachmentGene
     @stringLengthValidator({ min: 1, max: 300 })
     contentId: string | null;
 
-    type: EmailAttachmentTypeEnum;
+    type: EmailAttachmentType;
 
     fileToken: QueryTokenEmbedded;
 
@@ -138,7 +138,7 @@ export class FileTokenAttachmentEntity extends Entity implements IAttachmentGene
 
 // Signum's EmailAttachmentType. Declared here (not in Email.ts) so both the template's attachment RULES
 // and a message's produced attachments share it; re-exported from Email.ts's consumers via this module.
-export enum EmailAttachmentTypeEnum {
+export enum EmailAttachmentType {
     /** A real attachment the reader downloads. */
     Attachment,
     /** An inline resource an HTML body references by `cid:` (an embedded image). */
@@ -234,17 +234,17 @@ export namespace EmailMasterTemplateOperation {
 export abstract class EmailTemplateAddressBaseEntity extends Entity {
     @rowOrder order: int;
 
-    addressSource: EmailAddressSourceEnum;
+    addressSource: EmailAddressSource;
 
     @fieldValidation<EmailTemplateAddressBaseEntity>(a =>
-        (a.addressSource === EmailAddressSourceEnum.HardcodedAddress) === (a.emailAddress != null) ? null
+        (a.addressSource === EmailAddressSource.HardcodedAddress) === (a.emailAddress != null) ? null
             : ValidationMessage._0IsNotSet.niceToString("{0}"))
     emailAddress: string | null;
 
     displayName: string | null;
 
     @fieldValidation<EmailTemplateAddressBaseEntity>(a =>
-        (a.addressSource === EmailAddressSourceEnum.QueryToken) === (a.token != null) ? null
+        (a.addressSource === EmailAddressSource.QueryToken) === (a.token != null) ? null
             : ValidationMessage._0IsNotSet.niceToString("{0}"))
     token: QueryTokenEmbedded | null;
 
@@ -258,8 +258,8 @@ export abstract class EmailTemplateAddressBaseEntity extends Entity {
 export class EmailTemplateEntity_From extends EmailTemplateAddressBaseEntity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
 
-    whenNone: WhenNoneFromBehaviourEnum;
-    whenMany: WhenManyFromBehaviourEnum;
+    whenNone: WhenNoneFromBehaviour;
+    whenMany: WhenManyFromBehaviour;
 
     azureUserId: string | null;
 
@@ -281,13 +281,13 @@ export class EmailTemplateEntity_From extends EmailTemplateAddressBaseEntity {
 export class EmailTemplateEntity_Recipient extends EmailTemplateAddressBaseEntity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
 
-    kind: EmailRecipientKindEnum;
+    kind: EmailRecipientKind;
 
-    whenNone: WhenNoneRecipientsBehaviourEnum;
-    whenMany: WhenManyRecipientsBehaviourEnum;
+    whenNone: WhenNoneRecipientsBehaviour;
+    whenMany: WhenManyRecipientsBehaviour;
 
     override toString(): string {
-        return `${EmailRecipientKindEnum[this.kind]} ${this.displayName ?? ""} <${this.emailAddress ?? this.token?.tokenString ?? ""}>`;
+        return `${EmailRecipientKind[this.kind]} ${this.displayName ?? ""} <${this.emailAddress ?? this.token?.tokenString ?? ""}>`;
     }
 
     clone(): EmailTemplateEntity_Recipient {
@@ -331,7 +331,7 @@ export class EmailTemplateEntity_Order extends Entity {
     @rowOrder order: int;
 
     token: QueryTokenEmbedded;
-    orderType: OrderTypeEnum;
+    orderType: OrderType;
 }
 
 // Signum's EmailTemplateMessageEmbedded — the subject + body for ONE culture.
@@ -399,7 +399,7 @@ export class EmailTemplateEntity extends Entity implements IUserAssetEntity, ICo
 
     masterTemplate: Lite<EmailMasterTemplateEntity> | null;
 
-    messageFormat: EmailMessageFormatEnum;
+    messageFormat: EmailMessageFormat;
 
     // Signum's PropertyValidation(Messages): at least one, and no two for the same culture. The "at least
     // one" half is a count rule, so the messages line also renders as MANDATORY.

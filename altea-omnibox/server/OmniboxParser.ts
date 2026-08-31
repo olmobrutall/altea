@@ -1,7 +1,7 @@
 import { Connector } from "@altea/altea/server/connection/connector";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import {
-    QueryRequest, Order, OrderType, FilterCondition, FilterOperation, Pagination,
+    QueryRequest, Order, OrderTypeKeys, FilterCondition, FilterOperationKeys, Pagination,
 } from "@altea/altea/server/dynamicQuery/requests";
 import { retrieve } from "@altea/altea/server/Database";
 import { SubTokensOptionsAll, type QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
@@ -261,11 +261,11 @@ export class OmniboxManager {
         // Signum's AutocompleteUtils order: shortest ToString first, then alphabetical.
         const orders = [tryToken("ToString.length"), toStringToken]
             .filter((t): t is QueryToken => t != undefined)
-            .map(t => new Order(t, OrderType.Ascending));
+            .map(t => new Order(t, OrderTypeKeys.Ascending));
 
         const request = new QueryRequest(
             type,
-            [new FilterCondition(toStringToken, FilterOperation.Contains, subString)],
+            [new FilterCondition(toStringToken, FilterOperationKeys.Contains, subString)],
             orders,
             [],
             new Pagination.Firsts(count),

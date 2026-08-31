@@ -48,7 +48,7 @@ export class ProcessAlgorithmSymbol extends Symbol {
 export interface IProcessDataEntity extends Entity { }
 
 /** Signum's ProcessState. */
-export enum ProcessStateEnum {
+export enum ProcessState {
     Created,
     Planned,
     Canceled,
@@ -83,7 +83,7 @@ export class ProcessEntity extends Entity {
     @implementedBy(() => [UserEntity])
     user: Lite<IUserEntity>;
 
-    state: ProcessStateEnum = ProcessStateEnum.Created;
+    state: ProcessState = ProcessState.Created;
 
     creationDate: Temporal.PlainDateTime = Clock.now;
 
@@ -131,15 +131,15 @@ export class ProcessEntity extends Entity {
     toString(): string {
         const algorithm = this.algorithm?.toString() ?? "";
         switch (this.state) {
-            case ProcessStateEnum.Created: return `${algorithm} Created on ${this.creationDate}`;
-            case ProcessStateEnum.Planned: return `${algorithm} Planned for ${this.plannedDate}`;
-            case ProcessStateEnum.Canceled: return `${algorithm} Canceled on ${this.cancelationDate}`;
-            case ProcessStateEnum.Queued: return `${algorithm} Queued on ${this.queuedDate}`;
-            case ProcessStateEnum.Executing: return `${algorithm} Executing since ${this.executionStart}`;
-            case ProcessStateEnum.Suspending: return `${algorithm} Suspending since ${this.suspendDate}`;
-            case ProcessStateEnum.Suspended: return `${algorithm} Suspended on ${this.suspendDate}`;
-            case ProcessStateEnum.Finished: return `${algorithm} Finished on ${this.executionEnd}`;
-            case ProcessStateEnum.Error: return `${algorithm} Error on ${this.executionEnd}`;
+            case ProcessState.Created: return `${algorithm} Created on ${this.creationDate}`;
+            case ProcessState.Planned: return `${algorithm} Planned for ${this.plannedDate}`;
+            case ProcessState.Canceled: return `${algorithm} Canceled on ${this.cancelationDate}`;
+            case ProcessState.Queued: return `${algorithm} Queued on ${this.queuedDate}`;
+            case ProcessState.Executing: return `${algorithm} Executing since ${this.executionStart}`;
+            case ProcessState.Suspending: return `${algorithm} Suspending since ${this.suspendDate}`;
+            case ProcessState.Suspended: return `${algorithm} Suspended on ${this.suspendDate}`;
+            case ProcessState.Finished: return `${algorithm} Finished on ${this.executionEnd}`;
+            case ProcessState.Error: return `${algorithm} Error on ${this.executionEnd}`;
             default: return `${algorithm} ??`;
         }
     }

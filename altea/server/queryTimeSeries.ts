@@ -27,7 +27,7 @@ export class DateValue extends View {
 // The step unit of GetDatesInRange (Signum's TimeSeriesUnit). The string values are the
 // `incrementType` the UDF branches on (SQL Server, case-insensitively) and the interval unit
 // Postgres' `generate_series` accepts.
-export enum TimeSeriesUnit {
+export enum TimeSeriesUnitKeys {
     Millisecond = "millisecond",
     Second = "second",
     Minute = "minute",
@@ -52,7 +52,7 @@ quotedFunction(getDatesInRangeMarker).__resultType = () => new ArrayType(new Cla
 // Signum's `QueryTimeSeriesLogic.GetDatesInRange(...)`: a top-level `Query<DateValue>` over the
 // generated series, composable with `.map`/`.filter` etc. Each argument is parametrised into the
 // TVF call.
-export function getDatesInRange(startDate: Temporal.PlainDateTime, endDate: Temporal.PlainDateTime, incrementType: TimeSeriesUnit | string, step: number): Query<DateValue> {
+export function getDatesInRange(startDate: Temporal.PlainDateTime, endDate: Temporal.PlainDateTime, incrementType: TimeSeriesUnitKeys | string, step: number): Query<DateValue> {
     return sqlMethodQuery(getDatesInRangeMarker, DateValue, [startDate, endDate, incrementType, step]);
 }
 

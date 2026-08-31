@@ -24,7 +24,7 @@ import type { Entity } from "../data/entity";
 import type { FilterOptionParsed, FilterConditionOptionParsed, FilterGroupOptionParsed, FindOptions } from "./FindOptions";
 import { isFilterCondition, isFilterGroup, isList, isPair, getFilterOperations } from "./FindOptions";
 import { TypeReference } from "../data/reflection";
-import type { FilterOperation } from "../data/dynamicQueries";
+import type { FilterOperationKeys } from "../data/dynamicQueries";
 import type { QueryToken } from "./QueryToken";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { TypeContext } from "./TypeContext";
@@ -472,7 +472,7 @@ function findParentTokensInRegistry(filterToken: QueryToken, root: QueryToken): 
 
 // Signum's findFilterValue (Search.tsx, not ported): the value of the first active filter CONDITION whose
 // token matches `tokenKey` (by rootless fullKey) and whose operation satisfies `opFilter`; recurses groups.
-function findFilterValue(filters: FilterOptionParsed[], tokenKey: string, opFilter: (op: FilterOperation) => boolean): any {
+function findFilterValue(filters: FilterOptionParsed[], tokenKey: string, opFilter: (op: FilterOperationKeys) => boolean): any {
   for (const f of filters) {
     if (isFilterGroup(f)) {
       const v = findFilterValue(f.filters, tokenKey, opFilter);

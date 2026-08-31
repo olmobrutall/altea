@@ -16,7 +16,7 @@ import { EntityPropertyToken } from "@altea/altea/data/dynamicQuery/tokens/entit
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { retrieve } from "@altea/altea/server/Database";
 import {
-    QueryRequest, Column, FilterCondition, FilterOperation, Pagination, type Filter,
+    QueryRequest, Column, FilterCondition, FilterOperationKeys, Pagination, type Filter,
 } from "@altea/altea/server/dynamicQuery/requests";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { Operations } from "@altea/altea/server/operationLogic";
@@ -50,12 +50,12 @@ import { readSheet, cellReference, fromExcelDate, fromExcelNumber, fromExcelTime
 //     single reflected type, so that check survives only as the "not an entity query" case.
 
 /** Signum's ImportAction. A string union: the value goes to the client as-is (Signum sent the enum name). */
-export type ImportAction = "Inserted" | "Updated" | "NoChanges";
+export type ImportActionKeys = "Inserted" | "Updated" | "NoChanges";
 
 /** Signum's ImportResult — one row's outcome, streamed to the client as it happens. */
 export interface ImportResult {
     totalRows: number;
-    action: ImportAction;
+    action: ImportActionKeys;
     rowIndex: number;
     entity?: Lite<Entity> | null;
     error?: string | null;
@@ -666,7 +666,7 @@ async function resolveValue(assignment: Assignment, value: unknown): Promise<unk
     if (queryName == undefined)
         return value;
 
-    const request = new QueryRequest(queryName as never, [new FilterCondition(token, FilterOperation.EqualTo, value)],
+    const request = new QueryRequest(queryName as never, [new FilterCondition(token, FilterOperationKeys.EqualTo, value)],
         [], [], new Pagination.Firsts(2), false);
     const rt = await QueryLogic.queries.executeQueryAsync(request);
 
@@ -783,7 +783,7 @@ function getSimpleFilters(filters: Filter[], mainType: Type<Entity>): Map<QueryT
     const result = new Map<QueryToken, unknown>();
 
     const conditions = filters.filter((f): f is FilterCondition => f instanceof FilterCondition)
-        .filter(fc => fc.operation === FilterOperation.EqualTo
+        .filter(fc => fc.operation === FilterOperationKeys.EqualTo
             && isSimpleProperty(fc.token, mainType) == null
             && elementOf(fc.token) == undefined);
 
@@ -881,7 +881,7 @@ function takeWhileText(row: ExcelRow): string[] {
 async function findExisting(pq: ParsedQueryForImport, matchBy: QueryToken, key: unknown): Promise<Entity | null> {
     const request = new QueryRequest(
         QueryLogic.tryToQueryName(cleanNameOf(pq.mainType)) ?? pq.mainType as never,
-        [new FilterCondition(matchBy, FilterOperation.EqualTo, key)],
+        [new FilterCondition(matchBy, FilterOperationKeys.EqualTo, key)],
         [], [], new Pagination.Firsts(2), false);
 
     const rt = await QueryLogic.queries.executeQueryAsync(request);

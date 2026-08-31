@@ -12,7 +12,7 @@ import type { int } from "@altea/altea/data/basics";
 import type { Lite } from "@altea/altea/data/lite";
 import type { UserEntity } from "@altea/altea-auth/data/User";
 import {
-    ChatMessageEntity, ChatMessageRoleEnum, ChatSessionEntity, UserFeedbackEnum,
+    ChatMessageEntity, ChatMessageRole, ChatSessionEntity, UserFeedback,
 } from "../data/ChatSession";
 import type { AssistantMode, ChatbotUICommand, SetFeedbackRequest, SkillCodeInfo } from "../data/ChatbotProtocol";
 import { DefaultAgent } from "../data/SkillCustomization";
@@ -98,11 +98,11 @@ export namespace ChatbotServer {
                 const request = await req.jsonTyped() as SetFeedbackRequest;
 
                 const message = await Database.retrieve(ChatMessageEntity, ChatMessageEntity.parseId(messageId));
-                if (message.role !== ChatMessageRoleEnum.Assistant)
+                if (message.role !== ChatMessageRole.Assistant)
                     throw new Error("Feedback can only be set on Assistant messages.");
 
                 message.userFeedback = request.feedback;
-                message.userFeedbackMessage = request.feedback === UserFeedbackEnum.Negative ? (request.message ?? null) : null;
+                message.userFeedbackMessage = request.feedback === UserFeedback.Negative ? (request.message ?? null) : null;
                 await message.save();
                 res.status(204).end();
             });
@@ -155,7 +155,7 @@ export namespace ChatbotServer {
                     // so the modal shows the same thing a server-run tool would have shown.
                     const toolMsg = ChatMessageEntity.create({
                         chatSession: session.toLite(),
-                        role: ChatMessageRoleEnum.Tool,
+                        role: ChatMessageRole.Tool,
                         toolCallID: uiReplyCallId,
                         toolID: uiReplyToolId,
                         content: question,
@@ -171,9 +171,9 @@ export namespace ChatbotServer {
                     if (question !== "")
                         throw new Error("Recover requests must have an empty body.");
 
-                    const lastAssistant = [...history.messages].reverse().find(m => m.role === ChatMessageRoleEnum.Assistant);
+                    const lastAssistant = [...history.messages].reverse().find(m => m.role === ChatMessageRole.Assistant);
                     const pending = lastAssistant?.toolCalls.find(tc => !tc.isUITool
-                        && !history.messages.some(m => m.role === ChatMessageRoleEnum.Tool && m.toolCallID === tc.callId));
+                        && !history.messages.some(m => m.role === ChatMessageRole.Tool && m.toolCallID === tc.callId));
 
                     if (pending != undefined) {
                         const parsedArgs = safeParse(pending.arguments);
@@ -182,7 +182,7 @@ export namespace ChatbotServer {
                 } else {
                     const userQuestion = ChatMessageEntity.create({
                         chatSession: session.toLite(),
-                        role: ChatMessageRoleEnum.User,
+                        role: ChatMessageRole.User,
                         content: question,
                     });
                     await userQuestion.save();
@@ -231,7 +231,7 @@ export namespace ChatbotServer {
         const rootSkill = await AgentLogic.getEffectiveSkillCode(DefaultAgent.Chatbot);
 
         const systemMsg = ChatMessageEntity.create({
-            role: ChatMessageRoleEnum.System,
+            role: ChatMessageRole.System,
             chatSession: session.toLite(),
             content: rootSkill.getInstruction(null),
         });
@@ -255,9 +255,9 @@ export namespace ChatbotServer {
             .orderBy(c => c.creationDate)
             .toArray());
 
-        const systemAndSummaries = all.filter(a => a.role === ChatMessageRoleEnum.System);
+        const systemAndSummaries = all.filter(a => a.role === ChatMessageRole.System);
         const lastSystem = systemAndSummaries.at(-1);
-        const remaining = all.filter(a => a.role !== ChatMessageRoleEnum.System
+        const remaining = all.filter(a => a.role !== ChatMessageRole.System
             && (lastSystem == undefined || Temporal.PlainDateTime.compare(a.creationDate, lastSystem.creationDate) > 0));
 
         const history = new ConversationHistory(sessionLite, session.languageModel,

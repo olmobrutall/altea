@@ -11,7 +11,7 @@ import { Navigator } from "@altea/altea/client/Navigator";
 import type { FindOptions } from "@altea/altea/client/FindOptions";
 import SearchValue from "@altea/altea/client/SearchControl/SearchValue";
 import { useAPI, useInterval } from "@altea/altea/client/Hooks";
-import type { ShowCount } from "../data/Toolbar";
+import type { ShowCountKeys } from "../data/Toolbar";
 import type { ToolbarResponse } from "../data/ToolbarResponse";
 import { ToolbarConfig } from "./ToolbarConfig";
 
@@ -76,7 +76,7 @@ interface CountIconProps {
     autoRefreshPeriod?: number;
     findOptions: FindOptions;
     moreThanZero?: boolean;
-    showCount: ShowCount;
+    showCount: ShowCountKeys;
 }
 
 /** Signum's SearchToolbarCount: the live count badge — refreshed on a timer AND whenever an entity of one of
@@ -101,7 +101,7 @@ export function SearchToolbarCount(p: CountIconProps): React.JSX.Element {
     />;
 }
 
-export function ToolbarCount(p: { num: number | null | undefined, showCount: ShowCount }): React.JSX.Element | null {
+export function ToolbarCount(p: { num: number | null | undefined, showCount: ShowCountKeys }): React.JSX.Element | null {
 
     if (!p.num && p.showCount == "MoreThan0")
         return null;

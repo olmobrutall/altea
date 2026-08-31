@@ -10,7 +10,7 @@ import { TextTemplateParameters, type BlockNode } from "@altea/altea-templating/
 import { TemplatingLogic } from "@altea/altea-templating/server/TemplatingLogic.server";
 import { EmailTemplateLogic, type GenerateAttachmentContext } from "@altea/altea-email/server/EmailTemplateLogic.server";
 import {
-    EmailAttachmentTypeEnum, EmailTemplateEntity_Attachment, FileTokenAttachmentEntity, ImageAttachmentEntity,
+    EmailAttachmentType, EmailTemplateEntity_Attachment, FileTokenAttachmentEntity, ImageAttachmentEntity,
 } from "@altea/altea-email/data/EmailTemplate";
 import { OfficeAttachmentEntity } from "../data/OfficeTemplate";
 import { OfficeModelLogic } from "./OfficeModelLogic.server";
@@ -87,7 +87,7 @@ export namespace OfficeAttachmentLogic {
                 fileName,
                 bytes: file.bytes,
                 contentId: "",
-                type: EmailAttachmentTypeEnum.Attachment,
+                type: EmailAttachmentType.Attachment,
             }];
         });
     }

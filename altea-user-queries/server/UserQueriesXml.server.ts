@@ -2,9 +2,9 @@ import { table } from "@altea/altea/server/table";
 import { Temporal, type int, type uuid } from "@altea/altea/data/basics";
 import { Enum } from "@altea/altea/data/enum";
 import {
-    ColumnOptionsModeEnum, PaginationModeEnum, RefreshModeEnum, SystemTimeModeEnum, SystemTimeJoinModeEnum,
-    TimeSeriesUnitEnum, FilterGroupOperationEnum, FilterOperationEnum, DashboardBehaviourEnum, CombineRowsEnum,
-    OrderTypeEnum, PinnedFilterActiveEnum,
+    ColumnOptionsMode, PaginationMode, RefreshMode, SystemTimeMode, SystemTimeJoinMode,
+    TimeSeriesUnit, FilterGroupOperation, FilterOperation, DashboardBehaviour, CombineRows,
+    OrderType, PinnedFilterActive,
 } from "@altea/altea/data/dynamicQueries";
 import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
@@ -42,12 +42,12 @@ async function toXml(uq: UserQueryEntity, ctx: IToXmlContext): Promise<Record<st
     if (uq.includeDefaultFilters != null) o[A + "IncludeDefaultFilters"] = uq.includeDefaultFilters;
     if (uq.appendFilters) o[A + "AppendFilters"] = true;
     // Enum fields are int-FK ordinals in memory; XML preserves the Signum member-NAME string (Enum.toName).
-    const refreshMode = Enum.toName(RefreshModeEnum, uq.refreshMode);
+    const refreshMode = Enum.toName(RefreshMode, uq.refreshMode);
     if (refreshMode !== "Auto") o[A + "RefreshMode"] = refreshMode;
     if (uq.groupResults) o[A + "GroupResults"] = true;
     if (uq.elementsPerPage != null) o[A + "ElementsPerPage"] = uq.elementsPerPage;
-    if (uq.paginationMode != null) o[A + "PaginationMode"] = Enum.toName(PaginationModeEnum, uq.paginationMode);
-    o[A + "ColumnsMode"] = Enum.toName(ColumnOptionsModeEnum, uq.columnsMode);
+    if (uq.paginationMode != null) o[A + "PaginationMode"] = Enum.toName(PaginationMode, uq.paginationMode);
+    o[A + "ColumnsMode"] = Enum.toName(ColumnOptionsMode, uq.columnsMode);
 
     if (uq.filters?.length) o["Filters"] = { Filter: uq.filters.map(filterXml) };
     if (uq.columns?.length) o["Columns"] = { Column: uq.columns.map(columnXml) };
@@ -69,14 +69,14 @@ function filterXml(f: UserQueryEntity_Filter): Record<string, unknown> {
     const x: Record<string, unknown> = {};
     x[A + "Indentation"] = f.indentation;
     if (f.isGroup) {
-        if (f.groupOperation != null) x[A + "GroupOperation"] = Enum.toName(FilterGroupOperationEnum, f.groupOperation);
+        if (f.groupOperation != null) x[A + "GroupOperation"] = Enum.toName(FilterGroupOperation, f.groupOperation);
         if (f.token != null) x[A + "Token"] = f.token.tokenString;
     } else {
         if (f.token != null) x[A + "Token"] = f.token.tokenString;
-        if (f.operation != null) x[A + "Operation"] = Enum.toName(FilterOperationEnum, f.operation);
+        if (f.operation != null) x[A + "Operation"] = Enum.toName(FilterOperation, f.operation);
         if (f.valueString != null) x[A + "Value"] = f.valueString;
     }
-    if (f.dashboardBehaviour != null) x[A + "DashboardBehaviour"] = Enum.toName(DashboardBehaviourEnum, f.dashboardBehaviour);
+    if (f.dashboardBehaviour != null) x[A + "DashboardBehaviour"] = Enum.toName(DashboardBehaviour, f.dashboardBehaviour);
     if (f.pinned != null) x["Pinned"] = pinnedXml(f.pinned);
     return x;
 }
@@ -87,7 +87,7 @@ function pinnedXml(p: PinnedQueryFilterEmbedded): Record<string, unknown> {
     if (p.column != null) x[A + "Column"] = p.column;
     if (p.colSpan != null) x[A + "ColSpan"] = p.colSpan;
     if (p.row != null) x[A + "Row"] = p.row;
-    const active = Enum.toName(PinnedFilterActiveEnum, p.active);
+    const active = Enum.toName(PinnedFilterActive, p.active);
     if (active !== "Always") x[A + "Active"] = active;
     if (p.splitValue) x[A + "SplitValue"] = true;
     return x;
@@ -99,20 +99,20 @@ function columnXml(c: UserQueryEntity_Column): Record<string, unknown> {
     if (c.summaryToken != null) x[A + "SummaryToken"] = c.summaryToken.tokenString;
     if (c.displayName != null) x[A + "DisplayName"] = c.displayName;
     if (c.hiddenColumn) x[A + "HiddenColumn"] = true;
-    if (c.combineRows != null) x[A + "CombineRows"] = Enum.toName(CombineRowsEnum, c.combineRows);
+    if (c.combineRows != null) x[A + "CombineRows"] = Enum.toName(CombineRows, c.combineRows);
     return x;
 }
 
 function orderXml(o: UserQueryEntity_Order): Record<string, unknown> {
-    return { [A + "Token"]: o.token.tokenString, [A + "OrderType"]: Enum.toName(OrderTypeEnum, o.orderType) };
+    return { [A + "Token"]: o.token.tokenString, [A + "OrderType"]: Enum.toName(OrderType, o.orderType) };
 }
 
 function systemTimeXml(st: SystemTimeEmbedded): Record<string, unknown> {
-    const x: Record<string, unknown> = { [A + "Mode"]: Enum.toName(SystemTimeModeEnum, st.mode) };
+    const x: Record<string, unknown> = { [A + "Mode"]: Enum.toName(SystemTimeMode, st.mode) };
     if (st.startDate != null) x[A + "StartDate"] = st.startDate.toString();
     if (st.endDate != null) x[A + "EndDate"] = st.endDate.toString();
-    if (st.joinMode != null) x[A + "JoinMode"] = Enum.toName(SystemTimeJoinModeEnum, st.joinMode);
-    if (st.timeSeriesUnit != null) x[A + "TimeSeriesUnit"] = Enum.toName(TimeSeriesUnitEnum, st.timeSeriesUnit);
+    if (st.joinMode != null) x[A + "JoinMode"] = Enum.toName(SystemTimeJoinMode, st.joinMode);
+    if (st.timeSeriesUnit != null) x[A + "TimeSeriesUnit"] = Enum.toName(TimeSeriesUnit, st.timeSeriesUnit);
     if (st.timeSeriesStep != null) x[A + "TimeSeriesStep"] = st.timeSeriesStep;
     if (st.timeSeriesMaxRowsPerStep != null) x[A + "TimeSeriesMaxRowsPerStep"] = st.timeSeriesMaxRowsPerStep;
     if (st.splitQueries) x[A + "SplitQueries"] = true;
@@ -131,11 +131,11 @@ function fromXml(uq: UserQueryEntity, xml: Record<string, unknown>, ctx: IFromXm
     uq.includeDefaultFilters = xml[A + "IncludeDefaultFilters"] != null ? bool(xml[A + "IncludeDefaultFilters"]) : null;
     uq.appendFilters = bool(xml[A + "AppendFilters"]);
     // XML carries the member-NAME string; the entity enum fields are int-FK ordinals (Enum.toValue).
-    uq.refreshMode = toEnum(RefreshModeEnum, str(xml[A + "RefreshMode"]) ?? "Auto");
+    uq.refreshMode = toEnum(RefreshMode, str(xml[A + "RefreshMode"]) ?? "Auto");
     uq.groupResults = bool(xml[A + "GroupResults"]);
     uq.elementsPerPage = xml[A + "ElementsPerPage"] != null ? (Number(xml[A + "ElementsPerPage"]) as int) : null;
     const paginationMode = str(xml[A + "PaginationMode"]);
-    uq.paginationMode = paginationMode == null ? null : toEnum(PaginationModeEnum, paginationMode);
+    uq.paginationMode = paginationMode == null ? null : toEnum(PaginationMode, paginationMode);
     uq.columnsMode = normalizeColumnsMode(str(xml[A + "ColumnsMode"]));
 
     uq.filters = arr(xml["Filters"], "Filter").map(filterFromXml);
@@ -158,16 +158,16 @@ function filterFromXml(x: Record<string, unknown>): UserQueryEntity_Filter {
     f.isGroup = x[A + "GroupOperation"] != null;
     if (f.isGroup) {
         const groupOperation = str(x[A + "GroupOperation"]);
-        f.groupOperation = groupOperation == null ? null : toEnum(FilterGroupOperationEnum, groupOperation);
+        f.groupOperation = groupOperation == null ? null : toEnum(FilterGroupOperation, groupOperation);
         f.token = x[A + "Token"] != null ? token(str(x[A + "Token"])!) : null;
     } else {
         f.token = x[A + "Token"] != null ? token(str(x[A + "Token"])!) : null;
         const operation = str(x[A + "Operation"]);
-        f.operation = operation == null ? null : toEnum(FilterOperationEnum, operation);
+        f.operation = operation == null ? null : toEnum(FilterOperation, operation);
         f.valueString = str(x[A + "Value"]) ?? null;
     }
     const dashboardBehaviour = str(x[A + "DashboardBehaviour"]);
-    f.dashboardBehaviour = dashboardBehaviour == null ? null : toEnum(DashboardBehaviourEnum, dashboardBehaviour);
+    f.dashboardBehaviour = dashboardBehaviour == null ? null : toEnum(DashboardBehaviour, dashboardBehaviour);
     const p = x["Pinned"];
     f.pinned = p != null ? pinnedFromXml(firstElem(p)) : null;
     return f;
@@ -179,7 +179,7 @@ function pinnedFromXml(x: Record<string, unknown>): PinnedQueryFilterEmbedded {
     p.column = x[A + "Column"] != null ? (Number(x[A + "Column"]) as int) : null;
     p.colSpan = x[A + "ColSpan"] != null ? (Number(x[A + "ColSpan"]) as int) : null;
     p.row = x[A + "Row"] != null ? (Number(x[A + "Row"]) as int) : null;
-    p.active = toEnum(PinnedFilterActiveEnum, str(x[A + "Active"]) ?? "Always");
+    p.active = toEnum(PinnedFilterActive, str(x[A + "Active"]) ?? "Always");
     p.splitValue = bool(x[A + "SplitValue"]);
     return p;
 }
@@ -191,27 +191,27 @@ function columnFromXml(x: Record<string, unknown>): UserQueryEntity_Column {
     c.displayName = str(x[A + "DisplayName"]) ?? null;
     c.hiddenColumn = bool(x[A + "HiddenColumn"]);
     const combineRows = str(x[A + "CombineRows"]);
-    c.combineRows = combineRows == null ? null : toEnum(CombineRowsEnum, combineRows);
+    c.combineRows = combineRows == null ? null : toEnum(CombineRows, combineRows);
     return c;
 }
 
 function orderFromXml(x: Record<string, unknown>): UserQueryEntity_Order {
     const o = new UserQueryEntity_Order();
     o.token = token(str(x[A + "Token"])!);
-    o.orderType = toEnum(OrderTypeEnum, str(x[A + "OrderType"]) ?? "Ascending");
+    o.orderType = toEnum(OrderType, str(x[A + "OrderType"]) ?? "Ascending");
     return o;
 }
 
 function systemTimeFromXml(x: Record<string, unknown>): SystemTimeEmbedded {
     const st = new SystemTimeEmbedded();
-    st.mode = toEnum(SystemTimeModeEnum, str(x[A + "Mode"]) ?? "AsOf");
+    st.mode = toEnum(SystemTimeMode, str(x[A + "Mode"]) ?? "AsOf");
     // altea divergence: SystemTime dates are Temporal.PlainDateTime (Signum stored raw strings).
     st.startDate = str(x[A + "StartDate"]) != null ? Temporal.PlainDateTime.from(str(x[A + "StartDate"])!) : null;
     st.endDate = str(x[A + "EndDate"]) != null ? Temporal.PlainDateTime.from(str(x[A + "EndDate"])!) : null;
     const joinMode = str(x[A + "JoinMode"]);
-    st.joinMode = joinMode == null ? null : toEnum(SystemTimeJoinModeEnum, joinMode);
+    st.joinMode = joinMode == null ? null : toEnum(SystemTimeJoinMode, joinMode);
     const timeSeriesUnit = str(x[A + "TimeSeriesUnit"]);
-    st.timeSeriesUnit = timeSeriesUnit == null ? null : toEnum(TimeSeriesUnitEnum, timeSeriesUnit);
+    st.timeSeriesUnit = timeSeriesUnit == null ? null : toEnum(TimeSeriesUnit, timeSeriesUnit);
     st.timeSeriesStep = x[A + "TimeSeriesStep"] != null ? (Number(x[A + "TimeSeriesStep"]) as int) : null;
     st.timeSeriesMaxRowsPerStep = x[A + "TimeSeriesMaxRowsPerStep"] != null ? (Number(x[A + "TimeSeriesMaxRowsPerStep"]) as int) : null;
     st.splitQueries = bool(x[A + "SplitQueries"]);
@@ -227,8 +227,8 @@ function token(tokenString: string): QueryTokenEmbedded {
 }
 
 // Signum's legacy "Replace" → "ReplaceAll" remap; returns the enum ordinal for the int-FK column.
-function normalizeColumnsMode(v: string | undefined): ColumnOptionsModeEnum {
-    return toEnum(ColumnOptionsModeEnum, (v === "Replace" ? "ReplaceAll" : v) ?? "Add");
+function normalizeColumnsMode(v: string | undefined): ColumnOptionsMode {
+    return toEnum(ColumnOptionsMode, (v === "Replace" ? "ReplaceAll" : v) ?? "Add");
 }
 
 // Enum.toValue expects the narrow member-NAME union; XML gives us a plain string, so widen the arg here

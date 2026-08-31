@@ -5,7 +5,7 @@ import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { EntityTable } from "@altea/altea/client/Lines/EntityTable";
 import { FormGroup } from "@altea/altea/client/Lines/FormGroup";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
-import { ChatMessageEntity, ChatMessageRoleEnum, UserFeedbackEnum } from "../../data/ChatSession";
+import { ChatMessageEntity, ChatMessageRole, UserFeedback } from "../../data/ChatSession";
 import { ChatbotClient } from "../ChatbotClient";
 import { MarkdownOrJson } from "../Message";
 
@@ -55,7 +55,7 @@ export default function ChatMessage(p: { ctx: TypeContext<ChatMessageEntity> }):
                 </div>
             </div>
 
-            {ctx.value.role === ChatMessageRoleEnum.Tool ? (
+            {ctx.value.role === ChatMessageRole.Tool ? (
                 <>
                     <div className="row">
                         <div className="col-sm-3">
@@ -81,20 +81,20 @@ export default function ChatMessage(p: { ctx: TypeContext<ChatMessageEntity> }):
                         {() => ctx4.value.content ? ChatbotClient.Options.renderMarkdown(ctx4.value.content) : undefined}
                     </FormGroup>
 
-                    {ctx.value.role === ChatMessageRoleEnum.Assistant && ctx4.value.toolCalls.length > 0 &&
+                    {ctx.value.role === ChatMessageRole.Assistant && ctx4.value.toolCalls.length > 0 &&
                         <EntityTable ctx={ctx4.subCtx(n => n.toolCalls)} columns={[
                             { property: a => a.callId },
                             { property: a => a.toolId },
                             { property: a => a.arguments, template: tctx => <MarkdownOrJson content={tctx.value.arguments} /> },
                         ]} />}
 
-                    {ctx.value.role === ChatMessageRoleEnum.Assistant
+                    {ctx.value.role === ChatMessageRole.Assistant
                         && (ctx.value.userFeedback != null || ctx.value.userFeedbackMessage != null) && (
                             <div className="row mt-2">
                                 <div className="col-sm-3">
                                     <AutoLine ctx={ctx4.subCtx(n => n.userFeedback)} />
                                 </div>
-                                {ctx.value.userFeedback === UserFeedbackEnum.Negative && (
+                                {ctx.value.userFeedback === UserFeedback.Negative && (
                                     <div className="col-sm-9">
                                         <AutoLine ctx={ctx4.subCtx(n => n.userFeedbackMessage)} />
                                     </div>

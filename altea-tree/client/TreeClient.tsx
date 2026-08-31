@@ -15,7 +15,7 @@ import { tryGetTypeInfo, getOperationInfos, getTypeName, type TypeInfo } from "@
 import { getRegisteredTypes } from "@altea/altea/data/registration";
 import type { QueryToken } from "@altea/altea/client/QueryToken";
 import type {
-    ColumnOption, ColumnOptionParsed, ColumnOptionsMode, FilterOption, FilterOptionParsed,
+    ColumnOption, ColumnOptionParsed, ColumnOptionsModeKeys, FilterOption, FilterOptionParsed,
     FindOptions, FindOptionsParsed,
 } from "@altea/altea/client/FindOptions";
 import type { ColumnRequest, FilterRequest } from "@altea/altea/data/dynamicQuery/queryRequest";
@@ -152,7 +152,7 @@ export namespace TreeClient {
         typeName: string;
         filterOptions?: (FilterOption | null | undefined)[];
         columnOptions?: (ColumnOption | null | undefined)[];
-        columnOptionsMode?: ColumnOptionsMode;
+        columnOptionsMode?: ColumnOptionsModeKeys;
     }
 
     export interface TreeOptionsParsed {

@@ -1,7 +1,7 @@
 import type { PrimaryKey } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
-import type { FilterOperation } from "@altea/altea/data/dynamicQueries";
+import type { FilterOperationKeys } from "@altea/altea/data/dynamicQueries";
 
 // The omnibox WIRE model: what `POST /api/omnibox` returns, one entry per suggestion.
 //
@@ -66,7 +66,7 @@ export interface OmniboxFilterResult {
      *  QueryTokenOmniboxPascal). */
     queryTokenOmniboxPascal: string;
     queryTokenMatches?: OmniboxMatch[];
-    operation?: FilterOperation;
+    operation?: FilterOperationKeys;
     operationToString?: string;
     value?: unknown;
     valueToString?: string;
@@ -79,17 +79,17 @@ export interface FilterSyntax {
     index: number;
     tokenLength: number;
     length: number;
-    completion: FilterSyntaxCompletion;
+    completion: FilterSyntaxCompletionKeys;
 }
 
 // Signum's `FilterSyntaxCompletion` enum. altea enums are a numeric `XEnum` + a string union whose
 // RUNTIME/wire value is the member NAME — so a bare literal ("Complete") is the comparison form.
-export enum FilterSyntaxCompletionEnum {
+export enum FilterSyntaxCompletion {
     Token,
     Operation,
     Complete,
 }
-export type FilterSyntaxCompletion = keyof typeof FilterSyntaxCompletionEnum;
+export type FilterSyntaxCompletionKeys = keyof typeof FilterSyntaxCompletion;
 
 // Signum's `SpecialOmniboxResult`: a "!Action" client-side command.
 export interface SpecialOmniboxResult extends OmniboxResult {

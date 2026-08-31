@@ -24,8 +24,8 @@ import { UserAssetLogic } from "@altea/altea-user-assets/server/UserAssetLogic.s
 import { UserAssetOwnerAuth } from "@altea/altea-user-assets/server/UserAssetOwnerAuth.server";
 import {
     ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarEntity_Element, ToolbarOperation, ToolbarMenuOperation,
-    ToolbarSwitcherOperation, ToolbarElementTypeEnum, ToolbarLocationEnum, ShowCountEnum, ToolbarMessage,
-    type ToolbarLocation, type ToolbarElementType, type ShowCount, type IToolbarEntity,
+    ToolbarSwitcherOperation, ToolbarElementType, ToolbarLocation, ShowCount, ToolbarMessage,
+    type ToolbarLocationKeys, type ToolbarElementTypeKeys, type ShowCountKeys, type IToolbarEntity,
     type ToolbarElementBaseEntity,
 } from "../data/Toolbar";
 import type { ToolbarResponse } from "../data/ToolbarResponse";
@@ -251,8 +251,8 @@ export namespace ToolbarLogic {
 
     /** Signum's `GetCurrent(location)`: the highest-priority toolbar of that location the current role may
      *  read. `location` arrives as the enum MEMBER NAME (the wire form). */
-    export async function getCurrent(location: ToolbarLocation): Promise<ToolbarEntity | undefined> {
-        const value = Enum.toValue(ToolbarLocationEnum, location);
+    export async function getCurrent(location: ToolbarLocationKeys): Promise<ToolbarEntity | undefined> {
+        const value = Enum.toValue(ToolbarLocation, location);
         const all = await toolbarsLazy.value();
         const candidates = all
             .filter(t => (t.location as number) === value)
@@ -264,7 +264,7 @@ export namespace ToolbarLogic {
     /** Signum's `GetCurrentToolbarResponse(location)`: the whole tree for the current toolbar, or null when
      *  there is none / nothing in it survives authorization. The root is a synthetic Header carrying the
      *  toolbar itself, exactly as in Signum. */
-    export async function getCurrentToolbarResponse(location: ToolbarLocation): Promise<ToolbarResponse | null> {
+    export async function getCurrentToolbarResponse(location: ToolbarLocationKeys): Promise<ToolbarResponse | null> {
         const curr = await getCurrent(location);
         if (curr == null)
             return null;
@@ -650,10 +650,10 @@ function symbolKeyOf(lite: Lite<Entity>): string {
 }
 
 /** An element's type as its wire NAME (the stored value is the ordinal). */
-function typeOf(e: ToolbarElementBaseEntity): ToolbarElementType {
-    return Enum.toName(ToolbarElementTypeEnum, e.type);
+function typeOf(e: ToolbarElementBaseEntity): ToolbarElementTypeKeys {
+    return Enum.toName(ToolbarElementType, e.type);
 }
 
-function showCountOf(e: ToolbarElementBaseEntity): ShowCount | undefined {
-    return e.showCount == null ? undefined : Enum.toName(ShowCountEnum, e.showCount);
+function showCountOf(e: ToolbarElementBaseEntity): ShowCountKeys | undefined {
+    return e.showCount == null ? undefined : Enum.toName(ShowCount, e.showCount);
 }

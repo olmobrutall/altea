@@ -356,20 +356,20 @@ export class HelpImageEntity extends Entity {
 
 // ---- the import preview / report models ----------------------------------------------------------
 
-export enum ImportActionEnum {
+export enum ImportAction {
     NoChange,
     Create,
     Override,
 }
-export type ImportAction = keyof typeof ImportActionEnum;
+export type ImportActionKeys = keyof typeof ImportAction;
 
-export enum ImportStatusEnum {
+export enum ImportStatus {
     NoChange,
     Applied,
     Failed,
     Skipped,
 }
-export type ImportStatus = keyof typeof ImportStatusEnum;
+export type ImportStatusKeys = keyof typeof ImportStatus;
 
 /**
  * Signum's `HelpImportPreviewLineEmbedded`. One line per `.help` file found in the uploaded zip: what it
@@ -393,7 +393,7 @@ export class HelpImportPreviewLineEmbedded extends EmbeddedEntity {
 
     text: string | null = null;
 
-    action: ImportAction;
+    action: ImportActionKeys;
 
     exitingEntity: Lite<Entity> | null = null;
 
@@ -429,11 +429,11 @@ export class HelpImportReportLineEmbedded extends EmbeddedEntity {
 
     text: string | null = null;
 
-    action: ImportAction;
+    action: ImportActionKeys;
 
     exitingEntity: Lite<Entity> | null = null;
 
-    status: ImportStatus;
+    status: ImportStatusKeys;
 
     actionError: string | null = null;
 
@@ -551,7 +551,7 @@ export const HelpSyntaxMessage = {
 
 // ---- the search result (Signum's HelpSearch.cs SearchResult) --------------------------------------
 
-export enum TypeSearchResultEnum {
+export enum TypeSearchResult {
     Appendix,
     Namespace,
     Type,
@@ -559,20 +559,20 @@ export enum TypeSearchResultEnum {
     Query,
     Operation,
 }
-export type TypeSearchResult = keyof typeof TypeSearchResultEnum;
+export type TypeSearchResultKeys = keyof typeof TypeSearchResult;
 
-export enum MatchTypeEnum {
+export enum MatchType {
     Total,
     StartsWith,
     Contains,
 }
-export type MatchType = keyof typeof MatchTypeEnum;
+export type MatchTypeKeys = keyof typeof MatchType;
 
 /** Signum's `SearchResult`. `key` / `key2` address the page + anchor the hit links to. */
 export interface HelpSearchResult {
-    typeSearchResult: TypeSearchResult;
+    typeSearchResult: TypeSearchResultKeys;
     title: string;
-    matchType: MatchType;
+    matchType: MatchTypeKeys;
     description: string | null;
     key: string;
     key2: string | null;

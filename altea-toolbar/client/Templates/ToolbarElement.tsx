@@ -11,7 +11,7 @@ import { parseIcon } from "@altea/altea/client/Components/IconHelpers";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import {
-    ToolbarElementTypeEnum, ShowCountEnum, type ToolbarElementBaseEntity, type ShowCount,
+    ToolbarElementType, ShowCount, type ToolbarElementBaseEntity, type ShowCountKeys,
 } from "../../data/Toolbar";
 import { ToolbarCount } from "../QueryToolbarConfig";
 
@@ -49,7 +49,7 @@ export default function ToolbarElement(p: { ctx: TypeContext<ToolbarElementBaseE
     const bgColor = (ctx4.value.iconColor && ctx4.value.iconColor.toLowerCase() == "var(--bs-body-bg)" ? "var(--bs-body-color)" : undefined);
 
     const content = ctx2.value.content;
-    const type = Enum.toName(ToolbarElementTypeEnum, ctx.value.type);
+    const type = Enum.toName(ToolbarElementType, ctx.value.type);
     // Signum tests `content.EntityType == "UserQuery" || "Query"`: the two contents that RUN a query, and so
     // can show a count / open in a popup. A UserQuery only exists when altea-user-queries is registered, so
     // the check stays name-based (the toolbar module must not depend on it).
@@ -101,7 +101,7 @@ export default function ToolbarElement(p: { ctx: TypeContext<ToolbarElementBaseE
 /** Signum's `fixToolbarElementType`: a Divider carries nothing, so clear the four members when the type
  *  changes to it (the data-layer validation enforces the same rule). */
 function fixToolbarElementType(a: ToolbarElementBaseEntity): void {
-    if (Enum.toName(ToolbarElementTypeEnum, a.type) == "Divider") {
+    if (Enum.toName(ToolbarElementType, a.type) == "Divider") {
         a.iconName = null;
         a.content = null;
         a.label = null;
@@ -109,6 +109,6 @@ function fixToolbarElementType(a: ToolbarElementBaseEntity): void {
     }
 }
 
-function showCountName(e: ToolbarElementBaseEntity): ShowCount {
-    return Enum.toName(ShowCountEnum, e.showCount!);
+function showCountName(e: ToolbarElementBaseEntity): ShowCountKeys {
+    return Enum.toName(ShowCount, e.showCount!);
 }

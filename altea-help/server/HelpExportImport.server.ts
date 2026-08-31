@@ -21,7 +21,7 @@ import {
     HelpImportPreviewModel, HelpImportPreviewLineEmbedded,
     HelpImportReportModel, HelpImportReportLineEmbedded,
     HelpImageEntity, HelpImageFileType,
-    type IHelpEntity, type ImportAction, type ImportStatus,
+    type IHelpEntity, type ImportActionKeys, type ImportStatusKeys,
 } from "../data/Help";
 import { HelpLogic } from "./HelpLogic.server";
 import { InlineImagesLogic } from "./InlineImagesLogic.server";
@@ -87,9 +87,9 @@ export namespace HelpExportImport {
         xml: string;
         images: { fileName: string; bytes: Uint8Array }[];
         existing?: Lite<Entity>;
-        action?: ImportAction;
+        action?: ImportActionKeys;
         apply: boolean;
-        status: ImportStatus;
+        status: ImportStatusKeys;
         importError?: string;
     }
 

@@ -4,8 +4,8 @@ import type {
 } from "@altea/altea/client/FindOptions";
 import type { Pagination } from "@altea/altea/data/dynamicQuery/queryRequest";
 import {
-    ColumnOptionsModeEnum, FilterOperationEnum, OrderTypeEnum, PaginationModeEnum,
-    type ColumnOptionsMode, type FilterOperation, type OrderType, type PaginationMode,
+    ColumnOptionsMode, FilterOperation, OrderType, PaginationMode,
+    type ColumnOptionsModeKeys, type FilterOperationKeys, type OrderTypeKeys, type PaginationModeKeys,
 } from "@altea/altea/data/dynamicQueries";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import type { QueryToken } from "@altea/altea/client/QueryToken";
@@ -26,9 +26,9 @@ export interface FindOptionsExpr {
     filterOptions?: FilterOptionExpr[];
     includeDefaultFilters?: boolean;
     orderOptions?: OrderOptionExpr[];
-    columnOptionsMode?: ExpressionOrValue<ColumnOptionsMode>;
+    columnOptionsMode?: ExpressionOrValue<ColumnOptionsModeKeys>;
     columnOptions?: ColumnOptionExpr[];
-    paginationMode?: PaginationMode;
+    paginationMode?: PaginationModeKeys;
     elementsPerPage?: ExpressionOrValue<number>;
     currentPage?: ExpressionOrValue<number>;
 }
@@ -36,7 +36,7 @@ export interface FindOptionsExpr {
 export interface FilterOptionExpr {
     token?: string;
     parsedToken?: QueryToken;
-    operation?: ExpressionOrValue<FilterOperation>;
+    operation?: ExpressionOrValue<FilterOperationKeys>;
     value: ExpressionOrValue<unknown>;
     frozen?: ExpressionOrValue<boolean>;
     applicable: ExpressionOrValue<boolean>;
@@ -45,7 +45,7 @@ export interface FilterOptionExpr {
 export interface OrderOptionExpr {
     token?: string;
     parsedToken?: QueryToken;
-    orderType: ExpressionOrValue<OrderType>;
+    orderType: ExpressionOrValue<OrderTypeKeys>;
     applicable: ExpressionOrValue<boolean>;
 }
 
@@ -59,7 +59,7 @@ export interface ColumnOptionExpr {
 export function toFindOptions(dn: unknown, ctx: TypeContext<BaseEntity>, foe: FindOptionsExpr): FindOptions {
 
     const paginationMode = NodeUtils.evaluateAndValidate(dn, ctx, foe, f => f.paginationMode,
-        v => NodeUtils.isEnumOrNull(v, PaginationModeEnum));
+        v => NodeUtils.isEnumOrNull(v, PaginationMode));
 
     return {
         queryName: foe.queryName!,
@@ -70,7 +70,7 @@ export function toFindOptions(dn: unknown, ctx: TypeContext<BaseEntity>, foe: Fi
                 token: fo.token,
                 frozen: NodeUtils.evaluateAndValidate(dn, ctx, fo, f => f.frozen, NodeUtils.isBooleanOrNull),
                 operation: NodeUtils.evaluateAndValidate(dn, ctx, fo, f => f.operation,
-                    v => NodeUtils.isEnumOrNull(v, FilterOperationEnum)),
+                    v => NodeUtils.isEnumOrNull(v, FilterOperation)),
                 value: NodeUtils.evaluate(dn, ctx, fo, f => f.value),
             } as FilterOption)),
 
@@ -82,12 +82,12 @@ export function toFindOptions(dn: unknown, ctx: TypeContext<BaseEntity>, foe: Fi
                 .map(oo => ({
                     token: oo.token,
                     orderType: NodeUtils.evaluateAndValidate(dn, ctx, oo, o => o.orderType,
-                        v => NodeUtils.isEnumOrNull(v, OrderTypeEnum)),
+                        v => NodeUtils.isEnumOrNull(v, OrderType)),
                 } as OrderOption))
             : undefined,
 
         columnOptionsMode: NodeUtils.evaluateAndValidate(dn, ctx, foe, f => f.columnOptionsMode,
-            v => NodeUtils.isEnumOrNull(v, ColumnOptionsModeEnum)),
+            v => NodeUtils.isEnumOrNull(v, ColumnOptionsMode)),
 
         columnOptions: foe.columnOptions
             ? foe.columnOptions

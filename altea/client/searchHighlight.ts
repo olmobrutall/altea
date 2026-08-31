@@ -2,7 +2,7 @@ import { TextHighlighter } from "./Components/Typeahead";
 import type { QueryToken } from "./QueryToken";
 import type { FilterOptionParsed, FilterConditionOptionParsed } from "./FindOptions";
 import { isFilterCondition, isFilterGroup } from "./FindOptions";
-import type { FilterOperation } from "../data/dynamicQueries";
+import type { FilterOperationKeys } from "../data/dynamicQueries";
 import type SearchControlLoaded from "./SearchControl/SearchControlLoaded";
 import type { Quoted } from "quote-transformer/quoted";
 
@@ -147,11 +147,11 @@ function memberChainToParam(node: any, paramName: string): string | null {
 
 // ---- Keyword collection + the highlighter constructor --------------------------------------------
 
-function isNegativeOp(op: FilterOperation): boolean {
+function isNegativeOp(op: FilterOperationKeys): boolean {
   return op == "NotStartsWith" || op == "NotContains" || op == "NotEndsWith" || op == "NotLike" || op == "IsNotIn";
 }
 
-function splitKeywords(value: unknown, splitValue: boolean | undefined, operation: FilterOperation): string[] {
+function splitKeywords(value: unknown, splitValue: boolean | undefined, operation: FilterOperationKeys): string[] {
   if (typeof value == "string" && (splitValue || operation == "FreeText"))
     return value.split(/\s+/).filter(a => a.length > 0);
 

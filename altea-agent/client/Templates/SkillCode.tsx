@@ -4,7 +4,7 @@ import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useAPI } from "@altea/altea/client/Hooks";
 import { openModal, type IModalProps } from "@altea/altea/client/Modals";
 import { Enum } from "@altea/altea/data/enum";
-import { SkillActivationEnum, SkillCodeEntity } from "../../data/SkillCustomization";
+import { SkillActivation, SkillCodeEntity } from "../../data/SkillCustomization";
 import type { SkillCodeInfo, SubSkillInfo, ToolInfo } from "../../data/ChatbotProtocol";
 import { AgentClient } from "../AgentClient";
 import ChatMarkdown from "./ChatMarkdown";
@@ -64,7 +64,7 @@ export function SkillCodeView(p: { info: SkillCodeInfo }): React.JSX.Element {
                             {p.info.subSkills.map((ss, i) => (
                                 <tr key={i}>
                                     <td className="text-nowrap pe-2"><SubSkillLink subSkill={ss} /></td>
-                                    <td className="text-muted text-nowrap">{Enum.niceName(SkillActivationEnum, ss.activation)}</td>
+                                    <td className="text-muted text-nowrap">{Enum.niceName(SkillActivation, ss.activation)}</td>
                                 </tr>
                             ))}
                         </tbody>

@@ -108,11 +108,11 @@ export namespace ExcelClient {
         totalRows: number;
         rowIndex: string;
         entity?: Lite<Entity>;
-        action: ImportAction;
+        action: ImportActionKeys;
         error?: string;
     }
 
-    export type ImportAction = "Updated" | "Inserted" | "NoChanges";
+    export type ImportActionKeys = "Updated" | "Inserted" | "NoChanges";
 
     /** NEW here, with no Signum counterpart — see ExcelImportLogic's ImportErrorLine: the last line of a
      *  stream that failed after it had already started, carrying the HttpError a failure BEFORE the first

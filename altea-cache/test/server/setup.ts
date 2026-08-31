@@ -10,7 +10,7 @@ import { CacheLogic } from "../../server/CacheLogic";
 import "../../server/CacheLogic"; // FluentInclude.withCache
 import {
     CountryEntity, CountryEntity_Region, CurrencyEntity, DepartmentEntity, EmployeeEntity, OrderEntity,
-    GeoEmbedded, ContinentEnum,
+    GeoEmbedded, Continent,
 } from "../data/shop";
 
 // Shared bootstrap for the cache suite (the altea-cache analogue of altea-auth-test/server/setup.ts). A
@@ -125,7 +125,7 @@ async function seed(): Promise<void> {
         population: toInt(48000000),
         area: new Decimal("505990.50"),
         independenceDay: Temporal.PlainDate.from("1492-01-02"),
-        continent: ContinentEnum.Europe,
+        continent: Continent.Europe,
         center: GeoEmbedded.create({ latitude: new Decimal("40.42"), longitude: new Decimal("-3.70") }),
         currency: eur.toLite(),
         salesRep: ada.toLite(),
@@ -143,7 +143,7 @@ async function seed(): Promise<void> {
         name: "France",
         population: toInt(68000000),
         area: new Decimal("551695.00"),
-        continent: ContinentEnum.Europe,
+        continent: Continent.Europe,
         currency: eur.toLite(),
         salesRep: grace.toLite(),
         lastOrder: null,

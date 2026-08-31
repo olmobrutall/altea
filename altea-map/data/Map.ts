@@ -72,12 +72,12 @@ export const MapMessage = {
 // Signum's `DefaultState` — the three PSEUDO-states the operation map draws so that an operation with
 // no `fromStates` / `toStates` still has something to point at: Start (a constructor's source), End (a
 // delete's target) and All ("any state", when the list is present but empty).
-export enum DefaultStateEnum {
+export enum DefaultState {
     Start,
     All,
     End,
 }
-export type DefaultState = keyof typeof DefaultStateEnum;
+export type DefaultStateKeys = keyof typeof DefaultState;
 
 // ---- the schema map's wire model (Signum's SchemaMap.cs) -----------------------------------------
 

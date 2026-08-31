@@ -10,7 +10,7 @@ import type { FindOptions } from "@altea/altea/client/FindOptions";
 import { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
 import { Enum } from "@altea/altea/data/enum";
-import { RefreshModeEnum } from "@altea/altea/data/dynamicQueries";
+import { RefreshMode } from "@altea/altea/data/dynamicQueries";
 import { UserQueryEntity } from "../../data/UserQuery";
 import { UserQueriesClient } from "../UserQueriesClient";
 
@@ -61,8 +61,8 @@ export default function UserQueryPage(): React.JSX.Element | null {
                     userQuery: newLite(UserQueryEntity, userQueryId),
                     entity: currentEntity ?? undefined,
                 }}
-                defaultRefreshMode={Enum.toName(RefreshModeEnum, currentUserQuery.refreshMode)}
-                searchOnLoad={Enum.toName(RefreshModeEnum, currentUserQuery.refreshMode) === "Auto"}
+                defaultRefreshMode={Enum.toName(RefreshMode, currentUserQuery.refreshMode)}
+                searchOnLoad={Enum.toName(RefreshMode, currentUserQuery.refreshMode) === "Auto"}
             />
         </div>
     );

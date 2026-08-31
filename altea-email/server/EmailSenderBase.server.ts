@@ -2,7 +2,7 @@ import "@altea/altea/server"; // installs Entity.save()/delete()
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
 import { Clock } from "@altea/altea/data/utils/clock";
-import { EmailMessageEntity, EmailMessageStateEnum } from "../data/EmailMessage";
+import { EmailMessageEntity, EmailMessageState } from "../data/EmailMessage";
 import type { EmailSenderConfigurationEntity } from "../data/EmailSenderConfiguration";
 import { EmailLogic } from "./EmailLogic.server";
 
@@ -25,7 +25,7 @@ export abstract class EmailSenderBase {
     async send(email: EmailMessageEntity): Promise<void> {
         // The master switch: record the message as sent without touching the network (a dev / test database).
         if (!EmailLogic.configuration().sendEmails) {
-            email.state = EmailMessageStateEnum.Sent;
+            email.state = EmailMessageState.Sent;
             email.sent = Clock.now;
             await email.save();
             return;
@@ -34,7 +34,7 @@ export abstract class EmailSenderBase {
         try {
             await this.sendInternal(email);
 
-            email.state = EmailMessageStateEnum.Sent;
+            email.state = EmailMessageState.Sent;
             email.sent = Clock.now;
             email.sentBy = this.senderConfig.toLite();
             await email.save();
@@ -44,7 +44,7 @@ export abstract class EmailSenderBase {
             try {
                 await Transaction.forceNew(async () => {
                     email.exception = exLog?.toLite() ?? null;
-                    email.state = EmailMessageStateEnum.SentException;
+                    email.state = EmailMessageState.SentException;
                     await email.save();
                 });
             } catch {

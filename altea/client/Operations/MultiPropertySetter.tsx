@@ -46,10 +46,10 @@ import { TypeReference } from '../../data/reflection'
 import { PropertyRoute, PropertyRouteType } from '../../data/propertyRoute'
 import { cleanTypeName, resolveCleanType } from '../../data/registration'
 import { tryGetFilterType } from '../../data/dynamicQuery/queryUtils'
-import { PropertyOperationEnum } from '../../data/operations'
-import type { PropertyOperation } from '../../data/operations'
-import { FilterOperationEnum } from '../../data/dynamicQueries'
-import type { FilterOperation } from '../../data/dynamicQueries'
+import { PropertyOperation } from '../../data/operations'
+import type { PropertyOperationKeys } from '../../data/operations'
+import { FilterOperation } from '../../data/dynamicQueries'
+import type { FilterOperationKeys } from '../../data/dynamicQueries'
 import { EntityControlMessage, JavascriptMessage, OperationMessage, SearchMessage } from '../../data/uiMessages'
 import type { MemberInfo, TypeInfo, OperationMetadata } from '../Reflection'
 import { filterOperations } from '../FindOptions'
@@ -195,7 +195,7 @@ function partTypeInfos(type: TypeReference): TypeInfo[] {
   return type.typeInfos().filter(ti => ti.entityKind == "Part" || ti.entityKind == "SharedPart");
 }
 
-export function getPropertyOperations(type: TypeReference): PropertyOperation[] {
+export function getPropertyOperations(type: TypeReference): PropertyOperationKeys[] {
 
   // A collection is `@part` child ROWS in altea (MList is gone), so "the element is owned" is exactly
   // "the element type is a part entity" — Signum's separate isEmbedded branch cannot occur.
@@ -255,7 +255,7 @@ export function PropertySetterComponent(p: PropertySetterComponentProps): React.
   }
 
   function handleChangeOperation(event: React.FormEvent<HTMLSelectElement>) {
-    const operation = (event.currentTarget as HTMLSelectElement).value as PropertyOperation;
+    const operation = (event.currentTarget as HTMLSelectElement).value as PropertyOperationKeys;
     const s = p.setter;
     s.operation = operation;
     fixOperation(s, pr!).then(() => {
@@ -265,7 +265,7 @@ export function PropertySetterComponent(p: PropertySetterComponentProps): React.
   }
 
   function handleChangeFilterOperation(event: React.FormEvent<HTMLSelectElement>) {
-    const fOperation = (event.currentTarget as HTMLSelectElement).value as FilterOperation;
+    const fOperation = (event.currentTarget as HTMLSelectElement).value as FilterOperationKeys;
     const s = p.setter;
     s.filterOperation = fOperation;
   }
@@ -325,14 +325,14 @@ export function PropertySetterComponent(p: PropertySetterComponentProps): React.
           {
             operations &&
             <select className="form-select form-select-xs" value={p.setter.operation} disabled={operations.length == 1} onChange={handleChangeOperation}>
-              {operations.map((op, i) => <option key={i} value={op}>{Enum.niceName(PropertyOperationEnum, op)}</option>)}
+              {operations.map((op, i) => <option key={i} value={op}>{Enum.niceName(PropertyOperation, op)}</option>)}
             </select>
           }
 
           {
             fOperations &&
             <select className="form-select form-select-xs" value={p.setter.filterOperation} disabled={fOperations.length == 1} onChange={handleChangeFilterOperation}>
-              {fOperations.map((op, i) => <option key={i} value={op}>{Enum.niceName(FilterOperationEnum, op)}</option>)}
+              {fOperations.map((op, i) => <option key={i} value={op}>{Enum.niceName(FilterOperation, op)}</option>)}
             </select>
           }
         </td>
@@ -395,15 +395,15 @@ function subRootOfEntityType(entityType: string | undefined): PropertyRoute | nu
   return ctor == undefined ? null : PropertyRoute.root(ctor);
 }
 
-function showValue(o: PropertyOperation) {
+function showValue(o: PropertyOperationKeys) {
   return o == "Set" || o == "AddElement" || o == "RemoveElement";
 }
 
-function showPredicate(o: PropertyOperation) {
+function showPredicate(o: PropertyOperationKeys) {
   return o == "ChangeElements" || o == "RemoveElementsWhere";
 }
 
-function showSetters(o: PropertyOperation) {
+function showSetters(o: PropertyOperationKeys) {
   return o == "AddNewElement" || o == "ChangeElements" || o == "CreateNewEntity" || o == "ModifyEntity";
 }
 

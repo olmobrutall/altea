@@ -3,7 +3,7 @@ import { type int } from "@altea/altea/data/basics";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { DashboardLogic } from "@altea/altea-dashboard/server/DashboardLogic.server";
 import {
-    AutoUpdateEnum, BigValuePartEntity, UserQueryPartEntity, ValueUserQueryListPartEntity_UserQuery,
+    AutoUpdate, BigValuePartEntity, UserQueryPartEntity, ValueUserQueryListPartEntity_UserQuery,
     ValueUserQueryListPartEntity,
 } from "../data/DashboardParts";
 import { UserQueryEntity } from "../data/UserQuery";
@@ -39,7 +39,7 @@ export function registerUserQueryDashboardParts(): void {
             if (p.showFooter) x[A + "ShowFooter"] = true;
             if (p.createNew) x[A + "CreateNew"] = true;
             if (p.allowMaxHeight) x[A + "AllowMaxHeight"] = true;
-            const autoUpdate = Enum.toName(AutoUpdateEnum, p.autoUpdate);
+            const autoUpdate = Enum.toName(AutoUpdate, p.autoUpdate);
             if (autoUpdate !== "None") x[A + "AutoUpdate"] = autoUpdate;
             return x;
         },
@@ -49,7 +49,7 @@ export function registerUserQueryDashboardParts(): void {
             p.showFooter = bool(x[A + "ShowFooter"]);
             p.createNew = bool(x[A + "CreateNew"]);
             p.allowMaxHeight = bool(x[A + "AllowMaxHeight"]);
-            p.autoUpdate = toEnum(AutoUpdateEnum, str(x[A + "AutoUpdate"]) ?? "None");
+            p.autoUpdate = toEnum(AutoUpdate, str(x[A + "AutoUpdate"]) ?? "None");
         },
     });
 

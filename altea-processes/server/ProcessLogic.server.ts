@@ -10,7 +10,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import {
-    ProcessEntity, ProcessAlgorithmSymbol, ProcessExceptionLineEntity, ProcessStateEnum,
+    ProcessEntity, ProcessAlgorithmSymbol, ProcessExceptionLineEntity, ProcessState,
     ProcessOperation, ProcessPermission, ProcessMessage,
 } from "../data/Processes";
 import { PackageEntity, PackageOperationEntity, PackageLineEntity } from "../data/Package";
@@ -110,7 +110,7 @@ export namespace ProcessLogic {
 
         const process = ProcessEntity.create({
             algorithm: processAlgorithm,
-            state: ProcessStateEnum.Created,
+            state: ProcessState.Created,
             data: data ?? null,
             machineName: justMyProcesses ? ProcessRunner.machineName() : ProcessEntity.None,
             applicationName: justMyProcesses ? ProcessRunner.applicationName() : ProcessEntity.None,
@@ -141,21 +141,21 @@ export namespace ProcessLogic {
 
     // Signum's ProcessGraph — the state machine. Every transition that queues work wakes the runner up
     // AFTER the commit, so the runner never reads a row that is not there yet.
-    function registerProcessOperations(sm: FluentStateMachine<ProcessEntity, ProcessStateEnum>): void {
+    function registerProcessOperations(sm: FluentStateMachine<ProcessEntity, ProcessState>): void {
         sm.withExecute(ProcessOperation.Save, {
-        fromStates: [ProcessStateEnum.Created],
-        toStates: [ProcessStateEnum.Created],
+        fromStates: [ProcessState.Created],
+        toStates: [ProcessState.Created],
         canBeNew: true,
         canBeModified: true,
         execute: () => { },
         });
 
         sm.withExecute(ProcessOperation.Execute, {
-        fromStates: [ProcessStateEnum.Created, ProcessStateEnum.Planned, ProcessStateEnum.Canceled, ProcessStateEnum.Suspended],
-        toStates: [ProcessStateEnum.Queued],
+        fromStates: [ProcessState.Created, ProcessState.Planned, ProcessState.Canceled, ProcessState.Suspended],
+        toStates: [ProcessState.Queued],
         execute: (p: ProcessEntity) => {
             pinToThisMachine(p);
-            p.state = ProcessStateEnum.Queued;
+            p.state = ProcessState.Queued;
             p.queuedDate = Clock.now;
             p.executionStart = null;
             p.executionEnd = null;
@@ -168,10 +168,10 @@ export namespace ProcessLogic {
         });
 
         sm.withExecute(ProcessOperation.Suspend, {
-        fromStates: [ProcessStateEnum.Executing],
-        toStates: [ProcessStateEnum.Suspending],
+        fromStates: [ProcessState.Executing],
+        toStates: [ProcessState.Suspending],
         execute: (p: ProcessEntity) => {
-            p.state = ProcessStateEnum.Suspending;
+            p.state = ProcessState.Suspending;
             p.suspendDate = Clock.now;
             wakeUpOnCommit("ProcessOperation.Suspend");
         },
@@ -181,31 +181,31 @@ export namespace ProcessLogic {
         // Signum: cancelling an in-flight run would leave it running with a Canceled row, so suspend first.
         canExecute: (p: ProcessEntity) => ProcessRunner.isExecutingInThisMachine(p.toLite())
             ? ProcessMessage.ProcessExecutingSuspendFirst.niceToString() : null,
-        fromStates: [ProcessStateEnum.Planned, ProcessStateEnum.Created, ProcessStateEnum.Suspended,
-            ProcessStateEnum.Queued, ProcessStateEnum.Executing, ProcessStateEnum.Suspending],
-        toStates: [ProcessStateEnum.Canceled],
+        fromStates: [ProcessState.Planned, ProcessState.Created, ProcessState.Suspended,
+            ProcessState.Queued, ProcessState.Executing, ProcessState.Suspending],
+        toStates: [ProcessState.Canceled],
         execute: (p: ProcessEntity) => {
-            p.state = ProcessStateEnum.Canceled;
+            p.state = ProcessState.Canceled;
             p.cancelationDate = Clock.now;
         },
         });
 
         sm.withExecute(ProcessOperation.Plan, {
-        fromStates: [ProcessStateEnum.Created, ProcessStateEnum.Canceled, ProcessStateEnum.Planned, ProcessStateEnum.Suspended],
-        toStates: [ProcessStateEnum.Planned],
+        fromStates: [ProcessState.Created, ProcessState.Canceled, ProcessState.Planned, ProcessState.Suspended],
+        toStates: [ProcessState.Planned],
         execute: (p: ProcessEntity, args: unknown[]) => {
             pinToThisMachine(p);
-            p.state = ProcessStateEnum.Planned;
+            p.state = ProcessState.Planned;
             p.plannedDate = args[0] as Temporal.PlainDateTime;
             wakeUpOnCommit("ProcessOperation.Plan");
         },
         });
 
         sm.withConstructFrom(ProcessEntity, ProcessOperation.Retry, {
-        canConstruct: (p: ProcessEntity) => [ProcessStateEnum.Error, ProcessStateEnum.Canceled,
-            ProcessStateEnum.Finished, ProcessStateEnum.Suspended].includes(p.state)
+        canConstruct: (p: ProcessEntity) => [ProcessState.Error, ProcessState.Canceled,
+            ProcessState.Finished, ProcessState.Suspended].includes(p.state)
             ? null : `A process can only be retried from Error / Canceled / Finished / Suspended`,
-        toStates: [ProcessStateEnum.Created],
+        toStates: [ProcessState.Created],
         construct: async (p: ProcessEntity) => await create(p.algorithm, p.data),
         });
     }

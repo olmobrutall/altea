@@ -6,7 +6,7 @@ import {
     stringLengthValidator, quoted,
 } from "@altea/altea/data/decorators";
 import { type int, toInt } from "@altea/altea/data/basics";
-import { FilterOperationEnum, FilterGroupOperationEnum, DashboardBehaviourEnum } from "@altea/altea/data/dynamicQueries";
+import { FilterOperation, FilterGroupOperation, DashboardBehaviour } from "@altea/altea/data/dynamicQueries";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";

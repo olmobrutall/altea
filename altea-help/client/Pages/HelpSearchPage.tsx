@@ -10,7 +10,7 @@ import { classes } from "@altea/altea/data/globals";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import {
     HelpMessage, HelpSearchMessage,
-    type HelpSearchResult, type TypeSearchResult,
+    type HelpSearchResult, type TypeSearchResultKeys,
 } from "../../data/Help";
 import { HelpClient } from "../HelpClient";
 
@@ -76,7 +76,7 @@ export default function HelpSearchPage(): React.JSX.Element {
     );
 }
 
-const kindIcon: Record<TypeSearchResult, { icon: IconProp; color: string }> = {
+const kindIcon: Record<TypeSearchResultKeys, { icon: IconProp; color: string }> = {
     Appendix: { icon: "file-lines", color: "darkviolet" },
     Namespace: { icon: "folder", color: "#0d6efd" },
     Type: { icon: "table", color: "#198754" },

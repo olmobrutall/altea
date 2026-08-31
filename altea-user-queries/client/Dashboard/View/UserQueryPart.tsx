@@ -6,11 +6,11 @@ import SearchControl, { type SearchControlHandler } from "@altea/altea/client/Se
 import { useAPI, useVersion } from "@altea/altea/client/Hooks";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import { Enum } from "@altea/altea/data/enum";
-import { RefreshModeEnum } from "@altea/altea/data/dynamicQueries";
+import { RefreshMode } from "@altea/altea/data/dynamicQueries";
 import type { PanelPartContentProps } from "@altea/altea-dashboard/client/DashboardClient";
 import { DashboardPinnedFilters } from "@altea/altea-dashboard/client/View/DashboardFilterController";
 import { UserQueriesClient } from "../../UserQueriesClient";
-import { AutoUpdateEnum, UserQueryPartEntity } from "../../../data/DashboardParts";
+import { AutoUpdate, UserQueryPartEntity } from "../../../data/DashboardParts";
 
 // Port of Signum's Signum.UserQueries/Dashboard/View/UserQueryPart.tsx — runs the saved query in a
 // SearchControl inside a dashboard cell, publishing its dashboard-pinned filters and (per `autoUpdate`)
@@ -64,7 +64,7 @@ export default function UserQueryPart(p: PanelPartContentProps<UserQueryPartEnti
     } as UserQueryPartHandler;
 
     function handleOnDataChanged(): void {
-        const autoUpdate = Enum.toName(AutoUpdateEnum, p.content.autoUpdate);
+        const autoUpdate = Enum.toName(AutoUpdate, p.content.autoUpdate);
         if (autoUpdate == "Dashboard")
             p.dashboardController.invalidate(p.partEmbedded, null);
         else if (autoUpdate == "InteractionGroup" && p.partEmbedded.interactionGroup != null)
@@ -83,7 +83,7 @@ function SearchControlInPart({ findOptions, part, deps, onDataChanged }: {
 }): React.JSX.Element {
 
     const scRef = React.useRef<SearchControlHandler>(null);
-    const refreshMode = Enum.toName(RefreshModeEnum, part.userQuery.refreshMode);
+    const refreshMode = Enum.toName(RefreshMode, part.userQuery.refreshMode);
 
     return (
         <div style={{ minWidth: 0, flexGrow: 1 }}>

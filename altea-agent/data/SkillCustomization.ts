@@ -29,7 +29,7 @@ import type { ConstructSymbol, DeleteSymbol, ExecuteSymbol, From } from "@altea/
 //    property attributes), and the isomorphic layer must not import the server registry.
 
 /** Signum's SkillActivation — is a sub-skill's instruction inlined, or discovered through `describe`? */
-export enum SkillActivationEnum {
+export enum SkillActivation {
     /** Instructions and tools are in the system prompt from the start. */
     Eager,
     /** Only a one-line summary is; the model must call `describe` to unlock it. */
@@ -125,10 +125,10 @@ export class SkillCustomizationEntity_SubSkill extends Entity {
     @valueField @implementedBy(() => [SkillCustomizationEntity, SkillCodeEntity])
     skill: Entity;
 
-    activation: SkillActivationEnum = SkillActivationEnum.Eager;
+    activation: SkillActivation = SkillActivation.Eager;
 
     toString(): string {
-        return `${this.skill?.toString() ?? ""} (${SkillActivationEnum[this.activation]})`;
+        return `${this.skill?.toString() ?? ""} (${SkillActivation[this.activation]})`;
     }
 }
 

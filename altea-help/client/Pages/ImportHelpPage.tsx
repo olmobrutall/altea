@@ -13,8 +13,8 @@ import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import {
     HelpImportPreviewModel, HelpImportPreviewLineEmbedded,
     HelpImportReportModel, HelpImportReportLineEmbedded, HelpMessage,
-    ImportActionEnum, ImportStatusEnum,
-    type HelpFileUpload, type ImportAction, type ImportStatus,
+    ImportAction, ImportStatus,
+    type HelpFileUpload, type ImportActionKeys, type ImportStatusKeys,
 } from "../../data/Help";
 import { HelpClient } from "../HelpClient";
 import "../Help.css";
@@ -108,13 +108,13 @@ function FileInput({ fileVer, onChange }: { fileVer: number; onChange: (e: React
     );
 }
 
-const actionIcon: Record<ImportAction, FontAwesomeIconProps> = {
+const actionIcon: Record<ImportActionKeys, FontAwesomeIconProps> = {
     Create: { icon: "square-plus", color: "green" },
     Override: { icon: "square-pen", color: "orange" },
     NoChange: { icon: "equals", color: "gray" },
 };
 
-const statusIcon: Record<ImportStatus, FontAwesomeIconProps> = {
+const statusIcon: Record<ImportStatusKeys, FontAwesomeIconProps> = {
     Applied: { icon: "square-check", color: "green" },
     Failed: { icon: "triangle-exclamation", color: "darkorange" },
     Skipped: { icon: "ban", color: "gray" },
@@ -159,12 +159,12 @@ function Preview({ model, file, onImport, onChange }: {
                             <td>{line.exitingEntity ? <EntityLink lite={line.exitingEntity} /> : line.key}</td>
                             <td>
                                 <FontAwesomeIcon {...actionIcon[line.action]} className="me-2" size="lg" aria-hidden={true} />
-                                {Enum.niceName(ImportActionEnum, line.action)}
+                                {Enum.niceName(ImportAction, line.action)}
                             </td>
                             <td>
                                 {line.applyVisible() &&
                                     <input type="checkbox"
-                                        aria-label={Enum.niceName(ImportActionEnum, line.action)}
+                                        aria-label={Enum.niceName(ImportAction, line.action)}
                                         className="form-check-input"
                                         checked={line.apply === true}
                                         onChange={e => { line.apply = e.currentTarget.checked; onChange(); }} />}
@@ -223,8 +223,8 @@ function Report({ report, lastImported }: { report: HelpImportReportModel; lastI
                             <td>{line.exitingEntity ? <EntityLink lite={line.exitingEntity} /> : line.key}</td>
                             <td>
                                 <FontAwesomeIcon {...statusIcon[line.status]} className="me-2" size="lg"
-                                    title={Enum.niceName(ImportStatusEnum, line.status)} aria-hidden={true} />
-                                {Enum.niceName(ImportActionEnum, line.action)}
+                                    title={Enum.niceName(ImportStatus, line.status)} aria-hidden={true} />
+                                {Enum.niceName(ImportAction, line.action)}
                             </td>
                             <td>{line.actionError}</td>
                         </tr>)}

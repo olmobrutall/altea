@@ -3,7 +3,7 @@ import { Tabs, Tab } from "react-bootstrap";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import SearchControl from "@altea/altea/client/SearchControl/SearchControl";
-import { ChatbotMessage, ChatMessageEntity, ChatMessageRoleEnum, ChatSessionEntity } from "../../data/ChatSession";
+import { ChatbotMessage, ChatMessageEntity, ChatMessageRole, ChatSessionEntity } from "../../data/ChatSession";
 
 // Port of Signum.Agent's Templates/ChatSession.tsx — the session header plus two search tabs over its
 // messages: the TRANSCRIPT and the token/price breakdown.
@@ -38,7 +38,7 @@ export default function ChatSession(p: { ctx: TypeContext<ChatSessionEntity> }):
                     <SearchControl findOptions={ChatMessageEntity.findOptions(token => ({
                         filterOptions: [
                             token(a => a.chatSession).filter("EqualTo", ctx.value.toLite(), { frozen: true }),
-                            token(a => a.role).filter("DistinctTo", ChatMessageRoleEnum.System, {
+                            token(a => a.role).filter("DistinctTo", ChatMessageRole.System, {
                                 pinned: { active: "NotCheckbox_Unchecked", column: 1, label: ChatbotMessage.ShowSystem.niceToString() },
                             }),
                         ],

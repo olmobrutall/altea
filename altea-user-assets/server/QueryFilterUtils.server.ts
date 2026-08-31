@@ -1,11 +1,11 @@
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import {
-    FilterCondition, FilterGroup, FilterOperation, FilterGroupOperation, type Filter,
+    FilterCondition, FilterGroup, FilterOperationKeys, FilterGroupOperationKeys, type Filter,
 } from "@altea/altea/server/dynamicQuery/requests";
 import { SubTokensOptionsAll, type QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { Enum } from "@altea/altea/data/enum";
-import { FilterOperationEnum, FilterGroupOperationEnum } from "@altea/altea/data/dynamicQueries";
+import { FilterOperation, FilterGroupOperation } from "@altea/altea/data/dynamicQueries";
 import { Entity } from "@altea/altea/data/entity";
 import type { QueryFilterBaseEntity } from "../data/Queries";
 import { parseFilterValue } from "../data/FilterValueString";
@@ -68,20 +68,20 @@ export namespace QueryFilterUtils {
         return QueryLogic.getToken(queryName, tokenString, SubTokensOptionsAll);
     }
 
-    function operation(ordinal: FilterOperationEnum): FilterOperation {
-        return Enum.toName(FilterOperationEnum, ordinal) as FilterOperation;
+    function operation(ordinal: FilterOperation): FilterOperationKeys {
+        return Enum.toName(FilterOperation, ordinal) as FilterOperationKeys;
     }
 
-    function groupOperation(ordinal: FilterGroupOperationEnum | null): FilterGroupOperation {
-        return (ordinal == null ? "And" : Enum.toName(FilterGroupOperationEnum, ordinal)) as FilterGroupOperation;
+    function groupOperation(ordinal: FilterGroupOperation | null): FilterGroupOperationKeys {
+        return (ordinal == null ? "And" : Enum.toName(FilterGroupOperation, ordinal)) as FilterGroupOperationKeys;
     }
 
     /** The stored `valueString` as the token's own type. A list operation splits on `|` (Signum's convention). */
-    function value(t: QueryToken, op: FilterOperation, valueString: string | null): unknown {
+    function value(t: QueryToken, op: FilterOperationKeys, valueString: string | null): unknown {
         if (valueString == null || valueString === "")
             return null;
 
-        if (op === FilterOperation.IsIn || op === FilterOperation.IsNotIn)
+        if (op === FilterOperationKeys.IsIn || op === FilterOperationKeys.IsNotIn)
             return valueString.split("|").map(v => parseFilterValue(v.trim(), t.filterType));
 
         return parseFilterValue(valueString, t.filterType);
@@ -90,6 +90,6 @@ export namespace QueryFilterUtils {
     /** The "this row's entity" filter every single-entity render starts from (Signum's
      *  `new FilterCondition(QueryUtils.Parse("Entity", qd, 0), EqualTo, entity.ToLite())`). */
     export function entityFilter(queryName: QueryName, entity: Entity): Filter {
-        return new FilterCondition(token(queryName, ""), FilterOperation.EqualTo, entity.toLite());
+        return new FilterCondition(token(queryName, ""), FilterOperationKeys.EqualTo, entity.toLite());
     }
 }

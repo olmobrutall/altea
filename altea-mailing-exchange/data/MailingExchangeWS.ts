@@ -18,7 +18,7 @@ import { EmailServiceEntity } from "@altea/altea-email/data/EmailSenderConfigura
 //    service already does) and the Save operation folds it in — see MailingExchangeWSLogic.
 
 /** Signum's `Microsoft.Exchange.WebServices.Data.ExchangeVersion`, as sent in the EWS request header. */
-export enum ExchangeVersionEnum {
+export enum ExchangeVersion {
     Exchange2007_SP1,
     Exchange2010,
     Exchange2010_SP1,
@@ -35,7 +35,7 @@ export enum ExchangeVersionEnum {
 @entity("Part", "Master")
 export class ExchangeWebServiceEmailServiceEntity extends EmailServiceEntity {
 
-    exchangeVersion: ExchangeVersionEnum;
+    exchangeVersion: ExchangeVersion;
 
     /** The EWS endpoint (e.g. `https://mail.contoso.com/EWS/Exchange.asmx`). Empty means AUTODISCOVER it from
      *  the From address, as Signum's `service.AutodiscoverUrl(email.From.EmailAddress, …)` does. */

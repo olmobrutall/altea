@@ -46,7 +46,7 @@ function tokenIsAggregate(token: QueryToken | undefined): boolean {
 
 // ---- Filter (Requests/Filter.cs) -----------------------------------------------------------
 
-export enum FilterOperation {
+export enum FilterOperationKeys {
     EqualTo = "EqualTo",
     DistinctTo = "DistinctTo",
     GreaterThan = "GreaterThan",
@@ -73,28 +73,28 @@ export enum FilterOperation {
 }
 
 // The Postgres tsquery builder method (on String) for each TsQuery filter operation.
-const TS_QUERY_METHOD: Partial<Record<FilterOperation, string>> = {
-    [FilterOperation.TsQuery]: "toTsQuery",
-    [FilterOperation.TsQuery_Plain]: "toTsQuery_Plain",
-    [FilterOperation.TsQuery_Phrase]: "toTsQuery_Phrase",
-    [FilterOperation.TsQuery_WebSearch]: "toTsQuery_WebSearch",
+const TS_QUERY_METHOD: Partial<Record<FilterOperationKeys, string>> = {
+    [FilterOperationKeys.TsQuery]: "toTsQuery",
+    [FilterOperationKeys.TsQuery_Plain]: "toTsQuery_Plain",
+    [FilterOperationKeys.TsQuery_Phrase]: "toTsQuery_Phrase",
+    [FilterOperationKeys.TsQuery_WebSearch]: "toTsQuery_WebSearch",
 };
 
-const BINARY_OP: Partial<Record<FilterOperation, "==" | "!=" | ">" | ">=" | "<" | "<=">> = {
-    [FilterOperation.EqualTo]: "==",
-    [FilterOperation.DistinctTo]: "!=",
-    [FilterOperation.GreaterThan]: ">",
-    [FilterOperation.GreaterThanOrEqual]: ">=",
-    [FilterOperation.LessThan]: "<",
-    [FilterOperation.LessThanOrEqual]: "<=",
+const BINARY_OP: Partial<Record<FilterOperationKeys, "==" | "!=" | ">" | ">=" | "<" | "<=">> = {
+    [FilterOperationKeys.EqualTo]: "==",
+    [FilterOperationKeys.DistinctTo]: "!=",
+    [FilterOperationKeys.GreaterThan]: ">",
+    [FilterOperationKeys.GreaterThanOrEqual]: ">=",
+    [FilterOperationKeys.LessThan]: "<",
+    [FilterOperationKeys.LessThanOrEqual]: "<=",
 };
-const STRING_METHOD: Partial<Record<FilterOperation, { method: string; negate: boolean }>> = {
-    [FilterOperation.Contains]: { method: "includes", negate: false },
-    [FilterOperation.StartsWith]: { method: "startsWith", negate: false },
-    [FilterOperation.EndsWith]: { method: "endsWith", negate: false },
-    [FilterOperation.NotContains]: { method: "includes", negate: true },
-    [FilterOperation.NotStartsWith]: { method: "startsWith", negate: true },
-    [FilterOperation.NotEndsWith]: { method: "endsWith", negate: true },
+const STRING_METHOD: Partial<Record<FilterOperationKeys, { method: string; negate: boolean }>> = {
+    [FilterOperationKeys.Contains]: { method: "includes", negate: false },
+    [FilterOperationKeys.StartsWith]: { method: "startsWith", negate: false },
+    [FilterOperationKeys.EndsWith]: { method: "endsWith", negate: false },
+    [FilterOperationKeys.NotContains]: { method: "includes", negate: true },
+    [FilterOperationKeys.NotStartsWith]: { method: "startsWith", negate: true },
+    [FilterOperationKeys.NotEndsWith]: { method: "endsWith", negate: true },
 };
 
 // Port of Signum's `Filter` (abstract). Only `FilterCondition` is ported; `FilterGroup` (and full
@@ -139,7 +139,7 @@ export abstract class Filter {
     }
 }
 
-export enum FilterGroupOperation { And = "And", Or = "Or" }
+export enum FilterGroupOperationKeys { And = "And", Or = "Or" }
 
 // Port of Signum's `FilterGroup`: an AND/OR group of filters, optionally scoped to a `token`. When
 // that token passes through a CollectionAnyAllToken, the whole group becomes a correlated
@@ -147,7 +147,7 @@ export enum FilterGroupOperation { And = "And", Or = "Or" }
 // quantifier (`a.friends.some(f => f.name == "john" && a.age == 20)`).
 export class FilterGroup extends Filter {
     constructor(
-        public readonly groupOperation: FilterGroupOperation,
+        public readonly groupOperation: FilterGroupOperationKeys,
         public readonly token: QueryToken | undefined,
         public readonly filters: Filter[],
     ) { super(); }
@@ -163,8 +163,8 @@ export class FilterGroup extends Filter {
         if (anyAll == undefined) {
             const exprs = this.filters.map(f => f.getExpression(context));
             if (exprs.length === 0)
-                return new ConstantExpression(this.groupOperation === FilterGroupOperation.And);
-            const op = this.groupOperation === FilterGroupOperation.And ? "&&" : "||";
+                return new ConstantExpression(this.groupOperation === FilterGroupOperationKeys.And);
+            const op = this.groupOperation === FilterGroupOperationKeys.And ? "&&" : "||";
             return exprs.reduce((a, b) => new BinaryExpression(op, a, b));
         }
         return this.getExpressionWithAnyAll(context, anyAll);
@@ -175,7 +175,7 @@ export class FilterGroup extends Filter {
 export class FilterCondition extends Filter {
     constructor(
         public readonly token: QueryToken,
-        public readonly operation: FilterOperation,
+        public readonly operation: FilterOperationKeys,
         public readonly value: unknown,
     ) { super(); }
 
@@ -219,18 +219,18 @@ export class FilterCondition extends Filter {
             return sm.negate ? new BinaryExpression("==", call, new ConstantExpression(false)) : call;
         }
 
-        if (this.operation === FilterOperation.IsIn || this.operation === FilterOperation.IsNotIn) {
+        if (this.operation === FilterOperationKeys.IsIn || this.operation === FilterOperationKeys.IsNotIn) {
             // `.includes` is altea's SQL-mappable array membership (→ IN (…), like retrieveByIds).
             const values = ci && Array.isArray(this.value) ? this.value.map(toLowerValue) : this.value;
             const call = new CallExpression(new PropertyExpression(new ConstantExpression(values), "includes"), [cmpLeft], LiteralType.boolean);
-            return this.operation === FilterOperation.IsNotIn ? new BinaryExpression("==", call, new ConstantExpression(false)) : call;
+            return this.operation === FilterOperationKeys.IsNotIn ? new BinaryExpression("==", call, new ConstantExpression(false)) : call;
         }
 
         // ---- Full-text (Signum's FilterFullText) ------------------------------------------------
         // SQL Server: FREETEXT / CONTAINS over the token's column (`left`). The QueryBinder recognises
         // the SqlFullTextSearch.freeText/contains call and lowers it to the predicate.
-        if (this.operation === FilterOperation.FreeText || this.operation === FilterOperation.ComplexCondition) {
-            const method = this.operation === FilterOperation.FreeText ? "freeText" : "contains";
+        if (this.operation === FilterOperationKeys.FreeText || this.operation === FilterOperationKeys.ComplexCondition) {
+            const method = this.operation === FilterOperationKeys.FreeText ? "freeText" : "contains";
             return new CallExpression(
                 new PropertyExpression(new ConstantExpression(SqlFullTextSearch), method),
                 [left, new ConstantExpression(this.value)], LiteralType.boolean);
@@ -252,10 +252,10 @@ export class FilterCondition extends Filter {
 
 // ---- Order (Requests/Order.cs) -------------------------------------------------------------
 
-export enum OrderType { Ascending = "Ascending", Descending = "Descending" }
+export enum OrderTypeKeys { Ascending = "Ascending", Descending = "Descending" }
 
 export class Order {
-    constructor(public readonly token: QueryToken, public readonly orderType: OrderType = OrderType.Ascending) { }
+    constructor(public readonly token: QueryToken, public readonly orderType: OrderTypeKeys = OrderTypeKeys.Ascending) { }
 }
 
 // ---- Column (Requests/Column.cs) -----------------------------------------------------------
@@ -272,25 +272,25 @@ export class Column {
 
 // ---- Pagination (Requests/QueryRequest.cs) -------------------------------------------------
 
-export enum PaginationMode { All = "All", Firsts = "Firsts", Paginate = "Paginate" }
+export enum PaginationModeKeys { All = "All", Firsts = "Firsts", Paginate = "Paginate" }
 
 export abstract class Pagination {
-    abstract getMode(): PaginationMode;
+    abstract getMode(): PaginationModeKeys;
     abstract getElementsPerPage(): number | undefined;
 }
 export namespace Pagination {
     export class All extends Pagination {
-        getMode(): PaginationMode { return PaginationMode.All; }
+        getMode(): PaginationModeKeys { return PaginationModeKeys.All; }
         getElementsPerPage(): number | undefined { return undefined; }
     }
     export class Firsts extends Pagination {
         constructor(public readonly topElements: number) { super(); }
-        getMode(): PaginationMode { return PaginationMode.Firsts; }
+        getMode(): PaginationModeKeys { return PaginationModeKeys.Firsts; }
         getElementsPerPage(): number { return this.topElements; }
     }
     export class Paginate extends Pagination {
         constructor(public readonly elementsPerPage: number, public readonly currentPage: number = 1) { super(); }
-        getMode(): PaginationMode { return PaginationMode.Paginate; }
+        getMode(): PaginationModeKeys { return PaginationModeKeys.Paginate; }
         getElementsPerPage(): number { return this.elementsPerPage; }
         // 0-based OFFSET (Signum's StartElementIndex is 1-based; altea's skip is a 0-based OFFSET).
         skip(): number { return this.elementsPerPage * (this.currentPage - 1); }

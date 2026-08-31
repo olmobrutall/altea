@@ -9,7 +9,7 @@ import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { Enum } from "@altea/altea/data/enum";
 import type { OperationSymbol } from "@altea/altea/data/operations";
 import type { Quoted } from "quote-transformer/quoted";
-import { DefaultStateEnum, type MapOperation, type MapState, type OperationMapInfo } from "../data/Map";
+import { DefaultState, type MapOperation, type MapState, type OperationMapInfo } from "../data/Map";
 
 // Port of Signum.Map's OperationMap.cs — one entity type's STATE MACHINE: a node per state, a node per
 // operation, and an edge per (fromState → operation → toState) transition, each carrying how many rows /
@@ -75,9 +75,9 @@ export namespace OperationMap {
         // Every declared member of the state enum, plus the three pseudo-states — Signum's
         // `stateTypes.PreAnd(typeof(DefaultState))`.
         const states: MapState[] = [
-            ...Enum.values(DefaultStateEnum).map(key => ({
+            ...Enum.values(DefaultState).map(key => ({
                 key,
-                niceName: Enum.niceName(DefaultStateEnum, key),
+                niceName: Enum.niceName(DefaultState, key),
                 // Signum counts DefaultState.All as "every row of the type"; the other two are markers.
                 count: 0,
                 ignored: false,

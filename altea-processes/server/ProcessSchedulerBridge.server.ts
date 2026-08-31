@@ -2,7 +2,7 @@ import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
 import { Clock } from "@altea/altea/data/utils/clock";
-import { ProcessStateEnum } from "../data/Processes";
+import { ProcessState } from "../data/Processes";
 import { ProcessEntity, ProcessAlgorithmSymbol } from "../data/Processes";
 import { ProcessLogic } from "./ProcessLogic.server";
 import { ProcessRunner } from "./ProcessRunner.server";
@@ -51,7 +51,7 @@ export namespace ProcessSchedulerBridge {
     /** Queue a freshly created process the way ProcessOperation.Execute does, without going through the
      *  operation (the scheduler runs as the task's user and has no operation context). */
     async function queue(process: ProcessEntity): Promise<void> {
-        process.state = ProcessStateEnum.Queued;
+        process.state = ProcessState.Queued;
         process.queuedDate = Clock.now;
         await process.save();
 

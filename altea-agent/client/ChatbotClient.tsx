@@ -14,7 +14,7 @@ import { Dic } from "@altea/altea/data/globals";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import {
-    ChatMessageEntity, ChatMessageEntity_ToolCall, ChatSessionEntity, UserFeedbackEnum,
+    ChatMessageEntity, ChatMessageEntity_ToolCall, ChatSessionEntity, UserFeedback,
 } from "../data/ChatSession";
 import type { SetFeedbackRequest } from "../data/ChatbotProtocol";
 import { MarkdownOrJson } from "./Message";
@@ -128,7 +128,7 @@ export namespace ChatbotClient {
             return ajaxGet({ url: `/api/chatbot/messages/${sessionId}` });
         }
 
-        export function setFeedback(messageId: string | number, feedback: UserFeedbackEnum | null, message?: string): Promise<void> {
+        export function setFeedback(messageId: string | number, feedback: UserFeedback | null, message?: string): Promise<void> {
             return ajaxPost({ url: `/api/chatbot/feedback/${messageId}` },
                 { feedback, message } satisfies SetFeedbackRequest);
         }

@@ -24,7 +24,7 @@ import {
 } from "../data/Email";
 import {
     EmailMessageEntity, EmailMessageEntity_Attachment, EmailMessageEntity_Recipient, EmailMessageOperation,
-    EmailMessageStateEnum,
+    EmailMessageState,
 } from "../data/EmailMessage";
 import { EmailTemplateEntity, EmailMasterTemplateEntity, EmailTemplateVisibleOn } from "../data/EmailTemplate";
 import { EmailSenderConfigurationEntity, SmtpEmailServiceEntity, type EmailServiceEntity } from "../data/EmailSenderConfiguration";
@@ -238,7 +238,7 @@ export namespace EmailLogic {
 
     /** Signum's `email.SendMailAsync()` — save as ReadyToSend and let the async sender pick it up. */
     export async function sendMailAsync(email: EmailMessageEntity): Promise<void> {
-        email.state = EmailMessageStateEnum.ReadyToSend;
+        email.state = EmailMessageState.ReadyToSend;
         await email.save();
         wakeUpAfterCommit();
     }
@@ -246,7 +246,7 @@ export namespace EmailLogic {
     /** Signum's `SendAllAsync(list)`. */
     export async function sendAllAsync(emails: EmailMessageEntity[]): Promise<void> {
         for (const email of emails) {
-            email.state = EmailMessageStateEnum.ReadyToSend;
+            email.state = EmailMessageState.ReadyToSend;
             await email.save();
         }
         wakeUpAfterCommit();
@@ -331,8 +331,8 @@ export namespace EmailLogic {
     // ---- the state machine -----------------------------------------------------------------------------
 
     const sendableStates = [
-        EmailMessageStateEnum.Created, EmailMessageStateEnum.Draft, EmailMessageStateEnum.ReadyToSend,
-        EmailMessageStateEnum.RecruitedForSending, EmailMessageStateEnum.Outdated,
+        EmailMessageState.Created, EmailMessageState.Draft, EmailMessageState.ReadyToSend,
+        EmailMessageState.RecruitedForSending, EmailMessageState.Outdated,
     ];
 
     /** Signum's `Transaction.PostRealCommit += WakeupReadyToSendInThisMachine` — nudge the sender once the
@@ -357,9 +357,9 @@ export namespace EmailLogic {
      * is stateless there too. Restoring those four would change what an operation ACCEPTS at runtime, so it
      * is left as a deliberate follow-up rather than folded into an API migration.
      */
-    function registerEmailMessageOperations(sm: FluentStateMachine<EmailMessageEntity, EmailMessageStateEnum>): void {
+    function registerEmailMessageOperations(sm: FluentStateMachine<EmailMessageEntity, EmailMessageState>): void {
         sm.parent.withConstruct(EmailMessageOperation.CreateMail, {
-        construct: () => EmailMessageEntity.create({ state: EmailMessageStateEnum.Created }),
+        construct: () => EmailMessageEntity.create({ state: EmailMessageState.Created }),
         });
 
         sm.parent.withConstructFrom(EmailTemplateEntity, EmailMessageOperation.CreateEmailFromTemplate, {
@@ -382,25 +382,25 @@ export namespace EmailLogic {
         sm.withExecute(EmailMessageOperation.Save, {
         canBeNew: true,
         canBeModified: true,
-        fromStates: [EmailMessageStateEnum.Created, EmailMessageStateEnum.Outdated],
-        toStates: [EmailMessageStateEnum.Draft],
+        fromStates: [EmailMessageState.Created, EmailMessageState.Outdated],
+        toStates: [EmailMessageState.Draft],
         getState: (m: EmailMessageEntity) => m.state,
-        execute: (m: EmailMessageEntity) => { m.state = EmailMessageStateEnum.Draft; },
+        execute: (m: EmailMessageEntity) => { m.state = EmailMessageState.Draft; },
         });
 
         sm.withExecute(EmailMessageOperation.ReadyToSend, {
         canBeNew: true,
         canBeModified: true,
         fromStates: [
-            EmailMessageStateEnum.Created, EmailMessageStateEnum.Draft, EmailMessageStateEnum.SentException,
-            EmailMessageStateEnum.RecruitedForSending, EmailMessageStateEnum.Outdated,
+            EmailMessageState.Created, EmailMessageState.Draft, EmailMessageState.SentException,
+            EmailMessageState.RecruitedForSending, EmailMessageState.Outdated,
         ],
-        toStates: [EmailMessageStateEnum.ReadyToSend],
+        toStates: [EmailMessageState.ReadyToSend],
         getState: (m: EmailMessageEntity) => m.state,
         execute: (m: EmailMessageEntity) => {
             m.sendRetries = 0 as EmailMessageEntity["sendRetries"];
             m.exception = null;
-            m.state = EmailMessageStateEnum.ReadyToSend;
+            m.state = EmailMessageState.ReadyToSend;
             wakeUpAfterCommit();
         },
         });
@@ -409,7 +409,7 @@ export namespace EmailLogic {
         canBeNew: true,
         canBeModified: true,
         canExecute: (m: EmailMessageEntity) => sendableStates.includes(m.state) ? null
-            : EmailMessageMessage.TheEmailMessageCannotBeSentFromState0.niceToString(EmailMessageStateEnum[m.state]),
+            : EmailMessageMessage.TheEmailMessageCannotBeSentFromState0.niceToString(EmailMessageState[m.state]),
         execute: async (m: EmailMessageEntity) => await sendMail(m),
         });
 
@@ -425,7 +425,7 @@ export namespace EmailLogic {
             isBodyHtml: m.isBodyHtml,
             template: m.template,
             editableMessage: m.editableMessage,
-            state: EmailMessageStateEnum.Created,
+            state: EmailMessageState.Created,
             attachments: m.attachments.map(a => EmailMessageEntity_Attachment.create({
                 file: a.file, type: a.type, contentId: a.contentId,
             })),

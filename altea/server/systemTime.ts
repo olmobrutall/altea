@@ -16,7 +16,7 @@ import { quotedFunction, ClassType } from './runtimeTypes';
 //   • Between(start,end,join)    — versions active within [start, end]
 //   • ContainedIn(start,end,join)— versions whose period is contained in [start, end)
 //   • HistoryTable               — the raw history table only
-export enum SystemTimeJoinMode {
+export enum SystemTimeJoinModeKeys {
     Current = 'Current',
     FirstCompatible = 'FirstCompatible',
     AllCompatible = 'AllCompatible',
@@ -73,18 +73,18 @@ export class SystemTimeAsOf extends SystemTime {
 
 // Shared base for the interval modes (Signum's SystemTime.Interval), carrying the join mode.
 export abstract class SystemTimeInterval extends SystemTime {
-    constructor(readonly joinMode: SystemTimeJoinMode) { super(); }
+    constructor(readonly joinMode: SystemTimeJoinModeKeys) { super(); }
 }
 
 export class SystemTimeBetween extends SystemTimeInterval {
-    constructor(readonly startDateTime: SystemTimeBound, readonly endDateTime: SystemTimeBound, joinMode: SystemTimeJoinMode) {
+    constructor(readonly startDateTime: SystemTimeBound, readonly endDateTime: SystemTimeBound, joinMode: SystemTimeJoinModeKeys) {
         super(joinMode);
     }
     toString(): string { return `BETWEEN ${this.startDateTime} AND ${this.endDateTime}`; }
 }
 
 export class SystemTimeContainedIn extends SystemTimeInterval {
-    constructor(readonly startDateTime: SystemTimeBound, readonly endDateTime: SystemTimeBound, joinMode: SystemTimeJoinMode) {
+    constructor(readonly startDateTime: SystemTimeBound, readonly endDateTime: SystemTimeBound, joinMode: SystemTimeJoinModeKeys) {
         super(joinMode);
     }
     toString(): string { return `CONTAINED IN (${this.startDateTime}, ${this.endDateTime})`; }

@@ -9,7 +9,7 @@ import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { getKey } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { SubTokensOptions, type QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
-import { FilterOperation } from "@altea/altea/server/dynamicQuery/requests";
+import { FilterOperationKeys } from "@altea/altea/server/dynamicQuery/requests";
 import type { ResultColumn, ResultRow, ResultTable } from "@altea/altea/server/dynamicQuery/resultTable";
 import { TemplateTokenMessage } from "../data/Templating";
 import { distinctSingle, groupByColumn, scapeColon, ScopedDictionary } from "./TemplateUtils.server";
@@ -247,13 +247,13 @@ export abstract class ValueProviderBase {
     }
 
     /** Signum's ValidateConditionValue — can this comparison's right-hand text be read as my type? */
-    validateConditionValue(valueString: string, operation: FilterOperation | undefined, addError: (fatal: boolean, error: string) => void): void {
+    validateConditionValue(valueString: string, operation: FilterOperationKeys | undefined, addError: (fatal: boolean, error: string) => void): void {
         const type = this.type;
         if (type == undefined)
             return;
 
         try {
-            parseConstant(valueString, type, operation === FilterOperation.IsIn || operation === FilterOperation.IsNotIn);
+            parseConstant(valueString, type, operation === FilterOperationKeys.IsIn || operation === FilterOperationKeys.IsNotIn);
         } catch (e) {
             addError(false, `Impossible to convert '${valueString}' to ${type.getTypeName()}: ${(e as Error).message}`);
         }

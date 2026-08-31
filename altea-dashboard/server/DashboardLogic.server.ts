@@ -15,7 +15,7 @@ import { UserAssetOwnerAuth } from "@altea/altea-user-assets/server/UserAssetOwn
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
 import {
-    DashboardEntity, DashboardOperation, DashboardEntity_Part, DashboardEmbedededInEntityEnum, type IPartEntity,
+    DashboardEntity, DashboardOperation, DashboardEntity_Part, DashboardEmbedededInEntity, type IPartEntity,
 } from "../data/Dashboard";
 import { registerDashboardXml, registerBasePartsXml } from "./DashboardXml.server";
 import { DashboardServer } from "./DashboardServer.server";
@@ -198,7 +198,7 @@ export namespace DashboardLogic {
     export async function getEmbeddedDashboards(typeCleanName: string): Promise<DashboardEntity[]> {
         return (await getDashboardsEntity(typeCleanName))
             .filter(d => d.embeddedInEntity != null
-                && Enum.toName(DashboardEmbedededInEntityEnum, d.embeddedInEntity) !== "None")
+                && Enum.toName(DashboardEmbedededInEntity, d.embeddedInEntity) !== "None")
             .sort((a, b) => ((b.dashboardPriority ?? 0) as number) - ((a.dashboardPriority ?? 0) as number));
     }
 
@@ -210,7 +210,7 @@ export namespace DashboardLogic {
         const all = await dashboardsLazy.value();
         const embedded = await UserAssetOwnerAuth.filterVisible(all
             .filter(d => d.entityType != null && d.embeddedInEntity != null
-                && Enum.toName(DashboardEmbedededInEntityEnum, d.embeddedInEntity) !== "None"));
+                && Enum.toName(DashboardEmbedededInEntity, d.embeddedInEntity) !== "None"));
 
         const typeIds = new Set(embedded.map(d => String(d.entityType!.id)));
         if (typeIds.size === 0)

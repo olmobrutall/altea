@@ -10,27 +10,27 @@
 import type { Lite } from '../lite';
 import type { Entity } from '../entity';
 import type {
-  FilterOperation, FilterGroupOperation, OrderType, PaginationMode,
-  SystemTimeMode, SystemTimeJoinMode, TimeSeriesUnit,
+  FilterOperationKeys, FilterGroupOperationKeys, OrderTypeKeys, PaginationModeKeys,
+  SystemTimeModeKeys, SystemTimeJoinModeKeys, TimeSeriesUnitKeys,
 } from '../dynamicQueries';
 
 export type FilterRequest = FilterConditionRequest | FilterGroupRequest;
 
 export interface FilterGroupRequest {
-  groupOperation: FilterGroupOperation;
+  groupOperation: FilterGroupOperationKeys;
   token?: string;
   filters: FilterRequest[];
 }
 
 export interface FilterConditionRequest {
   token: string;
-  operation: FilterOperation;
+  operation: FilterOperationKeys;
   value: any;
 }
 
 export interface OrderRequest {
   token: string;
-  orderType: OrderType
+  orderType: OrderTypeKeys
 }
 
 export interface ColumnRequest {
@@ -79,18 +79,18 @@ export interface ResultRow {
 }
 
 export interface Pagination {
-  mode: PaginationMode;
+  mode: PaginationModeKeys;
   elementsPerPage?: number;
   currentPage?: number;
 }
 
 export interface SystemTime {
-  mode: SystemTimeMode;
-  joinMode?: SystemTimeJoinMode;
+  mode: SystemTimeModeKeys;
+  joinMode?: SystemTimeJoinModeKeys;
   startDate?: string;
   splitQueries?: boolean;
   endDate?: string;
-  timeSeriesUnit?: TimeSeriesUnit;
+  timeSeriesUnit?: TimeSeriesUnitKeys;
   timeSeriesStep?: number;
   timeSeriesMaxRowsPerStep?: number;
 }

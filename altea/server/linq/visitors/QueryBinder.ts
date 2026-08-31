@@ -6,7 +6,7 @@ import {
 import {
     SelectExpression, ProjectionExpression, ColumnExpression, PrimaryKeyExpression,
     FieldBinding, EntityExpression, EmbeddedEntityExpression, MixinEntityExpression, AdditionalBinding,
-    SqlConstantExpression, TableExpression, OrderExpression, type OrderType, type UniqueFunction,
+    SqlConstantExpression, TableExpression, OrderExpression, type OrderTypeKeys, type UniqueFunction,
     AggregateExpression, AggregateRequestsExpression, type AggregateSqlFunction, RowNumberExpression, ColumnDeclaration, InExpression,
     SourceExpression, SqlFunctionExpression, SqlCastExpression, SelectOptions, FieldEntityArrayExpression, JoinExpression, type JoinType,
     LiteReferenceExpression, type LiteReferenceTarget, type FieldCustomLite, ScalarExpression, ExistsExpression,
@@ -1532,17 +1532,17 @@ export class QueryBinder extends ExpressionVisitor {
             pc.projector, undefined, new ArrayType(expression.type));
     }
 
-    private bindOrderBy(projection: ProjectionExpression, selector: LambdaExpression, orderType: OrderType): ProjectionExpression {
+    private bindOrderBy(projection: ProjectionExpression, selector: LambdaExpression, orderType: OrderTypeKeys): ProjectionExpression {
         return this.bindOrderByCore(projection, selector, orderType, false);
     }
 
-    private bindThenBy(source: Expression, selector: LambdaExpression, orderType: OrderType): Expression {
+    private bindThenBy(source: Expression, selector: LambdaExpression, orderType: OrderTypeKeys): Expression {
         this.thenBys ??= [];
         this.thenBys.push(new OrderExpression(orderType, selector));
         return this.visit(source);
     }
 
-    private bindOrderByCore(projection: ProjectionExpression, selector: LambdaExpression, orderType: OrderType, append: boolean): ProjectionExpression {
+    private bindOrderByCore(projection: ProjectionExpression, selector: LambdaExpression, orderType: OrderTypeKeys, append: boolean): ProjectionExpression {
         const myThenBys = this.thenBys;
         this.thenBys = undefined;
 

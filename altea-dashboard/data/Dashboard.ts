@@ -44,7 +44,7 @@ import { TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEn
 
 // Signum's InteractionGroup (PanelPart.cs): the "cross-filtering channel" a part belongs to — clicking a
 // chart in Group1 filters every other part in Group1.
-export enum InteractionGroupEnum {
+export enum InteractionGroup {
     Group1,
     Group2,
     Group3,
@@ -57,7 +57,7 @@ export enum InteractionGroupEnum {
 
 // Signum's DashboardEmbedededInEntity (DashboardEntity.cs): where an entity-scoped dashboard shows up
 // inside the entity's own view.
-export enum DashboardEmbedededInEntityEnum {
+export enum DashboardEmbedededInEntity {
     None,
     Top,
     Bottom,
@@ -133,7 +133,7 @@ export class DashboardEntity_Part extends Entity implements IGridEntity {
         ? DashboardMessage.ColumnsMustBeBetween1And12.niceToString() : null)
     columns: int = toInt(12);
 
-    interactionGroup: InteractionGroupEnum | null;
+    interactionGroup: InteractionGroup | null;
 
     @format("Color")
     customColor: string | null;
@@ -173,7 +173,7 @@ export class DashboardEntity_TokenEquivalenceGroup extends Entity {
     @backReference dashboard: Lite<DashboardEntity>;
     @rowOrder order: int;
 
-    interactionGroup: InteractionGroupEnum | null;
+    interactionGroup: InteractionGroup | null;
 
     // Signum's [PreserveOrder, NoRepeatValidator, CountIsValidator(ComparisonType.GreaterThan, 1)] — an
     // equivalence of one token equates nothing.
@@ -198,7 +198,7 @@ export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEnt
     // ShowTitleAsBreadcrumb; the editor does that in onChange (see client/Admin/Dashboard.tsx).
     entityType: Lite<TypeEntity> | null;
 
-    embeddedInEntity: DashboardEmbedededInEntityEnum | null;
+    embeddedInEntity: DashboardEmbedededInEntity | null;
 
     // Signum's `Lite<Entity>? Owner` — AssertImplementedBy(User, Role) in logic. Whose dashboard this is
     // (personal → a User; shared → a Role; null → global).

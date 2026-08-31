@@ -1,4 +1,4 @@
-import { ChatMessageRoleEnum } from "../../data/ChatSession";
+import { ChatMessageRole } from "../../data/ChatSession";
 import { SkillCode } from "../SkillCode";
 import type { ConversationHistory } from "../ChatbotLogic";
 
@@ -19,7 +19,7 @@ export class QuestionSumarizerSkill extends SkillCode {
                     return "";
 
                 const text = history.messages
-                    .filter(m => m.role === ChatMessageRoleEnum.User)
+                    .filter(m => m.role === ChatMessageRole.User)
                     .map((m, i) => `Question ${i + 1}:\n${m.content ?? ""}`)
                     .join("\n\n");
 

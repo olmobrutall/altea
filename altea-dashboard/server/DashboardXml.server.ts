@@ -7,11 +7,11 @@ import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { newGuid } from "@altea/altea-user-assets/data/UserAssets";
 import {
     DashboardEntity, DashboardEntity_Part, DashboardEntity_TokenEquivalenceGroup, DashboardEntity_TokenEquivalenceGroup_Query,
-    InteractionGroupEnum, DashboardEmbedededInEntityEnum, type IPartEntity,
+    InteractionGroup, DashboardEmbedededInEntity, type IPartEntity,
 } from "../data/Dashboard";
 import {
     TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity,
-    HealthCheckPartEntity_Item, CustomPartEntity, TextPartTypeEnum,
+    HealthCheckPartEntity_Item, CustomPartEntity, TextPartType,
 } from "../data/Parts";
 import { DashboardLogic } from "./DashboardLogic.server";
 
@@ -44,7 +44,7 @@ async function toXml(db: DashboardEntity, ctx: IToXmlContext): Promise<Record<st
     if (db.owner != null) o[A + "Owner"] = db.owner.key();
     if (db.hideDisplayName) o[A + "HideDisplayName"] = true;
     if (db.dashboardPriority != null) o[A + "DashboardPriority"] = db.dashboardPriority;
-    if (db.embeddedInEntity != null) o[A + "EmbeddedInEntity"] = Enum.toName(DashboardEmbedededInEntityEnum, db.embeddedInEntity);
+    if (db.embeddedInEntity != null) o[A + "EmbeddedInEntity"] = Enum.toName(DashboardEmbedededInEntity, db.embeddedInEntity);
     o[A + "CombineSimilarRows"] = db.combineSimilarRows;
     if (db.iconName != null) o[A + "IconName"] = db.iconName;
     if (db.iconColor != null) o[A + "IconColor"] = db.iconColor;
@@ -81,7 +81,7 @@ async function partToXml(p: DashboardEntity_Part, ctx: IToXmlContext): Promise<R
     if (p.iconName != null) x[A + "IconName"] = p.iconName;
     if (p.iconColor != null) x[A + "IconColor"] = p.iconColor;
     if (p.titleColor != null) x[A + "TitleColor"] = p.titleColor;
-    if (p.interactionGroup != null) x[A + "InteractionGroup"] = Enum.toName(InteractionGroupEnum, p.interactionGroup);
+    if (p.interactionGroup != null) x[A + "InteractionGroup"] = Enum.toName(InteractionGroup, p.interactionGroup);
     if (p.customColor) x[A + "CustomColor"] = p.customColor;
 
     const config = DashboardLogic.partConfigForEntity(p.content);
@@ -91,7 +91,7 @@ async function partToXml(p: DashboardEntity_Part, ctx: IToXmlContext): Promise<R
 
 function tokenEquivalenceGroupToXml(gr: DashboardEntity_TokenEquivalenceGroup): Record<string, unknown> {
     const x: Record<string, unknown> = {};
-    if (gr.interactionGroup != null) x[A + "InteractionGroup"] = Enum.toName(InteractionGroupEnum, gr.interactionGroup);
+    if (gr.interactionGroup != null) x[A + "InteractionGroup"] = Enum.toName(InteractionGroup, gr.interactionGroup);
     x["TokenEquivalence"] = (gr.tokenEquivalences ?? []).map(te => ({
         [A + "Query"]: te.query.key,
         [A + "Token"]: te.token.tokenString,
@@ -108,7 +108,7 @@ function fromXml(db: DashboardEntity, xml: Record<string, unknown>, ctx: IFromXm
     db.hideDisplayName = bool(xml[A + "HideDisplayName"]);
     db.dashboardPriority = num(xml[A + "DashboardPriority"]);
     const embeddedInEntity = str(xml[A + "EmbeddedInEntity"]);
-    db.embeddedInEntity = embeddedInEntity == null ? null : toEnum(DashboardEmbedededInEntityEnum, embeddedInEntity);
+    db.embeddedInEntity = embeddedInEntity == null ? null : toEnum(DashboardEmbedededInEntity, embeddedInEntity);
     db.combineSimilarRows = bool(xml[A + "CombineSimilarRows"]);
     db.iconName = str(xml[A + "IconName"]) ?? null;
     db.iconColor = str(xml[A + "IconColor"]) ?? null;
@@ -141,7 +141,7 @@ function partFromXml(x: Record<string, unknown>, index: number, ctx: IFromXmlCon
         ? (bool(x[A + "UseIconColorForTitle"]) ? p.iconColor : null)
         : (str(x[A + "TitleColor"]) ?? null);
     const interactionGroup = str(x[A + "InteractionGroup"]);
-    p.interactionGroup = interactionGroup == null ? null : toEnum(InteractionGroupEnum, interactionGroup);
+    p.interactionGroup = interactionGroup == null ? null : toEnum(InteractionGroup, interactionGroup);
     p.customColor = str(x[A + "CustomColor"]) ?? null;
 
     // The ONE child element that is not an attribute names the part type (Signum's PartNames lookup).
@@ -160,7 +160,7 @@ function tokenEquivalenceGroupFromXml(x: Record<string, unknown>, index: number,
     const gr = new DashboardEntity_TokenEquivalenceGroup();
     gr.order = index as unknown as int;
     const interactionGroup = str(x[A + "InteractionGroup"]);
-    gr.interactionGroup = interactionGroup == null ? null : toEnum(InteractionGroupEnum, interactionGroup);
+    gr.interactionGroup = interactionGroup == null ? null : toEnum(InteractionGroup, interactionGroup);
     gr.tokenEquivalences = list(x["TokenEquivalence"]).map((te, i) => {
         const row = new DashboardEntity_TokenEquivalenceGroup_Query();
         row.order = i as unknown as int;
@@ -186,11 +186,11 @@ export function registerBasePartsXml(): void {
         },
         toXml: p => ({
             [A + "TextContent"]: p.textContent ?? "",
-            [A + "TextPartType"]: Enum.toName(TextPartTypeEnum, p.textPartType),
+            [A + "TextPartType"]: Enum.toName(TextPartType, p.textPartType),
         }),
         fromXml: (p, x) => {
             p.textContent = str(x[A + "TextContent"]) ?? null;
-            p.textPartType = toEnum(TextPartTypeEnum, str(x[A + "TextPartType"]) ?? "Text");
+            p.textPartType = toEnum(TextPartType, str(x[A + "TextPartType"]) ?? "Text");
         },
     });
 

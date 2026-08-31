@@ -15,7 +15,7 @@ import { Administrator } from "@altea/altea/server/Administrator";
 import { Synchronizer, Replacements } from "@altea/altea/server/sync/synchronizer";
 import { SqlPreCommand, Spacing } from "@altea/altea/server/sync/sqlPreCommand";
 import {
-    FilterCondition, FilterGroup, FilterOperation, FilterGroupOperation, Order, OrderType, Pagination,
+    FilterCondition, FilterGroup, FilterOperationKeys, FilterGroupOperationKeys, Order, OrderTypeKeys, Pagination,
     type Filter,
 } from "@altea/altea/server/dynamicQuery/requests";
 import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
@@ -86,7 +86,7 @@ export function emailModel(init: Partial<IEmailModel> & { untypedEntity: Entity 
 export function multiEntityEmailModel(entity: MultiEntityModel): IEmailModel {
     return emailModel({
         untypedEntity: null,
-        getFilters: queryName => [new FilterCondition(rootToken(queryName), FilterOperation.IsIn, entity.entities)],
+        getFilters: queryName => [new FilterCondition(rootToken(queryName), FilterOperationKeys.IsIn, entity.entities)],
     });
 }
 
@@ -347,24 +347,24 @@ function rootToken(queryName: QueryName): ReturnType<typeof QueryLogic.getToken>
 }
 
 function entityFilter(queryName: QueryName, entity: Entity): Filter {
-    return new FilterCondition(rootToken(queryName), FilterOperation.EqualTo, entity.toLite());
+    return new FilterCondition(rootToken(queryName), FilterOperationKeys.EqualTo, entity.toLite());
 }
 
 export function parseFilter(queryName: QueryName, f: FilterRequest): Filter {
     if ("filters" in f)
         return new FilterGroup(
-            f.groupOperation as FilterGroupOperation,
+            f.groupOperation as FilterGroupOperationKeys,
             f.token != undefined ? QueryLogic.getToken(queryName, f.token, SubTokensOptionsAll) : undefined,
             f.filters.map(sub => parseFilter(queryName, sub)));
 
     return new FilterCondition(
         QueryLogic.getToken(queryName, f.token, SubTokensOptionsAll),
-        f.operation as FilterOperation,
+        f.operation as FilterOperationKeys,
         f.value);
 }
 
 export function parseOrder(queryName: QueryName, o: OrderRequest): Order {
-    return new Order(QueryLogic.getToken(queryName, o.token, SubTokensOptionsAll), o.orderType as OrderType);
+    return new Order(QueryLogic.getToken(queryName, o.token, SubTokensOptionsAll), o.orderType as OrderTypeKeys);
 }
 
 export function parsePagination(p: { mode?: string; elementsPerPage?: number | null; currentPage?: number | null } | undefined): Pagination {

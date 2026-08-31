@@ -12,7 +12,7 @@ import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import { AggregateToken, AggregateFunction } from "@altea/altea/data/dynamicQuery/tokens/aggregateToken";
 import { DQueryable } from "@altea/altea/server/dynamicQuery/dQueryable";
 import {
-    Column, Order, OrderType, FilterCondition, FilterOperation, Pagination, QueryRequest,
+    Column, Order, OrderTypeKeys, FilterCondition, FilterOperationKeys, Pagination, QueryRequest,
 } from "@altea/altea/server/dynamicQuery/requests";
 import "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { MusicLogic } from "../MusicLogic";
@@ -58,10 +58,10 @@ describe("groupResults wired into allQueryOperations", () => {
         const count = new AggregateToken(AggregateFunction.Count, undefined, { queryName: AlbumEntity });
         const req = new QueryRequest(AlbumEntity,
             [
-                new FilterCondition(tok("year"), FilterOperation.GreaterThan, 1900),        // WHERE
-                new FilterCondition(count, FilterOperation.GreaterThanOrEqual, 2),          // HAVING
+                new FilterCondition(tok("year"), FilterOperationKeys.GreaterThan, 1900),        // WHERE
+                new FilterCondition(count, FilterOperationKeys.GreaterThanOrEqual, 2),          // HAVING
             ],
-            [new Order(count, OrderType.Descending)],
+            [new Order(count, OrderTypeKeys.Descending)],
             [new Column(tok("state")), new Column(count)],
             new Pagination.All(), true);
         const s = requestSql(req);
@@ -79,7 +79,7 @@ describe("groupResults wired into allQueryOperations", () => {
 
     test("isAggregate classifies filters", () => {
         const count = new AggregateToken(AggregateFunction.Count, undefined, { queryName: AlbumEntity });
-        assert.equal(new FilterCondition(count, FilterOperation.GreaterThan, 1).isAggregate(), true);
-        assert.equal(new FilterCondition(tok("year"), FilterOperation.GreaterThan, 1).isAggregate(), false);
+        assert.equal(new FilterCondition(count, FilterOperationKeys.GreaterThan, 1).isAggregate(), true);
+        assert.equal(new FilterCondition(tok("year"), FilterOperationKeys.GreaterThan, 1).isAggregate(), false);
     });
 });

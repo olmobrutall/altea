@@ -14,8 +14,8 @@ import { QueryTokenString } from './QueryTokenString';
 import type { Lite } from '../data/lite';
 import type { BaseEntity } from '../data/entity';
 import type {
-  PaginationMode, OrderType, FilterOperation, ColumnOptionsMode, UniqueType,
-  FilterGroupOperation, PinnedFilterActive, DashboardBehaviour, CombineRows, FilterType,
+  PaginationModeKeys, OrderTypeKeys, FilterOperationKeys, ColumnOptionsModeKeys, UniqueTypeKeys,
+  FilterGroupOperationKeys, PinnedFilterActiveKeys, DashboardBehaviourKeys, CombineRowsKeys, FilterTypeKeys,
 } from '../data/dynamicQueries';
 import type { BsSize } from './Components';
 import { QueryToken } from './QueryToken';
@@ -29,7 +29,7 @@ import type {
 import type { SearchControlProps } from "./SearchControl/SearchControl";
 import type SearchControlLoaded from "./SearchControl/SearchControlLoaded";
 
-export type { PaginationMode, OrderType, FilterOperation, FilterType, ColumnOptionsMode, UniqueType };
+export type { PaginationModeKeys, OrderTypeKeys, FilterOperationKeys, FilterTypeKeys, ColumnOptionsModeKeys, UniqueTypeKeys };
 
 export interface ValueFindOptions {
   queryName: PseudoType;
@@ -68,7 +68,7 @@ export interface FindOptions<T extends BaseEntity /*Entity*/ = any> {
   includeDefaultFilters?: boolean;
   filterOptions?: (FilterOption | null | undefined)[];
   orderOptions?: (OrderOption | null | undefined)[];
-  columnOptionsMode?: ColumnOptionsMode;
+  columnOptionsMode?: ColumnOptionsModeKeys;
   columnOptions?: (ColumnOption | QueryTokenString<any> | null | undefined)[];
   pagination?: Pagination;
   systemTime?: SystemTime;
@@ -135,19 +135,19 @@ export interface FilterConditionOption {
   token: string | QueryTokenString<any>;
   frozen?: boolean;
   removeElementWarning?: boolean;
-  operation?: FilterOperation;
+  operation?: FilterOperationKeys;
   value?: any;
   pinned?: PinnedFilter;
-  dashboardBehaviour?: DashboardBehaviour;
+  dashboardBehaviour?: DashboardBehaviourKeys;
 }
 
 export interface FilterGroupOption {
   token?: string | QueryTokenString<any>;
-  groupOperation: FilterGroupOperation;
+  groupOperation: FilterGroupOperationKeys;
   filters: (FilterOption | null | undefined)[];
   pinned?: PinnedFilter;
   frozen?: boolean;
-  dashboardBehaviour?: DashboardBehaviour;
+  dashboardBehaviour?: DashboardBehaviourKeys;
   value?: any; /*For search in multiple columns*/
 }
 
@@ -156,7 +156,7 @@ export interface PinnedFilter {
   row?: number;
   column?: number;
   colSpan?: number;
-  active?: PinnedFilterActive;
+  active?: PinnedFilterActiveKeys;
   splitValue?: boolean;
 }
 
@@ -173,7 +173,7 @@ export function isActive(fo: FilterOptionParsed | FilterOption): boolean {
       fo.pinned.splitValue && (fo.value == null || fo.value === "" || Array.isArray(fo.value) && fo.value.length == 0)));
 }
 
-export function isCheckBox(active: PinnedFilterActive | undefined): boolean {
+export function isCheckBox(active: PinnedFilterActiveKeys | undefined): boolean {
   return active == "Checkbox_Checked" ||
     active == "Checkbox_Unchecked" ||
     active == "NotCheckbox_Checked" ||
@@ -198,7 +198,7 @@ function tokenKeyEquals(a: string | undefined, b: string): boolean {
 export function extractFilter(
   filters: FilterOptionParsed[],
   token: string | QueryTokenString<any>,
-  operation: FilterOperation | ((op: FilterOperation) => boolean),
+  operation: FilterOperationKeys | ((op: FilterOperationKeys) => boolean),
   valueCondition?: (v: any) => boolean,
 ): FilterConditionOptionParsed | undefined {
   const f = filters.firstOrNull(f => isFilterCondition(f) && isActive(f) &&
@@ -216,7 +216,7 @@ export function extractFilter(
 export function extractFilterValue(
   filters: FilterOptionParsed[],
   token: string | QueryTokenString<any>,
-  operation: FilterOperation | ((op: FilterOperation) => boolean),
+  operation: FilterOperationKeys | ((op: FilterOperationKeys) => boolean),
   valueCondition?: (v: any) => boolean,
 ): any {
   const f = extractFilter(filters, token, operation, valueCondition);
@@ -227,10 +227,10 @@ export interface FilterConditionOptionParsed {
   token?: QueryToken;
   frozen: boolean;
   removeElementWarning?: boolean;
-  operation?: FilterOperation;
+  operation?: FilterOperationKeys;
   value: any;
   pinned?: PinnedFilterParsed;
-  dashboardBehaviour?: DashboardBehaviour;
+  dashboardBehaviour?: DashboardBehaviourKeys;
 }
 
 export interface PinnedFilterParsed {
@@ -238,7 +238,7 @@ export interface PinnedFilterParsed {
   row?: number;
   column?: number;
   colSpan?: number;
-  active?: PinnedFilterActive;
+  active?: PinnedFilterActiveKeys;
   splitValue?: boolean;
 }
 
@@ -254,23 +254,23 @@ export function toPinnedFilterParsed(pf: PinnedFilter): PinnedFilterParsed {
 }
 
 export interface FilterGroupOptionParsed {
-  groupOperation: FilterGroupOperation;
+  groupOperation: FilterGroupOperationKeys;
   frozen: boolean;
   token?: QueryToken;
   filters: FilterOptionParsed[];
   pinned?: PinnedFilterParsed;
-  dashboardBehaviour?: DashboardBehaviour;
+  dashboardBehaviour?: DashboardBehaviourKeys;
   value?: any; /*For search in multiple columns*/
 }
 
 export interface OrderOption {
   token: string | QueryTokenString<any>;
-  orderType: OrderType;
+  orderType: OrderTypeKeys;
 }
 
 export interface OrderOptionParsed {
   token: QueryToken;
-  orderType: OrderType;
+  orderType: OrderTypeKeys;
 }
 
 export interface ColumnOption {
@@ -278,7 +278,7 @@ export interface ColumnOption {
   displayName?: string | (() => string);
   summaryToken?: string | QueryTokenString<any>;
   hiddenColumn?: boolean;
-  combineRows?: CombineRows;
+  combineRows?: CombineRowsKeys;
 }
 
 /** Extra pinned / frozen state for the {@link QueryTokenString.filter} builder method. */
@@ -286,14 +286,14 @@ export interface ExtraFilterConditionOptions {
   frozen?: boolean;
   removeElementWarning?: boolean;
   pinned?: PinnedFilter;
-  dashboardBehaviour?: DashboardBehaviour;
+  dashboardBehaviour?: DashboardBehaviourKeys;
 }
 
 /** Extra pinned / frozen state for the `filterGroup` builder methods. */
 export interface ExtraFilterGroupOptions {
   frozen?: boolean;
   pinned?: PinnedFilter;
-  dashboardBehaviour?: DashboardBehaviour;
+  dashboardBehaviour?: DashboardBehaviourKeys;
   value?: any; /*For search in multiple columns*/
 }
 
@@ -302,7 +302,7 @@ export interface ColumnDisplayOptions {
   displayName?: string | (() => string)
   summaryToken?: string | QueryTokenString<any>;
   hiddenColumn?: boolean;
-  combineRows?: CombineRows;
+  combineRows?: CombineRowsKeys;
 }
 
 export interface ColumnOptionParsed {
@@ -310,7 +310,7 @@ export interface ColumnOptionParsed {
   displayName?: string;
   summaryToken?: QueryToken;
   hiddenColumn?: boolean;
-  combineRows?: CombineRows;
+  combineRows?: CombineRowsKeys;
 }
 
 export const DefaultPagination: Pagination = {
@@ -427,12 +427,12 @@ export namespace PaginateMath {
 }
 
 
-export function isList(fo: FilterOperation): boolean {
+export function isList(fo: FilterOperationKeys): boolean {
   return fo == "IsIn" ||
     fo == "IsNotIn";
 }
 
-export function isPair(fo: FilterOperation): boolean {
+export function isPair(fo: FilterOperationKeys): boolean {
   return fo == "Between" || fo == "BetweenNoEnd";
 }
 
@@ -447,11 +447,11 @@ export function isGroupList(fo: Pick<FilterGroupOption | FilterGroupOptionParsed
 // The full-text filter operations offered on a full-text-indexed column (Signum's FindOptions
 // full-text set): SQL Server FreeText / ComplexCondition (CONTAINS) and Postgres TsQuery*. All are
 // offered; the server applies the ones valid for its dialect.
-const fullTextOperations: FilterOperation[] = [
+const fullTextOperations: FilterOperationKeys[] = [
   "ComplexCondition", "FreeText", "TsQuery", "TsQuery_Plain", "TsQuery_Phrase", "TsQuery_WebSearch",
 ];
 
-export function getFilterOperations(qt: QueryToken): FilterOperation[] {
+export function getFilterOperations(qt: QueryToken): FilterOperationKeys[] {
 
   if (qt.filterType == null)
     return [];
@@ -466,7 +466,7 @@ export function getFilterOperations(qt: QueryToken): FilterOperation[] {
 
 // ALTEA: a query column's type is a TypeReference. Number/String/Boolean/Guid unify to the "String"
 // group; a plain-value TypeReference has a `typeName`, references resolve via is()/lite/getEnum.
-export function getFilterGroupUnifiedFilterType(tr: TypeReference): FilterType | null {
+export function getFilterGroupUnifiedFilterType(tr: TypeReference): FilterTypeKeys | null {
   if (tr.getEnum() != undefined)
     return "Enum";
 
@@ -486,7 +486,7 @@ export function getFilterGroupUnifiedFilterType(tr: TypeReference): FilterType |
   return null;
 }
 
-export const filterOperations: Record<FilterType, FilterOperation[]> = {
+export const filterOperations: Record<FilterTypeKeys, FilterOperationKeys[]> = {
   ["String"]: [
     "Contains",
     "EqualTo",

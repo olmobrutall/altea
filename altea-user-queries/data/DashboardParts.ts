@@ -27,7 +27,7 @@ import { UserQueryEntity } from "./UserQuery";
 //    mismatch (getEntityTypeHelpText).
 
 // Signum's AutoUpdate (UserQueryEntity.cs): after this part's data changes, refresh the rest of the dashboard.
-export enum AutoUpdateEnum {
+export enum AutoUpdate {
     None,
     InteractionGroup,
     Dashboard,
@@ -38,7 +38,7 @@ export enum AutoUpdateEnum {
 export class UserQueryPartEntity extends Entity implements IPartEntity {
     userQuery: UserQueryEntity;
 
-    autoUpdate: AutoUpdateEnum = AutoUpdateEnum.None;
+    autoUpdate: AutoUpdate = AutoUpdate.None;
 
     allowSelection: boolean = false;
 

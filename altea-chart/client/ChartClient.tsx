@@ -15,8 +15,8 @@ import { Lite } from '@altea/altea/data/lite';
 import type { Entity } from '@altea/altea/data/entity';
 import { Enum } from '@altea/altea/data/enum';
 import { enumEntityMembers } from '@altea/altea/data/enumEntity';
-import type { OrderType } from '@altea/altea/data/dynamicQueries';
-import { TimeSeriesUnitEnum } from '@altea/altea/data/dynamicQueries';
+import type { OrderTypeKeys } from '@altea/altea/data/dynamicQueries';
+import { TimeSeriesUnit } from '@altea/altea/data/dynamicQueries';
 import { type int, toInt } from '@altea/altea/data/basics';
 import { SubTokensOptions } from '@altea/altea/data/dynamicQuery/tokens/queryToken';
 import type { QueryToken } from '@altea/altea/data/dynamicQuery/tokens/queryToken';
@@ -328,7 +328,7 @@ export namespace ChartClient {
   // columns' orders (multi-sort), a plain click clears them. altea: plain arrays; no `.modified` (dirty is
   // snapshot-tracked); `int` order index via toInt.
   export function handleOrderColumn(cr: IChartBase, col: ChartColumnEmbedded, isShift: boolean): void {
-    const newOrder: OrderType = col.orderByType == "Ascending" ? "Descending" : "Ascending";
+    const newOrder: OrderTypeKeys = col.orderByType == "Ascending" ? "Descending" : "Ascending";
 
     if (!isShift) {
       cr.columns.forEach(a => {
@@ -511,7 +511,7 @@ export namespace ChartClient {
     displayName?: string | null;
     format?: string | null;
     orderByIndex?: number | null;
-    orderByType?: OrderType | null;
+    orderByType?: OrderTypeKeys | null;
   }
 
   export interface ChartParameterOption {
@@ -733,7 +733,7 @@ export namespace ChartClient {
           joinMode: 'AllCompatible',
           mode: 'TimeSeries',
           timeSeriesStep: ts.timeSeriesStep!,
-          timeSeriesUnit: Enum.toName(TimeSeriesUnitEnum, ts.timeSeriesUnit!),
+          timeSeriesUnit: Enum.toName(TimeSeriesUnit, ts.timeSeriesUnit!),
           startDate: ts.startDate!,
           endDate: ts.endDate!,
           timeSeriesMaxRowsPerStep: ts.timeSeriesMaxRowsPerStep!,
@@ -1066,7 +1066,7 @@ export interface ChartColumn<V> {
   token?: QueryToken; //Null for QueryToken
   type: ChartColumnTypeString | null;
   orderByIndex?: number | null;
-  orderByType?: OrderType | null;
+  orderByType?: OrderTypeKeys | null;
 
   getKey: (v: V | null) => string;
   getNiceName: (v: V | null, width?: number) => string;

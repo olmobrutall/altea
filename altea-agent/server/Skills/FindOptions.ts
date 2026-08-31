@@ -9,7 +9,7 @@ import { reflectionDefaultColumns } from "@altea/altea/data/dynamicQuery/default
 import type {
     ColumnRequest, FilterRequest, OrderRequest, QueryRequest as WireQueryRequest,
 } from "@altea/altea/data/dynamicQuery/queryRequest";
-import type { ColumnOptionsMode, FilterGroupOperation, FilterOperation, OrderType, PaginationMode } from "@altea/altea/data/dynamicQueries";
+import type { ColumnOptionsModeKeys, FilterGroupOperationKeys, FilterOperationKeys, OrderTypeKeys, PaginationModeKeys } from "@altea/altea/data/dynamicQueries";
 import { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
 import { Temporal } from "@altea/altea/data/basics";
@@ -36,15 +36,15 @@ import { Temporal } from "@altea/altea/data/basics";
 
 export interface FilterOption {
     token?: string;
-    operation?: FilterOperation;
+    operation?: FilterOperationKeys;
     value?: unknown;
-    groupOperation?: FilterGroupOperation;
+    groupOperation?: FilterGroupOperationKeys;
     filters?: FilterOption[];
 }
 
 export interface OrderOption {
     token: string;
-    orderType?: OrderType;
+    orderType?: OrderTypeKeys;
 }
 
 export interface ColumnOption {
@@ -55,7 +55,7 @@ export interface ColumnOption {
 }
 
 export interface PaginationOption {
-    mode: PaginationMode;
+    mode: PaginationModeKeys;
     elementsPerPage?: number;
     currentPage?: number;
 }
@@ -66,7 +66,7 @@ export interface FindOptions {
     includeDefaultFilters?: boolean;
     filterOptions?: FilterOption[];
     orderOptions?: OrderOption[];
-    columnOptionsMode?: ColumnOptionsMode;
+    columnOptionsMode?: ColumnOptionsModeKeys;
     columnOptions?: ColumnOption[];
     pagination?: PaginationOption;
 }

@@ -19,7 +19,7 @@ import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import {
     ChatbotMessage, ChatbotPermission, ChatMessageEntity, ChatMessageEntity_ToolCall, ChatMessageOperation,
-    ChatMessageRoleEnum, ChatSessionEntity, ChatSessionOperation,
+    ChatMessageRole, ChatSessionEntity, ChatSessionOperation,
 } from "../data/ChatSession";
 import type { ChatbotConfigurationEmbedded, ChatbotLanguageModelEntity } from "../data/LanguageModel";
 import type { AssistantMode } from "../data/ChatbotProtocol";
@@ -120,13 +120,13 @@ export namespace ChatbotLogic {
 
         const lines: string[] = [];
         for (const msg of messagesToSummarize) {
-            if (msg.role === ChatMessageRoleEnum.System)
+            if (msg.role === ChatMessageRole.System)
                 continue;
 
-            const roleName = msg.role === ChatMessageRoleEnum.User ? "User"
-                : msg.role === ChatMessageRoleEnum.Assistant ? "Assistant"
-                    : msg.role === ChatMessageRoleEnum.Tool ? `Tool(${msg.toolID ?? ""})`
-                        : ChatMessageRoleEnum[msg.role];
+            const roleName = msg.role === ChatMessageRole.User ? "User"
+                : msg.role === ChatMessageRole.Assistant ? "Assistant"
+                    : msg.role === ChatMessageRole.Tool ? `Tool(${msg.toolID ?? ""})`
+                        : ChatMessageRole[msg.role];
 
             const content = msg.content != null ? etc(msg.content, 500) : msg.exception != null ? "[error]" : "[empty]";
             lines.push(`${roleName}: ${content}`);
@@ -219,7 +219,7 @@ export namespace ChatbotLogic {
 
             const answer = ChatMessageEntity.create({
                 chatSession: history.session,
-                role: ChatMessageRoleEnum.Assistant,
+                role: ChatMessageRole.Assistant,
                 content: text === "" ? null : text,
                 reasoningContent: reasoning === "" ? null : reasoning,
                 languageModel: history.languageModelLite,
@@ -266,7 +266,7 @@ export namespace ChatbotLogic {
             return;
 
         const systemMsg = history.messages[0];
-        if (systemMsg == undefined || systemMsg.role !== ChatMessageRoleEnum.System)
+        if (systemMsg == undefined || systemMsg.role !== ChatMessageRole.System)
             throw new Error("First message is expected to be system");
 
         const normalMessages = history.messages.slice(1);
@@ -278,7 +278,7 @@ export namespace ChatbotLogic {
 
         const summary = ChatMessageEntity.create({
             chatSession: history.session,
-            role: ChatMessageRoleEnum.System,
+            role: ChatMessageRole.System,
             content: `## Summary of earlier conversation\n${summaryContent}\n\n---\nRecent messages follow:`,
         });
         await summary.save();
@@ -349,7 +349,7 @@ export namespace ChatbotLogic {
 
             const toolMsg = ChatMessageEntity.create({
                 chatSession: history.session,
-                role: ChatMessageRoleEnum.Tool,
+                role: ChatMessageRole.Tool,
                 toolCallID: callId,
                 toolID: toolId,
                 content: Serializer.stringify(result ?? null),
@@ -368,7 +368,7 @@ export namespace ChatbotLogic {
 
             const toolMsg = ChatMessageEntity.create({
                 chatSession: history.session,
-                role: ChatMessageRoleEnum.Tool,
+                role: ChatMessageRole.Tool,
                 toolCallID: callId,
                 toolID: toolId,
                 content: errorContent,
@@ -413,7 +413,7 @@ export namespace ChatbotLogic {
         await session.save();
 
         const systemMsg = ChatMessageEntity.create({
-            role: ChatMessageRoleEnum.System,
+            role: ChatMessageRole.System,
             chatSession: session.toLite(),
             content: rootSkill.getInstruction(null),
         });
@@ -421,7 +421,7 @@ export namespace ChatbotLogic {
         await output.onSystemMessage(systemMsg);
 
         const userMsg = ChatMessageEntity.create({
-            role: ChatMessageRoleEnum.User,
+            role: ChatMessageRole.User,
             chatSession: session.toLite(),
             content: prompt,
         });
@@ -487,11 +487,11 @@ export class ConversationHistory {
         return this.messages.map(c => {
             const content = c.content ?? (c.exception != null ? `${c.exception.toString()}` : undefined);
 
-            if (c.role === ChatMessageRoleEnum.Tool)
+            if (c.role === ChatMessageRole.Tool)
                 return { role: "tool", toolCallId: c.toolCallID ?? undefined, text: content ?? "" };
 
-            const role = c.role === ChatMessageRoleEnum.System ? "system"
-                : c.role === ChatMessageRoleEnum.User ? "user" : "assistant";
+            const role = c.role === ChatMessageRole.System ? "system"
+                : c.role === ChatMessageRole.User ? "user" : "assistant";
 
             return {
                 role,
@@ -522,7 +522,7 @@ export class ConversationHistory {
         const activated = new Set([...this.rootSkill.getEagerSkillsRecursive()].map(s => s.name));
 
         for (const m of this.messages) {
-            if (m.role !== ChatMessageRoleEnum.Assistant)
+            if (m.role !== ChatMessageRole.Assistant)
                 continue;
             for (const tc of m.toolCalls) {
                 if (tc.toolId !== describeToolName)

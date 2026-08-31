@@ -7,7 +7,7 @@ import { Finder } from '../Finder'
 import { classes } from '../../data/globals'
 import type { ResultTable, Pagination } from '../../data/dynamicQuery/queryRequest'
 import { PaginateMath } from '../FindOptions'
-import { type PaginationMode, PaginationModeEnum } from '../../data/dynamicQueries'
+import { type PaginationModeKeys, PaginationMode } from '../../data/dynamicQueries'
 import { Enum } from '../../data/enum'
 import { SearchMessage } from '../../data/uiMessages'
 import { toNumberFormat } from '../numberFormat'
@@ -18,8 +18,8 @@ import '../AppContext'
 // altea: the English default member labels (Signum's [Description] on PaginationMode — Firsts→"First",
 // Paginate→"Pages"). Registered as nice-name overrides so the mode dropdown reads "Pages" not "Paginate";
 // a translation file for the current UI culture still wins over these.
-Enum.setNiceName(PaginationModeEnum, "Firsts", "First");
-Enum.setNiceName(PaginationModeEnum, "Paginate", "Pages");
+Enum.setNiceName(PaginationMode, "Firsts", "First");
+Enum.setNiceName(PaginationMode, "Paginate", "Pages");
 
 interface PaginationSelectorProps {
   resultTable?: ResultTable;
@@ -89,7 +89,7 @@ export function PaginationSelector(p: PaginationSelectorProps): React.ReactEleme
 
   function handleMode(e: React.ChangeEvent<HTMLSelectElement>) {
 
-    const mode = e.currentTarget.value as any as PaginationMode
+    const mode = e.currentTarget.value as any as PaginationModeKeys
 
     const pag: Pagination = {
       mode: mode,
@@ -137,7 +137,7 @@ export function PaginationSelector(p: PaginationSelectorProps): React.ReactEleme
               aria-readonly="false"
               aria-disabled="false">
               {PaginationSelector.Options.onGetPaginationModes().map(mode =>
-                <option key={mode} value={mode.toString()}>{Enum.niceName(PaginationModeEnum, mode)}</option>)}
+                <option key={mode} value={mode.toString()}>{Enum.niceName(PaginationMode, mode)}</option>)}
             </select>,
 
             p.pagination.mode != "All" &&
@@ -242,7 +242,7 @@ export function PaginationComponent(p: PaginationComponentProps): React.ReactEle
 
 export namespace PaginationSelector {
   export const Options = {
-    onGetPaginationModes: (): PaginationMode[] => {
+    onGetPaginationModes: (): PaginationModeKeys[] => {
       return ["Paginate", "Firsts", "All"];
     },
     onGetPaginationSizes: (): number[] => {

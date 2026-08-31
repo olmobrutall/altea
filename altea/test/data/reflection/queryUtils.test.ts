@@ -4,7 +4,7 @@ import "@altea/altea/data/globals";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { TypeReference } from "@altea/altea/data/reflection";
 import {
-    tryGetFilterType, getKey, getNiceName, type FilterType,
+    tryGetFilterType, getKey, getNiceName, type FilterTypeKeys,
 } from "@altea/altea/data/dynamicQuery/queryUtils";
 import {
     AlbumEntity, AlbumEntity_Song, LabelEntity, ArtistEntity,

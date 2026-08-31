@@ -18,14 +18,14 @@ export type QueryName = Type<BaseEntity>;
 
 // Signum's `QueryUtils.FilterType` — single home in the DynamicQuery enums file (this used to
 // declare its own byte-identical copy; deduplicated here).
-export type { FilterType } from "../dynamicQueries";
-export { FilterTypeEnum } from "../dynamicQueries";
-import type { FilterType } from "../dynamicQueries";
+export type { FilterTypeKeys } from "../dynamicQueries";
+export { FilterType } from "../dynamicQueries";
+import type { FilterTypeKeys } from "../dynamicQueries";
 
 // Port of Signum's `QueryUtils.TryGetFilterType`, over an altea `TypeReference`. Unlike the old
 // RuntimeType form this needs no `fromTypeName` refinement: the TypeReference carries `typeName` +
 // `subTypeName`, so the Integer-vs-Decimal split is recovered directly.
-export function tryGetFilterType(type: TypeReference): FilterType | undefined {
+export function tryGetFilterType(type: TypeReference): FilterTypeKeys | undefined {
     // A COLLECTION has no filter type (Signum: `MList<T>` / `T[]` reaches `TypeCode.Object` and matches
     // none of the Lite / entity / embedded / model tests, so TryGetFilterType returns null). altea models
     // a collection as a plain array whose TypeReference ALSO carries the element type, so the array facet
@@ -61,7 +61,7 @@ export function tryGetFilterType(type: TypeReference): FilterType | undefined {
     return undefined;
 }
 
-export function getFilterType(type: TypeReference): FilterType {
+export function getFilterType(type: TypeReference): FilterTypeKeys {
     const ft = tryGetFilterType(type);
     if (ft == undefined)
         throw new Error(`Type ${type.getTypeName() ?? "?"} not supported`);

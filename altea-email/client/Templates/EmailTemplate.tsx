@@ -21,7 +21,7 @@ import HtmlEditorLine from "@altea/altea-html-editor/client/HtmlEditorLine";
 import QueryTokenEmbeddedBuilder from "@altea/altea-user-assets/client/Templates/QueryTokenEmbeddedBuilder";
 import FilterBuilderEmbedded from "@altea/altea-user-queries/client/Templates/FilterBuilderEmbedded";
 import {
-    EmailAddressSourceEnum, EmailMessageFormatEnum, EmailTemplateEntity, EmailTemplateEntity_From, EmailTemplateEntity_Message,
+    EmailAddressSource, EmailMessageFormat, EmailTemplateEntity, EmailTemplateEntity_From, EmailTemplateEntity_Message,
     EmailTemplateEntity_Recipient, EmailTemplateMessage, EmailTemplateViewMessage,
 } from "../../data/EmailTemplate";
 import { TemplateApplicableEval } from "@altea/altea-templating/data/Templating";
@@ -213,7 +213,7 @@ function AddressBody(p: {
 
     return (
         <>
-            {sc.value.addressSource === EmailAddressSourceEnum.QueryToken && (p.query == null
+            {sc.value.addressSource === EmailAddressSource.QueryToken && (p.query == null
                 ? <p className="text-danger">{ValidationMessage._0IsNotSet.niceToString(nicePropertyNameOf("query"))}</p>
                 : <div>
                     <QueryTokenEmbeddedBuilder
@@ -231,7 +231,7 @@ function AddressBody(p: {
                     </div>
                 </div>)}
 
-            {sc.value.addressSource === EmailAddressSourceEnum.HardcodedAddress && <div className="row">
+            {sc.value.addressSource === EmailAddressSource.HardcodedAddress && <div className="row">
                 <div className="col-sm-6">
                     <AutoLine ctx={sc.subCtx(c => c.emailAddress)} onChange={p.onChange} />
                     {p.extraHardcoded}
@@ -247,7 +247,7 @@ function AddressBody(p: {
 export interface EmailTemplateMessageComponentProps {
     ctx: TypeContext<EmailTemplateEntity_Message>;
     queryKey: string | null | undefined;
-    messageFormat: EmailMessageFormatEnum;
+    messageFormat: EmailMessageFormat;
     invalidate: () => void;
 }
 
@@ -255,7 +255,7 @@ export function EmailTemplateMessageComponent(p: EmailTemplateMessageComponentPr
     const forceUpdate = useForceUpdate();
     const [showPreview, setShowPreview] = React.useState(false);
 
-    const isHtml = p.messageFormat !== EmailMessageFormatEnum.PlainText;
+    const isHtml = p.messageFormat !== EmailMessageFormat.PlainText;
     const ec = p.ctx.subCtx({ labelColumns: { sm: 2 } });
 
     return (
@@ -266,15 +266,15 @@ export function EmailTemplateMessageComponent(p: EmailTemplateMessageComponentPr
             <div>
                 <TemplateControls queryKey={p.queryKey} forHtml={isHtml} />
                 <AutoLine ctx={ec.subCtx(e => e.subject)} formGroupStyle="SrOnly" placeholderLabels />
-                {p.messageFormat === EmailMessageFormatEnum.PlainText
+                {p.messageFormat === EmailMessageFormat.PlainText
                     ? <TextAreaLine ctx={ec.subCtx(e => e.text)} formGroupStyle="SrOnly"
                         valueHtmlAttributes={{ className: "sf-email-htmlbody" }} />
-                    : p.messageFormat === EmailMessageFormatEnum.HtmlSimple
+                    : p.messageFormat === EmailMessageFormat.HtmlSimple
                         ? <HtmlEditorLine ctx={ec.subCtx(e => e.text, { formGroupStyle: "SrOnly" })} />
                         : <HtmlCodeMirror ctx={ec.subCtx(e => e.text)}
                             onChange={() => { if (showPreview) forceUpdate(); }} />}
                 <br />
-                {p.messageFormat === EmailMessageFormatEnum.HtmlComplex &&
+                {p.messageFormat === EmailMessageFormat.HtmlComplex &&
                     <button type="button" className="btn btn-link p-0" onClick={e => { e.preventDefault(); setShowPreview(!showPreview); }}>
                         {showPreview
                             ? EmailTemplateMessage.HidePreview.niceToString()

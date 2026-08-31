@@ -6,7 +6,7 @@ import {
 import { Expression, BinaryExpression } from "../expressions";
 import { LiteralType, TemporalType } from "../../runtimeTypes";
 import { AliasGenerator } from "../aliasGenerator";
-import { SystemTimeAll, SystemTimeJoinMode } from "../../systemTime";
+import { SystemTimeAll, SystemTimeJoinModeKeys } from "../../systemTime";
 import type { SystemVersionedInfo } from "../../schema/systemVersioned";
 
 // Port of Signum's AsOfExpressionVisitor. A versioned TableExpression under a per-row
@@ -33,7 +33,7 @@ export class AsOfExpressionVisitor extends DbExpressionVisitor {
         const sv = table.table.systemVersioned!;
         const innerAlias = this.aliasGenerator.nextTableAlias(table.table.name.name);
         // The same table read under ALL (every version); its period columns feed the predicate.
-        const inner = new TableExpression(innerAlias, table.table, table.withHint, new SystemTimeAll(SystemTimeJoinMode.Current));
+        const inner = new TableExpression(innerAlias, table.table, table.withHint, new SystemTimeAll(SystemTimeJoinModeKeys.Current));
         const where = intervalContains(intervalAt(sv, innerAlias), st.expression);
         // Project every physical column so the enclosing SELECT (which references this alias) still
         // resolves — the over-projection is valid, and the outer scope was already pruned.

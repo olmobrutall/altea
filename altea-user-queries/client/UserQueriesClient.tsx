@@ -17,9 +17,9 @@ import type { QueryEntity } from "@altea/altea/data/queryEntity";
 import { tryGetTypeInfo } from "@altea/altea/client/Reflection";
 import { Enum } from "@altea/altea/data/enum";
 import {
-    RefreshModeEnum, ColumnOptionsModeEnum, PaginationModeEnum, OrderTypeEnum, CombineRowsEnum,
-    FilterGroupOperationEnum, FilterOperationEnum, SystemTimeModeEnum, SystemTimeJoinModeEnum, TimeSeriesUnitEnum,
-    PinnedFilterActiveEnum,
+    RefreshMode, ColumnOptionsMode, PaginationMode, OrderType, CombineRows,
+    FilterGroupOperation, FilterOperation, SystemTimeMode, SystemTimeJoinMode, TimeSeriesUnit,
+    PinnedFilterActive,
 } from "@altea/altea/data/dynamicQueries";
 import { UserQueryEntity, UserQueryLite, UserQueryEntity_Filter } from "../data/UserQuery";
 import type { PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
@@ -105,7 +105,7 @@ export namespace UserQueriesClient {
 
     // Signum's getUserQueryUrl: the SearchControl URL that runs this UserQuery (optionally over an entity).
     export async function getUserQueryUrl(uq: UserQueryEntity, entity?: Lite<Entity>): Promise<string> {
-        if (Enum.toName(RefreshModeEnum, uq.refreshMode) === "Manual")
+        if (Enum.toName(RefreshMode, uq.refreshMode) === "Manual")
             return userQueryUrl(uq.toLite(), entity);
 
         const fo = await Converter.toFindOptions(uq, entity);
@@ -130,20 +130,20 @@ export namespace UserQueriesClient {
             // cross the wire as their ISO string.
             fo.filterOptions = buildFilterTree(uq.filters ?? [], 0, entity);
             fo.includeDefaultFilters = uq.includeDefaultFilters ?? undefined;
-            fo.columnOptionsMode = Enum.toName(ColumnOptionsModeEnum, uq.columnsMode);
+            fo.columnOptionsMode = Enum.toName(ColumnOptionsMode, uq.columnsMode);
             fo.columnOptions = (uq.columns ?? []).map(c => ({
                 token: c.token.tokenString,
                 displayName: c.displayName ?? undefined,
                 summaryToken: c.summaryToken?.tokenString,
                 hiddenColumn: c.hiddenColumn,
-                combineRows: c.combineRows == null ? undefined : Enum.toName(CombineRowsEnum, c.combineRows),
+                combineRows: c.combineRows == null ? undefined : Enum.toName(CombineRows, c.combineRows),
             }) as ColumnOption);
             fo.orderOptions = (uq.orders ?? []).map(o => ({
                 token: o.token.tokenString,
-                orderType: Enum.toName(OrderTypeEnum, o.orderType),
+                orderType: Enum.toName(OrderType, o.orderType),
             }) as OrderOption);
 
-            const paginationMode = uq.paginationMode == null ? undefined : Enum.toName(PaginationModeEnum, uq.paginationMode);
+            const paginationMode = uq.paginationMode == null ? undefined : Enum.toName(PaginationMode, uq.paginationMode);
             fo.pagination = paginationMode == null ? undefined : {
                 mode: paginationMode,
                 currentPage: paginationMode === "Paginate" ? 1 : undefined,
@@ -151,12 +151,12 @@ export namespace UserQueriesClient {
             } as Pagination;
 
             fo.systemTime = uq.systemTime == null ? undefined : {
-                mode: Enum.toName(SystemTimeModeEnum, uq.systemTime.mode),
+                mode: Enum.toName(SystemTimeMode, uq.systemTime.mode),
                 startDate: uq.systemTime.startDate?.toString() ?? undefined,
                 endDate: uq.systemTime.endDate?.toString() ?? undefined,
-                joinMode: uq.systemTime.joinMode == null ? undefined : Enum.toName(SystemTimeJoinModeEnum, uq.systemTime.joinMode),
+                joinMode: uq.systemTime.joinMode == null ? undefined : Enum.toName(SystemTimeJoinMode, uq.systemTime.joinMode),
                 timeSeriesStep: uq.systemTime.timeSeriesStep ?? undefined,
-                timeSeriesUnit: uq.systemTime.timeSeriesUnit == null ? undefined : Enum.toName(TimeSeriesUnitEnum, uq.systemTime.timeSeriesUnit),
+                timeSeriesUnit: uq.systemTime.timeSeriesUnit == null ? undefined : Enum.toName(TimeSeriesUnit, uq.systemTime.timeSeriesUnit),
                 timeSeriesMaxRowsPerStep: uq.systemTime.timeSeriesMaxRowsPerStep ?? undefined,
                 splitQueries: uq.systemTime.splitQueries ?? undefined,
             } as SystemTime;
@@ -218,7 +218,7 @@ function buildFilterTree(filters: UserQueryEntity_Filter[], indent: number, enti
         if (head.isGroup) {
             return {
                 token: head.token?.tokenString,
-                groupOperation: Enum.toName(FilterGroupOperationEnum, head.groupOperation!),
+                groupOperation: Enum.toName(FilterGroupOperation, head.groupOperation!),
                 filters: buildFilterTree(children, indent + 1, entity),
                 pinned: toPinned(head.pinned),
                 value: parseValue(head.valueString, entity),
@@ -226,7 +226,7 @@ function buildFilterTree(filters: UserQueryEntity_Filter[], indent: number, enti
         }
         return {
             token: head.token!.tokenString,
-            operation: head.operation == null ? "EqualTo" : Enum.toName(FilterOperationEnum, head.operation),
+            operation: head.operation == null ? "EqualTo" : Enum.toName(FilterOperation, head.operation),
             value: parseValue(head.valueString, entity),
             pinned: toPinned(head.pinned),
         } as FilterConditionOption;
@@ -240,7 +240,7 @@ function toPinned(p: PinnedQueryFilterEmbedded | null): FilterConditionOption["p
         column: p.column ?? undefined,
         colSpan: p.colSpan ?? undefined,
         row: p.row ?? undefined,
-        active: Enum.toName(PinnedFilterActiveEnum, p.active),
+        active: Enum.toName(PinnedFilterActive, p.active),
         splitValue: p.splitValue,
     };
 }

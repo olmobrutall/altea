@@ -8,8 +8,8 @@ import {
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import {
-    RefreshModeEnum, ColumnOptionsModeEnum, PaginationModeEnum, FilterOperationEnum, FilterGroupOperationEnum,
-    OrderTypeEnum, CombineRowsEnum, DashboardBehaviourEnum, SystemTimeModeEnum, SystemTimeJoinModeEnum, TimeSeriesUnitEnum,
+    RefreshMode, ColumnOptionsMode, PaginationMode, FilterOperation, FilterGroupOperation,
+    OrderType, CombineRows, DashboardBehaviour, SystemTimeMode, SystemTimeJoinMode, TimeSeriesUnit,
 } from "@altea/altea/data/dynamicQueries";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
@@ -62,7 +62,7 @@ export class UserQueryEntity_Column extends Entity {
     displayName: string | null;
     summaryToken: QueryTokenEmbedded | null;
     hiddenColumn: boolean = false;
-    combineRows: CombineRowsEnum | null;
+    combineRows: CombineRows | null;
 }
 
 // Signum's QueryOrderEmbedded (Queries/QueryOrderEmbedded.cs). One sort: a token + Ascending/Descending.
@@ -72,7 +72,7 @@ export class UserQueryEntity_Order extends Entity {
     @rowOrder order: int;
 
     token: QueryTokenEmbedded;
-    orderType: OrderTypeEnum = OrderTypeEnum.Ascending;
+    orderType: OrderType = OrderType.Ascending;
 }
 
 // Signum's `MList<Lite<Entity>> CustomDrilldowns` ([ImplementedBy(UserQueryEntity)], PreserveOrder,
@@ -89,14 +89,14 @@ export class UserQueryEntity_CustomDrilldown extends Entity {
 // Signum's SystemTimeEmbedded (UserQueryEntity.cs). The optional system-versioned / time-series window.
 @reflect
 export class SystemTimeEmbedded extends EmbeddedEntity {
-    mode: SystemTimeModeEnum = SystemTimeModeEnum.AsOf;
+    mode: SystemTimeMode = SystemTimeMode.AsOf;
     // altea divergence: Signum stores StartDate/EndDate as `string?` (to allow smart/relative-date
     // expressions parsed at query time). altea has not ported that grammar, so these are the most
     // appropriate Temporal type — a system-versioned window is a point in time WITH a time component.
     startDate: Temporal.PlainDateTime | null;
     endDate: Temporal.PlainDateTime | null;
-    joinMode: SystemTimeJoinModeEnum | null;
-    timeSeriesUnit: TimeSeriesUnitEnum | null;
+    joinMode: SystemTimeJoinMode | null;
+    timeSeriesUnit: TimeSeriesUnit | null;
     timeSeriesStep: int | null;
     timeSeriesMaxRowsPerStep: int | null;
     splitQueries: boolean = false;
@@ -105,7 +105,7 @@ export class SystemTimeEmbedded extends EmbeddedEntity {
 // Signum's HealthCheckConditionEmbedded (UserQueryEntity.cs). A "{count} {op} {value}" threshold.
 @reflect
 export class HealthCheckConditionEmbedded extends EmbeddedEntity {
-    operation: FilterOperationEnum = FilterOperationEnum.GreaterThan;
+    operation: FilterOperation = FilterOperation.GreaterThan;
     value: int = toInt(0);
 }
 
@@ -150,7 +150,7 @@ export class UserQueryEntity extends Entity implements IUserAssetEntity, IHasEnt
 
     appendFilters: boolean = false;
 
-    refreshMode: RefreshModeEnum = RefreshModeEnum.Auto;
+    refreshMode: RefreshMode = RefreshMode.Auto;
 
     // Signum's [PreserveOrder, BindParent] MList<QueryFilterEmbedded>.
     filters: UserQueryEntity_Filter[];
@@ -158,12 +158,12 @@ export class UserQueryEntity extends Entity implements IUserAssetEntity, IHasEnt
     // Signum's [PreserveOrder] MList<QueryOrderEmbedded>.
     orders: UserQueryEntity_Order[];
 
-    columnsMode: ColumnOptionsModeEnum = ColumnOptionsModeEnum.Add;
+    columnsMode: ColumnOptionsMode = ColumnOptionsMode.Add;
 
     // Signum's [PreserveOrder] MList<QueryColumnEmbedded>.
     columns: UserQueryEntity_Column[];
 
-    paginationMode: PaginationModeEnum | null;
+    paginationMode: PaginationMode | null;
 
     // Signum's [NumberIsValidator(GreaterThanOrEqualTo, 1)] — only set for Firsts/Paginate.
     @fieldValidation<UserQueryEntity>(uq =>

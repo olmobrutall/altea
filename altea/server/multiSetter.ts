@@ -32,16 +32,16 @@ import type { TypeReference } from "../data/reflection";
 import { resolveCleanType } from "../data/registration";
 import { Enum } from "../data/enum";
 import { tryGetFilterType } from "../data/dynamicQuery/queryUtils";
-import type { PropertyOperation } from "../data/operations";
-import type { FilterOperation } from "../data/dynamicQueries";
+import type { PropertyOperationKeys } from "../data/operations";
+import type { FilterOperationKeys } from "../data/dynamicQueries";
 import { propertyWriteAccess, serializationAuthMetadata, resolveSerializationAuthContext } from "../data/serializer";
 import { UnauthorizedAccessException } from "./exceptions";
 
 /** Signum's `OperationController.PropertySetter`. Mirrors client `Operations.API.PropertySetter`. */
 export interface PropertySetter {
     property: string;
-    operation?: PropertyOperation;
-    filterOperation?: FilterOperation;
+    operation?: PropertyOperationKeys;
+    filterOperation?: FilterOperationKeys;
     value?: unknown;
     entityType?: string;
     predicate?: PropertySetter[];
@@ -206,7 +206,7 @@ function buildPredicate(predicate: PropertySetter[], elementPr: PropertyRoute): 
 // The in-memory counterpart of `QueryUtils.GetCompareExpression(..., inMemory: true)`, covering the
 // operations `FindOptions.filterOperations` actually offers per FilterType. The full-text and
 // Complex/Smart ones are SQL-only by construction, so they are refused rather than approximated.
-function compareInMemory(left: unknown, operation: FilterOperation, right: unknown): boolean {
+function compareInMemory(left: unknown, operation: FilterOperationKeys, right: unknown): boolean {
     switch (operation) {
         case "EqualTo": return sameValue(left, right);
         case "DistinctTo": return !sameValue(left, right);

@@ -3,14 +3,14 @@ import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 // files, so each token module is imported by its own path (as altea-chart / altea-user-assets do).
 import { SubTokensOptions, type QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { ManualToken, ManualContainerToken } from "@altea/altea/data/dynamicQuery/tokens/manualToken";
-import { getKey, tryGetFilterType, type FilterType } from "@altea/altea/data/dynamicQuery/queryUtils";
-import type { FilterOperation } from "@altea/altea/data/dynamicQueries";
+import { getKey, tryGetFilterType, type FilterTypeKeys } from "@altea/altea/data/dynamicQuery/queryUtils";
+import type { FilterOperationKeys } from "@altea/altea/data/dynamicQueries";
 import { Temporal, Decimal } from "@altea/altea/data/basics";
 import { Enum } from "@altea/altea/data/enum";
 import { Lite } from "@altea/altea/data/lite";
 import { Entity, type PrimaryKey, type Type } from "@altea/altea/data/entity";
 import type {
-    DynamicQueryOmniboxResult, FilterSyntax, FilterSyntaxCompletion, HelpOmniboxResult,
+    DynamicQueryOmniboxResult, FilterSyntax, FilterSyntaxCompletionKeys, HelpOmniboxResult,
     OmniboxFilterResult, OmniboxMatch, OmniboxResult,
 } from "../data/OmniboxResults";
 import { OmniboxResultTypeName, UnknownOmniboxValue } from "../data/OmniboxResults";
@@ -364,7 +364,7 @@ export function syntaxSequence(tokenPattern: string): FilterSyntax[] | undefined
         const tokenLength = i - start;
 
         // (\.|((?<op>=)(?<val>[ENSIG])?))?
-        let completion: FilterSyntaxCompletion = "Token";
+        let completion: FilterSyntaxCompletionKeys = "Token";
         if (tokenPattern[i] === ".") {
             i++; // a trailing dot: still an incomplete TOKEN (the user is about to navigate deeper)
         } else if (tokenPattern[i] === "=") {
@@ -452,7 +452,7 @@ function canFilter(token: QueryToken | undefined): string | null {
 
 // Signum's `FilterValueConverter.ParseOperation` / `ToStringOperation` (Signum.UserAssets). Inlined here:
 // altea has not ported FilterValueConverter and the omnibox is its only consumer.
-export function parseOperation(operationString: string): FilterOperation {
+export function parseOperation(operationString: string): FilterOperationKeys {
     switch (operationString) {
         case "=":
         case "==": return "EqualTo";
@@ -473,7 +473,7 @@ export function parseOperation(operationString: string): FilterOperation {
     throw new Error(`Unexpected Filter ${operationString}`);
 }
 
-export function toStringOperation(operation: FilterOperation): string {
+export function toStringOperation(operation: FilterOperationKeys): string {
     switch (operation) {
         case "EqualTo": return "=";
         case "DistinctTo": return "!=";
@@ -501,7 +501,7 @@ export function toStringOperation(operation: FilterOperation): string {
 //    string at runtime, so `typeof value` cannot tell it from a String column's value);
 //  - an enum renders in OMNIBOX-PASCAL form ("InTransit"), not Signum's spaced nice name ("In transit").
 //    That is what the value matcher keys on, so it is the only form that survives the [Tab] round-trip.
-export function toStringValue(filterType: FilterType | undefined, value: unknown): string {
+export function toStringValue(filterType: FilterTypeKeys | undefined, value: unknown): string {
     if (value == null)
         return "null";
 

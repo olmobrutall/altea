@@ -14,7 +14,7 @@ import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { Entity, type BaseEntity } from "@altea/altea/data/entity";
 import { EmbeddedEntity } from "@altea/altea/data/entity";
 import {
-    ColumnOptionsModeEnum, OrderTypeEnum, PaginationModeEnum,
+    ColumnOptionsMode, OrderType, PaginationMode,
 } from "@altea/altea/data/dynamicQueries";
 import { Enum } from "@altea/altea/data/enum";
 import { type QueryToken, SubTokensOptions } from "@altea/altea/client/QueryToken";
@@ -290,7 +290,7 @@ export function FindOptionsComponent(p: FindOptionsComponentProps): React.JSX.El
                         <ExpressionOrValueComponent dn={dn} binding={Binding.create(fo, f => f.includeDefaultFilters)} refreshView={forceUpdate} type="boolean" defaultValue={null} />
                     } />
                     <ColumnOptionsComponent dn={dn} binding={Binding.create(fo, f => f.columnOptions)} queryKey={fo.queryName} refreshView={forceUpdate} extraButtons={() =>
-                        <ExpressionOrValueComponent dn={dn} binding={Binding.create(fo, f => f.columnOptionsMode)} refreshView={forceUpdate} type="string" options={Enum.values(ColumnOptionsModeEnum) as string[]} defaultValue={"Add"} />
+                        <ExpressionOrValueComponent dn={dn} binding={Binding.create(fo, f => f.columnOptionsMode)} refreshView={forceUpdate} type="string" options={Enum.values(ColumnOptionsMode) as string[]} defaultValue={"Add"} />
                     } />
                     <OrderOptionsComponent dn={dn} binding={Binding.create(fo, f => f.orderOptions)} queryKey={fo.queryName} refreshView={forceUpdate} />
                     <PaginationComponent dn={dn} findOptions={fo} refreshView={forceUpdate} />
@@ -571,7 +571,7 @@ class OrderOptionsComponent extends BaseOptionsComponent<OrderOptionExpr> {
                 <td><QueryTokenBuilderString label="columnName" parsedToken={item.parsedToken} token={item.token}
                     onChange={newToken => this.handleColumnChange(item, newToken)} queryKey={this.props.queryKey}
                     subTokenOptions={SubTokensOptions.CanElement} hideLabel={true} /></td>
-                <td>{item.parsedToken && !item.parsedToken.type.is(EmbeddedEntity) && <ExpressionOrValueComponent dn={dn} hideLabel={true} refreshView={() => this.forceUpdate()} binding={Binding.create(item, f => f.orderType)} type="string" defaultValue={null} options={Enum.values(OrderTypeEnum) as string[]} />}</td>
+                <td>{item.parsedToken && !item.parsedToken.type.is(EmbeddedEntity) && <ExpressionOrValueComponent dn={dn} hideLabel={true} refreshView={() => this.forceUpdate()} binding={Binding.create(item, f => f.orderType)} type="string" defaultValue={null} options={Enum.values(OrderType) as string[]} />}</td>
                 <td><ExpressionOrValueComponent dn={dn} hideLabel={true} refreshView={() => this.forceUpdate()} binding={Binding.create(item, f => f.applicable)} type="boolean" defaultValue={true} /></td>
             </tr>
         );
@@ -634,7 +634,7 @@ function PaginationComponent(p: { findOptions: FindOptionsExpr; dn: DesignerNode
     return (
         <fieldset>
             <legend>Pagination</legend>
-            <ExpressionOrValueComponent dn={dn} refreshView={p.refreshView} binding={Binding.create(fo, f => f.paginationMode)} type="string" options={Enum.values(PaginationModeEnum) as string[]} defaultValue={null} allowsExpression={false} />
+            <ExpressionOrValueComponent dn={dn} refreshView={p.refreshView} binding={Binding.create(fo, f => f.paginationMode)} type="string" options={Enum.values(PaginationMode) as string[]} defaultValue={null} allowsExpression={false} />
             {(mode === "Firsts" || mode === "Paginate") &&
                 <ExpressionOrValueComponent dn={dn} refreshView={p.refreshView} binding={Binding.create(fo, f => f.elementsPerPage)} type="number" defaultValue={null} />}
             {mode === "Paginate" &&

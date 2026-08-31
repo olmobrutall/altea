@@ -1,5 +1,5 @@
 import type { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
-import { FilterOperation } from "@altea/altea/server/dynamicQuery/requests";
+import { FilterOperationKeys } from "@altea/altea/server/dynamicQuery/requests";
 import type { ResultRow } from "@altea/altea/server/dynamicQuery/resultTable";
 import {
     ValueProviderBase, TokenValueProvider, parseConstant, type TemplateParameters,
@@ -112,7 +112,7 @@ export class ConditionOr extends ConditionBase {
 export class ConditionCompare extends ConditionBase {
     constructor(
         public readonly valueProvider: ValueProviderBase | undefined,
-        private operation?: FilterOperation,
+        private operation?: FilterOperationKeys,
         private value?: string,
         addError?: (fatal: boolean, error: string) => void,
     ) {
@@ -135,7 +135,7 @@ export class ConditionCompare extends ConditionBase {
         if (this.operation == undefined)
             return ConditionCompare.toBool(obj);
 
-        const isList = this.operation === FilterOperation.IsIn || this.operation === FilterOperation.IsNotIn;
+        const isList = this.operation === FilterOperationKeys.IsIn || this.operation === FilterOperationKeys.IsNotIn;
         return compareInMemory(this.operation, obj, this.parsedValue(isList));
     }
 
@@ -207,7 +207,7 @@ export class ConditionCompare extends ConditionBase {
         if (this.operation == undefined)
             return rr => ConditionCompare.toBool(column.values[rr.index]);
 
-        const isList = this.operation === FilterOperation.IsIn || this.operation === FilterOperation.IsNotIn;
+        const isList = this.operation === FilterOperationKeys.IsIn || this.operation === FilterOperationKeys.IsNotIn;
         const parsed = this.parsedValue(isList);
         const operation = this.operation;
 

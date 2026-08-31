@@ -6,7 +6,7 @@ import CollapsableCard from "@altea/altea/client/Components/CollapsableCard";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import type { ISimpleFilterBuilder } from "@altea/altea/client/SearchControl/SearchControl";
 import {
-    isActive, isFilterCondition, type FilterOperation, type FilterOption, type FilterOptionParsed,
+    isActive, isFilterCondition, type FilterOperationKeys, type FilterOption, type FilterOptionParsed,
 } from "@altea/altea/client/FindOptions";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -153,7 +153,7 @@ export default class InboxFilter extends React.Component<{ ctx: TypeContext<Inbo
  * against a bare one), so this is the two-line local version: the Inbox's tokens are all rooted at the row
  * model, so plain fullKey equality is the right comparison here.
  */
-function extractFilterValue(filters: FilterOptionParsed[], token: string, operation: FilterOperation): unknown {
+function extractFilterValue(filters: FilterOptionParsed[], token: string, operation: FilterOperationKeys): unknown {
     const f = filters.firstOrNull(f => isFilterCondition(f) && isActive(f)
         && f.token?.fullKey() === token && f.operation === operation);
 

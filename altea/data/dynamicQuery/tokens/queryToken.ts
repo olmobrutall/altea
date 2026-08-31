@@ -2,7 +2,7 @@ import { Entity, EmbeddedEntity, ModelEntity } from "../../entity";
 import { PropertyRoute } from "../../propertyRoute";
 import { tryGetTypeInfo, TypeReference, type FieldInfo } from "../../reflection";
 import { Implementations } from "../../implementations";
-import { tryGetFilterType, type QueryName, type FilterType } from "../queryUtils";
+import { tryGetFilterType, type QueryName, type FilterTypeKeys } from "../queryUtils";
 import { QueryTokenMessage, QueryTokenDateMessage, CollectionMessage } from "../../dynamicQueries";
 import type { CollectionToArrayToken } from "./collectionToArrayToken";
 
@@ -394,7 +394,7 @@ export abstract class QueryToken {
     // Signum's QueryToken.FilterType — the value category. The TypeReference carries typeName +
     // subTypeName, so tryGetFilterType alone recovers the Integer-vs-Decimal split (no separate
     // fromTypeName pass needed).
-    get filterType(): FilterType | undefined {
+    get filterType(): FilterTypeKeys | undefined {
         return tryGetFilterType(this.type);
     }
 
@@ -581,7 +581,7 @@ function capitalize(s: string): string {
 // Port of Signum's getNiceTypeName, over an altea RuntimeType: a human label for a value type. The
 // Signum server-token special result types (CellOperationDTO / OperationsContainerToken / …) are not
 // modelled in altea, so those special cases are omitted.
-function niceTypeNameOf(type: TypeReference, filterType: FilterType | undefined, implementations: Implementations | undefined): string {
+function niceTypeNameOf(type: TypeReference, filterType: FilterTypeKeys | undefined, implementations: Implementations | undefined): string {
     filterType ??= tryGetFilterType(type);
     switch (filterType) {
         case "Integer": return QueryTokenMessage.Number.niceToString();

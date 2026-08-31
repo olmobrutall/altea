@@ -8,13 +8,13 @@ import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { getTypeInfo } from "@altea/altea/data/reflection";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { Temporal, toInt } from "@altea/altea/data/basics";
-import { EmailRecipientKindEnum } from "@altea/altea-email/data/Email";
+import { EmailRecipientKind } from "@altea/altea-email/data/Email";
 import {
     EmailMessageEntity, EmailMessageEntity_Recipient,
 } from "@altea/altea-email/data/EmailMessage";
 import {
     EmailReceptionConfigurationEntity, EmailReceptionEntity, EmailReceptionExceptionEntity,
-    EmailReceptionMixin, CompareInboxEnum,
+    EmailReceptionMixin, CompareInbox,
 } from "@altea/altea-email/data/EmailReception";
 import { EmailLogic } from "@altea/altea-email/server/EmailLogic.server";
 import { EmailReceptionLogic } from "@altea/altea-email/server/EmailReceptionLogic.server";
@@ -216,7 +216,7 @@ export namespace Pop3ConfigurationLogic {
         const messageInfos = (await client.getMessageInfos()).sort((a, b) => a.number - b.number);
         const serverEmails = messageInfos.length;
 
-        if (config.compareInbox === CompareInboxEnum.Full) {
+        if (config.compareInbox === CompareInbox.Full) {
             const already = new Set<string>();
 
             for (let i = 0; i < messageInfos.length; i += 50) {
@@ -283,7 +283,7 @@ export namespace Pop3ConfigurationLogic {
                 if (email.recipients.length === 0)
                     email.recipients.push(EmailMessageEntity_Recipient.create({
                         emailAddress: config.emailAddress ?? "",
-                        kind: EmailRecipientKindEnum.To,
+                        kind: EmailRecipientKind.To,
                     }));
 
                 const bodyHash = email.bodyHash;
@@ -358,7 +358,7 @@ export namespace Pop3ConfigurationLogic {
 
         email.from.emailOwner = duplicate.from.emailOwner;
 
-        for (const recipient of email.recipients.filter(r => r.kind !== EmailRecipientKindEnum.Bcc)) {
+        for (const recipient of email.recipients.filter(r => r.kind !== EmailRecipientKind.Bcc)) {
             const same = duplicate.recipients.find(r =>
                 r.emailAddress === recipient.emailAddress && r.kind === recipient.kind);
             if (same != null)
@@ -373,8 +373,8 @@ export namespace Pop3ConfigurationLogic {
     function areDuplicates(email: EmailMessageEntity, duplicate: EmailMessageEntity): boolean {
         const key = (r: EmailMessageEntity_Recipient): string => `${r.kind}|${r.emailAddress}`;
 
-        const theirs = duplicate.recipients.filter(r => r.kind !== EmailRecipientKindEnum.Bcc).map(key).sort();
-        const ours = email.recipients.filter(r => r.kind !== EmailRecipientKindEnum.Bcc).map(key).sort();
+        const theirs = duplicate.recipients.filter(r => r.kind !== EmailRecipientKind.Bcc).map(key).sort();
+        const ours = email.recipients.filter(r => r.kind !== EmailRecipientKind.Bcc).map(key).sort();
 
         if (theirs.length !== ours.length || theirs.some((t, i) => t !== ours[i]))
             return false;

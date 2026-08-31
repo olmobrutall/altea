@@ -4,7 +4,7 @@ import type { ResultTable } from "@altea/altea/server/dynamicQuery/resultTable";
 import { SubTokensOptionsAll, type QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { Enum } from "@altea/altea/data/enum";
-import { OrderTypeEnum } from "@altea/altea/data/dynamicQueries";
+import { OrderType } from "@altea/altea/data/dynamicQueries";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { QueryFilterUtils } from "@altea/altea-user-assets/server/QueryFilterUtils.server";
 import { ChartColumnEmbedded } from "../data/ChartColumn";
@@ -168,7 +168,7 @@ function token(queryName: QueryName, tokenString: string): QueryToken {
 }
 
 function orderTypeOf(orderType: NonNullable<ChartColumnEmbedded["orderByType"]>): Order["orderType"] {
-    return (typeof orderType === "string" ? orderType : Enum.toName(OrderTypeEnum, orderType)) as Order["orderType"];
+    return (typeof orderType === "string" ? orderType : Enum.toName(OrderType, orderType)) as Order["orderType"];
 }
 
 /**

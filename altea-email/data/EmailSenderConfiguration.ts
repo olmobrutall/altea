@@ -24,12 +24,12 @@ import { EmailFromEmbedded, EmailRecipientBaseEntity } from "./Email";
 //  - `AdditionalRecipients` (an MList of the shared recipient embedded) becomes this owner's `@part` row.
 //  - `ClientCertificationFiles` likewise.
 
-export enum SmtpDeliveryFormatEnum {
+export enum SmtpDeliveryFormat {
     SevenBit,
     International,
 }
 
-export enum SmtpDeliveryMethodEnum {
+export enum SmtpDeliveryMethod {
     Network,
     SpecifiedPickupDirectory,
     PickupDirectoryFromIis,
@@ -109,18 +109,18 @@ export class SmtpNetworkDeliveryEmbedded extends Entity {
 // Signum's SmtpEmailServiceEntity — sending over SMTP (a network host, or a pickup directory).
 @entity("Part", "Master")
 export class SmtpEmailServiceEntity extends EmailServiceEntity {
-    deliveryFormat: SmtpDeliveryFormatEnum;
+    deliveryFormat: SmtpDeliveryFormat;
 
-    deliveryMethod: SmtpDeliveryMethodEnum;
+    deliveryMethod: SmtpDeliveryMethod;
 
     /** Signum's StateValidator over DeliveryMethod: Network needs `network`, SpecifiedPickupDirectory needs
      *  `pickupDirectoryLocation`, PickupDirectoryFromIis needs neither. */
     @fieldValidation<SmtpEmailServiceEntity>(s =>
-        s.deliveryMethod === SmtpDeliveryMethodEnum.Network && s.network == null ? "{0} is not set" : null)
+        s.deliveryMethod === SmtpDeliveryMethod.Network && s.network == null ? "{0} is not set" : null)
     network: SmtpNetworkDeliveryEmbedded | null;
 
     @fieldValidation<SmtpEmailServiceEntity>(s =>
-        s.deliveryMethod === SmtpDeliveryMethodEnum.SpecifiedPickupDirectory && s.pickupDirectoryLocation == null ? "{0} is not set" : null)
+        s.deliveryMethod === SmtpDeliveryMethod.SpecifiedPickupDirectory && s.pickupDirectoryLocation == null ? "{0} is not set" : null)
     @stringLengthValidator({ min: 3, max: 300 })
     pickupDirectoryLocation: string | null;
 

@@ -3,7 +3,7 @@ import { EmbeddedEntity } from "@altea/altea/data/entity";
 import { fieldValidation } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
-import type { OrderType } from "@altea/altea/data/dynamicQueries";
+import type { OrderTypeKeys } from "@altea/altea/data/dynamicQueries";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { enumColumn } from "@altea/altea-user-assets/data/UserAssets";
 import type { ChartScriptColumn } from "./ChartScriptColumn";
@@ -60,7 +60,7 @@ export class ChartColumnEmbedded extends EmbeddedEntity {
 
     // Signum's `OrderType? OrderByType`. Stored as the member-name string (see enumColumn).
     @enumColumn()
-    orderByType: OrderType | null;
+    orderByType: OrderTypeKeys | null;
 
     // Signum's TokenChanged(): re-fix column-bound parameters and clear the (now stale) display name/format.
     // Invoked by the editor when the token changes (altea has no property setters).

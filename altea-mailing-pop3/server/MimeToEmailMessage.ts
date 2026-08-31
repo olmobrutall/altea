@@ -4,10 +4,10 @@ import { Clock } from "@altea/altea/data/utils/clock";
 import { Temporal } from "@altea/altea/data/basics";
 import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import { FilePathEmbedded } from "@altea/altea-files/data/Files";
-import { EmailFromEmbedded, EmailRecipientKindEnum } from "@altea/altea-email/data/Email";
-import { EmailAttachmentTypeEnum } from "@altea/altea-email/data/EmailTemplate";
+import { EmailFromEmbedded, EmailRecipientKind } from "@altea/altea-email/data/Email";
+import { EmailAttachmentType } from "@altea/altea-email/data/EmailTemplate";
 import {
-    EmailMessageEntity, EmailMessageEntity_Attachment, EmailMessageEntity_Recipient, EmailMessageStateEnum,
+    EmailMessageEntity, EmailMessageEntity_Attachment, EmailMessageEntity_Recipient, EmailMessageState,
 } from "@altea/altea-email/data/EmailMessage";
 import { EmailLogic } from "@altea/altea-email/server/EmailLogic.server";
 import {
@@ -56,16 +56,16 @@ export async function toEmailMessage(
         editableMessage: false,
         from: fromOf(parsed),
         recipients: [],
-        state: EmailMessageStateEnum.Received,
+        state: EmailMessageState.Received,
         // Signum: a subject with a newline in it would break every list that shows one.
         subject: (parsed.subject ?? "No Subject").replace(/[\r\n]/g, " "),
         body: BigStringEmbedded.create({ text: null }),
         attachments: [],
     });
 
-    addRecipients(email, parsed.to, EmailRecipientKindEnum.To);
-    addRecipients(email, parsed.cc, EmailRecipientKindEnum.Cc);
-    addRecipients(email, parsed.bcc, EmailRecipientKindEnum.Bcc);
+    addRecipients(email, parsed.to, EmailRecipientKind.To);
+    addRecipients(email, parsed.cc, EmailRecipientKind.Cc);
+    addRecipients(email, parsed.bcc, EmailRecipientKind.Bcc);
 
     for (const attachment of parsed.attachments)
         addAttachment(email, attachment, attachmentFileType);
@@ -77,7 +77,7 @@ export async function toEmailMessage(
             displayName: null,
             emailAddress: delivered,
             invalidEmail: !isValidAddress(delivered),
-            kind: EmailRecipientKindEnum.Bcc,
+            kind: EmailRecipientKind.Bcc,
         }));
 
     splitCommaSeparatedRecipients(email);
@@ -118,7 +118,7 @@ function fromOf(parsed: ParsedMail): EmailFromEmbedded {
     });
 }
 
-function addRecipients(email: EmailMessageEntity, addresses: AddressObject | AddressObject[] | undefined, kind: EmailRecipientKindEnum): void {
+function addRecipients(email: EmailMessageEntity, addresses: AddressObject | AddressObject[] | undefined, kind: EmailRecipientKind): void {
     for (const a of flattenAddresses(addresses))
         email.recipients.push(EmailMessageEntity_Recipient.create({
             emailAddress: a.address!,
@@ -165,7 +165,7 @@ function addAttachment(email: EmailMessageEntity, attachment: Attachment, fileTy
         // An INLINE image is a LinkedResource (the body references it by content id); anything explicitly
         // dispositioned `attachment`, or not an image at all, is a real attachment.
         type: !attachment.contentType.includes("image") || attachment.contentDisposition === "attachment"
-            ? EmailAttachmentTypeEnum.Attachment : EmailAttachmentTypeEnum.LinkedResource,
+            ? EmailAttachmentType.Attachment : EmailAttachmentType.LinkedResource,
     });
 
     // Signum de-duplicates on the file HASH, which is only filled once the file is stored; before the save

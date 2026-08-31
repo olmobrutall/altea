@@ -24,7 +24,7 @@ import { cleanTypeName } from "@altea/altea/data/registration";
 import { UserAssetMessage } from "@altea/altea-user-assets/data/UserAssets";
 import QueryTokenEmbeddedBuilder from "@altea/altea-user-assets/client/Templates/QueryTokenEmbeddedBuilder";
 import {
-    DashboardEntity, DashboardMessage, InteractionGroupEnum, DashboardEntity_Part, type IPartEntity,
+    DashboardEntity, DashboardMessage, InteractionGroup, DashboardEntity_Part, type IPartEntity,
 } from "../../data/Dashboard";
 import { DashboardClient } from "../DashboardClient";
 import { EntityGridItem, type EntityGridItemProps, EntityGridRepeater } from "./EntityGridRepeater";
@@ -266,7 +266,7 @@ export function DashboardPart(p: {
                         {tc.value.interactionGroup != null && (
                             <div className="mt-1">
                                 <span className="badge" style={{ backgroundColor: interactionColors[tc.value.interactionGroup as number] }}>
-                                    {Enum.niceName(InteractionGroupEnum, tc.value.interactionGroup)}
+                                    {Enum.niceName(InteractionGroup, tc.value.interactionGroup)}
                                 </span>
                             </div>
                         )}

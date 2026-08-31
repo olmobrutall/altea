@@ -38,18 +38,18 @@
     <Member Name="ExportHelp" Description="Hilfe exportieren"/>
     <Member Name="ViewHelp" Description="Hilfe anzeigen"/>
   </Type>
-  <Type Name="ImportActionEnum">
+  <Type Name="ImportAction">
     <Member Name="Create" Description="Anlegen"/>
     <Member Name="NoChange" Description="Keine Änderung"/>
     <Member Name="Override" Description="Überschreiben"/>
   </Type>
-  <Type Name="ImportStatusEnum">
+  <Type Name="ImportStatus">
     <Member Name="Applied" Description="Angewendet"/>
     <Member Name="Failed" Description="Fehlgeschlagen"/>
     <Member Name="NoChange" Description="Keine Änderung"/>
     <Member Name="Skipped" Description="Übersprungen"/>
   </Type>
-  <Type Name="TypeSearchResultEnum">
+  <Type Name="TypeSearchResult">
     <Member Name="Appendix" Description="Anhang"/>
     <Member Name="Namespace" Description="Paket"/>
     <Member Name="Operation" Description="Operation"/>

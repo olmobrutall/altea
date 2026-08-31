@@ -22,7 +22,7 @@ import { ErrorBoundary } from '../Components';
 import "./Search.css"
 import { type ButtonBarElement, StyleContext } from '../TypeContext';
 import { useAPI, usePrevious } from '../Hooks'
-import type { RefreshMode } from '../../data/dynamicQueries';
+import type { RefreshModeKeys } from '../../data/dynamicQueries';
 import { type HeaderType, Title } from '../Lines/GroupHeader'
 
 export interface SimpleFilterBuilderProps {
@@ -66,7 +66,7 @@ export interface SearchControlProps {
   createButtonClass?: string;
   view?: boolean | "InPlace";
   largeToolbarButtons?: boolean;
-  defaultRefreshMode?: RefreshMode;
+  defaultRefreshMode?: RefreshModeKeys;
   avoidChangeUrl?: boolean;
   throwIfNotFindable?: boolean;
   deps?: React.DependencyList;

@@ -46,8 +46,8 @@ import { renderContextualItems, type ContextualItemsContext, type ContextualMenu
 import ContextMenu, { type ContextMenuPosition, getMouseEventPosition } from './ContextMenu'
 import SelectorModal from '../SelectorModal'
 import type { ISimpleFilterBuilder } from './SearchControl'
-import { type FilterOperation, type PaginationMode, type SystemTimeMode, SystemTimeModeEnum } from '../../data/dynamicQueries';
-import type { RefreshMode } from '../../data/dynamicQueries';
+import { type FilterOperationKeys, type PaginationModeKeys, type SystemTimeModeKeys, SystemTimeMode } from '../../data/dynamicQueries';
+import type { RefreshModeKeys } from '../../data/dynamicQueries';
 import { Enum } from '../../data/enum';
 import SystemTimeEditor from './SystemTimeEditor';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -129,7 +129,7 @@ export interface SearchControlLoadedProps {
   createButtonClass?: string;
   view: boolean | "InPlace";
   largeToolbarButtons: boolean;
-  defaultRefreshMode?: RefreshMode;
+  defaultRefreshMode?: RefreshModeKeys;
   avoidChangeUrl: boolean;
   deps?: React.DependencyList;
   extraOptions: any;
@@ -179,7 +179,7 @@ export interface SearchControlLoadedState {
     filter?: string;
   };
 
-  refreshMode?: RefreshMode;
+  refreshMode?: RefreshModeKeys;
   editingColumn?: ColumnOptionParsed;
   lastToken?: QueryToken;
   isMobile?: boolean;
@@ -1022,7 +1022,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     this.forceUpdate(() => this.handleHeightChanged());
   }
 
-  addQuickFilter(token: QueryToken, operation: FilterOperation, value: unknown): boolean {
+  addQuickFilter(token: QueryToken, operation: FilterOperationKeys, value: unknown): boolean {
     const filterOptions = this.props.findOptions;
     var alreadyPinned = value != null && value != "" && filterOptions.filterOptions
       .firstOrNull(f => isFilterCondition(f) &&
@@ -1390,7 +1390,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
       <CountEntities fop={fo} tis={tis} />;
 
 
-    const pm = await SelectorModal.chooseElement<PaginationMode>([fo.pagination.mode, "All"], {
+    const pm = await SelectorModal.chooseElement<PaginationModeKeys>([fo.pagination.mode, "All"], {
       title: action,
       message: SearchMessage.YouHaveSelectedAllRowsOnThisPageDoYouWantTo0OnlyTheseRowsOrToAllRowsAcrossAllPages.niceToString().formatHtml(<strong>{action}</strong>),
       buttonDisplay: a =>
@@ -1642,8 +1642,8 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
                   <FontAwesomeIcon icon="clock" className="me-1"
                     color={"gray"}
                     role="img"
-                    aria-label={Enum.niceName(SystemTimeModeEnum, "TimeSeries")}
-                    title={Enum.niceName(SystemTimeModeEnum, "TimeSeries")} />
+                    aria-label={Enum.niceName(SystemTimeMode, "TimeSeries")}
+                    title={Enum.niceName(SystemTimeMode, "TimeSeries")} />
                 </span> :
                   this.props.findOptions.groupResults && co.token && !co.token.isAggregate() ? <span>
                     <FontAwesomeIcon icon="key" className="me-1"

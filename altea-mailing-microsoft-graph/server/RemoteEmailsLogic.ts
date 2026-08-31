@@ -7,7 +7,7 @@ import type { ResultTable } from "@altea/altea/server/dynamicQuery/resultTable";
 import { DEnumerable } from "@altea/altea/server/dynamicQuery/dEnumerable";
 import { ClassType } from "@altea/altea/server/runtimeTypes";
 import {
-    Column, FilterCondition, FilterGroup, FilterGroupOperation, FilterOperation, Order, Pagination,
+    Column, FilterCondition, FilterGroup, FilterGroupOperationKeys, FilterOperationKeys, Order, Pagination,
     type Filter, type QueryRequest,
 } from "@altea/altea/server/dynamicQuery/requests";
 import type { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
@@ -218,7 +218,7 @@ export namespace RemoteEmailsLogic {
         let extracted: FilterCondition | undefined;
         const rest = request.filters.filter(f => {
             if (extracted == undefined && f instanceof FilterCondition
-                && f.token.fullKey() === key && f.operation === FilterOperation.EqualTo) {
+                && f.token.fullKey() === key && f.operation === FilterOperationKeys.EqualTo) {
                 extracted = f;
                 return false;
             }
@@ -243,7 +243,7 @@ export namespace RemoteEmailsLogic {
         if (filters.length === 0)
             return { filters, orders: keptOrders };
 
-        if (filters.some(f => f instanceof FilterCondition && f.operation === FilterOperation.Contains))
+        if (filters.some(f => f instanceof FilterCondition && f.operation === FilterOperationKeys.Contains))
             return { filters, orders: [] };
 
         const remaining = [...filters];
@@ -271,9 +271,9 @@ export namespace RemoteEmailsLogic {
                             typeName === "Number" || typeName === "Decimal" ? 0 :
                                 null;
 
-        return new FilterGroup(FilterGroupOperation.Or, undefined, [
-            new FilterCondition(token, FilterOperation.EqualTo, value),
-            new FilterCondition(token, FilterOperation.DistinctTo, value),
+        return new FilterGroup(FilterGroupOperationKeys.Or, undefined, [
+            new FilterCondition(token, FilterOperationKeys.EqualTo, value),
+            new FilterCondition(token, FilterOperationKeys.DistinctTo, value),
         ]);
     }
 

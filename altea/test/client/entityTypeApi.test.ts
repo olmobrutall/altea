@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import "@altea/altea/client/EntityTypeApi"; // installs the token / findOptions statics onto the entity classes
 import { QueryTokenString } from "@altea/altea/client/QueryTokenString";
-import type { FilterOperation, OrderType } from "@altea/altea/data/dynamicQueries";
+import type { FilterOperationKeys, OrderTypeKeys } from "@altea/altea/data/dynamicQueries";
 import { ArtistEntity, NoteWithDateEntity } from "../data/music";
 import { CorruptMixin } from "@altea/altea/data/corruptMixin";
 
@@ -32,7 +32,7 @@ describe("Entity static Type<T> API", () => {
     }));
 
     assert.equal(fo.queryName, ArtistEntity);
-    const f0 = fo.filterOptions![0] as { token: QueryTokenString<any>; operation: FilterOperation; value: unknown };
+    const f0 = fo.filterOptions![0] as { token: QueryTokenString<any>; operation: FilterOperationKeys; value: unknown };
     assert.equal(f0.token.toString(), "Name");
     assert.equal(f0.operation, "EqualTo");
     assert.equal(f0.value, "AC/DC");

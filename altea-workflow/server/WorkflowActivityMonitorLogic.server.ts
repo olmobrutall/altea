@@ -1,7 +1,7 @@
 import "@altea/altea/data/globals/arrayExtensions";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import {
-    Column, FilterCondition, FilterOperation, Pagination, QueryRequest, type Filter,
+    Column, FilterCondition, FilterOperationKeys, Pagination, QueryRequest, type Filter,
 } from "@altea/altea/server/dynamicQuery/requests";
 import { AggregateToken } from "@altea/altea/data/dynamicQuery/tokens/aggregateToken";
 import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
@@ -44,7 +44,7 @@ export namespace WorkflowActivityMonitorLogic {
         // altea's grammar is ROOTLESS and its entity-property keys are the FIELD names (camelCase), while the
         // system tokens stay PascalCase — so `case.workflow` / `workflowActivity` / `Count`.
         const filters: Filter[] = [
-            new FilterCondition(token("case.workflow"), FilterOperation.EqualTo, request.workflow),
+            new FilterCondition(token("case.workflow"), FilterOperationKeys.EqualTo, request.workflow),
             ...request.filters,
         ];
 

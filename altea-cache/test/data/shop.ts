@@ -24,12 +24,12 @@ import { type int, toInt, Decimal, Temporal } from "@altea/altea/data/basics";
 //                        is the transitive-containment guard — following a semi type's own references is
 //                        how caching one Master type ends up pulling in most of the database.
 
-export enum ContinentEnum {
+export enum Continent {
     Europe = 0,
     America = 1,
     Asia = 2,
 }
-registerEnum(ContinentEnum);
+registerEnum(Continent);
 
 @reflect
 export class GeoEmbedded extends EmbeddedEntity {
@@ -125,7 +125,7 @@ export class CountryEntity extends Entity {
 
     independenceDay: Temporal.PlainDate | null = null;
 
-    continent: ContinentEnum = ContinentEnum.Europe;
+    continent: Continent = Continent.Europe;
 
     center: GeoEmbedded | null = null;
 

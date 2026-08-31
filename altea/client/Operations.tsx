@@ -33,12 +33,12 @@ import * as ContextualItems from './SearchControl/ContextualItems';
 import type { ContextualItemsContext, ContextualMenuItem } from './SearchControl/ContextualItems';
 import { ajaxPost, ajaxPostRaw } from './Services';
 import type { WebApiHttpError } from './Services';
-import type { FilterOperation } from "../data/dynamicQueries";
+import type { FilterOperationKeys } from "../data/dynamicQueries";
 import { Entity } from '../data/entity';
 import type { EntityPack } from '../data/entityPack';
 import type { Lite } from '../data/lite';
 import { EngineMessage, JavascriptMessage, OperationMessage } from '../data/uiMessages';
-import type { ConstructSymbol, From, FromMany, Simple, DeleteSymbol, ExecuteSymbol, OperationSymbol, PropertyOperation } from '../data/operations';
+import type { ConstructSymbol, From, FromMany, Simple, DeleteSymbol, ExecuteSymbol, OperationSymbol, PropertyOperationKeys } from '../data/operations';
 import type { ButtonBarElement, ButtonsContext, EntityFrame, IOperationVisible, TypeContext } from './TypeContext';
 import * as AppContext from './AppContext';
 
@@ -395,8 +395,8 @@ export namespace Operations {
 
     export interface PropertySetter {
       property: string;
-      operation?: PropertyOperation;
-      filterOperation?: FilterOperation;
+      operation?: PropertyOperationKeys;
+      filterOperation?: FilterOperationKeys;
       value?: any;
       entityType?: string;
       predicate?: PropertySetter[];

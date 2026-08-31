@@ -39,7 +39,7 @@ import { EmailMessageEntity } from "./EmailMessage";
 //    the only thing that identifies it to a reader.
 
 // Signum's CompareInbox — how much of the mailbox a poll compares against what is already stored.
-export enum CompareInboxEnum {
+export enum CompareInbox {
     /** Ask the server for every UID and skip the ones already received. Correct, but O(mailbox). */
     Full,
     /** Only look past the newest N already-received messages (see Pop3ConfigurationLogic's
@@ -68,7 +68,7 @@ export class EmailReceptionConfigurationEntity extends Entity implements ITaskEn
     @unit("d")
     deleteMessagesAfter: int | null = toInt(14);
 
-    compareInbox: CompareInboxEnum;
+    compareInbox: CompareInbox;
 
     // Signum's `[ImplementedBy()]` — deliberately EMPTY: altea-email ships no reception service of its own,
     // so the app widens this with `overrideImplementedBy(EmailReceptionConfigurationEntity, "service", …)`

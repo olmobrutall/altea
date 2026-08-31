@@ -50,7 +50,7 @@ import { newGuid, type IUserAssetEntity, type IHasEntityType } from "@altea/alte
 // ---- Enums ---------------------------------------------------------------------------------------------
 
 // Signum's ToolbarLocation (Toolbar.cs): which of the app's three navigation surfaces renders this toolbar.
-export enum ToolbarLocationEnum {
+export enum ToolbarLocation {
     Side,
     Top,
     Main,
@@ -59,7 +59,7 @@ export enum ToolbarLocationEnum {
 // Signum's ToolbarElementType (Toolbar.cs). The explicit numeric values are Signum's (Header = 2 — the
 // enum lost two members historically); altea persists an enum as an int FK to its enum table, so keeping
 // the ordinals keeps a Signum-exported XML/database directly comparable.
-export enum ToolbarElementTypeEnum {
+export enum ToolbarElementType {
     Header = 2,
     Divider = 3,
     Item = 4,
@@ -68,7 +68,7 @@ export enum ToolbarElementTypeEnum {
 
 // Signum's ShowCount (Toolbar.cs): whether the element's result count badge is always shown, or only when
 // it is greater than zero.
-export enum ShowCountEnum {
+export enum ShowCount {
     MoreThan0 = 1,
     Always = 2,
 }
@@ -77,9 +77,9 @@ export enum ShowCountEnum {
 // in-memory / stored value is the ordinal) paired with a string-union alias of its member NAMES — which is
 // the form that travels on the wire, so the ToolbarResponse DTOs and the client comparisons use these
 // (`res.type == "Divider"`, exactly as in Signum's generated Signum.Toolbar.ts).
-export type ToolbarLocation = keyof typeof ToolbarLocationEnum;
-export type ToolbarElementType = keyof typeof ToolbarElementTypeEnum;
-export type ShowCount = keyof typeof ShowCountEnum;
+export type ToolbarLocationKeys = keyof typeof ToolbarLocation;
+export type ToolbarElementTypeKeys = keyof typeof ToolbarElementType;
+export type ShowCountKeys = keyof typeof ShowCount;
 
 // ---- The element rows ----------------------------------------------------------------------------------
 
@@ -101,7 +101,7 @@ export abstract class ToolbarElementBaseEntity extends Entity {
     // the XML round-trip and addresses an element from the client (ToolbarClient.entityElementFilters).
     guid: uuid = newGuid();
 
-    type: ToolbarElementTypeEnum = ToolbarElementTypeEnum.Item;
+    type: ToolbarElementType = ToolbarElementType.Item;
 
     // Signum's PropertyValidation: for an Item / a Header, a label is mandatory when there is no content
     // to take the label FROM. A Divider carries none of the four (Signum's StateValidator row).
@@ -119,7 +119,7 @@ export abstract class ToolbarElementBaseEntity extends Entity {
     @stringLengthValidator({ min: 3, max: 100 })
     iconName: string | null;
 
-    showCount: ShowCountEnum | null;
+    showCount: ShowCount | null;
 
     @format("Color")
     @stringLengthValidator({ min: 3, max: 20 })
@@ -166,7 +166,7 @@ export abstract class ToolbarElementBaseEntity extends Entity {
     autoRefreshPeriod: int | null;
 
     toString(): string {
-        const type = Enum.toName(ToolbarElementTypeEnum, this.type);
+        const type = Enum.toName(ToolbarElementType, this.type);
         return `${type}: ${this.label ?? (this.content == null ? "Null" : this.content.toString())}`;
     }
 }
@@ -205,7 +205,7 @@ export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarE
     @stringLengthValidator({ max: 100 })
     name: string;
 
-    location: ToolbarLocationEnum = ToolbarLocationEnum.Side;
+    location: ToolbarLocation = ToolbarLocation.Side;
 
     // Highest priority wins when several toolbars of one location are visible to the current role.
     priority: int | null;
@@ -319,7 +319,7 @@ export namespace ToolbarSwitcherOperation {
 // ---- Validation helpers (Signum's StateValidator rows + PropertyValidation) -----------------------------
 
 function isDivider(e: ToolbarElementBaseEntity): boolean {
-    return Enum.toName(ToolbarElementTypeEnum, e.type) === "Divider";
+    return Enum.toName(ToolbarElementType, e.type) === "Divider";
 }
 
 /** Signum's StateValidator "false" cell: for a Divider the member must NOT be set. */
@@ -329,13 +329,13 @@ function mustBeNull(value: unknown, message: { niceToString(): string }): string
 
 /** Label is mandatory-when-no-content for an Item / a Header (Signum's PropertyValidation guard). */
 function isLabelledType(e: ToolbarElementBaseEntity): boolean {
-    const type = Enum.toName(ToolbarElementTypeEnum, e.type);
+    const type = Enum.toName(ToolbarElementType, e.type);
     return type === "Item" || type === "Header";
 }
 
 /** Url is mandatory-when-no-content for an Item / an ExtraIcon (Signum's PropertyValidation guard). */
 function isNavigableType(e: ToolbarElementBaseEntity): boolean {
-    const type = Enum.toName(ToolbarElementTypeEnum, e.type);
+    const type = Enum.toName(ToolbarElementType, e.type);
     return type === "Item" || type === "ExtraIcon";
 }
 
@@ -353,7 +353,7 @@ function validateElements(elements: ToolbarElementBaseEntity[] | undefined): str
     if (elements == null || elements.length === 0)
         return null;
 
-    const typeOf = (e: ToolbarElementBaseEntity): string => Enum.toName(ToolbarElementTypeEnum, e.type);
+    const typeOf = (e: ToolbarElementBaseEntity): string => Enum.toName(ToolbarElementType, e.type);
 
     if (typeOf(elements[0]) === "ExtraIcon")
         return ToolbarMessage.FirstElementCanNotBeExtraIcon.niceToString();

@@ -14,7 +14,7 @@ import type { Type } from "@altea/altea/data/entity";
 import { Temporal, Decimal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { UserWithClaims, type IUserEntity } from "@altea/altea/data/security";
-import { ProcessEntity, ProcessExceptionLineEntity, ProcessStateEnum } from "../data/Processes";
+import { ProcessEntity, ProcessExceptionLineEntity, ProcessState } from "../data/Processes";
 import type { ProcessLogicState, ProcessHealth } from "../data/ProcessLogicState";
 import { ProcessLogic, type IProcessAlgorithm } from "./ProcessLogic.server";
 
@@ -107,8 +107,8 @@ export namespace ProcessRunner {
         await ExecutionMode.global(() => Transaction.forceNew(async () => {
             await setAsQueued(table(ProcessEntity).filter(p =>
                 (p.machineName == machine && p.applicationName == application
-                    && (p.state == ProcessStateEnum.Executing || p.state == ProcessStateEnum.Suspending || p.state == ProcessStateEnum.Suspended))
-                || (p.machineName == none && p.state == ProcessStateEnum.Suspended)));
+                    && (p.state == ProcessState.Executing || p.state == ProcessState.Suspending || p.state == ProcessState.Suspended))
+                || (p.machineName == none && p.state == ProcessState.Suspended)));
         }));
 
         periodicTimer = setInterval(() => wakeUp("timerPeriodic"), poolingPeriodMilliseconds);
@@ -193,12 +193,12 @@ export namespace ProcessRunner {
             const now = Clock.now;
             await Transaction.forceNew(async () => {
                 await setAsQueued(table(ProcessEntity)
-                    .filter(p => p.state == ProcessStateEnum.Planned && p.plannedDate! <= now));
+                    .filter(p => p.state == ProcessState.Planned && p.plannedDate! <= now));
             });
 
             // 2. Arm the timer for the next planned date that is still in the future.
             const plannedDates = await table(ProcessEntity)
-                .filter(p => p.state == ProcessStateEnum.Planned
+                .filter(p => p.state == ProcessState.Planned
                     && ((p.machineName == machine && p.applicationName == application) || (shared && p.machineName == none)))
                 .map(p => p.plannedDate)
                 .toArray();
@@ -207,13 +207,13 @@ export namespace ProcessRunner {
 
             // 3. Anything asked to suspend: tell the in-flight run to stop cooperatively.
             const suspending = await table(ProcessEntity)
-                .filter(p => p.state == ProcessStateEnum.Suspending
+                .filter(p => p.state == ProcessState.Suspending
                     && p.machineName == machine && p.applicationName == application)
                 .toArray();
 
             for (const process of suspending) {
                 const ep = executing.get(process.toLite().key());
-                if (ep != null && ep.currentProcess.state !== ProcessStateEnum.Finished)
+                if (ep != null && ep.currentProcess.state !== ProcessState.Finished)
                     ep.cancel();
                 else if (ep == null)
                     // Nothing is running it here (a restart lost it) — it is safe to re-queue.
@@ -228,7 +228,7 @@ export namespace ProcessRunner {
                 return;
 
             const queued = await table(ProcessEntity)
-                .filter(p => p.state == ProcessStateEnum.Queued
+                .filter(p => p.state == ProcessState.Queued
                     && ((p.machineName == machine && p.applicationName == application) || (shared && p.machineName == none)))
                 .toArray();
 
@@ -341,7 +341,7 @@ export namespace ProcessRunner {
         const now = Clock.now;
         const mine = ProcessLogic.justMyProcesses;
         return await query.executeUpdate(() => ({
-            state: ProcessStateEnum.Queued,
+            state: ProcessState.Queued,
             queuedDate: now,
             executionStart: null,
             executionEnd: null,
@@ -438,13 +438,13 @@ export class ExecutingProcess {
     async takeForThisMachine(): Promise<void> {
         await ExecutionMode.global(() => Transaction.forceNew(async () => {
             const alreadyExecuting = await table(ProcessEntity)
-                .filter(p => p.id == this.currentProcess.id && p.state == ProcessStateEnum.Executing)
+                .filter(p => p.id == this.currentProcess.id && p.state == ProcessState.Executing)
                 .toArray();
 
             if (alreadyExecuting.length > 0)
                 throw new Error(`The process ${this.currentProcess.id} is already Executing!`);
 
-            this.currentProcess.state = ProcessStateEnum.Executing;
+            this.currentProcess.state = ProcessState.Executing;
             this.currentProcess.executionStart = Clock.now;
             this.currentProcess.executionEnd = null;
             this.currentProcess.progress = new Decimal(0);
@@ -472,14 +472,14 @@ export class ExecutingProcess {
                 await this.algorithm.execute(this);
 
                 this.currentProcess.executionEnd = Clock.now;
-                this.currentProcess.state = ProcessStateEnum.Finished;
+                this.currentProcess.state = ProcessState.Finished;
                 this.currentProcess.progress = null;
                 await ExecutionMode.global(() => Transaction.forceNew(() => this.currentProcess.save()));
             } catch (error) {
                 if (this.signal.aborted) {
                     // A cooperative stop, not a failure (Signum's OperationCanceledException branch).
                     this.currentProcess.suspendDate = Clock.now;
-                    this.currentProcess.state = ProcessStateEnum.Suspended;
+                    this.currentProcess.state = ProcessState.Suspended;
                     await ExecutionMode.global(() => Transaction.forceNew(() => this.currentProcess.save()));
                     return;
                 }
@@ -491,7 +491,7 @@ export class ExecutingProcess {
                     });
 
                     await Transaction.forceNew(async () => {
-                        this.currentProcess.state = ProcessStateEnum.Error;
+                        this.currentProcess.state = ProcessState.Error;
                         this.currentProcess.exceptionDate = Clock.now;
                         this.currentProcess.exception = exception.toLite();
                         this.currentProcess.executionEnd = Clock.now;
