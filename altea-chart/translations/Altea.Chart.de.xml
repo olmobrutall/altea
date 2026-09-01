@@ -273,7 +273,7 @@
     <Member Name="Parameters" Description="Parameter" />
     <Member Name="QueryName" Description="Abfrage-Name" />
   </Type>
-  <Type Name="ChartScriptSymbol" Description="Diagrammskript" Gender="n" />
+  <Type Name="ChartScript" Description="Diagrammskript" Gender="n" />
   <Type Name="ChartTimeSeriesEmbedded" Description="Zeitreihen in Diagrammen">
     <Member Name="EndDate" Description="Enddatum" />
     <Member Name="SplitQueries" Description="Geteilte Abfragen" />

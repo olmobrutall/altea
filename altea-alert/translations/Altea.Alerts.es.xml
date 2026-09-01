@@ -72,7 +72,7 @@
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
   </Type>
-  <Type Name="AlertTypeSymbol" Description="Tipo de alerta" />
+  <Type Name="AlertType" Description="Tipo de alerta" />
   <Type Name="DelayOption">
     <Member Name="_15Mins" Description="15 minutos" />
     <Member Name="_1Day" Description="1 día" />

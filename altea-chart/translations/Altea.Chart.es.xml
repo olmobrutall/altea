@@ -79,7 +79,7 @@
     <Member Name="Parameters" Description="Parámetros" />
     <Member Name="QueryName" Description="Nombre de consulta" />
   </Type>
-  <Type Name="ChartScriptSymbol" Description="Script de gráfico" Gender="m" />
+  <Type Name="ChartScript" Description="Script de gráfico" Gender="m" />
 <Type Name="ColorPaletteEntity" Description="Paleta de colores" PluralDescription="Paletas de colores" Gender="f">
     <Member Name="CategoryName" Description="Nombre de la categoría" />
     <Member Name="SeedOrPaletteName" Description="Semilla o nombre de la paleta" />

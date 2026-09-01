@@ -110,14 +110,32 @@ export function cleanTypeName(ctor: Function): string {
     return stripEntitySuffix(ctor.name);
 }
 
-// Strip the "Entity" suffix from each underscore-separated segment (mirrors the schema builder's table
-// naming). A plain entity: "BandEntity" -> "Band". A PART entity (altea's MList replacement, named
-// `<Owner>Entity_<Field>`): "RuleTypeConditionEntity_Condition" -> "RuleTypeCondition_Condition",
-// "EmployeeEntity_Territory" -> "Employee_Territory". Per-segment so the OWNER's suffix is stripped
-// too, not just a trailing one (the previous trailing-only strip left the part's owner segment mangled,
-// disagreeing with the schema builder's own cleanTypeName).
+// Strip the "Entity" / "Symbol" suffix from each underscore-separated segment (mirrors the schema
+// builder's table naming). A plain entity: "BandEntity" -> "Band". A symbol: "TypeConditionSymbol" ->
+// "TypeCondition". A PART entity (altea's MList replacement, named `<Owner>Entity_<Field>`):
+// "RuleTypeConditionEntity_Condition" -> "RuleTypeCondition_Condition", "EmployeeEntity_Territory" ->
+// "Employee_Territory". Per-segment so the OWNER's suffix is stripped too, not just a trailing one (the
+// previous trailing-only strip left the part's owner segment mangled, disagreeing with the schema
+// builder's own cleanTypeName).
+//
+// Signum's Reflector.CleanTypeName strips FOUR suffixes — Entity, Embedded, Model and Symbol — and altea
+// takes only these TWO on purpose. A clean name is IDENTITY: it is the `TypeEntity.cleanName` column, the
+// `$type` / `$lite` wire discriminator, an @implementedBy column's suffix, and the type segment of a URL
+// (`/view/Workflow/3`). Only a type that can BE one of those needs the clean spelling — an Entity or a
+// Symbol. Stripping "Model" and "Embedded" as well would buy nothing there and would make 15 pairs
+// AMBIGUOUS, because altea carries a Model beside its Entity far more often than Signum does:
+// CustomerEntity/CustomerModel would both be "Customer", as would WorkflowEntity/WorkflowModel and eleven
+// more workflow node/model pairs. Those types lose nothing by keeping the suffix — what a reader SEES is
+// the nice name, and `Localization.Internal.niceNameFromName` already drops all four ("WorkflowModel" is
+// titled "Workflow" in the frame modal).
+//
+// The guard matters for exactly one type: the base class `Symbol` itself, which would otherwise clean to
+// the empty string.
 function stripEntitySuffix(name: string): string {
-    return name.split('_').map(s => s.replace(/Entity$/, '')).join('_');
+    return name.split('_').map(s => {
+        const stripped = s.replace(/(Entity|Symbol)$/, '');
+        return stripped === '' ? s : stripped;
+    }).join('_');
 }
 
 // Reverse of cleanTypeName: resolves a discriminator string back to its

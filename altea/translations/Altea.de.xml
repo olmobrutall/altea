@@ -459,7 +459,7 @@
     <Member Name="TheOperation0DidNotReturnAnEntity" Description="{0} hat keine Enität zurückgegeben" />
     <Member Name="TheStateOf0ShouldBe1InsteadOf2" Description="Der Zustand von {0} sollte {1} sein (anstatt von {2})" />
   </Type>
-  <Type Name="OperationSymbol" Description="Operation" />
+  <Type Name="Operation" Description="Operation" />
   <Type Name="OrderType" Description="Reihenfolgentyp">
     <Member Name="Ascending" Description="Aufsteigend" />
     <Member Name="Descending" Description="Absteigend" />
@@ -472,7 +472,7 @@
     <Member Name="Firsts" Description="Erste" />
     <Member Name="Paginate" Description="Seiten" />
   </Type>
-  <Type Name="PermissionSymbol" Description="Erlaubnis" PluralDescription="Erlaubnisse" Gender="f" />
+  <Type Name="Permission" Description="Erlaubnis" PluralDescription="Erlaubnisse" Gender="f" />
   <Type Name="PinnedFilterActive" Description="Vorgewahlter Filter aktiv">
     <Member Name="Always" Description="Immer" />
     <Member Name="Checkbox_Checked" Description="Kontrollkästchen (aktiviert)" />
@@ -860,7 +860,7 @@
     <Member Name="Week" Description="Woche" />
     <Member Name="Year" Description="Jahr" />
   </Type>
-  <Type Name="TourTriggerSymbol" Description="Tour-Trigger" Gender="n" />
+  <Type Name="TourTrigger" Description="Tour-Trigger" Gender="n" />
   <Type Name="TypeEntity" Description="Typ" PluralDescription="Typen" Gender="m">
     <Member Name="ClassName" Description="Klassen Name" />
     <Member Name="CleanName" Description="Clean Name" />

@@ -104,7 +104,11 @@ describe("SymbolLogic", () => {
         const cmd = withFake([], () => sb.schema.generationScript())!;
         // Seeded through the sync saver (parameterized), so the keys ride in each INSERT's
         // parameters — assert one INSERT per symbol and that the keys are the seeded values.
-        const inserts = cmd.leaves().filter(l => /INSERT INTO/i.test(l.sql) && /OperationSymbol/i.test(l.sql));
+        // Match on the table the SCHEMA assigned, not a spelling written here: cleanTypeName strips the
+        // "Symbol" suffix, so OperationSymbol's table is `operation` — a hardcoded name goes stale the
+        // next time the naming convention moves, and silently, since it just matches nothing.
+        const symbolTable = new RegExp(sb.schema.table(OperationSymbol).name.name, "i");
+        const inserts = cmd.leaves().filter(l => /INSERT INTO/i.test(l.sql) && symbolTable.test(l.sql));
         assert.ok(inserts.length >= 3, `expected an INSERT per symbol, got ${inserts.length}`);
         const seeded = inserts.flatMap(l => l.paramValues() ?? []);
         assert.ok(seeded.includes("ArtistOperation.Save"));

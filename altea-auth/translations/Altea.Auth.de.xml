@@ -315,7 +315,7 @@
     <Member Name="Properties" Description="Eigenschaften" />
     <Member Name="Queries" Description="Abfragen" />
   </Type>
-  <Type Name="TypeConditionSymbol" Description="Typbedingung" />
+  <Type Name="TypeCondition" Description="Typbedingung" />
   <Type Name="TypeRulePack" Description="Typregelpack" />
   <Type Name="UserADMessage">
     <Member Name="Find0InActiveDirectory" Description="Finden Sie '{0}' im Active Directory" />

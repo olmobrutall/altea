@@ -61,5 +61,5 @@
     <Member Name="Title" Description="Titel" />
     <Member Name="Tour" Description="Tour" />
   </Type>
-  <Type Name="TourTriggerSymbol" Description="Tour-Auslöser" Gender="m" />
+  <Type Name="TourTrigger" Description="Tour-Auslöser" Gender="m" />
 </Translations>

@@ -219,7 +219,7 @@
     <Member Name="Properties" Description="Propiedades" />
     <Member Name="Queries" Description="Consultas" />
   </Type>
-  <Type Name="TypeConditionSymbol" Description="Símbolo de condición de tipo" />
+  <Type Name="TypeCondition" Description="Símbolo de condición de tipo" />
   <Type Name="TypeRulePack" Description="Paquete de reglas de tipo" />
   <Type Name="UserADMessage">
     <Member Name="Find0InActiveDirectory" Description="Buscar '{0}' en Active Directory" />

@@ -242,7 +242,7 @@
 		<Member Name="TheOperation0DidNotReturnAnEntity" Description="{0} no devolvió ninguna entidad" />
 		<Member Name="TheStateOf0ShouldBe1InsteadOf2" Description="El estado de {0} debería ser {1} (en vez de {2})" />
 	</Type>
-	<Type Name="OperationSymbol" Description="Símbolo Operación" />
+	<Type Name="Operation" Description="Símbolo Operación" />
 	<Type Name="OrderType" Description="Tipo de orden">
 		<Member Name="Ascending" Description="Ascendente" />
 		<Member Name="Descending" Description="Descendente" />

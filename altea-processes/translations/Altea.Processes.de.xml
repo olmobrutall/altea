@@ -22,7 +22,7 @@
     <Member Name="PackageLineLastProcess" Description="Paketzeile letzter Prozess" />
     <Member Name="PackageOperationLastProcess" Description="Paketvorgang letzter Prozess" />
   </Type>
-  <Type Name="ProcessAlgorithmSymbol" Description="Prozess-Algorithmus" PluralDescription="Prozess-Algorithmen" Gender="m" />
+  <Type Name="ProcessAlgorithm" Description="Prozess-Algorithmus" PluralDescription="Prozess-Algorithmen" Gender="m" />
   <Type Name="ProcessEntity" Description="Prozess" PluralDescription="Prozesse" Gender="m">
     <Member Name="Algorithm" Description="Algorithmus" />
     <Member Name="ApplicationName" Description="Anwendungsname" />

@@ -87,7 +87,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="AlertTypeSymbol" Description="Benachrichtigungstyp" />
+  <Type Name="AlertType" Description="Benachrichtigungstyp" />
   <Type Name="DelayOption">
     <Member Name="_15Mins" Description="15 Minuten" />
     <Member Name="_1Day" Description="1 Tag" />

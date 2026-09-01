@@ -16,7 +16,7 @@
     <Member Name="OverrideModel" Description="Reemplazar el modelo" />
     <Member Name="OfficeTemplate" Description="Plantilla de Office" />
   </Type>
-  <Type Name="OfficeConverterSymbol" Description="Convertidor de Office" />
+  <Type Name="OfficeConverter" Description="Convertidor de Office" />
   <Type Name="OfficeModelEntity" Description="Modelo de Office">
     <Member Name="FullClassName" Description="Full Class Name" />
   </Type>
@@ -54,5 +54,5 @@
   <Type Name="OfficeTemplatePermission">
     <Member Name="GenerateReport" Description="Generar informe" />
   </Type>
-  <Type Name="OfficeTransformerSymbol" Description="Transformador de Office" />
+  <Type Name="OfficeTransformer" Description="Transformador de Office" />
 </Translations>

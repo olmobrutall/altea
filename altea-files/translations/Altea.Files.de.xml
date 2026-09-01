@@ -63,5 +63,5 @@
   <Type Name="FilePathOperation">
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="FileTypeSymbol" Description="Dateityp" PluralDescription="Dateitypen" />
+  <Type Name="FileType" Description="Dateityp" PluralDescription="Dateitypen" />
 </Translations>

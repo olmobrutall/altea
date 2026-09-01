@@ -108,5 +108,5 @@
     <Member Name="Tuesday" Description="Martes" />
     <Member Name="Wednesday" Description="Miércoles" />
   </Type>
-  <Type Name="SimpleTaskSymbol" Description="Símbolo tarea simple" />
+  <Type Name="SimpleTask" Description="Símbolo tarea simple" />
 </Translations>

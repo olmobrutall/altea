@@ -66,29 +66,22 @@ function rawTypeName(type: Type<Entity> | ViewType<View>): string {
     return (type as { name: string }).name;
 }
 
-// Logical, dialect-independent type name: strips the "Entity" suffix from each
+// Logical, dialect-independent type name: strips the "Entity" / "Symbol" suffix from each
 // underscore-separated segment, so part entities named `<Owner>Entity_<Field>`
 // (altea's MList replacement) become `<Owner>_<Field>` (e.g.
-// AwardNominationEntity_Point -> "AwardNomination_Point"). Used for the type
-// registry / serialization names and @implementedBy column names.
-function cleanTypeName(type: Type<Entity> | ViewType<View>): string {
-    return rawTypeName(type).split('_').map(s => s.replace(/Entity$/, '')).join('_');
-}
-
-// The same, under LEGACY MODE: Signum's `Reflector.CleanTypeName` strips FOUR suffixes — Entity, Embedded,
-// Model and Symbol — so `TypeConditionSymbol` is the table `type_condition` and `AzureADConfigurationEmbedded`
-// is `azure_ad_configuration`, where altea (stripping only "Entity") writes `type_condition_symbol` and
-// `azure_ad_configuration_embedded`.
+// AwardNominationEntity_Point -> "AwardNomination_Point") and a symbol
+// (TypeConditionSymbol) becomes "TypeCondition". Used for the type registry /
+// serialization names and @implementedBy column names.
 //
-// This is PHYSICAL naming only — the table name and the `<Field>ID_<CleanName>` suffix of an @implementedBy
-// column, which is where Signum spends its own clean name. It deliberately does NOT reach the reflection
-// identity in data/registration, and it must not: applying Signum's rule there would make 15 pairs of types
-// ambiguous, because altea has a Model beside its Entity far more often than Signum does — CustomerEntity
-// and CustomerModel would both be "Customer", as would WorkflowEntity/WorkflowModel and eleven more workflow
-// node/model pairs. Among TABLE-bearing types the strip collides with nothing (a Model and an Embedded have
-// no table), which is why it is safe exactly here and nowhere else.
-function legacyCleanTypeName(type: Type<Entity> | ViewType<View>): string {
-    return rawTypeName(type).split('_').map(s => s.replace(/(Entity|Embedded|Model|Symbol)$/, '')).join('_');
+// MUST agree with `cleanTypeName` in data/registration — that one is the reflection IDENTITY, this one
+// names the table and an @implementedBy column's suffix, and the two disagreeing is how a type ends up
+// stored under one name and addressed by another. See there for why Entity and Symbol are stripped where
+// Signum also strips Model and Embedded, and for the empty-string guard.
+function cleanTypeName(type: Type<Entity> | ViewType<View>): string {
+    return rawTypeName(type).split('_').map(s => {
+        const stripped = s.replace(/(Entity|Symbol)$/, '');
+        return stripped === '' ? s : stripped;
+    }).join('_');
 }
 
 // PascalCase -> snake_case (ported from Signum's NaturalLanguageTools.PascalToSnake).
@@ -115,7 +108,7 @@ function cap(value: string): string {
 // names the same table — its MList table is one name, so there is no owner/part boundary to keep
 // legible. See SchemaSettings.legacyMode.
 function physicalTableName(type: Type<Entity>, isPostgres: boolean, legacyMode: boolean): string {
-    const clean = legacyMode ? legacyCleanTypeName(type) : cleanTypeName(type);
+    const clean = cleanTypeName(type);
     return isPostgres ? clean.split('_').map(pascalToSnake).join(legacyMode ? '_' : '__') : clean;
 }
 
@@ -181,6 +174,9 @@ export class SchemaSettings {
     // Like `isPostgres`, it is a SCHEMA-BUILD choice the APP makes before including any table, and the app
     // is what knows where the answer comes from (eastwind reads a `LegacyMode` environment variable in its
     // Starter, beside `isPostgres`). The default is altea's own naming.
+    //
+    // (Signum's wider clean-name suffix strip is NOT one of these — altea adopted Entity + Symbol as its
+    // own rule, unconditionally; see cleanTypeName in data/registration.)
     //
     // Today it covers the naming of a `@part` row TABLE, in two rules:
     //   1. the DOUBLE underscore joining it to its owner on Postgres (`role__inherits_from` where Signum
@@ -639,11 +635,7 @@ export class SchemaBuilder {
             }
             const columns = fi.implementations.types().map(implType => {
                 const refTable = this.include(implType, ownerData).table;
-                // The suffix is the TARGET's clean name — physical naming, so legacyMode's wider suffix
-                // strip applies here exactly as it does to the table name (Signum spends the same
-                // Reflector.CleanTypeName in both places).
-                const implName = this.settings.legacyMode ? legacyCleanTypeName(implType) : cleanTypeName(implType);
-                const colName = this.idiomatic(preName.add(`${this.columnName(fi)}ID_${implName}`).toString());
+                const colName = this.idiomatic(preName.add(`${this.columnName(fi)}ID_${cleanTypeName(implType)}`).toString());
                 return new ImplementationColumn(colName, refTable, isLite);
             });
             return new FieldImplementedBy(columns, isLite);

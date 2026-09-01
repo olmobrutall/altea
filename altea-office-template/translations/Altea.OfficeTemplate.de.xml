@@ -60,7 +60,7 @@
     <Member Name="OverrideModel" Description="Modell überschreiben" />
     <Member Name="OfficeTemplate" Description="Office-Vorlage" />
   </Type>
-  <Type Name="OfficeConverterSymbol" Description="Office-Konverter" Gender="m" />
+  <Type Name="OfficeConverter" Description="Office-Konverter" Gender="m" />
   <Type Name="OfficeModelEntity" Description="Office-Modell" PluralDescription="Office-Modelle" Gender="n">
     <Member Name="FullClassName" Description="Full Class Name" />
   </Type>
@@ -100,5 +100,5 @@
   <Type Name="OfficeTemplatePermission">
     <Member Name="GenerateReport" Description="Bericht generieren" />
   </Type>
-  <Type Name="OfficeTransformerSymbol" Description="Office-Transformator" PluralDescription="Office-Transformatoren" />
+  <Type Name="OfficeTransformer" Description="Office-Transformator" PluralDescription="Office-Transformatoren" />
 </Translations>

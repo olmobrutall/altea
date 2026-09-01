@@ -3,7 +3,7 @@
   <Type Name="IContainsQuery">
     <Member Name="Query" Description="Abfrage" />
   </Type>
-  <Type Name="ModelConverterSymbol" Description="Modell-Konverter" Gender="m" />
+  <Type Name="ModelConverter" Description="Modell-Konverter" Gender="m" />
   <Type Name="MultiEntityModel" Description="Multi-Entität">
     <Member Name="Entities" Description="Entitäten" />
   </Type>

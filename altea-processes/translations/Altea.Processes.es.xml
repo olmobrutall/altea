@@ -21,7 +21,7 @@
     <Member Name="PackageLineLastProcess" Description="Paquete línea de último proceso" />
     <Member Name="PackageOperationLastProcess" Description="Operación de paquete último proceso" />
   </Type>
-  <Type Name="ProcessAlgorithmSymbol" Description="Símbolo de algoritmo de proceso" />
+  <Type Name="ProcessAlgorithm" Description="Símbolo de algoritmo de proceso" />
   <Type Name="ProcessEntity" Description="Proceso">
     <Member Name="Algorithm" Description="Algoritmo" />
     <Member Name="ApplicationName" Description="Nombre de la aplicación" />

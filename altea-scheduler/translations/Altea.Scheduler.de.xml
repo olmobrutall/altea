@@ -152,5 +152,5 @@
     <Member Name="Tuesday" Description="Dienstag" />
     <Member Name="Wednesday" Description="Mittwoch" />
   </Type>
-  <Type Name="SimpleTaskSymbol" Description="Einfache Task" PluralDescription="Einfache Tasks" Gender="f" />
+  <Type Name="SimpleTask" Description="Einfache Task" PluralDescription="Einfache Tasks" Gender="f" />
 </Translations>

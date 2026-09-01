@@ -57,5 +57,5 @@
   <Type Name="FilePathOperation">
     <Member Name="Save" Description="Guardar" />
   </Type>
-  <Type Name="FileTypeSymbol" Description="Símbolo tipo de archivo" />
+  <Type Name="FileType" Description="Símbolo tipo de archivo" />
 </Translations>
