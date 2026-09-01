@@ -1,3 +1,4 @@
+import { setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { msg } from "@altea/altea/data/utils/localization";
 
 // Port of Signum's `HtmlEditorMessage` enum (Signum/Entities/EnumMessages.cs).
@@ -23,3 +24,8 @@ export const HtmlEditorMessage = {
     InsertHyperlink: msg("Insert hyperlink"),
     RemoveLink: msg("Remove link"),
 };
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("htmlEditor")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("htmlEditor");

@@ -1,7 +1,7 @@
 // The `reflect` import must be PRESENT even where no class is decorated with it: the quote-transformer
 // augments THIS import with the `field()` / `registerType()` helpers it injects for every entity field, and
 // without it the emitted module throws "field is not defined" at load time.
-import { reflect } from "@altea/altea/data/reflection";
+import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, backReference, rowOrder, stringLengthValidator } from "@altea/altea/data/decorators";
@@ -140,3 +140,8 @@ export const DashboardPartsMessage = {
     PasteHealthCheckLink: msg("Paste Health Check Link"),
     ClipboardDataIsNotCompatibleWithHealthCheckData: msg("Clipboard data is not compatible with health check data!"),
 };
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("dashboard")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("dashboard");

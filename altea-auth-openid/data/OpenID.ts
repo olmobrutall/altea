@@ -1,4 +1,4 @@
-import { reflect } from "@altea/altea/data/reflection";
+import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { entity, backReference } from "@altea/altea/data/decorators";
 import { noRepeatValidator } from "@altea/altea/data/validators";
 import type { Lite } from "@altea/altea/data/lite";
@@ -106,3 +106,8 @@ export interface OpenIDEndpoints {
 export const OpenIDMessage = {
     SignInWithOpenID: msg("Sign in with OpenID"),
 };
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("openid")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("openid");

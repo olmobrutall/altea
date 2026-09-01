@@ -1,4 +1,4 @@
-import { reflect } from "@altea/altea/data/reflection";
+import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { EmbeddedEntity, Entity } from "@altea/altea/data/entity";
 import { stringLengthValidator, fieldValidation } from "@altea/altea/data/decorators";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -230,3 +230,8 @@ export const EvalPanelMessage = {
     _0Found: msg("{0} found"),
     ExceptionChecking0: msg("Exception checking {0}"),
 };
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("eval")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("eval");

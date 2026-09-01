@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { MixinEntity, type Type } from "@altea/altea/data/entity";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { OperationLogEntity } from "@altea/altea/data/operationLog";
@@ -93,3 +93,8 @@ export const DiffLogMessage = {
 export namespace OperationLogTypeCondition {
     export const FilteringByTarget: TypeConditionSymbol = init();
 }
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("diffLog")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("diffLog");

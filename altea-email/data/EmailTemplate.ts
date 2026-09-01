@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
@@ -473,3 +473,8 @@ export function languageOf(culture: string | null | undefined): string | undefin
 
 // Re-exported so the message / editor modules need only this file for the template-side model.
 export { ModelConverterSymbol, TemplateApplicableEval, QueryTokenEmbedded };
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("mailing")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("mailing");

@@ -1,4 +1,4 @@
-import { init } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { msg } from "@altea/altea/data/utils/localization";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 
@@ -34,3 +34,8 @@ export const TimeMachineMessage = {
     ThisVersionWasCreatedAndDeleted: msg("This version was CREATED and DELETED"),
     ThisVersionDidNotChange: msg("This version DID NOT CHANGE"),
 };
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("timeMachine")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("timeMachine");

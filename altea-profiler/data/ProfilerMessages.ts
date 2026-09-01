@@ -1,3 +1,4 @@
+import { setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { msg } from "@altea/altea/data/utils/localization";
 
 // Port of Signum's profiler message enums (Signum.Profiler/ProfilerPermissions.cs HeavyProfilerMessage +
@@ -58,3 +59,8 @@ export const TimeMessage = {
     Last: msg(),
     TimeStatistics: msg(),
 };
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("profiler")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("profiler");

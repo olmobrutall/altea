@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { EmbeddedEntity } from "@altea/altea/data/entity";
 import { Symbol } from "@altea/altea/data/symbol";
 import { column, entity, format, stringLengthValidator, fieldValidation } from "@altea/altea/data/decorators";
@@ -189,3 +189,8 @@ export namespace FileTypeSymbols {
      *  starter) with a folder algorithm. Declared here so a shared component can reference it. */
     export const Default: FileTypeSymbol = init();
 }
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("files")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("files");

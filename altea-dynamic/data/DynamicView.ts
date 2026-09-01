@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
@@ -230,3 +230,8 @@ export const DynamicViewValidationMessage = {
     _0CanNotBe1: msg("{0} can not be '{1}'"),
     _0IsNotAValidIdentifier: msg("{0} is not a valid identifier"),
 };
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("dynamic")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("dynamic");

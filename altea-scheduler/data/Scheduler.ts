@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Symbol } from "@altea/altea/data/symbol";
@@ -464,3 +464,8 @@ function shortTime(dateTime: Temporal.PlainDateTime): string {
 function monthName(month: number): string {
     return new Date(2000, month - 1, 1).toLocaleString(undefined, { month: "short" });
 }
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("scheduler")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("scheduler");

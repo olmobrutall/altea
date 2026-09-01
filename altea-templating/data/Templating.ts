@@ -1,4 +1,4 @@
-import { reflect } from "@altea/altea/data/reflection";
+import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { resolveType } from "@altea/altea/data/registration";
 import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eval";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
@@ -130,3 +130,8 @@ export interface GlobalVariableTS {
 
 // Re-exported so a caller needing to build a QueryModel does not have to reach into altea core.
 export type { FilterRequest, OrderRequest, Pagination };
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("templating")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("templating");

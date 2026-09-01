@@ -1,4 +1,4 @@
-import { init } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { EntityKind, EntityData } from "@altea/altea/data/decorators";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
@@ -172,3 +172,8 @@ export interface MapOmniboxResult extends OmniboxResult {
 
 /** The discriminator the client's provider registry is keyed by — Signum's C# class name, verbatim. */
 export const MapOmniboxResultTypeName = "MapOmniboxResult";
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("map")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("map");

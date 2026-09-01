@@ -3,6 +3,7 @@ import { joinRelaxed } from "../data/globals/joinRelaxed";
 import type { Entity, PrimaryKey, Type } from "../data/entity";
 import { Symbol } from "../data/symbol";
 import { declaredSymbolsForType } from "../data/registration";
+import { StartParameters } from "../data/utils/startParameters";
 import { ResetLazy } from "../data/resetLazy";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
 import type { Schema, SynchronizingHandler } from "./schema/schema";
@@ -168,7 +169,21 @@ async function buildCache<T extends Symbol>(ctor: Type<T>): Promise<Map<string, 
         if (symbolTable == null || !await Administrator.existsTable(symbolTable))
             return byKey;
 
-        const rows = await table(ctor).toArray();
+        // The table exists but its SHAPE may trail the code — a column this model reads is not there yet.
+        // Same case TypeLogic.loadTypeEntities handles, and it bites for the same reason: this read happens
+        // during startup, long before `sync`, so a throw here stops the tool that would repair it. Report it
+        // as the database MISMATCH it is: the strict default (the web host) still throws with "Consider
+        // Synchronize", and tolerant startup — what the terminal enables — collects it and carries on with
+        // an empty cache, which is what a not-yet-created table already yields.
+        let rows: { key: string; id: PrimaryKey }[];
+        try {
+            rows = await table(ctor).toArray() as { key: string; id: PrimaryKey }[];
+        } catch (e) {
+            StartParameters.reportDatabaseMismatch(new Error(
+                `Could not read the ${ctor.name} table (${symbolTable.name.toString()}) — the database trails the code. Consider Synchronize.`
+                + "\n" + ((e as Error)?.message ?? String(e))));
+            return byKey;
+        }
 
         // EMPTY rows (a fresh database before generation) report nothing — there is nothing to compare yet.
         if (rows.length === 0)

@@ -1,3 +1,4 @@
+import { setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { msg } from "@altea/altea/data/utils/localization";
 
 // Port of Signum's `MarkdownMessage` (Signum/Entities/EnumMessages.cs) — the two labels the MarkdownLine's
@@ -11,3 +12,8 @@ export const MarkdownMessage = {
     Edit0: msg("Edit {0}"),
     Preview0: msg("Preview {0}"),
 };
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("markdown")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("markdown");

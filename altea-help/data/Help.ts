@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity, ModelEntity, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
@@ -655,3 +655,8 @@ export const HelpLinkPrefix = {
     namespace: "n",
     appendix: "a",
 } as const;
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("help")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("help");

@@ -222,11 +222,17 @@ export class SchemaSettings {
     // `type.name` would never match a scope — and must NOT fall back to EnumEntity's own file (which lives
     // in @altea/altea/data). Instead resolve by the ENUM's registered name (e.g. "OrderState"), so the enum
     // lands in the schema of the package it is DEFINED in, exactly like the table name is derived.
+    // The DECLARED name is logical and camelCase (`userAssets`), and is dialect-mapped like every other
+    // physical name — `user_assets` on Postgres, `userAssets` on SQL Server. Signum does the same
+    // (`Idiomatic(att.SchemaName)`); without it a Postgres schema would be created case-sensitively as
+    // "userAssets" and never match the `user_assets` a Signum-generated database has.
     schemaForType(type: Type<Entity>): SchemaName {
         const enumObject = getBoundEnum(type);
         const name = enumObject != null ? (enumNameOf(enumObject) ?? type.name) : type.name;
         const schema = schemaForName(name);
-        return schema ? new SchemaName(schema, this.schemaName.database) : this.schemaName;
+        if (!schema)
+            return this.schemaName;
+        return new SchemaName(this.isPostgres ? pascalToSnake(schema) : schema, this.schemaName.database);
     }
 
     // Signum's `Schema.Settings.FieldAttributes(route).Add(new IgnoreAttribute())`: a field that IS mapped in

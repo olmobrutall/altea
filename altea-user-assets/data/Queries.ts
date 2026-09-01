@@ -1,4 +1,4 @@
-import { reflect } from "@altea/altea/data/reflection";
+import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { EmbeddedEntity, Entity } from "@altea/altea/data/entity";
 import { column, serialize, stringLengthValidator, rowOrder } from "@altea/altea/data/decorators";
 import { type int, toInt } from "@altea/altea/data/basics";
@@ -91,3 +91,8 @@ export abstract class QueryFilterBaseEntity extends Entity {
     dashboardBehaviour: DashboardBehaviour | null;
     indentation: int = toInt(0);
 }
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("userAssets")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("userAssets");

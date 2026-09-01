@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { entity, backReference } from "@altea/altea/data/decorators";
 import { noRepeatValidator } from "@altea/altea/data/validators";
 import type { Lite } from "@altea/altea/data/lite";
@@ -258,3 +258,8 @@ export const AzureADMessage = {
     _0IsNotImplementedInMicrosoftGraph: msg("{0} is not implemented in the Microsoft Graph API"),
     UnableToMixFilterAndSearchInAnOr: msg("Unable to convert filter (mixing $filter and $search inside an OR)"),
 };
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("auth")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("auth");

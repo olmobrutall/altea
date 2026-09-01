@@ -1,4 +1,4 @@
-import { reflect } from "@altea/altea/data/reflection";
+import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
@@ -82,3 +82,8 @@ export interface IViewLogTarget extends Entity {
 export const ViewLogMessage = {
     ViewLogMyLast: msg("My last view log"),
 };
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("viewLog")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("viewLog");

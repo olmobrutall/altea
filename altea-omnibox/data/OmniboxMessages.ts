@@ -1,4 +1,4 @@
-import { init } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { msg } from "@altea/altea/data/utils/localization";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 
@@ -34,3 +34,8 @@ export const OmniboxMessage = {
 export namespace OmniboxPermission {
     export const ViewOmnibox: PermissionSymbol = init();
 }
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("omnibox")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("omnibox");

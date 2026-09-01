@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, MixinEntity, type Type } from "@altea/altea/data/entity";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { entity, quoted, stringLengthValidator, uniqueIndex } from "@altea/altea/data/decorators";
@@ -140,3 +140,8 @@ export namespace Isolation {
 export function isolationOf(entity: Entity): Lite<IsolationEntity> | null {
     return (entity as unknown as IsolationMixin).isolation ?? null;
 }
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("isolation")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("isolation");

@@ -70,11 +70,23 @@ export class SqlBuilder {
     // dialect default (dbo / public). SQL Server's SYSTEM_VERSIONING HISTORY_TABLE clause
     // rejects a one-part name, so the history table must be spelled out in two parts.
     qualifiedName(name: ObjectName): string {
-        const schema = name.schema.name !== '' ? name.schema.name : (this.isPostgres ? 'public' : 'dbo');
+        const schema = this.schemaOrDefault(name.schema);
         return [name.schema.database.name, schema, name.name]
             .filter(p => p !== '')
             .map(p => this.sqlEscape(p))
             .join('.');
+    }
+
+    /**
+     * The schema's name as DDL must spell it. altea models the default schema as the EMPTY string, meaning
+     * "leave the name unqualified and let the connection resolve it" — which is right wherever the name is
+     * optional, and wrong wherever a statement has to NAME a schema. There it produced `SET SCHEMA ""`,
+     * which no dialect accepts, so a script that moved any table into the default schema could not run at
+     * all (169 such statements against a Signum-generated database, where every module has its own schema
+     * and altea's counterpart does not).
+     */
+    schemaOrDefault(schema: SchemaName): string {
+        return schema.name !== '' ? schema.name : (this.isPostgres ? 'public' : 'dbo');
     }
 
     // ---- Schemas ------------------------------------------------------------
@@ -612,8 +624,7 @@ export class SqlBuilder {
 
             const add = new SqlPreCommandSimple(`ALTER TABLE ${tableName} ALTER COLUMN ${col} ADD GENERATED ALWAYS AS IDENTITY;`);
             // Reseed the just-created identity sequence past the existing rows (empty table → next id = 1).
-            const schema = table.name.schema.name !== '' ? table.name.schema.name : 'public';
-            const regclass = `${schema}.${table.name.name}`.replace(/'/g, "''");
+            const regclass = `${this.schemaOrDefault(table.name.schema)}.${table.name.name}`.replace(/'/g, "''");
             const colLit = column.name.replace(/'/g, "''");
             const reseed = new SqlPreCommandSimple(
                 `SELECT setval(pg_get_serial_sequence('${regclass}', '${colLit}'), COALESCE((SELECT MAX(${col}) FROM ${tableName}), 0) + 1, false);`);
@@ -666,9 +677,11 @@ export class SqlBuilder {
     }
 
     alterSchema(oldName: ObjectName, schemaName: SchemaName): SqlPreCommandSimple {
+        // A move has to NAME the destination, so the default schema is spelled out (see schemaOrDefault).
+        const target = this.sqlEscape(this.schemaOrDefault(schemaName));
         if (this.isPostgres)
-            return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(oldName)} SET SCHEMA ${this.sqlEscape(schemaName.name)};`);
-        return new SqlPreCommandSimple(`ALTER SCHEMA ${this.sqlEscape(schemaName.name)} TRANSFER ${this.objectName(oldName)};`);
+            return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(oldName)} SET SCHEMA ${target};`);
+        return new SqlPreCommandSimple(`ALTER SCHEMA ${target} TRANSFER ${this.objectName(oldName)};`);
     }
 
     // Plain ObjectName form, plus a Table + `withHistory` form (Signum's overload) that forks the

@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
@@ -163,3 +163,8 @@ export namespace UserChartOperation {
     export const Save: ExecuteSymbol<UserChartEntity> = init();
     export const Delete: DeleteSymbol<UserChartEntity> = init();
 }
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("chart")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("chart");

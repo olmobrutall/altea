@@ -1,4 +1,4 @@
-import { reflect } from "@altea/altea/data/reflection";
+import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { entity, format, niceName, column, stringLengthValidator, fieldValidation } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
 import { type uuid } from "@altea/altea/data/basics";
@@ -64,3 +64,8 @@ export class MicrosoftGraphEmailServiceEntity extends EmailServiceEntity {
         });
     }
 }
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("mailing")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("mailing");

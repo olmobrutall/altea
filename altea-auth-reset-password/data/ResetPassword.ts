@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import { entity, uniqueIndex, quoted, stringLengthValidator } from "@altea/altea/data/decorators";
 import { Temporal } from "@altea/altea/data/basics";
@@ -121,3 +121,8 @@ export const ResetPasswordAuthMessage = {
     RequestNewLink: msg(),
     NewLinkToResetPasswordHasBeenSentSuccessfully: msg(),
 };
+
+// The database schema this package's tables live in — altea's counterpart of Signum's
+// `[assembly: AssemblySchemaName("auth")]`. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
+setDefaultDatabaseSchema("auth");
