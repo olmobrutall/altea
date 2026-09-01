@@ -116,7 +116,7 @@ export namespace SMSModelLogic {
         // The registry rows are code-declared, so the SCHEMA pipeline maintains them (Signum's
         // `Schema.Generating` / `Schema.Synchronizing`) — see the header on why not an `initializing` hook.
         sb.schema.generating.push(schema => generateSMSModels(schema));
-        sb.schema.synchronizing.push(replacements => synchronizeSMSModels(replacements));
+        sb.schema.synchronizing.push(synchronizeSMSModels);
     }
 
     /** Signum's `RegisterSMSModel<T>(defaultTemplateConstructor, queryName)`. */

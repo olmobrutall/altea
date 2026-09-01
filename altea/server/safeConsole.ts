@@ -29,6 +29,17 @@ export namespace SafeConsole {
         console.log(text);
     }
 
+    /** `Console.Write` — no newline, so a caller can build one line in pieces (a step's name, then its
+     *  outcome once it is known). `console.log` cannot do this; stdout can. */
+    export function write(text: string): void {
+        process.stdout.write(text);
+    }
+
+    /** Signum's `SafeConsole.WriteColor(color, text)` — the no-newline half of writeLineColor. */
+    export function writeColor(style: (s: string) => string, text: string): void {
+        process.stdout.write(style(text));
+    }
+
     /** Signum's `SafeConsole.WriteLineColor(color, text)`. */
     export function writeLineColor(style: (s: string) => string, text: string): void {
         console.log(style(text));

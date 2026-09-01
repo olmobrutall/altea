@@ -11,6 +11,16 @@ import { EntityEvents, type QueryFilterContext } from './entityEvents';
 import { Connector } from '../connection/connector';
 import type { Table } from './table';
 import { ViewBuilder } from './viewBuilder';
+import { SafeConsole, Color } from '../safeConsole';
+
+// The name the synchronization trace prints for one pipeline step. Signum prints
+// `<DeclaringType>.<MethodName>`, which TypeScript has no counterpart for — a step is a plain function —
+// so it prints the FUNCTION's name. An anonymous one falls back to its position, which is a bug report
+// rather than a label: every step should be a named function or an arrow bound to a named const (see the
+// constructor), and where a step is built per argument it names itself (SymbolLogic, EmailModelLogic).
+function stepName(step: Function, index: number): string {
+    return step.name !== '' ? step.name : `synchronizing[${index}]`;
+}
 
 // A step in the generation pipeline: given the schema, contributes a piece of the
 // create script, or nothing. Combined in registration order by generationScript().
@@ -137,11 +147,14 @@ export class Schema {
         this.generating.push(() => this.assets.schema_Generating());
 
         // Assets.Schema_SynchronizingBeforeTables FIRST, Assets.Schema_Synchronizing LAST —
-        // mirroring Signum's Synchronizing chain order.
+        // mirroring Signum's Synchronizing chain order. Bound to a const each, rather than written
+        // inline in the push, only so the arrow takes that name: it is what the pipeline trace prints.
+        const schemaAssetsBeforeTables: SynchronizingHandler = r => this.assets.schema_SynchronizingBeforeTables(r);
+        const schemaAssets: SynchronizingHandler = r => this.assets.schema_Synchronizing(r);
         this.synchronizing.push(
-            r => this.assets.schema_SynchronizingBeforeTables(r),
+            schemaAssetsBeforeTables,
             synchronizeSchemasScript, synchronizeTablesScript, synchronizeEnumsScript,
-            r => this.assets.schema_Synchronizing(r),
+            schemaAssets,
         );
     }
 
@@ -160,11 +173,28 @@ export class Schema {
         // Signum's SynchronizationScript wraps each synchronizing step: a thrown error becomes a
         // COMMENTED-OUT command (so the rest of the script still generates and the error is visible)
         // instead of aborting the whole synchronization. The user re-runs sync after applying the script.
+        //
+        // It also NARRATES the pipeline, one line per step — `<name>...` then OK / Changes / Error — and
+        // that trace is what makes a sync legible: which steps ran, which of them wants to change
+        // something, and (the point) which one blew up, since an error is otherwise invisible until you
+        // spot a commented block somewhere in a 5000-line script. Signum prints
+        // `<DeclaringType>.<MethodName>`; TypeScript has no declaring type, so a step is named by its
+        // FUNCTION (see stepName) — which is why the steps registered as anonymous arrows were given
+        // names.
         for (let i = 0; i < this.synchronizing.length; i++) {
+            const step = this.synchronizing[i];
+            const name = stepName(step, i);
+            SafeConsole.writeColor(Color.white, name);
+            SafeConsole.write("...");
             try {
-                parts.push(await this.synchronizing[i](replacements));
+                const result = await step(replacements);
+                // Signum's three outcomes: nothing to do, something to migrate, or a step that failed.
+                SafeConsole.writeLineColor(result == null ? Color.green : Color.yellow, result == null ? "OK" : "Changes");
+                parts.push(result);
             } catch (e) {
-                parts.push(commentedError(`synchronizing step #${i}`, e));
+                SafeConsole.writeColor(Color.red, "Error");
+                SafeConsole.writeLineColor(Color.darkRed, " (...it's probably ok, execute this script and try again)");
+                parts.push(commentedError(name, e));
             }
         }
         return SqlPreCommand.combine(Spacing.Triple, ...parts);

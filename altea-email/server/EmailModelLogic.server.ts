@@ -150,7 +150,7 @@ export namespace EmailModelLogic {
         // `synchronizing` means the rename is asked through Replacements (the "EmailModel" bucket) and the
         // matched row is UPDATEd in place.
         sb.schema.generating.push(schema => generateEmailModels(schema));
-        sb.schema.synchronizing.push(replacements => synchronizeEmailModels(replacements));
+        sb.schema.synchronizing.push(synchronizeEmailModels);
 
         // Signum's `sb.Schema.Initializing += () => TypeToEntity.Load()` — warm the cache from the DB once the
         // schema is ready, so the synchronous lookups below never race. No try/catch: a not-yet-created TABLE

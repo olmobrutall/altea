@@ -5,7 +5,7 @@ import { Symbol } from "../data/symbol";
 import { declaredSymbolsForType } from "../data/registration";
 import { ResetLazy } from "../data/resetLazy";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
-import type { Schema } from "./schema/schema";
+import type { Schema, SynchronizingHandler } from "./schema/schema";
 import { Connector } from "./connection/connector";
 import { SqlPreCommand, Spacing } from "./sync/sqlPreCommand";
 import { Synchronizer, Replacements } from "./sync/synchronizer";
@@ -86,7 +86,12 @@ export namespace SymbolLogic {
         }
 
         sb.schema.generating.push(schema => generateSymbols(schema, ctor));
-        sb.schema.synchronizing.push(replacements => synchronizeSymbols(replacements, ctor));
+        // Named after the SYMBOL TYPE, because SymbolLogic.start registers one of these per symbol type —
+        // an unnamed arrow would print a dozen indistinguishable lines in the synchronization trace
+        // (Signum's own label is `SymbolLogic<OperationSymbol>.Schema_Synchronizing`).
+        const synchronizeThisSymbol: SynchronizingHandler = replacements => synchronizeSymbols(replacements, ctor);
+        Object.defineProperty(synchronizeThisSymbol, "name", { value: `synchronizeSymbols(${ctor.name})`, configurable: true });
+        sb.schema.synchronizing.push(synchronizeThisSymbol);
         // Signum's Schema.Initializing → lazy.Load: read the persisted ids back after the connector is
         // bound and the table exists (server startup, and after gen/sync). Tolerant of a not-yet-created
         // table (buildCache returns empty). Runs after TypeLogic.load (symbols are pushed after types).
