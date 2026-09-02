@@ -23,8 +23,8 @@ import type { DashboardEntity, DashboardEntity_Part, DashboardEntity_TokenEquiva
 //    `fullKey()`, which is the same identity and is what the wire form carries anyway.
 //  - `QueryUtils.CanColumn` has no counterpart, so an expansion into a grouping query is checked for
 //    GROUPABILITY only (Signum checks both). A non-groupable token is the case that actually happens.
-//  - Signum's `AggregateToken` with `FilterOperation.DistinctTo` for CountNotNull is spelled with altea's
-//    AggregateFunction.Count over the same parent.
+//  - Signum's CountNotNull is spelled with altea's AggregateToken options (`{ filterOperation: "DistinctTo",
+//    value: null }`), whose `key` then reads "CountNotNull" — the name the client executor looks it up by.
 
 /** Signum's CachedQueryDefinition — one part's query, and what it needs from the snapshot. */
 export interface CachedQueryDefinition {
@@ -266,7 +266,12 @@ function expandColumns(definition: CachedQueryDefinition, extra: QueryToken[], e
         const parent = (avg.token as AggregateToken).parent!;
         request.columns = request.columns.filter(c => c !== avg);
         request.columns.push(new Column(new AggregateToken(AggregateFunction.Sum, parent)));
-        request.columns.push(new Column(new AggregateToken(AggregateFunction.Count, parent)));
+        // Signum's `new AggregateToken(Count, parent, FilterOperation.DistinctTo, null)` — a count of the
+        // rows whose value is NOT NULL, which is the denominator an average needs. Its key comes out
+        // "CountNotNull", and that is the name the client executor looks the column up by, so a plain
+        // Count (which counts ROWS) would both mis-divide and not be found.
+        request.columns.push(new Column(new AggregateToken(AggregateFunction.Count, parent,
+            { filterOperation: "DistinctTo", value: null })));
     }
 }
 
