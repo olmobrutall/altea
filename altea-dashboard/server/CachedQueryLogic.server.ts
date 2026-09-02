@@ -10,6 +10,7 @@ import { type int } from "@altea/altea/data/basics";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { Pagination, QueryRequest } from "@altea/altea/server/dynamicQuery/requests";
 import { toWireQueryRequest, toWireResultTable } from "@altea/altea/server/queryServer";
+import { Serializer } from "@altea/altea/data/serializer";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { FileTypeLogic } from "@altea/altea-files/server/FileTypeLogic.server";
 import type { IFileTypeAlgorithm } from "@altea/altea-files/server/FileTypeAlgorithm.server";
@@ -139,7 +140,12 @@ export namespace CachedQueryLogic {
             const file = FilePathEmbedded.create({
                 fileType: CachedQueryFileType.CachedQuery,
                 fileName: "CachedQuery.json",
-                binaryFile: new TextEncoder().encode(JSON.stringify(json)),
+                // `Serializer.stringify`, NOT JSON.stringify: a plain stringify drops a Lite's ENTITY
+                // TYPE (altea's `entityType` is a constructor), and the browser needs it to compare lites
+                // at all — the row key it groups by is "EntityType;id", and a filter value is matched
+                // against a lite. Without this every snapshot row carries `{id, toStr}` and the executor
+                // silently groups unrelated rows together. The same call @altea/altea-agent documents.
+                binaryFile: new TextEncoder().encode(Serializer.stringify(json)),
             });
             file.prepareForSave();
 
@@ -156,11 +162,9 @@ export namespace CachedQueryLogic {
                 queryDuration: queryDuration as int,
                 uploadDuration: uploadDuration as int,
             });
-            row.userAssets = c.userAssets.map((ua, i) => CachedQueryEntity_UserAsset.create({
-                cachedQuery: row.toLite(),
-                order: i as int,
-                userAsset: ua,
-            }));
+            // The `@backReference` and `@rowOrder` are filled by the SAVE CASCADE, so neither is set here —
+            // and `cachedQuery` could not be: the owner has no id yet.
+            row.userAssets = c.userAssets.map(ua => CachedQueryEntity_UserAsset.create({ userAsset: ua }));
 
             await row.save();
         }

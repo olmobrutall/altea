@@ -367,6 +367,16 @@ export function init(ctor?: SymbolCtor | InitOptions, key?: string, fileInfo?: F
     sym.key = key;
     sym.isNew = false; // symbols are pre-existing rows; SymbolLogic assigns the id
 
+    // A SemiSymbol also carries a NAME, and for a code-declared one Signum fills it from the field name:
+    // `SemiSymbol(declaringType, fieldName)` sets `Key = Type.field` and `Name = field`. Without this the
+    // seed INSERT writes a null name — which its own NOT NULL rejects, so a database with a declared
+    // SemiSymbol (an alert type, a note type, an agent) could not be generated at all.
+    //
+    // Detected by the FIELD rather than by the class, so this module keeps importing nothing: a Symbol has
+    // no `name`, a SemiSymbol declares one, and the property exists on the instance either way.
+    if ("name" in sym && (sym as { name?: string }).name == null)
+        (sym as { name?: string }).name = key.slice(key.indexOf(".") + 1);
+
     let byKey = declaredSymbols.get(ctor);
     if (byKey == null) declaredSymbols.set(ctor, byKey = new Map());
     byKey.set(key, sym);

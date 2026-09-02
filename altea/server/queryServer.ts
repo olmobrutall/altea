@@ -209,7 +209,7 @@ function parseFilter(token: (s: string) => QueryToken, f: FilterRequest): Filter
 // Signum's FilterValueConverter: deserialize a wire filter value against the token's type. IsIn /
 // IsNotIn carry an ARRAY of that type. Lites/entities/embeddeds already arrive decoded (the request
 // body went through the entity Serializer); enums (member-name string), dates and primitives don't.
-function deserializeFilterValue(token: QueryToken, operation: FilterOperationKeys, raw: unknown): unknown {
+export function deserializeFilterValue(token: QueryToken, operation: FilterOperationKeys, raw: unknown): unknown {
     if (operation === FilterOperationKeys.IsIn || operation === FilterOperationKeys.IsNotIn)
         return Array.isArray(raw) ? raw.map(v => deserializeSingle(token, v)) : raw;
     return deserializeSingle(token, raw);

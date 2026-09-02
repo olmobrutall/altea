@@ -5,6 +5,7 @@ import {
 import { SubTokensOptionsAll, type QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { Enum } from "@altea/altea/data/enum";
+import { deserializeFilterValue } from "@altea/altea/server/queryServer";
 import { FilterOperation, FilterGroupOperation } from "@altea/altea/data/dynamicQueries";
 import { Entity } from "@altea/altea/data/entity";
 import type { QueryFilterBaseEntity } from "../data/Queries";
@@ -84,7 +85,15 @@ export namespace QueryFilterUtils {
         if (op === FilterOperationKeys.IsIn || op === FilterOperationKeys.IsNotIn)
             return valueString.split("|").map(v => parseFilterValue(v.trim(), t.filterType));
 
-        return parseFilterValue(valueString, t.filterType);
+        // …then coerced to what the COLUMN holds. `parseFilterValue` is isomorphic and answers what the
+        // CLIENT works with — for an enum that is the member NAME, because the wire value is the name — but
+        // a query compares against the stored ORDINAL. `deserializeFilterValue` is the same coercion the
+        // live query route applies to a filter the client posts, reused here rather than restated: without
+        // it a stored asset with an enum filter fails at query time with "invalid input syntax for type
+        // integer", and every SERVER-side consumer of that asset is affected (a dashboard snapshot, an
+        // e-mail or Office template's query, the SMS one) while the UI path works, since there the client
+        // builds the request and the route coerces it.
+        return deserializeFilterValue(t, op, parseFilterValue(valueString, t.filterType));
     }
 
     /** The "this row's entity" filter every single-entity render starts from (Signum's
