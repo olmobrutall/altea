@@ -11,8 +11,9 @@ import {
 } from "../data/Dashboard";
 import {
     TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity,
-    HealthCheckPartEntity_Item, CustomPartEntity, TextPartType,
+    HealthCheckPartEntity_Item, CustomPartEntity, TextPartType, ToolbarMenuPartEntity,
 } from "../data/Parts";
+import { ToolbarMenuEntity } from "@altea/altea-toolbar/data/Toolbar";
 import { DashboardLogic } from "./DashboardLogic.server";
 
 // Port of Signum's DashboardEntity.ToXml / FromXml + PanelPartEmbedded.ToXml / FromXml + each base part's
@@ -275,6 +276,25 @@ export function registerBasePartsXml(): void {
         },
         toXml: p => ({ [A + "CustomPartName"]: p.customPartName }),
         fromXml: (p, x) => { p.customPartName = str(x[A + "CustomPartName"]) ?? ""; },
+    });
+
+    // The element name is Signum's "ToolbarPart", not the type name — Signum's ToolbarMenuPartEntity.ToXml
+    // writes `new XElement("ToolbarPart", …)` and its part registry keys on that, so an exported dashboard
+    // stays readable by both.
+    DashboardLogic.registerPart<ToolbarMenuPartEntity>({
+        type: ToolbarMenuPartEntity,
+        elementName: "ToolbarPart",
+        clone: p => {
+            const c = new ToolbarMenuPartEntity();
+            c.toolbarMenu = p.toolbarMenu;
+            return c;
+        },
+        // The field is a LITE (Signum's shape) while `include` takes the entity — so the menu is retrieved
+        // first, which is also what makes it travel WITH the dashboard in the export set.
+        toXml: async (p, ctx) => ({ [A + "ToolbarMenu"]: ctx.include(await ctx.retrieveLite(p.toolbarMenu)) }),
+        fromXml: (p, x, ctx) => {
+            p.toolbarMenu = (ctx.getEntity(str(x[A + "ToolbarMenu"])!) as ToolbarMenuEntity).toLite();
+        },
     });
 }
 

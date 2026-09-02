@@ -31,7 +31,7 @@ import {
     DashboardVariableMessage, DashboardEmbedededInEntity, DashboardEntity_Part, type IPartEntity,
 } from "../data/Dashboard";
 import {
-    TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity, CustomPartEntity,
+    TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity, CustomPartEntity, ToolbarMenuPartEntity,
 } from "../data/Parts";
 import { DashboardController } from "./View/DashboardFilterController";
 import { parseIcon } from "@altea/altea/client/Components/IconHelpers";
@@ -109,6 +109,7 @@ export namespace DashboardClient {
         cb.configure(SeparatorPartEntity).withView(() => import("./Admin/SeparatorPart"));
         cb.configure(HealthCheckPartEntity).withView(() => import("./Admin/HealthCheckPart"));
         cb.configure(CustomPartEntity).withView(() => import("./Admin/CustomPart"));
+        cb.configure(ToolbarMenuPartEntity).withView(() => import("./Admin/ToolbarMenuPart"));
 
         // The dashboard page.
         cb.routes.push({
@@ -145,6 +146,12 @@ export namespace DashboardClient {
             component: () => import("./View/CustomPart").then(a => a.default),
             icon: () => ({ icon: "cube", iconColor: "forestgreen" }),
             withPanel: (cp, e) => Options.customPartRenderers[e == null ? "NONE" : getTypeName(e)]?.[cp.customPartName]?.withPanel ?? true,
+        });
+
+        registerRenderer(ToolbarMenuPartEntity, {
+            component: () => import("./View/ToolbarMenuPart").then(a => a.default),
+            icon: () => ({ icon: "bars", iconColor: "dodgerblue" }),
+            withPanel: () => false,
         });
 
         // Clone shows up as a normal constructor button; the Save/Delete ones are the framework defaults.

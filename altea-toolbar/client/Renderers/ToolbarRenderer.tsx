@@ -542,7 +542,7 @@ function ToolbarMenuItemsEntityType(p: { response: ToolbarResponse<ToolbarMenuEn
 
 /** Signum's `simplifyForEntity`: drop the elements an entity-scoped menu should hide for THIS entity, then
  *  re-run the divider / pure-header cleanup the server does for the unscoped case. */
-function simplifyForEntity(resp: ToolbarResponse<any>[], selectedEntity: Lite<Entity>, hiddenGuids?: Set<string>): ToolbarResponse<any>[] {
+export function simplifyForEntity(resp: ToolbarResponse<any>[], selectedEntity: Lite<Entity>, hiddenGuids?: Set<string>): ToolbarResponse<any>[] {
     const result = resp
         .map(tr => {
 

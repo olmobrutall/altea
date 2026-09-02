@@ -7,6 +7,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { entity, backReference, rowOrder, stringLengthValidator } from "@altea/altea/data/decorators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
+import { ToolbarMenuEntity } from "@altea/altea-toolbar/data/Toolbar";
 import type { IPartEntity } from "./Dashboard";
 
 // Port of the dashboard part entities Signum defines in Signum.Dashboard/PanelPart.cs + CustomPart.cs — the
@@ -18,7 +19,10 @@ import type { IPartEntity } from "./Dashboard";
 // altea divergences: Signum's `IPartEntity.Clone()` / `ToXml` / `FromXml` are not entity members here — the
 // XML lives in the server part registry (server/DashboardXml.server.ts) and cloning in the same registry
 // (used by the Clone operation). `RequiresTitle` IS kept on the entity (the title validation is isomorphic).
-// ToolbarMenuPartEntity is deferred with Signum.Toolbar.
+// ToolbarMenuPartEntity lives here too, exactly as in Signum: it is declared in Signum.Dashboard (hence
+// the `dashboard` schema, not `toolbar`) and reaches ToolbarMenuEntity through the reference
+// Signum.Dashboard.csproj already has on Signum.Toolbar — which altea-dashboard's package.json also has,
+// so the dependency runs the same way and there is no cycle.
 
 // Signum's TextPartType (PanelPart.cs) — how `textContent` is rendered.
 export enum TextPartType {
@@ -77,6 +81,23 @@ export class SeparatorPartEntity extends Entity implements IPartEntity {
 
     toString(): string {
         return this.title ?? "";
+    }
+}
+
+// Signum's ToolbarMenuPartEntity (PanelPart.cs). Renders one toolbar MENU as a dashboard part, so a
+// dashboard can carry the same navigation block the sidebar does. Signum declares it in Signum.Dashboard
+// rather than Signum.Toolbar, which is why its table is `dashboard.toolbar_menu_part`.
+@entity("Part", "Master")
+export class ToolbarMenuPartEntity extends Entity implements IPartEntity {
+    toolbarMenu: Lite<ToolbarMenuEntity>;
+
+    // Signum's `RequiresTitle => false` — the menu supplies its own heading.
+    requiresTitle(): boolean {
+        return false;
+    }
+
+    toString(): string {
+        return this.toolbarMenu?.toString() ?? ToolbarMenuEntity.niceName();
     }
 }
 

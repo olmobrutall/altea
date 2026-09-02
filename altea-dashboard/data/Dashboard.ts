@@ -16,7 +16,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { newGuid, type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
-import { TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity, CustomPartEntity } from "./Parts";
+import { TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity, CustomPartEntity, ToolbarMenuPartEntity } from "./Parts";
 
 // Port of Signum's Signum.Dashboard/DashboardEntity.cs + PanelPart.cs. A Dashboard is a user-authored,
 // XML-portable grid of PARTS (a saved query in a SearchControl, a chart, a big value, free text, …) laid out
@@ -37,8 +37,8 @@ import { TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEn
 //    (altea entities are plain field bags with no change notification).
 //  - DEFERRED with their missing extensions: `CacheQueryConfiguration` + CachedQueryEntity +
 //    RegenerateCachedQueries (Signum.Files' FilePathEmbedded + Signum.Scheduler), `ITaskEntity`
-//    (Scheduler), ToolbarMenuPartEntity (Signum.Toolbar) and the Omnibox provider. The per-part
-//    `isQueryCached` flags go with them.
+//    (Scheduler) and the Omnibox provider. The per-part `isQueryCached` flags go with them.
+//    (ToolbarMenuPartEntity was deferred with Signum.Toolbar and landed with it — see ./Parts.)
 
 // ---- Enums (declared here so they auto-register with the entities that reference them) -----------------
 
@@ -141,7 +141,7 @@ export class DashboardEntity_Part extends Entity implements IGridEntity {
     // Signum's [BindParent, ImplementedBy(…the base parts…)] IPartEntity Content. The app WIDENS this list
     // to the parts of every registered module (Signum did the same from Southwind's Starter) — see
     // eastwind/entityOverrides.data.ts's `overrideImplementedBy(DashboardEntity_Part, "content", …)`.
-    @implementedBy(() => [TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity, CustomPartEntity])
+    @implementedBy(() => [TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity, CustomPartEntity, ToolbarMenuPartEntity])
     content: IPartEntity;
 
     toString(): string {
