@@ -5,6 +5,7 @@ import { entity, implementedByAll, stringLengthValidator } from "@altea/altea/da
 import { Temporal } from "@altea/altea/data/basics";
 import { OperationSymbol } from "@altea/altea/data/operations";
 import { BigStringEmbedded } from "@altea/altea/data/bigString";
+import { Serializer } from "@altea/altea/data/serializer";
 import { ProcessAlgorithmSymbol, type IProcessDataEntity } from "./Processes";
 
 // Port of Signum.Processes' Package.cs — a PACKAGE is the most common thing a process runs over: a named
@@ -13,9 +14,9 @@ import { ProcessAlgorithmSymbol, type IProcessDataEntity } from "./Processes";
 //
 // altea divergences, documented inline:
 //  - `byte[]? OperationArguments` (Signum serialises the operation's arguments into the package) → a
-//    `Uint8Array | null` "Blob" column. Nothing fills it yet: the client-side "run this operation over the
-//    selected rows" flow (Signum's PackageOperation contextual menu) is NOT ported, so an app builds its
-//    packages in code and needs no argument blob.
+//    `Uint8Array | null` "Blob" column, read and written by `setOperationArgs` / `getOperationArgs` below.
+//    (The client-side "run this operation over the selected rows" flow — Signum's PackageOperation
+//    contextual menu — is still not ported; a package is built in code, but it can now carry arguments.)
 //  - `PackageEntity` is `@entity("Part")` in Signum (owned by the process that runs it) — but altea Parts
 //    have exactly ONE owner and are reached through it, while a package is referenced by `ProcessEntity.data`
 //    (an @implementedByAll Lite, not an owned collection). So it is a "System" entity here, like its lines.
@@ -29,7 +30,8 @@ export class PackageEntity extends Entity implements IProcessDataEntity {
     @stringLengthValidator({ max: 200 })
     name: string | null = null;
 
-    /** Signum's OperationArguments (see the header note — unused for now). */
+    /** Signum's OperationArguments — the arguments the process needs beyond its lines, written and read
+     *  by `setOperationArgs` / `getOperationArgs` below. */
     operationArguments: Uint8Array | null = null;
 
     configString: BigStringEmbedded = new BigStringEmbedded();
@@ -80,6 +82,65 @@ export class PackageLineEntity extends Entity {
  *  PackageOperationEntity's operation to every line. */
 export namespace PackageOperationProcess {
     export const PackageOperation: ProcessAlgorithmSymbol = init();
+}
+
+// ---- Operation arguments (Signum's PackageLogic.SetOperationArgs / GetOperationArgs) --------------------
+
+// A process that walks a package often needs more than the lines: "send THIS template to these 500
+// customers" is one argument plus the lines. Signum stashes that argument list in the package itself, as
+// JSON bytes written with the FULL entity serializer so a `Lite<EmailTemplateEntity>` survives the round
+// trip with its type; altea does the same through its own `Serializer`, which is the codec that knows how
+// to write a Lite (`JSON.stringify` drops a Lite's constructor-valued entityType, leaving a reader unable
+// to tell what it points at).
+//
+// `writeTypes: "Always"` mirrors Signum's FullJsonSerializerOptions: the array is `unknown[]`, so nothing
+// on the reading side can infer a missing discriminator from a declared field type.
+//
+// They live beside the entity rather than in a logic module because they are pure codec — no database, no
+// schema — and Signum's own placement (extension methods in PackageLogic) has no altea counterpart to
+// hang them on.
+
+/** Signum's `package.SetOperationArgs(args)` — returns the package, so it chains into a `save()`. */
+export function setOperationArgs<T extends PackageEntity>(pack: T, args: unknown[] | null): T {
+    pack.operationArguments = args == null ? null : new TextEncoder().encode(Serializer.stringify(args, { writeTypes: "Always" }));
+    return pack;
+}
+
+/** Signum's `package.GetOperationArgs()` — null when the package carries none. */
+export function getOperationArgs(pack: PackageEntity): unknown[] | null {
+    if (pack.operationArguments == null)
+        return null;
+    return Serializer.parse(new TextDecoder().decode(pack.operationArguments)) as unknown[];
+}
+
+// Signum reads an argument by TYPE (`args.GetArg<T>()`), which TypeScript's erasure cannot do — so the
+// type is passed as the constructor. A LITE needs its own pair: a `Lite<EmailTemplateEntity>` is a LiteImp,
+// never an `instanceof EmailTemplateEntity`, so matching it means comparing the lite's `entityType`.
+
+/** Signum's `args.GetArg<T>()` for a value / entity / symbol argument — or throw naming what was asked for. */
+export function getArg<T>(args: unknown[] | null, ctor: new (...a: any[]) => T): T {
+    const found = tryGetArg(args, ctor);
+    if (found == null)
+        throw new Error(`The package carries no argument of type ${ctor.name}`);
+    return found;
+}
+
+/** Signum's `args.TryGetArgC<T>()` — undefined when there is none. */
+export function tryGetArg<T>(args: unknown[] | null, ctor: new (...a: any[]) => T): T | undefined {
+    return args?.find(a => a instanceof ctor) as T | undefined;
+}
+
+/** `getArg` for a `Lite<T>` argument, matched on the lite's entityType. */
+export function getLiteArg<T extends Entity>(args: unknown[] | null, ctor: abstract new (...a: any[]) => T): Lite<T> {
+    const found = tryGetLiteArg(args, ctor);
+    if (found == null)
+        throw new Error(`The package carries no Lite<${ctor.name}> argument`);
+    return found;
+}
+
+/** `tryGetArg` for a `Lite<T>` argument. */
+export function tryGetLiteArg<T extends Entity>(args: unknown[] | null, ctor: abstract new (...a: any[]) => T): Lite<T> | undefined {
+    return args?.find(a => a instanceof Lite && a.entityType === ctor) as Lite<T> | undefined;
 }
 
 // The database schema this package's tables live in — altea's counterpart of Signum's

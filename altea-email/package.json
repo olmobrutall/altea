@@ -27,7 +27,8 @@
     "@altea/altea-user-assets": "workspace:*",
     "@altea/altea-user-queries": "workspace:*",
     "nodemailer": "^7.0.0",
-    "quote-transformer": "workspace:*"
+    "quote-transformer": "workspace:*",
+    "@altea/altea-processes": "workspace:*"
   },
   "devDependencies": {
     "@types/nodemailer": "^7.0.0"

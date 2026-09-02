@@ -2,6 +2,7 @@
   // SERVER layer — node-only (the renderer, the SMTP sender, the async sender loop, the routes).
   "extends": "../altea/presets/server.json",
   "references": [
+    { "path": "../altea-processes/tsconfig.server.json" },
     { "path": "./tsconfig.data.json" },
     { "path": "../altea/tsconfig.server.json" },
     { "path": "../altea-auth/tsconfig.server.json" },

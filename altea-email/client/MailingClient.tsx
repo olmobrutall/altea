@@ -29,6 +29,7 @@ import {
     EmailMasterTemplateEntity, EmailMasterTemplateEntity_Message, EmailTemplateEntity, EmailTemplateEntity_Message,
     EmailTemplateVisibleOn, FileTokenAttachmentEntity, ImageAttachmentEntity,
 } from "../data/EmailTemplate";
+import { EmailPackageEntity } from "../data/EmailPackage";
 import {
     EmailSenderConfigurationEntity, SmtpEmailServiceEntity, SmtpNetworkDeliveryEmbedded,
 } from "../data/EmailSenderConfiguration";
@@ -87,6 +88,8 @@ export namespace MailingClient {
                     token(e => e.exception),
                 ],
             }));
+
+        cb.configure(EmailPackageEntity).withView(() => import("./Templates/EmailPackage"));
 
         cb.configure(EmailTemplateEntity)
             .withView(() => import("./Templates/EmailTemplate"))
