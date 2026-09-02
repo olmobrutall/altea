@@ -7,14 +7,11 @@ import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
-import { UserEntity } from "@altea/altea-auth/data/User";
+import type { IUserEntity } from "@altea/altea/data/security";
 
 // Port of Signum.Notes — a free-text note attached to ANY entity, optionally typed, surfaced as a quick
 // link on every type the app says could have one.
 //
-// altea divergences:
-//  - `Lite<IUserEntity>` → `Lite<UserEntity>`: altea has no IUserEntity interface, and altea-auth's user
-//    is the only implementation (the same substitution every other module makes).
 //
 // NoteTypeSymbol is a real SemiSymbol (@altea/altea/data/semiSymbol): a note type may be DECLARED in code
 // — then it has a key and SemiSymbolLogic keeps it in step — or created by a USER at runtime, when it has
@@ -36,7 +33,9 @@ export class NoteEntity extends Entity {
     @stringLengthValidator({ min: 1, multiLine: true })
     text: string;
 
-    createdBy: Lite<UserEntity>;
+    // Signum's `Lite<IUserEntity>` — an INTERFACE, so the column is polymorphic (created_by_id_user) and
+    // the app pins the implementation; see the same note on AlertEntity.
+    createdBy: Lite<IUserEntity>;
 
     noteType: NoteTypeSymbol | null = null;
 

@@ -13,6 +13,7 @@ import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, ConstructSymbol, From, Simple } from "@altea/altea/data/operations";
 import type { IQuery } from "@altea/altea/data/iquery";
+import type { IUserEntity } from "@altea/altea/data/security";
 import { UserEntity } from "@altea/altea-auth/data/User";
 
 // Port of Signum.Alerts' Alert.cs + SendNotificationEmailTaskEntity.cs — a NOTIFICATION addressed to a user
