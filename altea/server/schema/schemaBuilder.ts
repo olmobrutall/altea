@@ -77,7 +77,17 @@ function rawTypeName(type: Type<Entity> | ViewType<View>): string {
 // names the table and an @implementedBy column's suffix, and the two disagreeing is how a type ends up
 // stored under one name and addressed by another. See there for why Entity and Symbol are stripped where
 // Signum also strips Model and Embedded, and for the empty-string guard.
+// An ENUM's name is taken VERBATIM — the suffix strip is about a type-kind suffix altea's own convention
+// adds (BandEntity, TypeConditionSymbol), and an enum carries none, so a trailing "Entity" there is part
+// of the WORD: DashboardEmbedededInEntity is "embedded in entity", and stripping it produced the table
+// `dashboard_embededed_in`. Signum decides it in the same place and the same way — GenerateTableName reads
+// `EnumEntity.Extract(type)?.Name` FIRST and only falls through to Reflector.CleanTypeName for a non-enum
+// — and so does data/registration's cleanTypeName, which returns the registered enum name before it
+// strips anything. This copy was the one that disagreed.
 function cleanTypeName(type: Type<Entity> | ViewType<View>): string {
+    if (getBoundEnum(type) != null)
+        return rawTypeName(type);
+
     return rawTypeName(type).split('_').map(s => {
         const stripped = s.replace(/(Entity|Symbol)$/, '');
         return stripped === '' ? s : stripped;
