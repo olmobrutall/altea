@@ -138,7 +138,37 @@ function physicalTableName(type: Type<Entity>, isPostgres: boolean, legacyMode: 
 // Returns undefined when this is not a collection row — a 1-1 `@part` reference has no MList table in
 // Signum, so there is no legacy name to match and the caller keeps altea's own.
 function legacyCollectionTableName(type: Type<Entity>, settings: SchemaSettings): string | undefined {
-    const backReference = getTypeInfo(type as object)?.backReferenceField;
+    const owned = mlistRowOwner(type);
+    if (owned == null)
+        return undefined;
+
+    const memberName = cap(owned.member);
+    return settings.tableName(owned.owner) + '_'
+        + (settings.isPostgres ? pascalToSnake(memberName) : memberName);
+}
+
+/**
+ * Is this `@part` row altea's stand-in for a Signum MLIST TABLE, and if so whose? — the owner plus the
+ * COLLECTION member that holds it.
+ *
+ * The distinction matters beyond naming, which is why it is a predicate of its own: an MList table is not
+ * an entity in Signum at all (no Ticks, its back reference is always `ParentID`, its value column is named
+ * after the element TYPE), whereas a `@part` row that stands in for a real Signum ENTITY is an ordinary
+ * table (it has a Ticks, and its columns are named after its fields). altea spells both `@part`, so the
+ * question has to be asked structurally: a row REACHED THROUGH AN OWNER'S ARRAY is a collection row —
+ * unless it is marked `@legacyTableName({ wasVirtualMList: true })`, which says Signum modelled it as a
+ * standalone Entity behind a virtual MList (RuleTypeConditionEntity, TokenEquivalenceGroup).
+ *
+ * Both halves are load-bearing, and each is wrong alone: `UserQueryPartEntity` is a `@part` reached by a
+ * single reference, so it is an entity; `OrderLineEntity` carries a standalone NAME but is reached through
+ * `OrderEntity.details`, so it is an MList row (Signum's `order_details`).
+ */
+function mlistRowOwner(type: Type<Entity>): { owner: Type<Entity>; member: string } | undefined {
+    const info = getTypeInfo(type as object);
+    if (info == null || info.legacyWasVirtualMList)
+        return undefined;
+
+    const backReference = info.backReferenceField;
     if (backReference == null)
         return undefined;
 
@@ -151,12 +181,14 @@ function legacyCollectionTableName(type: Type<Entity>, settings: SchemaSettings)
         return undefined;
 
     const collection = Object.entries(ownerInfo.fields).find(([, f]) => f.array === true && f.getFunction() === type);
-    if (collection == null)
-        return undefined;
+    return collection == null ? undefined : { owner: owner as Type<Entity>, member: collection[0] };
+}
 
-    const memberName = cap(collection[0]);
-    return settings.tableName(owner as Type<Entity>) + '_'
-        + (settings.isPostgres ? pascalToSnake(memberName) : memberName);
+/** The clean name of the type a field is DECLARED as (`Lite<Entity>` → "Entity"), for the one rule that
+ *  needs the declaration rather than the resolved implementations — see legacyMListColumnBase. */
+function cleanNameOfDeclaredType(fi: FieldInfo): string | undefined {
+    const declared = fi.getTypeName();
+    return declared == null ? undefined : declared.split('_').map(s => s.replace(/(Entity|Symbol)$/, '') || s).join('_');
 }
 
 function makeGetter(name: string): (entity: any) => unknown {
@@ -443,10 +475,12 @@ export class SchemaBuilder {
         // the same three places:
         //  - a SEEDED table (above), which is the case altea already had;
         //  - an explicit `@ticksColumn(false)` (Signum's [TicksColumn(false)]) — logs, engine-written rows;
-        //  - a `@part` ROW, because that is altea's MList: Signum's MList table has no Ticks either, and the
-        //    row is saved as part of its owner's graph, whose OWN stamp guards the aggregate. (This is why
-        //    a part row is not independently concurrency-checked — it never was in Signum.)
-        const hasTicks = !isSeeded && typeInfo.ticksColumn !== false && typeInfo.entityKind !== "Part";
+        //  - an MLIST ROW, because Signum's MList table has no Ticks either: it is not an entity there at
+        //    all, and the row is saved inside its owner's graph, whose OWN stamp guards the aggregate.
+        //    NOTE this is narrower than "@part": a `@part` row standing in for a real Signum ENTITY — a
+        //    dashboard part's content, an email service, a scheduler rule, a virtual-MList child — DOES
+        //    carry one, as it does there. See mlistRowOwner for how the two are told apart.
+        const hasTicks = !isSeeded && typeInfo.ticksColumn !== false && mlistRowOwner(type) == null;
         // Externally-supplied (non-identity) ids: the enum tables (id = the enum value) and any @entity
         // declared `{ identity: false }` (Signum's [PrimaryKey(IdentityBehaviour=false)] — the Symbols,
         // whose ids SymbolLogic assigns/seeds). TypeEntity keeps a real identity PK (generation inserts
@@ -519,7 +553,11 @@ export class SchemaBuilder {
         // so it is materialised at save time. A `@quoted` toString is expanded inline
         // in queries instead and needs no column. Enum tables use their `name` column;
         // the TypeEntity system table keeps the inherited default (no ToStr column).
-        if (!isSeeded) {
+        // LEGACY MODE: an MList table has no ToStr in Signum either — it is not an entity there, so it has
+        // nothing to display. (Unlike the Ticks rule above, this is naming-shaped rather than structural:
+        // altea's row IS an entity and its display string is real, so it is only dropped when the schema is
+        // being made to look like Signum's.)
+        if (!isSeeded && !(this.settings.legacyMode && mlistRowOwner(type) != null)) {
             // Resolve toString up the prototype chain (finds an override, or Entity's
             // inherited `@quoted` default). A hand-written, non-`@quoted` toString needs
             // a stored ToStr column; a `@quoted` one (incl. the inherited default) is
@@ -667,7 +705,8 @@ export class SchemaBuilder {
             }
             const columns = fi.implementations.types().map(implType => {
                 const refTable = this.include(implType, ownerData).table;
-                const colName = this.idiomatic(preName.add(`${this.columnName(fi)}ID_${cleanTypeName(implType)}`).toString());
+                const legacyBase = this.legacyMListColumnBase(table, fi, undefined);
+                const colName = this.idiomatic(preName.add(`${legacyBase ?? this.columnName(fi)}ID_${cleanTypeName(implType)}`).toString());
                 return new ImplementationColumn(colName, refTable, isLite);
             });
             return new FieldImplementedBy(columns, isLite);
@@ -678,8 +717,9 @@ export class SchemaBuilder {
             if (!isEntityCtor(elementType))
                 throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: Lite container without an entity element type.`);
             const refTable = this.include(elementType, ownerData).table;
+            const legacyBase = this.legacyMListColumnBase(table, fi, elementType);
             const baseName = this.explicitColumnName(fi)
-                ?? this.idiomatic(preName.add(`${this.columnName(fi)}ID`).toString());
+                ?? this.idiomatic(preName.add(`${legacyBase ?? this.columnName(fi)}ID`).toString());
             return new FieldReference(new ReferenceColumn(baseName, refTable, nullable, isLite));
         }
 
@@ -695,8 +735,9 @@ export class SchemaBuilder {
             if (enumObject == null)
                 throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: enum '${fi.getTypeName() ?? fi.name}' is not registered. Enums declared in the same file as the entity are auto-registered; call registerEnum(...) by hand for cross-file enums.`);
             const refTable = this.include(EnumEntity.typeFor(enumObject)).table;
+            const legacyBase = this.legacyMListColumnBase(table, fi, elementType);
             const colName = this.explicitColumnName(fi)
-                ?? this.idiomatic(preName.add(`${this.columnName(fi)}ID`).toString());
+                ?? this.idiomatic(preName.add(`${legacyBase ?? this.columnName(fi)}ID`).toString());
             return new FieldEnum(new ReferenceColumn(colName, refTable, nullable, /* isLite */ false));
         }
 
@@ -727,7 +768,12 @@ export class SchemaBuilder {
 
         // An explicit name REPLACES the sequence its members hang off, as in Signum (`NameSequence.GetVoid`).
         const explicit = this.explicitColumnName(fi);
-        const embeddedPre = explicit != null ? NameSequence.void().add(explicit) : preName.add(this.columnName(fi));
+        // LEGACY MODE: an MList of embeddeds inlines the element's members with NO prefix at all
+        // (legacyMListColumnBase answers "" there) — Signum has no property name to prefix them with.
+        const legacyBase = this.legacyMListColumnBase(table, fi, embeddedType);
+        const embeddedPre = explicit != null ? NameSequence.void().add(explicit)
+            : legacyBase === "" ? NameSequence.void()
+                : preName.add(legacyBase ?? this.columnName(fi));
         const hasValue = fi.isNullable === true
             ? new EmbeddedHasValueColumn(this.idiomatic(embeddedPre.add('HasValue').toString()))
             : undefined;
@@ -823,6 +869,46 @@ export class SchemaBuilder {
      */
     protected columnName(fi: FieldInfo): string {
         return cap(fi.name);
+    }
+
+    /**
+     * LEGACY MODE: the column-name half of "an MList table is not an entity". Signum names an MList
+     * table's two columns without reference to any property, because an MList element HAS no property:
+     *
+     *   - the back reference is always `ParentID` (`GenerateBackReferenceName`), whatever the owner is;
+     *   - the element column is named from the element TYPE (`GenerateMListFieldName`) — `EntityID` for a
+     *     `Lite<Entity>`, `TypeConditionID` for a `Lite<TypeConditionSymbol>`, the enum's own name for an
+     *     enum, and NOTHING for an embedded (its members are inlined with no prefix at all).
+     *
+     * altea names both after the FIELD it invented for the row (`lane`/`actor`, `emailTemplate`/`culture`),
+     * which is better to read and matches nothing. Returns the base name the caller appends `ID` to, `""`
+     * for an embedded (no prefix), or undefined when the rule does not apply.
+     */
+    private legacyMListColumnBase(table: Table, fi: FieldInfo, elementType: unknown): string | undefined {
+        // `table.type` widens to a VIEW type too; a view is never an MList row (it is not generated at all).
+        if (!this.settings.legacyMode || !isEntityCtor(table.type) || mlistRowOwner(table.type) == null)
+            return undefined;
+
+        if (fi.isBackReference)
+            return "Parent";
+
+        if (!fi.isValueField)
+            return undefined;
+
+        // A POLYMORPHIC element: Signum reads the DECLARED type (`Lite.Extract(route.Type)`), which for an
+        // `@implementedBy` field is the base the lite is declared as — `Lite<Entity>` → "Entity", giving
+        // `EntityID_User` / `EntityID_Role`. The implementations only supply the per-column suffix.
+        if (fi.implementations != null)
+            return cleanNameOfDeclaredType(fi) ?? "Entity";
+
+        if (isEmbeddedCtor(elementType))
+            return ""; // Signum inlines an embedded element's members with no prefix
+
+        const enumObject = fi.isEnum ? fi.getEnum() : undefined;
+        if (enumObject != null)
+            return enumNameOf(enumObject) ?? cap(fi.name);
+
+        return isEntityCtor(elementType) ? cleanTypeName(elementType) : cap(fi.name);
     }
 
     /**
