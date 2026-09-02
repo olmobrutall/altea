@@ -459,9 +459,10 @@ export class TypeInfo {
     // this type — its element is a standalone Entity, so the table is named after the ENTITY and
     // legacyCollectionTableName must stand down. Like legacyTableName, read ONLY under legacyMode.
     legacyWasVirtualMList?: boolean;
-    // `@ticksColumn(false)` (Signum's [TicksColumn(false)]): the table carries no concurrency stamp.
-    // Undefined means the default, which is to carry one.
-    ticksColumn?: false;
+    // `@ticksColumn(true|false)` (Signum's [TicksColumn]): whether the table carries a concurrency stamp.
+    // Undefined means the DEFAULT, which depends on the kind — a `@part` row has none, anything else has
+    // one. See the decorator.
+    ticksColumn?: boolean;
     // Set by class-level @index / @uniqueIndex(e => [e.a, e.b]): composite indexes declared
     // by column-selector lambdas. Stored as the @quoted selectors; the SchemaBuilder resolves the
     // covered fields → columns by reading each captured AST (accessedFields), like `where`.
@@ -616,8 +617,8 @@ export function getOrCreateTypeInfo(target: object): TypeInfo {
         // KIND of table this is — one the engine writes rather than a person edits — and that is true of
         // every subclass of a base that says it (Signum's [TicksColumn] is inherited for the same reason:
         // SemiSymbol declares it once and every note type / alert type / agent gets it).
-        if (inherited.ticksColumn === false)
-            created.ticksColumn = false;
+        if (inherited.ticksColumn !== undefined)
+            created.ticksColumn = inherited.ticksColumn;
     }
 
     Object.defineProperty(ctor, typeInfoKey, { value: created, configurable: true, writable: true, enumerable: false });

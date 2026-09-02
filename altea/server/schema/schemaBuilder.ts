@@ -471,16 +471,22 @@ export class SchemaBuilder {
         const isSeeded = isEnumEntity || typeInfo.entityKind === "SystemString";
 
         // Whether the table carries a concurrency stamp. A Ticks column earns its place where a row is
-        // edited by PEOPLE, one at a time; Signum turns it off everywhere else, and altea now follows in
-        // the same three places:
-        //  - a SEEDED table (above), which is the case altea already had;
-        //  - an explicit `@ticksColumn(false)` (Signum's [TicksColumn(false)]) — logs, engine-written rows;
-        //  - an MLIST ROW, because Signum's MList table has no Ticks either: it is not an entity there at
-        //    all, and the row is saved inside its owner's graph, whose OWN stamp guards the aggregate.
-        //    NOTE this is narrower than "@part": a `@part` row standing in for a real Signum ENTITY — a
-        //    dashboard part's content, an email service, a scheduler rule, a virtual-MList child — DOES
-        //    carry one, as it does there. See mlistRowOwner for how the two are told apart.
-        const hasTicks = !isSeeded && typeInfo.ticksColumn !== false && mlistRowOwner(type) == null;
+        // edited by PEOPLE, one at a time — so a `@part` row has none by DEFAULT: it is reached and saved
+        // through its owner, whose own stamp guards the aggregate, and it is never edited on its own.
+        // (That is also why Signum's MList table, which a part row usually stands in for, has none.)
+        // A SEEDED table (symbols, enum tables) has none either. `@ticksColumn(true|false)` overrides the
+        // default in either direction — see the decorator for who uses which.
+        // A `@part` row has NO stamp by default: it is reached and saved through its owner, whose own
+        // stamp guards the aggregate, and it is never edited on its own.
+        //
+        // LEGACY MODE gives one BACK to the parts Signum modelled as real ENTITIES — a dashboard part's
+        // content, an email service, a scheduler rule, a virtual-MList child — because their tables have
+        // one there. Which those are is DERIVED, not declared: a part reached through an owner's ARRAY is
+        // Signum's MList table (no stamp, it is not an entity there at all); any other part stands in for
+        // a type that has its own table. See mlistRowOwner.
+        const isMListRow = mlistRowOwner(type) != null;
+        const partWithoutTicks = typeInfo.entityKind === "Part" && (isMListRow || !this.settings.legacyMode);
+        const hasTicks = typeInfo.ticksColumn ?? !(isSeeded || partWithoutTicks);
         // Externally-supplied (non-identity) ids: the enum tables (id = the enum value) and any @entity
         // declared `{ identity: false }` (Signum's [PrimaryKey(IdentityBehaviour=false)] — the Symbols,
         // whose ids SymbolLogic assigns/seeds). TypeEntity keeps a real identity PK (generation inserts

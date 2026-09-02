@@ -184,17 +184,27 @@ export function tableName(name: string) {
     };
 }
 
-// Signum's [TicksColumn(false)] — this type's table carries NO concurrency stamp.
+// Signum's [TicksColumn(...)] — whether this type's table carries a concurrency stamp.
 //
 // A Ticks column is what makes a save refuse to overwrite a row someone else changed, and it earns that
-// column only where a row is edited by PEOPLE, one at a time. Signum turns it off for the rows that are
-// not: seeded tables, logs, and rows the engine alone writes (ExceptionEntity, OperationLogEntity,
-// ProcessEntity, PackageLineEntity, the migration rows, …). altea stamped all of them, which is 60 columns
-// a Signum-generated database does not have.
+// column only where a row is edited by PEOPLE, one at a time. So the DEFAULTS are:
 //
-// It is only ever passed `false` — `@ticksColumn(false)` reads as the attribute does, and "true" is the
-// default that needs no decorator.
-export function ticksColumn(enabled: false) {
+//   @entity("Part")  →  NO ticks. A part row is reached and saved through its owner, whose own stamp
+//                       guards the aggregate; it is never edited on its own. (Signum's MList table — what
+//                       a @part row usually stands in for — has none either, for the same reason.)
+//   everything else  →  ticks, unless a SEEDED table (symbols, enum tables) or marked below.
+//
+// The decorator overrides either default in either direction:
+//   @ticksColumn(false)  logs and engine-written rows: ExceptionEntity, OperationLogEntity, ProcessEntity,
+//                        PackageLineEntity, the migration rows, SemiSymbol.
+//   @ticksColumn(true)   a `@part` that IS edited on its own — Signum models it as a real entity with its
+//                        own table (a dashboard part's content, an email service, a scheduler rule, a
+//                        virtual-MList child), so it keeps a stamp.
+//
+// It is INHERITED, unlike every other class-level flag here (see getOrCreateTypeInfo): it says what KIND
+// of table this is, which is true of every subclass — one declaration on SemiSymbol reaches every note
+// type, alert type and agent, exactly as Signum's inherited attribute does.
+export function ticksColumn(enabled: boolean) {
     return function (target: Function): void {
         getOrCreateTypeInfo(target).ticksColumn = enabled;
     };
