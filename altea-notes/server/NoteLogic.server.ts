@@ -7,7 +7,7 @@ import type { IQuery } from "@altea/altea/data/iquery";
 import { withQuoted } from "@altea/altea/data/decorators";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
-import { SymbolLogic } from "@altea/altea/server/symbolLogic";
+import { SemiSymbolLogic } from "@altea/altea/server/semiSymbolLogic";
 import { Operations } from "@altea/altea/server/operationLogic";
 import type { SchemaBuilder } from "@altea/altea/server/schema/schemaBuilder";
 import { UserHolder } from "@altea/altea/server/userHolder";
@@ -21,8 +21,9 @@ import { NoteEntity, NoteTypeSymbol, NoteOperation, NoteTypeOperation } from "..
 //    PROTOTYPE member plus a per-CONCRETE-TYPE expression registration. altea keys an extension token on a
 //    constructor and the token walk follows the concrete prototype chain, so hanging it off `Entity` would
 //    reach nothing — the same accommodation @altea/altea-view-log and @altea/altea-alert make.
-//  - `SemiSymbolLogic<NoteTypeSymbol>.Start(sb, () => SystemNoteTypes)` → `SymbolLogic.start`, because a
-//    note type is a plain Symbol here (see the data header). The declared set is the registry below.
+//  - `SemiSymbolLogic<NoteTypeSymbol>.Start(sb, () => SystemNoteTypes)` → altea's own SemiSymbolLogic,
+//    which keeps Signum's crucial rule: only rows WITH a key take part in the sync, so a note type a user
+//    created is never deleted by it.
 //  - `RegisterUserTypeCondition` uses `TypeConditionLogic.registerCompile`, altea's same call.
 
 export namespace NoteLogic {
@@ -47,7 +48,7 @@ export namespace NoteLogic {
             .withSave(NoteTypeOperation.Save, {})
             .withQuery();
 
-        SymbolLogic.start(sb, NoteTypeSymbol);
+        SemiSymbolLogic.start(sb, NoteTypeSymbol);
 
         // Signum registers ONE ExtensionInfo per requested type; altea needs the same, per concrete type.
         for (const type of options?.registerExpressionsFor ?? [])

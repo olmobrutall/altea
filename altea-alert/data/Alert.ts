@@ -1,7 +1,7 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { Symbol } from "@altea/altea/data/symbol";
+import { SemiSymbol } from "@altea/altea/data/semiSymbol";
 import {
     entity, implementedByAll, stringLengthValidator, quoted, column, unit, valueField, backReference,
     rowOrder,
@@ -171,7 +171,7 @@ export enum DelayOption {
  */
 @reflect
 @entity("String", "Master", { lowPopulation: true })
-export class AlertTypeSymbol extends Symbol { }
+export class AlertTypeSymbol extends SemiSymbol { }
 
 /** Signum's AlertDropDownGroup — how the navbar dropdown groups what it shows. */
 export enum AlertDropDownGroup {

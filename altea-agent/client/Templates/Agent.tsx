@@ -31,7 +31,7 @@ export default function Agent(p: { ctx: TypeContext<AgentSymbol> }): React.JSX.E
                     .then(pack => Operations.API.executeEntity(pack!.entity, SkillCustomizationOperation.Save))
                     .then(pack => pack.entity)}
                 helpText={defaultInfo
-                    ? <a href="#" onClick={e => { e.preventDefault(); void DefaultSkillInfoModal.show(defaultInfo, ctx.value.key); }}>
+                    ? <a href="#" onClick={e => { e.preventDefault(); void DefaultSkillInfoModal.show(defaultInfo, ctx.value.key ?? ctx.value.name); }}>
                         View defaults
                     </a>
                     : undefined} />

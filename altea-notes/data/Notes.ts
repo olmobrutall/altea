@@ -1,7 +1,7 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { Symbol } from "@altea/altea/data/symbol";
+import { SemiSymbol } from "@altea/altea/data/semiSymbol";
 import { entity, implementedByAll, stringLengthValidator, quoted } from "@altea/altea/data/decorators";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -13,16 +13,12 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 // link on every type the app says could have one.
 //
 // altea divergences:
-//  - **NoteTypeSymbol is a plain Symbol, not a SemiSymbol** — altea has none, the same call
-//    @altea/altea-alert made for AlertTypeSymbol and @altea/altea-agent for AgentSymbol. A note type is
-//    therefore DECLARED IN CODE (NoteLogic.registerNoteType) and cannot be created by a user at runtime,
-//    which is what Signum's SemiSymbol adds over a Symbol.
-//    The `name` field is kept even so, because it is a real column of Signum's note_type table and a
-//    database migrated from Signum carries values in it. Consequence worth knowing before pointing altea
-//    at such a database: altea's SymbolLogic synchronizes symbols BY KEY and deletes a row whose key is no
-//    longer declared, so a note type a Signum USER created (name, no key) would be dropped by a sync.
 //  - `Lite<IUserEntity>` → `Lite<UserEntity>`: altea has no IUserEntity interface, and altea-auth's user
 //    is the only implementation (the same substitution every other module makes).
+//
+// NoteTypeSymbol is a real SemiSymbol (@altea/altea/data/semiSymbol): a note type may be DECLARED in code
+// — then it has a key and SemiSymbolLogic keeps it in step — or created by a USER at runtime, when it has
+// only a name and the synchronizer leaves it alone.
 
 @reflect
 @entity("Main", "Transactional")
@@ -52,15 +48,11 @@ export class NoteEntity extends Entity {
     }
 }
 
-/** Signum's NoteTypeSymbol (a SemiSymbol there — see the header). */
+/** Signum's NoteTypeSymbol — a SemiSymbol: declared in code (it gets a key) or created by a user (it gets
+ *  only a name). @entity("String") because the table IS user-writable, unlike a Symbol's. */
 @reflect
 @entity("String", "Master")
-export class NoteTypeSymbol extends Symbol {
-
-    /** Signum's SemiSymbol.Name — the editable display name. Kept for column compatibility; a
-     *  code-declared type gets it from `registerNoteType`. */
-    @stringLengthValidator({ max: 100 })
-    name: string | null = null;
+export class NoteTypeSymbol extends SemiSymbol {
 }
 
 /** Signum's `[AutoInit] NoteOperation`. */

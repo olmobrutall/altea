@@ -1,7 +1,7 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, implementedByAll, stringLengthValidator } from "@altea/altea/data/decorators";
+import { entity, implementedByAll, stringLengthValidator, ticksColumn } from "@altea/altea/data/decorators";
 import { Temporal } from "@altea/altea/data/basics";
 import { OperationSymbol } from "@altea/altea/data/operations";
 import { BigStringEmbedded } from "@altea/altea/data/bigString";
@@ -60,6 +60,9 @@ export class PackageOperationEntity extends PackageEntity {
 /** Signum's PackageLineEntity — one element of a package, plus what came out of processing it. */
 @reflect
 @entity("System", "Transactional")
+// Signum's [TicksColumn(false)] — the engine writes these rows, never a person editing one, so there is
+// nothing for a concurrency stamp to protect.
+@ticksColumn(false)
 export class PackageLineEntity extends Entity {
 
     package: Lite<PackageEntity>;

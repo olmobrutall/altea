@@ -3,8 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Symbol } from "@altea/altea/data/symbol";
 import {
-    entity, implementedBy, implementedByAll, format, stringLengthValidator, fieldValidation,
-} from "@altea/altea/data/decorators";
+    entity, implementedBy, implementedByAll, format, stringLengthValidator, fieldValidation, ticksColumn } from "@altea/altea/data/decorators";
 import { Temporal, Decimal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -62,6 +61,9 @@ export enum ProcessState {
 
 @reflect
 @entity("Main", "Transactional")
+// Signum's [TicksColumn(false)] — the engine writes these rows, never a person editing one, so there is
+// nothing for a concurrency stamp to protect.
+@ticksColumn(false)
 export class ProcessEntity extends Entity {
 
     /** Signum's `public const string None` — "not pinned to a machine", so any host may take it. */

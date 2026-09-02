@@ -1,7 +1,7 @@
 import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, uniqueIndex, stringLengthValidator, quoted } from "@altea/altea/data/decorators";
+import { entity, uniqueIndex, stringLengthValidator, quoted, ticksColumn } from "@altea/altea/data/decorators";
 import { Temporal } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { ExceptionEntity } from "@altea/altea/data/exception";
@@ -19,6 +19,9 @@ import { ExceptionEntity } from "@altea/altea/data/exception";
 
 @reflect
 @entity("System", "Transactional")
+// Signum's [TicksColumn(false)] — the engine writes these rows, never a person editing one, so there is
+// nothing for a concurrency stamp to protect.
+@ticksColumn(false)
 export class SqlMigrationEntity extends Entity {
     @uniqueIndex
     @stringLengthValidator({ max: 200 })
@@ -32,6 +35,9 @@ export class SqlMigrationEntity extends Entity {
 
 @reflect
 @entity("System", "Transactional")
+// Signum's [TicksColumn(false)] — the engine writes these rows, never a person editing one, so there is
+// nothing for a concurrency stamp to protect.
+@ticksColumn(false)
 export class CSharpMigrationEntity extends Entity {
     @uniqueIndex
     @stringLengthValidator({ max: 200 })
@@ -44,6 +50,9 @@ export class CSharpMigrationEntity extends Entity {
 
 @reflect
 @entity("System", "Transactional")
+// Signum's [TicksColumn(false)] — the engine writes these rows, never a person editing one, so there is
+// nothing for a concurrency stamp to protect.
+@ticksColumn(false)
 export class LoadMethodLogEntity extends Entity {
     @stringLengthValidator({ min: 3, max: 400 })
     methodName: string | null;

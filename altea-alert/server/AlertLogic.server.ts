@@ -5,7 +5,7 @@ import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { FluentInclude } from "@altea/altea/server/schema/fluentInclude";
 import { table } from "@altea/altea/server/table";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
-import { SymbolLogic } from "@altea/altea/server/symbolLogic";
+import { SemiSymbolLogic } from "@altea/altea/server/semiSymbolLogic";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { Transaction } from "@altea/altea/server/connection/transaction";
@@ -91,7 +91,7 @@ export namespace AlertLogic {
             .withStateMachine(a => a.state, registerAlertOperations)
             .withQuery();
 
-        SymbolLogic.start(sb, AlertTypeSymbol, () => [...systemAlertTypes.keys()]);
+        SemiSymbolLogic.start(sb, AlertTypeSymbol, () => [...systemAlertTypes.keys()]);
 
         // Signum's `Retrieved` event: the row carries the text its TYPE stands for, so a client that has no
         // access to the server registry can still render an alert with no `textField` of its own.

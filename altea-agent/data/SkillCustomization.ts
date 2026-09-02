@@ -1,7 +1,7 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { Symbol } from "@altea/altea/data/symbol";
+import { SemiSymbol } from "@altea/altea/data/semiSymbol";
 import {
     backReference, entity, implementedBy, quoted, rowOrder, stringLengthValidator, uniqueIndex, valueField,
 } from "@altea/altea/data/decorators";
@@ -54,7 +54,7 @@ export class SkillCodeEntity extends Entity {
 /** Signum's AgentSymbol — names one agent (see the header note on SemiSymbol). */
 @reflect
 @entity("Main", "Master", { lowPopulation: true })
-export class AgentSymbol extends Symbol {
+export class AgentSymbol extends SemiSymbol {
 
     /** The DB overlay for this agent's root skill; null ⇒ the code default is used as-is. */
     skillCustomization: Lite<SkillCustomizationEntity> | null = null;

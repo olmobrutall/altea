@@ -1,6 +1,6 @@
 import { Entity } from "./entity";
 import { Lite } from "./lite";
-import { entity, column, implementedBy } from "./decorators";
+import { entity, column, implementedBy, ticksColumn } from "./decorators";
 import { reflect } from "./reflection";
 import { Temporal, type int } from "./basics";
 import { BigStringEmbedded } from "./bigString";
@@ -27,6 +27,9 @@ export enum ExceptionOrigin {
 }
 
 @entity("System", "Transactional")
+// Signum's [TicksColumn(false)] — the engine writes these rows, never a person editing one, so there is
+// nothing for a concurrency stamp to protect.
+@ticksColumn(false)
 export class ExceptionEntity extends Entity {
     creationDate: Temporal.PlainDateTime;
 

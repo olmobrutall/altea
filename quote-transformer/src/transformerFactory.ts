@@ -387,8 +387,11 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
         if (heritage.token !== ts.SyntaxKind.ExtendsKeyword) continue;
         for (const baseExpr of heritage.types) {
           const baseName = cleanTypeName(exprToEntityName(baseExpr.expression));
-          if (baseName === 'Symbol')
-            return name; // the class directly extending Symbol (e.g. OperationSymbol)
+          // SemiSymbol is Symbol's sibling, not its subclass (it derives from Entity, because its `key` is
+          // nullable — see data/semiSymbol), so the walk has to recognise BOTH roots or a code-declared
+          // SemiSymbol could never be written: `init()` would be rejected on it.
+          if (baseName === 'Symbol' || baseName === 'SemiSymbol')
+            return name; // the class directly extending one of them (e.g. OperationSymbol, NoteTypeSymbol)
           let baseSym = typeChecker.getSymbolAtLocation(baseExpr.expression)
             ?? typeChecker.getTypeAtLocation(baseExpr).getSymbol();
           if (baseSym != null && (baseSym.flags & ts.SymbolFlags.Alias) !== 0) {

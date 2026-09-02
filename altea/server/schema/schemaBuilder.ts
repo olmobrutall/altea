@@ -437,6 +437,16 @@ export class SchemaBuilder {
         // tables (OperationSymbol, …) + TypeEntity — plus the enum tables (an intrinsic base with no
         // per-type decorator). They get no ticks / ToStr column.
         const isSeeded = isEnumEntity || typeInfo.entityKind === "SystemString";
+
+        // Whether the table carries a concurrency stamp. A Ticks column earns its place where a row is
+        // edited by PEOPLE, one at a time; Signum turns it off everywhere else, and altea now follows in
+        // the same three places:
+        //  - a SEEDED table (above), which is the case altea already had;
+        //  - an explicit `@ticksColumn(false)` (Signum's [TicksColumn(false)]) — logs, engine-written rows;
+        //  - a `@part` ROW, because that is altea's MList: Signum's MList table has no Ticks either, and the
+        //    row is saved as part of its owner's graph, whose OWN stamp guards the aggregate. (This is why
+        //    a part row is not independently concurrency-checked — it never was in Signum.)
+        const hasTicks = !isSeeded && typeInfo.ticksColumn !== false && typeInfo.entityKind !== "Part";
         // Externally-supplied (non-identity) ids: the enum tables (id = the enum value) and any @entity
         // declared `{ identity: false }` (Signum's [PrimaryKey(IdentityBehaviour=false)] — the Symbols,
         // whose ids SymbolLogic assigns/seeds). TypeEntity keeps a real identity PK (generation inserts
@@ -464,7 +474,7 @@ export class SchemaBuilder {
         table.primaryKey = pk;
         table.fields['id'] = new EntityField(idInfo, pk, makeGetter('id'));
 
-        if (!isSeeded) {
+        if (hasTicks) {
             const ticksInfo = typeInfo.fields['ticks'] ?? new FieldInfo('ticks');
             const ticks = new FieldTicks(new ValueColumn(this.idiomatic('Ticks'), this.settings.ticksDbType, IsNullable.No));
             table.ticks = ticks;

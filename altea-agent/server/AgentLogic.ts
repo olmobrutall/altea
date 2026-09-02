@@ -3,7 +3,7 @@ import "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/data/resetLazy";
-import { SymbolLogic } from "@altea/altea/server/symbolLogic";
+import { SemiSymbolLogic } from "@altea/altea/server/semiSymbolLogic";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { table as tableQuery } from "@altea/altea/server/table";
 import * as Database from "@altea/altea/server/Database";
@@ -74,6 +74,10 @@ export namespace AgentLogic {
             void skill.originalInstructions;
         }
 
+        // Only a CODE-DECLARED agent is registered, and a declared SemiSymbol always has a key
+        // (`init()` fills it) — a user-created one has only a name and no factory to register.
+        if (agent.key == null)
+            throw new Error("AgentLogic.register needs a code-declared AgentSymbol (one with a key)");
         if (!registeredAgents.has(agent.key))
             declaredAgents.push(agent);
         registeredAgents.set(agent.key, factory);
@@ -118,7 +122,7 @@ export namespace AgentLogic {
         registerAgent(DefaultAgent.QuestionSummarizer, () => new QuestionSumarizerSkill());
         registerAgent(DefaultAgent.ConversationSumarizer, () => new ConversationSumarizerSkill());
 
-        SymbolLogic.start(sb, AgentSymbol, () => declaredAgents);
+        SemiSymbolLogic.start(sb, AgentSymbol, () => declaredAgents);
 
         sb.include(AgentSymbol)
             // No `canBeNew`: altea's AgentSymbol is a plain Symbol, so every row is code-seeded and Save
@@ -129,7 +133,7 @@ export namespace AgentLogic {
         sb.include(SkillCustomizationEntity)
             .withConstructFrom(AgentSymbol, SkillCustomizationOperation.CreateFromAgent, {
                 construct: async (agentSymbol: AgentSymbol) => {
-                    const factory = registeredAgents.get(agentSymbol.key);
+                    const factory = agentSymbol.key == null ? undefined : registeredAgents.get(agentSymbol.key);
                     if (factory == undefined)
                         return SkillCustomizationEntity.create({});
                     return await toCustomizationEntity(factory());
@@ -154,6 +158,10 @@ export namespace AgentLogic {
             const result = new Map<string, SkillCode>();
 
             for (const agent of agents) {
+                // A user-created agent (a SemiSymbol with only a name) has no key to index by and no code
+                // factory behind it, so there is nothing to put in this map for it.
+                if (agent.key == null)
+                    continue;
                 if (agent.skillCustomization != null) {
                     const customization = await Database.retrieve(SkillCustomizationEntity, agent.skillCustomization.id);
                     result.set(agent.key, await toSkillCode(customization));
@@ -174,7 +182,7 @@ export namespace AgentLogic {
             throw new Error("AgentLogic.start was not called");
 
         const map = await skillCodeByAgent.value();
-        const code = map.get(agent.key);
+        const code = agent.key == null ? undefined : map.get(agent.key);
         if (code == undefined)
             throw new Error(`No skill tree for agent '${agent.key}' — is it registered, and has the schema been synchronized?`);
         return code;

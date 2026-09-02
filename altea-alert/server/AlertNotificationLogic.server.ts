@@ -105,7 +105,9 @@ export namespace AlertNotificationLogic {
             ? null
             : Clock.now.subtract({ days: Number(task.ignoreNotificationsOlderThan) });
 
-        const alertTypeKeys = new Set(task.alertTypes.map(r => r.alertType.key));
+        // A task names DECLARED alert types, which always carry a key (a user-created one has only a
+        // name, and there is nothing to match it by here).
+        const alertTypeKeys = new Set(task.alertTypes.map(r => r.alertType.key!));
 
         return await ExecutionMode.global(async () => {
             const candidates = await table(AlertEntity)
@@ -184,8 +186,8 @@ export namespace AlertNotificationLogic {
     function matchesBehavior(alert: AlertEntity, behavior: SendAlertTypeBehavior, keys: Set<string>): boolean {
         switch (behavior) {
             case SendAlertTypeBehavior.All: return true;
-            case SendAlertTypeBehavior.Include: return alert.alertType != null && keys.has(alert.alertType.key);
-            case SendAlertTypeBehavior.Exclude: return alert.alertType == null || !keys.has(alert.alertType.key);
+            case SendAlertTypeBehavior.Include: return alert.alertType != null && keys.has(alert.alertType.key!);
+            case SendAlertTypeBehavior.Exclude: return alert.alertType == null || !keys.has(alert.alertType.key!);
             default: return true;
         }
     }

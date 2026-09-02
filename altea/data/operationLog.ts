@@ -1,6 +1,6 @@
 import { Entity } from "./entity";
 import { Lite } from "./lite";
-import { column, entity, format, implementedBy, implementedByAll, serialize } from "./decorators";
+import { column, entity, format, implementedBy, implementedByAll, serialize, ticksColumn } from "./decorators";
 import { reflect } from "./reflection";
 import { Temporal } from "./basics";
 import { OperationSymbol } from "./operations";
@@ -25,6 +25,9 @@ import type { IUserEntity } from "./security";
 //  - TicksColumn(false) has no altea decorator yet; left as the schema default (as ExceptionEntity does).
 @reflect
 @entity("System", "Transactional")
+// Signum's [TicksColumn(false)] — the engine writes these rows, never a person editing one, so there is
+// nothing for a concurrency stamp to protect.
+@ticksColumn(false)
 export class OperationLogEntity extends Entity {
     // Signum's [ImplementedByAll] Lite<IEntity>? Target — the entity the operation ran on.
     @implementedByAll
