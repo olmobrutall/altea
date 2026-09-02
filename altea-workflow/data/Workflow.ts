@@ -4,7 +4,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { Enum } from "@altea/altea/data/enum";
 import {
     entity, implementedBy, primaryKey, uniqueIndex, index, unit, serialize,
-    stringLengthValidator, backReference, rowOrder, valueField,
+    stringLengthValidator, backReference, rowOrder, valueField, quoted,
 } from "@altea/altea/data/decorators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -125,6 +125,8 @@ export class WorkflowEntity extends Entity implements IUserAssetEntity {
      */
     @serialize(false)
     fullDiagramXml: WorkflowXmlEmbedded | null;
+
+    @quoted
 
     toString(): string {
         return this.name;

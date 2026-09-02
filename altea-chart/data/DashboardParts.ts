@@ -3,7 +3,7 @@
 import { reflect } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, unit, backReference, rowOrder, noRepeatValidator, fieldValidation } from "@altea/altea/data/decorators";
+import { entity, unit, backReference, rowOrder, noRepeatValidator, fieldValidation, quoted } from "@altea/altea/data/decorators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { IPartEntity } from "@altea/altea-dashboard/data/Dashboard";
@@ -46,6 +46,8 @@ export class UserChartPartEntity extends Entity implements IPartEntity {
     requiresTitle(): boolean {
         return false;
     }
+
+    @quoted
 
     toString(): string {
         return this.userChart?.toString() ?? "";

@@ -3,7 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
     entity, primaryKey, backReference, rowOrder, implementedBy, uniqueIndex,
-    stringLengthValidator, fieldValidation, format, unit,
+    stringLengthValidator, fieldValidation, format, unit, quoted,
 } from "@altea/altea/data/decorators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
 import { Enum } from "@altea/altea/data/enum";
@@ -219,6 +219,8 @@ export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarE
         return subToolbarsOf(this.elements);
     }
 
+    @quoted
+
     toString(): string {
         return this.name;
     }
@@ -245,6 +247,8 @@ export class ToolbarMenuEntity extends Entity implements IUserAssetEntity, IHasE
     getSubToolbars(): Lite<Entity>[] {
         return subToolbarsOf(this.elements);
     }
+
+    @quoted
 
     toString(): string {
         return this.name;
@@ -273,6 +277,8 @@ export class ToolbarSwitcherEntity extends Entity implements IUserAssetEntity, I
     getSubToolbars(): Lite<Entity>[] {
         return (this.options ?? []).map(o => o.toolbarMenu as Lite<Entity>).filter(l => l != null);
     }
+
+    @quoted
 
     toString(): string {
         return this.name;

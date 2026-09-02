@@ -1,6 +1,6 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, primaryKey, uniqueIndex, stringLengthValidator, fieldValidation } from "@altea/altea/data/decorators";
+import { entity, primaryKey, uniqueIndex, stringLengthValidator, fieldValidation, quoted } from "@altea/altea/data/decorators";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { ValidationMessage } from "@altea/altea/data/validators";
@@ -32,6 +32,8 @@ export class WorkflowScriptEntity extends Entity implements IUserAssetEntity {
     mainEntityType: TypeEntity;
 
     eval: WorkflowScriptEval;
+
+    @quoted
 
     toString(): string {
         return this.name;
@@ -103,6 +105,8 @@ export class WorkflowScriptRetryStrategyEntity extends Entity implements IUserAs
             default: throw new Error("Unexpected unit " + unit);
         }
     }
+
+    @quoted
 
     toString(): string {
         return this.rule;

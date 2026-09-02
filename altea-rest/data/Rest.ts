@@ -46,6 +46,8 @@ export class RestApiKeyEntity extends Entity {
     @stringLengthValidator({ min: 20, max: 100 })
     apiKey: string;
 
+    @quoted
+
     toString(): string {
         return this.user?.toString() ?? "";
     }

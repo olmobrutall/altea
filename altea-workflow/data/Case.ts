@@ -2,7 +2,7 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, implementedBy, implementedByAll, format, stringLengthValidator, uniqueIndex,
+    entity, implementedBy, implementedByAll, format, stringLengthValidator, uniqueIndex, quoted,
 } from "@altea/altea/data/decorators";
 import { noRepeatValidator } from "@altea/altea/data/validators";
 import { Temporal } from "@altea/altea/data/basics";
@@ -88,6 +88,8 @@ export class CaseTagTypeEntity extends Entity {
     @format("Color")
     @stringLengthValidator({ min: 3, max: 12 })
     color: string;
+
+    @quoted
 
     toString(): string {
         return this.name;

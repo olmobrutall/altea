@@ -1,6 +1,6 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, primaryKey, uniqueIndex, stringLengthValidator } from "@altea/altea/data/decorators";
+import { entity, primaryKey, uniqueIndex, stringLengthValidator, quoted } from "@altea/altea/data/decorators";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { type IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
@@ -27,6 +27,8 @@ export class WorkflowConditionEntity extends Entity implements IUserAssetEntity 
     mainEntityType: TypeEntity;
 
     eval: WorkflowConditionEval;
+
+    @quoted
 
     toString(): string {
         return this.name;

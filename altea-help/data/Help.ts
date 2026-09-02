@@ -3,7 +3,7 @@ import { Entity, EmbeddedEntity, ModelEntity, type Type } from "@altea/altea/dat
 import type { Lite } from "@altea/altea/data/lite";
 import {
     entity, implementedBy, implementedByAll, backReference, rowOrder,
-    stringLengthValidator, column, primaryKey,
+    stringLengthValidator, column, primaryKey, quoted,
 } from "@altea/altea/data/decorators";
 import { noRepeatValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -129,6 +129,8 @@ export class TypeHelpEntity extends Entity implements IHelpEntity {
     @column(false)
     namespace: string | null = null;
 
+    @quoted
+
     toString(): string {
         return this.type?.toString() ?? "";
     }
@@ -219,6 +221,8 @@ export class NamespaceHelpEntity extends Entity implements IHelpEntity {
     @stringLengthValidator({ multiLine: true })
     description: string | null = null;
 
+    @quoted
+
     toString(): string {
         return this.name ?? "";
     }
@@ -282,6 +286,8 @@ export class QueryHelpEntity extends Entity implements IHelpEntity {
 
     @noRepeatValidator()
     columns: QueryHelpEntity_Column[];
+
+    @quoted
 
     toString(): string {
         return this.query?.toString() ?? "";
@@ -348,6 +354,8 @@ export class HelpImageEntity extends Entity {
     creationDate: Temporal.PlainDateTime = Clock.now;
 
     file: FilePathEmbedded;
+
+    @quoted
 
     toString(): string {
         return this.file?.fileName ?? "";

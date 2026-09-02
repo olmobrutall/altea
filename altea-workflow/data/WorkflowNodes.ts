@@ -77,6 +77,8 @@ export class WorkflowPoolEntity extends Entity implements IWorkflowObjectEntity,
         this.name = (model as WorkflowPoolModel).name;
     }
 
+    @quoted
+
     toString(): string {
         return this.name ?? this.bpmnElementId;
     }
@@ -178,6 +180,8 @@ export class WorkflowLaneEntity extends Entity implements IWorkflowObjectEntity,
         this.actors = m.actors.map(a => old.firstOrNull(o => o.actor.is(a))
             ?? WorkflowLaneEntity_Actor.create({ actor: a }));
     }
+
+    @quoted
 
     toString(): string {
         return this.name ?? this.bpmnElementId;
@@ -496,6 +500,8 @@ export class WorkflowActivityEntity extends Entity implements IWorkflowNodeEntit
         this.subWorkflow = m.subWorkflow;
     }
 
+    @quoted
+
     toString(): string {
         return this.name ?? this.bpmnElementId;
     }
@@ -731,6 +737,8 @@ export class WorkflowEventEntity extends Entity implements IWorkflowNodeEntity, 
         this.bpmnElementId = m.bpmnElementId;
     }
 
+    @quoted
+
     toString(): string {
         return this.name ?? this.bpmnElementId;
     }
@@ -812,6 +820,8 @@ export class WorkflowGatewayEntity extends Entity implements IWorkflowNodeEntity
         this.type = m.type;
         this.direction = m.direction;
     }
+
+    @quoted
 
     toString(): string {
         return this.name ?? this.bpmnElementId;
@@ -910,6 +920,8 @@ export class WorkflowConnectionEntity extends Entity implements IWorkflowObjectE
         this.action = m.action;
         this.order = m.order;
     }
+
+    @quoted
 
     toString(): string {
         return this.name ?? this.bpmnElementId;
