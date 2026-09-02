@@ -1,0 +1,23 @@
+{
+  "name": "@altea/altea-notes",
+  "version": "0.0.1",
+  "description": "Free-text notes attached to any entity, with a type and a quick link (ported from Signum.Notes)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}

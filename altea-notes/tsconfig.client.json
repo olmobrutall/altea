@@ -1,0 +1,9 @@
+{
+  // CLIENT layer — the note view, the create-note operation settings and the global quick link.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" }
+  ]
+}
