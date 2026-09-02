@@ -83,3 +83,16 @@ export class CachedQueryEntity extends Entity {
     // does not have, and the default (the type's nice name plus the id) is what a snapshot row wants
     // anyway — it is engine-written, never picked from a list.
 }
+
+/**
+ * Signum's `DashboardWithCachedQueries` — what `/api/dashboard/:id` answers.
+ *
+ * Declared in the DATA layer, as every altea wire DTO is: it is the contract between the route and the
+ * client, and neither half should own it. The snapshot ROWS travel here, not their contents — each one
+ * carries a `file`, and the client downloads those separately (from wherever the file store points, which
+ * is the point of the feature).
+ */
+export interface DashboardWithCachedQueries {
+    dashboard: DashboardEntity;
+    cachedQueries: CachedQueryEntity[];
+}

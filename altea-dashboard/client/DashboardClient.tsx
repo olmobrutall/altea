@@ -6,6 +6,10 @@ import { Navigator } from "@altea/altea/client/Navigator";
 import { Finder } from "@altea/altea/client/Finder";
 import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
 import * as AppContext from "@altea/altea/client/AppContext";
+import { ajaxGetRaw } from "@altea/altea/client/Services";
+import { Serializer } from "@altea/altea/data/serializer";
+import { FilesClient } from "@altea/altea-files/client/FilesClient";
+import type { CachedQueryJS, DashboardWithCachedQueries } from "../data/CachedQuery";
 
 // altea-dashboard's slice of the per-user client state — see the note on Navigator's entitySettings.
 declare module "@altea/altea/client/AppContext" {
@@ -276,9 +280,54 @@ export namespace DashboardClient {
             return ajaxGet({ url: "/api/dashboard/home" });
         }
 
-        export function get(dashboard: Lite<DashboardEntity>): Promise<DashboardEntity> {
+        /** The dashboard PLUS its snapshot rows (Signum's DashboardWithCachedQueries) — see toCachedQueries. */
+        export function get(dashboard: Lite<DashboardEntity>): Promise<DashboardWithCachedQueries> {
             return ajaxGet({ url: "/api/dashboard/" + dashboard.id });
         }
+    }
+
+    /**
+     * Signum's toCachedQueries — turn the snapshot ROWS into "which user asset can be answered from which
+     * file", downloading each file ONCE and sharing the promise between every asset it covers (a combined
+     * snapshot serves several parts, which is the whole point of combining them).
+     *
+     * The download goes through the app's own ajax, so an authenticated file store is reached exactly as
+     * every other file is; the URL carries the file's hash, so the response is cacheable for a month and
+     * still never stale (FilesClient.fileUrl).
+     *
+     * Parsed with `Serializer.parse`, NOT `r.json()` as Signum does: altea revives a Lite into a real
+     * LiteImp, and the executor keys rows and compares filter values BY `key()`. A plain JSON.parse leaves
+     * each lite a bare object with no such method, and every comparison would fall back to object identity
+     * — grouping nothing and matching nothing. (Signum's own lites are plain objects, so `r.json()` is
+     * right there.)
+     *
+     * `Finder.decompress` has no counterpart: altea's wire result table is not column-compressed.
+     */
+    export function toCachedQueries(
+        dashboardWithQueries: DashboardWithCachedQueries | undefined | null,
+    ): { [userAssetKey: string]: Promise<CachedQueryJS> } | undefined {
+
+        if (dashboardWithQueries == null)
+            return undefined;
+
+        const result: { [userAssetKey: string]: Promise<CachedQueryJS> } = {};
+
+        for (const cq of dashboardWithQueries.cachedQueries) {
+            const url = FilesClient.fileUrl(cq.file);
+            if (url == null)
+                continue;
+
+            // One promise per FILE, shared by each asset below (Signum's "share promise").
+            const promise = ajaxGetRaw({ url, cache: "default" })
+                .then(r => r.text())
+                .then(t => Serializer.parse(t) as CachedQueryJS);
+
+            for (const row of cq.userAssets ?? [])
+                if (row.userAsset != null)
+                    result[row.userAsset.key()] = promise;
+        }
+
+        return result;
     }
 
     // In `AppContext.clientState`, not a module-level array — see the note on Navigator's entitySettings.
@@ -327,8 +376,7 @@ export interface CustomPartProps<T extends Entity> {
     dashboardController: DashboardController;
 }
 
-/** Signum's PanelPartContentProps — what every part VIEW component receives (minus `cachedQueries`,
- *  deferred with CachedQuery). */
+/** Signum's PanelPartContentProps — what every part VIEW component receives. */
 export interface PanelPartContentProps<T extends IPartEntity> {
     partEmbedded: DashboardEntity_Part;
     content: T;
@@ -336,6 +384,8 @@ export interface PanelPartContentProps<T extends IPartEntity> {
     deps?: React.DependencyList;
     dashboardController: DashboardController;
     customDataRef: React.RefObject<any>;
+    /** The snapshot serving each user asset, if the dashboard has any — see DashboardClient.toCachedQueries. */
+    cachedQueries: { [userAssetKey: string]: Promise<CachedQueryJS> };
 }
 
 /** Signum's DashboardClient.DashboardTitle — the dashboard's icon + display name. */

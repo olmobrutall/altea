@@ -23,7 +23,9 @@ import type { QueryToken } from '@altea/altea/data/dynamicQuery/tokens/queryToke
 import { AggregateToken } from '@altea/altea/data/dynamicQuery/tokens/aggregateToken';
 import type { QueryRequest, ColumnRequest, OrderRequest, ResultTable, SystemTime } from '@altea/altea/data/dynamicQuery/queryRequest';
 import type { FilterOptionParsed, FilterOption, OrderOption, FindOptions } from '@altea/altea/client/FindOptions';
-import { isFilterCondition } from '@altea/altea/client/FindOptions';
+import { isFilterCondition, isFilterGroup } from '@altea/altea/client/FindOptions';
+import { getCachedResultTable } from '@altea/altea-dashboard/client/CachedQueryExecutor';
+import type { CachedQueryJS } from '@altea/altea-dashboard/data/CachedQuery';
 import { Finder } from '@altea/altea/client/Finder';
 import { QueryString } from '@altea/altea/client/QueryString';
 import { toNumberFormat } from '@altea/altea/client/numberFormat';
@@ -961,6 +963,38 @@ export namespace ChartClient {
         resultTable: rt,
         chartTable: chartTable,
       };
+    }
+
+    /**
+     * Signum's ChartClient.executeChartCached — the chart of a CACHED dashboard part: the same
+     * `toChartResult` over a result table the browser computed from the snapshot, so a chart re-filters and
+     * re-groups with no request at all.
+     *
+     * The palettes still come from the server (a colour palette is per entity TYPE, not per row, so it is one
+     * small cached call and not a per-part cost), and everything after the result table is the ordinary chart
+     * pipeline — a chart at execution time is just a query, which is the same observation the server-side
+     * user-asset execution rests on.
+     *
+     * The token map is what the executor reasons about the request with; altea has no `getAllFilterTokens`,
+     * so the walk is here and it recurses into filter GROUPS (a group carries a token of its own).
+     */
+    export function executeChartCached(request: ChartRequestModel, chartScript: ChartScript, cachedQuery: CachedQueryJS): Promise<ExecuteChartResult> {
+      const palettesPromise = getPalletes(request);
+
+      const tokens: { [fullKey: string]: QueryToken } = {};
+      const add = (t: QueryToken | undefined | null): void => { if (t != null) tokens[t.fullKey()] = t; };
+      const walk = (fops: FilterOptionParsed[]): void => fops.forEach(fop => {
+        add(fop.token);
+        if (isFilterGroup(fop))
+          walk(fop.filters);
+      });
+      request.columns.forEach(c => add(c.token?.token));
+      walk(request.filterOptions);
+
+      const queryRequest = getRequest(request);
+      const resultTable = getCachedResultTable(cachedQuery, queryRequest, tokens);
+
+      return palettesPromise.then(palettes => toChartResult(request, resultTable, chartScript, palettes));
     }
 
     export function executeChart(request: ChartRequestModel, chartScript: ChartScript, abortSignal?: AbortSignal): Promise<ExecuteChartResult> {

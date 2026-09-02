@@ -9,13 +9,14 @@ import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import type { DashboardEntity_Part } from "@altea/altea-dashboard/data/Dashboard";
 import type { PanelPartContentProps } from "@altea/altea-dashboard/client/DashboardClient";
+import { executeQueryValueCached } from "@altea/altea-dashboard/client/CachedQueryExecutor";
+import type { CachedQueryJS } from "@altea/altea-dashboard/data/CachedQuery";
 import type { DashboardController } from "@altea/altea-dashboard/client/View/DashboardFilterController";
 import { UserQueriesClient } from "../../UserQueriesClient";
 import { ValueUserQueryListPartEntity_UserQuery, ValueUserQueryListPartEntity } from "../../../data/DashboardParts";
 
 // Port of Signum's Signum.UserQueries/Dashboard/View/ValueUserQueryListPart.tsx — one "label → value" row per
-// saved query. altea divergence: no cached-query custom request (CachedQuery is deferred), and a part row is
-// a plain @part entity (Signum's `mle.element`).
+// saved query. altea divergence: a part row is a plain @part entity (Signum's `mle.element`).
 
 export default function ValueUserQueryListPart(p: PanelPartContentProps<ValueUserQueryListPartEntity>): React.JSX.Element {
     const ctx = TypeContext.root(p.content, { formGroupStyle: "None" });
@@ -26,7 +27,8 @@ export default function ValueUserQueryListPart(p: PanelPartContentProps<ValueUse
                     .map((ectx, i) =>
                         <div key={i}>
                             <ValueUserQueryElement ctx={ectx} entity={p.entity} dashboardController={p.dashboardController}
-                                partEmbedded={p.partEmbedded} />
+                                partEmbedded={p.partEmbedded}
+                                cachedQuery={p.cachedQueries[ectx.value.userQuery.toLite().key()]} />
                         </div>)
             }
         </div>
@@ -38,6 +40,7 @@ export interface ValueUserQueryElementProps {
     entity?: Lite<Entity>;
     dashboardController: DashboardController;
     partEmbedded: DashboardEntity_Part;
+    cachedQuery?: Promise<CachedQueryJS>;
 }
 
 export function ValueUserQueryElement(p: ValueUserQueryElementProps): React.JSX.Element {
@@ -62,7 +65,9 @@ export function ValueUserQueryElement(p: ValueUserQueryElementProps): React.JSX.
                             <span>{ctx.value.label ?? getQueryNiceName(foExpanded.queryName)}</span>
                         </div>
                         <div className="col-auto">
-                            <SearchValueLine ctx={ctx2} findOptions={foExpanded} />
+                            <SearchValueLine ctx={ctx2} findOptions={foExpanded}
+                                customRequest={p.cachedQuery && ((qr, fop, token) =>
+                                    p.cachedQuery!.then(cq => executeQueryValueCached(qr, fop, token, cq)))} />
                         </div>
                     </div>}
             </FormGroup>

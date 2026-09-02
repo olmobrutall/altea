@@ -1,5 +1,6 @@
 import { Column, Order, Pagination, QueryRequest, Filter, FilterCondition, FilterGroup } from "@altea/altea/server/dynamicQuery/requests";
 import { AggregateToken, AggregateFunction } from "@altea/altea/data/dynamicQuery/tokens/aggregateToken";
+import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { SubTokensOptionsAll, type QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { getKey } from "@altea/altea/data/dynamicQuery/queryUtils";
@@ -311,9 +312,20 @@ function equivalenceDictionary(
 }
 
 /**
- * Signum's `TranslatedToken` — the same token expressed in the TARGET query, walking UP the original until
- * a step has a declared equivalent and then re-appending what was walked past. `Order.Customer.Name` with
- * an equivalence on `Order.Customer` becomes `<equivalent>.Name`.
+ * Signum's `TranslatedToken` — the same token as seen by ANOTHER query, or null if it cannot be seen there.
+ *
+ * Walk up from the token; at each step ask whether a token equivalence maps it into the target query, and
+ * if so re-descend the steps walked past from the equivalent's own root (a token belongs to one query, so
+ * it cannot simply be reused). Three outcomes, in Signum's order:
+ *
+ *  1. an equivalence at some ancestor (or at the token itself) → the translated token;
+ *  2. an equivalence declared at the ROOT — "these two queries are about the same entity";
+ *  3. neither, but the two queries are THE SAME → the token unchanged. This is the ordinary case, and the
+ *     only one that needs no configuration at all: a dashboard whose parts all query Order cross-filters
+ *     with no token equivalence anywhere.
+ *
+ * altea divergence: Signum's root is `QueryUtils.Parse("Entity", …)`; altea's query tokens are ROOTLESS, so
+ * the root entity token is the EMPTY key and "Entity" does not resolve at all.
  */
 function translatedToken(
     original: QueryToken,
@@ -323,31 +335,54 @@ function translatedToken(
     const targetKey = getKey(targetQueryName);
     const toAppend: QueryToken[] = [];
 
+    const translate = (list: QueryToken[]): QueryToken[] | null => {
+        const translated = list.map(base => appendTokens(base, toAppend)).filter((t): t is QueryToken => t != null);
+        return translated.length > 0 ? translated : null;
+    };
+
     for (let t: QueryToken | undefined = original; t != null; t = t.parent) {
-        const byQuery = equivalences.get(t.fullKey());
-        const list = byQuery?.get(targetKey);
-        if (list != null && list.length > 0) {
-            const translated = list.map(base => appendTokens(base, toAppend)).filter((t): t is QueryToken => t != null);
-            return translated.length > 0 ? translated : null;
-        }
+        // 1. an equivalence AT this step. Asked before pushing it, so `toAppend` holds only what is BELOW.
+        const list = equivalences.get(t.fullKey())?.get(targetKey);
+        if (list != null && list.length > 0)
+            return translate(list);
 
         toAppend.unshift(t);
+
+        // 2. at the top, an equivalence declared at the root entity token.
+        if (t.parent == null) {
+            const root = tryRootToken(original.queryName);
+            const rootList = root == null ? undefined : equivalences.get(root.fullKey())?.get(targetKey);
+            if (rootList != null && rootList.length > 0)
+                return translate(rootList);
+        }
     }
 
-    return null;
+    // 3. same query — the token is already the target's own.
+    return getKey(original.queryName) === targetKey ? [original] : null;
+}
+
+/** The query's root entity token, or undefined if it cannot be resolved (never, in practice). */
+function tryRootToken(queryName: QueryName): QueryToken | undefined {
+    try {
+        return QueryLogic.getToken(queryName, "", SubTokensOptionsAll);
+    } catch {
+        return undefined;
+    }
 }
 
 /**
  * Re-apply the steps walked past in translatedToken, by KEY — a token belongs to ONE query, so the
- * equivalent has to be re-descended from the target's own root rather than reused.
+ * equivalent has to be re-descended from the target query's own token rather than reused.
  *
  * Returns undefined when the target query has no such step, which is a real outcome rather than a fault:
  * two queries can be declared equivalent at one token and diverge below it, and the caller then simply
- * adds no column.
+ * adds no column. (Signum THROWS a FormatException here. Refusing to build any snapshot because one
+ * sibling's token does not exist in one other query is a harsher answer than the situation deserves —
+ * that part just queries live.)
  */
 function appendTokens(base: QueryToken, toAppend: QueryToken[]): QueryToken | undefined {
     let current: QueryToken | undefined = base;
-    for (const step of toAppend.slice(1)) { // the first is the ROOT the equivalence replaced
+    for (const step of toAppend) {
         current = current.subToken(step.key, SubTokensOptionsAll);
         if (current == null)
             return undefined;

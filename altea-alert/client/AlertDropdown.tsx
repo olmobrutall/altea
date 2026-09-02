@@ -4,6 +4,7 @@ import { Toast } from "react-bootstrap";
 import { useRootClose } from "@restart/ui";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Navigator } from "@altea/altea/client/Navigator";
+import { toRelativeTime } from "@altea/altea/client/Basics/RelativeTime";
 import { Finder } from "@altea/altea/client/Finder";
 import { Operations } from "@altea/altea/client/Operations";
 import MessageModal from "@altea/altea/client/Modals/MessageModal";
@@ -384,7 +385,7 @@ export function AlertToast(p: {
             <Toast.Header>
                 {icon && <span className="me-2">{icon}</span>}
                 <strong className="me-auto">{AlertsClient.getTitle(alert.titleField, alert.alertType)}</strong>
-                <small>{toRelative(alert.alertDate)}</small>
+                <small>{toRelativeTime(alert.alertDate)}</small>
             </Toast.Header>
             <Toast.Body style={{
                 whiteSpace: "pre-wrap",
@@ -410,20 +411,3 @@ export namespace AlertToast {
     export const icons: { [alertTypeKey: string]: React.ReactNode } = {};
 }
 
-/** luxon's `DateTime.toRelative()`, over Temporal + Intl (see the header). */
-function toRelative(date: Temporal.PlainDateTime | null | undefined): string {
-    if (date == null)
-        return "";
-
-    // `Clock.now`, not `Temporal.Now`: a stored PlainDateTime is in the CLOCK's frame (UTC by default,
-    // Signum's TimeZoneMode), and Clock lives in the isomorphic data layer so both tiers read the same mode.
-    const minutes = Math.round(date.since(Clock.now).total({ unit: "minutes" }));
-    const format = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-
-    const abs = Math.abs(minutes);
-    if (abs < 60) return format.format(minutes, "minute");
-    if (abs < 60 * 24) return format.format(Math.round(minutes / 60), "hour");
-    if (abs < 60 * 24 * 30) return format.format(Math.round(minutes / (60 * 24)), "day");
-    if (abs < 60 * 24 * 365) return format.format(Math.round(minutes / (60 * 24 * 30)), "month");
-    return format.format(Math.round(minutes / (60 * 24 * 365)), "year");
-}

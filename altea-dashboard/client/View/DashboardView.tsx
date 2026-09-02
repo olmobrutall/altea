@@ -12,6 +12,7 @@ import { useAPI, useForceUpdate } from "@altea/altea/client/Hooks";
 import PinnedFilterBuilder from "@altea/altea/client/SearchControl/PinnedFilterBuilder";
 import { DashboardEntity, DashboardEntity_Part, DashboardMessage, type IPartEntity } from "../../data/Dashboard";
 import { DashboardClient, type PanelPartContentProps } from "../DashboardClient";
+import type { CachedQueryJS } from "../../data/CachedQuery";
 import { DashboardController } from "./DashboardFilterController";
 import { DashboardTooltipIcon } from "./DashboardTooltipIcon";
 import { parseIcon, fallbackIcon, getContrastingTextColor } from "@altea/altea/client/Components/IconHelpers";
@@ -21,12 +22,14 @@ import "../Dashboard.css";
 // (optionally COMBINING consecutive rows whose columns line up, so parts stack in a shared column), renders
 // each part's card chrome, and hosts the dashboard-level pinned filters.
 //
-// altea divergences: no `cachedQueries` prop (CachedQuery is deferred); `translated(part, …)` is not ported
+// altea divergences: `translated(part, …)` is not ported
 // (raw stored text); a part row is a plain @part entity, so `mlistItemContext` yields row contexts directly
 // (Signum's `c.value.element`).
 
 export default function DashboardView(p: {
     dashboard: DashboardEntity,
+    /** The snapshot serving each user asset (DashboardClient.toCachedQueries), or none. */
+    cachedQueries?: { [userAssetKey: string]: Promise<CachedQueryJS> },
     entity?: Entity,
     embedded?: boolean,
     deps?: React.DependencyList;
@@ -58,7 +61,7 @@ export default function DashboardView(p: {
                                         return (
                                             <div key={j} className={`col-sm-${c.value.columns} offset-sm-${offset}`}>
                                                 <PanelPart ctx={c} entity={p.entity}
-                                                    dashboardController={dashboardController} reload={p.reload} deps={p.deps} />
+                                                    dashboardController={dashboardController} reload={p.reload} cachedQueries={p.cachedQueries} deps={p.deps} />
                                             </div>
                                         );
                                     })}
@@ -95,7 +98,7 @@ export default function DashboardView(p: {
                             return (
                                 <div key={j} className={`col-sm-${c.columnWidth} offset-sm-${offset}`} style={{ display: "flex", flexDirection: "column" }}>
                                     {c.parts.map((pctx, k) =>
-                                        <PanelPart key={k} ctx={pctx} entity={p.entity} dashboardController={dashboardController}
+                                        <PanelPart key={k} ctx={pctx} entity={p.entity} dashboardController={dashboardController} cachedQueries={p.cachedQueries}
                                             reload={p.reload} deps={p.deps} flex />)}
                                 </div>
                             );
@@ -202,6 +205,7 @@ interface CombinedColumn {
 export interface PanelPartProps {
     ctx: TypeContext<DashboardEntity_Part>;
     entity?: Entity;
+    cachedQueries?: { [userAssetKey: string]: Promise<CachedQueryJS> };
     deps?: React.DependencyList;
     dashboardController: DashboardController;
     flex?: boolean;
@@ -236,6 +240,9 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
         deps: p.deps,
         dashboardController: p.dashboardController,
         customDataRef: customDataRef,
+        // Always an object, never undefined: a part reads it by asset key and "no snapshot" is an absent
+        // entry, so every part needs one branch rather than two.
+        cachedQueries: p.cachedQueries ?? {},
     } as PanelPartContentProps<IPartEntity>;
 
     if (renderer.withPanel && !renderer.withPanel(content, lite)) {

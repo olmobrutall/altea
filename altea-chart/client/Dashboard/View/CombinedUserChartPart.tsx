@@ -73,7 +73,13 @@ export default function CombinedUserChartPart(p: PanelPartContentProps<CombinedU
                         chartRequest.filterOptions.push(
                             ...p.dashboardController.getFilterOptions(p.partEmbedded, chartRequest.queryKey));
 
-                        return ChartClient.API.executeChart(chartRequest, cs)
+                        // The snapshot that can answer THIS chart of the combination — each one is
+                        // addressed by its own user chart, and a combined snapshot may serve several.
+                        const cachedQuery = p.cachedQueries[c.userChart.toLite().key()];
+
+                        return (cachedQuery != null
+                            ? cachedQuery.then(cq => ChartClient.API.executeChartCached(chartRequest, cs, cq))
+                            : ChartClient.API.executeChart(chartRequest, cs))
                             .then(result => {
                                 if (!signal.aborted) {
                                     c.result = result;

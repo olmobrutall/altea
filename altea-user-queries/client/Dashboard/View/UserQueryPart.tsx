@@ -8,6 +8,8 @@ import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import { Enum } from "@altea/altea/data/enum";
 import { RefreshMode } from "@altea/altea/data/dynamicQueries";
 import type { PanelPartContentProps } from "@altea/altea-dashboard/client/DashboardClient";
+import { executeQueryCached } from "@altea/altea-dashboard/client/CachedQueryExecutor";
+import type { CachedQueryJS } from "@altea/altea-dashboard/data/CachedQuery";
 import { DashboardPinnedFilters } from "@altea/altea-dashboard/client/View/DashboardFilterController";
 import { UserQueriesClient } from "../../UserQueriesClient";
 import { AutoUpdate, UserQueryPartEntity } from "../../../data/DashboardParts";
@@ -58,6 +60,9 @@ export default function UserQueryPart(p: PanelPartContentProps<UserQueryPartEnti
 
     const foExpanded = p.dashboardController.applyToFindOptions(p.partEmbedded, fo);
 
+    // The snapshot that can answer this part's user query, if the dashboard has one for it.
+    const cachedQuery = p.cachedQueries[p.content.userQuery.toLite().key()];
+
     p.customDataRef.current = {
         findOptions: foExpanded,
         refresh: updateVersion,
@@ -71,14 +76,15 @@ export default function UserQueryPart(p: PanelPartContentProps<UserQueryPartEnti
             p.dashboardController.invalidate(p.partEmbedded, p.partEmbedded.interactionGroup);
     }
 
-    return <SearchControlInPart part={p.content} findOptions={foExpanded}
+    return <SearchControlInPart part={p.content} findOptions={foExpanded} cachedQuery={cachedQuery}
         deps={[...p.deps ?? [], version]} onDataChanged={handleOnDataChanged} />;
 }
 
-function SearchControlInPart({ findOptions, part, deps, onDataChanged }: {
+function SearchControlInPart({ findOptions, part, deps, cachedQuery, onDataChanged }: {
     findOptions: FindOptions,
     onDataChanged: () => void,
     part: UserQueryPartEntity,
+    cachedQuery?: Promise<CachedQueryJS>,
     deps?: React.DependencyList;
 }): React.JSX.Element {
 
@@ -101,6 +107,10 @@ function SearchControlInPart({ findOptions, part, deps, onDataChanged }: {
                 searchOnLoad={refreshMode == "Auto"}
                 onSearch={(fo, dataChange) => dataChange && onDataChanged()}
                 maxResultsHeight={part.allowMaxHeight ? "none" : undefined}
+                // The one line that moves the work off the server: SearchControl asks this instead of
+                // /api/query/executeQuery, so filtering, sorting and paging happen in the browser over
+                // the snapshot. Absent it, the control queries live exactly as before.
+                customRequest={cachedQuery && ((req, fop) => cachedQuery.then(cq => executeQueryCached(req, fop, cq)))}
                 extraOptions={{ userQuery: part.userQuery.toLite() }}
             />
         </div>

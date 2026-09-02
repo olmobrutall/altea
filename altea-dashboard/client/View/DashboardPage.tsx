@@ -9,6 +9,7 @@ import { Navigator } from "@altea/altea/client/Navigator";
 import EntityLink from "@altea/altea/client/SearchControl/EntityLink";
 import { useTitle } from "@altea/altea/client/AppContext";
 import { useAPI, useAPIWithReload, useInterval } from "@altea/altea/client/Hooks";
+import { toRelativeTime } from "@altea/altea/client/Basics/RelativeTime";
 import { QueryString } from "@altea/altea/client/QueryString";
 import { newLite } from "@altea/altea/client/Reflection";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
@@ -28,15 +29,28 @@ export default function DashboardPage(): React.JSX.Element {
     const location = useLocation();
     const params = useParams() as { dashboardId: string };
 
-    const [dashboard, reloadDashboard] = useAPIWithReload(
+    const [dashboardWithQueries, reloadDashboard] = useAPIWithReload(
         () => DashboardClient.API.get(newLite(DashboardEntity, params.dashboardId) as Lite<DashboardEntity>),
         [params.dashboardId]);
+
+    const dashboard = dashboardWithQueries?.dashboard;
 
     const entityKey = QueryString.parse(location.search).entity as string;
 
     const entity = useAPI(() => entityKey ? Navigator.API.fetch(Lite.parse(entityKey) as Lite<Entity>) : Promise.resolve(null), [entityKey]);
 
     const refreshCounter = useInterval(dashboard?.autoRefreshPeriod == null ? null : (dashboard.autoRefreshPeriod as number) * 1000, 0, old => old + 1);
+
+    // A CACHED dashboard has to be RE-FETCHED to refresh: its parts read files, and a new generation of
+    // those is reachable only through new rows. An uncached one refreshes through `deps` alone (Signum's
+    // same effect, and the reason the page threads `refreshCounter` both ways).
+    React.useEffect(() => {
+        if (dashboardWithQueries != null && dashboardWithQueries.cachedQueries.length > 0)
+            reloadDashboard();
+    }, [refreshCounter]);
+
+    const cachedQueries = React.useMemo(
+        () => DashboardClient.toCachedQueries(dashboardWithQueries), [dashboardWithQueries]);
 
     useTitle(entity ? entity.toString() : (dashboard?.toString() ?? ""));
 
@@ -72,6 +86,13 @@ export default function DashboardPage(): React.JSX.Element {
                         }
                     </div>
                     <div className="ms-auto">
+                        {(dashboardWithQueries?.cachedQueries.length ?? 0) > 0 &&
+                            <span className="mx-4" title={DashboardMessage.ForPerformanceReasonsThisDashboardMayShowOutdatedInformation.niceToString()
+                                + "\n" + DashboardMessage.LasUpdateWasOn0.niceToString(
+                                    dashboardWithQueries!.cachedQueries[0].creationDate.toLocaleString())}>
+                                <FontAwesomeIcon aria-hidden={true} icon="clock-rotate-left" />
+                                {" "}{toRelativeTime(dashboardWithQueries!.cachedQueries[0].creationDate)}
+                            </span>}
                         {(dashboard.parts ?? []).some(a => a.interactionGroup != null) && <HelpIcon />}
                         {!Navigator.isReadOnly(DashboardEntity) &&
                             <Link className="sf-hide" style={{ textDecoration: "none" }} to={Navigator.navigateRoute(dashboard)} title={DashboardMessage.Edit.niceToString()}>
@@ -83,7 +104,7 @@ export default function DashboardPage(): React.JSX.Element {
                 </div>}
 
             {dashboard && (!entityKey || entity) &&
-                <DashboardView dashboard={dashboard} entity={entity || undefined} deps={[refreshCounter, entity]}
+                <DashboardView dashboard={dashboard} cachedQueries={cachedQueries} entity={entity || undefined} deps={[refreshCounter, entity]}
                     reload={reloadDashboard} hideEditButton={true} />}
         </div>
     );

@@ -18,7 +18,7 @@ import { FilePathEmbedded } from "@altea/altea-files/data/Files";
 import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbeddedLogic.server";
 import { DashboardEntity, DashboardOperation, type DashboardEntity_Part } from "../data/Dashboard";
 import { CachedQueryEntity, CachedQueryEntity_UserAsset, CachedQueryFileType, type CachedQueryJS } from "../data/CachedQuery";
-import { partConfigs } from "./DashboardLogic.server";
+import { partConfigs, DashboardLogic } from "./DashboardLogic.server";
 import {
     getCachedQueryDefinitions, combineCachedQueryDefinitions, type CachedQueryDefinition,
 } from "./CachedQueryDefinitions.server";
@@ -28,8 +28,8 @@ import {
 // points — disk, S3, Azure) instead of N database queries, and every part then evaluates its own query
 // against that snapshot IN THE BROWSER.
 //
-// This module owns the table, the file type and the REGENERATION. The client-side executor that reads a
-// snapshot is the remaining half.
+// This module owns the table, the file type and the REGENERATION; client/CachedQueryExecutor.ts is the half
+// that reads a snapshot in the browser.
 //
 // altea divergences:
 //  - Signum wraps each regenerating query in `Connector.CommandTimeoutScope(cq.TimeoutForQueries)`; altea's
@@ -51,6 +51,9 @@ export namespace CachedQueryLogic {
             return;
 
         FileTypeLogic.register(CachedQueryFileType.CachedQuery, options.fileTypeAlgorithm);
+
+        // What makes /api/dashboard/:id answer with snapshots — see the seam's own note.
+        DashboardLogic.cachedQueriesProvider = getCachedQueries;
 
         sb.include(CachedQueryEntity)
             .withQuery();

@@ -4,6 +4,7 @@ import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { UserAssetServer } from "@altea/altea-user-assets/server/UserAssetServer.server";
 import { DashboardEntity, DashboardPermission } from "../data/Dashboard";
+import type { DashboardWithCachedQueries } from "../data/CachedQuery";
 import { DashboardLogic } from "./DashboardLogic.server";
 
 // Port of Signum's DashboardController + DashboardServer (Signum.Dashboard/DashboardController.cs /
@@ -11,8 +12,9 @@ import { DashboardLogic } from "./DashboardLogic.server";
 // asserts ViewDashboard server-side.
 //
 // altea divergences:
-//  - Signum's `/get` returns `DashboardWithCachedQueries`; CachedQuery is deferred (Signum.Files), so this
-//    route returns the DashboardEntity alone and every part queries live.
+//  - Signum's is a POST `/get` taking the lite; altea's is the GET `/:dashboardId` the page already used.
+//    It answers Signum's same `DashboardWithCachedQueries` pair, through a SEAM
+//    (`DashboardLogic.cachedQueriesProvider`) because CachedQuery is an optional half here — see its note.
 //  - Signum pushed the entity-scoped dashboards onto the ENTITY PACK (`EntityPackTS.AddExtension` →
 //    `pack.dashboards` / `pack.embeddedDashboards`). altea's EntityPack has no extension bag, so the client
 //    fetches them per entity type from `/forEntityType` and `/embedded/:typeName` instead (one small GET,
@@ -60,7 +62,7 @@ export namespace DashboardServer {
             });
 
         ws.get("/api/dashboard/:dashboardId",
-            { params: CustomType<{ dashboardId: string }>(), res: CustomType<DashboardEntity | null>() },
+            { params: CustomType<{ dashboardId: string }>(), res: CustomType<DashboardWithCachedQueries | null>() },
             async (req, res) => {
                 await assertAuthorized();
                 const db = await DashboardLogic.retrieveDashboard(req.params.dashboardId);
@@ -68,7 +70,10 @@ export namespace DashboardServer {
                     res.status(404).json({ error: `Dashboard '${req.params.dashboardId}' not found` });
                     return;
                 }
-                res.jsonTyped(db);
+                // Signum's DashboardWithCachedQueries. The rows only — the client downloads each file
+                // itself, which is what lets the store (S3, Azure) serve them instead of the app.
+                const cachedQueries = await DashboardLogic.cachedQueriesProvider?.(db) ?? [];
+                res.jsonTyped({ dashboard: db, cachedQueries });
             });
     }
 }

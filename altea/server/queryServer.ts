@@ -11,6 +11,7 @@
 
 import { Entity } from "../data/entity";
 import { Temporal, Decimal } from "../data/basics";
+import { Enum } from "../data/enum";
 import { SubTokensOptionsAll } from "../data/dynamicQuery/tokens";
 import {
     isServerOnlyToken, serializeServerToken, type ServerTokenJson,
@@ -150,7 +151,42 @@ function toWireFilter(filter: Filter): FilterRequest {
         };
 
     const condition = filter as FilterCondition;
-    return { token: condition.token.fullKey(), operation: condition.operation, value: condition.value };
+    return {
+        token: condition.token.fullKey(),
+        operation: condition.operation,
+        // The CLIENT's form, not the engine's — see serializeFilterValue.
+        value: serializeFilterValue(condition.token, condition.operation, condition.value),
+    };
+}
+
+/**
+ * The INVERSE of {@link deserializeFilterValue}: a parsed filter value back into the form a CLIENT sends.
+ *
+ * Only one thing genuinely needs inverting, and it is the one thing a generic serializer cannot do: an ENUM
+ * crosses a name↔ordinal boundary here. `deserializeFilterValue` says it — "the wire carries the enum member
+ * NAME; the column stores its ordinal value" — so a filter serialised back with the ordinal produces a
+ * request that is NOT the request a client would send for the same query, and anything comparing the two
+ * disagrees. Decimals and Temporals need no branch: the entity Serializer already writes those in the
+ * client's own form.
+ *
+ * This matters wherever a server-built request must be comparable with a client-built one. Today that is the
+ * cached-query snapshot (@altea/altea-dashboard): its stored request is matched filter by filter against the
+ * live request of each dashboard part, and an ordinal there made every cached part fall over with "Cached
+ * filter not found in request: state EqualTo 1 — the request has state EqualTo Ordered".
+ */
+export function serializeFilterValue(token: QueryToken, operation: FilterOperationKeys, value: unknown): unknown {
+    if (operation === FilterOperationKeys.IsIn || operation === FilterOperationKeys.IsNotIn)
+        return Array.isArray(value) ? value.map(v => serializeSingle(token, v)) : value;
+    return serializeSingle(token, value);
+}
+
+function serializeSingle(token: QueryToken, value: unknown): unknown {
+    if (value == null || token.filterType !== "Enum")
+        return value;
+
+    // ordinal → member name. `Enum.toName` is the one direction that knows the enum object.
+    const e = token.type.getEnum() as Record<string, string | number> | undefined;
+    return e == null ? value : Enum.toName(e, value as never) ?? value;
 }
 
 function toWirePagination(pagination: Pagination): WirePagination {

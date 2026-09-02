@@ -407,7 +407,12 @@ export abstract class QueryToken {
             case "Lite":
             case "String":
                 return true;
-            // TODO(phase3): DateTime is groupable only at Days precision (DateOnly / validator).
+            // Signum groups by a DATE but not by a timestamp: `Type.UnNullify() == typeof(DateOnly)` is
+            // true, a DateTime only when a DateTimePrecisionValidator pins it to Days. A PlainDate IS that
+            // DateOnly; altea has no precision validator (so no second case), and PlainDateTime /
+            // PlainTime stay out — grouping rows by the millisecond is never what is meant.
+            case "DateTime":
+                return this.type.typeName === "PlainDate";
             default:
                 return false;
         }

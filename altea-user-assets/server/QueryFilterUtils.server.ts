@@ -6,7 +6,7 @@ import { SubTokensOptionsAll, type QueryToken } from "@altea/altea/data/dynamicQ
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { Enum } from "@altea/altea/data/enum";
 import { deserializeFilterValue } from "@altea/altea/server/queryServer";
-import { FilterOperation, FilterGroupOperation } from "@altea/altea/data/dynamicQueries";
+import { FilterOperation, FilterGroupOperation, DashboardBehaviour, PinnedFilterActive } from "@altea/altea/data/dynamicQueries";
 import { Entity } from "@altea/altea/data/entity";
 import type { QueryFilterBaseEntity } from "../data/Queries";
 import { parseFilterValue } from "../data/FilterValueString";
@@ -45,11 +45,13 @@ export namespace QueryFilterUtils {
             // A row nested DEEPER than expected without a group header above it is malformed; treat it as
             // belonging to this level rather than losing it.
             if (row.isGroup) {
+                // The children are consumed either way — a skipped group takes its whole subtree with it.
                 const [children, next] = build(queryName, rows, i + 1, (row.indentation as number) + 1);
-                result.push(new FilterGroup(
-                    groupOperation(row.groupOperation),
-                    row.token == null ? undefined : token(queryName, row.token.tokenString),
-                    children));
+                if (!skipAsFilter(row, undefined))
+                    result.push(new FilterGroup(
+                        groupOperation(row.groupOperation),
+                        row.token == null ? undefined : token(queryName, row.token.tokenString),
+                        children));
                 i = next;
                 continue;
             }
@@ -57,12 +59,55 @@ export namespace QueryFilterUtils {
             if (row.token != null && row.operation != null) {
                 const t = token(queryName, row.token.tokenString);
                 const op = operation(row.operation);
-                result.push(new FilterCondition(t, op, value(t, op, row.valueString)));
+                // Parsed BEFORE the skip test, because one rule asks whether there is a value at all.
+                const v = value(t, op, row.valueString);
+                if (!skipAsFilter(row, v))
+                    result.push(new FilterCondition(t, op, v));
             }
             i++;
         }
 
         return [result, i];
+    }
+
+    /**
+     * Signum's `ToFilterList` skip rules — which stored rows do NOT become filters.
+     *
+     * A stored filter row is not always a filter. A PINNED one is a control the user operates, so it filters
+     * only in the states where the UI would have sent it, and a row marked for a DASHBOARD behaviour is
+     * consumed by the dashboard (as an initial selection, or as a fallback when nothing else filters) rather
+     * than applied here. Everything below is Signum's list, in its order.
+     *
+     * Without these a headless execution filters by things the UI never would — most visibly `EqualTo null`
+     * for an unset pinned filter, which reads as "IS NULL" and answers with the wrong rows (usually none).
+     * That is why this is not only a cached-query concern: it applies to every server-side run of a stored
+     * asset (a scheduled report, an emailed user query, a snapshot).
+     */
+    function skipAsFilter(row: QueryFilterBaseEntity, parsedValue: unknown): boolean {
+        const behaviour = row.dashboardBehaviour == null ? null : Enum.toName(DashboardBehaviour, row.dashboardBehaviour);
+        // Signum's TODO is kept as written: "works for CachedQueries but maybe not in other cases".
+        if (behaviour === "UseAsInitialSelection" || behaviour === "UseWhenNoFilters")
+            return true;
+
+        if (row.pinned == null)
+            return false;
+
+        const active = Enum.toName(PinnedFilterActive, row.pinned.active);
+
+        // A checkbox in its "off" state filters by nothing.
+        if (active === "Checkbox_Unchecked" || active === "NotCheckbox_Checked")
+            return true;
+
+        // A split value has nothing to split.
+        if (row.pinned.splitValue && (row.valueString == null || row.valueString === ""))
+            return true;
+
+        // "Only when it has a value" — and it has none. For a GROUP the value is never parsed, so the group
+        // itself is dropped (Signum's second TODO: "works for empty groups").
+        if (active === "WhenHasValue" && (row.isGroup || parsedValue == null))
+            return true;
+
+        return false;
     }
 
     function token(queryName: QueryName, tokenString: string): QueryToken {

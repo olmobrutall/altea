@@ -17,6 +17,7 @@ import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
 import {
     DashboardEntity, DashboardOperation, DashboardEntity_Part, DashboardEmbedededInEntity, type IPartEntity,
 } from "../data/Dashboard";
+import type { CachedQueryEntity } from "../data/CachedQuery";
 import { registerDashboardXml, registerBasePartsXml } from "./DashboardXml.server";
 import type { CachedQueryDefinition } from "./CachedQueryDefinitions.server";
 import { DashboardServer } from "./DashboardServer.server";
@@ -81,6 +82,17 @@ export namespace DashboardLogic {
 
     // Signum's `ResetLazy<FrozenDictionary<Lite<DashboardEntity>, DashboardEntity>> Dashboards`.
     export let dashboardsLazy: ResetLazy<DashboardEntity[]> = null!;
+
+    /**
+     * The snapshot rows of a dashboard, or none.
+     *
+     * A SEAM rather than a direct call, because CachedQuery is an OPTIONAL half here: its table is included
+     * by `CachedQueryLogic.start`, which the APP calls (it has to choose where the files live). Signum needs
+     * no such seam — DashboardLogic.Start always includes CachedQueryEntity — but here querying a table
+     * nothing included would fail, so the route asks this instead and gets an empty list when the module is
+     * absent.
+     */
+    export let cachedQueriesProvider: ((db: DashboardEntity) => Promise<CachedQueryEntity[]>) | undefined;
 
     /** Signum's `DashboardLogic.PartNames.AddRange(…)` + the part's ToXml/FromXml/Clone, in one call.
      *  A module registers its parts from its own `XxxLogic.start` (see altea-user-queries / altea-chart). */

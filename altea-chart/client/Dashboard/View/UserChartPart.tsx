@@ -89,9 +89,17 @@ export default function UserChartPart(p: PanelPartContentProps<UserChartPartEnti
     // object that the block above MUTATES in place with the cross-filters other parts published, so depending
     // on it re-runs nothing — the encoded path is what actually changes when a sibling part publishes a
     // dashboard filter, and it is what makes the dashboard cross-filter at all.
+    // The snapshot that can answer this part's chart, if the dashboard has one for it.
+    const cachedQuery = p.cachedQueries[p.content.userChart.toLite().key()];
+
     const [resultOrError, reloadQuery] = useAPIWithReload<undefined | { error?: unknown, result?: ChartClient.API.ExecuteChartResult }>(() => {
         if (chartRequest == null || p.dashboardController.isLoading)
             return Promise.resolve(undefined);
+
+        if (cachedQuery != null)
+            return ChartClient.getChartScript(chartRequest.chartScript)
+                .then(cs => cachedQuery.then(cq => ChartClient.API.executeChartCached(chartRequest, cs, cq)))
+                .then(result => ({ result }), (error: unknown) => ({ error }));
 
         return ChartClient.getChartScript(chartRequest.chartScript)
             .then(cs => ChartClient.API.executeChart(chartRequest, cs))

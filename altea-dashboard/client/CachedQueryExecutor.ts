@@ -235,6 +235,16 @@ function getGetter(
         if (qt.key === "Count")
             return rows => rows.length;
 
+        // "Count where the value is not null" — the aggregate the server writes when it replaces an
+        // Average with the Sum and Count it can be recomputed from (see expandColumns). Signum's executor
+        // has no case for it and falls through to "Unexpected", which never shows there because no part
+        // ever ASKS for it; it is only in the snapshot to support the recomputation below. Answered here
+        // because the column is real and its meaning is unambiguous.
+        if (qt.key === "CountNotNull") {
+            const index = indexOf(qt.parent!.fullKey());
+            return rows => rows.reduce((n, r) => r.columns[index] == null ? n : n + 1, 0);
+        }
+
         const index = indexOf(qt.parent!.fullKey());
         switch (qt.key) {
             case "Min": return rows => min(nums(rows, index));
@@ -246,7 +256,8 @@ function getGetter(
     }
 
     // The snapshot is already grouped: re-aggregate.
-    if (qt.key === "Count") {
+    // A stored count re-aggregates by SUM, whichever kind it is.
+    if (qt.key === "Count" || qt.key === "CountNotNull") {
         const index = indexOf(qt.fullKey());
         return rows => sum(nums(rows, index));
     }
@@ -476,11 +487,27 @@ function extractRequestedFilters(cached: FilterRequest[], request: FilterRequest
     for (const c of cached) {
         const idx = remaining.findIndex(rf => filtersEqual(c, rf));
         if (idx === -1)
-            throw new CachedQueryError("Cached filter not found in request");
+            // Naming it is the difference between a two-minute fix and an afternoon: the two requests
+            // are built by different code paths (the server’s definition vs the part’s live options),
+            // and what diverges is always ONE filter.
+            throw new CachedQueryError("Cached filter not found in request: " + describeFilter(c)
+                + " — the request has " + (request.length === 0 ? "none" : request.map(describeFilter).join(", ")));
         remaining.splice(idx, 1);
     }
 
     return remaining;
+}
+
+/** A filter in one line, for a CachedQueryError. */
+function describeFilter(f: FilterRequest): string {
+    if (isFilterGroupRequest(f))
+        return (f as { token?: string }).token + " " + f.groupOperation + "(" + f.filters.map(describeFilter).join(", ") + ")";
+
+    const c = f as { token: string; operation: string; value: unknown };
+    const v = c.value == null ? "null"
+        : typeof (c.value as { key?: () => string }).key === "function" ? (c.value as { key(): string }).key()
+            : JSON.stringify(c.value);
+    return c.token + " " + c.operation + " " + v;
 }
 
 function filtersEqual(c: FilterRequest, r: FilterRequest): boolean {
