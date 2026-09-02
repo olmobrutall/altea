@@ -6,6 +6,7 @@ import { Temporal, type int } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { noRepeatValidator } from "@altea/altea/data/validators";
 import { FilePathEmbedded, FileTypeSymbol } from "@altea/altea-files/data/Files";
+import type { QueryRequest, ResultTable } from "@altea/altea/data/dynamicQuery/queryRequest";
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { DashboardEntity } from "./Dashboard";
 
@@ -22,6 +23,20 @@ import { DashboardEntity } from "./Dashboard";
 //    FilePathEmbedded is given its type where it is CREATED, so DashboardLogic names CachedQueryFileType
 //    when it writes one.
 //  - `long QueryDuration` / `UploadDuration` → `int` ms, as every other duration column in altea.
+
+/**
+ * Signum's CachedQueryJS — what a snapshot FILE contains. Declared here, in the data layer, because both
+ * ends read it: the server writes one per combined query, the browser parses it and evaluates each part's
+ * query against it.
+ *
+ * `creationDate` is an ISO STRING, as Signum's generated `string /*DateTime*\/` is: a DTO is not an
+ * entity, so nothing revives a Temporal value inside it (the call @altea/altea-whats-new documents).
+ */
+export interface CachedQueryJS {
+    creationDate: string;
+    queryRequest: QueryRequest;
+    resultTable: ResultTable;
+}
 
 /** Signum's `[AutoInit] CachedQueryFileType`. */
 export namespace CachedQueryFileType {

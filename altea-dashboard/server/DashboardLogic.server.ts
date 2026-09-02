@@ -18,6 +18,7 @@ import {
     DashboardEntity, DashboardOperation, DashboardEntity_Part, DashboardEmbedededInEntity, type IPartEntity,
 } from "../data/Dashboard";
 import { registerDashboardXml, registerBasePartsXml } from "./DashboardXml.server";
+import type { CachedQueryDefinition } from "./CachedQueryDefinitions.server";
 import { DashboardServer } from "./DashboardServer.server";
 import { ToolbarLogic } from "@altea/altea-toolbar/server/ToolbarLogic.server";
 
@@ -57,9 +58,24 @@ export interface DashboardPartConfig<T extends IPartEntity = IPartEntity> {
     toXml(part: T, ctx: IToXmlContext): Record<string, unknown> | Promise<Record<string, unknown>>;
     /** Signum's `IPartEntity.FromXml(element, ctx)`; `part` is a fresh instance of `type`. */
     fromXml(part: T, xml: Record<string, unknown>, ctx: IFromXmlContext): void | Promise<void>;
+    /**
+     * Signum's `DashboardLogic.OnGetCachedQueryDefinition.Register(...)` — which queries this part needs
+     * in a dashboard SNAPSHOT, and whether clicking it cross-filters its interaction group. A part with no
+     * query (free text, a separator, an image) omits it, which is Signum's `Enumerable.Empty`.
+     *
+     * It lives on the part CONFIG rather than in a registry of its own because it is one more thing a
+     * module knows about its own part, exactly like its XML — and a part that forgets it simply cannot be
+     * cached, instead of failing at regeneration time.
+     */
+    getCachedQueryDefinitions?(part: T, panelPart: DashboardEntity_Part): CachedQueryDefinition[];
 }
 
 const partRegistry = new Map<string /*elementName*/, DashboardPartConfig>();
+
+/** Every registered part config, for the callers that walk them all (the snapshot regeneration). */
+export function partConfigs(): DashboardPartConfig[] {
+    return [...partRegistry.values()];
+}
 
 export namespace DashboardLogic {
 

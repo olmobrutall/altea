@@ -23,6 +23,7 @@ import type {
     FilterRequest, Pagination as WirePagination, SystemTime as WireSystemTime,
 } from "../data/dynamicQuery/queryRequest";
 import { QueryLogic } from "./dynamicQuery/queryLogic";
+import { getKey } from "../data/dynamicQuery/queryUtils";
 import {
     QueryRequest, Column, Order, type Filter, FilterCondition, FilterGroup, Pagination,
     FilterOperationKeys, type FilterGroupOperationKeys, type OrderTypeKeys,
@@ -117,6 +118,47 @@ export function parseQueryRequest(wire: WireQueryRequest): QueryRequest {
 
     return new QueryRequest(queryName, filters, orders, columns, pagination, wire.groupResults ?? false,
         parseSystemTime(wire.systemTime));
+}
+
+/**
+ * The engine's QueryRequest → its WIRE form (Signum's `QueryRequestTS.FromQueryRequest`) — the inverse of
+ * {@link parseQueryRequest}, for the one caller that has to WRITE a request rather than read one: a
+ * dashboard's cached-query snapshot stores the request beside its result table, so the browser can tell
+ * what the snapshot answers before evaluating anything against it.
+ *
+ * Every token becomes its `fullKey()`, which is the only form the wire contract has, and the SystemTime is
+ * dropped: a snapshot of history would answer a question nobody can ask again (the request that produced
+ * it is fixed, so re-reading it "as of" some other time is meaningless), and the regeneration refuses one.
+ */
+export function toWireQueryRequest(request: QueryRequest): WireQueryRequest {
+    return {
+        queryKey: getKey(request.queryName),
+        groupResults: request.groupResults,
+        columns: request.columns.map(c => ({ token: c.token.fullKey(), displayName: c.displayName ?? c.token.niceName() })),
+        orders: request.orders.map(o => ({ token: o.token.fullKey(), orderType: o.orderType })),
+        filters: request.filters.map(toWireFilter),
+        pagination: toWirePagination(request.pagination),
+    };
+}
+
+function toWireFilter(filter: Filter): FilterRequest {
+    if (filter instanceof FilterGroup)
+        return {
+            groupOperation: filter.groupOperation,
+            token: filter.token?.fullKey(),
+            filters: filter.filters.map(toWireFilter),
+        };
+
+    const condition = filter as FilterCondition;
+    return { token: condition.token.fullKey(), operation: condition.operation, value: condition.value };
+}
+
+function toWirePagination(pagination: Pagination): WirePagination {
+    return {
+        mode: pagination.getMode(),
+        elementsPerPage: pagination.getElementsPerPage(),
+        currentPage: pagination instanceof Pagination.Paginate ? pagination.currentPage : undefined,
+    };
 }
 
 /**
@@ -224,7 +266,7 @@ function liteify(value: unknown): WireResultTable["rows"][number]["entity"] {
         : value as WireResultTable["rows"][number]["entity"];
 }
 
-function toWireResultTable(rt: ResultTable, wire: WireQueryRequest): WireResultTable {
+export function toWireResultTable(rt: ResultTable, wire: WireQueryRequest): WireResultTable {
     return {
         columns: rt.columns.map(c => c.token.fullKey()),
         uniqueValues: {},

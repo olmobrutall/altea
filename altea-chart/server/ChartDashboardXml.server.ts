@@ -1,4 +1,6 @@
 import { DashboardLogic } from "@altea/altea-dashboard/server/DashboardLogic.server";
+import { getDashboardPinnedFilterTokens } from "@altea/altea-dashboard/server/CachedQueryDefinitions.server";
+import { toQueryRequest, toChartRequest } from "./ChartRequestLogic.server";
 import { type int } from "@altea/altea/data/basics";
 import { CombinedUserChartPartEntity_UserChart, CombinedUserChartPartEntity, UserChartPartEntity } from "../data/DashboardParts";
 import { UserChartEntity } from "../data/UserChart";
@@ -19,6 +21,16 @@ export function registerUserChartDashboardParts(): void {
     DashboardLogic.registerPart<UserChartPartEntity>({
         type: UserChartPartEntity,
         elementName: "UserChartPart",
+        // Signum: a chart part CAN write filters — clicking a bar cross-filters its interaction group,
+        // which is why every other part of that group has to carry the columns its filters name.
+        getCachedQueryDefinitions: (p, panelPart) => [{
+            queryRequest: toQueryRequest(toChartRequest(p.userChart)),
+            pinnedFiltersTokens: getDashboardPinnedFilterTokens(p.userChart.filters ?? []),
+            panelPart,
+            userAsset: p.userChart.toLite(),
+            isQueryCached: p.isQueryCached,
+            canWriteFilters: true,
+        }],
         clone: p => {
             const c = new UserChartPartEntity();
             c.userChart = p.userChart;
@@ -53,6 +65,16 @@ export function registerUserChartDashboardParts(): void {
     DashboardLogic.registerPart<CombinedUserChartPartEntity>({
         type: CombinedUserChartPartEntity,
         elementName: "CombinedUserChartPart",
+        // Signum: a COMBINED chart cannot write filters (there is no single chart to click), so each of its
+        // rows contributes a definition of its own.
+        getCachedQueryDefinitions: (p, panelPart) => (p.userCharts ?? []).map(row => ({
+            queryRequest: toQueryRequest(toChartRequest(row.userChart)),
+            pinnedFiltersTokens: getDashboardPinnedFilterTokens(row.userChart.filters ?? []),
+            panelPart,
+            userAsset: row.userChart.toLite(),
+            isQueryCached: row.isQueryCached,
+            canWriteFilters: false,
+        })),
         clone: p => {
             const c = new CombinedUserChartPartEntity();
             c.userCharts = (p.userCharts ?? []).map(e => {

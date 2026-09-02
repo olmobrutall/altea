@@ -2,6 +2,8 @@ import { Enum } from "@altea/altea/data/enum";
 import { type int } from "@altea/altea/data/basics";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { DashboardLogic } from "@altea/altea-dashboard/server/DashboardLogic.server";
+import { getDashboardPinnedFilterTokens } from "@altea/altea-dashboard/server/CachedQueryDefinitions.server";
+import { toQueryRequest, toQueryRequestValue } from "./UserQueryRequest.server";
 import {
     AutoUpdate, BigValuePartEntity, UserQueryPartEntity, ValueUserQueryListPartEntity_UserQuery,
     ValueUserQueryListPartEntity,
@@ -43,6 +45,14 @@ export function registerUserQueryDashboardParts(): void {
             if (autoUpdate !== "None") x[A + "AutoUpdate"] = autoUpdate;
             return x;
         },
+        getCachedQueryDefinitions: (p, panelPart) => [{
+            queryRequest: toQueryRequest(p.userQuery),
+            pinnedFiltersTokens: getDashboardPinnedFilterTokens(p.userQuery.filters ?? []),
+            panelPart,
+            userAsset: p.userQuery.toLite(),
+            isQueryCached: p.isQueryCached,
+            canWriteFilters: false,
+        }],
         fromXml: (p, x, ctx) => {
             p.userQuery = ctx.getEntity(str(x[A + "UserQuery"])!) as UserQueryEntity;
             p.allowSelection = x[A + "AllowSelection"] == null ? true : bool(x[A + "AllowSelection"]);
@@ -56,6 +66,16 @@ export function registerUserQueryDashboardParts(): void {
     DashboardLogic.registerPart<ValueUserQueryListPartEntity>({
         type: ValueUserQueryListPartEntity,
         elementName: "ValueUserQueryListPart",
+        // Signum: a VALUE list asks each user query for its single value, so the request is the VALUE one
+        // and the part cannot cross-filter.
+        getCachedQueryDefinitions: (p, panelPart) => (p.userQueries ?? []).map(row => ({
+            queryRequest: toQueryRequestValue(row.userQuery),
+            pinnedFiltersTokens: getDashboardPinnedFilterTokens(row.userQuery.filters ?? []),
+            panelPart,
+            userAsset: row.userQuery.toLite(),
+            isQueryCached: row.isQueryCached,
+            canWriteFilters: false,
+        })),
         clone: p => {
             const c = new ValueUserQueryListPartEntity();
             c.userQueries = (p.userQueries ?? []).map(e => {

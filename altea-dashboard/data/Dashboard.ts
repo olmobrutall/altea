@@ -372,6 +372,8 @@ export namespace DashboardOperation {
     export const Save: ExecuteSymbol<DashboardEntity> = init();
     export const Clone: ConstructSymbol<DashboardEntity, From<DashboardEntity>> = init();
     export const Delete: DeleteSymbol<DashboardEntity> = init();
+    /** Signum's RegenerateCachedQueries — rebuild this dashboard's query snapshots. */
+    export const RegenerateCachedQueries: ExecuteSymbol<DashboardEntity> = init();
 }
 
 // Signum's DashboardMessage (DashboardEntity.cs / resx). The trailing entries are altea-only: the validator
