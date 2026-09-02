@@ -3,7 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
     entity, primaryKey, implementedByAll, uniqueIndex, backReference, rowOrder,
-    stringLengthValidator, fieldValidation, quoted,
+    stringLengthValidator, fieldValidation, quoted, legacyTableName,
 } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
@@ -73,6 +73,9 @@ export enum OfficeTemplateVisibleOn {
  */
 @reflect
 @entity("SystemString", "Master", { lowPopulation: true })
+// Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
+// pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
+@legacyTableName("WordTransformer")
 export class OfficeTransformerSymbol extends Symbol {
 }
 
@@ -82,6 +85,9 @@ export class OfficeTransformerSymbol extends Symbol {
  */
 @reflect
 @entity("SystemString", "Master", { lowPopulation: true })
+// Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
+// pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
+@legacyTableName("WordConverter")
 export class OfficeConverterSymbol extends Symbol {
 }
 
@@ -94,6 +100,9 @@ export class OfficeConverterSymbol extends Symbol {
  */
 @reflect
 @entity("SystemString", "Master")
+// Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
+// pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
+@legacyTableName("WordModel")
 export class OfficeModelEntity extends Entity {
     @uniqueIndex
     @stringLengthValidator({ max: 200 })
@@ -129,6 +138,9 @@ export class OfficeTemplateEntity_Order extends Entity {
 @reflect
 @primaryKey("uuid")
 @entity("Main", "Master")
+// Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
+// pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
+@legacyTableName("WordTemplate")
 export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IContainsQuery {
     @uniqueIndex
     @stringLengthValidator({ min: 3, max: 200 })
@@ -189,6 +201,9 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
  */
 @reflect
 @entity("Part", "Master")
+// Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
+// pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
+@legacyTableName("WordAttachment")
 export class OfficeAttachmentEntity extends Entity implements IAttachmentGeneratorEntity {
     /** Overrides the template's own fileName when set. A text template, like OfficeTemplateEntity.fileName. */
     @stringLengthValidator({ min: 3, max: 100 })
