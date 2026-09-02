@@ -150,9 +150,9 @@ export class RuleTypeEntity extends RuleEntity {
 // NoRepeat + CountGreaterThan0); `allowed` is granted when they do; `order` preserves evaluation order
 // (last-match-wins), Signum's [PreserveOrder]/ICanBeOrdered. Owned by RuleTypeEntity via `ruleType`.
 @entity("Part")
-// Signum models this as a standalone Entity wired as a VIRTUAL MList, so its table is named after the
-// ENTITY, not after the owner's collection. legacyMode cannot derive that — see @legacyTableName.
-@legacyTableName("RuleTypeCondition")
+// Signum wires this as a VIRTUAL MList, so its table is named after the ENTITY and there is no
+// owner-plus-collection table to match.
+@legacyTableName({ wasVirtualMList: true })
 export class RuleTypeConditionEntity extends Entity {
     @backReference ruleType: Lite<RuleTypeEntity>;
     @rowOrder order: int = toInt(0);
@@ -279,9 +279,9 @@ export class RuleOperationEntity extends RuleEntity {
 // One condition-row of a RuleOperation (mirrors RuleTypeConditionEntity): the SET of TypeConditionSymbols
 // that must ALL hold, the granted OperationAllowed, and the evaluation `order` (last-match-wins).
 @entity("Part")
-// Signum models this as a standalone Entity wired as a VIRTUAL MList, so its table is named after the
-// ENTITY, not after the owner's collection. legacyMode cannot derive that — see @legacyTableName.
-@legacyTableName("RuleOperationCondition")
+// Signum wires this as a VIRTUAL MList, so its table is named after the ENTITY and there is no
+// owner-plus-collection table to match.
+@legacyTableName({ wasVirtualMList: true })
 export class RuleOperationConditionEntity extends Entity {
     @backReference ruleOperation: Lite<RuleOperationEntity>;
     @rowOrder order: int = toInt(0);
@@ -393,9 +393,9 @@ export class RulePropertyEntity extends RuleEntity {
 // One condition-row of a RuleProperty (mirrors RuleTypeConditionEntity): the SET of TypeConditionSymbols
 // (of the ROOT type) that must ALL hold, the granted PropertyAllowed, and the evaluation `order`.
 @entity("Part")
-// Signum models this as a standalone Entity wired as a VIRTUAL MList, so its table is named after the
-// ENTITY, not after the owner's collection. legacyMode cannot derive that — see @legacyTableName.
-@legacyTableName("RulePropertyCondition")
+// Signum wires this as a VIRTUAL MList, so its table is named after the ENTITY and there is no
+// owner-plus-collection table to match.
+@legacyTableName({ wasVirtualMList: true })
 export class RulePropertyConditionEntity extends Entity {
     @backReference ruleProperty: Lite<RulePropertyEntity>;
     @rowOrder order: int = toInt(0);

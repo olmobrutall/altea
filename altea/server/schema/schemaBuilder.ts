@@ -210,15 +210,21 @@ export class SchemaSettings {
 
     tableName(type: Type<Entity>): string {
         if (this.legacyMode) {
-            // A declared Signum name wins over BOTH derived rules — it is the escape hatch for the shape
-            // legacyCollectionTableName would otherwise guess wrong (a virtual MList; see @legacyTableName).
-            const declared = getTypeInfo(type as object)?.legacyTableName;
-            if (declared != null)
-                return this.isPostgres ? pascalToSnake(declared) : declared;
+            const info = getTypeInfo(type as object);
 
-            const collection = legacyCollectionTableName(type, this);
-            if (collection != null)
-                return collection;
+            // A declared Signum NAME wins over both derived rules — the type is simply called something
+            // else there (@legacyTableName("WordTemplate")).
+            if (info?.legacyTableName != null)
+                return this.isPostgres ? pascalToSnake(info.legacyTableName) : info.legacyTableName;
+
+            // `wasVirtualMList` says Signum has NO MList table for the collection holding this type, so
+            // the owner-plus-collection rule stands down and the ordinary derived name — which is what
+            // Signum names the ENTITY's own table — is right.
+            if (!info?.legacyWasVirtualMList) {
+                const collection = legacyCollectionTableName(type, this);
+                if (collection != null)
+                    return collection;
+            }
         }
         return physicalTableName(type, this.isPostgres, this.legacyMode);
     }

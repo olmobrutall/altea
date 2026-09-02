@@ -169,9 +169,12 @@ export class DashboardEntity_TokenEquivalenceGroup_Query extends Entity {
 // restricted to one InteractionGroup. In Signum this is a virtual MList (a real entity with a back-reference
 // to the dashboard); in altea that IS the @part row idiom.
 @entity("Part")
-// Signum models this as a standalone Entity wired as a VIRTUAL MList, so its table is named after the
-// ENTITY, not after the owner's collection. legacyMode cannot derive that — see @legacyTableName.
-@legacyTableName("TokenEquivalenceGroup")
+// Signum wires this as a VIRTUAL MList, so its table is named after the ENTITY (TokenEquivalenceGroupEntity)
+// and there is no owner-plus-collection table to match. BOTH facts are needed here, unlike the auth
+// rule-condition entities: altea composed this type's own name off its owner
+// (DashboardEntity_TokenEquivalenceGroup), so the derived name would be dashboard_token_equivalence_group —
+// standing the collection rule down is not enough, the Signum name has to be given.
+@legacyTableName({ name: "TokenEquivalenceGroup", wasVirtualMList: true })
 export class DashboardEntity_TokenEquivalenceGroup extends Entity {
     @backReference dashboard: Lite<DashboardEntity>;
     @rowOrder order: int;

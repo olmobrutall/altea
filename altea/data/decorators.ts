@@ -199,9 +199,36 @@ export function tableName(name: string) {
 //
 // Give it the LOGICAL name (`"RuleTypeCondition"`), not the physical one: it is dialect-mapped exactly as a
 // derived name is, so it reads `rule_type_condition` on Postgres and `RuleTypeCondition` on SQL Server.
-export function legacyTableName(name: string) {
+// The two forms answer the two different questions legacyMode cannot derive, so they say which one they
+// are answering:
+//
+//   @legacyTableName("WordTemplate")             — Signum CALLS this table something else. A rename the
+//                                                  model does not record (Signum.Word became
+//                                                  altea-office-template, so office_template is Signum's
+//                                                  word_template).
+//   @legacyTableName({ wasVirtualMList: true })  — Signum has NO MList table for this collection. Its
+//                                                  element is a standalone Entity wired as a VIRTUAL
+//                                                  MList, so the table is named after the ENTITY and the
+//                                                  owner-plus-collection rule must stand down. The name
+//                                                  itself is the ordinary derived one, so there is
+//                                                  nothing to spell out.
+//
+// Both may be given together for a renamed virtual MList.
+export type LegacyTableOptions = {
+    /** Signum's name for this table, when it differs from the derived one. */
+    name?: string;
+    /** Signum modelled this as a standalone Entity behind a virtual MList — see legacyCollectionTableName. */
+    wasVirtualMList?: boolean;
+};
+
+export function legacyTableName(name: string): (target: Function) => void;
+export function legacyTableName(options: LegacyTableOptions): (target: Function) => void;
+export function legacyTableName(arg: string | LegacyTableOptions) {
+    const options: LegacyTableOptions = typeof arg === 'string' ? { name: arg } : arg;
     return function (target: Function): void {
-        getOrCreateTypeInfo(target).legacyTableName = name;
+        const ti = getOrCreateTypeInfo(target);
+        if (options.name != null) ti.legacyTableName = options.name;
+        if (options.wasVirtualMList) ti.legacyWasVirtualMList = true;
     };
 }
 

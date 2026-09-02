@@ -455,6 +455,10 @@ export class TypeInfo {
     // is on. Logical, so it is dialect-mapped like a derived name. See the decorator for why it cannot be
     // computed from the model.
     legacyTableName?: string;
+    // `@legacyTableName({ wasVirtualMList: true })`: Signum has no MList table for the collection holding
+    // this type — its element is a standalone Entity, so the table is named after the ENTITY and
+    // legacyCollectionTableName must stand down. Like legacyTableName, read ONLY under legacyMode.
+    legacyWasVirtualMList?: boolean;
     // Set by class-level @index / @uniqueIndex(e => [e.a, e.b]): composite indexes declared
     // by column-selector lambdas. Stored as the @quoted selectors; the SchemaBuilder resolves the
     // covered fields → columns by reading each captured AST (accessedFields), like `where`.
