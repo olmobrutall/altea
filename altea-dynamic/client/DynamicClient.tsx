@@ -1,7 +1,7 @@
 import { ajaxGet } from "@altea/altea/client/Services";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { DynamicCSSOverrideEntity } from "../data/DynamicCSSOverride";
-import { DynamicSqlMigrationEntity } from "../data/DynamicSqlMigration";
+import { DynamicRenameEntity, DynamicSqlMigrationEntity } from "../data/DynamicSqlMigration";
 
 // Port of Signum.Dynamic's DynamicCSSOverrideClient.tsx + the client half of its SqlMigrations, plus the one
 // piece Signum does in `Index.cshtml`: injecting the stored stylesheet into the page.
@@ -40,6 +40,25 @@ export namespace DynamicClient {
                     token(a => a.comment),
                 ],
             }));
+
+        // A rename row is read-only in the UI (Signum shows it as a SearchControl on the panel and offers
+        // no editor): it is a record of something that already happened.
+        cb.configure(DynamicRenameEntity)
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(a => a.id),
+                    token(a => a.creationDate),
+                    token(a => a.replacementKey),
+                    token(a => a.oldName),
+                    token(a => a.newName),
+                ],
+            }));
+
+        registerDynamicPanelSearch(DynamicRenameEntity.typeName, [
+            { token: "replacementKey", type: "Text" },
+            { token: "oldName", type: "Text" },
+            { token: "newName", type: "Text" },
+        ]);
 
         registerDynamicPanelSearch(DynamicCSSOverrideEntity.typeName, [
             { token: "name", type: "Text" },

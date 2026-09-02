@@ -13,11 +13,9 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 // when. No compiler is involved: the script is SQL text.
 //
 // altea divergences:
-//  - Signum's `Create` runs the synchronizer with AUTO-REPLACEMENTS derived from `DynamicRenameEntity` rows,
-//    which the dynamic-TYPE editor writes when a type or property is renamed. That editor needs Roslyn and
-//    does not port (see DynamicLogic.server.ts), so nothing would ever write a rename row — hence
-//    `DynamicRenameEntity` is NOT ported and `Create` simply generates the script the terminal's `sync`
-//    would. The overlap with @altea/altea-migrations is deliberate and narrow: that package OWNS the
+//  - `DynamicRenameEntity` is ported and `Create` uses it, but nothing WRITES a rename row automatically:
+//    in Signum the dynamic-TYPE editor does, and that editor needs Roslyn (see DynamicLogic.server.ts), so
+//    here a rename is recorded by hand or through `DynamicSqlMigrationLogic.addDynamicRename`. The overlap with @altea/altea-migrations is deliberate and narrow: that package OWNS the
 //    versioned migration history and the runners; this one is "see and apply the pending schema diff from
 //    the browser", and it records its executions here rather than there.
 //  - `DynamicSqlMigrationMessage.PreventingGenerationNewScript…` is kept but can no longer trigger: it
@@ -45,6 +43,35 @@ export class DynamicSqlMigrationEntity extends Entity {
     @quoted
     override toString(): string {
         return this.comment;
+    }
+}
+
+// Signum's DynamicRenameEntity (same file there). One recorded rename — "under THIS replacement key,
+// `oldName` became `newName`" — which the next generated migration uses to ANSWER the synchronizer's
+// rename questions instead of asking them (see DynamicSqlMigrationLogic.autoReplacement).
+//
+// In Signum the rows are written by the dynamic-TYPE editor, which needs Roslyn and does not port; here
+// they are written by hand (or by `DynamicSqlMigrationLogic.addDynamicRename`) — which is the point, since
+// a rename recorded once is then applied by every later `sync` of that database without a prompt.
+@reflect
+@entity("Main", "Transactional")
+export class DynamicRenameEntity extends Entity {
+
+    creationDate: Temporal.PlainDateTime = Clock.now;
+
+    /** The synchronizer bucket the rename belongs to: `Tables`, `Columns:<table>`, `Enums:<table>`. */
+    @stringLengthValidator({ max: 200 })
+    replacementKey: string;
+
+    @stringLengthValidator({ max: 200 })
+    oldName: string;
+
+    @stringLengthValidator({ max: 200 })
+    newName: string;
+
+    @quoted
+    override toString(): string {
+        return this.replacementKey + ": " + this.oldName + " -> " + this.newName;
     }
 }
 

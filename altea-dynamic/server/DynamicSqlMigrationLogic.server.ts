@@ -6,24 +6,33 @@ import { Schema } from "@altea/altea/server/schema";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { Replacements } from "@altea/altea/server/sync/synchronizer";
+import type { AutoReplacementContext, Selection } from "@altea/altea/server/sync/synchronizer";
+import { StringDistance } from "@altea/altea/server/sync/stringDistance";
+import { table } from "@altea/altea/server/table";
+import { Temporal } from "@altea/altea/data/basics";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import type { Lite } from "@altea/altea/data/lite";
 import {
-    DynamicSqlMigrationEntity, DynamicSqlMigrationMessage, DynamicSqlMigrationOperation,
+    DynamicRenameEntity, DynamicSqlMigrationEntity, DynamicSqlMigrationMessage, DynamicSqlMigrationOperation,
 } from "../data/DynamicSqlMigration";
 
 // Port of Signum.Dynamic's SqlMigrations/DynamicSqlMigrationLogic.cs — generate the pending schema-diff
 // script from the admin UI, review it, execute it, and keep a record of who ran it and when.
 //
 // altea divergences, documented inline:
-//  - Signum's `Create` installs a `Replacements.GlobalAutoReplacement` built from unapplied
-//    `DynamicRenameEntity` rows, which its dynamic-TYPE editor writes on every rename. That editor needs
-//    Roslyn and does not port, so nothing would ever write a rename row: `DynamicRenameEntity` is not ported
-//    and `Create` runs the synchronizer with the same NO-RENAME auto-replacement the terminal uses headless
-//    (drop + add). A rename that must preserve data is a job for an interactive `terminal sync`, and the
-//    generated script says so in a leading comment.
+//  - `DynamicRenameEntity` IS ported, and `generateScript` answers the synchronizer's rename questions
+//    from the unapplied rows exactly as Signum's `Create` does. In Signum those rows are written by the
+//    dynamic-TYPE editor (Roslyn, unported), so this port has no automatic writer — they are recorded by
+//    hand or through `addDynamicRename`. That is worth having on its own: a rename recorded ONCE is then
+//    answered by every later synchronization of that database, from the panel or from the terminal, instead
+//    of being re-asked and eventually mis-answered as drop + add.
+//    THREE of Signum's five strategies port. Tables, Columns and Enums are keyed by buckets altea has
+//    (`Replacements.keyTables` / `keyColumnsForTable` / `keyEnumsForTable`). Its Properties and Operations
+//    strategies are keyed by `PropertyRouteLogic.PropertiesFor` and `DynamicTypeLogic.TypeNameKey` — the
+//    first needs a PropertyRouteEntity table altea does not have, the second a constant of the unported
+//    compiled half — so a rename under those buckets falls through to the no-rename default.
 //  - `Execute` runs the script inside ONE transaction and then re-initializes the schema caches, which is
 //    what the terminal's `synchronize` does — Signum executes statement-by-statement through its own
 //    `SqlPreCommand` runner and does not re-initialize.
@@ -39,6 +48,21 @@ export namespace DynamicSqlMigrationLogic {
             .withOperations(registerDynamicSqlMigrationOperations)
             .withQuery();
 
+        // A rename row has no operations in Signum either — it is written by code and read by the
+        // synchronizer.
+        //
+        // Signum also registers an `IsApplied` EXPRESSION so the panel can show it as a column. That is a
+        // correlated EXISTS against ANOTHER TABLE inside a quoted body, and altea has no established way to
+        // write one (every `withQuoted` member in the workspace returns an IQuery, or tests a COLLECTION
+        // member with `.some`). `unappliedRenames` below answers the same question with one extra read
+        // instead of inventing a lowering that might silently not translate.
+        sb.include(DynamicRenameEntity)
+            .withQuery();
+    }
+
+    /** Signum's `AddDynamicRename` — record a rename so later synchronizations answer it themselves. */
+    export async function addDynamicRename(replacementKey: string, oldName: string, newName: string): Promise<void> {
+        await DynamicRenameEntity.create({ replacementKey, oldName, newName }).save();
     }
 
     /**
@@ -46,16 +70,19 @@ export namespace DynamicSqlMigrationLogic {
      * rename auto-replacements (see the header).
      */
     export async function generateScript(): Promise<string | undefined> {
+        const lastRenames = await unappliedRenames();
+
         const replacements = new Replacements();
         replacements.interactive = false; // there is no console on the other end of an HTTP request
-        replacements.autoReplacement = ({ oldValue }) => ({ oldValue, newValue: null });
+        replacements.autoReplacement = ctx => autoReplacement(ctx, lastRenames);
 
         const script = await Schema.current.synchronizationScript(replacements);
         if (script == null)
             return undefined;
 
-        return "-- Generated from the Dynamic panel. Every ambiguous rename was resolved as DROP + ADD:\n"
-            + "-- a rename that must PRESERVE data has to be run from an interactive `terminal sync`.\n\n"
+        return "-- Generated from the Dynamic panel. Renames recorded as DynamicRename were applied;\n"
+            + "-- every OTHER ambiguous rename was resolved as DROP + ADD, so a rename that must PRESERVE\n"
+            + "-- data has to be recorded first (or run from an interactive `terminal sync`).\n\n"
             + script.plainSql();
     }
 
@@ -120,4 +147,85 @@ export namespace DynamicSqlMigrationLogic {
             },
         });
     }
+}
+
+/**
+ * Signum's `lastRenames`: the recorded renames no later migration has consumed, oldest first, so a chain
+ * (a -> b -> c) is replayed in the order it happened.
+ *
+ * Signum expresses "not applied" as `IsApplied`, an EXISTS per row; here it is the same question asked
+ * once — a rename is spent when a migration was generated after it, so the newest migration's date is the
+ * cutoff. One extra read, and it lowers to an ordinary indexed comparison.
+ */
+async function unappliedRenames(): Promise<DynamicRenameEntity[]> {
+    const newestMigration = await table(DynamicSqlMigrationEntity)
+        .orderByDescending(m => m.creationDate)
+        .firstOrNull() as DynamicSqlMigrationEntity | null;
+
+    const all = await table(DynamicRenameEntity)
+        .orderBy(r => r.creationDate)
+        .toArray() as DynamicRenameEntity[];
+
+    if (newestMigration == null)
+        return all;
+
+    const cutoff = newestMigration.creationDate;
+    return all.filter(r => Temporal.PlainDateTime.compare(r.creationDate, cutoff) > 0);
+}
+
+// ---- the rename strategies (Signum's DynamicAutoReplacements*) ----------------------------------------
+
+/**
+ * Answer ONE of the synchronizer's rename questions from the recorded renames, or null to leave it to the
+ * caller's default. Dispatches on the bucket, exactly as Signum's `Create` does — see the header for the
+ * two buckets that do not port.
+ */
+function autoReplacement(ctx: AutoReplacementContext, lastRenames: DynamicRenameEntity[]): Selection | null {
+    const newName =
+        ctx.replacementKey.startsWith(Replacements.keyEnumsForTable("")) ? nearestByDistance(ctx) :
+            ctx.replacementKey.startsWith(Replacements.keyColumnsForTable("")) ? chainedBySegment(ctx, lastRenames, "_") :
+                ctx.replacementKey === Replacements.keyTables ? chainedWhole(ctx, lastRenames, Replacements.keyTables) :
+                    null;
+
+    // A bucket with no strategy, or a chain that did not land on an offered name, falls through to the
+    // no-rename default — drop + add, which is what the panel documents in the script header.
+    return { oldValue: ctx.oldValue, newValue: newName };
+}
+
+/** Signum's `AutoReplacementEnums`: an enum MEMBER is matched by nearest spelling. An enum row is seeded,
+ *  so guessing wrong costs a re-seed, not data — which is why this one guesses at all. */
+function nearestByDistance(ctx: AutoReplacementContext): string | null {
+    const candidates = ctx.newValues ?? [];
+    if (candidates.length === 0)
+        return null;
+
+    const sd = new StringDistance();
+    return candidates.reduce((best, nv) =>
+        sd.levenshteinDistance(nv, ctx.oldValue) < sd.levenshteinDistance(best, ctx.oldValue) ? nv : best);
+}
+
+/** Signum's `DynamicAutoReplacementsSimple`: replay the chain over the WHOLE name (a table). */
+function chainedWhole(ctx: AutoReplacementContext, lastRenames: DynamicRenameEntity[], replacementKey: string): string | null {
+    let current = ctx.oldValue;
+    for (const r of lastRenames)
+        if (r.replacementKey === replacementKey && r.oldName === current)
+            current = r.newName;
+
+    return ctx.newValues?.includes(current) ? current : null;
+}
+
+/** Signum's `DynamicAutoReplacementsColumns`: a column name is composed (an embedded's members are
+ *  `owner_member`), so the chain is replayed per SEGMENT — renaming `address` fixes `address_city` too. */
+function chainedBySegment(ctx: AutoReplacementContext, lastRenames: DynamicRenameEntity[], separator: string): string | null {
+    const table = ctx.replacementKey.slice(Replacements.keyColumnsForTable("").length);
+    const keys = new Set([Replacements.keyColumnsForTable(table)]);
+    const relevant = lastRenames.filter(r => keys.has(r.replacementKey));
+
+    let segments = ctx.oldValue.split(separator);
+    for (const r of relevant)
+        if (segments.includes(r.oldName))
+            segments = segments.map(seg => seg === r.oldName ? r.newName : seg);
+
+    const current = segments.join(separator);
+    return ctx.newValues?.includes(current) ? current : null;
 }
