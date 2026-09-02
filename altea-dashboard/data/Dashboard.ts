@@ -1,5 +1,5 @@
 import { reflect, init } from "@altea/altea/data/reflection";
-import { Entity, type PrimaryKey } from "@altea/altea/data/entity";
+import { Entity, EmbeddedEntity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
     entity, primaryKey, backReference, rowOrder, implementedBy, index,
@@ -192,6 +192,24 @@ export class DashboardEntity_TokenEquivalenceGroup extends Entity {
     }
 }
 
+// Signum's CacheQueryConfigurationEmbedded (DashboardEntity.cs) — present exactly when this dashboard's
+// queries are SNAPSHOT to a file rather than run per view (see ./CachedQuery).
+//
+// altea divergence: `timeoutForQueries` is STORED and not applied. Signum wraps each regenerating query in
+// `Connector.CommandTimeoutScope(...)`; altea's Connector has no command-timeout scope, so adding one is a
+// core change with no other consumer. The column is kept so a Signum row round-trips.
+@reflect
+export class CacheQueryConfigurationEmbedded extends EmbeddedEntity {
+
+    @unit("s")
+    timeoutForQueries: int = toInt(5 * 60);
+
+    maxRows: int = toInt(1000 * 1000);
+
+    @unit("m")
+    autoRegenerateWhenOlderThan: int | null = null;
+}
+
 // ---- The Dashboard entity -------------------------------------------------------------------------------
 
 @reflect
@@ -233,6 +251,11 @@ export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEnt
     // need the sibling rows, so they are an owner-level field validation here.
     @fieldValidation<DashboardEntity>(d => validateParts(d.parts))
     parts: DashboardEntity_Part[];
+
+    // Signum's CacheQueryConfiguration: set it and the dashboard is served from a SNAPSHOT
+    // (DashboardOperation.RegenerateCachedQueries builds one; the client runs every part's query against
+    // it locally). Null means every part queries the database as it is viewed.
+    cacheQueryConfiguration: CacheQueryConfigurationEmbedded | null = null;
 
     // Signum's [Ignore, QueryableProperty, BindParent] MList<DashboardEntity_TokenEquivalenceGroup> (a virtual MList).
     @fieldValidation<DashboardEntity>(d => validateTokenEquivalences(d.tokenEquivalencesGroups))
@@ -344,7 +367,7 @@ export namespace DashboardPermission {
     export const ViewDashboard: PermissionSymbol = init();
 }
 
-// Signum's `[AutoInit] static class DashboardOperation` (RegenerateCachedQueries is deferred with CachedQuery).
+// Signum's `[AutoInit] static class DashboardOperation`.
 export namespace DashboardOperation {
     export const Save: ExecuteSymbol<DashboardEntity> = init();
     export const Clone: ConstructSymbol<DashboardEntity, From<DashboardEntity>> = init();

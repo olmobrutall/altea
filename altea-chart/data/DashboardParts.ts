@@ -23,6 +23,11 @@ import { UserChartEntity } from "./UserChart";
 // Signum's UserChartPartEntity: a saved chart rendered inside a dashboard cell.
 @entity("Part", "Master")
 export class UserChartPartEntity extends Entity implements IPartEntity {
+    // Signum's IsQueryCached: this part's query is served from the dashboard's SNAPSHOT rather than run
+    // against the database (see @altea/altea-dashboard's CachedQuery). Only meaningful on a dashboard whose
+    // cacheQueryConfiguration is set.
+    isQueryCached: boolean = false;
+
     userChart: UserChartEntity;
 
     /** Render the chart's data as a TABLE instead of the chart (Signum's ShowData → ChartTable). */
@@ -50,6 +55,11 @@ export class UserChartPartEntity extends Entity implements IPartEntity {
 // Signum's CombinedUserChartElementEmbedded: ONE of the saved charts a combined part paints together.
 @entity("Part")
 export class CombinedUserChartPartEntity_UserChart extends Entity {
+    // Signum's IsQueryCached: this part's query is served from the dashboard's SNAPSHOT rather than run
+    // against the database (see @altea/altea-dashboard's CachedQuery). Only meaningful on a dashboard whose
+    // cacheQueryConfiguration is set.
+    isQueryCached: boolean = false;
+
     @backReference combinedUserChartPart: Lite<CombinedUserChartPartEntity>;
     @rowOrder order: int;
 

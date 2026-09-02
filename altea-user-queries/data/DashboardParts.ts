@@ -36,6 +36,11 @@ export enum AutoUpdate {
 // Signum's UserQueryPartEntity: a saved query rendered as a full SearchControl inside a dashboard cell.
 @entity("Part", "Master")
 export class UserQueryPartEntity extends Entity implements IPartEntity {
+    // Signum's IsQueryCached: this part's query is served from the dashboard's SNAPSHOT rather than run
+    // against the database (see @altea/altea-dashboard's CachedQuery). Only meaningful on a dashboard whose
+    // cacheQueryConfiguration is set.
+    isQueryCached: boolean = false;
+
     userQuery: UserQueryEntity;
 
     autoUpdate: AutoUpdate = AutoUpdate.None;
@@ -61,6 +66,11 @@ export class UserQueryPartEntity extends Entity implements IPartEntity {
 // (or aggregate) is shown, optionally linking somewhere else than the query itself.
 @entity("Part")
 export class ValueUserQueryListPartEntity_UserQuery extends Entity {
+    // Signum's IsQueryCached: this part's query is served from the dashboard's SNAPSHOT rather than run
+    // against the database (see @altea/altea-dashboard's CachedQuery). Only meaningful on a dashboard whose
+    // cacheQueryConfiguration is set.
+    isQueryCached: boolean = false;
+
     @backReference valueUserQueryListPart: Lite<ValueUserQueryListPartEntity>;
     @rowOrder order: int;
 
