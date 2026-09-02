@@ -30,6 +30,7 @@ import {
     EmailTemplateVisibleOn, FileTokenAttachmentEntity, ImageAttachmentEntity,
 } from "../data/EmailTemplate";
 import { EmailPackageEntity } from "../data/EmailPackage";
+import { SendEmailTaskEntity } from "../data/SendEmailTask";
 import {
     EmailSenderConfigurationEntity, SmtpEmailServiceEntity, SmtpNetworkDeliveryEmbedded,
 } from "../data/EmailSenderConfiguration";
@@ -90,6 +91,7 @@ export namespace MailingClient {
             }));
 
         cb.configure(EmailPackageEntity).withView(() => import("./Templates/EmailPackage"));
+        cb.configure(SendEmailTaskEntity).withView(() => import("./Templates/SendEmailTask"));
 
         cb.configure(EmailTemplateEntity)
             .withView(() => import("./Templates/EmailTemplate"))
