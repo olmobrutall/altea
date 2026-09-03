@@ -90,6 +90,14 @@ export interface DynamicCompilationResult {
     errors: CompileError[];
     /** The files written, relative to the code-gen directory — what the panel lists. */
     written: string[];
+    /**
+     * Each loaded module's namespace object, by the file name it was generated as.
+     *
+     * This is where the port gets SIMPLER than Signum: it finds the generated starter by loading the
+     * assembly and searching its types for one called `CodeGenStarter`, then invoking a `Start` method
+     * through reflection. A module's exports are the same thing, already in hand and typed.
+     */
+    modules: Map<string, Record<string, unknown>>;
 }
 
 export namespace DynamicCodeCompiler {
@@ -151,8 +159,10 @@ export namespace DynamicCodeCompiler {
             contents.set(toTsPath(abs), m.content);
         }
 
+        const loaded = new Map<string, Record<string, unknown>>();
+
         if (modules.length === 0)
-            return { errors: [], written };
+            return { errors: [], written, modules: loaded };
 
         // 2. COMPILE, with the quote-transformer in the emit pipeline.
         const settings: ts.CompilerOptions = {
@@ -181,7 +191,7 @@ export namespace DynamicCodeCompiler {
         }
 
         if (errors.length > 0)
-            return { errors, written };
+            return { errors, written, modules: loaded };
 
         // 3. EMIT + LOAD, in the order the caller gave — a generated type may reference an earlier one.
         const emitted = new Map<string, string>();
@@ -196,12 +206,12 @@ export namespace DynamicCodeCompiler {
         }
 
         if (errors.length > 0)
-            return { errors, written };
+            return { errors, written, modules: loaded };
 
         try {
             for (const [jsPath, text] of emitted) {
                 fs.writeFileSync(jsPath, text, "utf8");
-                await loadModule(jsPath);
+                loaded.set(relative(jsPath).replace(/.js$/, ".ts"), await loadModule(jsPath));
             }
         } catch (e) {
             // A throw here is a generated module failing at LOAD (a bad decorator argument, a duplicate
@@ -212,7 +222,7 @@ export namespace DynamicCodeCompiler {
             });
         }
 
-        return { errors, written };
+        return { errors, written, modules: loaded };
     }
 
     /**
@@ -350,8 +360,8 @@ export namespace DynamicCodeCompiler {
      * otherwise serve the first version for the life of the process. (Signum restarts instead, which is
      * also what altea does for a schema change — this only matters for a compile that is retried.)
      */
-    async function loadModule(jsPath: string): Promise<void> {
+    async function loadModule(jsPath: string): Promise<Record<string, unknown>> {
         const url = pathToFileURL(jsPath).href + "?v=" + Date.now();
-        await import(url);
+        return await import(url) as Record<string, unknown>;
     }
 }
