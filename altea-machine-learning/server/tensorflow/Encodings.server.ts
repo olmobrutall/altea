@@ -4,7 +4,7 @@ import {
     PredictorMessage, PredictorSubQueryEntity,
 } from "../../data/Predictor";
 import { NeuralNetworkSettingsEntity, PredictionType } from "../../data/NeuralNetworkSettings";
-import { PredictorCodification, type PredictorColumnBase } from "../PredictorAlgorithm.server";
+import { PredictorCodification, keyOfValue, type PredictorColumnBase } from "../PredictorAlgorithm.server";
 
 // Port of Signum.MachineLearning's TensorFlow/TensorFlowEncoding.cs — how a column's VALUES become the
 // numbers a network sees, and how its OUTPUT numbers become a value again.
@@ -230,13 +230,15 @@ export class OneHotEncoding implements ITensorFlowEncoding {
 }
 
 /** A stable key for a value used as a CATEGORY — a lite by its key, everything else by its string. */
+/**
+ * The one-hot dictionary key of a value.
+ *
+ * It delegates to `keyOfValue` on purpose: the STORED form of a codification's value goes through the
+ * same rule (see PredictorCodificationLogic), and having two spellings of "the key of a value" is what
+ * made a one-hot column over a Lite silently match nothing.
+ */
 function valueKey(value: unknown): string {
-    if (value == null)
-        return "";
-    const lite = value as { key?: () => string };
-    if (typeof lite.key === "function")
-        return lite.key();
-    return String(value);
+    return value == null ? "" : keyOfValue(value);
 }
 
 // ---- the normalizers -----------------------------------------------------------------------------------

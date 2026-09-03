@@ -79,6 +79,16 @@ export interface TypeMetadata {
     // Whether an executable query is registered for this type AND visible to the current role (Signum's
     // `TypeInfo.queryDefined`). Replaces the old flat `queries: string[]` section.
     hasQuery?: boolean;
+    /**
+     * Whether a CONSTRUCTOR operation is registered for this type at all — Signum's
+     * `TypeInfo.hasConstructorOperation`, and unlike everything else here it is NOT per-role: it is read
+     * before authorization, precisely so the client can tell "this type has no Constructor" apart from
+     * "it has one the role may not run". `operations` below carries only what the role may see, so
+     * without this flag the two are indistinguishable — and a Part row, which has no Constructor of its
+     * own but INHERITS `Entity`'s ConstructFroms (CreateAlertFromEntity, CreateNoteFromEntity), looks
+     * like the second case and stops being creatable in every line that offers it.
+     */
+    hasConstructorOperation?: boolean;
     fields: Record<string, FieldMetadata>;
     operations?: Record<string, OperationMetadata>;
 }

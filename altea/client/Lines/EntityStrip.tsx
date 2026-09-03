@@ -1,3 +1,4 @@
+import { ariaLabelOf } from "./ariaLabel";
 // Ported from Signum.React/Lines/EntityStrip.tsx onto altea's EntityListBase. altea has no MList: the
 // collection is a plain `R[]` of ROW entities, so EntityStrip is generic ONLY on R. Every callback
 // (onCreate/onFindMany/onView/move/…) is R-typed — override one and you build/return the row yourself.
@@ -92,10 +93,10 @@ export function EntityStrip<R extends BaseEntity>(props: EntityStripProps<R>): R
   if (c.isHidden)
     return null;
 
-  const isLabelVisible = !(p.ctx.formGroupStyle === "SrOnly" || "visually-hidden");
+  const isLabelVisible = p.ctx.formGroupStyle !== "SrOnly";
   var ariaAtts = p.ctx.readOnly ? c.baseAriaAttributes() : c.extendedAriaAttributes();
-  if (!isLabelVisible && p.label) {
-    ariaAtts = { ...ariaAtts, "aria-label": typeof p.label === "string" ? p.label : String(p.label) };
+  if (!isLabelVisible) {
+    ariaAtts = { ...ariaAtts, "aria-label": ariaLabelOf(p.label, p.ctx) };
   }
 
   const helpText = p.helpText && (typeof p.helpText == "function" ? p.helpText(c) : p.helpText);

@@ -15,6 +15,7 @@ import { getTypeName, tryGetTypeInfo, getOperationInfos, getKindOfType } from '.
 import type { PseudoType } from './Reflection';
 import type { Type } from '../data/entity';
 import { Dic } from '../data/globals';
+import { Metadata } from '../data/metadata';
 import { Entity, BaseEntity } from '../data/entity';
 import { Lite } from '../data/lite';
 import type { EntityPack } from '../data/entityPack';
@@ -604,13 +605,22 @@ export namespace Navigator {
   }
 
   function hasAllowedConstructor(typeName: string): boolean {
-    // Operations now come from the metadata blob (per role) instead of TypeInfo. Same three-step rule as
-    // before: no operations reach the client → nothing gates construction; none of them CONSTRUCTS →
-    // likewise; otherwise a plain "New" needs a plain Constructor operation the role may actually run.
-    const ops = getOperationInfos(typeName);
-    if (ops.length == 0) return true;
-    if (!ops.some(oi => oi.operationType != "Execute" && oi.operationType != "Delete")) return true;
-    return ops.some(oi => oi.operationType == "Constructor");
+    // Signum's same three steps, over altea's metadata blob:
+    //   1. no operations at all → nothing gates construction;
+    //   2. no CONSTRUCTOR operation exists for the type → likewise (a plain `new` is all it takes);
+    //   3. one exists → the role must actually be allowed to see it.
+    //
+    // Step 2 reads `hasConstructorOperation`, which the server computes before authorization, and it has
+    // to: `getOperationInfos` is already role-filtered, so a type whose only Constructor was filtered out
+    // is indistinguishable from one that never had a Constructor. This used to be approximated as "does
+    // any operation exist that is neither Execute nor Delete" — which a ConstructFrom satisfies, so every
+    // @part row type answered false the moment altea-alert / altea-notes registered their
+    // `CreateAlertFromEntity` / `CreateNoteFromEntity` on `Entity` (inherited by every type). The visible
+    // symptom was that every EntityTable / EntityRepeater over a @part collection lost its "Create" row.
+    const tm = Metadata.tryType(typeName);
+    if (tm == null) return true;
+    if (tm.hasConstructorOperation != true) return true;
+    return getOperationInfos(typeName).some(oi => oi.operationType == "Constructor");
   }
 
   function typeIsCreable(typeName: string, isEmbedded?: boolean): EntityWhen {

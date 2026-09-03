@@ -1,3 +1,4 @@
+import { ariaLabelOf } from "./ariaLabel";
 // Ported from Signum.React/Lines/NumberLine.tsx — copy-paste + fix. altea fixes:
 //   - dropped dead imports (luxon DateTime/Duration, unused Reflection date/enum helpers,
 //     BooleanEnum/JavascriptMessage, Components/TextArea) that the ported code never used.
@@ -60,10 +61,10 @@ function numericTextBox(c: NumberLineController, validateKey: (e: React.Keyboard
   const numberFormat = toNumberFormat(p.format);
   const isDecimal = p.ctx.memberType?.typeName === "Decimal";
 
-  const isLabelVisible = !(p.ctx.formGroupStyle === "SrOnly" || "visually-hidden");
+  const isLabelVisible = p.ctx.formGroupStyle !== "SrOnly";
   var ariaAtts = p.ctx.readOnly ? c.baseAriaAttributes() : c.extendedAriaAttributes();
-  if (!isLabelVisible && p.label) {
-    ariaAtts = { ...ariaAtts, "aria-label": typeof p.label === "string" ? p.label : String(p.label) };
+  if (!isLabelVisible) {
+    ariaAtts = { ...ariaAtts, "aria-label": ariaLabelOf(p.label, p.ctx) };
   }
 
   var htmlAtts = c.props.valueHtmlAttributes;

@@ -13,6 +13,7 @@ import { FormGroup } from './FormGroup';
 import { FormControlReadonly } from './FormControlReadonly';
 import { ValueBaseController, type ValueBaseProps } from './ValueBase';
 import { isNumberKey } from './NumberLine';
+import { ariaLabelOf } from "./ariaLabel";
 
 export interface TimeLineProps extends ValueBaseProps<string | null> {
   ref?: React.Ref<TimeLineController>
@@ -66,10 +67,10 @@ export const TimeLine: (props: TimeLineProps) => React.ReactNode | null =
     const p = c.props;
     const kind = (p.ctx.memberType!.typeName == "PlainTime" ? "PlainTime" : "Duration") as TimeKind;
 
-    const isLabelVisible = !(p.ctx.formGroupStyle === "SrOnly" || "visually-hidden");
+    const isLabelVisible = p.ctx.formGroupStyle !== "SrOnly";
     var ariaAtts = p.ctx.readOnly ? c.baseAriaAttributes() : c.extendedAriaAttributes();
-    if (!isLabelVisible && p.label) {
-      ariaAtts = { ...ariaAtts, "aria-label": typeof p.label === "string" ? p.label : String(p.label) };
+    if (!isLabelVisible) {
+      ariaAtts = { ...ariaAtts, "aria-label": ariaLabelOf(p.label, p.ctx) };
     }
 
     var htmlAtts = c.props.valueHtmlAttributes;

@@ -166,7 +166,12 @@ export namespace ReflectionServer {
             for (const symbol of symbols) {
                 const op = OperationLogic.tryFindOperation(symbol);
                 if (op == null) continue;
-                (tm.operations ??= {})[symbol.key] = buildOperation(symbol.key, op, declaredMember);
+                const meta = buildOperation(symbol.key, op, declaredMember);
+                (tm.operations ??= {})[symbol.key] = meta;
+                // Signum's `HasConstructorOperation`, computed here — BEFORE the per-role filter drops
+                // operations, which is the whole point (see the field's own doc).
+                if (meta.operationType === "Constructor")
+                    tm.hasConstructorOperation = true;
             }
         }
 

@@ -1,3 +1,4 @@
+import { ariaLabelOf } from "./ariaLabel";
 // Ported from Signum.React/Lines/TextBoxLine.tsx — copy-paste + fix (imports retargeted only).
 import * as React from 'react'
 import { classes } from '../../data/globals'
@@ -116,10 +117,10 @@ export const ColorLine: <V extends string | null>(props: ColorLineProps) => Reac
 function internalTextBox<V extends string | null>(c: TextBoxLineController, type: "password" | "color" | "text" | "guid") {
 
   const p = c.props;
-  const isLabelVisible = !(p.ctx.formGroupStyle === "SrOnly" || "visually-hidden");
+  const isLabelVisible = p.ctx.formGroupStyle !== "SrOnly";
   var ariaAtts = p.ctx.readOnly ? c.baseAriaAttributes() : c.extendedAriaAttributes();
-  if (!isLabelVisible && p.label) {
-    ariaAtts = { ...ariaAtts, "aria-label": typeof p.label === "string" ? p.label : String(p.label) };
+  if (!isLabelVisible) {
+    ariaAtts = { ...ariaAtts, "aria-label": ariaLabelOf(p.label, p.ctx) };
   }
 
   var htmlAtts = c.props.valueHtmlAttributes;

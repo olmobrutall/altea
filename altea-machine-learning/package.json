@@ -26,6 +26,7 @@
     "quote-transformer": "workspace:*",
     "@tensorflow/tfjs-core": "^4.22.0",
     "@tensorflow/tfjs-layers": "^4.22.0",
-    "@tensorflow/tfjs-backend-cpu": "^4.22.0"
+    "@tensorflow/tfjs-backend-cpu": "^4.22.0",
+    "@altea/altea-chart": "workspace:*"
   }
 }

@@ -9,7 +9,9 @@ import { Lite as LiteClass } from "@altea/altea/data/lite";
 import {
     PredictorEntity, PredictorEpochProgressEntity, PredictorPublicationSymbol, PredictorState,
 } from "../data/Predictor";
+import type { PredictRequestModel } from "../data/PredictRequest";
 import type { EpochProgressRow, TrainingProgress } from "./PredictorAlgorithm.server";
+import { PredictRequestBuilder } from "./PredictRequestBuilder.server";
 import { PredictorLogic } from "./PredictorLogic.server";
 import { PredictorPredictLogic } from "./PredictorPredictLogic.server";
 import { TensorFlowNeuralNetworkPredictor } from "./tensorflow/TensorFlowNeuralNetworkPredictor.server";
@@ -23,10 +25,11 @@ import { TensorFlowNeuralNetworkPredictor } from "./tensorflow/TensorFlowNeuralN
 //   • which publications a query has, for the "predict about this row" menu.
 //
 // altea divergences, documented inline:
-//  - the wire DTOs are declared HERE and in data/PredictRequest, rather than generated (Signum's
-//    TSGenerator emits its `PredictRequestTS`), and their dates/values are plain JSON scalars.
-//  - a prediction request names the entity as a LITE; Signum passes a dictionary of main-query key
-//    values, which is the same thing for its one caller and less checkable.
+//  - the wire DTOs are declared in data/PredictRequest rather than generated (Signum's TSGenerator emits
+//    its `PredictRequestTS`), and their dates/values are plain JSON scalars.
+//  - OPENING a prediction names the entity as a LITE; Signum posts a dictionary of main-query key values.
+//    Same thing for the one caller that exists (a row picked in a search), and checkable — with the
+//    grouped case reached the same way, since the predictor's own query is what resolves the row.
 
 export namespace PredictorServer {
     let started = false;
@@ -86,32 +89,50 @@ export namespace PredictorServer {
             });
 
         /**
-         * A prediction about one entity, through a named predictor.
+         * Signum's `GetPredict` — OPEN an interactive prediction.
          *
-         * The response is the predicted OUTPUT columns keyed by their token string — the client knows the
-         * predictor's definition, so a token key is what it can render against, and it avoids shipping
-         * the whole codification model to the browser.
+         * With an entity, the predictor's own queries are run for that one row, so the page opens showing
+         * the real inputs and both answers (what the model says, what actually happened). Without one it
+         * opens empty, for a what-if.
          */
-        ws.post("/api/predict/:predictorId",
+        ws.post("/api/predict/get/:predictorId",
             {
                 params: CustomType<{ predictorId: string }>(),
-                req: CustomType<PredictRequest>(),
-                res: CustomType<PredictResponse>(),
+                req: CustomType<{ entity: Lite<Entity> | null }>(),
+                res: CustomType<PredictRequestModel>(),
             },
             async (req, res) => {
                 const body = await req.jsonTyped();
                 const predictor = await retrieve(PredictorEntity, PredictorEntity.parseId(req.params.predictorId));
-
                 const ctx = await PredictorPredictLogic.predictContext(predictor);
-                const inputs = await PredictorPredictLogic.inputsFromEntity(ctx, body.entity);
-                const result = await PredictorPredictLogic.predict(ctx, inputs);
 
-                const outputs: Record<string, unknown> = {};
-                for (const [column, value] of result.mainQueryValues)
-                    if (column.usage === 1 /* Output */)
-                        outputs[column.token.tokenString] = value;
+                const fromEntity = body.entity == null ? null
+                    : await PredictorPredictLogic.inputsFromEntity(ctx, body.entity);
 
-                res.jsonTyped({ entity: body.entity, outputs });
+                const inputs = fromEntity ?? PredictorPredictLogic.inputsEmpty(ctx);
+                const predicted = await PredictorPredictLogic.predict(ctx, inputs);
+
+                res.jsonTyped(PredictRequestBuilder.createPredictModel(ctx, inputs, fromEntity, predicted));
+            });
+
+        /**
+         * Signum's `UpdatePredict` — RE-predict from the model the page posted back.
+         *
+         * This is what makes the page interactive: edit an input, get a new prediction, with the original
+         * values (and the inputs themselves) carried through untouched.
+         */
+        ws.post("/api/predict/update",
+            { req: CustomType<PredictRequestModel>(), res: CustomType<PredictRequestModel>() },
+            async (req, res) => {
+                const request = await req.jsonTyped();
+                const ctx = await PredictorPredictLogic.predictContext(request.predictor);
+
+                const inputs = PredictRequestBuilder.inputsFromRequest(ctx, request);
+                if (request.alternativesCount != null)
+                    inputs.options = { alternativeCount: request.alternativesCount };
+
+                PredictRequestBuilder.setOutput(request, await PredictorPredictLogic.predict(ctx, inputs));
+                res.jsonTyped(request);
             });
 
         // Which tfjs backend the server is actually using — see the predictor's header on why that is
@@ -125,13 +146,3 @@ export namespace PredictorServer {
     }
 }
 
-/** The body of a prediction request. */
-export interface PredictRequest {
-    entity: Lite<Entity>;
-}
-
-/** Predicted output values, keyed by the output column's token string. */
-export interface PredictResponse {
-    entity: Lite<Entity>;
-    outputs: Record<string, unknown>;
-}

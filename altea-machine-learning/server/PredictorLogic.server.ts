@@ -7,6 +7,7 @@ import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
+import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { Saver } from "@altea/altea/server/saver";
 import { SafeConsole, Color } from "@altea/altea/server/safeConsole";
 import { toInt } from "@altea/altea/data/basics";
@@ -22,7 +23,7 @@ import {
     PredictorProcessAlgorithm,
     PredictorColumnUsage, TensorFlowPredictorAlgorithm, PredictorClassificationMetricsEmbedded,
     DefaultColumnEncodings, PredictorMainQueryEmbedded, PredictorMetricsEmbedded,
-    PredictorEntity_Filter, PredictorSubQueryEntity_Filter,
+    PredictorEntity_Filter, PredictorSubQueryEntity_Filter, PredictorColumnEncodingSymbol,
 } from "../data/Predictor";
 import { NeuralNetworkSettingsEntity, validateOutputActivation } from "../data/NeuralNetworkSettings";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
@@ -158,13 +159,36 @@ export namespace PredictorLogic {
         if (sb.webBuilder)
             PredictorServer.start(sb.webBuilder);
 
-        // Reached so the symbol synchronizer seeds them (altea has no PermissionLogic-style registry).
+        // The four symbol tables, seeded and synchronized — Signum's four `SymbolLogic<X>.Start` calls.
+        //
+        // These are LAST on purpose: altea's default `getSymbols` is "every symbol of this type that has
+        // been DECLARED", and a declaration happens when the containing namespace object is first
+        // touched. `registerAlgorithm` / `registerResultSaver` above are what touch the algorithm and
+        // saver symbols, so a synchronizer registered before them would seed an empty table. The
+        // ENCODINGS have no such registrar (they are named by an algorithm's
+        // `getRegisteredEncodingSymbols`, which is data, not a registration), so they are touched here —
+        // Signum reaches them through `Algorithms.Values.SelectMany(...)`, which amounts to the same.
         void DefaultColumnEncodings.None;
         void DefaultColumnEncodings.OneHot;
         void DefaultColumnEncodings.NormalizeZScore;
         void DefaultColumnEncodings.NormalizeMinMax;
         void DefaultColumnEncodings.NormalizeLog;
         void DefaultColumnEncodings.SplitWords;
+
+        SymbolLogic.start(sb, PredictorAlgorithmSymbol);
+        SymbolLogic.start(sb, PredictorColumnEncodingSymbol);
+        SymbolLogic.start(sb, PredictorResultSaverSymbol);
+        SymbolLogic.start(sb, PredictorPublicationSymbol);
+
+        // Each symbol table also needs a QUERY, because the designer picks from it: an EntityCombo over
+        // `algorithm` / `encoding` / `resultSaver` loads its options by RUNNING the type's query, so
+        // without these four the three combos of a new predictor answer 500 and the form is unusable.
+        // Signum's `SymbolLogic<T>.Start` registers the query itself (`sb.Include<T>().WithQuery(...)`);
+        // altea's does not, so each module declares it — the shape nine other packages already use.
+        sb.include(PredictorAlgorithmSymbol).withQuery();
+        sb.include(PredictorColumnEncodingSymbol).withQuery();
+        sb.include(PredictorResultSaverSymbol).withQuery();
+        sb.include(PredictorPublicationSymbol).withQuery();
     }
 
     /** Signum's `IgnorePinned(sb)` — see the call in `start` for why. */

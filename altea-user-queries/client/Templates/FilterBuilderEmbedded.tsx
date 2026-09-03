@@ -142,7 +142,12 @@ function ValueOrExpression(props: { rvc: RenderValueContext; ffc: Finder.FilterF
 }
 
 // Parse the stored flat rows into altea's FilterOptionParsed tree (Signum's toFilterOptionParsed).
-async function toFilterOptionParsed(
+//
+// EXPORTED because a stored definition's filters are also what its PREVIEW runs: a caller that wants to
+// open a SearchControl over "the query as this definition has it" needs exactly this conversion, and
+// Signum exports its own (`FilterBuilderEmbedded.toFilterOptionParsed`) for the same reason —
+// altea-machine-learning's predictor designer is the first such caller.
+export async function toFilterOptionParsed(
     rootToken: QueryToken, allFilters: QueryFilterBaseEntity[], subTokenOptions: SubTokensOptions,
 ): Promise<FilterOptionParsed[]> {
     const completer = new Finder.TokenCompleter(rootToken);

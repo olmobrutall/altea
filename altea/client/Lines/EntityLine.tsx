@@ -1,3 +1,4 @@
+import { ariaLabelOf } from "./ariaLabel";
 // Ported from Signum.React/Lines/EntityLine.tsx — copy-paste + fix. altea fixes:
 //   - ModifiableEntity → BaseEntity.
 //   - idioms: is(a,b)→a.is(b); getToString(x)→x.toString(); isLite removed (unused); parseLiteList
@@ -205,10 +206,10 @@ export const EntityLine: <V extends BaseEntity | Lite<Entity> | null>(props: Ent
     function renderAutoComplete(inputId: string, renderInput?: (input: React.ReactElement) => React.ReactElement) {
 
       const ctx = p.ctx;
-      const isLabelVisible = !(p.ctx.formGroupStyle === "SrOnly" || "visually-hidden");
+      const isLabelVisible = p.ctx.formGroupStyle !== "SrOnly";
       var ariaAtts = p.ctx.readOnly ? c.baseAriaAttributes() : c.extendedAriaAttributes();
-      if (!isLabelVisible && p.label) {
-        ariaAtts = { ...ariaAtts, "aria-label": typeof p.label === "string" ? p.label : String(p.label) };
+      if (!isLabelVisible) {
+        ariaAtts = { ...ariaAtts, "aria-label": ariaLabelOf(p.label, p.ctx) };
       }
 
       var ac = p.autocomplete;

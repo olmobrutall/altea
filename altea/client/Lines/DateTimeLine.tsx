@@ -16,6 +16,7 @@ import { genericMemo, LineBaseController, useController } from './LineBase';
 import { FormGroup } from './FormGroup';
 import { FormControlReadonly } from './FormControlReadonly';
 import { ValueBaseController, type ValueBaseProps } from './ValueBase';
+import { ariaLabelOf } from "./ariaLabel";
 
 const dateLocalizer = getDateLocalizer();
 const numberLocalizer = getNumberLocalizer();
@@ -81,10 +82,10 @@ export const DateTimeLine: (props: DateTimeLineProps) => React.ReactNode | null 
   const showTime = p.showTimeBox != null ? p.showTimeBox : type != "PlainDate" && (options.timeStyle != null || options.hour != null);
   const monthOnly = options.year != null && options.month != null && options.day == null && options.dateStyle == null;
 
-  const isLabelVisible = !(p.ctx.formGroupStyle === "SrOnly" || "visually-hidden");
+  const isLabelVisible = p.ctx.formGroupStyle !== "SrOnly";
   var ariaAtts = p.ctx.readOnly ? c.baseAriaAttributes() : c.extendedAriaAttributes();
-  if (!isLabelVisible && p.label) {
-    ariaAtts = { ...ariaAtts, "aria-label": typeof p.label === "string" ? p.label : String(p.label) };
+  if (!isLabelVisible) {
+    ariaAtts = { ...ariaAtts, "aria-label": ariaLabelOf(p.label, p.ctx) };
   }
   var htmlAtts = c.props.valueHtmlAttributes;
   var mergedHtmlReadOnly = { ...htmlAtts, ...ariaAtts };

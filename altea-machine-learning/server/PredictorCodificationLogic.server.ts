@@ -3,6 +3,7 @@ import { table } from "@altea/altea/server/table";
 import { Saver } from "@altea/altea/server/saver";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { SubTokensOptions } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
+import type { FilterTypeKeys } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { toInt } from "@altea/altea/data/basics";
 import {
@@ -12,6 +13,7 @@ import {
     PredictorCodification, PredictorColumnMain, PredictorColumnSubQuery,
 } from "./PredictorAlgorithm.server";
 import { PredictorLogicQuery } from "./PredictorLogicQuery.server";
+import { parseFilterValue, stringifyFilterValue } from "@altea/altea-user-assets/data/FilterValueString";
 
 // Port of Signum.MachineLearning's PredictorCodificationLogic.cs — persist the slot assignment, and read
 // it back.
@@ -47,7 +49,14 @@ export namespace PredictorCodificationLogic {
                     splitKey0: keyAt(sub, isSub, 0),
                     splitKey1: keyAt(sub, isSub, 1),
                     splitKey2: keyAt(sub, isSub, 2),
-                    isValue: c.isValue == null ? null : truncate(String(c.isValue), 100),
+                    // Signum's `ToStringValue`: a Lite is stored by its KEY, everything else through
+                    // the filter-value converter. It cannot be a plain `String(value)`: a Lite's
+                    // toString is its DISPLAY text, while the one-hot dictionary looks a value up by
+                    // `lite.key()` — so a stored "Margaret Peacock" never matched the incoming
+                    // "Employee;4", every one-hot slot stayed 0, and a prediction over a categorical
+                    // column silently answered as if the value were unknown. It trains fine (the values
+                    // are still live objects there), which is exactly why it goes unnoticed.
+                    isValue: isValueString(c, 100),
                     average: c.average,
                     stdDev: c.stdDev,
                     min: c.min,
@@ -113,7 +122,17 @@ export namespace PredictorCodificationLogic {
                         if (col == null)
                             throw new Error(codificationMismatch(predictor, `sub-query column ${row.originalColumnIndex}`));
 
-                        const keys = [row.splitKey0, row.splitKey1, row.splitKey2].filter(k => k != null);
+                        const splitBy = sqColumns.filter(c => c.usage === PredictorSubQueryColumnUsage.SplitBy);
+                        const keys = [row.splitKey0, row.splitKey1, row.splitKey2]
+                            .filter(k => k != null)
+                            .map((k, i) => {
+                                const col = splitBy[i];
+                                if (col == null)
+                                    return k;
+                                const t = QueryLogic.getToken(QueryLogic.toQueryName(sq.query.key),
+                                    col.token.tokenString, SubTokensOptions.CanElement | SubTokensOptions.CanAggregate);
+                                return parseFilterValue(k, t.filterType) ?? k;
+                            });
                         column = new PredictorColumnSubQuery(col, row.originalColumnIndex as number, sq, keys,
                             QueryLogic.getToken(QueryLogic.toQueryName(sq.query.key), col.token.tokenString,
                                 SubTokensOptions.CanElement | SubTokensOptions.CanAggregate));
@@ -123,7 +142,11 @@ export namespace PredictorCodificationLogic {
 
                 const c = new PredictorCodification(column);
                 c.index = row.index as number;
-                c.isValue = row.isValue;
+                // Signum's `ParseValue`: back into a typed value, so the one-hot dictionary keys it the
+                // same way the training did AND a decoded prediction hands the caller a real Lite rather
+                // than the stored text (see the write side).
+                c.isValue = row.isValue == null ? null
+                    : parseFilterValue(row.isValue, column.token.filterType) ?? row.isValue;
                 c.average = row.average;
                 c.stdDev = row.stdDev;
                 c.min = row.min;
@@ -149,7 +172,41 @@ export namespace PredictorCodificationLogic {
         if (!isSub)
             return null;
         const key = column.keys[i];
-        return key == null ? null : truncate(String(key), 100);
+        if (key == null)
+            return null;
+        // Same rule as isValue above (Signum's `GetSplitpKey` calls the same `ToStringValue`): a Lite
+        // split key is stored by its key, so two employees with the same display name cannot collapse
+        // into one slot.
+        return truncate(stringifyFilterValue(key, filterTypeOfKey(column, i)) ?? String(key), 100);
+    }
+
+    /** The stored form of a codification's one-hot value. */
+    function isValueString(c: PredictorCodification, max: number): string | null {
+        if (c.isValue == null)
+            return null;
+        const s = stringifyFilterValue(c.isValue, c.column.token.filterType);
+        return s == null ? null : truncate(s, max);
+    }
+
+    /**
+     * The filter type of a sub-query's Nth SplitBy column.
+     *
+     * Resolved off the column's already-resolved token where possible; a split key whose column cannot be
+     * resolved falls back to plain stringification, which is what the value would have been anyway.
+     */
+    function filterTypeOfKey(column: PredictorColumnSubQuery, i: number): FilterTypeKeys | undefined {
+        const splitBy = [...column.subQuery.columns]
+            .sort((a, b) => (a.order as number) - (b.order as number))
+            .filter(c => c.usage === PredictorSubQueryColumnUsage.SplitBy);
+        const col = splitBy[i];
+        if (col == null)
+            return undefined;
+        try {
+            return QueryLogic.getToken(QueryLogic.toQueryName(column.subQuery.query.key), col.token.tokenString,
+                SubTokensOptions.CanElement | SubTokensOptions.CanAggregate).filterType;
+        } catch {
+            return undefined;
+        }
     }
 
     /** The three split-key columns are varchar(100) — a longer key is cut rather than failing the save. */

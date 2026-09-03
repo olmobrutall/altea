@@ -564,6 +564,17 @@ export const PredictorMessage = {
     _0IsNotCompatibleWith12: msg("{0} is not compatible with {1} {2}"),
     _0CanNotBe1Because2Use3: msg("{0} can not be {1} because {2} use {3}"),
     Predict: msg(),
+    Preview: msg(),
+    Codifications: msg(),
+    Progress: msg(),
+    Results: msg(),
+    ShouldBeOfType0: msg("Should be of type {0}"),
+    TooManyParentKeys: msg(),
+    TheTypeOf01DoesNotMatch23: msg("The type of {0} ({1}) does not match {2} ({3})"),
+    ThereShouldBe0ColumnsWith12Currently3: msg("There should be {0} columns with {1} {2} (currently {3})"),
+    _0IsRequiredFor1: msg("{0} is required for {1}"),
+    NoPublicationsForQuery0Registered: msg("No publications for query {0} registered"),
+    NoPublicationsProcessRegisteredFor0: msg("No publications process registered for {0}"),
     _0IsAlreadyBeingTrained: msg("{0} is already being trained"),
     StartingTraining: msg("Starting training…"),
     Preprocessing: msg("Preprocessing…"),
@@ -576,4 +587,33 @@ export const PredictorMessage = {
     NoOutputColumn: msg("The predictor has no Output column"),
     _0NotSuportedFor1: msg("{0} not supported for {1}"),
     NoInputColumn: msg("The predictor has no Input column"),
+    PredictorIsPublishedUntrainAnyway: msg("The predictor is published. Untrain anyway?"),
 };
+
+// ---- the wire DTOs -------------------------------------------------------------------------------------
+//
+// Declared HERE rather than in server/ because they are the shape of two ENDPOINTS, and both tiers need
+// them: the routes answer them and the designer reads them. (The client cannot import from server/ — the
+// layers are separate projects.)
+
+/** Signum's `TrainingProgress` — what `/api/predictor/trainingProgress` answers. */
+export interface TrainingProgress {
+    message: string | null;
+    /** 0..1, or null when the step has no measurable progress. */
+    progress: number | null;
+    running: boolean;
+    state: PredictorState;
+    epochProgresses: EpochProgressRow[] | null;
+}
+
+/**
+ * One epoch's row, in the compact ARRAY form the loss chart reads — Signum's `ToObjectArray`.
+ *
+ * An array rather than an object on purpose: a long training records hundreds of these and they are only
+ * ever read positionally by the chart, so the field names would be most of the payload.
+ */
+export type EpochProgressRow = [
+    ellapsed: number, trainingExamples: number, epoch: number,
+    lossTraining: number | null, accuracyTraining: number | null,
+    lossValidation: number | null, accuracyValidation: number | null,
+];

@@ -154,7 +154,9 @@ export namespace PredictorPredictLogic {
         const queryName = PredictorLogicQuery.queryNameOf(predictor);
         const mainOptions = PredictorLogicQuery.mainOptions(predictor);
 
-        const entityToken = QueryLogic.getToken(queryName, "Entity", mainOptions);
+        // altea's ROOT entity token is the EMPTY string, where Signum spells it "Entity" — there is no
+        // storable root token here (the divergence the user-asset token rules document).
+        const entityToken = QueryLogic.getToken(queryName, "", mainOptions);
         const columns = [...predictor.columns].sort((a, b) => (a.order as number) - (b.order as number));
 
         const request = new QueryRequest(
@@ -173,11 +175,12 @@ export namespace PredictorPredictLogic {
         const row = result.rows[0]!;
         const dic = emptyPredictDictionary(predictor, entity);
 
-        columns.forEach((col, i) => {
-            // Only the INPUTS are filled; the outputs are what the prediction answers.
-            if (col.usage === 0 /* Input */)
-                dic.mainQueryValues.set(col, row.value(i));
-        });
+        // EVERY column, inputs and outputs alike — Signum's `FromFilters` does the same, and it matters:
+        // one dictionary serves as the prediction's INPUTS and as the record of what actually happened, so
+        // an interactive prediction can show "the model says 98.53, the truth was 38.28". The outputs are
+        // ignored when the vector is encoded (`encodeInputs` reads only the input codifications), so
+        // carrying them cannot influence the answer.
+        columns.forEach((col, i) => dic.mainQueryValues.set(col, row.value(i)));
 
         await fillSubQueries(ctx, dic, entity);
         return dic;
@@ -221,8 +224,12 @@ export namespace PredictorPredictLogic {
                     group = new Map();
                     byKey.set(splitKey, group);
                 }
+                // Input AND Output, for the reason the main-query loop above documents. The ParentKey and
+                // the SplitBy columns are excluded because they are not values: one identifies the row's
+                // owner and the others are the group key itself.
                 sqColumns.forEach((c, i) => {
-                    if (c.usage === PredictorSubQueryColumnUsage.Input)
+                    if (c.usage === PredictorSubQueryColumnUsage.Input
+                        || c.usage === PredictorSubQueryColumnUsage.Output)
                         group!.set(c, row.value(i));
                 });
             }

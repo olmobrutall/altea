@@ -306,7 +306,9 @@ export namespace TensorFlowNeuralNetworkPredictor {
 
             return inputs.map((dic, row) => {
                 const slice = data.subarray(row * outputSize, (row + 1) * outputSize);
-                return decodeOutputs(ctx, dic, slice);
+                // The decoding options ride on the INPUT dictionary — Signum's `PredictDictionary.Options`
+                // — so a batch may mix rows asking for alternatives with rows asking for the winner.
+                return decodeOutputs(ctx, dic, slice, dic.options as PredictionOptions | undefined);
             });
         } finally {
             x.dispose();

@@ -1,3 +1,4 @@
+import { ariaLabelOf } from "./ariaLabel";
 // Ported from Signum.React/Lines/EnumLine.tsx — copy-paste + fix. altea fixes:
 //   - enum reflection: Signum read TypeInfo.kind=="Enum" + ti.members; altea enums are plain
 //     registered TS enums (numeric, serialized as numbers) — getOptionsItems enumerates the enum
@@ -72,10 +73,10 @@ function internalDropDownList<V extends string | number | boolean | null>(c: Enu
   if (p.ctx.memberType!.isNullable || p.ctx.value == undefined)
     optionItems = [{ value: null, label: p.emptyLabel ?? " - " }].concat(optionItems);
 
-  const isLabelVisible = !(p.ctx.formGroupStyle === "SrOnly" || "visually-hidden");
+  const isLabelVisible = p.ctx.formGroupStyle !== "SrOnly";
   var ariaAtts = p.ctx.readOnly ? c.baseAriaAttributes() : c.extendedAriaAttributes();
-  if (!isLabelVisible && p.label) {
-    ariaAtts = { ...ariaAtts, "aria-label": typeof p.label === "string" ? p.label : String(p.label) };
+  if (!isLabelVisible) {
+    ariaAtts = { ...ariaAtts, "aria-label": ariaLabelOf(p.label, p.ctx) };
   }
 
   var htmlAtts = c.props.valueHtmlAttributes;
@@ -190,10 +191,10 @@ function internalComboBoxText<V extends string | number | boolean | null>(c: Enu
   if (p.ctx.memberType!.isNullable || p.ctx.value == undefined)
     optionItems = [{ value: null, label: " - " }].concat(optionItems);
 
-  const isLabelVisible = !(p.ctx.formGroupStyle === "SrOnly" || "visually-hidden");
+  const isLabelVisible = p.ctx.formGroupStyle !== "SrOnly";
   var ariaAtts = p.ctx.readOnly ? c.baseAriaAttributes() : c.extendedAriaAttributes();
-  if (!isLabelVisible && p.label) {
-    ariaAtts = { ...ariaAtts, "aria-label": typeof p.label === "string" ? p.label : String(p.label) };
+  if (!isLabelVisible) {
+    ariaAtts = { ...ariaAtts, "aria-label": ariaLabelOf(p.label, p.ctx) };
   }
 
   var htmlAtts = c.props.valueHtmlAttributes;

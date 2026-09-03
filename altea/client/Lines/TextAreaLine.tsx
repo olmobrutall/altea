@@ -1,3 +1,4 @@
+import { ariaLabelOf } from "./ariaLabel";
 // Ported from Signum.React/Lines/TextAreaLine.tsx — copy-paste + fix. altea fixes: imports retargeted;
 // assertType uses altea typeName ("String"); member→fieldInfo (maxLength) + PropertyRouteType enum;
 // charCounter text inlined (EntityControlMessage — localized/gender-number-aware — not ported yet).
@@ -35,10 +36,10 @@ export const TextAreaLine: (props: TextAreaLineProps) => React.ReactNode | null
 
   const p = c.props;
 
-  const isLabelVisible = !(p.ctx.formGroupStyle === "SrOnly" || "visually-hidden");
+  const isLabelVisible = p.ctx.formGroupStyle !== "SrOnly";
   var ariaAtts = p.ctx.readOnly ? c.baseAriaAttributes() : c.extendedAriaAttributes();
-  if (!isLabelVisible && p.label) {
-    ariaAtts = { ...ariaAtts, "aria-label": typeof p.label === "string" ? p.label : String(p.label) };
+  if (!isLabelVisible) {
+    ariaAtts = { ...ariaAtts, "aria-label": ariaLabelOf(p.label, p.ctx) };
   }
 
   var htmlAtts = c.props.valueHtmlAttributes;
