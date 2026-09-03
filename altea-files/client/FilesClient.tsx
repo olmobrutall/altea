@@ -3,8 +3,9 @@ import type { IconProp } from "@fortawesome/fontawesome-svg-core";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { toAbsoluteUrl } from "@altea/altea/client/AppContext";
 import type { Entity } from "@altea/altea/data/entity";
+import { Lite } from "@altea/altea/data/lite";
 import { getTypeName } from "@altea/altea/client/Reflection";
-import { FileEmbedded, FilePathEmbedded } from "../data/Files";
+import { FileEntity, FileEmbedded, FilePathEmbedded } from "../data/Files";
 
 // Port of Signum.Files' FilesClient.tsx — the client entry point: the per-extension display info (icon +
 // whether the browser can show it inline) and the URL builders the downloader uses.
@@ -21,10 +22,17 @@ import { FileEmbedded, FilePathEmbedded } from "../data/Files";
 export namespace FilesClient {
 
     export function start(cb: ClientBuilder): void {
-        // Nothing to register per entity yet (both file holders are EMBEDDED, so they have no own view/route);
-        // the parameter keeps the shape every altea module's `start(cb)` has, and is where a FileEntity view
-        // would land if the standalone file entities get ported.
-        void cb;
+        // The two file HOLDERS are embedded, so they have no own view or route; FileEntity is a row, and
+        // these are the two columns Signum passes to its server `WithQuery` projection (altea's takes none
+        // — no QueryDescription). No view: the search page IS the list of shared files, and a file's
+        // contents are reached by downloading it, not by opening a form over its bytes.
+        cb.configure(FileEntity)
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(a => a.id),
+                    token(a => a.fileName),
+                ],
+            }));
     }
 
     /** Signum's extensionInfo — how a file of a given extension is shown: icon + colour, the content type to
@@ -66,7 +74,12 @@ export namespace FilesClient {
         return ext == null ? undefined : extensionInfo[ext];
     }
 
-    /** The download URL of a FilePathEmbedded / FileEmbedded, addressed through its OWNER (see FilesServer) —
+    /** The download URL of any of the three file shapes — Signum's `configurations[type].fileUrl`.
+     *  `undefined` when the file has no address yet (an unsaved file: its bytes are still in hand, so the
+     *  caller shows those instead).
+     *
+     *  A FileEntity is addressed by its OWN id; the two EMBEDDED shapes are addressed through their OWNER
+     *  (see FilesServer) —
      *  Signum's `configurations[type].fileUrl`. `undefined` when the file has no address yet (an unsaved
      *  file: its bytes are still in hand, so the caller shows those instead).
      *
@@ -81,11 +94,19 @@ export namespace FilesClient {
      *  through the owner), it is there to make the URL change when the file's bytes do, so the response can be
      *  cached for a month (FilesServer.maxAge) without ever serving a replaced file. */
     export function fileUrl(
-        file: FilePathEmbedded | FileEmbedded,
+        file: FilePathEmbedded | FileEmbedded | FileEntity | Lite<FileEntity>,
         container?: Entity,
         propertyRoute?: string,
         rowId?: string | number,
     ): string | undefined {
+
+        // A FileEntity is its OWN row, so it needs neither an owner nor a route: Signum registers exactly
+        // this pair of one-liners (`fileUrl` and `fileLiteUrl`) for it. A Lite works for the same reason,
+        // which is what lets a search-result column offer a download without retrieving the bytes.
+        if (file instanceof FileEntity)
+            return file.id == null ? undefined : toAbsoluteUrl(`/api/files/downloadFile/${file.id}`);
+        if (file instanceof Lite)
+            return toAbsoluteUrl(`/api/files/downloadFile/${file.id}`);
 
         const kind = file instanceof FilePathEmbedded ? "downloadEmbeddedFilePath" : "downloadEmbedded";
 

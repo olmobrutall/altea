@@ -1,15 +1,30 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
-import { EmbeddedEntity } from "@altea/altea/data/entity";
+import { EmbeddedEntity, Entity } from "@altea/altea/data/entity";
 import { Symbol } from "@altea/altea/data/symbol";
-import { column, entity, format, stringLengthValidator, fieldValidation } from "@altea/altea/data/decorators";
+import { column, entity, format, stringLengthValidator, fieldValidation, ticksColumn } from "@altea/altea/data/decorators";
 import { type long, toLong } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
+import { notNullValidator } from "@altea/altea/data/validators";
 
-// Port of Signum.Files' file model (FileTypeSymbol.cs, FilePathEmbedded.cs, FileEmbedded.cs, Signum.Files.ts).
-// Two ways to hold a file:
-//   • FileEmbedded    — the bytes live IN the row (a blob column). Simple, no storage config, no cleanup.
-//   • FilePathEmbedded — the bytes live in a STORE (a folder today) and the row keeps the metadata + the
-//                        `suffix` that locates them. Needs a FileTypeSymbol whose algorithm decides where.
+// Port of Signum.Files' file model (FileTypeSymbol.cs, FilePathEmbedded.cs, FileEmbedded.cs, FileEntity.cs,
+// Signum.Files.ts). Signum offers four ways to hold a file, along two axes — where the BYTES live, and
+// whether the file is its own ROW:
+//
+//                    │ bytes in the row            │ bytes in a store
+//   ─────────────────┼─────────────────────────────┼──────────────────────────────
+//    embedded        │ FileEmbedded                │ FilePathEmbedded
+//    its own row     │ FileEntity                  │ FilePathEntity  (NOT ported)
+//
+//   • FileEmbedded     — the bytes live IN the row (a blob column). Simple, no storage config, no cleanup.
+//   • FilePathEmbedded — the bytes live in a STORE (a folder, Azure, S3) and the row keeps the metadata +
+//                        the `suffix` that locates them. Needs a FileTypeSymbol whose algorithm decides where.
+//   • FileEntity       — FileEmbedded's contents in a table of its OWN, so several owners can reference the
+//                        same file and a file can outlive any one of them (Signum's EntityKind.SharedPart).
+//                        That is the only reason to prefer it: a field holding one is an ordinary reference.
+//
+// `FilePathEntity` is still not ported — it is FileEntity's store-backed sibling, and nothing needs the
+// combination (a shared file whose bytes are in a store) yet. It would need FilePathEmbeddedLogic's whole
+// save/delete cascade a second time, addressed by row rather than by owner.
 //
 // altea divergences, documented inline:
 //  - Signum's `byte[] BinaryFile` → a `Uint8Array` field (altea's "Blob" → bytea / varbinary(MAX)).
@@ -39,6 +54,55 @@ export class FileEmbedded extends EmbeddedEntity {
     fileName: string = "";
 
     binaryFile: Uint8Array = new Uint8Array(0);
+
+    toString(): string {
+        return `${this.fileName} - ${toComputerSize(this.binaryFile?.length ?? 0)}`;
+    }
+}
+
+// Signum's FileEntity (FileEntity.cs) — FileEmbedded's contents as a row of its own, so it can be SHARED.
+//
+// altea divergences:
+//  - **Signum's `ImmutableEntity` base is not ported, but its guarantee is.** That base works by overriding
+//    the property `Set` interception (a set on a saved row is silently swallowed), which altea has no
+//    counterpart for — altea entities are plain field bags. What actually protects the data is Signum's
+//    OTHER half, `PreSaving` throwing when a non-new ImmutableEntity is SelfModified, and that ports
+//    exactly: FileLogic hangs it on `entityEvents(FileEntity).preSaving`. So editing a saved file's bytes
+//    fails LOUDLY here where Signum's setter fails silently — the same rule, reported better. The reason
+//    for the rule is the sharing: a file row may have several owners, so mutating it would change the file
+//    under every one of them. Replace the REFERENCE instead.
+//  - `hash` is filled server-side (the isomorphic layer has no crypto), like FilePathEmbedded's — see
+//    `prepareForSave`. Signum computes it in the `BinaryFile` setter.
+//  - the `FileEntity(string path)` constructor (read a file off disk) has no counterpart: it is
+//    `File.ReadAllBytes`, i.e. server-only, and this layer is isomorphic.
+//  - `ToXML` is not ported. Its one Signum caller is WordTemplate's `SyncFromXml`, and
+//    @altea/altea-office-template holds a `FileEmbedded` with XML of its own.
+@reflect
+@entity("SharedPart", "Transactional")
+// Signum's `[TicksColumn(false)]`: an immutable row cannot be concurrently edited, so a stamp would guard
+// nothing. (A SharedPart would otherwise get one — it is reached by reference, not through one owner.)
+@ticksColumn(false)
+export class FileEntity extends Entity {
+    // Signum's [StringLengthValidator(Min = 3, Max = 254)] — note 254, where FileEmbedded's is 200.
+    @stringLengthValidator({ min: 3, max: 254 })
+    fileName: string = "";
+
+    // Signum's `[NotNullValidator(DisabledInModelBinder = true)] string Hash { get; private set; }`.
+    //
+    // Declared NON-nullable, so the column is NOT NULL as Signum's is — the value is derived from the
+    // bytes, so a row without one would be a row whose hash disagrees with its contents. But it is filled
+    // SERVER-side (FileLogic's preSaving), so an explicit `disabled: env => env !== "Saving"` replaces the
+    // implicit always-on NotNull: a client never sends it, and the check belongs at the moment the server
+    // has had its chance. Exactly the shape altea-tree's engine-maintained columns use.
+    @notNullValidator({ disabled: env => env !== "Saving" })
+    hash: string;
+
+    binaryFile: Uint8Array = new Uint8Array(0);
+
+    /** The server's save hook (FileLogic) calls this with the computed hash — Signum's BinaryFile setter. */
+    prepareForSave(hash: string): void {
+        this.hash = hash;
+    }
 
     toString(): string {
         return `${this.fileName} - ${toComputerSize(this.binaryFile?.length ?? 0)}`;

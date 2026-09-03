@@ -2,7 +2,7 @@ import { WebBuilder, CustomType, attachmentDisposition } from "@altea/altea/serv
 import { retrieve } from "@altea/altea/server/Database";
 import { Entity } from "@altea/altea/data/entity";
 import type { Type } from "@altea/altea/data/entity";
-import { FileEmbedded, FilePathEmbedded } from "../data/Files";
+import { FileEntity, FileEmbedded, FilePathEmbedded } from "../data/Files";
 import { FilePathEmbeddedLogic } from "./FilePathEmbeddedLogic.server";
 import { calculateMD5Hash, mimeType } from "./FileTypeAlgorithm.server";
 
@@ -27,7 +27,7 @@ export namespace FilesServer {
      *  one month, like Signum. A month is safe because the file's HASH is both in the URL
      *  (`FilesClient.fileUrl`) and in the response ETag: replacing a file's bytes changes its URL, and a
      *  client revalidating a stale copy of the OLD url gets 200 + the new bytes rather than a 304. */
-    export let maxAge: (file: FilePathEmbedded | FileEmbedded) => number = () => 30 * 24 * 60 * 60;
+    export let maxAge: (file: FilePathEmbedded | FileEmbedded | FileEntity) => number = () => 30 * 24 * 60 * 60;
 
     export function start(ws: WebBuilder): void {
         if (started)
@@ -51,6 +51,24 @@ export namespace FilesServer {
 
                 const bytes = await FilePathEmbeddedLogic.readAllBytes(value);
                 sendFile(res, value.fileName, bytes);
+            });
+
+        // The bytes of a FileEntity — Signum's `api/files/downloadFile/{fileId}`. Addressed by the file's
+        // OWN id, because unlike the embedded shapes it IS a row: there is no owner to route through, and
+        // it may have several. The gate is therefore FileEntity's own type authorization, which
+        // `Database.retrieve` applies like any other read — so a role that may not read FileEntity cannot
+        // pull bytes out by guessing ids.
+        ws.get("/api/files/downloadFile/:fileId",
+            { params: CustomType<{ fileId: string }>() },
+            async (req, res) => {
+                const file = await retrieve(FileEntity, FileEntity.parseId(req.params.fileId));
+
+                // Its hash is stored, so a revalidation costs no read of the bytes. (They came with the
+                // row here — the saving is on the RESPONSE, which is the expensive half for a file.)
+                if (cache(req, res, file, file.hash))
+                    return;
+
+                sendFile(res, file.fileName, file.binaryFile);
             });
 
         // The bytes of a FileEmbedded (they live in the row itself).
@@ -126,7 +144,7 @@ interface FileResponse {
 /** Signum's `FilesCacheControl` + the hash half of its download URLs: stamp `Cache-Control` and the file's
  *  `ETag`, and answer `304 Not Modified` when the client already holds those exact bytes. Returns true when
  *  it answered (the caller must not send a body). */
-function cache(req: FileRequest, res: FileResponse, file: FilePathEmbedded | FileEmbedded, hash: string | null): boolean {
+function cache(req: FileRequest, res: FileResponse, file: FilePathEmbedded | FileEmbedded | FileEntity, hash: string | null): boolean {
     res.setHeader("Cache-Control", `private, max-age=${FilesServer.maxAge(file)}`);
 
     if (hash == null)

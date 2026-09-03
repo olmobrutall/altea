@@ -10,7 +10,7 @@ import { EntityBaseController } from "@altea/altea/client/Lines/EntityBase";
 import { useController, genericMemo } from "@altea/altea/client/Lines/LineBase";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { ErrorBoundary } from "@altea/altea/client/Components";
-import { FileEmbedded, FileMessage, FilePathEmbedded } from "../../data/Files";
+import { FileEntity, FileEmbedded, FileMessage, FilePathEmbedded } from "../../data/Files";
 import type { FileTypeSymbol } from "../../data/Files";
 import { FileDownloader, type DownloadBehaviour } from "./FileDownloader";
 import { FileUploader } from "./FileUploader";
@@ -40,7 +40,7 @@ export interface MultiFileLineProps<R extends BaseEntity> extends EntityListBase
     fileField?: string;
     /** How a picked file becomes a row. Defaults to `RowType.create({ <fileField>: file })` — override it
      *  when the row needs more than the file set (Signum's createElementFromFile). */
-    createElementFromFile?: (file: FilePathEmbedded | FileEmbedded) => Promise<NoInfer<R> | undefined> | NoInfer<R> | undefined;
+    createElementFromFile?: (file: FilePathEmbedded | FileEmbedded | FileEntity) => Promise<NoInfer<R> | undefined> | NoInfer<R> | undefined;
     /** The store NEW FilePathEmbedded files go to (required for FilePathEmbedded, ignored for FileEmbedded). */
     fileType?: FileTypeSymbol;
     /** The entity that holds this collection — the downloader needs it to build each file's URL. */
@@ -103,23 +103,31 @@ export class MultiFileLineController<R extends BaseEntity> extends EntityListBas
     }
 
     /** Which file holder the rows carry — decides what the uploader builds (FileLine's `kind`). */
-    kind(): "FilePathEmbedded" | "FileEmbedded" {
-        return this.fileMember().fieldInfo.getTypeName() === "FileEmbedded" ? "FileEmbedded" : "FilePathEmbedded";
+    kind(): "FilePathEmbedded" | "FileEmbedded" | "FileEntity" {
+        const typeName = this.fileMember().fieldInfo.getTypeName();
+        // One case per file shape, keyed on the bound member's own type. NOT a two-way default: a
+        // FileEntity read as "FilePathEmbedded" would send the uploader looking for a store that a row-held
+        // file has no need of.
+        switch (typeName) {
+            case "FileEmbedded": return "FileEmbedded";
+            case "FileEntity": return "FileEntity";
+            default: return "FilePathEmbedded";
+        }
     }
 
     /** Signum's getFileFromElement — the file held by one row. */
-    getFileFromElement(row: R): FilePathEmbedded | FileEmbedded | null {
+    getFileFromElement(row: R): FilePathEmbedded | FileEmbedded | FileEntity | null {
         let current: unknown = row;
         for (const step of this.fileMember().path) {
             if (current == null)
                 return null;
             current = (current as Record<string, unknown>)[step];
         }
-        return (current ?? null) as FilePathEmbedded | FileEmbedded | null;
+        return (current ?? null) as FilePathEmbedded | FileEmbedded | FileEntity | null;
     }
 
     /** Signum's createElementFromFile — wrap a picked file in a new row (cf. MultiValueLine.createRow). */
-    async createElementFromFile(file: FilePathEmbedded | FileEmbedded): Promise<R | undefined> {
+    async createElementFromFile(file: FilePathEmbedded | FileEmbedded | FileEntity): Promise<R | undefined> {
         if (this.props.createElementFromFile != null)
             return await this.props.createElementFromFile(file);
 
@@ -134,7 +142,7 @@ export class MultiFileLineController<R extends BaseEntity> extends EntityListBas
         return (ctor as unknown as { create(values: Record<string, unknown>): R }).create({ [path[0]]: file });
     }
 
-    handleFileLoaded = (file: FilePathEmbedded | FileEmbedded): void => {
+    handleFileLoaded = (file: FilePathEmbedded | FileEmbedded | FileEntity): void => {
         this.setForceShowUploader(false);
         void this.createElementFromFile(file).then(row => row != null && this.addElement(row));
     }

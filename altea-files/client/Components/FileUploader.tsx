@@ -2,7 +2,7 @@ import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { classes } from "@altea/altea/data/globals";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
-import { FileEmbedded, FileMessage, FilePathEmbedded, toComputerSize } from "../../data/Files";
+import { FileEntity, FileEmbedded, FileMessage, FilePathEmbedded, toComputerSize } from "../../data/Files";
 import type { FileTypeSymbol } from "../../data/Files";
 import "./Files.css";
 
@@ -20,8 +20,8 @@ import "./Files.css";
 export interface FileUploaderProps {
     /** Fill and return the file value — a FilePathEmbedded needs the store its bytes will go to. */
     fileType?: FileTypeSymbol;
-    kind: "FilePathEmbedded" | "FileEmbedded";
-    onFileLoaded: (file: FilePathEmbedded | FileEmbedded, index: number, count: number) => void;
+    kind: "FilePathEmbedded" | "FileEmbedded" | "FileEntity";
+    onFileLoaded: (file: FilePathEmbedded | FileEmbedded | FileEntity, index: number, count: number) => void;
     accept?: string;
     multiple?: boolean;
     maxSizeInBytes?: number | null;
@@ -121,8 +121,8 @@ export function FileUploader(p: FileUploaderProps): React.JSX.Element {
 /** Signum's `toFileEntity` — read one picked file into the file holder the line is bound to. */
 export async function toFile(
     file: File,
-    options: { kind: "FilePathEmbedded" | "FileEmbedded"; fileType?: FileTypeSymbol; maxSizeInBytes?: number | null },
-): Promise<FilePathEmbedded | FileEmbedded> {
+    options: { kind: "FilePathEmbedded" | "FileEmbedded" | "FileEntity"; fileType?: FileTypeSymbol; maxSizeInBytes?: number | null },
+): Promise<FilePathEmbedded | FileEmbedded | FileEntity> {
 
     if (options.maxSizeInBytes != null && file.size > options.maxSizeInBytes)
         throw new Error(FileMessage.File0IsTooBigTheMaximumSizeIs1.niceToString(file.name, toComputerSize(options.maxSizeInBytes)));
@@ -131,6 +131,17 @@ export async function toFile(
 
     if (options.kind === "FileEmbedded") {
         const fe = new FileEmbedded();
+        fe.fileName = file.name;
+        fe.binaryFile = bytes;
+        return fe;
+    }
+
+    // A FileEntity holds its bytes the same way a FileEmbedded does — the difference is that it is a ROW,
+    // so it needs no store and no fileType either. Nothing more is needed here: the owner's save writes the
+    // reachable graph in dependency order, so assigning this to a field persists it and fills its id, and
+    // the server computes its hash in FileLogic's preSaving (Signum's BinaryFile setter).
+    if (options.kind === "FileEntity") {
+        const fe = new FileEntity();
         fe.fileName = file.name;
         fe.binaryFile = bytes;
         return fe;

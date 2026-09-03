@@ -1,7 +1,7 @@
 import * as React from "react";
 import type { Entity } from "@altea/altea/data/entity";
 import { ajaxGetRaw, type AjaxOptions } from "@altea/altea/client/Services";
-import { FileEmbedded, FileMessage, FilePathEmbedded } from "../../data/Files";
+import { FileEntity, FileEmbedded, FileMessage, FilePathEmbedded } from "../../data/Files";
 import { FilesClient } from "../FilesClient";
 
 // Port of Signum.Files' Components/FileImage.tsx — an <img> over a file, from whichever source it has:
@@ -19,7 +19,7 @@ import { FilesClient } from "../FilesClient";
 //  - `fullWebPath` (a file served directly by the web server) is not ported — see FileTypeAlgorithm.
 
 export interface FileImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
-    file?: FilePathEmbedded | FileEmbedded | null;
+    file?: FilePathEmbedded | FileEmbedded | FileEntity | null;
     /** The entity that HOLDS the file + the route to it — a FALLBACK, only consulted when the file carries no
      *  routing of its own (a FileEmbedded, or a FilePathEmbedded the server has not stamped yet). */
     containerEntity?: Entity;

@@ -7,7 +7,7 @@ import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { FormGroup } from "@altea/altea/client/Lines/FormGroup";
 import { LineBaseController, type LineBaseProps, useController } from "@altea/altea/client/Lines/LineBase";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
-import { FileEmbedded, FilePathEmbedded, FileMessage } from "../../data/Files";
+import { FileEntity, FileEmbedded, FilePathEmbedded, FileMessage } from "../../data/Files";
 import type { FileTypeSymbol } from "../../data/Files";
 import { FileDownloader, type DownloadBehaviour } from "./FileDownloader";
 import { FileUploader } from "./FileUploader";
@@ -19,7 +19,7 @@ import "./Files.css";
 // altea divergences:
 //  - Signum's FileLine is generic over its four file types (FileEntity / FilePathEntity / FileEmbedded /
 //    FilePathEmbedded) and creates the entity through its EntityBase machinery. altea ports the two EMBEDDED
-//    types, so the line is a plain LineBase over `FilePathEmbedded | FileEmbedded | null` and the uploader
+//    types, so the line is a plain LineBase over `FilePathEmbedded | FileEmbedded | FileEntity | null` and the uploader
 //    builds the value directly (`kind` is read off the bound member type).
 //  - Signum uploads to the server as a separate step; here the picked bytes ride the entity's own save (see
 //    FileUploader), so there is no progress bar / temporary file state.
@@ -27,7 +27,7 @@ import "./Files.css";
 //    single file rendered as a thumbnail). MultiFileImageLine is NOT ported — it is the mechanical
 //    combination of those two, and nothing needs it yet.
 
-export interface FileLineProps<V extends FilePathEmbedded | FileEmbedded | null> extends LineBaseProps<V> {
+export interface FileLineProps<V extends FilePathEmbedded | FileEmbedded | FileEntity | null> extends LineBaseProps<V> {
     /** The store a NEW FilePathEmbedded goes to (required for FilePathEmbedded, ignored for FileEmbedded). */
     fileType?: FileTypeSymbol;
     /** The entity that holds this field — the downloader needs it to build the file's URL. */
@@ -38,16 +38,23 @@ export interface FileLineProps<V extends FilePathEmbedded | FileEmbedded | null>
     download?: DownloadBehaviour;
     showFileIcon?: boolean;
     remove?: boolean;
-    onFileLoaded?: (file: FilePathEmbedded | FileEmbedded) => void;
+    onFileLoaded?: (file: FilePathEmbedded | FileEmbedded | FileEntity) => void;
 }
 
-export class FileLineController<V extends FilePathEmbedded | FileEmbedded | null>
+export class FileLineController<V extends FilePathEmbedded | FileEmbedded | FileEntity | null>
     extends LineBaseController<FileLineProps<V>, V> {
 
     /** Which file holder this member is bound to — decides what the uploader builds. */
-    kind(): "FilePathEmbedded" | "FileEmbedded" {
+    kind(): "FilePathEmbedded" | "FileEmbedded" | "FileEntity" {
         const typeName = this.props.ctx.memberType?.getTypeName();
-        return typeName === "FileEmbedded" ? "FileEmbedded" : "FilePathEmbedded";
+        // One case per file shape, keyed on the bound member's own type. NOT a two-way default: a
+        // FileEntity read as "FilePathEmbedded" would send the uploader looking for a store that a row-held
+        // file has no need of.
+        switch (typeName) {
+            case "FileEmbedded": return "FileEmbedded";
+            case "FileEntity": return "FileEntity";
+            default: return "FilePathEmbedded";
+        }
     }
 
     /** The root entity the file hangs off — explicit prop, else the context's root entity. */
@@ -76,7 +83,7 @@ export function memberPath(route: string | undefined): string | undefined {
     return route?.replace(/^\([^)]*\)\.?/, "");
 }
 
-export function FileLine<V extends FilePathEmbedded | FileEmbedded | null>(props: FileLineProps<V>): React.JSX.Element | null {
+export function FileLine<V extends FilePathEmbedded | FileEmbedded | FileEntity | null>(props: FileLineProps<V>): React.JSX.Element | null {
     const c = useController<FileLineController<V>, FileLineProps<V>, V>(FileLineController, props);
     const p = c.props;
 

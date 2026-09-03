@@ -2,7 +2,7 @@ import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import type { Entity } from "@altea/altea/data/entity";
-import { FileEmbedded, FilePathEmbedded, FileMessage, toComputerSize } from "../../data/Files";
+import { FileEntity, FileEmbedded, FilePathEmbedded, FileMessage, toComputerSize } from "../../data/Files";
 import { FilesClient } from "../FilesClient";
 
 // Port of Signum.Files' Components/FileDownloader.tsx — renders a stored file as a link that VIEWS it (when the
@@ -18,7 +18,7 @@ import { FilesClient } from "../FilesClient";
 export type DownloadBehaviour = "SaveAs" | "View" | "ViewOrSave" | "None";
 
 export interface FileDownloaderProps {
-    file: FilePathEmbedded | FileEmbedded;
+    file: FilePathEmbedded | FileEmbedded | FileEntity;
     /** The entity that HOLDS the file + the route to it. Only needed when the file carries no routing of its
      *  own — a FileEmbedded, or a FilePathEmbedded the server has not stamped yet. */
     containerEntity?: Entity;

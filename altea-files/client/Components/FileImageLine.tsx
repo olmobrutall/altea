@@ -7,7 +7,7 @@ import type { AjaxOptions } from "@altea/altea/client/Services";
 import { FormGroup } from "@altea/altea/client/Lines/FormGroup";
 import { LineBaseController, type LineBaseProps, useController } from "@altea/altea/client/Lines/LineBase";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
-import { FileEmbedded, FilePathEmbedded, FileMessage } from "../../data/Files";
+import { FileEntity, FileEmbedded, FilePathEmbedded, FileMessage } from "../../data/Files";
 import type { FileTypeSymbol } from "../../data/Files";
 import { FileUploader } from "./FileUploader";
 import { FileImage } from "./FileImage";
@@ -21,13 +21,13 @@ import "./Files.css";
 // altea divergences (the same ones FileLine documents, plus):
 //  - Signum's line extends EntityBase (its file holders include real entities and Lites, hence the
 //    `FetchAndRemember` branch); altea ports the two EMBEDDED holders only, so this is a plain LineBase over
-//    `FilePathEmbedded | FileEmbedded | null` — structurally FileLine with an <img> instead of a downloader.
+//    `FilePathEmbedded | FileEmbedded | FileEntity | null` — structurally FileLine with an <img> instead of a downloader.
 //  - `defaultFileTypeInfo` (Signum's per-property file type / maxSize metadata) has no altea counterpart:
 //    pass `fileType` explicitly.
 //  - Signum set its defaults through `defaultProps` (removed in React 19 for function components); here
 //    `accept` / `dragAndDrop` default in `getDefaultProps`, altea's hook for exactly that.
 
-export interface FileImageLineProps<V extends FilePathEmbedded | FileEmbedded | null> extends LineBaseProps<V> {
+export interface FileImageLineProps<V extends FilePathEmbedded | FileEmbedded | FileEntity | null> extends LineBaseProps<V> {
     /** The store a NEW FilePathEmbedded goes to (required for FilePathEmbedded, ignored for FileEmbedded). */
     fileType?: FileTypeSymbol;
     /** The entity that holds this field — the image needs it to fetch a file that is already stored. */
@@ -39,10 +39,10 @@ export interface FileImageLineProps<V extends FilePathEmbedded | FileEmbedded | 
     remove?: boolean;
     imageHtmlAttributes?: React.ImgHTMLAttributes<HTMLImageElement>;
     ajaxOptions?: Omit<AjaxOptions, "url">;
-    onFileLoaded?: (file: FilePathEmbedded | FileEmbedded) => void;
+    onFileLoaded?: (file: FilePathEmbedded | FileEmbedded | FileEntity) => void;
 }
 
-export class FileImageLineController<V extends FilePathEmbedded | FileEmbedded | null>
+export class FileImageLineController<V extends FilePathEmbedded | FileEmbedded | FileEntity | null>
     extends LineBaseController<FileImageLineProps<V>, V> {
 
     override getDefaultProps(p: FileImageLineProps<V>): void {
@@ -53,7 +53,7 @@ export class FileImageLineController<V extends FilePathEmbedded | FileEmbedded |
     }
 
     /** Which file holder this member is bound to — decides what the uploader builds (as in FileLine). */
-    kind(): "FilePathEmbedded" | "FileEmbedded" {
+    kind(): "FilePathEmbedded" | "FileEmbedded" | "FileEntity" {
         return this.props.ctx.memberType?.getTypeName() === "FileEmbedded" ? "FileEmbedded" : "FilePathEmbedded";
     }
 
@@ -63,7 +63,7 @@ export class FileImageLineController<V extends FilePathEmbedded | FileEmbedded |
     }
 }
 
-export function FileImageLine<V extends FilePathEmbedded | FileEmbedded | null>(props: FileImageLineProps<V>): React.JSX.Element | null {
+export function FileImageLine<V extends FilePathEmbedded | FileEmbedded | FileEntity | null>(props: FileImageLineProps<V>): React.JSX.Element | null {
     const c = useController<FileImageLineController<V>, FileImageLineProps<V>, V>(FileImageLineController, props);
     const p = c.props;
 
