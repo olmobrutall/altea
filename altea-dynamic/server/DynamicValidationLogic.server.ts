@@ -12,6 +12,8 @@ import type { Entity } from "@altea/altea/data/entity";
 import { resolveType } from "@altea/altea/data/reflection";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
+import { SafeConsole } from "@altea/altea/server/safeConsole";
+import chalk from "chalk";
 import { DynamicValidationEntity, DynamicValidationOperation } from "../data/DynamicValidation";
 
 // Port of Signum.Dynamic's Validations/DynamicValidationLogic.cs — the table, and the GLOBAL VALIDATION it
@@ -101,8 +103,23 @@ export namespace DynamicValidationLogic {
             return;
         }
 
-        const rows = await ExecutionMode.global(async () =>
-            await table(DynamicValidationEntity).toArray() as DynamicValidationEntity[]);
+        let rows: DynamicValidationEntity[];
+        try {
+            rows = await ExecutionMode.global(async () =>
+                await table(DynamicValidationEntity).toArray() as DynamicValidationEntity[]);
+        } catch (e) {
+            // A TRAILING schema: the table is there but does not match the model yet — a column renamed,
+            // added or, as when pointing an altea app at a Signum database, shaped differently
+            // (`sub_entity` here is a route STRING where Signum has a `sub_entity_id` FK to
+            // PropertyRouteEntity). This runs from `schema.initializing`, which is precisely what a
+            // `create` / `sync` runs against such a database — so throwing here kills the very command
+            // that would fix it. Report, run with NO dynamic validations, and let the sync proceed.
+            cache = [];
+            SafeConsole.writeLineColor(chalk.yellow,
+                "[dynamic] dynamic validations are not readable yet, running without them: "
+                + (e instanceof Error ? e.message : String(e)));
+            return;
+        }
 
         cache = rows
             .filter(v => !v.disabled)

@@ -71,6 +71,19 @@ export namespace DynamicLogic {
      */
     export let codeGenError: Error | undefined;
 
+    /**
+     * WHY the dynamic code is missing, which decides what to tell the user:
+     *
+     *  - `"compile"`: the definitions were read and did not build. The types are real and absent from the
+     *    schema, so a synchronization WOULD script their tables as DROPs — Signum's warning applies.
+     *  - `"read"`: the definitions could not be read at all, almost always because the schema TRAILS the
+     *    code (pointing an altea app at a Signum database is the extreme case). Nothing was generated and
+     *    nothing is known, so there is no dynamic table to drop and the answer is simply `sync` then
+     *    restart. Signum makes no distinction and prints its DROP warning either way; on a trailing
+     *    database that is advice to clean a script that needs no cleaning.
+     */
+    export let codeGenErrorKind: "compile" | "read" | undefined;
+
     /** The generated modules the last compile wrote — what the panel lists. */
     export let lastCompilation: DynamicCompilationResult | undefined;
 
@@ -237,11 +250,17 @@ export namespace DynamicLogic {
             const result = await DynamicCodeCompiler.compileAndLoad(modules);
             lastCompilation = result;
 
-            if (result.errors.length > 0)
+            if (result.errors.length > 0) {
                 codeGenError = new Error("Dynamic code did not compile:\n"
                     + result.errors.map(e => `  ${e.fileName}(${e.line}): ${e.message}`).join("\n"));
+                codeGenErrorKind = "compile";
+            }
         } catch (e) {
-            codeGenError = e instanceof Error ? e : new Error(String(e));
+            // A throw comes from GENERATING — i.e. from reading the definitions — because compiling
+            // reports its diagnostics as data. See codeGenErrorKind.
+            codeGenError = new Error("Could not read the dynamic definitions: "
+                + (e instanceof Error ? e.message : String(e)));
+            codeGenErrorKind = "read";
         }
     }
 
@@ -353,14 +372,25 @@ export namespace DynamicLogic {
         if (e == null)
             return;
 
-        Schema.current.initializing.push(async () => {
-            const t = Connector.current().schema.tryTable(ExceptionEntity);
-            if (t != null && await Administrator.existsTable(t))
-                await ExceptionLogic.logException(e);
-        });
+        // Signum logs the failure once the Exception table is reachable. Skipped for a READ failure: the
+        // whole meaning of that case is that the schema TRAILS the code, so the exception table trails too
+        // and the insert cannot succeed — it only adds a confusing second error line under the accurate
+        // one. The console report above is the record until the schema is up.
+        if (codeGenErrorKind !== "read")
+            Schema.current.initializing.push(async () => {
+                const t = Connector.current().schema.tryTable(ExceptionEntity);
+                if (t != null && await Administrator.existsTable(t))
+                    await ExceptionLogic.logException(e);
+            });
 
         SafeConsole.writeLineColor(chalk.red, "IMPORTANT!: Starting without Dynamic Entities.");
         SafeConsole.writeLineColor(chalk.yellow, "   Error: " + e.message);
-        SafeConsole.writeLineColor(chalk.red, "Synchronizing will try to DROP dynamic types. Clean the script manually!");
+
+        if (codeGenErrorKind === "read")
+            SafeConsole.writeLineColor(chalk.yellow,
+                "   Nothing was generated, so no dynamic table is at risk: run 'sync', then restart.");
+        else
+            SafeConsole.writeLineColor(chalk.red,
+                "Synchronizing will try to DROP dynamic types. Clean the script manually!");
     }
 }
