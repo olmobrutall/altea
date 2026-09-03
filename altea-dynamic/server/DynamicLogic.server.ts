@@ -8,6 +8,7 @@ import { ExceptionEntity } from "@altea/altea/data/exception";
 import { SafeConsole } from "@altea/altea/server/safeConsole";
 import chalk from "chalk";
 import { DynamicPanelPermission } from "../data/DynamicPanel";
+import { DynamicPanelServer } from "./DynamicPanelServer.server";
 import { DynamicViewLogic } from "./DynamicViewLogic.server";
 import { DynamicCSSOverrideLogic } from "./DynamicCSSOverrideLogic.server";
 import { DynamicSqlMigrationLogic } from "./DynamicSqlMigrationLogic.server";
@@ -91,6 +92,11 @@ export namespace DynamicLogic {
     /** Signum's `OnApplicationServerRestarted`. */
     export let onApplicationServerRestarted: (() => void) | undefined;
 
+    /** The code-gen directory, or null when the app never configured the compiled half. */
+    export function codeGenDirectoryOrNull(): string | null {
+        return DynamicCodeCompiler.isConfigured() ? DynamicCodeCompiler.codeGenDirectory() : null;
+    }
+
     export function start(sb: SchemaBuilder, options?: {
         views?: boolean;
         cssOverrides?: boolean;
@@ -122,6 +128,11 @@ export namespace DynamicLogic {
 
         if (options?.sqlMigrations ?? true)
             DynamicSqlMigrationLogic.start(sb);
+
+        // The panel's own endpoint — how an author sees a compile failure at all (the diagnostics exist
+        // only in the process that tried to compile).
+        if (sb.webBuilder != null)
+            DynamicPanelServer.start(sb.webBuilder);
 
         if (options?.types ?? true) {
             DynamicTypeLogic.start(sb);

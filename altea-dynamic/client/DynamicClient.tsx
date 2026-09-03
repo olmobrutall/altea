@@ -1,7 +1,18 @@
+import * as React from "react";
 import { ajaxGet } from "@altea/altea/client/Services";
+import { ImportComponent } from "@altea/altea/client/ImportComponent";
+import type { DynamicCompilationStatus } from "../data/DynamicPanel";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { DynamicCSSOverrideEntity } from "../data/DynamicCSSOverride";
 import { DynamicRenameEntity, DynamicSqlMigrationEntity } from "../data/DynamicSqlMigration";
+import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
+import MessageModal from "@altea/altea/client/Modals/MessageModal";
+import { DynamicTypeEntity, DynamicTypeOperation, DynamicTypeMessage } from "../data/DynamicType";
+import { DynamicMixinConnectionEntity } from "../data/DynamicMixinConnection";
+import { DynamicExpressionEntity } from "../data/DynamicExpression";
+import { DynamicValidationEntity } from "../data/DynamicValidation";
+import { DynamicTypeConditionEntity, DynamicTypeConditionSymbolEntity } from "../data/DynamicTypeCondition";
+import { DynamicApiEntity } from "../data/DynamicApi";
 
 // Port of Signum.Dynamic's DynamicCSSOverrideClient.tsx + the client half of its SqlMigrations, plus the one
 // piece Signum does in `Index.cshtml`: injecting the stored stylesheet into the page.
@@ -69,6 +80,130 @@ export namespace DynamicClient {
             { token: "comment", type: "Text" },
             { token: "script", type: "Code" },
         ]);
+
+        // ---- the COMPILED half (Signum's DynamicTypeClient / DynamicExpressionClient / …) --------------
+
+        cb.configure(DynamicTypeEntity)
+            .withView(() => import("./Type/DynamicType"))
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(a => a.id),
+                    token(a => a.typeName),
+                    token(a => a.baseType),
+                ],
+            }));
+
+        cb.configure(DynamicMixinConnectionEntity)
+            .withView(() => import("./Type/DynamicMixinConnection"))
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(a => a.id),
+                    token(a => a.entityType),
+                    token(a => a.mixinName),
+                ],
+            }));
+
+        cb.configure(DynamicExpressionEntity)
+            .withView(() => import("./Expression/DynamicExpression"))
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(a => a.id),
+                    token(a => a.name),
+                    token(a => a.fromType),
+                    token(a => a.returnType),
+                ],
+            }));
+
+        cb.configure(DynamicValidationEntity)
+            .withView(() => import("./Validation/DynamicValidation"))
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(a => a.id),
+                    token(a => a.name),
+                    token(a => a.entityType),
+                    token(a => a.subEntity),
+                    token(a => a.disabled),
+                ],
+            }));
+
+        cb.configure(DynamicTypeConditionEntity)
+            .withView(() => import("./TypeCondition/DynamicTypeCondition"))
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(a => a.id),
+                    token(a => a.symbolName),
+                    token(a => a.entityType),
+                ],
+            }));
+
+        cb.configure(DynamicTypeConditionSymbolEntity)
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(a => a.id),
+                    token(a => a.name),
+                ],
+            }));
+
+        cb.configure(DynamicApiEntity)
+            .withView(() => import("./Api/DynamicApi"))
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(a => a.id),
+                    token(a => a.name),
+                    token(a => a.disabled),
+                ],
+            }));
+
+        // Signum's DynamicTypeOperation.Save override opens a modal offering the dynamic panel, because a
+        // saved type does nothing until the server restarts. The same message is kept, and the operation
+        // needs no override: the view writes its JSON on every edit (see Type/DynamicType), so an ordinary
+        // Save carries the definition.
+        Operations.addSettings(new EntityOperationSettings(DynamicTypeOperation.Save, {
+            onClick: async eoc => {
+                await eoc.defaultClick();
+
+                if (eoc.entity.typeName != null)
+                    await MessageModal.show({
+                        title: DynamicTypeMessage.TypeSaved.niceToString(),
+                        message: DynamicTypeMessage.DynamicType0SucessfullySavedGoToDynamicPanelNow
+                            .niceToString(eoc.entity.typeName),
+                        buttons: "ok",
+                        style: "success",
+                        icon: "success",
+                    });
+            },
+        }));
+
+        registerDynamicPanelSearch(DynamicTypeEntity.typeName, [
+            { token: "typeName", type: "Text" },
+            { token: "typeDefinition", type: "JSon" },
+        ]);
+
+        registerDynamicPanelSearch(DynamicExpressionEntity.typeName, [
+            { token: "name", type: "Text" },
+            { token: "fromType", type: "Text" },
+            { token: "body", type: "Code" },
+        ]);
+
+        registerDynamicPanelSearch(DynamicValidationEntity.typeName, [
+            { token: "name", type: "Text" },
+            { token: "eval.script", type: "Code" },
+        ]);
+
+        registerDynamicPanelSearch(DynamicTypeConditionEntity.typeName, [
+            { token: "eval.script", type: "Code" },
+        ]);
+
+        registerDynamicPanelSearch(DynamicApiEntity.typeName, [
+            { token: "name", type: "Text" },
+            { token: "eval.script", type: "Code" },
+        ]);
+
+        // The panel — Signum's /dynamic/panel, same path.
+        cb.routes.push({
+            path: "/dynamic/panel",
+            element: <ImportComponent onImport={() => import("./DynamicPanelPage")} />,
+        });
     }
 
     // ---- the panel search registry (Signum's EvalClient.Options.registerDynamicPanelSearch) -------------
@@ -111,6 +246,11 @@ export namespace DynamicClient {
     export namespace API {
         export function getCSSOverrides(): Promise<string> {
             return ajaxGet({ url: "/api/dynamic/cssOverrides" });
+        }
+
+        /** Did the dynamic code compile, and if not why — what the panel is for. */
+        export function compilationStatus(): Promise<DynamicCompilationStatus> {
+            return ajaxGet({ url: "/api/dynamic/compilationStatus" });
         }
     }
 }

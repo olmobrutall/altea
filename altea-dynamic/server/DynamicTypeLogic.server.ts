@@ -8,7 +8,7 @@ import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { StartParameters } from "@altea/altea/data/utils/startParameters";
 import { getLocation } from "@altea/altea/data/registration";
 import {
-    DynamicTypeEntity, DynamicTypeOperation, DynamicBaseType, IsNullable, DynamicUniqueIndex,
+    DynamicTypeEntity, DynamicTypeOperation, DynamicBaseType,
     type DynamicTypeDefinition, type DynamicProperty, type DynamicValidator,
 } from "../data/DynamicType";
 import { DynamicCodeCompiler, type GeneratedModule } from "./DynamicCodeCompiler.server";
@@ -525,7 +525,7 @@ export class DynamicTypeCodeGenerator {
         // Signum adds a NotNull for OnlyInMemory when the author declared none. altea adds an IMPLICIT
         // NotNull to every non-nullable field, so this is only needed for the OnlyInMemory case — where
         // the TypeScript type IS nullable but the column is not.
-        if (property.isNullable === IsNullable.OnlyInMemory
+        if (property.isNullable === "OnlyInMemory"
             && !(property.validators ?? []).some(v => v.type === "NotNull"))
             result.push(this.getValidatorDecorator({ type: "NotNull" }));
 
@@ -581,7 +581,7 @@ export class DynamicTypeCodeGenerator {
         const result: string[] = [];
         const column: string[] = [];
 
-        if (property.isNullable === IsNullable.OnlyInMemory) {
+        if (property.isNullable === "OnlyInMemory") {
             // Signum's [ForceNotNullable]. altea spells the inverse (`@forceNullable`), so a column that is
             // NOT NULL while the member is nullable is expressed by the column option.
             column.push("nullable: false");
@@ -608,7 +608,7 @@ export class DynamicTypeCodeGenerator {
             result.push(`column({ ${column.join(", ")} })`);
         }
 
-        if (property.uniqueIndex !== DynamicUniqueIndex.No) {
+        if (property.uniqueIndex !== "No") {
             // Signum treats Yes and YesAllowNull the same here (both emit [UniqueIndex]); altea's
             // field-level `@uniqueIndex` likewise, since "allow null" is the column's own nullability.
             this.imports.add("@altea/altea/data/decorators", "uniqueIndex");
@@ -636,8 +636,8 @@ export class DynamicTypeCodeGenerator {
         if (property.isMList != null)
             return `${this.rowTypeName(property)}[]`;
 
-        const isNullable = property.isNullable === IsNullable.Yes
-            || property.isNullable === IsNullable.OnlyInMemory;
+        const isNullable = property.isNullable === "Yes"
+            || property.isNullable === "OnlyInMemory";
 
         // TypeScript spells an optional value `T | null`, where C# writes `T?`.
         return result + (isNullable ? " | null" : "");

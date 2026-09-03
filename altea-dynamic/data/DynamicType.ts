@@ -43,22 +43,16 @@ export enum DynamicBaseType {
 export type DynamicBaseTypeKeys = keyof typeof DynamicBaseType;
 registerEnum(DynamicBaseType);
 
-/** Signum's IsNullable: `OnlyInMemory` is nullable in the model but NOT NULL in the database. */
-export enum IsNullable {
-    Yes,
-    OnlyInMemory,
-    No,
-}
-export type IsNullableKeys = keyof typeof IsNullable;
-registerEnum(IsNullable);
+// These two live INSIDE the JSON definition, never in a column, so they are the member NAMES — which is
+// what Signum stores (its `JsonStringEnumConverter` writes `"isNullable": "No"`). A numeric altea enum
+// would have been wrong twice over: a stored definition would no longer round-trip with Signum, and the
+// editor would show a bare `2` where the author wrote "No". `DynamicBaseType` above IS a column on the
+// entity, so it stays a real altea enum.
+export type IsNullable = "Yes" | "OnlyInMemory" | "No";
+export const IsNullableValues: IsNullable[] = ["Yes", "OnlyInMemory", "No"];
 
-export enum DynamicUniqueIndex {
-    No,
-    Yes,
-    YesAllowNull,
-}
-export type DynamicUniqueIndexKeys = keyof typeof DynamicUniqueIndex;
-registerEnum(DynamicUniqueIndex);
+export type DynamicUniqueIndex = "No" | "Yes" | "YesAllowNull";
+export const DynamicUniqueIndexValues: DynamicUniqueIndex[] = ["No", "Yes", "YesAllowNull"];
 
 // ---- the stored definition (JSON, not tables) -----------------------------------------------------------
 
