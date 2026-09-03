@@ -308,6 +308,20 @@ export class SchemaSettings {
     }
 }
 
+/**
+ * The facets a `@part` row takes from the entity that owns it, rather than restating on itself.
+ *
+ * Both are properties of the AGGREGATE, not of the row: a part's EntityData says how the owner's data is
+ * classified, and whether its rows are versioned says whether the owner's history is complete. A part row
+ * is only ever reached and saved through its owner, so declaring either on the part would be a second
+ * place for them to disagree. `SchemaBuilder.include` stamps them; see it for the Signum correspondence.
+ */
+export interface InheritedByPart {
+    entityData?: EntityData;
+    /** Whether the OWNER is versioned — not the owner's config, whose names are per-table. */
+    systemVersioned?: boolean;
+}
+
 // Walks reflected entity metadata to build an in-memory Schema (Tables →
 // Columns). Mirrors Signum's SchemaBuilder, minus MList: collections are either
 // entity back-references (FieldEntityArray, zero columns) or rejected.
@@ -374,11 +388,12 @@ export class SchemaBuilder {
         TypeLogic.start(this.schema);
     }
 
-    // `inheritedData` is set only on the recursive includes SchemaBuilder issues while completing a
-    // table (see generateField): a "Part" whose @entity omitted EntityData inherits it from the FIRST
-    // entity that includes it. The public/root include leaves it undefined. Because an already-included
-    // table short-circuits at the top, "first includer wins" falls out naturally.
-    include<T extends Entity>(type: Type<T>, inheritedData?: EntityData): FluentInclude<T> {
+    // `inherited` is set only on the recursive includes SchemaBuilder issues while completing a table
+    // (see generateField): a "Part" carries what its OWNER decided, for the two facets a part row has no
+    // business restating — its EntityData and whether its rows are versioned. It inherits them from the
+    // FIRST entity that includes it; the public/root include leaves it undefined. Because an
+    // already-included table short-circuits at the top, "first includer wins" falls out naturally.
+    include<T extends Entity>(type: Type<T>, inherited?: InheritedByPart): FluentInclude<T> {
         const entityType = type as unknown as Type<Entity>;
         const existing = this.schema.tables.get(entityType);
         if (existing != null)
@@ -396,11 +411,27 @@ export class SchemaBuilder {
         this.schema.typeToName.set(entityType, clean);
         this.schema.nameToType.set(clean, entityType);
 
-        // Part EntityData inheritance — set BEFORE completeTable so this Part's own sub-parts inherit it
-        // transitively when generateField recurses into them below.
+        // Part inheritance — stamped BEFORE completeTable, for two reasons: applySystemVersioning runs
+        // inside it, and this Part's own sub-parts inherit both facets transitively when generateField
+        // recurses into them below (it reads the EFFECTIVE values back off the TypeInfo).
         const ti = getTypeInfo(type);
-        if (ti != null && ti.entityData == null && ti.entityKind === "Part" && inheritedData != null)
-            ti.entityData = inheritedData;
+        if (ti != null && ti.entityKind === "Part") {
+            if (ti.entityData == null && inherited?.entityData != null)
+                ti.entityData = inherited.entityData;
+            // Signum's SchemaBuilder.cs: `Settings.TypeAttribute<SystemVersionedAttribute>(table.Type) !=
+            // null ? new SystemVersionedAttribute() : null` — the MList table of a versioned entity is
+            // versioned too. A `@part` row IS that MList table when it is reached through an owner's
+            // ARRAY, and stands in for a Signum EMBEDDED when reached through a single reference — whose
+            // columns live in the owner's own row, and are therefore versioned there by construction.
+            // Either way the part holds part of the owner's state, so it follows the owner.
+            //
+            // A FRESH default config, never the owner's: every name on it (history table, period column)
+            // is per-TABLE, so copying them would point this part's history at the owner's table — which
+            // is why Signum constructs a default attribute instead of reusing the owner's. A part that
+            // declares its own @systemVersioned keeps it: that is Signum's per-route FieldAttribute form.
+            if (ti.systemVersioned == null && inherited?.systemVersioned)
+                ti.systemVersioned = {};
+        }
 
         this.completeTable(table, type);
         return new FluentInclude<T>(table, type, this);
@@ -673,17 +704,23 @@ export class SchemaBuilder {
         // @forceNullable → a nullable COLUMN for a non-null field (Signum's IsNullable.Forced).
         const nullable = fi.forceNullable ? IsNullable.Forced : fi.isNullable === true ? IsNullable.Yes : IsNullable.No;
 
-        // The owner's (already-resolved) EntityData, propagated to any referenced Part below so a Part
-        // with no explicit EntityData inherits it from the first entity that includes it (owned arrays,
-        // polymorphic @implementedBy part references, and single 1-1 part references alike).
-        const ownerData = getTypeInfo(table.type)?.entityData;
+        // What the owner passes to any referenced Part below, so a Part that restates neither inherits
+        // both from the first entity that includes it (owned arrays, polymorphic @implementedBy part
+        // references, and single 1-1 part references alike). Read off the TypeInfo rather than from a
+        // parameter, so a Part that INHERITED them a moment ago passes on what it effectively has —
+        // which is what makes both facets transitive down a chain of parts.
+        const ownerTi = getTypeInfo(table.type);
+        const inherited: InheritedByPart = {
+            entityData: ownerTi?.entityData,
+            systemVersioned: ownerTi?.systemVersioned != null,
+        };
 
         // Arrays — only `PartEntity[]` is supported (Altea's MList replacement). The part
         // entity marks its back-pointing FK with a bare @backReference; we locate it here.
         if (isArray) {
             if (!isEntityCtor(elementType))
                 throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: collections of non-entity types are not supported (no MList). Model the collection as a part entity (a PartEntity[] field).`);
-            this.include(elementType, ownerData);
+            this.include(elementType, inherited);
             const childInfo = getTypeInfo(elementType as object);
             const fkEntry = childInfo == null
                 ? undefined
@@ -710,7 +747,7 @@ export class SchemaBuilder {
                 return new FieldImplementedByAll(idColumns, typeColumn, isLite);
             }
             const columns = fi.implementations.types().map(implType => {
-                const refTable = this.include(implType, ownerData).table;
+                const refTable = this.include(implType, inherited).table;
                 const legacyBase = this.legacyMListColumnBase(table, fi, undefined);
                 const colName = this.idiomatic(preName.add(`${legacyBase ?? this.columnName(fi)}ID_${cleanTypeName(implType)}`).toString());
                 return new ImplementationColumn(colName, refTable, isLite);
@@ -722,7 +759,7 @@ export class SchemaBuilder {
         if (isLite || isEntityCtor(elementType)) {
             if (!isEntityCtor(elementType))
                 throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: Lite container without an entity element type.`);
-            const refTable = this.include(elementType, ownerData).table;
+            const refTable = this.include(elementType, inherited).table;
             const legacyBase = this.legacyMListColumnBase(table, fi, elementType);
             const baseName = this.explicitColumnName(fi)
                 ?? this.idiomatic(preName.add(`${legacyBase ?? this.columnName(fi)}ID`).toString());
