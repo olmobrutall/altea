@@ -115,7 +115,33 @@ export namespace DynamicTypeLogic {
      * `Database.Query` during `Start` does not consult it. It does globally disable the entity CACHE,
      * which altea has no need to: caching a type nobody has generated yet cannot have happened.
      */
-    export async function getTypes(): Promise<DynamicTypeEntity[]> {
+    /**
+     * What a generator needs to know about one DynamicType row.
+     *
+     * A PROJECTION, not the entity, and that is load-bearing rather than an optimisation: an optional
+     * MIXIN may add columns to `dynamic_type` (@altea/altea-dynamic's own DynamicIsolationMixin does), and
+     * those columns do not exist until the `sync` that follows the app declaring the mixin. Reading the
+     * whole entity therefore fails with "column dt.isolation_strategy does not exist" at the exact moment
+     * the definitions are needed to BUILD the schema — and a schema built without them scripts every
+     * dynamic table as a DROP. Selecting only the four columns that are always there removes that hazard
+     * permanently: the core generation can never depend on a column an optional module added.
+     *
+     * A generator that wants a mixin's field reads it ITSELF, tolerantly — see
+     * DynamicIsolationLogic.strategies.
+     */
+    export interface DynamicTypeInfo {
+        typeName: string;
+        baseType: DynamicBaseType;
+        /** The stored JSON. Parsed by {@link definitionOf}, as the entity's `getDefinition` would. */
+        typeDefinition: string;
+    }
+
+    /** The parsed definition of a projected row (the entity's `getDefinition`, off the projection). */
+    export function definitionOf(info: DynamicTypeInfo): DynamicTypeDefinition {
+        return JSON.parse(info.typeDefinition) as DynamicTypeDefinition;
+    }
+
+    export async function getTypes(): Promise<DynamicTypeInfo[]> {
         // The TABLE, not the type: `existsTable` reads `table.name`, and a type the schema does not know
         // has no table at all — which is the case on the very first boot of a fresh database.
         const t = Connector.current().schema.tryTable(DynamicTypeEntity);
@@ -124,22 +150,28 @@ export namespace DynamicTypeLogic {
 
         const { result } = await StartParameters.withIgnoredDatabaseMismatches(async () =>
             await ExecutionMode.global(async () =>
-                await table(DynamicTypeEntity).toArray() as DynamicTypeEntity[]));
+                await table(DynamicTypeEntity)
+                    .map(dt => ({
+                        typeName: dt.typeName,
+                        baseType: dt.baseType,
+                        typeDefinition: dt.typeDefinition,
+                    }))
+                    .toArray()));
 
         return result;
     }
 
     /** Signum's `WriteDynamicStarter` — the lines the generated starter calls, one per type. */
-    export function writeDynamicStarter(types: DynamicTypeEntity[]): string[] {
+    export function writeDynamicStarter(types: DynamicTypeInfo[]): string[] {
         return types.map(t => `${t.typeName}Logic.start(sb);`);
     }
 
     /** Signum's `GetCodeFiles`: two modules per type, plus the shared before-schema module. */
-    export function getCodeFiles(types: DynamicTypeEntity[]): GeneratedModule[] {
+    export function getCodeFiles(types: DynamicTypeInfo[]): GeneratedModule[] {
         const result: GeneratedModule[] = [];
 
         for (const dt of types) {
-            const def = dt.getDefinition();
+            const def = definitionOf(dt);
             result.push({
                 fileName: dt.typeName + ".ts",
                 content: new DynamicTypeCodeGenerator(dt.typeName, dt.baseType, def).getFileCode(),
@@ -147,14 +179,14 @@ export namespace DynamicTypeLogic {
         }
 
         for (const dt of types) {
-            const def = dt.getDefinition();
+            const def = definitionOf(dt);
             result.push({
                 fileName: dt.typeName + "Logic.ts",
                 content: new DynamicTypeLogicGenerator(dt.typeName, dt.baseType, def).getFileCode(),
             });
         }
 
-        const beforeSchema = types.map(t => t.getDefinition().customBeforeSchema).filter(c => c != null);
+        const beforeSchema = types.map(t => definitionOf(t).customBeforeSchema).filter(c => c != null);
         result.push({
             fileName: "CodeGenBeforeSchema.ts",
             content: new DynamicBeforeSchemaGenerator(beforeSchema.map(c => c!)).getFileCode(),

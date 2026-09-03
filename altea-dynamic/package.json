@@ -22,6 +22,7 @@
     "@altea/altea-migrations": "workspace:*",
     "quote-transformer": "workspace:*",
     "@altea/altea-files": "workspace:*",
-    "@altea/altea-eval": "workspace:*"
+    "@altea/altea-eval": "workspace:*",
+    "@altea/altea-isolation": "workspace:*"
   }
 }

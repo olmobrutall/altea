@@ -18,6 +18,7 @@ import { DynamicValidationLogic } from "./DynamicValidationLogic.server";
 import { DynamicTypeConditionLogic } from "./DynamicTypeConditionLogic.server";
 import { DynamicMixinConnectionLogic } from "./DynamicMixinConnectionLogic.server";
 import { DynamicApiLogic } from "./DynamicApiLogic.server";
+import { DynamicIsolationLogic } from "./DynamicIsolationLogic.server";
 import { DynamicCodeCompiler, type GeneratedModule, type DynamicCompilationResult } from "./DynamicCodeCompiler.server";
 
 // Port of Signum.Dynamic's DynamicLogic.cs — but only its ROLE as the module's entry point. The BODY of
@@ -108,6 +109,15 @@ export namespace DynamicLogic {
         typeConditions?: boolean;
         mixinConnections?: boolean;
         apis?: boolean;
+        /**
+         * DynamicIsolation — OFF by default, unlike its five siblings.
+         *
+         * Isolation is an app-wide commitment (@altea/altea-isolation refuses to start unless EVERY table
+         * declared a strategy), so generating `Isolation.register` calls for an app that never started it
+         * would commit it to that assertion by accident. Signum has the same hazard and the same answer:
+         * its app calls `DynamicIsolationLogic.Start` / `RegisterIsolations` or it does not.
+         */
+        isolations?: boolean;
     }): void {
         if (sb.alreadyDefined(start))
             return;
@@ -171,6 +181,14 @@ export namespace DynamicLogic {
             // `beforeSchema` runs it — Signum's separate `RegisterMixins` step.
             codeFileGenerators.push(async () =>
                 DynamicMixinConnectionLogic.getCodeFiles(await DynamicMixinConnectionLogic.getConnections()));
+        }
+
+        if (options?.isolations === true) {
+            DynamicIsolationLogic.start(sb);
+            // No starter line: like a mixin connection, `Isolation.register` declares a MIXIN whose field
+            // is a column, so it must land before the schema is built — beforeSchema, not the starter.
+            codeFileGenerators.push(async () =>
+                await DynamicIsolationLogic.getCodeFiles(await DynamicTypeLogic.getTypes()));
         }
 
         if (options?.apis ?? true) {
@@ -301,6 +319,11 @@ export namespace DynamicLogic {
             // carrying it is included by the generated starter.
             const mixins = lastCompilation?.modules.get("CodeGenMixinLogic.ts");
             (mixins?.["CodeGenMixinLogic"] as { start?: () => void } | undefined)?.start?.();
+
+            // Isolation for the same reason and in the same window: `Isolation.register` declares the
+            // IsolationMixin on each dynamic type, whose field is a column.
+            const isolations = lastCompilation?.modules.get("CodeGenIsolationLogic.ts");
+            (isolations?.["CodeGenIsolationLogic"] as { start?: () => void } | undefined)?.start?.();
 
             const module = lastCompilation?.modules.get("CodeGenBeforeSchema.ts");
             const namespace = module?.["CodeGenBeforeSchema"] as { start?: () => void } | undefined;

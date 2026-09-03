@@ -6,6 +6,7 @@ import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { classes } from "@altea/altea/data/globals/helpers";
 import { DynamicTypeDefinitionComponent } from "./DynamicTypeDefinitionComponent";
 import { DynamicBaseType, type DynamicTypeDefinition, type DynamicTypeEntity } from "../../data/DynamicType";
+import { DynamicIsolationMixin } from "../../data/DynamicIsolation";
 
 // Port of Signum.Dynamic's Type/DynamicType.tsx — the type designer's outer frame: the base type, the
 // name, the database-mapping toggle, and the definition editor.
@@ -72,6 +73,17 @@ export default function DynamicTypeComponent(p: {
                         onChange={forceUpdate} readOnly={!ctx.value.isNew} />
                     <AutoLine ctx={ctx.subCtx(dt => dt.typeName)} labelColumns={3}
                         onChange={forceUpdate} unit={suffix} />
+
+                    {/* Signum's DynamicIsolationClient does this with an `overrideView` +
+                        `insertAfterLine(a => a.baseType, …)`, because the line lives in a different
+                        assembly. Here it is the same package, so the line is written where it belongs —
+                        and shown only when the APP declared the mixin, which is what decides whether the
+                        field (and its column) exists at all. Note the MIXIN STEP in the route: altea
+                        flattens a mixin's columns onto the owner, but a PropertyRoute still models the
+                        step (the accommodation @altea/altea-diff-log documents). */}
+                    {DynamicIsolationMixin.isDeclared() &&
+                        <AutoLine labelColumns={3}
+                            ctx={ctx.subCtx(dt => dt.mixin(DynamicIsolationMixin)).subCtx(m => m.isolationStrategy)} />}
                 </div>
                 <div className="col-sm-4">
                     <button type="button"
