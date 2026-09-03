@@ -12,6 +12,11 @@ import { DynamicViewLogic } from "./DynamicViewLogic.server";
 import { DynamicCSSOverrideLogic } from "./DynamicCSSOverrideLogic.server";
 import { DynamicSqlMigrationLogic } from "./DynamicSqlMigrationLogic.server";
 import { DynamicTypeLogic } from "./DynamicTypeLogic.server";
+import { DynamicExpressionLogic } from "./DynamicExpressionLogic.server";
+import { DynamicValidationLogic } from "./DynamicValidationLogic.server";
+import { DynamicTypeConditionLogic } from "./DynamicTypeConditionLogic.server";
+import { DynamicMixinConnectionLogic } from "./DynamicMixinConnectionLogic.server";
+import { DynamicApiLogic } from "./DynamicApiLogic.server";
 import { DynamicCodeCompiler, type GeneratedModule, type DynamicCompilationResult } from "./DynamicCodeCompiler.server";
 
 // Port of Signum.Dynamic's DynamicLogic.cs — but only its ROLE as the module's entry point. The BODY of
@@ -70,8 +75,18 @@ export namespace DynamicLogic {
     /** Signum's `GetCodeFiles` event: every contributor of generated modules. */
     export const codeFileGenerators: Array<() => Promise<GeneratedModule[]>> = [];
 
-    /** Signum's `OnWriteDynamicStarter`: the lines each contributor wants in the generated starter. */
-    export const starterWriters: Array<() => Promise<string[]>> = [];
+    /**
+     * Signum's `OnWriteDynamicStarter`: what each contributor wants the generated starter to call.
+     *
+     * `lines` are the calls; `imports` are the generated modules those calls name. Signum needs no
+     * imports — one assembly, one namespace — while a TypeScript module has to say where a name comes
+     * from, and forgetting that produced a starter referencing a `CodeGenExpressionStarter` it had never
+     * imported.
+     */
+    export const starterWriters: Array<() => Promise<{
+        imports?: Array<{ module: string; name: string }>;
+        lines: string[];
+    }>> = [];
 
     /** Signum's `OnApplicationServerRestarted`. */
     export let onApplicationServerRestarted: (() => void) | undefined;
@@ -111,7 +126,47 @@ export namespace DynamicLogic {
         if (options?.types ?? true) {
             DynamicTypeLogic.start(sb);
             codeFileGenerators.push(async () => DynamicTypeLogic.getCodeFiles(await DynamicTypeLogic.getTypes()));
-            starterWriters.push(async () => DynamicTypeLogic.writeDynamicStarter(await DynamicTypeLogic.getTypes()));
+            starterWriters.push(async () => ({
+                lines: DynamicTypeLogic.writeDynamicStarter(await DynamicTypeLogic.getTypes()),
+            }));
+        }
+
+        if (options?.expressions ?? true) {
+            DynamicExpressionLogic.start(sb);
+            codeFileGenerators.push(async () =>
+                DynamicExpressionLogic.getCodeFiles(await DynamicExpressionLogic.getExpressions()));
+            starterWriters.push(async () => ({
+                imports: [{ module: "CodeGenExpressionStarter", name: "CodeGenExpressionStarter" }],
+                lines: DynamicExpressionLogic.writeDynamicStarter(await DynamicExpressionLogic.getExpressions()),
+            }));
+        }
+
+        if (options?.validations ?? true)
+            DynamicValidationLogic.start(sb); // an EVAL, so nothing is generated
+
+        if (options?.typeConditions ?? true) {
+            DynamicTypeConditionLogic.start(sb);
+            codeFileGenerators.push(async () =>
+                DynamicTypeConditionLogic.getCodeFiles(await DynamicTypeConditionLogic.getTypeConditions()));
+            starterWriters.push(async () => ({
+                imports: [{ module: "CodeGenTypeCondition", name: "CodeGenTypeConditionStarter" }],
+                lines: DynamicTypeConditionLogic.writeDynamicStarter(await DynamicTypeConditionLogic.getTypeConditions()),
+            }));
+        }
+
+        if (options?.mixinConnections ?? true) {
+            DynamicMixinConnectionLogic.start(sb);
+            // No starter line: a mixin must be DECLARED before any type carrying it is included, so
+            // `beforeSchema` runs it — Signum's separate `RegisterMixins` step.
+            codeFileGenerators.push(async () =>
+                DynamicMixinConnectionLogic.getCodeFiles(await DynamicMixinConnectionLogic.getConnections()));
+        }
+
+        if (options?.apis ?? true) {
+            DynamicApiLogic.start(sb);
+            // No starter line either: the generated module takes a WebBuilder, and the HOST calls it.
+            codeFileGenerators.push(async () =>
+                DynamicApiLogic.getCodeFiles(await DynamicApiLogic.getApis()));
         }
 
     }
@@ -138,10 +193,17 @@ export namespace DynamicLogic {
             // Signum generates a `CodeGenStarter` and finds it by searching the assembly's types; here it
             // is one more generated module whose exports are handed straight back.
             const starterLines: string[] = [];
-            for (const writer of starterWriters)
-                starterLines.push(...await writer());
+            const starterImports: Array<{ module: string; name: string }> = [];
+            for (const writer of starterWriters) {
+                const { imports, lines } = await writer();
+                starterLines.push(...lines);
+                starterImports.push(...imports ?? []);
+            }
 
-            modules.push({ fileName: codeGenStarterFile, content: starterCode(modules, starterLines) });
+            modules.push({
+                fileName: codeGenStarterFile,
+                content: starterCode(modules, starterImports, starterLines),
+            });
 
             const result = await DynamicCodeCompiler.compileAndLoad(modules);
             lastCompilation = result;
@@ -155,16 +217,29 @@ export namespace DynamicLogic {
     }
 
     /** The generated `CodeGenStarter` module: import every generated logic and call its `start(sb)`. */
-    function starterCode(modules: GeneratedModule[], starterLines: string[]): string {
-        const logicModules = modules
-            .filter(m => m.fileName.endsWith("Logic.ts"))
-            .map(m => m.fileName.replace(/\.ts$/, ""));
+    function starterCode(
+        modules: GeneratedModule[],
+        starterImports: Array<{ module: string; name: string }>,
+        starterLines: string[],
+    ): string {
+        // A per-type logic module exports a namespace named after itself; a contributor's module need not
+        // (CodeGenTypeCondition.ts exports CodeGenTypeConditionStarter), so it states both.
+        const imports = [
+            ...modules
+                .filter(m => m.fileName.endsWith("Logic.ts"))
+                .map(m => m.fileName.replace(/\.ts$/, ""))
+                .map(m => ({ module: m, name: m.replace(/^.*\//, "") })),
+            // Only what was actually GENERATED: a contributor states its import unconditionally, but its
+            // module exists only when it had rows (no dynamic type conditions ⇒ no CodeGenTypeCondition.ts,
+            // and importing it would fail the whole compile).
+            ...starterImports.filter(i => modules.some(m => m.fileName === i.module + ".ts")),
+        ];
 
         return [
             "// GENERATED by @altea/altea-dynamic (DynamicLogic).",
             "",
             `import type { SchemaBuilder } from "@altea/altea/server/schema";`,
-            ...logicModules.map(m => `import { ${m.replace(/^.*\//, "")} } from "./${m}";`),
+            ...imports.map(i => `import { ${i.name} } from "./${i.module}";`),
             "",
             "export namespace CodeGenStarter {",
             "",
@@ -196,15 +271,37 @@ export namespace DynamicLogic {
         }
     }
 
-    /** Signum's `BeforeSchema` — the definitions' `customBeforeSchema` blocks, before the schema is built. */
-    export function beforeSchema(): void {
+    /**
+     * Signum's `BeforeSchema` + `RegisterMixins` — everything that must land before the schema is built,
+     * plus the dynamic API routes.
+     *
+     * Takes the SchemaBuilder because the routes are mounted through `sb.webBuilder`, which is how every
+     * altea module registers its own (see DynamicViewLogic). By this point `AuthLogic.start` has already
+     * run, so a dynamic endpoint sits behind the auth middleware like a declared one — mounting earlier
+     * would leave it unauthenticated, the ordering @altea/altea-files documents.
+     */
+    export function beforeSchema(sb: SchemaBuilder): void {
         if (codeGenError != null)
             return;
 
         try {
+            // MIXINS FIRST, and this is Signum's ordering (its separate `RegisterMixins`): a mixin's
+            // fields become columns on the owner's table, so the declaration has to land before any type
+            // carrying it is included by the generated starter.
+            const mixins = lastCompilation?.modules.get("CodeGenMixinLogic.ts");
+            (mixins?.["CodeGenMixinLogic"] as { start?: () => void } | undefined)?.start?.();
+
             const module = lastCompilation?.modules.get("CodeGenBeforeSchema.ts");
             const namespace = module?.["CodeGenBeforeSchema"] as { start?: () => void } | undefined;
             namespace?.start?.();
+
+            // The dynamic API module cannot ride on the generated starter — it takes a WebBuilder, not a
+            // SchemaBuilder — so it is handed to its own logic, and the HOST calls registerRoutes(ws).
+            const controller = lastCompilation?.modules.get("CodeGenController.ts");
+            DynamicApiLogic.generated = controller?.["CodeGenController"] as typeof DynamicApiLogic.generated;
+            // A TERMINAL run has no WebBuilder, and that is fine: there are no routes to serve there.
+            if (sb.webBuilder != null)
+                DynamicApiLogic.registerRoutes(sb.webBuilder);
         } catch (e) {
             codeGenError = e instanceof Error ? e : new Error(String(e));
         }

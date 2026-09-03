@@ -4,6 +4,7 @@
   "references": [
     { "path": "../altea/tsconfig.data.json" },
     { "path": "../altea-auth/tsconfig.data.json" },
-    { "path": "../altea-files/tsconfig.data.json" }
+    { "path": "../altea-files/tsconfig.data.json" },
+    { "path": "../altea-eval/tsconfig.data.json" }
   ]
 }

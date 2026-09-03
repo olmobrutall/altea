@@ -21,6 +21,7 @@
     "@altea/altea-codemirror": "workspace:*",
     "@altea/altea-migrations": "workspace:*",
     "quote-transformer": "workspace:*",
-    "@altea/altea-files": "workspace:*"
+    "@altea/altea-files": "workspace:*",
+    "@altea/altea-eval": "workspace:*"
   }
 }

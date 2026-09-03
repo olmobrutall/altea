@@ -11,7 +11,7 @@ import {
     DynamicTypeEntity, DynamicTypeOperation, DynamicBaseType, IsNullable, DynamicUniqueIndex,
     type DynamicTypeDefinition, type DynamicProperty, type DynamicValidator,
 } from "../data/DynamicType";
-import type { GeneratedModule } from "./DynamicCodeCompiler.server";
+import { DynamicCodeCompiler, type GeneratedModule } from "./DynamicCodeCompiler.server";
 
 // Port of Signum.Dynamic's Types/DynamicTypeLogic.cs — the CODE GENERATOR: one DynamicType row becomes two
 // generated modules, an ENTITY and a LOGIC, exactly as Signum generates `X.cs` and `XLogic.cs`.

@@ -2,6 +2,7 @@ import * as basics from "@altea/altea/data/basics";
 import * as lite from "@altea/altea/data/lite";
 import * as entity from "@altea/altea/data/entity";
 import * as validators from "@altea/altea/data/validators";
+import * as reflection from "@altea/altea/data/reflection";
 import * as clock from "@altea/altea/data/utils/clock";
 import * as table from "@altea/altea/server/table";
 import * as database from "@altea/altea/server/Database";
@@ -22,6 +23,10 @@ export const frameworkModules: Record<string, unknown> = {
     "@altea/altea/data/lite": lite,
     "@altea/altea/data/entity": entity,
     "@altea/altea/data/validators": validators,
+    // FieldInfo / TypeInfo / PropertyRoute-adjacent reflection: a script HANDED one of these needs its
+    // type, which is what @altea/altea-dynamic's DynamicValidation does (its evaluator receives the
+    // FieldInfo being validated, Signum's PropertyInfo).
+    "@altea/altea/data/reflection": reflection,
     "@altea/altea/data/utils/clock": clock,           // Clock.now / Clock.today — Signum seeds DateTime too
     "@altea/altea/server/table": table,               // table(X) — the query entry point
     "@altea/altea/server/Database": database,

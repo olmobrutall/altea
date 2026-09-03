@@ -85,6 +85,22 @@ export type SubTypeName = "int" | "long" | "decimal" | "uuid" | "uuid7";
 // altea does the same — `FieldInfo extends TypeReference`, and QueryToken.type is a TypeReference —
 // so the Lines layer and the FilterBuilder speak a single descriptor. (Signum's flat wire DTO becomes
 // a class here so the resolution logic — the `type` thunk → ctor/enum → name — lives with the data.)
+/**
+ * Signum's `Validator.GlobalValidation` — a validator that applies to EVERY field of every entity.
+ *
+ * The one thing a per-field decorator cannot express: a rule chosen at RUNTIME, for a type the rule's
+ * author does not own. @altea/altea-dynamic's DynamicValidation is the consumer — a validation written from
+ * inside the running application, stored as a script, and applicable to any type.
+ *
+ * Runs AFTER the declared validators (so "is not set" still wins over a business rule) and BEFORE the
+ * field's own `customValidation`. The first non-null message stops the pass, as Signum's does. An ASYNC
+ * result is honoured on every server path (`validateAsync`) and SKIPPED on the client's live per-field
+ * pass, exactly as `customValidation` already is: reporting "valid" there would be fail-open.
+ */
+export const globalValidators: Array<
+    (entity: any, fi: FieldInfo, env: IntegrityCheckEnvironment) => string | null | undefined | Promise<string | null | undefined>
+> = [];
+
 export class TypeReference {
     // The value / enum / interface type name (see {@link TypeName}). For entity/embedded/enum
     // references the resolved name comes from the `type` thunk instead (see {@link getTypeName}).
@@ -310,6 +326,10 @@ export class FieldInfo extends TypeReference {
         if (error != null)
             return error;
 
+        const global = this.validateGlobalSync(entity, env);
+        if (global != null)
+            return global;
+
         const custom = this.customValidation?.(entity, this, env);
         // A PENDING custom validation cannot be resolved here. Reporting "valid" would be fail-open,
         // so the sync path reports NOTHING and `validateAsync` (every server path) is what enforces it.
@@ -331,7 +351,25 @@ export class FieldInfo extends TypeReference {
         if (error != null)
             return error;
 
+        for (const global of globalValidators) {
+            const result = await global(entity, this, env);
+            if (result != null)
+                return result;
+        }
+
         return (await this.customValidation?.(entity, this, env)) ?? null;
+    }
+
+    /** The sync half of the global pass — a PENDING result is skipped, as for customValidation. */
+    private validateGlobalSync(entity: any, env: IntegrityCheckEnvironment): string | null {
+        for (const global of globalValidators) {
+            const result = global(entity, this, env);
+            if (result instanceof Promise)
+                continue;
+            if (result != null)
+                return result;
+        }
+        return null;
     }
 
     /** The declared validators (implicit NotNull first), shared by both entry points. */

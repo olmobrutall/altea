@@ -71,6 +71,14 @@ export interface DynamicCodeCompilerOptions {
      * node_modules entry for TypeScript to follow. A `@altea/*` specifier needs no entry.
      */
     typesPaths?: { [specifier: string]: string };
+    /**
+     * Where a whole PACKAGE's sources live, by package name — e.g. `{ eastwind: "D:/…/eastwind" }`.
+     *
+     * The same accommodation as `typesPaths` and the one an APP actually needs: nothing depends on an
+     * app, so TypeScript cannot resolve `eastwind/shippers/Shipper.data` — and listing every module by
+     * hand is not a thing anyone would keep in step. A root maps the whole subtree at once.
+     */
+    typesRoots?: { [packageName: string]: string };
     /** Merged over the defaults, which mirror altea's `presets/base.json`. */
     compilerOptions?: ts.CompilerOptions;
 }
@@ -113,6 +121,30 @@ export namespace DynamicCodeCompiler {
 
     export function isConfigured(): boolean {
         return options != null;
+    }
+
+    /**
+     * The import specifier a generated module should use for a type declared in `packageName`'s
+     * `fileName` — the ONE place that decision lives, since every generator here needs it.
+     *
+     * A `@altea/*` package resolves as an ordinary bare specifier, through the app's node_modules. A
+     * package configured via {@link DynamicCodeCompilerOptions.typesRoots} — i.e. the APP itself — does
+     * NOT: TypeScript can be told where its types are, but the EMITTED JavaScript keeps whatever
+     * specifier was written, and Node cannot resolve a bare `eastwind/...` because nothing installed it.
+     * So such a specifier is emitted RELATIVE to the code-gen directory, which Node resolves fine
+     * (extensionless, as altea's own compiled output already is — the register hook handles it).
+     */
+    export function specifierFor(packageName: string, fileName: string): string {
+        assertConfigured();
+        const withoutExtension = fileName.replace(/.tsx?$/, "");
+
+        const root = options!.typesRoots?.[packageName];
+        if (root == null)
+            return packageName + "/" + withoutExtension;
+
+        const relative = path.relative(options!.codeGenDirectory, path.join(root, withoutExtension));
+        const forward = toTsPath(relative);
+        return forward.startsWith(".") ? forward : "./" + forward;
     }
 
     export function codeGenDirectory(): string {
@@ -306,7 +338,9 @@ export namespace DynamicCodeCompiler {
     ): ts.ResolvedModuleWithFailedLookupLocations {
 
         // An app's own module: TypeScript cannot find it (an app is not a package), so the app says where.
-        const declared = options!.typesPaths?.[specifier];
+        // A per-package ROOT is tried first, since that is what an app configures; an exact path wins if
+        // one was given for this specifier.
+        const declared = options!.typesPaths?.[specifier] ?? resolveInRoots(specifier);
         if (declared != null) {
             return {
                 resolvedModule: {
@@ -318,6 +352,27 @@ export namespace DynamicCodeCompiler {
         }
 
         return ts.resolveModuleName(specifier, containingFile, compilerOptions, host, undefined, redirected);
+    }
+
+    /** `eastwind/shippers/Shipper.data` → `<root of "eastwind">/shippers/Shipper.data.ts`, if it exists. */
+    function resolveInRoots(specifier: string): string | undefined {
+        const roots = options!.typesRoots;
+        if (roots == null)
+            return undefined;
+
+        for (const [packageName, root] of Object.entries(roots)) {
+            if (specifier !== packageName && !specifier.startsWith(packageName + "/"))
+                continue;
+
+            const tail = specifier === packageName ? "index" : specifier.slice(packageName.length + 1);
+            for (const candidate of [tail + ".ts", tail + ".tsx", tail + ".d.ts", tail + "/index.ts"]) {
+                const full = path.join(root, candidate);
+                if (fs.existsSync(full))
+                    return full;
+            }
+        }
+
+        return undefined;
     }
 
     function diagnosticsOf(program: ts.Program, source: ts.SourceFile): CompileError[] {
