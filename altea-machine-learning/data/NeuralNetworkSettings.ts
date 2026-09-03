@@ -1,7 +1,7 @@
 import { reflect, registerEnum } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import {
-    entity, backReference, rowOrder, unit, format, stringLengthValidator, fieldValidation, noRepeatValidator,
+    entity, backReference, rowOrder, unit, format, stringLengthValidator, fieldValidation, noRepeatValidator, legacyTableName
 } from "@altea/altea/data/decorators";
 import { Lite } from "@altea/altea/data/lite";
 import { type int, toInt, type long } from "@altea/altea/data/basics";
@@ -97,6 +97,7 @@ export function isClassificationType(t: PredictionType): boolean {
 /** Signum's `NeuralNetworkHidenLayerEmbedded` — spelling kept deliberately (see the header). */
 @reflect
 @entity("Part")
+@legacyTableName("NeuralNetworkSettingsHiddenLayers")
 export class NeuralNetworkSettingsEntity_HiddenLayer extends Entity {
     @backReference settings: Lite<NeuralNetworkSettingsEntity>;
     @rowOrder order: int;

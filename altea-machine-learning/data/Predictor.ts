@@ -3,7 +3,7 @@ import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Symbol } from "@altea/altea/data/symbol";
 import {
     entity, backReference, rowOrder, quoted, implementedBy, implementedByAll, column, format, unit,
-    stringLengthValidator, fieldValidation, noRepeatValidator,
+    stringLengthValidator, fieldValidation, noRepeatValidator, legacyTableName
 } from "@altea/altea/data/decorators";
 import { Lite } from "@altea/altea/data/lite";
 import { type int, toInt, Temporal, type long, toLong } from "@altea/altea/data/basics";
@@ -209,6 +209,7 @@ export class PredictorRegressionMetricsEmbedded extends EmbeddedEntity {
  */
 @reflect
 @entity("Part")
+@legacyTableName("PredictorMainQueryColumns")
 export class PredictorEntity_Column extends Entity {
     @backReference predictor: Lite<PredictorEntity>;
     @rowOrder order: int;
@@ -245,6 +246,7 @@ export class PredictorEntity_Column extends Entity {
 /** Signum's `MList<QueryFilterEmbedded> Filters` on the main query — a `@part` row over the shared base. */
 @reflect
 @entity("Part")
+@legacyTableName("PredictorMainQueryFilters")
 export class PredictorEntity_Filter extends QueryFilterBaseEntity {
     @backReference predictor: Lite<PredictorEntity>;
 }
@@ -252,6 +254,7 @@ export class PredictorEntity_Filter extends QueryFilterBaseEntity {
 /** Signum's `MList<FilePathEmbedded> Files` — the trained model's files. */
 @reflect
 @entity("Part")
+@legacyTableName("PredictorFiles")
 export class PredictorEntity_File extends Entity {
     @backReference predictor: Lite<PredictorEntity>;
     @rowOrder order: int;
@@ -283,6 +286,7 @@ export class PredictorMainQueryEmbedded extends EmbeddedEntity {
  */
 @reflect
 @entity("Part")
+@legacyTableName("PredictorSubQueryColumns")
 export class PredictorSubQueryEntity_Column extends Entity {
     @backReference subQuery: Lite<PredictorSubQueryEntity>;
     @rowOrder order: int;
@@ -328,6 +332,7 @@ export function isDataUsage(usage: PredictorSubQueryColumnUsage): boolean {
 
 @reflect
 @entity("Part")
+@legacyTableName("PredictorSubQueryFilters")
 export class PredictorSubQueryEntity_Filter extends QueryFilterBaseEntity {
     @backReference subQuery: Lite<PredictorSubQueryEntity>;
 }
@@ -341,6 +346,7 @@ export class PredictorSubQueryEntity_Filter extends QueryFilterBaseEntity {
  */
 @reflect
 @entity("Part")
+@legacyTableName({ name: "PredictorSubQuery", wasVirtualMList: true })
 export class PredictorSubQueryEntity extends Entity {
     @backReference predictor: Lite<PredictorEntity>;
     @rowOrder order: int;

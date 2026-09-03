@@ -115,6 +115,13 @@ export namespace TensorFlowNeuralNetworkPredictor {
             ];
         },
 
+        encodeValue(
+            column: PredictorColumnBase, cods: PredictorCodification[], value: unknown,
+            target: Float32Array, offset = 0,
+        ): void {
+            encoding(column.encoding).encodeValue(value, column, cods, target, offset);
+        },
+
         train,
         loadModel,
         predict,
@@ -195,7 +202,7 @@ export namespace TensorFlowNeuralNetworkPredictor {
             ctx.reportProgress(PredictorMessage.Saving.niceToString());
             await saveModel(model, predictorDirectory(ctx.predictor));
 
-            (ctx as { trainedModel?: unknown }).trainedModel = model;
+            ctx.trainedModel = model;
         } finally {
             trainX.dispose();
             trainY.dispose();
