@@ -11,7 +11,8 @@ import { getQueryNiceName } from '../Reflection'
 import { } from '../QueryToken'
 import { ValidationMessage } from '../../data/validators';
 import { CollectionMessage } from '../../data/dynamicQueries';
-import { VisualTipIcon, SearchVisualTip } from '../Basics/VisualTipIcon';
+import { VisualTipIcon } from '../Basics/VisualTipIcon';
+import { SearchVisualTip } from '../../data/visualTip';
 import { GroupHelp } from './SearchControlVisualTips';
 import '../AppContext'
 

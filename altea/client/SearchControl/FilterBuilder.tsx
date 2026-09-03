@@ -37,7 +37,8 @@ import PinnedFilterBuilder from './PinnedFilterBuilder'
 import { Finder } from '../Finder'
 import { trimDateToFormat } from '../Lines/DateTimeLine'
 import { isNumberKey, NumberBox } from '../Lines/NumberLine'
-import { VisualTipIcon, SearchVisualTip } from '../Basics/VisualTipIcon'
+import { VisualTipIcon } from '../Basics/VisualTipIcon';
+import { SearchVisualTip } from '../../data/visualTip';
 import { FilterHelp } from './SearchControlVisualTips'
 import { GroupHeader, type HeaderType } from '../Lines/GroupHeader'
 import { LinkButton } from '../Basics/LinkButton'

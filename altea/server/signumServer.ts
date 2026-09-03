@@ -6,6 +6,7 @@ import { ReflectionServer } from "./reflectionServer";
 import { useExceptionFilter } from "./exceptionFilter";
 import { ExceptionLogic } from "./exceptionLogic";
 import { ClientErrorModel } from "../data/clientError";
+import { VisualTipServer } from "./visualTipServer";
 
 // Port of Signum's SignumServer.Start (Signum/API/SignumServer.cs): mount the framework HTTP API on a
 // WebBuilder. The host (an app's web bootstrap) creates the WebBuilder (createWebServer), calls this
@@ -17,6 +18,7 @@ export namespace SignumServer {
         QueryServer.start(ws);
         OperationServer.start(ws);
         ReflectionServer.start(ws);
+        VisualTipServer.start(ws);
 
         // Signum's ExceptionController.RegisterClientError: the client's unhandled-error logger POSTs a
         // ClientErrorModel here; log it as a Frontend_React ExceptionEntity. 204 (fire-and-forget).

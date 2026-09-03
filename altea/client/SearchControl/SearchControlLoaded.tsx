@@ -60,7 +60,20 @@ import { Button, ButtonGroup, Dropdown, DropdownButton, OverlayTrigger, Tooltip 
 import { getBreakpoint, Breakpoints, useForceUpdate, useAPI } from '../Hooks'
 import type { IconProp } from '@fortawesome/fontawesome-svg-core'
 import { SearchHelp } from './SearchControlVisualTips'
-import { VisualTipIcon, SearchVisualTip } from '../Basics/VisualTipIcon'
+import { VisualTipIcon } from '../Basics/VisualTipIcon';
+import {
+    getResotreDefaultColumnsIcon,
+    getGroupByThisColumnIcon,
+    getRemoveOtherColumns,
+    getRemoveColumnIcon,
+    getEditAllColumnsIcon,
+    getTimeMachineIcon,
+    getEditColumnIcon,
+    getInsertColumnIcon,
+    getAddFilterIcon,
+} from "./SearchControlIcons";
+
+import { SearchVisualTip } from '../../data/visualTip';
 import { TypeEntity } from '../../data/typeEntity'
 import { KeyNames } from '../Components'
 import { CollectionMessage } from '../../data/dynamicQueries'
@@ -2326,64 +2339,17 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
   }
 }
 
-export function getResotreDefaultColumnsIcon(): React.ReactElement {
-  return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--bs-secondary-color)" />
-    <FontAwesomeIcon aria-hidden={true} icon="rotate-left" transform="shrink-4 up-8 right-8" color="var(--bs-body-color)" />
-  </span>
-}
-
-export function getGroupByThisColumnIcon(): React.ReactElement {
-  return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--bs-secondary-color)" />
-    <FontAwesomeIcon aria-hidden={true} icon={["fas", "layer-group"]} transform="shrink-3 up-8 right-8" color="var(--bs-cyan)" />
-  </span>
-}
-
-export function getRemoveOtherColumns(): React.ReactElement {
-  return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--bs-secondary-color)" />
-    <FontAwesomeIcon aria-hidden={true} icon="remove" transform="shrink-4 up-8 right-8" color="var(--bs-body-color)" />
-  </span>
-}
-
-export function getRemoveColumnIcon(): React.ReactElement {
-  return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--bs-secondary-color)" />
-    <FontAwesomeIcon aria-hidden={true} icon={["fas", "square-xmark"]} transform="shrink-3 up-8 right-8" color="var(--bs-danger)" />
-  </span>
-}
-
-export function getEditAllColumnsIcon(): React.ReactElement {
-  return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--bs-secondary-color)" />
-  </span>
-}
-
-export function getTimeMachineIcon(): React.ReactElement {
-  return <FontAwesomeIcon aria-hidden={true} icon="clock-rotate-left" transform="left-2" color="blue" />
-}
-
-export function getEditColumnIcon(): React.ReactElement {
-  return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--bs-secondary-color)" />
-    <FontAwesomeIcon aria-hidden={true} icon={["fas", "square-pen"]} transform="shrink-3 up-8 right-8" color="var(--bs-orange)" />
-  </span>
-}
-
-export function getInsertColumnIcon(): React.ReactElement {
-  return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--bs-secondary-color)" />
-    <FontAwesomeIcon aria-hidden={true} icon={["fas", "square-plus"]} transform="shrink-3 up-8 right-8" color="var(--bs-success)" />
-  </span>
-}
-
-export function getAddFilterIcon(): React.ReactElement {
-  return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="filter" transform="left-2" color="var(--bs-secondary-color)" />
-    <FontAwesomeIcon aria-hidden={true} icon={["fas", "square-plus"]} transform="shrink-3 up-8 right-8" color="var(--bs-blue)" />
-  </span>
-}
+// The nine column / filter ICONS live in ./SearchControlIcons (imported at the top).
+//
+// They had to move out of this file: they are also what the SearchControl's VISUAL TIPS draw inline, and
+// importing them from here made SearchControlVisualTips ↔ SearchControlLoaded a module CYCLE — which does
+// not merely warn, it breaks the page on a cold load ("does not provide an export named …", and an empty
+// grid). Signum keeps them here and gets away with it because its bundler hoists differently; a
+// pure-presentational helper has no business living in the control anyway.
+//
+// NOT re-exported: nothing outside imported them from here, and having both an import and a re-export of
+// the same names in one module made the dev server's HMR wrapper lose the binding
+// ("getEditAllColumnsIcon is not defined").
 
 function withoutAllAny(qt: QueryToken | undefined): QueryToken | undefined {
   if (qt == undefined)

@@ -15,7 +15,8 @@ import QueryTokenBuilder from './QueryTokenBuilder'
 import { StyleContext } from '../TypeContext';
 import { type CombineRowsKeys, CombineRows } from '../../data/dynamicQueries';
 import { Enum } from '../../data/enum';
-import { VisualTipIcon, SearchVisualTip } from '../Basics/VisualTipIcon';
+import { VisualTipIcon } from '../Basics/VisualTipIcon';
+import { SearchVisualTip } from '../../data/visualTip';
 import { ColumnHelp } from './SearchControlVisualTips';
 import { Finder } from '../Finder';
 import { LinkButton } from '../Basics/LinkButton';
