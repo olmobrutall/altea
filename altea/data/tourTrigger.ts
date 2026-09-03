@@ -15,5 +15,5 @@ import { Symbol } from "./symbol";
 //     export namespace MyTourTrigger { export const OrderDashboard: TourTriggerSymbol = init(); }
 //     TourTriggerLogic.registerTourTriggers(MyTourTrigger.OrderDashboard);
 @reflect
-@entity("String", "Master", { lowPopulation: true })
+@entity("SystemString", "Master", { lowPopulation: true })
 export class TourTriggerSymbol extends Symbol { }

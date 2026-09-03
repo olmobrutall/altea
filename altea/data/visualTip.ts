@@ -25,7 +25,7 @@ import type { DeleteSymbol } from "./operations";
 // accommodation `ExceptionEntity.user` and `OperationLogEntity.user` already make.
 
 @reflect
-@entity("String", "Master", { lowPopulation: true })
+@entity("SystemString", "Master", { lowPopulation: true })
 export class VisualTipSymbol extends Symbol { }
 
 @reflect
