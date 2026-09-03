@@ -16,6 +16,7 @@ import { AuthAdminServer } from "./AuthAdminServer";
 import { ActiveDirectoryServer } from "./ActiveDirectoryServer";
 import { UserTicketLogic } from "./UserTicketLogic";
 import { UserTicketServer } from "./UserTicketServer";
+import { SessionLogLogic } from "./SessionLogLogic";
 
 // Port of Signum's AuthServer + AuthController (AuthServer.cs + AuthController.cs) — the HTTP surface of
 // authentication: a per-request user-context middleware plus the /api/auth/* endpoints. The large
@@ -31,7 +32,7 @@ import { UserTicketServer } from "./UserTicketServer";
 //     it opts out — the login endpoint, the boot reflection metadata, and client-error reporting are
 //     the anonymous opt-outs.
 // A configured AnonymousUser (AuthLogic.anonymousUserName) still counts as "authenticated" for the gate.
-// Seams left as no-ops: SessionLog, OnUserPreLogin. (rememberMe is wired — see UserTicketServer.)
+// Seams left as no-ops: OnUserPreLogin. (rememberMe → UserTicketServer, SessionLog → SessionLogLogic.)
 
 interface LoginRequest { userName?: string; password?: string; rememberMe?: boolean; }
 interface ChangePasswordRequest { oldPassword?: string; newPassword?: string; }
@@ -43,6 +44,11 @@ interface LoginResponse { authenticationType: string; token: string; userEntity:
 interface ReqLike { header(name: string): string | undefined; query: Record<string, unknown>; body?: string; }
 interface ResLike { status(code: number): ResLike; json(body: unknown): void; end(): void; setHeader(name: string, value: string): void; }
 type NextLike = (err?: unknown) => void;
+
+/** Signum logs `re.Host.ToString()` — the request's Host header, i.e. the host it was addressed to. */
+function hostOf(req: { header(name: string): string | undefined }): string | null {
+    return req.header("host") ?? null;
+}
 
 export namespace AuthServer {
     export let avoidExplicitErrorMessages = false;
@@ -152,6 +158,13 @@ export namespace AuthServer {
                 UserHolder.setCurrent(new UserWithClaims(user));
                 for (const fn of userLogged) fn(user);
 
+                // Signum hooks SessionLog onto its own `UserLogged` event (AuthServer.cs, guarded by
+                // `SessionLogLogic.IsStarted`). altea calls it here for the same reason it is a call and not
+                // a subscription: the row wants the REQUEST (host + user agent), which the event does not
+                // carry. Awaited, so a login cannot outrun its own log row.
+                if (SessionLogLogic.isStarted())
+                    await SessionLogLogic.sessionStart(hostOf(req), req.header("user-agent") ?? null);
+
                 // Signum's `if (data.rememberMe == true) UserTicketServer.OnSaveCookie(...)`. Silently a
                 // no-op when @altea/altea-auth's UserTicket half was never started (the app did not call
                 // UserTicketLogic.start), exactly as Signum's would be: the checkbox is a client concern,
@@ -210,7 +223,16 @@ export namespace AuthServer {
 
         // POST /api/auth/logout — clears the server session hooks (client drops its token).
         ws.post("/api/auth/logout", {}, async (req, res) => {
-            for (const fn of userLoggingOut) fn(UserHolder.current());
+            const current = UserHolder.current();
+            for (const fn of userLoggingOut) fn(current);
+
+            // Signum declares SessionLogLogic.SessionEnd and never calls it, so its session rows never
+            // close — see SessionLogLogic's header. This is that missing call. `timeOut` is null: this IS
+            // the user leaving, not us noticing later that they had.
+            if (SessionLogLogic.isStarted() && current != null) {
+                const user = await Database.retrieve(UserEntity, current.user.id);
+                await SessionLogLogic.sessionEnd(user, null);
+            }
             // Signum's `UserTicketServer.RemoveCookie(ControllerContext)`: logging out must stop the
             // browser being remembered, or the next boot would log straight back in.
             if (UserTicketLogic.isStarted())

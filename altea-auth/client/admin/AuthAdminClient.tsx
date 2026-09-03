@@ -12,6 +12,7 @@ import { tasks, type LineBaseController, type LineBaseProps } from "@altea/altea
 import type { Lite } from "@altea/altea/data/lite";
 import { UserEntity } from "../../data/User";
 import { UserTicketEntity } from "../../data/UserTicket";
+import { SessionLogEntity } from "../../data/SessionLog";
 import { RoleEntity } from "../../data/Role";
 import { TypeRulePack, PermissionRulePack, OperationRulePack, QueryRulePack, PropertyRulePack, TypeAllowedBasic, PropertyAllowed } from "../../data/Rules";
 import { AuthAdminMessage } from "../../data/AuthMessages";
@@ -65,6 +66,21 @@ export namespace AuthAdminClient {
                     token(a => a.ticket),
                     token(a => a.connectionDate),
                     token(a => a.device),
+                ],
+            }));
+
+        // Signum's server `WithQuery` projection for SessionLogEntity, as client default columns (altea's
+        // server registration takes none — no QueryDescription). No view: a session row is engine-written,
+        // and the search page IS the report. `sessionEnd` / `sessionTimeOut` are only ever filled here
+        // because altea wires the logout call Signum leaves out — see server/SessionLogLogic.
+        cb.configure(SessionLogEntity)
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(a => a.id),
+                    token(a => a.user),
+                    token(a => a.sessionStart),
+                    token(a => a.sessionEnd),
+                    token(a => a.sessionTimeOut),
                 ],
             }));
 
