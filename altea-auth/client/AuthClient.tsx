@@ -195,9 +195,25 @@ export namespace AuthClient {
         sessionStorage.setItem("authenticationType", authenticationType ?? "");
     }
 
-    // Signum's registerUserTicketAuthenticator — cookie login. Deferred seam (no cookie plumbing yet).
+    /**
+     * Signum's loginFromCookie — ask the server whether THIS browser is remembered.
+     *
+     * altea divergence: Signum first reads the `sfUser` cookie in JS (`Options.getCookie()`) to skip the
+     * request when there is none, and removes it client-side when the server says no. altea's cookie is
+     * HttpOnly (see server/UserTicketServer for why), so neither is possible or needed: the endpoint
+     * answers null for "no cookie" just as it does for "dead cookie", and clears it server-side in that
+     * same response. The cost is one POST per anonymous boot; the gain is that a 60-day credential is not
+     * exposed to script.
+     */
+    export function loginFromCookie(): Promise<AuthenticatedUser | undefined> {
+        return API.loginFromCookie().then(au => au ?? undefined);
+    }
+
+    // Signum's registerUserTicketAuthenticator — must run before Reflection starts, i.e. before
+    // autoLogin, because the chain is consulted at boot (see MainPublic).
     export function registerUserTicketAuthenticator(): void {
-        // authenticators.push(loginFromCookie);  // enabled when UserTicket is ported
+        if (!authenticators.includes(loginFromCookie))
+            authenticators.push(loginFromCookie);
     }
 
     // Signum's autoLogin: resolve the current user at boot from a stored token (or the authenticators).
@@ -278,6 +294,11 @@ export namespace AuthClient {
         }
         export function relogin(): Promise<LoginResponse> {
             return ajaxGet({ url: "/api/auth/relogin" });
+        }
+        // Sent WITHOUT the auth token, for the same reason login is: at boot there may be a stale one, and
+        // the cookie is this request's only credential. Answers null when the browser is not remembered.
+        export function loginFromCookie(): Promise<LoginResponse | null> {
+            return ajaxPost({ url: "/api/auth/loginFromCookie", avoidAuthToken: true }, undefined);
         }
         export function changePassword(request: ChangePasswordRequest): Promise<LoginResponse> {
             return ajaxPost({ url: "/api/auth/changePassword" }, request);

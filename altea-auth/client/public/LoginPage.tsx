@@ -144,6 +144,18 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
                 </div>
             </div>}
 
+            {/* "Remember me" — shown only when the host started the UserTicket half
+                (AuthClient.startPublic({ userTicket: true })), because ticking it would otherwise do
+                nothing: the server ignores rememberMe when UserTicketLogic was never started. */}
+            {AuthClient.Options.userTicket && <div className="row">
+                <div className="col-md-6 offset-md-3">
+                    <div className="form-check mb-2 mr-sm-2 mb-sm-0">
+                        <input ref={rememberMe} name="remember" id="rememberMe" className="form-check-input" type="checkbox" disabled={p.ctx.loading != null} />
+                        <label className="sf-remember-me form-check-label" htmlFor="rememberMe">{LoginAuthMessage.RememberMe.niceToString()}</label>
+                    </div>
+                </div>
+            </div>}
+
             <div className="row" style={{ paddingTop: "1rem" }}>
                 <div className="col-md-6 offset-md-3">
                     <button type="submit" id="login" className="btn btn-success" disabled={p.ctx.loading != null}>

@@ -62,6 +62,14 @@ export namespace AuthLogic {
     // reset link). Async here (altea's mail send is), and awaited by the lockout path below.
     export let onDeactivateUser: ((user: UserEntity) => Promise<void> | void) | null = null;
 
+    // Signum reaches UserTicket two different ways from its UserGraph — `UserGraph.OnDeactivated += u =>
+    // UserTicketLogic.RemoveTickets(u)` for Deactivate, and a direct `UserTicketLogic.RemoveTickets(u)`
+    // inside AutoDeactivate. Both say the same thing: a user who can no longer log in must not stay
+    // remembered on their devices. altea has ONE slot for it, filled by UserTicketLogic.start, so this
+    // module needs no knowledge of tickets and the state machine has no second code path. Null (the
+    // module not started) means there are no tickets to revoke.
+    export let onRemoveUserTickets: ((user: UserEntity) => Promise<number | null>) | null = null;
+
     // Signum's SystemUserName / AnonymousUserName — the two user names {@link start} takes, exactly as
     // `AuthLogic.Start(sb, systemUserName, anonymousUserName)` does. Signum declares them
     // `{ get; private set; }`; they stay writable here so a test starter can set one without a restart.
@@ -264,7 +272,9 @@ export function decodeHash(stored: Uint8Array | null): Buffer | null {
 }
 
 // Port of Signum's UserGraph (Signum.Authorization/UserGraph.cs): the user activation state machine.
-// (Deactivate/AutoDeactivate side effects that touch the authorization cache / UserTicket land later.)
+// Deactivate / AutoDeactivate revoke the user's remembered devices through `onRemoveUserTickets` (see the
+// slot). Signum additionally resets its `RecentlyUsersDisabled` GlobalLazy here; altea has no counterpart
+// for that cache (it is an auth-TOKEN concern — see AuthTokenServer), so there is nothing to invalidate.
 function registerUserOperations(sm: FluentStateMachine<UserEntity, UserState>): void {
     sm.withConstruct(UserOperation.Create, {
         toStates: [UserState.New],
@@ -293,18 +303,22 @@ function registerUserOperations(sm: FluentStateMachine<UserEntity, UserState>): 
     sm.withExecute(UserOperation.Deactivate, {
         fromStates: [UserState.Active],
         toStates: [UserState.Deactivated],
-        execute: u => {
+        execute: async u => {
             u.disabledOn = Temporal.Now.plainDateTimeISO();
             u.state = UserState.Deactivated;
+            // The state is set FIRST: removeTickets only acts on a user who is no longer Active, which is
+            // exactly what Signum's OnDeactivated handler sees, since it fires after its own assignment.
+            await AuthLogic.onRemoveUserTickets?.(u);
         },
     });
 
     sm.withExecute(UserOperation.AutoDeactivate, {
         fromStates: [UserState.Active],
         toStates: [UserState.AutoDeactivate],
-        execute: u => {
+        execute: async u => {
             u.disabledOn = Temporal.Now.plainDateTimeISO();
             u.state = UserState.AutoDeactivate;
+            await AuthLogic.onRemoveUserTickets?.(u);
         },
     });
 

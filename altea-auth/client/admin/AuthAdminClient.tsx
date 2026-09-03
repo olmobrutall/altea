@@ -11,6 +11,7 @@ import type { TypeContext, StyleContext } from "@altea/altea/client/TypeContext"
 import { tasks, type LineBaseController, type LineBaseProps } from "@altea/altea/client/Lines/LineBase";
 import type { Lite } from "@altea/altea/data/lite";
 import { UserEntity } from "../../data/User";
+import { UserTicketEntity } from "../../data/UserTicket";
 import { RoleEntity } from "../../data/Role";
 import { TypeRulePack, PermissionRulePack, OperationRulePack, QueryRulePack, PropertyRulePack, TypeAllowedBasic, PropertyAllowed } from "../../data/Rules";
 import { AuthAdminMessage } from "../../data/AuthMessages";
@@ -50,6 +51,20 @@ export namespace AuthAdminClient {
                     token(a => a.email),
                     token(a => a.role),
                     token(a => a.state),
+                ],
+            }));
+
+        // The five columns Signum passes to UserTicketLogic's server `WithQuery` projection: altea's
+        // server registration takes none (no QueryDescription), so they are CLIENT default columns. No
+        // view — a ticket is engine-written, and the search page IS the "my remembered devices" list.
+        cb.configure(UserTicketEntity)
+            .withQuerySettings(token => ({
+                defaultColumns: [
+                    token(a => a.id),
+                    token(a => a.user),
+                    token(a => a.ticket),
+                    token(a => a.connectionDate),
+                    token(a => a.device),
                 ],
             }));
 

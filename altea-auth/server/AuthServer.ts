@@ -14,6 +14,8 @@ import { AuthTokenServer, type AuthTokenConfiguration } from "./AuthTokenServer"
 import { AuthReflectionServer } from "./AuthReflection";
 import { AuthAdminServer } from "./AuthAdminServer";
 import { ActiveDirectoryServer } from "./ActiveDirectoryServer";
+import { UserTicketLogic } from "./UserTicketLogic";
+import { UserTicketServer } from "./UserTicketServer";
 
 // Port of Signum's AuthServer + AuthController (AuthServer.cs + AuthController.cs) — the HTTP surface of
 // authentication: a per-request user-context middleware plus the /api/auth/* endpoints. The large
@@ -29,7 +31,7 @@ import { ActiveDirectoryServer } from "./ActiveDirectoryServer";
 //     it opts out — the login endpoint, the boot reflection metadata, and client-error reporting are
 //     the anonymous opt-outs.
 // A configured AnonymousUser (AuthLogic.anonymousUserName) still counts as "authenticated" for the gate.
-// Seams left as no-ops: rememberMe cookie (UserTicket), SessionLog, OnUserPreLogin.
+// Seams left as no-ops: SessionLog, OnUserPreLogin. (rememberMe is wired — see UserTicketServer.)
 
 interface LoginRequest { userName?: string; password?: string; rememberMe?: boolean; }
 interface ChangePasswordRequest { oldPassword?: string; newPassword?: string; }
@@ -149,7 +151,13 @@ export namespace AuthServer {
 
                 UserHolder.setCurrent(new UserWithClaims(user));
                 for (const fn of userLogged) fn(user);
-                // rememberMe → UserTicket cookie (deferred seam): data.rememberMe intentionally unused.
+
+                // Signum's `if (data.rememberMe == true) UserTicketServer.OnSaveCookie(...)`. Silently a
+                // no-op when @altea/altea-auth's UserTicket half was never started (the app did not call
+                // UserTicketLogic.start), exactly as Signum's would be: the checkbox is a client concern,
+                // and a login must not fail because the server does not remember devices.
+                if (data.rememberMe === true && UserTicketLogic.isStarted())
+                    await UserTicketServer.onSaveCookie(req, res);
 
                 const token = AuthTokenServer.createToken(user);
                 res.jsonTyped({ authenticationType: "database", token, userEntity: user });
@@ -182,10 +190,31 @@ export namespace AuthServer {
                 res.jsonTyped({ authenticationType: "relogin", token: AuthTokenServer.createToken(user), userEntity: user });
             });
 
+        // POST /api/auth/loginFromCookie — the returning-browser path, ANONYMOUS by definition (the
+        // caller has no token yet; the cookie is the credential). Answers null when this browser is not
+        // remembered, which is what the client's authenticator chain reads as "try the next one".
+        ws.post("/api/auth/loginFromCookie",
+            { res: CustomType<LoginResponse | null>(), allowAnonymous: true },
+            async (req, res) => {
+                if (!UserTicketLogic.isStarted()) { res.jsonTyped(null); return; }
+
+                const user = await UserTicketServer.loginFromCookie(req, res);
+                if (user == null) { res.jsonTyped(null); return; }
+
+                UserHolder.setCurrent(new UserWithClaims(user));
+                for (const fn of userLogged) fn(user);
+                AuthLogic.onUserLogingIn(user, "LoginFromCookie");
+
+                res.jsonTyped({ authenticationType: "cookie", token: AuthTokenServer.createToken(user), userEntity: user });
+            });
+
         // POST /api/auth/logout — clears the server session hooks (client drops its token).
-        ws.post("/api/auth/logout", {}, async (_req, res) => {
+        ws.post("/api/auth/logout", {}, async (req, res) => {
             for (const fn of userLoggingOut) fn(UserHolder.current());
-            // UserTicket cookie removal is a deferred seam.
+            // Signum's `UserTicketServer.RemoveCookie(ControllerContext)`: logging out must stop the
+            // browser being remembered, or the next boot would log straight back in.
+            if (UserTicketLogic.isStarted())
+                UserTicketServer.removeCookie(req, res);
             res.status(200).end();
         });
 
