@@ -17,6 +17,8 @@ import { UserQueriesServer } from "./UserQueriesServer.server";
 import { registerUserQueryXml } from "./UserQueriesXml.server";
 import { registerUserQueryDashboardParts } from "./UserQueriesDashboardXml.server";
 import { ToolbarLogic } from "@altea/altea-toolbar/server/ToolbarLogic.server";
+import { UserQueryTokenSync } from "./UserQueryTokenSync.server";
+import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic.server";
 
 // Port of Signum's UserQueryLogic.Start (Signum.UserQueries/UserQueryLogic.cs). Registers the UserQuery
 // entity + its Save/Delete operations + query, the in-memory caches (Signum's ResetLazy GlobalLazys), the
@@ -44,6 +46,12 @@ export namespace UserQueriesLogic {
     export let userQueriesLazy: ResetLazy<UserQueryEntity[]> = null!;
 
     export function start(sb: SchemaBuilder): void {
+        // Token migrations (@altea/altea-user-assets): repair this module's stored query tokens when a
+        // schema rename invalidates them. GUARDED, because token migrations are opt-in per app — a host
+        // that never starts them must not pay for a subscription that can never fire.
+        if (TokenMigrationLogic.isStarted())
+            UserQueryTokenSync.register();
+
         if (sb.alreadyDefined(start))
             return;
 

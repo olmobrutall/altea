@@ -36,6 +36,8 @@ import { OfficeServer } from "./OfficeServer.server";
 import { OfficeAttachmentLogic } from "./OfficeAttachmentLogic.server";
 import { registerOfficeTemplateXml } from "./OfficeTemplateXml.server";
 import { finalize as finalizeSpreadsheetPath, prepareSpreadsheet } from "./spreadsheet/SpreadsheetUtils.server";
+import { OfficeTemplateTokenSync } from "./OfficeTemplateTokenSync.server";
+import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic.server";
 
 // Port of Signum.Word's WordTemplateLogic.cs — registration, the caches, and `createReport`: the one
 // function that turns a stored template plus an entity into finished document bytes.
@@ -86,6 +88,12 @@ export namespace OfficeTemplateLogic {
     export let getCulture: ((entity: Entity | null) => string) | undefined;
 
     export function start(sb: SchemaBuilder): void {
+        // Token migrations (@altea/altea-user-assets): repair this module's stored query tokens when a
+        // schema rename invalidates them. GUARDED, because token migrations are opt-in per app — a host
+        // that never starts them must not pay for a subscription that can never fire.
+        if (TokenMigrationLogic.isStarted())
+            OfficeTemplateTokenSync.register();
+
         TemplatingLogic.start(sb);
 
         sb.include(OfficeTemplateEntity)

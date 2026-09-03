@@ -12,11 +12,16 @@ import type { ITemplateParser } from "./ValueProviders.server";
 // that decides whether two rows carry the SAME value for a column.
 //
 // altea divergences, documented inline:
-//  - `TemplateSynchronizationContext` / `TemplateSyncException` (the interactive `terminal sync` pass that
-//    rewrites stored templates when a query token is renamed) are NOT ported: they need Signum's
-//    TokenMigrations / QueryTokenSynchronizer, which altea has no counterpart for. A renamed token
-//    therefore surfaces as a parse ERROR on the template (the message the parser already produces)
-//    instead of an interactive fix-up.
+//  - `TemplateSynchronizationContext` / `TemplateSyncException` (the interactive pass that rewrites the
+//    tokens inside a template's BODY TEXT when a query token is renamed) are still NOT ported — but the
+//    reason recorded here is now out of date and worth correcting rather than repeating: it said they
+//    "need Signum's TokenMigrations / QueryTokenSynchronizer, which altea has no counterpart for", and
+//    @altea/altea-user-assets now provides both (TokenMigrationLogic / QueryTokenSynchronizer / the
+//    TokenSyncContext this would take). What is left is this module's own half: walking the parsed
+//    template nodes and giving each value provider a `synchronize`, which is where the `Member` and
+//    `Global` rename buckets get used. Until it lands, a template's stored QUERY tokens (its filters,
+//    orders and From token) ARE repaired — see @altea/altea-email's EmailTemplateTokenSync — while a
+//    renamed token inside the body text still surfaces as a parse ERROR on the template.
 //  - `MemberWithArguments` / `ParsedModel.GetMembers` (the reflection walk behind `@[m:A.B(C)]`) live in
 //    ValueProviders.server.ts next to their only consumers.
 //  - `SemiStructuralEqualityComparer` walks a value's own enumerable properties instead of C# FIELDS, and

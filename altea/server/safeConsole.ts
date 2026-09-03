@@ -114,4 +114,10 @@ export const Color = {
     yellow: chalk.yellowBright,
     red: chalk.redBright,
     darkRed: chalk.red,
+    // Signum uses these four in its interactive pickers, where the colour IS the distinction between
+    // outcomes (regenerate vs skip, "fix the token instead" vs "fix the operation instead").
+    magenta: chalk.magentaBright,
+    darkYellow: chalk.yellow,
+    blue: chalk.blueBright,
+    cyan: chalk.cyanBright,
 };

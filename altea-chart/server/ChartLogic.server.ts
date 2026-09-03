@@ -2,6 +2,8 @@ import type { SchemaBuilder } from "@altea/altea/server/schema/schemaBuilder";
 import { ChartScriptLogic } from "./ChartScriptLogic.server";
 import { ChartServer } from "./ChartServer.server";
 import "../data/ChartPermissions"; // evaluate the module so ChartPermission.ViewCharting registers (auto-seeded)
+import { UserChartTokenSync } from "./UserChartTokenSync.server";
+import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic.server";
 
 // Port of Signum.Chart/ChartLogic.cs (Start). Registers the ChartScript catalog + symbol table and, when a
 // web host is present, the HTTP surface.
@@ -19,6 +21,12 @@ export namespace ChartLogic {
     // Signum's ChartLogic.Start(sb, googleMapsChartScripts, svgMapUrls?). altea skips googleMaps; svgMapUrls
     // (when provided and non-empty) registers the opt-in SvgMap chart with that list of served SVG map URLs.
     export function start(sb: SchemaBuilder, svgMapUrls?: string[]): void {
+        // Token migrations (@altea/altea-user-assets): repair this module's stored query tokens when a
+        // schema rename invalidates them. GUARDED, because token migrations are opt-in per app — a host
+        // that never starts them must not pay for a subscription that can never fire.
+        if (TokenMigrationLogic.isStarted())
+            UserChartTokenSync.register();
+
         if (sb.alreadyDefined(start))
             return;
 

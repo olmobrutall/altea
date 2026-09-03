@@ -36,6 +36,8 @@ import { EmailModelLogic, type IEmailModel } from "./EmailModelLogic.server";
 import { AttachmentLogic } from "./AttachmentLogic.server";
 import { AsyncEmailSender } from "./AsyncEmailSender.server";
 import { MailingServer } from "./MailingServer.server";
+import { EmailTemplateTokenSync } from "./EmailTemplateTokenSync.server";
+import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic.server";
 
 // Port of Signum.Mailing's EmailLogic.cs — the module's `start(sb)` and its public "send this" surface.
 //
@@ -104,6 +106,12 @@ export namespace EmailLogic {
 
         EmailTemplateLogic.getSenderConfiguration = options.getSenderConfiguration;
         EmailTemplateLogic.start(sb);
+
+        // Token migrations (@altea/altea-user-assets): repair a template's stored query tokens when a
+        // schema rename invalidates them. GUARDED, because token migrations are opt-in per app — a host
+        // that never starts them must not pay for a subscription that can never fire.
+        if (TokenMigrationLogic.isStarted())
+            EmailTemplateTokenSync.register();
         AttachmentLogic.start(sb);
         EmailSenderConfigurationLogic.start(sb, {
             encryptPassword: options.encryptPassword,

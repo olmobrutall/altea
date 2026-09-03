@@ -9,6 +9,26 @@ import { existsTable as existsObjectName } from "./sync/syncTableRead";
 import { table as tableQuery } from "./table";
 import type { Table } from "./schema/table";
 
+// Signum's `Administrator.AfterSynchronize` event — fires at the end of a schema synchronize, after
+// the script (if any) has been written, with the file name and the `Replacements` the sync collected.
+//
+// It exists so a subscriber can chain follow-up prompts onto the sync the developer already runs, which
+// is what @altea/altea-user-assets' token migrations use it for: the renames a schema sync just resolved
+// are exactly the ones that invalidate the query TOKENS stored inside user assets, and the Replacements
+// bag is where those renames are. `fileName`/`replacements` are null for an already-synchronized
+// database, as in Signum — a subscriber may still want to run (there can be pending token work with no
+// schema work).
+//
+// The SEAM is here, in core, where Signum keeps it; the CALL is in the app's sync command, because that
+// is what owns the console session (Signum's Administrator.Synchronize is that command).
+export const afterSynchronize: ((fileName: string | null, replacements: Replacements | null) => Promise<void> | void)[] = [];
+
+/** Fire {@link afterSynchronize} in registration order, awaiting each. */
+export async function onAfterSynchronize(fileName: string | null, replacements: Replacements | null): Promise<void> {
+    for (const handler of afterSynchronize)
+        await handler(fileName, replacements);
+}
+
 // Signum's Administrator.CreateTemporaryTable<T>() — materialise a SQL Server temp table
 // for a `@tableName("#...")` view type, to be populated with executeInsert (Signum's
 // UnsafeInsertView). Resolves the ViewType to its Table (the same ViewBuilder-built table
