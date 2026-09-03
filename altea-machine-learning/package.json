@@ -1,0 +1,31 @@
+{
+  "name": "@altea/altea-machine-learning",
+  "version": "0.0.1",
+  "description": "Train and use predictive models over registered queries: a predictor definition, column codification, a TensorFlow.js neural network and the prediction API (ported from Signum.MachineLearning)",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b",
+    "test": "tspc -b && node --enable-source-maps --import @altea/altea/register.mjs --test \"dist/test/**/*.test.js\""
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "@altea/altea-auth": "workspace:*",
+    "@altea/altea-files": "workspace:*",
+    "@altea/altea-processes": "workspace:*",
+    "@altea/altea-user-assets": "workspace:*",
+    "@altea/altea-user-queries": "workspace:*",
+    "quote-transformer": "workspace:*",
+    "@tensorflow/tfjs-core": "^4.22.0",
+    "@tensorflow/tfjs-layers": "^4.22.0",
+    "@tensorflow/tfjs-backend-cpu": "^4.22.0"
+  }
+}

@@ -28,6 +28,8 @@ export const ValidationMessage = {
     TheNumberOf0IsBeingMultipliedBy1: msg("The number of {0} is being multiplied by {1}"),
     TheNumberOfElementsOf0HasToBe12: msg("The number of elements of {0} has to be {1} {2}"),
     HaveANumberOfElements01: msg("have a number of elements {0} {1}"),
+    _0HasToBe12: msg("{0} has to be {1} {2}"),
+    BeA01: msg("be {0} {1}"),
 };
 
 // Signum's ComparisonType (Entities/Validation/ValidationAttributes.cs) — how a count / number validator
@@ -271,6 +273,48 @@ function setReferenceId(o: object): number {
     const id = nextReferenceId++;
     referenceIds.set(o, id);
     return id;
+}
+
+// --- NumberIsValidator ---
+//
+// Signum's [NumberIsValidator(ComparisonType, number)] — the SCALAR sibling of CountIsValidator, bounding
+// a number's own value rather than a collection's length:
+//   @numberIsValidator(ComparisonType.GreaterThan, 0)          // strictly positive
+//   @numberIsValidator(ComparisonType.LessThanOrEqualTo, 100)  // at most 100
+//
+// Unlike the collection version this does NOT imply mandatory: "greater than zero" says nothing about
+// whether the field may be null, and the implicit NotNull already covers a non-nullable declaration. A
+// NULL value passes, exactly as Signum's does — a bound is about the value that IS there, and requiring
+// one is a different rule with its own validator.
+
+export interface NumberIsOptions extends ValidatorOptions { }
+
+export function numberIsValidator(comparison: ComparisonType, number: number, options: NumberIsOptions = {}) {
+    return (target: object, propertyKey: string | symbol) =>
+        addValidator(target, propertyKey, new NumberIsValidator(comparison, number), options);
+}
+
+export class NumberIsValidator extends Validator {
+    constructor(public readonly comparison: ComparisonType, public readonly number: number) { super(); }
+
+    isCompatibleWith(type: Function) { return type === Number; }
+
+    get helpMessage(): string {
+        return ValidationMessage.BeA01.niceToString(comparisonName(this.comparison), this.number);
+    }
+
+    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
+        // Null passes — see the header.
+        if (value == null)
+            return null;
+
+        const n = typeof value === "number" ? value : Number(value);
+        if (Number.isNaN(n) || holds(this.comparison, n, this.number))
+            return null;
+
+        return ValidationMessage._0HasToBe12.niceToString(
+            fi.niceToString(), comparisonName(this.comparison), this.number);
+    }
 }
 
 // --- CountIsValidator ---

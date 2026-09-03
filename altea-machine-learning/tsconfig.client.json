@@ -1,0 +1,14 @@
+{
+  // CLIENT layer — the predictor designer, the codification browser, the epoch-progress view and the
+  // prediction page.
+  "extends": "../altea/presets/client.json",
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.client.json" },
+    { "path": "../altea-auth/tsconfig.client.json" },
+    { "path": "../altea-files/tsconfig.client.json" },
+    { "path": "../altea-processes/tsconfig.client.json" },
+    { "path": "../altea-user-assets/tsconfig.client.json" },
+    { "path": "../altea-user-queries/tsconfig.client.json" }
+  ]
+}

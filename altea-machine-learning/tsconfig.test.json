@@ -1,0 +1,19 @@
+{
+  // TEST layer — the ENGINE suite. It needs no database: a training context can be built in memory from
+  // codifications, which is exactly what makes the tfjs path (build → fit → save → load → predict)
+  // testable on its own. That path is the one part of this port that is a substrate TRANSLATION rather
+  // than a transcription, so it is the part that earns a suite.
+  "extends": "../altea/presets/server.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
+    "types": ["node"]
+  },
+  "include": ["${configDir}/test/**/*"],
+  "exclude": [],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "./tsconfig.server.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" }
+  ]
+}
