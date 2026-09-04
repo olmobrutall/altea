@@ -1,4 +1,4 @@
-import { Entity } from '../data/entity';
+import { Entity, EmbeddedEntity } from '../data/entity';
 import type { Type, PrimaryKey } from '../data/entity';
 import { cleanModified, forEachField } from '../data/changes';
 import { getTypeInfo } from '../data/reflection';
@@ -11,7 +11,7 @@ import {
 } from './graphExplorer';
 import { insertEntityRows, updateEntityRow } from './save';
 import { deleteRowsByIds } from './Database';
-import { FieldEntityArray } from './schema/field';
+import { FieldEntityArray, FieldEmbedded, type EntityField } from './schema/field';
 import { Connector } from './connection/connector';
 import { Transaction } from './connection/transaction';
 import { HeavyProfiler } from './profiler/heavyProfiler';
@@ -198,22 +198,42 @@ async function deleteCollectionOrphans(owner: Entity): Promise<void> {
     const table = Connector.current().schema.table(owner.constructor as Type<Entity>);
     const orphans: { type: Type<Entity>; ids: PrimaryKey[] }[] = [];
 
-    forEachField(owner, (fi, value) => {
-        if (!fi.array) return;
-        const oldIds = snapshot[fi.name];
-        if (!Array.isArray(oldIds) || oldIds.length === 0) return;
+    // Walks the schema's field map beside the live values and the matching slice of the
+    // snapshot. Recursing through FieldEmbedded is what covers a collection declared INSIDE an
+    // embedded: the embedded is flattened onto this row, so its rows are this owner's rows —
+    // and when the embedded itself was CLEARED (`container` null, snapshot still holding its
+    // id-list) every row it held is an orphan, which is the branch that makes `x.config = null`
+    // sweep the collection with it.
+    const collect = (value: unknown, fields: { [name: string]: EntityField }, snap: unknown): void => {
+        if (snap == null || typeof snap !== "object") return;
+        const snapshot = snap as Record<string, unknown>;
+        const container = value as Record<string, unknown> | undefined | null;
+        for (const [name, ef] of Object.entries(fields)) {
+            const current = container == null ? undefined : container[name];
+            if (ef.field instanceof FieldEmbedded) {
+                collect(current, ef.field.embeddedFields, snapshot[name]);
+                continue;
+            }
+            if (!(ef.field instanceof FieldEntityArray)) continue;
 
-        const current = new Set<unknown>(
-            (Array.isArray(value) ? value : [])
-                .filter((c): c is Entity => c instanceof Entity)
-                .map(c => c.id));
-        const removed = oldIds.filter((id): id is PrimaryKey => id != null && !current.has(id));
-        if (removed.length === 0) return;
+            const oldIds = snapshot[name];
+            if (!Array.isArray(oldIds) || oldIds.length === 0) continue;
 
-        const field = table.fields[fi.name]?.field;
-        if (field instanceof FieldEntityArray)
-            orphans.push({ type: field.childType, ids: removed });
-    });
+            const live = new Set<unknown>(
+                (Array.isArray(current) ? current : [])
+                    .filter((c): c is Entity => c instanceof Entity)
+                    .map(c => c.id));
+            const removed = oldIds.filter((id): id is PrimaryKey => id != null && !live.has(id));
+            if (removed.length > 0)
+                orphans.push({ type: ef.field.childType, ids: removed });
+        }
+    };
+
+    collect(owner, table.fields, snapshot);
+    // A mixin's fields are inlined on the instance and flattened into the same snapshot, so
+    // its collections are swept the same way (they live in table.mixins, not table.fields).
+    for (const mixin of Object.values(table.mixins))
+        collect(owner, mixin.fields, snapshot);
 
     for (const { type, ids } of orphans)
         await deleteRowsByIds(type, ids);
@@ -226,7 +246,15 @@ async function deleteCollectionOrphans(owner: Entity): Promise<void> {
 // is set to the owner *entity* (not a snapshot lite) so its live id is read at
 // INSERT time, after the owner has been written. Shared with the bulk inserter.
 export function wireOwnedChildren(owner: Entity): void {
-    forEachField(owner, (fi, value) => {
+    // Recurses through embeddeds (which are flattened onto this row) but never through a child
+    // ENTITY — a child's own collections are wired when the saver reaches it in the save set.
+    // The owner stays the entity throughout: an embedded has no id and no toLite(), so a
+    // collection declared inside one belongs to the entity that holds the embedded.
+    const visit = (m: Entity | EmbeddedEntity): void => forEachField(m, (fi, value) => {
+        if (value instanceof EmbeddedEntity) {
+            visit(value);
+            return;
+        }
         if (!fi.array || !Array.isArray(value)) return;
 
         value.forEach((child, index) => {
@@ -241,5 +269,7 @@ export function wireOwnedChildren(owner: Entity): void {
             }
         });
     });
+
+    visit(owner);
 }
 

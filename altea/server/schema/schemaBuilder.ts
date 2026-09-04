@@ -143,9 +143,12 @@ function legacyCollectionTableName(type: Type<Entity>, settings: SchemaSettings)
     if (owned == null)
         return undefined;
 
-    const memberName = cap(owned.member);
+    // Signum builds this half from the NameSequence accumulated down the PROPERTY ROUTE, so a
+    // collection declared inside an EMBEDDED contributes both members: ApplicationConfiguration +
+    // AzureAD + RoleMapping → `application_configuration_azure_ad_role_mapping`.
+    const memberName = owned.members.map(cap).join('_');
     return settings.tableName(owned.owner) + '_'
-        + (settings.isPostgres ? pascalToSnake(memberName) : memberName);
+        + (settings.isPostgres ? memberName.split('_').map(pascalToSnake).join('_') : memberName);
 }
 
 /**
@@ -164,7 +167,7 @@ function legacyCollectionTableName(type: Type<Entity>, settings: SchemaSettings)
  * single reference, so it is an entity; `OrderLineEntity` carries a standalone NAME but is reached through
  * `OrderEntity.details`, so it is an MList row (Signum's `order_details`).
  */
-function mlistRowOwner(type: Type<Entity>): { owner: Type<Entity>; member: string } | undefined {
+function mlistRowOwner(type: Type<Entity>): { owner: Type<Entity>; members: string[] } | undefined {
     const info = getTypeInfo(type as object);
     if (info == null || info.legacyWasVirtualMList)
         return undefined;
@@ -181,8 +184,38 @@ function mlistRowOwner(type: Type<Entity>): { owner: Type<Entity>; member: strin
     if (ownerInfo == null)
         return undefined;
 
-    const collection = Object.entries(ownerInfo.fields).find(([, f]) => f.array === true && f.getFunction() === type);
-    return collection == null ? undefined : { owner: owner as Type<Entity>, member: collection[0] };
+    const members = collectionRoute(ownerInfo, type, new Set());
+    return members == null ? undefined : { owner: owner as Type<Entity>, members };
+}
+
+/**
+ * The member path from an owner type down to the collection field holding `type` — `["details"]` for a
+ * plain collection, `["azureAD", "roleMappings"]` for one declared inside an EMBEDDED.
+ *
+ * An embedded is FLATTENED onto its owner's row, so a collection declared inside one belongs to the
+ * owner just as a top-level collection does (its `@backReference` points at the owner ENTITY — an
+ * embedded has no id to point at). Signum models the same shape as an MList table hanging off a nested
+ * PropertyRoute, which is why the path — not just the last member — is what names the table.
+ */
+function collectionRoute(ownerInfo: TypeInfo, type: Type<Entity>, seen: Set<unknown>): string[] | undefined {
+    for (const [name, f] of Object.entries(ownerInfo.fields)) {
+        if (f.array === true) {
+            if (f.getFunction() === type)
+                return [name];
+            continue;
+        }
+        const embedded = f.getFunction();
+        if (embedded == null || !isEmbeddedCtor(embedded) || seen.has(embedded))
+            continue;
+        const embeddedInfo = getTypeInfo(embedded);
+        if (embeddedInfo == null)
+            continue;
+        seen.add(embedded);
+        const inner = collectionRoute(embeddedInfo, type, seen);
+        if (inner != null)
+            return [name, ...inner];
+    }
+    return undefined;
 }
 
 /** The clean name of the type a field is DECLARED as (`Lite<Entity>` → "Entity"), for the one rule that
@@ -478,13 +511,9 @@ export class SchemaBuilder {
         const missingKind: string[] = [];
         const missingData: string[] = [];
         for (const table of this.schema.tables.values()) {
-            for (const ef of Object.values(table.fields))
-                if (ef.field instanceof FieldEntityArray)
-                    this.validateEntityArray(table, ef.field, ef.fieldInfo);
+            this.validateEntityArrays(table, table.fields);
             for (const mixin of Object.values(table.mixins))
-                for (const ef of Object.values(mixin.fields))
-                    if (ef.field instanceof FieldEntityArray)
-                        this.validateEntityArray(table, ef.field, ef.fieldInfo);
+                this.validateEntityArrays(table, mixin.fields);
 
             // Every schema entity must be classified via @entity(kind, data): @reflect is only for
             // ModelEntity / View / mixins / embeddeds, never a real table. Framework-seeded tables (the
@@ -891,18 +920,31 @@ export class SchemaBuilder {
         return new FieldEmbedded(hasValue, embeddedFields);
     }
 
-    private validateEntityArray(parentTable: Table, field: FieldEntityArray, fi: FieldInfo): void {
+    // Every owned collection under `fields`, including those declared inside an EMBEDDED — which is
+    // flattened onto this same table, so its collection rows point back at THIS entity and are checked
+    // against it. That check is what enforces the rule for the nested case: a child whose
+    // @backReference names the embedded (or any other type) fails here, at schema build, naming the route.
+    private validateEntityArrays(table: Table, fields: { [name: string]: EntityField }, prefix = ""): void {
+        for (const [name, ef] of Object.entries(fields)) {
+            if (ef.field instanceof FieldEntityArray)
+                this.validateEntityArray(table, ef.field, ef.fieldInfo, prefix + name);
+            else if (ef.field instanceof FieldEmbedded)
+                this.validateEntityArrays(table, ef.field.embeddedFields, prefix + name + ".");
+        }
+    }
+
+    private validateEntityArray(parentTable: Table, field: FieldEntityArray, fi: FieldInfo, route = fi.name): void {
         const childTable = this.schema.tables.get(field.childType);
         if (childTable == null)
-            throw new Error(`Entity array '${fi.name}' on ${rawTypeName(parentTable.type)}: child type ${rawTypeName(field.childType)} is not included in the schema.`);
+            throw new Error(`Entity array '${route}' on ${rawTypeName(parentTable.type)}: child type ${rawTypeName(field.childType)} is not included in the schema.`);
 
         const childFk = childTable.fields[field.childFkProperty];
         if (childFk == null)
-            throw new Error(`@backReference '${fi.name}' on ${rawTypeName(parentTable.type)}: child ${rawTypeName(field.childType)} has no property '${field.childFkProperty}'.`);
+            throw new Error(`@backReference '${route}' on ${rawTypeName(parentTable.type)}: child ${rawTypeName(field.childType)} has no property '${field.childFkProperty}'.`);
 
         const cf = childFk.field;
         if (!(cf instanceof FieldReference) || cf.column.referenceTable !== parentTable)
-            throw new Error(`@backReference '${fi.name}' on ${rawTypeName(parentTable.type)}: child property '${field.childFkProperty}' must be a reference back to ${rawTypeName(parentTable.type)}.`);
+            throw new Error(`@backReference '${route}' on ${rawTypeName(parentTable.type)}: child property '${field.childFkProperty}' must be a reference back to ${rawTypeName(parentTable.type)}` + (route.includes(".") ? " — a collection inside an embedded belongs to the entity that holds the embedded, so the @backReference must name that entity." : "."));
     }
 
     // Resolves a field's referenced entity/embedded constructor via the transformer-emitted

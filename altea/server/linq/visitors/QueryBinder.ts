@@ -3668,7 +3668,9 @@ export class QueryBinder extends ExpressionVisitor {
                 : new SqlConstantExpression(true, LiteralType.boolean);
             const subBindings: FieldBinding[] = [];
             for (const sub of Object.values(f.embeddedFields)) {
-                const b = this.bindField(sub, alias);
+                // ownerId is passed on: an embedded is flattened onto the owner's row, so a
+                // collection declared inside it correlates on that same entity id.
+                const b = this.bindField(sub, alias, ownerId);
                 if (b != null)
                     subBindings.push(new FieldBinding(sub.fieldInfo, b));
             }
@@ -3709,9 +3711,10 @@ export class QueryBinder extends ExpressionVisitor {
         // the correlation key (the owner's id); EntityCompleter.visitFieldEntityArray
         // realises it into a correlated child projection and recurses (so element entities'
         // own references/collections expand too), which ChildProjectionFlattener then
-        // eager-loads as one extra query per level — matching Signum's VisitMList. An
-        // embedded sub-field has no owning id (ownerId == null), so its collections, if
-        // any, stay lazy navigation targets.
+        // eager-loads as one extra query per level — matching Signum's VisitMList. A
+        // collection declared inside an EMBEDDED correlates on the same owner id (the embedded
+        // is flattened onto that row), which is why the embedded branch passes ownerId on;
+        // where there is genuinely no owning id it stays a lazy navigation target.
         if (f instanceof FieldEntityArray) {
             if (ownerId == null)
                 return undefined;

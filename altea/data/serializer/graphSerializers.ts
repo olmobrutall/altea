@@ -281,8 +281,13 @@ abstract class ModifiableSerializer implements JsonSerializer {
         if (propsMeta.length > 0) o.propsMeta = propsMeta;
     }
 
-    protected applyFields(m: BaseEntity, json: Record<string, unknown>, dc: DeserializationContext, ownerRoute?: PropertyRoute): void {
+    protected applyFields(m: BaseEntity, json: Record<string, unknown>, dc: DeserializationContext, ownerRoute?: PropertyRoute, entityOwner?: Entity): void {
         const target = m as unknown as Record<string, unknown>;
+        // The nearest ENTITY ancestor, which is what a collection element's @backReference points at.
+        // For an entity that is `m` itself; for an EMBEDDED it is the owner passed down from the entity
+        // that holds it (an embedded is flattened onto that entity's row, so a collection declared inside
+        // one belongs to the entity, not to the embedded — which has no id and no toLite()).
+        const owner = m instanceof Entity ? m : entityOwner;
         // Write gate active only when auth is installed AND we know this container's route (the entity
         // OVERLAY path onto a resolved original — see EntitySerializer.fromJson). New entities / the
         // client-receive path pass no ownerRoute, so nothing is gated there.
@@ -301,7 +306,7 @@ abstract class ModifiableSerializer implements JsonSerializer {
             dc.route = fieldRoute;   // so an embedded child gates its own sub-fields
             target[entry.name] = jv == null
                 ? null
-                : entry.serializer.fromJson(jv, dc, target[entry.name], { owner: m as Entity });
+                : entry.serializer.fromJson(jv, dc, target[entry.name], { owner });
             dc.route = prevRoute;
 
             // Carry the field's TRANSLATION through (see setTranslatedFieldProvider): it is not a
@@ -329,14 +334,16 @@ class EmbeddedSerializer extends ModifiableSerializer {
         this.serializeFields(em, sc, o, false, sc.route);
         return o;
     }
-    fromJson(json: unknown, dc: DeserializationContext, existing: unknown): unknown {
+    fromJson(json: unknown, dc: DeserializationContext, existing: unknown, slot?: Slot): unknown {
         const j = json as Record<string, unknown>;
         const inst = (existing instanceof EmbeddedEntity && existing.constructor === this.ctor)
             ? existing
             : newInstance(this.ctor as Type<EmbeddedEntity>);
         // Continue the owner's route (set by the parent applyFields in dc.route) so the write gate applies
         // to embedded sub-properties too — but only when overlaying an existing embedded (dc.route set).
-        this.applyFields(inst, j, dc, dc.route);
+        // slot.owner is the entity holding this embedded — passed on so a collection declared INSIDE
+        // the embedded still recovers a back reference to that entity (see applyFields).
+        this.applyFields(inst, j, dc, dc.route, slot?.owner);
         inst._snapshot = j.modified === true ? true : undefined;
         return inst;
     }

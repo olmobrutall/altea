@@ -8,19 +8,20 @@ import { GrammyAwardEntity } from "./award";
 @entity("Main", "Master")
 export class ConfigEntity extends Entity {
     embeddedConfig: EmbeddedConfigEmbedded | null;
-    // Signum's EmbeddedConfig.Awards (MList<Lite<GrammyAwardEntity>>) → part entity.
-    // An MList can't live inside an embedded here, so it hangs off ConfigEntity.
-    awards: ConfigEntity_Award[];
 }
 
 @reflect
 export class EmbeddedConfigEmbedded extends EmbeddedEntity {
     defaultLabel: Lite<LabelEntity> | null;
-    // Signum's MList<Lite<GrammyAwardEntity>> Awards is modelled as the
-    // ConfigEntity_Award part entity on ConfigEntity (see above).
+    // Signum's MList<Lite<GrammyAwardEntity>> Awards — a collection declared INSIDE an embedded.
+    // The embedded is flattened onto ConfigEntity's row, so these rows belong to the CONFIG:
+    // ConfigEntity_Award's @backReference names ConfigEntity, not this embedded (an embedded has
+    // no id to point at). In legacy mode the table is named from the whole route, as Signum's
+    // NameSequence does: `config_embedded_config_awards`.
+    awards: ConfigEntity_Award[];
 }
 
-// Link rows for ConfigEntity.awards (EmbeddedConfig.Awards MList).
+// Link rows for EmbeddedConfig.Awards (MList<Lite<GrammyAwardEntity>>).
 @entity("Part")
 export class ConfigEntity_Award extends Entity {
     @backReference

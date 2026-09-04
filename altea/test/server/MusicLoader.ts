@@ -290,8 +290,10 @@ export namespace MusicLoader {
         await AwardNominationEntity.create({ author: michael.toLite(), award: null! }).save();
 
         await ConfigEntity.create({
-            embeddedConfig: EmbeddedConfigEmbedded.create({ defaultLabel: null }),
-            awards: [ConfigEntity_Award.create({ award: ga.toLite() })],
+            embeddedConfig: EmbeddedConfigEmbedded.create({
+                defaultLabel: null,
+                awards: [ConfigEntity_Award.create({ award: ga.toLite() })],
+            }),
         }).save();
 
         await createFolders();

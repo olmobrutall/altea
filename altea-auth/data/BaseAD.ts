@@ -17,12 +17,22 @@ import { PermissionSymbol } from "./Rules";
 // needs the mapping semantics therefore depends on altea-auth alone.
 //
 // altea divergences, documented inline:
-//  - the configuration is a `@part` ENTITY, not an embedded: `MList<RoleMappingEmbedded> RoleMapping` is a
-//    COLLECTION, and altea has no MList — a collection is `@part` child rows, whose back reference needs a
-//    real owner TABLE, which a flattened embedded is not. (This is the same reshaping altea-email applied to
-//    `SmtpNetworkDeliveryEmbedded`, which owns `clientCertificationFiles`.) The Signum NAMES are kept, suffix
-//    included, so the two stay comparable. An application persists it by REFERENCING it from its own
-//    configuration entity — eastwind's `ApplicationConfigurationEntity.azureAD`, mirroring Southwind.
+//  - the configuration is a `@part` ENTITY, not an embedded, and this is now a LIMIT rather than a rule:
+//    altea supports a collection declared inside an embedded (see CLAUDE.md's MList bullet), so the reason
+//    this once could not be one is gone. What still blocks the conversion is WHOSE row the collection's
+//    rows are: an embedded is flattened onto its owner, so `roleMapping`'s row type would have to
+//    `@backReference` the entity that HOLDS the configuration — which is the APPLICATION's settings row
+//    (eastwind's `ApplicationConfigurationEntity`, Southwind's same), and a framework package must not
+//    name an app type. Converting therefore needs one more decision: either the row type declares the
+//    EMBEDDED it belongs to and SchemaBuilder resolves that to the holding entity, or the back reference
+//    becomes an `@implementedBy(() => [])` the app widens (the `ChangeLogViewLogEntity.user`
+//    accommodation). Until then this stays an entity with a table of its own, which is what makes the
+//    three `*_role_mapping` tables — and the three configuration tables — diverge from Signum, where the
+//    whole configuration is flattened onto `application_configuration`. (altea-email's
+//    `SmtpNetworkDeliveryEmbedded` carries the same reshaping, and IS convertible: its owner
+//    `SmtpEmailServiceEntity` is in the same package.) The Signum NAMES are kept, suffix included, so the
+//    two stay comparable. An application persists it by REFERENCING it from its own configuration
+//    entity — eastwind's `ApplicationConfigurationEntity.azureAD`, mirroring Southwind.
 //  - the ROW TYPE is declared per module, not here: a `@part` collection is keyed by ONE back reference to
 //    its owner's table, so a shared row type would make the three directories read each other's rows. Hence
 //    the abstract `RoleMappingEmbedded` below plus one concrete row per module, and `roleMappings()` — the
