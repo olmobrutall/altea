@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, uniqueIndex, backReference, valueField, rowOrder, legacyTableName, quoted } from "@altea/altea/data/decorators";
+import { entity, uniqueIndex, backReference, valueField, rowOrder, legacyTableName, legacyColumnName } from "@altea/altea/data/decorators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { Symbol } from "@altea/altea/data/symbol";
 import { OperationSymbol } from "@altea/altea/data/operations";
@@ -264,35 +264,24 @@ export class PermissionRulePack extends ModelEntity {
 //
 // Signum keys an operation rule by (OperationSymbol + Type): the same operation symbol can apply to
 // several concrete types (a `.WithSave` on an abstract base), and a role may allow it for one type and
-// deny it for another — so the RESOURCE of this rule is a PAIR, and Signum models it as an embedded. The
-// allowance is a 3-valued `OperationAllowed` (None → blocked; DBOnly → server-code only, button hidden;
-// Allow → everywhere), now WITH row-level type conditions: `fallback` + ordered `conditionRules` (each an
-// AND-ed set of TypeConditionSymbols → an OperationAllowed), evaluated last-match-wins against the
-// operated entity — exactly like RuleTypeEntity.
-//
-// The resource used to be flattened here into two direct FK fields, so the columns were `operation_id` /
-// `type_id` where Signum's are `resource_operation_id` / `resource_type_id`, and this was the one rule
-// table of the four whose resource is not called `resource`. The reason given was that a unique index
-// should not have to walk an embedded; index selectors do walk embeddeds (`accessedFields` resolves a
-// dotted path), so the reason is gone.
-@uniqueIndex((e: RuleOperationEntity) => [e.resource.operation, e.resource.type, e.role])
+// deny it for another. Signum makes that PAIR an embedded (`OperationTypeEmbedded Resource`); altea keeps
+// the two direct FK fields, so the unique index and every read are a plain `[operation, type, role]`.
+// `@legacyColumnName` is what makes the COLUMNS Signum's — which is all a database can see of the
+// difference. The allowance is a 3-valued `OperationAllowed` (None → blocked; DBOnly → server-code only,
+// button hidden; Allow → everywhere), now WITH row-level type conditions: `fallback` + ordered
+// `conditionRules` (each an AND-ed set of TypeConditionSymbols → an OperationAllowed), evaluated
+// last-match-wins against the operated entity — exactly like RuleTypeEntity.
+@uniqueIndex((e: RuleOperationEntity) => [e.operation, e.type, e.role])
 @entity("System", "Master")
 export class RuleOperationEntity extends RuleEntity {
-    resource: OperationTypeEmbedded;
-    fallback: OperationAllowed = OperationAllowed.None;
-    conditionRules: RuleOperationConditionEntity[];
-}
-
-/** Signum's OperationTypeEmbedded — WHICH operation, on WHICH type. */
-@reflect
-export class OperationTypeEmbedded extends EmbeddedEntity {
+    @legacyColumnName("ResourceOperationID")
     operation: Lite<OperationSymbol>;
+
+    @legacyColumnName("ResourceTypeID")
     type: Lite<TypeEntity>;
 
-    @quoted
-    toString(): string {
-        return `${this.operation?.toString() ?? ""}/${this.type?.toString() ?? ""}`;
-    }
+    fallback: OperationAllowed = OperationAllowed.None;
+    conditionRules: RuleOperationConditionEntity[];
 }
 
 // One condition-row of a RuleOperation (mirrors RuleTypeConditionEntity): the SET of TypeConditionSymbols

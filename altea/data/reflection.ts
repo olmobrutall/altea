@@ -269,6 +269,11 @@ export class FieldInfo extends TypeReference {
     // SchemaBuilder from TypeInfo.fullTextIndexes.
     hasFullTextIndex?: boolean;
     columnOptions?: ColumnOptions;
+    // The LOGICAL name SIGNUM gave this field's column (@legacyColumnName), used ONLY when
+    // SchemaSettings.legacyMode is on — for a field altea models differently from Signum but which occupies
+    // the same column. Mapped to the dialect by SchemaBuilder.idiomatic, unlike the verbatim
+    // @column({ columnName }), which still wins where both are given.
+    legacyColumnName?: string;
     // Signum's MemberInfo display metadata (the client Lines layer reads these off the PropertyRoute's
     // field). undefined ⇒ default rendering — same as Signum without the attrs. (Signum's
     // MemberInfo.required has no altea field: it's `!isNullable`.) `format` / `unit` are set by the

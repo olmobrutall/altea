@@ -258,6 +258,31 @@ export function legacyTableName(arg: string | LegacyTableOptions) {
     };
 }
 
+/**
+ * LEGACY MODE: the name SIGNUM gives this field's column, for a field altea models differently but which
+ * occupies the SAME column — the field-level sibling of {@link legacyTableName}, and the seam that lets a
+ * model difference stay a model difference instead of being reshaped to match a column name.
+ *
+ * `RuleOperationEntity` is the case it was written for: Signum keys an operation rule by an embedded PAIR
+ * (`OperationTypeEmbedded Resource`), so its columns are `ResourceOperationID` / `ResourceTypeID`; altea
+ * keeps two direct FK fields, which is simpler everywhere the rule is read and indexed, and differs from
+ * Signum only in what the columns are called.
+ *
+ * Write the WHOLE logical name, `ID` suffix included (`"ResourceOperationID"`) — what Signum calls the
+ * column is the whole name, not a stem to compose on. It is still mapped to the dialect by
+ * `SchemaBuilder.idiomatic`, so one declaration is right on both (`resource_operation_id` on Postgres,
+ * `ResourceOperationID` on SQL Server) where a verbatim name could only ever be right on one. Ignored
+ * entirely when legacy mode is off, and a hand-picked `@column({ columnName })` still wins.
+ *
+ * Only for a field owning exactly ONE column — a value, a reference or an enum. An embedded's name is a
+ * PREFIX, and a polymorphic reference owns one column per implementation.
+ */
+export function legacyColumnName(name: string) {
+    return function (target: object, propertyKey: string | symbol): void {
+        getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).legacyColumnName = name;
+    };
+}
+
 // Class-level marker (Signum's [SystemVersioned]): the type's table is system-versioned —
 // it keeps a full history of every row version (temporal table). Bare `@systemVersioned`
 // uses dialect-default period/history names; `@systemVersioned({ historyTableName, … })`

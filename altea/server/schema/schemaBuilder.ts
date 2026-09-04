@@ -852,7 +852,7 @@ export class SchemaBuilder {
             const refTable = this.include(elementType, inherited).table;
             const legacyBase = this.legacyMListColumnBase(table, fi, elementType);
             const baseName = this.explicitColumnName(fi)
-                ?? this.idiomatic(preName.add(`${legacyBase ?? this.columnName(fi)}ID`).toString());
+                ?? this.idiomatic(this.legacyColumnName(fi) ?? preName.add(`${legacyBase ?? this.columnName(fi)}ID`).toString());
             return new FieldReference(new ReferenceColumn(baseName, refTable, nullable, isLite));
         }
 
@@ -870,7 +870,7 @@ export class SchemaBuilder {
             const refTable = this.include(EnumEntity.typeFor(enumObject)).table;
             const legacyBase = this.legacyMListColumnBase(table, fi, elementType);
             const colName = this.explicitColumnName(fi)
-                ?? this.idiomatic(preName.add(`${legacyBase ?? this.columnName(fi)}ID`).toString());
+                ?? this.idiomatic(this.legacyColumnName(fi) ?? preName.add(`${legacyBase ?? this.columnName(fi)}ID`).toString());
             return new FieldEnum(new ReferenceColumn(colName, refTable, nullable, /* isLite */ false));
         }
 
@@ -889,7 +889,7 @@ export class SchemaBuilder {
         const scale = fi.columnOptions?.scale ?? (isDecimal ? 2 : undefined);
         const legacyValueBase = this.legacyMListColumnBase(table, fi, undefined);
         const name = this.explicitColumnName(fi)
-            ?? this.idiomatic(preName.add(legacyValueBase ?? this.columnName(fi)).toString());
+            ?? this.idiomatic(this.legacyColumnName(fi) ?? preName.add(legacyValueBase ?? this.columnName(fi)).toString());
         const column = new ValueColumn(name, dbType, nullable, fi.columnOptions?.size, precision, scale);
         return new FieldValue(column);
     }
@@ -1089,6 +1089,25 @@ export class SchemaBuilder {
      */
     private explicitColumnName(fi: FieldInfo): string | undefined {
         return fi.columnOptions?.columnName;
+    }
+
+    /**
+     * LEGACY MODE: the LOGICAL name Signum gives this field's column (`@legacyColumnName`), replacing the
+     * one {@link columnName} would compose — including its `ID` suffix, since what Signum calls the column
+     * is the whole name and not a stem.
+     *
+     * Unlike `@column({ columnName })` it still goes through {@link idiomatic}: it names what SIGNUM calls
+     * the column, and mapping a Signum name to the dialect is exactly what `idiomatic` is (`ResourceTypeID`
+     * → `resource_type_id` on Postgres, unchanged on SQL Server) — so one declaration is right on both,
+     * where a verbatim name could only ever be right on one. A hand-picked `@column({ columnName })` is
+     * still verbatim and still wins, because that one is not altea's to re-spell.
+     *
+     * Only for a field owning exactly ONE column — a value, a reference or an enum. An embedded's name is a
+     * PREFIX rather than a column, and a polymorphic reference owns one column per implementation (which is
+     * why naming those is refused outright).
+     */
+    private legacyColumnName(fi: FieldInfo): string | undefined {
+        return this.settings.legacyMode ? fi.legacyColumnName : undefined;
     }
 
     /**
