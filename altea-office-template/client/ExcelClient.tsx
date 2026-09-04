@@ -1,6 +1,6 @@
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { ajaxPost, ajaxPostRaw, saveFile, type WebApiHttpError } from "@altea/altea/client/Services";
+import { ajaxGet, ajaxPost, ajaxPostRaw, saveFile, type WebApiHttpError } from "@altea/altea/client/Services";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Finder } from "@altea/altea/client/Finder";
 import { QueryString } from "@altea/altea/client/QueryString";
@@ -12,30 +12,45 @@ import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 import { ChartClient } from "@altea/altea-chart/client/ChartClient";
 import { ChartPermission } from "@altea/altea-chart/data/ChartPermissions";
 import { ExcelMessage, ExcelPermission, ImportExcelModel } from "../data/Excel";
+import { ExcelReportEntity } from "../data/excel/ExcelReport";
 import ExcelMenu from "./ExcelMenu";
 import { ImportExcelProgressModal } from "./ImportExcelProgressModal";
 
-// Port of Signum.Excel's ExcelClient.tsx — the CLIENT half of the two Excel features this package already
-// serves (see data/Excel.ts and server/excel/): "export this query to .xlsx" and "import an .xlsx back into
-// entities". It lives in @altea/altea-office-template because its server half does; Signum keeps
-// Signum.Excel and Signum.Word apart, but the template-driven ExcelReport half — the only part that
-// justified a separate module — is deliberately not ported (an .xlsx OfficeTemplate is strictly more
-// capable), so the remaining pieces travel with the code that answers their routes.
+// Port of Signum.Excel's ExcelClient.tsx — the CLIENT half of all three Excel features: "export this
+// query to .xlsx", "import an .xlsx back into entities", and the stored ExcelReport templates. It lives in
+// @altea/altea-office-template because its server half does; Signum keeps Signum.Excel and Signum.Word
+// apart, and the two would be separate packages here too were it not that the report generator, the plain
+// exporter and the xlsx templating all sit on this package's one OOXML substrate.
 //
 // altea divergences:
-//  - `options.excelReport` is gone with ExcelReportEntity, and with it the report list, "Administer" and
-//    "Create new". What is left is a two-item menu (export / import) that collapses to a single BUTTON when
-//    only export is enabled — which is Signum's own `plainExcel && !excelReport && !importFromExcel` branch.
 //  - `Navigator.addSettings(new EntitySettings(...))` → `cb.configure(T).withView(...)`.
 //  - `isPermissionAuthorized` lives on @altea/altea-auth's AuthClient, not in core AppContext.
 //  - `ChangeLogClient.registerChangeLogModule` has no counterpart.
+//  - the report list is gated on the SAVE operation reaching the client (Signum's `tryOperationInfo`),
+//    which is what hides "Administer" / "Create new" from a role that may only RUN a report.
 
 export namespace ExcelClient {
 
-    export function start(cb: ClientBuilder, options: { plainExcel: boolean; importFromExcel: boolean }): void {
+    export function start(
+        cb: ClientBuilder, options: { plainExcel: boolean; importFromExcel: boolean; excelReport?: boolean },
+    ): void {
 
         if (options.importFromExcel)
             cb.configure(ImportExcelModel).withView(() => import("./Templates/ImportExcelModel"));
+
+        if (options.excelReport)
+            cb.configure(ExcelReportEntity)
+                .withView(() => import("./Templates/ExcelReport"))
+                // Signum's four include columns, which its server `WithQuery(() => s => new { … })` names;
+                // altea's server withQuery takes no projection, so they are declared here.
+                .withQuerySettings(token => ({
+                    defaultColumns: [
+                        token(a => a.id),
+                        token(a => a.query),
+                        token(a => a.file.fileName),
+                        token(a => a.displayName),
+                    ],
+                }));
 
         Finder.ButtonBarQuery.onButtonBarElements().push(ctx => {
 
@@ -45,12 +60,14 @@ export namespace ExcelClient {
 
             const plainExcel = options.plainExcel && AuthClient.isPermissionAuthorized(ExcelPermission.PlainExcel);
             const importFromExcel = options.importFromExcel && AuthClient.isPermissionAuthorized(ExcelPermission.ImportFromExcel);
+            const excelReport = options.excelReport === true;
 
-            if (!plainExcel && !importFromExcel)
+            if (!plainExcel && !importFromExcel && !excelReport)
                 return undefined;
 
             return {
-                button: <ExcelMenu searchControl={ctx.searchControl} plainExcel={plainExcel} importFromExcel={importFromExcel} />,
+                button: <ExcelMenu searchControl={ctx.searchControl} plainExcel={plainExcel}
+                    importFromExcel={importFromExcel} excelReport={excelReport} />,
             };
         });
 
@@ -81,6 +98,18 @@ export namespace ExcelClient {
         export function generatePlainExcel(request: QueryRequest, overrideFileName?: string, forImport?: boolean): void {
             void ajaxPostRaw({ url: "/api/excel/plain/" + request.queryKey + "?" + QueryString.stringify({ forImport }) }, request)
                 .then(response => saveFile(response, overrideFileName));
+        }
+
+        /** Signum's `forQuery` — the reports registered for a query, for the menu. */
+        export function forQuery(queryKey: string): Promise<Lite<ExcelReportEntity>[]> {
+            return ajaxGet({ url: "/api/excel/reportsFor/" + queryKey });
+        }
+
+        /** Signum's `generateExcelReport` — run one, save the .xlsx it answers with. */
+        export function generateExcelReport(request: QueryRequest, excelReport: Lite<ExcelReportEntity>): void {
+            void ajaxPostRaw({ url: "/api/excel/excelReport/" + request.queryKey },
+                { queryRequest: request, excelReport })
+                .then(response => saveFile(response));
         }
 
         /** Signum's ValidateForImport. altea has no query-token DTO, so the route answers the top collection

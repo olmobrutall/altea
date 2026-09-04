@@ -48,7 +48,7 @@ import { Lite } from '../data/lite';
 // parseLite→Lite.parse, is→.is(), isLite/isEntity/isModifiableEntity→instanceof; MListElement/isMListElement
 // gone (no MList); getToString; SearchMessage/JavascriptMessage message containers not ported.
 import { TypeEntity } from '../data/typeEntity';
-// TODO(port): QueryEntity (Signum.Basics) not ported.
+import { QueryEntity } from '../data/queryEntity';
 
 import {
   getQueryKey, isQueryDefined, getTypeName, getTypeInfo, tryGetTypeInfo, getKindOfType,
@@ -1991,10 +1991,16 @@ export namespace Finder {
     // ABSENT. altea builds the query root token CLIENT-SIDE from registered entity metadata (see
     // getQueryRoot), so there is no QueryDescription DTO to fetch and no server route for one.
 
-    // TODO(port): QueryEntity (the query-registration entity) is not ported yet.
-    // export function fetchQueryEntity(queryKey: string): Promise<QueryEntity> {
-    //   return ajaxGet({ url: "/api/query/queryEntity/" + queryKey });
-    // }
+    /**
+     * Signum's `fetchQueryEntity` — the QueryEntity ROW behind a query key.
+     *
+     * Needed whenever a client BUILDS an entity that references a query (a new UserQuery, a new
+     * ExcelReport): the FK is the row, not the key. Signum reads it from a client-side cache of every
+     * QueryEntity; altea asks the server, which is also where the query's authorization is.
+     */
+    export function fetchQueryEntity(queryKey: string): Promise<QueryEntity> {
+      return ajaxGet({ url: "/api/query/queryEntity/" + queryKey });
+    }
 
 
     // TODO(port): the time-series split executor needs luxon DateTime (dropped in altea — use

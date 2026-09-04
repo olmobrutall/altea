@@ -10,6 +10,7 @@
 //     entity Serializer (res.jsonTyped) so the lites/values in the rows go out in wire form.
 
 import { Entity } from "../data/entity";
+import { QueryEntity } from "../data/queryEntity";
 import { Temporal, Decimal } from "../data/basics";
 import { Enum } from "../data/enum";
 import { SubTokensOptionsAll } from "../data/dynamicQuery/tokens";
@@ -53,6 +54,29 @@ export namespace QueryServer {
                 const parent = QueryLogic.getToken(queryName, tokenString, options);
                 const serverTokens = parent.subTokens(options).filter(isServerOnlyToken).map(serializeServerToken);
                 res.json(serverTokens);
+            });
+
+        // GET /api/query/queryEntity/:queryKey — the QueryEntity ROW for a key (Signum's
+        // `QueryController.GetQueryEntity`, which its client reads through `Finder.API.fetchQueryEntity`).
+        //
+        // A client needs it whenever it BUILDS an entity that references a query — a new UserQuery, a new
+        // ExcelReport — because the FK is the row, not the key. Looked up by KEY directly:
+        // entity-type queries ("Order") are seeded as QueryEntity rows but are NOT in queryNamesByKey
+        // (they resolve on demand through resolveCleanType), so tryGetQueryEntityByKey is the right
+        // accessor. The gate is the QUERY's own authorization — someone who may not see the query has no
+        // business naming it.
+        ws.get("/api/query/queryEntity/:queryKey",
+            { params: CustomType<{ queryKey: string }>(), res: QueryEntity },
+            async (req, res) => {
+                const queryName = QueryLogic.tryToQueryName(req.params.queryKey);
+                const qe = QueryLogic.tryGetQueryEntityByKey(req.params.queryKey);
+                if (qe == undefined) {
+                    res.status(404).json({ error: `Query '${req.params.queryKey}' not found` });
+                    return;
+                }
+                if (queryName != undefined)
+                    await QueryLogic.assertQueryAllowedHook?.(queryName, true);
+                res.jsonTyped(qe);
             });
 
         // POST /api/query/executeQuery/:queryKey — run a query request → ResultTable (Signum's

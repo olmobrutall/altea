@@ -330,14 +330,14 @@ function fixDimension(root: OxmlElement, sheetData: OxmlElement): void {
 }
 
 /** The calc chain caches Excel's evaluation ORDER; after rows move it is worse than useless. */
-function removeCalcChain(package_: OxmlPackage): void {
+export function removeCalcChain(package_: OxmlPackage): void {
     const calcChain = package_.parts.find(p => p.contentType.includes("calcChain"));
     if (calcChain != null)
         package_.deletePart(package_.mainPart, calcChain);
 }
 
 /** Every cached formula result was dropped, so tell Excel to recompute the whole workbook on open. */
-function forceFullCalcOnLoad(package_: OxmlPackage): void {
+export function forceFullCalcOnLoad(package_: OxmlPackage): void {
     const workbook = worksheetRoot(package_.mainPart);
     if (workbook == null)
         return;

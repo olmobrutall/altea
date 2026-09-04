@@ -4,26 +4,58 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import SelectorModal from "@altea/altea/client/SelectorModal";
 import "@altea/altea/client/AppContext"; // String.prototype.formatHtml
 import type SearchControlLoaded from "@altea/altea/client/SearchControl/SearchControlLoaded";
+import { Finder } from "@altea/altea/client/Finder";
+import { Navigator } from "@altea/altea/client/Navigator";
+import { getOperationInfos } from "@altea/altea/client/Reflection";
 import { SearchMessage } from "@altea/altea/data/uiMessages";
 import type { PaginationModeKeys } from "@altea/altea/client/FindOptions";
 import type { QueryRequest } from "@altea/altea/data/dynamicQuery/queryRequest";
+import type { Lite } from "@altea/altea/data/lite";
 import { ExcelMessage, ImportFromExcelMessage } from "../data/Excel";
+import { ExcelReportEntity, ExcelReportOperation } from "../data/excel/ExcelReport";
 import { ExcelClient } from "./ExcelClient";
 
 // Port of Signum.Excel's ExcelMenu.tsx — the SearchControl toolbar entry for the two Excel features.
 //
-// altea divergences: ExcelReportEntity is not ported (see ExcelClient's header), so the report list and its
-// "Administer" / "Create new" items are gone, and with them Signum's `addDropdownDividers` helper — the menu
-// is two fixed items. What survives unchanged is `selectPagination`, the "current page or all pages?" question
-// an export has to ask, which the import model's DownloadTemplate button reuses.
+// The menu has up to three sections, separated by dividers: the plain export, the import, and the stored
+// ExcelReports for this query (each one an item that runs it, plus "Administer" and "Create new" for
+// whoever may edit them). With only the export enabled it collapses to a single BUTTON — Signum's own
+// `plainExcel && !excelReport && !importFromExcel` branch.
+//
+// altea divergences:
+//  - the report list is loaded LAZILY, on the first open (Signum's same `handleSelectedToggle`), so a
+//    search page costs no extra request until someone looks.
+//  - `ExcelReportEntity.tryOperationInfo(Save)` becomes `Operations.tryOperationInfo` — altea keeps the
+//    per-role operation list in the metadata blob rather than on the Type.
+//
+// `selectPagination` is unchanged: the "current page or all pages?" question an export has to ask, which
+// the import model's DownloadTemplate button reuses.
 
 export interface ExcelMenuProps {
     searchControl: SearchControlLoaded;
     plainExcel: boolean;
     importFromExcel: boolean;
+    excelReport: boolean;
 }
 
 export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
+
+    const [isOpen, setIsOpen] = React.useState(false);
+    const [excelReports, setExcelReports] = React.useState<Lite<ExcelReportEntity>[] | undefined>(undefined);
+
+    const queryKey = p.searchControl.props.findOptions.queryKey;
+
+    function handleToggle(): void {
+        // The reports are fetched the first time the menu opens, not on every render of the search page.
+        if (!isOpen && excelReports == undefined && p.excelReport)
+            void reloadExcelReports();
+
+        setIsOpen(!isOpen);
+    }
+
+    async function reloadExcelReports(): Promise<void> {
+        setExcelReports(await ExcelClient.API.forQuery(queryKey));
+    }
 
     async function handlePlainExcel(): Promise<void> {
         const request = await selectPagination(p.searchControl);
@@ -31,9 +63,30 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
             ExcelClient.API.generatePlainExcel(request);
     }
 
+    async function handleExcelReport(report: Lite<ExcelReportEntity>): Promise<void> {
+        const request = await selectPagination(p.searchControl);
+        if (request != null)
+            ExcelClient.API.generateExcelReport(request, report);
+    }
+
     async function handleImportFromExcel(): Promise<void> {
         const ImportExcelModel = await import("./Templates/ImportExcelModel");
         await ImportExcelModel.onImportFromExcel(p.searchControl);
+    }
+
+    /** A new report for THIS query — the query is filled in, so the author only picks a template. */
+    async function handleCreate(): Promise<void> {
+        const queryEntity = await Finder.API.fetchQueryEntity(queryKey);
+        const report = ExcelReportEntity.create({ query: queryEntity });
+        await Navigator.view(report);
+        await reloadExcelReports();
+    }
+
+    async function handleAdminister(): Promise<void> {
+        await Finder.explore(ExcelReportEntity.findOptions(token => ({
+            filterOptions: [token(a => a.query.key).filter("EqualTo", queryKey)],
+        })));
+        await reloadExcelReports();
     }
 
     const label = (
@@ -46,7 +99,7 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
     );
 
     // Signum's single-feature shortcut: with nothing to choose between, the menu IS the export button.
-    if (p.plainExcel && !p.importFromExcel)
+    if (p.plainExcel && !p.importFromExcel && !p.excelReport)
         return (
             <button className="sf-query-button sf-search btn btn-tertiary" title={ExcelMessage.ExportToExcel.niceToString()}
                 onClick={() => void handlePlainExcel()}>
@@ -54,25 +107,76 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
             </button>
         );
 
+    // Signum's `ExcelReportEntity.tryOperationInfo(Save)`: whoever may SAVE a report may administer
+    // them, and a role that may only RUN one just gets the list. Read off the metadata blob, which is
+    // where altea keeps the per-role operation list.
+    const canAdminister = p.excelReport
+        && getOperationInfos(ExcelReportEntity).some(oi => oi.key === ExcelReportOperation.Save.key);
+
     return (
-        <Dropdown title={ExcelMessage.ExportToExcel.niceToString()}>
+        <Dropdown show={isOpen} onToggle={handleToggle} title={ExcelMessage.ExportToExcel.niceToString()}>
             <Dropdown.Toggle id="excelDropDown" variant="tertiary">
                 {label}
             </Dropdown.Toggle>
             <Dropdown.Menu>
-                {p.plainExcel &&
-                    <Dropdown.Item onClick={() => void handlePlainExcel()}>
-                        <FontAwesomeIcon aria-hidden={true} icon="file-excel" className="me-2" />
-                        {ExcelMessage.ExportToExcel.niceToString()}
-                    </Dropdown.Item>}
-                {p.importFromExcel &&
-                    <Dropdown.Item onClick={() => void handleImportFromExcel()}>
-                        <FontAwesomeIcon aria-hidden={true} icon="file-excel" className="me-2" />
-                        {ImportFromExcelMessage.ImportFromExcel.niceToString()}
-                    </Dropdown.Item>}
+                {withDividers([
+                    p.plainExcel &&
+                        <Dropdown.Item key="plain" onClick={() => void handlePlainExcel()}>
+                            <FontAwesomeIcon aria-hidden={true} icon="file-excel" className="me-2" />
+                            {ExcelMessage.ExportToExcel.niceToString()}
+                        </Dropdown.Item>,
+                    p.importFromExcel &&
+                        <Dropdown.Item key="import" onClick={() => void handleImportFromExcel()}>
+                            <FontAwesomeIcon aria-hidden={true} icon="file-excel" className="me-2" />
+                            {ImportFromExcelMessage.ImportFromExcel.niceToString()}
+                        </Dropdown.Item>,
+                    p.excelReport && withDividers([
+                        excelReports?.map((report, i) =>
+                            <Dropdown.Item key={"report" + i} onClick={() => void handleExcelReport(report)}>
+                                {report.toString()}
+                            </Dropdown.Item>) ?? [],
+                        canAdminister ? [
+                            <Dropdown.Item key="administer" onClick={() => void handleAdminister()}>
+                                <FontAwesomeIcon aria-hidden={true} icon="magnifying-glass" className="me-2" />
+                                {ExcelMessage.Administer.niceToString()}
+                            </Dropdown.Item>,
+                            <Dropdown.Item key="create" onClick={() => void handleCreate()}>
+                                <FontAwesomeIcon aria-hidden={true} icon="plus" className="me-2" />
+                                {ExcelMessage.CreateNew.niceToString()}
+                            </Dropdown.Item>,
+                        ] : [],
+                    ]),
+                ])}
             </Dropdown.Menu>
         </Dropdown>
     );
+}
+
+/**
+ * Signum's `addDropdownDividers` — a divider BETWEEN the sections that actually rendered something.
+ *
+ * Written out because the naive version (a divider before each section) puts one at the top when the first
+ * section is empty, and two together when a middle one is.
+ */
+function withDividers(
+    sections: (React.ReactElement | React.ReactElement[] | false | null | undefined)[],
+): React.ReactElement[] {
+    const result: React.ReactElement[] = [];
+
+    for (const section of sections) {
+        if (!section || (Array.isArray(section) && section.length === 0))
+            continue;
+
+        if (result.length > 0)
+            result.push(<Dropdown.Divider key={"divider" + result.length} />);
+
+        if (Array.isArray(section))
+            result.push(...section);
+        else
+            result.push(section);
+    }
+
+    return result;
 }
 
 /**

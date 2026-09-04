@@ -63,7 +63,7 @@ export function readSheet(bytes: Uint8Array): ExcelRow[] {
 }
 
 /** Signum's GetCellValue: the cell's text, resolving the shared-string pool and boolean cells. */
-function cellText(cell: OxmlElement, sharedStrings: string[]): string | undefined {
+export function cellText(cell: OxmlElement, sharedStrings: string[]): string | undefined {
     const type = cell.getAttribute("t");
 
     if (type === "inlineStr")
@@ -83,7 +83,7 @@ function cellText(cell: OxmlElement, sharedStrings: string[]): string | undefine
     return text === "" ? undefined : text;
 }
 
-function readSharedStrings(pkg: OxmlPackage): string[] {
+export function readSharedStrings(pkg: OxmlPackage): string[] {
     const part = pkg.mainPart.partsOfType(RelationshipTypes.sharedStrings)[0];
     const root = part?.rootElement;
     if (root == undefined)

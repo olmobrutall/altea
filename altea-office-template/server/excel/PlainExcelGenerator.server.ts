@@ -47,7 +47,7 @@ const SPREADSHEET_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/mai
 /** The .xlsx whose styles every plain export inherits (Signum's embedded `plainExcelTemplate.xlsx`). */
 // (the emitted JS sits in dist/server/excel/, so three levels up is the package root — the same trick
 // ChartScriptLogic.loadIcon uses for its PNGs)
-function templateBytes(): Uint8Array {
+export function templateBytes(): Uint8Array {
     return readFileSync(fileURLToPath(new URL("../../../server/Resources/plainExcelTemplate.xlsx", import.meta.url)));
 }
 
@@ -55,7 +55,7 @@ function templateBytes(): Uint8Array {
  * Signum's static PlainExcelGenerator ctor / SetTemplate: read the style indexes off the template's own
  * cells, so re-authoring the template (adding a style, reordering formats) needs no code change.
  */
-function readCellBuilder(): CellBuilder {
+export function readCellBuilder(): CellBuilder {
     const pkg = OxmlPackage.load(templateBytes());
     const sheet = worksheetRootOf(pkg);
 

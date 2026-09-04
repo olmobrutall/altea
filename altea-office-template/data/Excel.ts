@@ -35,9 +35,7 @@ export namespace ExcelPermission {
 
 // ---- messages ------------------------------------------------------------------------------------------
 
-/** Signum's ExcelMessage, minus the ExcelReport-only keys (Administer / ExcelReport / Reports /
- *  FindLocationFoExcelReport / ExcelTemplateMustHaveExtensionXLSXandCurrentOneHas0 /
- *  TheExcelTemplateHasAColumn0NotPresentInTheFindWindow). */
+/** Signum's ExcelMessage — verbatim (`Reports` and `FindLocationFoExcelReport` are unused there too). */
 export const ExcelMessage = {
     Data: msg("Data"),
     Download: msg("Download"),
@@ -46,6 +44,13 @@ export const ExcelMessage = {
     CreateNew: msg("Create New"),
     ExportToExcel: msg("Export to Excel"),
     WhatDoYouWantToExport: msg("What do you want to export?"),
+    // The ExcelReport half (data/excel/ExcelReport.ts).
+    Administer: msg("Administer"),
+    ExcelReport: msg("Excel Report"),
+    ExcelTemplateMustHaveExtensionXLSXandCurrentOneHas0:
+        msg("Excel template must have .xlsx extension, and the current one has {0}"),
+    TheExcelTemplateHasAColumn0NotPresentInTheFindWindow:
+        msg("The Excel Template has a column {0} not present in the Find Window"),
 };
 
 /** Signum's ImportFromExcelMessage — verbatim (every key is used by the importer or its UI). */
