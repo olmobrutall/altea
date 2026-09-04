@@ -9,6 +9,7 @@ import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import type { Type } from "@altea/altea/data/entity";
 import { isModifiedSelf } from "@altea/altea/data/changes";
 import { getTypeInfo } from "@altea/altea/data/reflection";
+import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import { FilePathEmbedded } from "../data/Files";
@@ -195,26 +196,31 @@ function preSavingRoute(entity: Entity, route: BigStringRoute): void {
 
     const mixin = bs.mixin(BigStringMixin);
     const hasText = bs.text != null && bs.text !== "";
+    // Signum tests `bs.Modified == SelfModified`, and a freshly constructed ModifiableEntity IS
+    // SelfModified there. altea reads an embedded with no baseline as CLEAN (that is what an absent
+    // snapshot means for a Modifiable), so the owner being NEW is the other half of the same question —
+    // without it an INSERT wrote no file at all and the text was silently lost.
+    const modified = isModifiedSelf(bs) || entity.isNew;
 
     switch (route.config.mode) {
         case "Database":
             break;
 
         case "File":
-            if (isModifiedSelf(bs))
+            if (modified)
                 writeTextToFile(bs, mixin, route);
             break;
 
         case "Migrating_FromDatabase_ToFile":
             // Either the text just changed, or this row has never been migrated.
-            if (isModifiedSelf(bs) || (hasText && mixin.file == null))
+            if (modified || (hasText && mixin.file == null))
                 writeTextToFile(bs, mixin, route);
             break;
 
         case "Migrating_FromFile_ToDatabase":
             // Either the text just changed (the row now wins), or this row still only has the file.
-            if (isModifiedSelf(bs) || (!hasText && mixin.file != null)) {
-                if (!isModifiedSelf(bs) && mixin.file != null)
+            if (modified || (!hasText && mixin.file != null)) {
+                if (!modified && mixin.file != null)
                     bs.text = decodeUtf8(FilePathEmbeddedLogic.readAllBytesSync(mixin.file));
 
                 // DIVERGENCE (Signum leaves the field set): drop the file AND the reference to it, so the row
@@ -302,7 +308,20 @@ function bigStringRoutesOf<T extends Entity>(type: Type<T>): string[][] {
         if (typeInfo == null)
             return;
 
-        for (const fi of Object.values(typeInfo.fields)) {
+        // A MIXIN's fields count as this type's own — altea flattens them onto the owner, so
+        // OperationLogEntity's DiffLog dumps are the routes "initialState" / "finalState" with no
+        // mixin step (which is also how bigStringFieldsByType reports them off the schema). Without
+        // this, registerAll silently skipped every mixin-contributed BigString and schemaCompleted
+        // then refused to start; Signum's RegisterAll covers them, because PropertyRoute.GenerateRoutes
+        // walks mixins.
+        const fields = [...Object.values(typeInfo.fields)];
+        for (const mixinCtor of MixinDeclarations.getMixins(ctor as any)) {
+            const mixinInfo = getTypeInfo(mixinCtor);
+            if (mixinInfo != null)
+                fields.push(...Object.values(mixinInfo.fields));
+        }
+
+        for (const fi of fields) {
             if (fi.notMapped || fi.array === true || fi.lite === true)
                 continue;
             if (fi.getTypeName() === "BigStringEmbedded") {
