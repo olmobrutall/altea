@@ -887,8 +887,9 @@ export class SchemaBuilder {
         const isDecimal = dbType.isDecimal();
         const precision = fi.columnOptions?.precision ?? (isDecimal ? 18 : undefined);
         const scale = fi.columnOptions?.scale ?? (isDecimal ? 2 : undefined);
+        const legacyValueBase = this.legacyMListColumnBase(table, fi, undefined);
         const name = this.explicitColumnName(fi)
-            ?? this.idiomatic(preName.add(this.columnName(fi)).toString());
+            ?? this.idiomatic(preName.add(legacyValueBase ?? this.columnName(fi)).toString());
         const column = new ValueColumn(name, dbType, nullable, fi.columnOptions?.size, precision, scale);
         return new FieldValue(column);
     }
@@ -1033,6 +1034,10 @@ export class SchemaBuilder {
      * table's two columns without reference to any property, because an MList element HAS no property:
      *
      *   - the back reference is always `ParentID` (`GenerateBackReferenceName`), whatever the owner is;
+ *   - a [PreserveOrder] row index is always `Order` (`orderAttr.Name ?? Idiomatic("Order")`, built with
+ *     a null route), whatever the field holding it is called — which matters because the obvious name
+ *     is often taken: OrderLineEntity's back reference IS `order`, so its index has to be `rowOrder`,
+ *     and in legacy mode the two swap into Signum's `ParentID` + `Order`;
      *   - the element column is named from the element TYPE (`GenerateMListFieldName`) — `EntityID` for a
      *     `Lite<Entity>`, `TypeConditionID` for a `Lite<TypeConditionSymbol>`, the enum's own name for an
      *     enum, and NOTHING for an embedded (its members are inlined with no prefix at all).
@@ -1048,6 +1053,9 @@ export class SchemaBuilder {
 
         if (fi.isBackReference)
             return "Parent";
+
+        if (fi.isRowOrder)
+            return "Order";
 
         if (!fi.isValueField)
             return undefined;
