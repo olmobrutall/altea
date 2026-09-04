@@ -15,7 +15,7 @@ import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
-import { newGuid, type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
+import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
 import { TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity, CustomPartEntity, ToolbarMenuPartEntity } from "./Parts";
 
 // Port of Signum's Signum.Dashboard/DashboardEntity.cs + PanelPart.cs. A Dashboard is a user-authored,
@@ -84,14 +84,13 @@ export interface IPartEntity extends Entity {
 // Signum's PanelPartEmbedded (PanelPart.cs). ONE cell of the dashboard grid: its geometry, its chrome
 // (title / icon / colors / tooltip), its interaction group, and the part `content` that renders in it.
 @entity("Part")
+// Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
+// the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
+// its identity across databases (see UserAssetsImporter.syncRows).
+@primaryKey("uuid")
 export class DashboardEntity_Part extends Entity implements IGridEntity {
     @backReference dashboard: Lite<DashboardEntity>;
     @rowOrder order: int;
-
-    // Signum's `Guid Guid = Guid.NewGuid()`: the part's stable identity, used as the React key / the
-    // `data-part-content` attribute and preserved by the XML round-trip. Kept as a real field (the row's
-    // own PK is an int, and a NEW part must already have an identity before it is saved).
-    guid: uuid = newGuid();
 
     // Signum's PanelPartEmbedded.PropertyValidation(Title): a part whose content RequiresTitle must have one.
     @fieldValidation<DashboardEntity_Part>(p => !p.title && p.content?.requiresTitle()

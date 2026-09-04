@@ -52,6 +52,10 @@ import { ChartTimeSeriesEmbedded } from "./ChartRequest";
 // type registry), so a UserChart filter is that base plus its own `@backReference` — nothing else. Sharing the
 // base is what lets altea-user-queries' FilterBuilderEmbedded edit a chart's filters too.
 @entity("Part")
+// Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
+// the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
+// its identity across databases (see UserAssetsImporter.syncRows).
+@primaryKey("uuid")
 export class UserChartEntity_Filter extends QueryFilterBaseEntity {
     @backReference userChart: Lite<UserChartEntity>;
 }
@@ -59,6 +63,10 @@ export class UserChartEntity_Filter extends QueryFilterBaseEntity {
 // Signum's `[BindParent, PreserveOrder] MList<ChartColumnEmbedded> Columns` element. altea wraps the shared
 // ChartColumnEmbedded value object as `element` on a @part row (the persisted-collection idiom above).
 @entity("Part")
+// Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
+// the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
+// its identity across databases (see UserAssetsImporter.syncRows).
+@primaryKey("uuid")
 export class UserChartEntity_Column extends Entity {
     @backReference userChart: Lite<UserChartEntity>;
     @rowOrder order: int;

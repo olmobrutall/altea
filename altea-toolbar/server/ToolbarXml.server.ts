@@ -5,7 +5,7 @@ import { Enum } from "@altea/altea/data/enum";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
-import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
+import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { type int } from "@altea/altea/data/basics";
@@ -55,8 +55,8 @@ export function registerToolbarXml(): void {
             tb.location = toEnum(ToolbarLocation, str(xml[A + "Location"]) ?? "Side");
             tb.owner = parseOwner(xml, ctx);
             tb.priority = xml[A + "Priority"] != null ? (Number(xml[A + "Priority"]) as int) : null;
-            tb.elements = arr(xml["Elements"], "ToolbarElement").map(x =>
-                elementFromXml(new ToolbarEntity_Element(), x, ctx));
+            tb.elements = syncRows(tb.elements ?? [], arr(xml["Elements"], "ToolbarElement"),
+                () => new ToolbarEntity_Element(), (e, x) => { elementFromXml(e, x, ctx); });
         },
     });
 
@@ -79,7 +79,8 @@ export function registerToolbarXml(): void {
             const entityType = str(xml[A + "EntityType"]);
             tm.entityType = entityType == null ? null : ctx.getType(entityType);
             tm.owner = parseOwner(xml, ctx);
-            tm.elements = arr(xml["Elements"], "ToolbarElement").map(x => menuElementFromXml(x, ctx));
+            tm.elements = syncRows(tm.elements ?? [], arr(xml["Elements"], "ToolbarElement"),
+                () => new ToolbarMenuEntity_Element(), (e, x) => { menuElementFromXml(e, x, ctx); });
         },
     });
 
@@ -107,8 +108,7 @@ export function registerToolbarXml(): void {
 // ---- Elements (Signum's ToolbarElementEmbedded.ToXml / FromXml) ----------------------------------------
 
 async function elementXml(e: ToolbarElementBaseEntity, ctx: IToXmlContext): Promise<Record<string, unknown>> {
-    const x: Record<string, unknown> = {};
-    x[A + "Guid"] = e.guid;
+    const x: Record<string, unknown> = { ...rowGuid(e) };
     x[A + "Type"] = Enum.toName(ToolbarElementType, e.type);
     if (e.label) x[A + "Label"] = e.label;
     if (e.iconName) x[A + "IconName"] = e.iconName;
@@ -142,7 +142,6 @@ async function contentXml(content: Lite<Entity>, ctx: IToXmlContext): Promise<st
 }
 
 function elementFromXml<T extends ToolbarElementBaseEntity>(e: T, x: Record<string, unknown>, ctx: IFromXmlContext): T {
-    e.guid = (str(x[A + "Guid"]) ?? e.guid) as typeof e.guid;
     e.type = toEnum(ToolbarElementType, str(x[A + "Type"]) ?? "Item");
     e.label = str(x[A + "Label"]) ?? null;
     const showCount = str(x[A + "ShowCount"]);
@@ -156,11 +155,10 @@ function elementFromXml<T extends ToolbarElementBaseEntity>(e: T, x: Record<stri
     return e;
 }
 
-function menuElementFromXml(x: Record<string, unknown>, ctx: IFromXmlContext): ToolbarMenuEntity_Element {
-    const e = elementFromXml(new ToolbarMenuEntity_Element(), x, ctx);
+function menuElementFromXml(e: ToolbarMenuEntity_Element, x: Record<string, unknown>, ctx: IFromXmlContext): void {
+    elementFromXml(e, x, ctx);
     e.withEntity = bool(x[A + "WithEntity"]);
     e.autoSelect = bool(x[A + "AutoSelect"]);
-    return e;
 }
 
 /** The inverse of `contentXml` (Signum's `Guid.TryParse` → `TryGetQuery` → `TryToSymbol` chain). */

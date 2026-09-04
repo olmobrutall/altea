@@ -14,7 +14,7 @@ import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
-import { newGuid, type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
+import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
 
 // Port of Signum's Signum.Toolbar/Toolbar.cs + ToolbarSwitcher.cs. A Toolbar is a user-authored,
 // XML-portable NAVIGATION BAR: an ordered list of elements (headers, dividers, items, extra icons), each
@@ -27,8 +27,9 @@ import { newGuid, type IUserAssetEntity, type IHasEntityType } from "@altea/alte
 //  - Signum's `Guid Guid` [UniqueIndex] portable-identity field on the three ROOT entities (Toolbar /
 //    ToolbarMenu / ToolbarSwitcher) → a uuid PRIMARY KEY (`@primaryKey("uuid")`), exactly like
 //    DashboardEntity / UserQueryEntity: the `id` IS the identity XML import/export keys on. The element
-//    ROWS keep a real `guid` field (their own PK is an int, and the client uses that guid to address an
-//    element — see ToolbarClient.entityElementFilters).
+//    ROWS have one too, because Signum declares those collections `[PrimaryKey(typeof(Guid))]` so the row
+//    id identifies the element in the XML — which is also the id the client addresses an element by (see
+//    ToolbarClient.entityElementFilters).
 //  - Signum's `MList<ToolbarElementEmbedded> Elements` (an EmbeddedEntity MList) → per-owner `@part` ROWS,
 //    which are NOT EmbeddedEntities — hence the altea `<Owner>_<field>` row names below, not Signum's
 //    `…Embedded` ones. That forces ONE further divergence: Signum has `ToolbarMenuElementEmbedded :
@@ -95,11 +96,6 @@ export interface IToolbarEntity extends Entity {
 // get tables (the same idiom as altea-auth's RuleEntity base).
 @reflect
 export abstract class ToolbarElementBaseEntity extends Entity {
-
-    // Signum's `Guid Guid = Guid.NewGuid()`: the element's stable identity. Kept as a real field (the row's
-    // own PK is an int, and a NEW element must already have an identity before it is saved) — it survives
-    // the XML round-trip and addresses an element from the client (ToolbarClient.entityElementFilters).
-    guid: uuid = newGuid();
 
     type: ToolbarElementType = ToolbarElementType.Item;
 
@@ -173,6 +169,10 @@ export abstract class ToolbarElementBaseEntity extends Entity {
 
 // Signum's ToolbarElementEmbedded as used by `ToolbarEntity.Elements` (here: the Toolbar-owned row).
 @entity("Part")
+// Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
+// the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
+// its identity across databases (see UserAssetsImporter.syncRows).
+@primaryKey("uuid")
 export class ToolbarEntity_Element extends ToolbarElementBaseEntity {
     @backReference toolbar: Lite<ToolbarEntity>;
     @rowOrder order: int;
@@ -181,6 +181,10 @@ export class ToolbarEntity_Element extends ToolbarElementBaseEntity {
 // Signum's ToolbarMenuElementEmbedded (Toolbar.cs) — a ToolbarMenu element, which additionally says whether
 // it applies WITH or WITHOUT the menu's selected entity, and whether picking the menu auto-navigates to it.
 @entity("Part")
+// Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
+// the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
+// its identity across databases (see UserAssetsImporter.syncRows).
+@primaryKey("uuid")
 export class ToolbarMenuEntity_Element extends ToolbarElementBaseEntity {
     @backReference toolbarMenu: Lite<ToolbarMenuEntity>;
     @rowOrder order: int;

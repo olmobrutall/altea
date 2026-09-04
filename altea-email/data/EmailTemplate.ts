@@ -320,6 +320,10 @@ export class EmailTemplateEntity_Attachment extends Entity {
 
 // Signum's `MList<QueryFilterEmbedded> Filters` — the shared filter row with this owner's back reference.
 @entity("Part", "Master")
+// Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
+// the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
+// its identity across databases (see UserAssetsImporter.syncRows).
+@primaryKey("uuid")
 export class EmailTemplateEntity_Filter extends QueryFilterBaseEntity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
 }

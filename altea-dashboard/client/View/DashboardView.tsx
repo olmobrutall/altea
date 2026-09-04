@@ -231,7 +231,10 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
     const part = p.ctx.value;
     const renderer = DashboardClient.partRenderers[typeName];
     const lite = p.entity ? p.entity.toLite() : undefined;
-    const partContentKey = part.guid;
+    // Signum's `partRowId`: the row id identifies the part, and a tour targets it through
+    // `data-part-content`. UNDEFINED while the part is unsaved (Signum's `rowId?.toString()`), so the
+    // attribute is omitted rather than rendered as the string "undefined" — there is nothing to target yet.
+    const partContentKey = part.id == null ? undefined : String(part.id);
 
     const contentProps = {
         partEmbedded: part,

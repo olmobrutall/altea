@@ -22,6 +22,70 @@ import {
 
 const ATTR = "@_";
 
+/**
+ * Signum's `SynchronizeRowIds` (UserAssets.cs), plus the `SelectWithRowId` half it pairs with — which here
+ * is just reading `row.id`, since altea's collection element IS an entity with its own primary key.
+ *
+ * A collection whose rows are declared `@primaryKey("uuid")` writes that id per row on export (the `Guid`
+ * attribute, {@link rowGuid}) and matches on it here, instead of matching by POSITION. That is what makes a
+ * row's identity survive an export/import even across databases: a matched row is REUSED, so it keeps its
+ * id and its clean snapshot and an unchanged row is not rewritten; a row the database does not have yet is
+ * created carrying the id from the file, so importing the same file elsewhere yields the same ids.
+ *
+ * Matching by position instead has three visible costs, and they are why Signum declares those uuid PKs:
+ * re-importing an unchanged asset rewrites every row, REORDERING one rewrites every row after it, and
+ * anything keyed to a row (a per-instance translation, whose key includes the row's own lite) is orphaned.
+ *
+ * XML with NO `Guid` on any element — written before the ids were, or by a consumer that does not declare
+ * them — falls back to positional matching, so importing an old file is not reported as a change. A file
+ * where only SOME rows carry one is an error rather than a half-applied guess.
+ *
+ * `sync` also receives the element's INDEX, because a row can be matched, reused or created and some state
+ * depends on the position rather than on the XML (Signum notes UserChart binding each column's
+ * ScriptColumn that way).
+ */
+export function syncRows<T extends Entity>(
+    current: T[],
+    elements: Record<string, unknown>[] | undefined,
+    create: () => T,
+    sync: (row: T, xml: Record<string, unknown>, index: number) => void,
+): T[] {
+    const xs = elements ?? [];
+
+    const withGuid = xs.filter(x => x["Guid"] != null);
+
+    if (withGuid.length === 0)
+        return xs.map((x, i) => {
+            const row = current[i] ?? create();
+            sync(row, x, i);
+            return row;
+        });
+
+    if (withGuid.length !== xs.length)
+        throw new Error(`${xs.length - withGuid.length} of the ${xs.length} elements have no Guid attribute. `
+            + "Either all of them do (the row id) or none of them (an older file, matched by position).");
+
+    const byId = new Map(current.filter(r => r.id != null).map(r => [String(r.id), r]));
+
+    return xs.map((x, i) => {
+        const guid = String(x["Guid"]);
+        const existing = byId.get(guid);
+        if (existing != undefined) {
+            sync(existing, x, i);
+            return existing; // keeps its id and snapshot, so an unchanged row is not updated
+        }
+        const row = create();
+        (row as unknown as { id: unknown }).id = guid;
+        sync(row, x, i);
+        return row;
+    });
+}
+
+/** The `Guid` attribute a row of a `@primaryKey("uuid")` collection writes — see {@link syncRows}. */
+export function rowGuid(row: Entity): Record<string, unknown> {
+    return row.id == null ? {} : { [ATTR + "Guid"]: String(row.id) };
+}
+
 // ---- The (de)serialization context APIs (Signum's IToXmlContext / IFromXmlContext) --------------------
 
 export interface IToXmlContext {

@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, backReference, rowOrder, stringLengthValidator, uniqueIndex, fieldValidation, quoted } from "@altea/altea/data/decorators";
+import { entity, backReference, rowOrder, stringLengthValidator, uniqueIndex, fieldValidation, quoted, primaryKey } from "@altea/altea/data/decorators";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
@@ -38,6 +38,8 @@ export class HolidayCalendarEntity_Holiday extends Entity {
 // Signum's `.WithUniqueIndex(hc => hc.IsDefault, hc => hc.IsDefault)` — a FILTERED unique index, so at
 // most one calendar is the default while any number are not.
 @uniqueIndex<HolidayCalendarEntity>(c => c.isDefault, c => c.isDefault)
+// Signum declares this `[PrimaryKey(typeof(Guid))]`.
+@primaryKey("uuid")
 export class HolidayCalendarEntity extends Entity {
     @uniqueIndex
     @stringLengthValidator({ min: 3, max: 100 })

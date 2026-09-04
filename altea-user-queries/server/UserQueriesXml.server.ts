@@ -6,7 +6,7 @@ import {
     TimeSeriesUnit, FilterGroupOperation, FilterOperation, DashboardBehaviour, CombineRows,
     OrderType, PinnedFilterActive,
 } from "@altea/altea/data/dynamicQueries";
-import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
+import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import {
@@ -66,7 +66,7 @@ async function toXml(uq: UserQueryEntity, ctx: IToXmlContext): Promise<Record<st
 }
 
 function filterXml(f: UserQueryEntity_Filter): Record<string, unknown> {
-    const x: Record<string, unknown> = {};
+    const x: Record<string, unknown> = { ...rowGuid(f) };
     x[A + "Indentation"] = f.indentation;
     if (f.isGroup) {
         if (f.groupOperation != null) x[A + "GroupOperation"] = Enum.toName(FilterGroupOperation, f.groupOperation);
@@ -94,7 +94,7 @@ function pinnedXml(p: PinnedQueryFilterEmbedded): Record<string, unknown> {
 }
 
 function columnXml(c: UserQueryEntity_Column): Record<string, unknown> {
-    const x: Record<string, unknown> = {};
+    const x: Record<string, unknown> = { ...rowGuid(c) };
     x[A + "Token"] = c.token.tokenString;
     if (c.summaryToken != null) x[A + "SummaryToken"] = c.summaryToken.tokenString;
     if (c.displayName != null) x[A + "DisplayName"] = c.displayName;
@@ -138,8 +138,8 @@ function fromXml(uq: UserQueryEntity, xml: Record<string, unknown>, ctx: IFromXm
     uq.paginationMode = paginationMode == null ? null : toEnum(PaginationMode, paginationMode);
     uq.columnsMode = normalizeColumnsMode(str(xml[A + "ColumnsMode"]));
 
-    uq.filters = arr(xml["Filters"], "Filter").map(filterFromXml);
-    uq.columns = arr(xml["Columns"], "Column").map(columnFromXml);
+    uq.filters = syncRows(uq.filters ?? [], arr(xml["Filters"], "Filter"), () => new UserQueryEntity_Filter(), fillFilter);
+    uq.columns = syncRows(uq.columns ?? [], arr(xml["Columns"], "Column"), () => new UserQueryEntity_Column(), fillColumn);
     uq.orders = arr(xml["Orders"], "Orden").map(orderFromXml);
     uq.customDrilldowns = arr(xml["CustomDrilldowns"], "CustomDrilldown").map(d => {
         const row = new UserQueryEntity_CustomDrilldown();
@@ -152,8 +152,7 @@ function fromXml(uq: UserQueryEntity, xml: Record<string, unknown>, ctx: IFromXm
     uq.systemTime = st != null ? systemTimeFromXml(firstElem(st)) : null;
 }
 
-function filterFromXml(x: Record<string, unknown>): UserQueryEntity_Filter {
-    const f = new UserQueryEntity_Filter();
+function fillFilter(f: UserQueryEntity_Filter, x: Record<string, unknown>): void {
     f.indentation = (Number(x[A + "Indentation"] ?? 0) as int);
     f.isGroup = x[A + "GroupOperation"] != null;
     if (f.isGroup) {
@@ -170,7 +169,6 @@ function filterFromXml(x: Record<string, unknown>): UserQueryEntity_Filter {
     f.dashboardBehaviour = dashboardBehaviour == null ? null : toEnum(DashboardBehaviour, dashboardBehaviour);
     const p = x["Pinned"];
     f.pinned = p != null ? pinnedFromXml(firstElem(p)) : null;
-    return f;
 }
 
 function pinnedFromXml(x: Record<string, unknown>): PinnedQueryFilterEmbedded {
@@ -184,15 +182,13 @@ function pinnedFromXml(x: Record<string, unknown>): PinnedQueryFilterEmbedded {
     return p;
 }
 
-function columnFromXml(x: Record<string, unknown>): UserQueryEntity_Column {
-    const c = new UserQueryEntity_Column();
+function fillColumn(c: UserQueryEntity_Column, x: Record<string, unknown>): void {
     c.token = token(str(x[A + "Token"])!);
     c.summaryToken = x[A + "SummaryToken"] != null ? token(str(x[A + "SummaryToken"])!) : null;
     c.displayName = str(x[A + "DisplayName"]) ?? null;
     c.hiddenColumn = bool(x[A + "HiddenColumn"]);
     const combineRows = str(x[A + "CombineRows"]);
     c.combineRows = combineRows == null ? null : toEnum(CombineRows, combineRows);
-    return c;
 }
 
 function orderFromXml(x: Record<string, unknown>): UserQueryEntity_Order {

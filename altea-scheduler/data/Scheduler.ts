@@ -4,7 +4,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { Symbol } from "@altea/altea/data/symbol";
 import {
     entity, implementedBy, implementedByAll, format, unit, quoted,
-    stringLengthValidator, fieldValidation,
+    stringLengthValidator, fieldValidation, primaryKey,
 } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
 import { Temporal, type int } from "@altea/altea/data/basics";
@@ -49,6 +49,8 @@ export interface IScheduleRuleEntity extends Entity {
 // Signum's ScheduleRuleMinutelyEntity — every N minutes.
 @reflect
 @entity("Part", "Master")
+// Signum declares this `[PrimaryKey(typeof(Guid))]`.
+@primaryKey("uuid")
 export class ScheduleRuleMinutelyEntity extends Entity implements IScheduleRuleEntity {
 
     startingOn: Temporal.PlainDateTime = startOfToday();
@@ -89,6 +91,8 @@ export class ScheduleRuleMinutelyEntity extends Entity implements IScheduleRuleE
 // including or excluding a calendar's holidays.
 @reflect
 @entity("Part", "Master")
+// Signum declares this `[PrimaryKey(typeof(Guid))]`.
+@primaryKey("uuid")
 export class ScheduleRuleWeekDaysEntity extends Entity implements IScheduleRuleEntity {
 
     startingOn: Temporal.PlainDateTime = startOfToday();
@@ -181,6 +185,8 @@ export class ScheduleRuleWeekDaysEntity extends Entity implements IScheduleRuleE
 // Signum's ScheduleRuleMonthsEntity — on StartingOn's day-of-month and time, in the chosen months.
 @reflect
 @entity("Part", "Master")
+// Signum declares this `[PrimaryKey(typeof(Guid))]`.
+@primaryKey("uuid")
 export class ScheduleRuleMonthsEntity extends Entity implements IScheduleRuleEntity {
 
     startingOn: Temporal.PlainDateTime = startOfToday();

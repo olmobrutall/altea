@@ -5,7 +5,7 @@ import { Enum } from "@altea/altea/data/enum";
 import {
     FilterGroupOperation, FilterOperation, DashboardBehaviour, PinnedFilterActive,
 } from "@altea/altea/data/dynamicQueries";
-import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
+import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
@@ -48,7 +48,7 @@ async function toXml(uc: UserChartEntity, ctx: IToXmlContext): Promise<Record<st
     if (uc.maxRows != null) o[A + "MaxRows"] = uc.maxRows;
 
     if (uc.filters?.length) o["Filters"] = { Filter: uc.filters.map(filterXml) };
-    o["Columns"] = { Column: (uc.columns ?? []).map(c => columnXml(c.element)) };
+    o["Columns"] = { Column: (uc.columns ?? []).map(c => ({ ...rowGuid(c), ...columnXml(c.element) })) };
     if (uc.parameters?.length) o["Parameters"] = { Parameter: uc.parameters.map(p => parameterXml(p.element)) };
 
     if (uc.customDrilldowns?.length) {
@@ -63,7 +63,7 @@ async function toXml(uc: UserChartEntity, ctx: IToXmlContext): Promise<Record<st
 }
 
 function filterXml(f: UserChartEntity_Filter): Record<string, unknown> {
-    const x: Record<string, unknown> = {};
+    const x: Record<string, unknown> = { ...rowGuid(f) };
     x[A + "Indentation"] = f.indentation;
     if (f.isGroup) {
         if (f.groupOperation != null) x[A + "GroupOperation"] = Enum.toName(FilterGroupOperation, f.groupOperation);
@@ -118,12 +118,9 @@ function fromXml(uc: UserChartEntity, xml: Record<string, unknown>, ctx: IFromXm
     uc.chartScript = resolveChartScript(str(xml[A + "ChartScript"])!);
     uc.maxRows = xml[A + "MaxRows"] != null ? (Number(xml[A + "MaxRows"]) as int) : null;
 
-    uc.filters = arr(xml["Filters"], "Filter").map(filterFromXml);
-    uc.columns = arr(xml["Columns"], "Column").map(x => {
-        const row = new UserChartEntity_Column();
-        row.element = columnFromXml(x);
-        return row;
-    });
+    uc.filters = syncRows(uc.filters ?? [], arr(xml["Filters"], "Filter"), () => new UserChartEntity_Filter(), fillFilter);
+    uc.columns = syncRows(uc.columns ?? [], arr(xml["Columns"], "Column"), () => new UserChartEntity_Column(),
+        (row, x) => { row.element = columnFromXml(x); });
     uc.parameters = arr(xml["Parameters"], "Parameter").map(x => {
         const row = new UserChartEntity_Parameter();
         row.element = parameterFromXml(x);
@@ -137,8 +134,7 @@ function fromXml(uc: UserChartEntity, xml: Record<string, unknown>, ctx: IFromXm
     });
 }
 
-function filterFromXml(x: Record<string, unknown>): UserChartEntity_Filter {
-    const f = new UserChartEntity_Filter();
+function fillFilter(f: UserChartEntity_Filter, x: Record<string, unknown>): void {
     f.indentation = (Number(x[A + "Indentation"] ?? 0) as int);
     f.isGroup = x[A + "GroupOperation"] != null;
     if (f.isGroup) {
@@ -155,7 +151,6 @@ function filterFromXml(x: Record<string, unknown>): UserChartEntity_Filter {
     f.dashboardBehaviour = dashboardBehaviour == null ? null : toEnum(DashboardBehaviour, dashboardBehaviour);
     const p = x["Pinned"];
     f.pinned = p != null ? pinnedFromXml(firstElem(p)) : null;
-    return f;
 }
 
 function pinnedFromXml(x: Record<string, unknown>): PinnedQueryFilterEmbedded {

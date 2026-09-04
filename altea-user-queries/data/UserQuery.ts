@@ -47,6 +47,10 @@ import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-as
 // @altea/altea-user-assets — a @part row has exactly ONE owner, so an owner adds nothing but its
 // `@backReference` (UserChartEntity_Filter is the same class with a different owner).
 @entity("Part")
+// Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
+// the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
+// its identity across databases (see UserAssetsImporter.syncRows).
+@primaryKey("uuid")
 export class UserQueryEntity_Filter extends QueryFilterBaseEntity {
     @backReference userQuery: Lite<UserQueryEntity>;
 }
@@ -54,6 +58,10 @@ export class UserQueryEntity_Filter extends QueryFilterBaseEntity {
 // Signum's QueryColumnEmbedded (Queries/QueryColumnEmbedded.cs). One result column: a token, an optional
 // display name / summary (aggregate) token, hidden flag, and combine-rows behaviour.
 @entity("Part")
+// Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
+// the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
+// its identity across databases (see UserAssetsImporter.syncRows).
+@primaryKey("uuid")
 export class UserQueryEntity_Column extends Entity {
     @backReference userQuery: Lite<UserQueryEntity>;
     @rowOrder order: int;

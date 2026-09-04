@@ -383,7 +383,7 @@ export namespace ToolbarLogic {
         }
 
         const result: ToolbarResponse = {
-            guid: element.guid,
+            guid: element.id == null ? undefined : String(element.id),
             type: typeOf(element),
             content: element.content ?? undefined,
             url: element.url ?? undefined,
@@ -458,7 +458,7 @@ export namespace ToolbarLogic {
                 return null;
 
             return {
-                guid: extra.guid,
+                guid: extra.id == null ? undefined : String(extra.id),
                 type: typeOf(extra),
                 content: extra.content ?? undefined,
                 url: extra.url ?? undefined,

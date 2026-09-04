@@ -543,7 +543,14 @@ export class SchemaBuilder {
         const pkColumn = new PrimaryKeyColumn(this.idiomatic('ID'), pkDbType, /* identity */ !isGuid && !isExternalId);
         if (isGuid)
             pkColumn.default = this.settings.isPostgres
-                ? 'gen_random_uuid()'
+                // Signum emits `uuid_generate_v1()` (PrimaryKeyAttribute.Postgres_UuidGenerateV1), which needs
+                // the uuid-ossp EXTENSION; `gen_random_uuid()` is built in from PostgreSQL 13 and needs
+                // nothing, so it is what altea generates for its own databases. In LEGACY MODE — pointed at a
+                // Signum database — emit Signum's, or every uuid-PK table would show a `SET DEFAULT` on every
+                // sync forever AND running the two side by side would have altea rewrite the defaults out from
+                // under the Signum app. Both mean "the database generates the key"; v1 is time-ordered, which
+                // is also why the SQL Server side offers NEWSEQUENTIALID as `uuid7`.
+                ? (this.settings.legacyMode ? 'uuid_generate_v1()' : 'gen_random_uuid()')
                 : (pkType === 'uuid7' ? 'NEWSEQUENTIALID()' : 'NEWID()');
         const pk = new FieldPrimaryKey(pkColumn);
         table.primaryKey = pk;

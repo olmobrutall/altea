@@ -1,7 +1,7 @@
 import { table } from "@altea/altea/server/table";
 import { type int, type uuid } from "@altea/altea/data/basics";
 import { Enum } from "@altea/altea/data/enum";
-import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
+import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { newGuid } from "@altea/altea-user-assets/data/UserAssets";
@@ -71,8 +71,7 @@ async function toXml(db: DashboardEntity, ctx: IToXmlContext): Promise<Record<st
 // Signum's PanelPartEmbedded.ToXml: the geometry + chrome as attributes, the content as the single child
 // element (its name identifies the part type — Signum's PartNames).
 async function partToXml(p: DashboardEntity_Part, ctx: IToXmlContext): Promise<Record<string, unknown>> {
-    const x: Record<string, unknown> = {};
-    x[A + "Guid"] = p.guid;
+    const x: Record<string, unknown> = { ...rowGuid(p) };
     x[A + "Row"] = p.row;
     x[A + "StartColumn"] = p.startColumn;
     x[A + "Columns"] = p.columns;
@@ -119,15 +118,14 @@ function fromXml(db: DashboardEntity, xml: Record<string, unknown>, ctx: IFromXm
     db.showTitleAsBreadcrumb = bool(xml[A + "ShowTitleAsBreadcrumb"]);
     db.autoRefreshPeriod = num(xml[A + "AutoRefreshPeriod"]);
 
-    db.parts = arr(xml["Parts"], "Part").map((x, i) => partFromXml(x, i, ctx));
+    db.parts = syncRows(db.parts ?? [], arr(xml["Parts"], "Part"), () => new DashboardEntity_Part(),
+        (p, x, i) => fillPart(p, x, i, ctx));
     db.tokenEquivalencesGroups = arr(xml["TokenEquivalencesGroups"], "TokenEquivalenceGroup")
         .map((x, i) => tokenEquivalenceGroupFromXml(x, i, ctx));
 }
 
 // Signum's PanelPartEmbedded.FromXml (+ DashboardLogic.GetPart for the content element).
-function partFromXml(x: Record<string, unknown>, index: number, ctx: IFromXmlContext): DashboardEntity_Part {
-    const p = new DashboardEntity_Part();
-    p.guid = (str(x[A + "Guid"]) ?? newGuid()) as uuid;
+function fillPart(p: DashboardEntity_Part, x: Record<string, unknown>, index: number, ctx: IFromXmlContext): void {
     p.order = index as unknown as int;
     p.row = (num(x[A + "Row"]) ?? 0) as int;
     p.startColumn = (num(x[A + "StartColumn"]) ?? 0) as int;
@@ -148,13 +146,12 @@ function partFromXml(x: Record<string, unknown>, index: number, ctx: IFromXmlCon
     // The ONE child element that is not an attribute names the part type (Signum's PartNames lookup).
     const contentEntry = Object.entries(x).find(([k]) => !k.startsWith(A) && k !== "#text");
     if (contentEntry == null)
-        throw new Error(`Dashboard import: part '${p.guid}' has no content element`);
+        throw new Error(`Dashboard import: part '${String(p.id)}' has no content element`);
 
     const config = DashboardLogic.partConfigForElement(contentEntry[0]);
     const content = new (config.type as unknown as new () => IPartEntity)();
     config.fromXml(content, firstElem(contentEntry[1]), ctx);
     p.content = content;
-    return p;
 }
 
 function tokenEquivalenceGroupFromXml(x: Record<string, unknown>, index: number, ctx: IFromXmlContext): DashboardEntity_TokenEquivalenceGroup {

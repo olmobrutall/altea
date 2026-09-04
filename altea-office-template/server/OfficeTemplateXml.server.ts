@@ -4,7 +4,7 @@ import { toInt } from "@altea/altea/data/basics";
 import {
     FilterOperation, FilterGroupOperation, OrderType, DashboardBehaviour,
 } from "@altea/altea/data/dynamicQueries";
-import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
+import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport.server";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
@@ -98,21 +98,20 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
     ot.officeTransformer = symbolOr(OfficeTransformerSymbol, str(xml[A + "OfficeTransformer"]));
     ot.officeConverter = symbolOr(OfficeConverterSymbol, str(xml[A + "OfficeConverter"]));
 
-    ot.filters = list(asRecord(xml["Filters"])?.["Filter"]).map((x, i) => {
-        const f = new OfficeTemplateEntity_Filter();
-        f.order = toInt(i);
-        f.indentation = toInt(num(x[A + "Indentation"]) ?? 0);
-        if (x[A + "GroupOperation"] != undefined) {
-            f.isGroup = true;
-            f.groupOperation = Enum.toValue(FilterGroupOperation, str(x[A + "GroupOperation"]) as never);
-        }
-        if (x[A + "Token"] != undefined) f.token = token(str(x[A + "Token"])!);
-        if (x[A + "Operation"] != undefined) f.operation = Enum.toValue(FilterOperation, str(x[A + "Operation"]) as never);
-        if (x[A + "Value"] != undefined) f.valueString = str(x[A + "Value"])!;
-        if (x[A + "DashboardBehaviour"] != undefined)
-            f.dashboardBehaviour = Enum.toValue(DashboardBehaviour, str(x[A + "DashboardBehaviour"]) as never);
-        return f;
-    });
+    ot.filters = syncRows(ot.filters ?? [], list(asRecord(xml["Filters"])?.["Filter"]),
+        () => new OfficeTemplateEntity_Filter(), (f, x, i) => {
+            f.order = toInt(i);
+            f.indentation = toInt(num(x[A + "Indentation"]) ?? 0);
+            if (x[A + "GroupOperation"] != undefined) {
+                f.isGroup = true;
+                f.groupOperation = Enum.toValue(FilterGroupOperation, str(x[A + "GroupOperation"]) as never);
+            }
+            if (x[A + "Token"] != undefined) f.token = token(str(x[A + "Token"])!);
+            if (x[A + "Operation"] != undefined) f.operation = Enum.toValue(FilterOperation, str(x[A + "Operation"]) as never);
+            if (x[A + "Value"] != undefined) f.valueString = str(x[A + "Value"])!;
+            if (x[A + "DashboardBehaviour"] != undefined)
+                f.dashboardBehaviour = Enum.toValue(DashboardBehaviour, str(x[A + "DashboardBehaviour"]) as never);
+        });
 
     ot.orders = list(asRecord(xml["Orders"])?.["Orden"]).map((x, i) => {
         const o = new OfficeTemplateEntity_Order();
@@ -141,7 +140,7 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
 // ---- helpers -------------------------------------------------------------------------------------------
 
 function filterXml(f: OfficeTemplateEntity_Filter): Record<string, unknown> {
-    const x: Record<string, unknown> = {};
+    const x: Record<string, unknown> = { ...rowGuid(f) };
     x[A + "Indentation"] = f.indentation;
     if (f.isGroup) {
         if (f.groupOperation != null) x[A + "GroupOperation"] = Enum.toName(FilterGroupOperation, f.groupOperation);
