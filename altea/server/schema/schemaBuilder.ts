@@ -195,8 +195,12 @@ function makeGetter(name: string): (entity: any) => unknown {
     return (entity: any) => entity[name];
 }
 
-// Width of the enum table's `name` column.
-const ENUM_NAME_SIZE = 100;
+// Width of the enum table's `name` column. Signum declares it as `[ToStringColumn(Name = "Name",
+// Nullable = false)]` on `EnumEntity<T>` with NO explicit size, so it takes the default string size, which
+// is 200 (SchemaSettings' NVarChar/Varchar entry) — hence 200 here, not a rounder-looking 100. Every enum
+// table in the application has this column, so getting it wrong diverges from a Signum database 69 times
+// over.
+const ENUM_NAME_SIZE = 200;
 
 // Tunables for table/column generation. Sensible defaults; override per app.
 export class SchemaSettings {
