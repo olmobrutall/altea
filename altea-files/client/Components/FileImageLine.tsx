@@ -54,7 +54,15 @@ export class FileImageLineController<V extends FilePathEmbedded | FileEmbedded |
 
     /** Which file holder this member is bound to — decides what the uploader builds (as in FileLine). */
     kind(): "FilePathEmbedded" | "FileEmbedded" | "FileEntity" {
-        return this.props.ctx.memberType?.getTypeName() === "FileEmbedded" ? "FileEmbedded" : "FilePathEmbedded";
+        // One case per file shape, keyed on the bound member's own type — FileLine's same switch, and
+        // for its reason: a two-way default sent a FileEntity (which this line already declares it
+        // accepts) to the uploader as a FilePathEmbedded, looking for a store a row-held file has no
+        // need of.
+        switch (this.props.ctx.memberType?.getTypeName()) {
+            case "FileEmbedded": return "FileEmbedded";
+            case "FileEntity": return "FileEntity";
+            default: return "FilePathEmbedded";
+        }
     }
 
     /** The root entity the file hangs off — explicit prop, else the context's root entity. */
