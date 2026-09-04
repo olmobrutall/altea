@@ -2,7 +2,7 @@ import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection"
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, format, unit, column, backReference, rowOrder, quoted, stringLengthValidator, fieldValidation,
+    entity, format, unit, column, backReference, quoted, stringLengthValidator, fieldValidation,
 } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
@@ -26,7 +26,8 @@ import { EmailReceptionServiceEntity } from "@altea/altea-email/data/EmailRecept
 @entity("Part", "Master")
 export class Pop3EmailReceptionServiceEntity_ClientCertificationFile extends Entity {
     @backReference service: Lite<Pop3EmailReceptionServiceEntity>;
-    @rowOrder order: int;
+    // No `@rowOrder`: Signum does not mark this MList [PreserveOrder], so its table has no
+    // Order column and neither does this one (the SMTP sender's twin says the same).
 
     @stringLengthValidator({ min: 2, max: 300 })
     fullFilePath: string;

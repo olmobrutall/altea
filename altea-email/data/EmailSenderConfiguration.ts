@@ -2,7 +2,7 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, implementedBy, uniqueIndex, backReference, rowOrder, format,
+    entity, implementedBy, uniqueIndex, backReference, format,
     stringLengthValidator, fieldValidation, quoted, column,
 } from "@altea/altea/data/decorators";
 import { type int, toInt } from "@altea/altea/data/basics";
