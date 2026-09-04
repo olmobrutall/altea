@@ -89,7 +89,7 @@ export class RestLogEntity extends Entity {
     /**
      * Signum's `Lite<IUserEntity>?`. As with `ExceptionEntity.user`, `IUserEntity` is an INTERFACE with no
      * runtime constructor, so the implementations are declared empty here and the app widens them —
-     * `overrideImplementedBy(RestLogEntity, "user", () => [UserEntity])` in its EntityOverrides. This
+     * `overrideImplementedBy(RestLogEntity, r => r.user, () => [UserEntity])` in its EntityOverrides. This
      * module does depend on altea-auth (Signum.Rest depends on Signum.Authorization too), but the LOG's
      * user is the framework's `IUserEntity` slot, so it follows core's pattern rather than hard-wiring
      * a concrete type into the column.

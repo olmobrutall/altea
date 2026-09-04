@@ -51,7 +51,7 @@ export namespace OfficeAttachmentLogic {
         sb.include(OfficeAttachmentEntity).withQuery();
 
         // Widen the polymorphic attachment field so a template can hold one of these.
-        overrideImplementedBy(EmailTemplateEntity_Attachment, "attachment",
+        overrideImplementedBy(EmailTemplateEntity_Attachment, e => e.attachment,
             () => [ImageAttachmentEntity, FileTokenAttachmentEntity, OfficeAttachmentEntity]);
 
         // The fileName is a text template, so its tokens must join the message's single query.

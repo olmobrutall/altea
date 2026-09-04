@@ -27,7 +27,7 @@ export class SystemEventLogEntity extends Entity {
 
     // Signum's `Lite<IUserEntity>? User`. Core declares NO implementations (`@implementedBy(() => [])`) so
     // it needn't reference altea-auth; the app overrides it to the concrete user type via
-    // `overrideImplementedBy(SystemEventLogEntity, "user", () => [UserEntity])` in its EntityOverrides —
+    // `overrideImplementedBy(SystemEventLogEntity, s => s.user, () => [UserEntity])` in its EntityOverrides —
     // the same accommodation ExceptionEntity.user and OperationLogEntity.user already make.
     //
     // Nullable for a reason that is not incidental: the two events the module ships ("Application Start" /

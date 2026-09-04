@@ -24,6 +24,19 @@ export function accessedFields(selector: Quoted<(element: any) => unknown>): str
     return fields;
 }
 
+/**
+ * The ONE member path a selector reads — `e => e.stackTrace` → "stackTrace", `e => e.config.tags` →
+ * "config.tags". The single-member counterpart of {@link accessedFields}, for the APIs that name a
+ * property rather than a set of index columns (Signum passes an `Expression<Func<T, X>>` to the same
+ * places). A lambda reading none or several is a mistake here, not a shorthand.
+ */
+export function memberPath(selector: Quoted<(element: any) => unknown>): string {
+    const fields = accessedFields(selector);
+    if (fields.length !== 1)
+        throw new Error(`A property selector must read exactly ONE member (e => e.stackTrace); it read ${fields.length}.`);
+    return fields[0];
+}
+
 // One member PATH read off the selector parameter → its dotted name ("code", "address.city").
 function memberName(e: QuotedEx): string {
     // A cast (`e.code as string`) and a non-null assertion (`e.address!.city`) are runtime no-ops —

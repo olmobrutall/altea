@@ -139,7 +139,7 @@ export class DashboardEntity_Part extends Entity implements IGridEntity {
 
     // Signum's [BindParent, ImplementedBy(…the base parts…)] IPartEntity Content. The app WIDENS this list
     // to the parts of every registered module (Signum did the same from Southwind's Starter) — see
-    // eastwind/entityOverrides.data.ts's `overrideImplementedBy(DashboardEntity_Part, "content", …)`.
+    // eastwind/entityOverrides.data.ts's `overrideImplementedBy(DashboardEntity_Part, d => d.content, …)`.
     @implementedBy(() => [TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity, CustomPartEntity, ToolbarMenuPartEntity])
     content: IPartEntity;
 

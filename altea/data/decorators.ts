@@ -5,7 +5,7 @@ import type { PrimaryKeyType, ColumnOptions, TranslatableRouteType } from './ref
 import type { Type, Entity } from './entity';
 import type { CustomLiteClass } from './lite';
 import type { ExLambda, Quoted } from 'quote-transformer/quoted';
-import { accessedFields } from './accessedFields';
+import { accessedFields, memberPath } from './accessedFields';
 
 export type { ColumnOptions, TranslatableRouteType } from './reflection';
 
@@ -547,8 +547,16 @@ export function implementedByAll(target: object, propertyKey: string | symbol): 
 // override). Re-points a field's implementations from another module — e.g. a core entity declares
 // `@implementedBy(() => [])` (no concrete types, so it needn't reference the app), and the app overrides
 // it here. MUST run in an EntityOverrides.start() (on BOTH tiers) before any (de)serialization or schema
-// build. `field` is the property name.
-export function overrideImplementedBy<T extends Entity>(type: Type<T>, field: Extract<keyof T, string>, types: () => Type<Entity>[]): void {
+// build.
+//
+// The field is named by a SELECTOR, as Signum names it with an `Expression<Func<T, X>>`: it is checked by
+// the compiler, it follows a rename, and it reads like the model rather than like a string key. The lambda
+// must be written INLINE at the call (that is where the transformer stamps its AST) and read exactly one
+// member of the parameter — an @implementedBy field is a column on THIS type, so there is no path to walk.
+export function overrideImplementedBy<T extends Entity>(type: Type<T>, selector: Quoted<(entity: T) => unknown>, types: () => Type<Entity>[]): void {
+    const field = memberPath(selector);
+    if (field.includes("."))
+        throw new Error(`overrideImplementedBy(${(type as { name?: string }).name}, ...): the selector must read a member of the type itself, not a path through it (got "${field}").`);
     getOrCreateFieldInfo(getOrCreateTypeInfo(type), field).implementations = { kind: 'implementedBy', types };
 }
 

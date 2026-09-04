@@ -16,7 +16,7 @@ export namespace ProcessSchedulerBridgeOverrides {
      *  every OTHER task type the app uses: an override REPLACES the declared list, so omitting
      *  SimpleTaskSymbol would unschedule the simple tasks. */
     export function overrideTaskImplementations(otherTaskTypes: Type<Entity>[]): void {
-        overrideImplementedBy(ScheduledTaskEntity, "task",
+        overrideImplementedBy(ScheduledTaskEntity, s => s.task,
             () => [ProcessAlgorithmSymbol as unknown as Type<Entity>, ...otherTaskTypes]);
     }
 }

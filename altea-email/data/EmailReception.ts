@@ -71,7 +71,7 @@ export class EmailReceptionConfigurationEntity extends Entity implements ITaskEn
     compareInbox: CompareInbox;
 
     // Signum's `[ImplementedBy()]` — deliberately EMPTY: altea-email ships no reception service of its own,
-    // so the app widens this with `overrideImplementedBy(EmailReceptionConfigurationEntity, "service", …)`
+    // so the app widens this with `overrideImplementedBy(EmailReceptionConfigurationEntity, e => e.service, …)`
     // once it has wired a protocol package in (Signum's `AssertImplementedBy` from Pop3ConfigurationLogic).
     @implementedBy(() => [])
     service: EmailReceptionServiceEntity;

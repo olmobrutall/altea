@@ -94,7 +94,7 @@ export class ExceptionEntity extends Entity {
 
     // Signum's `[ImplementedBy(typeof(UserEntity))] Lite<IUserEntity>? User`. Core declares NO
     // implementations (`@implementedBy(() => [])`) so it needn't reference altea-auth; the app overrides it
-    // to the concrete user type via `overrideImplementedBy(ExceptionEntity, "user", () => [UserEntity])` in
+    // to the concrete user type via `overrideImplementedBy(ExceptionEntity, e => e.user, () => [UserEntity])` in
     // its EntityOverrides (Signum's OverrideAttributes). Set in exceptionFilter.fillContext from UserHolder.
     @implementedBy(() => [])
     user: Lite<IUserEntity> | null = null;

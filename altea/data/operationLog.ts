@@ -42,7 +42,7 @@ export class OperationLogEntity extends Entity {
 
     // Signum's `[ImplementedBy(typeof(UserEntity))] Lite<IUserEntity> User`. Core declares NO
     // implementations (`@implementedBy(() => [])`) so it needn't reference altea-auth; the app overrides it
-    // to the concrete user type via `overrideImplementedBy(OperationLogEntity, "user", () => [UserEntity])`
+    // to the concrete user type via `overrideImplementedBy(OperationLogEntity, o => o.user, () => [UserEntity])`
     // in its EntityOverrides. Set in OperationLogic.logOperation from UserHolder.
     @implementedBy(() => [])
     user: Lite<IUserEntity> | null = null;

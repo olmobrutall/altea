@@ -9,6 +9,8 @@ import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import type { Type } from "@altea/altea/data/entity";
 import { isModifiedSelf } from "@altea/altea/data/changes";
 import { getTypeInfo } from "@altea/altea/data/reflection";
+import { memberPath as memberPathOf } from "@altea/altea/data/accessedFields";
+import type { Quoted } from "quote-transformer/quoted";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { BigStringEmbedded } from "@altea/altea/data/bigString";
@@ -25,7 +27,7 @@ import { FilePathEmbeddedLogic } from "./FilePathEmbeddedLogic";
 // removes the column the chosen mode does not use (see SchemaSettings.ignoreFieldRoute):
 //
 //   BigStringMixin.declare();                                       // once, on BOTH tiers
-//   BigStringLogic.register(sb, ExceptionEntity, "stackTrace", new BigStringConfiguration("File", MyFileType.Logs));
+//   BigStringLogic.register(sb, ExceptionEntity, e => e.stackTrace, new BigStringConfiguration("File", MyFileType.Logs));
 //   BigStringLogic.registerAll(sb, ExceptionEntity, new BigStringConfiguration("Database", null));
 //   BigStringLogic.start(sb);
 //   ... sb.include(ExceptionEntity) ...
@@ -100,9 +102,17 @@ export namespace BigStringLogic {
         sb.schema.initializing.push(() => schemaCompleted(sb.schema));
     }
 
-    /** Signum's `Register(sb, (T a) => a.BigString, config)` — configure ONE route. `memberPath` is dotted
-     *  ("requestContext.form"); it must name a BigStringEmbedded member of `type`. */
-    export function register<T extends Entity>(sb: SchemaBuilder, type: Type<T>, memberPath: string, config: BigStringConfiguration): void {
+    /** Signum's `Register(sb, (T a) => a.BigString, config)` — configure ONE route. The selector is
+     *  written INLINE (that is where the transformer stamps its AST) and may walk EMBEDDEDs
+     *  (`e => e.requestContext.form`), which is what makes the route a dotted path. */
+    export function register<T extends Entity>(sb: SchemaBuilder, type: Type<T>, selector: Quoted<(entity: T) => BigStringEmbedded>, config: BigStringConfiguration): void {
+        registerPath(sb, type, memberPathOf(selector), config);
+    }
+
+    /** {@link register} minus the selector — what `registerAll` calls, since it already has the routes as
+     *  paths (it reads them off the model rather than off a lambda). Not exported: an application names a
+     *  property with a selector, so a string path never has to be written by hand. */
+    function registerPath<T extends Entity>(sb: SchemaBuilder, type: Type<T>, memberPath: string, config: BigStringConfiguration): void {
         const key = routeKey(type, memberPath);
 
         if (configurations.has(key))
@@ -128,7 +138,7 @@ export namespace BigStringLogic {
     /** Signum's `RegisterAll<T>` — configure EVERY BigStringEmbedded route of `type` the same way. */
     export function registerAll<T extends Entity>(sb: SchemaBuilder, type: Type<T>, config: BigStringConfiguration): void {
         for (const path of bigStringRoutesOf(type))
-            register(sb, type, path.join("."), config);
+            registerPath(sb, type, path.join("."), config);
     }
 
     /** Signum's `MigrateBigStrings<T>` — re-save every row so the configured mode is applied to its text.
@@ -156,7 +166,7 @@ export namespace BigStringLogic {
                 present.add(`${cleanTypeName(ctor)}.${path.join(".")}`);
 
         const example = (key: string): string =>
-            `  BigStringLogic.register(sb, ${key.substring(0, key.indexOf("."))}, "${key.substring(key.indexOf(".") + 1)}", `
+            `  BigStringLogic.register(sb, ${key.substring(0, key.indexOf("."))}, e => e.${key.substring(key.indexOf(".") + 1)}, `
             + `new BigStringConfiguration("Database", null));`;
 
         const missing = [...present].filter(k => !configurations.has(k)).sort();

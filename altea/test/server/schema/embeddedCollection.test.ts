@@ -117,7 +117,7 @@ class EcApp_Tag extends Entity {
 }
 
 // What the application's EntityOverrides does.
-overrideImplementedBy<any>(EcApp_Tag as any, "owner", () => [EcAppOwner as any]);
+overrideImplementedBy<any>(EcApp_Tag as any, (t: any) => t.owner, () => [EcAppOwner as any]);
 
 function build(configure?: (sb: SchemaBuilder) => void): SchemaBuilder {
     const sb = new SchemaBuilder();
