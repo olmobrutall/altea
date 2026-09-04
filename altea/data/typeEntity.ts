@@ -33,6 +33,13 @@ export class TypeEntity extends Entity {
     package: string;
     className: string;
 
+    // Signum's `Namespace` — the C# namespace, which TypeScript has no counterpart for, so altea
+    // never writes one. It is declared NULLABLE and kept purely so a database a SIGNUM application
+    // generated is not asked to drop the column (and its values) the first time altea syncs it; the
+    // type synchronizer therefore CARRIES IT OVER on a merge rather than overwriting it with null.
+    // `package` is what altea groups by, and Signum is gaining the same column.
+    namespace: string | null;
+
     // Signum's TypeEntity.ToString => CleanName. altea originally left the inherited default (which renders
     // "Type <id>", e.g. "Type 8"); give it the clean name so references/lites display meaningfully (e.g. the
     // ColorPalette.type field). @quoted so it also lowers to SQL for the ToStr column / order-by.

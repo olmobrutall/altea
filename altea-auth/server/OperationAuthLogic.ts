@@ -14,7 +14,7 @@ import { toInt } from "@altea/altea/data/basics";
 import { AuthLogic, RoleGraph } from "./AuthLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
 import {
-    RuleOperationEntity, RuleOperationConditionEntity, RuleOperationConditionEntity_Condition,
+    RuleOperationEntity, OperationTypeEmbedded, RuleOperationConditionEntity, RuleOperationConditionEntity_Condition,
     OperationRulePack, OperationAllowedRule, OperationAllowed, TypeConditionSymbol, TypeConditionSetModel,
     OperationWithConditionsModel, OperationConditionRuleModel,
 } from "../data/Rules";
@@ -118,7 +118,7 @@ export namespace OperationAuthLogic {
             const roleKey = row.role.key();
             let inner = map.get(roleKey);
             if (inner == null) { inner = new Map(); map.set(roleKey, inner); }
-            inner.set(compositeKey(row.operation.id, row.type.id), toWithConditions(row, symbolById));
+            inner.set(compositeKey(row.resource.operation.id, row.resource.type.id), toWithConditions(row, symbolById));
         }
         return map;
     }
@@ -227,8 +227,8 @@ export namespace OperationAuthLogic {
             throw new Error(`Role '${pack.role.id}' not found`);
         const roleLite = role.toLite();
         const symbolById = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s]));
-        const current = await table(RuleOperationEntity).filter(ro => ro.role == roleLite && ro.type == pack.type).toArray() as RuleOperationEntity[];
-        const currentByOp = new Map(current.map(ro => [String(ro.operation.id), ro]));
+        const current = await table(RuleOperationEntity).filter(ro => ro.role == roleLite && ro.resource.type == pack.type).toArray() as RuleOperationEntity[];
+        const currentByOp = new Map(current.map(ro => [String(ro.resource.operation.id), ro]));
 
         for (const r of pack.rules) {
             const existing = currentByOp.get(String(r.operation.id));
@@ -245,8 +245,10 @@ export namespace OperationAuthLogic {
             }
             const ro = existing ?? RuleOperationEntity.create({
                 role: roleLite,
-                operation: OperationSymbol.newLite(r.operation.id, r.operation.toString()),
-                type: TypeEntity.newLite(pack.type.id, pack.type.toString()),
+                resource: OperationTypeEmbedded.create({
+                    operation: OperationSymbol.newLite(r.operation.id, r.operation.toString()),
+                    type: TypeEntity.newLite(pack.type.id, pack.type.toString()),
+                }),
             });
             ro.fallback = prunedAllowed.fallback;
             ro.conditionRules = prunedAllowed.conditionRules.map((cr, i) => RuleOperationConditionEntity.create({
@@ -271,8 +273,8 @@ export namespace OperationAuthLogic {
                 const conds = conditionsXml(r.conditionRules, v => OperationAllowed[v], id => condKey.get(String(id)) ?? String(id));
                 return {
                     ...attrs({
-                        OnType: typeName.get(String(r.type.id)) ?? String(r.type.id),
-                        Resource: opKey.get(String(r.operation.id)) ?? String(r.operation.id),
+                        OnType: typeName.get(String(r.resource.type.id)) ?? String(r.resource.type.id),
+                        Resource: opKey.get(String(r.resource.operation.id)) ?? String(r.resource.operation.id),
                         Allowed: OperationAllowed[r.fallback],
                     }),
                     ...(conds.length ? { Condition: conds } : {}),

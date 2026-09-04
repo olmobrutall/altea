@@ -379,6 +379,12 @@ async function synchronizeTypes(replacements: Replacements): Promise<SqlPreComma
             // Matched (possibly through a RENAME): write the model metadata onto the RETRIEVED row, which
             // KEEPS its persisted id — that id is the @implementedByAll discriminator stored across the
             // whole database, so it is never re-assigned. updateSqlSync returns undefined when nothing drifted.
+            //
+            // `namespace` is NOT model metadata — altea never writes one (see TypeEntity) — so it is
+            // carried over from the persisted row. Copying the model row wholesale would null out the
+            // values a SIGNUM database has, on the first sync, which is exactly what the column is
+            // kept to avoid.
+            s.namespace = c.namespace;
             copyRowFields(c as unknown as Entity, s as unknown as Entity);
             return updateSqlSync(table, c as unknown as Entity);
         },

@@ -23,7 +23,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity, RoleEntity_InheritsFrom, MergeStrategy } from "@altea/altea-auth/data/Role";
 import {
     RuleTypeEntity, RuleTypeConditionEntity, RuleTypeConditionEntity_Condition,
-    RulePropertyEntity, RuleOperationEntity,
+    RulePropertyEntity, RuleOperationEntity, OperationTypeEmbedded,
     TypeAllowed, PropertyAllowed, OperationAllowed, TypeConditionSymbol,
 } from "@altea/altea-auth/data/Rules";
 import { SampleEntity, SamplePanelEntity, SampleWidgetEntity, SampleOperation, SampleTypeCondition } from "../data/sample";
@@ -149,7 +149,7 @@ async function seed(): Promise<void> {
     // Sales: single-dimension rules on Sample.
     await RuleTypeEntity.create({ role: sales.toLite(), resource: typeLite, fallback: TypeAllowed.Read, conditionRules: [] }).save();
     await RulePropertyEntity.create({ role: sales.toLite(), resource: secretRoute, fallback: PropertyAllowed.None, conditionRules: [] }).save();
-    await RuleOperationEntity.create({ role: sales.toLite(), operation: saveOp, type: typeLite, fallback: OperationAllowed.Allow, conditionRules: [] }).save();
+    await RuleOperationEntity.create({ role: sales.toLite(), resource: OperationTypeEmbedded.create({ operation: saveOp, type: typeLite }), fallback: OperationAllowed.Allow, conditionRules: [] }).save();
 
     // Manager: overrides the type (Write) + secret (Read); NO Save rule → inherits Sales' Allow.
     await RuleTypeEntity.create({ role: manager.toLite(), resource: typeLite, fallback: TypeAllowed.Write, conditionRules: [] }).save();
