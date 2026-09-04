@@ -105,10 +105,14 @@ export namespace TourClient {
             return ajaxGet({ url: `/api/tour/triggerType?liteKey=${encodeURIComponent(lite.key())}` });
         }
 
+        /** The TypeEntity ROW for a clean name — a "Property" css step needs it to build its route row. */
+        export function typeEntity(typeName: string): Promise<TypeEntity | null> {
+            return ajaxGet<TypeEntity | null>({ url: `/api/reflection/typeEntity/${typeName}` });
+        }
+
         /** The TypeEntity lite for a clean name — what "create a tour for this type" needs to store. */
         export function typeLite(typeName: string): Promise<Lite<TypeEntity> | null> {
-            return ajaxGet<TypeEntity | null>({ url: `/api/reflection/typeEntity/${typeName}` })
-                .then(te => te == null ? null : te.toLite());
+            return typeEntity(typeName).then(te => te == null ? null : te.toLite());
         }
     }
 }

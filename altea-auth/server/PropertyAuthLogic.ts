@@ -6,6 +6,8 @@ import { table } from "@altea/altea/server/table";
 import { Entity, type PrimaryKey, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
+import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
 import { getRegisteredTypes } from "@altea/altea/data/registration";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
@@ -40,8 +42,10 @@ import * as Database from "@altea/altea/server/Database";
 // unless explicitly granted — secure by default); otherwise it follows its type. (altea DIVERGENCE: no
 // per-property MaxAutomaticUpgrade cap — Signum's MaxAutomaticUpgrade dictionary is not ported.)
 //
-// altea DIVERGENCES: rules keyed by (rootType, path) — NO PropertyRouteEntity table (see data/Rules.ts);
-// routes enumerated via PropertyRoute.generateRoutes; async cache (sb.globalLazy + computeAllowed).
+// altea DIVERGENCES: a rule POINTS at a `PropertyRouteEntity` row, as in Signum, but the runtime caches are
+// keyed by (rootType id, path) rather than by the row itself — altea has no ambient EntityCache, so two
+// reads of one row are different objects (see PropertyRouteLogic's header). Routes are enumerated via
+// PropertyRoute.generateRoutes; the cache is async (sb.globalLazy + computeAllowed).
 //
 // ENFORCEMENT: installed via `setSerializationAuth` (the codec's open-default hook). The serializer is
 // SYNCHRONOUS; per request the codec calls `resolveContext` ONCE (async, before the walk) to capture an
@@ -159,6 +163,9 @@ export namespace PropertyAuthLogic {
             return;
         started = true;
         TypeAuthLogic.registerDimensionSummary("properties", fallbackSummary); // grid icon colour summary
+        // Signum's own placement (PropertyAuthLogic.Start is the only caller of PropertyRouteLogic.Start):
+        // a property rule POINTS at a route row, so this module owns bringing the table along.
+        PropertyRouteLogic.start(sb);
         sb.include(RulePropertyEntity).withQuery();
         // invalidateWith RuleType too: the no-rule default / coerced ceiling derive from the type's UI-read
         // allowance, so a type-rule change must reset the property cache.
@@ -166,7 +173,9 @@ export namespace PropertyAuthLogic {
             await loadRules(), await AuthLogic.roleGraph(), await TypeAuthLogic.rulesCache(), await autoUpgradePredicate()),
             // Also invalidate on RulePermission: the no-rule default derives from the
             // AutomaticUpgradeOfProperties permission, so a permission-rule change must reset this cache.
-            { invalidateWith: [RulePropertyEntity, RuleTypeEntity, RulePermissionEntity, RoleEntity] });
+            // PropertyRouteEntity too: the cache is keyed by the route's PATH, which the routes table's own
+            // synchronization rewrites in place when a member is renamed.
+            { invalidateWith: [RulePropertyEntity, RuleTypeEntity, RulePermissionEntity, RoleEntity, PropertyRouteEntity] });
         // The serializer is SYNCHRONOUS. Per request the codec calls `resolveContext` ONCE (async, before the
         // walk) to capture the loaded PropertyRulesCache — which IS the serialization-auth context — and then
         // reads it synchronously in `access`. A concurrent invalidate() can't affect an in-flight walk: the
@@ -236,7 +245,7 @@ export namespace PropertyAuthLogic {
             const roleKey = row.role.key();
             let inner = map.get(roleKey);
             if (inner == null) { inner = new Map(); map.set(roleKey, inner); }
-            inner.set(compositeKey(row.rootType.id, row.path), toWithConditions(row, symbolById));
+            inner.set(compositeKey(row.resource.rootType.id, row.resource.path), toWithConditions(row, symbolById));
         }
         return map;
     }
@@ -445,8 +454,10 @@ export namespace PropertyAuthLogic {
         const roleKey = roleLite.key();
         const symbolById = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s] as const));
         const ceiling = await typeCeilingWC(pack.type.id, roleKey); // the per-slice type ceiling (coerce cap)
-        const current = await table(RulePropertyEntity).filter(rp => rp.role == roleLite && rp.rootType == pack.type).toArray() as RulePropertyEntity[];
-        const currentByPath = new Map(current.map(rp => [rp.path, rp]));
+        const typeEntity = TypeLogic.idToEntity(pack.type.id!)!;
+        const current = await table(RulePropertyEntity)
+            .filter(rp => rp.role == roleLite && rp.resource.rootType.is(typeEntity)).toArray() as RulePropertyEntity[];
+        const currentByPath = new Map(current.map(rp => [rp.resource.path, rp]));
 
         for (const r of pack.rules) {
             const existing = currentByPath.get(r.path);
@@ -464,10 +475,11 @@ export namespace PropertyAuthLogic {
                     await existing.delete();
                 continue;
             }
+            // A rule stored for the first time may need its ROUTE ROW created with it — which is what makes
+            // basics.property_route demand-populated (see PropertyRouteLogic).
             const rp = existing ?? RulePropertyEntity.create({
                 role: roleLite,
-                rootType: TypeEntity.newLite(pack.type.id, pack.type.toString()),
-                path: r.path,
+                resource: PropertyRouteLogic.propertyRouteEntitySync(typeEntity, r.path),
             });
             rp.fallback = coerced.fallback;
             rp.conditionRules = coerced.conditionRules.map((cr, i) => RulePropertyConditionEntity.create({
@@ -490,7 +502,7 @@ export namespace PropertyAuthLogic {
             content: section("Property", ctx.orderedRoleKeys, ctx.roleName, byRole, r => {
                 const conds = conditionsXml(r.conditionRules, v => PropertyAllowed[v], id => condKey.get(String(id)) ?? String(id));
                 return {
-                    ...attrs({ OnType: typeName.get(String(r.rootType.id)) ?? String(r.rootType.id), Resource: r.path, Allowed: PropertyAllowed[r.fallback] }),
+                    ...attrs({ OnType: typeName.get(String(r.resource.rootType.id)) ?? String(r.resource.rootType.id), Resource: r.resource.path, Allowed: PropertyAllowed[r.fallback] }),
                     ...(conds.length ? { Condition: conds } : {}),
                 };
             }),

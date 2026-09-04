@@ -23,7 +23,8 @@ import TourStep from "./TourStep";
 // altea divergences:
 //  - `EntityAccordion` is not ported (as altea-email's EmailTemplate notes), so the steps use
 //    `EntityTabRepeater` — the closest thing with a per-item title.
-//  - the symbol's type comes back as a clean NAME, not a `Lite<TypeEntity>` (see TourClient.API).
+//  - the symbol's type comes back as a clean NAME, not a `Lite<TypeEntity>` (see TourClient.API), so it
+//    takes one more call to reach the TypeEntity row a route step needs.
 export default function Tour(p: { ctx: TypeContext<TourEntity> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
     const ctx = p.ctx.subCtx({ labelColumns: { sm: 2 } });
@@ -46,7 +47,15 @@ export default function Tour(p: { ctx: TypeContext<TourEntity> }): React.JSX.Ele
     const userQuery = Navigator.useFetchInState(
         trigger != null && trigger.entityType === UserQueryEntity ? trigger as never : null) as UserQueryEntity | null | undefined;
 
-    const rootTypeName = typeEntity?.cleanName ?? symbolTypeName ?? null;
+    // A symbol trigger names its type; a "Property" css step needs the TypeEntity ROW (its route row
+    // references it), so resolve the name into the row. A Lite<TypeEntity> trigger already fetched one.
+    const symbolTypeEntity = useAPI(() =>
+        typeEntity == null && symbolTypeName != null
+            ? TourClient.API.typeEntity(symbolTypeName)
+            : Promise.resolve(null),
+        [typeEntity, symbolTypeName]);
+
+    const rootType = typeEntity ?? symbolTypeEntity ?? null;
 
     return (
         <div>
@@ -55,7 +64,7 @@ export default function Tour(p: { ctx: TypeContext<TourEntity> }): React.JSX.Ele
             <EntityTabRepeater ctx={ctx.subCtx(a => a.steps)} avoidFieldSet="h4"
                 onCreate={() => Promise.resolve(TourStepEntity.create({ side: PopoverSide.Bottom, order: toInt(0) }))}
                 getComponent={sctx => <TourStep ctx={sctx} invalidate={forceUpdate}
-                    rootTypeName={rootTypeName} dashboard={dashboard ?? null} userQuery={userQuery ?? null} />}
+                    rootType={rootType} dashboard={dashboard ?? null} userQuery={userQuery ?? null} />}
                 getTitle={sctx => sctx.value.title || ""} />
 
             <div className="row mt-4">

@@ -6,6 +6,7 @@ import { type int, toInt } from "@altea/altea/data/basics";
 import { Symbol } from "@altea/altea/data/symbol";
 import { OperationSymbol } from "@altea/altea/data/operations";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
+import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { noRepeatValidator, countIsValidator, ComparisonType } from "@altea/altea/data/validators";
 import { RoleEntity } from "./Role";
@@ -119,14 +120,14 @@ export abstract class RuleEntity extends Entity {
     role: Lite<RoleEntity>;
 }
 
-@uniqueIndex((e: RulePermissionEntity) => [e.role, e.resource])
+@uniqueIndex((e: RulePermissionEntity) => [e.resource, e.role])
 @entity("System", "Master")
 export class RulePermissionEntity extends RuleEntity {
     resource: Lite<PermissionSymbol>;
     allowed: boolean = false;
 }
 
-@uniqueIndex((e: RuleQueryEntity) => [e.role, e.resource])
+@uniqueIndex((e: RuleQueryEntity) => [e.resource, e.role])
 @entity("System", "Master")
 export class RuleQueryEntity extends RuleEntity {
     resource: Lite<QueryEntity>;
@@ -137,7 +138,7 @@ export class RuleQueryEntity extends RuleEntity {
 // overrides (Signum's virtual `MList<RuleTypeConditionEntity>`) — each a SET of TypeConditionSymbols
 // (AND-ed) mapped to a TypeAllowed, evaluated last-match-wins. altea models the virtual MList as an owned
 // `@entity("Part")` collection back-referencing the RuleType (like EmployeeEntity_Territory).
-@uniqueIndex((e: RuleTypeEntity) => [e.role, e.resource])
+@uniqueIndex((e: RuleTypeEntity) => [e.resource, e.role])
 @entity("System", "Master")
 export class RuleTypeEntity extends RuleEntity {
     resource: Lite<TypeEntity>;
@@ -267,7 +268,7 @@ export class PermissionRulePack extends ModelEntity {
 // (None → blocked; DBOnly → server-code only, button hidden; Allow → everywhere), now WITH row-level type
 // conditions: `fallback` + ordered `conditionRules` (each an AND-ed set of TypeConditionSymbols → an
 // OperationAllowed), evaluated last-match-wins against the operated entity — exactly like RuleTypeEntity.
-@uniqueIndex((e: RuleOperationEntity) => [e.role, e.operation, e.type])
+@uniqueIndex((e: RuleOperationEntity) => [e.operation, e.type, e.role])
 @entity("System", "Master")
 export class RuleOperationEntity extends RuleEntity {
     operation: Lite<OperationSymbol>;
@@ -376,16 +377,16 @@ export class QueryRulePack extends ModelEntity {
 
 // ---- Property rules (Signum's RulePropertyEntity / PropertyRulePack / PropertyAllowedRule) -----------
 //
-// DIVERGENCE (recommended): altea does NOT persist PropertyRouteEntity. A property rule is keyed directly
-// by (role, rootType, path) — the `path` is the route's PropertyString ("name", "address.city",
-// "[MixinName].field") — dropping the whole PropertyRoute-table subsystem. PropertyAllowed: None (hidden)
-// < Read (read-only) < Write. Now WITH row-level type conditions (`fallback` + ordered `conditionRules`),
-// evaluated last-match-wins against the ROOT entity being serialized — the conditions are the root type's.
-@uniqueIndex((e: RulePropertyEntity) => [e.role, e.rootType, e.path])
+// A property rule's resource is a `PropertyRouteEntity` row, as in Signum — (rootType, path) normalized
+// into `basics.property_route`. (This used to store the pair inline, because altea had no such table; it
+// does now — see altea/data/propertyRouteEntity.ts. The RULE PACK still carries the route as a plain
+// `path` string, which is a wire shape and not a table.) PropertyAllowed: None (hidden) < Read (read-only)
+// < Write. WITH row-level type conditions (`fallback` + ordered `conditionRules`), evaluated
+// last-match-wins against the ROOT entity being serialized — the conditions are the root type's.
+@uniqueIndex((e: RulePropertyEntity) => [e.resource, e.role])
 @entity("System", "Master")
 export class RulePropertyEntity extends RuleEntity {
-    rootType: Lite<TypeEntity>;
-    path: string = "";
+    resource: PropertyRouteEntity;
     fallback: PropertyAllowed = PropertyAllowed.None;
     conditionRules: RulePropertyConditionEntity[];
 }

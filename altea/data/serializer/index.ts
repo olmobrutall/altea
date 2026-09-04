@@ -22,6 +22,8 @@
 
 export { Serializer, setSerializationAuth, hasSerializationAuth, resolveSerializationAuthContext, setTranslatedFieldProvider, serializationAuthMetadata, propertyWriteAccess } from './graphSerializers';
 export type { TranslatedFieldProvider } from './graphSerializers';
+export { registerAfterDeserialization } from './graphSerializers';
+export type { AfterDeserialization } from './graphSerializers';
 export type { SerializationAuth, PropertyAccess } from './graphSerializers';
 // Custom-lite registration lives with Lite itself now (../lite); re-exported here for the
 // codec's public surface, since custom lites are what shape the lite wire format.

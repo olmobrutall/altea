@@ -12,6 +12,10 @@ import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { Entity, type Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
+import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
+import { Connector } from "@altea/altea/server/connection/connector";
+import { SqlPreCommandSimple } from "@altea/altea/server/sync/sqlPreCommand";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { PlainExcelGenerator } from "@altea/altea-office-template/server/excel/PlainExcelGenerator.server";
@@ -76,7 +80,22 @@ export namespace TranslatedInstanceLogic {
 
         PropertyRouteTranslationLogic.start(sb);
 
+        // A translation POINTS at a route row, so this module brings the routes table along (idempotent).
+        PropertyRouteLogic.start(sb);
+
         sb.include(TranslatedInstanceEntity).withQuery();
+
+        // Signum's `EntityEvents<PropertyRouteEntity>().PreDeleteSqlSync`: a route the sync is removing takes
+        // its translations with it, or its DELETE fails on `property_route_id`.
+        sb.schema.entityEvents(PropertyRouteEntity).preDeleteSqlSync.push(property => {
+            const t = sb.schema.tryTable(TranslatedInstanceEntity);
+            const column = t?.fields["propertyRoute"]?.field.columns()[0];
+            if (t == null || column == null)
+                return undefined;
+            const builder = Connector.current().sqlBuilder;
+            return new SqlPreCommandSimple(
+                `DELETE FROM ${builder.objectName(t.name)} WHERE ${builder.sqlEscape(column.name)} = ${property.id};`);
+        });
 
         localizationCache = sb.globalLazy(async () => {
             const all = await table(TranslatedInstanceEntity).toArray();
@@ -84,7 +103,7 @@ export namespace TranslatedInstanceLogic {
             for (const ti of all) {
                 const culture = ti.culture.name;
                 const map = byCulture.get(culture) ?? byCulture.set(culture, new Map()).get(culture)!;
-                map.set(instanceKey(ti.instance, ti.propertyRoute), ti);
+                map.set(instanceKey(ti.instance, ti.propertyRoute.path), ti);
             }
             snapshot = byCulture;
             return byCulture;
@@ -244,7 +263,7 @@ export namespace TranslatedInstanceLogic {
         const typeLite = typeEntityOf(type);
         const result = new Map<InstanceKey, TranslatedInstanceEntity>();
         for (const [key, ti] of forCulture)
-            if (String(ti.rootType.id) === String(typeLite.id))
+            if (String(ti.propertyRoute.rootType.id) === String(typeLite.id))
                 result.set(key, ti);
         return result;
     }
@@ -449,8 +468,7 @@ export namespace TranslatedInstanceLogic {
                     await TranslatedInstanceEntity.create({
                         culture: CultureInfoLogic.getCulture(n.culture),
                         instance: n.instance,
-                        rootType: typeLite.toLite(),
-                        propertyRoute: n.route,
+                        propertyRoute: PropertyRouteLogic.propertyRouteEntitySync(typeLite, n.route),
                         originalText: n.originalText,
                         translatedText: n.translatedText,
                     }).save();
@@ -519,9 +537,9 @@ export namespace TranslatedInstanceLogic {
         const typeLite = typeEntityOf(type);
         const liveKeys = new Set((await masterValues(type)).map(v => instanceKey(v.lite, v.route)));
 
-        const stale = (await table(TranslatedInstanceEntity).filter(a => a.rootType.is(typeLite)).toArray())
-            .filter(ti => !validRoutes.includes(ti.propertyRoute)
-                || !liveKeys.has(instanceKey(ti.instance, ti.propertyRoute)));
+        const stale = (await table(TranslatedInstanceEntity).filter(a => a.propertyRoute.rootType.is(typeLite)).toArray())
+            .filter(ti => !validRoutes.includes(ti.propertyRoute.path)
+                || !liveKeys.has(instanceKey(ti.instance, ti.propertyRoute.path)));
 
         if (stale.length === 0)
             return 0;
@@ -549,7 +567,7 @@ export namespace TranslatedInstanceLogic {
 
         const rows = [...translations.entries()]
             .filter(([key]) => master.has(key))
-            .map(([, ti]) => [ti.instance.key(), ti.propertyRoute, ti.originalText, ti.translatedText])
+            .map(([, ti]) => [ti.instance.key(), ti.propertyRoute.path, ti.originalText, ti.translatedText])
             .sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]));
 
         return {

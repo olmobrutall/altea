@@ -64,7 +64,7 @@ export default function TypeHelpPage(): React.JSX.Element {
 
     // The property rows as a TREE, so an embedded's members collapse under it (Signum's same shape).
     const propertyTree = mlistItemContext(ctx.subCtx(th => th.properties))
-        .map(phCtx => ({ ctx: phCtx, pr: PropertyRoute.parse(Entity.resolveType(cleanName), phCtx.value.propertyRoute) }))
+        .map(phCtx => ({ ctx: phCtx, pr: PropertyRoute.parse(Entity.resolveType(cleanName), phCtx.value.property.path) }))
         .toTree(t => t.pr.propertyString(), t => {
             const parent = t.pr.parent;
             if (parent == null || parent.propertyRouteType === "Root" || parent.propertyRouteType === "Mixin")

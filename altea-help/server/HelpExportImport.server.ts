@@ -2,6 +2,7 @@ import "@altea/altea/server";
 import { unzipSync, zipSync } from "fflate";
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
 import { table } from "@altea/altea/server/table";
+import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
 import { Saver } from "@altea/altea/server/saver";
 import * as Database from "@altea/altea/server/Database";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
@@ -179,7 +180,7 @@ export namespace HelpExportImport {
                     ...(t.description ? { Description: t.description } : {}),
                     ...(props.length === 0 ? {} : {
                         Properties: {
-                            Property: props.map(p => ({ [ATTR + "Name"]: p.propertyRoute, [TEXT]: p.description })),
+                            Property: props.map(p => ({ [ATTR + "Name"]: p.property.path, [TEXT]: p.description })),
                         },
                     }),
                     ...(opers.length === 0 ? {} : {
@@ -210,7 +211,7 @@ export namespace HelpExportImport {
                 // Only routes that STILL exist are kept — Signum's `properties.TryGetC(name)` filter, which
                 // is also what keeps a renamed property from resurrecting as a stray row.
                 const validRoutes = new Set(HelpLogic.publicRoutes(ctor).map(pr => pr.propertyString()));
-                const byRoute = new Map(t.properties.map(p => [p.propertyRoute, p]));
+                const byRoute = new Map(t.properties.map(p => [p.property.path, p]));
                 for (const item of arrayOf(root, "Properties", "Property")) {
                     const name = String(item["Name"] ?? "");
                     if (!validRoutes.has(name))
@@ -220,7 +221,9 @@ export namespace HelpExportImport {
                         existing.description = textOf(item[TEXT]);
                     else
                         t.properties.push(TypeHelpEntity_Property.create({
-                            typeHelp: t, propertyRoute: name, description: textOf(item[TEXT]),
+                            typeHelp: t,
+                            property: PropertyRouteLogic.propertyRouteEntitySync(t.type, name),
+                            description: textOf(item[TEXT]),
                         }));
                 }
 

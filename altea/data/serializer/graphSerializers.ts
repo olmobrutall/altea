@@ -64,6 +64,30 @@ export function setSerializationAuth(auth: SerializationAuth | undefined): void 
 export type TranslatedFieldProvider = (entity: Entity, route: PropertyRoute) => string | null | undefined;
 let _translatedField: TranslatedFieldProvider | undefined;
 export function setTranslatedFieldProvider(fn: TranslatedFieldProvider | undefined): void { _translatedField = fn; }
+
+/**
+ * Signum's `WebEntityJsonConverterFactory.AfterDeserilization.Register<T>(...)`: a per-type callback run on
+ * a NEW (id-less) instance right after its fields are applied, free to mutate it in place.
+ *
+ * Its reason for existing is the DERIVED table: a type whose rows are identified by their CONTENT rather
+ * than by an id — `PropertyRouteEntity` is the case Signum ships — is built fresh by a client editor that
+ * cannot know the row's id, so it arrives looking new and would INSERT a duplicate. The handler recognises
+ * it and points it at the row that already exists (id + not-new + a clean snapshot).
+ *
+ * It runs on the NEW branch only, where Signum runs it for every entity: on an id-carrying payload there is
+ * nothing to resolve, and the other branches deliberately reuse or overlay an existing instance.
+ *
+ * The callback is SYNCHRONOUS, because the codec is. A handler needing database state keeps a sync snapshot
+ * refreshed from its async lazy — the pattern `GlobalsLogic.warmUp` and `CultureInfoLogic` already use.
+ */
+export type AfterDeserialization<T extends Entity> = (entity: T) => void;
+const _afterDeserialization = new Map<Function, AfterDeserialization<never>>();
+export function registerAfterDeserialization<T extends Entity>(ctor: Type<T>, fn: AfterDeserialization<T>): void {
+    _afterDeserialization.set(ctor as unknown as Function, fn as AfterDeserialization<never>);
+}
+function runAfterDeserialization(entity: Entity): void {
+    _afterDeserialization.get(entity.constructor)?.(entity as never);
+}
 /** True once a SerializationAuth is installed — lets the save path decide whether to run the write-gate overlay. */
 export function hasSerializationAuth(): boolean { return _serAuth != null; }
 /**
@@ -368,6 +392,7 @@ class EntitySerializer extends ModifiableSerializer {
             const inst = newInstance(this.ctor as Type<Entity>);
             this.applyFields(inst, j, dc);
             this.recover(inst, slot);
+            runAfterDeserialization(inst);
             return inst;
         }
 

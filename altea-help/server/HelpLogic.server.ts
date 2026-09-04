@@ -16,6 +16,10 @@ import type { Lite } from "@altea/altea/data/lite";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
+import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
+import { SqlPreCommandSimple } from "@altea/altea/server/sync/sqlPreCommand";
+import { Connector } from "@altea/altea/server/connection/connector";
 import { cleanTypeName, getLocation, enumNameOf } from "@altea/altea/data/registration";
 import { isEnumEntityType, getBoundEnum } from "@altea/altea/data/enumEntity";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
@@ -43,8 +47,8 @@ import { InlineImagesLogic } from "./InlineImagesLogic.server";
 // altea divergences:
 //  - **`Namespace` is a PACKAGE + FOLDER** (see data/Help.ts). `allTypes()` groups by it, which is also
 //    what @altea/altea-map's schema map colours by.
-//  - **`PropertyRouteEntity` does not exist**, so `publicRoutes(type)` yields PropertyRoutes and the
-//    stored rows key on `propertyString()`. `ReflectionServer.InTypeScript(pr)` — Signum's "is this route
+//  - `publicRoutes(type)` yields PropertyRoutes and the stored rows point at a PropertyRouteEntity, as in
+//    Signum. `ReflectionServer.InTypeScript(pr)` — Signum's "is this route
 //    visible to the client" gate — has no counterpart: altea ships the whole reflected model, so the
 //    filter is simply "is it a reflected field" (which `generateRoutes` already guarantees).
 //  - **the caches are ResetLazy-of-Map**, Signum's `GlobalLazy<ConcurrentDictionary<CultureInfo, …>>`
@@ -83,6 +87,10 @@ export namespace HelpLogic {
             return;
         started = true;
 
+        // A property's help POINTS at a route row (see data/Help.ts), so this module brings the routes table
+        // along. Idempotent — the CLAUDE.md rule that a module registers what a module owns.
+        PropertyRouteLogic.start(sb);
+
         sb.include(TypeHelpEntity)
             .withUniqueIndex(e => [e.type, e.culture])
             .withSave(TypeHelpOperation.Save, { execute: async t => { await InlineImagesLogic.synchronizeInlineImages(t); } })
@@ -91,8 +99,21 @@ export namespace HelpLogic {
 
         // Signum's `WithUniqueIndexMList(e => e.Properties, mle => new { mle.Parent, mle.Element.Property })`
         // — on the child TABLE here, because a `@part` collection IS a table.
-        sb.include(TypeHelpEntity_Property).withUniqueIndex(e => [e.typeHelp, e.propertyRoute]);
+        sb.include(TypeHelpEntity_Property).withUniqueIndex(e => [e.typeHelp, e.property]);
         sb.include(TypeHelpEntity_Operation).withUniqueIndex(e => [e.typeHelp, e.operation]);
+
+        // Signum's `EntityEvents<PropertyRouteEntity>().PreDeleteSqlSync`: a route the sync is removing takes
+        // the help rows that point at it with it, or its DELETE fails on their foreign key. Signum expresses
+        // it as an `UnsafeDeletePreCommandMList`; here the rows are an ordinary table.
+        sb.schema.entityEvents(PropertyRouteEntity).preDeleteSqlSync.push(property => {
+            const t = sb.schema.tryTable(TypeHelpEntity_Property);
+            const column = t?.fields["property"]?.field.columns()[0];
+            if (t == null || column == null)
+                return undefined;
+            const builder = Connector.current().sqlBuilder;
+            return new SqlPreCommandSimple(
+                `DELETE FROM ${builder.objectName(t.name)} WHERE ${builder.sqlEscape(column.name)} = ${property.id};`);
+        });
 
         sb.include(NamespaceHelpEntity)
             .withUniqueIndex(e => [e.name, e.culture])
@@ -420,7 +441,7 @@ export namespace HelpLogic {
         row: TypeHelpEntity | undefined,
         queries: Map<string, QueryHelp>,
     ): TypeHelp {
-        const storedProps = new Map((row?.properties ?? []).map(p => [p.propertyRoute, p.description]));
+        const storedProps = new Map((row?.properties ?? []).map(p => [p.property.path, p.description]));
         const storedOpers = new Map((row?.operations ?? []).map(o => [o.operation.key, o.description]));
 
         return {
@@ -470,14 +491,15 @@ export namespace HelpLogic {
         // Signum's `GetEntity()` re-materialises EVERY documentable route/operation (not only the stored
         // ones), so the page can offer an editor for each; the ones with no description are dropped again
         // on save (see HelpServer.saveType).
-        const storedProps = new Map(result.properties.map(p => [p.propertyRoute, p]));
+        const storedProps = new Map(result.properties.map(p => [p.property.path, p]));
         result.properties = th.properties
             .filter(ph => ph.propertyRoute.isAllowed() == null)
             .map(ph => {
                 const existing = storedProps.get(ph.propertyRoute.propertyString());
                 const row = existing ?? TypeHelpEntity_Property.create({
                     typeHelp: result,
-                    propertyRoute: ph.propertyRoute.propertyString(),
+                    property: PropertyRouteLogic.propertyRouteEntitySync(
+                        th.type.toTypeEntity(), ph.propertyRoute.propertyString()),
                 });
                 row.info = ph.info;
                 return row;

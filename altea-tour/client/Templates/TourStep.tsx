@@ -1,4 +1,5 @@
 import * as React from "react";
+import type { TypeEntity } from "@altea/altea/data/typeEntity";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EnumLine } from "@altea/altea/client/Lines/EnumLine";
 import { TextBoxLine } from "@altea/altea/client/Lines/TextBoxLine";
@@ -13,14 +14,14 @@ import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import {
     TourStepEntity, CssStepEmbedded, CssStepType, PopoverAlign, PopoverSide, TourMessage, cssStepSelector,
 } from "../../data/Tour";
-import PropertyRouteCombo from "../PropertyRouteCombo";
+import PropertyRouteCombo from "@altea/altea/client/Components/PropertyRouteCombo";
 
 // Port of Signum.Tour's Templates/TourStep.tsx — one step: its title, the CSS steps that AND into its
 // anchor selector, where the popover sits, and its markdown body.
 //
 // altea divergences:
-//  - the "Property" step binds a route STRING through a local `PropertyRouteCombo` (altea has no
-//    PropertyRouteEntity and no framework combo — see ../PropertyRouteCombo).
+//  - the "Property" step binds a `PropertyRouteEntity` through the framework's `PropertyRouteCombo`, which
+//    is where Signum keeps it too (it moved out of this package once the validation designer wanted it).
 //  - the live selector preview calls the SAME `cssStepSelector` the server uses to build the DTO (it lives
 //    in the data layer for exactly this reason), so the preview cannot drift from what the player gets.
 //  - `Finder.getQueryDescription` is gone (altea has no QueryDescription): the user query's own stored
@@ -29,7 +30,7 @@ import PropertyRouteCombo from "../PropertyRouteCombo";
 export default function TourStep(p: {
     ctx: TypeContext<TourStepEntity>;
     invalidate: () => void;
-    rootTypeName?: string | null;
+    rootType?: TypeEntity | null;
     dashboard?: DashboardEntity | null;
     userQuery?: UserQueryEntity | null;
 }): React.JSX.Element {
@@ -55,7 +56,7 @@ export default function TourStep(p: {
             return [CssStepType.TableColumn, CssStepType.CSSSelector, CssStepType.ToolbarContent];
         if (p.dashboard != null)
             return [CssStepType.DashboardPart, CssStepType.CSSSelector, CssStepType.ToolbarContent];
-        if (p.rootTypeName != null)
+        if (p.rootType != null)
             return [CssStepType.Property, CssStepType.CSSSelector, CssStepType.ToolbarContent];
         return [CssStepType.CSSSelector, CssStepType.ToolbarContent];
     }
@@ -138,8 +139,8 @@ export default function TourStep(p: {
                     valueHtmlAttributes={{ className: "font-monospace", placeholder: "#someId div.some-class" }} />;
 
             case CssStepType.Property:
-                return p.rootTypeName == null ? null
-                    : <PropertyRouteCombo ctx={cctx.subCtx(a => a.property)} rootTypeName={p.rootTypeName} onChange={forceUpdate} />;
+                return p.rootType == null ? null
+                    : <PropertyRouteCombo ctx={cctx.subCtx(a => a.property)} type={p.rootType} onChange={forceUpdate} />;
 
             case CssStepType.ToolbarContent:
                 return <EntityLine ctx={cctx.subCtx(a => a.toolbarContent)} onChange={forceUpdate} create={false} />;

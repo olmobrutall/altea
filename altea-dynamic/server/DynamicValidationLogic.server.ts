@@ -11,6 +11,12 @@ import type { FieldInfo, IntegrityCheckEnvironment } from "@altea/altea/data/ref
 import type { Entity } from "@altea/altea/data/entity";
 import { resolveType } from "@altea/altea/data/reflection";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
+import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
+import { SqlPreCommandSimple } from "@altea/altea/server/sync/sqlPreCommand";
+import { TypeEntity } from "@altea/altea/data/typeEntity";
+import type { Schema } from "@altea/altea/server/schema";
+import type { PrimaryKey } from "@altea/altea/data/entity";
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { SafeConsole } from "@altea/altea/server/safeConsole";
 import chalk from "chalk";
@@ -27,15 +33,18 @@ import { DynamicValidationEntity, DynamicValidationOperation } from "../data/Dyn
 // RUNTIME for a type the rule's author does not own.
 //
 // altea divergences:
-//  - **the applicability test is a PropertyRoute prefix**, not Signum's `PropertyRoute.MatchesEntity(mod)`.
-//    altea has no `PropertyRouteEntity`, so `subEntity` is the route STRING, and "does this validation
-//    apply to the field being validated" is "is the field's route inside the stored one".
+//  - **the applicability test is a PropertyRoute prefix**, not Signum's `PropertyRoute.MatchesEntity(mod)`,
+//    which asks whether the modifiable being validated IS the one at the stored route. altea re-roots a
+//    PropertyRoute at each embedded, so the validator is handed a route relative to its own owner rather
+//    than to the root entity — hence "is the field's route inside the stored one".
 //  - `DisabledMixin` is not ported, so the filter reads the entity's own `disabled` field.
 //  - the cache is a plain array refreshed by the schema's `saved` event rather than a `GlobalLazy` with
 //    `InvalidateWith`: altea's `globalLazy` is ASYNC and a validator cannot await, which is the same
 //    reason @altea/altea-globals mirrors its lazy into a sync snapshot.
-//  - Signum's `EntityEvents<TypeEntity>.PreDeleteSqlSync` (sweep the validations of a deleted TypeEntity)
-//    has no counterpart — altea has no such schema event, the gap @altea/altea-view-log documents.
+//  - Signum's `EntityEvents<TypeEntity>.PreDeleteSqlSync` (sweep the validations of a deleted TypeEntity) is
+//    ported, and so is a sibling Signum does NOT have: the same sweep for a deleted PROPERTY ROUTE. Signum
+//    registers one for Tour and Help but not here, so a synchronization that removes a route a validation
+//    points at fails on `sub_entity_id`'s foreign key — a latent bug there, fixed rather than mirrored.
 
 interface CachedValidation {
     validation: DynamicValidationEntity;
@@ -54,6 +63,10 @@ export namespace DynamicValidationLogic {
     export function start(sb: SchemaBuilder): void {
         if (sb.alreadyDefined(start))
             return;
+
+        // A route reference needs the routes table (idempotent — see the CLAUDE.md rule that a module
+        // registers what a module owns).
+        PropertyRouteLogic.start(sb);
 
         sb.include(DynamicValidationEntity)
             .withUniqueIndex(e => [e.name])
@@ -74,6 +87,14 @@ export namespace DynamicValidationLogic {
                     },
                 });
             });
+
+        // Signum's `EntityEvents<TypeEntity>().PreDeleteSqlSync`, plus the PropertyRouteEntity sibling it
+        // lacks (see the header). Either way the validations that named the removed thing go with it.
+        sb.schema.entityEvents(TypeEntity).preDeleteSqlSync.push(type =>
+            deleteValidationsWhere(sb.schema, "entityType", type.id));
+
+        sb.schema.entityEvents(PropertyRouteEntity).preDeleteSqlSync.push(property =>
+            deleteValidationsWhere(sb.schema, "subEntity", property.id));
 
         // Signum's `sb.Schema.Initializing += () => { initialized = true; }` — until the schema is up, a
         // validation cannot be read, and reporting an error from a half-built process would be worse than
@@ -109,9 +130,7 @@ export namespace DynamicValidationLogic {
                 await table(DynamicValidationEntity).toArray() as DynamicValidationEntity[]);
         } catch (e) {
             // A TRAILING schema: the table is there but does not match the model yet — a column renamed,
-            // added or, as when pointing an altea app at a Signum database, shaped differently
-            // (`sub_entity` here is a route STRING where Signum has a `sub_entity_id` FK to
-            // PropertyRouteEntity). This runs from `schema.initializing`, which is precisely what a
+            // added or removed. This runs from `schema.initializing`, which is precisely what a
             // `create` / `sync` runs against such a database — so throwing here kills the very command
             // that would fix it. Report, run with NO dynamic validations, and let the sync proceed.
             cache = [];
@@ -126,9 +145,20 @@ export namespace DynamicValidationLogic {
             .map(v => {
                 const entityType = resolveType(v.entityType.className);
                 return entityType == null ? undefined
-                    : { validation: v, entityType, route: v.subEntity ?? undefined } as CachedValidation;
+                    : { validation: v, entityType, route: v.subEntity?.path ?? undefined } as CachedValidation;
             })
             .filter((c): c is CachedValidation => c != null);
+    }
+
+    /** The DELETE precommand for every validation whose `field` column holds `id`. */
+    function deleteValidationsWhere(schema: Schema, field: string, id: PrimaryKey | null): SqlPreCommandSimple | undefined {
+        const t = schema.tryTable(DynamicValidationEntity);
+        const column = t?.fields[field]?.field.columns()[0];
+        if (t == null || column == null || id == null)
+            return undefined;
+        const builder = Connector.current().sqlBuilder;
+        return new SqlPreCommandSimple(
+            `DELETE FROM ${builder.objectName(t.name)} WHERE ${builder.sqlEscape(column.name)} = ${id};`);
     }
 
     /**

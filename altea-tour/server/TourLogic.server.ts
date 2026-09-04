@@ -1,4 +1,5 @@
 import "@altea/altea/server"; // installs save()/toLite()
+import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import "@altea/altea/server/fluentOperations"; // FluentInclude.withSave / withDelete
 import type { SchemaBuilder } from "@altea/altea/server/schema";
@@ -11,6 +12,9 @@ import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { TourTriggerSymbol } from "@altea/altea/data/tourTrigger";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
+import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
+import { Connector } from "@altea/altea/server/connection/connector";
+import { SqlPreCommandSimple } from "@altea/altea/server/sync/sqlPreCommand";
 import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { DashboardEntity } from "@altea/altea-dashboard/data/Dashboard";
@@ -27,9 +31,8 @@ import { TourXml } from "./TourXml.server";
 //  - **`WithVirtualMList(a => a.Steps, s => s.Tour)` has no counterpart, and needs none**: altea's
 //    `@part` collection IS Signum's virtual MList — `sb.include(TourEntity)` already builds the
 //    TourStepEntity child table off the `@backReference` (and CssStepEmbedded's off that, in turn).
-//  - **the PropertyRouteEntity cascade is gone with the table** (see data/Tour.ts): Signum drops
-//    CssStep rows whose PropertyRouteEntity is being deleted by a synchronization; altea stores the route
-//    as a string, so there is no row to cascade from.
+//  - the PropertyRouteEntity cascade is Signum's, and needs no MList form: it drops the CssStep rows whose
+//    route a synchronization is removing, and here those rows are an ordinary table (see the last bullet).
 //  - `EntityPackTS.AddExtension` → core's `registerEntityPackExtension` (added for this module).
 //  - Signum's dashboard cascades use `Database.MListQuery(...).UnsafeDeleteMList()`; here the CssStep rows
 //    are an ordinary table, so it is `table(CssStepEmbedded).filter(...).executeDelete()`.
@@ -42,12 +45,30 @@ export namespace TourLogic {
         if (sb.alreadyDefined(start))
             return;
 
+        // A route reference needs the routes table (idempotent — see the CLAUDE.md rule that a module
+        // registers what a module owns).
+        PropertyRouteLogic.start(sb);
+
         sb.include(TourEntity)
             .withSave(TourOperation.Save)
             .withDelete(TourOperation.Delete)
             .withQuery();
 
         SymbolLogic.start(sb, TourTriggerSymbol, () => TourTriggerLogic.registeredTourTriggers());
+
+        // Signum's `EntityEvents<PropertyRouteEntity>().PreDeleteSqlSync`: a route the sync is removing takes
+        // the css steps that point at it with it, or the route's DELETE fails on their FK.
+        sb.schema.entityEvents(PropertyRouteEntity).preDeleteSqlSync.push(property => {
+            const cssTable = sb.schema.tryTable(CssStepEmbedded);
+            if (cssTable == null)
+                return undefined;
+            const builder = Connector.current().sqlBuilder;
+            const column = cssTable.fields["property"]?.field.columns()[0];
+            if (column == null)
+                return undefined;
+            return new SqlPreCommandSimple(
+                `DELETE FROM ${builder.objectName(cssTable.name)} WHERE ${builder.sqlEscape(column.name)} = ${property.id};`);
+        });
 
         toursByTrigger = sb.globalLazy(async () => {
             const tours = await table(TourEntity).toArray();

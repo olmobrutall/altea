@@ -3,6 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import type { FieldInfo } from "@altea/altea/data/reflection";
 import { entity, stringLengthValidator, quoted } from "@altea/altea/data/decorators";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
+import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
 import type { ConstructSymbol, From, ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eval";
 
@@ -15,9 +16,10 @@ import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eva
 // the whole thing rides on @altea/altea-eval, which is Signum.Eval's counterpart.
 //
 // altea divergences:
-//  - **`PropertyRouteEntity` does not exist**, so `SubEntity` is the route STRING
-//    (`PropertyRoute.propertyString()`), the key altea-auth's `RulePropertyEntity.path` and
-//    @altea/altea-help already use. That also retires Signum's PropertyRouteEntity delete cascade.
+//  - `SubEntity` is a `PropertyRouteEntity` reference, as in Signum. (It used to be the route STRING,
+//    because altea had no such table; it does now — see altea/data/propertyRouteEntity.ts.) The
+//    APPLICABILITY test is still a route PREFIX rather than Signum's `PropertyRoute.MatchesEntity(mod)` —
+//    see DynamicValidationLogic.
 //  - **`DisabledMixin` is not ported** (the gap @altea/altea-tree documents), so "keep this validation but
 //    stop running it" is a plain `disabled` field. The column keeps Signum's name so a migrated database
 //    reads unchanged.
@@ -44,12 +46,8 @@ export class DynamicValidationEntity extends Entity {
 
     entityType: TypeEntity;
 
-    /**
-     * The route the validation applies to, or null for the entity itself — Signum's `SubEntity`, a
-     * `PropertyRouteEntity` there.
-     */
-    @stringLengthValidator({ max: 400 })
-    subEntity: string | null;
+    /** The route the validation applies to, or null for the entity itself (Signum's `SubEntity`). */
+    subEntity: PropertyRouteEntity | null;
 
     /** Signum's DisabledMixin.IsDisabled — see the header. */
     disabled: boolean = false;
@@ -58,7 +56,7 @@ export class DynamicValidationEntity extends Entity {
 
     @quoted
     override toString(): string {
-        return this.entityType.cleanName + (this.subEntity == null ? "" : " " + this.subEntity) + ": " + this.name;
+        return this.entityType.cleanName + (this.subEntity == null ? "" : " " + this.subEntity.path) + ": " + this.name;
     }
 }
 

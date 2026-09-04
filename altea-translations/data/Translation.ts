@@ -8,6 +8,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
+import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 
 // Port of Signum.Translation's TranslationReplacement.cs + Instances/TranslatedInstance.cs +
@@ -39,11 +40,13 @@ export namespace TranslationPermission {
  * the instance and the route is always rooted at it. The `RowId` column, its PropertyValidation and the
  * `"route;rowId"` composite key all collapse (see core's PropertyRouteTranslationLogic for the full note).
  *
- * The route is stored as (`rootType`, `propertyRoute` = its `propertyString()`), the same shape
- * altea-auth's RulePropertyEntity uses — altea does not persist a PropertyRoute table.
+ * The route is a `PropertyRouteEntity` reference, as in Signum. (It used to be stored as
+ * (`rootType`, `propertyRoute` = its `propertyString()`), because altea had no such table; it does now —
+ * see altea/data/propertyRouteEntity.ts — and the row carries its own root type, so the separate
+ * `rootType` column is gone with it: "every translation of X" joins through the route instead.)
  */
 @reflect
-@uniqueIndex((e: TranslatedInstanceEntity) => [e.culture, e.rootType, e.propertyRoute, e.instance])
+@uniqueIndex((e: TranslatedInstanceEntity) => [e.culture, e.propertyRoute, e.instance])
 @entity("System", "Master")
 export class TranslatedInstanceEntity extends Entity {
 
@@ -53,13 +56,7 @@ export class TranslatedInstanceEntity extends Entity {
     @implementedByAll
     instance: Lite<Entity>;
 
-    /** The route's root type, so "every translation of X" is one indexed lookup. */
-    @index
-    rootType: Lite<TypeEntity>;
-
-    /** The route's `propertyString()` relative to {@link rootType} (e.g. `"name"`, `"address.city"`). */
-    @stringLengthValidator({ max: 400 })
-    propertyRoute: string;
+    propertyRoute: PropertyRouteEntity;
 
     @stringLengthValidator({ multiLine: true })
     translatedText: string;
@@ -72,7 +69,7 @@ export class TranslatedInstanceEntity extends Entity {
     originalText: string;
 
     toString(): string {
-        return `${this.culture?.toString() ?? ""} ${this.instance?.toString() ?? ""} ${this.propertyRoute ?? ""}`;
+        return `${this.culture?.toString() ?? ""} ${this.instance?.toString() ?? ""} ${this.propertyRoute?.toString() ?? ""}`;
     }
 }
 

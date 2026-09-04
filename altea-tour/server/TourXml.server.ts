@@ -1,5 +1,8 @@
 import { table } from "@altea/altea/server/table";
+import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
+import { TypeLogic } from "@altea/altea/server/typeLogic";
+import { TourTriggerLogic } from "@altea/altea/server/tourTriggerLogic";
 import { Enum } from "@altea/altea/data/enum";
 import { toInt } from "@altea/altea/data/basics";
 import { Lite } from "@altea/altea/data/lite";
@@ -21,9 +24,10 @@ import {
 // altea divergences:
 //  - **`Guid` is the row's uuid PK** (see data/Tour.ts), so the `Guid` attribute the importer keys on is
 //    written from `id` and read back into it by the shared importer, not by this file.
-//  - **`Property` is a route STRING**, not a `PropertyRouteEntity` reference — Signum resolves the trigger
-//    to a TypeEntity and calls `ctx.GetPropertyRoute(typeEntity, path)`; here the path IS the value, so
-//    both directions are a plain copy. (Which also means a Signum file imports unchanged.)
+//  - `Property` is written as the route's PATH and resolved back through
+//    `PropertyRouteLogic.propertyRouteEntitySync` — the sync form of Signum's
+//    `ctx.GetPropertyRoute(typeEntity, path)`, since `fromXml` cannot await. Same file format either way,
+//    so a Signum file imports unchanged.
 //  - a `ToolbarContent` pointing at a PermissionSymbol is not supported: altea's `CssStepEmbedded`
 //    declares `@implementedBy(QueryEntity)` only, matching what the tour editor can actually pick.
 
@@ -91,7 +95,7 @@ async function cssStepToXml(cs: CssStepEmbedded, ctx: IToXmlContext): Promise<Re
     const o: Record<string, unknown> = {};
     o[A + "Type"] = Enum.toName(CssStepType, cs.type);
     if (cs.cssSelector != null) o[A + "CssSelector"] = cs.cssSelector;
-    if (cs.property != null) o[A + "Property"] = cs.property;
+    if (cs.property != null) o[A + "Property"] = cs.property.path;
     if (cs.toolbarContent != null) o[A + "ToolbarContent"] = await toolbarContentToXml(cs.toolbarContent, ctx);
     if (cs.dashboardPart != null) o[A + "DashboardPart"] = cs.dashboardPart;
     if (cs.tableColumn != null) o[A + "TableColumn"] = cs.tableColumn;
@@ -107,6 +111,11 @@ async function toolbarContentToXml(lite: Lite<Entity>, ctx: IToXmlContext): Prom
 
 function fromXml(tour: TourEntity, xml: Record<string, unknown>, ctx: IFromXmlContext): void {
     tour.trigger = triggerFromXml(String(xml[A + "Trigger"]), ctx);
+
+    // Signum's same ladder inside `CssStepEmbedded.FromXml`: a "Property" step's route is rooted at the
+    // trigger's type — given directly by a Lite<TypeEntity> trigger, or by the type a TourTriggerSymbol is
+    // registered for. Any other trigger (a dashboard, a user query) offers no property steps, hence null.
+    const rootType = triggerRootType(tour.trigger);
     tour.showProgress = xml[A + "ShowProgress"] === true || xml[A + "ShowProgress"] === "true";
     tour.animate = xml[A + "Animate"] == null || xml[A + "Animate"] === true || xml[A + "Animate"] === "true";
     tour.showCloseButton = xml[A + "ShowCloseButton"] == null || xml[A + "ShowCloseButton"] === true || xml[A + "ShowCloseButton"] === "true";
@@ -119,17 +128,31 @@ function fromXml(tour: TourEntity, xml: Record<string, unknown>, ctx: IFromXmlCo
         s.align = sx[A + "Align"] == null ? null : Enum.toValue(PopoverAlign, String(sx[A + "Align"]) as never);
         s.click = sx[A + "Click"] == null ? null : Enum.toValue(ClickTrigger, String(sx[A + "Click"]) as never);
         s.description = String(sx["Description"] ?? "");
-        s.cssSteps = asArray(sx["CssStep"]).map((cx, j) => cssStepFromXml(cx, j, ctx));
+        s.cssSteps = asArray(sx["CssStep"]).map((cx, j) => cssStepFromXml(cx, j, ctx, rootType));
         return s;
     });
 }
 
-function cssStepFromXml(cx: Record<string, unknown>, order: number, ctx: IFromXmlContext): CssStepEmbedded {
+function triggerRootType(trigger: Lite<Entity>): TypeEntity | null {
+    if (trigger.entityType === TypeEntity)
+        return TypeLogic.idToEntity(trigger.id!) ?? null;
+
+    if (trigger.entityType === TourTriggerSymbol) {
+        const symbol = SymbolLogic.tryToSymbol(TourTriggerSymbol, trigger.toString());
+        const ctor = symbol == null ? undefined : TourTriggerLogic.getTriggerType(symbol);
+        return ctor == undefined ? null : ctor.toTypeEntity();
+    }
+
+    return null;
+}
+
+function cssStepFromXml(cx: Record<string, unknown>, order: number, ctx: IFromXmlContext, rootType: TypeEntity | null): CssStepEmbedded {
     const cs = new CssStepEmbedded();
     cs.order = toInt(order);
     cs.type = Enum.toValue(CssStepType, String(cx[A + "Type"]) as never);
     cs.cssSelector = cx[A + "CssSelector"] == null ? null : String(cx[A + "CssSelector"]);
-    cs.property = cx[A + "Property"] == null ? null : String(cx[A + "Property"]);
+    cs.property = cx[A + "Property"] == null || rootType == null ? null
+        : PropertyRouteLogic.propertyRouteEntitySync(rootType, String(cx[A + "Property"]));
     cs.dashboardPart = cx[A + "DashboardPart"] == null ? null : String(cx[A + "DashboardPart"]);
     cs.tableColumn = cx[A + "TableColumn"] == null ? null : String(cx[A + "TableColumn"]);
 

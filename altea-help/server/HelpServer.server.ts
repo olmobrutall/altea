@@ -220,8 +220,8 @@ export namespace HelpServer {
             if (!entity.isNew) {
                 const stored = await ExecutionMode.global(() => Database.retrieve(TypeHelpEntity, entity.id!));
 
-                const visibleRoutes = new Set(entity.properties.map(p => p.propertyRoute));
-                for (const hidden of stored.properties.filter(p => !visibleRoutes.has(p.propertyRoute))) {
+                const visibleRoutes = new Set(entity.properties.map(p => p.property.path));
+                for (const hidden of stored.properties.filter(p => !visibleRoutes.has(p.property.path))) {
                     hidden.typeHelp = entity;
                     entity.properties.push(hidden);
                 }

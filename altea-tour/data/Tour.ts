@@ -11,6 +11,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
+import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
 import { TourTriggerSymbol } from "@altea/altea/data/tourTrigger";
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { DashboardEntity } from "@altea/altea-dashboard/data/Dashboard";
@@ -31,10 +32,10 @@ import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 //    which IS altea's `@part` collection — and `CssSteps` (a real MList of embeddeds) becomes `@part`
 //    rows too, keeping Signum's `CssStepEmbedded` NAME, "Embedded" suffix included, exactly as the AD
 //    configurations did.
-//  - **`PropertyRouteEntity` does not exist in altea** (see altea-auth's RulePropertyEntity: a property is
-//    keyed by its route STRING, not by a row in a routes table). So a "Property" CSS step stores the
-//    route's `propertyString()` in `property` — which is also what the selector needs — and the whole
-//    `PreDeleteSqlSync` cascade Signum hangs off PropertyRouteEntity disappears with the table.
+//  - **a "Property" CSS step points at a `PropertyRouteEntity` row**, as in Signum. This used to store the
+//    route STRING, because altea had no such table; it does now (see altea/data/propertyRouteEntity.ts), so
+//    the column is Signum's `property_id` again and the `PreDeleteSqlSync` cascade that drops a step whose
+//    route was removed is back in TourLogic.
 //  - **the Property selector uses the route's LAST SEGMENT.** altea re-roots the PropertyRoute at each
 //    embedded it renders, so a Line's `data-property-path` is its OWN member ("city"), not Signum's full
 //    dotted route ("shipAddress.city") — the same divergence altea-playwright documents. `cssSelector()`
@@ -143,10 +144,8 @@ export class CssStepEmbedded extends Entity {
     @stringLengthValidator({ max: 200 })
     cssSelector: string | null;
 
-    /** A PropertyRoute's `propertyString()` — altea has no PropertyRouteEntity (see the header). */
     @fieldValidation<CssStepEmbedded>(a => isSetOnlyWhen(a.property, a.type == CssStepType.Property, "property"))
-    @stringLengthValidator({ max: 400 })
-    property: string | null;
+    property: PropertyRouteEntity | null;
 
     @fieldValidation<CssStepEmbedded>(a => isSetOnlyWhen(a.toolbarContent, a.type == CssStepType.ToolbarContent, "toolbarContent"))
     @implementedBy(() => [QueryEntity])
@@ -194,7 +193,7 @@ export function cssStepSelector(s: CssStepEmbedded, toolbarContentKey: (lite: Li
             return s.cssSelector;
         // The LAST segment, not the whole route — altea's Lines render their own member (see the header).
         case CssStepType.Property:
-            return s.property == null ? null : `[data-property-path='${lastSegment(s.property)}']`;
+            return s.property == null ? null : `[data-property-path='${lastSegment(s.property.path)}']`;
         case CssStepType.ToolbarContent:
             return s.toolbarContent == null ? null : `[data-toolbar-content='${toolbarContentKey(s.toolbarContent)}']`;
         case CssStepType.DashboardPart:

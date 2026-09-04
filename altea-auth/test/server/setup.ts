@@ -11,6 +11,8 @@ import { toInt } from "@altea/altea/data/basics";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { OperationSymbol } from "@altea/altea/data/operations";
+import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
 import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { TypeAuthLogic } from "@altea/altea-auth/server/TypeAuthLogic";
 import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
@@ -137,17 +139,21 @@ async function seed(): Promise<void> {
 
     const typeId = TypeLogic.typeToId(SampleEntity);
     const typeLite = TypeEntity.newLite(typeId, cleanTypeName(SampleEntity));
+    // A property rule points at a route ROW, so seed the two the rules below name.
+    const secretRoute = await PropertyRouteLogic.toPropertyRouteEntity(PropertyRoute.parse(SampleEntity, "secret"));
+    if (secretRoute.isNew)
+        await secretRoute.save();
     const saveOp = OperationSymbol.newLite(SampleOperation.Save.id, SampleOperation.Save.key);
     const publicSym = TypeConditionSymbol.newLite(SampleTypeCondition.Public.id, SampleTypeCondition.Public.key);
 
     // Sales: single-dimension rules on Sample.
     await RuleTypeEntity.create({ role: sales.toLite(), resource: typeLite, fallback: TypeAllowed.Read, conditionRules: [] }).save();
-    await RulePropertyEntity.create({ role: sales.toLite(), rootType: typeLite, path: "secret", fallback: PropertyAllowed.None, conditionRules: [] }).save();
+    await RulePropertyEntity.create({ role: sales.toLite(), resource: secretRoute, fallback: PropertyAllowed.None, conditionRules: [] }).save();
     await RuleOperationEntity.create({ role: sales.toLite(), operation: saveOp, type: typeLite, fallback: OperationAllowed.Allow, conditionRules: [] }).save();
 
     // Manager: overrides the type (Write) + secret (Read); NO Save rule → inherits Sales' Allow.
     await RuleTypeEntity.create({ role: manager.toLite(), resource: typeLite, fallback: TypeAllowed.Write, conditionRules: [] }).save();
-    await RulePropertyEntity.create({ role: manager.toLite(), rootType: typeLite, path: "secret", fallback: PropertyAllowed.Read, conditionRules: [] }).save();
+    await RulePropertyEntity.create({ role: manager.toLite(), resource: secretRoute, fallback: PropertyAllowed.Read, conditionRules: [] }).save();
 
     // Restricted: row-level — fallback None, but [Public] → Read.
     await RuleTypeEntity.create({

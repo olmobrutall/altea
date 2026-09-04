@@ -72,7 +72,7 @@ export function HelpIcon(p: { ctx: TypeContext<unknown>; typeHelp?: TypeHelpEnti
     if (typeHelp == null || rootType == null || cleanTypeName(rootType) !== typeHelp.type.cleanName)
         return null;
 
-    const prop = typeHelp.properties.find(a => a.propertyRoute === pr.propertyString());
+    const prop = typeHelp.properties.find(a => a.property.path === pr.propertyString());
     if (!prop?.description)
         return null;
 

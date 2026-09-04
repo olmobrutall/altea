@@ -10,6 +10,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { OperationSymbol } from "@altea/altea/data/operations";
+import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
@@ -28,12 +29,11 @@ import type { OmniboxResult, OmniboxMatch } from "@altea/altea-omnibox/data/Omni
 //
 // ---- altea divergences in the model ----------------------------------------------------------------
 //
-//  - **`PropertyRouteEntity` does not exist in altea**, so a property's help is keyed by the route STRING
-//    (`propertyRoute`, a `propertyString()` like `"shipAddress.city"`) — the same key altea-auth's
-//    `RulePropertyEntity.path` uses, and the same one the client's PropertyRoute parses back. Signum's
-//    `PreDeleteSqlSync` cascade from PropertyRouteEntity goes with the table; a route that no longer
-//    exists is dropped by the SYNCHRONIZER instead (HelpLogic.synchronize), which is where Signum also
-//    prunes renamed ones.
+//  - a property's help points at a `PropertyRouteEntity` row, as in Signum. (It used to hold the route
+//    STRING, because altea had no such table; it does now — see altea/data/propertyRouteEntity.ts.) So
+//    Signum's `PreDeleteSqlSync` cascade from PropertyRouteEntity is back in HelpLogic, ALONGSIDE the
+//    synchronizer pass that prunes renamed routes — the routes table's own sync repairs a renamed PATH in
+//    place, so the two do not overlap.
 //  - **`NamespaceHelpEntity.name` holds a PACKAGE + FOLDER**, not a C# namespace — `"@altea/altea-auth/data"`,
 //    `"eastwind/orders"`. That is the same grouping string @altea/altea-map's schema map colours by (read
 //    off the transformer's `__fileInfo` through `getLocation`), so the two features agree on what a
@@ -160,9 +160,8 @@ export class TypeHelpEntity_Property extends Entity {
 
     @rowOrder order: int;
 
-    /** The route's `propertyString()` — altea has no PropertyRouteEntity (see the header). */
-    @stringLengthValidator({ max: 300 })
-    propertyRoute: string;
+    /** Signum's `Property`. */
+    property: PropertyRouteEntity;
 
     @column(false)
     info: string | null = null;
@@ -171,7 +170,7 @@ export class TypeHelpEntity_Property extends Entity {
     description: string | null = null;
 
     toString(): string {
-        return this.propertyRoute ?? "";
+        return this.property?.toString() ?? "";
     }
 }
 
