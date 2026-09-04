@@ -20,7 +20,11 @@ export namespace AuthTestStarter {
     export async function connectorFromEnv(schema: Schema, connStr: string): Promise<Connector> {
         if (connStr.startsWith("postgres")) {
             const { PostgresConnector } = await import("@altea/altea/server/connection/postgresConnector");
-            return new PostgresConnector(schema, connStr);
+            const connector = new PostgresConnector(schema, connStr);
+            // Before the schema is built: it decides a generated GUID key's default generator
+            // (guidKeyDefault). Signum does it in the connector's constructor, which altea cannot.
+            await connector.detectServerCapabilities();
+            return connector;
         }
         const { SqlServerConnector } = await import("@altea/altea/server/connection/sqlServerConnector");
         return new SqlServerConnector(schema, connStr);

@@ -52,6 +52,11 @@ export function start(): Promise<Connector> {
         const sb = new SchemaBuilder();
         const connector = await connectorFor(sb.schema, process.env.ALTEA_ISOLATION_TEST_DB!);
         Connector.default = connector;
+        // Signum detects the server version in its connector's CONSTRUCTOR; altea has no synchronous
+        // database access, so it is an explicit step here — and it must run BEFORE the schema is built,
+        // because that is where a generated GUID key's default generator is decided (guidKeyDefault).
+        await connector.detectServerCapabilities();
+
         sb.settings.isPostgres = connector.isPostgres;
 
         IsolationLogic.start(sb);

@@ -44,6 +44,7 @@ import type { ResetLazy } from '../../data/resetLazy';
 import { TypeLogic } from '../typeLogic';
 import type { WebBuilder } from '../webApi';
 import { GlobalLazy, GlobalLazyManager } from '../globalLazy';
+import { Connector } from '../connection/connector';
 
 // Entity base fields handled specially (id, ticks) or excluded from the schema.
 const RESERVED_FIELDS = new Set(['id', 'ticks', 'isNew', '_snapshot']);
@@ -193,6 +194,31 @@ function cleanNameOfDeclaredType(fi: FieldInfo): string | undefined {
 
 function makeGetter(name: string): (entity: any) => unknown {
     return (entity: any) => entity[name];
+}
+
+/**
+ * The DB-side generator a GUID primary key defaults to — Signum's `PrimaryKeyAttribute.IdentityBehaviour`
+ * setter (which assigns `NEWID()` / `uuidv7()`) plus the fallback in `DbTypeAttribute.GetDefault`.
+ *
+ * PostgreSQL takes **`uuidv7()`**, native from 18 and TIME-ORDERED: a v7 key carries its timestamp in the
+ * high bits, so inserts land at the end of the index instead of scattering across it the way a random v4
+ * key does. Where the server is older there is no `uuidv7()`, so it falls back to Signum's previous
+ * default, `uuid_generate_v1()` — also time-ordered, but from the uuid-ossp EXTENSION, which is why it is
+ * not the first choice. An UNKNOWN server version reads as modern, exactly as Signum's
+ * `PostgresVersion == null || Major >= 18` does.
+ *
+ * SQL Server keeps Signum's `NEWID()`; `NEWSEQUENTIALID()` is its time-ordered generator and altea offers
+ * it through the `uuid7` key type, which Signum has no counterpart for.
+ *
+ * NOTE this reads the AMBIENT connector, so it depends on the connector existing before the schema is
+ * built — which it does, every host sets `Connector.default` first. With no connector at all (an offline
+ * schema build in a test) it answers as modern for the same reason an unknown version does.
+ */
+export function guidKeyDefault(isPostgres: boolean, pkType: PrimaryKeyType | undefined): string {
+    if (!isPostgres)
+        return pkType === 'uuid7' ? 'NEWSEQUENTIALID()' : 'NEWID()';
+
+    return Connector.default?.supportsUuidV7 !== false ? 'uuidv7()' : 'uuid_generate_v1()';
 }
 
 // Width of the enum table's `name` column. Signum declares it as `[ToStringColumn(Name = "Name",
@@ -536,22 +562,12 @@ export class SchemaBuilder {
         // integer keys only — GUID keys are never IDENTITY (it is invalid DDL),
         // and enum tables carry externally-supplied ids (also non-identity).
         // IdentityBehaviour (the DB generates the key) is on by default; for a
-        // GUID key that means a DB-side default generator rather than IDENTITY:
-        // gen_random_uuid() on Postgres, NEWID()/NEWSEQUENTIALID() (uuid7) on SQL
-        // Server. The default key type is int.
+        // GUID key that means a DB-side default GENERATOR rather than IDENTITY —
+        // see guidKeyDefault. The default key type is int.
         const isGuid = pkType === 'uuid' || pkType === 'uuid7';
         const pkColumn = new PrimaryKeyColumn(this.idiomatic('ID'), pkDbType, /* identity */ !isGuid && !isExternalId);
         if (isGuid)
-            pkColumn.default = this.settings.isPostgres
-                // Signum emits `uuid_generate_v1()` (PrimaryKeyAttribute.Postgres_UuidGenerateV1), which needs
-                // the uuid-ossp EXTENSION; `gen_random_uuid()` is built in from PostgreSQL 13 and needs
-                // nothing, so it is what altea generates for its own databases. In LEGACY MODE — pointed at a
-                // Signum database — emit Signum's, or every uuid-PK table would show a `SET DEFAULT` on every
-                // sync forever AND running the two side by side would have altea rewrite the defaults out from
-                // under the Signum app. Both mean "the database generates the key"; v1 is time-ordered, which
-                // is also why the SQL Server side offers NEWSEQUENTIALID as `uuid7`.
-                ? (this.settings.legacyMode ? 'uuid_generate_v1()' : 'gen_random_uuid()')
-                : (pkType === 'uuid7' ? 'NEWSEQUENTIALID()' : 'NEWID()');
+            pkColumn.default = guidKeyDefault(this.settings.isPostgres, pkType);
         const pk = new FieldPrimaryKey(pkColumn);
         table.primaryKey = pk;
         table.fields['id'] = new EntityField(idInfo, pk, makeGetter('id'));

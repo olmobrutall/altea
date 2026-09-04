@@ -6,6 +6,7 @@ import type { Schema } from "../schema/schema";
 import type { TableIndex } from "../schema/tableIndex";
 import { FullTextTableIndex, VectorTableIndex } from "../schema/tableIndex";
 import { AbstractDbType } from "../schema/dbType";
+import { guidKeyDefault } from "../schema/schemaBuilder";
 import { DiffColumn, DiffTable, DiffIndex, DiffIndexColumn, SysTableTemporalType } from "./diffModels";
 import { SqlBuilder, DefaultConstraint } from "./sqlBuilder";
 import { SqlPreCommand, SqlPreCommandSimple, SqlPreCommandWithHistory, Spacing } from "./sqlPreCommand";
@@ -688,7 +689,10 @@ function defaultValueFor(dbType: AbstractDbType, isPostgres: boolean): string {
     if (dbType.isNumber()) return "0";
     if (dbType.isString()) return "''";
     if (dbType.isDate()) return isPostgres ? "now()" : "GetDate()";
-    if (dbType.isGuid()) return isPostgres ? "gen_random_uuid()" : "NEWID()";
+    // The same generator a GUID key defaults to (Signum routes this branch through `SupportsUuidV7` too),
+    // so backfilling an existing table's new guid column does not need a second, different generator —
+    // and does not need the uuid-ossp extension on a server that has `uuidv7()`.
+    if (dbType.isGuid()) return guidKeyDefault(isPostgres, undefined);
     if (dbType.isTime()) return "'00:00'";
     return "?";
 }

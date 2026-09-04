@@ -127,6 +127,42 @@ export class PostgresConnector extends Connector {
         super(schema, /* isPostgres */ true, /* maxNameLength */ 63);
     }
 
+    /**
+     * The server's major version, once {@link detectServerCapabilities} has run — Signum's
+     * `PostgreSqlConnector.PostgresVersion`, narrowed to the part anything actually branches on.
+     */
+    serverVersion: { major: number } | undefined;
+
+    /**
+     * Signum's `PostgresVersionDetector.Detect`: `SHOW server_version`, tolerant of failure.
+     *
+     * altea diverges on WHEN, because it must: Signum detects synchronously in the connector's constructor,
+     * and altea has no synchronous database access — so this is an async step the host runs right after
+     * constructing the connector and BEFORE the schema is built, which is the point at which a generated
+     * GUID key's default is decided (see SchemaBuilder). Leaving it uncalled is safe: an unknown version
+     * means "assume modern", which is Signum's own answer for a null version.
+     */
+    override async detectServerCapabilities(): Promise<void> {
+        try {
+            const rows = await this.executeQuery("SHOW server_version") as { server_version: string }[];
+            const raw = rows[0]?.server_version;
+            const major = raw == undefined ? undefined : Number.parseInt(raw, 10);
+            if (major != undefined && Number.isInteger(major))
+                this.serverVersion = { major };
+        } catch {
+            // Undetectable — leave it unknown, which reads as modern.
+        }
+    }
+
+    /**
+     * `uuidv7()` is NATIVE from PostgreSQL 18; before that the time-ordered generator is
+     * `uuid_generate_v1()` from the uuid-ossp extension. Unknown ⇒ modern, as in Signum
+     * (`PostgresVersion == null || PostgresVersion.Major >= 18`).
+     */
+    override get supportsUuidV7(): boolean {
+        return this.serverVersion == undefined || this.serverVersion.major >= 18;
+    }
+
     private getPool(): Pool {
         const base = typeof this.config === 'string' ? { connectionString: this.config } : this.config;
         return (this.pool ??= new Pool({ ...base, types: ALTEA_PG_TYPES as PoolConfig['types'] }));

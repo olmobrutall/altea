@@ -129,6 +129,34 @@ export abstract class Connector {
         return this.isPostgres;
     }
 
+    /**
+     * Whether the database can generate a version-7 (time-ordered) uuid itself — Signum's
+     * `Connector.SupportsUuidV7`. It decides what a generated GUID primary key defaults to: `uuidv7()`
+     * where this is true, `uuid_generate_v1()` (the uuid-ossp extension) where it is not.
+     *
+     * FALSE here, which is the SQL Server answer — it has its own generators (`NEWID()` /
+     * `NEWSEQUENTIALID()`) and no `uuidv7()`, exactly as Signum's SqlServerConnector says. PostgresConnector
+     * overrides it with a server-version check.
+     */
+    get supportsUuidV7(): boolean {
+        return false;
+    }
+
+    /**
+     * Probe whatever this connector needs to know about the SERVER before a schema is built off it — today
+     * just the PostgreSQL version behind {@link supportsUuidV7}.
+     *
+     * Signum does this in its connector's CONSTRUCTOR (`PostgresVersionDetector.Detect`, a synchronous
+     * query); altea has no synchronous database access, so it is an explicit async step a host runs right
+     * after constructing the connector. A no-op here, so a caller never needs to know which dialect it has,
+     * and never has to statically import a connector it may not be using.
+     *
+     * Skipping it is safe — an unprobed capability answers the way an unknown server version does in Signum
+     * (as modern) — so it is only worth calling where DDL is generated.
+     */
+    async detectServerCapabilities(): Promise<void> {
+    }
+
     // ---- Ambient access -----------------------------------------------------
 
     static default: Connector | undefined;
