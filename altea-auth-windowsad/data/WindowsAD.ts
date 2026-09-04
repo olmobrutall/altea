@@ -1,7 +1,8 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
-import { entity, backReference } from "@altea/altea/data/decorators";
+import { entity, backReference, implementedBy } from "@altea/altea/data/decorators";
 import { noRepeatValidator } from "@altea/altea/data/validators";
 import type { Lite } from "@altea/altea/data/lite";
+import { Entity } from "@altea/altea/data/entity";
 import { stringLengthValidator, format } from "@altea/altea/data/decorators";
 import { fieldValidation } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
@@ -20,7 +21,7 @@ import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 //    Nothing about the entity changes; the capability does.
 
 @reflect
-@entity("Part", "Master")
+@reflect
 export class WindowsADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     /**
      * Sign in with the browser's own Windows credentials (SPNEGO / Kerberos), no password typed.
@@ -94,7 +95,10 @@ export class WindowsADConfigurationEmbedded extends BaseADConfigurationEmbedded 
 // Signum's RoleMappingEmbedded rows for this configuration (see BaseAD's RoleMappingEmbedded).
 @entity("Part", "Master")
 export class WindowsADConfigurationEmbedded_RoleMapping extends RoleMappingEmbedded {
-    @backReference configuration: Lite<WindowsADConfigurationEmbedded>;
+    // The rows belong to the ENTITY holding this configuration — the application's settings row, which a
+    // framework package must not name. The app widens this in its EntityOverrides (see BaseAD's header);
+    // SchemaBuilder verifies it resolves to exactly one owner.
+    @backReference @implementedBy(() => []) configuration: Lite<Entity>;
 }
 
 function hasText(s: string | null | undefined): boolean {

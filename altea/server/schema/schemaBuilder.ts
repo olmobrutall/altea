@@ -176,7 +176,7 @@ function mlistRowOwner(type: Type<Entity>): { owner: Type<Entity>; members: stri
     if (backReference == null)
         return undefined;
 
-    const owner = backReference.getFunction();
+    const owner = backReferenceOwner(backReference);
     if (!isEntityCtor(owner))
         return undefined;
 
@@ -216,6 +216,25 @@ function collectionRoute(ownerInfo: TypeInfo, type: Type<Entity>, seen: Set<unkn
             return [name, ...inner];
     }
     return undefined;
+}
+
+/**
+ * The entity a `@backReference` points at — normally the field's own declared type.
+ *
+ * A back reference may instead be declared `@implementedBy(() => [])` and widened by the application
+ * (`overrideImplementedBy`), which is what a row type in a FRAMEWORK package needs when its owner is an
+ * APP entity it must not name — the accommodation `ChangeLogViewLogEntity.user` already uses. It then
+ * resolves to the single implementation: a `@part` row is one TABLE keyed by ONE back reference, so two
+ * owners is not a shape it can have (and zero means the app forgot to widen it). Either way
+ * `validateEntityArray` is what reports the mistake, with the route.
+ */
+function backReferenceOwner(fi: FieldInfo): unknown {
+    if (fi.implementations == null)
+        return fi.getFunction();
+    if (fi.implementations.kind !== 'implementedBy')
+        return undefined;
+    const types = fi.implementations.types();
+    return types.length === 1 ? types[0] : undefined;
 }
 
 /** The clean name of the type a field is DECLARED as (`Lite<Entity>` → "Entity"), for the one rule that
@@ -802,11 +821,26 @@ export class SchemaBuilder {
                 const typeColumn = new ImplementedByAllTypeColumn(this.idiomatic(preName.add(`${this.columnName(fi)}ID_Type`).toString()), typeTable);
                 return new FieldImplementedByAll(idColumns, typeColumn, isLite);
             }
-            const columns = fi.implementations.types().map(implType => {
+            // LEGACY MODE: an MList row's back reference is Signum's `ParentID` — one column, whatever the
+            // owner is (GenerateBackReferenceName), because in Signum an MList table has no polymorphic
+            // parent at all. So the `_<Impl>` suffix that disambiguates the several columns of an ordinary
+            // @implementedBy has nothing to disambiguate here, and there must be exactly one implementation
+            // to name: a @part row is one table keyed by one back reference.
+            const legacyParent = fi.isBackReference && this.legacyMListColumnBase(table, fi, undefined) != null;
+            const implTypes = fi.implementations.types();
+            if (legacyParent && implTypes.length !== 1)
+                throw new Error(`@backReference '${fi.name}' on ${rawTypeName(table.type)}: a collection row's back reference must resolve to exactly ONE implementation (found ${implTypes.length}) — it is the row's single owner. ${implTypes.length === 0 ? "Widen it from the application with overrideImplementedBy(...)." : ""}`);
+            // A @backReference resolves to exactly one implementation (validateEntityArray enforces it),
+            // so its single column carries the field's own nullability rather than the polymorphic
+            // default — Signum's ParentID is NOT NULL.
+            const implNullable = fi.isBackReference && implTypes.length === 1 ? nullable : IsNullable.Yes;
+            const columns = implTypes.map(implType => {
                 const refTable = this.include(implType, inherited).table;
                 const legacyBase = this.legacyMListColumnBase(table, fi, undefined);
-                const colName = this.idiomatic(preName.add(`${legacyBase ?? this.columnName(fi)}ID_${cleanTypeName(implType)}`).toString());
-                return new ImplementationColumn(colName, refTable, isLite);
+                const colName = legacyParent
+                    ? this.idiomatic(preName.add(`${legacyBase}ID`).toString())
+                    : this.idiomatic(preName.add(`${legacyBase ?? this.columnName(fi)}ID_${cleanTypeName(implType)}`).toString());
+                return new ImplementationColumn(colName, refTable, isLite, implNullable);
             });
             return new FieldImplementedBy(columns, isLite);
         }
@@ -942,9 +976,20 @@ export class SchemaBuilder {
         if (childFk == null)
             throw new Error(`@backReference '${route}' on ${rawTypeName(parentTable.type)}: child ${rawTypeName(field.childType)} has no property '${field.childFkProperty}'.`);
 
+        // The back reference is normally a plain reference; it may also be an @implementedBy the
+        // application widened (see backReferenceOwner), in which case there must be exactly ONE
+        // implementation and it must be this owner — a @part row is one table keyed by one back reference.
         const cf = childFk.field;
-        if (!(cf instanceof FieldReference) || cf.column.referenceTable !== parentTable)
-            throw new Error(`@backReference '${route}' on ${rawTypeName(parentTable.type)}: child property '${field.childFkProperty}' must be a reference back to ${rawTypeName(parentTable.type)}` + (route.includes(".") ? " — a collection inside an embedded belongs to the entity that holds the embedded, so the @backReference must name that entity." : "."));
+        const points = cf instanceof FieldReference ? cf.column.referenceTable === parentTable
+            : cf instanceof FieldImplementedBy ? cf.implementationColumns.length === 1
+                && cf.implementationColumns[0].referenceTable === parentTable
+            : false;
+        if (!points) {
+            const found = cf instanceof FieldImplementedBy
+                ? ` It resolves to ${cf.implementationColumns.length === 0 ? "no implementation — widen it from the application with overrideImplementedBy(...)" : cf.implementationColumns.map(c => rawTypeName(c.referenceTable!.type)).join(" / ")}.`
+                : "";
+            throw new Error(`@backReference '${route}' on ${rawTypeName(parentTable.type)}: child property '${field.childFkProperty}' must be a reference back to ${rawTypeName(parentTable.type)}` + (route.includes(".") ? " — a collection inside an embedded belongs to the entity that holds the embedded, so the @backReference must name that entity." : ".") + found);
+        }
     }
 
     // Resolves a field's referenced entity/embedded constructor via the transformer-emitted

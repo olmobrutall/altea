@@ -1,7 +1,8 @@
 import { reflect, init } from "@altea/altea/data/reflection";
-import { Entity } from "@altea/altea/data/entity";
+import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
+import type { int } from "@altea/altea/data/basics";
 import { Lite } from "@altea/altea/data/lite";
-import { stringLengthValidator } from "@altea/altea/data/decorators";
+import { stringLengthValidator, rowOrder } from "@altea/altea/data/decorators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { RoleEntity } from "./Role";
 import { PermissionSymbol } from "./Rules";
@@ -17,28 +18,24 @@ import { PermissionSymbol } from "./Rules";
 // needs the mapping semantics therefore depends on altea-auth alone.
 //
 // altea divergences, documented inline:
-//  - the configuration is a `@part` ENTITY, not an embedded, and this is now a LIMIT rather than a rule:
-//    altea supports a collection declared inside an embedded (see CLAUDE.md's MList bullet), so the reason
-//    this once could not be one is gone. What still blocks the conversion is WHOSE row the collection's
-//    rows are: an embedded is flattened onto its owner, so `roleMapping`'s row type would have to
-//    `@backReference` the entity that HOLDS the configuration — which is the APPLICATION's settings row
-//    (eastwind's `ApplicationConfigurationEntity`, Southwind's same), and a framework package must not
-//    name an app type. Converting therefore needs one more decision: either the row type declares the
-//    EMBEDDED it belongs to and SchemaBuilder resolves that to the holding entity, or the back reference
-//    becomes an `@implementedBy(() => [])` the app widens (the `ChangeLogViewLogEntity.user`
-//    accommodation). Until then this stays an entity with a table of its own, which is what makes the
-//    three `*_role_mapping` tables — and the three configuration tables — diverge from Signum, where the
-//    whole configuration is flattened onto `application_configuration`. (altea-email's
-//    `SmtpNetworkDeliveryEmbedded` carries the same reshaping, and IS convertible: its owner
-//    `SmtpEmailServiceEntity` is in the same package.) The Signum NAMES are kept, suffix included, so the
-//    two stay comparable. An application persists it by REFERENCING it from its own configuration
-//    entity — eastwind's `ApplicationConfigurationEntity.azureAD`, mirroring Southwind.
+//  - the configuration IS an embedded, as in Signum — flattened onto the application's settings row, so
+//    there is no `azure_ad_configuration_embedded` table and the columns are `azure_ad_*` on
+//    `application_configuration`. It used to be a `@part` entity because `MList<RoleMappingEmbedded>
+//    RoleMapping` is a COLLECTION and altea could not declare one inside an embedded; it can now.
+//  - what a collection inside an embedded DOES need is an owner it can point at, and an embedded is not
+//    one (flattened, so no id, no `toLite()`) — the rows belong to the ENTITY holding the configuration,
+//    which is the APPLICATION's settings row (eastwind's `ApplicationConfigurationEntity`, Southwind's
+//    same). A framework package must not name an app type, so each module's row declares
+//    `@backReference @implementedBy(() => [])` and the application widens it in its EntityOverrides —
+//    the accommodation `ChangeLogViewLogEntity.user` already uses. SchemaBuilder verifies it resolves to
+//    exactly ONE owner, and in legacy mode names that column Signum's `ParentID`.
 //  - the ROW TYPE is declared per module, not here: a `@part` collection is keyed by ONE back reference to
-//    its owner's table, so a shared row type would make the three directories read each other's rows. Hence
+//    its owner's table, so a shared row type would make the three directories read each other's rows —
+//    all three now hang off the SAME application row, which is exactly the case that would collide. Hence
 //    the abstract `RoleMappingEmbedded` below plus one concrete row per module, and `roleMappings()` — the
 //    accessor the shared ADAuthorizer reads, since the base cannot name the subclass's row type.
-//  - `[PreserveOrder]` is not modelled (`@rowOrder` would be an extra column for an order nothing reads);
-//    the rows' natural order IS the order.
+//  - `[PreserveOrder]` IS modelled (`@rowOrder`), because Signum declares it and the column is part of
+//    the table a Signum database already has.
 //  - Signum's `PropertyValidation` override becomes per-field `@fieldValidation` in each SUBCLASS (altea
 //    has no entity-level validation hook), so nothing to override here.
 
@@ -50,6 +47,10 @@ import { PermissionSymbol } from "./Rules";
  */
 @reflect
 export abstract class RoleMappingEmbedded extends Entity {
+    /** Signum's `[PreserveOrder]` on the MList — the row's index in the collection. */
+    @rowOrder
+    order: int;
+
     /** The directory group's display name OR its GUID/objectGUID — whichever the directory reports. */
     @stringLengthValidator({ max: 100 })
     adNameOrGuid: string;
@@ -70,7 +71,7 @@ export abstract class RoleMappingEmbedded extends Entity {
  * connection settings on top.
  */
 @reflect
-export abstract class BaseADConfigurationEmbedded extends Entity {
+export abstract class BaseADConfigurationEmbedded extends EmbeddedEntity {
     /** Match a directory "user@domain" against a local `userName` of just "user" (and against `email`). */
     allowMatchUsersBySimpleUserName: boolean = true;
 

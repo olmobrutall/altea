@@ -4,8 +4,9 @@ import "@altea/altea/data/globals";
 import { reflect } from "@altea/altea/data/reflection"; // anchor for the transformer's @field injection
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, backReference, valueField, rowOrder } from "@altea/altea/data/decorators";
+import { entity, backReference, valueField, rowOrder, implementedBy, overrideImplementedBy } from "@altea/altea/data/decorators";
 import { SchemaBuilder } from "@altea/altea/server/schema";
+import { IsNullable } from "@altea/altea/server/schema/dbType";
 import { wireOwnedChildren } from "@altea/altea/server/saver";
 
 // A COLLECTION DECLARED INSIDE AN EMBEDDED — Signum's `MList<T>` on an `EmbeddedEntity`
@@ -93,6 +94,31 @@ class EcBad_Tag extends Entity {
     owner: Lite<EcTag>;
 }
 
+// The CROSS-PACKAGE shape: a row type declared where the owning entity cannot be named (a framework
+// package whose owner is an application entity), so its back reference is an empty @implementedBy the
+// application widens with overrideImplementedBy. This is how the three directory configurations reach
+// eastwind's ApplicationConfigurationEntity.
+@entity("Main", "Master")
+class EcAppOwner extends Entity {
+    settings: EcAppSettings | null;
+}
+
+@reflect
+class EcAppSettings extends EmbeddedEntity {
+    tags: EcApp_Tag[];
+}
+
+@entity("Part")
+class EcApp_Tag extends Entity {
+    @backReference @implementedBy(() => []) owner: Lite<Entity>;
+
+    @valueField
+    tag: Lite<EcTag>;
+}
+
+// What the application's EntityOverrides does.
+overrideImplementedBy<any>(EcApp_Tag as any, "owner", () => [EcAppOwner as any]);
+
 function build(configure?: (sb: SchemaBuilder) => void): SchemaBuilder {
     const sb = new SchemaBuilder();
     configure?.(sb);
@@ -167,6 +193,28 @@ describe("collections inside embeddeds", () => {
         const rows = owner.settings!.tags;
         assert.deepEqual(rows.map(r => r.order), [0, 1]);
         assert.ok(rows.every(r => (r.owner as any) === owner), "pointed at the entity, not the embedded");
+    });
+
+    // Option the application picks when the row type cannot name its owner.
+    test("a back reference may be an @implementedBy the application widened", () => {
+        const sb = build();
+        sb.include(EcAppOwner as any);
+        sb.complete();
+        const child = sb.include(EcApp_Tag as any).table;
+        const cols = child.fields["owner"].field.columns();
+        assert.equal(cols.length, 1, "one implementation, one column");
+        assert.equal(cols[0].referenceTable!.type, EcAppOwner as any);
+        // A polymorphic column is normally nullable (only one of several is filled); a back reference
+        // resolves to exactly one, so it carries the field's own nullability — Signum's ParentID is NOT NULL.
+        assert.equal(cols[0].nullable, IsNullable.No);
+    });
+
+    test("legacy mode names that same column ParentID", () => {
+        const sb = build(sb => { sb.settings.isPostgres = true; sb.settings.legacyMode = true; });
+        sb.include(EcAppOwner as any);
+        const cols = Object.keys(sb.include(EcApp_Tag as any).table.columns);
+        assert.ok(cols.includes("parent_id"), cols.join(", "));
+        assert.ok(!cols.some(c => c.startsWith("owner_id")), cols.join(", "));
     });
 
     test("legacy mode treats it as an MLIST table: no Ticks, and a ParentID back reference", () => {

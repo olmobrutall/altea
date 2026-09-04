@@ -67,6 +67,7 @@ import { Lite, getCustomLiteConstructor, getCustomLiteConstructorFor } from "../
 import type { CustomLiteClass } from "../../../data/lite";
 import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, TsVectorType, VectorType, RuntimeType } from "../../runtimeTypes";
 import { PostgresTsVectorColumn } from "../../schema/column";
+import type { IColumn } from "../../schema/column";
 import { ExpressionVisitor } from "./ExpressionVisitor";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 
@@ -737,16 +738,30 @@ export class QueryBinder extends ExpressionVisitor {
         rowsOf: (childBackId: ColumnExpression) => Expression,
         commands: CommandExpression[],
     ): void {
-        for (const ef of Object.values(table.fields)) {
-            if (!(ef.field instanceof FieldEntityArray) || !ef.field.cascade)
-                continue;
-            const childTable = this.schema.table(ef.field.childType as any);
-            const backField = childTable.fields[ef.field.childFkProperty]?.field;
-            if (!(backField instanceof FieldReference))
+        // Every owned collection of this table: its own fields, its MIXINS' (which live in table.mixins,
+        // so the flat loop never saw them) and those declared inside an EMBEDDED — flattened onto this
+        // same row, so their rows belong to this entity and go with it.
+        const owned: FieldEntityArray[] = [];
+        const collect = (fields: { [name: string]: EntityField }): void => {
+            for (const ef of Object.values(fields)) {
+                if (ef.field instanceof FieldEntityArray) {
+                    if (ef.field.cascade) owned.push(ef.field);
+                } else if (ef.field instanceof FieldEmbedded)
+                    collect(ef.field.embeddedFields);
+            }
+        };
+        collect(table.fields);
+        for (const mixin of Object.values(table.mixins))
+            collect(mixin.fields);
+
+        for (const field of owned) {
+            const childTable = this.schema.table(field.childType as any);
+            const backColumn = backReferenceColumn(childTable, field.childFkProperty);
+            if (backColumn == null)
                 continue;
 
             const childAlias = this.aliasGenerator.table(childTable.name);
-            const backId = new ColumnExpression(LiteralType.number, childAlias, backField.column.name);
+            const backId = new ColumnExpression(LiteralType.number, childAlias, backColumn.name);
             const childWhere = rowsOf(backId);
 
             // Deeper rows first: `<grandchild>.backId IN (SELECT c.id FROM child AS c WHERE <c matches
@@ -755,7 +770,7 @@ export class QueryBinder extends ExpressionVisitor {
             // delete target, not as an `AS`), so the predicate is rebuilt against it.
             this.cascadeOwnedDeletes(childTable, source, grandChildBackId => {
                 const subAlias = this.aliasGenerator.nextTableAlias(childTable.name.name);
-                const subBackId = new ColumnExpression(LiteralType.number, subAlias, backField.column.name);
+                const subBackId = new ColumnExpression(LiteralType.number, subAlias, backColumn.name);
                 const subId = new ColumnExpression(LiteralType.number, subAlias, childTable.primaryKey.column.name);
                 const select = new SelectExpression(this.aliasGenerator.nextSelectAlias(),
                     false, undefined, [new ColumnDeclaration("id", subId)],
@@ -3273,6 +3288,12 @@ export class QueryBinder extends ExpressionVisitor {
         // The back-reference FK is usually a Lite<Owner>; unwrap to its reference.
         if (fkBinding instanceof LiteReferenceExpression)
             fkBinding = fkBinding.reference;
+        // It may also be declared @implementedBy and widened by the application — the accommodation a row
+        // type in a framework package needs when its owner is an app entity (see
+        // SchemaBuilder.backReferenceOwner). It resolves to exactly ONE implementation, so that
+        // implementation's id column IS the correlation key.
+        if (fkBinding instanceof ImplementedByExpression && fkBinding.implementations.size === 1)
+            fkBinding = [...fkBinding.implementations.values()][0];
         if (!(fkBinding instanceof EntityExpression))
             throw new Error(`Collection FK '${fea.fkProperty}' did not bind to a reference on ${fea.childTable.name.name}`);
 
@@ -3755,4 +3776,19 @@ export class QueryBinder extends ExpressionVisitor {
             default: return LiteralType.null; // enum/etc. — refined later
         }
     }
+}
+
+/**
+ * The single COLUMN a `@part` row's back reference occupies, whichever way it is declared: an ordinary
+ * reference, or an `@implementedBy` the application widened — the accommodation a row type in a framework
+ * package needs when its owner is an app entity (see SchemaBuilder.backReferenceOwner). A back reference
+ * always resolves to exactly one owner (validateEntityArray enforces it), so there is exactly one column.
+ */
+function backReferenceColumn(childTable: Table, fkProperty: string): IColumn | undefined {
+    const field = childTable.fields[fkProperty]?.field;
+    if (field instanceof FieldReference)
+        return field.column;
+    if (field instanceof FieldImplementedBy && field.implementationColumns.length === 1)
+        return field.implementationColumns[0];
+    return undefined;
 }

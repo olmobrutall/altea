@@ -111,11 +111,16 @@ export class ImplementationColumn extends ColumnBase {
         name: string,
         referenceTable: Table,
         public readonly isLite: boolean,
+        // Normally omitted, and the column is then NULLABLE: a polymorphic field owns one column per
+        // implementation and at most one of them is populated. A field that resolves to a SINGLE
+        // implementation owns just the one column, so it can carry the field's own nullability — which is
+        // what makes a @backReference declared @implementedBy (and widened by the app) come out NOT NULL,
+        // as Signum's ParentID is.
+        nullable: IsNullable = IsNullable.Yes,
     ) {
         super(name, referenceTable.primaryKey.column.dbType);
         this.referenceTable = referenceTable;
-        // Always nullable: at most one implementation column is populated.
-        this.nullable = IsNullable.Yes;
+        this.nullable = nullable;
     }
 }
 

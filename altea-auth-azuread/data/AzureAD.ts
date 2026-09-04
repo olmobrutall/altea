@@ -1,7 +1,8 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
-import { entity, backReference } from "@altea/altea/data/decorators";
+import { entity, backReference, implementedBy } from "@altea/altea/data/decorators";
 import { noRepeatValidator } from "@altea/altea/data/validators";
 import type { Lite } from "@altea/altea/data/lite";
+import { Entity } from "@altea/altea/data/entity";
 import { niceName, stringLengthValidator } from "@altea/altea/data/decorators";
 import { fieldValidation } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
@@ -35,7 +36,7 @@ export enum AzureADType {
 }
 
 @reflect
-@entity("Part", "Master")
+@reflect
 export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     enabled: boolean = false;
 
@@ -171,7 +172,10 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
 // Signum's RoleMappingEmbedded rows for this configuration (see BaseAD's RoleMappingEmbedded).
 @entity("Part", "Master")
 export class AzureADConfigurationEmbedded_RoleMapping extends RoleMappingEmbedded {
-    @backReference configuration: Lite<AzureADConfigurationEmbedded>;
+    // The rows belong to the ENTITY holding this configuration — the application's settings row, which a
+    // framework package must not name. The app widens this in its EntityOverrides (see BaseAD's header);
+    // SchemaBuilder verifies it resolves to exactly one owner.
+    @backReference @implementedBy(() => []) configuration: Lite<Entity>;
 }
 
 /**

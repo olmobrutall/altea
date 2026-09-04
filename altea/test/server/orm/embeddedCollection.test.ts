@@ -99,6 +99,27 @@ describe("EmbeddedCollectionTest", { skip: !hasDb }, () => {
         assert.equal(orphan, 0, "the embedded's rows went with it");
     });
 
+    // Deleting the owner takes the rows with it. The cascade walks the schema's field map, and an
+    // embedded's collection is only reachable one member deeper — a flat walk left the rows behind,
+    // then failed on their foreign key.
+    txTest("Deleting the owner deletes the rows its embedded held", async () => {
+        const ga = await table(GrammyAwardEntity).first();
+
+        const c = ConfigEntity.create({
+            embeddedConfig: EmbeddedConfigEmbedded.create({
+                defaultLabel: null,
+                awards: [ConfigEntity_Award.create({ award: ga.toLite() })],
+            }),
+        });
+        await c.save();
+        const rowId = c.embeddedConfig!.awards[0].id;
+
+        await table(ConfigEntity).filter(x => x.id == c.id).executeDelete();
+
+        assert.equal(await table(ConfigEntity).count(x => x.id == c.id), 0);
+        assert.equal(await table(ConfigEntity_Award).count(r => r.id == rowId), 0, "the rows went with it");
+    });
+
     // The collection correlates on the OWNER's id, so it is navigable in SQL like any other.
     txTest("The collection is queryable through the embedded", async () => {
         const counts = await table(ConfigEntity)

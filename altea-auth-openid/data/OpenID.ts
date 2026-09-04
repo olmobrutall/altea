@@ -1,7 +1,8 @@
 import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
-import { entity, backReference } from "@altea/altea/data/decorators";
+import { entity, backReference, implementedBy } from "@altea/altea/data/decorators";
 import { noRepeatValidator } from "@altea/altea/data/validators";
 import type { Lite } from "@altea/altea/data/lite";
+import { Entity } from "@altea/altea/data/entity";
 import { stringLengthValidator } from "@altea/altea/data/decorators";
 import { urlValidator, ValidationMessage } from "@altea/altea/data/validators";
 import { fieldValidation } from "@altea/altea/data/decorators";
@@ -21,7 +22,7 @@ import { BaseADConfigurationEmbedded, RoleMappingEmbedded } from "@altea/altea-a
 //    fields and both the server and the config DTO need them.
 
 @reflect
-@entity("Part", "Master")
+@reflect
 export class OpenIDConfigurationEmbedded extends BaseADConfigurationEmbedded {
     enabled: boolean = false;
 
@@ -82,7 +83,10 @@ export class OpenIDConfigurationEmbedded extends BaseADConfigurationEmbedded {
 // Signum's RoleMappingEmbedded rows for this configuration (see BaseAD's RoleMappingEmbedded).
 @entity("Part", "Master")
 export class OpenIDConfigurationEmbedded_RoleMapping extends RoleMappingEmbedded {
-    @backReference configuration: Lite<OpenIDConfigurationEmbedded>;
+    // The rows belong to the ENTITY holding this configuration — the application's settings row, which a
+    // framework package must not name. The app widens this in its EntityOverrides (see BaseAD's header);
+    // SchemaBuilder verifies it resolves to exactly one owner.
+    @backReference @implementedBy(() => []) configuration: Lite<Entity>;
 }
 
 function hasText(s: string | null | undefined): boolean {
