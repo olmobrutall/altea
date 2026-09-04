@@ -9,7 +9,6 @@ import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import type { IUserEntity } from "@altea/altea/data/security";
-import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import { ExceptionEntity } from "@altea/altea/data/exception";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserEntity } from "@altea/altea-auth/data/User";
@@ -21,7 +20,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 // altea divergences, documented inline:
 //  - `DateTime` → `Temporal.PlainDateTime` (server-local wall clock, as in the scheduler port);
 //    `decimal? Progress` → `Decimal | null` (altea's decimal.js class).
-//  - `ElementInfo` (unbounded in Signum) → `BigStringEmbedded`, like ExceptionEntity's stackTrace. `Status`
+//  - `ElementInfo` is a plain nullable string, as Signum declares it. `Status`
 //    does NOT: the runner rewrites it on every progress tick with a SET-BASED update (it must not go through
 //    the save pipeline — see ExecutingProcess.progressChanged), and a set-based update of a field inside an
 //    embedded is not something altea expresses. It is a sized column here, which is what a one-line progress
@@ -153,7 +152,7 @@ export class ProcessEntity extends Entity {
 @entity("System", "Transactional")
 export class ProcessExceptionLineEntity extends Entity {
 
-    elementInfo: BigStringEmbedded = new BigStringEmbedded();
+    elementInfo: string | null;
 
     /** The line (usually a PackageLine) that failed. */
     @implementedByAll

@@ -12,7 +12,6 @@ import type { Type } from "@altea/altea/data/entity";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { UserWithClaims, type IUserEntity } from "@altea/altea/data/security";
-import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import {
     ScheduledTaskEntity, ScheduledTaskLogEntity, SchedulerTaskExceptionLineEntity,
     type ITaskEntity,
@@ -289,10 +288,8 @@ export namespace ScheduleTaskRunner {
         }
     }
 
-    function remarksOf(ctx: ScheduledTaskContext): BigStringEmbedded {
-        const remarks = new BigStringEmbedded();
-        remarks.text = ctx.text() === "" ? null : ctx.text();
-        return remarks;
+    function remarksOf(ctx: ScheduledTaskContext): string | null {
+        return ctx.text() === "" ? null : ctx.text();
     }
 
     // Persisting an ExceptionEntity is a WRITE, so it needs a transaction of its own — these callbacks run
@@ -390,7 +387,7 @@ export class ScheduledTaskContext {
                             exception: exception.toLite(),
                             schedulerTaskLog: this.log.toLite(),
                         });
-                        line.elementInfo.text = elementId(item);
+                        line.elementInfo = elementId(item);
                         await line.save();
                     });
                 });

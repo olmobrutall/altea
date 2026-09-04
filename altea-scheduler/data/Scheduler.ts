@@ -12,7 +12,6 @@ import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import type { IUserEntity } from "@altea/altea/data/security";
-import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import { ExceptionEntity } from "@altea/altea/data/exception";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserEntity } from "@altea/altea-auth/data/User";
@@ -332,8 +331,9 @@ export class ScheduledTaskLogEntity extends Entity {
     exception: Lite<ExceptionEntity> | null = null;
 
     /** What the task wrote as it ran (ScheduledTaskContext.stringBuilder). Unbounded, so — like
-     *  ExceptionEntity's stackTrace — a BigStringEmbedded rather than a sized column. */
-    remarks: BigStringEmbedded = new BigStringEmbedded();
+     *  Signum's `[StringLengthValidator(MultiLine = true)]` — unbounded, so no max here either. */
+    @stringLengthValidator({ multiLine: true })
+    remarks: string | null;
 
     /** Signum's `DurationExpression` / `Duration` property. altea divergence: NOT `@quoted`, so it is an
      *  in-memory helper rather than a queryable column — the quote-transformer emits a runtime type
@@ -359,9 +359,9 @@ export class ScheduledTaskLogEntity extends Entity {
 @reflect
 @entity("System", "Transactional")
 export class SchedulerTaskExceptionLineEntity extends Entity {
-    // Signum's [DbType(Size = int.MaxValue)] string becomes altea's BigStringEmbedded: an unbounded text
+    // Signum's [DbType(Size = int.MaxValue)] string — unbounded here too, so a plain string
     // column behind a non-null embedded whose text is nullable.
-    elementInfo: BigStringEmbedded = new BigStringEmbedded();
+    elementInfo: string | null;
 
     schedulerTaskLog: Lite<ScheduledTaskLogEntity> | null = null;
 

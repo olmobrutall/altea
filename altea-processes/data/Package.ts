@@ -4,7 +4,6 @@ import { Lite } from "@altea/altea/data/lite";
 import { entity, implementedByAll, stringLengthValidator, ticksColumn } from "@altea/altea/data/decorators";
 import { Temporal } from "@altea/altea/data/basics";
 import { OperationSymbol } from "@altea/altea/data/operations";
-import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import { Serializer } from "@altea/altea/data/serializer";
 import { ProcessAlgorithmSymbol, type IProcessDataEntity } from "./Processes";
 
@@ -34,7 +33,8 @@ export class PackageEntity extends Entity implements IProcessDataEntity {
      *  by `setOperationArgs` / `getOperationArgs` below. */
     operationArguments: Uint8Array | null = null;
 
-    configString: BigStringEmbedded = new BigStringEmbedded();
+    @stringLengthValidator({ max: 1000, multiLine: true })
+    configString: string | null;
 
     // NO `lines` collection, exactly as in Signum: a package can hold hundreds of thousands of lines, so the
     // LINE points at the package (`PackageLineEntity.package`) and is queried from there. An owned array

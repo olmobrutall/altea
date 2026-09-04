@@ -549,7 +549,7 @@ export class ExecutingProcess {
                             line: lineOf?.(item) ?? null,
                             process: this.currentProcess.toLite(),
                         });
-                        line.elementInfo.text = elementInfo(item);
+                        line.elementInfo = elementInfo(item);
                         await line.save();
                     });
                 });
