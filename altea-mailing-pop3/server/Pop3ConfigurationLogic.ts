@@ -16,10 +16,10 @@ import {
     EmailReceptionConfigurationEntity, EmailReceptionEntity, EmailReceptionExceptionEntity,
     EmailReceptionMixin, CompareInbox,
 } from "@altea/altea-email/data/EmailReception";
-import { EmailLogic } from "@altea/altea-email/server/EmailLogic.server";
-import { EmailReceptionLogic } from "@altea/altea-email/server/EmailReceptionLogic.server";
-import { EmailSenderConfigurationLogic } from "@altea/altea-email/server/EmailSenderConfigurationLogic.server";
-import type { ScheduledTaskContext } from "@altea/altea-scheduler/server/ScheduleTaskRunner.server";
+import { EmailLogic } from "@altea/altea-email/server/EmailLogic";
+import { EmailReceptionLogic } from "@altea/altea-email/server/EmailReceptionLogic";
+import { EmailSenderConfigurationLogic } from "@altea/altea-email/server/EmailSenderConfigurationLogic";
+import type { ScheduledTaskContext } from "@altea/altea-scheduler/server/ScheduleTaskRunner";
 import { Pop3EmailReceptionServiceEntity } from "../data/MailingPop3";
 import { Pop3Client, type IPop3Client, type MessageUid } from "./Pop3Client";
 import { toEmailMessage } from "./MimeToEmailMessage";

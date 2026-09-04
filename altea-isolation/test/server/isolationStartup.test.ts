@@ -12,7 +12,7 @@ import { entity, quoted, stringLengthValidator } from "@altea/altea/data/decorat
 import { OperationLogic } from "@altea/altea/server/operationLogic";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { Isolation, IsolationEntity, IsolationOperation } from "../../data/Isolation";
-import { IsolationLogic } from "../../server/IsolationLogic.server";
+import { IsolationLogic } from "../../server/IsolationLogic";
 import { CatalogEntity, ProjectEntity, TagEntity } from "../data/tenancy";
 
 // `assertIsolationStrategies` is the module's safety net, and it needs NO database: it compares the built

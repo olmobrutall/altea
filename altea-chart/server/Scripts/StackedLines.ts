@@ -5,7 +5,7 @@ import {
     EnumValueList, Scala, NumberInterval, StringValue, SpecialParameter,
 } from "../../data/ChartScriptParameter";
 import { ChartColumnMessage, ChartParameter, ChartParameterGroupMessage } from "../../data/ChartMessage";
-import { ChartScriptLogic } from "../ChartScriptLogic.server";
+import { ChartScriptLogic } from "../ChartScriptLogic";
 
 // Copy-and-fix of Signum.Chart/Scripts/StackedLines.cs (see Bars.ts for the initializer note).
 // Faithful divergence: Signum names the color group `ChartParameter.ColorCategory` (a ChartParameter, not a

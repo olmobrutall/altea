@@ -5,7 +5,7 @@ import { Transaction } from "@altea/altea/server/connection/transaction";
 import { toLong } from "@altea/altea/data/basics";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { MicrosoftGraph } from "@altea/altea-auth-azuread/server/MicrosoftGraph";
-import { mimeType } from "@altea/altea-files/server/FileTypeAlgorithm.server";
+import { mimeType } from "@altea/altea-files/server/FileTypeAlgorithm";
 import {
     RemoteAttachmentEmbedded, RemoteEmailFolderModel, RemoteEmailMessageModel,
 } from "../data/RemoteEmailMessage";

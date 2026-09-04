@@ -1,6 +1,6 @@
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import { EmailLogic } from "@altea/altea-email/server/EmailLogic.server";
-import { EmailSenderConfigurationLogic } from "@altea/altea-email/server/EmailSenderConfigurationLogic.server";
+import { EmailLogic } from "@altea/altea-email/server/EmailLogic";
+import { EmailSenderConfigurationLogic } from "@altea/altea-email/server/EmailSenderConfigurationLogic";
 import { EmailSenderConfigurationEntity } from "@altea/altea-email/data/EmailSenderConfiguration";
 import { getTypeInfo } from "@altea/altea/data/reflection";
 import { ExchangeWebServiceEmailServiceEntity } from "../data/MailingExchangeWS";

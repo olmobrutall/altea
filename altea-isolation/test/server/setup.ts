@@ -8,7 +8,7 @@ import { SchemaBuilder } from "@altea/altea/server/schema";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import type { Lite } from "@altea/altea/data/lite";
 import { Isolation, IsolationEntity } from "../../data/Isolation";
-import { IsolationLogic } from "../../server/IsolationLogic.server";
+import { IsolationLogic } from "../../server/IsolationLogic";
 import { CatalogEntity, ProjectEntity, TagEntity } from "../data/tenancy";
 
 // Shared bootstrap for the isolation suite (the altea-isolation analogue of altea-cache's

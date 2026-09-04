@@ -5,7 +5,7 @@ import {
     EnumValueList, Scala, NumberInterval, StringValue, SpecialParameter,
 } from "../../data/ChartScriptParameter";
 import { ChartColumnMessage, ChartParameter, ChartParameterGroupMessage } from "../../data/ChartMessage";
-import { ChartScriptLogic } from "../ChartScriptLogic.server";
+import { ChartScriptLogic } from "../ChartScriptLogic";
 
 // Copy-and-fix of Signum.Chart/Scripts/Columns.cs (see Bars.ts for the object-/collection-initializer note).
 export class ColumnsChartScript extends ChartScript {

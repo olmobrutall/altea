@@ -1,8 +1,8 @@
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { getTypeInfo } from "@altea/altea/data/reflection";
 import { EmailSenderConfigurationEntity } from "@altea/altea-email/data/EmailSenderConfiguration";
-import { EmailLogic } from "@altea/altea-email/server/EmailLogic.server";
-import { EmailSenderConfigurationLogic } from "@altea/altea-email/server/EmailSenderConfigurationLogic.server";
+import { EmailLogic } from "@altea/altea-email/server/EmailLogic";
+import { EmailSenderConfigurationLogic } from "@altea/altea-email/server/EmailSenderConfigurationLogic";
 import { MicrosoftGraphEmailServiceEntity } from "../data/MailingMicrosoftGraph";
 import { MicrosoftGraphSender } from "./MicrosoftGraphSender";
 

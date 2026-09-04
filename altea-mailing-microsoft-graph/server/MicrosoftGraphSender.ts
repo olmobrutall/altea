@@ -1,15 +1,15 @@
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
-import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbeddedLogic.server";
-import { mimeType } from "@altea/altea-files/server/FileTypeAlgorithm.server";
+import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbeddedLogic";
+import { mimeType } from "@altea/altea-files/server/FileTypeAlgorithm";
 import type { EmailMessageEntity } from "@altea/altea-email/data/EmailMessage";
 import { EmailAttachmentType } from "@altea/altea-email/data/EmailTemplate";
 import {
     EmailRecipientKind, type EmailAddressEmbedded, type EmailRecipientBaseEntity,
 } from "@altea/altea-email/data/Email";
 import type { EmailSenderConfigurationEntity } from "@altea/altea-email/data/EmailSenderConfiguration";
-import { EmailLogic } from "@altea/altea-email/server/EmailLogic.server";
-import { EmailSenderBase } from "@altea/altea-email/server/EmailSenderBase.server";
-import { EmailSenderConfigurationLogic } from "@altea/altea-email/server/EmailSenderConfigurationLogic.server";
+import { EmailLogic } from "@altea/altea-email/server/EmailLogic";
+import { EmailSenderBase } from "@altea/altea-email/server/EmailSenderBase";
+import { EmailSenderConfigurationLogic } from "@altea/altea-email/server/EmailSenderConfigurationLogic";
 import { AzureADConfigurationEmbedded } from "@altea/altea-auth-azuread/data/AzureAD";
 import { AzureADLogic } from "@altea/altea-auth-azuread/server/AzureADLogic";
 import { MicrosoftGraph } from "@altea/altea-auth-azuread/server/MicrosoftGraph";

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import type { Lite } from "@altea/altea/data/lite";
 import "@altea/altea/server/context.node";
 import { Isolation, IsolationEntity, IsolationMixin } from "../../data/Isolation";
-import { IsolationLogic } from "../../server/IsolationLogic.server";
+import { IsolationLogic } from "../../server/IsolationLogic";
 import { CatalogEntity, ProjectEntity, TagEntity } from "../data/tenancy";
 
 // The ambient current-isolation and the strategy table, with NO database: they are pure in-memory logic, and

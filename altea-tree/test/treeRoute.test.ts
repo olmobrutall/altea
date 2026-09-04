@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { TreeRoute } from "../server/TreeRoute.server";
+import { TreeRoute } from "../server/TreeRoute";
 
 // The route arithmetic is where this port replaces a database TYPE (SQL Server's hierarchyid) with code,
 // so it is the one part that carries its own suite. Needs no database: TreeRoute is pure.

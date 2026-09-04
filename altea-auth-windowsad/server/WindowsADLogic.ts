@@ -8,7 +8,7 @@ import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { UserEntity, UserOperation, UserState } from "@altea/altea-auth/data/User";
 import { ActiveDirectoryPermission } from "@altea/altea-auth/data/BaseAD";
 import type { ExternalUser } from "@altea/altea-auth/server/ADAuthorizer";
-import { SimpleTaskLogic } from "@altea/altea-scheduler/server/SimpleTaskLogic.server";
+import { SimpleTaskLogic } from "@altea/altea-scheduler/server/SimpleTaskLogic";
 import { WindowsADConfigurationEmbedded, WindowsADTask } from "../data/WindowsAD";
 import { DirectoryServiceContext, WindowsADAuthorizer } from "./WindowsADAuthorizer";
 import { WindowsADServer } from "./WindowsADServer";

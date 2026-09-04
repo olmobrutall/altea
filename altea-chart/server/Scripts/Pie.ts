@@ -5,7 +5,7 @@ import {
     EnumValueList, NumberInterval, SpecialParameter, SpecialParameterType,
 } from "../../data/ChartScriptParameter";
 import { ChartColumnMessage, ChartParameter, ChartParameterGroupMessage } from "../../data/ChartMessage";
-import { ChartScriptLogic } from "../ChartScriptLogic.server";
+import { ChartScriptLogic } from "../ChartScriptLogic";
 
 // Copy-and-fix of Signum.Chart/Scripts/Pie.cs (see Bars.ts for the initializer note).
 export class PieChartScript extends ChartScript {

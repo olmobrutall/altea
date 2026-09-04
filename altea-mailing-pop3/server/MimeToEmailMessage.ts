@@ -9,7 +9,7 @@ import { EmailAttachmentType } from "@altea/altea-email/data/EmailTemplate";
 import {
     EmailMessageEntity, EmailMessageEntity_Attachment, EmailMessageEntity_Recipient, EmailMessageState,
 } from "@altea/altea-email/data/EmailMessage";
-import { EmailLogic } from "@altea/altea-email/server/EmailLogic.server";
+import { EmailLogic } from "@altea/altea-email/server/EmailLogic";
 import {
     EmailReceptionInfoEmbedded, EmailReceptionMixin, type EmailReceptionEntity,
 } from "@altea/altea-email/data/EmailReception";

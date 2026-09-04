@@ -7,7 +7,7 @@ import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import {
     calculateMD5Hash, FileTypeAlgorithmBase, mimeType, SuffixGenerators,
     type FileTypeAlgorithmBaseOptions, type IFilePath, type IFileTypeAlgorithm,
-} from "@altea/altea-files/server/FileTypeAlgorithm.server";
+} from "@altea/altea-files/server/FileTypeAlgorithm";
 
 // Port of Signum.Files.S3's S3FileTypeAlgorithm.cs — an IFileTypeAlgorithm whose store is an S3 bucket (or
 // anything speaking S3: MinIO, Ceph, an OpenShift OBC). Registered like the local-folder one:

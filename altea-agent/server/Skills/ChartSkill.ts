@@ -1,4 +1,4 @@
-import { ChartScriptLogic } from "@altea/altea-chart/server/ChartScriptLogic.server";
+import { ChartScriptLogic } from "@altea/altea-chart/server/ChartScriptLogic";
 import { isChartColumnType } from "@altea/altea-chart/data/ChartUtils";
 import type { ChartColumnType } from "@altea/altea-chart/data/ChartScriptColumn";
 import { SkillCode, Schema as S } from "../SkillCode";

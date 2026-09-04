@@ -7,7 +7,7 @@ import {
     type IChartParameterValueDefinition,
 } from "../../data/ChartScriptParameter";
 import { ChartColumnMessage, ChartParameter } from "../../data/ChartMessage";
-import { ChartScriptLogic } from "../ChartScriptLogic.server";
+import { ChartScriptLogic } from "../ChartScriptLogic";
 
 // Copy-and-fix of Signum.Chart/Scripts/PivotTable.cs (see Bars.ts for the initializer note). This is the
 // first Html renderer (HtmlChartScript.PivotTable) — the client component lives in client/HtmlScripts.

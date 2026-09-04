@@ -8,7 +8,7 @@ import { FileMessage } from "@altea/altea-files/data/Files";
 import {
     calculateMD5Hash, FileTypeAlgorithmBase, mimeType, SuffixGenerators,
     type FileTypeAlgorithmBaseOptions, type IFilePath, type IFileTypeAlgorithm,
-} from "@altea/altea-files/server/FileTypeAlgorithm.server";
+} from "@altea/altea-files/server/FileTypeAlgorithm";
 
 // Port of Signum.Files.AzureBlobs' AzureBlobStorageFileTypeAlgorithm.cs — an IFileTypeAlgorithm whose store
 // is an Azure Blob Storage container. Registered exactly like the local-folder one:

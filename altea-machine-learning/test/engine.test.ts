@@ -16,12 +16,12 @@ import {
 import {
     PredictorCodification, PredictorColumnMain, PredictorPredictContext, PredictorTrainingContext,
     type TrainingRow,
-} from "../server/PredictorAlgorithm.server";
-import { TensorFlowNeuralNetworkPredictor as Engine } from "../server/tensorflow/TensorFlowNeuralNetworkPredictor.server";
+} from "../server/PredictorAlgorithm";
+import { TensorFlowNeuralNetworkPredictor as Engine } from "../server/tensorflow/TensorFlowNeuralNetworkPredictor";
 import {
     NormalizeMinMaxEncoding, NormalizeZScoreEncoding, OneHotEncoding, SplitWordsEncoding,
-} from "../server/tensorflow/Encodings.server";
-import { MODEL_FILE_NAME } from "../server/tensorflow/FileModelStore.server";
+} from "../server/tensorflow/Encodings";
+import { MODEL_FILE_NAME } from "../server/tensorflow/FileModelStore";
 
 // The ENGINE suite: the tfjs path, with no database.
 //

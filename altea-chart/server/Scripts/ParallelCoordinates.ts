@@ -5,7 +5,7 @@ import {
     EnumValueList, Scala, SpecialParameter, SpecialParameterType,
 } from "../../data/ChartScriptParameter";
 import { ChartColumnMessage, ChartParameter, ChartParameterGroupMessage } from "../../data/ChartMessage";
-import { ChartScriptLogic } from "../ChartScriptLogic.server";
+import { ChartScriptLogic } from "../ChartScriptLogic";
 
 // Copy-and-fix of Signum.Chart/Scripts/ParallelCordiantes.cs (Signum misspelled the source file; the
 // altea file/class are correctly spelled "ParallelCoordinates"). See Bars.ts for the initializer note.

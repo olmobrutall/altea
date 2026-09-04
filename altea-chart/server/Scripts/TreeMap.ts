@@ -5,7 +5,7 @@ import {
     Scala, NumberInterval, StringValue, SpecialParameter, SpecialParameterType,
 } from "../../data/ChartScriptParameter";
 import { ChartColumnMessage, ChartParameter, ChartParameterGroupMessage } from "../../data/ChartMessage";
-import { ChartScriptLogic } from "../ChartScriptLogic.server";
+import { ChartScriptLogic } from "../ChartScriptLogic";
 
 // Copy-and-fix of Signum.Chart/Scripts/TreeMap.cs (see Bars.ts for the initializer note).
 export class TreeMapChartScript extends ChartScript {

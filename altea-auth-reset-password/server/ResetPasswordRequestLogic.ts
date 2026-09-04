@@ -18,8 +18,8 @@ import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { AuthServer } from "@altea/altea-auth/server/AuthServer";
 import { UserEntity, UserOperation, UserState } from "@altea/altea-auth/data/User";
 import { LoginAuthMessage } from "@altea/altea-auth/data/AuthMessages";
-import { EmailLogic } from "@altea/altea-email/server/EmailLogic.server";
-import { EmailModelLogic, emailModel, type IEmailModel } from "@altea/altea-email/server/EmailModelLogic.server";
+import { EmailLogic } from "@altea/altea-email/server/EmailLogic";
+import { EmailModelLogic, emailModel, type IEmailModel } from "@altea/altea-email/server/EmailModelLogic";
 import { EmailRecipientKind } from "@altea/altea-email/data/Email";
 import { EmailTemplateEntity, EmailTemplateEntity_Message, EmailMessageFormat } from "@altea/altea-email/data/EmailTemplate";
 import {

@@ -5,7 +5,7 @@ import {
     EnumValueList, Scala, NumberInterval, StringValue, SpecialParameter, SpecialParameterType,
 } from "../../data/ChartScriptParameter";
 import { ChartColumnMessage, ChartParameter, ChartParameterGroupMessage } from "../../data/ChartMessage";
-import { ChartScriptLogic } from "../ChartScriptLogic.server";
+import { ChartScriptLogic } from "../ChartScriptLogic";
 
 // Copy-and-fix of Signum.Chart/Scripts/SvgMap.cs (see Bars.ts for the initializer note). An opt-in chart
 // (SvgMapsChartScript.SvgMap): the app registers it with a list of SVG map URLs it serves statically

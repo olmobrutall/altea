@@ -9,9 +9,9 @@ import { Clock } from "@altea/altea/data/utils/clock";
 import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { FilePathEmbedded } from "@altea/altea-files/data/Files";
-import { FileTypeLogic } from "@altea/altea-files/server/FileTypeLogic.server";
-import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbeddedLogic.server";
-import type { IFileTypeAlgorithm } from "@altea/altea-files/server/FileTypeAlgorithm.server";
+import { FileTypeLogic } from "@altea/altea-files/server/FileTypeLogic";
+import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbeddedLogic";
+import type { IFileTypeAlgorithm } from "@altea/altea-files/server/FileTypeAlgorithm";
 import {
     AuthADFileType, CachedProfilePhotoEntity, CachedProfilePhotoOperation, toAzureSize,
 } from "../data/CachedProfilePhoto";

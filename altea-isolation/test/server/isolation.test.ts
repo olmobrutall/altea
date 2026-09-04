@@ -4,7 +4,7 @@ import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import type { Lite } from "@altea/altea/data/lite";
 import { IsolationEntity } from "../../data/Isolation";
-import { IsolationLogic } from "../../server/IsolationLogic.server";
+import { IsolationLogic } from "../../server/IsolationLogic";
 import { CatalogEntity, ProjectEntity, TagEntity } from "../data/tenancy";
 import { Fixture, hasDb, isolationsByName, start } from "./setup";
 

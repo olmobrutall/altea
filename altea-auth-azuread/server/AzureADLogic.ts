@@ -20,7 +20,7 @@ import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { UserEntity, UserOperation, UserState } from "@altea/altea-auth/data/User";
 import { ActiveDirectoryPermission } from "@altea/altea-auth/data/BaseAD";
 import type { ExternalUser } from "@altea/altea-auth/server/ADAuthorizer";
-import { SimpleTaskLogic } from "@altea/altea-scheduler/server/SimpleTaskLogic.server";
+import { SimpleTaskLogic } from "@altea/altea-scheduler/server/SimpleTaskLogic";
 import { Operations } from "@altea/altea/server/operationLogic";
 import { AzureADConfigurationEmbedded, AzureADTask } from "../data/AzureAD";
 import { ADGroupEntity, ADGroupOperation } from "../data/ADGroup";
