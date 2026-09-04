@@ -7,7 +7,7 @@ import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
 import { UserHolder } from "@altea/altea/server/userHolder";
-import { QueryStringValueEmbedded, RestLogEntity } from "../data/Rest";
+import { QueryStringValueEntity, RestLogEntity } from "../data/Rest";
 import { RestLogLogic } from "./RestLogLogic";
 import { RestApiKeyLogic } from "./RestApiKeyLogic";
 
@@ -173,8 +173,8 @@ export namespace RestLogFilter {
                 : JSON.stringify(body);
     }
 
-    function queryStringRows(req: ReqLike): QueryStringValueEmbedded[] {
-        return Object.entries(req.query).map(([key, value], i) => QueryStringValueEmbedded.create({
+    function queryStringRows(req: ReqLike): QueryStringValueEntity[] {
+        return Object.entries(req.query).map(([key, value], i) => QueryStringValueEntity.create({
             order: toInt(i) as int,
             key,
             value: redact(key, value),

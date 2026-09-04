@@ -20,7 +20,7 @@ import { TypeConditionLogic } from "@altea/altea-auth/server/TypeConditionLogic"
 import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import {
-    WhatsNewEntity, WhatsNewLogEntity, WhatsNewLogOperation, WhatsNewMessage, WhatsNewMessageEmbedded,
+    WhatsNewEntity, WhatsNewLogEntity, WhatsNewLogOperation, WhatsNewMessage, WhatsNewMessageEntity,
     WhatsNewOperation, WhatsNewState,
 } from "../data/WhatsNew";
 
@@ -158,7 +158,7 @@ export namespace WhatsNewLogic {
      * Signum's `GetCurrentMessage` — the message for the request's culture, then its LANGUAGE, then the
      * default culture, then simply the first. A news item always shows something.
      */
-    export function getCurrentMessage(wn: WhatsNewEntity): WhatsNewMessageEmbedded {
+    export function getCurrentMessage(wn: WhatsNewEntity): WhatsNewMessageEntity {
         const current = CultureInfo.currentUICulture();
         const language = current.tryBefore("-") ?? current;
 

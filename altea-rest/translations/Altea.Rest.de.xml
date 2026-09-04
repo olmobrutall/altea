@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <!-- Ported from Signum.Rest/Translations/Signum.Rest.de.xml — see the .es.xml header for what changed. -->
 <Translations>
-  <Type Name="QueryStringValueEmbedded" Description="Abfrage-String-Wert">
+  <Type Name="QueryStringValueEntity" Description="Abfrage-String-Wert">
     <Member Name="Key" Description="Schlüssel" />
     <Member Name="Value" Description="Wert" />
     <Member Name="Order" Description="Reihenfolge" />

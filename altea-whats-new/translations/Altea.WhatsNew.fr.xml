@@ -39,7 +39,7 @@
     <Member Name="YouDoNotHaveAnyUnreadNews" Description="Vous n’avez aucun message non lu" />
     <Member Name="YourNews" Description="Vos actualités" />
   </Type>
-  <Type Name="WhatsNewMessageEmbedded" Description="Nouveau message">
+  <Type Name="WhatsNewMessageEntity" Description="Nouveau message">
     <Member Name="Culture" Description="Culture" />
     <Member Name="Description" Description="Description" />
     <Member Name="Title" Description="Titre" />

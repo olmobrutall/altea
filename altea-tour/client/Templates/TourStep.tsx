@@ -12,7 +12,7 @@ import { MarkdownLine } from "@altea/altea-markdown/client/MarkdownLine";
 import { DashboardEntity } from "@altea/altea-dashboard/data/Dashboard";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import {
-    TourStepEntity, CssStepEmbedded, CssStepType, PopoverAlign, PopoverSide, TourMessage, cssStepSelector,
+    TourStepEntity, CssStepEntity, CssStepType, PopoverAlign, PopoverSide, TourMessage, cssStepSelector,
 } from "../../data/Tour";
 import PropertyRouteCombo from "@altea/altea/client/Components/PropertyRouteCombo";
 
@@ -132,7 +132,7 @@ export default function TourStep(p: {
         </div>
     );
 
-    function renderCssStep(cctx: TypeContext<CssStepEmbedded>): React.JSX.Element | null {
+    function renderCssStep(cctx: TypeContext<CssStepEntity>): React.JSX.Element | null {
         switch (cctx.value.type) {
             case CssStepType.CSSSelector:
                 return <TextBoxLine ctx={cctx.subCtx(a => a.cssSelector)} onChange={forceUpdate}

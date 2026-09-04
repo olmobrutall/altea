@@ -21,7 +21,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 //
 // altea divergences:
 //  - **the two `MList`s become `@part` ROWS**: `Messages` and `Attachment`. The message row keeps Signum's
-//    `WhatsNewMessageEmbedded` NAME (the call the AD configurations made), while the attachment row has no
+//    `WhatsNewMessageEntity` NAME (the call the AD configurations made), while the attachment row has no
 //    Signum name of its own — its element is a bare `FilePathEmbedded`, so it becomes
 //    `WhatsNewEntity_Attachment` holding one.
 //  - `Attachment` is renamed `attachments`: it is a COLLECTION, and every other one in the port is plural
@@ -39,7 +39,7 @@ export class WhatsNewEntity extends Entity {
     name: string;
 
     @countIsValidator(ComparisonType.GreaterThan, 0)
-    messages: WhatsNewMessageEmbedded[];
+    messages: WhatsNewMessageEntity[];
 
     previewPicture: FilePathEmbedded | null;
 
@@ -67,7 +67,7 @@ export class WhatsNewEntity extends Entity {
 /** Signum's `WhatsNewMessageEmbedded`, as this owner's `@part` row: the news item in ONE culture. */
 @reflect
 @entity("Part", "Master")
-export class WhatsNewMessageEmbedded extends Entity {
+export class WhatsNewMessageEntity extends Entity {
     @backReference whatsNew: Lite<WhatsNewEntity>;
     @rowOrder order: int;
 

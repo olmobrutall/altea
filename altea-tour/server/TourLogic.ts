@@ -19,7 +19,7 @@ import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { DashboardEntity } from "@altea/altea-dashboard/data/Dashboard";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
-import { TourEntity, CssStepEmbedded, CssStepType, TourOperation } from "../data/Tour";
+import { TourEntity, CssStepEntity, CssStepType, TourOperation } from "../data/Tour";
 import { TourServer } from "./TourServer";
 import { TourXml } from "./TourXml";
 
@@ -30,12 +30,12 @@ import { TourXml } from "./TourXml";
 // altea divergences:
 //  - **`WithVirtualMList(a => a.Steps, s => s.Tour)` has no counterpart, and needs none**: altea's
 //    `@part` collection IS Signum's virtual MList — `sb.include(TourEntity)` already builds the
-//    TourStepEntity child table off the `@backReference` (and CssStepEmbedded's off that, in turn).
+//    TourStepEntity child table off the `@backReference` (and CssStepEntity's off that, in turn).
 //  - the PropertyRouteEntity cascade is Signum's, and needs no MList form: it drops the CssStep rows whose
 //    route a synchronization is removing, and here those rows are an ordinary table (see the last bullet).
 //  - `EntityPackTS.AddExtension` → core's `registerEntityPackExtension` (added for this module).
 //  - Signum's dashboard cascades use `Database.MListQuery(...).UnsafeDeleteMList()`; here the CssStep rows
-//    are an ordinary table, so it is `table(CssStepEmbedded).filter(...).executeDelete()`.
+//    are an ordinary table, so it is `table(CssStepEntity).filter(...).executeDelete()`.
 export namespace TourLogic {
 
     /** Signum's `ToursByTrigger` — every tour, keyed by its trigger's lite key. */
@@ -59,7 +59,7 @@ export namespace TourLogic {
         // Signum's `EntityEvents<PropertyRouteEntity>().PreDeleteSqlSync`: a route the sync is removing takes
         // the css steps that point at it with it, or the route's DELETE fails on their FK.
         sb.schema.entityEvents(PropertyRouteEntity).preDeleteSqlSync.push(property => {
-            const cssTable = sb.schema.tryTable(CssStepEmbedded);
+            const cssTable = sb.schema.tryTable(CssStepEntity);
             if (cssTable == null)
                 return undefined;
             const builder = Connector.current().sqlBuilder;
@@ -152,7 +152,7 @@ export namespace TourLogic {
 
             const validGuids = dashboard.parts.map(p => String(p.id));
 
-            await table(CssStepEmbedded)
+            await table(CssStepEntity)
                 .filter(cs => cs.type == CssStepType.DashboardPart
                     && cs.dashboardPart != null
                     && !validGuids.includes(cs.dashboardPart!)

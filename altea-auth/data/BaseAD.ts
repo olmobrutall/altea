@@ -20,7 +20,7 @@ import { PermissionSymbol } from "./Rules";
 // altea divergences, documented inline:
 //  - the configuration IS an embedded, as in Signum — flattened onto the application's settings row, so
 //    there is no `azure_ad_configuration_embedded` table and the columns are `azure_ad_*` on
-//    `application_configuration`. It used to be a `@part` entity because `MList<RoleMappingEmbedded>
+//    `application_configuration`. It used to be a `@part` entity because `MList<RoleMappingEntity>
 //    RoleMapping` is a COLLECTION and altea could not declare one inside an embedded; it can now.
 //  - what a collection inside an embedded DOES need is an owner it can point at, and an embedded is not
 //    one (flattened, so no id, no `toLite()`) — the rows belong to the ENTITY holding the configuration,
@@ -32,7 +32,7 @@ import { PermissionSymbol } from "./Rules";
 //  - the ROW TYPE is declared per module, not here: a `@part` collection is keyed by ONE back reference to
 //    its owner's table, so a shared row type would make the three directories read each other's rows —
 //    all three now hang off the SAME application row, which is exactly the case that would collide. Hence
-//    the abstract `RoleMappingEmbedded` below plus one concrete row per module, and `roleMappings()` — the
+//    the abstract `RoleMappingEntity` below plus one concrete row per module, and `roleMappings()` — the
 //    accessor the shared ADAuthorizer reads, since the base cannot name the subclass's row type.
 //  - `[PreserveOrder]` IS modelled (`@rowOrder`), because Signum declares it and the column is part of
 //    the table a Signum database already has.
@@ -46,7 +46,7 @@ import { PermissionSymbol } from "./Rules";
  * (see the header). Never included on its own — only its subclasses get tables.
  */
 @reflect
-export abstract class RoleMappingEmbedded extends Entity {
+export abstract class RoleMappingEntity extends Entity {
     /** Signum's `[PreserveOrder]` on the MList — the row's index in the collection. */
     @rowOrder
     order: int;
@@ -89,7 +89,7 @@ export abstract class BaseADConfigurationEmbedded extends EmbeddedEntity {
      * row type and implements this accessor, because the row type cannot be shared — see the header. It is
      * what the shared ADAuthorizer reads.
      */
-    abstract roleMappings(): RoleMappingEmbedded[];
+    abstract roleMappings(): RoleMappingEntity[];
 }
 
 // ---- Messages -------------------------------------------------------------------------------------------

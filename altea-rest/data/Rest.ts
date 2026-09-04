@@ -20,7 +20,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 // altea divergences:
 //  - **`MList<QueryStringValueEmbedded>` → `@part` rows.** Signum marks the collection `[PreserveOrder]`,
 //    which is exactly a `@rowOrder` child table here. The type keeps Signum's NAME, "Embedded" suffix
-//    included, as altea-tour's `CssStepEmbedded` and the AD configurations do.
+//    included, as altea-tour's `CssStepEntity` and the AD configurations do.
 //  - **`ControllerName` is what the CALLER names its API**, and `controller` / `action` follow altea's own
 //    established mapping for "which endpoint was this" — the one `exceptionFilter.fillContext` already
 //    uses, since altea has no MVC controller/action pair to read: `controller` is the matched route path
@@ -84,7 +84,7 @@ export class RestLogEntity extends Entity {
     requestBody: BigStringEmbedded = new BigStringEmbedded();
 
     /** Signum's `[PreserveOrder] MList<QueryStringValueEmbedded>` — see the header. */
-    queryString: QueryStringValueEmbedded[];
+    queryString: QueryStringValueEntity[];
 
     /**
      * Signum's `Lite<IUserEntity>?`. As with `ExceptionEntity.user`, `IUserEntity` is an INTERFACE with no
@@ -152,7 +152,7 @@ export class RestLogEntity extends Entity {
 /** One query-string parameter of a logged request. A collection row, hence an entity — see the header. */
 @reflect
 @entity("Part", "Transactional")
-export class QueryStringValueEmbedded extends Entity {
+export class QueryStringValueEntity extends Entity {
 
     @backReference restLog: Lite<RestLogEntity>;
 

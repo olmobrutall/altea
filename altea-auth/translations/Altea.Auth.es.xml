@@ -167,7 +167,7 @@
     <Member Name="MergeStrategy" Description="Estrategia de mezcla" />
     <Member Name="Name" Description="Nombre" />
   </Type>
-  <Type Name="RoleMappingEmbedded" Description="Asignación de roles">
+  <Type Name="RoleMappingEntity" Description="Asignación de roles">
     <Member Name="ADNameOrGuid" Description="Nombre AD o GUID" />
     <Member Name="Role" Description="Rol" />
   </Type>

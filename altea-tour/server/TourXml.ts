@@ -13,7 +13,7 @@ import { TourTriggerSymbol } from "@altea/altea/data/tourTrigger";
 import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import {
-    TourEntity, TourStepEntity, CssStepEmbedded, CssStepType, ClickTrigger, PopoverAlign, PopoverSide,
+    TourEntity, TourStepEntity, CssStepEntity, CssStepType, ClickTrigger, PopoverAlign, PopoverSide,
 } from "../data/Tour";
 
 // Port of Signum.Tour's `TourEntity.ToXml/FromXml` + `TourStepEntity` + `CssStepEmbedded` (Tour.cs).
@@ -28,7 +28,7 @@ import {
 //    `PropertyRouteLogic.propertyRouteEntitySync` — the sync form of Signum's
 //    `ctx.GetPropertyRoute(typeEntity, path)`, since `fromXml` cannot await. Same file format either way,
 //    so a Signum file imports unchanged.
-//  - a `ToolbarContent` pointing at a PermissionSymbol is not supported: altea's `CssStepEmbedded`
+//  - a `ToolbarContent` pointing at a PermissionSymbol is not supported: altea's `CssStepEntity`
 //    declares `@implementedBy(QueryEntity)` only, matching what the tour editor can actually pick.
 
 const A = "@_"; // fast-xml-parser attribute prefix
@@ -91,7 +91,7 @@ async function stepToXml(s: TourStepEntity, ctx: IToXmlContext): Promise<Record<
     return o;
 }
 
-async function cssStepToXml(cs: CssStepEmbedded, ctx: IToXmlContext): Promise<Record<string, unknown>> {
+async function cssStepToXml(cs: CssStepEntity, ctx: IToXmlContext): Promise<Record<string, unknown>> {
     const o: Record<string, unknown> = {};
     o[A + "Type"] = Enum.toName(CssStepType, cs.type);
     if (cs.cssSelector != null) o[A + "CssSelector"] = cs.cssSelector;
@@ -146,8 +146,8 @@ function triggerRootType(trigger: Lite<Entity>): TypeEntity | null {
     return null;
 }
 
-function cssStepFromXml(cx: Record<string, unknown>, order: number, ctx: IFromXmlContext, rootType: TypeEntity | null): CssStepEmbedded {
-    const cs = new CssStepEmbedded();
+function cssStepFromXml(cx: Record<string, unknown>, order: number, ctx: IFromXmlContext, rootType: TypeEntity | null): CssStepEntity {
+    const cs = new CssStepEntity();
     cs.order = toInt(order);
     cs.type = Enum.toValue(CssStepType, String(cx[A + "Type"]) as never);
     cs.cssSelector = cx[A + "CssSelector"] == null ? null : String(cx[A + "CssSelector"]);

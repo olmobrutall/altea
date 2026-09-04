@@ -236,7 +236,7 @@
     <Member Name="MergeStrategy" Description="Zusammenführstrategie" />
     <Member Name="Name" Description="Name" />
   </Type>
-  <Type Name="RoleMappingEmbedded" Description="Rollenabbildung">
+  <Type Name="RoleMappingEntity" Description="Rollenabbildung">
     <Member Name="ADNameOrGuid" Description="AD-Name oder Führer" />
     <Member Name="Role" Description="Rolle" />
   </Type>

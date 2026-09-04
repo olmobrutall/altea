@@ -45,11 +45,14 @@ export abstract class EmailServiceEntity extends Entity {
     validateFrom(_from: EmailFromEmbedded): string | null { return null; }
 }
 
-// Signum's ClientCertificationFileEmbedded, as this owner's @part row.
+// Signum's ClientCertificationFileEmbedded — an MList inside SmtpNetworkDeliveryEmbedded, so in altea a
+// @part ROW (a collection has no embedded element type). An embedded is flattened onto its owner's row and
+// has no id, so the back reference names the ENTITY that holds the embedded: the SMTP service.
 @entity("Part", "Master")
-export class SmtpNetworkDeliveryEmbedded_ClientCertificationFile extends Entity {
-    @backReference network: Lite<SmtpNetworkDeliveryEmbedded>;
-    @rowOrder order: int;
+export class ClientCertificationFileEntity extends Entity {
+    @backReference service: Lite<SmtpEmailServiceEntity>;
+    // No `@rowOrder`: Signum does not mark this MList [PreserveOrder], so its table has no
+    // Order column and neither does this one.
 
     @stringLengthValidator({ min: 2, max: 300 })
     fullFilePath: string;
@@ -60,13 +63,11 @@ export class SmtpNetworkDeliveryEmbedded_ClientCertificationFile extends Entity 
     }
 }
 
-// Signum's SmtpNetworkDeliveryEmbedded — host/port/credentials for a real SMTP connection.
-//
-// altea divergence: Signum keeps this an EmbeddedEntity; altea needs it to OWN a collection
-// (clientCertificationFiles), and an altea `@part` row's owner must be an ENTITY, so this is a Part entity
-// referenced by SmtpEmailServiceEntity rather than an inlined embedded.
-@entity("Part", "Master")
-export class SmtpNetworkDeliveryEmbedded extends Entity {
+// Signum's SmtpNetworkDeliveryEmbedded — host/port/credentials for a real SMTP connection. An EMBEDDED, as
+// in Signum: its columns are `network_*` on `smtp_email_service`. (It was a `@part` entity while altea
+// could not declare a collection inside an embedded, which `clientCertificationFiles` is.)
+@reflect
+export class SmtpNetworkDeliveryEmbedded extends EmbeddedEntity {
     @stringLengthValidator({ min: 3, max: 100 })
     host: string;
 
@@ -92,7 +93,7 @@ export class SmtpNetworkDeliveryEmbedded extends Entity {
     // row built in code (an app seeding a sender) could not be saved without it.
     enableSSL: boolean = false;
 
-    clientCertificationFiles: SmtpNetworkDeliveryEmbedded_ClientCertificationFile[];
+    clientCertificationFiles: ClientCertificationFileEntity[];
 
     clone(): SmtpNetworkDeliveryEmbedded {
         return SmtpNetworkDeliveryEmbedded.create({

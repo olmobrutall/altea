@@ -7,7 +7,7 @@ import { stringLengthValidator, format } from "@altea/altea/data/decorators";
 import { fieldValidation } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
-import { BaseADConfigurationEmbedded, RoleMappingEmbedded } from "@altea/altea-auth/data/BaseAD";
+import { BaseADConfigurationEmbedded, RoleMappingEntity } from "@altea/altea-auth/data/BaseAD";
 import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 
 // Port of Signum.Authorization.WindowsAD's WindowsADConfigurationEmbedded.cs — how to reach an on-premises
@@ -86,15 +86,15 @@ export class WindowsADConfigurationEmbedded extends BaseADConfigurationEmbedded 
     /** Signum's `MList<RoleMappingEmbedded> RoleMapping` — this configuration's own @part rows (the row type
      *  is per module, see BaseAD's header). */
     @noRepeatValidator()
-    roleMapping: WindowsADConfigurationEmbedded_RoleMapping[];
+    roleMapping: WindowsADRoleMappingEntity[];
 
-    override roleMappings(): RoleMappingEmbedded[] { return this.roleMapping; }
+    override roleMappings(): RoleMappingEntity[] { return this.roleMapping; }
 
 }
 
-// Signum's RoleMappingEmbedded rows for this configuration (see BaseAD's RoleMappingEmbedded).
+// Signum's RoleMappingEmbedded rows for this configuration (see BaseAD's RoleMappingEntity).
 @entity("Part", "Master")
-export class WindowsADConfigurationEmbedded_RoleMapping extends RoleMappingEmbedded {
+export class WindowsADRoleMappingEntity extends RoleMappingEntity {
     // The rows belong to the ENTITY holding this configuration — the application's settings row, which a
     // framework package must not name. The app widens this in its EntityOverrides (see BaseAD's header);
     // SchemaBuilder verifies it resolves to exactly one owner.

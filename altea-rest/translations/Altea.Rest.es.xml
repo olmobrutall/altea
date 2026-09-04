@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <!-- Ported from Signum.Rest/Translations/Signum.Rest.es.xml. The members altea adds are translated here:
      RestLogEntity.durationMilliseconds (Signum's `Duration`, a stored expression there), the
-     QueryStringValueEmbedded row's `Order` (a `@rowOrder` — Signum's collection is `[PreserveOrder]`
+     QueryStringValueEntity row's `Order` (a `@rowOrder` — Signum's collection is `[PreserveOrder]`
      without a visible column), and RestLogMessage. -->
 <Translations>
-  <Type Name="QueryStringValueEmbedded" Description="Valor de consulta de texto">
+  <Type Name="QueryStringValueEntity" Description="Valor de consulta de texto">
     <Member Name="Key" Description="Clave" />
     <Member Name="Value" Description="Valor" />
     <Member Name="Order" Description="Orden" />

@@ -4,7 +4,7 @@
     <Member Name="OnLoad" Description="Am Laden" />
     <Member Name="OnNext" Description="Als nächstes" />
   </Type>
-  <Type Name="CssStepEmbedded" Description="CSS-Schritt">
+  <Type Name="CssStepEntity" Description="CSS-Schritt">
     <Member Name="CssSelector" Description="CSS-Selektor" />
     <Member Name="DashboardPart" Description="Dashboard Teil" />
     <Member Name="Property" Description="Eigenschaft" />

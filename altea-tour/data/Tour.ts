@@ -30,8 +30,8 @@ import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 //    index are gone.
 //  - **`MList` → `@part` rows twice over.** `Steps` is Signum's `[Ignore] MList` + `WithVirtualMList` —
 //    which IS altea's `@part` collection — and `CssSteps` (a real MList of embeddeds) becomes `@part`
-//    rows too, keeping Signum's `CssStepEmbedded` NAME, "Embedded" suffix included, exactly as the AD
-//    configurations did.
+//    rows too. Signum calls the element `CssStepEmbedded`; in altea a collection element is an ENTITY,
+//    so the name says so.
 //  - **a "Property" CSS step points at a `PropertyRouteEntity` row**, as in Signum. This used to store the
 //    route STRING, because altea had no such table; it does now (see altea/data/propertyRouteEntity.ts), so
 //    the column is Signum's `property_id` again and the `PreDeleteSqlSync` cascade that drops a step whose
@@ -83,7 +83,7 @@ export class TourStepEntity extends Entity {
 
     /** The steps that AND together into this popover's anchor selector (see {@link cssSelector}). */
     @noRepeatValidator()
-    cssSteps: CssStepEmbedded[];
+    cssSteps: CssStepEntity[];
 
     /** Signum marks this `[Translatable]` too. Markdown — the client renders it through micromark. */
     @stringLengthValidator({ multiLine: true })
@@ -130,7 +130,7 @@ export enum CssStepType {
  */
 @reflect
 @entity("Part", "Master")
-export class CssStepEmbedded extends Entity {
+export class CssStepEntity extends Entity {
 
     @backReference tourStep: Lite<TourStepEntity>;
 
@@ -140,22 +140,22 @@ export class CssStepEmbedded extends Entity {
 
     // Signum's `PropertyValidation` with five `IsSetOnlyWhen` clauses, one per member: a field must be set
     // exactly when `type` selects it. Written as one validator per field, altea's shape for the same rule.
-    @fieldValidation<CssStepEmbedded>(a => isSetOnlyWhen(a.cssSelector, a.type == CssStepType.CSSSelector, "cssSelector"))
+    @fieldValidation<CssStepEntity>(a => isSetOnlyWhen(a.cssSelector, a.type == CssStepType.CSSSelector, "cssSelector"))
     @stringLengthValidator({ max: 200 })
     cssSelector: string | null;
 
-    @fieldValidation<CssStepEmbedded>(a => isSetOnlyWhen(a.property, a.type == CssStepType.Property, "property"))
+    @fieldValidation<CssStepEntity>(a => isSetOnlyWhen(a.property, a.type == CssStepType.Property, "property"))
     property: PropertyRouteEntity | null;
 
-    @fieldValidation<CssStepEmbedded>(a => isSetOnlyWhen(a.toolbarContent, a.type == CssStepType.ToolbarContent, "toolbarContent"))
+    @fieldValidation<CssStepEntity>(a => isSetOnlyWhen(a.toolbarContent, a.type == CssStepType.ToolbarContent, "toolbarContent"))
     @implementedBy(() => [QueryEntity])
     toolbarContent: Lite<Entity> | null;
 
     /** The uuid of a `DashboardEntity_Part` row — the dashboard part this step points at. */
-    @fieldValidation<CssStepEmbedded>(a => isSetOnlyWhen(a.dashboardPart, a.type == CssStepType.DashboardPart, "dashboardPart"))
+    @fieldValidation<CssStepEntity>(a => isSetOnlyWhen(a.dashboardPart, a.type == CssStepType.DashboardPart, "dashboardPart"))
     dashboardPart: string | null;
 
-    @fieldValidation<CssStepEmbedded>(a => isSetOnlyWhen(a.tableColumn, a.type == CssStepType.TableColumn, "tableColumn"))
+    @fieldValidation<CssStepEntity>(a => isSetOnlyWhen(a.tableColumn, a.type == CssStepType.TableColumn, "tableColumn"))
     @stringLengthValidator({ max: 400 })
     tableColumn: string | null;
 }
@@ -164,9 +164,9 @@ export class CssStepEmbedded extends Entity {
 function isSetOnlyWhen(value: unknown, condition: boolean, member: string): string | null {
     const isSet = value != null && value !== "";
     if (condition && !isSet)
-        return TourMessage._0HasToBeSetWhenTypeIs1.niceToString(CssStepEmbedded.nicePropertyName(a => a.type), member);
+        return TourMessage._0HasToBeSetWhenTypeIs1.niceToString(CssStepEntity.nicePropertyName(a => a.type), member);
     if (!condition && isSet)
-        return TourMessage._0HasToBeNullWhenTypeIsNot1.niceToString(CssStepEmbedded.nicePropertyName(a => a.type), member);
+        return TourMessage._0HasToBeNullWhenTypeIsNot1.niceToString(CssStepEntity.nicePropertyName(a => a.type), member);
     return null;
 }
 
@@ -187,7 +187,7 @@ export function cssSelector(step: TourStepEntity, toolbarContentKey: (lite: Lite
         .join(" ");
 }
 
-export function cssStepSelector(s: CssStepEmbedded, toolbarContentKey: (lite: Lite<Entity>) => string): string | null {
+export function cssStepSelector(s: CssStepEntity, toolbarContentKey: (lite: Lite<Entity>) => string): string | null {
     switch (s.type) {
         case CssStepType.CSSSelector:
             return s.cssSelector;

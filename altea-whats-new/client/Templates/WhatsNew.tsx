@@ -20,7 +20,7 @@ import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { FileLine } from "@altea/altea-files/client/Components/FileLine";
 import type { Entity, Type } from "@altea/altea/data/entity";
 import {
-    WhatsNewEntity, WhatsNewFileType, WhatsNewMessage, WhatsNewMessageEmbedded,
+    WhatsNewEntity, WhatsNewFileType, WhatsNewMessage, WhatsNewMessageEntity,
 } from "../../data/WhatsNew";
 import { WhatsNewClient } from "../WhatsNewClient";
 import WhatsNewHtmlEditor from "../WhatsNewHtmlEditor";
@@ -71,7 +71,7 @@ export default function WhatsNew(p: { ctx: TypeContext<WhatsNewEntity> }): React
 }
 
 export function WhatsNewMessageComponent(p: {
-    ctx: TypeContext<WhatsNewMessageEmbedded>;
+    ctx: TypeContext<WhatsNewMessageEntity>;
     invalidate: () => void;
 }): React.JSX.Element {
     const ec = p.ctx.subCtx({ labelColumns: 4 });

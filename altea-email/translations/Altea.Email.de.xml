@@ -3,7 +3,7 @@
   <Type Name="AsyncEmailSenderPermission">
     <Member Name="ViewAsyncEmailSenderPanel" Description="E-Mail-Absender Ansichtsbereich async" />
   </Type>
-  <Type Name="ClientCertificationFileEmbedded" Description="Client-Zertifikat-Datei">
+  <Type Name="ClientCertificationFileEntity" Description="Client-Zertifikat-Datei">
     <Member Name="FullFilePath" Description="Vollständiger Pfad" />
   </Type>
   <Type Name="CompareInbox" Description="Posteingang vergleichen">

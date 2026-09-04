@@ -7,7 +7,7 @@
     <Member Name="CertFile" Description="Archivo de certificado" />
     <Member Name="SignedFile" Description="Archivo firmado" />
   </Type>
-  <Type Name="ClientCertificationFileEmbedded" Description="Archivo de certificado de cliente">
+  <Type Name="ClientCertificationFileEntity" Description="Archivo de certificado de cliente">
     <Member Name="CertFileType" Description="Tipo de archivo de certificado" />
     <Member Name="FullFilePath" Description="Ruta completa del archivo" />
   </Type>
