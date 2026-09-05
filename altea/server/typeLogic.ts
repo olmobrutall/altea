@@ -12,6 +12,7 @@ import { existsTable } from "./sync/syncTableRead";
 import { Administrator } from "./Administrator";
 import { StartParameters } from "../data/utils/startParameters";
 import { Synchronizer, Replacements } from "./sync/synchronizer";
+import { ObjectName, SchemaName, defaultDatabaseName } from "./schema/objectName";
 import type { Entity, PrimaryKey } from "../data/entity";
 import type { Schema } from "./schema/schema";
 import type { Table } from "./schema/table";
@@ -288,7 +289,19 @@ function bootstrapMetas(schema: Schema): TypeMeta[] {
         if (typeof type === "function")
             entries.push([type, table]);
     entries.sort((a, b) => (a[0].name < b[0].name ? -1 : a[0].name > b[0].name ? 1 : 0));
-    return entries.map(([ctor, table]) => ({ tableName: table.name.name, cleanName: cleanTypeName(ctor), package: packageOf(ctor), className: classNameOf(ctor) }));
+    // Signum's `TableName = SimplifyTableName(tab.Name).ToString()` — the FULL ObjectName, so the
+    // column is schema-qualified and its parts are escaped where the dialect needs it
+    // (`sms.sms_message`, `public."order"`). `qualifiedName` is what spells the DEFAULT schema out as
+    // `public` / `dbo`, which a Signum database also does — a bare `application_configuration` would
+    // read as a different table from Signum's `public.application_configuration`, which is exactly the
+    // rename a Southwind sync used to offer.
+    const sqlBuilder = Connector.current().sqlBuilder;
+    return entries.map(([ctor, table]) => ({
+        tableName: sqlBuilder.qualifiedName(table.name),
+        cleanName: cleanTypeName(ctor),
+        package: packageOf(ctor),
+        className: classNameOf(ctor),
+    }));
 }
 
 // The registry NAME of an entity/enum ctor for the TypeEntity.className column + its ctor↔row lookup.
@@ -362,6 +375,29 @@ async function synchronizeTypes(replacements: Replacements): Promise<SqlPreComma
     // this same script. Any OTHER read failure propagates to Schema.synchronizationScript, which comments
     // it out (so it surfaces).
     const currentByTable = (await Administrator.tryRetrieveAll(TypeEntity, replacements)).toMap(te => te.tableName);
+
+    // Signum seeds the TypeTableName bucket from the TABLE rename map the tables step just resolved
+    // (TypeLogic.cs: `replacements.Add(TypeTableName, replacements.TryGetC(KeyTables).SelectDictionary(...))`).
+    // A table that MOVED — altea groups tables into per-package schemas, so `queries.filter_operation`
+    // becomes `basics.filter_operation` against a Signum database — is already an answered question
+    // there; without this it is asked a second time here, and the wrong answer is a delete + insert
+    // that re-ids the type and breaks every @implementedByAll discriminator, auth rule and stored Lite
+    // pointing at it. Both sides go through the same spelling the column uses (Signum parses and
+    // re-renders them for exactly that reason): keyTables holds `ObjectName.toString()`, which leaves
+    // the default schema off and escapes nothing.
+    const tableRenames = replacements.tryGetC(Replacements.keyTables);
+    if (tableRenames != null && tableRenames.size > 0) {
+        const asColumn = (raw: string): string => {
+            const dot = raw.lastIndexOf(".");
+            const schema = dot < 0 ? "" : raw.slice(0, dot);
+            const name = dot < 0 ? raw : raw.slice(dot + 1);
+            return connector.sqlBuilder.qualifiedName(new ObjectName(name, new SchemaName(schema, defaultDatabaseName)));
+        };
+        const seeded = new Map([...tableRenames].map(([o, n]) => [asColumn(o), asColumn(n)]));
+        const existing = replacements.tryGetC("TypeTableName");
+        if (existing != null) for (const [k, v] of seeded) { if (!existing.has(k)) existing.set(k, v); }
+        else replacements.set("TypeTableName", seeded);
+    }
 
     // synchronizeScriptReplacing asks which removed table name each new one renames (the
     // "TypeTableName" bucket) and re-keys current by the new name, so a renamed type lands in

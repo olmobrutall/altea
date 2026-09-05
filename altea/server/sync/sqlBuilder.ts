@@ -37,12 +37,12 @@ export class SqlBuilder {
     sqlEscape(ident: string): string {
         if (this.isPostgres) {
             const safe = ident.toLowerCase() === ident && /^[a-z_][a-z0-9_]{0,62}$/.test(ident);
-            if (!safe || RESERVED_WORDS.has(ident.toUpperCase()))
+            if (!safe || KEYWORDS_POSTGRES.has(ident.toUpperCase()))
                 return `"${ident}"`;
             return ident;
         }
         const safe = /^[a-zA-Z_][a-zA-Z0-9_@#]{0,127}$/.test(ident);
-        if (!safe || RESERVED_WORDS.has(ident.toUpperCase()))
+        if (!safe || KEYWORDS_SQL_SERVER.has(ident.toUpperCase()))
             return `[${ident}]`;
         return ident;
     }
@@ -768,20 +768,43 @@ export class DefaultConstraint {
 // schema builder does not emit it yet.
 export const MAX_SIZE = -1;
 
-// Reserved words common to SQL Server and PostgreSQL that we always quote when
-// used as identifiers (column/table names). Not exhaustive — the bare-identifier
-// regex catches the rest of the risky cases (spaces, leading digits, casing).
-const RESERVED_WORDS = new Set([
-    'ALL', 'ALTER', 'AND', 'ANY', 'AS', 'ASC', 'AUTHORIZATION', 'BACKUP', 'BEGIN', 'BETWEEN',
+// The reserved words each dialect needs an identifier QUOTED for — Signum's KeywordsSqlServer /
+// KeywordsPostgres, ported verbatim. Two lists, because the dialects genuinely disagree and a shared
+// "common" list is wrong in both directions: PUBLIC is reserved in SQL Server and NOT in PostgreSQL, so
+// one list quoted the DEFAULT SCHEMA on Postgres (`"public".employee`, where Signum writes
+// `public.employee`) — invisible until a schema-qualified name was written into a column and compared
+// with a Signum database's.
+const KEYWORDS_SQL_SERVER = new Set([
+    'ADD', 'ALL', 'ALTER', 'AND', 'ANY', 'AS', 'ASC', 'AUTHORIZATION', 'AVG', 'BACKUP', 'BEGIN', 'BETWEEN',
     'BREAK', 'BROWSE', 'BULK', 'BY', 'CASCADE', 'CASE', 'CHECK', 'CHECKPOINT', 'CLOSE', 'CLUSTERED',
-    'COALESCE', 'COLLATE', 'COLUMN', 'COMMIT', 'COMPUTE', 'CONSTRAINT', 'CONTAINS', 'CONTINUE',
-    'CONVERT', 'CREATE', 'CROSS', 'CURRENT', 'CURRENT_DATE', 'CURRENT_TIME', 'CURRENT_TIMESTAMP',
-    'CURRENT_USER', 'CURSOR', 'DATABASE', 'DEFAULT', 'DELETE', 'DENY', 'DESC', 'DISTINCT', 'DROP',
-    'ELSE', 'END', 'ESCAPE', 'EXCEPT', 'EXEC', 'EXECUTE', 'EXISTS', 'EXTERNAL', 'FETCH', 'FILE',
-    'FOR', 'FOREIGN', 'FREETEXT', 'FROM', 'FULL', 'FUNCTION', 'GRANT', 'GROUP', 'HAVING', 'IDENTITY',
-    'IF', 'IN', 'INDEX', 'INNER', 'INSERT', 'INTERSECT', 'INTO', 'IS', 'JOIN', 'KEY', 'LEFT', 'LIKE',
-    'LIMIT', 'NATURAL', 'NOT', 'NULL', 'OF', 'OFFSET', 'ON', 'OPEN', 'OR', 'ORDER', 'OUTER', 'OVER',
-    'PRIMARY', 'PROCEDURE', 'PUBLIC', 'REFERENCES', 'RETURN', 'REVOKE', 'RIGHT', 'ROLLBACK', 'ROW',
-    'ROWS', 'SCHEMA', 'SELECT', 'SESSION_USER', 'SET', 'SOME', 'TABLE', 'THEN', 'TO', 'TOP', 'TRIGGER',
-    'TRUNCATE', 'UNION', 'UNIQUE', 'UPDATE', 'USER', 'USING', 'VALUES', 'VIEW', 'WHEN', 'WHERE', 'WHILE', 'WITH',
+    'COALESCE', 'COLUMN', 'COMMIT', 'COMMITTED', 'COMPUTE', 'CONFIRM', 'CONSTRAINT', 'CONTAINS',
+    'CONTAINSTABLE', 'CONTINUE', 'CONTROLROW', 'CONVERT', 'COUNT', 'CREATE', 'CROSS', 'CURRENT',
+    'CURRENT_DATE', 'CURRENT_TIME', 'CURRENT_TIMESTAMP', 'CURRENT_USER', 'CURSOR', 'DATABASE', 'DBCC',
+    'DEALLOCATE', 'DECLARE', 'DEFAULT', 'DELETE', 'DENY', 'DESC', 'DISK', 'DISTINCT', 'DISTRIBUTED',
+    'DOUBLE', 'DROP', 'DUMMY', 'DUMP', 'ELSE', 'END', 'ERRLVL', 'ERROREXIT', 'ESCAPE', 'EXCEPT', 'EXEC',
+    'EXECUTE', 'EXISTS', 'EXIT', 'FETCH', 'FILE', 'FILLFACTOR', 'FLOPPY', 'FOR', 'FOREIGN', 'FREETEXT',
+    'FREETEXTTABLE', 'FROM', 'FULL', 'GOTO', 'GRANT', 'GROUP', 'HAVING', 'HOLDLOCK', 'IDENTITY',
+    'IDENTITY_INSERT', 'IDENTITYCOL', 'IF', 'IN', 'INDEX', 'INNER', 'INSERT', 'INTERSECT', 'INTO', 'IS',
+    'ISOLATION', 'JOIN', 'KEY', 'KILL', 'LEFT', 'LEVEL', 'LIKE', 'LINENO', 'LOAD', 'MAX', 'MIN',
+    'MIRROREXIT', 'NATIONAL', 'NOCHECK', 'NONCLUSTERED', 'NOT', 'NULL', 'NULLIF', 'OF', 'OFF', 'OFFSETS',
+    'ON', 'ONCE', 'ONLY', 'OPEN', 'OPENDATASOURCE', 'OPENQUERY', 'OPENROWSET', 'OPTION', 'OR', 'ORDER',
+    'OUTER', 'OVER', 'PERCENT', 'PERM', 'PERMANENT', 'PIPE', 'PLAN', 'PRECISION', 'PREPARE', 'PRIMARY',
+    'PRINT', 'PRIVILEGES', 'PROC', 'PROCEDURE', 'PROCESSEXIT', 'PUBLIC', 'RAISERROR', 'READ', 'READTEXT',
+    'RECONFIGURE', 'REFERENCES', 'REPEATABLE', 'REPLICATION', 'RESTORE', 'RESTRICT', 'RETURN', 'REVOKE',
+    'RIGHT', 'ROLLBACK', 'ROWCOUNT', 'ROWGUIDCOL', 'RULE', 'SAVE', 'SCHEMA', 'SELECT', 'SERIALIZABLE',
+    'SESSION_USER', 'SET', 'SETUSER', 'SHUTDOWN', 'SOME', 'STATISTICS', 'SUM', 'SYSTEM_USER', 'TABLE',
+    'TAPE', 'TEMP', 'TEMPORARY', 'TEXTSIZE', 'THEN', 'TO', 'TOP', 'TRAN', 'TRANSACTION', 'TRIGGER',
+    'TRUNCATE', 'TSEQUAL', 'UNCOMMITTED', 'UNION', 'UNIQUE', 'UPDATE', 'UPDATETEXT', 'USE', 'USER',
+    'VALUES', 'VARYING', 'VIEW', 'WAITFOR', 'WHEN', 'WHERE', 'WHILE', 'WITH', 'WORK', 'WRITETEXT',
+]);
+
+const KEYWORDS_POSTGRES = new Set([
+    'ALL', 'ANALYSE', 'AND', 'ANY', 'ARRAY', 'AS', 'ASC', 'ASYMMETRIC', 'BOTH', 'CASE', 'CAST', 'CHECK',
+    'COLLATE', 'COLUMN', 'CONSTRAINT', 'CREATE', 'CURRENT_CATALOG', 'CURRENT_DATE', 'CURRENT_ROLE',
+    'CURRENT_TIME', 'CURRENT_TIMESTAMP', 'CURRENT_USER', 'DEFAULT', 'DEFERRABLE', 'DESC', 'DISTINCT', 'DO',
+    'ELSE', 'END', 'EXCEPT', 'FALSE', 'FETCH', 'FOR', 'FOREIGN', 'FROM', 'GRANT', 'GROUP', 'HAVING', 'IN',
+    'IS', 'INITIALLY', 'INTERSECT', 'INTO', 'LATERAL', 'LEADING', 'LIMIT', 'LOCALTIME', 'LOCALTIMESTAMP',
+    'NOT', 'NULL', 'OFFSET', 'ON', 'ONLY', 'OR', 'ORDER', 'PLACING', 'PRIMARY', 'REFERENCES', 'RETURNING',
+    'SELECT', 'SESSION_USER', 'SOME', 'SYMMETRIC', 'TABLE', 'THEN', 'TO', 'TRAILING', 'TRUE', 'UNION',
+    'UNIQUE', 'USER', 'USING', 'VARIADIC', 'WHEN', 'WHERE', 'WINDOW', 'WITH',
 ]);
