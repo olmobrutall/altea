@@ -223,7 +223,7 @@ export class Schema {
     }
 
     table<T extends Entity>(type: Type<T>): Table {
-        const table = this.tables.get(type as unknown as Type<Entity>);
+        const table = this.tables.get(type);
         if (table == null)
             throw new Error(`Type '${type.name}' is not included in the schema`);
         return table;

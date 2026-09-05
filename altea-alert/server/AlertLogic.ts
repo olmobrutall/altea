@@ -257,7 +257,7 @@ export namespace AlertLogic {
         // Signum's ConstructFrom<Entity> — owned by the SOURCE type, which is every entity: registered
         // for each type the app opts in with `AlertsClient`'s `showAlerts`, and here for `Entity` so the
         // operation exists. See CLAUDE.md on ConstructFrom ownership.
-        sm.withConstructFrom(Entity as unknown as Type<Entity>, AlertOperation.CreateAlertFromEntity, {
+        sm.withConstructFrom(Entity, AlertOperation.CreateAlertFromEntity, {
             toStates: [AlertState.New],
             construct: (source: Entity) => AlertEntity.create({
                 alertDate: Clock.now,

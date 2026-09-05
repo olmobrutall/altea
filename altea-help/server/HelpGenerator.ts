@@ -68,7 +68,7 @@ export namespace HelpGenerator {
         // EmbeddedEntity) are registered too but have no translated name, and `niceName()` then answers
         // the empty string — which produced "Order is a ." on the first live run. Fall back to the class
         // name, which is what Signum's `type.BaseType.NiceName()` yields for those.
-        const niceName = tryGetTypeInfo(base) != null ? (base as unknown as Type<Entity>).niceName() : "";
+        const niceName = tryGetTypeInfo(base) != null ? (base).niceName() : "";
         return niceName !== "" ? niceName : base.name;
     }
 
@@ -158,17 +158,17 @@ export namespace HelpGenerator {
 
     function rootTypeNiceName(pr: PropertyRoute): string {
         const root = pr.rootType;
-        return root == null ? "" : (root as unknown as Type<Entity>).niceName();
+        return root == null ? "" : (root).niceName();
     }
 
     function genderOf(type: TypeReference): string | undefined {
         const ctor = type.getFunction();
-        return ctor == null ? undefined : (ctor as unknown as Type<Entity>).gender();
+        return ctor == null ? undefined : (ctor).gender();
     }
 
     function elementTypeNiceName(type: TypeReference): string {
         const ctor = type.getFunction();
-        return ctor != null ? (ctor as unknown as Type<Entity>).niceName() : (type.getTypeName() ?? type.typeName);
+        return ctor != null ? (ctor).niceName() : (type.getTypeName() ?? type.typeName);
     }
 
     /** An entity reference, full or lite — `TypeReference.is` resolves through @implementedBy too. */
@@ -298,7 +298,7 @@ export namespace HelpGenerator {
 
         return HelpMessage._0IsA1AndShows2.niceToString(token.niceName(), typeDesc,
             pr.propertyRouteType === PropertyRouteType.Root
-                ? typeLink(pr.rootType as unknown as Type<Entity>)
+                ? typeLink(pr.rootType as Type<Entity>)
                 : HelpMessage.TheProperty0.niceToString(propertyLink(pr)));
     }
 
@@ -322,11 +322,11 @@ export namespace HelpGenerator {
             return HelpMessage.Any.niceToString() + " " + HelpMessage.Entities.niceToString();
 
         if (implementations != null)
-            return implementations.types.map(t => typeLink(t as unknown as Type<Entity>)).joinComma(" or ");
+            return implementations.types.map(t => typeLink(t as Type<Entity>)).joinComma(" or ");
 
         // No implementations registered: a mono-typed reference, so the reference's own class IS the target.
         const ctor = type.getFunction();
-        return ctor == null ? (type.getTypeName() ?? type.typeName) : typeLink(ctor as unknown as Type<Entity>);
+        return ctor == null ? (type.getTypeName() ?? type.typeName) : typeLink(ctor as Type<Entity>);
     }
 
     /** `[t:Order]` when the type is mapped, else its plain nice name (Signum's `TypeLink`). */

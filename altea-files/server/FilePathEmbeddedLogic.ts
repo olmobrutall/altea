@@ -173,7 +173,7 @@ function filePathFieldsByType(schema: Schema): Map<Type<Entity>, string[][]> {
         collectPaths(table.fields as Record<string, { field: unknown }>, [], paths, new Set());
 
         if (paths.length > 0)
-            result.set(table.type as unknown as Type<Entity>, paths);
+            result.set(table.type as Type<Entity>, paths);
     }
 
     return result;

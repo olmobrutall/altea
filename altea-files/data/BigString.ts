@@ -42,9 +42,7 @@ export namespace BigStringMixin {
             return;
         declared = true;
 
-        MixinDeclarations.register(
-            BigStringEmbedded as unknown as Type<BigStringEmbedded>,
-            BigStringMixin as unknown as Type<BigStringMixin>);
+        MixinDeclarations.register(BigStringEmbedded, BigStringMixin);
     }
 
     export function isDeclared(): boolean {

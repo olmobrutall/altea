@@ -37,7 +37,7 @@ export namespace NoteLogic {
         sb.include(NoteEntity)
             .withSave(NoteOperation.Save, {})
             .withQuery()
-            .withConstructFrom(Entity as unknown as Type<Entity>, NoteOperation.CreateNoteFromEntity, {
+            .withConstructFrom(Entity, NoteOperation.CreateNoteFromEntity, {
                 construct: async (source: Entity) => {
                     const note = NoteEntity.create({ creationDate: Clock.now, target: source.toLite() });
                     return note;

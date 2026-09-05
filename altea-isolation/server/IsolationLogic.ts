@@ -178,7 +178,7 @@ export namespace IsolationLogic {
 
     function isIsolationLite(value: unknown): boolean {
         return value != null && typeof value === "object" && "entityType" in value
-            && (value as Lite<Entity>).entityType === (IsolationEntity as unknown as Type<Entity>);
+            && (value as Lite<Entity>).entityType === (IsolationEntity);
     }
 
     // ---- the strategy assertion, and everything it wires up ------------------------------------------

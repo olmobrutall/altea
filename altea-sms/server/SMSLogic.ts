@@ -174,7 +174,7 @@ export namespace SMSLogic {
      * registration has to be per concrete type (altea-alert's `registerExpressions` makes the same call).
      */
     export function registerSMSOwner<T extends Entity>(type: Type<T>): void {
-        smsOwners.push(type as unknown as Type<Entity>);
+        smsOwners.push(type);
 
         const proto = (type as unknown as { prototype: Record<string, unknown> }).prototype;
         proto.smsMessages = withQuoted(function (this: Entity): IQuery<SMSMessageEntity> {

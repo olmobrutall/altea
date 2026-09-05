@@ -233,7 +233,7 @@ export namespace CaseActivityMixin {
             return;
         declaredOn.add(cleanTypeName(type));
 
-        MixinDeclarations.register(type, CaseActivityMixin as unknown as Type<CaseActivityMixin>);
+        MixinDeclarations.register(type, CaseActivityMixin);
     }
 
     export function isDeclaredOn<T extends Entity>(type: Type<T>): boolean {

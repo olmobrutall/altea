@@ -102,7 +102,7 @@ export function newLite(type: PseudoType, id: number | string, toStr?: string): 
   const ctor = pseudoCtor(type);
   if (ctor == null)
     throw new Error(`newLite: cannot resolve type '${getTypeName(type)}'`);
-  return new LiteImp(id as PrimaryKey, ctor as unknown as Type<Entity>, toStr ?? "");
+  return new LiteImp(id as PrimaryKey, ctor as Type<Entity>, toStr ?? "");
 }
 
 // A member (enum value / message) lookup by name, throwing when absent (Signum's getMemberInfo).

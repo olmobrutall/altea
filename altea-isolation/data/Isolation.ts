@@ -92,7 +92,7 @@ export namespace Isolation {
         strategies.set(type, strategy);
 
         if (strategy !== "None")
-            MixinDeclarations.register(type as unknown as Type<Entity>, IsolationMixin as unknown as Type<IsolationMixin>);
+            MixinDeclarations.register(type, IsolationMixin);
     }
 
     /** Signum's `IsolationLogic.GetStrategy(type)` — throws for an unregistered type, as Signum's does. */

@@ -54,8 +54,8 @@ export namespace DynamicIsolationMixin {
         declared = true;
 
         MixinDeclarations.register(
-            DynamicTypeEntity as unknown as Type<DynamicTypeEntity>,
-            DynamicIsolationMixin as unknown as Type<DynamicIsolationMixin>);
+            DynamicTypeEntity,
+            DynamicIsolationMixin);
     }
 
     export function isDeclared(): boolean {

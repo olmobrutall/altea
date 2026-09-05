@@ -19,7 +19,7 @@ export function IsolationWidget(p: IsolationWidgetProps): React.JSX.Element | nu
     // Signum's `tryGetMixin(entity, IsolationMixin)`: altea flattens a mixin onto its owner, so the
     // question is whether the mixin is DECLARED on this type — `entity.mixin(X)` throws when it is not.
     const declared = MixinDeclarations.getMixins(entity.constructor as Type<BaseEntity>)
-        .some(m => m === (IsolationMixin as unknown as Type<BaseEntity>));
+        .some(m => m === (IsolationMixin));
     if (!declared)
         return null;
 

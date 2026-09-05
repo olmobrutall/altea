@@ -167,7 +167,7 @@ interface ClientEnumConverter {
 }
 
 function buildEnumConverter(enumObj: object): ClientEnumConverter {
-    const ctor = EnumEntity.typeFor(enumObj) as unknown as Type<Entity>;
+    const ctor = EnumEntity.typeFor(enumObj);
     const members = enumEntityMembers(enumObj); // [{ id, name }]
     const nameToLite: Record<string, Lite<Entity>> = {};
     const idToName: Record<string, string> = {};

@@ -390,7 +390,7 @@ function entityTypeOf(setter: PropertySetter, pr: PropertyRoute): Function {
 
 // `create({})` rather than `new` — a mixin's field initializers only run in the create FACTORY.
 function createInstance(ctor: Function): BaseEntity {
-    return (ctor as unknown as Type<BaseEntity> & { create(values: object): BaseEntity }).create({});
+    return (ctor as Type<BaseEntity> & { create(values: object): BaseEntity }).create({});
 }
 
 

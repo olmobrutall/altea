@@ -181,8 +181,8 @@ export namespace EmailReceptionMixin {
         declared = true;
 
         MixinDeclarations.register(
-            EmailMessageEntity as unknown as Type<EmailMessageEntity>,
-            EmailReceptionMixin as unknown as Type<EmailReceptionMixin>);
+            EmailMessageEntity,
+            EmailReceptionMixin);
     }
 
     export function isDeclared(): boolean {

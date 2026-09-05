@@ -44,8 +44,8 @@ export namespace DiffLogMixin {
         declared = true;
 
         MixinDeclarations.register(
-            OperationLogEntity as unknown as Type<OperationLogEntity>,
-            DiffLogMixin as unknown as Type<DiffLogMixin>);
+            OperationLogEntity,
+            DiffLogMixin);
     }
 
     export function isDeclared(): boolean {

@@ -497,7 +497,7 @@ export class SchemaBuilder {
     // FIRST entity that includes it; the public/root include leaves it undefined. Because an
     // already-included table short-circuits at the top, "first includer wins" falls out naturally.
     include<T extends Entity>(type: Type<T>, inherited?: InheritedByPart): FluentInclude<T> {
-        const entityType = type as unknown as Type<Entity>;
+        const entityType = type;
         const existing = this.schema.tables.get(entityType);
         if (existing != null)
             return new FluentInclude<T>(existing, type, this);
@@ -545,7 +545,7 @@ export class SchemaBuilder {
     complete(): void {
         // The TypeEntity system table is always part of the schema (it backs the
         // type↔id mapping), even when no @implementedByAll field referenced it.
-        this.include(TypeEntity as unknown as Type<Entity>);
+        this.include(TypeEntity);
 
         // Collected so one build reports EVERY unclassified entity at once, not just the first.
         const missingKind: string[] = [];
@@ -858,7 +858,7 @@ export class SchemaBuilder {
                     new ImplementedByAllIdColumn(this.idiomatic(preName.add(`${this.columnName(fi)}ID_${t.name}`).toString()), t.dbType, t.pkType, idNullable));
                 // The type discriminator is the target's TypeEntity int id, so the
                 // column references the (auto-included) TypeEntity table.
-                const typeTable = this.include(TypeEntity as unknown as Type<Entity>).table;
+                const typeTable = this.include(TypeEntity).table;
                 const typeColumn = new ImplementedByAllTypeColumn(this.idiomatic(preName.add(`${this.columnName(fi)}ID_Type`).toString()), typeTable, nullable);
                 return new FieldImplementedByAll(idColumns, typeColumn, isLite);
             }
@@ -987,7 +987,7 @@ export class SchemaBuilder {
         // serializer's own mixin-aware field plan, FilePathEmbeddedLogic's schema scan) works unchanged.
         // Consequence: `embedded.mixin(X)` is not navigable in a LINQ query (only an ENTITY carries a
         // FieldMixin the binder can match); read such a field in memory instead.
-        for (const mixinCtor of MixinDeclarations.getMixins(embeddedType as unknown as Type<EmbeddedEntity>)) {
+        for (const mixinCtor of MixinDeclarations.getMixins(embeddedType as Type<EmbeddedEntity>)) {
             const mixinInfo = getTypeInfo(mixinCtor);
             if (mixinInfo == null)
                 continue;

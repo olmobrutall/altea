@@ -53,7 +53,7 @@ export class EnumEntity<T = unknown> extends Entity {
             cache.set(enumObject, bound);
             ctor = bound;
         }
-        return ctor as unknown as Type<EnumEntity<E>>;
+        return ctor;
     }
 }
 

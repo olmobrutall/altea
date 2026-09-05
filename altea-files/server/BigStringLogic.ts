@@ -119,7 +119,7 @@ export namespace BigStringLogic {
             throw new Error(`BigStringLogic.register: '${key}' is already registered`);
 
         // Signum's same guard: registration removes a COLUMN, so it is too late once the table is generated.
-        if (sb.schema.tables.has(type as unknown as Type<Entity>))
+        if (sb.schema.tables.has(type))
             throw new Error(`BigStringLogic.register: ${cleanTypeName(type)} is already included in the Schema. `
                 + "Call BigStringLogic.register earlier in your starter, before the type is included.");
 
@@ -128,11 +128,11 @@ export namespace BigStringLogic {
         // Drop the column this mode does not use. `Database` (the default everywhere) keeps the row column and
         // costs nothing; `File` keeps only the file. A Migrating_* mode needs BOTH.
         if (config.mode === "Database")
-            sb.settings.ignoreFieldRoute(type as unknown as Type<Entity>, `${memberPath}.file`);
+            sb.settings.ignoreFieldRoute(type, `${memberPath}.file`);
         else if (config.mode === "File")
-            sb.settings.ignoreFieldRoute(type as unknown as Type<Entity>, `${memberPath}.text`);
+            sb.settings.ignoreFieldRoute(type, `${memberPath}.text`);
 
-        configurations.set(key, { type: type as unknown as Type<Entity>, path: memberPath.split("."), config });
+        configurations.set(key, { type: type, path: memberPath.split("."), config });
     }
 
     /** Signum's `RegisterAll<T>` — configure EVERY BigStringEmbedded route of `type` the same way. */
@@ -368,7 +368,7 @@ function bigStringFieldsByType(schema: Schema): Map<Type<Entity>, string[][]> {
             collectPaths(mixin.fields as EntityFieldMap, [], paths);
 
         if (paths.length > 0)
-            result.set(table.type as unknown as Type<Entity>, paths);
+            result.set(table.type as Type<Entity>, paths);
     }
 
     return result;

@@ -70,8 +70,8 @@ export namespace EmailMessagePackageMixin {
         declared = true;
 
         MixinDeclarations.register(
-            EmailMessageEntity as unknown as Type<EmailMessageEntity>,
-            EmailMessagePackageMixin as unknown as Type<EmailMessagePackageMixin>);
+            EmailMessageEntity,
+            EmailMessagePackageMixin);
     }
 
     export function isDeclared(): boolean {

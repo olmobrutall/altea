@@ -204,7 +204,7 @@ export class Retriever {
         if (id == null || typeId == null) return null;
         const ctor = TypeLogic.tryGetType(typeId);
         if (ctor == null) return null;
-        const lite = new LiteImp(id, ctor as unknown as Type<Entity>, toStr ?? "");
+        const lite = new LiteImp(id, ctor as Type<Entity>, toStr ?? "");
         if (toStr == null || toStr === "")
             this.requestLiteToStr(lite);
         return lite;

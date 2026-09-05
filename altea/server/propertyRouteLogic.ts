@@ -61,7 +61,7 @@ export namespace PropertyRouteLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        sb.include(PropertyRouteEntity as unknown as Type<Entity>)
+        sb.include(PropertyRouteEntity)
             .withQuery();
 
         sb.schema.synchronizing.push(synchronizeProperties);
@@ -69,7 +69,7 @@ export namespace PropertyRouteLogic {
         propertiesFromLite = sb.globalLazy(
             async () => new Map((await table(PropertyRouteEntity).toArray() as PropertyRouteEntity[])
                 .map(pr => [pr.toLite().key(), pr])),
-            { invalidateWith: [PropertyRouteEntity as unknown as Type<Entity>] });
+            { invalidateWith: [PropertyRouteEntity] });
 
         properties = sb.globalLazy(
             async () => {
@@ -83,7 +83,7 @@ export namespace PropertyRouteLogic {
                 }
                 return result;
             },
-            { invalidateWith: [PropertyRouteEntity as unknown as Type<Entity>] });
+            { invalidateWith: [PropertyRouteEntity] });
 
         // The SYNC mirror of `properties`, for the serializer hook below (see the header). Refreshed after
         // schema.initialize() and whenever a route row changes.

@@ -244,7 +244,7 @@ export async function retrieveEntitiesFromCache<T extends Entity>(
     for (const id of ids) {
         if (!controller.exists(id))
             continue;
-        const e = retriever.entity(ctor as unknown as Type<Entity>, id, e2 => controller.complete(e2, retriever));
+        const e = retriever.entity(ctor, id, e2 => controller.complete(e2, retriever));
         if (e != null)
             result.push(e as T);
     }

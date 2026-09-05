@@ -305,7 +305,7 @@ export class CachedTable<T extends Entity> extends CachedTableBase {
             // download can be addressed and gated). The query path folds this into the projection; the
             // cached path has to do it too, or a cached owner's file embedded loses its route.
             const routeCallback = this.schema.embeddedRoutePositions.get(ctor);
-            const rootType = this.schema.typeToName.get(this.type as unknown as Type<Entity>)!;
+            const rootType = this.schema.typeToName.get(this.type)!;
             return (row, retriever, target, ownerId) => {
                 if (hasValueIndex != null && row[hasValueIndex] !== true && row[hasValueIndex] !== 1) {
                     target[name] = null;

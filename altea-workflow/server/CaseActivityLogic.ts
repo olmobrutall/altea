@@ -304,7 +304,7 @@ export namespace CaseActivityLogic {
     /** Signum's `WithWorkflow<T>` — plus the per-type expressions Signum registers on ICaseMainEntity (altea
      *  cannot key an extension token on an interface, so they are registered per concrete type here). */
     export function registerMainEntity<T extends Entity & ICaseMainEntity>(fi: FluentInclude<T>, opts: WorkflowOptions<T>): void {
-        const type = fi.type as unknown as Type<T>;
+        const type = fi.type;
         const cleanName = (type as unknown as { cleanName: string }).cleanName ?? type.name.replace(/Entity$/, "");
 
         // Signum notifies "in progress" from the entity's `Saved` event; same hook here.

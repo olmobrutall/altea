@@ -113,7 +113,7 @@ export namespace QueryLogic {
     export function start(sb: SchemaBuilder): void {
         if (sb.alreadyDefined(start))
             return;
-        sb.include(QueryEntity as unknown as Type<Entity>).withQuery();
+        sb.include(QueryEntity).withQuery();
         sb.schema.generating.push(generateQueryEntities);
         sb.schema.synchronizing.push(synchronizeQueries);
         sb.schema.initializing.push(loadQueries);

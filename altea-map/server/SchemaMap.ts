@@ -116,7 +116,7 @@ export namespace SchemaMap {
         const boundEnum = getBoundEnum(ctor);
         if (boundEnum != null)
             return Enum.niceTypeName(boundEnum as Record<string, string | number>) ?? ctor.name;
-        return (ctor as unknown as Type<Entity>).niceName();
+        return (ctor).niceName();
     }
 
     /** Signum's `SchemaMap.GetEntityBaseType`, minus SemiSymbol and MList (see data/Map.ts). */

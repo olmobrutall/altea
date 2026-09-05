@@ -82,7 +82,7 @@ export abstract class Lite<out T extends Entity> {
     /** Builds a thin lite from its "CleanType;id" key (Signum's free `parseLite`). */
     static parse(key: string): Lite<Entity> {
         const [type, id] = key.split(";");
-        const ctor = resolveCleanType(type) as unknown as Type<Entity> | undefined;
+        const ctor = resolveCleanType(type) as Type<Entity> | undefined;
         if (ctor == null)
             throw new Error(`Lite.parse: type '${type}' is not registered`);
         // Coerce the id to the target type's PK JS form (int vs uuid) via Entity.parseId, so a

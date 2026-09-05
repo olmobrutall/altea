@@ -602,10 +602,10 @@ export class QueryBinder extends ExpressionVisitor {
     // reference exactly like a @quoted toString, yielding a NewExpression whose args project the
     // model's columns.
     private customLiteModel(ctor: Function, ee: EntityExpression, fieldCustomLite?: FieldCustomLite): Expression | undefined {
-        const override = fieldCustomLite?.get(ctor as unknown as Type<Entity>);
+        const override = fieldCustomLite?.get(ctor as Type<Entity>);
         const fromEntity: Quoted<Function> | undefined = override != null
-            ? getCustomLiteConstructorFor(ctor as unknown as Type<Entity>, override)
-            : getCustomLiteConstructor(ctor as unknown as Type<Entity>);
+            ? getCustomLiteConstructorFor(ctor as Type<Entity>, override)
+            : getCustomLiteConstructor(ctor as Type<Entity>);
         if (fromEntity == null || fromEntity.__quoted == null)
             return undefined;
         const lambda = Expression.fromQuotedLambda(fromEntity as never, [ee.type]);
@@ -815,7 +815,7 @@ export class QueryBinder extends ExpressionVisitor {
         // (schema.view — Signum's UnsafeInsertView). An entity not in `tables` resolves
         // through the ViewBuilder, so `INSERT INTO #MyTempView (...) SELECT ...` targets the
         // temp table with its FK columns.
-        const table = this.schema.tryTable(targetCtor as unknown as Type<Entity>) ?? this.schema.view(targetCtor as unknown as ViewType);
+        const table = this.schema.tryTable(targetCtor as Type<Entity>) ?? this.schema.view(targetCtor as unknown as ViewType);
         const toInsert = this.createEntityExpression(table, this.aliasGenerator.table(table.name));
 
         const assignments = this.buildAssignments(toInsert, selector, pr.select, pr.projector);
@@ -3005,7 +3005,7 @@ export class QueryBinder extends ExpressionVisitor {
     // queryFilter handlers (undefined when none contribute). Multiple handlers AND together. The predicate
     // is bound by the normal filter path (re-visiting `source`, now guarded).
     private applyQueryFilters(source: CallExpression, ctor: new () => object): CallExpression | undefined {
-        const hooks = this.schema.entityEvents(ctor as unknown as Type<Entity>).queryFilter;
+        const hooks = this.schema.entityEvents(ctor as Type<Entity>).queryFilter;
         if (hooks.length === 0)
             return undefined;
         const elementType = new ClassType(ctor);
@@ -3576,7 +3576,7 @@ export class QueryBinder extends ExpressionVisitor {
 
         if (this.buildingAdditional || ee.bindings == null || ee.tableAlias == null)
             return ee;
-        const specs = this.schema.entityEvents(ee.table.type as unknown as Type<Entity>).additionalBindings;
+        const specs = this.schema.entityEvents(ee.table.type as Type<Entity>).additionalBindings;
         if (specs.length === 0)
             return ee;
         this.buildingAdditional = true;
@@ -3601,7 +3601,7 @@ export class QueryBinder extends ExpressionVisitor {
         if (this.schema.embeddedRoutePositions.size === 0 || ee.bindings == null || ee.tableAlias == null)
             return ee;
 
-        const rootType = cleanTypeName(ee.table.type as unknown as Type<Entity>);
+        const rootType = cleanTypeName(ee.table.type);
         const ownerId = ee.externalId.value;
 
         const bindings = this.routePositionsIn(ee.bindings, rootType, ownerId, "");

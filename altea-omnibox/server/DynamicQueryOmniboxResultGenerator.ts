@@ -530,7 +530,7 @@ function createLite(type: Function, value: string): Lite<Entity> | undefined {
     const id = tryParsePrimaryKey(type, value);
     if (id == undefined)
         return undefined;
-    return (type as unknown as Type<Entity> & typeof Entity).newLite(id as PrimaryKey, `${type.niceName()} ${String(id)}`) as Lite<Entity>;
+    return (type as Type<Entity> & typeof Entity).newLite(id as PrimaryKey, `${type.niceName()} ${String(id)}`) as Lite<Entity>;
 }
 
 // Signum's ParseBool: accepts en/es/… spellings plus the localized OmniboxMessage.Yes/No.

@@ -121,10 +121,10 @@ export namespace CacheLogic {
     // then recurse into everything it references.
     export function cacheTable<T extends Entity>(sb: SchemaBuilder, type: Type<T>): void {
         assertStarted();
-        if (controllers.has(type as unknown as Type<Entity>))
+        if (controllers.has(type))
             return;
 
-        const t = type as unknown as Type<Entity>;
+        const t = type;
         const data = entityDataOverrides.get(t) ?? getTypeInfo(t)?.entityData;
 
         if (data === "Master") {

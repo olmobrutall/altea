@@ -280,7 +280,7 @@ export class OmniboxManager {
     // the provider renders as "[Not found]" — exactly Signum's behaviour for a bad id.
     async tryRetrieveLite(type: Function, id: PrimaryKey): Promise<Lite<Entity> | undefined> {
         try {
-            const e = await retrieve(type as unknown as Type<Entity>, id);
+            const e = await retrieve(type as Type<Entity>, id);
             return e.toLite() as Lite<Entity>;
         } catch {
             return undefined;
