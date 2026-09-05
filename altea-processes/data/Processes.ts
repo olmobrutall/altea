@@ -70,9 +70,13 @@ export class ProcessEntity extends Entity {
 
     algorithm: ProcessAlgorithmSymbol;
 
-    /** What this run operates on. @implementedByAll because the data types are the APP's (Signum pins them
-     *  per application); a PackageEntity is the usual one. */
-    @implementedByAll
+    /** What this run operates on. Signum types it `IProcessDataEntity?` and its schema builder gives an
+     *  INTERFACE one column per implementor in the schema (`Data_ID_Package`, `Data_ID_EmailPackage`, …);
+     *  altea has no runtime interface, so the field declares an empty @implementedBy the APPLICATION widens
+     *  to the process-data types its modules install — the `ChangeLogViewLogEntity.user` accommodation.
+     *  It used to be @implementedByAll, which costs FOUR columns (one per PK type plus the discriminator)
+     *  where Signum has one per implementor, and lets a process point at a row that is not process data. */
+    @implementedBy(() => [])
     data: Lite<Entity> | null = null;
 
     @stringLengthValidator({ min: 3, max: 100 })
@@ -154,8 +158,9 @@ export class ProcessExceptionLineEntity extends Entity {
 
     elementInfo: string | null;
 
-    /** The line (usually a PackageLine) that failed. */
-    @implementedByAll
+    /** The line (usually a PackageLine) that failed. Signum's `Lite<IEntity>?` — an interface again, so
+     *  one column per implementor; the app widens it (see ProcessEntity.data). */
+    @implementedBy(() => [])
     line: Lite<Entity> | null = null;
 
     process: Lite<ProcessEntity>;

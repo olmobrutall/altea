@@ -49,6 +49,10 @@ export namespace MusicStarter {
         // Drive dialect-specific physical naming (snake_case tables on Postgres)
         // before any table is built below.
         sb.settings.isPostgres = connector.isPostgres;
+        // The music model deliberately exercises every @implementedByAll id column, so this schema asks
+        // for the two the default (Signum's {int}) leaves out.
+        sb.settings.implementedByAllPkType("long");
+        sb.settings.implementedByAllPkType("uuid");
 
         const label = connector.isPostgres ? "PostgreSQL" : "SQL Server";
         const target = Connector.redactConnectionString(connStr);

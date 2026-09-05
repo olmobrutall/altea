@@ -1,7 +1,7 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, implementedByAll, stringLengthValidator, ticksColumn } from "@altea/altea/data/decorators";
+import { entity, implementedBy, implementedByAll, stringLengthValidator, ticksColumn } from "@altea/altea/data/decorators";
 import { Temporal } from "@altea/altea/data/basics";
 import { OperationSymbol } from "@altea/altea/data/operations";
 import { Serializer } from "@altea/altea/data/serializer";
@@ -65,6 +65,10 @@ export class PackageOperationEntity extends PackageEntity {
 @ticksColumn(false)
 export class PackageLineEntity extends Entity {
 
+    // A PackageOperation is a PackageEntity SUBCLASS with a table of its own, so one FK to
+    // `processes.package` could not reference an operation package at all. Signum gives a reference to a
+    // type with concrete subclasses one column per table, which is what these two are.
+    @implementedBy(() => [PackageEntity, PackageOperationEntity])
     package: Lite<PackageEntity>;
 
     @implementedByAll

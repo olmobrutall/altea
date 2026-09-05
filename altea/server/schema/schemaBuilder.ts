@@ -315,12 +315,33 @@ export class SchemaSettings {
     // Signum's ImplementedByAllPrimaryKeyTypes: an @implementedByAll reference gets one id
     // column per entry (named `<Field>ID_<name>`), since its target can be any entity and
     // entities may have different PK types. `pkType` links each column to the entity PK
-    // type it serves. (Signum defaults to {int}; the test schema uses all three.)
+    // type it serves.
+    //
+    // {int} is the DEFAULT, as in Signum, and an app ADDS what its own model needs — Southwind's
+    // `ImplementedByAllPrimaryKeyTypes.Add(typeof(Guid))`, eastwind's `implementedByAllPkType("uuid")`.
+    // It used to default to all three, which put a dead `_Int64` column on all ~150 @implementedByAll
+    // fields in a workspace where nothing declares a `long` key: the cost of an unused entry is a column
+    // per field, so the list belongs to whoever knows the model.
     implementedByAllPrimaryKeyTypes: { pkType: PrimaryKeyType, name: string, dbType: AbstractDbType }[] = [
         { pkType: 'int', name: 'Int32', dbType: new AbstractDbType('int', 'int4') },
-        { pkType: 'long', name: 'Int64', dbType: new AbstractDbType('bigint', 'int8') },
-        { pkType: 'uuid', name: 'Guid', dbType: new AbstractDbType('uniqueidentifier', 'uuid') },
     ];
+
+    /** Add a PK type an @implementedByAll reference of this schema may point at (Signum's
+     *  `ImplementedByAllPrimaryKeyTypes.Add`). Idempotent, so an app and a module may both ask. */
+    implementedByAllPkType(pkType: PrimaryKeyType): void {
+        if (this.implementedByAllPrimaryKeyTypes.some(t => t.pkType === pkType))
+            return;
+        const known = {
+            int: { pkType, name: 'Int32', dbType: new AbstractDbType('int', 'int4') },
+            long: { pkType, name: 'Int64', dbType: new AbstractDbType('bigint', 'int8') },
+            uuid: { pkType, name: 'Guid', dbType: new AbstractDbType('uniqueidentifier', 'uuid') },
+            uuid7: { pkType, name: 'Guid', dbType: new AbstractDbType('uniqueidentifier', 'uuid') },
+        } as const;
+        const entry = known[pkType as keyof typeof known];
+        if (entry == null)
+            throw new Error(`implementedByAllPkType: '${pkType}' is not a primary key type.`);
+        this.implementedByAllPrimaryKeyTypes.push(entry);
+    }
 
     tableName(type: Type<Entity>): string {
         if (this.legacyMode) {
