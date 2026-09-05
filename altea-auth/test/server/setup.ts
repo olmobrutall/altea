@@ -4,6 +4,7 @@ import { Connector } from "@altea/altea/server/connection/connector";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
+import { GlobalLazy } from "@altea/altea/server/globalLazy";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { UserWithClaims, type IUserEntity } from "@altea/altea/data/security";
 import type { Lite } from "@altea/altea/data/lite";
@@ -82,6 +83,13 @@ export async function generateAuthEnvironment(): Promise<Connector> {
     // uses (StartParameters.withIgnoredDatabaseMismatches); the mismatches are discarded because the very
     // next statements drop and regenerate everything.
     const { result: connector } = await StartParameters.withIgnoredDatabaseMismatches(() => start());
+    // Every global lazy was warmed by the start() above, against the database the next line DROPS — so
+    // whatever they hold is about to become ids that no longer exist. Dropping every table is the
+    // ultimate invalidation, but nothing tells them that (`invalidateWith` hooks entity events, and
+    // cleanDatabase fires none). Left stale, PropertyRouteLogic's cache hands the seed a route that
+    // looks SAVED, its `isNew` check skips the insert, and the rule pointing at it fails on the foreign
+    // key — on every OTHER run, since a failed run leaves the table empty and the next one then works.
+    GlobalLazy.resetAll(false);
     await connector.cleanDatabase();
     await connector.schema.generationScript()?.executeNonQuery();
     // NOT tolerant: after the regeneration the caches must load cleanly, or the fixture is wrong.
