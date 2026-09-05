@@ -1,5 +1,5 @@
 import { reflect } from "@altea/altea/data/reflection";
-import { entity, mixin, primaryKey, implementedByAll, backReference, valueField, stringLengthValidator, column, fullTextIndex } from "@altea/altea/data/decorators";
+import { entity, mixin, primaryKey, implementedByAll, backReference, valueField, stringLengthValidator, column, forceNullable, fullTextIndex } from "@altea/altea/data/decorators";
 import { Entity, MixinEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Temporal } from "@altea/altea/data/basics";
@@ -19,6 +19,10 @@ export class NoteWithDateEntity extends Entity {
     @stringLengthValidator({ multiLine: true })
     text: string | null;
 
+    // Signum's `[ForceNullable] [ImplementedByAll] IEntity Target` — REQUIRED in the model, NULLABLE in
+    // the database, which is what lets the UnsafeUpdate suite set it to null. Without it the
+    // discriminator column is NOT NULL (it carries the field's own nullability, as Signum's does).
+    @forceNullable
     @implementedByAll
     target: Entity;
 

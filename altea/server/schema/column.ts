@@ -129,22 +129,36 @@ export class ImplementedByAllIdColumn extends ColumnBase {
     // Signum stores an @implementedByAll id in one column per primary-key TYPE (int /
     // long / guid); only the column matching the target's PK type is non-null. `pkType`
     // records which type this column serves, so materialisation/equality can pick it.
-    constructor(name: string, dbType: AbstractDbType, public readonly pkType: PrimaryKeyType) {
+    constructor(
+        name: string,
+        dbType: AbstractDbType,
+        public readonly pkType: PrimaryKeyType,
+        // Nullable when the schema configures SEVERAL pk types (only one column is filled per row);
+        // with a single one the column carries the FIELD's own nullability. Signum's
+        // `idNullable = primaryKeyTypes.Count() > 1 ? Yes : nullable`.
+        nullable: IsNullable = IsNullable.Yes,
+    ) {
         super(name, dbType);
-        this.nullable = IsNullable.Yes;
+        this.nullable = nullable;
     }
 }
 
 // The discriminator half of @implementedByAll: which entity type the id refers to,
-// stored as the target's TypeEntity int id (Signum's ImplementedByAllTypeColumn).
-// Typed as the TypeEntity primary key and pointed at its table; no FK constraint
-// (Signum's common AvoidForeignKey for the discriminator — it keeps generation
-// order simple and avoids the per-row check).
+// stored as the target's TypeEntity int id (Signum's ImplementedByAllTypeColumn, which is an
+// ordinary ImplementationColumn there). Typed as the TypeEntity primary key and pointed at its
+// table, and it carries the FIELD's own nullability — unlike the id columns, exactly one
+// discriminator is written per row, so a non-nullable reference has a NOT NULL discriminator.
+//
+// DIVERGENCE: no FK constraint. Signum builds one (a Southwind database has
+// `fk_concurrent_user_target_entity_id_type`) and drops it only for an explicit
+// `[AvoidForeignKey]`. altea cannot yet: an FK here makes a sync that REMOVES a type row fail on
+// the constraint, and the `EntityEvents<TypeEntity>.preDeleteSqlSync` cascade that sweeps such a
+// table's orphans is unported (see altea-view-log's header). Restore it with that cascade.
 export class ImplementedByAllTypeColumn extends ColumnBase {
-    constructor(name: string, referenceTable: Table) {
+    constructor(name: string, referenceTable: Table, nullable: IsNullable = IsNullable.Yes) {
         super(name, referenceTable.primaryKey.column.dbType);
         this.referenceTable = referenceTable;
-        this.nullable = IsNullable.Yes;
+        this.nullable = nullable;
         this.avoidForeignKey = true;
     }
 }

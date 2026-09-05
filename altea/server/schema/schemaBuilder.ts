@@ -847,13 +847,19 @@ export class SchemaBuilder {
             if (this.explicitColumnName(fi) != null)
                 throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: @column({ columnName }) cannot name a polymorphic reference — it owns one column per implementation. Subclass SchemaBuilder.columnName / .idiomatic to rename them.`);
             if (fi.implementations.kind === 'implementedByAll') {
+                // NULLABILITY is Signum's GenerateFieldImplementedByAll exactly: the DISCRIMINATOR
+                // carries the field's own (exactly one is written per row), while an id column is
+                // nullable as soon as the schema configures SEVERAL pk types, because then only the
+                // one matching the target's key is filled.
+                const pkTypes = this.settings.implementedByAllPrimaryKeyTypes;
+                const idNullable = pkTypes.length > 1 ? IsNullable.Yes : nullable;
                 // One id column per configured PK type: `<Field>ID_<Int32|Int64|Guid>`.
-                const idColumns = this.settings.implementedByAllPrimaryKeyTypes.map(t =>
-                    new ImplementedByAllIdColumn(this.idiomatic(preName.add(`${this.columnName(fi)}ID_${t.name}`).toString()), t.dbType, t.pkType));
+                const idColumns = pkTypes.map(t =>
+                    new ImplementedByAllIdColumn(this.idiomatic(preName.add(`${this.columnName(fi)}ID_${t.name}`).toString()), t.dbType, t.pkType, idNullable));
                 // The type discriminator is the target's TypeEntity int id, so the
                 // column references the (auto-included) TypeEntity table.
                 const typeTable = this.include(TypeEntity as unknown as Type<Entity>).table;
-                const typeColumn = new ImplementedByAllTypeColumn(this.idiomatic(preName.add(`${this.columnName(fi)}ID_Type`).toString()), typeTable);
+                const typeColumn = new ImplementedByAllTypeColumn(this.idiomatic(preName.add(`${this.columnName(fi)}ID_Type`).toString()), typeTable, nullable);
                 return new FieldImplementedByAll(idColumns, typeColumn, isLite);
             }
             // LEGACY MODE: an MList row's back reference is Signum's `ParentID` — one column, whatever the
@@ -865,10 +871,15 @@ export class SchemaBuilder {
             const implTypes = fi.implementations.types();
             if (legacyParent && implTypes.length !== 1)
                 throw new Error(`@backReference '${fi.name}' on ${rawTypeName(table.type)}: a collection row's back reference must resolve to exactly ONE implementation (found ${implTypes.length}) — it is the row's single owner. ${implTypes.length === 0 ? "Widen it from the application with overrideImplementedBy(...)." : ""}`);
-            // A @backReference resolves to exactly one implementation (validateEntityArray enforces it),
-            // so its single column carries the field's own nullability rather than the polymorphic
-            // default — Signum's ParentID is NOT NULL.
-            const implNullable = fi.isBackReference && implTypes.length === 1 ? nullable : IsNullable.Yes;
+            // NULLABILITY, Signum's GenerateFieldImplementedBy exactly: a field with SEVERAL
+            // implementations owns several columns of which one is filled, so a non-nullable one is
+            // FORCED nullable in the database while staying required in the model; with a SINGLE
+            // implementation there is one column and it carries the field's own nullability. That
+            // covers a @backReference (which validateEntityArray holds to exactly one implementation,
+            // so its ParentID is NOT NULL as Signum's is) and equally the accommodation where a
+            // framework type declares `@implementedBy(() => [])` for the app to widen —
+            // VisualTipConsumedEntity.user and its six siblings are NOT NULL in Signum too.
+            const implNullable = implTypes.length > 1 && nullable === IsNullable.No ? IsNullable.Forced : nullable;
             const columns = implTypes.map(implType => {
                 const refTable = this.include(implType, inherited).table;
                 const legacyBase = this.legacyMListColumnBase(table, fi, undefined);
