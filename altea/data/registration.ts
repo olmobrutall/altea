@@ -333,6 +333,56 @@ export function schemaForName(name: string): string | undefined {
 // `new OperationSymbol(typeof(Container), field)`). Kept in this import-free leaf so any
 // entity file can `init()` without a runtime cycle (as with `msg()`).
 
+/**
+ * Re-key every DECLARED symbol of one container — the symbol-key sibling of `@legacyTableName` /
+ * `@legacyColumnName`, and NEW here (Signum needs none: it is the framework being ported from).
+ *
+ * A symbol's key is `<Container>.<Member>`, stamped by the quote-transformer from the namespace the
+ * symbol is declared in, and it is the `key` COLUMN of that symbol's table. So an application ported
+ * from a Signum one under a different name declares `EastwindTypeCondition.UserEntities` where the
+ * database it is pointed at holds `SouthwindTypeCondition.UserEntities` — a rename the sync offers per
+ * symbol, whose wrong answer is a DELETE + INSERT that re-ids the symbol and orphans every rule
+ * pointing at it.
+ *
+ * Called from the app's shared entity-overrides module, so BOTH TIERS agree: the key is model identity,
+ * and a client that kept the other spelling could not be handed its id by the metadata blob — every
+ * `toLite()` on that symbol would then throw. Which is also why this must run before ANYTHING reads a
+ * symbol by key (the schema build, SymbolLogic's caches, the blob); the overrides module is first on
+ * both tiers, which is what makes it the right home.
+ *
+ * THROWS when the container matched nothing — a typo, or a call made before the declaring module was
+ * evaluated, are the same silent no-op otherwise.
+ */
+export function renameSymbolContainer(from: string, to: string): void {
+    const prefix = from + ".";
+    let matched = 0;
+
+    for (const byKey of declaredSymbols.values()) {
+        for (const [key, sym] of [...byKey]) {
+            if (!key.startsWith(prefix))
+                continue;
+
+            const renamed = to + "." + key.slice(prefix.length);
+            byKey.delete(key);
+            sym.key = renamed;
+            byKey.set(renamed, sym);
+
+            // The location registry is keyed by the symbol key too (it is what groups a symbol by
+            // package + folder for the schema map and the translation index).
+            const location = locationRegistry.get(key);
+            if (location != null) {
+                locationRegistry.delete(key);
+                locationRegistry.set(renamed, location);
+            }
+            matched++;
+        }
+    }
+
+    if (matched === 0)
+        throw new Error(`renameSymbolContainer('${from}', '${to}'): no declared symbol has that container.`
+            + ` Check the spelling, and that the module declaring it is imported before this runs.`);
+}
+
 // The minimal shape init() stamps. Declared locally (not `import { Symbol }`) so the
 // leaf stays runtime-import-free — the concrete constructor is passed in by init()'s
 // caller, and its Entity machinery is irrelevant to the stamping here.

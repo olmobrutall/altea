@@ -686,7 +686,7 @@ export {
     registerEnum, resolveEnum, enumNameOf,
     registerObject, resolveObject,
     getLocation,
-    init, declaredSymbolsForType,
+    init, declaredSymbolsForType, renameSymbolContainer,
     setDefaultTypeDescription, setDefaultMemberDescription, getDefaultDescription,
     setDefaultCulture, getPackageCulture, cultureForName,
     setDefaultDatabaseSchema, schemaForName,
