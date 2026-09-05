@@ -15,7 +15,7 @@ import { FilePathEmbedded } from "@altea/altea-files/data/Files";
 import { QueryFilterUtils } from "@altea/altea-user-assets/server/QueryFilterUtils";
 import {
     EmailAddressSource, EmailMessageFormat, EmailTemplateEntity, EmailTemplateEntity_Message,
-    EmailTemplateEntity_Recipient, WhenManyFromBehaviour, WhenManyRecipientsBehaviour,
+    EmailTemplateRecipientEmbedded, WhenManyFromBehaviour, WhenManyRecipientsBehaviour,
     WhenNoneFromBehaviour, WhenNoneRecipientsBehaviour,
 } from "../data/EmailTemplate";
 import {
@@ -237,14 +237,14 @@ export class EmailMessageBuilder {
 
     /** Signum's GetRecipients — the cross product of every token recipient, plus the fixed ones. */
     private async getRecipients(): Promise<EmailOwnerRecipientData[][]> {
-        const tokenRecipients = this.template.recipients.filter(a => a.addressSource === EmailAddressSource.QueryToken);
+        const tokenRecipients = this.template.recipients.map(a => a.element).filter(a => a.addressSource === EmailAddressSource.QueryToken);
         const combinations = await this.tokenRecipientsCrossProduct(tokenRecipients, 0);
 
         const result: EmailOwnerRecipientData[][] = [];
         for (const combination of combinations) {
             const recipients = [...combination];
 
-            for (const tr of this.template.recipients.filter(a => a.addressSource !== EmailAddressSource.QueryToken)) {
+            for (const tr of this.template.recipients.map(a => a.element).filter(a => a.addressSource !== EmailAddressSource.QueryToken)) {
                 const ownerData = tr.addressSource === EmailAddressSource.CurrentUser
                     ? await EmailLogic.currentUserOwnerData()
                     : { owner: null, email: tr.emailAddress!, displayName: tr.displayName, culture: null, externalId: null };
@@ -275,7 +275,7 @@ export class EmailMessageBuilder {
     }
 
     private async tokenRecipientsCrossProduct(
-        tokenRecipients: EmailTemplateEntity_Recipient[],
+        tokenRecipients: EmailTemplateRecipientEmbedded[],
         pos: number,
     ): Promise<EmailOwnerRecipientData[][]> {
         if (tokenRecipients.length === pos)
@@ -329,8 +329,8 @@ export class EmailMessageBuilder {
                 tokens.push(this.token(this.template.from.token.tokenString));
 
             for (const tr of this.template.recipients)
-                if (tr.token != null)
-                    tokens.push(this.token(tr.token.tokenString));
+                if (tr.element.token != null)
+                    tokens.push(this.token(tr.element.token.tokenString));
 
             for (const t of this.template.messages) {
                 (await EmailTemplateLogic.textNode(this.template, t)).fillQueryTokens(tokens);

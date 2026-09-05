@@ -21,8 +21,9 @@ import HtmlEditorLine from "@altea/altea-html-editor/client/HtmlEditorLine";
 import QueryTokenEmbeddedBuilder from "@altea/altea-user-assets/client/Templates/QueryTokenEmbeddedBuilder";
 import FilterBuilderEmbedded from "@altea/altea-user-queries/client/Templates/FilterBuilderEmbedded";
 import {
-    EmailAddressSource, EmailMessageFormat, EmailTemplateEntity, EmailTemplateEntity_From, EmailTemplateEntity_Message,
-    EmailTemplateEntity_Recipient, EmailTemplateMessage, EmailTemplateViewMessage,
+    EmailAddressSource, EmailMessageFormat, EmailTemplateEntity, EmailTemplateFromEmbedded, EmailTemplateEntity_Message,
+    EmailTemplateEntity_Recipient, EmailTemplateRecipientEmbedded, EmailTemplateAddressEmbedded,
+    EmailTemplateMessage, EmailTemplateViewMessage,
 } from "../../data/EmailTemplate";
 import { TemplateApplicableEval } from "@altea/altea-templating/data/Templating";
 import { EvalLine } from "@altea/altea-eval/client/EvalLine";
@@ -75,13 +76,15 @@ export default function EmailTemplate(p: { ctx: TypeContext<EmailTemplateEntity>
                     </Tab>
                     <Tab eventKey="recipients" title={ctx.niceName(a => a.recipients)}>
                         <EntityDetail ctx={ecXs.subCtx(e => e.from)} onChange={forceUpdate}
-                            onCreate={() => Promise.resolve(EmailTemplateEntity_From.create({}))}
+                            onCreate={() => Promise.resolve(EmailTemplateFromEmbedded.create({}))}
                             getComponent={fctx => <EmailTemplateFrom ctx={fctx} query={ctx.value.query} />} />
 
                         <h3 className="text-muted h5">{ecXs.niceName(s => s.recipients)}</h3>
                         <EntityRepeater ctx={ecXs.subCtx(s => s.recipients)} avoidFieldSet onChange={forceUpdate}
-                            onCreate={() => Promise.resolve(EmailTemplateEntity_Recipient.create({}))}
-                            getComponent={rctx => <EmailTemplateRecipient ctx={rctx} query={ctx.value.query} />} />
+                            onCreate={() => Promise.resolve(EmailTemplateEntity_Recipient.create({
+                                element: EmailTemplateRecipientEmbedded.create({}),
+                            }))}
+                            getComponent={rctx => <EmailTemplateRecipient ctx={rctx.subCtx(r => r.element)} query={ctx.value.query} />} />
                     </Tab>
 
                     <Tab eventKey="attachments" title={
@@ -156,7 +159,7 @@ function applicableSignature(template: EmailTemplateEntity): string {
     return `function evaluate(e: ${ctor?.name ?? "Entity"} | null): boolean`;
 }
 
-function EmailTemplateFrom(p: { ctx: TypeContext<EmailTemplateEntity_From>; query: QueryEntity | null }): React.JSX.Element {
+function EmailTemplateFrom(p: { ctx: TypeContext<EmailTemplateFromEmbedded>; query: QueryEntity | null }): React.JSX.Element {
     const sc = p.ctx.subCtx({ formGroupStyle: "Basic" });
     const forceUpdate = useForceUpdate();
 
@@ -180,7 +183,7 @@ function EmailTemplateFrom(p: { ctx: TypeContext<EmailTemplateEntity_From>; quer
     );
 }
 
-function EmailTemplateRecipient(p: { ctx: TypeContext<EmailTemplateEntity_Recipient>; query: QueryEntity | null }): React.JSX.Element {
+function EmailTemplateRecipient(p: { ctx: TypeContext<EmailTemplateRecipientEmbedded>; query: QueryEntity | null }): React.JSX.Element {
     const sc = p.ctx.subCtx({ formGroupStyle: "Basic" });
     const forceUpdate = useForceUpdate();
 
@@ -204,7 +207,7 @@ function EmailTemplateRecipient(p: { ctx: TypeContext<EmailTemplateEntity_Recipi
 /** The half of a From / Recipient row that depends on its `addressSource` (the shared part of Signum's two
  *  nearly identical components). */
 function AddressBody(p: {
-    ctx: TypeContext<EmailTemplateEntity_From | EmailTemplateEntity_Recipient>;
+    ctx: TypeContext<EmailTemplateAddressEmbedded>;
     query: QueryEntity | null;
     onChange: () => void;
     extraHardcoded?: React.ReactNode;
@@ -223,10 +226,10 @@ function AddressBody(p: {
                         onTokenChanged={p.onChange} />
                     <div className="row">
                         <div className="col-sm-6">
-                            <AutoLine ctx={sc.subCtx(c => (c as EmailTemplateEntity_Recipient).whenNone)} />
+                            <AutoLine ctx={sc.subCtx(c => (c as EmailTemplateRecipientEmbedded).whenNone)} />
                         </div>
                         <div className="col-sm-6">
-                            <AutoLine ctx={sc.subCtx(c => (c as EmailTemplateEntity_Recipient).whenMany)} />
+                            <AutoLine ctx={sc.subCtx(c => (c as EmailTemplateRecipientEmbedded).whenMany)} />
                         </div>
                     </div>
                 </div>)}

@@ -20,8 +20,7 @@ import { TemplatingLogic } from "@altea/altea-templating/server/TemplatingLogic"
 import { MultiEntityModel, QueryModel } from "@altea/altea-templating/data/Templating";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import {
-    EmailTemplateEntity, EmailTemplateEntity_Message, EmailTemplateEntity_Order, EmailTemplateOperation,
-    EmailTemplateVisibleOn, type IAttachmentGeneratorEntity,
+    EmailTemplateEntity, EmailTemplateEntity_Message, EmailTemplateEntity_Order, EmailTemplateOperation, EmailTemplateVisibleOn, type IAttachmentGeneratorEntity, EmailTemplateEntity_Recipient,
 } from "../data/EmailTemplate";
 import type { EmailMessageEntity } from "../data/EmailMessage";
 import type { EmailModelEntity } from "../data/Email";
@@ -380,7 +379,7 @@ function registerEmailTemplateOperations(op: FluentOperations<EmailTemplateEntit
         groupResults: e.groupResults,
         messageFormat: e.messageFormat,
         from: e.from?.clone() ?? null,
-        recipients: e.recipients.map(r => r.clone()),
+        recipients: e.recipients.map(r => EmailTemplateEntity_Recipient.create({ element: r.element.clone() })),
         query: e.query,
         model: e.model,
         orders: e.orders.map(o => EmailTemplateEntity_Order.create({ token: o.token, orderType: o.orderType })),

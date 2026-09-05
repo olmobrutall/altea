@@ -13,8 +13,8 @@ import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import {
     EmailAddressSource, EmailAttachmentType, EmailMasterTemplateEntity, EmailMasterTemplateEntity_Attachment,
     EmailMasterTemplateEntity_Message, EmailMessageFormat, EmailTemplateEntity, EmailTemplateEntity_Attachment,
-    EmailTemplateEntity_Filter, EmailTemplateEntity_From, EmailTemplateEntity_Message, EmailTemplateEntity_Order,
-    EmailTemplateEntity_Recipient, FileTokenAttachmentEntity, ImageAttachmentEntity, WhenManyFromBehaviour,
+    EmailTemplateEntity_Filter, EmailTemplateFromEmbedded, EmailTemplateEntity_Message, EmailTemplateEntity_Order,
+    EmailTemplateEntity_Recipient, EmailTemplateRecipientEmbedded, EmailTemplateAddressEmbedded, FileTokenAttachmentEntity, ImageAttachmentEntity, WhenManyFromBehaviour,
     WhenManyRecipientsBehaviour, WhenNoneFromBehaviour, WhenNoneRecipientsBehaviour,
     TemplateApplicableEval, type IAttachmentGeneratorEntity,
 } from "../data/EmailTemplate";
@@ -82,7 +82,7 @@ async function templateToXml(et: EmailTemplateEntity, ctx: IToXmlContext): Promi
     });
 
     o["Recipients"] = {
-        Recipient: et.recipients.map(r => addressXml(r, {
+        Recipient: et.recipients.map(({ element: r }) => addressXml(r, {
             [A + "Kind"]: Enum.toName(EmailRecipientKind, r.kind),
             [A + "WhenMany"]: Enum.toName(WhenManyRecipientsBehaviour, r.whenMany),
             [A + "WhenNone"]: Enum.toName(WhenNoneRecipientsBehaviour, r.whenNone),
@@ -146,7 +146,7 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
     if (fromXmlEl == undefined) {
         et.from = null;
     } else {
-        const f = new EmailTemplateEntity_From();
+        const f = new EmailTemplateFromEmbedded();
         readAddress(f, fromXmlEl);
         f.whenMany = enumOr(WhenManyFromBehaviour, str(fromXmlEl[A + "WhenMany"]), WhenManyFromBehaviour.FistResult);
         f.whenNone = enumOr(WhenNoneFromBehaviour, str(fromXmlEl[A + "WhenNone"]), WhenNoneFromBehaviour.NoMessage);
@@ -154,13 +154,12 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
     }
 
     et.recipients = list(asRecord(xml["Recipients"])?.["Recipient"]).map((x, i) => {
-        const r = new EmailTemplateEntity_Recipient();
-        r.order = toInt(i);
+        const r = new EmailTemplateRecipientEmbedded();
         readAddress(r, x);
         r.kind = enumOr(EmailRecipientKind, str(x[A + "Kind"]), EmailRecipientKind.To);
         r.whenMany = enumOr(WhenManyRecipientsBehaviour, str(x[A + "WhenMany"]), WhenManyRecipientsBehaviour.KeepOneMessageWithManyRecipients);
         r.whenNone = enumOr(WhenNoneRecipientsBehaviour, str(x[A + "WhenNone"]), WhenNoneRecipientsBehaviour.ThrowException);
-        return r;
+        return EmailTemplateEntity_Recipient.create({ element: r });
     });
 
     et.messages = list(asRecord(xml["Messages"])?.["Message"]).map((x, i) => {
@@ -222,7 +221,7 @@ function masterFromXml(emt: EmailMasterTemplateEntity, xml: Record<string, unkno
 
 // ---- shared pieces -------------------------------------------------------------------------------------
 
-function addressXml(a: EmailTemplateEntity_From | EmailTemplateEntity_Recipient, extra: Record<string, unknown>): Record<string, unknown> {
+function addressXml(a: EmailTemplateAddressEmbedded, extra: Record<string, unknown>): Record<string, unknown> {
     const x: Record<string, unknown> = { ...extra };
     if (a.displayName) x[A + "DisplayName"] = a.displayName;
     if (a.emailAddress) x[A + "EmailAddress"] = a.emailAddress;
@@ -231,7 +230,7 @@ function addressXml(a: EmailTemplateEntity_From | EmailTemplateEntity_Recipient,
     return x;
 }
 
-function readAddress(a: EmailTemplateEntity_From | EmailTemplateEntity_Recipient, x: Record<string, unknown>): void {
+function readAddress(a: EmailTemplateAddressEmbedded, x: Record<string, unknown>): void {
     a.displayName = str(x[A + "DisplayName"]) ?? null;
     a.emailAddress = str(x[A + "EmailAddress"]) ?? null;
     a.token = x[A + "Token"] != undefined ? token(str(x[A + "Token"])!) : null;
