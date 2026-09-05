@@ -3,7 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { SemiSymbol } from "@altea/altea/data/semiSymbol";
 import {
-    backReference, entity, implementedBy, quoted, rowOrder, stringLengthValidator, uniqueIndex, valueField,
+    backReference, entity, implementedBy, quoted, stringLengthValidator, uniqueIndex,
 } from "@altea/altea/data/decorators";
 import type { int } from "@altea/altea/data/basics";
 import type { ConstructSymbol, DeleteSymbol, ExecuteSymbol, From } from "@altea/altea/data/operations";
@@ -98,7 +98,8 @@ export class SkillCustomizationEntity extends Entity {
 @entity("Part", "Master")
 export class SkillCustomizationEntity_Property extends Entity {
     @backReference skillCustomization: Lite<SkillCustomizationEntity>;
-    @rowOrder order: int;
+    // No `@rowOrder`: Signum marks NEITHER of SkillCustomization's two MLists [PreserveOrder], so their
+    // tables have no Order column — a property is found by name and a sub-skill by its skill.
 
     @stringLengthValidator({ min: 1, max: 200 })
     propertyName: string;
@@ -120,9 +121,15 @@ export class SkillCustomizationEntity_Property extends Entity {
 @entity("Part", "Master")
 export class SkillCustomizationEntity_SubSkill extends Entity {
     @backReference skillCustomization: Lite<SkillCustomizationEntity>;
-    @rowOrder order: int;
+    // No `@rowOrder`: Signum marks NEITHER of SkillCustomization's two MLists [PreserveOrder], so their
+    // tables have no Order column — a property is found by name and a sub-skill by its skill.
 
-    @valueField @implementedBy(() => [SkillCustomizationEntity, SkillCodeEntity])
+    // NOT a `@valueField`: that marks a row whose field IS the whole MList element, and this row
+    // flattens the two members of Signum's SubSkillEmbedded. It matters in legacy mode, where a
+    // `@valueField` is named from the element TYPE — `Entity` here, giving `EntityID_SkillCode` — while
+    // an embedded element's members are inlined under their OWN names, which is what Signum's
+    // `Skill_ID_SkillCode` is.
+    @implementedBy(() => [SkillCustomizationEntity, SkillCodeEntity])
     skill: Entity;
 
     activation: SkillActivation = SkillActivation.Eager;
