@@ -228,46 +228,46 @@ export namespace EmailMasterTemplateOperation {
 
 // ---- EmailTemplate rows --------------------------------------------------------------------------------
 
-/** Signum's EmailTemplateAddressEmbedded — the members a template's From / Recipient share: WHERE the
- *  address comes from (a query token, a hardcoded address, or the current user).
+/**
+ * Signum's EmailTemplateFromEmbedded — a single nullable EMBEDDED on the template, so its members are
+ * FLATTENED onto `email_template` (`From_AddressSource_ID`, `From_WhenNone_ID`, …). It used to be a
+ * `@part` ENTITY row, which gave the template a `FromID` foreign key to a side table Signum has no
+ * counterpart for.
  *
- *  An EMBEDDED, as Signum declares it, and that is what the two halves' storage depends on: `From` is a
- *  single nullable embedded FLATTENED onto `email_template` (`From_WhenNone_ID`, …) while `Recipients`
- *  is an MList whose element IS this embedded, so its table inlines the members with NO prefix. Both had
- *  been `@part` ENTITY rows here, which gave the template a `FromID` foreign key to a side table Signum
- *  has no counterpart for. The shared base can only exist because both stay embeddeds — an Entity cannot
- *  derive from an EmbeddedEntity, so making the recipient row the element's WRAPPER
- *  (`EmailTemplateEntity_Recipient.element`) is what keeps Signum's hierarchy intact. */
+ * DIVERGENCE: Signum factors the four ADDRESS members (where the address comes from — a query token, a
+ * hardcoded address, or the current user) into an abstract `EmailTemplateAddressEmbedded` that both this
+ * and the recipient derive from. Here they are written out on each, because the two land on opposite
+ * sides of the entity/embedded divide: a From is an embedded, while Recipients is a COLLECTION and altea
+ * has no MList — so its element is a `@part` row ENTITY, and an Entity cannot derive from an
+ * EmbeddedEntity. Keeping the base would mean making the row a WRAPPER around an element embedded
+ * (`row.element.emailAddress`), which buys the shared declaration at the price of an indirection in
+ * every reader. Four duplicated members is the cheaper half of that trade.
+ */
 @reflect
-export abstract class EmailTemplateAddressEmbedded extends EmbeddedEntity {
+export class EmailTemplateFromEmbedded extends EmbeddedEntity {
 
     addressSource: EmailAddressSource;
 
-    @fieldValidation<EmailTemplateAddressEmbedded>(a =>
+    @fieldValidation<EmailTemplateFromEmbedded>(a =>
         (a.addressSource === EmailAddressSource.HardcodedAddress) === (a.emailAddress != null) ? null
             : ValidationMessage._0IsNotSet.niceToString("{0}"))
     emailAddress: string | null;
 
     displayName: string | null;
 
-    @fieldValidation<EmailTemplateAddressEmbedded>(a =>
+    @fieldValidation<EmailTemplateFromEmbedded>(a =>
         (a.addressSource === EmailAddressSource.QueryToken) === (a.token != null) ? null
             : ValidationMessage._0IsNotSet.niceToString("{0}"))
     token: QueryTokenEmbedded | null;
-
-    toString(): string {
-        return `${this.displayName ?? ""} <${this.emailAddress ?? this.token?.tokenString ?? ""}>`;
-    }
-}
-
-// Signum's EmailTemplateFromEmbedded — a single nullable embedded on the template.
-@reflect
-export class EmailTemplateFromEmbedded extends EmailTemplateAddressEmbedded {
 
     whenNone: WhenNoneFromBehaviour;
     whenMany: WhenManyFromBehaviour;
 
     azureUserId: string | null;
+
+    toString(): string {
+        return `${this.displayName ?? ""} <${this.emailAddress ?? this.token?.tokenString ?? ""}>`;
+    }
 
     clone(): EmailTemplateFromEmbedded {
         return EmailTemplateFromEmbedded.create({
@@ -282,21 +282,43 @@ export class EmailTemplateFromEmbedded extends EmailTemplateAddressEmbedded {
     }
 }
 
-// Signum's EmailTemplateRecipientEmbedded — the ELEMENT of the template's Recipients MList.
-@reflect
-export class EmailTemplateRecipientEmbedded extends EmailTemplateAddressEmbedded {
+/**
+ * Signum's `MList<EmailTemplateRecipientEmbedded> Recipients` — the MList TABLE, so its members are the
+ * ROW's own and legacy mode names the columns from them (`AddressSource_ID`, `Kind_ID`, …), with no
+ * prefix, which is Signum's `email_template_recipients` exactly. No `@rowOrder`: Signum marks that
+ * MList `[NoRepeatValidator, BindParent]` and NOT `[PreserveOrder]`, so its table has no Order column.
+ * The four address members are Signum's shared `EmailTemplateAddressEmbedded` — see the note on
+ * EmailTemplateFromEmbedded for why they are written out rather than inherited.
+ */
+@entity("Part", "Master")
+export class EmailTemplateEntity_Recipient extends Entity {
+    @backReference emailTemplate: Lite<EmailTemplateEntity>;
+
+    addressSource: EmailAddressSource;
+
+    @fieldValidation<EmailTemplateEntity_Recipient>(a =>
+        (a.addressSource === EmailAddressSource.HardcodedAddress) === (a.emailAddress != null) ? null
+            : ValidationMessage._0IsNotSet.niceToString("{0}"))
+    emailAddress: string | null;
+
+    displayName: string | null;
+
+    @fieldValidation<EmailTemplateEntity_Recipient>(a =>
+        (a.addressSource === EmailAddressSource.QueryToken) === (a.token != null) ? null
+            : ValidationMessage._0IsNotSet.niceToString("{0}"))
+    token: QueryTokenEmbedded | null;
 
     kind: EmailRecipientKind;
 
     whenNone: WhenNoneRecipientsBehaviour;
     whenMany: WhenManyRecipientsBehaviour;
 
-    override toString(): string {
+    toString(): string {
         return `${EmailRecipientKind[this.kind]} ${this.displayName ?? ""} <${this.emailAddress ?? this.token?.tokenString ?? ""}>`;
     }
 
-    clone(): EmailTemplateRecipientEmbedded {
-        return EmailTemplateRecipientEmbedded.create({
+    clone(): EmailTemplateEntity_Recipient {
+        return EmailTemplateEntity_Recipient.create({
             addressSource: this.addressSource,
             displayName: this.displayName,
             emailAddress: this.emailAddress,
@@ -305,21 +327,6 @@ export class EmailTemplateRecipientEmbedded extends EmailTemplateAddressEmbedded
             whenMany: this.whenMany,
             whenNone: this.whenNone,
         });
-    }
-}
-
-/** Signum's `MList<EmailTemplateRecipientEmbedded> Recipients` — the MList TABLE. The element is the
- *  whole embedded, so it is the row's `@valueField` and legacy mode inlines its members with no prefix
- *  (`AddressSource_ID`, `Kind_ID`, …), which is Signum's `email_template_recipients` exactly. No
- *  `@rowOrder`: Signum marks the MList `[NoRepeatValidator, BindParent]` and NOT `[PreserveOrder]`. */
-@entity("Part", "Master")
-export class EmailTemplateEntity_Recipient extends Entity {
-    @backReference emailTemplate: Lite<EmailTemplateEntity>;
-
-    @valueField element: EmailTemplateRecipientEmbedded;
-
-    toString(): string {
-        return this.element?.toString() ?? "";
     }
 }
 

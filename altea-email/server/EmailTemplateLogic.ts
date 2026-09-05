@@ -379,7 +379,7 @@ function registerEmailTemplateOperations(op: FluentOperations<EmailTemplateEntit
         groupResults: e.groupResults,
         messageFormat: e.messageFormat,
         from: e.from?.clone() ?? null,
-        recipients: e.recipients.map(r => EmailTemplateEntity_Recipient.create({ element: r.element.clone() })),
+        recipients: e.recipients.map(r => r.clone()),
         query: e.query,
         model: e.model,
         orders: e.orders.map(o => EmailTemplateEntity_Order.create({ token: o.token, orderType: o.orderType })),

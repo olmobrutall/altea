@@ -14,7 +14,7 @@ import {
     EmailAddressSource, EmailAttachmentType, EmailMasterTemplateEntity, EmailMasterTemplateEntity_Attachment,
     EmailMasterTemplateEntity_Message, EmailMessageFormat, EmailTemplateEntity, EmailTemplateEntity_Attachment,
     EmailTemplateEntity_Filter, EmailTemplateFromEmbedded, EmailTemplateEntity_Message, EmailTemplateEntity_Order,
-    EmailTemplateEntity_Recipient, EmailTemplateRecipientEmbedded, EmailTemplateAddressEmbedded, FileTokenAttachmentEntity, ImageAttachmentEntity, WhenManyFromBehaviour,
+    EmailTemplateEntity_Recipient, FileTokenAttachmentEntity, ImageAttachmentEntity, WhenManyFromBehaviour,
     WhenManyRecipientsBehaviour, WhenNoneFromBehaviour, WhenNoneRecipientsBehaviour,
     TemplateApplicableEval, type IAttachmentGeneratorEntity,
 } from "../data/EmailTemplate";
@@ -82,7 +82,7 @@ async function templateToXml(et: EmailTemplateEntity, ctx: IToXmlContext): Promi
     });
 
     o["Recipients"] = {
-        Recipient: et.recipients.map(({ element: r }) => addressXml(r, {
+        Recipient: et.recipients.map(r => addressXml(r, {
             [A + "Kind"]: Enum.toName(EmailRecipientKind, r.kind),
             [A + "WhenMany"]: Enum.toName(WhenManyRecipientsBehaviour, r.whenMany),
             [A + "WhenNone"]: Enum.toName(WhenNoneRecipientsBehaviour, r.whenNone),
@@ -154,12 +154,12 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
     }
 
     et.recipients = list(asRecord(xml["Recipients"])?.["Recipient"]).map((x, i) => {
-        const r = new EmailTemplateRecipientEmbedded();
+        const r = new EmailTemplateEntity_Recipient();
         readAddress(r, x);
         r.kind = enumOr(EmailRecipientKind, str(x[A + "Kind"]), EmailRecipientKind.To);
         r.whenMany = enumOr(WhenManyRecipientsBehaviour, str(x[A + "WhenMany"]), WhenManyRecipientsBehaviour.KeepOneMessageWithManyRecipients);
         r.whenNone = enumOr(WhenNoneRecipientsBehaviour, str(x[A + "WhenNone"]), WhenNoneRecipientsBehaviour.ThrowException);
-        return EmailTemplateEntity_Recipient.create({ element: r });
+        return r;
     });
 
     et.messages = list(asRecord(xml["Messages"])?.["Message"]).map((x, i) => {
@@ -221,7 +221,7 @@ function masterFromXml(emt: EmailMasterTemplateEntity, xml: Record<string, unkno
 
 // ---- shared pieces -------------------------------------------------------------------------------------
 
-function addressXml(a: EmailTemplateAddressEmbedded, extra: Record<string, unknown>): Record<string, unknown> {
+function addressXml(a: EmailTemplateFromEmbedded | EmailTemplateEntity_Recipient, extra: Record<string, unknown>): Record<string, unknown> {
     const x: Record<string, unknown> = { ...extra };
     if (a.displayName) x[A + "DisplayName"] = a.displayName;
     if (a.emailAddress) x[A + "EmailAddress"] = a.emailAddress;
@@ -230,7 +230,7 @@ function addressXml(a: EmailTemplateAddressEmbedded, extra: Record<string, unkno
     return x;
 }
 
-function readAddress(a: EmailTemplateAddressEmbedded, x: Record<string, unknown>): void {
+function readAddress(a: EmailTemplateFromEmbedded | EmailTemplateEntity_Recipient, x: Record<string, unknown>): void {
     a.displayName = str(x[A + "DisplayName"]) ?? null;
     a.emailAddress = str(x[A + "EmailAddress"]) ?? null;
     a.token = x[A + "Token"] != undefined ? token(str(x[A + "Token"])!) : null;

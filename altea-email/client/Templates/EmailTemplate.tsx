@@ -22,8 +22,7 @@ import QueryTokenEmbeddedBuilder from "@altea/altea-user-assets/client/Templates
 import FilterBuilderEmbedded from "@altea/altea-user-queries/client/Templates/FilterBuilderEmbedded";
 import {
     EmailAddressSource, EmailMessageFormat, EmailTemplateEntity, EmailTemplateFromEmbedded, EmailTemplateEntity_Message,
-    EmailTemplateEntity_Recipient, EmailTemplateRecipientEmbedded, EmailTemplateAddressEmbedded,
-    EmailTemplateMessage, EmailTemplateViewMessage,
+    EmailTemplateEntity_Recipient, EmailTemplateMessage, EmailTemplateViewMessage,
 } from "../../data/EmailTemplate";
 import { TemplateApplicableEval } from "@altea/altea-templating/data/Templating";
 import { EvalLine } from "@altea/altea-eval/client/EvalLine";
@@ -81,10 +80,8 @@ export default function EmailTemplate(p: { ctx: TypeContext<EmailTemplateEntity>
 
                         <h3 className="text-muted h5">{ecXs.niceName(s => s.recipients)}</h3>
                         <EntityRepeater ctx={ecXs.subCtx(s => s.recipients)} avoidFieldSet onChange={forceUpdate}
-                            onCreate={() => Promise.resolve(EmailTemplateEntity_Recipient.create({
-                                element: EmailTemplateRecipientEmbedded.create({}),
-                            }))}
-                            getComponent={rctx => <EmailTemplateRecipient ctx={rctx.subCtx(r => r.element)} query={ctx.value.query} />} />
+                            onCreate={() => Promise.resolve(EmailTemplateEntity_Recipient.create({}))}
+                            getComponent={rctx => <EmailTemplateRecipient ctx={rctx} query={ctx.value.query} />} />
                     </Tab>
 
                     <Tab eventKey="attachments" title={
@@ -183,7 +180,7 @@ function EmailTemplateFrom(p: { ctx: TypeContext<EmailTemplateFromEmbedded>; que
     );
 }
 
-function EmailTemplateRecipient(p: { ctx: TypeContext<EmailTemplateRecipientEmbedded>; query: QueryEntity | null }): React.JSX.Element {
+function EmailTemplateRecipient(p: { ctx: TypeContext<EmailTemplateEntity_Recipient>; query: QueryEntity | null }): React.JSX.Element {
     const sc = p.ctx.subCtx({ formGroupStyle: "Basic" });
     const forceUpdate = useForceUpdate();
 
@@ -207,7 +204,7 @@ function EmailTemplateRecipient(p: { ctx: TypeContext<EmailTemplateRecipientEmbe
 /** The half of a From / Recipient row that depends on its `addressSource` (the shared part of Signum's two
  *  nearly identical components). */
 function AddressBody(p: {
-    ctx: TypeContext<EmailTemplateAddressEmbedded>;
+    ctx: TypeContext<EmailTemplateFromEmbedded | EmailTemplateEntity_Recipient>;
     query: QueryEntity | null;
     onChange: () => void;
     extraHardcoded?: React.ReactNode;
@@ -226,10 +223,10 @@ function AddressBody(p: {
                         onTokenChanged={p.onChange} />
                     <div className="row">
                         <div className="col-sm-6">
-                            <AutoLine ctx={sc.subCtx(c => (c as EmailTemplateRecipientEmbedded).whenNone)} />
+                            <AutoLine ctx={sc.subCtx(c => (c as EmailTemplateEntity_Recipient).whenNone)} />
                         </div>
                         <div className="col-sm-6">
-                            <AutoLine ctx={sc.subCtx(c => (c as EmailTemplateRecipientEmbedded).whenMany)} />
+                            <AutoLine ctx={sc.subCtx(c => (c as EmailTemplateEntity_Recipient).whenMany)} />
                         </div>
                     </div>
                 </div>)}
