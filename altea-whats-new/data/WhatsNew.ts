@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import type { IQuery } from "@altea/altea/data/iquery";
-import { backReference, entity, implementedBy, quoted, rowOrder } from "@altea/altea/data/decorators";
+import { backReference, valueField, entity, implementedBy, quoted, rowOrder } from "@altea/altea/data/decorators";
 import { ComparisonType, countIsValidator, stringLengthValidator } from "@altea/altea/data/validators";
 import { registerEnum } from "@altea/altea/data/registration";
 import { Temporal, type int } from "@altea/altea/data/basics";
@@ -88,7 +88,7 @@ export class WhatsNewEntity_Attachment extends Entity {
     @backReference whatsNew: Lite<WhatsNewEntity>;
     @rowOrder order: int;
 
-    file: FilePathEmbedded;
+    @valueField file: FilePathEmbedded;
 
     @quoted toString(): string { return this.file.fileName; }
 }

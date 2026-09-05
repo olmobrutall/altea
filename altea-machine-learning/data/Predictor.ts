@@ -2,7 +2,7 @@ import { reflect, init, registerEnum, setDefaultDatabaseSchema } from "@altea/al
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Symbol } from "@altea/altea/data/symbol";
 import {
-    entity, backReference, rowOrder, quoted, implementedBy, implementedByAll, column, format, unit,
+    entity, backReference, valueField, rowOrder, quoted, implementedBy, implementedByAll, column, format, unit,
     stringLengthValidator, fieldValidation, noRepeatValidator, legacyTableName
 } from "@altea/altea/data/decorators";
 import { Lite } from "@altea/altea/data/lite";
@@ -259,7 +259,7 @@ export class PredictorEntity_File extends Entity {
     @backReference predictor: Lite<PredictorEntity>;
     @rowOrder order: int;
 
-    element: FilePathEmbedded;
+    @valueField element: FilePathEmbedded;
 }
 
 /**

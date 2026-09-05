@@ -552,8 +552,16 @@ export function forceNullable(target: object, propertyKey: string | symbol): voi
     getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).forceNullable = true;
 }
 
-// Marks the element-value field of a non-embedded MList row (the scalar /
-// reference the MList<T> held), e.g. `@valueField colaborator: Lite<ArtistEntity>`.
+// Marks the field holding the ELEMENT VALUE of an MList row — the whole of what Signum's `MList<T>` held,
+// whether that is a scalar, a reference (`@valueField colaborator: Lite<ArtistEntity>`) or an EMBEDDED
+// (`@valueField element: ChartColumnEmbedded`). Mark it only when the field IS the element: a row that
+// flattens a RICHER embedded's members (EmailAttachmentEmbedded's `file` + its siblings) has no single
+// element field, and neither does one Signum models as an entity.
+//
+// In legacy mode this is what names the column, because an MList element has no property in Signum: the
+// column is named from the element TYPE for a reference/enum, and an embedded's members are inlined with
+// NO prefix at all — `file_name`, not altea's `element_file_name`. The embedded case used to be excluded
+// here while legacyMListColumnBase already handled it, so that branch was unreachable.
 export function valueField(target: object, propertyKey: string | symbol): void {
     getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).isValueField = true;
 }

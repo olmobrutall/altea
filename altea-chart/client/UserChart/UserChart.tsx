@@ -142,10 +142,9 @@ function writeBack(cr: ChartRequestModel, uc: UserChartEntity): void {
         row.order = toInt(i);
         return row;
     });
-    uc.parameters = cr.parameters.map((el, i) => {
+    uc.parameters = cr.parameters.map(el => {
         const row = uc.parameters.find(pr => pr.element === el) ?? new UserChartEntity_Parameter();
         row.element = el;
-        row.order = toInt(i);
         return row;
     });
 }

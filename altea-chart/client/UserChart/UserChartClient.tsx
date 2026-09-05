@@ -182,10 +182,9 @@ export namespace UserChartClient {
             row.order = toInt(i);
             return row;
         });
-        uc.parameters = (cr.parameters ?? []).map((p, i) => {
+        uc.parameters = (cr.parameters ?? []).map(p => {
             const row = new UserChartEntity_Parameter();
             row.element = toChartParameter(p);
-            row.order = toInt(i);
             return row;
         });
         uc.customDrilldowns = [];

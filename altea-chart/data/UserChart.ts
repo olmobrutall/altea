@@ -70,15 +70,16 @@ export class UserChartEntity_Filter extends QueryFilterBaseEntity {
 export class UserChartEntity_Column extends Entity {
     @backReference userChart: Lite<UserChartEntity>;
     @rowOrder order: int;
-    element: ChartColumnEmbedded;
+    @valueField element: ChartColumnEmbedded;
 }
 
 // Signum's `[NoRepeatValidator] MList<ChartParameterEmbedded> Parameters` element (wrapped as above).
 @entity("Part")
 export class UserChartEntity_Parameter extends Entity {
     @backReference userChart: Lite<UserChartEntity>;
-    @rowOrder order: int;
-    element: ChartParameterEmbedded;
+    // No `@rowOrder`: Signum marks this MList [NoRepeatValidator] and NOT [PreserveOrder], so its table has
+    // no Order column — a parameter is found by name, not by position (unlike Columns, which are).
+    @valueField element: ChartParameterEmbedded;
 }
 
 // Signum's `[NoRepeatValidator, PreserveOrder, ImplementedBy(UserQueryEntity)] MList<Lite<Entity>>

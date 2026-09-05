@@ -149,7 +149,8 @@ export class FilePathEmbedded extends EmbeddedEntity {
     // Signum's [StringLengthValidator(1, 1024)] — the store-relative path the algorithm generated. Null until
     // the file is actually saved (the save hook fills it).
     @stringLengthValidator({ min: 1, max: 1024 })
-    suffix: string | null = null;
+    @notNullValidator({ disabled: env => env !== "Saving" })
+    suffix: string;
 
     fileType: FileTypeSymbol;
 
