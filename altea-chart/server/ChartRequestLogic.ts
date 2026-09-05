@@ -168,7 +168,7 @@ function token(queryName: QueryName, tokenString: string): QueryToken {
 }
 
 function orderTypeOf(orderType: NonNullable<ChartColumnEmbedded["orderByType"]>): Order["orderType"] {
-    return (typeof orderType === "string" ? orderType : Enum.toName(OrderType, orderType)) as Order["orderType"];
+    return Enum.toName(OrderType, orderType) as Order["orderType"];
 }
 
 /**

@@ -15,6 +15,7 @@ import { Lite } from '@altea/altea/data/lite';
 import type { Entity } from '@altea/altea/data/entity';
 import { Enum } from '@altea/altea/data/enum';
 import { enumEntityMembers } from '@altea/altea/data/enumEntity';
+import { OrderType } from '@altea/altea/data/dynamicQueries';
 import type { OrderTypeKeys } from '@altea/altea/data/dynamicQueries';
 import { TimeSeriesUnit } from '@altea/altea/data/dynamicQueries';
 import { type int, toInt } from '@altea/altea/data/basics';
@@ -330,7 +331,7 @@ export namespace ChartClient {
   // columns' orders (multi-sort), a plain click clears them. altea: plain arrays; no `.modified` (dirty is
   // snapshot-tracked); `int` order index via toInt.
   export function handleOrderColumn(cr: IChartBase, col: ChartColumnEmbedded, isShift: boolean): void {
-    const newOrder: OrderTypeKeys = col.orderByType == "Ascending" ? "Descending" : "Ascending";
+    const newOrder: OrderType = col.orderByType == OrderType.Ascending ? OrderType.Descending : OrderType.Ascending;
 
     if (!isShift) {
       cr.columns.forEach(a => {
@@ -551,7 +552,7 @@ export namespace ChartClient {
           displayName: co.displayName,
           format: co.format,
           orderByIndex: co.orderByIndex == null ? null : Number(co.orderByIndex),
-          orderByType: co.orderByType,
+          orderByType: co.orderByType == null ? null : Enum.toName(OrderType, co.orderByType),
         }) as ChartColumnOption),
         parameters: cr.parameters
           .filter(p => {
@@ -692,7 +693,7 @@ export namespace ChartClient {
           qte.tokenString = token;
           col.token = qte;
         }
-        col.orderByType = order == null ? null : (order.charAt(order.length - 1) == "A" ? "Ascending" : "Descending");
+        col.orderByType = order == null ? null : (order.charAt(order.length - 1) == "A" ? OrderType.Ascending : OrderType.Descending);
         col.orderByIndex = order == null ? null : toInt(parseInt(order.slice(0, -1)));
         col.format = unscapeTildes(format) ?? null;
         col.displayName = unscapeTildes(displayName) ?? null;
@@ -748,7 +749,7 @@ export namespace ChartClient {
         systemTime: systemTime,
         filters: Finder.toFilterRequests(request.filterOptions ?? []),
         columns: request.columns.filter(cce => cce.token != null).map(cce => ({ token: cce.token!.token!.fullKey(), displayName: cce.displayName ?? cce.token!.token!.niceName() }) as ColumnRequest),
-        orders: request.columns.filter(cce => cce.orderByType != null && cce.token != null).orderBy(cce => cce.orderByIndex).map(cce => ({ token: cce.token!.token!.fullKey(), orderType: cce.orderByType! }) as OrderRequest),
+        orders: request.columns.filter(cce => cce.orderByType != null && cce.token != null).orderBy(cce => cce.orderByIndex).map(cce => ({ token: cce.token!.token!.fullKey(), orderType: Enum.toName(OrderType, cce.orderByType!) }) as OrderRequest),
         pagination: request.maxRows == null ? { mode: "All" } : { mode: "Firsts", elementsPerPage: request.maxRows }
       };
     }
@@ -897,7 +898,7 @@ export namespace ChartClient {
           // numeric [Flags] ChartColumnType → its member-name string (the client result-column type)
           type: (() => { const t = getChartColumnType(token); return t == null ? null : ChartColumnType[t] as ChartColumnTypeString; })(),
           orderByIndex: cce.orderByIndex,
-          orderByType: cce.orderByType,
+          orderByType: cce.orderByType == null ? null : Enum.toName(OrderType, cce.orderByType),
           getKey: key,
           getNiceName: niceName,
           getColor: color,

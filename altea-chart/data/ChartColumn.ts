@@ -3,7 +3,7 @@ import { EmbeddedEntity } from "@altea/altea/data/entity";
 import { fieldValidation } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
-import type { OrderTypeKeys } from "@altea/altea/data/dynamicQueries";
+import { OrderType } from "@altea/altea/data/dynamicQueries";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { enumColumn } from "@altea/altea-user-assets/data/UserAssets";
 import type { ChartScriptColumn } from "./ChartScriptColumn";
@@ -60,7 +60,12 @@ export class ChartColumnEmbedded extends EmbeddedEntity {
 
     // Signum's `OrderType? OrderByType`. Stored as the member-name string (see enumColumn).
     @enumColumn()
-    orderByType: OrderTypeKeys | null;
+    // A REFLECTED enum, so the column is an FK to the enum table (`OrderByTypeID`) as Signum's
+    // `OrderType? OrderByType` is. It was typed `OrderTypeKeys` — the string UNION — which the
+    // transformer sees as a plain string, giving a varchar `OrderByType` column instead. The field
+    // therefore holds the ORDINAL: compare through `OrderType.Ascending`, and cross to a NAME with
+    // `Enum.toName` wherever it meets a DTO (a ChartColumnOption, the url, the XML, an OrderRequest).
+    orderByType: OrderType | null;
 
     // Signum's TokenChanged(): re-fix column-bound parameters and clear the (now stale) display name/format.
     // Invoked by the editor when the token changes (altea has no property setters).

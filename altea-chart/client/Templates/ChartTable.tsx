@@ -6,6 +6,7 @@ import { withoutAggregate } from "@altea/altea/client/FindOptions";
 import type { ColumnOption, ColumnOptionParsed, FilterOptionParsed } from "@altea/altea/client/FindOptions";
 import type { ResultRow, ResultTable } from "@altea/altea/data/dynamicQuery/queryRequest";
 import { ChartRequestModel } from "../../data/ChartRequest";
+import { OrderType } from "@altea/altea/data/dynamicQueries";
 import { ChartClient } from "../ChartClient";
 
 // Copy-and-fix of Signum.Chart/Templates/ChartTable.tsx — the chart's data as a plain result TABLE (the
@@ -88,7 +89,7 @@ export default function ChartTableComponent(p: ChartTableProps): React.JSX.Eleme
         if (c == undefined || c.orderByType == null)
             return "";
 
-        return (c.orderByType == "Ascending" ? "asc" : "desc") + (" l" + c.orderByIndex);
+        return (c.orderByType == OrderType.Ascending ? "asc" : "desc") + (" l" + c.orderByIndex);
     }
 
     const resultTable = p.resultTable;

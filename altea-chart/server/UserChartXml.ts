@@ -1,6 +1,6 @@
 import { table } from "@altea/altea/server/table";
 import type { int } from "@altea/altea/data/basics";
-import type { OrderTypeKeys } from "@altea/altea/data/dynamicQueries";
+import { OrderType } from "@altea/altea/data/dynamicQueries";
 import { Enum } from "@altea/altea/data/enum";
 import {
     FilterGroupOperation, FilterOperation, DashboardBehaviour, PinnedFilterActive,
@@ -96,7 +96,7 @@ function columnXml(c: ChartColumnEmbedded): Record<string, unknown> {
     if (c.displayName != null) x[A + "DisplayName"] = c.displayName;
     if (c.format != null) x[A + "Format"] = c.format;
     if (c.orderByIndex != null) x[A + "OrderByIndex"] = c.orderByIndex;
-    if (c.orderByType != null) x[A + "OrderByType"] = c.orderByType;
+    if (c.orderByType != null) x[A + "OrderByType"] = Enum.toName(OrderType, c.orderByType);
     return x;
 }
 
@@ -170,7 +170,8 @@ function columnFromXml(x: Record<string, unknown>): ChartColumnEmbedded {
     c.displayName = str(x[A + "DisplayName"]) ?? null;
     c.format = str(x[A + "Format"]) ?? null;
     c.orderByIndex = x[A + "OrderByIndex"] != null ? (Number(x[A + "OrderByIndex"]) as int) : null;
-    c.orderByType = str(x[A + "OrderByType"]) as OrderTypeKeys ?? null;
+    const orderByType = str(x[A + "OrderByType"]);
+    c.orderByType = orderByType == null ? null : toEnum(OrderType, orderByType);
     return c;
 }
 

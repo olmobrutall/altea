@@ -4,6 +4,7 @@ import { TypeContext, StyleContext } from '@altea/altea/client/TypeContext'
 import { TextBoxLine } from '@altea/altea/client/Lines/TextBoxLine'
 import { FormGroup } from '@altea/altea/client/Lines/FormGroup'
 import { ChartColumnEmbedded } from '../../data/ChartColumn'
+import { OrderType } from '@altea/altea/data/dynamicQueries'
 import { ChartColumnType } from '../../data/ChartScriptColumn'
 import { ChartMessage } from '../../data/ChartMessage'
 import { ChartParameterEmbedded } from '../../data/ChartParameter'
@@ -119,7 +120,7 @@ export function ChartColumn(p: ChartColumnProps): React.JSX.Element {
     if (c.orderByType == null || c.orderByIndex == null)
       return "";
 
-    return (c.orderByType == "Ascending" ? "asc" : "desc") + (" l" + c.orderByIndex);
+    return (c.orderByType == OrderType.Ascending ? "asc" : "desc") + (" l" + c.orderByIndex);
   }
   const sc = p.scriptColumn;
 
