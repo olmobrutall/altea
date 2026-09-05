@@ -46,7 +46,7 @@ export default function DynamicValidationComponent(p: { ctx: TypeContext<Dynamic
               */}
             <PropertyRouteCombo ctx={ctx.subCtx(a => a.subEntity)} type={ctx.value.entityType}
                 routes={subEntityRoutes} onChange={forceUpdate} />
-            <CheckboxLine ctx={ctx.subCtx(a => a.disabled)} onChange={forceUpdate} />
+            <CheckboxLine ctx={ctx.subCtx(a => a.isDisabled)} onChange={forceUpdate} />
 
             <EvalLine ctx={ctx.subCtx(a => a.eval)}
                 signature={"(e: " + entityTypeName + ", fi: FieldInfo) => string | null"} />

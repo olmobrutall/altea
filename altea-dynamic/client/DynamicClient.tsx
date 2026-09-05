@@ -122,7 +122,7 @@ export namespace DynamicClient {
                     token(a => a.name),
                     token(a => a.entityType),
                     token(a => a.subEntity),
-                    token(a => a.disabled),
+                    token(a => a.isDisabled),
                 ],
             }));
 
@@ -150,7 +150,7 @@ export namespace DynamicClient {
                 defaultColumns: [
                     token(a => a.id),
                     token(a => a.name),
-                    token(a => a.disabled),
+                    token(a => a.isDisabled),
                 ],
             }));
 

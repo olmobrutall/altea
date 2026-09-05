@@ -21,8 +21,8 @@ import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eva
 //    APPLICABILITY test is still a route PREFIX rather than Signum's `PropertyRoute.MatchesEntity(mod)` —
 //    see DynamicValidationLogic.
 //  - **`DisabledMixin` is not ported** (the gap @altea/altea-tree documents), so "keep this validation but
-//    stop running it" is a plain `disabled` field. The column keeps Signum's name so a migrated database
-//    reads unchanged.
+//    stop running it" is a plain `isDisabled` field. It keeps the mixin MEMBER's name, so the column is
+//    Signum's `IsDisabled` and a migrated database reads unchanged.
 //  - `[BindParent]` has no counterpart: an eval's owner is bound by `sb.include(X).withEvals()` (see
 //    @altea/altea-eval), which DynamicValidationLogic calls.
 //  - Signum's `GetMainType` static hook is unnecessary — the sub-entity route is a string here, so the
@@ -50,7 +50,7 @@ export class DynamicValidationEntity extends Entity {
     subEntity: PropertyRouteEntity | null;
 
     /** Signum's DisabledMixin.IsDisabled — see the header. */
-    disabled: boolean = false;
+    isDisabled: boolean = false;
 
     eval: DynamicValidationEval;
 

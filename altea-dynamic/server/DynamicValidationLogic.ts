@@ -37,7 +37,7 @@ import { DynamicValidationEntity, DynamicValidationOperation } from "../data/Dyn
 //    which asks whether the modifiable being validated IS the one at the stored route. altea re-roots a
 //    PropertyRoute at each embedded, so the validator is handed a route relative to its own owner rather
 //    than to the root entity — hence "is the field's route inside the stored one".
-//  - `DisabledMixin` is not ported, so the filter reads the entity's own `disabled` field.
+//  - `DisabledMixin` is not ported, so the filter reads the entity's own `isDisabled` field.
 //  - the cache is a plain array refreshed by the schema's `saved` event rather than a `GlobalLazy` with
 //    `InvalidateWith`: altea's `globalLazy` is ASYNC and a validator cannot await, which is the same
 //    reason @altea/altea-globals mirrors its lazy into a sync snapshot.
@@ -141,7 +141,7 @@ export namespace DynamicValidationLogic {
         }
 
         cache = rows
-            .filter(v => !v.disabled)
+            .filter(v => !v.isDisabled)
             .map(v => {
                 const entityType = resolveType(v.entityType.className);
                 return entityType == null ? undefined

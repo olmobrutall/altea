@@ -88,7 +88,7 @@ export namespace DynamicApiLogic {
     }
 
     export function getCodeFiles(apis: DynamicApiEntity[]): GeneratedModule[] {
-        const enabled = apis.filter(a => !a.disabled);
+        const enabled = apis.filter(a => !a.isDisabled);
         if (enabled.length === 0)
             return [];
 

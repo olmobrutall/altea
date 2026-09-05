@@ -20,8 +20,8 @@ import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eva
 // The routes are (re)registered when the module starts, which is why a changed script needs a restart to
 // take effect — the same as Signum, whose controller assembly is loaded once.
 //
-// `DisabledMixin` is not ported (see data/DynamicValidation), so `disabled` is a plain field with Signum's
-// column name.
+// `DisabledMixin` is not ported (see data/DynamicValidation), so `isDisabled` is a plain field keeping the
+// mixin MEMBER's name — hence Signum's own `IsDisabled` column.
 
 /**
  * The function a DynamicApi's script becomes: given the app's route builder, register endpoints.
@@ -48,7 +48,7 @@ export class DynamicApiEntity extends Entity {
     name: string;
 
     /** Signum's DisabledMixin.IsDisabled. */
-    disabled: boolean = false;
+    isDisabled: boolean = false;
 
     eval: DynamicApiEval;
 
