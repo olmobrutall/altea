@@ -28,6 +28,23 @@ import { Administrator } from "../Administrator";
 // constructor — automatic, like Signum. They only reference Schema as a *type*, so wiring
 // them from schema.ts is cycle-free.
 
+// Signum's `SchemaSynchronizer.SimplifyDiffTables` — the chance to EDIT the database description before
+// it is diffed against the model. It runs after the history tables are lifted out and before anything
+// asks a question about the result, so a handler that removes a table or a column removes it from the
+// whole downstream sync: no rename prompt, no DROP, no index or foreign-key follow-up.
+//
+// What it is FOR is a column the model deliberately does not have and the database is not wrong to keep.
+// The synchronizer's default answer to an unmatched database column is "offer it as a rename, else drop
+// it", and both are wrong there: a rename is a guess (the candidates are sorted by string distance, so
+// an unrelated column wins), and a drop deletes data over a difference of MODEL. eastwind's legacy mode
+// is the case — pointed at a Southwind database, whose ApplicationConfiguration stores settings altea
+// derives instead of storing.
+//
+// An ARRAY where Signum has a single Action: several modules may each know about their own tables, and
+// altea spells every other sync seam this way (Schema.synchronizing, Administrator.afterSynchronize).
+// Signum's sibling `IgnoreTable` has no counterpart — a handler here can delete a key from the map.
+export const simplifyDiffTables: ((databaseTables: Map<string, DiffTable>) => void)[] = [];
+
 // Port of Signum's Engine/Sync/SchemaSynchronizer.SynchronizeTablesScript, scoped to the
 // lean synchronizer: schemas/tables/columns/foreign keys. The huge feature set Signum also
 // handles here — system-versioning/temporal, partitions, full-text, vector & regular
@@ -71,6 +88,13 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
         }
         databaseTables.delete(historyKey);
     }
+
+    // Signum invokes SimplifyDiffTables here, just before the first question is asked of the diff. It
+    // goes one step earlier than Signum's literal position — ahead of the schema-move pairing below —
+    // because that pairing is itself a matching decision, and a handler's whole point is that the
+    // database rows it removes should take no part in any of them.
+    for (const simplify of simplifyDiffTables)
+        simplify(databaseTables);
 
     // ---- Schema MOVES as renames (altea groups tables into per-package schemas; Signum folds a schema
     // change into the table rename). A DB table whose UNQUALIFIED name matches a model table but whose
