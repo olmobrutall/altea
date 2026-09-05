@@ -2,8 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity, EmbeddedEntity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
-    entity, primaryKey, backReference, rowOrder, valueField, implementedBy,
-    stringLengthValidator, fieldValidation, quoted,
+    backReference, entity, fieldValidation, implementedBy, noRepeatValidator, primaryKey, quoted, rowOrder, stringLengthValidator, valueField,
 } from "@altea/altea/data/decorators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -89,7 +88,12 @@ export class UserQueryEntity_Order extends Entity {
 export class UserQueryEntity_CustomDrilldown extends Entity {
     @backReference userQuery: Lite<UserQueryEntity>;
     @rowOrder order: int;
-    @valueField @implementedBy(() => [UserQueryEntity]) drilldown: Lite<UserQueryEntity>;
+    // DECLARED `Lite<Entity>` and NARROWED by `@implementedBy`, exactly as Signum declares it
+    // (`[ImplementedBy(typeof(UserQueryEntity))] MList<Lite<Entity>>`). The declared type is what names
+    // the column of an MList element in legacy mode — `EntityID_UserQuery`, the implementation supplying
+    // only the suffix — and it is also the real contract: a drilldown target is open, and the
+    // implementations list is the only thing that constrains it.
+    @valueField @implementedBy(() => [UserQueryEntity]) drilldown: Lite<Entity>;
 }
 
 // ---- Embedded value types owned by UserQuery -----------------------------------------------------------
@@ -185,6 +189,7 @@ export class UserQueryEntity extends Entity implements IUserAssetEntity, IHasEnt
     healthCheck: HealthCheckEmbedded | null;
 
     // Signum's [PreserveOrder, NoRepeatValidator, ImplementedBy(UserQueryEntity)] MList<Lite<Entity>>.
+    @noRepeatValidator()
     customDrilldowns: UserQueryEntity_CustomDrilldown[];
 
     @quoted
