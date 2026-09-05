@@ -1,12 +1,16 @@
 import * as React from "react";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
+import { EntityCombo } from "@altea/altea/client/Lines/EntityCombo";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import type { EmailConfigurationEmbedded } from "../../data/Email";
 
 // Port of Signum.Mailing's Templates/EmailConfiguration.tsx — the app's mail settings.
 //
-// altea divergence: Signum's `defaultCulture` is an `EntityCombo` over CultureInfoEntity (filtered to the
-// non-neutral cultures); altea has no CultureInfoEntity, so it is a plain locale text box.
+// altea divergence: Signum filters the combo to the NON-NEUTRAL cultures
+// (`IsNeutral == false`, free there because `[AutoExpressionField]` makes it a query token; altea
+// registers no such expression). Dropped rather than reproduced: eastwind seeds only neutral cultures,
+// so the filter would hide every row INCLUDING the configured one — a combo that cannot offer the value
+// it is displaying. The whole supported-culture table is a handful of rows either way.
 export default function EmailConfiguration(p: { ctx: TypeContext<EmailConfigurationEmbedded> }): React.JSX.Element {
     const sc = p.ctx;
     const ac = p.ctx.subCtx({ formGroupStyle: "Basic" });
@@ -16,7 +20,7 @@ export default function EmailConfiguration(p: { ctx: TypeContext<EmailConfigurat
             <AutoLine ctx={sc.subCtx(ca => ca.reciveEmails)} />
             <AutoLine ctx={sc.subCtx(ca => ca.sendEmails)} />
             <AutoLine ctx={sc.subCtx(ca => ca.overrideEmailAddress)} />
-            <AutoLine ctx={sc.subCtx(ca => ca.defaultCulture)} />
+            <EntityCombo ctx={sc.subCtx(ca => ca.defaultCulture)} />
             <AutoLine ctx={sc.subCtx(ca => ca.urlLeft)} />
 
             <fieldset>

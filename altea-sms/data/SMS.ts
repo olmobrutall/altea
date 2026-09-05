@@ -48,20 +48,17 @@ import { SMS_MAX_TEXT_LENGTH, SMSCharactersMessage } from "./SMSCharacters";
  * every `SMSLogic` call through the `() => GlobalsLogic.configuration().sms` lambda the app passes to
  * `start` (see CLAUDE.md).
  *
- * ALTEA: `defaultCulture` is a plain LOCALE STRING, not Signum's `CultureInfoEntity` reference — the same
- * call @altea/altea-email's `EmailConfigurationEmbedded` makes, so the two modules' configurations read
- * alike. (A template MESSAGE still references the real CultureInfoEntity row: that is a user-picked culture,
- * where this is a deployment setting.)
+ * `defaultCulture` references a `CultureInfoEntity` row, as Signum's does — the same call
+ * @altea/altea-email's `EmailConfigurationEmbedded` makes, so the two modules' configurations read alike.
  */
 @reflect
 export class SMSConfigurationEmbedded extends EmbeddedEntity {
 
     /** The culture a template must have a message for, and the one a message falls back to. */
-    @stringLengthValidator({ min: 2, max: 20 })
-    defaultCulture: string;
+    defaultCulture: CultureInfoEntity;
 
     toString(): string {
-        return this.defaultCulture ?? "";
+        return this.defaultCulture?.toString() ?? "";
     }
 }
 

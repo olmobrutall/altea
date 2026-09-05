@@ -11,6 +11,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { FileTypeSymbol } from "@altea/altea-files/data/Files";
+import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 
 // Port of Signum.Mailing's shared surface: EmailMessage.cs's address / recipient value types and enums,
 // EmailModel.cs, EmailConfiguration.cs, and the module's permissions / messages / file type. The
@@ -19,9 +20,10 @@ import { FileTypeSymbol } from "@altea/altea-files/data/Files";
 // ← EmailMessage.ts).
 //
 // altea divergences, documented inline:
-//  - `CultureInfoEntity` is not ported to altea, so every culture is a plain locale STRING ("en-US"). This
-//    is the one divergence that touches the whole module: EmailConfigurationEmbedded.defaultCulture, a
-//    template's per-culture message rows, and EmailOwnerData.culture are all strings.
+//  - a persisted culture is a `CultureInfoEntity` row, as in Signum — the configuration's default culture
+//    and a template's per-culture message rows both reference one. `EmailOwnerData` is the exception, and
+//    only because it is not persisted at all: it stays a plain runtime SHAPE (see the next bullet), so its
+//    `culture` is the locale STRING the renderer wants rather than a row nobody stores.
 //  - `EmailOwnerData` stays a plain runtime SHAPE (not an entity): Signum made it an
 //    `[AutoExpressionField]` queryable object so ONE token (`@[Customer]`) yielded email + display name +
 //    culture at once. altea has no object-returning @quoted member, so a From / Recipient token yields
@@ -44,7 +46,7 @@ export interface EmailOwnerData {
     owner: Lite<IEmailOwnerEntity> | null;
     email: string | null;
     displayName: string | null;
-    /** A locale name ("en-US"); altea has no CultureInfoEntity. */
+    /** A locale name ("en-US"); this shape is not persisted, so it holds no row (see the header). */
     culture: string | null;
     externalId: string | null;
 }
@@ -165,10 +167,9 @@ export class EmailModelEntity extends Entity {
 // ApplicationConfiguration; eastwind supplies it through EmailLogic.start's getConfiguration).
 @reflect
 export class EmailConfigurationEmbedded extends EmbeddedEntity {
-    /** The locale a message falls back to when neither the recipient nor the template names one. Signum's
-     *  `CultureInfoEntity DefaultCulture`; a plain locale string in altea (see the header). */
-    @stringLengthValidator({ min: 2, max: 20 })
-    defaultCulture: string;
+    /** The culture a message falls back to when neither the recipient nor the template names one.
+     *  Signum's `CultureInfoEntity DefaultCulture`. */
+    defaultCulture: CultureInfoEntity;
 
     /** Signum's UrlLeft — the absolute app root a template's links are built on (`@[g:UrlLeft]`). */
     @fieldValidation<EmailConfigurationEmbedded>(c => c.urlLeft?.endsWith("/") ? "{0} should not have a final /" : null)

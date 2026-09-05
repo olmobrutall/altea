@@ -117,7 +117,7 @@ export namespace EmailTemplateLogic {
             { invalidateWith: [EmailTemplateEntity] });
 
         EmailModelLogic.start(sb);
-        EmailMasterTemplateLogic.start(sb, { requiredCulture: () => EmailLogic.configuration().defaultCulture });
+        EmailMasterTemplateLogic.start(sb, { requiredCulture: () => EmailLogic.configuration().defaultCulture.name });
 
         registerEmailTemplateXml();
 
@@ -179,8 +179,8 @@ export namespace EmailTemplateLogic {
 
         if (template.masterTemplate != null) {
             const master = await EmailLogic.retrieveLite(template.masterTemplate);
-            const masterMessage = EmailMasterTemplateLogic.getCultureMessage(master, cultureNameOf(message.cultureInfo) ?? EmailLogic.configuration().defaultCulture)
-                ?? EmailMasterTemplateLogic.getCultureMessage(master, EmailLogic.configuration().defaultCulture);
+            const masterMessage = EmailMasterTemplateLogic.getCultureMessage(master, cultureNameOf(message.cultureInfo) ?? EmailLogic.configuration().defaultCulture.name)
+                ?? EmailMasterTemplateLogic.getCultureMessage(master, EmailLogic.configuration().defaultCulture.name);
 
             if (masterMessage != null) {
                 // `@[content]` is where the body goes. Use a REPLACER FUNCTION so a `$` in the body is not

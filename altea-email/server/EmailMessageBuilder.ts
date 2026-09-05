@@ -81,12 +81,12 @@ export class EmailMessageBuilder {
             const ci = this.culture
                 ?? EmailTemplateLogic.getCultureInfo?.(this.entity ?? this.model?.untypedEntity ?? null)
                 ?? recipients.find(a => a.kind === EmailRecipientKind.To)?.ownerData.culture
-                ?? config.defaultCulture;
+                ?? config.defaultCulture.name;
 
             const isHtml = this.template.messageFormat === EmailMessageFormat.HtmlComplex
                 || this.template.messageFormat === EmailMessageFormat.HtmlSimple;
 
-            const message = this.template.getCultureMessage(ci) ?? this.template.getCultureMessage(config.defaultCulture);
+            const message = this.template.getCultureMessage(ci) ?? this.template.getCultureMessage(config.defaultCulture.name);
             if (message == null)
                 throw new Error(`Message ${this.template.name} does not have a message for culture ${ci} (or the default)`);
 

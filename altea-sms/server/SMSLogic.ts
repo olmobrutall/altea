@@ -31,7 +31,6 @@ import { TextTemplateParameters } from "@altea/altea-templating/server/TextTempl
 import type { BlockNode } from "@altea/altea-templating/server/TextTemplateParser.Nodes";
 import { QueryContext } from "@altea/altea-templating/server/ValueProviders";
 import { TemplatingLogic } from "@altea/altea-templating/server/TemplatingLogic";
-import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
 import {
     MessageLengthExceeded, MultipleSMSModel, SMSMessageEntity, SMSMessageOperation, SMSMessageState,
     SMSSendPackageEntity, SMSTemplateEntity, SMSTemplateEntity_Message, SMSTemplateMessage,
@@ -130,7 +129,7 @@ export namespace SMSLogic {
                 // Signum seeds ONE message, for the configured default culture.
                 construct: () => SMSTemplateEntity.create({
                     messages: [SMSTemplateEntity_Message.create({
-                        cultureInfo: CultureInfoLogic.getCulture(SMSLogic.configuration().defaultCulture).toLite(),
+                        cultureInfo: SMSLogic.configuration().defaultCulture.toLite(),
                     })],
                 }),
             })
@@ -157,7 +156,7 @@ export namespace SMSLogic {
         // culture. It cannot live on the entity (it depends on the configuration), which is why Signum also
         // registers it here.
         sb.schema.entityEvents(SMSTemplateEntity).preSaving.push(template => {
-            const dc = configuration().defaultCulture;
+            const dc = configuration().defaultCulture?.name;
             if (dc != null && !template.messages.some(m => cultureNameOf(m.cultureInfo) === dc))
                 throw new Error(SMSTemplateMessage.ThereMustBeAMessageFor0.niceToString(dc));
         });
@@ -262,7 +261,7 @@ export namespace SMSLogic {
         if (t == null)
             throw new Error(`SMSTemplate '${String(templateLite.id)}' not found`);
 
-        const defaultCulture = configuration().defaultCulture;
+        const defaultCulture = configuration().defaultCulture.name;
         const queryName = tryQueryName(t);
 
         if (queryName == null) {
