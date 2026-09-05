@@ -7,9 +7,11 @@ import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { table as tableQuery } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
+import { Transaction } from "@altea/altea/server/connection/transaction";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { Entity } from "@altea/altea/data/entity";
+import { FileEntity } from "@altea/altea-files/data/Files";
 import { Lite } from "@altea/altea/data/lite";
 import { getKey as queryKeyOf, type QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
@@ -409,7 +411,22 @@ function registerOfficeTemplateOperations(op: FluentOperations<OfficeTemplateEnt
     op.withExecute(OfficeTemplateOperation.Save, {
     canBeNew: true,
     canBeModified: true,
-    execute: (_t: OfficeTemplateEntity) => { /* the saver persists it */ },
+    // Signum's WordTemplateGraph.Save. The saver persists the template itself; what this body is for is
+    // the SUPERSEDED document. A FileEntity is IMMUTABLE (FileLogic refuses a modified saved row), so
+    // replacing a template's file makes a NEW row and the old one would leak. Signum reads the persisted
+    // one and schedules `Transaction.PreRealCommit += oldFile.Delete()` — deferred because the template
+    // still points at it until this save commits. The read projects the ID alone: the reference is a full
+    // FileEntity here, so selecting it would drag the whole document back for nothing.
+    execute: async (t: OfficeTemplateEntity) => {
+        if (t.isNew)
+            return;
+        const oldId = await t.inDB(x => x.template.id);
+        if (oldId == null || oldId === t.template?.id)
+            return;
+        Transaction.preRealCommit(async () => {
+            await tableQuery(FileEntity).filter(f => f.id == oldId).executeDelete();
+        });
+    },
     });
 
     op.withDelete(OfficeTemplateOperation.Delete, {

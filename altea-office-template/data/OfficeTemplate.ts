@@ -14,7 +14,7 @@ import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 import { OrderType } from "@altea/altea/data/dynamicQueries";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
-import { FileEmbedded } from "@altea/altea-files/data/Files";
+import { FileEntity } from "@altea/altea-files/data/Files";
 import { QueryTokenEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { ModelConverterSymbol, TemplateApplicableEval, type IContainsQuery } from "@altea/altea-templating/data/Templating";
@@ -41,13 +41,15 @@ import type { IAttachmentGeneratorEntity } from "@altea/altea-email/data/EmailTe
 //    identity, so IUserAssetEntity is a bare marker.
 //  - `TemplateApplicableEval` keeps Signum's shape — a stored script — but the script is TYPESCRIPT and the
 //    code-registered predicate (see @altea/altea-templating's data/Templating.ts for the rationale).
-//  - `Lite<FileEntity> Template` → `template: FileEmbedded`, so the bytes live in the row
-//    (`Template_FileName` / `Template_BinaryFile`) where Signum keeps a `Template_ID` foreign key. This
-//    was once forced — altea-files had only the embedded forms — and is now a CHOICE, since FileEntity is
-//    ported: embedding removes Signum's "delete the superseded file on save" dance
-//    (`Transaction.PreRealCommit += oldFile.Delete()`), at the price of four statements a Southwind sync
-//    still scripts for this table. (The `Culture` note that used to sit here is gone: altea has a real
-//    `CultureInfoEntity` now, and the field is the same FK Signum has.)
+//  - `Lite<FileEntity> Template` is a FileEntity REFERENCE, as in Signum — the column is `Template_ID`
+//    into `files.file`. It had been a `FileEmbedded` (bytes in the row) while altea-files had only the
+//    embedded forms; FileEntity is ported now, so the row shape matches. altea keeps a FULL reference
+//    rather than Signum's LITE, the call `EmployeeEntity.photo` already makes: the column is the same
+//    either way, every reader needs the bytes (validating on save, rendering a report), and altea's file
+//    LINES cannot bind a lite (`FileLineController<FilePathEmbedded | FileEmbedded | FileEntity>`).
+//    It brings Signum's "delete the superseded file on save" dance with it (see OfficeTemplateLogic's
+//    Save) — a FileEntity is IMMUTABLE, so replacing a template's document creates a new row and the old
+//    one would otherwise leak.
 //  - `ToXml` / `FromXml` / `ParseData` / `IsApplicable` are SERVER-side in altea (System.Xml and the query
 //    token resolver are server-only): they live in OfficeTemplateXml.server.ts / OfficeTemplateLogic.server.ts.
 
@@ -177,7 +179,7 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
 
     /** The template document itself: a .docx / .pptx / .xlsx (Signum's `Lite<FileEntity> Template`). */
     @fieldValidation<OfficeTemplateEntity>(t => officeTemplateValidations.template?.(t) ?? null)
-    template: FileEmbedded;
+    template: FileEntity;
 
     /** The name given to the RENDERED file. Itself a text template ("Order @[Entity.Id].docx"). */
     @stringLengthValidator({ min: 3, max: 250 })

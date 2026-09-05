@@ -11,7 +11,7 @@ import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
 import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { TemplateApplicableEval } from "@altea/altea-templating/data/Templating";
-import { FileEmbedded } from "@altea/altea-files/data/Files";
+import { FileEntity } from "@altea/altea-files/data/Files";
 import {
     OfficeConverterSymbol, OfficeTemplateEntity, OfficeTemplateEntity_Filter, OfficeTemplateEntity_Order,
     OfficeTransformerSymbol,
@@ -130,7 +130,7 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
 
     const template = asRecord(xml["Template"]);
     if (template != undefined) {
-        ot.template = FileEmbedded.create({
+        ot.template = FileEntity.create({
             fileName: str(template[A + "FileName"]) ?? "template.docx",
             binaryFile: bytesOf(str(template["#text"]) ?? ""),
         });
