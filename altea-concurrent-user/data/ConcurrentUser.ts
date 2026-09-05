@@ -1,7 +1,7 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, implementedByAll, quoted, stringLengthValidator } from "@altea/altea/data/decorators";
+import { entity, implementedByAll, legacyColumnName, quoted, stringLengthValidator } from "@altea/altea/data/decorators";
 import { Temporal } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { DeleteSymbol } from "@altea/altea/data/operations";
@@ -13,8 +13,10 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 //
 // altea divergences, documented inline:
 //  - `SignalRConnectionID` → `connectionID`. altea has no SignalR (see altea/server/webSocketHub.ts):
-//    the column holds the id of a WebSocket hub connection, so naming it after the transport Signum
+//    the field holds the id of a WebSocket hub connection, so naming it after the transport Signum
 //    happens to use would be actively misleading. The client DTO already calls it `connectionID`.
+//    The COLUMN is Signum's, through `@legacyColumnName` — a database cannot see the difference, and
+//    a Signum database must not be asked to rename a column over a naming preference.
 //  - `DateTime StartTime` → `Temporal.PlainDateTime` (server-local wall clock, as everywhere in altea).
 //  - `Lite<UserEntity>` is used directly rather than core's `@implementedBy(() => [])` + app override:
 //    this module already references altea-auth, exactly as Signum.ConcurrentUser references
@@ -33,6 +35,7 @@ export class ConcurrentUserEntity extends Entity {
 
     /** The WebSocket hub connection this row belongs to (see the header note on the rename). */
     @stringLengthValidator({ max: 100 })
+    @legacyColumnName("SignalRConnectionID")
     connectionID: string;
 
     /** True while that tab holds unsaved changes — the hub is told on a 1s client heartbeat. */
