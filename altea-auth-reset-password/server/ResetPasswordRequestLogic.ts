@@ -105,8 +105,8 @@ export namespace ResetPasswordRequestLogic {
                 disableAuthorization: false,
                 groupResults: false,
                 messageFormat: EmailMessageFormat.HtmlComplex,
-                messages: forEachCulture(culture => EmailTemplateEntity_Message.create({
-                    culture,
+                messages: forEachCulture(cultureInfo => EmailTemplateEntity_Message.create({
+                    cultureInfo,
                     subject: ResetPasswordMessage.ResetPasswordRequestSubject.niceToString(),
                     text: `<p>${ResetPasswordMessage.YouRecentlyRequestedANewPassword.niceToString()}</p>`
                         + `<p>${ResetPasswordMessage.YourUsernameIs.niceToString()} @[user.userName]</p>`
@@ -128,8 +128,8 @@ export namespace ResetPasswordRequestLogic {
                 disableAuthorization: false,
                 groupResults: false,
                 messageFormat: EmailMessageFormat.HtmlComplex,
-                messages: forEachCulture(culture => EmailTemplateEntity_Message.create({
-                    culture,
+                messages: forEachCulture(cultureInfo => EmailTemplateEntity_Message.create({
+                    cultureInfo,
                     subject: ResetPasswordMessage.YourAccountHasBeenLocked.niceToString(),
                     text: `<p>${ResetPasswordMessage.YourAccountHasBeenLockedDueToSeveralFailedLogins.niceToString()}</p>`
                         + `<p>${ResetPasswordMessage.YouCanResetYourPasswordByFollowingTheLinkBelow.niceToString()}</p>`

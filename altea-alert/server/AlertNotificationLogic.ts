@@ -62,8 +62,8 @@ export namespace AlertNotificationLogic {
                 disableAuthorization: false,
                 groupResults: false,
                 messageFormat: EmailMessageFormat.HtmlComplex,
-                messages: forEachCulture(culture => EmailTemplateEntity_Message.create({
-                    culture,
+                messages: forEachCulture(cultureInfo => EmailTemplateEntity_Message.create({
+                    cultureInfo,
                     subject: AlertMessage.NewUnreadNotifications.niceToString(),
                     text: `<p>${AlertMessage.Hi0.niceToString("@[Entity]")}</p>\n`
                         + `<p>${AlertMessage.YouHaveSomePendingAlerts.niceToString()}</p>\n`
