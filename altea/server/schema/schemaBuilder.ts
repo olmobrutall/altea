@@ -35,7 +35,7 @@ import { Schema } from './schema';
 import { Table } from './table';
 import { FluentInclude } from './fluentInclude';
 import { SystemVersionedInfo } from './systemVersioned';
-import { TableIndex, FullTextTableIndex, VectorTableIndex } from './tableIndex';
+import { TableIndex, FullTextTableIndex, VectorTableIndex, multiUniqueIndexes } from './tableIndex';
 import { accessedFields } from '../../data/accessedFields';
 import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../data/enumEntity';
@@ -734,12 +734,21 @@ export class SchemaBuilder {
     // class-level composite @index / @uniqueIndex(e => …) lambdas. Enum/system tables have no
     // FK columns, so they pick up nothing unless explicitly indexed.
     private generateIndexes(table: Table, typeInfo: TypeInfo): void {
-        const addFieldIndexes = (fi: FieldInfo, columns: IColumn[]): void => {
+        const addFieldIndexes = (fi: FieldInfo, field: Field): void => {
+            const columns = field.columns();
+            // An @implementedByAll is indexed PER ID COLUMN — `(TypeID, ID_<pkType>)` — because
+            // that pair is what a lookup by (type, id) actually has, and the other pk types'
+            // columns are NULL on such a row (Signum's FieldImplementedByAll.GenerateIndexes).
+            // These are emitted whatever else the field declares, exactly as Signum concats them.
+            if (field instanceof FieldImplementedByAll)
+                for (const id of field.idColumns)
+                    table.indexes.push(new TableIndex(table, [field.typeColumn, id]));
+
             if (fi.uniqueIndex)
                 table.indexes.push(new TableIndex(table, columns, { unique: true }));
             else if (fi.index)
                 table.indexes.push(new TableIndex(table, columns));
-            else
+            else if (!(field instanceof FieldImplementedByAll))
                 // Default: a non-unique index per foreign-key column (Signum's
                 // FieldReference.GenerateIndexes) — one index each, so an @implementedBy's
                 // implementation columns are indexed individually.
@@ -750,19 +759,24 @@ export class SchemaBuilder {
 
         for (const ef of Object.values(table.fields))
             if (!(ef.field instanceof FieldPrimaryKey))
-                addFieldIndexes(ef.fieldInfo, ef.field.columns());
+                addFieldIndexes(ef.fieldInfo, ef.field);
         for (const mixin of Object.values(table.mixins))
             for (const ef of Object.values(mixin.fields))
-                addFieldIndexes(ef.fieldInfo, ef.field.columns());
+                addFieldIndexes(ef.fieldInfo, ef.field);
 
         // Class-level composite indexes: read the covered fields off each stored @quoted selector's
         // AST (accessedFields), then resolve to columns.
         for (const desc of typeInfo.indexes ?? []) {
-            const columns = table.columnsFromFields(accessedFields(desc.fields));
+            const blocks = table.fieldBlocksFromFields(accessedFields(desc.fields));
             const includeColumns = desc.includeFields == null ? undefined : table.columnsFromFields(accessedFields(desc.includeFields));
             // Render the class-level filtered predicate to SQL now (Quoted → Expression → string).
             const whereSql = desc.where == null ? undefined : getIndexWhere(desc.where, table, this.settings.isPostgres);
-            table.indexes.push(new TableIndex(table, columns, { unique: desc.unique, includeColumns, where: whereSql }));
+            // A UNIQUE index is expanded per polymorphic alternative and filtered to the rows that
+            // use it (Signum's AddMultiUniqueIndex); a plain one stays flat, as Signum's AddIndex is.
+            if (desc.unique)
+                table.indexes.push(...multiUniqueIndexes(table, blocks, this.settings.isPostgres, { includeColumns, where: whereSql }));
+            else
+                table.indexes.push(new TableIndex(table, blocks.flatMap(b => b.columns), { includeColumns, where: whereSql }));
         }
 
         // Class-level full-text indexes (Signum's SchemaBuilder.AddFullTextIndex): resolve the

@@ -35,6 +35,14 @@ import { includeGetDatesInRange } from "@altea/altea/server/queryTimeSeries";
 // are intentionally NOT listed here.
 export namespace MusicLogic {
     export function start(sb: SchemaBuilder): void {
+        // Which primary-key types an @implementedByAll of this schema may point at. It belongs HERE,
+        // with the model, not in a host: the music model deliberately exercises all three, and every
+        // builder that includes it needs the same answer. (It used to sit in MusicStarter.start, which
+        // the suites' own setup.ts does NOT go through — so the two extra id columns were never built
+        // and no test ever saw a multi-column @implementedByAll.)
+        sb.settings.implementedByAllPkType("long");
+        sb.settings.implementedByAllPkType("uuid");
+
         // Signum's MusicLogic.Start opts each entity into being a query (Signum's WithQuery). altea's
         // WithQuery is PARAMETERLESS — the query is `table(T)`, its shape is the entity, and columns
         // are navigated as rootless tokens ("Name", "Customer.Name", …). Default display columns are a

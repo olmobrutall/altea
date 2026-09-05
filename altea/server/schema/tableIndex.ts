@@ -1,6 +1,9 @@
 import type { ComputedColumn, IColumn } from './column';
 import { PostgresTsVectorColumn } from './column';
 import type { Table } from './table';
+import type { Field } from './field';
+import { FieldImplementedBy, FieldImplementedByAll } from './field';
+import { IsNullable } from './dbType';
 import { sqlEscape } from '../linq/sqlEscape';
 
 // Port of Signum's Engine/Schema/TableIndexes.cs TableIndex, scoped to what altea models: a
@@ -26,6 +29,79 @@ export class TableIndex {
         this.includeColumns = options?.includeColumns;
         this.where = options?.where;
     }
+}
+
+// One field's contribution to a composite index: the FIELD it came from and the columns it owns
+// (Signum's IndexKeyColumns.Split, which returns `(Field? field, IColumn[] columns)` pairs). The
+// field is what a UNIQUE index has to look at, because a polymorphic one owns SEVERAL columns of
+// which exactly one is filled per row — see {@link multiUniqueIndexes}.
+export interface IndexBlock {
+    readonly field: Field | undefined;
+    readonly columns: IColumn[];
+}
+
+/**
+ * Expand a composite UNIQUE index over a list of fields into the indexes it really needs — Signum's
+ * `SchemaBuilder.AddMultiUniqueIndex`, one for one.
+ *
+ * A polymorphic reference is stored as SEVERAL columns with exactly ONE filled per row: an
+ * `@implementedBy` has a column per implementation, an `@implementedByAll` an id column per
+ * configured primary-key type beside the discriminator. A single index over all of them cannot say
+ * "this reference is unique per owner": every row would compare equal on the columns it leaves NULL,
+ * and on SQL Server (where NULLs compare equal in a unique index) that is a constraint on the wrong
+ * thing entirely. So the index is expanded into the CARTESIAN PRODUCT of each polymorphic block's
+ * alternatives — one partial index per combination, filtered to the rows that actually use it.
+ *
+ * The filter is what makes each one correct, and it applies to ordinary nullable columns too: a row
+ * with a NULL in a covered column takes no part in the uniqueness (a string additionally excludes
+ * `''`, as Signum does). `globalWhere` is the caller's own predicate, ANDed onto every one.
+ */
+export function multiUniqueIndexes(
+    table: Table,
+    blocks: readonly IndexBlock[],
+    isPostgres: boolean,
+    options?: { includeColumns?: IColumn[]; where?: string },
+): TableIndex[] {
+    const result: TableIndex[] = [];
+    const and = (...parts: (string | undefined)[]): string | undefined => {
+        const kept = parts.filter(p => p != null && p !== "");
+        return kept.length === 0 ? undefined : kept.join(" AND ");
+    };
+    const notNull = (c: IColumn): string => `${sqlEscape(c.name, isPostgres)} IS NOT NULL`;
+
+    const recurse = (i: number, prevColumns: IColumn[], prevWhere: string | undefined): void => {
+        if (i === blocks.length) {
+            result.push(new TableIndex(table, prevColumns, {
+                unique: true,
+                includeColumns: options?.includeColumns,
+                where: and(prevWhere, options?.where),
+            }));
+            return;
+        }
+        const block = blocks[i];
+        const field = block.field;
+        if (field instanceof FieldImplementedBy) {
+            for (const imp of field.implementationColumns)
+                recurse(i + 1, [...prevColumns, imp],
+                    and(prevWhere, imp.nullable === IsNullable.No ? undefined : notNull(imp)));
+        }
+        else if (field instanceof FieldImplementedByAll) {
+            for (const id of field.idColumns)
+                recurse(i + 1, [...prevColumns, field.typeColumn, id],
+                    and(prevWhere, id.nullable === IsNullable.No ? undefined
+                        : `(${notNull(field.typeColumn)} AND ${notNull(id)})`));
+        }
+        else {
+            const filter = block.columns
+                .filter(c => c.nullable !== IsNullable.No)
+                .map(c => c.dbType.isString() ? `${notNull(c)} AND ${sqlEscape(c.name, isPostgres)} <> ''` : notNull(c))
+                .join(" AND ");
+            recurse(i + 1, [...prevColumns, ...block.columns], and(prevWhere, filter));
+        }
+    };
+
+    recurse(0, [], undefined);
+    return result;
 }
 
 // ---- Full-text index (Signum's FullTextTableIndex) ------------------------------------------

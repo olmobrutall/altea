@@ -3,7 +3,8 @@ import type { Type, Entity, View, ViewType } from '../../data/entity';
 import { ObjectName } from './objectName';
 import { EntityField, FieldPrimaryKey, FieldTicks, FieldMixin, FieldEmbedded } from './field';
 import type { IColumn } from './column';
-import { TableIndex } from './tableIndex';
+import type { IndexBlock } from './tableIndex';
+import { TableIndex, multiUniqueIndexes } from './tableIndex';
 import { accessedFields } from '../../data/accessedFields';
 import { getIndexWhere } from './indexWhere';
 import type { SystemVersionedInfo } from './systemVersioned';
@@ -63,17 +64,29 @@ export class Table {
     }
 
     private addFluentIndex(fields: Quoted<(element: any) => unknown>, unique: boolean, where?: Quoted<(element: any) => boolean>, includeFields?: Quoted<(element: any) => unknown>): void {
-        const columns = this.columnsFromFields(accessedFields(fields));
+        const blocks = this.fieldBlocksFromFields(accessedFields(fields));
         const includeColumns = includeFields == null ? undefined : this.columnsFromFields(accessedFields(includeFields));
         // Render the predicate to SQL now (registration time), like Signum's AddIndex.
         const whereSql = where == null ? undefined : getIndexWhere(where, this, this.isPostgres);
-        this.indexes.push(new TableIndex(this, columns, { unique, includeColumns, where: whereSql }));
+        // A UNIQUE index is EXPANDED per polymorphic alternative and filtered (Signum's
+        // AddMultiUniqueIndex); a plain one stays flat, exactly as Signum's AddIndex does.
+        if (unique)
+            this.indexes.push(...multiUniqueIndexes(this, blocks, this.isPostgres, { includeColumns, where: whereSql }));
+        else
+            this.indexes.push(new TableIndex(this, blocks.flatMap(b => b.columns), { unique, includeColumns, where: whereSql }));
     }
 
     // Resolves entity field names (own or mixin) to their physical columns. A DOTTED name walks
     // EMBEDDED steps ("scriptExecution.nextExecution"), which live in this same row and so are
     // indexable exactly like a flat field — Signum indexes them by the same expression.
     columnsFromFields(fieldNames: string[]): IColumn[] {
+        return this.fieldBlocksFromFields(fieldNames).flatMap(b => b.columns);
+    }
+
+    // The same resolution, keeping each name's FIELD beside its columns — Signum's
+    // IndexKeyColumns.Split. A UNIQUE index needs the field, because a polymorphic one owns
+    // several columns of which exactly one is filled per row (see multiUniqueIndexes).
+    fieldBlocksFromFields(fieldNames: string[]): IndexBlock[] {
         return fieldNames.map(name => {
             const [first, ...rest] = name.split(".");
             let ef = this.fields[first] ?? this.findMixinField(first);
@@ -89,8 +102,8 @@ export class Table {
                 ef = next;
             }
 
-            return ef.field.columns();
-        }).flat();
+            return { field: ef.field, columns: ef.field.columns() };
+        });
     }
 
     private findMixinField(name: string): EntityField | undefined {
