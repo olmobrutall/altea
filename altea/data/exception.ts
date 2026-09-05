@@ -19,11 +19,15 @@ import type { IUserEntity } from "./security";
 //    to the single UserEntity; altea uses @implementedByAll (like target/origin on OperationLogEntity)
 //    so altea (core) needn't name altea-auth's concrete UserEntity. Populated in exceptionFilter from
 //    UserHolder (null until an auth module scopes a request).
-//  - ExceptionOrigin.Backend_DotNet → Backend_Node (the backend is Node/TS, not .NET).
+//  - `ExceptionOrigin` is `Backend` / `Frontend`, where Signum writes `Backend_DotNet` /
+//    `Frontend_React`. Naming the member after the TECHNOLOGY dates it — the backend here is Node, not
+//    .NET, and neither half of the pair says anything the plain word does not. Signum is taking the
+//    same two names, so the enum table converges; until it does, a legacy sync leaves the rows alone
+//    (eastwind's simplifyDiffEnums registration).
 //  - TicksColumn(false) has no altea equivalent decorator yet; left as the schema default.
 export enum ExceptionOrigin {
-    Backend_Node,
-    Frontend_React,
+    Backend,
+    Frontend,
 }
 
 @entity("System", "Transactional")
@@ -87,7 +91,7 @@ export class ExceptionEntity extends Entity {
 
     referenced: boolean = false;
 
-    origin: ExceptionOrigin = ExceptionOrigin.Backend_Node;
+    origin: ExceptionOrigin = ExceptionOrigin.Backend;
 
     @column({ size: 100 })
     traceId: string | null = null;

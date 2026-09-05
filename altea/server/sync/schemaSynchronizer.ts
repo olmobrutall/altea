@@ -772,6 +772,22 @@ async function readSchemaNames(connector: Connector): Promise<Set<string>> {
 
 // ---- enum-row sync (SynchronizeEnumsScript) ---------------------------------
 
+// The enum sync's counterpart of {@link simplifyDiffTables}, and NEW here — Signum has no such seam,
+// because it has no second framework to line its enum tables up with. A handler is given one enum
+// table with BOTH sides of its row diff and may delete from either: from `current` to hide a database
+// row, from `should` to hide a model member, from both to leave the table entirely alone.
+//
+// It runs before the RENAME question, which is what makes it useful: the synchronizer's answer to a
+// member the database spells differently is to offer it as a rename and otherwise delete the row, and
+// where the difference is one of MODEL — a member altea named better than the framework it ports from
+// — neither is wanted. eastwind's legacy mode is the case (ExceptionOrigin.Backend, where Signum still
+// writes Backend_DotNet).
+//
+// Deleting from ONE side only is the sharp edge: a member left in `should` with its database row
+// hidden is an INSERT, which collides on the id the hidden row still occupies. To leave a table alone,
+// clear both.
+export const simplifyDiffEnums: ((table: Table, should: Map<string, EnumEntity>, current: Map<string, EnumEntity>) => void)[] = [];
+
 // Port of Signum's SchemaSynchronizer.SynchronizeEnumsScript. For every EnumEntity<T> table,
 // diff the *rows*: the expected members (from the enum definition) vs the current DB rows,
 // producing INSERT / UPDATE / DELETE. NOT a shortcut: it reads and writes EVERY column of the
@@ -813,6 +829,9 @@ export async function synchronizeEnumsScript(replacements: Replacements): Promis
             // the DB (newly added enum) yields no current rows — its CREATE is earlier in this same script,
             // so every member becomes an INSERT that runs after it.
             const currentByName = (await Administrator.tryRetrieveAll(enumCtor, replacements)).toMap(row => row.name);
+
+            for (const simplify of simplifyDiffEnums)
+                simplify(table, shouldByName, currentByName);
 
             // Ask which removed member each new member renames (by name), then re-key current by the new name.
             const key = Replacements.keyEnumsForTable(table.name.name);

@@ -74,7 +74,7 @@ export namespace ExceptionLogic {
         entity.machineName = safe(() => hostname());
         entity.applicationName = process.env["ALTEA_APP_NAME"] ?? "eastwind";
         entity.environment = process.env["NODE_ENV"] ?? "Default";
-        entity.origin = ExceptionOrigin.Backend_Node;
+        entity.origin = ExceptionOrigin.Backend;
 
         // Stash on the Error so a later HttpError(error) reuses this row / id.
         if (error != null && typeof error === "object")
@@ -94,7 +94,7 @@ export namespace ExceptionLogic {
         entity.threadId = -1 as int;
         entity.machineName = safe(() => hostname());
         entity.applicationName = process.env["ALTEA_APP_NAME"] ?? "eastwind";
-        entity.origin = ExceptionOrigin.Frontend_React;
+        entity.origin = ExceptionOrigin.Frontend;
         try {
             await Saver.save([entity]);
         } catch (saveError) {

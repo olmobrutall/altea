@@ -246,8 +246,8 @@
     <Member Name="Version" Description="Version" />
   </Type>
   <Type Name="ExceptionOrigin" Description="Ausnahme Ursprung">
-    <Member Name="Backend_DotNet" Description="Backend DotNet" />
-    <Member Name="Frontend_React" Description="Frontend React" />
+    <Member Name="Backend" Description="Backend" />
+    <Member Name="Frontend" Description="Frontend" />
   </Type>
   <Type Name="FieldExpressionMessage">
     <Member Name="_0And1YouCanExtractsPartsOfTheDateByContinuingTheExpressionWith2ReturnANumberOr3ReturnADate" Description="{0} und {1}, können Sie Teile des Datums extrahieren, indem Sie den Ausdruck mit {2} (Rückgabe einer Zahl) oder {3} (Rückgabe eines Datums) fortsetzen" />
