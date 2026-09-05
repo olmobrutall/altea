@@ -838,36 +838,84 @@ export async function synchronizeEnumsScript(replacements: Replacements): Promis
             replacements.askForReplacements(new Set(currentByName.keys()), new Set(shouldByName.keys()), key);
             const current = replacements.applyReplacementsToOld(currentByName, key);
 
-            for (const name of new Set([...shouldByName.keys(), ...current.keys()])) {
+            // Signum's TEMP-ID pass. A member whose id CHANGED cannot simply be re-inserted at its new
+            // id while another row still holds it, so those members are first moved aside to a free id
+            // (Signum's `Clone`: the current row's id + 1_000_000), then the ordinary diff runs over
+            // everything else, then they come back from the aside id to the real one. Three passes
+            // where a swap of two members' ids needs all three.
+            const usedIds = new Set<PrimaryKey>([...current.values()].map(e => e.id));
+            const middle = new Map<string, EnumEntity>();
+            for (const [name, cur] of current) {
                 const should = shouldByName.get(name);
-                const cur = current.get(name);
-
-                if (should != null && cur == null) {
-                    commands.push(insertSqlSync(table, should));
-                } else if (should == null && cur != null) {
-                    commands.push(deleteSqlSync(table, cur));
-                } else if (should != null && cur != null) {
-                    if (should.id === cur.id) {
-                        // Same id: copy the expected values onto the RETRIEVED row and let its own change
-                        // tracking decide — updateSqlSync returns undefined for a row that did not drift.
-                        copyRowFields(cur, should);
-                        commands.push(updateSqlSync(table, cur));
-                    } else {
-                        // Re-id: insert the member at its new id, move every incoming reference,
-                        // delete the old row. (The temporary-middle-id dance Signum uses to avoid
-                        // a collision when the new id is still in use is not ported yet.)
-                        commands.push(insertSqlSync(table, should));
-                        commands.push(moveReferences(schema, sqlBuilder, table, cur.id, should.id));
-                        commands.push(deleteSqlSync(table, cur));
-                    }
+                if (should != null && should.id !== cur.id && usedIds.has(should.id)) {
+                    const aside = newInstance(enumCtor);
+                    aside.id = (Number(cur.id) + 1000000) as PrimaryKey;
+                    aside.name = cur.name;
+                    middle.set(name, aside);
                 }
             }
+
+            const only = (m: Map<string, EnumEntity>, inMiddle: boolean) =>
+                new Map([...m].filter(([n]) => middle.has(n) === inMiddle));
+
+            if (middle.size > 0)
+                commands.push(syncEnums(schema, sqlBuilder, table, only(current, true), middle));
+
+            commands.push(syncEnums(schema, sqlBuilder, table, only(current, false), only(shouldByName, false)));
+
+            if (middle.size > 0)
+                commands.push(syncEnums(schema, sqlBuilder, table, middle, only(shouldByName, true)));
         } catch (e) {
             commands.push(commentedError(`enum table ${table.name.toString()}`, e));
         }
     }
 
     return SqlPreCommand.combine(Spacing.Double, ...commands);
+}
+
+// One pass of the enum-row diff, in Signum's THREE PHASES (its `SyncEnums`): every DELETE, then every
+// merge, then every INSERT.
+//
+// The order is the whole point and it is not cosmetic. A member removed at id N and another added at
+// the same id — which is what dropping a member and adding one at the same ordinal looks like, and what
+// declining a rename prompt produces — collides on the primary key unless the delete is already done.
+// altea used to emit one flat loop over the union of the names, which put the creates FIRST (the union
+// is built model-side first), i.e. exactly the wrong way round.
+//
+// Within the merge phase, a member that kept its id is an UPDATE and one that did not is
+// INSERT + move every incoming reference + DELETE. The caller has already moved aside any member whose
+// new id is still occupied, so that INSERT cannot collide either.
+function syncEnums(schema: Schema, sqlBuilder: SqlBuilder, table: Table,
+    current: Map<string, EnumEntity>, should: Map<string, EnumEntity>): SqlPreCommand | undefined {
+
+    const deletes: (SqlPreCommand | undefined)[] = [];
+    const moves: (SqlPreCommand | undefined)[] = [];
+    const creates: (SqlPreCommand | undefined)[] = [];
+
+    for (const [name, cur] of current)
+        if (!should.has(name))
+            deletes.push(deleteSqlSync(table, cur));
+
+    for (const [name, s] of should) {
+        const cur = current.get(name);
+        if (cur == null) {
+            creates.push(insertSqlSync(table, s));
+        } else if (s.id === cur.id) {
+            // Copy the expected values onto the RETRIEVED row and let its own change tracking decide —
+            // updateSqlSync returns undefined for a row that did not drift. (Signum updates the
+            // retrieved row directly, which works there because an EnumEntity's ToStr is derived from
+            // its id; altea's name is a plain column, so the copy is what makes an accepted rename
+            // actually script.)
+            copyRowFields(cur, s);
+            moves.push(updateSqlSync(table, cur));
+        } else {
+            moves.push(insertSqlSync(table, s));
+            moves.push(moveReferences(schema, sqlBuilder, table, cur.id, s.id));
+            moves.push(deleteSqlSync(table, cur));
+        }
+    }
+
+    return SqlPreCommand.combine(Spacing.Double, ...deletes, ...moves, ...creates);
 }
 
 // UPDATE every incoming reference to an enum row from oldId to newId (Signum's re-index move).
