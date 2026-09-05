@@ -81,7 +81,7 @@ export function SMSTemplateMessageComponent(p: SMSTemplateMessageComponentProps)
 
     return (
         <div className="sf-sms-template-message">
-            <EntityCombo ctx={ec.subCtx(e => e.culture)} onChange={p.invalidate} valueColumns={3} />
+            <EntityCombo ctx={ec.subCtx(e => e.cultureInfo)} onChange={p.invalidate} valueColumns={3} />
             <div>
                 <TemplateControls queryKey={p.queryKey} forHtml={false} />
                 <AutoLine ctx={ec.subCtx(a => a.message)} onChange={forceUpdate}

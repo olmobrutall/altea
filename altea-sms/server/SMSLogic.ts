@@ -130,7 +130,7 @@ export namespace SMSLogic {
                 // Signum seeds ONE message, for the configured default culture.
                 construct: () => SMSTemplateEntity.create({
                     messages: [SMSTemplateEntity_Message.create({
-                        culture: CultureInfoLogic.getCulture(SMSLogic.configuration().defaultCulture).toLite(),
+                        cultureInfo: CultureInfoLogic.getCulture(SMSLogic.configuration().defaultCulture).toLite(),
                     })],
                 }),
             })
@@ -158,7 +158,7 @@ export namespace SMSLogic {
         // registers it here.
         sb.schema.entityEvents(SMSTemplateEntity).preSaving.push(template => {
             const dc = configuration().defaultCulture;
-            if (dc != null && !template.messages.some(m => cultureNameOf(m.culture) === dc))
+            if (dc != null && !template.messages.some(m => cultureNameOf(m.cultureInfo) === dc))
                 throw new Error(SMSTemplateMessage.ThereMustBeAMessageFor0.niceToString(dc));
         });
 
@@ -209,7 +209,7 @@ export namespace SMSLogic {
 
     /** Signum's `GetCultureMessage(template, ci)`. */
     export function getCultureMessage(template: SMSTemplateEntity, culture: string): SMSTemplateEntity_Message | undefined {
-        return template.messages.find(m => cultureNameOf(m.culture) === culture);
+        return template.messages.find(m => cultureNameOf(m.cultureInfo) === culture);
     }
 
     /** The message row's parse tree, memoised per row (altea-email's same WeakMap). */

@@ -93,7 +93,7 @@ async function templateToXml(et: EmailTemplateEntity, ctx: IToXmlContext): Promi
 
     o["Messages"] = {
         Message: et.messages.map(m => ({
-            [A + "CultureInfo"]: cultureNameOf(m.culture),
+            [A + "CultureInfo"]: cultureNameOf(m.cultureInfo),
             [A + "Subject"]: m.subject,
             "#text": m.text,
         })),
@@ -164,8 +164,7 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
 
     et.messages = list(asRecord(xml["Messages"])?.["Message"]).map((x, i) => {
         const m = new EmailTemplateEntity_Message();
-        m.order = toInt(i);
-        m.culture = CultureInfoLogic.getCulture(str(x[A + "CultureInfo"])!).toLite();
+        m.cultureInfo = CultureInfoLogic.getCulture(str(x[A + "CultureInfo"])!).toLite();
         m.subject = str(x[A + "Subject"]) ?? "";
         m.text = str(x["#text"]) ?? "";
         return m;
@@ -200,7 +199,7 @@ function masterToXml(emt: EmailMasterTemplateEntity, _ctx: IToXmlContext): Recor
     const o: Record<string, unknown> = {};
     o[A + "Name"] = emt.name ?? "";
     o["Messages"] = {
-        Message: emt.messages.map(m => ({ [A + "CultureInfo"]: cultureNameOf(m.culture), "#text": m.text })),
+        Message: emt.messages.map(m => ({ [A + "CultureInfo"]: cultureNameOf(m.cultureInfo), "#text": m.text })),
     };
     if (emt.attachments.length) o["Attachments"] = attachmentsXml(emt.attachments.map(r => r.attachment));
     return o;
@@ -211,7 +210,7 @@ function masterFromXml(emt: EmailMasterTemplateEntity, xml: Record<string, unkno
     emt.messages = list(asRecord(xml["Messages"])?.["Message"]).map((x, i) => {
         const m = new EmailMasterTemplateEntity_Message();
         m.order = toInt(i);
-        m.culture = CultureInfoLogic.getCulture(str(x[A + "CultureInfo"])!).toLite();
+        m.cultureInfo = CultureInfoLogic.getCulture(str(x[A + "CultureInfo"])!).toLite();
         m.text = str(x["#text"]) ?? "";
         return m;
     });

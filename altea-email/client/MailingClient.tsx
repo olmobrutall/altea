@@ -142,16 +142,16 @@ export namespace MailingClient {
 
         // A NEW template starts with one message in the server's default culture (Signum's constructor).
         Constructor.registerConstructor(EmailTemplateEntity, async () => {
-            const culture = (await API.getDefaultCulture()).toLite();
+            const cultureInfo = (await API.getDefaultCulture()).toLite();
             return EmailTemplateEntity.create({
-                messages: [EmailTemplateEntity_Message.create({ culture })],
+                messages: [EmailTemplateEntity_Message.create({ cultureInfo })],
             });
         });
 
         Constructor.registerConstructor(EmailMasterTemplateEntity, async () => {
-            const culture = (await API.getDefaultCulture()).toLite();
+            const cultureInfo = (await API.getDefaultCulture()).toLite();
             return EmailMasterTemplateEntity.create({
-                messages: [EmailMasterTemplateEntity_Message.create({ culture, text: defaultMasterTemplateText })],
+                messages: [EmailMasterTemplateEntity_Message.create({ cultureInfo, text: defaultMasterTemplateText })],
             });
         });
 

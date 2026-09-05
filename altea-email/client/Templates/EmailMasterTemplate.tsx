@@ -50,7 +50,7 @@ export function EmailMasterTemplateMessageComponent(p: {
 
     return (
         <div className="sf-email-template-message">
-            <AutoLine ctx={ec.subCtx(e => e.culture)} label={EmailTemplateViewMessage.Language.niceToString()}
+            <AutoLine ctx={ec.subCtx(e => e.cultureInfo)} label={EmailTemplateViewMessage.Language.niceToString()}
                 onChange={p.invalidate} />
             <HtmlCodeMirror ctx={ec.subCtx(e => e.text)}
                 onChange={() => { if (showPreview) forceUpdate(); }} />

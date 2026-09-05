@@ -159,19 +159,20 @@ export class EmailMasterTemplateEntity_Message extends Entity {
     @backReference masterTemplate: Lite<EmailMasterTemplateEntity>;
     @rowOrder order: int;
 
-    /** Signum's `CultureInfoEntity CultureInfo` — the culture this message is written in. */
-    culture: Lite<CultureInfoEntity>;
+    /** Signum's `CultureInfoEntity CultureInfo` — the culture this message is written in. Named as
+     *  Signum names it, because the member IS the column (`CultureInfo_ID`). */
+    cultureInfo: Lite<CultureInfoEntity>;
 
     @fieldValidation<EmailMasterTemplateEntity_Message>(m => masterTemplateContentRegex.test(m.text ?? "") ? null
         : EmailTemplateMessage.TheTextMustContain0IndicatingReplacementPoint.niceToString("@[content]"))
     text: string;
 
     toString(): string {
-        return this.culture?.toString() ?? "";
+        return this.cultureInfo?.toString() ?? "";
     }
 
     clone(): EmailMasterTemplateEntity_Message {
-        return EmailMasterTemplateEntity_Message.create({ culture: this.culture, text: this.text });
+        return EmailMasterTemplateEntity_Message.create({ cultureInfo: this.cultureInfo, text: this.text });
     }
 }
 
@@ -369,10 +370,10 @@ export class EmailTemplateEntity_Order extends Entity {
 @entity("Part", "Master")
 export class EmailTemplateEntity_Message extends Entity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
-    @rowOrder order: int;
 
-    /** Signum's `CultureInfoEntity CultureInfo` — the culture this message is written in. */
-    culture: Lite<CultureInfoEntity>;
+    /** Signum's `CultureInfoEntity CultureInfo` — the culture this message is written in. Named as
+     *  Signum names it, because the member IS the column (`CultureInfo_ID`). */
+    cultureInfo: Lite<CultureInfoEntity>;
 
     /** The body, as template text. Unbounded (Signum's `[DbType(Size = int.MaxValue)]`). */
     @stringLengthValidator({ multiLine: true })
@@ -382,11 +383,11 @@ export class EmailTemplateEntity_Message extends Entity {
     subject: string;
 
     toString(): string {
-        return this.culture?.toString() ?? EmailTemplateMessage.NewCulture.niceToString();
+        return this.cultureInfo?.toString() ?? EmailTemplateMessage.NewCulture.niceToString();
     }
 
     clone(): EmailTemplateEntity_Message {
-        return EmailTemplateEntity_Message.create({ culture: this.culture, subject: this.subject, text: this.text });
+        return EmailTemplateEntity_Message.create({ cultureInfo: this.cultureInfo, subject: this.subject, text: this.text });
     }
 }
 
@@ -451,8 +452,8 @@ export class EmailTemplateEntity extends Entity implements IUserAssetEntity, ICo
     /** The message for a culture, falling back to the language part ("de-CH" → "de") — Signum's
      *  GetCultureMessage + its `ci.Parent` chain. */
     getCultureMessage(culture: string): EmailTemplateEntity_Message | undefined {
-        return this.messages.find(m => cultureNameOf(m.culture) === culture)
-            ?? this.messages.find(m => cultureNameOf(m.culture) === languageOf(culture));
+        return this.messages.find(m => cultureNameOf(m.cultureInfo) === culture)
+            ?? this.messages.find(m => cultureNameOf(m.cultureInfo) === languageOf(culture));
     }
 }
 
@@ -485,13 +486,13 @@ export const EmailTemplateViewMessage = {
 
 // ---- helpers -------------------------------------------------------------------------------------------
 
-function hasDuplicateCulture(messages: { culture: Lite<CultureInfoEntity> }[]): boolean {
+function hasDuplicateCulture(messages: { cultureInfo: Lite<CultureInfoEntity> }[]): boolean {
     const seen = new Set<string>();
     for (const m of messages) {
-        if (m.culture != null && seen.has(m.culture.key()))
+        if (m.cultureInfo != null && seen.has(m.cultureInfo.key()))
             return true;
-        if (m.culture != null)
-            seen.add(m.culture.key());
+        if (m.cultureInfo != null)
+            seen.add(m.cultureInfo.key());
     }
     return false;
 }

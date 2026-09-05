@@ -56,8 +56,8 @@ export namespace EmailMasterTemplateLogic {
         EmailMasterTemplateEntity.create({
             name: "Default",
             isDefault: true,
-            messages: forEachCulture(culture => EmailMasterTemplateEntity_Message.create({
-                culture,
+            messages: forEachCulture(cultureInfo => EmailMasterTemplateEntity_Message.create({
+                cultureInfo,
                 text: defaultMasterTemplateHtml,
             })),
         });
@@ -84,8 +84,8 @@ export namespace EmailMasterTemplateLogic {
 
     /** Signum's `GetCultureMessage(template, ci)` — exact locale, then its language. */
     export function getCultureMessage(template: EmailMasterTemplateEntity, culture: string): EmailMasterTemplateEntity_Message | undefined {
-        return template.messages.find(m => cultureNameOf(m.culture) === culture)
-            ?? template.messages.find(m => cultureNameOf(m.culture) === languageOf(culture));
+        return template.messages.find(m => cultureNameOf(m.cultureInfo) === culture)
+            ?? template.messages.find(m => cultureNameOf(m.cultureInfo) === languageOf(culture));
     }
 
     /** Signum's GetDefaultMasterTemplate — the flagged default, else create (and save) one. */
@@ -108,7 +108,7 @@ export namespace EmailMasterTemplateLogic {
         if (culture == undefined)
             return;
 
-        if (!t.messages.some(m => { const n = cultureNameOf(m.culture); return n != null && culture.startsWith(n); }))
+        if (!t.messages.some(m => { const n = cultureNameOf(m.cultureInfo); return n != null && culture.startsWith(n); }))
             throw new Error(`EmailMasterTemplate '${t.name}' has no message for the default culture '${culture}'`);
     }
 

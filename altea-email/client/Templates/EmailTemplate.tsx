@@ -260,7 +260,7 @@ export function EmailTemplateMessageComponent(p: EmailTemplateMessageComponentPr
 
     return (
         <div className="sf-email-template-message">
-            <AutoLine ctx={ec.subCtx(e => e.culture)} label={EmailTemplateViewMessage.Language.niceToString()}
+            <AutoLine ctx={ec.subCtx(e => e.cultureInfo)} label={EmailTemplateViewMessage.Language.niceToString()}
                 onChange={p.invalidate} />
             <br />
             <div>

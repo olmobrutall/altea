@@ -266,7 +266,7 @@ export class SMSTemplateEntity extends Entity {
 function hasDuplicateCulture(messages: readonly SMSTemplateEntity_Message[]): boolean {
     const seen = new Set<string>();
     for (const m of messages) {
-        const key = String(m.culture?.id ?? "");
+        const key = String(m.cultureInfo?.id ?? "");
         if (seen.has(key))
             return true;
         seen.add(key);
@@ -281,16 +281,19 @@ export class SMSTemplateEntity_Message extends Entity {
 
     @backReference template: Lite<SMSTemplateEntity>;
 
-    @rowOrder order: int;
+    // No `@rowOrder`: Signum marks the MList `[BindParent]` and NOT `[PreserveOrder]`, so its table has
+    // no Order column — a message is found by its culture.
 
-    /** A real FK, as in @altea/altea-email's template messages (altea HAS a CultureInfoEntity table). */
-    culture: Lite<CultureInfoEntity>;
+    /** Signum's `CultureInfoEntity CultureInfo` — a real FK, as in @altea/altea-email's template
+     *  messages (altea HAS a CultureInfoEntity table). Named as Signum names it: the member IS the
+     *  column (`CultureInfo_ID`). */
+    cultureInfo: Lite<CultureInfoEntity>;
 
     @stringLengthValidator({ multiLine: true })
     message: string;
 
     toString(): string {
-        return this.culture?.toString() ?? SMSTemplateMessage.NewCulture.niceToString();
+        return this.cultureInfo?.toString() ?? SMSTemplateMessage.NewCulture.niceToString();
     }
 }
 

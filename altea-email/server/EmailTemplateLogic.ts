@@ -179,7 +179,7 @@ export namespace EmailTemplateLogic {
 
         if (template.masterTemplate != null) {
             const master = await EmailLogic.retrieveLite(template.masterTemplate);
-            const masterMessage = EmailMasterTemplateLogic.getCultureMessage(master, cultureNameOf(message.culture) ?? EmailLogic.configuration().defaultCulture)
+            const masterMessage = EmailMasterTemplateLogic.getCultureMessage(master, cultureNameOf(message.cultureInfo) ?? EmailLogic.configuration().defaultCulture)
                 ?? EmailMasterTemplateLogic.getCultureMessage(master, EmailLogic.configuration().defaultCulture);
 
             if (masterMessage != null) {
