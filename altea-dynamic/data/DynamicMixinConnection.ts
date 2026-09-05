@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, stringLengthValidator, quoted, implementedBy } from "@altea/altea/data/decorators";
+import { entity, stringLengthValidator, quoted } from "@altea/altea/data/decorators";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 
@@ -19,7 +19,10 @@ import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 @entity("Main", "Master")
 export class DynamicMixinConnectionEntity extends Entity {
 
-    @implementedBy(() => [TypeEntity])
+    // A PLAIN reference, as every other `Lite<TypeEntity>` in the workspace is. It carried a
+    // single-implementation `@implementedBy` for no reason anyone recorded, and that costs two things a
+    // Signum database can see: the column takes the implementation suffix (`EntityTypeID_Type`) and the
+    // polymorphic always-nullable default, where Signum has a NOT NULL `EntityTypeID`.
     entityType: Lite<TypeEntity>;
 
     @stringLengthValidator({ max: 100 })
