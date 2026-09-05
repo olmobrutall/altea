@@ -3,7 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
     entity, primaryKey, implementedByAll, uniqueIndex, backReference, rowOrder,
-    stringLengthValidator, fieldValidation, quoted, legacyTableName,
+    stringLengthValidator, fieldValidation, quoted, legacyTableName, legacyColumnName,
 } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
@@ -41,10 +41,13 @@ import type { IAttachmentGeneratorEntity } from "@altea/altea-email/data/EmailTe
 //    identity, so IUserAssetEntity is a bare marker.
 //  - `TemplateApplicableEval` keeps Signum's shape — a stored script — but the script is TYPESCRIPT and the
 //    code-registered predicate (see @altea/altea-templating's data/Templating.ts for the rationale).
-//  - `CultureInfoEntity Culture` → a plain locale STRING (altea has no CultureInfoEntity).
-//  - `Lite<FileEntity> Template` → `template: FileEmbedded`. altea-files has no standalone FileEntity row,
-//    only the embedded forms; embedding the bytes also removes Signum's "delete the superseded file on
-//    save" dance (`Transaction.PreRealCommit += oldFile.Delete()`), since the bytes live in the row.
+//  - `Lite<FileEntity> Template` → `template: FileEmbedded`, so the bytes live in the row
+//    (`Template_FileName` / `Template_BinaryFile`) where Signum keeps a `Template_ID` foreign key. This
+//    was once forced — altea-files had only the embedded forms — and is now a CHOICE, since FileEntity is
+//    ported: embedding removes Signum's "delete the superseded file on save" dance
+//    (`Transaction.PreRealCommit += oldFile.Delete()`), at the price of four statements a Southwind sync
+//    still scripts for this table. (The `Culture` note that used to sit here is gone: altea has a real
+//    `CultureInfoEntity` now, and the field is the same FK Signum has.)
 //  - `ToXml` / `FromXml` / `ParseData` / `IsApplicable` are SERVER-side in altea (System.Xml and the query
 //    token resolver are server-only): they live in OfficeTemplateXml.server.ts / OfficeTemplateLogic.server.ts.
 
@@ -183,8 +186,13 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
         : officeTemplateValidations.fileName?.(t) ?? null)
     fileName: string;
 
+    // The Word→Office rename reaches the COLUMNS too, and a database can only see it as a rename — the
+    // same call `@legacyTableName` makes three lines up. `@legacyColumnName` is the field-level sibling:
+    // altea's name in the model and in normal mode, Signum's in a legacy database.
+    @legacyColumnName("WordTransformerID")
     officeTransformer: OfficeTransformerSymbol | null;
 
+    @legacyColumnName("WordConverterID")
     officeConverter: OfficeConverterSymbol | null;
 
     @quoted
@@ -215,6 +223,7 @@ export class OfficeAttachmentEntity extends Entity implements IAttachmentGenerat
         ? OfficeTemplateMessage.TheFileNameContainsInvalidCharacters.niceToString() : null)
     fileName: string | null;
 
+    @legacyColumnName("WordTemplateID")
     officeTemplate: Lite<OfficeTemplateEntity>;
 
     /** Render the report for a DIFFERENT entity than the message's own (Signum's `[ImplementedByAll]`). */
