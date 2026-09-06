@@ -73,21 +73,21 @@ describe("Type 2 — manual auto query (filtered, full entity)", () => {
 
 // ---- Type 2: a projected ModelEntity query ------------------------------------------------------
 @reflect
-class AlbumRowModel extends ModelEntity {
+class AlbumInfoRowModel extends ModelEntity {
     entity: AlbumEntity = null!;  // the row identity
     id: string = "";             // the MODEL's own id — not the Entity base's
     name: string = "";
     year: int = toInt(0);
 }
 
-const MODELQ = AlbumRowModel;
+const MODELQ = AlbumInfoRowModel;
 QueryLogic.queries.register(MODELQ, () => new AutoDynamicQueryCore(
-    () => table(AlbumEntity).map(a => AlbumRowModel.create({ entity: a, name: a.name, year: a.year })),
+    () => table(AlbumEntity).map(a => AlbumInfoRowModel.create({ entity: a, name: a.name, year: a.year })),
 ));
 
 describe("Type 2 — manual auto query (projected ModelEntity)", () => {
     test("the shape is the ModelEntity; its fields are the navigable tokens", () => {
-        assert.equal(QueryLogic.queries.getCore(MODELQ).getRootType(), AlbumRowModel);
+        assert.equal(QueryLogic.queries.getCore(MODELQ).getRootType(), AlbumInfoRowModel);
         const keys = QueryLogic.getRootToken(MODELQ).subTokens(O).map(t => t.key);
         for (const f of ["entity", "id", "name", "year"])
             assert.ok(keys.includes(f), `missing model field token ${f}`);
