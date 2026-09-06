@@ -28,6 +28,26 @@ export enum PropertyRouteType {
 //    no `FindImplementations` callback.
 //  - In-memory materialisation (`GetLambdaExpression`/`GetBody`), `MatchesEntity`, and
 //    `GenerateRoutes` are NOT ported yet (deferred with the token layer's in-memory evaluator).
+/**
+ * LEGACY MODE: write a route's members the way Signum spells them, PascalCase — `Id`, `ShipAddress.City`,
+ * `Elements/Label`. altea's member IS the TypeScript field name, so a `propertyString()` is camelCase,
+ * and `basics.property_route.path` is the one place that difference is visible to a database: pointed at
+ * a Signum one, every stored route read as a different route and the sync offered each as a rename.
+ *
+ * Only the CASE differs — the structure (`.` between members, `/` for a collection element, `[Mixin]`,
+ * `.Entity`) is already Signum's. Reversing it is exact because altea's member name is Signum's with a
+ * lower-cased initial, and `add` accepts either spelling regardless of this flag.
+ *
+ * Set from the app's shared entity-overrides module, so BOTH TIERS agree: a route is built CLIENT-side
+ * too (the tour editor, the validation designer) and arrives id-less for the server to resolve against
+ * the row that already exists — which it can only do if both spell the path the same way. It is also
+ * the key of `TypeMetadata.fields`, which the server builds and the client reads.
+ */
+let legacyPropertyPaths = false;
+export function setLegacyPropertyPaths(value: boolean): void {
+    legacyPropertyPaths = value;
+}
+
 export class PropertyRoute {
     // `isAllowedCallback` mirrors Signum's `PropertyRoute.SetIsAllowedCallback` (auth). Unset ⇒
     // everything allowed.
@@ -142,7 +162,12 @@ export class PropertyRoute {
         // An entity/lite reference (NOT a collection — that navigates via "Item" below) re-roots.
         // is(Entity) also holds for a polymorphic @implementedBy interface (no single ctor), so this
         // fires for it too — and getImplementations().only() being undefined then throws "Cast first".
-        if (this.propertyRouteType !== PropertyRouteType.Root && !this.type.array && this.type.is(Entity)) {
+        // NOT off an MListItems step: altea's collection element is a `@part` ROW entity where Signum's
+        // is an embedded, so it LOOKS like an entity reference and would re-root — turning
+        // `Columns/DisplayName` into a route rooted at the row. The element belongs to the collection
+        // that holds it, which is what the `/` in the path says.
+        if (this.propertyRouteType !== PropertyRouteType.Root && this.propertyRouteType !== PropertyRouteType.MListItems
+            && !this.type.array && this.type.is(Entity)) {
             const imp = this.getImplementations();
             const only = imp.only();
             if (imp.isByAll || only == undefined)
@@ -163,7 +188,11 @@ export class PropertyRoute {
         if (owner == undefined)
             throw new Error(`Cannot navigate '${member}' from ${this} (no owner type)`);
 
-        const fi = tryGetTypeInfo(owner)?.fields[member];
+    // A member is matched by its OWN name first and then with a lower-cased initial, so a route STORED
+    // in Signum's PascalCase (`Id`, `ShipAddress.City` — see setLegacyPropertyPaths) parses whichever
+    // mode is on. The same tolerance `resolveType` already has for a name that came from a URL.
+        const fields = tryGetTypeInfo(owner)?.fields;
+        const fi = fields?.[member] ?? fields?.[member.firstLower()];
         if (fi == undefined)
             throw new Error(`'${member}' does not exist on ${owner.name} (route ${this})`);
 
@@ -194,7 +223,7 @@ export class PropertyRoute {
         return result;
     }
 
-    private generateRoutesInto(result: PropertyRoute[], includeArrayElements: boolean): void {
+    private generateRoutesInto(result: PropertyRoute[], includeArrayElements: boolean, visiting: Set<Function> = new Set()): void {
         for (const [name, fi] of Object.entries(this.subMembers())) {
             if (fi.noSerialize) // @serialize(false) bookkeeping (isNew / _snapshot) — not a real property
                 continue;
@@ -205,18 +234,31 @@ export class PropertyRoute {
                 if (includeArrayElements) {
                     const item = pr.add("Item");
                     result.push(item);
-                    if (item.type.is(EmbeddedEntity))
-                        item.generateRoutesInto(result, includeArrayElements);
+                    // Signum descends an MList's element when it is an EMBEDDED, which is the only kind
+                    // its elements come in. altea's collection element is a `@part` ROW entity instead —
+                    // the MList divergence — so descending only into embeddeds skipped every element
+                    // route a Signum database has (`Columns/DisplayName`, `Parts/Title`, `Elements/Label`).
+                    // `visiting` guards the cycle an entity element makes possible and an embedded cannot.
+                    const infos = item.type.typeInfos();
+                    const element = infos.length === 1 ? infos[0]!.ctor : undefined;
+                    const isPart = element != undefined && tryGetTypeInfo(element)?.entityKind === "Part";
+                    if (item.type.is(EmbeddedEntity)) {
+                        item.generateRoutesInto(result, includeArrayElements, visiting);
+                    } else if (isPart && !visiting.has(element)) {
+                        visiting.add(element);
+                        item.generateRoutesInto(result, includeArrayElements, visiting);
+                        visiting.delete(element);
+                    }
                 }
             } else if (t.is(EmbeddedEntity)) {
-                pr.generateRoutesInto(result, includeArrayElements); // descend embedded
+                pr.generateRoutesInto(result, includeArrayElements, visiting); // descend embedded
             }
             // entity / Lite reference: the reference route is pushed above, but we do NOT descend (re-roots).
         }
         const owner = this.ownerCtor();
         if (owner != undefined)
             for (const mixin of MixinDeclarations.getMixins(owner as Type<BaseEntity>))
-                this.addMixin(mixin.name).generateRoutesInto(result, includeArrayElements);
+                this.addMixin(mixin.name).generateRoutesInto(result, includeArrayElements, visiting);
     }
 
     // ---- Implementations -------------------------------------------------------------------
@@ -318,16 +360,21 @@ export class PropertyRoute {
         }
     }
 
+    /** This step's member as a stored path writes it — see {@link setLegacyPropertyPaths}. */
+    private storedMember(): string {
+        return legacyPropertyPaths ? this.member.firstUpper() : this.member;
+    }
+
     propertyString(): string {
         switch (this.propertyRouteType) {
             case PropertyRouteType.Root:
                 throw new Error("Root has no PropertyString");
             case PropertyRouteType.FieldOrProperty:
                 switch (this.parent!.propertyRouteType) {
-                    case PropertyRouteType.Root: return this.member;
+                    case PropertyRouteType.Root: return this.storedMember();
                     case PropertyRouteType.FieldOrProperty:
-                    case PropertyRouteType.Mixin: return this.parent!.propertyString() + "." + this.member;
-                    case PropertyRouteType.MListItems: return this.parent!.propertyString() + this.member;
+                    case PropertyRouteType.Mixin: return this.parent!.propertyString() + "." + this.storedMember();
+                    case PropertyRouteType.MListItems: return this.parent!.propertyString() + this.storedMember();
                     default: throw new Error("unexpected parent route type");
                 }
             case PropertyRouteType.Mixin:
