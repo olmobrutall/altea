@@ -7,13 +7,19 @@ import { Transaction } from "@altea/altea/server/connection/transaction";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
-import { Temporal } from "@altea/altea/data/basics";
+import { Temporal, type int } from "@altea/altea/data/basics";
+import { table } from "@altea/altea/server/table";
+import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
+import { AutoDynamicQueryCore } from "@altea/altea/server/dynamicQuery/dynamicQueryCore";
 import { Clock } from "@altea/altea/data/utils/clock";
 import {
     ProcessEntity, ProcessAlgorithmSymbol, ProcessExceptionLineEntity, ProcessState,
     ProcessOperation, ProcessPermission, ProcessMessage,
 } from "../data/Processes";
-import { PackageEntity, PackageOperationEntity, PackageLineEntity } from "../data/Package";
+import {
+    PackageEntity, PackageOperationEntity, PackageLineEntity,
+    PackageLastProcessRowModel, PackageOperationLastProcessRowModel, PackageLineLastProcessRowModel,
+} from "../data/Package";
 import { ProcessRunner, ExecutingProcess } from "./ProcessRunner";
 import { ProcessesServer } from "./ProcessesServer";
 
@@ -63,6 +69,67 @@ export namespace ProcessLogic {
         sb.include(PackageOperationEntity).withQuery();
         sb.include(PackageLineEntity).withQuery();
 
+        // Signum's three PackageQuery.*LastProcess queries. Each is the plain query PLUS the last
+        // process that ran the package and, through it, what failed. Signum reaches those with the
+        // [AutoExpressionField] extension methods `LastProcess()` and `Exception(pl, p)`; altea has
+        // neither — and the second takes a PARAMETER, which is not a query token here at all — so the
+        // subqueries are spelled out inline. `.$v` unwraps the Promise a terminal is typed with: it is
+        // the compile-time Promise<T> -> T marker, an identity at the expression level (SQL has no
+        // async), and it is what lets an aggregate stand in a PROJECTION rather than be awaited.
+        //
+        // A projection, so each is an AutoDynamicQueryCore over the projected Query rather than
+        // `withQuery()`, which takes none, and each is named by its row model.
+        // Every subquery is written out rather than shared through a local helper: a local-function
+        // call inside a query lambda has no SQL translation, so the repetition is the price of the
+        // expressions Signum has and altea does not.
+        QueryLogic.queries.register(PackageLastProcessRowModel, () => new AutoDynamicQueryCore(() =>
+            table(PackageEntity).map(pk => PackageLastProcessRowModel.create({
+                entity: pk.toLite(),
+                id: pk.id as int,
+                name: pk.name,
+                numLines: table(PackageLineEntity).filter(l => l.package.is(pk.toLite())).count().$v as int,
+                lastProcess: table(ProcessEntity).filter(p => p.data!.is(pk.toLite()))
+                    .orderByDescending(p => p.executionStart!).firstOrNull().$v?.toLite() ?? null,
+                numErrors: table(PackageLineEntity)
+                    .filter(l => l.package.is(pk.toLite()) && table(ProcessExceptionLineEntity)
+                        .filter(el => el.line!.is(l.toLite()) && el.process.is(table(ProcessEntity).filter(p => p.data!.is(pk.toLite()))
+                            .orderByDescending(p => p.executionStart!).firstOrNull().$v!.toLite()))
+                        .count().$v > 0)
+                    .count().$v as int,
+            }))));
+
+        QueryLogic.queries.register(PackageOperationLastProcessRowModel, () => new AutoDynamicQueryCore(() =>
+            table(PackageOperationEntity).map(pk => PackageOperationLastProcessRowModel.create({
+                entity: pk.toLite(),
+                id: pk.id as int,
+                name: pk.name,
+                operation: pk.operation,
+                numLines: table(PackageLineEntity).filter(l => l.package.is(pk.toLite())).count().$v as int,
+                lastProcess: table(ProcessEntity).filter(p => p.data!.is(pk.toLite()))
+                    .orderByDescending(p => p.executionStart!).firstOrNull().$v?.toLite() ?? null,
+                numErrors: table(PackageLineEntity)
+                    .filter(l => l.package.is(pk.toLite()) && table(ProcessExceptionLineEntity)
+                        .filter(el => el.line!.is(l.toLite()) && el.process.is(table(ProcessEntity).filter(p => p.data!.is(pk.toLite()))
+                            .orderByDescending(p => p.executionStart!).firstOrNull().$v!.toLite()))
+                        .count().$v > 0)
+                    .count().$v as int,
+            }))));
+
+        QueryLogic.queries.register(PackageLineLastProcessRowModel, () => new AutoDynamicQueryCore(() =>
+            table(PackageLineEntity).map(pl => PackageLineLastProcessRowModel.create({
+                entity: pl.toLite(),
+                package: pl.package,
+                id: pl.id as int,
+                target: pl.target,
+                result: pl.result,
+                finishTime: pl.finishTime,
+                lastProcess: table(ProcessEntity).filter(p => p.data!.is(pl.package))
+                    .orderByDescending(p => p.executionStart!).firstOrNull().$v?.toLite() ?? null,
+                exception: table(ProcessExceptionLineEntity)
+                    .filter(el => el.line!.is(pl.toLite()) && el.process.is(table(ProcessEntity).filter(p => p.data!.is(pl.package))
+                        .orderByDescending(p => p.executionStart!).firstOrNull().$v!.toLite()))
+                    .singleOrNull().$v?.exception ?? null,
+            }))));
         if (sb.webBuilder)
             ProcessesServer.start(sb.webBuilder);
     }

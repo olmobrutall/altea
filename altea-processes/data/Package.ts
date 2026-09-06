@@ -1,11 +1,12 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
-import { Entity } from "@altea/altea/data/entity";
+import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, implementedBy, implementedByAll, stringLengthValidator, ticksColumn } from "@altea/altea/data/decorators";
-import { Temporal } from "@altea/altea/data/basics";
+import { Temporal, type int } from "@altea/altea/data/basics";
 import { OperationSymbol } from "@altea/altea/data/operations";
 import { Serializer } from "@altea/altea/data/serializer";
-import { ProcessAlgorithmSymbol, type IProcessDataEntity } from "./Processes";
+import { ProcessAlgorithmSymbol, ProcessEntity, type IProcessDataEntity } from "./Processes";
+import { ExceptionEntity } from "@altea/altea/data/exception";
 
 // Port of Signum.Processes' Package.cs — a PACKAGE is the most common thing a process runs over: a named
 // bag of LINES, each pointing at one entity, so "do this to these 5,000 rows" becomes one observable,
@@ -154,3 +155,48 @@ export function tryGetLiteArg<T extends Entity>(args: unknown[] | null, ctor: ab
 // `[assembly: AssemblySchemaName("processes")]`. FOLDER-scoped, so it covers every type declared
 // beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("processes");
+
+// ---- the three LastProcess queries (Signum's PackageQuery.*) -------------------------------------------
+//
+// Signum names each by an ENUM MEMBER and projects an anonymous type; altea names a query by its ROW
+// MODEL, whose clean name IS the key (`PackageLastProcessRowModel` → `PackageLastProcess`), so the
+// anonymous projection becomes the model's members — the same columns in the same order.
+//
+// What each adds over the plain package/line query is the LAST PROCESS that ran the package and, through
+// it, whether a line failed. Signum reaches those through `LastProcess()` / `Exception(pl, p)`, two
+// [AutoExpressionField] extension methods; altea registers neither, and one of them takes a PARAMETER,
+// which is not a query token here at all. The subqueries are therefore spelled out INLINE in the
+// projection (see PackageLogic) — the same SQL, without a token nothing else asks for.
+
+@reflect
+export class PackageLastProcessRowModel extends ModelEntity {
+    entity: Lite<PackageEntity>;
+    id: int;
+    name: string | null;
+    numLines: int;
+    lastProcess: Lite<ProcessEntity> | null;
+    numErrors: int;
+}
+
+@reflect
+export class PackageOperationLastProcessRowModel extends ModelEntity {
+    entity: Lite<PackageOperationEntity>;
+    id: int;
+    name: string | null;
+    operation: OperationSymbol;
+    numLines: int;
+    lastProcess: Lite<ProcessEntity> | null;
+    numErrors: int;
+}
+
+@reflect
+export class PackageLineLastProcessRowModel extends ModelEntity {
+    entity: Lite<PackageLineEntity>;
+    package: Lite<PackageEntity>;
+    id: int;
+    target: Lite<Entity>;
+    result: Lite<Entity> | null;
+    finishTime: Temporal.PlainDateTime | null;
+    lastProcess: Lite<ProcessEntity> | null;
+    exception: Lite<ExceptionEntity> | null;
+}
