@@ -124,6 +124,12 @@ export namespace PredictorLogic {
             .withStateMachine(p => p.state, registerPredictorOperations)
             .withQuery();
 
+        // A sub-query is a @part row of the predictor, so generateField already includes its TABLE —
+        // but an auto-included part gets no QUERY, and Signum gives this one a search page of its own
+        // (`sb.Include<PredictorSubQueryEntity>().WithQuery(…)`). The include is idempotent, so this
+        // adds the query and nothing else.
+        sb.include(PredictorSubQueryEntity).withQuery();
+
         // The Autoconfigure definition needs an EXPLICIT include: it is only ever reached through
         // `ProcessEntity.data`, which is @implementedByAll and therefore references no type in
         // particular — so nothing would bring its table into the schema.
