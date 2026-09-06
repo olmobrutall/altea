@@ -1,3 +1,4 @@
+import "./dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import "../data/globals"; // Array.prototype.toMap
 import { joinRelaxed } from "../data/globals/joinRelaxed";
 import type { Entity, PrimaryKey, Type } from "../data/entity";
@@ -75,7 +76,16 @@ export namespace SymbolLogic {
             return;
         started.add(ctor);
 
-        sb.include(ctor);
+        // Signum's `sb.Include<T>().WithQuery(() => t => new { Entity = t, t.Id, t.Key })` — EVERY symbol
+        // table is queryable, and its search page is how a symbol is looked up at all. altea included the
+        // table and left the query to each module, so a symbol type nobody thought to add `withQuery()`
+        // for had no `basics.query` row: `Operation`, `Permission` and `TypeCondition` among them, which
+        // a Signum database has. Registering it here is idempotent with the modules that DO call it (the
+        // registry is a Map keyed by query name, and altea's `withQuery()` takes no projection to clobber).
+        //
+        // The SEMI-symbol base deliberately does NOT do this, exactly as Signum's SemiSymbolLogic.Start
+        // does not: a SemiSymbol table is user-writable, so its module decides whether it has a page.
+        sb.include(ctor).withQuery();
 
         if (!byCtor.has(ctor)) {
             const stl: SymbolTypeLogic<T> = {
