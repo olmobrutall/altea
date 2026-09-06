@@ -23,7 +23,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { MultiEntityModel, QueryModel } from "@altea/altea-templating/data/Templating";
 import { parseFilter, parseOrder, parsePagination } from "@altea/altea-email/server/EmailModelLogic";
-import { OfficeModelEntity, OfficeTemplateEntity } from "../data/OfficeTemplate";
+import { OfficeModelEntity, OfficeTemplateEntity, OfficeTemplateOperation, OfficeTemplateMessage } from "../data/OfficeTemplate";
 import type { IOfficeModel } from "./OfficeTemplateParameters";
 
 // Port of Signum.Word's WordModelLogic.cs — the MODEL side: a code-declared object a template renders
@@ -87,6 +87,17 @@ export namespace OfficeModelLogic {
 
     export function start(sb: SchemaBuilder): void {
         sb.include(OfficeModelEntity).withQuery();
+
+        // Signum's WordModelLogic registers this on the TEMPLATE's graph, from the MODEL: "give this
+        // model the template its defaultTemplateConstructor describes". The symbol was declared and
+        // never registered here, so the operation did not exist at runtime and a Southwind database's
+        // row had no counterpart — both helpers it needs were already here.
+        sb.include(OfficeTemplateEntity)
+            .withConstructFrom(OfficeModelEntity, OfficeTemplateOperation.CreateOfficeTemplateFromOfficeModel, {
+                canConstruct: (m: OfficeModelEntity) => hasDefaultTemplateConstructor(m) ? null
+                    : OfficeTemplateMessage.NoDefaultTemplateDefined.niceToString(),
+                construct: (m: OfficeModelEntity) => createDefaultTemplateInternal(m),
+            });
 
         officeModelsLazy = sb.globalLazy(async () => {
             const rows = await ExecutionMode.global(() => tableQuery(OfficeModelEntity).toArray());

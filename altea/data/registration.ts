@@ -350,19 +350,35 @@ export function schemaForName(name: string): string | undefined {
  * symbol by key (the schema build, SymbolLogic's caches, the blob); the overrides module is first on
  * both tiers, which is what makes it the right home.
  *
- * THROWS when the container matched nothing — a typo, or a call made before the declaring module was
- * evaluated, are the same silent no-op otherwise.
+ * The container is passed as the NAMESPACE OBJECT, not as its name: a string would be a second
+ * spelling of something the compiler already knows, silently stale after a rename and silently wrong
+ * after a typo. Passing the object also means the symbols are found by IDENTITY rather than by a key
+ * prefix, so the rename reaches exactly the members that container declares.
+ *
+ * A MEMBER may be renamed too, through the optional third argument — `Word*` became `Office*` on the
+ * members as well as on the container. Its keys are `keyof` the container, so they are checked the
+ * same way the container is; a member not named there keeps its own.
+ *
+ * THROWS when the container held no declared symbol — an empty or wrong object, or a call made before
+ * the declaring module was evaluated, are the same silent no-op otherwise.
  */
-export function renameSymbolContainer(from: string, to: string): void {
-    const prefix = from + ".";
-    let matched = 0;
+export function renameSymbolContainer<T extends SymbolContainer>(
+    container: T, to: string, members?: Partial<Record<keyof T & string, string>>): void {
+    // A SemiSymbol's key is NULLABLE — a row a user created has a name and no key — so a container's
+    // value may legitimately have none, and only the keyed ones are renameable.
+    const renames = new Map<unknown, string>();
+    for (const [name, sym] of Object.entries(container))
+        if (sym?.key != null)
+            renames.set(sym, members?.[name as keyof T & string] ?? sym.key.slice(sym.key.indexOf(".") + 1));
 
+    let matched = 0;
     for (const byKey of declaredSymbols.values()) {
         for (const [key, sym] of [...byKey]) {
-            if (!key.startsWith(prefix))
+            const member = renames.get(sym);
+            if (member == null)
                 continue;
 
-            const renamed = to + "." + key.slice(prefix.length);
+            const renamed = to + "." + member;
             byKey.delete(key);
             sym.key = renamed;
             byKey.set(renamed, sym);
@@ -379,8 +395,8 @@ export function renameSymbolContainer(from: string, to: string): void {
     }
 
     if (matched === 0)
-        throw new Error(`renameSymbolContainer('${from}', '${to}'): no declared symbol has that container.`
-            + ` Check the spelling, and that the module declaring it is imported before this runs.`);
+        throw new Error(`renameSymbolContainer(…, '${to}'): the container declared no symbol.`
+            + ` Check that the module declaring it is imported before this runs.`);
 }
 
 // The minimal shape init() stamps. Declared locally (not `import { Symbol }`) so the
@@ -388,6 +404,9 @@ export function renameSymbolContainer(from: string, to: string): void {
 // caller, and its Entity machinery is irrelevant to the stamping here.
 interface SymbolLike { key: string; isNew: boolean; id?: string | number }
 type SymbolCtor = new () => SymbolLike;
+
+/** What {@link renameSymbolContainer} takes: a symbol namespace. A SemiSymbol's key is nullable. */
+type SymbolContainer = Record<string, { key: string | null }>;
 
 // ctor → (key → declared symbol instance). Every init() records its symbol here so
 // SymbolLogic can enumerate the declared symbols of a type (Signum's getSymbols()).

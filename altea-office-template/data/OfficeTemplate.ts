@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema, renameSymbolContainer } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
@@ -271,6 +271,25 @@ export namespace OfficeTemplateOperation {
 
 export namespace OfficeTemplatePermission {
     export const GenerateReport: PermissionSymbol = init();
+}
+
+/**
+ * Spell this module's SYMBOLS the way Signum.Word does, for an application pointed at a database a
+ * Signum one generated — the symbol-key half of the `@legacyTableName` / `@legacyColumnName` this file
+ * already carries. Called by the app, which is the only thing that knows which database it is pointed
+ * at; the MAPPING lives here, because what these were called in Signum is the module's own knowledge.
+ *
+ * The rename reaches the MEMBERS too, not just the containers: Word became Office in both.
+ *
+ * Must run before anything reads a symbol by key, and on BOTH TIERS — so the app calls it from its
+ * shared entity-overrides module (see `renameSymbolContainer`).
+ */
+export function useLegacyWordSymbolNames(): void {
+    renameSymbolContainer(OfficeTemplateOperation, "WordTemplateOperation", {
+        CreateOfficeReport: "CreateWordReport",
+        CreateOfficeTemplateFromOfficeModel: "CreateWordTemplateFromWordModel",
+    });
+    renameSymbolContainer(OfficeTemplatePermission, "WordTemplatePermission");
 }
 
 export const OfficeTemplateMessage = {
