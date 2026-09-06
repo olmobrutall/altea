@@ -97,7 +97,7 @@ export class ManualDynamicQueryCore implements DynamicQueryCore {
 
     executeQueryAsync(request: QueryRequest): Promise<ResultTable> {
         // The same implicit "Entity" column an auto query gets: a manual executor projects whatever
-        // `request.columns` names, so a hand-written union (eastwind's CustomerModel over Person +
+        // `request.columns` names, so a hand-written union (eastwind's CustomerRowModel over Person +
         // Company) becomes navigable without knowing anything about it.
         addRowEntityColumn(request, this.rootType);
         return this.executor(request);

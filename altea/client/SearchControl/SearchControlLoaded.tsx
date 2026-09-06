@@ -284,7 +284,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
   // full-entity query that is the query root; for one named by a row MODEL it is the model's `entity`
   // member, so the types offered by "Create", the result-table caption and the MultipliedMessage name
   // what the rows actually ARE (Person / Company) rather than the projection they arrive in
-  // (CustomerModel). Falls back to the root when the row has no entity, so a caller always has a token.
+  // (CustomerRowModel). Falls back to the root when the row has no entity, so a caller always has a token.
   entityColumn(): QueryToken {
     return rowEntityToken(this.props.queryToken) ?? this.props.queryToken;
   }

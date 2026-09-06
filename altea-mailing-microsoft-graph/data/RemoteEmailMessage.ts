@@ -15,7 +15,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 //  - Signum names the manual query with an enum member (`RemoteEmailMessageQuery.RemoteEmailMessages`) and
 //    describes its columns with an anonymous projection. altea has no QueryDescription: a query's NAME is its
 //    row model, so the row shape is `RemoteEmailMessageRowModel` below and each column's caption is the
-//    field's own `@niceName` — the same treatment altea-auth-azuread's ActiveDirectoryUserModel gets.
+//    field's own `@niceName` — the same treatment altea-auth-azuread's ActiveDirectoryUsersRowModel gets.
 //  - Signum's ONE `RemoteEmailMessageModel` serves both roles: the query row AND the opened message. They
 //    carry different fields (a row has a `toRecipients` STRING and no body; the opened message has the full
 //    recipient lists, the body and the attachments), and — decisively — a query row model must not have a

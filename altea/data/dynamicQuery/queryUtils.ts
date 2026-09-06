@@ -5,7 +5,7 @@ import type { TypeReference } from "../reflection";
 
 /**
  * A query's name: the TYPE it yields rows of — an entity for a plain `withQuery()`, or the model a
- * manual query projects to (`CustomerModel`, `InboxRowModel`). Signum types this `object`, because its
+ * manual query projects to (`CustomerRowModel`, `InboxRowModel`). Signum types this `object`, because its
  * queries may also be enum MEMBERS (`AlbumQuery.Recent`), and altea used to allow a bare string for that.
  *
  * It never worked: nothing outside a test called `QueryLogic.registerQuery`, so the key→name map a string

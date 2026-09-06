@@ -25,7 +25,7 @@ import { Operations } from "@altea/altea/server/operationLogic";
 import { AzureADConfigurationEmbedded, AzureADTask } from "../data/AzureAD";
 import { ADGroupEntity, ADGroupOperation } from "../data/ADGroup";
 import {
-    ActiveDirectoryGroupModel, ActiveDirectoryUserModel, OnPremisesExtensionAttributesModel,
+    ActiveDirectoryGroupsRowModel, ActiveDirectoryUsersRowModel, OnPremisesExtensionAttributesModel,
 } from "../data/ActiveDirectoryQueries";
 import { AzureADAuthorizer, MicrosoftGraphCreateUserContext } from "./AzureADAuthorizer";
 import { AzureADAuthenticationServer } from "./AzureADAuthenticationServer";
@@ -167,8 +167,8 @@ export namespace AzureADLogic {
     function registerDirectoryQueries(): void {
 
         // Signum's `AzureADQuery.ActiveDirectoryUsers`.
-        QueryLogic.queries.register(ActiveDirectoryUserModel, () =>
-            new ManualDynamicQueryCore(ActiveDirectoryUserModel, async request => {
+        QueryLogic.queries.register(ActiveDirectoryUsersRowModel, () =>
+            new ManualDynamicQueryCore(ActiveDirectoryUsersRowModel, async request => {
                 const config = requireConfig();
                 const converter = new MicrosoftGraphQueryConverter();
 
@@ -191,12 +191,12 @@ export namespace AzureADLogic {
                 });
 
                 const rows = (response.value ?? []).map(u => toUserModel(u));
-                return finish(ActiveDirectoryUserModel, rows, request, rest, response["@odata.count"]);
+                return finish(ActiveDirectoryUsersRowModel, rows, request, rest, response["@odata.count"]);
             }));
 
         // Signum's `AzureADQuery.ActiveDirectoryGroups`.
-        QueryLogic.queries.register(ActiveDirectoryGroupModel, () =>
-            new ManualDynamicQueryCore(ActiveDirectoryGroupModel, async request => {
+        QueryLogic.queries.register(ActiveDirectoryGroupsRowModel, () =>
+            new ManualDynamicQueryCore(ActiveDirectoryGroupsRowModel, async request => {
                 const config = requireConfig();
                 const converter = new MicrosoftGraphQueryConverter();
 
@@ -229,7 +229,7 @@ export namespace AzureADLogic {
                     count: true,
                 });
 
-                const rows = (response.value ?? []).map(g => ActiveDirectoryGroupModel.create({
+                const rows = (response.value ?? []).map(g => ActiveDirectoryGroupsRowModel.create({
                     entity: null,
                             objectId: g.id ?? null,
                     displayName: g.displayName ?? null,
@@ -239,7 +239,7 @@ export namespace AzureADLogic {
                     hasUser: null,
                 }));
 
-                return finish(ActiveDirectoryGroupModel, rows, request, rest, response["@odata.count"]);
+                return finish(ActiveDirectoryGroupsRowModel, rows, request, rest, response["@odata.count"]);
             }));
     }
 
@@ -279,9 +279,9 @@ export namespace AzureADLogic {
         return { extracted, rest };
     }
 
-    function toUserModel(u: GraphUser): ActiveDirectoryUserModel {
+    function toUserModel(u: GraphUser): ActiveDirectoryUsersRowModel {
         const ea = u.onPremisesExtensionAttributes;
-        return ActiveDirectoryUserModel.create({
+        return ActiveDirectoryUsersRowModel.create({
             entity: null,
             objectId: u.id ?? null,
             displayName: u.displayName ?? null,

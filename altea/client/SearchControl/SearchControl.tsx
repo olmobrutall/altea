@@ -208,7 +208,7 @@ function SearchControl(p: SearchControlProps): React.JSX.Element | null {
   // MODEL yields Person/Company rows through the model's `entity` member (see rowEntityToken). Every
   // decision below is about the row — can it be viewed (which is what puts the navigate link and the
   // double-click on the row at all), can one be created, is it system-versioned — so asking the model
-  // answered "no" to all three and left /find/CustomerModel with no row link.
+  // answered "no" to all three and left /find/CustomerRowModel with no row link.
   const tis = (rowEntityToken(qt) ?? qt).type.typeInfos();
 
   return (

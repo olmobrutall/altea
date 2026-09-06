@@ -59,8 +59,8 @@ export class RootToken extends QueryToken {
  *
  * Two shapes, one answer. A full-entity query's row IS the entity, so the root token is it. A query
  * named by a row MODEL has no identity of its own and carries one in an `entity` member, which is the
- * convention every row model in the workspace follows (`CustomerModel`, `InboxRowModel`,
- * `ActiveDirectoryUserModel`) and is Signum's Entity column by another name.
+ * convention every row model in the workspace follows (`CustomerRowModel`, `InboxRowModel`,
+ * `ActiveDirectoryUsersRowModel`) and is Signum's Entity column by another name.
  *
  * Everything that makes a row navigable reads this: the query core adds it as a column, ResultTable
  * splits it out of the DISPLAY columns into `entityColumn` (so it is fetched but never shown — the

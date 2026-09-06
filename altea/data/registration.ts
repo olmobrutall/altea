@@ -29,6 +29,22 @@ const enumRegistry = new Map<string, object>();
 
 // Reverse of enumRegistry: the registered name of an enum object. Lets the
 // EnumEntity(enumObject) factory name the synthesized entity/table after the enum.
+// clean name -> ctor. A SECOND index rather than an alias in typeRegistry, because the clean name is a
+// per-SEGMENT strip (`EmployeeEntity_Territory` -> `Employee_Territory`) and so cannot be reversed by
+// re-adding a suffix. Where two types clean to the same name the higher-priority SUFFIX wins, which
+// makes the answer independent of module evaluation order — the alias this replaces was first-come,
+// so `Customer` belonged to whichever of CustomerEntity / CustomerRowModel happened to load first.
+const cleanRegistry = new Map<string, Function>();
+
+// Which suffix outranks which, when two types share a clean name. A row model beats an entity because
+// the only entity it can legitimately collide with is an ABSTRACT one, whose clean name is inert: never
+// a `$type` (that is the RUNTIME constructor), never a `basics.type` row (no table), never an
+// @implementedBy suffix (those are the concrete implementations). A CONCRETE entity colliding with a row
+// model is a modelling error, and SchemaBuilder.complete refuses it rather than ranking it.
+function cleanPriority(name: string): number {
+    return name.endsWith("RowModel") ? 3 : name.endsWith("Entity") ? 2 : name.endsWith("Symbol") ? 1 : 0;
+}
+
 const enumNameRegistry = new WeakMap<object, string>();
 
 // Object registry: named runtime objects (e.g. message containers transformed by
@@ -58,29 +74,42 @@ export function registerType(ctor: Function, name?: string, fileInfo?: FileInfo)
             // entry below still keeps name-based resolution working.
         }
     }
+    // typeRegistry is keyed by the COMPLETE name alone; the clean name lives in its own index, ranked
+    // rather than first-come (see cleanRegistry).
     typeRegistry.set(key, ctor);
-    // Also register under the clean name (see stripEntitySuffix), so resolveType("Order") works — the
-    // clean name is the canonical id used in the JSON wire format and in user-facing URLs (/view/order/1).
-    // The full name stays the primary key; the clean alias is only added when free, so a type literally
-    // named "Order" is never shadowed by OrderEntity's alias.
     const clean = stripEntitySuffix(key);
-    if (clean !== key && !typeRegistry.has(clean)) typeRegistry.set(clean, ctor);
+    if (clean !== key) {
+        const held = cleanRegistry.get(clean);
+        if (held == null || cleanPriority(key) > cleanPriority(held.name))
+            cleanRegistry.set(clean, ctor);
+    }
     if (fileInfo != null) locationRegistry.set(key, fileInfo);
 }
 
-// All DISTINCT constructors registered via registerType (deduped — each ctor is registered under both
-// its full and clean name). Used by ReflectionClient to propagate an abstract base type's operations to
-// its concrete subclasses, since altea gives every class its own TypeInfo (operations don't inherit).
+// Every constructor registered via registerType. Keyed by the COMPLETE name alone, so the values need
+// no dedupe. Used by ReflectionClient to propagate an abstract base type's operations to its concrete
+// subclasses, since altea gives every class its own TypeInfo (operations don't inherit).
 export function getRegisteredTypes(): Function[] {
     return [...new Set(typeRegistry.values())];
 }
 
+/**
+ * A clean name back to its constructor — the reverse of {@link cleanTypeName}, read out of the ranked
+ * {@link cleanRegistry} rather than derived, since the strip is per underscore-SEGMENT
+ * (`EmployeeEntity_Territory` -> `Employee_Territory`) and re-adding a suffix cannot undo that.
+ */
+function resolveBySuffix(name: string): Function | undefined {
+    // The COMPLETE name first, so a type literally called `QueryModel` is never shadowed by another
+    // type's clean name.
+    return typeRegistry.get(name) ?? cleanRegistry.get(name);
+}
+
 export function resolveType(name: string): Function | undefined {
-    // Direct hit for the canonical (PascalCase) names — the full name and the clean alias, incl. every
-    // wire $type. The firstLower fallback resolves names that come from URLs, where navigateRouteDefault
-    // lower-cases the first letter (`/view/order/1` → "order" → "Order"); PascalCase names never reach it.
-    return typeRegistry.get(name)
-        ?? (name.length > 0 ? typeRegistry.get(name[0].toUpperCase() + name.slice(1)) : undefined);
+    // The canonical (PascalCase) names — the full name, and every clean name through resolveBySuffix.
+    // The firstLower fallback resolves names that come from URLs, where navigateRouteDefault lower-cases
+    // the first letter (`/view/order/1` → "order" → "Order"); PascalCase names never reach it.
+    return resolveBySuffix(name)
+        ?? (name.length > 0 ? resolveBySuffix(name[0].toUpperCase() + name.slice(1)) : undefined);
 }
 
 // The "clean" type name: the constructor name with a trailing "Entity" stripped
@@ -119,30 +148,37 @@ export function cleanTypeName(ctor: Function): string {
 // builder's own cleanTypeName).
 //
 // Signum's Reflector.CleanTypeName strips FOUR suffixes — Entity, Embedded, Model and Symbol — and altea
-// takes only these TWO on purpose. A clean name is IDENTITY: it is the `TypeEntity.cleanName` column, the
-// `$type` / `$lite` wire discriminator, an @implementedBy column's suffix, and the type segment of a URL
-// (`/view/Workflow/3`). Only a type that can BE one of those needs the clean spelling — an Entity or a
-// Symbol. Stripping "Model" and "Embedded" as well would buy nothing there and would make 15 pairs
-// AMBIGUOUS, because altea carries a Model beside its Entity far more often than Signum does:
-// CustomerEntity/CustomerModel would both be "Customer", as would WorkflowEntity/WorkflowModel and eleven
-// more workflow node/model pairs. Those types lose nothing by keeping the suffix — what a reader SEES is
-// the nice name, and `Localization.Internal.niceNameFromName` already drops all four ("WorkflowModel" is
-// titled "Workflow" in the frame modal).
+// takes Entity, Symbol and RowModel. A clean name is IDENTITY: the `TypeEntity.cleanName` column, the
+// `$type` / `$lite` wire discriminator, an @implementedBy column's suffix, a registered QUERY's key and
+// the type segment of a URL (`/view/Workflow/3`).
 //
-// The guard matters for exactly one type: the base class `Symbol` itself, which would otherwise clean to
-// the empty string.
+// `Model` and `Embedded` are NOT stripped, and the reason is that altea carries a Model beside its
+// Entity far more often than Signum does: stripping them makes 10 pairs ambiguous — Customer, Query and
+// eight workflow node/model pairs (WorkflowEntity/WorkflowModel, WorkflowActivityEntity/…Model, …).
+// Signum survives the same pairs because its clean name is used for DESCRIPTIONS while a Model's runtime
+// identity stays the full class name (its generated `new Type<WorkflowActivityModel>("WorkflowActivityModel")`
+// beside `new Type<WorkflowActivityEntity>("WorkflowActivity")`), and altea already strips all four for
+// display in `Localization.Internal.niceNameFromName`.
+//
+// `RowModel` IS stripped, because it is the one Model whose clean name has to be identity: the row shape
+// of a MANUAL query is that query's NAME (altea has no enum-named queries — see data/dynamicQuery/
+// queryUtils), so `CustomerRowModel` is the query Signum calls `CustomerQuery.Customer`. It is a marker
+// suffix, chosen over `QueryModel` because a type named exactly `QueryModel` already exists (a suffix
+// that is also a name has to guard the empty string, as `Symbol` does) and because the type models a
+// query's ROW, not a query.
+//
+// The guard matters for the base class `Symbol` itself, which would otherwise clean to the empty string.
 function stripEntitySuffix(name: string): string {
     return name.split('_').map(s => {
-        const stripped = s.replace(/(Entity|Symbol)$/, '');
+        const stripped = s.replace(/(Entity|Symbol|RowModel)$/, '');
         return stripped === '' ? s : stripped;
     }).join('_');
 }
 
-// Reverse of cleanTypeName: resolves a discriminator string back to its
-// constructor. Tries the clean name directly, then with the "Entity" suffix that
-// cleanTypeName stripped.
+// Reverse of cleanTypeName: a wire discriminator back to its constructor — the same derivation
+// resolveType uses, without the URL's lower-case tolerance.
 export function resolveCleanType(cleanName: string): Function | undefined {
-    return typeRegistry.get(cleanName) ?? typeRegistry.get(cleanName + "Entity");
+    return resolveBySuffix(cleanName);
 }
 
 // Registers a database enum by name (so the enum-table support can map a field's

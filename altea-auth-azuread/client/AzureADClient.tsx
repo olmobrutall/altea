@@ -15,7 +15,7 @@ import * as ProfilePhoto from "@altea/altea-auth/client/public/ProfilePhoto";
 import { AzureADConfigurationEmbedded } from "../data/AzureAD";
 import { ADGroupEntity, type ADGroupRequest } from "../data/ADGroup";
 import { CachedProfilePhotoEntity } from "../data/CachedProfilePhoto";
-import { ActiveDirectoryGroupModel, ActiveDirectoryUserModel } from "../data/ActiveDirectoryQueries";
+import { ActiveDirectoryGroupsRowModel, ActiveDirectoryUsersRowModel } from "../data/ActiveDirectoryQueries";
 
 // Port of Signum.Authorization.AzureAD's AzureADClient.tsx — the ADMIN-side registrations: the
 // configuration editor, the AD-group view, the two directory search pages' default filters, and the
@@ -93,7 +93,7 @@ export namespace AzureADClient {
             Navigator.getOrAddSettings(ADGroupEntity).isCreable = "Never";
 
             Finder.addSettings({
-                queryName: ActiveDirectoryUserModel,
+                queryName: ActiveDirectoryUsersRowModel,
                 defaultFilters: [
                     {
                         groupOperation: "Or",
@@ -133,7 +133,7 @@ export namespace AzureADClient {
             } as Finder.QuerySettings);
 
             Finder.addSettings({
-                queryName: ActiveDirectoryGroupModel,
+                queryName: ActiveDirectoryGroupsRowModel,
                 defaultFilters: [
                     {
                         groupOperation: "Or",
@@ -162,7 +162,7 @@ export namespace AzureADClient {
     /** Signum's findActiveDirectoryGroup — pick a directory group and import it as an ADGroupEntity. */
     export function findActiveDirectoryGroup(): Promise<Lite<ADGroupEntity> | undefined> {
         return Finder.findRow({
-            queryName: ActiveDirectoryGroupModel,
+            queryName: ActiveDirectoryGroupsRowModel,
             filterOptions: [
                 { token: "hasUser", value: null, pinned: { column: 1, row: 0, active: "WhenHasValue" } },
             ],
@@ -173,7 +173,7 @@ export namespace AzureADClient {
     /** Signum's findManyActiveDirectoryGroup. */
     export function findManyActiveDirectoryGroup(): Promise<Lite<ADGroupEntity>[] | undefined> {
         return Finder.findManyRows({
-            queryName: ActiveDirectoryGroupModel,
+            queryName: ActiveDirectoryGroupsRowModel,
             filterOptions: [
                 { token: "hasUser", value: null, pinned: { column: 1, row: 0, active: "WhenHasValue" } },
             ],

@@ -175,8 +175,8 @@ function descriptionOptionsOf(ctor: Function): DescriptionOptions {
     // A MODEL is Signum's `ModifiableEntity` (`Description | Members`), WIDENED here to the plural and
     // the gender. A manual query is NAMED BY ITS ROW MODEL in altea — there is no QueryDescription to
     // hang a caption on — and a search page's title is the query name's PLURAL (`getQueryNiceName` →
-    // `nicePluralName`). So `CustomerModel`'s plural is a user-visible page heading ("Customers" over
-    // /find/CustomerModel), and the gender is what a determiner-inflecting language needs for "los
+    // `nicePluralName`). So `CustomerRowModel`'s plural is a user-visible page heading ("Customers" over
+    // /find/CustomerRowModel), and the gender is what a determiner-inflecting language needs for "los
     // Clientes".
     if (isOrExtends(ctor, ModelEntity))
         return { hasDescription: true, hasPluralDescription: true, hasGender: true, hasMembers: true };

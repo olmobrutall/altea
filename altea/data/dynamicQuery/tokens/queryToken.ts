@@ -366,7 +366,7 @@ export abstract class QueryToken {
     // `ticks` is the concurrency stamp. An EMBEDDED or a MODEL inherits neither, so a member of
     // either name there is an ordinary declared field and nothing adds it back — skipping it made it
     // unreachable as a column, a filter and an order. Signum never hits this because a ModelEntity
-    // has no Id property to collide with; altea's row models do (eastwind's CustomerModel projects a
+    // has no Id property to collide with; altea's row models do (eastwind's CustomerRowModel projects a
     // synthetic "P 5" / "C 3" id over the Person + Company union, and it was silently invisible).
     protected entityProperties(type: Function): QueryToken[] {
         const base = this.normalizePropertyRoute();

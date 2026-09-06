@@ -4,6 +4,7 @@ import type { Quoted } from 'quote-transformer/quoted';
 import { MixinDeclarations } from '../../data/mixinDeclarations';
 import type { EntityData } from '../../data/decorators';
 import { getTypeInfo, enumNameOf, FieldInfo, TypeInfo, schemaForName, type PrimaryKeyType } from '../../data/reflection';
+import { getRegisteredTypes, cleanTypeName as registryCleanTypeName } from '../../data/registration';
 import { AbstractDbType, IsNullable, defaultDbType, primaryKeyDbType } from './dbType';
 import {
     type IColumn,
@@ -578,6 +579,26 @@ export class SchemaBuilder {
         // TypeLogic.start (type↔id caches + row-seeding generate/sync steps + the Schema.Initializing load
         // hook) already ran in the constructor — foundational, so it precedes every module's initializing
         // hook (Signum calls TypeLogic.Start first). Nothing type-id-related is deferred to complete().
+
+        // A clean name is IDENTITY (the `basics.type` row, the `$type` discriminator, a query's key), and
+        // two suffixes can now produce the same one: `FooEntity` and `FooRowModel` both clean to `Foo`.
+        // That is harmless where the entity is ABSTRACT — its clean name is inert, which is exactly what
+        // lets `CustomerRowModel` be the query Signum calls `Customer` — and a real conflict otherwise, so
+        // the check is over the types that HAVE a table. Here rather than in the registry because only
+        // now is it known which types those are.
+        const byClean = new Map<string, string>();
+        for (const type of this.schema.tables.keys())
+            if (typeof type === "function")
+                byClean.set(cleanTypeName(type as Type<Entity>), type.name);
+        for (const ctor of getRegisteredTypes()) {
+            if (!ctor.name.endsWith("RowModel"))
+                continue;
+            const taken = byClean.get(registryCleanTypeName(ctor));
+            if (taken != null)
+                throw new Error(`'${ctor.name}' and '${taken}' both have the clean name`
+                    + ` '${registryCleanTypeName(ctor)}', which is identity — a query key, a $type discriminator.`
+                    + ` Rename one: only an ABSTRACT entity may share a clean name with a row model.`);
+        }
 
         // Signum's `Schema.SchemaCompleted` — every table is now included, so a module that needs the WHOLE
         // schema (altea-cache: which tables a cached one depends on) can finish wiring. Still NO database

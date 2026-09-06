@@ -74,7 +74,7 @@ export namespace Localization {
         // Symbol — which is what its `DefaultTypeDescription` humanises. NOTE this is the DISPLAY name
         // only: altea's own `cleanTypeName` (data/registration) strips "Entity" ALONE, because there it
         // is the reflection IDENTITY (the `$type` / `$lite` wire discriminator, TypeEntity.cleanName,
-        // an @implementedBy column's suffix) and "CustomerModel" / "AddressEmbedded" must stay distinct
+        // an @implementedBy column's suffix) and "CustomerRowModel" / "AddressEmbedded" must stay distinct
         // from any "Customer" / "Address" beside them.
         export function niceNameFromName(name: string): string {
             const raw = name.replace(/(Entity|Embedded|Model|Symbol)$/, "");
