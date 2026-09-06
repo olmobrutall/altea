@@ -1,5 +1,6 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
-import { EmbeddedEntity, Entity } from "@altea/altea/data/entity";
+import { EmbeddedEntity } from "@altea/altea/data/entity";
+import { ImmutableEntity } from "@altea/altea/data/immutableEntity";
 import { Symbol } from "@altea/altea/data/symbol";
 import { column, entity, format, stringLengthValidator, fieldValidation, ticksColumn } from "@altea/altea/data/decorators";
 import { type long, toLong } from "@altea/altea/data/basics";
@@ -63,14 +64,13 @@ export class FileEmbedded extends EmbeddedEntity {
 // Signum's FileEntity (FileEntity.cs) — FileEmbedded's contents as a row of its own, so it can be SHARED.
 //
 // altea divergences:
-//  - **Signum's `ImmutableEntity` base is not ported, but its guarantee is.** That base works by overriding
-//    the property `Set` interception (a set on a saved row is silently swallowed), which altea has no
-//    counterpart for — altea entities are plain field bags. What actually protects the data is Signum's
-//    OTHER half, `PreSaving` throwing when a non-new ImmutableEntity is SelfModified, and that ports
-//    exactly: FileLogic hangs it on `entityEvents(FileEntity).preSaving`. So editing a saved file's bytes
-//    fails LOUDLY here where Signum's setter fails silently — the same rule, reported better. The reason
-//    for the rule is the sharing: a file row may have several owners, so mutating it would change the file
-//    under every one of them. Replace the REFERENCE instead.
+//  - **`ImmutableEntity` IS the base, as in Signum** (`@altea/altea/data/immutableEntity`) — so a saved
+//    file's own row cannot be re-saved changed, `allowChange` / `allowChanges()` are the escape hatch, and
+//    `File.AllowChange` is a property ROUTE a Signum database's property-authorization rule can point at.
+//    Only Signum's SETTER half is missing there (altea entities are plain field bags, so there is nothing
+//    to intercept), which is the half that failed silently; see that module's header. The reason for the
+//    rule is the sharing: a file row may have several owners, so mutating it would change the file under
+//    every one of them. Replace the REFERENCE instead.
 //  - `hash` is filled server-side (the isomorphic layer has no crypto), like FilePathEmbedded's — see
 //    `prepareForSave`. Signum computes it in the `BinaryFile` setter.
 //  - the `FileEntity(string path)` constructor (read a file off disk) has no counterpart: it is
@@ -82,7 +82,7 @@ export class FileEmbedded extends EmbeddedEntity {
 // Signum's `[TicksColumn(false)]`: an immutable row cannot be concurrently edited, so a stamp would guard
 // nothing. (A SharedPart would otherwise get one — it is reached by reference, not through one owner.)
 @ticksColumn(false)
-export class FileEntity extends Entity {
+export class FileEntity extends ImmutableEntity {
     // Signum's [StringLengthValidator(Min = 3, Max = 254)] — note 254, where FileEmbedded's is 200.
     @stringLengthValidator({ min: 3, max: 254 })
     fileName: string = "";

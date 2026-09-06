@@ -40,6 +40,7 @@ import { TableIndex, FullTextTableIndex, VectorTableIndex, multiUniqueIndexes } 
 import { accessedFields } from '../../data/accessedFields';
 import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../data/enumEntity';
+import { ImmutableEntity, assertImmutable } from '../../data/immutableEntity';
 import { TypeEntity } from '../../data/typeEntity';
 import type { ResetLazy } from '../../data/resetLazy';
 import { TypeLogic } from '../typeLogic';
@@ -542,6 +543,16 @@ export class SchemaBuilder {
             if (ti.systemVersioned == null && inherited?.systemVersioned)
                 ti.systemVersioned = {};
         }
+
+        // Signum's ImmutableEntity.PreSaving override: a saved row of an immutable type may not be
+        // re-saved with its own columns changed. Signum writes it ON the base class, so a subclass gets
+        // the guarantee by deriving; altea has no entity-level PreSaving (it is a schema event), so this
+        // is the one place that sees every included type and can say the same thing once. Registered
+        // FIRST for the type, i.e. before whatever its own module hangs on preSaving — which is fine
+        // because the check reads the change DIFF, and a handler that recomputes a derived value from
+        // unchanged inputs (FileEntity's hash) writes the same value back either way.
+        if (type.prototype instanceof ImmutableEntity)
+            this.schema.entityEvents(type).preSaving.push(e => assertImmutable(e as unknown as ImmutableEntity));
 
         this.completeTable(table, type);
         return new FluentInclude<T>(table, type, this);

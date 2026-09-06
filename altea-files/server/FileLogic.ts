@@ -16,8 +16,9 @@ import { FilesServer } from "./FilesServer";
 //   FileTypeLogic.register(MyFileType.Attachments, new FileTypeAlgorithm({ physicalPrefix: () => "./files/attachments" }));
 //
 // FileEntity — the shared, own-row file — is included here exactly as Signum's FileLogic.Start does, with
-// the two things its C# property setters did (compute the hash, refuse a change to a saved row) hung on the
-// schema events; see `startFileEntity`. Its store-backed sibling FilePathEntity is still not ported (see
+// the one thing its C# `BinaryFile` setter did that has nowhere else to live: computing the hash (see
+// `startFileEntity`). Refusing a change to a SAVED file comes from its base — see
+// @altea/altea/data/immutableEntity. Its store-backed sibling FilePathEntity is still not ported (see
 // data/Files.ts).
 //
 // BigStringLogic (redirecting a BigStringEmbedded's text into a file) is deliberately NOT started here, as in
@@ -54,22 +55,12 @@ export namespace FileLogic {
             file.prepareForSave(calculateMD5Hash(file.binaryFile ?? new Uint8Array(0)));
         });
 
-        events.preSaving.push(file => {
-            // Signum's ImmutableEntity.PreSaving, one for one: it throws "Attempt to save a not new
-            // modified ImmutableEntity" when `Modified == ModifiedState.SelfModified`, and
-            // `isModifiedSelf()` IS that state (a value diff against the row's snapshot). This is the half
-            // of that base class which actually protects the data — see data/Files.ts on why the setter
-            // half is neither portable nor missed. The reason for the rule is the sharing: a file row may
-            // have SEVERAL owners, so changing its bytes changes the file under every one of them.
-            //
-            // Ordering matters, and it works out: the hash handler above ran FIRST, and for an untouched
-            // file it recomputes the SAME hash — a value-equal write leaves the snapshot diff clean, so it
-            // cannot make an unchanged file look modified. Re-saving an unchanged file is therefore fine,
-            // which it has to be: the owner's save walks the whole reachable graph.
-            if (!file.isNew && file.isModifiedSelf())
-                throw new Error(`Attempt to save a not new modified FileEntity (${file.id}): a stored file `
-                    + `is immutable, because it may be referenced by several owners. Assign a NEW `
-                    + `FileEntity to the field instead of changing this one.`);
-        });
+        // The immutability check itself is NOT registered here: FileEntity derives from ImmutableEntity,
+        // and `SchemaBuilder.include` hangs Signum's `ImmutableEntity.PreSaving` on every included
+        // subclass — the base carries the guarantee, as it does in Signum. It runs BEFORE the hash
+        // handler above, which changes nothing: it reads the change DIFF, and recomputing the hash of
+        // UNCHANGED bytes writes the same value back, so an untouched file is clean on either side of it.
+        // Re-saving an unchanged file therefore still works, which it has to — the owner's save walks the
+        // whole reachable graph, so every owner of a shared file re-saves it.
     }
 }
