@@ -19,7 +19,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
 import { TypeConditionLogic } from "@altea/altea-auth/server/TypeConditionLogic";
 import {
-    AlertEntity, AlertOperation, AlertState, AlertTypeSymbol, AlertMessage, type IAlertTarget,
+    AlertEntity, AlertOperation, AlertState, AlertTypeSymbol, AlertTypeOperation, AlertMessage, type IAlertTarget,
 } from "../data/Alert";
 import { AlertsServer } from "./AlertsServer";
 
@@ -89,6 +89,16 @@ export namespace AlertLogic {
 
         sb.include(AlertEntity)
             .withStateMachine(a => a.state, registerAlertOperations)
+            .withQuery();
+
+        // Signum's `sb.Include<AlertTypeSymbol>().WithSave(…).WithDelete(…).WithQuery(…)`. The
+        // SemiSymbol base registers neither — a SemiSymbol table is USER-WRITABLE, so whether it has a
+        // page and how it is edited is its module's decision (see SymbolLogic.start, which does
+        // register the query for a plain Symbol). Missing here, so an alert type could not be created
+        // or edited at all, which is half of what a SemiSymbol is for.
+        sb.include(AlertTypeSymbol)
+            .withSave(AlertTypeOperation.Save)
+            .withDelete(AlertTypeOperation.Delete)
             .withQuery();
 
         SemiSymbolLogic.start(sb, AlertTypeSymbol, () => [...systemAlertTypes.keys()]);

@@ -11,7 +11,7 @@ import { noRepeatValidator, ValidationMessage } from "@altea/altea/data/validato
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
-import type { ExecuteSymbol, ConstructSymbol, From, Simple } from "@altea/altea/data/operations";
+import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From, Simple } from "@altea/altea/data/operations";
 import type { IQuery } from "@altea/altea/data/iquery";
 import type { IUserEntity } from "@altea/altea/data/security";
 import { UserEntity } from "@altea/altea-auth/data/User";
@@ -173,6 +173,12 @@ export enum DelayOption {
 @reflect
 @entity("String", "Master", { lowPopulation: true })
 export class AlertTypeSymbol extends SemiSymbol { }
+
+/** Signum's AlertTypeOperation — a SemiSymbol table is user-writable, so its rows are edited. */
+export namespace AlertTypeOperation {
+    export const Save: ExecuteSymbol<AlertTypeSymbol> = init();
+    export const Delete: DeleteSymbol<AlertTypeSymbol> = init();
+}
 
 /** Signum's AlertDropDownGroup — how the navbar dropdown groups what it shows. */
 export enum AlertDropDownGroup {
