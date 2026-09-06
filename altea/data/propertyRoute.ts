@@ -191,11 +191,22 @@ export class PropertyRoute {
     // A member is matched by its OWN name first and then with a lower-cased initial, so a route STORED
     // in Signum's PascalCase (`Id`, `ShipAddress.City` — see setLegacyPropertyPaths) parses whichever
     // mode is on. The same tolerance `resolveType` already has for a name that came from a URL.
-        const fields = tryGetTypeInfo(owner)?.fields;
-        const fi = fields?.[member] ?? fields?.[member.firstLower()];
+        const info = tryGetTypeInfo(owner);
+        const fields = info?.fields;
+        let fi = fields?.[member] ?? fields?.[member.firstLower()];
+
+        // LEGACY MODE: a stored path writes the collection ROW's `@valueField` wrapper away, so the
+        // member after `/` names the ELEMENT's field and is not on the row at all — see
+        // isValueFieldStep. Step through the wrapper to find it, which is what makes the path a
+        // ROUND TRIP rather than only a spelling.
+        if (fi == undefined && legacyPropertyPaths && this.propertyRouteType === PropertyRouteType.MListItems) {
+            const valueField = info?.valueField;
+            if (valueField != undefined)
+                return new PropertyRoute(PropertyRouteType.FieldOrProperty, this, undefined, valueField, undefined).add(member);
+        }
+
         if (fi == undefined)
             throw new Error(`'${member}' does not exist on ${owner.name} (route ${this})`);
-
         return new PropertyRoute(PropertyRouteType.FieldOrProperty, this, undefined, fi, undefined);
     }
 
@@ -360,6 +371,20 @@ export class PropertyRoute {
         }
     }
 
+    /**
+     * LEGACY MODE: is this step the `@valueField` of a collection ROW — the field that IS the element?
+     * Signum's MList holds the embedded directly, so its route is `Columns/DisplayName`; altea's row
+     * WRAPS it (`columns/element.displayName`), and the wrapper is the same indirection legacy column
+     * naming already inlines away (see legacyMListColumnBase). So the step contributes nothing to the
+     * path, and the member after it reads as if it hung off the collection directly.
+     */
+    private isValueFieldStep(): boolean {
+        return legacyPropertyPaths
+            && this.propertyRouteType === PropertyRouteType.FieldOrProperty
+            && this.fieldInfo?.isValueField === true
+            && this.parent?.propertyRouteType === PropertyRouteType.MListItems;
+    }
+
     /** This step's member as a stored path writes it — see {@link setLegacyPropertyPaths}. */
     private storedMember(): string {
         return legacyPropertyPaths ? this.member.firstUpper() : this.member;
@@ -370,6 +395,11 @@ export class PropertyRoute {
             case PropertyRouteType.Root:
                 throw new Error("Root has no PropertyString");
             case PropertyRouteType.FieldOrProperty:
+                if (this.isValueFieldStep())
+                    return this.parent!.propertyString();
+                // A parent that IS such a step already ends in the collection's `/`, so no separator.
+                if (this.parent!.isValueFieldStep())
+                    return this.parent!.propertyString() + this.storedMember();
                 switch (this.parent!.propertyRouteType) {
                     case PropertyRouteType.Root: return this.storedMember();
                     case PropertyRouteType.FieldOrProperty:
