@@ -1,6 +1,6 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, quoted, stringLengthValidator } from "@altea/altea/data/decorators";
+import { entity, quoted, stringLengthValidator, legacyPropertyRoute } from "@altea/altea/data/decorators";
 import { Lite } from "@altea/altea/data/lite";
 import { Temporal } from "@altea/altea/data/basics";
 import type { PermissionSymbol } from "./Rules";
@@ -51,6 +51,7 @@ export class SessionLogEntity extends Entity {
      * "which sessions never closed"), the shape @altea/altea-rest's `durationMilliseconds` uses. A plain
      * `number` lowers through `since().total()`; the nullable ternary becomes a CASE WHEN.
      */
+    @legacyPropertyRoute("Duration")
     @quoted
     durationSeconds(): number | null {
         return this.sessionEnd != null ? this.sessionEnd.since(this.sessionStart).total({ unit: "seconds" }) : null;

@@ -3,7 +3,7 @@ import { Entity, EmbeddedEntity, MixinEntity, ModelEntity, type Type } from "@al
 import { Lite } from "@altea/altea/data/lite";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { cleanTypeName } from "@altea/altea/data/registration";
-import { entity, implementedBy, unit, stringLengthValidator, quoted, index } from "@altea/altea/data/decorators";
+import { entity, implementedBy, unit, stringLengthValidator, quoted, index, legacyPropertyRoute } from "@altea/altea/data/decorators";
 import { Temporal, type int, type uuid } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -102,17 +102,20 @@ export class CaseActivityEntity extends Entity {
     scriptExecution: ScriptExecutionEmbedded | null;
 
     /** Signum's `DurationRealTime` — the duration so far for an activity that is still pending. */
+    @legacyPropertyRoute
     @quoted
     durationRealTime(): number | null {
         return this.duration ?? this.startDate.until(Clock.now, { largestUnit: "minute" }).total({ unit: "minute" });
     }
 
+    @legacyPropertyRoute
     @quoted
     durationRatio(): number | null {
         return this.duration == null ? null
             : this.duration / (this.workflowActivity as WorkflowActivityEntity).estimatedDuration!;
     }
 
+    @legacyPropertyRoute
     @quoted
     durationRealTimeRatio(): number | null {
         return this.durationRealTime() == null ? null
@@ -123,6 +126,7 @@ export class CaseActivityEntity extends Entity {
      * Signum's `StateExpression` — the state as the DATABASE sees it. `@quoted`, so it is both a query token
      * (registered in CaseActivityLogic) and the in-memory answer for a saved activity.
      */
+    @legacyPropertyRoute
     @quoted
     state(): CaseActivityState {
         return this.doneDate != null ? CaseActivityState.Done : CaseActivityState.Pending;

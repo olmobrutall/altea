@@ -283,6 +283,74 @@ export function legacyColumnName(name: string) {
     };
 }
 
+// declaring ctor → member name → the Signum spelling, or undefined for "derive it from the member".
+const legacyRouteMembers = new Map<Function, Map<string, string | undefined>>();
+
+/**
+ * `@legacyPropertyRoute` — the third member of the `@legacyTableName` / `@legacyColumnName` family, and
+ * the one about a ROUTE rather than a physical name: this METHOD was ported from a C# **property**, so a
+ * Signum database has a `basics.property_route` row for it and a legacy sync must not remove that row.
+ *
+ * It is needed because Signum's `GenerateRoutes` walks `PublicInstancePropertiesInOrder` — a computed
+ * property (`[AutoExpressionField] public decimal ValueInStock => …`) is an ordinary route with an
+ * ordinary row — while altea's entity model has no property getters, so the same member is a method and
+ * route generation walks reflected FIELDS. The route is therefore invisible, and the synchronizer offers
+ * the stored row as a rename of whatever sorts nearest and then DROPS it, taking every consumer row with
+ * it (a real `auth.rule_property` sits on `Product.ValueInStock`).
+ *
+ * **Declared, never derived.** Whether the C# original was a property or an EXTENSION METHOD is a fact
+ * about the port that only the person doing it knows — Signum has no route for an extension method
+ * (altea-tree's `descendants`, altea-printing's `lines`, `entityNotes`), and inferring it from the shape
+ * of the TypeScript would be guessing at the C# from its translation. So a member that needs a route says
+ * so, and one that says nothing gets nothing.
+ *
+ * Read only in LEGACY mode (`PropertyRouteLogic.extraSyncRoutes`): in normal mode the database is one
+ * altea generated, so it holds no such row. Nothing else consults it — the member is still not a
+ * `PropertyRoute`, so it is absent from the property-auth grid and a rule on it gates nothing here.
+ *
+ *   `@legacyPropertyRoute @quoted valueInStock(): Decimal { … }`   → the route `ValueInStock`
+ *   `@legacyPropertyRoute("Duration") @quoted durationSeconds()`   → Signum named the property Duration
+ *
+ * The bare form derives the path from the member (PascalCased like any other route); the argument form is
+ * VERBATIM, for the cases where altea deliberately renamed the member and only the database still cares
+ * what Signum called it. Applicable to any method, `@quoted` or not — what it records is the C# original.
+ */
+export function legacyPropertyRoute(target: object, propertyKey: string | symbol, descriptor?: PropertyDescriptor): void;
+export function legacyPropertyRoute(signumName: string): (target: object, propertyKey: string | symbol, descriptor?: PropertyDescriptor) => void;
+export function legacyPropertyRoute(arg1: unknown, arg2?: unknown): unknown {
+    if (arg2 !== undefined) {  // bare: applied straight as a decorator
+        addLegacyRouteMember(arg1 as object, String(arg2), undefined);
+        return;
+    }
+    const signumName = arg1 as string;
+    return function (target: object, propertyKey: string | symbol): void {
+        addLegacyRouteMember(target, String(propertyKey), signumName);
+    };
+}
+
+function addLegacyRouteMember(target: object, member: string, signumName: string | undefined): void {
+    const ctor = ctorOf(target);
+    let members = legacyRouteMembers.get(ctor);
+    if (members == undefined)
+        legacyRouteMembers.set(ctor, members = new Map());
+    members.set(member, signumName);
+}
+
+/**
+ * Every member of `ctor` (its own and its bases') declared `@legacyPropertyRoute`, as member name → the
+ * Signum spelling or undefined for "derive it". Inherited, because Signum generates a route on each
+ * CONCRETE root type — a property on an abstract base is a route of every type that derives from it — and
+ * a subclass's declaration wins.
+ */
+export function legacyPropertyRoutesOf(ctor: Function): Map<string, string | undefined> {
+    const result = new Map<string, string | undefined>();
+    for (let c: Function | null = ctor; c != null; c = Object.getPrototypeOf(c) as Function | null)
+        for (const [member, signumName] of legacyRouteMembers.get(c) ?? [])
+            if (!result.has(member))
+                result.set(member, signumName);
+    return result;
+}
+
 // Class-level marker (Signum's [SystemVersioned]): the type's table is system-versioned —
 // it keeps a full history of every row version (temporal table). Bare `@systemVersioned`
 // uses dialect-default period/history names; `@systemVersioned({ historyTableName, … })`

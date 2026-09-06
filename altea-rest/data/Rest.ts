@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
-    entity, column, uniqueIndex, quoted, backReference, rowOrder, implementedBy,
+    entity, column, uniqueIndex, quoted, backReference, rowOrder, implementedBy, legacyPropertyRoute,
     stringLengthValidator,
 } from "@altea/altea/data/decorators";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -140,6 +140,7 @@ export class RestLogEntity extends Entity {
      * `int`, which the transformer cannot emit a runtime type reference for, while a plain `number` lowers
      * to `DATEDIFF(millisecond, start, end)` through `since().total()`.
      */
+    @legacyPropertyRoute("Duration")
     @quoted durationMilliseconds(): number {
         return this.endDate.since(this.startDate).total({ unit: "milliseconds" });
     }

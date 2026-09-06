@@ -1,6 +1,6 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
-import { entity, uniqueIndex, quoted, stringLengthValidator } from "@altea/altea/data/decorators";
+import { entity, uniqueIndex, quoted, stringLengthValidator, legacyPropertyRoute } from "@altea/altea/data/decorators";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -40,12 +40,14 @@ export class ResetPasswordRequestEntity extends Entity {
     used: boolean = false;
 
     /** Signum's IsValidExpression. QUERY-ONLY — see the header note; use `validate()` in memory. */
+    @legacyPropertyRoute
     @quoted
     isValid(): boolean {
         return !this.used && !this.isExpired();
     }
 
     /** Signum's IsExpiredExpression. QUERY-ONLY — see the header note. */
+    @legacyPropertyRoute
     @quoted
     isExpired(): boolean {
         return this.requestDate.add({ hours: RESET_PASSWORD_VALID_HOURS }) <= Clock.now;

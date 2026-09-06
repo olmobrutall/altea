@@ -48,6 +48,22 @@ export function setLegacyPropertyPaths(value: boolean): void {
     legacyPropertyPaths = value;
 }
 
+/** Whether routes are currently spelled Signum's way — see {@link setLegacyPropertyPaths}. */
+export function usingLegacyPropertyPaths(): boolean {
+    return legacyPropertyPaths;
+}
+
+/**
+ * How ONE member is spelled inside a stored path, under whichever mode is active — `PropertyRoute
+ * .storedMember` made public so a caller that composes a path WITHOUT a PropertyRoute spells it exactly
+ * as a real route would. Its consumer is the synchronizer's expression-route seam
+ * (`PropertyRouteLogic.extraSyncRoutes`), which names a member altea has no FieldInfo for: two
+ * implementations of "PascalCase in legacy mode" would silently disagree the day either changed.
+ */
+export function storedMemberName(member: string): string {
+    return legacyPropertyPaths ? member.firstUpper() : member;
+}
+
 export class PropertyRoute {
     // `isAllowedCallback` mirrors Signum's `PropertyRoute.SetIsAllowedCallback` (auth). Unset ⇒
     // everything allowed.
@@ -387,7 +403,7 @@ export class PropertyRoute {
 
     /** This step's member as a stored path writes it — see {@link setLegacyPropertyPaths}. */
     private storedMember(): string {
-        return legacyPropertyPaths ? this.member.firstUpper() : this.member;
+        return storedMemberName(this.member);
     }
 
     propertyString(): string {

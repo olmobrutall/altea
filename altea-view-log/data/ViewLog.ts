@@ -2,7 +2,7 @@ import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection"
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
-    entity, implementedByAll, implementedBy, quoted, format,
+    entity, implementedByAll, implementedBy, quoted, format, legacyPropertyRoute,
     stringLengthValidator,
 } from "@altea/altea/data/decorators";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -56,6 +56,7 @@ export class ViewLogEntity extends Entity {
     data: BigStringEmbedded = new BigStringEmbedded();
 
     /** Signum's `[AutoExpressionField, Unit("ms")] Duration`. */
+    @legacyPropertyRoute("Duration")
     @quoted durationMilliseconds(): number {
         return this.endDate.since(this.startDate).total({ unit: "milliseconds" });
     }

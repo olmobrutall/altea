@@ -6,7 +6,7 @@ import {
     entity, implementedByAll, stringLengthValidator, quoted, column, unit, valueField, backReference,
     rowOrder,
 } from "@altea/altea/data/decorators";
-import { fieldValidation } from "@altea/altea/data/decorators";
+import { fieldValidation, legacyPropertyRoute } from "@altea/altea/data/decorators";
 import { noRepeatValidator, ValidationMessage } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -102,18 +102,22 @@ export class AlertEntity extends Entity {
     avoidSendMail: boolean = false;
 
     /** Signum's `Attended => AttendedDate.HasValue`. */
+    @legacyPropertyRoute
     @quoted attended(): boolean { return this.attendedDate != null; }
 
     /** Signum's `NotAttended`. */
+    @legacyPropertyRoute
     @quoted notAttended(): boolean { return this.attendedDate == null; }
 
     /** Signum's `Alerted => !AttendedDate.HasValue && AlertDate <= Clock.Now` — the "show it now" predicate
      *  the alert endpoints filter by, so it has to translate to SQL. */
+    @legacyPropertyRoute
     @quoted alerted(): boolean {
         return this.attendedDate == null && Temporal.PlainDateTime.compare(this.alertDate, Clock.now) <= 0;
     }
 
     /** Signum's `Future`. */
+    @legacyPropertyRoute
     @quoted future(): boolean {
         return this.attendedDate == null && Temporal.PlainDateTime.compare(this.alertDate, Clock.now) > 0;
     }

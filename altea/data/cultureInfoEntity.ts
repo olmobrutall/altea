@@ -1,6 +1,6 @@
 import { Entity } from './entity';
 import { reflect } from './reflection';
-import { entity, uniqueIndex, quoted, fieldValidation, niceName, nicePluralName } from './decorators';
+import { entity, uniqueIndex, quoted, fieldValidation, niceName, nicePluralName, legacyPropertyRoute } from './decorators';
 import { stringLengthValidator } from './validators';
 import { init } from './registration';
 import type { ExecuteSymbol, DeleteSymbol } from './operations';
@@ -41,6 +41,7 @@ export class CultureInfoEntity extends Entity {
     englishName: string;
 
     /** Signum's `IsNeutral => !Name.Contains("-")` — a language with no region ("es", not "es-AR"). */
+    @legacyPropertyRoute
     @quoted
     isNeutral(): boolean {
         return !this.name.includes("-");

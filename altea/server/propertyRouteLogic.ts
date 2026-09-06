@@ -10,7 +10,8 @@ import { deleteSqlSync, updateSqlSync } from "./save";
 import { Connector } from "./connection/connector";
 import { PropertyRouteEntity } from "../data/propertyRouteEntity";
 import { TypeEntity } from "../data/typeEntity";
-import { PropertyRoute } from "../data/propertyRoute";
+import { PropertyRoute, storedMemberName } from "../data/propertyRoute";
+import { legacyPropertyRoutesOf } from "../data/decorators";
 import { cleanTypeName } from "../data/registration";
 import { SafeConsole } from "./safeConsole";
 import chalk from "chalk";
@@ -108,6 +109,13 @@ export namespace PropertyRouteLogic {
             cleanModified(pr);
         });
 
+        // LEGACY MODE: a Signum database has routes for members altea's model cannot generate — see
+        // `extraSyncRoutes` and `declaredLegacyRoutes` below. Registered here rather than left to the app,
+        // because reading a `@legacyPropertyRoute` declaration is framework machinery; WHICH members carry
+        // one is each module's own business, declared beside the member.
+        if (sb.settings.legacyMode)
+            extraSyncRoutes.push(declaredLegacyRoutes);
+
         // Signum's `EntityEvents<TypeEntity>().PreDeleteSqlSync`: a sync that removes a TYPE has to remove
         // its routes first, or the type's DELETE fails on this table's FK. The outer level of
         // synchronizeProperties deliberately scripts nothing for a whole missing type (`removeOld`
@@ -171,8 +179,40 @@ export namespace PropertyRouteLogic {
      * exactly those rows. (Signum calls the same flag `includeMListElements`.)
      */
     export function generateProperties(ctor: Function, rootType: TypeEntity, forSync: boolean): PropertyRouteEntity[] {
-        return PropertyRoute.generateRoutes(ctor, forSync)
-            .map(pr => PropertyRouteEntity.create({ rootType, path: pr.propertyString() }));
+        return [...modelPaths(ctor, forSync)]
+            .map(path => PropertyRouteEntity.create({ rootType, path }));
+    }
+
+    /**
+     * NEW here (Signum needs no counterpart): extra `propertyString()`s a type's route set must be treated
+     * as CONTAINING, beyond what `PropertyRoute.generateRoutes` yields from the model.
+     *
+     * It exists because the routes table is the one place a MODELLING difference between the two frameworks
+     * turns into DATA LOSS. `should` is what the synchronizer diffs against the stored rows, and nothing is
+     * ever inserted — so an entry here can only ever PRESERVE a row, never create one. A route altea cannot
+     * name is otherwise offered as a rename of whatever sorts nearest and then DROPPED, taking with it every
+     * consumer row that pointed at it (an authorization rule, a property's help, a tour step, a translated
+     * instance) through the PropertyRouteEntity cascade.
+     *
+     * An ARRAY, as `simplifyDiffTables` is: several modules may each know about routes of their own. Each
+     * handler is asked per mapped ENTITY type and returns paths spelled the way a stored path is spelled —
+     * build them with `storedMemberName` rather than by hand, so they cannot drift from a real route's.
+     *
+     * NORMAL mode registers nothing: there the database is one altea generated, so it has no route the model
+     * cannot name.
+     */
+    export const extraSyncRoutes: ((ctor: Function) => Iterable<string>)[] = [];
+
+    /**
+     * The model's route paths for a type, plus whatever {@link extraSyncRoutes} adds. A Set, so a handler
+     * naming a route the model already has is a no-op rather than a duplicate.
+     */
+    export function modelPaths(ctor: Function, forSync: boolean): Set<string> {
+        const result = new Set(PropertyRoute.generateRoutes(ctor, forSync).map(pr => pr.propertyString()));
+        for (const handler of extraSyncRoutes)
+            for (const path of handler(ctor))
+                result.add(path);
+        return result;
     }
 
     /**
@@ -186,6 +226,27 @@ export namespace PropertyRouteLogic {
         return generateProperties(ctor, rootType, false)
             .map(should => retrieved?.get(should.path) ?? should);
     }
+}
+
+/**
+ * The built-in `extraSyncRoutes` handler: the routes a type DECLARES with `@legacyPropertyRoute`.
+ *
+ * That decorator records the one thing altea's model cannot show — that the method was ported from a C#
+ * **property**, which Signum's `GenerateRoutes` yields a route for. Nothing is derived: whether the
+ * original was a property or an EXTENSION method (altea-tree's `descendants`, altea-printing's `lines`,
+ * `entityNotes` — none of which Signum has a route for) is a fact about the port, and reading it off the
+ * shape of the TypeScript would be guessing at the C# from its translation.
+ *
+ * The path is spelled by `storedMemberName`, the rule a real route uses, unless the declaration names the
+ * Signum spelling outright — which is for a member altea deliberately renamed (`durationSeconds` where
+ * Signum's property is `Duration`), where only the database still cares what it was called.
+ *
+ * Only the type's OWN members: a property on an EMBEDDED would be a dotted route (`Owner.address.Foo`),
+ * which needs walking the embedded fields — no case needs it yet, and a handler can be added when one does.
+ */
+export function declaredLegacyRoutes(ctor: Function): string[] {
+    return [...legacyPropertyRoutesOf(ctor)]
+        .map(([member, signumName]) => signumName ?? storedMemberName(member));
 }
 
 // The SYNC mirror of PropertyRouteLogic.properties (see the header): cleanName → path → row.
@@ -257,15 +318,16 @@ async function synchronizeProperties(replacements: Replacements): Promise<SqlPre
 
     pendingRoutesByType = new Map([...current].map(([k, v]) => [k, [...v.values()]]));
 
-    // `should` from the MODEL (see the header): every route of every mapped type, array elements included.
-    // Only the KEYS matter, since nothing is inserted.
+    // `should` from the MODEL (see the header): every route of every mapped type, array elements included,
+    // plus whatever `extraSyncRoutes` names for a route the model cannot generate. Only the KEYS matter,
+    // since nothing is inserted — which is also why an extra entry can only ever preserve a row.
     const should = new Map<string, Map<string, string>>();
     for (const t of schema.tables.keys()) {
         const ctor = t as unknown as Function;
         if (typeof ctor !== "function")
             continue;
         should.set(cleanTypeName(ctor),
-            new Map(PropertyRoute.generateRoutes(ctor, true).map(pr => [pr.propertyString(), pr.propertyString()])));
+            new Map([...PropertyRouteLogic.modelPaths(ctor, true)].map(path => [path, path])));
     }
 
     return Synchronizer.synchronizeScript<string, Map<string, string>, Map<string, PropertyRouteEntity>>(
