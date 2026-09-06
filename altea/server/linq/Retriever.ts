@@ -204,7 +204,17 @@ export class Retriever {
         if (id == null || typeId == null) return null;
         const ctor = TypeLogic.tryGetType(typeId);
         if (ctor == null) return null;
-        const lite = new LiteImp(id, ctor as Type<Entity>, toStr ?? "");
+        // COERCE the id to the resolved type's PK form. An @implementedByAll reference has one id column
+        // per configured pk type and the value is coalesced over them, which is only typeable as TEXT once
+        // an app configures more than one (eastwind adds `uuid` for its user-asset rows) — so an int id
+        // came back as the STRING "11128". A lite whose id is a string where the row's is a number is
+        // quietly wrong everywhere it is compared or passed on: `retrieve(OrderEntity, "11128")` answers
+        // "not found" for a row that is right there, which is how a PackageOperation process managed to
+        // finish having cancelled nothing. This is the one place the concrete type is known, so it is the
+        // one place that can say what shape the id should be; `parseId` is the same reader a route param
+        // goes through.
+        const parsed = (ctor as unknown as typeof Entity).parseId(String(id));
+        const lite = new LiteImp(parsed, ctor as Type<Entity>, toStr ?? "");
         if (toStr == null || toStr === "")
             this.requestLiteToStr(lite);
         return lite;

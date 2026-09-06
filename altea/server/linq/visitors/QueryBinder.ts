@@ -898,8 +898,16 @@ export class QueryBinder extends ExpressionVisitor {
         if (col instanceof PrimaryKeyExpression)
             return [this.assignColumn(this.unwrapPk(col), this.unwrapPk(value))];
 
+        // A Lite column: pair the REFERENCES. Back through `adaptAssign`, not straight into `assign` —
+        // the shapes only line up once the lite is off, so this is exactly where the adapter has to run.
+        // Going direct meant a concrete source entity assigned to a `Lite<Entity>` @implementedByAll column
+        // (`executeInsert(PackageLineEntity, o => ({ target: o.toLite() }))`, Signum's `Target = p`) reached
+        // `assign` as an EntityExpression against an ImplementedByAllExpression, which no case pairs — so
+        // every set-based write into a polymorphic lite column died on "Cannot assign". The adapter has
+        // known how to widen an entity into (typeId, id_<pk>) since it was written (`visitEntity` →
+        // `entityToIba`); it was simply never reached from here.
         if (col instanceof LiteReferenceExpression)
-            return this.assign(col.reference, value instanceof LiteReferenceExpression ? value.reference : value);
+            return this.adaptAssign(col.reference, value instanceof LiteReferenceExpression ? value.reference : value);
 
         if (col instanceof EmbeddedEntityExpression && value instanceof EmbeddedEntityExpression) {
             const result: ColumnAssignment[] = [];

@@ -40,7 +40,12 @@ import {
 // Signum's OverridenType), because a generic parameter is erased at runtime and the owner must be
 // EXACT: it is the key the reflection metadata blob ships the operation under.
 
-const operations = new Map<OperationSymbol, IOperation>();
+// Keyed by the symbol's KEY, never by the symbol OBJECT. A symbol read back from the DATABASE is a
+// FRESH instance, not the declared singleton — so an identity-keyed Map answers "not registered" for an
+// operation named by DATA rather than named in code. altea-processes' PackageOperationAlgorithm is
+// exactly that caller (the operation to apply is a column on the package), and altea-scheduler /
+// -processes already key their own registries this way for the same reason.
+const operations = new Map<string, IOperation>();
 
 // entity ctor → the operations registered on it, maintained alongside `operations`. Rebuilt on every
 // register/unregister rather than derived on demand, because the metadata blob reads it per request.
@@ -78,13 +83,13 @@ export namespace OperationLogic {
     // Signum's OperationLogic.Register(replace). Validates the operation, then stores it
     // by symbol. `replace` allows an external module to swap an operation's impl.
     export function register(operation: IOperation, replace = false): void {
-        if (!replace && operations.has(operation.operationSymbol))
+        if (!replace && operations.has(operation.operationSymbol.key!))
             throw new Error(`Operation '${operation.operationSymbol.key}' has already been registered (pass replace=true to override).`);
         operation.assertIsValid();
-        const previous = operations.get(operation.operationSymbol);
+        const previous = operations.get(operation.operationSymbol.key!);
         if (previous != null && previous.entityType !== operation.entityType)
             operationsByType.get(previous.entityType)?.delete(operation.operationSymbol);
-        operations.set(operation.operationSymbol, operation);
+        operations.set(operation.operationSymbol.key!, operation);
         let byType = operationsByType.get(operation.entityType);
         if (byType == null) operationsByType.set(operation.entityType, byType = new Set());
         byType.add(operation.operationSymbol);
@@ -92,21 +97,21 @@ export namespace OperationLogic {
 
     // Remove an operation entirely (so it can be re-registered differently, or dropped).
     export function unregister(symbol: OperationSymbol): boolean {
-        const op = operations.get(symbol);
+        const op = operations.get(symbol.key!);
         if (op != null)
             operationsByType.get(op.entityType)?.delete(symbol);
-        return operations.delete(symbol);
+        return operations.delete(symbol.key!);
     }
 
     export function registeredOperations(): OperationSymbol[] {
-        return [...operations.keys()];
+        return [...operations.values()].map(o => o.operationSymbol);
     }
 
     export function tryFindOperation(symbol: OperationSymbol): IOperation | undefined {
-        return operations.get(symbol);
+        return operations.get(symbol.key!);
     }
     export function findOperation(symbol: OperationSymbol): IOperation {
-        const op = operations.get(symbol);
+        const op = operations.get(symbol.key!);
         if (op == null)
             throw new Error(`Operation '${symbol.key}' is not registered.`);
         return op;
@@ -149,7 +154,7 @@ export namespace OperationLogic {
                 // A symbol can be indexed before its implementation is registered (see registerForType);
                 // one that never gets an implementation is not an operation of this type.
                 for (const s of symbols)
-                    if (operations.has(s)) result.push(s);
+                    if (operations.has(s.key!)) result.push(s);
         return result;
     }
 
