@@ -4,7 +4,7 @@ import type { Quoted } from 'quote-transformer/quoted';
 import { MixinDeclarations } from '../../data/mixinDeclarations';
 import type { EntityData } from '../../data/decorators';
 import { getTypeInfo, enumNameOf, FieldInfo, TypeInfo, schemaForName, type PrimaryKeyType } from '../../data/reflection';
-import { getRegisteredTypes, cleanTypeName as registryCleanTypeName } from '../../data/registration';
+import { getRegisteredTypes, forcedCleanName, cleanTypeName as registryCleanTypeName } from '../../data/registration';
 import { AbstractDbType, IsNullable, defaultDbType, primaryKeyDbType } from './dbType';
 import {
     type IColumn,
@@ -87,11 +87,17 @@ function rawTypeName(type: Type<Entity> | ViewType<View>): string {
 // — and so does data/registration's cleanTypeName, which returns the registered enum name before it
 // strips anything. This copy was the one that disagreed.
 function cleanTypeName(type: Type<Entity> | ViewType<View>): string {
+    // A FORCED clean name (data/registration's renameCleanType) wins here too — the two disagreeing is
+    // how a type ends up stored under one name and addressed by another, which the note above is about.
+    const forced = forcedCleanName(type as Type<Entity>);
+    if (forced != null)
+        return forced;
+
     if (getBoundEnum(type) != null)
         return rawTypeName(type);
 
     return rawTypeName(type).split('_').map(s => {
-        const stripped = s.replace(/(Entity|Symbol)$/, '');
+        const stripped = s.replace(/(Entity|Symbol|RowModel)$/, '');
         return stripped === '' ? s : stripped;
     }).join('_');
 }

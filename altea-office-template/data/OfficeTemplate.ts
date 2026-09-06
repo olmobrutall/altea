@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema, renameSymbolContainer } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema, renameSymbolContainer, renameCleanType } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
@@ -274,7 +274,7 @@ export namespace OfficeTemplatePermission {
 }
 
 /**
- * Spell this module's SYMBOLS the way Signum.Word does, for an application pointed at a database a
+ * Spell this module the way Signum.Word does, for an application pointed at a database a
  * Signum one generated — the symbol-key half of the `@legacyTableName` / `@legacyColumnName` this file
  * already carries. Called by the app, which is the only thing that knows which database it is pointed
  * at; the MAPPING lives here, because what these were called in Signum is the module's own knowledge.
@@ -284,7 +284,18 @@ export namespace OfficeTemplatePermission {
  * Must run before anything reads a symbol by key, and on BOTH TIERS — so the app calls it from its
  * shared entity-overrides module (see `renameSymbolContainer`).
  */
-export function useLegacyWordSymbolNames(): void {
+export function useLegacyWordNames(): void {
+    // The TYPES. `@legacyTableName` already gives each its Signum TABLE, but a clean name is identity in
+    // three more places — `basics.type.clean_name`, the registered QUERY's key, and an @implementedBy
+    // column's suffix — so without this a sync silently rewrote four clean_name values and offered four
+    // query keys as renames of unrelated queries.
+    renameCleanType(OfficeTemplateEntity, "WordTemplate");
+    renameCleanType(OfficeModelEntity, "WordModel");
+    renameCleanType(OfficeTransformerSymbol, "WordTransformer");
+    renameCleanType(OfficeConverterSymbol, "WordConverter");
+    renameCleanType(OfficeAttachmentEntity, "WordAttachment");
+
+    // The SYMBOLS.
     renameSymbolContainer(OfficeTemplateOperation, "WordTemplateOperation", {
         CreateOfficeReport: "CreateWordReport",
         CreateOfficeTemplateFromOfficeModel: "CreateWordTemplateFromWordModel",

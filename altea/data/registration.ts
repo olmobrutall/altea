@@ -36,6 +36,10 @@ const enumRegistry = new Map<string, object>();
 // so `Customer` belonged to whichever of CustomerEntity / CustomerRowModel happened to load first.
 const cleanRegistry = new Map<string, Function>();
 
+// ctor -> the clean name it is FORCED to, for a type this framework renamed and a Signum database did
+// not (see renameCleanType).
+const cleanNameOverrides = new Map<Function, string>();
+
 // Which suffix outranks which, when two types share a clean name. A row model beats an entity because
 // the only entity it can legitimately collide with is an ABSTRACT one, whose clean name is inert: never
 // a `$type` (that is the RUNTIME constructor), never a `basics.type` row (no table), never an
@@ -136,7 +140,7 @@ export function cleanTypeName(ctor: Function): string {
         if (enumName != null)
             return enumName;
     }
-    return stripEntitySuffix(ctor.name);
+    return cleanNameOverrides.get(ctor) ?? stripEntitySuffix(ctor.name);
 }
 
 // Strip the "Entity" / "Symbol" suffix from each underscore-separated segment (mirrors the schema
@@ -368,6 +372,38 @@ export function schemaForName(name: string): string | undefined {
 // init just `new`s it — no kind string, no ctor registry (this mirrors Signum's AutoInit
 // `new OperationSymbol(typeof(Container), field)`). Kept in this import-free leaf so any
 // entity file can `init()` without a runtime cycle (as with `msg()`).
+
+/**
+ * Force a type's CLEAN NAME — the type-level sibling of {@link renameSymbolContainer}, and of
+ * `@legacyTableName` one layer up.
+ *
+ * A clean name is identity in more places than a table name is: `TypeEntity.cleanName`, a registered
+ * QUERY's key, the `$type` discriminator and an @implementedBy column's suffix. So a framework that
+ * RENAMED a type Signum ships — @altea/altea-office-template's Word* -> Office* — diverges in every one
+ * of them, and `@legacyTableName` only covers the table: pointed at a Signum database, the sync silently
+ * rewrote four `basics.type.clean_name` values and offered four query keys as renames.
+ *
+ * Called from the app's shared entity-overrides module, so BOTH TIERS agree — the same reason
+ * {@link renameSymbolContainer} is, and the reason `cleanTypeName` is otherwise deliberately not a hook:
+ * it is computed in the DATA layer, which the client compiles too, so a SERVER-side override would let
+ * the two halves disagree about what a type is called.
+ */
+/** The clean name {@link renameCleanType} forced on this type, or undefined. */
+export function forcedCleanName(ctor: Function): string | undefined {
+    return cleanNameOverrides.get(ctor);
+}
+
+export function renameCleanType(ctor: Function, cleanName: string): void {
+    const previous = cleanTypeName(ctor);
+    cleanNameOverrides.set(ctor, cleanName);
+
+    // The clean index is keyed by the OLD name; move the entry rather than leaving both.
+    if (cleanRegistry.get(previous) === ctor)
+        cleanRegistry.delete(previous);
+    const held = cleanRegistry.get(cleanName);
+    if (held == null || cleanPriority(ctor.name) > cleanPriority(held.name))
+        cleanRegistry.set(cleanName, ctor);
+}
 
 /**
  * Re-key every DECLARED symbol of one container — the symbol-key sibling of `@legacyTableName` /
