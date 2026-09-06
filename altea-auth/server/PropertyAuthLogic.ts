@@ -10,6 +10,8 @@ import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
 import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
 import { getRegisteredTypes } from "@altea/altea/data/registration";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
+import { SqlPreCommand, SqlPreCommandSimple, Spacing } from "@altea/altea/server/sync/sqlPreCommand";
+import { Connector } from "@altea/altea/server/connection/connector";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { toInt } from "@altea/altea/data/basics";
@@ -167,6 +169,19 @@ export namespace PropertyAuthLogic {
         // a property rule POINTS at a route row, so this module owns bringing the table along.
         PropertyRouteLogic.start(sb);
         sb.include(RulePropertyEntity).withQuery();
+
+        // Signum's `EntityEvents<PropertyRouteEntity>().PreDeleteSqlSync` (PropertyAuthLogic.cs): a route
+        // the sync is REMOVING — one naming a property the type no longer has — takes the rules that
+        // point at it with it, or its DELETE fails on `rule_property.resource_id`. Four modules ported
+        // this cascade (Dynamic, Help, Tour, Translations) and this one, the module that owns the
+        // pointing table, did not: a Southwind database with a stale route and a rule on it produced a
+        // script that could not run.
+        //
+        // Signum writes one `UnsafeDeletePreCommandVirtualMList`, whose MList half sweeps the rule's
+        // condition rows. altea models those as `@part` rows two levels deep — a condition row, and the
+        // TypeConditionSymbols it ANDs — so the sweep is spelled out innermost-first.
+        sb.schema.entityEvents(PropertyRouteEntity).preDeleteSqlSync.push(property =>
+            deleteRulesForRoute(sb, property.id));
         // invalidateWith RuleType too: the no-rule default / coerced ceiling derive from the type's UI-read
         // allowance, so a type-rule change must reset the property cache.
         rulesLazy = sb.globalLazy(async () => new PropertyRulesCache(
@@ -532,4 +547,36 @@ export namespace PropertyAuthLogic {
             await setPropertyRulePack(pack);
         }, r => r.Resource);
     }
+}
+
+/**
+ * The rows that hang off a property RULE, innermost first, for a route that is being removed. Written as
+ * SQL rather than through the query terminals because a PreDeleteSqlSync contributes to a SCRIPT: nothing
+ * has run yet, and the rows must go in one statement each, in an order the foreign keys accept.
+ */
+function deleteRulesForRoute(sb: SchemaBuilder, routeId: PrimaryKey): SqlPreCommand | undefined {
+    const b = Connector.current().sqlBuilder;
+
+    const rule = sb.schema.tryTable(RulePropertyEntity);
+    const condition = sb.schema.tryTable(RulePropertyConditionEntity);
+    const conditionCondition = sb.schema.tryTable(RulePropertyConditionEntity_Condition);
+    const resource = rule?.fields["resource"]?.field.columns()[0];
+    const ruleOfCondition = condition?.fields["ruleProperty"]?.field.columns()[0];
+    const conditionOfCondition = conditionCondition?.fields["rulePropertyCondition"]?.field.columns()[0];
+    if (rule == null || condition == null || conditionCondition == null
+        || resource == null || ruleOfCondition == null || conditionOfCondition == null)
+        return undefined;
+
+    const rules = `SELECT ${b.sqlEscape("id")} FROM ${b.objectName(rule.name)}`
+        + ` WHERE ${b.sqlEscape(resource.name)} = ${routeId}`;
+    const conditions = `SELECT ${b.sqlEscape("id")} FROM ${b.objectName(condition.name)}`
+        + ` WHERE ${b.sqlEscape(ruleOfCondition.name)} IN (${rules})`;
+
+    return SqlPreCommand.combine(Spacing.Simple,
+        new SqlPreCommandSimple(`DELETE FROM ${b.objectName(conditionCondition.name)}`
+            + ` WHERE ${b.sqlEscape(conditionOfCondition.name)} IN (${conditions});`),
+        new SqlPreCommandSimple(`DELETE FROM ${b.objectName(condition.name)}`
+            + ` WHERE ${b.sqlEscape(ruleOfCondition.name)} IN (${rules});`),
+        new SqlPreCommandSimple(`DELETE FROM ${b.objectName(rule.name)}`
+            + ` WHERE ${b.sqlEscape(resource.name)} = ${routeId};`));
 }
