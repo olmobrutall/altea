@@ -1,9 +1,9 @@
-import { reflect, init, renameCleanType } from "@altea/altea/data/reflection";
+import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
     entity, primaryKey, backReference, rowOrder, implementedBy,
-    stringLengthValidator, fieldValidation, format, unit, quoted, legacyTableName,
+    stringLengthValidator, fieldValidation, format, unit, quoted, legacyTableName, legacyCleanName,
 } from "@altea/altea/data/decorators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -176,6 +176,11 @@ export class DashboardEntity_TokenEquivalenceGroup_Query extends Entity {
 // (DashboardEntity_TokenEquivalenceGroup), so the derived name would be dashboard_token_equivalence_group —
 // standing the collection rule down is not enough, the Signum name has to be given.
 @legacyTableName({ name: "TokenEquivalenceGroup", wasVirtualMList: true })
+// …and the same accommodation one layer up. altea named this part after its OWNER, which is the right
+// default for a part and wrong here: Signum ships it as the standalone `TokenEquivalenceGroupEntity`, so
+// its clean name is identity under THAT name in `basics.type`, in the registered query's key and in an
+// @implementedBy column's suffix.
+@legacyCleanName("TokenEquivalenceGroup")
 export class DashboardEntity_TokenEquivalenceGroup extends Entity {
     @backReference dashboard: Lite<DashboardEntity>;
     // No `@rowOrder`: this is a VIRTUAL MList in Signum — a standalone entity behind a back
@@ -195,12 +200,6 @@ export class DashboardEntity_TokenEquivalenceGroup extends Entity {
     // expand inline — so keeping it would materialise a `to_str` Signum does not have.
 }
 
-// …and the same accommodation one layer down from `@legacyTableName`. altea named this part after its
-// OWNER, which is the right default for a part but wrong here: Signum ships it as the standalone
-// `TokenEquivalenceGroupEntity`, so its clean name is identity under THAT name in `basics.type`, in the
-// registered query's key and in an @implementedBy column's suffix. The class name has to be given
-// explicitly rather than derived, because the suffix altea stripped sits mid-name.
-renameCleanType(DashboardEntity_TokenEquivalenceGroup, "TokenEquivalenceGroup", "TokenEquivalenceGroupEntity");
 
 // Signum's CacheQueryConfigurationEmbedded (DashboardEntity.cs) — present exactly when this dashboard's
 // queries are SNAPSHOT to a file rather than run per view (see ./CachedQuery).

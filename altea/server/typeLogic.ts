@@ -1,7 +1,10 @@
 import "../data/globals"; // Array.prototype.toMap
 import { joinRelaxed } from "../data/globals/joinRelaxed";
 import { Connector } from "./connection/connector";
-import { cleanTypeName, getLocation, enumNameOf, resolveCleanType, forcedClassName } from "../data/registration";
+import { cleanTypeName, getLocation, enumNameOf, resolveCleanType, legacyCleanName } from "../data/registration";
+import { Entity as EntityClass, EmbeddedEntity as EmbeddedEntityClass, ModelEntity as ModelEntityClass } from "../data/entity";
+import { Symbol as SymbolClass } from "../data/symbol";
+import { SemiSymbol as SemiSymbolClass } from "../data/semiSymbol";
 import { TypeEntity } from "../data/typeEntity";
 import { quotedFunction } from "./query";
 import { ClassType } from "./runtimeTypes";
@@ -368,17 +371,35 @@ function bootstrapMetas(schema: Schema): TypeMeta[] {
 // The registry NAME of an entity/enum ctor for the TypeEntity.className column + its ctor↔row lookup.
 // A closed EnumEntity<E> type's ctor.name is "EnumEntity<OrderState>" — use the bare ENUM name
 // ("OrderState") instead (matching cleanName + the name its FileInfo/enum registration is keyed by).
+//
+// Signum stores `type.Name`, so for a type altea RENAMED (`@legacyCleanName`) the stored name is
+// Signum's class name, not altea's. It needs nothing declared: Signum's convention is that a class name
+// is its clean name plus its KIND's suffix — WordTemplate + Entity, WordTransformer + Symbol — so the
+// declared clean name plus the kind altea already knows from the base class gives it. (Which is also why
+// there is no legacy CLASS name to declare: the clean name is the only fact.)
 function classNameOf(ctor: Function): string {
-    const forced = forcedClassName(ctor);
-    if (forced != null)
-        return forced;
     const boundEnum = (ctor as { boundEnum?: object }).boundEnum;
     if (boundEnum != null) {
         const enumName = enumNameOf(boundEnum);
         if (enumName != null)
             return enumName;
     }
+    const legacy = legacyCleanName(ctor);
+    if (legacy != null)
+        return legacy + kindSuffix(ctor);
     return ctor.name;
+}
+
+// The suffix Signum's naming convention puts on a class of this KIND (Reflector.CleanTypeName strips
+// exactly these four). Walks the prototype chain, so a subclass of any of them answers for its base.
+function kindSuffix(ctor: Function): string {
+    for (let c: Function | null = ctor; c != null; c = Object.getPrototypeOf(c) as Function | null) {
+        if (c === SymbolClass || c === SemiSymbolClass) return "Symbol";
+        if (c === EmbeddedEntityClass) return "Embedded";
+        if (c === ModelEntityClass) return "Model";
+        if (c === EntityClass) return "Entity";
+    }
+    return "";
 }
 
 // The owning npm package of an entity/enum ctor (Signum's Namespace analog), from the registration

@@ -6,6 +6,7 @@ import type { Type, Entity } from './entity';
 import type { CustomLiteClass } from './lite';
 import type { ExLambda, Quoted } from 'quote-transformer/quoted';
 import { accessedFields, memberPath } from './accessedFields';
+import { declareLegacyCleanName } from './registration';
 
 export type { ColumnOptions, TranslatableRouteType } from './reflection';
 
@@ -246,6 +247,31 @@ export type LegacyTableOptions = {
     /** Signum modelled this as a standalone Entity behind a virtual MList — see legacyCollectionTableName. */
     wasVirtualMList?: boolean;
 };
+
+/**
+ * LEGACY MODE: the CLEAN NAME Signum gives this type, for a type altea renamed — the type-level sibling
+ * of `@legacyTableName`, and the wider of the two.
+ *
+ * A table name is one name. A clean name is identity in five places: `basics.type.clean_name`, the
+ * registered QUERY's key, the `$type` wire discriminator, a lite's key, and an @implementedBy column's
+ * suffix. A type altea renamed (@altea/altea-office-template's Word* -> Office*) diverges in all five,
+ * and a Signum database has the Signum name in every one of them.
+ *
+ *   `@legacyTableName("WordTemplate")`  — this TABLE is called something else.
+ *   `@legacyCleanName("WordTemplate")`  — this TYPE is called something else.
+ *
+ * They are usually written together, and `basics.type.class_name` follows from the clean name plus the
+ * type's KIND ("WordTemplate" + Entity = `WordTemplateEntity`, "WordTransformer" + Symbol =
+ * `WordTransformerSymbol`), so there is nothing to declare for it.
+ *
+ * A DECORATOR rather than a call an app makes at startup: the answer has to be fixed before anything
+ * asks, and it has to be the same on both tiers — see registration's declareLegacyCleanName.
+ */
+export function legacyCleanName(cleanName: string) {
+    return function (target: Function): void {
+        declareLegacyCleanName(target, cleanName);
+    };
+}
 
 export function legacyTableName(name: string): (target: Function) => void;
 export function legacyTableName(options: LegacyTableOptions): (target: Function) => void;

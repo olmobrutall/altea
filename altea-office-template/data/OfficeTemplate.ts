@@ -1,9 +1,9 @@
-import { reflect, init, setDefaultDatabaseSchema, renameSymbolContainer, renameCleanType } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema, renameSymbolContainer } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
     entity, primaryKey, implementedByAll, uniqueIndex, backReference, rowOrder,
-    stringLengthValidator, fieldValidation, quoted, legacyTableName, legacyColumnName,
+    stringLengthValidator, fieldValidation, quoted, legacyTableName, legacyCleanName, legacyColumnName,
 } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
@@ -81,6 +81,7 @@ export enum OfficeTemplateVisibleOn {
 // Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
 // pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
 @legacyTableName("WordTransformer")
+@legacyCleanName("WordTransformer")
 export class OfficeTransformerSymbol extends Symbol {
 }
 
@@ -93,6 +94,7 @@ export class OfficeTransformerSymbol extends Symbol {
 // Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
 // pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
 @legacyTableName("WordConverter")
+@legacyCleanName("WordConverter")
 export class OfficeConverterSymbol extends Symbol {
 }
 
@@ -108,6 +110,7 @@ export class OfficeConverterSymbol extends Symbol {
 // Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
 // pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
 @legacyTableName("WordModel")
+@legacyCleanName("WordModel")
 export class OfficeModelEntity extends Entity {
     @uniqueIndex
     @stringLengthValidator({ max: 200 })
@@ -150,6 +153,7 @@ export class OfficeTemplateEntity_Order extends Entity {
 // Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
 // pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
 @legacyTableName("WordTemplate")
+@legacyCleanName("WordTemplate")
 export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IContainsQuery {
     @uniqueIndex
     @stringLengthValidator({ min: 3, max: 200 })
@@ -218,6 +222,7 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
 // Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
 // pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
 @legacyTableName("WordAttachment")
+@legacyCleanName("WordAttachment")
 export class OfficeAttachmentEntity extends Entity implements IAttachmentGeneratorEntity {
     /** Overrides the template's own fileName when set. A text template, like OfficeTemplateEntity.fileName. */
     @stringLengthValidator({ min: 3, max: 100 })
@@ -285,16 +290,8 @@ export namespace OfficeTemplatePermission {
  * shared entity-overrides module (see `renameSymbolContainer`).
  */
 export function useLegacyWordNames(): void {
-    // The TYPES. `@legacyTableName` already gives each its Signum TABLE, but a clean name is identity in
-    // three more places — `basics.type.clean_name`, the registered QUERY's key, and an @implementedBy
-    // column's suffix — so without this a sync silently rewrote four clean_name values and offered four
-    // query keys as renames of unrelated queries. `basics.type.class_name` travels with it, defaulted to
-    // the clean name plus this ctor's own suffix ("WordTemplate" + "Entity" = Signum's WordTemplateEntity).
-    renameCleanType(OfficeTemplateEntity, "WordTemplate");
-    renameCleanType(OfficeModelEntity, "WordModel");
-    renameCleanType(OfficeTransformerSymbol, "WordTransformer");
-    renameCleanType(OfficeConverterSymbol, "WordConverter");
-    renameCleanType(OfficeAttachmentEntity, "WordAttachment");
+    // (The TYPES need nothing here: each declares its Signum name with `@legacyCleanName` beside its
+    // `@legacyTableName`, which is fixed when the class is defined rather than when an app calls this.)
 
     // The SYMBOLS.
     renameSymbolContainer(OfficeTemplateOperation, "WordTemplateOperation", {

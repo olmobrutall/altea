@@ -36,15 +36,10 @@ const enumRegistry = new Map<string, object>();
 // so `Customer` belonged to whichever of CustomerEntity / CustomerRowModel happened to load first.
 const cleanRegistry = new Map<string, Function>();
 
-// ctor -> the clean name it is FORCED to, for a type this framework renamed and a Signum database did
-// not (see renameCleanType).
-const cleanNameOverrides = new Map<Function, string>();
-
-// ctor -> the CLASS name it is forced to, the `basics.type.class_name` sibling of the above. Signum
-// records the bare class name beside the clean one, so a renamed type diverges in BOTH columns; they are
-// two maps rather than one because the class name is not always the clean name plus a suffix (altea's
-// `DashboardEntity_TokenEquivalenceGroup` part is Signum's standalone `TokenEquivalenceGroupEntity`).
-const classNameOverrides = new Map<Function, string>();
+// ctor -> SIGNUM's clean name for it, declared by `@legacyCleanName` — the attribute store for that
+// decorator, and the reason this file has a map at all rather than a hook. Written once, at CLASS
+// DEFINITION time, by the decorator; never afterwards. See declareLegacyCleanName.
+const legacyCleanNames = new Map<Function, string>();
 
 // Which suffix outranks which, when two types share a clean name. A row model beats an entity because
 // the only entity it can legitimately collide with is an ABSTRACT one, whose clean name is inert: never
@@ -87,7 +82,9 @@ export function registerType(ctor: Function, name?: string, fileInfo?: FileInfo)
     // typeRegistry is keyed by the COMPLETE name alone; the clean name lives in its own index, ranked
     // rather than first-come (see cleanRegistry).
     typeRegistry.set(key, ctor);
-    const clean = stripEntitySuffix(key);
+    // Under the name `cleanTypeName` will answer with, which is `@legacyCleanName`'s when it is declared —
+    // decorators evaluate bottom-up, so the two may run in either order and neither may win by accident.
+    const clean = legacyCleanNames.get(ctor) ?? stripEntitySuffix(key);
     if (clean !== key) {
         const held = cleanRegistry.get(clean);
         if (held == null || cleanPriority(key) > cleanPriority(held.name))
@@ -137,6 +134,12 @@ export function resolveType(name: string): Function | undefined {
 // suffixes STAY, because an identity must keep "SongEmbedded" distinct from a "Song"
 // beside it. Localization's niceNameFromName strips all four, but only for DISPLAY.
 export function cleanTypeName(ctor: Function): string {
+    // SIGNUM's own name for this type, when altea renamed it — declared with `@legacyCleanName`, so this
+    // reads like any other attribute lookup and cannot change after the class is defined.
+    const legacy = legacyCleanNames.get(ctor);
+    if (legacy != null)
+        return legacy;
+
     // A closed EnumEntity<E> type (EnumEntity.typeFor) carries the enum as a static `boundEnum`; its clean
     // name comes from the ENUM name ("OrderState"), NOT the "EnumEntity<OrderState>" ctor name — mirrors
     // Signum's `EnumEntity.Extract(tab.Type) ?? tab.Type` (TypeLogic.GenerateSchemaTypes), and is what the
@@ -148,9 +151,9 @@ export function cleanTypeName(ctor: Function): string {
     if (boundEnum != null) {
         const enumName = enumNameOf(boundEnum);
         if (enumName != null)
-            return cleanNameOverrides.get(ctor) ?? stripEntitySuffix(enumName);
+            return stripEntitySuffix(enumName);
     }
-    return cleanNameOverrides.get(ctor) ?? stripEntitySuffix(ctor.name);
+    return stripEntitySuffix(ctor.name);
 }
 
 // Strip the "Entity" / "Symbol" suffix from each underscore-separated segment (mirrors the schema
@@ -416,50 +419,32 @@ export function schemaForName(name: string): string | undefined {
 // entity file can `init()` without a runtime cycle (as with `msg()`).
 
 /**
- * Force a type's CLEAN NAME — the type-level sibling of {@link renameSymbolContainer}, and of
- * `@legacyTableName` one layer up.
+ * The attribute store behind `@legacyCleanName` — SIGNUM's clean name for a type this framework renamed
+ * (@altea/altea-office-template's Word* -> Office*). Called by the decorator only, which is what makes
+ * this DECLARED rather than overridden: the answer is fixed when the class is defined, exactly as a C#
+ * attribute is, so nothing can observe one name and then be given another.
  *
- * A clean name is identity in more places than a table name is: `TypeEntity.cleanName`, a registered
- * QUERY's key, the `$type` discriminator and an @implementedBy column's suffix. So a framework that
- * RENAMED a type Signum ships — @altea/altea-office-template's Word* -> Office* — diverges in every one
- * of them, and `@legacyTableName` only covers the table: pointed at a Signum database, the sync silently
- * rewrote four `basics.type.clean_name` values and offered four query keys as renames.
- *
- * Called from the app's shared entity-overrides module, so BOTH TIERS agree — the same reason
- * {@link renameSymbolContainer} is, and the reason `cleanTypeName` is otherwise deliberately not a hook:
- * it is computed in the DATA layer, which the client compiles too, so a SERVER-side override would let
- * the two halves disagree about what a type is called.
+ * A clean name is identity in more places than a table name: `basics.type.clean_name`, the registered
+ * QUERY's key, the `$type` discriminator, a lite's key and an @implementedBy column's suffix. All of them
+ * have to agree — a type stored under one name and addressed by another is the bug this prevents — which
+ * is why the name lives here, in the layer BOTH TIERS compile, rather than in the schema builder that
+ * only the server has.
  */
-/** The clean name {@link renameCleanType} forced on this type, or undefined. */
-export function forcedCleanName(ctor: Function): string | undefined {
-    return cleanNameOverrides.get(ctor);
-}
-
-/** The class name {@link renameCleanType} forced on this type, or undefined. */
-export function forcedClassName(ctor: Function): string | undefined {
-    return classNameOverrides.get(ctor);
-}
-
-// The suffix `stripEntitySuffix` would take off the END of a name ("" when there is none).
-function trailingSuffix(name: string): string {
-    const m = /(Entity|Symbol|RowModel)$/.exec(name);
-    return m != null && m[0] !== name ? m[0] : "";
-}
-
-export function renameCleanType(ctor: Function, cleanName: string, className?: string): void {
-    const previous = cleanTypeName(ctor);
-    cleanNameOverrides.set(ctor, cleanName);
-    // Default the class name to the clean name plus whatever suffix this ctor's own name carries —
-    // `OfficeTemplateEntity` forced to "WordTemplate" is Signum's `WordTemplateEntity`. Pass it
-    // explicitly where that does not hold (a part entity's suffix sits mid-name).
-    classNameOverrides.set(ctor, className ?? cleanName + trailingSuffix(ctor.name));
-
-    // The clean index is keyed by the OLD name; move the entry rather than leaving both.
-    if (cleanRegistry.get(previous) === ctor)
-        cleanRegistry.delete(previous);
+export function declareLegacyCleanName(ctor: Function, cleanName: string): void {
+    legacyCleanNames.set(ctor, cleanName);
+    // `registerType` may already have indexed this ctor under its derived clean name (decorators run
+    // bottom-up, so `@reflect` may or may not have run yet) — re-key rather than leave both.
+    const derived = stripEntitySuffix(ctor.name);
+    if (derived !== cleanName && cleanRegistry.get(derived) === ctor)
+        cleanRegistry.delete(derived);
     const held = cleanRegistry.get(cleanName);
     if (held == null || cleanPriority(ctor.name) > cleanPriority(held.name))
         cleanRegistry.set(cleanName, ctor);
+}
+
+/** SIGNUM's clean name for this type, when `@legacyCleanName` declared one. */
+export function legacyCleanName(ctor: Function): string | undefined {
+    return legacyCleanNames.get(ctor);
 }
 
 /**
