@@ -13,6 +13,7 @@ import { SafeConsole, Color } from "@altea/altea/server/safeConsole";
 import { toInt } from "@altea/altea/data/basics";
 import type { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
+import { ValidationMessage } from "@altea/altea/data/validators";
 import { FileTypeLogic } from "@altea/altea-files/server/FileTypeLogic";
 import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbeddedLogic";
 import type { IFileTypeAlgorithm } from "@altea/altea-files/server/FileTypeAlgorithm";
@@ -27,6 +28,7 @@ import {
 } from "../data/Predictor";
 import { NeuralNetworkSettingsEntity, validateOutputActivation } from "../data/NeuralNetworkSettings";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
+import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { QueryFilterBaseEntity, QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import {
     PredictorTrainingContext, TrainingCancelledError, type IPredictorAlgorithm, type IPredictorResultSaver,
@@ -39,6 +41,7 @@ import { PredictorSimpleSaver } from "./PredictorSimpleSaver";
 import { PredictorServer } from "./PredictorServer";
 import { AutoconfigureNeuralNetworkAlgorithm } from "./AutoconfigureNeuralNetworkAlgorithm";
 import { ProcessLogic } from "@altea/altea-processes/server/ProcessLogic";
+import { ProcessEntity } from "@altea/altea-processes/data/Processes";
 import { retrieve } from "@altea/altea/server/Database";
 import { Decimal } from "@altea/altea/data/basics";
 import { AutoconfigureNeuralNetworkEntity } from "../data/NeuralNetworkSettings";
@@ -71,8 +74,19 @@ export namespace PredictorLogic {
     /** Signum's `ResultSavers`. */
     export const resultSavers = new Map<string, IPredictorResultSaver>();
 
+    /**
+     * Signum's `PublicationSettings` — what a publication symbol carries: the QUERY a predictor must be
+     * built over to be publishable there, and optionally what to DO when one is published
+     * (`AfterPublishProcess` constructs whatever `onPublicate` returns).
+     */
+    export interface PublicationSettings {
+        readonly queryName: QueryName;
+        /** Signum's `Func<PredictorEntity, Entity>? OnPublicate` — absent ⇒ AfterPublishProcess refuses. */
+        readonly onPublicate?: (predictor: PredictorEntity) => Promise<Entity>;
+    }
+
     /** Signum's `Publications` — a publication symbol says "this trained model is the live one for X". */
-    export const publications = new Map<string, Lite<Entity> | null>();
+    export const publications = new Map<string, PublicationSettings>();
 
     export function registerAlgorithm(symbol: PredictorAlgorithmSymbol, algorithm: IPredictorAlgorithm): void {
         algorithms.set(symbol.key, algorithm);
@@ -82,8 +96,8 @@ export namespace PredictorLogic {
         resultSavers.set(symbol.key, saver);
     }
 
-    export function registerPublication(symbol: PredictorPublicationSymbol): void {
-        publications.set(symbol.key, null);
+    export function registerPublication(symbol: PredictorPublicationSymbol, settings: PublicationSettings): void {
+        publications.set(symbol.key, settings);
     }
 
     export function algorithmOf(predictor: PredictorEntity): IPredictorAlgorithm {
@@ -160,6 +174,24 @@ export namespace PredictorLogic {
             if (best != null)
                 SafeConsole.writeLineColor(Color.green,
                     "[machine-learning] autoconfigure produced predictor '" + best.name + "'");
+        });
+
+        // Signum's `new Graph<ProcessEntity>.ConstructFrom<PredictorEntity>(PredictorOperation
+        // .AutoconfigureNetwork)`, inside its `WhenIncluded<ProcessEntity>` block — the button on a
+        // predictor that starts the genetic search above. It constructs a PROCESS, not a predictor, so it
+        // hangs off the include of the CONSTRUCTED type with the SOURCE named first (altea's shape for
+        // every ConstructFromMany / ConstructFrom); the include is idempotent and reaches the table
+        // altea-processes owns. Registered HERE rather than in the state machine for that reason, and
+        // because it is the algorithm above that gives it something to create.
+        sb.include(ProcessEntity).withConstructFrom(PredictorEntity, PredictorOperation.AutoconfigureNetwork, {
+            // Only a NEURAL NETWORK has settings for a genetic search to tune.
+            canConstruct: p => p.algorithmSettings instanceof NeuralNetworkSettingsEntity ? null
+                : PredictorMessage.ShouldBeOfType0.niceToString(NeuralNetworkSettingsEntity.niceName()),
+            construct: async p => {
+                const conf = AutoconfigureNeuralNetworkEntity.create({ initialPredictor: p.toLite() });
+                await conf.save();
+                return await ProcessLogic.create(PredictorProcessAlgorithm.AutoconfigureNeuralNetwork, conf.toLite());
+            },
         });
 
         if (sb.webBuilder)
@@ -444,6 +476,44 @@ export namespace PredictorLogic {
 
         sm.parent.withConstructFrom(PredictorEntity, PredictorOperation.Clone, {
             construct: p => clonePredictor(p),
+        });
+
+        // Signum's `new Graph<Entity>.ConstructFrom<PredictorEntity>(PredictorOperation.AfterPublishProcess)`
+        // — "the model is live, now do whatever publishing it MEANS for this application" (rebuild a cache,
+        // kick off a scoring run). The framework supplies the button and the three guards; the app supplies
+        // the verb, as `PublicationSettings.onPublicate`. Constructs an `Entity` because what it produces is
+        // the app's business — usually the process it started.
+        sm.parent.withConstructFrom(PredictorEntity, PredictorOperation.AfterPublishProcess, {
+            canConstruct: p =>
+                p.state !== PredictorState.Trained
+                    ? ValidationMessage._0IsNotSet.niceToString(PredictorEntity.nicePropertyName(a => a.state))
+                    : p.publication == null
+                        ? ValidationMessage._0IsNotSet.niceToString(PredictorEntity.nicePropertyName(a => a.publication))
+                        : publications.get(p.publication.key)?.onPublicate == null
+                            ? PredictorMessage.NoPublicationsProcessRegisteredFor0.niceToString(p.publication.toString())
+                            : null,
+            construct: p => publications.get(p.publication!.key)!.onPublicate!(p),
+        });
+
+        // Signum's `new Delete(PredictorOperation.Delete)`: the derived rows go first, and the model FILES
+        // with them — a trained predictor owns bytes on disk that no foreign key would ever sweep.
+        sm.withDelete(PredictorOperation.Delete, {
+            fromStates: [PredictorState.Draft, PredictorState.Trained],
+            delete: async p => {
+                for (const f of p.files)
+                    FilePathEmbeddedLogic.deleteFileOnCommit(f.element);
+
+                TensorFlowNeuralNetworkPredictor.deleteModel(p);
+                await PredictorCodificationLogic.deleteCodifications(p);
+
+                const id = p.id;
+                await ExecutionMode.global(async () => {
+                    await table(PredictorEpochProgressEntity).filter(e => e.predictor.id == id).executeDelete();
+                    await table(PredictSimpleResultEntity).filter(e => e.predictor.id == id).executeDelete();
+                });
+
+                await p.delete();
+            },
         });
     }
 
