@@ -3,7 +3,8 @@ import { SubTokensOptions } from "@altea/altea/data/dynamicQuery/tokens/queryTok
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import type { QueryFilterBaseEntity, QueryTokenEmbedded } from "../data/Queries";
-import { FilterOperation } from "@altea/altea/data/dynamicQueries";
+import { FilterOperation, type FilterOperationKeys } from "@altea/altea/data/dynamicQueries";
+import { Enum } from "@altea/altea/data/enum";
 import { QueryTokenSynchronizer, type FixTokenResult } from "./QueryTokenSynchronizer";
 import type { TokenSyncContext } from "./TokenSyncContext";
 
@@ -90,7 +91,7 @@ export async function walkQueryTokens(ctx: TokenSyncContext, target: WalkTarget)
             const fixed = await QueryTokenSynchronizer.fixTokenEmbedded(ctx, filter.token, target.queryName,
                 options | SubTokensOptions.CanAnyAll,
                 {
-                    remainingText: ` ${filter.operation ?? ""} ${filter.valueString ?? ""}`,
+                    remainingText: ` ${operationName(filter.operation)} ${filter.valueString ?? ""}`,
                     allowRemoveToken: true,
                     allowReGenerate: false,
                 });
@@ -226,7 +227,7 @@ export async function walkQueryTokens(ctx: TokenSyncContext, target: WalkTarget)
                             target.queryName,
                             SubTokensOptions.CanAnyAll | SubTokensOptions.CanElement | SubTokensOptions.CanAggregate,
                             {
-                                remainingText: ` ${item.operation ?? ""} ${item.valueString ?? ""}`,
+                                remainingText: ` ${operationName(item.operation)} ${item.valueString ?? ""}`,
                                 allowRemoveToken: true,
                                 allowReGenerate: false,
                             });
@@ -245,10 +246,13 @@ export async function walkQueryTokens(ctx: TokenSyncContext, target: WalkTarget)
                     }
                     case "FixOperationInstead": {
                         const picked = await SafeConsole.askOptions(
-                            `New filter operation for: ${item.token.tokenString} ${item.operation} ${item.valueString}?`,
-                            ...Object.keys(FilterOperation));
+                            `New filter operation for: ${item.token.tokenString} ${operationName(item.operation)} ${item.valueString ?? ""}?`,
+                            ...Enum.values(FilterOperation));
                         if (picked != null) {
-                            item.operation = picked as never;
+                            // A reflected enum FIELD holds the ORDINAL (see the enum convention), so the
+                            // picked NAME has to be converted — assigning the name stores a string the
+                            // column cannot hold and every later comparison misses.
+                            item.operation = Enum.toValue(FilterOperation, picked as FilterOperationKeys);
                             touched = true;
                             changes.push("filter operation -> " + picked);
                         }
@@ -268,6 +272,15 @@ export async function walkQueryTokens(ctx: TokenSyncContext, target: WalkTarget)
 
     SafeConsole.writeLineColor(Color.darkGreen, "    " + changes.join(", "));
     return done("Touched");
+}
+
+/**
+ * The filter operation as its member NAME — what Signum prints, since a C# enum's `ToString()` is its
+ * name. A reflected enum field here holds the ORDINAL, so interpolating it directly printed `0` where
+ * the prompt meant to say `EqualTo`.
+ */
+function operationName(operation: FilterOperation | null): string {
+    return operation == null ? "" : Enum.toName(FilterOperation, operation);
 }
 
 /** Signum's `FilterOperation.IsListOrPair()` — the operations whose value is a `|`-separated list. */

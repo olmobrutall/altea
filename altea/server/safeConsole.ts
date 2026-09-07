@@ -13,7 +13,8 @@ import chalk from "chalk";
 //  - Signum's SafeConsole "safe" part guards against a redirected stdout with no cursor; chalk handles that,
 //    and the cursor games (WriteSameLine / progress bars) are not ported — nothing here needs them.
 //  - Every prompt is ASYNC (node's readline is), so the runners are async top to bottom.
-//  - `Console.WindowWidth` → `process.stdout.columns ?? 100`.
+//  - `Console.WindowWidth` / `Console.LargestWindowHeight` → `process.stdout.columns ?? 100` /
+//    `process.stdout.rows ?? 40`.
 
 export namespace SafeConsole {
 
@@ -23,6 +24,11 @@ export namespace SafeConsole {
 
     export function width(): number {
         return process.stdout.columns ?? 100;
+    }
+
+    /** Signum's `Console.LargestWindowHeight` — how many lines a picker may print before paging. */
+    export function height(): number {
+        return process.stdout.rows ?? 40;
     }
 
     export function writeLine(text = ""): void {
@@ -82,6 +88,28 @@ export namespace SafeConsole {
         return (await question_(question)).trim();
     }
 
+    /**
+     * Make Ctrl+C work at a readline prompt — call it on every interface opened on a TTY.
+     *
+     * Node's readline INTERCEPTS SIGINT while an interface is open, and with no `'SIGINT'` listener on
+     * the INTERFACE it merely emits `'pause'`: the process keeps running and the prompt looks hung,
+     * which is what Ctrl+C did to every SafeConsole question (and to the terminal's own pickers). So
+     * hand the signal back to the process: run its own handlers if it has any — the host's
+     * "Application Stop" row, the runners' stops — and otherwise terminate with the status a shell
+     * reports for a Ctrl+C death, which is what Node's default disposition would have done. Once a
+     * process-level handler exists, exiting is ITS job, exactly as for a Ctrl+C with no prompt open.
+     */
+    export function handleSigInt(rl: readline.Interface): void {
+        rl.once("SIGINT", () => {
+            rl.close();          // restore the terminal before anything else prints
+            process.stdout.write("\n");
+            if (process.listenerCount("SIGINT") > 0)
+                process.emit("SIGINT", "SIGINT");
+            else
+                process.exit(130);   // 128 + SIGINT, the shape systemEventServer's handlers also use
+        });
+    }
+
     // One readline interface per prompt: the terminal opens and closes them the same way (see
     // consoleSwitch), and holding one open across a whole migration run would swallow Ctrl+C.
     // Resolves to "" on EOF / a closed stream, so a piped (non-TTY) run ends instead of hanging.
@@ -94,6 +122,11 @@ export namespace SafeConsole {
             let answered = false;
             const onClose = (): void => { if (!answered) resolve(""); };
             rl.once("close", onClose);
+            // A Ctrl+C answers nothing: the process is going down (or its own handler owns what happens
+            // next), so the pending question is abandoned rather than resolved with "" — which the
+            // caller would read as an empty answer and re-prompt.
+            rl.once("SIGINT", () => { answered = true; });
+            handleSigInt(rl);
             rl.question(prompt, answer => {
                 answered = true;
                 rl.removeListener("close", onClose);

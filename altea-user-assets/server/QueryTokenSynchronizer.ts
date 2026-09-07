@@ -5,6 +5,7 @@ import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { SubTokensOptions, SubTokensOptionsAll, type QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { cleanTypeName } from "@altea/altea/data/registration";
+import { usingLegacyPropertyPaths } from "@altea/altea/data/propertyRoute";
 import { getKey, type QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { QueryTokenEmbedded } from "../data/Queries";
 import type { TokenSyncContext } from "./TokenSyncContext";
@@ -166,7 +167,7 @@ export namespace QueryTokenSynchronizer {
 
         let current = parsed.token;
         for (;;) {
-            const picked = await selectInteractive(current, queryName, options, remainingText, opts);
+            const picked = await selectInteractive(original, current, queryName, options, remainingText, opts);
             current = picked.token;
             switch (picked.action) {
                 case "DeleteEntity":
@@ -478,7 +479,8 @@ export namespace QueryTokenSynchronizer {
             }
 
             // The "Entity." prefix fallback, valid only at the query root: a token stored rootless
-            // ("Name") against a query whose column is under Entity.
+            // ("Name") against a query whose column is under Entity (a row MODEL, whose `Entity` member
+            // is the row identity — the only shape in altea that has one).
             if (state.token == null) {
                 const entity = subToken(null, queryName, options, "Entity");
                 const viaEntity = entity == null ? undefined : subToken(entity, queryName, options, part);
@@ -488,12 +490,24 @@ export namespace QueryTokenSynchronizer {
                 }
             }
 
+            // …and its mirror image, which is the one that fires against a SIGNUM database: `Entity` at
+            // the root, answering to nothing, is that framework's root column. Skip it and stay at the
+            // root (stripLegacyRootPrefix, which `QueryLogic.getToken` applies for the same reason —
+            // this walk resolves segment by segment, so it needs its own).
+            if (state.token == null && usingLegacyPropertyPaths() && part.toLowerCase() === "entity")
+                continue;
+
+            // Signum consults the hook at the query ROOT too — `result.SubTokens(qd, options)` is an
+            // extension method that answers the query's own columns for a null `result`. altea's port
+            // had guarded on `state.token != null`, which skipped it for exactly the tokens a stored
+            // asset has most of (`State`, `Customer.CompanyName`): the ones that start at the root.
             const auto = Replacements.globalAutoReplacement;
-            if (auto != null && state.token != null) {
+            if (auto != null) {
+                const from = state.token ?? rootTokenOf(queryName);
                 const sel = auto({
                     replacementKey: "QueryToken",
                     oldValue: part,
-                    newValues: state.token.subTokens(options).map((a: QueryToken) => a.key),
+                    newValues: from.subTokens(options).map((a: QueryToken) => a.key),
                 });
                 if (sel?.newValue != null) {
                     const replaced = subToken(state.token, queryName, options, sel.newValue);
@@ -568,66 +582,175 @@ export namespace QueryTokenSynchronizer {
     // ---------- The interactive picker ----------
 
     /**
-     * Signum's `SelectInteractive` — walk the developer down the token tree one level at a time.
+     * Signum's `SelectInteractive` — walk the developer down the token tree one level at a time,
+     * showing the sub-tokens of the current position as a NUMBERED LIST, which is what makes the
+     * prompt answerable at all.
      *
-     * Signum draws its own numbered sub-token list with cursor arithmetic; this delegates the LIST to
-     * `Replacements.selectInteractive`, the prompt the schema synchronizer already uses, and keeps only
-     * the extra verbs that are specific to a stored asset (skip / delete / regenerate / remove).
+     * Every verb is Signum's: a number picks a sub-token, `+` pages the list, `b` goes back up, `c`
+     * confirms where you are, `s` / `d` / `r` / `g` are the asset-level outcomes, and FREE TEXT is
+     * parsed as a WHOLE token — the fast path when a rename is mechanical, which is the normal case
+     * when the database was written by the other framework (Southwind's `State` is altea's `state`).
+     * Signum draws its list with cursor arithmetic and erases it afterwards; that half is not ported,
+     * being exactly the part of SafeConsole altea deliberately leaves out.
+     *
+     * Two altea additions, both because a token read out of ANOTHER framework's database arrives
+     * wholesale wrong, so the prompt has to say what it is being asked about:
+     *  - the header names the ORIGINAL token and the query it belongs to. Signum prints the CURRENT
+     *    POSITION alone, which at the query root is an empty line.
+     *  - the sub-token whose key is closest to the segment that failed is offered as the `[Enter]`
+     *    default, the way `Replacements.selectInteractive` offers its best match. An earlier version
+     *    delegated the whole LIST to that prompt, which asked "'X' has been renamed?" — the wrong
+     *    question (nothing is being renamed here; a token is being navigated), it printed no list
+     *    until a `t` verb nobody could guess, and it recorded the answer into the SCHEMA
+     *    synchronizer's replacements, where a token rename does not belong.
      */
     async function selectInteractive(
+        original: string,
         token: QueryToken | null,
         queryName: QueryName,
         options: SubTokensOptions,
         remainingText: string,
         opts: FixTokenOptions,
     ): Promise<{ action: UserAssetTokenAction; token: QueryToken | null }> {
+        // Signum's "Unable to ask for renames to synchronize query tokens without interactive Console".
+        // It matters more here: altea's `askString` answers "" on a closed / piped stdin rather than
+        // null, so without this the loop would re-print the list for ever instead of stopping.
+        if (!SafeConsole.isInteractive())
+            throw new Error("Unable to fix query tokens without an interactive console. "
+                + "Run the terminal from a real terminal application, or record the decisions first.");
+
+        const queryKey = getKey(queryName);
+        const originalParts = splitToken(original);
+        // `null` is "at the query root", as Signum's null token is.
         let current = token;
+        let startingIndex = 0;
 
         for (;;) {
+            const subTokens = (current ?? rootTokenOf(queryName)).subTokens(options);
+
+            // The segment being replaced: the original's part at this depth, since a rename is almost
+            // always one segment for one segment. Past the original's own length it is the LAST part —
+            // altea's tree can be a step DEEPER than Signum's for the same value (a polymorphic
+            // reference interposes an `(As Company)` token), and `CompanyName` is still what is wanted
+            // down there.
+            const depth = current == null ? 0 : splitToken(current.fullKey()).length;
+            const wanted = originalParts[depth] ?? originalParts[originalParts.length - 1];
+            const best = wanted == null ? undefined : bestMatch(wanted, subTokens);
+
+            // Both tokens start at column 2, as Signum's two lines do: the one that FAILED above the one
+            // being built, so the two spellings line up and the difference is visible at a glance.
             SafeConsole.writeLine();
-            SafeConsole.writeLineColor(Color.white,
-                `  Choose a token for '${current?.fullKey() ?? getKey(queryName)}'${remainingText}`);
+            SafeConsole.write("  ");
+            SafeConsole.writeColor(Color.darkRed, original);
+            SafeConsole.writeLine(`${remainingText}${Color.darkGray(`   does not resolve in query '${queryKey}' — pick its replacement:`)}`);
+            SafeConsole.write("  ");
+            SafeConsole.writeColor(Color.cyan, current == null ? queryKey : current.fullKey());
+            SafeConsole.writeLine(current == null ? Color.darkGray("   (the query root)") : "");
+
+            const maxElements = Math.max(10, SafeConsole.height() - 12);
+            if (startingIndex >= subTokens.length)
+                startingIndex = 0;
+            const page = subTokens.slice(startingIndex, startingIndex + maxElements);
+
+            if (subTokens.length === 0)
+                SafeConsole.writeLineColor(Color.darkGray, "  (this token has no sub-tokens)");
+
+            page.forEach((s, i) => {
+                const index = i + startingIndex;
+                const label = s.toString();
+                SafeConsole.writeLine(`- ${String(index).padStart(2)}: ${s.key}`
+                    + (equivalentLabel(s.key, label) ? "" : Color.darkGray(`  (${label})`))
+                    + (index === best ? Color.green("  (hit [Enter])") : ""));
+            });
+
+            const remaining = subTokens.length - startingIndex - page.length;
+            if (remaining > 0)
+                SafeConsole.writeLineColor(Color.white, `- +: Show more sub-tokens (${remaining} remaining)`);
+
+            if (current != null) {
+                SafeConsole.writeLineColor(Color.white, "- b: Back");
+                SafeConsole.writeLineColor(Color.green, `- c: Confirm ${current.fullKey()}`);
+            }
             SafeConsole.writeLineColor(Color.yellow, "- s: Skip entity");
-            SafeConsole.writeLineColor(Color.red, "- d: Delete entity");
             if (opts.allowRemoveToken)
                 SafeConsole.writeLineColor(Color.darkRed, "- r: Remove token");
             if (opts.allowReGenerate)
-                SafeConsole.writeLineColor(Color.magenta, "- g: Regenerate entity");
-            if (current != null)
-                SafeConsole.writeLineColor(Color.green, "- c: Confirm " + current.fullKey());
-            SafeConsole.writeLineColor(Color.gray, "- t: Pick a sub-token");
-            if (current?.parent != null)
-                SafeConsole.writeLineColor(Color.gray, "- u: Up one level");
+                SafeConsole.writeLineColor(Color.magenta, "- g: Generate from default template");
+            SafeConsole.writeLineColor(Color.red, "- d: Delete entity");
+            SafeConsole.writeLineColor(Color.white, "- freeText: New full token");
 
-            const answer = (await SafeConsole.askString("")).toLowerCase();
+            const raw = await SafeConsole.askString("");
+            const answer = raw.toLowerCase();
 
+            if (answer === "+" && remaining > 0) { startingIndex += maxElements; continue; }
             if (answer === "s") return { action: "SkipEntity", token: current };
             if (answer === "d") return { action: "DeleteEntity", token: current };
             if (answer === "r" && opts.allowRemoveToken) return { action: "RemoveToken", token: current };
             if (answer === "g" && opts.allowReGenerate) return { action: "ReGenerateEntity", token: current };
-            if (answer === "c" && current != null) return { action: "Confirm", token: current };
-            if (answer === "u" && current?.parent != null) { current = current.parent; continue; }
+            if (current != null) {
+                if (answer === "c") return { action: "Confirm", token: current };
+                // Up one level. The query root is `null`, as it is in Signum, so the root token's own
+                // parent (undefined) lands there.
+                if (answer === "b") { current = current.parent ?? null; startingIndex = 0; continue; }
+            }
 
-            if (answer === "t") {
-                const subs = (current ?? rootTokenOf(queryName)).subTokens(options);
-                if (subs.length === 0) {
-                    SafeConsole.writeLineColor(Color.darkGray, "  (no sub-tokens here)");
-                    continue;
-                }
-                const picked = await new Replacements().selectInteractive(
-                    current?.fullKey() ?? getKey(queryName),
-                    subs.map((s: QueryToken) => s.key),
-                    "QueryToken",
-                    new StringDistance());
-                if (picked != null) {
-                    const next = subToken(current, queryName, options, picked);
-                    if (next != null)
-                        current = next;
-                }
+            if (answer === "" && best != null) {
+                current = subTokens[best]!;
+                startingIndex = 0;
                 continue;
             }
 
-            SafeConsole.writeLineColor(Color.red, "  Unrecognised answer");
+            if (/^\d+$/.test(answer)) {
+                const picked = subTokens[Number.parseInt(answer, 10)];
+                if (picked != null) {
+                    current = picked;
+                    startingIndex = 0;
+                    continue;
+                }
+            }
+
+            // Signum's `QueryUtils.TryParse(rawAnswer, qd, options)` — a whole token, confirmed at once.
+            if (raw !== "") {
+                const parsed = tryGetToken(raw, queryName, options);
+                if (parsed != null)
+                    return { action: "Confirm", token: parsed };
+            }
+
+            SafeConsole.writeLineColor(Color.red, raw === ""
+                ? "  Pick a number, one of the letters above, or type a whole token"
+                : `  '${raw}' is not one of the options, and does not parse as a token of '${queryKey}'`);
+        }
+    }
+
+    /** The index of the sub-token whose key is closest to `wanted` (case-insensitively), or undefined. */
+    function bestMatch(wanted: string, subTokens: QueryToken[]): number | undefined {
+        const sd = new StringDistance();
+        let bestIndex: number | undefined = undefined;
+        let bestDistance = Number.MAX_SAFE_INTEGER;
+        subTokens.forEach((s, i) => {
+            const d = sd.levenshteinDistance(wanted.toLowerCase(), s.key.toLowerCase());
+            if (d < bestDistance) { bestDistance = d; bestIndex = i; }
+        });
+        // Deliberately TIGHT: a default nobody asked for is one [Enter] away from being taken, and the
+        // renames this exists for are near-identities (Southwind's `State` is altea's `state`, distance
+        // 0 once case is ignored). A looser bound offered `customer`'s `(Company)` for `CompanyName`.
+        return bestDistance <= 2 ? bestIndex : undefined;
+    }
+
+    /** Whether a token's display name says nothing its key does not ("state" / "State"). */
+    function equivalentLabel(key: string, label: string): boolean {
+        const norm = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+        return norm(key) === norm(label);
+    }
+
+    /** `QueryLogic.getToken` as a try-parse (Signum's `QueryUtils.TryParse`). */
+    function tryGetToken(tokenString: string, queryName: QueryName, options: SubTokensOptions): QueryToken | null {
+        try {
+            const token = QueryLogic.getToken(queryName, tokenString, options);
+            // The root itself is not an answer: it is where we already are.
+            return token.fullKey() === "" ? null : token;
+        } catch {
+            return null;
         }
     }
 }
