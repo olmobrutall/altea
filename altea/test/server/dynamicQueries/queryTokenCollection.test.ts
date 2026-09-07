@@ -43,9 +43,9 @@ describe("collection sub-tokens", () => {
 
     test("the element exposes the element entity's own properties", () => {
         const keys = tok("songs.Element").subTokens(O).map((t: any) => t.key);
-        assert.ok(keys.includes("name"));
-        assert.ok(keys.includes("duration"));
-        assert.ok(keys.includes("id"));
+        assert.ok(keys.includes("Name"));
+        assert.ok(keys.includes("Duration"));
+        assert.ok(keys.includes("Id"));
     });
 
     test("a collection exposes the CollectionToArray string-aggregation tokens", () => {
@@ -53,7 +53,7 @@ describe("collection sub-tokens", () => {
         for (const k of ["SeparatedByComma", "SeparatedByCommaDistinct", "SeparatedByNewLine", "SeparatedByNewLineDistinct"])
             assert.ok(keys.includes(k), `missing ToArray token ${k}`);
         // …and it navigates the element's properties (songs.SeparatedByComma.name).
-        assert.ok(tok("songs.SeparatedByComma").subTokens(O).map((t: any) => t.key).includes("name"));
+        assert.ok(tok("songs.SeparatedByComma").subTokens(O).map((t: any) => t.key).includes("Name"));
     });
 
     test("CollectionElementToken.buildExpression throws without expansion", () => {

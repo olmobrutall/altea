@@ -31,8 +31,8 @@ import { Temporal } from "@altea/altea/data/basics";
 //  - the URL encoding matches altea's OWN `Finder.Encoder` (client/Finder.tsx), not Signum's: the two
 //    formats differ in the tilde escape (`#|#`, not `~~`) and in the hidden-column marker. A URL the model
 //    hands the user has to be one THIS client can parse back.
-//  - tokens are ROOTLESS and camelCase in altea (`customer.name`, not `Entity.Customer.Name`), which is
-//    what the instruction files describe.
+//  - tokens are ROOTLESS in altea (`Customer.Name`, not `Entity.Customer.Name`) but PascalCase like
+//    Signum's, which is what the instruction files describe.
 
 export interface FilterOption {
     token?: string;

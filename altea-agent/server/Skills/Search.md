@@ -27,7 +27,7 @@ Once you have the root query name, you can get its columns using the `QueryToken
 This tool returns every root token of the query — its columns — each with:
 
 * `key`: the token's own name (`orderDate`)
-* `fullKey`: the dotted path you use in filters / orders / columns (`customer.name`)
+* `fullKey`: the dotted path you use in filters / orders / columns (`Customer.Name`)
 * `niceName`: the translated label
 * `type`: the value type
 * `isCollection` / `isEntity`
@@ -35,10 +35,9 @@ This tool returns every root token of the query — its columns — each with:
 
 **IMPORTANT — token syntax.** altea tokens are:
 
-* **rootless**: the query root is the empty token, so a field of the row is just `orderDate`, NOT `Entity.OrderDate`.
-* **camelCase for fields**: `orderDate`, `shipAddress.city`, `customer.name` — the token is the FIELD name.
-* **PascalCase for the system tokens**: `ToString`, `Id`… and for the navigation tokens `Any`, `All`, `Element`, `Count`, `Sum`, `Min`, `Max`, `Average`, `SeparatedByComma`, `SeparatedByNewLine`.
-* **case sensitive**: `ToString.length` works, `ToString.Length` does not.
+* **rootless**: the query root is the empty token, so a field of the row is just `OrderDate`, NOT `Entity.OrderDate`.
+* **PascalCase**, all of them: a field (`OrderDate`, `ShipAddress.City`, `Customer.Name`), the system tokens (`ToString`, `Id`, `Length`) and the navigation tokens (`Any`, `All`, `Element`, `Count`, `Sum`, `Min`, `Max`, `Average`, `SeparatedByComma`, `SeparatedByNewLine`) alike.
+* **case insensitive to resolve**, but write them PascalCase: a token stored under an older spelling still resolves.
 
 ## Exploring sub-tokens
 

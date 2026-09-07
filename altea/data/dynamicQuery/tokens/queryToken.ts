@@ -1,5 +1,5 @@
 import { Entity, EmbeddedEntity, ModelEntity } from "../../entity";
-import { PropertyRoute } from "../../propertyRoute";
+import { PropertyRoute, usingLegacyPropertyPaths } from "../../propertyRoute";
 import { tryGetTypeInfo, TypeReference, type FieldInfo } from "../../reflection";
 import { Implementations } from "../../implementations";
 import { tryGetFilterType, type QueryName, type FilterTypeKeys } from "../queryUtils";
@@ -154,8 +154,32 @@ export abstract class QueryToken {
         return m;
     }
 
+    // Case-insensitive fallback, so a token STORED under another spelling still resolves. Two of those
+    // exist and neither is hypothetical: every token altea itself wrote before the keys were PascalCased
+    // (`shipName`), and every token a SIGNUM database holds for a member altea spells differently in
+    // case alone. The client has always resolved this way — `Finder.TokenCompleter` keys its whole cache
+    // by `fullKey().toLowerCase()` — and the server's exact-only lookup was the odd half; a token that
+    // resolved in the browser and not on the server is the worst of both. An exact hit always wins, so
+    // two keys differing only in case (a `Notes` expression beside a `notes` field) stay distinguishable.
+    private caseInsensitiveSubTokens = new Map<SubTokensOptions, Map<string, QueryToken>>();
+
+    private cachedSubTokensLower(options: SubTokensOptions): Map<string, QueryToken> {
+        let m = this.caseInsensitiveSubTokens.get(options);
+        if (m == undefined) {
+            m = new Map();
+            // In reverse, so the FIRST of two same-lowercase keys wins (the ordering
+            // cachedSubTokensOverride establishes: members before extension tokens).
+            const entries = [...this.cachedSubTokensOverride(options)];
+            for (let i = entries.length - 1; i >= 0; i--)
+                m.set(entries[i]![0].toLowerCase(), entries[i]![1]);
+            this.caseInsensitiveSubTokens.set(options, m);
+        }
+        return m;
+    }
+
     subToken(key: string, options: SubTokensOptions): QueryToken | undefined {
-        const t = this.cachedSubTokensOverride(options).get(key);
+        const t = this.cachedSubTokensOverride(options).get(key)
+            ?? this.cachedSubTokensLower(options).get(key.toLowerCase());
         if (t == undefined)
             return undefined;
         const allowed = t.isAllowed();
@@ -695,4 +719,29 @@ export async function getSubTokens(token: QueryToken, options: SubTokensOptions)
     const seen = new Set(local.map(t => t.key));
     const merged = [...local, ...server.filter(t => !seen.has(t.key))];
     return merged.sort((a, b) => (b.priority - a.priority) || a.toString().localeCompare(b.toString()));
+}
+
+/**
+ * LEGACY MODE: drop the leading `Entity.` a token stored by SIGNUM carries.
+ *
+ * A Signum query's root token is its `Entity` COLUMN, so a stored token reads `Entity.ShipName`;
+ * altea's root IS the entity and is rootless, so the same token is `ShipName` (the divergence the
+ * token-conversion rules record). The conversion runs in ONE direction only — READING a stored token —
+ * because a token altea writes back must stay altea's, or a Signum deployment reading the same row
+ * would find a column it cannot resolve.
+ *
+ * `Entity` is dropped only when nothing ANSWERS to it: a query named by a row MODEL has a real `Entity`
+ * member (Signum's Entity column by another name — `rowEntityToken` reads it), and that one must win.
+ * The mirror image of the fallback Signum's own `QueryTokenSynchronizer` has, which ADDS the prefix.
+ */
+export function stripLegacyRootPrefix(root: QueryToken, tokenString: string, options: SubTokensOptions): string {
+    if (!usingLegacyPropertyPaths() || tokenString === "")
+        return tokenString;
+
+    const dot = tokenString.indexOf(".");
+    const first = dot < 0 ? tokenString : tokenString.substring(0, dot);
+    if (first.toLowerCase() !== "entity" || root.subToken(first, options) != undefined)
+        return tokenString;
+
+    return dot < 0 ? "" : tokenString.substring(dot + 1);
 }

@@ -73,7 +73,7 @@ describe("DynamicQueryContainer", () => {
         // shaped by the request (the entity is the row identity, not a value column).
         const rt = await Connector.withConnector(fake, () => Queries.executeQueryAsync(request));
         assert.ok(rt instanceof ResultTable);
-        assert.deepEqual(rt.columns.map(c => c.token.fullKey()), ["name", "year"]);
+        assert.deepEqual(rt.columns.map(c => c.token.fullKey()), ["Name", "Year"]);
         assert.equal(rt.rows.length, 0);
     });
 });

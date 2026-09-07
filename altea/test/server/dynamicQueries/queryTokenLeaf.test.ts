@@ -42,7 +42,7 @@ function tok(path: string): QueryToken {
 describe("leaf sub-tokens exist where Signum puts them", () => {
     test("string field → Length + HasValue", () => {
         const keys = tok("name").subTokens(O).map(t => t.key);
-        assert.ok(keys.includes("length"));
+        assert.ok(keys.includes("Length"));
         assert.ok(keys.includes("HasValue"));
     });
 

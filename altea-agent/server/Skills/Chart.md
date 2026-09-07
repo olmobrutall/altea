@@ -1,4 +1,4 @@
-Creating a chart in altea is very similar to creating a FindOptions, so most of the concepts are shared — including the token syntax (rootless, camelCase fields, PascalCase system tokens; see the Search skill).
+Creating a chart in altea is very similar to creating a FindOptions, so most of the concepts are shared — including the token syntax (rootless and PascalCase throughout; see the Search skill).
 
 After you have identified the root query, and the columns you want to display, you need to select the best matching type of chart (ChartScript).
 

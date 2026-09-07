@@ -53,9 +53,9 @@ describe("tokens are navigated rootlessly off the entity", () => {
 
     test("the entity root has fullKey \"\"; value/reference columns are rootless", () => {
         assert.equal(root().fullKey(), "");
-        assert.equal(tok("name").fullKey(), "name");        // NOT "Entity.name"
-        assert.equal(tok("label").fullKey(), "label");
-        assert.equal(tok("label.name").fullKey(), "label.name");
+        assert.equal(tok("name").fullKey(), "Name");        // NOT "Entity.Name"
+        assert.equal(tok("label").fullKey(), "Label");
+        assert.equal(tok("label.name").fullKey(), "Label.Name");
     });
 
     test("value/reference tokens carry the right type + property route", () => {
@@ -89,6 +89,6 @@ describe("the query executes off table(T), navigating tokens (no projection)", (
     test("executeQueryAsync runs a request through the container into a ResultTable", async () => {
         const request = new QueryRequest(AlbumEntity, [], [], [new Column(tok("name")), new Column(tok("year"))]);
         const rt = await Connector.withConnector(fake, () => QueryLogic.queries.executeQueryAsync(request));
-        assert.deepEqual(rt.columns.map(c => c.token.fullKey()), ["name", "year"]);
+        assert.deepEqual(rt.columns.map(c => c.token.fullKey()), ["Name", "Year"]);
     });
 });

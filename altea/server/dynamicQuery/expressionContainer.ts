@@ -140,14 +140,16 @@ export class ExpressionContainer {
 }
 
 // The tail member of the RAW quoted lambda body (before @quoted expansion): `a => a.albumCount()`
-// → "albumCount", `a => a.address` → "address". Mirrors Signum's ReflectionTools.GetMethodInfo /
-// property-name extraction from the un-inlined MethodCallExpression.
+// → "AlbumCount", `a => a.address` → "Address". Mirrors Signum's ReflectionTools.GetMethodInfo /
+// property-name extraction from the un-inlined MethodCallExpression — PascalCased, because a token key
+// is (see EntityPropertyToken.key), and because Signum derives its own from a PascalCase C# member. The
+// explicit `{ key }` registrations across the workspace were already spelled that way.
 function deriveKeyFromQuoted(lambda: unknown): string {
     const q = (lambda as Quoted<Function>).__quoted;
     if (q == undefined)
         throw new Error("Extension lambda is not quoted (needs the quote-transformer); pass { key } explicitly");
     const ex = q(); // ["=>", params, body]
-    return tailMember(ex[2]);
+    return tailMember(ex[2]).firstUpper();
 }
 
 function tailMember(node: unknown): string {

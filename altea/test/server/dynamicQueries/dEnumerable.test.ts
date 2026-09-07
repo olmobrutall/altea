@@ -79,7 +79,7 @@ describe("Concat two sources then order + paginate (CustomersLogic pattern)", ()
 
         // First page of 2, alphabetical by name.
         assert.equal(rt.rows.length, 2);
-        assert.deepEqual(rt.columns.map(c => c.token.key), ["name", "year"]);
+        assert.deepEqual(rt.columns.map(c => c.token.key), ["Name", "Year"]);
         assert.equal(rt.getColumn(nameTok).values[0], "Adele");
         assert.equal(rt.rows[0].getValue(nameTok), "Adele");
         assert.equal(rt.rows[1].getValue(nameTok), "Bjork");

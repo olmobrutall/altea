@@ -57,7 +57,8 @@ export function getExpressionDependencies(token: QueryToken): string[] | null {
   if (owner == null)
     return null;
 
-  const memberName = token.key == "ToString" ? "toString" : token.key;
+  // A token KEY is PascalCase (Signum's spelling); the member it names on the prototype is camelCase.
+  const memberName = token.key == "ToString" ? "toString" : token.key.firstLower();
 
   const all: string[] = [];
   let any = false;

@@ -74,7 +74,7 @@ export function TimeMachine(p: { lite: Lite<Entity>; isModal?: boolean }): React
     const forceUpdate = useForceUpdate();
 
     const scl = searchControl.current?.searchControlLoaded ?? undefined;
-    const colIndex = scl?.props.findOptions.columnOptions.findIndex(a => a.token != null && a.token.fullKey() == "systemValidFrom");
+    const colIndex = scl?.props.findOptions.columnOptions.findIndex(a => a.token != null && a.token.fullKey() == "SystemValidFrom");
 
     // Signum's renderCheckBox: a RADIO per row. A plain click selects this version AND the one below it
     // (the natural "what changed here?"); ctrl-click toggles a second version to compare against.

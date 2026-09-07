@@ -63,8 +63,8 @@ describe("QueryServer /api/query/:queryKey/serverTokens", () => {
         const keys = body.map(t => t.key);
         // the registered extensions on Artist (metadata tokens like id/ToString/name are NOT here —
         // the client generates those locally)
-        assert.ok(keys.includes("albums"));
-        assert.ok(keys.includes("albumCount"));
+        assert.ok(keys.includes("Albums"));
+        assert.ok(keys.includes("AlbumCount"));
         assert.ok(keys.includes("artistName"));
         // no metadata token leaked in
         assert.ok(!keys.includes("ToString"));
@@ -78,12 +78,12 @@ describe("QueryServer /api/query/:queryKey/serverTokens", () => {
 
         // client-side: it already has the Artist root token locally
         const localRoot = QueryLogic.getToken(ArtistEntity, "", O);
-        const albumsJson = body.find(t => t.key === "albums")!;
+        const albumsJson = body.find(t => t.key === "Albums")!;
         const rebuilt = deserializeServerToken(albumsJson, localRoot) as ExtensionToken;
 
         assert.ok(rebuilt instanceof ExtensionToken);
         assert.equal(rebuilt.niceName(), "Albums");
-        assert.equal(rebuilt.fullKey(), "albums");
+        assert.equal(rebuilt.fullKey(), "Albums");
         // and it navigates locally (element/count sub-tokens generated client-side)
         const subKeys = rebuilt.subTokens(O).map(t => t.key);
         assert.ok(subKeys.includes("Element"));
@@ -94,7 +94,7 @@ describe("QueryServer /api/query/:queryKey/serverTokens", () => {
         assert.ok(direct.length > 0);
         assert.ok(direct.every(t => t.tokenType === "Extension"));
         const keys = direct.map(t => t.key);
-        for (const k of ["albums", "albumCount", "artistName"])
+        for (const k of ["Albums", "AlbumCount", "artistName"])
             assert.ok(keys.includes(k), `expected server token '${k}'`);
     });
 });

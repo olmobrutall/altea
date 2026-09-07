@@ -131,8 +131,8 @@ function versionMarker(
     systemTime: { mode: string; startDate?: string; endDate?: string } | undefined,
 ): { icon: React.ReactElement | undefined; deleted: boolean } {
 
-    const validFromIndex = columns.indexOf("systemValidFrom");
-    const validToIndex = columns.indexOf("systemValidTo");
+    const validFromIndex = columns.indexOf("SystemValidFrom");
+    const validToIndex = columns.indexOf("SystemValidTo");
     if (systemTime == null || validFromIndex == -1 || validToIndex == -1)
         return { icon: undefined, deleted: false };
 

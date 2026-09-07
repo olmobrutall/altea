@@ -56,7 +56,7 @@ describe("collections expose the quantifier tokens", () => {
 
     test("songs.Any exposes the element's fields", () => {
         const keys = tok("songs.Any").subTokens(O).map((t: any) => t.key);
-        assert.ok(keys.includes("name"));
+        assert.ok(keys.includes("Name"));
     });
 });
 

@@ -40,16 +40,16 @@ describe("QueryClient (client-side server-token source)", () => {
         const keys = (await getSubTokens(localRoot, O)).map(t => t.key);
 
         // fetched-from-server (extension) tokens
-        assert.ok(keys.includes("albums"));
-        assert.ok(keys.includes("albumCount"));
+        assert.ok(keys.includes("Albums"));
+        assert.ok(keys.includes("AlbumCount"));
         // locally-generated metadata tokens (never crossed the wire)
         assert.ok(keys.includes("ToString"));
-        assert.ok(keys.includes("id"));
+        assert.ok(keys.includes("Id"));
     });
 
     test("the merged server tokens are real, navigable entities instances off the local parent", async () => {
         const localRoot = new RootToken(ArtistEntity);
-        const albums = (await getSubTokens(localRoot, O)).find(t => t.key === "albums")!;
+        const albums = (await getSubTokens(localRoot, O)).find(t => t.key === "Albums")!;
         assert.equal(albums.parent, localRoot);          // hung off the caller's local parent
         assert.equal(albums.niceName(), "Albums");
         assert.ok(albums.subTokens(O).map(t => t.key).includes("Element")); // navigates locally

@@ -39,7 +39,14 @@ export class EntityPropertyToken extends QueryToken {
 
     get parent(): QueryToken | undefined { return this._parent; }
 
-    get key(): string { return this.fieldInfo.name; }
+    // Signum's `Key => PropertyInfo.Name` — PascalCase, because a C# property is. altea's field is
+    // camelCase and the key used to be it verbatim, which put the whole workspace at odds with itself:
+    // `QueryTokenString.tokenSequence` (what `Type.token(a => a.shipName)` and every `defaultColumns`
+    // entry go through) has always PascalCased, so a token BUILT by the typed builder could only be
+    // resolved by the client's case-insensitive cache and never by the server's exact lookup — which is
+    // why altea-workflow's Inbox had to spell its tokens as camelCase literals. One spelling now, and it
+    // is Signum's, so a stored token is the same string in both frameworks.
+    get key(): string { return this.fieldInfo.name.firstUpper(); }
 
     // The row-identity column of a ModelEntity query: its top-level `entity` field (Signum's "Entity"
     // column). Flagged so ResultTable splits it out as the row's navigable entity (the row link).

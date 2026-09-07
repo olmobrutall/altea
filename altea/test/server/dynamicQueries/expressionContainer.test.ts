@@ -62,9 +62,9 @@ function bandEntityToken(): RootToken {
 describe("registered expressions appear as sub-tokens", () => {
     test("Artist's Entity column exposes the registered albums + albumCount + friendsCovariant", () => {
         const keys = entityToken().subTokens(O).map(t => t.key);
-        assert.ok(keys.includes("albums"));
-        assert.ok(keys.includes("albumCount"));
-        assert.ok(keys.includes("friendsCovariant"));
+        assert.ok(keys.includes("Albums"));
+        assert.ok(keys.includes("AlbumCount"));
+        assert.ok(keys.includes("FriendsCovariant"));
     });
 
     test("an entity projection carries element implementations, collection sub-tokens + auto plural niceName", () => {
@@ -80,9 +80,9 @@ describe("registered expressions appear as sub-tokens", () => {
 
     test("withExpressionFrom keys on the lambda's parameter type, not the include's type", () => {
         // Registered off Include(BandEntity) but with an ArtistEntity-param lambda → shows on Artist…
-        assert.ok(entityToken().subTokens(O).map(t => t.key).includes("friendsCovariant"));
+        assert.ok(entityToken().subTokens(O).map(t => t.key).includes("FriendsCovariant"));
         // …and NOT on Band (the source is the param type Artist, not the FluentInclude's Band).
-        assert.ok(!bandEntityToken().subTokens(O).map(t => t.key).includes("friendsCovariant"));
+        assert.ok(!bandEntityToken().subTokens(O).map(t => t.key).includes("FriendsCovariant"));
     });
 });
 

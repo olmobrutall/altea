@@ -22,7 +22,10 @@ export class ObjectPropertyToken extends QueryToken {
     }
 
     get parent(): QueryToken | undefined { return this._parent; }
-    get key(): string { return this.memberName; }
+    // Signum's key is the PropertyInfo name (`Length`, `Year`, `DayOfWeek`); `memberName` is the altea
+    // member the BINDER understands (`length`, `year`), which is not the same thing — see the
+    // PascalCase note on EntityPropertyToken.key.
+    get key(): string { return this.memberName.firstUpper(); }
     override toString(): string { return this.displayName; }
     niceName(): string { return `${this.displayName} of ${this._parent.toString()}`; }
     get type(): TypeReference { return this.resultType; }

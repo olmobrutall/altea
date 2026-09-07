@@ -1,7 +1,7 @@
 import "../../data/globals"; // Array.prototype.toMap
 import { Connector } from "../connection/connector";
 import { tryGetTypeInfo } from "../../data/reflection";
-import { setImplementedByAllTypesProvider, setExtensionTokensProvider, RootToken, SubTokensOptions, type QueryToken } from "../../data/dynamicQuery/tokens";
+import { setImplementedByAllTypesProvider, setExtensionTokensProvider, RootToken, SubTokensOptions, stripLegacyRootPrefix, type QueryToken } from "../../data/dynamicQuery/tokens";
 import { setBuildExtensionExpr } from "./tokenExpressions";
 import { getKey, type QueryName } from "../../data/dynamicQuery/queryUtils";
 import { DynamicQueryContainer } from "./dynamicQueryContainer";
@@ -54,7 +54,8 @@ export namespace QueryLogic {
         // An unregistered type still navigates: its own RootToken. (Before QueryName narrowed to a
         // Type this needed a guard, because a string name had no type to root on.)
         let token: QueryToken = tryGetRootToken(queryName) ?? new RootToken(queryName);
-        for (const part of tokenString.split(".").filter(p => p.length > 0)) {
+        // LEGACY MODE: a token stored by Signum starts at its `Entity` column; altea's root is rootless.
+        for (const part of stripLegacyRootPrefix(token, tokenString, options).split(".").filter(p => p.length > 0)) {
             const sub: QueryToken | undefined = token.subToken(part, options);
             if (sub == undefined)
                 throw new Error(`Token '${part}' not found on '${token.fullKey()}' (query '${getKey(queryName)}')`);

@@ -65,7 +65,7 @@ describe("Type 2 — manual auto query (filtered, full entity)", () => {
         const request = new QueryRequest(RECENT, [], [], [new Column(root.subToken("name", O)!)]);
         const rt = await Connector.withConnector(fake, () => QueryLogic.queries.executeQueryAsync(request));
         assert.ok(rt instanceof ResultTable);
-        assert.deepEqual(rt.columns.map(c => c.token.fullKey()), ["name"]);
+        assert.deepEqual(rt.columns.map(c => c.token.fullKey()), ["Name"]);
         assert.match(fake.lastSql, /where/);       // the registered filter (year > 1990) survived
         assert.match(fake.lastSql, /a\.year > @p/); // parameterised, not a literal
     });
@@ -89,7 +89,7 @@ describe("Type 2 — manual auto query (projected ModelEntity)", () => {
     test("the shape is the ModelEntity; its fields are the navigable tokens", () => {
         assert.equal(QueryLogic.queries.getCore(MODELQ).getRootType(), AlbumInfoRowModel);
         const keys = QueryLogic.getRootToken(MODELQ).subTokens(O).map(t => t.key);
-        for (const f of ["entity", "id", "name", "year"])
+        for (const f of ["Entity", "Id", "Name", "Year"])
             assert.ok(keys.includes(f), `missing model field token ${f}`);
     });
 
@@ -110,7 +110,7 @@ describe("Type 2 — manual auto query (projected ModelEntity)", () => {
         assert.equal(rowEntityToken(root), member);
         // LISTED like any other member: it is the entry point for navigating INTO the row's entity
         // ("entity.name"), which is the whole point of projecting a lite into the row.
-        assert.ok(root.subTokens(O).map(t => t.key).includes("entity"));
+        assert.ok(root.subTokens(O).map(t => t.key).includes("Entity"));
         assert.ok(member.subToken("name", O) != undefined);
     });
 
@@ -119,7 +119,7 @@ describe("Type 2 — manual auto query (projected ModelEntity)", () => {
         const request = new QueryRequest(MODELQ, [], [], [new Column(root.subToken("name", O)!)]);
         const rt = await Connector.withConnector(fake, () => QueryLogic.queries.executeQueryAsync(request));
         assert.equal(rt.hasEntities, true, "the row carries its entity");
-        assert.deepEqual(rt.columns.map(c => c.token.fullKey()), ["name"], "…and it is not a visible column");
+        assert.deepEqual(rt.columns.map(c => c.token.fullKey()), ["Name"], "…and it is not a visible column");
     });
 
     test("executeQueryAsync projects the model's columns", async () => {
@@ -127,7 +127,7 @@ describe("Type 2 — manual auto query (projected ModelEntity)", () => {
         const request = new QueryRequest(MODELQ, [], [], [new Column(root.subToken("name", O)!), new Column(root.subToken("year", O)!)]);
         const rt = await Connector.withConnector(fake, () => QueryLogic.queries.executeQueryAsync(request));
         assert.ok(rt instanceof ResultTable);
-        assert.deepEqual(rt.columns.map(c => c.token.fullKey()), ["name", "year"]);
+        assert.deepEqual(rt.columns.map(c => c.token.fullKey()), ["Name", "Year"]);
         assert.match(fake.lastSql, /album/);
     });
 });

@@ -30,7 +30,7 @@ import {
 } from './FindOptions';
 // TODO(port): QueryDescriptionDTO / QueryTokenWithoutParent dropped in altea (client builds the token tree locally).
 import { completeToken, QueryToken, SubTokensOptions, type Writable } from './QueryToken';
-import { getSubTokens as generateSubTokens, SubTokensOptionsAll, setImplementedByAllTypesProvider } from '../data/dynamicQuery/tokens/queryToken';
+import { getSubTokens as generateSubTokens, SubTokensOptionsAll, setImplementedByAllTypesProvider, stripLegacyRootPrefix } from '../data/dynamicQuery/tokens/queryToken';
 import { getRegisteredTypes } from '../data/registration';
 import { Metadata } from '../data/metadata';
 import { getKey } from '../data/dynamicQuery/queryUtils';
@@ -531,10 +531,10 @@ export namespace Finder {
     return reflectionDefaultColumns(queryToken);
   }
 
-  // Resolve a (possibly dotted) column key to a sub-token, matching keys CASE-INSENSITIVELY: altea's
-  // entity-field tokens are camelCase (`orderDate`) while Type.token produces PascalCase strings
-  // (`token(a => a.orderDate)` → "OrderDate") and system tokens are PascalCase (`ToString`) — a
-  // case-insensitive match resolves all three. Returns undefined if any segment is unknown.
+  // Resolve a (possibly dotted) column key to a sub-token, matching keys CASE-INSENSITIVELY. Token keys
+  // and `Type.token` strings agree now — both PascalCase, Signum's spelling — but a key written before
+  // they did (a camelCase `defaultColumns` literal, a token stored in an asset) must still resolve.
+  // Returns undefined if any segment is unknown.
   function resolveColumnToken(root: QueryToken, key: string): QueryToken | undefined {
     let cur: QueryToken | undefined = root;
     for (const part of key.split(".")) {
@@ -550,8 +550,8 @@ export namespace Finder {
   // — which the client can't resolve synchronously (extension tokens are fetched async). getDefaultColumns'
   // sync resolution would silently DROP it, so for the explicit case keep the keys as-is: they survive here
   // and are resolved by the async TokenCompleter. Only the auto-derived fallback needs resolved tokens (to
-  // pick the entity's first N declared fields). Keys are compared case-insensitively downstream (altea's
-  // field tokens are camelCase while Type.token produces PascalCase — see resolveColumnToken).
+  // pick the entity's first N declared fields). Keys are compared case-insensitively downstream — see
+  // resolveColumnToken.
   export function getDefaultColumnKeys(queryToken: QueryToken): string[] {
     const qs = getSettings(getKey(queryToken.queryName));
     return qs?.defaultColumns != null && qs.defaultColumns.length > 0
@@ -573,11 +573,10 @@ export namespace Finder {
           .concat(columns.map(key => softCast<ColumnOption>({ token: key })));
 
       case "Remove":
-        // Case-insensitive + toString: a columnOption token is a Type.token / QueryTokenString string
-        // (PascalCase, e.g. "Customer") while a default column key may be camelCase — altea's field-token
-        // divergence (see resolveColumnToken). Signum compares these exactly because everything is
-        // PascalCase there; a case-sensitive `==` here would never match, so autoRemoveTrivialColumns
-        // (drop a column that is EqualTo-filtered) would silently no-op.
+        // Case-insensitive + toString: both sides are PascalCase now, but a default column key written
+        // before that (or read out of a stored asset) may not be — see resolveColumnToken. A
+        // case-sensitive `==` would then silently no-op autoRemoveTrivialColumns (drop a column that is
+        // EqualTo-filtered).
         return columns.filter(key => !columnOptions.some(a => a.token.toString().toLowerCase() == key.toLowerCase()))
           .map(key => softCast<ColumnOption>({ token: key }));
 
@@ -754,7 +753,9 @@ export namespace Finder {
       if (token.includes("."))
         return null;
 
-      return ti.members[token];
+      // A token key is PascalCase (`ShipName`), a reflected field camelCase (`shipName`) — and a token
+      // written by hand before the keys were PascalCased is still the latter, so try it as given first.
+      return ti.members[token] ?? ti.members[token.firstLower()];
     }
 
     const result: any = {};
@@ -898,12 +899,10 @@ export namespace Finder {
   }
 
   // Token equality for the default-order / default-filter round-trip, compared CASE-INSENSITIVELY: one
-  // side is a DECLARED token (a `Type.token(a => a.productName)` string — PascalCase, see tokenSequence)
-  // while the other is the PARSED token's fullKey (altea's field tokens are camelCase — "productName").
-  // Signum can compare these exactly because everything is PascalCase there; a case-sensitive `==` here
-  // never matches, so every default filter / order leaks back out into the URL instead of being
-  // recognised and dropped (`/find/Product` → `?idf=false&filter0=~Or~&filter1_1=productName~Contains~…`).
-  // Same divergence resolveColumnToken / smartColumns already handle for columns.
+  // side is a DECLARED token (a `Type.token(a => a.productName)` string, see tokenSequence), the other the
+  // PARSED token's fullKey. The two agree now — both PascalCase — but a declaration written before they
+  // did does not, and a case-sensitive `==` would then let every default filter / order leak back into the
+  // URL instead of being recognised and dropped. Same tolerance resolveColumnToken / smartColumns keep.
   function equalTokens(a: string | QueryTokenString<any> | undefined, b: string | QueryTokenString<any> | undefined): boolean {
     return (a == undefined ? undefined : a.toString().toLowerCase()) == (b == undefined ? undefined : b.toString().toLowerCase());
   }
@@ -1534,12 +1533,19 @@ export namespace Finder {
       }
     }
 
+    // A stored token as this completer addresses it: LEGACY MODE drops the leading `Entity.` a Signum
+    // database's token carries (see stripLegacyRootPrefix — one direction, reading only).
+    private normalize(fullKey: string): string {
+      return stripLegacyRootPrefix(this.root, fullKey, SubTokensOptionsAll);
+    }
+
     request(fullKey: string): void {
-      // Token keys are matched case-insensitively: Type.token produces PascalCase strings
-      // (token(a => a.orderDate) → "OrderDate") while altea's field-token keys are camelCase
-      // ("orderDate"); the cache is keyed by lowercased fullKey so both resolve.
-      if (fullKey != "" && !this.cache.has(fullKey.toLowerCase()))
-        this.requested.add(fullKey);
+      // Token keys are matched case-insensitively, so a token stored under an older spelling
+      // (altea's own field keys were camelCase before they were PascalCased like Signum's) still
+      // resolves. The cache is keyed by lowercased fullKey; the server's own lookup now agrees.
+      const key = this.normalize(fullKey);
+      if (key != "" && !this.cache.has(key.toLowerCase()))
+        this.requested.add(key);
     }
 
     finished(): Promise<void> {
@@ -1553,7 +1559,8 @@ export namespace Finder {
 
     // Walk a fullKey hop-by-hop from the entity root, generating each level's sub-tokens client-side
     // and caching them; returns the resolved token (or undefined if the path is invalid).
-    private async resolveToken(fullKey: string): Promise<QueryToken | undefined> {
+    private async resolveToken(rawKey: string): Promise<QueryToken | undefined> {
+      const fullKey = this.normalize(rawKey);
       if (fullKey == "")
         return this.root;
       const existing = this.cache.get(fullKey.toLowerCase());
@@ -1570,7 +1577,8 @@ export namespace Finder {
       return this.cache.get(fullKey.toLowerCase());
     }
 
-    get(fullKey: string, options: SubTokensOptions): QueryToken {
+    get(rawKey: string, options: SubTokensOptions): QueryToken {
+      const fullKey = this.normalize(rawKey);
       // The ROOT entity token is addressed by the empty key and is never in the sub-token cache — the same
       // shortcut `resolveToken` takes. Without it a filter or column on the entity itself
       // (`{ token: "", operation: "DistinctTo", value: someLite }` — altea-tree's MoveTreeModel picker)
