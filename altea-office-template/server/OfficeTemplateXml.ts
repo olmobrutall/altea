@@ -54,7 +54,7 @@ function templateToXml(ot: OfficeTemplateEntity, _ctx: IToXmlContext): Record<st
     o[A + "Name"] = ot.name;
     o[A + "DisableAuthorization"] = ot.disableAuthorization;
     if (ot.query != null) o[A + "Query"] = ot.query.key;
-    if (ot.model != null) o[A + "Model"] = ot.model.fullClassName;
+    if (ot.model != null) o[A + "Model"] = ot.model.className;
     o[A + "Culture"] = cultureNameOf(ot.culture);
     o[A + "FileName"] = ot.fileName;
     if (ot.officeTransformer != null) o[A + "OfficeTransformer"] = ot.officeTransformer.key;

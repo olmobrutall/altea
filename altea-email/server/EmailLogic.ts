@@ -280,7 +280,7 @@ export namespace EmailLogic {
 
     /** Signum's GetCurrentTemplate — the (single) applicable template of a model, creating the default one
      *  when the database has none. */
-    export async function getCurrentTemplate(modelEntity: { fullClassName: string; id: unknown }, entity: Entity | null): Promise<EmailTemplateEntity> {
+    export async function getCurrentTemplate(modelEntity: { className: string; id: unknown }, entity: Entity | null): Promise<EmailTemplateEntity> {
         const all = await EmailTemplateLogic.emailTemplatesLazy.value();
         const candidates = await filterVisible(all.filter(t => t.model != null && String(t.model.id) === String(modelEntity.id)));
         const applicable = candidates.filter(t => EmailTemplateLogic.isApplicable(t, entity));
@@ -289,13 +289,13 @@ export namespace EmailLogic {
             return applicable[0];
 
         if (applicable.length > 1)
-            throw new Error(`More than one active EmailTemplate for EmailModel '${modelEntity.fullClassName}'`);
+            throw new Error(`More than one active EmailTemplate for EmailModel '${modelEntity.className}'`);
 
         // None: generate the model's default template (Signum's CreateDefaultEmailTemplate), in its own
         // transaction and with authorization off — a system mail must work for whoever triggered it.
         return await Transaction.forceNew(() => ExecutionMode.global(async () => {
             const template = await EmailModelLogic.createDefaultTemplateInternal(
-                await EmailModelLogic.getEmailModelEntity(modelEntity.fullClassName));
+                await EmailModelLogic.getEmailModelEntity(modelEntity.className));
             await template.save();
             EmailTemplateLogic.emailTemplatesLazy.reset();
             return template;
@@ -372,7 +372,7 @@ export namespace EmailLogic {
 
         sm.parent.withConstructFrom(EmailTemplateEntity, EmailMessageOperation.CreateEmailFromTemplate, {
         canConstruct: (et: EmailTemplateEntity) => et.model != null && EmailModelLogic.requiresExtraParameters(et.model)
-            ? EmailMessageMessage._01requiresExtraParameters.niceToString("EmailModel", et.model.fullClassName)
+            ? EmailMessageMessage._01requiresExtraParameters.niceToString("EmailModel", et.model.className)
             : null,
         construct: async (et: EmailTemplateEntity, args?: unknown[]) => {
             const arg = args?.[0];

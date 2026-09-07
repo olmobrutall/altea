@@ -111,11 +111,11 @@ export class OfficeConverterSymbol extends Symbol {
 export class OfficeModelEntity extends Entity {
     @uniqueIndex
     @stringLengthValidator({ max: 200 })
-    fullClassName: string;
+    className: string;
 
     @quoted
     toString(): string {
-        return this.fullClassName;
+        return this.className;
     }
 }
 

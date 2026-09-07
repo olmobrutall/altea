@@ -62,7 +62,7 @@
   </Type>
   <Type Name="OfficeConverter" Description="Office-Konverter" Gender="m" />
   <Type Name="OfficeModelEntity" Description="Office-Modell" PluralDescription="Office-Modelle" Gender="n">
-    <Member Name="FullClassName" Description="Full Class Name" />
+    <Member Name="ClassName" Description="Full Class Name" />
   </Type>
   <Type Name="OfficeTemplateEntity" Description="Office-Vorlage">
     <Member Name="Applicable" Description="Anwendbar" />

@@ -18,7 +18,7 @@
   </Type>
   <Type Name="OfficeConverter" Description="Convertidor de Office" />
   <Type Name="OfficeModelEntity" Description="Modelo de Office">
-    <Member Name="FullClassName" Description="Full Class Name" />
+    <Member Name="ClassName" Description="Full Class Name" />
   </Type>
   <Type Name="OfficeTemplateEntity" Description="Plantilla de Office">
     <Member Name="Applicable" Description="Aplicable" />

@@ -317,6 +317,13 @@ export const SMSTemplateMessage = {
  * edited — it is written only by the synchronizer), so the concurrency column simply stays.
  * `fullClassName` holds altea's CLEAN TYPE NAME (the stable wire identity), the same call
  * @altea/altea-email's EmailModelEntity makes; the column name is Signum's.
+ *
+ * **The name is deliberately NOT `className`, unlike its two siblings.** Signum renamed
+ * `EmailModelEntity.FullClassName` / `WordModelEntity.FullClassName` to `ClassName` (and made them store
+ * `type.Name` rather than `Type.FullName`, converging on what altea already wrote), and altea followed —
+ * but Signum's SMSModelEntity still says `FullClassName`, so this one stays put. A Southwind database has
+ * `sms.sms_model.full_class_name`; renaming here to match the siblings would break exactly the parity the
+ * other two just gained. Follow Signum when it moves this one too.
  */
 @reflect
 @entity("SystemString", "Master")

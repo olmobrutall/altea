@@ -101,7 +101,7 @@ export namespace OfficeModelLogic {
 
         officeModelsLazy = sb.globalLazy(async () => {
             const rows = await ExecutionMode.global(() => tableQuery(OfficeModelEntity).toArray());
-            return new Map(rows.map(r => [r.fullClassName, r]));
+            return new Map(rows.map(r => [r.className, r]));
         }, { invalidateWith: [OfficeModelEntity] });
 
         // Deleting a model must take its templates with it (Signum's PreDeleteSqlSync cascade).
@@ -116,7 +116,7 @@ export namespace OfficeModelLogic {
         return new Map([...registeredModels.values()]
             .map(info => cleanTypeName(info.modelType))
             .sort()
-            .map(name => [name, OfficeModelEntity.create({ fullClassName: name })]));
+            .map(name => [name, OfficeModelEntity.create({ className: name })]));
     }
 
     /** Signum's RegisterWordModel. Call BEFORE start (the registry table is seeded from these keys). */
@@ -135,9 +135,9 @@ export namespace OfficeModelLogic {
     }
 
     function info(modelEntity: OfficeModelEntity): OfficeModelInfo {
-        const found = registeredModels.get(modelEntity.fullClassName);
+        const found = registeredModels.get(modelEntity.className);
         if (found == null)
-            throw new Error(`The OfficeModel '${modelEntity.fullClassName}' was not registered`);
+            throw new Error(`The OfficeModel '${modelEntity.className}' was not registered`);
         return found;
     }
 
@@ -146,12 +146,12 @@ export namespace OfficeModelLogic {
         return await getOfficeModelEntity(cleanTypeName(modelType));
     }
 
-    /** Signum's `GetWordModelEntity(fullClassName)`. */
-    export async function getOfficeModelEntity(fullClassName: string): Promise<OfficeModelEntity> {
-        const found = (await officeModelsLazy.value()).get(fullClassName);
+    /** Signum's `GetWordModelEntity(className)`. */
+    export async function getOfficeModelEntity(className: string): Promise<OfficeModelEntity> {
+        const found = (await officeModelsLazy.value()).get(className);
         if (found == null)
             throw new Error(
-                `The OfficeModel '${fullClassName}' has no registry row — was it registered before ` +
+                `The OfficeModel '${className}' has no registry row — was it registered before ` +
                 `OfficeTemplateLogic.start, and has the database been synchronized?`);
         return found;
     }
@@ -184,7 +184,7 @@ export namespace OfficeModelLogic {
     export function createModel(modelEntity: OfficeModelEntity, entity: Entity | null): IOfficeModel {
         const construct = info(modelEntity).construct;
         if (construct == undefined)
-            throw new Error(`The OfficeModel '${modelEntity.fullClassName}' cannot be built from an entity alone`);
+            throw new Error(`The OfficeModel '${modelEntity.className}' cannot be built from an entity alone`);
         return construct(entity);
     }
 
@@ -193,10 +193,10 @@ export namespace OfficeModelLogic {
         const i = info(modelEntity);
         if (i.defaultTemplateConstructor == undefined)
             throw new Error(
-                `No OfficeTemplate for '${modelEntity.fullClassName}' found and defaultTemplateConstructor is not set`);
+                `No OfficeTemplate for '${modelEntity.className}' found and defaultTemplateConstructor is not set`);
 
         const template = i.defaultTemplateConstructor();
-        template.name ||= modelEntity.fullClassName;
+        template.name ||= modelEntity.className;
         template.model = modelEntity;
         template.query = QueryLogic.queries.tryGetCore(i.queryName) != undefined
             ? await QueryLogic.getQueryEntity(i.queryName)
@@ -228,7 +228,7 @@ function schemaGenerating(schema: Schema): SqlPreCommand | undefined {
 
 const officeModelReplacementKey = "OfficeModel";
 
-/** Signum's Schema_Synchronizing — diff the DECLARED models against the live rows BY FullClassName. */
+/** Signum's Schema_Synchronizing — diff the DECLARED models against the live rows BY ClassName. */
 async function synchronizeOfficeModels(replacements: Replacements): Promise<SqlPreCommand | undefined> {
     const connector = Connector.current();
     const table = connector.schema.tryTable(OfficeModelEntity);
@@ -240,7 +240,7 @@ async function synchronizeOfficeModels(replacements: Replacements): Promise<SqlP
     // exist yet — so every model becomes an INSERT after the CREATE emitted earlier in the same script.
     // The retrieved ENTITIES are the `current` dictionary: each carries its persisted id and the clean
     // snapshot the Retriever took, so mergeBoth below compares the ENTITY, not a record restating its columns.
-    const current = (await Administrator.tryRetrieveAll(OfficeModelEntity, replacements)).toMap(row => row.fullClassName);
+    const current = (await Administrator.tryRetrieveAll(OfficeModelEntity, replacements)).toMap(row => row.className);
 
     return Synchronizer.synchronizeScriptReplacing<OfficeModelEntity, OfficeModelEntity>(
         replacements,

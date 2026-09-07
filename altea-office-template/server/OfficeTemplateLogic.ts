@@ -313,7 +313,7 @@ export namespace OfficeTemplateLogic {
             else if (OfficeModelLogic.toType(template.model) !== model.constructor
                 && OfficeModelLogic.toType(template.model).name !== model.constructor?.name)
                 throw new Error(
-                    `model should be a ${template.model.fullClassName} instead of ${model.constructor?.name}`);
+                    `model should be a ${template.model.className} instead of ${model.constructor?.name}`);
         } else {
             if (entity == null)
                 throw new Error("Model should be an Entity");
@@ -440,7 +440,7 @@ function registerOfficeTemplateOperations(op: FluentOperations<OfficeTemplateEnt
     // must never write the template it is executed on.
     avoidImplicitSave: true,
     canExecute: (t: OfficeTemplateEntity) => t.model != null && OfficeModelLogic.requiresExtraParameters(t.model)
-        ? OfficeTemplateMessage._01RequiresExtraParameters.niceToString("OfficeModel", t.model.fullClassName)
+        ? OfficeTemplateMessage._01RequiresExtraParameters.niceToString("OfficeModel", t.model.className)
         : null,
     execute: () => { throw new Error("UI-only operation"); },
     });

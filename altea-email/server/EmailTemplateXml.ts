@@ -68,7 +68,7 @@ async function templateToXml(et: EmailTemplateEntity, ctx: IToXmlContext): Promi
     o[A + "DisableAuthorization"] = et.disableAuthorization;
     if (et.query != null) o[A + "Query"] = et.query.key;
     o[A + "EditableMessage"] = et.editableMessage;
-    if (et.model != null) o[A + "Model"] = et.model.fullClassName;
+    if (et.model != null) o[A + "Model"] = et.model.className;
     if (et.masterTemplate != null) o[A + "MasterTemplate"] = ctx.include(await ctx.retrieveLite(et.masterTemplate));
     o[A + "GroupResults"] = et.groupResults;
     o[A + "MessageFormat"] = Enum.toName(EmailMessageFormat, et.messageFormat);

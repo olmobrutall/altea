@@ -83,9 +83,11 @@ export class ResetPasswordRequestEntity extends Entity {
 // reflection metadata, so the shape has to be a declared model entity — these two — while the object the
 // renderer actually walks is assembled on the server (see ResetPasswordRequestLogic).
 
-/** Signum's ResetPasswordRequestEmail — "here is your reset link". */
+/** Signum's ResetPasswordRequestEmail — "here is your reset link". The name is Signum's exactly: it is
+ *  the EmailModel registry ROW (mailing.email_model.class_name), so "Mail" here read as a model Southwind
+ *  does not have plus one of its own that was gone. */
 @reflect
-export class ResetPasswordRequestMail extends ModelEntity {
+export class ResetPasswordRequestEmail extends ModelEntity {
     /** The absolute link the recipient clicks (`@[m:url]` in the template). */
     url: string;
 }

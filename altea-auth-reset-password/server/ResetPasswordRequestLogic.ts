@@ -23,7 +23,7 @@ import { EmailModelLogic, emailModel, type IEmailModel } from "@altea/altea-emai
 import { EmailRecipientKind } from "@altea/altea-email/data/Email";
 import { EmailTemplateEntity, EmailTemplateEntity_Message, EmailMessageFormat } from "@altea/altea-email/data/EmailTemplate";
 import {
-    ResetPasswordRequestEntity, ResetPasswordRequestOperation, ResetPasswordRequestMail, UserLockedMail,
+    ResetPasswordRequestEntity, ResetPasswordRequestOperation, ResetPasswordRequestEmail, UserLockedMail,
     ResetPasswordMessage,
 } from "../data/ResetPassword";
 import { ResetPasswordServer } from "./ResetPasswordServer";
@@ -56,7 +56,7 @@ export function resetPasswordRequestMail(request: ResetPasswordRequestEntity, ur
             untypedEntity: request,
             getRecipients: () => [{ ownerData: EmailLogic.ownerDataOfEntity(request.user), kind: EmailRecipientKind.To }],
         }),
-        modelType: ResetPasswordRequestMail,
+        modelType: ResetPasswordRequestEmail,
         url,
     };
 }
@@ -94,7 +94,7 @@ export namespace ResetPasswordRequestLogic {
         };
 
         EmailModelLogic.registerEmailModel({
-            modelType: ResetPasswordRequestMail,
+            modelType: ResetPasswordRequestEmail,
             queryName: ResetPasswordRequestEntity,
             defaultTemplateConstructor: () => EmailTemplateEntity.create({
                 // altea requires these three explicitly: every non-nullable field is implicitly mandatory

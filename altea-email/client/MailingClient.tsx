@@ -128,7 +128,7 @@ export namespace MailingClient {
             .withQuerySettings(token => ({
                 defaultColumns: [
                     token(m => m.id),
-                    token(m => m.fullClassName),
+                    token(m => m.className),
                 ],
             }));
 

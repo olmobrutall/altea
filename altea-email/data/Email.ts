@@ -151,13 +151,17 @@ export abstract class EmailRecipientBaseEntity extends Entity {
 @reflect
 @entity("SystemString", "Master")
 export class EmailModelEntity extends Entity {
+    // Signum declares no `[StringLengthValidator]` here and gets `varchar(200)` from its own default —
+    // which is what a Southwind database has, so the length is written out rather than inherited from
+    // altea's (a 400 altea had invented scripted an ALTER of a column nothing asked to widen). Its two
+    // siblings, OfficeModelEntity and SMSModelEntity, say `Max = 200` explicitly in Signum.
     @uniqueIndex
-    @stringLengthValidator({ min: 1, max: 400 })
-    fullClassName: string;
+    @stringLengthValidator({ max: 200 })
+    className: string;
 
     @quoted
     toString(): string {
-        return this.fullClassName;
+        return this.className;
     }
 }
 

@@ -39,8 +39,12 @@ import { EmailMasterTemplateLogic } from "./EmailMasterTemplateLogic";
 //    that supplies its defaults: altea has no C#-style protected virtual members to inherit, and a model is
 //    just an object with a known shape. `MultiEntityEmail` / `QueryEmail` become the two `emailModel(...)`
 //    factories below, byte-for-byte the same behaviour.
-//  - `Type.FullName` (the registry key) → altea's CLEAN TYPE NAME (`cleanTypeName(ctor)`), the stable
-//    identity altea already uses for a type on the wire. `fullClassName` keeps Signum's column name.
+//  - the registry key is altea's CLEAN TYPE NAME (`cleanTypeName(ctor)`), the stable identity altea already
+//    uses for a type on the wire — and **Signum has converged on it**. It keyed by `Type.FullName` in a
+//    `FullClassName` column; it now stores `type.Name` in a `ClassName` one, which is the same string altea
+//    was already writing under the old name. So this stopped being a divergence and became a RENAME: the
+//    member follows Signum's, and a Southwind database's rows (`UserLockedMail`, not
+//    `Signum.Authorization.ResetPassword.UserLockedMail`) match without a single row moving.
 //  - `Schema_Generating` / `Schema_Synchronizing` ARE ported (see the bottom of this file): the registry rows
 //    go through the schema pipeline, so a RENAMED model class keeps its row — and its id, which every
 //    EmailTemplate.model FK targets — via the "EmailModel" Replacements bucket.
@@ -130,7 +134,7 @@ export namespace EmailModelLogic {
         emailModelsLazy = sb.globalLazy(async () => new Map(joinRelaxed(
             await readEmailModelRows(),
             registeredModels.keys(),
-            row => row.fullClassName,
+            row => row.className,
             key => key,
             (row, key) => [key, row] as [string, EmailModelEntity],
             "caching " + EmailModelEntity.name,
@@ -166,7 +170,7 @@ export namespace EmailModelLogic {
         return new Map([...registeredModels.values()]
             .map(info => cleanTypeName(info.modelType))
             .sort()
-            .map(name => [name, EmailModelEntity.create({ fullClassName: name })]));
+            .map(name => [name, EmailModelEntity.create({ className: name })]));
     }
 
     /** Signum's RegisterEmailModel. Call BEFORE start (the registry table is seeded from these keys). */
@@ -185,9 +189,9 @@ export namespace EmailModelLogic {
     }
 
     function info(modelEntity: EmailModelEntity): EmailModelInfo {
-        const found = registeredModels.get(modelEntity.fullClassName);
+        const found = registeredModels.get(modelEntity.className);
         if (found == null)
-            throw new Error(`The EmailModel '${modelEntity.fullClassName}' was not registered`);
+            throw new Error(`The EmailModel '${modelEntity.className}' was not registered`);
         return found;
     }
 
@@ -196,11 +200,11 @@ export namespace EmailModelLogic {
         return await getEmailModelEntity(cleanTypeName(modelType));
     }
 
-    /** Signum's `GetEmailModelEntity(fullClassName)`. */
-    export async function getEmailModelEntity(fullClassName: string): Promise<EmailModelEntity> {
-        const found = (await emailModelsLazy.value()).get(fullClassName);
+    /** Signum's `GetEmailModelEntity(className)`. */
+    export async function getEmailModelEntity(className: string): Promise<EmailModelEntity> {
+        const found = (await emailModelsLazy.value()).get(className);
         if (found == null)
-            throw new Error(`The EmailModel '${fullClassName}' has no registry row — was it registered before EmailLogic.start, and has the database been synchronized?`);
+            throw new Error(`The EmailModel '${className}' has no registry row — was it registered before EmailLogic.start, and has the database been synchronized?`);
         return found;
     }
 
@@ -234,7 +238,7 @@ export namespace EmailModelLogic {
     export function createModel(modelEntity: EmailModelEntity, entity: Entity | null): IEmailModel {
         const construct = info(modelEntity).construct;
         if (construct == undefined)
-            throw new Error(`The EmailModel '${modelEntity.fullClassName}' cannot be built from an entity alone`);
+            throw new Error(`The EmailModel '${modelEntity.className}' cannot be built from an entity alone`);
         return construct(entity);
     }
 
@@ -242,11 +246,11 @@ export namespace EmailModelLogic {
     export async function createDefaultTemplateInternal(modelEntity: EmailModelEntity): Promise<EmailTemplateEntity> {
         const i = info(modelEntity);
         if (i.defaultTemplateConstructor == undefined)
-            throw new Error(`No EmailTemplate for '${modelEntity.fullClassName}' found and defaultTemplateConstructor is not set`);
+            throw new Error(`No EmailTemplate for '${modelEntity.className}' found and defaultTemplateConstructor is not set`);
 
         const template = i.defaultTemplateConstructor();
         template.masterTemplate ??= (await EmailMasterTemplateLogic.getDefaultMasterTemplate())?.toLite() ?? null;
-        template.name ||= modelEntity.fullClassName;
+        template.name ||= modelEntity.className;
         template.model = modelEntity;
         template.query = QueryLogic.queries.tryGetCore(i.queryName) != undefined
             ? await QueryLogic.getQueryEntity(i.queryName)
@@ -263,7 +267,7 @@ export namespace EmailModelLogic {
 
 // ---- the registry table's schema pipeline (Signum's Schema_Generating / Schema_Synchronizing) ----------
 //
-// Signum's `EmailModelReplacementKey = "EmailModel"` — the rename bucket a removed FullClassName is matched
+// Signum's `EmailModelReplacementKey = "EmailModel"` — the rename bucket a removed ClassName is matched
 // through, so a renamed model class keeps its row (and its id, which every EmailTemplate.model FK targets).
 
 const emailModelReplacementKey = "EmailModel";
@@ -284,7 +288,7 @@ function generateEmailModels(schema: Schema): SqlPreCommand | undefined {
 }
 
 /** Signum's EmailModelLogic.Schema_Synchronizing — diff the DECLARED models against the live rows BY
- *  FullClassName. A new one is INSERTed, a removed one DELETEd, and a RENAME (asked through Replacements)
+ *  ClassName. A new one is INSERTed, a removed one DELETEd, and a RENAME (asked through Replacements)
  *  lands in mergeBoth, which keeps the persisted id and only UPDATEs the name. */
 async function synchronizeEmailModels(replacements: Replacements): Promise<SqlPreCommand | undefined> {
     const connector = Connector.current();
@@ -298,7 +302,7 @@ async function synchronizeEmailModels(replacements: Replacements): Promise<SqlPr
     // earlier in the same script.
     // The retrieved ENTITIES are the `current` dictionary: each carries its persisted id and the clean
     // snapshot the Retriever took, so mergeBoth below compares the ENTITY, not a record restating its columns.
-    const current = (await Administrator.tryRetrieveAll(EmailModelEntity, replacements)).toMap(row => row.fullClassName);
+    const current = (await Administrator.tryRetrieveAll(EmailModelEntity, replacements)).toMap(row => row.className);
 
     return Synchronizer.synchronizeScriptReplacing<EmailModelEntity, EmailModelEntity>(
         replacements,

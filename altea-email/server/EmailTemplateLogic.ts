@@ -349,7 +349,7 @@ export namespace EmailTemplateLogic {
                 const template = await EmailModelLogic.createDefaultTemplateInternal(model);
                 await ExecutionMode.global(() => template.save());
             } catch (e) {
-                errors.push(`${model.fullClassName}: ${(e as Error).message}`);
+                errors.push(`${model.className}: ${(e as Error).message}`);
             }
         }
 
