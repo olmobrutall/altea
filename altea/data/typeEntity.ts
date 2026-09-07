@@ -1,6 +1,6 @@
 import { Entity } from './entity';
 import { reflect, setDefaultDatabaseSchema } from './reflection';
-import { entity, quoted } from './decorators';
+import { entity, quoted, uniqueIndex } from './decorators';
 
 // Port of Signum's TypeEntity (Signum/Basics/Type.cs): the system table that maps
 // every persistent entity type to a stable int id. That id is the discriminator
@@ -20,17 +20,27 @@ import { entity, quoted } from './decorators';
 @reflect
 @entity("SystemString", "Master")
 export class TypeEntity extends Entity {
-    // The physical table name of the type (e.g. "Artist" / "note_with_date").
+    // The physical table name of the type (e.g. "Artist" / "note_with_date"). Signum: `[UniqueIndex]`.
+    @uniqueIndex
     tableName: string;
 
     // The clean type name (Signum's Reflector.CleanTypeName, e.g. "Artist") — the
-    // human-facing discriminator; UNIQUE in Signum (no unique-index support yet).
+    // human-facing discriminator. Signum: `[UniqueIndex]` (Type.cs).
+    @uniqueIndex
     cleanName: string;
 
     // The owning npm PACKAGE of the type (Signum's TypeEntity.Namespace analog — TS has no
     // namespaces, so altea records the package, e.g. "@altea/altea" / "@altea/altea-auth" /
     // "eastwind"; resolved from the registration FileInfo). And the unqualified class name.
-    package: string;
+    //
+    // NULLABLE, matching Signum's `public string? Package` — in the object model as well as the
+    // column, because the value genuinely can be absent: a type whose registration FileInfo the
+    // transformer never stamped has no package to record, and every row in a database a SIGNUM
+    // application generated has `package = NULL`. (Signum declares the column and never assigns it —
+    // `TypeLogic.Schema_Synchronizing` copies only TableName, CleanName, Namespace and ClassName onto
+    // the retrieved row — which also means altea's values SURVIVE a Signum sync untouched: filling
+    // them is a one-time migration, not a tug of war.)
+    package: string | null;
     className: string;
 
     // Signum's `Namespace` — the C# namespace, which TypeScript has no counterpart for, so altea

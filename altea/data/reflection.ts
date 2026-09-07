@@ -77,7 +77,7 @@ export type TranslatableRouteType = "Text" | "Html";
 // The precise .NET-style value alias (Signum drove int-vs-double `<NumberLine/>` formatting off this).
 // Emitted by the transformer from the source primitive alias (see entities/basics); undefined ⇒ the
 // typeName's default (e.g. Number ⇒ float/double).
-export type SubTypeName = "int" | "long" | "decimal" | "uuid" | "uuid7";
+export type SubTypeName = "short" | "int" | "long" | "float" | "decimal" | "uuid" | "uuid7";
 
 // The type FACET of a field or a query token — "what type is this value": the value/enum/entity it
 // holds, whether it is a collection / Lite / nullable, and (for references) the polymorphic
@@ -227,6 +227,9 @@ export class FieldInfo extends TypeReference {
     // (IsNullable.Forced) while the field stays non-null in the object model — so queries
     // navigate it as a normal non-null reference but the column accepts NULL.
     forceNullable?: boolean;
+    // Set by @forceNotNullable (Signum's [ForceNotNullable]): the exact inverse — the COLUMN is NOT
+    // NULL while the field stays nullable in the object model.
+    forceNotNullable?: boolean;
     // Set by @column(false): excluded from the DB schema + change tracking (present only in the
     // object model), but still serialized to JSON by default.
     notMapped: boolean = false;
@@ -686,10 +689,10 @@ export {
     registerEnum, resolveEnum, enumNameOf,
     registerObject, resolveObject,
     getLocation,
-    init, declaredSymbolsForType, renameSymbolContainer, renameCleanType, forcedCleanName,
+    init, declaredSymbolsForType, renameSymbolContainer, renameCleanType, forcedCleanName, forcedClassName,
     setDefaultTypeDescription, setDefaultMemberDescription, getDefaultDescription,
     setDefaultCulture, getPackageCulture, cultureForName,
-    setDefaultDatabaseSchema, schemaForName,
+    setDefaultDatabaseSchema, setDatabaseSchema, schemaForName,
 } from './registration';
 export type { FileInfo } from './registration';
 

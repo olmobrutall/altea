@@ -1,7 +1,7 @@
 import "../data/globals"; // Array.prototype.toMap
 import { joinRelaxed } from "../data/globals/joinRelaxed";
 import { Connector } from "./connection/connector";
-import { cleanTypeName, getLocation, enumNameOf, resolveCleanType } from "../data/registration";
+import { cleanTypeName, getLocation, enumNameOf, resolveCleanType, forcedClassName } from "../data/registration";
 import { TypeEntity } from "../data/typeEntity";
 import { quotedFunction } from "./query";
 import { ClassType } from "./runtimeTypes";
@@ -13,10 +13,11 @@ import { Administrator } from "./Administrator";
 import { StartParameters } from "../data/utils/startParameters";
 import { Synchronizer, Replacements } from "./sync/synchronizer";
 import { ObjectName, SchemaName, defaultDatabaseName } from "./schema/objectName";
+import { ImplementedByAllTypeColumn } from "./schema/column";
 import type { Entity, PrimaryKey } from "../data/entity";
 import type { Schema } from "./schema/schema";
 import type { Table } from "./schema/table";
-import { SqlPreCommand, Spacing } from "./sync/sqlPreCommand";
+import { SqlPreCommand, SqlPreCommandSimple, Spacing } from "./sync/sqlPreCommand";
 
 // Port of Signum's TypeLogic (Basics/TypeLogic.cs): the single server-side facade mapping
 // every persistent entity type to a stable int id, via the TypeEntity system table. That id
@@ -107,6 +108,11 @@ export class TypeLogic {
                 throw new Error("TypeLogic.start must run before any other Schema.initializing hook is registered — TypeLogic.load loads the foundational type↔id caches those hooks depend on.");
             schema.initializing.push(TypeLogic.load);
         }
+
+        // The cascade that lets an `@implementedByAll` discriminator carry a real FOREIGN KEY — see
+        // deleteImplementedByAllRowsOfType.
+        if (!schema.entityEvents(TypeEntity).preDeleteSqlSync.includes(deleteImplementedByAllRowsOfType))
+            schema.entityEvents(TypeEntity).preDeleteSqlSync.push(deleteImplementedByAllRowsOfType);
     }
 
     // Warm the type-caches (Signum's typeCachesLazy.Load): an async boundary — the LINQ provider's
@@ -218,10 +224,7 @@ async function buildCaches(schema: Schema): Promise<TypeCaches> {
 // seeder. EMPTY rows (a fresh database before generation) report nothing: `joinRelaxed` is only reached when
 // there is something to compare (see loadTypeEntities).
 function projectCaches(schema: Schema, rows: TypeEntity[]): TypeCaches {
-    const modelTypes: Function[] = [];
-    for (const [type] of schema.tables)
-        if (typeof type === "function")
-            modelTypes.push(type);
+    const modelTypes = typedTables(schema).map(([type]) => type);
 
     const typeToId = new Map<Function, PrimaryKey>();
     const idToType = new Map<PrimaryKey, Function>();
@@ -279,15 +282,73 @@ async function loadTypeEntities(schema: Schema): Promise<TypeEntity[]> {
     }
 }
 
-// The deterministic bootstrap metadata: every real entity ctor (enum side-tables, keyed by a generic
-// descriptor, are never @implementedByAll targets and get no row), sorted by ctor name. Generation seeds
-// the rows in this same order so the DB-assigned identity ids match the bootstrap 1..N numbering.
-type TypeMeta = { tableName: string; cleanName: string; package: string; className: string };
-function bootstrapMetas(schema: Schema): TypeMeta[] {
+/**
+ * Sweep every `@implementedByAll` row that pointed at a type being REMOVED — Signum's
+ * `EntityEvents<TypeEntity>.PreDeleteSqlSync`, and what makes the discriminator column's FOREIGN KEY
+ * affordable.
+ *
+ * An `@implementedByAll` column stores its target's TypeEntity id, so it is an ordinary reference and
+ * Signum gives it an ordinary FK (a Southwind database has `fk_alert_target_id_type`,
+ * `fk_case_main_entity_id_type`, and fifteen more). altea used to suppress that FK — with the FK in
+ * place, a sync that DELETES a type row fails on whichever table still has rows pointing at it, and
+ * without this cascade there was nothing to clear them. That left the discriminator dangling instead,
+ * which is the worse of the two: a row claiming to point at a type that no longer exists.
+ *
+ * Signum registers one handler per MODULE (eighteen of them, each naming its own table and field).
+ * altea derives it instead: the SCHEMA already knows which columns are discriminators, so one handler
+ * covers every table — including the ones a module author would forget, and any the app itself adds.
+ * Views are skipped (nothing writes them).
+ */
+function deleteImplementedByAllRowsOfType(type: TypeEntity): SqlPreCommand | undefined {
+    const connector = Connector.current();
+    const sqlBuilder = connector.sqlBuilder;
+    const commands: SqlPreCommand[] = [];
+    for (const table of connector.schema.tables.values()) {
+        if (table.isView)
+            continue;
+        // Read the FLATTENED physical layout, so a discriminator inside an embedded or a mixin counts
+        // like any other — that is where several of them live (an alert's target, a view log's).
+        for (const column of Object.values(table.columns))
+            if (column instanceof ImplementedByAllTypeColumn)
+                commands.push(new SqlPreCommandSimple(
+                    `DELETE FROM ${sqlBuilder.objectName(table.name)} WHERE ${sqlBuilder.sqlEscape(column.name)} = ${type.id};`));
+    }
+    return SqlPreCommand.combine(Spacing.Simple, ...commands);
+}
+
+/**
+ * The tables that get a TypeEntity ROW — the schema's real entity tables (an enum side-table is keyed
+ * by a generic descriptor, is never an `@implementedByAll` target, and gets none).
+ *
+ * LEGACY MODE also skips a table that stands in for a Signum MLIST TABLE (`Table.isMListRow`). An
+ * MList table is not an entity in Signum: `TypeLogic` enumerates `Schema.Tables`, where MList tables
+ * live in a collection of their own, so a Signum database has no row for one. altea models such a row
+ * as a real `@part` entity, so without this filter a sync against a Signum database INSERTS ~50 rows
+ * — and Signum's own `TypeLogic.Schema_Synchronizing` DELETES rows it does not recognise, so the two
+ * applications would take turns adding and removing them for as long as both run.
+ *
+ * Nothing needs the id: an MList row is never the TARGET of an `@implementedByAll` reference (the
+ * only thing that stores a type discriminator), and a property route is rooted at the OWNING entity,
+ * never at the row type. This is the same `isMListRow` question legacyMode already answers for Ticks
+ * and ToStr — see SchemaSettings.legacyMode.
+ *
+ * The single source for every consumer, so the caches, the generation order and the sync all agree on
+ * which types exist — a model type missing from one of them is reported as a database mismatch.
+ */
+function typedTables(schema: Schema): [Function, Table][] {
     const entries: [Function, Table][] = [];
     for (const [type, table] of schema.tables)
-        if (typeof type === "function")
+        if (typeof type === "function" && !(table.legacyMode && table.isMListRow))
             entries.push([type, table]);
+    return entries;
+}
+
+// The deterministic bootstrap metadata: one entry per {@link typedTables} ctor, sorted by ctor name.
+// Generation seeds the rows in this same order so the DB-assigned identity ids match the bootstrap
+// 1..N numbering.
+type TypeMeta = { tableName: string; cleanName: string; package: string | null; className: string };
+function bootstrapMetas(schema: Schema): TypeMeta[] {
+    const entries = typedTables(schema);
     entries.sort((a, b) => (a[0].name < b[0].name ? -1 : a[0].name > b[0].name ? 1 : 0));
     // Signum's `TableName = SimplifyTableName(tab.Name).ToString()` — the FULL ObjectName, so the
     // column is schema-qualified and its parts are escaped where the dialect needs it
@@ -308,6 +369,9 @@ function bootstrapMetas(schema: Schema): TypeMeta[] {
 // A closed EnumEntity<E> type's ctor.name is "EnumEntity<OrderState>" — use the bare ENUM name
 // ("OrderState") instead (matching cleanName + the name its FileInfo/enum registration is keyed by).
 function classNameOf(ctor: Function): string {
+    const forced = forcedClassName(ctor);
+    if (forced != null)
+        return forced;
     const boundEnum = (ctor as { boundEnum?: object }).boundEnum;
     if (boundEnum != null) {
         const enumName = enumNameOf(boundEnum);
@@ -319,9 +383,11 @@ function classNameOf(ctor: Function): string {
 
 // The owning npm package of an entity/enum ctor (Signum's Namespace analog), from the registration
 // FileInfo the quote-transformer stamps — keyed by classNameOf (so an enum resolves via its enum name,
-// not the "EnumEntity<E>" ctor name, which has no registered location). "" when unknown.
-function packageOf(ctor: Function): string {
-    return getLocation(classNameOf(ctor))?.packageName ?? "";
+// not the "EnumEntity<E>" ctor name, which has no registered location). `null` when unknown: the column
+// is nullable (as Signum's is), so "no package" is a NULL rather than an empty string that would read
+// as a package named "".
+function packageOf(ctor: Function): string | null {
+    return getLocation(classNameOf(ctor))?.packageName ?? null;
 }
 
 // A TypeEntity carrying the given metadata — the "should" row, id-less: generation and the sync's

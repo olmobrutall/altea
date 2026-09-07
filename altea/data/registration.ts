@@ -40,6 +40,12 @@ const cleanRegistry = new Map<string, Function>();
 // not (see renameCleanType).
 const cleanNameOverrides = new Map<Function, string>();
 
+// ctor -> the CLASS name it is forced to, the `basics.type.class_name` sibling of the above. Signum
+// records the bare class name beside the clean one, so a renamed type diverges in BOTH columns; they are
+// two maps rather than one because the class name is not always the clean name plus a suffix (altea's
+// `DashboardEntity_TokenEquivalenceGroup` part is Signum's standalone `TokenEquivalenceGroupEntity`).
+const classNameOverrides = new Map<Function, string>();
+
 // Which suffix outranks which, when two types share a clean name. A row model beats an entity because
 // the only entity it can legitimately collide with is an ABSTRACT one, whose clean name is inert: never
 // a `$type` (that is the RUNTIME constructor), never a `basics.type` row (no table), never an
@@ -132,13 +138,17 @@ export function resolveType(name: string): Function | undefined {
 // beside it. Localization's niceNameFromName strips all four, but only for DISPLAY.
 export function cleanTypeName(ctor: Function): string {
     // A closed EnumEntity<E> type (EnumEntity.typeFor) carries the enum as a static `boundEnum`; its clean
-    // name is the ENUM name ("OrderState"), NOT the "EnumEntity<OrderState>" ctor name — mirrors Signum's
-    // Reflector.CleanTypeName, and is what the TypeEntity.cleanName column + enum ColorPalettes key on.
+    // name comes from the ENUM name ("OrderState"), NOT the "EnumEntity<OrderState>" ctor name — mirrors
+    // Signum's `EnumEntity.Extract(tab.Type) ?? tab.Type` (TypeLogic.GenerateSchemaTypes), and is what the
+    // TypeEntity.cleanName column + enum ColorPalettes key on. The SUFFIX is stripped from it as from any
+    // other name, because Signum runs the extracted enum type through the same Reflector.CleanTypeName:
+    // its `enum DashboardEmbedededInEntity` is the type it calls `DashboardEmbedededIn`, with
+    // `class_name = 'DashboardEmbedededInEntity'` beside it.
     const boundEnum = (ctor as { boundEnum?: object }).boundEnum;
     if (boundEnum != null) {
         const enumName = enumNameOf(boundEnum);
         if (enumName != null)
-            return enumName;
+            return cleanNameOverrides.get(ctor) ?? stripEntitySuffix(enumName);
     }
     return cleanNameOverrides.get(ctor) ?? stripEntitySuffix(ctor.name);
 }
@@ -343,12 +353,44 @@ export function setDefaultDatabaseSchema(schema: string, fileInfo?: FileInfo): v
     else schemaScopes.push({ packageName, dir, schema });
 }
 
-// The schema that applies to a registered type NAME — the longest declared scope whose package matches
-// and whose directory is a prefix of the type's file. undefined when no scope covers it (→ the connection
-// default schema). NOTE: for an enum table, callers must pass the ENUM's own registered name (not the
-// anonymous EnumEntity.typeFor class name), so the enum resolves to the schema of the package it is
-// DEFINED in — not to EnumEntity's own file (@altea/altea/data). See SchemaSettings.schemaForType.
+// A PER-TYPE override of that folder default, keyed by registered name.
+//
+// Signum resolves a schema from the (assembly, NAMESPACE) pair — the Signum core assembly alone declares
+// five, one per namespace: `framework`, and `basics` / `entities` / `operations` / `queries` for
+// Signum.Basics / .Entities / .Operations / .DynamicQuery. A namespace is a per-DECLARATION grouping that
+// altea's per-FOLDER scope cannot always follow, because altea groups its core model by role rather than
+// by target schema: all twelve DynamicQuery enums sit in one file beside the `basics` types, and
+// PermissionSymbol — Signum.Basics there — is declared inside the auth package that uses it.
+//
+// So this is the counterpart of Signum's own escape hatch, `AssemblySchemaNameAttribute.OverridenAssembly`,
+// which likewise says "resolve this ONE type as though it were declared elsewhere". Written beside the
+// declarations it names, so the answer is visible where the types are:
+//
+//   setDatabaseSchema("basics", PermissionSymbol);
+//
+// Takes an entity/symbol CONSTRUCTOR or a registered ENUM object (which cannot carry a decorator), and
+// must come AFTER that type's `@reflect` / `registerEnum` so the name is resolvable.
+const typeSchemas = new Map<string, string>();
+
+export function setDatabaseSchema(schema: string, ...types: (Function | object)[]): void {
+    for (const type of types) {
+        const name = typeof type === "function" ? type.name : enumNameOf(type);
+        if (name == null || name === "")
+            throw new Error(`setDatabaseSchema("${schema}"): the type is not registered yet — `
+                + `place the call after its @reflect / registerEnum.`);
+        typeSchemas.set(name, schema);
+    }
+}
+
+// The schema that applies to a registered type NAME — a per-type override if one was declared, else the
+// longest declared scope whose package matches and whose directory is a prefix of the type's file.
+// undefined when nothing covers it (→ the connection default schema). NOTE: for an enum table, callers
+// must pass the ENUM's own registered name (not the anonymous EnumEntity.typeFor class name), so the enum
+// resolves to the schema of the package it is DEFINED in — not to EnumEntity's own file
+// (@altea/altea/data). See SchemaSettings.schemaForType.
 export function schemaForName(name: string): string | undefined {
+    const own = typeSchemas.get(name);
+    if (own != null) return own;
     const loc = locationRegistry.get(name);
     if (loc == null) return undefined;
     let best: SchemaScope | undefined;
@@ -393,9 +435,24 @@ export function forcedCleanName(ctor: Function): string | undefined {
     return cleanNameOverrides.get(ctor);
 }
 
-export function renameCleanType(ctor: Function, cleanName: string): void {
+/** The class name {@link renameCleanType} forced on this type, or undefined. */
+export function forcedClassName(ctor: Function): string | undefined {
+    return classNameOverrides.get(ctor);
+}
+
+// The suffix `stripEntitySuffix` would take off the END of a name ("" when there is none).
+function trailingSuffix(name: string): string {
+    const m = /(Entity|Symbol|RowModel)$/.exec(name);
+    return m != null && m[0] !== name ? m[0] : "";
+}
+
+export function renameCleanType(ctor: Function, cleanName: string, className?: string): void {
     const previous = cleanTypeName(ctor);
     cleanNameOverrides.set(ctor, cleanName);
+    // Default the class name to the clean name plus whatever suffix this ctor's own name carries —
+    // `OfficeTemplateEntity` forced to "WordTemplate" is Signum's `WordTemplateEntity`. Pass it
+    // explicitly where that does not hold (a part entity's suffix sits mid-name).
+    classNameOverrides.set(ctor, className ?? cleanName + trailingSuffix(ctor.name));
 
     // The clean index is keyed by the OLD name; move the entry rather than leaving both.
     if (cleanRegistry.get(previous) === ctor)

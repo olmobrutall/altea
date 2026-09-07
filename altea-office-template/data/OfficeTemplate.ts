@@ -288,7 +288,8 @@ export function useLegacyWordNames(): void {
     // The TYPES. `@legacyTableName` already gives each its Signum TABLE, but a clean name is identity in
     // three more places — `basics.type.clean_name`, the registered QUERY's key, and an @implementedBy
     // column's suffix — so without this a sync silently rewrote four clean_name values and offered four
-    // query keys as renames of unrelated queries.
+    // query keys as renames of unrelated queries. `basics.type.class_name` travels with it, defaulted to
+    // the clean name plus this ctor's own suffix ("WordTemplate" + "Entity" = Signum's WordTemplateEntity).
     renameCleanType(OfficeTemplateEntity, "WordTemplate");
     renameCleanType(OfficeModelEntity, "WordModel");
     renameCleanType(OfficeTransformerSymbol, "WordTransformer");
