@@ -6,6 +6,7 @@ import { ObjectPropertyToken } from "./objectPropertyToken";
 import { AsTypeToken } from "./asTypeToken";
 import type { Type, Entity } from "../../entity";
 import { DateToken } from "./dateToken";
+import { DatePartStartToken, type DatePartStartName } from "./datePartStartToken";
 import { ModuloToken } from "./moduloToken";
 import { CountToken } from "./countToken";
 import { CollectionElementToken, CollectionElementType } from "./collectionElementToken";
@@ -28,6 +29,7 @@ registerTokenFactories({
     // concrete entity type here, so narrow it to Type<Entity> for AsTypeToken's `.niceName()`.
     asType: (parent, entityCtor) => new AsTypeToken(parent, entityCtor as Type<Entity>),
     dateToken: (parent) => new DateToken(parent),
+    datePartStart: (parent, name) => new DatePartStartToken(parent, name as DatePartStartName),
     modulo: (parent, divisor) => new ModuloToken(parent, divisor),
     count: (parent) => new CountToken(parent),
     aggregate: (aggregateFunction, parent, options) => new AggregateToken(aggregateFunction as AggregateFunction, parent, options),

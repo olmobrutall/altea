@@ -40,6 +40,13 @@ export const QueryTokenMessage = {
 export const QueryTokenDateMessage = {
     Date: msg(),
     TimeOfDay: msg(),
+    // The DatePartStartToken names, with Signum's own [Description] texts.
+    QuarterStart: msg("Quarter Start"),
+    MonthStart: msg("Month Start"),
+    WeekStart: msg("Week Start"),
+    HourStart: msg("Hour Start"),
+    MinuteStart: msg("Minute Start"),
+    SecondStart: msg("Second Start"),
     Every01: msg("Every {0} {1}"),
     SplitQueries: msg("Split queries"),
     _0Steps1Rows2TotalRowsAprox: msg("{0} steps × {1} rows = {2} total rows (aprox)"),

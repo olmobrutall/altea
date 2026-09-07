@@ -48,8 +48,11 @@ But maybe you don't need it, this are the sub-tokens you can expect for each kin
 * an ENTITY reference (`isEntity`): use `SubTokens` to explore the sub-properties.
 * `DateTime` / `Date`: have many sub-tokens:
 	* `Year`, `Month`, `Day`, `Hour`, `Minute`, `Second`, `Millisecond` (number)
-	* `Date`, `HourStart`, `MinuteStart`, `SecondStart` (date)
-* `String`: only have one sub-token: `length` (number)
+	* `Date`, `QuarterStart`, `MonthStart`, `WeekStart`, `HourStart`, `MinuteStart`, `SecondStart` (date) — a
+	  `…Start` truncates to the start of that period, which is what a per-month axis groups by (`Month`
+	  alone is the number 9, so two Septembers a year apart share a bucket). A date-only column has the
+	  first three only.
+* `String`: only have one sub-token: `Length` (number)
 * Enums, `Boolean`, `Guid`: typically have no sub-tokens. 
 * Numbers have sub-tokens for grouping by range like `Step100`. If you need this functionality use `SubTokens`. 
 * COLLECTIONS (`isCollection`) have many sub-tokens:

@@ -362,24 +362,34 @@ export abstract class QueryToken {
     }
 
     // Signum's DateTimeProperties: the date/time part sub-tokens. Members are altea's binder names
-    // (quarter is a method; weekNumber is unsupported by the binder → skipped, as are the
-    // DatePartStart "Month/Quarter/… Start" and TimeOfDay tokens — Phase 3b+).
+    // (quarter is a method; weekNumber is unsupported by the binder → skipped, as is TimeOfDay).
+    // The `…Start` tokens are Signum's DatePartStartToken; its STEPPED variants (`Every 12 Hours`) are
+    // not ported — see datePartStartToken.
     protected dateTimeProperties(): QueryToken[] {
         const part = (name: string, method = false) =>
             tokenFactories!.objectProperty(this, name, TR_INT, capitalize(name), method);
+        const start = (name: string) => tokenFactories!.datePartStart(this, name);
         return [
             part("year"), part("quarter", true), part("month"),
             part("dayOfYear"), part("day"), part("dayOfWeek"),
             part("hour"), part("minute"), part("second"), part("millisecond"),
             tokenFactories!.dateToken(this),
+            start("QuarterStart"), start("MonthStart"), start("WeekStart"),
+            start("HourStart"), start("MinuteStart"), start("SecondStart"),
         ];
     }
 
-    // Signum's DateOnlyProperties: the date (no time) part sub-tokens.
+    // Signum's DateOnlyProperties: the date (no time) part sub-tokens. Only the three `…Start` tokens
+    // that truncate a DATE; the time-truncating ones have nothing to truncate here (Signum's
+    // GetMethodInfoDateOnly throws for them, so its DateOnlyProperties offers the same three).
     protected dateOnlyProperties(): QueryToken[] {
         const part = (name: string, method = false) =>
             tokenFactories!.objectProperty(this, name, TR_INT, capitalize(name), method);
-        return [part("year"), part("quarter", true), part("month"), part("dayOfYear"), part("day"), part("dayOfWeek")];
+        const start = (name: string) => tokenFactories!.datePartStart(this, name);
+        return [
+            part("year"), part("quarter", true), part("month"), part("dayOfYear"), part("day"), part("dayOfWeek"),
+            start("QuarterStart"), start("MonthStart"), start("WeekStart"),
+        ];
     }
 
     // Signum's EntityProperties: one EntityPropertyToken per queryable field of `type` (mixins
@@ -668,6 +678,7 @@ export interface TokenFactories {
     objectProperty(parent: QueryToken, memberName: string, resultType: TypeReference, displayName: string, isMethod: boolean, format?: string, unit?: string): QueryToken;
     asType(parent: QueryToken, entityCtor: Function): QueryToken;
     dateToken(parent: QueryToken): QueryToken;
+    datePartStart(parent: QueryToken, name: string): QueryToken;
     modulo(parent: QueryToken, divisor: number): QueryToken;
     count(parent: QueryToken): QueryToken;
     aggregate(aggregateFunction: string, parent: QueryToken | undefined, options?: { filterOperation?: string; value?: unknown; distinct?: boolean; queryName?: QueryName }): QueryToken;

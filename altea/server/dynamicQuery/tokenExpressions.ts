@@ -16,7 +16,7 @@ import { Entity } from "../../data/entity";
 import { RuntimeType, ClassType, LiteType, ArrayType, LiteralType } from "../runtimeTypes";
 import {
     QueryToken, RootToken, EntityPropertyToken, EntityToStringToken, HasValueToken, ObjectPropertyToken,
-    AsTypeToken, DateToken, ModuloToken, CountToken,
+    AsTypeToken, DateToken, DatePartStartToken, ModuloToken, CountToken,
     CollectionElementToken, CollectionAnyAllToken, CollectionAnyAllType, CollectionToArrayToken,
     AggregateToken, AggregateFunction, ExtensionToken,
     ManualContainerToken, ManualToken,
@@ -171,6 +171,14 @@ AsTypeToken.prototype.buildExpressionInternal = function (context: BuildExpressi
 
 DateToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
     return new PropertyExpression(this.parent!.buildExpression(context), "date");
+};
+
+// `x.monthStart()` / `x.truncHours()` … — the Temporal extensions the nominator already lowers to
+// date_trunc (Postgres) / DATEADD(DATEDIFF(…)) (SQL Server), and which evaluate in memory too. The
+// result keeps the receiver's temporal kind, which is what the token's own `type` says.
+DatePartStartToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
+    const base = this.parent!.buildExpression(context);
+    return new CallExpression(new PropertyExpression(base, this.member), [], base.type);
 };
 
 ModuloToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {

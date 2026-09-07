@@ -43,16 +43,20 @@ describe("date sub-tokens", () => {
 
     test("PlainDateTime exposes the date parts + Date + HasValue", () => {
         const keys = tokFrom(note(), "creationTime").subTokens(O).map((t: any) => t.key);
-        for (const k of ["year", "quarter", "month", "day", "dayOfWeek", "hour", "minute", "second", "Date", "HasValue"])
+        for (const k of ["Year", "Quarter", "Month", "Day", "DayOfWeek", "Hour", "Minute", "Second", "Date", "HasValue",
+            "QuarterStart", "MonthStart", "WeekStart", "HourStart", "MinuteStart", "SecondStart"])
             assert.ok(keys.includes(k), `missing ${k}`);
     });
 
     test("PlainDate exposes date-only parts (no hour/Date)", () => {
         const keys = tokFrom(note(), "creationDate").subTokens(O).map((t: any) => t.key);
-        assert.ok(keys.includes("year"));
-        assert.ok(keys.includes("day"));
-        assert.ok(!keys.includes("hour"));
+        assert.ok(keys.includes("Year"));
+        assert.ok(keys.includes("Day"));
+        assert.ok(!keys.includes("Hour"));
         assert.ok(!keys.includes("Date"));
+        // …and only the three …Start tokens that truncate a DATE (Signum offers the same three).
+        assert.ok(keys.includes("MonthStart"));
+        assert.ok(!keys.includes("HourStart"));
     });
 
     test("year part → property access; quarter → method call; Date → .date", () => {
@@ -105,6 +109,13 @@ describe("date/modulo bind to SQL end-to-end", () => {
             return (QueryFormatter.format(proj.select, false).sql + " ~~ " + String(proj.projector)).toLowerCase();
         });
     }
+
+    test("creationTime.MonthStart → a truncation over the column", () => {
+        // The token calls the Temporal extension the nominator already lowers: DATETRUNC on SQL Server,
+        // date_trunc on Postgres.
+        const sql = bind(NoteWithDateEntity, "creationTime.MonthStart");
+        assert.match(sql, /datetrunc\(month|date_trunc\('month'/);
+    });
 
     test("creationTime.Year → DATEPART/YEAR over the column", () => {
         const sql = bind(NoteWithDateEntity, "creationTime.year");
