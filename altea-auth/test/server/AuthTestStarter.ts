@@ -11,7 +11,9 @@ import { OperationAuthLogic } from "@altea/altea-auth/server/OperationAuthLogic"
 import { QueryAuthLogic } from "@altea/altea-auth/server/QueryAuthLogic";
 import { PropertyAuthLogic } from "@altea/altea-auth/server/PropertyAuthLogic";
 import { TypeConditionLogic } from "@altea/altea-auth/server/TypeConditionLogic";
-import { SampleEntity, SampleOperation, SampleTypeCondition } from "../data/sample";
+import { FilterQueryArgs } from "@altea/altea/server/schema/filterQueryArgs";
+import { TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
+import { SampleEntity, SampleLogEntity, SampleOperation, SampleTypeCondition, SampleLogTypeCondition } from "../data/sample";
 
 // Builds the connector + registers the sample domain and the FULL authorization stack — in the same order
 // as eastwind's Starter, so the tests exercise the engines exactly as the app wires them. No web builder
@@ -51,6 +53,18 @@ export namespace AuthTestStarter {
         TypeConditionLogic.registerCompile(SampleEntity, SampleTypeCondition.Public, s => s.confidential === false);
         // DB-ONLY (no in-memory predicate) → forces the fillTypeConditions SQL path for inTypeCondition.
         TypeConditionLogic.register(SampleEntity, SampleTypeCondition.HighValue, s => s.value > 0);
+
+        // The QUERY-AUDITOR condition (Signum's RegisterWhenAlreadyFilteringBy) — the exact registration
+        // Signum.DiffLog makes for OperationLogEntity, on the sample log: a log row is readable BECAUSE
+        // the caller pinned its `target` to something they may read.
+        sb.include(SampleLogEntity).withQuery();
+        TypeConditionLogic.registerWhenAlreadyFilteringBy(
+            SampleLogEntity, SampleLogTypeCondition.FilteringByTarget, {
+            property: l => l.target,
+            isConstantAuthorized: async target => target != null
+                && await TypeAuthLogic.isAllowedForLite(target, TypeAllowedBasic.Read, true, FilterQueryArgs.fromLite(target)),
+            useInDBForInMemoryCondition: false,
+        });
 
         OperationLogic.start(sb);
     }

@@ -27,7 +27,10 @@ import {
     RulePropertyEntity, RuleOperationEntity,
     TypeAllowed, PropertyAllowed, OperationAllowed, TypeConditionSymbol,
 } from "@altea/altea-auth/data/Rules";
-import { SampleEntity, SamplePanelEntity, SampleWidgetEntity, SampleOperation, SampleTypeCondition } from "../data/sample";
+import {
+    SampleEntity, SamplePanelEntity, SampleWidgetEntity, SampleLogEntity,
+    SampleOperation, SampleTypeCondition, SampleLogTypeCondition,
+} from "../data/sample";
 import { AuthTestStarter } from "./AuthTestStarter";
 
 // Shared bootstrap for the authorization suite (the altea-auth analog of altea-test/server/setup.ts). A
@@ -50,6 +53,12 @@ export const Roles = {
     Manager: "AuthTest_Manager",
     /** Union + no parents. Sample: fallback None + condition [Public] → Read (row-level). */
     Restricted: "AuthTest_Restricted",
+    /**
+     * Union, inherits Restricted (so Sample stays None + [Public]→Read). SampleLog: fallback None +
+     * condition [FilteringByTarget] → Read — the QUERY-AUDITOR condition, so this role sees a log row only
+     * while its query pins the log's target to a Sample it may read.
+     */
+    LogReader: "AuthTest_LogReader",
 } as const;
 
 // Close the pooled connection when a file's tests finish (each `node --test` file is its own process).
@@ -144,6 +153,7 @@ async function seed(): Promise<void> {
     const sales = await mkRole(Roles.Sales, MergeStrategy.Union, [await role(Roles.Base)]);
     const manager = await mkRole(Roles.Manager, MergeStrategy.Union, [sales]);
     const restricted = await mkRole(Roles.Restricted, MergeStrategy.Union, []);
+    const logReader = await mkRole(Roles.LogReader, MergeStrategy.Union, [restricted]);
 
     const typeId = TypeLogic.typeToId(SampleEntity);
     const typeLite = TypeEntity.newLite(typeId, cleanTypeName(SampleEntity));
@@ -175,6 +185,21 @@ async function seed(): Promise<void> {
         })],
     }).save();
 
+    // LogReader: the QUERY-AUDITOR condition on SampleLog — fallback None, [FilteringByTarget] → Read.
+    const logTypeLite = TypeEntity.newLite(TypeLogic.typeToId(SampleLogEntity), cleanTypeName(SampleLogEntity));
+    const filteringSym = TypeConditionSymbol.newLite(
+        SampleLogTypeCondition.FilteringByTarget.id, SampleLogTypeCondition.FilteringByTarget.key);
+    await RuleTypeEntity.create({
+        role: logReader.toLite(),
+        resource: logTypeLite,
+        fallback: TypeAllowed.None,
+        conditionRules: [RuleTypeConditionEntity.create({
+            order: toInt(0),
+            allowed: TypeAllowed.Read,
+            conditions: [RuleTypeConditionEntity_Condition.create({ symbol: filteringSym })],
+        })],
+    }).save();
+
     // Data rows for the STANDALONE-part filter test: two Samples partitioned by `confidential`, each with a
     // panel (which carries a widget). Saving the owner auto-wires each part's @backReference up the chain, so
     // `panel.sample` / `widget.panel.sample` resolve — the navigation the part filter rebases the root's
@@ -188,4 +213,11 @@ async function seed(): Promise<void> {
         name: "ConfidentialSample", secret: "s", confidential: true,
         panels: [SamplePanelEntity.create({ title: "P-conf", secret: "s", widgets: [SampleWidgetEntity.create({ caption: "W-conf" })] })],
     }).save();
+
+    // One log row about each Sample. LogReader may read the PUBLIC one's log (its target is readable) and
+    // not the confidential one's — but ONLY while the query says which target it is asking about.
+    const pub = await table(SampleEntity).filter(s => s.name == "PublicSample").single() as SampleEntity;
+    const conf = await table(SampleEntity).filter(s => s.name == "ConfidentialSample").single() as SampleEntity;
+    await SampleLogEntity.create({ action: "log-public", target: pub.toLite() }).save();
+    await SampleLogEntity.create({ action: "log-confidential", target: conf.toLite() }).save();
 }

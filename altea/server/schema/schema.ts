@@ -8,6 +8,7 @@ import { synchronizeSchemasScript, synchronizeTablesScript, synchronizeEnumsScri
 import type { Replacements } from '../sync/synchronizer';
 import { SchemaAssets } from '../sync/schemaAssets';
 import { EntityEvents, type QueryFilterContext } from './entityEvents';
+import type { Expression } from '../linq/expressions';
 import { Connector } from '../connection/connector';
 import type { Table } from './table';
 import { ViewBuilder } from './viewBuilder';
@@ -126,14 +127,19 @@ export class Schema {
     // ALL of them just before translating each query (buildQueryFilterContext) and hands the resulting
     // opaque QueryFilterContext to the sync `queryFilter` handlers, which read their own key back. Keeping
     // the load HERE (once per query, async) means no cache has to be kept permanently warm.
-    readonly queryFilterProviders = new Map<string, () => Promise<unknown>>();
+    // A provider is handed the QUERY about to be translated, so a row filter whose answer depends on the
+    // caller's own filters (Signum's RegisterWhenAlreadyFilteringBy) can do its ASYNC work here — Signum
+    // audits the query inside the binder because its auth caches are always warm and its DB reads are
+    // synchronous; altea has neither, so the audit moves to this phase, which is the only place that has
+    // both the query and the ability to await. Undefined for a caller with no query (schema-level checks).
+    readonly queryFilterProviders = new Map<string, (query: Expression | undefined) => Promise<unknown>>();
 
-    async buildQueryFilterContext(): Promise<QueryFilterContext> {
+    async buildQueryFilterContext(query?: Expression): Promise<QueryFilterContext> {
         if (this.queryFilterProviders.size === 0)
             return EMPTY_QUERY_FILTER_CONTEXT;
         const ctx = new Map<string, unknown>();
         for (const [key, provider] of this.queryFilterProviders)
-            ctx.set(key, await provider());
+            ctx.set(key, await provider(query));
         return ctx;
     }
 

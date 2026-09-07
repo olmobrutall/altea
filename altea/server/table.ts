@@ -26,6 +26,7 @@ import { QueryFormatter } from "./linq/queryFormatter";
 import { TypeLogic, type TypeCaches } from "./typeLogic";
 import type { Schema } from "./schema/schema";
 import type { QueryFilterContext } from "./schema/entityEvents";
+import { setQuerySourceFactory } from "./schema/filterQueryArgs";
 import { HeavyProfiler } from "./profiler/heavyProfiler";
 import type { CacheController } from "./cache";
 
@@ -84,6 +85,10 @@ export function sqlMethodQuery<T extends View>(marker: Function, viewType: ViewT
     );
     return new Query<T>(call, MyQueryTranslator.instance);
 }
+
+// The query ROOT, handed to the schema layer so FilterQueryArgs can build a `table(T)` source without
+// importing this module (which imports it) — see filterQueryArgs.ts's note.
+setQuerySourceFactory(ctor => table(ctor as Type<Entity>).expression as CallExpression);
 
 quotedFunction(table).__resultType = (_, entityTypeType) => new ArrayType(new ClassType((entityTypeType as FunctionType).func!));
 quotedFunction(view).__resultType = (_, viewTypeType) => new ArrayType(new ClassType((viewTypeType as FunctionType).func!));
@@ -182,7 +187,9 @@ export async function bindOptimizeSecured(expression: Expression, schema: Schema
     // caches' own load (re-entrant `table(TypeEntity)`), where no discriminator arises. `ready()` also
     // warms the box for the downstream sync readers (optimiser visitors, Retriever).
     const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.ready(schema);
-    const filterContext = await schema.buildQueryFilterContext();
+    // The query goes to the providers: a row filter whose answer depends on the caller's own filters does
+    // its async work there (see Schema.queryFilterProviders).
+    const filterContext = await schema.buildQueryFilterContext(expression);
     return bindAndOptimize(expression, schema, isPostgres, alreadySimplified, filterContext, typeCaches);
 }
 
@@ -305,7 +312,7 @@ class MyQueryTranslator implements IQueryTranslator {
         const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.ready(connector.schema);
         // Row-level security applies to the SELECT that feeds an unsafe UPDATE/DELETE too (you may only
         // touch rows you can see): resolve the context async, then bind the command with it.
-        const filterContext = await connector.schema.buildQueryFilterContext();
+        const filterContext = await connector.schema.buildQueryFilterContext(expression);
         const simplified = OverloadingSimplifier.simplify(expression);
         const binder = new QueryBinder(connector.schema, connector.isPostgres, filterContext, typeCaches);
         const command = binder.bindCommand(simplified);

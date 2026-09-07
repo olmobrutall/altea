@@ -19,7 +19,14 @@ import { TypeConditionLogic } from "./TypeConditionLogic";
 // altea divergences: Signum lowers a SymbolNode with `Expression.Invoke(lambda, entity)`; altea has no
 // Invoke node, so we SUBSTITUTE the predicate lambda's parameter with the shared entity parameter (a
 // ParameterExpression visitor) and splice its body directly — semantically identical, and it lowers to
-// SQL cleanly (no invoke to inline). The QueryAuditor path (args-dependent conditions) is not ported.
+// SQL cleanly (no invoke to inline).
+//
+// A QUERY-AUDITOR condition (Signum's RegisterWhenAlreadyFiltering*) has no predicate of its own: its
+// verdict comes from auditing the CALLER'S query, which altea resolves one phase earlier (async — see
+// TypeConditionLogic's header). Such a symbol's lambda therefore arrives pre-resolved in
+// `auditedConditions` and is spliced in exactly like a registered predicate. A SymbolNode with neither is
+// a registration bug, and is treated as NOT satisfied rather than crashing a query: a type condition can
+// only ever GRANT access, so denying is the safe reading.
 
 // Re-base a quoted predicate's body onto a shared parameter (Signum's ExpressionReplacer.Replace for the
 // single lambda parameter) — each fromQuotedLambda call mints its own ParameterExpression instance.
@@ -121,6 +128,8 @@ export function buildAuthFilter(
     wc: WithConditions<TypeAllowed>,
     requested: TypeAllowedBasic,
     userInterface: boolean,
+    /** Pre-resolved verdicts for this type's QUERY-AUDITOR conditions — see the header. */
+    auditedConditions?: ReadonlyMap<TypeConditionSymbol, LambdaExpression>,
 ): AuthFilter {
     const node = simplify(toNode(wc, requested, userInterface));
     const cv = node.constantValue();
@@ -133,7 +142,9 @@ export function buildAuthFilter(
         if (c === true) return new ConstantExpression(true, LiteralType.boolean);
         if (c === false) return new ConstantExpression(false, LiteralType.boolean);
         if (n instanceof SymbolNode) {
-            const lambda = Expression.fromQuotedLambda(TypeConditionLogic.getCondition(ctor, n.symbol), [elementType]);
+            const lambda = symbolLambda(ctor, elementType, n.symbol, auditedConditions);
+            if (lambda == null)
+                return new ConstantExpression(false, LiteralType.boolean);
             return new ParamReplacer(lambda.parameters[0], param).visit(lambda.body);
         }
         if (n instanceof NotNode) return new UnaryExpression("!", toExpr(n.operand));
@@ -142,6 +153,20 @@ export function buildAuthFilter(
         throw new Error("toExpr: unexpected node");
     };
     return new LambdaExpression([param], toExpr(node));
+}
+
+// The predicate for ONE symbol: the audited verdict when this is a query-auditor condition, else the
+// registered `@quoted` predicate. Undefined when it is an auditor condition whose verdict was not
+// resolved — see the header on why that denies rather than throws.
+function symbolLambda(
+    ctor: Function,
+    elementType: RuntimeType,
+    symbol: TypeConditionSymbol,
+    auditedConditions: ReadonlyMap<TypeConditionSymbol, LambdaExpression> | undefined,
+): LambdaExpression | undefined {
+    if (TypeConditionLogic.isQueryAuditor(ctor, symbol))
+        return auditedConditions?.get(symbol);
+    return Expression.fromQuotedLambda(TypeConditionLogic.getCondition(ctor, symbol), [elementType]);
 }
 
 // The row-filter as a boolean LambdaExpression for the LINQ binder's `EntityEvents.queryFilter` hook:

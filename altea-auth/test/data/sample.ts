@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, uniqueIndex, quoted, stringLengthValidator, backReference } from "@altea/altea/data/decorators";
+import { entity, uniqueIndex, quoted, stringLengthValidator, backReference, implementedByAll } from "@altea/altea/data/decorators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
@@ -59,6 +59,34 @@ export class SampleWidgetEntity extends Entity {
 export namespace SampleOperation {
     export const Save: ExecuteSymbol<SampleEntity> = init();
     export const Delete: DeleteSymbol<SampleEntity> = init();
+}
+
+/**
+ * A stand-in for Signum's OperationLogEntity, for the QUERY-AUDITOR condition: ONE table holding rows
+ * ABOUT other entities, so "may this role read a log row" is really "may it read the row the log is
+ * about" — and that can only be decided from the query the caller wrote. See
+ * SampleLogTypeCondition.FilteringByTarget and TypeConditionLogic.registerWhenAlreadyFilteringBy.
+ *
+ * `target` is @implementedByAll, as OperationLogEntity.target is: a log row can be about anything.
+ */
+@reflect
+@entity("System", "Transactional")
+export class SampleLogEntity extends Entity {
+    @implementedByAll target: Lite<Entity> | null = null;
+
+    @stringLengthValidator({ min: 1, max: 100 })
+    action: string;
+
+    @quoted
+    toString(): string {
+        return this.action;
+    }
+}
+
+// The condition on SampleLogEntity, registered as a QUERY AUDITOR (Signum's
+// OperationLogTypeCondition.FilteringByTarget).
+export namespace SampleLogTypeCondition {
+    export const FilteringByTarget: TypeConditionSymbol = init();
 }
 
 // Row-level type conditions on SampleEntity (evaluated in-memory by the engine tests, and lowered to SQL

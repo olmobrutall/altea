@@ -3,7 +3,8 @@ import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // withQuery
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { ResetLazy } from "@altea/altea/data/resetLazy";
 import { table } from "@altea/altea/server/table";
-import { CallExpression, LambdaExpression, PropertyExpression, UnaryExpression } from "@altea/altea/server/linq/expressions";
+import { ExecutionMode } from "@altea/altea/server/executionMode";
+import { CallExpression, type Expression, LambdaExpression, PropertyExpression, UnaryExpression } from "@altea/altea/server/linq/expressions";
 import { ClassType, LiteralType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
 import type { QueryFilterContext } from "@altea/altea/server/schema/entityEvents";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
@@ -33,6 +34,7 @@ import { TypeConditionLogic } from "./TypeConditionLogic";
 import { WithConditions, ConditionRule, maxBound, minBound, maxDB, maxUI } from "./WithConditions";
 import { mergeTypeConditions } from "./TypeConditionMerger";
 import { buildAuthFilter, authFilterLambda, rebasePartFilter, conditionValueLambda } from "./TypeConditionAlgebra";
+import { FilterQueryArgs, findQuerySources, querySourceCtor } from "@altea/altea/server/schema/filterQueryArgs";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { section, groupByRole, attrs, conditionsXml, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
@@ -90,6 +92,12 @@ export namespace TypeAuthLogic {
     // pays one async resolve per query.
     const QUERY_FILTER_KEY = "altea-auth:typeConditions";
     type ConditionsByType = Map<PrimaryKey, WithConditions<TypeAllowed>>;
+    // A QUERY-AUDITOR condition's verdict for the query being translated, per conditioned type. Resolved
+    // in the SAME async provider phase as the WithConditions above, because auditing the caller's query
+    // reads the database (see TypeConditionLogic.registerWhenAlreadyFilteringBy) and the binder cannot
+    // await. Empty for the types — nearly all of them — that have no such condition.
+    type AuditedByType = Map<PrimaryKey, Map<TypeConditionSymbol, LambdaExpression>>;
+    interface RowSecurity { readonly conditions: ConditionsByType; readonly audited: AuditedByType; }
     // Part ctor → its ROOT owner's ctor (see PartOwnership). A Part inherits the root's allowance, so it
     // never gets its own rule and never shows in the grid. Keyed by CTOR (not typeId) because it is built at
     // schema.initialize — which also runs BEFORE generation, when a brand-new Part type has no TypeEntity id
@@ -118,7 +126,9 @@ export namespace TypeAuthLogic {
         if (started)
             return;
         started = true;
-        sb.include(RuleTypeEntity).withQuery();
+        // NO `withQuery()`: Signum includes its rule tables without one (its rule ADMIN is a purpose-built
+        // page, not a SearchControl), so a Signum database has no `basics.query` row for RuleType.
+        sb.include(RuleTypeEntity);
         // Type conditions: seed the TypeConditionSymbol table + register the framework predicates
         // (Signum's TypeAuthLogic.Start → TypeConditionLogic.Start + the DeactivatedUsers RegisterCompile).
         TypeConditionLogic.start(sb);
@@ -174,6 +184,11 @@ export namespace TypeAuthLogic {
                 const specs = sb.schema.entityEvents(ctor as Type<Entity>).additionalBindings;
                 for (const tc of TypeConditionLogic.conditionsFor(ctor)) {
                     if (TypeConditionLogic.hasInMemoryCondition(ctor, tc))
+                        continue;
+                    // A QUERY-AUDITOR condition has no predicate to fold into the SELECT: its answer is
+                    // about the caller's query, not the row. Its per-instance value comes from
+                    // fillTypeConditions instead (see TypeConditionLogic).
+                    if (TypeConditionLogic.isQueryAuditor(ctor, tc))
                         continue;
                     specs.push({
                         valueLambda: conditionValueLambda(ctor, elementType, tc),
@@ -274,11 +289,14 @@ export namespace TypeAuthLogic {
     // the current role's typeId → WithConditions map — never the DB. No entry (no role / auth disabled) or
     // no condition for this type → no filter (undefined).
     function authQueryFilterHook(ctx: { ctor: Function; elementType: RuntimeType; filterContext: QueryFilterContext }): LambdaExpression | undefined {
-        const map = ctx.filterContext.get(QUERY_FILTER_KEY) as ConditionsByType | undefined;
-        const wc = map?.get(TypeLogic.typeToId(ctx.ctor));
-        if (wc == null)
+        const rs = ctx.filterContext.get(QUERY_FILTER_KEY) as RowSecurity | undefined;
+        const typeId = rs == null ? undefined : TypeLogic.typeToId(ctx.ctor);
+        const wc = typeId == null ? undefined : rs!.conditions.get(typeId);
+        if (wc == null || typeId == null)
             return undefined;
-        return authFilterLambda(buildAuthFilter(ctx.ctor, ctx.elementType, wc, TypeAllowedBasic.Read, true), ctx.elementType);
+        return authFilterLambda(
+            buildAuthFilter(ctx.ctor, ctx.elementType, wc, TypeAllowedBasic.Read, true, rs!.audited.get(typeId)),
+            ctx.elementType);
     }
 
     // Standalone-part row filter (installed per back-reference Part in `start`): rebase the ROOT owner's
@@ -288,11 +306,15 @@ export namespace TypeAuthLogic {
     // or the root reduces to "all" → no filter.
     function partAuthQueryFilterHook(rootCtor: Function, chain: readonly string[]) {
         return (ctx: { ctor: Function; elementType: RuntimeType; filterContext: QueryFilterContext }): LambdaExpression | undefined => {
-            const map = ctx.filterContext.get(QUERY_FILTER_KEY) as ConditionsByType | undefined;
-            const wc = map?.get(TypeLogic.typeToId(rootCtor));
+            const rs = ctx.filterContext.get(QUERY_FILTER_KEY) as RowSecurity | undefined;
+            if (rs == null)
+                return undefined;
+            const rootTypeId = TypeLogic.typeToId(rootCtor);
+            const wc = rs.conditions.get(rootTypeId);
             if (wc == null)
                 return undefined;
-            const rootFilter = buildAuthFilter(rootCtor, new ClassType(rootCtor), wc, TypeAllowedBasic.Read, true);
+            const rootFilter = buildAuthFilter(rootCtor, new ClassType(rootCtor), wc, TypeAllowedBasic.Read, true,
+                rs.audited.get(rootTypeId));
             return rebasePartFilter(rootFilter, ctx.elementType, chain);
         };
     }
@@ -301,16 +323,32 @@ export namespace TypeAuthLogic {
     // map — typeId → WithConditions for every conditioned type — that the sync hook reads during binding.
     // Returns undefined (→ no filtering) when there is no current role or auth is disabled. Runs the async
     // getAllowed (rulesLazy + role-graph merge) once per query, so no cache is kept permanently warm.
-    async function buildCurrentRoleConditions(): Promise<ConditionsByType | undefined> {
+    async function buildCurrentRoleConditions(query?: Expression): Promise<RowSecurity | undefined> {
         const rk = AuthLogic.currentRoleKey();
         if (rk == null || !AuthLogic.isEnabled())
             return undefined;
-        const map: ConditionsByType = new Map();
+        const conditions: ConditionsByType = new Map();
+        const audited: AuditedByType = new Map();
+        // The query's own table sources, so a query-auditor condition can be given the SAME
+        // FilterQueryArgs the binder would build for that source (Signum constructs it inside the binder;
+        // altea has to do the async part before binding starts — see TypeConditionLogic's header).
+        const sources = query == null ? [] : findQuerySources(query);
         for (const ctor of TypeConditionLogic.types()) {
             const typeId = TypeLogic.typeToId(ctor);
-            map.set(typeId, await getAllowed(typeId, rk));
+            conditions.set(typeId, await getAllowed(typeId, rk));
+
+            if (query == null || !TypeConditionLogic.hasQueryAuditorConditions(ctor))
+                continue;
+            // Exactly one source for this type is the auditable case. None means the type is not in this
+            // query at all (nothing to audit); several means the query reads it twice and "the caller
+            // already constrained it" has no single answer — Signum's FindBaseQueryVisitor refuses the
+            // same shape. Both leave the verdict unresolved, which the algebra reads as "not satisfied".
+            const own = sources.filter(s => querySourceCtor(s) === ctor);
+            if (own.length !== 1)
+                continue;
+            audited.set(typeId, await TypeConditionLogic.auditQueryConditions(ctor, new FilterQueryArgs(query, own[0])));
         }
-        return map;
+        return { conditions, audited };
     }
 
     // Write gate (Signum's Schema_Saving per-instance check): block saving a row that a type CONDITION
@@ -470,6 +508,7 @@ export namespace TypeAuthLogic {
         // Some of this role's condition rules may reference DB-only conditions (no in-memory predicate);
         // pre-evaluate them against this entity in SQL so the sync inTypeCondition below can read the result
         // (a no-op when every condition is registerCompile'd — the common case). Signum fills at retrieve.
+        // A QUERY-AUDITOR condition is filled here too, from its async per-instance predicate.
         await TypeConditionLogic.fillTypeConditions([entity]);
         for (let i = tac.conditionRules.length - 1; i >= 0; i--) {
             const cond = tac.conditionRules[i];
@@ -477,6 +516,56 @@ export namespace TypeAuthLogic {
                 return typeAllowedGet(cond.allowed, userInterface) >= requested;
         }
         return typeAllowedGet(tac.fallback, userInterface) >= requested;
+    }
+
+    /**
+     * Signum's `IsAllowedFor(this Lite<IEntity> lite, allowed, inUserInterface, args)` — may the current
+     * role reach THIS ROW, asked of a lite rather than a loaded entity.
+     *
+     * Signum answers it with `lite.InDB().WhereIsAllowedFor(...).Any()` inside `DisableQueryFilter()`:
+     * compile the role's rules into the same predicate the row filter is made of and ask the database
+     * whether that one row passes. This is the same query, built at expression level for the same reason
+     * `anySelectedReadonly` is (the predicate only exists at runtime), and run in
+     * `ExecutionMode.global` — altea's DisableQueryFilter — so the read is not itself row-filtered.
+     *
+     * `args` is passed through to the TARGET type's own QUERY-AUDITOR conditions: "may I read this row"
+     * can itself depend on how the row was asked for, and the row filter would evaluate those conditions
+     * too. Signum threads the same FilterQueryArgs down to `GetCondition`.
+     */
+    export async function isAllowedForLite(
+        lite: Lite<Entity>,
+        requested: TypeAllowedBasic,
+        userInterface: boolean,
+        args?: FilterQueryArgs,
+        roleKey?: string,
+    ): Promise<boolean> {
+        const rk = roleKey ?? AuthLogic.currentRoleKey();
+        if (rk == null || !AuthLogic.isEnabled())
+            return true;
+
+        const ctor = lite.entityType as Type<Entity>;
+        const typeId = TypeLogic.typeToId(ctor);
+        const wc = await getAllowed(typeId, rk);
+        if (minBound(wc, userInterface) >= requested)
+            return true;
+        if (maxBound(wc, userInterface) < requested)
+            return false;
+
+        const audited = args != null && TypeConditionLogic.hasQueryAuditorConditions(ctor)
+            ? await TypeConditionLogic.auditQueryConditions(ctor, args)
+            : undefined;
+
+        return await ExecutionMode.global(async () => {
+            const q = table(ctor).filter((e: Entity) => e.is(lite));
+            const filter = buildAuthFilter(ctor, q.elementType, wc, requested, userInterface, audited);
+            if (filter === "all")
+                return true;
+            if (filter === "none")
+                return false;
+            const some = new CallExpression(
+                new PropertyExpression(q.expression, "some"), [filter], LiteralType.boolean);
+            return (await q.translator.execute(some)) === true;
+        });
     }
 
     // The value a role would get for a type with NO explicit rule (Signum's AuthCache.GetAllowedBase).

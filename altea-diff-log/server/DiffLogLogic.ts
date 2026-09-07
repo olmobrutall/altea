@@ -8,7 +8,12 @@ import { Entity } from "@altea/altea/data/entity";
 
 import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import { ObjectDumper } from "@altea/altea/data/objectDumper";
-import { DiffLogMixin } from "../data/DiffLog";
+import { OperationLogEntity } from "@altea/altea/data/operationLog";
+import { FilterQueryArgs } from "@altea/altea/server/schema/filterQueryArgs";
+import { TypeConditionLogic } from "@altea/altea-auth/server/TypeConditionLogic";
+import { TypeAuthLogic } from "@altea/altea-auth/server/TypeAuthLogic";
+import { TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
+import { DiffLogMixin, OperationLogTypeCondition } from "../data/DiffLog";
 import { DiffLogServer } from "./DiffLogServer";
 
 // Port of Signum.DiffLog's DiffLogLogic.cs — it registers ONE surround-operation handler, and that handler
@@ -27,9 +32,10 @@ import { DiffLogServer } from "./DiffLogServer";
 //    really the initial state" is the same check, one call instead of a graph walk.
 //  - `CultureInfoUtils.ChangeBothCultures(Schema.ForceCultureInfo)` is dropped: altea's ObjectDumper formats
 //    invariantly by construction (see its header), so there is no culture to pin.
-//  - `TypeConditionLogic.RegisterWhenAlreadyFilteringBy(OperationLogTypeCondition.FilteringByTarget, …)` is
-//    NOT ported — altea has no "only while the query already filters by this property" condition kind. The
-//    symbol is still declared (see data/DiffLog.ts) so a role rule can reference it later.
+//  - `TypeConditionLogic.RegisterWhenAlreadyFilteringBy(OperationLogTypeCondition.FilteringByTarget, …)` IS
+//    ported, with one thing about it necessarily different: altea's auditor is ASYNC and runs in the
+//    row-security provider phase rather than inside the binder, because deciding it reads the database and
+//    altea has no synchronous DB (see TypeConditionLogic's header). Same registration, same semantics.
 export namespace DiffLogLogic {
 
     /** Signum's `ShouldLog` — per entity type, "is this worth dumping?". Keyed by ctor; base types apply. */
@@ -63,6 +69,27 @@ export namespace DiffLogLogic {
             throw new Error("DiffLogLogic.start: DiffLogMixin is not declared on OperationLogEntity."
                 + " Call DiffLogMixin.declare() from the app's shared entity-overrides module (BOTH tiers)"
                 + " before building the schema.");
+
+        // Signum's `TypeConditionLogic.RegisterWhenAlreadyFilteringBy(OperationLogTypeCondition
+        // .FilteringByTarget, property: ol => ol.Target, isConstantAuthorized: e => e != null &&
+        // TypeAuthLogic.IsAllowedFor(e, Read, true, FilterQueryArgs.FromLite(e)),
+        // useInDBForInMemoryCondition: false)`.
+        //
+        // What the condition says: you may see an operation log BECAUSE you asked for the logs of ONE
+        // entity that you are allowed to read. It is the answer to a real problem — the operation log is a
+        // single table across every type in the application, so a role that may read it at all could
+        // otherwise read the audit trail of rows it cannot see — and it cannot be expressed as a predicate
+        // over the log row, only over the QUERY that asked for it. Hence the auditor.
+        //
+        // `useInDBForInMemoryCondition: false`: the per-instance path reads `target` off the log in hand
+        // (the log always carries it) rather than going back to the database for it.
+        TypeConditionLogic.registerWhenAlreadyFilteringBy(
+            OperationLogEntity, OperationLogTypeCondition.FilteringByTarget, {
+            property: ol => ol.target,
+            isConstantAuthorized: async target => target != null
+                && await TypeAuthLogic.isAllowedForLite(target, TypeAllowedBasic.Read, true, FilterQueryArgs.fromLite(target)),
+            useInDBForInMemoryCondition: false,
+        });
 
         if (options?.registerAll ?? false)
             registerShouldLog(Entity, () => true);

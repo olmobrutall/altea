@@ -52,6 +52,7 @@ function expandLiteHintOf(v: ExpandLite): ExpandLiteHint {
 }
 import type { Schema } from "../../schema/schema";
 import type { QueryFilterContext } from "../../schema/entityEvents";
+import { FilterQueryArgs } from "../../schema/filterQueryArgs";
 import type { Table } from "../../schema/table";
 import type { EntityField } from "../../schema/field";
 import {
@@ -3017,7 +3018,10 @@ export class QueryBinder extends ExpressionVisitor {
         if (hooks.length === 0)
             return undefined;
         const elementType = new ClassType(ctor);
-        const lambdas = hooks.map(h => h({ ctor, elementType, filterContext: this.filterContext })).filter((l): l is LambdaExpression => l != null);
+        // Signum's `new FilterQueryArgs(this.rootExpression, (ConstantExpression)query.Expression)`: the
+        // whole query being translated, plus THIS table source — the node the WHERE is about to wrap.
+        const args = this.root == null ? undefined : new FilterQueryArgs(this.root, source);
+        const lambdas = hooks.map(h => h({ ctor, elementType, filterContext: this.filterContext, args })).filter((l): l is LambdaExpression => l != null);
         if (lambdas.length === 0)
             return undefined;
         return new CallExpression(new PropertyExpression(source, "filter"), [combineFilterLambdas(lambdas, elementType)], source.type);

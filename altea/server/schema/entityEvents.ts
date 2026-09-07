@@ -3,6 +3,7 @@ import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
 import type { Query } from '../query';
 import type { LambdaExpression } from '../linq/expressions';
 import type { RuntimeType } from '../runtimeTypes';
+import type { FilterQueryArgs } from './filterQueryArgs';
 
 // Port of Signum's EntityEvents<T> (Engine/Schema/EntityEvents.cs): the per-entity-type hook
 // surface the engine fires as it interacts with a type (save, retrieve, delete, unsafe DML,
@@ -53,12 +54,21 @@ export type PreBulkInsertHandler = () => void;
 // to the shape they stored. Empty when no provider is registered.
 export type QueryFilterContext = ReadonlyMap<string, unknown>;
 
+
 // Signum's FilterQuery: contribute a boolean predicate (a LambdaExpression over the entity `elementType`)
 // that the LINQ binder splices as a WHERE onto EVERY query of T — Database.retrieve, dynamic queries,
 // navigations — so row-level security applies uniformly. SYNCHRONOUS (the binder is sync): a handler reads
 // what it needs synchronously from `filterContext` (populated async before translation — see
 // Schema.buildQueryFilterContext), never the DB. Returns undefined for "no restriction".
-export type QueryFilterHandler = (ctx: { ctor: Function; elementType: RuntimeType; filterContext: QueryFilterContext }) => LambdaExpression | undefined;
+export type QueryFilterHandler = (ctx: {
+    ctor: Function;
+    elementType: RuntimeType;
+    filterContext: QueryFilterContext;
+    // Signum's `FilterQueryArgs` — the query this filter is being spliced into. A filter that only asks
+    // "what may this role read" ignores it; one whose answer depends on what the CALLER already filtered by
+    // needs it (see FilterQueryArgs). Undefined only where a filter is being built outside a translation.
+    args: FilterQueryArgs | undefined;
+}) => LambdaExpression | undefined;
 
 // Signum's RegisterBinding / AdditionalBindings: a value the binder folds into the retrieval SELECT of T
 // (bound against the retrieved entity's own columns — no source navigation) and the projector stamps onto
