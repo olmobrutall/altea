@@ -107,7 +107,15 @@ export namespace SMSLogic {
 
     export function start(
         sb: SchemaBuilder,
-        options: { provider?: ISMSProvider; getConfiguration: () => SMSConfigurationEmbedded },
+        options: {
+            provider?: ISMSProvider;
+            getConfiguration: () => SMSConfigurationEmbedded;
+            /** The SMSModel registry — its search page and the CreateSMSTemplateFromModel operation.
+             *  Signum has no caller for `SMSModelLogic.Start` at all, so it is the APP that opts in (Southwind
+             *  does not, and its database has the sms_model TABLE — referenced by SMSTemplate.model —
+             *  with neither a query row nor that operation). Default: on. */
+            models?: boolean;
+        },
     ): void {
         if (sb.alreadyDefined(start))
             return;
@@ -140,7 +148,8 @@ export namespace SMSLogic {
             () => table(SMSTemplateEntity).toArray() as Promise<SMSTemplateEntity[]>,
             { invalidateWith: [SMSTemplateEntity] });
 
-        SMSModelLogic.start(sb);
+        if (options.models !== false)
+            SMSModelLogic.start(sb);
 
         // Signum's PreSaving: re-print each message through the parser, so a stored template is in canonical
         // form AND a syntax error is caught at save time rather than at send time.

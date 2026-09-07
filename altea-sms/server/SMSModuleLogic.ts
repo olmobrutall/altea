@@ -20,14 +20,22 @@ export namespace SMSModuleLogic {
             getConfiguration: () => SMSConfigurationEmbedded;
             /** Signum's `provider` argument. Southwind passes null — see SMSLogic's ISMSProvider note. */
             provider?: ISMSProvider;
-            /** The send / update-status processes and the scheduled status refresh. Default: on. */
+            /** The send / update-status processes and the scheduled status refresh. Default: on.
+             *  Southwind starts none of them: its `SMSLogic.Start(sb, null, …)` reaches neither
+             *  SMSMessageProcessLogic nor the status task. */
             processes?: boolean;
+            /** The SMSModel registry — see SMSLogic.start. Default: on. */
+            models?: boolean;
         },
     ): void {
         if (sb.alreadyDefined(start))
             return;
 
-        SMSLogic.start(sb, { provider: options.provider, getConfiguration: options.getConfiguration });
+        SMSLogic.start(sb, {
+            provider: options.provider,
+            getConfiguration: options.getConfiguration,
+            models: options.models,
+        });
 
         if (options.processes !== false)
             SMSProcessLogic.start(sb);

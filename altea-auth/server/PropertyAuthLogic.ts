@@ -168,7 +168,8 @@ export namespace PropertyAuthLogic {
         // Signum's own placement (PropertyAuthLogic.Start is the only caller of PropertyRouteLogic.Start):
         // a property rule POINTS at a route row, so this module owns bringing the table along.
         PropertyRouteLogic.start(sb);
-        sb.include(RulePropertyEntity).withQuery();
+        // No `withQuery()` — see TypeAuthLogic.
+        sb.include(RulePropertyEntity);
 
         // Signum's `EntityEvents<PropertyRouteEntity>().PreDeleteSqlSync` (PropertyAuthLogic.cs): a route
         // the sync is REMOVING — one naming a property the type no longer has — takes the rules that

@@ -82,7 +82,8 @@ export namespace OperationAuthLogic {
             return;
         started = true;
         TypeAuthLogic.registerDimensionSummary("operations", fallbackSummary); // grid icon colour summary
-        sb.include(RuleOperationEntity).withQuery();
+        // No `withQuery()` — see TypeAuthLogic.
+        sb.include(RuleOperationEntity);
         // Signum's `sb.GlobalLazy(rules, InvalidateWith(RuleOperation, Role))`. globalLazy runs the factory
         // in ExecutionMode.global, so the RuleOperation read is ungated.
         rulesLazy = sb.globalLazy(async () => new OperationRulesCache(await loadRules(), await AuthLogic.roleGraph()),

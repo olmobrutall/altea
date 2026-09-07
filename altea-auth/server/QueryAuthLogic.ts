@@ -82,7 +82,8 @@ export namespace QueryAuthLogic {
         started = true;
         TypeAuthLogic.registerDimensionSummary("queries", fallbackSummary); // grid icon colour summary
         QueryLogic.start(sb);                       // the QueryEntity seeding prerequisite
-        sb.include(RuleQueryEntity).withQuery();     // unique index [role, resource] already on the entity
+        // No `withQuery()` — see TypeAuthLogic. (The unique index [role, resource] is on the entity.)
+        sb.include(RuleQueryEntity);
         // invalidateWith RuleType too: the no-rule default auto-upgrades to the query's TYPE read allowance,
         // so a type-rule change must reset the query cache.
         rulesLazy = sb.globalLazy(async () => new QueryRulesCache(await loadRules(), await AuthLogic.roleGraph(), await TypeAuthLogic.rulesCache()),
