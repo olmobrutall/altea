@@ -539,6 +539,11 @@ export function format(formatString: string) {
     };
 }
 
+// @decimalsValidator(4) — Signum's [DecimalsValidator]: at most n decimal places, and the source of the
+// column's SCALE and the display FORMAT (see validators.ts). Re-exported here so an entity author reaches
+// it beside @format / @unit / @column, the three things it replaces.
+export { decimalsValidator } from './validators';
+
 // @unit("€") / @unit("Kg") — the unit symbol shown read-only beside the value.
 export function unit(unitName: string) {
     return function (target: object, propertyKey: string | symbol): void {

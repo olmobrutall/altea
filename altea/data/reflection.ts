@@ -284,6 +284,10 @@ export class FieldInfo extends TypeReference {
     isReadOnly?: boolean;
     format?: string;
     unit?: string;
+    // Signum's [DecimalsValidator(n)].DecimalPlaces, recorded here by `@decimalsValidator` because two
+    // readers that cannot see the validator list need it: the SCHEMA (the column's scale — Signum's
+    // SchemaSettings.GetSqlScale) and the DISPLAY FORMAT below (Reflector.GetFormatString's "N" + n).
+    decimalPlaces?: number;
     isMultiline?: boolean;
     maxLength?: number;
     // Signum's `MemberInfo.notVisible` — this field is an implementation detail, not a user-facing
@@ -719,9 +723,15 @@ export function getTypeInfo(target: object): TypeInfo | undefined {
 // else has no default (the UI falls back to the locale default). Both altea decimal spellings resolve
 // here: the branded `decimal` alias (typeName "Number", subTypeName "decimal") and a `Decimal` value
 // type. Used wherever a format is read — Lines (taskSetFormat), the entity-property and extension tokens.
-export function defaultFormat(tr: Pick<TypeReference, 'typeName' | 'subTypeName'> | undefined): string | undefined {
+//
+// `@decimalsValidator(n)` comes FIRST, as it does in Signum: `Reflector.GetFormatString` checks an
+// explicit [Format] (the callers' own `fi.format ??` here), then the validators, then the type default.
+// So four decimals declared on the value show as four without a second `@format("N4")` saying so.
+export function defaultFormat(tr: (Pick<TypeReference, 'typeName' | 'subTypeName'> & { decimalPlaces?: number }) | undefined): string | undefined {
     if (tr == undefined)
         return undefined;
+    if (tr.decimalPlaces != undefined)
+        return "N" + tr.decimalPlaces;
     if (tr.subTypeName === "decimal" || tr.typeName === "Decimal")
         return "N2";
     return undefined;

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import { reflect } from "@altea/altea/data/reflection"; // anchor for the transformer's @field injection
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
-import { entity, column, forceNotNullable, forceNullable } from "@altea/altea/data/decorators";
+import { entity, column, decimalsValidator, forceNotNullable, forceNullable } from "@altea/altea/data/decorators";
 import {
     Decimal, Temporal, type float, type int, type long, type short, type uuid,
 } from "@altea/altea/data/basics";
@@ -26,9 +26,17 @@ class VtWidths extends Entity {
     // A bare `number` is DOUBLE precision — the widest thing that always holds a JS number.
     double: number;
     money: Decimal;
-    // Signum reads the scale off [DecimalsValidator(n)]; altea states it on the column.
+    // The two ways to say "four decimals", in Signum's order of preference: an explicit
+    // [DbType(Scale=…)] first, then [DecimalsValidator(n)] — which is the one an entity author normally
+    // writes, since it also validates the value and fixes the display format.
     @column({ scale: 4 })
     preciseMoney: Decimal;
+    @decimalsValidator(4)
+    validatedMoney: Decimal;
+    // Both, disagreeing: the COLUMN wins, as SchemaSettings.GetSqlScale reads it first.
+    @column({ scale: 6 })
+    @decimalsValidator(4)
+    bothMoney: Decimal;
     // A GUID is a string in the object model and a `uuid` in the database.
     identifier: uuid;
     // Signum's TimeSpan → Time (not Postgres `interval`).
@@ -98,12 +106,14 @@ describe("Value type → column mapping", () => {
         assert.equal(pgColumns(VtWidths)["how_long"]!.pg, "time");
     });
 
-    test("a decimal defaults to Signum's money shape, and @column({scale}) overrides it", () => {
+    test("a decimal defaults to Signum's money shape, and both scale sources override it", () => {
         const c = pgColumns(VtWidths);
         assert.equal(c["money"]!.pg, "numeric");
         assert.equal(c["money"]!.precision, 18);
         assert.equal(c["money"]!.scale, 2, "Signum's defaultScale for Decimal");
-        assert.equal(c["precise_money"]!.scale, 4);
+        assert.equal(c["precise_money"]!.scale, 4, "@column({ scale }) — Signum's [DbType(Scale=…)]");
+        assert.equal(c["validated_money"]!.scale, 4, "@decimalsValidator(n) is where the scale comes from");
+        assert.equal(c["both_money"]!.scale, 6, "an explicit column scale wins (GetSqlScale reads it first)");
     });
 });
 

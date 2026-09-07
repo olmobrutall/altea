@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Symbol } from "@altea/altea/data/symbol";
-import { column, entity, format, quoted, stringLengthValidator, unit } from "@altea/altea/data/decorators";
+import { decimalsValidator, entity, format, quoted, stringLengthValidator, unit } from "@altea/altea/data/decorators";
 import { Decimal } from "@altea/altea/data/basics";
 import type { float, int } from "@altea/altea/data/basics";
 import type { DeleteSymbol, ExecuteSymbol } from "@altea/altea/data/operations";
@@ -10,7 +10,8 @@ import type { DeleteSymbol, ExecuteSymbol } from "@altea/altea/data/operations";
 //
 // altea divergences, documented inline:
 //  - `float? Temperature` → `number | null` (altea has no float/double distinction in a field type).
-//  - `decimal?` prices → `Decimal | null` (altea's decimal.js class), keeping `[Unit]` + 4 decimals.
+//  - `decimal?` prices → `Decimal | null` (altea's decimal.js class), keeping `[Unit]` +
+//    `[DecimalsValidator(4)]`.
 //  - `[Format(FormatAttribute.Password)]` → `@format("Password")`; the `[Description("Open AI API Key")]`
 //    on the first key becomes `@niceName`-free — the field name already reads "Open AI API Key" once
 //    de-camelCased, and Signum's attribute exists only because C# cannot express `openAIAPIKey`.
@@ -48,23 +49,24 @@ export class ChatbotLanguageModelEntity extends Entity {
 
     isDefault: boolean;
 
-    // Signum reads the column SCALE off [DecimalsValidator(4)] (SchemaSettings.GetSqlScale), so these
-    // are numeric(18,4) there, not the numeric(18,2) money default. altea has no decimals validator, so
-    // the scale is stated on the column — the @format("N4") beside it is the display half of the same 4.
-    @unit("$ / 1M tokens") @format("N4")
-    @column({ scale: 4 })
+    // A token price is quoted per MILLION tokens, so four decimals is the resolution the number needs —
+    // and `@decimalsValidator(4)` is the one place that says so: it validates the value, it is where the
+    // column's scale comes from (numeric(18,4), not the numeric(18,2) money default) and it is where the
+    // display format comes from ("N4"). Signum's [DecimalsValidator(4)], doing the same three things.
+    @unit("$ / 1M tokens")
+    @decimalsValidator(4)
     pricePerInputToken: Decimal | null = null;
 
-    @unit("$ / 1M tokens") @format("N4")
-    @column({ scale: 4 })
+    @unit("$ / 1M tokens")
+    @decimalsValidator(4)
     pricePerOutputToken: Decimal | null = null;
 
-    @unit("$ / 1M tokens") @format("N4")
-    @column({ scale: 4 })
+    @unit("$ / 1M tokens")
+    @decimalsValidator(4)
     pricePerCachedInputToken: Decimal | null = null;
 
-    @unit("$ / 1M tokens") @format("N4")
-    @column({ scale: 4 })
+    @unit("$ / 1M tokens")
+    @decimalsValidator(4)
     pricePerReasoningOutputToken: Decimal | null = null;
 
     @quoted

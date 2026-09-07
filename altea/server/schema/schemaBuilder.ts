@@ -1010,11 +1010,14 @@ export class SchemaBuilder {
         const dbType = this.resolveValueDbType(fi);
         if (dbType == null)
             throw new Error(`Field '${fi.name}' on ${rawTypeName(table.type)}: cannot determine a DB type for '${fi.typeName}'. If it is an entity/embedded, ensure its module is imported so it is registered.`);
-        // A decimal/numeric column defaults to Signum's money shape numeric(18,2) when @column
-        // gives no explicit precision/scale — otherwise a bare `numeric` would store 0 decimals.
+        // A decimal/numeric column's SCALE, in Signum's own order of preference
+        // (SchemaSettings.GetSqlScale): an explicit `@column({ scale })` — its [DbType(Scale=…)] — then
+        // `@decimalsValidator(n)`, then the money default numeric(18,2), because a bare `numeric` would
+        // store no decimals at all. The validator is the usual one: a property's decimals are a fact
+        // about the value, and stating it once also fixes the display format (see defaultFormat).
         const isDecimal = dbType.isDecimal();
         const precision = fi.columnOptions?.precision ?? (isDecimal ? 18 : undefined);
-        const scale = fi.columnOptions?.scale ?? (isDecimal ? 2 : undefined);
+        const scale = fi.columnOptions?.scale ?? (isDecimal ? fi.decimalPlaces ?? 2 : undefined);
         const legacyValueBase = this.legacyMListColumnBase(table, fi, undefined);
         const name = this.explicitColumnName(fi)
             ?? this.idiomatic(this.legacyColumnName(fi) ?? preName.add(legacyValueBase ?? this.columnName(fi)).toString());

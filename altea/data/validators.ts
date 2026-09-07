@@ -3,6 +3,7 @@ import { getOrCreateTypeInfo, getOrCreateFieldInfo, tryGetTypeInfo, Validator, r
 import type { FieldInfo, IntegrityCheckEnvironment } from './reflection';
 import type { BaseEntity } from './entity';
 import { msg } from './utils/localization';
+import { Decimal } from './basics';
 
 export { Validator } from './reflection';
 
@@ -30,6 +31,8 @@ export const ValidationMessage = {
     HaveANumberOfElements01: msg("have a number of elements {0} {1}"),
     _0HasToBe12: msg("{0} has to be {1} {2}"),
     BeA01: msg("be {0} {1}"),
+    _0HasMoreThan1DecimalPlaces: msg("{0} has more than {1} decimal places"),
+    Have0Decimals: msg("have {0} decimals"),
 };
 
 // Signum's ComparisonType (Entities/Validation/ValidationAttributes.cs) — how a count / number validator
@@ -140,6 +143,94 @@ export class StringLengthValidator extends Validator {
             return ValidationMessage._0MustHaveAtLeast1Characters.niceToString(fi.niceToString(), min);
         return null;
     }
+}
+
+// --- DecimalsValidator ---
+//
+// Signum's [DecimalsValidator(n)], and it does TWO things — which is the point of having it rather than
+// stating each half separately:
+//
+//  • it validates that the value really has at most n decimal places, and
+//  • it is where the COLUMN'S SCALE comes from. `SchemaSettings.GetSqlScale` reads it (after an explicit
+//    [DbType(Scale=…)] and before the numeric(18,2) money default), and `Reflector.GetFormatString`
+//    reads it too, as "N" + n, after an explicit [Format] and before the type default.
+//
+// So one `@decimalsValidator(4)` says what `@column({ scale: 4 })` + `@format("N4")` + a hand-written
+// check would have said three times, and says it the way Signum says it — which matters because a
+// property's decimals are a modelling fact about the VALUE, not a fact about its storage.
+//
+// altea divergence: Signum's consumers reach the attribute through
+// `Validator.TryGetPropertyValidator(route)`, walking the validator list. altea records `decimalPlaces`
+// on the FieldInfo as well, because FieldInfo IS altea's reflection surface on both tiers (the same
+// reason @format / @unit write straight onto it) and because `reflection.ts` cannot import this module
+// to read the validator back — it is the module that defines Validator.
+
+export interface DecimalsOptions extends ValidatorOptions {
+    /** Signum's `DecimalPlaces`, defaulting to 2 as its parameterless ctor does. */
+    decimalPlaces?: number;
+}
+
+export function decimalsValidator(decimalPlaces?: number, options?: DecimalsOptions): (target: object, propertyKey: string | symbol) => void;
+export function decimalsValidator(options: DecimalsOptions): (target: object, propertyKey: string | symbol) => void;
+export function decimalsValidator(arg1?: number | DecimalsOptions, arg2?: DecimalsOptions) {
+    const options: DecimalsOptions = typeof arg1 === "number" ? { ...arg2, decimalPlaces: arg1 } : (arg1 ?? {});
+    const decimalPlaces = options.decimalPlaces ?? 2;
+    return (target: object, propertyKey: string | symbol) => {
+        addValidator(target, propertyKey, new DecimalsValidator({ ...options, decimalPlaces }), options);
+        // The schema (column scale) and the UI (display format) read it from here — see the note above.
+        getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).decimalPlaces = decimalPlaces;
+    };
+}
+
+export class DecimalsValidator extends Validator {
+    constructor(public readonly options: DecimalsOptions = {}) { super(); }
+
+    get decimalPlaces(): number { return this.options.decimalPlaces ?? 2; }
+
+    // Signum restricts this to `decimal`. altea spells a decimal two ways — the decimal.js `Decimal`
+    // class and the branded `decimal` number alias — and both are the same modelling type.
+    isCompatibleWith(type: Function) { return type === Decimal || type === Number; }
+
+    get helpMessage(): string { return ValidationMessage.Have0Decimals.niceToString(this.decimalPlaces); }
+
+    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
+        if (value == null)
+            return null;
+        const places = this.decimalPlaces;
+        // Signum: `Math.Round(value, DecimalPlaces) != value`. decimal.js rounds exactly, which is the
+        // whole reason a money value is a Decimal and not a double.
+        if (value instanceof Decimal)
+            return value.toDecimalPlaces(places).equals(value)
+                ? null
+                : ValidationMessage._0HasMoreThan1DecimalPlaces.niceToString(fi.niceToString(), places);
+        if (typeof value === "number") {
+            // A plain number cannot be compared by rounding without reintroducing binary-float error
+            // (0.145 is not 0.145), so compare the DECIMAL STRING's fraction length instead.
+            const fraction = decimalFractionLength(value);
+            return fraction <= places
+                ? null
+                : ValidationMessage._0HasMoreThan1DecimalPlaces.niceToString(fi.niceToString(), places);
+        }
+        return null;
+    }
+}
+
+// How many digits a number's shortest decimal representation has after the point (0 for an integer, and
+// for one written in exponent form with a positive exponent).
+function decimalFractionLength(value: number): number {
+    if (!Number.isFinite(value))
+        return 0;
+    const text = String(value);
+    const exp = text.indexOf("e");
+    if (exp >= 0) {
+        const mantissa = text.slice(0, exp);
+        const power = Number(text.slice(exp + 1));
+        const dot = mantissa.indexOf(".");
+        const digits = dot < 0 ? 0 : mantissa.length - dot - 1;
+        return Math.max(0, digits - power);
+    }
+    const dot = text.indexOf(".");
+    return dot < 0 ? 0 : text.length - dot - 1;
 }
 
 // --- UrlValidator ---
