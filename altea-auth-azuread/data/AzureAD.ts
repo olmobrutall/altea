@@ -6,7 +6,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { type uuid } from "@altea/altea/data/basics";
 import { niceName, stringLengthValidator } from "@altea/altea/data/decorators";
 import { fieldValidation } from "@altea/altea/data/decorators";
-import { ValidationMessage, notNullValidator } from "@altea/altea/data/validators";
+import { ValidationMessage } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { BaseADConfigurationEmbedded, RoleMappingEntity } from "@altea/altea-auth/data/BaseAD";
 import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
@@ -48,18 +48,15 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     // wanted one or not. That all-zero guid is an artefact of the type system, not a value the model
     // means — so altea leaves the field simply UNSET until the directory is configured.
     //
-    // Both are required only when this configuration is ENABLED, which is what Signum's own
-    // PropertyValidation says and what the notNullValidator's `isApplicable` says here (it replaces the
-    // implicit NotNull altea adds to every non-nullable field). The columns are nullable either way —
-    // the whole embedded is optional, so everything under it is.
+    // Both are simply REQUIRED (altea's implicit NotNull on a non-nullable field): the embedded itself is
+    // what is optional, and a directory that is configured at all has to be configured properly. The
+    // columns are nullable because the embedded is.
     @niceName("Application (client) ID")
-    @notNullValidator({ isApplicable: (c: AzureADConfigurationEmbedded) => c.enabled })
     @fieldValidation<AzureADConfigurationEmbedded>(c =>
         c.enabled && !isUuid(c.applicationID) ? ValidationMessage._0DoesNotHaveAValid1Format.niceToString("Application (client) ID", "Guid") : null)
     applicationID: uuid;
 
     @niceName("Directory (tenant) ID")
-    @notNullValidator({ isApplicable: (c: AzureADConfigurationEmbedded) => c.enabled })
     @fieldValidation<AzureADConfigurationEmbedded>(c =>
         c.enabled && !isUuid(c.directoryID) ? ValidationMessage._0DoesNotHaveAValid1Format.niceToString("Directory (tenant) ID", "Guid") : null)
     directoryID: uuid;
