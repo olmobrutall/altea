@@ -420,9 +420,13 @@ function buildUpdate(
     const tableName = sb.objectName(table.name);
     const idCol = sb.sqlEscape(table.primaryKey.column.name);
 
+    // ONE ASSIGNMENT PER LINE, indented — Signum's own UPDATE layout (Schema.Save's sqlUpdatePattern
+    // joins the trios with ",\n" after `.Indent(2)`, between a trailing `SET` and a `WHERE` of its own).
+    // It earns its keep in a SYNCHRONIZATION SCRIPT, which is read before it is run: a `basics.type` row
+    // assigns five columns, and two hundred of those on one line each is a wall nobody can review.
     const sets = assignments
-        .map((a, i) => `${sb.sqlEscape(a.column.name)} = ${placeholder(sb.isPostgres, i)}`)
-        .join(', ');
+        .map((a, i) => `  ${sb.sqlEscape(a.column.name)} = ${placeholder(sb.isPostgres, i)}`)
+        .join(',\n');
 
     const params = namedParameters(assignments, { value: id });
     let where = `${idCol} = ${placeholder(sb.isPostgres, assignments.length)}`;
@@ -431,6 +435,6 @@ function buildUpdate(
         params.push({ name: `p${assignments.length + 1}`, value: concurrency.value });
     }
 
-    const sql = `UPDATE ${tableName} SET ${sets} WHERE ${where};`;
+    const sql = `UPDATE ${tableName} SET\n${sets}\nWHERE ${where};`;
     return new SqlPreCommandSimple(sql, params);
 }
