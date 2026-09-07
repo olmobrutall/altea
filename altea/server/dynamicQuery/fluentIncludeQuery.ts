@@ -32,6 +32,17 @@ declare module "../schema/fluentInclude" {
 }
 
 FluentInclude.prototype.withQuery = function <T extends Entity>(this: FluentInclude<T>): FluentInclude<T> {
+    // LEGACY MODE: an MList ROW gets no query. A registered query is a `basics.query` ROW, and an MList
+    // table is not a type in Signum at all — there is nothing there to give a search page to, so a Signum
+    // database has no such row. Same `Table.isMListRow` question legacyMode already answers for Ticks,
+    // ToStr, the TypeEntity row and the table's own schema; see SchemaSettings.legacyMode.
+    //
+    // A module still WRITES `withQuery()` on such a row (@altea/altea-agent does, for a chat message's
+    // tool calls) — altea models it as a real entity, and searching one is meaningful. The call simply
+    // becomes a no-op when the schema is being made to look like Signum's.
+    if (this.table.legacyMode && this.table.isMListRow)
+        return this;
+
     const rootType = this.type;
     // Register an executable auto-query (Signum's WithQuery). Its shape is the entity itself; its
     // source is `table(T)` (no projection) — see AutoDynamicQueryCore.

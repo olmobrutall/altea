@@ -119,14 +119,13 @@ function fromXml(db: DashboardEntity, xml: Record<string, unknown>, ctx: IFromXm
     db.autoRefreshPeriod = num(xml[A + "AutoRefreshPeriod"]);
 
     db.parts = syncRows(db.parts ?? [], arr(xml["Parts"], "Part"), () => new DashboardEntity_Part(),
-        (p, x, i) => fillPart(p, x, i, ctx));
+        (p, x) => fillPart(p, x, ctx));
     db.tokenEquivalencesGroups = arr(xml["TokenEquivalencesGroups"], "TokenEquivalenceGroup")
-        .map((x, i) => tokenEquivalenceGroupFromXml(x, i, ctx));
+        .map(x => tokenEquivalenceGroupFromXml(x, ctx));
 }
 
 // Signum's PanelPartEmbedded.FromXml (+ DashboardLogic.GetPart for the content element).
-function fillPart(p: DashboardEntity_Part, x: Record<string, unknown>, index: number, ctx: IFromXmlContext): void {
-    p.order = index as unknown as int;
+function fillPart(p: DashboardEntity_Part, x: Record<string, unknown>, ctx: IFromXmlContext): void {
     p.row = (num(x[A + "Row"]) ?? 0) as int;
     p.startColumn = (num(x[A + "StartColumn"]) ?? 0) as int;
     p.columns = (num(x[A + "Columns"]) ?? 12) as int;
@@ -154,9 +153,8 @@ function fillPart(p: DashboardEntity_Part, x: Record<string, unknown>, index: nu
     p.content = content;
 }
 
-function tokenEquivalenceGroupFromXml(x: Record<string, unknown>, index: number, ctx: IFromXmlContext): DashboardEntity_TokenEquivalenceGroup {
+function tokenEquivalenceGroupFromXml(x: Record<string, unknown>, ctx: IFromXmlContext): DashboardEntity_TokenEquivalenceGroup {
     const gr = new DashboardEntity_TokenEquivalenceGroup();
-    gr.order = index as unknown as int;
     const interactionGroup = str(x[A + "InteractionGroup"]);
     gr.interactionGroup = interactionGroup == null ? null : toEnum(InteractionGroup, interactionGroup);
     gr.tokenEquivalences = list(x["TokenEquivalence"]).map((te, i) => {

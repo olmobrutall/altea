@@ -1,6 +1,6 @@
 import { Entity } from './entity';
 import { reflect } from './reflection';
-import { entity, quoted } from './decorators';
+import { entity, quoted, uniqueIndex } from './decorators';
 
 // Port of Signum's `QueryEntity` (Signum/Basics/QueryEntity.cs): the system table with one row per
 // registered query (keyed by the query's string key). Mirrors the TypeEntity pattern (see
@@ -12,7 +12,8 @@ import { entity, quoted } from './decorators';
 @entity("SystemString", "Master")
 export class QueryEntity extends Entity {
     // The query's stable string key (Signum's QueryUtils.GetKey — the clean type name for an
-    // entity-ctor query). UNIQUE in Signum (unique-index generation deferred, as for TypeEntity).
+    // entity-ctor query). Signum: `[UniqueIndex]` (QueryEntity.cs).
+    @uniqueIndex
     key: string;
 
     // Signum's `[AutoExpressionField] ToString() => Key`. @quoted so it ALSO lowers to SQL: this table has no

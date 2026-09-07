@@ -36,7 +36,7 @@ import { Schema } from './schema';
 import { Table } from './table';
 import { FluentInclude } from './fluentInclude';
 import { SystemVersionedInfo } from './systemVersioned';
-import { TableIndex, FullTextTableIndex, VectorTableIndex, multiUniqueIndexes } from './tableIndex';
+import { TableIndex, FullTextTableIndex, VectorTableIndex, generateUniqueIndexes, multiUniqueIndexes } from './tableIndex';
 import { accessedFields } from '../../data/accessedFields';
 import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../data/enumEntity';
@@ -386,6 +386,19 @@ export class SchemaSettings {
     // (`Idiomatic(att.SchemaName)`); without it a Postgres schema would be created case-sensitively as
     // "userAssets" and never match the `user_assets` a Signum-generated database has.
     schemaForType(type: Type<Entity>): SchemaName {
+        // LEGACY MODE: an MList table follows its OWNER's schema, whatever package the element type is
+        // declared in — Signum's `GenerateTableNameCollection` takes `table.Name.Schema` from the owner
+        // and never asks where the element came from, because an MList table is not a type there at all.
+        // It only shows where the two differ: `AzureADRoleMappingEmbedded` is declared in the auth-azuread
+        // assembly (schema `auth`) but held by the app's own ApplicationConfiguration, so Signum's table
+        // is `public.application_configuration_azure_ad_role_mapping`. Recurses through this same method,
+        // like the NAME half in `tableName` → legacyCollectionTableName.
+        if (this.legacyMode) {
+            const owned = mlistRowOwner(type);
+            if (owned != null)
+                return this.schemaForType(owned.owner);
+        }
+
         const enumObject = getBoundEnum(type);
         const name = enumObject != null ? (enumNameOf(enumObject) ?? type.name) : type.name;
         const schema = schemaForName(name);
@@ -512,8 +525,10 @@ export class SchemaBuilder {
 
         const name = new ObjectName(this.settings.tableName(entityType), this.settings.schemaForType(entityType));
         const table = new Table(entityType, name);
-        // Carry the dialect so withIndex can render a filtered predicate to SQL at registration.
+        // Carry the dialect (and the Signum-compatibility flag beside it) so withIndex can render a
+        // filtered predicate to SQL at registration.
         table.isPostgres = this.settings.isPostgres;
+        table.legacyMode = this.settings.legacyMode;
 
         // Register before completing so recursive / cyclic includes (self-FKs,
         // mutual references) resolve to this in-progress table.
@@ -653,6 +668,7 @@ export class SchemaBuilder {
         // Signum's MList table (no stamp, it is not an entity there at all); any other part stands in for
         // a type that has its own table. See mlistRowOwner.
         const isMListRow = mlistRowOwner(type) != null;
+        table.isMListRow = isMListRow;
         const partWithoutTicks = typeInfo.entityKind === "Part" && (isMListRow || !this.settings.legacyMode);
         const hasTicks = typeInfo.ticksColumn ?? !(isSeeded || partWithoutTicks);
         // Externally-supplied (non-identity) ids: the enum tables (id = the enum value) and any @entity
@@ -782,14 +798,26 @@ export class SchemaBuilder {
                 for (const id of field.idColumns)
                     table.indexes.push(new TableIndex(table, [field.typeColumn, id]));
 
+            // An @implementedBy keeps its per-column FK indexes UNCONDITIONALLY, even when the field
+            // also declares @uniqueIndex: Signum's FieldImplementedBy.GenerateIndexes CONCATs the two
+            // (`Columns().Select(c => new TableIndex(table, c)).Concat(ImplementationColumns…UniqueIndex)`),
+            // where FieldReference.GenerateIndexes instead RETURNS EARLY on a unique index. So
+            // `ChangeLogViewLogEntity.user` — one implementation, @uniqueIndex — really does get both
+            // `ix_change_log_view_log_user_id_user` and `uix_…`, and a plain reference gets only one.
+            if (field instanceof FieldImplementedBy)
+                for (const col of columns)
+                    if (col.referenceTable != null && !col.avoidForeignKey)
+                        table.indexes.push(new TableIndex(table, [col]));
+
             if (fi.uniqueIndex)
-                table.indexes.push(new TableIndex(table, columns, { unique: true }));
+                // Filtered to the rows that actually fill the field, so an OPTIONAL @unique field
+                // may be left empty by many rows — Signum's Field.GenerateUniqueIndex.
+                table.indexes.push(...generateUniqueIndexes(table, field, columns));
             else if (fi.index)
                 table.indexes.push(new TableIndex(table, columns));
-            else if (!(field instanceof FieldImplementedByAll))
+            else if (!(field instanceof FieldImplementedByAll) && !(field instanceof FieldImplementedBy))
                 // Default: a non-unique index per foreign-key column (Signum's
-                // FieldReference.GenerateIndexes) — one index each, so an @implementedBy's
-                // implementation columns are indexed individually.
+                // FieldReference.GenerateIndexes).
                 for (const col of columns)
                     if (col.referenceTable != null && !col.avoidForeignKey)
                         table.indexes.push(new TableIndex(table, [col]));
@@ -837,6 +865,18 @@ export class SchemaBuilder {
             const [column] = table.columnsFromFields(accessedFields(desc.field));
             table.indexes.push(new VectorTableIndex(table, column, { sqlServer: desc.sqlServer, postgres: desc.postgres }));
         }
+
+        // A SYSTEM-VERSIONED table gets one more index for free: the primary key FOLLOWED BY the period
+        // column(s) — `(id, sys_period)` on Postgres, `(id, sys_start_date, sys_end_date)` on SQL Server.
+        // That is the shape every AS OF read has (`WHERE id = @id AND <period> @ instant`), and it is the
+        // last thing Signum's `Table.GeneratAllIndexes` appends.
+        //
+        // LEGACY MODE excludes an MList ROW, because Signum's TableMList.GeneratAllIndexes — a separate
+        // method from Table's — never adds it: a versioned collection table gets the period COLUMNS but no
+        // (id, period) index. altea has one Table class for both, so the distinction has to be asked for;
+        // see SchemaSettings.legacyMode and `Table.isMListRow`.
+        if (table.systemVersioned != null && !(table.legacyMode && table.isMListRow))
+            table.indexes.push(new TableIndex(table, [table.primaryKey.column, ...table.systemVersioned.columns()]));
     }
 
     // `memberPath` is the dotted member path from the ROOT entity down to (and including) this field — the
@@ -849,8 +889,12 @@ export class SchemaBuilder {
         // the transformer's `type` thunk (import-safe, rename-proof). undefined for value
         // types and enums, which are classified by name / the isEnum flag below.
         const elementType = this.resolveFieldType(fi);
-        // @forceNullable → a nullable COLUMN for a non-null field (Signum's IsNullable.Forced).
-        const nullable = fi.forceNullable ? IsNullable.Forced : fi.isNullable === true ? IsNullable.Yes : IsNullable.No;
+        // The two deliberate disagreements between the field and its column: @forceNullable → a nullable
+        // COLUMN for a non-null field (Signum's IsNullable.Forced), @forceNotNullable → a NOT NULL column
+        // for a nullable field (Signum's [ForceNotNullable]).
+        const nullable = fi.forceNullable ? IsNullable.Forced
+            : fi.forceNotNullable ? IsNullable.No
+                : fi.isNullable === true ? IsNullable.Yes : IsNullable.No;
 
         // What the owner passes to any referenced Part below, so a Part that restates neither inherits
         // both from the first entity that includes it (owned arrays, polymorphic @implementedBy part
@@ -1008,9 +1052,17 @@ export class SchemaBuilder {
             // A nullable embedded can be entirely absent, so every flattened
             // sub-column must be nullable regardless of the sub-field's own
             // nullability — presence is tracked by the hasValue column.
+            //
+            // EXCEPT another hasValue column, from an embedded nested inside this one: that column IS
+            // a presence flag, and `false` already says "absent". Making it nullable invents a third
+            // state that means nothing, and no Signum database has one — all 37 HasValue columns in a
+            // Southwind database are NOT NULL. The saver writes `false` rather than NULL for a nested
+            // embedded whose parent is absent (pushFieldValues recurses with a null value), so the
+            // stricter column is what it was always filling.
             if (hasValue != null)
                 for (const col of field.columns())
-                    (col as { nullable: IsNullable }).nullable = IsNullable.Yes;
+                    if (!(col instanceof EmbeddedHasValueColumn))
+                        (col as { nullable: IsNullable }).nullable = IsNullable.Yes;
             embeddedFields[name] = new EntityField(efi, field, makeGetter(name));
         };
 

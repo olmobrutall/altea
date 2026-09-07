@@ -149,17 +149,17 @@ export class ImplementedByAllIdColumn extends ColumnBase {
 // table, and it carries the FIELD's own nullability — unlike the id columns, exactly one
 // discriminator is written per row, so a non-nullable reference has a NOT NULL discriminator.
 //
-// DIVERGENCE: no FK constraint. Signum builds one (a Southwind database has
-// `fk_concurrent_user_target_entity_id_type`) and drops it only for an explicit
-// `[AvoidForeignKey]`. altea cannot yet: an FK here makes a sync that REMOVES a type row fail on
-// the constraint, and the `EntityEvents<TypeEntity>.preDeleteSqlSync` cascade that sweeps such a
-// table's orphans is unported (see altea-view-log's header). Restore it with that cascade.
+// It carries a real FOREIGN KEY, as every other reference column does and as Signum's does (a
+// Southwind database has `fk_concurrent_user_target_entity_id_type` and sixteen more). It could not
+// before: with the constraint in place, a sync that REMOVES a type row fails on whichever table still
+// points at it, and the cascade that clears those rows was unported — which left the discriminator
+// dangling instead, the worse of the two outcomes. TypeLogic now registers that cascade for the whole
+// schema at once (deleteImplementedByAllRowsOfType), so the FK holds.
 export class ImplementedByAllTypeColumn extends ColumnBase {
     constructor(name: string, referenceTable: Table, nullable: IsNullable = IsNullable.Yes) {
         super(name, referenceTable.primaryKey.column.dbType);
         this.referenceTable = referenceTable;
         this.nullable = nullable;
-        this.avoidForeignKey = true;
     }
 }
 

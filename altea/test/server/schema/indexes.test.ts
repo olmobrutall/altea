@@ -149,3 +149,109 @@ describe("Index generation", () => {
         });
     });
 });
+
+// ---- Signum-compatible unique-index filtering + literal spelling -------------------------------------
+//
+// Two rules that decide whether a Signum-generated database and an altea one agree on their indexes.
+// Both were wrong before, and both showed up the same way: a `terminal sync` against a Southwind
+// database dropped an index and created "another" one with the same columns under a different name.
+
+@entity("Main", "Master")
+class IdxFiltered extends Entity {
+    // Signum gives EVERY [UniqueIndex] the filter `IsNull(field, equals: false)`, so an OPTIONAL
+    // unique field may be left empty by many rows. A nullable STRING excludes '' as well as NULL.
+    @uniqueIndex nickName: string | null = null;
+    // …a nullable non-string gets the NULL half only.
+    @uniqueIndex rank: int | null = null;
+    // …and a REQUIRED one needs no filter at all.
+    @uniqueIndex code: string = "";
+}
+
+// A boolean column named `is_default` under a filtered unique index — Southwind's
+// `scheduler.holiday_calendar`, whose index name the hashes below are taken from.
+@uniqueIndex<IdxDefaultable>(c => c.isDefault, c => c.isDefault)
+@entity("Main", "Master")
+class IdxDefaultable extends Entity {
+    isDefault: boolean = false;
+}
+
+// The Postgres twin of FakeConnector (the names above are snake_case, and the boolean literal only
+// differs on Postgres — SQL Server writes 1/0 in both modes).
+class FakePostgresConnector extends Connector {
+    constructor(schema: any) { super(schema, true, 63); }
+    executeQuery(): Promise<unknown[]> { return Promise.resolve([]); }
+    openConnection(): Promise<any> { throw new Error("not used"); }
+    closeConnection(): Promise<void> { return Promise.resolve(); }
+    cleanDatabase(): Promise<void> { return Promise.resolve(); }
+}
+
+function buildPostgres(legacyMode: boolean): { filtered: Table; defaultable: Table; sb: SchemaBuilder } {
+    const sb = new SchemaBuilder();
+    sb.settings.isPostgres = true;
+    sb.settings.legacyMode = legacyMode;
+    const filtered = sb.include(IdxFiltered).table;
+    const defaultable = sb.include(IdxDefaultable).table;
+    sb.complete();
+    return { filtered, defaultable, sb };
+}
+
+// The unique index over `field`, whatever its filter.
+function uniqueOn(table: Table, field: string): any {
+    const name = table.columnsFromFields([field])[0].name;
+    return table.indexes.find((ix: any) => ix.unique && ix.columns.length === 1 && ix.columns[0].name === name)!;
+}
+
+describe("Field-level @uniqueIndex filtering (Signum's Field.GenerateUniqueIndex)", () => {
+    test("a nullable STRING column excludes NULL and '' — so many rows may leave it empty", () => {
+        const { filtered } = buildPostgres(false);
+        assert.equal(uniqueOn(filtered, "nickName").where, "nick_name IS NOT NULL AND nick_name <> ''");
+    });
+
+    test("a nullable non-string column excludes NULL only", () => {
+        const { filtered } = buildPostgres(false);
+        assert.equal(uniqueOn(filtered, "rank").where, "rank IS NOT NULL");
+    });
+
+    test("a REQUIRED column is unfiltered, so its name carries no WHERE signature", () => {
+        const { filtered, sb } = buildPostgres(false);
+        const fake = new FakePostgresConnector(sb.schema);
+        Connector.withConnector(fake, () => {
+            const ix = uniqueOn(filtered, "code");
+            assert.equal(ix.where, undefined, "no predicate: the test would be a tautology");
+            assert.equal(fake.sqlBuilder.indexName(ix), "uix_idx_filtered_code");
+        });
+    });
+
+    // The filter is NOT parenthesised, because the rendered text is what the name's hash is computed
+    // over: Southwind's `auth.uix_user_external_id__7y2e8fy` is the hash of exactly this string shape.
+    test("the filter is unparenthesised, as Signum's is (the hash is computed over the text)", () => {
+        const { filtered } = buildPostgres(false);
+        assert.doesNotMatch(uniqueOn(filtered, "nickName").where, /^\(/, "no wrapping parentheses");
+    });
+});
+
+describe("Boolean literal in a filtered index's name hash (legacyMode)", () => {
+    // Signum renders a Postgres boolean through .NET's `bool.ToString()` — "True". Postgres stores the
+    // predicate identically either way, so ONLY the name differs: Southwind has
+    // `uix_holiday_calendar_is_default__q3ba1w0`, and altea's own spelling ("TRUE") hashes to
+    // `__q0f7g6y`. Same index, two names, and every sync swapping one for the other.
+    test("legacyMode spells it Signum's way, so the name matches a Signum-generated database", () => {
+        const { defaultable, sb } = buildPostgres(true);
+        const fake = new FakePostgresConnector(sb.schema);
+        Connector.withConnector(fake, () => {
+            const ix = uniqueOn(defaultable, "isDefault");
+            assert.equal(ix.where, "is_default = True");
+            assert.match(fake.sqlBuilder.indexName(ix), /__q3ba1w0$/);
+        });
+    });
+
+    test("without legacyMode it stays altea's own spelling", () => {
+        const { defaultable, sb } = buildPostgres(false);
+        const fake = new FakePostgresConnector(sb.schema);
+        Connector.withConnector(fake, () => {
+            const ix = uniqueOn(defaultable, "isDefault");
+            assert.equal(ix.where, "is_default = TRUE");
+            assert.match(fake.sqlBuilder.indexName(ix), /__q0f7g6y$/);
+        });
+    });
+});

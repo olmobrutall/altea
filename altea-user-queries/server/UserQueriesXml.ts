@@ -109,8 +109,8 @@ function orderXml(o: UserQueryEntity_Order): Record<string, unknown> {
 
 function systemTimeXml(st: SystemTimeEmbedded): Record<string, unknown> {
     const x: Record<string, unknown> = { [A + "Mode"]: Enum.toName(SystemTimeMode, st.mode) };
-    if (st.startDate != null) x[A + "StartDate"] = st.startDate.toString();
-    if (st.endDate != null) x[A + "EndDate"] = st.endDate.toString();
+    if (st.startDate != null) x[A + "StartDate"] = st.startDate;
+    if (st.endDate != null) x[A + "EndDate"] = st.endDate;
     if (st.joinMode != null) x[A + "JoinMode"] = Enum.toName(SystemTimeJoinMode, st.joinMode);
     if (st.timeSeriesUnit != null) x[A + "TimeSeriesUnit"] = Enum.toName(TimeSeriesUnit, st.timeSeriesUnit);
     if (st.timeSeriesStep != null) x[A + "TimeSeriesStep"] = st.timeSeriesStep;
@@ -201,9 +201,9 @@ function orderFromXml(x: Record<string, unknown>): UserQueryEntity_Order {
 function systemTimeFromXml(x: Record<string, unknown>): SystemTimeEmbedded {
     const st = new SystemTimeEmbedded();
     st.mode = toEnum(SystemTimeMode, str(x[A + "Mode"]) ?? "AsOf");
-    // altea divergence: SystemTime dates are Temporal.PlainDateTime (Signum stored raw strings).
-    st.startDate = str(x[A + "StartDate"]) != null ? Temporal.PlainDateTime.from(str(x[A + "StartDate"])!) : null;
-    st.endDate = str(x[A + "EndDate"]) != null ? Temporal.PlainDateTime.from(str(x[A + "EndDate"])!) : null;
+    // The date EXPRESSION strings, as Signum writes them — a UserAssets file round-trips unchanged.
+    st.startDate = str(x[A + "StartDate"]) ?? null;
+    st.endDate = str(x[A + "EndDate"]) ?? null;
     const joinMode = str(x[A + "JoinMode"]);
     st.joinMode = joinMode == null ? null : toEnum(SystemTimeJoinMode, joinMode);
     const timeSeriesUnit = str(x[A + "TimeSeriesUnit"]);

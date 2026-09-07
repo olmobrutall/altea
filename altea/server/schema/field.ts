@@ -97,8 +97,13 @@ export class FieldImplementedByAll extends Field {
         super();
     }
 
+    // The DISCRIMINATOR comes first, then one id column per configured pk type — Signum's
+    // `FieldImplementedByAll.Columns()` order, and so the physical column order of a Signum-generated
+    // table (`entity_id_type, entity_id_int32, entity_id_guid`) as well as the column order of any
+    // index built over the whole field (`uix_color_palette_specific_colors_entity_id_typ…`). Nothing
+    // binds these positionally — readers and the saver look each column up by name.
     columns(): IColumn[] {
-        return [...this.idColumns, this.typeColumn];
+        return [this.typeColumn, ...this.idColumns];
     }
 }
 

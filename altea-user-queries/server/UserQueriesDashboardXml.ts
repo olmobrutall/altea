@@ -83,7 +83,6 @@ export function registerUserQueryDashboardParts(): void {
                 row.label = e.label;
                 row.userQuery = e.userQuery;
                 row.href = e.href;
-                row.order = e.order;
                 return row;
             });
             return c;
@@ -97,9 +96,8 @@ export function registerUserQueryDashboardParts(): void {
             }),
         }),
         fromXml: (p, x, ctx) => {
-            p.userQueries = list(x["ValueUserQueryElement"]).map((e, i) => {
+            p.userQueries = list(x["ValueUserQueryElement"]).map(e => {
                 const row = new ValueUserQueryListPartEntity_UserQuery();
-                row.order = i as unknown as int;
                 row.label = str(e[A + "Label"]) ?? null;
                 row.href = str(e[A + "Href"]) ?? null;
                 row.userQuery = ctx.getEntity(str(e[A + "UserQuery"])!) as UserQueryEntity;

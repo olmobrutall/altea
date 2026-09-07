@@ -21,12 +21,12 @@ import { msg } from "@altea/altea/data/utils/localization";
 //    @part row entities). ColorPaletteEntity_SpecificColor is therefore a `@entity("Part")` OWNED by ColorPaletteEntity
 //    (Signum's BindParent), carrying the back-pointing FK (`@backReference colorPalette`) + a row-order int
 //    (Signum's PreserveOrder). It is NOT an EmbeddedEntity (altea can't persist an embedded array on a table).
-//  - Signum's SpecificColorEmbedded `[ImplementedByAll, UniqueIndex] Lite<Entity> Entity` keeps the
-//    @implementedByAll polymorphic reference, but the per-row UNIQUE index (Signum's [UniqueIndex] +
-//    NoRepeatValidator on the MList element) is NOT reproduced as a DB index: in altea the part table has a
-//    single owner and a bare unique index on the (type,id) discriminator columns would be GLOBALLY unique
-//    across every palette. The intended "no repeated entity within one palette" rule is a per-owner
-//    validation concern (Signum's PropertyValidation), deferred here.
+//  - Signum's SpecificColorEmbedded `[ImplementedByAll, UniqueIndex] Lite<Entity> Entity` keeps both the
+//    @implementedByAll polymorphic reference AND the unique index. Note what that index actually says: the
+//    MList table has one owner FK, so uniqueness over the (type, id) discriminator columns alone is
+//    GLOBAL — an entity may appear in AT MOST ONE palette, app-wide, not merely once within a palette.
+//    That is what Signum's schema enforces (`uix_color_palette_specific_colors_entity_id_typ…`), and the
+//    NoRepeatValidator / PropertyValidation is the narrower per-owner rule layered on top (deferred here).
 //  - Signum's `[Format(FormatAttribute.Color)] string Color` — altea has no [Format(Color)] attribute; the
 //    editor renders the color picker/scheme selector itself (see ColorPalette.tsx).
 //  - Signum's `As.Expression` ToString (IsNew ? NewNiceName : NiceName + " " + Type) → a `@quoted` toString
@@ -38,8 +38,10 @@ export class ColorPaletteEntity_SpecificColor extends Entity {
     @backReference colorPalette: Lite<ColorPaletteEntity>;
     @rowOrder order: int;
 
-    // Signum's `[ImplementedByAll] Lite<Entity> Entity` — the entity (or enum-entity row) this color is for.
-    @implementedByAll entity: Lite<Entity>;
+    // Signum's `[ImplementedByAll, UniqueIndex] Lite<Entity> Entity` — the entity (or enum-entity row)
+    // this color is for. The index comes out UNFILTERED because the discriminator is NOT NULL (Signum's
+    // IndexWhereExpressionVisitor.IsNull returns null for a required @implementedByAll).
+    @uniqueIndex @implementedByAll entity: Lite<Entity>;
 
     // Signum's `[StringLengthValidator(Max = 100)] string Color`.
     @stringLengthValidator({ max: 100 }) color: string;

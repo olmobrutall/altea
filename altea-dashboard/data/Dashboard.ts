@@ -1,8 +1,8 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, renameCleanType } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
-    entity, primaryKey, backReference, rowOrder, implementedBy, index,
+    entity, primaryKey, backReference, rowOrder, implementedBy,
     stringLengthValidator, fieldValidation, format, unit, quoted, legacyTableName,
 } from "@altea/altea/data/decorators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
@@ -90,7 +90,9 @@ export interface IPartEntity extends Entity {
 @primaryKey("uuid")
 export class DashboardEntity_Part extends Entity implements IGridEntity {
     @backReference dashboard: Lite<DashboardEntity>;
-    @rowOrder order: int;
+    // No `@rowOrder`: Signum does not mark `DashboardEntity.Parts` [PreserveOrder], so its table has
+    // no Order column. A part's place on the dashboard is its GEOMETRY (`row` / `startColumn` /
+    // `columns`), which is what the grid lays out from — list position would say nothing.
 
     // Signum's PanelPartEmbedded.PropertyValidation(Title): a part whose content RequiresTitle must have one.
     @fieldValidation<DashboardEntity_Part>(p => !p.title && p.content?.requiresTitle()
@@ -176,7 +178,9 @@ export class DashboardEntity_TokenEquivalenceGroup_Query extends Entity {
 @legacyTableName({ name: "TokenEquivalenceGroup", wasVirtualMList: true })
 export class DashboardEntity_TokenEquivalenceGroup extends Entity {
     @backReference dashboard: Lite<DashboardEntity>;
-    @rowOrder order: int;
+    // No `@rowOrder`: this is a VIRTUAL MList in Signum — a standalone entity behind a back
+    // reference, not an MList table — so there is no [PreserveOrder] to honour and no Order column.
+    // (Its OWN collection below IS ordered; Signum declares [PreserveOrder] there.)
 
     interactionGroup: InteractionGroup | null;
 
@@ -186,10 +190,17 @@ export class DashboardEntity_TokenEquivalenceGroup extends Entity {
     @countIsValidator(ComparisonType.GreaterThan, 1)
     tokenEquivalences: DashboardEntity_TokenEquivalenceGroup_Query[];
 
-    toString(): string {
-        return this.tokenEquivalences?.map(te => te.token?.tokenString).join(" = ") ?? "";
-    }
+    // No `toString()`: Signum's TokenEquivalenceGroupEntity does not override it, so its table has no
+    // ToStr column. The natural string ("A = B = C") walks the CHILD COLLECTION, which no query can
+    // expand inline — so keeping it would materialise a `to_str` Signum does not have.
 }
+
+// …and the same accommodation one layer down from `@legacyTableName`. altea named this part after its
+// OWNER, which is the right default for a part but wrong here: Signum ships it as the standalone
+// `TokenEquivalenceGroupEntity`, so its clean name is identity under THAT name in `basics.type`, in the
+// registered query's key and in an @implementedBy column's suffix. The class name has to be given
+// explicitly rather than derived, because the suffix altea stripped sits mid-name.
+renameCleanType(DashboardEntity_TokenEquivalenceGroup, "TokenEquivalenceGroup", "TokenEquivalenceGroupEntity");
 
 // Signum's CacheQueryConfigurationEmbedded (DashboardEntity.cs) — present exactly when this dashboard's
 // queries are SNAPSHOT to a file rather than run per view (see ./CachedQuery).
@@ -260,7 +271,7 @@ export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEnt
     @fieldValidation<DashboardEntity>(d => validateTokenEquivalences(d.tokenEquivalencesGroups))
     tokenEquivalencesGroups: DashboardEntity_TokenEquivalenceGroup[];
 
-    @index
+    // Signum: `[StringLengthValidator(Max = 200)] string? Key` — no index (DashboardEntity.cs).
     @stringLengthValidator({ max: 200 })
     key: string | null;
 

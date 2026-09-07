@@ -152,8 +152,8 @@ export namespace UserQueriesClient {
 
             fo.systemTime = uq.systemTime == null ? undefined : {
                 mode: Enum.toName(SystemTimeMode, uq.systemTime.mode),
-                startDate: uq.systemTime.startDate?.toString() ?? undefined,
-                endDate: uq.systemTime.endDate?.toString() ?? undefined,
+                startDate: uq.systemTime.startDate ?? undefined,
+                endDate: uq.systemTime.endDate ?? undefined,
                 joinMode: uq.systemTime.joinMode == null ? undefined : Enum.toName(SystemTimeJoinMode, uq.systemTime.joinMode),
                 timeSeriesStep: uq.systemTime.timeSeriesStep ?? undefined,
                 timeSeriesUnit: uq.systemTime.timeSeriesUnit == null ? undefined : Enum.toName(TimeSeriesUnit, uq.systemTime.timeSeriesUnit),

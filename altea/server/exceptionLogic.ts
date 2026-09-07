@@ -23,7 +23,8 @@ const ExceptionDataKey = Symbol.for("altea:exceptionEntity");
 export namespace ExceptionLogic {
     export function start(sb: SchemaBuilder): void {
         // Signum: sb.Include<ExceptionEntity>() + WithQuery(...). altea's WithQuery is parameterless.
-        sb.include(ExceptionEntity).withQuery();
+        // Signum's `.WithIndex(a => a.CreationDate)` — the exception page is browsed newest-first.
+        sb.include(ExceptionEntity).withIndex(a => a.creationDate).withQuery();
     }
 
     // Signum's `Exception.LogException(this Exception, Action<ExceptionEntity>? completeContext)`:
@@ -106,7 +107,8 @@ export namespace ExceptionLogic {
 
 // Signum sets ExceptionMessageHash in the ExceptionMessage setter (value?.GetHashCode()).
 function setMessage(entity: ExceptionEntity, message: string | null): void {
-    entity.exceptionMessage = message;
+    // `exceptionMessage` is non-null (as Signum declares it), so an absent message stores as empty.
+    entity.exceptionMessage = message ?? "";
     entity.exceptionMessageHash = stringHash(message);
 }
 

@@ -330,7 +330,8 @@ export namespace OperationLogic {
     // (Signum's sb.Include<OperationLogEntity>().WithQuery(...)). Call AFTER the graphs have registered.
     export function start(sb: SchemaBuilder): void {
         SymbolLogic.start(sb, OperationSymbol, () => registeredOperations());
-        sb.include(OperationLogEntity).withQuery();
+        // Signum's `.WithIndex(a => a.Start)` — the operation log is browsed and swept by date.
+        sb.include(OperationLogEntity).withIndex(a => a.start).withQuery();
 
         // Signum's `sb.Schema.SchemaCompleted += () => RegisterCurrentLogs(sb.Schema)`: every
         // @systemVersioned type gains the `PreviousOperationLog` sub-token, so a query over that type's

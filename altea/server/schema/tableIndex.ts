@@ -4,6 +4,7 @@ import type { Table } from './table';
 import type { Field } from './field';
 import { FieldImplementedBy, FieldImplementedByAll } from './field';
 import { IsNullable } from './dbType';
+import { indexWhereIsNull } from './indexWhere';
 import { sqlEscape } from '../linq/sqlEscape';
 
 // Port of Signum's Engine/Schema/TableIndexes.cs TableIndex, scoped to what altea models: a
@@ -102,6 +103,33 @@ export function multiUniqueIndexes(
 
     recurse(0, [], undefined);
     return result;
+}
+
+/**
+ * The unique index a FIELD-level `@unique` asks for — Signum's `Field.GenerateUniqueIndex`.
+ *
+ * The point is the FILTER. A `@unique` field that is optional must still let SEVERAL rows leave it
+ * empty, so the index covers only the rows that fill it: `col IS NOT NULL`, and for a string `AND
+ * col <> ''` besides — empty is empty. Without it the constraint says something stronger than the
+ * model does (and on SQL Server, where NULLs compare equal in a unique index, something quite
+ * wrong: at most one row may leave the field empty). A required field needs no filter, and gets
+ * none.
+ *
+ * A polymorphic `@implementedBy` returns SEVERAL indexes — one per implementation column, each
+ * filtered to the rows that use it — because uniqueness is per target table, not across the union.
+ * That is a different shape from `multiUniqueIndexes`, which expands a CLASS-level composite index
+ * into the cartesian product of its blocks; this one is a single field.
+ */
+export function generateUniqueIndexes(table: Table, field: Field, columns: IColumn[]): TableIndex[] {
+    if (field instanceof FieldImplementedBy)
+        return field.implementationColumns.map(imp => new TableIndex(table, [imp], {
+            unique: true,
+            where: imp.nullable === IsNullable.No
+                ? undefined
+                : `${sqlEscape(imp.name, table.isPostgres)} IS NOT NULL`,
+        }));
+
+    return [new TableIndex(table, columns, { unique: true, where: indexWhereIsNull(field, false, table) })];
 }
 
 // ---- Full-text index (Signum's FullTextTableIndex) ------------------------------------------

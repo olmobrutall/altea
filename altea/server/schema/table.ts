@@ -28,6 +28,18 @@ export class Table {
     // predicate to dialect-correct SQL in withIndex — the analogue of Signum's
     // Schema.Current.Settings.IsPostgres inside AddIndex.
     isPostgres = false;
+    // Signum-compatible naming, carried beside `isPostgres` and set by SchemaBuilder from
+    // settings.legacyMode for the same reason: a filtered index's WHERE predicate is rendered at
+    // REGISTRATION time, and that text is also what the index NAME's hash suffix is computed over —
+    // so the renderer has to know which spelling of a boolean literal to use. See indexWhere's
+    // `literal`.
+    legacyMode = false;
+    // This table is altea's stand-in for a Signum MLIST TABLE: a `@part` row reached through an
+    // owner's ARRAY (SchemaBuilder's `mlistRowOwner`). STRUCTURAL — true whatever the mode — but
+    // only legacyMode acts on it, because in Signum such a table is not an entity at all: it has no
+    // Ticks, no ToStr, and no row in the TypeEntity table. Kept here so a consumer outside the
+    // builder (TypeLogic) can ask without re-deriving it.
+    isMListRow = false;
     // Physical display-string column (Signum's `ToStr`), present only when the
     // entity's `toString()` is a hand-written method (not a `@quoted` expression the
     // query provider can translate). Written at save time = `entity.toString()`.

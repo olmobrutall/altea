@@ -388,8 +388,9 @@ function toOrderEmbedded(o: OrderOptionParsed): UserQueryEntity_Order {
 function toSystemTimeEmbedded(st: SystemTime): SystemTimeEmbedded {
     const e = new SystemTimeEmbedded();
     e.mode = Enum.toValue(SystemTimeMode, st.mode);
-    e.startDate = st.startDate == null ? null : Temporal.PlainDateTime.from(st.startDate);
-    e.endDate = st.endDate == null ? null : Temporal.PlainDateTime.from(st.endDate);
+    // Both sides hold the date EXPRESSION string Signum stores (see SystemTimeEmbedded) — no parse.
+    e.startDate = st.startDate ?? null;
+    e.endDate = st.endDate ?? null;
     e.joinMode = st.joinMode == null ? null : Enum.toValue(SystemTimeJoinMode, st.joinMode);
     e.timeSeriesUnit = st.timeSeriesUnit == null ? null : Enum.toValue(TimeSeriesUnit, st.timeSeriesUnit);
     e.timeSeriesStep = (st.timeSeriesStep ?? null) as SystemTimeEmbedded["timeSeriesStep"];

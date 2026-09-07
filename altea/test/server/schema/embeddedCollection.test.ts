@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
-import { reflect } from "@altea/altea/data/reflection"; // anchor for the transformer's @field injection
+import { reflect, setDatabaseSchema } from "@altea/altea/data/reflection"; // anchor for the transformer's @field injection
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, backReference, valueField, rowOrder, implementedBy, overrideImplementedBy } from "@altea/altea/data/decorators";
@@ -227,5 +227,44 @@ describe("collections inside embeddeds", () => {
         // TYPE (EcTag), not from the `tag` field altea invented for the row.
         assert.ok(cols.includes("parent_id"), cols.join(", "));
         assert.ok(cols.includes("ec_tag_id"), cols.join(", "));
+    });
+});
+
+// ---- an MList table's SCHEMA follows its OWNER ------------------------------------------------------
+//
+// Signum's `GenerateTableNameCollection` takes `sn = table.Name.Schema` from the OWNER and never asks
+// where the element type came from — an MList table is not a type there at all. It only shows where the
+// two disagree: Southwind's `AzureADRoleMappingEmbedded` is declared in the auth-azuread assembly
+// (schema `auth`) but held by the app's own ApplicationConfiguration, and Signum's table is
+// `public.application_configuration_azure_ad_role_mapping`.
+
+@entity("Main", "Master")
+class EcSchemaOwner extends Entity {
+    tags: EcSchemaOwner_Tag[];
+}
+
+// The row type is declared as if it belonged to another package's schema (what
+// `setDatabaseSchema` expresses, and what a per-package `setDefaultDatabaseSchema` would do for a real
+// module). Its OWNER stays in the connection's default schema.
+@entity("Part")
+class EcSchemaOwner_Tag extends Entity {
+    @backReference owner: Lite<EcSchemaOwner>;
+
+    @valueField tag: Lite<EcTag>;
+}
+setDatabaseSchema("elsewhere", EcSchemaOwner_Tag);
+
+describe("an MList row table's schema", () => {
+
+    test("altea's own rule puts it in the row TYPE's schema", () => {
+        const sb = build(sb => { sb.settings.isPostgres = true; });
+        sb.include(EcSchemaOwner as any);
+        assert.equal(sb.include(EcSchemaOwner_Tag as any).table.name.schema.name, "elsewhere");
+    });
+
+    test("legacy mode puts it in the OWNER's schema, as Signum does", () => {
+        const sb = build(sb => { sb.settings.isPostgres = true; sb.settings.legacyMode = true; });
+        const owner = sb.include(EcSchemaOwner as any).table;
+        assert.equal(sb.include(EcSchemaOwner_Tag as any).table.name.schema.name, owner.name.schema.name);
     });
 });

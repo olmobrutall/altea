@@ -39,8 +39,9 @@ export namespace DynamicTypeConditionLogic {
         if (sb.alreadyDefined(start))
             return;
 
+        // (No unique index on `name`: Signum declares none — DynamicTypeConditionLogic.cs registers this
+        // entity with WithQuery alone, and the Save operation is what guards renames.)
         sb.include(DynamicTypeConditionSymbolEntity)
-            .withUniqueIndex(e => [e.name])
             .withSave(DynamicTypeConditionSymbolOperation.Save)
             .withQuery();
 
