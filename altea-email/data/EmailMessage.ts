@@ -16,6 +16,7 @@ import { FilePathEmbedded } from "@altea/altea-files/data/Files";
 import { EmailRecipientBaseEntity, EmailFromEmbedded, EmailMessageMessage } from "./Email";
 import { EmailAttachmentType, EmailTemplateEntity } from "./EmailTemplate";
 import { EmailSenderConfigurationEntity } from "./EmailSenderConfiguration";
+import { Enum } from "@altea/altea/data/enum";
 
 // Port of Signum.Mailing's EmailMessage.cs — the PRODUCED message: what was rendered, to whom, in which
 // state, and (once sent) by which sender configuration.
@@ -32,8 +33,8 @@ import { EmailSenderConfigurationEntity } from "./EmailSenderConfiguration";
 
 // Signum's EmailMessageState.
 export enum EmailMessageState {
-    /** Freshly constructed, never saved. Signum marks it `[Ignore]`; altea excludes it from the enum
-     *  table with `Enum.markAsNotMapped` in EmailLogic. */
+    /** Freshly constructed, never saved. Signum marks it `[Ignore]`; the `markAsNotMapped` below is
+     *  altea's spelling of the same thing. */
     Created,
     Draft,
     ReadyToSend,
@@ -46,6 +47,7 @@ export enum EmailMessageState {
     /** Too old to be worth sending (EmailConfiguration.avoidSendingEmailsOlderThan). */
     Outdated,
 }
+Enum.markAsNotMapped(EmailMessageState, EmailMessageState.Created);
 
 // Signum's `MList<EmailRecipientEmbedded> Recipients`, as this owner's @part row (see Email.ts).
 @entity("Part", "Transactional")

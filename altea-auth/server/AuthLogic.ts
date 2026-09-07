@@ -1,6 +1,5 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
 import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
-import { Enum } from "@altea/altea/data/enum";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { AsyncLocalStorage } from "node:async_hooks";
 import { SchemaBuilder } from "@altea/altea/server/schema";
@@ -128,7 +127,6 @@ export namespace AuthLogic {
 
         // Signum marks `UserState.New` `[Ignore]` — the state of a user being created, never stored, so
         // it must not become a row of the enum table.
-        Enum.markAsNotMapped(UserState, UserState.New);
 
         // (Signum's `FillClaims += …` for Role / ExternalId lives in data/User.ts here: altea builds a
         // UserWithClaims on the CLIENT too, and a filler declared in the data layer serves both tiers.)

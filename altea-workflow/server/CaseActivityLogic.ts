@@ -222,7 +222,6 @@ export namespace CaseActivityLogic {
 
         // Signum marks `CaseActivityState.New` `[Ignore]` — it is a client-only state (an unsaved activity),
         // so it must not become a row of the enum table.
-        Enum.markAsNotMapped(CaseActivityState, CaseActivityState.New);
 
         sb.include(CaseEntity)
             .withOperations(registerCaseOperations)

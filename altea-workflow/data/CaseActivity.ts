@@ -20,6 +20,7 @@ import { CaseEntity, CaseTagTypeEntity, type ICaseMainEntity } from "./Case";
 // not an option. Safe because nothing dereferences it at module-evaluation time.
 import { CaseNotificationEntity, CaseNotificationState } from "./CaseNotification";
 import type { WorkflowEventTaskEntity } from "./WorkflowEventTask";
+import { Enum } from "@altea/altea/data/enum";
 
 // Port of Signum.Workflow's CaseActivity.cs + CaseActivityMixin.cs — a CASE ACTIVITY is one STEP of a case:
 // which workflow node it is at, when it started, and (once done) who finished it, how and with what decision.
@@ -55,13 +56,14 @@ export enum DoneType {
 registerEnum(DoneType);
 
 export enum CaseActivityState {
-    /** Never stored — an unsaved activity. Signum marks it `[Ignore]`; altea excludes it from the enum table
-     *  with `Enum.markAsNotMapped` in CaseActivityLogic. */
+    /** Never stored — an unsaved activity. Signum marks it `[Ignore]`; the `markAsNotMapped` below is
+     *  altea's spelling of the same thing. */
     New,
     Pending,
     Done,
 }
 registerEnum(CaseActivityState);
+Enum.markAsNotMapped(CaseActivityState, CaseActivityState.New);
 
 // Signum's two filtered indexes on the include (`.WithIndex(a => new { a.ScriptExecution!.ProcessIdentifier },
 // a => a.DoneDate == null)` and the same for NextExecution) — the two lookups the script runner does on

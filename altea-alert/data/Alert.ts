@@ -15,6 +15,7 @@ import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From, Simple } from 
 import type { IQuery } from "@altea/altea/data/iquery";
 import type { IUserEntity } from "@altea/altea/data/security";
 import { UserEntity } from "@altea/altea-auth/data/User";
+import { Enum } from "@altea/altea/data/enum";
 
 // Port of Signum.Alerts' Alert.cs + SendNotificationEmailTaskEntity.cs — a NOTIFICATION addressed to a user
 // about an entity: when it should surface (`alertDate`), who has dealt with it (`attendedDate` / `attendedBy`)
@@ -138,12 +139,13 @@ export class AlertEntity extends Entity {
 }
 
 export enum AlertState {
-    /** Never stored — an alert being created. Signum marks it `[Ignore]`; altea excludes it from the
-     *  enum table with `Enum.markAsNotMapped` in AlertLogic. */
+    /** Never stored — an alert being created. Signum marks it `[Ignore]`; the `markAsNotMapped` below is
+     *  altea's spelling of the same thing. */
     New,
     Saved,
     Attended,
 }
+Enum.markAsNotMapped(AlertState, AlertState.New);
 
 export enum AlertCurrentState {
     Attended,

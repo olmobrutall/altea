@@ -1,6 +1,5 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
 import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
-import { Enum } from "@altea/altea/data/enum";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { createHash, randomUUID } from "node:crypto";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
@@ -104,7 +103,6 @@ export namespace EmailLogic {
 
         // Signum marks `EmailMessageState.Created` `[Ignore]` — a freshly constructed message that was
         // never saved, so it must not become a row of the enum table.
-        Enum.markAsNotMapped(EmailMessageState, EmailMessageState.Created);
 
         FilePathEmbeddedLogic.start(sb);
         FileTypeLogic.start(sb);

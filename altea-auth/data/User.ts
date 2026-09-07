@@ -12,6 +12,7 @@ import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 import { RoleEntity } from "./Role";
 import { TypeConditionSymbol } from "./Rules";
 import { AuthAdminMessage, UserExternalIdMessage } from "./AuthMessages";
+import { Enum } from "@altea/altea/data/enum";
 
 // Port of Signum's UserEntity (Signum.Authorization/UserEntity.cs). The application user: a login name,
 // a password hash, a role, and an activation state machine (New → Active ⇄ Deactivated/AutoDeactivate).
@@ -31,13 +32,14 @@ import { AuthAdminMessage, UserExternalIdMessage } from "./AuthMessages";
 // Signum's UserState (UserEntity.cs). New = -1 (the pre-Create sentinel); the rest are the live states.
 // A plain numeric entity enum (like OrderState), used directly by the UserGraph state machine.
 export enum UserState {
-    /** Never stored — a user being created. Signum marks it `[Ignore]`; altea excludes it from the
-     *  enum table with `Enum.markAsNotMapped` in AuthLogic. */
+    /** Never stored — a user being created. Signum marks it `[Ignore]`; the `markAsNotMapped` below is
+     *  altea's spelling of the same thing. */
     New = -1,
     Active,
     Deactivated,
     AutoDeactivate,
 }
+Enum.markAsNotMapped(UserState, UserState.New);
 
 @reflect
 @entity("Main", "Transactional")
