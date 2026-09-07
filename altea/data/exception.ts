@@ -1,6 +1,6 @@
 import { Entity } from "./entity";
 import { Lite } from "./lite";
-import { entity, column, implementedBy, ticksColumn } from "./decorators";
+import { entity, column, forceNotNullable, implementedBy, ticksColumn } from "./decorators";
 import { reflect } from "./reflection";
 import { Temporal, type int } from "./basics";
 import { BigStringEmbedded } from "./bigString";
@@ -37,11 +37,15 @@ export enum ExceptionOrigin {
 export class ExceptionEntity extends Entity {
     creationDate: Temporal.PlainDateTime;
 
+    // Signum's `[ForceNotNullable, DbType(Size = 100)] string?` — built up in pieces, so the field is
+    // nullable, but no STORED exception has no type.
+    @forceNotNullable
     @column({ size: 100 })
     exceptionType: string | null = null;
 
     // Signum computes ExceptionMessageHash in the setter; altea sets both together in ExceptionLogic.
-    exceptionMessage: string | null = null;
+    // Non-null, as Signum declares it: an exception without a message is not one worth storing.
+    exceptionMessage: string = "";
     exceptionMessageHash: int = 0 as int;
 
     // Signum's `[BindParent] BigStringEmbedded StackTrace` — a non-null embedded whose `text` is nullable.

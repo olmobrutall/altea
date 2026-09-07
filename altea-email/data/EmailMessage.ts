@@ -2,7 +2,7 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, implementedByAll, backReference, rowOrder, format,
+    entity, implementedByAll, backReference, format,
     stringLengthValidator, fieldValidation, quoted,
 } from "@altea/altea/data/decorators";
 import { noRepeatValidator, countIsValidator, ComparisonType } from "@altea/altea/data/validators";
@@ -32,7 +32,8 @@ import { EmailSenderConfigurationEntity } from "./EmailSenderConfiguration";
 
 // Signum's EmailMessageState.
 export enum EmailMessageState {
-    /** Freshly constructed, never saved. */
+    /** Freshly constructed, never saved. Signum marks it `[Ignore]`; altea excludes it from the enum
+     *  table with `Enum.markAsNotMapped` in EmailLogic. */
     Created,
     Draft,
     ReadyToSend,
@@ -56,7 +57,8 @@ export class EmailMessageEntity_Recipient extends EmailRecipientBaseEntity {
 @entity("Part", "Transactional")
 export class EmailMessageEntity_Attachment extends Entity {
     @backReference emailMessage: Lite<EmailMessageEntity>;
-    @rowOrder order: int;
+    // No `@rowOrder`: Signum does not mark `EmailMessageEntity.Attachments` [PreserveOrder], so its
+    // table has no Order column — unlike `EmailTemplateEntity.Attachments`, which IS ordered.
 
     type: EmailAttachmentType;
 

@@ -61,9 +61,10 @@ export class ViewLogEntity extends Entity {
         return this.endDate.since(this.startDate).total({ unit: "milliseconds" });
     }
 
-    toString(): string {
-        return `${this.viewAction ?? ""} ${this.target?.toString() ?? ""}`;
-    }
+    // No `toString()`: Signum's ViewLogEntity does not override it either, so its table has no ToStr
+    // column. `target` is `@implementedByAll`, and no query can expand an ANY-entity reference's display
+    // string inline (the target table is only known per row) — which is exactly why Signum leaves the
+    // default here. Keeping "GetEntity Order 10248" would mean materialising a `to_str` Signum has not.
 }
 
 /**

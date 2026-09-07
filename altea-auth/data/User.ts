@@ -5,9 +5,10 @@ import {
     entity, column, uniqueIndex, quoted, serialize,
     stringLengthValidator, emailValidator, fieldValidation,
 } from "@altea/altea/data/decorators";
-import { Temporal } from "@altea/altea/data/basics";
+import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol } from "@altea/altea/data/operations";
 import { CurrentUser, UserWithClaims, type IUserEntity, type IEmailOwnerEntity } from "@altea/altea/data/security";
+import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 import { RoleEntity } from "./Role";
 import { TypeConditionSymbol } from "./Rules";
 import { AuthAdminMessage, UserExternalIdMessage } from "./AuthMessages";
@@ -19,7 +20,6 @@ import { AuthAdminMessage, UserExternalIdMessage } from "./AuthMessages";
 //  - `byte[]? PasswordHash [DbType(Size=128)]` → a `Uint8Array | null` binary column (the "Blob" value
 //    type → bytea / varbinary(128)); server code works in Buffers (a Buffer IS a Uint8Array). @serialize(false)
 //    so it never reaches the client.
-//  - `CultureInfoEntity? CultureInfo` is omitted — no CultureInfoEntity is ported to altea yet.
 //  - `UserTypeCondition` (a TypeConditionSymbol) and `UserLiteModel` land with the authorization /
 //    client phases respectively (TypeConditionSymbol is an authorization type; UserLiteModel needs the
 //    client custom-lite wiring).
@@ -31,6 +31,8 @@ import { AuthAdminMessage, UserExternalIdMessage } from "./AuthMessages";
 // Signum's UserState (UserEntity.cs). New = -1 (the pre-Create sentinel); the rest are the live states.
 // A plain numeric entity enum (like OrderState), used directly by the UserGraph state machine.
 export enum UserState {
+    /** Never stored — a user being created. Signum marks it `[Ignore]`; altea excludes it from the
+     *  enum table with `Enum.markAsNotMapped` in AuthLogic. */
     New = -1,
     Active,
     Deactivated,
@@ -68,6 +70,11 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
     @emailValidator()
     email: string | null = null;
 
+    // Signum's `CultureInfoEntity? CultureInfo` — the user's preferred locale. It is what an email or an
+    // alert addressed to them is rendered in (see EmailLogic's `registerEmailOwner(UserEntity, …)`), and
+    // null means "use the application default".
+    cultureInfo: CultureInfoEntity | null = null;
+
     disabledOn: Temporal.PlainDateTime | null = null;
 
     mustChangePassword: boolean = false;
@@ -79,7 +86,8 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
             : null)
     state: UserState = UserState.New;
 
-    loginFailedCounter: number = 0;
+    /** Signum's `int LoginFailedCounter` — a count, so an `int` column and not a double. */
+    loginFailedCounter: int = toInt(0);
 
     // Signum's `UserEntity.AllowPasswordForUserWithExternalId` static flag — when false (the default) a
     // user linked to an external identity provider (Azure AD / OpenID / a Windows domain) may NOT also

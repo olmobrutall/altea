@@ -63,6 +63,9 @@ export class CaseEntity extends Entity {
 
     finishDate: Temporal.PlainDateTime | null;
 
+    // Signum's `[AutoExpressionField] ToString() => As.Expression(() => Description)` — an EXPRESSION
+    // over a column of this same row, so it is expanded inline and the table has no ToStr column.
+    @quoted
     toString(): string {
         return this.description;
     }

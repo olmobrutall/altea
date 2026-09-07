@@ -3,7 +3,7 @@
 import { reflect } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, backReference, rowOrder, stringLengthValidator, quoted } from "@altea/altea/data/decorators";
+import { entity, backReference, stringLengthValidator, quoted } from "@altea/altea/data/decorators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
@@ -74,7 +74,8 @@ export class ValueUserQueryListPartEntity_UserQuery extends Entity {
     isQueryCached: boolean = false;
 
     @backReference valueUserQueryListPart: Lite<ValueUserQueryListPartEntity>;
-    @rowOrder order: int;
+    // No `@rowOrder`: Signum does not mark `ValueUserQueryListPartEntity.UserQueries` [PreserveOrder],
+    // so its table has no Order column.
 
     @stringLengthValidator({ max: 200 })
     label: string | null;

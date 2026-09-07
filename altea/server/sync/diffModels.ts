@@ -328,10 +328,7 @@ export class DiffColumn extends View {
         // the dialect it read, so comparing both slots would spuriously differ. The dialect is
         // passed in by the caller (the synchronizer already knows it) rather than read off the
         // global Connector, so these comparisons stay pure.
-        const dbTypeEquals = isPostgres
-            ? this.dbType.postgres === other.dbType.postgres
-            : this.dbType.sqlServer === other.dbType.sqlServer;
-        return dbTypeEquals
+        return this.dbType.equalsInDialect(other.dbType, isPostgres)
             && this.collation === other.collation
             && this.nullable === isNullableToBool(other)
             && this.sizeEquals(other, isPostgres)

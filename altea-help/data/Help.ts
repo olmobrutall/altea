@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity, EmbeddedEntity, ModelEntity, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
-    entity, implementedBy, implementedByAll, backReference, rowOrder,
+    entity, implementedBy, implementedByAll, backReference, forceNotNullable, rowOrder,
     stringLengthValidator, column, primaryKey, quoted,
 } from "@altea/altea/data/decorators";
 import { noRepeatValidator } from "@altea/altea/data/validators";
@@ -158,7 +158,9 @@ export class TypeHelpEntity_Property extends Entity {
     @backReference
     typeHelp: TypeHelpEntity;
 
-    @rowOrder order: int;
+    // No `@rowOrder`: Signum does not mark `TypeHelpEntity.Properties` [PreserveOrder], so its table
+    // has no Order column. The help page sorts its properties by the type's own property order, not
+    // by how the rows were stored.
 
     /** Signum's `Property`. */
     property: PropertyRouteEntity;
@@ -166,6 +168,10 @@ export class TypeHelpEntity_Property extends Entity {
     @column(false)
     info: string | null = null;
 
+    // Signum's `[StringLengthValidator(MultiLine = true), ForceNotNullable] string?` — a help row exists
+    // BECAUSE someone wrote prose, so the column is NOT NULL even though the field stays nullable while
+    // the editor is being filled in.
+    @forceNotNullable
     @stringLengthValidator({ multiLine: true })
     description: string | null = null;
 
@@ -182,13 +188,16 @@ export class TypeHelpEntity_Operation extends Entity {
     @backReference
     typeHelp: TypeHelpEntity;
 
-    @rowOrder order: int;
+    // No `@rowOrder`: Signum does not mark `TypeHelpEntity.Operations` [PreserveOrder], so its table
+    // has no Order column — as for the properties above.
 
     operation: OperationSymbol;
 
     @column(false)
     info: string | null = null;
 
+    // `[ForceNotNullable]` here too — see the properties above.
+    @forceNotNullable
     @stringLengthValidator({ multiLine: true })
     description: string | null = null;
 

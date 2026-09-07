@@ -3,7 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Symbol } from "@altea/altea/data/symbol";
 import {
-    entity, implementedBy, implementedByAll, format, stringLengthValidator, fieldValidation, ticksColumn } from "@altea/altea/data/decorators";
+    entity, implementedBy, implementedByAll, format, quoted, stringLengthValidator, fieldValidation, ticksColumn } from "@altea/altea/data/decorators";
 import { Temporal, Decimal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -167,6 +167,11 @@ export class ProcessExceptionLineEntity extends Entity {
 
     exception: Lite<ExceptionEntity>;
 
+    // Signum's `[ExpressionField("ToStringExpression")]` over `pel => "ProcessExceptionLine (" + pel.Id
+    // + ")"` — an EXPRESSION, so the display string is expanded inline in queries and its table has no
+    // ToStr column. `@quoted` says the same here; without it altea materialises a `to_str` Signum does
+    // not have. (The `?? "New"` is the runtime half, as it is in Signum's method body.)
+    @quoted
     toString(): string {
         return `ProcessExceptionLine (${this.id ?? "New"})`;
     }

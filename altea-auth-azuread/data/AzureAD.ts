@@ -3,6 +3,7 @@ import { entity, backReference, implementedBy } from "@altea/altea/data/decorato
 import { noRepeatValidator } from "@altea/altea/data/validators";
 import type { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
+import { EMPTY_UUID, type uuid } from "@altea/altea/data/basics";
 import { niceName, stringLengthValidator } from "@altea/altea/data/decorators";
 import { fieldValidation } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
@@ -45,12 +46,12 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     @niceName("Application (client) ID")
     @fieldValidation<AzureADConfigurationEmbedded>(c =>
         c.enabled && !isUuid(c.applicationID) ? ValidationMessage._0DoesNotHaveAValid1Format.niceToString("Application (client) ID", "Guid") : null)
-    applicationID: string = "";
+    applicationID: uuid = EMPTY_UUID;
 
     @niceName("Directory (tenant) ID")
     @fieldValidation<AzureADConfigurationEmbedded>(c =>
         c.enabled && !isUuid(c.directoryID) ? ValidationMessage._0DoesNotHaveAValid1Format.niceToString("Directory (tenant) ID", "Guid") : null)
-    directoryID: string = "";
+    directoryID: uuid = EMPTY_UUID;
 
     @stringLengthValidator({ max: 100 })
     @fieldValidation<AzureADConfigurationEmbedded>(c => {

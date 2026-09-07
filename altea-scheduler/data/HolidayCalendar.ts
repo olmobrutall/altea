@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, backReference, rowOrder, stringLengthValidator, uniqueIndex, fieldValidation, quoted, primaryKey } from "@altea/altea/data/decorators";
+import { entity, backReference, stringLengthValidator, uniqueIndex, fieldValidation, quoted, primaryKey } from "@altea/altea/data/decorators";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
@@ -21,7 +21,9 @@ import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 @entity("Part")
 export class HolidayCalendarEntity_Holiday extends Entity {
     @backReference calendar: Lite<HolidayCalendarEntity>;
-    @rowOrder order: int;
+    // No `@rowOrder`: Signum does not mark `HolidayCalendarEntity.Holidays` [PreserveOrder], so its
+    // table has no Order column. The rows come back in primary-key order, which for a list saved in
+    // order is that order — a calendar of dates has no meaningful sequence to preserve anyway.
 
     date: Temporal.PlainDate;
 

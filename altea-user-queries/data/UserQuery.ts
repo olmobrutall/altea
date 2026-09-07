@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity, EmbeddedEntity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
-    backReference, entity, fieldValidation, implementedBy, noRepeatValidator, primaryKey, quoted, rowOrder, stringLengthValidator, valueField,
+    backReference, entity, fieldValidation, implementedBy, noRepeatValidator, primaryKey, quoted, rowOrder, stringLengthValidator, translatable, valueField,
 } from "@altea/altea/data/decorators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -102,11 +102,18 @@ export class UserQueryEntity_CustomDrilldown extends Entity {
 @reflect
 export class SystemTimeEmbedded extends EmbeddedEntity {
     mode: SystemTimeMode = SystemTimeMode.AsOf;
-    // altea divergence: Signum stores StartDate/EndDate as `string?` (to allow smart/relative-date
-    // expressions parsed at query time). altea has not ported that grammar, so these are the most
-    // appropriate Temporal type — a system-versioned window is a point in time WITH a time component.
-    startDate: Temporal.PlainDateTime | null;
-    endDate: Temporal.PlainDateTime | null;
+    // Signum's `string?` with [StringLengthValidator(Max = 100)] — a date EXPRESSION, not a date: its
+    // grammar allows relative forms parsed at query time. altea has not ported that grammar, and these
+    // were narrowed to `Temporal.PlainDateTime` because of it — but the whole chain around the field is
+    // already a STRING (`SystemTime.startDate` on the query request, the XML attribute, the URL
+    // parameter), so the narrowing bought a date picker in one editor and cost a `.toString()` here and
+    // a `.from()` there at every other boundary. Back to Signum's shape: the column is the same
+    // `varchar(100)` a Signum database has, a value Signum wrote round-trips, and an unported relative
+    // expression fails where it is PARSED rather than being unrepresentable.
+    @stringLengthValidator({ max: 100 })
+    startDate: string | null;
+    @stringLengthValidator({ max: 100 })
+    endDate: string | null;
     joinMode: SystemTimeJoinMode | null;
     timeSeriesUnit: TimeSeriesUnit | null;
     timeSeriesStep: int | null;
@@ -157,8 +164,17 @@ export class UserQueryEntity extends Entity implements IUserAssetEntity, IHasEnt
     @implementedBy(() => [UserEntity, RoleEntity])
     owner: Lite<Entity> | null;
 
+    @translatable
     @stringLengthValidator({ min: 1, max: 200 })
     displayName: string;
+
+    /**
+     * Signum's `CreateTitle` — overrides the SearchControl create button's default "Create new <Type>"
+     * caption. `[Translatable]` as `displayName` is: both are user-authored labels.
+     */
+    @translatable
+    @stringLengthValidator({ min: 1, max: 200 })
+    createTitle: string | null;
 
     appendFilters: boolean = false;
 

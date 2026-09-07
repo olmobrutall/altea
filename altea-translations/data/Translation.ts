@@ -46,7 +46,7 @@ export namespace TranslationPermission {
  * `rootType` column is gone with it: "every translation of X" joins through the route instead.)
  */
 @reflect
-@uniqueIndex((e: TranslatedInstanceEntity) => [e.culture, e.propertyRoute, e.instance])
+@uniqueIndex((e: TranslatedInstanceEntity) => [e.culture, e.propertyRoute, e.instance, e.rowId])
 @entity("System", "Master")
 export class TranslatedInstanceEntity extends Entity {
 
@@ -57,6 +57,14 @@ export class TranslatedInstanceEntity extends Entity {
     instance: Lite<Entity>;
 
     propertyRoute: PropertyRouteEntity;
+
+    /**
+     * Signum's `string? RowId` — WHICH ROW of a collection this translation is for, when the property
+     * route runs through one ("Dashboard.Parts/Title" needs a row; "Dashboard.DisplayName" must not have
+     * one, which is what Signum's PropertyValidation on this field enforces). A string because the row's
+     * primary key can be of any of the configured key types.
+     */
+    rowId: string | null;
 
     @stringLengthValidator({ multiLine: true })
     translatedText: string;

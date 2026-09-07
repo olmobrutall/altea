@@ -6,7 +6,7 @@ import {
     stringLengthValidator, fieldValidation, noRepeatValidator, legacyTableName
 } from "@altea/altea/data/decorators";
 import { Lite } from "@altea/altea/data/lite";
-import { type int, toInt, Temporal, type long, toLong } from "@altea/altea/data/basics";
+import { type float, type int, toInt, Temporal, type long, toLong } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
 import { ExceptionEntity } from "@altea/altea/data/exception";
@@ -497,10 +497,12 @@ export class PredictorCodificationEntity extends Entity {
     /** For one-hot encoding: the single value this column stands for. */
     @stringLengthValidator({ max: 100 }) isValue: string | null;
 
-    average: number | null;
-    stdDev: number | null;
-    min: number | null;
-    max: number | null;
+    // Signum declares these four `float?` — single precision, so `real` / `float4` columns. They are
+    // normalisation statistics, not money: the extra precision of a double buys nothing.
+    average: float | null;
+    stdDev: float | null;
+    min: float | null;
+    max: float | null;
 }
 
 /** Signum's `PredictorEpochProgressEntity` — one row per recorded training epoch, for the loss chart. */

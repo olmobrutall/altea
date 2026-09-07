@@ -620,6 +620,19 @@ export function forceNullable(target: object, propertyKey: string | symbol): voi
     getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).forceNullable = true;
 }
 
+// Signum's [ForceNotNullable] — the exact inverse: the column is generated NOT NULL even though the
+// field's type is nullable. For a value the model has no sensible EMPTY for but that is always set by
+// the time a row exists: an exception's `exceptionType` is `string | null` because the object is built
+// up in pieces, yet no stored exception has none. The stricter column is then a real guarantee for
+// every reader, and it is what a Signum database has (`basics.exception.exception_type`,
+// `help.type_help_properties.description`).
+//
+// A field that is nullable in BOTH is just nullable, and one non-null in both just non-null; these two
+// decorators exist only for the cases where the model and the column disagree on purpose.
+export function forceNotNullable(target: object, propertyKey: string | symbol): void {
+    getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).forceNotNullable = true;
+}
+
 // Marks the field holding the ELEMENT VALUE of an MList row — the whole of what Signum's `MList<T>` held,
 // whether that is a scalar, a reference (`@valueField colaborator: Lite<ArtistEntity>`) or an EMBEDDED
 // (`@valueField element: ChartColumnEmbedded`). Mark it only when the field IS the element: a row that

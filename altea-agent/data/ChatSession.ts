@@ -142,9 +142,10 @@ export class ChatMessageEntity extends Entity {
     @stringLengthValidator({ max: 1000, multiLine: true })
     userFeedbackMessage: string | null = null;
 
-    toString(): string {
-        return `${ChatMessageRole[this.role]} ${this.id ?? "New"}`;
-    }
+    // No `toString()`: Signum's ChatMessageEntity does not override it either, so its table has no ToStr
+    // column and the display falls back to Entity's own "<nice name> <id>". The obvious string here
+    // ("User 12") reads the ROLE through its enum NAME, which no query can expand inline — so keeping it
+    // would mean materialising a `to_str` column Signum does not have. Inherit the default instead.
 }
 
 export namespace ChatMessageOperation {

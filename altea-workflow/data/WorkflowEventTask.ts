@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, uniqueIndex, index, implementedBy, column, fieldValidation } from "@altea/altea/data/decorators";
+import { entity, uniqueIndex, index, implementedBy, column, fieldValidation, quoted } from "@altea/altea/data/decorators";
 import { ValidationMessage } from "@altea/altea/data/validators";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -64,6 +64,11 @@ export class WorkflowEventTaskEntity extends Entity implements ITaskEntity {
 
     action: WorkflowEventTaskActionEval | null;
 
+    // Signum's `[AutoExpressionField] ToString() => As.Expression(() => Workflow + " : " + Event)` — an
+    // EXPRESSION over two references, whose display strings the query provider expands inline, so the
+    // table has no ToStr column. `@quoted` says the same (DynamicViewEntity concatenates a reference the
+    // same way).
+    @quoted
     toString(): string {
         return this.workflow + " : " + this.event;
     }

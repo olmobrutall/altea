@@ -2,7 +2,7 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, backReference, rowOrder, valueField, implementedBy, unit } from "@altea/altea/data/decorators";
-import { Temporal, type int } from "@altea/altea/data/basics";
+import { Temporal, type int, type long } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { noRepeatValidator } from "@altea/altea/data/validators";
 import { FilePathEmbedded, FileTypeSymbol } from "@altea/altea-files/data/Files";
@@ -74,10 +74,11 @@ export class CachedQueryEntity extends Entity {
     creationDate: Temporal.PlainDateTime = Clock.now;
 
     @unit("ms")
-    queryDuration: int;
+    // Signum declares both `long` (a millisecond count has no reason to be capped at 24 days).
+    queryDuration: long;
 
     @unit("ms")
-    uploadDuration: int;
+    uploadDuration: long;
 
     // NO toString override, as in Signum: a hand-written one would earn a ToStr column that its table
     // does not have, and the default (the type's nice name plus the id) is what a snapshot row wants

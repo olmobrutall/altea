@@ -1,9 +1,9 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Symbol } from "@altea/altea/data/symbol";
-import { entity, format, quoted, stringLengthValidator, unit } from "@altea/altea/data/decorators";
+import { column, entity, format, quoted, stringLengthValidator, unit } from "@altea/altea/data/decorators";
 import { Decimal } from "@altea/altea/data/basics";
-import type { int } from "@altea/altea/data/basics";
+import type { float, int } from "@altea/altea/data/basics";
 import type { DeleteSymbol, ExecuteSymbol } from "@altea/altea/data/operations";
 
 // Port of Signum.Agent's ChatbotLanguageModel.cs — WHICH model to talk to, and what it costs.
@@ -41,22 +41,30 @@ export class ChatbotLanguageModelEntity extends Entity {
     @stringLengthValidator({ max: 50 })
     model: string;
 
-    temperature: number | null = null;
+    /** Signum's `float?` — single precision, so a `real` / `float4` column. */
+    temperature: float | null = null;
 
     maxTokens: int | null = null;
 
     isDefault: boolean;
 
+    // Signum reads the column SCALE off [DecimalsValidator(4)] (SchemaSettings.GetSqlScale), so these
+    // are numeric(18,4) there, not the numeric(18,2) money default. altea has no decimals validator, so
+    // the scale is stated on the column — the @format("N4") beside it is the display half of the same 4.
     @unit("$ / 1M tokens") @format("N4")
+    @column({ scale: 4 })
     pricePerInputToken: Decimal | null = null;
 
     @unit("$ / 1M tokens") @format("N4")
+    @column({ scale: 4 })
     pricePerOutputToken: Decimal | null = null;
 
     @unit("$ / 1M tokens") @format("N4")
+    @column({ scale: 4 })
     pricePerCachedInputToken: Decimal | null = null;
 
     @unit("$ / 1M tokens") @format("N4")
+    @column({ scale: 4 })
     pricePerReasoningOutputToken: Decimal | null = null;
 
     @quoted

@@ -27,12 +27,24 @@ export class AbstractDbType {
         return `${this.sqlServer} / ${this.postgres}`;
     }
 
-    // Structural equality of two abstract types. Mirrors Signum's AbstractDbType.Equals,
-    // which compares whichever underlying dialect type is set. Altea stores both dialect
-    // names, so we compare both slots (a DB-read DiffColumn fills both via the reader's
-    // reverse mapping, so both are meaningful).
+    // Structural equality of two abstract types across BOTH dialects. Signum's
+    // AbstractDbType.Equals compares whichever single underlying dialect type is set; altea stores
+    // both names, so this is the stricter question — right for comparing two MODEL types, wrong for
+    // comparing a model type against one read back from a database. Use {@link equalsInDialect} there.
     equals(other: AbstractDbType): boolean {
         return this.sqlServer === other.sqlServer && this.postgres === other.postgres;
+    }
+
+    /**
+     * Same type IN THE ACTIVE DIALECT — the comparison to use against a type read back from the
+     * database, which knows only the dialect it was read from and mirrors that name into both slots
+     * (see DiffColumn.create). Comparing both slots there reports a difference that does not exist:
+     * a Postgres `varchar` column's model type is `nvarchar / varchar`, so the sqlServer slot never
+     * matches and every such column looked like a type change — which is what put a redundant
+     * `ALTER COLUMN … TYPE varchar` beside every nullability change in a sync script.
+     */
+    equalsInDialect(other: AbstractDbType, isPostgres: boolean): boolean {
+        return isPostgres ? this.postgres === other.postgres : this.sqlServer === other.sqlServer;
     }
 
     // Type-family predicates — the altea analogue of Signum's AbstractDbType.IsString()/
@@ -77,9 +89,19 @@ const GUID_TYPES = new Set(['uniqueidentifier', 'uuid']);
 // embeddeds) — those are classified elsewhere by the SchemaBuilder, which
 // resolves the name to a constructor. Enums are handled via FieldInfo.isEnum.
 export function defaultDbType(typeName: string, kind: string | undefined): AbstractDbType | undefined {
+    // The branded aliases from data/basics — the only place a field can say something JavaScript's
+    // own types cannot. Checked FIRST, because each of these is a `number` or a `string` underneath
+    // and would otherwise fall through to the widest column for that primitive.
     switch (kind) {
+        case 'short': return new AbstractDbType('smallint', 'int2');
         case 'int': return new AbstractDbType('int', 'int4');
         case 'long': return new AbstractDbType('bigint', 'int8');
+        // Signum's `float` (C# single precision). A bare `number` is `Number` → float8 below.
+        case 'float': return new AbstractDbType('real', 'float4');
+        // A GUID is a `string` in altea's object model, so without this it stored as text — which is
+        // wider, unindexed for uuid equality, and not what Signum's `Guid` columns are.
+        case 'uuid':
+        case 'uuid7': return new AbstractDbType('uniqueidentifier', 'uuid');
     }
 
     switch (typeName) {
@@ -96,7 +118,12 @@ export function defaultDbType(typeName: string, kind: string | undefined): Abstr
         case 'PlainDateTime': return new AbstractDbType('datetime2', 'timestamp');
         case 'Instant':
         case 'ZonedDateTime': return new AbstractDbType('datetimeoffset', 'timestamptz');
-        case 'Duration': return new AbstractDbType('time', 'interval');
+        // Signum's TimeSpan → (Time, Time). Postgres `interval` would be the better fit for a
+        // DURATION — it is unbounded and signed, where `time` is a time of day capped at 24h — but a
+        // Signum database stores these as `time`, and a duration long enough to notice the difference
+        // (a chat turn, a task run) does not arise in either model. A field that ever needs the wider
+        // type can say `@column({ pgDbType: "interval" })`.
+        case 'Duration': return new AbstractDbType('time', 'time');
         // Binary (Signum's byte[]) — a `Uint8Array`/`Buffer` field, typeName "Blob". SQL Server
         // varbinary (size from @column, else MAX) / PostgreSQL bytea.
         case 'Blob': return new AbstractDbType('varbinary', 'bytea');

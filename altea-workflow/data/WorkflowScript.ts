@@ -14,10 +14,11 @@ import type { IWorkflowScriptExecutor } from "./WorkflowEval";
 // activity (an unattended step the script runner executes) and the back-off rule used when it throws.
 //
 // altea divergences:
-//  - `Eval` keeps Signum's shape (a stored TypeScript script — see WorkflowEval.ts), but
-//    `WorkflowScriptEval.CustomTypes` — extra C# helper classes emitted into the same generated namespace —
-//    is NOT ported: the generated unit here is a MODULE, so a script declares whatever local types it needs
-//    inline, and a second free-form source field would only be a second place for them to live.
+//  - `Eval` keeps Signum's shape (a stored TypeScript script — see WorkflowEval.ts), including
+//    `WorkflowScriptEval.CustomTypes`. altea does not COMPILE it — the generated unit here is a MODULE, so
+//    a script declares whatever local types it needs inline — but the field is declared and persisted, so
+//    a database a Signum application wrote keeps its helper sources instead of having them dropped, and
+//    the user-asset XML round-trips them. See `customTypes` below.
 //  - `Guid` → a uuid PRIMARY KEY (the IUserAssetEntity convention).
 
 @reflect
@@ -43,6 +44,16 @@ export class WorkflowScriptEntity extends Entity implements IUserAssetEntity {
 /** Signum's WorkflowScriptEval — the body of a SCRIPT activity, run unattended by the script runner. */
 @reflect
 export class WorkflowScriptEval extends EvalEmbedded<IWorkflowScriptExecutor> {
+    /**
+     * Signum's `[StringLengthValidator(MultiLine = true)] string? CustomTypes` — extra helper classes it
+     * emits into the same generated C# namespace as the script. CARRIED, NOT COMPILED (see the header): a
+     * TypeScript module declares its local types inline, so `compile` below ignores this. It is declared
+     * anyway because the column exists in every Signum-generated database and dropping it would take a
+     * Signum application's helper sources with it.
+     */
+    @stringLengthValidator({ multiLine: true })
+    customTypes: string | null = null;
+
     protected override compile(): CompilationResult<IWorkflowScriptExecutor> {
         const mainEntityType = this.owner<WorkflowScriptEntity>().mainEntityType.className;
 

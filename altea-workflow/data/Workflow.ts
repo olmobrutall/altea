@@ -4,7 +4,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { Enum } from "@altea/altea/data/enum";
 import {
     entity, implementedBy, primaryKey, uniqueIndex, index, unit, serialize,
-    stringLengthValidator, backReference, rowOrder, valueField, quoted,
+    stringLengthValidator, backReference, valueField, quoted,
 } from "@altea/altea/data/decorators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -93,7 +93,8 @@ registerEnum(WorkflowIssueType);
 @entity("Part", "Master")
 export class WorkflowEntity_MainEntityStrategy extends Entity {
     @backReference workflow: Lite<WorkflowEntity>;
-    @rowOrder order: int;
+    // No `@rowOrder`: Signum does not mark `WorkflowEntity.MainEntityStrategies` [PreserveOrder], so
+    // its table has no Order column. The strategies are a SET of ways the workflow may be started.
 
     @valueField strategy: WorkflowMainEntityStrategy;
 

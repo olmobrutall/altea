@@ -6,7 +6,7 @@ import {
     stringLengthValidator, fieldValidation, quoted,
 } from "@altea/altea/data/decorators";
 import { noRepeatValidator, countIsValidator, ComparisonType, ValidationMessage } from "@altea/altea/data/validators";
-import { type int, toInt } from "@altea/altea/data/basics";
+import { type int, toInt, type uuid } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { CultureInfoEntity, cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
@@ -264,7 +264,8 @@ export class EmailTemplateFromEmbedded extends EmbeddedEntity {
     whenNone: WhenNoneFromBehaviour;
     whenMany: WhenManyFromBehaviour;
 
-    azureUserId: string | null;
+    /** Signum's `Guid? AzureUserId` — see EmailFromEmbedded, whose column this mirrors. */
+    azureUserId: uuid | null;
 
     toString(): string {
         return `${this.displayName ?? ""} <${this.emailAddress ?? this.token?.tokenString ?? ""}>`;

@@ -2,11 +2,11 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, implementedBy, uniqueIndex, unit, quoted, rowOrder, backReference,
+    entity, implementedBy, uniqueIndex, unit, quoted, backReference,
     stringLengthValidator, fieldValidation,
 } from "@altea/altea/data/decorators";
 import { emailValidator, urlValidator, ValidationMessage } from "@altea/altea/data/validators";
-import { type int, toInt } from "@altea/altea/data/basics";
+import { type int, toInt, type uuid } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserEntity } from "@altea/altea-auth/data/User";
@@ -80,10 +80,11 @@ export abstract class EmailAddressEmbedded extends EmbeddedEntity {
 // Signum's EmailFromEmbedded — the sender of one message.
 @reflect
 export class EmailFromEmbedded extends EmailAddressEmbedded {
-    /** Signum's AzureUserId — the DIRECTORY OBJECT ID of the sending mailbox, which is what
+    /** Signum's `Guid? AzureUserId` — the DIRECTORY OBJECT ID of the sending mailbox, which is what
      *  @altea/altea-mailing-microsoft-graph addresses `POST /users/{id}/sendMail` with. Filled from the
-     *  email owner's `externalId` (see fromOwnerData / EmailLogic.registerEmailOwner). */
-    azureUserId: string | null;
+     *  email owner's `externalId` (see fromOwnerData / EmailLogic.registerEmailOwner). A `uuid`, so the
+     *  column is one too rather than free text. */
+    azureUserId: uuid | null;
 
     clone(): EmailFromEmbedded {
         return EmailFromEmbedded.create({
@@ -99,7 +100,8 @@ export class EmailFromEmbedded extends EmailAddressEmbedded {
             emailOwner: data.owner,
             emailAddress: data.email ?? "",
             displayName: data.displayName,
-            azureUserId: data.externalId,
+            // Signum's `data.ExternalId?.ToGuid()` — EmailOwnerData carries the directory id as text.
+            azureUserId: data.externalId as uuid | null,
         });
     }
 }
@@ -117,8 +119,10 @@ export type EmailRecipientKindKeys = keyof typeof EmailRecipientKind;
  *  ONE owner in altea. */
 @reflect
 export abstract class EmailRecipientBaseEntity extends Entity {
-    @rowOrder
-    order: int;
+    // No `@rowOrder`: Signum marks NEITHER of this embedded's two MLists [PreserveOrder]
+    // (`EmailMessageEntity.Recipients`, `EmailSenderConfigurationEntity.AdditionalRecipients`), so
+    // neither table has an Order column. Recipients are grouped by their `kind` (To / Cc / Bcc), not
+    // by list position.
 
     @implementedBy(() => [UserEntity])
     emailOwner: Lite<IEmailOwnerEntity> | null;

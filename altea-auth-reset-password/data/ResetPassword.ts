@@ -70,9 +70,9 @@ export class ResetPasswordRequestEntity extends Entity {
         return null;
     }
 
-    override toString(): string {
-        return `${this.user?.toString() ?? ""} ${this.requestDate?.toString() ?? ""}`;
-    }
+    // No `toString()`: Signum's ResetPasswordRequestEntity does not override it, so its table has no
+    // ToStr column — a request is short-lived bookkeeping nobody browses by name. Entity's own
+    // "<nice name> <id>" default (which IS translatable) stands in.
 }
 
 // ---- E-mail models ---------------------------------------------------------------------------------------

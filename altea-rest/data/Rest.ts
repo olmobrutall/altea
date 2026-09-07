@@ -145,6 +145,10 @@ export class RestLogEntity extends Entity {
         return this.endDate.since(this.startDate).total({ unit: "milliseconds" });
     }
 
+    // Signum's RestLogEntity does not override ToString at all, so its table has no ToStr column. altea keeps
+    // the more useful "METHOD url" display and marks it `@quoted` instead of dropping it: both columns
+    // are on this same row, so the query provider expands the string inline and materialises nothing.
+    @quoted
     toString(): string {
         return `${this.httpMethod ?? ""} ${this.url ?? ""}`;
     }

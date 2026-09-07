@@ -7,7 +7,7 @@ import {
     rowOrder,
 } from "@altea/altea/data/decorators";
 import { fieldValidation, legacyPropertyRoute } from "@altea/altea/data/decorators";
-import { noRepeatValidator, ValidationMessage } from "@altea/altea/data/validators";
+import { noRepeatValidator, notNullValidator, ValidationMessage } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -62,7 +62,10 @@ export class AlertEntity extends Entity {
 
     creationDate: Temporal.PlainDateTime = Clock.now;
 
-    alertDate: Temporal.PlainDateTime;
+    /** Signum's `[NotNullValidator] DateTime? AlertDate` — REQUIRED but not NOT NULL: the value is
+     *  validated, while the column stays nullable so an alert can be built before its date is chosen. */
+    @notNullValidator()
+    alertDate: Temporal.PlainDateTime | null = null;
 
     attendedDate: Temporal.PlainDateTime | null;
 
@@ -113,20 +116,20 @@ export class AlertEntity extends Entity {
      *  the alert endpoints filter by, so it has to translate to SQL. */
     @legacyPropertyRoute
     @quoted alerted(): boolean {
-        return this.attendedDate == null && Temporal.PlainDateTime.compare(this.alertDate, Clock.now) <= 0;
+        return this.attendedDate == null && Temporal.PlainDateTime.compare(this.alertDate!, Clock.now) <= 0;
     }
 
     /** Signum's `Future`. */
     @legacyPropertyRoute
     @quoted future(): boolean {
-        return this.attendedDate == null && Temporal.PlainDateTime.compare(this.alertDate, Clock.now) > 0;
+        return this.attendedDate == null && Temporal.PlainDateTime.compare(this.alertDate!, Clock.now) > 0;
     }
 
     /** Signum's `CurrentState` — IN MEMORY (see the header): a ternary returning an enum has no SQL
      *  lowering. Filter with {@link alerted} / {@link attended} / {@link future} instead. */
     currentState(): AlertCurrentState {
         return this.attendedDate != null ? AlertCurrentState.Attended :
-            Temporal.PlainDateTime.compare(this.alertDate, Clock.now) <= 0 ? AlertCurrentState.Alerted :
+            Temporal.PlainDateTime.compare(this.alertDate!, Clock.now) <= 0 ? AlertCurrentState.Alerted :
                 AlertCurrentState.Future;
     }
 
@@ -135,6 +138,8 @@ export class AlertEntity extends Entity {
 }
 
 export enum AlertState {
+    /** Never stored — an alert being created. Signum marks it `[Ignore]`; altea excludes it from the
+     *  enum table with `Enum.markAsNotMapped` in AlertLogic. */
     New,
     Saved,
     Attended,
