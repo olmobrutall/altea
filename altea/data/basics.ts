@@ -16,9 +16,6 @@ export type float = number & { readonly __brand: 'float' };
 export type uuid = string & { readonly __brand: 'uuid' };
 export type uuid7 = string & { readonly __brand: 'uuid7' };
 
-/** The all-zero UUID — .NET's `Guid.Empty`, and what a REQUIRED uuid field defaults to before it is set. */
-export const EMPTY_UUID = '00000000-0000-0000-0000-000000000000' as uuid;
-
 export function toShort(n: number | boolean | string): short {
     return Math.trunc(Number(n)) as short;
 }
