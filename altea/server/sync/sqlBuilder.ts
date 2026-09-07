@@ -9,7 +9,7 @@ import { VectorTableIndex, pgVectorIndexMethod, pgVectorOperatorClass, sqlVector
 import type { DiffColumn, DiffTable } from './diffModels';
 import { SqlPreCommand, SqlPreCommandSimple, SqlPreCommandWithHistory, Spacing } from './sqlPreCommand';
 import { chopHash, codify, HASH_SIZE } from './stringHash';
-import { VERSIONING_FUNCTION } from './postgres/versioning';
+import { VERSIONING_FUNCTION, VERSIONING_FUNCTION_LEGACY } from './postgres/versioning';
 
 // Renders dialect-specific DDL fragments from the in-memory schema model. Mirrors
 // Signum's SqlBuilder, scoped to schema *generation*: CREATE SCHEMA / CREATE
@@ -138,8 +138,13 @@ export class SqlBuilder {
 
     // The generic Postgres versioning() trigger function (altea's own — see postgres/versioning.ts).
     // Installed once before the versioned tables; SQL Server needs no such function (native).
-    createVersioningFunction(): SqlPreCommand {
-        return new SqlPreCommandSimple(VERSIONING_FUNCTION + ';');
+    //
+    // LEGACY MODE installs the upstream temporal_tables function Signum ships instead. It is not a
+    // cosmetic swap: the two functions read TG_ARGV[2] differently (a boolean flag vs the column list),
+    // so the function and `versioningTriggerArgs` below have to agree, and a database can only hold one
+    // of them. See SchemaSettings.legacyMode.
+    createVersioningFunction(legacyMode: boolean): SqlPreCommand {
+        return new SqlPreCommandSimple((legacyMode ? VERSIONING_FUNCTION_LEGACY : VERSIONING_FUNCTION) + ';');
     }
 
     // Postgres history table: `CREATE TABLE <hist> (LIKE <main>)` copies the column definitions
@@ -172,6 +177,16 @@ export class SqlBuilder {
     versioningTriggerArgs(table: Table): string[] {
         const sv = table.systemVersioned!;
         const sysPeriod = sv.postgresSysPeriodColumnName!;
+        // LEGACY MODE: Signum's `VersioningTriggerArgs` — `'{sysPeriod}', '{historyTable}', true`. Two
+        // differences from altea's, and both are load-bearing because the args are what the synchronizer
+        // compares against `pg_trigger.tgargs`:
+        //  • the third argument is the FUNCTION's "mitigate update conflicts" flag (always `true`), not a
+        //    column list — Signum's function works the columns out from pg_attribute itself;
+        //  • the history table is QUALIFIED (`public.order_history`), because Signum formats `si.TableName`
+        //    as a full ObjectName and its default schema is spelled out. `objectName` drops the default
+        //    schema, which reads as a different table here and left the trigger re-emitted every sync.
+        if (table.legacyMode)
+            return [sysPeriod, this.qualifiedName(sv.historyTableName), 'true'];
         const cols = Object.values(table.columns)
             .filter(c => c.name !== sysPeriod)
             .map(c => this.sqlEscape(c.name))
@@ -590,7 +605,12 @@ export class SqlBuilder {
                 `ALTER TABLE ${this.objectName(tableName)} ALTER COLUMN ${escName} ${this.getColumnType(column)}${collate} ${nullable ? 'NULL' : 'NOT NULL'};`);
         }
 
-        const typeChanged = !diffColumn.dbType.equals(column.dbType) || diffColumn.collation !== column.collation
+        // Only the ACTIVE dialect's type name is comparable here: `diffColumn` was read from the
+        // database and mirrors the one name it knows into BOTH slots (see DiffColumn.create), so
+        // `equals` — which compares both — called every Postgres string column a type change (model
+        // `nvarchar / varchar` vs read `varchar / varchar`) and put a no-op `TYPE varchar` line beside
+        // each nullability change. Same question DiffColumn.columnEquals asks.
+        const typeChanged = !diffColumn.dbType.equalsInDialect(column.dbType, this.isPostgres) || diffColumn.collation !== column.collation
             || !diffColumn.scaleEquals(column) || !diffColumn.sizeEquals(column, this.isPostgres) || !diffColumn.precisionEquals(column);
 
         const parts: (SqlPreCommand | undefined)[] = [

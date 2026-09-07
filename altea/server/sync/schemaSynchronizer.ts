@@ -482,7 +482,9 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
     // exist ("function versioning() does not exist"). It is CREATE OR REPLACE, hence unconditionally safe
     // to re-emit whenever any trigger is being written.
     const versioningTriggers = versioningTriggerChanges == undefined ? undefined
-        : SqlPreCommand.combine(Spacing.Double, sqlBuilder.createVersioningFunction(), versioningTriggerChanges);
+        : SqlPreCommand.combine(Spacing.Double,
+            sqlBuilder.createVersioningFunction([...modelTables.values()].some(t => t.legacyMode)),
+            versioningTriggerChanges);
 
     const delayedHistory = SqlPreCommand.combine(Spacing.Double, ...delayedHistoryColumns);
 

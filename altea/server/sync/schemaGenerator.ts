@@ -62,7 +62,9 @@ export function createTablesScript(schema: Schema): SqlPreCommand | undefined {
         const versioned = tables.filter(t => t.systemVersioned != null);
         if (versioned.length > 0) {
             versioning = SqlPreCommand.combine(Spacing.Double,
-                sqlBuilder.createVersioningFunction(),
+                // Any versioned table's flag IS the schema's (SchemaBuilder stamps every table from the
+                // same setting); the function itself is schema-wide.
+                sqlBuilder.createVersioningFunction(versioned[0].legacyMode),
                 ...versioned.map(t => sqlBuilder.createHistoryTableSql(t)),
                 ...versioned.map(t => sqlBuilder.createVersioningTrigger(t)));
         }
