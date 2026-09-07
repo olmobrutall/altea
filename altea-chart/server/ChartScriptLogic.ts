@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { SchemaBuilder } from "@altea/altea/server/schema/schemaBuilder";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
+import { declaredSymbolsForType } from "@altea/altea/data/reflection";
 import { ChartScriptSymbol } from "../data/ChartScript";
 import type { ChartScript } from "../data/ChartScript";
 import { setGetChartScriptFunc } from "../data/ChartRequest";
@@ -31,10 +32,12 @@ import { SvgMapScript } from "./Scripts/SvgMap";
 // altea divergences:
 //  - Signum keys `Scripts` by the ChartScriptSymbol instance; altea keys by `symbol.key` (a deserialized
 //    symbol reference from the client is a different instance with the same key).
-//  - Signum seeds the symbol table from `() => Scripts.Keys`; altea's SymbolLogic assigns ids eagerly in
-//    start() (before any RegisterScript runs) and seeds from all DECLARED symbols — so
-//    `SymbolLogic.start(sb, ChartScriptSymbol)` seeds every D3/Html/Svg/GoogleMaps script symbol regardless
-//    of which renderers are registered (harmless extra system-string rows for not-yet-ported charts).
+//  - the symbol table is seeded from the REGISTERED scripts, as Signum does (`() => Scripts.Keys`): a
+//    chart script IS its renderer, and a symbol with none is not a chart this application offers. The
+//    thunk is evaluated LATE (when the table is seeded), so it sees every `registerScript` below whatever
+//    the order — which is what SymbolLogic's declared-symbol default was reaching for. Seeding from
+//    DECLARED symbols instead gave rows to the two GoogleMaps scripts nothing renders, which a Southwind
+//    database (started `googleMapsChartScripts: false`) does not have.
 //  - Icon resource embedding is deferred (loadIcon returns null); the chart-type picker just shows no icon.
 
 export namespace ChartScriptLogic {
@@ -46,7 +49,8 @@ export namespace ChartScriptLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        SymbolLogic.start(sb, ChartScriptSymbol);
+        SymbolLogic.start(sb, ChartScriptSymbol,
+            () => (declaredSymbolsForType(ChartScriptSymbol) as ChartScriptSymbol[]).filter(s => scripts.has(s.key)));
 
         // Signum's `ChartRequestModel.GetChartScriptFunc = s => Scripts.GetOrThrow(s)`.
         setGetChartScriptFunc(s => {

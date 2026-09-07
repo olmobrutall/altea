@@ -1,7 +1,7 @@
 import { Entity } from "./entity";
 import { Lite } from "./lite";
 import { column, entity, format, implementedBy, implementedByAll, serialize, ticksColumn } from "./decorators";
-import { reflect } from "./reflection";
+import { reflect, setDatabaseSchema } from "./reflection";
 import { Temporal } from "./basics";
 import { OperationSymbol } from "./operations";
 import { ExceptionEntity } from "./exception";
@@ -82,3 +82,6 @@ export class OperationLogEntity extends Entity {
             .replace(/\s+/g, " ").trim();
     }
 }
+
+// `Signum.Operations` → the `operations` schema, as for OperationSymbol beside it.
+setDatabaseSchema("operations", OperationLogEntity);

@@ -1,4 +1,4 @@
-import { reflect } from './reflection';
+import { reflect, setDatabaseSchema } from './reflection';
 import { entity } from './decorators';
 import { Symbol } from './symbol';
 
@@ -14,3 +14,9 @@ import { Symbol } from './symbol';
 @entity("SystemString", "Master")
 export class OperationSymbol extends Symbol {
 }
+
+// Signum declares this in the `Signum.Operations` namespace, which the core assembly maps to the
+// `operations` SCHEMA — so a Signum database has `operations.operation`, not `basics.operation`. altea
+// keeps the whole core model in one data/ folder (declared `basics`), so the schema is named per type.
+// OperationLogEntity carries the same override; see setDatabaseSchema.
+setDatabaseSchema("operations", OperationSymbol);

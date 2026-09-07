@@ -71,8 +71,12 @@ export function queryOfficeModel(entity: QueryModel): IOfficeModel {
 
 /** One registered model type: which query it renders against, and how to build it. */
 interface OfficeModelInfo {
+    /** The REGISTRY name — the `office_model.class_name` column, and this registry's own key. */
+    className: string;
     modelType: Function;
-    queryName: QueryName;
+    /** The query the model renders against, or undefined when the MODEL is the data (Signum passes
+     *  `queryName: null` for MultiEntityWord / QueryWord, and derives it from `T` otherwise). */
+    queryName: QueryName | undefined;
     /** Build the model from a target entity (Signum's single-parameter constructor). */
     construct: ((entity: Entity | null) => IOfficeModel) | undefined;
     /** Signum's DefaultTemplateConstructor — the template generated when none exists. */
@@ -86,6 +90,25 @@ export namespace OfficeModelLogic {
     export let officeModelsLazy: ResetLazy<Map<string, OfficeModelEntity>> = null!;
 
     export function start(sb: SchemaBuilder): void {
+        // Signum's `RegisterWordModel<MultiEntityWord>(null); RegisterWordModel<QueryWord>(null);` — the
+        // framework's own two models, and the reason every Signum database has a `MultiEntityWord` and a
+        // `QueryWord` row. altea had the two factories but registered neither, so the models a template
+        // can be built against existed in code and not in the table: `OfficeTemplateLogic.isVisible`
+        // looked up rows that were never there, and a Southwind database's two rows read as removed.
+        //
+        // Both are registered with NO queryName (Signum passes none): the model IS the data — a set of
+        // entities, or a query the user configured — so there is nothing to query it against. The
+        // `modelType` is the wrapped ENTITY model, which is what `toType()` hands isVisible; the ROW
+        // keeps Signum's wrapper name.
+        registerOfficeModel({
+            modelType: MultiEntityModel, className: "MultiEntityWord", queryName: undefined,
+            construct: e => multiEntityOfficeModel(e as unknown as MultiEntityModel),
+        });
+        registerOfficeModel({
+            modelType: QueryModel, className: "QueryWord", queryName: undefined,
+            construct: e => queryOfficeModel(e as unknown as QueryModel),
+        });
+
         sb.include(OfficeModelEntity).withQuery();
 
         // Signum's WordModelLogic registers this on the TEMPLATE's graph, from the MODEL: "give this
@@ -114,19 +137,31 @@ export namespace OfficeModelLogic {
     /** The rows that SHOULD exist, keyed by clean name — the seed for generation and the sync diff. */
     export function shouldRowsForSync(): Map<string, OfficeModelEntity> {
         return new Map([...registeredModels.values()]
-            .map(info => cleanTypeName(info.modelType))
+            .map(info => info.className)
             .sort()
             .map(name => [name, OfficeModelEntity.create({ className: name })]));
     }
 
-    /** Signum's RegisterWordModel. Call BEFORE start (the registry table is seeded from these keys). */
+    /**
+     * Signum's RegisterWordModel. Call BEFORE start (the registry table is seeded from these keys).
+     *
+     * `className` is the name the ROW carries, defaulting to the model type's own clean name — which is
+     * what Signum's `typeof(T).Name` gives for an app model like `OrderSummaryWord`. It is separable
+     * because altea collapsed Signum's `WordModel<T>` wrapper CLASS into a factory function (see the
+     * header): for the framework's own two models Signum registers the wrapper (`MultiEntityWord`) while
+     * keying its VisibleOn dictionary on the wrapped entity (`MultiEntityModel`), and with no wrapper
+     * class to name, the row's name has to be given.
+     */
     export function registerOfficeModel(options: {
         modelType: Function;
-        queryName: QueryName;
+        queryName: QueryName | undefined;
+        className?: string;
         construct?: (entity: Entity | null) => IOfficeModel;
         defaultTemplateConstructor?: () => OfficeTemplateEntity;
     }): void {
-        registeredModels.set(cleanTypeName(options.modelType), {
+        const className = options.className ?? cleanTypeName(options.modelType);
+        registeredModels.set(className, {
+            className,
             modelType: options.modelType,
             queryName: options.queryName,
             construct: options.construct,
@@ -166,7 +201,7 @@ export namespace OfficeModelLogic {
     }
 
     /** The query a model renders against (Signum reads it off the registered type). */
-    export function getQueryName(modelEntity: OfficeModelEntity): QueryName {
+    export function getQueryName(modelEntity: OfficeModelEntity): QueryName | undefined {
         return info(modelEntity).queryName;
     }
 
@@ -198,7 +233,7 @@ export namespace OfficeModelLogic {
         const template = i.defaultTemplateConstructor();
         template.name ||= modelEntity.className;
         template.model = modelEntity;
-        template.query = QueryLogic.queries.tryGetCore(i.queryName) != undefined
+        template.query = i.queryName != undefined && QueryLogic.queries.tryGetCore(i.queryName) != undefined
             ? await QueryLogic.getQueryEntity(i.queryName)
             : null;
 

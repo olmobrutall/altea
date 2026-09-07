@@ -14,6 +14,7 @@ import { toInt } from "@altea/altea/data/basics";
 import type { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
 import { ValidationMessage } from "@altea/altea/data/validators";
+import { declaredSymbolsForType } from "@altea/altea/data/reflection";
 import { FileTypeLogic } from "@altea/altea-files/server/FileTypeLogic";
 import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbeddedLogic";
 import type { IFileTypeAlgorithm } from "@altea/altea-files/server/FileTypeAlgorithm";
@@ -147,10 +148,16 @@ export namespace PredictorLogic {
         // The Autoconfigure definition needs an EXPLICIT include: it is only ever reached through
         // `ProcessEntity.data`, which is @implementedByAll and therefore references no type in
         // particular — so nothing would bring its table into the schema.
-        sb.include(AutoconfigureNeuralNetworkEntity).withQuery();
+        // No `withQuery()`: Signum includes this one without a search page (it is reached from the
+        // predictor it configures), so a Signum database has no `basics.query` row for it.
+        sb.include(AutoconfigureNeuralNetworkEntity);
 
         // The derived rows. Each is written by the engine and read by the UI, never edited.
-        sb.include(PredictorCodificationEntity).withQuery();
+        sb.include(PredictorCodificationEntity)
+            // Signum's `.WithUniqueIndex(pc => new { pc.Predictor, pc.Index, pc.Usage })` — one
+            // codification per (predictor, vector position, input-or-output).
+            .withUniqueIndex(pc => [pc.predictor, pc.index, pc.usage])
+            .withQuery();
         sb.include(PredictorEpochProgressEntity).withQuery();
         sb.include(PredictSimpleResultEntity).withQuery();
 
@@ -216,7 +223,13 @@ export namespace PredictorLogic {
         SymbolLogic.start(sb, PredictorAlgorithmSymbol);
         SymbolLogic.start(sb, PredictorColumnEncodingSymbol);
         SymbolLogic.start(sb, PredictorResultSaverSymbol);
-        SymbolLogic.start(sb, PredictorPublicationSymbol);
+        // Signum's `SymbolLogic<PredictorPublicationSymbol>.Start(sb, () => Publications.Keys)` — the
+        // REGISTERED publications, not every declared one. A publication symbol is meaningless without its
+        // PublicationSettings (which query the live model predicts over), so a declared-but-unregistered
+        // one would be a row `PredictorPredictLogic.currentPredictor` could never answer for.
+        SymbolLogic.start(sb, PredictorPublicationSymbol,
+            () => (declaredSymbolsForType(PredictorPublicationSymbol) as PredictorPublicationSymbol[])
+                .filter(s => publications.has(s.key)));
 
         // Each symbol table also needs a QUERY, because the designer picks from it: an EntityCombo over
         // `algorithm` / `encoding` / `resultSaver` loads its options by RUNNING the type's query, so

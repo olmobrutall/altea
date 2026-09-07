@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, setDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, uniqueIndex, backReference, valueField, rowOrder, legacyTableName, legacyColumnName } from "@altea/altea/data/decorators";
@@ -97,6 +97,13 @@ export function typeBasicToProperty(ta: TypeAllowedBasic): PropertyAllowed {
 @entity("SystemString", "Master")
 export class PermissionSymbol extends Symbol {
 }
+
+// Signum declares PermissionSymbol in `Signum/Basics`, so its table lands in the `basics` schema rather
+// than `auth`: a permission is core vocabulary — every module declares its own — and only the RULES that
+// grant one belong to authorization. altea declares the class inside the auth package that consumes it,
+// so the schema is named per type; see setDatabaseSchema. (TypeConditionSymbol below is genuinely
+// `Signum.Authorization` and stays in `auth`, as the database has it.)
+setDatabaseSchema("basics", PermissionSymbol);
 
 @reflect
 @entity("SystemString", "Master")

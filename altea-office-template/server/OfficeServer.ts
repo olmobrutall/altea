@@ -64,8 +64,10 @@ export namespace OfficeServer {
         ws.post("/api/office/constructorType",
             { req: CustomType<OfficeModelEntity>(), res: CustomType<string>() },
             async (req, res) => {
-                const queryName = OfficeModelLogic.getQueryName(await req.jsonTyped());
-                res.jsonTyped(cleanTypeName(queryName));
+                // Signum's `GetEntityType(wordModel.ToType())` — the type the CLIENT must build to create
+                // a report from this model (a MultiEntityModel, a QueryModel, an app model). It is not the
+                // model's QUERY, which the two framework models do not even have.
+                res.jsonTyped(cleanTypeName(OfficeModelLogic.toType(await req.jsonTyped())));
             });
 
         // Signum's GetWordTemplates: the templates a contextual menu / a query button should offer.

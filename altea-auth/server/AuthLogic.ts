@@ -1,12 +1,13 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
 import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
+import { Enum } from "@altea/altea/data/enum";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { AsyncLocalStorage } from "node:async_hooks";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { DirectedGraph } from "@altea/altea/server/directedGraph";
 import { UserHolder } from "@altea/altea/server/userHolder";
-import { Temporal } from "@altea/altea/data/basics";
+import { Temporal, toInt } from "@altea/altea/data/basics";
 import { Lite } from "@altea/altea/data/lite";
 import { UserWithClaims } from "@altea/altea/data/security";
 import { PasswordEncoding } from "@altea/altea/server/passwordEncoding";
@@ -125,6 +126,10 @@ export namespace AuthLogic {
         systemUserName = systemUser ?? null;
         anonymousUserName = anonymousUser ?? null;
 
+        // Signum marks `UserState.New` `[Ignore]` — the state of a user being created, never stored, so
+        // it must not become a row of the enum table.
+        Enum.markAsNotMapped(UserState, UserState.New);
+
         // (Signum's `FillClaims += …` for Role / ExternalId lives in data/User.ts here: altea builds a
         // UserWithClaims on the CLIENT too, and a filler declared in the data layer serves both tiers.)
 
@@ -134,6 +139,8 @@ export namespace AuthLogic {
             .withQuery();
 
         sb.include(UserEntity)
+            // Signum's `.WithIndex(a => new { a.DisabledOn })` — the deactivation sweep filters on it.
+            .withIndex(u => u.disabledOn)
             .withStateMachine(u => u.state, registerUserOperations)
             .withQuery();
 
@@ -233,7 +240,7 @@ export namespace AuthLogic {
         }
 
         if (user.loginFailedCounter > 0) {
-            user.loginFailedCounter = 0;
+            user.loginFailedCounter = toInt(0);
             await asSystemUser(() => user.save());
         }
 

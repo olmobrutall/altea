@@ -2,16 +2,23 @@ import "@altea/altea/server"; // installs Entity.save()/delete()
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
+import { declaredSymbolsForType } from "@altea/altea/data/reflection";
 import { FileTypeSymbol } from "../data/Files";
 import type { IFileTypeAlgorithm } from "./FileTypeAlgorithm";
 
 // Port of Signum.Files' FileTypeLogic.cs — the registry mapping each FileTypeSymbol to the ALGORITHM that
 // stores its files, plus the symbol table itself.
 //
-// altea divergence: Signum seeds the symbol table from the REGISTERED keys (`SymbolLogic<FileTypeSymbol>
-// .Start(sb, () => FileTypes.Keys)`); altea's SymbolLogic seeds every DECLARED symbol (order-independent —
-// see TypeConditionLogic's note), so a declared-but-unregistered file type gets a row but no algorithm and
-// throws on use, which is the same failure Signum's GetOrThrow gives.
+// The symbol table is seeded from the REGISTERED file types, as Signum does
+// (`SymbolLogic<FileTypeSymbol>.Start(sb, () => FileTypes.Keys.ToHashSet())`): a file type IS its
+// algorithm, and one with no store to write to is not a type this application has. SymbolLogic's own
+// default — every DECLARED symbol — is wrong here in a way that shows, because merely IMPORTING a
+// module's data layer declares its file types: an app that never STARTS that module still got rows for
+// them. Southwind starts neither Printing nor WhatsNew and has a row for neither, where eastwind had six
+// its database does not.
+//
+// Like Signum's, the thunk is evaluated LATE (when the table is seeded), so registration order does not
+// matter — which is what the declared-symbol default was reaching for.
 
 const fileTypes = new Map<string /*symbol key*/, IFileTypeAlgorithm>();
 
@@ -21,7 +28,8 @@ export namespace FileTypeLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        SymbolLogic.start(sb, FileTypeSymbol);
+        SymbolLogic.start(sb, FileTypeSymbol,
+            () => (declaredSymbolsForType(FileTypeSymbol) as FileTypeSymbol[]).filter(s => fileTypes.has(s.key)));
         sb.include(FileTypeSymbol).withQuery();
     }
 

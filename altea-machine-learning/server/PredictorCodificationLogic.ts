@@ -5,7 +5,7 @@ import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { SubTokensOptions } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import type { FilterTypeKeys } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
-import { toInt } from "@altea/altea/data/basics";
+import { toFloat, toInt } from "@altea/altea/data/basics";
 import {
     PredictorCodificationEntity, PredictorColumnUsage, PredictorEntity, PredictorSubQueryColumnUsage,
 } from "../data/Predictor";
@@ -57,10 +57,11 @@ export namespace PredictorCodificationLogic {
                     // column silently answered as if the value were unknown. It trains fine (the values
                     // are still live objects there), which is exactly why it goes unnoticed.
                     isValue: isValueString(c, 100),
-                    average: c.average,
-                    stdDev: c.stdDev,
-                    min: c.min,
-                    max: c.max,
+                    // `float` columns (Signum declares them `float?`), so brand the computed numbers.
+                    average: c.average == null ? null : toFloat(c.average),
+                    stdDev: c.stdDev == null ? null : toFloat(c.stdDev),
+                    min: c.min == null ? null : toFloat(c.min),
+                    max: c.max == null ? null : toFloat(c.max),
                 });
             });
 

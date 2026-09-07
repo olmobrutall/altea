@@ -1,5 +1,5 @@
 import "@altea/altea/data/globals/arrayExtensions";
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { reflect, init, setDatabaseSchema, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Enum } from "@altea/altea/data/enum";
@@ -103,7 +103,8 @@ export class WorkflowPoolModel extends ModelEntity {
 @entity("Part", "Master")
 export class WorkflowLaneEntity_Actor extends Entity {
     @backReference lane: Lite<WorkflowLaneEntity>;
-    @rowOrder order: int;
+    // No `@rowOrder`: Signum does not mark `WorkflowLaneEntity.Actors` [PreserveOrder], so its table
+    // has no Order column. A lane's actors are a SET — whoever may work the lane — with no sequence.
 
     @valueField @implementedBy(() => [UserEntity, RoleEntity])
     actor: Lite<Entity>;
@@ -274,6 +275,11 @@ export enum BootstrapStyle {
     Danger,
 }
 registerEnum(BootstrapStyle);
+// …and because Signum declares it in `Signum/Basics`, its enum table lands in the `basics` schema, not
+// this module's `workflow` — which is where the header's "altea declares it in THIS module" costs
+// something. Named per type rather than moved, so the enum stays beside its only consumer; see
+// setDatabaseSchema.
+setDatabaseSchema("basics", BootstrapStyle);
 
 /** Signum's ButtonOptionEmbedded — one button of a Decision activity, or the custom "Next" of a Task. */
 @reflect

@@ -154,6 +154,28 @@ async function buildCache<T extends SemiSymbol>(ctor: Type<T>): Promise<Map<stri
     }
 }
 
+/**
+ * The declared semi-symbols as they should be STORED — Signum's `CreateSemiSymbols`.
+ *
+ * The one step here is the NAME. `init()` fills it from the field name ("QuestionSummarizer"), which is
+ * what Signum's `SemiSymbol(declaringType, fieldName)` ctor does; the row, though, holds the DISPLAY name
+ * ("Question summarizer"), because Signum re-assigns `item.Name = item.NiceToString()` on the way to both
+ * the generate and the synchronize script. Without it every declared semi-symbol reads as changed against
+ * a Signum database, and altea's own rows carry an identifier where a label belongs.
+ *
+ * It mutates the DECLARED instances, as Signum does: the registry is the single source of what a symbol is
+ * called, so the runtime object and its row agree afterwards. (Signum wraps this in
+ * `ChangeCulture(Schema.ForceCultureInfo)` so the stored label is the app's canonical language rather than
+ * whatever culture the sync happens to run in; altea's `niceToString` reads the registered descriptions,
+ * which are not per-request culture-switched here, so there is nothing to pin.)
+ */
+function createSemiSymbols(symbols: Iterable<SemiSymbol>): SemiSymbol[] {
+    const result = [...symbols];
+    for (const s of result)
+        s.name = s.niceToString();
+    return result;
+}
+
 // Generation: one INSERT per DECLARED semi-symbol (Signum's Schema_Generating).
 function generateSemiSymbols<T extends SemiSymbol>(schema: Schema, ctor: Type<T>): SqlPreCommand | undefined {
     const stl = byCtor.get(ctor);
@@ -161,7 +183,7 @@ function generateSemiSymbols<T extends SemiSymbol>(schema: Schema, ctor: Type<T>
     if (stl == null || semiTable == null)
         return undefined;
 
-    const sorted = [...stl.getSemiSymbols()].sort((a, b) => (a.key! < b.key! ? -1 : a.key! > b.key! ? 1 : 0));
+    const sorted = createSemiSymbols(stl.getSemiSymbols()).sort((a, b) => (a.key! < b.key! ? -1 : a.key! > b.key! ? 1 : 0));
     if (sorted.length === 0)
         return undefined;
 
@@ -182,7 +204,7 @@ async function synchronizeSemiSymbols<T extends SemiSymbol>(
 
     const all = await Administrator.tryRetrieveAll(ctor as never, replacements) as unknown as SemiSymbol[];
     const current = all.filter(c => c.key != null && c.key !== "").toMap(c => c.key!);
-    const should = stl.getSemiSymbols().toMap(s => s.key!);
+    const should = createSemiSymbols(stl.getSemiSymbols()).toMap(s => s.key!);
 
     return Synchronizer.synchronizeScriptReplacing<SemiSymbol, SemiSymbol>(
         replacements,
