@@ -40,29 +40,31 @@ function contextFor() {
 describe("QueryToken — navigation", () => {
     test("the Entity column exposes id + the entity's fields", () => {
         const keys = entityToken().subTokens(O).map(t => t.key);
-        assert.ok(keys.includes("id"));
-        for (const f of ["name", "year", "author", "label", "state", "songs", "bonusTrack"])
+        assert.ok(keys.includes("Id"));
+        for (const f of ["Name", "Year", "Author", "Label", "State", "Songs", "BonusTrack"])
             assert.ok(keys.includes(f), `missing sub-token ${f}`);
     });
 
-    test("navigating a single-impl reference exposes its fields; polymorphic does not (yet)", () => {
+    test("navigating a single-impl reference exposes its fields", () => {
         const label = entityToken().subToken("label", O)!;
         assert.ok(label);
         const labelKeys = label.subTokens(O).map(t => t.key);
-        assert.ok(labelKeys.includes("name"));
-        assert.ok(labelKeys.includes("country"));
+        assert.ok(labelKeys.includes("Name"));
+        assert.ok(labelKeys.includes("Country"));
+    });
 
-        // author is @implementedBy [Artist, Band] → one AsType token per implementation (Phase 3).
+    test("a polymorphic reference typed against an INTERFACE has no declared members to offer", () => {
+        // `author` is @implementedBy [Artist, Band] typed `IAuthorEntity` — a TS interface, so there is
+        // no reflected type to read members off (and no primary key to type an Id token from).
+        // Ignore the group-aggregate tokens a reference exposes under CanAggregate.
         const author = entityToken().subToken("author", O)!;
-        // Ignore the group-aggregate tokens a reference exposes under CanAggregate (Count-null /
-        // Count-distinct) — this asserts the AsType-per-implementation tokens.
         const asKeys = author.subTokens(O).filter(t => !t.isAggregate()).map(t => t.key);
-        assert.deepEqual(new Set(asKeys), new Set(["(Artist)", "(Band)"]));
+        assert.deepEqual(new Set(asKeys), new Set(["ToString", "HasValue", "(Artist)", "(Band)"]));
     });
 
     test("fullKey chains the token path (rootless — the entity root is \"\")", () => {
         const name = entityToken().subToken("label", O)!.subToken("name", O)!;
-        assert.equal(name.fullKey(), "label.name");
+        assert.equal(name.fullKey(), "Label.Name");
     });
 });
 

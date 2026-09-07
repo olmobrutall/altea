@@ -6,7 +6,16 @@ import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import { setLegacyPropertyPaths } from "@altea/altea/data/propertyRoute";
 import { tokenSequence } from "@altea/altea/client/QueryTokenString";
 import "@altea/altea/server/dynamicQuery/tokenExpressions"; // registers token factories
-import { AlbumEntity, NoteWithDateEntity } from "../../data/music";
+import { table, bindAndOptimize } from "@altea/altea/server/table";
+import { Connector } from "@altea/altea/server/connection/connector";
+import { SchemaBuilder } from "@altea/altea/server/schema";
+import { QueryFormatter } from "@altea/altea/server/linq/queryFormatter";
+import { ProjectionExpression } from "@altea/altea/server/linq/expressions.sql";
+import { ParameterExpression, LambdaExpression, CallExpression, PropertyExpression } from "@altea/altea/server/linq/expressions";
+import { ClassType, ArrayType } from "@altea/altea/server/runtimeTypes";
+import { BuildExpressionContext, ExpressionBox } from "@altea/altea/server/dynamicQuery/tokenExpressions";
+import { MusicLogic } from "../MusicLogic";
+import { AlbumEntity, NoteWithDateEntity, AwardNominationEntity } from "../../data/music";
 
 // A query token's KEY is PascalCase, as Signum's is — the spelling `QueryTokenString.tokenSequence`
 // (and therefore `Type.token(…)`, every `defaultColumns` entry and every `findOptions` builder) has
@@ -75,5 +84,64 @@ describe("legacy mode drops the Signum root prefix", () => {
         assert.equal(stripLegacyRootPrefix(album(), "Name", O), "Name");
         // `Entity` deeper in the path is a member like any other — never the root.
         assert.equal(stripLegacyRootPrefix(album(), "Label.Entity", O), "Label.Entity");
+    });
+});
+
+// A polymorphic (`@implementedBy`) reference exposes the members its DECLARED type declares, beside the
+// per-implementation AsType tokens. Signum offers the AsType tokens alone (so its own Southwind chart
+// stores `Customer.Address.Country`, a token its picker cannot build); both binders translate the
+// member perfectly well, through a CASE over the implementations.
+describe("a polymorphic reference exposes its declared type's members", () => {
+    const nomination = () => new RootToken(AwardNominationEntity);
+    const award = () => nomination().subToken("Award", O)!;
+
+    test("the abstract base's own members are directly reachable", () => {
+        const keys = award().subTokens(O).map(t => t.key);
+        for (const k of ["Year", "Category", "Result"])
+            assert.ok(keys.includes(k), `missing base member ${k}`);
+        assert.equal(award().subToken("Category", O)!.fullKey(), "Award.Category");
+    });
+
+    test("…alongside Id / ToString / HasValue and one AsType token per implementation", () => {
+        const keys = award().subTokens(O).map(t => t.key);
+        for (const k of ["Id", "ToString", "HasValue", "(GrammyAward)", "(PersonalAward)", "(AmericanMusicAward)"])
+            assert.ok(keys.includes(k), `missing ${k}`);
+    });
+
+    test("an implementation-only member stays under its AsType token", () => {
+        // Nothing implementation-specific exists on these three, so assert the shape instead: the
+        // AsType token re-roots at the concrete type and offers the same members from there.
+        assert.equal(award().subToken("(GrammyAward)", O)!.subToken("Category", O)!.fullKey(),
+            "Award.(GrammyAward).Category");
+    });
+
+    test("the member lowers to SQL as a CASE over the implementations", () => {
+        const sb = new SchemaBuilder();
+        sb.settings.isPostgres = false;
+        MusicLogic.start(sb);
+        sb.complete();
+        class FakeConnector extends Connector {
+            constructor() { super(sb.schema, false, 128); }
+            override executeQuery(): Promise<unknown[]> { return Promise.resolve([]); }
+            openConnection(): Promise<any> { throw new Error("not used"); }
+            closeConnection(): Promise<void> { return Promise.resolve(); }
+            cleanDatabase(): Promise<void> { return Promise.resolve(); }
+        }
+        const fake = new FakeConnector();
+
+        const q = table(AwardNominationEntity);
+        const param = new ParameterExpression("e", new ClassType(AwardNominationEntity));
+        const ctx = new BuildExpressionContext(param.type, param, new Map([["Entity", new ExpressionBox(param)]]));
+        const body = award().subToken("Category", O)!.buildExpression(ctx);
+        const lambda = new LambdaExpression([param], body);
+        const mapCall = new CallExpression(new PropertyExpression(q.expression, "map"), [lambda], new ArrayType(body.type));
+        const sql = Connector.withConnector(fake, () => {
+            const proj = bindAndOptimize(mapCall, sb.schema, false, true) as ProjectionExpression;
+            return QueryFormatter.format(proj.select, false).sql.toLowerCase();
+        });
+        // One join per implementation, and a CASE picking whichever row the FK points at.
+        assert.match(sql, /case/);
+        assert.match(sql, /grammyaward|grammy_award/);
+        assert.match(sql, /category/);
     });
 });

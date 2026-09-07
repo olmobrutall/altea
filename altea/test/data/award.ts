@@ -45,8 +45,12 @@ export class AwardNominationEntity extends Entity {
     // nomination (MusicLoader), so the column is forced nullable and the implicit NotNull is opted out.
     @forceNullable
     @notNullValidator({ disabled: () => true })
+    // Signum declares `Lite<AwardEntity>` — the abstract base the three implementations share, whose
+    // own members (Year / Category / Result) are therefore reachable straight off this reference. It
+    // had been widened to `Lite<Entity>`, which said less and hid them; the column is named per
+    // implementation either way, so the database does not notice.
     @implementedBy(() => [GrammyAwardEntity, PersonalAwardEntity, AmericanMusicAwardEntity])
-    award: Lite<Entity>;
+    award: Lite<AwardEntity>;
     year: int = toInt(0);   // C# value-type default; the loader leaves these unset
     order: int = toInt(0);
     // Signum's [PreserveOrder] MList<NominationPointEmbedded> Points → owned part rows.

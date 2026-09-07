@@ -50,15 +50,17 @@ describe("leaf sub-tokens exist where Signum puts them", () => {
         const keys = entityToken().subTokens(O).map(t => t.key);
         assert.ok(keys.includes("ToString"));
         assert.ok(keys.includes("HasValue"));
-        assert.ok(keys.includes("id"));
+        assert.ok(keys.includes("Id"));
     });
 
     test("polymorphic reference → one AsType token per implementation", () => {
         // Enumerate without CanAggregate so the reference exposes only its AsType-per-implementation
         // tokens (not the group-aggregate Count-null / Count-distinct tokens it gets under CanAggregate).
         const noAgg = O & ~SubTokensOptions.CanAggregate;
+        // `author` is typed against a TS INTERFACE, so it has no declared members to offer beside them
+        // (see the polymorphic section of tokenNaming.test.ts); ToString and HasValue need no ctor.
         const keys = tok("author").subTokens(noAgg).map(t => t.key);
-        assert.deepEqual(new Set(keys), new Set(["(Artist)", "(Band)"]));
+        assert.deepEqual(new Set(keys), new Set(["ToString", "HasValue", "(Artist)", "(Band)"]));
     });
 });
 

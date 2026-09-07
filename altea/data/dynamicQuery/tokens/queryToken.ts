@@ -275,9 +275,35 @@ export abstract class QueryToken {
                 ]);
             }
 
-            // Polymorphic (implementedBy many): one AsTypeToken per implementation.
+            // Polymorphic (implementedBy many): the DECLARED type's OWN members, then one AsTypeToken
+            // per implementation.
+            //
+            // The declared members are a DIVERGENCE, and a deliberate one. Signum's SubTokensBase offers
+            // the AsType tokens alone here, so `Customer.Address` has to be written
+            // `Customer.(Company).Address` — even though `Address` is declared on the abstract
+            // `CustomerEntity` both implementations derive from, and even though Signum's own binder
+            // reads it perfectly well (`BindMemberAccess` → `DispatchIb`, a CASE over the
+            // implementations). altea's binder has that too — `bindImplementedByMember` → `dispatchIb` —
+            // so such a member was translatable and merely unreachable: the token tree was the only
+            // thing saying no, and splitting the value by implementation buries the common half of the
+            // model one click deeper and scatters it across N columns. It is also what lets Southwind's
+            // own `Customer.Address.Country` chart resolve as written.
+            // `Id` / `ToString` / `HasValue` come with them, and those three are Signum-parity fixes
+            // rather than divergences: Signum's polymorphic branch ends in `.AndHasValue(this)` (altea's
+            // dropped it), and the binder answers all three for an IB (`idOfReference`,
+            // `entityToStringOf`).
             // TODO(phase3c): PreAnd(EntityTypeToken) — the "[EntityType]" sub-token.
-            return imp.types.map(t => tokenFactories!.asType(this, t));
+            // `entityCtor` is undefined when the reference is typed against a TS INTERFACE
+            // (`AlbumEntity.author: IAuthorEntity`): there is no reflected type to read members off,
+            // and no primary key to type an id token from — so those come with a declared CLASS only.
+            // `ToString` needs neither.
+            const declared = entityCtor != undefined
+                ? [this.idPropertyToken(), tokenFactories!.entityToString(this), ...this.entityProperties(entityCtor)]
+                : [tokenFactories!.entityToString(this)];
+            return this.andHasValue([
+                ...declared,
+                ...imp.types.map(t => tokenFactories!.asType(this, t)),
+            ]);
         }
 
         const embeddedCtor = embeddedOrModelCtorOf(type);
