@@ -90,12 +90,12 @@ function AlertDropdownImp(props: { keepRingingFor: number }): React.JSX.Element 
         oldGroups?.forEach(g => g.alerts.forEach(a => heights.set(a.alert.toLite().key(), a.height)));
 
         return newAlerts
-            .orderByDescending(a => a.alertDate.toString())
+            .orderByDescending(a => a.alertDate!.toString())
             .groupBy(a => a.groupTarget ? a.groupTarget.key() : "null")
             .map(gr => ({
                 groupTarget: gr.key !== "null" ? gr.elements[0]!.groupTarget! : undefined,
                 alerts: gr.elements.map<AlertWithSize>(a => ({ alert: a, height: heights.get(a.toLite().key()) })),
-                maxDate: gr.elements.orderByDescending(a => a.alertDate.toString())[0]!.alertDate.toString(),
+                maxDate: gr.elements.orderByDescending(a => a.alertDate!.toString())[0]!.alertDate!.toString(),
                 totalHeight: gr.elements.sum(a => heights.get(a.toLite().key()) ?? 0),
             }));
     }, [isOpen], { avoidReset: true });

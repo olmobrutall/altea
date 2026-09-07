@@ -1,6 +1,7 @@
 import "@altea/altea/server"; // installs save()/toLite()
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
+import { Enum } from "@altea/altea/data/enum";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { FluentInclude } from "@altea/altea/server/schema/fluentInclude";
 import { table } from "@altea/altea/server/table";
@@ -87,6 +88,9 @@ export namespace AlertLogic {
         if (sb.alreadyDefined(start))
             return;
 
+        // Signum marks `AlertState.New` `[Ignore]` — the state of an alert being created, never stored.
+        Enum.markAsNotMapped(AlertState, AlertState.New);
+
         sb.include(AlertEntity)
             .withStateMachine(a => a.state, registerAlertOperations)
             .withQuery();
@@ -135,7 +139,7 @@ export namespace AlertLogic {
                 a.target!.is(this)
                 && a.recipient!.is(UserHolder.currentUserLite())
                 && a.attendedDate == null
-                && Temporal.PlainDateTime.compare(a.alertDate, Clock.now) <= 0);
+                && Temporal.PlainDateTime.compare(a.alertDate!, Clock.now) <= 0);
         });
 
         QueryLogic.expressions.register(type, (e: IAlertTarget) => e.alerts!(),

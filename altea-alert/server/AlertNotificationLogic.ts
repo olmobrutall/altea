@@ -115,14 +115,14 @@ export namespace AlertNotificationLogic {
                     && a.emailNotificationsSent == false
                     && a.avoidSendMail == false
                     && a.recipient != null
-                    && Temporal.PlainDateTime.compare(a.alertDate, max) < 0)
+                    && Temporal.PlainDateTime.compare(a.alertDate!, max) < 0)
                 .toArray() as AlertEntity[];
 
             // The two remaining predicates are IN MEMORY: `min` is optional (Signum writes `min == null ||
             // min < a.AlertDate`, a captured-null comparison altea's binder would have to special-case) and
             // the behaviour filter is a set membership over symbols. Both are cheap over one task's batch.
             const alerts = candidates.filter(a =>
-                (min == null || Temporal.PlainDateTime.compare(min, a.alertDate) < 0)
+                (min == null || Temporal.PlainDateTime.compare(min, a.alertDate!) < 0)
                 && matchesBehavior(a, task.sendBehavior, alertTypeKeys));
 
             if (alerts.length === 0)
@@ -143,7 +143,7 @@ export namespace AlertNotificationLogic {
                 const recipient = await group.recipient.retrieve() as UserEntity;
                 const model = AlertNotificationMail.create({
                     alerts: group.alerts.sort((a, b) =>
-                        Temporal.PlainDateTime.compare(b.alertDate, a.alertDate)),
+                        Temporal.PlainDateTime.compare(b.alertDate!, a.alertDate!)),
                 });
 
                 const messages = await EmailLogic.createEmailMessagesFromModel(emailModel({

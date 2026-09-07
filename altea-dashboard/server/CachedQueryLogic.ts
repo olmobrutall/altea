@@ -6,7 +6,7 @@ import { withQuoted } from "@altea/altea/data/decorators";
 import type { IQuery } from "@altea/altea/data/iquery";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { ValidationMessage } from "@altea/altea/data/validators";
-import { type int } from "@altea/altea/data/basics";
+import { type int, type long } from "@altea/altea/data/basics";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { Pagination, QueryRequest } from "@altea/altea/server/dynamicQuery/requests";
 import { toWireQueryRequest, toWireResultTable } from "@altea/altea/server/queryServer";
@@ -162,8 +162,8 @@ export namespace CachedQueryLogic {
                 // carries the row ENTITY, which is a column the request does not name.
                 numColumns: (c.queryRequest.columns.length + (c.queryRequest.groupResults ? 0 : 1)) as int,
                 numRows: resultTable.rows.length as int,
-                queryDuration: queryDuration as int,
-                uploadDuration: uploadDuration as int,
+                queryDuration: queryDuration as long,
+                uploadDuration: uploadDuration as long,
             });
             // The `@backReference` and `@rowOrder` are filled by the SAVE CASCADE, so neither is set here —
             // and `cachedQuery` could not be: the owner has no id yet.

@@ -1,6 +1,7 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
 import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
+import { toInt } from "@altea/altea/data/basics";
 import { randomBytes } from "node:crypto";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
@@ -319,7 +320,7 @@ function registerResetPasswordRequestOperations(op: FluentOperations<ResetPasswo
                 await Operations.execute(user, UserOperation.Reactivate);
 
             user.passwordHash = PasswordEncoding.hashPassword(user.userName, password);
-            user.loginFailedCounter = 0;
+            user.loginFailedCounter = toInt(0);
             await AuthLogic.withDisabled(() => Operations.execute(user, UserOperation.Save));
         },
     });
