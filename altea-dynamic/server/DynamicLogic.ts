@@ -8,6 +8,7 @@ import { ExceptionEntity } from "@altea/altea/data/exception";
 import { SafeConsole } from "@altea/altea/server/safeConsole";
 import chalk from "chalk";
 import { DynamicPanelPermission } from "../data/DynamicPanel";
+import { EvalPanelPermission } from "@altea/altea-eval/data/EvalPanelPermission";
 import { DynamicPanelServer } from "./DynamicPanelServer";
 import { DynamicViewLogic } from "./DynamicViewLogic";
 import { DynamicCSSOverrideLogic } from "./DynamicCSSOverrideLogic";
@@ -20,6 +21,7 @@ import { DynamicMixinConnectionLogic } from "./DynamicMixinConnectionLogic";
 import { DynamicApiLogic } from "./DynamicApiLogic";
 import { DynamicIsolationLogic } from "./DynamicIsolationLogic";
 import { DynamicCodeCompiler, type GeneratedModule, type DynamicCompilationResult } from "./DynamicCodeCompiler";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum.Dynamic's DynamicLogic.cs — but only its ROLE as the module's entry point. The BODY of
 // Signum's DynamicLogic does not port at all, and that is the single most important thing to know about this
@@ -53,7 +55,7 @@ import { DynamicCodeCompiler, type GeneratedModule, type DynamicCompilationResul
 //
 // Consequently Signum.Eval does not port either (it IS the Roslyn host), and two of its pieces that this
 // package would otherwise use are re-homed:
-//   - `EvalPanelPermission.ViewDynamicPanel` becomes `DynamicPanelPermission.ViewDynamicPanel` (data/DynamicPanel).
+//   - the panel gates on `EvalPanelPermission.ViewDynamicPanel` (@altea/altea-eval), where Signum keeps it.
 //   - `EvalClient.Options.registerDynamicPanelSearch`, the registry behind the panel's search box, becomes
 //     `DynamicClient.registerDynamicPanelSearch` (client/DynamicClient).
 // And `DynamicPanelPermission.RestartApplication` is dropped: there is no compilation step to restart for.
@@ -135,10 +137,9 @@ export namespace DynamicLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        // Signum's `PermissionLogic.RegisterPermissions(…)`: in altea a symbol is seeded merely by being
-        // declared and imported, so referencing it here is what registers it.
-        void DynamicPanelPermission.ViewDynamicPanel;
-        void DynamicPanelPermission.RestartApplication;
+        // Signum's `PermissionLogic.RegisterPermissions(DynamicPanelPermission.RestartApplication)`.
+        // ViewDynamicPanel belongs to the EVAL module, which registers it in its own start.
+        PermissionLogic.registerPermissions(DynamicPanelPermission.RestartApplication);
 
         // Each sub-module is opt-in, because each is independently useful and they share nothing but the
         // panel. Signum starts them from the application's Starter one by one; the flags keep that choice

@@ -10,6 +10,7 @@ import { Entity, type Type, type PrimaryKey } from "@altea/altea/data/entity";
 import { Temporal } from "@altea/altea/data/basics";
 import { TimeMachinePermission } from "../data/TimeMachine";
 import { TimeMachineServer } from "./TimeMachineServer";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum.TimeMachine's TimeMachineLogic.cs — the module starter plus the two RESTORE helpers
 // (an application calls them from an operation; the module ships no button of its own, exactly as
@@ -33,9 +34,8 @@ export namespace TimeMachineLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        // Signum's `PermissionLogic.RegisterTypes(typeof(TimeMachinePermission))`: in altea a symbol is
-        // seeded merely by being declared and imported, so referencing it here is the registration.
-        void TimeMachinePermission.ShowTimeMachine;
+        // Signum's `PermissionLogic.RegisterTypes(typeof(TimeMachinePermission))`.
+        PermissionLogic.registerContainer(TimeMachinePermission);
 
         if (sb.webBuilder)
             TimeMachineServer.start(sb.webBuilder);

@@ -10,6 +10,8 @@ import { OmniboxServer } from "./OmniboxServer";
 import { EntityOmniboxResultGenerator } from "./EntityOmniboxResultGenerator";
 import { DynamicQueryOmniboxResultGenerator } from "./DynamicQueryOmniboxResultGenerator";
 import { SpecialOmniboxGenerator } from "./SpecialOmniboxResultGenerator";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { OmniboxPermission } from "../data/OmniboxMessages";
 
 // Port of Signum's `OmniboxLogic.Start` (Signum.Omnibox/OmniboxLogic.cs). The module declares no entities
 // (its only persisted artefact is the ViewOmnibox permission symbol, seeded via the import above), so
@@ -22,6 +24,9 @@ export namespace OmniboxLogic {
     export function start(sb: SchemaBuilder, generators: OmniboxResultGenerator[] = []): void {
         if (sb.alreadyDefined(start))
             return;
+
+        // Signum's `PermissionLogic.RegisterTypes(typeof(OmniboxPermission))`.
+        PermissionLogic.registerContainer(OmniboxPermission);
 
         if (sb.webBuilder) {
             OmniboxServer.start(sb.webBuilder);

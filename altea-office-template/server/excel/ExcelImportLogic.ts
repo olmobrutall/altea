@@ -15,6 +15,7 @@ import { logAndBuildHttpError, type HttpError } from "@altea/altea/server/except
 import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { ExcelPermission, type ImportExcelModel } from "../../data/Excel";
 import { ExcelImporter } from "./ExcelImporter";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of the IMPORT half of Signum.Excel's ExcelLogic.cs + ExcelController (ValidateForImport /
 // ImportFromExcel) — its own starter, separate from PlainExcelLogic's (see the note there).
@@ -51,6 +52,9 @@ export namespace ExcelImportLogic {
     export function start(sb: SchemaBuilder): void {
         if (sb.alreadyDefined(start))
             return;
+
+        // The whole container, as Signum's single ExcelLogic.Start does — see PlainExcelLogic's header.
+        PermissionLogic.registerContainer(ExcelPermission);
 
         if (sb.webBuilder)
             startServer(sb.webBuilder);

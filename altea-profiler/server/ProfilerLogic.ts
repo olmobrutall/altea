@@ -5,6 +5,8 @@ import { ProfilerServer } from "./ProfilerServer";
 // called by the auth module — seeds. So they end up in the PermissionSymbol table and are authorizable
 // without any extra SymbolLogic.start here (which would double-start).
 import "../data/ProfilerPermission";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { ProfilerPermission } from "../data/ProfilerPermission";
 
 // Port of Signum's ProfilerLogic (Signum.Profiler/ProfilerLogic.cs). Wires the profiler module into the
 // schema build: it declares no entities of its own (the profiler state is in-memory), so start() just
@@ -18,9 +20,20 @@ export namespace ProfilerLogic {
         overrideSessionTimeout?: boolean;
     }
 
-    export function start(sb: SchemaBuilder, _options: Options = {}): void {
+    export function start(sb: SchemaBuilder, options: Options = {}): void {
         if (sb.alreadyDefined(start))
             return;
+
+        // Signum's three FLAG-GATED `PermissionLogic.RegisterPermissions(…)` calls: an app that does not
+        // offer the heavy profiler gets no permission for it, and so no row in every role-rules screen.
+        // `overrideSessionTimeout` registers the permission whose ENFORCEMENT is still deferred (see the
+        // header) — the row is what a Signum database has as soon as the app asks for the flag.
+        if (options.timeTracker !== false)
+            PermissionLogic.registerPermissions(ProfilerPermission.ViewTimeTracker);
+        if (options.heavyProfiler !== false)
+            PermissionLogic.registerPermissions(ProfilerPermission.ViewHeavyProfiler);
+        if (options.overrideSessionTimeout !== false)
+            PermissionLogic.registerPermissions(ProfilerPermission.OverrideSessionTimeout);
 
         if (sb.webBuilder)
             ProfilerServer.start(sb.webBuilder);

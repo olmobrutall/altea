@@ -22,6 +22,5 @@ export interface DynamicCompilationStatus {
 }
 
 export namespace DynamicPanelPermission {
-    export const ViewDynamicPanel: PermissionSymbol = init();
     export const RestartApplication: PermissionSymbol = init();
 }

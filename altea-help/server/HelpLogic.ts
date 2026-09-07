@@ -38,6 +38,8 @@ import {
 } from "../data/Help";
 import { HelpGenerator } from "./HelpGenerator";
 import { InlineImagesLogic } from "./InlineImagesLogic";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { HelpPermissions } from "../data/Help";
 
 // Port of Signum.Help's HelpLogic.cs — the module's registrations plus the per-culture caches the pages
 // read. What a page shows is a MERGE of two things: the reflection-generated prose (HelpGenerator, free)
@@ -86,6 +88,9 @@ export namespace HelpLogic {
         if (started)
             return;
         started = true;
+
+        // Signum's two `PermissionLogic.RegisterPermissions(…)` calls (HelpLogic.cs).
+        PermissionLogic.registerPermissions(HelpPermissions.ViewHelp, HelpPermissions.ExportHelp);
 
         // A property's help POINTS at a route row (see data/Help.ts), so this module brings the routes table
         // along. Idempotent — the CLAUDE.md rule that a module registers what a module owns.

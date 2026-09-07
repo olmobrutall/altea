@@ -21,6 +21,7 @@ import { CachedTableLite, CachedTable, CachedTableBase, installCachedTableHooks 
 import type { IServerBroadcast } from "./Broadcast/IServerBroadcast";
 import { TypeConditionLogic } from "@altea/altea-auth/server/TypeConditionLogic";
 import { CachePermission } from "../data/CachePermission";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum's CacheLogic (Signum.Caching/CacheLogic.cs): which types are cached, when their rows are
 // dropped, and how sibling processes are told. The row store itself lives in CachedTable.ts.
@@ -105,9 +106,8 @@ export namespace CacheLogic {
                 requestByBackReference(childType, fkProperty, ownerId, retriever),
         });
 
-        // The permission symbols only need their module imported to be seeded (SymbolLogic seeds the
-        // declared set); referencing one here makes that dependency explicit.
-        void CachePermission.ViewCache;
+        // Signum's `PermissionLogic.RegisterTypes(typeof(CachePermission))`.
+        PermissionLogic.registerContainer(CachePermission);
     }
 
     function assertStarted(): void {

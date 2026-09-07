@@ -29,6 +29,7 @@ import { SkillCode } from "./SkillCode";
 import type { AIToolDefinition, ChatRequestMessage, ToolCall } from "./ChatClient";
 import { describeToolName } from "./Skills/IntroductionSkill";
 import { DefaultAgent } from "../data/SkillCustomization";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum.Agent's ChatbotLogic.cs — the CHAT tables and, at its centre, `runAgentLoopAsync`: the
 // generate → tool-call → generate cycle, with context-window summarization, usage accounting and titling.
@@ -81,8 +82,8 @@ export namespace ChatbotLogic {
 
         sb.include(ChatMessageEntity_ToolCall).withQuery();
 
-        // A PermissionSymbol declared with init() is seeded by PermissionAuthLogic; reaching it is enough.
-        void ChatbotPermission.UseChatbot;
+        // Signum's `PermissionLogic.RegisterTypes(typeof(ChatbotPermission))`.
+        PermissionLogic.registerContainer(ChatbotPermission);
     }
 
     /** Signum's RegisterUserTypeCondition — a role sees only its own sessions. */

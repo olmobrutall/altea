@@ -13,6 +13,7 @@ import type { RoleEntity } from "../data/Role";
 import type { UserEntity } from "../data/User";
 import { AuthLogic } from "./AuthLogic";
 import { PermissionAuthLogic } from "./PermissionAuthLogic";
+import { PermissionLogic } from "./PermissionLogic";
 
 // Port of Signum.Authorization's SessionLog/SessionLogLogic.cs — open a row when a tracked user logs in,
 // close it when they log out. Both paths run with authorization DISABLED (Signum's `AuthLogic.Disable()` →
@@ -45,6 +46,9 @@ export namespace SessionLogLogic {
         if (started)
             return;
         started = true;
+
+        // Signum's `PermissionLogic.RegisterPermissions(SessionLogPermission.TrackSession)`.
+        PermissionLogic.registerPermissions(SessionLogPermission.TrackSession);
 
         // Signum's projection is (Entity, Id, User, SessionStart, SessionEnd, SessionTimeOut). altea's
         // server registration takes none (no QueryDescription), so those are CLIENT default columns — see

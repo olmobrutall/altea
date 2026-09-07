@@ -1,5 +1,6 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
 import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
+import { Enum } from "@altea/altea/data/enum";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { createHash, randomUUID } from "node:crypto";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
@@ -12,6 +13,7 @@ import { Entity, type Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { BigStringEmbedded } from "@altea/altea/data/bigString";
+import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
 import { type uuid } from "@altea/altea/data/basics";
 import { FileTypeLogic } from "@altea/altea-files/server/FileTypeLogic";
 import { UserEntity } from "@altea/altea-auth/data/User";
@@ -38,6 +40,7 @@ import { AsyncEmailSender } from "./AsyncEmailSender";
 import { MailingServer } from "./MailingServer";
 import { EmailTemplateTokenSync } from "./EmailTemplateTokenSync";
 import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum.Mailing's EmailLogic.cs — the module's `start(sb)` and its public "send this" surface.
 //
@@ -99,6 +102,10 @@ export namespace EmailLogic {
 
         getConfiguration = options.getConfiguration;
 
+        // Signum marks `EmailMessageState.Created` `[Ignore]` — a freshly constructed message that was
+        // never saved, so it must not become a row of the enum table.
+        Enum.markAsNotMapped(EmailMessageState, EmailMessageState.Created);
+
         FilePathEmbeddedLogic.start(sb);
         FileTypeLogic.start(sb);
         if (options.attachment != undefined)
@@ -123,9 +130,8 @@ export namespace EmailLogic {
             .withStateMachine(m => m.state, registerEmailMessageOperations)
             .withQuery();
 
-        // altea has no PermissionLogic registry: a PermissionSymbol declared with init() is seeded into the
-        // symbol table by PermissionAuthLogic — the symbol just has to be REACHED.
-        void AsyncEmailSenderPermission.ViewAsyncEmailSenderPanel;
+        // Signum's `PermissionLogic.RegisterPermissions(AsyncEmailSenderPermission.ViewAsyncEmailSenderPanel)`.
+        PermissionLogic.registerPermissions(AsyncEmailSenderPermission.ViewAsyncEmailSenderPanel);
 
         // The USER is an email owner out of the box. Signum gets this for free: `UserEntity.EmailOwnerData`
         // is an [AutoExpressionField] declared in Signum.Authorization, so any app can address a user in a
@@ -136,7 +142,7 @@ export namespace EmailLogic {
             owner: u.toLite(),
             email: u.email,
             displayName: u.userName,
-            culture: null, // altea has no CultureInfoEntity on the user (see altea-auth's User.ts)
+            culture: cultureNameOf(u.cultureInfo) ?? null,
             externalId: u.externalId,
         }));
 

@@ -22,6 +22,7 @@ import {
 } from "../data/Package";
 import { ProcessRunner, ExecutingProcess } from "./ProcessRunner";
 import { ProcessesServer } from "./ProcessesServer";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum.Processes' ProcessLogic.cs — the module's `start(sb)`: the tables, the algorithm registry,
 // and the ProcessGraph state machine (Save / Execute / Suspend / Cancel / Plan / Retry).
@@ -55,8 +56,8 @@ export namespace ProcessLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        // A PermissionSymbol declared with init() is seeded by PermissionAuthLogic; reaching it is enough.
-        void ProcessPermission.ViewProcessPanel;
+        // Signum's `PermissionLogic.RegisterPermissions(ProcessPermission.ViewProcessPanel)`.
+        PermissionLogic.registerPermissions(ProcessPermission.ViewProcessPanel);
 
         SymbolLogic.start(sb, ProcessAlgorithmSymbol, () => declared);
 

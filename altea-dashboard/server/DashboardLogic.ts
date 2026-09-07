@@ -22,6 +22,8 @@ import { registerDashboardXml, registerBasePartsXml } from "./DashboardXml";
 import type { CachedQueryDefinition } from "./CachedQueryDefinitions";
 import { DashboardServer } from "./DashboardServer";
 import { ToolbarLogic } from "@altea/altea-toolbar/server/ToolbarLogic";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { DashboardPermission } from "../data/Dashboard";
 
 // Port of Signum's DashboardLogic.Start (Signum.Dashboard/DashboardLogic.cs). Registers the Dashboard
 // entity + its Save/Delete/Clone operations + query, the in-memory cache (Signum's ResetLazy GlobalLazy),
@@ -123,6 +125,9 @@ export namespace DashboardLogic {
     export function start(sb: SchemaBuilder): void {
         if (sb.alreadyDefined(start))
             return;
+
+        // Signum's `PermissionLogic.RegisterPermissions(DashboardPermission.ViewDashboard)`.
+        PermissionLogic.registerPermissions(DashboardPermission.ViewDashboard);
 
         // Shared user-asset infrastructure (permission + import/export HTTP surface).
         UserAssetLogic.start(sb);
@@ -316,7 +321,6 @@ export namespace DashboardLogic {
         p.iconColor = part.iconColor;
         p.titleColor = part.titleColor;
         p.customColor = part.customColor;
-        p.order = part.order;
         // `guid` is intentionally left fresh (Signum's comment: a clone is a new instance).
         p.content = partConfigForEntity(part.content).clone(part.content);
         return p;

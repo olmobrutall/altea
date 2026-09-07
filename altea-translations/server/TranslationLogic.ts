@@ -10,6 +10,7 @@ import { TranslatedInstanceServer } from "./TranslatedInstanceServer";
 import {
     type ITranslator, AlreadyTranslatedTranslator, ReplacerTranslator,
 } from "./Translators";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum.Translation's TranslationLogic.cs — the module starter.
 //
@@ -40,6 +41,13 @@ export namespace TranslationLogic {
         /** Start the INSTANCE half (the TranslatedInstance table + its pages). Default true. */
         instances?: boolean;
         /**
+         * Start the REPLACEMENT half (the house-style corrections table, its search page and its two
+         * operations). Default true. Signum has no caller for `TranslationReplacementLogic.Start` — the
+         * app opts in — and Southwind does not, so its database has no such table and the replacer that
+         * wraps each translator there simply finds nothing to correct.
+         */
+        replacements?: boolean;
+        /**
          * The language the stored (untranslated) instance values are written in — Signum's
          * `TranslatedInstanceLogic.Start(sb, () => CultureInfo.GetCultureInfo("en"))`. Defaults to the
          * process's default UI culture.
@@ -53,12 +61,11 @@ export namespace TranslationLogic {
 
         CultureInfoLogic.start(sb);
 
-        // Signum's `PermissionLogic.RegisterTypes(typeof(TranslationPermission))`: in altea a symbol is
-        // seeded merely by being declared and imported, so referencing it here is the registration.
-        void TranslationPermission.TranslateCode;
-        void TranslationPermission.TranslateInstances;
+        // Signum's `PermissionLogic.RegisterTypes(typeof(TranslationPermission))`.
+        PermissionLogic.registerContainer(TranslationPermission);
 
-        TranslationReplacementLogic.start(sb);
+        if (options?.replacements !== false)
+            TranslationReplacementLogic.start(sb);
 
         // Signum wraps each translator in the replacer so the stored house-style corrections apply to
         // every suggestion; the always-available "this string is already translated elsewhere" one goes

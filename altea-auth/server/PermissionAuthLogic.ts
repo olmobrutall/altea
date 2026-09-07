@@ -8,9 +8,10 @@ import type { PrimaryKey } from "@altea/altea/data/entity";
 import { AuthLogic, RoleGraph } from "./AuthLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
 import {
-    RulePermissionEntity, PermissionSymbol,
+    RulePermissionEntity, PermissionSymbol, BasicPermission,
     PermissionRulePack, PermissionAllowedRule,
 } from "../data/Rules";
+import { PermissionLogic } from "./PermissionLogic";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { section, groupByRole, attrs, parseBool, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
@@ -19,8 +20,7 @@ import type { AuthExportCtx } from "./AuthLogic";
 // dimension and the first full vertical slice of the engine (rules → per-role merge → IsAuthorized).
 // The rule-pack get/set (admin write) + XML surface are Phase 5.
 //
-// altea divergences: no PermissionLogic registry (permissions are the declared PermissionSymbols seeded
-// by SymbolLogic); the cache load + IsAuthorized are ASYNC (altea has no preloaded GlobalLazy); rules
+// altea divergences: the cache load + IsAuthorized are ASYNC (altea has no preloaded GlobalLazy); rules
 // are keyed by the permission's id. Merge = Union → any base allowed / Intersection → all base allowed.
 
 const mergeBool = (strategy: MergeStrategy, baseValues: boolean[]): boolean =>
@@ -69,10 +69,16 @@ export namespace PermissionAuthLogic {
         if (started)
             return;
         started = true;
-        // The PermissionSymbol table (seeded with every declared PermissionSymbol — BasicPermission +
-        // any app permissions) and the per-role permission rules.
-        SymbolLogic.start(sb, PermissionSymbol);
-        sb.include(RulePermissionEntity).withQuery();
+        // Signum's `PermissionLogic.RegisterTypes(typeof(BasicPermission))` — the authorization module's
+        // own four.
+        PermissionLogic.registerContainer(BasicPermission);
+
+        // The PermissionSymbol table and the per-role permission rules. The table holds the REGISTERED
+        // permissions (Signum's `SymbolLogic<PermissionSymbol>.Start(sb, () => RegisteredPermission)`),
+        // not every declared one: see PermissionLogic for what that distinction buys and what it costs.
+        SymbolLogic.start(sb, PermissionSymbol, () => PermissionLogic.registeredPermissions());
+        // No `withQuery()` — see TypeAuthLogic: Signum gives its rule tables no search page.
+        sb.include(RulePermissionEntity);
         // Signum's `sb.GlobalLazy(rules, InvalidateWith(RulePermission, Role))`. globalLazy runs the factory
         // in ExecutionMode.global, so the RulePermission read is ungated (no explicit Disable needed).
         rulesLazy = sb.globalLazy(async () => new PermissionRulesCache(await loadRules(), await AuthLogic.roleGraph()),

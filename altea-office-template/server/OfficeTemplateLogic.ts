@@ -40,6 +40,7 @@ import { registerOfficeTemplateXml } from "./OfficeTemplateXml";
 import { finalize as finalizeSpreadsheetPath, prepareSpreadsheet } from "./spreadsheet/SpreadsheetUtils";
 import { OfficeTemplateTokenSync } from "./OfficeTemplateTokenSync";
 import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum.Word's WordTemplateLogic.cs — registration, the caches, and `createReport`: the one
 // function that turns a stored template plus an entity into finished document bytes.
@@ -89,12 +90,22 @@ export namespace OfficeTemplateLogic {
     /** Signum's `Func<Entity?, CultureInfo>? GetCultureInfo` — the app's culture resolver. */
     export let getCulture: ((entity: Entity | null) => string) | undefined;
 
-    export function start(sb: SchemaBuilder): void {
+    /**
+     * @param options.attachments  Start the @altea/altea-email seam — the OfficeAttachment table, so an
+     *   EmailTemplate can attach a rendered report. Default true. Signum has no caller for
+     *   `WordAttachmentLogic.Start` at all: the app opts in, and Southwind does not
+     *   (`WordTemplateLogic.Start(sb)` alone), so its database has the word_template tables and no
+     *   word_attachment.
+     */
+    export function start(sb: SchemaBuilder, options?: { attachments?: boolean }): void {
         // Token migrations (@altea/altea-user-assets): repair this module's stored query tokens when a
         // schema rename invalidates them. GUARDED, because token migrations are opt-in per app — a host
         // that never starts them must not pay for a subscription that can never fire.
         if (TokenMigrationLogic.isStarted())
             OfficeTemplateTokenSync.register();
+
+        // Signum's `PermissionLogic.RegisterPermissions(WordTemplatePermission.GenerateReport)`.
+        PermissionLogic.registerPermissions(OfficeTemplatePermission.GenerateReport);
 
         TemplatingLogic.start(sb);
 
@@ -147,7 +158,8 @@ export namespace OfficeTemplateLogic {
         registerOfficeTemplateXml();
 
         // The @altea/altea-email seam: an EmailTemplate may attach a rendered report.
-        OfficeAttachmentLogic.start(sb);
+        if (options?.attachments !== false)
+            OfficeAttachmentLogic.start(sb);
 
         if (sb.webBuilder != null)
             OfficeServer.start(sb.webBuilder);

@@ -7,6 +7,7 @@ import { EvalPanelPermission } from "../data/EvalPanelPermission";
 import { EvalCompiler, type EvalCompilerOptions } from "./EvalCompiler";
 import { EvalServer } from "./EvalServer";
 import { frameworkModules, frameworkPreamble } from "./EvalFrameworkModules";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum.Eval's EvalLogic.cs — the module's registration plus the two registries a stored script
 // depends on: what it may IMPORT (`registerModule`, Signum's AssemblyTypes/Namespaces) and what every
@@ -46,9 +47,8 @@ export namespace EvalLogic {
         registerModules(frameworkModules);
         addPreamble(...frameworkPreamble);
 
-        // Reaching a PermissionSymbol declared with init() is enough — PermissionAuthLogic seeds the table
-        // (Signum's explicit `PermissionLogic.RegisterPermissions`).
-        void EvalPanelPermission.ViewDynamicPanel;
+        // Signum's `PermissionLogic.RegisterPermissions(EvalPanelPermission.ViewDynamicPanel)`.
+        PermissionLogic.registerPermissions(EvalPanelPermission.ViewDynamicPanel);
 
         if (sb.webBuilder)
             EvalServer.start(sb.webBuilder);

@@ -10,6 +10,7 @@ import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { ExcelPermission } from "../../data/Excel";
 import { PlainExcelGenerator } from "./PlainExcelGenerator";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of the PLAIN-EXCEL half of Signum.Excel's ExcelLogic.cs + ExcelController.ToPlainExcel: export any
 // query's rows to .xlsx, with the query's own columns as the header row.
@@ -19,15 +20,18 @@ import { PlainExcelGenerator } from "./PlainExcelGenerator";
 // ExcelImportLogic), so an app opts into exactly the features it wants and neither half can drag the
 // other's routes in.
 //
-// The permission is NOT registered here: a declared PermissionSymbol is seeded by
-// `SymbolLogic.start(sb, PermissionSymbol)` (the auth module) purely by being imported, so importing
-// ../../data/Excel is what Signum's `PermissionLogic.RegisterTypes(typeof(ExcelPermission))` did.
+// Signum has ONE `ExcelLogic.Start`, and it registers the whole container
+// (`PermissionLogic.RegisterTypes(typeof(ExcelPermission))`) — both PlainExcel and ImportFromExcel. altea
+// split that start into two halves, so EACH half registers the container: an app that wires either one
+// ends up with the pair of rows a Signum database has.
 
 export namespace PlainExcelLogic {
 
     export function start(sb: SchemaBuilder): void {
         if (sb.alreadyDefined(start))
             return;
+
+        PermissionLogic.registerContainer(ExcelPermission);
 
         if (sb.webBuilder)
             startServer(sb.webBuilder);

@@ -23,6 +23,7 @@ import {
     PrintLineEntity, PrintLineOperation, PrintLineState, PrintPackageEntity, PrintPackageProcess,
     PrintPermission, PrintTask, type PrintStat,
 } from "../data/Printing";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum.Printing's PrintLogic.cs — the print QUEUE's logic: the line's state machine, the batch
 // process that walks a package, the panel's "how many are waiting" statistics, and the scheduled task that
@@ -65,6 +66,12 @@ export namespace PrintingLogic {
     export function start(sb: SchemaBuilder, options?: { testFileType?: FileTypeSymbol }): void {
         if (sb.alreadyDefined(start))
             return;
+
+        // Signum's `PermissionLogic.RegisterPermissions(PrintPermission.ViewPrintPanel)`. This one is why
+        // PermissionLogic is a REGISTRY rather than "every declared permission": Southwind never starts the
+        // printing module, so its database has no such row, while the SYMBOL is declared the moment
+        // anything imports this module's data layer.
+        PermissionLogic.registerPermissions(PrintPermission.ViewPrintPanel);
 
         testFileType = options?.testFileType ?? null;
 

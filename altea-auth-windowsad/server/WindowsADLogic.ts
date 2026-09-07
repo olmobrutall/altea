@@ -13,6 +13,7 @@ import { WindowsADConfigurationEmbedded, WindowsADTask } from "../data/WindowsAD
 import { DirectoryServiceContext, WindowsADAuthorizer } from "./WindowsADAuthorizer";
 import { WindowsADServer } from "./WindowsADServer";
 import { WindowsDirectory, localNameOf } from "./WindowsDirectory";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum.Authorization.WindowsAD's WindowsADLogic.cs — start-up plus every directory operation:
 // search, import a user, read a thumbnail photo, and the nightly deactivate-users sweep.
@@ -48,9 +49,9 @@ export namespace WindowsADLogic {
         authorizer = new WindowsADAuthorizer(options.getConfig);
         AuthLogic.authorizer = authorizer;
 
-        // Signum's `PermissionLogic.RegisterTypes(typeof(ActiveDirectoryPermission))`: in altea a symbol is
-        // seeded merely by being declared and imported, so referencing it here is what registers it.
-        void ActiveDirectoryPermission.InviteUsersFromAD;
+        // Signum's `PermissionLogic.RegisterTypes(typeof(ActiveDirectoryPermission))` — the same container
+        // the AzureAD module registers.
+        PermissionLogic.registerContainer(ActiveDirectoryPermission);
 
         if (options.deactivateUsersTask)
             registerDeactivateUsersTask();

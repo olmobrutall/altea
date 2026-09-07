@@ -31,6 +31,7 @@ import { AzureADAuthorizer, MicrosoftGraphCreateUserContext } from "./AzureADAut
 import { AzureADAuthenticationServer } from "./AzureADAuthenticationServer";
 import { MicrosoftGraph, type GraphCollection, type GraphGroup, type GraphUser } from "./MicrosoftGraph";
 import { MicrosoftGraphQueryConverter } from "./MicrosoftGraphQueryConverter";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum.Authorization.AzureAD's AzureADLogic.cs — the module's start-up plus every Microsoft Graph
 // operation it offers: the nightly deactivate-users sweep, the two directory-backed search queries, the
@@ -87,9 +88,9 @@ export namespace AzureADLogic {
         authorizer = new AzureADAuthorizer(options.getConfig);
         AuthLogic.authorizer = authorizer;
 
-        // Signum's `PermissionLogic.RegisterTypes(typeof(ActiveDirectoryPermission))`: in altea a symbol is
-        // seeded merely by being declared and imported, so referencing it here is what registers it.
-        void ActiveDirectoryPermission.InviteUsersFromAD;
+        // Signum's `PermissionLogic.RegisterTypes(typeof(ActiveDirectoryPermission))`. The WindowsAD module
+        // registers the same container; the registry is a set, so whichever directory an app wires gets it.
+        PermissionLogic.registerContainer(ActiveDirectoryPermission);
 
         if (options.deactivateUsersTask)
             registerDeactivateUsersTask();

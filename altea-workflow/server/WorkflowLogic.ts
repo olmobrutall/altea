@@ -52,6 +52,7 @@ import type { WorkflowIssue } from "../data/WorkflowDtos";
 import { WorkflowNodeGraph, hasExpired, issueToString } from "./WorkflowNodeGraph";
 import { WorkflowBuilder } from "./WorkflowBuilder";
 import { registerWorkflowXml } from "./WorkflowXml";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum.Workflow's WorkflowLogic.cs — the module's registration: the workflow-definition tables and
 // their operations, the in-memory WorkflowNodeGraph cache, and the EIGHT evaluator registries that replace
@@ -373,10 +374,11 @@ export namespace WorkflowLogic {
 
         getConfiguration = getConfig;
 
-        // Reaching a PermissionSymbol declared with init() is enough — PermissionAuthLogic seeds the table.
-        void WorkflowPermission.ViewWorkflowPanel;
-        void WorkflowPermission.ViewCaseFlow;
-        void WorkflowPermission.WorkflowToolbarMenu;
+        // Signum's three `PermissionLogic.RegisterPermissions(…)` calls.
+        PermissionLogic.registerPermissions(
+            WorkflowPermission.ViewWorkflowPanel,
+            WorkflowPermission.ViewCaseFlow,
+            WorkflowPermission.WorkflowToolbarMenu);
 
         // The shared user-asset infrastructure (the permission + the import/export HTTP surface).
         UserAssetLogic.start(sb);

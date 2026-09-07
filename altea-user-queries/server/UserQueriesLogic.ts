@@ -19,6 +19,8 @@ import { registerUserQueryDashboardParts } from "./UserQueriesDashboardXml";
 import { ToolbarLogic } from "@altea/altea-toolbar/server/ToolbarLogic";
 import { UserQueryTokenSync } from "./UserQueryTokenSync";
 import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { UserQueryPermission } from "../data/UserQuery";
 
 // Port of Signum's UserQueryLogic.Start (Signum.UserQueries/UserQueryLogic.cs). Registers the UserQuery
 // entity + its Save/Delete operations + query, the in-memory caches (Signum's ResetLazy GlobalLazys), the
@@ -54,6 +56,9 @@ export namespace UserQueriesLogic {
 
         if (sb.alreadyDefined(start))
             return;
+
+        // Signum's `PermissionLogic.RegisterPermissions(UserQueryPermission.ViewUserQuery)`.
+        PermissionLogic.registerPermissions(UserQueryPermission.ViewUserQuery);
 
         sb.include(UserQueryEntity)
             .withSave(UserQueryOperation.Save)

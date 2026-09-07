@@ -24,6 +24,7 @@ import { HolidayCalendarLogic } from "./HolidayCalendarLogic";
 import { SimpleTaskLogic } from "./SimpleTaskLogic";
 import { ScheduleTaskRunner, type ScheduledTaskContext } from "./ScheduleTaskRunner";
 import { SchedulerServer } from "./SchedulerServer";
+import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum.Scheduler's SchedulerLogic.cs — the module's `start(sb)`: the three tables, the operations,
 // the task-dispatch registry, and the cache of tasks this host should run.
@@ -57,10 +58,8 @@ export namespace SchedulerLogic {
 
         HolidayCalendarLogic.start(sb);
 
-        // altea has no PermissionLogic registry: a PermissionSymbol declared with init() is seeded into the
-        // symbol table by PermissionAuthLogic (see its start), so there is nothing to register here — the
-        // symbol just has to be REACHED, which importing the data module does.
-        void SchedulerPermission.ViewSchedulerPanel;
+        // Signum's `PermissionLogic.RegisterPermissions(SchedulerPermission.ViewSchedulerPanel)`.
+        PermissionLogic.registerPermissions(SchedulerPermission.ViewSchedulerPanel);
 
         SimpleTaskLogic.start(sb);
 
