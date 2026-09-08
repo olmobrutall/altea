@@ -275,35 +275,24 @@ export abstract class QueryToken {
                 ]);
             }
 
-            // Polymorphic (implementedBy many): the DECLARED type's OWN members, then one AsTypeToken
-            // per implementation.
+            // Polymorphic (implementedBy many): one AsTypeToken per implementation, and nothing else
+            // from the model — Signum's rule exactly. The declared type's own members are NOT offered
+            // here even when it is an abstract base every implementation derives from: reaching one
+            // means either casting (`Customer.(Company).Address`) or REGISTERING it as an expression on
+            // that base, which is how Southwind exposes the three members `CustomerEntity` declares
+            // (`QueryLogic.Expressions.Register((CustomerEntity c) => c.Address)`, CustomersLogic.cs) and
+            // therefore how its stored `Customer.Address.Country` chart resolves. `cachedSubTokensOverride`
+            // adds those, off the DECLARED type, so eastwind's own registration lands here.
             //
-            // The declared members are a DIVERGENCE, and a deliberate one. Signum's SubTokensBase offers
-            // the AsType tokens alone here, so `Customer.Address` has to be written
-            // `Customer.(Company).Address` — even though `Address` is declared on the abstract
-            // `CustomerEntity` both implementations derive from, and even though Signum's own binder
-            // reads it perfectly well (`BindMemberAccess` → `DispatchIb`, a CASE over the
-            // implementations). altea's binder has that too — `bindImplementedByMember` → `dispatchIb` —
-            // so such a member was translatable and merely unreachable: the token tree was the only
-            // thing saying no, and splitting the value by implementation buries the common half of the
-            // model one click deeper and scatters it across N columns. It is also what lets Southwind's
-            // own `Customer.Address.Country` chart resolve as written.
-            // `Id` / `ToString` / `HasValue` come with them, and those three are Signum-parity fixes
-            // rather than divergences: Signum's polymorphic branch ends in `.AndHasValue(this)` (altea's
-            // dropped it), and the binder answers all three for an IB (`idOfReference`,
-            // `entityToStringOf`).
-            // TODO(phase3c): PreAnd(EntityTypeToken) — the "[EntityType]" sub-token.
-            // `entityCtor` is undefined when the reference is typed against a TS INTERFACE
-            // (`AlbumEntity.author: IAuthorEntity`): there is no reflected type to read members off,
-            // and no primary key to type an id token from — so those come with a declared CLASS only.
-            // `ToString` needs neither.
-            const declared = entityCtor != undefined
-                ? [this.idPropertyToken(), tokenFactories!.entityToString(this), ...this.entityProperties(entityCtor)]
-                : [tokenFactories!.entityToString(this)];
-            return this.andHasValue([
-                ...declared,
-                ...imp.types.map(t => tokenFactories!.asType(this, t)),
-            ]);
+            // Offering them unregistered was tried and reverted: it reads as a convenience, but it makes
+            // the FRAMEWORK decide which of an abstract base's members are worth a column on every app,
+            // where Signum leaves that to the app that knows — and the mechanism for saying yes already
+            // exists on both sides.
+            //
+            // `andHasValue` IS a fix: Signum's branch ends in `.AndHasValue(this)` and altea's had
+            // dropped it. TODO(phase3c): PreAnd(EntityTypeToken) — the "[EntityType]" sub-token, which
+            // Signum also puts here and altea has no counterpart for yet.
+            return this.andHasValue(imp.types.map(t => tokenFactories!.asType(this, t)));
         }
 
         const embeddedCtor = embeddedOrModelCtorOf(type);

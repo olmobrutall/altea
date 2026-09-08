@@ -15,7 +15,8 @@ import { ParameterExpression, LambdaExpression, CallExpression, PropertyExpressi
 import { ClassType, ArrayType } from "@altea/altea/server/runtimeTypes";
 import { BuildExpressionContext, ExpressionBox } from "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { MusicLogic } from "../MusicLogic";
-import { AlbumEntity, NoteWithDateEntity, AwardNominationEntity } from "../../data/music";
+import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
+import { AlbumEntity, NoteWithDateEntity, AwardEntity, AwardNominationEntity } from "../../data/music";
 
 // A query token's KEY is PascalCase, as Signum's is — the spelling `QueryTokenString.tokenSequence`
 // (and therefore `Type.token(…)`, every `defaultColumns` entry and every `findOptions` builder) has
@@ -87,35 +88,40 @@ describe("legacy mode drops the Signum root prefix", () => {
     });
 });
 
-// A polymorphic (`@implementedBy`) reference exposes the members its DECLARED type declares, beside the
-// per-implementation AsType tokens. Signum offers the AsType tokens alone (so its own Southwind chart
-// stores `Customer.Address.Country`, a token its picker cannot build); both binders translate the
-// member perfectly well, through a CASE over the implementations.
-describe("a polymorphic reference exposes its declared type's members", () => {
+// A polymorphic (`@implementedBy`) reference offers CASTING and nothing else of the model, exactly as
+// Signum's `SubTokensBase` does — a member of the declared type, even of an abstract base every
+// implementation derives from, is reached by casting or by REGISTERING it as an expression on that
+// type. Southwind does the second for the three members `CustomerEntity` declares
+// (`QueryLogic.Expressions.Register((CustomerEntity c) => c.Address)`), which is what makes its stored
+// `Customer.Address.Country` chart resolve; eastwind's CustomersLogic registers the same three.
+describe("a polymorphic reference offers casting, and expressions on the declared type", () => {
     const nomination = () => new RootToken(AwardNominationEntity);
     const award = () => nomination().subToken("Award", O)!;
 
-    test("the abstract base's own members are directly reachable", () => {
-        const keys = award().subTokens(O).map(t => t.key);
-        for (const k of ["Year", "Category", "Result"])
-            assert.ok(keys.includes(k), `missing base member ${k}`);
+    // `AwardEntity` is the abstract base of the three implementations, and declares `Year` / `Category`
+    // / `Result`. Registering ONE of them is what tells the two tests below apart.
+    QueryLogic.expressions.register(AwardEntity, (a: AwardEntity) => a.category,
+        { key: "Category", niceName: () => "Category" });
+
+    test("one AsType token per implementation, plus HasValue — and the registered expression", () => {
+        const keys = award().subTokens(O).filter(t => !t.isAggregate()).map(t => t.key);
+        assert.deepEqual(new Set(keys),
+            new Set(["HasValue", "Category", "(GrammyAward)", "(PersonalAward)", "(AmericanMusicAward)"]));
+    });
+
+    test("an UNregistered member of the declared type is not offered — casting reaches it", () => {
+        assert.equal(award().subToken("Result", O), undefined);
+        assert.equal(award().subToken("(GrammyAward)", O)!.subToken("Result", O)!.fullKey(),
+            "Award.(GrammyAward).Result");
+    });
+
+    test("the registered one IS, straight off the polymorphic reference", () => {
+        // Signum's mechanism, and Southwind's: `GetExtensionsTokens` resolves off the DECLARED type, so
+        // a registration on the abstract base surfaces the member on the reference itself.
         assert.equal(award().subToken("Category", O)!.fullKey(), "Award.Category");
     });
 
-    test("…alongside Id / ToString / HasValue and one AsType token per implementation", () => {
-        const keys = award().subTokens(O).map(t => t.key);
-        for (const k of ["Id", "ToString", "HasValue", "(GrammyAward)", "(PersonalAward)", "(AmericanMusicAward)"])
-            assert.ok(keys.includes(k), `missing ${k}`);
-    });
-
-    test("an implementation-only member stays under its AsType token", () => {
-        // Nothing implementation-specific exists on these three, so assert the shape instead: the
-        // AsType token re-roots at the concrete type and offers the same members from there.
-        assert.equal(award().subToken("(GrammyAward)", O)!.subToken("Category", O)!.fullKey(),
-            "Award.(GrammyAward).Category");
-    });
-
-    test("the member lowers to SQL as a CASE over the implementations", () => {
+    test("and it lowers to SQL as a CASE over the implementations", () => {
         const sb = new SchemaBuilder();
         sb.settings.isPostgres = false;
         MusicLogic.start(sb);
