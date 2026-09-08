@@ -6,6 +6,7 @@ import type {
     ConstructSymbol, From, FromMany,
 } from "../data/operations";
 import { OperationLogEntity } from "../data/operationLog";
+import type { IQuery } from "../data/iquery";
 import { resolveCleanType, resolveType } from "../data/registration";
 import { Temporal } from "../data/basics";
 import { withQuoted } from "../data/decorators";
@@ -73,11 +74,6 @@ export type SurroundOperationHandler =
 export type AroundOperationHandler =
     (ctx: SurroundOperationContext, fn: () => Promise<unknown>) => Promise<unknown>;
 
-/** The two period expressions {@link OperationLogic.registerSystemValidTokens} stamps on a versioned type. */
-export interface ISystemVersioned extends Entity {
-    systemValidFrom?(): Temporal.PlainDateTime | null;
-    systemValidTo?(): Temporal.PlainDateTime | null;
-}
 
 export namespace OperationLogic {
     // Signum's OperationLogic.Register(replace). Validates the operation, then stores it
@@ -333,16 +329,25 @@ export namespace OperationLogic {
         // Signum's `.WithIndex(a => a.Start)` — the operation log is browsed and swept by date.
         sb.include(OperationLogEntity).withIndex(a => a.start).withQuery();
 
+
         // Signum's `sb.Schema.SchemaCompleted += () => RegisterCurrentLogs(sb.Schema)`: every
         // @systemVersioned type gains the `PreviousOperationLog` sub-token, so a query over that type's
         // HISTORY can show who produced each version. Deferred to schemaCompleted because the set of
         // versioned tables is only final once every module has run its includes.
         sb.schema.schemaCompleted.push(schema => {
-            for (const [type, table] of schema.tables)
+            for (const [type, table] of schema.tables) {
+                // Signum's `QueryLogic.Expressions.Register((Entity o) => o.OperationLogs(), …)` — every
+                // entity offers its own operation history as a sub-token. Signum registers that ONCE, for
+                // `Entity`; altea cannot, because the metadata visitor resolves a registration's SOURCE type
+                // through `Implementations.by`, which refuses the abstract root ("Entity is not an Entity").
+                // So it is per included type — the same surface, and this loop already walks them.
+                registerOperationLogs(type);
+
                 if (table.systemVersioned != null) {
                     registerPreviousLog(type);
                     registerSystemValidTokens(type);
                 }
+            }
         });
     }
 
@@ -375,46 +380,50 @@ export namespace OperationLogic {
      * bare key.
      */
     export function registerSystemValidTokens<T extends Entity>(type: Type<T>): void {
-        const proto = (type as unknown as { prototype: Record<string, unknown> }).prototype;
-
-        proto.systemValidFrom = withQuoted(function (this: Entity): Temporal.PlainDateTime | null {
-            return this.systemPeriod().min;
-        });
-        proto.systemValidTo = withQuoted(function (this: Entity): Temporal.PlainDateTime | null {
-            return this.systemPeriod().max;
-        });
-
-        QueryLogic.expressions.register(type, (e: ISystemVersioned) => e.systemValidFrom!(),
+        QueryLogic.expressions.register(type, (e: Entity) => e.systemValidFrom!(),
             { niceName: () => OperationMessage.SystemValidFrom.niceToString() });
-        QueryLogic.expressions.register(type, (e: ISystemVersioned) => e.systemValidTo!(),
+        QueryLogic.expressions.register(type, (e: Entity) => e.systemValidTo!(),
             { niceName: () => OperationMessage.SystemValidTo.niceToString() });
     }
 
+    /** Signum's `OperationLogs()` as a sub-token of `type` — every operation ever run on one of its rows. */
+    export function registerOperationLogs<T extends Entity>(type: Type<T>): void {
+        QueryLogic.expressions.register(type, (e: Entity) => e.operationLogs!(),
+            { key: "OperationLogs", niceName: () => OperationLogEntity.nicePluralName() });
+    }
+
     export function registerPreviousLog<T extends Entity>(type: Type<T>): void {
-        const proto = (type as unknown as { prototype: Record<string, unknown> }).prototype;
-
-        proto.previousOperationLog = withQuoted(function (this: Entity): Promise<OperationLogEntity | null> {
-            return table(OperationLogEntity)
-                .filter(ol => ol.target!.is(this)
-                    && ol.exception == null
-                    && ol.end != null
-                    && Temporal.PlainDateTime.compare(this.systemPeriod().min!, ol.end!) <= 0
-                    && (this.systemPeriod().max == null
-                        || Temporal.PlainDateTime.compare(ol.end!, this.systemPeriod().max!) < 0))
-                .orderBy(a => a.end)
-                .firstOrNull();
-        });
-
-        // The lambda parameter carries the member just stamped onto the prototype, written INLINE: nothing
-        // implements such a contract — the member exists only on the types that were registered — so a
-        // named, exported interface would only ever be read on this line.
-        type Logged = Entity & { previousOperationLog?(): Promise<OperationLogEntity | null> };
-
-        QueryLogic.expressions.register(type, (e: Logged) => e.previousOperationLog!(),
+        QueryLogic.expressions.register(type, (e: Entity) => e.previousOperationLog!(),
             { niceName: () => OperationMessage.PreviousOperationLog.niceToString() });
     }
 }
 
+// The bodies of the four expressions DECLARED in data/operationLog (see there for why the two halves are
+// split). Stamped ONCE on `Entity.prototype`, because none of them depends on the type: which types OFFER
+// them as tokens is what the registrations above decide.
+Entity.prototype.operationLogs = withQuoted(function (this: Entity): IQuery<OperationLogEntity> {
+    return table(OperationLogEntity).filter(a => a.target!.is(this));
+});
+
+Entity.prototype.systemValidFrom = withQuoted(function (this: Entity): Temporal.PlainDateTime | null {
+    return this.systemPeriod().min;
+});
+
+Entity.prototype.systemValidTo = withQuoted(function (this: Entity): Temporal.PlainDateTime | null {
+    return this.systemPeriod().max;
+});
+
+Entity.prototype.previousOperationLog = withQuoted(function (this: Entity): Promise<OperationLogEntity | null> {
+    return table(OperationLogEntity)
+        .filter(ol => ol.target!.is(this)
+            && ol.exception == null
+            && ol.end != null
+            && Temporal.PlainDateTime.compare(this.systemPeriod().min!, ol.end!) <= 0
+            && (this.systemPeriod().max == null
+                || Temporal.PlainDateTime.compare(ol.end!, this.systemPeriod().max!) < 0))
+        .orderBy(a => a.end)
+        .firstOrNull();
+});
 
 
 // Signum wraps every operation execution in a transaction that also writes an OperationLogEntity

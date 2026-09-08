@@ -1,4 +1,5 @@
 import { Entity } from "./entity";
+import type { IQuery } from "./iquery";
 import { Lite } from "./lite";
 import { column, entity, format, implementedBy, implementedByAll, serialize, ticksColumn } from "./decorators";
 import { reflect, setDatabaseSchema } from "./reflection";
@@ -85,3 +86,27 @@ export class OperationLogEntity extends Entity {
 
 // `Signum.Operations` → the `operations` schema, as for OperationSymbol beside it.
 setDatabaseSchema("operations", OperationLogEntity);
+
+// ---- the query expressions OperationLogic registers (see server/operationLogic) --------------------------
+//
+// DECLARED here, in data/, and IMPLEMENTED in server/: the body needs `table(...)`, which is server-only,
+// but the DECLARATION has to be visible to the client program too or `token(a => a.operationLogs())` — the
+// typed builder every `defaultColumns` and `findOptions` goes through — cannot be written. See the model-
+// rules bullet in CLAUDE.md.
+//
+// On `Entity`, where Signum declares them (extension methods on Entity, plus its built-in SystemValidFrom /
+// SystemValidTo tokens). OPTIONAL, because a member is only a TOKEN on the types the registration names:
+// `operationLogs` is registered once for Entity and inherited down the prototype chain, while the other
+// three are registered per @systemVersioned type — `systemPeriod()` throws on any other.
+declare module "./entity" {
+    interface Entity {
+        /** Signum's `OperationLogs()` — every operation ever run on this entity. */
+        operationLogs?(): IQuery<OperationLogEntity>;
+        /** Signum's `PreviousOperationLog()` — the operation that produced THIS row version. */
+        previousOperationLog?(): Promise<OperationLogEntity | null>;
+        /** Signum's `SystemValidFrom` — when this row version became current. */
+        systemValidFrom?(): Temporal.PlainDateTime | null;
+        /** Signum's `SystemValidTo` — when it stopped being current, or null for the live row. */
+        systemValidTo?(): Temporal.PlainDateTime | null;
+    }
+}
