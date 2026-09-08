@@ -10,6 +10,7 @@ import type { Type } from "@altea/altea/data/entity";
 import { isModifiedSelf } from "@altea/altea/data/changes";
 import { getTypeInfo } from "@altea/altea/data/reflection";
 import { memberPath as memberPathOf } from "@altea/altea/data/accessedFields";
+import { storedMemberName } from "@altea/altea/data/propertyRoute";
 import type { Quoted } from "quote-transformer/quoted";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { cleanTypeName } from "@altea/altea/data/registration";
@@ -284,7 +285,12 @@ function writeTextToFile(bs: BigStringEmbedded, mixin: BigStringMixin, route: Bi
         mixin.file = null;
     } else {
         const fp = new FilePathEmbedded();
-        fp.fileName = `${route.path[route.path.length - 1]}.txt`;
+        // Signum names the file after the PROPERTY (`pr.PropertyInfo!.Name + ".txt"`), which is PascalCase
+        // there; altea's member is the TypeScript field name. The suffix this produces is STORED (and in
+        // LEGACY mode has to be the one a Signum store already holds — `InitialState.txt`, not
+        // `initialState.txt`), so it is spelled by the same `storedMemberName` a stored property route
+        // goes through rather than by a second rule that could drift from it.
+        fp.fileName = `${storedMemberName(route.path[route.path.length - 1])}.txt`;
         fp.binaryFile = encodeUtf8(bs.text);
         fp.fileType = route.config.fileType!;
         // Assign the suffix NOW and write the bytes just before the commit. Doing it here rather than leaving
