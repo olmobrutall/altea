@@ -61,7 +61,10 @@ describe("DirtyMeta — computed values", () => {
         const s = new ParameterExpression("s", new ClassType(AlbumEntity_Song));
         const m = meta(call(prop(album, "songs"), "sum", [new LambdaExpression([s], prop(s, "seconds"))]));
         assert.ok(m instanceof CleanMeta);
-        assert.match(m.propertyRoutes[0].toString(), /\(Album_Song\)\.seconds/);
+        // The element is a `@part`, so the route CONTINUES the owner's rather than re-rooting at the row
+        // (see PropertyRoute.isPartType) — which is also the route a Signum database stores for the
+        // same model, its element being an embedded.
+        assert.match(m.propertyRoutes[0].toString(), /\(Album\)\.songs\/seconds/);
     });
 
     test("arithmetic over two columns → DirtyMeta keeping both contributors", () => {

@@ -54,6 +54,26 @@ export function usingLegacyPropertyPaths(): boolean {
 }
 
 /**
+ * Is `ctor` a `@part` ROW — an entity that exists only as part of the one entity that owns it?
+ *
+ * This is what decides whether a navigation step RE-ROOTS. Signum re-roots at every entity reference
+ * (`AddImp`) because in Signum a part is not an entity at all: an `MList` element or an owned
+ * `EmbeddedEntity` is FLATTENED into its owner's route, so `Columns/DisplayName` and
+ * `ShipAddress.City` are routes OF the owner. altea gives both a table and therefore a class, which
+ * would make them look like ordinary references and re-root — turning the same two routes into
+ * `(UserChartColumn).DisplayName` and `(Address).City`, rooted at something a Signum database has
+ * never heard of.
+ *
+ * So a `@part` step CONTINUES the route, inside an array (the old MList) or not. `SharedPart` is
+ * deliberately excluded: it has more than one owner, so "continue the parent" has no single answer
+ * and re-rooting is the only unambiguous thing to do — which is exactly the distinction Signum's
+ * `EntityKind.SharedPart` draws.
+ */
+export function isPartType(ctor: Function | undefined): boolean {
+    return ctor != undefined && tryGetTypeInfo(ctor)?.entityKind === "Part";
+}
+
+/**
  * How ONE member is spelled inside a stored path, under whichever mode is active — `PropertyRoute
  * .storedMember` made public so a caller that composes a path WITHOUT a PropertyRoute spells it exactly
  * as a real route would. Its consumer is the synchronizer's expression-route seam
@@ -178,17 +198,18 @@ export class PropertyRoute {
         // An entity/lite reference (NOT a collection — that navigates via "Item" below) re-roots.
         // is(Entity) also holds for a polymorphic @implementedBy interface (no single ctor), so this
         // fires for it too — and getImplementations().only() being undefined then throws "Cast first".
-        // NOT off an MListItems step: altea's collection element is a `@part` ROW entity where Signum's
-        // is an embedded, so it LOOKS like an entity reference and would re-root — turning
-        // `Columns/DisplayName` into a route rooted at the row. The element belongs to the collection
-        // that holds it, which is what the `/` in the path says.
-        if (this.propertyRouteType !== PropertyRouteType.Root && this.propertyRouteType !== PropertyRouteType.MListItems
-            && !this.type.array && this.type.is(Entity)) {
+        // NOT through a `@part`, in an array or not: a part is altea's stand-in for an MList element or
+        // an owned embedded, both of which Signum FLATTENS into the owner's route — so it only LOOKS
+        // like a reference, and re-rooting would turn `Columns/DisplayName` and `ShipAddress.City` into
+        // routes of a type a Signum database has never heard of. See isPartType.
+        if (this.propertyRouteType !== PropertyRouteType.Root && !this.type.array && this.type.is(Entity)) {
             const imp = this.getImplementations();
             const only = imp.only();
-            if (imp.isByAll || only == undefined)
-                throw new Error(`Attempt to navigate '${member}' through a polymorphic reference (${imp}) on ${this}. Cast first.`);
-            return PropertyRoute.root(only).add(member);
+            if (!isPartType(only)) {
+                if (imp.isByAll || only == undefined)
+                    throw new Error(`Attempt to navigate '${member}' through a polymorphic reference (${imp}) on ${this}. Cast first.`);
+                return PropertyRoute.root(only).add(member);
+            }
         }
 
         // Collection element (Signum's "Item").
@@ -240,8 +261,10 @@ export class PropertyRoute {
     }
 
     // Port of Signum's PropertyRoute.GenerateRoutes: every value/embedded property route reachable from
-    // the root, descending embeddeds + mixins but STOPPING at entity/Lite references (they re-root, so
-    // their sub-properties belong to that entity's own routes). Collection element (/Item) routes are
+    // the root, descending embeddeds, `@part` references + mixins but STOPPING at ordinary entity/Lite
+    // references (they re-root, so their sub-properties belong to that entity's own routes). A `@part`
+    // is descended for the same reason it does not re-root: it stands in for an owned embedded, whose
+    // members ARE routes of the owner (see isPartType). Collection element (/Item) routes are
     // emitted only when `includeArrayElements` (Signum needs them just for sync; the property-auth admin
     // pack passes false). Used to enumerate a type's properties for property authorization.
     static generateRoutes(rootType: Function, includeArrayElements = false): PropertyRoute[] {
@@ -268,19 +291,30 @@ export class PropertyRoute {
                     // `visiting` guards the cycle an entity element makes possible and an embedded cannot.
                     const infos = item.type.typeInfos();
                     const element = infos.length === 1 ? infos[0]!.ctor : undefined;
-                    const isPart = element != undefined && tryGetTypeInfo(element)?.entityKind === "Part";
                     if (item.type.is(EmbeddedEntity)) {
                         item.generateRoutesInto(result, includeArrayElements, visiting);
-                    } else if (isPart && !visiting.has(element)) {
-                        visiting.add(element);
+                    } else if (isPartType(element) && !visiting.has(element!)) {
+                        visiting.add(element!);
                         item.generateRoutesInto(result, includeArrayElements, visiting);
-                        visiting.delete(element);
+                        visiting.delete(element!);
                     }
                 }
             } else if (t.is(EmbeddedEntity)) {
                 pr.generateRoutesInto(result, includeArrayElements, visiting); // descend embedded
+            } else {
+                // A SINGLE `@part` reference continues the route exactly as an embedded does — it is what
+                // altea writes where Signum declares an owned EmbeddedEntity, so `ShipAddress.City` has to
+                // be generated or the route a Signum database stores has no counterpart here. Guarded
+                // against the cycle a reference makes possible and an embedded cannot.
+                const infos = t.typeInfos();
+                const single = infos.length === 1 ? infos[0]!.ctor : undefined;
+                if (isPartType(single) && !visiting.has(single!)) {
+                    visiting.add(single!);
+                    pr.generateRoutesInto(result, includeArrayElements, visiting);
+                    visiting.delete(single!);
+                }
             }
-            // entity / Lite reference: the reference route is pushed above, but we do NOT descend (re-roots).
+            // ordinary entity / Lite reference: the route is pushed above, but we do NOT descend (re-roots).
         }
         const owner = this.ownerCtor();
         if (owner != undefined)

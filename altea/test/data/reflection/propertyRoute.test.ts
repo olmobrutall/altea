@@ -3,12 +3,32 @@ import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import { PropertyRoute, PropertyRouteType } from "@altea/altea/data/propertyRoute";
 import { Implementations } from "@altea/altea/data/implementations";
+import { Entity } from "@altea/altea/data/entity";
+import { reflect } from "@altea/altea/data/reflection";
+import { backReference, part } from "@altea/altea/data/decorators";
+import type { Lite } from "@altea/altea/data/lite";
 import {
     AlbumEntity, AlbumEntity_Song, LabelEntity, CountryEntity, ArtistEntity, BandEntity,
 } from "../music";
 
 // Phase-0 DynamicQuery port: PropertyRoute + Implementations. DB-free — routes are pure
 // reflection over the imported entity metadata, so no schema/connector is needed.
+
+// A SINGLE `@part` reference — what altea writes where Signum declares an owned EmbeddedEntity. The
+// music model has only part COLLECTIONS, and this belongs to no suite's schema, so it is declared here
+// rather than in the fixture (nothing includes it, so no database gains a table).
+@part
+class RouteProbeEntity_Address extends Entity {
+    @backReference
+    owner: Lite<RouteProbeEntity>;
+    city: string;
+}
+
+@reflect
+class RouteProbeEntity extends Entity {
+    shipAddress: RouteProbeEntity_Address;
+    label: LabelEntity;
+}
 
 describe("PropertyRoute — roots & value fields", () => {
     test("root toString uses clean name", () => {
@@ -97,23 +117,50 @@ describe("PropertyRoute — collections", () => {
         assert.equal(item.toString(), "(Album).songs/");
     });
 
-    // altea models Signum's MList<SongEmbedded> as a part-ENTITY collection
-    // (AlbumEntity_Song[]). So the element is an entity reference, and navigating a
-    // member off `(Album).songs/` RE-ROOTS at AlbumEntity_Song (Signum's AddImp — same
-    // as navigating any MList<Entity> element, e.g. Band.Members). The owner-collection
-    // context ("(Album).songs/") is intentionally dropped: format/validators/implementations
-    // for the member live on AlbumEntity_Song, and the token's own FullKey (built from
-    // token Keys, not the route) carries the navigation identity.
-    test("member off an MListItems entity element re-roots at the element entity", () => {
+    // altea models Signum's MList<SongEmbedded> as a part-ENTITY collection (AlbumEntity_Song[]), so the
+    // element LOOKS like an entity reference — but a `@part` does NOT re-root (see isPartType). The route
+    // stays the owner's, which is what the `/` in the path says and what Signum's own route for the same
+    // model is: `Songs/Name`, a route of Album.
+    test("member off an MListItems @part element CONTINUES the owner's route", () => {
         const item = PropertyRoute.root(AlbumEntity).add("songs").add("Item");
         assert.equal(item.type.getFunction(), AlbumEntity_Song);
 
         const name = item.add("name");
         assert.equal(name.propertyRouteType, PropertyRouteType.FieldOrProperty);
-        assert.equal(name.rootType, AlbumEntity_Song);
+        assert.equal(name.rootType, AlbumEntity);
         assert.equal(name.type.typeName, "String");
-        assert.equal(name.toString(), "(Album_Song).name");
+        assert.equal(name.toString(), "(Album).songs/name");
+        assert.equal(name.propertyString(), "songs/name");
+    });
+
+    // generateRoutes descends a @part for the same reason: its members ARE routes of the owner.
+    test("generateRoutes emits a @part collection element's members under the owner", () => {
+        const paths = PropertyRoute.generateRoutes(AlbumEntity, true).map(r => r.propertyString());
+        assert.ok(paths.includes("songs/name"), paths.join(", "));
+    });
+});
+
+describe("PropertyRoute — @part references", () => {
+    // A part reached through a SINGLE field behaves exactly as one reached through a collection: it is
+    // what altea writes where Signum declares an owned EmbeddedEntity, whose members are routes of the
+    // OWNER — `ShipAddress.City`, not `(Address).City`.
+    test("a single @part reference CONTINUES the route", () => {
+        const city = PropertyRoute.root(RouteProbeEntity).add("shipAddress").add("city");
+        assert.equal(city.rootType, RouteProbeEntity);
+        assert.equal(city.propertyString(), "shipAddress.city");
+    });
+
+    // …while an ordinary reference still re-roots, which is Signum's AddImp unchanged.
+    test("a plain entity reference still re-roots", () => {
+        const name = PropertyRoute.root(RouteProbeEntity).add("label").add("name");
+        assert.equal(name.rootType, LabelEntity);
         assert.equal(name.propertyString(), "name");
+    });
+
+    test("generateRoutes descends a single @part", () => {
+        const paths = PropertyRoute.generateRoutes(RouteProbeEntity).map(r => r.propertyString());
+        assert.ok(paths.includes("shipAddress.city"), paths.join(", "));
+        assert.ok(!paths.some(p => p === "label.name"), paths.join(", "));
     });
 });
 
