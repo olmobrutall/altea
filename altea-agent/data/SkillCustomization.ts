@@ -94,7 +94,7 @@ export class SkillCustomizationEntity extends Entity {
 
 /** Signum's `MList<SkillPropertyEmbedded> Properties`, as this owner's @part row. */
 @reflect
-@part("Master")
+@part
 export class SkillCustomizationEntity_Property extends Entity {
     @backReference skillCustomization: Lite<SkillCustomizationEntity>;
     // No `@rowOrder`: Signum marks NEITHER of SkillCustomization's two MLists [PreserveOrder], so their
@@ -117,7 +117,7 @@ export class SkillCustomizationEntity_Property extends Entity {
  * Signum's `[ImplementedBy(typeof(SkillCustomizationEntity), typeof(SkillCodeEntity))]`.
  */
 @reflect
-@part("Master")
+@part
 export class SkillCustomizationEntity_SubSkill extends Entity {
     @backReference skillCustomization: Lite<SkillCustomizationEntity>;
     // No `@rowOrder`: Signum marks NEITHER of SkillCustomization's two MLists [PreserveOrder], so their

@@ -66,7 +66,7 @@ export class WhatsNewEntity extends Entity {
 
 /** Signum's `WhatsNewMessageEmbedded`, as this owner's `@part` row: the news item in ONE culture. */
 @reflect
-@part("Master")
+@part
 export class WhatsNewMessageEntity extends Entity {
     @backReference whatsNew: Lite<WhatsNewEntity>;
     @rowOrder order: int;
@@ -83,7 +83,7 @@ export class WhatsNewMessageEntity extends Entity {
 
 /** Signum's `MList<FilePathEmbedded> Attachment`, as this owner's `@part` row. */
 @reflect
-@part("Master")
+@part
 export class WhatsNewEntity_Attachment extends Entity {
     @backReference whatsNew: Lite<WhatsNewEntity>;
     @rowOrder order: int;

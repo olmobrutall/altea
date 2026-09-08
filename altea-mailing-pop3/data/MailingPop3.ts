@@ -21,7 +21,7 @@ import { EmailReceptionServiceEntity } from "@altea/altea-email/data/EmailRecept
 //    a JSON property converter.
 
 // Signum's ClientCertificationFileEmbedded, as this owner's @part row.
-@part("Master")
+@part
 export class Pop3EmailReceptionServiceEntity_ClientCertificationFile extends Entity {
     @backReference service: Lite<Pop3EmailReceptionServiceEntity>;
     // No `@rowOrder`: Signum does not mark this MList [PreserveOrder], so its table has no
@@ -38,7 +38,7 @@ export class Pop3EmailReceptionServiceEntity_ClientCertificationFile extends Ent
 
 // Signum's Pop3EmailReceptionServiceEntity.
 @reflect
-@part("Master")
+@part
 export class Pop3EmailReceptionServiceEntity extends EmailReceptionServiceEntity {
 
     port: int = toInt(110);

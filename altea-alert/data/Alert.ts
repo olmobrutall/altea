@@ -225,7 +225,7 @@ export class SendNotificationEmailTaskEntity extends Entity {
     @quoted toString(): string { return SendNotificationEmailTaskEntity.niceName(); }
 }
 
-@part("Master")
+@part
 export class SendNotificationEmailTaskEntity_AlertType extends Entity {
     @backReference task: Lite<SendNotificationEmailTaskEntity>;
     @rowOrder order: int;

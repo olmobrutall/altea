@@ -33,7 +33,7 @@ export enum ExchangeVersion {
 
 // Signum's ExchangeWebServiceEmailServiceEntity.
 @reflect
-@part("Master")
+@part
 export class ExchangeWebServiceEmailServiceEntity extends EmailServiceEntity {
 
     exchangeVersion: ExchangeVersion;

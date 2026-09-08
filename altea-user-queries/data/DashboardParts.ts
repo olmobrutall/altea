@@ -35,7 +35,7 @@ export enum AutoUpdate {
 }
 
 // Signum's UserQueryPartEntity: a saved query rendered as a full SearchControl inside a dashboard cell.
-@part("Master")
+@part
 export class UserQueryPartEntity extends Entity implements IPartEntity {
     // Signum's IsQueryCached: this part's query is served from the dashboard's SNAPSHOT rather than run
     // against the database (see @altea/altea-dashboard's CachedQuery). Only meaningful on a dashboard whose
@@ -92,7 +92,7 @@ export class ValueUserQueryListPartEntity_UserQuery extends Entity {
 }
 
 // Signum's ValueUserQueryListPartEntity: a compact list of "label → value" rows, one per saved query.
-@part("Master")
+@part
 export class ValueUserQueryListPartEntity extends Entity implements IPartEntity {
     userQueries: ValueUserQueryListPartEntity_UserQuery[];
 
@@ -107,7 +107,7 @@ export class ValueUserQueryListPartEntity extends Entity implements IPartEntity 
 
 // Signum's BigValuePartEntity: ONE number (a query count or an aggregate token) rendered large, optionally
 // clickable / navigating somewhere.
-@part("Master")
+@part
 export class BigValuePartEntity extends Entity implements IPartEntity {
     valueToken: QueryTokenEmbedded | null;
 

@@ -289,6 +289,14 @@ export class PropertyRoute {
     // single collection member: Southwind's `Product|AdditionalInformation/Key` rule had no counterpart
     // here and eastwind's AuthRules.xml carries it commented out.
     static generateRoutes(rootType: Function, includeArrayElements = false): PropertyRoute[] {
+        // A `@part` has NONE of its own: its members are routes of the entity that owns it, which this
+        // walk descends into from there. Answering `[]` rather than throwing is what lets the half-dozen
+        // enumerators that loop over every mapped type — property authorization, the routes table's sync,
+        // translatable routes, help, the dynamic-view designer — stay a plain loop; each of them wants
+        // exactly this, and none of them should have to know the rule. The two consumers that DO want a
+        // part's own members ask for them by name (see memberPaths / rootStandalone).
+        if (isPartType(rootType))
+            return [];
         const result: PropertyRoute[] = [];
         PropertyRoute.root(rootType).generateRoutesInto(result, includeArrayElements);
         return result;

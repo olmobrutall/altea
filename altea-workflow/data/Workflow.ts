@@ -90,7 +90,7 @@ registerEnum(WorkflowIssueType);
 /** Signum's `MList<WorkflowMainEntityStrategy>` as this owner's `@part` row (altea has no MList; a
  *  collection of scalars is a row carrying the value on its `@valueField`). */
 @reflect
-@part("Master")
+@part
 export class WorkflowEntity_MainEntityStrategy extends Entity {
     @backReference workflow: Lite<WorkflowEntity>;
     // No `@rowOrder`: Signum does not mark `WorkflowEntity.MainEntityStrategies` [PreserveOrder], so

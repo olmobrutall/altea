@@ -273,7 +273,7 @@ function hasDuplicateCulture(messages: readonly SMSTemplateEntity_Message[]): bo
 
 /** Signum's `SMSTemplateMessageEmbedded` — the text for ONE culture. A collection row, hence an entity. */
 @reflect
-@part("Master")
+@part
 export class SMSTemplateEntity_Message extends Entity {
 
     @backReference template: Lite<SMSTemplateEntity>;

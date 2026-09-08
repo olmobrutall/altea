@@ -119,7 +119,7 @@ export class ImageAttachmentEntity extends Entity implements IAttachmentGenerato
 
 // Signum's FileTokenAttachmentEntity — attach whatever FILE the rows' token points at.
 @reflect
-@part("Master")
+@part
 export class FileTokenAttachmentEntity extends Entity implements IAttachmentGeneratorEntity {
     @stringLengthValidator({ min: 3, max: 100 })
     fileName: string | null;
@@ -155,7 +155,7 @@ export const masterTemplateContentRegex = /@\[content\]/;
 export const masterTemplateContentRegexGlobal = /@\[content\]/g;
 
 // Signum's EmailMasterTemplateMessageEmbedded, as this owner's @part row.
-@part("Master")
+@part
 export class EmailMasterTemplateEntity_Message extends Entity {
     @backReference masterTemplate: Lite<EmailMasterTemplateEntity>;
     @rowOrder order: int;
@@ -182,7 +182,7 @@ export class EmailMasterTemplateEntity_Message extends Entity {
 // ROW whose `@valueField` holds the reference — the shape @altea/altea-user-queries'
 // UserQueryEntity_CustomDrilldown established. `@noRepeatValidator` on the owner's field compares through
 // that valueField, so two rows pointing at the same attachment ARE caught.
-@part("Master")
+@part
 export class EmailMasterTemplateEntity_Attachment extends Entity {
     @backReference masterTemplate: Lite<EmailMasterTemplateEntity>;
     @rowOrder order: int;
@@ -293,7 +293,7 @@ export class EmailTemplateFromEmbedded extends EmbeddedEntity {
  * The four address members are Signum's shared `EmailTemplateAddressEmbedded` — see the note on
  * EmailTemplateFromEmbedded for why they are written out rather than inherited.
  */
-@part("Master")
+@part
 export class EmailTemplateEntity_Recipient extends Entity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
 
@@ -335,7 +335,7 @@ export class EmailTemplateEntity_Recipient extends Entity {
 
 // Signum's `MList<IAttachmentGeneratorEntity> Attachments`, as this owner's @part row (see
 // EmailMasterTemplateEntity_Attachment for why a polymorphic collection needs a row).
-@part("Master")
+@part
 export class EmailTemplateEntity_Attachment extends Entity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
     @rowOrder order: int;
@@ -349,7 +349,7 @@ export class EmailTemplateEntity_Attachment extends Entity {
 }
 
 // Signum's `MList<QueryFilterEmbedded> Filters` — the shared filter row with this owner's back reference.
-@part("Master")
+@part
 // Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
 // the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
 // its identity across databases (see UserAssetsImporter.syncRows).
@@ -359,7 +359,7 @@ export class EmailTemplateEntity_Filter extends QueryFilterBaseEntity {
 }
 
 // Signum's `MList<QueryOrderEmbedded> Orders`.
-@part("Master")
+@part
 export class EmailTemplateEntity_Order extends Entity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
     @rowOrder order: int;
@@ -369,7 +369,7 @@ export class EmailTemplateEntity_Order extends Entity {
 }
 
 // Signum's EmailTemplateMessageEmbedded — the subject + body for ONE culture.
-@part("Master")
+@part
 export class EmailTemplateEntity_Message extends Entity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
 

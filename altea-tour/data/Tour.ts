@@ -69,7 +69,7 @@ export namespace TourOperation {
 }
 
 @reflect
-@part("Master")
+@part
 export class TourStepEntity extends Entity {
 
     @backReference tour: Lite<TourEntity>;
@@ -128,7 +128,7 @@ export enum CssStepType {
  * field is set, chosen by `type`. Kept as an ENTITY here because it is a collection row (see the header).
  */
 @reflect
-@part("Master")
+@part
 export class CssStepEntity extends Entity {
 
     @backReference tourStep: Lite<TourStepEntity>;

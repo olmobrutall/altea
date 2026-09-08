@@ -151,7 +151,7 @@ export class TypeHelpEntity extends Entity implements IHelpEntity {
 
 /** Signum's `PropertyRouteHelpEmbedded` — a `@part` row here (see the header on MList). */
 @reflect
-@part("Master")
+@part
 export class TypeHelpEntity_Property extends Entity {
 
     @backReference
@@ -181,7 +181,7 @@ export class TypeHelpEntity_Property extends Entity {
 
 /** Signum's `OperationHelpEmbedded`. */
 @reflect
-@part("Master")
+@part
 export class TypeHelpEntity_Operation extends Entity {
 
     @backReference
@@ -314,7 +314,7 @@ export class QueryHelpEntity extends Entity implements IHelpEntity {
 
 /** Signum's `QueryColumnHelpEmbedded`. `columnName` holds a rootless TOKEN key (see the header). */
 @reflect
-@part("Master")
+@part
 export class QueryHelpEntity_Column extends Entity {
 
     @backReference
@@ -352,7 +352,7 @@ export namespace QueryHelpOperation {
  */
 @reflect
 @primaryKey("uuid")
-@part("Master")
+@part
 export class HelpImageEntity extends Entity {
 
     @implementedBy(() => [AppendixHelpEntity, NamespaceHelpEntity, QueryHelpEntity, TypeHelpEntity])

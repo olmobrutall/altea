@@ -265,7 +265,7 @@ export const TreeOmniboxResultTypeName = "TreeOmniboxResult";
 
 /** Signum's `UserTreePartEntity` — a dashboard panel showing a tree, scoped by a stored user query. */
 @reflect
-@part("Master")
+@part
 export class UserTreePartEntity extends Entity implements IPartEntity {
 
     userQuery: UserQueryEntity;

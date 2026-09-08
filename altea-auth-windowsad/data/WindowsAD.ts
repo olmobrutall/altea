@@ -90,7 +90,7 @@ export class WindowsADConfigurationEmbedded extends BaseADConfigurationEmbedded 
 }
 
 // Signum's RoleMappingEmbedded rows for this configuration (see BaseAD's RoleMappingEntity).
-@part("Master")
+@part
 export class WindowsADRoleMappingEntity extends RoleMappingEntity {
     // The rows belong to the ENTITY holding this configuration — the application's settings row, which a
     // framework package must not name. The app widens this in its EntityOverrides (see BaseAD's header);

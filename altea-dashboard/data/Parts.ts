@@ -34,7 +34,7 @@ export enum TextPartType {
 
 // Signum's TextPartEntity (PanelPart.cs). Free text / markdown / HTML, with `$Variable$` placeholders
 // resolved client-side from DashboardClient.GlobalVariables.
-@part("Master")
+@part
 export class TextPartEntity extends Entity implements IPartEntity {
     // Signum's [StringLengthValidator(Min = 1, MultiLine = true), Translatable] — unbounded text column.
     @stringLengthValidator({ min: 1 })
@@ -53,7 +53,7 @@ export class TextPartEntity extends Entity implements IPartEntity {
 
 // Signum's ImagePartEntity (PanelPart.cs). An image (a URL or a data: URI in `imageSrcContent`), optionally
 // clickable.
-@part("Master")
+@part
 export class ImagePartEntity extends Entity implements IPartEntity {
     imageSrcContent: string;
 
@@ -71,7 +71,7 @@ export class ImagePartEntity extends Entity implements IPartEntity {
 }
 
 // Signum's SeparatorPartEntity (PanelPart.cs). A full-width heading between rows of parts.
-@part("Master")
+@part
 export class SeparatorPartEntity extends Entity implements IPartEntity {
     title: string | null;
 
@@ -88,7 +88,7 @@ export class SeparatorPartEntity extends Entity implements IPartEntity {
 // Signum's ToolbarMenuPartEntity (PanelPart.cs). Renders one toolbar MENU as a dashboard part, so a
 // dashboard can carry the same navigation block the sidebar does. Signum declares it in Signum.Dashboard
 // rather than Signum.Toolbar, which is why its table is `dashboard.toolbar_menu_part`.
-@part("Master")
+@part
 export class ToolbarMenuPartEntity extends Entity implements IPartEntity {
     toolbarMenu: Lite<ToolbarMenuEntity>;
 
@@ -125,7 +125,7 @@ export class HealthCheckPartEntity_Item extends Entity {
 
 // Signum's HealthCheckPartEntity (PanelPart.cs). A board of health-check tiles, each polling its own
 // ASP.NET-health-style endpoint (`{ status, description }`).
-@part("Master")
+@part
 export class HealthCheckPartEntity extends Entity implements IPartEntity {
     // Signum's [PreserveOrder] MList<HealthCheckElementEmbedded>.
     items: HealthCheckPartEntity_Item[];
@@ -141,7 +141,7 @@ export class HealthCheckPartEntity extends Entity implements IPartEntity {
 
 // Signum's CustomPartEntity (CustomPart.cs). Escape hatch: the app registers a React component under a name
 // (DashboardClient.Options.registerCustomPartRenderer) and this part selects it.
-@part("Master")
+@part
 export class CustomPartEntity extends Entity implements IPartEntity {
     @stringLengthValidator({ max: 100 })
     customPartName: string;

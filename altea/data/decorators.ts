@@ -164,18 +164,19 @@ export function entity(kind: Exclude<EntityKind, "Part">, data: EntityData, opti
  * code, and `@entity("Part")` is gone rather than left beside it: one home per thing, and two spellings of
  * a declaration is exactly the kind of drift the rest of this file is written to avoid.
  *
- * Two forms, and which one is right is the rule `entity`'s mandatory `data` argument encodes for every
- * other kind: `@part` bare — a part inherits its owner's EntityData — and `@part("Master")` where the row
- * declares its own. The quote-transformer recognises the name, so a `@part` class gets its `@field`
- * injection exactly as an `@entity` one does.
+ * It takes NO EntityData, where every other kind must be given one. A part is reached and saved through
+ * the entity that owns it, so its data is the OWNER's by construction — `SchemaBuilder.include` passes it
+ * down (transitively, through a chain of parts), which is Signum's own rule for an MList table. Sixty of
+ * these used to restate it, and restating a value that is derived is how the two drift: change the owner
+ * and the row keeps whatever it was written with, silently. The one shape the decorator has left is the
+ * one that is always right.
+ *
+ * `@part` bare, then — and `@part` with parentheses is a compile error, not a second form. The
+ * quote-transformer recognises the name, so a `@part` class gets its `@field` injection exactly as an
+ * `@entity` one does.
  */
-export function part(target: Function): void;
-export function part(data?: EntityData, options?: EntityOptions): (target: Function) => void;
-export function part(arg?: Function | EntityData, options?: EntityOptions): ((target: Function) => void) | void {
-    // `@part` (bare) hands us the class; `@part("Master")` hands us the data and must return the decorator.
-    if (typeof arg === "function")
-        return defineEntity("Part", undefined, undefined)(arg);
-    return defineEntity("Part", arg, options);
+export function part(target: Function): void {
+    defineEntity("Part", undefined, undefined)(target);
 }
 
 // Sets the runtime type of the entity's primary key (Signum's

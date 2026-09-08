@@ -156,7 +156,7 @@ export class RestLogEntity extends Entity {
 
 /** One query-string parameter of a logged request. A collection row, hence an entity — see the header. */
 @reflect
-@part("Transactional")
+@part
 export class QueryStringValueEntity extends Entity {
 
     @backReference restLog: Lite<RestLogEntity>;

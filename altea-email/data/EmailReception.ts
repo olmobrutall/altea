@@ -49,7 +49,7 @@ export enum CompareInbox {
 
 // Signum's EmailReceptionServiceEntity — the abstract "fetching mechanism" a configuration points at.
 @reflect
-@part("Master")
+@part
 export abstract class EmailReceptionServiceEntity extends Entity {
 }
 

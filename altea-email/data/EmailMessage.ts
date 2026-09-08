@@ -49,13 +49,13 @@ export enum EmailMessageState {
 Enum.markAsNotMapped(EmailMessageState, EmailMessageState.Created);
 
 // Signum's `MList<EmailRecipientEmbedded> Recipients`, as this owner's @part row (see Email.ts).
-@part("Transactional")
+@part
 export class EmailMessageEntity_Recipient extends EmailRecipientBaseEntity {
     @backReference emailMessage: Lite<EmailMessageEntity>;
 }
 
 // Signum's EmailAttachmentEmbedded, as this owner's @part row.
-@part("Transactional")
+@part
 export class EmailMessageEntity_Attachment extends Entity {
     @backReference emailMessage: Lite<EmailMessageEntity>;
     // No `@rowOrder`: Signum does not mark `EmailMessageEntity.Attachments` [PreserveOrder], so its

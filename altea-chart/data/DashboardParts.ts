@@ -22,7 +22,7 @@ import { UserChartEntity } from "./UserChart";
 //  - Signum's `MList<CombinedUserChartElementEmbedded>` → per-owner `@part` rows (no MList in altea).
 
 // Signum's UserChartPartEntity: a saved chart rendered inside a dashboard cell.
-@part("Master")
+@part
 export class UserChartPartEntity extends Entity implements IPartEntity {
     // Signum's IsQueryCached: this part's query is served from the dashboard's SNAPSHOT rather than run
     // against the database (see @altea/altea-dashboard's CachedQuery). Only meaningful on a dashboard whose
@@ -75,7 +75,7 @@ export class CombinedUserChartPartEntity_UserChart extends Entity {
 
 // Signum's CombinedUserChartPartEntity: SEVERAL Line / Columns charts painted over one shared horizontal
 // axis, optionally sharing the vertical scale (see client/D3Scripts/CombinedLinesAndColumns.tsx).
-@part("Master")
+@part
 export class CombinedUserChartPartEntity extends Entity implements IPartEntity {
     // Signum's [PreserveOrder, NoRepeatValidator].
     @noRepeatValidator()

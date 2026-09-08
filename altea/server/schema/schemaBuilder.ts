@@ -517,11 +517,73 @@ export class SchemaBuilder {
     // business restating — its EntityData and whether its rows are versioned. It inherits them from the
     // FIRST entity that includes it; the public/root include leaves it undefined. Because an
     // already-included table short-circuits at the top, "first includer wins" falls out naturally.
+    /**
+     * Give every `@part` still without an EntityData the one its OWNER has — see the call in `complete`.
+     *
+     * The owner is found from REFLECTION rather than from the built fields: an `@implementedBy` the app
+     * widened is a list on the FieldInfo, which is exactly the case `include` could not see, and the
+     * physical field for it may not name the part at all. A `@backReference` is skipped — that is the
+     * child pointing UP, the reverse of ownership.
+     */
+    private propagatePartEntityData(): void {
+        const types = [...this.schema.tables.keys()].filter(t => typeof t === "function") as Function[];
+        for (let pass = 0; pass < types.length; pass++) {
+            let changed = false;
+            for (const owner of types) {
+                const ownerTi = getTypeInfo(owner);
+                if (ownerTi?.entityData == null)
+                    continue;
+                for (const fi of Object.values(ownerTi.fields)) {
+                    if (fi.isBackReference)
+                        continue;
+                    for (const target of fi.typeInfos()) {
+                        if (target.entityKind !== "Part" || target.entityData != null)
+                            continue;
+                        target.entityData = ownerTi.entityData;
+                        changed = true;
+                    }
+                }
+            }
+            if (!changed)
+                break;
+        }
+
+        // A part NOTHING references falls back to "Master". Two of the 120 are like that, and Signum
+        // declares both `[EntityKind(Part, EntityData.Master)]` for the same reason: `HelpImageEntity` is
+        // reached from inside HTML text by id, not by a field, and `UserTreePartEntity` is a dashboard
+        // part no application has widened `PanelPartEmbedded.content` with. Neither has an owner to ask.
+        //
+        // A default rather than a throw, because the alternative is worse in both directions: the throw
+        // would make an unreferenced part a BOOT failure for a facet nothing in altea reads yet (it is
+        // Signum-parity metadata — the sync and the schema map use it there), and re-admitting an argument
+        // to say it would put the derived value back in the hands of the 118 that must not restate it.
+        for (const type of types) {
+            const ti = getTypeInfo(type);
+            if (ti != null && ti.entityKind === "Part" && ti.entityData == null)
+                ti.entityData = "Master";
+        }
+    }
+
     include<T extends Entity>(type: Type<T>, inherited?: InheritedByPart): FluentInclude<T> {
         const entityType = type;
         const existing = this.schema.tables.get(entityType);
-        if (existing != null)
+        if (existing != null) {
+            // A part's EntityData comes from its owner and is never declared, so it has to be filled
+            // whenever an owner turns up — not only on the FIRST include. Three parts are reached through
+            // an `@implementedBy(() => [])` the APP widens (a template attachment, a help image, a tree
+            // dashboard part), and their own module includes them before the owner's module runs: the
+            // owner's pass then found the table already there and returned above, leaving them with no
+            // data at all. Filling only what is still missing keeps "first owner wins" and makes the
+            // answer independent of module order, which is what it has to be — nothing declares it.
+            //
+            // Only the DATA. `systemVersioned` is a shape decision `completeTable` has already acted on by
+            // now, so stamping it here would record a fact the table does not have; a part that needs it
+            // must be reached by its owner first, which every ARRAY-held part is by construction.
+            const ti = getTypeInfo(type);
+            if (ti != null && ti.entityKind === "Part" && ti.entityData == null && inherited?.entityData != null)
+                ti.entityData = inherited.entityData;
             return new FluentInclude<T>(existing, type, this);
+        }
 
         const name = new ObjectName(this.settings.tableName(entityType), this.settings.schemaForType(entityType));
         const table = new Table(entityType, name);
@@ -582,6 +644,19 @@ export class SchemaBuilder {
 
         // Collected so one build reports EVERY unclassified entity at once, not just the first.
         const missingKind: string[] = [];
+        // A part's EntityData is the OWNER's and is never declared, so before asking whether every table
+        // has one, propagate it from every owner the schema now knows about.
+        //
+        // `include` fills it as it recurses, which covers a part reached through a field the owner
+        // DECLARES. It does not cover a part reached through an `@implementedBy(() => [])` the APP widens
+        // — a template attachment, a help image, a tree dashboard part — because the widening runs after
+        // the owner's table was completed against an empty list, so the owner never included them at all.
+        // Only now is the whole model known, which is what makes this the place to ask.
+        //
+        // Repeated until nothing changes, so it also crosses a chain of parts whatever order the owners
+        // happen to sit in.
+        this.propagatePartEntityData();
+
         const missingData: string[] = [];
         for (const table of this.schema.tables.values()) {
             this.validateEntityArrays(table, table.fields);

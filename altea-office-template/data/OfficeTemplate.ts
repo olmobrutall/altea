@@ -125,7 +125,7 @@ export class OfficeModelEntity extends Entity {
 // ---- OfficeTemplate rows -------------------------------------------------------------------------------
 
 // Signum's `MList<QueryFilterEmbedded> Filters` — the shared filter row with this owner's back reference.
-@part("Master")
+@part
 // Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
 // the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
 // its identity across databases (see UserAssetsImporter.syncRows).
@@ -135,7 +135,7 @@ export class OfficeTemplateEntity_Filter extends QueryFilterBaseEntity {
 }
 
 // Signum's `MList<QueryOrderEmbedded> Orders`.
-@part("Master")
+@part
 export class OfficeTemplateEntity_Order extends Entity {
     @backReference officeTemplate: Lite<OfficeTemplateEntity>;
     @rowOrder order: int;
@@ -219,7 +219,7 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
  * own comment on IAttachmentGeneratorEntity points at.
  */
 @reflect
-@part("Master")
+@part
 // Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
 // pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
 @legacyTableName("WordAttachment")

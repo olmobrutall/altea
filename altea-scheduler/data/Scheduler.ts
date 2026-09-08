@@ -46,7 +46,7 @@ export interface IScheduleRuleEntity extends Entity {
 
 // Signum's ScheduleRuleMinutelyEntity — every N minutes.
 @reflect
-@part("Master")
+@part
 // Signum declares this `[PrimaryKey(typeof(Guid))]`.
 @primaryKey("uuid")
 export class ScheduleRuleMinutelyEntity extends Entity implements IScheduleRuleEntity {
@@ -88,7 +88,7 @@ export class ScheduleRuleMinutelyEntity extends Entity implements IScheduleRuleE
 // Signum's ScheduleRuleWeekDaysEntity — on the chosen weekdays, at StartingOn's time of day, optionally
 // including or excluding a calendar's holidays.
 @reflect
-@part("Master")
+@part
 // Signum declares this `[PrimaryKey(typeof(Guid))]`.
 @primaryKey("uuid")
 export class ScheduleRuleWeekDaysEntity extends Entity implements IScheduleRuleEntity {
@@ -182,7 +182,7 @@ export class ScheduleRuleWeekDaysEntity extends Entity implements IScheduleRuleE
 
 // Signum's ScheduleRuleMonthsEntity — on StartingOn's day-of-month and time, in the chosen months.
 @reflect
-@part("Master")
+@part
 // Signum declares this `[PrimaryKey(typeof(Guid))]`.
 @primaryKey("uuid")
 export class ScheduleRuleMonthsEntity extends Entity implements IScheduleRuleEntity {

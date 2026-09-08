@@ -5,7 +5,7 @@ import { ResetLazy } from "@altea/altea/data/resetLazy";
 import { table } from "@altea/altea/server/table";
 import { Entity, type PrimaryKey, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
-import { PropertyRoute, isPartType } from "@altea/altea/data/propertyRoute";
+import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
 import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
 import { getRegisteredTypes } from "@altea/altea/data/registration";
@@ -369,7 +369,7 @@ export namespace PropertyAuthLogic {
      * this is the same rule one dimension down.
      */
     function authRoutes(ctor: Function): PropertyRoute[] {
-        return isPartType(ctor) ? [] : PropertyRoute.generateRoutes(ctor, false);
+        return PropertyRoute.generateRoutes(ctor, false);   // a `@part` answers [] — see there
     }
 
     export async function restrictedRoutesForRole(roleKey: string): Promise<Map<string, Map<string, { fallback: PropertyAllowed; min: PropertyAllowed; max: PropertyAllowed }>>> {

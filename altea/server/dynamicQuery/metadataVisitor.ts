@@ -65,7 +65,10 @@ export class MetadataVisitor {
     // CleanMeta root of the source entity). Signum's MetadataVisitor.JustVisit.
     static gatherMeta(body: Expression, param: ParameterExpression, sourceType: Function): Meta {
         const v = new MetadataVisitor();
-        v.env.set(param, new MetaValue(new CleanMeta(Implementations.ofDeclaredType(sourceType), [PropertyRoute.root(sourceType)])));
+        // `rootStandalone`: an expression may be REGISTERED on a `@part` (eastwind does it for
+        // `OrderLineEntity.subTotalPrice`), and the source parameter of one is the part with no owner in
+        // the picture — the same standalone case a part's own query is. See PropertyRoute.rootStandalone.
+        v.env.set(param, new MetaValue(new CleanMeta(Implementations.ofDeclaredType(sourceType), [PropertyRoute.rootStandalone(sourceType)])));
         const node = v.visit(body);
         return node instanceof MetaValue ? node.meta : new DirtyMeta(undefined, collectMetas(node));
     }
@@ -166,7 +169,7 @@ export class MetadataVisitor {
                 // Polymorphic reference (add throws): expand over each implementation type.
                 if (meta.implementations != undefined && !meta.implementations.isByAll) {
                     try {
-                        const routes = meta.implementations.types.map(t => PropertyRoute.root(t).add(member));
+                        const routes = meta.implementations.types.map(t => PropertyRoute.rootStandalone(t).add(member));
                         return new CleanMeta(getImplementations(routes), routes);
                     } catch { /* fall through to void */ }
                 }

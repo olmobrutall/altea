@@ -102,7 +102,7 @@ export class WorkflowPoolModel extends ModelEntity {
 /** Signum's `MList<Lite<Entity>> Actors` [ImplementedBy(User, Role)] as this owner's `@part` row — a
  *  POLYMORPHIC collection cannot be a bare array in altea, it needs the row's `@valueField`. */
 @reflect
-@part("Master")
+@part
 export class WorkflowLaneEntity_Actor extends Entity {
     @backReference lane: Lite<WorkflowLaneEntity>;
     // No `@rowOrder`: Signum does not mark `WorkflowLaneEntity.Actors` [PreserveOrder], so its table
@@ -373,7 +373,7 @@ export class SubWorkflowEmbedded extends EmbeddedEntity {
 
 /** Signum's `MList<ButtonOptionEmbedded> DecisionOptions` — an embedded collection, so a `@part` row. */
 @reflect
-@part("Master")
+@part
 export class WorkflowActivityEntity_DecisionOption extends Entity {
     @backReference activity: Lite<WorkflowActivityEntity>;
     @rowOrder order: int;
@@ -387,7 +387,7 @@ export class WorkflowActivityEntity_DecisionOption extends Entity {
 
 /** Signum's `MList<ViewNamePropEmbedded> ViewNameProps`. */
 @reflect
-@part("Master")
+@part
 export class WorkflowActivityEntity_ViewNameProp extends Entity {
     @backReference activity: Lite<WorkflowActivityEntity>;
     @rowOrder order: int;

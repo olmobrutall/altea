@@ -24,7 +24,7 @@ import { EmailServiceEntity } from "@altea/altea-email/data/EmailSenderConfigura
 
 // Signum's MicrosoftGraphEmailServiceEntity.
 @reflect
-@part("Master")
+@part
 export class MicrosoftGraphEmailServiceEntity extends EmailServiceEntity {
 
     /** Borrow the app's Entra ID registration (see the header) instead of the three fields below. */

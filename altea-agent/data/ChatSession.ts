@@ -151,7 +151,7 @@ export namespace ChatMessageOperation {
 
 /** Signum's `MList<ToolCallEmbedded>` on ChatMessageEntity, as this owner's @part row. */
 @reflect
-@part("Transactional")
+@part
 export class ChatMessageEntity_ToolCall extends Entity {
     @backReference chatMessage: Lite<ChatMessageEntity>;
     @rowOrder order: int;

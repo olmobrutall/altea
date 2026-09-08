@@ -117,7 +117,7 @@ export class NeuralNetworkSettingsEntity_HiddenLayer extends Entity {
 }
 
 @reflect
-@part("Master")
+@part
 export class NeuralNetworkSettingsEntity extends Entity implements IPredictorAlgorithmSettings {
     /** Signum's `Device` — which TF device to pin. tfjs picks its backend, so this is advisory here. */
     @stringLengthValidator({ max: 100 })
@@ -250,7 +250,7 @@ export function validateOutputActivation(
  * It is a process's data entity, so one run is a ProcessEntity a user can watch and cancel.
  */
 @reflect
-@part("Transactional")
+@part
 export class AutoconfigureNeuralNetworkEntity extends Entity implements IProcessDataEntity {
     initialPredictor: Lite<PredictorEntity>;
 
