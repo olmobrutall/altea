@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import { PropertyRoute, PropertyRouteType } from "@altea/altea/data/propertyRoute";
 import { Implementations } from "@altea/altea/data/implementations";
-import { Entity } from "@altea/altea/data/entity";
+import { Entity, MixinEntity } from "@altea/altea/data/entity";
+import { mixin } from "@altea/altea/data/mixinDeclarations";
 import { reflect } from "@altea/altea/data/reflection";
 import { backReference, part } from "@altea/altea/data/decorators";
 import type { Lite } from "@altea/altea/data/lite";
@@ -18,15 +19,32 @@ import {
 // music model has only part COLLECTIONS, and this belongs to no suite's schema, so it is declared here
 // rather than in the fixture (nothing includes it, so no database gains a table).
 @part
+@mixin(() => [RouteProbeMixin])
 class RouteProbeEntity_Address extends Entity {
     @backReference
     owner: Lite<RouteProbeEntity>;
     city: string;
 }
 
+// A collection element carrying a mixin — eastwind's `OrderLineEntity` + `OrderDetailMixin` in miniature,
+// which is the shape the round-trip below is really about.
+@part
+@mixin(() => [RouteProbeMixin])
+class RouteProbeEntity_Tag extends Entity {
+    @backReference
+    owner: Lite<RouteProbeEntity>;
+    label: string;
+}
+
+@reflect
+class RouteProbeMixin extends MixinEntity {
+    note: string | null;
+}
+
 @reflect
 class RouteProbeEntity extends Entity {
     shipAddress: RouteProbeEntity_Address;
+    tags: RouteProbeEntity_Tag[];
     label: LabelEntity;
 }
 
@@ -215,6 +233,41 @@ describe("PropertyRoute — @part references", () => {
     test("assertNotPartRoot refuses a standalone part root and passes an owner-rooted one", () => {
         assert.throws(() => PropertyRoute.rootStandalone(AlbumEntity_Song).add("name").assertNotPartRoot(), /@part/);
         PropertyRoute.root(AlbumEntity).add("songs").add("Item").add("name").assertNotPartRoot();
+    });
+});
+
+describe("PropertyRoute — mixins", () => {
+    // `propertyString()` writes a mixin step as `[MixinName]`, so `parse` must read one back: the stored
+    // path IS what this class emitted, and the routes table, a property rule, a translated instance, a
+    // tour's css step and the help page all hand it straight back. It used to throw
+    // ("'[OrderDetailMixin]' does not exist on OrderLineEntity"), which took out the whole help page of
+    // any type with a mixin on a part row.
+    test("a [Mixin] step parses back", () => {
+        const pr = PropertyRoute.parse(RouteProbeEntity, "tags/[RouteProbeMixin].note");
+        assert.equal(pr.propertyString(), "tags/[RouteProbeMixin].note");
+        assert.equal(pr.parent!.propertyRouteType, PropertyRouteType.Mixin);
+    });
+
+    // A mixin carries no dot before it, so the segment it sits in has to be split on the BRACKET too —
+    // Signum's splitMixin, the level altea's one-pass splitter lacked. Without it `shipAddress[…]` is one
+    // unresolvable member.
+    test("a mixin mid-segment splits from its member", () => {
+        assert.equal(PropertyRoute.parse(RouteProbeEntity, "shipAddress[RouteProbeMixin].note").propertyString(),
+            "shipAddress[RouteProbeMixin].note");
+    });
+
+    // The invariant, over the whole generated set: whatever a type's routes print as, they parse back to.
+    test("every generated route round-trips", () => {
+        const routes = PropertyRoute.generateRoutes(RouteProbeEntity, true);
+        assert.ok(routes.some(r => r.propertyString().includes("[")), "the fixture should produce mixin routes");
+        for (const r of routes) {
+            const s = r.propertyString();
+            assert.equal(PropertyRoute.parse(RouteProbeEntity, s).propertyString(), s);
+        }
+    });
+
+    test("an undeclared mixin says so", () => {
+        assert.throws(() => PropertyRoute.parse(RouteProbeEntity, "[NoSuchMixin].note"), /Mixin 'NoSuchMixin' does not exist/);
     });
 });
 

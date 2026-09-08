@@ -226,6 +226,17 @@ export class PropertyRoute {
             }
         }
 
+        // A MIXIN step, written `[MixinName]` — Signum's `GetMember`, which dispatches on the bracket
+        // before it looks for a field. It belongs HERE rather than in `parse` alone, because
+        // `propertyString()` EMITS this form (a mixin's own step, and every route under it), so any
+        // caller handed a stored path — the routes table, a property rule, a translated instance, the
+        // help page — must be able to read back what the same class wrote. It sits AFTER the re-root
+        // above for the same reason Signum's `AddImp` runs after `GetMember`: a mixin reached through an
+        // entity reference is a route of the REFERENCED type.
+        const mixinMatch = /^\[(.+)\]$/.exec(member);
+        if (mixinMatch != null)
+            return this.addMixin(mixinMatch[1]);
+
         // Collection element (Signum's "Item").
         if ((member === "Item" || member === "item") && this.type.array)
             return new PropertyRoute(PropertyRouteType.MListItems, this, undefined, undefined, undefined);
@@ -590,18 +601,29 @@ export class PropertyRoute {
     }
 }
 
-// Tokenises a property string into navigation steps, expanding '/' into collection "Item"
-// steps and keeping '[Mixin]' segments intact. Basic — covers "a.b/Item.c" and "[Mixin].a".
+// Tokenises a property string into navigation steps — Signum's three nested splitters inside
+// `PropertyRoute.Parse` (splitIndexer → splitDot → splitMixin), in that order: '/' becomes a collection
+// "Item" step, '.' separates members, and a '[Mixin]' is a step of its own WHEREVER it appears. The
+// mixin level is what the previous one-pass version lacked: a mixin carries no dot before it
+// (`propertyString()` writes `shipAddress[AMixin].city`, and `details/[OrderDetailMixin].discountCode`),
+// so splitting on '.' and '/' alone left `shipAddress[AMixin]` glued into one unresolvable member.
 function splitRoute(propertyString: string): string[] {
-    const out: string[] = [];
-    for (const dotPart of propertyString.split(".")) {
-        const segs = dotPart.split("/");
-        segs.forEach((seg, i) => {
-            if (seg.length > 0)
-                out.push(seg);
-            if (i < segs.length - 1)
-                out.push("Item");
-        });
+    function splitMixin(text: string): string[] {
+        if (text.length === 0)
+            return [];
+        const open = text.indexOf("[");
+        if (open < 0)
+            return [text];
+        const close = text.indexOf("]", open);
+        if (close < 0)
+            return [text];
+        return [...splitMixin(text.substring(0, open)), text.substring(open, close + 1), ...splitMixin(text.substring(close + 1))];
     }
-    return out;
+
+    function splitDot(text: string): string[] {
+        return text.split(".").flatMap(splitMixin);
+    }
+
+    // Each '/' contributes the element step Signum names "Item".
+    return propertyString.split("/").flatMap((part, i) => i === 0 ? splitDot(part) : ["Item", ...splitDot(part)]);
 }
