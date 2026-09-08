@@ -145,7 +145,9 @@ export namespace AzureADAuthenticator {
 
             currentMsalClient = newClient;
             AuthClient.setAuthToken(loginResponse.token, loginResponse.authenticationType);
-            AuthClient.setCurrentUser(loginResponse.userEntity);
+            // `avoidReRender`: onLogin rebuilds the app (and reloads the metadata blob) — the listener's own
+            // remount in between only flashes the page back to its idle state (see AuthClient).
+            AuthClient.setCurrentUser(loginResponse.userEntity, /* avoidReRender */ true);
             AuthClient.Options.onLogin();
         } catch (e) {
             ctx.setLoading(undefined);

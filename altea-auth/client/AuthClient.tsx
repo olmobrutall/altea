@@ -342,6 +342,17 @@ setExtraHeaders(() => {
 
 // On any credential change (login / logout / switch user), refetch the (now role-appropriate) metadata
 // blob and re-render — so the visible query/type set matches the new role.
-AuthClient.onCurrentUserChanged.push(() => {
+//
+// `avoidReRender` — Signum's own parameter on setCurrentUser, until now passed by nobody and honoured
+// nowhere — means the CALLER is rebuilding the application itself. Every login path hands straight off
+// to `Options.onLogin`, whose host implementation throws the React root away and builds a new one over a
+// new route table, loading the blob on its way (eastwind's MainPublic `reload()`). Doing it here too is
+// not merely a duplicate request: the refetch resolves in a fraction of the rebuild, so its `resetUI()`
+// remounts the tree UNDER the login form, which comes back with fresh state — an enabled user name box
+// and a "Login" button — for the second or so the rebuild still has to run. Disabled, then writable
+// again, then gone: the one state the form must never show is the one that invites a second submit.
+AuthClient.onCurrentUserChanged.push((_user, avoidReRender) => {
+    if (avoidReRender)
+        return;
     void loadReflectionMetadata().then(() => AppContext.resetUI());
 });

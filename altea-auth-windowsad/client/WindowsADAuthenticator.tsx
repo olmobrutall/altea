@@ -72,7 +72,9 @@ export function LoginWithWindowsButton(): React.JSX.Element {
             }
 
             AuthClient.setAuthToken(lr.token, lr.authenticationType);
-            AuthClient.setCurrentUser(lr.userEntity);
+            // `avoidReRender`: onLogin rebuilds the app (and reloads the metadata blob) — the listener's own
+            // remount in between only flashes the page back to its idle state (see AuthClient).
+            AuthClient.setCurrentUser(lr.userEntity, /* avoidReRender */ true);
             AuthClient.Options.onLogin();
         });
     }

@@ -44,7 +44,10 @@ export default function ChangePasswordPage(): React.JSX.Element {
         AuthClient.API.changePassword(request)
             .then(lr => {
                 AuthClient.setAuthToken(lr.token, lr.authenticationType);
-                AuthClient.setCurrentUser(lr.userEntity);
+                // `avoidReRender` — the mustChangePassword branch below hands off to onLogin, which
+                // rebuilds the app; the listener's own remount would only flash this form back to its
+                // idle state in between (see AuthClient). The other branch re-renders explicitly.
+                AuthClient.setCurrentUser(lr.userEntity, /* avoidReRender */ true);
                 AuthClient.setPendingPasswordChangeUser(undefined);
 
                 if (mustChangePassword) {

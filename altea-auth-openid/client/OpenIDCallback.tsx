@@ -45,7 +45,9 @@ export default function OpenIDCallback(): React.JSX.Element {
 
             OpenIDAuthenticator.setOpenIDActive(true);
             AuthClient.setAuthToken(loginResponse.token, loginResponse.authenticationType);
-            AuthClient.setCurrentUser(loginResponse.userEntity);
+            // `avoidReRender`: onLogin rebuilds the app (and reloads the metadata blob) — the listener's own
+            // remount in between only flashes the page back to its idle state (see AuthClient).
+            AuthClient.setCurrentUser(loginResponse.userEntity, /* avoidReRender */ true);
             AuthClient.Options.onLogin(returnUrl);
         } catch (e) {
             // Clear the flag, or the silent authenticator would bounce straight back here on every load.

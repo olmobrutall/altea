@@ -92,7 +92,12 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
                     AuthClient.setPendingPasswordChangeUser(lr.userEntity);
                     AppContext.navigate("/auth/changePassword" + (back ? "?back=" + encodeURIComponent(back) : ""));
                 } else {
-                    AuthClient.setCurrentUser(lr.userEntity);
+                    // `avoidReRender`: onLogin rebuilds the whole app (and reloads the metadata blob) —
+                    // letting the credential-change listener remount the tree first would bring this form
+                    // back ENABLED, spinner gone, for the second the rebuild takes. The loading state is
+                    // deliberately never cleared on this path: the form stays submitted until it is
+                    // replaced. See the listener in AuthClient.
+                    AuthClient.setCurrentUser(lr.userEntity, /* avoidReRender */ true);
                     AuthClient.Options.onLogin(back);
                 }
             })
