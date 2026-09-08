@@ -9,6 +9,7 @@ import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/
 import type { OmniboxResult, OmniboxMatch } from "@altea/altea-omnibox/data/OmniboxResults";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import type { IPartEntity } from "@altea/altea-dashboard/data/Dashboard";
+import type { IQuery } from "@altea/altea/data/iquery";
 
 // Port of Signum.Tree's TreeEntity.cs — an entity whose rows form a FOREST, materialised as a
 // depth-first PATH on each row, so "the subtree under X" and "the children of X" are one indexed
@@ -286,3 +287,32 @@ export class UserTreePartEntity extends Entity implements IPartEntity {
 // `[assembly: AssemblySchemaName("tree")]`. FOLDER-scoped, so it covers every type declared
 // beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("tree");
+
+// ---- the four query expressions TreeLogic registers ------------------------------------------------------
+//
+// Signum's `Children` / `Parent` / `Descendants` / `Ascendants`. DECLARED here and IMPLEMENTED in
+// server/TreeLogic: the bodies need `table(...)`, but the declaration has to reach the CLIENT program too —
+// the tree page builds its columns with `token(a => …)`, which cannot see a server-only member.
+//
+// Typed by the POLYMORPHIC `this`, so they are strongly typed per tree type without making TreeEntity
+// generic: `DepartmentEntity.prototype.treeChildren()` is an `IQuery<DepartmentEntity>`, and a token built
+// off it keeps walking into that type's own members. A `TreeEntity<T>` would say the same thing at the cost
+// of a type argument on every one of the ~40 `TreeEntity` references in the workspace (and an
+// F-bounded `T extends TreeEntity<T>` to close the loop); `this` is what core's own `Entity.inDB():
+// IQuery<this>` uses for exactly this shape.
+//
+// OPTIONAL because the stamp is PER TYPE — `TreeLogic.registerExpressions(X)` is what puts them on X — and
+// QUERY-ONLY: a `withQuoted` member cannot be invoked in memory, so the engine calls the twins in
+// TreeLogic instead (see its header).
+declare module "./Tree" {
+    interface TreeEntity {
+        /** Signum's `Children()` — the nodes whose parent route is this one. */
+        treeChildren?(): IQuery<this>;
+        /** Signum's `Parent()` — the node this one hangs off, or null at a root. */
+        treeParent?(): Promise<this | null>;
+        /** Signum's `Descendants()` — this node and everything under it (INCLUSIVE). */
+        treeDescendants?(): IQuery<this>;
+        /** Signum's `Ascendants()` — this node and everything above it (INCLUSIVE). */
+        treeAscendants?(): IQuery<this>;
+    }
+}

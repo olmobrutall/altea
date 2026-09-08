@@ -76,42 +76,34 @@ export namespace TreeLogic {
      * registration that turns it into a navigable token.
      */
     export function registerExpressions<T extends TreeEntity>(type: Type<T>): void {
-        const proto = (type as unknown as { prototype: Record<string, unknown> }).prototype;
-
-        proto.treeChildren = withQuoted(function (this: TreeEntity) {
+        // The bodies of the four expressions DECLARED in data/Tree (see there). Stamped PER TYPE, unlike
+        // every other module that registers an expression: the body captures `type`, so `table(type)` is the
+        // constant the transformer needs in the tree — and the polymorphic `this` on the declaration is what
+        // makes each one land as `IQuery<T>` rather than `IQuery<TreeEntity>`.
+        type.prototype.treeChildren = withQuoted(function (this: T) {
             return table(type).filter(c => c.parentRoute == this.route);
         });
 
-        proto.treeParent = withQuoted(function (this: TreeEntity) {
+        type.prototype.treeParent = withQuoted(function (this: T) {
             return table(type).singleOrNull(p => p.route == this.parentRoute);
         });
 
         // INCLUSIVE, as hierarchyid's IsDescendantOf is: a node is its own descendant / ascendant.
-        proto.treeDescendants = withQuoted(function (this: TreeEntity) {
+        type.prototype.treeDescendants = withQuoted(function (this: T) {
             return table(type).filter(d => d.route.startsWith(this.route));
         });
 
-        proto.treeAscendants = withQuoted(function (this: TreeEntity) {
+        type.prototype.treeAscendants = withQuoted(function (this: T) {
             return table(type).filter(a => this.route.startsWith(a.route));
         });
 
-        // The four members just stamped onto the prototype, written INLINE: nothing implements such a
-        // contract — they exist only on the types that were registered, and they are QUERY-ONLY (see the
-        // header) — so a named, exported interface would only ever be read in this block.
-        type Navigations = TreeEntity & {
-            treeChildren?(): unknown;
-            treeParent?(): unknown;
-            treeDescendants?(): unknown;
-            treeAscendants?(): unknown;
-        };
-
-        QueryLogic.expressions.register(type, (e: Navigations) => e.treeChildren!(),
+        QueryLogic.expressions.register(type, (e: TreeEntity) => e.treeChildren!(),
             { key: "Children", niceName: () => TreeMessage.Children.niceToString() });
-        QueryLogic.expressions.register(type, (e: Navigations) => e.treeParent!(),
+        QueryLogic.expressions.register(type, (e: TreeEntity) => e.treeParent!(),
             { key: "Parent", niceName: () => TreeMessage.Parent.niceToString() });
-        QueryLogic.expressions.register(type, (e: Navigations) => e.treeDescendants!(),
+        QueryLogic.expressions.register(type, (e: TreeEntity) => e.treeDescendants!(),
             { key: "Descendants", niceName: () => TreeMessage.Descendants.niceToString() });
-        QueryLogic.expressions.register(type, (e: Navigations) => e.treeAscendants!(),
+        QueryLogic.expressions.register(type, (e: TreeEntity) => e.treeAscendants!(),
             { key: "Ascendants", niceName: () => TreeMessage.Ascendants.niceToString() });
     }
 
