@@ -46,7 +46,15 @@ export type PrimaryKey = string | number;
 // places that genuinely INSTANTIATE (the Retriever building a row, symbol seeding) say so by calling
 // `newInstance`, which is where the concrete-type assumption is asserted instead of being smuggled into
 // every signature.
-export type Type<T extends BaseEntity> = abstract new (...args: any[]) => T;
+/**
+ * The ONE entity-type handle: a CONSTRUCTOR, abstract-tolerant so a base like `CustomerEntity` is a valid
+ * handle (see CLAUDE.md). `prototype` is spelled out because the construct signature alone does not carry
+ * one — property access falls back to the apparent type `Function`, whose `prototype` is `any`, so
+ * `type.prototype.foo = …` compiled unchecked and a typo in a stamped member name was silent. Naming it
+ * `T` makes every prototype write check against the type's declared members, which is what the modules
+ * that stamp a `withQuoted` expression onto a type rely on.
+ */
+export type Type<T extends BaseEntity> = (abstract new (...args: any[]) => T) & { prototype: T };
 
 // Instantiate a `Type<T>`. Every type the ENGINE news up is a concrete row / embedded type — the schema
 // only builds tables for those — so this is the one place the narrowing is written down.

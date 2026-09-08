@@ -184,7 +184,10 @@ export namespace SMSLogic {
     export function registerSMSOwner<T extends Entity>(type: Type<T>): void {
         smsOwners.push(type);
 
-        const proto = (type as unknown as { prototype: Record<string, unknown> }).prototype;
+        // `ISMSOwnerEntity` is a CONTRACT an app opts a type into, not a shape invented to type a lambda,
+        // so the member stays declared there rather than on Entity — and the prototype is named as that
+        // contract instead of an opaque bag, which is what makes the write below checked.
+        const proto = type.prototype as ISMSOwnerEntity;
         proto.smsMessages = withQuoted(function (this: Entity): IQuery<SMSMessageEntity> {
             return table(SMSMessageEntity).filter(m => m.referred!.is(this));
         });

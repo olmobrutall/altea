@@ -319,7 +319,9 @@ export namespace CaseActivityLogic {
         // on an interface (the token walk follows the concrete prototype chain), so both the implementation
         // and the registration are per main-entity type — the accommodation MusicLogic makes for
         // IAuthorEntity.Albums.
-        const proto = (type as unknown as { prototype: Record<string, unknown> }).prototype;
+        // `ICaseMainEntity` is a CONTRACT (the client frames take one), so the four members stay declared
+        // there rather than on Entity; naming the prototype as it is what makes these writes checked.
+        const proto = type.prototype as ICaseMainEntity;
 
         proto.caseActivities = withQuoted(function (this: Entity): IQuery<CaseActivityEntity> {
             return table(CaseActivityEntity).filter(a => a.case.mainEntity.is(this));
