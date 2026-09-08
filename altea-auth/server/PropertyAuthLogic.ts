@@ -5,7 +5,7 @@ import { ResetLazy } from "@altea/altea/data/resetLazy";
 import { table } from "@altea/altea/server/table";
 import { Entity, type PrimaryKey, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
-import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { PropertyRoute, isPartType } from "@altea/altea/data/propertyRoute";
 import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
 import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
 import { getRegisteredTypes } from "@altea/altea/data/registration";
@@ -358,6 +358,20 @@ export namespace PropertyAuthLogic {
      * Unrestricted routes (max == Write) are omitted — the client defaults to writable, so shipping them
      * would be pure payload on a blob that already carries every type.
      */
+    /**
+     * The routes a rule may be written for, on a type that may have one.
+     *
+     * A `@part` has NONE of its own: its members are routes of the entity that owns it
+     * (`AdditionalInformation/Key` on Product, which `generateRoutes` descends into from there), so a
+     * second set rooted at the part would be a second spelling of the same members — and a rule written
+     * under one spelling is invisible to a lookup made through the other. See
+     * PropertyRoute.assertNotPartRoot. Parts are already absent from the TYPE grid (PartOwnership), so
+     * this is the same rule one dimension down.
+     */
+    function authRoutes(ctor: Function): PropertyRoute[] {
+        return isPartType(ctor) ? [] : PropertyRoute.generateRoutes(ctor, false);
+    }
+
     export async function restrictedRoutesForRole(roleKey: string): Promise<Map<string, Map<string, { fallback: PropertyAllowed; min: PropertyAllowed; max: PropertyAllowed }>>> {
         const result = new Map<string, Map<string, { fallback: PropertyAllowed; min: PropertyAllowed; max: PropertyAllowed }>>();
         if (!started)
@@ -371,7 +385,7 @@ export namespace PropertyAuthLogic {
             let typeId: PrimaryKey;
             try { typeId = TypeLogic.typeToId(ctor); } catch { continue; } // not in the DB type table
             let byPath: Map<string, { fallback: PropertyAllowed; min: PropertyAllowed; max: PropertyAllowed }> | undefined;
-            for (const route of PropertyRoute.generateRoutes(ctor, false)) {
+            for (const route of authRoutes(ctor)) {
                 const path = route.propertyString();
                 const wc = cache.getAllowed(typeId, path, roleKey);
                 const all = [wc.fallback, ...wc.conditionRules.map(cr => cr.allowed)];
@@ -394,7 +408,7 @@ export namespace PropertyAuthLogic {
         const typeId = TypeLogic.typeToId(ctor);
         const rank = (v: PropertyAllowed): number => v === PropertyAllowed.None ? 0 : v === PropertyAllowed.Read ? 1 : 2;
         let min = 2, max = 0, any = false;
-        for (const route of PropertyRoute.generateRoutes(ctor, false)) {
+        for (const route of authRoutes(ctor)) {
             const r = rank((await getAllowed(typeId, route.propertyString(), roleKey)).fallback);
             if (r < min) min = r;
             if (r > max) max = r;
@@ -439,7 +453,7 @@ export namespace PropertyAuthLogic {
         // shape for every route, but emit a fresh model per row (each is an independent transport instance).
         const ceiling = await typeCeilingWC(typeId, roleKey); // the per-slice ceiling (same for every route)
         const rules: PropertyAllowedRule[] = [];
-        for (const route of PropertyRoute.generateRoutes(ctor, false)) {
+        for (const route of authRoutes(ctor)) {
             const path = route.propertyString();
             rules.push(PropertyAllowedRule.create({
                 path,

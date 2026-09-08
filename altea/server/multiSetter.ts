@@ -12,12 +12,16 @@
 //     Signum reuses `QueryUtils.GetCompareExpression(..., inMemory: true)`, which altea has no
 //     counterpart for since its filters only ever lower to SQL).
 //   - MList is gone, so a collection is `@part` child ROWS: the element of a settable collection is an
-//     ENTITY with its own table, hence `PropertyRoute.root(elementCtor)` for the nested block and no
-//     "embedded element" branch. `RemoveElementsWhere` / `RemoveElement` splice IN PLACE, so the saver's
-//     snapshot diff sees the removal (and orphans the rows) exactly as for a UI edit.
-//   - A setter's property path never crosses an entity reference (altea's `PropertyRoute.add` re-roots
-//     there, so the prefix could not be written down) — the client only ever produces embedded-only
-//     paths; see the client file's header. A path that does cross one is rejected here, not guessed.
+//     ENTITY with its own table. It still keeps the ELEMENT route for the nested block, because a `@part`
+//     continues its owner's route rather than re-rooting — so this lands on Signum's "embedded element"
+//     branch after all. `RemoveElementsWhere` / `RemoveElement` splice IN PLACE, so the saver's snapshot
+//     diff sees the removal (and orphans the rows) exactly as for a UI edit.
+//   - A setter's property path never crosses an ORDINARY entity reference (altea's `PropertyRoute.add`
+//     re-roots there, so the prefix could not be written down) — such a reference is edited through
+//     ModifyEntity / CreateNewEntity, and a path that does cross one is rejected here, not guessed. It
+//     MAY cross a `@part`, which continues the route: that is what Signum's own `PropertyPart` meant to
+//     allow and got wrong (`ti.entityKind == "Part" || ti?.entityKind != "SharedPart"`, true for both
+//     branches), so a Part could not be drilled into there either.
 //   - `AssertCanWrite` becomes `propertyWriteAccess` (data/serializer): the same gate the codec applies,
 //     asked directly because these writes bypass the codec. THROWS on a non-writable property, where the
 //     codec silently keeps the original — "changed 500 rows" must not be a lie.
@@ -27,7 +31,7 @@
 import { BaseEntity, Entity, EmbeddedEntity, type Type } from "../data/entity";
 import { Lite } from "../data/lite";
 import { Decimal, Temporal } from "../data/basics";
-import { PropertyRoute, PropertyRouteType } from "../data/propertyRoute";
+import { PropertyRoute, PropertyRouteType, isPartType } from "../data/propertyRoute";
 import type { TypeReference } from "../data/reflection";
 import { resolveCleanType } from "../data/registration";
 import { Enum } from "../data/enum";
@@ -80,10 +84,11 @@ export namespace MultiSetter {
                 setCollection(entity, setter, pr, route, authContext, meta);
             } else if (setter.operation === "CreateNewEntity") {
                 // An embedded is created in place (its block continues on the same route); an entity
-                // reference is created as the chosen concrete type, rooted at it.
+                // reference is created as the chosen concrete type, rooted at it — unless it is a `@part`,
+                // which continues the route like an embedded (PropertyRoute.assertNotPartRoot).
                 const isEmbedded = pr.type.is(EmbeddedEntity);
                 const ctor = isEmbedded ? embeddedCtorOf(pr) : entityTypeOf(setter, pr);
-                const subPr = isEmbedded ? pr : PropertyRoute.root(ctor);
+                const subPr = isEmbedded || isPartType(ctor) ? pr : PropertyRoute.root(ctor);
                 const item = createInstance(ctor);
                 MultiSetter.setSetters(item, setter.setters ?? [], subPr, authContext, meta);
                 setValue(entity, pr, route, item);
@@ -92,9 +97,10 @@ export namespace MultiSetter {
                 if (!(item instanceof BaseEntity))
                     throw new Error(`Unable to change entity in ${pr}: ${item instanceof Lite ? "a Lite is not retrieved" : String(item)}`);
 
-                // For an EMBEDDED the block continues on the same route; for an entity reference it
-                // re-roots at the referenced instance's own type (altea's routes re-root there).
-                const subPr = item instanceof Entity ? PropertyRoute.root(item.constructor as Function) : pr;
+                // For an EMBEDDED — and for a `@part`, which behaves as one — the block continues on the
+                // same route; an ordinary entity reference re-roots at the referenced instance's own type.
+                const subPr = item instanceof Entity && !isPartType(item.constructor)
+                    ? PropertyRoute.root(item.constructor as Function) : pr;
                 MultiSetter.setSetters(item, setter.setters ?? [], subPr, authContext, meta);
                 setValue(entity, pr, route, item);
             } else if (setter.operation === "Set") {
@@ -156,11 +162,13 @@ function setCollection(entity: BaseEntity, setter: PropertySetter, pr: PropertyR
 }
 
 // Signum's `normalizedPr`: a collection of ENTITIES re-roots for the nested block; a collection of
-// embeddeds keeps the element route. (altea only has the first case for a settable collection, but a
-// `Lite<T>[]` / value array never reaches here — those offer AddElement / RemoveElement only.)
+// embeddeds keeps the element route. altea's settable collection is always `@part` ROWS, which stand in
+// for Signum's embedded elements and therefore keep the element route too — so in practice this now
+// answers what Signum's second branch does, and the first is kept for a collection of real entities.
 function normalizedElementRoute(elementPr: PropertyRoute): PropertyRoute {
     const ctor = elementPr.type.getFunction();
-    return ctor != null && ctor.prototype instanceof Entity ? PropertyRoute.root(ctor) : elementPr;
+    return ctor != null && ctor.prototype instanceof Entity && !isPartType(ctor)
+        ? PropertyRoute.root(ctor) : elementPr;
 }
 
 function elementCtor(elementPr: PropertyRoute): Function {
@@ -348,7 +356,12 @@ function resolveContainer(entity: BaseEntity, pr: PropertyRoute, parentRoute: Pr
     for (const step of steps) {
         let next = obj[step.member];
         if (next == null) {
-            if (!step.type.is(EmbeddedEntity))
+            // A missing owned container is CREATED: an embedded, and equally a `@part`, which stands in
+            // for one (its `@backReference` is wired by the save cascade like any other owned row). An
+            // ordinary reference is not — that is a different entity, and building one is what
+            // CreateNewEntity is for.
+            const ctor = step.type.getFunction();
+            if (!step.type.is(EmbeddedEntity) && !isPartType(ctor))
                 throw new Error(`Cannot navigate ${pr}: '${step.member}' is null`);
             next = createInstance(embeddedCtorOf(step));
             obj[step.member] = next;

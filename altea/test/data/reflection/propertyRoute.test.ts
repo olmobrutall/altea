@@ -162,6 +162,37 @@ describe("PropertyRoute — @part references", () => {
         assert.ok(paths.includes("shipAddress.city"), paths.join(", "));
         assert.ok(!paths.some(p => p === "label.name"), paths.join(", "));
     });
+
+    // `includeArrayElements` is Signum's `includeMListElements` and gates only the BARE element route.
+    // Signum calls `GenerateEmbeddedProperties(itemRoute, …)` OUTSIDE the flag, so `Songs/Name` is a route
+    // of Album whoever is asking — which is why the property-auth pack (false, as Signum's is) sees it.
+    // altea had gated the whole descent on the flag, so the pack saw no collection member at all and
+    // Southwind's `Product|AdditionalInformation/Key` rule had no counterpart here.
+    test("includeArrayElements gates the BARE element route, not the descent into it", () => {
+        const off = PropertyRoute.generateRoutes(AlbumEntity, false).map(r => r.propertyString());
+        assert.ok(off.includes("songs/name"), off.join(", "));
+        assert.ok(!off.some(p => p.endsWith("/")), off.join(", "));
+
+        const on = PropertyRoute.generateRoutes(AlbumEntity, true).map(r => r.propertyString());
+        assert.ok(on.includes("songs/"), on.join(", "));
+    });
+
+    // A part stands in for a Signum embedded / MList element, which has no `Id`, no `Ticks`, and no
+    // `Parent` / `Order` PROPERTY (those are MList table columns, built with a null route). Emitting them
+    // would offer four routes per collection that a Signum database has no counterpart for.
+    test("a row's bookkeeping is not a route of the owner", () => {
+        const paths = PropertyRoute.generateRoutes(AlbumEntity, true).map(r => r.propertyString());
+        for (const noise of ["songs/id", "songs/ticks", "songs/album", "songs/order"])
+            assert.ok(!paths.includes(noise), `${noise} in ${paths.join(", ")}`);
+        assert.ok(paths.includes("id") && paths.includes("ticks"), paths.join(", "));   // …at the root they are
+    });
+
+    // The enforcement point: a part root is a fine TRANSIENT handle (a row in a modal, a @backReference
+    // walking up and out of the subtree) but must never be written down, or the same member has two names.
+    test("assertNotPartRoot refuses a part-rooted route and passes an owner-rooted one", () => {
+        assert.throws(() => PropertyRoute.root(AlbumEntity_Song).add("name").assertNotPartRoot(), /@part/);
+        PropertyRoute.root(AlbumEntity).add("songs").add("Item").add("name").assertNotPartRoot();
+    });
 });
 
 describe("PropertyRoute — parse & equality", () => {

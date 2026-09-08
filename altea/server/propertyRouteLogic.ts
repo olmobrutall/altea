@@ -10,7 +10,7 @@ import { deleteSqlSync, updateSqlSync } from "./save";
 import { Connector } from "./connection/connector";
 import { PropertyRouteEntity } from "../data/propertyRouteEntity";
 import { TypeEntity } from "../data/typeEntity";
-import { PropertyRoute, storedMemberName } from "../data/propertyRoute";
+import { PropertyRoute, isPartType, storedMemberName } from "../data/propertyRoute";
 import { legacyPropertyRoutesOf } from "../data/decorators";
 import { cleanTypeName } from "../data/registration";
 import { SafeConsole } from "./safeConsole";
@@ -143,6 +143,7 @@ export namespace PropertyRouteLogic {
      * throwing is what makes the table demand-populated — the caller saves it as part of its own graph.
      */
     export async function toPropertyRouteEntity(route: PropertyRoute): Promise<PropertyRouteEntity> {
+        route.assertNotPartRoot("A stored property route");
         const rootType = route.rootType.toTypeEntity();
         const path = route.propertyString();
 
@@ -169,7 +170,11 @@ export namespace PropertyRouteLogic {
             return found;
 
         // Not referenced yet: check the path really is a route of the type before minting a row for it.
-        PropertyRoute.parse(resolveCtor(rootType), path);
+        // The ROOT is asserted rather than the parsed route's, because a path that re-roots would move
+        // the question to a different type than the row actually stores.
+        const ctor = resolveCtor(rootType);
+        PropertyRoute.root(ctor).assertNotPartRoot("A stored property route");
+        PropertyRoute.parse(ctor, path);
         return PropertyRouteEntity.create({ rootType, path });
     }
 
@@ -208,6 +213,15 @@ export namespace PropertyRouteLogic {
      * naming a route the model already has is a no-op rather than a duplicate.
      */
     export function modelPaths(ctor: Function, forSync: boolean): Set<string> {
+        // A `@part` owns NO routes: its members are routes of the entity that owns it
+        // (`AdditionalInformation/Key` on Product), which `generateRoutes` descends into from there. So
+        // the part's own set is empty rather than a second spelling of the same members — see
+        // PropertyRoute.assertNotPartRoot. It is what makes the synchronizer REMOVE a part-rooted row,
+        // hence the migration note in the header: convert those rows before the sync, or they are
+        // dropped and every consumer pointing at one goes with them.
+        if (isPartType(ctor))
+            return new Set();
+
         const result = new Set(PropertyRoute.generateRoutes(ctor, forSync).map(pr => pr.propertyString()));
         for (const handler of extraSyncRoutes)
             for (const path of handler(ctor))

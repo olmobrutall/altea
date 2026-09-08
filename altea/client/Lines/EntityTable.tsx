@@ -170,13 +170,14 @@ export class EntityTableController<R extends BaseEntity, RS> extends EntityListB
       // anyway, but the HEADER is rendered from this list, so without this the table keeps a titled column
       // of permanently empty cells. A column with a custom `template` is left alone: its content is the
       // caller's, and `property` there is only a merge key.
-      // Resolve against the ROW TYPE's own root, not the owner's `details/…` route: a row is a `@part`
-      // ENTITY, so its rules (and its cells' own routes) are keyed under the row type itself.
-      const rowCtor = elementPr.type.getFunction();
-      const rowRoot = rowCtor != null ? PropertyRoute.root(rowCtor) : elementPr;
+      // Resolve against the OWNER's element route (`details/…`), not the row type's own root: a `@part`
+      // continues its owner's route rather than starting a new one, so that is the single spelling a rule
+      // is stored under and the one a lookup has to use (PropertyRoute.assertNotPartRoot). It used to
+      // re-root here, which keyed the client's check under the row type while the server's rules — now
+      // generated through the owner, as Signum's are — are keyed under the owner.
       state.columns = (state.columns as EntityTableColumn<R, RS>[]).filter(c =>
         c.template !== undefined || c.property == null
-        || (columnRoute(rowRoot, c.property)?.isAllowed() ?? null) == null);
+        || (columnRoute(elementPr, c.property)?.isAllowed() ?? null) == null);
 
       (state.columns as EntityTableColumn<R, RS>[]).forEach(c => {
         if (c.mergeCells == true) {

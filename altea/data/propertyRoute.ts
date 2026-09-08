@@ -264,9 +264,16 @@ export class PropertyRoute {
     // the root, descending embeddeds, `@part` references + mixins but STOPPING at ordinary entity/Lite
     // references (they re-root, so their sub-properties belong to that entity's own routes). A `@part`
     // is descended for the same reason it does not re-root: it stands in for an owned embedded, whose
-    // members ARE routes of the owner (see isPartType). Collection element (/Item) routes are
-    // emitted only when `includeArrayElements` (Signum needs them just for sync; the property-auth admin
-    // pack passes false). Used to enumerate a type's properties for property authorization.
+    // members ARE routes of the owner (see isPartType). Used to enumerate a type's properties for
+    // property authorization, for the routes table's sync, for help and for translated instances.
+    //
+    // `includeArrayElements` is Signum's `includeMListElements` and means exactly what Signum's means:
+    // whether the BARE element route (`additionalInformation/`) is one of the results. It does NOT gate
+    // descending INTO the element — Signum calls `GenerateEmbeddedProperties(itemRoute, …)` outside the
+    // flag, so `AdditionalInformation/Key` is a route of Product whoever is asking. altea had gated the
+    // whole descent on it, so the property-auth pack (which passes false, as Signum's does) never saw a
+    // single collection member: Southwind's `Product|AdditionalInformation/Key` rule had no counterpart
+    // here and eastwind's AuthRules.xml carries it commented out.
     static generateRoutes(rootType: Function, includeArrayElements = false): PropertyRoute[] {
         const result: PropertyRoute[] = [];
         PropertyRoute.root(rootType).generateRoutesInto(result, includeArrayElements);
@@ -274,30 +281,39 @@ export class PropertyRoute {
     }
 
     private generateRoutesInto(result: PropertyRoute[], includeArrayElements: boolean, visiting: Set<Function> = new Set()): void {
+        // Inside a `@part` the row's BOOKKEEPING is not part of the model: the part stands in for a
+        // Signum embedded / MList element, which has no `Id`, no `Ticks`, no `Parent` and no `Order`
+        // property at all — Signum's `Parent`/`Order` are MList TABLE columns built with a null route.
+        // Emitting them would offer four routes per collection that a Signum database has no counterpart
+        // for, in the property-auth grid and in the routes table's diff alike. The part's own root still
+        // shows them (that is the class, and the client's metadata is keyed by it) — this is about the
+        // routes reached THROUGH an owner.
+        const insidePart = isPartType(this.ownerCtor()) && this.propertyRouteType !== PropertyRouteType.Root;
         for (const [name, fi] of Object.entries(this.subMembers())) {
             if (fi.noSerialize) // @serialize(false) bookkeeping (isNew / _snapshot) — not a real property
+                continue;
+            if (insidePart && (fi.isBackReference || fi.isRowOrder || name === "id" || name === "ticks"))
                 continue;
             const pr = this.add(name);
             result.push(pr);
             const t = pr.type;
             if (t.array) {
-                if (includeArrayElements) {
-                    const item = pr.add("Item");
+                const item = pr.add("Item");
+                if (includeArrayElements)
                     result.push(item);
-                    // Signum descends an MList's element when it is an EMBEDDED, which is the only kind
-                    // its elements come in. altea's collection element is a `@part` ROW entity instead —
-                    // the MList divergence — so descending only into embeddeds skipped every element
-                    // route a Signum database has (`Columns/DisplayName`, `Parts/Title`, `Elements/Label`).
-                    // `visiting` guards the cycle an entity element makes possible and an embedded cannot.
-                    const infos = item.type.typeInfos();
-                    const element = infos.length === 1 ? infos[0]!.ctor : undefined;
-                    if (item.type.is(EmbeddedEntity)) {
-                        item.generateRoutesInto(result, includeArrayElements, visiting);
-                    } else if (isPartType(element) && !visiting.has(element!)) {
-                        visiting.add(element!);
-                        item.generateRoutesInto(result, includeArrayElements, visiting);
-                        visiting.delete(element!);
-                    }
+                // Signum descends an MList's element when it is an EMBEDDED, which is the only kind
+                // its elements come in. altea's collection element is a `@part` ROW entity instead —
+                // the MList divergence — so descending only into embeddeds skipped every element
+                // route a Signum database has (`Columns/DisplayName`, `Parts/Title`, `Elements/Label`).
+                // `visiting` guards the cycle an entity element makes possible and an embedded cannot.
+                const infos = item.type.typeInfos();
+                const element = infos.length === 1 ? infos[0]!.ctor : undefined;
+                if (item.type.is(EmbeddedEntity)) {
+                    item.generateRoutesInto(result, includeArrayElements, visiting);
+                } else if (isPartType(element) && !visiting.has(element!)) {
+                    visiting.add(element!);
+                    item.generateRoutesInto(result, includeArrayElements, visiting);
+                    visiting.delete(element!);
                 }
             } else if (t.is(EmbeddedEntity)) {
                 pr.generateRoutesInto(result, includeArrayElements, visiting); // descend embedded
@@ -346,6 +362,28 @@ export class PropertyRoute {
 
     isAllowed(): string | null {
         return PropertyRoute.isAllowedCallback ? PropertyRoute.isAllowedCallback(this) : null;
+    }
+
+    /**
+     * Refuse a route ROOTED at a `@part`. A part is a continuation of the one entity that owns it —
+     * `Product.AdditionalInformation/Key`, never `(Product_AdditionalInformation).Key` — so the two
+     * spellings would be two names for one thing, and whichever one a row happens to carry is then the
+     * one that resolves. That is the ambiguity: a rule stored under the part is invisible to a lookup
+     * made through the owner, a Signum database's row for the same member has no counterpart at all, and
+     * the routes table offers each as a rename of the other.
+     *
+     * It is asserted at the STORAGE boundary, not in `root()`, because a part root is a perfectly good
+     * TRANSIENT handle and some of them have no parent to continue: a `@backReference` navigation walks
+     * UP and out of the owner's subtree, and a part rendered in a modal or handed to the codec on its own
+     * has no enclosing route at all. What must never happen is one of those being written down.
+     */
+    assertNotPartRoot(context?: string): this {
+        if (isPartType(this.rootType))
+            throw new Error(
+                `${context ?? "This route"} is rooted at the @part ${this.rootType.name} (${this}). A part's routes belong to ` +
+                `the entity that owns it — reach the member through the owner (\`owner.thePart.member\`, ` +
+                `\`owner.theParts/member\`) so there is one spelling of it.`);
+        return this;
     }
 
     // ---- Simplification helpers (Signum's SimplifyTo* / GetMListItemsRoute) -----------------

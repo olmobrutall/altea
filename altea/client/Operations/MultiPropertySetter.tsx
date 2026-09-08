@@ -23,14 +23,14 @@
 //     `Finder.getTypeNiceName` (see SearchControl/ColumnEditor's header).
 //
 // TWO DIVERGENCES worth knowing:
-//   1. A setter's `property` path NEVER crosses an entity reference. altea's `PropertyRoute.add`
+//   1. A setter's `property` path never crosses an ORDINARY entity reference. altea's `PropertyRoute.add`
 //      RE-ROOTS at the referenced concrete type (Signum's AddImp), so "supplier.companyName" is not a
-//      representable route string — the prefix is lost. Nothing is given up: a reference is edited
+//      representable route string — the prefix is lost. Nothing is given up: such a reference is edited
 //      through `ModifyEntity` / `CreateNewEntity`, whose nested setters are rooted at the referenced
-//      type, which is the same mechanism a collection already uses. Signum's own PropertyPart tried to
-//      allow the in-path form for a Part and got the condition wrong
-//      (`ti.entityKind == "Part" || ti?.entityKind != "SharedPart"` — true for BOTH branches it meant to
-//      admit), so a Part could not be drilled into there either.
+//      type, which is the same mechanism a collection already uses. It MAY cross a `@part`, which
+//      continues the route instead of re-rooting — which is exactly what Signum's own PropertyPart meant
+//      to allow and got wrong (`ti.entityKind == "Part" || ti?.entityKind != "SharedPart"` — true for
+//      BOTH branches it meant to admit), so a Part could not be drilled into there either.
 //   2. MList is gone, so a collection's element is a `@part` row ENTITY, never an embedded — Signum's
 //      `isCollection && (isEmbedded || isPart(name))` collapses to "the element is a part entity".
 import * as React from 'react'
@@ -295,11 +295,14 @@ export function PropertySetterComponent(p: PropertySetterComponentProps): React.
   var fOperations = filterType ? filterOperations[filterType] : null;
 
   // The root the NESTED setters (and the condition) are written against: the collection's element for a
-  // collection, the embedded itself for an embedded, and a fresh Root route for a part reference —
-  // which is what makes divergence (1) above hold. `entityType` is what fixOperation just chose.
+  // collection, and the route itself for an embedded or a `@part` — a part CONTINUES its owner's route
+  // rather than starting a new one (PropertyRoute.assertNotPartRoot), so the nested block is written
+  // under the same single spelling the rules and the routes table use. Only a real (non-part) reference
+  // gets a fresh Root, which is what makes divergence (1) above hold; `entityType` is what fixOperation
+  // just chose.
   var subRoot = pr == null ? null :
     pr.type.array ? pr.add("Item") :
-      pr.type.is(EmbeddedEntity) ? pr :
+      pr.type.is(EmbeddedEntity) || isPartReference(pr) ? pr :
         subRootOfEntityType(p.setter.entityType);
 
   return (
@@ -393,6 +396,14 @@ function cleanNameOf(ti: TypeInfo): string {
 function subRootOfEntityType(entityType: string | undefined): PropertyRoute | null {
   const ctor = entityType == null ? undefined : resolveCleanType(entityType);
   return ctor == undefined ? null : PropertyRoute.root(ctor);
+}
+
+// Does this single (non-collection) reference point at a `@part`? Then its nested block continues the
+// route rather than re-rooting — the same answer PropertyRoute.add gives, asked one level earlier so the
+// designer and the server agree on where the block is written.
+function isPartReference(pr: PropertyRoute): boolean {
+  const tis = pr.type.typeInfos();
+  return tis.length === 1 && tis[0]!.entityKind === "Part";
 }
 
 function showValue(o: PropertyOperationKeys) {

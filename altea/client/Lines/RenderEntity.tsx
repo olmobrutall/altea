@@ -11,7 +11,7 @@ import { Navigator } from '../Navigator'
 import { ViewPromise } from '../EntitySettings'
 import { TypeContext, type EntityFrame } from '../TypeContext'
 import { tryGetTypeInfo, getTypeName } from '../Reflection'
-import { PropertyRoute } from '../../data/propertyRoute'
+import { PropertyRoute, isPartType } from '../../data/propertyRoute'
 import { ReadonlyBinding } from '../binding'
 import { BaseEntity, Entity } from '../../data/entity'
 import { Lite } from '../../data/lite'
@@ -78,7 +78,11 @@ export function RenderEntity<V extends BaseEntity | Lite<Entity> | null>(p: Rend
 
   const ctx = p.ctx;
 
-  const pr = !ti ? ctx.propertyRoute : PropertyRoute.root(ti.ctor!);
+  // Signum re-roots at each entity it renders, and so does altea — EXCEPT at a `@part`, which continues
+  // the route of the entity that owns it (PropertyRoute.assertNotPartRoot). Re-rooting there would key
+  // every line's auth lookup, `data-property-path` and metadata read under the row type, while the rules
+  // and the routes table now spell the same member through the owner, as Signum does.
+  const pr = !ti || isPartType(ti.ctor) ? ctx.propertyRoute : PropertyRoute.root(ti.ctor!);
 
   const prefix = ctx.propertyRoute!.type.lite ? ctx.prefix + ".entity" : ctx.prefix;
   const frame: EntityFrame<BaseEntity> = {
