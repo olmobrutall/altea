@@ -95,7 +95,21 @@ export class PropertyRoute {
         private readonly rootCtor: Function | undefined,
         public readonly fieldInfo: FieldInfo | undefined,
         private readonly mixinCtor: Function | undefined,
-    ) { }
+        /** Only {@link memberPaths} passes this — see there for the one consumer a part root is right for. */
+        allowPartRoot = false,
+    ) {
+        // A `@part` may not be the ROOT of a route — only a continuation of the entity that owns it.
+        // Checked HERE rather than at each call site because `root()` is not the only way in (`add`'s
+        // re-root branch builds one too) and because the whole point is that there is no second name for
+        // a member: `Product.AdditionalInformation/Key` and `(Product_AdditionalInformation).Key` cannot
+        // both exist, or a rule written under one is invisible to a lookup made through the other.
+        // See {@link isPartType}.
+        if (!allowPartRoot && propertyRouteType === PropertyRouteType.Root && isPartType(rootCtor))
+            throw new Error(
+                `${rootCtor!.name} is a @part, so it cannot be the ROOT of a PropertyRoute — a part is a ` +
+                `continuation of the entity that owns it. Reach the member through the owner ` +
+                `(\`owner.thePart.member\`, \`owner.theParts/member\`), or hold the OWNER's route and add to it.`);
+    }
 
     private static rootCache = new Map<Function, PropertyRoute>();
 
@@ -279,6 +293,54 @@ export class PropertyRoute {
         PropertyRoute.root(rootType).generateRoutesInto(result, includeArrayElements);
         return result;
     }
+
+    /**
+     * A type's member paths as STRINGS — `generateRoutes(...).map(propertyString)`, and the one thing that
+     * also answers for a `@part`.
+     *
+     * A part may not be a route ROOT (see the constructor), which is right for every consumer that stores
+     * or resolves a route: there is one spelling of a part's member and it goes through the owner. But a
+     * part class still HAS members, and one consumer needs exactly that list without caring where the
+     * members hang: the reflection blob's per-type label dictionary, which `FieldInfo.niceToString()`
+     * reads by (declaring type, member) — so `AlbumEntity_Song.name` must have an entry under the SONG,
+     * whatever route reaches it.
+     *
+     * It hands back strings rather than routes precisely so the answer cannot be mistaken for one and
+     * stored: a `@part` root exists for the length of this call and never escapes it.
+     */
+    static memberPaths(rootType: Function, includeArrayElements = false): string[] {
+        const result: PropertyRoute[] = [];
+        PropertyRoute.rootStandalone(rootType).generateRoutesInto(result, includeArrayElements);
+        return result.map(r => r.propertyString());
+    }
+
+    /**
+     * The root route of a type that is STANDING ALONE — the deliberate, named way past the constructor's
+     * refusal of a `@part` root, and the only one.
+     *
+     * The refusal is about a part reached THROUGH its owner having two names. Two things reach a part with
+     * no owner in the picture at all, and for them a root is the only answer there is:
+     *
+     *  - the reflection blob's per-type LABEL dictionary ({@link memberPaths}), keyed by (declaring type,
+     *    member) — `AlbumEntity_Song.name` needs an entry under the SONG whatever route reaches it;
+     *  - a part's OWN registered query (`sb.include(x).withQuery()` on a row type — @altea/altea-agent does
+     *    it for a chat message's tool calls), whose columns are its own members. A stored token there is
+     *    scoped by the QUERY key, so it cannot collide with the owner's spelling of the same member.
+     *
+     * Everything else goes through {@link root} and is refused, which is the point: those two are a short
+     * list that can be read, and an accidental third is a throw rather than a second name for a member.
+     */
+    static rootStandalone(rootType: Function): PropertyRoute {
+        if (!isPartType(rootType))
+            return PropertyRoute.root(rootType);
+        let r = PropertyRoute.partRootCache.get(rootType);
+        if (r == undefined)
+            PropertyRoute.partRootCache.set(rootType,
+                r = new PropertyRoute(PropertyRouteType.Root, undefined, rootType, undefined, undefined, true));
+        return r;
+    }
+
+    private static partRootCache = new Map<Function, PropertyRoute>();
 
     private generateRoutesInto(result: PropertyRoute[], includeArrayElements: boolean, visiting: Set<Function> = new Set()): void {
         // Inside a `@part` the row's BOOKKEEPING is not part of the model: the part stands in for a

@@ -1,4 +1,4 @@
-import { PropertyRoute } from "../../propertyRoute";
+import { PropertyRoute, isPartType } from "../../propertyRoute";
 import { FieldInfo, TypeReference, tryGetTypeInfo, defaultFormat } from "../../reflection";
 import type { Implementations } from "../../implementations";
 import { QueryToken, SubTokensOptions, entityCtorOf } from "./queryToken";
@@ -11,7 +11,7 @@ export class EntityPropertyToken extends QueryToken {
     constructor(
         private readonly _parent: QueryToken,
         public readonly fieldInfo: FieldInfo,
-        public readonly route: PropertyRoute,
+        public readonly route: PropertyRoute | undefined,
         public readonly isId = false,
     ) {
         super();
@@ -32,7 +32,14 @@ export class EntityPropertyToken extends QueryToken {
             fi.typeName = "Number";
             fi.subTypeName = "int";
         }
-        const t = new EntityPropertyToken(parent, fi, PropertyRoute.root(ctor), true);
+        // The synthetic `Id` token's route. For an ordinary entity it is that entity's own root — the
+        // token re-rooted there, as `PropertyRoute.add` does. A `@part` does NOT re-root (it is a
+        // continuation of its owner), and it may not be a route root at all, so the id token borrows the
+        // PARENT's route: `isAllowed` then answers the collection's rule, which is the one that governs
+        // the row. Undefined when the parent has none, exactly as the other synthetic tokens
+        // (ToString / HasValue / Count) carry none.
+        const route = isPartType(ctor) ? parent.getPropertyRoute() : PropertyRoute.root(ctor);
+        const t = new EntityPropertyToken(parent, fi, route, true);
         t.priority = 10;
         return t;
     }
@@ -74,7 +81,7 @@ export class EntityPropertyToken extends QueryToken {
             return this.fieldInfo.typeName === "Guid"
                 ? new TypeReference({ typeName: "Guid", isNullable: true })
                 : new TypeReference({ typeName: "Number", subTypeName: "int", isNullable: true });
-        const t = this.route.type;
+        const t = this.route!.type;
         // A reference field projects as Lite<T> (Signum's BuildLite): the same TypeReference marked lite.
         // NOTE: `t` may be the live FieldInfo (PropertyRoute.type returns it directly) — always copy, never
         // mutate it, so the nullify does not corrupt the shared field metadata.
@@ -91,13 +98,13 @@ export class EntityPropertyToken extends QueryToken {
     get unit(): string | undefined { return this.isId ? undefined : this.fieldInfo?.unit; }
 
     getImplementations(): Implementations | undefined {
-        return this.isId ? undefined : this.route.tryGetImplementations();
+        return this.isId ? undefined : this.route!.tryGetImplementations();
     }
 
     getPropertyRoute(): PropertyRoute | undefined { return this.route; }
 
     isAllowed(): string | null {
-        return this._parent.isAllowed() ?? this.route.isAllowed();
+        return this._parent.isAllowed() ?? (this.route?.isAllowed() ?? null);
     }
 
     protected subTokensOverride(options: SubTokensOptions): QueryToken[] {

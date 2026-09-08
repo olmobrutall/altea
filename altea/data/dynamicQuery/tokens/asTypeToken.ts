@@ -26,7 +26,11 @@ export class AsTypeToken extends QueryToken {
     get format(): string | undefined { return undefined; }
     get unit(): string | undefined { return undefined; }
     getImplementations(): Implementations | undefined { return Implementations.by(this.entityCtor); }
-    getPropertyRoute(): PropertyRoute | undefined { return PropertyRoute.root(this.entityCtor); }
+    // A cast STANDS ALONE — it re-roots at the concrete type by definition, and there is no owner in the
+    // picture. `@implementedByAll` no longer offers a cast to a `@part` at all (see subTokensBase), and
+    // an `@implementedBy` naming one is a declaration altea does not make; `rootStandalone` keeps the
+    // token working rather than making a model choice into a crash.
+    getPropertyRoute(): PropertyRoute | undefined { return PropertyRoute.rootStandalone(this.entityCtor); }
     isAllowed(): string | null { return this._parent.isAllowed() ?? this.getPropertyRoute()!.isAllowed(); }
 
     protected subTokensOverride(options: SubTokensOptions): QueryToken[] {

@@ -20,7 +20,8 @@ import { JavascriptMessage } from '../../data/uiMessages'
 import { TypeContext } from '../TypeContext'
 import type { StyleOptions, EntityFrame } from '../TypeContext'
 import { getTypeInfo, GraphExplorer, parseId, entityInfo, getTypeName, newLite } from '../Reflection'
-import { PropertyRoute } from '../../data/propertyRoute'
+import { PropertyRoute, isPartType } from '../../data/propertyRoute'
+import { TypeReference } from '../../data/reflection'
 import { ReadonlyBinding } from '../binding'
 import { isGraphModified } from '../../data/changes'
 import { renderWidgets } from './Widgets'
@@ -349,7 +350,11 @@ export default function FramePage(): React.ReactElement {
     frame: frame
   };
 
-  const ctx = new TypeContext<Entity>(undefined, styleOptions, PropertyRoute.root(ti.ctor!), new ReadonlyBinding(entity, "framePage"));
+  // A page is only ever opened for a NAVIGABLE type, which a `@part` is not — but re-rooting at one is
+  // refused (PropertyRoute.isPartType), so ask for the type instead of throwing a blank page at a URL
+  // someone typed by hand. `TypeContext` takes either.
+  const rootRoute = isPartType(ti.ctor) ? new TypeReference({ type: () => ti.ctor! }) : PropertyRoute.root(ti.ctor!);
+  const ctx = new TypeContext<Entity>(undefined, styleOptions, rootRoute, new ReadonlyBinding(entity, "framePage"));
   const settings = Navigator.getSettings(getTypeName(ti.ctor! as any));
 
   const wc: WidgetContext<Entity> = { ctx: ctx, frame: frame };

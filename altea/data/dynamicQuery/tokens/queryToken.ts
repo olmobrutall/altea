@@ -1,5 +1,5 @@
 import { Entity, EmbeddedEntity, ModelEntity } from "../../entity";
-import { PropertyRoute, usingLegacyPropertyPaths } from "../../propertyRoute";
+import { PropertyRoute, isPartType, usingLegacyPropertyPaths } from "../../propertyRoute";
 import { tryGetTypeInfo, TypeReference, type FieldInfo } from "../../reflection";
 import { Implementations } from "../../implementations";
 import { tryGetFilterType, type QueryName, type FilterTypeKeys } from "../queryUtils";
@@ -202,7 +202,11 @@ export abstract class QueryToken {
             return PropertyRoute.root(modelCtor);
 
         // Only a Lite re-roots here; a full-entity reference re-roots inside PropertyRoute.add (AddImp).
-        if (this.type.lite) {
+        // NOT to a `@part`: a part continues the route of the entity that owns it and may not be a root
+        // at all, so the token keeps its own route — which for a collection element is the `/Item` one.
+        // (`Songs.Element` is `(Album).songs/`, so its members come out `songs/name` — the single spelling
+        // a rule is stored under. See PropertyRoute.isPartType.)
+        if (this.type.lite && !isPartType(entityCtorOf(this.type))) {
             const ec = entityCtorOf(this.type);
             if (ec != undefined)
                 return PropertyRoute.root(ec);
@@ -218,7 +222,7 @@ export abstract class QueryToken {
         // than a source column, so without this the token would expose only `id` / `ToString` and every
         // member below it would fail to resolve. The referenced entity IS the root from here on.
         const entityCtor = entityCtorOf(this.type);
-        return entityCtor != undefined ? PropertyRoute.root(entityCtor) : undefined;
+        return entityCtor != undefined && !isPartType(entityCtor) ? PropertyRoute.root(entityCtor) : undefined;
     }
 
     // ---- SubTokensBase — the type-driven sub-token generator (Signum's SubTokensBase) --------
@@ -257,8 +261,16 @@ export abstract class QueryToken {
                 // @implementedByAll: one AsTypeToken per mapped entity type assignable to `entityCtor`
                 // (Signum's QueryLogic.GetImplementedByAllSubTokens). The provider is wired by
                 // queryLogic.ts (needs the Schema). TODO(phase3c): PreAnd(EntityTypeToken).
+                //
+                // A `@part` is NOT offered, which brings the list back to Signum's: altea's mapped types
+                // include the row types that stand in for Signum's MList tables and owned embeddeds, and
+                // those are not types THERE at all — Signum's cast list has no counterpart for one. It is
+                // also the same rule one level up: a part's members are addressable through the entity
+                // that owns it and nowhere else (PropertyRoute.isPartType), and a cast reached from an
+                // arbitrary polymorphic reference has no owner to continue from.
                 const provider = implementedByAllTypesProvider;
-                return provider == undefined || entityCtor == undefined ? [] : provider(entityCtor).map(t => tokenFactories!.asType(this, t));
+                return provider == undefined || entityCtor == undefined ? []
+                    : provider(entityCtor).filter(t => !isPartType(t)).map(t => tokenFactories!.asType(this, t));
             }
 
             const only = imp.only();

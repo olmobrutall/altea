@@ -187,10 +187,33 @@ describe("PropertyRoute — @part references", () => {
         assert.ok(paths.includes("id") && paths.includes("ticks"), paths.join(", "));   // …at the root they are
     });
 
-    // The enforcement point: a part root is a fine TRANSIENT handle (a row in a modal, a @backReference
-    // walking up and out of the subtree) but must never be written down, or the same member has two names.
-    test("assertNotPartRoot refuses a part-rooted route and passes an owner-rooted one", () => {
-        assert.throws(() => PropertyRoute.root(AlbumEntity_Song).add("name").assertNotPartRoot(), /@part/);
+    // The enforcement point is the CONSTRUCTOR: a part root cannot be built at all, so there is no way
+    // to end up holding a second name for a member.
+    test("a @part cannot be the root of a route", () => {
+        assert.throws(() => PropertyRoute.root(AlbumEntity_Song), /is a @part/);
+        assert.throws(() => PropertyRoute.parse(AlbumEntity_Song, "name"), /is a @part/);
+        // …and the owner-rooted spelling of the same member is the one that works.
+        assert.equal(PropertyRoute.root(AlbumEntity).add("songs").add("Item").add("name").propertyString(),
+            "songs/name");
+    });
+
+    // `rootStandalone` is the one deliberate way past it, for a part with no owner in the picture: the
+    // reflection blob's label dictionary and a part's OWN registered query.
+    test("rootStandalone builds one, and memberPaths uses it", () => {
+        assert.equal(PropertyRoute.rootStandalone(AlbumEntity_Song).toString(), "(Album_Song)");
+        assert.equal(PropertyRoute.rootStandalone(AlbumEntity), PropertyRoute.root(AlbumEntity));
+
+        const paths = PropertyRoute.memberPaths(AlbumEntity_Song);
+        assert.ok(paths.includes("name"), paths.join(", "));
+        // Its OWN paths, so the label dictionary can key `AlbumEntity_Song.name` — which is what
+        // FieldInfo.niceToString() reads.
+        assert.ok(!paths.some(p => p.includes("/")), paths.join(", "));
+    });
+
+    // assertNotPartRoot is still what a STORAGE boundary asks, since a route can be handed to it from
+    // anywhere — including `rootStandalone`.
+    test("assertNotPartRoot refuses a standalone part root and passes an owner-rooted one", () => {
+        assert.throws(() => PropertyRoute.rootStandalone(AlbumEntity_Song).add("name").assertNotPartRoot(), /@part/);
         PropertyRoute.root(AlbumEntity).add("songs").add("Item").add("name").assertNotPartRoot();
     });
 });

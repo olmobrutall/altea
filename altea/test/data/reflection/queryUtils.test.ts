@@ -7,7 +7,7 @@ import {
     tryGetFilterType, getKey, getNiceName, type FilterTypeKeys,
 } from "@altea/altea/data/dynamicQuery/queryUtils";
 import {
-    AlbumEntity, AlbumEntity_Song, LabelEntity, ArtistEntity,
+    AlbumEntity, LabelEntity, ArtistEntity,
 } from "../music";
 
 // Phase-1 DynamicQuery port: QueryUtils (FilterType + keys). DB-free — classifies types read off
@@ -24,7 +24,8 @@ describe("QueryUtils.tryGetFilterType", () => {
     });
 
     test("temporal", () => {
-        assert.equal(ft(AlbumEntity_Song, "duration"), "Time"); // Duration
+        // Through the OWNER: a `@part` may not be the root of a PropertyRoute (see isPartType).
+        assert.equal(ft(AlbumEntity, "songs/duration"), "Time"); // Duration
     });
 
     test("references map to Lite (entity, lite, and polymorphic)", () => {

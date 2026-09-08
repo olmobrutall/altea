@@ -23,7 +23,7 @@ import type {
     SerializationContext, DeserializationContext, SerializeOptions, DeserializeOptions,
 } from './types';
 import { TEMPORAL_TYPE_NAMES, isTemporal } from './temporalHelpers';
-import { PropertyRoute } from '../propertyRoute';
+import { PropertyRoute, isPartType } from '../propertyRoute';
 
 // ---- Property-authorization hook (Signum's AuthServer serialization filters) -------------------
 //
@@ -114,6 +114,19 @@ export function resolveSerializationAuthContext(): Promise<unknown> { return _se
 function fieldRouteOf(ownerRoute: PropertyRoute | undefined, name: string): PropertyRoute | undefined {
     if (ownerRoute == null) return undefined;
     try { return ownerRoute.add(name); } catch { return undefined; }
+}
+
+/**
+ * The route a `@part` continues: the field route that reached it, stepped into the collection element
+ * when that field is one. A part is never a route ROOT (PropertyRoute.assertNotPartRoot), so this is the
+ * only route it has — and it is the one its members' rules are stored under (`details/discount`).
+ *
+ * `undefined` when there is no route in hand, which means no gate: that happens only for a part reached
+ * with no owner at all, and the Navigator does not make one navigable.
+ */
+function continueRoute(route: PropertyRoute | undefined): PropertyRoute | undefined {
+    if (route == null) return undefined;
+    try { return route.type.array ? route.add("Item") : route; } catch { return undefined; }
 }
 
 // ---- ctor-kind checks + field iterator (serializer-local; the temporal + enum helpers live in
@@ -370,11 +383,17 @@ class EntitySerializer extends ModifiableSerializer {
             o.toStr = entity.toString();
             if (isModifiedSelf(entity)) o.modified = true;
             // A (re-rooted) entity computes its OWN property-auth metadata (per Signum's IRootEntity step).
+            // A `@part` is NOT re-rooted — it stands in for Signum's embedded / MList element, which is not
+            // an IRootEntity there either — so it continues the owner's route AND keeps the owner's
+            // metadata (its type conditions are the owner's). See PropertyRoute.isPartType.
             const prevMeta = sc.authMeta;
+            const isPart = isPartType(entity.constructor);
             // The route is needed by the property-auth gate AND by the translated-field hook, so compute
             // it whenever either is installed.
-            const ownerRoute = _serAuth != null || _translatedField != null ? PropertyRoute.root(entity.constructor) : undefined;
-            if (_serAuth != null) sc.authMeta = _serAuth.getMetadata(entity);
+            const ownerRoute = _serAuth == null && _translatedField == null ? undefined
+                : isPart ? continueRoute(sc.route)
+                    : PropertyRoute.root(entity.constructor);
+            if (_serAuth != null && !isPart) sc.authMeta = _serAuth.getMetadata(entity);
             const prevOwner = sc.translationOwner;
             sc.translationOwner = entity;
             this.serializeFields(entity, sc, o, parented, ownerRoute);
@@ -424,9 +443,13 @@ class EntitySerializer extends ModifiableSerializer {
             if (modified) {
                 // Overlay onto the DB original → the write gate applies (a changed non-writable property is
                 // rejected). Metadata is the ORIGINAL's (its type conditions), computed once per root.
+                // As on the write side: a `@part` continues the owner's route and keeps the owner's
+                // metadata, because it is not a route root and not an IRootEntity.
                 const prevMeta = dc.authMeta;
-                const ownerRoute = _serAuth != null ? PropertyRoute.root(this.ctor) : undefined;
-                if (_serAuth != null) dc.authMeta = _serAuth.getMetadata(original);
+                const isPart = isPartType(this.ctor);
+                const ownerRoute = _serAuth == null ? undefined
+                    : isPart ? continueRoute(dc.route) : PropertyRoute.root(this.ctor);
+                if (_serAuth != null && !isPart) dc.authMeta = _serAuth.getMetadata(original);
                 this.applyFields(original, j, dc, ownerRoute);   // overlay; snapshot untouched ⇒ isModifiedSelf reflects it
                 dc.authMeta = prevMeta;
                 this.recover(original, slot);

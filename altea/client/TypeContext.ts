@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { getTypeName, tryGetTypeInfo, GraphExplorer } from './Reflection'
 import type { PseudoType, MemberInfo } from './Reflection'
-import { PropertyRoute, PropertyRouteType } from '../data/propertyRoute'
+import { PropertyRoute, PropertyRouteType, isPartType } from '../data/propertyRoute'
 import { TypeReference } from '../data/reflection'
 import { ReadonlyBinding, createBinding, getLambdaMembers, getFieldMembers, Binding } from './binding'
 import type { IBinding, LambdaMember } from './binding'
@@ -285,6 +285,22 @@ function tryAddLambda(pr: PropertyRoute, lambda: Quoted<(val: any) => any>): Pro
 }
 
 
+/**
+ * The route (or, for a `@part`, the bare TYPE) a context RE-ROOTED at `ctor` gets.
+ *
+ * Re-rooting at each rendered entity is Signum's own behaviour and altea's — except at a part, which
+ * continues its owner's route and may not be a route root at all (PropertyRoute.isPartType). The three
+ * callers here are the ones that have NO parent context to continue from (`TypeContext.root`, `cast`,
+ * `as`), so a part gets a TypeReference instead: the context still knows its type — which is what the
+ * Lines dispatch on — and simply has no route, exactly as a context built from a raw type does.
+ *
+ * A part rendered the ordinary way never comes through here: `subCtx` keeps the parent's route, and
+ * RenderEntity / EntityTable keep the owner's, which is where its rules are stored.
+ */
+function rootRouteOrType(ctor: Type<BaseEntity>): PropertyRoute | TypeReference {
+  return isPartType(ctor) ? new TypeReference({ type: () => ctor }) : PropertyRoute.root(ctor);
+}
+
 export class TypeContext<T> extends StyleContext {
 
   propertyRoute: PropertyRoute | undefined; /*Because of optional TypeInfo*/
@@ -347,7 +363,7 @@ export class TypeContext<T> extends StyleContext {
 
   static root<T extends BaseEntity>(value: T, styleOptions?: StyleOptions, parent?: StyleContext): TypeContext<T> {
     // ALTEA: value.Type (string) -> the real constructor.
-    return new TypeContext(parent, styleOptions, PropertyRoute.root(value.constructor as Type<BaseEntity>), new ReadonlyBinding<T>(value, ""));
+    return new TypeContext(parent, styleOptions, rootRouteOrType(value.constructor as Type<BaseEntity>), new ReadonlyBinding<T>(value, ""));
   }
 
   constructor(parent: StyleContext | undefined, styleOptions: StyleOptions | undefined, route: PropertyRoute | TypeReference | undefined, binding: IBinding<T>, prefix?: string) {
@@ -418,7 +434,7 @@ export class TypeContext<T> extends StyleContext {
     if (typeName != getTypeName(entity))
       throw new Error(`Impossible to cast ${getTypeName(entity)} into ${typeName}`);
 
-    const newPr = this.propertyRoute == null ? undefined : PropertyRoute.root(entity.constructor as Type<BaseEntity>);
+    const newPr = this.propertyRoute == null ? undefined : rootRouteOrType(entity.constructor as Type<BaseEntity>);
 
     return new TypeContext<any>(this, undefined, newPr, new ReadonlyBinding(entity, ""));
   }
@@ -430,7 +446,7 @@ export class TypeContext<T> extends StyleContext {
     if (getTypeName(type) != getTypeName(entity))
       return undefined;
 
-    const newPr = PropertyRoute.root(entity.constructor as Type<BaseEntity>);
+    const newPr = rootRouteOrType(entity.constructor as Type<BaseEntity>);
 
     return new TypeContext<any>(this, undefined, newPr, new ReadonlyBinding(entity, ""));
   }
@@ -538,8 +554,24 @@ export class TypeContext<T> extends StyleContext {
     return render(this);
   }
 
+  /**
+   * The line's OWN member — what `data-property-path` carries, and the contract altea-playwright's
+   * per-step narrowing is built on (see its LineContainer: it walks a route one step at a time, matching
+   * one attribute per step, so a nested `city` cannot match a sibling's).
+   *
+   * It used to be `propertyString()`, the whole path, which read the same only because the UI RE-ROOTS at
+   * every entity it renders — so the path was one step by construction. A `@part` no longer re-roots
+   * (PropertyRoute.isPartType), so an order line's cell would have come out `Details/Product` where every
+   * other line says `Product`. The route being longer is the point of that change; the ATTRIBUTE saying
+   * which line this is, is a different question, and the answer is the last step either way.
+   */
   get propertyPath(): string | undefined {
-    return this.propertyRoute && this.propertyRoute.propertyRouteType != PropertyRouteType.Root ? this.propertyRoute.propertyString() : undefined;
+    const pr = this.propertyRoute;
+    if (pr == null || pr.propertyRouteType == PropertyRouteType.Root)
+      return undefined;
+    const path = pr.propertyString();
+    const cut = Math.max(path.lastIndexOf("."), path.lastIndexOf("/"));
+    return cut < 0 ? path : path.substring(cut + 1);
   }
 
 }

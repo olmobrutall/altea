@@ -10,7 +10,7 @@ import { Dic } from '../data/globals';
 import { BaseEntity, type Type } from '../data/entity';
 import { isEntityPack, type EntityPack } from '../data/entityPack';
 import { resolveType } from '../data/registration';
-import { PropertyRoute } from '../data/propertyRoute';
+import { PropertyRoute, isPartType } from '../data/propertyRoute';
 import { tryGetTypeInfo } from './Reflection';
 import * as AppContext from './AppContext';
 
@@ -44,7 +44,9 @@ export namespace Constructor {
     const typeName = (type as any).typeName ?? type as string;
 
     const ti = tryGetTypeInfo(typeName);
-    if (ti)
+    // A `@part` may not root a route (PropertyRoute.isPartType) — the caller's own `pr`, which is the
+    // owner's field route when a Line is constructing a row, is the right one and is already in hand.
+    if (ti && !isPartType(ti.ctor))
       pr = PropertyRoute.root(ti.ctor!);
 
     const c = customConstructors()[typeName];

@@ -49,8 +49,12 @@ export class LineContainer<T extends BaseEntity> {
     get page(): Page { return this.element.page(); }
 
     /** Signum's `As<S>()` — the same element, seen as a subtype (an @implementedBy pick, a mixin host). */
+    // `rootStandalone`: a caller naming a `@part` here is addressing a row it already has in hand, with no
+    // owner route to continue from — the same standalone case a part's own query is (PropertyRoute
+    // .rootStandalone). Nothing is stored, and the per-step narrowing below matches the line's OWN member
+    // either way (TypeContext.propertyPath).
     as<S extends BaseEntity>(type: Function): LineContainer<S> {
-        return new LineContainer<S>(this.element, PropertyRoute.root(type));
+        return new LineContainer<S>(this.element, PropertyRoute.rootStandalone(type));
     }
 
     // ---- Addressing --------------------------------------------------------------------------------

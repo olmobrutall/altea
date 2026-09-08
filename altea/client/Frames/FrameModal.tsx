@@ -24,7 +24,7 @@ import { JavascriptMessage, FrameMessage, SaveChangesMessage } from '../../data/
 import { isEntityPack } from '../../data/entityPack'
 import { isGraphModified } from '../../data/changes'
 import { GraphExplorer, tryGetTypeInfo, getTypeName as reflectGetTypeName, entityInfo } from '../Reflection'
-import { PropertyRoute } from '../../data/propertyRoute'
+import { PropertyRoute, isPartType } from '../../data/propertyRoute'
 import { ReadonlyBinding } from '../binding'
 import { ValidationErrors } from './ValidationErrors'
 import type { ValidationErrorsHandle } from './ValidationErrors'
@@ -256,7 +256,9 @@ export function FrameModal<T extends BaseEntity>(p: FrameModalProps<T>): React.J
   let styleOptions: StyleOptions;
   let ctx: TypeContext<any>;
 
-  const pr = typeInfo ? PropertyRoute.root(typeInfo.ctor!) : p.propertyRoute;
+  // A `@part` continues the route it was opened FROM rather than re-rooting (PropertyRoute.isPartType),
+  // so its lines keep looking their rules up under the owner — the one spelling they are stored under.
+  const pr = typeInfo && !isPartType(typeInfo.ctor) ? PropertyRoute.root(typeInfo.ctor!) : p.propertyRoute;
   if (!pr)
     throw new Error(`No TypeInfo for "${typeName}" found, if is an EmbeddedEntity set the propertyRoute explicitly`);
 

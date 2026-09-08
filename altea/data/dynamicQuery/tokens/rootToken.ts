@@ -42,7 +42,10 @@ export class RootToken extends QueryToken {
         const isEntity = (this.shapeType as Function) === Entity || this.shapeType.prototype instanceof Entity;
         return isEntity ? Implementations.by(this.shapeType) : undefined;
     }
-    getPropertyRoute(): PropertyRoute | undefined { return PropertyRoute.root(this.shapeType); }
+    // `rootStandalone`, because a `@part` MAY have a query of its own (@altea/altea-agent registers one
+    // for a chat message's tool calls) and its columns are then its own members — there is no owner in the
+    // picture, and a token stored against this query is scoped by the query key. See there.
+    getPropertyRoute(): PropertyRoute | undefined { return PropertyRoute.rootStandalone(this.shapeType); }
     isAllowed(): string | null { return null; }
 
     // Signum's ColumnToken.AutoExpandInternal => Column.IsEntity: the query root auto-expands so its

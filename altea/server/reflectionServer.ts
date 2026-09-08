@@ -273,7 +273,10 @@ const routeCache = new Map<Function, string[]>();
 function routesOf(ctor: Function): string[] {
     let routes = routeCache.get(ctor);
     if (routes == null)
-        routeCache.set(ctor, routes = PropertyRoute.generateRoutes(ctor).map(r => r.propertyString()));
+        // `memberPaths`, not `generateRoutes`: this is a LABEL dictionary keyed by (declaring type,
+        // member) — what `FieldInfo.niceToString()` reads — so a `@part` needs its own entry even though
+        // a part may not be a route ROOT. See PropertyRoute.memberPaths.
+        routeCache.set(ctor, routes = PropertyRoute.memberPaths(ctor));
     return routes;
 }
 
