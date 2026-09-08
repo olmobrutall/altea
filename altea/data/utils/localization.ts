@@ -71,13 +71,18 @@ export namespace Localization {
         // `Enum` / `Container` helpers so their type names humanise identically.
         //
         // The suffix set is Signum's `Reflector.CleanTypeName` verbatim — Entity / Embedded / Model /
-        // Symbol — which is what its `DefaultTypeDescription` humanises. NOTE this is the DISPLAY name
-        // only: altea's own `cleanTypeName` (data/registration) strips "Entity" ALONE, because there it
-        // is the reflection IDENTITY (the `$type` / `$lite` wire discriminator, TypeEntity.cleanName,
-        // an @implementedBy column's suffix) and "CustomerRowModel" / "AddressEmbedded" must stay distinct
-        // from any "Customer" / "Address" beside them.
+        // Symbol — which is what its `DefaultTypeDescription` humanises, plus altea's own `RowModel`.
+        // That one has to come BEFORE `Model` (alternation is ordered, so `Model` would otherwise win
+        // and leave a stray "Row" behind: `CustomerRowModel` → "Customer Row"). It is the marker suffix
+        // naming a MANUAL query's row shape, so the whole of it is noise in a label — /find/Customer is
+        // titled "Customers", the query Signum calls `CustomerQuery.Customer`.
+        //
+        // NOTE this is the DISPLAY name only: altea's own `cleanTypeName` (data/registration) strips
+        // Entity / Symbol / RowModel, because there it is the reflection IDENTITY (the `$type` / `$lite`
+        // wire discriminator, TypeEntity.cleanName, an @implementedBy column's suffix) and "SongEmbedded"
+        // / "WorkflowModel" must stay distinct from any "Song" / "Workflow" beside them.
         export function niceNameFromName(name: string): string {
-            const raw = name.replace(/(Entity|Embedded|Model|Symbol)$/, "");
+            const raw = name.replace(/(Entity|Embedded|RowModel|Model|Symbol)$/, "");
             return raw.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2").trim();
         }
 
