@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity, EmbeddedEntity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
-    backReference, entity, implementedBy, primaryKey, quoted, rowOrder, translatable, valueField,
+    backReference, entity, part, implementedBy, primaryKey, quoted, rowOrder, translatable, valueField,
 } from "@altea/altea/data/decorators";
 import { validate, noRepeatValidator, stringLengthValidator } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
@@ -46,7 +46,7 @@ import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-as
 // (Signum's [PreserveOrder, BindParent]). Every member lives on the shared QueryFilterBaseEntity in
 // @altea/altea-user-assets — a @part row has exactly ONE owner, so an owner adds nothing but its
 // `@backReference` (UserChartEntity_Filter is the same class with a different owner).
-@entity("Part")
+@part
 // Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
 // the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
 // its identity across databases (see UserAssetsImporter.syncRows).
@@ -57,7 +57,7 @@ export class UserQueryEntity_Filter extends QueryFilterBaseEntity {
 
 // Signum's QueryColumnEmbedded (Queries/QueryColumnEmbedded.cs). One result column: a token, an optional
 // display name / summary (aggregate) token, hidden flag, and combine-rows behaviour.
-@entity("Part")
+@part
 // Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
 // the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
 // its identity across databases (see UserAssetsImporter.syncRows).
@@ -74,7 +74,7 @@ export class UserQueryEntity_Column extends Entity {
 }
 
 // Signum's QueryOrderEmbedded (Queries/QueryOrderEmbedded.cs). One sort: a token + Ascending/Descending.
-@entity("Part")
+@part
 export class UserQueryEntity_Order extends Entity {
     @backReference userQuery: Lite<UserQueryEntity>;
     @rowOrder order: int;
@@ -85,7 +85,7 @@ export class UserQueryEntity_Order extends Entity {
 
 // Signum's `MList<Lite<Entity>> CustomDrilldowns` ([ImplementedBy(UserQueryEntity)], PreserveOrder,
 // NoRepeat). altea MList-of-lite → a @part value row.
-@entity("Part")
+@part
 export class UserQueryEntity_CustomDrilldown extends Entity {
     @backReference userQuery: Lite<UserQueryEntity>;
     @rowOrder order: int;

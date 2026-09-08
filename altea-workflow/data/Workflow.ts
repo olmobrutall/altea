@@ -3,7 +3,7 @@ import { Entity, EmbeddedEntity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Enum } from "@altea/altea/data/enum";
 import {
-    entity, implementedBy, primaryKey, uniqueIndex, index, unit, serialize, backReference, valueField, quoted,
+    entity, part, implementedBy, primaryKey, uniqueIndex, index, unit, serialize, backReference, valueField, quoted,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
@@ -90,7 +90,7 @@ registerEnum(WorkflowIssueType);
 /** Signum's `MList<WorkflowMainEntityStrategy>` as this owner's `@part` row (altea has no MList; a
  *  collection of scalars is a row carrying the value on its `@valueField`). */
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export class WorkflowEntity_MainEntityStrategy extends Entity {
     @backReference workflow: Lite<WorkflowEntity>;
     // No `@rowOrder`: Signum does not mark `WorkflowEntity.MainEntityStrategies` [PreserveOrder], so

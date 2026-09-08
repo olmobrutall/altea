@@ -4,7 +4,7 @@ import "@altea/altea/data/globals";
 import { reflect, setDatabaseSchema } from "@altea/altea/data/reflection"; // anchor for the transformer's @field injection
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, backReference, valueField, rowOrder, implementedBy, overrideImplementedBy } from "@altea/altea/data/decorators";
+import { entity, part, backReference, valueField, rowOrder, implementedBy, overrideImplementedBy } from "@altea/altea/data/decorators";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { IsNullable } from "@altea/altea/server/schema/dbType";
 import { wireOwnedChildren } from "@altea/altea/server/saver";
@@ -38,7 +38,7 @@ class EcSettings extends EmbeddedEntity {
     tags: EcOwner_Tag[];
 }
 
-@entity("Part")
+@part
 class EcOwner_Tag extends Entity {
     @backReference
     owner: Lite<EcOwner>;
@@ -67,7 +67,7 @@ class EcInner extends EmbeddedEntity {
     tags: EcDeepOwner_Tag[];
 }
 
-@entity("Part")
+@part
 class EcDeepOwner_Tag extends Entity {
     @backReference
     owner: Lite<EcDeepOwner>;
@@ -87,7 +87,7 @@ class EcBadSettings extends EmbeddedEntity {
     tags: EcBad_Tag[];
 }
 
-@entity("Part")
+@part
 class EcBad_Tag extends Entity {
     // Wrong on purpose: an embedded is not a table, so nothing can reference it.
     @backReference
@@ -108,7 +108,7 @@ class EcAppSettings extends EmbeddedEntity {
     tags: EcApp_Tag[];
 }
 
-@entity("Part")
+@part
 class EcApp_Tag extends Entity {
     @backReference @implementedBy(() => []) owner: Lite<Entity>;
 
@@ -246,7 +246,7 @@ class EcSchemaOwner extends Entity {
 // The row type is declared as if it belonged to another package's schema (what
 // `setDatabaseSchema` expresses, and what a per-package `setDefaultDatabaseSchema` would do for a real
 // module). Its OWNER stays in the connection's default schema.
-@entity("Part")
+@part
 class EcSchemaOwner_Tag extends Entity {
     @backReference owner: Lite<EcSchemaOwner>;
 

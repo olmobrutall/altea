@@ -3,7 +3,7 @@
 import { reflect } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, unit, backReference, rowOrder, quoted } from "@altea/altea/data/decorators";
+import { part, unit, backReference, rowOrder, quoted } from "@altea/altea/data/decorators";
 import { noRepeatValidator, validate } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -22,7 +22,7 @@ import { UserChartEntity } from "./UserChart";
 //  - Signum's `MList<CombinedUserChartElementEmbedded>` → per-owner `@part` rows (no MList in altea).
 
 // Signum's UserChartPartEntity: a saved chart rendered inside a dashboard cell.
-@entity("Part", "Master")
+@part("Master")
 export class UserChartPartEntity extends Entity implements IPartEntity {
     // Signum's IsQueryCached: this part's query is served from the dashboard's SNAPSHOT rather than run
     // against the database (see @altea/altea-dashboard's CachedQuery). Only meaningful on a dashboard whose
@@ -56,7 +56,7 @@ export class UserChartPartEntity extends Entity implements IPartEntity {
 }
 
 // Signum's CombinedUserChartElementEmbedded: ONE of the saved charts a combined part paints together.
-@entity("Part")
+@part
 export class CombinedUserChartPartEntity_UserChart extends Entity {
     // Signum's IsQueryCached: this part's query is served from the dashboard's SNAPSHOT rather than run
     // against the database (see @altea/altea-dashboard's CachedQuery). Only meaningful on a dashboard whose
@@ -75,7 +75,7 @@ export class CombinedUserChartPartEntity_UserChart extends Entity {
 
 // Signum's CombinedUserChartPartEntity: SEVERAL Line / Columns charts painted over one shared horizontal
 // axis, optionally sharing the vertical scale (see client/D3Scripts/CombinedLinesAndColumns.tsx).
-@entity("Part", "Master")
+@part("Master")
 export class CombinedUserChartPartEntity extends Entity implements IPartEntity {
     // Signum's [PreserveOrder, NoRepeatValidator].
     @noRepeatValidator()

@@ -3,7 +3,7 @@ import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { SemiSymbol } from "@altea/altea/data/semiSymbol";
 import {
-    entity, implementedByAll, quoted, column, unit, valueField, backReference, rowOrder, legacyPropertyRoute,
+    entity, part, implementedByAll, quoted, column, unit, valueField, backReference, rowOrder, legacyPropertyRoute,
 } from "@altea/altea/data/decorators";
 import {
     stringLengthValidator, validate, noRepeatValidator, notNullValidator, ValidationMessage,
@@ -225,7 +225,7 @@ export class SendNotificationEmailTaskEntity extends Entity {
     @quoted toString(): string { return SendNotificationEmailTaskEntity.niceName(); }
 }
 
-@entity("Part", "Master")
+@part("Master")
 export class SendNotificationEmailTaskEntity_AlertType extends Entity {
     @backReference task: Lite<SendNotificationEmailTaskEntity>;
     @rowOrder order: int;

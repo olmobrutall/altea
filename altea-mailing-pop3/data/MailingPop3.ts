@@ -1,7 +1,7 @@
 import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, format, unit, column, backReference, quoted } from "@altea/altea/data/decorators";
+import { part, format, unit, column, backReference, quoted } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { EmailReceptionServiceEntity } from "@altea/altea-email/data/EmailReception";
@@ -21,7 +21,7 @@ import { EmailReceptionServiceEntity } from "@altea/altea-email/data/EmailRecept
 //    a JSON property converter.
 
 // Signum's ClientCertificationFileEmbedded, as this owner's @part row.
-@entity("Part", "Master")
+@part("Master")
 export class Pop3EmailReceptionServiceEntity_ClientCertificationFile extends Entity {
     @backReference service: Lite<Pop3EmailReceptionServiceEntity>;
     // No `@rowOrder`: Signum does not mark this MList [PreserveOrder], so its table has no
@@ -38,7 +38,7 @@ export class Pop3EmailReceptionServiceEntity_ClientCertificationFile extends Ent
 
 // Signum's Pop3EmailReceptionServiceEntity.
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export class Pop3EmailReceptionServiceEntity extends EmailReceptionServiceEntity {
 
     port: int = toInt(110);

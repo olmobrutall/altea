@@ -4,7 +4,7 @@
 import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, backReference, rowOrder } from "@altea/altea/data/decorators";
+import { part, backReference, rowOrder } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -34,7 +34,7 @@ export enum TextPartType {
 
 // Signum's TextPartEntity (PanelPart.cs). Free text / markdown / HTML, with `$Variable$` placeholders
 // resolved client-side from DashboardClient.GlobalVariables.
-@entity("Part", "Master")
+@part("Master")
 export class TextPartEntity extends Entity implements IPartEntity {
     // Signum's [StringLengthValidator(Min = 1, MultiLine = true), Translatable] — unbounded text column.
     @stringLengthValidator({ min: 1 })
@@ -53,7 +53,7 @@ export class TextPartEntity extends Entity implements IPartEntity {
 
 // Signum's ImagePartEntity (PanelPart.cs). An image (a URL or a data: URI in `imageSrcContent`), optionally
 // clickable.
-@entity("Part", "Master")
+@part("Master")
 export class ImagePartEntity extends Entity implements IPartEntity {
     imageSrcContent: string;
 
@@ -71,7 +71,7 @@ export class ImagePartEntity extends Entity implements IPartEntity {
 }
 
 // Signum's SeparatorPartEntity (PanelPart.cs). A full-width heading between rows of parts.
-@entity("Part", "Master")
+@part("Master")
 export class SeparatorPartEntity extends Entity implements IPartEntity {
     title: string | null;
 
@@ -88,7 +88,7 @@ export class SeparatorPartEntity extends Entity implements IPartEntity {
 // Signum's ToolbarMenuPartEntity (PanelPart.cs). Renders one toolbar MENU as a dashboard part, so a
 // dashboard can carry the same navigation block the sidebar does. Signum declares it in Signum.Dashboard
 // rather than Signum.Toolbar, which is why its table is `dashboard.toolbar_menu_part`.
-@entity("Part", "Master")
+@part("Master")
 export class ToolbarMenuPartEntity extends Entity implements IPartEntity {
     toolbarMenu: Lite<ToolbarMenuEntity>;
 
@@ -104,7 +104,7 @@ export class ToolbarMenuPartEntity extends Entity implements IPartEntity {
 
 // Signum's HealthCheckElementEmbedded (PanelPart.cs) — ONE tile: a label, the health endpoint to poll and
 // where to navigate on click. altea: a `@part` row of the HealthCheck part (Signum's MList element).
-@entity("Part")
+@part
 export class HealthCheckPartEntity_Item extends Entity {
     @backReference healthCheckPart: Lite<HealthCheckPartEntity>;
     @rowOrder order: int;
@@ -125,7 +125,7 @@ export class HealthCheckPartEntity_Item extends Entity {
 
 // Signum's HealthCheckPartEntity (PanelPart.cs). A board of health-check tiles, each polling its own
 // ASP.NET-health-style endpoint (`{ status, description }`).
-@entity("Part", "Master")
+@part("Master")
 export class HealthCheckPartEntity extends Entity implements IPartEntity {
     // Signum's [PreserveOrder] MList<HealthCheckElementEmbedded>.
     items: HealthCheckPartEntity_Item[];
@@ -141,7 +141,7 @@ export class HealthCheckPartEntity extends Entity implements IPartEntity {
 
 // Signum's CustomPartEntity (CustomPart.cs). Escape hatch: the app registers a React component under a name
 // (DashboardClient.Options.registerCustomPartRenderer) and this part selects it.
-@entity("Part", "Master")
+@part("Master")
 export class CustomPartEntity extends Entity implements IPartEntity {
     @stringLengthValidator({ max: 100 })
     customPartName: string;

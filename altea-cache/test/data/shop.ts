@@ -2,7 +2,7 @@ import { reflect } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import type { PrimaryKey } from "@altea/altea/data/entity";
-import { entity, quoted, backReference, rowOrder } from "@altea/altea/data/decorators";
+import { entity, part, quoted, backReference, rowOrder } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { registerEnum } from "@altea/altea/data/registration";
 import { type int, toInt, Decimal, Temporal } from "@altea/altea/data/basics";
@@ -146,7 +146,7 @@ export class CountryEntity extends Entity {
 }
 
 @reflect
-@entity("Part")
+@part
 export class CountryEntity_Region extends Entity {
     @backReference country: Lite<CountryEntity>;
 

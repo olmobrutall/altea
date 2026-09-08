@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, primaryKey, uniqueIndex, implementedBy, quoted, backReference, rowOrder,
+    entity, part, primaryKey, uniqueIndex, implementedBy, quoted, backReference, rowOrder,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, noRepeatValidator } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
@@ -69,7 +69,7 @@ export namespace TourOperation {
 }
 
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export class TourStepEntity extends Entity {
 
     @backReference tour: Lite<TourEntity>;
@@ -128,7 +128,7 @@ export enum CssStepType {
  * field is set, chosen by `type`. Kept as an ENTITY here because it is a collection row (see the header).
  */
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export class CssStepEntity extends Entity {
 
     @backReference tourStep: Lite<TourStepEntity>;

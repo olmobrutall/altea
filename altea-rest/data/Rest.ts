@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
-    entity, column, uniqueIndex, quoted, backReference, rowOrder, implementedBy, legacyPropertyRoute,
+    entity, part, column, uniqueIndex, quoted, backReference, rowOrder, implementedBy, legacyPropertyRoute,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -156,7 +156,7 @@ export class RestLogEntity extends Entity {
 
 /** One query-string parameter of a logged request. A collection row, hence an entity — see the header. */
 @reflect
-@entity("Part", "Transactional")
+@part("Transactional")
 export class QueryStringValueEntity extends Entity {
 
     @backReference restLog: Lite<RestLogEntity>;

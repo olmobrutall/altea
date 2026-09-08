@@ -1,5 +1,5 @@
 import { reflect } from "@altea/altea/data/reflection";
-import { entity, backReference, valueField } from "@altea/altea/data/decorators";
+import { entity, part, backReference, valueField } from "@altea/altea/data/decorators";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { LabelEntity } from "./label";
@@ -22,7 +22,7 @@ export class EmbeddedConfigEmbedded extends EmbeddedEntity {
 }
 
 // Link rows for EmbeddedConfig.Awards (MList<Lite<GrammyAwardEntity>>).
-@entity("Part")
+@part
 export class ConfigEntity_Award extends Entity {
     @backReference
     config: Lite<ConfigEntity>;

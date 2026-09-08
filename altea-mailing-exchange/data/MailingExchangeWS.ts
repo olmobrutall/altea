@@ -1,5 +1,5 @@
 import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
-import { entity, format, column } from "@altea/altea/data/decorators";
+import { part, format, column } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { EmailServiceEntity } from "@altea/altea-email/data/EmailSenderConfiguration";
 
@@ -33,7 +33,7 @@ export enum ExchangeVersion {
 
 // Signum's ExchangeWebServiceEmailServiceEntity.
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export class ExchangeWebServiceEmailServiceEntity extends EmailServiceEntity {
 
     exchangeVersion: ExchangeVersion;

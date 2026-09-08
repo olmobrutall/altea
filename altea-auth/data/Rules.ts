@@ -1,7 +1,7 @@
 import { reflect, init, setDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, uniqueIndex, backReference, valueField, rowOrder, legacyTableName, legacyColumnName } from "@altea/altea/data/decorators";
+import { entity, part, uniqueIndex, backReference, valueField, rowOrder, legacyTableName, legacyColumnName } from "@altea/altea/data/decorators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { Symbol } from "@altea/altea/data/symbol";
 import { OperationSymbol } from "@altea/altea/data/operations";
@@ -144,7 +144,7 @@ export class RuleQueryEntity extends RuleEntity {
 // Signum's RuleTypeEntity. `fallback` is the type-level allowance; `conditionRules` are the per-row
 // overrides (Signum's virtual `MList<RuleTypeConditionEntity>`) — each a SET of TypeConditionSymbols
 // (AND-ed) mapped to a TypeAllowed, evaluated last-match-wins. altea models the virtual MList as an owned
-// `@entity("Part")` collection back-referencing the RuleType (like EmployeeEntity_Territory).
+// `@part` collection back-referencing the RuleType (like EmployeeEntity_Territory).
 @uniqueIndex((e: RuleTypeEntity) => [e.resource, e.role])
 @entity("System", "Master")
 export class RuleTypeEntity extends RuleEntity {
@@ -157,7 +157,7 @@ export class RuleTypeEntity extends RuleEntity {
 // is the SET of TypeConditionSymbols that must ALL hold (Signum's `MList<TypeConditionSymbol> Conditions`,
 // NoRepeat + CountGreaterThan0); `allowed` is granted when they do; `order` preserves evaluation order
 // (last-match-wins), Signum's [PreserveOrder]/ICanBeOrdered. Owned by RuleTypeEntity via `ruleType`.
-@entity("Part")
+@part
 // Signum wires this as a VIRTUAL MList, so its table is named after the ENTITY and there is no
 // owner-plus-collection table to match.
 @legacyTableName({ wasVirtualMList: true })
@@ -173,7 +173,7 @@ export class RuleTypeConditionEntity extends Entity {
 }
 
 // Junction rows for RuleTypeConditionEntity.conditions (Signum's MList<TypeConditionSymbol>).
-@entity("Part")
+@part
 export class RuleTypeConditionEntity_Condition extends Entity {
     @backReference ruleTypeCondition: Lite<RuleTypeConditionEntity>;
     // Signum marks the MList [PreserveOrder], so its table has an Order column.
@@ -293,7 +293,7 @@ export class RuleOperationEntity extends RuleEntity {
 
 // One condition-row of a RuleOperation (mirrors RuleTypeConditionEntity): the SET of TypeConditionSymbols
 // that must ALL hold, the granted OperationAllowed, and the evaluation `order` (last-match-wins).
-@entity("Part")
+@part
 // Signum wires this as a VIRTUAL MList, so its table is named after the ENTITY and there is no
 // owner-plus-collection table to match.
 @legacyTableName({ wasVirtualMList: true })
@@ -308,7 +308,7 @@ export class RuleOperationConditionEntity extends Entity {
     allowed: OperationAllowed = OperationAllowed.None;
 }
 
-@entity("Part")
+@part
 export class RuleOperationConditionEntity_Condition extends Entity {
     @backReference ruleOperationCondition: Lite<RuleOperationConditionEntity>;
     // Signum marks the MList [PreserveOrder], so its table has an Order column.
@@ -409,7 +409,7 @@ export class RulePropertyEntity extends RuleEntity {
 
 // One condition-row of a RuleProperty (mirrors RuleTypeConditionEntity): the SET of TypeConditionSymbols
 // (of the ROOT type) that must ALL hold, the granted PropertyAllowed, and the evaluation `order`.
-@entity("Part")
+@part
 // Signum wires this as a VIRTUAL MList, so its table is named after the ENTITY and there is no
 // owner-plus-collection table to match.
 @legacyTableName({ wasVirtualMList: true })
@@ -424,7 +424,7 @@ export class RulePropertyConditionEntity extends Entity {
     allowed: PropertyAllowed = PropertyAllowed.None;
 }
 
-@entity("Part")
+@part
 export class RulePropertyConditionEntity_Condition extends Entity {
     @backReference rulePropertyCondition: Lite<RulePropertyConditionEntity>;
     // Signum marks the MList [PreserveOrder], so its table has an Order column.

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Entity, EmbeddedEntity, MixinEntity } from "@altea/altea/data/entity";
 import { reflect, resolveField, getTypeInfo } from "@altea/altea/data/reflection";
 import type { FieldInfo } from "@altea/altea/data/reflection";
-import { entity, mixin, column, bindParent, isReadOnly } from "@altea/altea/data/decorators";
+import { entity, part, mixin, column, bindParent, isReadOnly } from "@altea/altea/data/decorators";
 import { validate } from "@altea/altea/data/validators";
 import { bindParents, tryGetParentEntity, tryGetOwnerEntity, setParentEntity } from "@altea/altea/data/parentEntity";
 import { Binding } from "@altea/altea/client/binding";
@@ -29,7 +29,7 @@ class LineExtraEmbedded extends EmbeddedEntity {
     comment: string | null = null;
 }
 
-@entity("Part")
+@part
 @mixin(() => [NoteMixin])
 class RuleLineEntity extends Entity {
     @isReadOnly(true)

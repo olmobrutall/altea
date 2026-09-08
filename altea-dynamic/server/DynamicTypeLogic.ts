@@ -500,10 +500,10 @@ export class DynamicTypeCodeGenerator {
         const element = this.elementType(property);
 
         this.imports.add("@altea/altea/data/reflection", "reflect");
-        this.imports.add("@altea/altea/data/decorators", "entity", "backReference");
+        this.imports.add("@altea/altea/data/decorators", "part", "backReference");
         this.imports.add("@altea/altea/data/entity", "Entity");
 
-        const lines = ["@reflect", `@entity("Part")`];
+        const lines = ["@reflect", "@part"];
 
         if (mlist.tableName != null && mlist.tableName !== "") {
             this.imports.add("@altea/altea/data/decorators", "tableName");

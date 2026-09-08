@@ -1,7 +1,7 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
-import { entity, implementedByAll, column, uniqueIndex } from "@altea/altea/data/decorators";
+import { part, implementedByAll, column, uniqueIndex } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, ValidationMessage, notNullValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { type int } from "@altea/altea/data/basics";
@@ -265,7 +265,7 @@ export const TreeOmniboxResultTypeName = "TreeOmniboxResult";
 
 /** Signum's `UserTreePartEntity` — a dashboard panel showing a tree, scoped by a stored user query. */
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export class UserTreePartEntity extends Entity implements IPartEntity {
 
     userQuery: UserQueryEntity;

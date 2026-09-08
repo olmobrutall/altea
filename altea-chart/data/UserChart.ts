@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
-    backReference, entity, implementedBy, primaryKey, quoted, rowOrder, valueField,
+    backReference, entity, part, implementedBy, primaryKey, quoted, rowOrder, valueField,
 } from "@altea/altea/data/decorators";
 import { noRepeatValidator, stringLengthValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
@@ -51,7 +51,7 @@ import { ChartTimeSeriesEmbedded } from "./ChartRequest";
 // @altea/altea-user-assets: a @part row has exactly ONE owner (and each part class name must be unique in the
 // type registry), so a UserChart filter is that base plus its own `@backReference` — nothing else. Sharing the
 // base is what lets altea-user-queries' FilterBuilderEmbedded edit a chart's filters too.
-@entity("Part")
+@part
 // Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
 // the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
 // its identity across databases (see UserAssetsImporter.syncRows).
@@ -62,7 +62,7 @@ export class UserChartEntity_Filter extends QueryFilterBaseEntity {
 
 // Signum's `[BindParent, PreserveOrder] MList<ChartColumnEmbedded> Columns` element. altea wraps the shared
 // ChartColumnEmbedded value object as `element` on a @part row (the persisted-collection idiom above).
-@entity("Part")
+@part
 // Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
 // the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
 // its identity across databases (see UserAssetsImporter.syncRows).
@@ -74,7 +74,7 @@ export class UserChartEntity_Column extends Entity {
 }
 
 // Signum's `[NoRepeatValidator] MList<ChartParameterEmbedded> Parameters` element (wrapped as above).
-@entity("Part")
+@part
 export class UserChartEntity_Parameter extends Entity {
     @backReference userChart: Lite<UserChartEntity>;
     // No `@rowOrder`: Signum marks this MList [NoRepeatValidator] and NOT [PreserveOrder], so its table has
@@ -84,7 +84,7 @@ export class UserChartEntity_Parameter extends Entity {
 
 // Signum's `[NoRepeatValidator, PreserveOrder, ImplementedBy(UserQueryEntity)] MList<Lite<Entity>>
 // CustomDrilldowns`. altea MList-of-lite → a @part value row (mirrors UserQueryEntity_CustomDrilldown).
-@entity("Part")
+@part
 export class UserChartEntity_CustomDrilldown extends Entity {
     @backReference userChart: Lite<UserChartEntity>;
     @rowOrder order: int;

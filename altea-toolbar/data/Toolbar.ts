@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, primaryKey, backReference, rowOrder, implementedBy, uniqueIndex, format, unit, quoted,
+    entity, part, primaryKey, backReference, rowOrder, implementedBy, uniqueIndex, format, unit, quoted,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate } from "@altea/altea/data/validators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
@@ -168,7 +168,7 @@ export abstract class ToolbarElementBaseEntity extends Entity {
 }
 
 // Signum's ToolbarElementEmbedded as used by `ToolbarEntity.Elements` (here: the Toolbar-owned row).
-@entity("Part")
+@part
 // Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
 // the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
 // its identity across databases (see UserAssetsImporter.syncRows).
@@ -180,7 +180,7 @@ export class ToolbarEntity_Element extends ToolbarElementBaseEntity {
 
 // Signum's ToolbarMenuElementEmbedded (Toolbar.cs) — a ToolbarMenu element, which additionally says whether
 // it applies WITH or WITHOUT the menu's selected entity, and whether picking the menu auto-navigates to it.
-@entity("Part")
+@part
 // Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
 // the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
 // its identity across databases (see UserAssetsImporter.syncRows).
@@ -290,7 +290,7 @@ export class ToolbarSwitcherEntity extends Entity implements IUserAssetEntity, I
 }
 
 // Signum's ToolbarSwitcherOptionEmbedded (ToolbarSwitcher.cs) — one switchable menu plus its icon.
-@entity("Part")
+@part
 export class ToolbarSwitcherEntity_Option extends Entity {
     @backReference toolbarSwitcher: Lite<ToolbarSwitcherEntity>;
     @rowOrder order: int;

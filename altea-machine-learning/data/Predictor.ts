@@ -2,7 +2,7 @@ import { reflect, init, registerEnum, setDefaultDatabaseSchema } from "@altea/al
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Symbol } from "@altea/altea/data/symbol";
 import {
-    entity, backReference, valueField, rowOrder, quoted, implementedBy, implementedByAll, column, format, unit,
+    entity, part, backReference, valueField, rowOrder, quoted, implementedBy, implementedByAll, column, format, unit,
     legacyTableName,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, noRepeatValidator } from "@altea/altea/data/validators";
@@ -209,7 +209,7 @@ export class PredictorRegressionMetricsEmbedded extends EmbeddedEntity {
  * which token it reads, how it is encoded, and what to do when it is null.
  */
 @reflect
-@entity("Part")
+@part
 @legacyTableName("PredictorMainQueryColumns")
 export class PredictorEntity_Column extends Entity {
     @backReference predictor: Lite<PredictorEntity>;
@@ -246,7 +246,7 @@ export class PredictorEntity_Column extends Entity {
 
 /** Signum's `MList<QueryFilterEmbedded> Filters` on the main query — a `@part` row over the shared base. */
 @reflect
-@entity("Part")
+@part
 @legacyTableName("PredictorMainQueryFilters")
 export class PredictorEntity_Filter extends QueryFilterBaseEntity {
     @backReference predictor: Lite<PredictorEntity>;
@@ -254,7 +254,7 @@ export class PredictorEntity_Filter extends QueryFilterBaseEntity {
 
 /** Signum's `MList<FilePathEmbedded> Files` — the trained model's files. */
 @reflect
-@entity("Part")
+@part
 @legacyTableName("PredictorFiles")
 export class PredictorEntity_File extends Entity {
     @backReference predictor: Lite<PredictorEntity>;
@@ -286,7 +286,7 @@ export class PredictorMainQueryEmbedded extends EmbeddedEntity {
  * `SplitBy` (what turns a collection of rows into a fixed set of columns).
  */
 @reflect
-@entity("Part")
+@part
 @legacyTableName("PredictorSubQueryColumns")
 export class PredictorSubQueryEntity_Column extends Entity {
     @backReference subQuery: Lite<PredictorSubQueryEntity>;
@@ -332,7 +332,7 @@ export function isDataUsage(usage: PredictorSubQueryColumnUsage): boolean {
 }
 
 @reflect
-@entity("Part")
+@part
 @legacyTableName("PredictorSubQueryFilters")
 export class PredictorSubQueryEntity_Filter extends QueryFilterBaseEntity {
     @backReference subQuery: Lite<PredictorSubQueryEntity>;
@@ -346,7 +346,7 @@ export class PredictorSubQueryEntity_Filter extends QueryFilterBaseEntity {
  * `@part` row IS that shape, so it needs no such marker pair.
  */
 @reflect
-@entity("Part")
+@part
 @legacyTableName({ name: "PredictorSubQuery", wasVirtualMList: true })
 export class PredictorSubQueryEntity extends Entity {
     @backReference predictor: Lite<PredictorEntity>;

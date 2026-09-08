@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { SemiSymbol } from "@altea/altea/data/semiSymbol";
-import { backReference, entity, implementedBy, quoted, uniqueIndex } from "@altea/altea/data/decorators";
+import { backReference, entity, part, implementedBy, quoted, uniqueIndex } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import type { int } from "@altea/altea/data/basics";
 import type { ConstructSymbol, DeleteSymbol, ExecuteSymbol, From } from "@altea/altea/data/operations";
@@ -94,7 +94,7 @@ export class SkillCustomizationEntity extends Entity {
 
 /** Signum's `MList<SkillPropertyEmbedded> Properties`, as this owner's @part row. */
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export class SkillCustomizationEntity_Property extends Entity {
     @backReference skillCustomization: Lite<SkillCustomizationEntity>;
     // No `@rowOrder`: Signum marks NEITHER of SkillCustomization's two MLists [PreserveOrder], so their
@@ -117,7 +117,7 @@ export class SkillCustomizationEntity_Property extends Entity {
  * Signum's `[ImplementedBy(typeof(SkillCustomizationEntity), typeof(SkillCodeEntity))]`.
  */
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export class SkillCustomizationEntity_SubSkill extends Entity {
     @backReference skillCustomization: Lite<SkillCustomizationEntity>;
     // No `@rowOrder`: Signum marks NEITHER of SkillCustomization's two MLists [PreserveOrder], so their

@@ -1,5 +1,5 @@
 import { reflect } from "@altea/altea/data/reflection";
-import { entity, implementedBy, customLite, backReference, rowOrder, forceNullable } from "@altea/altea/data/decorators";
+import { entity, part, implementedBy, customLite, backReference, rowOrder, forceNullable } from "@altea/altea/data/decorators";
 import { notNullValidator } from "@altea/altea/data/validators";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
@@ -59,7 +59,7 @@ export class AwardNominationEntity extends Entity {
 
 // Owned child rows for AwardNominationEntity.points. NominationPointEmbedded held
 // a single `Point` field, flattened in here.
-@entity("Part")
+@part
 export class AwardNominationEntity_Point extends Entity {
     @backReference
     awardNomination: Lite<AwardNominationEntity>;

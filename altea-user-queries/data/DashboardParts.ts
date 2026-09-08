@@ -3,7 +3,7 @@
 import { reflect } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, backReference, quoted } from "@altea/altea/data/decorators";
+import { part, backReference, quoted } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -35,7 +35,7 @@ export enum AutoUpdate {
 }
 
 // Signum's UserQueryPartEntity: a saved query rendered as a full SearchControl inside a dashboard cell.
-@entity("Part", "Master")
+@part("Master")
 export class UserQueryPartEntity extends Entity implements IPartEntity {
     // Signum's IsQueryCached: this part's query is served from the dashboard's SNAPSHOT rather than run
     // against the database (see @altea/altea-dashboard's CachedQuery). Only meaningful on a dashboard whose
@@ -67,7 +67,7 @@ export class UserQueryPartEntity extends Entity implements IPartEntity {
 
 // Signum's ValueUserQueryElementEmbedded: ONE row of the value list — a label + the saved query whose count
 // (or aggregate) is shown, optionally linking somewhere else than the query itself.
-@entity("Part")
+@part
 export class ValueUserQueryListPartEntity_UserQuery extends Entity {
     // Signum's IsQueryCached: this part's query is served from the dashboard's SNAPSHOT rather than run
     // against the database (see @altea/altea-dashboard's CachedQuery). Only meaningful on a dashboard whose
@@ -92,7 +92,7 @@ export class ValueUserQueryListPartEntity_UserQuery extends Entity {
 }
 
 // Signum's ValueUserQueryListPartEntity: a compact list of "label → value" rows, one per saved query.
-@entity("Part", "Master")
+@part("Master")
 export class ValueUserQueryListPartEntity extends Entity implements IPartEntity {
     userQueries: ValueUserQueryListPartEntity_UserQuery[];
 
@@ -107,7 +107,7 @@ export class ValueUserQueryListPartEntity extends Entity implements IPartEntity 
 
 // Signum's BigValuePartEntity: ONE number (a query count or an aggregate token) rendered large, optionally
 // clickable / navigating somewhere.
-@entity("Part", "Master")
+@part("Master")
 export class BigValuePartEntity extends Entity implements IPartEntity {
     valueToken: QueryTokenEmbedded | null;
 

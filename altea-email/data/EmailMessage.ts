@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, implementedByAll, backReference, format, quoted } from "@altea/altea/data/decorators";
+import { entity, part, implementedByAll, backReference, format, quoted } from "@altea/altea/data/decorators";
 import {
     stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType,
 } from "@altea/altea/data/validators";
@@ -49,13 +49,13 @@ export enum EmailMessageState {
 Enum.markAsNotMapped(EmailMessageState, EmailMessageState.Created);
 
 // Signum's `MList<EmailRecipientEmbedded> Recipients`, as this owner's @part row (see Email.ts).
-@entity("Part", "Transactional")
+@part("Transactional")
 export class EmailMessageEntity_Recipient extends EmailRecipientBaseEntity {
     @backReference emailMessage: Lite<EmailMessageEntity>;
 }
 
 // Signum's EmailAttachmentEmbedded, as this owner's @part row.
-@entity("Part", "Transactional")
+@part("Transactional")
 export class EmailMessageEntity_Attachment extends Entity {
     @backReference emailMessage: Lite<EmailMessageEntity>;
     // No `@rowOrder`: Signum does not mark `EmailMessageEntity.Attachments` [PreserveOrder], so its

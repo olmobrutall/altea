@@ -2,7 +2,7 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
-    entity, primaryKey, backReference, rowOrder, implementedBy, format, unit, quoted, legacyTableName,
+    entity, part, primaryKey, backReference, rowOrder, implementedBy, format, unit, quoted, legacyTableName,
     legacyCleanName,
 } from "@altea/altea/data/decorators";
 import {
@@ -29,7 +29,7 @@ import { TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEn
 //  - Signum's `Guid Guid` [UniqueIndex] portable-identity field → a uuid PRIMARY KEY (`@primaryKey("uuid")`),
 //    exactly like UserQueryEntity / UserChartEntity: the `id` IS the identity XML import/export keys on.
 //  - Signum's `MList<PanelPartEmbedded> Parts` (an EmbeddedEntity MList) → per-owner `@part` ROWS
-//    (DashboardEntity_Part is an `@entity("Part")` here): altea cannot persist an EmbeddedEntity array, and a
+//    (DashboardEntity_Part is an `@part` here): altea cannot persist an EmbeddedEntity array, and a
 //    part row has exactly ONE owner. Same for the virtual MList `TokenEquivalencesGroups` and its nested
 //    `TokenEquivalences` (a @part collection of the group).
 //  - `ToXml`/`FromXml`/`ParseData` are server-only in altea (System.Xml + server QueryDescription) — see
@@ -85,7 +85,7 @@ export interface IPartEntity extends Entity {
 
 // Signum's PanelPartEmbedded (PanelPart.cs). ONE cell of the dashboard grid: its geometry, its chrome
 // (title / icon / colors / tooltip), its interaction group, and the part `content` that renders in it.
-@entity("Part")
+@part
 // Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
 // the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
 // its identity across databases (see UserAssetsImporter.syncRows).
@@ -159,7 +159,7 @@ export class DashboardEntity_Part extends Entity implements IGridEntity {
 
 // Signum's TokenEquivalenceEmbedded (DashboardEntity.cs): "this token of THAT query means the same thing as
 // that token of THIS query", so a cross-filter can travel between parts over different queries.
-@entity("Part")
+@part
 export class DashboardEntity_TokenEquivalenceGroup_Query extends Entity {
     @backReference tokenEquivalenceGroup: Lite<DashboardEntity_TokenEquivalenceGroup>;
     @rowOrder order: int;
@@ -171,7 +171,7 @@ export class DashboardEntity_TokenEquivalenceGroup_Query extends Entity {
 // Signum's DashboardEntity_TokenEquivalenceGroup (DashboardEntity.cs) — a set of mutually-equivalent tokens, optionally
 // restricted to one InteractionGroup. In Signum this is a virtual MList (a real entity with a back-reference
 // to the dashboard); in altea that IS the @part row idiom.
-@entity("Part")
+@part
 // Signum wires this as a VIRTUAL MList, so its table is named after the ENTITY (TokenEquivalenceGroupEntity)
 // and there is no owner-plus-collection table to match. BOTH facts are needed here, unlike the auth
 // rule-condition entities: altea composed this type's own name off its owner

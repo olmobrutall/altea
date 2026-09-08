@@ -1,6 +1,6 @@
 import { reflect } from "@altea/altea/data/reflection";
 import {
-    entity, mixin, primaryKey, implementedByAll, backReference, valueField, column, forceNullable, fullTextIndex,
+    entity, part, mixin, primaryKey, implementedByAll, backReference, valueField, column, forceNullable, fullTextIndex,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Entity, MixinEntity } from "@altea/altea/data/entity";
@@ -52,7 +52,7 @@ export class ColaboratorsMixin extends MixinEntity {
 }
 
 // Link rows for NoteWithDateEntity.colaborators (MList<ArtistEntity>).
-@entity("Part")
+@part
 export class NoteWithDateEntity_Colaborator extends Entity {
     @backReference
     noteWithDate: Lite<NoteWithDateEntity>;

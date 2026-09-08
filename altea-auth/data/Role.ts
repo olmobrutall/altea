@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { CurrentUser } from "@altea/altea/data/security";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, uniqueIndex, backReference, valueField, quoted } from "@altea/altea/data/decorators";
+import { entity, part, uniqueIndex, backReference, valueField, quoted } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 
@@ -64,7 +64,7 @@ export class RoleEntity extends Entity {
 }
 
 // Link rows for RoleEntity.inheritsFrom (Signum's MList<Lite<RoleEntity>>).
-@entity("Part")
+@part
 export class RoleEntity_InheritsFrom extends Entity {
     @backReference
     role: Lite<RoleEntity>;

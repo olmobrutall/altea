@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity, ModelEntity, EmbeddedEntity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
-    entity, implementedByAll, implementedBy, uniqueIndex, backReference, rowOrder, quoted,
+    entity, part, implementedByAll, implementedBy, uniqueIndex, backReference, rowOrder, quoted,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -273,7 +273,7 @@ function hasDuplicateCulture(messages: readonly SMSTemplateEntity_Message[]): bo
 
 /** Signum's `SMSTemplateMessageEmbedded` — the text for ONE culture. A collection row, hence an entity. */
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export class SMSTemplateEntity_Message extends Entity {
 
     @backReference template: Lite<SMSTemplateEntity>;

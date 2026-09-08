@@ -153,6 +153,27 @@ export function entity(kind: EntityKind, data?: EntityData, options?: EntityOpti
     };
 }
 
+/**
+ * A `@part` ROW — the entity kind altea reaches for wherever Signum writes an `MList<T>` or an owned
+ * `EmbeddedEntity` with a table of its own, and by far the most-declared kind in the workspace (120 of the
+ * 124 classes that name one). It is `@entity("Part")` with the kind spelled once, as a decorator rather
+ * than an argument: a part is a KIND of declaration, not a configuration of a general one, and the whole
+ * codebase already talks about "a `@part` row" — the name in the comments is now the name in the code.
+ *
+ * Both forms work, and which one is right follows the same rule the `entity` overloads already encode:
+ * `@part` bare (a part inherits its owner's EntityData) and `@part("Master")` where the row is declared
+ * with its own. The quote-transformer recognises the name, so a `@part` class gets its `@field` injection
+ * exactly as an `@entity` one does.
+ */
+export function part(target: Function): void;
+export function part(data?: EntityData, options?: EntityOptions): (target: Function) => void;
+export function part(arg?: Function | EntityData, options?: EntityOptions): ((target: Function) => void) | void {
+    // `@part` (bare) hands us the class; `@part("Master")` hands us the data and must return the decorator.
+    if (typeof arg === "function")
+        return entity("Part")(arg);
+    return entity("Part", arg, options);
+}
+
 // Sets the runtime type of the entity's primary key (Signum's
 // [PrimaryKey(typeof(...))]). Recorded on the implicit `id` field's
 // columnOptions and consumed by SchemaBuilder. Absent → schema default (int).
@@ -185,7 +206,7 @@ export function tableName(name: string) {
 // A Ticks column is what makes a save refuse to overwrite a row someone else changed, and it earns that
 // column only where a row is edited by PEOPLE, one at a time. So the DEFAULTS are:
 //
-//   @entity("Part")  →  NO ticks. A part row is reached and saved through its owner, whose own stamp
+//   @part           →  NO ticks. A part row is reached and saved through its owner, whose own stamp
 //                       guards the aggregate; it is never edited on its own. (Signum's MList table — what
 //                       a @part row usually stands in for — has none either, for the same reason.)
 //   everything else  →  ticks, unless a SEEDED table (symbols, enum tables) or marked below.

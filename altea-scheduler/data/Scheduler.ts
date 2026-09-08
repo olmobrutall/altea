@@ -3,7 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Symbol } from "@altea/altea/data/symbol";
 import {
-    entity, implementedBy, implementedByAll, format, unit, quoted, primaryKey,
+    entity, part, implementedBy, implementedByAll, format, unit, quoted, primaryKey,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { Temporal, type int } from "@altea/altea/data/basics";
@@ -46,7 +46,7 @@ export interface IScheduleRuleEntity extends Entity {
 
 // Signum's ScheduleRuleMinutelyEntity — every N minutes.
 @reflect
-@entity("Part", "Master")
+@part("Master")
 // Signum declares this `[PrimaryKey(typeof(Guid))]`.
 @primaryKey("uuid")
 export class ScheduleRuleMinutelyEntity extends Entity implements IScheduleRuleEntity {
@@ -88,7 +88,7 @@ export class ScheduleRuleMinutelyEntity extends Entity implements IScheduleRuleE
 // Signum's ScheduleRuleWeekDaysEntity — on the chosen weekdays, at StartingOn's time of day, optionally
 // including or excluding a calendar's holidays.
 @reflect
-@entity("Part", "Master")
+@part("Master")
 // Signum declares this `[PrimaryKey(typeof(Guid))]`.
 @primaryKey("uuid")
 export class ScheduleRuleWeekDaysEntity extends Entity implements IScheduleRuleEntity {
@@ -182,7 +182,7 @@ export class ScheduleRuleWeekDaysEntity extends Entity implements IScheduleRuleE
 
 // Signum's ScheduleRuleMonthsEntity — on StartingOn's day-of-month and time, in the chosen months.
 @reflect
-@entity("Part", "Master")
+@part("Master")
 // Signum declares this `[PrimaryKey(typeof(Guid))]`.
 @primaryKey("uuid")
 export class ScheduleRuleMonthsEntity extends Entity implements IScheduleRuleEntity {

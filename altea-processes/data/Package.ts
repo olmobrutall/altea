@@ -1,7 +1,7 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, implementedBy, implementedByAll, quoted, ticksColumn } from "@altea/altea/data/decorators";
+import { entity, part, implementedBy, implementedByAll, quoted, ticksColumn } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { OperationSymbol } from "@altea/altea/data/operations";
@@ -18,7 +18,7 @@ import { ExceptionEntity } from "@altea/altea/data/exception";
 //    `Uint8Array | null` "Blob" column, read and written by `setOperationArgs` / `getOperationArgs` below.
 //    (The client-side "run this operation over the selected rows" flow — Signum's PackageOperation
 //    contextual menu — is still not ported; a package is built in code, but it can now carry arguments.)
-//  - `PackageEntity` is `@entity("Part")` in Signum (owned by the process that runs it) — but altea Parts
+//  - `PackageEntity` is `@part` in Signum (owned by the process that runs it) — but altea Parts
 //    have exactly ONE owner and are reached through it, while a package is referenced by `ProcessEntity.data`
 //    (an @implementedByAll Lite, not an owned collection). So it is a "System" entity here, like its lines.
 //  - `PackageOperationEntity` subclasses PackageEntity in Signum. Kept, since it is what names the operation

@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, backReference, uniqueIndex, quoted, primaryKey } from "@altea/altea/data/decorators";
+import { entity, part, backReference, uniqueIndex, quoted, primaryKey } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate } from "@altea/altea/data/validators";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -19,7 +19,7 @@ import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 //    constructor-created Lazy effectively does too).
 //  - `IUserAssetEntity` (XML import/export) is NOT ported — see SchedulerLogic for the deferral note.
 
-@entity("Part")
+@part
 export class HolidayCalendarEntity_Holiday extends Entity {
     @backReference calendar: Lite<HolidayCalendarEntity>;
     // No `@rowOrder`: Signum does not mark `HolidayCalendarEntity.Holidays` [PreserveOrder], so its

@@ -1,5 +1,5 @@
 import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
-import { entity, format, niceName, column } from "@altea/altea/data/decorators";
+import { part, format, niceName, column } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { type uuid } from "@altea/altea/data/basics";
 import { EmailServiceEntity } from "@altea/altea-email/data/EmailSenderConfiguration";
@@ -24,7 +24,7 @@ import { EmailServiceEntity } from "@altea/altea-email/data/EmailSenderConfigura
 
 // Signum's MicrosoftGraphEmailServiceEntity.
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export class MicrosoftGraphEmailServiceEntity extends EmailServiceEntity {
 
     /** Borrow the app's Entra ID registration (see the header) instead of the three fields below. */

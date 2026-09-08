@@ -1,7 +1,7 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, backReference, rowOrder, quoted, uniqueIndex } from "@altea/altea/data/decorators";
+import { entity, part, backReference, rowOrder, quoted, uniqueIndex } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -27,7 +27,7 @@ import type { ConstructSymbol, ExecuteSymbol, DeleteSymbol, From } from "@altea/
  * (`props` in the node expressions). `type` is a TypeScript type ANNOTATION as text: it is only ever shown
  * to whoever edits the view, never parsed.
  */
-@entity("Part")
+@part
 export class DynamicViewEntity_Prop extends Entity {
     @backReference dynamicView: Lite<DynamicViewEntity>;
     @rowOrder order: int;

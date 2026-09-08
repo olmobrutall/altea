@@ -2,7 +2,7 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity, MixinEntity, type Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, implementedBy, uniqueIndex, backReference, format, unit, quoted,
+    entity, part, implementedBy, uniqueIndex, backReference, format, unit, quoted,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
@@ -49,7 +49,7 @@ export enum CompareInbox {
 
 // Signum's EmailReceptionServiceEntity — the abstract "fetching mechanism" a configuration points at.
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export abstract class EmailReceptionServiceEntity extends Entity {
 }
 

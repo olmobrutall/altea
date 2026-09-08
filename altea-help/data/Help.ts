@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity, EmbeddedEntity, ModelEntity, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
-    entity, implementedBy, implementedByAll, backReference, forceNotNullable, rowOrder, column, primaryKey, quoted,
+    entity, part, implementedBy, implementedByAll, backReference, forceNotNullable, rowOrder, column, primaryKey, quoted,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, noRepeatValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -151,7 +151,7 @@ export class TypeHelpEntity extends Entity implements IHelpEntity {
 
 /** Signum's `PropertyRouteHelpEmbedded` — a `@part` row here (see the header on MList). */
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export class TypeHelpEntity_Property extends Entity {
 
     @backReference
@@ -181,7 +181,7 @@ export class TypeHelpEntity_Property extends Entity {
 
 /** Signum's `OperationHelpEmbedded`. */
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export class TypeHelpEntity_Operation extends Entity {
 
     @backReference
@@ -314,7 +314,7 @@ export class QueryHelpEntity extends Entity implements IHelpEntity {
 
 /** Signum's `QueryColumnHelpEmbedded`. `columnName` holds a rootless TOKEN key (see the header). */
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export class QueryHelpEntity_Column extends Entity {
 
     @backReference
@@ -352,7 +352,7 @@ export namespace QueryHelpOperation {
  */
 @reflect
 @primaryKey("uuid")
-@entity("Part", "Master")
+@part("Master")
 export class HelpImageEntity extends Entity {
 
     @implementedBy(() => [AppendixHelpEntity, NamespaceHelpEntity, QueryHelpEntity, TypeHelpEntity])

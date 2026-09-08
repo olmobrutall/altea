@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, backReference, rowOrder, valueField, implementedBy, unit } from "@altea/altea/data/decorators";
+import { entity, part, backReference, rowOrder, valueField, implementedBy, unit } from "@altea/altea/data/decorators";
 import { Temporal, type int, type long } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { noRepeatValidator } from "@altea/altea/data/validators";
@@ -45,7 +45,7 @@ export namespace CachedQueryFileType {
 
 /** One entry of CachedQueryEntity.userAssets (Signum's MList element). */
 @reflect
-@entity("Part")
+@part
 export class CachedQueryEntity_UserAsset extends Entity {
     @backReference cachedQuery: Lite<CachedQueryEntity>;
     @rowOrder order: int;

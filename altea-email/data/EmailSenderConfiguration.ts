@@ -2,7 +2,7 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, implementedBy, uniqueIndex, backReference, format, quoted, column,
+    entity, part, implementedBy, uniqueIndex, backReference, format, quoted, column,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
@@ -37,7 +37,7 @@ export enum SmtpDeliveryMethod {
 
 // Signum's EmailServiceEntity — the abstract "sending mechanism" a configuration points at.
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export abstract class EmailServiceEntity extends Entity {
     abstract clone(): EmailServiceEntity;
 
@@ -48,7 +48,7 @@ export abstract class EmailServiceEntity extends Entity {
 // Signum's ClientCertificationFileEmbedded — an MList inside SmtpNetworkDeliveryEmbedded, so in altea a
 // @part ROW (a collection has no embedded element type). An embedded is flattened onto its owner's row and
 // has no id, so the back reference names the ENTITY that holds the embedded: the SMTP service.
-@entity("Part", "Master")
+@part("Master")
 export class ClientCertificationFileEntity extends Entity {
     @backReference service: Lite<SmtpEmailServiceEntity>;
     // No `@rowOrder`: Signum does not mark this MList [PreserveOrder], so its table has no
@@ -108,7 +108,7 @@ export class SmtpNetworkDeliveryEmbedded extends EmbeddedEntity {
 }
 
 // Signum's SmtpEmailServiceEntity — sending over SMTP (a network host, or a pickup directory).
-@entity("Part", "Master")
+@part("Master")
 export class SmtpEmailServiceEntity extends EmailServiceEntity {
     deliveryFormat: SmtpDeliveryFormat;
 
@@ -136,7 +136,7 @@ export class SmtpEmailServiceEntity extends EmailServiceEntity {
 }
 
 // Signum's `MList<EmailRecipientEmbedded> AdditionalRecipients`, as this owner's @part row (see Email.ts).
-@entity("Part", "Master")
+@part("Master")
 export class EmailSenderConfigurationEntity_AdditionalRecipient extends EmailRecipientBaseEntity {
     @backReference senderConfiguration: Lite<EmailSenderConfigurationEntity>;
 }

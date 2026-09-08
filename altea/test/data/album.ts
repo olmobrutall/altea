@@ -1,4 +1,4 @@
-import { entity, implementedBy, backReference, rowOrder, forceNullable, quoted } from "@altea/altea/data/decorators";
+import { entity, part, implementedBy, backReference, rowOrder, forceNullable, quoted } from "@altea/altea/data/decorators";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
@@ -34,7 +34,7 @@ export class AlbumEntity extends Entity {
 
 // Owned child rows for AlbumEntity.songs (the per-row equivalent of SongEmbedded,
 // whose embedded fields are flattened in here).
-@entity("Part")
+@part
 export class AlbumEntity_Song extends Entity {
     @backReference
     album: Lite<AlbumEntity>;

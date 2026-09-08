@@ -1,4 +1,4 @@
-import { entity, implementedByAll, backReference, valueField, quoted } from "@altea/altea/data/decorators";
+import { entity, part, implementedByAll, backReference, valueField, quoted } from "@altea/altea/data/decorators";
 import { Entity } from "@altea/altea/data/entity";
 import type { PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
@@ -61,7 +61,7 @@ export class ArtistEntity extends Entity implements IAuthorEntity {
 }
 
 // Self many-to-many link rows for ArtistEntity.friends (MList<Lite<ArtistEntity>>).
-@entity("Part")
+@part
 export class ArtistEntity_Friend extends Entity {
     @backReference
     artist: Lite<ArtistEntity>;

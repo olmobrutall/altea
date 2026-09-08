@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, uniqueIndex, quoted, backReference, implementedByAll } from "@altea/altea/data/decorators";
+import { entity, part, uniqueIndex, quoted, backReference, implementedByAll } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
@@ -38,7 +38,7 @@ export class SampleEntity extends Entity {
 
 // A Part of SampleEntity (array/back-reference). Hidden from the Type-Auth grid; inherits Sample's rules.
 @reflect
-@entity("Part")
+@part
 export class SamplePanelEntity extends Entity {
     @backReference sample: Lite<SampleEntity>;
     title: string = "";
@@ -48,7 +48,7 @@ export class SamplePanelEntity extends Entity {
 }
 
 @reflect
-@entity("Part")
+@part
 export class SampleWidgetEntity extends Entity {
     @backReference panel: Lite<SamplePanelEntity>;
     caption: string = "";

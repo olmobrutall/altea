@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema, renameSymbolContainer } from "
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, primaryKey, implementedByAll, uniqueIndex, backReference, rowOrder, quoted, legacyTableName,
+    entity, part, primaryKey, implementedByAll, uniqueIndex, backReference, rowOrder, quoted, legacyTableName,
     legacyCleanName, legacyColumnName, bindParent,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
@@ -125,7 +125,7 @@ export class OfficeModelEntity extends Entity {
 // ---- OfficeTemplate rows -------------------------------------------------------------------------------
 
 // Signum's `MList<QueryFilterEmbedded> Filters` — the shared filter row with this owner's back reference.
-@entity("Part", "Master")
+@part("Master")
 // Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
 // the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
 // its identity across databases (see UserAssetsImporter.syncRows).
@@ -135,7 +135,7 @@ export class OfficeTemplateEntity_Filter extends QueryFilterBaseEntity {
 }
 
 // Signum's `MList<QueryOrderEmbedded> Orders`.
-@entity("Part", "Master")
+@part("Master")
 export class OfficeTemplateEntity_Order extends Entity {
     @backReference officeTemplate: Lite<OfficeTemplateEntity>;
     @rowOrder order: int;
@@ -219,7 +219,7 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
  * own comment on IAttachmentGeneratorEntity points at.
  */
 @reflect
-@entity("Part", "Master")
+@part("Master")
 // Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
 // pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
 @legacyTableName("WordAttachment")

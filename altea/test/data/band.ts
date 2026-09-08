@@ -1,5 +1,5 @@
 import { reflect } from "@altea/altea/data/reflection";
-import { entity, implementedBy, backReference, valueField, quoted } from "@altea/altea/data/decorators";
+import { entity, part, implementedBy, backReference, valueField, quoted } from "@altea/altea/data/decorators";
 import { Entity } from "@altea/altea/data/entity";
 import type { PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
@@ -31,7 +31,7 @@ export class BandEntity extends Entity implements IAuthorEntity {
 }
 
 // Many-to-many link rows for BandEntity.members (MList<ArtistEntity>).
-@entity("Part")
+@part
 export class BandEntity_Member extends Entity {
     @backReference
     band: Lite<BandEntity>;
@@ -41,7 +41,7 @@ export class BandEntity_Member extends Entity {
 }
 
 // Link rows for BandEntity.otherAwards (MList<AwardEntity>, polymorphic award).
-@entity("Part")
+@part
 export class BandEntity_OtherAward extends Entity {
     @backReference
     band: Lite<BandEntity>;

@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import type { IQuery } from "@altea/altea/data/iquery";
-import { backReference, valueField, entity, implementedBy, quoted, rowOrder } from "@altea/altea/data/decorators";
+import { backReference, valueField, entity, part, implementedBy, quoted, rowOrder } from "@altea/altea/data/decorators";
 import { ComparisonType, countIsValidator, stringLengthValidator } from "@altea/altea/data/validators";
 import { registerEnum } from "@altea/altea/data/registration";
 import { Temporal, type int } from "@altea/altea/data/basics";
@@ -66,7 +66,7 @@ export class WhatsNewEntity extends Entity {
 
 /** Signum's `WhatsNewMessageEmbedded`, as this owner's `@part` row: the news item in ONE culture. */
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export class WhatsNewMessageEntity extends Entity {
     @backReference whatsNew: Lite<WhatsNewEntity>;
     @rowOrder order: int;
@@ -83,7 +83,7 @@ export class WhatsNewMessageEntity extends Entity {
 
 /** Signum's `MList<FilePathEmbedded> Attachment`, as this owner's `@part` row. */
 @reflect
-@entity("Part", "Master")
+@part("Master")
 export class WhatsNewEntity_Attachment extends Entity {
     @backReference whatsNew: Lite<WhatsNewEntity>;
     @rowOrder order: int;
