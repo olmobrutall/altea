@@ -159,7 +159,8 @@ export function insertSqlSync(table: Table, entity: Entity): SqlPreCommandSimple
     const assignments: ColumnValue[] = [{ column: table.primaryKey.column, value: entity.id }, ...collectAssignments(table, entity)];
     const cols = assignments.map(a => sb.sqlEscape(a.column.name)).join(', ');
     const values = assignments.map((_, i) => placeholder(sb.isPostgres, i)).join(', ');
-    return new SqlPreCommandSimple(`INSERT INTO ${sb.objectName(table.name)} (${cols}) VALUES (${values});`, namedParameters(assignments));
+    return new SqlPreCommandSimple(`INSERT INTO ${sb.objectName(table.name)} (${cols})
+VALUES (${values});`, namedParameters(assignments));
 }
 
 // INSERT for a table whose PK is DB-assigned (identity) — the TypeEntity system table, seeded
@@ -173,7 +174,8 @@ export function insertSqlSyncGenerated(table: Table, entity: Entity): SqlPreComm
     const assignments = collectAssignments(table, entity);
     const cols = assignments.map(a => sb.sqlEscape(a.column.name)).join(', ');
     const values = assignments.map((_, i) => placeholder(sb.isPostgres, i)).join(', ');
-    return new SqlPreCommandSimple(`INSERT INTO ${sb.objectName(table.name)} (${cols}) VALUES (${values});`, namedParameters(assignments));
+    return new SqlPreCommandSimple(`INSERT INTO ${sb.objectName(table.name)} (${cols})
+VALUES (${values});`, namedParameters(assignments));
 }
 
 // UPDATE all non-PK columns (incl mixins) of the row WHERE id = entity.id. No optimistic

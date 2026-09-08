@@ -323,19 +323,21 @@ function deleteImplementedByAllRowsOfType(type: TypeEntity): SqlPreCommand | und
  * The tables that get a TypeEntity ROW — the schema's real entity tables (an enum side-table is keyed
  * by a generic descriptor, is never an `@implementedByAll` target, and gets none).
  *
- * A `@part` gets one in BOTH MODES, including the row that stands in for a Signum MLIST TABLE
- * (`Table.isMListRow`). Legacy mode used to skip those, and the reasoning was Signum's side of it: an
- * MList table is not an entity there (`TypeLogic` enumerates `Schema.Tables`, where MList tables live in
- * a collection of their own), so a Signum database has no row for one, and Signum's
- * `TypeLogic.Schema_Synchronizing` DELETES rows it does not recognise — two applications taking turns
- * adding and removing them.
+ * LEGACY MODE skips a table that stands in for a Signum MLIST TABLE (`Table.isMListRow`). An MList table
+ * is not an entity in Signum: `TypeLogic` enumerates `Schema.Tables`, where MList tables live in a
+ * collection of their own, so a Signum database has no row for one — and Signum's
+ * `TypeLogic.Schema_Synchronizing` DELETES rows it does not recognise, so the two applications would take
+ * turns adding and removing them for as long as both run.
  *
- * altea's side wins, because here the row IS an entity: it has a class, a clean name, a `toLite()` and a
- * `PropertyRoute` root, and every one of those is resolved THROUGH the type caches. A part with no row is
- * a type the caches do not know, so `TypeLogic.typeToId` throws on it and anything that has to name the
- * type — the retriever, a serialized lite, a migration re-spelling routes — fails on exactly the rows a
- * legacy database is full of. That is not worth avoiding an INSERT the other deployment will re-delete;
- * the ROWS the two frameworks share are unaffected either way, since nothing points at these ids.
+ * A `@part` that is NOT an MList row still gets one in either mode, which is the whole of what
+ * `isMListRow` (i.e. `mlistRowOwner`) decides: a part reached through a single reference stands in for a
+ * Signum EMBEDDED, and one whose owner declares `@legacyTableName({ wasVirtualMList: true })` stands in
+ * for a real ENTITY there — both of which Signum has a type row for.
+ *
+ * Nothing needs the id: an MList row is never the TARGET of an `@implementedByAll` reference (the only
+ * thing that stores a type discriminator), and a property route is rooted at the OWNING entity, never at
+ * the row type. This is the same `isMListRow` question legacyMode already answers for Ticks and ToStr —
+ * see SchemaSettings.legacyMode.
  *
  * The single source for every consumer, so the caches, the generation order and the sync all agree on
  * which types exist — a model type missing from one of them is reported as a database mismatch.
@@ -343,7 +345,7 @@ function deleteImplementedByAllRowsOfType(type: TypeEntity): SqlPreCommand | und
 function typedTables(schema: Schema): [Function, Table][] {
     const entries: [Function, Table][] = [];
     for (const [type, table] of schema.tables)
-        if (typeof type === "function")
+        if (typeof type === "function" && !(table.legacyMode && table.isMListRow))
             entries.push([type, table]);
     return entries;
 }

@@ -495,7 +495,8 @@ export class SqlBuilder {
             return undefined;
         const cols = `(${this.sqlEscape('id')}, ${this.sqlEscape('name')})`;
         const rows = values.map(v => `(${v.id}, ${this.quoteString(v.name)})`).join(', ');
-        return new SqlPreCommandSimple(`INSERT INTO ${this.objectName(table.name)} ${cols} VALUES ${rows};`);
+        return new SqlPreCommandSimple(`INSERT INTO ${this.objectName(table.name)} ${cols}
+VALUES ${rows};`);
     }
 
     private quoteString(value: string): string {
