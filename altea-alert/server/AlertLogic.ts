@@ -19,7 +19,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
 import { TypeConditionLogic } from "@altea/altea-auth/server/TypeConditionLogic";
 import {
-    AlertEntity, AlertOperation, AlertState, AlertTypeSymbol, AlertTypeOperation, AlertMessage, type IAlertTarget,
+    AlertEntity, AlertOperation, AlertState, AlertTypeSymbol, AlertTypeOperation, AlertMessage,
 } from "../data/Alert";
 import { AlertsServer } from "./AlertsServer";
 
@@ -138,9 +138,19 @@ export namespace AlertLogic {
                 && Temporal.PlainDateTime.compare(a.alertDate!, Clock.now) <= 0);
         });
 
-        QueryLogic.expressions.register(type, (e: IAlertTarget) => e.alerts!(),
+        // The lambda parameter carries the two members just stamped onto the prototype, written INLINE
+        // rather than as an exported `IAlertTarget` interface — nothing implements one (the members are
+        // stamped at runtime, per registered type), so a named type would only ever be read here.
+        type Target = Entity & {
+            /** Every alert whose `target` is this entity. */
+            alerts?(): IQuery<AlertEntity>;
+            /** …narrowed to the ones addressed to the CURRENT user and due now. */
+            myActiveAlerts?(): IQuery<AlertEntity>;
+        };
+
+        QueryLogic.expressions.register(type, (e: Target) => e.alerts!(),
             { niceName: () => AlertEntity.nicePluralName() });
-        QueryLogic.expressions.register(type, (e: IAlertTarget) => e.myActiveAlerts!(),
+        QueryLogic.expressions.register(type, (e: Target) => e.myActiveAlerts!(),
             { niceName: () => AlertMessage.MyActiveAlerts.niceToString() });
     }
 

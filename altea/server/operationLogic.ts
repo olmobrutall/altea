@@ -405,19 +405,17 @@ export namespace OperationLogic {
                 .firstOrNull();
         });
 
-        QueryLogic.expressions.register(type, (e: IOperationLogged) => e.previousOperationLog!(),
+        // The lambda parameter carries the member just stamped onto the prototype, written INLINE: nothing
+        // implements such a contract — the member exists only on the types that were registered — so a
+        // named, exported interface would only ever be read on this line.
+        type Logged = Entity & { previousOperationLog?(): Promise<OperationLogEntity | null> };
+
+        QueryLogic.expressions.register(type, (e: Logged) => e.previousOperationLog!(),
             { niceName: () => OperationMessage.PreviousOperationLog.niceToString() });
     }
 }
 
-/**
- * The expression {@link OperationLogic.registerPreviousLog} stamps onto every @systemVersioned type.
- * Declared as an interface (rather than widening `Entity`) for the same reason altea-alert declares
- * `IAlertTarget`: the member exists only on the types that were registered.
- */
-export interface IOperationLogged extends Entity {
-    previousOperationLog?(): Promise<OperationLogEntity | null>;
-}
+
 
 // Signum wraps every operation execution in a transaction that also writes an OperationLogEntity
 // (OperationLogic.OnSuspiciousOperation / the OperationRunner). altea has no ambient transaction yet, so

@@ -3,8 +3,8 @@ import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
     entity, implementedByAll, implementedBy, quoted, format, legacyPropertyRoute,
-    stringLengthValidator,
 } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -65,20 +65,6 @@ export class ViewLogEntity extends Entity {
     // column. `target` is `@implementedByAll`, and no query can expand an ANY-entity reference's display
     // string inline (the target table is only known per row) — which is exactly why Signum leaves the
     // default here. Keeping "GetEntity Order 10248" would mean materialising a `to_str` Signum has not.
-}
-
-/**
- * The two navigations `ViewLogLogic.registerExpressions` stamps onto each registered type — Signum's
- * `ViewLogs()` / `ViewLogMyLast()` extension methods, which it can hang off `Entity` itself because its
- * extension tokens are keyed by a static type. altea keys an extension token on a CONSTRUCTOR and the token
- * walk follows the concrete prototype chain, so they are stamped per registered type (the accommodation
- * altea-alert and altea-workflow already make).
- */
-export interface IViewLogTarget extends Entity {
-    /** Every view log whose `target` is this entity. */
-    viewLogs?(): IQuery<ViewLogEntity>;
-    /** …narrowed to the CURRENT user's, earliest first (Signum's `ViewLogMyLast`). */
-    viewLogMyLast?(): IQuery<ViewLogEntity>;
 }
 
 export const ViewLogMessage = {

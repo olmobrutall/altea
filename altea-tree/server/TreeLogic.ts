@@ -95,13 +95,23 @@ export namespace TreeLogic {
             return table(type).filter(a => this.route.startsWith(a.route));
         });
 
-        QueryLogic.expressions.register(type, (e: ITreeNavigations) => e.treeChildren!(),
+        // The four members just stamped onto the prototype, written INLINE: nothing implements such a
+        // contract — they exist only on the types that were registered, and they are QUERY-ONLY (see the
+        // header) — so a named, exported interface would only ever be read in this block.
+        type Navigations = TreeEntity & {
+            treeChildren?(): unknown;
+            treeParent?(): unknown;
+            treeDescendants?(): unknown;
+            treeAscendants?(): unknown;
+        };
+
+        QueryLogic.expressions.register(type, (e: Navigations) => e.treeChildren!(),
             { key: "Children", niceName: () => TreeMessage.Children.niceToString() });
-        QueryLogic.expressions.register(type, (e: ITreeNavigations) => e.treeParent!(),
+        QueryLogic.expressions.register(type, (e: Navigations) => e.treeParent!(),
             { key: "Parent", niceName: () => TreeMessage.Parent.niceToString() });
-        QueryLogic.expressions.register(type, (e: ITreeNavigations) => e.treeDescendants!(),
+        QueryLogic.expressions.register(type, (e: Navigations) => e.treeDescendants!(),
             { key: "Descendants", niceName: () => TreeMessage.Descendants.niceToString() });
-        QueryLogic.expressions.register(type, (e: ITreeNavigations) => e.treeAscendants!(),
+        QueryLogic.expressions.register(type, (e: Navigations) => e.treeAscendants!(),
             { key: "Ascendants", niceName: () => TreeMessage.Ascendants.niceToString() });
     }
 
@@ -416,15 +426,4 @@ export namespace TreeLogic {
     }
 }
 
-/**
- * The four navigations {@link TreeLogic.registerExpressions} stamps onto each concrete tree type.
- * Declared as an interface rather than on TreeEntity for the reason `IOperationLogged` gives: the members
- * exist only on the types that were registered — and they are QUERY-ONLY (see the header), which a member
- * declared on the entity would not advertise.
- */
-export interface ITreeNavigations extends TreeEntity {
-    treeChildren?(): unknown;
-    treeParent?(): unknown;
-    treeDescendants?(): unknown;
-    treeAscendants?(): unknown;
-}
+

@@ -15,7 +15,7 @@ import { Entity, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import type { IQuery } from "@altea/altea/data/iquery";
 import { getKey } from "@altea/altea/data/dynamicQuery/queryUtils";
-import { ViewLogEntity, ViewLogMessage, type IViewLogTarget } from "../data/ViewLog";
+import { ViewLogEntity, ViewLogMessage } from "../data/ViewLog";
 
 // Port of Signum.ViewLog's ViewLogLogic.cs — the module IS one table plus three subscriptions: "the API
 // handed out an entity", "a query ran", and the two navigations that let any type's search page ask
@@ -108,9 +108,20 @@ export namespace ViewLogLogic {
                 log.target.is(this) && log.user.is(UserHolder.currentUserLite()));
         });
 
-        QueryLogic.expressions.register(type, (e: IViewLogTarget) => e.viewLogs!(),
+        // The lambda parameter carries the two members just stamped onto the prototype. Its shape is
+        // written INLINE rather than as an exported `IViewLogTarget` interface: nothing implements such a
+        // thing — the members are stamped at runtime, per registered type — so a named type would only be
+        // read here, and exporting it invites the reading that a type declares itself a view-log target.
+        type Target = Entity & {
+            /** Every view log whose `target` is this entity. */
+            viewLogs?(): IQuery<ViewLogEntity>;
+            /** …narrowed to the CURRENT user's, earliest first (Signum's `ViewLogMyLast`). */
+            viewLogMyLast?(): IQuery<ViewLogEntity>;
+        };
+
+        QueryLogic.expressions.register(type, (e: Target) => e.viewLogs!(),
             { key: "ViewLogs", niceName: () => ViewLogEntity.nicePluralName() });
-        QueryLogic.expressions.register(type, (e: IViewLogTarget) => e.viewLogMyLast!(),
+        QueryLogic.expressions.register(type, (e: Target) => e.viewLogMyLast!(),
             { key: "LastViewLog", niceName: () => ViewLogMessage.ViewLogMyLast.niceToString() });
     }
 

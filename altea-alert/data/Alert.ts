@@ -3,11 +3,11 @@ import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { SemiSymbol } from "@altea/altea/data/semiSymbol";
 import {
-    entity, implementedByAll, stringLengthValidator, quoted, column, unit, valueField, backReference,
-    rowOrder,
+    entity, implementedByAll, quoted, column, unit, valueField, backReference, rowOrder, legacyPropertyRoute,
 } from "@altea/altea/data/decorators";
-import { fieldValidation, legacyPropertyRoute } from "@altea/altea/data/decorators";
-import { noRepeatValidator, notNullValidator, ValidationMessage } from "@altea/altea/data/validators";
+import {
+    stringLengthValidator, validate, noRepeatValidator, notNullValidator, ValidationMessage,
+} from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -71,7 +71,7 @@ export class AlertEntity extends Entity {
     attendedDate: Temporal.PlainDateTime | null;
 
     /** Signum's TitleField. Mandatory only when there is no `alertType` to take a title from. */
-    @fieldValidation<AlertEntity>(a =>
+    @validate<AlertEntity>(a =>
         a.titleField == null && a.alertType == null
             ? ValidationMessage._0IsNotSet.niceToString(AlertEntity.nicePropertyName(x => x.titleField))
             : null)
@@ -257,18 +257,6 @@ export class AlertNotificationMail extends ModelEntity {
     alerts: AlertEntity[];
 }
 
-
-/**
- * The two expressions `AlertLogic.start(sb, [types])` stamps onto each registered type (Signum registers
- * them once for `Entity`; altea keys an extension token on a CONCRETE type, so it is per type — the same
- * accommodation altea-workflow makes for ICaseMainEntity).
- */
-export interface IAlertTarget extends Entity {
-    /** Every alert whose `target` is this entity. */
-    alerts?(): IQuery<AlertEntity>;
-    /** …narrowed to the ones addressed to the CURRENT user and due now. */
-    myActiveAlerts?(): IQuery<AlertEntity>;
-}
 
 // ---- Messages -------------------------------------------------------------------------------------------
 
