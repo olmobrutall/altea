@@ -1,7 +1,8 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, backReference, stringLengthValidator, uniqueIndex, fieldValidation, quoted, primaryKey } from "@altea/altea/data/decorators";
+import { entity, backReference, uniqueIndex, quoted, primaryKey } from "@altea/altea/data/decorators";
+import { stringLengthValidator, validate } from "@altea/altea/data/validators";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
@@ -55,7 +56,7 @@ export class HolidayCalendarEntity extends Entity {
     /** The calendar a new ScheduleRuleWeekDays picks by default (at most one — see the class index). */
     isDefault: boolean = false;
 
-    @fieldValidation<HolidayCalendarEntity>(c => repeatedDates(c))
+    @validate<HolidayCalendarEntity>(c => repeatedDates(c))
     holidays: HolidayCalendarEntity_Holiday[] = [];
 
     /** Signum's `IsHoliday` over its `Lazy<HashSet<DateOnly>>`. */

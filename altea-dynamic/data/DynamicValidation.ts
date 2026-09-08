@@ -1,7 +1,8 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import type { FieldInfo } from "@altea/altea/data/reflection";
-import { entity, stringLengthValidator, quoted } from "@altea/altea/data/decorators";
+import { entity, quoted, bindParent } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
 import type { ConstructSymbol, From, ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
@@ -23,7 +24,7 @@ import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eva
 //  - **`DisabledMixin` is not ported** (the gap @altea/altea-tree documents), so "keep this validation but
 //    stop running it" is a plain `isDisabled` field. It keeps the mixin MEMBER's name, so the column is
 //    Signum's `IsDisabled` and a migrated database reads unchanged.
-//  - `[BindParent]` has no counterpart: an eval's owner is bound by `sb.include(X).withEvals()` (see
+//  - `[BindParent]` has no counterpart: an eval's owner is bound by `sb.include(X)` (see
 //    @altea/altea-eval), which DynamicValidationLogic calls.
 //  - Signum's `GetMainType` static hook is unnecessary — the sub-entity route is a string here, so the
 //    type the script receives is read off `entityType` directly.
@@ -52,6 +53,7 @@ export class DynamicValidationEntity extends Entity {
     /** Signum's DisabledMixin.IsDisabled — see the header. */
     isDisabled: boolean = false;
 
+    @bindParent
     eval: DynamicValidationEval;
 
     @quoted
@@ -64,7 +66,7 @@ export class DynamicValidationEntity extends Entity {
 @reflect
 export class DynamicValidationEval extends EvalEmbedded<IDynamicValidationEvaluator> {
     protected override compile(): CompilationResult<IDynamicValidationEvaluator> {
-        const entityTypeName = this.owner<DynamicValidationEntity>().entityType.className;
+        const entityTypeName = this.owner(DynamicValidationEntity).entityType.className;
 
         return this.wrap({
             importTypes: [entityTypeName, "FieldInfo"],

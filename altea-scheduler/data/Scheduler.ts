@@ -3,10 +3,9 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Symbol } from "@altea/altea/data/symbol";
 import {
-    entity, implementedBy, implementedByAll, format, unit, quoted,
-    stringLengthValidator, fieldValidation, primaryKey,
+    entity, implementedBy, implementedByAll, format, unit, quoted, primaryKey,
 } from "@altea/altea/data/decorators";
-import { ValidationMessage } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -56,7 +55,7 @@ export class ScheduleRuleMinutelyEntity extends Entity implements IScheduleRuleE
 
     // Signum's [NumberIsValidator(ComparisonType.GreaterThan, 0)]; altea has no numeric comparison
     // validator, so the same check is a field validation.
-    @fieldValidation<ScheduleRuleMinutelyEntity>(r => r.eachMinutes > 0 ? null
+    @validate<ScheduleRuleMinutelyEntity>(r => r.eachMinutes > 0 ? null
         : ValidationMessage.NumberIsTooSmall.niceToString())
     eachMinutes: int;
 
@@ -98,7 +97,7 @@ export class ScheduleRuleWeekDaysEntity extends Entity implements IScheduleRuleE
 
     // Signum validates on `Monday` that at least ONE of the seven (or Holiday) is set — altea attaches the
     // same check to the first field, so the message lands on the same line.
-    @fieldValidation<ScheduleRuleWeekDaysEntity>(r => r.anyDaySelected() ? null
+    @validate<ScheduleRuleWeekDaysEntity>(r => r.anyDaySelected() ? null
         : ValidationMessage._0IsNotSet.niceToString(SchedulerMessage.ScheduleRuleWeekDaysDN_Mo.niceToString()))
     monday: boolean = false;
     tuesday: boolean = false;
@@ -190,7 +189,7 @@ export class ScheduleRuleMonthsEntity extends Entity implements IScheduleRuleEnt
 
     startingOn: Temporal.PlainDateTime = startOfToday();
 
-    @fieldValidation<ScheduleRuleMonthsEntity>(r => r.anyMonthSelected() ? null
+    @validate<ScheduleRuleMonthsEntity>(r => r.anyMonthSelected() ? null
         : ValidationMessage._0IsNotSet.niceToString(SchedulerMessage.January.niceToString()))
     january: boolean = false;
     february: boolean = false;

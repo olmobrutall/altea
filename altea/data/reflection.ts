@@ -4,6 +4,7 @@ import type { Type, Entity } from './entity';
 import type { EntityKind, EntityData } from './decorators';
 import type { Quoted } from 'quote-transformer/quoted';
 import { registerType, resolveType, resolveEnum, enumNameOf } from './registration';
+import { MixinDeclarations } from './mixinDeclarations';
 
 // The runtime type of a primary key. `int`/`long` are identity-style integers;
 // `uuid`/`uuid7` are GUID columns (uuid7 is time-ordered). Maps to an
@@ -217,6 +218,37 @@ export class TypeReference {
     }
 }
 
+/**
+ * The data MEMBER names of a modifiable — what a rule about "which member" compares against, and altea's
+ * stand-in for C#'s `nameof`. Methods are excluded (`toString`, `isDirty`, a `@quoted` expression member),
+ * as are the reserved bookkeeping fields no rule can meaningfully name.
+ *
+ * Write the type argument EXPLICITLY at the decorator — `@isReadOnly<OrderEntity>((o, fi) => …)` — which
+ * is what makes `fi.name` this union and so makes a typo, or a member since renamed, a compile error.
+ * Naming the CLASS is the point: `keyof this` compiles and then checks nothing, because inside the method
+ * it is a deferred type.
+ *
+ * A MIXIN's member is not in its owner's union, since the owner's class does not declare it. So a rule
+ * that NAMES such a member belongs on the mixin (`@isReadOnly<OrderDetailMixin>`), where it is declared;
+ * a blanket rule on the owner still covers it, it just cannot name it. `fi.declaringType` tells the two
+ * apart.
+ */
+export type MemberOf<T> = Exclude<
+    Extract<{ [K in keyof T]: T[K] extends Function ? never : K }[keyof T], string>,
+    "id" | "ticks" | "isNew" | "_snapshot">;
+
+/**
+ * A {@link FieldInfo} whose `name` is narrowed to `T`'s members — the second argument every model RULE
+ * receives. It IS the FieldInfo (so `niceToString()`, `declaringType`, `format` all work); only the
+ * declared type of `name` is tighter, which is where the checking comes from.
+ */
+export type FieldInfoOf<T> = FieldInfo & { readonly name: MemberOf<T> };
+
+/**
+ * A class- or field-level `@isReadOnly` predicate. `undefined` means "no opinion" and defers to whatever
+ * is asked next (see `FieldInfo.isReadOnlyFor`).
+ */
+export type ReadOnlyRule = (entity: any, fi: FieldInfo) => boolean | undefined;
 export class FieldInfo extends TypeReference {
     readonly name: string;
     // The TypeInfo that DECLARES this field (Signum's PropertyRoute.RootType). Set once at creation;
@@ -281,7 +313,26 @@ export class FieldInfo extends TypeReference {
     // field). undefined ⇒ default rendering — same as Signum without the attrs. (Signum's
     // MemberInfo.required has no altea field: it's `!isNullable`.) `format` / `unit` are set by the
     // @format / @unit decorators (Signum's [Format] / [Unit]) and flow to the query tokens.
-    isReadOnly?: boolean;
+
+    /**
+     * Set by `@bindParent` (Signum's `[BindParent]`): the modifiable(s) this field holds belong to this
+     * entity, so the parent back-pointer is stamped on them — see data/parentEntity for the whole story.
+     * Explicit, as in Signum: the marker is what says "this member's value is mine", and it is what the
+     * binding walk follows.
+     */
+    bindParent?: boolean;
+
+    /**
+     * Set by `@isReadOnly` on THIS field — the property-level half of "this member cannot be edited", and
+     * the union of two things Signum keeps apart: its static `MemberInfo.isReadOnly` (a boolean) and its
+     * per-property `PropertyValidator.IsReadonly` event (a predicate over the instance). One decorator
+     * writes either, because both answer the same question and both are read by `isReadOnlyFor`.
+     *
+     * A single value, not a list: a field carries one declaration (a second `@isReadOnly` on it replaces
+     * the first). The CLASS-level rules are a list — see `TypeInfo.isReadOnly` — because a prototype chain
+     * and a mixin can each contribute one.
+     */
+    isReadOnly?: boolean | ReadOnlyRule;
     format?: string;
     unit?: string;
     // Signum's [DecimalsValidator(n)].DecimalPlaces, recorded here by `@decimalsValidator` because two
@@ -327,6 +378,45 @@ export class FieldInfo extends TypeReference {
             ? Localization.Internal.tryRouteNiceName(this.declaringType.ctor.name, this.name)
             : undefined;
         return declared ?? Localization.Internal.niceMemberName(this.name);
+    }
+
+    /**
+     * Whether this field is read-only for `entity` — Signum's `PropertyValidator.IsPropertyReadonly`, and
+     * the single source both tiers go through: the client Lines layer (`Binding.getIsReadonly`, applied by
+     * LineBase's `taskSetReadOnly`) and the serializer's write gate (Signum's `AssertCanWrite`).
+     *
+     * Asked in ONE order, and the first answer that is not `undefined` wins:
+     *   1. this FIELD's own `@isReadOnly`;
+     *   2. the class-level `@isReadOnly` rules of the class that DECLARES the field — which for a mixin's
+     *      member is the mixin, the only place a rule can name it (see the note on `MemberOf`);
+     *   3. the class-level rules of the entity itself, most-derived first, up the prototype chain.
+     *
+     * `undefined` means "no opinion", so the DEFAULT behaviour is to defer — which is what replaces
+     * Signum's `super.IsPropertyReadonly(pi)` call, and why no rule needs a handle on the next one. A
+     * `false` WINS over everything below it, which makes `@isReadOnly(false)` on a field the escape hatch
+     * from a whole-entity rule; Signum lets its per-property event win only on `true` and cannot say
+     * "editable in spite of the entity".
+     *
+     * Property AUTHORIZATION is a separate source, per ROLE rather than per instance; it is enforced by
+     * the serializer and by altea-auth's own line task, and is deliberately not folded in here (a field
+     * the role may not write is not a field the model calls read-only).
+     */
+    // `entity` is `any` for the same reason `validate` above takes one: data/entity imports THIS file,
+    // so BaseEntity cannot be imported back.
+    isReadOnlyFor(entity: any): boolean {
+        const own = typeof this.isReadOnly === "function" ? this.isReadOnly(entity, this) : this.isReadOnly;
+        if (own !== undefined)
+            return own;
+
+        for (const ctor of ruleOwners(entity?.constructor, this.declaringType?.ctor)) {
+            for (const rule of getTypeInfo(ctor)?.isReadOnly ?? []) {
+                const answer = typeof rule === "function" ? rule(entity, this) : rule;
+                if (answer !== undefined)
+                    return answer;
+            }
+        }
+
+        return false;
     }
 
     // Runs this field's validators (then any customValidation) against `entity`, returning the
@@ -497,6 +587,14 @@ export class TypeInfo {
     }
 
     fields: { [fieldName: string]: FieldInfo };
+    /**
+     * Set by a class-level `@isReadOnly` — a rule about EVERY member of this type at once, which is what
+     * Signum's `ModifiableEntity.IsPropertyReadonly(PropertyInfo)` override is for (Southwind's order is
+     * read-only in every member once it is Shipped). A LIST, because a prototype chain and a mixin can each
+     * contribute one and they compose — and because that makes the imperative override a `push` / `unshift`
+     * rather than a clobber. Read, in order, by `FieldInfo.isReadOnlyFor`.
+     */
+    isReadOnly?: (boolean | ReadOnlyRule)[];
     // Explicit database table/view name (Signum's [TableName]); overrides the
     // name derived from the class. For a view class (@reflect + @tableName) this is
     // the raw view name ViewBuilder maps to, e.g. "pg_catalog.pg_namespace".
@@ -716,6 +814,76 @@ export function getOrCreateFieldInfo(typeInfo: TypeInfo, key: string): FieldInfo
 export function getTypeInfo(target: object): TypeInfo | undefined {
     const ctor = ctorOf(target) as any;
     return ctor?.[typeInfoKey] as TypeInfo | undefined;
+}
+
+/**
+ * The FieldInfo for ONE member of a modifiable, looked up the way every reader must: the type's own
+ * fields (which already carry the inherited ones — `getOrCreateTypeInfo` seeds a subclass from its base)
+ * and then the fields each declared MIXIN contributes.
+ *
+ * That second half is the whole reason this exists. altea inlines a mixin's fields onto the owner's
+ * instance (`mixin()` is a cast), but NOT onto the owner's TypeInfo — a mixin keeps its own, and
+ * `MixinDeclarations` is the only link. So a bare `getTypeInfo(ctor).fields[member]` silently answers
+ * undefined for a mixin's member: `OrderLineEntity.fields` has no `discountCode`, it lives on
+ * `OrderDetailMixin`. Every caller that reads a field BY NAME goes through here instead (the serializer
+ * and `changes.forEachField` iterate the same two levels for themselves).
+ */
+export function resolveField(target: object, member: string): FieldInfo | undefined {
+    const ctor = ctorOf(target) as Type<Entity>;
+    const own = getTypeInfo(ctor)?.fields[member];
+    if (own != null)
+        return own;
+
+    for (const mixinClass of MixinDeclarations.getMixins(ctor)) {
+        const fi = getTypeInfo(mixinClass)?.fields[member];
+        if (fi != null)
+            return fi;
+    }
+
+    return undefined;
+}
+
+/**
+ * Every reflected field of a modifiable TYPE — its own (inherited ones included, since a subclass's
+ * TypeInfo is seeded from its base) plus the ones each declared MIXIN contributes. The iterating twin of
+ * {@link resolveField}, and the same reason for existing: a mixin keeps its own TypeInfo, so one level is
+ * never the whole field list.
+ *
+ * Takes a CONSTRUCTOR, so it needs no instance — unlike `changes.forEachField`, which reads values and
+ * deliberately skips `@column(false)` and the reserved bookkeeping fields because it serves the snapshot
+ * diff. Nothing is filtered here.
+ */
+/**
+ * The classes whose CLASS-LEVEL rules apply to a field of `entityCtor` declared by `declaringCtor`, in the
+ * order they are asked: the declaring class first when it is not part of the entity's own chain (i.e. a
+ * MIXIN, the only place a rule can name that field), then the entity's prototype chain, most-derived
+ * first. Deduped, so an own field does not ask its declaring class twice.
+ *
+ * Walking the chain at RESOLVE time rather than copying rules at decoration time is deliberate: a
+ * subclass's own `@isReadOnly` would otherwise replace the base's, since `getOrCreateTypeInfo` seeds a
+ * subclass by shallow-copying its base's TypeInfo. Same reason `OperationLogic.operationsForType` walks.
+ */
+export function ruleOwners(entityCtor: Function | undefined, declaringCtor?: Function): Function[] {
+    const chain: Function[] = [];
+    for (let c: Function | null = entityCtor ?? null; c != null && c !== Function.prototype; c = Object.getPrototypeOf(c))
+        chain.push(c);
+
+    if (declaringCtor != null && !chain.includes(declaringCtor))
+        return [declaringCtor, ...chain];
+
+    return chain;
+}
+
+export function eachFieldInfo(ctor: Function, callback: (fi: FieldInfo) => void): void {
+    const visit = (owner: Function): void => {
+        const ti = getTypeInfo(owner);
+        if (ti == null) return;
+        for (const fi of Object.values(ti.fields)) callback(fi);
+    };
+
+    visit(ctor);
+    for (const mixinClass of MixinDeclarations.getMixins(ctor as Type<Entity>))
+        visit(mixinClass as unknown as Function);
 }
 
 // The default display format for a value type when no explicit @format is given (Signum's

@@ -21,7 +21,7 @@ import { ValidationMessage } from "@altea/altea/data/validators";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { UserAssetLogic } from "@altea/altea-user-assets/server/UserAssetLogic";
-import { EvalLogic } from "@altea/altea-eval/server/EvalLogic"; // + FluentInclude.withEvals
+import { EvalLogic } from "@altea/altea-eval/server/EvalLogic";
 import * as workflowEvalModule from "../data/WorkflowEval";
 import * as caseModule from "../data/Case";
 import * as caseActivityModule from "../data/CaseActivity";
@@ -422,14 +422,12 @@ export namespace WorkflowLogic {
             .withQuery();
 
         sb.include(WorkflowLaneEntity)
-            .withEvals()
             .withSave(WorkflowLaneOperation.Save)
             .withDelete(WorkflowLaneOperation.Delete)
             .withExpressionFrom(WorkflowPoolEntity, p => p.workflowLanes())
             .withQuery();
 
         sb.include(WorkflowActivityEntity)
-            .withEvals()
             .withSave(WorkflowActivityOperation.Save)
             .withDelete(WorkflowActivityOperation.Delete)
             .withExpressionFrom(WorkflowEntity, p => p.workflowActivities())
@@ -525,7 +523,6 @@ export namespace WorkflowLogic {
 
     function startWorkflowConditions(sb: SchemaBuilder): void {
         sb.include(WorkflowConditionEntity)
-            .withEvals()
             .withOperations(registerWorkflowConditionOperations)
             .withQuery();
 
@@ -535,7 +532,6 @@ export namespace WorkflowLogic {
 
     function startWorkflowActions(sb: SchemaBuilder): void {
         sb.include(WorkflowActionEntity)
-            .withEvals()
             .withOperations(registerWorkflowActionOperations)
             .withQuery();
 
@@ -545,7 +541,6 @@ export namespace WorkflowLogic {
 
     function startWorkflowTimerConditions(sb: SchemaBuilder): void {
         sb.include(WorkflowTimerConditionEntity)
-            .withEvals()
             .withOperations(registerWorkflowTimerConditionOperations)
             .withQuery();
 
@@ -555,7 +550,6 @@ export namespace WorkflowLogic {
 
     function startWorkflowScript(sb: SchemaBuilder): void {
         sb.include(WorkflowScriptEntity)
-            .withEvals()
             .withOperations(registerWorkflowScriptOperations)
             .withQuery();
 

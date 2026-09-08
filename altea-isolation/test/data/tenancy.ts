@@ -1,7 +1,8 @@
 import { reflect } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
-import { entity, quoted, stringLengthValidator, uniqueIndex } from "@altea/altea/data/decorators";
+import { entity, quoted, uniqueIndex } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 
 // A tiny, purpose-built domain for the ISOLATION suite — one type per strategy, because each strategy is a
 // different query filter and a different save rule:

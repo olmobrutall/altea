@@ -1,7 +1,8 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Symbol } from "@altea/altea/data/symbol";
-import { decimalsValidator, entity, format, quoted, stringLengthValidator, unit } from "@altea/altea/data/decorators";
+import { decimalsValidator, entity, format, quoted, unit } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Decimal } from "@altea/altea/data/basics";
 import type { float, int } from "@altea/altea/data/basics";
 import type { DeleteSymbol, ExecuteSymbol } from "@altea/altea/data/operations";

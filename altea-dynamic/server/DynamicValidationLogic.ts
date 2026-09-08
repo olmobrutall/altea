@@ -1,6 +1,5 @@
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import "@altea/altea/server/fluentOperations";
-import "@altea/altea-eval/server/EvalLogic"; // FluentInclude.withEvals
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { Administrator } from "@altea/altea/server/administrator";
@@ -73,7 +72,6 @@ export namespace DynamicValidationLogic {
             .withSave(DynamicValidationOperation.Save)
             .withDelete(DynamicValidationOperation.Delete)
             .withQuery()
-            .withEvals()
             .withOperations(op => {
                 op.withConstructFrom(DynamicValidationEntity, DynamicValidationOperation.Clone, {
                     construct: e => {

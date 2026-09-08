@@ -3,9 +3,9 @@ import { Entity, EmbeddedEntity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Enum } from "@altea/altea/data/enum";
 import {
-    entity, implementedBy, primaryKey, uniqueIndex, index, unit, serialize,
-    stringLengthValidator, backReference, valueField, quoted,
+    entity, implementedBy, primaryKey, uniqueIndex, index, unit, serialize, backReference, valueField, quoted,
 } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { registerEnum } from "@altea/altea/data/registration";
@@ -38,7 +38,7 @@ import {
 //    and the eight FUNCTION types they are parameterized by live together in WorkflowEval.ts (Signum's eight
 //    `IXEvaluator` interfaces).
 //    Two consequences of altea-eval's design show up here: an eval's OWNER is bound by
-//    `sb.include(Owner).withEvals()` rather than by Signum's `[BindParent]`, and a generated wrapper's
+//    `sb.include(Owner)` rather than by Signum's `[BindParent]`, and a generated wrapper's
 //    signature is written by the eval's own `compile()` (which is where each one reads the main entity type).
 //
 //  - **`Guid Guid` → a uuid PRIMARY KEY.** Every IUserAssetEntity here follows the convention

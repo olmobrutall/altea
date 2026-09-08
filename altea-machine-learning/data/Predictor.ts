@@ -3,8 +3,9 @@ import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Symbol } from "@altea/altea/data/symbol";
 import {
     entity, backReference, valueField, rowOrder, quoted, implementedBy, implementedByAll, column, format, unit,
-    stringLengthValidator, fieldValidation, noRepeatValidator, legacyTableName
+    legacyTableName,
 } from "@altea/altea/data/decorators";
+import { stringLengthValidator, validate, noRepeatValidator } from "@altea/altea/data/validators";
 import { Lite } from "@altea/altea/data/lite";
 import { type float, type int, toInt, Temporal, type long, toLong } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -35,7 +36,7 @@ import { ProcessAlgorithmSymbol, ProcessEntity } from "@altea/altea-processes/da
 //  - `IPredictorAlgorithmSettings` is a TS INTERFACE, so `algorithmSettings` is `@implementedBy` over the
 //    concrete settings entities — the app widens it, as it does for the mail services.
 //  - `StateValidator` (Signum's table-driven per-state required/forbidden matrix) becomes per-field
-//    `@fieldValidation`, the translation @altea/altea-email already made for the same construct.
+//    `@validate`, the translation @altea/altea-email already made for the same construct.
 //  - `QueryDescription` is gone, so `ParseData` — which existed to resolve each stored token against it —
 //    has no counterpart at all: a token is resolved where it is USED (PredictorLogicQuery), and its
 //    staleness is discovered rather than precomputed (the call the token-migration port documents).
@@ -297,11 +298,11 @@ export class PredictorSubQueryEntity_Column extends Entity {
 
     // Signum's StateValidator: an encoding and a null handling are required for Input/Output and
     // FORBIDDEN for ParentKey/SplitBy — those two are structural, not data to feed a network.
-    @fieldValidation<PredictorSubQueryEntity_Column>(c => isDataUsage(c.usage) === (c.encoding == null)
+    @validate<PredictorSubQueryEntity_Column>(c => isDataUsage(c.usage) === (c.encoding == null)
         ? PredictorMessage.EncodingIsRequiredForInputAndOutputColumnsOnly.niceToString() : null)
     encoding: PredictorColumnEncodingSymbol | null;
 
-    @fieldValidation<PredictorSubQueryEntity_Column>(c => isDataUsage(c.usage) === (c.nullHandling == null)
+    @validate<PredictorSubQueryEntity_Column>(c => isDataUsage(c.usage) === (c.nullHandling == null)
         ? PredictorMessage.NullHandlingIsRequiredForInputAndOutputColumnsOnly.niceToString() : null)
     nullHandling: PredictorColumnNullHandling | null;
 

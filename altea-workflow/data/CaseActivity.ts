@@ -3,7 +3,8 @@ import { Entity, EmbeddedEntity, MixinEntity, ModelEntity, type Type } from "@al
 import { Lite } from "@altea/altea/data/lite";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { cleanTypeName } from "@altea/altea/data/registration";
-import { entity, implementedBy, unit, stringLengthValidator, quoted, index, legacyPropertyRoute } from "@altea/altea/data/decorators";
+import { entity, implementedBy, unit, quoted, index, legacyPropertyRoute } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Temporal, type int, type uuid } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";

@@ -2,8 +2,7 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, unit, quoted } from "@altea/altea/data/decorators";
-import { fieldValidation } from "@altea/altea/data/decorators";
-import { ValidationMessage } from "@altea/altea/data/validators";
+import { validate, ValidationMessage } from "@altea/altea/data/validators";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
@@ -18,7 +17,7 @@ import { FilePathEmbedded, FileTypeSymbol } from "@altea/altea-files/data/Files"
 //    ships no per-property file-type metadata), so the file type is passed when the FilePathEmbedded is
 //    constructed — see CachedProfilePhotoLogic.
 //  - `[NumberIsValidator(ComparisonType.GreaterThan, 0)]` + the `PropertyValidation` that pins the size to
-//    one of Graph's supported sizes collapse into ONE `@fieldValidation` (altea has no number validator and
+//    one of Graph's supported sizes collapse into ONE `@validate` (altea has no number validator and
 //    no entity-level validation hook).
 //  - `CreationDate { get; private set; } = Clock.Now` → a plain field with the same initializer (altea has
 //    no private setters).
@@ -37,7 +36,7 @@ export class CachedProfilePhotoEntity extends Entity {
     user: Lite<UserEntity>;
 
     @unit("px")
-    @fieldValidation<CachedProfilePhotoEntity>(p => {
+    @validate<CachedProfilePhotoEntity>(p => {
         const size = p.size as unknown as number;
         if (!(size > 0))
             return ValidationMessage.NumberIsTooSmall.niceToString();

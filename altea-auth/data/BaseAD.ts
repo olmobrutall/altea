@@ -2,7 +2,8 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import type { int } from "@altea/altea/data/basics";
 import { Lite } from "@altea/altea/data/lite";
-import { stringLengthValidator, rowOrder } from "@altea/altea/data/decorators";
+import { rowOrder } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { RoleEntity } from "./Role";
 import { PermissionSymbol } from "./Rules";
@@ -36,7 +37,7 @@ import { PermissionSymbol } from "./Rules";
 //    accessor the shared ADAuthorizer reads, since the base cannot name the subclass's row type.
 //  - `[PreserveOrder]` IS modelled (`@rowOrder`), because Signum declares it and the column is part of
 //    the table a Signum database already has.
-//  - Signum's `PropertyValidation` override becomes per-field `@fieldValidation` in each SUBCLASS (altea
+//  - Signum's `PropertyValidation` override becomes per-field `@validate` in each SUBCLASS (altea
 //    has no entity-level validation hook), so nothing to override here.
 
 /**

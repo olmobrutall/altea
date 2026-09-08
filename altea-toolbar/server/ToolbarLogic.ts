@@ -41,7 +41,7 @@ import { ToolbarServer } from "./ToolbarServer";
 // altea divergences, documented inline:
 //  - Signum runs its element checks + the recursion check from `sb.Schema.EntityEvents<T>().Saving`. altea's
 //    `saving` event is SYNCHRONOUS (no sync DB access), and the recursion check must read the referenced
-//    toolbars — so the element checks moved to owner-level `@fieldValidation`s (data/Toolbar.ts, they need no
+//    toolbars — so the element checks moved to owner-level `@validate`s (data/Toolbar.ts, they need no
 //    DB) and the recursion check runs in the Save operation's `execute` (below). Every save goes through the
 //    registered Save operation (the XML importer included), so the coverage is the same.
 //  - Signum's `Schema.Current.GetInMemoryFilter<T>(userInterface: false)` → UserAssetOwnerAuth.filterVisible

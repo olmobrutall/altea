@@ -1,15 +1,12 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import {
-    backReference, column, entity, fieldValidation, quoted, rowOrder, serialize, stringLengthValidator,
-} from "@altea/altea/data/decorators";
-import { noRepeatValidator } from "@altea/altea/data/validators";
+import { backReference, column, entity, quoted, rowOrder, serialize } from "@altea/altea/data/decorators";
+import { validate, stringLengthValidator, noRepeatValidator, ValidationMessage } from "@altea/altea/data/validators";
 import { Temporal } from "@altea/altea/data/basics";
 import type { int } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
-import { ValidationMessage } from "@altea/altea/data/validators";
 import { ExceptionEntity } from "@altea/altea/data/exception";
 import type { DeleteSymbol } from "@altea/altea/data/operations";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
@@ -86,14 +83,14 @@ export class ChatMessageEntity extends Entity {
     role: ChatMessageRole;
 
     /** The message text — or, for a Tool row, the tool's serialized result. */
-    @fieldValidation<ChatMessageEntity>(m =>
+    @validate<ChatMessageEntity>(m =>
         m.content == null && m.role !== ChatMessageRole.Assistant && m.exception == null
             ? ValidationMessage._0IsNotSet.niceToString(ChatMessageEntity.nicePropertyName(a => a.content))
             : null)
     @stringLengthValidator({ multiLine: true })
     content: string | null = null;
 
-    @fieldValidation<ChatMessageEntity>(m =>
+    @validate<ChatMessageEntity>(m =>
         m.reasoningContent != null && m.role !== ChatMessageRole.Assistant
             ? ValidationMessage._0ShouldBeNull.niceToString(ChatMessageEntity.nicePropertyName(a => a.reasoningContent))
             : null)
@@ -104,14 +101,14 @@ export class ChatMessageEntity extends Entity {
     toolCalls: ChatMessageEntity_ToolCall[];
 
     /** Set on a Tool row: which call this is the answer to. */
-    @fieldValidation<ChatMessageEntity>(m =>
+    @validate<ChatMessageEntity>(m =>
         m.toolCallID != null && m.role !== ChatMessageRole.Tool
             ? ValidationMessage._0ShouldBeNull.niceToString(ChatMessageEntity.nicePropertyName(a => a.toolCallID))
             : null)
     @stringLengthValidator({ max: 100 })
     toolCallID: string | null = null;
 
-    @fieldValidation<ChatMessageEntity>(m =>
+    @validate<ChatMessageEntity>(m =>
         m.toolID != null && m.role !== ChatMessageRole.Tool
             ? ValidationMessage._0ShouldBeNull.niceToString(ChatMessageEntity.nicePropertyName(a => a.toolID))
             : null)
@@ -129,13 +126,13 @@ export class ChatMessageEntity extends Entity {
 
     duration: Temporal.Duration | null = null;
 
-    @fieldValidation<ChatMessageEntity>(m =>
+    @validate<ChatMessageEntity>(m =>
         m.userFeedback != null && m.role !== ChatMessageRole.Assistant
             ? ValidationMessage._0ShouldBeNull.niceToString(ChatMessageEntity.nicePropertyName(a => a.userFeedback))
             : null)
     userFeedback: UserFeedback | null = null;
 
-    @fieldValidation<ChatMessageEntity>(m =>
+    @validate<ChatMessageEntity>(m =>
         m.userFeedbackMessage != null && m.userFeedback !== UserFeedback.Negative
             ? ValidationMessage._0ShouldBeNull.niceToString(ChatMessageEntity.nicePropertyName(a => a.userFeedbackMessage))
             : null)

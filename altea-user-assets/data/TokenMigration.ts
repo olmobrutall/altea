@@ -1,6 +1,7 @@
 import { reflect } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, quoted, stringLengthValidator, ticksColumn, uniqueIndex } from "@altea/altea/data/decorators";
+import { entity, quoted, ticksColumn, uniqueIndex } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 
 // Port of Signum.UserAssets' TokenMigrations/TokenMigrationEntity.cs — one row per APPLIED token
 // migration, the same shape a SQL migration row has: the version, and the comment from its file name.

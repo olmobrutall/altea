@@ -1,5 +1,6 @@
 import { cleanModified } from "../../data/changes";
 import { Entity, type PrimaryKey, BaseEntity, newInstance, type Type, View, type ViewType } from "../../data/entity";
+import { bindParentsOwn } from '../../data/parentEntity';
 import { Lite, LiteImp } from "../../data/lite";
 import { TypeLogic } from "../typeLogic";
 import { Connector } from "../connection/connector";
@@ -115,6 +116,11 @@ export class Retriever {
     // level; the recursive batch loads in completeAll share this retriever and don't re-fire.
     async postRetrieved(): Promise<void> {
         const schema = Connector.current().schema;
+        // The parent back-pointers first (Signum binds them as each instance is constructed), so a
+        // Retrieved handler — and everything downstream — can already read the owner of an embedded or a
+        // part row. `populated` is the whole materialised set, so one level per instance covers the graph.
+        for (const e of this.populated)
+            bindParentsOwn(e);
         for (const e of this.populated)
             schema.entityEvents(e.constructor as Type<Entity>).onRetrieved(e);
         // A Retrieved handler may DERIVE an in-memory value from what was just read — Signum.Files stamps a

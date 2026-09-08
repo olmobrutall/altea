@@ -5,6 +5,7 @@
 
 import type { PrimaryKey, BaseEntity, Entity } from '../entity';
 import type { PropertyRoute } from '../propertyRoute';
+import type { FieldInfo } from '../reflection';
 
 // ---- Options ---------------------------------------------------------------
 
@@ -82,4 +83,6 @@ export interface FieldPlan {
     serializer: JsonSerializer;
     isBackReference: boolean;
     isRowOrder: boolean;
+    /** The field this entry was built from — the codec's write gate asks it `isReadOnlyFor`. */
+    fieldInfo: FieldInfo;
 }

@@ -4,10 +4,12 @@ import { Entity, EmbeddedEntity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Enum } from "@altea/altea/data/enum";
 import {
-    entity, implementedBy, forceNullable, column, unit, stringLengthValidator, fieldValidation,
-    backReference, rowOrder, valueField, quoted, uniqueIndex,
+    entity, implementedBy, forceNullable, column, unit, backReference, rowOrder, valueField, quoted, uniqueIndex,
+    bindParent,
 } from "@altea/altea/data/decorators";
-import { noRepeatValidator, ValidationMessage, ComparisonType } from "@altea/altea/data/validators";
+import {
+    stringLengthValidator, validate, noRepeatValidator, ValidationMessage, ComparisonType,
+} from "@altea/altea/data/validators";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { registerEnum } from "@altea/altea/data/registration";
@@ -135,15 +137,16 @@ export class WorkflowLaneEntity extends Entity implements IWorkflowObjectEntity,
     actors: WorkflowLaneEntity_Actor[];
 
     /** Signum's `WorkflowLaneActorsEval` — the actors computed per case, as a stored script. */
+    @bindParent
     actorsEval: WorkflowLaneActorsEval | null;
 
-    @fieldValidation<WorkflowLaneEntity>(l => !l.useActorEvalForStart || l.actorsEval != null ? null
+    @validate<WorkflowLaneEntity>(l => !l.useActorEvalForStart || l.actorsEval != null ? null
         : ValidationMessage._0ShouldBe12.niceToString(
             WorkflowLaneEntity.nicePropertyName(a => a.useActorEvalForStart),
             Enum.niceName(ComparisonType, "EqualTo"), false))
     useActorEvalForStart: boolean = false;
 
-    @fieldValidation<WorkflowLaneEntity>(l =>
+    @validate<WorkflowLaneEntity>(l =>
         !l.combineActorAndActorEvalWhenContinuing || (l.actorsEval != null && l.actors.length > 0) ? null
             : ValidationMessage._0ShouldBe12.niceToString(
                 WorkflowLaneEntity.nicePropertyName(a => a.combineActorAndActorEvalWhenContinuing),
@@ -199,7 +202,7 @@ export class WorkflowLaneEntity extends Entity implements IWorkflowObjectEntity,
 @reflect
 export class WorkflowLaneActorsEval extends EvalEmbedded<IWorkflowLaneActorsEvaluator> {
     protected override compile(): CompilationResult<IWorkflowLaneActorsEvaluator> {
-        const owner = this.owner<Entity>();
+        const owner = this.owner(Entity);
         const mainEntityType = owner instanceof WorkflowLaneEntity
             ? owner.pool.workflow.mainEntityType.className
             : (owner as unknown as WorkflowLaneModel).mainEntityType.className;
@@ -231,15 +234,16 @@ export class WorkflowLaneModel extends ModelEntity {
     @noRepeatValidator()
     actors: Lite<Entity>[];
 
+    @bindParent
     actorsEval: WorkflowLaneActorsEval | null;
 
-    @fieldValidation<WorkflowLaneModel>(l => !l.useActorEvalForStart || l.actorsEval != null ? null
+    @validate<WorkflowLaneModel>(l => !l.useActorEvalForStart || l.actorsEval != null ? null
         : ValidationMessage._0ShouldBe12.niceToString(
             WorkflowLaneModel.nicePropertyName(a => a.useActorEvalForStart),
             Enum.niceName(ComparisonType, "EqualTo"), false))
     useActorEvalForStart: boolean = false;
 
-    @fieldValidation<WorkflowLaneModel>(l =>
+    @validate<WorkflowLaneModel>(l =>
         !l.combineActorAndActorEvalWhenContinuing || (l.actorsEval != null && l.actors.length > 0) ? null
             : ValidationMessage._0ShouldBe12.niceToString(
                 WorkflowLaneModel.nicePropertyName(a => a.combineActorAndActorEvalWhenContinuing),
@@ -335,7 +339,7 @@ export class WorkflowScriptPartEmbedded extends EmbeddedEntity {
 @reflect
 export class SubEntitiesEval extends EvalEmbedded<ISubEntitiesEvaluator> {
     protected override compile(): CompilationResult<ISubEntitiesEvaluator> {
-        const activity = this.owner<WorkflowActivityEntity>();
+        const activity = this.owner(WorkflowActivityEntity);
         const mainEntityType = activity.lane.pool.workflow.mainEntityType.className;
         const subEntityType = activity.subWorkflow!.workflow.mainEntityType.className;
 
@@ -355,6 +359,7 @@ export class SubWorkflowEmbedded extends EmbeddedEntity {
     workflow: WorkflowEntity;
 
     /** Signum's `SubEntitiesEval` — which entities to spawn the sub-workflow for, as a stored script. */
+    @bindParent
     subEntitiesEval: SubEntitiesEval;
 
     clone(): SubWorkflowEmbedded {
@@ -414,12 +419,12 @@ export class WorkflowActivityEntity extends Entity implements IWorkflowNodeEntit
 
     requiresOpen: boolean = false;
 
-    @fieldValidation<WorkflowActivityEntity>(a =>
+    @validate<WorkflowActivityEntity>(a =>
         isSetOnlyWhen(WorkflowActivityEntity.nicePropertyName(x => x.decisionOptions),
             a.decisionOptions.length > 0, a.type === WorkflowActivityType.Decision))
     decisionOptions: WorkflowActivityEntity_DecisionOption[];
 
-    @fieldValidation<WorkflowActivityEntity>(a => a.customNextButton == null || a.type === WorkflowActivityType.Task ? null
+    @validate<WorkflowActivityEntity>(a => a.customNextButton == null || a.type === WorkflowActivityType.Task ? null
         : ValidationMessage._0IsSet.niceToString(WorkflowActivityEntity.nicePropertyName(x => x.customNextButton)))
     customNextButton: ButtonOptionEmbedded | null;
 
@@ -445,18 +450,19 @@ export class WorkflowActivityEntity extends Entity implements IWorkflowNodeEntit
     @stringLengthValidator({ min: 3, max: 255 })
     viewName: string | null;
 
-    @fieldValidation<WorkflowActivityEntity>(a => a.viewNameProps.length === 0 || (a.viewName ?? "") !== "" ? null
+    @validate<WorkflowActivityEntity>(a => a.viewNameProps.length === 0 || (a.viewName ?? "") !== "" ? null
         : ValidationMessage._0ShouldBeNull.niceToString(
             WorkflowActivityEntity.nicePropertyName(x => x.viewNameProps)))
     @noRepeatValidator()
     viewNameProps: WorkflowActivityEntity_ViewNameProp[];
 
-    @fieldValidation<WorkflowActivityEntity>(a => scriptValidation(a.script != null, a.type))
+    @validate<WorkflowActivityEntity>(a => scriptValidation(a.script != null, a.type))
     script: WorkflowScriptPartEmbedded | null;
 
     xml: WorkflowXmlEmbedded;
 
-    @fieldValidation<WorkflowActivityEntity>(a => subWorkflowValidation(a.subWorkflow != null, a.type))
+    @validate<WorkflowActivityEntity>(a => subWorkflowValidation(a.subWorkflow != null, a.type))
+    @bindParent
     subWorkflow: SubWorkflowEmbedded | null;
 
     @stringLengthValidator({ multiLine: true })
@@ -533,12 +539,12 @@ export class WorkflowActivityModel extends ModelEntity {
 
     requiresOpen: boolean = false;
 
-    @fieldValidation<WorkflowActivityModel>(a =>
+    @validate<WorkflowActivityModel>(a =>
         isSetOnlyWhen(WorkflowActivityModel.nicePropertyName(x => x.decisionOptions),
             a.decisionOptions.length > 0, a.type === WorkflowActivityType.Decision))
     decisionOptions: ButtonOptionEmbedded[];
 
-    @fieldValidation<WorkflowActivityModel>(a => a.customNextButton == null || a.type === WorkflowActivityType.Task ? null
+    @validate<WorkflowActivityModel>(a => a.customNextButton == null || a.type === WorkflowActivityType.Task ? null
         : ValidationMessage._0IsSet.niceToString(WorkflowActivityModel.nicePropertyName(x => x.customNextButton)))
     customNextButton: ButtonOptionEmbedded | null;
 
@@ -553,7 +559,7 @@ export class WorkflowActivityModel extends ModelEntity {
     @stringLengthValidator({ min: 3, max: 255 })
     viewName: string | null;
 
-    @fieldValidation<WorkflowActivityModel>(a => a.viewNameProps.length === 0 || (a.viewName ?? "") !== "" ? null
+    @validate<WorkflowActivityModel>(a => a.viewNameProps.length === 0 || (a.viewName ?? "") !== "" ? null
         : ValidationMessage._0ShouldBeNull.niceToString(WorkflowActivityModel.nicePropertyName(x => x.viewNameProps)))
     @noRepeatValidator()
     viewNameProps: ViewNamePropEmbedded[];
@@ -564,6 +570,7 @@ export class WorkflowActivityModel extends ModelEntity {
     @stringLengthValidator({ multiLine: true })
     userHelp: string | null;
 
+    @bindParent
     subWorkflow: SubWorkflowEmbedded | null;
 }
 
@@ -662,7 +669,7 @@ export class TimeSpanEmbedded extends EmbeddedEntity {
 @reflect
 export class WorkflowTimerEmbedded extends EmbeddedEntity {
 
-    @fieldValidation<WorkflowTimerEmbedded>(t =>
+    @validate<WorkflowTimerEmbedded>(t =>
         t.duration == null && t.condition == null
             ? ValidationMessage._0IsMandatoryWhen1IsNotSet.niceToString(
                 WorkflowTimerEmbedded.nicePropertyName(a => a.duration),
@@ -876,7 +883,7 @@ export class WorkflowConnectionEntity extends Entity implements IWorkflowObjectE
     @stringLengthValidator({ min: 3, max: 100 })
     name: string | null;
 
-    @fieldValidation<WorkflowConnectionEntity>(c =>
+    @validate<WorkflowConnectionEntity>(c =>
         isSetOnlyWhen(WorkflowConnectionEntity.nicePropertyName(x => x.decisionOptionName),
             c.decisionOptionName != null, c.type === ConnectionType.Decision))
     @stringLengthValidator({ min: 3, max: 100 })
@@ -946,7 +953,7 @@ export class WorkflowConnectionModel extends ModelEntity {
     @stringLengthValidator({ min: 3, max: 100 })
     name: string | null;
 
-    @fieldValidation<WorkflowConnectionModel>(c => c.decisionOptionName != null || c.type !== ConnectionType.Decision ? null
+    @validate<WorkflowConnectionModel>(c => c.decisionOptionName != null || c.type !== ConnectionType.Decision ? null
         : ValidationMessage._0IsNotSet.niceToString(
             WorkflowConnectionModel.nicePropertyName(x => x.decisionOptionName)))
     @stringLengthValidator({ min: 3, max: 100 })

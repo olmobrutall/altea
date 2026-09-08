@@ -1,7 +1,6 @@
 import { reflect, field } from "@altea/altea/data/reflection";
 import { EmbeddedEntity } from "@altea/altea/data/entity";
-import { fieldValidation } from "@altea/altea/data/decorators";
-import { ValidationMessage } from "@altea/altea/data/validators";
+import { validate, ValidationMessage } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
 import { OrderType } from "@altea/altea/data/dynamicQueries";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
@@ -30,7 +29,7 @@ export class ChartColumnEmbedded extends EmbeddedEntity {
     // (TokenChanged) is invoked explicitly by the editor (see tokenChanged()). Signum's PropertyValidation
     // for Token lives here: required unless the slot is optional, and (once resolved) the token's
     // ChartColumnType must be compatible with the slot's ColumnType.
-    @fieldValidation<ChartColumnEmbedded>(c => {
+    @validate<ChartColumnEmbedded>(c => {
         if (c.token == null)
             return c.scriptColumn != null && !c.scriptColumn.isOptional
                 ? ChartMessage._0IsNotOptional.niceToString(c.scriptColumn.getDisplayName())
@@ -52,7 +51,7 @@ export class ChartColumnEmbedded extends EmbeddedEntity {
     format: string | null;
 
     // Signum's `[NumberIsValidator(GreaterThan, 0)] int? OrderByIndex`.
-    @fieldValidation<ChartColumnEmbedded>(c =>
+    @validate<ChartColumnEmbedded>(c =>
         c.orderByIndex != null && c.orderByIndex <= 0
             ? ValidationMessage.NumberIsTooSmall.niceToString()
             : null)

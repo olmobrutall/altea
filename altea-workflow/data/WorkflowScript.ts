@@ -1,9 +1,9 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, primaryKey, uniqueIndex, stringLengthValidator, fieldValidation, quoted } from "@altea/altea/data/decorators";
+import { entity, primaryKey, uniqueIndex, quoted, bindParent } from "@altea/altea/data/decorators";
+import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
-import { ValidationMessage } from "@altea/altea/data/validators";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { type IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
@@ -32,6 +32,7 @@ export class WorkflowScriptEntity extends Entity implements IUserAssetEntity {
 
     mainEntityType: TypeEntity;
 
+    @bindParent
     eval: WorkflowScriptEval;
 
     @quoted
@@ -55,7 +56,7 @@ export class WorkflowScriptEval extends EvalEmbedded<IWorkflowScriptExecutor> {
     customTypes: string | null = null;
 
     protected override compile(): CompilationResult<IWorkflowScriptExecutor> {
-        const mainEntityType = this.owner<WorkflowScriptEntity>().mainEntityType.className;
+        const mainEntityType = this.owner(WorkflowScriptEntity).mainEntityType.className;
 
         return this.wrap({
             importTypes: [mainEntityType, "WorkflowScriptContext"],
@@ -86,7 +87,7 @@ export class WorkflowScriptRetryStrategyEntity extends Entity implements IUserAs
     @uniqueIndex
     @stringLengthValidator({ min: 3, max: 100 })
     // Signum validates the rule with the same regex in PropertyValidation.
-    @fieldValidation<WorkflowScriptRetryStrategyEntity>(e => retryRuleRegex.test(e.rule ?? "") ? null
+    @validate<WorkflowScriptRetryStrategyEntity>(e => retryRuleRegex.test(e.rule ?? "") ? null
         : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(
             WorkflowScriptRetryStrategyEntity.nicePropertyName(a => a.rule), "RetryStrategyRule"))
     rule: string;

@@ -1,7 +1,8 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, MixinEntity, type Type } from "@altea/altea/data/entity";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
-import { entity, quoted, stringLengthValidator, uniqueIndex } from "@altea/altea/data/decorators";
+import { entity, quoted, uniqueIndex } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import type { Lite } from "@altea/altea/data/lite";
 import type { ExecuteSymbol } from "@altea/altea/data/operations";
 import { msg } from "@altea/altea/data/utils/localization";

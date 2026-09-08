@@ -2,10 +2,10 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { EmbeddedEntity } from "@altea/altea/data/entity";
 import { ImmutableEntity } from "@altea/altea/data/immutableEntity";
 import { Symbol } from "@altea/altea/data/symbol";
-import { column, entity, format, stringLengthValidator, fieldValidation, ticksColumn } from "@altea/altea/data/decorators";
+import { column, entity, format, ticksColumn } from "@altea/altea/data/decorators";
+import { stringLengthValidator, validate, notNullValidator } from "@altea/altea/data/validators";
 import { type long, toLong } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
-import { notNullValidator } from "@altea/altea/data/validators";
 
 // Port of Signum.Files' file model (FileTypeSymbol.cs, FilePathEmbedded.cs, FileEmbedded.cs, FileEntity.cs,
 // Signum.Files.ts). Signum offers four ways to hold a file, along two axes — where the BYTES live, and
@@ -114,7 +114,7 @@ export class FileEntity extends ImmutableEntity {
 @reflect
 export class FilePathEmbedded extends EmbeddedEntity {
     // Signum's [StringLengthValidator(1, 260), FileNameValidator].
-    @fieldValidation<FilePathEmbedded>(f => hasInvalidFileNameChars(f.fileName)
+    @validate<FilePathEmbedded>(f => hasInvalidFileNameChars(f.fileName)
         ? FileMessage.TheNameOfTheFileMustNotContainPercent1.niceToString(invalidFileNameChars) : null)
     @stringLengthValidator({ min: 1, max: 260 })
     fileName: string = "";

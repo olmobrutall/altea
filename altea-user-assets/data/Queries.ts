@@ -1,6 +1,7 @@
 import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { EmbeddedEntity, Entity } from "@altea/altea/data/entity";
-import { column, serialize, stringLengthValidator, rowOrder } from "@altea/altea/data/decorators";
+import { column, serialize, rowOrder } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import {
     PinnedFilterActive, FilterGroupOperation, FilterOperation, DashboardBehaviour,

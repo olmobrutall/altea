@@ -2,10 +2,11 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, primaryKey, implementedBy, uniqueIndex, backReference, rowOrder, valueField,
-    stringLengthValidator, fieldValidation, quoted,
+    entity, primaryKey, implementedBy, uniqueIndex, backReference, rowOrder, valueField, quoted, bindParent,
 } from "@altea/altea/data/decorators";
-import { noRepeatValidator, countIsValidator, ComparisonType, ValidationMessage } from "@altea/altea/data/validators";
+import {
+    stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType, ValidationMessage,
+} from "@altea/altea/data/validators";
 import { type int, toInt, type uuid } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
@@ -163,7 +164,7 @@ export class EmailMasterTemplateEntity_Message extends Entity {
      *  Signum names it, because the member IS the column (`CultureInfo_ID`). */
     cultureInfo: Lite<CultureInfoEntity>;
 
-    @fieldValidation<EmailMasterTemplateEntity_Message>(m => masterTemplateContentRegex.test(m.text ?? "") ? null
+    @validate<EmailMasterTemplateEntity_Message>(m => masterTemplateContentRegex.test(m.text ?? "") ? null
         : EmailTemplateMessage.TheTextMustContain0IndicatingReplacementPoint.niceToString("@[content]"))
     text: string;
 
@@ -207,7 +208,7 @@ export class EmailMasterTemplateEntity extends Entity implements IUserAssetEntit
     isDefault: boolean;
 
     @countIsValidator(ComparisonType.GreaterThan, 0)
-    @fieldValidation<EmailMasterTemplateEntity>(t => hasDuplicateCulture(t.messages)
+    @validate<EmailMasterTemplateEntity>(t => hasDuplicateCulture(t.messages)
         ? EmailTemplateMessage.TheresMoreThanOneMessageForTheSameLanguage.niceToString() : null)
     messages: EmailMasterTemplateEntity_Message[];
 
@@ -249,14 +250,14 @@ export class EmailTemplateFromEmbedded extends EmbeddedEntity {
 
     addressSource: EmailAddressSource;
 
-    @fieldValidation<EmailTemplateFromEmbedded>(a =>
+    @validate<EmailTemplateFromEmbedded>(a =>
         (a.addressSource === EmailAddressSource.HardcodedAddress) === (a.emailAddress != null) ? null
             : ValidationMessage._0IsNotSet.niceToString("{0}"))
     emailAddress: string | null;
 
     displayName: string | null;
 
-    @fieldValidation<EmailTemplateFromEmbedded>(a =>
+    @validate<EmailTemplateFromEmbedded>(a =>
         (a.addressSource === EmailAddressSource.QueryToken) === (a.token != null) ? null
             : ValidationMessage._0IsNotSet.niceToString("{0}"))
     token: QueryTokenEmbedded | null;
@@ -298,14 +299,14 @@ export class EmailTemplateEntity_Recipient extends Entity {
 
     addressSource: EmailAddressSource;
 
-    @fieldValidation<EmailTemplateEntity_Recipient>(a =>
+    @validate<EmailTemplateEntity_Recipient>(a =>
         (a.addressSource === EmailAddressSource.HardcodedAddress) === (a.emailAddress != null) ? null
             : ValidationMessage._0IsNotSet.niceToString("{0}"))
     emailAddress: string | null;
 
     displayName: string | null;
 
-    @fieldValidation<EmailTemplateEntity_Recipient>(a =>
+    @validate<EmailTemplateEntity_Recipient>(a =>
         (a.addressSource === EmailAddressSource.QueryToken) === (a.token != null) ? null
             : ValidationMessage._0IsNotSet.niceToString("{0}"))
     token: QueryTokenEmbedded | null;
@@ -423,7 +424,7 @@ export class EmailTemplateEntity extends Entity implements IUserAssetEntity, ICo
 
     filters: EmailTemplateEntity_Filter[];
 
-    @fieldValidation<EmailTemplateEntity>(t => t.orders.length > 0 && t.query == null
+    @validate<EmailTemplateEntity>(t => t.orders.length > 0 && t.query == null
         ? ValidationMessage._0IsNotSet.niceToString("{0}") : null)
     orders: EmailTemplateEntity_Order[];
 
@@ -437,12 +438,13 @@ export class EmailTemplateEntity extends Entity implements IUserAssetEntity, ICo
     // Signum's PropertyValidation(Messages): at least one, and no two for the same culture. The "at least
     // one" half is a count rule, so the messages line also renders as MANDATORY.
     @countIsValidator(ComparisonType.GreaterThan, 0)
-    @fieldValidation<EmailTemplateEntity>(t => hasDuplicateCulture(t.messages)
+    @validate<EmailTemplateEntity>(t => hasDuplicateCulture(t.messages)
         ? EmailTemplateMessage.TheresMoreThanOneMessageForTheSameLanguage.niceToString() : null)
     messages: EmailTemplateEntity_Message[];
 
     /** Signum's `TemplateApplicableEval` — a stored script, compiled by @altea/altea-eval. Its parameter is
      *  typed from this template's `query` (see TemplateApplicableEval.compile). */
+    @bindParent
     applicable: TemplateApplicableEval | null;
 
     @quoted

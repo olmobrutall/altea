@@ -1,10 +1,8 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import {
-    entity, implementedBy, implementedByAll, format, stringLengthValidator, uniqueIndex, quoted,
-} from "@altea/altea/data/decorators";
-import { noRepeatValidator } from "@altea/altea/data/validators";
+import { entity, implementedBy, implementedByAll, format, uniqueIndex, quoted } from "@altea/altea/data/decorators";
+import { stringLengthValidator, noRepeatValidator } from "@altea/altea/data/validators";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";

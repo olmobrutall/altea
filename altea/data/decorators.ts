@@ -1,7 +1,7 @@
 
 import { getOrCreateTypeInfo, getOrCreateFieldInfo, registerType, FieldInfo, ctorOf, setDefaultTypeDescription, setDefaultMemberDescription } from './reflection';
 import type { Gender } from './utils/naturalLanguage';
-import type { PrimaryKeyType, ColumnOptions, TranslatableRouteType } from './reflection';
+import type { PrimaryKeyType, ColumnOptions, TranslatableRouteType, FieldInfoOf, ReadOnlyRule } from './reflection';
 import type { Type, Entity } from './entity';
 import type { CustomLiteClass } from './lite';
 import type { ExLambda, Quoted } from 'quote-transformer/quoted';
@@ -53,11 +53,6 @@ export function withQuoted<T extends Function>(f: T, quoted?: () => ExLambda): T
 
 export type { PrimaryKeyType } from './reflection';
 
-export {
-    stringLengthValidator, urlValidator, telephoneValidator,
-    emailValidator, noRepeatValidator,
-    customValidators as fieldValidation,
-} from './validators';
 
 // Re-exported so entity authors get @mixin from the same module as the other
 // entity decorators. Implementation lives in ./mixinDeclarations.
@@ -577,6 +572,52 @@ export function unit(unitName: string) {
     };
 }
 
+/**
+ * `@isReadOnly` — this member cannot be edited. Applies at TWO levels, and the same decorator writes
+ * both, dispatching on where it was put:
+ *
+ *   // on a FIELD: about this member alone
+ *   @isReadOnly(true)                                          orderDate: Temporal.PlainDate;
+ *   @isReadOnly<OrderEntity>(o => o.state === OrderState.New)   shipName: string | null;
+ *
+ *   // on a CLASS: about every member at once
+ *   @isReadOnly<OrderEntity>(o => o.state !== OrderState.New ? true : undefined)
+ *   export class OrderEntity extends Entity { … }
+ *
+ * The field level is asked first and `undefined` defers, so the two compose without either needing a
+ * handle on the other — that is what replaces Signum's `super.IsPropertyReadonly(pi)`. The full order is
+ * in `FieldInfo.isReadOnlyFor`.
+ *
+ * WRITE THE TYPE ARGUMENT. It is what types `entity` and narrows `fi.name` to the type's members
+ * ({@link MemberOf}), so naming a member that does not exist is a compile error; there is no default, so
+ * forgetting it makes the body fail to compile rather than silently checking nothing. A class-level rule
+ * that has to NAME a member is usually one that belongs on the field — moving it there needs no name at
+ * all.
+ *
+ * One decorator covers both of the things Signum keeps apart at the field level — a static
+ * `MemberInfo.isReadOnly` boolean and the per-property `PropertyValidator.IsReadonly` predicate — because
+ * every reader asks the same question through the same resolver.
+ *
+ * Applies to the LINE (and everything under it — a read-only collection makes its whole EntityTable
+ * read-only) and to the serializer's write gate. It is not authorization: property AUTH is per ROLE and
+ * lives in altea-auth.
+ */
+export function isReadOnly<T>(value: boolean | ((entity: T, fi: FieldInfoOf<T>) => boolean | undefined)) {
+    return function (target: object, propertyKey?: string | symbol): void {
+        const rule = value as boolean | ReadOnlyRule;
+
+        // No propertyKey ⇒ a CLASS decorator (legacy decorators hand a field one the prototype plus the
+        // key, and a class one just the constructor).
+        if (propertyKey == null) {
+            const typeInfo = getOrCreateTypeInfo(target);
+            (typeInfo.isReadOnly ??= []).push(rule);
+            return;
+        }
+
+        getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).isReadOnly = rule;
+    };
+}
+
 // @translatable / @translatable("Html") / @translatable(false) — Signum's [Translatable]: this string
 // field carries a PER-INSTANCE translation, edited through @altea/altea-translations' instance pages and
 // resolved at read time for the current UI culture. The bare form is plain text; "Html" gets the rich
@@ -726,4 +767,22 @@ export function customLite(liteClass: () => CustomLiteClass, forEntityType: () =
 // is described from both sides without repeating the property name.
 export function backReference(target: object, propertyKey: string | symbol): void {
     getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).isBackReference = true;
+}
+
+/**
+ * `@bindParent` — Signum's `[BindParent]`: the modifiable(s) this field holds belong to this entity, so
+ * they get a back-pointer to it (`tryGetParentEntity` / `getParentEntity`, see data/parentEntity). Put it
+ * on an embedded, a `@part` row reference, or a collection of either.
+ *
+ * What it is FOR is a rule that lives on the child and reads the owner — the `@validate` on
+ * `OrderLineEntity.discount` that has to know whether the ORDER is legacy, an `EvalEmbedded` compiling
+ * against the entity that carries it. It is not a substitute for a `@part` row's `@backReference` and vice
+ * versa: the back reference is a `Lite` the SAVE cascade fills, so it is empty exactly when a rule needs
+ * it (while the graph is being edited, and while the owner may still be new).
+ *
+ * EXPLICIT, as in Signum. Binding every reachable modifiable would work, but the marker is also the
+ * documentation — "this member's value is mine" — and it keeps the walk to the fields that meant it.
+ */
+export function bindParent(target: object, propertyKey: string | symbol): void {
+    getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).bindParent = true;
 }

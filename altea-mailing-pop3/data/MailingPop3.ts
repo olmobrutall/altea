@@ -1,10 +1,8 @@
 import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import {
-    entity, format, unit, column, backReference, quoted, stringLengthValidator, fieldValidation,
-} from "@altea/altea/data/decorators";
-import { ValidationMessage } from "@altea/altea/data/validators";
+import { entity, format, unit, column, backReference, quoted } from "@altea/altea/data/decorators";
+import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { EmailReceptionServiceEntity } from "@altea/altea-email/data/EmailReception";
 
@@ -66,9 +64,9 @@ export class Pop3EmailReceptionServiceEntity extends EmailReceptionServiceEntity
     enableSSL: boolean;
 
     /** Signum's `[NumberIsValidator(GreaterThanOrEqualTo, -1)]` — -1 means "no timeout". altea has no
-     *  NumberIsValidator, so the comparison is a `@fieldValidation` (the shape altea-chart / altea-scheduler
+     *  NumberIsValidator, so the comparison is a `@validate` (the shape altea-chart / altea-scheduler
      *  already use for the same attribute). */
-    @fieldValidation<Pop3EmailReceptionServiceEntity>(s => s.readTimeout >= -1 ? null
+    @validate<Pop3EmailReceptionServiceEntity>(s => s.readTimeout >= -1 ? null
         : ValidationMessage.NumberIsTooSmall.niceToString())
     @unit("ms")
     readTimeout: int = toInt(60000);

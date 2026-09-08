@@ -6,7 +6,8 @@
 //   - collections are plain arrays: a collection element binds by numeric index (no MListElement).
 
 import { BaseEntity } from '../data/entity';
-import { tryGetTypeInfo } from '../data/reflection';
+import { resolveField } from '../data/reflection';
+import { setParentEntity } from '../data/parentEntity';
 import { getLambdaMembers, getFieldMembers } from '../data/lambdaMembers';
 import type { LambdaMember, MemberType } from '../data/lambdaMembers';
 import type { Quoted } from 'quote-transformer/quoted';
@@ -57,6 +58,32 @@ export class Binding<T> implements IBinding<T> {
     // ALTEA: no `.modified` flag — snapshot-based isDirty() reflects this write.
     this.parentObject[this.member] = val;
     this.initialValue = val;
+    this.bindParentOfValue(val);
+  }
+
+  /**
+   * altea's counterpart of the property setter Signum hooks. Signum stamps the parent back-pointer from
+   * `Set(ref field, value)` and again from `ChildCollectionChanged`, and needs `[BindParent]` partly so
+   * those two know which fields to act on. Here there is ONE funnel for every write a form makes — a
+   * scalar, a reference, and a collection too, because EntityListBase's add/remove mutate the array and
+   * then call `setValue(list)` — so the two mechanisms collapse into this.
+   *
+   * It is what makes the LIVE rules work: a `@validate` or an `@isReadOnly` on a child that reads its
+   * owner has to answer while the user is still building the graph, before any save or round-trip.
+   *
+   * The whole array is re-stamped on a collection write rather than just the new element: `setValue` is
+   * handed the same array every time, so there is no diff to work from, and a stamp is a WeakMap set over
+   * a list the UI is rendering anyway.
+   */
+  private bindParentOfValue(val: unknown): void {
+    if (val == null || typeof this.member !== "string" || !(this.parentObject instanceof BaseEntity))
+      return;
+    if (resolveField(this.parentObject, this.member)?.bindParent !== true)
+      return;
+
+    for (const child of Array.isArray(val) ? val : [val])
+      if (child instanceof BaseEntity)
+        setParentEntity(child, this.parentObject, this.member);
   }
 
   deleteValue(): void {
@@ -75,7 +102,10 @@ export class Binding<T> implements IBinding<T> {
     const parent = this.parentObject;
     if (!(parent instanceof BaseEntity))
       return undefined;
-    const fi = tryGetTypeInfo(parent)?.fields[String(this.member)];
+    // Through `resolveField`, not `TypeInfo.fields`: a MIXIN's field is not on the owner's TypeInfo, so the
+    // direct lookup answered undefined for one and its validators — the implicit NotNull included — never
+    // ran in the live pass at all. The server enforced them, so the user only found out on save.
+    const fi = resolveField(parent, String(this.member));
     // Live per-field validation runs in the "Client" environment (the browser, before send) — so a
     // validator disabled on the client (`disabled: env => env === "Client"`) stays quiet here and is
     // only enforced server-side.
@@ -88,8 +118,29 @@ export class Binding<T> implements IBinding<T> {
     this.forceError = value;
   }
 
-  getIsReadonly(): boolean { return false; } // TODO: property-level readonly from the reflection types blob.
-  getIsHidden(): boolean { return false; }   // TODO: property-level visibility from the reflection types blob.
+  // Signum's `Binding.getIsReadonly`, which reads the `propsMeta` array the server computed for this
+  // instance. altea resolves it LOCALLY through `FieldInfo.isReadOnlyFor` (@isReadOnly on the field, then
+  // the class-level ones): those all live in the isomorphic data layer, so the same rules run
+  // on both tiers — so the answer is re-evaluated on every RENDER and follows the entity in hand, where
+  // Signum's array is fixed at serialization, and it holds for an entity the client just constructed,
+  // which never had a propsMeta at all. The server applies the same resolver as a write gate
+  // (data/serializer), so nothing rests on the client honouring it.
+  //
+  // A numeric member is a collection INDEX, which no rule names.
+  getIsReadonly(): boolean {
+    if (typeof this.member !== "string" || !(this.parentObject instanceof BaseEntity))
+      return false;
+
+    // A member with no FieldInfo is not a reflected field: there is nothing for a field-level rule to
+    // hang off and nothing for a class-level rule to be asked ABOUT, since both are keyed by FieldInfo.
+    return resolveField(this.parentObject, this.member)?.isReadOnlyFor(this.parentObject) ?? false;
+  }
+
+  // Signum reads `"!" + member` out of the same propsMeta, and its ONLY writer is property
+  // authorization — there is no entity-level visibility hook to mirror. altea-auth enforces that
+  // dimension through its own line task and `PropertyRoute.isAllowedCallback` (see AuthAdminClient), so
+  // this stays false rather than growing a second path to the same answer.
+  getIsHidden(): boolean { return false; }
 }
 
 export class ReadonlyBinding<T> implements IBinding<T> {

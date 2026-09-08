@@ -3,8 +3,8 @@ import { Entity, EmbeddedEntity, MixinEntity, type Type } from "@altea/altea/dat
 import { Lite } from "@altea/altea/data/lite";
 import {
     entity, implementedBy, uniqueIndex, backReference, format, unit, quoted,
-    stringLengthValidator,
 } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { BigStringEmbedded } from "@altea/altea/data/bigString";

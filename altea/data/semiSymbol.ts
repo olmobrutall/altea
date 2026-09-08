@@ -1,6 +1,7 @@
 import { Entity } from './entity';
 import { reflect } from './reflection';
-import { uniqueIndex, quoted, stringLengthValidator, ticksColumn } from './decorators';
+import { uniqueIndex, quoted, ticksColumn, isReadOnly } from './decorators';
+import { stringLengthValidator } from './validators';
 import { Localization } from './utils/localization';
 
 // Port of Signum's SemiSymbol (Signum/Basics/SemiSymbol.cs) — HALF a symbol: a row that MAY be declared in
@@ -33,6 +34,13 @@ export abstract class SemiSymbol extends Entity {
 
     // Signum's SemiSymbol.Name ([StringLengthValidator(3, 100)]) — always present, and the only identity a
     // user-created row has.
+    //
+    // Signum's `SemiSymbol.IsPropertyReadonly` says a row DECLARED in code owns its name: the name of an
+    // `AlertTypeSymbol` the application ships comes from its container's translation, so editing it in the
+    // UI would be writing over something the code decides. A row a USER created has only a name, and that
+    // one stays editable — which is the whole difference between the two halves of a SemiSymbol table.
+    // Declared on the MEMBER rather than as an entity-level override, since that is what it is about.
+    @isReadOnly<SemiSymbol>(s => s.key != null && s.key !== "")
     @stringLengthValidator({ min: 3, max: 100 })
     name: string;
 
@@ -55,6 +63,7 @@ export abstract class SemiSymbol extends Entity {
         const member = dot >= 0 ? this.key.slice(dot + 1) : this.key;
         return Localization.Internal.translate(container, member) ?? Localization.Internal.niceMemberName(member);
     }
+
 }
 
 /** True for a concrete SemiSymbol subclass (NoteTypeSymbol, …), false for the abstract base. */

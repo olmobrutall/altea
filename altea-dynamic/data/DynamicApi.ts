@@ -1,6 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, stringLengthValidator, quoted } from "@altea/altea/data/decorators";
+import { entity, quoted, bindParent } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import type { ConstructSymbol, From, ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eval";
 
@@ -50,6 +51,7 @@ export class DynamicApiEntity extends Entity {
     /** Signum's DisabledMixin.IsDisabled. */
     isDisabled: boolean = false;
 
+    @bindParent
     eval: DynamicApiEval;
 
     @quoted

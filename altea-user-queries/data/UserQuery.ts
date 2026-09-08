@@ -2,8 +2,9 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity, EmbeddedEntity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
-    backReference, entity, fieldValidation, implementedBy, noRepeatValidator, primaryKey, quoted, rowOrder, stringLengthValidator, translatable, valueField,
+    backReference, entity, implementedBy, primaryKey, quoted, rowOrder, translatable, valueField,
 } from "@altea/altea/data/decorators";
+import { validate, noRepeatValidator, stringLengthValidator } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import {
@@ -194,7 +195,7 @@ export class UserQueryEntity extends Entity implements IUserAssetEntity, IHasEnt
     paginationMode: PaginationMode | null;
 
     // Signum's [NumberIsValidator(GreaterThanOrEqualTo, 1)] — only set for Firsts/Paginate.
-    @fieldValidation<UserQueryEntity>(uq =>
+    @validate<UserQueryEntity>(uq =>
         uq.elementsPerPage != null && uq.elementsPerPage < 1
             ? UserQueryMessage.ElementsPerPageMustBeGreaterThanZero.niceToString()
             : null)

@@ -284,12 +284,17 @@ export function taskSetNiceName(lineBase: LineBaseController<LineBaseProps, unkn
   }
 }
 
+// Signum's `taskSetReadOnlyProperty` — the STATIC half of the field's own declaration
+// (`@isReadOnly(true)`), which needs no instance and so applies even in a route-only context. The
+// PREDICATE form and the entity-level rule are the next task's business, since both need the entity the
+// line is bound to; `FieldInfo.isReadOnlyFor` covers all three, so this is a short-circuit of it rather
+// than a separate source.
 defaultTasks.push(taskSetReadOnlyProperty);
 export function taskSetReadOnlyProperty(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps): void {
   if (state.ctx.styleOptions.readOnly === undefined && !state.ctx.readOnly &&
     state.ctx.propertyRoute &&
     state.ctx.propertyRoute.propertyRouteType == PropertyRouteType.FieldOrProperty &&
-    state.ctx.propertyRoute.fieldInfo!.isReadOnly) {
+    state.ctx.propertyRoute.fieldInfo!.isReadOnly === true) {
     state.ctx.readOnly = true;
   }
 }

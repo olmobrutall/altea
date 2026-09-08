@@ -1,6 +1,6 @@
 import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
-import { entity, format, niceName, column, stringLengthValidator, fieldValidation } from "@altea/altea/data/decorators";
-import { ValidationMessage } from "@altea/altea/data/validators";
+import { entity, format, niceName, column } from "@altea/altea/data/decorators";
+import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { type uuid } from "@altea/altea/data/basics";
 import { EmailServiceEntity } from "@altea/altea-email/data/EmailSenderConfiguration";
 
@@ -11,7 +11,7 @@ import { EmailServiceEntity } from "@altea/altea-email/data/EmailSenderConfigura
 // application's EXISTING Entra ID registration (@altea/altea-auth-azuread's AzureADConfiguration) instead of
 // carrying its own client secret — which is what an app that already signs users in through Entra wants.
 // Signum's PropertyValidation makes the three Azure fields mandatory only when it is NOT set; altea says the
-// same thing with three `@fieldValidation`s, since altea has no PropertyValidation switchboard.
+// same thing with three `@validate`s, since altea has no PropertyValidation switchboard.
 //
 // altea divergences, documented inline:
 //  - `[Description("Azure Application (client) ID")]` becomes `@niceName(...)`.
@@ -31,12 +31,12 @@ export class MicrosoftGraphEmailServiceEntity extends EmailServiceEntity {
     useActiveDirectoryConfiguration: boolean;
 
     @niceName("Azure Application (client) ID")
-    @fieldValidation<MicrosoftGraphEmailServiceEntity>(s => !s.useActiveDirectoryConfiguration && s.azure_ApplicationID == null
+    @validate<MicrosoftGraphEmailServiceEntity>(s => !s.useActiveDirectoryConfiguration && s.azure_ApplicationID == null
         ? ValidationMessage._0IsNotSet.niceToString(MicrosoftGraphEmailServiceEntity.nicePropertyName(a => a.azure_ApplicationID)) : null)
     azure_ApplicationID: uuid | null;
 
     @niceName("Azure Directory (tenant) ID")
-    @fieldValidation<MicrosoftGraphEmailServiceEntity>(s => !s.useActiveDirectoryConfiguration && s.azure_DirectoryID == null
+    @validate<MicrosoftGraphEmailServiceEntity>(s => !s.useActiveDirectoryConfiguration && s.azure_DirectoryID == null
         ? ValidationMessage._0IsNotSet.niceToString(MicrosoftGraphEmailServiceEntity.nicePropertyName(a => a.azure_DirectoryID)) : null)
     azure_DirectoryID: uuid | null;
 
@@ -44,7 +44,7 @@ export class MicrosoftGraphEmailServiceEntity extends EmailServiceEntity {
     @niceName("Azure Client Secret Value")
     @format("Password")
     @stringLengthValidator({ max: 200 })
-    @fieldValidation<MicrosoftGraphEmailServiceEntity>(s => !s.useActiveDirectoryConfiguration
+    @validate<MicrosoftGraphEmailServiceEntity>(s => !s.useActiveDirectoryConfiguration
         && !s.azure_ClientSecret && !s.newAzure_ClientSecret
         ? ValidationMessage._0IsNotSet.niceToString(MicrosoftGraphEmailServiceEntity.nicePropertyName(a => a.azure_ClientSecret)) : null)
     azure_ClientSecret: string | null;

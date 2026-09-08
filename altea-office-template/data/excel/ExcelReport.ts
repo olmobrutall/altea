@@ -1,7 +1,7 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity, legacyTableName, quoted } from "@altea/altea/data/decorators";
-import { stringLengthValidator, fieldValidation } from "@altea/altea/data/decorators";
+import { stringLengthValidator, validate } from "@altea/altea/data/validators";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { FileEmbedded } from "@altea/altea-files/data/Files";
 import { ExcelMessage } from "../Excel";
@@ -40,7 +40,7 @@ export class ExcelReportEntity extends Entity {
     // NEW here: Signum asserts the extension when the report RUNS (`AsserExtension`), which means a
     // template saved with the wrong extension looks fine until someone tries to use it. The same rule as
     // a validation refuses it at save time; the run-time assert is kept too, for a row that predates this.
-    @fieldValidation<ExcelReportEntity>(r => extensionError(r.file))
+    @validate<ExcelReportEntity>(r => extensionError(r.file))
     file: FileEmbedded;
 
     @quoted

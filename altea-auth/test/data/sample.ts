@@ -1,7 +1,8 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, uniqueIndex, quoted, stringLengthValidator, backReference, implementedByAll } from "@altea/altea/data/decorators";
+import { entity, uniqueIndex, quoted, backReference, implementedByAll } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";

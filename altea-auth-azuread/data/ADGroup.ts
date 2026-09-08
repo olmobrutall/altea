@@ -1,6 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, primaryKey, uniqueIndex, quoted, stringLengthValidator } from "@altea/altea/data/decorators";
+import { entity, primaryKey, uniqueIndex, quoted } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 
 // Port of Signum.Authorization.AzureAD's ADGroup/ADGroupEntity.cs — a LOCAL stand-in for a directory group,

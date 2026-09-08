@@ -1,11 +1,10 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
+import { entity, implementedBy, uniqueIndex, unit, quoted, backReference } from "@altea/altea/data/decorators";
 import {
-    entity, implementedBy, uniqueIndex, unit, quoted, backReference,
-    stringLengthValidator, fieldValidation,
-} from "@altea/altea/data/decorators";
-import { emailValidator, urlValidator, ValidationMessage } from "@altea/altea/data/validators";
+    stringLengthValidator, validate, emailValidator, urlValidator, ValidationMessage,
+} from "@altea/altea/data/validators";
 import { type int, toInt, type uuid } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
@@ -61,7 +60,7 @@ export abstract class EmailAddressEmbedded extends EmbeddedEntity {
 
     // Signum's [StringLengthValidator(3, 100)] + an EMailValidator applied in PropertyValidation only when
     // `invalidEmail` is false (a received message may legitimately carry a malformed address).
-    @fieldValidation<EmailAddressEmbedded>(a => a.invalidEmail || a.emailAddress == null || emailRegex.test(a.emailAddress) ? null
+    @validate<EmailAddressEmbedded>(a => a.invalidEmail || a.emailAddress == null || emailRegex.test(a.emailAddress) ? null
         : ValidationMessage._0DoesNotHaveAValid1Format.niceToString("{0}", "e-Mail"))
     @stringLengthValidator({ min: 3, max: 100 })
     emailAddress: string;
@@ -127,7 +126,7 @@ export abstract class EmailRecipientBaseEntity extends Entity {
     @implementedBy(() => [UserEntity])
     emailOwner: Lite<IEmailOwnerEntity> | null;
 
-    @fieldValidation<EmailRecipientBaseEntity>(a => a.invalidEmail || a.emailAddress == null || emailRegex.test(a.emailAddress) ? null
+    @validate<EmailRecipientBaseEntity>(a => a.invalidEmail || a.emailAddress == null || emailRegex.test(a.emailAddress) ? null
         : ValidationMessage._0DoesNotHaveAValid1Format.niceToString("{0}", "e-Mail"))
     @stringLengthValidator({ min: 3, max: 100 })
     emailAddress: string;
@@ -180,7 +179,7 @@ export class EmailConfigurationEmbedded extends EmbeddedEntity {
     defaultCulture: CultureInfoEntity;
 
     /** Signum's UrlLeft — the absolute app root a template's links are built on (`@[g:UrlLeft]`). */
-    @fieldValidation<EmailConfigurationEmbedded>(c => c.urlLeft?.endsWith("/") ? "{0} should not have a final /" : null)
+    @validate<EmailConfigurationEmbedded>(c => c.urlLeft?.endsWith("/") ? "{0} should not have a final /" : null)
     @urlValidator()
     urlLeft: string;
 

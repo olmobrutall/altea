@@ -1,10 +1,8 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import {
-    entity, column, uniqueIndex, quoted, serialize,
-    stringLengthValidator, emailValidator, fieldValidation,
-} from "@altea/altea/data/decorators";
+import { entity, column, uniqueIndex, quoted, serialize } from "@altea/altea/data/decorators";
+import { stringLengthValidator, emailValidator, validate } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol } from "@altea/altea/data/operations";
 import { CurrentUser, UserWithClaims, type IUserEntity, type IEmailOwnerEntity } from "@altea/altea/data/security";
@@ -27,7 +25,7 @@ import { Enum } from "@altea/altea/data/enum";
 //  - `UserEntity.Current` / `CurrentExternalId` are server-only in Signum (they read UserHolder);
 //    altea declares them here as `current()` / `currentExternalId()` and they answer on BOTH tiers, through
 //    the injected `CurrentUser` provider (data/security). Same for `RoleEntity.current()`.
-//  - `PropertyValidation` → per-field `@fieldValidation` (altea has no entity-level validation hook).
+//  - `PropertyValidation` → per-field `@validate` (altea has no entity-level validation hook).
 
 // Signum's UserState (UserEntity.cs). New = -1 (the pre-Create sentinel); the rest are the live states.
 // A plain numeric entity enum (like OrderState), used directly by the UserGraph state machine.
@@ -62,7 +60,7 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
     // Signum's [Ignore] PasswordIsChanging — a transient flag (not a column). Its presence when saving
     // means a password change was started but not completed (Signum's PropertyValidation).
     @column(false)
-    @fieldValidation<UserEntity>((u) =>
+    @validate<UserEntity>((u) =>
         u.passwordIsChanging ? AuthAdminMessage.PasswordChangeIsNotCompleted.niceToString() : null)
     passwordIsChanging: boolean = false;
 
@@ -82,7 +80,7 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
     mustChangePassword: boolean = false;
 
     // Signum's PropertyValidation: if disabled, the state must be a disabled one.
-    @fieldValidation<UserEntity>((u) =>
+    @validate<UserEntity>((u) =>
         u.disabledOn != null && u.state !== UserState.Deactivated && u.state !== UserState.AutoDeactivate
             ? AuthAdminMessage.TheUserStateMustBeDisabled.niceToString()
             : null)
@@ -101,7 +99,7 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
     @stringLengthValidator({ max: 500 })
     // Signum's PropertyValidation on ExternalId: refuse the combination of an external identity and a
     // local password hash unless the host opted in.
-    @fieldValidation<UserEntity>((u) =>
+    @validate<UserEntity>((u) =>
         u.externalId != null && u.passwordHash != null && !UserEntity.allowPasswordForUserWithExternalId
             ? UserExternalIdMessage.TheUser0IsConnectedToAnExternalProviderAndCanNotHaveALocalPasswordSet.niceToString(u.userName)
             : null)

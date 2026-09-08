@@ -27,7 +27,7 @@ import { EmailPackageLogic } from "./EmailPackageLogic";
 //    altea has no QueryDescription — its token trees are built client-side from the reflection metadata,
 //    so there is no server-side "the implementations of this query's entity column" to check against. The
 //    two checks that need no query — a unique target only when TargetFrom is Unique, a user query only
-//    when it is UserQuery — ARE ported, as `@fieldValidation` on the entity.
+//    when it is UserQuery — ARE ported, as `@validate` on the entity.
 //  - `RetrieveAndRemember` → an ordinary retrieve (altea has no ambient EntityCache).
 //  - the grouping branch reads the first column and requires it to be a Lite, exactly as Signum does.
 

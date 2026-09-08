@@ -1,5 +1,5 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import { EvalLogic } from "@altea/altea-eval/server/EvalLogic"; // + FluentInclude.withEvals
+import { EvalLogic } from "@altea/altea-eval/server/EvalLogic";
 import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import "@altea/altea/data/globals/arrayExtensions";
@@ -87,7 +87,6 @@ export namespace WorkflowEventTaskLogic {
             return;
 
         sb.include(WorkflowEventTaskEntity)
-            .withEvals()
             .withDelete(WorkflowEventTaskOperation.Delete)
             .withExecute(WorkflowEventTaskOperation.Save, {
                 canBeNew: true,

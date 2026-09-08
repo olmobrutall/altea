@@ -1,11 +1,10 @@
 import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { entity, backReference, implementedBy } from "@altea/altea/data/decorators";
-import { noRepeatValidator } from "@altea/altea/data/validators";
+import {
+    noRepeatValidator, stringLengthValidator, urlValidator, ValidationMessage, validate,
+} from "@altea/altea/data/validators";
 import type { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
-import { stringLengthValidator } from "@altea/altea/data/decorators";
-import { urlValidator, ValidationMessage } from "@altea/altea/data/validators";
-import { fieldValidation } from "@altea/altea/data/decorators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { BaseADConfigurationEmbedded, RoleMappingEntity } from "@altea/altea-auth/data/BaseAD";
 
@@ -13,7 +12,7 @@ import { BaseADConfigurationEmbedded, RoleMappingEntity } from "@altea/altea-aut
 // OpenID Connect provider (Keycloak, Dex, Auth0, …) with the authorization-code flow.
 //
 // altea divergences, documented inline:
-//  - Signum's `PropertyValidation` override becomes per-field `@fieldValidation` (altea has no
+//  - Signum's `PropertyValidation` override becomes per-field `@validate` (altea has no
 //    entity-level validation hook). Same rule: `authority` and `clientId` are required once `enabled`.
 //  - `ToOpenIDConfigTS()` (the DTO the server serialises into Index.cshtml) becomes the
 //    `OpenIDClientConfig` interface below, served by an anonymous endpoint — altea has no server-rendered
@@ -29,12 +28,12 @@ export class OpenIDConfigurationEmbedded extends BaseADConfigurationEmbedded {
     /** The provider's base URL, e.g. `https://keycloak.example.com/realms/myrealm`. */
     @urlValidator()
     @stringLengthValidator({ max: 300 })
-    @fieldValidation<OpenIDConfigurationEmbedded>(c =>
+    @validate<OpenIDConfigurationEmbedded>(c =>
         c.enabled && !hasText(c.authority) ? ValidationMessage._0IsNotSet.niceToString("Authority") : null)
     authority: string | null = null;
 
     @stringLengthValidator({ max: 200 })
-    @fieldValidation<OpenIDConfigurationEmbedded>(c =>
+    @validate<OpenIDConfigurationEmbedded>(c =>
         c.enabled && !hasText(c.clientId) ? ValidationMessage._0IsNotSet.niceToString("Client Id") : null)
     clientId: string | null = null;
 

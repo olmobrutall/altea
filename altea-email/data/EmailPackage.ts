@@ -1,7 +1,8 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, MixinEntity, type Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, stringLengthValidator, ticksColumn } from "@altea/altea/data/decorators";
+import { entity, ticksColumn } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import type { ConstructSymbol, FromMany } from "@altea/altea/data/operations";
 import type { IQuery } from "@altea/altea/data/iquery";

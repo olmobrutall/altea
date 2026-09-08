@@ -2,9 +2,8 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { SemiSymbol } from "@altea/altea/data/semiSymbol";
-import {
-    backReference, entity, implementedBy, quoted, stringLengthValidator, uniqueIndex,
-} from "@altea/altea/data/decorators";
+import { backReference, entity, implementedBy, quoted, uniqueIndex } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import type { int } from "@altea/altea/data/basics";
 import type { ConstructSymbol, DeleteSymbol, ExecuteSymbol, From } from "@altea/altea/data/operations";
 

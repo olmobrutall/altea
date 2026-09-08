@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, stringLengthValidator, quoted } from "@altea/altea/data/decorators";
-import { ValidationMessage, customValidators } from "@altea/altea/data/validators";
+import { entity, quoted, bindParent } from "@altea/altea/data/decorators";
+import { stringLengthValidator, ValidationMessage, validate } from "@altea/altea/data/validators";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import type { ConstructSymbol, From, ExecuteSymbol } from "@altea/altea/data/operations";
 import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eval";
@@ -31,7 +31,7 @@ import { PascalAscii } from "./DynamicType";
 export class DynamicTypeConditionSymbolEntity extends Entity {
 
     @stringLengthValidator({ min: 1, max: 100 })
-    @customValidators<DynamicTypeConditionSymbolEntity>((e, fi) => PascalAscii.test(e.name) ? null
+    @validate<DynamicTypeConditionSymbolEntity>((e, fi) => PascalAscii.test(e.name) ? null
         : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "PascalAscii"))
     name: string;
 
@@ -56,6 +56,7 @@ export class DynamicTypeConditionEntity extends Entity {
 
     entityType: TypeEntity;
 
+    @bindParent
     eval: DynamicTypeConditionEval;
 
     @quoted
@@ -68,7 +69,7 @@ export class DynamicTypeConditionEntity extends Entity {
 @reflect
 export class DynamicTypeConditionEval extends EvalEmbedded<IDynamicTypeConditionEvaluator> {
     protected override compile(): CompilationResult<IDynamicTypeConditionEvaluator> {
-        const entityTypeName = this.owner<DynamicTypeConditionEntity>().entityType.className;
+        const entityTypeName = this.owner(DynamicTypeConditionEntity).entityType.className;
 
         return this.wrap({
             importTypes: [entityTypeName],

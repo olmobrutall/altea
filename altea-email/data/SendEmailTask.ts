@@ -1,8 +1,8 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, uniqueIndex, implementedByAll, stringLengthValidator, quoted, fieldValidation } from "@altea/altea/data/decorators";
-import { ValidationMessage } from "@altea/altea/data/validators";
+import { entity, uniqueIndex, implementedByAll, quoted } from "@altea/altea/data/decorators";
+import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import type { ExecuteSymbol } from "@altea/altea/data/operations";
 import type { ITaskEntity } from "@altea/altea-scheduler/data/Scheduler";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
@@ -47,12 +47,12 @@ export class SendEmailTaskEntity extends Entity implements ITaskEntity {
     // the template query's implementations; those need a QueryDescription and are not ported — see
     // server/SendEmailTaskLogic.)
     @implementedByAll
-    @fieldValidation<SendEmailTaskEntity>(t => isSetOnlyWhen(
+    @validate<SendEmailTaskEntity>(t => isSetOnlyWhen(
         t.uniqueTarget, t.targetFrom == EmailTemplateTargetFrom.Unique,
         SendEmailTaskEntity.nicePropertyName(a => a.uniqueTarget)))
     uniqueTarget: Lite<Entity> | null = null;
 
-    @fieldValidation<SendEmailTaskEntity>(t => isSetOnlyWhen(
+    @validate<SendEmailTaskEntity>(t => isSetOnlyWhen(
         t.targetsFromUserQuery, t.targetFrom == EmailTemplateTargetFrom.UserQuery,
         SendEmailTaskEntity.nicePropertyName(a => a.targetsFromUserQuery)))
     targetsFromUserQuery: Lite<UserQueryEntity> | null = null;

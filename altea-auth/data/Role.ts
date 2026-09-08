@@ -2,7 +2,8 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { CurrentUser } from "@altea/altea/data/security";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, uniqueIndex, backReference, valueField, quoted, stringLengthValidator } from "@altea/altea/data/decorators";
+import { entity, uniqueIndex, backReference, valueField, quoted } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 
 // Port of Signum's RoleEntity (Signum.Authorization/RoleEntity.cs). A role is the unit authorization

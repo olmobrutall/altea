@@ -2,9 +2,9 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, implementedBy, uniqueIndex, backReference, format,
-    stringLengthValidator, fieldValidation, quoted, column,
+    entity, implementedBy, uniqueIndex, backReference, format, quoted, column,
 } from "@altea/altea/data/decorators";
+import { stringLengthValidator, validate } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
@@ -116,11 +116,11 @@ export class SmtpEmailServiceEntity extends EmailServiceEntity {
 
     /** Signum's StateValidator over DeliveryMethod: Network needs `network`, SpecifiedPickupDirectory needs
      *  `pickupDirectoryLocation`, PickupDirectoryFromIis needs neither. */
-    @fieldValidation<SmtpEmailServiceEntity>(s =>
+    @validate<SmtpEmailServiceEntity>(s =>
         s.deliveryMethod === SmtpDeliveryMethod.Network && s.network == null ? "{0} is not set" : null)
     network: SmtpNetworkDeliveryEmbedded | null;
 
-    @fieldValidation<SmtpEmailServiceEntity>(s =>
+    @validate<SmtpEmailServiceEntity>(s =>
         s.deliveryMethod === SmtpDeliveryMethod.SpecifiedPickupDirectory && s.pickupDirectoryLocation == null ? "{0} is not set" : null)
     @stringLengthValidator({ min: 3, max: 300 })
     pickupDirectoryLocation: string | null;

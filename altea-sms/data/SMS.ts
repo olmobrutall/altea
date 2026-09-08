@@ -3,8 +3,8 @@ import { Entity, ModelEntity, EmbeddedEntity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
     entity, implementedByAll, implementedBy, uniqueIndex, backReference, rowOrder, quoted,
-    stringLengthValidator, fieldValidation,
 } from "@altea/altea/data/decorators";
+import { stringLengthValidator, validate } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -30,7 +30,7 @@ import { SMS_MAX_TEXT_LENGTH, SMSCharactersMessage } from "./SMSCharacters";
 //    altea DOES have a CultureInfoEntity table (see CLAUDE.md), so the reference is a real FK rather than
 //    Signum's owned CultureInfoEntity reference.
 //  - **`MultipleTelephoneValidator` has no altea counterpart** (core has `telephoneValidator`, single-number
-//    only), so the comma-separated form is checked by a `@fieldValidation` here — the same rule, spelled out.
+//    only), so the comma-separated form is checked by a `@validate` here — the same rule, spelled out.
 //  - **`DateTimePrecisionValidator(Seconds)` has no counterpart either**; `sendDate` is truncated to seconds
 //    where it is ASSIGNED (`SMSLogic.sendOneMessage`), which is what Signum's validator enforces after the
 //    fact.
@@ -95,7 +95,7 @@ export class SMSMessageEntity extends Entity {
      * One number, or several comma-separated (`SMSLogic.sendSMS` fans those out into one message each).
      * Signum's `MultipleTelephoneValidator`, which altea has no decorator for.
      */
-    @fieldValidation<SMSMessageEntity>(m => isMultipleTelephone(m.destinationNumber)
+    @validate<SMSMessageEntity>(m => isMultipleTelephone(m.destinationNumber)
         ? null
         : SMSMessage.NotAValidTelephoneNumberList.niceToString())
     @stringLengthValidator({ min: 9 })
@@ -232,7 +232,7 @@ export class SMSTemplateEntity extends Entity {
      * and one for the configured default culture (that last one is a STATIC validator in SMSLogic.start,
      * because it depends on the configuration — see server/SMSLogic).
      */
-    @fieldValidation<SMSTemplateEntity>(t => t.messages == null || t.messages.length === 0
+    @validate<SMSTemplateEntity>(t => t.messages == null || t.messages.length === 0
         ? SMSTemplateMessage.ThereAreNoMessagesForTheTemplate.niceToString()
         : hasDuplicateCulture(t.messages)
             ? SMSTemplateMessage.TheresMoreThanOneMessageForTheSameLanguage.niceToString()
@@ -246,7 +246,7 @@ export class SMSTemplateEntity extends Entity {
      * The query token that projects an {@link SMSOwnerData} — who to send to, and in which culture. Required
      * once the template has a query or a model (Signum's PropertyValidation).
      */
-    @fieldValidation<SMSTemplateEntity>(t => t.to == null && (t.query != null || t.model != null)
+    @validate<SMSTemplateEntity>(t => t.to == null && (t.query != null || t.model != null)
         ? SMSTemplateMessage.ToMustBeSetInTheTemplate.niceToString()
         : null)
     to: QueryTokenEmbedded | null = null;

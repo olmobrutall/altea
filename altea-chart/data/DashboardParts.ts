@@ -3,7 +3,8 @@
 import { reflect } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, unit, backReference, rowOrder, noRepeatValidator, fieldValidation, quoted } from "@altea/altea/data/decorators";
+import { entity, unit, backReference, rowOrder, quoted } from "@altea/altea/data/decorators";
+import { noRepeatValidator, validate } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { IPartEntity } from "@altea/altea-dashboard/data/Dashboard";
@@ -78,7 +79,7 @@ export class CombinedUserChartPartEntity_UserChart extends Entity {
 export class CombinedUserChartPartEntity extends Entity implements IPartEntity {
     // Signum's [PreserveOrder, NoRepeatValidator].
     @noRepeatValidator()
-    @fieldValidation<CombinedUserChartPartEntity>(p => (p.userCharts?.length ?? 0) === 0
+    @validate<CombinedUserChartPartEntity>(p => (p.userCharts?.length ?? 0) === 0
         ? ChartPartMessage.ACombinedChartNeedsAtLeastOneUserChart.niceToString() : null)
     userCharts: CombinedUserChartPartEntity_UserChart[];
 

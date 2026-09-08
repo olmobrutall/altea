@@ -1,6 +1,5 @@
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import "@altea/altea/server/fluentOperations";
-import "@altea/altea-eval/server/EvalLogic"; // FluentInclude.withEvals
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { Administrator } from "@altea/altea/server/administrator";
@@ -49,7 +48,6 @@ export namespace DynamicTypeConditionLogic {
             .withUniqueIndex(e => [e.symbolName, e.entityType])
             .withSave(DynamicTypeConditionOperation.Save)
             .withQuery()
-            .withEvals()
             .withOperations((op) => {
                 op.withConstructFrom(DynamicTypeConditionEntity, DynamicTypeConditionOperation.Clone, {
                     construct: e => {

@@ -1,11 +1,11 @@
 import { reflect, registerEnum } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
+import { entity, backReference, rowOrder, unit, format, legacyTableName } from "@altea/altea/data/decorators";
 import {
-    entity, backReference, rowOrder, unit, format, stringLengthValidator, fieldValidation, noRepeatValidator, legacyTableName
-} from "@altea/altea/data/decorators";
+    stringLengthValidator, validate, noRepeatValidator, numberIsValidator, ComparisonType,
+} from "@altea/altea/data/validators";
 import { Lite } from "@altea/altea/data/lite";
 import { type int, toInt, type long } from "@altea/altea/data/basics";
-import { numberIsValidator, ComparisonType } from "@altea/altea/data/validators";
 import type { IProcessDataEntity } from "@altea/altea-processes/data/Processes";
 import {
     PredictorEntity, PredictorMessage, type IPredictorAlgorithmSettings,
@@ -135,10 +135,10 @@ export class NeuralNetworkSettingsEntity extends Entity implements IPredictorAlg
 
     // Signum validates both against `predictionType` — a classification loss on a regression predictor is
     // a configuration that cannot train, so it is worth refusing at save time rather than at epoch 1.
-    @fieldValidation<NeuralNetworkSettingsEntity>(s => validateEvalFunction(s, s.lossFunction))
+    @validate<NeuralNetworkSettingsEntity>(s => validateEvalFunction(s, s.lossFunction))
     lossFunction: NeuralNetworkEvalFunction = NeuralNetworkEvalFunction.softmax_cross_entropy_with_logits_v2;
 
-    @fieldValidation<NeuralNetworkSettingsEntity>(s => validateEvalFunction(s, s.evalErrorFunction))
+    @validate<NeuralNetworkSettingsEntity>(s => validateEvalFunction(s, s.evalErrorFunction))
     evalErrorFunction: NeuralNetworkEvalFunction = NeuralNetworkEvalFunction.ClassificationError;
 
     @numberIsValidator(ComparisonType.GreaterThan, 0)
@@ -160,7 +160,7 @@ export class NeuralNetworkSettingsEntity extends Entity implements IPredictorAlg
 
     // Signum's rule: progress is only COMPARABLE if the validation samples line up with the training ones.
     @unit("Minibaches") @numberIsValidator(ComparisonType.GreaterThan, 0)
-    @fieldValidation<NeuralNetworkSettingsEntity>(s =>
+    @validate<NeuralNetworkSettingsEntity>(s =>
         s.saveProgressEvery > 0 && (s.saveValidationProgressEvery as number) % (s.saveProgressEvery as number) !== 0
             ? PredictorMessage._0ShouldBeDivisibleBy12.niceToString(
                 NeuralNetworkSettingsEntity.nicePropertyName(a => a.saveValidationProgressEvery),

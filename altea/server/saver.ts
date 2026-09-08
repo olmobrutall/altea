@@ -1,4 +1,5 @@
 import { Entity, EmbeddedEntity } from '../data/entity';
+import { bindParentsOwn } from '../data/parentEntity';
 import type { Type, PrimaryKey } from '../data/entity';
 import { cleanModified, forEachField } from '../data/changes';
 import { getTypeInfo } from '../data/reflection';
@@ -58,6 +59,13 @@ export namespace Saver {
         using log = HeavyProfiler.logNoStackTrace("PreSaving");
         const all = exploreModifiables(roots);
         const schema = Connector.current().schema;
+
+        // Parent back-pointers before anything reads the graph: a graph assembled in server code never
+        // went through the codec or the Retriever, and both a PreSaving handler and the validation pass
+        // below may carry a rule that reads the owner. `all` is every reachable modifiable, so one level
+        // each is the whole graph.
+        for (const m of all)
+            bindParentsOwn(m);
 
         // Signum's EntityEvents<T>.PreSaving: fire on every reachable entity before validation, so
         // a module can normalise/populate the graph right before it is checked and written.

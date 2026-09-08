@@ -1,6 +1,7 @@
 import { reflect } from "@altea/altea/data/reflection";
 import { Entity, type PrimaryKey } from "@altea/altea/data/entity";
-import { entity, ticksColumn, stringLengthValidator } from "@altea/altea/data/decorators";
+import { entity, ticksColumn } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Lite } from "@altea/altea/data/lite";
 import { Temporal } from "@altea/altea/data/basics";
 import { UserEntity } from "./User";

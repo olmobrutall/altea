@@ -2,7 +2,8 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import type { IQuery } from "@altea/altea/data/iquery";
-import { column, entity, fieldValidation, implementedBy, quoted, stringLengthValidator } from "@altea/altea/data/decorators";
+import { column, entity, implementedBy, quoted } from "@altea/altea/data/decorators";
+import { validate, stringLengthValidator } from "@altea/altea/data/validators";
 import { registerEnum } from "@altea/altea/data/registration";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -18,7 +19,7 @@ import type { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 // app-supplied `PrintingLogic.print` hook.
 //
 // altea divergences:
-//  - **Signum's table-driven `StateValidator` becomes per-field `@fieldValidation`**, the same translation
+//  - **Signum's table-driven `StateValidator` becomes per-field `@validate`**, the same translation
 //    @altea/altea-email made for EmailMessage: the same rules, expressed one field at a time, since altea
 //    has no such table helper. Signum's table reads
 //
@@ -49,14 +50,14 @@ export class PrintLineEntity extends Entity {
 
     file: FilePathEmbedded;
 
-    @fieldValidation<PrintLineEntity>(p => p.state === PrintLineState.Enqueued && p.package == null
+    @validate<PrintLineEntity>(p => p.state === PrintLineState.Enqueued && p.package == null
         ? "A line must belong to a package once it is Enqueued"
         : (p.state === PrintLineState.NewTest || p.state === PrintLineState.ReadyToPrint) && p.package != null
             ? "A line may not belong to a package before it is Enqueued"
             : null)
     package: Lite<PrintPackageEntity> | null;
 
-    @fieldValidation<PrintLineEntity>(p => {
+    @validate<PrintLineEntity>(p => {
         const printed = p.state === PrintLineState.Printed || p.state === PrintLineState.PrintedAndDeleted;
         return printed && p.printedOn == null ? "A printed line must say when it was printed"
             : !printed && p.printedOn != null ? "Only a printed line may say when it was printed"

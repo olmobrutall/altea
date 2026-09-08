@@ -3,8 +3,8 @@ import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
     entity, column, uniqueIndex, quoted, backReference, rowOrder, implementedBy, legacyPropertyRoute,
-    stringLengthValidator,
 } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { BigStringEmbedded } from "@altea/altea/data/bigString";

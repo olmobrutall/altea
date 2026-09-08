@@ -1,7 +1,8 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, implementedByAll, legacyColumnName, quoted, stringLengthValidator } from "@altea/altea/data/decorators";
+import { entity, implementedByAll, legacyColumnName, quoted } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Temporal } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { DeleteSymbol } from "@altea/altea/data/operations";

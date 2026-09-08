@@ -2,8 +2,8 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Symbol } from "@altea/altea/data/symbol";
-import {
-    entity, implementedBy, implementedByAll, format, quoted, stringLengthValidator, fieldValidation, ticksColumn } from "@altea/altea/data/decorators";
+import { entity, implementedBy, implementedByAll, format, quoted, ticksColumn } from "@altea/altea/data/decorators";
+import { stringLengthValidator, validate } from "@altea/altea/data/validators";
 import { Temporal, Decimal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -97,7 +97,7 @@ export class ProcessEntity extends Entity {
     queuedDate: Temporal.PlainDateTime | null = null;
 
     // Signum validates the pair on either property; altea attaches it to the first of them.
-    @fieldValidation<ProcessEntity>(p => p.validateExecutionDates())
+    @validate<ProcessEntity>(p => p.validateExecutionDates())
     executionStart: Temporal.PlainDateTime | null = null;
     executionEnd: Temporal.PlainDateTime | null = null;
 
@@ -106,7 +106,7 @@ export class ProcessEntity extends Entity {
     exception: Lite<ExceptionEntity> | null = null;
 
     /** 0..1 (Signum's [NumberBetweenValidator(0,1), Format("p")]). */
-    @fieldValidation<ProcessEntity>(p => p.progress == null || (p.progress.gte(0) && p.progress.lte(1))
+    @validate<ProcessEntity>(p => p.progress == null || (p.progress.gte(0) && p.progress.lte(1))
         ? null : ProcessMessage.ProgressMustBeBetween0And1.niceToString())
     @format("p")
     progress: Decimal | null = null;

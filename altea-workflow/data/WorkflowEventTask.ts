@@ -1,8 +1,8 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, uniqueIndex, index, implementedBy, column, fieldValidation, quoted } from "@altea/altea/data/decorators";
-import { ValidationMessage } from "@altea/altea/data/validators";
+import { entity, uniqueIndex, index, implementedBy, column, quoted, bindParent } from "@altea/altea/data/decorators";
+import { validate, ValidationMessage } from "@altea/altea/data/validators";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { registerEnum } from "@altea/altea/data/registration";
@@ -54,14 +54,16 @@ export class WorkflowEventTaskEntity extends Entity implements ITaskEntity {
 
     triggeredOn: TriggeredOn = TriggeredOn.Always;
 
-    @fieldValidation<WorkflowEventTaskEntity>(t =>
+    @validate<WorkflowEventTaskEntity>(t =>
         t.triggeredOn === TriggeredOn.Always && t.condition != null
             ? ValidationMessage._0IsSet.niceToString(WorkflowEventTaskEntity.nicePropertyName(a => a.condition))
             : t.triggeredOn !== TriggeredOn.Always && t.condition == null
                 ? ValidationMessage._0IsNotSet.niceToString(WorkflowEventTaskEntity.nicePropertyName(a => a.condition))
                 : null)
+    @bindParent
     condition: WorkflowEventTaskConditionEval | null;
 
+    @bindParent
     action: WorkflowEventTaskActionEval | null;
 
     // Signum's `[AutoExpressionField] ToString() => As.Expression(() => Workflow + " : " + Event)` — an
@@ -94,8 +96,10 @@ export class WorkflowEventTaskModel extends ModelEntity {
 
     triggeredOn: TriggeredOn = TriggeredOn.Always;
 
+    @bindParent
     condition: WorkflowEventTaskConditionEval | null;
 
+    @bindParent
     action: WorkflowEventTaskActionEval | null;
 }
 

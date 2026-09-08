@@ -1,6 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, quoted, stringLengthValidator, legacyPropertyRoute } from "@altea/altea/data/decorators";
+import { entity, quoted, legacyPropertyRoute } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Lite } from "@altea/altea/data/lite";
 import { Temporal } from "@altea/altea/data/basics";
 import type { PermissionSymbol } from "./Rules";

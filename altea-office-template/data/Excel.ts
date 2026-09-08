@@ -1,7 +1,6 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { EmbeddedEntity, ModelEntity } from "@altea/altea/data/entity";
-import { stringLengthValidator, fieldValidation } from "@altea/altea/data/decorators";
-import { ValidationMessage } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { FileEmbedded } from "@altea/altea-files/data/Files";
@@ -132,13 +131,13 @@ export class ImportExcelModel extends ModelEntity {
     mode: ImportExcelMode;
 
     /** Signum's `(pi, MatchByColumn).IsSetOnlyWhen(…)` for the model's own key column. */
-    @fieldValidation<ImportExcelModel>(m => isSetOnlyWhen(m.matchByColumn, needsMatchBy(m)))
+    @validate<ImportExcelModel>(m => isSetOnlyWhen(m.matchByColumn, needsMatchBy(m)))
     matchByColumn: string | null;
 
     /** Signum also puts `[NoRepeatValidator]` here. altea's NoRepeatValidator compares a `@valueField`
      *  (see validators.ts) and these rows have none, so it would be inert — the duplicate check is folded
      *  into `collectionsError` below, where it can compare what actually identifies a row. */
-    @fieldValidation<ImportExcelModel>(m => collectionsError(m))
+    @validate<ImportExcelModel>(m => collectionsError(m))
     collections: CollectionElementEmbedded[];
 
     toString(): string {

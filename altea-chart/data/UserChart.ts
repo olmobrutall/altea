@@ -2,8 +2,9 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
-    backReference, entity, implementedBy, noRepeatValidator, primaryKey, quoted, rowOrder, stringLengthValidator, valueField,
+    backReference, entity, implementedBy, primaryKey, quoted, rowOrder, valueField,
 } from "@altea/altea/data/decorators";
+import { noRepeatValidator, stringLengthValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { FilterOperation, FilterGroupOperation, DashboardBehaviour } from "@altea/altea/data/dynamicQueries";
 import { QueryEntity } from "@altea/altea/data/queryEntity";

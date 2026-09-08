@@ -2,10 +2,9 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity, EmbeddedEntity, ModelEntity, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
-    entity, implementedBy, implementedByAll, backReference, forceNotNullable, rowOrder,
-    stringLengthValidator, column, primaryKey, quoted,
+    entity, implementedBy, implementedByAll, backReference, forceNotNullable, rowOrder, column, primaryKey, quoted,
 } from "@altea/altea/data/decorators";
-import { noRepeatValidator } from "@altea/altea/data/validators";
+import { stringLengthValidator, noRepeatValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { Temporal, type int } from "@altea/altea/data/basics";

@@ -19,13 +19,14 @@ import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 //    the runtime `require` (see EvalCompiler's header). Like Signum, the module SEEDS ITS OWN framework
 //    surface (see EvalFrameworkModules) — an application registers only its entity domains, and a module
 //    outside the framework registers its own from its own `Logic.start` (altea-workflow does).
-//  - Signum's `[BindParent]` has no counterpart, so an eval's OWNER is bound by
-//    `sb.include(Owner).withEvals()`, which hangs the binding off the two schema events altea already has:
-//    `preSaving` (so validation and save can compile) and `retrieved` (so a read-back eval can). Signum gets
-//    it for free from the field setter; altea's fields are plain properties with no setter to hook.
-//  - `EvalLogic.OnInvalidated` is `EvalCompiler.invalidate()`, and `withEvals` also resets an eval's cached
-//    compilation on retrieve — a row re-read after somebody else edited the script must not keep the old
-//    algorithm.
+//  - Signum's `[BindParent]` IS ported (`@bindParent`, data/parentEntity), so an eval reaches its owner
+//    the way Signum reaches it — the field that holds it is marked, and `EvalEmbedded.owner(type)` reads
+//    the back-pointer. This module used to keep a private WeakMap of owners bound by a
+//    `sb.include(X).withEvals()`, and that is gone with it; so is the `retrieved` reset it also did, since
+//    the compilation memo now records the script it was built from (see Eval.ts).
+//  - `EvalLogic.OnInvalidated` is `EvalCompiler.invalidate()`, which clears the code-keyed compilation
+//    cache — Signum's `resultCache.Clear()` on the same event. A registered module changing can change
+//    what an already-compiled script means.
 
 export namespace EvalLogic {
 
@@ -112,58 +113,3 @@ export namespace EvalLogic {
     }
 }
 
-// ---- The owner binding (Signum's [BindParent]) -----------------------------------------------------------
-
-declare module "@altea/altea/server/schema/fluentInclude" {
-    interface FluentInclude<T extends Entity> {
-        /**
-         * Binds every {@link EvalEmbedded} this entity owns to it, so an eval's `compile()` can read the
-         * owner's fields (Signum's `[BindParent]` + `GetParentEntity<T>()`).
-         *
-         * Hangs off `preSaving` — which the validation pass runs, so a bad script is rejected on save — and
-         * `retrieved`, so a row read back from the database can be compiled. The retrieve also RESETS the
-         * cached compilation: the row may carry a script somebody else just changed.
-         */
-        withEvals(): this;
-    }
-}
-
-FluentInclude.prototype.withEvals = function <T extends Entity>(this: FluentInclude<T>): FluentInclude<T> {
-    const events = this.schemaBuilder.schema.entityEvents(this.type);
-
-    events.preSaving.push(entity => bindEvals(entity, false));
-    events.retrieved.push(entity => bindEvals(entity, true));
-
-    return this;
-};
-
-/**
- * Binds (and optionally resets) every eval reachable from `entity`'s own fields — including the ones nested
- * inside its embeddeds, which is where Signum's `[BindParent]` chain would take it.
- */
-function bindEvals(entity: Entity, reset: boolean): void {
-    const visit = (owner: Entity, value: unknown): void => {
-        if (value == null)
-            return;
-
-        if (Array.isArray(value)) {
-            for (const el of value)
-                visit(owner, el);
-            return;
-        }
-
-        if (value instanceof EvalEmbedded) {
-            EvalEmbedded.bindOwner(value as EvalEmbedded<unknown>, owner);
-            if (reset)
-                (value as EvalEmbedded<unknown>).reset();
-            return;
-        }
-
-        // An embedded may hold the eval one level down (Signum's BindParent chains the same way). Entities
-        // are NOT followed: another entity binds its own evals through its own `withEvals()`.
-        if (value instanceof EmbeddedEntity)
-            forEachField(value, (_fi: unknown, v: unknown) => visit(owner, v));
-    };
-
-    forEachField(entity, (_fi: unknown, value: unknown) => visit(entity, value));
-}

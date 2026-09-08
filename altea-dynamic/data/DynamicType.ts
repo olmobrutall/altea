@@ -1,11 +1,10 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, stringLengthValidator, quoted } from "@altea/altea/data/decorators";
+import { entity, quoted } from "@altea/altea/data/decorators";
+import { stringLengthValidator, ValidationMessage, validate, ComparisonType } from "@altea/altea/data/validators";
 import { registerEnum } from "@altea/altea/data/registration";
 import { msg } from "@altea/altea/data/utils/localization";
-import { ValidationMessage, customValidators } from "@altea/altea/data/validators";
 import type { ConstructSymbol, From, ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
-import type { ComparisonType } from "@altea/altea/data/validators";
 
 // Port of Signum.Dynamic's Types/DynamicType.cs — a TYPE defined from inside the running application: its
 // name, its base, its properties and their validators, its operations, and any hand-written code to splice
@@ -27,7 +26,7 @@ import type { ComparisonType } from "@altea/altea/data/validators";
 //    because `getLocation(typeName)` already knows which module declares a registered type — the
 //    `__fileInfo` the transformer stamps.
 //  - `IdentifierValidator(IdentifierType.PascalAscii)` has no altea counterpart, so the same rule is a
-//    `@customValidators` on the two places Signum applies it (the type name, and each property name inside
+//    `@validate` on the two places Signum applies it (the type name, and each property name inside
 //    the definition).
 //  - `DynamicTypeMessage.TheEntityShouldBeSynchronizedToApplyMixins` is kept and so is
 //    `ServerRestartedWithErrorsInDynamicCode…`: altea restarts for the same reason Signum does — a schema
@@ -181,7 +180,7 @@ export class DynamicTypeEntity extends Entity {
     // Signum's [UniqueIndex] + IdentifierValidator(PascalAscii). The index is declared in the logic layer
     // (altea declares indexes on the include, not as a decorator).
     @stringLengthValidator({ min: 3, max: 100 })
-    @customValidators<DynamicTypeEntity>((e, fi) => PascalAscii.test(e.typeName) ? null
+    @validate<DynamicTypeEntity>((e, fi) => PascalAscii.test(e.typeName) ? null
         : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "PascalAscii"))
     typeName: string;
 
@@ -193,7 +192,7 @@ export class DynamicTypeEntity extends Entity {
      * compile, and the author should hear that here rather than from the compiler.
      */
     @stringLengthValidator({ min: 3, multiLine: true })
-    @customValidators<DynamicTypeEntity>(e => {
+    @validate<DynamicTypeEntity>(e => {
         let def: DynamicTypeDefinition;
         try {
             def = JSON.parse(e.typeDefinition) as DynamicTypeDefinition;

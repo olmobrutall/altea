@@ -1,12 +1,9 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
-import { entity, backReference, implementedBy } from "@altea/altea/data/decorators";
-import { noRepeatValidator } from "@altea/altea/data/validators";
+import { entity, backReference, implementedBy, niceName } from "@altea/altea/data/decorators";
+import { noRepeatValidator, stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import type { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
 import { type uuid } from "@altea/altea/data/basics";
-import { niceName, stringLengthValidator } from "@altea/altea/data/decorators";
-import { fieldValidation } from "@altea/altea/data/decorators";
-import { ValidationMessage } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { BaseADConfigurationEmbedded, RoleMappingEntity } from "@altea/altea-auth/data/BaseAD";
 import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
@@ -17,9 +14,9 @@ import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 // altea divergences, documented inline:
 //  - `Guid ApplicationID / DirectoryID` are `string` (a uuid) rather than a Guid value type: they are only
 //    ever formatted into URLs and compared to the token's `aud`, and altea's Guid support is a PK/column
-//    concern. `@fieldValidation` keeps them well-formed.
+//    concern. `@validate` keeps them well-formed.
 //  - Signum's `StateValidator<AzureADConfigurationEmbedded, AzureADType>` (a per-type × per-field
-//    required/forbidden MATRIX) becomes explicit `@fieldValidation` rules — altea has no StateValidator, and
+//    required/forbidden MATRIX) becomes explicit `@validate` rules — altea has no StateValidator, and
 //    the three rows of Signum's table are short enough to read directly. The matrix is reproduced verbatim
 //    in `stateRule` below so a future Signum change is easy to re-apply.
 //  - `ToAzureADConfigTS(scopes)` → `toClientConfig(scopes?)`, and the DTO is served by an anonymous endpoint
@@ -52,17 +49,17 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     // what is optional, and a directory that is configured at all has to be configured properly. The
     // columns are nullable because the embedded is.
     @niceName("Application (client) ID")
-    @fieldValidation<AzureADConfigurationEmbedded>(c =>
+    @validate<AzureADConfigurationEmbedded>(c =>
         c.enabled && !isUuid(c.applicationID) ? ValidationMessage._0DoesNotHaveAValid1Format.niceToString("Application (client) ID", "Guid") : null)
     applicationID: uuid;
 
     @niceName("Directory (tenant) ID")
-    @fieldValidation<AzureADConfigurationEmbedded>(c =>
+    @validate<AzureADConfigurationEmbedded>(c =>
         c.enabled && !isUuid(c.directoryID) ? ValidationMessage._0DoesNotHaveAValid1Format.niceToString("Directory (tenant) ID", "Guid") : null)
     directoryID: uuid;
 
     @stringLengthValidator({ max: 100 })
-    @fieldValidation<AzureADConfigurationEmbedded>(c => {
+    @validate<AzureADConfigurationEmbedded>(c => {
         const state = stateRule(c, "tenantName");
         if (state != null)
             return state;
@@ -74,7 +71,7 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     tenantName: string | null = null;
 
     @stringLengthValidator({ max: 300 })
-    @fieldValidation<AzureADConfigurationEmbedded>(c => {
+    @validate<AzureADConfigurationEmbedded>(c => {
         // Signum's B2C row is "either SignInSignUp_UserFlow or SignIn_UserFlow".
         if (c.enabled && c.type === AzureADType.B2C && !hasText(c.signInSignUp_UserFlow) && !hasText(c.signIn_UserFlow))
             return ValidationMessage._0IsNotSet.niceToString("Sign In Sign Up User Flow");
@@ -89,19 +86,19 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     signInSignUp_UserFlow: string | null = null;
 
     @stringLengthValidator({ max: 300 })
-    @fieldValidation<AzureADConfigurationEmbedded>(c => stateRule(c, "signIn_UserFlow"))
+    @validate<AzureADConfigurationEmbedded>(c => stateRule(c, "signIn_UserFlow"))
     signIn_UserFlow: string | null = null;
 
     @stringLengthValidator({ max: 300 })
-    @fieldValidation<AzureADConfigurationEmbedded>(c => stateRule(c, "signUp_UserFlow"))
+    @validate<AzureADConfigurationEmbedded>(c => stateRule(c, "signUp_UserFlow"))
     signUp_UserFlow: string | null = null;
 
     @stringLengthValidator({ max: 300 })
-    @fieldValidation<AzureADConfigurationEmbedded>(c => stateRule(c, "editProfile_UserFlow"))
+    @validate<AzureADConfigurationEmbedded>(c => stateRule(c, "editProfile_UserFlow"))
     editProfile_UserFlow: string | null = null;
 
     @stringLengthValidator({ max: 300 })
-    @fieldValidation<AzureADConfigurationEmbedded>(c => stateRule(c, "resetPassword_UserFlow"))
+    @validate<AzureADConfigurationEmbedded>(c => stateRule(c, "resetPassword_UserFlow"))
     resetPassword_UserFlow: string | null = null;
 
     /** Only needed for Microsoft Graph (directory queries, photos, the deactivate-users task) — NOT for

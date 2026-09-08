@@ -1,5 +1,8 @@
 import { reflect } from "@altea/altea/data/reflection";
-import { entity, mixin, primaryKey, implementedByAll, backReference, valueField, stringLengthValidator, column, forceNullable, fullTextIndex } from "@altea/altea/data/decorators";
+import {
+    entity, mixin, primaryKey, implementedByAll, backReference, valueField, column, forceNullable, fullTextIndex,
+} from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Entity, MixinEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Temporal } from "@altea/altea/data/basics";

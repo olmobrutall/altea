@@ -12,9 +12,9 @@ import type { Type, PrimaryKey, BaseEntity } from '../entity';
 import { Lite, LiteImp, getCustomLites } from '../lite';
 import type { CustomLiteClass } from '../lite';
 import { isModifiedSelf, getSnapshot, snapshotEqual } from '../changes';
-import { getTypeInfo } from '../reflection';
+import { getTypeInfo, eachFieldInfo } from '../reflection';
+import { bindParentsOwn } from '../parentEntity';
 import type { FieldInfo } from '../reflection';
-import { MixinDeclarations } from '../mixinDeclarations';
 import { resolveCleanType, resolveEnum, cleanTypeName } from '../registration';
 import { EnumEntity } from '../enumEntity';
 import { toInt, Decimal } from '../basics';
@@ -129,20 +129,8 @@ function ctorIsEmbedded(ctor: Function): boolean {
         || ctor === ModelEntity || ctor.prototype instanceof ModelEntity;
 }
 
-// A ctor-based iterator over a modifiable's reflected fields — own + inherited (reflection copies base
-// fields into each subclass) + mixin. No instance needed, so the factory precomputes a plan per type.
-// (Distinct from changes.forEachField, which needs an instance and skips @column(false)/reserved fields
-// — the codec serializes @column(false) fields.)
-function eachFieldInfo(ctor: Function, cb: (fi: FieldInfo) => void): void {
-    const visit = (owner: Function): void => {
-        const ti = getTypeInfo(owner);
-        if (ti == null) return;
-        for (const fi of Object.values(ti.fields)) cb(fi);
-    };
-    visit(ctor);
-    for (const mixin of MixinDeclarations.getMixins(ctor as Type<BaseEntity>))
-        visit(mixin as unknown as Function);
-}
+// The two-level field walk (own + inherited + mixin) now lives in data/reflection as `eachFieldInfo`,
+// where every reader of a mixin's fields shares it — this file had the only copy.
 import {
     ValueSerializer, TemporalSerializer, DecimalSerializer, DateSerializer, BlobSerializer, EnumSerializer, ArraySerializer,
 } from './leafSerializers';
@@ -301,6 +289,17 @@ abstract class ModifiableSerializer implements JsonSerializer {
             // false rejection of a legitimate save AND needs no client-side omission logic.
             if (fieldRoute != null && _serAuth!.access(fieldRoute, dc.authMeta, dc.authContext) !== 'writable')
                 continue;
+            // The MODEL's own read-only rule — @isReadOnly on the field, then the entity's
+            // `isPropertyReadonly` (FieldInfo.isReadOnlyFor, Signum's `PropertyValidator.IsPropertyReadonly`
+            // reached through its `AssertCanWrite`). Same guard as the auth gate above, and for the same
+            // reason: `ownerRoute` is set only on the OVERLAY path, i.e. the server applying a POSTed graph
+            // onto the retrieved original — so `m` still holds the STORED state the rule is about (a shipped
+            // order is read-only because the DATABASE says it shipped), and the client-receive path, where
+            // the server is the writer, is untouched. Signum THROWS here; this keeps the codec's existing
+            // silent-keep, which cannot falsely reject a save: a line the client rendered read-only echoes
+            // the value it was given.
+            if (ownerRoute != null && entry.fieldInfo.isReadOnlyFor(m))
+                continue;
             const jv = json[entry.name];
             const prevRoute = dc.route;
             dc.route = fieldRoute;   // so an embedded child gates its own sub-fields
@@ -318,6 +317,12 @@ abstract class ModifiableSerializer implements JsonSerializer {
             if (translated != null)
                 target[entry.name + "_translated"] = translated;
         }
+
+        // Signum's `AfterDeserialization` → `BindParent()`: this container's @bindParent children now
+        // exist, so give them their back-pointer. ONE level is enough here and the recursion would be
+        // wasted: a nested modifiable is deserialized before its container, so every level binds its own
+        // as the graph is built bottom-up.
+        bindParentsOwn(m);
     }
 }
 
@@ -585,6 +590,7 @@ class SerializerFactory {
                 serializer: this.serializerFor(fi),
                 isBackReference: fi.isBackReference === true,
                 isRowOrder: fi.isRowOrder === true,
+                fieldInfo: fi,
             });
         });
         return plan;

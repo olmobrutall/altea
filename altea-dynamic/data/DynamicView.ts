@@ -1,14 +1,12 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import {
-    entity, backReference, rowOrder, stringLengthValidator, fieldValidation, quoted, uniqueIndex,
-} from "@altea/altea/data/decorators";
+import { entity, backReference, rowOrder, quoted, uniqueIndex } from "@altea/altea/data/decorators";
+import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import type { ConstructSymbol, ExecuteSymbol, DeleteSymbol, From } from "@altea/altea/data/operations";
-import { ValidationMessage } from "@altea/altea/data/validators";
 
 // Port of Signum.Dynamic's Views/DynamicView.cs — a view defined in the DATABASE rather than compiled into
 // the app: a tree of nodes (`viewContent`, JSON) plus an optional `locals` hook body and declared `props`.
@@ -35,7 +33,7 @@ export class DynamicViewEntity_Prop extends Entity {
     @rowOrder order: int;
 
     @stringLengthValidator({ max: 100 })
-    @fieldValidation<DynamicViewEntity_Prop>(p => propNameError(p))
+    @validate<DynamicViewEntity_Prop>(p => propNameError(p))
     name: string;
 
     @stringLengthValidator({ max: 100 })
@@ -83,8 +81,8 @@ export class DynamicViewEntity extends Entity {
     // Signum's PropertyValidation for `Props` is `NoRepeatValidatorAttribute.ByKey(Props, a => a.Name)`.
     // altea's `@noRepeatValidator` cannot express it: it compares a `@part` row through the row's
     // `@valueField`, and a prop row has two members and so has none — it would compare object identity and
-    // never report anything. Hence a `@fieldValidation`, which receives the whole entity.
-    @fieldValidation<DynamicViewEntity>(v => noRepeatedPropNames(v))
+    // never report anything. Hence a `@validate`, which receives the whole entity.
+    @validate<DynamicViewEntity>(v => noRepeatedPropNames(v))
     props: DynamicViewEntity_Prop[];
 
     /** The body of a `useMemo`-like hook the interpreter runs before rendering; its result is `locals`. */

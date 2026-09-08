@@ -1,6 +1,7 @@
 import { reflect } from './reflection';
 import { Entity } from './entity';
-import { entity, implementedBy, stringLengthValidator } from './decorators';
+import { entity, implementedBy } from './decorators';
+import { stringLengthValidator } from './validators';
 import { Lite } from './lite';
 import { Temporal } from './basics';
 import type { IUserEntity } from './security';

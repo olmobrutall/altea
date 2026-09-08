@@ -1,6 +1,6 @@
 
 import { getOrCreateTypeInfo, getOrCreateFieldInfo, tryGetTypeInfo, Validator, registerImplicitNotNullValidator } from './reflection';
-import type { FieldInfo, IntegrityCheckEnvironment } from './reflection';
+import type { FieldInfo, IntegrityCheckEnvironment, FieldInfoOf } from './reflection';
 import type { BaseEntity } from './entity';
 import { msg } from './utils/localization';
 import { Decimal } from './basics';
@@ -96,14 +96,37 @@ export class NotNullValidator extends Validator {
 // with the class, to avoid a reflection→validators import cycle).
 registerImplicitNotNullValidator(() => new NotNullValidator());
 
-// --- fieldValidation ---
+// --- @validate ---
 
-export function customValidators<T>(
-    fn: (entity: T, fi: FieldInfo, env: IntegrityCheckEnvironment) => string | null | undefined | Promise<string | null | undefined>,
+/**
+ * `@validate<T>((e, fi, env) => message | null)` — Signum's `StaticPropertyValidation`, and the escape
+ * hatch for a rule no declarative validator can express. Answers the error message, or null when the
+ * value is fine.
+ *
+ * WRITE THE TYPE ARGUMENT, as `@isReadOnly` wants it: it is what types `entity` and narrows `fi.name` to
+ * the type's members ({@link MemberOf}), so a member named in the body is checked. There is no default,
+ * so forgetting it makes the body fail to compile rather than silently checking nothing.
+ *
+ * It runs after this field's declared validators and the global pass, and it may be ASYNC — a validation
+ * that has to open a file, resolve query tokens or hit the database cannot be synchronous. An async one
+ * runs ONLY on the awaiting paths (the save and deserialization passes, and /api/validateEntity), never
+ * in the client's live per-keystroke path; see `FieldInfo.validate`.
+ *
+ * On a MIXIN's field it belongs on the mixin, where the field is declared — and it is honoured there,
+ * because every reader resolves a field through `resolveField` / `eachFieldInfo`, which walk the declared
+ * mixins as well as the type itself.
+ *
+ * A rule that needs the OWNER of the entity it validates reads it with `tryGetParentEntity` — mark the
+ * field holding the child `@bindParent` (see data/parentEntity), which is how an order LINE validates
+ * against its order.
+ */
+export function validate<T>(
+    fn: (entity: T, fi: FieldInfoOf<T>, env: IntegrityCheckEnvironment) => string | null | undefined | Promise<string | null | undefined>,
 ) {
     return (target: object, propertyKey: string | symbol) => {
         const typeInfo = getOrCreateTypeInfo(target);
-        getOrCreateFieldInfo(typeInfo, String(propertyKey)).customValidation = fn;
+        getOrCreateFieldInfo(typeInfo, String(propertyKey)).customValidation =
+            fn as FieldInfo["customValidation"];
     };
 }
 

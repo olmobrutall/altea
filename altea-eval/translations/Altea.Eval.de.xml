@@ -4,7 +4,7 @@
     <Member Name="_0Errors" Description="{0} Fehler:" />
     <Member Name="Line0_1" Description="Zeile {0}: {1}" />
     <Member Name="NoCompilerIsConfigured" Description="Es ist kein Compiler konfiguriert (EvalLogic.start wurde nicht aufgerufen)" />
-    <Member Name="TheOwnerOf0HasNotBeenBoundCallWithEvalsOnItsInclude" Description="Der Eigentümer von {0} wurde nicht gebunden. Rufen Sie `.withEvals()` in seinem Include auf." />
+    <Member Name="TheOwnerOf0HasNotBeenBound" Description="Der Eigentümer von {0} wurde nicht gebunden. Markieren Sie das Feld, das ihn hält, mit @bindParent." />
     <Member Name="TheScriptHasNotBeenCompiled" Description="Das Skript wurde nicht kompiliert" />
   </Type>
   <Type Name="EvalPanelMessage">

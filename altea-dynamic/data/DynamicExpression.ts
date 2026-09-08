@@ -1,8 +1,8 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, stringLengthValidator, quoted } from "@altea/altea/data/decorators";
+import { entity, quoted } from "@altea/altea/data/decorators";
+import { stringLengthValidator, ValidationMessage, validate } from "@altea/altea/data/validators";
 import { registerEnum } from "@altea/altea/data/registration";
-import { ValidationMessage, customValidators } from "@altea/altea/data/validators";
 import type { ConstructSymbol, From, ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { PascalAscii } from "./DynamicType";
 
@@ -22,7 +22,7 @@ import { PascalAscii } from "./DynamicType";
 //    panel can evaluate it against one entity in memory. altea's generated member is already callable in
 //    memory — a `@quoted` member is an ordinary method with a tree beside it — so the panel calls it
 //    directly and there is nothing to compile twice.
-//  - `IdentifierValidator(PascalAscii)` → `@customValidators`, as in data/DynamicType.
+//  - `IdentifierValidator(PascalAscii)` → `@validate`, as in data/DynamicType.
 
 export enum DynamicExpressionTranslation {
     TranslateExpressionName,
@@ -37,7 +37,7 @@ registerEnum(DynamicExpressionTranslation);
 export class DynamicExpressionEntity extends Entity {
 
     @stringLengthValidator({ min: 3, max: 100 })
-    @customValidators<DynamicExpressionEntity>((e, fi) => PascalAscii.test(e.name) ? null
+    @validate<DynamicExpressionEntity>((e, fi) => PascalAscii.test(e.name) ? null
         : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "PascalAscii"))
     name: string;
 

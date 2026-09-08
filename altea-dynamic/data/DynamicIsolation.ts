@@ -1,8 +1,7 @@
 import { reflect } from "@altea/altea/data/reflection";
 import { MixinEntity, type Type } from "@altea/altea/data/entity";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
-import { stringLengthValidator } from "@altea/altea/data/decorators";
-import { customValidators, ValidationMessage } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import type { IsolationStrategy } from "@altea/altea-isolation/data/Isolation";
 import { DynamicTypeEntity } from "./DynamicType";
 
@@ -27,7 +26,7 @@ export class DynamicIsolationMixin extends MixinEntity {
 
     /** Signum's `IsolationStrategy IsolationStrategy { get; set; } = IsolationStrategy.None`. */
     @stringLengthValidator({ max: 20 })
-    @customValidators<DynamicIsolationMixin>((e, fi) =>
+    @validate<DynamicIsolationMixin>((e, fi) =>
         isolationStrategies.includes(e.isolationStrategy as IsolationStrategy) ? null
             : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(
                 fi.niceToString(), isolationStrategies.join(" / ")))

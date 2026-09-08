@@ -2,10 +2,9 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, primaryKey, uniqueIndex, implementedBy, stringLengthValidator, quoted,
-    backReference, rowOrder, fieldValidation,
+    entity, primaryKey, uniqueIndex, implementedBy, quoted, backReference, rowOrder,
 } from "@altea/altea/data/decorators";
-import { noRepeatValidator } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, noRepeatValidator } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
@@ -140,22 +139,22 @@ export class CssStepEntity extends Entity {
 
     // Signum's `PropertyValidation` with five `IsSetOnlyWhen` clauses, one per member: a field must be set
     // exactly when `type` selects it. Written as one validator per field, altea's shape for the same rule.
-    @fieldValidation<CssStepEntity>(a => isSetOnlyWhen(a.cssSelector, a.type == CssStepType.CSSSelector, "cssSelector"))
+    @validate<CssStepEntity>(a => isSetOnlyWhen(a.cssSelector, a.type == CssStepType.CSSSelector, "cssSelector"))
     @stringLengthValidator({ max: 200 })
     cssSelector: string | null;
 
-    @fieldValidation<CssStepEntity>(a => isSetOnlyWhen(a.property, a.type == CssStepType.Property, "property"))
+    @validate<CssStepEntity>(a => isSetOnlyWhen(a.property, a.type == CssStepType.Property, "property"))
     property: PropertyRouteEntity | null;
 
-    @fieldValidation<CssStepEntity>(a => isSetOnlyWhen(a.toolbarContent, a.type == CssStepType.ToolbarContent, "toolbarContent"))
+    @validate<CssStepEntity>(a => isSetOnlyWhen(a.toolbarContent, a.type == CssStepType.ToolbarContent, "toolbarContent"))
     @implementedBy(() => [QueryEntity])
     toolbarContent: Lite<Entity> | null;
 
     /** The uuid of a `DashboardEntity_Part` row — the dashboard part this step points at. */
-    @fieldValidation<CssStepEntity>(a => isSetOnlyWhen(a.dashboardPart, a.type == CssStepType.DashboardPart, "dashboardPart"))
+    @validate<CssStepEntity>(a => isSetOnlyWhen(a.dashboardPart, a.type == CssStepType.DashboardPart, "dashboardPart"))
     dashboardPart: string | null;
 
-    @fieldValidation<CssStepEntity>(a => isSetOnlyWhen(a.tableColumn, a.type == CssStepType.TableColumn, "tableColumn"))
+    @validate<CssStepEntity>(a => isSetOnlyWhen(a.tableColumn, a.type == CssStepType.TableColumn, "tableColumn"))
     @stringLengthValidator({ max: 400 })
     tableColumn: string | null;
 }

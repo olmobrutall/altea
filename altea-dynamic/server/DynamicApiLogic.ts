@@ -1,6 +1,5 @@
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import "@altea/altea/server/fluentOperations";
-import "@altea/altea-eval/server/EvalLogic"; // FluentInclude.withEvals
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { WebBuilder } from "@altea/altea/server/webApi";
 import { table } from "@altea/altea/server/table";
@@ -42,7 +41,6 @@ export namespace DynamicApiLogic {
             .withSave(DynamicApiOperation.Save)
             .withDelete(DynamicApiOperation.Delete)
             .withQuery()
-            .withEvals()
             .withOperations(op => {
                 op.withConstructFrom(DynamicApiEntity, DynamicApiOperation.Clone, {
                     construct: e => {

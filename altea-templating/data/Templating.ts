@@ -59,7 +59,7 @@ export class TemplateApplicableEval extends EvalEmbedded<ITemplateApplicable> {
         // Signum: `QueryEntity.GetEntityImplementations(query).Types.Only()`. altea's query KEY for an
         // entity query IS the clean type name, and `resolveType` is isomorphic — so the ctor (and with it the
         // class name the generated import needs) comes straight off the registry, with no server call.
-        const owner = this.owner<IContainsQuery>();
+        const owner = this.owner(Entity) as unknown as IContainsQuery;
         const entityCtor = owner.query == null ? undefined : resolveType(owner.query.key);
         const entityTypeName = entityCtor?.name ?? "Entity";
 

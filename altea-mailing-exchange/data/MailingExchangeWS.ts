@@ -1,5 +1,6 @@
 import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
-import { entity, format, column, stringLengthValidator } from "@altea/altea/data/decorators";
+import { entity, format, column } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { EmailServiceEntity } from "@altea/altea-email/data/EmailSenderConfiguration";
 
 // Port of Signum.Mailing.ExchangeWS's ExchangeWebServiceEmailServiceEntity.cs (+ the generated

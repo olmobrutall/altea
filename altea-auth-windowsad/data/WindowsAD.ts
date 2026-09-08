@@ -1,11 +1,8 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
-import { entity, backReference, implementedBy } from "@altea/altea/data/decorators";
-import { noRepeatValidator } from "@altea/altea/data/validators";
+import { entity, backReference, implementedBy, format } from "@altea/altea/data/decorators";
+import { noRepeatValidator, stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import type { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
-import { stringLengthValidator, format } from "@altea/altea/data/decorators";
-import { fieldValidation } from "@altea/altea/data/decorators";
-import { ValidationMessage } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { BaseADConfigurationEmbedded, RoleMappingEntity } from "@altea/altea-auth/data/BaseAD";
 import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
@@ -14,7 +11,7 @@ import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 // Active Directory domain.
 //
 // altea divergences, documented inline:
-//  - Signum's `PropertyValidation` override becomes per-field `@fieldValidation`: the domain name is
+//  - Signum's `PropertyValidation` override becomes per-field `@validate`: the domain name is
 //    required as soon as either login mode is on.
 //  - `LoginWithWindowsAuthenticator` (integrated Kerberos/NTLM SSO) is KEPT as a setting, but a Node host
 //    can only honour it by supplying a Negotiate provider — see WindowsADServer's `negotiateProvider`.
@@ -36,7 +33,7 @@ export class WindowsADConfigurationEmbedded extends BaseADConfigurationEmbedded 
     loginWithActiveDirectoryRegistry: boolean = false;
 
     @stringLengthValidator({ max: 200 })
-    @fieldValidation<WindowsADConfigurationEmbedded>(c =>
+    @validate<WindowsADConfigurationEmbedded>(c =>
         (c.loginWithWindowsAuthenticator || c.loginWithActiveDirectoryRegistry) && !hasText(c.domainName)
             ? ValidationMessage._0IsNotSet.niceToString("Domain Name")
             : null)

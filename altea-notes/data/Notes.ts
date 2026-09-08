@@ -2,7 +2,8 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { SemiSymbol } from "@altea/altea/data/semiSymbol";
-import { entity, implementedByAll, stringLengthValidator, quoted } from "@altea/altea/data/decorators";
+import { entity, implementedByAll, quoted } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";

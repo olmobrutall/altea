@@ -1,7 +1,7 @@
 import { Entity } from './entity';
 import { reflect } from './reflection';
-import { entity, uniqueIndex, quoted, fieldValidation, niceName, nicePluralName, legacyPropertyRoute } from './decorators';
-import { stringLengthValidator } from './validators';
+import { entity, uniqueIndex, quoted, niceName, nicePluralName, legacyPropertyRoute } from './decorators';
+import { validate, stringLengthValidator } from './validators';
 import { init } from './registration';
 import type { ExecuteSymbol, DeleteSymbol } from './operations';
 import { msg } from './utils/localization';
@@ -28,7 +28,7 @@ export class CultureInfoEntity extends Entity {
     // The locale tag ("en", "es", "de-CH"). Signum's [UniqueIndex, StringLengthValidator(2, 10)].
     @uniqueIndex
     @stringLengthValidator({ min: 2, max: 10 })
-    @fieldValidation<CultureInfoEntity>((c: CultureInfoEntity) => isKnownCulture(c.name) ? null : CultureInfoMessage._0IsNotAValidCultureName.niceToString(c.name))
+    @validate<CultureInfoEntity>((c: CultureInfoEntity) => isKnownCulture(c.name) ? null : CultureInfoMessage._0IsNotAValidCultureName.niceToString(c.name))
     name: string;
 
     // The language's own name for itself ("español"), and its English name ("Spanish"). Derived from the

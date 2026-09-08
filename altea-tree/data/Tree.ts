@@ -1,14 +1,11 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
-import {
-    entity, implementedByAll, column, uniqueIndex,
-    stringLengthValidator, fieldValidation,
-} from "@altea/altea/data/decorators";
+import { entity, implementedByAll, column, uniqueIndex } from "@altea/altea/data/decorators";
+import { stringLengthValidator, validate, ValidationMessage, notNullValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { type int } from "@altea/altea/data/basics";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
-import { ValidationMessage, notNullValidator } from "@altea/altea/data/validators";
 import type { OmniboxResult, OmniboxMatch } from "@altea/altea-omnibox/data/OmniboxResults";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import type { IPartEntity } from "@altea/altea-dashboard/data/Dashboard";
@@ -152,7 +149,7 @@ export class MoveTreeModel extends ModelEntity {
     insertPlace: InsertPlace;
 
     // Signum's PropertyValidation: a Before/After move needs the sibling it goes next to.
-    @fieldValidation<MoveTreeModel>(m => (m.insertPlace === InsertPlace.After || m.insertPlace === InsertPlace.Before) && m.sibling == null
+    @validate<MoveTreeModel>(m => (m.insertPlace === InsertPlace.After || m.insertPlace === InsertPlace.Before) && m.sibling == null
         ? ValidationMessage._0IsNotSet.niceToString(MoveTreeModel.nicePropertyName(a => a.sibling))
         : null)
     @implementedByAll

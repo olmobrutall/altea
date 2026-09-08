@@ -1,11 +1,10 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
+import { entity, implementedByAll, backReference, format, quoted } from "@altea/altea/data/decorators";
 import {
-    entity, implementedByAll, backReference, format,
-    stringLengthValidator, fieldValidation, quoted,
-} from "@altea/altea/data/decorators";
-import { noRepeatValidator, countIsValidator, ComparisonType } from "@altea/altea/data/validators";
+    stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType,
+} from "@altea/altea/data/validators";
 import { Temporal, type int, toInt, type uuid } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -25,7 +24,7 @@ import { Enum } from "@altea/altea/data/enum";
 //  - `MList<EmailRecipientEmbedded> Recipients` / `MList<EmailAttachmentEmbedded> Attachments` become this
 //    owner's `@part` ROWS (the recipient row reuses the shared EmailRecipientBaseEntity — see Email.ts).
 //  - `StateValidator` (Signum's table of which fields may be set in which state) becomes per-field
-//    `@fieldValidation` checks against `state` — the same rules, expressed one field at a time.
+//    `@validate` checks against `state` — the same rules, expressed one field at a time.
 //  - `CalculateHash` uses SHA-1 in Signum; the hash is only a de-duplication key, and the isomorphic layer
 //    has no crypto, so the SERVER fills `bodyHash` on save (EmailLogic's PreSaving hook) and this entity
 //    only exposes the string that gets hashed.
@@ -123,12 +122,12 @@ export class EmailMessageEntity extends Entity {
     isBodyHtml: boolean;
 
     /** Set when a send attempt threw; goes with state SentException. */
-    @fieldValidation<EmailMessageEntity>(m =>
+    @validate<EmailMessageEntity>(m =>
         m.exception != null && m.state !== EmailMessageState.SentException && m.state !== EmailMessageState.ReceptionNotified
             ? "{0} should be empty" : null)
     exception: Lite<ExceptionEntity> | null;
 
-    @fieldValidation<EmailMessageEntity>(m => stateAllowsSent(m.state) || m.sent == null ? null : "{0} should be empty")
+    @validate<EmailMessageEntity>(m => stateAllowsSent(m.state) || m.sent == null ? null : "{0} should be empty")
     state: EmailMessageState;
 
     /** Signum's UniqueIdentifier — a stable id the reception side matches a reply against. */

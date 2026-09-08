@@ -1,6 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, primaryKey, uniqueIndex, stringLengthValidator, quoted } from "@altea/altea/data/decorators";
+import { entity, primaryKey, uniqueIndex, quoted, bindParent } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { type IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
@@ -21,6 +22,7 @@ export class WorkflowTimerConditionEntity extends Entity implements IUserAssetEn
 
     mainEntityType: TypeEntity;
 
+    @bindParent
     eval: WorkflowTimerConditionEval;
 
     @quoted
@@ -38,7 +40,7 @@ export class WorkflowTimerConditionEntity extends Entity implements IUserAssetEn
 @reflect
 export class WorkflowTimerConditionEval extends EvalEmbedded<IWorkflowTimerConditionEvaluator> {
     protected override compile(): CompilationResult<IWorkflowTimerConditionEvaluator> {
-        const mainEntityType = this.owner<WorkflowTimerConditionEntity>().mainEntityType.className;
+        const mainEntityType = this.owner(WorkflowTimerConditionEntity).mainEntityType.className;
 
         return this.wrap({
             importTypes: [mainEntityType, "CaseActivityEntity", "Temporal"],

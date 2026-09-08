@@ -1,6 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, stringLengthValidator, quoted, uniqueIndex } from "@altea/altea/data/decorators";
+import { entity, quoted, uniqueIndex } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 
 // Port of Signum.Dynamic's CSS/DynamicCSSOverride.cs — a named stylesheet stored in the database and

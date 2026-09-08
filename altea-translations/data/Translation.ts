@@ -1,9 +1,8 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import {
-    entity, uniqueIndex, implementedByAll, stringLengthValidator, index,
-} from "@altea/altea/data/decorators";
+import { entity, uniqueIndex, implementedByAll, index } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";

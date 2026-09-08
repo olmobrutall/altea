@@ -1,6 +1,7 @@
 import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
-import { EmbeddedEntity, Entity } from "@altea/altea/data/entity";
-import { stringLengthValidator, fieldValidation } from "@altea/altea/data/decorators";
+import { EmbeddedEntity, Entity, type Type } from "@altea/altea/data/entity";
+import { tryGetOwnerEntity } from "@altea/altea/data/parentEntity";
+import { stringLengthValidator, validate } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { IntegrityCheckEnvironment } from "@altea/altea/data/reflection";
 
@@ -25,14 +26,23 @@ import type { IntegrityCheckEnvironment } from "@altea/altea/data/reflection";
 //    must not carry a compiler — so `EvalEmbedded.compiler` is a slot that `server/EvalCompiler` fills.
 //    Unset (i.e. in the browser) every compile answers "not compiled", and the script validator stands down,
 //    which is why the validator only runs in the SERVER phases.
-//  - **The owner is bound explicitly.** Signum marks the field `[BindParent]` and reaches
-//    `GetParentEntity<T>()` inside `Compile()` — that is how a WorkflowConditionEval learns its
-//    WorkflowCondition's `mainEntityType`. altea has no `[BindParent]`: an entity field is a plain property
-//    with no setter to hook. So the OWNER binds it, through the two schema events it already has —
-//    `sb.include(X).withEvals()` registers `preSaving` + `retrieved` handlers that call
-//    `EvalEmbedded.bindOwner`. `owner()` throws if that was forgotten, so the mistake is loud.
-//  - the compilation result and the bound owner live in module-level WeakMaps rather than `[Ignore]` fields:
-//    a declared field would be reflected (and so serialized, and schema-mapped) whatever we annotate it.
+//  - **The owner comes from `@bindParent`**, as in Signum: the field that holds an eval is marked, and
+//    `owner()` reads the back-pointer — which is how a WorkflowConditionEval learns its
+//    WorkflowCondition's `mainEntityType`. This module used to keep a private WeakMap of owners, bound by
+//    a `sb.include(X)` schema-event pair, because altea had no parent infrastructure; it has
+//    one now (data/parentEntity), and that generalised copy is what this uses.
+//  - **There is no `Reset()` and no `withEvals()`.** Signum needs `Reset()` because it drops the cached
+//    compilation from the `Script` setter, and altea has no setters — which is what `withEvals()` used to
+//    stand in for, resetting on the `retrieved` schema event. Both are gone: the memo records the script
+//    it compiled, so a hit only counts while that is still the script on the instance. That also covers
+//    the case the retrieve hook never did — a script REPLACED on an instance that had already compiled,
+//    which is what the codec does when it overlays a POST onto a retrieved original.
+//  - **`owner()` climbs to the nearest ENTITY**, not to the immediate parent, because an eval may sit one
+//    embedded down (`SubWorkflowEmbedded.subEntitiesEval`) and what it wants is still the entity carrying
+//    it — Signum reaches the same place with a two-level `GetParentEntity` climb. It also keeps an eval
+//    carried by a MODEL unbound, since a ModelEntity is not an Entity, which is the documented behaviour.
+//  - the compilation result lives in a module-level WeakMap rather than an `[Ignore]` field: a declared
+//    field would be reflected (and so serialized, and schema-mapped) whatever we annotate it.
 
 /** Signum's `EvalEmbedded<T>.CompilationResult`. Exactly one of the two is set. */
 export interface CompilationResult<F> {
@@ -52,8 +62,18 @@ export interface IEvalCompiler {
     compile<F>(code: string, scriptStartLine: number): CompilationResult<F>;
 }
 
-const results = new WeakMap<EvalEmbedded<unknown>, CompilationResult<unknown>>();
-const owners = new WeakMap<EvalEmbedded<unknown>, Entity>();
+/**
+ * The per-instance compilation, Signum's `[Ignore, NonSerialized] CompilationResult? compilationResult`.
+ * A WeakMap because a declared field would be reflected — and so serialized, and schema-mapped —
+ * whatever we annotate it with; keyed by the instance, it behaves exactly like that ignored field.
+ *
+ * It records the SCRIPT it was compiled from, and that is what replaces Signum`s `Reset()`. Signum drops
+ * the compilation from the `Script` SETTER (`if (Set(ref script, value)) Reset();`); altea has no setters,
+ * so a stale entry is instead impossible by construction — the memo hits only while the script it was
+ * built for is still the one on the instance. Same idea one level down, where the compiler keys its own
+ * cache by code (Signum's static `resultCache`).
+ */
+const results = new WeakMap<EvalEmbedded<unknown>, { script: string; result: CompilationResult<unknown> }>();
 
 @reflect
 export abstract class EvalEmbedded<F> extends EmbeddedEntity {
@@ -67,7 +87,7 @@ export abstract class EvalEmbedded<F> extends EmbeddedEntity {
      * phase — there is no compiler in the browser (see the header).
      */
     @stringLengthValidator({ min: 1, multiLine: true })
-    @fieldValidation<EvalEmbedded<unknown>>((e, _fi, env) => e.validateScript(env))
+    @validate<EvalEmbedded<unknown>>((e, _fi, env) => e.validateScript(env))
     script: string;
 
     // ---- The compiled algorithm ------------------------------------------------------------------------
@@ -82,14 +102,9 @@ export abstract class EvalEmbedded<F> extends EmbeddedEntity {
         return result.algorithm;
     }
 
-    /** Signum's `Compiled` — has this instance's script been compiled (successfully or not) yet? */
+    /** Signum's `Compiled` — has the script this instance CURRENTLY holds been compiled yet? */
     get compiled(): boolean {
-        return results.has(this as EvalEmbedded<unknown>);
-    }
-
-    /** Signum's `Reset()` — forget the compilation, so the next read rebuilds it. */
-    reset(): void {
-        results.delete(this as EvalEmbedded<unknown>);
+        return results.get(this as EvalEmbedded<unknown>)?.script === this.script;
     }
 
     /**
@@ -100,11 +115,16 @@ export abstract class EvalEmbedded<F> extends EmbeddedEntity {
     protected abstract compile(): CompilationResult<F>;
 
     private compileIfNecessary(): CompilationResult<F> | undefined {
-        let result = results.get(this as EvalEmbedded<unknown>) as CompilationResult<F> | undefined;
-        if (result == null && (this.script ?? "").trim() !== "") {
-            result = this.compile();
-            results.set(this as EvalEmbedded<unknown>, result as CompilationResult<unknown>);
-        }
+        const memo = results.get(this as EvalEmbedded<unknown>);
+        // A hit only counts while the script is the one it was built from — see `results`.
+        if (memo != null && memo.script === this.script)
+            return memo.result as CompilationResult<F>;
+
+        if ((this.script ?? "").trim() === "")
+            return undefined;
+
+        const result = this.compile();
+        results.set(this as EvalEmbedded<unknown>, { script: this.script, result: result as CompilationResult<unknown> });
         return result;
     }
 
@@ -114,7 +134,7 @@ export abstract class EvalEmbedded<F> extends EmbeddedEntity {
             return null;
 
         // An UNBOUND eval cannot be compiled, and that is not an error: it is how an eval carried by a MODEL
-        // arrives (a ModelEntity is never included, so nothing calls withEvals for it). The real check runs
+        // arrives (a ModelEntity is not an Entity, so the parent chain never reaches one). The real check runs
         // when the model is applied to its entity and that entity is saved.
         if (!this.isBound())
             return null;
@@ -188,35 +208,33 @@ export abstract class EvalEmbedded<F> extends EmbeddedEntity {
      */
     static importFor: (typeName: string) => string | undefined = () => undefined;
 
-    /**
-     * The entity this eval hangs off — Signum's `[BindParent]` + `GetParentEntity<T>()`. Bound by
-     * `sb.include(Owner).withEvals()`; see the header for why it is not automatic.
-     */
-    /** Whether {@link owner} would answer — i.e. whether `withEvals()` has bound this instance. */
+    /** Whether {@link owner} would answer — i.e. whether the graph holding this eval has been bound. */
     isBound(): boolean {
-        return owners.has(this as EvalEmbedded<unknown>);
+        return tryGetOwnerEntity(this, Entity) != null;
     }
 
-    owner<T extends Entity>(): T {
-        const owner = owners.get(this as EvalEmbedded<unknown>);
+    /**
+     * The entity this eval hangs off — Signum's `[BindParent]` + `GetParentEntity<T>()`, over altea's
+     * parent back-pointer (data/parentEntity). The nearest ancestor of the type ASKED FOR, so an eval one
+     * embedded down still answers with the entity that carries it (see the header) and a mismatch is
+     * caught here rather than by an unchecked cast — `type` is a runtime argument for that reason.
+     *
+     * An INTERFACE has no runtime handle, so a caller wanting one passes `Entity` and casts, which is what
+     * Signum's own `TryGetParentEntity<Entity>()! as IHasEntityType` does.
+     */
+    owner<T extends Entity>(type: Type<T>): T {
+        const owner = tryGetOwnerEntity(this, type);
         if (owner == null)
-            throw new Error(EvalMessage.TheOwnerOf0HasNotBeenBoundCallWithEvalsOnItsInclude
-                .niceToString(this.constructor.name));
-        return owner as T;
-    }
-
-    /** Sets the owner. Called by the `withEvals()` schema events, and by any code that builds an eval graph
-     *  by hand and wants to compile it before saving. */
-    static bindOwner(evalEmbedded: EvalEmbedded<unknown>, owner: Entity): void {
-        owners.set(evalEmbedded, owner);
+            throw new Error(EvalMessage.TheOwnerOf0HasNotBeenBound.niceToString(this.constructor.name));
+        return owner;
     }
 }
 
 export const EvalMessage = {
     TheScriptHasNotBeenCompiled: msg("The script has not been compiled"),
     NoCompilerIsConfigured: msg("No compiler is configured (EvalLogic.start was not called)"),
-    TheOwnerOf0HasNotBeenBoundCallWithEvalsOnItsInclude:
-        msg("The owner of {0} has not been bound. Call `.withEvals()` on its include."),
+    TheOwnerOf0HasNotBeenBound:
+        msg("The owner of {0} has not been bound. Mark the field that holds it @bindParent."),
     _0Errors: msg("{0} Errors:"),
     Line0_1: msg("Line {0}: {1}"),
 };

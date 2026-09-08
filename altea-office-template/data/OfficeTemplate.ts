@@ -2,10 +2,10 @@ import { reflect, init, setDefaultDatabaseSchema, renameSymbolContainer } from "
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, primaryKey, implementedByAll, uniqueIndex, backReference, rowOrder,
-    stringLengthValidator, fieldValidation, quoted, legacyTableName, legacyCleanName, legacyColumnName,
+    entity, primaryKey, implementedByAll, uniqueIndex, backReference, rowOrder, quoted, legacyTableName,
+    legacyCleanName, legacyColumnName, bindParent,
 } from "@altea/altea/data/decorators";
-import { ValidationMessage } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { Symbol } from "@altea/altea/data/symbol";
@@ -170,11 +170,12 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
 
     filters: OfficeTemplateEntity_Filter[];
 
-    @fieldValidation<OfficeTemplateEntity>(t => t.orders.length > 0 && t.query == null
+    @validate<OfficeTemplateEntity>(t => t.orders.length > 0 && t.query == null
         ? ValidationMessage._0IsNotSet.niceToString("{0}") : null)
     orders: OfficeTemplateEntity_Order[];
 
     /** Signum's `TemplateApplicableEval` — a stored script, compiled by @altea/altea-eval. */
+    @bindParent
     applicable: TemplateApplicableEval | null;
 
     /** Signum's DisableAuthorization — render this template with row-level/type auth OFF (a system report
@@ -182,12 +183,12 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
     disableAuthorization: boolean;
 
     /** The template document itself: a .docx / .pptx / .xlsx (Signum's `Lite<FileEntity> Template`). */
-    @fieldValidation<OfficeTemplateEntity>(t => officeTemplateValidations.template?.(t) ?? null)
+    @validate<OfficeTemplateEntity>(t => officeTemplateValidations.template?.(t) ?? null)
     template: FileEntity;
 
     /** The name given to the RENDERED file. Itself a text template ("Order @[Entity.Id].docx"). */
     @stringLengthValidator({ min: 3, max: 250 })
-    @fieldValidation<OfficeTemplateEntity>(t => hasInvalidFileNameChars(t.fileName)
+    @validate<OfficeTemplateEntity>(t => hasInvalidFileNameChars(t.fileName)
         ? OfficeTemplateMessage.TheFileNameContainsInvalidCharacters.niceToString()
         : officeTemplateValidations.fileName?.(t) ?? null)
     fileName: string;
@@ -226,7 +227,7 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
 export class OfficeAttachmentEntity extends Entity implements IAttachmentGeneratorEntity {
     /** Overrides the template's own fileName when set. A text template, like OfficeTemplateEntity.fileName. */
     @stringLengthValidator({ min: 3, max: 100 })
-    @fieldValidation<OfficeAttachmentEntity>(a => hasInvalidFileNameChars(a.fileName)
+    @validate<OfficeAttachmentEntity>(a => hasInvalidFileNameChars(a.fileName)
         ? OfficeTemplateMessage.TheFileNameContainsInvalidCharacters.niceToString() : null)
     fileName: string | null;
 

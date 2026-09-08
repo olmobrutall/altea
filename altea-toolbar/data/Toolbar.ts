@@ -2,9 +2,9 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, primaryKey, backReference, rowOrder, implementedBy, uniqueIndex,
-    stringLengthValidator, fieldValidation, format, unit, quoted,
+    entity, primaryKey, backReference, rowOrder, implementedBy, uniqueIndex, format, unit, quoted,
 } from "@altea/altea/data/decorators";
+import { stringLengthValidator, validate } from "@altea/altea/data/validators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
 import { Enum } from "@altea/altea/data/enum";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -42,7 +42,7 @@ import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-as
 //    server/ToolbarXml.server.ts; the entities stay isomorphic.
 //  - Signum's `StateValidator<ToolbarElementEmbedded, ToolbarElementType>` (a declarative per-state
 //    must-be-set / must-be-null matrix) has no altea analogue; the same rules are expressed as explicit
-//    `@fieldValidation`s below, keeping Signum's message keys.
+//    `@validate`s below, keeping Signum's message keys.
 //  - `[Translatable]` on Name / Label is dropped with the rest of instance translation (same deferral as
 //    the dashboard port): the raw stored text is shown.
 //  - `IToolbarEntity.GetSubToolbars()` IS ported (it drives the cycle check on save), as a method on each
@@ -101,7 +101,7 @@ export abstract class ToolbarElementBaseEntity extends Entity {
 
     // Signum's PropertyValidation: for an Item / a Header, a label is mandatory when there is no content
     // to take the label FROM. A Divider carries none of the four (Signum's StateValidator row).
-    @fieldValidation<ToolbarElementBaseEntity>(e => isDivider(e)
+    @validate<ToolbarElementBaseEntity>(e => isDivider(e)
         ? mustBeNull(e.label, ToolbarMessage.ADividerHasNoLabelIconContentOrUrl)
         : !e.label && e.content == null && isLabelledType(e)
             ? ToolbarMessage._0IsMandatoryWhen1IsNotSet.niceToString(
@@ -110,7 +110,7 @@ export abstract class ToolbarElementBaseEntity extends Entity {
     @stringLengthValidator({ min: 1, max: 100 })
     label: string | null;
 
-    @fieldValidation<ToolbarElementBaseEntity>(e => isDivider(e)
+    @validate<ToolbarElementBaseEntity>(e => isDivider(e)
         ? mustBeNull(e.iconName, ToolbarMessage.ADividerHasNoLabelIconContentOrUrl) : null)
     @stringLengthValidator({ min: 3, max: 100 })
     iconName: string | null;
@@ -130,7 +130,7 @@ export abstract class ToolbarElementBaseEntity extends Entity {
     // NOTE: the two concrete row types below INHERIT this one FieldInfo (altea's reflection seeds a
     // subclass's fields with the base's field objects), so ONE `overrideImplementedBy` on this base covers
     // both tables.
-    @fieldValidation<ToolbarElementBaseEntity>(e => isDivider(e)
+    @validate<ToolbarElementBaseEntity>(e => isDivider(e)
         ? mustBeNull(e.content, ToolbarMessage.ADividerHasNoLabelIconContentOrUrl) : null)
     @implementedBy(() => [QueryEntity, PermissionSymbol, ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity])
     content: Lite<Entity> | null;
@@ -143,7 +143,7 @@ export abstract class ToolbarElementBaseEntity extends Entity {
     //
     // Signum's second PropertyValidation: an Item / ExtraIcon needs a url when it has no content to
     // navigate to.
-    @fieldValidation<ToolbarElementBaseEntity>(e => isDivider(e)
+    @validate<ToolbarElementBaseEntity>(e => isDivider(e)
         ? mustBeNull(e.url, ToolbarMessage.ADividerHasNoLabelIconContentOrUrl)
         : e.url ? validateUrl(e.url)
             : e.content == null && isNavigableType(e)
@@ -157,7 +157,7 @@ export abstract class ToolbarElementBaseEntity extends Entity {
 
     // Signum's `[Unit("s"), NumberIsValidator(GreaterThanOrEqualTo, 10)]`.
     @unit("s")
-    @fieldValidation<ToolbarElementBaseEntity>(e => e.autoRefreshPeriod != null && (e.autoRefreshPeriod as number) < 10
+    @validate<ToolbarElementBaseEntity>(e => e.autoRefreshPeriod != null && (e.autoRefreshPeriod as number) < 10
         ? ToolbarMessage.AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds.niceToString() : null)
     autoRefreshPeriod: int | null;
 
@@ -215,7 +215,7 @@ export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarE
     priority: int | null;
 
     // Signum's `[PreserveOrder, NoRepeatValidator, BindParent] MList<ToolbarElementEmbedded>`.
-    @fieldValidation<ToolbarEntity>(t => validateElements(t.elements))
+    @validate<ToolbarEntity>(t => validateElements(t.elements))
     elements: ToolbarEntity_Element[];
 
     /** Signum's `GetSubToolbars() => Elements.Select(a => a.Content).OfType<Lite<IToolbarEntity>>()`. */
@@ -243,7 +243,7 @@ export class ToolbarMenuEntity extends Entity implements IUserAssetEntity, IHasE
     @stringLengthValidator({ max: 100 })
     name: string;
 
-    @fieldValidation<ToolbarMenuEntity>(t => validateElements(t.elements))
+    @validate<ToolbarMenuEntity>(t => validateElements(t.elements))
     elements: ToolbarMenuEntity_Element[];
 
     entityType: Lite<TypeEntity> | null;

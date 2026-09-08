@@ -2,15 +2,17 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
-    entity, primaryKey, backReference, rowOrder, implementedBy,
-    stringLengthValidator, fieldValidation, format, unit, quoted, legacyTableName, legacyCleanName,
+    entity, primaryKey, backReference, rowOrder, implementedBy, format, unit, quoted, legacyTableName,
+    legacyCleanName,
 } from "@altea/altea/data/decorators";
+import {
+    stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType,
+} from "@altea/altea/data/validators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
-import { noRepeatValidator, countIsValidator, ComparisonType } from "@altea/altea/data/validators";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
@@ -95,7 +97,7 @@ export class DashboardEntity_Part extends Entity implements IGridEntity {
     // `columns`), which is what the grid lays out from — list position would say nothing.
 
     // Signum's PanelPartEmbedded.PropertyValidation(Title): a part whose content RequiresTitle must have one.
-    @fieldValidation<DashboardEntity_Part>(p => !p.title && p.content?.requiresTitle()
+    @validate<DashboardEntity_Part>(p => !p.title && p.content?.requiresTitle()
         ? DashboardMessage.DashboardDN_TitleMustBeSpecifiedFor0.niceToString(p.content.toString()) : null)
     @stringLengthValidator({ min: 3, max: 100 })
     title: string | null;
@@ -119,18 +121,18 @@ export class DashboardEntity_Part extends Entity implements IGridEntity {
     titleColor: string | null;
 
     // Signum's [NumberIsValidator(GreaterThanOrEqualTo, 0)].
-    @fieldValidation<DashboardEntity_Part>(p => (p.row as number) < 0
+    @validate<DashboardEntity_Part>(p => (p.row as number) < 0
         ? DashboardMessage.RowMustBeGreaterThanOrEqualToZero.niceToString() : null)
     row: int = toInt(0);
 
     // Signum's [NumberBetweenValidator(0, 11)].
-    @fieldValidation<DashboardEntity_Part>(p => (p.startColumn as number) < 0 || (p.startColumn as number) > 11
+    @validate<DashboardEntity_Part>(p => (p.startColumn as number) < 0 || (p.startColumn as number) > 11
         ? DashboardMessage.StartColumnMustBeBetween0And11.niceToString() : null)
     startColumn: int = toInt(0);
 
     // Signum's [NumberBetweenValidator(1, 12)]. The overlap / too-large checks Signum does in
     // DashboardEntity.ChildPropertyValidation need the sibling rows, so they live on the owner below.
-    @fieldValidation<DashboardEntity_Part>(p => (p.columns as number) < 1 || (p.columns as number) > 12
+    @validate<DashboardEntity_Part>(p => (p.columns as number) < 1 || (p.columns as number) > 12
         ? DashboardMessage.ColumnsMustBeBetween1And12.niceToString() : null)
     columns: int = toInt(12);
 
@@ -242,7 +244,7 @@ export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEnt
 
     // Signum's [Unit("s"), NumberIsValidator(GreaterThanOrEqualTo, 10)].
     @unit("s")
-    @fieldValidation<DashboardEntity>(d => d.autoRefreshPeriod != null && (d.autoRefreshPeriod as number) < 10
+    @validate<DashboardEntity>(d => d.autoRefreshPeriod != null && (d.autoRefreshPeriod as number) < 10
         ? DashboardMessage.AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds.niceToString() : null)
     autoRefreshPeriod: int | null;
 
@@ -258,7 +260,7 @@ export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEnt
     // Signum's [BindParent, NoRepeatValidator] MList<PanelPartEmbedded>. The grid-geometry checks Signum
     // runs in ChildPropertyValidation (a part sticking out past column 12, two parts overlapping in a row)
     // need the sibling rows, so they are an owner-level field validation here.
-    @fieldValidation<DashboardEntity>(d => validateParts(d.parts))
+    @validate<DashboardEntity>(d => validateParts(d.parts))
     parts: DashboardEntity_Part[];
 
     // Signum's CacheQueryConfiguration: set it and the dashboard is served from a SNAPSHOT
@@ -267,7 +269,7 @@ export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEnt
     cacheQueryConfiguration: CacheQueryConfigurationEmbedded | null = null;
 
     // Signum's [Ignore, QueryableProperty, BindParent] MList<DashboardEntity_TokenEquivalenceGroup> (a virtual MList).
-    @fieldValidation<DashboardEntity>(d => validateTokenEquivalences(d.tokenEquivalencesGroups))
+    @validate<DashboardEntity>(d => validateTokenEquivalences(d.tokenEquivalencesGroups))
     tokenEquivalencesGroups: DashboardEntity_TokenEquivalenceGroup[];
 
     // Signum: `[StringLengthValidator(Max = 200)] string? Key` — no index (DashboardEntity.cs).

@@ -16,7 +16,7 @@ import { EvalLogic } from "./EvalLogic";
 //    is a list of server-side loaders (see EvalLogic.evalSources), so ONE call checks everything and the
 //    response says which source each failure came from.
 //  - Signum calls `GraphExplorer.PreSaving(…)` then `FullIntegrityCheck()`. altea does the same two steps
-//    explicitly — the preSaving events are what BIND an eval to its owner (`withEvals`), without which
+//    explicitly — the save is what binds an eval to its owner (`@bindParent`), without which
 //    `compile()` could not read the owner's fields.
 
 /** Signum's EvalEntityError, plus which registered source the row came from. */

@@ -1,7 +1,6 @@
 import { reflect } from "@altea/altea/data/reflection";
 import { ModelEntity, EmbeddedEntity } from "@altea/altea/data/entity";
-import { stringLengthValidator, fieldValidation } from "@altea/altea/data/decorators";
-import { ValidationMessage } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
 import { TimeSeriesUnit } from "@altea/altea/data/dynamicQueries";
 import { AggregateToken } from "@altea/altea/data/dynamicQuery/tokens/aggregateToken";
@@ -86,11 +85,11 @@ export class ChartTimeSeriesEmbedded extends EmbeddedEntity {
     // Real altea enum (int-FK, translatable); in-memory ordinal, wire/query = member name (Enum.toName).
     timeSeriesUnit: TimeSeriesUnit | null;
 
-    @fieldValidation<ChartTimeSeriesEmbedded>(t =>
+    @validate<ChartTimeSeriesEmbedded>(t =>
         t.timeSeriesStep != null && t.timeSeriesStep <= 0 ? ValidationMessage.NumberIsTooSmall.niceToString() : null)
     timeSeriesStep: int | null;
 
-    @fieldValidation<ChartTimeSeriesEmbedded>(t =>
+    @validate<ChartTimeSeriesEmbedded>(t =>
         t.timeSeriesMaxRowsPerStep != null && t.timeSeriesMaxRowsPerStep <= 0 ? ValidationMessage.NumberIsTooSmall.niceToString() : null)
     timeSeriesMaxRowsPerStep: int | null;
 

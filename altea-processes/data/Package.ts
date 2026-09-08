@@ -1,7 +1,8 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, implementedBy, implementedByAll, quoted, stringLengthValidator, ticksColumn } from "@altea/altea/data/decorators";
+import { entity, implementedBy, implementedByAll, quoted, ticksColumn } from "@altea/altea/data/decorators";
+import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { OperationSymbol } from "@altea/altea/data/operations";
 import { Serializer } from "@altea/altea/data/serializer";
