@@ -19,6 +19,22 @@ describe("Entity static Type<T> API", () => {
     assert.equal(ArtistEntity.token<number>("SomeExpression").toString(), "SomeExpression");
   });
 
+  // The two spellings of the `@valueField` hop, and that they are the SAME token. altea's collection
+  // element is a `@part` ROW where Signum's `MList<Lite<Artist>>` element is the lite itself, so the
+  // value Signum filters as `Friends.Any` is `Friends.Any.Friend` here — and the typed builder never
+  // produces the bare quantifier as a value, because that token IS the row.
+  test("any(lambda) is any().append(lambda) — the @valueField hop", () => {
+    assert.equal(ArtistEntity.token(a => a.friends).any().append(f => f.friend).toString(), "Friends.Any.Friend");
+    assert.equal(ArtistEntity.token(a => a.friends).any(f => f.friend).toString(), "Friends.Any.Friend");
+    assert.equal(ArtistEntity.token(a => a.friends).any().toString(), "Friends.Any");
+
+    assert.equal(ArtistEntity.token(a => a.friends).all(f => f.friend).toString(), "Friends.All.Friend");
+    assert.equal(ArtistEntity.token(a => a.friends).notAny(f => f.friend).toString(), "Friends.NotAny.Friend");
+    assert.equal(ArtistEntity.token(a => a.friends).notAll(f => f.friend).toString(), "Friends.NotAll.Friend");
+    assert.equal(ArtistEntity.token(a => a.friends).element(1, f => f.friend).toString(), "Friends.Element.Friend");
+    assert.equal(ArtistEntity.token(a => a.friends).element(2, f => f.friend).toString(), "Friends.Element2.Friend");
+  });
+
   test("token(a => a.mixin(M).field) extracts the mixin step from the Quoted expression tree", () => {
     // Exercises getLambdaMembers' `.mixin(ctor)` ExCall handling: [Mixin CorruptMixin, Member corrupt].
     assert.equal(NoteWithDateEntity.token(a => a.mixin(CorruptMixin).corrupt).toString(), "CorruptMixin.Corrupt");

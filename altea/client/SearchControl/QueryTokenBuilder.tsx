@@ -12,7 +12,7 @@ import * as React from 'react'
 import { classes, Dic } from '../../data/globals'
 import { Finder } from '../Finder'
 import { SubTokensOptions } from '../QueryToken'
-import { QueryToken } from '../QueryToken';
+import { QueryToken, valueFieldSubToken } from '../QueryToken';
 import type { ManualToken as ManualTokenDescriptor } from '../QueryToken';
 import { ManualToken as ManualTokenClass, ManualContainerToken } from '../../data/dynamicQuery/tokens';
 import "./QueryTokenBuilder.css"
@@ -82,7 +82,7 @@ export default function QueryTokenBuilder(p: QueryTokenBuilderProps): React.Reac
             readOnly={p.readOnly}
             setLastTokenChange={(fullKey) => { setLastTokenChanged(fullKey); }}
             onTokenSelected={async (qt, keyboard) => {
-              var nqt = (await tryApplyToken(p.queryToken, qt)) ?? qt;
+              var nqt = withValueField((await tryApplyToken(p.queryToken, qt)) ?? qt);
               setLastTokenChanged(keyboard ? nqt?.fullKey() : undefined);
               p.onTokenChange && p.onTokenChange(nqt);
             }}
@@ -95,6 +95,20 @@ export default function QueryTokenBuilder(p: QueryTokenBuilderProps): React.Reac
       })}
     </div>
   );
+
+  /**
+   * Picking `Any` / `All` / `Element` on a collection whose row carries a `@valueField` selects the VALUE,
+   * not the row.
+   *
+   * altea's collection element is a `@part` ROW where Signum's `MList<string>` element is the string
+   * itself, so what Signum offers as `Telephones.Any` is `Telephones.Any.Telephone` here — one hop the
+   * user would otherwise have to make by hand every single time, on a picker that shows a single choice.
+   * It fires only when the selection ENDS there: `tryApplyToken` has already re-projected whatever tail
+   * the previous token had, so a part changed in the MIDDLE keeps everything after it.
+   */
+  function withValueField(token: QueryToken | undefined): QueryToken | undefined {
+    return token == undefined ? undefined : (valueFieldSubToken(token, p.subTokenOptions) ?? token);
+  }
 
   async function tryApplyToken(token: QueryToken | null | undefined, newToken: QueryToken | undefined): Promise<QueryToken | undefined> {
     if (newToken == undefined)

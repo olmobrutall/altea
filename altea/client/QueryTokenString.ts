@@ -61,10 +61,37 @@ export class QueryTokenString<T> {
 
   expression<S>(expressionName: string): QueryTokenString<S> { return new QueryTokenString<S>(this.token + (this.token ? "." : "") + expressionName); }
 
-  any(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".Any"); }
-  all(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".All"); }
-  notAll(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".NotAll"); }
-  notAny(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".NotAny"); }
+  // A quantifier over a collection. The optional lambda is what a `@valueField` row makes worth having:
+  // altea's collection element is a `@part` ROW where Signum's `MList<string>` element is the string
+  // itself, so the value Signum filters as `Telephones.Any` is `Telephones.Any.Telephone` here. Both
+  // spellings of that hop are supported and mean the same thing —
+  //
+  //     token(a => a.telephones).any().append(a => a.telephone).filter("EqualsTo", "213234")
+  //     token(a => a.telephones).any(a => a.telephone).filter("EqualsTo", "213234")
+  //
+  // — and there is no third: the typed builder never produces the bare `Telephones.Any` as a value,
+  // because that token IS the row. (LEGACY MODE accepts it when READING a Signum-stored token, which is
+  // `appendLegacyValueField`, one direction only.)
+  any(): QueryTokenString<ArrayElement<T>>;
+  any<S>(lambdaToProperty: Quoted<(v: ArrayElement<T>) => S>): QueryTokenString<S>;
+  any(lambdaToProperty?: Quoted<(v: any) => any>): QueryTokenString<any> { return this.quantifier("Any", lambdaToProperty); }
+
+  all(): QueryTokenString<ArrayElement<T>>;
+  all<S>(lambdaToProperty: Quoted<(v: ArrayElement<T>) => S>): QueryTokenString<S>;
+  all(lambdaToProperty?: Quoted<(v: any) => any>): QueryTokenString<any> { return this.quantifier("All", lambdaToProperty); }
+
+  notAll(): QueryTokenString<ArrayElement<T>>;
+  notAll<S>(lambdaToProperty: Quoted<(v: ArrayElement<T>) => S>): QueryTokenString<S>;
+  notAll(lambdaToProperty?: Quoted<(v: any) => any>): QueryTokenString<any> { return this.quantifier("NotAll", lambdaToProperty); }
+
+  notAny(): QueryTokenString<ArrayElement<T>>;
+  notAny<S>(lambdaToProperty: Quoted<(v: ArrayElement<T>) => S>): QueryTokenString<S>;
+  notAny(lambdaToProperty?: Quoted<(v: any) => any>): QueryTokenString<any> { return this.quantifier("NotAny", lambdaToProperty); }
+
+  private quantifier(kind: string, lambdaToProperty?: Quoted<(v: any) => any>): QueryTokenString<any> {
+    const q = new QueryTokenString<any>(this.token + "." + kind);
+    return lambdaToProperty == undefined ? q : q.append(lambdaToProperty);
+  }
 
   separatedByComma(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".SeparatedByComma"); }
   separatedByCommaDistinct(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".SeparatedByCommaDistinct"); }
@@ -74,7 +101,13 @@ export class QueryTokenString<T> {
   nested(): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + ".Nested"); }
   nestedMap<S>(selector: (n: QueryTokenString<ArrayElement<T>>) => S): S { return selector(new QueryTokenString<ArrayElement<T>>(this.token + ".Nested")); }
 
-  element(index = 1): QueryTokenString<ArrayElement<T>> { return new QueryTokenString<ArrayElement<T>>(this.token + (this.token ? "." : "") + "Element" + (index === 1 ? "" : index)); }
+  // As the quantifiers above: the optional lambda reaches the element's `@valueField` in one call.
+  element(index?: number): QueryTokenString<ArrayElement<T>>;
+  element<S>(index: number, lambdaToProperty: Quoted<(v: ArrayElement<T>) => S>): QueryTokenString<S>;
+  element(index = 1, lambdaToProperty?: Quoted<(v: any) => any>): QueryTokenString<any> {
+    const e = new QueryTokenString<any>(this.token + (this.token ? "." : "") + "Element" + (index === 1 ? "" : index));
+    return lambdaToProperty == undefined ? e : e.append(lambdaToProperty);
+  }
 
   count(option?: "Distinct" | "Null" | "NotNull"): QueryTokenString<number> { return new QueryTokenString<number>(this.token + (this.token ? "." : "") + "Count" + (option == undefined ? "" : option)); }
 

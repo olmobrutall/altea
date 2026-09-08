@@ -30,7 +30,7 @@ import {
 } from './FindOptions';
 // TODO(port): QueryDescriptionDTO / QueryTokenWithoutParent dropped in altea (client builds the token tree locally).
 import { completeToken, QueryToken, SubTokensOptions, type Writable } from './QueryToken';
-import { getSubTokens as generateSubTokens, SubTokensOptionsAll, setImplementedByAllTypesProvider, stripLegacyRootPrefix } from '../data/dynamicQuery/tokens/queryToken';
+import { getSubTokens as generateSubTokens, SubTokensOptionsAll, setImplementedByAllTypesProvider, stripLegacyRootPrefix, appendLegacyValueField } from '../data/dynamicQuery/tokens/queryToken';
 import { getRegisteredTypes } from '../data/registration';
 import { Metadata } from '../data/metadata';
 import { getKey } from '../data/dynamicQuery/queryUtils';
@@ -1583,9 +1583,16 @@ export namespace Finder {
       // shortcut `resolveToken` takes. Without it a filter or column on the entity itself
       // (`{ token: "", operation: "DistinctTo", value: someLite }` — altea-tree's MoveTreeModel picker)
       // resolves fine and then throws here.
-      const token = fullKey == "" ? this.root : this.cache.get(fullKey.toLowerCase());
-      if (!token)
+      const found = fullKey == "" ? this.root : this.cache.get(fullKey.toLowerCase());
+      if (!found)
         throw new Error(`Token with key '${fullKey}' not found on query '${getKey(this.queryToken.queryName)}'`);
+
+      // LEGACY MODE: a Signum MList element IS the value, so a stored `Telephones.Any` means altea's
+      // `Telephones.Any.Telephone` — the hop through the row's `@valueField`, the same one the server's
+      // `QueryLogic.getToken` makes. Reading only, as `stripLegacyRootPrefix` is.
+      const token = appendLegacyValueField(found, SubTokensOptionsAll);
+      if (token !== found)
+        this.cache.set(token.fullKey().toLowerCase(), token);
 
       const invalid = tokenNotAllowedReason(token, options);
       if (invalid != null)

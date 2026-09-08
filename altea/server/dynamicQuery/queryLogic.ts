@@ -1,7 +1,7 @@
 import "../../data/globals"; // Array.prototype.toMap
 import { Connector } from "../connection/connector";
 import { tryGetTypeInfo } from "../../data/reflection";
-import { setImplementedByAllTypesProvider, setExtensionTokensProvider, RootToken, SubTokensOptions, stripLegacyRootPrefix, type QueryToken } from "../../data/dynamicQuery/tokens";
+import { setImplementedByAllTypesProvider, setExtensionTokensProvider, RootToken, SubTokensOptions, stripLegacyRootPrefix, appendLegacyValueField, type QueryToken } from "../../data/dynamicQuery/tokens";
 import { setBuildExtensionExpr } from "./tokenExpressions";
 import { getKey, type QueryName } from "../../data/dynamicQuery/queryUtils";
 import { DynamicQueryContainer } from "./dynamicQueryContainer";
@@ -61,7 +61,9 @@ export namespace QueryLogic {
                 throw new Error(`Token '${part}' not found on '${token.fullKey()}' (query '${getKey(queryName)}')`);
             token = sub;
         }
-        return token;
+        // LEGACY MODE: a Signum MList element IS the value, so a stored `Telephones.Any` means altea's
+        // `Telephones.Any.Telephone` — the hop through the row's `@valueField`.
+        return appendLegacyValueField(token, options);
     }
 
     /** The registered query with this key, or undefined (Signum's QueryLogic.TryToQueryName). */

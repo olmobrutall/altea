@@ -760,6 +760,43 @@ export async function getSubTokens(token: QueryToken, options: SubTokensOptions)
  * member (Signum's Entity column by another name — `rowEntityToken` reads it), and that one must win.
  * The mirror image of the fallback Signum's own `QueryTokenSynchronizer` has, which ADDS the prefix.
  */
+/**
+ * The `@valueField` sub-token of a collection-ELEMENT token, when there is one.
+ *
+ * A Signum `MList<string>` element IS the value, so its token ends at `Telephones.Any`. altea has no
+ * MList: the element is a `@part` ROW, and the field that IS the element is marked `@valueField` — so
+ * the same value is `Telephones.Any.Telephone`, one hop further. This is that hop, and it is the one
+ * thing that makes those two spellings meet.
+ *
+ * Only off Any / All / NotAny / NotAll / Element — a row reached any other way is a row, not a value.
+ * `undefined` when the element is not such a row, which is every collection of embeddeds or of a
+ * richer part (an EmailMessage attachment, a QueryColumn) and every non-collection token.
+ */
+export function valueFieldSubToken(token: QueryToken, options: SubTokensOptions): QueryToken | undefined {
+    if (!token.isAnyOrAll() && !token.isElement())
+        return undefined;
+    const ctor = entityCtorOf(token.type);
+    const vf = ctor == undefined ? undefined : tryGetTypeInfo(ctor)?.valueField;
+    return vf == undefined ? undefined : token.subToken(vf.name.firstUpper(), options);
+}
+
+/**
+ * LEGACY MODE: a token that stops at a collection ELEMENT means the element's VALUE.
+ *
+ * Signum's `MList<string>` element has no property at all, so a stored Signum filter reads
+ * `Telephones.Any` and a stored altea one reads `Telephones.Any.Telephone` — the extra hop through the
+ * row's `@valueField`. Reading the first as the second is what lets altea run against a Signum
+ * database; it is applied in the same two places `stripLegacyRootPrefix` is (the server's
+ * `QueryLogic.getToken` and the client's `TokenCompleter`), and in the same ONE direction — READING —
+ * because a token altea writes back must stay altea's or a Signum deployment could not resolve it.
+ *
+ * A row with no `@valueField` is left exactly where it stopped: the element really is the row there,
+ * and Signum's own token for it would be `.Element.Something` too.
+ */
+export function appendLegacyValueField(token: QueryToken, options: SubTokensOptions): QueryToken {
+    return usingLegacyPropertyPaths() ? (valueFieldSubToken(token, options) ?? token) : token;
+}
+
 export function stripLegacyRootPrefix(root: QueryToken, tokenString: string, options: SubTokensOptions): string {
     if (!usingLegacyPropertyPaths() || tokenString === "")
         return tokenString;
