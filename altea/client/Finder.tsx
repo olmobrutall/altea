@@ -1692,12 +1692,103 @@ export namespace Finder {
     return null;
   }
 
-  // TODO(port): filter-value coercion (luxon date normalization, Lite-model fill via
-  // Navigator.API.fillLiteModelsArray, convertToLite) is deferred — luxon is dropped in altea and
-  // those Navigator APIs aren't ported. Values pass through as-is for now; wire to altea Date/Temporal
-  // parsing + lite-model fetching later. (Signum's parseValue / nanToNull / convertToLite removed here.)
+  // Signum's `parseFilterValues` — coerce each filter's value to what its TOKEN wants. Everything that
+  // reaches a FilterOption from OUTSIDE the FilterBuilder arrives as a STRING: the url
+  // (`filter0=Target~EqualTo~UserQuery;37ae5c35-…`, decoded by Decoder.decodeFilters), a hand-written
+  // FindOptions, a stored asset. Without this the string travels to the server AS the filter constant,
+  // and a "Lite" token then has a string where the engine wants a Lite — the whole key lands in an
+  // integer id column ("invalid input syntax for type integer: \"User;1\"") or, on an @implementedByAll
+  // token whose row filter reads the constant back (altea-diff-log's FilteringByTarget), the audit
+  // dereferences `lite.entityType` and dies on undefined. It also fixes the UI: the filter row binds an
+  // EntityLine, which needs a Lite, not its key.
+  //
+  // Two Signum branches have no counterpart here. There is no `Navigator.API.fillLiteModelsArray` pass
+  // (altea has no lite MODEL, so a parsed lite keeps `toStr === ""` and LiteImp.toString falls back to
+  // "<NiceName> <id>" — what every nameless @implementedByAll lite already renders with). And no
+  // DateTime normalization: an altea date filter value IS an ISO string on both sides (the FilterBuilder
+  // trims it to the token's precision when the token changes) and the server coerces it with
+  // `Temporal.PlainDate(Time).from`, which accepts either precision — where Signum has to convert
+  // between DateOnly and DateTime itself.
   export function parseFilterValues(filterOptions: FilterOptionParsed[]): Promise<void> {
+
+    function parseFilterValue(fo: FilterOptionParsed): void {
+      if (isFilterGroup(fo)) {
+        fo.filters.forEach(f => parseFilterValue(f));
+
+        // A group holding IsIn conditions carries the LIST itself (the "search in several columns"
+        // shape); its elements are typed by the first condition's token.
+        if (isGroupList(fo)) {
+          const firstCond = fo.filters.first(f => isFilterCondition(f) && f.token != null) as FilterConditionOptionParsed;
+          if (!Array.isArray(fo.value))
+            fo.value = [fo.value].notNull();
+          fo.value = (fo.value as unknown[]).map(v => parseValue(firstCond.token!, v));
+        }
+        return;
+      }
+
+      if (fo.token == null)
+        return;
+
+      if (fo.operation && isList(fo.operation)) {
+        if (!Array.isArray(fo.value))
+          fo.value = [fo.value].notNull();
+        fo.value = (fo.value as unknown[]).map(v => parseValue(fo.token!, v));
+      }
+      else if (fo.operation && isPair(fo.operation)) {
+        if (!Array.isArray(fo.value))
+          fo.value = [fo.value ?? null, null];
+        fo.value = (fo.value as [unknown, unknown]).map(v => v == null ? null : parseValue(fo.token!, v));
+      }
+      else {
+        if (Array.isArray(fo.value))
+          throw new Error("Unexpected array for operation " + fo.operation);
+        fo.value = parseValue(fo.token, fo.value);
+      }
+    }
+
+    filterOptions.forEach(fo => parseFilterValue(fo));
+
     return Promise.resolve();
+  }
+
+  // One scalar filter value against its token's FilterType (Signum's `parseValue`). Only the types whose
+  // string form differs from the typed one are converted; String / Guid / Enum / DateTime / Time pass
+  // through (an enum member rides as its NAME, which is what the server's deserializeFilterValue reads).
+  function parseValue(token: QueryToken, val: unknown): unknown {
+    switch (token.filterType) {
+      // Signum's parseBoolean: only the two spellings the encoder writes; anything else (an empty
+      // value, an already-typed boolean) is left alone.
+      case "Boolean": return val === "true" || val === "True" ? true : val === "false" || val === "False" ? false : val;
+      case "Integer": return typeof val === "string" ? nanToNull(parseInt(val, 10)) : val;
+      case "Decimal": return typeof val === "string" ? nanToNull(parseFloat(val)) : val;
+      case "Lite": return convertToLite(val as string | Lite<Entity> | Entity | null | undefined);
+      case "Model": return typeof val === "string" ? (Decoder.decodeModel[token.type.getTypeName()!]?.(val) ?? val) : val;
+      default: return val;
+    }
+  }
+
+  function nanToNull(n: number): number | undefined {
+    return isNaN(n) ? undefined : n;
+  }
+
+  // Signum's `convertToLite`: whatever names an entity → its Lite. A FAT lite (one carrying a retrieved
+  // entity) is re-lited off that entity, so what the request sends is thin.
+  function convertToLite(val: string | Lite<Entity> | Entity | null | undefined): Lite<Entity> | undefined {
+    if (val == null || val === "")
+      return undefined;
+
+    if (val instanceof Lite) {
+      const entity = val.entityOrNull;
+      return entity != null && entity.id != null ? entity.toLite() : val;
+    }
+
+    if (val instanceof Entity)
+      return val.toLite();
+
+    if (typeof val === "string")
+      return Lite.parse(val);
+
+    throw new Error(`Impossible to convert ${String(val)} to Lite`);
   }
   // ALTEA REWRITE: Signum fetched the QueryDescription (its column token tree) from the server DTO.
   // altea builds the query's ROOT token CLIENT-SIDE: the entity-root token carries the query
