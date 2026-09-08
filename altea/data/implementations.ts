@@ -31,6 +31,23 @@ export class Implementations {
 
     static readonly byAll = new Implementations(undefined);
 
+    /**
+     * The implementations of a value whose DECLARED type is `type` — `by(type)` for anything with a
+     * table, and `byAll` for the abstract ROOT, because "an Entity" is precisely what byAll means.
+     *
+     * It exists for the META side, never for a column. Signum never needs it: it seeds an expression's
+     * source meta from the TOKEN being navigated (`MetaExpression.FromToken` → `token.GetImplementations()`),
+     * which for a polymorphic token already answers ImplementedByAll. altea asks by TYPE instead, so the
+     * root had no answer at all and `QueryLogic.expressions.register(Entity, …)` — the shape Signum writes
+     * for an expression every entity offers — died on "Entity is not an Entity".
+     *
+     * Only the ROOT is special-cased: a Lite, an interface or a non-entity still throws, since those are
+     * mistakes rather than "any entity".
+     */
+    static ofDeclaredType(type: Function): Implementations {
+        return type === Entity ? Implementations.byAll : Implementations.by(type);
+    }
+
     static by(...types: Function[]): Implementations {
         const errors = types.map(Implementations.error).filter((e): e is string => e != null);
         if (errors.length > 0)

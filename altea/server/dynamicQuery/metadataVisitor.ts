@@ -45,7 +45,7 @@ function aggregateImplementations(impls: Implementations[]): Implementations | u
 // Signum's MetadataVisitor.GetImplementations: a member's implementations from the routes it maps to.
 function getImplementations(routes: PropertyRoute[]): Implementations | undefined {
     if (routes.length === 1 && routes[0].propertyRouteType === PropertyRouteType.Root)
-        return Implementations.by(routes[0].rootType);
+        return Implementations.ofDeclaredType(routes[0].rootType);
     const impls = routes.map(r => r.tryGetImplementations()).filter((x): x is Implementations => x != undefined);
     return aggregateImplementations(impls);
 }
@@ -65,7 +65,7 @@ export class MetadataVisitor {
     // CleanMeta root of the source entity). Signum's MetadataVisitor.JustVisit.
     static gatherMeta(body: Expression, param: ParameterExpression, sourceType: Function): Meta {
         const v = new MetadataVisitor();
-        v.env.set(param, new MetaValue(new CleanMeta(Implementations.by(sourceType), [PropertyRoute.root(sourceType)])));
+        v.env.set(param, new MetaValue(new CleanMeta(Implementations.ofDeclaredType(sourceType), [PropertyRoute.root(sourceType)])));
         const node = v.visit(body);
         return node instanceof MetaValue ? node.meta : new DirtyMeta(undefined, collectMetas(node));
     }

@@ -329,25 +329,24 @@ export namespace OperationLogic {
         // Signum's `.WithIndex(a => a.Start)` — the operation log is browsed and swept by date.
         sb.include(OperationLogEntity).withIndex(a => a.start).withQuery();
 
+        // Signum's `QueryLogic.Expressions.Register((Entity o) => o.OperationLogs(), …)`, verbatim: every
+        // entity offers its own operation history as a sub-token. ONE registration, on the abstract root —
+        // an extension token is resolved by walking the parent token's prototype chain, so every concrete
+        // type finds it there (the call altea-sms makes for `SMSOwnerData` on its abstract base).
+        QueryLogic.expressions.register(Entity, (e: Entity) => e.operationLogs!(),
+            { key: "OperationLogs", niceName: () => OperationLogEntity.nicePluralName() });
+
 
         // Signum's `sb.Schema.SchemaCompleted += () => RegisterCurrentLogs(sb.Schema)`: every
         // @systemVersioned type gains the `PreviousOperationLog` sub-token, so a query over that type's
         // HISTORY can show who produced each version. Deferred to schemaCompleted because the set of
         // versioned tables is only final once every module has run its includes.
         sb.schema.schemaCompleted.push(schema => {
-            for (const [type, table] of schema.tables) {
-                // Signum's `QueryLogic.Expressions.Register((Entity o) => o.OperationLogs(), …)` — every
-                // entity offers its own operation history as a sub-token. Signum registers that ONCE, for
-                // `Entity`; altea cannot, because the metadata visitor resolves a registration's SOURCE type
-                // through `Implementations.by`, which refuses the abstract root ("Entity is not an Entity").
-                // So it is per included type — the same surface, and this loop already walks them.
-                registerOperationLogs(type);
-
+            for (const [type, table] of schema.tables)
                 if (table.systemVersioned != null) {
                     registerPreviousLog(type);
                     registerSystemValidTokens(type);
                 }
-            }
         });
     }
 
@@ -384,12 +383,6 @@ export namespace OperationLogic {
             { niceName: () => OperationMessage.SystemValidFrom.niceToString() });
         QueryLogic.expressions.register(type, (e: Entity) => e.systemValidTo!(),
             { niceName: () => OperationMessage.SystemValidTo.niceToString() });
-    }
-
-    /** Signum's `OperationLogs()` as a sub-token of `type` — every operation ever run on one of its rows. */
-    export function registerOperationLogs<T extends Entity>(type: Type<T>): void {
-        QueryLogic.expressions.register(type, (e: Entity) => e.operationLogs!(),
-            { key: "OperationLogs", niceName: () => OperationLogEntity.nicePluralName() });
     }
 
     export function registerPreviousLog<T extends Entity>(type: Type<T>): void {
