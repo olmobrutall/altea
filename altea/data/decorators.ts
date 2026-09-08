@@ -134,14 +134,10 @@ export function avoidExpandOnRetrieving(target: object, propertyKey: string | sy
     getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).avoidExpandOnRetrieving = true;
 }
 
-// Marks a class as a persistent entity. Like @reflect it creates reflection metadata and registers
-// the type (so the quote-transformer auto-injects @field on its properties); additionally it records
-// the EntityKind / EntityData / lowPopulation. `kind` is MANDATORY; `data` is required for every kind
-// EXCEPT "Part" (parts inherit their owner's data — the overloads enforce this at the type level).
-// The abstract base Entity uses @reflect (not @entity), so there is no no-arg form.
-export function entity(kind: "Part", data?: EntityData, options?: EntityOptions): (target: Function) => void;
-export function entity(kind: Exclude<EntityKind, "Part">, data: EntityData, options?: EntityOptions): (target: Function) => void;
-export function entity(kind: EntityKind, data?: EntityData, options?: EntityOptions): (target: Function) => void {
+// The shared body of @entity and @part. Like @reflect it creates reflection metadata and registers the
+// type (so the quote-transformer auto-injects @field on its properties); additionally it records the
+// EntityKind / EntityData / lowPopulation.
+function defineEntity(kind: EntityKind, data: EntityData | undefined, options: EntityOptions | undefined): (target: Function) => void {
     return function (target: Function): void {
         (target as any)[entityInfoKey] = { kind, data, lowPopulation: options?.lowPopulation, identity: options?.identity } satisfies EntityInfo;
         const ti = getOrCreateTypeInfo(target);
@@ -153,25 +149,33 @@ export function entity(kind: EntityKind, data?: EntityData, options?: EntityOpti
     };
 }
 
+// Marks a class as a persistent entity. `kind` and `data` are both MANDATORY — the abstract base Entity
+// uses @reflect (not @entity), so there is no no-arg form. "Part" is not one of the kinds it takes: a part
+// is declared `@part`, which is the only way to say it (see below).
+export function entity(kind: Exclude<EntityKind, "Part">, data: EntityData, options?: EntityOptions): (target: Function) => void {
+    return defineEntity(kind, data, options);
+}
+
 /**
  * A `@part` ROW — the entity kind altea reaches for wherever Signum writes an `MList<T>` or an owned
  * `EmbeddedEntity` with a table of its own, and by far the most-declared kind in the workspace (120 of the
- * 124 classes that name one). It is `@entity("Part")` with the kind spelled once, as a decorator rather
- * than an argument: a part is a KIND of declaration, not a configuration of a general one, and the whole
- * codebase already talks about "a `@part` row" — the name in the comments is now the name in the code.
+ * 124 classes that name one). A part is a KIND of declaration, not a configuration of a general one, and
+ * the whole codebase already talks about "a `@part` row" — so the name in the comments is the name in the
+ * code, and `@entity("Part")` is gone rather than left beside it: one home per thing, and two spellings of
+ * a declaration is exactly the kind of drift the rest of this file is written to avoid.
  *
- * Both forms work, and which one is right follows the same rule the `entity` overloads already encode:
- * `@part` bare (a part inherits its owner's EntityData) and `@part("Master")` where the row is declared
- * with its own. The quote-transformer recognises the name, so a `@part` class gets its `@field` injection
- * exactly as an `@entity` one does.
+ * Two forms, and which one is right is the rule `entity`'s mandatory `data` argument encodes for every
+ * other kind: `@part` bare — a part inherits its owner's EntityData — and `@part("Master")` where the row
+ * declares its own. The quote-transformer recognises the name, so a `@part` class gets its `@field`
+ * injection exactly as an `@entity` one does.
  */
 export function part(target: Function): void;
 export function part(data?: EntityData, options?: EntityOptions): (target: Function) => void;
 export function part(arg?: Function | EntityData, options?: EntityOptions): ((target: Function) => void) | void {
     // `@part` (bare) hands us the class; `@part("Master")` hands us the data and must return the decorator.
     if (typeof arg === "function")
-        return entity("Part")(arg);
-    return entity("Part", arg, options);
+        return defineEntity("Part", undefined, undefined)(arg);
+    return defineEntity("Part", arg, options);
 }
 
 // Sets the runtime type of the entity's primary key (Signum's
