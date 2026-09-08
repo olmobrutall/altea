@@ -75,3 +75,17 @@ export const ViewLogMessage = {
 // `[assembly: AssemblySchemaName("viewLog")]`. FOLDER-scoped, so it covers every type declared
 // beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("viewLog");
+
+// ---- the two query expressions ViewLogLogic registers ----------------------------------------------------
+//
+// DECLARED here and IMPLEMENTED in server/ViewLogLogic — Signum's `ViewLogs()` / `ViewLogMyLast()` extension
+// methods on Entity. The declaration is in data/ so the CLIENT can write `token(a => a.viewLogs())`; the body
+// needs `table(...)`, which is server-only. OPTIONAL: only the registered types offer them as tokens.
+declare module "@altea/altea/data/entity" {
+    interface Entity {
+        /** Every view log whose `target` is this entity. */
+        viewLogs?(): IQuery<ViewLogEntity>;
+        /** …narrowed to the CURRENT user's (Signum's `ViewLogMyLast`). */
+        viewLogMyLast?(): IQuery<ViewLogEntity>;
+    }
+}

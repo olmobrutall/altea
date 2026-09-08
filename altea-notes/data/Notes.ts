@@ -1,6 +1,7 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
+import type { IQuery } from "@altea/altea/data/iquery";
 import { SemiSymbol } from "@altea/altea/data/semiSymbol";
 import { entity, implementedByAll, quoted } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
@@ -80,3 +81,20 @@ export const NoteMessage = {
 // The database schema this package's tables live in — altea's counterpart of Signum's
 // `[assembly: AssemblySchemaName("notes")]`.
 setDefaultDatabaseSchema("notes");
+
+// ---- the query expression NoteLogic registers ------------------------------------------------------------
+//
+// Signum's `NoteLogic.Notes(this Entity ident)` — every note pointing at this entity. DECLARED here and
+// IMPLEMENTED in server/NoteLogic: the body needs `table(...)`, and the declaration must reach the CLIENT so
+// `token(a => a.entityNotes())` can be written. Which types OFFER it as a token is the per-type registration
+// in `NoteLogic.start`.
+//
+// It is called `entityNotes`, not `notes`, because an EXTENSION METHOD occupies no name on the type while a
+// prototype member does — and a real entity already has the obvious one (eastwind's EmployeeEntity.notes is
+// Northwind's employee notes column). The query TOKEN is still Signum's "Notes": the registration names it
+// explicitly, so the member's own name never reaches the query surface.
+declare module "@altea/altea/data/entity" {
+    interface Entity {
+        entityNotes?(): IQuery<NoteEntity>;
+    }
+}

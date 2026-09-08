@@ -93,20 +93,7 @@ export namespace NoteLogic {
     }
 }
 
-// Signum's `NoteLogic.Notes(this Entity ident)` — every note pointing at this entity. A `withQuoted`
-// prototype member on Entity, so any type can carry it; which types OFFER it as a token is decided by the
-// per-type registration in `start`.
-//
-// It is called `entityNotes`, not `notes`, because an EXTENSION METHOD occupies no name on the type while a
-// prototype member does — and a real entity already has the obvious one (eastwind's EmployeeEntity.notes is
-// Northwind's employee notes column). The query TOKEN is still Signum's "Notes": the registration names it
-// explicitly, so the member's own name never reaches the query surface.
-declare module "@altea/altea/data/entity" {
-    interface Entity {
-        entityNotes?(): IQuery<NoteEntity>;
-    }
-}
-
+// The body of the expression DECLARED in data/Notes (see there for the name and the two-halves split).
 Entity.prototype.entityNotes = withQuoted(function (this: Entity): IQuery<NoteEntity> {
     return table(NoteEntity).filter(n => n.target.is(this));
 });

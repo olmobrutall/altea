@@ -298,3 +298,18 @@ export const AlertMessage = {
 // `[assembly: AssemblySchemaName("alerts")]`. FOLDER-scoped, so it covers every type declared
 // beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("alerts");
+
+// ---- the two query expressions AlertLogic registers ------------------------------------------------------
+//
+// DECLARED here and IMPLEMENTED in server/AlertLogic: the body needs `table(...)`, but the declaration must
+// be visible to the CLIENT too, or `token(a => a.alerts())` cannot be written. Signum declares them once for
+// `Entity` (extension methods) and so does altea; OPTIONAL, because only the types `AlertLogic.start` names
+// actually offer them as tokens.
+declare module "@altea/altea/data/entity" {
+    interface Entity {
+        /** Every alert whose `target` is this entity. */
+        alerts?(): IQuery<AlertEntity>;
+        /** …narrowed to the ones addressed to the CURRENT user and due now. */
+        myActiveAlerts?(): IQuery<AlertEntity>;
+    }
+}

@@ -125,32 +125,9 @@ export namespace AlertLogic {
      * altea-workflow's `registerMainEntity` already makes.
      */
     export function registerExpressions<T extends Entity>(type: Type<T>): void {
-        const proto = (type as unknown as { prototype: Record<string, unknown> }).prototype;
-
-        proto.alerts = withQuoted(function (this: Entity): IQuery<AlertEntity> {
-            return table(AlertEntity).filter(a => a.target!.is(this));
-        });
-        proto.myActiveAlerts = withQuoted(function (this: Entity): IQuery<AlertEntity> {
-            return table(AlertEntity).filter(a =>
-                a.target!.is(this)
-                && a.recipient!.is(UserHolder.currentUserLite())
-                && a.attendedDate == null
-                && Temporal.PlainDateTime.compare(a.alertDate!, Clock.now) <= 0);
-        });
-
-        // The lambda parameter carries the two members just stamped onto the prototype, written INLINE
-        // rather than as an exported `IAlertTarget` interface — nothing implements one (the members are
-        // stamped at runtime, per registered type), so a named type would only ever be read here.
-        type Target = Entity & {
-            /** Every alert whose `target` is this entity. */
-            alerts?(): IQuery<AlertEntity>;
-            /** …narrowed to the ones addressed to the CURRENT user and due now. */
-            myActiveAlerts?(): IQuery<AlertEntity>;
-        };
-
-        QueryLogic.expressions.register(type, (e: Target) => e.alerts!(),
+        QueryLogic.expressions.register(type, (e: Entity) => e.alerts!(),
             { niceName: () => AlertEntity.nicePluralName() });
-        QueryLogic.expressions.register(type, (e: Target) => e.myActiveAlerts!(),
+        QueryLogic.expressions.register(type, (e: Entity) => e.myActiveAlerts!(),
             { niceName: () => AlertMessage.MyActiveAlerts.niceToString() });
     }
 
@@ -341,3 +318,16 @@ export namespace AlertLogic {
 }
 
 export type { FluentInclude };
+// The bodies of the two expressions DECLARED in data/Alert (see there). Stamped ONCE on `Entity.prototype`,
+// because neither depends on the type — the per-type registration is what decides who offers them.
+Entity.prototype.alerts = withQuoted(function (this: Entity): IQuery<AlertEntity> {
+    return table(AlertEntity).filter(a => a.target!.is(this));
+});
+
+Entity.prototype.myActiveAlerts = withQuoted(function (this: Entity): IQuery<AlertEntity> {
+    return table(AlertEntity).filter(a =>
+        a.target!.is(this)
+        && a.recipient!.is(UserHolder.currentUserLite())
+        && a.attendedDate == null
+        && Temporal.PlainDateTime.compare(a.alertDate!, Clock.now) <= 0);
+});

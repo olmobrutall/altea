@@ -98,30 +98,9 @@ export namespace ViewLogLogic {
 
     /** Signum's two `QueryLogic.Expressions.Register(new ExtensionInfo(t, …))` calls — see the header. */
     export function registerExpressions<T extends Entity>(type: Type<T>): void {
-        const proto = (type as unknown as { prototype: Record<string, unknown> }).prototype;
-
-        proto.viewLogs = withQuoted(function (this: Entity): IQuery<ViewLogEntity> {
-            return table(ViewLogEntity).filter(log => log.target.is(this));
-        });
-        proto.viewLogMyLast = withQuoted(function (this: Entity): IQuery<ViewLogEntity> {
-            return table(ViewLogEntity).filter(log =>
-                log.target.is(this) && log.user.is(UserHolder.currentUserLite()));
-        });
-
-        // The lambda parameter carries the two members just stamped onto the prototype. Its shape is
-        // written INLINE rather than as an exported `IViewLogTarget` interface: nothing implements such a
-        // thing — the members are stamped at runtime, per registered type — so a named type would only be
-        // read here, and exporting it invites the reading that a type declares itself a view-log target.
-        type Target = Entity & {
-            /** Every view log whose `target` is this entity. */
-            viewLogs?(): IQuery<ViewLogEntity>;
-            /** …narrowed to the CURRENT user's, earliest first (Signum's `ViewLogMyLast`). */
-            viewLogMyLast?(): IQuery<ViewLogEntity>;
-        };
-
-        QueryLogic.expressions.register(type, (e: Target) => e.viewLogs!(),
+        QueryLogic.expressions.register(type, (e: Entity) => e.viewLogs!(),
             { key: "ViewLogs", niceName: () => ViewLogEntity.nicePluralName() });
-        QueryLogic.expressions.register(type, (e: Target) => e.viewLogMyLast!(),
+        QueryLogic.expressions.register(type, (e: Entity) => e.viewLogMyLast!(),
             { key: "LastViewLog", niceName: () => ViewLogMessage.ViewLogMyLast.niceToString() });
     }
 
@@ -206,3 +185,14 @@ export namespace ViewLogLogic {
         return t != null && typeof t.fullKey === "function" ? t.fullKey() : value;
     }
 }
+
+// The bodies of the two expressions DECLARED in data/ViewLog (see there). Stamped ONCE on
+// `Entity.prototype`; the per-type registration decides which types offer them as tokens.
+Entity.prototype.viewLogs = withQuoted(function (this: Entity): IQuery<ViewLogEntity> {
+    return table(ViewLogEntity).filter(log => log.target.is(this));
+});
+
+Entity.prototype.viewLogMyLast = withQuoted(function (this: Entity): IQuery<ViewLogEntity> {
+    return table(ViewLogEntity).filter(log =>
+        log.target.is(this) && log.user.is(UserHolder.currentUserLite()));
+});
