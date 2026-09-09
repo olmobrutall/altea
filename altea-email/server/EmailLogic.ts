@@ -394,7 +394,10 @@ export namespace EmailLogic {
         sm.withExecute(EmailMessageOperation.Save, {
         canBeNew: true,
         canBeModified: true,
-        fromStates: [EmailMessageState.Created, EmailMessageState.Outdated],
+        // `Draft` is a FROM state as well as the TO state (Signum's "allow editing in Draft"): saving a
+        // message that is already a draft is how it is EDITED — without it the Save button disappeared the
+        // moment the first save landed.
+        fromStates: [EmailMessageState.Created, EmailMessageState.Outdated, EmailMessageState.Draft],
         toStates: [EmailMessageState.Draft],
         getState: (m: EmailMessageEntity) => m.state,
         execute: (m: EmailMessageEntity) => { m.state = EmailMessageState.Draft; },

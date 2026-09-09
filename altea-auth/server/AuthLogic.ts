@@ -82,8 +82,21 @@ export namespace AuthLogic {
     export let systemUserName: string | null = null;
     export let anonymousUserName: string | null = null;
 
+    /**
+     * Signum's `AuthLogic.SystemUser` — the user a trusted internal flow runs as.
+     *
+     * The read is AUTHORIZATION-SUPPRESSED, and that is the whole point. Signum resolves this ONCE at
+     * startup into a static field, so it never passes through a permission check at all; altea resolves it
+     * per call through the ordinary gated `retrieveUserByUsername`, which meant the caller's own rights
+     * decided whether the system user could be found. Under the ANONYMOUS role (no rules → None) the read
+     * came back empty, so `asSystemUser` fell through to its no-op branch and ran the block as ANONYMOUS —
+     * silently, which is the dangerous half: the callers of `asSystemUser` are precisely the ones that must
+     * NOT be subject to the current caller's rights (the login failed-counter writes, an anonymous
+     * self-registration). `anonymousUser()` never had the bug only because its lazy runs inside
+     * `ExecutionMode.global`, where authorization is already suppressed — an asymmetry, not a design.
+     */
     export async function systemUser(): Promise<UserEntity | null> {
-        return systemUserName == null ? null : await retrieveUserByUsername(systemUserName);
+        return systemUserName == null ? null : await withDisabled(() => retrieveUserByUsername(systemUserName!));
     }
 
     /**
@@ -256,11 +269,25 @@ export namespace AuthLogic {
      * Signum's `using (UserHolder.UserSession(SystemUser!))` — run `fn` as the configured system user.
      * With none configured the scope is a no-op, which is what Signum's `SystemUser!` would be too (it
      * throws there; here the write simply stays attributed to whoever is current).
+     *
+     * EXPORTED because an application needs it too: an ANONYMOUS endpoint that writes (eastwind's
+     * self-service user registration, Southwind's `PublicController.RegisterUser`) has no user of its own
+     * to attribute the rows to, and running as the system user is what makes them auditable rather than
+     * ownerless. It is deliberately NOT `withDisabled`: the system user's own role still applies, so an
+     * anonymous route cannot write more than that role may.
      */
-    async function asSystemUser<R>(fn: () => Promise<R>): Promise<R> {
+    export async function asSystemUser<R>(fn: () => Promise<R>): Promise<R> {
+        // No system user CONFIGURED — the scope is a no-op, which is what Signum's `SystemUser!` would be
+        // too. Configured but MISSING is a different thing: a deployment error, and degrading silently
+        // would run a trusted block as whoever happened to be current. Say so, the way the anonymous-user
+        // lazy already does for its own name.
+        if (systemUserName == null)
+            return await fn();
+
         const system = await systemUser();
         if (system == null)
-            return await fn();
+            throw new Error(`SystemUser with name '${systemUserName}' not found`);
+
         return await UserHolder.withUser(new UserWithClaims(system), fn);
     }
 }

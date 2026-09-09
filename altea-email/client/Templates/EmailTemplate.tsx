@@ -28,6 +28,7 @@ import { TemplateApplicableEval } from "@altea/altea-templating/data/Templating"
 import { EvalLine } from "@altea/altea-eval/client/EvalLine";
 import { resolveType } from "@altea/altea/data/registration";
 import IFrameRenderer from "./IframeRenderer";
+import { replaceCidImages, useObjectUrls } from "./CidImages";
 
 // Port of Signum.Mailing's Templates/EmailTemplate.tsx — the template editor: recipients, attachments, the
 // query (filters / orders), applicability, and one message per culture.
@@ -254,9 +255,18 @@ export interface EmailTemplateMessageComponentProps {
 export function EmailTemplateMessageComponent(p: EmailTemplateMessageComponentProps): React.JSX.Element {
     const forceUpdate = useForceUpdate();
     const [showPreview, setShowPreview] = React.useState(false);
+    const objectUrls = useObjectUrls();
 
     const isHtml = p.messageFormat !== EmailMessageFormat.PlainText;
     const ec = p.ctx.subCtx({ labelColumns: { sm: 2 } });
+
+    // An inline attachment is referenced as `<img src="cid:…">`, which only a mail client understands — so
+    // the preview re-points each one at the ImageAttachment bytes travelling with the template.
+    function manipulateDom(doc: Document): void {
+        const template = p.ctx.tryFindParentCtx(EmailTemplateEntity)?.value;
+        if (template != null)
+            replaceCidImages(doc, template.attachments.map(a => a.attachment), objectUrls.current);
+    }
 
     return (
         <div className="sf-email-template-message">
@@ -280,7 +290,8 @@ export function EmailTemplateMessageComponent(p: EmailTemplateMessageComponentPr
                             ? EmailTemplateMessage.HidePreview.niceToString()
                             : EmailTemplateMessage.ShowPreview.niceToString()}
                     </button>}
-                {showPreview && <IFrameRenderer style={{ width: "100%", minHeight: "800px" }} html={ec.value.text} />}
+                {showPreview && <IFrameRenderer style={{ width: "100%", minHeight: "800px" }} html={ec.value.text}
+                    manipulateDom={manipulateDom} />}
             </div>
         </div>
     );

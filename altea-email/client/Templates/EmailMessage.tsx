@@ -13,6 +13,7 @@ import HtmlCodeMirror from "@altea/altea-codemirror/client/HtmlCodeMirror";
 import { EmailMessageEntity, EmailMessageState } from "../../data/EmailMessage";
 import { EmailTemplateMessage } from "../../data/EmailTemplate";
 import IFrameRenderer from "./IframeRenderer";
+import { replaceCidImagesOfMessage, useObjectUrls } from "./CidImages";
 
 // Port of Signum.Mailing's Templates/EmailMessage.tsx — the produced message: read-only unless it is still
 // Created / Draft.
@@ -79,6 +80,14 @@ export default function EmailMessage(p: { ctx: TypeContext<EmailMessageEntity> }
 
 function EmailMessageBodyPreview(p: { ctx: TypeContext<EmailMessageEntity> }): React.JSX.Element {
     const [showPreview, setShowPreview] = React.useState(true);
+    const objectUrls = useObjectUrls();
+
+    // An inline attachment is referenced as `<img src="cid:…">`, which only a mail client understands. Its
+    // download url cannot be used as an `<img src>` either — that route needs the Authorization header — so
+    // the bytes are fetched through the app's own ajax and handed to the image as a blob url.
+    function manipulateDom(doc: Document): void {
+        replaceCidImagesOfMessage(doc, p.ctx.value, objectUrls.current);
+    }
 
     if (!p.ctx.value.isBodyHtml)
         return <></>;
@@ -89,7 +98,8 @@ function EmailMessageBodyPreview(p: { ctx: TypeContext<EmailMessageEntity> }): R
             <button type="button" className="btn btn-link p-0" onClick={() => setShowPreview(!showPreview)}>
                 {showPreview ? EmailTemplateMessage.HidePreview.niceToString() : EmailTemplateMessage.ShowPreview.niceToString()}
             </button>
-            {showPreview && <IFrameRenderer style={{ width: "100%", height: "800px" }} html={p.ctx.value.body.text} />}
+            {showPreview && <IFrameRenderer style={{ width: "100%", height: "800px" }} html={p.ctx.value.body.text}
+                manipulateDom={manipulateDom} />}
         </div>
     );
 }

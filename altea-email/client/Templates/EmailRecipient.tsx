@@ -13,16 +13,16 @@ export default function EmailRecipient(p: { ctx: TypeContext<EmailMessageEntity_
 
     return (
         <div className="row">
-            <div className="col-sm-1">
+            <div className="col-sm-2">
                 <AutoLine ctx={sc.subCtx(c => c.kind)} onChange={forceUpdate} />
             </div>
-            <div className="col-sm-11">
+            <div className="col-sm-10">
                 <EntityLine ctx={sc.subCtx(ea => ea.emailOwner)} />
             </div>
-            <div className="col-sm-5 offset-sm-1">
+            <div className="col-sm-5 offset-sm-2">
                 <TextBoxLine ctx={sc.subCtx(c => c.emailAddress)} valueHtmlAttributes={{ onBlur: forceUpdate }} />
             </div>
-            <div className="col-sm-6">
+            <div className="col-sm-5">
                 <TextBoxLine ctx={sc.subCtx(c => c.displayName)} valueHtmlAttributes={{ onBlur: forceUpdate }} />
             </div>
         </div>

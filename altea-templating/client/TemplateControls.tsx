@@ -100,7 +100,7 @@ export default function TemplateControls(p: TemplateControlsProps): React.JSX.El
                 {ct.type === "Query"
                     ? (p.queryKey && <QueryTokenBuilder queryToken={ct.token} queryKey={p.queryKey}
                         onTokenChange={t => setCurrentToken({ type: "Query", token: t ?? undefined })}
-                        subTokenOptions={SubTokensOptions.CanAnyAll | SubTokensOptions.CanElement}
+                        subTokenOptions={SubTokensOptions.CanAnyAll | SubTokensOptions.CanElement | SubTokensOptions.CanNested}
                         readOnly={false} />)
                     : <GlobalVariables selected={ct.expression}
                         onTokenChange={t => setCurrentToken({ type: "Global", expression: t ?? undefined })} />}

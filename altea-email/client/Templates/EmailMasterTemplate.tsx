@@ -11,6 +11,7 @@ import {
 } from "../../data/EmailTemplate";
 import HtmlCodeMirror from "@altea/altea-codemirror/client/HtmlCodeMirror";
 import IFrameRenderer from "./IframeRenderer";
+import { replaceCidImages, useObjectUrls } from "./CidImages";
 
 // Port of Signum.Mailing's Templates/EmailMasterTemplate.tsx — the shared chrome a template's body is
 // spliced into at `@[content]`.
@@ -46,7 +47,16 @@ export function EmailMasterTemplateMessageComponent(p: {
 }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
     const [showPreview, setShowPreview] = React.useState(false);
+    const objectUrls = useObjectUrls();
     const ec = p.ctx;
+
+    // An inline attachment is referenced as `<img src="cid:…">`, which only a mail client understands — so
+    // the preview re-points each one at the ImageAttachment bytes travelling with the template.
+    function manipulateDom(doc: Document): void {
+        const template = p.ctx.tryFindParentCtx(EmailMasterTemplateEntity)?.value;
+        if (template != null)
+            replaceCidImages(doc, template.attachments.map(a => a.attachment), objectUrls.current);
+    }
 
     return (
         <div className="sf-email-template-message">
@@ -58,7 +68,8 @@ export function EmailMasterTemplateMessageComponent(p: {
             <button type="button" className="btn btn-link p-0" onClick={() => setShowPreview(!showPreview)}>
                 {showPreview ? EmailTemplateMessage.HidePreview.niceToString() : EmailTemplateMessage.ShowPreview.niceToString()}
             </button>
-            {showPreview && <IFrameRenderer style={{ width: "100%", minHeight: "800px" }} html={ec.value.text} />}
+            {showPreview && <IFrameRenderer style={{ width: "100%", minHeight: "800px" }} html={ec.value.text}
+                manipulateDom={manipulateDom} />}
         </div>
     );
 }
