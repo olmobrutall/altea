@@ -25,8 +25,7 @@ import { DiffDocument } from '@altea/altea-diff-log/client/Templates/DiffDocumen
 import { TimeMachineMessage } from '../data/TimeMachine';
 import { TimeMachineClient } from './TimeMachineClient';
 
-// Port of Signum.TimeMachine's TimeMachinePage.tsx — the page (and the two modal wrappers) that lists a
-// row's versions and diffs two of them.
+// The page (and the two modal wrappers) that lists a row's versions and diffs two of them.
 //
 // Reading it: the SearchControl at the top runs the entity's OWN query with `systemTime: { mode: "All" }`,
 // so each result row is one VERSION. Picking one (or ctrl-picking two) fetches those versions through
@@ -37,21 +36,13 @@ import { TimeMachineClient } from './TimeMachineClient';
 //   • "Data differences": the two ObjectDumper texts through altea-diff-log's DiffDocument — the same
 //     component and the same dump format the operation log uses.
 //
-// altea divergences:
-//  - **no `Finder.getQueryDescription` gate.** altea has no QueryDescription (see CLAUDE.md); the
-//    SearchControl resolves its own query root, so it simply renders.
-//  - `newLite(type, id)` → `Entity.resolveType(type).newLite(id)`.
-//  - **the header's lite is fetched, not model-filled.** Signum calls `Navigator.API.fillLiteModels` and
-//    catches the failure as "[Entity deleted]"; altea has no lite MODEL and no such endpoint, so the
-//    display text comes from retrieving the row — which is the same existence probe, one call either way.
-//  - Signum's stray `console.log(pair)` in RenderEntityVersion is dropped.
+// Port of Signum.TimeMachine's TimeMachinePage.tsx — see docs/port/TimeMachine.md.
 
 export default function TimeMachinePage(): React.JSX.Element {
     const params = useParams() as { type: string; id: string };
 
-    // Signum fills the lite's display MODEL (`Navigator.API.fillLiteModels`) and falls back to
-    // "[Entity deleted]". altea has no lite-model endpoint, so the display text comes from actually
-    // retrieving the row — which also IS the "does it still exist?" probe Signum's catch relies on.
+    // The display text comes from actually retrieving the row, which also IS the "does it still exist?"
+    // probe — there is no lite-model endpoint to fill it from.
     const lite = useAPI(async () => {
         const type = Entity.resolveType(params.type);
         const id = type.parseId(params.id);
@@ -76,8 +67,8 @@ export function TimeMachine(p: { lite: Lite<Entity>; isModal?: boolean }): React
     const scl = searchControl.current?.searchControlLoaded ?? undefined;
     const colIndex = scl?.props.findOptions.columnOptions.findIndex(a => a.token != null && a.token.fullKey() == "SystemValidFrom");
 
-    // Signum's renderCheckBox: a RADIO per row. A plain click selects this version AND the one below it
-    // (the natural "what changed here?"); ctrl-click toggles a second version to compare against.
+    // A RADIO per row. A plain click selects this version AND the one below it (the natural "what changed
+    // here?"); ctrl-click toggles a second version to compare against.
     function renderCheckBox(sc: SearchControlLoaded, row: ResultRow, rowIndex: number): React.ReactElement {
         const checked = Boolean(sc.state.selectedRows?.includes(row));
         return (
@@ -108,11 +99,8 @@ export function TimeMachine(p: { lite: Lite<Entity>; isModal?: boolean }): React
     }
 
     // The `previousOperationLog` extension token core registers on every @systemVersioned type
-    // (OperationLogic.registerPreviousLog): who ran which operation to produce this version.
-    //
-    // ROOTLESS and camelCase, where Signum writes `Entity.PreviousOperationLog`: an altea extension
-    // token's key is derived from its quoted lambda's tail member, and altea's query tokens are rootless
-    // (see CLAUDE.md — the same accommodation the workflow Inbox and the omnibox make).
+    // (OperationLogic.registerPreviousLog): who ran which operation to produce this version. ROOTLESS and
+    // camelCase — an extension token's key is derived from its quoted lambda's tail member.
     const prevLogToken = new QueryTokenString<OperationLogEntity>("previousOperationLog");
 
     return (
@@ -132,9 +120,8 @@ export function TimeMachine(p: { lite: Lite<Entity>; isModal?: boolean }): React
             <h2 className="h5">{TimeMachineMessage.AllVersions.niceToString()}</h2>
             <SearchControl ref={searchControl} findOptions={{
                 queryName: p.lite.entityType,
-                // Signum filters by its `Entity` root token; altea has none (its tokens are rootless — see
-                // CLAUDE.md), so the row is addressed by its id, which under `systemTime: All` is exactly
-                // "every version of this row".
+                // Tokens are rootless, so the row is addressed by its id — which under `systemTime: All`
+                // is exactly "every version of this row".
                 filterOptions: [{ token: "id", operation: "EqualTo", value: p.lite.id }],
                 columnOptions: [
                     { token: prevLogToken.append(a => a.start) },

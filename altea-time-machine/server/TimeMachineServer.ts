@@ -7,29 +7,22 @@ import { Entity } from "@altea/altea/data/entity";
 import { Temporal } from "@altea/altea/data/basics";
 import { ObjectDumper } from "@altea/altea/data/objectDumper";
 
-// Port of Signum.TimeMachine's TimeMachineController.cs (+ TimeMachineServer.cs) — the ONE route the
-// Time Machine page calls: "give me this row as it was at that instant, plus its dump".
+// The ONE route the Time Machine page calls: "give me this row as it was at that instant, plus its dump".
 //
-// The entity half feeds the "UI differences" tab (rendered through RenderEntity with the previous
-// version on the TypeContext, which is what lights up core's `getTimeMachineIcon`); the dump half feeds
-// the "Data differences" tab, diffed against the other version by altea-diff-log's DiffDocument — the
-// same dump format the operation log stores, which is exactly why the two are comparable.
+// The entity half feeds the "UI differences" tab (rendered through RenderEntity with the previous version
+// on the TypeContext, which is what lights up core's `getTimeMachineIcon`); the dump half feeds the "Data
+// differences" tab, diffed against the other version by altea-diff-log's DiffDocument — the same dump
+// format the operation log stores, which is exactly why the two are comparable.
 //
-// altea divergences:
-//  - the route is `/api/timeMachine/retrieveVersion/…` where Signum's is the unprefixed
-//    `api/retrieveVersion/…`: every altea module namespaces its routes under its own segment.
-//  - `Schema.ForceCultureInfo` is not needed — altea's ObjectDumper formats invariantly by construction
-//    (Temporal → ISO, Decimal → toString), the same reason altea-diff-log gives.
-//  - `ReflectionServer.RegisterLike(typeof(TimeMachineMessage), …)` has no counterpart: altea ships ONE
-//    metadata blob and a message container is included by being registered, with no per-container
-//    visibility predicate to attach.
-//  - the read runs under `ExecutionMode.global`. Retrieving a HISTORY row goes through the ordinary
-//    retrieve path, whose type-READ gate would otherwise re-check rules the quick link already checked;
-//    and a history row may reference rows the current user cannot read today. The page itself is gated
-//    by `TimeMachinePermission.ShowTimeMachine`.
+// The read runs under `ExecutionMode.global`: retrieving a HISTORY row goes through the ordinary retrieve
+// path, whose type-READ gate would otherwise re-check rules the quick link already checked, and a history
+// row may reference rows the current user cannot read today. The page itself is gated by
+// `TimeMachinePermission.ShowTimeMachine`.
+//
+// Port of Signum.TimeMachine's TimeMachineController.cs — see docs/port/TimeMachine.md.
 export namespace TimeMachineServer {
 
-    /** Signum's `EntityDump`: one version of a row, plus the ObjectDumper text of it. */
+    /** One version of a row, plus the ObjectDumper text of it. */
     export interface EntityDump {
         entity: Entity;
         dump: string;
@@ -54,9 +47,9 @@ export namespace TimeMachineServer {
     }
 }
 
-// The client sends back the `SystemValidFrom` column value it read out of the search result, which
-// altea materialises as a tz-naive PlainDateTime (see server/systemTime.ts on SystemTimeBound). Accept
-// an instant too, so a caller that has a real UTC stamp is not forced to strip the zone first.
+// The client sends back the `SystemValidFrom` column value it read out of the search result, which altea
+// materialises as a tz-naive PlainDateTime (see server/systemTime.ts on SystemTimeBound). Accept an
+// instant too, so a caller that has a real UTC stamp is not forced to strip the zone first.
 export function parseAsOf(asOf: string): Temporal.PlainDateTime | Temporal.Instant {
     if (asOf === "")
         throw new Error("The 'asOf' query parameter is required");

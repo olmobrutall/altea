@@ -18,22 +18,14 @@ import { EntityControlMessage, JavascriptMessage } from '@altea/altea/data/uiMes
 import { AuthClient } from '@altea/altea-auth/client/AuthClient';
 import { TimeMachineMessage, TimeMachinePermission } from '../data/TimeMachine';
 
-// Port of Signum.TimeMachine's TimeMachineClient.tsx — the module's client registration: the quick link
-// onto every system-versioned entity, the "Time Machine" toggle in every SearchControl's menu, the page
-// route, and the three search-result formatters that mark a row version as created / deleted / unchanged.
+// The module's client registration: the quick link onto every system-versioned entity, the "Time Machine"
+// toggle in every SearchControl's menu, the page route, and the three search-result formatters that mark a
+// row version as created / deleted / unchanged.
 //
-// altea divergences:
-//  - **`AppContext.isPermissionAuthorized` lives in altea-auth**, not core (see CLAUDE.md), so the gate is
-//    `AuthClient.isPermissionAuthorized`. Signum reads the permission ONCE at start; here the check is
-//    inside the callbacks, because a permission flag follows `onCurrentUserChanged` (the lesson from the
-//    auth-directory ports) and a start-time snapshot would be wrong after a re-login.
-//  - **the quick link drops Signum's `getTypeInfo(entityType).operations` condition.** altea's TypeInfo has
-//    no `operations` (they live on the per-request metadata blob), and the condition was redundant anyway:
-//    what it really gated on was `Finder.isFindable(OperationLogEntity)`, which is kept.
-//  - `ti.isSystemVersioned` → `ti.systemVersioned != null` (altea keeps the descriptor, not a flag).
-//  - luxon `DateTime.fromISO` → `Temporal.PlainDateTime.from` (altea's period bounds are tz-naive).
-//  - the "LiteNoFill_TM" rule is not ported, matching core's FinderRules, which likewise skips Signum's
-//    "LiteNoFill" (an `avoidFillSearchColumnWidth` width tweak).
+// The permission check is INSIDE the callbacks, not read once at start: a permission flag follows
+// `onCurrentUserChanged`, so a start-time snapshot would be wrong after a re-login.
+//
+// Port of Signum.TimeMachine's TimeMachineClient.tsx — see docs/port/TimeMachine.md.
 export namespace TimeMachineClient {
 
     export function start(cb: ClientBuilder): void {
@@ -102,7 +94,7 @@ export namespace TimeMachineClient {
         });
     }
 
-    /** Signum's `EntityDump` — one version of a row plus its ObjectDumper text. */
+    /** One version of a row plus its ObjectDumper text. */
     export interface EntityDump {
         entity: Entity;
         dump: string;
@@ -122,9 +114,9 @@ export namespace TimeMachineClient {
     }
 }
 
-// Signum's inline block inside the ViewHistory formatter: read the row's SystemValidFrom/To against the
-// query's system-time window and say whether this version appeared, disappeared, or merely persisted.
-// The two columns are the hidden ones the SearchControl injects for a system-time query.
+// Read the row's SystemValidFrom/To against the query's system-time window and say whether this version
+// appeared, disappeared, or merely persisted. The two columns are the hidden ones the SearchControl
+// injects for a system-time query.
 function versionMarker(
     columns: string[],
     values: unknown[],
@@ -145,8 +137,8 @@ function versionMarker(
     const created = between
         ? Temporal.PlainDateTime.compare(Temporal.PlainDateTime.from(systemTime.startDate!), validFrom) <= 0
         : true;
-    // Signum's `validTo.year < 9999`: the open-ended sentinel the versioning tables write for the row
-    // version that is still current.
+    // Year 9999 is the open-ended sentinel the versioning tables write for the row version that is still
+    // current.
     const deleted = between
         ? Temporal.PlainDateTime.compare(validTo, Temporal.PlainDateTime.from(systemTime.endDate!)) <= 0
         : validTo.year < 9999;
@@ -180,7 +172,7 @@ export interface TimeMachineLinkProps extends React.HTMLAttributes<HTMLAnchorEle
     inSearch?: "main" | "related";
 }
 
-/** Signum's TimeMachineLink — an EntityLink that opens the Time Machine page in a new tab. */
+/** An EntityLink that opens the Time Machine page in a new tab. */
 export function TimeMachineLink(p: TimeMachineLinkProps): React.JSX.Element {
     const { lite, inSearch, children, ...htmlAtts } = p;
 

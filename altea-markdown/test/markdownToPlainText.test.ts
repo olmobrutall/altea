@@ -2,10 +2,9 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { markdownToText } from "../server/MarkdownToPlainText";
 
-// The markdown→text walk is the one piece of @altea/altea-markdown that replaces a .NET library with a
-// different one (Markdig → mdast), so each case pins what one node kind flattens to. Several of them pin
-// SIGNUM's behaviour rather than the obviously nicest output — see the file header; where that is the point,
-// the case says so.
+// The markdown→text walk swaps one parser library for another (see docs/port/Markdown.md), so each case
+// pins what one node kind flattens to. Several pin the DELIBERATELY incomplete behaviour rather than the
+// obviously nicest output; where that is the point, the case says so.
 describe("markdownToText", () => {
 
     test("null in, null out", () => {
@@ -38,7 +37,7 @@ describe("markdownToText", () => {
     });
 
     test("an ordered list is numbered from 1, ignoring the list's own start", () => {
-        // Signum's counter starts at 1 whatever the source says; mirrored deliberately.
+        // The counter starts at 1 whatever the source says; mirrored deliberately.
         assert.equal(markdownToText("3. three\n4. four"), "1. three\n2. four");
     });
 
@@ -58,7 +57,7 @@ describe("markdownToText", () => {
         assert.equal(markdownToText("first  \nsecond"), "first\nsecond");
     });
 
-    test("a code block contributes NOTHING — Markdig's CodeBlock is a leaf Signum's switch never reaches", () => {
+    test("a code block contributes NOTHING — deliberately incomplete, see docs/port/Markdown.md", () => {
         // Mirrored, not fixed, so the two implementations stay comparable.
         assert.equal(markdownToText("before\n\n```\nlet x = 1;\n```\n\nafter"), "before\nafter");
     });
@@ -69,7 +68,7 @@ describe("markdownToText", () => {
     });
 
     test("a GFM table is not parsed by either parser, so it comes through as literal text", () => {
-        // Markdig's default pipeline enables no extensions, and neither does a bare `fromMarkdown`.
+        // Plain CommonMark: no GFM extensions on either side.
         assert.equal(markdownToText("| a | b |\n|---|---|\n| 1 | 2 |"), "| a | b |\n|---|---|\n| 1 | 2 |");
     });
 

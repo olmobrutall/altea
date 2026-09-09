@@ -2,14 +2,15 @@ import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { msg } from "@altea/altea/data/utils/localization";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 
-// Port of Signum.TimeMachine's TimeMachine.cs — the messages the Time Machine UI reads and the one
-// permission that gates it.
+// The messages the Time Machine UI reads and the one permission that gates it.
 //
-// The module has no entities of its own: everything it shows already exists in the database as the
-// HISTORY of system-versioned tables (`sb.include(X).withSystemVersioned()`), which core already
-// queries through `SystemTime` (server/systemTime.ts) and already exposes in the SearchControl's
-// "Time Machine" system-time dropdown. This module is the READER: a page that lists a row's versions,
-// a diff between two of them, and the restore helpers.
+// The module has NO entities of its own: everything it shows already exists in the database as the HISTORY
+// of system-versioned tables (`sb.include(X).withSystemVersioned()`), which core already queries through
+// `SystemTime` (server/systemTime.ts) and already exposes in the SearchControl's "Time Machine"
+// system-time dropdown. This module is the READER: a page that lists a row's versions, a diff between two
+// of them, and the restore helpers.
+//
+// Port of Signum.TimeMachine's TimeMachine.cs — see docs/port/TimeMachine.md.
 
 export namespace TimeMachinePermission {
     /** Gates the quick link, the search control's system-time button, and the page. */
@@ -35,7 +36,4 @@ export const TimeMachineMessage = {
     ThisVersionDidNotChange: msg("This version DID NOT CHANGE"),
 };
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("timeMachine")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("timeMachine");
