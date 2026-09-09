@@ -13,22 +13,11 @@ import type { IUserEntity } from "@altea/altea/data/security";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { UserEntity } from "@altea/altea-auth/data/User";
 
-// Port of Signum.Rest's RestApiKeyEntity.cs + RestLog.cs — the two halves of the module: an API KEY that
-// authenticates a machine caller, and a LOG of every request that reached the app's public REST surface,
-// replayable against a live host so a response can be diffed against what it used to be.
+// The two halves of the module: an API KEY that authenticates a machine caller, and a LOG of every request
+// that reached the app's public REST surface, replayable against a live host so a response can be diffed
+// against what it used to be.
 //
-// altea divergences:
-//  - **`MList<QueryStringValueEmbedded>` → `@part` rows.** Signum marks the collection `[PreserveOrder]`,
-//    which is exactly a `@rowOrder` child table here. The type keeps Signum's NAME, "Embedded" suffix
-//    included, as altea-tour's `CssStepEntity` and the AD configurations do.
-//  - **`ControllerName` is what the CALLER names its API**, and `controller` / `action` follow altea's own
-//    established mapping for "which endpoint was this" — the one `exceptionFilter.fillContext` already
-//    uses, since altea has no MVC controller/action pair to read: `controller` is the matched route path
-//    and `action` is the HTTP method. See server/RestLogFilter.server.ts.
-//  - **`ReplayState` / `ChangedPercentage` are declared but never assigned**, exactly as in Signum: the
-//    replay UI diffs the two response bodies in the browser and stores nothing. They are kept because the
-//    search page offers them as columns, and because a host that wants to record a replay outcome has
-//    somewhere to put it.
+// Port of Signum.Rest's RestApiKeyEntity.cs + RestLog.cs — see docs/port/Rest.md.
 
 @reflect
 @entity("Main", "Master")
@@ -38,9 +27,9 @@ export class RestApiKeyEntity extends Entity {
     user: Lite<UserEntity>;
 
     /**
-     * The secret. `min: 20` is Signum's — long enough that the default generator's 32 random bytes
-     * (43 base64url characters) are the only realistic way to fill it, and short keys are rejected rather
-     * than silently accepted. `@uniqueIndex` because it is the lookup key of the authenticator's cache.
+     * The secret. `min: 20` is long enough that the default generator's 32 random bytes (43 base64url
+     * characters) are the only realistic way to fill it, and short keys are rejected rather than silently
+     * accepted. `@uniqueIndex` because it is the lookup key of the authenticator's cache.
      */
     @uniqueIndex
     @stringLengthValidator({ min: 20, max: 100 })
@@ -83,16 +72,12 @@ export class RestLogEntity extends Entity {
 
     requestBody: BigStringEmbedded = new BigStringEmbedded();
 
-    /** Signum's `[PreserveOrder] MList<QueryStringValueEmbedded>` — see the header. */
     queryString: QueryStringValueEntity[];
 
     /**
-     * Signum's `Lite<IUserEntity>?`. As with `ExceptionEntity.user`, `IUserEntity` is an INTERFACE with no
-     * runtime constructor, so the implementations are declared empty here and the app widens them —
-     * `overrideImplementedBy(RestLogEntity, r => r.user, () => [UserEntity])` in its EntityOverrides. This
-     * module does depend on altea-auth (Signum.Rest depends on Signum.Authorization too), but the LOG's
-     * user is the framework's `IUserEntity` slot, so it follows core's pattern rather than hard-wiring
-     * a concrete type into the column.
+     * `IUserEntity` is an INTERFACE with no runtime constructor, so the implementations are declared empty
+     * here and the app widens them — `overrideImplementedBy(RestLogEntity, r => r.user, () => [UserEntity])`
+     * in its EntityOverrides. Same shape as `ExceptionEntity.user`.
      */
     @implementedBy(() => [])
     user: Lite<IUserEntity> | null = null;
@@ -103,7 +88,7 @@ export class RestLogEntity extends Entity {
 
     referrer: string | null = null;
 
-    /** The matched route path — altea's counterpart of Signum's controller TYPE (see the header). */
+    /** The matched route path. */
     @column({ size: 100 })
     controller: string;
 
@@ -111,7 +96,7 @@ export class RestLogEntity extends Entity {
     @column({ size: 100 })
     controllerName: string | null = null;
 
-    /** The HTTP method — altea's counterpart of Signum's action NAME (see the header). */
+    /** The HTTP method. */
     @column({ size: 100 })
     action: string;
 
@@ -125,6 +110,9 @@ export class RestLogEntity extends Entity {
 
     responseBody: BigStringEmbedded = new BigStringEmbedded();
 
+    // Declared but never assigned: the replay UI diffs the two response bodies in the browser and stores
+    // nothing. Kept because the search page offers them as columns, and because a host that wants to
+    // record a replay outcome has somewhere to put it.
     replayState: RestLogReplayState | null = null;
 
     changedPercentage: number | null = null;
@@ -133,28 +121,25 @@ export class RestLogEntity extends Entity {
     allowReplay: boolean = false;
 
     /**
-     * Signum's `Duration` — `[Unit("ms"), ExpressionField]` over `(EndDate - StartDate).TotalMilliseconds`.
-     *
-     * `@quoted` here, so it IS a query column (the log's search page orders by it), unlike the in-memory
-     * `duration()` helpers in @altea/altea-processes / -scheduler / -migrations: those return the branded
-     * `int`, which the transformer cannot emit a runtime type reference for, while a plain `number` lowers
-     * to `DATEDIFF(millisecond, start, end)` through `since().total()`.
+     * `@quoted`, so it IS a query column (the log's search page orders by it) — unlike the in-memory
+     * `duration()` helpers in @altea/altea-processes / -scheduler / -migrations, which return the branded
+     * `int` the transformer cannot emit a runtime type reference for. A plain `number` lowers to
+     * `DATEDIFF(millisecond, start, end)` through `since().total()`.
      */
     @legacyPropertyRoute("Duration")
     @quoted durationMilliseconds(): number {
         return this.endDate.since(this.startDate).total({ unit: "milliseconds" });
     }
 
-    // Signum's RestLogEntity does not override ToString at all, so its table has no ToStr column. altea keeps
-    // the more useful "METHOD url" display and marks it `@quoted` instead of dropping it: both columns
-    // are on this same row, so the query provider expands the string inline and materialises nothing.
+    // `@quoted` rather than a plain toString: both columns are on this same row, so the query provider
+    // expands the string inline and materialises nothing.
     @quoted
     toString(): string {
         return `${this.httpMethod ?? ""} ${this.url ?? ""}`;
     }
 }
 
-/** One query-string parameter of a logged request. A collection row, hence an entity — see the header. */
+/** One query-string parameter of a logged request. */
 @reflect
 @part
 export class QueryStringValueEntity extends Entity {
@@ -185,7 +170,4 @@ export const RestLogMessage = {
     Current: msg("Current"),
 };
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("rest")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("rest");

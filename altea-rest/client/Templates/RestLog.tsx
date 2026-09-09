@@ -11,14 +11,8 @@ import { DiffDocument } from "@altea/altea-diff-log/client/Templates/DiffDocumen
 import { RestLogMessage, type RestLogEntity } from "../../data/Rest";
 import { RestClient } from "../RestClient";
 
-// Port of Signum.Rest's Templates/RestLog.tsx — the logged request, and the replay: send it again to a
-// host of the user's choosing and diff the new response against the stored one.
-//
-// altea divergences:
-//  - **the "how long ago" unit is dropped.** Signum decorates `startDate` with luxon's `toRelative()`;
-//    altea's dates are `Temporal` and core has no relative formatter, so the absolute value stands alone.
-//  - **`queryString` is a `@part` collection** (see data/Rest.ts), so the EntityTable binds rows directly
-//    rather than through Signum's MList element wrapper.
+// The logged request, and the replay: send it again to a host of the user's choosing and diff the new
+// response against the stored one.
 export default function RestLog(p: { ctx: TypeContext<RestLogEntity> }): React.JSX.Element {
 
     const ctx = p.ctx;

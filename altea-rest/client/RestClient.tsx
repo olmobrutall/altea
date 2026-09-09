@@ -3,7 +3,7 @@ import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { QueryString } from "@altea/altea/client/QueryString";
 import { RestLogEntity } from "../data/Rest";
 
-// Port of Signum.Rest's RestClient.tsx — the log's view plus the replay call.
+// The log's view plus the replay call.
 export namespace RestClient {
 
     export function start(cb: ClientBuilder): void {
@@ -24,8 +24,8 @@ export namespace RestClient {
 
         /** Re-send the logged request to `host` and return the response body verbatim. */
         export function replayRestLog(restLogId: string | number, host: string): Promise<string> {
-            // ALTEA: the id is a path segment (see server/RestLogServer.server.ts), the url a query
-            // parameter — encoded by QueryString rather than by the caller.
+            // The id is a path segment, the url a query parameter — encoded by QueryString rather than by
+            // the caller.
             return ajaxGet({ url: `/api/restLog/${restLogId}?` + QueryString.stringify({ url: host }) });
         }
     }

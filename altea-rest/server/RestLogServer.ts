@@ -4,11 +4,9 @@ import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
 import { RestApiKeyEntity, RestLogEntity, RestLogMessage } from "../data/Rest";
 import { RestLogLogic } from "./RestLogLogic";
 
-// Port of Signum.Rest's RestLogController.cs — replay one logged request against a live host.
+// Replay one logged request against a live host.
 //
-// ALTEA: the url is a QUERY parameter here as it is in Signum, but the id is the route's own path segment
-// (`/api/restLog/:id`) rather than a second query parameter — that is the shape every other altea
-// entity-addressed route uses, and it makes the id typed by the router.
+// Port of Signum.Rest's RestLogController.cs — see docs/port/Rest.md.
 export namespace RestLogServer {
 
     let started = false;
@@ -31,8 +29,7 @@ export namespace RestLogServer {
                 if (!oldRequest.allowReplay)
                     throw new Error(RestLogMessage.ReplayNotAllowedForThisRestLog.niceToString());
 
-                // Replay AS the user who made the original call: their key, so their rules apply. Signum
-                // takes the first key of that user for the same reason.
+                // Replay AS the user who made the original call: their key, so their rules apply.
                 const userId = oldRequest.user?.id;
                 const credentials = userId == null ? []
                     : await table(RestApiKeyEntity).filter(k => k.user.id == userId).toArray();

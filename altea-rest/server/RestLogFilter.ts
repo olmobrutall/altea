@@ -11,43 +11,24 @@ import { QueryStringValueEntity, RestLogEntity } from "../data/Rest";
 import { RestLogLogic } from "./RestLogLogic";
 import { RestApiKeyLogic } from "./RestApiKeyLogic";
 
-// Port of Signum.Rest's RestLogFilter.cs — "log every request that reaches this API".
-//
-// THE STRUCTURAL DIVERGENCE: Signum's is an MVC `ActionFilterAttribute` decorating a CONTROLLER class, so
-// its scope is "every action of that controller" and it learns the controller type and action name from the
-// filter context. altea's server is Express behind a typed route wrapper (`WebBuilder`), which has neither
-// controllers nor action filters — so the same thing is EXPRESS MIDDLEWARE the app mounts on the path
-// prefix its public API lives under:
+// "Log every request that reaches this API." Express middleware the app mounts on the path prefix its
+// public API lives under — one mount per logged API, each with its own options:
 //
 //     ws.app.use("/api/catalog", RestLogFilter.middleware({ name: "CatalogAPI", allowReplay: true }));
 //
-// A path prefix is what "this controller" means once controllers are gone, and it composes the same way:
-// one mount per logged API, each with its own options.
+// MOUNT IT AFTER `AuthLogic.start`: that is what installs the per-request user scope, and
+// `UserHolder.current()` is read here. Express runs middleware in registration order.
 //
-// Consequences:
-//  - **the RESPONSE body is captured by wrapping `res.write` / `res.end`**, where Signum swaps
-//    `Response.Body` for a MemoryStream and copies it back. Same idea, and the same caveat: a streamed or
-//    binary response is buffered in memory, which is why `ignoreResponseBody` exists.
-//  - **the REQUEST body needs no `EnableBuffering`.** altea's route wrapper installs a `rawBody`
-//    middleware that leaves the whole body on `req.body` as a STRING, so it is simply read — Signum has to
-//    rewind the stream and be careful not to close it.
-//  - **`controller` / `controllerName` / `action`** follow altea's own established mapping for "which
-//    endpoint was this", the one `exceptionFilter.fillContext` already uses: `controller` is the matched
-//    route path, `action` is the HTTP method. `controllerName` carries the `name` the caller passed, which
-//    is the closest thing to Signum's short controller name and is what the log's search page groups by.
-//  - **it must be mounted AFTER `AuthLogic.start`**: that is what installs the per-request user scope, and
-//    `UserHolder.current()` is read here. Express runs middleware in registration order.
-//  - the log row is saved in `ExecutionMode.global` (Signum does the same) and in its OWN transaction, so
-//    logging a request can neither be blocked by the caller's rules nor roll back with the request it
-//    describes.
+// Port of Signum.Rest's RestLogFilter.cs (an MVC action filter there) — see docs/port/Rest.md.
 export namespace RestLogFilter {
 
     export interface RestLogOptions {
-        /** How this API shows up in the log — Signum's controller name. */
+        /** How this API shows up in the log — what its rows group by. */
         name: string;
-        /** Whether these requests may be re-sent from the log view (Signum's `allowReplay`). */
+        /** Whether these requests may be re-sent from the log view. */
         allowReplay?: boolean;
         ignoreRequestBody?: boolean;
+        /** A streamed or binary response would be buffered in memory; set this to skip capturing it. */
         ignoreResponseBody?: boolean;
     }
 
@@ -94,8 +75,7 @@ export namespace RestLogFilter {
 
             // `end` is the one event that always fires — a normal response, an error response written by
             // the exception filter, and an aborted one. Saving from here (rather than from a wrapper around
-            // `next()`) is what makes the log cover a request that threw, which is Signum's second save
-            // path (`OnActionExecutionAsync`'s exception branch).
+            // `next()`) is what makes the log cover a request that threw.
             let saved = false;
             const save = (): void => {
                 if (saved)
@@ -147,7 +127,7 @@ export namespace RestLogFilter {
                 endDate: Temporal.Now.plainDateTimeISO(),
                 userHostAddress: req.ip ?? null,
                 userHostName: req.get("host") ?? null,
-                // Signum reads the "Referrer" header, which is not the spelling browsers send; read both.
+                // Browsers send the misspelled "referer"; read both spellings.
                 referrer: req.header("referer") ?? req.header("referrer") ?? null,
             });
 
@@ -159,7 +139,7 @@ export namespace RestLogFilter {
             // nor be subject to the caller's rules.
             await Transaction.forceNew(() => ExecutionMode.global(() => Saver.save([log])));
         } catch (e) {
-            // Signum's `e.LogException()` — a failure to LOG must never fail the request (already sent).
+            // A failure to LOG must never fail the request (already sent).
             try { await Transaction.forceNew(() => ExceptionLogic.logException(e)); } catch { /* never mask */ }
         }
     }
@@ -182,11 +162,10 @@ export namespace RestLogFilter {
     }
 
     /**
-     * ALTEA: an API key passed as `?apiKey=…` is REDACTED, where Signum stores the query string verbatim.
-     * A key is a long-lived credential and this table is readable by anyone who can read RestLog, so
-     * logging it in the clear would turn a request log into a credential store. Nothing needs the logged
-     * value: the replay resolves the key from the log's USER (see RestLogServer), and the url the replay
-     * sends has `apiKey=` stripped anyway.
+     * An API key passed as `?apiKey=…` is REDACTED. A key is a long-lived credential and this table is
+     * readable by anyone who can read RestLog, so logging it in the clear would turn a request log into a
+     * credential store. Nothing needs the logged value: the replay resolves the key from the log's USER
+     * (see RestLogServer), and the url the replay sends has `apiKey=` stripped anyway.
      */
     function redact(key: string, value: unknown): string | null {
         if (key === RestApiKeyLogic.apiKeyQueryParameter)
@@ -194,7 +173,7 @@ export namespace RestLogFilter {
         return value == null ? null : Array.isArray(value) ? value.map(String).join(", ") : String(value);
     }
 
-    /** Signum's `Try(size, …)`: a column-sized field must never fail the log because a value is long. */
+    /** A column-sized field must never fail the log because a value is long. */
     function cap(size: number, value: string | null | undefined): string {
         return (value ?? "").slice(0, size);
     }

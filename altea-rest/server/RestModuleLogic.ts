@@ -5,9 +5,7 @@ import { RestApiKeyServer } from "./RestApiKeyServer";
 import { RestLogLogic } from "./RestLogLogic";
 import { RestLogServer } from "./RestLogServer";
 
-// The module's single entry point. Southwind calls `RestLogLogic.Start(sb)` and `RestApiKeyLogic.Start(sb)`
-// as two lines; altea packages expose one `start` per module (the shape TreeModuleLogic / HelpModuleLogic
-// use), so an app writes one line and cannot half-install the module.
+// The module's single entry point.
 //
 // The RestLog half is independent of the API-key half — a public API may be logged without being
 // key-authenticated — so `apiKeys: false` leaves the key table and the authenticator out entirely.

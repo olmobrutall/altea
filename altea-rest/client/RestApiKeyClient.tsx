@@ -4,9 +4,10 @@ import { QueryString } from "@altea/altea/client/QueryString";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 import { RestApiKeyEntity } from "../data/Rest";
 
-// Port of Signum.Rest's RestApiKeyClient.tsx — the key's editor, plus the boot-time authenticator that
-// turns a `?apiKey=` in the address bar into a logged-in session (how Swagger / an MCP client lands in the
-// app already authenticated).
+// The key's editor, plus the boot-time authenticator that turns a `?apiKey=` in the address bar into a
+// logged-in session (how Swagger / an MCP client lands in the app already authenticated).
+//
+// Port of Signum.Rest's RestApiKeyClient.tsx — see docs/port/Rest.md.
 export namespace RestApiKeyClient {
 
     export function start(cb: ClientBuilder): void {
@@ -22,9 +23,8 @@ export namespace RestApiKeyClient {
     }
 
     /**
-     * Signum's `registerAuthenticator` — FIRST in the chain, so a `?apiKey=` wins over a stored token.
-     * Kept separate from `start` for the same reason Signum keeps it separate: a host may want the key
-     * ENTITY without letting an url parameter log anyone in.
+     * FIRST in the chain, so a `?apiKey=` wins over a stored token. Kept separate from `start` because a
+     * host may want the key ENTITY without letting an url parameter log anyone in.
      */
     export function registerAuthenticator(): void {
         AuthClient.authenticators.unshift(loginFromApiKey);

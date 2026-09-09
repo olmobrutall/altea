@@ -10,20 +10,10 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 import { RestApiKeyEntity } from "../data/Rest";
 import { RestApiKeyLogic } from "./RestApiKeyLogic";
 
-// Port of Signum.Rest's RestApiKeyServer.cs + RestApiKeyController.cs — the authenticator that turns an
-// API key into an authenticated user, and the two endpoints the client needs to show a user their key.
+// The authenticator that turns an API key into an authenticated user, and the two endpoints the client
+// needs to show a user their key.
 //
-// altea divergences:
-//  - **the authenticator is ASYNC and reads the key through `AuthRequestLike.query`**, a member added to
-//    altea-auth for this: the chain previously only needed `hasQuery` (the token authenticator asks whether
-//    `?refreshToken` is present), never a query VALUE. It matters that it returns every occurrence, because
-//    Signum REFUSES a request carrying more than one key rather than picking one — a request with two keys
-//    is ambiguous about who it acts as.
-//  - **`AuthLogic.Disable()` → `ExecutionMode.global()`**: resolving the key's user must not itself be
-//    subject to the type/row rules of a user who is not authenticated yet.
-//  - **`/api/auth/loginFromApiKey` lives HERE**, not in altea-auth. Signum puts it on its AuthController
-//    because that is where `AuthTokenServer.CreateToken` is; altea-auth exports `createToken`, so the
-//    route can live with the module that owns the concept and altea-auth needs no knowledge of API keys.
+// Port of Signum.Rest's RestApiKeyServer.cs + RestApiKeyController.cs — see docs/port/Rest.md.
 export namespace RestApiKeyServer {
 
     let started = false;
@@ -33,8 +23,8 @@ export namespace RestApiKeyServer {
             return;
         started = true;
 
-        // FIRST in the chain, as Signum inserts it at index 0: a request that carries an API key is
-        // authenticating with it, and must not fall through to a stale bearer token.
+        // FIRST in the chain: a request that carries an API key is authenticating with it, and must not
+        // fall through to a stale bearer token.
         AuthTokenServer.authenticators.unshift(apiKeyAuthenticator);
 
         startRoutes(ws);
@@ -79,8 +69,8 @@ export namespace RestApiKeyServer {
                 res.jsonTyped(RestApiKeyLogic.generateRestApiKey());
             });
 
-        // The current user's own key, if they have one. Signum reads it in ExecutionMode.Global for the
-        // same reason: a user may read THEIR key without being allowed to read the RestApiKey type.
+        // The current user's own key, if they have one. Read in ExecutionMode.global: a user may read
+        // THEIR key without being allowed to read the RestApiKey type.
         ws.get("/api/restApiKey/current",
             { res: CustomType<string | null>() },
             async (_req, res) => {
@@ -96,10 +86,10 @@ export namespace RestApiKeyServer {
                 res.jsonTyped(key);
             });
 
-        // Signum's `AuthController.LoginFromApiKey`: the caller has ALREADY been authenticated by the
-        // authenticator above (the key rode on this very request), so this only mints the bearer token the
-        // SPA will use from here on. `allowAnonymous` because the request carries no token yet — the gate
-        // must not reject it before the authenticator's user is read back here.
+        // The caller has ALREADY been authenticated by the authenticator above (the key rode on this very
+        // request), so this only mints the bearer token the SPA will use from here on. `allowAnonymous`
+        // because the request carries no token yet — the gate must not reject it before the
+        // authenticator's user is read back here.
         ws.get("/api/auth/loginFromApiKey",
             { res: CustomType<LoginFromApiKeyResponse>(), allowAnonymous: true },
             async (_req, res) => {

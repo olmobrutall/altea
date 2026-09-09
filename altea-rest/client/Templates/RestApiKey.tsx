@@ -9,7 +9,7 @@ import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { RestApiKeyMessage, type RestApiKeyEntity } from "../../data/Rest";
 import { RestApiKeyClient } from "../RestApiKeyClient";
 
-// Port of Signum.Rest's Templates/RestApiKey.tsx — the user, and the key with a "generate" button.
+// The user, and the key with a "generate" button.
 export default function RestApiKeyComponent(p: { ctx: TypeContext<RestApiKeyEntity> }): React.JSX.Element {
 
     const forceUpdate = useForceUpdate();
@@ -19,8 +19,8 @@ export default function RestApiKeyComponent(p: { ctx: TypeContext<RestApiKeyEnti
         e.preventDefault();
         RestApiKeyClient.API.generateRestApiKey().then(key => {
             ctx.value.apiKey = key;
-            // ALTEA: no `modified = true` — dirtiness is snapshot-based here (see CLAUDE.md), so writing
-            // the field IS what makes the entity dirty. Signum's flag has no counterpart.
+            // No `modified = true`: dirtiness is snapshot-based, so writing the field IS what makes the
+            // entity dirty.
             forceUpdate();
         });
     }
