@@ -17,13 +17,36 @@ export type { ColumnOptions, TranslatableRouteType } from './reflection';
 // + cast helper (quotedFunction) stay in logic/query. Here we only touch `__quoted`, so the
 // transformer's own `Quoted<T> = T & { __quoted? }` is the carrier type.
 
-// Two call shapes:
+// Three call shapes:
 //   @quoted        — bare. The quote-transformer rewrites it to @quoted(() => <expr>)
 //                    before emit, so this overload exists only so the bare form
 //                    type-checks as a method decorator.
-//   @quoted(exp)   — the rewritten/explicit form the transformer produces.
+//   @quoted(fn)    — the expression written OUT, because the method BODY diverges from it. SQL is
+//                    null-tolerant and JavaScript arithmetic is not, so an in-memory implementation
+//                    often needs guards the translated formula must not carry:
+//
+//                      @quoted(function (this: OrderLineEntity) {
+//                          return Decimal.mul(Decimal.mul(this.quantity, this.unitPrice),
+//                              Decimal.sub(1, this.discount));
+//                      })
+//                      subTotalPrice(): Decimal {
+//                          if (this.quantity == null || this.unitPrice == null)
+//                              return null!;
+//                          return Decimal.mul(Decimal.mul(this.quantity, this.unitPrice),
+//                              Decimal.sub(1, this.discount ?? 0));
+//                      }
+//
+//                    A FUNCTION EXPRESSION, not an arrow: an arrow cannot declare a `this` parameter, and
+//                    the expression has to be written in terms of `this` to read as the same formula the
+//                    body does (an arrow taking the entity as its parameter is accepted too). Its body must
+//                    be exactly one `return`, as a bare @quoted method's is. The transformer REPLACES it
+//                    with the quoted tree, so it is never CALLED at runtime — it is there to be read and
+//                    type-checked against the member it stands for.
+//   @quoted(exp)   — the rewritten form the transformer produces: a thunk yielding the ExLambda.
 export function quoted(target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor): void;
 export function quoted(exp?: () => ExLambda): (target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor) => void;
+export function quoted<A extends unknown[], R>(expression: (this: any, ...args: A) => R):
+    (target: object, propertyKey: string | symbol, descriptor: TypedPropertyDescriptor<(...args: A) => R>) => void;
 export function quoted(arg1?: unknown, arg2?: unknown, _arg3?: unknown): unknown {
     // Bare @quoted reached runtime (applied directly as a decorator: arg2 is a
     // property key). The transformer should have rewritten it to @quoted(() => <expr>).
@@ -43,9 +66,25 @@ export function quoted(arg1?: unknown, arg2?: unknown, _arg3?: unknown): unknown
     };
 }
 
-// Functional form of @quoted, for attaching a quoted expression to a function value
-// (e.g. a prototype method added outside a class). The transformer rewrites
-// `withQuoted(fn)` to inject the captured expression as the second argument.
+// Functional form of @quoted, for attaching a quoted expression to a function value (e.g. a prototype
+// method added outside a class — which is how every registered expression is stamped). The transformer
+// rewrites `withQuoted(fn)` to inject the captured expression as the second argument.
+//
+// `withQuoted(fn, expression)` is the counterpart of `@quoted(<lambda>)`: the expression written OUT
+// because the runtime body has to DIVERGE from it — a guard against the nulls SQL propagates by itself,
+// say. The transformer quotes the second argument and replaces it with the thunk, so the expression is
+// never CALLED; it is there to be read and type-checked. It must have the same signature as `fn`, `this`
+// included, which is what the first overload says:
+//
+//     Entity.prototype.alerts = withQuoted(
+//         function (this: Entity): IQuery<AlertEntity> {
+//             return this.id == null ? emptyQuery() : table(AlertEntity).filter(a => a.target!.is(this));
+//         },
+//         function (this: Entity): IQuery<AlertEntity> {
+//             return table(AlertEntity).filter(a => a.target!.is(this));
+//         });
+export function withQuoted<T extends (this: any, ...args: any[]) => any>(f: T, expression: T): T;
+export function withQuoted<T extends Function>(f: T, quoted?: () => ExLambda): T;
 export function withQuoted<T extends Function>(f: T, quoted?: () => ExLambda): T {
     (f as Quoted<T>).__quoted = quoted;
     return f;

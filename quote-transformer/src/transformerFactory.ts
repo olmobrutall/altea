@@ -474,6 +474,28 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     );
   }
 
+  // The author writing the expression OUT, because the body diverges from it: SQL is null-tolerant and
+  // JavaScript arithmetic is not, so an in-memory implementation often needs guards the translated formula
+  // must not carry. `@quoted(<lambda>)` and `withQuoted(fn, <lambda>)` are the two places it can appear.
+  //
+  // A FUNCTION EXPRESSION, or an arrow WITH parameters. The zero-parameter arrow is deliberately excluded:
+  // it is the shape this transformer emits (`() => (<ExLambda>)`), so admitting it would make the pass
+  // non-idempotent — and it says nothing anyway, having no entity to reference. Write `function () { … }`
+  // for the rare expression over constants alone.
+  function isExplicitQuotedLambda(node: ts.Expression): boolean {
+    return ts.isFunctionExpression(node) || (ts.isArrowFunction(node) && node.parameters.length > 0);
+  }
+
+  // The lambda of a `@quoted(<lambda>)` decorator, or undefined for the bare form / the emitted thunk.
+  function quotedDecoratorLambda(modifier: ts.ModifierLike): ts.Expression | undefined {
+    if (!ts.isDecorator(modifier)) return undefined;
+    if (!ts.isCallExpression(modifier.expression)) return undefined;
+    if (!ts.isIdentifier(modifier.expression.expression) || modifier.expression.expression.text != "quoted") return undefined;
+    if (modifier.expression.arguments.length != 1) return undefined;
+    const first = modifier.expression.arguments[0];
+    return isExplicitQuotedLambda(first) ? first : undefined;
+  }
+
   function isFieldDecorator(modifier: ts.ModifierLike): boolean {
     if (!ts.isDecorator(modifier)) return false;
     if (ts.isIdentifier(modifier.expression) && modifier.expression.text == "field") return true;
@@ -540,56 +562,51 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     );
   }
 
-  function transformWithQuotedCall(node: ts.CallExpression, sourceFile: ts.SourceFile): ts.CallExpression {
-    if (!isWithQuotedCall(node) || node.arguments.length != 1)
-      return node;
-
-    const first = node.arguments[0];
-
+  // Quotes the lambda a `withQuoted(...)` / `@quoted(...)` was handed and returns the
+  // `() => <ExLambda>` thunk, or undefined when it could not be quoted (the error is already reported).
+  //
+  // Two shapes, and the second is the one that matters for a member of a class: an ARROW cannot declare a
+  // `this` parameter, so an expression written in terms of `this` has to be a function expression with a
+  // block body of exactly one `return` — which is also what makes it read the same as the method it stands
+  // for. `what` only names the caller in the diagnostics.
+  function quoteLambdaArgument(first: ts.Expression, sourceFile: ts.SourceFile, what: string): ts.ArrowFunction | undefined {
     if (ts.isArrowFunction(first)) {
       const quote = quoteExpression(first, []);
       if (quote instanceof QuoteError) {
         addQuoteError(sourceFile, quote);
-        return node;
+        return undefined;
       }
 
-      const quotedArg = createQuotedArg(quote);
-
-      return ts.factory.updateCallExpression(
-        node,
-        node.expression,
-        node.typeArguments,
-        [first, quotedArg]
-      );
+      return createQuotedArg(quote);
     }
 
     if (!ts.isFunctionExpression(first)) {
-      addNodeError(sourceFile, first, "withQuoted expects a lambda or function expression");
-      return node;
+      addNodeError(sourceFile, first, what + " expects a lambda or function expression");
+      return undefined;
     }
 
     if (!ts.isBlock(first.body)) {
-      addNodeError(sourceFile, first.body, "withQuoted function expression must have a block body with exactly one return statement");
-      return node;
+      addNodeError(sourceFile, first.body, what + " function expression must have a block body with exactly one return statement");
+      return undefined;
     }
 
     const returnStatements = first.body.statements.filter(s => ts.isReturnStatement(s));
     if (first.body.statements.length != 1 || returnStatements.length != 1 || returnStatements[0].expression == null) {
-      addNodeError(sourceFile, first.body, "withQuoted function expression must have exactly one return statement");
-      return node;
+      addNodeError(sourceFile, first.body, what + " function expression must have exactly one return statement");
+      return undefined;
     }
 
     const thisParams = first.parameters.filter(p => ts.isIdentifier(p.name) && p.name.text == "this");
     if (thisParams.length > 1) {
-      addNodeError(sourceFile, first, "withQuoted function expression can declare at most one this parameter");
-      return node;
+      addNodeError(sourceFile, first, what + " function expression can declare at most one this parameter");
+      return undefined;
     }
 
     const declaredThis = thisParams.length == 1;
     const usesThis = hasThisReference(first.body);
     if (usesThis && !declaredThis) {
-      addNodeError(sourceFile, first, "withQuoted function expression uses this but does not declare a this parameter");
-      return node;
+      addNodeError(sourceFile, first, what + " function expression uses this but does not declare a this parameter");
+      return undefined;
     }
 
     const parameters = first.parameters.filter(p => !(ts.isIdentifier(p.name) && p.name.text == "this"));
@@ -605,10 +622,28 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     const quote = quoteExpression(syntheticArrow, [], declaredThis);
     if (quote instanceof QuoteError) {
       addQuoteError(sourceFile, quote);
-      return node;
+      return undefined;
     }
 
-    const quotedArg = createQuotedArg(quote);
+    return createQuotedArg(quote);
+  }
+
+  // `withQuoted(fn)` quotes fn itself; `withQuoted(fn, <lambda>)` quotes the LAMBDA instead and leaves fn
+  // alone — the prototype-member counterpart of `@quoted(<lambda>)`, for a registered expression whose
+  // runtime body has to guard against nulls SQL handles by itself. Either way what is EMITTED is the
+  // `() => <ExLambda>` thunk in the second argument, so the runtime `withQuoted` is unchanged.
+  function transformWithQuotedCall(node: ts.CallExpression, sourceFile: ts.SourceFile): ts.CallExpression {
+    if (!isWithQuotedCall(node))
+      return node;
+
+    const explicit = node.arguments.length == 2 && isExplicitQuotedLambda(node.arguments[1]);
+    if (!explicit && node.arguments.length != 1)
+      return node;
+
+    const first = node.arguments[0];
+    const quotedArg = quoteLambdaArgument(explicit ? node.arguments[1] : first, sourceFile, "withQuoted");
+    if (quotedArg == undefined)
+      return node;
 
     return ts.factory.updateCallExpression(
       node,
@@ -631,43 +666,56 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
   }
 
   function transformQuotedMethod(node: ts.MethodDeclaration, sourceFile: ts.SourceFile): ts.MethodDeclaration {
-    if (!node.modifiers?.some(isQuotedDecoratorNoArgs))
+    const explicit = node.modifiers?.map(quotedDecoratorLambda).find(l => l != undefined);
+    const bare = node.modifiers?.some(isQuotedDecoratorNoArgs) ?? false;
+    if (!bare && explicit == undefined)
       return node;
 
-    const returnExpression = methodSingleReturnExpression(node);
-    if (returnExpression == null) {
-      addNodeError(sourceFile, node, "@quoted methods must have exactly one return statement");
-      return node;
+    // `@quoted(<lambda>)` says the expression outright, so the BODY is free to diverge from it — which is
+    // the point: it may guard against the nulls SQL handles by itself. `@quoted` bare quotes the body,
+    // and then the body has to BE the expression (one return statement).
+    let quotedArg: ts.ArrowFunction | undefined;
+    if (explicit != undefined) {
+      quotedArg = quoteLambdaArgument(explicit, sourceFile, "@quoted");
+      if (quotedArg == undefined)
+        return node;
+    } else {
+      const returnExpression = methodSingleReturnExpression(node);
+      if (returnExpression == null) {
+        addNodeError(sourceFile, node, "@quoted methods must have exactly one return statement");
+        return node;
+      }
+
+      const isStatic = node.modifiers?.some(m => m.kind == ts.SyntaxKind.StaticKeyword) ?? false;
+      const syntheticArrow = ts.factory.createArrowFunction(
+        undefined,
+        undefined,
+        node.parameters,
+        undefined,
+        ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
+        returnExpression,
+      );
+
+      const quote = quoteExpression(syntheticArrow, [], !isStatic);
+      if (quote instanceof QuoteError) {
+        addQuoteError(sourceFile, quote);
+        return node;
+      }
+
+      quotedArg = createQuotedArg(quote);
     }
 
-    const isStatic = node.modifiers?.some(m => m.kind == ts.SyntaxKind.StaticKeyword) ?? false;
-    const syntheticArrow = ts.factory.createArrowFunction(
-      undefined,
-      undefined,
-      node.parameters,
-      undefined,
-      ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
-      returnExpression,
-    );
-
-    const quote = quoteExpression(syntheticArrow, [], !isStatic);
-    if (quote instanceof QuoteError) {
-      addQuoteError(sourceFile, quote);
-      return node;
-    }
-
-    const quotedArg = createQuotedArg(quote);
-
-    const modifiers = node.modifiers.map(m => {
+    const modifiers = node.modifiers!.map(m => {
       if (!ts.isDecorator(m))
         return m;
 
-      if (ts.isCallExpression(m.expression) && ts.isIdentifier(m.expression.expression) && m.expression.expression.text == "quoted" && m.expression.arguments.length == 0) {
-        return ts.factory.createDecorator(ts.factory.createCallExpression(m.expression.expression, undefined, [quotedArg]));
+      if (ts.isCallExpression(m.expression) && ts.isIdentifier(m.expression.expression) && m.expression.expression.text == "quoted" &&
+        (m.expression.arguments.length == 0 || quotedDecoratorLambda(m) != undefined)) {
+        return ts.factory.createDecorator(ts.factory.createCallExpression(m.expression.expression, undefined, [quotedArg!]));
       }
 
       if (ts.isIdentifier(m.expression) && m.expression.text == "quoted") {
-        return ts.factory.createDecorator(ts.factory.createCallExpression(m.expression, undefined, [quotedArg]));
+        return ts.factory.createDecorator(ts.factory.createCallExpression(m.expression, undefined, [quotedArg!]));
       }
 
       return m;

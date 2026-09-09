@@ -196,6 +196,38 @@ class Person {
         );
     });
 
+    // `@quoted(<lambda>)` — the expression written out because the BODY diverges from it (a null-guarded
+    // in-memory implementation whose SQL counterpart is the plain formula). The lambda is REPLACED by the
+    // quoted tree, and the body is left exactly as written — in particular it need not be a single return.
+    test('quoted method decorator with an explicit expression replaces it and leaves the body alone', () => {
+        assertSimpleTransform(
+            `export function quoted(exp?: any) {
+    return function (value: any, context: ClassMethodDecoratorContext) { return value; };
+}
+class Person {
+    dateOfBirth!: Date;
+    @quoted(function (this: Person) { return this.dateOfBirth.getFullYear() < 1950; })
+    isOld(): boolean {
+        if (this.dateOfBirth == null)
+            return false;
+        return this.dateOfBirth.getFullYear() < 1950;
+    }
+}`,
+            `export function quoted(exp?: any) {
+    return function (value: any, context: ClassMethodDecoratorContext) { return value; };
+}
+class Person {
+    dateOfBirth!: Date;
+    @quoted(() => ((_this: ExParam) => ["=>", [_this], ["<", ["()", [".", [".", _this, "dateOfBirth"], "getFullYear"], []], ["c", 1950]]])(["p", "_this"]))
+    isOld(): boolean {
+        if (this.dateOfBirth == null)
+            return false;
+        return this.dateOfBirth.getFullYear() < 1950;
+    }
+}`
+        );
+    });
+
     test('withQuoted adds quoted arg for function expression', () => {
         assertSimpleTransform(
             `interface Person { dateOfBirth: Date; }
@@ -209,6 +241,37 @@ Person.prototype.isMillenial = withQuoted(function (this: Person) {
         );
     });
 
+    // `withQuoted(fn, <lambda>)` — the prototype-member counterpart of `@quoted(<lambda>)`: the second
+    // argument is quoted and REPLACED, and fn keeps whatever guards its runtime body needs.
+    test('withQuoted with an explicit expression quotes the second argument, not the body', () => {
+        assertSimpleTransform(
+            `interface Person { dateOfBirth: Date; }
+Person.prototype.isMillenial = withQuoted(function (this: Person) {
+    if (this.dateOfBirth == null)
+        return false;
+    return this.dateOfBirth.getFullYear() >= 1981;
+}, function (this: Person) {
+    return this.dateOfBirth.getFullYear() >= 1981;
+});`,
+            `interface Person { dateOfBirth: Date; }
+Person.prototype.isMillenial = withQuoted(function (this: Person) {
+    if (this.dateOfBirth == null)
+        return false;
+    return this.dateOfBirth.getFullYear() >= 1981;
+}, () => ((_this: ExParam) => ["=>", [_this], [">=", ["()", [".", [".", _this, "dateOfBirth"], "getFullYear"], []], ["c", 1981]]])(["p", "_this"]));`
+        );
+    });
+
+    // The emitted thunk is a ZERO-parameter arrow, so a second pass must not mistake it for an explicit
+    // expression and quote it again.
+    test('withQuoted leaves an already-emitted thunk alone', () => {
+        assertSimpleTransform(
+            `interface Person { dateOfBirth: Date; }
+Person.prototype.isOld = withQuoted(function (this: Person) { return true; }, () => ["=>", [], ["c", true]] as any);`,
+            `interface Person { dateOfBirth: Date; }
+Person.prototype.isOld = withQuoted(function (this: Person) { return true; }, () => ["=>", [], ["c", true]] as any);`
+        );
+    });
     test('does not add an ExParam import (type-only, erased at JS emit)', () => {
         // The quote body's `(a: ExParam) =>` is a type annotation only; it is
         // stripped when tsc emits JS, so the transformer intentionally leaves the
