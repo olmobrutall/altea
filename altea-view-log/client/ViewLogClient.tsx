@@ -4,14 +4,11 @@ import { QuickLinkClient, QuickLinkExplore } from "@altea/altea/client/QuickLink
 import { getQueryKey, getTypeInfo } from "@altea/altea/client/Reflection";
 import { ViewLogEntity } from "../data/ViewLog";
 
-// Port of Signum.ViewLog's ViewLogClient.tsx — one global quick link: on any entity, "who has looked at
-// this?", opening the ViewLog query filtered to it.
+// One global quick link: on any entity, "who has looked at this?", opening the ViewLog query filtered to
+// it. The default columns are registered here because `withQuery()` is parameterless — the client owns the
+// column list.
 //
-// altea divergences:
-//  - `registerChangeLogModule` has no counterpart (altea has no per-module changelog registry), so
-//    Signum's `Changelog.ts` — an empty dictionary in the source — is not ported.
-//  - the query's default columns are registered here, which Signum gets from its `WithQuery` projection on
-//    the server; altea's `withQuery()` is parameterless and the client owns the column list.
+// Port of Signum.ViewLog's ViewLogClient.tsx — see docs/port/ViewLog.md.
 export namespace ViewLogClient {
 
     export function start(cb: ClientBuilder, options?: { showQuickLink?: (typeName: string) => boolean }): void {
@@ -28,10 +25,9 @@ export namespace ViewLogClient {
                 ],
             }));
 
-        // Signum guards the whole registration on `Finder.isFindable(ViewLogEntity, false)`. Here the guard
-        // is INSIDE `isVisible`, evaluated per type: `start` runs before the metadata blob has been applied,
-        // so asking about findability at registration time would answer for the wrong role (the same reason
-        // core's operation-log quick link puts its `isFindable` check in `isVisible`).
+        // The findability guard is INSIDE `isVisible`, evaluated per type: `start` runs before the metadata
+        // blob has been applied, so asking at registration time would answer for the wrong role (the same
+        // reason core's operation-log quick link puts its `isFindable` check in `isVisible`).
         QuickLinkClient.registerGlobalQuickLink(entityType => Promise.resolve([
             new QuickLinkExplore(ViewLogEntity, ctx => ViewLogEntity.findOptions(token => ({
                 filterOptions: [token(e => e.target).filter("EqualTo", ctx.lite)],

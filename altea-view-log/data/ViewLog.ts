@@ -12,18 +12,10 @@ import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import type { IUserEntity } from "@altea/altea/data/security";
 import type { IQuery } from "@altea/altea/data/iquery";
 
-// Port of Signum.ViewLog's ViewLogEntity.cs — one row per "the API handed this entity (or this query's
-// results) to this user", with how long it took and, for a query, the SQL it ran.
+// One row per "the API handed this entity (or this query's results) to this user", with how long it took
+// and, for a query, the SQL it ran.
 //
-// altea divergences:
-//  - **`Duration` is a `@quoted` member plus a registered expression** (see server/ViewLogLogic), so it is
-//    an orderable query column, as Signum's `[AutoExpressionField] Duration` is. A plain `number` lowers to
-//    `DATEDIFF(millisecond, …)`; the branded `int` the in-memory duration helpers in altea-processes /
-//    -scheduler / -migrations return does not — see @altea/altea-rest, which made the same call.
-//  - **`user` is NOT nullable, and neither is `target`.** Signum types `Target` / `User` non-nullable too;
-//    both are always set, because the logger stands down entirely when there is no current user.
-//  - **`@implementedBy(() => [])` on `user`**, widened by the app — core's pattern for a
-//    `Lite<IUserEntity>` (an INTERFACE has no runtime constructor), exactly as `ExceptionEntity.user` does.
+// Port of Signum.ViewLog's ViewLogEntity.cs — see docs/port/ViewLog.md.
 @reflect
 @entity("System", "Transactional")
 export class ViewLogEntity extends Entity {
@@ -36,7 +28,7 @@ export class ViewLogEntity extends Entity {
     user: Lite<IUserEntity>;
 
     /**
-     * Which code path produced this row — Signum's `ViewAction`. For an entity read it is the route
+     * Which code path produced this row. For an entity read it is the route
      * ("EntitiesController.GetEntity"); for a search it is "ExecuteQuery"; for a module reporting its own
      * scope it is that module's label ("UserQuery", "Dashboard", …).
      */
@@ -50,42 +42,37 @@ export class ViewLogEntity extends Entity {
     endDate: Temporal.PlainDateTime;
 
     /**
-     * For a search: the query url plus the SQL it actually ran (see `ViewLogLogic.getQueryData`). Empty for
-     * an entity read, as in Signum.
+     * For a search: the query url plus the SQL it actually ran (see `ViewLogLogic.getQueryData`). Empty
+     * for an entity read.
      */
     data: BigStringEmbedded = new BigStringEmbedded();
 
-    /** Signum's `[AutoExpressionField, Unit("ms")] Duration`. */
+    /** `@quoted`, so it is an orderable query column — registered in ViewLogLogic. */
     @legacyPropertyRoute("Duration")
     @quoted durationMilliseconds(): number {
         return this.endDate.since(this.startDate).total({ unit: "milliseconds" });
     }
 
-    // No `toString()`: Signum's ViewLogEntity does not override it either, so its table has no ToStr
-    // column. `target` is `@implementedByAll`, and no query can expand an ANY-entity reference's display
-    // string inline (the target table is only known per row) — which is exactly why Signum leaves the
-    // default here. Keeping "GetEntity Order 10248" would mean materialising a `to_str` Signum has not.
+    // No `toString()`, so the table has no ToStr column: `target` is `@implementedByAll`, and no query can
+    // expand an ANY-entity reference's display string inline (the target table is known only per row).
 }
 
 export const ViewLogMessage = {
     ViewLogMyLast: msg("My last view log"),
 };
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("viewLog")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("viewLog");
 
 // ---- the two query expressions ViewLogLogic registers ----------------------------------------------------
 //
-// DECLARED here and IMPLEMENTED in server/ViewLogLogic — Signum's `ViewLogs()` / `ViewLogMyLast()` extension
-// methods on Entity. The declaration is in data/ so the CLIENT can write `token(a => a.viewLogs())`; the body
-// needs `table(...)`, which is server-only. OPTIONAL: only the registered types offer them as tokens.
+// DECLARED here and IMPLEMENTED in server/ViewLogLogic: the declaration is in data/ so the CLIENT can write
+// `token(a => a.viewLogs())`, while the body needs `table(...)`, which is server-only. OPTIONAL, because
+// only the registered types offer them as tokens.
 declare module "@altea/altea/data/entity" {
     interface Entity {
         /** Every view log whose `target` is this entity. */
         viewLogs?(): IQuery<ViewLogEntity>;
-        /** …narrowed to the CURRENT user's (Signum's `ViewLogMyLast`). */
+        /** …narrowed to the CURRENT user's. */
         viewLogMyLast?(): IQuery<ViewLogEntity>;
     }
 }
