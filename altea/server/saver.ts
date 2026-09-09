@@ -45,7 +45,7 @@ import { HeavyProfiler } from './profiler/heavyProfiler';
 // extension methods); it delegates to `Saver.save` below.
 
 // Pre-write authorization seam (Signum's `EntityEventsGlobal.Saving` write gate). Each gate gets the full
-// save set AFTER validation and BEFORE the transaction opens, and may `throw` (e.g. UnauthorizedAccessException)
+// save set AFTER validation and BEFORE any row is written, and may `throw` (e.g. UnauthorizedAccessException)
 // to abort the save. The authorization module pushes one that checks `isAllowedFor(entity, Write)` per row.
 // Async (unlike the sync `entityEvents.saving`) so it can consult the role/rule cache. Empty by default.
 export const preSaveGates: ((entities: Entity[]) => Promise<void>)[] = [];
@@ -57,57 +57,69 @@ export namespace Saver {
         // LogNoStackTrace("PreSaving").Switch("Integrity"/"Graph"/"SaveGroups")). No-op when disabled.
         using _dbSave = HeavyProfiler.log("DBSave", () => "SaveList<" + [...new Set(roots.map(r => r.constructor.name))].join(",") + ">");
         using log = HeavyProfiler.logNoStackTrace("PreSaving");
-        const all = exploreModifiables(roots);
-        const schema = Connector.current().schema;
+        // ONE transaction around the WHOLE save — PreSaving included — which is Signum's
+        // `Database.Save` (`using (var tr = new Transaction()) { Saver.Save(...); tr.Commit(); }`, whose
+        // Saver.Save runs PreSaving inside it). altea used to open it only around the write phase, and a
+        // PreSaving handler that needs the ambient transaction then threw "No Transaction created yet":
+        // @altea/altea-files' BigStringLogic registers the file write as a `Transaction.preRealCommit`
+        // there, so every save of an entity with a File-mode BigString failed unless the CALLER happened
+        // to be inside a transaction already. That is what silently swallowed every OperationLogEntity
+        // (its DiffLog dumps are File-mode BigStrings, and `persistLog` logs and drops the failure).
+        //
+        // It costs nothing when nothing writes: `Transaction.create` is lazy — no connection is opened
+        // until the first statement — and it NESTS, so a caller's ambient transaction is reused as before.
+        return await Transaction.create(async () => {
+            const all = exploreModifiables(roots);
+            const schema = Connector.current().schema;
 
-        // Parent back-pointers before anything reads the graph: a graph assembled in server code never
-        // went through the codec or the Retriever, and both a PreSaving handler and the validation pass
-        // below may carry a rule that reads the owner. `all` is every reachable modifiable, so one level
-        // each is the whole graph.
-        for (const m of all)
-            bindParentsOwn(m);
+            // Parent back-pointers before anything reads the graph: a graph assembled in server code never
+            // went through the codec or the Retriever, and both a PreSaving handler and the validation pass
+            // below may carry a rule that reads the owner. `all` is every reachable modifiable, so one level
+            // each is the whole graph.
+            for (const m of all)
+                bindParentsOwn(m);
 
-        // Signum's EntityEvents<T>.PreSaving: fire on every reachable entity before validation, so
-        // a module can normalise/populate the graph right before it is checked and written.
-        for (const m of all)
-            if (m instanceof Entity)
-                schema.entityEvents(m.constructor as Type<Entity>).onPreSaving(m);
+            // Signum's EntityEvents<T>.PreSaving: fire on every reachable entity before validation, so
+            // a module can normalise/populate the graph right before it is checked and written.
+            for (const m of all)
+                if (m instanceof Entity)
+                    schema.entityEvents(m.constructor as Type<Entity>).onPreSaving(m);
 
-        // Phase 3: the last-word validation, right before writing rows. Server-only validators that
-        // were skipped earlier (disabled on "Client" / "ServerDeserialization") are enforced here.
-        log?.switch("Integrity");
-        const errors = await fullIntegrityCheckAsync(all, "Saving");
-        if (errors.length > 0)
-            throw new IntegrityCheckException(errors);
+            // Phase 3: the last-word validation, right before writing rows. Server-only validators that
+            // were skipped earlier (disabled on "Client" / "ServerDeserialization") are enforced here.
+            log?.switch("Integrity");
+            const errors = await fullIntegrityCheckAsync(all, "Saving");
+            if (errors.length > 0)
+                throw new IntegrityCheckException(errors);
 
-        // Save set = every graph-modified entity: self-modified ones plus the
-        // owners/referrers a change rolls up to (so a parent's ticks bumps when an
-        // owned child changed).
-        log?.switch("Graph");
-        const saveSet = propagateModifications(all);
-        if (saveSet.size === 0)
-            return;
+            // Save set = every graph-modified entity: self-modified ones plus the
+            // owners/referrers a change rolls up to (so a parent's ticks bumps when an
+            // owned child changed).
+            log?.switch("Graph");
+            const saveSet = propagateModifications(all);
+            if (saveSet.size === 0)
+                return;
 
-        // Cascade wiring must happen before ordering so each child's back-reference
-        // counts as a dependency on its (possibly new) owner.
-        for (const owner of saveSet)
-            wireOwnedChildren(owner);
+            // Cascade wiring must happen before ordering so each child's back-reference
+            // counts as a dependency on its (possibly new) owner.
+            for (const owner of saveSet)
+                wireOwnedChildren(owner);
 
-        // Signum's EntityEvents<T>.Saving: after validation, before the DB write. Also snapshot
-        // each entity's new-ness now (the INSERT clears isNew) so the Saved event can report it.
-        const wasNew = new Map<Entity, boolean>();
-        for (const e of saveSet) {
-            wasNew.set(e, e.isNew);
-            schema.entityEvents(e.constructor as Type<Entity>).onSaving(e);
-        }
+            // Signum's EntityEvents<T>.Saving: after validation, before the DB write. Also snapshot
+            // each entity's new-ness now (the INSERT clears isNew) so the Saved event can report it.
+            const wasNew = new Map<Entity, boolean>();
+            for (const e of saveSet) {
+                wasNew.set(e, e.isNew);
+                schema.entityEvents(e.constructor as Type<Entity>).onSaving(e);
+            }
 
-        // Pre-write authorization gate (before the transaction opens, so an unauthorized write never
-        // participates in it). Runs the full save set through each registered gate.
-        for (const gate of preSaveGates)
-            await gate([...saveSet]);
+            // Pre-write authorization gate: the full save set through each registered gate, after
+            // validation and before a single row is written — a throw here rolls the transaction back
+            // with nothing in it, so an unauthorized write still never reaches the database.
+            for (const gate of preSaveGates)
+                await gate([...saveSet]);
 
-        log?.switch("SaveGroups");
-        await Transaction.create(async () => {
+            log?.switch("SaveGroups");
             // Orphan removal: a child dropped from an existing owner's collection is no longer
             // reachable, so it never enters the save set. Detect it by diffing the owner's
             // snapshot id-list against the current collection and delete the missing rows (with

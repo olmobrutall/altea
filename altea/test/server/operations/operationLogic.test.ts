@@ -25,6 +25,13 @@ class FakeConnector extends Connector {
 const fake = new FakeConnector();
 const offline = <T>(fn: () => Promise<T>): Promise<T> => Connector.withConnector(fake, fn);
 
+// …and no OperationLogEntity row either, which has to be said out loud: writing one is a real INSERT, and
+// a log that cannot be written now FAILS the operation (it used to be swallowed into console.error, which
+// is how every operation log in eastwind went missing unnoticed). `OperationLogic.logOperation` is
+// Signum's own opt-out — the predicate its `SaveLog` consults — so this suite is the offline half of the
+// operation layer and the DB-gated suites cover the row.
+OperationLogic.logOperation = () => false;
+
 // The album state machine. Operations are declared on the include, so this suite opens a bare
 // SchemaBuilder for one — it builds the table from reflection and touches no database.
 // `withStateMachine(a => a.state, …)` is Signum's `Graph<AlbumEntity, AlbumState>.GetState`, stamped

@@ -22,6 +22,8 @@ import { Saver } from "./saver";
 import { ExceptionLogic } from "./exceptionLogic";
 import { UnauthorizedAccessException } from "./exceptions";
 import { UserHolder } from "./userHolder";
+import { ExecutionMode } from "./executionMode";
+import { Transaction } from "./connection/transaction";
 import "./dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import {
     OperationType,
@@ -299,7 +301,9 @@ export namespace OperationLogic {
      * scope is what runs the second half). The first and only consumer is @altea/altea-diff-log, which
      * records the entity's dump before and after.
      *
-     * A throwing handler is logged and skipped: an auditing concern must not break what it observes.
+     * A throwing handler FAILS the operation, as it does in Signum. It used to be logged and skipped, on
+     * the theory that an auditing concern must not break what it observes — which in practice meant an
+     * audit trail that stopped recording without telling anyone.
      */
     export const surroundOperation: SurroundOperationHandler[] = [];
 
@@ -312,14 +316,23 @@ export namespace OperationLogic {
      * "hold a scope". A JavaScript ambient is an AsyncLocalStorage, which cannot be entered without a
      * callback, so the two uses need two shapes — and their CONTRACTS differ, which is why merging them
      * would be wrong in either direction:
-     *  - {@link OperationLogic.surroundOperation} observes. A throwing handler is logged and skipped
-     *    (auditing must not break what it observes), and its "after" half runs at a precise point — after
-     *    the target is known, before the log is saved — so what it writes onto the log persists.
-     *  - `aroundOperation` scopes. A throwing handler FAILS the operation, because it decides what the
-     *    operation is allowed to see.
+     *  - {@link OperationLogic.surroundOperation} observes: its "after" half runs at a precise point —
+     *    after the target is known, before the log is saved — so what it writes onto the log persists.
+     *  - `aroundOperation` scopes: it decides what the operation is allowed to see.
+     * Both FAIL the operation when a handler throws.
      * Handlers compose, first-registered outermost.
      */
     export const aroundOperation: AroundOperationHandler[] = [];
+
+    /**
+     * Signum's `OperationLogic.LogOperation` (`Func<OperationLogEntity, bool>`, consulted by `SaveLog`):
+     * whether this execution is worth a row at all. Everything is, by default.
+     *
+     * It is the only way to opt OUT now that a log that cannot be written fails the operation — an app
+     * that does not want a row per read-like operation, and a suite that runs the operation layer with no
+     * database behind it, both say so here instead of relying on the write failing quietly.
+     */
+    export let logOperation: (log: OperationLogEntity) => boolean = () => true;
 
     // Signum's OperationLogic.Start: wires the OperationSymbol table through SymbolLogic,
     // seeding only the RegisteredOperations, and includes the OperationLogEntity table + its query
@@ -420,11 +433,19 @@ Entity.prototype.previousOperationLog = withQuoted(function (this: Entity): Prom
 
 
 // Signum wraps every operation execution in a transaction that also writes an OperationLogEntity
-// (OperationLogic.OnSuspiciousOperation / the OperationRunner). altea has no ambient transaction yet, so
-// the log is a best-effort side write: the operation runs, then the log row is persisted. A log-save
-// failure is swallowed (console.error) so it can NEVER mask the operation's own result — in particular,
-// if the OperationLog table hasn't been created yet (needs `terminal sync`), operations keep working and
-// logging is simply skipped. Divergence from Signum, whose logging is transactional.
+// (Graph.cs: `using (var tr = new Transaction()) { … log.SaveLog(); return tr.Commit(result); }`), and
+// altea does the same — the operation runs, then the log row is persisted, and a failure to persist it
+// FAILS THE OPERATION.
+//
+// It used to be a best-effort side write whose every failure went to console.error, on the reasoning that
+// logging must never mask the operation's own result. What that reasoning missed is that an audit trail
+// which quietly stops recording is worse than one that stops working: the log is evidence, and evidence
+// that is sometimes absent for reasons nobody was told about is not evidence. It went unnoticed for
+// exactly as long as it took someone to look for a row that was never there.
+//
+// The one thing altea does NOT yet share with Signum is the ambient transaction across the two halves: the
+// operation commits in `doExecute`'s own transaction and the log in its own, so a log failure leaves the
+// operation applied and reports the failure, where Signum rolls both back together.
 async function logOperation<T>(
     symbol: OperationSymbol,
     origin: Entity | null,
@@ -464,69 +485,83 @@ async function logOperation<T>(
         // Signum's `OperationLogic.SurroundOperation` (an event returning an IDisposable). Each handler may
         // observe the log + entity BEFORE the operation and return an "after" callback that runs once the
         // target is known — which is exactly the before/after pair @altea/altea-diff-log records.
-        const afters = await runSurroundBefore(symbol, log, entity, args);
+        //
+        // INSIDE the try, and filling a list the catch can see: now that a handler's failure propagates,
+        // it is an operation failure like any other and deserves the same failed log row — and whichever
+        // handlers already ran still get their "after" half, the way a `using` unwinds what it opened.
+        // Signum has this for free: its OnSuroundOperation call sits inside the same try/catch.
+        const afters: SurroundOperationAfter[] = [];
 
         try {
+            await runSurroundBefore(afters, symbol, log, entity, args);
             const result = await run();
             log.setTarget(getTarget(result));
             log.end = Temporal.Now.plainDateTimeISO();
             // AFTER setTarget, so a handler reading `log.target` sees the operation's result (Signum's
             // `log.GetTemporalTarget()`), and BEFORE the save, so what a handler writes onto the log persists.
-            await runSurroundAfter(afters, symbol);
-            await persistLog(log);
+            await runSurroundAfter(afters);
+            await persistLog(log, false);
             return result;
         } catch (error) {
             log.end = Temporal.Now.plainDateTimeISO();
-            // The "after" half still runs on failure — Signum's `using` disposes either way — so a handler that
-            // allocated state releases it, and a partial record is still written.
-            await runSurroundAfter(afters, symbol);
-            // Link the exception row (Signum's OperationLogEntity.Exception) — best-effort.
+            // Everything from here runs while an error is already on its way up, so a second failure would
+            // REPLACE the first and hide what actually went wrong — the one place a catch earns its keep.
+            // It is not silent: the secondary rides on the error being rethrown, so the exception log and
+            // the API's error response both carry it.
             try {
+                // The "after" half still runs on failure — Signum's `using` disposes either way — so a handler
+                // that allocated state releases it, and a partial record is still written.
+                await runSurroundAfter(afters);
+                // Link the exception row (Signum's OperationLogEntity.Exception).
                 const ex = await ExceptionLogic.logException(error);
                 log.exception = ex.isNew ? null : ex.toLite();
-            } catch (exError) {
-                console.error("OperationLogic.logOperation: failed to log exception:", exError);
+                await persistLog(log, true);
+            } catch (loggingError) {
+                (error as { operationLoggingError?: unknown }).operationLoggingError = loggingError;
             }
-            await persistLog(log);
             throw error;
         }
     }
 }
 
-async function runSurroundBefore(symbol: OperationSymbol, log: OperationLogEntity, entity: Entity | null,
-    args: unknown[]): Promise<SurroundOperationAfter[]> {
+// A handler's failure PROPAGATES, as it does in Signum (Disposable.Combine invokes them bare). These used
+// to swallow into console.error, on the theory that a surrounding CONCERN must never break the operation
+// it observes; what that actually bought was a DiffLog handler failing and leaving an operation log with
+// empty dumps, indistinguishable from an operation that legitimately changed nothing.
+async function runSurroundBefore(afters: SurroundOperationAfter[], symbol: OperationSymbol,
+    log: OperationLogEntity, entity: Entity | null, args: unknown[]): Promise<void> {
 
-    const afters: SurroundOperationAfter[] = [];
     for (const handler of OperationLogic.surroundOperation) {
-        try {
-            const after = await handler({ operation: OperationLogic.findOperation(symbol), log, entity, args });
-            if (after != undefined)
-                afters.push(after);
-        } catch (e) {
-            // A surrounding CONCERN (auditing) must never break the operation it observes.
-            console.error(`OperationLogic.surroundOperation: a handler failed before '${symbol.key}':`, e);
-        }
+        const after = await handler({ operation: OperationLogic.findOperation(symbol), log, entity, args });
+        if (after != undefined)
+            afters.push(after);
     }
-    return afters;
 }
 
-async function runSurroundAfter(afters: SurroundOperationAfter[], symbol: OperationSymbol): Promise<void> {
+async function runSurroundAfter(afters: SurroundOperationAfter[]): Promise<void> {
     // Reverse order, like nested `using` scopes unwinding.
-    for (const after of [...afters].reverse()) {
-        try {
-            await after();
-        } catch (e) {
-            console.error(`OperationLogic.surroundOperation: a handler failed after '${symbol.key}':`, e);
-        }
-    }
+    for (const after of [...afters].reverse())
+        await after();
 }
 
-async function persistLog(log: OperationLogEntity): Promise<void> {
-    try {
-        await Saver.save([log]);
-    } catch (saveError) {
-        console.error("OperationLogic.logOperation: failed to persist OperationLogEntity:", saveError);
-    }
+// Signum's `OperationLogEntity.SaveLog()`: `using (ExecutionMode.Global()) log.Save();` — no catch, so a
+// log that cannot be written FAILS THE OPERATION. It used to be swallowed here ("a best-effort side
+// write"), which is how every operation log in the application went missing without a word the moment the
+// DiffLog dumps became File-mode BigStrings.
+//
+// `ExecutionMode.global` is what makes throwing safe rather than a new way to break an operation: the row
+// is the ENGINE's, so it must not be subject to the caller's write authorization — Signum wraps it for the
+// same reason.
+//
+// `forceNew` on the FAILURE path is Signum's `tr2` (`Transaction.ForceNew()` in Graph.cs's catch block):
+// the operation's own transaction is gone and the CALLER's is about to roll back, so a log joining it
+// would vanish with it — which is exactly the failure worth recording.
+async function persistLog(log: OperationLogEntity, failed: boolean): Promise<void> {
+    if (!OperationLogic.logOperation(log))
+        return;
+
+    const save = (): Promise<void> => ExecutionMode.global(() => Saver.save([log]));
+    await (failed ? Transaction.forceNew(save) : save());
 }
 
 function find(symbol: OperationSymbol, type: OperationType): IOperation {
