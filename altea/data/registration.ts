@@ -339,14 +339,27 @@ export function cultureForName(name: string): string | undefined {
 }
 
 // --- Default DB schema (per folder) --------------------------------------------------------------
-// The schema a package's tables land in (SchemaBuilder consults it per type; server-only — ignored on
-// the client). FOLDER-SCOPED: a declaration covers the directory of the file it is written in and every
-// file below it, and the most specific (longest matching directory) wins — so a sub-folder overrides its
-// package's default without annotating each entity. Placed at the package root ("" directory) it covers
-// the whole package. Stored as { packageName, dir, schema }.
+// Stored as { packageName, dir, schema }.
 interface SchemaScope { packageName: string; dir: string; schema: string; }
 const schemaScopes: SchemaScope[] = [];
 
+/**
+ * The database schema a package's tables live in — altea's counterpart of Signum's
+ * `[assembly: AssemblySchemaName("alerts")]`.
+ *
+ * FOLDER-SCOPED: a declaration covers the directory of the file it is written in and every file below it,
+ * and the most specific (longest matching directory) wins — so a sub-folder overrides its package's default
+ * without annotating each entity. Placed at the package root it covers the whole package.
+ *
+ * The name is LOGICAL and gets dialect-mapped (`schemaForType`), so Postgres sees it snaked. Consulted by
+ * SchemaBuilder per type; server-only — ignored on the client.
+ *
+ * Written as a bare top-level call; the quote-transformer supplies `fileInfo`.
+ *
+ *     setDefaultDatabaseSchema("alerts");
+ *
+ * For a PER-TYPE override of this folder default, see {@link setDatabaseSchema}.
+ */
 export function setDefaultDatabaseSchema(schema: string, fileInfo?: FileInfo): void {
     const packageName = fileInfo?.packageName ?? "";
     const dir = fileInfo != null ? dirName(fileInfo.fileName) : "";
