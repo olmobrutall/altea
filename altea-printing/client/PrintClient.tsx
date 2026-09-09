@@ -11,12 +11,10 @@ import {
     PrintLineEntity, PrintLineOperation, PrintPackageEntity, PrintPermission, type PrintStat,
 } from "../data/Printing";
 
-// Port of Signum.Printing's PrintClient.tsx — the two entity settings, the panel route, and the omnibox
-// entry that reaches it.
+// The two entity settings, the panel route, and the omnibox entry that reaches it.
 //
-// ALTEA: `isPermissionAuthorized` lives on @altea/altea-auth's client (the framework has no permission gate
-// of its own — the flag rides on the permission container's metadata entry), the divergence altea-workflow
-// documents.
+// `isPermissionAuthorized` lives on @altea/altea-auth's client — the framework has no permission gate of
+// its own; the flag rides on the permission container's metadata entry.
 export namespace PrintClient {
 
     export function start(cb: ClientBuilder): void {
@@ -44,7 +42,7 @@ export namespace PrintClient {
                 ],
             }));
 
-        // Signum hides SaveTest once it cannot execute: a test line is saved once and then it is an ordinary
+        // Hide SaveTest once it cannot execute: a test line is saved once and then it is an ordinary
         // queued line.
         Operations.addSettings(new EntityOperationSettings(PrintLineOperation.SaveTest, { hideOnCanExecute: true }));
 

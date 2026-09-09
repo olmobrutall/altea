@@ -5,21 +5,14 @@ import { toNumberFormat } from "@altea/altea/client/numberFormat";
 import { DiffLogMessage } from "../../data/DiffLog";
 import "./DiffLog.css";
 
-// Port of Signum.DiffLog's Templates/DiffDocument.tsx — a line diff that falls back to a WORD diff whenever a
-// single line was replaced by a single line, so a one-word change reads as a one-word change. Collapses runs
-// of unchanged lines to "----- N lines removed -----" beyond a margin.
+// A line diff that falls back to a WORD diff whenever a single line was replaced by a single line, so a
+// one-word change reads as a one-word change. Collapses runs of unchanged lines to
+// "----- N lines removed -----" beyond a margin.
 //
-// It is the module's most reusable piece: @altea/altea-agent's SkillCustomization editor uses it to diff a
+// The module's most reusable piece: @altea/altea-agent's SkillCustomization editor uses it to diff a
 // customized instruction against the skill's code default.
 //
-// altea divergences, documented inline:
-//  - `LinkButton` → a plain bootstrap link button (altea has no LinkButton).
-//  - the three hardcoded English strings become DiffLogMessage keys (see data/DiffLog.ts), so the control is
-//    translatable like the rest of the module. Signum writes the margin label as two literals AROUND the
-//    NumberBox ("Show only" … "lines arround each change"); the message has a `{0}` placeholder instead and
-//    the box is rendered AT it, so a translation can put the number where its own grammar wants it.
-//  - `Array.range` / `.last()` / `.removeAt()` / `softCast` are spelled out — altea's globals carry some of
-//    these, but the loop reads clearer without them.
+// Port of Signum.DiffLog's Templates/DiffDocument.tsx — see docs/port/DiffLog.md.
 
 export interface LineOrWordsChange {
     lineChange: Change;
@@ -158,8 +151,8 @@ interface LinesRemoved {
 }
 
 /**
- * Signum's `expandNumbers` — turn the indices of the CHANGED lines into the full list to render: each change
- * plus `margin` lines of context, with a `LinesRemoved` marker standing in for every collapsed run.
+ * Turn the indices of the CHANGED lines into the full list to render: each change plus `margin` lines of
+ * context, with a `LinesRemoved` marker standing in for every collapsed run.
  */
 export function expandNumbers(changes: number[], max: number, margin: number): (number | LinesRemoved)[] {
 

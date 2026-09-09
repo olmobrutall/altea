@@ -16,23 +16,17 @@ import { DiffLogClient } from "../DiffLogClient";
 import { DiffDocument } from "./DiffDocument";
 import "./DiffLog.css";
 
-// Port of Signum.DiffLog's Templates/OperationLog.tsx — the operation log's view: the log's own fields, then
-// a tab strip that walks the target's history. The strip is the point: previous log → the diff into this
-// log's initial state → the initial state → the diff to the final state → the final state → the diff into
-// the next log → the next log (or the entity as it stands now).
+// The operation log's view: the log's own fields, then a tab strip that walks the target's history. The
+// strip is the point: previous log → the diff into this log's initial state → the initial state → the diff
+// to the final state → the final state → the diff into the next log → the next log (or the entity as it
+// stands now).
 //
-// altea divergences, documented inline:
-//  - `getMixin(log, DiffLogMixin)` → `log.mixin(DiffLogMixin)` (altea inlines mixin fields onto the owner,
-//    so this is a typed cast that also asserts the mixin is declared).
-//  - `ctx.subCtx(DiffLogMixin)` is gone: altea dropped `subCtx`'s mixin overload (it defeated contextual
-//    typing for lambdas), so the mixin step is written INSIDE the lambda — `subCtx(a => a.mixin(DiffLogMixin))`,
-//    the same shape altea-email's reception tab uses. The mixin step is not optional even though the FIELDS
-//    are inlined: a PropertyRoute still models the mixin, so a route built straight off the owner
-//    ("initialState" on OperationLogEntity) does not resolve — which is where the tab labels come from.
-//  - `LinkContainer` (react-router-bootstrap) → a react-router `<Link>` inside the tab title, which is what
-//    LinkContainer produces.
-//  - Signum's `simplify` checkbox and its `simplifyDump` regex are kept verbatim — the regex matches the
-//    dump format, which altea's ObjectDumper preserves on purpose (see its header).
+// The mixin STEP is written inside the lambda — `subCtx(a => a.mixin(DiffLogMixin))` — and is NOT optional
+// even though the fields are inlined onto the owner: a PropertyRoute still models the mixin, so a route
+// built straight off the owner ("initialState" on OperationLogEntity) does not resolve, which is where the
+// tab labels come from.
+//
+// Port of Signum.DiffLog's Templates/OperationLog.tsx — see docs/port/DiffLog.md.
 export default function OperationLog(p: { ctx: TypeContext<OperationLogEntity> }): React.JSX.Element {
     const ctx = p.ctx;
     const ctx6 = ctx.subCtx({ labelColumns: { sm: 3 } });
@@ -75,7 +69,7 @@ export function DiffMixinTabs(p: { ctx: TypeContext<OperationLogEntity> }): Reac
         ? Promise.resolve(null)
         : DiffLogClient.API.getNextOperationLog(log.id!), [log.id]);
 
-    /** Signum's renderPrev / renderNext: the tab title IS the link, and clicking it reloads the frame. */
+    /** The tab title IS the link, and clicking it reloads the frame. */
     function logLinkTitle(lite: Lite<OperationLogEntity>, label: string, icon: "circle-arrow-left" | "circle-arrow-right",
         titleText: string): React.ReactElement {
         return (
@@ -93,7 +87,7 @@ export function DiffMixinTabs(p: { ctx: TypeContext<OperationLogEntity> }): Reac
         );
     }
 
-    /** Signum's two-arrow diff title; `mini` fades it when the two sides are equal. */
+    /** The two-arrow diff title; `mini` fades it when the two sides are equal. */
     function diffTitle(left: "backward-fast" | "backward-step" | "forward-step",
         right: "backward-step" | "forward-step" | "forward-fast",
         equal: boolean, titleText: string, disabled = false): React.ReactElement {
@@ -184,11 +178,12 @@ export function DiffMixinTabs(p: { ctx: TypeContext<OperationLogEntity> }): Reac
 }
 
 /**
- * Signum's `simplifyDump` — collapse an EXPANDED lite (`x = new LiteImp<T>(…) { Entity = new T(…) { … } }`)
- * down to `{ Entity = /* Loaded *\/ }`, so a diff shows the change and not the whole loaded graph.
+ * Collapse an EXPANDED lite (`x = new LiteImp<T>(…) { Entity = new T(…) { … } }`) down to
+ * `{ Entity = /* Loaded *\/ }`, so a diff shows the change and not the whole loaded graph.
  *
- * The regex is unchanged from Signum because altea's ObjectDumper keeps the same output format on purpose
- * (see its header) — the `new LiteImp<` marker and the brace/indent shape are the contract.
+ * The regex is unchanged from Signum's because ObjectDumper keeps the same output format on purpose — the
+ * `new LiteImp<` marker and the brace/indent shape are the contract, and they are what makes a dump
+ * comparable across the two frameworks.
  */
 const liteImpRegex = /^(?<space> *)(?<prop>\w[\w\d_]+) = new LiteImp</;
 

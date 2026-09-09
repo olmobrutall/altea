@@ -8,12 +8,9 @@ import { tryGetTypeInfo } from "@altea/altea/data/reflection";
 import type { UserEntity } from "@altea/altea-auth/data/User";
 import ConcurrentUser from "./ConcurrentUser";
 
-// Port of Signum.ConcurrentUser's ConcurrentUserClient.tsx — registers the frame widget and the one API
-// call. altea divergences:
-//  - `getTypeInfo(e.Type).entityKind` → `tryGetTypeInfo(e.constructor).entityKind` (altea has no `.Type`
-//    string discriminator; the constructor IS the type). Same default predicate, and it must stay in sync
-//    with ConcurrentUserLogic.watchSaveFor, exactly as Signum's comment warns.
-//  - `ChangeLogClient.registerChangeLogModule` is not ported (altea has no change-log module).
+// Registers the frame widget and the one API call.
+//
+// Port of Signum.ConcurrentUser's ConcurrentUserClient.tsx — see docs/port/ConcurrentUser.md.
 export namespace ConcurrentUserClient {
 
     export function start(options?: { activatedFor?: (e: Entity) => boolean }): void {

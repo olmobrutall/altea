@@ -7,19 +7,14 @@ import type { Entity, Type } from "@altea/altea/data/entity";
 import { ConcurrentUserEntity, ConcurrentUserOperation } from "../data/ConcurrentUser";
 import { ConcurrentUserServer } from "./ConcurrentUserServer";
 
-// Port of Signum.ConcurrentUser's ConcurrentUserLogic.cs — the module's `start(sb)`.
+// The module's `start(sb)`.
 //
-// altea divergences, documented inline:
-//  - `EntityKindCache.GetEntityKind(t)` → `tryGetTypeInfo(t).entityKind` (what `@entity(kind, data)`
-//    stamped on the constructor), with the same default predicate.
-//  - Signum's `PreDeleteSqlSync` cascade on TypeEntity is NOT registered here: altea derives one for the
-//    WHOLE schema from the @implementedByAll discriminator columns, so no module has to name its own
-//    field (see TypeLogic's deleteImplementedByAllRowsOfType).
+// Port of Signum.ConcurrentUser's ConcurrentUserLogic.cs — see docs/port/ConcurrentUser.md.
 export namespace ConcurrentUserLogic {
 
     /**
-     * Signum's `WatchSaveFor` — which entity types get save/delete watching. MUST stay in sync with
-     * ConcurrentUserClient's `activatedFor` (as Signum's comment says).
+     * Which entity types get save/delete watching. MUST stay in sync with ConcurrentUserClient's
+     * `activatedFor`.
      */
     export let watchSaveFor: (type: Type<Entity>) => boolean = defaultWatchSaveFor;
 
@@ -40,10 +35,8 @@ export namespace ConcurrentUserLogic {
             .withDelete(ConcurrentUserOperation.Delete)
             .withQuery();
 
-        // NOT registered here: Signum's `EntityEvents<TypeEntity>.PreDeleteSqlSync`, which takes this
-        // table's presence rows with a type that no longer exists. altea derives it for the whole schema
-        // from the discriminator COLUMNS instead of asking each module to name its own field — see
-        // TypeLogic's deleteImplementedByAllRowsOfType.
+        // No per-module TypeEntity delete cascade: it is derived for the whole schema from the
+        // @implementedByAll discriminator COLUMNS — see TypeLogic's deleteImplementedByAllRowsOfType.
 
         if (sb.webBuilder)
             ConcurrentUserServer.start(sb.webBuilder, sb.schema);

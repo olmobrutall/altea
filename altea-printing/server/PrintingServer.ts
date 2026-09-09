@@ -7,11 +7,12 @@ import type { ProcessEntity } from "@altea/altea-processes/data/Processes";
 import { PrintPermission, type PrintStat } from "../data/Printing";
 import { PrintingLogic } from "./PrintingLogic";
 
-// Port of Signum.Printing's PrintController.cs — the two routes the print panel calls.
+// The two routes the print panel calls.
 //
-// ALTEA: both are gated by `PrintPermission.ViewPrintPanel`. Signum gates only the panel's omnibox entry and
-// leaves the endpoints open to any authenticated user, which is a gap rather than a decision: `createProcess`
-// packages and QUEUES work.
+// Port of Signum.Printing's PrintController.cs — see docs/port/Printing.md.
+//
+// Both are gated by `PrintPermission.ViewPrintPanel`: `createProcess` packages and QUEUES work, so leaving
+// it open to any authenticated user would be a gap rather than a decision.
 export namespace PrintingServer {
 
     export function start(ws: WebBuilder): void {

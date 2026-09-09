@@ -3,15 +3,10 @@ import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import type { Lite } from "@altea/altea/data/lite";
 import { OperationLogEntity } from "@altea/altea/data/operationLog";
 
-// Port of Signum.DiffLog's DiffLogClient.tsx — registers the OperationLog view (which is what makes the diff
-// tabs appear) and the two chain-walking calls.
+// Registers the OperationLog view (which is what makes the diff tabs appear) and the two chain-walking
+// calls.
 //
-// altea divergences:
-//  - `Navigator.addSettings(new EntitySettings(…))` → `cb.configure(…).withView(…)`.
-//  - `AuthAdminClient.registerQueryAuditorToken(OperationLogEntity, token(a => a.target), FilteringByTarget)`
-//    is NOT ported: altea's auth-rules admin has no auditor-token registry, and the type condition it pairs
-//    with has no altea counterpart either (see data/DiffLog.ts).
-//  - `ChangeLogClient.registerChangeLogModule` is not ported (altea has no change-log module).
+// Port of Signum.DiffLog's DiffLogClient.tsx — see docs/port/DiffLog.md.
 export namespace DiffLogClient {
 
     export function start(cb: ClientBuilder): void {

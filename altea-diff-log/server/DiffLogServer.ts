@@ -9,18 +9,13 @@ import { OperationLogEntity } from "@altea/altea/data/operationLog";
 import { ObjectDumper } from "@altea/altea/data/objectDumper";
 import { DiffLogMixin } from "../data/DiffLog";
 
-// Port of Signum.DiffLog's DiffLogController.cs (+ DiffLogServer.cs) — the two routes that let the
-// OperationLog view walk the chain: "the log before this one on the same target" and "the log after it, or
-// the entity's CURRENT state when this is the last log".
+// The two routes that let the OperationLog view walk the chain: "the log before this one on the same
+// target" and "the log after it, or the entity's CURRENT state when this is the last log".
 //
-// altea divergences, documented inline:
-//  - `ReflectionServer.RegisterLike(typeof(DiffLogMessage), …)` has no counterpart: altea ships ONE metadata
-//    blob assembled per request, and a message container is included when it is registered — there is no
-//    per-container visibility predicate to attach.
-//  - Signum's `Lite.ParsePrimaryKey<OperationLogEntity>(id)` + `InDB(a => new { a.Target, a.Start })` become
-//    a projection query; the `Target` comparison uses `is(lite)`.
-//  - the current-entity dump runs under `ExecutionMode.global`: reading the target to dump it is an audit
-//    read, and the user is looking at a log they were already allowed to open.
+// The current-entity dump runs under `ExecutionMode.global`: reading the target to dump it is an audit
+// read, and the user is looking at a log they were already allowed to open.
+//
+// Port of Signum.DiffLog's DiffLogController.cs — see docs/port/DiffLog.md.
 export namespace DiffLogServer {
 
     export interface PreviousLog {
@@ -100,18 +95,18 @@ export namespace DiffLogServer {
                     return;
                 }
 
-                // No later log: diff against the entity as it stands NOW (Signum's GetDump), unless it is gone.
+                // No later log: diff against the entity as it stands NOW, unless it is gone.
                 res.jsonTyped({ dump: await dumpCurrent(target) } satisfies NextLog);
             });
     }
 
-    /** Signum's `GetDump(target)` — the target's dump today, or null when the row no longer exists. */
+    /** The target's dump today, or null when the row no longer exists. */
     async function dumpCurrent(target: Lite<Entity>): Promise<string | null> {
         try {
             const entity = await ExecutionMode.global(() => Database.retrieve(target.entityType as never, target.id));
             return ObjectDumper.dump(entity);
         } catch {
-            // Signum guards with `!log.Target.Exists()`; a failed retrieve says the same thing in one query.
+            // A failed retrieve is the existence check, in one query.
             return null;
         }
     }

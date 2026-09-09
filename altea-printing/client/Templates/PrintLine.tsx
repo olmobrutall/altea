@@ -7,8 +7,7 @@ import { FileLine } from "@altea/altea-files/client/Components/FileLine";
 import { ProcessExceptionLineEntity } from "@altea/altea-processes/data/Processes";
 import { PrintLineEntity, PrintLineState } from "../../data/Printing";
 
-// Port of Signum.Printing's Templates/PrintLine.tsx — read-only except while the line is a NewTest, which is
-// the one state in which a human uploads the file.
+// Read-only except while the line is a NewTest, the one state in which a human uploads the file.
 export default function PrintLine(p: { ctx: TypeContext<PrintLineEntity> }): React.JSX.Element {
     const e = p.ctx.subCtx({ readOnly: true });
 

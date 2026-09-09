@@ -13,12 +13,8 @@ import { ProcessEntity } from "@altea/altea-processes/data/Processes";
 import { PrintLineEntity, PrintLineState, PrintPackageEntity } from "../data/Printing";
 import { PrintClient } from "./PrintClient";
 
-// Port of Signum.Printing's PrintPanelPage.tsx — one counter per file type waiting to print, each with a
-// print button that packages that type and queues the process, plus the print processes below.
-//
-// ALTEA: Signum uses `LinkButton` here without importing it (its page does not compile as written); the
-// import is added. The file type's label is Signum's `getToString(fileType).after(".")` — a symbol key is
-// `Container.Member`, and the member alone is what a human reads.
+// One counter per file type waiting to print, each with a print button that packages that type and queues
+// the process, plus the print processes below.
 export default function PrintPanelPage(): React.JSX.Element {
 
     const stats = useAPI(() => PrintClient.API.getStats(), []);
@@ -71,7 +67,8 @@ export default function PrintPanelPage(): React.JSX.Element {
     );
 }
 
-/** `"PrintFileType.Invoice"` → `"Invoice"` (Signum's `getToString(fileType).after(".")`). */
+/** `"PrintFileType.Invoice"` → `"Invoice"`: a symbol key is `Container.Member`, and the member alone is
+ *  what a human reads. */
 function memberOf(key: string): string {
     const i = key.indexOf(".");
     return i < 0 ? key : key.slice(i + 1);

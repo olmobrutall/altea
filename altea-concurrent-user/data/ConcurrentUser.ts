@@ -8,25 +8,16 @@ import { msg } from "@altea/altea/data/utils/localization";
 import type { DeleteSymbol } from "@altea/altea/data/operations";
 import { UserEntity } from "@altea/altea-auth/data/User";
 
-// Port of Signum.ConcurrentUser's ConcurrentUser.cs — the presence row: "user U, on connection C, has
-// entity E open since T (and has unsaved changes)". One row per (connection, user, entity); the hub
-// inserts on enter, updates `isModified` on a heartbeat, and deletes on exit or disconnect.
+// The presence row: "user U, on connection C, has entity E open since T (and has unsaved changes)". One row
+// per (connection, user, entity); the hub inserts on enter, updates `isModified` on a heartbeat, and
+// deletes on exit or disconnect.
 //
-// altea divergences, documented inline:
-//  - `SignalRConnectionID` → `connectionID`. altea has no SignalR (see altea/server/webSocketHub.ts):
-//    the field holds the id of a WebSocket hub connection, so naming it after the transport Signum
-//    happens to use would be actively misleading. The client DTO already calls it `connectionID`.
-//    The COLUMN is Signum's, through `@legacyColumnName` — a database cannot see the difference, and
-//    a Signum database must not be asked to rename a column over a naming preference.
-//  - `DateTime StartTime` → `Temporal.PlainDateTime` (server-local wall clock, as everywhere in altea).
-//  - `Lite<UserEntity>` is used directly rather than core's `@implementedBy(() => [])` + app override:
-//    this module already references altea-auth, exactly as Signum.ConcurrentUser references
-//    Signum.Authorization.
+// Port of Signum.ConcurrentUser's ConcurrentUser.cs — see docs/port/ConcurrentUser.md.
 @reflect
 @entity("System", "Transactional")
 export class ConcurrentUserEntity extends Entity {
 
-    /** The entity being watched. @implementedByAll — ANY type can be opened (Signum's [ImplementedByAll]). */
+    /** The entity being watched. `@implementedByAll` — ANY type can be opened. */
     @implementedByAll
     targetEntity: Lite<Entity>;
 
@@ -34,7 +25,7 @@ export class ConcurrentUserEntity extends Entity {
 
     user: Lite<UserEntity>;
 
-    /** The WebSocket hub connection this row belongs to (see the header note on the rename). */
+    /** The WebSocket hub connection this row belongs to. The COLUMN keeps Signum's name (@legacyColumnName). */
     @stringLengthValidator({ max: 100 })
     @legacyColumnName("SignalRConnectionID")
     connectionID: string;
@@ -70,7 +61,4 @@ export const ConcurrentUserMessage = {
     ConsiderOpening0InANewTabAndApplyYourChangesManually: msg("Consider opening {0} in a new tab and apply your changes manually"),
 };
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("concurrentUser")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("concurrentUser");

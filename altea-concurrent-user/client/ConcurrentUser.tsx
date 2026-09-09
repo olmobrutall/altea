@@ -18,20 +18,10 @@ import { ConcurrentUserMessage } from "../data/ConcurrentUser";
 import { ConcurrentUserClient } from "./ConcurrentUserClient";
 import "./ConcurrentUser.css";
 
-// Port of Signum.ConcurrentUser's ConcurrentUser.tsx — the entity-frame widget: who else has this entity
-// open, whether they are typing, and whether the copy on screen is already stale.
+// The entity-frame widget: who else has this entity open, whether they are typing, and whether the copy on
+// screen is already stale.
 //
-// altea divergences, documented inline:
-//  - the three `useSignalR*` hooks → the three `useWebSocket*` hooks (altea/client/useWebSocket.tsx);
-//    `HubConnectionState.Connected` → the string state `"Connected"`.
-//  - `GraphExplorer.hasChangesNoClean(entity)` → `entity.isDirty()`. altea tracks modification against a
-//    SNAPSHOT rather than per-field `modified` flags, so "has unsaved changes" is a method on the entity
-//    and no graph walk (nor Signum's clean/no-clean distinction) exists.
-//  - `luxon`'s `DateTime.fromISO(x).toRelative()` → `Intl.RelativeTimeFormat` over a Temporal difference
-//    against `Clock.now` (see `toRelative` for why not the browser's own clock).
-//  - `UserEntity.niceCount(n)` is not an altea API: the count is rendered with the plural nice name.
-//  - `window.__disableSignalR` → `window.__disableWebSockets` (same escape hatch, renamed with the transport).
-//  - the commented-out console.log / useUpdatedRef scaffolding Signum left in place is dropped.
+// Port of Signum.ConcurrentUser's ConcurrentUser.tsx — see docs/port/ConcurrentUser.md.
 export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean; onReload: () => void }): React.JSX.Element | null {
 
     const conn = useWebSocketConnection("/api/concurrentUserHub");
@@ -57,7 +47,7 @@ export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean
 
     const isModified = React.useRef(false);
 
-    // Signum's 1s heartbeat: only a CHANGE of the modified flag is pushed, so an idle tab is silent.
+    // 1s heartbeat: only a CHANGE of the modified flag is pushed, so an idle tab is silent.
     React.useEffect(() => {
         if (conn == undefined)
             return;
@@ -193,7 +183,7 @@ export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean
 }
 
 /**
- * luxon's `DateTime.fromISO(x).toRelative()` ("3 minutes ago"), over the DTO's ISO string.
+ * "3 minutes ago", over the DTO's ISO string.
  *
  * "Now" comes from `Clock.now`, NOT `Temporal.Now.plainDateTimeISO()`: `startTime` is a wall clock with no
  * zone, written server-side by `Clock.now`, whose `TimeZoneMode` defaults to UTC. Comparing it against the

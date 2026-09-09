@@ -13,38 +13,21 @@ import { FilePathEmbedded, FileTypeSymbol } from "@altea/altea-files/data/Files"
 import type { ProcessAlgorithmSymbol } from "@altea/altea-processes/data/Processes";
 import type { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 
-// Port of Signum.Printing's PrintLine.cs + PrintPackages.cs — a PRINT QUEUE. Something that produces a
-// document (a report, a label, an invoice) drops a line here instead of printing it itself; a line carries
-// the file and moves through states; a package is a batch a process walks, printing each line through the
-// app-supplied `PrintingLogic.print` hook.
+// A PRINT QUEUE. Something that produces a document (a report, a label, an invoice) drops a line here
+// instead of printing it itself; a line carries the file and moves through states; a package is a batch a
+// process walks, printing each line through the app-supplied `PrintingLogic.print` hook.
 //
-// altea divergences:
-//  - **Signum's table-driven `StateValidator` becomes per-field `@validate`**, the same translation
-//    @altea/altea-email made for EmailMessage: the same rules, expressed one field at a time, since altea
-//    has no such table helper. Signum's table reads
+// NO custom `toString()`: the default "<NiceName> <id>" applies. A first attempt built one from the state —
+// `PrintLineState[this.state]` — which is a reverse ENUM LOOKUP, i.e. a subscript no SQL dialect can
+// evaluate; PostgreSQL answered "cannot subscript type unknown" on every query of the table.
 //
-//        state              printedOn  package
-//        NewTest            null       null
-//        ReadyToPrint       null       null
-//        Enqueued           null       SET
-//        Printed            SET        (either)
-//        Error              null       (either)
-//        Cancelled          null       (either)
-//        PrintedAndDeleted  SET        (either)
-//
-//  - `[Ignore] TestFileType` → `@column(false)`: it is the file type the "create a test line" operation
-//    hands the FileLine so it knows where to upload, never a stored value.
-//  - `Referred` keeps Signum's EMPTY `@implementedBy`: what a printed document refers to is app-defined, so
-//    an app widens it in its shared entity-overrides module.
-//  - NO custom `toString()`, as in Signum: the default "<NiceName> <id>" applies. (A first attempt built one
-//    from the state — `PrintLineState[this.state]` — which is a reverse ENUM LOOKUP, i.e. a subscript no SQL
-//    dialect can evaluate; PostgreSQL answered "cannot subscript type unknown".)
+// Port of Signum.Printing's PrintLine.cs + PrintPackages.cs — see docs/port/Printing.md.
 @reflect
 @entity("System", "Transactional")
 export class PrintLineEntity extends Entity {
     creationDate: Temporal.PlainDateTime = Clock.now;
 
-    /** Signum's `[Ignore]` — a UI-only hint for the test line's FileLine, never persisted. */
+    /** A UI-only hint for the test line's FileLine, never persisted. */
     @column(false)
     testFileType: FileTypeSymbol | null;
 
@@ -90,7 +73,7 @@ export namespace PrintLineOperation {
     export const Cancel: ExecuteSymbol<PrintLineEntity> = init();
 }
 
-/** Signum's `PrintPackageEntity` — one batch of lines, and what the PrintPackage process runs over. */
+/** One batch of lines, and what the PrintPackage process runs over. */
 @reflect
 @entity("System", "Transactional")
 export class PrintPackageEntity extends Entity {
@@ -100,9 +83,8 @@ export class PrintPackageEntity extends Entity {
     @quoted toString(): string { return this.name ?? "- No Name -"; }
 
     /**
-     * Signum's `PrintPackageEntity.Lines()` — the package's own lines, as a query token. An
-     * `[AutoExpressionField]` extension method there; here a `withQuoted` prototype member the SERVER
-     * assigns (its body is a query), which is why it is optional on this isomorphic declaration.
+     * The package's own lines, as a query token. A `withQuoted` prototype member the SERVER assigns (its
+     * body is a query), which is why it is optional on this isomorphic declaration.
      */
     lines?(): IQuery<PrintLineEntity>;
 }
@@ -119,13 +101,10 @@ export namespace PrintTask {
     export const RemoveOldFiles: SimpleTaskSymbol = init();
 }
 
-/** Signum's `PrintStat` — one "N lines of this file type are ready" row on the panel. */
+/** One "N lines of this file type are ready" row on the panel. */
 export interface PrintStat {
     fileType: FileTypeSymbol;
     count: number;
 }
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("printing")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("printing");

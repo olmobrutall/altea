@@ -18,40 +18,29 @@ import { CacheLogic } from "@altea/altea-cache/server/CacheLogic";
 import { ConcurrentUserEntity } from "../data/ConcurrentUser";
 import { ConcurrentUserLogic } from "./ConcurrentUserLogic";
 
-// Port of Signum.ConcurrentUser's ConcurrentUserServer.cs + ConcurrentUserHub.cs + ConcurrentUserController.cs
-// — the whole server surface, in one file because the hub, the push and the query are one mechanism.
+// The whole server surface, in one file because the hub, the push and the query are one mechanism.
 //
-// WHAT IT DOES (unchanged from Signum): every open entity is a GROUP named by its lite key. A tab joins on
-// mount and leaves on unmount; presence rows in ConcurrentUserEntity make the membership queryable. Two
-// pushes go the other way: `ConcurrentUsersChanged` (someone joined / left / started typing → re-read the
-// list) and `EntitySaved` (the row's `ticks` moved → your copy is stale).
+// Every open entity is a GROUP named by its lite key. A tab joins on mount and leaves on unmount; presence
+// rows in ConcurrentUserEntity make the membership queryable. Two pushes go the other way:
+// `ConcurrentUsersChanged` (someone joined / left / started typing → re-read the list) and `EntitySaved`
+// (the row's `ticks` moved → your copy is stale).
 //
-// altea divergences, documented inline:
-//  - SignalR → altea's WebSocket hub (altea/server/webSocketHub.ts). `Clients.Group(k).Method(...)` becomes
-//    `hub.sendToGroup(k, "Method", ...)`, `Context.ConnectionId` becomes `conn.id`, and `IHubFilter`
-//    (LogHubExceptionFilter.cs) becomes `hub.onError` — one hook instead of a filter class, since every
-//    throw already funnels through the hub.
-//  - hub methods carry NO ambient transaction or user (a WebSocket frame is not an HTTP request), so each
-//    opens its own `Transaction.forceNew` and runs under `ExecutionMode.global` — altea's `AuthLogic.Disable()`
-//    — with the CONNECTION's authenticated user, not the `userKey` the client passes. Signum trusts that
-//    argument; here the socket is authenticated (see webSocketHub.ts) so the server can do better, and a tab
-//    can no longer register presence as somebody else. The parameter is still accepted, and ignored.
-//  - `OperationLogic.AllowSave<ConcurrentUserEntity>()` has no counterpart: altea does not enforce
-//    "requires a save operation" yet, so a direct `.save()` is already allowed.
-//  - the `#if DEBUG` w3wp check that sets `DisableSignalR` (IIS's connection limit on Windows client OS) is
-//    not ported — it is diagnosing a Windows-only hosting quirk of a server altea does not run on. The
-//    client-side escape hatch it fed (`window.__disableWebSockets`) IS kept, so a host can still set it.
+// Hub methods carry NO ambient transaction or user (a WebSocket frame is not an HTTP request), so each
+// opens its own `Transaction.forceNew`, runs under `ExecutionMode.global`, and acts as the CONNECTION's
+// authenticated user — never the `userKey` the client passes, which is accepted and ignored.
+//
+// Port of Signum.ConcurrentUser's ConcurrentUserServer/Hub/Controller — see docs/port/ConcurrentUser.md.
 export namespace ConcurrentUserServer {
 
     export let hub: WebSocketHub | undefined;
 
     const hubPath = "/api/concurrentUserHub";
 
-    /** Signum's broadcast method names (CacheLogic.BroadcastReceivers keys). */
+    /** Broadcast method names (CacheLogic.broadcastReceivers keys). */
     const Method_ConcurrentUsersChanged = "ConcurrentUsersChanged";
     const Method_EntitySaved = "EntitySaved";
 
-    /** Signum's `Transaction.UserData["SavedEntities"]` key. */
+    /** The transaction user-data key the saved-entity accumulator uses. */
     const savedEntitiesKey = "ConcurrentUser_SavedEntities";
 
     export function start(wsb: WebBuilder, schema: Schema): void {
@@ -66,8 +55,8 @@ export namespace ConcurrentUserServer {
             async (req, res) => {
                 const { liteKey } = (req as unknown as { params: { liteKey: string } }).params;
                 const lite = Lite.parse(decodeURIComponent(liteKey));
-                // Signum's `using (AuthLogic.Disable())`: presence is not the entity, and a user who can
-                // see the page must be able to see who else is on it.
+                // Authorization off: presence is not the entity, and a user who can see the page must be
+                // able to see who else is on it.
                 const rows = await ExecutionMode.global(() => table(ConcurrentUserEntity)
                     .filter(c => c.targetEntity.is(lite))
                     .toArray());
@@ -80,8 +69,7 @@ export namespace ConcurrentUserServer {
                 } satisfies ConcurrentUserResponse)));
             });
 
-        // Watch every type the predicate accepts (Signum attaches the same two events per type through a
-        // GenericInvoker). `schemaCompleted` is the point where every table is known.
+        // Watch every type the predicate accepts. `schemaCompleted` is where every table is known.
         schema.schemaCompleted.push(() => {
             for (const type of schema.tables.keys()) {
                 if (ConcurrentUserLogic.watchSaveFor(type))
@@ -99,7 +87,7 @@ export namespace ConcurrentUserServer {
             }))));
     }
 
-    // ---- the hub (Signum's ConcurrentUserHub) ------------------------------------------------------
+    // ---- the hub ------------------------------------------------------------------------------------
 
     function buildHub(): WebSocketHub {
         const h = new WebSocketHub(hubPath);
@@ -128,8 +116,8 @@ export namespace ConcurrentUserServer {
         };
 
         h.onError = (e, context) => {
-            // Signum's LogHubExceptionFilter: log it, don't lose it. The write needs its own transaction
-            // (a failed hub method may have rolled its own back) — the lesson from the scheduler port.
+            // Log it, don't lose it. The write needs its own transaction (a failed hub method may have
+            // rolled its own back) — the lesson from the scheduler port.
             void ExecutionMode.global(() => Transaction.forceNew(() => ExceptionLogic.logException(e, ex => {
                 ex.controllerName = context;
             }))).catch(inner => console.error("[concurrentUser] could not log:", inner, "original:", e));
@@ -144,9 +132,9 @@ export namespace ConcurrentUserServer {
                 user: currentUserLite(conn),
                 startTime: Clock.now,
                 connectionID: conn.id,
-                // Explicit, not a field initializer: a non-nullable field must be SET by whoever creates the
-                // row (altea's implicit NotNull validator rejects `undefined`), and C#'s `bool` gives Signum
-                // this `false` for free. The repo's convention keeps zero-value initializers off the entity.
+                // Explicit, not a field initializer: a non-nullable field must be SET by whoever creates
+                // the row (the implicit NotNull validator rejects `undefined`), and the repo's convention
+                // keeps zero-value initializers off the entity.
                 isModified: false,
             }).save();
 
@@ -179,9 +167,9 @@ export namespace ConcurrentUserServer {
             conn.hub.removeFromGroup(conn, liteKey);
         });
 
-        // Signum's OnDisconnectedAsync: a closed tab leaves its rows behind, so drop them all and tell the
-        // groups they were in. (The hub has already emptied `conn.groups` by the time this runs, so the
-        // notification targets are read from the DELETED rows, exactly as Signum does.)
+        // A closed tab leaves its rows behind, so drop them all and tell the groups they were in. The hub
+        // has already emptied `conn.groups` by the time this runs, so the notification targets are read
+        // from the DELETED rows.
         h.onDisconnected = conn => ExecutionMode.global(() => Transaction.forceNew(async () => {
             const connectionID = conn.id;
             const rows = await table(ConcurrentUserEntity)
@@ -201,7 +189,7 @@ export namespace ConcurrentUserServer {
         return h;
     }
 
-    /** The authenticated user of this socket (see the divergence note: NOT the client-supplied userKey). */
+    /** The authenticated user of this socket — NOT the client-supplied userKey. */
     function currentUserLite(conn: HubConnection): Lite<UserEntity> {
         const user = (conn.user as { user?: Lite<Entity> } | undefined)?.user;
         if (user == null)
@@ -216,7 +204,7 @@ export namespace ConcurrentUserServer {
         return user == null ? run() : UserHolder.withUser(user as never, run);
     }
 
-    /** Signum's CleanConcurrentUsersIfNeeded — 1-in-100 sweep of rows older than a day. */
+    /** A 1-in-100 sweep of rows older than a day. */
     async function cleanConcurrentUsersIfNeeded(): Promise<void> {
         if (Math.floor(Math.random() * 100) !== 0)
             return;
@@ -226,9 +214,9 @@ export namespace ConcurrentUserServer {
             .executeDelete();
     }
 
-    // ---- push (Signum's Notify* / BroadcastToServers*) --------------------------------------------
+    // ---- push --------------------------------------------------------------------------------------
 
-    /** Signum's UpdateConcurrentUsers: tell sibling processes, then this one's own sockets. */
+    /** Tell sibling processes, then this one's own sockets. */
     export function updateConcurrentUsers(liteKeys: Set<string>): void {
         broadcastConcurrentUsersChanged(liteKeys);
         notifyConcurrentUsersChanged(liteKeys);
@@ -260,7 +248,7 @@ export namespace ConcurrentUserServer {
             hub?.sendToGroup(liteKey, "EntitySaved", liteKey, ticks?.toString() ?? null);
     }
 
-    // ---- save / delete detection (Signum's AttachSchemaEvents<T>) ---------------------------------
+    // ---- save / delete detection --------------------------------------------------------------------
 
     function attachSchemaEvents(schema: Schema, type: Type<Entity>): void {
         const ee = schema.entityEvents(type);
@@ -269,8 +257,8 @@ export namespace ConcurrentUserServer {
             notifyEntitySavedOnCommit(new Map([[entity.toLite().key(), entity.ticks ?? null]]));
         });
 
-        // A set-based delete never materialises its rows, so read the keys first (Signum does the same).
-        // `ticks: null` is Signum's "gone" marker — the client's stale check fires on any change.
+        // A set-based delete never materialises its rows, so read the keys first. `ticks: null` is the
+        // "gone" marker — the client's stale check fires on any change.
         ee.preUnsafeDelete.push(async query => {
             const ids = await query.map(a => a.id).toArray();
             if (ids.length === 0)
@@ -283,17 +271,16 @@ export namespace ConcurrentUserServer {
     }
 
     /**
-     * Signum's NotifyEntitySavedOnCommit — accumulate in the transaction's user data and push ONCE, after
-     * the real commit. Pushing inside the transaction would tell every open tab to reload a version that a
-     * rollback then un-does.
+     * Accumulate in the transaction's user data and push ONCE, after the real commit. Pushing inside the
+     * transaction would tell every open tab to reload a version that a rollback then un-does.
      */
     function notifyEntitySavedOnCommit(newTicks: Map<string, number | null>): void {
         const userData = Transaction.topParentUserData() as Record<string, unknown>;
         let accumulated = userData[savedEntitiesKey] as Map<string, number | null> | undefined;
         if (accumulated == undefined) {
             userData[savedEntitiesKey] = accumulated = new Map();
-            // Registered ONCE per transaction (Signum re-subscribes a static handler, relying on delegate
-            // identity to dedupe; a closure has no such identity, so the guard is this first-time branch).
+            // Registered ONCE per transaction: a closure has no delegate identity to dedupe on, so the
+            // guard is this first-time branch.
             Transaction.postRealCommit(data => {
                 const saved = (data as Record<string, unknown>)[savedEntitiesKey] as Map<string, number | null> | undefined;
                 if (saved == undefined || saved.size === 0)
@@ -313,12 +300,11 @@ export namespace ConcurrentUserServer {
 }
 
 /**
- * Signum's ConcurrentUserController.ConcurrentUserResponse (the shape the widget renders).
+ * The shape the widget renders.
  *
- * `startTime` is an ISO STRING, not a Temporal — matching Signum's own generated client DTO, which declares
- * it as `string`. A DTO crosses the wire as an untyped `CustomType`, so the serializer has no field metadata
- * to revive a Temporal from; typing it as one would hand the widget a string that fails only later, when the
- * widget calls a Temporal method on it.
+ * `startTime` is an ISO STRING, not a Temporal. A DTO crosses the wire as an untyped `CustomType`, so the
+ * serializer has no field metadata to revive a Temporal from; typing it as one would hand the widget a
+ * string that fails only later, when the widget calls a Temporal method on it.
  */
 export interface ConcurrentUserResponse {
     user: Lite<UserEntity>;
