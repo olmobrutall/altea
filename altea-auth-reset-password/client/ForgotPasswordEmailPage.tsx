@@ -5,11 +5,7 @@ import { ValidationError } from "@altea/altea/client/Services";
 import { LoginAuthMessage } from "@altea/altea-auth/data/AuthMessages";
 import { ResetPasswordClient } from "./ResetPasswordClient";
 
-// Port of Signum's ForgotPasswordEmailPage.tsx — "give us your address and we will mail you a link".
-//
-// altea divergences: altea's ModelState maps a field to ONE message; Signum's `<AutoFocus>` wrapper has no
-// altea counterpart, so the input carries `autoFocus` itself; and `type="texbox"` (a typo in the Signum
-// source that made the browser fall back to `text`) is written as `type="email"`.
+// "Give us your address and we will mail you a link."
 
 export default function ForgotPasswordEmailPage(): React.JSX.Element {
 

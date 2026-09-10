@@ -2,22 +2,15 @@ import type { JWTPayload } from "jose";
 import { ADAuthorizer, type DirectoryGroup, type IAutoCreateUserContext } from "@altea/altea-auth/server/ADAuthorizer";
 import { OpenIDConfigurationEmbedded } from "../data/OpenID";
 
-// Port of Signum.Authorization.OpenID's Authorizer/OpenIDAuthorizer.cs +
-// Authorizer/OpenIDClaimsAutoCreateUserContext.cs.
-//
 // Everything shared with the Azure AD / Windows AD authorizers (create / update / match / role fallback)
-// lives in altea-auth's `ADAuthorizer`; what remains here is the two things that are genuinely OIDC:
-// which CLAIMS identify the user, and how the roles are read out of the token.
+// lives in altea-auth's `ADAuthorizer`. What remains here is the two things that are genuinely OIDC: which
+// CLAIMS identify the user, and how the roles are read out of the token.
 //
-// altea divergences, documented inline:
-//  - `ClaimsPrincipal` → the verified JWT payload (a plain claims object). `GetClaim` / `TryGetClaim`
-//    become property reads; a claim that is an ARRAY (some providers repeat `email`) takes its first
-//    string, which is what `SingleOrDefaultEx` over ASP.NET's claim collection effectively did for the
-//    single-valued claims read here.
-//  - `ExtractRoles` becomes `directoryGroups` below, feeding altea-auth's ONE role-mapping
-//    implementation instead of Signum's per-module copy.
+// A claim that is an ARRAY (some providers repeat `email`) takes its first string.
+//
+// See docs/port/AuthDirectory.md.
 
-/** Signum's OpenIDClaimsAutoCreateUserContext — the id_token's claims, read as a directory identity. */
+/** The id_token's claims, read as a directory identity. */
 export class OpenIDClaimsContext implements IAutoCreateUserContext {
 
     constructor(
@@ -26,7 +19,7 @@ export class OpenIDClaimsContext implements IAutoCreateUserContext {
         readonly config: OpenIDConfigurationEmbedded,
     ) { }
 
-    /** Signum's GetClaim — throws when the claim is absent. */
+    /** Throws when the claim is absent. */
     getClaim(type: string): string {
         const value = this.tryGetClaim(type);
         if (value == null)
@@ -34,7 +27,7 @@ export class OpenIDClaimsContext implements IAutoCreateUserContext {
         return value;
     }
 
-    /** Signum's TryGetClaim. */
+    /** One claim, or undefined. An ARRAY claim takes its first string. */
     tryGetClaim(type: string): string | null {
         const raw = this.claims[type];
         if (raw == null)
@@ -85,7 +78,7 @@ export class OpenIDClaimsContext implements IAutoCreateUserContext {
 
 export class OpenIDAuthorizer extends ADAuthorizer<OpenIDConfigurationEmbedded> {
 
-    /** Signum's `ExtractRoles(principal, roleClaimPath)`, adapted to altea-auth's group shape. A role
+    /** The token's roles, in altea-auth's group shape. A role
      *  string from the token is matched against a `roleMapping` entry's `adNameOrGuid` BY NAME. */
     protected override getDirectoryGroups(ctx: IAutoCreateUserContext): Promise<DirectoryGroup[] | null> {
         if (!(ctx instanceof OpenIDClaimsContext))
@@ -100,13 +93,13 @@ export class OpenIDAuthorizer extends ADAuthorizer<OpenIDConfigurationEmbedded> 
 }
 
 /**
- * Signum's `OpenIDAuthorizer.ExtractRoles`. A SIMPLE path ("roles", "groups") is a claim name; a DOTTED
+ * A SIMPLE path ("roles", "groups") is a claim name; a DOTTED
  * path ("realm_access.roles", "resource_access.myclient.roles") navigates INTO a claim's JSON value.
  *
- * altea divergence: a JWT payload is already parsed JSON, so navigation is plain property access — Signum
+ * A JWT payload is already parsed JSON, so navigation is plain property access — where Signum
  * has to `JsonDocument.Parse` the claim's string value first, because ASP.NET flattens every claim to a
  * string. A provider that really does send the claim as a JSON STRING is still handled (the string is
- * parsed) so the behaviour is a superset of Signum's.
+ * parsed), so the behaviour is a superset.
  */
 export function extractRoles(claims: JWTPayload, roleClaimPath: string): string[] {
     const parts = roleClaimPath.split(".");

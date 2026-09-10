@@ -29,28 +29,24 @@ import {
 } from "../data/ResetPassword";
 import { ResetPasswordServer } from "./ResetPasswordServer";
 
-// Port of Signum.Authorization.ResetPassword's ResetPasswordRequestLogic.cs — issue a single-use code, mail
-// it, and consume it to set a new password. Every path runs with authorization DISABLED, because the caller
-// is by definition not logged in.
+// Issue a single-use code, mail it, and consume it to set a new password. Every path runs with
+// authorization DISABLED, because the caller is by definition not logged in.
 //
-// altea divergences, documented inline:
-//  - `Random.Shared.NextString(32)` → `node:crypto` randomBytes → base64url (cryptographically strong; the
-//    code is a bearer credential, so `Math.random()` would be a real weakness, not a style choice).
-//  - `EmailModel<T>` classes → the declared model types in data/ + the two factories below (see
-//    @altea/altea-email's EmailModelLogic header for the shape).
-//  - `CultureInfoLogic.ForEachCulture(culture => …)` → `CultureInfoLogic.applicationCultures()` mapped
-//    inside `CultureInfo.withCultures`, so each message's text is resolved in ITS culture.
-//  - `out string? passwordError` becomes a returned object (TS has no out parameters).
-//  - `OperationLogic.AllowSave<UserEntity>()` has no counterpart in altea (no RequiresSaveOperation guard).
-//  - `ex.LogException()` → `ExceptionLogic.logException(e)` inside `Transaction.forceNew` (a log write must
-//    not ride the failed transaction — see the scheduler/processes ports).
+// The code is generated with `node:crypto` randomBytes → base64url. It is a BEARER CREDENTIAL, so
+// `Math.random()` would be a real weakness rather than a style choice.
+//
+// Each message's text is resolved in ITS culture, by mapping `CultureInfoLogic.applicationCultures()`
+// inside `CultureInfo.withCultures`.
+//
+// Port of Signum.Authorization.ResetPassword's ResetPasswordRequestLogic.cs — see
+// docs/port/ResetPassword.md.
 
 // `modelType` is what altea's renderer looks the REGISTRATION up by (see EmailLogic's `modelTypeOf`): a
 // model whose shape differs from the entity it is about MUST carry it, or the lookup falls back to
 // `untypedEntity.constructor` — here ResetPasswordRequestEntity / UserEntity, which are not registered
-// models. Signum has no such field because its model IS a class instance.
+// models — needed because a plain object carries no type of its own.
 
-/** Signum's `ResetPasswordRequestEmail(request, url)`. */
+/** The "here is your reset link" model. */
 export function resetPasswordRequestMail(request: ResetPasswordRequestEntity, url: string): IEmailModel & { url: string } {
     return {
         ...emailModel({
@@ -62,7 +58,7 @@ export function resetPasswordRequestMail(request: ResetPasswordRequestEntity, ur
     };
 }
 
-/** Signum's `UserLockedMail(user, url)`. */
+/** The "your account is locked" model. */
 export function userLockedMail(user: UserEntity, url: string): IEmailModel & { url: string } {
     return {
         ...emailModel({
@@ -76,7 +72,7 @@ export function userLockedMail(user: UserEntity, url: string): IEmailModel & { u
 
 export namespace ResetPasswordRequestLogic {
 
-    /** Signum's `maxValidCodes` default — how many unused codes a user may hold at once. */
+    /** How many unused codes a user may hold at once. */
     export let maxValidCodes = 5;
 
     export function start(sb: SchemaBuilder): void {
@@ -87,7 +83,7 @@ export namespace ResetPasswordRequestLogic {
             .withOperations(registerResetPasswordRequestOperations)
             .withQuery();
 
-        // Signum's `AuthLogic.OnDeactivateUser`: when the failed-login lockout trips, mail the user a reset
+        // When the failed-login lockout trips, mail the user a reset
         // link so they can recover without an administrator.
         AuthLogic.onDeactivateUser = async user => {
             const request = await resetPasswordRequest(user);
@@ -101,7 +97,7 @@ export namespace ResetPasswordRequestLogic {
                 // altea requires these three explicitly: every non-nullable field is implicitly mandatory
                 // (see CLAUDE.md), whereas Signum inherits the C# defaults. `disableAuthorization` /
                 // `groupResults` ARE those defaults; `messageFormat` is a DELIBERATE divergence —
-                // Signum leaves it at PlainText while the body it writes below is HTML, which would go out
+                // (Signum leaves it at PlainText while the body it writes is HTML, which would go out
                 // as literal markup.
                 disableAuthorization: false,
                 groupResults: false,
@@ -124,7 +120,7 @@ export namespace ResetPasswordRequestLogic {
                 // altea requires these three explicitly: every non-nullable field is implicitly mandatory
                 // (see CLAUDE.md), whereas Signum inherits the C# defaults. `disableAuthorization` /
                 // `groupResults` ARE those defaults; `messageFormat` is a DELIBERATE divergence —
-                // Signum leaves it at PlainText while the body it writes below is HTML, which would go out
+                // (Signum leaves it at PlainText while the body it writes is HTML, which would go out
                 // as literal markup.
                 disableAuthorization: false,
                 groupResults: false,
@@ -139,19 +135,19 @@ export namespace ResetPasswordRequestLogic {
             }),
         });
 
-        // Signum's controller is discovered by ASP.NET; altea mounts the routes here, guarded by the
+        // The routes are mounted here, guarded by the
         // SchemaBuilder's web builder, so a terminal / test host wires no HTTP (the pattern AuthLogic uses).
         if (sb.webBuilder)
             ResetPasswordServer.start(sb.webBuilder);
     }
 
-    /** Signum's `EmailLogic.Configuration.UrlLeft + "/auth/resetPassword?code={0}"`. */
+    /** The link a mailed code lands on. */
     export function resetUrl(code: string): string {
         return `${EmailLogic.configuration().urlLeft}/auth/resetPassword?code=${encodeURIComponent(code)}`;
     }
 
     /**
-     * Signum's `ResetPasswordRequestExecute(code, password, out passwordError)` — consume a code. Returns
+     * Consume a code. Returns
      * the consumed request, or a `passwordError` when the new password fails the policy (the caller turns
      * that into a field error rather than an exception).
      */
@@ -173,7 +169,7 @@ export namespace ResetPasswordRequestLogic {
 
             await removeOtherRequests(rpr);
 
-            // Signum's `using (UserHolder.UserSession(rpr.User))`: the write is attributed to the user
+            // The write is attributed to the user
             // whose password is being reset, not to nobody.
             await UserHolder.withUser(new UserWithClaims(rpr.user), () =>
                 Operations.execute(rpr, ResetPasswordRequestOperation.Execute, password));
@@ -182,7 +178,7 @@ export namespace ResetPasswordRequestLogic {
         });
     }
 
-    /** Signum's `RequestNewLink(code)` — an expired link's owner asks for a fresh one. */
+    /** An expired link's owner asks for a fresh one. */
     export async function requestNewLink(code: string): Promise<void> {
         await AuthLogic.withDisabled(async () => {
             const rpr = await table(ResetPasswordRequestEntity).filter(r => r.code == code).singleOrNull() as ResetPasswordRequestEntity | null;
@@ -194,7 +190,7 @@ export namespace ResetPasswordRequestLogic {
     }
 
     /**
-     * Signum's `SendResetPasswordRequestEmail(email)` — mail a fresh link to EVERY active user with that
+     * Mail a fresh link to EVERY active user with that
      * address. Swallows the error when `AuthServer.avoidExplicitErrorMessages` is on, so the endpoint
      * cannot be used to probe which addresses exist.
      */
@@ -229,7 +225,7 @@ export namespace ResetPasswordRequestLogic {
         }
     }
 
-    /** Signum's `ResetPasswordRequest(user, maxValidCodes)` — issue a code, capping how many stay valid. */
+    /** Issue a code, capping how many stay valid. */
     export async function resetPasswordRequest(user: UserEntity, maxValid = maxValidCodes): Promise<ResetPasswordRequestEntity> {
         return await AuthLogic.withDisabled(() => ExecutionMode.global(async () => {
             await cancelExcess(user, maxValid - 1);
@@ -249,7 +245,7 @@ export namespace ResetPasswordRequestLogic {
         return randomBytes(24).toString("base64url").substring(0, 32);
     }
 
-    /** Signum's `RemoveOtherRequests(rpr)` — consuming one code invalidates the user's other codes. */
+    /** Consuming one code invalidates the user's other codes. */
     async function removeOtherRequests(rpr: ResetPasswordRequestEntity): Promise<void> {
         const userId = rpr.user.id;
         const rprId = rpr.id;
@@ -259,10 +255,10 @@ export namespace ResetPasswordRequestLogic {
     }
 
     /**
-     * Signum's `CancelExcess(user, maxValidCodes)` — keep only the newest `maxValid` valid codes and mark
+     * Keep only the newest `maxValid` valid codes and mark
      * the rest used, so a user cannot accumulate live credentials by hammering the endpoint.
      *
-     * altea divergence: Signum builds a `valid.Any(c => c.Is(r))` sub-predicate over a materialised list of
+     * The excess codes are selected first and cancelled by id, rather than as one set-based update over of
      * lites; altea reads the ids to KEEP and excludes them with `includes` (which the LINQ provider lowers
      * to `NOT IN`) — the same two statements, one less shape.
      */
@@ -290,17 +286,17 @@ export namespace ResetPasswordRequestLogic {
             .executeUpdate(() => ({ used: true }));
     }
 
-    /** Signum's `UserEntity.OnValidatePassword` — the same 5-character floor AuthServer enforces. */
+    /** The same 5-character floor AuthServer enforces. */
     export let validatePassword: (password: string) => string | null =
         password => password.length >= 5 ? null : LoginAuthMessage.ThePasswordMustHaveAtLeast0Characters.niceToString(5);
 }
 
-/** Signum's ResetPasswordException. */
+/** A reset code that cannot be used, with the reason. */
 export class ResetPasswordException extends Error {
     constructor(message?: string) { super(message); this.name = "ResetPasswordException"; }
 }
 
-// Signum's `new Graph<ResetPasswordRequestEntity>.Execute(ResetPasswordRequestOperation.Execute)`: consume
+// Consume
 // the code and set the new password (reactivating the user if the lockout had disabled them).
 function registerResetPasswordRequestOperations(op: FluentOperations<ResetPasswordRequestEntity>): void {
     op.withExecute(ResetPasswordRequestOperation.Execute, {

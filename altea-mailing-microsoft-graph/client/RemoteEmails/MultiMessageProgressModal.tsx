@@ -10,17 +10,11 @@ import ErrorModal from "@altea/altea/client/Modals/ErrorModal";
 import { RemoteEmailMessageMessage } from "../../data/RemoteEmailMessage";
 import type { EmailResult } from "./RemoteEmailsClient";
 
-// Port of Signum.Mailing.MicrosoftGraph/RemoteEmails' MultiMessageProgressModal.tsx — the progress dialog for
-// a bulk action over remote messages, fed by the route's NDJSON stream (one line per message, see
-// RemoteEmailsServer).
+// The progress dialog for a bulk action over remote messages, fed by the route's NDJSON stream (one line
+// per message, see RemoteEmailsServer).
 //
-// It is Signum's MultiOperationProgressModal with "a Lite and an operation" swapped for "a message id and a
-// title" — which is also why altea's own MultiOperationProgressModal cannot just be reused: its results are
-// keyed by `lite.key()`, and a remote message has no lite.
-//
-// altea divergences: the import paths, and `messageResultRef.current.toObject(...)` written as an explicit
-// Object.fromEntries (altea's array extensions have `toObject`, but the explicit form reads clearer for a
-// two-line reduction).
+// Core's own MultiOperationProgressModal cannot be reused: its results are keyed by `lite.key()`, and a
+// remote message has no lite.
 
 interface MultiMessageProgressModalProps extends IModalProps<Operations.API.ErrorReport> {
     messages: string[];

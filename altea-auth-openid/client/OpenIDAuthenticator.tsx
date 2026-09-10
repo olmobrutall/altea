@@ -6,20 +6,15 @@ import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 import { LoginOptions, type LoginContext } from "@altea/altea-auth/client/public/LoginPage";
 import { OpenIDMessage, type OpenIDClientConfig, type OpenIDEndpoints } from "../data/OpenID";
 
-// Port of Signum.Authorization.OpenID's OpenIDAuthenticator.tsx — the browser half of the
-// authorization-code flow: a sign-in button that redirects to the provider, and a silent re-login that
-// rides the provider's own SSO session on every page load.
+// The browser half of the authorization-code flow: a sign-in button that redirects to the provider, and a
+// silent re-login that rides the provider's own SSO session on every page load.
 //
-// altea divergences, documented inline:
-//  - Signum reads the configuration from `window.__openIDConfig`, injected by Index.cshtml. altea has no
-//    server-rendered page, so the configuration comes from the anonymous `/api/auth/openIDConfig` endpoint,
-//    fetched ONCE by `registerOpenIDAuthenticator` (which is therefore async) and cached. `Options
-//    .getOpenIDConfig` stays as the override seam, so a host can still supply it another way.
-//  - That same payload carries the provider ENDPOINTS, so starting the redirect needs no extra round trip
-//    (Signum calls /api/auth/openIDEndpoints at click time).
-//  - `Reflection.isStarted()` (Signum's "call me before autoLogin" guard) has no altea counterpart; the
-//    ordering requirement is documented on `registerOpenIDAuthenticator` instead.
-//  - `LoginOptions` lives on altea-auth's LoginPage module (see its header).
+// The configuration comes from the ANONYMOUS `/api/auth/openIDConfig` endpoint, fetched ONCE by
+// `registerOpenIDAuthenticator` (which is therefore async) and cached — there is no server-rendered page
+// to inject it into. That same payload carries the provider ENDPOINTS, so starting the redirect needs no
+// extra round trip. `Options.getOpenIDConfig` is the override seam.
+//
+// See docs/port/AuthDirectory.md.
 
 type OpenIDSettings = OpenIDClientConfig & OpenIDEndpoints;
 
@@ -28,14 +23,14 @@ export namespace OpenIDAuthenticator {
     let settings: OpenIDSettings | null = null;
 
     export const Options = {
-        /** Override to supply the configuration from somewhere else (Signum's `window.__openIDConfig`). */
+        /** Override to supply the configuration from somewhere else. */
         getOpenIDConfig: function (): OpenIDSettings | null {
             return settings;
         },
     };
 
     /**
-     * Signum's `registerOpenIDAuthenticator`. Call it from MainPublic BEFORE `AuthClient.autoLogin`, and
+     * Call it from MainPublic BEFORE `AuthClient.autoLogin`, and
      * AWAIT it: the login button and the silent authenticator both need the configuration, which is a
      * server round trip in altea (see the header).
      */
@@ -56,12 +51,12 @@ export namespace OpenIDAuthenticator {
         AuthClient.authenticators.push(loginWithOpenIDSilent);
     }
 
-    /** The dedicated callback route, NOT the application root (Signum's getRedirectUri). */
+    /** The dedicated callback route, NOT the application root. */
     export function getRedirectUri(): string {
         return window.location.origin + AppContext.toAbsoluteUrl("/openid-callback");
     }
 
-    /** Signum's `redirectToIdP` — start the authorization-code flow. Never resolves: the tab navigates. */
+    /** Start the authorization-code flow. Never resolves: the tab navigates. */
     export async function redirectToIdP(config: OpenIDSettings, returnUrl?: string, options?: { prompt?: string }): Promise<void> {
         const state = generateState();
         sessionStorage.setItem("openIDState", state);
@@ -85,7 +80,7 @@ export namespace OpenIDAuthenticator {
         window.location.href = `${config.authorizationEndpoint}?${params.toString()}`;
     }
 
-    /** Signum's `signOut` — end the provider's session too, so the next sign-in really asks. */
+    /** End the provider's session too, so the next sign-in really asks. */
     export async function signOut(): Promise<void> {
         setOpenIDActive(false);
 
@@ -109,7 +104,7 @@ export namespace OpenIDAuthenticator {
     }
 
     /**
-     * Signum's `loginWithOpenIDSilent` — registered in `AuthClient.authenticators`, so it runs on every
+     * Registered in `AuthClient.authenticators`, so it runs on every
      * page load. If this browser has signed in through the provider before, redirect there again: while the
      * provider's SSO session is alive the round trip is invisible.
      */
@@ -133,7 +128,7 @@ export namespace OpenIDAuthenticator {
         return new Promise(() => { /* never resolves — the browser is navigating away */ });
     }
 
-    /** Whether this browser has an OpenID session worth resuming (Signum's localStorage flag). */
+    /** Whether this browser has an OpenID session worth resuming. */
     export function setOpenIDActive(active: boolean): void {
         if (active)
             localStorage.setItem("openIDActive", "1");
@@ -172,7 +167,7 @@ export function OpenIDSignIn({ ctx, buttonContent }: { ctx: LoginContext; button
         if (config == null)
             return;
         const returnUrl = back ? back.pathname + (back.search ?? "") + (back.hash ?? "") : undefined;
-        // Shift / Alt forces the provider's account chooser (Signum's convention).
+        // Shift / Alt forces the provider's account chooser.
         const prompt = e.shiftKey || e.altKey ? "login" : undefined;
         void OpenIDAuthenticator.redirectToIdP(config, returnUrl, { prompt });
     }

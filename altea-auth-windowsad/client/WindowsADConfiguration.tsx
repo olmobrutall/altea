@@ -7,7 +7,7 @@ import { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { WindowsADConfigurationEmbedded } from "../data/WindowsAD";
 
-// Port of Signum.Authorization.WindowsAD's WindowsADConfiguration.tsx, plus the two altea-only connection
+// The configuration editor, plus the two connection
 // fields (`ldapUrl` / `baseDN`) that LDAP needs and `System.DirectoryServices` discovered for itself — see
 // data/WindowsAD.ts.
 

@@ -6,15 +6,13 @@ import type { UserEntity } from "@altea/altea-auth/data/User";
 import { ResetPasswordMessage } from "../data/ResetPassword";
 import { ResetPasswordRequestLogic } from "./ResetPasswordRequestLogic";
 
-// Port of Signum's ResetPasswordController (Signum.Authorization.ResetPassword/ResetPasswordController.cs) —
-// three ANONYMOUS endpoints: ask for a link, consume a link, ask for a fresh link. All three must be
-// `allowAnonymous`: the whole point is that the caller cannot log in.
+// Three ANONYMOUS endpoints: ask for a link, consume a link, ask for a fresh link. All three MUST be
+// `allowAnonymous` — the whole point is that the caller cannot log in.
 //
-// altea divergences:
-//  - `[Required, FromBody] string code` (a bare JSON string body) is kept as a bare string body, so the
-//    client's `ajaxPost(url, code)` needs no wrapper object — matching Signum's client.
-//  - `ModelError(field, msg)` → `res.status(400).json({ field: msg })`, altea's flat ModelState (see
-//    AuthServer's `modelError`).
+// A code arrives as a BARE JSON string body, so the client's `ajaxPost(url, code)` needs no wrapper
+// object; an error is `res.status(400).json({ field: msg })`, altea's flat ModelState.
+//
+// See docs/port/ResetPassword.md.
 
 interface ForgotPasswordRequest { email?: string }
 interface ForgotPasswordResponse { success: boolean; message: string; title?: string }
@@ -47,7 +45,7 @@ export namespace ResetPasswordServer {
                             : LoginAuthMessage.WeHaveSentYouAnEmailToResetYourPassword.niceToString(),
                     });
                 } catch (e) {
-                    // Signum answers 200 with success:false so the page can show the reason inline.
+                    // 200 with success:false, so the page can show the reason inline.
                     res.jsonTyped({ success: false, message: e instanceof Error ? e.message : String(e) });
                 }
             });
@@ -74,7 +72,7 @@ export namespace ResetPasswordServer {
                 });
             });
 
-        // POST /api/auth/requestNewLink — the body is the bare code STRING (Signum's `[FromBody] string`).
+        // POST /api/auth/requestNewLink — the body is the bare code STRING.
         ws.post("/api/auth/requestNewLink",
             { req: CustomType<string>(), allowAnonymous: true },
             async (req, res) => {

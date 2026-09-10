@@ -4,11 +4,9 @@ import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import type { MicrosoftGraphEmailServiceEntity } from "../../data/MailingMicrosoftGraph";
 
-// Port of Signum.Mailing.MicrosoftGraph's Templates/MicrosoftGraphEmailService.tsx — the three Azure fields
-// appear only when the service does NOT borrow the app's own Entra registration.
-//
-// altea divergence: the stored client secret is shown read-only and edited through `newAzure_ClientSecret`
-// (see the data module's header on why altea encrypts it where Signum stores it in the clear).
+// The three Azure fields appear only when the service does NOT borrow the app's own Entra registration.
+// The stored client secret is shown READ-ONLY and edited through `newAzure_ClientSecret` — see the data
+// module on why it is encrypted.
 export default function MicrosoftGraphEmailService(p: { ctx: TypeContext<MicrosoftGraphEmailServiceEntity> }): React.JSX.Element {
     const sc = p.ctx;
     const forceUpdate = useForceUpdate();

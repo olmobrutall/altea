@@ -2,14 +2,8 @@ import { Client, InvalidCredentialsError } from "ldapts";
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { WindowsADConfigurationEmbedded } from "../data/WindowsAD";
 
-// The LDAP substrate that replaces `System.DirectoryServices` / `System.DirectoryServices.AccountManagement`
-// in Signum.Authorization.WindowsAD.
-//
-// WHY LDAP: `PrincipalContext` / `UserPrincipal` / `DirectorySearcher` are Windows-only .NET APIs with no
-// Node equivalent. Every operation the module needs — validate a credential, find a user, read their
-// transitive groups, read their thumbnail photo, check whether the account is enabled — IS an LDAP operation
-// against a domain controller, which is what those APIs do underneath. So the port keeps the SEMANTICS and
-// changes the transport.
+// The LDAP substrate every directory operation goes through: validate a credential, find a user, read
+// their transitive groups, read their thumbnail photo, check whether the account is enabled.
 //
 // The three translations worth knowing:
 //  - `pc.ValidateCredentials(user, password, Negotiate)` → an LDAP SIMPLE BIND as `user@domain`. A bind that
@@ -21,8 +15,10 @@ import { WindowsADConfigurationEmbedded } from "../data/WindowsAD";
 //    nested group.
 //  - `foundUser.Enabled` → bit 2 (ACCOUNTDISABLE) of `userAccountControl`.
 //
-// `objectSid` arrives as raw bytes and must be formatted as the canonical `S-1-5-21-…` string, because that
-// string is what `UserEntity.externalId` stores (Signum writes `SecurityIdentifier.ToString()`).
+// `objectSid` arrives as RAW BYTES and must be formatted as the canonical `S-1-5-21-…` string, because
+// that string is what `UserEntity.externalId` stores.
+//
+// See docs/port/AuthDirectory.md.
 
 /** One directory user, in the fields this module reads. */
 export interface DirectoryUser {
@@ -58,7 +54,7 @@ export namespace WindowsDirectory {
     /**
      * Run `fn` with a connected, BOUND client. Binds as the configured lookup account when there is one,
      * else anonymously (which works when the host process itself is a domain member and the directory allows
-     * it — Signum's `new PrincipalContext(ContextType.Domain, domainName)`).
+     * it).
      */
     export async function withClient<R>(config: WindowsADConfigurationEmbedded, fn: (client: Client) => Promise<R>): Promise<R> {
         const client = new Client({ url: config.getLdapUrl() });
@@ -74,7 +70,7 @@ export namespace WindowsDirectory {
     }
 
     /**
-     * Signum's `pc.ValidateCredentials(userName, password, ContextOptions.Negotiate)` — true when the
+     * True when the
      * password is right, false when it is wrong. Throws for anything that is NOT a credential problem, so a
      * domain controller being unreachable never looks like a bad password.
      */
@@ -99,7 +95,7 @@ export namespace WindowsDirectory {
         }
     }
 
-    /** Signum's `UserPrincipal.FindByIdentity(pc, IdentityType.SamAccountName, name)`. */
+    /** One user by sAMAccountName. */
     export async function findByIdentity(config: WindowsADConfigurationEmbedded, identity: string): Promise<DirectoryUser | null> {
         const local = localNameOf(identity);
         const filter = `(&(objectCategory=person)(objectClass=user)(|(sAMAccountName=${escapeFilter(local)})`
@@ -109,7 +105,7 @@ export namespace WindowsDirectory {
         return found[0] ?? null;
     }
 
-    /** Signum's `WindowsADLogic.SearchUser(searchUserName, limit)`. */
+    /** Users whose name or UPN starts with the term, capped at `limit`. */
     export async function searchUsers(config: WindowsADConfigurationEmbedded, subString: string, limit: number): Promise<DirectoryUser[]> {
         const s = escapeFilter(subString);
         const clauses = [`(sAMAccountName=*${s}*)`, `(displayName=*${s}*)`];
@@ -120,7 +116,7 @@ export namespace WindowsDirectory {
 
         const found = await search(config, filter, limit);
 
-        // Signum's `.DistinctBy(a => a.ExternalId).OrderBy(a => a.UPN)`.
+        // One row per SID, ordered by UPN.
         const bySid = new Map<string, DirectoryUser>();
         for (const u of found)
             if (!bySid.has(u.sid ?? u.dn))
@@ -130,7 +126,7 @@ export namespace WindowsDirectory {
     }
 
     /**
-     * Signum's `UserPrincipal.GetGroups(pc)` — the user's TRANSITIVE group membership, via AD's
+     * The user's TRANSITIVE group membership, via AD's
      * `LDAP_MATCHING_RULE_IN_CHAIN` (see the header on why `memberOf` is not enough).
      */
     export async function getGroups(config: WindowsADConfigurationEmbedded, userDN: string): Promise<DirectoryGroupEntry[]> {
@@ -151,7 +147,7 @@ export namespace WindowsDirectory {
         });
     }
 
-    /** Signum's `directoryEntry.Properties["thumbnailPhoto"][0]`. */
+    /** The user's `thumbnailPhoto` attribute, or null. */
     export async function getThumbnailPhoto(config: WindowsADConfigurationEmbedded, userName: string): Promise<Buffer | null> {
         using _prof = HeavyProfiler.log("LDAP", () => "thumbnailPhoto of " + userName);
 
@@ -199,7 +195,7 @@ export namespace WindowsDirectory {
         });
     }
 
-    /** Signum binds as `user@domain`; a name that already carries a domain (UPN or DOMAIN\user) is left be. */
+    /** Bind as `user@domain`; a name that already carries a domain (UPN or DOMAIN\user) is left be. */
     function bindNameFor(config: WindowsADConfigurationEmbedded, userName: string): string {
         return userName.includes("@") || userName.includes("\\")
             ? userName
@@ -208,7 +204,7 @@ export namespace WindowsDirectory {
 }
 
 /**
- * Signum's `userName.TryBeforeLast('@') ?? userName.TryAfter('\\') ?? userName` — the sAMAccountName inside
+ * The sAMAccountName inside
  * a UPN or a `DOMAIN\user`.
  */
 export function localNameOf(userName: string): string {
@@ -231,7 +227,7 @@ export function escapeFilter(value: string): string {
 /**
  * Format a binary `objectSid` as the canonical string .NET's `SecurityIdentifier.ToString()` produces:
  * `S-<revision>-<authority>-<subauthority>-…`. This IS the value stored in `UserEntity.externalId`, so the
- * format has to match exactly or an existing Signum database stops matching its own users.
+ * format has to match exactly, or a database written by either framework stops matching its own users.
  */
 export function formatSid(raw: unknown): string | null {
     const buf = Buffer.isBuffer(raw) ? raw : Array.isArray(raw) && Buffer.isBuffer(raw[0]) ? raw[0] : null;

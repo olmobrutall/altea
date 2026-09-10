@@ -7,15 +7,14 @@ import { msg } from "@altea/altea/data/utils/localization";
 import { BaseADConfigurationEmbedded, RoleMappingEntity } from "@altea/altea-auth/data/BaseAD";
 import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 
-// Port of Signum.Authorization.WindowsAD's WindowsADConfigurationEmbedded.cs — how to reach an on-premises
-// Active Directory domain.
+// How to reach an on-premises Active Directory domain.
 //
-// altea divergences, documented inline:
-//  - Signum's `PropertyValidation` override becomes per-field `@validate`: the domain name is
-//    required as soon as either login mode is on.
-//  - `LoginWithWindowsAuthenticator` (integrated Kerberos/NTLM SSO) is KEPT as a setting, but a Node host
-//    can only honour it by supplying a Negotiate provider — see WindowsADServer's `negotiateProvider`.
-//    Nothing about the entity changes; the capability does.
+// `loginWithWindowsAuthenticator` (integrated Kerberos/NTLM SSO) is KEPT as a setting, but a Node host can
+// only honour it by supplying a Negotiate provider — see WindowsADServer's `negotiateProvider`. Nothing
+// about the entity changes; the capability does.
+//
+// Port of Signum.Authorization.WindowsAD's WindowsADConfigurationEmbedded.cs — see
+// docs/port/AuthDirectory.md.
 
 @reflect
 @reflect
@@ -40,14 +39,14 @@ export class WindowsADConfigurationEmbedded extends BaseADConfigurationEmbedded 
     domainName: string | null = null;
 
     /** The service account used for directory LOOKUPS (searching users, reading groups and photos) when the
-     *  host process itself is not a domain member. Signum's DirectoryRegistry_Username. */
+     *  host process itself is not a domain member. */
     directoryRegistry_Username: string | null = null;
 
     @format("Password")
     directoryRegistry_Password: string | null = null;
 
     /**
-     * altea addition: the LDAP URL to connect to. Signum's `PrincipalContext(ContextType.Domain, name)`
+     * The LDAP URL to connect to — NEW here, because `PrincipalContext(ContextType.Domain, name)`
      * lets Windows discover a domain controller through DNS SRV records; Node has no such discovery, so the
      * URL is explicit — defaulting to `ldap://<domainName>`, which is what a domain's DNS name resolves to.
      */
@@ -74,13 +73,13 @@ export class WindowsADConfigurationEmbedded extends BaseADConfigurationEmbedded 
         return (this.domainName ?? "").split(".").filter(p => p !== "").map(p => `DC=${p}`).join(",");
     }
 
-    /** The bind name for the lookup account: Signum binds as `user@domain`. */
+    /** The bind name for the lookup account: `user@domain`. */
     getRegistryBindName(): string | null {
         return hasText(this.directoryRegistry_Username)
             ? `${this.directoryRegistry_Username}@${this.domainName}`
             : null;
     }
-    /** Signum's `MList<RoleMappingEmbedded> RoleMapping` — this configuration's own @part rows (the row type
+    /** This configuration's own @part rows (the row type
      *  is per module, see BaseAD's header). */
     @noRepeatValidator()
     roleMapping: WindowsADRoleMappingEntity[];
@@ -89,7 +88,7 @@ export class WindowsADConfigurationEmbedded extends BaseADConfigurationEmbedded 
 
 }
 
-// Signum's RoleMappingEmbedded rows for this configuration (see BaseAD's RoleMappingEntity).
+// This configuration's own role-mapping rows (see BaseAD's RoleMappingEntity).
 @part
 export class WindowsADRoleMappingEntity extends RoleMappingEntity {
     // The rows belong to the ENTITY holding this configuration — the application's settings row, which a
@@ -102,12 +101,12 @@ function hasText(s: string | null | undefined): boolean {
     return s != null && s.trim() !== "";
 }
 
-/** Signum's `[AutoInit] static class WindowsADTask`. */
+/** The module's scheduled tasks. */
 export namespace WindowsADTask {
     export const DeactivateUsers: SimpleTaskSymbol = init();
 }
 
-/** Signum's `[AllowUnauthenticated] enum WindowsADMessage`. */
+/** Readable by an ANONYMOUS caller: these strings appear on the login screen. */
 export const WindowsADMessage = {
     TheUser0IsConnectedToActiveDirectoryAndCanNotHaveALocalPasswordSet:
         msg("The user {0} is connected to Active Directory and can not have a local password set"),
@@ -120,7 +119,4 @@ export const WindowsADMessage = {
         msg("Windows integrated authentication is not configured on this host"),
 };
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("auth")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("auth");

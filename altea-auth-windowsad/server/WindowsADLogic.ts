@@ -15,20 +15,13 @@ import { WindowsADServer } from "./WindowsADServer";
 import { WindowsDirectory, localNameOf } from "./WindowsDirectory";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
-// Port of Signum.Authorization.WindowsAD's WindowsADLogic.cs — start-up plus every directory operation:
-// search, import a user, read a thumbnail photo, and the nightly deactivate-users sweep.
+// Start-up plus every directory operation: search, import a user, read a thumbnail photo, and the nightly
+// deactivate-users sweep. Every directory call goes through WindowsDirectory.
 //
-// altea divergences, documented inline:
-//  - Every `System.DirectoryServices` call goes through WindowsDirectory (see its header).
-//  - `ReflectionServer.RegisterLike(typeof(WindowsADTask) / typeof(ActiveDirectoryPermission), …)` is NOT
-//    ported (altea's reflection blob carries no message/permission containers — see altea-omnibox's note).
-//  - `Lite.RegisterLiteModelConstructor` is NOT ported (altea has no lite-model entity).
-//  - Signum's sweep deactivates a user with `UserOperation.Deactivate`; altea uses `AutoDeactivate`, the
-//    state that exists precisely to mean "the directory did this, not an administrator" — and which
-//    `ADAuthorizer.updateUserInternal` reverses automatically when the user comes back. Signum's own Azure AD
-//    sweep uses AutoDeactivate; the Windows one using Deactivate looks like an oversight, and using it here
-//    would leave a re-enabled account stuck (a `Deactivated` user cannot be auto-reactivated on login).
-//  - `CheckAllUserActive()` (an empty method in Signum) is not ported.
+// **The sweep uses `AutoDeactivate`, not `Deactivate`** — the state that exists precisely to mean "the
+// directory did this, not an administrator", and which `ADAuthorizer.updateUserInternal` reverses
+// automatically when the user comes back. `Deactivate` would leave a re-enabled account stuck, since a
+// Deactivated user cannot be auto-reactivated on login. See docs/port/AuthDirectory.md.
 
 export namespace WindowsADLogic {
 
@@ -37,11 +30,11 @@ export namespace WindowsADLogic {
 
     export interface StartOptions {
         getConfig: () => WindowsADConfigurationEmbedded | null;
-        /** Signum's `deactivateUsersTask`. */
+        /** Register the nightly sweep that deactivates users the directory no longer has. */
         deactivateUsersTask?: boolean;
     }
 
-    /** Signum's `WindowsADLogic.Start(sb, deactivateUsersTask)` plus the Starter's `AuthLogic.Authorizer = …`. */
+    /** The module's start-up, including wiring `AuthLogic.authorizer`. */
     export function start(sb: SchemaBuilder, options: StartOptions): void {
         if (sb.alreadyDefined(start))
             return;
@@ -49,7 +42,7 @@ export namespace WindowsADLogic {
         authorizer = new WindowsADAuthorizer(options.getConfig);
         AuthLogic.authorizer = authorizer;
 
-        // Signum's `PermissionLogic.RegisterTypes(typeof(ActiveDirectoryPermission))` — the same container
+        // The same container
         // the AzureAD module registers.
         PermissionLogic.registerContainer(ActiveDirectoryPermission);
 
@@ -68,7 +61,7 @@ export namespace WindowsADLogic {
     }
 
     /**
-     * Signum's `SimpleTaskLogic.Register(WindowsADTask.DeactivateUsers, …)`. Two directions:
+     * The nightly sweep. Two directions:
      *  - an ACTIVE local user who is disabled in AD (or gone from AD and has no local password, so AD is
      *    their only credential) is auto-deactivated;
      *  - an AUTO-DEACTIVATED local user who is enabled again in AD is reactivated.
@@ -106,7 +99,7 @@ export namespace WindowsADLogic {
         });
     }
 
-    /** Signum's `SearchUser(searchUserName, limit)`. */
+    /** Find directory users by name, for the invite / import UI. */
     export async function searchUser(subString: string, limit: number): Promise<ExternalUser[]> {
         const config = requireConfig();
         const found = await WindowsDirectory.searchUsers(config, subString, limit);
@@ -114,13 +107,13 @@ export namespace WindowsADLogic {
         return found.map(u => ({
             upn: u.userPrincipalName ?? "",
             displayName: u.displayName ?? "",
-            // Signum maps the AD `description` onto JobTitle (AD has no jobTitle attribute by default).
+            // AD has no jobTitle attribute by default, so `description` stands in for it.
             jobTitle: u.description ?? "",
             externalId: u.sid,
         }));
     }
 
-    /** Signum's `CreateUserFromAD(adUser)` — import a directory hit as a local user (or refresh it). */
+    /** Import a directory hit as a local user (or refresh it). */
     export async function createUserFromAD(adUser: ExternalUser): Promise<UserEntity> {
         const config = requireConfig();
         const ada = authorizer!;
@@ -145,7 +138,7 @@ export namespace WindowsADLogic {
         }));
     }
 
-    /** Signum's `GetProfilePicture(userName)` — the AD `thumbnailPhoto`. */
+    /** The AD `thumbnailPhoto`. */
     export async function getProfilePicture(userName: string): Promise<Buffer | null> {
         return await AuthLogic.withDisabled(async () => {
             const config = requireConfig();
@@ -153,7 +146,7 @@ export namespace WindowsADLogic {
         });
     }
 
-    /** Signum's `CheckUserActive(username)` — whether AD says the account is enabled. */
+    /** Whether AD says the account is enabled. */
     export async function checkUserActive(userName: string): Promise<boolean> {
         const config = requireConfig();
         const found = await WindowsDirectory.findByIdentity(config, userName);

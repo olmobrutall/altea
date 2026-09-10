@@ -8,11 +8,9 @@ import type { UserEntity } from "@altea/altea-auth/data/User";
 import { RemoteEmailsClient } from "./RemoteEmailsClient";
 import { RemoteEmailRenderer } from "./RemoteEmailMessage";
 
-// Port of Signum.Mailing.MicrosoftGraph/RemoteEmails' RemoteEmailPopover.tsx — the envelope icon in the
-// Subject cell, which on hover previews the whole message body without leaving the search page.
-//
-// altea divergence: the mailbox is addressed by the USER's own lite id (the routes resolve the directory
-// object id server-side), where Signum reads `UserLiteModel.externalId`.
+// The envelope icon in the Subject cell, which on hover previews the whole message body without leaving
+// the search page. The mailbox is addressed by the USER's own lite id — the routes resolve the directory
+// object id server-side.
 export default function RemoteEmailPopover(p: {
     subject: string;
     user: Lite<UserEntity>;

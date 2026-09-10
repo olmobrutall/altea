@@ -13,24 +13,19 @@ import type { OpenIDClientConfig, OpenIDEndpoints } from "../data/OpenID";
 import { OpenIDConfigurationEmbedded } from "../data/OpenID";
 import { OpenIDAuthorizer, OpenIDClaimsContext } from "./OpenIDAuthorizer";
 
-// Port of Signum.Authorization.OpenID's OpenIDAuthenticationServer.cs + OpenIDAuthenticationController.cs —
-// the server half of the authorization-code flow: the browser comes back with a `code`, the server
-// exchanges it for tokens at the provider, validates the id_token against the provider's JWKS, and maps the
-// resulting identity onto a local user.
+// The server half of the authorization-code flow: the browser comes back with a `code`, the server
+// exchanges it for tokens at the provider, validates the id_token against the provider's JWKS, and maps
+// the resulting identity onto a local user.
 //
-// altea divergences, documented inline:
-//  - `ConfigurationManager<OpenIdConnectConfiguration>` + `JwtSecurityTokenHandler` → altea-auth's
-//    `OpenIdConnect` helper (discovery cache + `jose` verification). Same checks: signature against the
-//    published keys, issuer, audience, lifetime.
-//  - the "find or create the local user" block (~40 lines Signum repeats in all three modules) is
-//    `ADAuthorizer.findOrCreateUser`.
-//  - `AuthServer.OnUserPreLogin` / `AddUserSession` → `UserHolder.setCurrent` + `AuthServer.userLogged`,
-//    which is what altea's AuthServer login route does.
-//  - Signum serialises the browser-visible configuration into Index.cshtml
-//    (`window.__openIDConfig`); altea has no server-rendered page, so `/api/auth/openIDConfig` serves it.
-//    That endpoint also carries the discovery endpoints, so the client needs ONE anonymous call at boot
-//    rather than Signum's inline blob plus a separate `/api/auth/openIDEndpoints` round trip. The
-//    endpoints route is kept as well, since a client may need to re-read them after a provider change.
+// Verification is altea-auth's `OpenIdConnect` helper — a discovery cache plus `jose` over a locally
+// fetched JWKS — checking signature, issuer, audience and lifetime. "Find or create the local user" is
+// `ADAuthorizer.findOrCreateUser`, shared by all three directory modules.
+//
+// `/api/auth/openIDConfig` is ANONYMOUS and carries the discovery endpoints too, so the client needs ONE
+// call at boot; the endpoints route is kept as well, since a client may need to re-read them after a
+// provider change.
+//
+// See docs/port/AuthDirectory.md.
 
 interface LoginWithOpenIDRequest { code?: string; redirectUri?: string }
 interface LoginResponse { authenticationType: string; token: string; userEntity: UserEntity }
@@ -80,7 +75,7 @@ export namespace OpenIDAuthenticationServer {
                 });
             });
 
-        // GET /api/auth/openIDEndpoints — Signum's endpoint, kept for a client that re-reads them.
+        // GET /api/auth/openIDEndpoints — kept for a client that re-reads them after a provider change.
         ws.get("/api/auth/openIDEndpoints",
             { res: CustomType<OpenIDEndpoints>(), allowAnonymous: true },
             async (_req, res) => {
@@ -94,7 +89,7 @@ export namespace OpenIDAuthenticationServer {
     }
 
     /**
-     * Signum's `LoginOpenIDAuthentication(ac, request, throwErrors)` — the whole exchange. Returns the
+     * The whole exchange. Returns the
      * logged-in user, or null when `throwErrors` is false and anything went wrong (the silent-login path:
      * a failed attempt must fall through to the normal login page, not blow up the boot sequence).
      */
@@ -132,7 +127,7 @@ export namespace OpenIDAuthenticationServer {
         });
     }
 
-    /** Signum's `ExchangeCodeForTokens` — the OAuth 2.0 authorization-code grant. */
+    /** The OAuth 2.0 authorization-code grant. */
     async function exchangeCodeForTokens(code: string, redirectUri: string, config: OpenIDConfigurationEmbedded): Promise<OAuthTokenResponse> {
         const discovery = await OpenIdConnect.getConfiguration(config.getDiscoveryEndpoint(), config);
 

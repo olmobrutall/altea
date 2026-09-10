@@ -6,30 +6,26 @@ import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 import { LoginOptions } from "@altea/altea-auth/client/public/LoginPage";
 import { WindowsADMessage } from "../data/WindowsAD";
 
-// Port of Signum.Authorization.WindowsAD's WindowsADAuthenticator.tsx — the "Login with Windows user" button
-// and the silent attempt at boot.
+// The "Login with Windows user" button and the silent attempt at boot.
 //
-// altea divergences, documented inline:
-//  - `AuthClient.Options.AuthHeader = "Signum_Authorization"` is kept (as `"Altea_Authorization"`): when the
-//    host sits behind IIS/a proxy doing Negotiate, the standard `Authorization` header is TAKEN — the proxy
-//    puts its own `Negotiate …` challenge there — so the application's bearer token needs a header of its
-//    own. Setting it is only correct when integrated authentication is actually in play, which is why it
-//    happens in this registration and nowhere else.
-//  - `AuthClient.Options.disableWindowsAuthentication` becomes `Options.disabled` on this namespace (it is
-//    this module's switch, not the auth hub's).
-//  - `Reflection.isStarted()` guard: no altea counterpart; the ordering requirement is documented below.
+// **This registration moves the app's bearer token to `Altea_Authorization`.** When the host sits behind
+// IIS or a proxy doing Negotiate, the standard `Authorization` header is TAKEN — the proxy puts its own
+// `Negotiate …` challenge there — so the token needs a header of its own. That is only correct when
+// integrated authentication is actually in play, which is why it happens HERE and nowhere else.
+//
+// See docs/port/AuthDirectory.md.
 
 export namespace WindowsADAuthenticator {
 
     export const Options = {
-        /** Skip the silent attempt (Signum's `AuthClient.Options.disableWindowsAuthentication`). */
+        /** Skip the silent attempt. */
         disabled: false,
         /** The header the bearer token rides on while a proxy owns `Authorization`. */
         authHeader: "Altea_Authorization",
     };
 
     /**
-     * Signum's `registerWindowsAuthenticator()`. Call from MainPublic BEFORE `AuthClient.autoLogin`.
+     * Call from MainPublic BEFORE `AuthClient.autoLogin`.
      *
      * Requires the SERVER to have a Negotiate provider installed — see
      * `@altea/altea-auth-windowsad/server/WindowsADServer`'s header. Without one the endpoint answers

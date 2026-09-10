@@ -8,17 +8,14 @@ import { Entity } from "@altea/altea/data/entity";
 import { msg } from "@altea/altea/data/utils/localization";
 import { BaseADConfigurationEmbedded, RoleMappingEntity } from "@altea/altea-auth/data/BaseAD";
 
-// Port of Signum.Authorization.OpenID's OpenIDConfigurationEmbedded.cs — how to talk to a standards-only
-// OpenID Connect provider (Keycloak, Dex, Auth0, …) with the authorization-code flow.
+// How to talk to a standards-only OpenID Connect provider (Keycloak, Dex, Auth0, …) with the
+// authorization-code flow.
 //
-// altea divergences, documented inline:
-//  - Signum's `PropertyValidation` override becomes per-field `@validate` (altea has no
-//    entity-level validation hook). Same rule: `authority` and `clientId` are required once `enabled`.
-//  - `ToOpenIDConfigTS()` (the DTO the server serialises into Index.cshtml) becomes the
-//    `OpenIDClientConfig` interface below, served by an anonymous endpoint — altea has no server-rendered
-//    HTML page to inject `window.__openIDConfig` into (see OpenIDAuthenticationServer).
-//  - `GetScopes()` / `GetDiscoveryEndpoint()` stay on the entity: they are pure string work over its own
-//    fields and both the server and the config DTO need them.
+// `OpenIDClientConfig` below is what the BROWSER is given — never the client secret — served by an
+// anonymous endpoint. `getScopes()` / `getDiscoveryEndpoint()` stay on the entity: pure string work over
+// its own fields, needed by both the server and that DTO.
+//
+// Port of Signum.Authorization.OpenID's OpenIDConfigurationEmbedded.cs — see docs/port/AuthDirectory.md.
 
 @reflect
 @reflect
@@ -52,17 +49,17 @@ export class OpenIDConfigurationEmbedded extends BaseADConfigurationEmbedded {
     /** Accept ANY server certificate when talking to the provider. Development only. */
     avoidSSLVerify: boolean = false;
 
-    /** Signum's GetDiscoveryEndpoint. */
+    /** The provider's `.well-known/openid-configuration` URL, derived from `authority`. */
     getDiscoveryEndpoint(): string {
         return `${this.authority!.replace(/\/+$/, "")}/.well-known/openid-configuration`;
     }
 
-    /** Signum's GetScopes — the configured scopes, or the OIDC defaults. */
+    /** The configured scopes, or the OIDC defaults. */
     getScopes(): string[] {
         return hasText(this.scopes) ? this.scopes!.split(" ").filter(s => s !== "") : ["openid", "profile", "email"];
     }
 
-    /** Signum's ToOpenIDConfigTS — what the browser needs to start the flow (never the client secret). */
+    /** What the browser needs to start the flow (never the client secret). */
     toClientConfig(): OpenIDClientConfig | null {
         return !this.enabled ? null : {
             authority: this.authority!,
@@ -70,7 +67,7 @@ export class OpenIDConfigurationEmbedded extends BaseADConfigurationEmbedded {
             scopes: this.getScopes(),
         };
     }
-    /** Signum's `MList<RoleMappingEmbedded> RoleMapping` — this configuration's own @part rows (the row type
+    /** This configuration's own @part rows (the row type
      *  is per module, see BaseAD's header). */
     @noRepeatValidator()
     roleMapping: OpenIDRoleMappingEntity[];
@@ -79,7 +76,7 @@ export class OpenIDConfigurationEmbedded extends BaseADConfigurationEmbedded {
 
 }
 
-// Signum's RoleMappingEmbedded rows for this configuration (see BaseAD's RoleMappingEntity).
+// This configuration's own role-mapping rows (see BaseAD's RoleMappingEntity).
 @part
 export class OpenIDRoleMappingEntity extends RoleMappingEntity {
     // The rows belong to the ENTITY holding this configuration — the application's settings row, which a
@@ -92,7 +89,7 @@ function hasText(s: string | null | undefined): boolean {
     return s != null && s.trim() !== "";
 }
 
-/** Signum's OpenIDConfigTS — the browser-visible half of the configuration. */
+/** The browser-visible half of the configuration. */
 export interface OpenIDClientConfig {
     authority: string;
     clientId: string;
@@ -105,12 +102,9 @@ export interface OpenIDEndpoints {
     endSessionEndpoint?: string;
 }
 
-/** Signum's `[AllowUnauthenticated] enum OpenIDMessage`. */
+/** Readable by an ANONYMOUS caller: these strings appear on the login screen. */
 export const OpenIDMessage = {
     SignInWithOpenID: msg("Sign in with OpenID"),
 };
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("openid")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("openid");

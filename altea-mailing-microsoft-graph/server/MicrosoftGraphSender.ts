@@ -15,29 +15,22 @@ import { AzureADLogic } from "@altea/altea-auth-azuread/server/AzureADLogic";
 import { MicrosoftGraph } from "@altea/altea-auth-azuread/server/MicrosoftGraph";
 import type { MicrosoftGraphEmailServiceEntity } from "../data/MailingMicrosoftGraph";
 
-// Port of Signum.Mailing.MicrosoftGraph's MicrosoftGraphSender.cs — send one EmailMessage through the Graph
-// `sendMail` endpoint, as the FROM address's own mailbox.
+// Send one EmailMessage through the Graph `sendMail` endpoint, as the FROM address's own mailbox.
 //
-// altea divergences, documented inline:
-//  - `GraphServiceClient` + `Azure.Identity` become the REST helper altea-auth-azuread already has (see its
-//    MicrosoftGraph.ts header for why). `GeTokenCredential()` becomes `graphConfig()` below: either the app's
-//    own Entra registration (`useActiveDirectoryConfiguration`) or this service's three fields, expressed as
-//    the same AzureADConfigurationEmbedded the helper takes. `SignumTokenCredentials.OverridenTokenCredential`
-//    is honoured too — the helper checks its own AsyncLocalStorage override first.
-//  - `senderUser.SendMail.PostAsync(...)` and the big-attachment `LargeFileUploadTask` become explicit REST:
-//    `POST /users/{id}/sendMail` for the small case, and — over the 3 MB limit — `POST /users/{id}/messages`,
-//    then a chunked upload session per big attachment, then `POST …/send`. Signum's flow exactly, including
-//    its 320 KB slice size (Graph requires a multiple of 320 KiB for all but the last slice).
-//  - `email.From.AzureUserId` is carried over as-is; altea fills it from the email owner's `externalId`
-//    through the EmailOwnerData registry (see altea-email's data/Email.ts), so an app whose owners do not
-//    supply one cannot send through Graph — which the error below says outright.
-//  - `ODataException` (Signum's wrapper that surfaces Graph's inner error) is unnecessary: the REST helper
-//    already puts the response body in the error message.
+// TWO flows, as Graph requires: `POST /users/{id}/sendMail` for a small message, and — over the 3 MB limit
+// — `POST /users/{id}/messages`, then a chunked upload session per big attachment, then `POST …/send`. The
+// slice size is 320 KB because **Graph requires a multiple of 320 KiB for all but the last slice**.
+//
+// `graphConfig()` resolves either the app's own Entra registration (`useActiveDirectoryConfiguration`) or
+// this service's three fields, both as the AzureADConfigurationEmbedded the REST helper takes; the helper
+// checks its own AsyncLocalStorage credential override first.
+//
+// See docs/port/MailingMicrosoftGraph.md.
 
-/** Signum's `MicrosoftGraphFileSizeLimit` — over this, an attachment needs an upload session. */
+/** Over this, an attachment needs an upload session. */
 export let microsoftGraphFileSizeLimit = 3 * 1024 * 1024;
 
-/** Graph requires every slice but the last to be a multiple of 320 KiB (Signum's `maxSliceSize`). */
+/** Graph requires every slice but the last to be a multiple of 320 KiB. */
 const uploadSliceSize = 320 * 1024;
 
 export class MicrosoftGraphSender extends EmailSenderBase {
@@ -63,7 +56,7 @@ export class MicrosoftGraphSender extends EmailSenderBase {
     }
 
     /**
-     * Signum's `GeTokenCredential()` — which Entra registration this send authenticates with. NOTE the
+     * Which Entra registration this send authenticates with. NOTE the
      * `useActiveDirectoryConfiguration` branch reaches into the AUTH module's configuration on purpose: the
      * point of the flag is not to duplicate the tenant's client secret in the mail settings.
      */
@@ -83,7 +76,7 @@ export class MicrosoftGraphSender extends EmailSenderBase {
         });
     }
 
-    /** Signum's ToGraphMessage, splitting off the attachments that need an upload session. */
+    /** The Graph message body, splitting off the attachments that need an upload session. */
     private async toGraphMessage(email: EmailMessageEntity): Promise<{ message: GraphMessage; bigAttachments: GraphFileAttachment[] }> {
         const attachments: GraphFileAttachment[] = [];
         for (const a of email.attachments) {
@@ -121,7 +114,7 @@ export class MicrosoftGraphSender extends EmailSenderBase {
 }
 
 /**
- * Signum's static `SendMessage(senderUser, message)` — exported for the same reason it is public there: an
+ * Exported so a caller can send a Graph message directly: an
  * app that composes a Graph message itself can send it through the same path.
  */
 export async function sendMessage(
@@ -131,14 +124,14 @@ export async function sendMessage(
     bigAttachments: GraphFileAttachment[] = [],
 ): Promise<void> {
     if (bigAttachments.length === 0) {
-        // Signum: `SaveToSentItems = false` — the message is already stored as an EmailMessage row here.
+        // `saveToSentItems: false` — the message is already stored as an EmailMessage row here.
         await MicrosoftGraph.send<void>(config, "POST", `users/${userId}/sendMail`,
             { message, saveToSentItems: false });
         return;
     }
 
     // Over the size limit an attachment cannot ride the request, so: create a DRAFT, upload each big
-    // attachment in slices, then send the draft (Signum's `IsDraft = true` … `Drafts/…/Send` flow).
+    // attachment in slices, then send the draft.
     const draft = await MicrosoftGraph.send<{ id?: string }>(config, "POST", `users/${userId}/messages`,
         { ...message, isDraft: true });
 
@@ -151,7 +144,7 @@ export async function sendMessage(
     await MicrosoftGraph.send<void>(config, "POST", `users/${userId}/messages/${draft.id}/send`);
 }
 
-/** Signum's `LargeFileUploadTask<FileAttachment>(uploadSession, fileStream, maxSliceSize).UploadAsync()`. */
+/** Upload one big attachment through a Graph upload session, slice by slice. */
 async function uploadBigAttachment(
     config: AzureADConfigurationEmbedded,
     userId: string,
@@ -224,12 +217,12 @@ export interface GraphFileAttachment {
     size: number;
 }
 
-/** Signum's `ToRecipient(EmailAddressEmbedded)`. */
+/** An address in Graph's recipient shape. */
 function recipientOf(address: EmailAddressEmbedded): GraphRecipient {
     return { emailAddress: { address: address.emailAddress, name: address.displayName } };
 }
 
-/** Signum's `ToRecipient(EmailRecipientEmbedded)` — honours OverrideEmailAddress (the test catch-all) and
+/** Honours OverrideEmailAddress (the test catch-all) and
  *  refuses to build an address at all when sending is off. */
 function recipientOfRecipient(recipient: EmailRecipientBaseEntity): GraphRecipient {
     const config = EmailLogic.configuration();

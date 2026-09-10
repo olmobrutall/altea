@@ -14,14 +14,13 @@ import { DirectoryServiceContext, WindowsADAuthorizer } from "./WindowsADAuthori
 import { WindowsADLogic } from "./WindowsADLogic";
 import { WindowsDirectory, localNameOf } from "./WindowsDirectory";
 
-// Port of Signum.Authorization.WindowsAD's WindowsADServer.cs + WindowsADController.cs — the two routes:
-// integrated Windows sign-in, and the AD thumbnail photo.
+// The two routes: integrated Windows sign-in, and the AD thumbnail photo.
 //
 // ══ THE ONE THING THAT DOES NOT PORT ═══════════════════════════════════════════════════════════════════
-// Signum reads the caller's Windows identity from `HttpContext.User as WindowsPrincipal`, which IIS fills in
-// after completing an SPNEGO / Kerberos handshake. Node has no SSPI: there is no supported, portable way to
-// complete that handshake in-process, and the native modules that can (node-expose-sspi) are Windows-only
-// node-gyp builds that break every non-Windows install of this package.
+// Reading the caller's Windows identity needs a completed SPNEGO / Kerberos handshake, which IIS does for
+// an ASP.NET host. Node has no SSPI: there is no supported, portable way to complete that handshake
+// in-process, and the native modules that can (node-expose-sspi) are Windows-only node-gyp builds that
+// break every non-Windows install of this package.
 //
 // So `negotiateProvider` is a SEAM, null by default: with none installed the endpoint answers a clear error
 // instead of pretending. A Windows host that wants real SSO installs one — for example a reverse proxy that
@@ -36,11 +35,10 @@ import { WindowsDirectory, localNameOf } from "./WindowsDirectory";
 // the photo, the deactivate-users task — works with no provider at all.
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 //
-// Other altea divergences:
-//  - the find-or-create block is `ADAuthorizer.findOrCreateUser`-shaped, though this path keeps Signum's own
-//    ordering because it must look the user up BY SID first (the SID is what the handshake yields).
-//  - `AuthServer.OnUserPreLogin` / `AddUserSession` → `UserHolder.setCurrent` + `AuthServer.userLogged`.
-//  - `Response.GetTypedHeaders().CacheControl` → an explicit `Cache-Control` header.
+// This path looks the user up BY SID first — the SID is what the handshake yields — rather than going
+// straight through `ADAuthorizer.findOrCreateUser`.
+//
+// See docs/port/AuthDirectory.md.
 
 /** What a Negotiate provider must yield: the Windows account name, and its SID when it knows it. */
 export interface NegotiatedIdentity {
@@ -63,7 +61,7 @@ export namespace WindowsADServer {
     /** See the header. Null by default: this host cannot do integrated Windows authentication. */
     export let negotiateProvider: ((req: unknown) => Promise<NegotiatedIdentity | null>) | null = null;
 
-    /** Signum's `PictureMaxAge` — 7 hours. */
+    /** 7 hours. */
     export let pictureMaxAgeSeconds = 7 * 60 * 60;
 
     export function start(ws: WebBuilder): void {
@@ -107,7 +105,7 @@ export namespace WindowsADServer {
             });
     }
 
-    /** Signum's `LoginWindowsAuthentication(ac, throwErrors)`. */
+    /** Integrated sign-in: resolve the caller's Windows identity, then find or create the local user. */
     export async function loginWindowsAuthentication(req: unknown, throwErrors: boolean): Promise<UserEntity | null> {
         return await AuthLogic.withDisabled(async () => {
             try {
@@ -139,7 +137,7 @@ export namespace WindowsADServer {
                 const ctx = new DirectoryServiceContext(config, localName, userName, directoryUser);
 
                 let user = await authorizer.tryFindUser(sid, userName, config.allowMatchUsersBySimpleUserName)
-                    // Signum also matches the LOCAL name here (`a.UserName == localName`), which the UPN
+                    // The LOCAL name is matched too, which the UPN
                     // match above does not cover when the two differ.
                     ?? await authorizer.tryFindUser(null, localName, config.allowMatchUsersBySimpleUserName);
 
@@ -172,7 +170,7 @@ export namespace WindowsADServer {
         });
     }
 
-    /** Signum's `throwErrors ? throw … : false` — the silent path must return null, not raise. */
+    /** The silent path must return null, not raise. */
     function fail(throwErrors: boolean, message: string): null {
         if (throwErrors)
             throw new Error(message);

@@ -9,11 +9,11 @@ import { LoginAuthMessage } from "@altea/altea-auth/data/AuthMessages";
 import { ResetPasswordAuthMessage } from "../data/ResetPassword";
 import { ResetPasswordClient } from "./ResetPasswordClient";
 
-// Port of Signum's ResetPassword.tsx — the page a mailed link lands on: type the new password twice, and
-// the response logs you straight in. `?code=OK` is the post-success state Signum navigates to.
+// The page a mailed link lands on: type the new password twice, and the response logs you straight in.
+// `?code=OK` is the post-success state.
 //
-// altea divergences: altea's ModelState maps a field to ONE message (Signum's is a string[]), and the
-// server's flat 400 body has exactly that shape — so `error(field)` is a direct lookup.
+// ModelState maps a field to ONE message, and the server's flat 400 body has exactly that shape — so
+// `error(field)` is a direct lookup.
 
 export default function ResetPassword(): React.JSX.Element {
     const location = useLocation();

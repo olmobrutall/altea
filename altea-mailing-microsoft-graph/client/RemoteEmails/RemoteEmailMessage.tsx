@@ -9,21 +9,15 @@ import IFrameRenderer from "@altea/altea-email/client/Templates/IframeRenderer";
 import { RemoteAttachmentEmbedded, type RemoteEmailMessageModel } from "../../data/RemoteEmailMessage";
 import { RemoteEmailsClient } from "./RemoteEmailsClient";
 
-// Port of Signum.Mailing.MicrosoftGraph/RemoteEmails' RemoteEmailMessage.tsx — the read-only view of ONE
-// remote message: who it is from and to, its categories, its (non-inline) attachments, and the body.
+// The read-only view of ONE remote message: who it is from and to, its categories, its (non-inline)
+// attachments, and the body.
 //
-// altea divergences, documented inline:
-//  - `FilesClient.extensionInfo[…]` (an icon + colour per file extension) is not part of altea's files port,
-//    so an attachment gets one generic file icon. Noted rather than reinvented.
-//  - The inline images are the interesting difference. Signum rewrites each `cid:` reference to the
-//    attachment route's URL and lets the browser fetch it, which needs that route to be ANONYMOUS. altea
-//    authenticates with a Bearer token, which an `<img src>` cannot carry, so the bytes are fetched through
-//    the app's own ajax and turned into blob URLs — the same thing altea-files' FileImage does — and the
-//    route stays authenticated (see RemoteEmailsServer's header).
-//  - `ctx.value.user.model as UserLiteModel).externalId` is gone: the routes take the USER's own id.
-//  - Signum shows the categories in a `<MultiValueLine/>`; altea's takes `R extends BaseEntity` (its
-//    scalar-collection line is not ported), and this view is read-only anyway — so they are rendered as
-//    plain text under the field's own label.
+// **The inline images are the interesting part.** A `cid:` reference cannot simply become the attachment
+// route's URL, because that route is AUTHENTICATED and an `<img src>` cannot carry a Bearer token — so the
+// bytes are fetched through the app's own ajax and turned into blob URLs, the same thing altea-files'
+// FileImage does.
+//
+// See docs/port/MailingMicrosoftGraph.md.
 export default function RemoteEmailMessage(p: { ctx: TypeContext<RemoteEmailMessageModel> }): React.JSX.Element {
     const ctx = p.ctx.subCtx({ readOnly: true });
 
@@ -119,7 +113,7 @@ export function RemoteEmailRenderer(p: { remoteEmail: RemoteEmailMessageModel })
                 return;
 
             const contentId = src.substring("cid:".length);
-            // Signum also matches the part before "@": some clients append a domain to the content id.
+            // The part before "@" is matched too: some clients append a domain to the content id.
             const bare = contentId.includes("@") ? contentId.substring(0, contentId.indexOf("@")) : null;
 
             const attachment = p.remoteEmail.attachments.find(a =>

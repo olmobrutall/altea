@@ -3,13 +3,11 @@ import { QueryString } from "@altea/altea/client/QueryString";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 import { OpenIDAuthenticator } from "./OpenIDAuthenticator";
 
-// Port of Signum.Authorization.OpenID's OpenIDCallback.tsx — the page the provider redirects back to with
-// `?code=…&state=…`. It posts the code to the server, stores the returned token, and continues to wherever
-// the user was heading.
+// The page the provider redirects back to with `?code=…&state=…`. It posts the code to the server, stores
+// the returned token, and continues to wherever the user was heading.
 //
-// altea divergences: the error branch RENDERS the failure (Signum's version had its ternary inverted, so a
-// successful callback showed "Error" and a failure showed the spinner) and keeps the message, rather than
-// only rethrowing.
+// The error branch RENDERS the failure and keeps the message, rather than only rethrowing. (Signum's
+// ternary is inverted, so there a success shows "Error" and a failure shows the spinner.)
 
 export default function OpenIDCallback(): React.JSX.Element {
 

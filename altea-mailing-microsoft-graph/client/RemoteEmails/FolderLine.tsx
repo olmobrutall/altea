@@ -8,16 +8,12 @@ import type { UserEntity } from "@altea/altea-auth/data/User";
 import { RemoteEmailFolderModel } from "../../data/RemoteEmailMessage";
 import { RemoteEmailsClient } from "./RemoteEmailsClient";
 
-// Port of Signum.Mailing.MicrosoftGraph/RemoteEmails' FolderLine.tsx — the folder FILTER editor: a plain
-// <select> over the mailbox's real folders, fetched for whichever user the query is filtered by.
+// The folder FILTER editor: a plain <select> over the mailbox's real folders, fetched for whichever user
+// the query is filtered by.
 //
-// The effect is the interesting part and is kept as-is: a folder that arrived from a URL carries its own id as
-// its displayName (see RemoteEmailsClient's decodeModel), so once the real folder list lands the name is
-// filled in; and a folder that is NOT in the list at all is cleared, because it belongs to another mailbox.
-//
-// altea divergences: the import paths, and the user's mailbox is addressed by the USER's own lite (the routes
-// resolve the directory object id server-side — see RemoteEmailsServer's header) instead of by reading
-// `UserLiteModel.externalId`, which altea has no lite model to hold.
+// The effect is the interesting part: a folder that arrived from a URL carries its own id as its
+// displayName (see RemoteEmailsClient's decodeModel), so once the real folder list lands the name is filled
+// in — and a folder that is NOT in the list at all is CLEARED, because it belongs to another mailbox.
 export function FolderLine(p: {
     ctx: TypeContext<RemoteEmailFolderModel | null>;
     user: Lite<UserEntity> | undefined;

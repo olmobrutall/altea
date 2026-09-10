@@ -9,19 +9,15 @@ import { LoginOptions } from "@altea/altea-auth/client/public/LoginPage";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { ResetPasswordRequestEntity } from "../data/ResetPassword";
 
-// Port of Signum's ResetPasswordClient (Signum.Authorization.ResetPassword/ResetPasswordClient.tsx) — the
-// PUBLIC half of the module: two anonymous routes and the "I have forgotten my password" link under the
-// login form.
+// The PUBLIC half of the module: two anonymous routes and the "I have forgotten my password" link under
+// the login form.
 //
-// altea divergences:
-//  - `ChangeLogClient.registerChangeLogModule` has no altea counterpart (no changelog subsystem ported).
-//  - `LoginOptions` is imported from altea-auth's LoginPage (that is where the React-typed login options
-//    live in altea — the AuthClient hub itself is React-free).
-//  - Signum's `Link` came from `react-router-dom`; altea is on react-router v8, which exports it directly.
+// `LoginOptions` comes from altea-auth's LoginPage — that is where the React-typed login options live,
+// since the AuthClient hub itself is React-free.
 
 export namespace ResetPasswordClient {
 
-    /** Signum's `startPublic({routes})` — called from MainPublic, so an anonymous visitor can reach it. */
+    /** Called from MainPublic, so an anonymous visitor can reach it. */
     export function startPublic(routes: RouteObject[]): void {
         routes.push({ path: "/auth/forgotPasswordEmail", element: <ImportComponent onImport={() => import("./ForgotPasswordEmailPage")} /> });
         routes.push({ path: "/auth/resetPassword", element: <ImportComponent onImport={() => import("./ResetPassword")} /> });
@@ -33,7 +29,7 @@ export namespace ResetPasswordClient {
     }
 
     /**
-     * The ADMIN half: the request table's query settings. Signum declares those columns server-side
+     * The ADMIN half: the request table's query settings. Those columns are declared here rather than
      * (`sb.Include<ResetPasswordRequestEntity>().WithQuery(() => e => new { e.Id, e.RequestDate, e.Code,
      * e.User, e.User.Email })`); in altea the default COLUMNS are a client concern, so they live here.
      *

@@ -8,28 +8,22 @@ import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol } from "@altea/altea/data/operations";
 import { UserEntity } from "@altea/altea-auth/data/User";
 
-// Port of Signum.Authorization.ResetPassword's ResetPasswordRequest.cs — a single-use, time-limited code
-// mailed to a user so they can set a new password without being logged in.
+// A single-use, time-limited code mailed to a user so they can set a new password without being logged in.
 //
-// altea divergences, documented inline:
-//  - Signum's `[ExpressionField] bool IsValid / IsExpired` become `@quoted` methods, altea's one form for
-//    "a body that is both an in-memory function and a SQL expression". BUT the comparison inside is a
-//    relational operator on Temporal values, which the LINQ provider translates and JS does NOT support
-//    (Temporal deliberately has no `valueOf`), so `isValid()` / `isExpired()` are QUERY-ONLY. The
-//    in-memory answer comes from `validate()` below, which does the same comparison with
-//    `Temporal.PlainDateTime.compare`. Signum needs no such split because .NET's DateTime supports both.
-//  - `Random.Shared.NextString(32)` moves to the logic layer (`node:crypto`, server-only).
-//  - `Validate()` (Signum's entity-level hook) stays a plain method: it is a MESSAGE for the caller, not a
-//    field validation, and altea has no entity-level PropertyValidation hook anyway.
+// **`isValid()` / `isExpired()` are QUERY-ONLY.** They are `@quoted`, but the comparison inside is a
+// relational operator on Temporal values — which the LINQ provider translates and JavaScript does not
+// support, since Temporal deliberately has no `valueOf`. The in-memory answer comes from `validate()`
+// below, which does the same comparison through `Temporal.PlainDateTime.compare`.
+//
+// Port of Signum.Authorization.ResetPassword's ResetPasswordRequest.cs — see docs/port/ResetPassword.md.
 
-/** How long a mailed reset code stays usable (Signum hard-codes 2 hours in the IsExpired expression). */
+/** How long a mailed reset code stays usable. Two hours, as in Signum — but settable here. */
 export const RESET_PASSWORD_VALID_HOURS = 2;
 
 @reflect
 @entity("System", "Transactional")
 export class ResetPasswordRequestEntity extends Entity {
-    // Signum's `[UniqueIndex(AvoidAttachToUniqueIndexes = true)]`; altea has no AvoidAttachToUniqueIndexes
-    // (it is a Signum query-optimisation hint), so a plain unique index.
+    // A plain unique index: there is no per-index opt-out from the isolation rewrite to express.
     @uniqueIndex
     @stringLengthValidator({ max: 100 })
     code: string;
@@ -40,14 +34,14 @@ export class ResetPasswordRequestEntity extends Entity {
 
     used: boolean = false;
 
-    /** Signum's IsValidExpression. QUERY-ONLY — see the header note; use `validate()` in memory. */
+    /** QUERY-ONLY — see the header; use `validate()` in memory. */
     @legacyPropertyRoute
     @quoted
     isValid(): boolean {
         return !this.used && !this.isExpired();
     }
 
-    /** Signum's IsExpiredExpression. QUERY-ONLY — see the header note. */
+    /** QUERY-ONLY — see the header. */
     @legacyPropertyRoute
     @quoted
     isExpired(): boolean {
@@ -55,7 +49,7 @@ export class ResetPasswordRequestEntity extends Entity {
     }
 
     /**
-     * Signum's `Validate()` — null when the code may still be used, else WHY it may not. The in-memory
+     * Null when the code may still be used, else WHY it may not. The in-memory
      * twin of `isValid()` (see the header note on why they cannot be one method).
      */
     validate(): string | null {
@@ -71,21 +65,21 @@ export class ResetPasswordRequestEntity extends Entity {
         return null;
     }
 
-    // No `toString()`: Signum's ResetPasswordRequestEntity does not override it, so its table has no
+    // No `toString()`, so the table has no
     // ToStr column — a request is short-lived bookkeeping nobody browses by name. Entity's own
     // "<nice name> <id>" default (which IS translatable) stands in.
 }
 
 // ---- E-mail models ---------------------------------------------------------------------------------------
 //
-// Signum's `ResetPasswordRequestEmail : EmailModel<ResetPasswordRequestEntity>` and
+// The two email models this module declares:
 // `UserLockedMail : EmailModel<UserEntity>` are plain C# classes whose public `Url` field the template
 // reads as `@[m:Url]`. altea's templating resolves a `@[m:…]` member off the REGISTERED model TYPE's
 // reflection metadata, so the shape has to be a declared model entity — these two — while the object the
 // renderer actually walks is assembled on the server (see ResetPasswordRequestLogic).
 
-/** Signum's ResetPasswordRequestEmail — "here is your reset link". The name is Signum's exactly: it is
- *  the EmailModel registry ROW (mailing.email_model.class_name), so "Mail" here read as a model Southwind
+/** "Here is your reset link". The NAME is Signum's exactly, because it is the EmailModel registry ROW
+ *  (mailing.email_model.class_name) — so "Mail" here would read as a model Southwind
  *  does not have plus one of its own that was gone. */
 @reflect
 export class ResetPasswordRequestEmail extends ModelEntity {
@@ -93,18 +87,18 @@ export class ResetPasswordRequestEmail extends ModelEntity {
     url: string;
 }
 
-/** Signum's UserLockedMail — "your account was locked; here is a reset link". */
+/** "your account was locked; here is a reset link". */
 @reflect
 export class UserLockedMail extends ModelEntity {
     url: string;
 }
 
-/** Signum's `[AutoInit] static class ResetPasswordRequestOperation`. */
+/** The request's operations. */
 export namespace ResetPasswordRequestOperation {
     export const Execute: ExecuteSymbol<ResetPasswordRequestEntity> = init();
 }
 
-// Signum's `enum ResetPasswordMessage` — the e-mail bodies and the page text.
+// The e-mail bodies and the page text.
 export const ResetPasswordMessage = {
     YouRecentlyRequestedANewPassword: msg("You recently requested a new password"),
     YourUsernameIs: msg("Your username is:"),
@@ -120,14 +114,11 @@ export const ResetPasswordMessage = {
     IfEmailIsValidWeWillSendYouAnEmailToResetYourPassword: msg(),
 };
 
-// Signum's `[AllowUnauthenticated] enum ResetPasswordAuthMessage` — text an ANONYMOUS visitor sees.
+// Text an ANONYMOUS visitor sees.
 export const ResetPasswordAuthMessage = {
     PleaseConsiderRequestingANewLink: msg(),
     RequestNewLink: msg(),
     NewLinkToResetPasswordHasBeenSentSuccessfully: msg(),
 };
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("auth")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("auth");

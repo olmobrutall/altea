@@ -4,25 +4,21 @@ import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea
 import { type uuid } from "@altea/altea/data/basics";
 import { EmailServiceEntity } from "@altea/altea-email/data/EmailSenderConfiguration";
 
-// Port of Signum.Mailing.MicrosoftGraph's MicrosoftGraphEmailServiceEntity.cs — sending through the Graph
-// `sendMail` endpoint instead of SMTP. One more implementation of altea-email's abstract EmailServiceEntity.
+// Sending through the Graph `sendMail` endpoint instead of SMTP. One more implementation of altea-email's
+// abstract EmailServiceEntity.
 //
 // The interesting field is `useActiveDirectoryConfiguration`: with it set, the service borrows the
-// application's EXISTING Entra ID registration (@altea/altea-auth-azuread's AzureADConfiguration) instead of
-// carrying its own client secret — which is what an app that already signs users in through Entra wants.
-// Signum's PropertyValidation makes the three Azure fields mandatory only when it is NOT set; altea says the
-// same thing with three `@validate`s, since altea has no PropertyValidation switchboard.
+// application's EXISTING Entra ID registration (@altea/altea-auth-azuread's AzureADConfiguration) instead
+// of carrying its own client secret — which is what an app that already signs users in through Entra
+// wants. The three Azure fields are mandatory only when it is NOT set, hence three `@validate`s.
 //
-// altea divergences, documented inline:
-//  - `[Description("Azure Application (client) ID")]` becomes `@niceName(...)`.
-//  - `Guid?` becomes `uuid | null`.
-//  - `Azure_ClientSecret` is stored ENCRYPTED (`EmailSenderConfigurationLogic.encryptPassword`) and edited
-//    through a `newAzure_ClientSecret` field, which is what altea's own SMTP service does. Signum stores the
-//    secret in the clear here — it declares no `[Format(Password)]` and no JSON converter for this type, so
-//    the value round-trips to the browser on every read. That is worth diverging from: it is a tenant-wide
-//    application credential.
+// **`azure_ClientSecret` is stored ENCRYPTED** and edited through `newAzure_ClientSecret`, as altea's own
+// SMTP service does: it is a tenant-wide application credential, and storing it in the clear would
+// round-trip it to the browser on every read.
+//
+// Port of Signum.Mailing.MicrosoftGraph's MicrosoftGraphEmailServiceEntity.cs — see
+// docs/port/MailingMicrosoftGraph.md.
 
-// Signum's MicrosoftGraphEmailServiceEntity.
 @reflect
 @part
 export class MicrosoftGraphEmailServiceEntity extends EmailServiceEntity {
@@ -65,7 +61,4 @@ export class MicrosoftGraphEmailServiceEntity extends EmailServiceEntity {
     }
 }
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("mailing")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("mailing");

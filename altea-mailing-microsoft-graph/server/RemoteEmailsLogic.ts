@@ -25,15 +25,13 @@ import {
 } from "../data/RemoteEmailMessage";
 import { RemoteEmailsServer } from "./RemoteEmailsServer";
 
-// Port of Signum.Mailing.MicrosoftGraph/RemoteEmails' RemoteEmailsLogic.cs — the search page over a USER'S
-// REAL OUTLOOK MAILBOX. Every row comes from a live Microsoft Graph call; nothing is stored.
+// The search page over a USER'S REAL OUTLOOK MAILBOX. Every row comes from a live Microsoft Graph call;
+// nothing is stored.
 //
-// altea divergences, documented inline:
-//  - `QueryLogic.Queries.Register(RemoteEmailMessageQuery.RemoteEmailMessages, () => DynamicQueryCore.Manual(…))`
-//    becomes `QueryLogic.queries.register(RemoteEmailMessageRowModel, () => new ManualDynamicQueryCore(…))`:
-//    altea has no QueryDescription, so the query's NAME is its row model and the column captions are the
-//    model's own `@niceName`s. That also removes Signum's `.ColumnProperyRoutes(...)` calls, whose whole job
-//    was to tell the client which PropertyRoute each anonymous-projection column came from.
+// The query is registered by its ROW MODEL, so the column captions are the model's own `@niceName`s and
+// there is nothing to tell the client about each column's PropertyRoute.
+//
+// See docs/port/MailingMicrosoftGraph.md.
 //  - `Implementations.By(typeof(UserEntity)) /*Lie*/` on the query's entity column is unnecessary: the row
 //    model DECLARES `entity: Lite<UserEntity> | null`, so the implementation is structural.
 //  - `FilterValueConverter.SpecificConverters.Add(new RemoteEmailFolderConverter())` — the XML/URL form of a
@@ -46,20 +44,20 @@ import { RemoteEmailsServer } from "./RemoteEmailsServer";
 
 export namespace RemoteEmailsLogic {
 
-    /** Signum's `HardCodedCategories` — an app that manages its own category list overrides the Graph one. */
+    /** An app that manages its own category list overrides the Graph one. */
     export let hardCodedCategories: (() => string[]) | null = null;
 
-    /** Signum's `GetTokenCredentials` — which Entra registration a mailbox is read with. */
+    /** Which Entra registration a mailbox is read with. */
     export let getGraphConfig: (mailboxId: string) => AzureADConfigurationEmbedded =
         () => AzureADLogic.requireConfig();
 
-    /** Signum's `Converter` — replaceable, because `GetExpansionPropertyId` is the app's extension point.
+    /** Replaceable, because `GetExpansionPropertyId` is the app's extension point.
      *  Assigned below the class declaration (a namespace initializer runs before it). */
     export let converter: MessageMicrosoftGraphQueryConverter = null!;
 
     /**
-     * Signum's `GetMailbox` — the DIRECTORY OBJECT ID of a user's mailbox, which is what every Graph call in
-     * this feature is addressed by. Signum reads it off the user's lite MODEL (`UserLiteModel.ExternalId`);
+     * The DIRECTORY OBJECT ID of a user's mailbox, which is what every Graph call in
+     * this feature is addressed by. It is resolved from the USER row here, not read off a lite model;
      * altea has no lite model, so the user's own `externalId` column is read instead.
      */
     export let getMailbox: (user: Lite<UserEntity>) => Promise<string> = user =>
@@ -86,7 +84,8 @@ export namespace RemoteEmailsLogic {
 
         QueryLogic.queries.register(RemoteEmailMessageRowModel, () =>
             new ManualDynamicQueryCore(RemoteEmailMessageRowModel, async request => {
-                // WHOSE mailbox. Signum extracts the `User` EqualTo condition and throws without it; so does
+                // WHOSE mailbox: the `User` EqualTo condition is extracted, and the query throws without
+                // it — as does
                 // this — an unscoped "all mailboxes" read is not something Graph or this feature offers.
                 const { extracted: userFilter, rest } = extractFilter(request, "user");
                 const user = userFilter?.value as Lite<UserEntity> | undefined;
@@ -127,7 +126,7 @@ export namespace RemoteEmailsLogic {
             RemoteEmailsServer.start(sb.webBuilder);
     }
 
-    /** Signum's mail-folder lookup — `folderId -> RemoteEmailFolderModel`, so a row can show a folder NAME. */
+    /** `folderId -> RemoteEmailFolderModel`, so a row can show a folder NAME. */
     export async function mailFolders(config: AzureADConfigurationEmbedded, mailbox: string): Promise<Map<string, RemoteEmailFolderModel>> {
         const response = await MicrosoftGraph.get<GraphCollection<{ id?: string; displayName?: string }>>(
             config, `users/${mailbox}/mailFolders`,
@@ -138,7 +137,7 @@ export namespace RemoteEmailsLogic {
             .map(f => [f.id!, RemoteEmailFolderModel.create({ folderId: f.id!, displayName: f.displayName ?? "" })]));
     }
 
-    /** Signum's `RemoteEmailFolderModel` fallback for a folder the listing did not include. */
+    /** The fallback for a folder the listing did not include. */
     export function folderOf(folders: Map<string, RemoteEmailFolderModel>, parentFolderId: string | undefined): RemoteEmailFolderModel | null {
         if (parentFolderId == undefined)
             return null;
@@ -147,7 +146,7 @@ export namespace RemoteEmailsLogic {
             ?? RemoteEmailFolderModel.create({ folderId: parentFolderId, displayName: "Unknown" });
     }
 
-    /** Signum's `ToRecipientEmbedded(Recipient)`. */
+    /** A Graph recipient as this module's own embedded. */
     export function toRecipientEmbedded(r: GraphRecipient | undefined): RecipientEmbedded | null {
         if (r == undefined)
             return null;
@@ -195,7 +194,7 @@ export namespace RemoteEmailsLogic {
     }
 
     /**
-     * Signum's `response.Value.Skip(skip).Select(request.Columns).OrderBy(request.Orders).WithCount(...)`.
+     * Page, project and order the Graph page in memory, then report the count.
      * The local SKIP is not an optimisation to drop: Graph pages with an opaque cursor, so there is no
      * `$skip` — the converter asks for `elementsPerPage * currentPage` rows and the wanted page is the TAIL.
      */
@@ -213,7 +212,7 @@ export namespace RemoteEmailsLogic {
             .toResultTable(request.columns, request.pagination);
     }
 
-    /** Pull ONE `EqualTo` condition on `key` out of the request's filters (Signum's `Filters.Extract`). */
+    /** Pull ONE `EqualTo` condition on `key` out of the request's filters. */
     function extractFilter(request: QueryRequest, key: string): { extracted: FilterCondition | undefined; rest: Filter[] } {
         let extracted: FilterCondition | undefined;
         const rest = request.filters.filter(f => {
@@ -228,7 +227,7 @@ export namespace RemoteEmailsLogic {
     }
 
     /**
-     * Signum's FixFiltersAndOrders, and the comment it links to is the whole story:
+     * Graph silently LOOSENS what it cannot express, and that is the whole story:
      * https://learn.microsoft.com/en-us/graph/api/user-list-messages#using-filter-and-orderby-in-the-same-query
      *
      * Graph refuses `$filter` + `$orderby` on messages unless the ORDER-BY fields appear FIRST in the filter,
@@ -260,7 +259,7 @@ export namespace RemoteEmailsLogic {
         return { filters: [...reordered, ...remaining], orders: keptOrders };
     }
 
-    /** Signum's CreateTrivialFilter — `token == v OR token != v`, which is true for every row. */
+    /** `token == v OR token != v`, which is true for every row. */
     function trivialFilter(token: QueryToken): Filter {
         const typeName = token.type.typeName;
         const value: unknown =
@@ -277,7 +276,7 @@ export namespace RemoteEmailsLogic {
         ]);
     }
 
-    /** Signum's InMSGRaph (the typo is Signum's) — the two columns Graph knows nothing about. */
+    /** The two columns Graph knows nothing about, so they are filtered and ordered in memory. */
     function inMicrosoftGraph(token: QueryToken): boolean {
         const key = token.fullKey();
         return !key.startsWith("entity") && !key.startsWith("user");
@@ -285,7 +284,7 @@ export namespace RemoteEmailsLogic {
 }
 
 /**
- * Port of Signum's MessageMicrosoftGraphQueryConverter — the message-specific overrides on top of
+ * The message-specific overrides on top of
  * altea-auth-azuread's converter: the folder columns collapse to `parentFolderId`, a recipient's members map
  * to `emailAddress/address` / `emailAddress/name`, and the Extension columns become single-value extended
  * properties (which an app enables by overriding `getExpansionPropertyId`).
@@ -348,7 +347,7 @@ export class MessageMicrosoftGraphQueryConverter extends MicrosoftGraphQueryConv
         return super.toFilter(f);
     }
 
-    /** Signum's GetExpand — pull each requested Extension column's extended property into the response. */
+    /** Pull each requested Extension column's extended property into the response. */
     getExpand(columns: Column[]): string[] | null {
         const expands = columns
             .map(c => c.token.fullKey())
@@ -360,7 +359,7 @@ export class MessageMicrosoftGraphQueryConverter extends MicrosoftGraphQueryConv
         return expands.length === 0 ? null : [...new Set(expands)];
     }
 
-    /** Signum's GetExtension — read one extended property off a returned message. */
+    /** Read one extended property off a returned message. */
     getExtension(m: GraphMailMessage, index: number): string | null {
         const id = this.getExpansionPropertyId(index);
         if (id == null || m.singleValueExtendedProperties == undefined)
@@ -370,7 +369,7 @@ export class MessageMicrosoftGraphQueryConverter extends MicrosoftGraphQueryConv
     }
 
     /**
-     * Signum's GetExpansionPropertyId — null by default, which is what makes the four Extension columns
+     * Null by default, which is what makes the four Extension columns
      * INERT until an app subclasses this converter and names its own extended properties (e.g.
      * `"String {6A9A7B04-…} Name CommunicationId"`). Install the subclass on
      * `RemoteEmailsLogic.converter`.

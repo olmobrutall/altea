@@ -36,20 +36,14 @@ import RemoteEmailPopover from "./RemoteEmailPopover";
 import { FolderLine } from "./FolderLine";
 import { MultiMessageProgressModal } from "./MultiMessageProgressModal";
 
-// Port of Signum.Mailing.MicrosoftGraph/RemoteEmails' RemoteEmailsClient.tsx — the whole client side of
-// "browse a user's real Outlook mailbox": the query's settings, the two filter editors, the Subject cell's
-// hover preview, the row actions (open / move / delete / categorise) as contextual items, and the same four
-// actions as buttons on an opened message.
+// The whole client side of "browse a user's real Outlook mailbox": the query's settings, the two filter
+// editors, the Subject cell's hover preview, the row actions (open / move / delete / categorise) as
+// contextual items, and the same four actions as buttons on an opened message.
 //
-// altea divergences, documented inline:
-//  - `Navigator.addSettings(new EntitySettings(T, view))` becomes `cb.configure(T).withView(…)`; the query is
-//    named by its ROW MODEL (`RemoteEmailMessageRowModel`), not an enum member (see the data module).
-//  - The user's mailbox is addressed by the USER's own lite id everywhere; Signum reads the directory object
-//    id off `UserLiteModel.externalId`, which altea has no lite model to carry (the routes resolve it — see
-//    RemoteEmailsServer's header). That also removes Signum's four "User has no OID" throws.
-//  - `ContextualMenuItem` is a React element in altea (Signum wraps it in `{ fullText, menu }`).
-//  - `sc.state.resultFindOptions` is read for the User filter, as in Signum; `getRowValue` and `markRows` are
-//    the same methods.
+// The mailbox is addressed by the USER's own lite id everywhere — the routes resolve the directory object
+// id server-side — and the query is named by its ROW MODEL (`RemoteEmailMessageRowModel`).
+//
+// See docs/port/MailingMicrosoftGraph.md.
 
 export namespace RemoteEmailsClient {
 
@@ -80,7 +74,7 @@ export namespace RemoteEmailsClient {
                 Promise.resolve(sc.addQuickFilter(qt, "EqualTo", value)),
         });
 
-        // A folder in a URL / a saved filter is just its id (Signum's server-side RemoteEmailFolderConverter;
+        // A folder in a URL / a saved filter is just its id (the server-side RemoteEmailFolderConverter;
         // altea formats and parses filter values client-side). The displayName is filled in once the real
         // folder list arrives — see FolderLine's effect.
         Finder.Encoder.encodeModel[RemoteEmailFolderModel.typeName] =
@@ -405,14 +399,14 @@ export namespace RemoteEmailsClient {
     }
 }
 
-/** Signum's RemoteEmailController.ChangeCategoriesRequest, as the client sends it. */
+/** The categorise request body, as the client sends it. */
 export interface ChangeCategoriesRequest {
     messageIds: string[];
     categoriesToAdd: string[];
     categoriesToRemove: string[];
 }
 
-/** One line of the bulk actions' NDJSON response (Signum's EmailResult). */
+/** One line of the bulk actions' NDJSON response. */
 export interface EmailResult {
     id: string;
     error?: string;
@@ -432,7 +426,7 @@ function userFilterValue(filters: FilterOptionParsed[]): Lite<UserEntity> | unde
     return undefined;
 }
 
-/** Signum's `string.etc(n)`. */
+/** Truncate to `n` characters with an ellipsis. */
 function etc(value: string, max: number): string {
     return value.length <= max ? value : value.substring(0, max - 3) + "...";
 }

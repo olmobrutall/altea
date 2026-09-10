@@ -11,31 +11,31 @@ import {
 } from "../data/RemoteEmailMessage";
 import { RemoteEmailsLogic, type GraphAttachment, type GraphMailMessage } from "./RemoteEmailsLogic";
 
-// Port of Signum.Mailing.MicrosoftGraph/RemoteEmails' RemoteEmailController.cs — the six calls the remote
+// The six calls the remote
 // mailbox UI makes: open one message, list folders, list categories, download an attachment, and the three
 // bulk actions (delete / move / change categories).
 //
 // altea divergences, documented inline:
-//  - The bulk actions keep Signum's NDJSON streaming (`Produces("application/x-ndjson")` +
+//  - The bulk actions stream NDJSON (one line per message,
 //    `ForeachNDJson`): one JSON object per message, flushed as it completes, so the progress modal can count
 //    them. Written out by hand here — altea's own operations layer has no server-side NDJSON helper yet, and
 //    this is the whole of it (a header, a line per result, `end()`).
-//  - The attachment download is AUTHENTICATED. Signum marks it `[SignumAllowAnonymous]`, which it has to,
+//  - The attachment download is AUTHENTICATED, where Signum must make it anonymous,
 //    because an inline image inside the message body is a plain `<img src>` and a cookie-less browser request
 //    would be rejected — but altea authenticates with a Bearer token, so a bare `src=` would not carry
 //    credentials ANYWAY. The client therefore fetches the bytes through the app's own ajax and rewrites the
 //    `cid:` images to blob URLs (the shape altea-files' FileImage already uses), which lets this route stay
 //    behind authentication instead of being reachable by anyone holding a message id.
-//  - Every route is addressed by the USER's PRIMARY KEY, where Signum's takes the directory object id
+//  - Every route is addressed by the USER's PRIMARY KEY, rather than by the directory object id
 //    (`{oid}`). Two reasons: altea has no lite MODEL, so the client never holds the oid to begin with; and
 //    resolving it server-side means a caller cannot read an arbitrary mailbox by naming its oid — it has to
 //    name a local user, whose row the ordinary type / row authorization already governs.
 //  - `MimeMapping.GetFileStreamResult(..., forDownload: true)` becomes an explicit Content-Type +
 //    Content-Disposition pair.
-//  - The `singleValueExtendedProperties($filter=id eq '…')` expansion Signum hard-codes on the single-message
+//  - The `singleValueExtendedProperties($filter=id eq '…')` expansion on the single-message
 //    read comes from `RemoteEmailsLogic.converter.getExpansionPropertyId` instead, so an app that names its
-//    own extended properties gets them here too (Signum's own hard-coded id was one deployment's).
-//  - Signum's single-message read fills Extension0..3 by calling `GetExtension(message, 0)` four times — the
+//    own extended properties gets them here too.
+//  - The single-message read fills Extension0..3 from ONE expansion rather than four calls — the
 //    index is copy-pasted. Fixed here (0..3), because reading extension 0 into all four columns is plainly
 //    not what was meant.
 
@@ -148,7 +148,7 @@ export namespace RemoteEmailsServer {
                 const request = await req.jsonTyped();
 
                 await forEachMessageNDJson(res, request.messageIds, "changeCategories", async messageId => {
-                    // Read-modify-write, as Signum does: Graph replaces the whole list on a PATCH.
+                    // Read-modify-write: Graph replaces the whole list on a PATCH.
                     const message = await MicrosoftGraph.get<{ categories?: string[] }>(
                         config, `users/${oid}/messages/${messageId}`, { select: ["categories"] });
 
@@ -164,23 +164,23 @@ export namespace RemoteEmailsServer {
             });
     }
 
-    /** Signum's RemoteEmailController.ChangeCategoriesRequest. */
+    /** The categorise request body. */
     export interface ChangeCategoriesRequest {
         messageIds: string[];
         categoriesToAdd: string[];
         categoriesToRemove: string[];
     }
 
-    /** Signum's `EmailResult` — one line of the NDJSON stream. */
+    /** One line of the NDJSON stream. */
     export interface EmailResult {
         id: string;
         error?: string;
     }
 
     /**
-     * Signum's `ForeachMessageNDJson` — run `action` for each message and stream one result object per line,
+     * Run `action` for each message and stream one result object per line,
      * so a failure is reported per message instead of aborting the batch. Each failure is also LOGGED (as
-     * Signum does), in its own transaction: `logException` is a write, and inside the failed request's
+     * in its own transaction: `logException` is a write, and inside the failed request's
      * transaction it would be rolled back with it (the gotcha the processes / scheduler ports both hit).
      */
     async function forEachMessageNDJson(
@@ -222,7 +222,7 @@ export namespace RemoteEmailsServer {
         return [...new Set(expands)];
     }
 
-    /** Signum's `new RemoteEmailMessageModel { … }` — the opened message. */
+    /** The opened message. */
     async function toMessageModel(
         oid: string,
         message: GraphMailMessage,
@@ -230,7 +230,7 @@ export namespace RemoteEmailsServer {
     ): Promise<RemoteEmailMessageModel> {
 
         // The mailbox is addressed by the directory object id; the MODEL shows the local user, so it is
-        // looked up by that id (Signum's `Database.Query<UserEntity>().Where(a => a.ExternalId == oidStr)`).
+        // looked up by that id.
         const user = await table(UserEntity).filter(u => u.externalId == oid).singleOrNull() as UserEntity | null;
         if (user == null)
             throw new Error(`No user has externalId '${oid}'`);

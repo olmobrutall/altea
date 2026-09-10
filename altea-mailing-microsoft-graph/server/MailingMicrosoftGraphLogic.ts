@@ -6,17 +6,15 @@ import { EmailSenderConfigurationLogic } from "@altea/altea-email/server/EmailSe
 import { MicrosoftGraphEmailServiceEntity } from "../data/MailingMicrosoftGraph";
 import { MicrosoftGraphSender } from "./MicrosoftGraphSender";
 
-// Port of Signum.Mailing.MicrosoftGraph's MailingMicrosoftGraphLogic.cs.
+// The module's start: include the service, fold the typed-in client secret into the stored (encrypted) one,
+// and CHECK that the app widened `EmailSenderConfigurationEntity.service` to reach this implementation —
+// widening `@implementedBy` must happen on BOTH TIERS before anything is (de)serialized, so the APP does it
+// and this fails loudly if that was forgotten.
 //
-// altea divergences, documented inline:
-//  - `sb.Settings.AssertImplementedBy((EmailSenderConfigurationEntity o) => o.Service, typeof(…))` is a
-//    CHECK, not a mutation: `@implementedBy` lives on the field and widening it must happen on BOTH TIERS
-//    before anything is (de)serialized, so the APP does it in its shared entity-overrides module and this
-//    fails loudly if it was forgotten.
-//  - The client secret is stored ENCRYPTED and edited through `newAzure_ClientSecret` (see the data module's
-//    header); that fold-in is registered here, the way altea-email's own SMTP service does it.
-//  - The REMOTE MAILBOX half is a separate `start` — Signum ships RemoteEmailsLogic.Start separately too, and
-//    an app that only SENDS through Graph has no reason to expose someone's inbox.
+// The REMOTE MAILBOX half is a separate `start`: an app that only SENDS through Graph has no reason to
+// expose someone's inbox.
+//
+// See docs/port/MailingMicrosoftGraph.md.
 
 export namespace MailingMicrosoftGraphLogic {
 
@@ -37,7 +35,7 @@ export namespace MailingMicrosoftGraphLogic {
         });
     }
 
-    /** Signum's `sb.Settings.AssertImplementedBy(o => o.Service, typeof(MicrosoftGraphEmailServiceEntity))`. */
+    /** A CHECK, not a mutation — the app must have widened `EmailSenderConfigurationEntity))`. */
     function assertImplementedBy(): void {
         const impl = getTypeInfo(EmailSenderConfigurationEntity)?.fields["service"]?.implementations;
         const types = impl?.kind === "implementedBy" ? impl.types() : [];

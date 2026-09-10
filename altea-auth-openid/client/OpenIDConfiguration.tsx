@@ -9,11 +9,7 @@ import { useForceUpdate } from "@altea/altea/client/Hooks";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { OpenIDConfigurationEmbedded } from "../data/OpenID";
 
-// Port of Signum.Authorization.OpenID's OpenIDConfiguration.tsx — the configuration editor.
-//
-// altea divergences: the Lines come from their own modules (altea has no `@framework/Lines` barrel), and
-// `formGroupHtmlAttributes={{ style: { display: "block" } }}` is written as `inlineCheckbox="block"`, the
-// same thing through altea's CheckboxLine prop.
+// The configuration editor.
 
 const roleClaimPathSuggestions = [
     "roles",
