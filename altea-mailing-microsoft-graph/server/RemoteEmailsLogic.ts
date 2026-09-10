@@ -11,6 +11,8 @@ import {
     type Filter, type QueryRequest,
 } from "@altea/altea/server/dynamicQuery/requests";
 import type { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
+import { EntityPropertyToken } from "@altea/altea/data/dynamicQuery/tokens/entityPropertyToken";
+import { memberPath } from "@altea/altea/data/accessedFields";
 import { Temporal } from "@altea/altea/data/basics";
 import { Lite } from "@altea/altea/data/lite";
 import { UserEntity } from "@altea/altea-auth/data/User";
@@ -292,7 +294,7 @@ export namespace RemoteEmailsLogic {
  */
 export class MessageMicrosoftGraphQueryConverter extends MicrosoftGraphQueryConverter {
 
-    override toGraphField(token: QueryToken, usage: GraphFieldUsage): string {
+    override toGraphField(token: QueryToken, _usage: GraphFieldUsage): string {
         // A TOKEN key on the left, a GRAPH field on the right.
         const key = token.fullKey();
         if (key.startsWith("Folder"))
@@ -305,18 +307,10 @@ export class MessageMicrosoftGraphQueryConverter extends MicrosoftGraphQueryConv
         for (let t: QueryToken | undefined = target; t != undefined; t = t.parent) {
             if (t.key === "")
                 continue;
-            // The row model's `MessageId` is Graph's `id` (see the model's note on why it cannot be `id`),
-            // and every other key is lowered into Graph's vocabulary as the base converter does.
-            parts.unshift(t.key === "MessageId" ? "id" : t.key.firstLower());
+            parts.unshift(graphPart(t));
         }
 
-        const field = parts.join("/");
-
-        // RecipientEmbedded's two members live under Graph's `emailAddress` complex property.
-        return field
-            .replace(/\/emailAddress$/, "/emailAddress/address")
-            .replace(/\/name$/, "/emailAddress/name")
-            + (usage === GraphFieldUsage.Select ? "" : "");
+        return parts.join("/");
     }
 
     override getOrderBy(orders: Order[]): string[] | null {
@@ -384,6 +378,35 @@ export class MessageMicrosoftGraphQueryConverter extends MicrosoftGraphQueryConv
 
 // The default converter, installed once the class exists (see the field's note).
 RemoteEmailsLogic.converter = new MessageMicrosoftGraphQueryConverter();
+
+/**
+ * The two `RecipientEmbedded` members Graph nests under its `emailAddress` complex property, identified the
+ * way Signum identifies them — by the MEMBER itself (`ReflectionTools.PropertyEquals(ept.PropertyInfo,
+ * piEmailAddress)`), not by how the assembled field happens to end.
+ *
+ * That distinction is the point of this helper. Matching `/\/name$/` on the finished string would rewrite
+ * ANY token ending in `name`, on any type: it is right for this row model only because nothing else in it
+ * has such a member, which is a fact about today's model rather than about the rule.
+ *
+ * The selectors go through the quote-transformer (`memberPath`), so they are compiler-checked and follow a
+ * rename — the counterpart of Signum's `GetPropertyInfo((RecipientEmbedded re) => re.EmailAddress)`.
+ */
+const recipientAddress = memberPath((r: RecipientEmbedded) => r.emailAddress);
+const recipientName = memberPath((r: RecipientEmbedded) => r.name);
+
+/** One step of a token path, as the Graph field name it contributes. */
+function graphPart(t: QueryToken): string {
+    if (t instanceof EntityPropertyToken && t.fieldInfo.declaringType?.ctor === RecipientEmbedded) {
+        if (t.fieldInfo.name === recipientAddress)
+            return "emailAddress/address";
+        if (t.fieldInfo.name === recipientName)
+            return "emailAddress/name";
+    }
+
+    // The row model's `MessageId` is Graph's `id` (see the model's note on why it cannot be `id`); every
+    // other key is lowered into Graph's vocabulary, as the base converter does.
+    return t.key === "MessageId" ? "id" : t.key.firstLower();
+}
 
 function extensionIndex(fullKey: string): number {
     return Number.parseInt(fullKey.substring("Extension".length), 10);

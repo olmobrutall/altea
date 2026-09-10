@@ -71,6 +71,19 @@ describe("toGraphField — the message converter", () => {
         assert.equal(field("From.Name"), "from/emailAddress/name");
     });
 
+    // ...and that mapping is keyed to the MEMBER, as Signum's `PropertyEquals(ept.PropertyInfo,
+    // piEmailAddress)` is — not to how the assembled field happens to END, which is what this used to do
+    // (`.replace(/\/name$/, "/emailAddress/name")`). A suffix rule is right for this row model only because
+    // nothing else in it has a member called `name`, which is a fact about today's model rather than about
+    // the rule; today it cannot even be made to misfire from this root, so the check is made against a
+    // FOREIGN one.
+    test("a same-named member on another type is left alone", () => {
+        const other = new RootToken(ActiveDirectoryUsersRowModel);
+        assert.equal(conv.toGraphField(tok(other, "DisplayName"), GraphFieldUsage.Select), "displayName");
+        assert.equal(conv.toGraphField(tok(other, "OnPremisesExtensionAttributes.ExtensionAttribute1"),
+            GraphFieldUsage.Filter), "onPremisesExtensionAttributes/extensionAttribute1");
+    });
+
     test("every field is camelCase — no key survives PascalCase", () => {
         for (const p of ["Subject", "IsRead", "ReceivedDateTime", "From.EmailAddress", "MessageId", "Categories"])
             assert.doesNotMatch(field(p), /(^|\/)[A-Z]/, `${p} leaked a PascalCase segment`);

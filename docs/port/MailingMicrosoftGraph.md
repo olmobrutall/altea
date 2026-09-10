@@ -88,8 +88,14 @@ when altea's token key was the camelCase field name verbatim and lowering was a 
 
 Every string in the converter therefore belongs to one side or the other: **compare against a TOKEN key in
 PascalCase, and write or match a GRAPH field in camelCase.** The Graph-side ones (`fieldAliases`, the
-`onPremisesExtensionAttributes` collapse, the `emailAddress` regexes) are applied AFTER the lowering, so
-they stay camelCase.
+`onPremisesExtensionAttributes` collapse) are applied AFTER the lowering, so they stay camelCase.
+
+`RecipientEmbedded`'s two members are the exception that is neither: they are identified by the MEMBER, as
+Signum identifies them (`ReflectionTools.PropertyEquals(ept.PropertyInfo, piEmailAddress)`), and each
+contributes a two-segment Graph path — `emailAddress/address`, `emailAddress/name`. This port had matched
+the assembled string instead (`.replace(/\/name$/, …)`), which is right for this row model only because
+nothing else in it has a member called `name` — a fact about today's model rather than about the rule. The
+selectors go through `memberPath`, so they are compiler-checked and follow a rename.
 
 **None of that is altea's invention — it is Signum's, and this module had drifted off it.** Signum's own
 comparisons are PascalCase throughout (`"User"`, `"Id"`, `"Entity"`, `"Folder"`, `"Extension"`), and this
