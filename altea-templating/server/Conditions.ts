@@ -5,6 +5,8 @@ import {
     ValueProviderBase, TokenValueProvider, parseConstant, type TemplateParameters,
 } from "./ValueProviders";
 import { compareInMemory, ScopedDictionary, toStringOperation } from "./TemplateUtils";
+// TYPE-only, for the same reason ValueProviders takes it that way: TemplateSync imports this module.
+import type { TemplateSynchronizationContext } from "./TemplateSync";
 
 // Port of Signum.Templating's Conditions.cs — see docs/port/Templating.md.
 //
@@ -16,6 +18,14 @@ export abstract class ConditionBase {
     abstract clone(): ConditionBase;
 
     abstract fillQueryTokens(tokens: QueryToken[]): void;
+
+    /**
+     * Repair the tokens this condition names — Signum's `Synchronize`.
+     *
+     * `remainingText` is the construct the condition came from (`@if[]`, `@elseif[]`, `@any[]`), printed
+     * after the token so whoever answers the prompt can see it.
+     */
+    abstract synchronize(sc: TemplateSynchronizationContext, remainingText: string): Promise<void>;
 
     abstract evaluate(p: TemplateParameters): boolean;
 
@@ -75,6 +85,11 @@ export class ConditionAnd extends ConditionBase {
         const right = this.rightNode.getResultFilter(p);
         return rr => left(rr) && right(rr);
     }
+
+    override async synchronize(sc: TemplateSynchronizationContext, remainingText: string): Promise<void> {
+        await this.leftNode.synchronize(sc, remainingText);
+        await this.rightNode.synchronize(sc, remainingText);
+    }
 }
 
 export class ConditionOr extends ConditionBase {
@@ -103,6 +118,11 @@ export class ConditionOr extends ConditionBase {
         const left = this.leftNode.getResultFilter(p);
         const right = this.rightNode.getResultFilter(p);
         return rr => left(rr) || right(rr);
+    }
+
+    override async synchronize(sc: TemplateSynchronizationContext, remainingText: string): Promise<void> {
+        await this.leftNode.synchronize(sc, remainingText);
+        await this.rightNode.synchronize(sc, remainingText);
     }
 }
 
@@ -208,5 +228,17 @@ export class ConditionCompare extends ConditionBase {
         const operation = this.operation;
 
         return rr => compareInMemory(operation, column.values[rr.index], parsed);
+    }
+
+    // A condition's token MAY be Any/All: `@any[Details.Any.Product = X]` is exactly what those are for,
+    // which is why this is the one caller that passes `canAny`. The value is left alone — a FilterValue
+    // rename has its own bucket and its own walk, over the stored filters rather than the body text.
+    override async synchronize(sc: TemplateSynchronizationContext, remainingText: string): Promise<void> {
+        if (this.valueProvider instanceof TokenValueProvider)
+            await sc.synchronizeToken(this.valueProvider.parsedToken, remainingText, true);
+        else
+            await this.valueProvider?.synchronize(sc, remainingText);
+
+        this.declare(sc.variables);
     }
 }

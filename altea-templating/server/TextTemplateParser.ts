@@ -1,5 +1,7 @@
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { getKey } from "@altea/altea/data/dynamicQuery/queryUtils";
+import { SafeConsole, Color } from "@altea/altea/server/safeConsole";
+import { cleanTypeName } from "@altea/altea/data/registration";
 import { ValueProviderBase, type ITemplateParser } from "./ValueProviders";
 import type { ConditionBase } from "./Conditions";
 import { ConditionCompare } from "./Conditions";
@@ -9,6 +11,7 @@ import {
 import {
     AnyNode, BlockNode, DeclareNode, ForeachNode, IfNode, LiteralNode, ValueNode,
 } from "./TextTemplateParser.Nodes";
+import type { TemplateSynchronizationContext } from "./TemplateSync";
 
 // Port of Signum.Templating's TextTemplateParser.cs — see docs/port/Templating.md.
 //
@@ -27,6 +30,56 @@ export namespace TextTemplateParser {
      *  property validators, so a bad template shows as a validation error instead of an exception). */
     export function tryParse(text: string | null | undefined, queryName: QueryName | undefined, modelType: Function | undefined): { node: BlockNode; errorMessage: string } {
         return new TextTemplateParserImp(text, queryName, modelType).tryParse();
+    }
+
+    /**
+     * Signum's `TextTemplateParser.Synchronize` — the BODY-TEXT half of the token migration: parse the
+     * stored text, repair every token in it against the recorded renames, and write it back out.
+     *
+     * `tryParse`, not `parse`: the whole reason to run this is that the text no longer parses cleanly, so
+     * throwing on the first bad token would skip exactly the templates that need fixing. The errors are
+     * ignored here for the same reason — a token that could not be resolved is what `synchronize` then
+     * asks about.
+     *
+     * Answers the text UNCHANGED unless something was actually rewritten (`sc.hasChanges`), so a caller
+     * can compare by identity and a clean template is never re-saved. The re-print is `TextNode.write`,
+     * the same path `toString` uses.
+     */
+    export async function synchronize(
+        text: string | null | undefined,
+        sc: TemplateSynchronizationContext,
+    ): Promise<string | null | undefined> {
+        if (text == undefined || text === "")
+            return text;
+
+        const { node } = tryParse(text, sc.queryName, sc.modelType);
+
+        // SELF-CHECK, before anything is touched: does this tree print back as the text it came from?
+        //
+        // Not paranoia about `write` — about `tryParse`. A token that fails to RESOLVE is a non-fatal
+        // error and leaves the tree complete (which is the whole state this pass exists to repair), but a
+        // FATAL one — a template body with tokens and no query, an `as $x` colliding with an outer scope —
+        // aborts the parse mid-way, and the tree is then a PREFIX of the template. Writing that back would
+        // silently truncate somebody's template instead of repairing it.
+        //
+        // Signum writes back unconditionally. Refusing loudly is the better failure: the template is left
+        // exactly as it was, and the operator is told which one to look at.
+        if (print(node) !== text) {
+            SafeConsole.writeLineColor(Color.darkRed,
+                `  ${cleanTypeName(sc.template.constructor)} '${sc.template.toString()}': the body did not`
+                + ` parse back to itself, so it is left UNCHANGED. Fix the template by hand.`);
+            return text;
+        }
+
+        await node.synchronize(sc);
+
+        return sc.hasChanges ? print(node) : text;
+    }
+
+    function print(node: BlockNode): string {
+        const sb: string[] = [];
+        node.write(sb, new ScopedDictionary<ValueProviderBase>(undefined));
+        return sb.join("");
     }
 
     class TextTemplateParserImp implements ITemplateParser {

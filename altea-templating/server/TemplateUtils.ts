@@ -14,11 +14,9 @@ import type { ITemplateParser } from "./ValueProviders";
 // value for a column. That equality walks a value's own enumerable properties and treats Temporal /
 // Decimal / Lite / Entity as SIMPLE, comparing by their canonical string or id.
 //
-// STILL MISSING, and its recorded reason is out of date: the interactive pass that rewrites the tokens
-// inside a template's BODY TEXT when a query token is renamed. @altea/altea-user-assets now provides every
-// prerequisite (TokenMigrationLogic / QueryTokenSynchronizer / TokenSyncContext); what is left is this
-// module's own half — see docs/port/Templating.md. Until it lands, a template's stored QUERY tokens are
-// repaired while a renamed token in the body text surfaces as a parse ERROR.
+// The pass that rewrites the tokens inside a template's BODY TEXT when a query token is renamed is
+// `TemplateSync`, driven by `TextTemplateParser.synchronize` — this module's half of the token migration,
+// over @altea/altea-user-assets' recorded decisions.
 
 // `@keyword[expr] as $var` for the block keywords, plus the bare closers. This regex matches only the
 // keyword HEAD: the bracket body needs balanced nesting, which a JS RegExp cannot express, so it is

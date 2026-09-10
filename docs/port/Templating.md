@@ -84,22 +84,34 @@ so the nodes are their own module and the parser imports them.
   walks a value's own enumerable properties rather than C# FIELDS, and treats Temporal / Decimal / Lite /
   Entity as "simple" — compared by their canonical string or id.
 
-## The sync pass over a template's BODY TEXT is still missing
+## The sync pass over a template's BODY TEXT
 
-`TemplateSynchronizationContext` / `TemplateSyncException` — the interactive pass that rewrites the tokens
-INSIDE a template's text when a query token is renamed, and every value provider's `Synchronize` with them
-— are not ported.
+`server/TemplateSync.ts` is Signum's `TemplateSynchronizationContext` / `TemplateSyncException`: the
+interactive pass that rewrites the tokens INSIDE a template's text when a query token is renamed. Every
+value provider, node and condition carries a `synchronize`, and `TextTemplateParser.synchronize` is the
+entry point; @altea/altea-email drives it over each message's Subject and Text with ONE context per
+template. This is where @altea/altea-user-assets' `Member` and `Global` rename buckets are used — see
+[UserAssets.md](UserAssets.md).
 
-The reason recorded in the source used to be that they "need Signum's TokenMigrations /
-QueryTokenSynchronizer, which altea has no counterpart for". That premise is now false:
-@altea/altea-user-assets provides `TokenMigrationLogic`, `QueryTokenSynchronizer` and the `TokenSyncContext`
-this would take — see [UserAssets.md](UserAssets.md). What is left is this module's own half: walking the
-parsed template nodes and giving each value provider a `synchronize`, which is where the `Member` and
-`Global` rename buckets get used.
+**The walk mirrors `write`** — same order, same variable scoping — because `write` is what turns the tree
+back into the stored text: a node that synchronised under a different scope than it prints under would
+rewrite a `$var` into one that is not in scope there.
 
-Until it lands, a template's stored QUERY tokens — its filters, orders and From token — ARE repaired (see
-@altea/altea-email's `EmailTemplateTokenSync`), while a renamed token inside the body text surfaces as a
-parse ERROR on the template.
+Divergences: there is no QueryDescription (a token is fixed against the QUERY NAME, and `queryName ===
+undefined` is what model-only means); no `forceChange`, altea discovering staleness by whether a token
+resolves; the MEMBER bucket offers candidates only for a REFLECTED type, a step whose owner is not
+reflected being accepted unchanged rather than renamed against invented candidates.
+
+**One thing Signum does not do:** `synchronize` self-checks before touching anything — it prints the freshly
+parsed tree and refuses, loudly, if it does not match the text it came from. A token that fails to RESOLVE
+is a non-fatal parse error and leaves the tree complete (the state this pass repairs), but a FATAL one
+aborts the parse and leaves a tree that is a PREFIX of the template; writing that back would truncate
+somebody's template rather than repair it. `test/templateRoundTrip.test.ts` pins that, and the parse →
+`write` round trip it rests on.
+
+**Office documents are still open**: an office template's tokens live in the .docx/.pptx/.xlsx bytes, which
+Signum walks with the same context over a different tree. See
+[OpenQuestions.md](OpenQuestions.md) §3.1.
 
 ## Smaller divergences
 

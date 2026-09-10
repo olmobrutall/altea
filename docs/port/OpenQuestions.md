@@ -202,19 +202,74 @@ key is legitimate there and those assertions are right.
 
 ## 3. Unfinished work whose blockers have landed
 
-### 3.1 The template body-text token pass
+### 3.1 ~~The template body-text token pass~~ — PORTED (text templates; office documents still open)
 
-**`altea-templating/server/TemplateUtils.ts:17`** already carries the corrected note, so this is a pointer
-rather than a discovery: when a query token is renamed, a template's stored **query** tokens (filters,
-orders, the From token) are repaired, but a renamed token inside the **body text** — `@[Customer.Name]` —
-still surfaces as a parse error when the template renders.
+When a query token is renamed, a template's stored **query** tokens — filters, orders, the From token —
+were repaired by the subscriber in each template module, but its **body** was not: `@[Customer.Name]`,
+`@foreach[Details] as $d`, `@if[TotalPrice>100]` all kept naming a field that no longer existed, and the
+first anyone knew was a parse error when the template rendered.
 
-The recorded reason used to be that altea had no TokenMigrations. @altea/altea-user-assets now provides
-every prerequisite (`TokenMigrationLogic` / `QueryTokenSynchronizer` / `TokenSyncContext`). What is missing
-is this module's own half: Signum's `TemplateSynchronizationContext` plus a `Synchronize` on every value
-provider, which is what the `Member` / `Global` buckets exist for.
+That pass is `altea-templating/server/TemplateSync.ts` now — Signum's `TemplateSynchronizationContext`
+(CommonTemplate.cs) — plus a `synchronize` on **every value provider** (7), **every node** (7) and **every
+condition** (3), and `TextTemplateParser.synchronize` as the entry point. @altea/altea-email drives it over
+each message's Subject and Text, with ONE context per template so a decision answered for the first culture
+is not asked again for the rest.
 
-**TODO:** port that half. It is the last known hole in the token-migration story.
+It is what @altea/altea-user-assets' `Member` and `Global` rename buckets were built for and had no
+consumer of.
+
+**The walk MIRRORS `write`** — same order, same variable scoping — and that is not a stylistic choice:
+`write` is what turns the tree back into the stored text, so a node that synchronised under a different
+scope than it prints under would rewrite a `$var` into one that is not in scope there.
+
+altea divergences, all recorded in the file:
+
+- **no QueryDescription**, so a token is fixed against the QUERY NAME; `queryName === undefined` is what
+  "model-only template" means here rather than a null QD.
+- **no `forceChange`.** Signum threads it down to `FixToken` for "it resolves, but change it anyway";
+  altea DISCOVERS staleness by whether the token resolves, so `fixToken` has no such option — and every
+  call site in Signum's own text-template walk passes `false`.
+- **the MEMBER bucket only offers candidates for a REFLECTED type.** Signum asks `GetFields()` /
+  `GetProperties()` of any CLR type; altea has a member table only where the transformer wrote one, so a
+  step whose owner is not reflected is accepted unchanged rather than offered for rename. Inventing
+  candidates would be worse — a rename recorded against a guess misfires later, against every template
+  sharing the bucket.
+- **`NiceNameValueProvider` is a no-op**, as Signum's is: `@[n:Order.ShipDate]` names a member for its
+  LABEL and is resolved at parse time into a `() => string`, with no member list to rewrite.
+
+#### A safety net Signum does not have
+
+`synchronize` **self-checks before it touches anything**: it prints the freshly parsed tree and compares it
+to the text it came from, and refuses — loudly, naming the template — if they differ.
+
+The reason is specific. A token that fails to RESOLVE is a non-fatal parse error and leaves the tree
+complete, which is exactly the state this pass repairs. But a FATAL one — a body with tokens and no query,
+an `as $x` colliding with an outer scope — aborts the parse mid-way, and the tree is then a PREFIX of the
+template. Signum writes back unconditionally; here that would silently truncate somebody's template
+instead of repairing it. Pinned by a case: without the check, a template reading `Hi @[Name]! Bye.` comes
+back as `Hi `.
+
+#### Verified
+
+`altea-templating/test/templateRoundTrip.test.ts` — 20 DB-free cases (the package gains a `test` script
+and a `tsconfig.test.json`). Seventeen are the parse → `write` round trip, one construct each so a failure
+names the node that broke; the rest are `synchronize` itself: a clean template comes back as the ORIGINAL
+string (by identity, which is what the callers compare on before writing to the database), an empty body is
+returned as it came, and the truncation guard above.
+
+DB-free, and the way it gets there is the point: a token that fails to resolve is a non-fatal error, so an
+unregistered query name yields a complete tree full of unresolved tokens — precisely the state a stale
+template is in.
+
+#### Still open: office documents
+
+An office template's `@[Customer.Name]` lives in the .docx/.pptx/.xlsx bytes, and Signum walks those with
+the same context over a DIFFERENT tree (`WordTemplateNodes.cs`'s own `Synchronize` per node). The context
+and the providers are shared and now exist, so what is missing is that module's node walk over OOXML runs.
+`altea-office-template/server/OfficeTemplateTokenSync.ts` records it.
+
+**TODO:** port the office node walk. Its prerequisites are now genuinely in place — which is worth saying
+plainly, because that sentence was written twice before about this item and was not true either time.
 
 ### 3.2 ~~The `TODO(port)` block in `altea/client/Finder.tsx`~~ — TRIAGED
 

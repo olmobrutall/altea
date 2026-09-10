@@ -6,6 +6,8 @@ import {
     type QueryContext,
 } from "./ValueProviders";
 import { scapeColon, ScopedDictionary } from "./TemplateUtils";
+// TYPE-only, as in ValueProviders / Conditions: TemplateSync imports those, which import this.
+import type { TemplateSynchronizationContext } from "./TemplateSync";
 
 // Port of Signum.Templating's TextTemplateParser.Nodes.cs — see docs/port/Templating.md.
 //
@@ -23,6 +25,15 @@ export abstract class TextNode {
     abstract fillQueryTokens(list: QueryToken[]): void;
     abstract write(sb: string[], variables: ScopedDictionary<ValueProviderBase>): void;
 
+    /**
+     * Repair every token this node names, against the recorded renames — Signum's `Synchronize`.
+     *
+     * The walk MIRRORS `write`: same order, same variable scoping. That is not a coincidence to preserve
+     * loosely — `write` is what turns the tree back into the stored text, so a node that syncs under a
+     * different scope than it prints under would rewrite a `$var` into one that is not in scope there.
+     */
+    abstract synchronize(sc: TemplateSynchronizationContext): Promise<void>;
+
     toString(): string {
         const sb: string[] = [];
         this.write(sb, new ScopedDictionary<ValueProviderBase>(undefined));
@@ -32,6 +43,9 @@ export abstract class TextNode {
 
 export class LiteralNode extends TextNode {
     constructor(public readonly text: string) { super(); }
+
+    // Plain text between the brackets. Nothing to repair.
+    override async synchronize(_sc: TemplateSynchronizationContext): Promise<void> { }
 
     override printList(p: TextTemplateParameters): void { p.stringBuilder.push(this.text); }
     override fillQueryTokens(_list: QueryToken[]): void { }
@@ -62,6 +76,10 @@ export class DeclareNode extends TextNode {
         this.valueProvider!.toStringBrackets(sb, variables, undefined);
         this.valueProvider!.declare(variables);
     }
+
+    override async synchronize(sc: TemplateSynchronizationContext): Promise<void> {
+        await this.valueProvider!.synchronize(sc, "@declare");
+    }
 }
 
 /** `@[X]` / `@[X:format]` / `@raw[X]` — print one value. */
@@ -91,6 +109,10 @@ export class ValueNode extends TextNode {
         this.valueProvider!.toStringBrackets(sb, variables,
             this.format != undefined && this.format !== "" ? ":" + scapeColon(this.format) : undefined);
     }
+
+    override async synchronize(sc: TemplateSynchronizationContext): Promise<void> {
+        await this.valueProvider!.synchronize(sc, this.isRaw ? "@raw[]" : "@[]");
+    }
 }
 
 /** A sequence of nodes — the template's root, and each block's body. */
@@ -119,6 +141,11 @@ export class BlockNode extends TextNode {
     override write(sb: string[], variables: ScopedDictionary<ValueProviderBase>): void {
         for (const n of this.nodes)
             n.write(sb, variables);
+    }
+
+    override async synchronize(sc: TemplateSynchronizationContext): Promise<void> {
+        for (const node of this.nodes)
+            await node.synchronize(sc);
     }
 
     /** The keyword a block's owner opened with, for the error messages. Takes the
@@ -161,6 +188,20 @@ export class ForeachNode extends TextNode {
         this.valueProvider!.declare(newVars);
         this.block.write(sb, newVars);
         sb.push("@endforeach");
+    }
+
+    // The provider is fixed OUTSIDE the new scope and declared INSIDE it, exactly as `write` does — the
+    // `as $d` it introduces is visible to the body and to nothing after `@endforeach`.
+    override async synchronize(sc: TemplateSynchronizationContext): Promise<void> {
+        await this.valueProvider!.synchronize(sc, "@foreach[]");
+
+        const scope = sc.newScope();
+        try {
+            this.valueProvider!.declare(sc.variables);
+            await this.block.synchronize(sc);
+        } finally {
+            scope.dispose();
+        }
     }
 }
 
@@ -215,6 +256,25 @@ export class AnyNode extends TextNode {
         }
 
         sb.push("@endany");
+    }
+
+    // One scope per BLOCK, as `write` gives each one its own `newVars` — the condition's `as $x` is
+    // visible in both halves, and in neither after `@endany`.
+    override async synchronize(sc: TemplateSynchronizationContext): Promise<void> {
+        await this.condition.synchronize(sc, "@any[]");
+
+        for (const block of [this.anyBlock, this.notAnyBlock]) {
+            if (block == undefined)
+                continue;
+
+            const scope = sc.newScope();
+            try {
+                this.condition.declare(sc.variables);
+                await block.synchronize(sc);
+            } finally {
+                scope.dispose();
+            }
+        }
     }
 }
 
@@ -296,6 +356,31 @@ export class IfNode extends TextNode {
         }
 
         sb.push("@endif");
+    }
+
+    // Each branch carries its OWN condition and its own scope, and `@else` re-declares the `if`'s — all
+    // three exactly as `write` lays them out.
+    override async synchronize(sc: TemplateSynchronizationContext): Promise<void> {
+        await this.condition.synchronize(sc, "@if[]");
+        await this.inScope(sc, this.condition, this.ifBlock);
+
+        for (const { condition, block } of this.elseIfBranches) {
+            await condition.synchronize(sc, "@elseif[]");
+            await this.inScope(sc, condition, block);
+        }
+
+        if (this.elseBlock != undefined)
+            await this.inScope(sc, this.condition, this.elseBlock);
+    }
+
+    private async inScope(sc: TemplateSynchronizationContext, condition: ConditionBase, block: BlockNode): Promise<void> {
+        const scope = sc.newScope();
+        try {
+            condition.declare(sc.variables);
+            await block.synchronize(sc);
+        } finally {
+            scope.dispose();
+        }
     }
 }
 

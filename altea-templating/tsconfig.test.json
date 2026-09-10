@@ -1,0 +1,17 @@
+{
+  // TEST layer — DB-FREE. The parser's parse → `write` round trip, which the token-migration BODY pass
+  // rests on: it rewrites STORED template text, so a `write` that is not faithful corrupts a template
+  // rather than failing.
+  "extends": "../altea/presets/server.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
+    "types": ["node"]
+  },
+  "include": ["${configDir}/test/**/*"],
+  "exclude": [],
+  "references": [
+    { "path": "./tsconfig.server.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" }
+  ]
+}

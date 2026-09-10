@@ -9,21 +9,26 @@ import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrat
 import { walkQueryTokens, type TokenSlot } from "@altea/altea-user-assets/server/TokenSyncWalker";
 import { QueryTokenSynchronizer } from "@altea/altea-user-assets/server/QueryTokenSynchronizer";
 import type { TokenSyncContext } from "@altea/altea-user-assets/server/TokenSyncContext";
+import { StringDistance } from "@altea/altea/server/sync/stringDistance";
+import { TextTemplateParser } from "@altea/altea-templating/server/TextTemplateParser";
+import {
+    TemplateSynchronizationContext, TemplateSyncException,
+} from "@altea/altea-templating/server/TemplateSync";
 import { EmailTemplateEntity } from "../data/EmailTemplate";
+import { EmailModelLogic } from "./EmailModelLogic";
 
 // The EmailTemplate half of Signum's `TokenMigrationLogic.TokenSynchronizing` subscription
 // (EmailTemplateLogic.TokenMigration_Sync / ProcessEmailTemplate). The filter / order walk is the shared
 // one — see @altea/altea-user-assets' TokenSyncWalker.
 //
-// **SCOPE, and it is a real limit:** this repairs a template's stored QUERY tokens — its filters, its
-// orders, and the `from` address token. It does NOT walk the template's BODY text, where `@[Customer.Name]`
-// references live. That pass is Signum's `TemplateSynchronizationContext` (Signum.Templating's
-// CommonTemplate.cs) plus a `Synchronize` method on every value provider, and altea-templating records it
-// as unported — on the grounds that it "needs Signum's TokenMigrations / QueryTokenSynchronizer, which
-// altea has no counterpart for". That premise no longer holds: this package and
-// @altea/altea-user-assets now provide exactly those. So the body pass is a follow-up with its
-// prerequisites in place rather than a design question, and until it lands a renamed token inside a
-// template BODY still surfaces the way it does today — as a parse error on the template.
+// SCOPE — BOTH halves, in this order:
+//
+//  1. the stored QUERY tokens: the filters, the orders, and the `from` address token;
+//  2. the BODY TEXT of each message, where `@[Customer.Name]` / `@foreach[Details]` live — Signum's
+//     `TextTemplateParser.Synchronize` over a `TemplateSynchronizationContext`.
+//
+// ONE context spans every message, as Signum has it, so a decision answered for the first culture is not
+// asked again for the rest.
 //
 // A template whose `query` is null is MODEL-only (its data comes from a code-declared model, not a
 // query), so it has no query tokens to repair at all.
@@ -121,6 +126,35 @@ export namespace EmailTemplateTokenSync {
                     await deleteTemplate(ctx, et);
                     return;
                 }
+            }
+
+            // The BODY-TEXT pass, per message (one per culture): Signum's `TextTemplateParser.Synchronize`
+            // over each Subject and Text. ONE context for the whole template, as Signum has it, so a
+            // decision answered for the first culture is not asked again for the rest.
+            try {
+                const sc = new TemplateSynchronizationContext(et, ctx, new StringDistance(), queryName,
+                    et.model == null ? undefined : EmailModelLogic.toType(et.model));
+
+                for (const m of et.messages) {
+                    const newSubject = await TextTemplateParser.synchronize(m.subject, sc);
+                    if (newSubject != m.subject) { m.subject = newSubject!; touched = true; }
+
+                    const newText = await TextTemplateParser.synchronize(m.text, sc);
+                    if (newText != m.text) { m.text = newText!; touched = true; }
+                }
+            } catch (e) {
+                if (!(e instanceof TemplateSyncException))
+                    throw e;
+
+                // Signum maps these three the same way the filter walk above does.
+                if (e.result === "DeleteEntity") {
+                    await deleteTemplate(ctx, et);
+                    return;
+                }
+                // SkipEntity, and RegenerateEntity — which reseeds a template from its model's default
+                // text, a template-module operation nothing here can do (see the note in the Apply
+                // branch above), so it is treated as Skip.
+                return;
             }
 
             if (touched && ctx.mode === "Apply")

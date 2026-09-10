@@ -13,6 +13,9 @@ import { FilterOperationKeys } from "@altea/altea/server/dynamicQuery/requests";
 import type { ResultColumn, ResultRow, ResultTable } from "@altea/altea/server/dynamicQuery/resultTable";
 import { TemplateTokenMessage } from "../data/Templating";
 import { distinctSingle, groupByColumn, scapeColon, ScopedDictionary } from "./TemplateUtils";
+// TYPE-only: TemplateSync imports this module, so a runtime import would close a cycle. The providers only
+// ever name the context as a parameter type, so the `import type` is erased and nothing circles.
+import type { TemplateSynchronizationContext } from "./TemplateSync";
 
 // Port of Signum.Templating's ValueProviders.cs — see docs/port/Templating.md.
 //
@@ -122,6 +125,15 @@ export abstract class ValueProviderBase {
 
     /** Every query token this provider needs in the executed query. */
     abstract fillQueryTokens(list: QueryToken[], forForeach: boolean): void;
+
+    /**
+     * Repair whatever this provider NAMES, against the recorded renames — Signum's `Synchronize`.
+     *
+     * `remainingText` is what the console prints after the token, so whoever answers the prompt can see
+     * which construct it came from (`@declare`, `@[]`, `@foreach[]`). Driven by the NODE walk — see
+     * `TemplateSynchronizationContext` for the whole pass.
+     */
+    abstract synchronize(sc: TemplateSynchronizationContext, remainingText: string): Promise<void>;
 
     /** The bracket BODY, as it should be written back out. */
     abstract toStringInternal(sb: string[], variables: ScopedDictionary<ValueProviderBase>): void;
@@ -342,6 +354,12 @@ export class ParsedToken {
 export class TokenValueProvider extends ValueProviderBase {
     constructor(public readonly parsedToken: ParsedToken, public readonly isExplicit: boolean) { super(); }
 
+    // `canAny: false` — a bare `@[Token]` is a VALUE, and Any/All are conditions. `@any[…]` is where they
+    // belong, and ConditionCompare asks for them there.
+    override async synchronize(sc: TemplateSynchronizationContext, remainingText: string): Promise<void> {
+        await sc.synchronizeToken(this.parsedToken, remainingText, false);
+    }
+
     override getValue(p: TemplateParameters): unknown {
         const qc = p.queryContext!;
         if (qc.currentRows.length === 0)
@@ -503,6 +521,19 @@ export class ModelValueProvider extends ValueProviderBase {
         this.members = getMembers(fieldOrPropertyChain, tp);
     }
 
+    // A model member chain: fixed against the MEMBER bucket, then written back in its new spelling, so the
+    // template's own text carries the rename.
+    override async synchronize(sc: TemplateSynchronizationContext, _remainingText: string): Promise<void> {
+        if (this.members == undefined) {
+            this.members = await sc.getMembers(this.fieldOrPropertyChain, sc.modelType);
+
+            if (this.members != undefined)
+                this.fieldOrPropertyChain = this.members.map(m => m.stringify(sc.variables)).join(".");
+        }
+
+        this.declare(sc.variables);
+    }
+
     override getValue(p: TemplateParameters): unknown {
         return walk(this.members, p.getModel(), p, "m:" + this.fieldOrPropertyChain);
     }
@@ -615,6 +646,13 @@ export class NiceNameValueProvider extends ValueProviderBase {
     override equalsProvider(other: ValueProviderBase): boolean {
         return other instanceof NiceNameValueProvider && other.fieldOrMessageChain === this.fieldOrMessageChain;
     }
+
+    // A NICE NAME chain (`@[n:Order.ShipDate]`) names a member for its LABEL, not for its value, and it is
+    // resolved at parse time into a `() => string`. A rename would have to be replayed through the same
+    // root-then-members walk the constructor does, and this provider keeps no member list to rewrite —
+    // so it is left alone, and a renamed member surfaces as the parse error it already does.
+    // Signum's own is likewise a no-op here.
+    override async synchronize(_sc: TemplateSynchronizationContext, _remainingText: string): Promise<void> { }
 }
 
 // ---- GlobalValueProvider (`@[g:Now]`) -------------------------------------------------------------------
@@ -692,6 +730,25 @@ export class GlobalValueProvider extends ValueProviderBase {
             && other.globalKey === this.globalKey
             && other.remainingFieldsOrProperties === this.remainingFieldsOrProperties;
     }
+
+    // TWO renames, in the two buckets that exist for exactly this: the GLOBAL key itself (an app renamed a
+    // registered `@[g:…]` variable), and then any member chain read off it.
+    override async synchronize(sc: TemplateSynchronizationContext, _remainingText: string): Promise<void> {
+        this.globalKey = await sc.tokenSync.askRename("Global", null, this.globalKey,
+            [...GlobalValueProvider.globalVariables.keys()], sc.stringDistance) ?? this.globalKey;
+
+        if (this.remainingFieldsOrProperties != undefined && this.remainingFieldsOrProperties !== ""
+            && this.members == undefined) {
+
+            const gv = GlobalValueProvider.globalVariables.get(this.globalKey);
+            this.members = await sc.getMembers(this.remainingFieldsOrProperties, gv?.type.getFunction());
+
+            if (this.members != undefined)
+                this.remainingFieldsOrProperties = this.members.map(m => m.stringify(sc.variables)).join(".");
+        }
+
+        this.declare(sc.variables);
+    }
 }
 
 // ---- DateValueProvider (`@[d:2020-01-01]`) --------------------------------------------------------------
@@ -729,6 +786,9 @@ export class DateValueProvider extends ValueProviderBase {
     override equalsProvider(other: ValueProviderBase): boolean {
         return other instanceof DateValueProvider && other.dateTimeExpression === this.dateTimeExpression;
     }
+
+    // `@[d:now+1month]` names no member and no token — nothing a rename could touch.
+    override async synchronize(_sc: TemplateSynchronizationContext, _remainingText: string): Promise<void> { }
 }
 
 // ---- ConstantValueProvider (`@[42]`, `@["text"]`, `@[null]`) --------------------------------------------
@@ -782,6 +842,9 @@ export class ConstantValueProvider extends ValueProviderBase {
     override equalsProvider(other: ValueProviderBase): boolean {
         return other instanceof ConstantValueProvider && other.value === this.value;
     }
+
+    // A literal. Nothing to rename.
+    override async synchronize(_sc: TemplateSynchronizationContext, _remainingText: string): Promise<void> { }
 }
 
 // ---- ContinueValueProvider (`@[$line.Product]` inside `@foreach[m:Lines] as $line`) ---------------------
@@ -834,6 +897,19 @@ export class ContinueValueProvider extends ValueProviderBase {
         return other instanceof ContinueValueProvider
             && other.fieldOrPropertyChain === this.fieldOrPropertyChain
             && other.parent.equalsProvider(this.parent);
+    }
+
+    // `$d.Member` — a member chain off whatever the PARENT provider yields, so the rename is asked of that
+    // type rather than of the model.
+    override async synchronize(sc: TemplateSynchronizationContext, _remainingText: string): Promise<void> {
+        if (this.members == undefined && this.fieldOrPropertyChain != undefined) {
+            this.members = await sc.getMembers(this.fieldOrPropertyChain, this.parentType());
+
+            if (this.members != undefined)
+                this.fieldOrPropertyChain = this.members.map(m => m.stringify(sc.variables)).join(".");
+        }
+
+        this.declare(sc.variables);
     }
 }
 

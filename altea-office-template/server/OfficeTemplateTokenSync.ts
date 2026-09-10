@@ -14,12 +14,16 @@ import { OfficeTemplateEntity } from "../data/OfficeTemplate";
 // data/OfficeTemplate's naming divergence). The filter / order walk is the shared one — see
 // @altea/altea-user-assets' TokenSyncWalker.
 //
-// **SCOPE:** as with @altea/altea-email's, this repairs the template's stored QUERY tokens (filters,
-// orders). It does NOT walk the tokens inside the DOCUMENT — an office template's `@[Customer.Name]`
-// lives in the .docx/.pptx/.xlsx bytes, which Signum walks with `TemplateSynchronizationContext` over the
-// parsed document. That pass is the follow-up altea-email's header describes; its prerequisites (this
-// module and @altea/altea-user-assets' QueryTokenSynchronizer) now exist, and until it lands a renamed
-// token inside a document surfaces as a parse error when the template is rendered.
+// **SCOPE:** this repairs the template's stored QUERY tokens (filters, orders). It does NOT walk the
+// tokens inside the DOCUMENT — an office template's `@[Customer.Name]` lives in the .docx/.pptx/.xlsx
+// bytes, which Signum walks with `TemplateSynchronizationContext` over the parsed document
+// (WordTemplateNodes.cs's own `Synchronize` per node).
+//
+// The TEXT-template half of that landed with @altea/altea-templating's `TemplateSync`, so the context and
+// every value provider's `synchronize` now exist and @altea/altea-email drives them over its message
+// bodies. What is still missing here is this module's own node walk: an office template's nodes are OOXML
+// runs rather than parsed text, and Signum reaches them through a different tree. Until it lands, a
+// renamed token inside a document surfaces as a parse error when the template is rendered.
 //
 // A template whose `query` is null is MODEL-only, so it has no query tokens to repair.
 
