@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { Finder } from "@altea/altea/client/Finder";
+import type { QueryTokenString } from "@altea/altea/client/QueryTokenString";
 import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
 import EntityLink from "@altea/altea/client/SearchControl/EntityLink";
 import { QuickLinkClient, QuickLinkExplore } from "@altea/altea/client/QuickLinkClient";
@@ -65,7 +66,9 @@ export namespace AlertsClient {
                     { token: token(a => a.textArguments) },
                     { token: token(a => a.creationDate) },
                 ],
-                formatters: { "textField": textCellFormatter() },
+                // KEYED BY the resolved token's `fullKey()`, which is PascalCase — this is a plain string
+                // because an object key is one, so it does not follow a rename the way the tokens above do.
+                formatters: { "TextField": textCellFormatter() },
             }));
 
         cb.configure(SendNotificationEmailTaskEntity)
@@ -114,15 +117,19 @@ export namespace AlertsClient {
             if (cell == null)
                 return undefined;
 
-            const read = (token: string) => ctx.searchControl?.getRowValue(ctx.row, token);
+            // Read with the TYPED token builder, not a string: `getRowValue` matches a column name
+            // EXACTLY and THROWS on a miss, and the name the server echoes is the resolved token's
+            // `fullKey()` — PascalCase. Every one of these is a default or a hidden column above, which
+            // is what that `hiddenColumns` block is for.
+            const read = <T,>(token: QueryTokenString<T>) => ctx.searchControl?.getRowValue(ctx.row, token);
             const alert: Partial<AlertEntity> = {
-                createdBy: read("createdBy") as Lite<never> | undefined ?? null,
-                creationDate: read("creationDate") as Temporal.PlainDateTime,
-                alertDate: read("alertDate") as Temporal.PlainDateTime,
-                target: read("target") as Lite<Entity> | null,
-                targetToString: read("targetToString") as string | null,
-                linkTarget: read("linkTarget") as Lite<Entity> | null,
-                textArguments: read("textArguments") as string | null,
+                createdBy: read(AlertEntity.token(a => a.createdBy)) as Lite<never> | undefined ?? null,
+                creationDate: read(AlertEntity.token(a => a.creationDate)) as Temporal.PlainDateTime,
+                alertDate: read(AlertEntity.token(a => a.alertDate)) as Temporal.PlainDateTime,
+                target: read(AlertEntity.token(a => a.target)) as Lite<Entity> | null,
+                targetToString: read(AlertEntity.token(a => a.targetToString)) as string | null,
+                linkTarget: read(AlertEntity.token(a => a.linkTarget)) as Lite<Entity> | null,
+                textArguments: read(AlertEntity.token(a => a.textArguments)) as string | null,
             };
             return format(String(cell), alert);
         }, true);

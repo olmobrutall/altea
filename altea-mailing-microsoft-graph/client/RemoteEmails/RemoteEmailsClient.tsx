@@ -24,6 +24,7 @@ import { getKey as queryKeyOf } from "@altea/altea/data/dynamicQuery/queryUtils"
 import { isFilterCondition, type FilterOptionParsed } from "@altea/altea/client/FindOptions";
 import type { ResultRow } from "@altea/altea/data/dynamicQuery/queryRequest";
 import type { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
+import type { QueryTokenString } from "@altea/altea/client/QueryTokenString";
 import { SearchMessage } from "@altea/altea/data/uiMessages";
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
@@ -134,13 +135,20 @@ export namespace RemoteEmailsClient {
                     {EntityBaseController.getViewIcon()}
                 </LinkButton>
             )),
+            // KEYED BY the resolved token's `fullKey()`, which is PascalCase — and so are the row reads
+            // below, which match a column name EXACTLY and THROW on a miss.
+            //
+            // NOTE this formatter does not run yet, and not for a reason in this file: the query's own
+            // server half compares token keys as camelCase too, so the request throws before a row exists
+            // (`UserFilterNotFound`). See docs/port/OpenQuestions.md §2.4 for that inventory.
             formatters: {
-                "subject": new Finder.CellFormatter((val, cfc) => {
-                    const hasAttachments = cfc.searchControl?.getRowValue(cfc.row, "hasAttachments")
+                "Subject": new Finder.CellFormatter((val, cfc) => {
+                    const read = <T,>(t: QueryTokenString<T>) => cfc.searchControl?.getRowValue(cfc.row, t);
+                    const hasAttachments = read(RemoteEmailMessageRowModel.token(a => a.hasAttachments))
                         ? <FontAwesomeIcon icon="paperclip" className="me-1" /> : null;
-                    const isRead = cfc.searchControl?.getRowValue(cfc.row, "isRead") as boolean;
-                    const user = cfc.searchControl?.getRowValue(cfc.row, "user") as Lite<UserEntity>;
-                    const messageId = cfc.searchControl?.getRowValue(cfc.row, "messageId") as string;
+                    const isRead = read(RemoteEmailMessageRowModel.token(a => a.isRead)) as boolean;
+                    const user = read(RemoteEmailMessageRowModel.token(a => a.user)) as Lite<UserEntity>;
+                    const messageId = read(RemoteEmailMessageRowModel.token(a => a.messageId)) as string;
 
                     const preview = <RemoteEmailPopover subject={val as string} isRead={isRead}
                         user={user} remoteEmailId={messageId} />;

@@ -70,7 +70,8 @@ like an omission.
 
 Three places where the comment's *reason* had expired. **All three are now CLOSED** — and the third turned
 out to be a live defect rather than a spelling preference, which is the argument for chasing an expired
-reason rather than just rewording it: the comment was wrong about *why*, and the code was wrong too.
+reason rather than just rewording it: the comment was wrong about *why*, and the code was wrong too. Pulling
+that thread found the same defect in three more modules, which §2.4 inventories.
 
 ### 2.1 ~~A `@notVisible` member is offered as a dynamic-view node~~ — FIXED
 
@@ -133,19 +134,50 @@ Verified by serialising every one of them through the real `tokenSequence` again
 `State`, `StartDate`, `Activity`, `MainEntity`, `Actor`, `Sender`, `Workflow`, `DoneDate.HasValue`,
 `WorkflowActivity.(WorkflowActivity)`, `WorkflowActivity.(WorkflowActivity).Lane.Pool.Workflow`, `Case`.
 
-**The same bug is in two more modules, unfixed** — found while confirming how the key is matched, and left
-alone because they are outside what was asked:
+### 2.4 A token key compared as camelCase — the same defect in three more modules
 
-- **`altea-alert/client/AlertsClient.tsx:68`** — `formatters: { "textField": textCellFormatter() }`. The
-  lookup is `TextField`, so an alert's text column is rendered by the default formatter.
-- **`altea-mailing-microsoft-graph/client/RemoteEmails/RemoteEmailsClient.tsx:137`** — `"subject"`, whose
-  formatter draws the paperclip icon and the read/unread weight. Dead for the same reason. Note its body
-  also calls `getRowValue(cfc.row, "hasAttachments")` / `"isRead"`, which THROWS on a miss — harmless only
-  because the formatter it sits in never runs.
+`altea-workflow` (§2.3) was not the only place written against the OLD convention, when a token key WAS the
+camelCase field name verbatim. `EntityPropertyToken.key` is `fieldInfo.name.firstUpper()` now, so **every
+site that compares or builds a token key as a lower-case string is wrong**, and the two this pass fixed
+were the visible tip.
 
-**TODO:** re-spell both. They are three-line changes of a verified defect; the reason to check rather than
-assume is that each query's columns must actually resolve to the PascalCase names (a manual query's row
-model, in the RemoteEmails case).
+**Fixed here** (both were dead formatters, both verified by serialising the tokens through the real
+`tokenSequence` against the built output):
+
+- `altea-alert/client/AlertsClient.tsx` — the `"textField"` formatter key, plus the SEVEN
+  `getRowValue("createdBy" | "creationDate" | "alertDate" | "target" | "targetToString" | "linkTarget" |
+  "textArguments")` reads inside it. Those reads use `getRowValue`, which THROWS on a miss, so the alert
+  Text column's link expansion would have thrown had the formatter ever fired. The reads are the typed
+  builder now; all seven are default or hidden columns, which is what that `hiddenColumns` block is for.
+- `altea-mailing-microsoft-graph/…/RemoteEmailsClient.tsx` — the `"subject"` formatter key and its four
+  reads.
+
+**Still broken, and NOT fixed here.** Three modules, and the RemoteEmails one is why its formatter still
+will not run — the query throws before a row exists:
+
+| Where | Site | Effect |
+| --- | --- | --- |
+| `altea-tree/client/TreeViewer.tsx:552-554` | `fullKey() !== "id" / "name" / "fullName"` | the three columns the tree renders as its OWN first column are no longer filtered out, so the tree page shows them TWICE |
+| `altea-mailing-microsoft-graph/server/RemoteEmailsLogic.ts:90` | `extractFilter(request, "user")`, compared `fullKey() === key` | never matches, so the mailbox filter is never found and every query throws `UserFilterNotFound` |
+| …`:240` | `fullKey() !== "messageId"` | the order this means to drop is kept |
+| …`:282` | `!key.startsWith("entity") && !key.startsWith("user")` | neither is excluded, so both are sent to Graph's `$select` as unknown fields |
+| …`:296, :307, :325, :332, :354` | `startsWith("folder")`, `t.key === "messageId"`, `startsWith("extension")` | the folder collapse, the `messageId`→`id` alias and the extended-property branch all miss |
+| `altea-auth-azuread/server/MicrosoftGraphQueryConverter.ts:51, 58, 63` | `fieldAliases = { objectId: "id" }`, and `startsWith("onPremisesExtensionAttributes/")` | the same, for BOTH directory-search pages |
+
+**The fix runs in two directions, which is why it needs one deliberate pass rather than a sweep.** A string
+compared against `fullKey()` becomes PascalCase. But `toGraphField` CONVERTS a token into a Microsoft Graph
+field name, and Graph's fields are camelCase (`subject`, `receivedDateTime`, `parentFolderId`) — so there
+the repair is to lower the first letter after the comparisons are corrected, which changes what goes on the
+wire.
+
+**TODO:** repair the three modules in one pass. The tree one is provable from the code and cheap. The two
+Graph ones need a tenant with a mailbox to verify, because the `$select` / `$filter` / `$orderby` strings
+they build are only checkable against the real API — which is the reason they are recorded here rather than
+patched blind.
+
+Not part of this: `altea/test/server/dynamicQueries/expressionContainer.test.ts:109-110` asserts
+`t.key === "rootNotes"`. A registered expression's explicit `{ key }` is honoured VERBATIM, so a camelCase
+key is legitimate there and those assertions are right.
 
 ---
 
