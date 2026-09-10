@@ -1,7 +1,7 @@
 import { S3Client } from "@aws-sdk/client-s3";
 
-// Port of Signum.Files.S3's S3Configuration.cs — the strongly typed "how do we reach the object store"
-// settings, plus the factory that turns them into a client. Reads the same shape Signum documents:
+// The strongly typed "how do we reach the object store" settings, plus the factory that turns them into a
+// client. Reads the same shape Signum documents:
 //
 //   "S3": {
 //     "Endpoint": "http://localhost:9000",
@@ -10,19 +10,11 @@ import { S3Client } from "@aws-sdk/client-s3";
 //     "ForcePathStyle": "true"
 //   }
 //
-// altea divergences, documented inline:
-//  - `AWSSDK.S3` (C#) -> `@aws-sdk/client-s3` (v3, for JS): `AmazonS3Config { ServiceURL, ForcePathStyle,
-//    RegionEndpoint }` becomes the `S3ClientConfig` object literal, and `BasicAWSCredentials` /
-//    `SessionAWSCredentials` collapse into the one `credentials: { accessKeyId, secretAccessKey, sessionToken? }`
-//    (the session token being present is what makes them temporary credentials).
-//  - `config.UseHttp` has no v3 counterpart and needs none: the SDK derives the scheme from the endpoint URL,
-//    which is also why the presigner needs no `https:` -> `http:` fixup (see S3FileTypeAlgorithm.fullWebPath).
-//  - `RegionEndpoint.GetBySystemName(Region)` becomes the plain `region` string the v3 client takes.
-//  - v3 REQUIRES a region even when talking to a MinIO endpoint that ignores it, so an endpoint-only
-//    configuration falls back to "us-east-1" (what every S3-compatible server accepts) instead of failing
-//    with the SDK's own "Region is missing" at the first call.
-//  - `SharedBucketName` and `CreateBucket` are carried here exactly as in Signum (the algorithm reads them),
-//    even though this class does not use them itself.
+// v3 REQUIRES a region even against a MinIO endpoint that ignores it, so an endpoint-only configuration
+// falls back to "us-east-1" (what every S3-compatible server accepts) instead of failing with the SDK's own
+// "Region is missing" at the first call.
+//
+// Port of Signum.Files.S3's S3Configuration.cs — see docs/port/FileStores.md.
 
 export interface S3Configuration {
     /** S3 endpoint URL, e.g. `http://localhost:9000` (MinIO). Empty for real AWS. */
@@ -31,8 +23,8 @@ export interface S3Configuration {
     accessKey?: string | null;
     /** AWS Secret Key. */
     secretKey?: string | null;
-    /** Port, for an endpoint given WITHOUT a scheme — OpenShift's OBC exposes BUCKET_HOST / BUCKET_PORT that
-     *  way (Signum's own comment). */
+    /** Port, for an endpoint given WITHOUT a scheme — OpenShift's OBC exposes BUCKET_HOST / BUCKET_PORT
+     *  that way. */
     port?: number | null;
     /** AWS Session Token (optional — its presence means temporary credentials). */
     sessionToken?: string | null;
@@ -46,9 +38,9 @@ export interface S3Configuration {
 }
 
 /**
- * Signum's `S3Configuration.ToAmazonS3Client()` — the client for these settings, or null when no credentials
- * are configured at all (which is Signum's way of saying "this app is not using S3"). Supplying only one half
- * of the key pair is an error, not a fallback to anonymous access.
+ * The client for these settings, or null when no credentials are configured at all — which is how an app
+ * says "not using S3". Supplying only one half of the key pair is an error, not a fallback to anonymous
+ * access.
  */
 export function toS3Client(config: S3Configuration): S3Client | null {
     if (!config.accessKey && !config.secretKey)
@@ -67,16 +59,15 @@ export function toS3Client(config: S3Configuration): S3Client | null {
             ...(config.sessionToken ? { sessionToken: config.sessionToken } : {}),
         },
         ...(endpoint != null ? { endpoint } : {}),
-        // See the header: v3 insists on a region even where the server ignores it.
+        // v3 insists on a region even where the server ignores it (see the header).
         region: config.region || (endpoint != null ? "us-east-1" : undefined),
     });
 }
 
 /**
- * Signum's endpoint fixup: an endpoint given without a scheme is prefixed from the PORT, because that is how
- * OpenShift's object-bucket claim exposes it (BUCKET_HOST + BUCKET_PORT). Note Signum's `Port == 433` — the
- * transposed 443 — is kept, because a deployment relying on it would otherwise break silently; 443 is
- * accepted too.
+ * An endpoint given without a scheme is prefixed from the PORT, because that is how OpenShift's
+ * object-bucket claim exposes it (BUCKET_HOST + BUCKET_PORT). The transposed `433` is deliberate — Signum
+ * tests for it, and a deployment relying on that would otherwise break silently; 443 is accepted too.
  */
 export function resolveEndpoint(config: S3Configuration): string | undefined {
     const endpoint = config.endpoint;
@@ -92,9 +83,8 @@ export function resolveEndpoint(config: S3Configuration): string | undefined {
 
 
 // The connection half, kept in the MODULE so an application supplies only credentials and names.
-// `toS3Client` above builds a client per call; these two cache it and hold the bucket-name convention, which
-// is what every app would otherwise re-write (Signum leaves both to the app because a C# app already has the
-// SDK and its own configuration plumbing).
+// `toS3Client` above builds a client per call; these two cache it and hold the bucket-name convention,
+// which is what every app would otherwise re-write.
 export namespace S3Storage {
 
     const clients = new Map<string, S3Client>();

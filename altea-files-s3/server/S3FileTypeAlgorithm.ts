@@ -9,8 +9,8 @@ import {
     type FileTypeAlgorithmBaseOptions, type IFilePath, type IFileTypeAlgorithm,
 } from "@altea/altea-files/server/FileTypeAlgorithm";
 
-// Port of Signum.Files.S3's S3FileTypeAlgorithm.cs — an IFileTypeAlgorithm whose store is an S3 bucket (or
-// anything speaking S3: MinIO, Ceph, an OpenShift OBC). Registered like the local-folder one:
+// An IFileTypeAlgorithm whose store is an S3 bucket (or anything speaking S3: MinIO, Ceph, an OpenShift
+// OBC). Registered like the local-folder one:
 //
 //   const client = toS3Client({ endpoint: "http://localhost:9000", accessKey: …, secretKey: … })!;
 //   FileTypeLogic.register(MyFileType.Attachment, new S3FileTypeAlgorithm({
@@ -20,40 +20,30 @@ import {
 //       createBucketIfNotExists: true,
 //   }));
 //
-// Signum's TWO addressing modes are kept as they are, because they are the reason this class is not just
-// "bucket + key":
+// TWO addressing modes, because they are the reason this class is not just "bucket + key":
 //   • bucket mode        — `getBucketNameOrSubDirectory` names the BUCKET, the key is the suffix.
 //   • shared-bucket mode — `sharedBucketName` is the one bucket everybody shares and
 //                          `getBucketNameOrSubDirectory` becomes a key PREFIX (a per-tenant folder).
 // Note what that means for the stored row: `suffix` holds the key WITHOUT the prefix, so moving a tenant
 // between modes does not rewrite its rows (`getBucketAndKey` re-derives the full key on every access).
 //
-// altea divergences, documented inline:
-//  - `AWSSDK.S3` (C#) -> `@aws-sdk/client-s3` (v3, for JS): every `client.XxxAsync(...)` becomes
-//    `client.send(new XxxCommand({...}))`, and `GetObjectResponse.ResponseStream` becomes
-//    `response.Body.transformToByteArray()`.
-//  - `SaveFile` / `SaveFileAsync` (Signum ships both) collapse into altea's TWO-PHASE save: `prepareSuffix`
-//    (SYNC — validate, hash, assign the key, so the row can be INSERTed with it) and `writePrepared` (ASYNC —
-//    PUT the bytes on `Transaction.preRealCommit`, so a rollback leaves no orphan object). See
-//    @altea/altea-files' FilePathEmbeddedLogic.
-//  - `RenameAlgorithm` is REFUSED, not silently ignored (see the constructor): the collision probe is a
-//    network round-trip and altea assigns the key in a SYNCHRONOUS hook before the INSERT, so a rename decided
-//    later could not be written back to a row that already carries the old key. Signum defaults it to null
-//    here too; the default `calculateKey` puts a GUID in the path, which is what makes it unnecessary.
-//  - `GetFullWebPath` with `PreSignedUrl` cannot be served by the SYNC `fullWebPath`, because SigV4
-//    presigning is asynchronous in the v3 SDK — so it lives in `presignedUrl()` and `fullWebPath` says so
-//    rather than quietly returning nothing. `DirectUrl` is unaffected. Signum's `https:` -> `http:` fixup is
-//    not needed: v3 signs against the endpoint's own scheme.
-//  - `readAllBytesSync` THROWS: there is no synchronous read of a remote object. The one altea caller that
-//    needs it is BigStringLogic (from the synchronous `retrieved` event), so a BigString column must not be
-//    backed by this store.
-//  - Signum's chunked-upload API (StartUpload / UploadChunk / FinishUpload / AbortUpload — an S3 multipart
-//    upload) is not ported, because altea-files has no chunk protocol at all: a file reaches the server inside
-//    the entity graph. `CreateMultipartUploadCommand` & friends are what to reach for if it ever lands.
-//  - `MoveFile` throws in Signum too (S3 has no rename); kept as-is.
-//  - `DoesS3BucketExistV2Async` becomes a `HeadBucketCommand` (what it does under the covers).
+// FOUR things a REMOTE store cannot do, all enforced rather than approximated:
+//  - **`renameAlgorithm` is REFUSED** (see the constructor): the collision probe is a network round-trip,
+//    and the key is assigned in a SYNCHRONOUS hook before the INSERT, so a rename decided later could not
+//    be written back to a row that already carries the old key. The default `calculateKey` puts a GUID in
+//    the path, which is what makes one unnecessary.
+//  - **`readAllBytesSync` THROWS**: there is no synchronous read of a remote object. The one caller that
+//    needs it is BigStringLogic (from the synchronous `retrieved` event), so a BigString column must not
+//    be backed by this store.
+//  - **the save is TWO-PHASE**: `prepareSuffix` (SYNC — validate, hash, assign the key, so the row can be
+//    INSERTed with it) and `writePrepared` (ASYNC — PUT on `Transaction.preRealCommit`, so a rollback
+//    leaves no orphan object). See @altea/altea-files' FilePathEmbeddedLogic.
+//  - **a PRESIGNED url is `presignedUrl()`, not `fullWebPath()`**, because SigV4 presigning is ASYNC in
+//    the v3 SDK; `fullWebPath` says so rather than quietly returning nothing. `DirectUrl` is unaffected.
+//
+// Port of Signum.Files.S3's S3FileTypeAlgorithm.cs — see docs/port/FileStores.md.
 
-/** Signum's S3WebDownload — how (and whether) a public URL to the object is handed out. */
+/** How (and whether) a public URL to the object is handed out. */
 export enum S3WebDownload {
     /** A short-lived SigV4-signed GET URL. Asynchronous — see `presignedUrl`. */
     PreSignedUrl,
@@ -64,26 +54,26 @@ export enum S3WebDownload {
 }
 
 export interface S3FileTypeAlgorithmOptions extends FileTypeAlgorithmBaseOptions {
-    /** Signum's `IAmazonS3 Client` (see `toS3Client`). */
+    /** The S3 client (see `toS3Client`). */
     client: S3Client;
-    /** The one shared bucket, in shared-bucket mode (Signum's SharedBucketName). Null for bucket mode. */
+    /** The one shared bucket, in shared-bucket mode. Null for bucket mode. */
     sharedBucketName?: string | null;
-    /** Signum's GetBucketNameOrSubDirectory — the BUCKET in bucket mode, the key PREFIX in shared mode. */
+    /** The BUCKET in bucket mode, the key PREFIX in shared mode. */
     getBucketNameOrSubDirectory: (fp: IFilePath) => string;
-    /** The service URL, used ONLY to build a DirectUrl. Signum reads it back off `AmazonS3Config.ServiceURL`;
-     *  in the v3 SDK the resolved endpoint is an async provider, so a synchronous DirectUrl needs the value
-     *  that was configured. Omit for real AWS (the virtual-hosted URL is derived from the bucket name). */
+    /** The service URL, used ONLY to build a DirectUrl. In the v3 SDK the resolved endpoint is an async
+     *  provider, so a synchronous DirectUrl needs the value that was configured. Omit for real AWS (the
+     *  virtual-hosted URL is derived from the bucket name). */
     endpoint?: string | null;
-    /** Signum's WebDownload (default None). */
+    /** How a public URL is handed out (default None). */
     webDownload?: () => S3WebDownload;
-    /** Signum's CalculateKey (default Safe.yearMonth_Guid_Filename — its GUID is what makes the refused
-     *  RenameAlgorithm unnecessary). */
+    /** The stored key (default Safe.yearMonth_Guid_Filename — its GUID is what makes the refused
+     *  `renameAlgorithm` unnecessary). */
     calculateKey?: (fp: IFilePath) => string;
-    /** Signum's WeakFileReference — the app does not own these objects: never write, never delete. */
+    /** The app does not own these objects: never write, never delete. */
     weakFileReference?: boolean;
-    /** Signum's CreateBucketIfNotExists. */
+    /** Create the bucket on first write if it is missing. */
     createBucketIfNotExists?: boolean;
-    /** How long a presigned URL stays valid, in SECONDS (Signum hard-codes 15 minutes). */
+    /** How long a presigned URL stays valid, in SECONDS (default 15 minutes). */
     preSignedUrlExpiresInSeconds?: number;
     /** NOT SUPPORTED — see the header. Declared so that passing one FAILS instead of being ignored. */
     renameAlgorithm?: never;
@@ -121,7 +111,7 @@ export class S3FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileT
         this.preSignedUrlExpiresInSeconds = options.preSignedUrlExpiresInSeconds ?? 15 * 60;
     }
 
-    /** Signum's GetBucketAndKey — resolve the two addressing modes (see the header). */
+    /** Resolve the two addressing modes (see the header). */
     getBucketAndKey(fp: IFilePath): { bucket: string; key: string } {
         const suffix = this.assertSuffix(fp);
 
@@ -133,7 +123,7 @@ export class S3FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileT
 
     // ---- reading -------------------------------------------------------------------------------------
 
-    /** Signum's ReadAllBytes (and OpenRead — a Node caller wants the bytes, not a stream). */
+    /** The object's bytes (a Node caller wants the bytes, not a stream). */
     async readAllBytes(fp: IFilePath): Promise<Uint8Array> {
         using _prof = HeavyProfiler.log("S3 ReadAllBytes", () => fp.suffix ?? "");
 
@@ -144,7 +134,7 @@ export class S3FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileT
                 throw new Error("S3 returned no body");
             return await response.Body.transformToByteArray();
         } catch (e) {
-            // Signum's `ex.Data["suffix"] = fp.Suffix` — say WHICH object failed.
+            // Say WHICH object failed.
             throw describe(e, { suffix: fp.suffix ?? undefined, key, bucketName: bucket });
         }
     }
@@ -155,7 +145,7 @@ export class S3FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileT
             + " (async); a BigString column must not be backed by this store.");
     }
 
-    /** Signum's ExistsObject — a HEAD, so a missing object is a 404 rather than a download. */
+    /** A HEAD, so a missing object is a 404 rather than a download. */
     async existsObject(bucket: string, key: string): Promise<boolean> {
         using _prof = HeavyProfiler.log("S3 ExistsObject", () => key);
 
@@ -176,7 +166,7 @@ export class S3FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileT
         await this.writePrepared(fp);
     }
 
-    /** The SYNC half (Signum's CalculateKeyWithRenames, minus the rename probe — see the header). */
+    /** The SYNC half: assign the key, so the row can be INSERTed with it. */
     prepareSuffix(fp: IFilePath): void {
         if (this.weakFileReference)
             return;
@@ -198,7 +188,7 @@ export class S3FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileT
         fp.suffix = key.replace(/\\/g, "/").replace(/^\/+/, "");
     }
 
-    /** The ASYNC half (Signum's SaveFileAsync body): create the bucket if asked, then PUT the object. */
+    /** The ASYNC half: create the bucket if asked, then PUT the object. */
     async writePrepared(fp: IFilePath): Promise<void> {
         if (this.weakFileReference || fp.binaryFile == null)
             return;
@@ -224,7 +214,7 @@ export class S3FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileT
         }
     }
 
-    /** Signum's MoveFile — S3 has no rename, and Signum throws here too. */
+    /** S3 has no rename. */
     async moveFile(from: IFilePath, _to: IFilePath, _createTargetFolder: boolean): Promise<void> {
         if (this.weakFileReference)
             return;
@@ -259,8 +249,8 @@ export class S3FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileT
             try {
                 await this.client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
             } catch (e) {
-                // Signum swallows everything here (`try { … } catch { }`); narrow it to the one case that
-                // legitimately means "already gone", so a permission problem is not hidden as a no-op.
+                // Narrowed to the one case that legitimately means "already gone", so a permission problem
+                // is not hidden as a no-op (Signum swallows everything here).
                 if (!isNotFound(e))
                     throw e;
             }
@@ -269,12 +259,12 @@ export class S3FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileT
 
     // ---- addressing ----------------------------------------------------------------------------------
 
-    /** Signum's GetFullPhysicalPath — an object has none. */
+    /** An object has no physical path. */
     fullPhysicalPath(_fp: IFilePath): string | undefined {
         return undefined;
     }
 
-    /** Signum's GetFullWebPath, minus the presigned branch (see the header and `presignedUrl`). */
+    /** The public URL, minus the presigned branch (see the header and `presignedUrl`). */
     fullWebPath(fp: IFilePath): string | undefined {
         const download = this.webDownload();
         if (download === S3WebDownload.None)
@@ -287,8 +277,7 @@ export class S3FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileT
         return this.directUrl(fp);
     }
 
-    /** The `DirectUrl` half of Signum's GetFullWebPath: path-style against a configured endpoint, else the
-     *  AWS virtual-hosted form. */
+    /** The `DirectUrl` form: path-style against a configured endpoint, else the AWS virtual-hosted form. */
     directUrl(fp: IFilePath): string {
         const { bucket, key } = this.getBucketAndKey(fp);
 
@@ -298,7 +287,7 @@ export class S3FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileT
             : `https://${bucket}.s3.amazonaws.com/${encodeKey(key)}`;
     }
 
-    /** The `PreSignedUrl` half of Signum's GetFullWebPath, as its own async method (see the header). */
+    /** The `PreSignedUrl` form, async because SigV4 presigning is (see the header). */
     async presignedUrl(fp: IFilePath): Promise<string> {
         const { bucket, key } = this.getBucketAndKey(fp);
 
@@ -308,8 +297,8 @@ export class S3FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileT
 
     // ---- internals -----------------------------------------------------------------------------------
 
-    // Signum remembers only the last bucket it created, so the existence round-trip happens once per bucket
-    // instead of once per file.
+    // The last bucket created, so the existence round-trip happens once per bucket instead of once per
+    // file.
     private lastCreatedBucket?: string;
 
     private async ensureBucketExists(bucket: string): Promise<void> {
@@ -322,7 +311,7 @@ export class S3FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileT
             if (!await this.existsBucket(bucket))
                 await this.client.send(new CreateBucketCommand({ Bucket: bucket }));
         } catch (e) {
-            // Signum swallows BucketAlreadyOwnedByYou / BucketAlreadyExists: two hosts racing to create it
+            // BucketAlreadyOwnedByYou / BucketAlreadyExists are swallowed: two hosts racing to create it
             // is not an error.
             const name = (e as { name?: string }).name;
             if (name !== "BucketAlreadyOwnedByYou" && name !== "BucketAlreadyExists")
@@ -331,7 +320,7 @@ export class S3FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileT
         this.lastCreatedBucket = bucket;
     }
 
-    /** Signum's `AmazonS3Util.DoesS3BucketExistV2Async`. */
+    /** Does the bucket exist? A HeadBucket, which is what the SDK helper does under the covers. */
     private async existsBucket(bucket: string): Promise<boolean> {
         try {
             await this.client.send(new HeadBucketCommand({ Bucket: bucket }));
@@ -350,15 +339,15 @@ export class S3FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileT
     }
 }
 
-/** Signum's `catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)`. S3 answers a HEAD
- *  of a missing key with a bare 404 and no error code, which is why the status is what gets checked. */
+/** S3 answers a HEAD of a missing key with a bare 404 and no error code, which is why the STATUS is what
+ *  gets checked rather than an error code. */
 function isNotFound(error: unknown): boolean {
     const e = error as { name?: string; $metadata?: { httpStatusCode?: number } };
     return e.$metadata?.httpStatusCode === 404 || e.name === "NotFound" || e.name === "NoSuchKey"
         || e.name === "NoSuchBucket";
 }
 
-/** Signum's `ex.Data.Add(...)` — attach the identifying context to the error being rethrown. */
+/** Attach the identifying context to the error being rethrown. */
 function describe(error: unknown, data: Record<string, string | undefined>): unknown {
     if (error instanceof Error)
         Object.assign(error, { alteaData: { ...(error as { alteaData?: object }).alteaData, ...data } });

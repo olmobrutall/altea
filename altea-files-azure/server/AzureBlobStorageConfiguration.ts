@@ -1,12 +1,10 @@
 import { BlobServiceClient, StorageSharedKeyCredential, type ContainerClient } from "@azure/storage-blob";
 
-// The connection half of the Azure file store, in the MODULE rather than in every application.
+// The connection half of the Azure file store, in the MODULE rather than in every application: an app
+// supplies the CREDENTIALS (which stay in the environment) and names its containers; caching the service
+// client and the container clients is the module's business.
 //
-// Signum's counterpart is `Starter.AzureStorageConnectionString` plus the `GetClient` lambda each app writes
-// in its Starter — i.e. Signum leaves this to the app because a C# app already has `BlobServiceClient` and
-// its own configuration plumbing. altea puts the boring half here: an app supplies the CREDENTIALS (which
-// stay in the environment, exactly as Signum keeps them in appsettings) and names its containers; caching
-// the service client and the container clients is the module's business.
+// See docs/port/FileStores.md.
 export interface AzureBlobStorageConfiguration {
     /** A full connection string — takes precedence over the account/key pair. */
     connectionString?: string | null;
